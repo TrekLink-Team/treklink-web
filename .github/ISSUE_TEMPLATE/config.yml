@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation / Spec question
+    url: https://github.com/TrekLink-Team/docs/issues/new?labels=type:spec
+    about: Use for questions about specs/{module}/ content — tag with type:spec, not a bug or story.
+  - name: Decisions & risk register
+    url: https://github.com/TrekLink-Team/docs/blob/main/00-project-context/03-decisions-and-risk-register.md
+    about: Check open decisions (D-001 ORM, D-004 repo structure) before filing a new issue that depends on them.

@@ -1,0 +1,172 @@
+// TrekLink Operations Platform — Prisma Schema
+// Single Source of Truth for Database Models
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  GUIDE
+  CUSTOMER
+}
+
+enum DeviceStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+  IN_FIELD
+  RETURNED
+  MAINTENANCE
+  RETIRED
+}
+
+enum RentalStatus {
+  BOOKED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TripStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum IncidentStatus {
+  DETECTED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum PriorityTier {
+  P0_SOS
+  P1_LOCATION
+  P2_GPS
+  P3_TELEMETRY
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  fullName     String
+  phoneNumber  String?
+  role         Role            @default(CUSTOMER)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  rentals      Rental[]
+  assignedTrips Trip[]         @relation("GuideTrips")
+  audits       IncidentAudit[]
+
+  @@map("users")
+}
+
+model Device {
+  id              String         @id @default(uuid())
+  hardwareVariant String         // v1, v2, v3, v4
+  macAddress      String?        @unique
+  nodeNum         Int?           @unique // Meshtastic node integer ID
+  status          DeviceStatus   @default(AVAILABLE)
+  batteryPct      Int?
+  lastSeenAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  rentals         Rental[]
+  incidents       Incident[]
+  gatewayEvents   GatewayEvent[]
+
+  @@map("devices")
+}
+
+model Trip {
+  id          String      @id @default(uuid())
+  title       String
+  route       String      // e.g., Ta Nang - Phan Dung
+  startDate   DateTime
+  endDate     DateTime
+  status      TripStatus  @default(SCHEDULED)
+  guideId     String?
+  guide       User?       @relation("GuideTrips", fields: [guideId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  rentals     Rental[]
+  incidents   Incident[]
+
+  @@map("trips")
+}
+
+model Rental {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  deviceId        String
+  device          Device        @relation(fields: [deviceId], references: [id])
+  tripId          String?
+  trip            Trip?         @relation(fields: [tripId], references: [id])
+  status          RentalStatus  @default(BOOKED)
+  startDate       DateTime
+  endDate         DateTime
+  depositAmount   Decimal       @default(0.0)
+  actualReturnDate DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("rentals")
+}
+
+model Incident {
+  id          String          @id @default(uuid())
+  eventId     String          @unique // Natural idempotency key from gateway
+  deviceId    String
+  device      Device          @relation(fields: [deviceId], references: [id])
+  tripId      String?
+  trip        Trip?           @relation(fields: [tripId], references: [id])
+  status      IncidentStatus  @default(DETECTED)
+  latitude    Float?
+  longitude   Float?
+  altitude    Float?
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  audits      IncidentAudit[]
+
+  @@map("incidents")
+}
+
+model IncidentAudit {
+  id         String         @id @default(uuid())
+  incidentId String
+  incident   Incident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actorId    String
+  actor      User           @relation(fields: [actorId], references: [id])
+  fromStatus IncidentStatus
+  toStatus   IncidentStatus
+  actionNote String?
+  createdAt  DateTime       @default(now())
+
+  @@map("incident_audits")
+}
+
+model GatewayEvent {
+  id          String       @id @default(uuid())
+  eventId     String       @unique // deviceId:sessionId:sequenceNumber
+  deviceId    String
+  device      Device       @relation(fields: [deviceId], references: [id])
+  priority    PriorityTier @default(P3_TELEMETRY)
+  payload     Json
+  processedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@map("gateway_events")
+}

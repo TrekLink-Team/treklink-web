@@ -1,0 +1,14 @@
+# Auto-detect text files and normalize line endings to LF across all OSes (Linux, macOS, Windows)
+* text=auto eol=lf
+
+# Explicit binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.db binary
+*.sqlite binary
