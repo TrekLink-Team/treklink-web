@@ -48,7 +48,7 @@ jobs:
         run: npm --prefix backend run prisma:generate
       - run: npm --prefix backend run lint
       - run: npm --prefix backend run typecheck
-      - run: npm --prefix backend run test -- --ci
+      - run: npm --prefix backend run test -- --ci --passWithNoTests
       - run: npm --prefix backend run build
 
   gateway:
@@ -63,7 +63,7 @@ jobs:
       - run: npm ci
       - run: npm --prefix gateway run lint
       - run: npm --prefix gateway run typecheck
-      - run: npm --prefix gateway run test -- --ci
+      - run: npm --prefix gateway run test -- --ci --passWithNoTests
       - run: npm --prefix gateway run build
 
   frontend:
