@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-// TrekLink frontend lint rules — see /docs/01-conventions/06-frontend-conventions.md
+// TrekLink frontend lint rules — see treklink-docs/_docs/01-conventions/06-frontend-conventions.md
 // (FSD dependency rule: shared -> entities -> features -> widgets -> pages -> app)
 export default tseslint.config(
   { ignores: ['dist/**'] },
