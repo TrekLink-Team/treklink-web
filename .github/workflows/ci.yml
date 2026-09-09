@@ -1,0 +1,81 @@
+name: CI
+
+# TrekLink CI — lint, typecheck, unit test, and build the three workspace
+# packages (backend, gateway, frontend) on every PR and push to dev/main.
+# See treklink-docs/_docs/01-conventions/07-github-workflow-git-conventions.md for the
+# branch model this gates, and treklink-docs/_docs/00-project-context/01-project-charter.md §5
+# for the NFR this satisfies ("Deployability: Docker Compose + GitHub Actions
+# CI/CD"). Physical-hardware/LoRa tests (TP6, RQ1-RQ3) are NOT run here —
+# those are manual/lab experiments, tracked separately in specs/*.
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (NestJS)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: treklink
+          POSTGRES_PASSWORD: treklink
+          POSTGRES_DB: treklink_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U treklink"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://treklink:treklink@localhost:5432/treklink_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Prisma generate
+        run: npm --prefix backend run prisma:generate
+      - run: npm --prefix backend run lint
+      - run: npm --prefix backend run typecheck
+      - run: npm --prefix backend run test -- --ci
+      - run: npm --prefix backend run build
+
+  gateway:
+    name: Gateway Bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix gateway run lint
+      - run: npm --prefix gateway run typecheck
+      - run: npm --prefix gateway run test -- --ci
+      - run: npm --prefix gateway run build
+
+  frontend:
+    name: Frontend (React)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix frontend run lint
+      - run: npm --prefix frontend run typecheck
+      - run: npm --prefix frontend run build

@@ -3,7 +3,7 @@
 > Approved by: [lead/reviewer] · Branch: `features/Implementation_{Name}` · Design branch: `features/Design_{Name}`
 
 ## Phase 1: Foundation & Domain Modeling
-- [ ] 1.1 Define entity/enum (per the ORM chosen in D-001)
+- [ ] 1.1 Define entity/enum (Prisma, per D-001)
 - [ ] 1.2 Write migration
 - [ ] 1.3 Add DTOs + error codes
 
