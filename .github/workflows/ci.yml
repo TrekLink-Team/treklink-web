@@ -1,18 +1,18 @@
 name: CI
 
 # TrekLink CI — lint, typecheck, unit test, and build the three workspace
-# packages (backend, gateway, frontend) on every PR and push to develop/main.
-# See docs/01-conventions/07-github-workflow-git-conventions.md for the
-# branch model this gates, and 00-project-context/01-project-charter.md §5
+# packages (backend, gateway, frontend) on every PR and push to dev/main.
+# See treklink-docs/_docs/01-conventions/07-github-workflow-git-conventions.md for the
+# branch model this gates, and treklink-docs/_docs/00-project-context/01-project-charter.md §5
 # for the NFR this satisfies ("Deployability: Docker Compose + GitHub Actions
 # CI/CD"). Physical-hardware/LoRa tests (TP6, RQ1-RQ3) are NOT run here —
 # those are manual/lab experiments, tracked separately in specs/*.
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
   push:
-    branches: [main, develop]
+    branches: [main, dev]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

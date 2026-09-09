@@ -3,7 +3,7 @@ import eslint from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-// TrekLink gateway bridge lint rules — see /docs/01-conventions/04-architecture-conventions.md §3
+// TrekLink gateway bridge lint rules — see treklink-docs/_docs/01-conventions/04-architecture-conventions.md §3
 // (priority-queue/idempotency logic is graded; keep it isolated and testable, avoid `any`.)
 export default tseslint.config(
   { ignores: ['dist/**'] },

@@ -4,7 +4,7 @@ import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended'
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-// TrekLink backend lint rules — see /docs/01-conventions/05-backend-conventions.md
+// TrekLink backend lint rules — see treklink-docs/_docs/01-conventions/05-backend-conventions.md
 // (Golden Rule: no ad-hoc response shapes, no hardcoded error strings in controllers/services.)
 export default tseslint.config(
   {
@@ -19,7 +19,7 @@ export default tseslint.config(
         ...globals.node,
         ...globals.jest,
       },
-      sourceType: 'commonjs',
+      sourceType: 'module',
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
