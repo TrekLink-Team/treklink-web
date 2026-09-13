@@ -1,28 +1,50 @@
-# GitHub Labels & Milestones — Setup
+# GitHub Labels — Setup
 
-Run once against `treklink-web` after creation (the single active app repo — see Decision D-004). Requires [GitHub CLI](https://cli.github.com/) authenticated (`gh auth login`) with write access to `TrekLink-Team`.
+> **Conventions v2.** Jira is the single work tracker. GitHub Issues hold **daily reports** and
+> **standalone bugs/blockers** only — see
+> [`../01-conventions/10-jira-tracking-and-workflow.md`](../01-conventions/10-jira-tracking-and-workflow.md).
+>
+> **Milestones are no longer used.** Sprints live in Jira. The `gh api .../milestones` setup that
+> previously lived in this file has been removed; any milestones already created can be closed.
 
-## 1. Label taxonomy
+Run once per repository. Requires [GitHub CLI](https://cli.github.com/) authenticated
+(`gh auth login`) with write access to `TrekLink-Team`.
 
-### Effort points (mirrors `Git_Lab_Guide.pdf` §2.1's 1/2/3/5/8/13 scale)
-| Label | Color |
-|---|---|
-| `points: 1` | `6699cc` |
-| `points: 2` | `99cc66` |
-| `points: 3` | `ffcc66` |
-| `points: 5` | `ff9966` |
-| `points: 8` | `ff6666` |
-| `points: 13` | `cc3366` |
+---
+
+## 1. What the labels are still for
+
+| Group | Purpose | Applies to |
+|---|---|---|
+| `type:*` | What kind of issue this is | Daily reports, bugs, chores |
+| `module:*` | Which part of the system a bug touches | Bug reports |
+| `severity:*` | Triage priority for a defect | Bug reports |
+| `review-*` | Marks anything a specific capstone review depends on | Any issue |
+
+> [!NOTE]
+> **Story points are no longer GitHub labels.** The old `points: 1/2/3/5/8/13` taxonomy is
+> retired — points are set in Jira on the card, on the project's base-5 scale
+> (1, 2, 3, 5, 10, 15, 20, 25, 30). Delete the `points:*` labels if they already exist.
+
+---
+
+## 2. Label taxonomy
 
 ### Type
 | Label | Color |
 |---|---|
-| `type:epic` | `5319e7` |
-| `type:story` | `0e8a16` |
-| `type:task` | `1d76db` |
+| `type:daily-report` | `0e8a16` |
 | `type:bug` | `d73a4a` |
-| `type:spec` | `fbca04` |
+| `type:blocker` | `b60205` |
 | `type:chore` | `c5def5` |
+| `type:docs` | `e0e0e0` |
+
+### Severity
+| Label | Color |
+|---|---|
+| `severity:critical` | `b60205` |
+| `severity:medium` | `fbca04` |
+| `severity:low` | `c5def5` |
 
 ### Module
 | Label | Color |
@@ -36,6 +58,7 @@ Run once against `treklink-web` after creation (the single active app repo — s
 | `module:monitoring` | `f9c5c5` |
 | `module:billing` | `c5f9d4` |
 | `module:frontend` | `fef2c0` |
+| `module:firmware` | `d4c5f9` |
 | `module:devops` | `e0e0e0` |
 | `module:docs` | `e0e0e0` |
 
@@ -46,55 +69,78 @@ Run once against `treklink-web` after creation (the single active app repo — s
 | `review-2` | `b60205` |
 | `review-3` | `b60205` |
 
-## 2. Bulk-create script
+---
+
+## 3. Bulk-create script
 
 ```bash
 #!/usr/bin/env bash
-# Run from inside the target repo (gh infers owner/repo from the current git remote),
-# or pass --repo TrekLink-Team/{repo-name} to every call.
+set -euo pipefail
+# Run from inside the target repo (gh infers owner/repo from the git remote),
+# or set REPO_FLAG below.
 
-REPO_FLAG=""   # set to "--repo TrekLink-Team/treklink-web" if not run inside the repo
+REPO_FLAG=""   # e.g. "--repo TrekLink-Team/treklink-docs"
 
 declare -A LABELS=(
-  ["points: 1"]="6699cc" ["points: 2"]="99cc66" ["points: 3"]="ffcc66"
-  ["points: 5"]="ff9966" ["points: 8"]="ff6666" ["points: 13"]="cc3366"
-  ["type:epic"]="5319e7" ["type:story"]="0e8a16" ["type:task"]="1d76db"
-  ["type:bug"]="d73a4a" ["type:spec"]="fbca04" ["type:chore"]="c5def5"
-  ["module:auth"]="bfd4f2" ["module:devices"]="bfd4f2" ["module:rentals"]="bfd4f2"
-  ["module:trips"]="bfd4f2" ["module:gateway-sync"]="d4c5f9" ["module:incidents"]="f9c5c5"
-  ["module:monitoring"]="f9c5c5" ["module:billing"]="c5f9d4" ["module:frontend"]="fef2c0"
-  ["module:devops"]="e0e0e0" ["module:docs"]="e0e0e0"
+  ["type:daily-report"]="0e8a16" ["type:bug"]="d73a4a" ["type:blocker"]="b60205"
+  ["type:chore"]="c5def5"        ["type:docs"]="e0e0e0"
+
+  ["severity:critical"]="b60205" ["severity:medium"]="fbca04" ["severity:low"]="c5def5"
+
+  ["module:auth"]="bfd4f2"       ["module:devices"]="bfd4f2"  ["module:rentals"]="bfd4f2"
+  ["module:trips"]="bfd4f2"      ["module:gateway-sync"]="d4c5f9"
+  ["module:incidents"]="f9c5c5"  ["module:monitoring"]="f9c5c5"
+  ["module:billing"]="c5f9d4"    ["module:frontend"]="fef2c0"
+  ["module:firmware"]="d4c5f9"   ["module:devops"]="e0e0e0"   ["module:docs"]="e0e0e0"
+
   ["review-1"]="b60205" ["review-2"]="b60205" ["review-3"]="b60205"
 )
 
 for name in "${!LABELS[@]}"; do
   gh label create "$name" --color "${LABELS[$name]}" --force $REPO_FLAG
 done
+
+# Retire the old points taxonomy (harmless if they don't exist).
+for p in 1 2 3 5 8 13; do
+  gh label delete "points: $p" --yes $REPO_FLAG 2>/dev/null || true
+done
 ```
 
-## 3. Milestones (sprints)
-
-Create one Milestone per sprint from `00-project-context/02-roadmap-and-milestones.md` §2/§3. Example for the first three:
+Run it in all three repos:
 
 ```bash
-gh api repos/TrekLink-Team/{repo-name}/milestones -f title="Sprint 1 (Wk1-2)" \
-  -f description="Sep 7 - Sep 20, 2026 — TP1 kickoff: charter, EARS pass, architecture draft" \
-  -f due_on="2026-09-20T23:59:59Z"
-
-gh api repos/TrekLink-Team/{repo-name}/milestones -f title="Sprint 2 (Wk3-4)" \
-  -f description="Sep 21 - Oct 4, 2026 — TP1 close / TP2-TP3 ramp / Review 1 in this sprint" \
-  -f due_on="2026-10-04T23:59:59Z"
-
-gh api repos/TrekLink-Team/{repo-name}/milestones -f title="Sprint 3 (Wk5-6)" \
-  -f description="Oct 5 - Oct 18, 2026 — TP2 close, TP3, TP4 start / Review 1 deadline in this sprint" \
-  -f due_on="2026-10-18T23:59:59Z"
+for r in treklink-docs treklink-web treklink-firmware; do
+  REPO_FLAG="--repo TrekLink-Team/$r" bash setup-labels.sh
+done
 ```
-Continue the pattern through Sprint 7/8 using the calendar table in the roadmap doc.
 
-## 4. GitHub Project (board)
+---
 
-Create one org-level Project (`TrekLink Operations Platform`), views:
-- **Board**: grouped by Status (`Backlog`/`Ready`/`In Progress`/`In Review`/`Done`), filtered by Milestone = current sprint.
-- **Table**: all fields visible (Module, Points, Priority) for backlog grooming.
+## 4. One-time repository setup (leader)
 
-Link issues from all three active repos into the same Project so cross-repo sprint planning (e.g. Gateway + Backend work in the same sprint) is visible in one board.
+Beyond labels, each repo needs this configured once. Tracked here because it is easy to forget and
+invisible until it bites.
+
+- [ ] **Add all five members as org collaborators with write access.** Until this is done,
+      reviewers cannot be assigned and `gh pr create --reviewer` fails. This currently blocks §5.2
+      of the Git conventions.
+- [ ] **Branch protection on `main` and `dev`** — see
+      [`../01-conventions/07-github-workflow-git-conventions.md`](../01-conventions/07-github-workflow-git-conventions.md) §7.
+- [ ] **Disable "Allow merge commits"** in Settings → General → Pull Requests. Leave
+      "Allow rebase merging" and "Allow squash merging" enabled.
+- [ ] **Enable "Automatically delete head branches"** in Settings → General.
+- [ ] **Connect Jira** at the organisation level (GitHub for Jira app) so `TK-nn` keys in branches,
+      commits and PRs auto-link to cards.
+
+---
+
+## 5. Jira board setup (leader, once)
+
+Not a GitHub concern, but the same one-time checklist:
+
+- [ ] Statuses: `TO DO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BUG`, `NEEDS HELP`, `CANCELLED`
+- [ ] Every status reachable from **any** other status (the deliberate `Any` transitions)
+- [ ] Board view: Kanban, columns in the order above
+- [ ] Timeline view enabled for roadmap/deadline visibility
+- [ ] Automation rule: **PR created** → transition to `IN REVIEW`
+- [ ] Automation rule: **PR merged** → transition to `DONE`
