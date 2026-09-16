@@ -25,6 +25,6 @@ specs/{module_name}/
 | [`rentals/`](./rentals/) | Device allocation, check-out/in wizard, rental agreements, deposit & damage fee tracking | TP3 (Wk 3–7) | `devices`, `trips` |
 | [`trips/`](./trips/) | Trek packages, trip scheduling, guide assignment, roster management | TP5 (Wk 6–10) | `auth` |
 | [`incidents/`](./incidents/) | SOS event ingestion, 5-state incident FSM, audit logging, escalation notifications | TP4 (Wk 5–9) | `gateway-sync`, `devices` |
-| [`monitoring/`](./monitoring/) | Real-time Leaflet.js map, Socket.io push for device positions, telemetry & gateway health | TP4 (Wk 5–9) | `incidents`, `trips` |
+| [`monitoring/`](./monitoring/) | Real-time MapLibre GL map, Socket.io push for device positions, telemetry & gateway health | **MF-04** (Wk 9–11) | `incidents`, `trips` |
 | [`billing/`](./billing/) | Pricing rules, invoices, deposits, sandbox payment processing | TP5 (Wk 6–10) | `rentals`, `trips` |
 | [`frontend/`](./frontend/) | Role-based views (Admin, Staff, Guide, Customer), FSD component architecture | TP3–TP5 (Wk 3–10) | Backend APIs |
