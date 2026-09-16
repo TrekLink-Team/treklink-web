@@ -1,14 +1,9 @@
-import dotenv from 'dotenv';
 import pino from 'pino';
+// config loads dotenv on import, so it must be imported before anything that reads config values.
+import { gatewayConfig } from './config';
 import { SQLitePriorityQueue } from './queue/priority-queue';
 import { GatewayMqttClient } from './mqtt/mqtt-client';
 import { SerialFrameReader } from './serial/serial-reader';
-
-// Load env before importing config, which reads process.env at module scope.
-dotenv.config({ path: ['.env', '../.env'] });
-
-// eslint-disable-next-line import/first
-import { gatewayConfig } from './config';
 
 const logger = pino({ name: 'GatewayMain' });
 

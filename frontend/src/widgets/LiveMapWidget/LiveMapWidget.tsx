@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import maplibregl, { Map as MapLibreMap, Marker, Popup } from 'maplibre-gl';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import maplibregl, { Map as MapLibreMap, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapConfig } from '../../shared/config/map';
 
@@ -27,19 +27,22 @@ const STATUS_COLOR: Record<NonNullable<MapMarker['status']>, string> = {
  * here (D-012, D-015). If the style fails to load the widget degrades to a visible error state
  * rather than a blank panel (exception scenario E04-6); device and incident panels elsewhere keep
  * working.
+ *
+ * The map is created in a **callback ref**, not an effect. Creation depends on the DOM node
+ * existing, and reporting a failure means setting state — which is what a callback ref is for.
+ * Creating it in an effect body would set state synchronously during the effect and trigger
+ * cascading renders.
  */
 export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [] }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const markerRefs = useRef<Map<string, Marker>>(new Map());
+  const [map, setMap] = useState<MapLibreMap | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const markerRefs = useRef<Map<string, Marker>>(new Map());
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
     try {
-      const map = new maplibregl.Map({
-        container: containerRef.current,
+      const instance = new maplibregl.Map({
+        container: node,
         style: mapConfig.styleUrl,
         center: mapConfig.center,
         zoom: mapConfig.zoom,
@@ -47,26 +50,28 @@ export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [
         maxZoom: mapConfig.maxZoom,
         attributionControl: { customAttribution: mapConfig.attribution },
       });
-
-      map.addControl(new maplibregl.NavigationControl(), 'top-right');
-      map.on('error', (e) => setError(e.error?.message ?? 'Map failed to load'));
-      mapRef.current = map;
+      instance.addControl(new maplibregl.NavigationControl(), 'top-right');
+      instance.on('error', (e) => setError(e.error?.message ?? 'Map failed to load'));
+      setMap(instance);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Map failed to initialise');
     }
-
-    return () => {
-      mapRef.current?.remove();
-      mapRef.current = null;
-      markerRefs.current.clear();
-    };
   }, []);
+
+  // Tear the map down on unmount. Kept separate from creation so the cleanup closes over the
+  // instance that actually exists, and so the ref map is captured rather than read at teardown.
+  useEffect(() => {
+    if (!map) return;
+    const tracked = markerRefs.current;
+    return () => {
+      tracked.clear();
+      map.remove();
+    };
+  }, [map]);
 
   // Reconcile markers against the current set: update in place, add new, remove departed.
   useEffect(() => {
-    const map = mapRef.current;
     if (!map) return;
-
     const seen = new Set<string>();
 
     for (const m of markers) {
@@ -103,7 +108,7 @@ export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [
         markerRefs.current.delete(id);
       }
     }
-  }, [markers]);
+  }, [map, markers]);
 
   return (
     <div className="relative w-full h-[500px] rounded-xl overflow-hidden shadow-sm border border-slate-200">
