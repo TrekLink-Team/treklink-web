@@ -1,11 +1,7 @@
 import Database from 'better-sqlite3';
+import { gatewayConfig, PriorityTier } from '../config';
 
-export enum PriorityTier {
-  P0_SOS = 0,
-  P1_LOCATION = 1,
-  P2_GPS = 2,
-  P3_TELEMETRY = 3,
-}
+export { PriorityTier };
 
 export interface QueuedEvent {
   id: number;
@@ -19,7 +15,7 @@ export interface QueuedEvent {
 export class SQLitePriorityQueue {
   private db: Database.Database;
 
-  constructor(dbPath: string = ':memory:') {
+  constructor(dbPath: string = gatewayConfig.queue.dbPath) {
     this.db = new Database(dbPath);
     this.init();
   }
@@ -47,7 +43,7 @@ export class SQLitePriorityQueue {
     stmt.run(eventId, priority, payloadStr);
   }
 
-  public peek(limit: number = 10): QueuedEvent[] {
+  public peek(limit: number = gatewayConfig.queue.peekLimit): QueuedEvent[] {
     const stmt = this.db.prepare(`
       SELECT id, event_id as eventId, priority, payload, created_at as createdAt, retry_count as retryCount
       FROM event_queue

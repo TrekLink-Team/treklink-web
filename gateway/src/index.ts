@@ -4,24 +4,24 @@ import { SQLitePriorityQueue } from './queue/priority-queue';
 import { GatewayMqttClient } from './mqtt/mqtt-client';
 import { SerialFrameReader } from './serial/serial-reader';
 
+// Load env before importing config, which reads process.env at module scope.
 dotenv.config({ path: ['.env', '../.env'] });
+
+// eslint-disable-next-line import/first
+import { gatewayConfig } from './config';
 
 const logger = pino({ name: 'GatewayMain' });
 
 async function main() {
   logger.info('Initializing TrekLink Gateway Bridge...');
 
-  const dbPath = process.env.GATEWAY_SQLITE_DB_PATH || './gateway_queue.db';
-  const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
-  const simulationMode = process.env.GATEWAY_SERIAL_SIMULATION !== 'false';
-
-  const queue = new SQLitePriorityQueue(dbPath);
-  const mqttClient = new GatewayMqttClient(brokerUrl, queue);
+  const queue = new SQLitePriorityQueue(gatewayConfig.queue.dbPath);
+  const mqttClient = new GatewayMqttClient(gatewayConfig.mqtt.brokerUrl, queue);
   const serialReader = new SerialFrameReader(
     {
-      port: process.env.GATEWAY_SERIAL_PORT || '/dev/ttyUSB0',
-      baudRate: parseInt(process.env.GATEWAY_SERIAL_BAUD || '115200', 10),
-      simulationMode,
+      port: gatewayConfig.serial.port,
+      baudRate: gatewayConfig.serial.baudRate,
+      simulationMode: gatewayConfig.serial.simulationMode,
     },
     queue,
   );
