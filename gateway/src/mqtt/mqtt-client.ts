@@ -1,6 +1,6 @@
 import * as mqtt from 'mqtt';
 import pino from 'pino';
-import { SQLitePriorityQueue, QueuedEvent } from '../queue/priority-queue';
+import { SQLitePriorityQueue } from '../queue/priority-queue';
 import { gatewayConfig } from '../config';
 
 const logger = pino({ name: 'GatewayMQTT' });
