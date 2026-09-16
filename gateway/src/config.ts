@@ -8,7 +8,15 @@
  * The faculty fault handbook ranks hardcoded parameters the #2 cause of project failure, and the
  * first question on its most-asked list is "can this number be changed? show me now." Anything here
  * must be changeable via environment variable and demonstrable live.
+ *
+ * This module loads the environment itself rather than relying on its importer to have done so
+ * first. Values are read at module scope, so an import-order dependency here is a silent failure
+ * mode: the config would resolve to defaults with no error.
  */
+import dotenv from 'dotenv';
+
+dotenv.config({ path: ['.env', '../.env'] });
+
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
