@@ -38,9 +38,15 @@ answer is yes and the question wastes a turn.
 ## 1. Repository Layout & Path Resolution
 
 ```text
-capstone/                      ← OPEN THIS as your workspace root
+capstone/                      ← OPEN THIS as your workspace root — and now a git repo of its own
 ├── AGENTS.md                  ← this file
-├── Documents/                 ← graded academic deliverables (Reports 1–7). Not engineering docs.
+├── scripts/sync.sh            ← auto-commits and pushes this repo (D-022)
+├── Documents/                 ← graded academic deliverables. Not engineering docs.
+│   ├── reports/               ← Reports 1–7 (.md source + .docx) and slide decks; figures in reports/assets/
+│   ├── tracking/              ← Progress Log and tracking workbooks — .xlsx, one editor at a time
+│   ├── course-material/       ← issued by the school/supervisor. READ-ONLY.
+│   ├── templates/             ← blank forms. READ-ONLY — copy out, never fill in place.
+│   └── meetings/              ← supervisor briefs and minutes
 ├── treklink-docs/             ← SSOT: conventions, decisions, backlog, templates
 │   └── _docs/                 ← the canonical documentation root
 ├── treklink-web/              ← the active build
@@ -131,12 +137,27 @@ Full detail: `01-conventions/07-github-workflow-git-conventions.md`.
 | Branch naming | `feat/TK-45-device-registration` — **Jira key included** |
 | Commits | Conventional Commits, Jira key as scope: `feat(TK-45): add device FSM guard` |
 | Merge | Rebase & merge; Squash if multi-commit; **merge commits prohibited** |
-| Direct pushes | **Never. To any branch. By anyone.** |
+| Direct pushes | **Never** — in `treklink-docs`, `treklink-web`, `treklink-firmware`. See the `capstone` exception below. |
 | After any merge to `dev` | Everyone rebases; the merge is announced in Zalo |
 
 > [!IMPORTANT]
 > **Never commit or push unless explicitly asked.** Stage nothing, commit nothing, push nothing on
 > your own initiative. Report what changed and let the developer decide.
+
+### The `capstone` repository is the one exception (D-022)
+
+`capstone/` is itself a private git repo tracking `Documents/` and this file. It **auto-commits and
+auto-pushes to `main`** on a timer, because graded paperwork has to move between the team
+continuously and PR-gating a progress log only teaches people to skip the gate.
+
+- The exception is **scoped to `capstone` alone.** A change to any of the three code repos is still
+  a PR, always.
+- `treklink-docs/` is a *nested* repo excluded by `capstone/.gitignore`, so conventions are
+  readable and linkable from the Obsidian vault while edits to them still go through a PR. That is
+  deliberate, not an oversight.
+- History stays linear there too: `pull.rebase = true`. Merge commits remain prohibited everywhere.
+- **Before a long edit in `capstone`, take the lock** — `echo "reason" > .sync-lock` — so the timer
+  does not publish half-finished work. Delete it when you are done.
 
 ---
 
