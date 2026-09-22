@@ -127,7 +127,10 @@ model Rental {
 
 model Incident {
   id          String          @id @default(uuid())
-  eventId     String          @unique // Natural idempotency key from gateway
+  eventId     String          @unique // STALE — pre-D-006 conflated key. Must split: drop this
+                                       // @unique, add openedByEventId FK -> GatewayEvent, lastEventAt,
+                                       // detectionConfidence. See specs/gateway-sync/design.md §1.2,
+                                       // tasks.md Phase 1 (not yet migrated).
   deviceId    String
   device      Device          @relation(fields: [deviceId], references: [id])
   tripId      String?
@@ -160,7 +163,9 @@ model IncidentAudit {
 
 model GatewayEvent {
   id          String       @id @default(uuid())
-  eventId     String       @unique // deviceId:sessionId:sequenceNumber
+  eventId     String       @unique // sha256(nodeNum:packetId) — D-006. The firmware transmits
+                                    // neither sessionId nor sequenceNumber; do not reintroduce
+                                    // that formula. See 00-project-context/03-decisions-and-risk-register.md.
   deviceId    String
   device      Device       @relation(fields: [deviceId], references: [id])
   priority    PriorityTier @default(P3_TELEMETRY)
