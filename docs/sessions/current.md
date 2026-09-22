@@ -1,36 +1,16 @@
-# Session Ledger — treklink-web
+# Session Ledger Index — treklink-web
 
-Tracked, official ledger per `treklink-docs/_docs/01-conventions/01-session-based-development-and-ssot.md` §4 and
-`treklink-docs/_docs/01-conventions/08-ai-agent-steering-and-discipline.md` Stage 2.5. Update at real session/phase
-boundaries (not every small step — that's what `ignore/docs/current-progress.md` is for;
-see `treklink-docs/_docs/01-conventions/09-doc-driven-scaffold-and-ssot-conventions.md` §1 for how the two relate).
+> Per `treklink-docs/_docs/01-conventions/01-session-based-development-and-ssot.md` §4 (Session 4
+> revision): sessions are logged as **one file per session instance**, not one shared rolling file
+> — a single rolling file isn't safe once more than one session (human or AI-agent) can be active
+> at the same time. This file is just an index. Read the linked session file for real content;
+> don't re-derive what's already recorded there.
 
----
+| Session file | Date | Focus |
+|---|---|---|
+| [2026-09-09-repo-audit-and-backlog.md](2026-09-09-repo-audit-and-backlog.md) | 2026-09-09 | Week 1 repo audit/setup, full 87→88-story backlog authored |
+| [2026-09-13-cross-repo-system-critique.md](2026-09-13-cross-repo-system-critique.md) | 2026-09-13 | Cross-repo pre-coding audit (backlog, firmware wire format, scaffold) — see file for the full findings→destination table |
 
-## Session 1 — 2026-09-09
-
-**Milestone**: Week 1, Sprint 1 — repo audit/setup + full backlog authored.
-
-**State at end of session**:
-- Decisions D-001 (Prisma) and D-004 (3-repo layout) were already resolved coming into this
-  session; D-005 (Gateway hardware vs. Meshtastic mobile bridging) remains open — its PoC is
-  backlog item `US-046`.
-- Codebase: `npm install` clean, all 3 packages (`backend`, `gateway`, `frontend`) build and
-  typecheck. ESLint 10 + Prettier added (weren't present before). CI workflow added
-  (`.github/workflows/ci.yml`) but not yet run against a real PR. No business-logic modules
-  implemented yet — `backend/src/modules/*` are empty scaffolds, per spec-before-code.
-- Docs: full backlog authored in `treklink-docs` (`_docs/03-backlog/`) — 8 epics, 87 user
-  stories, 360 story points, pre-mapped to Sprints 1–7 and assigned per the team skill
-  matrix in `treklink-docs/_docs/00-project-context/01-project-charter.md`. `specs/{module}/requirements.md` etc. in this repo are
-  still the original blank templates — intentionally not filled in yet (see backlog README
-  for why).
-- Passing test counts: none yet — no test files exist beyond the default scaffolding; this
-  is expected at this stage, not a regression.
-
-**Immediate next steps**:
-1. Team sprint-planning meeting to review/adjust the backlog's pre-mapped Sprint column.
-2. Start TP1: gateway-sync's `US-041` (LoRa serial parser PoC) and `US-042` (eventId schema
-   freeze), plus D-005's `US-046` PoC — these are the only Sprint-1 (`Status: Ready`) items.
-3. Once a story's sprint genuinely starts, expand it from `03-backlog/02-user-stories.md`
-   into that module's real `specs/{module}/requirements.md` (EARS format) before writing
-   any implementation code.
+**Before starting new work**: check this index (and `ignore/[you]/docs/sessions/` for anything
+personal/in-progress) for anything from the last ~24h touching the same module or repo area —
+per `08-ai-agent-steering-and-discipline.md` Stage 1.
