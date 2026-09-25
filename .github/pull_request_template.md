@@ -1,9 +1,9 @@
 <!--
-TrekLink — single PR template (Conventions v2).
+TrekLink, single PR template (Conventions v2).
 Title format: type(TK-nn): short imperative description
 Base branch: dev  (only the leader opens dev -> main)
 
-The Design DoD block is OPTIONAL — fill it only if this branch introduced or changed a spec.
+The Design DoD block is OPTIONAL, fill it only if this branch introduced or changed a spec.
 -->
 
 ## Summary
@@ -20,7 +20,7 @@ The Design DoD block is OPTIONAL — fill it only if this branch introduced or c
 
 ## AI Disclosure (mandatory)
 
-> Required by `01-conventions/11-ai-first-doctrine-and-toolchain.md` §2.4. Self-declared —
+> Required by `01-conventions/11-ai-first-doctrine-and-toolchain.md` §2.4. Self-declared,
 > this is a guideline and a review prior, not an enforcement mechanism.
 
 * **Model used**: <!-- e.g. Claude Opus 5 / Claude Sonnet 5 / GPT-6 Astra / hand-written -->
@@ -32,9 +32,9 @@ The Design DoD block is OPTIONAL — fill it only if this branch introduced or c
 ## Definition of Done
 
 * [ ] Satisfies the EARS acceptance criteria in `specs/{module}/requirements.md`
-* [ ] **Unit tests written and passing locally** — `npm test` green before this PR was opened
+* [ ] **Unit tests written and passing locally**, `npm test` green before this PR was opened
 * [ ] Lint + typecheck pass with 0 errors
-* [ ] Module boundaries respected — no direct cross-module repository/entity access
+* [ ] Module boundaries respected, no direct cross-module repository/entity access
 * [ ] Response envelope `{ result, isSuccess, statusCode, message }` on every new/changed endpoint
 * [ ] `specs/{module}/api-design/*.md` updated **in this same PR** if any endpoint changed
 * [ ] No secrets, `.env` values, debug logs, dead code, or unresolved `TODO`s
@@ -42,7 +42,7 @@ The Design DoD block is OPTIONAL — fill it only if this branch introduced or c
 * [ ] Jira card moved to `IN REVIEW`
 
 <details>
-<summary><b>Design DoD</b> — only if this branch introduced or changed a spec (optional)</summary>
+<summary><b>Design DoD</b>, only if this branch introduced or changed a spec (optional)</summary>
 
 * [ ] `requirements.md` in EARS syntax; every clarification-interview edge case captured
 * [ ] `design.md` has the domain model, sequence diagram(s), and a Mermaid `stateDiagram-v2` for any FSM
@@ -57,7 +57,7 @@ The Design DoD block is OPTIONAL — fill it only if this branch introduced or c
 
 ## Test Evidence
 
-> A feature with no tests is not done. Paste real output — not "tests pass".
+> A feature with no tests is not done. Paste real output, not "tests pass".
 
 ```
 <!-- npm test output, or the relevant excerpt -->
@@ -65,7 +65,7 @@ The Design DoD block is OPTIONAL — fill it only if this branch introduced or c
 
 * **Unit**: [n passed / 0 failed]
 * **Integration**: [n passed / 0 failed]
-* **Manual**: [Swagger / Postman / UI — per `specs/{module}/api-design/00-api-testing-guide.md`]
+* **Manual**: [Swagger / Postman / UI, per `specs/{module}/api-design/00-api-testing-guide.md`]
 
 ---
 
