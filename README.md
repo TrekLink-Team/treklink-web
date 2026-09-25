@@ -4,12 +4,12 @@
 > Active term deliverable: Gateway Bridge + NestJS backend + React frontend.
 
 This repository (`treklink-web`) contains the operational software components of TrekLink:
-- `backend/` — NestJS modular monolith backend (Auth, Devices, Rentals, Trips, Gateway-Sync, Incidents, Monitoring, Billing) with Prisma ORM and PostgreSQL.
-- `gateway/` — Node.js/TypeScript Gateway Bridge service (LoRa serial parser with Meshtastic protobufs, SQLite priority queue P0–P3, MQTT store-and-forward client).
-- `frontend/` — React/TypeScript web application (Admin, Staff, Guide, and Customer views) using Feature-Sliced Design (FSD), Tailwind CSS, and MapLibre GL JS maps over Goong Maps (D-012 — never OpenStreetMap; the provider is configuration, not a literal).
-- `specs/` — Living specification suite (`requirements.md` → `design.md` → `tasks.md` → `api-design/`) per module.
-- `docs/` — `sessions/` (the tracked session ledger). Conventions are **not** vendored here: the single canonical set lives in [`../treklink-docs/_docs/01-conventions/`](../treklink-docs/_docs/01-conventions/) (Decision D-011).
-- `ignore/` — Local developer scratchpad & AI agent digital garden (gitignored). Per-developer gardens live at `ignore/{your_name}/` — scaffold yours with `bash ../treklink-docs/skills/install/scaffold-garden.sh {your_name} .`
+- `backend/`, NestJS modular monolith backend (Auth, Devices, Rentals, Trips, Gateway-Sync, Incidents, Monitoring, Billing) with Prisma ORM and PostgreSQL.
+- `gateway/`, Node.js/TypeScript Gateway Bridge service (LoRa serial parser with Meshtastic protobufs, SQLite priority queue P0–P3, MQTT store-and-forward client).
+- `frontend/`, React/TypeScript web application (Admin, Staff, Guide, and Customer views) using Feature-Sliced Design (FSD), Tailwind CSS, and MapLibre GL JS maps over Goong Maps (D-012, never OpenStreetMap; the provider is configuration, not a literal).
+- `specs/`, Living specification suite (`requirements.md` → `design.md` → `tasks.md` → `api-design/`) per module.
+- `docs/`, `sessions/` (the tracked session ledger). Conventions are **not** vendored here: the single canonical set lives in [`../treklink-docs/_docs/01-conventions/`](../treklink-docs/_docs/01-conventions/) (Decision D-011).
+- `ignore/`, Local developer scratchpad & AI agent digital garden (gitignored). Per-developer gardens live at `ignore/{your_name}/`, scaffold yours with `bash ../treklink-docs/skills/install/scaffold-garden.sh {your_name} .`
 
 ---
 
@@ -66,8 +66,8 @@ Or start individual packages:
 
 ## 3. Engineering Conventions & Git Workflow
 
-- **SSOT Documentation**: [`../treklink-docs/README.md`](../treklink-docs/README.md), and the generated [Developer Handbook PDF](../treklink-docs/_docs/TrekLink_Developer_Handbook_v1.0.pdf). **Open the `capstone/` parent folder**, not this repo alone — the sibling paths depend on it.
+- **SSOT Documentation**: [`../treklink-docs/README.md`](../treklink-docs/README.md), and the generated [Developer Handbook PDF](../treklink-docs/_docs/TrekLink_Developer_Handbook_v1.0.pdf). **Open the `capstone/` parent folder**, not this repo alone, the sibling paths depend on it.
 - **Branching Model**: Active development integrates into `dev`. Mainline demo-ready branch is `main`.
-- **Commit Convention**: Conventional Commits with the Jira key as scope — `feat(TK-45): add device FSM guard`. Branches: `feat/TK-45-device-registration` off `dev`.
+- **Commit Convention**: Conventional Commits with the Jira key as scope, `feat(TK-45): add device FSM guard`. Branches: `feat/TK-45-device-registration` off `dev`.
 - **Spec-Driven**: Never write production code before requirements (EARS), design, and tasks are defined in `specs/{module}/`.
 - **AI Agents**: See [`AGENTS.md`](./AGENTS.md) for strict pre-action and epistemic rules.

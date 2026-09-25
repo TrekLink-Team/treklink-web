@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: A standalone defect. Fast path — this never enters Jira unless it escalates.
+about: A standalone defect. Fast path, this never enters Jira unless it escalates.
 title: "[Bug] "
 labels: "type:bug"
 assignees: ""
