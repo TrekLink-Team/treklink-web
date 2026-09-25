@@ -3,7 +3,7 @@
 **User Story**: As **any TrekLink user**, I want to sign in once with my username and receive exactly the access my role allows, and as an **Admin**, I want to manage accounts, roles and permissions as data, so that a Guide sees only their own trips, a Customer only their own bookings, and a new Staff sub-role needs no code change.
 **Story IDs**: US-001 to US-010 (E1) | **Priority**: High | **Main Flow**: MF-01 (prerequisite of every flow) | **Owner of the flow**: TanNB (MF-01); story owners per backlog
 
-> **Authority**: D-002 (envelope), D-015 (configuration), D-024 (prose). Clarification answers **Q30 to Q46** in `07-clarification-answers.md` §3 are **Recorded, not Confirmed**. Every requirement that rests on one is tagged `[Qnn]` and is listed for re-confirmation in QUESTION entry C-002. Nothing here should be built on an unconfirmed answer before that entry is answered.
+> **Authority**: D-002 (envelope), D-015 (configuration), D-024 (prose). Clarification answers **Q30 to Q46** in `07-clarification-answers.md` §3 are **Recorded, not Confirmed**. Every requirement that rests on one is tagged `[Qnn]` and is listed for re-confirmation in QUESTION entry C-003. Nothing here should be built on an unconfirmed answer before that entry is answered.
 
 ---
 
@@ -39,7 +39,7 @@
 | Auth audit | | UC-20 | FR-AUTH-08 (new) | | US-004 |
 | Guide profile | MF-01 | | FR-AUTH-09 (new) | | US-010 |
 
-"New" FR and UC identifiers are proposed additions to the SRS; REQUEST entry C-003 lists them.
+"New" FR and UC identifiers are proposed additions to the SRS; REQUEST entry C-004 lists them.
 
 ---
 
@@ -84,7 +84,7 @@
 - **REQ-ERR-03**: IF an OTP is wrong, expired or already consumed, THEN the system SHALL return 400 `OTP_INVALID` and increment the attempt count; IF attempts reach the configured maximum, THEN the code SHALL be invalidated.
 - **REQ-ERR-04**: IF a password fails the policy (length and character classes), THEN the system SHALL return 400 `PASSWORD_POLICY_VIOLATION` naming the unmet rule.
 - **REQ-ERR-05**: IF a username or email is already taken, THEN the system SHALL return 409 `USERNAME_TAKEN` or `EMAIL_TAKEN`.
-- **REQ-ERR-06**: IF a Staff-triggered reset targets an account with no registered email, THEN the system SHALL return 409 `NO_REGISTERED_EMAIL` and send nothing. `[Q35]` *(How such a Customer recovers access is open, QUESTION C-002.)*
+- **REQ-ERR-06**: IF a Staff-triggered reset targets an account with no registered email, THEN the system SHALL return 409 `NO_REGISTERED_EMAIL` and send nothing. `[Q35]` *(How such a Customer recovers access is open, QUESTION C-003.)*
 - **REQ-ERR-07**: IF a Guide requests any resource outside their trip scope, THEN the system SHALL return 404 `NOT_FOUND`, never 403, so the existence of another trip's data is not disclosed. [E04-5]
 - **REQ-ERR-08**: IF an Admin attempts to remove the last active Admin role assignment in the system, THEN the system SHALL return 409 `LAST_ADMIN`.
 - **REQ-ERR-09**: IF an OTP is requested again before the configured cooldown elapses, THEN the system SHALL return 429 `OTP_COOLDOWN`.
@@ -145,4 +145,4 @@ Every default above is a **proposal** except where a Q answer fixed it; none of 
 
 ## 6. Open Questions
 
-Carried into QUESTION entry C-002, numbered there: re-confirmation of Q30 to Q46, Google OAuth in or out of Phase B, the recovery path for a Customer with no email, the email provider, and whether a Staff member may hold both Staff and Customer roles.
+Carried into QUESTION entry C-003, numbered there: re-confirmation of Q30 to Q46, Google OAuth in or out of Phase B, the recovery path for a Customer with no email, the email provider, and whether a Staff member may hold both Staff and Customer roles.

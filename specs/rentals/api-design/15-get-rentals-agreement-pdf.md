@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the latest signed PDF, or the latest generated one if unsigned, **inside the D-002 envelope** as base64 with its SHA-256, so the envelope rule holds without an exception for binary responses. The frontend decodes and offers it as a download. See C-002 for the alternative (a raw `application/pdf` response as the single documented exception).
+Returns the latest signed PDF, or the latest generated one if unsigned, **inside the D-002 envelope** as base64 with its SHA-256, so the envelope rule holds without an exception for binary responses. The frontend decodes and offers it as a download. See C-003 for the alternative (a raw `application/pdf` response as the single documented exception).
 
 ## API Specification
 

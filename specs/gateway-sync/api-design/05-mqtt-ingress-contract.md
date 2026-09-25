@@ -43,7 +43,7 @@ A position packet as the stock serializer emits it. Field names are the serializ
 | id | `MeshPacket.id`, rolling 10-bit counter plus 22 random bits; half of the `eventId` (D-006) | uint32 | yes | `1834576211` |
 | from | Originating node number; the other half of `eventId`; resolved to a `Device` | uint32 | yes | `2763113171` |
 | timestamp | Device `rx_time`; `0` means no valid RTC and is stored as null (REQ-ERR-06) | uint32 seconds | yes | `1760072560` |
-| type | `text`, `position` or `telemetry` for TrekLink traffic; anything else is ignored with no error | string | yes | `position` |
+| type | `text`, `position`, `telemetry` for field traffic; `treklink_queue_health` for the Stage B queue report ([`06-queue-health-payload.md`](06-queue-health-payload.md)); an empty `type` on `PRIVATE_APP` and any other value are ignored with no error | string | yes | `position` |
 | sender | Node or bridge that published; the `Gateway` key (REQ-EVT-14) | string | yes | `!a4b1c2d3` |
 | payload | Per-type body; `text` carries `{ "text": "SOS - [11.123456], [107.654321]" }` | object | yes | n/a |
 | rssi, snr, hops_away | Link quality; present only when non-zero | number | no | `-97` |
@@ -73,8 +73,8 @@ MQTT has no response body. The observable outcomes are one `SyncAuditLog` row pe
 | Strategy throws | `NORMALIZATION_FAILED` with error | isolated to this packet |
 | Coordinates outside WGS-84 | `INVALID_POSITION` | event kept, position null |
 | Speed from last position above threshold | `IMPLAUSIBLE_POSITION` | event kept, not projected, not plotted (E04-4) |
-| `timestamp` far from receipt | `CLOCK_SKEW` flag | event kept (E02-6) |
-| `PRIVATE_APP` queue report `[B]` | `QUEUE_REPORT` | device buffering state updated, no `GatewayEvent` |
+| `timestamp` in the future beyond tolerance, or older than the backlog age | `CLOCK_SKEW` flag | event kept, `eventTime` falls back to receipt time |
+| `type: treklink_queue_health` `[B]` | `QUEUE_REPORT` | report stored, buffering state updated, no `GatewayEvent` |
 | Otherwise | `ACCEPTED` | `GatewayEvent`, projection, correlation |
 
 ## Activity Diagram

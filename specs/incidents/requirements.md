@@ -3,7 +3,7 @@
 **User Story**: As **Staff on duty**, I want every SOS episode from the field to become exactly one Incident that I can acknowledge in one step, work, resolve and close, with every action recorded; as a **Guide**, I want to be alerted to an SOS on my own trip, acknowledge it and file response notes from my phone; as the **team**, we want MTTA and MTTR measured from the record, so RQ3 is answered from data rather than recollection.
 **Story IDs**: US-054, US-057 to US-064, US-066, US-072, US-088 (E5) | **Priority**: **Highest** | **Main Flow**: **MF-03** | **Lane**: HoangTK (`incidents`, MF-03 owner)
 
-> **Authority**: D-006 (episode correlation is a lookup, not a hash), D-007, D-008, D-016, D-018. `04-firmware-ground-truth.md` §2: an SOS is announced by **one** unacknowledged text frame, beacons that follow are position-only, and **cancelling on the device transmits nothing** (`TrekLinkSOSHelper.cpp:57–61`), so only an operator ends an episode. No MF-03 clarification interview has been held; every open point is in QUESTION entry C-002.
+> **Authority**: D-006 (episode correlation is a lookup, not a hash), D-007, D-008, D-016, D-018. `04-firmware-ground-truth.md` §2: an SOS is announced by **one** unacknowledged text frame, beacons that follow are position-only, and **cancelling on the device transmits nothing** (`TrekLinkSOSHelper.cpp:57–61`), so only an operator ends an episode. No MF-03 clarification interview has been held; every open point is in QUESTION entry C-003.
 
 ---
 
@@ -37,7 +37,7 @@
 | Update, resolve, close | MF-03 | UC-16 | FR-INC-02 | BR-10 | | US-061, US-062 |
 | Reopen | MF-03 | UC-26 | FR-INC-06 | BR-12 | E03-6 | none |
 | Response note | MF-03 | UC-17 | FR-INC-03 (new) | | | US-063 |
-| Unassigned SOS | MF-03 | UC-13 | FR-INC-05 (new) | | E03-4 | none, gap (C-003) |
+| Unassigned SOS | MF-03 | UC-13 | FR-INC-05 (new) | | E03-4 | none, gap (C-004) |
 | Manual incident | MF-03 | UC-39 Raise Manual Incident (new) | FR-INC-07 (new) | | | US-064 |
 | Notification | MF-03 | UC-23 | FR-INC-08 (new) | | E03-7 | US-058 |
 | Metrics | MF-03 | UC-20 | FR-INC-09 (new) | | | US-072 |
@@ -62,7 +62,7 @@
 - **REQ-EVT-03**: WHEN `gateway-sync` reports a cadence anomaly for a device with no matching Incident and no dismissal inside `incidents.suspectedSuppressMinutes`, the system SHALL create one Incident in `DETECTED` with confidence `SUSPECTED`. [BR-09, E03-1, US-088]
 - **REQ-EVT-04**: WHEN an Incident is created, the system SHALL attach the trip, rental and custodian Guide from `rentals` if the device is on an active rental, and SHALL otherwise mark it `unassigned`, create it anyway, and route it to all Operators for triage. [E03-4]
 - **REQ-EVT-05**: WHEN an Incident is created, appended, upgraded, reopened, escalated or transitioned, the system SHALL emit the matching domain event after commit, so `monitoring` notifies the trip's Guides, every Operator and every Admin session within the ≤2 s WebSocket target. Emission SHALL never gate or roll back the write. [US-058, E03-7]
-- **REQ-EVT-06**: WHEN a device event matches a `RESOLVED` Incident within the window, the system SHALL move it back to `DETECTED`, increment `reopenCount`, record a `REOPENED` audit row by `SYSTEM` naming the triggering event, and alert as for a new Incident. [BR-12, E03-6, UC-26] *(Proposal: reopen to `DETECTED` so someone must acknowledge again. C-002.)*
+- **REQ-EVT-06**: WHEN a device event matches a `RESOLVED` Incident within the window, the system SHALL move it back to `DETECTED`, increment `reopenCount`, record a `REOPENED` audit row by `SYSTEM` naming the triggering event, and alert as for a new Incident. [BR-12, E03-6, UC-26] *(Proposal: reopen to `DETECTED` so someone must acknowledge again. C-003.)*
 - **REQ-EVT-07**: WHEN an Operator, or a Guide assigned to the Incident's trip, acknowledges a `DETECTED` Incident, the system SHALL move it to `ACKNOWLEDGED` and record the actor, role, time and optional note, in a single request with at most two inputs (the action and an optional note). [UC-15, NFR-USE-02]
 - **REQ-EVT-08**: WHEN an Operator moves an Incident `ACKNOWLEDGED` to `IN_PROGRESS`, `IN_PROGRESS` to `RESOLVED`, or `RESOLVED` to `CLOSED`, the system SHALL require a note and record it. [UC-16]
 - **REQ-EVT-09**: WHEN an Operator dismisses a `SUSPECTED` Incident in `DETECTED` or `ACKNOWLEDGED`, the system SHALL move it straight to `CLOSED` with resolution `FALSE_ALARM` and a required reason, and SHALL suppress new suspected episodes for that device for `incidents.suspectedSuppressMinutes`. [US-088]
@@ -130,4 +130,4 @@
 
 ## 6. Open Questions
 
-Carried into QUESTION entry C-002: reopen target state, escalation timeout, who may move `IN_PROGRESS` to `RESOLVED` (Operator only, or the trip's Lead Guide too), and whether MTTA starts at the first device event or at Incident creation.
+Carried into QUESTION entry C-003: reopen target state, escalation timeout, who may move `IN_PROGRESS` to `RESOLVED` (Operator only, or the trip's Lead Guide too), and whether MTTA starts at the first device event or at Incident creation.

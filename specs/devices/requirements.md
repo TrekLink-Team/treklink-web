@@ -34,7 +34,7 @@
 | Registration | MF-01 | UC-30 Register Device (new) | FR-DEV-03 (new) | | | US-012 |
 | 7-state FSM, history | MF-01, MF-05 | UC-05, UC-08, UC-09 | FR-DEV-01 | BR-05 | | US-013, US-022 |
 | Battery advisory, handover threshold | MF-01 | UC-08 | FR-DEV-05 | BR-04 | E01-3 | US-017 |
-| PSK provisioning | MF-01 | UC-31 Provision Device (new) | FR-DEV-06 (new) | | | none, gap (C-003) |
+| PSK provisioning | MF-01 | UC-31 Provision Device (new) | FR-DEV-06 (new) | | | none, gap (C-004) |
 | Maintenance | MF-05 | UC-32 Record Maintenance (new) | FR-DEV-07 (new) | | E05-2, E05-6 | US-018, US-019 |
 | Retirement and loss | MF-05 | UC-33 Retire Device (new) | FR-DEV-09 | BR-22 | E05-3 | US-020 |
 | Fleet views | MF-04 | UC-14 | FR-DEV-08 (new) | | | US-015, US-016, US-021 |
@@ -59,7 +59,7 @@
 - **REQ-EVT-02**: WHEN a registration names a variant whose `mqttCapable` flag is false (`treklink-v1`, whose image compiles MQTT out), the system SHALL register it and return a warning that the unit cannot uplink directly. [`04-firmware-ground-truth.md` §5] `[Q50]`
 - **REQ-EVT-03**: WHEN `rentals` creates or confirms an allocation for a device that is `AVAILABLE`, the system SHALL move the device to `RESERVED`. WHEN the last open future allocation of a `RESERVED` device is released or expires, the system SHALL move it back to `AVAILABLE`. [MF-01 step 3]
 - **REQ-EVT-04**: WHEN `rentals` checks a device out, the system SHALL move it `RESERVED` to `RENTED`. [MF-01 step 7]
-- **REQ-EVT-05**: WHEN the trip a rented device belongs to enters `IN_PROGRESS`, the system SHALL move the device `RENTED` to `IN_FIELD`. `[Q48]` *(Proposal: automatic on trip start. Alternatives in C-002.)*
+- **REQ-EVT-05**: WHEN the trip a rented device belongs to enters `IN_PROGRESS`, the system SHALL move the device `RENTED` to `IN_FIELD`. `[Q48]` *(Proposal: automatic on trip start. Alternatives in C-003.)*
 - **REQ-EVT-06**: WHEN `rentals` checks a device in, the system SHALL move it from `IN_FIELD` or `RENTED` to `RETURNED`. [MF-05 step 1]
 - **REQ-EVT-07**: WHEN a return inspection marks a device serviceable, the system SHALL move it `RETURNED` to `AVAILABLE`, and then, IF it has an open future allocation, to `RESERVED`, as two history rows in one transaction. [MF-05 step 6]
 - **REQ-EVT-08**: WHEN a return inspection marks a device not serviceable, or a Guide's handover check fails, the system SHALL move it to `MAINTENANCE` and open a maintenance record referencing the inspection or check. [E01-3, E05-2, E05-6]
@@ -128,4 +128,4 @@
 
 ## 6. Open Questions
 
-Carried into QUESTION entry C-002: FSM finality (Q47), which transitions are automatic (Q48), lost-device handling (automatic retirement or Staff confirmation), and whether check-out is blocked on PSK version.
+Carried into QUESTION entry C-003: FSM finality (Q47), which transitions are automatic (Q48), lost-device handling (automatic retirement or Staff confirmation), and whether check-out is blocked on PSK version.

@@ -10,5 +10,6 @@
 | 03 | POST | `/api/gateway-sync` | Admin | [03-op-list-audit.md](03-op-list-audit.md) | Draft |
 | 04 | POST | `/api/gateway-sync` | Admin | [04-op-replay.md](04-op-replay.md) | Draft |
 | 05 | MQTT | `treklink/2/json/+/+` | Broker ACL | [05-mqtt-ingress-contract.md](05-mqtt-ingress-contract.md) | Draft |
+| 06 | MQTT | `type: treklink_queue_health` payload | Broker ACL | [06-queue-health-payload.md](06-queue-health-payload.md) | Consumer copy of firmware design §2.4 |
 
 Manual testing: [00-api-testing-guide.md](00-api-testing-guide.md). Shared setup: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).

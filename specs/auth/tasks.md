@@ -2,7 +2,7 @@
 
 > Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: stories US-001 to US-010 (keys `TK-9` to `TK-18` once Jira is populated)
 >
-> Fulfills `design.md`. **Blocked on** QUESTION C-002 items that re-confirm Q30 to Q46. Phase 1 may start once the approval names this module; tasks resting on an unconfirmed answer are marked `[Qnn]`.
+> Fulfills `design.md`. **Blocked on** QUESTION C-003 items that re-confirm Q30 to Q46. Phase 1 may start once the approval names this module; tasks resting on an unconfirmed answer are marked `[Qnn]`.
 
 ## Phase 1: Foundation & Domain Modeling
 
@@ -46,7 +46,7 @@
   - _Requirements: REQ-UBI-05, REQ-EVT-10_
 - [ ] 3.3 `SCOPE_PROVIDER` token and lazy resolution through `ModuleRef` `[Q44]`
   - _Requirements: REQ-UBI-07, REQ-STA-03, design §2.3_
-- [ ] 3.4 `PoliciesGuard` and `@CheckPolicies()`; `accessibleWhere()` helper for list queries (adds `@casl/prisma`, a dependency bump flagged in C-002)
+- [ ] 3.4 `PoliciesGuard` and `@CheckPolicies()`; `accessibleWhere()` helper for list queries (adds `@casl/prisma`, a dependency bump flagged in C-003)
   - _Requirements: REQ-UBI-06_
 - [ ] 3.5 Scoped-404 convention helper `assertInScopeOr404()`
   - _Requirements: REQ-ERR-07_
@@ -56,7 +56,7 @@
 ## Phase 4: API Presentation Layer
 
 - [ ] 4.1 `AuthController`, `UsersController`, `RolesController` per api-design 01 to 17, with `@ResponseMessage`
-- [ ] 4.2 Rate limits on register, login, forgot (`@nestjs/throttler`, a new dependency flagged in C-002)
+- [ ] 4.2 Rate limits on register, login, forgot (`@nestjs/throttler`, a new dependency flagged in C-003)
 - [ ] 4.3 Swagger annotations
 - [ ] 4.4 E2E tests against Docker Postgres: every Validation row of api-design 01 to 17; AC-01 to AC-09
 

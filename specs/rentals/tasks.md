@@ -2,7 +2,7 @@
 
 > Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: US-025 to US-028, US-030 to US-034, US-039
 >
-> Fulfills `design.md`. Blocked on C-002 answers for payment timing (Q60 versus MF-05), reserve-before-confirm ordering, loss handling and PDF storage. Tasks resting on Recorded answers are tagged `[Qnn]`.
+> Fulfills `design.md`. Blocked on C-003 answers for payment timing (Q60 versus MF-05), reserve-before-confirm ordering, loss handling and PDF storage. Tasks resting on Recorded answers are tagged `[Qnn]`.
 
 ## Phase 1: Foundation & Domain Modeling
 
@@ -25,7 +25,7 @@
   - _Requirements: REQ-EVT-06 to REQ-EVT-09, REQ-ERR-04, REQ-ERR-05, REQ-ERR-07, REQ-ERR-08_
 - [ ] 2.6 Direct rental creation; item allocation and replacement
   - _Requirements: REQ-EVT-10, REQ-EVT-11_
-- [ ] 2.7 `AgreementService`: PDF render and signature embedding with hashing (`pdfkit`, dependency approval in C-002) `[Q62]`
+- [ ] 2.7 `AgreementService`: PDF render and signature embedding with hashing (`pdfkit`, dependency approval in C-003) `[Q62]`
   - _Requirements: REQ-EVT-12, REQ-EVT-13, REQ-UBI-06_
 - [ ] 2.8 Check-out, all-or-nothing, with `devices` eligibility
   - _Requirements: REQ-EVT-14, REQ-STA-03, REQ-ERR-06, AC-06_

@@ -166,7 +166,7 @@ stateDiagram-v2
 | EMERGENCY | FINISHED | Operator | note required |
 | DRAFT, PREPARING, BOOKING_OPEN, READY | CANCELLED | Operator | reason required |
 
-**Mapping to MF-01's "trip to Scheduled".** MF-01 step 7 and its postcondition name a trip state `Scheduled` that Q66 does not contain. This design reads `Scheduled` as `READY` ("On Start"): bookings closed, Guides and devices prepared, departure pending. Check-out is allowed in `BOOKING_OPEN` and `READY`, so a trip reaches the MF-01 postcondition when it is `READY` and its rentals are checked out. Confirmation requested in C-002.
+**Mapping to MF-01's "trip to Scheduled".** MF-01 step 7 and its postcondition name a trip state `Scheduled` that Q66 does not contain. This design reads `Scheduled` as `READY` ("On Start"): bookings closed, Guides and devices prepared, departure pending. Check-out is allowed in `BOOKING_OPEN` and `READY`, so a trip reaches the MF-01 postcondition when it is `READY` and its rentals are checked out. Confirmation requested in C-003.
 
 ### 2.2 Seats
 

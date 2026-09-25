@@ -136,6 +136,10 @@ All three start with `SELECT pg_advisory_xact_lock(hashtext('incident:' || devic
 
 Domain events are queued and emitted after the caller commits (platform design ยง2.3).
 
+**Time basis.** `lastEventAt`, `firstEventAt` and the window comparison use the event's `eventTime` (device time when valid, else receipt time), never arrival order, because stock firmware drains a queued backlog one entry per reconnect (O-001, `gateway-sync` REQ-UBI-02).
+
+**Episodes that never beacon.** A fall auto-SOS sends one position and one text frame and then stops (`FallDetectionModule.cpp:140-145`), and an SOS raised before the first GPS fix sends no positions (`PositionModule.cpp:352-355`). Such an Incident receives no appends; its window lapses after `episodeWindowSeconds`, which is harmless because the Incident stays open until an operator closes it. A second trigger from the device after that creates a new Incident (E03-5), which is correct for a second fall.
+
 **Why the window is anchored on `lastEventAt`, not on creation.** A beacon runs at 30 s indefinitely (`TrekLinkSOSHelper.cpp:181`), so an ongoing episode keeps its Incident alive however long it lasts. The window only closes after `episodeWindowSeconds` of silence, which is what E03-5 means by "episode window expires".
 
 ### 2.4 Acknowledgement race (E03-3)
@@ -144,7 +148,7 @@ Domain events are queued and emitted after the caller commits (platform design ย
 
 ### 2.5 Metrics (RQ3)
 
-- **MTTA** = `acknowledgedAt - firstEventAt` (device time basis: the moment the first packet of the episode was received by the platform). Proposal; the alternative basis is `createdAt`, which differs only when a suspected episode is created late. C-002.
+- **MTTA** = `acknowledgedAt - firstEventAt` (device time basis: the moment the first packet of the episode was received by the platform). Proposal; the alternative basis is `createdAt`, which differs only when a suspected episode is created late. C-003.
 - **MTTR** = `resolvedAt - firstEventAt`.
 - Completion rate = closed with a non-`FALSE_ALARM` resolution / all non-dismissed.
 - Traceability score input: share of Incidents whose audit trail has every transition with actor and note (a data-quality metric for RQ3).

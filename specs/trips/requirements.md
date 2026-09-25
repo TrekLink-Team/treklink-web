@@ -30,7 +30,7 @@
 |---|---|---|---|---|---|---|
 | Browse packages and open trips | MF-01 | UC-01 | FR-TRIP-01 (new) | | | US-024 |
 | Manage packages | MF-01 | UC-34 Manage Trek Packages (new) | FR-TRIP-02 (new) | | | US-023 |
-| Schedule, reschedule, cancel trips | MF-01 | UC-35 Schedule Trip (new) | FR-TRIP-03 (new) | | E01-2 (cascade) | none, gap (C-003) |
+| Schedule, reschedule, cancel trips | MF-01 | UC-35 Schedule Trip (new) | FR-TRIP-03 (new) | | E01-2 (cascade) | none, gap (C-004) |
 | Trip lifecycle | MF-01, MF-04 | UC-35 | FR-TRIP-04 (new) | | | none, gap |
 | Assign Guide | MF-01 | UC-06 | FR-BOOK-04, FR-TRIP-05 (new) | BR-02 | E01-4 | US-029 |
 | Guide view of own trips | MF-01, MF-04 | UC-14 | FR-AUTH-03 | BR-13 | E04-5 | US-037 |
@@ -56,7 +56,7 @@
 - **REQ-EVT-03**: WHEN an Operator assigns Guides to a trip, the system SHALL verify each is an active Staff account holding `GUIDE`, and SHALL record the assignment with a `LEAD` or `ASSISTANT` role; exactly one `LEAD` SHALL exist once the trip leaves `PREPARING`. [UC-06, US-029]
 - **REQ-EVT-04**: WHEN a trip moves to `IN_PROGRESS`, the system SHALL emit `trip.status.changed` after commit, so `rentals` moves the trip's checked-out devices to `IN_FIELD` and `monitoring` starts showing the trip. [MF-04 precondition]
 - **REQ-EVT-05**: WHEN a Lead Guide or an Operator finishes a trip, the system SHALL move it to `FINISHED`, record any device ids the Guide reports missing, and emit `trip.status.changed` with those ids, so `rentals` flags the items. `[Q71]` Devices come back through the Guide, never the Customer.
-- **REQ-EVT-06**: WHEN an Operator cancels a trip, the system SHALL move it to `CANCELLED` and emit `trip.status.changed`, so `rentals` cancels open bookings **without** a customer cancellation fee and releases allocations. `[Q72]` *(Agency-initiated cancellation is not the customer cancelling; see C-002.)*
+- **REQ-EVT-06**: WHEN an Operator cancels a trip, the system SHALL move it to `CANCELLED` and emit `trip.status.changed`, so `rentals` cancels open bookings **without** a customer cancellation fee and releases allocations. `[Q72]` *(Agency-initiated cancellation is not the customer cancelling; see C-003.)*
 - **REQ-EVT-07**: WHEN an Operator reschedules a trip, the system SHALL ask `rentals`, through the `RESCHEDULE_GUARD` token, whether every allocation can move to the new window without overlap, and SHALL apply the new dates and moved allocations in one transaction or reject with the list of conflicts. `[Q72]`
 - **REQ-EVT-08**: WHEN a Guide completes the readiness checklist for their trip, the system SHALL store each item's result, the Guide and the time, and mark the check `PASS` only if every mandatory item is checked. `[Q73]`
 - **REQ-EVT-09**: WHEN an Operator declares an emergency on an `IN_PROGRESS` trip, the system SHALL move it to `EMERGENCY`, require a note, and emit `trip.status.changed` so every Staff and Admin session is alerted. `[Q66]`
@@ -119,4 +119,4 @@
 
 ## 6. Open Questions
 
-Carried into QUESTION entry C-002: the name of `EMERGENCY` (Session 8 question 76), whether "trip Scheduled" in MF-01 means `READY`, who may start and finish a trip, and whether agency cancellation refunds in full.
+Carried into QUESTION entry C-003: the name of `EMERGENCY` (Session 8 question 76), whether "trip Scheduled" in MF-01 means `READY`, who may start and finish a trip, and whether agency cancellation refunds in full.
