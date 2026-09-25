@@ -22,7 +22,7 @@
   - _Requirements: REQ-UBI-06, US-001_
 - [x] 1.7 `common/errors`: `ErrorCode` enum, `DomainException`, cross-cutting codes of design §4.2
   - _Requirements: REQ-UBI-04_
-- [ ] 1.8 Shared `PagedQueryDto` and `PagedResult<T>`, bounds from `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE`
+- [x] 1.8 Shared `PagedQueryDto` and `PagedResult<T>`, bounds from `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE`
   - _Requirements: REQ-UBI-03_
 - [ ] 1.9 Module-boundary check script: model-to-module ownership map, fails when a module references a model it does not own; wire into `npm run lint`
   - _Requirements: NFR-MNT-01, design §2.2_
