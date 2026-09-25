@@ -1,0 +1,15 @@
+stateDiagram-v2
+    [*] --> DETECTED: SOS, cadence anomaly or manual
+    DETECTED --> ACKNOWLEDGED: acknowledge [Operator or trip Guide]
+    ACKNOWLEDGED --> IN_PROGRESS: start response [note]
+    IN_PROGRESS --> RESOLVED: resolve [note]
+    RESOLVED --> CLOSED: close [note]
+    RESOLVED --> DETECTED: new device event in window, reopen
+    DETECTED --> CLOSED: dismiss [SUSPECTED only]
+    ACKNOWLEDGED --> CLOSED: dismiss [SUSPECTED only]
+    CLOSED --> [*]
+    note right of DETECTED
+        Escalated once if not acknowledged
+        within ackEscalationSeconds.
+        Not a state change.
+    end note

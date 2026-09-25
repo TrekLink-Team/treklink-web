@@ -1,0 +1,12 @@
+stateDiagram-v2
+    [*] --> PENDING: submit [trip BOOKING_OPEN, seats]
+    PENDING --> CONFIRMED: Operator confirms [devices covered, guides satisfied]
+    PENDING --> REJECTED: Operator rejects
+    PENDING --> CANCELLED: renter or Staff cancels
+    PENDING --> EXPIRED: trip closes bookings with no confirmation
+    CONFIRMED --> CANCELLED: cancel before check-out
+    CONFIRMED --> COMPLETED: rental CLOSED
+    COMPLETED --> [*]
+    REJECTED --> [*]
+    CANCELLED --> [*]
+    EXPIRED --> [*]

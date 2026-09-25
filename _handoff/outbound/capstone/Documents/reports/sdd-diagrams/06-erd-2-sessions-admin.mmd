@@ -1,0 +1,42 @@
+erDiagram
+    direction LR
+    USER {
+        uuid id PK
+        string username UK
+    }
+    REFRESH_TOKEN {
+        uuid id PK
+        uuid userId FK
+        uuid familyId
+        string tokenHash UK
+        datetime revokedAt
+    }
+    ONE_TIME_CODE {
+        uuid id PK
+        uuid userId FK
+        enum purpose
+        string codeHash
+        datetime expiresAt
+    }
+    AUDIT_LOG {
+        uuid id PK
+        uuid actorId FK
+        string action
+        string subjectType
+        string subjectId
+    }
+    BUSINESS_PARAMETER {
+        string key PK
+        json value
+        int version
+    }
+    PARAMETER_HISTORY {
+        uuid id PK
+        string key FK
+        uuid changedById FK
+    }
+    USER ||--o{ REFRESH_TOKEN : "owns"
+    USER ||--o{ ONE_TIME_CODE : "receives"
+    USER |o--o{ AUDIT_LOG : "acts in"
+    BUSINESS_PARAMETER ||--o{ PARAMETER_HISTORY : "changed in"
+    USER ||--o{ PARAMETER_HISTORY : "changes"
