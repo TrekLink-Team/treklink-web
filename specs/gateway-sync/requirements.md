@@ -1,7 +1,7 @@
 # Requirements Specification: gateway-sync
 
 **User Story**: As a **Staff member coordinating an active trek**, I want field events from TrekLink mesh nodes to reach the platform exactly once and in priority order, so that an SOS raises exactly one Incident I can act on, and no position or telemetry reading is silently lost.
-**Story ID**: US-101 | **Story Points**: 13 | **Priority**: High | **Sprint/Milestone**: TP1–TP2 (Wk 1–6)
+**Story ID**: US-089 | **Story Points**: 13 | **Priority**: High | **Sprint/Milestone**: TP1–TP2 (Wk 1–6)
 
 > **Authority**: written against **D-005** (staged topology), **D-006** (split `eventId`), **D-007** (canonical envelope + Strategy normalizer) in `treklink-docs/_docs/00-project-context/03-decisions-and-risk-register.md`. Where this document and `01-conventions/04-architecture-conventions.md` §3 disagree on the `eventId` formula, **D-006 wins**. §3 was brought in line in Session 3 and the risk row is closed; the sentence is kept so an old copy of §3 is recognised as stale.
 
