@@ -1,7 +1,7 @@
-# GitHub Labels — Setup
+# GitHub Labels, Setup
 
 > **Conventions v2.** Jira is the single work tracker. GitHub Issues hold **daily reports** and
-> **standalone bugs/blockers** only — see
+> **standalone bugs/blockers** only, see
 > [`../01-conventions/10-jira-tracking-and-workflow.md`](../01-conventions/10-jira-tracking-and-workflow.md).
 >
 > **Milestones are no longer used.** Sprints live in Jira. The `gh api .../milestones` setup that
@@ -23,7 +23,7 @@ Run once per repository. Requires [GitHub CLI](https://cli.github.com/) authenti
 
 > [!NOTE]
 > **Story points are no longer GitHub labels.** The old `points: 1/2/3/5/8/13` taxonomy is
-> retired — points are set in Jira on the card, on the project's base-5 scale
+> retired, points are set in Jira on the card, on the project's base-5 scale
 > (1, 2, 3, 5, 10, 15, 20, 25, 30). Delete the `points:*` labels if they already exist.
 
 ---
@@ -124,7 +124,7 @@ invisible until it bites.
 - [ ] **Add all five members as org collaborators with write access.** Until this is done,
       reviewers cannot be assigned and `gh pr create --reviewer` fails. This currently blocks §5.2
       of the Git conventions.
-- [ ] **Branch protection on `main` and `dev`** — see
+- [ ] **Branch protection on `main` and `dev`**, see
       [`../01-conventions/07-github-workflow-git-conventions.md`](../01-conventions/07-github-workflow-git-conventions.md) §7.
 - [ ] **Disable "Allow merge commits"** in Settings → General → Pull Requests. Leave
       "Allow rebase merging" and "Allow squash merging" enabled.
