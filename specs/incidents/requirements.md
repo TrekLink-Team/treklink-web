@@ -31,14 +31,14 @@
 | Group | MF | UC | FR | BR | Exception | Story |
 |---|---|---|---|---|---|---|
 | One episode, one Incident | MF-03 | UC-13 | FR-EVT-05 | BR-08 | E03-2, E03-5 | US-057 |
-| Suspected episode | MF-03 | UC-13, UC-42 Dismiss Suspected Episode (new) | FR-EVT-06 | BR-09 | E03-1 | US-088 |
+| Suspected episode | MF-03 | UC-13, UC-46 Dismiss Suspected Episode (new) | FR-EVT-06 | BR-09 | E03-1 | US-088 |
 | FSM and audit | MF-03 | UC-16 | FR-INC-02, FR-INC-04 | BR-10, BR-11 | | US-054, US-059 |
 | Acknowledge | MF-03 | UC-15 | FR-INC-01 (new) | | E03-3 | US-060, US-063 |
 | Update, resolve, close | MF-03 | UC-16 | FR-INC-02 | BR-10 | | US-061, US-062 |
 | Reopen | MF-03 | UC-26 | FR-INC-06 | BR-12 | E03-6 | none |
 | Response note | MF-03 | UC-17 | FR-INC-03 (new) | | | US-063 |
 | Unassigned SOS | MF-03 | UC-13 | FR-INC-05 (new) | | E03-4 | none, gap (C-004) |
-| Manual incident | MF-03 | UC-39 Raise Manual Incident (new) | FR-INC-07 (new) | | | US-064 |
+| Manual incident | MF-03 | UC-47 Raise Manual Incident (new) | FR-INC-07 (new) | | | US-064 |
 | Notification | MF-03 | UC-23 | FR-INC-08 (new) | | E03-7 | US-058 |
 | Metrics | MF-03 | UC-20 | FR-INC-09 (new) | | | US-072 |
 

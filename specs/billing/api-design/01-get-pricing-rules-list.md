@@ -15,7 +15,7 @@ All pricing rules with scope, channel, tier and validity, for the Admin pricing 
 | ---------- | --------------- |
 | GET | /api/pricing-rules |
 | Permission | Admin, Operator (read) |
-| Traces | US-067, UC-40 (new), FR-BILL-03 (new), BR-23 |
+| Traces | US-067, UC-50 (new), FR-BILL-03 (new), BR-23 |
 
 ### Query parameters
 

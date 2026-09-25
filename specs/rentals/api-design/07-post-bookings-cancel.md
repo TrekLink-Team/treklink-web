@@ -15,7 +15,7 @@ Cancels a booking before check-out. `billing` computes the fee: free within `bil
 | ---------- | --------------- |
 | POST | /api/bookings/:id/cancel |
 | Permission | Customer (own); Operator |
-| Traces | UC-37 (new), FR-BOOK-07, BR-03, E01-2, REQ-EVT-08, REQ-ERR-07, Q60 |
+| Traces | UC-29 (new), FR-BOOK-07, BR-03, E01-2, REQ-EVT-08, REQ-ERR-07, Q60 |
 
 ### Path parameters
 

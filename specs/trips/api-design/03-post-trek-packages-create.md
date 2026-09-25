@@ -15,7 +15,7 @@ Creates a package in `DRAFT`. Publishing is `PATCH` with `status: PUBLISHED`. Ac
 | ---------- | --------------- |
 | POST | /api/trek-packages |
 | Permission | Operator |
-| Traces | UC-34 (new), FR-TRIP-02 (new), US-023, Q70, Q50 |
+| Traces | UC-31 (new), FR-TRIP-02 (new), US-023, Q70, Q50 |
 
 ## Request sample
 

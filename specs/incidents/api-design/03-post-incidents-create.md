@@ -15,7 +15,7 @@ Raises an Incident that did not come from a device SOS, for example a Guide phon
 | ---------- | --------------- |
 | POST | /api/incidents |
 | Permission | Operator |
-| Traces | UC-39 (new), FR-INC-07 (new), US-064, REQ-EVT-10 |
+| Traces | UC-47 (new), FR-INC-07 (new), US-064, REQ-EVT-10 |
 
 ## Request sample
 

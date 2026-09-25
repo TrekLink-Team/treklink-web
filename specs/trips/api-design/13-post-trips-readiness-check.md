@@ -15,7 +15,7 @@ The Guide ticks the checklist defined by `trips.readinessChecklist`. The result 
 | ---------- | --------------- |
 | POST | /api/trips/:id/readiness-checks |
 | Permission | Guide assigned to the trip |
-| Traces | UC-36 (new), FR-TRIP-06 (new), REQ-EVT-08, REQ-STA-04, Q73 |
+| Traces | UC-37 (new), FR-TRIP-06 (new), REQ-EVT-08, REQ-STA-04, Q73 |
 
 ### Path parameters
 

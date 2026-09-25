@@ -15,7 +15,7 @@ Records that a unit was provisioned with the fleet channel key at a given versio
 | ---------- | --------------- |
 | POST | /api/devices/:id/provisioning |
 | Permission | Operator |
-| Traces | D-021, UC-31 (new), FR-DEV-06 (new), REQ-EVT-11, REQ-UBI-06, Q51 |
+| Traces | D-021, UC-39 (new), FR-DEV-06 (new), REQ-EVT-11, REQ-UBI-06, Q51 |
 
 ### Path parameters
 

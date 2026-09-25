@@ -15,7 +15,7 @@ Waives all or part of one fee line. At or below `billing.waiverApprovalThreshold
 | ---------- | --------------- |
 | POST | /api/fee-waivers |
 | Permission | Operator |
-| Traces | UC-41 (new), FR-BILL-08, BR-21, E05-7, REQ-EVT-11 |
+| Traces | UC-44 (new), FR-BILL-08, BR-21, E05-7, REQ-EVT-11 |
 
 ## Request sample
 
