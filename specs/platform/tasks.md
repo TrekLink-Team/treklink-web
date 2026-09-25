@@ -18,7 +18,7 @@
   - Includes `CREATE EXTENSION btree_gist` and the `device_allocations` exclusion constraint (rentals design)
   - Includes the `raise_append_only()` trigger function and its triggers on every append-only table
   - _Requirements: REQ-UBI-07, design §3.3, D-001_
-- [ ] 1.6 Seed migration for the parameter registry defaults and the system roles and permissions (`auth` design §3)
+- [x] 1.6 Seed migration for the parameter registry defaults and the system roles and permissions (`auth` design §3)
   - _Requirements: REQ-UBI-06, US-001_
 - [ ] 1.7 `common/errors`: `ErrorCode` enum, `DomainException`, cross-cutting codes of design §4.2
   - _Requirements: REQ-UBI-04_
