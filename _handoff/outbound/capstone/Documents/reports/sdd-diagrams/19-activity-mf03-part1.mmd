@@ -1,0 +1,21 @@
+swimlane-beta TB
+    subgraph device["TrekLink Device"]
+        d1((SOS: position and<br/>text frame, then<br/>beacons 5 s, 30 s))
+    end
+    subgraph gateway["Gateway"]
+        w1[Tag P0,<br/>deliver first]
+    end
+    subgraph cloud["Cloud Backend"]
+        b1{Text frame, or<br/>beacon cadence?}
+        b3((Routine,<br/>no Incident))
+        b4{Incident in<br/>window?}
+        b5[Create DETECTED]
+        b6[Append; reopen<br/>if RESOLVED]
+        b7((To part 2))
+    end
+    d1 --> w1 --> b1
+    b1 -->|neither| b3
+    b1 -->|"text: CONFIRMED"| b4
+    b1 -->|"cadence: SUSPECTED"| b4
+    b4 -->|no| b5 --> b7
+    b4 -->|yes| b6 --> b7

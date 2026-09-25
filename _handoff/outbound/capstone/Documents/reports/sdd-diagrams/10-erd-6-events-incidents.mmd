@@ -1,0 +1,51 @@
+erDiagram
+    direction LR
+    DEVICE {
+        uuid id PK
+    }
+    GATEWAY {
+        uuid id PK
+        string gatewayKey UK
+        datetime lastPacketAt
+    }
+    GATEWAY_EVENT {
+        uuid id PK
+        string eventId UK
+        uuid deviceId FK
+        enum kind
+        enum priority
+        datetime receivedAt
+        uuid incidentId FK
+    }
+    SYNC_AUDIT_LOG {
+        uuid id PK
+        string eventId
+        enum outcome
+    }
+    DEVICE_QUEUE_REPORT {
+        uuid id PK
+        uuid deviceId FK
+        json depthByTier
+    }
+    INCIDENT {
+        uuid id PK
+        uuid deviceId FK
+        uuid openedByEventId FK
+        enum confidence
+        enum status
+        datetime lastEventAt
+        int version
+    }
+    INCIDENT_AUDIT {
+        uuid id PK
+        uuid incidentId FK
+        enum action
+        uuid actorId FK
+    }
+    GATEWAY ||--o{ GATEWAY_EVENT : "delivered"
+    DEVICE ||--o{ GATEWAY_EVENT : "emits"
+    DEVICE ||--o{ DEVICE_QUEUE_REPORT : "reports"
+    GATEWAY_EVENT ||--o{ SYNC_AUDIT_LOG : "logged as"
+    DEVICE ||--o{ INCIDENT : "raises"
+    INCIDENT ||--o{ GATEWAY_EVENT : "correlates"
+    INCIDENT ||--|{ INCIDENT_AUDIT : "transitions"

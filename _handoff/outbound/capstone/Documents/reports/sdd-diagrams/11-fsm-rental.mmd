@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> DRAFT: booking confirmed, or direct provisioning
+    DRAFT --> READY: agreement signed [all items allocated]
+    READY --> DRAFT: item replaced before check-out
+    READY --> CHECKED_OUT: check-out [every device eligible]
+    CHECKED_OUT --> OVERDUE: due plus grace passed [items out]
+    CHECKED_OUT --> RETURNED: last item checked in or lost
+    OVERDUE --> RETURNED: last item checked in or lost
+    RETURNED --> CLOSED: close [settlement balance zero]
+    DRAFT --> CANCELLED: cancel
+    READY --> CANCELLED: cancel
+    CLOSED --> [*]
+    CANCELLED --> [*]
