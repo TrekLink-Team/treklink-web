@@ -20,7 +20,7 @@
   - _Requirements: REQ-UBI-07, design §3.3, D-001_
 - [x] 1.6 Seed migration for the parameter registry defaults and the system roles and permissions (`auth` design §3)
   - _Requirements: REQ-UBI-06, US-001_
-- [ ] 1.7 `common/errors`: `ErrorCode` enum, `DomainException`, cross-cutting codes of design §4.2
+- [x] 1.7 `common/errors`: `ErrorCode` enum, `DomainException`, cross-cutting codes of design §4.2
   - _Requirements: REQ-UBI-04_
 - [ ] 1.8 Shared `PagedQueryDto` and `PagedResult<T>`, bounds from `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE`
   - _Requirements: REQ-UBI-03_
