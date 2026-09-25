@@ -14,7 +14,7 @@
   - _Requirements: REQ-STA-01, REQ-OPT-02, AC-05, D-010_
 - [x] 1.4 Prisma models `AuditLog`, `BusinessParameter`, `BusinessParameterHistory`, enum `ParameterType`
   - _Requirements: design §4.4, §4.5_
-- [ ] 1.5 Write the **initial migration** from the approved system ERD (design Figures 5 to 8), covering every module's tables, so the schema lands once and in dependency order
+- [x] 1.5 Write the **initial migration** from the approved system ERD (design Figures 5 to 8), covering every module's tables, so the schema lands once and in dependency order
   - Includes `CREATE EXTENSION btree_gist` and the `device_allocations` exclusion constraint (rentals design)
   - Includes the `raise_append_only()` trigger function and its triggers on every append-only table
   - _Requirements: REQ-UBI-07, design §3.3, D-001_
