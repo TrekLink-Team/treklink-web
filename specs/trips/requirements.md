@@ -29,12 +29,12 @@
 | Group | MF | UC | FR | BR | Exception | Story |
 |---|---|---|---|---|---|---|
 | Browse packages and open trips | MF-01 | UC-01 | FR-TRIP-01 (new) | | | US-024 |
-| Manage packages | MF-01 | UC-34 Manage Trek Packages (new) | FR-TRIP-02 (new) | | | US-023 |
-| Schedule, reschedule, cancel trips | MF-01 | UC-35 Schedule Trip (new) | FR-TRIP-03 (new) | | E01-2 (cascade) | none, gap (C-004) |
-| Trip lifecycle | MF-01, MF-04 | UC-35 | FR-TRIP-04 (new) | | | none, gap |
+| Manage packages | MF-01 | UC-31 Manage Trek Packages (new) | FR-TRIP-02 (new) | | | US-023 |
+| Schedule, reschedule, cancel trips | MF-01 | UC-32 Schedule Trip (new) | FR-TRIP-03 (new) | | E01-2 (cascade) | none, gap (C-004) |
+| Trip lifecycle | MF-01, MF-04 | UC-32 | FR-TRIP-04 (new) | | | none, gap |
 | Assign Guide | MF-01 | UC-06 | FR-BOOK-04, FR-TRIP-05 (new) | BR-02 | E01-4 | US-029 |
 | Guide view of own trips | MF-01, MF-04 | UC-14 | FR-AUTH-03 | BR-13 | E04-5 | US-037 |
-| Readiness checklist | MF-01 | UC-36 Complete Readiness Checklist (new) | FR-TRIP-06 (new) | | | none, gap |
+| Readiness checklist | MF-01 | UC-37 Complete Readiness Checklist (new) | FR-TRIP-06 (new) | | | none, gap |
 | Participants | MF-01, MF-04 | | FR-TRIP-07 (new) | | | US-040 |
 
 ---

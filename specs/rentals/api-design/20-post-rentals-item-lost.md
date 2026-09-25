@@ -15,7 +15,7 @@ Confirms an unreturned device lost. The item becomes `LOST`, the device is retir
 | ---------- | --------------- |
 | POST | /api/rentals/:id/items/:itemId/lost |
 | Permission | Operator |
-| Traces | UC-33, FR-DEV-09, BR-22, E05-3, REQ-EVT-20, REQ-STA-02 |
+| Traces | UC-42, FR-DEV-09, BR-22, E05-3, REQ-EVT-20, REQ-STA-02 |
 
 ### Path parameters
 

@@ -15,7 +15,7 @@ The Guide checks one device by hand: battery percentage read from the device, GP
 | ---------- | --------------- |
 | POST | /api/rentals/:id/items/:itemId/handover |
 | Permission | Custodian Guide of the rental |
-| Traces | UC-38 (new), FR-RENT-04 (new), US-033, BR-04, E01-3, REQ-EVT-15, REQ-ERR-09, Q52 |
+| Traces | UC-37 (new), FR-RENT-04 (new), US-033, BR-04, E01-3, REQ-EVT-15, REQ-ERR-09, Q52 |
 
 ### Path parameters
 

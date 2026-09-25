@@ -31,14 +31,14 @@
 | Submit booking | MF-01 | UC-02 | FR-BOOK-01 (new) | | | US-025 |
 | Reserve device, hold | MF-01 | UC-03, UC-22 | FR-BOOK-02 | BR-01 | E01-1, E01-5 | US-026 |
 | Confirm or reject booking | MF-01 | UC-04 | FR-BOOK-04 | BR-02 | E01-4 | US-027 |
-| Cancel booking | MF-01 | UC-37 Cancel Booking (new) | FR-BOOK-07 | BR-03 | E01-2 | none, gap (C-004) |
+| Cancel booking | MF-01 | UC-29 Cancel Booking (new) | FR-BOOK-07 | BR-03 | E01-2 | none, gap (C-004) |
 | Allocate device | MF-01 | UC-05 | FR-RENT-01 (new) | BR-01 | E01-3 | US-028 |
 | Rental agreement | MF-01 | UC-07 | FR-RENT-02 (new) | | | US-030 |
 | Check out | MF-01 | UC-08 | FR-RENT-03 (new), FR-DEV-05 | BR-04 | | US-032 |
-| Handover check | MF-01 | UC-38 Confirm Device Handover (new) | FR-RENT-04 (new) | BR-04 | E01-3 | US-033 |
+| Handover check | MF-01 | UC-37 Confirm Device Handover (new) | FR-RENT-04 (new) | BR-04 | E01-3 | US-033 |
 | Check in | MF-05 | UC-09 | FR-RENT-05 (new) | | E05-1 | US-034 |
 | Inspect | MF-05 | UC-10 | FR-RENT-06 (new) | | E05-2, E05-6 | US-019 (devices) |
-| Loss | MF-05 | UC-33 | FR-DEV-09 | BR-22 | E05-3 | US-020 (devices) |
+| Loss | MF-05 | UC-42 | FR-DEV-09 | BR-22 | E05-3 | US-020 (devices) |
 | Close | MF-05 | UC-11, UC-12 | FR-BILL-05 | BR-19 | E05-4 | US-031, US-039 |
 
 ---

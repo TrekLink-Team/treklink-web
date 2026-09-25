@@ -116,6 +116,8 @@
 | `JWT_REFRESH_TTL` | `7d` | env | no |
 | `BCRYPT_COST` | 12 | env | no |
 | `MAIL_TRANSPORT` | `console` in dev, `smtp` otherwise | env | no |
+| `MAIL_FROM` | `treklink.team@gmail.com`, the team's sending account for demo and shared environments | env | no |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Gmail SMTP for `treklink.team@gmail.com`; the password is an app password held in the deployment secrets, never committed | env | no |
 | `AUTH_GOOGLE_ENABLED` | `false` | env | no |
 | `auth.passwordMinLength` | 8 | DB | yes |
 | `auth.loginMaxFailures` | 5 | DB | yes |

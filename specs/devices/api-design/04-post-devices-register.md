@@ -15,7 +15,7 @@ Registers a physical unit. It starts in `AVAILABLE` with a first history row. `n
 | ---------- | --------------- |
 | POST | /api/devices |
 | Permission | Operator, Admin |
-| Traces | US-012, UC-30 (new), FR-DEV-03 (new), REQ-EVT-01, REQ-EVT-02, REQ-UBI-04, Q49, Q50 |
+| Traces | US-012, UC-38 (new), FR-DEV-03 (new), REQ-EVT-01, REQ-EVT-02, REQ-UBI-04, Q49, Q50 |
 
 ## Request sample
 

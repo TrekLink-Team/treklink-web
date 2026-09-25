@@ -15,7 +15,7 @@ Creates a trip from a published package in `DRAFT`. Optionally links the Guide r
 | ---------- | --------------- |
 | POST | /api/trips |
 | Permission | Operator |
-| Traces | UC-35 (new), FR-TRIP-03 (new), REQ-EVT-01, Q65, Q68 |
+| Traces | UC-32 (new), FR-TRIP-03 (new), REQ-EVT-01, Q65, Q68 |
 
 ## Request sample
 
