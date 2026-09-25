@@ -345,7 +345,9 @@ await this.prisma.$transaction(async (tx) => {
     await tx.gatewayEvent.update({ where: { eventId: event.eventId }, data: { incidentId } });
     await this.retroTagPositions(deviceId, event.receivedAt, tx);               // own rows only
   } else if (event.kind === 'POSITION') {
-    await this.cadence.check(deviceId, event.receivedAt, tx);                   // may call raiseSuspected
+    const hit = await this.incidents.appendBeacon(deviceId, event, tx);         // beacons keep an episode alive
+    if (hit) await tx.gatewayEvent.update({ where: { eventId: event.eventId }, data: { incidentId: hit.incidentId, priority: 'P1' } });
+    else await this.cadence.check(deviceId, event.receivedAt, tx);              // may call raiseSuspected
   }
   await tx.syncAuditLog.create({ data: { ...ctx, outcome: 'ACCEPTED' } });
 });
