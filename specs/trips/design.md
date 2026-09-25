@@ -1,6 +1,6 @@
 # Technical Design: trips
 
-> Fulfills `requirements.md` in this folder. ERD slice: `specs/platform/design.md` Figure 6.
+> Fulfills `requirements.md` in this folder. ERD slice: `specs/platform/design.md` Figure 7.
 
 ---
 
@@ -224,17 +224,17 @@ sequenceDiagram
     participant R as RentalsService
     participant D as DevicesService
     participant M as monitoring
-    G->>T: POST /api/trips/{id}/transitions {toStatus: IN_PROGRESS}
-    T->>DB: SELECT trip FOR UPDATE, latest readiness check
+    G->>T: POST .../transitions IN_PROGRESS
+    T->>DB: lock trip, latest readiness
     alt no PASS check
         T-->>G: 409 READINESS_REQUIRED
     end
-    T->>DB: UPDATE status, INSERT trip_status_history, COMMIT
-    T-)R: trip.status.changed IN_PROGRESS
-    T-)M: trip.status.changed IN_PROGRESS
-    R->>R: items CHECKED_OUT on this trip
+    T->>DB: status, history, COMMIT
+    T-)R: trip.status.changed
+    T-)M: trip.status.changed
+    R->>R: checked-out items of trip
     loop each item
-        R->>D: transition(device, IN_FIELD, TRIP_STARTED)
+        R->>D: transition(IN_FIELD)
     end
     T-->>G: 200 trip IN_PROGRESS
 ```
