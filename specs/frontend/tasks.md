@@ -1,6 +1,6 @@
 # Implementation Tasks: frontend
 
-> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: UI tasks of every story; `TK-63`, `TK-64`, `TK-73` (LongNN) per D-023
+> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: UI tasks of every story; `TK-68`, `TK-69`, `TK-78` (LongNN) per D-023
 >
 > Fulfills `design.md`. Phase B is backend first (prompt §2), so these tasks follow each backend module's Phase 4. The order below matches the Main Flow order.
 
