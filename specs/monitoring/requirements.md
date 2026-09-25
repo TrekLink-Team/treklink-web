@@ -1,7 +1,7 @@
 # Requirements Specification: monitoring
 
 **User Story**: As **Staff and Admin**, I want one live operational picture of every active trip, device and incident, and as a **Guide**, I want the same picture for my own trip only, so that a silent device, an offline gateway or a new SOS is visible within seconds and never mistaken for a quiet trail.
-**Story IDs**: US-038, US-053, US-055, US-056, US-058, US-065, US-066 (E5) | **Priority**: High | **Main Flow**: **MF-04** (specified for Review 2, built after MF-03) | **Lanes**: TanNB (Socket.io gateway, read API, `TK-61`, `TK-46`), LongNN (map and monitoring UI, `TK-63`, `TK-64`, `TK-73`), per D-023
+**Story IDs**: US-038, US-053, US-055, US-056, US-058, US-065, US-066 (E5) | **Priority**: High | **Main Flow**: **MF-04** (specified for Review 2, built after MF-03) | **Lanes**: TanNB (Socket.io gateway, read API, `TK-66`, `TK-51`), LongNN (map and monitoring UI, `TK-68`, `TK-69`, `TK-78`), per D-023
 
 > **Authority**: D-012 (Goong over MapLibre, provider in configuration), D-015, D-016, D-023. MF-04 states the rule this module exists for: **role scoping is enforced server-side at the WebSocket emit**; filtering in the browser is not access control (E04-5). The map itself is a frontend concern (`specs/frontend/`); this module supplies the data feed.
 
