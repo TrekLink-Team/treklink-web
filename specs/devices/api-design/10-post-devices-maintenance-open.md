@@ -15,7 +15,7 @@ Opens a maintenance record for a device already in `MAINTENANCE` without one (fo
 | ---------- | --------------- |
 | POST | /api/devices/:id/maintenance |
 | Permission | Operator |
-| Traces | US-018, US-019, UC-32 (new), FR-DEV-07 (new), REQ-ERR-04 |
+| Traces | US-018, US-019, UC-41 (new), FR-DEV-07 (new), REQ-ERR-04 |
 
 ### Path parameters
 
