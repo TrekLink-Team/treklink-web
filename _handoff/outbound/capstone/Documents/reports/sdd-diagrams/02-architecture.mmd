@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph Client["Browser: React SPA, FSD"]
+        UI["Pages, widgets, features"]
+        QC["TanStack Query<br/>server state"]
+        WS["socketClient<br/>live state store"]
+        ML["MapLibre GL"]
+    end
+    subgraph Backend["NestJS modular monolith"]
+        HTTP["REST controllers<br/>JwtAuthGuard + PoliciesGuard"]
+        GWY["Socket.io gateway<br/>monitoring"]
+        MODS["auth · devices · trips · rentals<br/>billing · incidents · gateway-sync"]
+        PLT["platform: envelope, config,<br/>parameters, audit, scheduler"]
+        BUS["EventEmitter2<br/>in-process domain events"]
+        ING["MQTT ingress adapter"]
+    end
+    DB[("PostgreSQL<br/>Neon or local Docker")]
+    BRK["Mosquitto"]
+    GOONG["Goong tiles"]
+    UI --> QC
+    UI --> WS
+    UI --> ML
+    QC -->|"HTTPS REST, JSON envelope"| HTTP
+    WS <-->|"WSS Socket.io, JWT handshake"| GWY
+    ML -->|"HTTPS style.json, tiles"| GOONG
+    HTTP --> MODS
+    MODS --> PLT
+    MODS -->|"Prisma"| DB
+    PLT -->|"Prisma"| DB
+    MODS --> BUS
+    BUS --> GWY
+    BRK -->|"MQTT QoS 1, JSON"| ING
+    ING --> MODS
