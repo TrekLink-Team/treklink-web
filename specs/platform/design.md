@@ -114,6 +114,7 @@ flowchart TB
     MON --> TRIPS
     MON --> INC
     MON --> GWS
+    MON --> RENT
     TRIPS -.->|"trip.status.changed"| RENT
     GWS -.->|"device.position.updated"| MON
     INC -.->|"incident.opened"| MON
