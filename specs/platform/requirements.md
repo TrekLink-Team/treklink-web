@@ -5,7 +5,7 @@
 
 > **Authority**: D-001 (Prisma), D-002 (envelope), D-010 (Neon and local Docker Postgres), D-015 (business parameters are configuration), D-024 (prose). Conventions `04-architecture-conventions.md`, `05-backend-conventions.md`.
 >
-> **Why this spec exists.** The prompt lists eight business modules plus `gateway-sync`. The envelope interceptor, the exception filter, validated env configuration, the Admin-editable parameter store (UC-19) and the audit-log viewer (UC-20) belong to none of them, yet every one of them depends on all five. Writing them into `auth` would make every module import `auth` for reasons unrelated to identity. This spec is **proposed** as a tenth spec folder and a `backend/src/modules/platform/` module; see QUESTION entry C-002.
+> **Why this spec exists.** The prompt lists eight business modules plus `gateway-sync`. The envelope interceptor, the exception filter, validated env configuration, the Admin-editable parameter store (UC-19) and the audit-log viewer (UC-20) belong to none of them, yet every one of them depends on all five. Writing them into `auth` would make every module import `auth` for reasons unrelated to identity. This spec is **proposed** as a tenth spec folder and a `backend/src/modules/platform/` module; see QUESTION entry C-003.
 
 ---
 
@@ -49,7 +49,7 @@ New FR identifiers proposed here (the SRS draft names no `FR-ADM-*` rows yet): *
 - **REQ-UBI-01**: The system SHALL return every HTTP response body in the shape `{ "result", "isSuccess", "statusCode", "message" }` and SHALL NOT add, remove or rename a top-level key. [D-002]
 - **REQ-UBI-02**: The system SHALL set the envelope `statusCode` equal to the HTTP status of the response.
 - **REQ-UBI-03**: The system SHALL return paged collections as `result = { items, pageNumber, pageSize, totalCount, totalPages }`, with `pageNumber` 1-based. [`05-backend-conventions.md` §3.2]
-- **REQ-UBI-04**: The system SHALL identify every business failure with a stable UPPER_SNAKE error code drawn from a single catalogue, and SHALL carry it in the failure envelope as `result = { "errorCode": "<CODE>" }`. *(Proposal: keeps the four-key shape of D-002 while giving the frontend a machine-readable code. The alternative, `result: null` with the code only in `message`, forces string parsing. See QUESTION C-002.)*
+- **REQ-UBI-04**: The system SHALL identify every business failure with a stable UPPER_SNAKE error code drawn from a single catalogue, and SHALL carry it in the failure envelope as `result = { "errorCode": "<CODE>" }`. *(Proposal: keeps the four-key shape of D-002 while giving the frontend a machine-readable code. The alternative, `result: null` with the code only in `message`, forces string parsing. See QUESTION C-003.)*
 - **REQ-UBI-05**: The system SHALL store every timestamp in UTC and SHALL serialise it as ISO 8601 with a `Z` suffix.
 - **REQ-UBI-06**: The system SHALL read no business parameter from a source literal. Each SHALL come from validated environment configuration or from the runtime parameter store. [D-015, NFR-CFG-01]
 - **REQ-UBI-07**: The system SHALL write every entry of the generic audit log append-only. No update or delete path SHALL exist in application code, and the database SHALL reject `UPDATE` and `DELETE` on the table. [NFR-SEC-04]
@@ -133,4 +133,4 @@ Module parameters are listed in each module's own `requirements.md` §4.
 
 ## 6. Open Questions
 
-Carried into QUESTION entry C-002: whether `platform` is accepted as a module, and the failure-envelope `errorCode` placement.
+Carried into QUESTION entry C-003: whether `platform` is accepted as a module, and the failure-envelope `errorCode` placement.

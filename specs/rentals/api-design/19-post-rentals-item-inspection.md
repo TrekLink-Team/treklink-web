@@ -45,7 +45,7 @@ One inspection per returned item: condition, accessories, battery, damage notes,
 | accessoriesComplete | Lanyard, cable, case | bool | yes | `true` |
 | batteryPct | 0 to 100 | int | no | `22` |
 | damageNotes | Required unless GOOD | string | no | `Housing cracked` |
-| evidenceRefs | Uploaded photo references (storage per C-002) | string[] | no | `file-8a1f...` |
+| evidenceRefs | Uploaded photo references (storage per C-003) | string[] | no | `file-8a1f...` |
 | serviceable | Can go back into service now | bool | yes | `false` |
 
 ## Response sample

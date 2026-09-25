@@ -60,12 +60,20 @@ Broker connectivity, ingress adapter status, per-gateway last-packet age and sta
         "deviceId": "0d3f...",
         "assetTag": "TL-0042",
         "buffering": true,
-        "depthByTier": {
-          "P0": 0,
-          "P1": 3,
-          "P2": 11,
-          "P3": 20
-        },
+        "depth": [
+          0,
+          3,
+          11,
+          20
+        ],
+        "shed": [
+          0,
+          0,
+          0,
+          4
+        ],
+        "p0Refused": 0,
+        "rebootDetected": false,
         "reportedAt": "2026-10-10T05:10:00Z"
       }
     ]

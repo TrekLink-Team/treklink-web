@@ -111,7 +111,7 @@ model RentalAgreement {
   version        Int
   status         AgreementStatus
   termsVersion   String
-  generatedPdf   Bytes                              // storage proposal, C-002
+  generatedPdf   Bytes                              // storage proposal, C-003
   generatedSha256 String
   generatedById  String
   generatedAt    DateTime        @default(now())
@@ -145,7 +145,7 @@ model ReturnInspection {
   accessoriesComplete Boolean
   batteryPct          Int?
   damageNotes         String?
-  evidenceRefs        String[]                        // file references, storage per C-002
+  evidenceRefs        String[]                        // file references, storage per C-003
   serviceable         Boolean
   createdAt           DateTime        @default(now())
   @@map("return_inspections")                         // append-only
@@ -182,7 +182,7 @@ stateDiagram-v2
 
 ***Figure 1***: Booking lifecycle, 6 states. A hold expiring does **not** change the booking state; it removes the devices and leaves the booking `PENDING` (E01-1, REQ-EVT-05).
 
-Mapping to Q56's proposal (`start, sent, pending, completed`): `start` is the client-side form before submission and is not persisted; `sent` and `pending` collapse into `PENDING`, with hold and payment tracked on the allocations and `escrowPaidAt`; `completed` is `COMPLETED`. The terminal failure states are added because E01-2 and UC-04 need them. Confirmation requested in C-002.
+Mapping to Q56's proposal (`start, sent, pending, completed`): `start` is the client-side form before submission and is not persisted; `sent` and `pending` collapse into `PENDING`, with hold and payment tracked on the allocations and `escrowPaidAt`; `completed` is `COMPLETED`. The terminal failure states are added because E01-2 and UC-04 need them. Confirmation requested in C-003.
 
 ### 2.2 Rental lifecycle state machine
 
@@ -243,7 +243,7 @@ COMMIT
 |---|---|
 | `BookingsService` | create, reserve, confirm, reject, cancel, hold changes, expiry job |
 | `RentalsService` | create direct, allocate and replace, agreement, check-out, handover, check-in, inspection, loss, settlement hand-off, close, cancel, overdue job |
-| `AgreementService` | PDF render (`pdfkit`, a new dependency flagged in C-002), signature embedding, hashing |
+| `AgreementService` | PDF render (`pdfkit`, a new dependency flagged in C-003), signature embedding, hashing |
 | `RentalsEventsHandler` | `trip.status.changed`, `device.unavailable`, `payment.succeeded` (escrow) |
 
 Exported for other modules: `allocatedDeviceIds(from, to)` (availability), `findActiveAssignmentForDevice(deviceId)` returning `{ rentalId, tripId, custodianGuideId }` (incidents, E03-4), `devicesForTrip(tripId)` (monitoring), `RESCHEDULE_GUARD` implementation (trips).
