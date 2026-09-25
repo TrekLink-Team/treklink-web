@@ -30,13 +30,13 @@
 
 | Group | MF | UC | FR | BR | Exception | Story |
 |---|---|---|---|---|---|---|
-| Variant catalogue | MF-01 | UC-29 Manage Hardware Variants (new) | FR-DEV-02 (new) | | | US-011 |
-| Registration | MF-01 | UC-30 Register Device (new) | FR-DEV-03 (new) | | | US-012 |
+| Variant catalogue | MF-01 | UC-51 Manage Hardware Variants (new) | FR-DEV-02 (new) | | | US-011 |
+| Registration | MF-01 | UC-38 Register Device (new) | FR-DEV-03 (new) | | | US-012 |
 | 7-state FSM, history | MF-01, MF-05 | UC-05, UC-08, UC-09 | FR-DEV-01 | BR-05 | | US-013, US-022 |
 | Battery advisory, handover threshold | MF-01 | UC-08 | FR-DEV-05 | BR-04 | E01-3 | US-017 |
-| PSK provisioning | MF-01 | UC-31 Provision Device (new) | FR-DEV-06 (new) | | | none, gap (C-004) |
-| Maintenance | MF-05 | UC-32 Record Maintenance (new) | FR-DEV-07 (new) | | E05-2, E05-6 | US-018, US-019 |
-| Retirement and loss | MF-05 | UC-33 Retire Device (new) | FR-DEV-09 | BR-22 | E05-3 | US-020 |
+| PSK provisioning | MF-01 | UC-39 Provision Device (new) | FR-DEV-06 (new) | | | none, gap (C-004) |
+| Maintenance | MF-05 | UC-41 Record Maintenance (new) | FR-DEV-07 (new) | | E05-2, E05-6 | US-018, US-019 |
+| Retirement and loss | MF-05 | UC-42 Retire Device (new) | FR-DEV-09 | BR-22 | E05-3 | US-020 |
 | Fleet views | MF-04 | UC-14 | FR-DEV-08 (new) | | | US-015, US-016, US-021 |
 
 ---

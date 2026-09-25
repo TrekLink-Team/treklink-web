@@ -40,14 +40,14 @@ MF-05 spans three modules. This table is where the flow's steps are traced, so n
 
 | Group | MF | UC | FR | BR | Exception | Story |
 |---|---|---|---|---|---|---|
-| Pricing rules and deposits | MF-01, MF-05 | UC-40 Manage Pricing Rules (new) | FR-BILL-03 (new) | BR-23 | | US-067 |
+| Pricing rules and deposits | MF-01, MF-05 | UC-50 Manage Pricing Rules (new) | FR-BILL-03 (new) | BR-23 | | US-067 |
 | Quote and escrow | MF-01 | UC-02 | FR-BILL-04 (new) | | | US-031 |
-| Cancellation fee | MF-01 | UC-37 | FR-BOOK-07 | BR-03 | E01-2 | none |
+| Cancellation fee | MF-01 | UC-29 | FR-BOOK-07 | BR-03 | E01-2 | none |
 | Charge calculation | MF-05 | UC-11 | FR-BILL-01 | BR-17 | | US-068 |
 | Late fee | MF-05 | UC-24 | FR-BILL-02 | BR-18 | E05-1 | US-035 |
 | Damage and loss fee | MF-05 | UC-25 | FR-BILL-06 | BR-20 | E05-2, E05-3, E05-5 | US-036 |
 | Payment | MF-05 | UC-12 | FR-BILL-05 | BR-19 | E05-4 | US-069 |
-| Fee waiver | MF-05 | UC-41 Approve Fee Waiver (new) | FR-BILL-08 | BR-21 | E05-7 | none |
+| Fee waiver | MF-05 | UC-44 Approve Fee Waiver (new) | FR-BILL-08 | BR-21 | E05-7 | none |
 | Invoice view | MF-05 | UC-12 | FR-BILL-07 (new) | | | US-070 |
 
 ---

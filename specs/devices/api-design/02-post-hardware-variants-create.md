@@ -15,7 +15,7 @@ Adds a variant to the catalogue. The four known variants are seeded; this exists
 | ---------- | --------------- |
 | POST | /api/hardware-variants |
 | Permission | Admin |
-| Traces | US-011, UC-29 (new), FR-DEV-02 |
+| Traces | US-011, UC-51 (new), FR-DEV-02 |
 
 ## Request sample
 

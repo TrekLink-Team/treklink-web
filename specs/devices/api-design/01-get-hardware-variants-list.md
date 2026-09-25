@@ -15,7 +15,7 @@ Lists the hardware-variant catalogue with capability flags and device counts. Us
 | ---------- | --------------- |
 | GET | /api/hardware-variants |
 | Permission | Admin, Operator, Guide |
-| Traces | US-011, UC-29 (new), FR-DEV-02 (new) |
+| Traces | US-011, UC-51 (new), FR-DEV-02 (new) |
 
 ### Query parameters
 

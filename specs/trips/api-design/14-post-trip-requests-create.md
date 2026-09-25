@@ -15,7 +15,7 @@ A Guide asks Staff to schedule a trip, for example for a group that contacted th
 | ---------- | --------------- |
 | POST | /api/trip-requests |
 | Permission | Guide |
-| Traces | UC-35, REQ-EVT-02, Q65 |
+| Traces | UC-32, REQ-EVT-02, Q65 |
 
 ## Request sample
 
