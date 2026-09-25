@@ -10,7 +10,7 @@
   - _Requirements: NFR table, `02-spec-driven-development-workflow.md` Phase 5_
 - [x] 1.2 `EnvironmentVariables` class plus `validate()` for `ConfigModule.forRoot`; fail fast naming each bad variable
   - _Requirements: REQ-EVT-01, AC-04_
-- [ ] 1.3 Datasource: `url = env("DATABASE_URL")`, `directUrl = env("DATABASE_DIRECT_URL")`; document Neon versus Docker selection in `.env.example`
+- [x] 1.3 Datasource: `url = env("DATABASE_URL")`, `directUrl = env("DATABASE_DIRECT_URL")`; document Neon versus Docker selection in `.env.example`
   - _Requirements: REQ-STA-01, REQ-OPT-02, AC-05, D-010_
 - [ ] 1.4 Prisma models `AuditLog`, `BusinessParameter`, `BusinessParameterHistory`, enum `ParameterType`
   - _Requirements: design §4.4, §4.5_

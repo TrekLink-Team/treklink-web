@@ -83,6 +83,7 @@ New FR identifiers proposed here (the SRS draft names no `FR-ADM-*` rows yet): *
 
 - **REQ-OPT-01**: WHERE `SWAGGER_ENABLED` is true, the system SHALL serve OpenAPI documentation at `/api/docs`, documenting the envelope on every operation.
 - **REQ-OPT-02**: WHERE `DATABASE_DIRECT_URL` is set, Prisma migrations SHALL use it, so that Neon's pooled connection string serves the application and the direct string serves `prisma migrate`.
+  - *Tooling note (verified 2026-09-25, Prisma 6.19.3)*: with `directUrl = env("DATABASE_DIRECT_URL")` in the datasource, every Prisma CLI command except `prisma generate` fails with `P1012 Environment variable not found` when the variable is unset. The backend runtime does not read it. `.env.example` therefore sets it equal to `DATABASE_URL` for local Docker Postgres. Whether the requirement should read "SHALL be set" is raised with the leader on the platform Phase 1 PR.
 
 ---
 
