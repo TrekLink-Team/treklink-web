@@ -9,38 +9,33 @@
 See **Figure 1**. It is the Level-0 view the Review 2 template asks for: the platform as one process, every external actor and system around it, and the data each flow carries.
 
 ```mermaid
-flowchart LR
+flowchart TB
     CUS["Customer"]
-    STF["Staff: Operator"]
+    STF["Operator"]
     GUI["Guide"]
     ADM["Admin"]
-    DEV["TrekLink Device<br/>LoRa mesh node"]
-    GWB["Gateway Bridge<br/>basecamp, Stage C"]
-    BRK["MQTT Broker<br/>Mosquitto"]
-    MAP["Goong Maps"]
-    PAY["Sandbox Payment"]
-    MAIL["Email service"]
     SYS(("TrekLink<br/>Operations<br/>Platform"))
-    CUS -->|"booking, reservation,<br/>payment request"| SYS
-    SYS -->|"quote, confirmation,<br/>invoice, history"| CUS
-    STF -->|"confirm, allocate, check-out,<br/>check-in, inspect, acknowledge"| SYS
-    SYS -->|"queues, live map,<br/>incident alerts"| STF
-    GUI -->|"handover check, readiness,<br/>acknowledge, response note"| SYS
-    SYS -->|"own trips, own devices,<br/>incident alerts"| GUI
-    ADM -->|"users, roles,<br/>parameters, pricing"| SYS
-    SYS -->|"audit log, health,<br/>reports"| ADM
-    DEV -->|"SOS, position, telemetry,<br/>queue health"| BRK
-    DEV -.->|"serial or BLE frames"| GWB
-    GWB -.->|"buffered events"| BRK
-    BRK -->|"JSON envelopes"| SYS
-    SYS -->|"style and tile requests<br/>via browser"| MAP
-    SYS -->|"charge, refund"| PAY
-    PAY -->|"result"| SYS
-    SYS -->|"OTP, reset code"| MAIL
+    BRK["MQTT Broker"]
+    DEV["TrekLink Device"]
+    GWB["Gateway Bridge<br/>Stage C"]
+    MAP["Goong Maps"]
+    PAY["Sandbox<br/>Payment"]
+    MAIL["Email<br/>service"]
+    CUS <-->|"booking, payment<br/>/ quote, invoice"| SYS
+    STF <-->|"operations<br/>/ queues, alerts"| SYS
+    GUI <-->|"checks, notes<br/>/ own trip, alerts"| SYS
+    ADM <-->|"users, config<br/>/ audit, health"| SYS
+    DEV -->|"SOS, position,<br/>telemetry"| BRK
+    DEV -.->|"serial, BLE"| GWB
+    GWB -.->|"buffered<br/>events"| BRK
+    BRK -->|"JSON<br/>envelopes"| SYS
+    SYS -->|"map config<br/>to browser"| MAP
+    SYS <-->|"charge<br/>/ result"| PAY
+    SYS -->|"OTP"| MAIL
     style SYS stroke-width:3px
 ```
 
-***Figure 1***: Context diagram. One process, four human actors, the field hardware, and four external systems. Dashed edges are the Stage C basecamp path (D-018, D-020), which is specified and deferred. Map traffic goes from the browser to Goong directly; the platform only supplies configuration.
+***Figure 1***: Context diagram. One process, four human actors, the field hardware, and four external systems. On two-way edges the label reads *inbound / outbound*. Dashed edges are the Stage C basecamp path (D-018, D-020), which is specified and deferred. Map traffic goes from the browser to Goong directly; the platform only supplies configuration.
 
 Differences from `06-requirements-foundation.md` Figure 1, stated so the two are reconciled rather than left to drift: the MQTT broker is drawn as its own external system (it is operated infrastructure, not platform code), and "Notification channel" is narrowed to **Email service**, because email OTP is the only outbound channel the MF-01 answers require (Q31, Q35). Incident alerts travel over the platform's own WebSocket. A REQUEST entry proposes the same edit to the SSOT figure.
 
@@ -179,40 +174,37 @@ erDiagram
     RENTAL ||--o{ INVOICE : "billed by"
 ```
 
-***Figure 4***: Core ERD, eight central entities. Full attribute lists follow in Figures 5 to 8.
+***Figure 4***: Core ERD, eight central entities. Keys and defining attributes follow in Figures 5 to 10.
 
 ### 3.2 System-wide ERD
 
-Split into four figures so every label stays above the 7 pt floor (`13-diagram-and-figure-conventions.md` §7: lane and entity count drive width). Primary keys are UUID `id`; every entity also carries `createdAt` and, where mutable, `updatedAt`, omitted from the figures for legibility.
+Split into six figures so every label stays above the 7 pt floor (`13-diagram-and-figure-conventions.md` §7: entity count and attribute rows drive size). Each entity shows its keys and the attributes that define it; the complete column list of every model is the Prisma block in the owning module's `design.md` §1. Every entity also carries `createdAt` and, where mutable, `updatedAt`.
 
-See **Figure 5**, identity and administration.
+See **Figure 5**, identity and roles.
 
 ```mermaid
 erDiagram
+    direction LR
     USER {
         uuid id PK
         string username UK
         string email UK "nullable"
-        string phoneNumber "nullable"
-        string fullName
-        string passwordHash "nullable, OAuth-only accounts"
-        enum accountType "CUSTOMER or STAFF"
+        enum accountType
         bool isActive
-        datetime emailVerifiedAt "nullable"
-        datetime deletedAt "soft delete"
-        uuid createdById FK "nullable, provisioned accounts"
+        datetime deletedAt
     }
     ROLE {
         uuid id PK
-        string key UK "ADMIN, OPERATOR, GUIDE, CUSTOMER"
-        string name
+        string key UK
+        enum accountType
         bool isSystem
     }
     PERMISSION {
         uuid id PK
+        string key UK
         string action
         string subject
-        json conditions "nullable, CASL conditions"
+        json conditions
     }
     USER_ROLE {
         uuid userId FK
@@ -222,159 +214,154 @@ erDiagram
         uuid roleId FK
         uuid permissionId FK
     }
+    GUIDE_PROFILE {
+        uuid userId PK
+        string skills
+    }
+    USER ||--o{ USER_ROLE : "holds"
+    ROLE ||--o{ USER_ROLE : "granted as"
+    ROLE ||--o{ ROLE_PERMISSION : "allows"
+    PERMISSION ||--o{ ROLE_PERMISSION : "in"
+    USER ||--o| GUIDE_PROFILE : "has"
+```
+
+***Figure 5***: System ERD part 1 of 6, identity and roles. Roles and permissions are rows (US-001), so a new Staff sub-role such as Manager is data, not code (Q33). Owner: `auth`.
+
+See **Figure 6**, sessions and administration.
+
+```mermaid
+erDiagram
+    direction LR
+    USER {
+        uuid id PK
+        string username UK
+    }
     REFRESH_TOKEN {
         uuid id PK
         uuid userId FK
         uuid familyId
         string tokenHash UK
-        datetime expiresAt
-        datetime revokedAt "nullable"
-        uuid replacedById "nullable"
+        datetime revokedAt
     }
     ONE_TIME_CODE {
         uuid id PK
         uuid userId FK
-        enum purpose "VERIFY_EMAIL, PASSWORD_RESET"
+        enum purpose
         string codeHash
-        int attempts
         datetime expiresAt
-        datetime consumedAt "nullable"
     }
     AUDIT_LOG {
         uuid id PK
-        uuid actorId "nullable, system"
+        uuid actorId FK
         string action
         string subjectType
         string subjectId
-        json before
-        json after
-        string requestId
     }
     BUSINESS_PARAMETER {
         string key PK
         json value
-        enum valueType
-        json bounds
-        string unit
-        string ownerModule
         int version
     }
-    BUSINESS_PARAMETER_HISTORY {
+    PARAMETER_HISTORY {
         uuid id PK
         string key FK
-        json previousValue
-        json newValue
         uuid changedById FK
     }
-    USER ||--o{ USER_ROLE : "holds"
-    ROLE ||--o{ USER_ROLE : "granted to"
-    ROLE ||--o{ ROLE_PERMISSION : "allows"
-    PERMISSION ||--o{ ROLE_PERMISSION : "part of"
     USER ||--o{ REFRESH_TOKEN : "owns"
     USER ||--o{ ONE_TIME_CODE : "receives"
     USER |o--o{ AUDIT_LOG : "acts in"
-    BUSINESS_PARAMETER ||--o{ BUSINESS_PARAMETER_HISTORY : "changed by"
+    BUSINESS_PARAMETER ||--o{ PARAMETER_HISTORY : "changed in"
+    USER ||--o{ PARAMETER_HISTORY : "changes"
 ```
 
-***Figure 5***: System ERD part 1 of 4, identity and administration. Roles and permissions are data (US-001), so a new Staff sub-role such as Manager is a row, not a code change (Q33).
+***Figure 6***: System ERD part 2 of 6, sessions, one-time codes, the generic audit log and runtime business parameters. Owners: `auth` (tokens, codes), `platform` (audit, parameters).
 
-See **Figure 6**, fleet, trips, bookings and rentals.
+See **Figure 7**, fleet and trips.
 
 ```mermaid
 erDiagram
+    direction LR
     HARDWARE_VARIANT {
         uuid id PK
-        string code UK "treklink-v1..v4"
+        string code UK
         bool mqttCapable
-        bool isActive
     }
     DEVICE {
         uuid id PK
-        string assetTag UK "TL-0042"
+        string assetTag UK
         uuid hardwareVariantId FK
-        bigint nodeNum UK "uint32, nullable"
-        string macAddress UK "nullable"
-        string firmwareVersion
-        enum status "7-state FSM"
-        int batteryPct "projection"
-        datetime lastSeenAt "projection"
-        float lastLatitude "projection"
-        float lastLongitude "projection"
-        bool buffering "projection"
-        int pskVersion "nullable, never the key"
+        bigint nodeNum UK
+        enum status
+        int pskVersion
     }
     DEVICE_STATUS_HISTORY {
         uuid id PK
         uuid deviceId FK
-        enum fromStatus
         enum toStatus
-        uuid actorId "nullable, system"
         string reason
-        string refType
-        uuid refId
     }
     MAINTENANCE_RECORD {
         uuid id PK
         uuid deviceId FK
-        enum reason
         enum status
-        uuid sourceInspectionId "nullable"
-        uuid openedById FK
-        uuid closedById FK
     }
     TREK_PACKAGE {
         uuid id PK
         string code UK
-        string name
-        int durationDays
-        int minGroupSize
-        int maxGroupSize
-        enum status "DRAFT, PUBLISHED, ARCHIVED"
+        enum status
     }
     TRIP {
         uuid id PK
-        string code UK
         uuid packageId FK
         datetime startAt
         datetime endAt
         int capacity
-        int requiredGuideCount
-        enum status "8-state FSM"
+        enum status
     }
     TRIP_GUIDE_ASSIGNMENT {
         uuid tripId FK
         uuid guideId FK
-        enum role "LEAD, ASSISTANT"
-        datetime unassignedAt "nullable"
+        enum role
+    }
+    HARDWARE_VARIANT ||--o{ DEVICE : "classifies"
+    DEVICE ||--o{ DEVICE_STATUS_HISTORY : "audited in"
+    DEVICE ||--o{ MAINTENANCE_RECORD : "serviced in"
+    TREK_PACKAGE ||--o{ TRIP : "scheduled as"
+    TRIP ||--o{ TRIP_GUIDE_ASSIGNMENT : "staffed by"
+```
+
+***Figure 7***: System ERD part 3 of 6, device fleet and trips. `DEVICE.nodeNum` is `bigint` because a Meshtastic node number is an unsigned 32-bit value. Owners: `devices`, `trips`.
+
+See **Figure 8**, bookings and rentals.
+
+```mermaid
+erDiagram
+    direction LR
+    TRIP {
+        uuid id PK
+    }
+    DEVICE {
+        uuid id PK
     }
     BOOKING {
         uuid id PK
-        string code UK
         uuid tripId FK
-        uuid customerId FK "nullable"
-        uuid createdById FK
-        enum channel "CUSTOMER, GUIDE, STAFF"
-        int groupSize
-        enum status "7-state FSM"
-        datetime holdExpiresAt "nullable"
+        uuid customerId FK
+        enum channel
+        enum status
     }
     DEVICE_ALLOCATION {
         uuid id PK
         uuid deviceId FK
-        uuid bookingId FK "nullable"
-        uuid rentalItemId FK "nullable"
-        tstzrange window "exclusion, per device"
-        enum status "HELD, CONFIRMED, CHECKED_OUT, ENDED, RELEASED"
-        datetime holdExpiresAt "nullable"
+        uuid bookingId FK
+        tstzrange window
+        enum status
     }
     RENTAL {
         uuid id PK
-        string code UK
-        uuid bookingId FK "nullable, Q55"
-        uuid tripId FK "nullable"
-        uuid renterId FK "nullable"
-        uuid custodianGuideId FK "nullable"
-        enum status "7-state FSM"
+        uuid bookingId FK
+        uuid custodianGuideId FK
+        enum status
         datetime dueAt
     }
     RENTAL_ITEM {
@@ -382,186 +369,144 @@ erDiagram
         uuid rentalId FK
         uuid deviceId FK
         enum state
-        datetime checkedOutAt
-        datetime returnedAt
     }
     RENTAL_AGREEMENT {
         uuid id PK
         uuid rentalId FK
         int version
-        string pdfSha256
-        datetime signedAt
+        string signedSha256
     }
     RETURN_INSPECTION {
         uuid id PK
         uuid rentalItemId FK
         enum condition
         bool serviceable
-        uuid inspectorId FK
     }
-    HARDWARE_VARIANT ||--o{ DEVICE : "classifies"
-    DEVICE ||--o{ DEVICE_STATUS_HISTORY : "audited by"
-    DEVICE ||--o{ MAINTENANCE_RECORD : "serviced in"
-    TREK_PACKAGE ||--o{ TRIP : "scheduled as"
-    TRIP ||--o{ TRIP_GUIDE_ASSIGNMENT : "staffed by"
     TRIP ||--o{ BOOKING : "receives"
     BOOKING ||--o{ DEVICE_ALLOCATION : "holds"
     DEVICE ||--o{ DEVICE_ALLOCATION : "booked in"
     BOOKING |o--o| RENTAL : "fulfilled by"
     RENTAL ||--|{ RENTAL_ITEM : "contains"
-    RENTAL_ITEM |o--o| DEVICE_ALLOCATION : "consumes"
     DEVICE ||--o{ RENTAL_ITEM : "rented as"
     RENTAL ||--o{ RENTAL_AGREEMENT : "documented by"
     RENTAL_ITEM ||--o| RETURN_INSPECTION : "inspected in"
 ```
 
-***Figure 6***: System ERD part 2 of 4, fleet, trips, bookings and rentals. `DEVICE_ALLOCATION.window` carries a Postgres exclusion constraint so no device is ever double-allocated for overlapping time, which is BR-01 enforced by the database rather than only by application code.
+***Figure 8***: System ERD part 4 of 6, bookings and rentals. `DEVICE_ALLOCATION.window` carries a Postgres exclusion constraint so no device is ever allocated twice for overlapping time: BR-01 enforced by the database, not only by application code. `TRIP` and `DEVICE` appear as key-only stubs. Owner: `rentals`.
 
-See **Figure 7**, billing.
+See **Figure 9**, billing.
 
 ```mermaid
 erDiagram
+    direction LR
     PRICING_RULE {
         uuid id PK
-        enum scope "GLOBAL, PACKAGE, VARIANT"
-        uuid packageId FK "nullable"
-        uuid hardwareVariantId FK "nullable"
-        enum channel "nullable"
-        enum unit "PER_DEVICE_PER_DAY, PER_DEVICE_PER_TRIP"
+        enum scope
+        enum unit
         decimal amount
         decimal depositPerDevice
-        int minQuantity
-        decimal discountPct
-        datetime validFrom
-        datetime validTo
     }
     DAMAGE_FEE_RULE {
         uuid id PK
         enum condition
-        uuid hardwareVariantId FK "nullable"
         decimal amount
     }
     INVOICE {
         uuid id PK
         string number UK
-        enum kind "BOOKING_ESCROW, SETTLEMENT"
-        uuid bookingId "nullable"
-        uuid rentalId "nullable"
-        uuid customerId FK "nullable"
+        enum kind
         enum status
-        decimal total
         decimal balanceDue
     }
     INVOICE_LINE {
         uuid id PK
         uuid invoiceId FK
         enum type
-        string description
-        decimal quantity
-        decimal unitAmount
         decimal amount
-        string sourceRef
     }
     PAYMENT {
         uuid id PK
         uuid invoiceId FK
-        enum direction "CHARGE, REFUND"
-        decimal amount
+        enum direction
         enum status
         string idempotencyKey UK
-        bool sandbox
     }
     FEE_WAIVER {
         uuid id PK
         uuid invoiceLineId FK
-        decimal amount
-        uuid requestedById FK
-        uuid approvedById FK "nullable"
+        uuid approvedById FK
         enum status
     }
-    PRICING_RULE ||--o{ INVOICE_LINE : "priced"
-    DAMAGE_FEE_RULE ||--o{ INVOICE_LINE : "priced"
     INVOICE ||--|{ INVOICE_LINE : "itemises"
+    PRICING_RULE ||--o{ INVOICE_LINE : "prices"
+    DAMAGE_FEE_RULE ||--o{ INVOICE_LINE : "prices"
     INVOICE ||--o{ PAYMENT : "settled by"
     INVOICE_LINE ||--o{ FEE_WAIVER : "reduced by"
 ```
 
-***Figure 7***: System ERD part 3 of 4, billing. Every fee is its own `INVOICE_LINE`, so a late fee is never folded into an unexplained total (E05-1).
+***Figure 9***: System ERD part 5 of 6, billing. Every fee is its own `INVOICE_LINE`, so a late fee is never folded into an unexplained total (E05-1). Owner: `billing`.
 
-See **Figure 8**, field events and incidents.
+See **Figure 10**, field events and incidents.
 
 ```mermaid
 erDiagram
+    direction LR
+    DEVICE {
+        uuid id PK
+    }
     GATEWAY {
         uuid id PK
-        string gatewayKey UK "JSON sender"
-        enum ingress "MQTT_NODE, SERIAL_BRIDGE"
+        string gatewayKey UK
         datetime lastPacketAt
     }
     GATEWAY_EVENT {
         uuid id PK
-        string eventId UK "sha256 nodeNum packetId"
+        string eventId UK
         uuid deviceId FK
-        uuid gatewayId FK
         enum kind
-        enum priority "P0 to P3"
-        datetime observedAt "nullable"
+        enum priority
         datetime receivedAt
-        float latitude "nullable"
-        float longitude "nullable"
-        json payload
-        uuid incidentId FK "nullable"
+        uuid incidentId FK
     }
     SYNC_AUDIT_LOG {
         uuid id PK
-        string eventId "nullable"
-        bigint nodeNum "nullable"
+        string eventId
         enum outcome
-        json rawMessage
     }
     DEVICE_QUEUE_REPORT {
         uuid id PK
         uuid deviceId FK
         json depthByTier
-        json counters
-        datetime receivedAt
     }
     INCIDENT {
         uuid id PK
-        string code UK
         uuid deviceId FK
-        uuid tripId FK "nullable, E03-4"
-        uuid openedByEventId FK "nullable, UK"
-        enum source "DEVICE_SOS, DEVICE_FALL, CADENCE, MANUAL"
-        enum confidence "CONFIRMED, SUSPECTED"
-        enum status "5-state FSM"
+        uuid openedByEventId FK
+        enum confidence
+        enum status
         datetime lastEventAt
-        int eventCount
-        int version "optimistic lock"
+        int version
     }
     INCIDENT_AUDIT {
         uuid id PK
         uuid incidentId FK
-        int seq
-        uuid actorId "nullable, system"
-        string actorRole
         enum action
-        enum fromStatus
-        enum toStatus
-        string note
+        uuid actorId FK
     }
     GATEWAY ||--o{ GATEWAY_EVENT : "delivered"
+    DEVICE ||--o{ GATEWAY_EVENT : "emits"
+    DEVICE ||--o{ DEVICE_QUEUE_REPORT : "reports"
     GATEWAY_EVENT ||--o{ SYNC_AUDIT_LOG : "logged as"
-    GATEWAY_EVENT |o--o| INCIDENT : "opens"
+    DEVICE ||--o{ INCIDENT : "raises"
     INCIDENT ||--o{ GATEWAY_EVENT : "correlates"
     INCIDENT ||--|{ INCIDENT_AUDIT : "transitions"
 ```
 
-***Figure 8***: System ERD part 4 of 4, field events and incidents. `GATEWAY_EVENT.eventId` is the D-006 packet key; episode membership is the separate `incidentId` link, which is the split that stops one beacon storm from minting one Incident per packet.
+***Figure 10***: System ERD part 6 of 6, field events and incidents. `GATEWAY_EVENT.eventId` is the D-006 packet key; episode membership is the separate `incidentId` link, which is the split that stops a beacon storm from minting one Incident per packet. Owners: `gateway-sync`, `incidents`.
 
 ### 3.3 Corrections to the current `schema.prisma`
 
-The first migration is written from Figures 5 to 8, not from the current schema, which has no migrations yet. Differences that are corrections, not additions:
+The first migration is written from Figures 5 to 10 and the module Prisma blocks, not from the current schema, which has no migrations yet. Differences that are corrections, not additions:
 
 | Current | Problem | Correction |
 |---|---|---|
@@ -692,7 +637,7 @@ Testing walkthrough: [`api-design/00-api-testing-guide.md`](api-design/00-api-te
 
 ## 6. Sequence Flow: an Admin changes a parameter
 
-See **Figure 9**.
+See **Figure 11**.
 
 ```mermaid
 sequenceDiagram
@@ -702,21 +647,21 @@ sequenceDiagram
     participant S as ParameterService
     participant DB as Postgres
     participant A as Audit sink
-    Admin->>C: PATCH /api/settings/parameters/rentals.customerHoldMinutes {value: 15}
+    Admin->>C: PATCH .../parameters/{key} {value 15}
     C->>S: update(key, 15, actor)
     S->>S: validate type and bounds from registry
     alt out of bounds
-        S-->>C: DomainException 400 PARAMETER_OUT_OF_RANGE
-        C-->>Admin: 400 envelope, value unchanged
+        S-->>C: 400 PARAMETER_OUT_OF_RANGE
+        C-->>Admin: 400, value unchanged
     end
-    S->>DB: BEGIN, UPDATE value and version, INSERT history, COMMIT
+    S->>DB: UPDATE value, INSERT history
     S->>S: invalidate cache entry
     S-)A: audit.record parameter.update
     S-->>C: ParameterDto
-    C-->>Admin: 200 envelope "Parameter updated"
+    C-->>Admin: 200 Parameter updated
 ```
 
-***Figure 9***: Parameter update. The history row and the value change commit together; the audit entry is emitted after commit.
+***Figure 11***: Parameter update. The history row and the value change commit together; the audit entry is emitted after commit.
 
 ---
 
