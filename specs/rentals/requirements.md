@@ -3,7 +3,7 @@
 **User Story**: As a **Customer**, I want to book a trip, hold a device while I pay, and know at once if the last unit went to someone else; as an **Operator**, I want to confirm bookings only when devices and Guides are really available, hand devices to the Guide against a signed agreement, and take them back through an inspection that feeds billing and maintenance; as a **Guide**, I want to check each device at handover and refuse a faulty one on the spot.
 **Story IDs**: US-025 to US-028, US-030 to US-034, US-039 (E3) | **Priority**: High | **Main Flows**: **MF-01** (booking to check-out), **MF-05** (check-in, inspection, close) | **Lane**: LongLP (`rentals`), MF-01 owner TanNB, MF-05 owner LongLP
 
-> **Authority**: D-015, D-016, D-021 (PSK check at check-out, via `devices`). Clarification answers **Q53, Q55 to Q64, Q71** are **Recorded, not Confirmed**, tagged `[Qnn]`. Two conflicts inside the SSOT are resolved here by proposal and listed in C-002: MF-01's swimlane puts "Reserve device" after Staff confirmation while its main-path text and E01-1 put it before; and Q60 implies payment into escrow at booking while MF-05 settles money at return.
+> **Authority**: D-015, D-016, D-021 (PSK check at check-out, via `devices`). Clarification answers **Q53, Q55 to Q64, Q71** are **Recorded, not Confirmed**, tagged `[Qnn]`. Two conflicts inside the SSOT are resolved here by proposal and listed in C-003: MF-01's swimlane puts "Reserve device" after Staff confirmation while its main-path text and E01-1 put it before; and Q60 implies payment into escrow at booking while MF-05 settles money at return.
 
 ---
 
@@ -31,7 +31,7 @@
 | Submit booking | MF-01 | UC-02 | FR-BOOK-01 (new) | | | US-025 |
 | Reserve device, hold | MF-01 | UC-03, UC-22 | FR-BOOK-02 | BR-01 | E01-1, E01-5 | US-026 |
 | Confirm or reject booking | MF-01 | UC-04 | FR-BOOK-04 | BR-02 | E01-4 | US-027 |
-| Cancel booking | MF-01 | UC-37 Cancel Booking (new) | FR-BOOK-07 | BR-03 | E01-2 | none, gap (C-003) |
+| Cancel booking | MF-01 | UC-37 Cancel Booking (new) | FR-BOOK-07 | BR-03 | E01-2 | none, gap (C-004) |
 | Allocate device | MF-01 | UC-05 | FR-RENT-01 (new) | BR-01 | E01-3 | US-028 |
 | Rental agreement | MF-01 | UC-07 | FR-RENT-02 (new) | | | US-030 |
 | Check out | MF-01 | UC-08 | FR-RENT-03 (new), FR-DEV-05 | BR-04 | | US-032 |
@@ -59,7 +59,7 @@
 - **REQ-EVT-01**: WHEN a Customer submits a booking for a `BOOKING_OPEN` trip with a group size within the package bounds and a device count of at most `rentals.maxDevicesPerCustomerBooking`, the system SHALL create it `PENDING`, add the group to the trip's seats in the same transaction, and create one trip participant per named traveller. [UC-02, US-025, E01-5 dates validated] `[Q57]`
 - **REQ-EVT-02**: WHEN a Guide or Staff member submits a booking on behalf of a group, the system SHALL accept up to `rentals.maxDevicesPerStaffBooking` devices, record the channel and the acting user, and let the renter be an existing Customer account or a named, unauthenticated person. `[Q55, Q57]`
 - **REQ-EVT-03**: WHEN a reservation is requested for a `PENDING` booking, the system SHALL, in one transaction, lock candidate devices of accepted variants with no overlapping active allocation (`FOR UPDATE SKIP LOCKED`), create `HELD` allocations for the requested count, set their expiry to now plus `rentals.customerHoldMinutes` for the Customer channel, and ask `devices` to move each `AVAILABLE` unit to `RESERVED`. [UC-03, MF-01 step 3] `[Q58, Q59]`
-- **REQ-EVT-04**: WHEN a Customer-channel booking's escrow payment succeeds in `billing` within the hold, the system SHALL turn its `HELD` allocations into `CONFIRMED` allocations with no expiry. `[Q60]` *(Proposal for how the hold "invalidates": unpaid holds expire, paid holds persist until Staff review. C-002.)*
+- **REQ-EVT-04**: WHEN a Customer-channel booking's escrow payment succeeds in `billing` within the hold, the system SHALL turn its `HELD` allocations into `CONFIRMED` allocations with no expiry. `[Q60]` *(Proposal for how the hold "invalidates": unpaid holds expire, paid holds persist until Staff review. C-003.)*
 - **REQ-EVT-05**: WHEN a hold expires unpaid, the system SHALL release its allocations, return devices with no other future allocation to `AVAILABLE`, and leave the booking `PENDING` with no device attached, so the Customer may reserve again. [E01-1 wording] `[Q59]`
 - **REQ-EVT-06**: WHEN an Operator confirms a booking, the system SHALL require that its allocations cover the requested device count and are `CONFIRMED` (or `HELD` with the hold disabled, for Staff and Guide channels), that the trip reports `guidesSatisfied`, and SHALL then move the booking to `CONFIRMED`, create its rental in `DRAFT` with one item per allocation, and notify the Customer. [UC-04, BR-02, FR-BOOK-04, MF-01 step 4]
 - **REQ-EVT-07**: WHEN an Operator rejects a `PENDING` booking with a reason, the system SHALL move it to `REJECTED`, release its allocations and seats, and ask `billing` to refund any escrow in full.
@@ -88,7 +88,7 @@
 ### State-Driven
 
 - **REQ-STA-01**: WHILE a rental is `CHECKED_OUT` past its `dueAt` plus `billing.lateGraceHours`, the scheduler SHALL move it to `OVERDUE`. [E05-1]
-- **REQ-STA-02**: WHILE a rental is `OVERDUE` longer than `rentals.nonReturnGraceDays`, the system SHALL flag its unreturned items `LOSS_SUSPECTED` and alert Staff, and SHALL NOT retire devices without a Staff confirmation. [E05-3] *(Proposal; the SSOT wording implies automatic retirement. C-002.)*
+- **REQ-STA-02**: WHILE a rental is `OVERDUE` longer than `rentals.nonReturnGraceDays`, the system SHALL flag its unreturned items `LOSS_SUSPECTED` and alert Staff, and SHALL NOT retire devices without a Staff confirmation. [E05-3] *(Proposal; the SSOT wording implies automatic retirement. C-003.)*
 - **REQ-STA-03**: WHILE `rentals.requireSignedAgreementForCheckout` is true, the system SHALL reject check-out of a rental without a `SIGNED` agreement. [UC-08 includes UC-07]
 - **REQ-STA-04**: WHILE a booking is not `PENDING`, the system SHALL reject new reservations for it.
 - **REQ-STA-05**: WHILE a rental's settlement invoice has a non-zero balance, the system SHALL reject closing it with 409 `BALANCE_OUTSTANDING`, and the balance SHALL stay visible to Staff and the Customer. [E05-4, BR-19]
@@ -158,4 +158,4 @@ Cancellation fee, free-cancellation window, late grace and fee rates are `billin
 
 ## 6. Open Questions
 
-Carried into QUESTION entry C-002: payment timing (escrow at booking or settlement only), reserve-before-confirm ordering, how a hold "invalidates", Staff-confirmed versus automatic loss, agreement PDF storage, and serving the agreement PDF inside the envelope as base64.
+Carried into QUESTION entry C-003: payment timing (escrow at booking or settlement only), reserve-before-confirm ordering, how a hold "invalidates", Staff-confirmed versus automatic loss, agreement PDF storage, and serving the agreement PDF inside the envelope as base64.

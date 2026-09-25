@@ -2,7 +2,7 @@
 
 > Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: US-054, US-057 to US-064, US-066, US-072, US-088
 >
-> Fulfills `design.md`. MF-03 is "in progress" at Review 2 (roadmap W7): Phases 1 to 3 are the Review 2 target, the rest follows. Blocked on C-002 for the reopen target state and escalation timeout.
+> Fulfills `design.md`. MF-03 is "in progress" at Review 2 (roadmap W7): Phases 1 to 3 are the Review 2 target, the rest follows. Blocked on C-003 for the reopen target state and escalation timeout.
 
 ## Phase 1: Foundation & Domain Modeling
 

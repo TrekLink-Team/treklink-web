@@ -98,7 +98,12 @@
 - [ ] 4.8 Unit tests: 1 text + 12 beacons → 1 Incident / 13 events; 12 beacons alone → 1 `SUSPECTED`
   - _Requirements: AC-04, AC-06_
 
-## Phase 4B: Gateways, projection and plausibility (added this revision)
+## Phase 4B: Gateways, projection, plausibility and event time (added this revision)
+
+- [ ] 4B.0 `eventTime` derivation and its use for trails, cadence and the episode window; skew rule of REQ-ERR-07 with `maxBacklogAgeHours` (O-001 fact 3)
+  - _Requirements: REQ-UBI-02, REQ-ERR-07, AC-12_
+- [ ] 4B.00 Test that a peer SOS relayed at `HIGH` priority is still classified by prefix, and that no code path reads a priority field to decide SOS (O-001 fact 2)
+  - _Requirements: REQ-UBI-09_
 
 - [ ] 4B.1 `Gateway` model and registration on first `sender`; advance `lastPacketAt`; emit `gateway.health.changed` on stale transitions
   - _Requirements: REQ-EVT-14, E04-2_
@@ -179,10 +184,10 @@
 >
 > Firmware side: [`treklink-firmware/specs/onboard-queue/`](../../../treklink-firmware/specs/onboard-queue/requirements.md). This phase depends on its Phase 6.
 
-- [ ] 8B.1 Add a `PrivateAppStrategy` to the normalizer registry that recognises the queue-health payload on PortNum `PRIVATE_APP` (256) and returns a health record, **not** a `TrekLinkEvent`
+- [ ] 8B.1 Add a `QueueHealthStrategy` to the normalizer registry that recognises JSON `type: treklink_queue_health` on PortNum `PRIVATE_APP` (256), validates `schema` and `v` against `api-design/06-queue-health-payload.md` (source of truth: firmware `onboard-queue/design.md` §2.4), and returns a health record, **not** a `TrekLinkEvent`; other `PRIVATE_APP` traffic returns null
   - Must not create a `GatewayEvent` and must never reach episode correlation
   - _Requirements: REQ-EVT-12, REQ-UBI-06_
-- [ ] 8B.2 Persist per-device queue depth and the enqueued / published / shed / refused counters
+- [ ] 8B.2 Persist every field of the report in `DeviceQueueReport`; detect a counter decrease as a reboot (REQ-EVT-15); compute the device-side loss check
   - _Requirements: REQ-EVT-12_
 - [ ] 8B.3 Derive a **buffering** device state from a non-zero reported depth, distinct from stale and from silent
   - E04-1 cannot otherwise tell "the node is holding events for us" from "the node is gone"
