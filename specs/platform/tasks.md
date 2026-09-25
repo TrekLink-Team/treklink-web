@@ -24,7 +24,7 @@
   - _Requirements: REQ-UBI-04_
 - [x] 1.8 Shared `PagedQueryDto` and `PagedResult<T>`, bounds from `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE`
   - _Requirements: REQ-UBI-03_
-- [ ] 1.9 Module-boundary check script: model-to-module ownership map, fails when a module references a model it does not own; wire into `npm run lint`
+- [x] 1.9 Module-boundary check script: model-to-module ownership map, fails when a module references a model it does not own; wire into `npm run lint`
   - _Requirements: NFR-MNT-01, design §2.2_
 
 ## Phase 2: Core Service Logic
