@@ -54,23 +54,6 @@ Exchanges a refresh token for a new pair. The presented token is revoked and lin
     <tbody>
         <tr>
             <td>401</td>
-            <td>Missing, malformed or expired access token (<code>UNAUTHENTICATED</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "UNAUTHENTICATED"
-  },
-  "isSuccess": false,
-  "statusCode": 401,
-  "message": "Authentication required."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>401</td>
             <td>Unknown, expired or revoked token, or account inactive (<code>REFRESH_TOKEN_INVALID</code>)</td>
 <td>
 
@@ -99,23 +82,6 @@ Exchanges a refresh token for a new pair. The presented token is revoked and lin
   "isSuccess": false,
   "statusCode": 401,
   "message": "Session was used elsewhere and has been ended. Sign in again."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>403</td>
-            <td>Authenticated, but the caller's role or policy does not allow this action (<code>FORBIDDEN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "FORBIDDEN"
-  },
-  "isSuccess": false,
-  "statusCode": 403,
-  "message": "You do not have permission to perform this action."
 }
 ```
 </td>
