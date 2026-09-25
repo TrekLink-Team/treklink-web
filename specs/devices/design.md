@@ -1,6 +1,6 @@
 # Technical Design: devices
 
-> Fulfills `requirements.md` in this folder. ERD slice: `specs/platform/design.md` Figure 6. The state machine in §2.1 is one of the two UML state machines the charter names as graded deliverables; it is also copied to `_handoff/outbound/capstone/Documents/reports/sdd-diagrams/` for the SDD.
+> Fulfills `requirements.md` in this folder. ERD slice: `specs/platform/design.md` Figure 7. The state machine in §2.1 is one of the two UML state machines the charter names as graded deliverables; it is also copied to `_handoff/outbound/capstone/Documents/reports/sdd-diagrams/` for the SDD.
 
 ---
 
@@ -230,17 +230,17 @@ sequenceDiagram
     participant R as RentalsService
     participant D as DevicesService
     participant DB as Postgres
-    G->>R: POST /api/rentals/{id}/items/{itemId}/handover {batteryPct 35, gpsFix false}
+    G->>R: POST .../handover {battery 35, gps false}
     R->>DB: BEGIN
-    R->>R: battery below minHandoverBatteryPct or no GPS fix
-    R->>DB: INSERT handover_check FAIL, item state HANDOVER_REJECTED
-    R->>D: transition(device, MAINTENANCE, reason FAILED_HANDOVER, tx)
-    D->>DB: SELECT device FOR UPDATE, check RENTED to MAINTENANCE
-    D->>DB: UPDATE status, INSERT history, INSERT maintenance_record
+    R->>R: below minHandoverBatteryPct
+    R->>DB: handover_check FAIL, item rejected
+    R->>D: transition(MAINTENANCE, tx)
+    D->>DB: lock, check RENTED to MAINTENANCE
+    D->>DB: status, history, maintenance record
     R->>DB: COMMIT
     D-)R: device.unavailable (after commit)
-    R-->>G: 200 {result: FAIL, replacementRequired: true}
-    Note over R: Staff allocates a replacement on the same rental, the booking is untouched
+    R-->>G: 200 FAIL, replacement required
+    Note over R: replacement on the same rental,<br/>booking untouched
 ```
 
 ***Figure 2***: A failed handover sends the unit to maintenance and leaves the rental open for a replacement, which is what E01-3 requires.
