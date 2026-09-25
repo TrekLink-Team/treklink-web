@@ -1,6 +1,6 @@
 # Implementation Tasks: devices
 
-> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: stories US-011 to US-022 (keys `TK-19` to `TK-30` once Jira is populated)
+> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: stories US-011 to US-022 (keys `TK-24` to `TK-35`)
 >
 > Fulfills `design.md`. **Q47 says the FSM is not final**: Phase 2.1 must not start until C-003 confirms the transition table.
 

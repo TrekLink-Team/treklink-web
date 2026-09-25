@@ -1,6 +1,6 @@
 # Implementation Tasks: auth
 
-> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: stories US-001 to US-010 (keys `TK-9` to `TK-18` once Jira is populated)
+> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: stories US-001 to US-010 (keys `TK-14` to `TK-23`)
 >
 > Fulfills `design.md`. **Blocked on** QUESTION C-003 items that re-confirm Q30 to Q46. Phase 1 may start once the approval names this module; tasks resting on an unconfirmed answer are marked `[Qnn]`.
 
