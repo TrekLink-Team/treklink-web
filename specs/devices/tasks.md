@@ -2,7 +2,7 @@
 
 > Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: stories US-011 to US-022 (keys `TK-19` to `TK-30` once Jira is populated)
 >
-> Fulfills `design.md`. **Q47 says the FSM is not final**: Phase 2.1 must not start until C-002 confirms the transition table.
+> Fulfills `design.md`. **Q47 says the FSM is not final**: Phase 2.1 must not start until C-003 confirms the transition table.
 
 ## Phase 1: Foundation & Domain Modeling
 
@@ -10,7 +10,7 @@
   - _Requirements: REQ-UBI-01, REQ-UBI-04, REQ-UBI-06, design §1_
 - [ ] 1.2 Partial unique index for one open maintenance record; append-only triggers on history and provisioning
   - _Requirements: REQ-ERR-04, REQ-UBI-03_
-- [ ] 1.3 Seed the four variants with `mqttCapable` (`v1` false) and `hasPsram` (`v3` false) per `04-firmware-ground-truth.md` §5 and the S7 risk row
+- [ ] 1.3 Seed the four variants with `mqttCapable` (`v1` false) and `hasPsram` (`v3` false) per `04-firmware-ground-truth.md` §5 and the S7 risk row; the catalogue code is `treklink-v1` to `treklink-v4`, while the PlatformIO build env of v1 is `treklink` (O-001 fact 4), so the seed records the build env in `notes` and never derives one from the other
 - [ ] 1.4 DTOs; `nodeNum` transform accepting decimal or `!hex` into `bigint`; `BigInt` JSON serialisation as number (safe: uint32 fits in a JS number)
   - _Requirements: REQ-UBI-04, AC-02, AC-03_
 - [ ] 1.5 Error codes of design §2.5; parameter keys of requirements §4

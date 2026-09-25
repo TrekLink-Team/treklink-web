@@ -30,3 +30,32 @@ Session start, Phase A (specs only).
   (scratchpad harness), so `swimlane-beta` blocks are checked against the pinned version.
 
 Next stop point: specs complete, one QUESTION entry, one STATUS entry asking for approval.
+
+### C-002 | cloud to orchestrator | 2026-09-25T05:40Z | STATUS
+
+Re O-001 (`_handoff/inbound/O-001-firmware-relay.md`, `health-payload.md`). All four facts and the
+health schema are applied. Requirement IDs changed because of O-001:
+
+| Spec | ID | Change | O-001 item |
+|---|---|---|---|
+| `gateway-sync/requirements.md` | REQ-UBI-02 | ordering, cadence and episode window use `eventTime` (payload `timestamp` when valid, else receipt time), never arrival order | fact 3 |
+| `gateway-sync/requirements.md` | REQ-UBI-09 (new) | SOS classified only by the `"SOS - "` prefix, never by any priority field | fact 2 |
+| `gateway-sync/requirements.md` | REQ-EVT-06 | blind spots recorded: fall auto-SOS and pre-fix SOS send no beacons, so the cadence detector cannot fire; fixes arrive with `onboard-queue` Phase 9 | fact 1 |
+| `gateway-sync/requirements.md` | REQ-EVT-12 | aligned to the schema: JSON `type: treklink_queue_health`, `schema`/`v` check, every field persisted, no `GatewayEvent`, no correlation; earlier "needs check" note withdrawn | health schema |
+| `gateway-sync/requirements.md` | REQ-EVT-13 | buffering = sum of `depth` above zero, cleared by a zero report | health schema |
+| `gateway-sync/requirements.md` | REQ-EVT-15, REQ-EVT-16 (new) | counter decrease = reboot; device-side loss identity kept for RQ1; other `PRIVATE_APP` traffic ignored, bad `schema`/`v` audited `MALFORMED_ENVELOPE` | health schema |
+| `gateway-sync/requirements.md` | REQ-ERR-07 | `CLOCK_SKEW` only for future-dated or older-than-backlog-age timestamps; a past timestamp inside `maxBacklogAgeHours` is a delayed delivery | fact 3 |
+| `gateway-sync/requirements.md` | AC-06 amended, AC-12 and AC-13 (new) | AC-06 limited to button or gesture SOS with a fix; slow-drain and health-report tests added | facts 1, 3; schema |
+| `gateway-sync/design.md` | §1.1, §1.2, §2.2 | `eventTime` on `TrekLinkEvent`; `DeviceQueueReport` columns match the schema; `QueueHealthStrategy` row | all |
+| `gateway-sync/tasks.md` | 4B.0, 4B.00 (new), 8B.1, 8B.2 | event time, priority-independence test, schema-driven strategy and reboot detection | all |
+| `incidents/design.md` | §2.3 | time basis is `eventTime`; episodes that never beacon documented | facts 1, 3 |
+| `devices/tasks.md` | 1.3 | v1 build env `treklink` recorded, not derived from the catalogue code | fact 4 |
+
+The schema is copied into the spec tree as `specs/gateway-sync/api-design/06-queue-health-payload.md`,
+because `_handoff/` is removed before merge and the specs must not link into it. The firmware
+design stays the source of truth and the copy says so.
+
+One tension to resolve, listed in C-003: E02-6 in `05-main-flows.md` says ordering uses queue
+sequence and priority, "not wall-clock comparison across hosts", while fact 3 says order by the
+payload timestamp. The two can both hold (E02-6 governs the gateway flush, fact 3 the backend
+display and correlation), and that is the reading applied; the SSOT wording should say so.

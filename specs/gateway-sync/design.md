@@ -79,7 +79,8 @@ export interface TrekLinkEvent {
   readonly kind: EventKind;
   readonly priority: PriorityTier; // provisional; EpisodeCorrelator may promote P2→P1
   readonly observedAt: Date | null; // device rx_time; null when RTC invalid (REQ-ERR-06)
-  readonly receivedAt: Date;        // backend wall clock — the trusted ordering field
+  readonly receivedAt: Date;        // backend wall clock, trusted
+  readonly eventTime: Date;         // observedAt unless null or CLOCK_SKEW, else receivedAt (REQ-UBI-02, O-001)
   readonly position?: { lat: number; lon: number; alt?: number } | null;
   readonly metrics?: { batteryPct?: number; voltage?: number };
   readonly text?: string;
@@ -88,7 +89,7 @@ export interface TrekLinkEvent {
 }
 ```
 
-`observedAt` and `receivedAt` are separate because `rx_time` comes from the device RTC and `getValidTime()` yields `0` when no valid time is held. Substituting `receivedAt` would fabricate data; all ordering therefore uses `receivedAt` (REQ-UBI-02).
+`observedAt` and `receivedAt` are separate because `rx_time` comes from the device RTC and `getValidTime()` yields `0` when no valid time is held. Substituting `receivedAt` for a missing `observedAt` would fabricate device time, so a null stays null. An earlier revision ordered everything by `receivedAt`. **Revised per O-001:** ordering, cadence and the episode window use `eventTime`, the device time when valid. Stock firmware drains a queued backlog one entry per reconnect, so arrival order and arrival spacing say nothing about when events happened. `receivedAt` stays the fallback for a null or skewed device clock, and remains the basis of the ≤5 s sync-latency measurement.
 
 ### 1.2 Prisma schema changes
 
@@ -177,12 +178,23 @@ model Gateway {
   @@map("gateways")
 }
 
-model DeviceQueueReport {                       // [B] REQ-EVT-12
-  id          String   @id @default(uuid())
-  deviceId    String
-  depthByTier Json                              // { "P0": 1, "P1": 12, "P2": 40, "P3": 90 }
-  counters    Json                              // enqueued, published, shed, refused per tier
-  receivedAt  DateTime @default(now())
+model DeviceQueueReport {                       // [B] REQ-EVT-12, schema: api-design/06-queue-health-payload.md
+  id               String   @id @default(uuid())
+  deviceId         String
+  schemaVersion    Int                          // payload "v"
+  uptimeSeconds    Int
+  capacity         Int
+  depth            Int[]                        // index 0 = P0 .. 3 = P3
+  enqueued         Int[]
+  published        Int[]
+  shed             Int[]
+  p0Refused        Int
+  flashWriteFailed Int
+  restoreDiscarded Int
+  flashBytes       Int
+  flashBudget      Int
+  rebootDetected   Boolean  @default(false)     // a counter went down (REQ-EVT-15)
+  receivedAt       DateTime @default(now())
   @@index([deviceId, receivedAt])
   @@map("device_queue_reports")
 }
@@ -287,6 +299,7 @@ export class MeshNormalizerService {
 | `TextMessageStrategy` | `TEXT_MESSAGE_APP` (1) | `SOS` / `FALL_SOS` / `CHAT` | Prefix match + coordinate parse (§2.3) |
 | `PositionStrategy` | `POSITION_APP` (3) | `POSITION` @ provisional `P2` | Promotion to `P1` is the correlator's job (§2.4) |
 | `TelemetryStrategy` | `TELEMETRY_APP` (67) | `TELEMETRY` @ `P3` | Extracts `batteryPct` |
+| `QueueHealthStrategy` `[B]` | `PRIVATE_APP` (256), JSON `type: treklink_queue_health` | a `QueueHealthReport`, never a `TrekLinkEvent` | Validates `schema` and `v`; other `PRIVATE_APP` traffic returns null (REQ-EVT-12, REQ-EVT-16) |
 
 Priority is assigned *by the strategy*, because only the strategy knows whether a text body is an SOS or chat.
 
