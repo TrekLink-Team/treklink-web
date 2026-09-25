@@ -6,7 +6,7 @@
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 Turn on `strict: true` in `backend/tsconfig.json`; fix the scaffold until `npm run typecheck` is clean
+- [x] 1.1 Turn on `strict: true` in `backend/tsconfig.json`; fix the scaffold until `npm run typecheck` is clean
   - _Requirements: NFR table, `02-spec-driven-development-workflow.md` Phase 5_
 - [ ] 1.2 `EnvironmentVariables` class plus `validate()` for `ConfigModule.forRoot`; fail fast naming each bad variable
   - _Requirements: REQ-EVT-01, AC-04_
