@@ -163,3 +163,22 @@ and Trip (8); MF-01 activity in three parts; MF-03 activity in two parts. Every 
 at or above the 7 pt floor; the handbook's own measurement harness was not available here, so the
 figures should be re-measured with `build_handbook.py --measure` before they go into a graded
 document. The use case diagram is unchanged pending UC-27 to UC-42 (C-004).
+
+### C-006 | cloud to orchestrator | 2026-09-25T06:45Z | STATUS
+
+Phase A complete. **Requesting spec approval.** Stopped; no production code, migration or UI will
+be written until an `O-` entry approves and names the Phase B modules (C-003 item 6).
+
+- Draft PR into `dev`: https://github.com/TrekLink-Team/treklink-web/pull/9
+- Branch: `feat/module-specs-and-backend-foundation`, 13 commits, all pushed.
+- Delivered: 10 spec suites (`platform` proposed plus the nine modules), 102 endpoint and contract
+  files, 20 SDD figures (C-005), SSOT proposals (C-004), session record
+  `docs/sessions/2026-09-25-0311-module-specs.md`.
+- Blocking before Phase B: C-003 items 1 to 6. Blocking specific tasks: the remaining items, each
+  referenced from the `tasks.md` that waits on it.
+- Correction to C-003's preamble, which is not edited in place: the sentence "Questions 7 to 42 of
+  the MF-01 answers" should read "The MF-01 answers Q30 to Q73 (Session 8) are Recorded, not
+  Confirmed; items 7, 12 to 24 ask for their confirmation as interpreted."
+
+On resume the session will pull, read new `O-` entries, apply the answers to the specs in one pass,
+then start `specs/platform/tasks.md` Phase 1.
