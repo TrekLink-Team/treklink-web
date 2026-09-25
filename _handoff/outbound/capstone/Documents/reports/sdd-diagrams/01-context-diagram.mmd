@@ -1,0 +1,24 @@
+flowchart TB
+    CUS["Customer"]
+    STF["Operator"]
+    GUI["Guide"]
+    ADM["Admin"]
+    SYS(("TrekLink<br/>Operations<br/>Platform"))
+    BRK["MQTT Broker"]
+    DEV["TrekLink Device"]
+    GWB["Gateway Bridge<br/>Stage C"]
+    MAP["Goong Maps"]
+    PAY["Sandbox<br/>Payment"]
+    MAIL["Email<br/>service"]
+    CUS <-->|"booking, payment<br/>/ quote, invoice"| SYS
+    STF <-->|"operations<br/>/ queues, alerts"| SYS
+    GUI <-->|"checks, notes<br/>/ own trip, alerts"| SYS
+    ADM <-->|"users, config<br/>/ audit, health"| SYS
+    DEV -->|"SOS, position,<br/>telemetry"| BRK
+    DEV -.->|"serial, BLE"| GWB
+    GWB -.->|"buffered<br/>events"| BRK
+    BRK -->|"JSON<br/>envelopes"| SYS
+    SYS -->|"map config<br/>to browser"| MAP
+    SYS <-->|"charge<br/>/ result"| PAY
+    SYS -->|"OTP"| MAIL
+    style SYS stroke-width:3px

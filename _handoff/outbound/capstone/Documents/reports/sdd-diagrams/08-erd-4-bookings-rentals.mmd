@@ -1,0 +1,55 @@
+erDiagram
+    direction LR
+    TRIP {
+        uuid id PK
+    }
+    DEVICE {
+        uuid id PK
+    }
+    BOOKING {
+        uuid id PK
+        uuid tripId FK
+        uuid customerId FK
+        enum channel
+        enum status
+    }
+    DEVICE_ALLOCATION {
+        uuid id PK
+        uuid deviceId FK
+        uuid bookingId FK
+        tstzrange window
+        enum status
+    }
+    RENTAL {
+        uuid id PK
+        uuid bookingId FK
+        uuid custodianGuideId FK
+        enum status
+        datetime dueAt
+    }
+    RENTAL_ITEM {
+        uuid id PK
+        uuid rentalId FK
+        uuid deviceId FK
+        enum state
+    }
+    RENTAL_AGREEMENT {
+        uuid id PK
+        uuid rentalId FK
+        int version
+        string signedSha256
+    }
+    RETURN_INSPECTION {
+        uuid id PK
+        uuid rentalItemId FK
+        enum condition
+        bool serviceable
+    }
+    TRIP ||--o{ BOOKING : "receives"
+    BOOKING ||--o{ DEVICE_ALLOCATION : "holds"
+    DEVICE ||--o{ DEVICE_ALLOCATION : "booked in"
+    BOOKING |o--o| RENTAL : "fulfilled by"
+    RENTAL ||--|{ RENTAL_ITEM : "contains"
+    DEVICE ||--o{ RENTAL_ITEM : "rented as"
+    RENTAL ||--o{ RENTAL_AGREEMENT : "documented by"
+    RENTAL_ITEM ||--o| RETURN_INSPECTION : "inspected in"

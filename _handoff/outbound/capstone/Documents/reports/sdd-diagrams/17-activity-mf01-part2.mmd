@@ -1,0 +1,25 @@
+swimlane-beta TB
+    subgraph staff["Operator"]
+        t0((From part 1))
+        t1{Guides assigned,<br/>devices covered?}
+        t2[Assign Guide or<br/>resolve conflict]
+        t3[Confirm booking]
+    end
+    subgraph backend["Cloud Backend"]
+        f1[Fork]
+        b7[Booking CONFIRMED]
+        b8[Rental DRAFT,<br/>one item per device]
+        j1[Join]
+        b9((To part 3))
+    end
+    subgraph customer["Customer"]
+        c5[Receive<br/>confirmation]
+    end
+    t0 --> t1
+    t1 -->|no| t2 --> t1
+    t1 -->|yes| t3 --> f1
+    f1 --> b7 --> c5 --> j1
+    f1 --> b8 --> j1
+    j1 --> b9
+    style f1 stroke-width:4px
+    style j1 stroke-width:4px

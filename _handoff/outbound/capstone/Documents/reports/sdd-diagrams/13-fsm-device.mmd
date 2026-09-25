@@ -1,0 +1,19 @@
+stateDiagram-v2
+    [*] --> AVAILABLE: register
+    AVAILABLE --> RESERVED: allocation created [device in warehouse]
+    RESERVED --> AVAILABLE: last future allocation released or expired
+    RESERVED --> RENTED: check-out [PSK current, handover pending]
+    RENTED --> IN_FIELD: trip enters IN_PROGRESS
+    RENTED --> RETURNED: check-in before departure
+    IN_FIELD --> RETURNED: check-in
+    RETURNED --> AVAILABLE: inspection serviceable
+    RETURNED --> MAINTENANCE: inspection not serviceable
+    RENTED --> MAINTENANCE: handover check failed
+    AVAILABLE --> MAINTENANCE: Staff reports fault
+    RESERVED --> MAINTENANCE: Staff reports fault
+    MAINTENANCE --> AVAILABLE: repair completed
+    MAINTENANCE --> RETIRED: unrepairable
+    AVAILABLE --> RETIRED: decommissioned
+    RENTED --> RETIRED: confirmed lost
+    IN_FIELD --> RETIRED: confirmed lost
+    RETIRED --> [*]

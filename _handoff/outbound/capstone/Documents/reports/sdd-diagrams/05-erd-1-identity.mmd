@@ -1,0 +1,40 @@
+erDiagram
+    direction LR
+    USER {
+        uuid id PK
+        string username UK
+        string email UK "nullable"
+        enum accountType
+        bool isActive
+        datetime deletedAt
+    }
+    ROLE {
+        uuid id PK
+        string key UK
+        enum accountType
+        bool isSystem
+    }
+    PERMISSION {
+        uuid id PK
+        string key UK
+        string action
+        string subject
+        json conditions
+    }
+    USER_ROLE {
+        uuid userId FK
+        uuid roleId FK
+    }
+    ROLE_PERMISSION {
+        uuid roleId FK
+        uuid permissionId FK
+    }
+    GUIDE_PROFILE {
+        uuid userId PK
+        string skills
+    }
+    USER ||--o{ USER_ROLE : "holds"
+    ROLE ||--o{ USER_ROLE : "granted as"
+    ROLE ||--o{ ROLE_PERMISSION : "allows"
+    PERMISSION ||--o{ ROLE_PERMISSION : "in"
+    USER ||--o| GUIDE_PROFILE : "has"
