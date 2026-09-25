@@ -85,40 +85,6 @@ Sets a new password using a PASSWORD_RESET or SET_PASSWORD OTP, then revokes eve
 ```
 </td>
         </tr>
-        <tr>
-            <td>401</td>
-            <td>Missing, malformed or expired access token (<code>UNAUTHENTICATED</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "UNAUTHENTICATED"
-  },
-  "isSuccess": false,
-  "statusCode": 401,
-  "message": "Authentication required."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>403</td>
-            <td>Authenticated, but the caller's role or policy does not allow this action (<code>FORBIDDEN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "FORBIDDEN"
-  },
-  "isSuccess": false,
-  "statusCode": 403,
-  "message": "You do not have permission to perform this action."
-}
-```
-</td>
-        </tr>
     </tbody>
 </table>
 
