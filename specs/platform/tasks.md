@@ -8,7 +8,7 @@
 
 - [x] 1.1 Turn on `strict: true` in `backend/tsconfig.json`; fix the scaffold until `npm run typecheck` is clean
   - _Requirements: NFR table, `02-spec-driven-development-workflow.md` Phase 5_
-- [ ] 1.2 `EnvironmentVariables` class plus `validate()` for `ConfigModule.forRoot`; fail fast naming each bad variable
+- [x] 1.2 `EnvironmentVariables` class plus `validate()` for `ConfigModule.forRoot`; fail fast naming each bad variable
   - _Requirements: REQ-EVT-01, AC-04_
 - [ ] 1.3 Datasource: `url = env("DATABASE_URL")`, `directUrl = env("DATABASE_DIRECT_URL")`; document Neon versus Docker selection in `.env.example`
   - _Requirements: REQ-STA-01, REQ-OPT-02, AC-05, D-010_
