@@ -58,11 +58,11 @@ export class EnvironmentVariables {
   @Matches(POSTGRES_URL, { message: 'DATABASE_URL must be a postgres:// or postgresql:// URL' })
   DATABASE_URL!: string;
 
-  @IsOptional()
+  // Required (REQ-OPT-02): Prisma migrations connect through it; equals DATABASE_URL locally.
   @Matches(POSTGRES_URL, {
     message: 'DATABASE_DIRECT_URL must be a postgres:// or postgresql:// URL',
   })
-  DATABASE_DIRECT_URL?: string;
+  DATABASE_DIRECT_URL!: string;
 
   @Matches(MQTT_URL, {
     message: 'MQTT_BROKER_URL must be an mqtt://, mqtts://, ws:// or wss:// URL',

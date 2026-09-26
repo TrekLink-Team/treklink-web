@@ -2,6 +2,8 @@ import { EnvironmentValidationError, validate } from './environment-variables';
 
 const REQUIRED = {
   DATABASE_URL: 'postgresql://postgres:postgrespassword@localhost:5432/treklink?schema=public',
+  DATABASE_DIRECT_URL:
+    'postgresql://postgres:postgrespassword@localhost:5432/treklink?schema=public',
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
   JWT_ACCESS_SECRET: 'access-secret',
   JWT_REFRESH_SECRET: 'refresh-secret',
@@ -34,7 +36,6 @@ describe('validate (environment)', () => {
       MAX_PAGE_SIZE: 100,
       DISPLAY_TIMEZONE_DEFAULT: 'Asia/Ho_Chi_Minh',
     });
-    expect(env.DATABASE_DIRECT_URL).toBeUndefined();
   });
 
   it('names every missing required variable in one error (AC-04)', () => {
@@ -49,6 +50,11 @@ describe('validate (environment)', () => {
     expect(problemsOf({ ...REQUIRED, DATABASE_URL: 'mysql://localhost/treklink' })).toEqual([
       expect.stringMatching(/^DATABASE_URL:/),
     ]);
+  });
+
+  it('requires DATABASE_DIRECT_URL (REQ-OPT-02)', () => {
+    const withoutDirect = { ...REQUIRED, DATABASE_DIRECT_URL: undefined };
+    expect(problemsOf(withoutDirect)).toEqual([expect.stringMatching(/^DATABASE_DIRECT_URL:/)]);
   });
 
   it('accepts DATABASE_DIRECT_URL when it is a Postgres URL and rejects it otherwise', () => {
