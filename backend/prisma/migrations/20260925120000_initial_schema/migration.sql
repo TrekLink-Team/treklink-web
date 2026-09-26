@@ -135,7 +135,7 @@ CREATE TABLE "business_parameters" (
     "description" TEXT NOT NULL,
     "version" INTEGER NOT NULL DEFAULT 1,
     "updatedById" TEXT,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "business_parameters_pkey" PRIMARY KEY ("key")
 );
@@ -148,7 +148,7 @@ CREATE TABLE "business_parameter_history" (
     "newValue" JSONB NOT NULL,
     "changedById" TEXT NOT NULL,
     "reason" TEXT,
-    "changedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "changedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "business_parameter_history_pkey" PRIMARY KEY ("id")
 );
@@ -165,7 +165,7 @@ CREATE TABLE "audit_log" (
     "after" JSONB,
     "requestId" TEXT,
     "ip" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "audit_log_pkey" PRIMARY KEY ("id")
 );
@@ -175,19 +175,19 @@ CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "username" TEXT NOT NULL,
     "email" TEXT,
-    "emailVerifiedAt" TIMESTAMP(3),
+    "emailVerifiedAt" TIMESTAMPTZ(3),
     "phoneNumber" TEXT,
     "fullName" TEXT NOT NULL,
     "passwordHash" TEXT,
     "accountType" "AccountType" NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "lastLoginAt" TIMESTAMP(3),
+    "lastLoginAt" TIMESTAMPTZ(3),
     "failedLoginCount" INTEGER NOT NULL DEFAULT 0,
-    "lockedUntil" TIMESTAMP(3),
+    "lockedUntil" TIMESTAMPTZ(3),
     "createdById" TEXT,
-    "deletedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -222,7 +222,7 @@ CREATE TABLE "user_roles" (
     "userId" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
     "grantedById" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "user_roles_pkey" PRIMARY KEY ("userId","roleId")
 );
@@ -241,12 +241,12 @@ CREATE TABLE "refresh_tokens" (
     "userId" TEXT NOT NULL,
     "familyId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "revokedAt" TIMESTAMP(3),
+    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
+    "revokedAt" TIMESTAMPTZ(3),
     "replacedById" TEXT,
     "userAgent" TEXT,
     "ip" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
 );
@@ -258,9 +258,9 @@ CREATE TABLE "one_time_codes" (
     "purpose" "OtpPurpose" NOT NULL,
     "codeHash" TEXT NOT NULL,
     "attempts" INTEGER NOT NULL DEFAULT 0,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "consumedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
+    "consumedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "one_time_codes_pkey" PRIMARY KEY ("id")
 );
@@ -272,7 +272,7 @@ CREATE TABLE "guide_profiles" (
     "skills" TEXT[],
     "certifications" TEXT[],
     "languages" TEXT[],
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "guide_profiles_pkey" PRIMARY KEY ("userId")
 );
@@ -286,8 +286,8 @@ CREATE TABLE "hardware_variants" (
     "hasPsram" BOOLEAN NOT NULL,
     "notes" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "hardware_variants_pkey" PRIMARY KEY ("id")
 );
@@ -301,20 +301,20 @@ CREATE TABLE "devices" (
     "macAddress" TEXT,
     "firmwareVersion" TEXT,
     "status" "DeviceStatus" NOT NULL DEFAULT 'AVAILABLE',
-    "statusChangedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "statusChangedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "pskVersion" INTEGER,
-    "pskProvisionedAt" TIMESTAMP(3),
-    "lastSeenAt" TIMESTAMP(3),
+    "pskProvisionedAt" TIMESTAMPTZ(3),
+    "lastSeenAt" TIMESTAMPTZ(3),
     "batteryPct" INTEGER,
     "lastLatitude" DOUBLE PRECISION,
     "lastLongitude" DOUBLE PRECISION,
     "lastGatewayId" TEXT,
     "buffering" BOOLEAN NOT NULL DEFAULT false,
-    "retiredAt" TIMESTAMP(3),
+    "retiredAt" TIMESTAMPTZ(3),
     "retireReason" "RetireReason",
     "notes" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "devices_pkey" PRIMARY KEY ("id")
 );
@@ -331,7 +331,7 @@ CREATE TABLE "device_status_history" (
     "note" TEXT,
     "refType" TEXT,
     "refId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "device_status_history_pkey" PRIMARY KEY ("id")
 );
@@ -348,8 +348,8 @@ CREATE TABLE "maintenance_records" (
     "resolution" TEXT,
     "openedById" TEXT,
     "closedById" TEXT,
-    "openedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "closedAt" TIMESTAMP(3),
+    "openedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "closedAt" TIMESTAMPTZ(3),
 
     CONSTRAINT "maintenance_records_pkey" PRIMARY KEY ("id")
 );
@@ -363,7 +363,7 @@ CREATE TABLE "device_provisioning" (
     "method" "ProvisioningMethod" NOT NULL,
     "provisionedById" TEXT NOT NULL,
     "note" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "device_provisioning_pkey" PRIMARY KEY ("id")
 );
@@ -383,8 +383,8 @@ CREATE TABLE "trek_packages" (
     "acceptedVariantIds" TEXT[],
     "coverImageUrl" TEXT,
     "status" "PackageStatus" NOT NULL DEFAULT 'DRAFT',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "trek_packages_pkey" PRIMARY KEY ("id")
 );
@@ -395,19 +395,19 @@ CREATE TABLE "trips" (
     "code" TEXT NOT NULL,
     "packageId" TEXT NOT NULL,
     "title" TEXT NOT NULL,
-    "startAt" TIMESTAMP(3) NOT NULL,
-    "endAt" TIMESTAMP(3) NOT NULL,
+    "startAt" TIMESTAMPTZ(3) NOT NULL,
+    "endAt" TIMESTAMPTZ(3) NOT NULL,
     "capacity" INTEGER NOT NULL,
     "seatsTaken" INTEGER NOT NULL DEFAULT 0,
     "requiredGuideCount" INTEGER NOT NULL,
     "status" "TripStatus" NOT NULL DEFAULT 'DRAFT',
-    "statusChangedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "statusChangedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "requestId" TEXT,
     "emergencyNote" TEXT,
     "cancelledReason" TEXT,
     "createdById" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "trips_pkey" PRIMARY KEY ("id")
 );
@@ -419,8 +419,8 @@ CREATE TABLE "trip_guide_assignments" (
     "guideId" TEXT NOT NULL,
     "role" "GuideRole" NOT NULL,
     "assignedById" TEXT NOT NULL,
-    "assignedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "unassignedAt" TIMESTAMP(3),
+    "assignedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "unassignedAt" TIMESTAMPTZ(3),
 
     CONSTRAINT "trip_guide_assignments_pkey" PRIMARY KEY ("id")
 );
@@ -434,7 +434,7 @@ CREATE TABLE "trip_participants" (
     "displayName" TEXT NOT NULL,
     "phoneNumber" TEXT,
     "emergencyContact" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "trip_participants_pkey" PRIMARY KEY ("id")
 );
@@ -446,7 +446,7 @@ CREATE TABLE "trip_readiness_checks" (
     "guideId" TEXT NOT NULL,
     "items" JSONB NOT NULL,
     "result" "ReadinessResult" NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "trip_readiness_checks_pkey" PRIMARY KEY ("id")
 );
@@ -456,15 +456,15 @@ CREATE TABLE "trip_requests" (
     "id" TEXT NOT NULL,
     "guideId" TEXT NOT NULL,
     "packageId" TEXT,
-    "preferredStartAt" TIMESTAMP(3) NOT NULL,
-    "preferredEndAt" TIMESTAMP(3) NOT NULL,
+    "preferredStartAt" TIMESTAMPTZ(3) NOT NULL,
+    "preferredEndAt" TIMESTAMPTZ(3) NOT NULL,
     "groupSizeEstimate" INTEGER,
     "notes" TEXT,
     "status" "TripRequestStatus" NOT NULL DEFAULT 'OPEN',
     "decidedById" TEXT,
     "decisionNote" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "trip_requests_pkey" PRIMARY KEY ("id")
 );
@@ -477,7 +477,7 @@ CREATE TABLE "trip_status_history" (
     "toStatus" "TripStatus" NOT NULL,
     "actorId" TEXT,
     "note" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "trip_status_history_pkey" PRIMARY KEY ("id")
 );
@@ -496,14 +496,14 @@ CREATE TABLE "bookings" (
     "requestedDevices" INTEGER NOT NULL,
     "status" "BookingStatus" NOT NULL DEFAULT 'PENDING',
     "holdDisabled" BOOLEAN NOT NULL DEFAULT false,
-    "escrowPaidAt" TIMESTAMP(3),
+    "escrowPaidAt" TIMESTAMPTZ(3),
     "confirmedById" TEXT,
-    "confirmedAt" TIMESTAMP(3),
+    "confirmedAt" TIMESTAMPTZ(3),
     "decisionReason" TEXT,
-    "cancelledAt" TIMESTAMP(3),
-    "termsAcceptedAt" TIMESTAMP(3) NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "cancelledAt" TIMESTAMPTZ(3),
+    "termsAcceptedAt" TIMESTAMPTZ(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "bookings_pkey" PRIMARY KEY ("id")
 );
@@ -517,10 +517,10 @@ CREATE TABLE "device_allocations" (
     "windowStart" TIMESTAMPTZ(3) NOT NULL,
     "windowEnd" TIMESTAMPTZ(3) NOT NULL,
     "status" "AllocationStatus" NOT NULL,
-    "holdExpiresAt" TIMESTAMP(3),
+    "holdExpiresAt" TIMESTAMPTZ(3),
     "createdById" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "device_allocations_pkey" PRIMARY KEY ("id")
 );
@@ -535,17 +535,17 @@ CREATE TABLE "rentals" (
     "renterName" TEXT NOT NULL,
     "custodianGuideId" TEXT NOT NULL,
     "status" "RentalStatus" NOT NULL DEFAULT 'DRAFT',
-    "dueAt" TIMESTAMP(3) NOT NULL,
-    "checkedOutAt" TIMESTAMP(3),
+    "dueAt" TIMESTAMPTZ(3) NOT NULL,
+    "checkedOutAt" TIMESTAMPTZ(3),
     "checkedOutById" TEXT,
-    "returnedAt" TIMESTAMP(3),
+    "returnedAt" TIMESTAMPTZ(3),
     "settlementInvoiceId" TEXT,
-    "closedAt" TIMESTAMP(3),
+    "closedAt" TIMESTAMPTZ(3),
     "closedById" TEXT,
     "cancelledReason" TEXT,
     "createdById" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "rentals_pkey" PRIMARY KEY ("id")
 );
@@ -557,11 +557,11 @@ CREATE TABLE "rental_items" (
     "deviceId" TEXT NOT NULL,
     "participantId" TEXT,
     "state" "RentalItemState" NOT NULL DEFAULT 'ALLOCATED',
-    "checkedOutAt" TIMESTAMP(3),
-    "returnedAt" TIMESTAMP(3),
+    "checkedOutAt" TIMESTAMPTZ(3),
+    "returnedAt" TIMESTAMPTZ(3),
     "receivedById" TEXT,
     "replacedByItemId" TEXT,
-    "lostConfirmedAt" TIMESTAMP(3),
+    "lostConfirmedAt" TIMESTAMPTZ(3),
     "lostConfirmedById" TEXT,
 
     CONSTRAINT "rental_items_pkey" PRIMARY KEY ("id")
@@ -577,11 +577,11 @@ CREATE TABLE "rental_agreements" (
     "generatedPdf" BYTEA NOT NULL,
     "generatedSha256" TEXT NOT NULL,
     "generatedById" TEXT NOT NULL,
-    "generatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "generatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "signedPdf" BYTEA,
     "signedSha256" TEXT,
     "signerName" TEXT,
-    "signedAt" TIMESTAMP(3),
+    "signedAt" TIMESTAMPTZ(3),
     "signatureCapturedById" TEXT,
 
     CONSTRAINT "rental_agreements_pkey" PRIMARY KEY ("id")
@@ -597,7 +597,7 @@ CREATE TABLE "handover_checks" (
     "pskVerified" BOOLEAN NOT NULL,
     "passed" BOOLEAN NOT NULL,
     "note" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "handover_checks_pkey" PRIMARY KEY ("id")
 );
@@ -613,7 +613,7 @@ CREATE TABLE "return_inspections" (
     "damageNotes" TEXT,
     "evidenceRefs" TEXT[],
     "serviceable" BOOLEAN NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "return_inspections_pkey" PRIMARY KEY ("id")
 );
@@ -626,7 +626,7 @@ CREATE TABLE "booking_status_history" (
     "toStatus" "BookingStatus" NOT NULL,
     "actorId" TEXT,
     "reason" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "booking_status_history_pkey" PRIMARY KEY ("id")
 );
@@ -639,7 +639,7 @@ CREATE TABLE "rental_status_history" (
     "toStatus" "RentalStatus" NOT NULL,
     "actorId" TEXT,
     "reason" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "rental_status_history_pkey" PRIMARY KEY ("id")
 );
@@ -657,11 +657,11 @@ CREATE TABLE "pricing_rules" (
     "amount" DECIMAL(14,2) NOT NULL,
     "minQuantity" INTEGER NOT NULL DEFAULT 1,
     "priority" INTEGER NOT NULL DEFAULT 0,
-    "validFrom" TIMESTAMP(3) NOT NULL,
-    "validTo" TIMESTAMP(3),
+    "validFrom" TIMESTAMPTZ(3) NOT NULL,
+    "validTo" TIMESTAMPTZ(3),
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "pricing_rules_pkey" PRIMARY KEY ("id")
 );
@@ -691,10 +691,10 @@ CREATE TABLE "invoices" (
     "total" DECIMAL(14,2) NOT NULL,
     "balanceDue" DECIMAL(14,2) NOT NULL,
     "refundDue" DECIMAL(14,2) NOT NULL,
-    "dueAt" TIMESTAMP(3),
+    "dueAt" TIMESTAMPTZ(3),
     "adjustsInvoiceId" TEXT,
     "factsSnapshot" JSONB,
-    "issuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "issuedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "invoices_pkey" PRIMARY KEY ("id")
 );
@@ -730,7 +730,7 @@ CREATE TABLE "payments" (
     "requestHash" TEXT NOT NULL,
     "providerRef" TEXT,
     "actorId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "payments_pkey" PRIMARY KEY ("id")
 );
@@ -747,8 +747,8 @@ CREATE TABLE "fee_waivers" (
     "decidedById" TEXT,
     "decisionNote" TEXT,
     "adjustmentInvoiceId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "decidedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "decidedAt" TIMESTAMPTZ(3),
 
     CONSTRAINT "fee_waivers_pkey" PRIMARY KEY ("id")
 );
@@ -765,25 +765,25 @@ CREATE TABLE "incidents" (
     "confidence" "IncidentConfidence" NOT NULL,
     "status" "IncidentStatus" NOT NULL DEFAULT 'DETECTED',
     "openedByEventId" TEXT,
-    "firstEventAt" TIMESTAMP(3) NOT NULL,
-    "lastEventAt" TIMESTAMP(3) NOT NULL,
+    "firstEventAt" TIMESTAMPTZ(3) NOT NULL,
+    "lastEventAt" TIMESTAMPTZ(3) NOT NULL,
     "eventCount" INTEGER NOT NULL DEFAULT 1,
     "lastLatitude" DOUBLE PRECISION,
     "lastLongitude" DOUBLE PRECISION,
     "title" TEXT,
     "description" TEXT,
-    "acknowledgedAt" TIMESTAMP(3),
+    "acknowledgedAt" TIMESTAMPTZ(3),
     "acknowledgedById" TEXT,
-    "resolvedAt" TIMESTAMP(3),
+    "resolvedAt" TIMESTAMPTZ(3),
     "resolution" "IncidentResolution",
-    "closedAt" TIMESTAMP(3),
-    "escalatedAt" TIMESTAMP(3),
+    "closedAt" TIMESTAMPTZ(3),
+    "escalatedAt" TIMESTAMPTZ(3),
     "reopenCount" INTEGER NOT NULL DEFAULT 0,
-    "dismissedAt" TIMESTAMP(3),
+    "dismissedAt" TIMESTAMPTZ(3),
     "createdById" TEXT,
     "version" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "incidents_pkey" PRIMARY KEY ("id")
 );
@@ -800,7 +800,7 @@ CREATE TABLE "incident_audits" (
     "toStatus" "IncidentStatus",
     "note" TEXT,
     "refEventId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "incident_audits_pkey" PRIMARY KEY ("id")
 );
@@ -814,8 +814,8 @@ CREATE TABLE "gateway_events" (
     "ingress" "IngressPath" NOT NULL,
     "kind" "EventKind" NOT NULL,
     "priority" "PriorityTier" NOT NULL DEFAULT 'P3_TELEMETRY',
-    "observedAt" TIMESTAMP(3),
-    "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "observedAt" TIMESTAMPTZ(3),
+    "receivedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "latitude" DOUBLE PRECISION,
     "longitude" DOUBLE PRECISION,
     "altitude" DOUBLE PRECISION,
@@ -823,9 +823,8 @@ CREATE TABLE "gateway_events" (
     "snr" DOUBLE PRECISION,
     "hopsAway" INTEGER,
     "payload" JSONB NOT NULL,
-    "processedAt" TIMESTAMP(3),
     "incidentId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "gateway_events_pkey" PRIMARY KEY ("id")
 );
@@ -840,7 +839,7 @@ CREATE TABLE "sync_audit_log" (
     "outcome" "SyncOutcome" NOT NULL,
     "detail" TEXT,
     "rawMessage" JSONB,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "sync_audit_log_pkey" PRIMARY KEY ("id")
 );
@@ -851,10 +850,10 @@ CREATE TABLE "gateways" (
     "gatewayKey" TEXT NOT NULL,
     "label" TEXT,
     "ingress" "IngressPath" NOT NULL,
-    "lastPacketAt" TIMESTAMP(3),
+    "lastPacketAt" TIMESTAMPTZ(3),
     "apiKeyHash" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "gateways_pkey" PRIMARY KEY ("id")
 );
@@ -876,10 +875,19 @@ CREATE TABLE "device_queue_reports" (
     "flashBytes" INTEGER NOT NULL,
     "flashBudget" INTEGER NOT NULL,
     "rebootDetected" BOOLEAN NOT NULL DEFAULT false,
-    "receivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "receivedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "device_queue_reports_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE INDEX "business_parameters_updatedById_idx" ON "business_parameters"("updatedById");
+
+-- CreateIndex
+CREATE INDEX "business_parameter_history_key_changedAt_idx" ON "business_parameter_history"("key", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "business_parameter_history_changedById_idx" ON "business_parameter_history"("changedById");
 
 -- CreateIndex
 CREATE INDEX "audit_log_subjectType_subjectId_createdAt_idx" ON "audit_log"("subjectType", "subjectId", "createdAt");
@@ -897,16 +905,31 @@ CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 CREATE INDEX "users_accountType_isActive_idx" ON "users"("accountType", "isActive");
 
 -- CreateIndex
+CREATE INDEX "users_createdById_idx" ON "users"("createdById");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "roles_key_key" ON "roles"("key");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "permissions_key_key" ON "permissions"("key");
 
 -- CreateIndex
+CREATE INDEX "user_roles_roleId_idx" ON "user_roles"("roleId");
+
+-- CreateIndex
+CREATE INDEX "user_roles_grantedById_idx" ON "user_roles"("grantedById");
+
+-- CreateIndex
+CREATE INDEX "role_permissions_permissionId_idx" ON "role_permissions"("permissionId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "refresh_tokens_tokenHash_key" ON "refresh_tokens"("tokenHash");
 
 -- CreateIndex
 CREATE INDEX "refresh_tokens_userId_familyId_idx" ON "refresh_tokens"("userId", "familyId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_replacedById_idx" ON "refresh_tokens"("replacedById");
 
 -- CreateIndex
 CREATE INDEX "one_time_codes_userId_purpose_createdAt_idx" ON "one_time_codes"("userId", "purpose", "createdAt");
@@ -933,10 +956,22 @@ CREATE INDEX "devices_hardwareVariantId_status_idx" ON "devices"("hardwareVarian
 CREATE INDEX "device_status_history_deviceId_createdAt_idx" ON "device_status_history"("deviceId", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "device_status_history_actorId_idx" ON "device_status_history"("actorId");
+
+-- CreateIndex
 CREATE INDEX "maintenance_records_deviceId_status_idx" ON "maintenance_records"("deviceId", "status");
 
 -- CreateIndex
+CREATE INDEX "maintenance_records_openedById_idx" ON "maintenance_records"("openedById");
+
+-- CreateIndex
+CREATE INDEX "maintenance_records_closedById_idx" ON "maintenance_records"("closedById");
+
+-- CreateIndex
 CREATE INDEX "device_provisioning_deviceId_createdAt_idx" ON "device_provisioning"("deviceId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "device_provisioning_provisionedById_idx" ON "device_provisioning"("provisionedById");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "trek_packages_code_key" ON "trek_packages"("code");
@@ -951,16 +986,49 @@ CREATE UNIQUE INDEX "trips_requestId_key" ON "trips"("requestId");
 CREATE INDEX "trips_status_startAt_idx" ON "trips"("status", "startAt");
 
 -- CreateIndex
+CREATE INDEX "trips_packageId_idx" ON "trips"("packageId");
+
+-- CreateIndex
+CREATE INDEX "trips_createdById_idx" ON "trips"("createdById");
+
+-- CreateIndex
 CREATE INDEX "trip_guide_assignments_guideId_unassignedAt_idx" ON "trip_guide_assignments"("guideId", "unassignedAt");
+
+-- CreateIndex
+CREATE INDEX "trip_guide_assignments_tripId_idx" ON "trip_guide_assignments"("tripId");
+
+-- CreateIndex
+CREATE INDEX "trip_guide_assignments_assignedById_idx" ON "trip_guide_assignments"("assignedById");
 
 -- CreateIndex
 CREATE INDEX "trip_participants_tripId_idx" ON "trip_participants"("tripId");
 
 -- CreateIndex
+CREATE INDEX "trip_participants_bookingId_idx" ON "trip_participants"("bookingId");
+
+-- CreateIndex
+CREATE INDEX "trip_participants_userId_idx" ON "trip_participants"("userId");
+
+-- CreateIndex
 CREATE INDEX "trip_readiness_checks_tripId_createdAt_idx" ON "trip_readiness_checks"("tripId", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "trip_readiness_checks_guideId_idx" ON "trip_readiness_checks"("guideId");
+
+-- CreateIndex
+CREATE INDEX "trip_requests_guideId_idx" ON "trip_requests"("guideId");
+
+-- CreateIndex
+CREATE INDEX "trip_requests_packageId_idx" ON "trip_requests"("packageId");
+
+-- CreateIndex
+CREATE INDEX "trip_requests_decidedById_idx" ON "trip_requests"("decidedById");
+
+-- CreateIndex
 CREATE INDEX "trip_status_history_tripId_createdAt_idx" ON "trip_status_history"("tripId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "trip_status_history_actorId_idx" ON "trip_status_history"("actorId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "bookings_code_key" ON "bookings"("code");
@@ -972,6 +1040,12 @@ CREATE INDEX "bookings_tripId_status_idx" ON "bookings"("tripId", "status");
 CREATE INDEX "bookings_customerId_status_idx" ON "bookings"("customerId", "status");
 
 -- CreateIndex
+CREATE INDEX "bookings_createdById_idx" ON "bookings"("createdById");
+
+-- CreateIndex
+CREATE INDEX "bookings_confirmedById_idx" ON "bookings"("confirmedById");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "device_allocations_rentalItemId_key" ON "device_allocations"("rentalItemId");
 
 -- CreateIndex
@@ -979,6 +1053,12 @@ CREATE INDEX "device_allocations_deviceId_status_idx" ON "device_allocations"("d
 
 -- CreateIndex
 CREATE INDEX "device_allocations_status_holdExpiresAt_idx" ON "device_allocations"("status", "holdExpiresAt");
+
+-- CreateIndex
+CREATE INDEX "device_allocations_bookingId_idx" ON "device_allocations"("bookingId");
+
+-- CreateIndex
+CREATE INDEX "device_allocations_createdById_idx" ON "device_allocations"("createdById");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "rentals_code_key" ON "rentals"("code");
@@ -993,19 +1073,82 @@ CREATE INDEX "rentals_tripId_status_idx" ON "rentals"("tripId", "status");
 CREATE INDEX "rentals_custodianGuideId_status_idx" ON "rentals"("custodianGuideId", "status");
 
 -- CreateIndex
+CREATE INDEX "rentals_renterId_idx" ON "rentals"("renterId");
+
+-- CreateIndex
+CREATE INDEX "rentals_checkedOutById_idx" ON "rentals"("checkedOutById");
+
+-- CreateIndex
+CREATE INDEX "rentals_settlementInvoiceId_idx" ON "rentals"("settlementInvoiceId");
+
+-- CreateIndex
+CREATE INDEX "rentals_closedById_idx" ON "rentals"("closedById");
+
+-- CreateIndex
+CREATE INDEX "rentals_createdById_idx" ON "rentals"("createdById");
+
+-- CreateIndex
 CREATE INDEX "rental_items_rentalId_idx" ON "rental_items"("rentalId");
 
 -- CreateIndex
 CREATE INDEX "rental_items_deviceId_state_idx" ON "rental_items"("deviceId", "state");
 
 -- CreateIndex
+CREATE INDEX "rental_items_participantId_idx" ON "rental_items"("participantId");
+
+-- CreateIndex
+CREATE INDEX "rental_items_receivedById_idx" ON "rental_items"("receivedById");
+
+-- CreateIndex
+CREATE INDEX "rental_items_replacedByItemId_idx" ON "rental_items"("replacedByItemId");
+
+-- CreateIndex
+CREATE INDEX "rental_items_lostConfirmedById_idx" ON "rental_items"("lostConfirmedById");
+
+-- CreateIndex
+CREATE INDEX "rental_agreements_generatedById_idx" ON "rental_agreements"("generatedById");
+
+-- CreateIndex
+CREATE INDEX "rental_agreements_signatureCapturedById_idx" ON "rental_agreements"("signatureCapturedById");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "rental_agreements_rentalId_version_key" ON "rental_agreements"("rentalId", "version");
+
+-- CreateIndex
+CREATE INDEX "handover_checks_rentalItemId_idx" ON "handover_checks"("rentalItemId");
+
+-- CreateIndex
+CREATE INDEX "handover_checks_guideId_idx" ON "handover_checks"("guideId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "return_inspections_rentalItemId_key" ON "return_inspections"("rentalItemId");
 
 -- CreateIndex
+CREATE INDEX "return_inspections_inspectorId_idx" ON "return_inspections"("inspectorId");
+
+-- CreateIndex
+CREATE INDEX "booking_status_history_bookingId_idx" ON "booking_status_history"("bookingId");
+
+-- CreateIndex
+CREATE INDEX "booking_status_history_actorId_idx" ON "booking_status_history"("actorId");
+
+-- CreateIndex
+CREATE INDEX "rental_status_history_rentalId_idx" ON "rental_status_history"("rentalId");
+
+-- CreateIndex
+CREATE INDEX "rental_status_history_actorId_idx" ON "rental_status_history"("actorId");
+
+-- CreateIndex
 CREATE INDEX "pricing_rules_component_isActive_idx" ON "pricing_rules"("component", "isActive");
+
+-- CreateIndex
+CREATE INDEX "pricing_rules_packageId_idx" ON "pricing_rules"("packageId");
+
+-- CreateIndex
+CREATE INDEX "pricing_rules_hardwareVariantId_idx" ON "pricing_rules"("hardwareVariantId");
+
+-- CreateIndex
+CREATE INDEX "damage_fee_rules_hardwareVariantId_idx" ON "damage_fee_rules"("hardwareVariantId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "damage_fee_rules_condition_hardwareVariantId_key" ON "damage_fee_rules"("condition", "hardwareVariantId");
@@ -1023,6 +1166,12 @@ CREATE INDEX "invoices_rentalId_idx" ON "invoices"("rentalId");
 CREATE INDEX "invoices_customerId_issuedAt_idx" ON "invoices"("customerId", "issuedAt");
 
 -- CreateIndex
+CREATE INDEX "invoices_adjustsInvoiceId_idx" ON "invoices"("adjustsInvoiceId");
+
+-- CreateIndex
+CREATE INDEX "invoice_lines_deviceId_idx" ON "invoice_lines"("deviceId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "invoice_lines_invoiceId_seq_key" ON "invoice_lines"("invoiceId", "seq");
 
 -- CreateIndex
@@ -1030,6 +1179,24 @@ CREATE UNIQUE INDEX "payments_idempotencyKey_key" ON "payments"("idempotencyKey"
 
 -- CreateIndex
 CREATE INDEX "payments_invoiceId_createdAt_idx" ON "payments"("invoiceId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "payments_actorId_idx" ON "payments"("actorId");
+
+-- CreateIndex
+CREATE INDEX "fee_waivers_invoiceLineId_idx" ON "fee_waivers"("invoiceLineId");
+
+-- CreateIndex
+CREATE INDEX "fee_waivers_requestedById_idx" ON "fee_waivers"("requestedById");
+
+-- CreateIndex
+CREATE INDEX "fee_waivers_inspectorId_idx" ON "fee_waivers"("inspectorId");
+
+-- CreateIndex
+CREATE INDEX "fee_waivers_decidedById_idx" ON "fee_waivers"("decidedById");
+
+-- CreateIndex
+CREATE INDEX "fee_waivers_adjustmentInvoiceId_idx" ON "fee_waivers"("adjustmentInvoiceId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "incidents_code_key" ON "incidents"("code");
@@ -1047,6 +1214,21 @@ CREATE INDEX "incidents_tripId_status_idx" ON "incidents"("tripId", "status");
 CREATE INDEX "incidents_status_createdAt_idx" ON "incidents"("status", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "incidents_rentalId_idx" ON "incidents"("rentalId");
+
+-- CreateIndex
+CREATE INDEX "incidents_acknowledgedById_idx" ON "incidents"("acknowledgedById");
+
+-- CreateIndex
+CREATE INDEX "incidents_createdById_idx" ON "incidents"("createdById");
+
+-- CreateIndex
+CREATE INDEX "incident_audits_actorId_idx" ON "incident_audits"("actorId");
+
+-- CreateIndex
+CREATE INDEX "incident_audits_refEventId_idx" ON "incident_audits"("refEventId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "incident_audits_incidentId_seq_key" ON "incident_audits"("incidentId", "seq");
 
 -- CreateIndex
@@ -1059,16 +1241,25 @@ CREATE INDEX "gateway_events_deviceId_receivedAt_idx" ON "gateway_events"("devic
 CREATE INDEX "gateway_events_deviceId_kind_receivedAt_idx" ON "gateway_events"("deviceId", "kind", "receivedAt");
 
 -- CreateIndex
+CREATE INDEX "gateway_events_incidentId_idx" ON "gateway_events"("incidentId");
+
+-- CreateIndex
 CREATE INDEX "sync_audit_log_outcome_createdAt_idx" ON "sync_audit_log"("outcome", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "sync_audit_log_eventId_idx" ON "sync_audit_log"("eventId");
 
 -- CreateIndex
+CREATE INDEX "sync_audit_log_deviceId_idx" ON "sync_audit_log"("deviceId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "gateways_gatewayKey_key" ON "gateways"("gatewayKey");
 
 -- CreateIndex
 CREATE INDEX "device_queue_reports_deviceId_receivedAt_idx" ON "device_queue_reports"("deviceId", "receivedAt");
+
+-- AddForeignKey
+ALTER TABLE "business_parameters" ADD CONSTRAINT "business_parameters_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "business_parameter_history" ADD CONSTRAINT "business_parameter_history_key_fkey" FOREIGN KEY ("key") REFERENCES "business_parameters"("key") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1080,10 +1271,16 @@ ALTER TABLE "business_parameter_history" ADD CONSTRAINT "business_parameter_hist
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "users" ADD CONSTRAINT "users_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_grantedById_fkey" FOREIGN KEY ("grantedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1093,6 +1290,9 @@ ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_permissionId_fke
 
 -- AddForeignKey
 ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_replacedById_fkey" FOREIGN KEY ("replacedById") REFERENCES "refresh_tokens"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "one_time_codes" ADD CONSTRAINT "one_time_codes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1107,10 +1307,31 @@ ALTER TABLE "devices" ADD CONSTRAINT "devices_hardwareVariantId_fkey" FOREIGN KE
 ALTER TABLE "device_status_history" ADD CONSTRAINT "device_status_history_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "device_status_history" ADD CONSTRAINT "device_status_history_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "maintenance_records" ADD CONSTRAINT "maintenance_records_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "maintenance_records" ADD CONSTRAINT "maintenance_records_openedById_fkey" FOREIGN KEY ("openedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "maintenance_records" ADD CONSTRAINT "maintenance_records_closedById_fkey" FOREIGN KEY ("closedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "device_provisioning" ADD CONSTRAINT "device_provisioning_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "device_provisioning" ADD CONSTRAINT "device_provisioning_provisionedById_fkey" FOREIGN KEY ("provisionedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "trips" ADD CONSTRAINT "trips_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "trek_packages"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trips" ADD CONSTRAINT "trips_requestId_fkey" FOREIGN KEY ("requestId") REFERENCES "trip_requests"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trips" ADD CONSTRAINT "trips_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "trip_guide_assignments" ADD CONSTRAINT "trip_guide_assignments_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "trips"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1119,10 +1340,49 @@ ALTER TABLE "trip_guide_assignments" ADD CONSTRAINT "trip_guide_assignments_trip
 ALTER TABLE "trip_guide_assignments" ADD CONSTRAINT "trip_guide_assignments_guideId_fkey" FOREIGN KEY ("guideId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "trip_guide_assignments" ADD CONSTRAINT "trip_guide_assignments_assignedById_fkey" FOREIGN KEY ("assignedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_participants" ADD CONSTRAINT "trip_participants_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "trips"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_participants" ADD CONSTRAINT "trip_participants_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "bookings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_participants" ADD CONSTRAINT "trip_participants_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_readiness_checks" ADD CONSTRAINT "trip_readiness_checks_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "trips"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_readiness_checks" ADD CONSTRAINT "trip_readiness_checks_guideId_fkey" FOREIGN KEY ("guideId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_requests" ADD CONSTRAINT "trip_requests_guideId_fkey" FOREIGN KEY ("guideId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_requests" ADD CONSTRAINT "trip_requests_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "trek_packages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_requests" ADD CONSTRAINT "trip_requests_decidedById_fkey" FOREIGN KEY ("decidedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_status_history" ADD CONSTRAINT "trip_status_history_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "trips"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "trip_status_history" ADD CONSTRAINT "trip_status_history_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "trips"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bookings" ADD CONSTRAINT "bookings_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bookings" ADD CONSTRAINT "bookings_confirmedById_fkey" FOREIGN KEY ("confirmedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "device_allocations" ADD CONSTRAINT "device_allocations_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1131,10 +1391,34 @@ ALTER TABLE "device_allocations" ADD CONSTRAINT "device_allocations_deviceId_fke
 ALTER TABLE "device_allocations" ADD CONSTRAINT "device_allocations_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "bookings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "device_allocations" ADD CONSTRAINT "device_allocations_rentalItemId_fkey" FOREIGN KEY ("rentalItemId") REFERENCES "rental_items"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "device_allocations" ADD CONSTRAINT "device_allocations_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "rentals" ADD CONSTRAINT "rentals_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "bookings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "rentals" ADD CONSTRAINT "rentals_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "trips"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rentals" ADD CONSTRAINT "rentals_renterId_fkey" FOREIGN KEY ("renterId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "rentals" ADD CONSTRAINT "rentals_custodianGuideId_fkey" FOREIGN KEY ("custodianGuideId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rentals" ADD CONSTRAINT "rentals_checkedOutById_fkey" FOREIGN KEY ("checkedOutById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rentals" ADD CONSTRAINT "rentals_settlementInvoiceId_fkey" FOREIGN KEY ("settlementInvoiceId") REFERENCES "invoices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rentals" ADD CONSTRAINT "rentals_closedById_fkey" FOREIGN KEY ("closedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rentals" ADD CONSTRAINT "rentals_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rental_items" ADD CONSTRAINT "rental_items_rentalId_fkey" FOREIGN KEY ("rentalId") REFERENCES "rentals"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1143,25 +1427,115 @@ ALTER TABLE "rental_items" ADD CONSTRAINT "rental_items_rentalId_fkey" FOREIGN K
 ALTER TABLE "rental_items" ADD CONSTRAINT "rental_items_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "rental_items" ADD CONSTRAINT "rental_items_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "trip_participants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rental_items" ADD CONSTRAINT "rental_items_receivedById_fkey" FOREIGN KEY ("receivedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rental_items" ADD CONSTRAINT "rental_items_replacedByItemId_fkey" FOREIGN KEY ("replacedByItemId") REFERENCES "rental_items"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rental_items" ADD CONSTRAINT "rental_items_lostConfirmedById_fkey" FOREIGN KEY ("lostConfirmedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "rental_agreements" ADD CONSTRAINT "rental_agreements_rentalId_fkey" FOREIGN KEY ("rentalId") REFERENCES "rentals"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rental_agreements" ADD CONSTRAINT "rental_agreements_generatedById_fkey" FOREIGN KEY ("generatedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rental_agreements" ADD CONSTRAINT "rental_agreements_signatureCapturedById_fkey" FOREIGN KEY ("signatureCapturedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "handover_checks" ADD CONSTRAINT "handover_checks_rentalItemId_fkey" FOREIGN KEY ("rentalItemId") REFERENCES "rental_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "handover_checks" ADD CONSTRAINT "handover_checks_guideId_fkey" FOREIGN KEY ("guideId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "return_inspections" ADD CONSTRAINT "return_inspections_rentalItemId_fkey" FOREIGN KEY ("rentalItemId") REFERENCES "rental_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "return_inspections" ADD CONSTRAINT "return_inspections_inspectorId_fkey" FOREIGN KEY ("inspectorId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "booking_status_history" ADD CONSTRAINT "booking_status_history_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "bookings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "booking_status_history" ADD CONSTRAINT "booking_status_history_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rental_status_history" ADD CONSTRAINT "rental_status_history_rentalId_fkey" FOREIGN KEY ("rentalId") REFERENCES "rentals"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "rental_status_history" ADD CONSTRAINT "rental_status_history_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pricing_rules" ADD CONSTRAINT "pricing_rules_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "trek_packages"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pricing_rules" ADD CONSTRAINT "pricing_rules_hardwareVariantId_fkey" FOREIGN KEY ("hardwareVariantId") REFERENCES "hardware_variants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "damage_fee_rules" ADD CONSTRAINT "damage_fee_rules_hardwareVariantId_fkey" FOREIGN KEY ("hardwareVariantId") REFERENCES "hardware_variants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "bookings"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_rentalId_fkey" FOREIGN KEY ("rentalId") REFERENCES "rentals"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_adjustsInvoiceId_fkey" FOREIGN KEY ("adjustsInvoiceId") REFERENCES "invoices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "invoice_lines" ADD CONSTRAINT "invoice_lines_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invoice_lines" ADD CONSTRAINT "invoice_lines_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "payments" ADD CONSTRAINT "payments_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "fee_waivers" ADD CONSTRAINT "fee_waivers_invoiceLineId_fkey" FOREIGN KEY ("invoiceLineId") REFERENCES "invoice_lines"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "fee_waivers" ADD CONSTRAINT "fee_waivers_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "fee_waivers" ADD CONSTRAINT "fee_waivers_inspectorId_fkey" FOREIGN KEY ("inspectorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "fee_waivers" ADD CONSTRAINT "fee_waivers_decidedById_fkey" FOREIGN KEY ("decidedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "fee_waivers" ADD CONSTRAINT "fee_waivers_adjustmentInvoiceId_fkey" FOREIGN KEY ("adjustmentInvoiceId") REFERENCES "invoices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "incidents" ADD CONSTRAINT "incidents_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "incidents" ADD CONSTRAINT "incidents_tripId_fkey" FOREIGN KEY ("tripId") REFERENCES "trips"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "incidents" ADD CONSTRAINT "incidents_rentalId_fkey" FOREIGN KEY ("rentalId") REFERENCES "rentals"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "incidents" ADD CONSTRAINT "incidents_openedByEventId_fkey" FOREIGN KEY ("openedByEventId") REFERENCES "gateway_events"("eventId") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "incidents" ADD CONSTRAINT "incidents_acknowledgedById_fkey" FOREIGN KEY ("acknowledgedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "incidents" ADD CONSTRAINT "incidents_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "incident_audits" ADD CONSTRAINT "incident_audits_incidentId_fkey" FOREIGN KEY ("incidentId") REFERENCES "incidents"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1170,17 +1544,23 @@ ALTER TABLE "incident_audits" ADD CONSTRAINT "incident_audits_incidentId_fkey" F
 ALTER TABLE "incident_audits" ADD CONSTRAINT "incident_audits_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "incident_audits" ADD CONSTRAINT "incident_audits_refEventId_fkey" FOREIGN KEY ("refEventId") REFERENCES "gateway_events"("eventId") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "gateway_events" ADD CONSTRAINT "gateway_events_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "gateway_events" ADD CONSTRAINT "gateway_events_incidentId_fkey" FOREIGN KEY ("incidentId") REFERENCES "incidents"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "sync_audit_log" ADD CONSTRAINT "sync_audit_log_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "device_queue_reports" ADD CONSTRAINT "device_queue_reports_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 
 -- ─── Constraints Prisma cannot express (platform task 1.5) ───────────────────────────────
--- Column names are the Prisma field names (camelCase); only table names are mapped.
+-- Column names are the Prisma field names (camelCase); only table names are mapped (decision 3).
 
 -- rentals, BR-01: a device is never allocated twice for overlapping time while the allocation
 -- is live (specs/rentals/design.md §1, platform design Figure 8).
@@ -1234,5 +1614,21 @@ CREATE TRIGGER "return_inspections_append_only" BEFORE UPDATE OR DELETE ON "retu
   FOR EACH ROW EXECUTE FUNCTION raise_append_only();
 CREATE TRIGGER "incident_audits_append_only" BEFORE UPDATE OR DELETE ON "incident_audits"
   FOR EACH ROW EXECUTE FUNCTION raise_append_only();
+-- gateway_events is append-only with one exception (leader decision 1, PR #12): an UPDATE that
+-- only sets "incidentId" from NULL to a value, which links an accepted event to the episode it
+-- opened or joined. Any other UPDATE, and every DELETE, is rejected. "priority" is set at insert.
+CREATE OR REPLACE FUNCTION gateway_events_append_only() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND OLD."incidentId" IS NULL
+     AND NEW."incidentId" IS NOT NULL
+     AND (to_jsonb(NEW) - 'incidentId') = (to_jsonb(OLD) - 'incidentId') THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION '% on append-only table % is not allowed', TG_OP, TG_TABLE_NAME;
+END;
+$$;
+
 CREATE TRIGGER "gateway_events_append_only" BEFORE UPDATE OR DELETE ON "gateway_events"
-  FOR EACH ROW EXECUTE FUNCTION raise_append_only();
+  FOR EACH ROW EXECUTE FUNCTION gateway_events_append_only();
