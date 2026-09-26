@@ -54,7 +54,7 @@ model Trip {
   @@index([status, startAt])
   @@map("trips")
 }
-// migration adds: CHECK (seats_taken >= 0 AND seats_taken <= capacity), CHECK (end_at > start_at)
+// migration adds: CHECK ("seatsTaken" >= 0 AND "seatsTaken" <= capacity), CHECK ("endAt" > "startAt")
 
 model TripGuideAssignment {
   id           String    @id @default(uuid())
@@ -67,8 +67,8 @@ model TripGuideAssignment {
   @@index([guideId, unassignedAt])
   @@map("trip_guide_assignments")
 }
-// migration adds: partial unique (trip_id, guide_id) WHERE unassigned_at IS NULL,
-//                 partial unique (trip_id) WHERE role = 'LEAD' AND unassigned_at IS NULL
+// migration adds: partial unique ("tripId", "guideId") WHERE "unassignedAt" IS NULL,
+//                 partial unique ("tripId") WHERE role = 'LEAD' AND "unassignedAt" IS NULL
 
 model TripParticipant {
   id              String   @id @default(uuid())
@@ -172,7 +172,7 @@ stateDiagram-v2
 
 `TripsService.adjustSeats(tripId, delta, tx)` is exported for `rentals`:
 
-1. `SELECT capacity, seats_taken, status FROM trips WHERE id = $1 FOR UPDATE`.
+1. `SELECT capacity, "seatsTaken", status FROM trips WHERE id = $1 FOR UPDATE`.
 2. For positive `delta`: status must be `BOOKING_OPEN` (or, for Staff and Guide bookings, `PREPARING` too), and `seatsTaken + delta ≤ capacity`, else `TRIP_FULL`.
 3. Update. The check constraint is the last line of defence.
 

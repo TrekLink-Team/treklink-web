@@ -1,30 +1,30 @@
 # Implementation Tasks: platform
 
-> Approved by: pending (spec approval requested in `_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: none, Jira is empty and this is foundation work (D-024)
+> Approved by: KhoaDD (`07-clarification-answers.md` §6 items 1 to 6, 2026-09-25) · Branch: `feat/platform-foundation` (Phase 1, PR #12) · Jira: none, this is foundation work (D-024)
 >
 > Fulfills `design.md` in this folder. First implementation work of Phase B; every module waits on Phase 1 and 2 here.
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 Turn on `strict: true` in `backend/tsconfig.json`; fix the scaffold until `npm run typecheck` is clean
+- [x] 1.1 Turn on `strict: true` in `backend/tsconfig.json`; fix the scaffold until `npm run typecheck` is clean
   - _Requirements: NFR table, `02-spec-driven-development-workflow.md` Phase 5_
-- [ ] 1.2 `EnvironmentVariables` class plus `validate()` for `ConfigModule.forRoot`; fail fast naming each bad variable
+- [x] 1.2 `EnvironmentVariables` class plus `validate()` for `ConfigModule.forRoot`; fail fast naming each bad variable
   - _Requirements: REQ-EVT-01, AC-04_
-- [ ] 1.3 Datasource: `url = env("DATABASE_URL")`, `directUrl = env("DATABASE_DIRECT_URL")`; document Neon versus Docker selection in `.env.example`
+- [x] 1.3 Datasource: `url = env("DATABASE_URL")`, `directUrl = env("DATABASE_DIRECT_URL")`; document Neon versus Docker selection in `.env.example`
   - _Requirements: REQ-STA-01, REQ-OPT-02, AC-05, D-010_
-- [ ] 1.4 Prisma models `AuditLog`, `BusinessParameter`, `BusinessParameterHistory`, enum `ParameterType`
+- [x] 1.4 Prisma models `AuditLog`, `BusinessParameter`, `BusinessParameterHistory`, enum `ParameterType`
   - _Requirements: design §4.4, §4.5_
-- [ ] 1.5 Write the **initial migration** from the approved system ERD (design Figures 5 to 8), covering every module's tables, so the schema lands once and in dependency order
+- [x] 1.5 Write the **initial migration** from the approved system ERD (design Figures 5 to 8), covering every module's tables, so the schema lands once and in dependency order
   - Includes `CREATE EXTENSION btree_gist` and the `device_allocations` exclusion constraint (rentals design)
   - Includes the `raise_append_only()` trigger function and its triggers on every append-only table
   - _Requirements: REQ-UBI-07, design §3.3, D-001_
-- [ ] 1.6 Seed migration for the parameter registry defaults and the system roles and permissions (`auth` design §3)
+- [x] 1.6 Seed migration for the parameter registry defaults and the system roles and permissions (`auth` design §1.2)
   - _Requirements: REQ-UBI-06, US-001_
-- [ ] 1.7 `common/errors`: `ErrorCode` enum, `DomainException`, cross-cutting codes of design §4.2
+- [x] 1.7 `common/errors`: `ErrorCode` enum, `DomainException`, cross-cutting codes of design §4.2
   - _Requirements: REQ-UBI-04_
-- [ ] 1.8 Shared `PagedQueryDto` and `PagedResult<T>`, bounds from `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE`
+- [x] 1.8 Shared `PagedQueryDto` and `PagedResult<T>`, bounds from `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE`
   - _Requirements: REQ-UBI-03_
-- [ ] 1.9 Module-boundary check script: model-to-module ownership map, fails when a module references a model it does not own; wire into `npm run lint`
+- [x] 1.9 Module-boundary check script: model-to-module ownership map, fails when a module references a model it does not own; wire into `npm run lint`
   - _Requirements: NFR-MNT-01, design §2.2_
 
 ## Phase 2: Core Service Logic

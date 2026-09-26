@@ -435,7 +435,7 @@ erDiagram
     FEE_WAIVER {
         uuid id PK
         uuid invoiceLineId FK
-        uuid approvedById FK
+        uuid decidedById FK
         enum status
     }
     INVOICE ||--|{ INVOICE_LINE : "itemises"
@@ -518,6 +518,20 @@ The first migration is written from Figures 5 to 10 and the module Prisma blocks
 | `Incident.eventId @unique` | Pre-D-006 conflated key, already marked stale in-file | `openedByEventId` FK, `lastEventAt`, `confidence` |
 | `RentalStatus` 4 values, `TripStatus` 4 values | Do not cover the MF-01 and MF-05 exception scenarios | 7-state rental, 8-state trip (see those modules) |
 | `Rental.deviceId` single device | Q57: a Guide booking carries many devices | `RENTAL_ITEM` |
+
+### 3.4 Schema rules settled by the leader (PR #12 review, 2026-09-26)
+
+The figures above show keys and defining attributes only. These rules decide everything they leave open, and `backend/prisma/schema.prisma` follows them. No database held data when they were settled, so they are folded into the single initial migration rather than stacked as fix-up migrations.
+
+| # | Rule | Consequence in the schema |
+|---|---|---|
+| 1 | `gateway_events` is append-only with two one-way exceptions, allowed alone or together: `incidentId` from `NULL` to a value (linking the event to an SOS episode), and `priority` from `P2_GPS` to `P1_LOCATION` (the REQ-EVT-08 promotion, including retro-tagging within the grace window). Every other `UPDATE`, and every `DELETE`, is rejected. | The table has its own trigger function, `gateway_events_append_only()`, instead of `raise_append_only()` (§4.5). |
+| 3 | Columns keep the Prisma field names (camelCase); only table names are mapped with `@@map`. | Raw SQL quotes the real names, for example `"deviceId"`, `"windowStart"`. |
+| 4 | Every reference column is a foreign key: parent ids of detail and history rows, `Incident.tripId`, `Invoice.rentalId` and `bookingId`, and every actor column (`*ById`, `actorId`) to `users`. No FK on polymorphic references (`InvoiceLine.sourceId`, `AuditLog.subjectId`, `DeviceStatusHistory.refId`, `MaintenanceRecord.sourceRefId`) or on `SyncAuditLog.eventId`, because an `UNKNOWN_DEVICE` row carries an eventId with no event. `FeeWaiver` uses `decidedById` (Figure 9), because the same column records an approval or a rejection. `onDelete` stays Prisma's default except `IncidentAudit` (`Restrict`). | 100 foreign keys. |
+| 7 | Every `DateTime` is `@db.Timestamptz(3)`. | Required anyway for `device_allocations.windowStart` and `windowEnd`: `tstzrange()` over `timestamp` is not immutable and cannot back the exclusion constraint. |
+| 12 | Every foreign-key column leads an index, and `business_parameter_history` is indexed on `(key, changedAt)` for the paged history (api-design/04). | An FK column that already leads a composite index, unique constraint or primary key gets no second index. |
+| 13 | `GatewayEvent` has no `processedAt`. `receivedAt` and `eventTime` carry the timing, and an append-only row could never set it. | Column removed. |
+| 14 | `GatewayEvent.gatewayId` and `Device.lastGatewayId` hold `Gateway.id` and are foreign keys. Ingestion upserts the `Gateway` by `gatewayKey` (the JSON `sender` or bridge id) before inserting the event, in the same transaction. | Two FKs and their indexes. |
 
 ---
 
@@ -604,7 +618,7 @@ model AuditLog {
 }
 ```
 
-The migration adds `CREATE TRIGGER audit_log_append_only BEFORE UPDATE OR DELETE ON audit_log FOR EACH ROW EXECUTE FUNCTION raise_append_only()`; the same function guards `incident_audits`, `device_status_history`, `gateway_events` and every other `*_status_history` table. A redaction list (`passwordHash`, `tokenHash`, `codeHash`, `psk`) is applied to `before` and `after` before insert.
+The migration adds `CREATE TRIGGER audit_log_append_only BEFORE UPDATE OR DELETE ON audit_log FOR EACH ROW EXECUTE FUNCTION raise_append_only()`; the same function guards `business_parameter_history`, `incident_audits`, `device_status_history`, `device_provisioning`, `trip_readiness_checks`, `handover_checks`, `return_inspections` and every other `*_status_history` table. `gateway_events` has its own function, `gateway_events_append_only()`, which also permits the two one-way updates of §3.4 rule 1: `incidentId` from `NULL` to a value, and `priority` from `P2_GPS` to `P1_LOCATION`. A redaction list (`passwordHash`, `tokenHash`, `codeHash`, `psk`) is applied to `before` and `after` before insert.
 
 ### 4.6 Scheduler
 

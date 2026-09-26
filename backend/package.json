@@ -2,7 +2,7 @@
   "name": "@treklink/backend",
   "version": "0.1.0",
   "private": true,
-  "description": "TrekLink Operations Platform — NestJS Backend",
+  "description": "TrekLink Operations Platform, NestJS backend",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -10,14 +10,16 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" && npm run lint:boundaries",
+    "lint:boundaries": "node scripts/check-module-boundaries.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@casl/ability": "^6.7.3",

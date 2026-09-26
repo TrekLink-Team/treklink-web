@@ -57,10 +57,10 @@ model DeviceAllocation {
   @@index([status, holdExpiresAt])
   @@map("device_allocations")
 }
-// migration (raw SQL, platform task 1.5):
+// migration (raw SQL, platform task 1.5; columns are camelCase, platform design §3.4 rule 3):
 //   CREATE EXTENSION IF NOT EXISTS btree_gist;
 //   ALTER TABLE device_allocations ADD CONSTRAINT no_double_allocation
-//     EXCLUDE USING gist (device_id WITH =, tstzrange(window_start, window_end, '[)') WITH &&)
+//     EXCLUDE USING gist ("deviceId" WITH =, tstzrange("windowStart", "windowEnd", '[)') WITH &&)
 //     WHERE (status IN ('HELD','CONFIRMED','CHECKED_OUT'));
 
 model Rental {
@@ -223,11 +223,11 @@ stateDiagram-v2
 BEGIN
   trip  = TripsService.assertBookable(tripId)                       -- status, window
   win   = trip.window widened by lead and trail hours
-  busy  = SELECT device_id FROM device_allocations
+  busy  = SELECT "deviceId" FROM device_allocations
           WHERE status IN (HELD, CONFIRMED, CHECKED_OUT) AND tstzrange(...) && win
   cands = DevicesService.findAllocatableCandidates(acceptedVariants, busy, tx)
           -- SELECT ... FROM devices WHERE status NOT IN (MAINTENANCE, RETIRED)
-          --   AND id <> ALL(busy) ORDER BY status = 'AVAILABLE' DESC, asset_tag
+          --   AND id <> ALL(busy) ORDER BY status = 'AVAILABLE' DESC, "assetTag"
           --   LIMIT n FOR UPDATE SKIP LOCKED
   if |cands| < n: ROLLBACK, 409 DEVICE_NOT_AVAILABLE
   INSERT allocations HELD, holdExpiresAt   -- exclusion constraint arbitrates any race
