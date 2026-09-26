@@ -1258,6 +1258,12 @@ CREATE UNIQUE INDEX "gateways_gatewayKey_key" ON "gateways"("gatewayKey");
 -- CreateIndex
 CREATE INDEX "device_queue_reports_deviceId_receivedAt_idx" ON "device_queue_reports"("deviceId", "receivedAt");
 
+-- CreateIndex
+CREATE INDEX "devices_lastGatewayId_idx" ON "devices"("lastGatewayId");
+
+-- CreateIndex
+CREATE INDEX "gateway_events_gatewayId_idx" ON "gateway_events"("gatewayId");
+
 -- AddForeignKey
 ALTER TABLE "business_parameters" ADD CONSTRAINT "business_parameters_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1558,6 +1564,12 @@ ALTER TABLE "sync_audit_log" ADD CONSTRAINT "sync_audit_log_deviceId_fkey" FOREI
 -- AddForeignKey
 ALTER TABLE "device_queue_reports" ADD CONSTRAINT "device_queue_reports_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "devices" ADD CONSTRAINT "devices_lastGatewayId_fkey" FOREIGN KEY ("lastGatewayId") REFERENCES "gateways"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "gateway_events" ADD CONSTRAINT "gateway_events_gatewayId_fkey" FOREIGN KEY ("gatewayId") REFERENCES "gateways"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
 
 -- ─── Constraints Prisma cannot express (platform task 1.5) ───────────────────────────────
 -- Column names are the Prisma field names (camelCase); only table names are mapped (decision 3).
@@ -1620,10 +1632,16 @@ CREATE TRIGGER "incident_audits_append_only" BEFORE UPDATE OR DELETE ON "inciden
 CREATE OR REPLACE FUNCTION gateway_events_append_only() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  -- Two one-way updates are allowed, alone or together, and nothing else: linking the event to
+  -- an episode (incidentId NULL to a value) and the REQ-EVT-08 promotion of a position to P1
+  -- (priority P2_GPS to P1_LOCATION).
   IF TG_OP = 'UPDATE'
-     AND OLD."incidentId" IS NULL
-     AND NEW."incidentId" IS NOT NULL
-     AND (to_jsonb(NEW) - 'incidentId') = (to_jsonb(OLD) - 'incidentId') THEN
+     AND (OLD."incidentId" IS NOT DISTINCT FROM NEW."incidentId"
+          OR (OLD."incidentId" IS NULL AND NEW."incidentId" IS NOT NULL))
+     AND (OLD."priority" = NEW."priority"
+          OR (OLD."priority" = 'P2_GPS' AND NEW."priority" = 'P1_LOCATION'))
+     AND (to_jsonb(NEW) - 'incidentId' - 'priority') = (to_jsonb(OLD) - 'incidentId' - 'priority')
+     AND to_jsonb(NEW) <> to_jsonb(OLD) THEN
     RETURN NEW;
   END IF;
   RAISE EXCEPTION '% on append-only table % is not allowed', TG_OP, TG_TABLE_NAME;

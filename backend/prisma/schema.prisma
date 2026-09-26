@@ -12,8 +12,11 @@
 //   Exceptions, with no FK: polymorphic references (AuditLog.subjectId, InvoiceLine.sourceId,
 //   DeviceStatusHistory.refId, MaintenanceRecord.sourceRefId), SyncAuditLog.eventId (an
 //   UNKNOWN_DEVICE row has no event), values that are not row ids (RefreshToken.familyId,
-//   AuditLog.requestId, the TrekPackage.acceptedVariantIds array), and, pending the leader,
-//   GatewayEvent.gatewayId and Device.lastGatewayId (a Gateway.id or a Gateway.gatewayKey?).
+//   AuditLog.requestId, the TrekPackage.acceptedVariantIds array).
+// - GatewayEvent.gatewayId and Device.lastGatewayId hold Gateway.id. Ingestion upserts the Gateway
+//   by gatewayKey (the JSON sender or bridge id) before inserting the event, in one transaction.
+// - gateway_events allows two one-way updates only: incidentId NULL to a value, and priority
+//   P2_GPS to P1_LOCATION (REQ-EVT-08).
 // - onDelete is Prisma's default except where stated.
 // - Every DateTime is timestamptz(3).
 // Constraints Prisma cannot express (exclusion, CHECK, partial unique, append-only triggers) are
@@ -144,7 +147,7 @@ model User {
   businessParametersAsUpdatedBy         BusinessParameter[]        @relation("BusinessParameter_updatedById")
   usersAsCreatedBy                      User[]                     @relation("User_createdById")
   userRolesAsGrantedBy                  UserRole[]                 @relation("UserRole_grantedById")
-  deviceStatusHistoriesAsActor           DeviceStatusHistory[]      @relation("DeviceStatusHistory_actorId")
+  deviceStatusHistoriesAsActor          DeviceStatusHistory[]      @relation("DeviceStatusHistory_actorId")
   maintenanceRecordsAsOpenedBy          MaintenanceRecord[]        @relation("MaintenanceRecord_openedById")
   maintenanceRecordsAsClosedBy          MaintenanceRecord[]        @relation("MaintenanceRecord_closedById")
   deviceProvisioningsAsProvisionedBy    DeviceProvisioning[]       @relation("DeviceProvisioning_provisionedById")
@@ -154,7 +157,7 @@ model User {
   tripReadinessChecksAsGuide            TripReadinessCheck[]       @relation("TripReadinessCheck_guideId")
   tripRequestsAsGuide                   TripRequest[]              @relation("TripRequest_guideId")
   tripRequestsAsDecidedBy               TripRequest[]              @relation("TripRequest_decidedById")
-  tripStatusHistoriesAsActor             TripStatusHistory[]        @relation("TripStatusHistory_actorId")
+  tripStatusHistoriesAsActor            TripStatusHistory[]        @relation("TripStatusHistory_actorId")
   bookingsAsCreatedBy                   Booking[]                  @relation("Booking_createdById")
   bookingsAsConfirmedBy                 Booking[]                  @relation("Booking_confirmedById")
   deviceAllocationsAsCreatedBy          DeviceAllocation[]         @relation("DeviceAllocation_createdById")
@@ -168,8 +171,8 @@ model User {
   rentalAgreementsAsSignatureCapturedBy RentalAgreement[]          @relation("RentalAgreement_signatureCapturedById")
   handoverChecksAsGuide                 HandoverCheck[]            @relation("HandoverCheck_guideId")
   returnInspectionsAsInspector          ReturnInspection[]         @relation("ReturnInspection_inspectorId")
-  bookingStatusHistoriesAsActor          BookingStatusHistory[]     @relation("BookingStatusHistory_actorId")
-  rentalStatusHistoriesAsActor           RentalStatusHistory[]      @relation("RentalStatusHistory_actorId")
+  bookingStatusHistoriesAsActor         BookingStatusHistory[]     @relation("BookingStatusHistory_actorId")
+  rentalStatusHistoriesAsActor          RentalStatusHistory[]      @relation("RentalStatusHistory_actorId")
   invoicesAsCustomer                    Invoice[]                  @relation("Invoice_customerId")
   paymentsAsActor                       Payment[]                  @relation("Payment_actorId")
   feeWaiversAsRequestedBy               FeeWaiver[]                @relation("FeeWaiver_requestedById")
@@ -363,6 +366,7 @@ model Device {
   lastLatitude      Float?
   lastLongitude     Float?
   lastGatewayId     String?
+  lastGateway       Gateway?        @relation(fields: [lastGatewayId], references: [id])
   buffering         Boolean         @default(false)
   // retirement
   retiredAt         DateTime?       @db.Timestamptz(3)
@@ -384,6 +388,7 @@ model Device {
 
   @@index([status])
   @@index([hardwareVariantId, status])
+  @@index([lastGatewayId])
   @@map("devices")
 }
 
@@ -540,7 +545,7 @@ model Trip {
   bookings                  Booking[]
   tripParticipantsAsTrip    TripParticipant[]     @relation("TripParticipant_tripId")
   tripReadinessChecksAsTrip TripReadinessCheck[]  @relation("TripReadinessCheck_tripId")
-  tripStatusHistoriesAsTrip  TripStatusHistory[]   @relation("TripStatusHistory_tripId")
+  tripStatusHistoriesAsTrip TripStatusHistory[]   @relation("TripStatusHistory_tripId")
   rentalsAsTrip             Rental[]              @relation("Rental_tripId")
   incidentsAsTrip           Incident[]            @relation("Incident_tripId")
 
@@ -732,11 +737,11 @@ model Booking {
   createdAt        DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
 
-  allocations                    DeviceAllocation[]
-  rental                         Rental?
-  tripParticipantsAsBooking      TripParticipant[]      @relation("TripParticipant_bookingId")
+  allocations                     DeviceAllocation[]
+  rental                          Rental?
+  tripParticipantsAsBooking       TripParticipant[]      @relation("TripParticipant_bookingId")
   bookingStatusHistoriesAsBooking BookingStatusHistory[] @relation("BookingStatusHistory_bookingId")
-  invoicesAsBooking              Invoice[]              @relation("Invoice_bookingId")
+  invoicesAsBooking               Invoice[]              @relation("Invoice_bookingId")
 
   @@index([tripId, status])
   @@index([customerId, status])
@@ -801,11 +806,11 @@ model Rental {
   createdAt           DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime     @updatedAt @db.Timestamptz(3)
 
-  items                        RentalItem[]
-  agreements                   RentalAgreement[]
+  items                         RentalItem[]
+  agreements                    RentalAgreement[]
   rentalStatusHistoriesAsRental RentalStatusHistory[] @relation("RentalStatusHistory_rentalId")
-  invoicesAsRental             Invoice[]             @relation("Invoice_rentalId")
-  incidentsAsRental            Incident[]            @relation("Incident_rentalId")
+  invoicesAsRental              Invoice[]             @relation("Invoice_rentalId")
+  incidentsAsRental             Incident[]            @relation("Incident_rentalId")
 
   @@index([tripId, status])
   @@index([custodianGuideId, status])
@@ -1316,7 +1321,8 @@ model GatewayEvent {
   eventId    String       @unique // sha256(nodeNum:packetId), D-006. The firmware sends neither sessionId nor sequenceNumber.
   deviceId   String
   device     Device       @relation(fields: [deviceId], references: [id])
-  gatewayId  String // JSON `sender` or bridge id that delivered it
+  gatewayId  String // Gateway.id of the uplink that delivered it
+  gateway    Gateway      @relation(fields: [gatewayId], references: [id])
   ingress    IngressPath
   kind       EventKind
   priority   PriorityTier @default(P3_TELEMETRY)
@@ -1339,6 +1345,7 @@ model GatewayEvent {
   @@index([deviceId, receivedAt])
   @@index([deviceId, kind, receivedAt])
   @@index([incidentId])
+  @@index([gatewayId])
   @@map("gateway_events") // append-only trigger
 }
 
@@ -1362,14 +1369,16 @@ model SyncAuditLog {
 }
 
 model Gateway {
-  id           String      @id @default(uuid())
-  gatewayKey   String      @unique // JSON sender, or bridge id
+  id           String         @id @default(uuid())
+  gatewayKey   String         @unique // JSON sender, or bridge id
   label        String?
   ingress      IngressPath
-  lastPacketAt DateTime?   @db.Timestamptz(3)
+  lastPacketAt DateTime?      @db.Timestamptz(3)
   apiKeyHash   String? // Stage C bridges authenticate (D-021)
-  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
+  events       GatewayEvent[]
+  devices      Device[]
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(3)
 
   @@map("gateways")
 }

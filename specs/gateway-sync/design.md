@@ -74,7 +74,7 @@ export interface TrekLinkEvent {
   readonly eventId: string;        // sha256(nodeNum:packetId) hex — D-006
   readonly nodeNum: number;        // MeshPacket.from
   readonly packetId: number;       // MeshPacket.id
-  readonly gatewayId: string;      // JSON `sender` — which node/bridge delivered it
+  readonly gatewayKey: string;     // JSON `sender`, which node or bridge delivered it; resolved to Gateway.id at ingestion
   readonly ingress: IngressPath;
   readonly kind: EventKind;
   readonly priority: PriorityTier; // provisional; EpisodeCorrelator may promote P2→P1
@@ -114,7 +114,7 @@ erDiagram
 | `kind` | **New**, `EventKind` enum. |
 | `observedAt` | **New**, nullable. |
 | `receivedAt` | **New**, non-null, default `now()`. |
-| `gatewayId`, `ingress` | **New**, which path delivered it. Makes Stage A plus Stage C dual-path dedup auditable. |
+| `gatewayId`, `ingress` | **New**, which path delivered it. `gatewayId` is a foreign key to `Gateway.id`, upserted by `gatewayKey` in the ingestion transaction. Makes Stage A plus Stage C dual-path dedup auditable. |
 | `latitude`/`longitude`/`altitude` | **New**, nullable, promoted out of `payload` for map queries. |
 | `rssi`/`snr`/`hopsAway` | **New**, nullable, RQ1 RF-coverage analysis (REQ-OPT-02). |
 | `incidentId` | **New**, nullable FK, set when this event opened or joined an episode. |
@@ -347,6 +347,8 @@ Per `04-architecture-conventions.md` §3, the idempotency check and the Incident
 
 ```typescript
 await this.prisma.$transaction(async (tx) => {
+  const gateway = await tx.gateway.upsert({ where: { gatewayKey }, create: { gatewayKey, ingress }, update: { lastPacketAt: now } });
+  row.gatewayId = gateway.id;
   const inserted = await tx.gatewayEvent.createMany({ data: [row], skipDuplicates: true });
   if (inserted.count === 0) {
     await tx.syncAuditLog.create({ data: { ...ctx, outcome: 'DUPLICATE_REJECTED' } });
@@ -366,7 +368,7 @@ await this.prisma.$transaction(async (tx) => {
 });
 ```
 
-> (needs leader decision, PR #12) `gateway_events` is append-only except for an `UPDATE` that only sets `incidentId` from `NULL` to a value, and `priority` is set at insert (`specs/platform/design.md` §3.4 rule 1). Two writes in this sample conflict with that: the `P1_LOCATION` promotion when a beacon joins an open episode, and the priority change in `retroTagPositions`. Both run after the insert, so the trigger rejects them. The `incidentId` links are permitted.
+> `gateway_events` is append-only except for two one-way updates (`specs/platform/design.md` §3.4 rule 1): `incidentId` from `NULL` to a value, and `priority` from `P2_GPS` to `P1_LOCATION`. The episode link and the `P1_LOCATION` promotion above, and `retroTagPositions`, use exactly those, so the trigger accepts them.
 
 Atomicity rests on the unique index on `eventId` doing the arbitration, `skipDuplicates` resolves the race in the database, not in application code (REQ-ERR-02).
 
