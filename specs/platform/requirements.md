@@ -82,7 +82,7 @@ New FR identifiers proposed here (the SRS draft names no `FR-ADM-*` rows yet): *
 ### Optional Features
 
 - **REQ-OPT-01**: WHERE `SWAGGER_ENABLED` is true, the system SHALL serve OpenAPI documentation at `/api/docs`, documenting the envelope on every operation.
-- **REQ-OPT-02**: WHERE `DATABASE_DIRECT_URL` is set, Prisma migrations SHALL use it, so that Neon's pooled connection string serves the application and the direct string serves `prisma migrate`.
+- **REQ-OPT-02**: The system SHALL require `DATABASE_DIRECT_URL` and Prisma migrations SHALL use it, so that Neon's pooled connection string serves the application and the direct string serves `prisma migrate`. For local Docker Postgres it equals `DATABASE_URL`. *(Leader decision, PR #12: with `directUrl = env("DATABASE_DIRECT_URL")` in the datasource, Prisma 6.19.3 fails every CLI command except `prisma generate` with `P1012` when the variable is unset, so it cannot be optional.)*
 
 ---
 
@@ -104,7 +104,7 @@ Every row is registered in the Configuration Matrix (D-015). Environment rows ne
 | Parameter | Default | Location | Admin-editable |
 |---|---|---|---|
 | `DATABASE_URL` | none, required | env | no |
-| `DATABASE_DIRECT_URL` | unset | env | no |
+| `DATABASE_DIRECT_URL` | none, required (equals `DATABASE_URL` locally) | env | no |
 | `JWT_*` (owned by `auth`, validated here) | see `auth` | env | no |
 | `MQTT_BROKER_URL` | none, required | env | no |
 | `CORS_ORIGINS` | `http://localhost:5173` | env | no |

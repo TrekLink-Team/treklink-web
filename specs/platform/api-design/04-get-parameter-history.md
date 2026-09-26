@@ -21,7 +21,7 @@ Paged, newest-first history of one parameter: previous value, new value, who cha
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| key | Registered parameter key | string | `billing.lateFeePerDay` |
+| key | Registered parameter key | string | `billing.lateFeePerDevicePerDay` |
 
 ### Query parameters
 
@@ -35,7 +35,7 @@ Paged, newest-first history of one parameter: previous value, new value, who cha
 No request body. Query string example:
 
 ```
-GET /api/settings/parameters/billing.lateFeePerDay/history?pageNumber=1&pageSize=20
+GET /api/settings/parameters/billing.lateFeePerDevicePerDay/history?pageNumber=1&pageSize=20
 ```
 
 ## Response sample

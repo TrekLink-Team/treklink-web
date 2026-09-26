@@ -7,7 +7,7 @@
 ## Phase 1: Foundation & Domain Modeling
 
 - [ ] 1.1 Prisma models `TrekPackage`, `Trip`, `TripGuideAssignment`, `TripParticipant`, `TripReadinessCheck`, `TripRequest`, `TripStatusHistory`; enums (platform initial migration)
-- [ ] 1.2 Check constraints on `seats_taken` and trip window; partial unique indexes on active assignments and single active LEAD; append-only triggers on history and readiness checks
+- [ ] 1.2 Check constraints on `"seatsTaken"` and trip window; partial unique indexes on active assignments and single active LEAD; append-only triggers on history and readiness checks
   - _Requirements: REQ-UBI-02, REQ-UBI-03, REQ-EVT-03_
 - [ ] 1.3 DTOs, error codes of design §2.5, parameter keys of requirements §4
 

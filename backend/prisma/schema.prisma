@@ -1,21 +1,292 @@
-// TrekLink Operations Platform — Prisma Schema
-// Single Source of Truth for Database Models
+// TrekLink Operations Platform, Prisma schema.
+// Single source of truth for database models (D-001).
+//
+// Written from the approved system ERD (specs/platform/design.md Figures 5 to 10) and the Prisma
+// block in each module's design.md §1. Every model sits under the `// @module <name>` marker of
+// the module that owns it. `backend/scripts/check-module-boundaries.js` reads those markers and
+// fails lint when code under src/modules/<a>/ touches a model owned by <b> (NFR-MNT-01).
+//
+// Schema rules settled by the leader on PR #12 (recorded in specs/platform/design.md §3.4):
+// - Columns keep the Prisma field names (camelCase); only table names are mapped.
+// - Every reference column is a foreign key, and every foreign-key column leads an index.
+//   Exceptions, with no FK: polymorphic references (AuditLog.subjectId, InvoiceLine.sourceId,
+//   DeviceStatusHistory.refId, MaintenanceRecord.sourceRefId), SyncAuditLog.eventId (an
+//   UNKNOWN_DEVICE row has no event), values that are not row ids (RefreshToken.familyId,
+//   AuditLog.requestId, the TrekPackage.acceptedVariantIds array).
+// - GatewayEvent.gatewayId and Device.lastGatewayId hold Gateway.id. Ingestion upserts the Gateway
+//   by gatewayKey (the JSON sender or bridge id) before inserting the event, in one transaction.
+// - gateway_events allows two one-way updates only: incidentId NULL to a value, and priority
+//   P2_GPS to P1_LOCATION (REQ-EVT-08).
+// - onDelete is Prisma's default except where stated.
+// - Every DateTime is timestamptz(3).
+// Constraints Prisma cannot express (exclusion, CHECK, partial unique, append-only triggers) are
+// raw SQL in the initial migration.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_DIRECT_URL")
 }
 
-enum Role {
-  ADMIN
-  STAFF
-  GUIDE
-  CUSTOMER
+// @module platform ─────────────────────────────────────────────────────────────────────────
+// specs/platform/design.md §4.4, §4.5
+
+enum ParameterType {
+  INT
+  DECIMAL
+  PERCENT
+  DURATION_SECONDS
+  BOOL
+  JSON
 }
+
+// Runtime business parameter, editable by Admin (UC-19, D-015). Keys are declared in
+// platform/parameters/parameter-registry.ts and seeded with their defaults.
+model BusinessParameter {
+  key         String                     @id // "rentals.customerHoldMinutes"
+  value       Json
+  valueType   ParameterType
+  bounds      Json? // { "min": 1, "max": 120 }
+  unit        String?
+  ownerModule String
+  description String
+  version     Int                        @default(1)
+  updatedById String?
+  updatedBy   User?                      @relation("BusinessParameter_updatedById", fields: [updatedById], references: [id])
+  updatedAt   DateTime                   @updatedAt @db.Timestamptz(3)
+  history     BusinessParameterHistory[]
+
+  @@index([updatedById])
+  @@map("business_parameters")
+}
+
+// Append-only change history of a business parameter (REQ-EVT-03, api-design/04).
+model BusinessParameterHistory {
+  id            String            @id @default(uuid())
+  key           String
+  parameter     BusinessParameter @relation(fields: [key], references: [key])
+  previousValue Json
+  newValue      Json
+  changedById   String
+  changedBy     User              @relation(fields: [changedById], references: [id])
+  reason        String?
+  changedAt     DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@index([key, changedAt])
+  @@index([changedById])
+  @@map("business_parameter_history") // append-only trigger
+}
+
+// Generic append-only audit log fed by `audit.record` domain events (UC-20, REQ-EVT-02).
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id])
+  actorRoles  String[]
+  action      String // "booking.confirm", "user.roles.update"
+  subjectType String
+  subjectId   String?
+  before      Json?
+  after       Json?
+  requestId   String?
+  ip          String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([subjectType, subjectId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_log") // append-only trigger (REQ-UBI-07)
+}
+
+// @module auth ─────────────────────────────────────────────────────────────────────────────
+// specs/auth/design.md §1
+
+enum AccountType {
+  CUSTOMER
+  STAFF
+}
+
+enum OtpPurpose {
+  VERIFY_EMAIL
+  SET_PASSWORD
+  PASSWORD_RESET
+}
+
+model User {
+  id               String      @id @default(uuid())
+  username         String      @unique // stored lower-case; REQ-UBI-01
+  email            String?     @unique // lower-case; optional [Q41]
+  emailVerifiedAt  DateTime?   @db.Timestamptz(3)
+  phoneNumber      String?
+  fullName         String
+  passwordHash     String? // null for Google-only accounts (REQ-OPT-01)
+  accountType      AccountType
+  isActive         Boolean     @default(true) // [Q45]
+  lastLoginAt      DateTime?   @db.Timestamptz(3)
+  failedLoginCount Int         @default(0)
+  lockedUntil      DateTime?   @db.Timestamptz(3)
+  createdById      String? // Flow 2 provisioning [Q31]
+  createdBy        User?       @relation("User_createdById", fields: [createdById], references: [id])
+  deletedAt        DateTime?   @db.Timestamptz(3) // soft delete [Q36]
+  createdAt        DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime    @updatedAt @db.Timestamptz(3)
+
+  roles                                 UserRole[]
+  guideProfile                          GuideProfile?
+  refreshTokens                         RefreshToken[]
+  oneTimeCodes                          OneTimeCode[]
+  auditLogs                             AuditLog[]
+  parameterChanges                      BusinessParameterHistory[]
+  guideAssignments                      TripGuideAssignment[]
+  bookings                              Booking[]
+  custodianRentals                      Rental[]
+  incidentAudits                        IncidentAudit[]
+  businessParametersAsUpdatedBy         BusinessParameter[]        @relation("BusinessParameter_updatedById")
+  usersAsCreatedBy                      User[]                     @relation("User_createdById")
+  userRolesAsGrantedBy                  UserRole[]                 @relation("UserRole_grantedById")
+  deviceStatusHistoriesAsActor          DeviceStatusHistory[]      @relation("DeviceStatusHistory_actorId")
+  maintenanceRecordsAsOpenedBy          MaintenanceRecord[]        @relation("MaintenanceRecord_openedById")
+  maintenanceRecordsAsClosedBy          MaintenanceRecord[]        @relation("MaintenanceRecord_closedById")
+  deviceProvisioningsAsProvisionedBy    DeviceProvisioning[]       @relation("DeviceProvisioning_provisionedById")
+  tripsAsCreatedBy                      Trip[]                     @relation("Trip_createdById")
+  tripGuideAssignmentsAsAssignedBy      TripGuideAssignment[]      @relation("TripGuideAssignment_assignedById")
+  tripParticipantsAsUser                TripParticipant[]          @relation("TripParticipant_userId")
+  tripReadinessChecksAsGuide            TripReadinessCheck[]       @relation("TripReadinessCheck_guideId")
+  tripRequestsAsGuide                   TripRequest[]              @relation("TripRequest_guideId")
+  tripRequestsAsDecidedBy               TripRequest[]              @relation("TripRequest_decidedById")
+  tripStatusHistoriesAsActor            TripStatusHistory[]        @relation("TripStatusHistory_actorId")
+  bookingsAsCreatedBy                   Booking[]                  @relation("Booking_createdById")
+  bookingsAsConfirmedBy                 Booking[]                  @relation("Booking_confirmedById")
+  deviceAllocationsAsCreatedBy          DeviceAllocation[]         @relation("DeviceAllocation_createdById")
+  rentalsAsRenter                       Rental[]                   @relation("Rental_renterId")
+  rentalsAsCheckedOutBy                 Rental[]                   @relation("Rental_checkedOutById")
+  rentalsAsClosedBy                     Rental[]                   @relation("Rental_closedById")
+  rentalsAsCreatedBy                    Rental[]                   @relation("Rental_createdById")
+  rentalItemsAsReceivedBy               RentalItem[]               @relation("RentalItem_receivedById")
+  rentalItemsAsLostConfirmedBy          RentalItem[]               @relation("RentalItem_lostConfirmedById")
+  rentalAgreementsAsGeneratedBy         RentalAgreement[]          @relation("RentalAgreement_generatedById")
+  rentalAgreementsAsSignatureCapturedBy RentalAgreement[]          @relation("RentalAgreement_signatureCapturedById")
+  handoverChecksAsGuide                 HandoverCheck[]            @relation("HandoverCheck_guideId")
+  returnInspectionsAsInspector          ReturnInspection[]         @relation("ReturnInspection_inspectorId")
+  bookingStatusHistoriesAsActor         BookingStatusHistory[]     @relation("BookingStatusHistory_actorId")
+  rentalStatusHistoriesAsActor          RentalStatusHistory[]      @relation("RentalStatusHistory_actorId")
+  invoicesAsCustomer                    Invoice[]                  @relation("Invoice_customerId")
+  paymentsAsActor                       Payment[]                  @relation("Payment_actorId")
+  feeWaiversAsRequestedBy               FeeWaiver[]                @relation("FeeWaiver_requestedById")
+  feeWaiversAsInspector                 FeeWaiver[]                @relation("FeeWaiver_inspectorId")
+  feeWaiversAsDecidedBy                 FeeWaiver[]                @relation("FeeWaiver_decidedById")
+  incidentsAsAcknowledgedBy             Incident[]                 @relation("Incident_acknowledgedById")
+  incidentsAsCreatedBy                  Incident[]                 @relation("Incident_createdById")
+
+  @@index([accountType, isActive])
+  @@index([createdById])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  key         String           @unique // ADMIN, OPERATOR, GUIDE, CUSTOMER, ...
+  name        String
+  accountType AccountType // which account type may hold it
+  isSystem    Boolean          @default(false) // system roles cannot be deleted
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id         String           @id @default(uuid())
+  key        String           @unique // stable seed key, e.g. "incident.acknowledge.ownTrips"
+  action     String // create, read, update, confirm, acknowledge, ...
+  subject    String // Booking, Incident, ... or 'all'
+  conditions Json? // CASL conditions with ${user.*} placeholders
+  fields     String[] // optional field restriction
+  inverted   Boolean          @default(false) // a 'cannot' rule
+  reason     String?
+  roles      RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  roleId      String
+  role        Role     @relation(fields: [roleId], references: [id])
+  grantedById String?
+  grantedBy   User?    @relation("UserRole_grantedById", fields: [grantedById], references: [id])
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([grantedById])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id                        String         @id @default(uuid())
+  userId                    String
+  user                      User           @relation(fields: [userId], references: [id])
+  familyId                  String // one per login; revoked as a unit
+  tokenHash                 String         @unique // sha256 of the opaque token
+  expiresAt                 DateTime       @db.Timestamptz(3)
+  revokedAt                 DateTime?      @db.Timestamptz(3)
+  replacedById              String?
+  replacedBy                RefreshToken?  @relation("RefreshToken_replacedById", fields: [replacedById], references: [id])
+  userAgent                 String?
+  ip                        String?
+  createdAt                 DateTime       @default(now()) @db.Timestamptz(3)
+  refreshTokensAsReplacedBy RefreshToken[] @relation("RefreshToken_replacedById")
+
+  @@index([userId, familyId])
+  @@index([replacedById])
+  @@map("refresh_tokens")
+}
+
+model OneTimeCode {
+  id         String     @id @default(uuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  purpose    OtpPurpose
+  codeHash   String
+  attempts   Int        @default(0)
+  expiresAt  DateTime   @db.Timestamptz(3)
+  consumedAt DateTime?  @db.Timestamptz(3)
+  createdAt  DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, purpose, createdAt])
+  @@map("one_time_codes")
+}
+
+model GuideProfile {
+  userId         String   @id
+  user           User     @relation(fields: [userId], references: [id])
+  bio            String?
+  skills         String[] // e.g. first aid, rope rescue [Q33]
+  certifications String[]
+  languages      String[]
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("guide_profiles")
+}
+
+// @module devices ──────────────────────────────────────────────────────────────────────────
+// specs/devices/design.md §1
 
 enum DeviceStatus {
   AVAILABLE
@@ -27,19 +298,874 @@ enum DeviceStatus {
   RETIRED
 }
 
-enum RentalStatus {
-  BOOKED
-  ACTIVE
+enum RetireReason {
+  UNREPAIRABLE
+  LOST
+  DECOMMISSIONED
+  OTHER
+}
+
+enum ActorKind {
+  USER
+  SYSTEM
+}
+
+enum MaintenanceReason {
+  RETURN_DAMAGE
+  FAILED_HANDOVER
+  FAILED_INSPECTION
+  SCHEDULED
+  STAFF_REPORTED
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_REPAIR
   COMPLETED
-  CANCELLED
+  UNREPAIRABLE
+}
+
+enum ProvisioningMethod {
+  MESHTASTIC_APP_QR
+  MESHTASTIC_CLI
+  OTHER
+}
+
+model HardwareVariant {
+  id                              String          @id @default(uuid())
+  code                            String          @unique // treklink-v1 .. treklink-v4
+  name                            String
+  mqttCapable                     Boolean // false for v1: -D MESHTASTIC_EXCLUDE_MQTT=1
+  hasPsram                        Boolean // informs the on-device queue bound (firmware risk row, S7)
+  notes                           String?
+  isActive                        Boolean         @default(true)
+  createdAt                       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt                       DateTime        @updatedAt @db.Timestamptz(3)
+  devices                         Device[]
+  pricingRulesAsHardwareVariant   PricingRule[]   @relation("PricingRule_hardwareVariantId")
+  damageFeeRulesAsHardwareVariant DamageFeeRule[] @relation("DamageFeeRule_hardwareVariantId")
+
+  @@map("hardware_variants")
+}
+
+model Device {
+  id                String          @id @default(uuid())
+  assetTag          String          @unique // printed label, e.g. TL-0042
+  hardwareVariantId String
+  hardwareVariant   HardwareVariant @relation(fields: [hardwareVariantId], references: [id])
+  nodeNum           BigInt?         @unique // unsigned 32-bit from the MAC; REQ-UBI-04, platform design §3.3
+  macAddress        String?         @unique
+  firmwareVersion   String?
+  status            DeviceStatus    @default(AVAILABLE)
+  statusChangedAt   DateTime        @default(now()) @db.Timestamptz(3)
+  pskVersion        Int? // D-021: version only, never the key
+  pskProvisionedAt  DateTime?       @db.Timestamptz(3)
+  // projection written by gateway-sync through DevicesService (REQ-EVT-12)
+  lastSeenAt        DateTime?       @db.Timestamptz(3)
+  batteryPct        Int?
+  lastLatitude      Float?
+  lastLongitude     Float?
+  lastGatewayId     String?
+  lastGateway       Gateway?        @relation(fields: [lastGatewayId], references: [id])
+  buffering         Boolean         @default(false)
+  // retirement
+  retiredAt         DateTime?       @db.Timestamptz(3)
+  retireReason      RetireReason?
+  notes             String?
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
+
+  statusHistory               DeviceStatusHistory[]
+  maintenanceRecords          MaintenanceRecord[]
+  allocations                 DeviceAllocation[]
+  rentalItems                 RentalItem[]
+  gatewayEvents               GatewayEvent[]
+  queueReports                DeviceQueueReport[]
+  incidents                   Incident[]
+  deviceProvisioningsAsDevice DeviceProvisioning[]  @relation("DeviceProvisioning_deviceId")
+  invoiceLinesAsDevice        InvoiceLine[]         @relation("InvoiceLine_deviceId")
+  syncAuditLogsAsDevice       SyncAuditLog[]        @relation("SyncAuditLog_deviceId")
+
+  @@index([status])
+  @@index([hardwareVariantId, status])
+  @@index([lastGatewayId])
+  @@map("devices")
+}
+
+model DeviceStatusHistory {
+  id         String        @id @default(uuid())
+  deviceId   String
+  device     Device        @relation(fields: [deviceId], references: [id])
+  fromStatus DeviceStatus? // null for the registration row
+  toStatus   DeviceStatus
+  actorKind  ActorKind
+  actorId    String?
+  actor      User?         @relation("DeviceStatusHistory_actorId", fields: [actorId], references: [id])
+  reason     String // machine reason: CHECKOUT, CHECKIN, TRIP_STARTED, ...
+  note       String?
+  refType    String? // ALLOCATION, RENTAL_ITEM, INSPECTION, MAINTENANCE, HANDOVER
+  refId      String?
+  createdAt  DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([deviceId, createdAt])
+  @@index([actorId])
+  @@map("device_status_history") // append-only trigger
+}
+
+model MaintenanceRecord {
+  id            String            @id @default(uuid())
+  deviceId      String
+  device        Device            @relation(fields: [deviceId], references: [id])
+  reason        MaintenanceReason
+  status        MaintenanceStatus @default(OPEN)
+  description   String
+  sourceRefType String? // INSPECTION, HANDOVER
+  sourceRefId   String?
+  resolution    String?
+  openedById    String?
+  openedBy      User?             @relation("MaintenanceRecord_openedById", fields: [openedById], references: [id])
+  closedById    String?
+  closedBy      User?             @relation("MaintenanceRecord_closedById", fields: [closedById], references: [id])
+  openedAt      DateTime          @default(now()) @db.Timestamptz(3)
+  closedAt      DateTime?         @db.Timestamptz(3)
+
+  @@index([deviceId, status])
+  @@index([openedById])
+  @@index([closedById])
+  @@map("maintenance_records")
+}
+
+model DeviceProvisioning {
+  id              String             @id @default(uuid())
+  deviceId        String
+  device          Device             @relation("DeviceProvisioning_deviceId", fields: [deviceId], references: [id])
+  pskVersion      Int
+  channelName     String
+  method          ProvisioningMethod
+  provisionedById String
+  provisionedBy   User               @relation("DeviceProvisioning_provisionedById", fields: [provisionedById], references: [id])
+  note            String?
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+
+  @@index([deviceId, createdAt])
+  @@index([provisionedById])
+  @@map("device_provisioning") // append-only trigger
+}
+
+// @module trips ────────────────────────────────────────────────────────────────────────────
+// specs/trips/design.md §1
+
+enum PackageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Difficulty {
+  EASY
+  MODERATE
+  HARD
+  EXPERT
 }
 
 enum TripStatus {
-  SCHEDULED
+  DRAFT
+  PREPARING
+  BOOKING_OPEN
+  READY
   IN_PROGRESS
+  FINISHED
+  CANCELLED
+  EMERGENCY
+}
+
+enum GuideRole {
+  LEAD
+  ASSISTANT
+}
+
+enum TripRequestStatus {
+  OPEN
+  ACCEPTED
+  DECLINED
+}
+
+enum ReadinessResult {
+  PASS
+  FAIL
+}
+
+model TrekPackage {
+  id                    String        @id @default(uuid())
+  code                  String        @unique // TN-PD-3D
+  name                  String // Ta Nang - Phan Dung 3 days
+  summary               String
+  description           String
+  region                String
+  durationDays          Int
+  difficulty            Difficulty
+  minGroupSize          Int
+  maxGroupSize          Int
+  acceptedVariantIds    String[] // empty = any variant [Q50]
+  coverImageUrl         String?
+  status                PackageStatus @default(DRAFT)
+  createdAt             DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @db.Timestamptz(3)
+  trips                 Trip[]
+  tripRequestsAsPackage TripRequest[] @relation("TripRequest_packageId")
+  pricingRulesAsPackage PricingRule[] @relation("PricingRule_packageId")
+
+  @@map("trek_packages")
+}
+
+// Migration adds CHECK (seats_taken >= 0 AND seats_taken <= capacity) and CHECK (end_at > start_at).
+model Trip {
+  id                 String       @id @default(uuid())
+  code               String       @unique // TRP-2026-1010-TNPD
+  packageId          String
+  package            TrekPackage  @relation(fields: [packageId], references: [id])
+  title              String
+  startAt            DateTime     @db.Timestamptz(3)
+  endAt              DateTime     @db.Timestamptz(3)
+  capacity           Int
+  seatsTaken         Int          @default(0) // maintained by rentals via adjustSeats()
+  requiredGuideCount Int
+  status             TripStatus   @default(DRAFT)
+  statusChangedAt    DateTime     @default(now()) @db.Timestamptz(3)
+  requestId          String?      @unique // TripRequest it came from
+  request            TripRequest? @relation("Trip_requestId", fields: [requestId], references: [id])
+  emergencyNote      String?
+  cancelledReason    String?
+  createdById        String
+  createdBy          User         @relation("Trip_createdById", fields: [createdById], references: [id])
+  createdAt          DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(3)
+
+  guideAssignments          TripGuideAssignment[]
+  bookings                  Booking[]
+  tripParticipantsAsTrip    TripParticipant[]     @relation("TripParticipant_tripId")
+  tripReadinessChecksAsTrip TripReadinessCheck[]  @relation("TripReadinessCheck_tripId")
+  tripStatusHistoriesAsTrip TripStatusHistory[]   @relation("TripStatusHistory_tripId")
+  rentalsAsTrip             Rental[]              @relation("Rental_tripId")
+  incidentsAsTrip           Incident[]            @relation("Incident_tripId")
+
+  @@index([status, startAt])
+  @@index([packageId])
+  @@index([createdById])
+  @@map("trips")
+}
+
+// Migration adds partial unique (trip_id, guide_id) WHERE unassigned_at IS NULL, and
+// partial unique (trip_id) WHERE role = 'LEAD' AND unassigned_at IS NULL.
+model TripGuideAssignment {
+  id           String    @id @default(uuid())
+  tripId       String
+  trip         Trip      @relation(fields: [tripId], references: [id])
+  guideId      String
+  guide        User      @relation(fields: [guideId], references: [id])
+  role         GuideRole
+  assignedById String
+  assignedBy   User      @relation("TripGuideAssignment_assignedById", fields: [assignedById], references: [id])
+  assignedAt   DateTime  @default(now()) @db.Timestamptz(3)
+  unassignedAt DateTime? @db.Timestamptz(3)
+
+  @@index([guideId, unassignedAt])
+  @@index([tripId])
+  @@index([assignedById])
+  @@map("trip_guide_assignments")
+}
+
+model TripParticipant {
+  id                       String       @id @default(uuid())
+  tripId                   String
+  trip                     Trip         @relation("TripParticipant_tripId", fields: [tripId], references: [id])
+  bookingId                String?
+  booking                  Booking?     @relation("TripParticipant_bookingId", fields: [bookingId], references: [id])
+  userId                   String?
+  user                     User?        @relation("TripParticipant_userId", fields: [userId], references: [id])
+  displayName              String
+  phoneNumber              String?
+  emergencyContact         String?
+  createdAt                DateTime     @default(now()) @db.Timestamptz(3)
+  rentalItemsAsParticipant RentalItem[] @relation("RentalItem_participantId")
+
+  @@index([tripId])
+  @@index([bookingId])
+  @@index([userId])
+  @@map("trip_participants")
+}
+
+model TripReadinessCheck {
+  id        String          @id @default(uuid())
+  tripId    String
+  trip      Trip            @relation("TripReadinessCheck_tripId", fields: [tripId], references: [id])
+  guideId   String
+  guide     User            @relation("TripReadinessCheck_guideId", fields: [guideId], references: [id])
+  items     Json // [{ key, label, mandatory, checked, note }]
+  result    ReadinessResult
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([tripId, createdAt])
+  @@index([guideId])
+  @@map("trip_readiness_checks") // append-only trigger; a re-check is a new row
+}
+
+model TripRequest {
+  id                String            @id @default(uuid())
+  guideId           String
+  guide             User              @relation("TripRequest_guideId", fields: [guideId], references: [id])
+  packageId         String?
+  package           TrekPackage?      @relation("TripRequest_packageId", fields: [packageId], references: [id])
+  preferredStartAt  DateTime          @db.Timestamptz(3)
+  preferredEndAt    DateTime          @db.Timestamptz(3)
+  groupSizeEstimate Int?
+  notes             String?
+  status            TripRequestStatus @default(OPEN)
+  decidedById       String?
+  decidedBy         User?             @relation("TripRequest_decidedById", fields: [decidedById], references: [id])
+  decisionNote      String?
+  createdAt         DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(3)
+  tripAsRequest     Trip?             @relation("Trip_requestId")
+
+  @@index([guideId])
+  @@index([packageId])
+  @@index([decidedById])
+  @@map("trip_requests")
+}
+
+model TripStatusHistory {
+  id         String      @id @default(uuid())
+  tripId     String
+  trip       Trip        @relation("TripStatusHistory_tripId", fields: [tripId], references: [id])
+  fromStatus TripStatus?
+  toStatus   TripStatus
+  actorId    String?
+  actor      User?       @relation("TripStatusHistory_actorId", fields: [actorId], references: [id])
+  note       String?
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([tripId, createdAt])
+  @@index([actorId])
+  @@map("trip_status_history") // append-only trigger
+}
+
+// @module rentals ──────────────────────────────────────────────────────────────────────────
+// specs/rentals/design.md §1
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
   COMPLETED
   CANCELLED
+  REJECTED
+  EXPIRED
 }
+
+enum BookingChannel {
+  CUSTOMER
+  GUIDE
+  STAFF
+}
+
+enum AllocationStatus {
+  HELD
+  CONFIRMED
+  CHECKED_OUT
+  ENDED
+  RELEASED
+}
+
+enum RentalStatus {
+  DRAFT
+  READY
+  CHECKED_OUT
+  OVERDUE
+  RETURNED
+  CLOSED
+  CANCELLED
+}
+
+enum RentalItemState {
+  ALLOCATED
+  CHECKED_OUT
+  HANDOVER_ACCEPTED
+  HANDOVER_REJECTED
+  MISSING_REPORTED
+  LOSS_SUSPECTED
+  RETURNED
+  LOST
+  REPLACED
+}
+
+enum AgreementStatus {
+  GENERATED
+  SIGNED
+  VOID
+}
+
+enum ReturnCondition {
+  GOOD
+  MINOR_DAMAGE
+  MAJOR_DAMAGE
+  MISSING_ACCESSORIES
+}
+
+model Booking {
+  id               String         @id @default(uuid())
+  code             String         @unique // BK-2026-000123
+  tripId           String
+  trip             Trip           @relation(fields: [tripId], references: [id])
+  channel          BookingChannel
+  customerId       String? // Customer account, null for an unauthenticated renter [Q55]
+  customer         User?          @relation(fields: [customerId], references: [id])
+  renterName       String // always set; copied from the account when present
+  renterPhone      String?
+  createdById      String
+  createdBy        User           @relation("Booking_createdById", fields: [createdById], references: [id])
+  groupSize        Int
+  requestedDevices Int
+  status           BookingStatus  @default(PENDING)
+  holdDisabled     Boolean        @default(false) // Staff and Guide channels [Q59]
+  escrowPaidAt     DateTime?      @db.Timestamptz(3) // set from billing's payment event [Q60]
+  confirmedById    String?
+  confirmedBy      User?          @relation("Booking_confirmedById", fields: [confirmedById], references: [id])
+  confirmedAt      DateTime?      @db.Timestamptz(3)
+  decisionReason   String? // reject or cancel reason
+  cancelledAt      DateTime?      @db.Timestamptz(3)
+  termsAcceptedAt  DateTime       @db.Timestamptz(3)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
+
+  allocations                     DeviceAllocation[]
+  rental                          Rental?
+  tripParticipantsAsBooking       TripParticipant[]      @relation("TripParticipant_bookingId")
+  bookingStatusHistoriesAsBooking BookingStatusHistory[] @relation("BookingStatusHistory_bookingId")
+  invoicesAsBooking               Invoice[]              @relation("Invoice_bookingId")
+
+  @@index([tripId, status])
+  @@index([customerId, status])
+  @@index([createdById])
+  @@index([confirmedById])
+  @@map("bookings")
+}
+
+// Migration adds the btree_gist exclusion constraint no_double_allocation (BR-01). The window
+// columns are timestamptz because tstzrange() over timestamp columns is not immutable and cannot
+// back an exclusion constraint.
+model DeviceAllocation {
+  id            String           @id @default(uuid())
+  deviceId      String
+  device        Device           @relation(fields: [deviceId], references: [id])
+  bookingId     String?
+  booking       Booking?         @relation(fields: [bookingId], references: [id])
+  rentalItemId  String?          @unique
+  rentalItem    RentalItem?      @relation("DeviceAllocation_rentalItemId", fields: [rentalItemId], references: [id])
+  windowStart   DateTime         @db.Timestamptz(3)
+  windowEnd     DateTime         @db.Timestamptz(3)
+  status        AllocationStatus
+  holdExpiresAt DateTime?        @db.Timestamptz(3)
+  createdById   String?
+  createdBy     User?            @relation("DeviceAllocation_createdById", fields: [createdById], references: [id])
+  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([deviceId, status])
+  @@index([status, holdExpiresAt])
+  @@index([bookingId])
+  @@index([createdById])
+  @@map("device_allocations")
+}
+
+model Rental {
+  id                  String       @id @default(uuid())
+  code                String       @unique // RN-2026-000077
+  bookingId           String?      @unique // null for direct provisioning [Q55]
+  booking             Booking?     @relation(fields: [bookingId], references: [id])
+  tripId              String
+  trip                Trip         @relation("Rental_tripId", fields: [tripId], references: [id])
+  renterId            String?
+  renter              User?        @relation("Rental_renterId", fields: [renterId], references: [id])
+  renterName          String
+  custodianGuideId    String // devices go to the Guide, come back through the Guide [Q71]
+  custodianGuide      User         @relation(fields: [custodianGuideId], references: [id])
+  status              RentalStatus @default(DRAFT)
+  dueAt               DateTime     @db.Timestamptz(3) // trip endAt
+  checkedOutAt        DateTime?    @db.Timestamptz(3)
+  checkedOutById      String?
+  checkedOutBy        User?        @relation("Rental_checkedOutById", fields: [checkedOutById], references: [id])
+  returnedAt          DateTime?    @db.Timestamptz(3)
+  settlementInvoiceId String?
+  settlementInvoice   Invoice?     @relation("Rental_settlementInvoiceId", fields: [settlementInvoiceId], references: [id])
+  closedAt            DateTime?    @db.Timestamptz(3)
+  closedById          String?
+  closedBy            User?        @relation("Rental_closedById", fields: [closedById], references: [id])
+  cancelledReason     String?
+  createdById         String
+  createdBy           User         @relation("Rental_createdById", fields: [createdById], references: [id])
+  createdAt           DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime     @updatedAt @db.Timestamptz(3)
+
+  items                         RentalItem[]
+  agreements                    RentalAgreement[]
+  rentalStatusHistoriesAsRental RentalStatusHistory[] @relation("RentalStatusHistory_rentalId")
+  invoicesAsRental              Invoice[]             @relation("Invoice_rentalId")
+  incidentsAsRental             Incident[]            @relation("Incident_rentalId")
+
+  @@index([tripId, status])
+  @@index([custodianGuideId, status])
+  @@index([renterId])
+  @@index([checkedOutById])
+  @@index([settlementInvoiceId])
+  @@index([closedById])
+  @@index([createdById])
+  @@map("rentals")
+}
+
+model RentalItem {
+  id                String           @id @default(uuid())
+  rentalId          String
+  rental            Rental           @relation(fields: [rentalId], references: [id])
+  deviceId          String
+  device            Device           @relation(fields: [deviceId], references: [id])
+  participantId     String? // who carries it on the trail [Q69]
+  participant       TripParticipant? @relation("RentalItem_participantId", fields: [participantId], references: [id])
+  state             RentalItemState  @default(ALLOCATED)
+  checkedOutAt      DateTime?        @db.Timestamptz(3)
+  returnedAt        DateTime?        @db.Timestamptz(3)
+  receivedById      String?
+  receivedBy        User?            @relation("RentalItem_receivedById", fields: [receivedById], references: [id])
+  replacedByItemId  String?
+  replacedByItem    RentalItem?      @relation("RentalItem_replacedByItemId", fields: [replacedByItemId], references: [id])
+  lostConfirmedAt   DateTime?        @db.Timestamptz(3)
+  lostConfirmedById String?
+  lostConfirmedBy   User?            @relation("RentalItem_lostConfirmedById", fields: [lostConfirmedById], references: [id])
+
+  returnInspection             ReturnInspection?
+  deviceAllocationAsRentalItem DeviceAllocation? @relation("DeviceAllocation_rentalItemId")
+  rentalItemsAsReplacedByItem  RentalItem[]      @relation("RentalItem_replacedByItemId")
+  handoverChecksAsRentalItem   HandoverCheck[]   @relation("HandoverCheck_rentalItemId")
+
+  @@index([rentalId])
+  @@index([deviceId, state])
+  @@index([participantId])
+  @@index([receivedById])
+  @@index([replacedByItemId])
+  @@index([lostConfirmedById])
+  @@map("rental_items")
+}
+
+model RentalAgreement {
+  id                    String          @id @default(uuid())
+  rentalId              String
+  rental                Rental          @relation(fields: [rentalId], references: [id])
+  version               Int
+  status                AgreementStatus
+  termsVersion          String
+  generatedPdf          Bytes // Postgres bytea (clarification answers §6 Q25)
+  generatedSha256       String
+  generatedById         String
+  generatedBy           User            @relation("RentalAgreement_generatedById", fields: [generatedById], references: [id])
+  generatedAt           DateTime        @default(now()) @db.Timestamptz(3)
+  signedPdf             Bytes?
+  signedSha256          String?
+  signerName            String?
+  signedAt              DateTime?       @db.Timestamptz(3)
+  signatureCapturedById String? // Staff session that hosted the signing, if any
+  signatureCapturedBy   User?           @relation("RentalAgreement_signatureCapturedById", fields: [signatureCapturedById], references: [id])
+
+  @@unique([rentalId, version])
+  @@index([generatedById])
+  @@index([signatureCapturedById])
+  @@map("rental_agreements")
+}
+
+model HandoverCheck {
+  id           String     @id @default(uuid())
+  rentalItemId String
+  rentalItem   RentalItem @relation("HandoverCheck_rentalItemId", fields: [rentalItemId], references: [id])
+  guideId      String
+  guide        User       @relation("HandoverCheck_guideId", fields: [guideId], references: [id])
+  batteryPct   Int // read by a person, not telemetry [Q52]
+  gpsFix       Boolean
+  pskVerified  Boolean
+  passed       Boolean
+  note         String?
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([rentalItemId])
+  @@index([guideId])
+  @@map("handover_checks") // append-only trigger
+}
+
+model ReturnInspection {
+  id                  String          @id @default(uuid())
+  rentalItemId        String          @unique
+  rentalItem          RentalItem      @relation(fields: [rentalItemId], references: [id])
+  inspectorId         String
+  inspector           User            @relation("ReturnInspection_inspectorId", fields: [inspectorId], references: [id])
+  condition           ReturnCondition
+  accessoriesComplete Boolean
+  batteryPct          Int?
+  damageNotes         String?
+  evidenceRefs        String[] // file references, storage per clarification answers §6 Q25
+  serviceable         Boolean
+  createdAt           DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([inspectorId])
+  @@map("return_inspections") // append-only trigger
+}
+
+model BookingStatusHistory {
+  id         String         @id @default(uuid())
+  bookingId  String
+  booking    Booking        @relation("BookingStatusHistory_bookingId", fields: [bookingId], references: [id])
+  fromStatus BookingStatus?
+  toStatus   BookingStatus
+  actorId    String?
+  actor      User?          @relation("BookingStatusHistory_actorId", fields: [actorId], references: [id])
+  reason     String?
+  createdAt  DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([bookingId])
+  @@index([actorId])
+  @@map("booking_status_history") // append-only trigger
+}
+
+model RentalStatusHistory {
+  id         String        @id @default(uuid())
+  rentalId   String
+  rental     Rental        @relation("RentalStatusHistory_rentalId", fields: [rentalId], references: [id])
+  fromStatus RentalStatus?
+  toStatus   RentalStatus
+  actorId    String?
+  actor      User?         @relation("RentalStatusHistory_actorId", fields: [actorId], references: [id])
+  reason     String?
+  createdAt  DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([rentalId])
+  @@index([actorId])
+  @@map("rental_status_history") // append-only trigger
+}
+
+// @module billing ──────────────────────────────────────────────────────────────────────────
+// specs/billing/design.md §1
+
+enum PricingScope {
+  GLOBAL
+  PACKAGE
+  VARIANT
+  PACKAGE_VARIANT
+}
+
+enum PriceComponent {
+  TRIP_FEE
+  RENTAL_FEE
+  DEPOSIT
+}
+
+enum PriceUnit {
+  PER_TRAVELLER
+  PER_DEVICE_PER_TRIP
+  PER_DEVICE_PER_DAY
+}
+
+enum InvoiceKind {
+  BOOKING_ESCROW
+  SETTLEMENT
+  ADJUSTMENT
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  SETTLED
+  VOID
+}
+
+enum InvoiceLineType {
+  TRIP_FEE
+  RENTAL_FEE
+  DEPOSIT
+  LATE_FEE
+  DAMAGE_FEE
+  LOSS_FEE
+  DEPOSIT_APPLIED
+  CANCELLATION_FEE
+  WAIVER
+  REFUND_DUE
+}
+
+enum PaymentDirection {
+  CHARGE
+  REFUND
+}
+
+enum PaymentStatus {
+  SUCCEEDED
+  FAILED
+}
+
+enum WaiverStatus {
+  APPLIED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DamageCondition {
+  MINOR_DAMAGE
+  MAJOR_DAMAGE
+  MISSING_ACCESSORIES
+  LOST
+}
+
+model PricingRule {
+  id                String           @id @default(uuid())
+  name              String
+  component         PriceComponent
+  scope             PricingScope
+  packageId         String?
+  package           TrekPackage?     @relation("PricingRule_packageId", fields: [packageId], references: [id])
+  hardwareVariantId String?
+  hardwareVariant   HardwareVariant? @relation("PricingRule_hardwareVariantId", fields: [hardwareVariantId], references: [id])
+  channel           String? // CUSTOMER, GUIDE, STAFF; null = any [Q63]
+  unit              PriceUnit
+  amount            Decimal          @db.Decimal(14, 2)
+  minQuantity       Int              @default(1) // quantity tiers, pack discounts [Q61, Q63]
+  priority          Int              @default(0)
+  validFrom         DateTime         @db.Timestamptz(3)
+  validTo           DateTime?        @db.Timestamptz(3)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@index([component, isActive])
+  @@index([packageId])
+  @@index([hardwareVariantId])
+  @@map("pricing_rules")
+}
+
+model DamageFeeRule {
+  id                String           @id @default(uuid())
+  condition         DamageCondition
+  hardwareVariantId String? // null = any variant
+  hardwareVariant   HardwareVariant? @relation("DamageFeeRule_hardwareVariantId", fields: [hardwareVariantId], references: [id])
+  amount            Decimal          @db.Decimal(14, 2)
+  isActive          Boolean          @default(true)
+
+  @@unique([condition, hardwareVariantId])
+  @@index([hardwareVariantId])
+  @@map("damage_fee_rules")
+}
+
+model Invoice {
+  id                            String        @id @default(uuid())
+  number                        String        @unique // INV-2026-000140, from a sequence
+  kind                          InvoiceKind
+  bookingId                     String?
+  booking                       Booking?      @relation("Invoice_bookingId", fields: [bookingId], references: [id])
+  rentalId                      String?
+  rental                        Rental?       @relation("Invoice_rentalId", fields: [rentalId], references: [id])
+  customerId                    String?
+  customer                      User?         @relation("Invoice_customerId", fields: [customerId], references: [id])
+  billToName                    String
+  status                        InvoiceStatus @default(ISSUED)
+  currency                      String
+  total                         Decimal       @db.Decimal(14, 2) // sum of lines; may be negative before refund
+  balanceDue                    Decimal       @db.Decimal(14, 2)
+  refundDue                     Decimal       @db.Decimal(14, 2)
+  dueAt                         DateTime?     @db.Timestamptz(3)
+  adjustsInvoiceId              String? // ADJUSTMENT invoices point at their original
+  adjustsInvoice                Invoice?      @relation("Invoice_adjustsInvoiceId", fields: [adjustsInvoiceId], references: [id])
+  factsSnapshot                 Json? // settlement facts as received, for audit
+  issuedAt                      DateTime      @default(now()) @db.Timestamptz(3)
+  lines                         InvoiceLine[]
+  payments                      Payment[]
+  rentalsAsSettlementInvoice    Rental[]      @relation("Rental_settlementInvoiceId")
+  invoicesAsAdjustsInvoice      Invoice[]     @relation("Invoice_adjustsInvoiceId")
+  feeWaiversAsAdjustmentInvoice FeeWaiver[]   @relation("FeeWaiver_adjustmentInvoiceId")
+
+  @@index([bookingId])
+  @@index([rentalId])
+  @@index([customerId, issuedAt])
+  @@index([adjustsInvoiceId])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String          @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice         @relation(fields: [invoiceId], references: [id])
+  seq         Int
+  type        InvoiceLineType
+  description String
+  quantity    Decimal         @db.Decimal(10, 2)
+  unitAmount  Decimal         @db.Decimal(14, 2)
+  amount      Decimal         @db.Decimal(14, 2)
+  sourceType  String? // PRICING_RULE, DAMAGE_FEE_RULE, INSPECTION, LATENESS, PARAMETER
+  sourceId    String?
+  deviceId    String?
+  device      Device?         @relation("InvoiceLine_deviceId", fields: [deviceId], references: [id])
+  waivers     FeeWaiver[]
+
+  @@unique([invoiceId, seq])
+  @@index([deviceId])
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id             String           @id @default(uuid())
+  invoiceId      String
+  invoice        Invoice          @relation(fields: [invoiceId], references: [id])
+  direction      PaymentDirection
+  amount         Decimal          @db.Decimal(14, 2)
+  status         PaymentStatus
+  failureReason  String?
+  method         String // SANDBOX_CARD, SANDBOX_TRANSFER, CASH_RECORDED
+  sandbox        Boolean          @default(true) // REQ-UBI-04
+  idempotencyKey String           @unique
+  requestHash    String // detects key reuse with a different body
+  providerRef    String?
+  actorId        String?
+  actor          User?            @relation("Payment_actorId", fields: [actorId], references: [id])
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@index([invoiceId, createdAt])
+  @@index([actorId])
+  @@map("payments")
+}
+
+model FeeWaiver {
+  id                  String       @id @default(uuid())
+  invoiceLineId       String
+  invoiceLine         InvoiceLine  @relation(fields: [invoiceLineId], references: [id])
+  amount              Decimal      @db.Decimal(14, 2)
+  reason              String
+  status              WaiverStatus
+  requestedById       String
+  requestedBy         User         @relation("FeeWaiver_requestedById", fields: [requestedById], references: [id])
+  inspectorId         String? // copied from the inspection, for BR-21
+  inspector           User?        @relation("FeeWaiver_inspectorId", fields: [inspectorId], references: [id])
+  decidedById         String?
+  decidedBy           User?        @relation("FeeWaiver_decidedById", fields: [decidedById], references: [id])
+  decisionNote        String?
+  adjustmentInvoiceId String?
+  adjustmentInvoice   Invoice?     @relation("FeeWaiver_adjustmentInvoiceId", fields: [adjustmentInvoiceId], references: [id])
+  createdAt           DateTime     @default(now()) @db.Timestamptz(3)
+  decidedAt           DateTime?    @db.Timestamptz(3)
+
+  @@index([invoiceLineId])
+  @@index([requestedById])
+  @@index([inspectorId])
+  @@index([decidedById])
+  @@index([adjustmentInvoiceId])
+  @@map("fee_waivers")
+}
+
+// @module incidents ────────────────────────────────────────────────────────────────────────
+// specs/incidents/design.md §1
 
 enum IncidentStatus {
   DETECTED
@@ -49,6 +1175,114 @@ enum IncidentStatus {
   CLOSED
 }
 
+enum IncidentSource {
+  DEVICE_SOS
+  DEVICE_FALL
+  CADENCE_INFERRED
+  MANUAL
+}
+
+enum IncidentConfidence {
+  CONFIRMED
+  SUSPECTED
+}
+
+enum IncidentResolution {
+  ASSISTED
+  SELF_RESOLVED
+  EVACUATED
+  FALSE_ALARM
+  OTHER
+}
+
+enum IncidentAction {
+  CREATED
+  ACKNOWLEDGED
+  STARTED
+  RESOLVED
+  CLOSED
+  REOPENED
+  DISMISSED
+  CONFIDENCE_UPGRADED
+  ESCALATED
+  NOTE_ADDED
+}
+
+model Incident {
+  id               String              @id @default(uuid())
+  code             String              @unique // INC-2026-000045
+  deviceId         String? // null only for a manual trip-level incident
+  device           Device?             @relation(fields: [deviceId], references: [id])
+  tripId           String? // null when unassigned (E03-4)
+  trip             Trip?               @relation("Incident_tripId", fields: [tripId], references: [id])
+  rentalId         String?
+  rental           Rental?             @relation("Incident_rentalId", fields: [rentalId], references: [id])
+  unassigned       Boolean             @default(false)
+  source           IncidentSource
+  confidence       IncidentConfidence
+  status           IncidentStatus      @default(DETECTED)
+  // GatewayEvent.eventId that opened the episode (D-006 split: packet key, not episode key)
+  openedByEventId  String?             @unique
+  openedByEvent    GatewayEvent?       @relation("IncidentOpenedBy", fields: [openedByEventId], references: [eventId])
+  firstEventAt     DateTime            @db.Timestamptz(3) // device event time basis for MTTA
+  lastEventAt      DateTime            @db.Timestamptz(3) // correlation window anchor
+  eventCount       Int                 @default(1)
+  lastLatitude     Float?
+  lastLongitude    Float?
+  title            String?
+  description      String?
+  acknowledgedAt   DateTime?           @db.Timestamptz(3)
+  acknowledgedById String?
+  acknowledgedBy   User?               @relation("Incident_acknowledgedById", fields: [acknowledgedById], references: [id])
+  resolvedAt       DateTime?           @db.Timestamptz(3)
+  resolution       IncidentResolution?
+  closedAt         DateTime?           @db.Timestamptz(3)
+  escalatedAt      DateTime?           @db.Timestamptz(3)
+  reopenCount      Int                 @default(0)
+  dismissedAt      DateTime?           @db.Timestamptz(3)
+  createdById      String? // manual incidents
+  createdBy        User?               @relation("Incident_createdById", fields: [createdById], references: [id])
+  version          Int                 @default(0) // optimistic concurrency
+  createdAt        DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(3)
+
+  audits IncidentAudit[]
+  events GatewayEvent[]  @relation("IncidentEvents")
+
+  @@index([deviceId, status, lastEventAt]) // the correlation lookup
+  @@index([tripId, status])
+  @@index([status, createdAt])
+  @@index([rentalId])
+  @@index([acknowledgedById])
+  @@index([createdById])
+  @@map("incidents")
+}
+
+model IncidentAudit {
+  id         String          @id @default(uuid())
+  incidentId String
+  incident   Incident        @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  seq        Int // 1, 2, 3 per incident
+  action     IncidentAction
+  actorId    String? // null = SYSTEM
+  actor      User?           @relation(fields: [actorId], references: [id])
+  actorRole  String // OPERATOR, GUIDE, SYSTEM
+  fromStatus IncidentStatus?
+  toStatus   IncidentStatus?
+  note       String?
+  refEventId String? // GatewayEvent that caused a system action
+  refEvent   GatewayEvent?   @relation("IncidentAudit_refEventId", fields: [refEventId], references: [eventId])
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([incidentId, seq])
+  @@index([actorId])
+  @@index([refEventId])
+  @@map("incident_audits") // append-only trigger
+}
+
+// @module gateway-sync ─────────────────────────────────────────────────────────────────────
+// specs/gateway-sync/design.md §1
+
 enum PriorityTier {
   P0_SOS
   P1_LOCATION
@@ -56,122 +1290,119 @@ enum PriorityTier {
   P3_TELEMETRY
 }
 
-model User {
-  id           String          @id @default(uuid())
-  email        String          @unique
-  passwordHash String
-  fullName     String
-  phoneNumber  String?
-  role         Role            @default(CUSTOMER)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  rentals      Rental[]
-  assignedTrips Trip[]         @relation("GuideTrips")
-  audits       IncidentAudit[]
-
-  @@map("users")
+enum EventKind {
+  SOS
+  FALL_SOS
+  POSITION
+  TELEMETRY
+  CHAT
 }
 
-model Device {
-  id              String         @id @default(uuid())
-  hardwareVariant String         // v1, v2, v3, v4
-  macAddress      String?        @unique
-  nodeNum         Int?           @unique // Meshtastic node integer ID
-  status          DeviceStatus   @default(AVAILABLE)
-  batteryPct      Int?
-  lastSeenAt      DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  rentals         Rental[]
-  incidents       Incident[]
-  gatewayEvents   GatewayEvent[]
-
-  @@map("devices")
+enum IngressPath {
+  MQTT_NODE
+  SERIAL_BRIDGE
 }
 
-model Trip {
-  id          String      @id @default(uuid())
-  title       String
-  route       String      // e.g., Ta Nang - Phan Dung
-  startDate   DateTime
-  endDate     DateTime
-  status      TripStatus  @default(SCHEDULED)
-  guideId     String?
-  guide       User?       @relation("GuideTrips", fields: [guideId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  rentals     Rental[]
-  incidents   Incident[]
-
-  @@map("trips")
+enum SyncOutcome {
+  ACCEPTED
+  DUPLICATE_REJECTED
+  MALFORMED_ENVELOPE
+  NORMALIZATION_FAILED
+  UNKNOWN_DEVICE
+  INVALID_POSITION
+  IMPLAUSIBLE_POSITION // E04-4: persisted, not projected, not plotted
+  CLOCK_SKEW
+  QUEUE_REPORT // [B] PRIVATE_APP health packet, no GatewayEvent
 }
 
-model Rental {
-  id              String        @id @default(uuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
-  deviceId        String
-  device          Device        @relation(fields: [deviceId], references: [id])
-  tripId          String?
-  trip            Trip?         @relation(fields: [tripId], references: [id])
-  status          RentalStatus  @default(BOOKED)
-  startDate       DateTime
-  endDate         DateTime
-  depositAmount   Decimal       @default(0.0)
-  actualReturnDate DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@map("rentals")
-}
-
-model Incident {
-  id          String          @id @default(uuid())
-  eventId     String          @unique // STALE — pre-D-006 conflated key. Must split: drop this
-                                       // @unique, add openedByEventId FK -> GatewayEvent, lastEventAt,
-                                       // detectionConfidence. See specs/gateway-sync/design.md §1.2,
-                                       // tasks.md Phase 1 (not yet migrated).
-  deviceId    String
-  device      Device          @relation(fields: [deviceId], references: [id])
-  tripId      String?
-  trip        Trip?           @relation(fields: [tripId], references: [id])
-  status      IncidentStatus  @default(DETECTED)
-  latitude    Float?
-  longitude   Float?
-  altitude    Float?
-  description String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  audits      IncidentAudit[]
-
-  @@map("incidents")
-}
-
-model IncidentAudit {
-  id         String         @id @default(uuid())
-  incidentId String
-  incident   Incident       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  actorId    String
-  actor      User           @relation(fields: [actorId], references: [id])
-  fromStatus IncidentStatus
-  toStatus   IncidentStatus
-  actionNote String?
-  createdAt  DateTime       @default(now())
-
-  @@map("incident_audits")
-}
-
+// Append-only ledger of accepted events and the telemetry history (gateway-sync design §1.2).
 model GatewayEvent {
-  id          String       @id @default(uuid())
-  eventId     String       @unique // sha256(nodeNum:packetId) — D-006. The firmware transmits
-                                    // neither sessionId nor sequenceNumber; do not reintroduce
-                                    // that formula. See 00-project-context/03-decisions-and-risk-register.md.
-  deviceId    String
-  device      Device       @relation(fields: [deviceId], references: [id])
-  priority    PriorityTier @default(P3_TELEMETRY)
-  payload     Json
-  processedAt DateTime?
-  createdAt   DateTime     @default(now())
+  id         String       @id @default(uuid())
+  eventId    String       @unique // sha256(nodeNum:packetId), D-006. The firmware sends neither sessionId nor sequenceNumber.
+  deviceId   String
+  device     Device       @relation(fields: [deviceId], references: [id])
+  gatewayId  String // Gateway.id of the uplink that delivered it
+  gateway    Gateway      @relation(fields: [gatewayId], references: [id])
+  ingress    IngressPath
+  kind       EventKind
+  priority   PriorityTier @default(P3_TELEMETRY)
+  observedAt DateTime?    @db.Timestamptz(3) // device rx_time; null when the RTC is invalid (REQ-ERR-06)
+  receivedAt DateTime     @default(now()) @db.Timestamptz(3)
+  latitude   Float?
+  longitude  Float?
+  altitude   Float?
+  rssi       Int?
+  snr        Float?
+  hopsAway   Int?
+  payload    Json // raw payload, persisted verbatim (REQ-UBI-04)
+  incidentId String? // set when this event opened or joined an episode
+  incident   Incident?    @relation("IncidentEvents", fields: [incidentId], references: [id])
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
 
-  @@map("gateway_events")
+  openedIncident           Incident?       @relation("IncidentOpenedBy")
+  incidentAuditsAsRefEvent IncidentAudit[] @relation("IncidentAudit_refEventId")
+
+  @@index([deviceId, receivedAt])
+  @@index([deviceId, kind, receivedAt])
+  @@index([incidentId])
+  @@index([gatewayId])
+  @@map("gateway_events") // append-only trigger
+}
+
+// Every ingestion attempt, accepted or not: the evidence base for RQ1.
+model SyncAuditLog {
+  id         String      @id @default(uuid())
+  eventId    String? // null when the envelope was too malformed to derive one
+  nodeNum    BigInt? // node numbers are unsigned 32-bit (gateway-sync design §1.2)
+  deviceId   String?
+  device     Device?     @relation("SyncAuditLog_deviceId", fields: [deviceId], references: [id])
+  ingress    IngressPath
+  outcome    SyncOutcome
+  detail     String?
+  rawMessage Json?
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([outcome, createdAt])
+  @@index([eventId])
+  @@index([deviceId])
+  @@map("sync_audit_log")
+}
+
+model Gateway {
+  id           String         @id @default(uuid())
+  gatewayKey   String         @unique // JSON sender, or bridge id
+  label        String?
+  ingress      IngressPath
+  lastPacketAt DateTime?      @db.Timestamptz(3)
+  apiKeyHash   String? // Stage C bridges authenticate (D-021)
+  events       GatewayEvent[]
+  devices      Device[]
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(3)
+
+  @@map("gateways")
+}
+
+// [B] REQ-EVT-12, payload schema: gateway-sync api-design/06-queue-health-payload.md
+model DeviceQueueReport {
+  id               String   @id @default(uuid())
+  deviceId         String
+  device           Device   @relation(fields: [deviceId], references: [id])
+  schemaVersion    Int // payload "v"
+  uptimeSeconds    Int
+  capacity         Int
+  depth            Int[] // index 0 = P0 .. 3 = P3
+  enqueued         Int[]
+  published        Int[]
+  shed             Int[]
+  p0Refused        Int
+  flashWriteFailed Int
+  restoreDiscarded Int
+  flashBytes       Int
+  flashBudget      Int
+  rebootDetected   Boolean  @default(false) // a counter went down (REQ-EVT-15)
+  receivedAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([deviceId, receivedAt])
+  @@map("device_queue_reports")
 }

@@ -74,7 +74,7 @@ export interface TrekLinkEvent {
   readonly eventId: string;        // sha256(nodeNum:packetId) hex — D-006
   readonly nodeNum: number;        // MeshPacket.from
   readonly packetId: number;       // MeshPacket.id
-  readonly gatewayId: string;      // JSON `sender` — which node/bridge delivered it
+  readonly gatewayKey: string;     // JSON `sender`, which node or bridge delivered it; resolved to Gateway.id at ingestion
   readonly ingress: IngressPath;
   readonly kind: EventKind;
   readonly priority: PriorityTier; // provisional; EpisodeCorrelator may promote P2→P1
@@ -114,7 +114,7 @@ erDiagram
 | `kind` | **New**, `EventKind` enum. |
 | `observedAt` | **New**, nullable. |
 | `receivedAt` | **New**, non-null, default `now()`. |
-| `gatewayId`, `ingress` | **New**, which path delivered it. Makes Stage A plus Stage C dual-path dedup auditable. |
+| `gatewayId`, `ingress` | **New**, which path delivered it. `gatewayId` is a foreign key to `Gateway.id`, upserted by `gatewayKey` in the ingestion transaction. Makes Stage A plus Stage C dual-path dedup auditable. |
 | `latitude`/`longitude`/`altitude` | **New**, nullable, promoted out of `payload` for map queries. |
 | `rssi`/`snr`/`hopsAway` | **New**, nullable, RQ1 RF-coverage analysis (REQ-OPT-02). |
 | `incidentId` | **New**, nullable FK, set when this event opened or joined an episode. |
@@ -126,7 +126,7 @@ erDiagram
 |---|---|
 | `eventId @unique` | **Removed.** Replaced by `openedByEventId` FK → `GatewayEvent`. |
 | `lastEventAt` | **New**, non-null, advanced on every correlated append. |
-| `detectionConfidence` | **New**, `CONFIRMED` (text frame seen) \| `SUSPECTED` (cadence-inferred, REQ-EVT-06). |
+| `confidence` | **New**, `CONFIRMED` (text frame seen) \| `SUSPECTED` (cadence-inferred, REQ-EVT-06). |
 | `@@index` | `([deviceId, status, lastEventAt])`, the episode-correlation lookup (§2.4). |
 
 **`SyncAuditLog`**, **new table.** Every ingestion *attempt*, accepted or not. This is the evidence base for the RQ1 delivery/loss/duplicate figures; `GatewayEvent` alone cannot show what was rejected.
@@ -347,6 +347,8 @@ Per `04-architecture-conventions.md` §3, the idempotency check and the Incident
 
 ```typescript
 await this.prisma.$transaction(async (tx) => {
+  const gateway = await tx.gateway.upsert({ where: { gatewayKey }, create: { gatewayKey, ingress }, update: { lastPacketAt: now } });
+  row.gatewayId = gateway.id;
   const inserted = await tx.gatewayEvent.createMany({ data: [row], skipDuplicates: true });
   if (inserted.count === 0) {
     await tx.syncAuditLog.create({ data: { ...ctx, outcome: 'DUPLICATE_REJECTED' } });
@@ -359,12 +361,14 @@ await this.prisma.$transaction(async (tx) => {
     await this.retroTagPositions(deviceId, event.receivedAt, tx);               // own rows only
   } else if (event.kind === 'POSITION') {
     const hit = await this.incidents.appendBeacon(deviceId, event, tx);         // beacons keep an episode alive
-    if (hit) await tx.gatewayEvent.update({ where: { eventId: event.eventId }, data: { incidentId: hit.incidentId, priority: 'P1' } });
+    if (hit) await tx.gatewayEvent.update({ where: { eventId: event.eventId }, data: { incidentId: hit.incidentId, priority: 'P1_LOCATION' } });
     else await this.cadence.check(deviceId, event.receivedAt, tx);              // may call raiseSuspected
   }
   await tx.syncAuditLog.create({ data: { ...ctx, outcome: 'ACCEPTED' } });
 });
 ```
+
+> `gateway_events` is append-only except for two one-way updates (`specs/platform/design.md` §3.4 rule 1): `incidentId` from `NULL` to a value, and `priority` from `P2_GPS` to `P1_LOCATION`. The episode link and the `P1_LOCATION` promotion above, and `retroTagPositions`, use exactly those, so the trigger accepts them.
 
 Atomicity rests on the unique index on `eventId` doing the arbitration, `skipDuplicates` resolves the race in the database, not in application code (REQ-ERR-02).
 
