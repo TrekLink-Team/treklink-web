@@ -37,6 +37,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://treklink:treklink@localhost:5432/treklink_test
+      DATABASE_DIRECT_URL: postgresql://treklink:treklink@localhost:5432/treklink_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,6 +47,10 @@ jobs:
       - run: npm ci
       - name: Prisma generate
         run: npm --prefix backend run prisma:generate
+      # Applies every migration to the Postgres 16 service container, so a migration that does not
+      # run on the team database version fails CI (platform PR #12, leader decision 11).
+      - name: Prisma migrate deploy
+        run: npm --prefix backend run prisma:deploy
       - run: npm --prefix backend run lint
       - run: npm --prefix backend run typecheck
       - run: npm --prefix backend run test -- --ci --passWithNoTests
