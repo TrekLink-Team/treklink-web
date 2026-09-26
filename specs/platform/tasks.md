@@ -1,6 +1,6 @@
 # Implementation Tasks: platform
 
-> Approved by: pending (spec approval requested in `_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: none, Jira is empty and this is foundation work (D-024)
+> Approved by: KhoaDD (`07-clarification-answers.md` §6 items 1 to 6, 2026-09-25) · Branch: `feat/platform-foundation` (Phase 1, PR #12) · Jira: none, this is foundation work (D-024)
 >
 > Fulfills `design.md` in this folder. First implementation work of Phase B; every module waits on Phase 1 and 2 here.
 
@@ -18,7 +18,7 @@
   - Includes `CREATE EXTENSION btree_gist` and the `device_allocations` exclusion constraint (rentals design)
   - Includes the `raise_append_only()` trigger function and its triggers on every append-only table
   - _Requirements: REQ-UBI-07, design §3.3, D-001_
-- [x] 1.6 Seed migration for the parameter registry defaults and the system roles and permissions (`auth` design §3)
+- [x] 1.6 Seed migration for the parameter registry defaults and the system roles and permissions (`auth` design §1.2)
   - _Requirements: REQ-UBI-06, US-001_
 - [x] 1.7 `common/errors`: `ErrorCode` enum, `DomainException`, cross-cutting codes of design §4.2
   - _Requirements: REQ-UBI-04_

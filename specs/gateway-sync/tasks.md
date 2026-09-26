@@ -28,7 +28,7 @@
   - _Requirements: REQ-UBI-01/02/04, REQ-OPT-02, design §1.2_
 - [ ] 1.3 Prisma: add `SyncAuditLog` model and `SyncOutcome` enum
   - _Requirements: REQ-EVT-03, REQ-ERR-01/03/04, REQ-STA-04_
-- [ ] 1.4 Prisma: split `Incident` keys, drop `eventId @unique`, add `openedByEventId` FK, `lastEventAt`, `detectionConfidence`, index `([deviceId, status, lastEventAt])`
+- [ ] 1.4 Prisma: split `Incident` keys, drop `eventId @unique`, add `openedByEventId` FK, `lastEventAt`, `confidence`, index `([deviceId, status, lastEventAt])`
   - The conflation being removed here is what would otherwise mint one Incident per beacon tick
   - _Requirements: REQ-EVT-05, D-006_
 - [ ] 1.5 Write and verify the migration against a scratch database

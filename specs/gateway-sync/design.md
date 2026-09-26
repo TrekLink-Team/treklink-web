@@ -126,7 +126,7 @@ erDiagram
 |---|---|
 | `eventId @unique` | **Removed.** Replaced by `openedByEventId` FK → `GatewayEvent`. |
 | `lastEventAt` | **New**, non-null, advanced on every correlated append. |
-| `detectionConfidence` | **New**, `CONFIRMED` (text frame seen) \| `SUSPECTED` (cadence-inferred, REQ-EVT-06). |
+| `confidence` | **New**, `CONFIRMED` (text frame seen) \| `SUSPECTED` (cadence-inferred, REQ-EVT-06). |
 | `@@index` | `([deviceId, status, lastEventAt])`, the episode-correlation lookup (§2.4). |
 
 **`SyncAuditLog`**, **new table.** Every ingestion *attempt*, accepted or not. This is the evidence base for the RQ1 delivery/loss/duplicate figures; `GatewayEvent` alone cannot show what was rejected.
@@ -359,12 +359,14 @@ await this.prisma.$transaction(async (tx) => {
     await this.retroTagPositions(deviceId, event.receivedAt, tx);               // own rows only
   } else if (event.kind === 'POSITION') {
     const hit = await this.incidents.appendBeacon(deviceId, event, tx);         // beacons keep an episode alive
-    if (hit) await tx.gatewayEvent.update({ where: { eventId: event.eventId }, data: { incidentId: hit.incidentId, priority: 'P1' } });
+    if (hit) await tx.gatewayEvent.update({ where: { eventId: event.eventId }, data: { incidentId: hit.incidentId, priority: 'P1_LOCATION' } });
     else await this.cadence.check(deviceId, event.receivedAt, tx);              // may call raiseSuspected
   }
   await tx.syncAuditLog.create({ data: { ...ctx, outcome: 'ACCEPTED' } });
 });
 ```
+
+> (needs leader decision, PR #12) `gateway_events` is append-only except for an `UPDATE` that only sets `incidentId` from `NULL` to a value, and `priority` is set at insert (`specs/platform/design.md` §3.4 rule 1). Two writes in this sample conflict with that: the `P1_LOCATION` promotion when a beacon joins an open episode, and the priority change in `retroTagPositions`. Both run after the insert, so the trigger rejects them. The `incidentId` links are permitted.
 
 Atomicity rests on the unique index on `eventId` doing the arbitration, `skipDuplicates` resolves the race in the database, not in application code (REQ-ERR-02).
 
