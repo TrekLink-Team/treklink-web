@@ -12,6 +12,7 @@
 | [2026-09-13-cross-repo-system-critique.md](2026-09-13-cross-repo-system-critique.md) | 2026-09-13 | Cross-repo pre-coding audit (backlog, firmware wire format, scaffold), see file for the full findings→destination table |
 | [2026-09-25-0311-module-specs.md](2026-09-25-0311-module-specs.md) | 2026-09-25 | Phase A: specs for all nine modules plus `platform`, Review 2 diagrams, SSOT proposals; awaiting approval |
 | [2026-09-25-1700-platform-phase1.md](2026-09-25-1700-platform-phase1.md) | 2026-09-25 | Phase B start: `platform` tasks 1.1 to 1.9 (strict TS, env validation, datasource, initial migration, seed, errors, paging, boundary check); 17 questions for the leader |
+| [2026-09-29-1810-tk90-health-endpoint.md](2026-09-29-1810-tk90-health-endpoint.md) | 2026-09-29 | TK-90: `GET /api/health`, error code on every failure, optional MQTT probe (D-032), global `PrismaModule`, e2e setup |
 
 **Before starting new work**: check this index (and `ignore/[you]/docs/sessions/` for anything
 personal/in-progress) for anything from the last ~24h touching the same module or repo area,
