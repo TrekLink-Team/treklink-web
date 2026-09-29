@@ -255,11 +255,21 @@ Mutation boundaries:
 |---|---|
 | Create | normalize email, assert uniqueness, insert inactive user, insert role rows, insert invitation |
 | Accept invitation | lock valid invitation, hash password, activate user, set `emailVerifiedAt`, consume invitation |
-| Replace roles | lock user, validate the post-write active Admin count, replace all `UserRole` rows, increment `tokenVersion`, revoke every refresh token |
-| Deactivate | lock user, reject self-deactivation, validate the post-write active Admin count, set `isActive=false`, increment `tokenVersion`, revoke every refresh token |
+| Replace roles | acquire the shared last-Admin advisory lock, lock the target row, validate the post-write active Admin count, replace all `UserRole` rows, increment `tokenVersion`, revoke every refresh token |
+| Deactivate | acquire the shared last-Admin advisory lock, lock the target row, reject active-target self-deactivation, validate the post-write active Admin count, set `isActive=false`, increment `tokenVersion`, revoke every refresh token |
 | Reactivate | lock user and set `isActive=true`; roles, profile and password are not written |
 
-Repeated deactivation of an inactive account and repeated reactivation of an active account return the current account DTO without writing or emitting a second mutation audit. An Admin may change their own role or change or deactivate another Admin when the result retains at least one active Admin. Self-deactivation returns 403 `FORBIDDEN`. The `LAST_ADMIN` count check and the guarded write share one Prisma transaction.
+Role replacement and deactivation both acquire the same transaction-scoped PostgreSQL advisory lock before reading the active Admin count:
+
+```ts
+await tx.$queryRaw`
+  SELECT pg_advisory_xact_lock(hashtext('treklink:auth:last-active-admin'))
+`;
+```
+
+After the advisory lock, each operation locks its non-deleted target with a parameterized `SELECT ... FOR UPDATE` through the same `tx.$queryRaw` transaction client. Prisma Client has no row-lock method, so these two raw queries are the explicit exception inside the Prisma-only persistence boundary; no separate database driver is introduced. Every role replacement and deactivation takes the advisory lock before the target-row lock, preventing lock-order inversion. The advisory lock is released automatically when the transaction commits or rolls back. Concurrent mutations of different Admin rows therefore serialize before the count, and the second transaction observes the first transaction's committed result.
+
+Repeated deactivation of an inactive account and repeated reactivation of an active account return the current account DTO without writing or emitting a second mutation audit. An Admin may change their own role or change or deactivate another Admin when the result retains at least one active Admin. Self-deactivation applies only to an active target and returns 403 `FORBIDDEN`. The advisory lock, target-row lock, `LAST_ADMIN` count check and guarded write share one Prisma transaction.
 
 After a successful commit, `UsersService` emits `audit.record` with `actorId`, action, `subjectType: 'User'`, `subjectId`, and redacted before and after objects. The platform listener owns audit persistence. Listener failure is logged with the event and correlation id and does not change the already committed account result. Invitation secrets, password hashes and token hashes are never included.
 
@@ -426,7 +436,9 @@ sequenceDiagram
     A->>C: PUT /api/users/{id}/roles
     C->>C: JwtAuthGuard and can(update, User, roles)
     C->>U: replaceRoles(id, roleKeys, actor)
-    U->>DB: BEGIN and lock user
+    U->>DB: BEGIN
+    U->>DB: $queryRaw advisory lock for last active Admin
+    U->>DB: $queryRaw lock non-deleted target FOR UPDATE
     alt account does not exist
         U-->>A: 404 ACCOUNT_NOT_FOUND
     else invalid role set
@@ -450,19 +462,26 @@ See **Figure 6**.
 ```mermaid
 flowchart TB
     S((Request)) --> A[Authenticate and authorize Admin]
-    A --> B{Account exists?}
-    B -->|no| N[404 ACCOUNT_NOT_FOUND]
-    B -->|yes| C{Requested state already current?}
-    C -->|yes| I[Return 200 current account without a write]
-    C -->|no, deactivate| D{Target is caller?}
+    A --> OP{Operation?}
+    OP -->|deactivate| DL[BEGIN: advisory lock, then target-row lock]
+    DL --> DF{Non-deleted account found?}
+    DF -->|no| N[Rollback: 404 ACCOUNT_NOT_FOUND]
+    DF -->|yes| DI{Already inactive?}
+    DI -->|yes| I[Commit and return 200 without a write]
+    DI -->|no| D{Active target is caller?}
     D -->|yes| X[403 FORBIDDEN]
     D -->|no| L{Would zero active Admins remain?}
     L -->|yes| Z[409 LAST_ADMIN]
-    L -->|no| E[Transaction: set inactive, increment tokenVersion, revoke refresh tokens]
-    C -->|no, reactivate| R[Transaction: set active only]
+    L -->|no| E[Set inactive, increment tokenVersion, revoke refresh tokens, COMMIT]
+    OP -->|reactivate| RL[BEGIN: target-row lock]
+    RL --> RF{Non-deleted account found?}
+    RF -->|no| N
+    RF -->|yes| RI{Already active?}
+    RI -->|yes| I
+    RI -->|no| R[Set active only and COMMIT]
     E --> AU[Emit redacted audit event]
     R --> AU
-    AU --> O[Return 200 account envelope]
+    AU --> OUT[Return 200 account envelope]
 ```
 
 ***Figure 6***: Reactivation may target an inactive Admin. Neither status operation rewrites roles, profile fields or the existing password.
@@ -509,7 +528,7 @@ Google OAuth routes (`GET /api/auth/google`, `GET /api/auth/google/callback`) ar
 - The list uses URL search parameters for `page`, `limit`, account type, role, status, search and creation dates. Successful mutations invalidate both `['admin-users']` and `['admin-user', id]` TanStack Query keys.
 - Account detail is a route-addressable drawer or page so refresh and browser history preserve the selected account. It displays all `AdminAccountDto` fields and never receives sensitive fields.
 - The create form requires email, full name, phone number, account type and roles. Selecting `CUSTOMER` fixes the role set to `CUSTOMER`. Selecting `STAFF` loads data-driven Staff roles from `GET /api/roles` and requires at least one.
-- The current Admin's own row disables Deactivate with an explanation. Role changes remain available for self and other Admin accounts, and another Admin may be deactivated. The UI surfaces `LAST_ADMIN` when the server rejects a change that would leave zero active Admins. An inactive Admin shows Reactivate. The backend remains authoritative.
+- The current Admin's own row disables Deactivate with an explanation. Role changes remain available for self and other Admin accounts, and another Admin may be deactivated. The UI surfaces `LAST_ADMIN` when the server rejects a change that would leave zero active Admins. An inactive Admin shows Reactivate. After a successful self-role change, the UI clears the now-stale session and redirects to login with a role-change message instead of surfacing a generic 401 on the next request. The backend remains authoritative.
 - Dialogs return focus to their trigger, destructive actions require confirmation, validation errors are associated with their controls, async status is announced, and all controls are keyboard operable with visible focus and WCAG 2.1 AA contrast.
 
 ---
@@ -528,7 +547,8 @@ TK-22 requires unit tests before its implementation PR opens.
 | `UsersService.deactivate` | success, self-deactivation rejection, other Admin success, last-Admin rejection, unknown or soft-deleted account, idempotent inactive response, atomic status and session revocation |
 | `UsersService.reactivate` | normal account, inactive Admin, unknown account, idempotent active response, profile and password preservation |
 | JWT strategy | stale `ver` rejected on the next authenticated request |
+| Last-Admin concurrency | PostgreSQL-backed parallel opposing deactivations; exactly one succeeds, one returns `LAST_ADMIN`, and one active Admin remains |
 | Audit emission | redacted after-commit event per successful mutation, no duplicate event for idempotent no-op, sink failure does not alter result |
-| Frontend hooks and components | query serialization, cache invalidation, server error display, self-deactivation control, `LAST_ADMIN` feedback, loading, empty, success and failure states, keyboard interaction |
+| Frontend hooks and components | query serialization, cache invalidation, server error display, self-deactivation control, self-role-change logout and redirect, `LAST_ADMIN` feedback, loading, empty, success and failure states, keyboard interaction |
 
-Prisma is mocked at the service boundary for branch-focused unit tests. Transaction tests assert that the callback receives one transaction client and that every write and token revocation uses it. Controller tests assert both guards and policy metadata on every TK-22 mutating handler. Integration and end-to-end coverage may be added later, but it does not replace the required unit suite.
+Prisma is mocked at the service boundary for branch-focused unit tests. Transaction tests assert that the callback receives one transaction client, that both protected mutations acquire the same advisory lock before the target-row lock and count, and that every write and token revocation uses that transaction client. The last-Admin race test uses local Docker PostgreSQL because a Prisma mock cannot prove database lock behavior. Controller tests assert both guards and policy metadata on every TK-22 mutating handler. Other integration and end-to-end coverage may be added later, but it does not replace the required unit suite.

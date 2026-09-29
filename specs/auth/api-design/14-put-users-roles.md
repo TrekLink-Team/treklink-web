@@ -80,13 +80,14 @@ Replaces the complete role set of a Customer or Staff account. The target may be
 ```mermaid
 flowchart TB
     S((Start)) --> G[Check JWT and role-field policy]
-    G --> F{Non-deleted account found?}
+    G --> K[BEGIN: acquire shared last-Admin advisory lock, then target-row lock]
+    K --> F{Non-deleted account found?}
     F -->|no| E1[404 ACCOUNT_NOT_FOUND]
     F -->|yes| R{Role set valid?}
     R -->|no| E3[400 INVALID_ROLE]
     R -->|yes| A{Would zero active Admins remain?}
     A -->|yes| E2[409 LAST_ADMIN]
-    A -->|no| T[Transaction: replace roles, increment tokenVersion, revoke refresh tokens]
+    A -->|no| T[Replace roles, increment tokenVersion, revoke refresh tokens, COMMIT]
     T --> C[Invalidate permission cache]
     C --> U[Emit redacted role audit event]
     U --> O[Return 200 account envelope]
@@ -103,7 +104,9 @@ sequenceDiagram
     participant DB as Postgres
     Admin->>Controller: PUT /api/users/{id}/roles
     Controller->>Service: replaceRoles(id, roleKeys, actor)
-    Service->>DB: BEGIN and lock user
+    Service->>DB: BEGIN
+    Service->>DB: tx.$queryRaw advisory lock for last active Admin
+    Service->>DB: tx.$queryRaw lock non-deleted target FOR UPDATE
     Service->>DB: validate role rows
     Service->>DB: verify post-write active Admin count is at least one
     Service->>DB: replace user_roles

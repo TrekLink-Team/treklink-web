@@ -81,15 +81,17 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - _Requirements: REQ-EVT-10, REQ-EVT-18, AC-13, AC-14_
 
 - [ ] 4.2 Implement complete role replacement
-  - Lock the non-deleted target through Prisma, validate the complete role set and permit changes to the caller or another active Admin.
-  - Verify that the proposed replacement retains at least one active Admin, replace all `UserRole` rows, increment `tokenVersion` and revoke refresh tokens in one transaction.
+  - In one interactive Prisma transaction, acquire `pg_advisory_xact_lock(hashtext('treklink:auth:last-active-admin'))` through `tx.$queryRaw`, then lock the non-deleted target with a parameterized `SELECT ... FOR UPDATE` through the same transaction client.
+  - After both locks, validate the complete role set, permit changes to the caller or another active Admin, and verify that the proposed replacement retains at least one active Admin.
+  - Replace all `UserRole` rows, increment `tokenVersion` and revoke refresh tokens before committing the same transaction.
   - Return 409 `LAST_ADMIN` and roll back when the proposed replacement would leave zero active Admins.
   - _Requirements: REQ-EVT-10, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11, AC-13, AC-16_
 
 - [ ] 4.3 Implement idempotent deactivation
-  - Return the current account with 200 and perform no write when it is already inactive.
-  - Reject self-deactivation with 403 `FORBIDDEN`; permit deactivating another Admin when at least one active Admin remains.
-  - Check the post-write active Admin count, set `isActive=false`, increment `tokenVersion` and revoke every refresh token in one transaction; return 409 `LAST_ADMIN` and roll back if the count would be zero.
+  - In one interactive Prisma transaction, acquire the same last-Admin advisory lock through `tx.$queryRaw`, then lock the non-deleted target with a parameterized `SELECT ... FOR UPDATE` through the same transaction client.
+  - After locking, return the current account with 200 and perform no write when it is already inactive; apply the self-deactivation check only when the target is active.
+  - Reject active-target self-deactivation with 403 `FORBIDDEN`; permit deactivating another Admin when at least one active Admin remains.
+  - Check the post-write active Admin count, set `isActive=false`, increment `tokenVersion` and revoke every refresh token before committing; return 409 `LAST_ADMIN` and roll back if the count would be zero.
   - _Requirements: REQ-EVT-18, REQ-EVT-20, REQ-ERR-08, REQ-ERR-10, AC-14, AC-16_
 
 - [ ] 4.4 Implement idempotent reactivation
@@ -130,9 +132,11 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Mock mail success and failure; assert mail failure does not erase the committed inactive account.
   - _Requirements: REQ-UBI-02, REQ-UBI-03, REQ-UBI-13, REQ-EVT-15, REQ-EVT-16, REQ-EVT-17, REQ-ERR-05, REQ-ERR-14, REQ-ERR-16_
 
-- [ ] 6.3 Unit test role and status transactions
+- [ ] 6.3 Test role and status transactions
   - Cover successful role replacement, deactivation and reactivation; self-role change; self-deactivation rejection; other Admin role change and deactivation; last-Admin rollback; inactive Admin reactivation; unknown and soft-deleted accounts; and idempotent no-ops.
+  - Assert role replacement and deactivation issue the same transaction-scoped advisory lock before the parameterized target-row lock and active Admin count.
   - Assert role rows, status, `tokenVersion` and refresh-token revocation share one transaction and roll back together on failure.
+  - Add a PostgreSQL-backed concurrency test that starts opposing deactivations by two active Admins in parallel; assert exactly one succeeds, the other receives 409 `LAST_ADMIN`, and one active Admin remains.
   - Assert reactivation does not write account type, roles, profile or password.
   - _Requirements: REQ-EVT-10, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-ERR-08, REQ-ERR-10_
 
@@ -164,19 +168,20 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 - [ ] 7.4 Build role and status actions
   - Add complete role-replacement, deactivate and reactivate dialogs with confirmation and server outcome feedback.
   - Disable Deactivate only for the current Admin's own account; permit role changes for self and other Admins, permit deactivation of another Admin, surface `LAST_ADMIN`, and allow Reactivate for inactive Admin accounts.
+  - After a successful self-role change, clear the stale auth session and redirect to login with a role-change message before invalidated queries can surface a generic 401.
   - Preserve the current detail route and refresh both list and detail queries after success.
   - _Requirements: REQ-EVT-10, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-EVT-22, REQ-ERR-08, AC-13, AC-14, AC-15, AC-16_
 
 - [ ] 7.5 Unit test frontend behavior and accessibility
   - Cover query serialization, combined filters, pagination and TanStack Query cache invalidation.
-  - Cover form validation, Customer and Staff role behavior, server error codes, idempotent outcomes, self-deactivation control, other Admin actions and `LAST_ADMIN` feedback.
+  - Cover form validation, Customer and Staff role behavior, server error codes, idempotent outcomes, self-deactivation control, self-role-change logout and redirect, other Admin actions and `LAST_ADMIN` feedback.
   - Cover keyboard operation, focus restoration, labelled controls, programmatic validation messages, announced async status and loading, empty, success and failure states.
   - _Requirements: REQ-EVT-22, AC-19, NFR-USE-03_
 
 ## Phase 8: Automated completion gates
 
 - [ ] 8.1 Run and pass the backend gates
-  - Run Prisma validation and generation, TK-22 Jest unit tests, the full backend unit suite, lint including module boundaries, typecheck and build.
+  - Run Prisma validation and generation, TK-22 Jest unit tests, the PostgreSQL-backed last-Admin concurrency test, the full backend unit suite, lint including module boundaries, typecheck and build.
   - Fix failures within the approved specification; update the governing spec immediately if a verified implementation fact disproves it.
   - _Requirements: TK-22 unit verification, REQ-UBI-14_
 

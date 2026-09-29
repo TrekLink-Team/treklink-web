@@ -70,16 +70,17 @@ For an already inactive account, the message is `Account is already inactive` an
 
 ```mermaid
 flowchart TB
-    S((Start)) --> F{Non-deleted account found?}
+    S((Start)) --> T[BEGIN: acquire shared last-Admin advisory lock, then target-row lock]
+    T --> F{Non-deleted account found?}
     F -->|no| E1[404 ACCOUNT_NOT_FOUND]
     F -->|yes| I{Already inactive?}
-    I -->|yes| O1[Return 200 current state]
-    I -->|no| A{Target is caller?}
+    I -->|yes| O1[COMMIT and return 200 current state]
+    I -->|no| A{Active target is caller?}
     A -->|yes| E2[403 FORBIDDEN]
     A -->|no| L{Would zero active Admins remain?}
     L -->|yes| E3[409 LAST_ADMIN]
-    L -->|no| T[Transaction: set inactive, increment tokenVersion, revoke refresh tokens]
-    T --> U[Emit redacted user.deactivate audit]
+    L -->|no| W[Set inactive, increment tokenVersion, revoke refresh tokens, COMMIT]
+    W --> U[Emit redacted user.deactivate audit]
     U --> O2[Return 200 account envelope]
 ```
 
@@ -93,7 +94,9 @@ sequenceDiagram
     participant DB as Postgres
     Admin->>Controller: POST /api/users/{id}/deactivate
     Controller->>Service: deactivate(id, actor)
-    Service->>DB: BEGIN, lock user, reject self and verify active Admin count
+    Service->>DB: BEGIN and acquire shared last-Admin advisory lock
+    Service->>DB: tx.$queryRaw lock non-deleted target FOR UPDATE
+    Service->>DB: check current state, active-target self rule and active Admin count
     Service->>DB: set inactive, tokenVersion + 1, revoke refresh tokens, COMMIT
     Controller-->>Admin: 200 or error envelope
 ```
