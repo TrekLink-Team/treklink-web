@@ -257,6 +257,8 @@ export interface MeshIngressAdapter {
 
 `MqttJsonIngressAdapter` `[A]` subscribes `treklink/2/json/+/+`, validates the envelope with `class-validator`, maps the JSON `type` discriminator (`"text"` / `"position"` / `"telemetry"`, from `MeshPacketSerializer.cpp:28,208,56`) to a PortNum, and calls the normalizer. Envelope fields available, `id`, `timestamp`, `to`, `from`, `channel`, `type`, `sender`, `payload`, `rssi`, `snr`, `hops_away` (`MeshPacketSerializer.cpp:410–424`).
 
+`MqttJsonIngressAdapter` also implements platform's `MqttHealthProbe` (`isConnected(): boolean`, the broker connection state of its client) and is registered under `MQTT_HEALTH_PROBE`, so `GET /api/health` reports it; until then health reports `mqtt: "unknown"` (D-032, platform design §4.7).
+
 `SerialBridgeIngressAdapter` `[C]` consumes the bridge's canonical publish, which `gateway/src` produces from `0x94 0xC3` + big-endian u16 frames.
 
 Registered as a NestJS multi-provider so enabling Stage C is a module-registration change, nothing more:

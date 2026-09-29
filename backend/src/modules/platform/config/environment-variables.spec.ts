@@ -32,6 +32,7 @@ describe('validate (environment)', () => {
       HTTP_BODY_LIMIT: '1mb',
       SWAGGER_ENABLED: true,
       PARAMETER_CACHE_TTL_SECONDS: 30,
+      HEALTH_DB_TIMEOUT_MS: 2000,
       DEFAULT_PAGE_SIZE: 20,
       MAX_PAGE_SIZE: 100,
       DISPLAY_TIMEZONE_DEFAULT: 'Asia/Ho_Chi_Minh',
@@ -70,10 +71,12 @@ describe('validate (environment)', () => {
       ...REQUIRED,
       PORT_BACKEND: '4000',
       DEFAULT_PAGE_SIZE: '10',
+      HEALTH_DB_TIMEOUT_MS: '500',
       SWAGGER_ENABLED: 'false',
     });
 
     expect(env.PORT_BACKEND).toBe(4000);
+    expect(env.HEALTH_DB_TIMEOUT_MS).toBe(500);
     expect(env.DEFAULT_PAGE_SIZE).toBe(10);
     expect(env.SWAGGER_ENABLED).toBe(false);
   });
@@ -92,6 +95,7 @@ describe('validate (environment)', () => {
       HTTP_BODY_LIMIT: 'huge',
       SWAGGER_ENABLED: 'yes',
       PARAMETER_CACHE_TTL_SECONDS: '0',
+      HEALTH_DB_TIMEOUT_MS: '1.5',
       DISPLAY_TIMEZONE_DEFAULT: 'Mars/Olympus_Mons',
     });
 
@@ -102,6 +106,7 @@ describe('validate (environment)', () => {
       'HTTP_BODY_LIMIT',
       'SWAGGER_ENABLED',
       'PARAMETER_CACHE_TTL_SECONDS',
+      'HEALTH_DB_TIMEOUT_MS',
       'DISPLAY_TIMEZONE_DEFAULT',
     ]) {
       expect(problems.some((p) => p.startsWith(`${name}:`))).toBe(true);

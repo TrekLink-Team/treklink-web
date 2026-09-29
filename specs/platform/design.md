@@ -547,9 +547,12 @@ The figures above show keys and defining attributes only. These rules decide eve
 `GlobalExceptionFilter` already produces the failure envelope. Changes:
 
 - Business exceptions extend `DomainException(httpStatus, errorCode, message)`. The filter sets `result = { errorCode }`.
+- Every failure carries an error code (D-026 consequence, `07-clarification-answers.md` §7 questions 1 and 7). A Nest `HttpException` that is not a `DomainException` maps by status: 400 `VALIDATION_FAILED`, 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 413 `PAYLOAD_TOO_LARGE`, 503 `SERVICE_UNAVAILABLE`. Any other 4xx keeps its status with `CLIENT_ERROR`. Any other 5xx, and every exception that is not an `HttpException`, is `INTERNAL_ERROR`; an unhandled exception answers 500 with the generic message and its stack is logged.
 - `ValidationPipe` gets an `exceptionFactory` that throws `DomainException(400, VALIDATION_FAILED, "<prop> <constraint>; ...")`.
 - `Prisma.PrismaClientKnownRequestError` codes `P2002` and `P2025` map to REQ-ERR-03 and REQ-ERR-04.
 - A `RequestIdMiddleware` sets `X-Request-Id` and puts it on an `AsyncLocalStorage` context read by the logger and the audit sink.
+
+**Implemented by TK-90**: the `@ResponseMessage` decorator and the error-code rule in the second bullet. The `ValidationPipe.exceptionFactory`, the Prisma mapping and `RequestIdMiddleware` remain open (tasks 2.1 to 2.3).
 
 ### 4.2 Error catalogue
 
@@ -566,7 +569,9 @@ One enum, `common/errors/error-code.enum.ts`, grouped by module prefix. Each mod
 | `STALE_VERSION` | 409 | optimistic-lock version mismatch |
 | `PAYLOAD_TOO_LARGE` | 413 | body limit |
 | `PARAMETER_OUT_OF_RANGE` | 400 | parameter value rejected |
-| `INTERNAL_ERROR` | 500 | unhandled |
+| `CLIENT_ERROR` | the original 4xx | a client error with no code of its own in this table; never used for 5xx |
+| `SERVICE_UNAVAILABLE` | 503 | a dependency the request needs is unreachable, for example the database probe of `GET /api/health` |
+| `INTERNAL_ERROR` | 500 | unhandled; 5xx only, never a client error |
 
 **Scoped 404 rule.** When a Guide requests a trip that is not theirs, the API answers 404 `NOT_FOUND`, not 403. A 403 confirms the resource exists, which leaks another guide's trip ids. This applies to every scoped read (E04-5, BR-13).
 
@@ -633,6 +638,20 @@ The migration adds `CREATE TRIGGER audit_log_append_only BEFORE UPDATE OR DELETE
 | `incidents.escalate` | incidents | 15 s | unacknowledged past timeout, escalate (MF-03 parameter) |
 
 Single-instance execution uses a Postgres advisory lock per job name (`pg_try_advisory_lock`), so a second backend replica skips rather than double-runs.
+
+### 4.7 Health and the optional MQTT probe
+
+`HealthService` backs `GET /api/health` (`api-design/01-get-health.md`). It races `SELECT 1` against `HEALTH_DB_TIMEOUT_MS` and throws `DomainException(503, SERVICE_UNAVAILABLE, "Database unreachable.")` on an error or a timeout. The MQTT state comes from a port that `platform` owns and `gateway-sync` implements (**D-032**), so `platform` still depends on no module:
+
+```typescript
+export const MQTT_HEALTH_PROBE = Symbol('MQTT_HEALTH_PROBE');
+
+export interface MqttHealthProbe {
+  isConnected(): boolean;
+}
+```
+
+The service injects the token as `@Optional()`. With no provider registered, `components.mqtt` is `unknown` and `status` stays `ok`; a registered probe returning `false`, or throwing, gives `mqtt: "down"` and `status: "degraded"`. `PrismaService` comes from the `@Global()` `PrismaModule` in `common/prisma`, one connection pool for the application; module isolation is unchanged, because each module still queries only the tables it owns.
 
 ---
 
