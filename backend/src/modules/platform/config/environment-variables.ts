@@ -103,6 +103,12 @@ export class EnvironmentVariables {
   @Min(1)
   PARAMETER_CACHE_TTL_SECONDS = 30;
 
+  // Upper bound for the health endpoint's `SELECT 1`; slower counts as unreachable (TK-90, D-015).
+  @Transform(toInteger)
+  @IsInt()
+  @Min(1)
+  HEALTH_DB_TIMEOUT_MS = 2000;
+
   @Transform(toInteger)
   @IsInt()
   @Min(1)
