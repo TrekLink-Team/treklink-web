@@ -548,11 +548,11 @@ The figures above show keys and defining attributes only. These rules decide eve
 
 - Business exceptions extend `DomainException(httpStatus, errorCode, message)`. The filter sets `result = { errorCode }`.
 - Every failure carries an error code (D-026 consequence, `07-clarification-answers.md` §7 questions 1 and 7). A Nest `HttpException` that is not a `DomainException` maps by status: 400 `VALIDATION_FAILED`, 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 413 `PAYLOAD_TOO_LARGE`, 503 `SERVICE_UNAVAILABLE`. Any other 4xx keeps its status with `CLIENT_ERROR`. Any other 5xx, and every exception that is not an `HttpException`, is `INTERNAL_ERROR`; an unhandled exception answers 500 with the generic message and its stack is logged.
-
-**Implemented by TK-90**: the `@ResponseMessage` decorator and the error-code rule above. The `ValidationPipe.exceptionFactory`, the Prisma mapping and `RequestIdMiddleware` below remain open (tasks 2.1 to 2.3).
 - `ValidationPipe` gets an `exceptionFactory` that throws `DomainException(400, VALIDATION_FAILED, "<prop> <constraint>; ...")`.
 - `Prisma.PrismaClientKnownRequestError` codes `P2002` and `P2025` map to REQ-ERR-03 and REQ-ERR-04.
 - A `RequestIdMiddleware` sets `X-Request-Id` and puts it on an `AsyncLocalStorage` context read by the logger and the audit sink.
+
+**Implemented by TK-90**: the `@ResponseMessage` decorator and the error-code rule in the second bullet. The `ValidationPipe.exceptionFactory`, the Prisma mapping and `RequestIdMiddleware` remain open (tasks 2.1 to 2.3).
 
 ### 4.2 Error catalogue
 
