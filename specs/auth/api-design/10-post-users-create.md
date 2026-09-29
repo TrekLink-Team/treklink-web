@@ -1,45 +1,44 @@
-# POST /api/users: Provision an account
+# POST /api/users: Create an invited account
 
-> Module `auth`. Format: `02-templates/04-api-endpoint-template.md`, with Mermaid in place of PlantUML (D-017). Envelope: D-002.
+> Module `auth`. Envelope: D-002. TK-22, US-009.
 
 [TOC]
 
 ---
+
 ## Overview
 
-Creates an account on someone's behalf. Admin creates Staff accounts with sub-roles. Operators and Guides create Customer accounts for people who contacted them by phone (Flow 2 of Q31). A provisioned account is active at once; when an email is given, a SET_PASSWORD OTP is sent so the person chooses their own password and Staff never knows it.
+Creates a Customer or Staff account in an inactive state and sends a single-use 24-hour set-password invitation. Only an Admin may call this TK-22 endpoint. The Admin never supplies or receives a password.
 
 ## API Specification
 
-| API        | URL             |
-| ---------- | --------------- |
-| POST | /api/users |
-| Permission | Admin (any account); Operator and Guide (Customer accounts only) |
-| Traces | UC-18, FR-AUTH-06 (new), US-009, REQ-EVT-06, Q31 Flow 2, Q33 |
+| API | URL |
+|---|---|
+| POST | `/api/users` |
+| Permission | Authenticated Admin with `can('create', 'User', fields)` |
+| Traces | US-009, REQ-EVT-05, REQ-EVT-15, REQ-ERR-05, REQ-ERR-11, REQ-ERR-16 |
 
 ## Request sample
 
 ```json
 {
-  "username": "tran.b",
   "email": "tranb@mail.com",
   "fullName": "Tran Thi B",
   "phoneNumber": "0987654321",
-  "accountType": "CUSTOMER",
-  "roleKeys": [
-    "CUSTOMER"
-  ]
+  "accountType": "STAFF",
+  "roleKeys": ["GUIDE", "OPERATOR"]
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
-| --- | --- | --- | --- | --- |
-| username | Optional; derived from email or full name when omitted | string | no | `tran.b` |
-| email | Optional; required for self-service password setup | string | no | `tranb@mail.com` |
-| fullName | 1 to 100 chars | string | yes | `Tran Thi B` |
-| phoneNumber | Required when email is absent | string | no | `0987654321` |
-| accountType | CUSTOMER or STAFF | enum | yes | `CUSTOMER` |
-| roleKeys | Roles matching the account type | string[] | yes | `CUSTOMER` |
+|---|---|---|---|---|
+| email | Unique, case-insensitive email; normalized to lower case | string | yes | `tranb@mail.com` |
+| fullName | 1 to 100 characters | string | yes | `Tran Thi B` |
+| phoneNumber | Account phone number | string | yes | `0987654321` |
+| accountType | `CUSTOMER` or `STAFF` | enum | yes | `STAFF` |
+| roleKeys | Complete initial role set | string[] | yes | `GUIDE, OPERATOR` |
+
+For `CUSTOMER`, `roleKeys` must be exactly `['CUSTOMER']`. For `STAFF`, it must contain one or more data-driven Staff role keys. Seeded Staff roles include `OPERATOR`, `GUIDE` and `ADMIN`.
 
 ## Response sample
 
@@ -47,151 +46,61 @@ Creates an account on someone's behalf. Admin creates Staff accounts with sub-ro
 {
   "result": {
     "id": "5b7e2f0a-3c41-4d8e-9a12-6f0c2b9d1e01",
-    "username": "tran.b",
+    "username": "tranb",
     "email": "tranb@mail.com",
     "fullName": "Tran Thi B",
-    "phoneNumber": "0901234567",
-    "accountType": "CUSTOMER",
-    "roles": [
-      "CUSTOMER"
-    ],
-    "isActive": true,
-    "emailVerifiedAt": null,
-    "createdAt": "2026-10-01T01:58:00Z",
-    "setPasswordEmailSent": true
+    "phoneNumber": "0987654321",
+    "accountType": "STAFF",
+    "roles": ["GUIDE", "OPERATOR"],
+    "isActive": false,
+    "lastLoginAt": null,
+    "createdAt": "2026-09-29T08:00:00Z",
+    "updatedAt": "2026-09-29T08:00:00Z"
   },
   "isSuccess": true,
   "statusCode": 201,
-  "message": "Account created"
+  "message": "Account created and invitation sent"
 }
 ```
-
-### Rules
-
-- Operators and Guides receive 403 when `accountType` is `STAFF`.
-- A Customer with neither email nor phone is rejected: Staff must be able to reach the person.
 
 ## Validation
 
-<table>
-    <th>Status code</th>
-    <th>Description</th>
-    <th>Examples</th>
-    <tbody>
-        <tr>
-            <td>400</td>
-            <td>Field validation failed or neither email nor phone given (<code>VALIDATION_FAILED</code>)</td>
-<td>
+| Status | Error code | Condition |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | A required field is absent or malformed |
+| 400 | `INVALID_ROLE` | Role set is empty, unknown, or incompatible with the account type |
+| 401 | `UNAUTHENTICATED` | Access token is missing, malformed or expired |
+| 403 | `FORBIDDEN` | Caller lacks the Admin create policy |
+| 409 | `EMAIL_TAKEN` | Normalized email belongs to an active or inactive account |
+
+Example failure:
 
 ```json
 {
   "result": {
-    "errorCode": "VALIDATION_FAILED"
-  },
-  "isSuccess": false,
-  "statusCode": 400,
-  "message": "email or phoneNumber is required."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>401</td>
-            <td>Missing, malformed or expired access token (<code>UNAUTHENTICATED</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "UNAUTHENTICATED"
-  },
-  "isSuccess": false,
-  "statusCode": 401,
-  "message": "Authentication required."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>403</td>
-            <td>Authenticated, but the caller's role or policy does not allow this action (<code>FORBIDDEN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "FORBIDDEN"
-  },
-  "isSuccess": false,
-  "statusCode": 403,
-  "message": "You do not have permission to perform this action."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
-            <td>Username or email taken (<code>USERNAME_TAKEN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "USERNAME_TAKEN"
+    "errorCode": "EMAIL_TAKEN"
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "Username is already taken."
+  "message": "Email is already in use."
 }
 ```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
-            <td>Role not allowed for the account type (<code>ROLE_ACCOUNT_TYPE_MISMATCH</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "ROLE_ACCOUNT_TYPE_MISMATCH"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "Role GUIDE cannot be granted to a CUSTOMER account."
-}
-```
-</td>
-        </tr>
-    </tbody>
-</table>
 
 ## Activity Diagram
 
 ```mermaid
 flowchart TB
-    S((Start))
-    A1["Check JWT, create policy on User with accountType condition"]
-    S --> A1
-    D2{"DTO invalid?"}
-    A1 --> D2
-    E2["Return 400 VALIDATION_FAILED"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    D3{"Role and type mismatch?"}
-    D2 -->|no| D3
-    E3["Return 409 ROLE_ACCOUNT_TYPE_MISMATCH"]
-    D3 -->|yes| E3
-    E3 --> X3((End))
-    A4["Insert active user with createdById and roles"]
-    D3 -->|no| A4
-    A5["If email present, send SET_PASSWORD OTP"]
-    A4 --> A5
-    A6["Audit user.create"]
-    A5 --> A6
-    OK["Return 201"]
-    A6 --> OK
-    OK --> Z((End))
+    S((Start)) --> G[Check JWT and create User policy]
+    G --> V{Request valid?}
+    V -->|no| E1[400 VALIDATION_ERROR]
+    V -->|yes| R{Role set valid for account type?}
+    R -->|no| E2[400 INVALID_ROLE]
+    R -->|yes| U{Normalized email already used?}
+    U -->|yes| E3[409 EMAIL_TAKEN]
+    U -->|no| T[Transaction: create inactive user, roles and hashed invitation]
+    T --> M[Send invitation link]
+    M --> A[Emit redacted user.create audit event]
+    A --> O[Return 201 account envelope]
 ```
 
 ## Sequence Diagram
@@ -199,17 +108,21 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Client
+    actor Admin
     participant Controller as UsersController
     participant Service as UsersService
+    participant Invitation as InvitationService
     participant DB as Postgres
-    participant M as MailPort
-    Client->>Controller: POST /api/users
-    Controller->>Controller: PoliciesGuard create User where accountType
-    Controller->>Service: create(dto, actor)
-    Service->>DB: INSERT user, user_roles
-    opt email present
-      Service->>M: send SET_PASSWORD OTP
-    end
-    Controller-->>Client: 201 envelope
+    participant Mail as MailPort
+    Admin->>Controller: POST /api/users
+    Controller->>Controller: JwtAuthGuard and PoliciesGuard
+    Controller->>Service: createInvitedAccount(dto, actor)
+    Service->>DB: BEGIN, insert user and roles
+    Service->>Invitation: issue(userId, actorId, tx)
+    Invitation->>DB: insert token hash and expiry
+    Service->>DB: COMMIT
+    Service->>Mail: send raw invitation link
+    Controller-->>Admin: 201 envelope
 ```
+
+The account, roles and invitation roll back together on a Prisma transaction failure. Mail is sent after commit. If delivery fails, the inactive account remains visible and the Admin may use the resend endpoint.

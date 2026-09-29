@@ -1,41 +1,38 @@
 # GET /api/users: List accounts
 
-> Module `auth`. Format: `02-templates/04-api-endpoint-template.md`, with Mermaid in place of PlantUML (D-017). Envelope: D-002.
+> Module `auth`. Envelope: D-002. TK-22, US-009.
 
 [TOC]
 
 ---
+
 ## Overview
 
-Paged account search. Operators see Customer accounts only (the policy condition narrows the query); Admin sees all. Soft-deleted accounts are excluded unless `includeDeleted=true` (Admin only).
+Returns the Admin account-management list with combined filters and newest-first pagination. Only an Admin may call this TK-22 endpoint.
 
 ## API Specification
 
-| API        | URL             |
-| ---------- | --------------- |
-| GET | /api/users |
-| Permission | Admin (all); Operator (Customers only) |
-| Traces | UC-18, US-009 |
+| API | URL |
+|---|---|
+| GET | `/api/users` |
+| Permission | Authenticated Admin with `can('read', 'User')` |
+| Traces | US-009, REQ-EVT-12, REQ-EVT-13, REQ-ERR-12 |
 
 ### Query parameters
 
 | Field | Description | Data Type | Required | Examples |
-| --- | --- | --- | --- | --- |
-| search | Matches username, email, full name or phone | string | no | `tran` |
-| accountType | CUSTOMER or STAFF | enum | no | `CUSTOMER` |
-| roleKey | Holds this role | string | no | `GUIDE` |
-| isActive | Filter by status | bool | no | `true` |
-| includeDeleted | Admin only | bool | no | `false` |
-| pageNumber | 1-based | int | no | `1` |
-| pageSize | Default 20, max 100 | int | no | `20` |
-| sort | `createdAt`, `username`, `fullName`, prefix `-` for desc | string | no | `-createdAt` |
+|---|---|---|---|---|
+| page | 1-based page, default 1 | int | no | `1` |
+| limit | Default 20, maximum 100 | int | no | `20` |
+| accountType | `CUSTOMER` or `STAFF` | enum | no | `STAFF` |
+| role | Assigned role key | string | no | `GUIDE` |
+| isActive | Account status | bool | no | `true` |
+| search | Case-insensitive full-name or email substring | string | no | `tran` |
+| createdFrom | Inclusive ISO-8601 UTC timestamp | timestamp | no | `2026-09-01T00:00:00Z` |
+| createdTo | Inclusive ISO-8601 UTC timestamp | timestamp | no | `2026-09-30T23:59:59Z` |
 
-## Request sample
-
-No request body. Query string example:
-
-```
-GET /api/users?roleKey=GUIDE&isActive=true&pageSize=50
+```http
+GET /api/users?page=1&limit=20&accountType=STAFF&role=GUIDE&isActive=true&search=tran
 ```
 
 ## Response sample
@@ -46,110 +43,63 @@ GET /api/users?roleKey=GUIDE&isActive=true&pageSize=50
     "items": [
       {
         "id": "5b7e2f0a-3c41-4d8e-9a12-6f0c2b9d1e01",
-        "username": "name123",
-        "email": "name123@mail.com",
-        "fullName": "Nguyen Van A",
-        "phoneNumber": "0901234567",
-        "accountType": "CUSTOMER",
-        "roles": [
-          "CUSTOMER"
-        ],
+        "username": "tranb",
+        "email": "tranb@mail.com",
+        "fullName": "Tran Thi B",
+        "phoneNumber": "0987654321",
+        "accountType": "STAFF",
+        "roles": ["GUIDE"],
         "isActive": true,
-        "emailVerifiedAt": "2026-10-01T02:00:00Z",
-        "createdAt": "2026-10-01T01:58:00Z"
+        "lastLoginAt": "2026-09-29T07:30:00Z",
+        "createdAt": "2026-09-20T08:00:00Z",
+        "updatedAt": "2026-09-29T07:30:00Z"
       }
     ],
-    "pageNumber": 1,
-    "pageSize": 20,
+    "page": 1,
+    "limit": 20,
     "totalCount": 1,
     "totalPages": 1
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Users retrieved"
+  "message": "Accounts retrieved"
 }
 ```
+
+Results are ordered by `createdAt DESC, id DESC`. All supplied filters are combined with logical AND.
 
 ## Validation
 
-<table>
-    <th>Status code</th>
-    <th>Description</th>
-    <th>Examples</th>
-    <tbody>
-        <tr>
-            <td>400</td>
-            <td>Unknown sort field or bad page size (<code>VALIDATION_FAILED</code>)</td>
-<td>
+| Status | Error code | Condition |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | `page < 1`, `limit < 1`, `limit > 100`, or another malformed filter |
+| 400 | `INVALID_DATE_RANGE` | Timestamp is invalid or `createdFrom` is after `createdTo` |
+| 401 | `UNAUTHENTICATED` | Access token is missing, malformed or expired |
+| 403 | `FORBIDDEN` | Caller lacks the Admin read policy |
 
 ```json
 {
   "result": {
-    "errorCode": "VALIDATION_FAILED"
+    "errorCode": "INVALID_DATE_RANGE"
   },
   "isSuccess": false,
   "statusCode": 400,
-  "message": "pageSize must not be greater than 100."
+  "message": "createdFrom must be before or equal to createdTo."
 }
 ```
-</td>
-        </tr>
-        <tr>
-            <td>401</td>
-            <td>Missing, malformed or expired access token (<code>UNAUTHENTICATED</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "UNAUTHENTICATED"
-  },
-  "isSuccess": false,
-  "statusCode": 401,
-  "message": "Authentication required."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>403</td>
-            <td>Authenticated, but the caller's role or policy does not allow this action (<code>FORBIDDEN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "FORBIDDEN"
-  },
-  "isSuccess": false,
-  "statusCode": 403,
-  "message": "You do not have permission to perform this action."
-}
-```
-</td>
-        </tr>
-    </tbody>
-</table>
 
 ## Activity Diagram
 
 ```mermaid
 flowchart TB
-    S((Start))
-    A1["Check JWT, read policy on User"]
-    S --> A1
-    D2{"Query invalid?"}
-    A1 --> D2
-    E2["Return 400 VALIDATION_FAILED"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    A3["Merge policy where-fragment with filters"]
-    D2 -->|no| A3
-    A4["Query page and count"]
-    A3 --> A4
-    OK["Return 200 paged"]
-    A4 --> OK
-    OK --> Z((End))
+    S((Start)) --> G[Check JWT and read User policy]
+    G --> P{Pagination valid?}
+    P -->|no| E1[400 VALIDATION_ERROR]
+    P -->|yes| D{Date range valid?}
+    D -->|no| E2[400 INVALID_DATE_RANGE]
+    D -->|yes| Q[Build one Prisma where clause from all filters]
+    Q --> L[Query count and page, newest first]
+    L --> O[Return 200 paged envelope]
 ```
 
 ## Sequence Diagram
@@ -157,12 +107,14 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Client
+    actor Admin
     participant Controller as UsersController
     participant Service as UsersService
     participant DB as Postgres
-    Client->>Controller: GET /api/users?roleKey=GUIDE
-    Controller->>Service: list(query, ability)
-    Service->>DB: SELECT ... WHERE policy AND filters LIMIT OFFSET
-    Controller-->>Client: 200 envelope
+    Admin->>Controller: GET /api/users with filters
+    Controller->>Service: list(query)
+    Service->>DB: count and findMany with roles
+    DB-->>Service: total and page rows
+    Service-->>Controller: AdminAccountPageDto
+    Controller-->>Admin: 200 envelope
 ```

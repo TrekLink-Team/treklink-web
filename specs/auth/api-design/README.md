@@ -14,13 +14,17 @@
 | 07 | POST | `/api/auth/password/reset` | Public (valid OTP) | [07-post-auth-password-reset.md](07-post-auth-password-reset.md) | Draft |
 | 08 | GET | `/api/auth/me` | Authenticated | [08-get-auth-me.md](08-get-auth-me.md) | Draft |
 | 09 | PATCH | `/api/auth/me` | Authenticated (self) | [09-patch-auth-me.md](09-patch-auth-me.md) | Draft |
-| 10 | POST | `/api/users` | Admin (any account); Operator and Guide (Customer accounts only) | [10-post-users-create.md](10-post-users-create.md) | Draft |
-| 11 | GET | `/api/users` | Admin (all); Operator (Customers only) | [11-get-users-list.md](11-get-users-list.md) | Draft |
-| 12 | GET | `/api/users/:id` | Admin; Operator (Customers); the user themself | [12-get-users-detail.md](12-get-users-detail.md) | Draft |
-| 13 | PATCH | `/api/users/:id` | Admin | [13-patch-users-update.md](13-patch-users-update.md) | Draft |
-| 14 | PUT | `/api/users/:id/roles` | Admin | [14-put-users-roles.md](14-put-users-roles.md) | Draft |
+| 10 | POST | `/api/users` | Admin | [10-post-users-create.md](10-post-users-create.md) | TK-22 approved 2026-09-29 |
+| 11 | GET | `/api/users` | Admin | [11-get-users-list.md](11-get-users-list.md) | TK-22 approved 2026-09-29 |
+| 12 | GET | `/api/users/:id` | Admin | [12-get-users-detail.md](12-get-users-detail.md) | TK-22 approved 2026-09-29 |
+| 13 | PATCH | `/api/users/:id` | Deferred outside TK-22 | [13-patch-users-update.md](13-patch-users-update.md) | Deferred |
+| 14 | PUT | `/api/users/:id/roles` | Admin | [14-put-users-roles.md](14-put-users-roles.md) | TK-22 approved 2026-09-29 |
 | 15 | POST | `/api/users/:id/password-reset` | Operator (Customers), Admin | [15-post-users-password-reset.md](15-post-users-password-reset.md) | Draft |
-| 16 | GET | `/api/roles` | Admin | [16-get-roles-list.md](16-get-roles-list.md) | Draft |
+| 16 | GET | `/api/roles` | Admin | [16-get-roles-list.md](16-get-roles-list.md) | TK-22 approved dependency |
 | 17 | PUT | `/api/roles/:id/permissions` | Admin | [17-put-roles-permissions.md](17-put-roles-permissions.md) | Draft |
+| 18 | POST | `/api/auth/invitations/accept` | Public with valid invitation | [18-post-auth-invitations-accept.md](18-post-auth-invitations-accept.md) | TK-22 approved 2026-09-29 |
+| 19 | POST | `/api/users/:id/invitation/resend` | Admin | [19-post-users-invitation-resend.md](19-post-users-invitation-resend.md) | TK-22 approved 2026-09-29 |
+| 20 | POST | `/api/users/:id/deactivate` | Admin | [20-post-users-deactivate.md](20-post-users-deactivate.md) | TK-22 approved 2026-09-29 |
+| 21 | POST | `/api/users/:id/reactivate` | Admin | [21-post-users-reactivate.md](21-post-users-reactivate.md) | TK-22 approved 2026-09-29 |
 
 Manual testing: [00-api-testing-guide.md](00-api-testing-guide.md). Shared setup: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).
