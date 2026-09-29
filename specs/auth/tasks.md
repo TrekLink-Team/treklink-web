@@ -81,14 +81,15 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - _Requirements: REQ-EVT-10, REQ-EVT-18, AC-13, AC-14_
 
 - [ ] 4.2 Implement complete role replacement
-  - In one interactive Prisma transaction, acquire `pg_advisory_xact_lock(hashtext('treklink:auth:last-active-admin'))` through `tx.$queryRaw`, then lock the non-deleted target with a parameterized `SELECT ... FOR UPDATE` through the same transaction client.
+  - Define one module-private `const LAST_ADMIN_LOCK_KEY = 7_340_001n` and an auth-owned helper that acquires `pg_advisory_xact_lock(${LAST_ADMIN_LOCK_KEY})` through `tx.$executeRaw` inside the caller's interactive Prisma transaction.
+  - After the advisory lock, lock the non-deleted target with a parameterized `SELECT ... FOR UPDATE` through `tx.$queryRaw` on the same transaction client.
   - After both locks, validate the complete role set, permit changes to the caller or another active Admin, and verify that the proposed replacement retains at least one active Admin.
   - Replace all `UserRole` rows, increment `tokenVersion` and revoke refresh tokens before committing the same transaction.
   - Return 409 `LAST_ADMIN` and roll back when the proposed replacement would leave zero active Admins.
   - _Requirements: REQ-EVT-10, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11, AC-13, AC-16_
 
 - [ ] 4.3 Implement idempotent deactivation
-  - In one interactive Prisma transaction, acquire the same last-Admin advisory lock through `tx.$queryRaw`, then lock the non-deleted target with a parameterized `SELECT ... FOR UPDATE` through the same transaction client.
+  - In one interactive Prisma transaction, call the same `$executeRaw` last-Admin advisory-lock helper, then lock the non-deleted target with a parameterized `SELECT ... FOR UPDATE` through `tx.$queryRaw` on the same transaction client.
   - After locking, return the current account with 200 and perform no write when it is already inactive; apply the self-deactivation check only when the target is active.
   - Reject active-target self-deactivation with 403 `FORBIDDEN`; permit deactivating another Admin when at least one active Admin remains.
   - Check the post-write active Admin count, set `isActive=false`, increment `tokenVersion` and revoke every refresh token before committing; return 409 `LAST_ADMIN` and roll back if the count would be zero.
@@ -134,7 +135,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 
 - [ ] 6.3 Test role and status transactions
   - Cover successful role replacement, deactivation and reactivation; self-role change; self-deactivation rejection; other Admin role change and deactivation; last-Admin rollback; inactive Admin reactivation; unknown and soft-deleted accounts; and idempotent no-ops.
-  - Assert role replacement and deactivation issue the same transaction-scoped advisory lock before the parameterized target-row lock and active Admin count.
+  - Assert role replacement and deactivation use `$executeRaw` with the same `LAST_ADMIN_LOCK_KEY` before using `$queryRaw` for the parameterized target-row lock and then reading the active Admin count.
   - Assert role rows, status, `tokenVersion` and refresh-token revocation share one transaction and roll back together on failure.
   - Add a PostgreSQL-backed concurrency test that starts opposing deactivations by two active Admins in parallel; assert exactly one succeeds, the other receives 409 `LAST_ADMIN`, and one active Admin remains.
   - Assert reactivation does not write account type, roles, profile or password.

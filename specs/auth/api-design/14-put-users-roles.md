@@ -82,11 +82,11 @@ flowchart TB
     S((Start)) --> G[Check JWT and role-field policy]
     G --> K[BEGIN: acquire shared last-Admin advisory lock, then target-row lock]
     K --> F{Non-deleted account found?}
-    F -->|no| E1[404 ACCOUNT_NOT_FOUND]
+    F -->|no| E1[Rollback: 404 ACCOUNT_NOT_FOUND]
     F -->|yes| R{Role set valid?}
-    R -->|no| E3[400 INVALID_ROLE]
+    R -->|no| E3[Rollback: 400 INVALID_ROLE]
     R -->|yes| A{Would zero active Admins remain?}
-    A -->|yes| E2[409 LAST_ADMIN]
+    A -->|yes| E2[Rollback: 409 LAST_ADMIN]
     A -->|no| T[Replace roles, increment tokenVersion, revoke refresh tokens, COMMIT]
     T --> C[Invalidate permission cache]
     C --> U[Emit redacted role audit event]
@@ -105,7 +105,7 @@ sequenceDiagram
     Admin->>Controller: PUT /api/users/{id}/roles
     Controller->>Service: replaceRoles(id, roleKeys, actor)
     Service->>DB: BEGIN
-    Service->>DB: tx.$queryRaw advisory lock for last active Admin
+    Service->>DB: tx.$executeRaw advisory lock with LAST_ADMIN_LOCK_KEY
     Service->>DB: tx.$queryRaw lock non-deleted target FOR UPDATE
     Service->>DB: validate role rows
     Service->>DB: verify post-write active Admin count is at least one

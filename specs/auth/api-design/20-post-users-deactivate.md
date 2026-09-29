@@ -72,13 +72,13 @@ For an already inactive account, the message is `Account is already inactive` an
 flowchart TB
     S((Start)) --> T[BEGIN: acquire shared last-Admin advisory lock, then target-row lock]
     T --> F{Non-deleted account found?}
-    F -->|no| E1[404 ACCOUNT_NOT_FOUND]
+    F -->|no| E1[Rollback: 404 ACCOUNT_NOT_FOUND]
     F -->|yes| I{Already inactive?}
     I -->|yes| O1[COMMIT and return 200 current state]
     I -->|no| A{Active target is caller?}
-    A -->|yes| E2[403 FORBIDDEN]
+    A -->|yes| E2[Rollback: 403 FORBIDDEN]
     A -->|no| L{Would zero active Admins remain?}
-    L -->|yes| E3[409 LAST_ADMIN]
+    L -->|yes| E3[Rollback: 409 LAST_ADMIN]
     L -->|no| W[Set inactive, increment tokenVersion, revoke refresh tokens, COMMIT]
     W --> U[Emit redacted user.deactivate audit]
     U --> O2[Return 200 account envelope]
@@ -94,7 +94,8 @@ sequenceDiagram
     participant DB as Postgres
     Admin->>Controller: POST /api/users/{id}/deactivate
     Controller->>Service: deactivate(id, actor)
-    Service->>DB: BEGIN and acquire shared last-Admin advisory lock
+    Service->>DB: BEGIN
+    Service->>DB: tx.$executeRaw advisory lock with LAST_ADMIN_LOCK_KEY
     Service->>DB: tx.$queryRaw lock non-deleted target FOR UPDATE
     Service->>DB: check current state, active-target self rule and active Admin count
     Service->>DB: set inactive, tokenVersion + 1, revoke refresh tokens, COMMIT

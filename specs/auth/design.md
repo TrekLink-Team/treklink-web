@@ -262,12 +262,14 @@ Mutation boundaries:
 Role replacement and deactivation both acquire the same transaction-scoped PostgreSQL advisory lock before reading the active Admin count:
 
 ```ts
-await tx.$queryRaw`
-  SELECT pg_advisory_xact_lock(hashtext('treklink:auth:last-active-admin'))
+const LAST_ADMIN_LOCK_KEY = 7_340_001n;
+
+await tx.$executeRaw`
+  SELECT pg_advisory_xact_lock(${LAST_ADMIN_LOCK_KEY})
 `;
 ```
 
-After the advisory lock, each operation locks its non-deleted target with a parameterized `SELECT ... FOR UPDATE` through the same `tx.$queryRaw` transaction client. Prisma Client has no row-lock method, so these two raw queries are the explicit exception inside the Prisma-only persistence boundary; no separate database driver is introduced. Every role replacement and deactivation takes the advisory lock before the target-row lock, preventing lock-order inversion. The advisory lock is released automatically when the transaction commits or rolls back. Concurrent mutations of different Admin rows therefore serialize before the count, and the second transaction observes the first transaction's committed result.
+`LAST_ADMIN_LOCK_KEY` is one module-private literal `bigint`, so every process and operation addresses the same PostgreSQL advisory lock without depending on a database hash function. The advisory-lock statement uses `tx.$executeRaw` because `pg_advisory_xact_lock` returns `void`; Prisma therefore consumes only the affected-row count and does not deserialize a result column. After the advisory lock, each operation locks its non-deleted target with a parameterized `SELECT ... FOR UPDATE` through `tx.$queryRaw`, which returns the row needed by the not-found, current-state and self-deactivation branches. Prisma Client has no row-lock method, so the `$executeRaw` statement and `$queryRaw` query are the explicit exceptions inside the Prisma-only persistence boundary; no separate database driver is introduced. Every role replacement and deactivation takes the advisory lock before the target-row lock, preventing lock-order inversion. The advisory lock is released automatically when the transaction commits or rolls back. Concurrent mutations of different Admin rows therefore serialize before the count, and the second transaction observes the first transaction's committed result.
 
 Repeated deactivation of an inactive account and repeated reactivation of an active account return the current account DTO without writing or emitting a second mutation audit. An Admin may change their own role or change or deactivate another Admin when the result retains at least one active Admin. Self-deactivation applies only to an active target and returns 403 `FORBIDDEN`. The advisory lock, target-row lock, `LAST_ADMIN` count check and guarded write share one Prisma transaction.
 
@@ -437,7 +439,7 @@ sequenceDiagram
     C->>C: JwtAuthGuard and can(update, User, roles)
     C->>U: replaceRoles(id, roleKeys, actor)
     U->>DB: BEGIN
-    U->>DB: $queryRaw advisory lock for last active Admin
+    U->>DB: $executeRaw advisory lock with LAST_ADMIN_LOCK_KEY
     U->>DB: $queryRaw lock non-deleted target FOR UPDATE
     alt account does not exist
         U-->>A: 404 ACCOUNT_NOT_FOUND
@@ -469,9 +471,9 @@ flowchart TB
     DF -->|yes| DI{Already inactive?}
     DI -->|yes| I[Commit and return 200 without a write]
     DI -->|no| D{Active target is caller?}
-    D -->|yes| X[403 FORBIDDEN]
+    D -->|yes| X[Rollback: 403 FORBIDDEN]
     D -->|no| L{Would zero active Admins remain?}
-    L -->|yes| Z[409 LAST_ADMIN]
+    L -->|yes| Z[Rollback: 409 LAST_ADMIN]
     L -->|no| E[Set inactive, increment tokenVersion, revoke refresh tokens, COMMIT]
     OP -->|reactivate| RL[BEGIN: target-row lock]
     RL --> RF{Non-deleted account found?}
