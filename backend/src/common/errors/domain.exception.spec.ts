@@ -39,6 +39,8 @@ describe('ErrorCode', () => {
         'STALE_VERSION',
         'PAYLOAD_TOO_LARGE',
         'PARAMETER_OUT_OF_RANGE',
+        'CLIENT_ERROR',
+        'SERVICE_UNAVAILABLE',
         'INTERNAL_ERROR',
       ]),
     );

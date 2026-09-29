@@ -61,7 +61,7 @@ New FR identifiers proposed here (the SRS draft names no `FR-ADM-*` rows yet): *
 - **REQ-EVT-01**: WHEN the process starts, the system SHALL validate every required environment variable against a typed schema and SHALL refuse to start, naming each invalid variable, IF any is missing or malformed.
 - **REQ-EVT-02**: WHEN a module emits an `audit.record` domain event, the system SHALL persist one audit entry with actor id, actor roles, action, subject type, subject id, a redacted before and after snapshot, request correlation id and UTC timestamp.
 - **REQ-EVT-03**: WHEN an Admin updates a business parameter, the system SHALL validate the new value against the parameter's declared type and bounds, persist it, append a history row with the previous value, the new value, the actor and the timestamp, and make the new value visible to every reader within the configured cache TTL. [UC-19]
-- **REQ-EVT-04**: WHEN `GET /api/health` is called, the system SHALL report process liveness, database reachability and MQTT broker reachability, and SHALL return 503 if the database is unreachable. [US-077]
+- **REQ-EVT-04**: WHEN `GET /api/health` is called, the system SHALL report process liveness, database reachability and MQTT broker reachability, and SHALL return 503 `SERVICE_UNAVAILABLE` if the database is unreachable or does not answer within `HEALTH_DB_TIMEOUT_MS`. MQTT reachability SHALL come from the optional `MQTT_HEALTH_PROBE` and SHALL be reported as `unknown`, without changing `status`, while no probe is registered. [US-077, D-032]
 - **REQ-EVT-05**: WHEN a scheduled job fires, the system SHALL run it on a single instance at a time, record its start, outcome and duration, and SHALL NOT let one failed job stop the scheduler.
 
 ### State-Driven
@@ -111,6 +111,7 @@ Every row is registered in the Configuration Matrix (D-015). Environment rows ne
 | `HTTP_BODY_LIMIT` | `1mb` | env | no |
 | `SWAGGER_ENABLED` | `true` outside production | env | no |
 | `PARAMETER_CACHE_TTL_SECONDS` | 30 | env | no |
+| `HEALTH_DB_TIMEOUT_MS` | 2000; the health endpoint's `SELECT 1` bound (TK-90) | env | no |
 | `DEFAULT_PAGE_SIZE` / `MAX_PAGE_SIZE` | 20 / 100 | env | no |
 | `DISPLAY_TIMEZONE_DEFAULT` | `Asia/Ho_Chi_Minh` (UTC+7, Q37) | env | no |
 

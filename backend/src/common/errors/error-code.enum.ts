@@ -12,5 +12,9 @@ export enum ErrorCode {
   STALE_VERSION = 'STALE_VERSION',
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   PARAMETER_OUT_OF_RANGE = 'PARAMETER_OUT_OF_RANGE',
+  // Any 4xx that has no code of its own above (D-026 consequence, TK-90).
+  CLIENT_ERROR = 'CLIENT_ERROR',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  // Unhandled 5xx only; never a client error.
   INTERNAL_ERROR = 'INTERNAL_ERROR',
 }

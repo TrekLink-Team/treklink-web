@@ -50,3 +50,27 @@ Import `http://localhost:3000/api/docs-json` into Postman as an OpenAPI 3 collec
 ## 6. What every module e2e test asserts
 
 For each file under `api-design/`: the success sample's shape and `message`, and every row of its Validation table (status code and `result.errorCode`). A row with no test is a gap in the Definition of Done (`02-templates/04-api-endpoint-template.md`, reuse notes).
+
+## 7. Platform walkthrough: `GET /api/health`
+
+Public, so no token ([`01-get-health.md`](01-get-health.md)).
+
+```bash
+curl -s http://localhost:3000/api/health
+```
+
+Expect 200, `message` `Healthy`, `result.components.database` `up`, and `result.components.mqtt` `unknown` until `gateway-sync` registers its MQTT probe (D-032).
+
+AC-08, the database outage check, needs the Docker stack of §1:
+
+```bash
+docker compose stop postgres
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/health   # 503
+curl -s http://localhost:3000/api/health          # result.errorCode SERVICE_UNAVAILABLE
+docker compose start postgres
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/health   # 200 once Postgres accepts connections
+```
+
+The backend must already be running when Postgres stops: it connects at boot and refuses to start without a database. A query slower than `HEALTH_DB_TIMEOUT_MS` (default 2000 ms) also answers 503.
+
+Automated coverage: `backend/test/health.e2e-spec.ts` (`npm --prefix backend run test:e2e`) replaces the database with a stub that fails and then succeeds. It does not replace the Docker check above.

@@ -42,9 +42,10 @@ No request body.
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| status | `ok` when every component is up, `degraded` when MQTT is down, `down` when the database is down | string | `ok` |
-| components.database | Result of `SELECT 1` within 2 s | string | `up` |
-| components.mqtt | Broker connection state of the ingress adapter | string | `up` |
+| status | `ok` when the database is up and MQTT is `up` or `unknown`; `degraded` when MQTT is `down`. A database that is down never reaches this field: the endpoint answers 503 instead | string | `ok` |
+| uptimeSeconds | Whole seconds since the backend process started | number | `5234` |
+| components.database | Result of `SELECT 1` within `HEALTH_DB_TIMEOUT_MS` (default 2000 ms, platform requirements §4). Always `up` in a 200 response | string | `up` |
+| components.mqtt | Broker connection state reported by the optional `MQTT_HEALTH_PROBE` (D-032): `up`, `down`, or `unknown` while no probe is registered. `gateway-sync` registers the probe when its MQTT ingress adapter is built | string | `unknown` |
 | version | Backend package version | string | `0.1.0` |
 
 ## Validation
@@ -56,7 +57,7 @@ No request body.
     <tbody>
         <tr>
             <td>503</td>
-            <td>Database unreachable (<code>SERVICE_UNAVAILABLE</code>)</td>
+            <td>Database unreachable, or slower than <code>HEALTH_DB_TIMEOUT_MS</code> (<code>SERVICE_UNAVAILABLE</code>)</td>
 <td>
 
 ```json
@@ -79,16 +80,21 @@ No request body.
 ```mermaid
 flowchart TB
     S((Start))
-    A1["Probe database with SELECT 1"]
+    A1["Probe database with SELECT 1,<br/>bounded by HEALTH_DB_TIMEOUT_MS"]
     S --> A1
-    D2{"Database down?"}
+    D2{"Database down<br/>or too slow?"}
     A1 --> D2
     E2["Return 503 SERVICE_UNAVAILABLE"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    A3["Read MQTT adapter state"]
-    D2 -->|no| A3
+    D3{"MQTT probe<br/>registered?"}
+    D2 -->|no| D3
+    U["mqtt = unknown"]
+    D3 -->|no| U
+    A3["mqtt = up or down<br/>from isConnected()"]
+    D3 -->|yes| A3
     OK["Return 200 with component states"]
+    U --> OK
     A3 --> OK
     OK --> Z((End))
 ```
@@ -101,13 +107,15 @@ sequenceDiagram
     actor Probe
     participant Controller as HealthController
     participant DB as Postgres
-    participant MQ as MqttIngressAdapter
+    participant MQ as MQTT_HEALTH_PROBE (optional)
     Probe->>Controller: GET /api/health
     Controller->>DB: SELECT 1
-    alt timeout or error
+    alt error, or slower than HEALTH_DB_TIMEOUT_MS
       Controller-->>Probe: 503 SERVICE_UNAVAILABLE
     end
-    Controller->>MQ: isConnected()
-    MQ-->>Controller: true or false
-    Controller-->>Probe: 200 status ok or degraded
+    opt probe registered by gateway-sync (D-032)
+      Controller->>MQ: isConnected()
+      MQ-->>Controller: true or false
+    end
+    Controller-->>Probe: 200 status ok or degraded, mqtt up, down or unknown
 ```

@@ -30,6 +30,7 @@
 ## Phase 2: Core Service Logic
 
 - [ ] 2.1 `ResponseInterceptor` reads `@ResponseMessage`; `GlobalExceptionFilter` emits `result = { errorCode }`; `ValidationPipe.exceptionFactory` produces `VALIDATION_FAILED`
+  - Done in TK-90: the `@ResponseMessage` decorator read by the interceptor, and the filter's error code on every failure (design §4.1, D-026 consequence). Open: `ValidationPipe.exceptionFactory` naming each offending property (REQ-ERR-01, AC-03)
   - _Requirements: REQ-UBI-01, REQ-UBI-02, REQ-ERR-01, AC-01, AC-02, AC-03_
 - [ ] 2.2 Prisma error mapping `P2002` to 409 `CONFLICT_UNIQUE`, `P2025` to 404 `NOT_FOUND`; everything else 500 `INTERNAL_ERROR` with a logged stack
   - _Requirements: REQ-ERR-02, REQ-ERR-03, REQ-ERR-04_
@@ -56,10 +57,12 @@
 ## Phase 4: API Presentation Layer
 
 - [ ] 4.1 `HealthController` (public), `ParametersController`, `AuditLogsController` with `JwtAuthGuard` and `PoliciesGuard` (guards come from `auth` Phase 4; wire once they exist)
+  - Done in TK-90: `HealthController` and `HealthService` (api-design 01, design §4.7), with unit tests and `backend/test/health.e2e-spec.ts`. Open: the parameters and audit-log controllers
   - _Requirements: api-design 01 to 05_
 - [ ] 4.2 Swagger: a generic envelope schema wrapper so every operation documents `{ result, isSuccess, statusCode, message }`
   - _Requirements: REQ-OPT-01_
 - [ ] 4.3 E2E tests against Docker Postgres for api-design 01 to 05, every status code in each Validation table; AC-07 trigger test; AC-08 health with the database stopped
+  - TK-90 created `backend/test/jest-e2e.json` and a stubbed-database health e2e (`07-clarification-answers.md` §7 question 5). The Docker suite, including AC-08 against a stopped container, stays open
   - _Requirements: AC-01 to AC-08_
 
 ## Phase 5: Frontend Integration
