@@ -8,7 +8,7 @@
 
 ## Overview
 
-Returns one account for the Admin user-management detail view. Active Admin accounts are readable even though TK-22 does not permit changing their roles or deactivating them.
+Returns one non-deleted account for the Admin user-management detail view. Active Admin accounts are readable and may be changed under the TK-22 last-Admin guard.
 
 ## API Specification
 
@@ -16,7 +16,7 @@ Returns one account for the Admin user-management detail view. Active Admin acco
 |---|---|
 | GET | `/api/users/:id` |
 | Permission | Authenticated Admin with `can('read', 'User')` |
-| Traces | US-009, REQ-EVT-14, REQ-STA-04, REQ-ERR-10 |
+| Traces | US-009, REQ-EVT-14, REQ-ERR-10 |
 
 ### Path parameters
 
@@ -58,7 +58,7 @@ No request body.
 | 400 | `VALIDATION_ERROR` | `id` is not a UUID |
 | 401 | `UNAUTHENTICATED` | Access token is missing, malformed or expired |
 | 403 | `FORBIDDEN` | Caller lacks the Admin read policy |
-| 404 | `ACCOUNT_NOT_FOUND` | Account id does not exist |
+| 404 | `ACCOUNT_NOT_FOUND` | Account id does not exist or is soft-deleted |
 
 ```json
 {
@@ -78,7 +78,7 @@ flowchart TB
     S((Start)) --> G[Check JWT and read User policy]
     G --> V{UUID valid?}
     V -->|no| E1[400 VALIDATION_ERROR]
-    V -->|yes| F[Load account and roles]
+    V -->|yes| F[Load account and roles where deletedAt is null]
     F --> X{Found?}
     X -->|no| E2[404 ACCOUNT_NOT_FOUND]
     X -->|yes| O[Return 200 account envelope]
@@ -94,7 +94,7 @@ sequenceDiagram
     participant DB as Postgres
     Admin->>Controller: GET /api/users/{id}
     Controller->>Service: findAdminAccount(id)
-    Service->>DB: findUnique with roles
+    Service->>DB: findFirst where deletedAt is null, with roles
     DB-->>Service: account or null
     Service-->>Controller: DTO or ACCOUNT_NOT_FOUND
     Controller-->>Admin: envelope

@@ -8,7 +8,7 @@
 
 ## Overview
 
-Deactivates an active non-Admin account and invalidates every current session atomically. Repeating the request for an inactive account is an idempotent 200 response with no additional write.
+Deactivates another active account and invalidates every current session atomically. The target may hold `ADMIN` when another active Admin remains. Self-deactivation is forbidden. Repeating the request for an inactive account is an idempotent 200 response with no additional write.
 
 ## API Specification
 
@@ -16,7 +16,7 @@ Deactivates an active non-Admin account and invalidates every current session at
 |---|---|
 | POST | `/api/users/:id/deactivate` |
 | Permission | Authenticated Admin with `can('update', 'User', ['isActive'])` |
-| Traces | REQ-EVT-18, REQ-EVT-20, REQ-STA-04, REQ-ERR-10, REQ-ERR-13 |
+| Traces | REQ-EVT-18, REQ-EVT-20, REQ-ERR-08, REQ-ERR-10 |
 
 ## Request sample
 
@@ -53,17 +53,16 @@ For an already inactive account, the message is `Account is already inactive` an
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | `id` is not a UUID |
 | 401 | `UNAUTHENTICATED` | Access token is missing, malformed or expired |
-| 403 | `FORBIDDEN` | Caller lacks the Admin status policy |
-| 404 | `ACCOUNT_NOT_FOUND` | Account id does not exist |
-| 409 | `ACTIVE_ADMIN_IMMUTABLE` | Target is active and holds `ADMIN`, including self |
-| 409 | `LAST_ADMIN` | Defensive invariant detects the last active Admin through another path |
+| 403 | `FORBIDDEN` | Caller lacks the Admin status policy or targets their own account |
+| 404 | `ACCOUNT_NOT_FOUND` | Account id does not exist or is soft-deleted |
+| 409 | `LAST_ADMIN` | Deactivation would leave zero active Admins |
 
 ```json
 {
-  "result": { "errorCode": "ACTIVE_ADMIN_IMMUTABLE" },
+  "result": { "errorCode": "FORBIDDEN" },
   "isSuccess": false,
-  "statusCode": 409,
-  "message": "An active Admin account can only be viewed."
+  "statusCode": 403,
+  "message": "An Admin cannot deactivate their own account."
 }
 ```
 
@@ -71,13 +70,15 @@ For an already inactive account, the message is `Account is already inactive` an
 
 ```mermaid
 flowchart TB
-    S((Start)) --> F{Account found?}
+    S((Start)) --> F{Non-deleted account found?}
     F -->|no| E1[404 ACCOUNT_NOT_FOUND]
     F -->|yes| I{Already inactive?}
     I -->|yes| O1[Return 200 current state]
-    I -->|no| A{Holds ADMIN?}
-    A -->|yes| E2[409 ACTIVE_ADMIN_IMMUTABLE]
-    A -->|no| T[Transaction: set inactive, increment tokenVersion, revoke refresh tokens]
+    I -->|no| A{Target is caller?}
+    A -->|yes| E2[403 FORBIDDEN]
+    A -->|no| L{Would zero active Admins remain?}
+    L -->|yes| E3[409 LAST_ADMIN]
+    L -->|no| T[Transaction: set inactive, increment tokenVersion, revoke refresh tokens]
     T --> U[Emit redacted user.deactivate audit]
     U --> O2[Return 200 account envelope]
 ```
@@ -92,6 +93,7 @@ sequenceDiagram
     participant DB as Postgres
     Admin->>Controller: POST /api/users/{id}/deactivate
     Controller->>Service: deactivate(id, actor)
-    Service->>DB: transaction status update and session revocation
+    Service->>DB: BEGIN, lock user, reject self and verify active Admin count
+    Service->>DB: set inactive, tokenVersion + 1, revoke refresh tokens, COMMIT
     Controller-->>Admin: 200 or error envelope
 ```

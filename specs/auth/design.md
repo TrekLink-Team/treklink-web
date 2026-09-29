@@ -1,7 +1,7 @@
 # Technical Design: auth
 
 > Fulfills `requirements.md` in this folder. Tags `[Qnn]` mark design choices resting on a Recorded, not yet Confirmed, clarification answer.
-> TK-22 design and endpoint contracts were approved by the story owner on 2026-09-29. Implementation remains blocked until the final TK-22 checklist is approved by KhoaDD or the designated lead.
+> TK-22 requirements, design, endpoint contracts and task checklist are under leader review. Implementation remains blocked until KhoaDD or the designated lead approves the specification PR.
 
 ---
 
@@ -28,7 +28,7 @@ model User {
   failedLoginCount Int      @default(0)
   lockedUntil     DateTime?
   createdById     String?                        // Flow 2 provisioning [Q31]
-  deletedAt       DateTime?                      // legacy field outside TK-22 [Q36]
+  deletedAt       DateTime?                      // soft deletion retained for audit [Q36]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   roles           UserRole[]
@@ -190,7 +190,7 @@ Exported to other modules: `JwtAuthGuard`, `PoliciesGuard`, `@CheckPolicies()`, 
 
 ### 2.2 Access token claims
 
-`{ sub, username, accountType, roles: string[], ver }`. Permissions are **not** in the token: they are loaded per request (cached per user for 30 s, invalidated on role change) so REQ-EVT-10 holds without waiting for token expiry. `ver` is copied from `User.tokenVersion`. Role replacement, deactivation and password reset increment `tokenVersion` in the same Prisma transaction that revokes refresh tokens. The JWT strategy rejects a token whose `ver` differs from the stored value.
+`{ sub, username, accountType, roles: string[], ver }`. Permissions are **not** in the token: they are loaded per request (cached per user for 30 s, invalidated on role change) so REQ-EVT-10 holds without waiting for token expiry. `ver` is copied from `User.tokenVersion`. TK-22 role replacement and deactivation increment `tokenVersion` in the same Prisma transaction that revokes refresh tokens. The JWT strategy rejects a token whose `ver` differs from the stored value.
 
 ### 2.3 Guide scope without a module cycle
 
@@ -230,9 +230,8 @@ Opaque 256-bit random token, returned once, stored as `sha256`. Rotation per REQ
 | `INVALID_DATE_RANGE` | 400 | malformed creation date or `createdFrom` after `createdTo` |
 | `INVITATION_INVALID` | 400 | unknown, expired, consumed or superseded invitation |
 | `NO_REGISTERED_EMAIL` | 409 | Staff reset on an account without email |
-| `ACCOUNT_NOT_FOUND` | 404 | TK-22 account id does not exist |
-| `LAST_ADMIN` | 409 | removing the last Admin |
-| `ACTIVE_ADMIN_IMMUTABLE` | 409 | role change or deactivation targets an active Admin |
+| `ACCOUNT_NOT_FOUND` | 404 | TK-22 account id does not exist or is soft-deleted |
+| `LAST_ADMIN` | 409 | role change or deactivation would leave zero active Admins |
 | `INVITATION_NOT_PENDING` | 409 | invitation resend targets an account that completed setup or was deactivated after setup |
 | `ROLE_ACCOUNT_TYPE_MISMATCH` | 409 | Staff role on a Customer account or the reverse |
 | `SYSTEM_ROLE_IMMUTABLE` | 409 | deleting or renaming a system role |
@@ -256,11 +255,11 @@ Mutation boundaries:
 |---|---|
 | Create | normalize email, assert uniqueness, insert inactive user, insert role rows, insert invitation |
 | Accept invitation | lock valid invitation, hash password, activate user, set `emailVerifiedAt`, consume invitation |
-| Replace roles | lock user, reject active Admin, replace all `UserRole` rows, increment `tokenVersion`, revoke every refresh token |
-| Deactivate | lock user, reject active Admin, set `isActive=false`, increment `tokenVersion`, revoke every refresh token |
+| Replace roles | lock user, validate the post-write active Admin count, replace all `UserRole` rows, increment `tokenVersion`, revoke every refresh token |
+| Deactivate | lock user, reject self-deactivation, validate the post-write active Admin count, set `isActive=false`, increment `tokenVersion`, revoke every refresh token |
 | Reactivate | lock user and set `isActive=true`; roles, profile and password are not written |
 
-Repeated deactivation of an inactive account and repeated reactivation of an active account return the current account DTO without writing or emitting a second mutation audit. `LAST_ADMIN` remains a defensive invariant for future mutation paths even though TK-22 rejects every role change or deactivation of an active Admin earlier with `ACTIVE_ADMIN_IMMUTABLE`.
+Repeated deactivation of an inactive account and repeated reactivation of an active account return the current account DTO without writing or emitting a second mutation audit. An Admin may change their own role or change or deactivate another Admin when the result retains at least one active Admin. Self-deactivation returns 403 `FORBIDDEN`. The `LAST_ADMIN` count check and the guarded write share one Prisma transaction.
 
 After a successful commit, `UsersService` emits `audit.record` with `actorId`, action, `subjectType: 'User'`, `subjectId`, and redacted before and after objects. The platform listener owns audit persistence. Listener failure is logged with the event and correlation id and does not change the already committed account result. Invitation secrets, password hashes and token hashes are never included.
 
@@ -286,7 +285,7 @@ interface AdminAccountDto {
 }
 ```
 
-`AdminAccountListQuery` accepts `page`, `limit`, `accountType`, `role`, `isActive`, `search`, `createdFrom` and `createdTo`. `page` is 1-based. `limit` defaults to 20 and cannot exceed 100. Prisma combines all supplied filters, uses case-insensitive matching for email and full name, orders by `createdAt DESC, id DESC`, and applies `skip` and `take`. The result metadata uses `{ page, limit, totalCount, totalPages }`.
+`AdminAccountListQuery` accepts `page`, `limit`, `accountType`, `role`, `isActive`, `search`, `createdFrom` and `createdTo`. `page` is 1-based. `limit` defaults to 20 and cannot exceed 100. Prisma always includes `deletedAt: null`, combines all supplied filters, uses case-insensitive matching for email and full name, orders by `createdAt DESC, id DESC`, and applies `skip` and `take`. Detail lookup also requires `deletedAt: null`, so a soft-deleted account returns `ACCOUNT_NOT_FOUND`. The result metadata uses `{ page, limit, totalCount, totalPages }`.
 
 ---
 
@@ -430,10 +429,10 @@ sequenceDiagram
     U->>DB: BEGIN and lock user
     alt account does not exist
         U-->>A: 404 ACCOUNT_NOT_FOUND
-    else active account holds ADMIN
-        U-->>A: 409 ACTIVE_ADMIN_IMMUTABLE
     else invalid role set
         U-->>A: 400 INVALID_ROLE
+    else change leaves zero active Admins
+        U-->>A: 409 LAST_ADMIN
     end
     U->>DB: replace user_roles
     U->>DB: tokenVersion + 1 and revoke refresh tokens
@@ -455,9 +454,11 @@ flowchart TB
     B -->|no| N[404 ACCOUNT_NOT_FOUND]
     B -->|yes| C{Requested state already current?}
     C -->|yes| I[Return 200 current account without a write]
-    C -->|no, deactivate| D{Active account holds ADMIN?}
-    D -->|yes| X[409 ACTIVE_ADMIN_IMMUTABLE]
-    D -->|no| E[Transaction: set inactive, increment tokenVersion, revoke refresh tokens]
+    C -->|no, deactivate| D{Target is caller?}
+    D -->|yes| X[403 FORBIDDEN]
+    D -->|no| L{Would zero active Admins remain?}
+    L -->|yes| Z[409 LAST_ADMIN]
+    L -->|no| E[Transaction: set inactive, increment tokenVersion, revoke refresh tokens]
     C -->|no, reactivate| R[Transaction: set active only]
     E --> AU[Emit redacted audit event]
     R --> AU
@@ -508,7 +509,7 @@ Google OAuth routes (`GET /api/auth/google`, `GET /api/auth/google/callback`) ar
 - The list uses URL search parameters for `page`, `limit`, account type, role, status, search and creation dates. Successful mutations invalidate both `['admin-users']` and `['admin-user', id]` TanStack Query keys.
 - Account detail is a route-addressable drawer or page so refresh and browser history preserve the selected account. It displays all `AdminAccountDto` fields and never receives sensitive fields.
 - The create form requires email, full name, phone number, account type and roles. Selecting `CUSTOMER` fixes the role set to `CUSTOMER`. Selecting `STAFF` loads data-driven Staff roles from `GET /api/roles` and requires at least one.
-- An active account whose roles contain `ADMIN` shows role and deactivate controls as disabled with an explanation. An inactive Admin still shows Reactivate. These UI rules aid the user; the backend remains authoritative.
+- The current Admin's own row disables Deactivate with an explanation. Role changes remain available for self and other Admin accounts, and another Admin may be deactivated. The UI surfaces `LAST_ADMIN` when the server rejects a change that would leave zero active Admins. An inactive Admin shows Reactivate. The backend remains authoritative.
 - Dialogs return focus to their trigger, destructive actions require confirmation, validation errors are associated with their controls, async status is announced, and all controls are keyboard operable with visible focus and WCAG 2.1 AA contrast.
 
 ---
@@ -520,14 +521,14 @@ TK-22 requires unit tests before its implementation PR opens.
 | Unit | Required coverage |
 |---|---|
 | `RoleAssignmentPolicy` | Customer exact role, Staff one or more roles, multiple Staff roles, unknown role, incompatible role, empty role set |
-| `UsersService.list` | every filter, combined filters, case-insensitive search, default and maximum pagination, invalid range, newest-first tie-break |
+| `UsersService.list` | every filter, combined filters, case-insensitive search, default and maximum pagination, invalid range, newest-first tie-break, soft-deleted exclusion |
 | `UsersService.createInvitedAccount` | Customer and Staff success, Admin creation, derived username, duplicate mixed-case email, validation failure, transaction rollback |
 | `InvitationService` | hash-only persistence, 24-hour expiry, consume once, expired, superseded, resend invalidation, non-pending resend |
-| `UsersService.replaceRoles` | full replacement, multi-role union input, active Admin rejection, unknown account, invalid role, token revocation and rollback |
-| `UsersService.deactivate` | success, active Admin rejection, unknown account, idempotent inactive response, atomic status and session revocation |
+| `UsersService.replaceRoles` | full replacement, multi-role union input, self and other Admin success, last-Admin rejection, unknown or soft-deleted account, invalid role, token revocation and rollback |
+| `UsersService.deactivate` | success, self-deactivation rejection, other Admin success, last-Admin rejection, unknown or soft-deleted account, idempotent inactive response, atomic status and session revocation |
 | `UsersService.reactivate` | normal account, inactive Admin, unknown account, idempotent active response, profile and password preservation |
 | JWT strategy | stale `ver` rejected on the next authenticated request |
 | Audit emission | redacted after-commit event per successful mutation, no duplicate event for idempotent no-op, sink failure does not alter result |
-| Frontend hooks and components | query serialization, cache invalidation, server error display, active Admin controls, loading, empty, success and failure states, keyboard interaction |
+| Frontend hooks and components | query serialization, cache invalidation, server error display, self-deactivation control, `LAST_ADMIN` feedback, loading, empty, success and failure states, keyboard interaction |
 
 Prisma is mocked at the service boundary for branch-focused unit tests. Transaction tests assert that the callback receives one transaction client and that every write and token revocation uses it. Controller tests assert both guards and policy metadata on every TK-22 mutating handler. Integration and end-to-end coverage may be added later, but it does not replace the required unit suite.

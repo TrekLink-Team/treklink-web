@@ -8,7 +8,7 @@
 
 ## Overview
 
-Returns the Admin account-management list with combined filters and newest-first pagination. Only an Admin may call this TK-22 endpoint.
+Returns non-deleted accounts for the Admin account-management list with combined filters and newest-first pagination. Only an Admin may call this TK-22 endpoint.
 
 ## API Specification
 
@@ -66,7 +66,7 @@ GET /api/users?page=1&limit=20&accountType=STAFF&role=GUIDE&isActive=true&search
 }
 ```
 
-Results are ordered by `createdAt DESC, id DESC`. All supplied filters are combined with logical AND.
+Results are ordered by `createdAt DESC, id DESC`. The Prisma query always includes `deletedAt: null`, and all supplied filters are combined with logical AND.
 
 ## Validation
 
@@ -97,7 +97,7 @@ flowchart TB
     P -->|no| E1[400 VALIDATION_ERROR]
     P -->|yes| D{Date range valid?}
     D -->|no| E2[400 INVALID_DATE_RANGE]
-    D -->|yes| Q[Build one Prisma where clause from all filters]
+    D -->|yes| Q[Build one Prisma where clause with deletedAt null and all filters]
     Q --> L[Query count and page, newest first]
     L --> O[Return 200 paged envelope]
 ```
@@ -113,7 +113,7 @@ sequenceDiagram
     participant DB as Postgres
     Admin->>Controller: GET /api/users with filters
     Controller->>Service: list(query)
-    Service->>DB: count and findMany with roles
+    Service->>DB: count and findMany where deletedAt is null, with roles
     DB-->>Service: total and page rows
     Service-->>Controller: AdminAccountPageDto
     Controller-->>Admin: 200 envelope

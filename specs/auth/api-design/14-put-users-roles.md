@@ -8,7 +8,7 @@
 
 ## Overview
 
-Replaces the complete role set of a Customer or Staff account. The service revokes all refresh tokens and invalidates all issued access tokens in the same Prisma transaction. TK-22 rejects this operation when the target is an active Admin, including the caller's own account.
+Replaces the complete role set of a Customer or Staff account. The target may be the caller or another active Admin. The service rejects only a change that would leave zero active Admins, and it revokes all refresh tokens and invalidates all issued access tokens in the same Prisma transaction.
 
 ## API Specification
 
@@ -16,7 +16,7 @@ Replaces the complete role set of a Customer or Staff account. The service revok
 |---|---|
 | PUT | `/api/users/:id/roles` |
 | Permission | Authenticated Admin with `can('update', 'User', ['roles'])` |
-| Traces | US-009, REQ-EVT-10, REQ-STA-04, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11, REQ-ERR-13 |
+| Traces | US-009, REQ-EVT-10, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11 |
 
 ## Request sample
 
@@ -61,18 +61,17 @@ Replaces the complete role set of a Customer or Staff account. The service revok
 | 400 | `INVALID_ROLE` | Role set is empty, unknown, or incompatible with the account type |
 | 401 | `UNAUTHENTICATED` | Access token is missing, malformed or expired |
 | 403 | `FORBIDDEN` | Caller lacks the Admin role-update policy |
-| 404 | `ACCOUNT_NOT_FOUND` | Account id does not exist |
-| 409 | `ACTIVE_ADMIN_IMMUTABLE` | Target is active and currently holds `ADMIN` |
-| 409 | `LAST_ADMIN` | Defensive invariant detects removal of the last active Admin through another path |
+| 404 | `ACCOUNT_NOT_FOUND` | Account id does not exist or is soft-deleted |
+| 409 | `LAST_ADMIN` | The replacement would leave zero active Admins |
 
 ```json
 {
   "result": {
-    "errorCode": "ACTIVE_ADMIN_IMMUTABLE"
+    "errorCode": "LAST_ADMIN"
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "An active Admin account can only be viewed."
+  "message": "At least one active Admin account must remain."
 }
 ```
 
@@ -81,13 +80,13 @@ Replaces the complete role set of a Customer or Staff account. The service revok
 ```mermaid
 flowchart TB
     S((Start)) --> G[Check JWT and role-field policy]
-    G --> F{Account found?}
+    G --> F{Non-deleted account found?}
     F -->|no| E1[404 ACCOUNT_NOT_FOUND]
-    F -->|yes| A{Active and holds ADMIN?}
-    A -->|yes| E2[409 ACTIVE_ADMIN_IMMUTABLE]
-    A -->|no| R{Role set valid?}
+    F -->|yes| R{Role set valid?}
     R -->|no| E3[400 INVALID_ROLE]
-    R -->|yes| T[Transaction: replace roles, increment tokenVersion, revoke refresh tokens]
+    R -->|yes| A{Would zero active Admins remain?}
+    A -->|yes| E2[409 LAST_ADMIN]
+    A -->|no| T[Transaction: replace roles, increment tokenVersion, revoke refresh tokens]
     T --> C[Invalidate permission cache]
     C --> U[Emit redacted role audit event]
     U --> O[Return 200 account envelope]
@@ -106,6 +105,7 @@ sequenceDiagram
     Controller->>Service: replaceRoles(id, roleKeys, actor)
     Service->>DB: BEGIN and lock user
     Service->>DB: validate role rows
+    Service->>DB: verify post-write active Admin count is at least one
     Service->>DB: replace user_roles
     Service->>DB: tokenVersion + 1 and revoke refresh tokens
     Service->>DB: COMMIT

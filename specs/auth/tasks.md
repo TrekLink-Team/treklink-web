@@ -2,7 +2,7 @@
 
 > Checklist approval: pending KhoaDD or designated lead
 > Branch: `feat/TK-22-admin-manage-user-account` | Jira: `TK-22` | Story: `US-009`
-> Requirements approved by the story owner on 2026-09-29. Design and endpoint contracts approved by the story owner on 2026-09-29.
+> Requirements, design, endpoint contracts and this checklist remain under leader review on the specification PR.
 
 This checklist is limited to TK-22: Admin list, detail, invitation-based creation, complete role replacement, deactivation, reactivation, invitation acceptance and invitation resend. It excludes registration, login, OAuth, password reset, profile editing, account deletion, role creation and permission administration.
 
@@ -16,15 +16,15 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 
 - [ ] 1.1 Extend the Prisma auth schema and add one forward migration
   - Add `User.tokenVersion`, `InvitationToken`, user and creator relations, the required indexes and `auth.invitationTtlHours=24` seed data.
-  - Preserve the existing `User`, `Role`, `UserRole`, `RefreshToken` and `OneTimeCode` ownership under `auth`; do not add `deletedAt` behavior.
+  - Preserve the existing `User`, `Role`, `UserRole`, `RefreshToken`, `OneTimeCode` and soft-delete ownership under `auth`; add no TK-22 delete endpoint and never edit a merged migration.
   - Run Prisma format, validation and client generation against the new schema.
   - _Requirements: REQ-UBI-03, REQ-UBI-09, REQ-UBI-14, REQ-EVT-15, REQ-EVT-16, REQ-EVT-17_
 
 - [ ] 1.2 Add TK-22 error codes, DTOs and response projections
-  - Add `VALIDATION_ERROR`, `INVALID_ROLE`, `INVALID_DATE_RANGE`, `INVITATION_INVALID`, `INVITATION_NOT_PENDING`, `ACCOUNT_NOT_FOUND`, `EMAIL_TAKEN`, `ACTIVE_ADMIN_IMMUTABLE` and `LAST_ADMIN` to the shared error catalogue without changing the four-key response envelope.
+  - Add `VALIDATION_ERROR`, `INVALID_ROLE`, `INVALID_DATE_RANGE`, `INVITATION_INVALID`, `INVITATION_NOT_PENDING`, `ACCOUNT_NOT_FOUND`, `EMAIL_TAKEN` and `LAST_ADMIN` to the shared error catalogue without changing the four-key response envelope.
   - Implement class-validator DTOs for list filters, create, role replacement, invitation acceptance and UUID path parameters.
   - Implement one `AdminAccountDto` projection and paged result type that omit hashes, raw tokens and codes.
-  - _Requirements: REQ-UBI-10, REQ-UBI-11, REQ-ERR-05, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12, REQ-ERR-13, REQ-ERR-14, REQ-ERR-16_
+  - _Requirements: REQ-UBI-10, REQ-UBI-11, REQ-ERR-05, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12, REQ-ERR-14, REQ-ERR-16_
 
 - [ ] 1.3 Implement `RoleAssignmentPolicy`
   - Load role rows through Prisma and validate complete role sets without a TypeScript role enum.
@@ -47,7 +47,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - _Requirements: REQ-UBI-02, REQ-UBI-03, REQ-EVT-16, REQ-ERR-04, REQ-ERR-14_
 
 - [ ] 2.2 Implement Admin invitation-based account creation
-  - Normalize email to lower case, enforce uniqueness across active and inactive accounts and derive a unique internal username from the email local part.
+  - Normalize email to lower case, enforce uniqueness across active, inactive and soft-deleted accounts and derive a unique internal username from the email local part.
   - In one Prisma transaction, create an inactive passwordless account, assign the validated complete role set, record `createdById` and issue the invitation.
   - Send the raw invitation link through `MailPort` only after commit; preserve the inactive account and pending invitation if delivery fails.
   - _Requirements: REQ-UBI-01, REQ-UBI-13, REQ-EVT-05, REQ-EVT-15, REQ-ERR-05, REQ-ERR-11, REQ-ERR-16, AC-11, AC-12_
@@ -61,16 +61,16 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 ## Phase 3: Account queries
 
 - [ ] 3.1 Implement the paginated Admin account list
-  - Combine optional account type, assigned role, active status, case-insensitive full-name or email search, `createdFrom` and `createdTo` filters in one Prisma where clause.
+  - Exclude rows whose `deletedAt` is set and combine optional account type, assigned role, active status, case-insensitive full-name or email search, `createdFrom` and `createdTo` filters in one Prisma where clause.
   - Support 1-based `page`, default `limit=20`, maximum `limit=100`, and stable `createdAt DESC, id DESC` ordering.
   - Return `{ items, page, limit, totalCount, totalPages }`; reject invalid pagination with `VALIDATION_ERROR` and invalid dates with `INVALID_DATE_RANGE`.
   - _Requirements: REQ-EVT-12, REQ-EVT-13, REQ-ERR-12, AC-10_
 
 - [ ] 3.2 Implement Admin account detail and role option queries
-  - Return the shared account projection for an existing id, including active Admin accounts, and return 404 `ACCOUNT_NOT_FOUND` otherwise.
+  - Return the shared account projection for an existing non-deleted id, including active Admin accounts, and return 404 `ACCOUNT_NOT_FOUND` for unknown or soft-deleted ids.
   - Return data-driven roles with account type metadata for the Admin create and role-replacement forms.
   - Keep password, refresh-token, invitation and reset-code data outside both projections.
-  - _Requirements: REQ-UBI-11, REQ-EVT-14, REQ-STA-04, REQ-ERR-10, AC-16, AC-17_
+  - _Requirements: REQ-UBI-09, REQ-UBI-11, REQ-EVT-14, REQ-ERR-10, AC-16, AC-17_
 
 ## Phase 4: Role and account-status mutations
 
@@ -78,18 +78,19 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Provide a same-module method that revokes every refresh token for one account using the caller's Prisma transaction client.
   - Increment `User.tokenVersion` in the same transaction; ensure JWT validation rejects the previous `ver` on the next authenticated request.
   - Invalidate any per-user ability cache after a committed role replacement.
-  - _Requirements: REQ-EVT-10, REQ-EVT-18, REQ-STA-02, AC-13, AC-14_
+  - _Requirements: REQ-EVT-10, REQ-EVT-18, AC-13, AC-14_
 
 - [ ] 4.2 Implement complete role replacement
-  - Lock or conditionally update the target through Prisma, reject unknown accounts and reject every active account holding `ADMIN`, including the caller's own account.
-  - Replace all `UserRole` rows, increment `tokenVersion` and revoke refresh tokens in one transaction.
-  - Retain the `LAST_ADMIN` invariant as a defensive check for any future path that can remove Admin access.
-  - _Requirements: REQ-EVT-10, REQ-STA-04, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11, REQ-ERR-13, AC-13, AC-16_
+  - Lock the non-deleted target through Prisma, validate the complete role set and permit changes to the caller or another active Admin.
+  - Verify that the proposed replacement retains at least one active Admin, replace all `UserRole` rows, increment `tokenVersion` and revoke refresh tokens in one transaction.
+  - Return 409 `LAST_ADMIN` and roll back when the proposed replacement would leave zero active Admins.
+  - _Requirements: REQ-EVT-10, REQ-ERR-08, REQ-ERR-10, REQ-ERR-11, AC-13, AC-16_
 
 - [ ] 4.3 Implement idempotent deactivation
   - Return the current account with 200 and perform no write when it is already inactive.
-  - Reject an active account holding `ADMIN`; otherwise set `isActive=false`, increment `tokenVersion` and revoke every refresh token in one transaction.
-  - _Requirements: REQ-EVT-18, REQ-EVT-20, REQ-STA-04, REQ-ERR-10, REQ-ERR-13, AC-14, AC-16_
+  - Reject self-deactivation with 403 `FORBIDDEN`; permit deactivating another Admin when at least one active Admin remains.
+  - Check the post-write active Admin count, set `isActive=false`, increment `tokenVersion` and revoke every refresh token in one transaction; return 409 `LAST_ADMIN` and roll back if the count would be zero.
+  - _Requirements: REQ-EVT-18, REQ-EVT-20, REQ-ERR-08, REQ-ERR-10, AC-14, AC-16_
 
 - [ ] 4.4 Implement idempotent reactivation
   - Return the current account with 200 and perform no write when it is already active.
@@ -104,11 +105,11 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 
 ## Phase 5: HTTP presentation and authorization
 
-- [ ] 5.1 Implement the approved TK-22 controllers
+- [ ] 5.1 Implement the specified TK-22 controllers
   - Implement API contracts 10, 11, 12, 14, 16 and 18 to 21 with `@ResponseMessage`, Swagger metadata and exact documented status codes and messages.
   - Apply `JwtAuthGuard` and `PoliciesGuard` to every Admin route; declare CASL policies using `can(action, subject, fields)` and leave only invitation acceptance public.
   - Do not implement deferred API 13 or expose profile, password or deletion mutations.
-  - _Requirements: REQ-UBI-06, REQ-UBI-10, REQ-UBI-12, REQ-STA-04, AC-17_
+  - _Requirements: REQ-UBI-06, REQ-UBI-10, REQ-UBI-12, AC-17_
 
 - [ ] 5.2 Add controller and policy metadata unit tests
   - Assert every Admin route requires both guards and the expected CASL action, subject and fields.
@@ -120,7 +121,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 
 - [ ] 6.1 Unit test role validation and account queries
   - Cover Customer and multi-role Staff success, seeded and extensible Staff roles, empty, duplicate, unknown and incompatible role inputs.
-  - Cover each list filter alone and combined, case-insensitive search, newest-first tie-break, default and maximum pagination, invalid ranges, empty results and account-not-found detail.
+  - Cover each list filter alone and combined, case-insensitive search, newest-first tie-break, default and maximum pagination, invalid ranges, empty results, soft-deleted exclusion and account-not-found detail.
   - _Requirements: REQ-UBI-04, REQ-EVT-12, REQ-EVT-13, REQ-EVT-14, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12_
 
 - [ ] 6.2 Unit test creation and invitations
@@ -130,10 +131,10 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - _Requirements: REQ-UBI-02, REQ-UBI-03, REQ-UBI-13, REQ-EVT-15, REQ-EVT-16, REQ-EVT-17, REQ-ERR-05, REQ-ERR-14, REQ-ERR-16_
 
 - [ ] 6.3 Unit test role and status transactions
-  - Cover successful role replacement, deactivation and reactivation; active Admin protection; inactive Admin reactivation; unknown accounts and idempotent no-ops.
+  - Cover successful role replacement, deactivation and reactivation; self-role change; self-deactivation rejection; other Admin role change and deactivation; last-Admin rollback; inactive Admin reactivation; unknown and soft-deleted accounts; and idempotent no-ops.
   - Assert role rows, status, `tokenVersion` and refresh-token revocation share one transaction and roll back together on failure.
   - Assert reactivation does not write account type, roles, profile or password.
-  - _Requirements: REQ-EVT-10, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-STA-04, REQ-ERR-08, REQ-ERR-13_
+  - _Requirements: REQ-EVT-10, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-ERR-08, REQ-ERR-10_
 
 - [ ] 6.4 Unit test audit and sensitive-field boundaries
   - Cover the event payload for every successful mutation, absence on idempotent no-ops, redaction and non-blocking sink failure.
@@ -151,7 +152,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 - [ ] 7.2 Build the Admin account list and detail experience
   - Add `pages/AdminUsersPage`, `widgets/AdminUserTable` and `entities/user` using URL-backed filters and TanStack Query pagination.
   - Implement loading, empty, error and populated states plus a route-addressable detail drawer or page.
-  - Display the approved operational fields and no sensitive fields.
+  - Display the specified operational fields and no sensitive fields; exclude soft-deleted accounts from list and detail results.
   - _Requirements: REQ-EVT-12, REQ-EVT-13, REQ-EVT-14, REQ-EVT-22, AC-10, AC-17, AC-19_
 
 - [ ] 7.3 Build create and invitation experiences
@@ -162,13 +163,13 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 
 - [ ] 7.4 Build role and status actions
   - Add complete role-replacement, deactivate and reactivate dialogs with confirmation and server outcome feedback.
-  - Disable role and deactivate controls for active Admin accounts with an explanation; allow Reactivate for inactive Admin accounts.
+  - Disable Deactivate only for the current Admin's own account; permit role changes for self and other Admins, permit deactivation of another Admin, surface `LAST_ADMIN`, and allow Reactivate for inactive Admin accounts.
   - Preserve the current detail route and refresh both list and detail queries after success.
-  - _Requirements: REQ-EVT-10, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-EVT-22, REQ-STA-04, AC-13, AC-14, AC-15, AC-16_
+  - _Requirements: REQ-EVT-10, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-EVT-22, REQ-ERR-08, AC-13, AC-14, AC-15, AC-16_
 
 - [ ] 7.5 Unit test frontend behavior and accessibility
   - Cover query serialization, combined filters, pagination and TanStack Query cache invalidation.
-  - Cover form validation, Customer and Staff role behavior, server error codes, idempotent outcomes and active Admin controls.
+  - Cover form validation, Customer and Staff role behavior, server error codes, idempotent outcomes, self-deactivation control, other Admin actions and `LAST_ADMIN` feedback.
   - Cover keyboard operation, focus restoration, labelled controls, programmatic validation messages, announced async status and loading, empty, success and failure states.
   - _Requirements: REQ-EVT-22, AC-19, NFR-USE-03_
 
@@ -186,6 +187,6 @@ The current branch contains the Prisma auth models and seeded system roles, but 
 
 - [ ] 8.3 Complete the contract and scope audit
   - Verify behavior against API contracts 10, 11, 12, 14, 16 and 18 to 21, including envelope shape and every documented failure.
-  - Verify API 13, profile edits, password administration, deletion and custom role administration remain outside the TK-22 diff.
+  - Verify API 13, profile edits, password administration, delete endpoints, `deletedAt` mutations and custom role administration remain outside the TK-22 diff while the existing soft-delete invariant remains intact.
   - Update the session ledger with test evidence and any specification corrections made during implementation.
   - _Requirements: REQ-UBI-09, REQ-UBI-10, REQ-UBI-11, AC-17_

@@ -71,7 +71,7 @@ For `CUSTOMER`, `roleKeys` must be exactly `['CUSTOMER']`. For `STAFF`, it must 
 | 400 | `INVALID_ROLE` | Role set is empty, unknown, or incompatible with the account type |
 | 401 | `UNAUTHENTICATED` | Access token is missing, malformed or expired |
 | 403 | `FORBIDDEN` | Caller lacks the Admin create policy |
-| 409 | `EMAIL_TAKEN` | Normalized email belongs to an active or inactive account |
+| 409 | `EMAIL_TAKEN` | Normalized email belongs to an active, inactive or soft-deleted account |
 
 Example failure:
 

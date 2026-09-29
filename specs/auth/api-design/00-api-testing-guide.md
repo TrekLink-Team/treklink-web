@@ -41,5 +41,7 @@ Setup, tokens and Postman: [`specs/platform/api-design/00-api-testing-guide.md`]
 2. Replace a non-Admin Staff account's roles with `PUT /api/users/{id}/roles`. Its old refresh token and access token must fail immediately.
 3. `POST /api/users/{id}/deactivate`. Expect 200 and `isActive=false`; repeat it and expect the same state with 200.
 4. `POST /api/users/{id}/reactivate`. Expect 200 with the original roles and profile; repeat it and expect 200.
-5. Attempt role replacement or deactivation on an active account holding `ADMIN`. Expect 409 `ACTIVE_ADMIN_IMMUTABLE`.
-6. Deactivate an Admin through test setup, then call the reactivation endpoint as another active Admin. Expect 200.
+5. Attempt to deactivate the signed-in Admin's own account. Expect 403 `FORBIDDEN`.
+6. With two active Admin accounts, change or deactivate the other Admin. Expect 200 while one active Admin remains.
+7. With one active Admin account, use its own session to attempt to remove its `ADMIN` role. Expect 409 `LAST_ADMIN`.
+8. Deactivate an Admin while another remains, then call the reactivation endpoint as the remaining active Admin. Expect 200.
