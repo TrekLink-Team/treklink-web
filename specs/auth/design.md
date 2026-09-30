@@ -1,6 +1,7 @@
 # Technical Design: auth
 
 > Fulfills `requirements.md` in this folder. Tags `[Qnn]` mark design choices resting on a Recorded, not yet Confirmed, clarification answer.
+> TK-22 requirements, design, endpoint contracts and task checklist are under leader review. Implementation remains blocked until KhoaDD or the designated lead approves the specification PR.
 
 ---
 
@@ -19,17 +20,19 @@ model User {
   emailVerifiedAt DateTime?
   phoneNumber     String?
   fullName        String
-  passwordHash    String?                        // null for Google-only accounts (REQ-OPT-01)
+  passwordHash    String?                        // null before invitation setup or for Google-only accounts
   accountType     AccountType
   isActive        Boolean   @default(true)       // [Q45]
+  tokenVersion    Int       @default(0)           // invalidates issued access tokens
   lastLoginAt     DateTime?
   failedLoginCount Int      @default(0)
   lockedUntil     DateTime?
   createdById     String?                        // Flow 2 provisioning [Q31]
-  deletedAt       DateTime?                      // soft delete [Q36]
+  deletedAt       DateTime?                      // soft deletion retained for audit [Q36]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   roles           UserRole[]
+  invitations     InvitationToken[]              // TK-22 set-password invitations
   guideProfile    GuideProfile?
   @@index([accountType, isActive])
   @@map("users")
@@ -103,6 +106,19 @@ model OneTimeCode {
   @@map("one_time_codes")
 }
 
+model InvitationToken {
+  id             String    @id @default(uuid())
+  userId         String
+  tokenHash      String    @unique                // sha256 of a 256-bit opaque token
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  supersededAt   DateTime?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  @@index([userId, createdAt])
+  @@map("invitation_tokens")
+}
+
 model GuideProfile {
   userId         String   @id
   bio            String?
@@ -115,6 +131,8 @@ model GuideProfile {
 ```
 
 Relations (`@relation` lines) are written in the migration task; they are omitted above only for readability.
+
+`InvitationToken` is separate from `OneTimeCode`. Registration and password reset use short-lived OTP codes with attempt counters. TK-22 invitations use high-entropy link tokens, can be superseded explicitly, and expire after `auth.invitationTtlHours`, which defaults to 24 hours. Only each token's SHA-256 hash is persisted. The raw token exists only in the generated link sent through `MailPort`.
 
 ### 1.1 Why roles are rows
 
@@ -162,7 +180,9 @@ Seeded by the platform seed migration. Actions beyond CRUD are domain verbs, so 
 | `TokenService` | sign and verify JWTs; issue, rotate and revoke refresh tokens |
 | `OtpService` | issue, hash, verify and expire codes; cooldown |
 | `PasswordService` | policy check against parameters, bcrypt hash and compare |
-| `UsersService` (exported) | user CRUD, role assignment, `findById`, `findGuideById`, `assertGuide(ids)` |
+| `UsersService` (exported) | account lookup plus TK-22 list, detail, invitation-based creation, role replacement, deactivation and reactivation |
+| `InvitationService` | issue, hash, supersede, consume and resend set-password invitations |
+| `RoleAssignmentPolicy` | enforce Customer and Staff role-set invariants using `Role` rows |
 | `AbilityFactory` (exported) | builds a CASL `PureAbility` per request from the user's permission rows plus scope |
 | `RolesService` | role and permission administration |
 
@@ -170,7 +190,7 @@ Exported to other modules: `JwtAuthGuard`, `PoliciesGuard`, `@CheckPolicies()`, 
 
 ### 2.2 Access token claims
 
-`{ sub, username, accountType, roles: string[], ver }`. Permissions are **not** in the token: they are loaded per request (cached per user for 30 s, invalidated on role change) so REQ-EVT-10 holds without waiting for token expiry. `ver` is a per-user counter bumped on deactivation, role change and password reset; the JWT strategy rejects a token whose `ver` is behind the stored one, which is how REQ-EVT-11 is met inside the access-token lifetime.
+`{ sub, username, accountType, roles: string[], ver }`. Permissions are **not** in the token: they are loaded per request (cached per user for 30 s, invalidated on role change) so REQ-EVT-10 holds without waiting for token expiry. `ver` is copied from `User.tokenVersion`. TK-22 role replacement and deactivation increment `tokenVersion` in the same Prisma transaction that revokes refresh tokens. The JWT strategy rejects a token whose `ver` differs from the stored value.
 
 ### 2.3 Guide scope without a module cycle
 
@@ -205,12 +225,79 @@ Opaque 256-bit random token, returned once, stored as `sha256`. Rotation per REQ
 | `OTP_COOLDOWN` | 429 | resend inside cooldown |
 | `PASSWORD_POLICY_VIOLATION` | 400 | policy failure |
 | `USERNAME_TAKEN`, `EMAIL_TAKEN` | 409 | uniqueness |
+| `VALIDATION_ERROR` | 400 | malformed or missing TK-22 request field |
+| `INVALID_ROLE` | 400 | unknown, empty or account-type-incompatible role set |
+| `INVALID_DATE_RANGE` | 400 | malformed creation date or `createdFrom` after `createdTo` |
+| `INVITATION_INVALID` | 400 | unknown, expired, consumed or superseded invitation |
 | `NO_REGISTERED_EMAIL` | 409 | Staff reset on an account without email |
-| `LAST_ADMIN` | 409 | removing the last Admin |
+| `ACCOUNT_NOT_FOUND` | 404 | TK-22 account id does not exist or is soft-deleted |
+| `LAST_ADMIN` | 409 | role change or deactivation would leave zero active Admins |
+| `INVITATION_NOT_PENDING` | 409 | invitation resend targets an account that completed setup or was deactivated after setup |
 | `ROLE_ACCOUNT_TYPE_MISMATCH` | 409 | Staff role on a Customer account or the reverse |
 | `SYSTEM_ROLE_IMMUTABLE` | 409 | deleting or renaming a system role |
 
 Login deliberately collapses locked, inactive and unverified into `INVALID_CREDENTIALS` (enumeration resistance, NFR table). The UI shows one message.
+
+### 2.8 TK-22 invariants and transactions
+
+All TK-22 queries and writes stay inside `auth` and use Prisma. Controllers call `UsersService`; they never access Prisma directly. Other modules may use only the exported auth services and authorization contracts.
+
+Account-type and role validation is centralized in `RoleAssignmentPolicy`:
+
+- `CUSTOMER` requires the complete role set `['CUSTOMER']`.
+- `STAFF` requires one or more roles whose `Role.accountType` is `STAFF`.
+- Role keys are rows, not a TypeScript enum. `OPERATOR`, `GUIDE` and `ADMIN` are seeded rows, and later Staff roles require no schema change.
+- Duplicate role keys are normalized before comparison. An empty, unknown or incompatible set returns 400 `INVALID_ROLE`.
+
+Mutation boundaries:
+
+| Operation | Single Prisma transaction |
+|---|---|
+| Create | normalize email, assert uniqueness, insert inactive user, insert role rows, insert invitation |
+| Accept invitation | lock valid invitation, hash password, activate user, set `emailVerifiedAt`, consume invitation |
+| Replace roles | acquire the shared last-Admin advisory lock, lock the target row, validate the post-write active Admin count, replace all `UserRole` rows, increment `tokenVersion`, revoke every refresh token |
+| Deactivate | acquire the shared last-Admin advisory lock, lock the target row, reject active-target self-deactivation, validate the post-write active Admin count, set `isActive=false`, increment `tokenVersion`, revoke every refresh token |
+| Reactivate | lock user and set `isActive=true`; roles, profile and password are not written |
+
+Role replacement and deactivation both acquire the same transaction-scoped PostgreSQL advisory lock before reading the active Admin count:
+
+```ts
+const LAST_ADMIN_LOCK_KEY = 7_340_001n;
+
+await tx.$executeRaw`
+  SELECT pg_advisory_xact_lock(${LAST_ADMIN_LOCK_KEY})
+`;
+```
+
+`LAST_ADMIN_LOCK_KEY` is one module-private literal `bigint`, so every process and operation addresses the same PostgreSQL advisory lock without depending on a database hash function. The advisory-lock statement uses `tx.$executeRaw` because `pg_advisory_xact_lock` returns `void`; Prisma therefore consumes only the affected-row count and does not deserialize a result column. After the advisory lock, each operation locks its non-deleted target with a parameterized `SELECT ... FOR UPDATE` through `tx.$queryRaw`, which returns the row needed by the not-found, current-state and self-deactivation branches. Prisma Client has no row-lock method, so the `$executeRaw` statement and `$queryRaw` query are the explicit exceptions inside the Prisma-only persistence boundary; no separate database driver is introduced. Every role replacement and deactivation takes the advisory lock before the target-row lock, preventing lock-order inversion. The advisory lock is released automatically when the transaction commits or rolls back. Concurrent mutations of different Admin rows therefore serialize before the count, and the second transaction observes the first transaction's committed result.
+
+Repeated deactivation of an inactive account and repeated reactivation of an active account return the current account DTO without writing or emitting a second mutation audit. An Admin may change their own role or change or deactivate another Admin when the result retains at least one active Admin. Self-deactivation applies only to an active target and returns 403 `FORBIDDEN`. The advisory lock, target-row lock, `LAST_ADMIN` count check and guarded write share one Prisma transaction.
+
+After a successful commit, `UsersService` emits `audit.record` with `actorId`, action, `subjectType: 'User'`, `subjectId`, and redacted before and after objects. The platform listener owns audit persistence. Listener failure is logged with the event and correlation id and does not change the already committed account result. Invitation secrets, password hashes and token hashes are never included.
+
+Invitation email delivery occurs after the account and invitation transaction commits. If the mail adapter fails, the account remains inactive and the invitation remains pending; the failure is logged and the Admin can retry through the resend endpoint. The endpoint maps that delivery failure through the platform exception contract, and the UI refreshes the list so the persisted account is visible.
+
+### 2.9 TK-22 account DTO and list query
+
+Every TK-22 account response uses one projection:
+
+```ts
+interface AdminAccountDto {
+  id: string;
+  username: string;
+  email: string | null;
+  fullName: string;
+  phoneNumber: string | null;
+  accountType: 'CUSTOMER' | 'STAFF';
+  roles: string[];
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+`AdminAccountListQuery` accepts `page`, `limit`, `accountType`, `role`, `isActive`, `search`, `createdFrom` and `createdTo`. `page` is 1-based. `limit` defaults to 20 and cannot exceed 100. Prisma always includes `deletedAt: null`, combines all supplied filters, uses case-insensitive matching for email and full name, orders by `createdAt DESC, id DESC`, and applies `skip` and `take`. Detail lookup also requires `deletedAt: null`, so a soft-deleted account returns `ACCOUNT_NOT_FOUND`. The result metadata uses `{ page, limit, totalCount, totalPages }`.
 
 ---
 
@@ -304,6 +391,103 @@ sequenceDiagram
 
 ***Figure 3***: Registration completes only on OTP verification, so an unverified email never owns an active account.
 
+### 3.4 Admin creates an invited account
+
+See **Figure 4**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Admin
+    participant C as UsersController
+    participant U as UsersService
+    participant I as InvitationService
+    participant DB as Postgres
+    participant M as MailPort
+    participant E as EventEmitter
+    A->>C: POST /api/users
+    C->>C: JwtAuthGuard and can(create, User)
+    C->>U: createInvitedAccount(dto, actor)
+    U->>DB: BEGIN
+    U->>DB: normalize and check email
+    U->>DB: validate account type and role rows
+    U->>DB: INSERT inactive user and user_roles
+    U->>I: issue(userId, actorId, tx)
+    I->>DB: INSERT hashed invitation, expires in 24 h
+    U->>DB: COMMIT
+    U->>M: send raw invitation link
+    U-)E: audit.record user.create
+    U-->>C: AdminAccountDto
+    C-->>A: 201 envelope
+```
+
+***Figure 4***: User, roles and invitation commit together. The raw invitation token is sent once and is not stored.
+
+### 3.5 Role replacement and session invalidation
+
+See **Figure 5**.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Admin
+    participant C as UsersController
+    participant U as UsersService
+    participant DB as Postgres
+    participant E as EventEmitter
+    A->>C: PUT /api/users/{id}/roles
+    C->>C: JwtAuthGuard and can(update, User, roles)
+    C->>U: replaceRoles(id, roleKeys, actor)
+    U->>DB: BEGIN
+    U->>DB: $executeRaw advisory lock with LAST_ADMIN_LOCK_KEY
+    U->>DB: $queryRaw lock non-deleted target FOR UPDATE
+    alt account does not exist
+        U-->>A: 404 ACCOUNT_NOT_FOUND
+    else invalid role set
+        U-->>A: 400 INVALID_ROLE
+    else change leaves zero active Admins
+        U-->>A: 409 LAST_ADMIN
+    end
+    U->>DB: replace user_roles
+    U->>DB: tokenVersion + 1 and revoke refresh tokens
+    U->>DB: COMMIT
+    U-)E: audit.record user.roles.replace
+    U-->>A: 200 account envelope
+```
+
+***Figure 5***: The role set and both session invalidation mechanisms change atomically. The audit event is emitted only after commit.
+
+### 3.6 Deactivate and reactivate
+
+See **Figure 6**.
+
+```mermaid
+flowchart TB
+    S((Request)) --> A[Authenticate and authorize Admin]
+    A --> OP{Operation?}
+    OP -->|deactivate| DL[BEGIN: advisory lock, then target-row lock]
+    DL --> DF{Non-deleted account found?}
+    DF -->|no| N[Rollback: 404 ACCOUNT_NOT_FOUND]
+    DF -->|yes| DI{Already inactive?}
+    DI -->|yes| I[Commit and return 200 without a write]
+    DI -->|no| D{Active target is caller?}
+    D -->|yes| X[Rollback: 403 FORBIDDEN]
+    D -->|no| L{Would zero active Admins remain?}
+    L -->|yes| Z[Rollback: 409 LAST_ADMIN]
+    L -->|no| E[Set inactive, increment tokenVersion, revoke refresh tokens, COMMIT]
+    OP -->|reactivate| RL[BEGIN: target-row lock]
+    RL --> RF{Non-deleted account found?}
+    RF -->|no| N
+    RF -->|yes| RI{Already active?}
+    RI -->|yes| I
+    RI -->|no| R[Set active only and COMMIT]
+    E --> AU[Emit redacted audit event]
+    R --> AU
+    AU --> OUT[Return 200 account envelope]
+```
+
+***Figure 6***: Reactivation may target an inactive Admin. Neither status operation rewrites roles, profile fields or the existing password.
+
 ---
 
 ## 4. API Endpoints in this module
@@ -319,14 +503,18 @@ sequenceDiagram
 | 07 | POST | `/api/auth/password/reset` | Public (OTP) | `api-design/07-post-auth-password-reset.md` |
 | 08 | GET | `/api/auth/me` | Authenticated | `api-design/08-get-auth-me.md` |
 | 09 | PATCH | `/api/auth/me` | Authenticated | `api-design/09-patch-auth-me.md` |
-| 10 | POST | `/api/users` | Admin; Operator and Guide for Customer accounts | `api-design/10-post-users-create.md` |
-| 11 | GET | `/api/users` | Admin; Operator (Customers) | `api-design/11-get-users-list.md` |
-| 12 | GET | `/api/users/:id` | Admin; Operator (Customers); self | `api-design/12-get-users-detail.md` |
-| 13 | PATCH | `/api/users/:id` | Admin | `api-design/13-patch-users-update.md` |
+| 10 | POST | `/api/users` | Admin | `api-design/10-post-users-create.md` |
+| 11 | GET | `/api/users` | Admin | `api-design/11-get-users-list.md` |
+| 12 | GET | `/api/users/:id` | Admin | `api-design/12-get-users-detail.md` |
+| 13 | PATCH | `/api/users/:id` | Deferred, outside TK-22 | `api-design/13-patch-users-update.md` |
 | 14 | PUT | `/api/users/:id/roles` | Admin | `api-design/14-put-users-roles.md` |
 | 15 | POST | `/api/users/:id/password-reset` | Operator, Admin | `api-design/15-post-users-password-reset.md` |
 | 16 | GET | `/api/roles` | Admin | `api-design/16-get-roles-list.md` |
 | 17 | PUT | `/api/roles/:id/permissions` | Admin | `api-design/17-put-roles-permissions.md` |
+| 18 | POST | `/api/auth/invitations/accept` | Public with valid invitation | `api-design/18-post-auth-invitations-accept.md` |
+| 19 | POST | `/api/users/:id/invitation/resend` | Admin | `api-design/19-post-users-invitation-resend.md` |
+| 20 | POST | `/api/users/:id/deactivate` | Admin | `api-design/20-post-users-deactivate.md` |
+| 21 | POST | `/api/users/:id/reactivate` | Admin | `api-design/21-post-users-reactivate.md` |
 
 Google OAuth routes (`GET /api/auth/google`, `GET /api/auth/google/callback`) are specified by REQ-OPT-01 and get api-design files only if the approval puts them in Phase B.
 
@@ -338,3 +526,31 @@ Google OAuth routes (`GET /api/auth/google`, `GET /api/auth/google/callback`) ar
 - `shared/api/apiClient.ts` silent refresh: on 401 `UNAUTHENTICATED`, call `/api/auth/refresh` once, replay; on `REFRESH_TOKEN_*` clear the session.
 - `app/providers/AuthProvider` exposes the user and a client-side CASL ability built from `GET /api/auth/me` (`permissions` field) for **display only**; the server decides.
 - Zod schemas mirror `RegisterDto`, `LoginDto`, `ResetPasswordDto` exactly.
+- TK-22 follows Feature-Sliced Design: `entities/user` owns `AdminAccount` types and query keys; `features/admin-user-create`, `features/admin-user-role-change`, `features/admin-user-deactivate` and `features/admin-user-reactivate` own mutation UI; `widgets/AdminUserTable` owns filters and pagination; `pages/AdminUsersPage` composes the screen.
+- The list uses URL search parameters for `page`, `limit`, account type, role, status, search and creation dates. Successful mutations invalidate both `['admin-users']` and `['admin-user', id]` TanStack Query keys.
+- Account detail is a route-addressable drawer or page so refresh and browser history preserve the selected account. It displays all `AdminAccountDto` fields and never receives sensitive fields.
+- The create form requires email, full name, phone number, account type and roles. Selecting `CUSTOMER` fixes the role set to `CUSTOMER`. Selecting `STAFF` loads data-driven Staff roles from `GET /api/roles` and requires at least one.
+- The current Admin's own row disables Deactivate with an explanation. Role changes remain available for self and other Admin accounts, and another Admin may be deactivated. The UI surfaces `LAST_ADMIN` when the server rejects a change that would leave zero active Admins. An inactive Admin shows Reactivate. After a successful self-role change, the UI clears the now-stale session and redirects to login with a role-change message instead of surfacing a generic 401 on the next request. The backend remains authoritative.
+- Dialogs return focus to their trigger, destructive actions require confirmation, validation errors are associated with their controls, async status is announced, and all controls are keyboard operable with visible focus and WCAG 2.1 AA contrast.
+
+---
+
+## 6. Testing strategy
+
+TK-22 requires unit tests before its implementation PR opens.
+
+| Unit | Required coverage |
+|---|---|
+| `RoleAssignmentPolicy` | Customer exact role, Staff one or more roles, multiple Staff roles, unknown role, incompatible role, empty role set |
+| `UsersService.list` | every filter, combined filters, case-insensitive search, default and maximum pagination, invalid range, newest-first tie-break, soft-deleted exclusion |
+| `UsersService.createInvitedAccount` | Customer and Staff success, Admin creation, derived username, duplicate mixed-case email, validation failure, transaction rollback |
+| `InvitationService` | hash-only persistence, 24-hour expiry, consume once, expired, superseded, resend invalidation, non-pending resend |
+| `UsersService.replaceRoles` | full replacement, multi-role union input, self and other Admin success, last-Admin rejection, unknown or soft-deleted account, invalid role, token revocation and rollback |
+| `UsersService.deactivate` | success, self-deactivation rejection, other Admin success, last-Admin rejection, unknown or soft-deleted account, idempotent inactive response, atomic status and session revocation |
+| `UsersService.reactivate` | normal account, inactive Admin, unknown account, idempotent active response, profile and password preservation |
+| JWT strategy | stale `ver` rejected on the next authenticated request |
+| Last-Admin concurrency | PostgreSQL-backed parallel opposing deactivations; exactly one succeeds, one returns `LAST_ADMIN`, and one active Admin remains |
+| Audit emission | redacted after-commit event per successful mutation, no duplicate event for idempotent no-op, sink failure does not alter result |
+| Frontend hooks and components | query serialization, cache invalidation, server error display, self-deactivation control, self-role-change logout and redirect, `LAST_ADMIN` feedback, loading, empty, success and failure states, keyboard interaction |
+
+Prisma is mocked at the service boundary for branch-focused unit tests. Transaction tests assert that the callback receives one transaction client, that both protected mutations acquire the same advisory lock before the target-row lock and count, and that every write and token revocation uses that transaction client. The last-Admin race test uses local Docker PostgreSQL because a Prisma mock cannot prove database lock behavior. Controller tests assert both guards and policy metadata on every TK-22 mutating handler. Other integration and end-to-end coverage may be added later, but it does not replace the required unit suite.
