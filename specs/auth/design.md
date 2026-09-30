@@ -1,7 +1,7 @@
 # Technical Design: auth
 
 > Fulfills `requirements.md` in this folder. Tags `[Qnn]` mark design choices resting on a Recorded, not yet Confirmed, clarification answer.
-> TK-22 requirements, design, endpoint contracts and task checklist are under leader review. Implementation remains blocked until KhoaDD or the designated lead approves the specification PR.
+> TK-22 requirements, design, endpoint contracts and task checklist were approved by KhoaDD and merged in #14 on 2026-09-30. Implementation order and the owner of each shared piece follow #19 and `tasks.md`.
 
 ---
 

@@ -29,6 +29,8 @@
 
 ## Phase 2: Core Service Logic
 
+> Approved by KhoaDD on 2026-09-30 (#19, `treklink-docs` `07-clarification-answers.md` §8). **Owner of tasks 2.1 to 2.5: LongLP.** The rest of 2.1 (`ValidationPipe.exceptionFactory`), 2.4 (`ParameterService`, for the auth lockout keys) and 2.5 (the `audit.record` sink) are merged on `dev` before TK-16 starts; 2.2 and 2.3 may land in parallel with TK-16. Tasks 2.6 to 2.8 have no owner assigned yet. Order after the prerequisite: `specs/auth/tasks.md`, "Prerequisites and dependency order".
+
 - [ ] 2.1 `ResponseInterceptor` reads `@ResponseMessage`; `GlobalExceptionFilter` emits `result = { errorCode }`; `ValidationPipe.exceptionFactory` produces `VALIDATION_FAILED`
   - Done in TK-90: the `@ResponseMessage` decorator read by the interceptor, and the filter's error code on every failure (design §4.1, D-026 consequence). Open: `ValidationPipe.exceptionFactory` naming each offending property (REQ-ERR-01, AC-03)
   - _Requirements: REQ-UBI-01, REQ-UBI-02, REQ-ERR-01, AC-01, AC-02, AC-03_

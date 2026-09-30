@@ -1,21 +1,91 @@
-# Implementation Tasks: TK-22 Admin Account Management
+# Implementation Tasks: auth
 
-> Checklist approval: pending KhoaDD or designated lead
-> Branch: `feat/TK-22-admin-manage-user-account` | Jira: `TK-22` | Story: `US-009`
-> Requirements, design, endpoint contracts and this checklist remain under leader review on the specification PR.
+> Approved by: KhoaDD. The TK-22 checklist was approved and merged in #14 on 2026-09-30. The shared auth foundation section, its ownership and the dependency order were decided in #19 on 2026-09-30 (`treklink-docs` `07-clarification-answers.md` §8).
+> Jira: shared foundation `TK-15`, `TK-16`, `TK-18`, `TK-19`, `TK-21` | TK-22 checklist `TK-22` (`US-009`), branch `feat/TK-22-admin-manage-user-account`
+>
+> Fulfills `design.md`. No auth code starts before platform tasks 2.1 (the rest), 2.4 and 2.5 are merged on `dev` (`specs/platform/tasks.md` Phase 2).
+
+## Shared auth foundation (module-wide)
+
+Restored from the task list before #14 (`e0094a3~1`), for the shared pieces only (§8 questions 3, 4, 7 and 8). Story-level work such as the registration flow, password reset, account and role administration, controllers and e2e stays with the owning story's own checklist. Task ids carry an `F` prefix so they do not collide with the TK-22 checklist below. Requirement ids are the current ones; where #14 renumbered a requirement, the restored task cites the requirement that now carries the behaviour.
+
+### Prerequisites and dependency order
+
+- **Platform prerequisite** (LongLP): the rest of task 2.1, 2.4 `ParameterService` and 2.5 the `audit.record` sink, merged on `dev` before TK-16 starts. Tasks 2.2 and 2.3 may land in parallel with TK-16.
+- **Order**: platform prerequisite, then TK-16, then TK-18 and TK-21 in parallel, then TK-19, then TK-15, then TK-22 and TK-17.
+
+### Ownership
+
+| Story | Owner | Builds |
+|---|---|---|
+| TK-16 (US-003) | LongLP | `AuthModule`, `PasswordService`, `TokenService` (access tokens), login with lockout, `JwtStrategy`, `JwtAuthGuard`, `@CurrentUser()`, `User.tokenVersion` with the `ver` check, and the auth `audit.record` emission |
+| TK-18 (US-005) | LongLP, secondary KhoaDD | Refresh-token persistence, rotation, reuse detection and family revocation |
+| TK-19 (US-006) | LongLP | Per-account revocation on top of TK-18 |
+| TK-21 (US-008) | KhoaDD | CASL ability construction, `PoliciesGuard`, `SCOPE_PROVIDER`, `assertInScopeOr404()` and the route-enumeration test |
+| TK-15 (US-002) | LongLP | `OtpService` and `MailPort` |
+| TK-22 (US-009) | LongNN | Consumes all of the above; its own tasks are the TK-22 checklist below |
+
+### TK-16: module, tokens, login and guards
+
+- [ ] F1.1 `AuthModule`, the module every auth story extends; export only the auth services and authorization contracts other modules may consume (moved from TK-22 task 1.4, #19)
+  - _Requirements: REQ-UBI-14_
+- [ ] F1.2 `User.tokenVersion` in one forward migration, carried as the access-token `ver` claim; never edit a merged migration (moved from TK-22 task 1.1, #19)
+  - _Requirements: REQ-EVT-10, REQ-EVT-11, REQ-EVT-18_
+- [ ] F1.3 `PasswordService`: policy from parameters, bcrypt with `BCRYPT_COST` (pre-#14 task 2.1)
+  - _Requirements: REQ-UBI-02, REQ-ERR-04_
+- [ ] F1.4 `TokenService`, access tokens: access JWT with the `ver` claim (access part of pre-#14 task 2.2)
+  - _Requirements: REQ-EVT-01_
+- [ ] F1.5 `AuthService.login` with atomic failure counting and lockout (pre-#14 task 2.3)
+  - _Requirements: REQ-EVT-01, REQ-STA-01, REQ-STA-02, REQ-ERR-01, AC-04_
+- [ ] F1.6 `JwtStrategy` rejecting tokens with a stale `ver`; `JwtAuthGuard`; `@CurrentUser()` (pre-#14 task 3.1)
+  - _Requirements: REQ-EVT-10, REQ-EVT-11, REQ-EVT-18 (pre-#14 citation REQ-EVT-11, renumbered by #14)_
+- [ ] F1.7 Emit `audit.record` for the auth events through the platform sink (pre-#14 task 2.10). The pre-#14 wording named REQ-EVT-01 to REQ-EVT-11; after #14 the TK-22 account events are published by TK-22 task 4.5 (REQ-EVT-21)
+  - _Requirements: US-004_
+
+### TK-18: refresh tokens
+
+- [ ] F2.1 `TokenService`, refresh tokens: opaque refresh tokens stored as hashes, rotation in one transaction, family revocation, reuse detection (refresh part of pre-#14 task 2.2)
+  - _Requirements: REQ-UBI-03, REQ-EVT-02, REQ-EVT-03, REQ-ERR-02, AC-02_
+
+### TK-19: per-account revocation
+
+- [ ] F3.1 Revoke every refresh token of one account and advance `User.tokenVersion` inside the caller's Prisma transaction client, so the previous `ver` fails on the next authenticated request (moved from TK-22 task 4.1, #19)
+  - _Requirements: REQ-EVT-10, REQ-EVT-18, AC-13, AC-14_
+
+### TK-21: authorization infrastructure
+
+- [ ] F4.1 `AbilityFactory`: permission rows to CASL rules with `${user.*}` interpolation; per-user 30 s cache; invalidation hook (pre-#14 task 3.2)
+  - _Requirements: REQ-UBI-05, REQ-EVT-10, REQ-EVT-11 (pre-#14 citation REQ-EVT-10, split by #14)_
+- [ ] F4.2 `SCOPE_PROVIDER` token and lazy resolution through `ModuleRef` `[Q44]` (pre-#14 task 3.3)
+  - _Requirements: REQ-UBI-07, REQ-STA-03, design §2.3_
+- [ ] F4.3 `PoliciesGuard` and `@CheckPolicies()`; `accessibleWhere()` helper for list queries (adds `@casl/prisma`, a dependency bump flagged in C-003) (pre-#14 task 3.4)
+  - _Requirements: REQ-UBI-06_
+- [ ] F4.4 Scoped-404 convention helper `assertInScopeOr404()` (pre-#14 task 3.5)
+  - _Requirements: REQ-ERR-07_
+- [ ] F4.5 Route-enumeration test: every non-GET route has both guards and a declared policy (pre-#14 task 3.6)
+  - _Requirements: AC-07, BR-14_
+
+### TK-15: one-time codes and mail
+
+- [ ] F5.1 `OtpService`: 6-digit codes, hashing, attempts, TTL, cooldown (pre-#14 task 2.4)
+  - _Requirements: REQ-ERR-03, REQ-ERR-09_
+- [ ] F5.2 `MailPort` with `console` and `smtp` adapters; production guard on `console` (pre-#14 task 2.5)
+  - _Requirements: REQ-OPT-02_
+
+## TK-22 checklist: Admin Account Management
 
 This checklist is limited to TK-22: Admin list, detail, invitation-based creation, complete role replacement, deactivation, reactivation, invitation acceptance and invitation resend. It excludes registration, login, OAuth, password reset, profile editing, account deletion, role creation and permission administration.
 
-## Shared prerequisites and ownership boundaries
+### Shared prerequisites and ownership boundaries
 
-TK-22 consumes these approved auth and platform contracts: `JwtAuthGuard`, `PoliciesGuard`, `@CheckPolicies()`, `@CurrentUser()`, CASL ability construction, `PasswordService`, `MailPort`, refresh-token revocation, access-token version validation and the platform `audit.record` publisher. If another branch owns one of these foundations, rebase its approved implementation before the dependent TK-22 task. Do not duplicate the provider or access another module's Prisma models directly.
+TK-22 consumes the shared auth foundation above and the platform `audit.record` publisher: `AuthModule`, `JwtAuthGuard` and `@CurrentUser()` (TK-16), `PoliciesGuard`, `@CheckPolicies()` and CASL ability construction (TK-21), `PasswordService` and access-token version validation (TK-16), refresh-token revocation (TK-18 and TK-19), and `MailPort` (TK-15). Rebase onto each owner's merged implementation before the dependent TK-22 task. Do not duplicate a provider or access another module's Prisma models directly.
 
-The current branch contains the Prisma auth models and seeded system roles, but no implemented NestJS auth module. Tasks below create only the TK-22-owned module surface and the minimum extensions to shared auth contracts. Any broader foundation conflict must be resolved by KhoaDD or the designated lead before implementation begins.
+Tasks below add only the TK-22 surface to the shared `AuthModule`. Any further foundation conflict is resolved by KhoaDD before implementation begins.
 
-## Phase 1: Persistence and module contracts
+### Phase 1: Persistence and module contracts
 
-- [ ] 1.1 Extend the Prisma auth schema and add one forward migration
-  - Add `User.tokenVersion`, `InvitationToken`, user and creator relations, the required indexes and `auth.invitationTtlHours=24` seed data.
+- [ ] 1.1 Extend the Prisma auth schema with the invitation additions and add one forward migration
+  - Add `InvitationToken`, its user and creator relations, the required indexes and `auth.invitationTtlHours=24` seed data. `User.tokenVersion` is built by TK-16 (F1.2, #19).
   - Preserve the existing `User`, `Role`, `UserRole`, `RefreshToken`, `OneTimeCode` and soft-delete ownership under `auth`; add no TK-22 delete endpoint and never edit a merged migration.
   - Run Prisma format, validation and client generation against the new schema.
   - _Requirements: REQ-UBI-03, REQ-UBI-09, REQ-UBI-14, REQ-EVT-15, REQ-EVT-16, REQ-EVT-17_
@@ -32,13 +102,12 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Return 400 `INVALID_ROLE` for empty, unknown or account-type-incompatible input.
   - _Requirements: REQ-UBI-04, REQ-UBI-05, REQ-ERR-11, AC-11_
 
-- [ ] 1.4 Create the TK-22 auth module surface and transaction contracts
-  - Add `AuthModule`, `UsersController`, `InvitationsController`, `UsersService`, `InvitationService` and the read-only TK-22 role query provider.
-  - Define a transaction-client type used by invitation persistence and session revocation so all related Prisma writes use the same interactive transaction.
-  - Export only the auth services and authorization contracts other modules are allowed to consume.
+- [ ] 1.4 Add the TK-22 controllers and services to the shared `AuthModule`
+  - Register `UsersController`, `InvitationsController`, `UsersService`, `InvitationService` and the read-only TK-22 role query provider in the `AuthModule` that TK-16 creates (F1.1, #19).
+  - Pass the caller's Prisma transaction client to invitation persistence and to the TK-19 per-account revocation (F3.1), so all related writes use the same interactive transaction.
   - _Requirements: REQ-UBI-06, REQ-UBI-12, REQ-UBI-14_
 
-## Phase 2: Invitation and account creation logic
+### Phase 2: Invitation and account creation logic
 
 - [ ] 2.1 Implement secure invitation issuance and consumption
   - Generate a 256-bit opaque token, persist only its SHA-256 hash, apply the configured 24-hour expiry and compare hashes without logging secrets.
@@ -58,7 +127,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Return 404 `ACCOUNT_NOT_FOUND` for an unknown id and 409 `INVITATION_NOT_PENDING` for an account that completed setup or was deactivated after setup.
   - _Requirements: REQ-EVT-17, REQ-ERR-10, REQ-ERR-14_
 
-## Phase 3: Account queries
+### Phase 3: Account queries
 
 - [ ] 3.1 Implement the paginated Admin account list
   - Exclude rows whose `deletedAt` is set and combine optional account type, assigned role, active status, case-insensitive full-name or email search, `createdFrom` and `createdTo` filters in one Prisma where clause.
@@ -72,12 +141,11 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Keep password, refresh-token, invitation and reset-code data outside both projections.
   - _Requirements: REQ-UBI-09, REQ-UBI-11, REQ-EVT-14, REQ-ERR-10, AC-16, AC-17_
 
-## Phase 4: Role and account-status mutations
+### Phase 4: Role and account-status mutations
 
-- [ ] 4.1 Extend session invalidation for TK-22 transactions
-  - Provide a same-module method that revokes every refresh token for one account using the caller's Prisma transaction client.
-  - Increment `User.tokenVersion` in the same transaction; ensure JWT validation rejects the previous `ver` on the next authenticated request.
-  - Invalidate any per-user ability cache after a committed role replacement.
+- [ ] 4.1 Invalidate sessions inside TK-22 transactions
+  - Call the TK-19 per-account revocation (F3.1) with the caller's Prisma transaction client; it revokes every refresh token of the account and advances `User.tokenVersion`, and the TK-16 `JwtStrategy` (F1.6) rejects the previous `ver` on the next authenticated request.
+  - Invalidate any per-user ability cache (TK-21, F4.1) after a committed role replacement.
   - _Requirements: REQ-EVT-10, REQ-EVT-18, AC-13, AC-14_
 
 - [ ] 4.2 Implement complete role replacement
@@ -106,7 +174,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Consume the platform audit publisher so sink failure is logged and never rolls back or changes a completed account result.
   - _Requirements: REQ-EVT-21, REQ-ERR-15, AC-18_
 
-## Phase 5: HTTP presentation and authorization
+### Phase 5: HTTP presentation and authorization
 
 - [ ] 5.1 Implement the specified TK-22 controllers
   - Implement API contracts 10, 11, 12, 14, 16 and 18 to 21 with `@ResponseMessage`, Swagger metadata and exact documented status codes and messages.
@@ -120,7 +188,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Assert non-Admin callers receive 403 and unauthenticated callers receive 401 through the guard fixtures.
   - _Requirements: REQ-UBI-06, REQ-UBI-10, REQ-UBI-12_
 
-## Phase 6: Backend unit verification
+### Phase 6: Backend unit verification
 
 - [ ] 6.1 Unit test role validation and account queries
   - Cover Customer and multi-role Staff success, seeded and extensible Staff roles, empty, duplicate, unknown and incompatible role inputs.
@@ -146,7 +214,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Assert every TK-22 projection excludes password hashes, raw invitation tokens, token hashes, refresh tokens and reset codes.
   - _Requirements: REQ-UBI-11, REQ-EVT-21, REQ-ERR-15, AC-17, AC-18_
 
-## Phase 7: Admin user-management frontend
+### Phase 7: Admin user-management frontend
 
 - [ ] 7.1 Add frontend test infrastructure and TK-22 API types
   - Add Vitest, React Testing Library, user-event, jsdom and a frontend `test` script.
@@ -179,7 +247,7 @@ The current branch contains the Prisma auth models and seeded system roles, but 
   - Cover keyboard operation, focus restoration, labelled controls, programmatic validation messages, announced async status and loading, empty, success and failure states.
   - _Requirements: REQ-EVT-22, AC-19, NFR-USE-03_
 
-## Phase 8: Automated completion gates
+### Phase 8: Automated completion gates
 
 - [ ] 8.1 Run and pass the backend gates
   - Run Prisma validation and generation, TK-22 Jest unit tests, the PostgreSQL-backed last-Admin concurrency test, the full backend unit suite, lint including module boundaries, typecheck and build.
