@@ -1,7 +1,7 @@
 # Implementation Tasks: auth
 
 > Approved by: KhoaDD. The TK-22 checklist was approved and merged in #14 on 2026-09-30. The shared auth foundation section, its ownership and the dependency order were decided in #19 on 2026-09-30 (`treklink-docs` `07-clarification-answers.md` §8).
-> Jira: shared foundation `TK-15`, `TK-16`, `TK-18`, `TK-19`, `TK-21` | TK-22 checklist `TK-22` (`US-009`), branch `feat/TK-22-admin-manage-user-account`
+> Jira: shared foundation `TK-15`, `TK-16`, `TK-18`, `TK-19`, `TK-21` | TK-22 checklist `TK-22` (`US-009`), branch `feat/TK-22-admin-manage-user-account` | TK-20 checklist `TK-20` (`US-007`), branch `feat/TK-20-password-reset`, awaiting approval
 >
 > Fulfills `design.md`. No auth code starts before platform tasks 2.1 (the rest), 2.4 and 2.5 are merged on `dev` (`specs/platform/tasks.md` Phase 2).
 
@@ -264,3 +264,65 @@ Tasks below add only the TK-22 surface to the shared `AuthModule`. Any further f
   - Verify API 13, profile edits, password administration, delete endpoints, `deletedAt` mutations and custom role administration remain outside the TK-22 diff while the existing soft-delete invariant remains intact.
   - Update the session ledger with test evidence and any specification corrections made during implementation.
   - _Requirements: REQ-UBI-09, REQ-UBI-10, REQ-UBI-11, AC-17_
+
+## TK-20 checklist: Password reset
+
+> Status: awaiting KhoaDD approval on the TK-20 spec PR. Four leader decisions are open in #24; tasks that depend on one name it. Owner HoangTK, reviewer KhoaDD.
+
+This checklist is limited to TK-20: the public forgot-password request (API 06), the public reset with a code (API 07) and the Staff-triggered reset (API 15). It excludes the OTP and mail infrastructure (TK-15), token revocation (TK-19), account profile edits (API 13, deferred) and any Staff screen unless #24 Q4 adds one.
+
+### Shared prerequisites and ownership boundaries
+
+TK-20 consumes, and never re-implements: `AuthModule`, `PasswordService`, `JwtAuthGuard`, `@CurrentUser()` and the auth `audit.record` emission (TK-16, F1.1, F1.3, F1.6, F1.7); per-account revocation that also advances `User.tokenVersion` (TK-19, F3.1); `OtpService` and `MailPort` (TK-15, F5.1, F5.2); `PoliciesGuard`, `@CheckPolicies()` and `assertInScopeOr404()` (TK-21, F4.3, F4.4); `ParameterService` for the `auth.otp*` and `auth.passwordMinLength` keys (platform 2.4). Implementation starts only after all of them are merged on `dev`. `OneTimeCode` with purpose `PASSWORD_RESET` is already in the schema; TK-20 adds no migration.
+
+### Phase 1: Contracts
+
+- [ ] 1.1 Add `OTP_INVALID`, `OTP_COOLDOWN`, `PASSWORD_POLICY_VIOLATION` and `NO_REGISTERED_EMAIL` to the shared error catalogue where TK-15 or TK-16 has not already added them, without changing the four-key envelope
+  - _Requirements: REQ-ERR-03, REQ-ERR-04, REQ-ERR-06, REQ-ERR-09, design §2.7_
+- [ ] 1.2 Add class-validator DTOs: `ForgotPasswordDto` (`identifier`), `ResetPasswordDto` (`identifier`, 6-digit `code`, `newPassword`) and `TriggerPasswordResetDto` (`verificationMethod` of `PHONE_CALLBACK` or `IN_PERSON`, required `note`), plus the UUID path parameter for API 15
+  - _Requirements: API 06, API 07, API 15, Q35_
+
+### Phase 2: Core service logic
+
+- [ ] 2.1 `AuthService.forgot`: resolve the identifier as a case-insensitive username or email; for an existing account with a registered email, issue a `PASSWORD_RESET` code through `OtpService` and send it through `MailPort`; return the same neutral 200 when the account is unknown or has no email; emit `auth.password.forgot`. The cooldown response follows #24 Q2
+  - _Requirements: REQ-EVT-07, REQ-ERR-09, NFR enumeration resistance, API 06_
+- [ ] 2.2 `AuthService.reset`: verify the latest unconsumed `PASSWORD_RESET` or `SET_PASSWORD` code through `OtpService`, counting attempts; return 400 `OTP_INVALID` for a wrong, expired, consumed or exhausted code; check the new password with `PasswordService` and return 400 `PASSWORD_POLICY_VIOLATION` naming the unmet rule
+  - _Requirements: REQ-EVT-08, REQ-ERR-03, REQ-ERR-04, API 07_
+- [ ] 2.3 In one Prisma transaction, store the new bcrypt hash, consume the code and call the TK-19 per-account revocation (F3.1) with the transaction client; emit `auth.password.reset` after commit; leave no partial state on failure
+  - _Requirements: REQ-UBI-02, REQ-UBI-03, REQ-EVT-08, API 07_
+- [ ] 2.4 `UsersService.triggerPasswordReset`: return 404 `NOT_FOUND` for an unknown id or an account outside the caller's `resetPassword` scope (an Operator reaches Customer accounts only); return 409 `NO_REGISTERED_EMAIL` and send nothing when the account has no email; otherwise issue a `PASSWORD_RESET` code, send it only to the registered email, return only the masked address and emit `user.password.reset_triggered` with the verification method and note. Adding an email first follows #24 Q1
+  - _Requirements: REQ-EVT-09, REQ-ERR-06, REQ-ERR-09, AC-06, API 15, design §1.2_
+
+### Phase 3: HTTP presentation and authorization
+
+- [ ] 3.1 `AuthController` routes 06 and 07, public, with `@ResponseMessage` and the exact documented messages; apply the API 06 limit of 5 requests per IP per 10 minutes through the rate-limiting mechanism decided in #24 Q3
+  - _Requirements: API 06, API 07, D-002_
+- [ ] 3.2 `UsersController` route 15 with `JwtAuthGuard`, `PoliciesGuard` and `@CheckPolicies()` for `resetPassword` on `User`, Swagger metadata and the exact documented status codes
+  - _Requirements: REQ-UBI-06, API 15, AC-07_
+
+### Phase 4: Backend verification
+
+- [ ] 4.1 Unit test `forgot`: existing account with email, existing account without email, unknown identifier, identical responses across those three, and the cooldown behaviour decided in #24 Q2
+  - _Requirements: REQ-EVT-07, REQ-ERR-09_
+- [ ] 4.2 Unit test `reset`: valid `PASSWORD_RESET` and `SET_PASSWORD` codes, wrong, expired and consumed codes, attempt exhaustion, policy failure, one transaction client for the hash, the code and the TK-19 revocation, and rollback on failure
+  - _Requirements: REQ-EVT-08, REQ-ERR-03, REQ-ERR-04_
+- [ ] 4.3 Unit test `triggerPasswordReset`: Operator on a Customer, Operator on a Staff account (404), Admin, unknown id (404), no registered email (409 with no mail sent), masked address only, no code or credential in the response or the audit payload
+  - _Requirements: REQ-EVT-09, REQ-ERR-06, AC-06_
+- [ ] 4.4 Controller metadata tests: route 15 carries both guards and the `resetPassword` policy; routes 06 and 07 are public
+  - _Requirements: REQ-UBI-06, AC-07_
+- [ ] 4.5 E2E for AC-06 with `MAIL_TRANSPORT=console`: the Staff response has no code, and the console transport shows the code sent only to the registered email
+  - _Requirements: AC-06, REQ-OPT-02_
+
+### Phase 5: Frontend
+
+- [ ] 5.1 `features/auth` forgot and reset password as a two-step flow, with Zod schemas mirroring `ForgotPasswordDto` and `ResetPasswordDto`, the neutral confirmation message, and field-level display of `OTP_INVALID`, `OTP_COOLDOWN` and `PASSWORD_POLICY_VIOLATION`
+  - _Requirements: design §5, API 06, API 07_
+- [ ] 5.2 Unit test the two-step flow: validation, server error display, loading, success and failure states, keyboard operation and labelled controls. A Staff trigger screen is added only if #24 Q4 decides so
+  - _Requirements: design §5, NFR-USE-03_
+
+### Phase 6: Completion gates
+
+- [ ] 6.1 Backend: lint including module boundaries, typecheck, the full unit suite, the e2e suite and build
+- [ ] 6.2 Frontend: lint, typecheck, unit tests and production build
+- [ ] 6.3 Audit behaviour against API contracts 06, 07 and 15, including every documented failure and the envelope; record the evidence in the session ledger
+  - _Requirements: D-002, D-026_

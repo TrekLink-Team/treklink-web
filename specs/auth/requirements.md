@@ -106,7 +106,7 @@
 - **REQ-ERR-03**: IF an OTP is wrong, expired or already consumed, THEN the system SHALL return 400 `OTP_INVALID` and increment the attempt count; IF attempts reach the configured maximum, THEN the code SHALL be invalidated.
 - **REQ-ERR-04**: IF a password fails the policy (length and character classes), THEN the system SHALL return 400 `PASSWORD_POLICY_VIOLATION` naming the unmet rule.
 - **REQ-ERR-05**: IF a username or case-insensitive email is already held by an active, inactive or soft-deleted account, THEN the system SHALL return 409 `USERNAME_TAKEN` or `EMAIL_TAKEN`.
-- **REQ-ERR-06**: IF a Staff-triggered reset targets an account with no registered email, THEN the system SHALL return 409 `NO_REGISTERED_EMAIL` and send nothing. `[Q35]` *(How such a Customer recovers access is open, QUESTION C-003.)*
+- **REQ-ERR-06**: IF a Staff-triggered reset targets an account with no registered email, THEN the system SHALL return 409 `NO_REGISTERED_EMAIL` and send nothing. `[Q35]` *(Recovery for such a Customer is confirmed: Staff verify the person, add an email to the account, then trigger the reset to it, `treklink-docs` `07-clarification-answers.md` §6 question 10. No approved endpoint adds the email yet, API 13 is deferred; open in #24 Q1.)*
 - **REQ-ERR-07**: IF a Guide requests any resource outside their trip scope, THEN the system SHALL return 404 `NOT_FOUND`, never 403, so the existence of another trip's data is not disclosed. [E04-5]
 - **REQ-ERR-08**: IF an Admin attempts to deactivate their own account, THEN the system SHALL return 403 `FORBIDDEN` and leave the account unchanged; IF a role change or deactivation would leave zero active accounts holding `ADMIN`, THEN the system SHALL return 409 `LAST_ADMIN` and leave the account unchanged, with the guard evaluated inside the same transaction as the write.
 - **REQ-ERR-09**: IF an OTP is requested again before the configured cooldown elapses, THEN the system SHALL return 429 `OTP_COOLDOWN`.
@@ -189,3 +189,5 @@ The 24-hour invitation lifetime is confirmed for TK-22. Other defaults retain th
 ## 6. Open Questions
 
 TK-22 has no open domain questions after the story-owner clarification on 2026-09-29. Google OAuth remains optional and outside TK-22. Requirements, design, endpoint contracts and the final task checklist remain subject to the leader's approval on the specification PR before implementation begins.
+
+TK-20 (US-007, password reset) has four open leader decisions, raised in #24: how Staff adds an email to a Customer who has none (Q1, REQ-ERR-06), whether the API 06 cooldown response may differ for an existing account (Q2, REQ-EVT-07), who builds the per-IP rate limiting of APIs 01, 03 and 06 (Q3), and whether TK-20 includes a Staff screen for API 15 (Q4). The TK-20 checklist in `tasks.md` names the tasks each answer affects.
