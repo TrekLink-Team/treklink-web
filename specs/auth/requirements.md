@@ -3,7 +3,7 @@
 **User Story**: As **any TrekLink user**, I want to sign in once with my username and receive exactly the access my role allows, and as an **Admin**, I want to manage user accounts, so that I can provision access and keep account status and role assignments current.
 **Story IDs**: US-001 to US-010 (E1) | **Priority**: High | **Main Flow**: MF-01 (prerequisite of every flow) | **Owner of the flow**: TanNB (MF-01); story owners per backlog
 
-> **Authority**: D-002 (envelope), D-015 (configuration), D-024 (prose), D-028 (platform audit sink), and the confirmed clarification answers in `07-clarification-answers.md` §6. TK-22 account-administration rules were clarified by the story owner on 2026-09-29 and require approval through this specification gate before design or implementation.
+> **Authority**: D-002 (envelope), D-015 (configuration), D-024 (prose), D-028 (platform audit sink), and the confirmed clarification answers in `07-clarification-answers.md` §6. TK-22 account-administration rules were clarified by the story owner on 2026-09-29 and approved by KhoaDD when #14 was merged on 2026-09-30. Ownership of the shared auth foundation and the build order follow #19 (§8 of the same file, and `tasks.md`).
 
 ---
 
