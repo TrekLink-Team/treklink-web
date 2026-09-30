@@ -1,11 +1,12 @@
 name: CI
 
-# TrekLink CI — lint, typecheck, unit test, and build the three workspace
-# packages (backend, gateway, frontend) on every PR and push to dev/main.
+# TrekLink CI: lint, typecheck, unit test, and build the three workspace
+# packages (backend, gateway, frontend), plus the backend HTTP e2e suite, on
+# every PR and push to dev/main.
 # See treklink-docs/_docs/01-conventions/07-github-workflow-git-conventions.md for the
 # branch model this gates, and treklink-docs/_docs/00-project-context/01-project-charter.md §5
 # for the NFR this satisfies ("Deployability: Docker Compose + GitHub Actions
-# CI/CD"). Physical-hardware/LoRa tests (TP6, RQ1-RQ3) are NOT run here —
+# CI/CD"). Physical-hardware/LoRa tests (TP6, RQ1-RQ3) are NOT run here:
 # those are manual/lab experiments, tracked separately in specs/*.
 
 on:
@@ -54,6 +55,11 @@ jobs:
       - run: npm --prefix backend run lint
       - run: npm --prefix backend run typecheck
       - run: npm --prefix backend run test -- --ci --passWithNoTests
+      # HTTP pipeline e2e (D-002 envelope, D-026 result.errorCode). PrismaService is stubbed,
+      # so it needs no database; the postgres service above is for migrate deploy (#18).
+      # No --passWithNoTests: an empty e2e suite fails the job.
+      - name: Backend e2e (database stubbed)
+        run: npm --prefix backend run test:e2e -- --ci
       - run: npm --prefix backend run build
 
   gateway:
