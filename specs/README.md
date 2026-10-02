@@ -14,6 +14,30 @@ specs/{module_name}/
 └── api-design/         # one file per endpoint (template 04), README index, 00-api-testing-guide.md
 ```
 
+## 0. Rescope after Review 1 (2026-10-03): read first
+
+TrekLink is now an enterprise device-rental platform built on asset management (`treklink-docs`
+D-033 to D-035, Report 3 SRS regenerated in `capstone`). Corporate organizations rent devices by
+monthly or day plan; there are no bookings, trek packages, trips, Customers or Guides. The module
+specs below were written for the booking scope and are rewritten module by module against the SRS,
+each through its own clarification and approval gate.
+
+| Module | Status against the rescope |
+|---|---|
+| `platform/` | Current. Audit rows gain an optional `organizationId` |
+| `auth/` | Revise: organization scoping from the token, Org Manager and Org Operator roles, API keys; Customer and Guide removed |
+| `organizations/` | **New**: registration, verification, approval, members, on-duty roster, API keys, suspension |
+| `devices/` | Revise: 8-state lifecycle (D-035), intake check, reset on return, stock-take |
+| `trips/` | **Retired**: no trips or trek packages; do not build |
+| `rentals/` | Rewrite: rental contracts, monthly terms and day plans, handover at the counter, notice, overdue and default; booking endpoints 01 to 08 retired |
+| `gateway-sync/` | Current. Field Station is Stage C (D-033); incident routing goes through `incidents` |
+| `incidents/` | Rewrite: tiered-alert lifecycle (D-034), outbox delivery, authority reports |
+| `monitoring/` | Revise: scoping by organization, organization API stream with cursor replay |
+| `billing/` | Rewrite: term and day-plan pricing, late, damage and loss charges, SePay sandbox payments |
+| `frontend/` | Revise: TrekLink views and organization views; customer portal retired |
+
+Until a module's rewritten suite is approved, do not implement against its booking-scope spec.
+
 ## 2. Module Index
 
 Status as of 2026-09-25: every suite drafted on branch `feat/module-specs-and-backend-foundation`, awaiting approval. Order is Main Flow order (D-016).
