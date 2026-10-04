@@ -1,14 +1,14 @@
 # API Design Index: platform
 
-> Endpoint designs for `platform`, following `treklink-docs/_docs/02-templates/04-api-endpoint-template.md` with Mermaid diagrams (D-017).
-> Contract: `{ "result": ..., "isSuccess": bool, "statusCode": int, "message": string }` (D-002); on failure `result` is `{ "errorCode": "..." }` (proposed, see `specs/platform/requirements.md` REQ-UBI-04).
+> Generated from `scripts/specs/endpoints/platform.py`. Contract: D-002 envelope; on failure `result = { errorCode }` (`specs/platform/requirements.md` REQ-UBI-04). Organization members and API keys only ever see their own organization's records (FR-AUTH-11).
 
-| # | Method | Route | Permission | Spec File | Status |
-|---|---|---|---|---|---|
-| 01 | GET | `/api/health` | Public | [01-get-health.md](01-get-health.md) | Draft |
-| 02 | GET | `/api/settings/parameters` | Admin, Operator (read only) | [02-get-parameters-list.md](02-get-parameters-list.md) | Draft |
-| 03 | PATCH | `/api/settings/parameters/:key` | Admin | [03-patch-parameter-update.md](03-patch-parameter-update.md) | Draft |
-| 04 | GET | `/api/settings/parameters/:key/history` | Admin | [04-get-parameter-history.md](04-get-parameter-history.md) | Draft |
-| 05 | GET | `/api/audit-logs` | Admin | [05-get-audit-logs-list.md](05-get-audit-logs-list.md) | Draft |
+| # | Method | Route | Permission | Spec File |
+| --- | --- | --- | --- | --- |
+| 01 | GET | `/api/health` | Public | [01-get-health.md](01-get-health.md) |
+| 02 | GET | `/api/parameters` | TrekLink Admin | [02-get-parameters.md](02-get-parameters.md) |
+| 03 | PATCH | `/api/parameters/:key` | TrekLink Admin | [03-patch-parameters-key.md](03-patch-parameters-key.md) |
+| 04 | GET | `/api/parameters/:key/history` | TrekLink Admin | [04-get-parameters-key-history.md](04-get-parameters-key-history.md) |
+| 05 | GET | `/api/audit-logs` | TrekLink Admin | [05-get-audit-logs.md](05-get-audit-logs.md) |
 
-Manual testing: [00-api-testing-guide.md](00-api-testing-guide.md). Shared setup: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).
+
+Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).
