@@ -1,252 +1,142 @@
 # Technical Design: billing
 
-> Fulfills `requirements.md` in this folder. ERD slice: `specs/platform/design.md` Figure 9.
+> Fulfills `requirements.md` in this folder. Schema: the `// @module billing` block of
+> `backend/prisma/schema.prisma` is authoritative.
 
 ---
 
-## 1. Domain Model & Data Schema
+## 1. Data model
 
-```prisma
-enum PricingScope     { GLOBAL PACKAGE VARIANT PACKAGE_VARIANT }
-enum PriceComponent   { TRIP_FEE RENTAL_FEE DEPOSIT }
-enum PriceUnit        { PER_TRAVELLER PER_DEVICE_PER_TRIP PER_DEVICE_PER_DAY }
-enum InvoiceKind      { BOOKING_ESCROW SETTLEMENT ADJUSTMENT }
-enum InvoiceStatus    { ISSUED PARTIALLY_PAID PAID SETTLED VOID }
-enum InvoiceLineType  { TRIP_FEE RENTAL_FEE DEPOSIT LATE_FEE DAMAGE_FEE LOSS_FEE DEPOSIT_APPLIED CANCELLATION_FEE WAIVER REFUND_DUE }
-enum PaymentDirection { CHARGE REFUND }
-enum PaymentStatus    { SUCCEEDED FAILED }
-enum WaiverStatus     { APPLIED PENDING APPROVED REJECTED }
-enum DamageCondition  { MINOR_DAMAGE MAJOR_DAMAGE MISSING_ACCESSORIES LOST }
-
-model PricingRule {
-  id                String         @id @default(uuid())
-  name              String
-  component         PriceComponent
-  scope             PricingScope
-  packageId         String?
-  hardwareVariantId String?
-  channel           String?                       // CUSTOMER, GUIDE, STAFF; null = any [Q63]
-  unit              PriceUnit
-  amount            Decimal        @db.Decimal(14, 2)
-  minQuantity       Int            @default(1)    // quantity tiers, pack discounts [Q61, Q63]
-  priority          Int            @default(0)
-  validFrom         DateTime
-  validTo           DateTime?
-  isActive          Boolean        @default(true)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  @@index([component, isActive])
-  @@map("pricing_rules")
-}
-
-model DamageFeeRule {
-  id                String          @id @default(uuid())
-  condition         DamageCondition
-  hardwareVariantId String?                        // null = any variant
-  amount            Decimal         @db.Decimal(14, 2)
-  isActive          Boolean         @default(true)
-  @@unique([condition, hardwareVariantId])
-  @@map("damage_fee_rules")
-}
-
-model Invoice {
-  id           String        @id @default(uuid())
-  number       String        @unique              // INV-2026-000140, from a sequence
-  kind         InvoiceKind
-  bookingId    String?
-  rentalId     String?
-  customerId   String?
-  billToName   String
-  status       InvoiceStatus @default(ISSUED)
-  currency     String
-  total        Decimal       @db.Decimal(14, 2)   // sum of lines; may be negative before refund
-  balanceDue   Decimal       @db.Decimal(14, 2)
-  refundDue    Decimal       @db.Decimal(14, 2)
-  dueAt        DateTime?
-  adjustsInvoiceId String?                        // ADJUSTMENT invoices point at their original
-  factsSnapshot Json?                              // settlement facts as received, for audit
-  issuedAt     DateTime      @default(now())
-  lines        InvoiceLine[]
-  payments     Payment[]
-  @@index([bookingId])
-  @@index([rentalId])
-  @@index([customerId, issuedAt])
-  @@map("invoices")
-}
-
-model InvoiceLine {
-  id          String          @id @default(uuid())
-  invoiceId   String
-  seq         Int
-  type        InvoiceLineType
-  description String
-  quantity    Decimal         @db.Decimal(10, 2)
-  unitAmount  Decimal         @db.Decimal(14, 2)
-  amount      Decimal         @db.Decimal(14, 2)
-  sourceType  String?                             // PRICING_RULE, DAMAGE_FEE_RULE, INSPECTION, LATENESS, PARAMETER
-  sourceId    String?
-  deviceId    String?
-  @@unique([invoiceId, seq])
-  @@map("invoice_lines")
-}
-
-model Payment {
-  id             String           @id @default(uuid())
-  invoiceId      String
-  direction      PaymentDirection
-  amount         Decimal          @db.Decimal(14, 2)
-  status         PaymentStatus
-  failureReason  String?
-  method         String                           // SANDBOX_CARD, SANDBOX_TRANSFER, CASH_RECORDED
-  sandbox        Boolean          @default(true)  // REQ-UBI-04
-  idempotencyKey String           @unique
-  requestHash    String                           // detects key reuse with a different body
-  providerRef    String?
-  actorId        String?
-  createdAt      DateTime         @default(now())
-  @@index([invoiceId, createdAt])
-  @@map("payments")
-}
-
-model FeeWaiver {
-  id             String       @id @default(uuid())
-  invoiceLineId  String
-  amount         Decimal      @db.Decimal(14, 2)
-  reason         String
-  status         WaiverStatus
-  requestedById  String
-  inspectorId    String?                          // copied from the inspection, for BR-21
-  decidedById    String?
-  decisionNote   String?
-  adjustmentInvoiceId String?
-  createdAt      DateTime     @default(now())
-  decidedAt      DateTime?
-  @@map("fee_waivers")
-}
+```mermaid
+erDiagram
+    HARDWARE_VARIANT ||--o{ PRICE_SCHEDULE : "priced by"
+    HARDWARE_VARIANT |o--o{ DAMAGE_RATE : "damage rates"
+    RENTAL_CONTRACT ||--o{ INVOICE : "billed by"
+    CONTRACT_TERM |o--o| INVOICE : "term invoice"
+    INVOICE ||--|{ INVOICE_LINE : "lines"
+    INVOICE ||--o{ PAYMENT : "paid by"
+    INSPECTION ||--o{ DAMAGE_CHARGE : "charges"
+    INVOICE {
+        uuid id PK
+        string number UK
+        enum kind
+        enum status
+        bigint totalVnd
+        bigint paidVnd
+    }
+    PAYMENT {
+        uuid id PK
+        string reference UK
+        string gatewayTxnId UK
+        enum method
+        enum status
+    }
 ```
 
-Invoices, lines and payments are append-only after issue (REQ-UBI-05); status and balance columns change only through the payment and waiver services, and every change is audited.
+***Figure 1***: billing slice.
+
+Invoice kinds: `TERM` (monthly, two dated lines), `DAY_PLAN` (one line), `CLOSING` (late, damage, loss,
+adjustments; created on the first such charge of a contract and kept open for more lines until the
+contract closes). A closing invoice is the one exception to "issued once": lines are appended while the
+contract is not `CLOSED`, never changed (REQ-UBI-02).
 
 ---
 
-## 2. Service / Business Logic Design
+## 2. Calculations
 
-### 2.1 Rule selection (REQ-EVT-01)
-
-For a component, candidates are active rules valid at the trip start with `minQuantity ≤ quantity` and matching channel (or null). Rank:
-
-1. specificity: `PACKAGE_VARIANT` > `PACKAGE` > `VARIANT` > `GLOBAL`
-2. channel match exact > null
-3. highest `minQuantity` (the deepest tier reached, which is how pack discounts work)
-4. highest `priority`
-
-A tie after all four is prevented at write time (`PRICING_RULE_CONFLICT`). No candidate raises `PRICE_NOT_CONFIGURED`.
-
-### 2.2 Settlement computation (REQ-EVT-05 to REQ-EVT-08)
-
-```
-lines  = []
-if !prepaid.rentalFee:  lines += RENTAL_FEE per device (rule selection)
-for item in facts.items:
-  if item.lost:                  lines += LOSS_FEE(rule LOST, variant)
-  else:
-    late = item.returnedAt - (facts.dueAt + lateGraceHours)
-    if late > 0:                 lines += LATE_FEE(ceil(late / 24h) * lateFeePerDevicePerDay)
-    if item.condition != GOOD:   lines += DAMAGE_FEE(rule condition, variant)
-fees     = sum(lines)
-deposit  = sum(DEPOSIT lines of the paid escrow invoice)   -- 0 when no escrow
-lines   += DEPOSIT_APPLIED(-min(deposit, fees))
-balance  = max(fees - deposit, 0)
-refund   = max(deposit - fees, 0)                           -- never negative (E05-5)
-```
-
-Each line carries its source; the description states the reason in words ("Late return, 26 h after due, 2 h grace, 1 day").
-
-### 2.3 Invoice state
-
-| From | To | Trigger |
+| Charge | Formula | Due |
 |---|---|---|
-| ISSUED | PARTIALLY_PAID | successful charge below the balance |
-| ISSUED, PARTIALLY_PAID | PAID | balance reaches zero and no refund due |
-| ISSUED, PAID | SETTLED | refund due paid out, balance zero |
-| ISSUED | VOID | escrow cancelled before payment, or hold expired |
+| Holding fee | ⌈ratio × P × q⌉ | term start |
+| Term balance | P × q − holding fee | term end |
+| Day plan | ⌈P ÷ 30 × premium × days × q⌉ | start date (paid by the handover) |
+| Late | `lateFeePerDevicePerDayVnd` × ⌈(checkedInAt − returnDueAt) ÷ 1 day⌉, only if past the grace | at check-in |
+| Damage | Σ rate(code) for the device's variant, generic rate as fallback | when decided, or at once below the threshold |
+| Loss | `devices.valueAt(device, lostAt)` | at loss |
 
-`isSettled(invoiceId)` = status `PAID` or `SETTLED`, `balanceDue = 0`, `refundDue = 0`.
-
-### 2.4 Sandbox provider
-
-`PaymentPort` with a `SandboxPaymentAdapter`: synchronous, returns success or a decline reason, fails at `billing.sandboxFailureRate`, and honours an explicit `simulate: "DECLINE"` field so the E05-4 demo is deterministic. A real provider would be a second adapter; none is in scope (charter §8).
-
-### 2.5 Exported surface
-
-`quoteBooking`, `openEscrow`, `refundEscrow`, `cancellationSettlement`, `settleRental`, `isSettled`, `depositsFor`. Emits `payment.succeeded` for escrow invoices.
-
-### 2.6 Error catalogue
-
-| Code | HTTP | Raised when |
-|---|---|---|
-| `PRICE_NOT_CONFIGURED` | 409 | no rule for a component |
-| `PRICING_RULE_CONFLICT` | 409 | equal-rank overlapping rule |
-| `AMOUNT_EXCEEDS_DUE` | 400 | overpayment or over-refund |
-| `IDEMPOTENCY_KEY_REUSED` | 409 | same key, different body |
-| `PAYMENT_DECLINED` | 402 | sandbox decline; payment recorded `FAILED` |
-| `INVOICE_NOT_PAYABLE` | 409 | `VOID`, `PAID` or `SETTLED` |
-| `SEPARATION_OF_DUTY` | 409 | waiver approver is requester or inspector |
-| `WAIVER_EXCEEDS_LINE` | 400 | waiver above the line amount |
-| `INSPECTION_REQUIRED` | 409 | settlement facts incomplete |
-
-`402 Payment Required` is used for a decline because the request was valid and the payment did not happen; the envelope still carries `isSuccess: false` and `errorCode`.
+`P` is the contract's `monthlyUnitPriceVnd` snapshot; `ratio` and `premium` are the snapshot too.
 
 ---
 
-## 3. Sequence Flow: payment fails part-way (E05-4)
-
-See **Figure 1**.
+## 3. SePay sandbox flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor O as Operator
-    participant P as PaymentsService
-    participant S as SandboxAdapter
+    actor M as Org Manager
+    participant API as PaymentsController
+    participant S as SepayService
     participant DB as Postgres
-    O->>P: POST /api/payments {invoice, 400000, key K}
-    P->>DB: key K seen?
-    P->>S: charge 400000
-    S-->>P: DECLINED insufficient funds
-    P->>DB: INSERT payment FAILED, invoice unchanged
-    P-->>O: 402 PAYMENT_DECLINED, balance 400000
-    O->>P: POST /api/payments {invoice, 400000, key K2}
-    P->>S: charge 400000
-    S-->>P: OK ref sbx-771
-    P->>DB: INSERT payment SUCCEEDED, invoice PAID
-    P-->>O: 200 balance 0
+    participant SP as SePay sandbox
+    M->>API: POST /api/invoices/{id}/payments/sepay
+    S->>DB: INSERT payment PENDING, reference TLxxxx, expiresAt
+    API-->>M: VietQR image URL with amount and reference
+    M->>SP: scan and pay (sandbox)
+    SP->>API: POST /api/payments/sepay/webhook, Authorization Apikey
+    S->>S: constant-time key check, extract reference from content
+    S->>DB: BEGIN, SELECT payment WHERE reference FOR UPDATE
+    alt already confirmed or txn id known
+        S-->>SP: 200 {"success": true}, duplicate logged
+    end
+    S->>DB: CONFIRMED, apply to lines, invoice status, COMMIT
+    S-)S: emit payment.confirmed
+    S-->>SP: 200 {"success": true}
+    M->>API: GET /api/payments/{id} (polling)
+    API-->>M: CONFIRMED, MSG20
 ```
 
-***Figure 1***: A failed charge writes a `FAILED` payment and nothing else; the balance stays visible and the rental stays open until a charge succeeds (E05-4, BR-19).
+***Figure 2***: SePay flow. Facts verified on 2026-10-04 at https://docs.sepay.vn/tich-hop-webhooks.html:
+the `Authorization: Apikey <key>` header, the payload fields, the required `{"success": true}` body and
+the retry policy (7 retries over 5 hours). The VietQR image URL format (`qr.sepay.vn/img?acc=&bank=&amount=&des=`)
+is configuration (`SEPAY_QR_BASE_URL`) and is checked against SePay's sandbox in task 3.2 (unverified).
+
+The reference is `TL` plus 8 Crockford base32 characters, so it survives banks that strip punctuation
+from transfer content. The webhook's `transferAmount` must equal the payment amount; a different amount
+is recorded as a separate `CONFIRMED` payment of the received amount against the same invoice and logged
+for Staff, rather than rejected, because the money has moved.
 
 ---
 
-## 4. API Endpoints in this module
+## 4. Services and ports
 
-| # | Method | Route | Permission | Spec |
-|---|---|---|---|---|
-| 01 | GET | `/api/pricing-rules` | Admin, Operator | `api-design/01-get-pricing-rules-list.md` |
-| 02 | POST | `/api/pricing-rules` | Admin | `api-design/02-post-pricing-rules-create.md` |
-| 03 | PATCH | `/api/pricing-rules/:id` | Admin | `api-design/03-patch-pricing-rules-update.md` |
-| 04 | GET | `/api/damage-fee-rules` | Admin, Operator | `api-design/04-get-damage-fee-rules.md` |
-| 05 | PUT | `/api/damage-fee-rules` | Admin | `api-design/05-put-damage-fee-rules.md` |
-| 06 | POST | `/api/quotes` | Public (published trips); all roles | `api-design/06-post-quotes.md` |
-| 07 | GET | `/api/invoices` | Operator, Admin; Customer (own) | `api-design/07-get-invoices-list.md` |
-| 08 | GET | `/api/invoices/:id` | Operator, Admin; Customer (own) | `api-design/08-get-invoices-detail.md` |
-| 09 | POST | `/api/payments` | Customer (own invoice, charge); Operator (charge, refund) | `api-design/09-post-payments.md` |
-| 10 | POST | `/api/fee-waivers` | Operator | `api-design/10-post-fee-waivers.md` |
-| 11 | POST | `/api/fee-waivers/:id/decision` | Operator (not requester, not inspector) | `api-design/11-post-fee-waivers-decision.md` |
+| Export | Used by |
+|---|---|
+| `PricingService.snapshot(variantId)` | rentals |
+| `InvoicesService.issueTermInvoice(contract, term, tx)`, `issueDayPlanInvoice(contract, tx)` | rentals |
+| `ChargesService.chargeLate(contract, device, checkedInAt, tx)`, `chargeDamage(contract, inspection, tx)`, `chargeLoss(contract, device, lostAt, tx)` | rentals |
+| `ChargesService.settleCancellation(contract, tx)` | rentals |
+| `BalanceService.firstPaymentConfirmed(contractId)`, `outstanding(contractId)`, `balanceSummary(contractId)` | rentals |
+| `BalanceService.revenue(range)` | monitoring |
+| provider of `ORGANIZATION_EXIT_CHECKS.canReactivate` | organizations |
+
+Events emitted: `payment.confirmed`, `audit.record`.
 
 ---
 
-## 5. Frontend impact
+## 5. Scheduler jobs
 
-- Admin: `pages/PricingPage` (rules table with scope and tier, damage schedule editor).
-- Customer: quote in the booking wizard; `pages/MyInvoicesPage`; sandbox pay dialog with an explicit "Sandbox, no real money" label.
-- Operator: settlement panel on the rental detail page, waiver request and approval, refund payout.
+| Job | Rule |
+|---|---|
+| `billing.expirePayments` | `PENDING` past `expiresAt` to `EXPIRED` |
+
+---
+
+## 6. Error catalogue
+
+| Code | HTTP |
+|---|---|
+| `BELOW_MOQ` | 400 (quote) |
+| `EFFECTIVE_IN_PAST` | 400 |
+| `NOTHING_DUE` | 409 |
+| `PAYMENT_PENDING` | 409 |
+| `WEBHOOK_UNAUTHENTICATED` | 401 |
+| `DUPLICATE_REFERENCE` | 409 |
+| `OVERPAYMENT` | 400 |
+| `SEPARATION_OF_DUTY` | 403 |
+
+---
+
+## 7. Testing strategy
+
+Formula tests from the acceptance criteria; rounding at boundaries; webhook replay ×10; amount mismatch;
+expiry; separation of duty; adjustment lines never mutating issued lines; concurrent counter payments on
+one invoice.

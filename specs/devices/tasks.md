@@ -1,58 +1,40 @@
 # Implementation Tasks: devices
 
-> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: stories US-011 to US-022 (keys `TK-24` to `TK-35`)
->
-> Fulfills `design.md`. **Q47 says the FSM is not final**: Phase 2.1 must not start until C-003 confirms the transition table.
+> Rewritten 2026-10-04 (D-036). Owner: LongLP (D-035). Jira keys assigned when the backlog is regenerated.
+> Fulfills `design.md`. Starts after auth Phase 4 (policies).
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 Prisma models `HardwareVariant`, `Device` (with `nodeNum BigInt`), `DeviceStatusHistory`, `MaintenanceRecord`, `DeviceProvisioning`; enums (in the platform initial migration)
-  - _Requirements: REQ-UBI-01, REQ-UBI-04, REQ-UBI-06, design §1_
-- [ ] 1.2 Partial unique index for one open maintenance record; append-only triggers on history and provisioning
-  - _Requirements: REQ-ERR-04, REQ-UBI-03_
-- [ ] 1.3 Seed the four variants with `mqttCapable` (`v1` false) and `hasPsram` (`v3` false) per `04-firmware-ground-truth.md` §5 and the S7 risk row; the catalogue code is `treklink-v1` to `treklink-v4`, while the PlatformIO build env of v1 is `treklink` (O-001 fact 4), so the seed records the build env in `notes` and never derives one from the other
-- [ ] 1.4 DTOs; `nodeNum` transform accepting decimal or `!hex` into `bigint`; `BigInt` JSON serialisation as number (safe: uint32 fits in a JS number)
-  - _Requirements: REQ-UBI-04, AC-02, AC-03_
-- [ ] 1.5 Error codes of design §2.5; parameter keys of requirements §4
+- [ ] 1.1 `DevicesModule`; repositories for its nine models
+- [ ] 1.2 `DeviceLifecycle` transition table (design §2) with manual and system rows, compare-and-set, transition row
+  - _Requirements: REQ-UBI-01, AC-01_
+- [ ] 1.3 `nodeId` and `nodeNum` conversion; remaining-value lookup `valueAt()`
+  - _Requirements: REQ-EVT-01, FR-BILL-05_
 
 ## Phase 2: Core Service Logic
 
-- [ ] 2.1 `device-fsm.ts` transition table with manual flag and actor set, exactly design §2.1 `[Q47, Q48]`
-  - _Requirements: REQ-UBI-02, BR-05_
-- [ ] 2.2 `DevicesService.transition()` with `FOR UPDATE`, guards, history, post-commit events
-  - _Requirements: REQ-UBI-03, REQ-ERR-02, REQ-ERR-03, REQ-EVT-09_
-- [ ] 2.3 Registration, update, variant CRUD
-  - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-ERR-01, REQ-ERR-05_
-- [ ] 2.4 Maintenance open, progress, complete, unrepairable, with transitions
-  - _Requirements: REQ-EVT-08, REQ-EVT-10_
-- [ ] 2.5 Provisioning record and `assertCheckoutEligible()` with the PSK guard `[Q51]`
-  - _Requirements: REQ-EVT-11, REQ-STA-02, AC-05_
-- [ ] 2.6 Exported helpers for other modules: `findByNodeNum`, `lockForAllocation`, `findAllocatableCandidates` (`SKIP LOCKED`), `updateProjection`, `isVariantAccepted`, `countAvailable`
-  - _Requirements: design §2.2_
-- [ ] 2.7 Unit tests: full transition matrix (every allowed and every disallowed pair), advisory computation, nodeNum parsing edge values `0`, `4294967295`, `4294967296`
-  - _Requirements: AC-01, AC-03, AC-06_
-- [ ] 2.8 Concurrency test: 20 parallel transitions on one device against Docker Postgres
-  - _Requirements: AC-04_
+- [ ] 2.1 Variants CRUD with schedule validation and the in-use guards
+  - _Requirements: REQ-STA-02_
+- [ ] 2.2 Registration and intake checks
+  - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-ERR-01, REQ-ERR-04, AC-03_
+- [ ] 2.3 Exported methods for `rentals`: reserve (`SKIP LOCKED`), release, swap failure, provisioning, handover readiness, rented, returned, lost, inspection
+  - _Requirements: REQ-EVT-03 to REQ-EVT-05, REQ-EVT-07, REQ-ERR-02, AC-02_
+- [ ] 2.4 Reset, maintenance open and close, retire, recover
+  - _Requirements: REQ-EVT-06, REQ-EVT-09 to REQ-EVT-11, REQ-ERR-03_
+- [ ] 2.5 `projectReading()` for `gateway-sync`
+  - _Requirements: REQ-EVT-08_
+- [ ] 2.6 Stock-take
+  - _Requirements: REQ-EVT-12, AC-04_
 
-## Phase 3: Query / Retrieval
+## Phase 3: API Presentation Layer
 
-- [ ] 3.1 Fleet list with filters, computed connectivity and advisory, Guide scope
-  - _Requirements: US-015, US-021_
-- [ ] 3.2 Detail and status history
-  - _Requirements: US-016, US-022, AC-08_
-- [ ] 3.3 Unit tests for filters, sort whitelist, page bounds
+- [ ] 3.1 Controllers for api-design 01 to 17 (`/api/devices/availability` declared before `/:id`)
+- [ ] 3.2 E2E for every Validation row; the reservation race against Postgres
 
-## Phase 4: API Presentation Layer
+## Phase 4: Frontend Integration
 
-- [ ] 4.1 `VariantsController`, `DevicesController` per api-design 01 to 12 (13 is served by `rentals`)
-- [ ] 4.2 Swagger annotations
-- [ ] 4.3 E2E tests: every Validation row of 01 to 12; AC-01 to AC-08
+- [ ] 4.1 Staff fleet pages: variants, register, intake, maintenance, reset, stock-take (tracked in `specs/frontend/tasks.md`)
 
-## Phase 5: Frontend Integration
+## Phase 5: Verification & DoD
 
-- [ ] 5.1 Fleet list, device detail, register form, transition menu, maintenance form (tracked in `specs/frontend/tasks.md`)
-
-## Phase 6: End-to-End Verification & DoD Audit
-
-- [ ] 6.1 Tests green; 6.2 lint, boundary check, typecheck clean; 6.3 api-design matches behaviour; 6.4 session file
-- [ ] 6.5 Configuration Matrix rows for requirements §4 demonstrated live
+- [ ] 5.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour
