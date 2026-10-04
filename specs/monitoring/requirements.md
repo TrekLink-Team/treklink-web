@@ -1,39 +1,32 @@
-# Requirements Specification: monitoring
+# Requirements Specification: monitoring (live map, organization API, history and reports)
 
-**User Story**: As **Staff and Admin**, I want one live operational picture of every active trip, device and incident, and as a **Guide**, I want the same picture for my own trip only, so that a silent device, an offline gateway or a new SOS is visible within seconds and never mistaken for a quiet trail.
-**Story IDs**: US-038, US-053, US-055, US-056, US-058, US-065, US-066 (E5) | **Priority**: High | **Main Flow**: **MF-04** (specified for Review 2, built after MF-03) | **Lanes**: TanNB (Socket.io gateway, read API, `TK-66`, `TK-51`), LongNN (map and monitoring UI, `TK-68`, `TK-69`, `TK-78`), per D-023
+**User Story**: As an **Org Operator**, I want a live map of my organization's rented devices and incidents that keeps working through reconnects, and as an **organization's own system**, I want the same stream through an API key; as **TrekLink Staff and Admin**, I want the whole fleet, device histories, reports and the system's health.
+**Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-04
 
-> **Authority**: D-012 (Goong over MapLibre, provider in configuration), D-015, D-016, D-023. MF-04 states the rule this module exists for: **role scoping is enforced server-side at the WebSocket emit**; filtering in the browser is not access control (E04-5). The map itself is a frontend concern (`specs/frontend/`); this module supplies the data feed.
+> **Authority**: Report 3 SRS (2026-10-04) UC-38 to UC-42, UC-53 (history), UC-59, FR-MON-01 to FR-MON-10, FR-AUTH-11, FR-DEV-11, FR-BILL-10, FR-CFG-03, FR-EVT-13, FR-INC-13, BR-19, BR-21, BR-22, BR-30, NFR-LEG-01, NFR-LEG-04, E04-1 to E04-7, MSG32, MSG33; D-031 (Leaflet, OpenStreetMap, sovereignty overlay). Rewritten 2026-10-04 (D-036). This module is the read model: the only one allowed to import every other (`platform` design §2.1).
 
 ---
 
 ## 1. Domain Context & Scope
 
-- **In-Scope**:
-  - A Socket.io namespace that authenticates with the access token and joins each socket to rooms computed server-side from role and Guide trip scope
-  - Fan-out of domain events from `gateway-sync`, `devices`, `incidents` and `trips` to the right rooms
-  - Device connectivity states `LIVE`, `STALE`, `BUFFERING`, `NEVER_SEEN` and gateway states `LIVE`, `STALE`, emitted on transition (E04-1, E04-2)
-  - A snapshot endpoint for first load and for resynchronisation after a reconnect (E04-3, E03-7)
-  - A position-trail read scoped like the live feed
-  - Ownership of the thresholds that decide what is plotted: staleness, plausibility speed, battery warning levels (MF-04 configurable parameters)
-- **Out-of-Scope**:
-  - Rendering the map, markers and tiles: `specs/frontend/` (D-012)
-  - Persisting positions or telemetry: `gateway-sync` owns `GatewayEvent`; `devices` owns the projection
-  - Incident state: `incidents`
-  - Horizontal scaling of Socket.io across several backend instances (single instance at this scale; a Redis adapter is the documented upgrade path)
-- **Depends on**: `platform`, `auth`, `devices`, `trips`, `incidents`, `gateway-sync`.
+- **In-Scope**: the organization-scoped stream (`StreamEvent`) and its WebSocket and REST replay; the map
+  snapshot and map configuration; the staleness sweep for devices and Field Stations; history clipped to
+  rental periods; the organization API (devices, stream); device history (FR-DEV-11); reports
+  (FR-BILL-10); system health (FR-MON-10).
+- **Out-of-Scope**: decoding and storing events (`gateway-sync`); incident state (`incidents`); tile
+  serving (OpenStreetMap, from the browser).
+- **Depends on**: every module. Listens to the domain events of `platform` design §2.3.
 
 ### Traceability
 
-| Group | MF | UC | FR | BR | Exception | Story |
-|---|---|---|---|---|---|---|
-| Live feed | MF-04 | UC-14 | FR-MON-01 (new) | | | US-053, US-056 |
-| Server-side role scope | MF-04 | UC-14 | FR-MON-02 (new), FR-AUTH-03 | BR-13 | E04-5 | US-038 |
-| Stale devices | MF-04 | UC-14 | FR-MON-03 | BR-15 | E04-1 | US-056 |
-| Gateway connectivity | MF-04 | UC-14 | FR-MON-04 (new) | BR-15 | E04-2 | US-065 |
-| Position plausibility | MF-04 | | FR-MON-05 | BR-16 | E04-4 | none |
-| Reconnect and resync | MF-04, MF-03 | UC-14 | FR-MON-06 (new) | | E04-3, E03-7 | US-058 |
-| Incident alerts | MF-03, MF-04 | UC-23 | FR-INC-08 | | | US-058, US-066 |
+| This spec | SRS |
+|---|---|
+| Live map | UC-38, FR-MON-01 to FR-MON-05, FR-MON-09, FR-CFG-03, BR-30 |
+| Organization API | UC-39, FR-MON-05, FR-MON-06, BR-20 |
+| History | UC-40, FR-MON-07 |
+| Staleness | UC-41, FR-MON-03, FR-INC-13, BR-21 |
+| Health, reports, device history | UC-42, UC-59, UC-53, FR-MON-10, FR-EVT-13, FR-BILL-10, FR-DEV-11 |
+| Check-in cut-off | UC-43, FR-MON-08, E04-7 |
 
 ---
 
@@ -41,33 +34,30 @@
 
 ### Ubiquitous
 
-- **REQ-UBI-01**: The system SHALL decide every socket's room membership on the server from the verified access token, the user's roles and, for Guides, the trip scope from `trips`; no client-supplied room name SHALL be honoured. [BR-13, E04-5, NFR-SEC-03]
-- **REQ-UBI-02**: The system SHALL emit an event about a device, incident or trip only to rooms entitled to it: the trip's room, the `operators` room and the `admins` room; an event for a device on no trip SHALL go only to `operators` and `admins`.
-- **REQ-UBI-03**: The system SHALL carry a monotonically increasing `seq` per emitted message and the `eventTime` of the underlying event, so clients can detect gaps and order updates.
-- **REQ-UBI-04**: The system SHALL read every threshold of §4 from the parameter store; none SHALL be a literal. [D-015]
+- **REQ-UBI-01**: The system SHALL write every live update to the append-only stream with the organization renting the device at that moment, and SHALL deliver it only to that organization's members and keys and to TrekLink staff, enforced on the server. [FR-MON-02, FR-AUTH-11, BR-19]
+- **REQ-UBI-02**: The system SHALL serve the map provider, tile URL, attribution, viewport and the sovereignty overlay from configuration, and the client SHALL render the overlay over Hoàng Sa and Trường Sa on every map. [FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01]
+- **REQ-UBI-03**: The system SHALL never plot a position marked not plotted. [FR-MON-04, BR-22]
 
 ### Event-Driven
 
-- **REQ-EVT-01**: WHEN a socket connects with a valid access token, the system SHALL join it to its rooms and send `monitoring:ready` listing them. WHEN the token is missing or invalid, the system SHALL refuse the connection with `UNAUTHENTICATED`.
-- **REQ-EVT-02**: WHEN `device.position.updated` or `device.telemetry.updated` is received, the system SHALL emit `device:position` or `device:telemetry` within 2 s of the source commit, throttled to at most one message per device per `monitoring.positionEmitMinIntervalMs`, always delivering the latest value. [US-058 NFR ≤2 s]
-- **REQ-EVT-03**: WHEN any `incident.*` domain event is received, the system SHALL emit `incident:new`, `incident:updated` or `incident:escalated` without throttling. [US-058]
-- **REQ-EVT-04**: WHEN a device's connectivity changes between `LIVE`, `STALE`, `BUFFERING` and `NEVER_SEEN`, the system SHALL emit `device:connectivity` once per transition, with `lastSeenAt`. [E04-1, BR-15]
-- **REQ-EVT-05**: WHEN a gateway's `lastPacketAt` crosses `monitoring.gatewayStaleSeconds` in either direction, the system SHALL emit `gateway:health`. [E04-2]
-- **REQ-EVT-06**: WHEN `trip.status.changed` or a Guide assignment change affects a connected Guide's scope, the system SHALL add or remove that Guide's sockets from trip rooms at once, and SHALL send `monitoring:scope-changed`.
-- **REQ-EVT-07**: WHEN a client requests the snapshot, the system SHALL return, within the caller's scope, active trips, their devices with last position, battery, battery level, connectivity and last-seen time, open incidents, and gateway states, plus the current `seq`. [E04-3, E03-7]
-- **REQ-EVT-08**: WHEN a socket's access token expires, the system SHALL disconnect it with reason `TOKEN_EXPIRED`, so the client refreshes and reconnects rather than keeping a session past its authority.
+- **REQ-EVT-01**: WHEN `field.position`, `field.telemetry`, `incident.changed`, `device.labelChanged`, `device.handedOver` or `device.checkedIn` is received, the system SHALL append a stream entry and push it to the matching rooms, throttling positions per device to `monitoring.positionEmitMinIntervalMs`. [FR-MON-02]
+- **REQ-EVT-02**: WHEN a client connects or reconnects with a cursor, the system SHALL replay every entry after it for the client's rooms, then `replay.done`, then live entries; WHEN the cursor is older than `monitoring.streamRetentionHours`, it SHALL answer `replay.expired` (REST: 410). [FR-MON-05, E04-3]
+- **REQ-EVT-03**: WHEN the sweep finds a device silent beyond `monitoring.deviceStaleSeconds` or a Field Station beyond `monitoring.fieldStationStaleSeconds`, the system SHALL emit a stale entry with the last-seen time, tell `incidents` for a device with an open incident, and emit the recovery when it is heard again. [FR-MON-03, FR-INC-13, E04-1, E04-2]
+- **REQ-EVT-04**: WHEN a device is checked in, the system SHALL emit `device.released` to the organization and SHALL send that organization nothing more about the device. [FR-MON-08, E04-7]
+- **REQ-EVT-05**: WHEN an API key requests the organization API, the system SHALL authenticate it, apply `monitoring.apiRateLimitPerMinute` per key (429 beyond), and serve only the key's organization. [FR-MON-06, E04-5]
+- **REQ-EVT-06**: WHEN history is requested for a device, the system SHALL clip it to the periods the caller's organization rented it (handover to check-in), or serve it whole to TrekLink staff. [FR-MON-07]
+- **REQ-EVT-07**: WHEN `incidents` emits `incident.alert`, the system SHALL publish it to the recipient's personal room synchronously. [FR-INC-12]
+- **REQ-EVT-08**: WHEN an API key is revoked, the system SHALL close its open sockets. [FR-ORG-06]
 
 ### State-Driven
 
-- **REQ-STA-01**: WHILE a device's `now - lastSeenAt` exceeds `monitoring.deviceStaleSeconds` and it is not buffering, the system SHALL report it `STALE` with its last-seen time; its last position SHALL remain available but marked stale, never presented as current. [E04-1, NFR-USE-05]
-- **REQ-STA-02**: WHILE a device's latest queue-health report shows a non-zero depth, the system SHALL report it `BUFFERING` rather than `STALE`. [`gateway-sync` REQ-EVT-13]
-- **REQ-STA-03**: WHILE a device's battery is below `monitoring.batteryCriticalPct` or `monitoring.batteryWarningPct`, reads and events SHALL carry `batteryLevel` `CRITICAL` or `WARNING`.
+- **REQ-STA-01**: WHILE the WebSocket is reconnecting, the web client SHALL show MSG32 and keep the last known positions. [FR-MON-05]
+- **REQ-STA-02**: WHILE the map provider is unreachable, the web client SHALL show MSG33 and keep the device and incident panels live. [FR-MON-09]
 
 ### Unwanted Behaviour
 
-- **REQ-ERR-01**: IF a Guide requests a snapshot or trail for a trip or device outside their scope, THEN the system SHALL return 404 and the data SHALL never be sent to the client. [E04-5]
-- **REQ-ERR-02**: IF a position is out of WGS-84 range or implies a speed above `monitoring.maxPlausibleSpeedKmh`, THEN it SHALL never be emitted or plotted; `gateway-sync` rejects it before projection (REQ-ERR-09, REQ-ERR-11 there) and this module applies the same check to the snapshot and trail reads. [E04-4, BR-16]
-- **REQ-ERR-03**: IF the emit of one event fails, THEN the system SHALL log it and continue; clients recover through the snapshot when they detect a `seq` gap. [E03-7]
+- **REQ-ERR-01**: IF a member or key asks for another organization's device, history or stream, THEN the system SHALL answer 404 and send nothing. [E04-4]
+- **REQ-ERR-02**: IF a history range exceeds 7 days or is reversed, THEN the system SHALL return 400.
 
 ---
 
@@ -75,42 +65,29 @@
 
 | Property | Target | Source |
 |---|---|---|
-| Commit to socket | ≤2 s | US-058, `gateway-sync` NFR table |
-| Gateway to dashboard | within the ≤5 s sync target plus the above | charter §5, MF-04 postcondition |
-| Fleet scale | ≥50 devices, several trips, one instance | NFR-PERF-03 |
-| Scope | 0 events for trip B delivered to a Guide of trip A, verified by a test that listens on the Guide's socket | E04-5 |
+| Push latency | position on the map ≤2 s after ingestion commits | NFR-PERF-04 |
+| Scale | 10 organizations, 50 rented devices, without architectural change | NFR-PERF-03 |
+| Map attribution | OpenStreetMap contributors shown; tile policy respected (named User-Agent, no bulk prefetch) | NFR-LEG-04, D-031 |
 
 ---
 
-## 4. Configuration Matrix entries
+## 4. Configuration
 
-| Parameter | Default | Location | Admin-editable | Source |
-|---|---|---|---|---|
-| `monitoring.deviceStaleSeconds` | 120 | DB | yes | MF-04 names it; value proposed (4 missed 30 s beacons) |
-| `monitoring.gatewayStaleSeconds` | 120 | DB | yes | proposal |
-| `monitoring.maxPlausibleSpeedKmh` | 30 | DB | yes | proposal (on foot, generous) |
-| `monitoring.batteryWarningPct` | 30 | DB | yes | proposal |
-| `monitoring.batteryCriticalPct` | 15 | DB | yes | proposal |
-| `monitoring.positionEmitMinIntervalMs` | 1000 | DB | yes | proposal |
-| `monitoring.staleSweepSeconds` | 15 | DB | yes | proposal |
-
-Map provider, style URL, key and viewport are frontend configuration (`specs/frontend/`, D-012).
+The `monitoring` section of the [Configuration Matrix](../platform/configuration-matrix.md).
 
 ---
 
 ## 5. Acceptance Criteria
 
-- **AC-01**: A Guide of trip A connected to the socket receives no message about trip B while trip B's devices report; the test listens on the socket and asserts silence.
-- **AC-02**: A device silent for `deviceStaleSeconds` produces one `device:connectivity STALE` event and shows `STALE` in the snapshot with its last-seen time.
-- **AC-03**: A device sending a queue-health report with depth above zero shows `BUFFERING`, not `STALE`.
-- **AC-04**: A gateway silent for `gatewayStaleSeconds` produces `gateway:health STALE`.
-- **AC-05**: A client that disconnects for 60 s, reconnects and calls the snapshot ends with the same state as a client that stayed connected (the `seq` gap is closed by the snapshot).
-- **AC-06**: A position 50 km from the previous one five seconds later is never emitted.
-- **AC-07**: Unassigning a Guide from trip A removes their socket from A's room without a reconnect.
-- **AC-08**: Changing `monitoring.deviceStaleSeconds` from 120 to 60 changes when the next device turns stale (D-015 demo).
+- **AC-01**: An operator of A never receives a stream entry of B's device, including after the device moves from A's contract to B's. (TC-19)
+- **AC-02**: A client disconnected for 2 minutes reconnects with its cursor and receives every missed entry once, in order.
+- **AC-03**: A device silent past the threshold turns stale on the map with its last-seen time. (TC-21)
+- **AC-04**: A position 50 km from the last one 10 s earlier is not plotted. (TC-22)
+- **AC-05**: After check-in, the organization's map and API stop showing the device. (E04-7)
+- **AC-06**: The map shows the Vietnamese labels over Hoàng Sa and Trường Sa. (TC-30)
 
 ---
 
 ## 6. Open Questions
 
-Carried into QUESTION entry C-003: default thresholds, whether Admin sessions receive every position update or only a coarser feed, and whether the Guide view includes other trips' SOS alerts nearby (proposed: no, scope is strict).
+None.

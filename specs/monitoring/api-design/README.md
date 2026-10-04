@@ -1,12 +1,20 @@
 # API Design Index: monitoring
 
-> Endpoint designs for `monitoring`, following `treklink-docs/_docs/02-templates/04-api-endpoint-template.md` with Mermaid diagrams (D-017).
-> Contract: `{ "result": ..., "isSuccess": bool, "statusCode": int, "message": string }` (D-002); on failure `result` is `{ "errorCode": "..." }` (proposed, see `specs/platform/requirements.md` REQ-UBI-04).
+> Generated from `scripts/specs/endpoints/monitoring.py`. Contract: D-002 envelope; on failure `result = { errorCode }` (`specs/platform/requirements.md` REQ-UBI-04). Organization members and API keys only ever see their own organization's records (FR-AUTH-11).
 
-| # | Method | Route | Permission | Spec File | Status |
-|---|---|---|---|---|---|
-| 01 | GET | `/api/monitoring/snapshot` | Operator, Admin; Guide (own trips) | [01-get-monitoring-snapshot.md](01-get-monitoring-snapshot.md) | Draft |
-| 02 | GET | `/api/monitoring/devices/:id/trail` | Operator, Admin; Guide (own trips) | [02-get-monitoring-device-trail.md](02-get-monitoring-device-trail.md) | Draft |
-| 03 | WS | namespace `/monitoring` | Authenticated; rooms computed server-side | [03-ws-monitoring-events.md](03-ws-monitoring-events.md) | Draft |
+| # | Method | Route | Permission | Spec File |
+| --- | --- | --- | --- | --- |
+| 01 | GET | `/api/map/config` | Any signed-in user | [01-get-map-config.md](01-get-map-config.md) |
+| 02 | GET | `/api/map/snapshot` | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin | [02-get-map-snapshot.md](02-get-map-snapshot.md) |
+| 03 | GET | `/api/telemetry/devices/:id/history` | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin | [03-get-telemetry-devices-id-history.md](03-get-telemetry-devices-id-history.md) |
+| 04 | GET | `/api/telemetry/devices` | Organization API key | [04-get-telemetry-devices.md](04-get-telemetry-devices.md) |
+| 05 | GET | `/api/telemetry/stream` | Organization API key | [05-get-telemetry-stream.md](05-get-telemetry-stream.md) |
+| 06 | GET | `/api/system-health` | TrekLink Admin | [06-get-system-health.md](06-get-system-health.md) |
+| 07 | GET | `/api/devices/:id/history` | TrekLink Staff, TrekLink Admin | [07-get-devices-id-history.md](07-get-devices-id-history.md) |
+| 08 | GET | `/api/reports/:kind` | TrekLink Staff, TrekLink Admin | [08-get-reports-kind.md](08-get-reports-kind.md) |
 
-Manual testing: [00-api-testing-guide.md](00-api-testing-guide.md). Shared setup: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).
+Live push is the Socket.io contract in [ws-live-contract.md](ws-live-contract.md). The staleness sweep and stream pruning are scheduler jobs with no endpoint (monitoring design §3).
+
+- Hand-written contract: [ws-live-contract.md](ws-live-contract.md)
+
+Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).
