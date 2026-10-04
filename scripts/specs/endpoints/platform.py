@@ -1,0 +1,87 @@
+from ._common import USER_ID, ORG_ID, NOW, ep, paged, PAGE_QUERY
+
+PARAM = {"key": "incidents.primaryAckTimeoutSeconds", "value": 120, "valueType": "DURATION_SECONDS",
+         "bounds": {"min": 30, "max": 900}, "unit": "seconds", "ownerModule": "incidents",
+         "description": "How long the primary on-duty member has to acknowledge before the backup is alerted",
+         "version": 3, "updatedAt": NOW}
+
+ENDPOINTS = [
+    ep("GET", "/api/health", "Liveness and readiness", "Public",
+       "Reports process liveness, database reachability and MQTT broker reachability. Used by the "
+       "deployment health check and the Admin system-health page (UC-42).",
+       "REQ-EVT-04, D-032, NFR-AVL-01",
+       response={"status": "ok", "uptimeSeconds": 8123, "components": {"database": "up", "mqtt": "up"},
+                 "version": "0.1.0"},
+       fields=[["status", "`ok`, or `degraded` when MQTT is `down`", "string", "`ok`"],
+               ["components.mqtt", "`up`, `down`, or `unknown` while no probe is registered", "string", "`unknown`"]],
+       message="Healthy",
+       errors=[(503, "SERVICE_UNAVAILABLE", "The database does not answer within HEALTH_DB_TIMEOUT_MS",
+                "Database unreachable.")],
+       steps=["SELECT 1 bounded by HEALTH_DB_TIMEOUT_MS", "Read the optional MQTT_HEALTH_PROBE",
+              "Build the report"],
+       controller="HealthController", service="HealthService", call="check()",
+       seq=["Svc->>DB: SELECT 1 (timeout)", "Svc->>Svc: mqttProbe?.isConnected()"]),
+
+    ep("GET", "/api/parameters", "List business parameters", "TrekLink Admin",
+       "Lists every registered business parameter with its current value, type, bounds and owning "
+       "module: the live view of the Configuration Matrix (UC-57).",
+       "UC-57, FR-CFG-01, NFR-CFG-02, REQ-UBI-06",
+       query=[["ownerModule", "Filter by owning module", "string", "no", "`incidents`"]] + PAGE_QUERY,
+       response=paged(PARAM, 41),
+       steps=["Read parameters, filtered and paged"],
+       controller="ParametersController", service="ParametersService", call="list(query)",
+       seq=["Svc->>DB: SELECT business_parameters"]),
+
+    ep("PATCH", "/api/parameters/:key", "Change a business parameter", "TrekLink Admin",
+       "Changes one parameter at run time. The new value is validated against the declared type and "
+       "bounds, stored, and appended to the parameter history; readers see it within the cache TTL "
+       "(the D-015 \"change it and show me now\" demonstration).",
+       "UC-57, FR-CFG-01, FR-CFG-02, REQ-EVT-03, REQ-ERR-05, BR-29",
+       path=[["key", "Parameter key", "string", "`incidents.primaryAckTimeoutSeconds`"]],
+       body=[["value", "New value of the declared type", "json", "yes", "`90`"],
+             ["expectedVersion", "Version the Admin saw; mismatch returns 409", "int", "yes", "`3`"],
+             ["reason", "Why it changed, kept in the history", "string", "no", "`Faster demo`"]],
+       sample={"value": 90, "expectedVersion": 3, "reason": "Faster escalation for the drill"},
+       response={**PARAM, "value": 90, "version": 4},
+       message="Parameter updated", entity="Parameter",
+       errors=[(400, "PARAMETER_OUT_OF_RANGE", "The value is of the wrong type or outside its bounds",
+                "value must be between 30 and 900."),
+               (409, "STALE_VERSION", "Another Admin changed the parameter first",
+                "This was changed by someone else. Reload and try again.")],
+       steps=["Lock the parameter row", "Validate type and bounds", "Update value and version",
+              "Append history row", "Emit parameter.changed, invalidate cache"],
+       controller="ParametersController", service="ParametersService", call="update(key, dto, actor)",
+       seq=["Svc->>DB: BEGIN, SELECT ... FOR UPDATE", "Svc->>DB: UPDATE, INSERT history, COMMIT",
+            "Svc-)Svc: emit parameter.changed"]),
+
+    ep("GET", "/api/parameters/:key/history", "Parameter change history", "TrekLink Admin",
+       "Returns the append-only change history of one parameter: previous value, new value, actor, "
+       "reason and UTC time.",
+       "UC-58, FR-CFG-02",
+       path=[["key", "Parameter key", "string", "`incidents.primaryAckTimeoutSeconds`"]],
+       query=PAGE_QUERY,
+       response=paged({"previousValue": 120, "newValue": 90, "changedBy": {"id": USER_ID, "fullName": "TrekLink Admin"},
+                       "reason": "Faster escalation for the drill", "changedAt": NOW}),
+       entity="Parameter", steps=["Read history newest first"],
+       controller="ParametersController", service="ParametersService", call="history(key, query)",
+       seq=["Svc->>DB: SELECT business_parameter_history"]),
+
+    ep("GET", "/api/audit-logs", "Search the audit log", "TrekLink Admin",
+       "Searches the generic append-only audit log by actor, organization, subject, action and time "
+       "range (UC-58). Module trails (incident, device, contract transitions) have their own endpoints.",
+       "UC-58, REQ-EVT-02, NFR-SEC-05",
+       query=[["actorId", "Filter by actor", "uuid", "no", f"`{USER_ID}`"],
+              ["organizationId", "Filter by tenant", "uuid", "no", f"`{ORG_ID}`"],
+              ["subjectType", "Entity type", "string", "no", "`RentalContract`"],
+              ["subjectId", "Entity id", "string", "no", "`c0ffee00-...`"],
+              ["action", "Action prefix", "string", "no", "`contract.`"],
+              ["from", "Inclusive start, ISO 8601", "datetime", "no", "`2026-10-01T00:00:00Z`"],
+              ["to", "Exclusive end, ISO 8601", "datetime", "no", "`2026-10-21T00:00:00Z`"]] + PAGE_QUERY,
+       response=paged({"id": "4d3c...", "actor": {"id": USER_ID, "fullName": "Staff A"}, "actorRoles": ["STAFF"],
+                       "organizationId": ORG_ID, "action": "contract.approve", "subjectType": "RentalContract",
+                       "subjectId": "c0ffee00-1234-4abc-9def-001122334455", "before": {"status": "REQUESTED"},
+                       "after": {"status": "APPROVED"}, "requestId": "req-8f2a", "createdAt": NOW}),
+       steps=["Build filters", "Read newest first"],
+       controller="AuditLogController", service="AuditLogService", call="search(query)",
+       seq=["Svc->>DB: SELECT audit_log WHERE ..."]),
+]

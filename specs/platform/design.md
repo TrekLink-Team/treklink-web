@@ -1,537 +1,261 @@
 # Technical Design: platform (cross-cutting backend foundation)
 
-> Fulfills `requirements.md` in this folder. Also the home of the **system-level design artefacts** for Review 2 and the SDD: the context diagram, the architecture diagram, the module dependency graph and the system-wide ERD. Module-level ERD slices, state machines and sequence diagrams live in each module's own `design.md`.
+> Fulfills `requirements.md` in this folder. Also the home of the **system-level design artefacts** for
+> Review 2 and the SDD: the context diagram, the architecture diagram, the module dependency graph, the
+> domain-event table and the system-wide ERD overview. Module ERD slices, state machines and sequence
+> diagrams live in each module's own `design.md`. Rewritten 2026-10-04 for the enterprise rental platform
+> (D-033 to D-038); section numbers are unchanged because code cites them.
 
 ---
 
 ## 1. System context
 
-See **Figure 1**. It is the Level-0 view the Review 2 template asks for: the platform as one process, every external actor and system around it, and the data each flow carries.
+See **Figure 1**, the Level-0 view. It matches Report 3 SRS Figure 1 and Table 7.
 
 ```mermaid
 flowchart TB
-    CUS["Customer"]
-    STF["Operator"]
-    GUI["Guide"]
-    ADM["Admin"]
-    SYS(("TrekLink<br/>Operations<br/>Platform"))
-    BRK["MQTT Broker"]
+    GST["Guest"]
+    ORGU["Org Manager,<br/>Org Operator"]
+    STF["TrekLink Staff,<br/>TrekLink Admin"]
+    OSYS["Organization's<br/>own system"]
+    SYS(("TrekLink<br/>Rental Platform"))
+    BRK["MQTT broker"]
     DEV["TrekLink Device"]
-    GWB["Gateway Bridge<br/>Stage C"]
-    MAP["Goong Maps"]
-    PAY["Sandbox<br/>Payment"]
-    MAIL["Email<br/>service"]
-    CUS <-->|"booking, payment<br/>/ quote, invoice"| SYS
-    STF <-->|"operations<br/>/ queues, alerts"| SYS
-    GUI <-->|"checks, notes<br/>/ own trip, alerts"| SYS
-    ADM <-->|"users, config<br/>/ audit, health"| SYS
-    DEV -->|"SOS, position,<br/>telemetry"| BRK
-    DEV -.->|"serial, BLE"| GWB
-    GWB -.->|"buffered<br/>events"| BRK
-    BRK -->|"JSON<br/>envelopes"| SYS
-    SYS -->|"map config<br/>to browser"| MAP
-    SYS <-->|"charge<br/>/ result"| PAY
-    SYS -->|"OTP"| MAIL
+    FS["Field Station<br/>(inside the boundary,<br/>on the organization's laptop)"]
+    PAY["SePay<br/>sandbox"]
+    MAIL["Email service"]
+    OSM["OpenStreetMap<br/>tiles"]
+    GST -->|"registration"| SYS
+    ORGU <-->|"requests, payments, roster, keys, acknowledgements<br/>/ contracts, invoices, live map, alerts"| SYS
+    STF <-->|"verification, approvals, counter work, reports<br/>/ queues, fleet, escalations"| SYS
+    OSYS <-->|"API key, cursor<br/>/ positions, telemetry, incidents"| SYS
+    DEV -.->|"LoRa mesh"| FS
+    DEV -->|"Stage A, B: MQTT"| BRK
+    FS -->|"Stage C: MQTT"| BRK
+    BRK -->|"JSON events"| SYS
+    SYS <-->|"payment request<br/>/ webhook"| PAY
+    SYS -->|"codes, invitations, alerts"| MAIL
+    ORGU -.->|"tiles, from the browser"| OSM
     style SYS stroke-width:3px
 ```
 
-***Figure 1***: Context diagram. One process, four human actors, the field hardware, and four external systems. On two-way edges the label reads *inbound / outbound*. Dashed edges are the Stage C basecamp path (D-018, D-020), which is specified and deferred. Map traffic goes from the browser to Goong directly; the platform only supplies configuration.
-
-Differences from `06-requirements-foundation.md` Figure 1, stated so the two are reconciled rather than left to drift: the MQTT broker is drawn as its own external system (it is operated infrastructure, not platform code), and "Notification channel" is narrowed to **Email service**, because email OTP is the only outbound channel the MF-01 answers require (Q31, Q35). Incident alerts travel over the platform's own WebSocket. A REQUEST entry proposes the same edit to the SSOT figure.
+***Figure 1***: Context diagram. On two-way edges the label reads *inbound / outbound*. The Field Station
+is TrekLink software and part of the system, drawn apart because it runs on the organization's laptop.
 
 ---
 
 ## 2. Architecture
 
-See **Figure 2**. Every arrow is labelled with its protocol, per the Review 2 template tip.
+See **Figure 2**. Every arrow carries its protocol.
 
 ```mermaid
 flowchart TB
     subgraph Client["Browser: React SPA, FSD"]
         UI["Pages, widgets, features"]
-        QC["TanStack Query<br/>server state"]
-        WS["socketClient<br/>live state store"]
-        ML["MapLibre GL"]
+        QC["TanStack Query"]
+        WS["Socket.io client"]
+        LF["Leaflet + sovereignty overlay"]
     end
     subgraph Backend["NestJS modular monolith"]
-        HTTP["REST controllers<br/>JwtAuthGuard + PoliciesGuard"]
-        GWY["Socket.io gateway<br/>monitoring"]
-        MODS["auth · devices · trips · rentals<br/>billing · incidents · gateway-sync"]
-        PLT["platform: envelope, config,<br/>parameters, audit, scheduler"]
-        BUS["EventEmitter2<br/>in-process domain events"]
-        ING["MQTT ingress adapter"]
+        HTTP["REST controllers<br/>JwtAuthGuard or ApiKeyGuard + PoliciesGuard"]
+        LIVE["Socket.io /live<br/>monitoring"]
+        MODS["auth · organizations · devices · billing<br/>rentals · incidents · gateway-sync · monitoring"]
+        PLT["platform: envelope, config, parameters,<br/>audit, scheduler, post-commit events"]
+        ING["MQTT ingress adapters"]
     end
-    DB[("PostgreSQL<br/>Neon or local Docker")]
-    BRK["Mosquitto"]
-    GOONG["Goong tiles"]
+    subgraph Field["Organization laptop"]
+        FSX["Field Station executable<br/>SQLite queue, local page"]
+    end
+    DB[("PostgreSQL")]
+    BRK["Mosquitto + go-auth"]
     UI --> QC
     UI --> WS
-    UI --> ML
-    QC -->|"HTTPS REST, JSON envelope"| HTTP
-    WS <-->|"WSS Socket.io, JWT handshake"| GWY
-    ML -->|"HTTPS style.json, tiles"| GOONG
+    UI --> LF
+    QC -->|"HTTPS REST, D-002 envelope"| HTTP
+    WS <-->|"WSS, JWT or API key handshake"| LIVE
     HTTP --> MODS
     MODS --> PLT
     MODS -->|"Prisma"| DB
-    PLT -->|"Prisma"| DB
-    MODS --> BUS
-    BUS --> GWY
-    BRK -->|"MQTT QoS 1, JSON"| ING
+    FSX -->|"MQTT QoS 1 over TLS"| BRK
+    BRK -->|"MQTT"| ING
+    BRK -->|"HTTP auth hooks"| HTTP
     ING --> MODS
 ```
 
-***Figure 2***: Architecture. One deployable backend; modules talk through exported services or domain events, never through each other's tables.
+***Figure 2***: Architecture. One deployable backend; modules talk through exported services, ports or
+post-commit domain events, never through each other's tables.
 
 ### 2.1 Module dependency graph
 
-See **Figure 3**. Solid edges are DI imports of an exported service; dashed edges are domain events. The graph is acyclic by construction, which `04-architecture-conventions.md` §1.1 requires.
+See **Figure 3**. Solid edges are DI imports of an exported service. Dotted edges are **ports**: the lower
+module declares an injection token and an interface, and the higher module provides it, the pattern D-032
+introduced for the health probe. Dashed edges are domain events. The DI graph is acyclic
+(`04-architecture-conventions.md` §1.1).
 
 ```mermaid
 flowchart TB
     PLT["platform"]
     AUTH["auth"]
+    ORG["organizations"]
     DEVS["devices"]
-    TRIPS["trips"]
-    RENT["rentals"]
     BILL["billing"]
+    RENT["rentals"]
     INC["incidents"]
     GWS["gateway-sync"]
     MON["monitoring"]
     AUTH --> PLT
+    ORG --> AUTH
     DEVS --> AUTH
-    TRIPS --> AUTH
-    TRIPS --> DEVS
-    BILL --> TRIPS
+    BILL --> ORG
     BILL --> DEVS
+    RENT --> ORG
     RENT --> DEVS
-    RENT --> TRIPS
     RENT --> BILL
-    INC --> DEVS
+    INC --> ORG
     INC --> RENT
+    INC --> DEVS
+    GWS --> ORG
     GWS --> DEVS
+    GWS --> RENT
     GWS --> INC
+    MON --> ORG
     MON --> DEVS
-    MON --> TRIPS
+    MON --> BILL
+    MON --> RENT
     MON --> INC
     MON --> GWS
-    MON --> RENT
-    TRIPS -.->|"trip.status.changed"| RENT
-    GWS -.->|"device.position.updated"| MON
-    INC -.->|"incident.opened"| MON
-    DEVS -.->|"device.status.changed"| MON
+    ORG -.->|"provides ACCOUNT_CONTEXT_PROVIDER, API_KEY_RESOLVER"| AUTH
+    BILL -.->|"provides ORGANIZATION_EXIT_CHECKS"| ORG
+    RENT -.->|"provides ORGANIZATION_EXIT_CHECKS"| ORG
+    INC -.->|"provides CONTRACT_CLOSE_CHECKS"| RENT
+    GWS -.->|"provides MQTT_HEALTH_PROBE"| PLT
 ```
 
-***Figure 3***: Module dependencies. `billing` never imports `rentals`; `rentals` pushes the settlement facts into `billing`, which is what keeps the graph acyclic while honouring Q64 (payment lives in `billing` only, `rentals` calls outward).
+***Figure 3***: Module dependencies. Every module also imports `platform`; those edges are omitted.
+
+| Port | Declared by | Provided by | Why |
+|---|---|---|---|
+| `MQTT_HEALTH_PROBE` | platform | gateway-sync | Health reports MQTT state without importing a module (D-032) |
+| `ACCOUNT_CONTEXT_PROVIDER` | auth | organizations | Sign-in puts `organizationId` and the member role into the token; membership is an organizations table |
+| `API_KEY_RESOLVER` | auth | organizations | `ApiKeyGuard` authenticates an `X-Api-Key`; keys are an organizations table |
+| `ORGANIZATION_EXIT_CHECKS` (multi) | organizations | billing, rentals | Reactivation needs no balance (billing); closing needs no open contract (rentals) |
+| `CONTRACT_CLOSE_CHECKS` (multi) | rentals | incidents | Closing a contract needs no incident outside `CLOSED` on its devices (FR-CON-13) |
+
+Placement consequences, so no module reaches upward:
+
+- **Provisioning and inspection** run in `rentals`, which orchestrates `DevicesService` and
+  `BillingService` in one transaction (`rentals` design §2).
+- **Device history** (FR-DEV-11), **reports** (FR-BILL-10) and **system health** (FR-MON-10) are served by
+  `monitoring`, the read model allowed to import every module.
 
 ### 2.2 Cross-module transactions
 
-Several flows must be atomic across module boundaries: reserving a device (rentals plus devices), checking out (rentals plus devices), ingesting an SOS (gateway-sync plus devices plus incidents). The rule:
+Several flows are atomic across modules: approving a contract (rentals, devices, billing), the handover,
+check-in with late fees, inspection with damage charges, ingesting an SOS (gateway-sync, devices, rentals,
+incidents). The rule:
 
-- A service method that may take part in a caller's transaction accepts an optional last parameter `tx?: Prisma.TransactionClient` and uses `tx ?? this.prisma`.
-- Only the module that **starts** the business operation opens `prisma.$transaction`. Callees never open their own.
-- A callee still queries **only its own tables**, even when handed a `tx`. The transaction client is a connection, not a licence to reach into another module's tables.
-- Row locks a callee must take on its own rows (for example `devices` locking candidate device rows) are taken by the callee through an exported method such as `DevicesService.lockForAllocation(ids, tx)`.
+- A service method that may take part in a caller's transaction accepts an optional last parameter
+  `tx?: Prisma.TransactionClient` and uses `tx ?? this.prisma`.
+- Only the module that **starts** the business operation opens `prisma.$transaction`. Callees never open
+  their own.
+- A callee still queries **only its own tables**, even when handed a `tx`. The transaction client is a
+  connection, not a licence to reach into another module's tables.
+- Row locks a callee needs on its own rows are taken by the callee through an exported method, for
+  example `DevicesService.reserve(variantId, quantity, contractId, tx)`.
 
-Enforcement: a boundary check script (tasks 1.9) maps each Prisma model to its owning module and fails CI when `backend/src/modules/<a>/` references a model owned by `<b>`.
+Enforcement: `backend/scripts/check-module-boundaries.js` maps each model to the module that owns it (the
+`// @module` markers of `schema.prisma`) and fails `npm run lint` when `src/modules/<a>/` references a
+model owned by `<b>`.
 
 ### 2.3 Domain events
 
-| Event | Emitted by | Consumed by | Payload (ids only plus the changed fields) |
-|---|---|---|---|
-| `audit.record` | any module | platform | actor, action, subject, before, after |
-| `device.status.changed` | devices | monitoring | deviceId, from, to, reason |
-| `device.position.updated` | gateway-sync | monitoring | deviceId, lat, lon, receivedAt |
-| `device.telemetry.updated` | gateway-sync | monitoring | deviceId, batteryPct, receivedAt |
-| `device.queue.reported` | gateway-sync | monitoring | deviceId, depthByTier, buffering |
-| `gateway.health.changed` | gateway-sync | monitoring | gatewayId, state, lastPacketAt |
-| `trip.status.changed` | trips | rentals, monitoring | tripId, from, to |
-| `incident.opened` | incidents | monitoring | incidentId, deviceId, tripId, confidence |
-| `incident.updated` | incidents | monitoring | incidentId, from, to, actor |
-| `incident.escalated` | incidents | monitoring | incidentId |
+Emitted **after commit** through `emitAfterCommit`, never inside a transaction that may still roll back.
+Delivery never gates the business write. Alert delivery is not an event: it is the `incidents` outbox
+(D-034 rule 3), because an alert must survive a restart.
 
-Events are emitted **after commit** (`@nestjs/event-emitter` listeners invoked from a post-commit hook), never inside a transaction that may still roll back. Delivery of an event never gates the business write (E03-7).
+| Event | Emitted by | Consumed by | Payload (ids plus the changed fields) |
+|---|---|---|---|
+| `audit.record` | any module | platform | actor, organizationId, action, subject, before, after |
+| `parameter.changed` | platform | every cache of that key | key, version |
+| `policy.changed` | auth | auth (CASL cache) | roleId |
+| `member.deactivated` | organizations | incidents (re-route owned incidents, D-034) | organizationId, memberId, userId |
+| `apiKey.revoked` | organizations | monitoring (close sockets) | organizationId, apiKeyId |
+| `fieldStation.revoked` | organizations | gateway-sync (drop its topic) | organizationId, fieldStationId, mqttUsername |
+| `organization.statusChanged` | organizations | monitoring | organizationId, from, to |
+| `contract.statusChanged` | rentals | monitoring | contractId, organizationId, from, to |
+| `device.handedOver` | rentals | monitoring | contractId, organizationId, deviceIds |
+| `device.checkedIn` | rentals | monitoring (FR-MON-08) | contractId, organizationId, deviceId |
+| `device.labelChanged` | rentals | monitoring | organizationId, deviceId, holderName |
+| `payment.confirmed` | billing | monitoring | organizationId, invoiceId, amountVnd |
+| `field.position` | gateway-sync | monitoring | deviceId, organizationId, lat, lon, at, plotted |
+| `field.telemetry` | gateway-sync | monitoring | deviceId, organizationId, batteryPct, at |
+| `fieldStation.synced` | gateway-sync | monitoring | fieldStationId, organizationId, queueDepth |
+| `incident.changed` | incidents | monitoring | incidentId, organizationId, state, tier, ownerId |
+| `incident.alert` | incidents (outbox dispatcher, WEBSOCKET channel) | monitoring (synchronous listener; publishes to `user:<id>`) | deliveryId, recipientId, incidentId, message |
 
 ---
 
 ## 3. Domain Model & Data Schema
 
+`backend/prisma/schema.prisma` is the single source; each module's `design.md` §1 describes its own block
+rather than copying it. The baseline migration is generated by `backend/scripts/rebuild-baseline.sh`
+from the schema plus `backend/prisma/constraints.sql`; the seed by `scripts/specs/build_seed.py`.
+
 ### 3.1 Core ERD for the Review 2 slide
 
-The Review 2 template asks for the 5 to 8 entities central to the system. See **Figure 4**.
+The template asks for the 5 to 8 central entities; this matches SRS Figure 21. See **Figure 4**.
 
 ```mermaid
 erDiagram
-    USER ||--o{ BOOKING : "places"
-    USER ||--o{ TRIP_GUIDE_ASSIGNMENT : "guides"
-    TRIP ||--o{ TRIP_GUIDE_ASSIGNMENT : "staffed by"
-    TRIP ||--o{ BOOKING : "receives"
-    BOOKING ||--o| RENTAL : "fulfilled by"
-    RENTAL ||--|{ RENTAL_ITEM : "contains"
-    DEVICE ||--o{ RENTAL_ITEM : "rented as"
-    DEVICE ||--o{ GATEWAY_EVENT : "emits"
+    ORGANIZATION ||--|{ MEMBER : "has"
+    ORGANIZATION ||--o{ RENTAL_CONTRACT : "rents under"
+    HARDWARE_VARIANT ||--o{ DEVICE : "models"
+    RENTAL_CONTRACT ||--|{ CONTRACT_DEVICE : "commits"
+    DEVICE ||--o{ CONTRACT_DEVICE : "committed as"
+    RENTAL_CONTRACT ||--|{ CONTRACT_TERM : "billed by term"
+    CONTRACT_TERM ||--o| INVOICE : "invoiced as"
+    DEVICE ||--o{ FIELD_EVENT : "emits"
     DEVICE ||--o{ INCIDENT : "raises"
-    GATEWAY_EVENT |o--o| INCIDENT : "opens"
-    TRIP ||--o{ INCIDENT : "context of"
-    RENTAL ||--o{ INVOICE : "billed by"
+    RENTAL_CONTRACT ||--o{ INCIDENT : "routes"
 ```
 
-***Figure 4***: Core ERD, eight central entities. Keys and defining attributes follow in Figures 5 to 10.
+***Figure 4***: Core ERD.
 
-### 3.2 System-wide ERD
+### 3.2 System-wide ERD by module
 
-Split into six figures so every label stays above the 7 pt floor (`13-diagram-and-figure-conventions.md` §7: entity count and attribute rows drive size). Each entity shows its keys and the attributes that define it; the complete column list of every model is the Prisma block in the owning module's `design.md` §1. Every entity also carries `createdAt` and, where mutable, `updatedAt`.
-
-See **Figure 5**, identity and roles.
-
-```mermaid
-erDiagram
-    direction LR
-    USER {
-        uuid id PK
-        string username UK
-        string email UK "nullable"
-        enum accountType
-        bool isActive
-        datetime deletedAt
-    }
-    ROLE {
-        uuid id PK
-        string key UK
-        enum accountType
-        bool isSystem
-    }
-    PERMISSION {
-        uuid id PK
-        string key UK
-        string action
-        string subject
-        json conditions
-    }
-    USER_ROLE {
-        uuid userId FK
-        uuid roleId FK
-    }
-    ROLE_PERMISSION {
-        uuid roleId FK
-        uuid permissionId FK
-    }
-    GUIDE_PROFILE {
-        uuid userId PK
-        string skills
-    }
-    USER ||--o{ USER_ROLE : "holds"
-    ROLE ||--o{ USER_ROLE : "granted as"
-    ROLE ||--o{ ROLE_PERMISSION : "allows"
-    PERMISSION ||--o{ ROLE_PERMISSION : "in"
-    USER ||--o| GUIDE_PROFILE : "has"
-```
-
-***Figure 5***: System ERD part 1 of 6, identity and roles. Roles and permissions are rows (US-001), so a new Staff sub-role such as Manager is data, not code (Q33). Owner: `auth`.
-
-See **Figure 6**, sessions and administration.
-
-```mermaid
-erDiagram
-    direction LR
-    USER {
-        uuid id PK
-        string username UK
-    }
-    REFRESH_TOKEN {
-        uuid id PK
-        uuid userId FK
-        uuid familyId
-        string tokenHash UK
-        datetime revokedAt
-    }
-    ONE_TIME_CODE {
-        uuid id PK
-        uuid userId FK
-        enum purpose
-        string codeHash
-        datetime expiresAt
-    }
-    AUDIT_LOG {
-        uuid id PK
-        uuid actorId FK
-        string action
-        string subjectType
-        string subjectId
-    }
-    BUSINESS_PARAMETER {
-        string key PK
-        json value
-        int version
-    }
-    PARAMETER_HISTORY {
-        uuid id PK
-        string key FK
-        uuid changedById FK
-    }
-    USER ||--o{ REFRESH_TOKEN : "owns"
-    USER ||--o{ ONE_TIME_CODE : "receives"
-    USER |o--o{ AUDIT_LOG : "acts in"
-    BUSINESS_PARAMETER ||--o{ PARAMETER_HISTORY : "changed in"
-    USER ||--o{ PARAMETER_HISTORY : "changes"
-```
-
-***Figure 6***: System ERD part 2 of 6, sessions, one-time codes, the generic audit log and runtime business parameters. Owners: `auth` (tokens, codes), `platform` (audit, parameters).
-
-See **Figure 7**, fleet and trips.
-
-```mermaid
-erDiagram
-    direction LR
-    HARDWARE_VARIANT {
-        uuid id PK
-        string code UK
-        bool mqttCapable
-    }
-    DEVICE {
-        uuid id PK
-        string assetTag UK
-        uuid hardwareVariantId FK
-        bigint nodeNum UK
-        enum status
-        int pskVersion
-    }
-    DEVICE_STATUS_HISTORY {
-        uuid id PK
-        uuid deviceId FK
-        enum toStatus
-        string reason
-    }
-    MAINTENANCE_RECORD {
-        uuid id PK
-        uuid deviceId FK
-        enum status
-    }
-    TREK_PACKAGE {
-        uuid id PK
-        string code UK
-        enum status
-    }
-    TRIP {
-        uuid id PK
-        uuid packageId FK
-        datetime startAt
-        datetime endAt
-        int capacity
-        enum status
-    }
-    TRIP_GUIDE_ASSIGNMENT {
-        uuid tripId FK
-        uuid guideId FK
-        enum role
-    }
-    HARDWARE_VARIANT ||--o{ DEVICE : "classifies"
-    DEVICE ||--o{ DEVICE_STATUS_HISTORY : "audited in"
-    DEVICE ||--o{ MAINTENANCE_RECORD : "serviced in"
-    TREK_PACKAGE ||--o{ TRIP : "scheduled as"
-    TRIP ||--o{ TRIP_GUIDE_ASSIGNMENT : "staffed by"
-```
-
-***Figure 7***: System ERD part 3 of 6, device fleet and trips. `DEVICE.nodeNum` is `bigint` because a Meshtastic node number is an unsigned 32-bit value. Owners: `devices`, `trips`.
-
-See **Figure 8**, bookings and rentals.
-
-```mermaid
-erDiagram
-    direction LR
-    TRIP {
-        uuid id PK
-    }
-    DEVICE {
-        uuid id PK
-    }
-    BOOKING {
-        uuid id PK
-        uuid tripId FK
-        uuid customerId FK
-        enum channel
-        enum status
-    }
-    DEVICE_ALLOCATION {
-        uuid id PK
-        uuid deviceId FK
-        uuid bookingId FK
-        tstzrange window
-        enum status
-    }
-    RENTAL {
-        uuid id PK
-        uuid bookingId FK
-        uuid custodianGuideId FK
-        enum status
-        datetime dueAt
-    }
-    RENTAL_ITEM {
-        uuid id PK
-        uuid rentalId FK
-        uuid deviceId FK
-        enum state
-    }
-    RENTAL_AGREEMENT {
-        uuid id PK
-        uuid rentalId FK
-        int version
-        string signedSha256
-    }
-    RETURN_INSPECTION {
-        uuid id PK
-        uuid rentalItemId FK
-        enum condition
-        bool serviceable
-    }
-    TRIP ||--o{ BOOKING : "receives"
-    BOOKING ||--o{ DEVICE_ALLOCATION : "holds"
-    DEVICE ||--o{ DEVICE_ALLOCATION : "booked in"
-    BOOKING |o--o| RENTAL : "fulfilled by"
-    RENTAL ||--|{ RENTAL_ITEM : "contains"
-    DEVICE ||--o{ RENTAL_ITEM : "rented as"
-    RENTAL ||--o{ RENTAL_AGREEMENT : "documented by"
-    RENTAL_ITEM ||--o| RETURN_INSPECTION : "inspected in"
-```
-
-***Figure 8***: System ERD part 4 of 6, bookings and rentals. `DEVICE_ALLOCATION.window` carries a Postgres exclusion constraint so no device is ever allocated twice for overlapping time: BR-01 enforced by the database, not only by application code. `TRIP` and `DEVICE` appear as key-only stubs. Owner: `rentals`.
-
-See **Figure 9**, billing.
-
-```mermaid
-erDiagram
-    direction LR
-    PRICING_RULE {
-        uuid id PK
-        enum scope
-        enum unit
-        decimal amount
-        decimal depositPerDevice
-    }
-    DAMAGE_FEE_RULE {
-        uuid id PK
-        enum condition
-        decimal amount
-    }
-    INVOICE {
-        uuid id PK
-        string number UK
-        enum kind
-        enum status
-        decimal balanceDue
-    }
-    INVOICE_LINE {
-        uuid id PK
-        uuid invoiceId FK
-        enum type
-        decimal amount
-    }
-    PAYMENT {
-        uuid id PK
-        uuid invoiceId FK
-        enum direction
-        enum status
-        string idempotencyKey UK
-    }
-    FEE_WAIVER {
-        uuid id PK
-        uuid invoiceLineId FK
-        uuid decidedById FK
-        enum status
-    }
-    INVOICE ||--|{ INVOICE_LINE : "itemises"
-    PRICING_RULE ||--o{ INVOICE_LINE : "prices"
-    DAMAGE_FEE_RULE ||--o{ INVOICE_LINE : "prices"
-    INVOICE ||--o{ PAYMENT : "settled by"
-    INVOICE_LINE ||--o{ FEE_WAIVER : "reduced by"
-```
-
-***Figure 9***: System ERD part 5 of 6, billing. Every fee is its own `INVOICE_LINE`, so a late fee is never folded into an unexplained total (E05-1). Owner: `billing`.
-
-See **Figure 10**, field events and incidents.
-
-```mermaid
-erDiagram
-    direction LR
-    DEVICE {
-        uuid id PK
-    }
-    GATEWAY {
-        uuid id PK
-        string gatewayKey UK
-        datetime lastPacketAt
-    }
-    GATEWAY_EVENT {
-        uuid id PK
-        string eventId UK
-        uuid deviceId FK
-        enum kind
-        enum priority
-        datetime receivedAt
-        uuid incidentId FK
-    }
-    SYNC_AUDIT_LOG {
-        uuid id PK
-        string eventId
-        enum outcome
-    }
-    DEVICE_QUEUE_REPORT {
-        uuid id PK
-        uuid deviceId FK
-        json depthByTier
-    }
-    INCIDENT {
-        uuid id PK
-        uuid deviceId FK
-        uuid openedByEventId FK
-        enum confidence
-        enum status
-        datetime lastEventAt
-        int version
-    }
-    INCIDENT_AUDIT {
-        uuid id PK
-        uuid incidentId FK
-        enum action
-        uuid actorId FK
-    }
-    GATEWAY ||--o{ GATEWAY_EVENT : "delivered"
-    DEVICE ||--o{ GATEWAY_EVENT : "emits"
-    DEVICE ||--o{ DEVICE_QUEUE_REPORT : "reports"
-    GATEWAY_EVENT ||--o{ SYNC_AUDIT_LOG : "logged as"
-    DEVICE ||--o{ INCIDENT : "raises"
-    INCIDENT ||--o{ GATEWAY_EVENT : "correlates"
-    INCIDENT ||--|{ INCIDENT_AUDIT : "transitions"
-```
-
-***Figure 10***: System ERD part 6 of 6, field events and incidents. `GATEWAY_EVENT.eventId` is the D-006 packet key; episode membership is the separate `incidentId` link, which is the split that stops a beacon storm from minting one Incident per packet. Owners: `gateway-sync`, `incidents`.
-
-### 3.3 Corrections to the current `schema.prisma`
-
-The first migration is written from Figures 5 to 10 and the module Prisma blocks, not from the current schema, which has no migrations yet. Differences that are corrections, not additions:
-
-| Current | Problem | Correction |
+| Module | Models (schema block) | Append-only |
 |---|---|---|
-| `Device.nodeNum Int?` | Meshtastic `nodeNum` is an unsigned 32-bit value derived from MAC bytes 2 to 5 (`NodeDB.cpp:1127`). Postgres `integer` is signed 32-bit, so any node number above 2147483647 overflows on insert. | `BigInt?` |
-| `User.role Role` single enum | Q33 requires Staff sub-roles, extensible, and a user may be both Operator and Guide | `USER_ROLE` join to data-driven `ROLE` |
-| `User.email @unique` required | Q41: username is the primary identifier; email is optional and linkable later | `username @unique`, `email @unique` nullable |
-| `IncidentAudit ... onDelete: Cascade` | A cascade is a delete path on an append-only trail (BR-11) | `onDelete: Restrict`, plus a trigger rejecting `UPDATE` and `DELETE` |
-| `Incident.eventId @unique` | Pre-D-006 conflated key, already marked stale in-file | `openedByEventId` FK, `lastEventAt`, `confidence` |
-| `RentalStatus` 4 values, `TripStatus` 4 values | Do not cover the MF-01 and MF-05 exception scenarios | 7-state rental, 8-state trip (see those modules) |
-| `Rental.deviceId` single device | Q57: a Guide booking carries many devices | `RENTAL_ITEM` |
+| platform | `BusinessParameter`, `BusinessParameterHistory`, `AuditLog` | history, audit log |
+| auth | `User`, `Role`, `Permission`, `UserRole`, `RolePermission`, `RefreshToken`, `OneTimeCode`, `AuthEvent` | auth events |
+| organizations | `Organization`, `OrganizationMember`, `OrganizationTransition`, `RosterShift`, `ApiKey`, `FieldStation` | transitions |
+| devices | `HardwareVariant`, `Device`, `DeviceTransition`, `IntakeCheck`, `DeviceProvisioning`, `DeviceReset`, `Inspection`, `MaintenanceRecord`, `StockTake` | transitions, intake checks, provisionings, resets, inspections |
+| rentals | `RentalContract`, `ContractTerm`, `ContractDevice`, `ContractTransition` | transitions |
+| billing | `PriceSchedule`, `DamageRate`, `Invoice`, `InvoiceLine`, `Payment`, `DamageCharge` | price schedules |
+| incidents | `Incident`, `IncidentTransition`, `IncidentStatusUpdate`, `AlertDelivery`, `AuthorityReport` | transitions, status updates |
+| gateway-sync | `FieldEvent`, `SyncAuditLog`, `DeviceQueueReport` | field events (one-way link), sync audit |
+| monitoring | `StreamEvent` | pruned by retention, never updated |
 
-### 3.4 Schema rules settled by the leader (PR #12 review, 2026-09-26)
+The ERD slice of each module is Figure 1 of its `design.md`.
 
-The figures above show keys and defining attributes only. These rules decide everything they leave open, and `backend/prisma/schema.prisma` follows them. No database held data when they were settled, so they are folded into the single initial migration rather than stacked as fix-up migrations.
+### 3.3 Tenant isolation in the schema
+
+Every tenant-owned row carries `organizationId`: members, roster, API keys, Field Stations, contracts,
+invoices, payments, incidents, field events and stream events. A device carries none, because it is
+TrekLink's asset; which organization may see it is derived from its live `ContractDevice` row
+(FR-AUTH-11). Every read on behalf of an organization member or API key filters by the caller's
+`organizationId` from the token or key, never from the request (`auth` design §3).
+
+### 3.4 Schema rules
 
 | # | Rule | Consequence in the schema |
 |---|---|---|
-| 1 | `gateway_events` is append-only with two one-way exceptions, allowed alone or together: `incidentId` from `NULL` to a value (linking the event to an SOS episode), and `priority` from `P2_GPS` to `P1_LOCATION` (the REQ-EVT-08 promotion, including retro-tagging within the grace window). Every other `UPDATE`, and every `DELETE`, is rejected. | The table has its own trigger function, `gateway_events_append_only()`, instead of `raise_append_only()` (§4.5). |
-| 3 | Columns keep the Prisma field names (camelCase); only table names are mapped with `@@map`. | Raw SQL quotes the real names, for example `"deviceId"`, `"windowStart"`. |
-| 4 | Every reference column is a foreign key: parent ids of detail and history rows, `Incident.tripId`, `Invoice.rentalId` and `bookingId`, and every actor column (`*ById`, `actorId`) to `users`. No FK on polymorphic references (`InvoiceLine.sourceId`, `AuditLog.subjectId`, `DeviceStatusHistory.refId`, `MaintenanceRecord.sourceRefId`) or on `SyncAuditLog.eventId`, because an `UNKNOWN_DEVICE` row carries an eventId with no event. `FeeWaiver` uses `decidedById` (Figure 9), because the same column records an approval or a rejection. `onDelete` stays Prisma's default except `IncidentAudit` (`Restrict`). | 100 foreign keys. |
-| 7 | Every `DateTime` is `@db.Timestamptz(3)`. | Required anyway for `device_allocations.windowStart` and `windowEnd`: `tstzrange()` over `timestamp` is not immutable and cannot back the exclusion constraint. |
-| 12 | Every foreign-key column leads an index, and `business_parameter_history` is indexed on `(key, changedAt)` for the paged history (api-design/04). | An FK column that already leads a composite index, unique constraint or primary key gets no second index. |
-| 13 | `GatewayEvent` has no `processedAt`. `receivedAt` and `eventTime` carry the timing, and an append-only row could never set it. | Column removed. |
-| 14 | `GatewayEvent.gatewayId` and `Device.lastGatewayId` hold `Gateway.id` and are foreign keys. Ingestion upserts the `Gateway` by `gatewayKey` (the JSON `sender` or bridge id) before inserting the event, in the same transaction. | Two FKs and their indexes. |
+| 1 | `field_events` is append-only with one one-way exception: `incidentId` from `NULL` to a value, linking the event to the episode it opened or joined. Every other `UPDATE`, and every `DELETE`, is rejected. | Its own trigger function, `field_events_append_only()` (§4.5). |
+| 3 | Columns keep the Prisma field names (camelCase); only table names are mapped with `@@map`. | Raw SQL quotes the real names, for example `"deviceId"`. |
+| 4 | Every reference column is a foreign key, including every actor column (`*ById`, `actorId`) to `users`. No FK on polymorphic references (`AuditLog.subjectId`, `DeviceTransition.refId`, `ContractTransition.refId`) or on `SyncAuditLog.eventId`. `onDelete` stays Prisma's default except `IncidentTransition` (`Restrict`). | Checked by `prisma validate` and the migration test. |
+| 7 | Every `DateTime` is `@db.Timestamptz(3)`, except `RentalContract.requestedStartDate` (`@db.Date`, a calendar day). | Required by the `tstzrange` exclusion constraint on `roster_shifts`. |
+| 8 | Money is integer VND in `BigInt`; ratios are `Decimal`. | No floating-point money anywhere. |
+| 12 | Every foreign-key column leads an index. | An FK column that already leads a composite index, unique constraint or primary key gets no second index. |
+| 15 | Constraints Prisma cannot express live in `backend/prisma/constraints.sql`: roster exclusion, one live `ContractDevice` per device (BR-03), one open incident per device (FR-INC-01), CHECKs on plans, amounts and authority reports, and the append-only triggers. | Appended to the baseline by `rebuild-baseline.sh`. |
 
 ---
 
@@ -539,109 +263,107 @@ The figures above show keys and defining attributes only. These rules decide eve
 
 ### 4.1 Envelope
 
-`ResponseInterceptor` already wraps success bodies. Two additions:
+`ResponseInterceptor` wraps success bodies; `@ResponseMessage('...')` sets each endpoint's `message`
+to the one its `api-design/*.md` declares. A paged result is returned as `PagedResult<T>` and passed
+through unchanged.
 
-- `@ResponseMessage('Device registered')` decorator, read by the interceptor through `Reflector`, so each endpoint's `message` is the one its `api-design/*.md` declares rather than a blanket `Success`.
-- A paged result is returned by services as `PagedResult<T>` and passed through unchanged; the interceptor never re-shapes `result`.
+`GlobalExceptionFilter` produces the failure envelope:
 
-`GlobalExceptionFilter` already produces the failure envelope. Changes:
-
-- Business exceptions extend `DomainException(httpStatus, errorCode, message)`. The filter sets `result = { errorCode }`.
-- Every failure carries an error code (D-026 consequence, `07-clarification-answers.md` §7 questions 1 and 7). A Nest `HttpException` that is not a `DomainException` maps by status: 400 `VALIDATION_FAILED`, 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 413 `PAYLOAD_TOO_LARGE`, 503 `SERVICE_UNAVAILABLE`. Any other 4xx keeps its status with `CLIENT_ERROR`. Any other 5xx, and every exception that is not an `HttpException`, is `INTERNAL_ERROR`; an unhandled exception answers 500 with the generic message and its stack is logged.
-- `ValidationPipe` gets an `exceptionFactory` that throws `DomainException(400, VALIDATION_FAILED, "<prop> <constraint>; ...")`.
+- Business exceptions extend `DomainException(httpStatus, errorCode, message)`; the filter sets
+  `result = { errorCode }`.
+- Every failure carries an error code (D-026). A Nest `HttpException` that is not a `DomainException`
+  maps by status: 400 `VALIDATION_FAILED`, 401 `UNAUTHENTICATED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`,
+  413 `PAYLOAD_TOO_LARGE`, 429 `RATE_LIMITED`, 503 `SERVICE_UNAVAILABLE`. Any other 4xx keeps its status
+  with `CLIENT_ERROR`. Any other 5xx, and every non-`HttpException`, is `INTERNAL_ERROR`; its stack is logged.
+- `ValidationPipe` has an `exceptionFactory` that throws `DomainException(400, VALIDATION_FAILED, "<prop> <constraint>; ...")`.
 - `Prisma.PrismaClientKnownRequestError` codes `P2002` and `P2025` map to REQ-ERR-03 and REQ-ERR-04.
-- A `RequestIdMiddleware` sets `X-Request-Id` and puts it on an `AsyncLocalStorage` context read by the logger and the audit sink.
+- `RequestIdMiddleware` sets `X-Request-Id` and puts it on an `AsyncLocalStorage` context read by the
+  logger and the audit sink.
+- **The one exception (D-038)**: `SepayWebhookController` is marked `@RawResponse()`, which the
+  interceptor honours by passing the body through unwrapped; it returns `{ "success": true }`.
 
-**Implemented by TK-90**: the `@ResponseMessage` decorator and the error-code rule in the second bullet. The `ValidationPipe.exceptionFactory`, the Prisma mapping and `RequestIdMiddleware` remain open (tasks 2.1 to 2.3).
+**Implemented by TK-90**: the `@ResponseMessage` decorator and the error-code rule. The
+`ValidationPipe.exceptionFactory`, the Prisma mapping, `RequestIdMiddleware`, `RATE_LIMITED` and
+`@RawResponse()` remain open (tasks 2.1 to 2.3, 2.9).
 
 ### 4.2 Error catalogue
 
-One enum, `common/errors/error-code.enum.ts`, grouped by module prefix. Each module's `design.md` lists its own codes with HTTP status; the enum is the union. Cross-cutting codes:
+One enum, `common/errors/error-code.enum.ts`; each module's `design.md` lists its own codes with their
+HTTP status and the enum is the union. Cross-cutting codes:
 
 | Code | HTTP | Meaning |
 |---|---|---|
 | `VALIDATION_FAILED` | 400 | DTO validation failed |
-| `UNAUTHENTICATED` | 401 | missing, malformed or expired access token |
+| `UNAUTHENTICATED` | 401 | missing, malformed or expired access token or API key |
 | `FORBIDDEN` | 403 | authenticated, policy denies |
-| `NOT_FOUND` | 404 | resource does not exist or is outside the caller's scope |
+| `NOT_FOUND` | 404 | resource does not exist or is outside the caller's organization |
 | `CONFLICT_UNIQUE` | 409 | unique constraint |
-| `INVALID_STATE_TRANSITION` | 409 | FSM guard rejected the transition |
+| `INVALID_STATE_TRANSITION` | 409 | a lifecycle guard rejected the transition |
 | `STALE_VERSION` | 409 | optimistic-lock version mismatch |
 | `PAYLOAD_TOO_LARGE` | 413 | body limit |
+| `RATE_LIMITED` | 429 | organization API key over its limit |
 | `PARAMETER_OUT_OF_RANGE` | 400 | parameter value rejected |
-| `CLIENT_ERROR` | the original 4xx | a client error with no code of its own in this table; never used for 5xx |
-| `SERVICE_UNAVAILABLE` | 503 | a dependency the request needs is unreachable, for example the database probe of `GET /api/health` |
-| `INTERNAL_ERROR` | 500 | unhandled; 5xx only, never a client error |
+| `CLIENT_ERROR` | the original 4xx | a client error with no code of its own; never 5xx |
+| `SERVICE_UNAVAILABLE` | 503 | a dependency the request needs is unreachable |
+| `INTERNAL_ERROR` | 500 | unhandled; 5xx only |
 
-**Scoped 404 rule.** When a Guide requests a trip that is not theirs, the API answers 404 `NOT_FOUND`, not 403. A 403 confirms the resource exists, which leaks another guide's trip ids. This applies to every scoped read (E04-5, BR-13).
+**Scoped 404 rule.** When an organization member or API key asks for a record of another organization,
+the API answers 404 `NOT_FOUND`, never 403: a 403 would confirm the record exists (E04-4, BR-19). 403 is
+for a role that may not perform the action at all.
 
 ### 4.3 Configuration
 
-`@nestjs/config` with a `validate` function built on `class-validator` over an `EnvironmentVariables` class (the backend already depends on `class-validator`; no new library). Each module contributes a typed config namespace (`registerAs('rentals', ...)`) holding its environment-level defaults.
+`@nestjs/config` with a `validate` function built on `class-validator` over an `EnvironmentVariables`
+class. Each module contributes a typed namespace (`registerAs('billing', ...)`) for its environment-level
+values, for example `SEPAY_WEBHOOK_API_KEY`.
 
 ### 4.4 Runtime business parameters
 
-```prisma
-model BusinessParameter {
-  key         String    @id            // "rentals.customerHoldMinutes"
-  value       Json
-  valueType   ParameterType             // INT, DECIMAL, PERCENT, DURATION_SECONDS, BOOL, JSON
-  bounds      Json?                      // { "min": 1, "max": 120 }
-  unit        String?
-  ownerModule String
-  description String
-  version     Int       @default(1)
-  updatedById String?
-  updatedAt   DateTime  @updatedAt
-  history     BusinessParameterHistory[]
-  @@map("business_parameters")
-}
-```
-
-- `ParameterService.get<T>(key)` reads through an in-memory cache with TTL `PARAMETER_CACHE_TTL_SECONDS`; an update invalidates the local cache immediately.
-- Keys are declared once, in `platform/parameters/parameter-registry.ts`, with type, bounds, default and owner module. A seed migration inserts every registered key with its default. A key missing from the registry cannot be read (compile-time union type).
-- Each module lists its keys in its own `requirements.md` §4. The registry is the union and is what the Configuration Matrix is generated from.
+- `ParameterService.get<K>(key)` reads through an in-memory cache with TTL `PARAMETER_CACHE_TTL_SECONDS`;
+  an update invalidates the local cache at once and emits `parameter.changed`.
+- Keys, types, bounds and defaults are declared once, in `scripts/specs/catalog.py`, which generates the
+  seed migration and the [Configuration Matrix](configuration-matrix.md). The backend's
+  `platform/parameters/parameter-registry.ts` mirrors the keys as a TypeScript union so a key missing from
+  the registry cannot be read; a unit test compares the registry with the seeded rows.
+- Contracts snapshot the price inputs they depend on at request time (FR-CFG-02), so a later change to
+  `billing.holdingFeeRatio` or `billing.dayPremium` never reprices a contract.
 
 ### 4.5 Audit sink
 
-```prisma
-model AuditLog {
-  id          String   @id @default(uuid())
-  actorId     String?
-  actorRoles  String[]
-  action      String          // "booking.confirm", "user.roles.update"
-  subjectType String
-  subjectId   String?
-  before      Json?
-  after       Json?
-  requestId   String?
-  ip          String?
-  createdAt   DateTime @default(now())
-  @@index([subjectType, subjectId, createdAt])
-  @@index([actorId, createdAt])
-  @@map("audit_log")
-}
-```
-
-The migration adds `CREATE TRIGGER audit_log_append_only BEFORE UPDATE OR DELETE ON audit_log FOR EACH ROW EXECUTE FUNCTION raise_append_only()`; the same function guards `business_parameter_history`, `incident_audits`, `device_status_history`, `device_provisioning`, `trip_readiness_checks`, `handover_checks`, `return_inspections` and every other `*_status_history` table. `gateway_events` has its own function, `gateway_events_append_only()`, which also permits the two one-way updates of §3.4 rule 1: `incidentId` from `NULL` to a value, and `priority` from `P2_GPS` to `P1_LOCATION`. A redaction list (`passwordHash`, `tokenHash`, `codeHash`, `psk`) is applied to `before` and `after` before insert.
+`AuditSinkListener` persists `audit.record` into `audit_log` with the organization id (REQ-UBI-10). A
+redaction list (`passwordHash`, `tokenHash`, `codeHash`, `keyHash`, `secretHash`, `signaturePng`,
+`password`, `key`, `mqttSecret`) is applied to `before` and `after` before insert. The baseline installs
+`raise_append_only()` on `audit_log`, `business_parameter_history`, `auth_events`,
+`organization_transitions`, `device_transitions`, `intake_checks`, `device_provisionings`,
+`device_resets`, `inspections`, `contract_transitions`, `price_schedules`, `incident_transitions`,
+`incident_status_updates` and `sync_audit_log`; `field_events` has `field_events_append_only()` (§3.4
+rule 1).
 
 ### 4.6 Scheduler
 
-`@nestjs/schedule` hosts every time-triggered rule. Jobs registered by modules:
+`@nestjs/schedule` hosts every time-triggered rule. Each job reads its deadlines from the database, so a
+restart resumes them (REQ-EVT-06, NFR-AVL-02), and runs under a Postgres advisory lock per job name
+(`pg_try_advisory_lock`), so a second replica skips rather than double-runs (REQ-EVT-05).
 
-| Job | Owner | Default cadence | Rule |
+| Job | Owner | Cadence | Rule |
 |---|---|---|---|
-| `rentals.expireHolds` | rentals | 30 s | release allocations past `holdExpiresAt` (E01-1 cleanup, Q59) |
-| `rentals.markOverdue` | rentals | 60 s | rental past due plus grace becomes `OVERDUE` (E05-1, E05-3) |
-| `devices.markLost` | devices | 15 min | non-return grace exceeded, raise loss record (E05-3, FR-DEV-09) |
-| `monitoring.staleSweep` | monitoring | 15 s | emit stale transitions (E04-1, E04-2) |
-| `incidents.escalate` | incidents | 15 s | unacknowledged past timeout, escalate (MF-03 parameter) |
-
-Single-instance execution uses a Postgres advisory lock per job name (`pg_try_advisory_lock`), so a second backend replica skips rather than double-runs.
+| `incidents.tierTimeouts` | incidents | 5 s | `NOTIFY_*` past `tierDeadlineAt` moves to the next tier or `ESCALATED` (FR-INC-05) |
+| `incidents.staleResponses` | incidents | 30 s | `ACKNOWLEDGED` or `RESPONDING` past `statusDueAt` moves to `ESCALATED` (FR-INC-07) |
+| `incidents.closeAfterReopenWindow` | incidents | 60 s | `RESOLVED` or `FALSE_ALARM` past the window moves to `CLOSED` (FR-INC-11) |
+| `incidents.deliverAlerts` | incidents | 2 s | outbox rows due for delivery (FR-INC-12) |
+| `monitoring.staleSweep` | monitoring | `monitoring.staleSweepSeconds` | stale devices and Field Stations (FR-MON-03); flags incidents stale through `IncidentsService` (FR-INC-13) |
+| `monitoring.pruneStream` | monitoring | hourly | delete stream entries past retention |
+| `rentals.termRollover` | rentals | daily at `rentals.termRolloverHourLocal`, and hourly catch-up | close ended terms, open the next with its invoice, end day plans, move ended `ENDING` contracts to `RETURN_DUE` (FR-CON-08, FR-CON-10) |
+| `rentals.overdueAndDefault` | rentals | hourly | `RETURN_DUE` past grace to `OVERDUE`; `OVERDUE` past the threshold to `DEFAULTED`, suspending the organization (FR-CON-12) |
+| `rentals.reservationReminders` | rentals | hourly | approved contracts past the reservation expiry (FR-CON-04) |
+| `billing.expirePayments` | billing | 60 s | `PENDING` SePay payments past expiry become `EXPIRED` |
 
 ### 4.7 Health and the optional MQTT probe
 
-`HealthService` backs `GET /api/health` (`api-design/01-get-health.md`). It races `SELECT 1` against `HEALTH_DB_TIMEOUT_MS` and throws `DomainException(503, SERVICE_UNAVAILABLE, "Database unreachable.")` on an error or a timeout. The MQTT state comes from a port that `platform` owns and `gateway-sync` implements (**D-032**), so `platform` still depends on no module:
+`HealthService` backs `GET /api/health` (`api-design/01-get-health.md`). It races `SELECT 1` against
+`HEALTH_DB_TIMEOUT_MS` and throws `DomainException(503, SERVICE_UNAVAILABLE, "Database unreachable.")`
+on an error or a timeout. The MQTT state comes from a port that `platform` owns and `gateway-sync`
+implements (D-032):
 
 ```typescript
 export const MQTT_HEALTH_PROBE = Symbol('MQTT_HEALTH_PROBE');
@@ -651,55 +373,52 @@ export interface MqttHealthProbe {
 }
 ```
 
-The service injects the token as `@Optional()`. With no provider registered, `components.mqtt` is `unknown` and `status` stays `ok`; a registered probe returning `false`, or throwing, gives `mqtt: "down"` and `status: "degraded"`. `PrismaService` comes from the `@Global()` `PrismaModule` in `common/prisma`, one connection pool for the application; module isolation is unchanged, because each module still queries only the tables it owns.
+The service injects the token as `@Optional()`. With no provider registered, `components.mqtt` is
+`unknown` and `status` stays `ok`; a probe returning `false`, or throwing, gives `mqtt: "down"` and
+`status: "degraded"`.
 
 ---
 
 ## 5. API Endpoints in this module
 
-| Method | Route | Permission | Spec |
-|---|---|---|---|
-| GET | `/api/health` | Public | [`api-design/01-get-health.md`](api-design/01-get-health.md) |
-| GET | `/api/settings/parameters` | Admin, Operator (read) | [`api-design/02-get-parameters-list.md`](api-design/02-get-parameters-list.md) |
-| PATCH | `/api/settings/parameters/:key` | Admin | [`api-design/03-patch-parameter-update.md`](api-design/03-patch-parameter-update.md) |
-| GET | `/api/settings/parameters/:key/history` | Admin | [`api-design/04-get-parameter-history.md`](api-design/04-get-parameter-history.md) |
-| GET | `/api/audit-logs` | Admin | [`api-design/05-get-audit-logs-list.md`](api-design/05-get-audit-logs-list.md) |
-
-Testing walkthrough: [`api-design/00-api-testing-guide.md`](api-design/00-api-testing-guide.md).
+See [`api-design/README.md`](api-design/README.md). Testing walkthrough:
+[`api-design/00-api-testing-guide.md`](api-design/00-api-testing-guide.md).
 
 ---
 
 ## 6. Sequence Flow: an Admin changes a parameter
 
-See **Figure 11**.
+See **Figure 5**.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Admin
+    actor Admin as TrekLink Admin
     participant C as ParametersController
     participant S as ParameterService
     participant DB as Postgres
     participant A as Audit sink
-    Admin->>C: PATCH .../parameters/{key} {value 15}
-    C->>S: update(key, 15, actor)
-    S->>S: validate type and bounds from registry
-    alt out of bounds
-        S-->>C: 400 PARAMETER_OUT_OF_RANGE
-        C-->>Admin: 400, value unchanged
+    Admin->>C: PATCH /api/parameters/{key} {value 60, expectedVersion}
+    C->>S: update(key, dto, actor)
+    S->>DB: BEGIN, SELECT ... FOR UPDATE
+    S->>S: validate type and bounds, compare version
+    alt out of bounds or stale
+        S-->>C: 400 PARAMETER_OUT_OF_RANGE or 409 STALE_VERSION
+        C-->>Admin: failure envelope, value unchanged
     end
-    S->>DB: UPDATE value, INSERT history
-    S->>S: invalidate cache entry
+    S->>DB: UPDATE value, INSERT history, COMMIT
+    S-)S: emit parameter.changed (caches drop the key)
     S-)A: audit.record parameter.update
     S-->>C: ParameterDto
     C-->>Admin: 200 Parameter updated
 ```
 
-***Figure 11***: Parameter update. The history row and the value change commit together; the audit entry is emitted after commit.
+***Figure 5***: Parameter update. The history row and the value change commit together; events follow the commit.
 
 ---
 
 ## 7. Frontend impact
 
-- `shared/api/apiClient.ts` unwraps the envelope once and throws `ApiError { statusCode, errorCode, message }` on failure (`06-frontend-conventions.md` §6.1).
-- Admin pages: Parameters (list, inline edit with bounds shown, history drawer) and Audit Log (filterable table). Specified in `specs/frontend/`.
+- `shared/api/apiClient.ts` unwraps the envelope once and throws `ApiError { statusCode, errorCode, message }`.
+- Admin pages: Parameters (list grouped by module, inline edit with bounds, history drawer) and Audit Log
+  (filters including organization). Specified in `specs/frontend/`.

@@ -113,12 +113,13 @@ describe('the real schema and source tree', () => {
       new Set([
         'platform',
         'auth',
+        'organizations',
         'devices',
-        'trips',
         'rentals',
         'billing',
         'incidents',
         'gateway-sync',
+        'monitoring',
       ]),
     );
   });

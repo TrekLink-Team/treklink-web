@@ -1,0 +1,169 @@
+# POST /api/gateway-sync op listQueueReports: Device queue reports
+
+> Module `gateway-sync`. Generated from `scripts/specs/endpoints/gateway_sync.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
+
+[TOC]
+
+---
+## Overview
+
+Lists the Stage B on-device queue health reports of one device: depth, enqueued, published and shed per tier, and reboot detection (NFR-IF-01).
+
+## API Specification
+
+| API | URL |
+| --- | --- |
+| POST | /api/gateway-sync |
+| Permission | TrekLink Staff, TrekLink Admin |
+| Operation | `op: "listQueueReports"` (D-027) |
+| Traces | UC-42, NFR-IF-01, NFR-REL-05 |
+
+## Request sample
+
+```json
+{
+  "op": "listQueueReports",
+  "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10"
+}
+```
+
+| Field | Description | Data Type | Required | Examples |
+| --- | --- | --- | --- | --- |
+| op | Literal `listQueueReports` | string | yes | `listQueueReports` |
+| deviceId | Device | uuid | yes | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| from | Lower bound | datetime | no | `...` |
+| pageNumber | 1-based | int | no | `1` |
+
+## Response sample
+
+```json
+{
+  "result": {
+    "items": [
+      {
+        "receivedAt": "2026-10-20T03:15:00.000Z",
+        "capacity": 64,
+        "depth": [
+          0,
+          0,
+          2,
+          9
+        ],
+        "shed": [
+          0,
+          0,
+          0,
+          4
+        ],
+        "p0Refused": 0,
+        "rebootDetected": false
+      }
+    ],
+    "pageNumber": 1,
+    "pageSize": 20,
+    "totalCount": 31,
+    "totalPages": 1
+  },
+  "isSuccess": true,
+  "statusCode": 200,
+  "message": "OK"
+}
+```
+
+## Validation
+
+<table>
+    <th>Status code</th>
+    <th>Description</th>
+    <th>Examples</th>
+    <tbody>
+        <tr>
+            <td>400</td>
+            <td>The body or query fails validation (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "{field} is required."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>401</td>
+            <td>Missing, malformed or expired access token or API key (<code>UNAUTHENTICATED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "UNAUTHENTICATED"
+  },
+  "isSuccess": false,
+  "statusCode": 401,
+  "message": "Authentication required."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>403</td>
+            <td>The caller's role, policy or organization does not allow this action (<code>FORBIDDEN</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "FORBIDDEN"
+  },
+  "isSuccess": false,
+  "statusCode": 403,
+  "message": "You do not have access to this."
+}
+```
+</td>
+        </tr>
+    </tbody>
+</table>
+
+## Activity Diagram
+
+```mermaid
+flowchart TB
+    S((Start))
+    A0["Check token, policy and organization scope"]
+    S --> A0
+    D1{"The body or query fails validation?"}
+    A0 --> D1
+    E1["Return 400 VALIDATION_FAILED"]
+    D1 -->|yes| E1
+    E1 --> X1((End))
+    P0["Dispatch on op"]
+    D1 -->|no| P0
+    P1["Read device_queue_reports"]
+    P0 --> P1
+    OK["Return 200"]
+    P1 --> OK
+    OK --> Z((End))
+```
+
+## Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Client
+    participant Ctl as GatewaySyncController
+    participant Svc as QueueReportService
+    participant DB as Postgres
+    C->>Ctl: POST /api/gateway-sync
+    Ctl->>Svc: list(dto)
+    Svc->>DB: SELECT device_queue_reports
+    Svc-->>Ctl: result
+    Ctl-->>C: 200 envelope
+```

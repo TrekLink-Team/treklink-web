@@ -19,7 +19,7 @@ Swagger UI: `http://localhost:3000/api/docs`. Every operation there documents th
 ```bash
 curl -s -X POST http://localhost:3000/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"identifier":"admin","password":"<seeded admin password>"}'
+  -d '{"email":"admin@treklink.local","password":"<seeded admin password>"}'
 ```
 
 Copy `result.accessToken`, then:
@@ -28,16 +28,16 @@ Copy `result.accessToken`, then:
 export TOKEN=<accessToken>
 ```
 
-The seed creates one user per role (`admin`, `operator`, `guide`, `customer`); passwords come from `SEED_*_PASSWORD` in `.env` and are never committed.
+The demo seed (`backend/prisma/seed-demo.ts`, platform tasks) creates one account per role, `admin@`, `staff@`, `manager@` and `operator@treklink.local`, the last two in one demo organization; passwords come from `SEED_*_PASSWORD` in `.env` and are never committed. An organization API key for the telemetry endpoints is created by the demo Manager through `POST /api/organizations/:id/api-keys` and sent as `X-Api-Key`.
 
 ## 3. Call an endpoint
 
 ```bash
-curl -s http://localhost:3000/api/settings/parameters \
+curl -s http://localhost:3000/api/parameters \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Every response, success or failure, has exactly four keys: `result`, `isSuccess`, `statusCode`, `message`. On failure `result` is `{ "errorCode": "..." }`.
+Every response, success or failure, has exactly four keys: `result`, `isSuccess`, `statusCode`, `message`. On failure `result` is `{ "errorCode": "..." }`. The one exception is the SePay webhook, which answers `{ "success": true }` (D-038).
 
 ## 4. Check the correlation id
 

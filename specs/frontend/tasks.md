@@ -1,44 +1,36 @@
 # Implementation Tasks: frontend
 
-> Approved by: pending (`_handoff/SYNC.md`) · Branch: `feat/module-specs-and-backend-foundation` · Jira: UI tasks of every story; `TK-68`, `TK-69`, `TK-78` (LongNN) per D-023
->
-> Fulfills `design.md`. Phase B is backend first (prompt §2), so these tasks follow each backend module's Phase 4. The order below matches the Main Flow order.
+> Rewritten 2026-10-04 (D-036). Owner: LongNN. Each phase follows its backend module's API Presentation
+> phase. Jira keys assigned when the backlog is regenerated.
 
-## Phase 1: Foundation
+## Phase 1: Shell
 
-- [ ] 1.1 Layer lint rule (`eslint-plugin-boundaries`) and the no-raw-fetch rule (AC-01, AC-02)
-- [ ] 1.2 `apiClient` envelope unwrap, `ApiError`, silent refresh (REQ-UBI-02, REQ-EVT-01)
-- [ ] 1.3 Router with route guards from `/api/auth/me`; `AuthProvider`
-- [ ] 1.4 UI kit: Button, Modal (focus trap, Escape), Table with Pattern A, EmptyState, ErrorBanner, Pagination (REQ-UBI-07, REQ-ERR-02)
-- [ ] 1.5 Time-zone and VND formatting helpers (REQ-UBI-09)
-- [ ] 1.6 Test stack: Vitest, Testing Library, axe, Playwright; `ci.yml` frontend test step (dependency approval in C-003)
+- [ ] 1.1 `apiClient` envelope unwrap, `ApiError`, single refresh-and-retry; auth context; router with role guards
+  - _Requirements: REQ-UBI-01, REQ-UBI-02, REQ-EVT-02_
+- [ ] 1.2 Replace MapLibre with Leaflet and the overlay in `shared/config/map.ts` and `LiveMapWidget`; remove `maplibre-gl`
+  - _Requirements: REQ-UBI-06, AC-03, D-031_
+- [ ] 1.3 `socketClient` with cursor and reconnect banner; global alert banner
+  - _Requirements: REQ-EVT-01, REQ-EVT-03_
 
-## Phase 2: MF-01 screens
+## Phase 2: Public and auth pages
 
-- [ ] 2.1 Auth pages
-- [ ] 2.2 Packages, package detail with quote
-- [ ] 2.3 Booking wizard with hold countdown, E01-1 handling, sandbox pay (REQ-EVT-05, REQ-STA-04, AC-07)
-- [ ] 2.4 Bookings queue with blockers; booking confirm and reject
-- [ ] 2.5 Trips, trip detail, assign guides with availability
-- [ ] 2.6 Rental desk: allocate, agreement and signature pad, check-out wizard
-- [ ] 2.7 Guide: my trips, readiness checklist, handover check
-- [ ] 2.8 Fleet list, device detail, register, transitions, maintenance
+- [ ] 2.1 Plans, registration, sign-in, forgot, reset, welcome
 
-## Phase 3: MF-02 and MF-03 screens
+## Phase 3: Organization workspace
 
-- [ ] 3.1 Admin sync health and sync audit (RQ1 evidence view)
-- [ ] 3.2 `socketClient`, live store, reconnect indicator, snapshot resync (REQ-EVT-02, AC-04)
-- [ ] 3.3 Incident queue widget, acknowledge button, incident detail with both timelines, dismiss (REQ-EVT-03, REQ-EVT-06, REQ-STA-03, AC-05)
+- [ ] 3.1 Map, incident queue and detail (one-tap acknowledge)
+  - _Requirements: REQ-UBI-03, REQ-UBI-07, AC-02_
+- [ ] 3.2 Contracts, request with quote, holder labels, invoices, SePay payment page
+  - _Requirements: REQ-UBI-08_
+- [ ] 3.3 Members, roster, API keys, Field Stations
 
-## Phase 4: MF-04 and MF-05 screens
+## Phase 4: TrekLink workspace
 
-- [ ] 4.1 Live map layers, stale and buffering markers, gateway indicator, map error state (REQ-STA-01, REQ-STA-02, REQ-EVT-04, AC-03)
-- [ ] 4.2 Check-in, inspection, settlement, waivers, customer invoices
-- [ ] 4.3 Admin users, roles, parameters, pricing, audit log
+- [ ] 4.1 Organization queues; contract approval; counter handover and check-in; inspection
+- [ ] 4.2 Fleet, device detail with history, stock-take; incident escalation queue and authority reports
+- [ ] 4.3 Billing, damage approvals, reports; administration pages
 
 ## Phase 5: Verification
 
-- [ ] 5.1 axe clean on every page (AC-06); keyboard-only run of acknowledge and check-out
-- [ ] 5.2 Playwright: MF-01 path, acknowledge race, reconnect resync
-- [ ] 5.3 Sovereignty screenshots over Hoàng Sa and Trường Sa filed (D-012 acceptance test)
-- [ ] 5.4 Lint, typecheck, build green; session file
+- [ ] 5.1 Playwright journeys MF-01 to MF-05; axe-core on every route; responsive check at 360 px
+  - _Requirements: REQ-UBI-03, REQ-UBI-04, AC-01, AC-04_
