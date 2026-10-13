@@ -15,12 +15,14 @@
 
 - [ ] 2.1 Adapters, canonical envelope, strategies (fall prefix first)
   - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-ERR-01, REQ-ERR-05_
-- [ ] 2.2 `IngestionService.ingest()` with `ON CONFLICT` dedup, audit, renting organization, position rules, projection, incident hand-off, post-commit events
+- [ ] 2.2 `IngestionService.ingest()` with `ON CONFLICT` dedup, audit, attributed organization (task 2.5), position rules, projection, incident hand-off, post-commit events
   - _Requirements: REQ-UBI-01 to REQ-UBI-04, REQ-EVT-03, REQ-EVT-04, REQ-EVT-06, REQ-ERR-02, AC-01, AC-02, AC-05_
 - [ ] 2.3 Stage C station resolution and the rented-device check; station health handler
   - _Requirements: REQ-EVT-05, REQ-EVT-08, AC-04_
 - [ ] 2.4 Queue reports, buffering, reboot detection
   - _Requirements: REQ-EVT-12 to REQ-EVT-14_
+- [ ] 2.5 Occurrence time and attribution: time-source precedence, `rentals.custodyAt`, boundary margin, late-upload grace, `UNATTRIBUTED`
+  - _Requirements: REQ-UBI-03, REQ-UBI-06, REQ-EVT-05, REQ-EVT-15, REQ-ERR-06, AC-06 to AC-08_
 
 ## Phase 3: Broker
 
@@ -32,14 +34,17 @@
 - [ ] 4.1 `POST /api/gateway-sync` operations `listEvents`, `listAudit`, `replayAudit`, `listQueueReports` (D-027)
   - _Requirements: REQ-EVT-09_
 - [ ] 4.2 E2E for every Validation row; the replay harness (TC-11)
+- [ ] 4.3 Two-organization isolation suite, including the E02-7 fixture (D-042)
+  - _Requirements: AC-06, NFR-SEC-04_
 
 ## Phase 5: Field Station executable
 
-- [ ] 5.1 `gateway/` program: serial reader, SQLite queue, flush, bound, restart safety, health publish; packaging
+- [ ] 5.1 `gateway/` program: serial reader, SQLite queue with `capturedAt`, flush with `fs_captured_at` and `fs_sent_at`, bound, restart safety, health publish; packaging
   - _Requirements: REQ-STA-01 to REQ-STA-03, REQ-ERR-03, REQ-ERR-04, AC-03_
 - [ ] 5.2 Local page and local API
   - _Requirements: FR-EVT-12_
 - [ ] 5.3 Outage harness and the RQ1 measurements (NFR-REL-01, NFR-REL-02, NFR-REL-04)
+- [ ] 5.4 Load harness with simulated Field Stations and devices (NFR-PERF-02, NFR-PERF-03, D-042)
 
 ## Phase 6: Verification & DoD
 

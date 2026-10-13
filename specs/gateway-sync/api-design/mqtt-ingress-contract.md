@@ -24,7 +24,8 @@ published. The broker ACL (`api-design/02`) allows a Field Station to publish on
 
 The Field Station republishes each queued event verbatim, keeping `from` and `id`, so `eventId` is
 identical whichever path delivers it and a packet heard by both a node uplink and a station is stored
-once (BR-11).
+once (BR-11). It adds two top-level fields, `fs_captured_at` and `fs_sent_at` (table below), and changes
+nothing else; the adapter removes them before the stock payload is decoded.
 
 ## Message
 
@@ -56,6 +57,8 @@ serializer's; golden fixtures captured from real devices replace this sample (ga
 | sender | The node that published (Stage A, B) or the station's node (Stage C) | string | yes | `!a4b1c2d3` |
 | payload | Per-type body. `text` carries the SOS strings of FGT §2 | object | yes | n/a |
 | rssi, snr, hops_away | Link quality; present only when non-zero | number | no | `-97` |
+| fs_captured_at | Stage C only: the station clock when the packet came off the serial port | uint64 epoch ms | Stage C | `1760072561250` |
+| fs_sent_at | Stage C only: the station clock at this publish; `receivedAt - fs_sent_at` is the clock offset applied to `fs_captured_at` (D-040) | uint64 epoch ms | Stage C | `1760245200000` |
 
 `eventId = sha256(from + ":" + id)`, lower-case hex (FR-EVT-01, D-006).
 
@@ -73,13 +76,14 @@ MQTT has no response. Each message yields one `SyncAuditLog` row and, when accep
 | --- | --- | --- |
 | JSON unparsable or a required field missing | `MALFORMED_ENVELOPE`, raw message stored | nothing else; consumption continues (FR-EVT-05, E02-4) |
 | `from` matches no device | `UNKNOWN_DEVICE`, raw message stored | quarantined; replayable after registration (`op replayAudit`) |
-| Stage C, and the device is not on a running contract of the station's organization | `NOT_RENTED_TO_STATION_ORG` | dropped (FR-EVT-14) |
+| Stage C, and the station's organization neither holds the device nor returned it less than `gatewaySync.lateUploadGraceHours` ago | `NOT_RENTED_TO_STATION_ORG` | dropped (FR-EVT-14) |
 | `eventId` already stored | `DUPLICATE_REJECTED` | no incident, no emit (FR-EVT-01, E02-2) |
 | The type strategy throws | `NORMALIZATION_FAILED` with the error | isolated to this packet |
 | Coordinates outside WGS-84 or outside `monitoring.positionBounds` | `INVALID_POSITION` | event kept, position null (FR-MON-04) |
 | Speed from the last position above `monitoring.maxPlausibleSpeedKmh` | `IMPLAUSIBLE_POSITION` | event kept with `plotted = false`, not projected (FR-MON-04, E04-6) |
 | `type: treklink_queue_health` | `QUEUE_REPORT` | `DeviceQueueReport` stored; no `FieldEvent` |
-| Otherwise | `ACCEPTED` | `FieldEvent` with the renting organization, device projection, incident correlation, stream event |
+| No custody interval claims the occurrence time, the station's organization differs from the interval's, or the time is within `gatewaySync.attributionMarginSeconds` of a handover or check-in | `ACCEPTED_UNATTRIBUTED` | `FieldEvent` with no organization; incident `UNROUTED`; fleet stream only (FR-EVT-17, BR-36) |
+| Otherwise | `ACCEPTED` | `FieldEvent` attributed to the custody interval and organization that contain its occurrence time, device projection, incident correlation, stream event (FR-EVT-16) |
 
 The `FieldEvent` insert, the device projection and the incident correlation run in one transaction
 keyed by the unique `eventId` (FR-EVT-01); the stream and alert emits happen after commit.
