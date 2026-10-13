@@ -10,7 +10,7 @@
 ## 1. Domain Context & Scope
 
 - **In-Scope**: incident creation from an SOS, a fall SOS or a cadence anomaly, with episode correlation;
-  routing to the contract holding the device; the D-034 lifecycle with its timers; acknowledgement,
+  routing to the contract the triggering event is attributed to; the D-034 lifecycle with its timers; acknowledgement,
   response, status updates, outcome and false alarm; authority reports; reopen and close; the alert
   outbox and its delivery; the stale flag; response-time metrics.
 - **Out-of-Scope**: decoding packets (`gateway-sync`, which calls in); the roster itself (`organizations`);
@@ -24,7 +24,7 @@
 | This spec | SRS |
 |---|---|
 | Creation, correlation, cadence | UC-29, FR-INC-01, FR-INC-02, BR-13, BR-14, E03-1, E03-2 |
-| Routing | FR-INC-03, E03-4, E03-9, BR-32 |
+| Routing | FR-INC-03, E02-7, E03-4, E03-9, BR-32, BR-36, D-040 |
 | Lifecycle | FR-INC-04, BR-15, BR-18, D-034 |
 | Tiers and escalation | UC-31, FR-INC-05, BR-16 |
 | Owner actions | UC-32 to UC-34, FR-INC-06 to FR-INC-08, E03-3, E03-5 |
@@ -49,7 +49,7 @@
 
 - **REQ-EVT-01**: WHEN `gateway-sync` hands over an SOS or fall SOS for a device with an incident outside `CLOSED` whose last event is within `incidents.correlationWindowSeconds`, the system SHALL append the event to it and update its last event and position; WHEN the open incident is `RESOLVED` or `FALSE_ALARM` within its reopen window, the system SHALL reopen it (REQ-EVT-10); otherwise it SHALL create exactly one incident. [FR-INC-01]
 - **REQ-EVT-02**: WHEN a device's position events reach `incidents.cadenceCount` within `incidents.cadenceWindowSeconds` with no open incident, the system SHALL create a `SUSPECTED` incident from `CADENCE_INFERRED`; WHEN a later SOS text of the same episode arrives, the system SHALL upgrade it to `CONFIRMED` in place. [FR-INC-02, E03-1]
-- **REQ-EVT-03**: WHEN an incident is created, the system SHALL, in the same transaction, ask `rentals` for the contract holding the device (`ACTIVE`, `ENDING`, `RETURN_DUE`, `OVERDUE` or `DEFAULTED`) and `organizations` for the tiers at that instant, and SHALL move it from `DETECTED` to `NOTIFY_PRIMARY` (or the first non-empty tier) or to `UNROUTED` when there is no such contract or nobody to alert. [FR-INC-03, E03-4, E03-9]
+- **REQ-EVT-03**: WHEN an incident is created, the system SHALL, in the same transaction, route it to the contract and organization its triggering event is attributed to by `gateway-sync`, in whatever state that contract now is, ask `organizations` for that organization's tiers at that instant, and move it from `DETECTED` to `NOTIFY_PRIMARY` (or the first non-empty tier), or to `UNROUTED` when the event is `UNATTRIBUTED` or nobody can be alerted. The device's current holder SHALL NOT be used. [FR-INC-03, BR-36, E02-7, E03-4, E03-9]
 - **REQ-EVT-04**: WHEN a tier deadline passes without acknowledgement, the system SHALL move the incident to the next non-empty tier and alert it, or to `ESCALATED` after the Manager tier, and alert TrekLink Staff (MSG34). A timeout job SHALL do nothing when the incident has already moved. [FR-INC-05, BR-16]
 - **REQ-EVT-05**: WHEN a member of the routed organization acknowledges an incident in `NOTIFY_*`, `ESCALATED` or `REPORTED`, the system SHALL move it to `ACKNOWLEDGED`, set the owner, record the time-to-acknowledge, and set the status deadline; a concurrent second acknowledgement SHALL lose the compare-and-set and be shown the owner (MSG27). [FR-INC-06, E03-3]
 - **REQ-EVT-06**: WHEN the owner reports a response under way, the system SHALL move `ACKNOWLEDGED` to `RESPONDING`; WHEN the owner adds a status update, the system SHALL reset the status deadline. [FR-INC-07]
@@ -97,6 +97,7 @@ The `incidents` section of the [Configuration Matrix](../platform/configuration-
 - **AC-02**: With nobody acknowledging, the incident walks primary, backup, Manager, then `ESCALATED`, each after its timeout. (TC-16)
 - **AC-03**: Two members acknowledge at once; one owns it, the other gets 409 with the owner's name. (E03-3)
 - **AC-04**: An SOS from a device on no contract is `UNROUTED`; Staff record an authority report, then the case closed; the incident ends `CLOSED`. (TC-17)
+- **AC-09**: A's late SOS, synchronized after the device was handed to B, opens an incident routed to A's tiers; no member of B sees it. (E02-7, TC-36)
 - **AC-05**: 6 positions in 60 s with no SOS text raise a `SUSPECTED` incident; the late SOS text upgrades it. (TC-14)
 - **AC-06**: Every pair of the state matrix is either allowed or answered 409. (TC-15)
 - **AC-07**: Email delivery fails three times; the incident still escalates on time and the alert log shows the retries. (E03-7)

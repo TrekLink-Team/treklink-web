@@ -3,21 +3,21 @@
 **User Story**: As an **organization running groups where phones have no signal**, I want every SOS, position and telemetry packet my rented devices send to reach the platform exactly once and SOS first, even after hours offline, so that nothing that happened in the field is lost or counted twice.
 **Story ID**: assigned when the backlog is regenerated | **Priority**: Highest | **Milestone**: MF-02
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-26 to UC-28, UC-42, FR-EVT-01 to FR-EVT-14, FR-DEV-06, FR-MON-04, BR-11, BR-12, NFR-REL-01 to NFR-REL-06, NFR-IF-01, NFR-PERF-02, E02-1 to E02-6; D-005, D-006 (`eventId`), D-007 (envelope and strategies), D-018 (stages), D-027 (operation endpoint), D-033 item 8 (Field Station), D-037 (credentials), D-038 (no device-side cancel). Firmware facts: `04-firmware-ground-truth.md`. Rewritten 2026-10-04 (D-036).
+> **Authority**: Report 3 SRS (2026-10-13) UC-26 to UC-28, UC-42, FR-EVT-01 to FR-EVT-17, FR-DEV-06, FR-MON-04, BR-11, BR-12, BR-36, NFR-REL-01 to NFR-REL-06, NFR-IF-01, NFR-PERF-02, E02-1 to E02-8; D-005, D-006 (`eventId`), D-007 (envelope and strategies), D-018 (stages), D-027 (operation endpoint), D-033 item 8 (Field Station), D-037 (credentials), D-038 (no device-side cancel), D-040 (occurrence time and custody attribution), D-042 (isolation and load tests). Firmware facts: `04-firmware-ground-truth.md`. Rewritten 2026-10-04 (D-036); attribution added 2026-10-13 (D-040).
 
 ---
 
 ## 1. Domain Context & Scope
 
 - **In-Scope**: the MQTT ingress adapters for Stage A, B and C topics; the canonical envelope and
-  per-type strategies; `eventId` derivation and deduplication; persistence of field events with the
-  renting organization; the device projection call; correlation hand-off to `incidents`; the sync audit;
+  per-type strategies; `eventId` derivation and deduplication; occurrence time and attribution of each
+  event to a custody interval; persistence of field events with the attributed organization; the device projection call; correlation hand-off to `incidents`; the sync audit;
   Stage B queue reports; Field Station health; the broker authentication hooks; the Field Station
   executable (queue, flush, local page) in `treklink-web/gateway/`.
 - **Out-of-Scope**: incident rules (`incidents`); the live map and API stream (`monitoring`, fed by this
   module's events); the firmware's own queue (`treklink-firmware/specs/onboard-queue/`).
-- **Depends on**: `platform`, `organizations` (station credentials), `devices`, `rentals` (renting
-  organization), `incidents`. Provides `MQTT_HEALTH_PROBE`.
+- **Depends on**: `platform`, `organizations` (station credentials), `devices`, `rentals` (custody
+  intervals), `incidents`. Provides `MQTT_HEALTH_PROBE`.
 
 ### Traceability
 
@@ -29,6 +29,7 @@
 | Health | UC-42, FR-EVT-13, NFR-IF-01 |
 | Credentials at the broker | FR-EVT-14, D-037 |
 | Positions | FR-DEV-06, FR-MON-04 |
+| Occurrence time and attribution | FR-EVT-15 to FR-EVT-17, BR-36, E02-7, E02-8, D-040 |
 
 ---
 
@@ -38,9 +39,10 @@
 
 - **REQ-UBI-01**: The system SHALL derive `eventId = sha256(from + ":" + id)` in lower-case hex for every field packet and SHALL persist a field event at most once per `eventId`, under the database's unique index, in the same transaction as its projection and correlation. [FR-EVT-01, BR-11, D-006]
 - **REQ-UBI-02**: The system SHALL write one append-only sync audit row per ingestion attempt, accepted or not, with its outcome. [FR-EVT-11]
-- **REQ-UBI-03**: The system SHALL record on each field event the organization renting the device at ingestion, or none, so that history can be clipped to rental periods. [FR-MON-07]
-- **REQ-UBI-04**: The system SHALL order and compare events by queue sequence and priority, never by wall-clock comparison across hosts, and SHALL store a device `rx_time` of 0 as unknown. [FR-EVT-08, E02-6]
+- **REQ-UBI-03**: The system SHALL record on each field event its occurrence time, the source of that time, and its attribution: the `ContractDevice` custody interval and organization it belongs to, or `UNATTRIBUTED` with neither. The device's current holder SHALL NOT be recorded in their place. [FR-EVT-15 to FR-EVT-17, FR-MON-07, BR-36]
+- **REQ-UBI-04**: The system SHALL order and compare events by queue sequence and priority, never by wall-clock comparison across hosts, and SHALL store a device `rx_time` of 0 as unknown. Occurrence time SHALL be used for attribution only. [FR-EVT-08, FR-EVT-15, E02-6]
 - **REQ-UBI-05**: The system SHALL accept the stock Meshtastic JSON topics through adapters that produce one canonical envelope, and SHALL keep the stock payload shapes untouched (D-019). [FR-EVT-10, NFR-IF-02]
+- **REQ-UBI-06**: The system SHALL derive occurrence time in this order and record its source: `STATION_CORRECTED`, the Field Station's `fs_captured_at` plus the offset `receivedAt - fs_sent_at` of the same publish; else `DEVICE_RTC`, the device `rx_time` when non-zero, not later than `receivedAt` plus `gatewaySync.deviceTimeMaxAheadSeconds` and not earlier than `receivedAt` minus `gatewaySync.lateUploadGraceHours`; else `SERVER_RECEIPT`, the `receivedAt`. [FR-EVT-15, E02-8, D-040]
 
 ### Event-Driven
 
@@ -48,10 +50,11 @@
 - **REQ-EVT-02**: WHEN a text payload is classified, the system SHALL test the `SOS - FALL DETECTED` prefix before `SOS - ` and SHALL classify both as P0 SOS. [FR-EVT-09]
 - **REQ-EVT-03**: WHEN an SOS or fall SOS is accepted, the system SHALL call `incidents` inside the ingestion transaction; WHEN a position is accepted, it SHALL call `incidents` for episode tagging and cadence. [FR-INC-01, FR-INC-02]
 - **REQ-EVT-04**: WHEN a position or telemetry is accepted, the system SHALL call `devices.projectReading`; WHEN a position lies outside `monitoring.positionBounds` or WGS-84, the event SHALL be kept with no position (`INVALID_POSITION`); WHEN it implies a speed above `monitoring.maxPlausibleSpeedKmh` from the last plotted position, it SHALL be kept with `plotted = false` and not projected (`IMPLAUSIBLE_POSITION`). [FR-DEV-06, FR-MON-04]
-- **REQ-EVT-05**: WHEN a message arrives on a Field Station topic, the system SHALL resolve the station by the username in the topic, refuse it if the credential is revoked, and accept the event only when the device is on a running contract of the station's organization (`NOT_RENTED_TO_STATION_ORG` otherwise). [FR-EVT-14]
+- **REQ-EVT-05**: WHEN a message arrives on a Field Station topic, the system SHALL resolve the station by the username in the topic, refuse it if the credential is revoked, and accept the event only when the station's organization holds the device now or held it under a custody interval that ended less than `gatewaySync.lateUploadGraceHours` ago (`NOT_RENTED_TO_STATION_ORG` otherwise). [FR-EVT-14, E02-7]
 - **REQ-EVT-06**: WHEN an event is accepted, the system SHALL emit `field.position` or `field.telemetry` after commit for `monitoring`. [FR-MON-02]
 - **REQ-EVT-07**: WHEN the broker's go-auth hook asks, the system SHALL answer 200 for a valid credential or topic and 403 otherwise, behind `MQTT_AUTH_HOOK_SECRET`. [FR-EVT-14]
 - **REQ-EVT-08**: WHEN a Field Station reports its health on `treklink/fs/<username>/health`, the system SHALL record its queue depth per tier, oldest retry count and last sync time through `organizations`. [FR-EVT-13]
+- **REQ-EVT-15**: WHEN an event's occurrence time is derived, the system SHALL ask `rentals.custodyAt(deviceId, occurredAt)` for the custody interval that contains it, and SHALL attribute the event to that interval and its organization when, for a Field Station event, the interval's organization is the station's organization. [FR-EVT-16, BR-36, E02-7]
 - **REQ-EVT-09**: WHEN an Admin replays a quarantined `UNKNOWN_DEVICE` audit row, the system SHALL re-run ingestion on its stored raw message and write a new audit row. [UC-26]
 - **REQ-EVT-12**: WHEN a `treklink_queue_health` report arrives, the system SHALL store a `DeviceQueueReport` and SHALL NOT create a field event or reach correlation. [NFR-IF-01]
 - **REQ-EVT-13**: WHEN the latest queue report of a device has a non-zero total depth, the system SHALL report the device as buffering on the system-health page. [UC-42]
@@ -70,6 +73,7 @@
 - **REQ-ERR-03**: IF the uplink drops mid-flush, THEN the Field Station SHALL mark flushed only what the broker acknowledged and resume from the queue head. [FR-EVT-04, E02-1]
 - **REQ-ERR-04**: IF the Field Station restarts, THEN every queued event SHALL survive with its original `from` and `id`. [FR-EVT-07, E02-3]
 - **REQ-ERR-05**: IF a type strategy throws, THEN the system SHALL audit `NORMALIZATION_FAILED` for that packet only. [UC-26]
+- **REQ-ERR-06**: IF no custody interval contains the occurrence time, a Field Station's organization differs from the interval's, or the occurrence time lies within `gatewaySync.attributionMarginSeconds` of the interval's handover or end, THEN the system SHALL store the event `UNATTRIBUTED` with no organization, SHALL audit it `ACCEPTED_UNATTRIBUTED`, and SHALL hand it on so that only TrekLink Staff and Admin see it. [FR-EVT-17, BR-36, E02-8]
 
 ---
 
@@ -81,7 +85,9 @@
 | Delivery after outage | ≥99 % of events generated during a 30 s to 30 min outage, ≥20 trials per condition | NFR-REL-02 |
 | Duplicates | 10× replay ⇒ 0 duplicate events, incidents or alerts | NFR-REL-03, TC-11 |
 | Ordering | ≥99 % P0 before any P2 or P3 on flush | NFR-REL-04, TC-12 |
-| Concurrency | ≥20 simultaneous Field Station submissions, 0 loss, 0 duplication | NFR-PERF-02 |
+| Concurrency | ≥20 simultaneous Field Station submissions, 0 loss, 0 duplication, verified by a load test with simulated Field Stations | NFR-PERF-02, D-042 |
+| Scale | ≥10 organizations and 50 rented devices, verified by the same harness with simulated devices | NFR-PERF-03, D-042 |
+| Isolation | 0 events of one organization attributed or delivered to another, verified with at least two organizations | NFR-SEC-04, D-042 |
 
 ---
 
@@ -101,6 +107,9 @@ configuration file (`field-station-local-page.md`).
 - **AC-03**: 30 minutes offline with 200 queued events: on reconnect every P0 arrives before any P2 or P3. (TC-12)
 - **AC-04**: A Field Station of organization A publishing for a device rented to B is audited `NOT_RENTED_TO_STATION_ORG`.
 - **AC-05**: A malformed JSON message is audited and the next message is ingested. (E02-4)
+- **AC-06**: Organization A's station queues an SOS captured during A's custody; the device is checked in and handed over to B; A's station then flushes. The SOS is attributed to A's interval, its incident routes to A, and B receives nothing. (E02-7, TC-36)
+- **AC-07**: A Stage A event with `rx_time` 0 received within `gatewaySync.attributionMarginSeconds` of a handover is stored `UNATTRIBUTED`, with `timeSource = SERVER_RECEIPT`, and reaches Staff only. (E02-8)
+- **AC-08**: A Field Station of A flushing a device more than `gatewaySync.lateUploadGraceHours` after its check-in is audited `NOT_RENTED_TO_STATION_ORG`.
 
 ---
 

@@ -23,10 +23,13 @@ Everything else this module shows is read through other modules' services; it ow
 | `org:<id>` | members and API keys of the organization | entries with that `organizationId` |
 | `user:<id>` | that user | `incident.alert` only |
 
-The organization of an entry is the one renting the device when the entry is written:
-`rentals.contractHolding(deviceId, now)`, cached per device and invalidated by `device.handedOver` and
-`device.checkedIn`. That is what keeps a device that moves from A to B from leaking A's old entries to B
-or B's new ones to A (AC-01).
+The organization of an entry comes with the event: a `field.*` event carries the organization
+`gateway-sync` attributed it to by occurrence time (D-040), and an `incident.*` event its routed
+organization. Only `device.*` entries use the current holder, `rentals.currentHolder(deviceId)`, cached per
+device and invalidated by `device.handedOver` and `device.checkedIn`. That keeps a device that moves from A
+to B from leaking A's late entries to B or B's new ones to A (AC-01, AC-06). A `field.*` entry whose
+occurrence time is before the device's latest check-in from that organization is marked `late` and is
+not plotted as a live marker.
 
 ---
 
@@ -79,12 +82,11 @@ sequenceDiagram
     autonumber
     participant G as gateway-sync
     participant L as StreamListener
-    participant R as RentalsService
     participant DB as Postgres
     participant W as LiveGateway
     participant C as Operator browser
     G-)L: field.position (after commit)
-    L->>R: contractHolding(deviceId) (cached)
+    Note over G,L: payload carries the attributed organizationId (D-040)
     L->>DB: INSERT stream_events (orgId, seq)
     L->>W: publish to org:<id> and fleet
     W-->>C: stream { seq, device.position }

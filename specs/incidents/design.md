@@ -71,7 +71,9 @@ stateDiagram-v2
 
 ***Figure 2***: Incident lifecycle; SRS Figures 23 and 24. `NOTIFY_BACKUP` and `NOTIFY_MANAGER` also go
 to `FALSE_ALARM` (D-034 "`NOTIFY_*`"); those two arrows are omitted from the figure for legibility.
-`DETECTED` is transient: routing happens in the creating transaction.
+`DETECTED` is transient: routing happens in the creating transaction. The route is the contract and
+organization the triggering field event is attributed to (D-040), never the device's current holder; an
+`UNATTRIBUTED` event routes to `UNROUTED`.
 
 | Timer column | Set when entering | Cleared when leaving |
 |---|---|---|
@@ -175,7 +177,7 @@ sequenceDiagram
     participant J as tierTimeouts job
     participant D as dispatcher
     G->>I: onSos(event, tx)
-    I->>R: contractHolding(deviceId, now)
+    Note over G,I: event carries its attributed contract and organization (D-040)
     I->>O: tiersAt(orgId, now)
     I->>DB: INSERT incident DETECTED, transition 1
     I->>DB: NOTIFY_PRIMARY, deadline, transition 2, outbox rows
@@ -194,4 +196,5 @@ sequenceDiagram
 
 Transition matrix over 12 states × events; race tests for acknowledge and for job versus human; restart
 test with pending deadlines (fake clock); replay ×10; empty-tier skipping; reopen inside and outside the
-window; outbox retry and `FAILED` without blocking escalation; cross-organization 404.
+window; outbox retry and `FAILED` without blocking escalation; cross-organization 404. Every routing test
+runs with at least two organizations, including A's late SOS after the device passed to B (AC-09, D-042).
