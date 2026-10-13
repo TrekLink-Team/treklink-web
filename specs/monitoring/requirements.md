@@ -34,7 +34,7 @@
 
 ### Ubiquitous
 
-- **REQ-UBI-01**: The system SHALL write every live update to the append-only stream with the organization renting the device at that moment, and SHALL deliver it only to that organization's members and keys and to TrekLink staff, enforced on the server. [FR-MON-02, FR-AUTH-11, BR-19]
+- **REQ-UBI-01**: The system SHALL write every live update to the append-only stream with its organization: for a field event, the organization it is attributed to; for an incident, the routed organization; for a `device.*` event, the current holder. It SHALL deliver each entry only to that organization's members and keys and to TrekLink staff, enforced on the server; an entry with no organization, including every `UNATTRIBUTED` event, goes to the fleet room only. [FR-MON-02, FR-MON-06, FR-AUTH-11, BR-19, BR-36]
 - **REQ-UBI-02**: The system SHALL serve the map provider, tile URL, attribution, viewport and the sovereignty overlay from configuration, and the client SHALL render the overlay over Hoàng Sa and Trường Sa on every map. [FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01]
 - **REQ-UBI-03**: The system SHALL never plot a position marked not plotted. [FR-MON-04, BR-22]
 
@@ -43,9 +43,9 @@
 - **REQ-EVT-01**: WHEN `field.position`, `field.telemetry`, `incident.changed`, `device.labelChanged`, `device.handedOver` or `device.checkedIn` is received, the system SHALL append a stream entry and push it to the matching rooms, throttling positions per device to `monitoring.positionEmitMinIntervalMs`. [FR-MON-02]
 - **REQ-EVT-02**: WHEN a client connects or reconnects with a cursor, the system SHALL replay every entry after it for the client's rooms, then `replay.done`, then live entries; WHEN the cursor is older than `monitoring.streamRetentionHours`, it SHALL answer `replay.expired` (REST: 410). [FR-MON-05, E04-3]
 - **REQ-EVT-03**: WHEN the sweep finds a device silent beyond `monitoring.deviceStaleSeconds` or a Field Station beyond `monitoring.fieldStationStaleSeconds`, the system SHALL emit a stale entry with the last-seen time, tell `incidents` for a device with an open incident, and emit the recovery when it is heard again. [FR-MON-03, FR-INC-13, E04-1, E04-2]
-- **REQ-EVT-04**: WHEN a device is checked in, the system SHALL emit `device.released` to the organization and SHALL send that organization nothing more about the device. [FR-MON-08, E04-7]
+- **REQ-EVT-04**: WHEN a device is checked in, the system SHALL emit `device.released` to the organization and SHALL send that organization nothing more about the device that occurred after the check-in; a late event attributed to its custody interval SHALL still reach it, flagged late and kept off the live map. [FR-MON-08, E04-7, E02-7]
 - **REQ-EVT-05**: WHEN an API key requests the organization API, the system SHALL authenticate it, apply `monitoring.apiRateLimitPerMinute` per key (429 beyond), and serve only the key's organization. [FR-MON-06, E04-5]
-- **REQ-EVT-06**: WHEN history is requested for a device, the system SHALL clip it to the periods the caller's organization rented it (handover to check-in), or serve it whole to TrekLink staff. [FR-MON-07]
+- **REQ-EVT-06**: WHEN history is requested for a device, the system SHALL serve only the events attributed to the caller's organization, which lie inside the periods it rented the device (handover to check-in), or serve it whole, `UNATTRIBUTED` events included, to TrekLink staff. [FR-MON-07, BR-36]
 - **REQ-EVT-07**: WHEN `incidents` emits `incident.alert`, the system SHALL publish it to the recipient's personal room synchronously. [FR-INC-12]
 - **REQ-EVT-08**: WHEN an API key is revoked, the system SHALL close its open sockets. [FR-ORG-06]
 
@@ -84,6 +84,7 @@ The `monitoring` section of the [Configuration Matrix](../platform/configuration
 - **AC-03**: A device silent past the threshold turns stale on the map with its last-seen time. (TC-21)
 - **AC-04**: A position 50 km from the last one 10 s earlier is not plotted. (TC-22)
 - **AC-05**: After check-in, the organization's map and API stop showing the device. (E04-7)
+- **AC-06**: A position from A's custody that synchronizes after the device was handed to B reaches A's stream and history flagged late, and never B's room or API. (E02-7, TC-36)
 - **AC-06**: The map shows the Vietnamese labels over Hoàng Sa and Trường Sa. (TC-30)
 
 ---

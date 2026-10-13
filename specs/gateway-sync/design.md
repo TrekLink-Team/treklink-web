@@ -11,7 +11,8 @@
 ```mermaid
 erDiagram
     DEVICE ||--o{ FIELD_EVENT : "emits"
-    ORGANIZATION |o--o{ FIELD_EVENT : "renting at ingestion"
+    ORGANIZATION |o--o{ FIELD_EVENT : "attributed to"
+    CONTRACT_DEVICE |o--o{ FIELD_EVENT : "custody interval"
     FIELD_STATION |o--o{ FIELD_EVENT : "delivered"
     INCIDENT |o--o{ FIELD_EVENT : "episode"
     DEVICE |o--o{ SYNC_AUDIT_LOG : "attempts"
@@ -21,11 +22,17 @@ erDiagram
         string eventId UK
         enum kind
         enum priority
+        datetime capturedAt
+        datetime occurredAt
+        enum timeSource
+        datetime receivedAt
+        enum attribution
         bool plotted
     }
 ```
 
 ***Figure 1***: gateway-sync slice. `FieldEvent.seq` is the ingestion order used by history queries.
+`occurredAt` decides attribution only (D-040); ordering stays on `seq` and the queue tier (FR-EVT-08).
 
 ---
 
@@ -52,12 +59,16 @@ decode payloads; `IngestionService` alone writes.
 `IngestionService.ingest(envelope)`:
 
 1. Compute `eventId`; resolve the device by `nodeNum` (`UNKNOWN_DEVICE` otherwise).
-2. Stage C: resolve the station from the topic; revoked, or device not on a running contract of its
-   organization, ends the attempt with its audit outcome.
+2. Stage C: resolve the station from the topic; revoked, or a device its organization neither holds now
+   nor returned less than `gatewaySync.lateUploadGraceHours` ago, ends the attempt with its audit outcome.
+2a. Derive `occurredAt` and `timeSource` (REQ-UBI-06), then `rentals.custodyAt(deviceId, occurredAt)`:
+   inside an interval, clear of `gatewaySync.attributionMarginSeconds` from its ends, and (Stage C) of the
+   station's organization gives `ATTRIBUTED` with that `contractDeviceId` and `organizationId`; anything
+   else gives `UNATTRIBUTED` with both null (REQ-ERR-06).
 3. `BEGIN`; `INSERT field_events ... ON CONFLICT (eventId) DO NOTHING RETURNING id`. No row means
    `DUPLICATE_REJECTED`: audit and `COMMIT`.
 4. Position rules (bounds, speed); `devices.projectReading`; `incidents.onSos` or `onPosition` with the
-   same `tx`; set `incidentId` on the event when it joined an episode (the one allowed update).
+   same `tx`, passing the attribution; set `incidentId` on the event when it joined an episode (the one allowed update).
 5. Audit `ACCEPTED`; `COMMIT`; emit.
 
 The MQTT client uses QoS 1 and a persistent session, and acknowledges a message only after `ingest()`
@@ -72,8 +83,8 @@ A Node.js program in `treklink-web/gateway/`, packaged as one executable per OS 
 | Part | Design |
 |---|---|
 | Serial reader | Meshtastic serial protocol over the USB COM port of one rented node; decodes `FromRadio` packets into the stock JSON shape |
-| Queue | SQLite in WAL mode, table `queue(localSeq INTEGER PRIMARY KEY, tier INT, eventJson TEXT, attempts INT, flushedAt)`; insert before anything else |
-| Flush | One in-flight batch: `SELECT ... WHERE flushedAt IS NULL ORDER BY tier, localSeq LIMIT 50`; publish each with QoS 1; set `flushedAt` on its PUBACK |
+| Queue | SQLite in WAL mode, table `queue(localSeq INTEGER PRIMARY KEY, tier INT, eventJson TEXT, capturedAt INTEGER, attempts INT, flushedAt)`; `capturedAt` is the station clock in epoch milliseconds when the packet came off the serial port; insert before anything else |
+| Flush | One in-flight batch: `SELECT ... WHERE flushedAt IS NULL ORDER BY tier, localSeq LIMIT 50`; publish each with QoS 1, adding `fs_captured_at` (the row's `capturedAt`) and `fs_sent_at` (the station clock at publish) to the top level of the stock JSON; set `flushedAt` on its PUBACK. The backend offset `receivedAt - fs_sent_at` corrects the station clock on every publish; transit time makes the corrected time slightly late, never early |
 | Bound | `QUEUE_MAX_ROWS`; on overflow delete the oldest P3, then P2; never P0 or P1 |
 | Health | every 60 s while connected, publish depth per tier and the oldest `attempts` to `treklink/fs/<username>/health` |
 | Local page | `127.0.0.1:4321`, the routes of `field-station-local-page.md` |
@@ -101,6 +112,7 @@ fresh connection; the backend additionally drops every message from a revoked us
 | Export | Used by |
 |---|---|
 | `GatewaySyncService.eventsOfIncident(id)`, `events(deviceId, periods, kinds)`, `stats(window)` | incidents, monitoring |
+| consumes `RentalsService.custodyAt(deviceId, at)` | attribution (§2 step 2a) |
 | provider of `MQTT_HEALTH_PROBE` | platform |
 
 Listens to `fieldStation.revoked`. Emits `field.position`, `field.telemetry`, `fieldStation.synced`.
@@ -152,3 +164,9 @@ sequenceDiagram
 Golden fixtures captured from v2, v3 and v4 devices per payload type; dedup under concurrent duplicate
 delivery; the replay harness for TC-11; an outage harness that blocks the uplink for 30 s to 30 min and
 counts delivery and ordering (RQ1); Field Station crash mid-flush; broker hook table tests.
+
+Attribution (D-040, D-042): every test runs with at least two organizations. The E02-7 scenario as a
+fixture (A's station flushes an SOS after the device was handed to B); `rx_time` 0 and implausible
+`rx_time` near a handover (E02-8); a station clock set hours wrong, corrected by `fs_sent_at`; a flush
+past the late-upload grace. Load: an MQTT harness with simulated Field Stations and devices at 20
+simultaneous submissions, 10 organizations and 50 devices (NFR-PERF-02, NFR-PERF-03).

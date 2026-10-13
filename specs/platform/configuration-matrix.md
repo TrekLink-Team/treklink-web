@@ -57,6 +57,9 @@
 | Key | Default | Type | Bounds | Unit | Meaning | Requirement |
 |---|---|---|---|---|---|---|
 | `gatewaySync.retroTagGraceSeconds` | `60` | DURATION_SECONDS | 0 to 600 | seconds | Positions this long before an SOS text are tagged into its episode | FR-INC-01 |
+| `gatewaySync.lateUploadGraceHours` | `168` | INT | 1 to 720 | hours | A Field Station may still upload a device's events this long after its organization returned it | FR-EVT-14, D-040 |
+| `gatewaySync.attributionMarginSeconds` | `300` | DURATION_SECONDS | 0 to 3600 | seconds | An occurrence time this close to a handover or check-in is `UNATTRIBUTED` | FR-EVT-17, D-040 |
+| `gatewaySync.deviceTimeMaxAheadSeconds` | `60` | DURATION_SECONDS | 0 to 3600 | seconds | A device `rx_time` later than receipt by more than this is implausible | FR-EVT-15, D-040 |
 
 ## incidents
 
