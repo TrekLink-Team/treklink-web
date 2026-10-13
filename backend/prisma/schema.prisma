@@ -845,6 +845,7 @@ model ContractDevice {
   holderEmergencyContact String?
 
   inspections Inspection[]
+  fieldEvents FieldEvent[] // events attributed to this custody interval (D-040)
 
   @@index([contractId])
   @@index([deviceId])
@@ -1261,6 +1262,18 @@ enum EventKind {
   CHAT
 }
 
+// Where FieldEvent.occurredAt came from, in order of preference (FR-EVT-15, D-040).
+enum TimeSource {
+  STATION_CORRECTED // Field Station capture time plus the offset receivedAt - fs_sent_at
+  DEVICE_RTC // device rx_time, non-zero and plausible
+  SERVER_RECEIPT // receivedAt, the upper bound
+}
+
+enum AttributionState {
+  ATTRIBUTED // inside one ContractDevice custody interval (FR-EVT-16)
+  UNATTRIBUTED // no interval, organization mismatch, or too close to a handover (FR-EVT-17)
+}
+
 enum IngressPath {
   MQTT_NODE // Stage A and B: the node's own uplink
   FIELD_STATION // Stage C
@@ -1272,10 +1285,11 @@ enum SyncOutcome {
   MALFORMED_ENVELOPE
   NORMALIZATION_FAILED
   UNKNOWN_DEVICE
-  NOT_RENTED_TO_STATION_ORG // FR-EVT-14: the station's organization does not rent this device
+  NOT_RENTED_TO_STATION_ORG // FR-EVT-14: the station's organization neither holds the device nor returned it within the late-upload grace
   INVALID_POSITION
   IMPLAUSIBLE_POSITION // FR-MON-04: persisted, not projected, not plotted
   QUEUE_REPORT // Stage B health packet, no FieldEvent
+  ACCEPTED_UNATTRIBUTED // FR-EVT-17, BR-36: persisted with no organization; Staff and Admin only
 }
 
 // Append-only ledger of accepted field events and the telemetry history.
@@ -1285,9 +1299,13 @@ model FieldEvent {
   eventId        String        @unique // sha256(nodeNum:packetId), D-006
   deviceId       String
   device         Device        @relation(fields: [deviceId], references: [id])
-  // the renting organization at ingestion time; null when the device was not rented (FR-MON-07)
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  // the organization of the custody interval the event is attributed to; null when UNATTRIBUTED.
+  // Never the device's current holder (FR-EVT-16, BR-36, D-040)
+  organizationId   String?
+  organization     Organization?   @relation(fields: [organizationId], references: [id])
+  contractDeviceId String? // the custody interval; null when UNATTRIBUTED
+  contractDevice   ContractDevice? @relation(fields: [contractDeviceId], references: [id])
+  attribution      AttributionState
   fieldStationId String?
   fieldStation   FieldStation? @relation(fields: [fieldStationId], references: [id])
   uplinkKey      String // node id or Field Station MQTT username
@@ -1295,6 +1313,9 @@ model FieldEvent {
   kind           EventKind
   priority       PriorityTier
   observedAt     DateTime?     @db.Timestamptz(3) // device rx_time; null when 0 (FR-EVT-08)
+  capturedAt     DateTime?     @db.Timestamptz(3) // Stage C: fs_captured_at, station clock, uncorrected
+  occurredAt     DateTime      @db.Timestamptz(3) // attribution only, never ordering (FR-EVT-15)
+  timeSource     TimeSource
   receivedAt     DateTime      @default(now()) @db.Timestamptz(3)
   latitude       Float?
   longitude      Float?
@@ -1314,6 +1335,8 @@ model FieldEvent {
   @@index([deviceId, receivedAt])
   @@index([deviceId, kind, receivedAt])
   @@index([organizationId, seq])
+  @@index([contractDeviceId])
+  @@index([attribution, seq])
   @@index([incidentId])
   @@index([fieldStationId])
   @@map("field_events") // append-only trigger, one-way incidentId link allowed

@@ -50,7 +50,11 @@ Every live entry is emitted as the event `stream` with this body:
 | `station.stale` | `{ fieldStationId, stale, lastSyncAt }` | staleness sweep (E04-2) |
 
 `incident.alert` is the only event addressed to a person rather than a room. Every other type goes to
-`org:<id>` of the device's renting organization and to `fleet`.
+`fleet` and to `org:<id>` of the entry's organization: for a position or telemetry, the organization the
+field event is attributed to by its occurrence time (D-040); for an incident, the routed organization; for
+a device event, the current holder. An `UNATTRIBUTED` field event goes to `fleet` only. A position whose
+occurrence time precedes the device's check-in from that organization carries `late: true` and is not
+drawn as a live marker.
 
 ## Client-to-server events
 

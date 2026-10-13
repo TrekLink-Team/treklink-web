@@ -131,7 +131,8 @@ arithmetic.
 
 | Export | Used by |
 |---|---|
-| `RentalsService.contractHolding(deviceId, at)` returns the contract and organization for a device in `ACTIVE`, `ENDING`, `RETURN_DUE`, `OVERDUE` or `DEFAULTED` | incidents, gateway-sync |
+| `RentalsService.custodyAt(deviceId, at, marginSeconds)` returns the `ContractDevice` whose interval (`handedOverAt` to `checkedInAt` or `lostAt`, open-ended while neither is set) contains `at`, with its contract and organization and a `nearBoundary` flag, whatever state the contract is in now; none when no interval contains `at` (D-040) | gateway-sync |
+| `RentalsService.currentHolder(deviceId)` returns the contract and organization holding the device now | monitoring (`device.*` entries) |
 | `RentalsService.visibleDevices(ctx)`, `rentalPeriods(deviceId, orgId)` | monitoring |
 | `RentalsService.contractsOfDevice(deviceId)`, `statusOf(contractId)`, `utilization(range)` | monitoring, incidents |
 | provider of `ORGANIZATION_EXIT_CHECKS.canClose` | organizations |
