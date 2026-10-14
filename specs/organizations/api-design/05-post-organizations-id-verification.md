@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records the in-person or phone verification: documents seen and the signed master contract number. Admins are notified that the organization awaits approval (FR-ORG-02).
+Records the in-person or phone verification: documents seen and the signed master contract number, which must include the non-disclosure agreement and the Field Station software licence (BR-43, D-046). Admins are notified that the organization awaits approval (FR-ORG-02).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Records the in-person or phone verification: documents seen and the signed maste
 | --- | --- |
 | POST | /api/organizations/:id/verification |
 | Permission | TrekLink Staff |
-| Traces | UC-02, FR-ORG-02 |
+| Traces | UC-02, FR-ORG-02, BR-43 |
 
 ### Path parameters
 
@@ -33,6 +33,8 @@ Records the in-person or phone verification: documents seen and the signed maste
     "Manager ID card"
   ],
   "masterContractRef": "MC-2026-0007",
+  "ndaSigned": true,
+  "softwareLicenceSigned": true,
   "expectedVersion": 0
 }
 ```
@@ -42,6 +44,8 @@ Records the in-person or phone verification: documents seen and the signed maste
 | method | `IN_PERSON` or `PHONE` | enum | yes | `IN_PERSON` |
 | documentsSeen | Documents checked | string[] | yes | `["Business registration"]` |
 | masterContractRef | Number on the signed master contract | string | yes | `MC-2026-0007` |
+| ndaSigned | The master contract includes the signed NDA | bool | yes | `true` |
+| softwareLicenceSigned | The master contract includes the Field Station software licence | bool | yes | `true` |
 | expectedVersion | Version the caller saw; mismatch returns 409 | int | yes | `3` |
 
 ## Response sample
@@ -145,6 +149,23 @@ Records the in-person or phone verification: documents seen and the signed maste
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>ndaSigned or softwareLicenceSigned is false (<code>CONTRACT_TERMS_MISSING</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "CONTRACT_TERMS_MISSING"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "The master contract must include the NDA and the software licence."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>The organization is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
@@ -198,26 +219,33 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The organization is not in a state that allows this?"}
+    D3{"ndaSigned or softwareLicenceSigned is false?"}
     D2 -->|no| D3
-    E3["Return 409 INVALID_STATE_TRANSITION"]
+    E3["Return 400 CONTRACT_TERMS_MISSING"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"Another user changed the record first (expectedVersion differs)?"}
+    D4{"The organization is not in a state that allows this?"}
     D3 -->|no| D4
-    E4["Return 409 STALE_VERSION"]
+    E4["Return 409 INVALID_STATE_TRANSITION"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"Another user changed the record first (expectedVersion differs)?"}
+    D4 -->|no| D5
+    E5["Return 409 STALE_VERSION"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Require status PENDING"]
-    D4 -->|no| P0
-    P1["Store the verification fields and the verifying Staff"]
+    D5 -->|no| P0
+    P1["Require ndaSigned and softwareLicenceSigned"]
     P0 --> P1
-    P2["Notify Admins"]
+    P2["Store the verification fields and the verifying Staff"]
     P1 --> P2
-    P3["Emit audit.record organization.verify"]
+    P3["Notify Admins"]
     P2 --> P3
+    P4["Emit audit.record organization.verify"]
+    P3 --> P4
     OK["Return 200"]
-    P3 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 

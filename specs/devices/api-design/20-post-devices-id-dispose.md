@@ -1,4 +1,4 @@
-# POST /api/devices/:id/recover: Record a recovered device
+# POST /api/devices/:id/dispose: Dispose of a retired device
 
 > Module `devices`. Generated from `scripts/specs/endpoints/devices.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
 
@@ -7,15 +7,15 @@
 ---
 ## Overview
 
-A `LOST` device is found and brought to the counter: it moves to `RETURNED` and then goes through reset and inspection like any return (D-035). A loss charge already invoiced is not reversed here; an Admin adjusts it in billing.
+Records the verified wipe of a `RETIRED` device (channel key, node database, owner name) and moves it to `DISPOSED`. The device and its history are kept (FR-DEV-16, BR-42).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
-| POST | /api/devices/:id/recover |
-| Permission | TrekLink Staff |
-| Traces | UC-49, D-035 |
+| POST | /api/devices/:id/dispose |
+| Permission | TrekLink Admin |
+| Traces | UC-62, FR-DEV-16, BR-42 |
 
 ### Path parameters
 
@@ -27,14 +27,20 @@ A `LOST` device is found and brought to the counter: it moves to `RETURNED` and 
 
 ```json
 {
-  "note": "Handed in by a ranger at Phan Dung",
-  "expectedVersion": 11
+  "keyRemoved": true,
+  "nodeDbCleared": true,
+  "ownerCleared": true,
+  "method": "Recycled through a licensed handler",
+  "expectedVersion": 14
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| note | Where and how it was recovered | string | yes | `Handed in by a ranger` |
+| keyRemoved | Channel key removed | bool | yes | `true` |
+| nodeDbCleared | Node database cleared | bool | yes | `true` |
+| ownerCleared | Owner name cleared | bool | yes | `true` |
+| method | How it leaves the fleet | string | yes | `Recycled through a licensed handler` |
 | expectedVersion | Device version the caller saw | int | yes | `5` |
 
 ## Response sample
@@ -52,7 +58,7 @@ A `LOST` device is found and brought to the counter: it moves to `RETURNED` and 
     },
     "firmwareVersion": "2.7.19-treklink.3",
     "acquiredAt": "2026-06-15T00:00:00Z",
-    "status": "RETURNED",
+    "status": "DISPOSED",
     "statusChangedAt": "2026-10-20T03:15:00.000Z",
     "keyVersion": null,
     "keyOrganizationId": null,
@@ -65,8 +71,8 @@ A `LOST` device is found and brought to the counter: it moves to `RETURNED` and 
     "version": 5
   },
   "isSuccess": true,
-  "statusCode": 200,
-  "message": "Device recovered"
+  "statusCode": 201,
+  "message": "Device disposed"
 }
 ```
 
@@ -146,6 +152,23 @@ A `LOST` device is found and brought to the counter: it moves to `RETURNED` and 
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>One of the three wipe steps is false (<code>WIPE_INCOMPLETE</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "WIPE_INCOMPLETE"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Complete every wipe step first."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>The device is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
@@ -157,7 +180,7 @@ A `LOST` device is found and brought to the counter: it moves to `RETURNED` and 
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is AVAILABLE."
+  "message": "This cannot be done while it is MAINTENANCE."
 }
 ```
 </td>
@@ -199,22 +222,29 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The device is not in a state that allows this?"}
+    D3{"One of the three wipe steps is false?"}
     D2 -->|no| D3
-    E3["Return 409 INVALID_STATE_TRANSITION"]
+    E3["Return 400 WIPE_INCOMPLETE"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"Another user changed the record first (expectedVersion differs)?"}
+    D4{"The device is not in a state that allows this?"}
     D3 -->|no| D4
-    E4["Return 409 STALE_VERSION"]
+    E4["Return 409 INVALID_STATE_TRANSITION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require LOST"]
-    D4 -->|no| P0
-    P1["Transition to RETURNED"]
+    D5{"Another user changed the record first (expectedVersion differs)?"}
+    D4 -->|no| D5
+    E5["Return 409 STALE_VERSION"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
+    P0["Require RETIRED"]
+    D5 -->|no| P0
+    P1["Insert device_disposals"]
     P0 --> P1
-    OK["Return 200"]
-    P1 --> OK
+    P2["Transition to DISPOSED"]
+    P1 --> P2
+    OK["Return 201"]
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -227,9 +257,9 @@ sequenceDiagram
     participant Ctl as DevicesController
     participant Svc as DeviceLifecycleService
     participant DB as Postgres
-    C->>Ctl: POST /api/devices/:id/recover
-    Ctl->>Svc: recover(id, dto, actor)
-    Svc->>DB: INSERT device_transitions, UPDATE devices
+    C->>Ctl: POST /api/devices/:id/dispose
+    Ctl->>Svc: dispose(id, dto, actor)
+    Svc->>DB: INSERT device_disposals, UPDATE devices DISPOSED
     Svc-->>Ctl: result
-    Ctl-->>C: 200 envelope
+    Ctl-->>C: 201 envelope
 ```

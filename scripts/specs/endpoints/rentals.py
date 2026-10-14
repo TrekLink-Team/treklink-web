@@ -262,21 +262,34 @@ ENDPOINTS = [
        seq=["Svc->>DB: BEGIN, SELECT contract_devices FOR UPDATE", "Svc->>Dev: markReturned(ids, tx)",
             "Svc->>Bill: chargeLate(contract, devices, tx)", "Svc->>DB: UPDATE contract if complete, COMMIT"]),
 
-    ep("POST", "/api/contracts/:id/devices/:deviceId/lost", "Record a lost device", "TrekLink Staff",
-       "Records a device lost when the organization reports it on a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` "
-       "contract, or when it is unrecovered after default: the device moves to `LOST` (D-035 as amended by "
-       "D-038) and billing charges its remaining value from the variant's schedule (FR-BILL-05, E05-3). "
-       "Counts as returned for closing the contract.",
-       "UC-49, FR-DEV-01, FR-BILL-05, BR-25, E05-3, D-038",
-       path=[C_PATH, D_PATH], body=[["note", "Circumstances reported by the organization", "string", "yes", "`Fell into a ravine`"]],
-       sample={"note": "Reported lost in a river crossing on 2026-11-02."},
-       response={"deviceId": DEVICE_ID, "assetTag": "TL-0042", "lostAt": NOW, "lossChargeVnd": 1800000},
-       message="Device recorded lost", entity="Contract", errors=[NOT_ON, state_409("contract", "APPROVED")],
-       steps=["Require RETURN_DUE, OVERDUE or DEFAULTED and the device not checked in", "Set lostAt", "Move the device to LOST",
-              "Charge the remaining value", "Move the contract to RETURNED when complete"],
-       controller="ContractsController", service="ReturnService", call="recordLost(id, deviceId, dto, actor)",
-       participants=[["Dev", "DevicesService"], ["Bill", "BillingService"]],
-       seq=["Svc->>Dev: markLost(deviceId, tx)", "Svc->>Bill: chargeLoss(contract, device, tx)"]),
+    ep("POST", "/api/contracts/:id/devices/:deviceId/replacement", "Replace a device on a running contract",
+       "TrekLink Staff",
+       "Replaces a faulty unit, or a unit with an open loss case, on an `ACTIVE` or `ENDING` contract with an "
+       "`AVAILABLE` unit of the same variant. The faulty unit, if present, is checked in; the replacement is "
+       "provisioned, signed on screen by the Manager, and gets its own custody interval. Plan, variant and "
+       "quantity stay unchanged (FR-CON-15, BR-41, BR-05).", "UC-61, FR-CON-15, BR-41, BR-05",
+       path=[C_PATH, D_PATH],
+       body=[["replacementDeviceId", "An AVAILABLE device of the same variant", "uuid", "yes", "`5e6f7a8b-...`"],
+             ["keyVersion", "Channel key version written to the replacement", "int", "yes", "`2`"],
+             ["signatureImage", "Manager's on-screen signature, PNG base64", "string", "yes", "`iVBORw0KGgo...`"],
+             ["faultyPresent", "The faulty unit is at the counter and is checked in now", "bool", "yes", "`true`"]],
+       sample={"replacementDeviceId": "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9", "keyVersion": 2,
+               "signatureImage": "iVBORw0KGgo...", "faultyPresent": True},
+       response={"replacedDeviceId": DEVICE_ID, "replacementDeviceId": "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9",
+                 "contractDeviceId": "cd-91", "replacesId": "cd-77", "noteSha256": "3b1c...9e"}, status=201,
+       message="Device replaced", entity="Contract",
+       errors=[NOT_ON, state_409("contract", "RETURN_DUE"),
+               (409, "VARIANT_MISMATCH", "The replacement is another variant", "Choose a unit of the same variant."),
+               (409, "DEVICE_NOT_AVAILABLE", "The replacement is not AVAILABLE", "Choose an available unit."),
+               (409, "ORGANIZATION_NOT_ACTIVE", "The organization is suspended", "Replacement is not allowed while suspended.")],
+       steps=["Require ACTIVE or ENDING, the organization ACTIVE, the old unit on the contract",
+              "Check in the faulty unit when present", "Reserve and provision the replacement",
+              "Insert contract_devices with replacesId, handedOverAt now", "Render and store the signed note",
+              "Move the replacement to RENTED"],
+       controller="ContractsController", service="ReplacementService", call="replace(id, deviceId, dto, actor)",
+       participants=[["Dev", "DevicesService"], ["Store", "File storage"]],
+       seq=["Svc->>Dev: reserveExplicit([replacementId], id, tx)", "Svc->>Dev: recordProvisioning(...)",
+            "Svc->>Store: put(note.pdf)", "Svc->>DB: INSERT contract_devices; UPDATE devices RENTED"]),
 
     ep("POST", "/api/contracts/:id/devices/:deviceId/inspection", "Inspect a returned device", "TrekLink Staff",
        "Inspects a checked-in, reset device of this contract. `PASSED` moves it to `AVAILABLE`; `DAMAGED` "

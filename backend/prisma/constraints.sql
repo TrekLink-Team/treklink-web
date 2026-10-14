@@ -60,7 +60,7 @@ BEGIN
     'audit_log', 'business_parameter_history', 'auth_events', 'organization_transitions',
     'device_transitions', 'intake_checks', 'device_provisionings', 'device_resets', 'inspections',
     'contract_transitions', 'price_schedules', 'incident_transitions', 'incident_status_updates',
-    'sync_audit_log'
+    'sync_audit_log', 'device_disposals', 'compliance_actions'
   ] LOOP
     EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION raise_append_only()',
                    t || '_append_only', t);
@@ -83,3 +83,19 @@ $$;
 
 CREATE TRIGGER "field_events_append_only" BEFORE UPDATE OR DELETE ON "field_events"
   FOR EACH ROW EXECUTE FUNCTION field_events_append_only();
+
+-- devices, FR-DEV-12 and BR-37: at most one loss case per device outside RECOVERED and SETTLED.
+CREATE UNIQUE INDEX "loss_cases_one_open_per_device"
+  ON "loss_cases" ("deviceId")
+  WHERE "state" NOT IN ('RECOVERED', 'SETTLED');
+
+-- billing, FR-BILL-11 and BR-39: the Admin who decides a loss charge never triaged the case.
+ALTER TABLE "loss_cases"
+  ADD CONSTRAINT "loss_cases_decider_not_triager"
+  CHECK ("decidedById" IS NULL OR "triagedById" IS NULL OR "decidedById" <> "triagedById");
+
+-- organizations, FR-ORG-08 and BR-40: a suspected fraud or theft case closes only with a police reference.
+ALTER TABLE "compliance_cases"
+  ADD CONSTRAINT "compliance_cases_police_reference_to_close"
+  CHECK ("status" <> 'CLOSED' OR "type" NOT IN ('SUSPECTED_FRAUD', 'SUSPECTED_THEFT')
+         OR "authorityReference" IS NOT NULL);

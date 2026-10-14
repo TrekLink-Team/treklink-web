@@ -18,7 +18,7 @@
 | 12 | POST | `/api/contracts/:id/notice` | Org Manager: own | [12-post-contracts-id-notice.md](12-post-contracts-id-notice.md) |
 | 13 | PUT | `/api/contracts/:id/devices/:deviceId/holder` | Org Manager, Org Operator: own | [13-put-contracts-id-devices-deviceid-holder.md](13-put-contracts-id-devices-deviceid-holder.md) |
 | 14 | POST | `/api/contracts/:id/check-ins` | TrekLink Staff | [14-post-contracts-id-check-ins.md](14-post-contracts-id-check-ins.md) |
-| 15 | POST | `/api/contracts/:id/devices/:deviceId/lost` | TrekLink Staff | [15-post-contracts-id-devices-deviceid-lost.md](15-post-contracts-id-devices-deviceid-lost.md) |
+| 15 | POST | `/api/contracts/:id/devices/:deviceId/replacement` | TrekLink Staff | [15-post-contracts-id-devices-deviceid-replacement.md](15-post-contracts-id-devices-deviceid-replacement.md) |
 | 16 | POST | `/api/contracts/:id/devices/:deviceId/inspection` | TrekLink Staff | [16-post-contracts-id-devices-deviceid-inspection.md](16-post-contracts-id-devices-deviceid-inspection.md) |
 | 17 | POST | `/api/contracts/:id/close` | TrekLink Staff, TrekLink Admin | [17-post-contracts-id-close.md](17-post-contracts-id-close.md) |
 | 18 | GET | `/api/contracts/:id/transitions` | Org Manager: own; TrekLink Staff, TrekLink Admin | [18-get-contracts-id-transitions.md](18-get-contracts-id-transitions.md) |
