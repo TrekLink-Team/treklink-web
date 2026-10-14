@@ -143,3 +143,105 @@ sequenceDiagram
 
 State-matrix test over all 64 pairs; reservation race with two transactions on Postgres; reset-before-
 inspection guard; remaining-value lookup by age; projection ignores older readings.
+
+---
+
+## 7. Detailed design for Report 4 (D-044)
+
+Layering as in `organizations` design §9. Figure 4 is the class view; Figure 5 is the MF-05 reset
+and inspection.
+
+<!-- sdd: MF-05 class devices -->
+```mermaid
+classDiagram
+    class DevicesController {
+        +register(dto, actor) DeviceDto
+        +intakeCheck(id, dto, actor) DeviceDto
+        +reset(id, dto, actor) DeviceDto
+        +maintenance(id, dto, actor) MaintenanceDto
+        +retire(id, dto, actor) DeviceDto
+    }
+    class DevicesService {
+        +reserve(variantId, quantity, contractId, tx) string[]
+        +recordProvisioning(deviceId, orgId, keyVersion, actor, tx)
+        +markRented(ids, tx)
+        +markReturned(id, tx)
+        +recordInspection(deviceId, dto, contractDeviceId, actor, tx) Inspection
+        +projectReading(nodeNum, reading, tx) string
+    }
+    class DeviceLifecycleService {
+        +reset(id, dto, actor) Device
+        +retire(id, dto, actor) Device
+        -apply(id, from, to, reason, tx)
+    }
+    class DeviceFsm {
+        +assertTransition(from, to)
+    }
+    class DevicesRepository {
+        +lockAvailable(variantId, quantity, tx) Device[]
+        +transition(id, from, to, version, reason, tx)
+        +insertReset(row, tx)
+        +insertInspection(row, tx) Inspection
+    }
+    DevicesController --> DeviceLifecycleService
+    DevicesController --> DevicesService
+    DeviceLifecycleService --> DeviceFsm
+    DevicesService --> DeviceFsm
+    DeviceLifecycleService --> DevicesRepository
+    DevicesService --> DevicesRepository
+```
+
+***Figure 4***: devices classes. `DeviceFsm` holds the transition table of Figure 2.
+
+<!-- sdd: MF-05 seq UC-44 part 1 of 2: reset -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as DeviceDetailPage
+    participant C as DevicesController
+    participant L as DeviceLifecycleService
+    participant R as DevicesRepository
+    St->>P: reset the returned device
+    P->>C: POST /api/devices/{id}/reset
+    C->>L: reset(id, dto, actor)
+    L->>R: lock and require RETURNED
+    alt reset failed on the counter tool
+        L->>R: transition(id, RETURNED, MAINTENANCE, version, tx)
+    end
+    L->>R: insertReset(row, tx)
+    R->>R: INSERT device_resets, clear key version
+    L-->>C: DeviceDto
+    C-->>P: 200 envelope
+```
+
+***Figure 5***: UC-44 Reset and Inspect Device, part 1 of 2: reset.
+
+<!-- sdd: MF-05 seq UC-44 part 2 of 2: inspection -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as CounterPage
+    participant C as ContractsController
+    participant RS as ReturnService
+    participant S as DevicesService
+    participant R as DevicesRepository
+    participant Ch as ChargesService
+    St->>P: condition, photos of damage
+    P->>C: POST /api/contracts/{id}/devices/{deviceId}/inspection
+    C->>RS: inspect(id, deviceId, dto, actor)
+    RS->>S: recordInspection(deviceId, dto, contractDeviceId, actor, tx)
+    S->>R: insertInspection(row, tx)
+    alt condition OK and reset logged
+        S->>R: transition(id, RETURNED, AVAILABLE, version, tx)
+    else damaged
+        S->>R: transition(id, RETURNED, MAINTENANCE, version, tx)
+        RS->>Ch: chargeDamage(contract, inspection, tx)
+    end
+    RS-->>C: InspectionDto
+    C-->>P: 200 envelope
+```
+
+***Figure 6***: UC-44 Reset and Inspect Device, part 2 of 2: inspection. A device reaches `AVAILABLE`
+only after a logged reset and a passed inspection (BR-28).

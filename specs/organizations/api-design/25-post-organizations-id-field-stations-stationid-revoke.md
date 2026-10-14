@@ -53,7 +53,9 @@ Revokes a credential; the broker refuses it from the next connection (FR-EVT-14)
       3,
       12
     ],
-    "oldestRetryCount": 0
+    "oldestRetryCount": 0,
+    "version": "1.2.0",
+    "outdated": false
   },
   "isSuccess": true,
   "statusCode": 200,

@@ -198,3 +198,235 @@ Transition matrix over 12 states × events; race tests for acknowledge and for j
 test with pending deadlines (fake clock); replay ×10; empty-tier skipping; reopen inside and outside the
 window; outbox retry and `FAILED` without blocking escalation; cross-organization 404. Every routing test
 runs with at least two organizations, including A's late SOS after the device passed to B (AC-09, D-042).
+
+---
+
+## 10. Detailed design for Report 4 (D-044)
+
+Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 9 are the
+MF-03 interactions.
+
+<!-- sdd: MF-03 class incidents -->
+```mermaid
+classDiagram
+    class IncidentsController {
+        +acknowledge(id, dto, caller) IncidentDto
+        +addStatus(id, dto, caller) IncidentDto
+        +resolve(id, dto, caller) IncidentDto
+        +falseAlarm(id, dto, caller) IncidentDto
+        +reportToAuthority(id, dto, actor) IncidentDto
+    }
+    class IncidentIngress {
+        +onSos(event, tx)
+        +onPosition(event, tx)
+    }
+    class IncidentLifecycleService {
+        +acknowledge(id, dto, caller) Incident
+        +resolve(id, dto, caller) Incident
+        +apply(id, expected, to, actor, reason, tx)
+    }
+    class RoutingService {
+        +route(incident, attribution, tx)
+    }
+    class AuthorityReportService {
+        +reportIncident(id, dto, actor) Incident
+    }
+    class TierTimeoutJob {
+        +run()
+    }
+    class AlertDispatcher {
+        +run()
+    }
+    class IncidentFsm {
+        +assertTransition(from, to)
+    }
+    class IncidentsRepository {
+        +lockOpenByDevice(deviceId, tx) Incident
+        +insert(incident, tx) Incident
+        +compareAndSet(id, state, version, patch, tx) bool
+        +insertTransition(row, tx)
+        +dueTiers(now) Incident[]
+    }
+    class OutboxRepository {
+        +enqueue(alerts, tx)
+        +lockPending(now, limit) AlertDelivery[]
+    }
+    class RosterService
+    IncidentsController --> IncidentLifecycleService
+    IncidentsController --> AuthorityReportService
+    IncidentIngress --> RoutingService
+    IncidentIngress --> IncidentsRepository
+    RoutingService --> RosterService : tiersAt
+    RoutingService --> IncidentLifecycleService
+    TierTimeoutJob --> IncidentLifecycleService
+    AuthorityReportService --> IncidentLifecycleService
+    IncidentLifecycleService --> IncidentFsm
+    IncidentLifecycleService --> IncidentsRepository
+    IncidentLifecycleService --> OutboxRepository
+    AlertDispatcher --> OutboxRepository
+```
+
+***Figure 4***: incidents classes. `RosterService` belongs to `organizations`.
+
+<!-- sdd: MF-03 seq UC-29 part 1 of 2: correlation and routing -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant G as IngestionService
+    participant In as IncidentIngress
+    participant R as IncidentsRepository
+    participant Ro as RoutingService
+    participant Os as RosterService
+    participant L as IncidentLifecycleService
+    G->>In: onSos(event with attribution, tx)
+    In->>R: lockOpenByDevice(deviceId, tx)
+    alt open incident inside the correlation window
+        In->>R: append event, bump count
+    end
+    In->>R: insert(incident DETECTED, tx)
+    In->>Ro: route(incident, attribution, tx)
+    alt event UNATTRIBUTED
+        Ro->>L: apply(id, DETECTED, UNROUTED, SYSTEM, tx)
+    else attributed to a contract
+        Ro->>Os: tiersAt(organizationId, now)
+        Ro->>L: apply(id, DETECTED, first non-empty tier, SYSTEM, tx)
+    end
+```
+
+***Figure 5***: UC-29 Create Incident, part 1 of 2: one incident per episode, routed by attribution
+(FR-INC-03, D-040).
+
+<!-- sdd: MF-03 seq UC-29 part 2 of 2: alert outbox -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant L as IncidentLifecycleService
+    participant R as IncidentsRepository
+    participant Ob as OutboxRepository
+    participant Dp as AlertDispatcher
+    participant W as LiveGateway
+    L->>R: compareAndSet(id, state, version, patch, tx)
+    L->>R: insertTransition(row, tx)
+    L->>Ob: enqueue(alerts for the tier, tx)
+    Note over L,Ob: committed with the ingestion transaction
+    Dp->>Ob: lockPending(now, limit)
+    Dp-)W: emit incident.alert, monitoring publishes to user rooms
+    Dp->>Dp: email, web inbox, API event
+    Dp->>Ob: SENT, or retry with backoff
+```
+
+***Figure 6***: UC-29 Create Incident, part 2 of 2: UC-30 Send Alert through the outbox.
+
+<!-- sdd: MF-03 seq UC-31 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant J as TierTimeoutJob
+    participant R as IncidentsRepository
+    participant L as IncidentLifecycleService
+    participant Os as RosterService
+    participant Ob as OutboxRepository
+    J->>R: dueTiers(now)
+    R->>R: SELECT NOTIFY_* WHERE tierDueAt <= now
+    loop each due incident
+        J->>Os: tiersAt(organizationId, now)
+        J->>L: apply(id, expected NOTIFY_PRIMARY, next tier, SYSTEM, tx)
+        L->>R: compareAndSet(id, state, version, patch, tx)
+        alt a member acknowledged first
+            R-->>L: 0 rows
+            L-->>J: skip, the human won
+        end
+        L->>R: insertTransition(row, tx)
+        L->>Ob: enqueue(alerts for the next tier, tx)
+        R->>R: COMMIT
+    end
+    Note over J: after NOTIFY_MANAGER times out the next tier is ESCALATED to TrekLink Staff
+```
+
+***Figure 7***: UC-31 Escalate Alert Tier. A job racing a human loses on the compare-and-set.
+
+<!-- sdd: MF-03 seq UC-32 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Op as Org Operator
+    participant P as IncidentDetailPage
+    participant C as IncidentsController
+    participant L as IncidentLifecycleService
+    participant R as IncidentsRepository
+    participant Ob as OutboxRepository
+    Op->>P: acknowledge
+    P->>C: POST /api/incidents/{id}/acknowledge
+    C->>L: acknowledge(id, dto, caller)
+    L->>R: compareAndSet(id, NOTIFY_* or ESCALATED or REPORTED, version, owner, tx)
+    R->>R: BEGIN, UPDATE WHERE state AND version
+    alt another member acknowledged first
+        R-->>L: 0 rows
+        L-->>C: 409 ALREADY_OWNED with the owner
+        C-->>P: MSG27 owner shown
+    end
+    L->>R: insertTransition(row, tx)
+    L->>Ob: enqueue(stream update, tx)
+    R->>R: COMMIT
+    L-->>C: IncidentDto ACKNOWLEDGED
+    C-->>P: 200 envelope, time to acknowledge recorded
+```
+
+***Figure 8***: UC-32 Acknowledge Incident.
+
+<!-- sdd: MF-03 seq UC-33 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Op as Org Operator
+    participant P as IncidentDetailPage
+    participant C as IncidentsController
+    participant L as IncidentLifecycleService
+    participant R as IncidentsRepository
+    Op->>P: post a status update
+    P->>C: POST /api/incidents/{id}/status-updates
+    C->>L: addStatus(id, dto, caller)
+    L->>R: insert update, reset statusDueAt
+    R->>R: INSERT, UPDATE
+    C-->>P: 200 envelope
+    Op->>P: report the outcome
+    P->>C: POST /api/incidents/{id}/resolve
+    C->>L: resolve(id, dto, caller)
+    alt caller is not the owner
+        L-->>C: 403 NOT_OWNER
+    end
+    L->>R: compareAndSet(id, ACKNOWLEDGED or RESPONDING, version, resolvedAt, tx)
+    L->>R: insertTransition(row, tx), set reopen window
+    R->>R: COMMIT
+    L-->>C: IncidentDto RESOLVED
+    C-->>P: 200 envelope, time to resolve recorded
+```
+
+***Figure 9***: UC-33 Report Incident Status, ending in `RESOLVED`.
+
+<!-- sdd: MF-03 seq UC-35 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as StaffIncidentsPage
+    participant C as IncidentsController
+    participant A as AuthorityReportService
+    participant L as IncidentLifecycleService
+    participant R as IncidentsRepository
+    St->>P: record agency, reference, time
+    P->>C: POST /api/incidents/{id}/authority-reports
+    C->>A: reportIncident(id, dto, actor)
+    A->>R: lock(id, tx)
+    alt not ESCALATED or UNROUTED
+        A-->>C: 409 INVALID_STATE_TRANSITION
+    end
+    A->>R: insert authority_reports
+    A->>L: apply(id, current, REPORTED, actor, tx)
+    L->>R: compareAndSet, insertTransition
+    R->>R: COMMIT
+    A-->>C: IncidentDto REPORTED
+    C-->>P: 200 envelope
+```
+
+***Figure 10***: UC-35 Report to Authorities (BR-17).
