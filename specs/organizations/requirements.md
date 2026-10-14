@@ -3,7 +3,7 @@
 **User Story**: As an **Org Manager**, I want to register my company, get it verified, and then manage my own members, on-duty roster, API keys and Field Station credentials, so that my organization rents and operates TrekLink devices without asking TrekLink for routine changes.
 **Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-01, before rentals
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-01 to UC-07, FR-ORG-01 to FR-ORG-07, FR-EVT-14, BR-01, BR-16, BR-19, BR-20, BR-26, BR-32, MSG04, MSG05, MSG10, MSG16, MSG21, MSG22; D-033 items 2, 6, 7; D-035 (organization lifecycle); D-037 (self-service Field Station credentials). New module (D-036).
+> **Authority**: Report 3 SRS (2026-10-13) UC-01 to UC-07, FR-ORG-01 to FR-ORG-07, FR-EVT-13, FR-EVT-14, FR-EVT-18, BR-01, BR-16, BR-19, BR-20, BR-26, BR-32, MSG04, MSG05, MSG10, MSG16, MSG21, MSG22; D-033 items 2, 6, 7; D-035 (organization lifecycle); D-037 (self-service Field Station credentials); D-039 (Field Station updated by download). New module (D-036).
 
 ---
 
@@ -26,6 +26,7 @@
 | Roster | UC-05, FR-ORG-05, BR-16 |
 | API keys | UC-06, FR-ORG-06, BR-20 |
 | Field Station credentials | UC-06, FR-EVT-14, FR-EVT-13, D-037 |
+| Field Station release | UC-06, FR-EVT-18, D-039 |
 | Suspension | UC-07, UC-50, FR-ORG-07, BR-26, BR-32 |
 
 ---
@@ -51,6 +52,7 @@
 - **REQ-EVT-08**: WHEN a member is deactivated, the system SHALL clear that member from every shift that has not ended. [D-034, FR-ORG-05]
 - **REQ-EVT-09**: WHEN a Manager creates an API key or a Field Station credential, the system SHALL generate it from at least 32 random bytes, store its hash, and return it once; WHEN a Manager, or for a Field Station also TrekLink Staff or an Admin, revokes one, it SHALL stop authenticating from the next request or connection. [FR-ORG-06, FR-EVT-14, D-037]
 - **REQ-EVT-10**: WHEN `incidents` asks for the on-duty tiers of an organization at an instant, the system SHALL return the primary and backup of the shift covering that instant, if any, and the organization's active Managers. [BR-16]
+- **REQ-EVT-11**: WHEN a member asks for the current Field Station release, the system SHALL return its version and one download per operating system with its SHA-256, read from `release.json` in `FIELD_STATION_RELEASE_DIR`; WHEN `gateway-sync` records a station's health, the system SHALL store the reported version and mark the station `outdated` when it is older than the current release. [FR-EVT-13, FR-EVT-18, D-039]
 
 ### State-Driven
 
@@ -80,6 +82,9 @@
 ## 4. Configuration
 
 The `organizations` section of the [Configuration Matrix](../platform/configuration-matrix.md).
+Environment: `FIELD_STATION_RELEASE_DIR`, a directory holding `release.json` (`version`, `publishedAt`,
+`files[]` with `os`, `fileName`, `sha256`, `sizeBytes`) and the executables, served under
+`/downloads/field-station/<version>/`. Publishing a release is a deployment step, not an API call.
 
 ---
 
@@ -92,6 +97,7 @@ The `organizations` section of the [Configuration Matrix](../platform/configurat
 - **AC-05**: A created API key works on `GET /api/telemetry/devices`; after revocation the same call returns 401. (E04-5)
 - **AC-06**: A revoked Field Station credential is refused by the broker at its next connection.
 - **AC-07**: A suspended organization cannot request a contract (409), while an SOS from one of its rented devices still reaches its primary. (TC-32)
+- **AC-08**: A station that reports version 1.1.0 while `release.json` says 1.2.0 is listed `outdated: true` to its Manager and to TrekLink Staff; the release endpoint returns 1.2.0 with its SHA-256. (FR-EVT-18)
 
 ---
 
