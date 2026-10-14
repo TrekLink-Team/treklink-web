@@ -17,6 +17,12 @@ STATION = {"id": STATION_ID, "name": "Ta Nang basecamp laptop", "mqttUsername": 
 NOT_MEMBER = (404, "NOT_FOUND", "No such member in this organization", "Member not found.")
 VERSION = ["expectedVersion", "Version the caller saw; mismatch returns 409", "int", "yes", "`3`"]
 
+CASE = {"id": "c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f", "code": "CMP-0002", "organization": {"id": ORG_ID, "code": "ORG-0007"},
+        "type": "SUSPECTED_THEFT", "status": "OPEN", "evidence": "Three devices unreturned 40 days after default; phones unanswered",
+        "linkedContractIds": ["c0ffee00-1234-4abc-9def-001122334455"], "linkedLossCases": ["LOSS-0003"],
+        "authorityReference": None, "outcome": None, "openedAt": NOW, "actions": []}
+CASE_PATH = ["id", "Compliance case id", "uuid", f"`{CASE['id']}`"]
+
 ENDPOINTS = [
     ep("POST", "/api/organizations/register", "Register an organization", "Public",
        "A Guest registers a company with its tax code and the Manager's contact. The organization is "
@@ -80,18 +86,23 @@ ENDPOINTS = [
 
     ep("POST", "/api/organizations/:id/verification", "Record verification", "TrekLink Staff",
        "Records the in-person or phone verification: documents seen and the signed master contract "
-       "number. Admins are notified that the organization awaits approval (FR-ORG-02).",
-       "UC-02, FR-ORG-02",
+       "number, which must include the non-disclosure agreement and the Field Station software licence "
+       "(BR-43, D-046). Admins are notified that the organization awaits approval (FR-ORG-02).",
+       "UC-02, FR-ORG-02, BR-43",
        path=[ORG_PATH],
        body=[["method", "`IN_PERSON` or `PHONE`", "enum", "yes", "`IN_PERSON`"],
              ["documentsSeen", "Documents checked", "string[]", "yes", "`[\"Business registration\"]`"],
              ["masterContractRef", "Number on the signed master contract", "string", "yes", "`MC-2026-0007`"],
+             ["ndaSigned", "The master contract includes the signed NDA", "bool", "yes", "`true`"],
+             ["softwareLicenceSigned", "The master contract includes the Field Station software licence", "bool", "yes", "`true`"],
              VERSION],
        sample={"method": "IN_PERSON", "documentsSeen": ["Business registration", "Manager ID card"],
-               "masterContractRef": "MC-2026-0007", "expectedVersion": 0},
+               "masterContractRef": "MC-2026-0007", "ndaSigned": True, "softwareLicenceSigned": True, "expectedVersion": 0},
        response={**ORG, "status": "PENDING", "verifiedAt": NOW, "decidedAt": None}, message="Verification recorded",
-       entity="Organization", errors=[state_409("organization", "ACTIVE"), STALE],
-       steps=["Require status PENDING", "Store the verification fields and the verifying Staff",
+       entity="Organization", errors=[(400, "CONTRACT_TERMS_MISSING", "ndaSigned or softwareLicenceSigned is false",
+                                       "The master contract must include the NDA and the software licence."),
+                                      state_409("organization", "ACTIVE"), STALE],
+       steps=["Require status PENDING", "Require ndaSigned and softwareLicenceSigned", "Store the verification fields and the verifying Staff",
               "Notify Admins", "Emit audit.record organization.verify"],
        controller="OrganizationsController", service="OrganizationsService", call="verify(id, dto, actor)",
        seq=["Svc->>DB: UPDATE organizations", "Svc-)Svc: emit organization.verified"]),
@@ -361,4 +372,70 @@ ENDPOINTS = [
        steps=["Read release.json from FIELD_STATION_RELEASE_DIR"],
        controller="FieldStationsController", service="FieldStationReleaseService", call="current()",
        participants=[["Store", "File storage"]], seq=["Svc->>Store: read release.json"]),
+
+    ep("POST", "/api/organizations/:id/channel-key/rotate", "Rotate the organization channel key", "TrekLink Staff",
+       "Records that TrekLink rotated the organization's channel key with the counter's provisioning tool: "
+       "`channelKeyVersion` increases and `channelKeyExposedAt` is cleared. Devices take the new version as "
+       "they are re-provisioned at the counter; until then they hold the old key (D-045, D-021).",
+       "UC-60, FR-DEV-13, D-045",
+       path=[ORG_PATH], body=[["reason", "Why", "string", "yes", "`Device TL-0042 lost in renter custody`"], VERSION],
+       sample={"reason": "Device TL-0042 lost in renter custody", "expectedVersion": 4},
+       response={"id": ORG_ID, "channelKeyVersion": 3, "channelKeyExposedAt": None}, message="Channel key rotated",
+       entity="Organization", errors=[state_409("organization", "CLOSED"), STALE],
+       steps=["Require ACTIVE or SUSPENDED", "Increase channelKeyVersion, clear channelKeyExposedAt",
+              "Emit audit.record organization.rotateKey"],
+       controller="OrganizationsController", service="OrganizationsService", call="rotateKey(id, dto, actor)",
+       seq=["Svc->>DB: UPDATE organizations channelKeyVersion, channelKeyExposedAt"]),
+
+    ep("GET", "/api/compliance-cases", "List compliance cases", "TrekLink Staff, TrekLink Admin",
+       "Lists compliance cases by status and type (FR-ORG-08).", "UC-63, FR-ORG-08",
+       query=PAGE_QUERY + [["status", "OPEN or CLOSED", "string", "no", "`OPEN`"]], response=paged(CASE),
+       steps=["Read compliance_cases"], controller="ComplianceCasesController", service="ComplianceCaseService",
+       call="list(query, caller)", seq=["Svc->>DB: SELECT compliance_cases"]),
+
+    ep("POST", "/api/organizations/:id/compliance-cases", "Open a compliance case", "TrekLink Staff, TrekLink Admin",
+       "Opens a case against an organization for a suspected fraud, theft, IP violation, NDA breach or other "
+       "breach, with evidence notes and linked contracts or loss cases (FR-ORG-08, D-046).", "UC-63, FR-ORG-08, D-046",
+       path=[ORG_PATH], body=[["type", "SUSPECTED_FRAUD, SUSPECTED_THEFT, IP_VIOLATION, NDA_BREACH or OTHER_BREACH", "string", "yes", "`SUSPECTED_THEFT`"],
+                              ["evidence", "What was observed", "string", "yes", "`Three devices unreturned 40 days after default`"],
+                              ["linkedContractIds", "Contracts concerned", "uuid[]", "no", "see sample"],
+                              ["linkedLossCaseIds", "Loss cases concerned", "uuid[]", "no", "`[]`"]],
+       sample={"type": "SUSPECTED_THEFT", "evidence": CASE["evidence"], "linkedContractIds": CASE["linkedContractIds"],
+               "linkedLossCaseIds": []},
+       response=CASE, status=201, message="Compliance case opened", entity="Organization",
+       steps=["Insert compliance_cases OPEN", "Link the loss cases", "Emit audit.record complianceCase.open"],
+       controller="ComplianceCasesController", service="ComplianceCaseService", call="open(orgId, dto, actor)",
+       seq=["Svc->>DB: INSERT compliance_cases; UPDATE loss_cases SET complianceCaseId"]),
+
+    ep("POST", "/api/compliance-cases/:id/actions", "Record an action on a compliance case",
+       "TrekLink Admin (suspend); TrekLink Staff, TrekLink Admin (revoke)",
+       "Takes and records an action from the case: suspend the organization (FR-ORG-07), or revoke a Field "
+       "Station credential or an API key. Each action is an append-only row with actor and time (FR-ORG-09).",
+       "UC-63, FR-ORG-09, FR-ORG-07",
+       path=[CASE_PATH], body=[["kind", "SUSPEND_ORGANIZATION, REVOKE_FIELD_STATION, REVOKE_API_KEY or OTHER", "string", "yes", "`SUSPEND_ORGANIZATION`"],
+                               ["targetId", "Field Station or API key id, for a revocation", "uuid", "no", f"`{STATION_ID}`"],
+                               ["note", "Why", "string", "yes", "`Devices withheld after default`"]],
+       sample={"kind": "SUSPEND_ORGANIZATION", "targetId": None, "note": "Devices withheld after default"},
+       response={**CASE, "actions": [{"kind": "SUSPEND_ORGANIZATION", "at": NOW}]}, status=201, message="Action recorded",
+       entity="Compliance case",
+       errors=[(403, "FORBIDDEN", "Only an Admin may suspend", "Ask a TrekLink Admin to suspend the organization."),
+               state_409("compliance case", "CLOSED")],
+       steps=["Require OPEN", "Run the action through the existing service", "Insert compliance_actions"],
+       controller="ComplianceCasesController", service="ComplianceCaseService", call="act(id, dto, actor)",
+       seq=["Svc->>Svc: suspend or revoke through OrganizationsService", "Svc->>DB: INSERT compliance_actions"]),
+
+    ep("POST", "/api/compliance-cases/:id/close", "Close a compliance case", "TrekLink Staff, TrekLink Admin",
+       "Closes the case with an outcome. A suspected fraud or theft case needs a police report reference "
+       "(BR-40).", "UC-63, FR-ORG-08, BR-40",
+       path=[CASE_PATH], body=[["outcome", "What was decided", "string", "yes", "`Devices recovered by police; contract settled`"],
+                               ["authorityReference", "Police report reference", "string", "no", "`CA-PD-2026-118`"]],
+       sample={"outcome": "Devices recovered by police; contract settled", "authorityReference": "CA-PD-2026-118"},
+       response={**CASE, "status": "CLOSED", "authorityReference": "CA-PD-2026-118",
+                 "outcome": "Devices recovered by police; contract settled"}, message="Compliance case closed",
+       entity="Compliance case",
+       errors=[(409, "POLICE_REFERENCE_REQUIRED", "Suspected fraud or theft without authorityReference",
+                "Record the police report reference before closing.")],
+       steps=["Require OPEN", "Require authorityReference for SUSPECTED_FRAUD or SUSPECTED_THEFT", "Set CLOSED, outcome, closedBy"],
+       controller="ComplianceCasesController", service="ComplianceCaseService", call="close(id, dto, actor)",
+       seq=["Svc->>DB: UPDATE compliance_cases CLOSED"]),
 ]

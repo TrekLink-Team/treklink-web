@@ -106,7 +106,7 @@ stale transitions only once; rate limit per key; report numbers against seeded d
 
 ## 9. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 2 is the class view; Figures 3 to 6 are the
+Layering as in `organizations` design §9. Figure 2 is the class view; Figures 3 to 7 are the
 MF-04 interactions. The push path is Figure 1.
 
 <!-- sdd: MF-04 class monitoring -->

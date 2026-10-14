@@ -54,7 +54,7 @@ stateDiagram-v2
 ```
 
 ***Figure 2***: Organization lifecycle. Verification is a recorded fact on a `PENDING` organization, not a
-state, matching SRS Figure 25.
+state, matching SRS Figure 27.
 
 | From | To | Who | Guard |
 |---|---|---|---|
@@ -106,6 +106,23 @@ check made once per MQTT connection.
 
 ---
 
+## 4.1 Contract terms and compliance cases (D-046)
+
+Verification records `ndaSigned` and `softwareLicenceSigned`; both must be true (BR-43), because the
+Field Station's code and the firmware are in the customer's hands. A `ComplianceCase` records a suspected
+fraud, theft, IP violation, NDA breach or other breach. Actions taken from it reuse the existing
+operations, suspension (`OrganizationsService.suspend`) and revocation of Field Station credentials and
+API keys, and each is appended as a `ComplianceAction`. A `SUSPECTED_FRAUD` or `SUSPECTED_THEFT` case
+closes only with a police report reference (BR-40), enforced by the service and by the
+`compliance_cases_police_reference_to_close` CHECK. A loss case flagged as suspected theft opens a case,
+or links to the organization's open case of the same type.
+
+`channelKeyExposedAt` is set by `markKeyExposed` when a device in the organization's custody is lost
+(D-045) and cleared when Staff record a key rotation. The platform cannot change a key on a device it
+cannot reach, so rotation takes effect device by device at the counter.
+
+---
+
 ## 5. Services and ports
 
 | Export | Used by | Purpose |
@@ -116,6 +133,8 @@ check made once per MQTT connection.
 | `RosterService.tiersAt(orgId, instant)` | incidents | routing and tiers |
 | `FieldStationsService.byUsername(username)` | gateway-sync | broker hook, Stage C ingestion |
 | `FieldStationsService.recordStationHealth(id, health)` | gateway-sync | FR-EVT-13 |
+| `OrganizationsService.markKeyExposed(orgId)` | devices | FR-DEV-13, D-045 |
+| `ComplianceCaseService.openOrLink(orgId, lossCaseId, actor, tx)` | devices | FR-DEV-13, D-046 |
 | provider of `ACCOUNT_CONTEXT_PROVIDER`, `API_KEY_RESOLVER` | auth | `platform` design §2.1 |
 
 Declares `ORGANIZATION_EXIT_CHECKS` (multi): `{ canReactivate(orgId): Promise<Reason | null>; canClose(orgId): Promise<Reason | null> }`.
@@ -180,8 +199,8 @@ Postgres; key and station hashing; last-Manager under concurrency; cross-organiz
 Layering for every module (D-044): a page calls a controller over HTTPS; the controller checks the JWT
 and the policy, then calls a service; the service owns the transaction and calls the module's
 repository, the only class that touches Prisma; other modules are reached only through their exported
-services. Figure 4 is the class view of this module; Figures 5 to 7 are the MF-01 and MF-02
-interactions it owns.
+services. Figures 4 and 10 are the class views of this module, core and
+compliance cases; Figures 5 to 9 and 11 are the MF-01, MF-02 and MF-05 interactions it owns.
 
 <!-- sdd: MF-01 class organizations -->
 ```mermaid
@@ -203,6 +222,8 @@ classDiagram
         +approve(id, dto, actor) Organization
         +assertActive(orgId)
         +suspendForDefault(orgId, contractCode, tx)
+        +markKeyExposed(orgId)
+        +rotateKey(id, dto, actor)
     }
     class RosterService {
         +tiersAt(orgId, instant) Tiers
@@ -367,3 +388,68 @@ sequenceDiagram
 ```
 
 ***Figure 9***: UC-06 for a Field Station, part 2 of 2: the broker's credential check.
+
+<!-- sdd: MF-05 class organizations-compliance -->
+```mermaid
+classDiagram
+    class ComplianceCasesController {
+        +open(orgId, dto, actor) CaseDto
+        +act(id, dto, actor) CaseDto
+        +close(id, dto, actor) CaseDto
+    }
+    class ComplianceCaseService {
+        +open(orgId, dto, actor) ComplianceCase
+        +openOrLink(orgId, lossCaseId, actor, tx)
+        +act(id, dto, actor) ComplianceCase
+        +close(id, dto, actor) ComplianceCase
+    }
+    class ComplianceCasesRepository {
+        +insert(row, tx) ComplianceCase
+        +appendAction(row, tx)
+        +setClosed(id, outcome, reference, tx)
+    }
+    class OrganizationsService
+    class FieldStationsService
+    class ApiKeysService
+    class LossCaseService
+    ComplianceCasesController --> ComplianceCaseService
+    ComplianceCaseService --> ComplianceCasesRepository
+    ComplianceCaseService --> OrganizationsService : suspend
+    ComplianceCaseService --> FieldStationsService : revoke
+    ComplianceCaseService --> ApiKeysService : revoke
+    LossCaseService --> ComplianceCaseService : openOrLink
+```
+
+***Figure 10***: organizations classes for compliance cases (D-046). `LossCaseService` belongs to `devices`.
+
+<!-- sdd: MF-05 seq UC-63 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    actor Ad as TrekLink Admin
+    participant P as ComplianceCasePage
+    participant C as ComplianceCasesController
+    participant S as ComplianceCaseService
+    participant O as OrganizationsService
+    participant R as ComplianceCasesRepository
+    St->>P: open SUSPECTED_THEFT with evidence
+    P->>C: POST /api/organizations/{id}/compliance-cases
+    C->>S: open(orgId, dto, actor)
+    S->>R: insert(case OPEN, links, tx)
+    Ad->>P: suspend the organization
+    P->>C: POST /api/compliance-cases/{id}/actions
+    C->>S: act(id, SUSPEND_ORGANIZATION, actor)
+    S->>O: suspend(orgId, reason, actor, tx)
+    S->>R: appendAction(row, tx)
+    St->>P: close with outcome
+    P->>C: POST /api/compliance-cases/{id}/close
+    C->>S: close(id, dto, actor)
+    alt no police reference for suspected theft or fraud
+        S-->>C: 409 POLICE_REFERENCE_REQUIRED
+    end
+    S->>R: setClosed(id, outcome, authorityReference, tx)
+    C-->>P: 200 envelope
+```
+
+***Figure 11***: UC-63 Handle Compliance Case (BR-40, D-046).

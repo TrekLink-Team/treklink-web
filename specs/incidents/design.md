@@ -69,7 +69,7 @@ stateDiagram-v2
     CLOSED --> [*]
 ```
 
-***Figure 2***: Incident lifecycle; SRS Figures 23 and 24. `NOTIFY_BACKUP` and `NOTIFY_MANAGER` also go
+***Figure 2***: Incident lifecycle; SRS Figures 25 and 26. `NOTIFY_BACKUP` and `NOTIFY_MANAGER` also go
 to `FALSE_ALARM` (D-034 "`NOTIFY_*`"); those two arrows are omitted from the figure for legibility.
 `DETECTED` is transient: routing happens in the creating transaction. The route is the contract and
 organization the triggering field event is attributed to (D-040), never the device's current holder; an
@@ -203,7 +203,7 @@ runs with at least two organizations, including A's late SOS after the device pa
 
 ## 10. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 9 are the
+Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 10 are the
 MF-03 interactions.
 
 <!-- sdd: MF-03 class incidents -->

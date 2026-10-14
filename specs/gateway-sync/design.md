@@ -178,7 +178,7 @@ simultaneous submissions, 10 organizations and 50 devices (NFR-PERF-02, NFR-PERF
 
 Layering as in `organizations` design §9, except that ingestion has no page or controller: the broker
 delivers to an adapter, which plays the controller's role. Figure 4 is the class view; Figures 5
-and 6 are the MF-02 ingestion with attribution (D-040) and the station health report (FR-EVT-18).
+to 8 are the MF-02 ingestion with attribution (D-040) and the station health report (FR-EVT-18).
 The Stage C flush is Figure 3.
 
 <!-- sdd: MF-02 class gateway-sync -->

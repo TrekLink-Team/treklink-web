@@ -1,54 +1,77 @@
-# POST /api/contracts/:id/devices/:deviceId/lost: Record a lost device
+# POST /api/loss-cases/:id/confirm: Confirm a loss
 
-> Module `rentals`. Generated from `scripts/specs/endpoints/rentals.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
+> Module `devices`. Generated from `scripts/specs/endpoints/devices.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
 
 [TOC]
 
 ---
 ## Overview
 
-Records a device lost when the organization reports it on a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` contract, or when it is unrecovered after default: the device moves to `LOST` (D-035 as amended by D-038) and billing charges its remaining value from the variant's schedule (FR-BILL-05, E05-3). Counts as returned for closing the contract.
+Confirms the loss before the search window ends; the `devices.lossSearch` job does the same when it ends. For renter custody billing charges the device's remaining value to the contract; TrekLink custody is written off (FR-DEV-15, FR-BILL-05).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
-| POST | /api/contracts/:id/devices/:deviceId/lost |
+| POST | /api/loss-cases/:id/confirm |
 | Permission | TrekLink Staff |
-| Traces | UC-49, FR-DEV-01, FR-BILL-05, BR-25, E05-3, D-038 |
+| Traces | UC-60, FR-DEV-15, FR-BILL-05, BR-25 |
 
 ### Path parameters
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| id | Contract id; members may use only their own organization's | uuid | `c0ffee00-1234-4abc-9def-001122334455` |
-| deviceId | Device committed to the contract | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| id | Loss case id | uuid | `9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d` |
 
 ## Request sample
 
 ```json
 {
-  "note": "Reported lost in a river crossing on 2026-11-02."
+  "expectedVersion": 1
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| note | Circumstances reported by the organization | string | yes | `Fell into a ravine` |
+| expectedVersion | Case version the caller saw | int | yes | `1` |
 
 ## Response sample
 
 ```json
 {
   "result": {
-    "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
-    "assetTag": "TL-0042",
-    "lostAt": "2026-10-20T03:15:00.000Z",
-    "lossChargeVnd": 1800000
+    "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+    "code": "LOSS-0003",
+    "device": {
+      "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+      "assetTag": "TL-0042"
+    },
+    "state": "CONFIRMED",
+    "stateFromDevice": "RENTED",
+    "reportedAt": "2026-10-20T03:15:00.000Z",
+    "description": "Last seen at Phan Dung camp",
+    "lastSeenAt": "2026-10-20T03:15:00.000Z",
+    "lastPosition": {
+      "lat": 11.5544,
+      "lon": 108.5381
+    },
+    "custody": "RENTER",
+    "contractDeviceId": "cd-77",
+    "organization": {
+      "id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
+      "code": "ORG-0007"
+    },
+    "keyExposed": true,
+    "suspectedTheft": false,
+    "policeReference": null,
+    "searchEndsAt": "2026-10-27T03:15:00.000Z",
+    "decision": null,
+    "chargeVnd": 1800000,
+    "version": 1
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Device recorded lost"
+  "message": "Loss confirmed"
 }
 ```
 
@@ -122,31 +145,14 @@ Records a device lost when the organization reports it on a `RETURN_DUE`, `OVERD
   },
   "isSuccess": false,
   "statusCode": 404,
-  "message": "Contract not found."
+  "message": "Loss case not found."
 }
 ```
 </td>
         </tr>
         <tr>
             <td>409</td>
-            <td>The device is not committed to this contract (<code>DEVICE_NOT_ON_CONTRACT</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "DEVICE_NOT_ON_CONTRACT"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "TL-0042 does not belong to contract RC-2026-0042."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
-            <td>The contract is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+            <td>The loss case is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
 ```json
@@ -156,7 +162,24 @@ Records a device lost when the organization reports it on a `RETURN_DUE`, `OVERD
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is APPROVED."
+  "message": "This cannot be done while it is REPORTED."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "STALE_VERSION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This was changed by someone else. Reload and try again."
 }
 ```
 </td>
@@ -181,28 +204,24 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The device is not committed to this contract?"}
+    D3{"The loss case is not in a state that allows this?"}
     D2 -->|no| D3
-    E3["Return 409 DEVICE_NOT_ON_CONTRACT"]
+    E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The contract is not in a state that allows this?"}
+    D4{"Another user changed the record first (expectedVersion differs)?"}
     D3 -->|no| D4
-    E4["Return 409 INVALID_STATE_TRANSITION"]
+    E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require RETURN_DUE, OVERDUE or DEFAULTED and the device not checked in"]
+    P0["Require SEARCHING"]
     D4 -->|no| P0
-    P1["Set lostAt"]
+    P1["Move to CONFIRMED"]
     P0 --> P1
-    P2["Move the device to LOST"]
+    P2["Renter custody: billing.chargeLoss(contract, device, tx)"]
     P1 --> P2
-    P3["Charge the remaining value"]
-    P2 --> P3
-    P4["Move the contract to RETURNED when complete"]
-    P3 --> P4
     OK["Return 200"]
-    P4 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -212,15 +231,14 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as ContractsController
-    participant Svc as ReturnService
+    participant Ctl as LossCasesController
+    participant Svc as LossCaseService
     participant DB as Postgres
-    participant Dev as DevicesService
-    participant Bill as BillingService
-    C->>Ctl: POST /api/contracts/:id/devices/:deviceId/lost
-    Ctl->>Svc: recordLost(id, deviceId, dto, actor)
-    Svc->>Dev: markLost(deviceId, tx)
-    Svc->>Bill: chargeLoss(contract, device, tx)
+    participant Bill as ChargesService
+    C->>Ctl: POST /api/loss-cases/:id/confirm
+    Ctl->>Svc: confirm(id, dto, actor)
+    Svc->>Bill: chargeLoss(contract, device, lostAt, tx)
+    Svc->>DB: UPDATE loss_cases CONFIRMED
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```
