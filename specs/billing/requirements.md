@@ -3,7 +3,7 @@
 **User Story**: As an **Org Manager**, I want to see what each plan costs, receive one clear invoice per term, and pay online or at the counter; as **TrekLink Staff and Admin**, I want late, damage and loss charges computed from configuration and every payment recorded exactly once.
 **Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-01 (first payment), MF-05 (balance and close)
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-19, UC-22, UC-45 to UC-48, UC-56, FR-BILL-01 to FR-BILL-09, FR-CFG-02, BR-06, BR-07, BR-23 to BR-25, BR-29, BR-31, BR-34, NFR-SEC-07, NFR-UI-03, MSG20, MSG25, MSG30; D-033 item 9 (SePay sandbox); D-037 (one invoice per term, two dated lines); D-038 (webhook body). Rewritten 2026-10-04 (D-036). Reports (FR-BILL-10) are served by `monitoring` (`platform` design §2.1).
+> **Authority**: Report 3 SRS (2026-10-14) UC-19, UC-22, UC-45 to UC-48, UC-56, UC-60, FR-BILL-01 to FR-BILL-09, FR-BILL-11, BR-39, FR-CFG-02, BR-06, BR-07, BR-23 to BR-25, BR-29, BR-31, BR-34, NFR-SEC-07, NFR-UI-03, MSG20, MSG25, MSG30; D-033 item 9 (SePay sandbox); D-037 (one invoice per term, two dated lines); D-038 (webhook body). Rewritten 2026-10-04 (D-036). Reports (FR-BILL-10) are served by `monitoring` (`platform` design §2.1).
 
 ---
 
@@ -22,7 +22,7 @@
 | This spec | SRS |
 |---|---|
 | Monthly and day-plan pricing | FR-BILL-01, FR-BILL-02, BR-06, BR-07 |
-| Late, damage, loss | FR-BILL-03 to FR-BILL-05, BR-23 to BR-25 |
+| Late, damage, loss | FR-BILL-03 to FR-BILL-05, FR-BILL-11, BR-23 to BR-25, BR-39 |
 | Invoices | UC-45, FR-BILL-06 |
 | Online and counter payments | UC-19, UC-22, FR-BILL-07 to FR-BILL-09, BR-31, BR-34 |
 | Price configuration | UC-56, FR-CFG-01, FR-CFG-02, BR-29 |
@@ -47,7 +47,7 @@
 - **REQ-EVT-04**: WHEN `rentals` checks a device in after `returnDueAt` plus `rentals.returnGraceHours`, the system SHALL add a `LATE_FEE` line of `billing.lateFeePerDevicePerDayVnd` per started day after the due time, for that device, to the closing invoice. [FR-BILL-03, BR-23]
 - **REQ-EVT-05**: WHEN `rentals` records a `DAMAGED` inspection, the system SHALL price each damage code from the schedule (variant row first, generic row otherwise) as one `DamageCharge`; IF the total exceeds `billing.damageApprovalThresholdVnd`, THEN it SHALL be `PENDING_APPROVAL`, otherwise `APPROVED`. [FR-BILL-04, BR-24]
 - **REQ-EVT-06**: WHEN an Admin who did not record the inspection approves, reduces or waives a pending charge, the system SHALL record the decision and its final amount; an approved or reduced amount SHALL become a `DAMAGE` line on the closing invoice. [FR-BILL-04, BR-24, MSG30]
-- **REQ-EVT-07**: WHEN `rentals` records a loss, the system SHALL add a `LOSS` line of the device's remaining value at that date (from `devices`). [FR-BILL-05, BR-25]
+- **REQ-EVT-07**: WHEN `devices` confirms a loss case in `RENTER` custody, the system SHALL add a `LOSS` line of the device's remaining value at the confirmation date (from `devices.valueAt`) to that contract's closing invoice; a `TREKLINK` custody loss adds no line. WHEN the case is settled as reduced or waived, the system SHALL record the decision as an `ADJUSTMENT` line with the reason, never by editing the `LOSS` line. [FR-BILL-05, FR-BILL-11, BR-25, BR-39]
 - **REQ-EVT-08**: WHEN an Org Manager pays online, the system SHALL create a `PENDING` SePay payment with a fresh reference and an expiry of `billing.sepayPaymentTtlMinutes`, and return the VietQR for the sandbox account. [FR-BILL-07]
 - **REQ-EVT-09**: WHEN SePay's webhook arrives with the configured API key and a content holding an issued reference, the system SHALL, in one transaction, confirm the payment, apply its amount to the invoice's unpaid lines oldest due first, update the invoice status, and answer `{ "success": true }` (D-038); a webhook with no issued reference SHALL be logged for Staff and answered the same way. [FR-BILL-07, NFR-SEC-07]
 - **REQ-EVT-10**: WHEN Staff record a cash or bank-transfer payment at the counter with a receipt reference, the system SHALL record it `CONFIRMED` and apply it the same way (MSG20). [UC-22, FR-BILL-08]

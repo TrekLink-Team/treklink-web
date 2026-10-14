@@ -3,7 +3,7 @@
 **User Story**: As an **Org Manager**, I want to request devices by monthly or day plan, collect them at the TrekLink counter, give notice when I am done and return them, so that my organization rents exactly what it needs; and as **TrekLink Staff**, I want every handover and return recorded so that no device is ever double-allocated or lost track of.
 **Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-01 (request to handover), MF-05 (term end to close)
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-038 (lost from `RETURN_DUE`). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
+> **Authority**: Report 3 SRS (2026-10-04) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-045 (loss cases, replacement on a running contract; supersedes D-038 rule 3). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
 
 ---
 
@@ -27,7 +27,9 @@
 | Terms, notice, day-plan end | UC-23, UC-24, FR-CON-08 to FR-CON-10, BR-06 to BR-08 |
 | Running contract is fixed | FR-CON-07, BR-05 |
 | Holder labels | UC-25, FR-CON-14, BR-33 |
-| Return | UC-43, UC-44, UC-49, FR-MON-08, D-038 |
+| Return | UC-43, UC-44, FR-MON-08 |
+| Custody for loss cases | UC-60, FR-DEV-13, D-040, D-045 |
+| Replacement on a running contract | UC-61, FR-CON-15, BR-41, E05-8 |
 | Overdue and default | UC-50, FR-CON-12, BR-26 |
 | Closing | UC-51, FR-CON-13, BR-27 |
 
@@ -56,7 +58,7 @@
 - **REQ-EVT-09**: WHEN a day plan reaches its end, the system SHALL move it to `RETURN_DUE`, and on to `RETURNED` in the same transaction if every device is already back or lost. [FR-CON-10]
 - **REQ-EVT-10**: WHEN Staff check a device in, the system SHALL mark the row, move the device to `RETURNED` through `devices`, have `billing` charge late days when the time is past `returnDueAt` plus `rentals.returnGraceHours`, emit `device.checkedIn` so live data stops reaching the organization, and, when the contract is `RETURN_DUE`, `OVERDUE` or `DEFAULTED`, move it to `RETURNED` once every device is checked in or lost; an early return during `ACTIVE` or `ENDING` waits for the end-of-plan job (MSG07). [FR-MON-08, FR-BILL-03]
 - **REQ-EVT-11**: WHEN Staff inspect a checked-in device, the system SHALL record the inspection through `devices` and, for `DAMAGED`, have `billing` charge the damage in the same transaction, unless the contract is `CLOSED`. [UC-44, FR-BILL-04]
-- **REQ-EVT-12**: WHEN Staff record a device lost on a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` contract, the system SHALL set `lostAt`, move the device to `LOST` and have `billing` charge its remaining value. [UC-49, FR-BILL-05, D-038]
+- **REQ-EVT-12**: WHEN `devices` settles a loss case for a device on one of the contract's rows, the system SHALL set that row's `lostAt` to the case's confirmation time, which closes the custody interval and counts the device as back for closing; WHEN Staff replace a faulty or lost unit on an `ACTIVE` or `ENDING` contract, the system SHALL check in the faulty unit if present, reserve and provision an `AVAILABLE` unit of the same variant, store the signed replacement note with its SHA-256, insert a `ContractDevice` row with `replacesId` and `handedOverAt`, and move the unit to `RENTED`, leaving plan, variant and quantity unchanged. [FR-CON-13, FR-CON-15, BR-05, BR-41]
 - **REQ-EVT-13**: WHEN a `RETURN_DUE` contract is past `returnDueAt` plus `rentals.returnGraceHours` with devices still out, the system SHALL move it to `OVERDUE`; WHEN `OVERDUE` lasts `rentals.defaultAfterDays`, the system SHALL move it to `DEFAULTED` and suspend the organization through `organizations`. [FR-CON-12, BR-26, E05-1, E05-2]
 - **REQ-EVT-14**: WHEN an approved contract passes `reservationExpiresAt`, the system SHALL remind Staff and the Manager once. [FR-CON-04]
 - **REQ-EVT-15**: WHEN a member sets a holder label on a handed-over device, the system SHALL store it and emit `device.labelChanged`; WHEN the contract closes, the system SHALL erase every label. [FR-CON-14, BR-33]

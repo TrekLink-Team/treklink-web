@@ -51,7 +51,7 @@ contract is not `CLOSED`, never changed (REQ-UBI-02).
 | Day plan | ⌈P ÷ 30 × premium × days × q⌉ | start date (paid by the handover) |
 | Late | `lateFeePerDevicePerDayVnd` × ⌈(checkedInAt − returnDueAt) ÷ 1 day⌉, only if past the grace | at check-in |
 | Damage | Σ rate(code) for the device's variant, generic rate as fallback | when decided, or at once below the threshold |
-| Loss | `devices.valueAt(device, lostAt)` | at loss |
+| Loss | `devices.valueAt(device, confirmedAt)`, renter custody only; a reduction or waiver is an `ADJUSTMENT` line | at loss-case confirmation |
 
 `P` is the contract's `monthlyUnitPriceVnd` snapshot; `ratio` and `premium` are the snapshot too.
 
@@ -145,7 +145,7 @@ one invoice.
 
 ## 8. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 3 is the class view; Figures 4 and 5 are the
+Layering as in `organizations` design §9. Figure 3 is the class view; Figures 4 to 6 are the
 MF-05 payment and damage approval.
 
 <!-- sdd: MF-05 class billing -->

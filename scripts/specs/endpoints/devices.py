@@ -14,6 +14,15 @@ DEVICE = {"id": DEVICE_ID, "assetTag": "TL-0042", "nodeNum": 2763113171, "nodeId
 DEV_PATH = ["id", "Device id", "uuid", f"`{DEVICE_ID}`"]
 VERSION = ["expectedVersion", "Device version the caller saw", "int", "yes", "`5`"]
 
+LOSS = {"id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", "code": "LOSS-0003", "device": {"id": DEVICE_ID, "assetTag": "TL-0042"},
+        "state": "SEARCHING", "stateFromDevice": "RENTED", "reportedAt": NOW, "description": "Last seen at Phan Dung camp",
+        "lastSeenAt": NOW, "lastPosition": {"lat": 11.5544, "lon": 108.5381}, "custody": "RENTER",
+        "contractDeviceId": "cd-77", "organization": {"id": ORG_ID, "code": "ORG-0007"}, "keyExposed": True,
+        "suspectedTheft": False, "policeReference": None, "searchEndsAt": "2026-10-27T03:15:00.000Z",
+        "decision": None, "chargeVnd": None, "version": 1}
+LOSS_ID = LOSS["id"]
+LC_PATH = ["id", "Loss case id", "uuid", f"`{LOSS_ID}`"]
+
 ENDPOINTS = [
     ep("GET", "/api/hardware-variants", "List hardware variants",
        "TrekLink Staff, TrekLink Admin; Org Manager (active variants, no counts)",
@@ -182,27 +191,121 @@ ENDPOINTS = [
        seq=["Svc->>DB: UPDATE maintenance_records"]),
 
     ep("POST", "/api/devices/:id/retire", "Retire a device", "TrekLink Admin",
-       "Sets `RETIRED` from `MAINTENANCE` or `LOST` without deleting the device or its history; refused "
-       "while the device is on a running contract (FR-DEV-09).", "UC-53, FR-DEV-09",
+       "Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the "
+       "device is on a running contract (FR-DEV-09). A lost device is retired by settling its loss case "
+       "(FR-DEV-15).", "UC-53, FR-DEV-09",
        path=[DEV_PATH], body=[["reason", "Why", "string", "yes", "`Unrepairable water damage`"], VERSION],
        sample={"reason": "Unrepairable water damage", "expectedVersion": 12},
        response={**DEVICE, "status": "RETIRED"}, message="Device retired", entity="Device",
        errors=[state_409("device", "RENTED"), STALE],
-       steps=["Require MAINTENANCE or LOST", "Transition to RETIRED, set retiredAt"],
+       steps=["Require MAINTENANCE", "Transition to RETIRED, set retiredAt"],
        controller="DevicesController", service="DeviceLifecycleService", call="retire(id, dto, actor)",
        seq=["Svc->>DB: INSERT device_transitions; UPDATE devices"]),
 
-    ep("POST", "/api/devices/:id/recover", "Record a recovered device", "TrekLink Staff",
-       "A `LOST` device is found and brought to the counter: it moves to `RETURNED` and then goes through "
-       "reset and inspection like any return (D-035). A loss charge already invoiced is not reversed here; "
-       "an Admin adjusts it in billing.", "UC-49, D-035",
-       path=[DEV_PATH], body=[["note", "Where and how it was recovered", "string", "yes", "`Handed in by a ranger`"], VERSION],
-       sample={"note": "Handed in by a ranger at Phan Dung", "expectedVersion": 11},
-       response={**DEVICE, "status": "RETURNED"}, message="Device recovered", entity="Device",
-       errors=[state_409("device", "AVAILABLE"), STALE],
-       steps=["Require LOST", "Transition to RETURNED"], controller="DevicesController",
-       service="DeviceLifecycleService", call="recover(id, dto, actor)",
-       seq=["Svc->>DB: INSERT device_transitions; UPDATE devices"]),
+    ep("POST", "/api/devices/:id/loss-cases", "Report a lost device",
+       "Org Manager: a device rented by the organization; TrekLink Staff: any device in service",
+       "Reports a device in service as lost: the device moves to `LOST` from whichever of the six working "
+       "states it was in, and one loss case opens in `REPORTED` with the device's last seen time and position "
+       "from telemetry. The contract keeps running. TrekLink Staff are notified (FR-DEV-12, D-045).",
+       "UC-49, FR-DEV-12, BR-37, E05-8, E05-9",
+       path=[DEV_PATH], body=[["description", "Where and when it was last seen, and what happened", "string", "yes", "`Last seen at Phan Dung camp`"]],
+       sample={"description": "Last seen at Phan Dung camp on 2026-10-19 evening"},
+       response={**LOSS, "state": "REPORTED", "custody": None, "keyExposed": False, "searchEndsAt": None}, status=201,
+       message="Loss reported. TrekLink will contact you.", entity="Device",
+       errors=[(409, "LOSS_CASE_OPEN", "The device already has an open loss case", "This device is already reported lost."),
+               state_409("device", "RETIRED")],
+       steps=["Require the device in service, and rented by the caller's organization for an Org Manager",
+              "Move the device to LOST", "Insert loss_cases REPORTED with the last seen time and position",
+              "Notify TrekLink Staff"],
+       controller="LossCasesController", service="LossCaseService", call="report(deviceId, dto, caller)",
+       seq=["Svc->>DB: UPDATE devices LOST; INSERT loss_cases REPORTED", "Svc-)Svc: notify TrekLink Staff"]),
+
+    ep("GET", "/api/loss-cases", "List loss cases", "TrekLink Staff, TrekLink Admin; Org Manager: own organization",
+       "Lists loss cases by state; an Org Manager sees the cases of its organization's rented devices only.",
+       "UC-49, UC-60", query=PAGE_QUERY + [["state", "Filter by state", "string", "no", "`SEARCHING`"]],
+       response=paged(LOSS), steps=["Read loss_cases scoped to the caller"],
+       controller="LossCasesController", service="LossCaseService", call="list(query, caller)",
+       seq=["Svc->>DB: SELECT loss_cases"]),
+
+    ep("POST", "/api/loss-cases/:id/triage", "Triage a loss case", "TrekLink Staff",
+       "Decides custody from the custody interval that contains the last seen time (D-040): the renter's, or "
+       "TrekLink's when none does. For renter custody the organization's channel key is marked exposed and its "
+       "Manager notified. A suspected theft or fraud opens or links a compliance case. The case moves to "
+       "`SEARCHING` and the search window `devices.lossSearchDays` starts (FR-DEV-13).",
+       "UC-60, FR-DEV-13, D-045, D-046",
+       path=[LC_PATH], body=[["suspectedTheft", "Signs of theft or fraud", "bool", "yes", "`false`"],
+                             ["policeReference", "Police report reference, if one exists", "string", "no", "`CA-PD-2026-118`"],
+                             ["expectedVersion", "Case version the caller saw", "int", "yes", "`0`"]],
+       sample={"suspectedTheft": False, "policeReference": None, "expectedVersion": 0},
+       response=LOSS, message="Loss case triaged", entity="Loss case",
+       errors=[state_409("loss case", "SETTLED"), STALE],
+       steps=["Require REPORTED", "rentals.custodyAt(deviceId, lastSeenAt)", "Set custody and contractDeviceId",
+              "Renter custody: organizations.markKeyExposed(orgId)", "Suspected theft: organizations.openOrLinkComplianceCase",
+              "Move to SEARCHING, set searchEndsAt"],
+       controller="LossCasesController", service="LossCaseService", call="triage(id, dto, actor)",
+       participants=[["Rt", "RentalsService"], ["Org", "OrganizationsService"]],
+       seq=["Svc->>Rt: custodyAt(deviceId, lastSeenAt)", "Svc->>Org: markKeyExposed(orgId)", "Svc->>DB: UPDATE loss_cases SEARCHING"]),
+
+    ep("POST", "/api/loss-cases/:id/recover", "Record a recovered device", "TrekLink Staff",
+       "The lost device is back at the counter: the case moves to `RECOVERED` and the device to `RETURNED`, "
+       "to be reset and inspected like any return (FR-DEV-14, BR-38). After settlement the charge stands "
+       "unless an Admin records an adjustment in billing (E05-10).", "UC-60, FR-DEV-14, BR-38, E05-10",
+       path=[LC_PATH], body=[["note", "Where and how it was recovered", "string", "yes", "`Handed in by a ranger`"],
+                             ["expectedVersion", "Case version the caller saw", "int", "yes", "`1`"]],
+       sample={"note": "Handed in by a ranger at Phan Dung", "expectedVersion": 1},
+       response={**LOSS, "state": "RECOVERED"}, message="Device recovered", entity="Loss case",
+       errors=[state_409("loss case", "RECOVERED"), STALE],
+       steps=["Require REPORTED, SEARCHING or SETTLED", "Move the case to RECOVERED (a settled case keeps SETTLED)",
+              "Move the device to RETURNED"],
+       controller="LossCasesController", service="LossCaseService", call="recover(id, dto, actor)",
+       seq=["Svc->>DB: UPDATE loss_cases; UPDATE devices RETURNED"]),
+
+    ep("POST", "/api/loss-cases/:id/confirm", "Confirm a loss", "TrekLink Staff",
+       "Confirms the loss before the search window ends; the `devices.lossSearch` job does the same when "
+       "it ends. For renter custody billing charges the device's remaining value to the contract; TrekLink "
+       "custody is written off (FR-DEV-15, FR-BILL-05).", "UC-60, FR-DEV-15, FR-BILL-05, BR-25",
+       path=[LC_PATH], body=[["expectedVersion", "Case version the caller saw", "int", "yes", "`1`"]],
+       sample={"expectedVersion": 1}, response={**LOSS, "state": "CONFIRMED", "chargeVnd": 1800000},
+       message="Loss confirmed", entity="Loss case", errors=[state_409("loss case", "REPORTED"), STALE],
+       steps=["Require SEARCHING", "Move to CONFIRMED", "Renter custody: billing.chargeLoss(contract, device, tx)"],
+       controller="LossCasesController", service="LossCaseService", call="confirm(id, dto, actor)",
+       participants=[["Bill", "ChargesService"]],
+       seq=["Svc->>Bill: chargeLoss(contract, device, lostAt, tx)", "Svc->>DB: UPDATE loss_cases CONFIRMED"]),
+
+    ep("POST", "/api/loss-cases/:id/decision", "Settle a loss case", "TrekLink Admin",
+       "Settles a confirmed case: keep the charge, reduce or waive it with a reason, or record a TrekLink write-"
+       "off. The Admin is never the Staff member who triaged the case (FR-BILL-11, BR-39). The device moves to "
+       "`RETIRED`.", "UC-60, FR-BILL-11, FR-DEV-15, BR-39",
+       path=[LC_PATH], body=[["decision", "CHARGED, REDUCED, WAIVED or WRITTEN_OFF", "string", "yes", "`REDUCED`"],
+                             ["chargeVnd", "Final charge, for REDUCED", "int", "no", "`900000`"],
+                             ["reason", "Why; required unless CHARGED", "string", "no", "`Renter filed a police report promptly`"],
+                             ["expectedVersion", "Case version the caller saw", "int", "yes", "`2`"]],
+       sample={"decision": "REDUCED", "chargeVnd": 900000, "reason": "Renter filed a police report promptly", "expectedVersion": 2},
+       response={**LOSS, "state": "SETTLED", "decision": "REDUCED", "chargeVnd": 900000}, message="Loss case settled",
+       entity="Loss case",
+       errors=[(403, "SEPARATION_OF_DUTY", "The caller triaged the case", "A different Admin must settle this case."),
+               state_409("loss case", "SEARCHING"), STALE],
+       steps=["Require CONFIRMED and the caller not the triager", "Adjust the loss line for REDUCED or WAIVED",
+              "Move the case to SETTLED and the device to RETIRED"],
+       controller="LossCasesController", service="LossCaseService", call="decide(id, dto, actor)",
+       participants=[["Bill", "ChargesService"]],
+       seq=["Svc->>Bill: adjustLoss(caseId, decision, chargeVnd, tx)", "Svc->>DB: UPDATE loss_cases SETTLED; UPDATE devices RETIRED"]),
+
+    ep("POST", "/api/devices/:id/dispose", "Dispose of a retired device", "TrekLink Admin",
+       "Records the verified wipe of a `RETIRED` device (channel key, node database, owner name) and moves it to "
+       "`DISPOSED`. The device and its history are kept (FR-DEV-16, BR-42).", "UC-62, FR-DEV-16, BR-42",
+       path=[DEV_PATH], body=[["keyRemoved", "Channel key removed", "bool", "yes", "`true`"],
+                              ["nodeDbCleared", "Node database cleared", "bool", "yes", "`true`"],
+                              ["ownerCleared", "Owner name cleared", "bool", "yes", "`true`"],
+                              ["method", "How it leaves the fleet", "string", "yes", "`Recycled through a licensed handler`"], VERSION],
+       sample={"keyRemoved": True, "nodeDbCleared": True, "ownerCleared": True, "method": "Recycled through a licensed handler",
+               "expectedVersion": 14},
+       response={**DEVICE, "status": "DISPOSED"}, status=201, message="Device disposed", entity="Device",
+       errors=[(400, "WIPE_INCOMPLETE", "One of the three wipe steps is false", "Complete every wipe step first."),
+               state_409("device", "MAINTENANCE"), STALE],
+       steps=["Require RETIRED", "Insert device_disposals", "Transition to DISPOSED"],
+       controller="DevicesController", service="DeviceLifecycleService", call="dispose(id, dto, actor)",
+       seq=["Svc->>DB: INSERT device_disposals; UPDATE devices DISPOSED"]),
 
     ep("GET", "/api/devices/availability", "Availability by variant",
        "TrekLink Staff, TrekLink Admin; Org Manager (counts only)",

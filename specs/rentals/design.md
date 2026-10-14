@@ -62,7 +62,7 @@ stateDiagram-v2
     CLOSED --> [*]
 ```
 
-***Figure 2***: Rental-contract lifecycle; SRS Figure 26. Devices checked in early, while a day plan is
+***Figure 2***: Rental-contract lifecycle; SRS Figure 28. Devices checked in early, while a day plan is
 `ACTIVE` or a monthly contract `ENDING`, stay checked in; when the plan or term ends, the job moves the
 contract to `RETURN_DUE` and, finding every device back or lost, straight on to `RETURNED` in the same
 transaction. No edge outside D-035 is needed.
@@ -208,7 +208,7 @@ ports; holder labels erased on close.
 
 ## 10. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 9 are the
+Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 11 are the
 contract interactions of MF-01 and MF-05.
 
 <!-- sdd: MF-01 class rentals -->
@@ -241,6 +241,9 @@ classDiagram
         +checkIn(id, dto, actor)
         +inspect(id, deviceId, dto, actor)
     }
+    class ReplacementService {
+        +replace(id, deviceId, dto, actor) ContractDevice
+    }
     class ContractsRepository {
         +insertRequested(data, tx) RentalContract
         +lockById(id, tx) RentalContract
@@ -258,6 +261,9 @@ classDiagram
     ContractsController --> ContractLifecycleService
     ContractsController --> HandoverService
     ContractsController --> ReturnService
+    ContractsController --> ReplacementService
+    ReplacementService --> ContractsRepository
+    ReplacementService --> DevicesService : reserveExplicit, markRented
     ContractsService --> ContractsRepository
     ContractLifecycleService --> ContractsRepository
     HandoverService --> ContractsRepository
@@ -448,3 +454,33 @@ sequenceDiagram
 ```
 
 ***Figure 10***: UC-51 Close Rental Contract.
+
+<!-- sdd: MF-05 seq UC-61 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as CounterPage
+    participant C as ContractsController
+    participant S as ReplacementService
+    participant D as DevicesService
+    participant R as ContractsRepository
+    St->>P: replace faulty TL-0042 with TL-0051, Manager signs
+    P->>C: POST /api/contracts/{id}/devices/{deviceId}/replacement
+    C->>S: replace(id, deviceId, dto, actor)
+    S->>R: lockById(id, tx), require ACTIVE or ENDING
+    opt faulty unit at the counter
+        S->>R: setCheckedIn(oldRow, now, tx)
+        S->>D: markReturned(oldDeviceId, tx)
+    end
+    S->>D: reserveExplicit([newDeviceId], id, tx)
+    S->>D: recordProvisioning(newDeviceId, orgId, keyVersion, tx)
+    S->>S: render the signed replacement note, SHA-256
+    S->>R: insert(contract device, replacesId, handedOverAt now, tx)
+    S->>D: markRented([newDeviceId], tx)
+    S-->>C: ReplacementDto
+    C-->>P: 201 envelope
+```
+
+***Figure 11***: UC-61 Replace Device on Contract. The new row opens its own custody interval; plan, variant
+and quantity are unchanged (BR-41).

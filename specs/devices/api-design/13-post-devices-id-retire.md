@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Sets `RETIRED` from `MAINTENANCE` or `LOST` without deleting the device or its history; refused while the device is on a running contract (FR-DEV-09).
+Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the device is on a running contract (FR-DEV-09). A lost device is retired by settling its loss case (FR-DEV-15).
 
 ## API Specification
 
@@ -209,7 +209,7 @@ flowchart TB
     E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require MAINTENANCE or LOST"]
+    P0["Require MAINTENANCE"]
     D4 -->|no| P0
     P1["Transition to RETIRED, set retiredAt"]
     P0 --> P1

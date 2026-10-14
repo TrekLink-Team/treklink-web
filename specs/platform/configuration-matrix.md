@@ -29,6 +29,7 @@
 |---|---|---|---|---|---|---|
 | `devices.handoverMinBatteryPct` | `50` | PERCENT | 0 to 100 | percent | Below this battery the handover needs an explicit acknowledgement (MSG19) | FR-CON-05 |
 | `devices.stockTakeSeenHours` | `24` | INT | 1 to 168 | hours | A rented device heard within this window counts as confirmed in a stock-take | FR-DEV-10 |
+| `devices.lossSearchDays` | `7` | INT | 1 to 60 | days | A triaged loss case is confirmed when this long passes without recovery | FR-DEV-15, D-045 |
 
 ## rentals
 

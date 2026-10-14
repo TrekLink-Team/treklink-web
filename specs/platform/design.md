@@ -257,7 +257,7 @@ from the schema plus `backend/prisma/constraints.sql`; the seed by `scripts/spec
 
 ### 3.1 Core ERD for the Review 2 slide
 
-The template asks for the 5 to 8 central entities; this matches SRS Figure 21. See **Figure 4**.
+The template asks for the 5 to 8 central entities; this matches SRS Figure 22. See **Figure 4**.
 
 ```mermaid
 erDiagram
