@@ -95,7 +95,11 @@ the backup tier, or at the Managers when there is no backup (D-034).
 | Secret | `tlk_` + 43 base64url chars; SHA-256 stored; prefix of 8 shown | `fs_` + 43 base64url chars; bcrypt stored |
 | Identity | the hash | `mqttUsername` = `fs-<org code lower-case>-<n>` |
 | Used by | `ApiKeyGuard` via `API_KEY_RESOLVER` | the broker's go-auth hook via `gateway-sync` |
-| Health | `lastUsedAt` | `lastSyncAt`, `queueDepth`, `oldestRetryCount`, written by `gateway-sync` through `recordStationHealth()` |
+| Health | `lastUsedAt` | `lastSyncAt`, `queueDepth`, `oldestRetryCount`, `version`, written by `gateway-sync` through `recordStationHealth()`; `outdated` is computed on read against the current release |
+
+The Field Station is updated by download (D-039 (b)). `FieldStationReleaseService.current()` reads
+`release.json` from `FIELD_STATION_RELEASE_DIR`, caches it until the file changes, and compares versions
+by semantic-version order. There is no update push, release endpoint on the station, or self-replace.
 
 SHA-256 for API keys keeps the per-request lookup an index hit; bcrypt for station secrets suits a
 check made once per MQTT connection.
@@ -168,3 +172,198 @@ sequenceDiagram
 
 Lifecycle matrix unit test (every pair, allowed or 409); overlap and member-eligibility tests against
 Postgres; key and station hashing; last-Manager under concurrency; cross-organization 404 on every route.
+
+---
+
+## 9. Detailed design for Report 4 (D-044)
+
+Layering for every module (D-044): a page calls a controller over HTTPS; the controller checks the JWT
+and the policy, then calls a service; the service owns the transaction and calls the module's
+repository, the only class that touches Prisma; other modules are reached only through their exported
+services. Figure 4 is the class view of this module; Figures 5 to 7 are the MF-01 and MF-02
+interactions it owns.
+
+<!-- sdd: MF-01 class organizations -->
+```mermaid
+classDiagram
+    class OrganizationsController {
+        +register(dto) OrganizationDto
+        +verify(id, dto, actor) OrganizationDto
+        +approve(id, dto, actor) OrganizationDto
+    }
+    class FieldStationsController {
+        +list(orgId, caller) StationDto[]
+        +create(orgId, dto, actor) StationSecretDto
+        +revoke(orgId, stationId, dto, actor) StationDto
+        +release(orgId) ReleaseDto
+    }
+    class OrganizationsService {
+        +register(dto) Organization
+        +verify(id, dto, actor) Organization
+        +approve(id, dto, actor) Organization
+        +assertActive(orgId)
+        +suspendForDefault(orgId, contractCode, tx)
+    }
+    class RosterService {
+        +tiersAt(orgId, instant) Tiers
+    }
+    class FieldStationsService {
+        +create(orgId, dto, actor) StationSecret
+        +byUsername(username) FieldStation
+        +recordStationHealth(id, health)
+    }
+    class FieldStationReleaseService {
+        +current() Release
+        +isOutdated(version) bool
+    }
+    class OrganizationsRepository {
+        +insertPending(data, tx) Organization
+        +transition(id, from, to, version, reason, tx)
+    }
+    class FieldStationsRepository {
+        +insert(data, tx) FieldStation
+        +findByUsername(username) FieldStation
+        +updateHealth(id, health)
+    }
+    class AccountsService
+    OrganizationsController --> OrganizationsService
+    FieldStationsController --> FieldStationsService
+    FieldStationsController --> FieldStationReleaseService
+    OrganizationsService --> OrganizationsRepository
+    OrganizationsService --> AccountsService : auth module
+    RosterService --> OrganizationsRepository
+    FieldStationsService --> FieldStationsRepository
+    FieldStationsService --> FieldStationReleaseService
+```
+
+***Figure 4***: organizations classes. `AccountsService` belongs to `auth`.
+
+<!-- sdd: MF-01 seq UC-01 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor G as Guest
+    participant P as RegisterPage
+    participant C as OrganizationsController
+    participant S as OrganizationsService
+    participant R as OrganizationsRepository
+    participant A as AccountsService
+    G->>P: company, tax code, Manager contact
+    P->>C: POST /api/organizations/register
+    C->>S: register(dto)
+    S->>R: existsTaxCodeOrEmail(taxCode, email)
+    alt already registered
+        S-->>C: 409 DUPLICATE
+        C-->>P: failure envelope, MSG10
+    end
+    S->>R: insertPending(dto, tx)
+    R->>R: INSERT organization PENDING and transition
+    S->>A: createOrganizationAccount(manager, MANAGER, tx)
+    S->>S: COMMIT, then SET_PASSWORD code and Staff notice
+    S-->>C: OrganizationDto PENDING
+    C-->>P: 201 envelope
+    P-->>G: MSG04 next steps
+```
+
+***Figure 5***: UC-01 Register Organization.
+
+<!-- sdd: MF-01 seq UC-02 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as OrganizationReviewPage
+    participant C as OrganizationsController
+    participant S as OrganizationsService
+    participant R as OrganizationsRepository
+    St->>P: documents seen, master contract reference
+    P->>C: POST /api/organizations/{id}/verification
+    C->>S: verify(id, dto, actor)
+    S->>R: setVerification(id, dto, actor)
+    R->>R: UPDATE verifiedAt WHERE status PENDING
+    S->>S: notify Admins, audit.record
+    S-->>C: OrganizationDto
+    C-->>P: 200 envelope
+```
+
+***Figure 6***: UC-02 Verify Organization.
+
+<!-- sdd: MF-01 seq UC-03 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ad as TrekLink Admin
+    participant P as OrganizationReviewPage
+    participant C as OrganizationsController
+    participant S as OrganizationsService
+    participant R as OrganizationsRepository
+    Ad->>P: approve
+    P->>C: POST /api/organizations/{id}/approve
+    C->>S: approve(id, dto, actor)
+    S->>R: findById(id)
+    alt not verified
+        S-->>C: 409 NOT_VERIFIED
+        C-->>P: failure envelope
+    end
+    S->>R: transition(id, PENDING, ACTIVE, version, tx)
+    R->>R: UPDATE WHERE version, INSERT transition
+    S->>S: MSG05 email to the Manager, audit.record
+    S-->>C: OrganizationDto ACTIVE
+    C-->>P: 200 envelope
+```
+
+***Figure 7***: UC-03 Approve Organization.
+
+<!-- sdd: MF-02 seq UC-06 part 1 of 2: credential and download -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Org Manager
+    participant P as FieldStationsPage
+    participant C as FieldStationsController
+    participant S as FieldStationsService
+    participant V as FieldStationReleaseService
+    participant R as FieldStationsRepository
+    M->>P: create a station named Ta Nang laptop
+    P->>C: POST /api/organizations/{id}/field-stations
+    C->>S: create(orgId, dto, actor)
+    S->>R: countActive(orgId)
+    alt limit reached
+        S-->>C: 409 STATION_LIMIT
+    end
+    S->>S: username fs-org-n, 32 random bytes, bcrypt hash
+    S->>R: insert(station, tx)
+    S-->>C: username and secret, shown once
+    C-->>P: 201 envelope
+    M->>P: download the Field Station
+    P->>C: GET /api/organizations/{id}/field-stations/release
+    C->>V: current()
+    V-->>C: version, files with SHA-256
+    C-->>P: 200 envelope, download link
+```
+
+***Figure 8***: UC-06 for a Field Station, part 1 of 2: credential and download (FR-EVT-18).
+
+<!-- sdd: MF-02 seq UC-06 part 2 of 2: broker check -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant FS as Field Station
+    participant B as Mosquitto go-auth
+    participant C as BrokerAuthController
+    participant H as BrokerAuthService
+    participant S as FieldStationsService
+    participant R as FieldStationsRepository
+    FS->>B: CONNECT username, secret
+    B->>C: POST /api/internal/mqtt/user
+    C->>H: checkUser(dto)
+    H->>H: verify X-Broker-Secret
+    H->>S: byUsername(username)
+    S->>R: findByUsername(username)
+    H->>H: revoked check, bcrypt.compare
+    H-->>C: allow or deny
+    C-->>B: 200 or 403
+    B-->>FS: CONNACK accepted or refused
+```
+
+***Figure 9***: UC-06 for a Field Station, part 2 of 2: the broker's credential check.

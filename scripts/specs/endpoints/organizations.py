@@ -13,7 +13,7 @@ KEY = {"id": "k-1", "name": "ERP integration", "prefix": "tlk_7Hc2", "createdAt"
        "revokedAt": None}
 STATION = {"id": STATION_ID, "name": "Ta Nang basecamp laptop", "mqttUsername": "fs-org-0007-1",
            "createdAt": NOW, "revokedAt": None, "lastSyncAt": NOW, "queueDepth": [0, 0, 3, 12],
-           "oldestRetryCount": 0}
+           "oldestRetryCount": 0, "version": "1.2.0", "outdated": False}
 NOT_MEMBER = (404, "NOT_FOUND", "No such member in this organization", "Member not found.")
 VERSION = ["expectedVersion", "Version the caller saw; mismatch returns 409", "int", "yes", "`3`"]
 
@@ -307,7 +307,9 @@ ENDPOINTS = [
     ep("GET", "/api/organizations/:id/field-stations", "List Field Station credentials",
        "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Lists the organization's Field Station credentials with their health: last sync, queue depth per "
-       "tier and the retry count of the oldest queued event (FR-EVT-13).", "UC-06, UC-42, FR-EVT-13, FR-EVT-14",
+       "tier, the retry count of the oldest queued event, and the version the station last reported, "
+       "flagged `outdated` when it is older than the current release (FR-EVT-13, FR-EVT-18).",
+       "UC-06, UC-42, FR-EVT-13, FR-EVT-14, FR-EVT-18",
        path=[ORG_PATH], response=[STATION], entity="Organization", steps=["Read field_stations"],
        controller="FieldStationsController", service="FieldStationsService", call="list(orgId, caller)",
        seq=["Svc->>DB: SELECT field_stations"]),
@@ -342,4 +344,21 @@ ENDPOINTS = [
        steps=["Set revokedAt and revokedBy", "Emit fieldStation.revoked (gateway-sync stops accepting its topic)"],
        controller="FieldStationsController", service="FieldStationsService", call="revoke(orgId, stationId, dto, actor)",
        seq=["Svc->>DB: UPDATE field_stations", "Svc-)Svc: emit fieldStation.revoked"]),
+
+    ep("GET", "/api/organizations/:id/field-stations/release", "Get the current Field Station release",
+       "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
+       "Returns the current Field Station release: its version, publication time and one download per "
+       "operating system with its SHA-256 and size. The files are served as static downloads outside the "
+       "envelope. The organization updates a station by downloading the new release and replacing the "
+       "executable (D-039, FR-EVT-18).", "UC-06, FR-EVT-18, D-039",
+       path=[ORG_PATH],
+       response={"version": "1.2.0", "publishedAt": NOW,
+                 "files": [{"os": "windows-x64", "downloadUrl": "/downloads/field-station/1.2.0/treklink-field-station-1.2.0-win-x64.exe",
+                            "sha256": "4be1...9a", "sizeBytes": 48211456}]},
+       entity="Organization",
+       errors=[(503, "RELEASE_UNAVAILABLE", "No readable release.json in FIELD_STATION_RELEASE_DIR",
+                "The Field Station download is unavailable. Try again later.")],
+       steps=["Read release.json from FIELD_STATION_RELEASE_DIR"],
+       controller="FieldStationsController", service="FieldStationReleaseService", call="current()",
+       participants=[["Store", "File storage"]], seq=["Svc->>Store: read release.json"]),
 ]

@@ -477,6 +477,7 @@ model FieldStation {
   lastSyncAt       DateTime?    @db.Timestamptz(3)
   queueDepth       Int[] // index 0 = P0 .. 3 = P3
   oldestRetryCount Int?
+  version          String? // last reported executable version (FR-EVT-18, D-039)
   createdAt        DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
 

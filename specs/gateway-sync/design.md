@@ -86,7 +86,7 @@ A Node.js program in `treklink-web/gateway/`, packaged as one executable per OS 
 | Queue | SQLite in WAL mode, table `queue(localSeq INTEGER PRIMARY KEY, tier INT, eventJson TEXT, capturedAt INTEGER, attempts INT, flushedAt)`; `capturedAt` is the station clock in epoch milliseconds when the packet came off the serial port; insert before anything else |
 | Flush | One in-flight batch: `SELECT ... WHERE flushedAt IS NULL ORDER BY tier, localSeq LIMIT 50`; publish each with QoS 1, adding `fs_captured_at` (the row's `capturedAt`) and `fs_sent_at` (the station clock at publish) to the top level of the stock JSON; set `flushedAt` on its PUBACK. The backend offset `receivedAt - fs_sent_at` corrects the station clock on every publish; transit time makes the corrected time slightly late, never early |
 | Bound | `QUEUE_MAX_ROWS`; on overflow delete the oldest P3, then P2; never P0 or P1 |
-| Health | every 60 s while connected, publish depth per tier and the oldest `attempts` to `treklink/fs/<username>/health` |
+| Health | every 60 s while connected, publish depth per tier, the oldest `attempts` and the executable's version to `treklink/fs/<username>/health` (FR-EVT-18) |
 | Local page | `127.0.0.1:4321`, the routes of `field-station-local-page.md` |
 
 ---
@@ -134,6 +134,7 @@ Ingestion outcomes are audit values (`SyncOutcome`), not HTTP codes.
 
 ## 7. Sequence: offline flush
 
+<!-- sdd: MF-02 seq UC-27 -->
 ```mermaid
 sequenceDiagram
     autonumber
@@ -170,3 +171,160 @@ fixture (A's station flushes an SOS after the device was handed to B); `rx_time`
 `rx_time` near a handover (E02-8); a station clock set hours wrong, corrected by `fs_sent_at`; a flush
 past the late-upload grace. Load: an MQTT harness with simulated Field Stations and devices at 20
 simultaneous submissions, 10 organizations and 50 devices (NFR-PERF-02, NFR-PERF-03).
+
+---
+
+## 9. Detailed design for Report 4 (D-044)
+
+Layering as in `organizations` design §9, except that ingestion has no page or controller: the broker
+delivers to an adapter, which plays the controller's role. Figure 4 is the class view; Figures 5
+and 6 are the MF-02 ingestion with attribution (D-040) and the station health report (FR-EVT-18).
+The Stage C flush is Figure 3.
+
+<!-- sdd: MF-02 class gateway-sync -->
+```mermaid
+classDiagram
+    class FieldStationJsonAdapter {
+        +onMessage(topic, payload)
+    }
+    class NodeJsonAdapter {
+        +onMessage(topic, payload)
+    }
+    class StationHealthHandler {
+        +onMessage(topic, payload)
+    }
+    class BrokerAuthController {
+        +user(dto) Allow
+        +acl(dto) Allow
+    }
+    class IngestionService {
+        +ingest(envelope) SyncOutcome
+        -deriveOccurrence(envelope) Occurrence
+        -attribute(deviceId, occurrence, station) Attribution
+    }
+    class Normalizer {
+        +normalize(envelope) NormalizedEvent
+    }
+    class FieldEventsRepository {
+        +insertIgnoreDuplicate(event, tx) string
+        +setIncident(id, incidentId, tx)
+    }
+    class SyncAuditRepository {
+        +insert(row, tx)
+    }
+    class RentalsService
+    class DevicesService
+    class IncidentIngress
+    class FieldStationsService
+    FieldStationJsonAdapter --> IngestionService
+    NodeJsonAdapter --> IngestionService
+    StationHealthHandler --> FieldStationsService : recordStationHealth
+    BrokerAuthController --> FieldStationsService : byUsername
+    IngestionService --> Normalizer
+    IngestionService --> FieldEventsRepository
+    IngestionService --> SyncAuditRepository
+    IngestionService --> RentalsService : custodyAt
+    IngestionService --> DevicesService : byNodeNum, projectReading
+    IngestionService --> IncidentIngress : onSos, onPosition
+```
+
+***Figure 4***: gateway-sync classes. The right-hand services belong to `rentals`, `devices`,
+`incidents` and `organizations`.
+
+<!-- sdd: MF-02 seq UC-26 part 1 of 2: receive and attribute -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant FS as Field Station
+    participant B as Mosquitto
+    participant A as FieldStationJsonAdapter
+    participant S as IngestionService
+    participant D as DevicesService
+    participant Rt as RentalsService
+    FS->>B: PUBLISH QoS 1, stock JSON plus fs_captured_at, fs_sent_at
+    B->>A: deliver on treklink/fs/username/2/json
+    A->>S: ingest(envelope)
+    S->>D: byNodeNum(from)
+    alt unknown device
+        S->>S: audit UNKNOWN_DEVICE, stop
+    end
+    S->>S: occurredAt = fs_captured_at + receivedAt - fs_sent_at
+    S->>Rt: custodyAt(deviceId, occurredAt, margin)
+    alt station's organization, clear of the margin
+        Rt-->>S: contractDeviceId, organizationId
+    else no interval, other organization or near a boundary
+        Rt-->>S: none or nearBoundary
+        S->>S: attribution UNATTRIBUTED
+    end
+```
+
+***Figure 5***: UC-26 Ingest Field Event, part 1 of 2: occurrence time and custody attribution
+(FR-EVT-15 to FR-EVT-17).
+
+<!-- sdd: MF-02 seq UC-26 part 2 of 2: persist and hand off -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as FieldStationJsonAdapter
+    participant S as IngestionService
+    participant R as FieldEventsRepository
+    participant D as DevicesService
+    participant I as IncidentIngress
+    participant B as Mosquitto
+    S->>R: insertIgnoreDuplicate(event, tx)
+    R->>R: INSERT field_events ON CONFLICT eventId DO NOTHING
+    alt eventId already stored
+        S->>S: audit DUPLICATE_REJECTED, COMMIT
+    end
+    S->>D: projectReading(nodeNum, reading, tx)
+    opt SOS or fall SOS
+        S->>I: onSos(event with attribution, tx)
+    end
+    S->>S: audit ACCEPTED or ACCEPTED_UNATTRIBUTED, COMMIT
+    S->>S: emit field.position or field.telemetry with organizationId
+    S-->>A: outcome
+    A-->>B: PUBACK after ingest returns
+```
+
+***Figure 6***: UC-26 Ingest Field Event, part 2 of 2: deduplication, persistence and hand-off in one
+transaction.
+
+<!-- sdd: MF-02 seq UC-42 part 1 of 2: station report -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant FS as Field Station
+    participant B as Mosquitto
+    participant H as StationHealthHandler
+    participant O as FieldStationsService
+    participant R as FieldStationsRepository
+    FS->>B: PUBLISH treklink/fs/username/health every 60 s
+    B->>H: depth per tier, oldest attempts, version
+    H->>O: recordStationHealth(id, health)
+    O->>R: updateHealth(id, health)
+    R->>R: UPDATE lastSyncAt, queueDepth, version
+```
+
+***Figure 7***: UC-42 View System Health, part 1 of 2: the Field Station's health and version report
+(FR-EVT-13, FR-EVT-18).
+
+<!-- sdd: MF-02 seq UC-42 part 2 of 2: health page -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ad as TrekLink Admin
+    participant P as SystemHealthPage
+    participant C as SystemHealthController
+    participant S as SystemHealthService
+    participant O as FieldStationsService
+    participant V as FieldStationReleaseService
+    Ad->>P: open system health
+    P->>C: GET /api/system-health
+    C->>S: report(query)
+    S->>O: station health
+    O->>V: isOutdated(version)
+    S-->>C: ingestion, stations with outdated flags, alert deliveries
+    C-->>P: 200 envelope
+```
+
+***Figure 8***: UC-42 View System Health, part 2 of 2: the health page.

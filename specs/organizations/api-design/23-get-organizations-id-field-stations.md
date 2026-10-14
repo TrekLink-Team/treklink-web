@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists the organization's Field Station credentials with their health: last sync, queue depth per tier and the retry count of the oldest queued event (FR-EVT-13).
+Lists the organization's Field Station credentials with their health: last sync, queue depth per tier, the retry count of the oldest queued event, and the version the station last reported, flagged `outdated` when it is older than the current release (FR-EVT-13, FR-EVT-18).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Lists the organization's Field Station credentials with their health: last sync,
 | --- | --- |
 | GET | /api/organizations/:id/field-stations |
 | Permission | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin |
-| Traces | UC-06, UC-42, FR-EVT-13, FR-EVT-14 |
+| Traces | UC-06, UC-42, FR-EVT-13, FR-EVT-14, FR-EVT-18 |
 
 ### Path parameters
 
@@ -45,7 +45,9 @@ No body.
         3,
         12
       ],
-      "oldestRetryCount": 0
+      "oldestRetryCount": 0,
+      "version": "1.2.0",
+      "outdated": false
     }
   ],
   "isSuccess": true,
