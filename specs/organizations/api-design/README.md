@@ -29,6 +29,12 @@
 | 23 | GET | `/api/organizations/:id/field-stations` | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin | [23-get-organizations-id-field-stations.md](23-get-organizations-id-field-stations.md) |
 | 24 | POST | `/api/organizations/:id/field-stations` | Org Manager: own | [24-post-organizations-id-field-stations.md](24-post-organizations-id-field-stations.md) |
 | 25 | POST | `/api/organizations/:id/field-stations/:stationId/revoke` | Org Manager: own; TrekLink Staff, TrekLink Admin | [25-post-organizations-id-field-stations-stationid-revoke.md](25-post-organizations-id-field-stations-stationid-revoke.md) |
+| 26 | GET | `/api/organizations/:id/field-stations/release` | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin | [26-get-organizations-id-field-stations-release.md](26-get-organizations-id-field-stations-release.md) |
+| 27 | POST | `/api/organizations/:id/channel-key/rotate` | TrekLink Staff | [27-post-organizations-id-channel-key-rotate.md](27-post-organizations-id-channel-key-rotate.md) |
+| 28 | GET | `/api/compliance-cases` | TrekLink Staff, TrekLink Admin | [28-get-compliance-cases.md](28-get-compliance-cases.md) |
+| 29 | POST | `/api/organizations/:id/compliance-cases` | TrekLink Staff, TrekLink Admin | [29-post-organizations-id-compliance-cases.md](29-post-organizations-id-compliance-cases.md) |
+| 30 | POST | `/api/compliance-cases/:id/actions` | TrekLink Admin (suspend); TrekLink Staff, TrekLink Admin (revoke) | [30-post-compliance-cases-id-actions.md](30-post-compliance-cases-id-actions.md) |
+| 31 | POST | `/api/compliance-cases/:id/close` | TrekLink Staff, TrekLink Admin | [31-post-compliance-cases-id-close.md](31-post-compliance-cases-id-close.md) |
 
 
 Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).

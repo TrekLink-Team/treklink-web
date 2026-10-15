@@ -1,55 +1,70 @@
-# PATCH /api/devices/:id/maintenance/:recordId: Close maintenance
+# POST /api/compliance-cases/:id/close: Close a compliance case
 
-> Module `devices`. Generated from `scripts/specs/endpoints/devices.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
+> Module `organizations`. Generated from `scripts/specs/endpoints/organizations.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
 
 [TOC]
 
 ---
 ## Overview
 
-Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device stays `MAINTENANCE` until it passes an intake check (FR-DEV-08); an unrepairable one waits for an Admin to retire it.
+Closes the case with an outcome. A suspected fraud or theft case needs a police report reference (BR-40).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
-| PATCH | /api/devices/:id/maintenance/:recordId |
-| Permission | TrekLink Staff |
-| Traces | UC-52, FR-DEV-08 |
+| POST | /api/compliance-cases/:id/close |
+| Permission | TrekLink Staff, TrekLink Admin |
+| Traces | UC-63, FR-ORG-08, BR-40 |
 
 ### Path parameters
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| id | Device id | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
-| recordId | Maintenance record id | uuid | `mr-1` |
+| id | Compliance case id | uuid | `c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f` |
 
 ## Request sample
 
 ```json
 {
-  "status": "COMPLETED",
-  "resolution": "Battery replaced"
+  "outcome": "Devices recovered by police; contract settled",
+  "authorityReference": "CA-PD-2026-118"
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| status | `COMPLETED` or `UNREPAIRABLE` | enum | yes | `COMPLETED` |
-| resolution | What was done | string | yes | `Battery replaced` |
+| outcome | What was decided | string | yes | `Devices recovered by police; contract settled` |
+| authorityReference | Police report reference | string | no | `CA-PD-2026-118` |
 
 ## Response sample
 
 ```json
 {
   "result": {
-    "id": "mr-1",
-    "status": "COMPLETED",
-    "closedAt": "2026-10-20T03:15:00.000Z"
+    "id": "c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f",
+    "code": "CMP-0002",
+    "organization": {
+      "id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
+      "code": "ORG-0007"
+    },
+    "type": "SUSPECTED_THEFT",
+    "status": "CLOSED",
+    "evidence": "Three devices unreturned 40 days after default; phones unanswered",
+    "linkedContractIds": [
+      "c0ffee00-1234-4abc-9def-001122334455"
+    ],
+    "linkedLossCases": [
+      "LOSS-0003"
+    ],
+    "authorityReference": "CA-PD-2026-118",
+    "outcome": "Devices recovered by police; contract settled",
+    "openedAt": "2026-10-20T03:15:00.000Z",
+    "actions": []
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Maintenance closed"
+  "message": "Compliance case closed"
 }
 ```
 
@@ -123,24 +138,24 @@ Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device
   },
   "isSuccess": false,
   "statusCode": 404,
-  "message": "Maintenance record not found."
+  "message": "Compliance case not found."
 }
 ```
 </td>
         </tr>
         <tr>
             <td>409</td>
-            <td>The maintenance record is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+            <td>Suspected fraud or theft without authorityReference (<code>POLICE_REFERENCE_REQUIRED</code>)</td>
 <td>
 
 ```json
 {
   "result": {
-    "errorCode": "INVALID_STATE_TRANSITION"
+    "errorCode": "POLICE_REFERENCE_REQUIRED"
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is COMPLETED."
+  "message": "Record the police report reference before closing."
 }
 ```
 </td>
@@ -165,17 +180,19 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The maintenance record is not in a state that allows this?"}
+    D3{"Suspected fraud or theft without authorityReference?"}
     D2 -->|no| D3
-    E3["Return 409 INVALID_STATE_TRANSITION"]
+    E3["Return 409 POLICE_REFERENCE_REQUIRED"]
     D3 -->|yes| E3
     E3 --> X3((End))
     P0["Require OPEN"]
     D3 -->|no| P0
-    P1["Close the record"]
+    P1["Require authorityReference for SUSPECTED_FRAUD or SUSPECTED_THEFT"]
     P0 --> P1
+    P2["Set CLOSED, outcome, closedBy"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -185,12 +202,12 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as MaintenanceController
-    participant Svc as DeviceLifecycleService
+    participant Ctl as ComplianceCasesController
+    participant Svc as ComplianceCaseService
     participant DB as Postgres
-    C->>Ctl: PATCH /api/devices/:id/maintenance/:recordId
-    Ctl->>Svc: closeMaintenance(id, recordId, dto, actor)
-    Svc->>DB: UPDATE maintenance_records
+    C->>Ctl: POST /api/compliance-cases/:id/close
+    Ctl->>Svc: close(id, dto, actor)
+    Svc->>DB: UPDATE compliance_cases CLOSED
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

@@ -12,6 +12,7 @@
 
 See **Figure 1**, the Level-0 view. It matches Report 3 SRS Figure 1 and Table 7.
 
+<!-- sdd: II context -->
 ```mermaid
 flowchart TB
     GST["Guest"]
@@ -46,8 +47,10 @@ is TrekLink software and part of the system, drawn apart because it runs on the 
 
 ## 2. Architecture
 
-See **Figure 2**. Every arrow carries its protocol.
+See **Figure 2**. Every arrow carries its protocol, and every third-party service appears with the
+module that calls it (chapter 15 §2).
 
+<!-- sdd: II architecture -->
 ```mermaid
 flowchart TB
     subgraph Client["Browser: React SPA, FSD"]
@@ -66,8 +69,11 @@ flowchart TB
     subgraph Field["Organization laptop"]
         FSX["Field Station executable<br/>SQLite queue, local page"]
     end
-    DB[("PostgreSQL")]
+    DB[("PostgreSQL on Neon")]
     BRK["Mosquitto + go-auth"]
+    PAY["SePay sandbox"]
+    MAIL["Email service, SMTP"]
+    OSM["OpenStreetMap tiles"]
     UI --> QC
     UI --> WS
     UI --> LF
@@ -75,7 +81,11 @@ flowchart TB
     WS <-->|"WSS, JWT or API key handshake"| LIVE
     HTTP --> MODS
     MODS --> PLT
-    MODS -->|"Prisma"| DB
+    MODS -->|"module repositories, Prisma, TLS"| DB
+    MODS -->|"billing: HTTPS payment request"| PAY
+    PAY -->|"HTTPS webhook"| HTTP
+    PLT -->|"SMTP: codes, invitations, alerts"| MAIL
+    LF -->|"HTTPS tiles"| OSM
     FSX -->|"MQTT QoS 1 over TLS"| BRK
     BRK -->|"MQTT"| ING
     BRK -->|"HTTP auth hooks"| HTTP
@@ -83,10 +93,12 @@ flowchart TB
 ```
 
 ***Figure 2***: Architecture. One deployable backend; modules talk through exported services, ports or
-post-commit domain events, never through each other's tables.
+post-commit domain events, never through each other's tables. Inside a module a controller calls a
+service and the service calls the module's repository, the only class that touches Prisma (D-044).
 
 ### 2.1 Module dependency graph
 
+<!-- sdd: II packages -->
 See **Figure 3**. Solid edges are DI imports of an exported service. Dotted edges are **ports**: the lower
 module declares an injection token and an interface, and the higher module provides it, the pattern D-032
 introduced for the health probe. Dashed edges are domain events. The DI graph is acyclic
@@ -193,6 +205,48 @@ Delivery never gates the business write. Alert delivery is not an event: it is t
 | `incident.changed` | incidents | monitoring | incidentId, organizationId, state, tier, ownerId |
 | `incident.alert` | incidents (outbox dispatcher, WEBSOCKET channel) | monitoring (synchronous listener; publishes to `user:<id>`) | deliveryId, recipientId, incidentId, message |
 
+
+### 2.4 Deployment (D-039)
+
+See **Figure 6**. TrekLink hosts one backend for every organization (D-039 (a) option 1). The only
+TrekLink software on an organization's side is the Field Station, which the organization updates by
+downloading the current release from the portal (D-039 (b) option 2). Device firmware is updated at the
+counter. The backend host provider is not chosen yet; it is decided with the Deployment Package in W12.
+
+<!-- sdd: II deployment -->
+```mermaid
+flowchart LR
+    subgraph Cloud["TrekLink-hosted"]
+        API["Backend container<br/>NestJS, Socket.io, MQTT client"]
+        WEB["Static web bundle<br/>React SPA"]
+        BRK["Mosquitto + go-auth<br/>TLS 8883"]
+        REL["Field Station releases<br/>/downloads/field-station"]
+    end
+    NEON[("Neon PostgreSQL")]
+    subgraph Org["Each organization"]
+        BR["Browsers of members"]
+        LAP["Laptop: Field Station<br/>SQLite queue, local page 127.0.0.1:4321"]
+        NODE["Rented node on USB"]
+        OSYS["Organization's own system"]
+    end
+    subgraph Counter["TrekLink counter"]
+        TOOL["Provisioning tool<br/>firmware and channel key"]
+        DEVS["TrekLink devices"]
+    end
+    BR -->|"HTTPS, WSS"| API
+    BR -->|"HTTPS"| WEB
+    BR -->|"HTTPS download"| REL
+    OSYS -->|"HTTPS, API key"| API
+    NODE -->|"USB serial"| LAP
+    LAP -->|"MQTT over TLS"| BRK
+    BRK -->|"MQTT, HTTP auth hooks"| API
+    API -->|"TLS"| NEON
+    TOOL -->|"USB"| DEVS
+```
+
+***Figure 6***: Deployment. One cloud deployment; per organization only browsers, the Field Station and
+its USB node.
+
 ---
 
 ## 3. Domain Model & Data Schema
@@ -203,7 +257,7 @@ from the schema plus `backend/prisma/constraints.sql`; the seed by `scripts/spec
 
 ### 3.1 Core ERD for the Review 2 slide
 
-The template asks for the 5 to 8 central entities; this matches SRS Figure 21. See **Figure 4**.
+The template asks for the 5 to 8 central entities; this matches SRS Figure 22. See **Figure 4**.
 
 ```mermaid
 erDiagram
@@ -357,6 +411,8 @@ restart resumes them (REQ-EVT-06, NFR-AVL-02), and runs under a Postgres advisor
 | `rentals.overdueAndDefault` | rentals | hourly | `RETURN_DUE` past grace to `OVERDUE`; `OVERDUE` past the threshold to `DEFAULTED`, suspending the organization (FR-CON-12) |
 | `rentals.reservationReminders` | rentals | hourly | approved contracts past the reservation expiry (FR-CON-04) |
 | `billing.expirePayments` | billing | 60 s | `PENDING` SePay payments past expiry become `EXPIRED` |
+| `devices.lossSearch` | devices | hourly | `SEARCHING` loss cases past `searchEndsAt` move to `CONFIRMED` (FR-DEV-15) |
+| `devices.serviceScan` | devices | weekly, Monday at `devices.serviceScanHourLocal` | open `SCHEDULED` or `FIRMWARE_UPDATE` records for `AVAILABLE` devices due within 7 days plus `devices.maintenanceLeadDays`, and send Staff the list (FR-DEV-18, D-047) |
 
 ### 4.7 Health and the optional MQTT probe
 

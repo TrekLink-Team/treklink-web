@@ -54,6 +54,13 @@ No body.
           "valueVnd": 1200000
         }
       ],
+      "serviceIntervalDays": 180,
+      "serviceChecklist": [
+        "Battery health",
+        "Antenna and connector",
+        "Enclosure seal",
+        "Button and buzzer"
+      ],
       "isActive": true,
       "deviceCount": 18
     }

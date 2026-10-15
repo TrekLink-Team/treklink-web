@@ -1,4 +1,4 @@
-# POST /api/devices/:id/retire: Retire a device
+# POST /api/loss-cases/:id/confirm: Confirm a loss
 
 > Module `devices`. Generated from `scripts/specs/endpoints/devices.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
 
@@ -7,66 +7,71 @@
 ---
 ## Overview
 
-Sets `RETIRED` from `MAINTENANCE` or `LOST` without deleting the device or its history; refused while the device is on a running contract (FR-DEV-09).
+Confirms the loss before the search window ends; the `devices.lossSearch` job does the same when it ends. For renter custody billing charges the device's remaining value to the contract; TrekLink custody is written off (FR-DEV-15, FR-BILL-05).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
-| POST | /api/devices/:id/retire |
-| Permission | TrekLink Admin |
-| Traces | UC-53, FR-DEV-09 |
+| POST | /api/loss-cases/:id/confirm |
+| Permission | TrekLink Staff |
+| Traces | UC-60, FR-DEV-15, FR-BILL-05, BR-25 |
 
 ### Path parameters
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| id | Device id | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| id | Loss case id | uuid | `9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d` |
 
 ## Request sample
 
 ```json
 {
-  "reason": "Unrepairable water damage",
-  "expectedVersion": 12
+  "expectedVersion": 1
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| reason | Why | string | yes | `Unrepairable water damage` |
-| expectedVersion | Device version the caller saw | int | yes | `5` |
+| expectedVersion | Case version the caller saw | int | yes | `1` |
 
 ## Response sample
 
 ```json
 {
   "result": {
-    "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
-    "assetTag": "TL-0042",
-    "nodeNum": 2763113171,
-    "nodeId": "!a4b1c2d3",
-    "hardwareVariant": {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "code": "treklink-v3"
+    "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+    "code": "LOSS-0003",
+    "device": {
+      "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+      "assetTag": "TL-0042"
     },
-    "firmwareVersion": "2.7.19-treklink.3",
-    "acquiredAt": "2026-06-15T00:00:00Z",
-    "status": "RETIRED",
-    "statusChangedAt": "2026-10-20T03:15:00.000Z",
-    "keyVersion": null,
-    "keyOrganizationId": null,
-    "batteryPct": 96,
+    "state": "CONFIRMED",
+    "stateFromDevice": "RENTED",
+    "reportedAt": "2026-10-20T03:15:00.000Z",
+    "description": "Last seen at Phan Dung camp",
     "lastSeenAt": "2026-10-20T03:15:00.000Z",
     "lastPosition": {
       "lat": 11.5544,
       "lon": 108.5381
     },
-    "version": 5
+    "custody": "RENTER",
+    "contractDeviceId": "cd-77",
+    "organization": {
+      "id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
+      "code": "ORG-0007"
+    },
+    "keyExposed": true,
+    "suspectedTheft": false,
+    "policeReference": null,
+    "searchEndsAt": "2026-10-27T03:15:00.000Z",
+    "decision": null,
+    "chargeVnd": 1800000,
+    "version": 1
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Device retired"
+  "message": "Loss confirmed"
 }
 ```
 
@@ -140,14 +145,14 @@ Sets `RETIRED` from `MAINTENANCE` or `LOST` without deleting the device or its h
   },
   "isSuccess": false,
   "statusCode": 404,
-  "message": "Device not found."
+  "message": "Loss case not found."
 }
 ```
 </td>
         </tr>
         <tr>
             <td>409</td>
-            <td>The device is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+            <td>The loss case is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
 ```json
@@ -157,7 +162,7 @@ Sets `RETIRED` from `MAINTENANCE` or `LOST` without deleting the device or its h
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is RENTED."
+  "message": "This cannot be done while it is REPORTED."
 }
 ```
 </td>
@@ -199,7 +204,7 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The device is not in a state that allows this?"}
+    D3{"The loss case is not in a state that allows this?"}
     D2 -->|no| D3
     E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
@@ -209,12 +214,14 @@ flowchart TB
     E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require MAINTENANCE or LOST"]
+    P0["Require SEARCHING"]
     D4 -->|no| P0
-    P1["Transition to RETIRED, set retiredAt"]
+    P1["Move to CONFIRMED"]
     P0 --> P1
+    P2["Renter custody: billing.chargeLoss(contract, device, tx)"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -224,12 +231,14 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as DevicesController
-    participant Svc as DeviceLifecycleService
+    participant Ctl as LossCasesController
+    participant Svc as LossCaseService
     participant DB as Postgres
-    C->>Ctl: POST /api/devices/:id/retire
-    Ctl->>Svc: retire(id, dto, actor)
-    Svc->>DB: INSERT device_transitions, UPDATE devices
+    participant Bill as ChargesService
+    C->>Ctl: POST /api/loss-cases/:id/confirm
+    Ctl->>Svc: confirm(id, dto, actor)
+    Svc->>Bill: chargeLoss(contract, device, lostAt, tx)
+    Svc->>DB: UPDATE loss_cases CONFIRMED
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

@@ -64,6 +64,7 @@ Records the reset of a `RETURNED` device: channel key removed, node database cle
       "lat": 11.5544,
       "lon": 108.5381
     },
+    "serviceDueAt": "2026-12-12",
     "version": 5
   },
   "isSuccess": true,

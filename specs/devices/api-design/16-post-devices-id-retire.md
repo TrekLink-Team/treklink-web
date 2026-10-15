@@ -1,54 +1,73 @@
-# POST /api/contracts/:id/devices/:deviceId/lost: Record a lost device
+# POST /api/devices/:id/retire: Retire a device
 
-> Module `rentals`. Generated from `scripts/specs/endpoints/rentals.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
+> Module `devices`. Generated from `scripts/specs/endpoints/devices.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
 
 [TOC]
 
 ---
 ## Overview
 
-Records a device lost when the organization reports it on a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` contract, or when it is unrecovered after default: the device moves to `LOST` (D-035 as amended by D-038) and billing charges its remaining value from the variant's schedule (FR-BILL-05, E05-3). Counts as returned for closing the contract.
+Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the device is on a running contract (FR-DEV-09). A lost device is retired by settling its loss case (FR-DEV-15).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
-| POST | /api/contracts/:id/devices/:deviceId/lost |
-| Permission | TrekLink Staff |
-| Traces | UC-49, FR-DEV-01, FR-BILL-05, BR-25, E05-3, D-038 |
+| POST | /api/devices/:id/retire |
+| Permission | TrekLink Admin |
+| Traces | UC-53, FR-DEV-09 |
 
 ### Path parameters
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| id | Contract id; members may use only their own organization's | uuid | `c0ffee00-1234-4abc-9def-001122334455` |
-| deviceId | Device committed to the contract | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| id | Device id | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
 
 ## Request sample
 
 ```json
 {
-  "note": "Reported lost in a river crossing on 2026-11-02."
+  "reason": "Unrepairable water damage",
+  "expectedVersion": 12
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| note | Circumstances reported by the organization | string | yes | `Fell into a ravine` |
+| reason | Why | string | yes | `Unrepairable water damage` |
+| expectedVersion | Device version the caller saw | int | yes | `5` |
 
 ## Response sample
 
 ```json
 {
   "result": {
-    "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+    "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
     "assetTag": "TL-0042",
-    "lostAt": "2026-10-20T03:15:00.000Z",
-    "lossChargeVnd": 1800000
+    "nodeNum": 2763113171,
+    "nodeId": "!a4b1c2d3",
+    "hardwareVariant": {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "code": "treklink-v3"
+    },
+    "firmwareVersion": "2.7.19-treklink.3",
+    "acquiredAt": "2026-06-15T00:00:00Z",
+    "status": "RETIRED",
+    "statusChangedAt": "2026-10-20T03:15:00.000Z",
+    "keyVersion": null,
+    "keyOrganizationId": null,
+    "batteryPct": 96,
+    "lastSeenAt": "2026-10-20T03:15:00.000Z",
+    "lastPosition": {
+      "lat": 11.5544,
+      "lon": 108.5381
+    },
+    "serviceDueAt": "2026-12-12",
+    "version": 5
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Device recorded lost"
+  "message": "Device retired"
 }
 ```
 
@@ -122,31 +141,14 @@ Records a device lost when the organization reports it on a `RETURN_DUE`, `OVERD
   },
   "isSuccess": false,
   "statusCode": 404,
-  "message": "Contract not found."
+  "message": "Device not found."
 }
 ```
 </td>
         </tr>
         <tr>
             <td>409</td>
-            <td>The device is not committed to this contract (<code>DEVICE_NOT_ON_CONTRACT</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "DEVICE_NOT_ON_CONTRACT"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "TL-0042 does not belong to contract RC-2026-0042."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
-            <td>The contract is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+            <td>The device is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
 ```json
@@ -156,7 +158,24 @@ Records a device lost when the organization reports it on a `RETURN_DUE`, `OVERD
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is APPROVED."
+  "message": "This cannot be done while it is RENTED."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "STALE_VERSION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This was changed by someone else. Reload and try again."
 }
 ```
 </td>
@@ -181,28 +200,22 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The device is not committed to this contract?"}
+    D3{"The device is not in a state that allows this?"}
     D2 -->|no| D3
-    E3["Return 409 DEVICE_NOT_ON_CONTRACT"]
+    E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The contract is not in a state that allows this?"}
+    D4{"Another user changed the record first (expectedVersion differs)?"}
     D3 -->|no| D4
-    E4["Return 409 INVALID_STATE_TRANSITION"]
+    E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require RETURN_DUE, OVERDUE or DEFAULTED and the device not checked in"]
+    P0["Require MAINTENANCE"]
     D4 -->|no| P0
-    P1["Set lostAt"]
+    P1["Transition to RETIRED, set retiredAt"]
     P0 --> P1
-    P2["Move the device to LOST"]
-    P1 --> P2
-    P3["Charge the remaining value"]
-    P2 --> P3
-    P4["Move the contract to RETURNED when complete"]
-    P3 --> P4
     OK["Return 200"]
-    P4 --> OK
+    P1 --> OK
     OK --> Z((End))
 ```
 
@@ -212,15 +225,12 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as ContractsController
-    participant Svc as ReturnService
+    participant Ctl as DevicesController
+    participant Svc as DeviceLifecycleService
     participant DB as Postgres
-    participant Dev as DevicesService
-    participant Bill as BillingService
-    C->>Ctl: POST /api/contracts/:id/devices/:deviceId/lost
-    Ctl->>Svc: recordLost(id, deviceId, dto, actor)
-    Svc->>Dev: markLost(deviceId, tx)
-    Svc->>Bill: chargeLoss(contract, device, tx)
+    C->>Ctl: POST /api/devices/:id/retire
+    Ctl->>Svc: retire(id, dto, actor)
+    Svc->>DB: INSERT device_transitions, UPDATE devices
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

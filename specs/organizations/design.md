@@ -54,7 +54,7 @@ stateDiagram-v2
 ```
 
 ***Figure 2***: Organization lifecycle. Verification is a recorded fact on a `PENDING` organization, not a
-state, matching SRS Figure 25.
+state, matching SRS Figure 28.
 
 | From | To | Who | Guard |
 |---|---|---|---|
@@ -95,10 +95,31 @@ the backup tier, or at the Managers when there is no backup (D-034).
 | Secret | `tlk_` + 43 base64url chars; SHA-256 stored; prefix of 8 shown | `fs_` + 43 base64url chars; bcrypt stored |
 | Identity | the hash | `mqttUsername` = `fs-<org code lower-case>-<n>` |
 | Used by | `ApiKeyGuard` via `API_KEY_RESOLVER` | the broker's go-auth hook via `gateway-sync` |
-| Health | `lastUsedAt` | `lastSyncAt`, `queueDepth`, `oldestRetryCount`, written by `gateway-sync` through `recordStationHealth()` |
+| Health | `lastUsedAt` | `lastSyncAt`, `queueDepth`, `oldestRetryCount`, `version`, written by `gateway-sync` through `recordStationHealth()`; `outdated` is computed on read against the current release |
+
+The Field Station is updated by download (D-039 (b)). `FieldStationReleaseService.current()` reads
+`release.json` from `FIELD_STATION_RELEASE_DIR`, caches it until the file changes, and compares versions
+by semantic-version order. There is no update push, release endpoint on the station, or self-replace.
 
 SHA-256 for API keys keeps the per-request lookup an index hit; bcrypt for station secrets suits a
 check made once per MQTT connection.
+
+---
+
+## 4.1 Contract terms and compliance cases (D-046)
+
+Verification records `ndaSigned` and `softwareLicenceSigned`; both must be true (BR-43), because the
+Field Station's code and the firmware are in the customer's hands. A `ComplianceCase` records a suspected
+fraud, theft, IP violation, NDA breach or other breach. Actions taken from it reuse the existing
+operations, suspension (`OrganizationsService.suspend`) and revocation of Field Station credentials and
+API keys, and each is appended as a `ComplianceAction`. A `SUSPECTED_FRAUD` or `SUSPECTED_THEFT` case
+closes only with a police report reference (BR-40), enforced by the service and by the
+`compliance_cases_police_reference_to_close` CHECK. A loss case flagged as suspected theft opens a case,
+or links to the organization's open case of the same type.
+
+`channelKeyExposedAt` is set by `markKeyExposed` when a device in the organization's custody is lost
+(D-045) and cleared when Staff record a key rotation. The platform cannot change a key on a device it
+cannot reach, so rotation takes effect device by device at the counter.
 
 ---
 
@@ -112,6 +133,8 @@ check made once per MQTT connection.
 | `RosterService.tiersAt(orgId, instant)` | incidents | routing and tiers |
 | `FieldStationsService.byUsername(username)` | gateway-sync | broker hook, Stage C ingestion |
 | `FieldStationsService.recordStationHealth(id, health)` | gateway-sync | FR-EVT-13 |
+| `OrganizationsService.markKeyExposed(orgId)` | devices | FR-DEV-13, D-045 |
+| `ComplianceCaseService.openOrLink(orgId, lossCaseId, actor, tx)` | devices | FR-DEV-13, D-046 |
 | provider of `ACCOUNT_CONTEXT_PROVIDER`, `API_KEY_RESOLVER` | auth | `platform` design §2.1 |
 
 Declares `ORGANIZATION_EXIT_CHECKS` (multi): `{ canReactivate(orgId): Promise<Reason | null>; canClose(orgId): Promise<Reason | null> }`.
@@ -168,3 +191,269 @@ sequenceDiagram
 
 Lifecycle matrix unit test (every pair, allowed or 409); overlap and member-eligibility tests against
 Postgres; key and station hashing; last-Manager under concurrency; cross-organization 404 on every route.
+
+---
+
+## 9. Detailed design for Report 4 (D-044)
+
+Layering for every module (D-044): a page calls a controller over HTTPS; the controller checks the JWT
+and the policy, then calls a service; the service owns the transaction and calls the module's
+repository, the only class that touches Prisma; other modules are reached only through their exported
+services. Figures 4 and 10 are the class views of this module, core and
+compliance cases; Figures 5 to 9 and 11 are the MF-01, MF-02 and MF-05 interactions it owns.
+
+<!-- sdd: MF-01 class organizations -->
+```mermaid
+classDiagram
+    class OrganizationsController {
+        +register(dto) OrganizationDto
+        +verify(id, dto, actor) OrganizationDto
+        +approve(id, dto, actor) OrganizationDto
+    }
+    class FieldStationsController {
+        +list(orgId, caller) StationDto[]
+        +create(orgId, dto, actor) StationSecretDto
+        +revoke(orgId, stationId, dto, actor) StationDto
+        +release(orgId) ReleaseDto
+    }
+    class OrganizationsService {
+        +register(dto) Organization
+        +verify(id, dto, actor) Organization
+        +approve(id, dto, actor) Organization
+        +assertActive(orgId)
+        +suspendForDefault(orgId, contractCode, tx)
+        +markKeyExposed(orgId)
+        +rotateKey(id, dto, actor)
+    }
+    class RosterService {
+        +tiersAt(orgId, instant) Tiers
+    }
+    class FieldStationsService {
+        +create(orgId, dto, actor) StationSecret
+        +byUsername(username) FieldStation
+        +recordStationHealth(id, health)
+    }
+    class FieldStationReleaseService {
+        +current() Release
+        +isOutdated(version) bool
+    }
+    class OrganizationsRepository {
+        +insertPending(data, tx) Organization
+        +transition(id, from, to, version, reason, tx)
+    }
+    class FieldStationsRepository {
+        +insert(data, tx) FieldStation
+        +findByUsername(username) FieldStation
+        +updateHealth(id, health)
+    }
+    class AccountsService
+    OrganizationsController --> OrganizationsService
+    FieldStationsController --> FieldStationsService
+    FieldStationsController --> FieldStationReleaseService
+    OrganizationsService --> OrganizationsRepository
+    OrganizationsService --> AccountsService : auth module
+    RosterService --> OrganizationsRepository
+    FieldStationsService --> FieldStationsRepository
+    FieldStationsService --> FieldStationReleaseService
+```
+
+***Figure 4***: organizations classes. `AccountsService` belongs to `auth`.
+
+<!-- sdd: MF-01 seq UC-01 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor G as Guest
+    participant P as RegisterPage
+    participant C as OrganizationsController
+    participant S as OrganizationsService
+    participant R as OrganizationsRepository
+    participant A as AccountsService
+    G->>P: company, tax code, Manager contact
+    P->>C: POST /api/organizations/register
+    C->>S: register(dto)
+    S->>R: existsTaxCodeOrEmail(taxCode, email)
+    alt refused: already registered
+        S-->>C: 409 DUPLICATE
+        C-->>P: failure envelope, MSG10
+    else accepted: new organization
+        S->>R: insertPending(dto, tx)
+        R->>R: INSERT organization PENDING and transition
+        S->>A: createOrganizationAccount(manager, MANAGER, tx)
+        S->>S: COMMIT, then SET_PASSWORD code and Staff notice
+        S-->>C: OrganizationDto PENDING
+        C-->>P: 201 envelope
+        P-->>G: MSG04 next steps
+    end
+```
+
+***Figure 5***: UC-01 Register Organization.
+
+<!-- sdd: MF-01 seq UC-02 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as OrganizationReviewPage
+    participant C as OrganizationsController
+    participant S as OrganizationsService
+    participant R as OrganizationsRepository
+    St->>P: documents seen, master contract reference
+    P->>C: POST /api/organizations/{id}/verification
+    C->>S: verify(id, dto, actor)
+    S->>R: setVerification(id, dto, actor)
+    R->>R: UPDATE verifiedAt WHERE status PENDING
+    S->>S: notify Admins, audit.record
+    S-->>C: OrganizationDto
+    C-->>P: 200 envelope
+```
+
+***Figure 6***: UC-02 Verify Organization.
+
+<!-- sdd: MF-01 seq UC-03 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ad as TrekLink Admin
+    participant P as OrganizationReviewPage
+    participant C as OrganizationsController
+    participant S as OrganizationsService
+    participant R as OrganizationsRepository
+    Ad->>P: approve
+    P->>C: POST /api/organizations/{id}/approve
+    C->>S: approve(id, dto, actor)
+    S->>R: findById(id)
+    alt refused: not verified
+        S-->>C: 409 NOT_VERIFIED
+        C-->>P: failure envelope
+    else accepted: verified
+        S->>R: transition(id, PENDING, ACTIVE, version, tx)
+        R->>R: UPDATE WHERE version, INSERT transition
+        S->>S: MSG05 email to the Manager, audit.record
+        S-->>C: OrganizationDto ACTIVE
+        C-->>P: 200 envelope
+    end
+```
+
+***Figure 7***: UC-03 Approve Organization.
+
+<!-- sdd: MF-02 seq UC-06 part 1 of 2: credential and download -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Org Manager
+    participant P as FieldStationsPage
+    participant C as FieldStationsController
+    participant S as FieldStationsService
+    participant V as FieldStationReleaseService
+    participant R as FieldStationsRepository
+    M->>P: create a station named Ta Nang laptop
+    P->>C: POST /api/organizations/{id}/field-stations
+    C->>S: create(orgId, dto, actor)
+    S->>R: countActive(orgId)
+    alt refused: limit reached
+        S-->>C: 409 STATION_LIMIT
+    else accepted: below the limit
+        S->>S: username fs-org-n, 32 random bytes, bcrypt hash
+        S->>R: insert(station, tx)
+        S-->>C: username and secret, shown once
+        C-->>P: 201 envelope
+        M->>P: download the Field Station
+        P->>C: GET /api/organizations/{id}/field-stations/release
+        C->>V: current()
+        V-->>C: version, files with SHA-256
+        C-->>P: 200 envelope, download link
+    end
+```
+
+***Figure 8***: UC-06 for a Field Station, part 1 of 2: credential and download (FR-EVT-18).
+
+<!-- sdd: MF-02 seq UC-06 part 2 of 2: broker check -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant FS as Field Station
+    participant B as Mosquitto go-auth
+    participant C as BrokerAuthController
+    participant H as BrokerAuthService
+    participant S as FieldStationsService
+    participant R as FieldStationsRepository
+    FS->>B: CONNECT username, secret
+    B->>C: POST /api/internal/mqtt/user
+    C->>H: checkUser(dto)
+    H->>H: verify X-Broker-Secret
+    H->>S: byUsername(username)
+    S->>R: findByUsername(username)
+    H->>H: revoked check, bcrypt.compare
+    H-->>C: allow or deny
+    C-->>B: 200 or 403
+    B-->>FS: CONNACK accepted or refused
+```
+
+***Figure 9***: UC-06 for a Field Station, part 2 of 2: the broker's credential check.
+
+<!-- sdd: MF-05 class organizations-compliance -->
+```mermaid
+classDiagram
+    class ComplianceCasesController {
+        +open(orgId, dto, actor) CaseDto
+        +act(id, dto, actor) CaseDto
+        +close(id, dto, actor) CaseDto
+    }
+    class ComplianceCaseService {
+        +open(orgId, dto, actor) ComplianceCase
+        +openOrLink(orgId, lossCaseId, actor, tx)
+        +act(id, dto, actor) ComplianceCase
+        +close(id, dto, actor) ComplianceCase
+    }
+    class ComplianceCasesRepository {
+        +insert(row, tx) ComplianceCase
+        +appendAction(row, tx)
+        +setClosed(id, outcome, reference, tx)
+    }
+    class OrganizationsService
+    class FieldStationsService
+    class ApiKeysService
+    class LossCaseService
+    ComplianceCasesController --> ComplianceCaseService
+    ComplianceCaseService --> ComplianceCasesRepository
+    ComplianceCaseService --> OrganizationsService : suspend
+    ComplianceCaseService --> FieldStationsService : revoke
+    ComplianceCaseService --> ApiKeysService : revoke
+    LossCaseService --> ComplianceCaseService : openOrLink
+```
+
+***Figure 10***: organizations classes for compliance cases (D-046). `LossCaseService` belongs to `devices`.
+
+<!-- sdd: MF-05 seq UC-63 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    actor Ad as TrekLink Admin
+    participant P as ComplianceCasePage
+    participant C as ComplianceCasesController
+    participant S as ComplianceCaseService
+    participant O as OrganizationsService
+    participant R as ComplianceCasesRepository
+    St->>P: open SUSPECTED_THEFT with evidence
+    P->>C: POST /api/organizations/{id}/compliance-cases
+    C->>S: open(orgId, dto, actor)
+    S->>R: insert(case OPEN, links, tx)
+    Ad->>P: suspend the organization
+    P->>C: POST /api/compliance-cases/{id}/actions
+    C->>S: act(id, SUSPEND_ORGANIZATION, actor)
+    S->>O: suspend(orgId, reason, actor, tx)
+    S->>R: appendAction(row, tx)
+    St->>P: close with outcome
+    P->>C: POST /api/compliance-cases/{id}/close
+    C->>S: close(id, dto, actor)
+    alt refused: no police reference for suspected theft or fraud
+        S-->>C: 409 POLICE_REFERENCE_REQUIRED
+    else accepted: reference present or not required
+        S->>R: setClosed(id, outcome, authorityReference, tx)
+        C-->>P: 200 envelope
+    end
+```
+
+***Figure 11***: UC-63 Handle Compliance Case (BR-40, D-046).

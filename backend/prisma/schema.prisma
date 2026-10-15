@@ -170,15 +170,17 @@ model User {
   fieldStationsAsRevokedBy  FieldStation[]           @relation("FieldStation_revokedById")
   rosterShiftsAsCreatedBy   RosterShift[]            @relation("RosterShift_createdById")
 
-  devicesAsRegisteredBy Device[]             @relation("Device_registeredById")
-  deviceTransitions     DeviceTransition[]
-  intakeChecks          IntakeCheck[]
-  deviceProvisionings   DeviceProvisioning[]
-  deviceResets          DeviceReset[]
-  inspections           Inspection[]
-  maintenanceAsOpenedBy MaintenanceRecord[]  @relation("MaintenanceRecord_openedById")
-  maintenanceAsClosedBy MaintenanceRecord[]  @relation("MaintenanceRecord_closedById")
-  stockTakes            StockTake[]
+  devicesAsRegisteredBy    Device[]             @relation("Device_registeredById")
+  deviceTransitions        DeviceTransition[]
+  intakeChecks             IntakeCheck[]
+  deviceProvisionings      DeviceProvisioning[]
+  deviceResets             DeviceReset[]
+  inspections              Inspection[]
+  maintenanceAsOpenedBy    MaintenanceRecord[]  @relation("MaintenanceRecord_openedById")
+  maintenanceAsClosedBy    MaintenanceRecord[]  @relation("MaintenanceRecord_closedById")
+  maintenanceAsEstimatedBy MaintenanceRecord[]  @relation("MaintenanceRecord_estimatedById")
+  maintenanceAsDecidedBy   MaintenanceRecord[]  @relation("MaintenanceRecord_decidedById")
+  stockTakes               StockTake[]
 
   contractsAsRequestedBy       RentalContract[]     @relation("RentalContract_requestedById")
   contractsAsDecidedBy         RentalContract[]     @relation("RentalContract_decidedById")
@@ -201,6 +203,13 @@ model User {
   alertsAsRecipient     AlertDelivery[]
   authorityReports      AuthorityReport[]      @relation("AuthorityReport_reportedById")
   authorityCasesClosed  AuthorityReport[]      @relation("AuthorityReport_caseClosedById")
+  lossCasesReported     LossCase[]             @relation("LossCase_reportedById")
+  lossCasesTriaged      LossCase[]             @relation("LossCase_triagedById")
+  lossCasesDecided      LossCase[]             @relation("LossCase_decidedById")
+  disposalsVerified     DeviceDisposal[]
+  complianceCasesOpened ComplianceCase[]       @relation("ComplianceCase_openedById")
+  complianceCasesClosed ComplianceCase[]       @relation("ComplianceCase_closedById")
+  complianceActions     ComplianceAction[]
 
   @@index([accountType, isActive])
   @@index([createdById])
@@ -327,33 +336,38 @@ enum MemberRole {
 }
 
 model Organization {
-  id                 String             @id @default(uuid())
-  code               String             @unique // ORG-0007
-  legalName          String
-  taxCode            String             @unique
-  address            String
-  contactEmail       String
-  contactPhone       String
-  status             OrganizationStatus @default(PENDING)
-  statusChangedAt    DateTime           @default(now()) @db.Timestamptz(3)
+  id                    String             @id @default(uuid())
+  code                  String             @unique // ORG-0007
+  legalName             String
+  taxCode               String             @unique
+  address               String
+  contactEmail          String
+  contactPhone          String
+  status                OrganizationStatus @default(PENDING)
+  statusChangedAt       DateTime           @default(now()) @db.Timestamptz(3)
   // verification at the TrekLink counter or by phone (FR-ORG-02)
-  verifiedAt         DateTime?          @db.Timestamptz(3)
-  verifiedById       String?
-  verifiedBy         User?              @relation("Organization_verifiedById", fields: [verifiedById], references: [id])
-  verificationMethod String? // IN_PERSON, PHONE
-  documentsSeen      String[]
-  masterContractRef  String? // number printed on the signed master contract
+  verifiedAt            DateTime?          @db.Timestamptz(3)
+  verifiedById          String?
+  verifiedBy            User?              @relation("Organization_verifiedById", fields: [verifiedById], references: [id])
+  verificationMethod    String? // IN_PERSON, PHONE
+  documentsSeen         String[]
+  masterContractRef     String? // number printed on the signed master contract
+  // the master contract includes the NDA and the Field Station software licence (FR-ORG-02, D-046)
+  ndaSigned             Boolean            @default(false)
+  softwareLicenceSigned Boolean            @default(false)
+  // a lost renter device exposed the channel key; cleared when the key is rotated (FR-DEV-13, D-045)
+  channelKeyExposedAt   DateTime?          @db.Timestamptz(3)
   // Admin decision (FR-ORG-03)
-  decidedAt          DateTime?          @db.Timestamptz(3)
-  decidedById        String?
-  decidedBy          User?              @relation("Organization_decidedById", fields: [decidedById], references: [id])
-  rejectionReason    String?
-  suspensionReason   String?
+  decidedAt             DateTime?          @db.Timestamptz(3)
+  decidedById           String?
+  decidedBy             User?              @relation("Organization_decidedById", fields: [decidedById], references: [id])
+  rejectionReason       String?
+  suspensionReason      String?
   // organization channel key version written to its devices at provisioning (FR-DEV-05, D-021)
-  channelKeyVersion  Int                @default(1)
-  version            Int                @default(0)
-  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
+  channelKeyVersion     Int                @default(1)
+  version               Int                @default(0)
+  createdAt             DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime           @updatedAt @db.Timestamptz(3)
 
   members       OrganizationMember[]
   transitions   OrganizationTransition[]
@@ -369,6 +383,7 @@ model Organization {
   deviceProvisionings DeviceProvisioning[]
   fieldEvents         FieldEvent[]
   streamEvents        StreamEvent[]
+  complianceCases     ComplianceCase[]
 
   @@index([status])
   @@index([verifiedById])
@@ -477,6 +492,7 @@ model FieldStation {
   lastSyncAt       DateTime?    @db.Timestamptz(3)
   queueDepth       Int[] // index 0 = P0 .. 3 = P3
   oldestRetryCount Int?
+  version          String? // last reported executable version (FR-EVT-18, D-039)
   createdAt        DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
 
@@ -486,6 +502,72 @@ model FieldStation {
   @@index([createdById])
   @@index([revokedById])
   @@map("field_stations")
+}
+
+enum ComplianceCaseType {
+  SUSPECTED_FRAUD
+  SUSPECTED_THEFT
+  IP_VIOLATION
+  NDA_BREACH
+  OTHER_BREACH
+}
+
+enum ComplianceCaseStatus {
+  OPEN
+  CLOSED
+}
+
+enum ComplianceActionKind {
+  SUSPEND_ORGANIZATION
+  REVOKE_FIELD_STATION
+  REVOKE_API_KEY
+  OTHER
+}
+
+// A suspected fraud, theft, IP violation or NDA breach by an organization (FR-ORG-08, D-046).
+// SUSPECTED_FRAUD and SUSPECTED_THEFT close only with an authorityReference (BR-40).
+model ComplianceCase {
+  id                 String               @id @default(uuid())
+  code               String               @unique // CMP-0001
+  organizationId     String
+  organization       Organization         @relation(fields: [organizationId], references: [id])
+  type               ComplianceCaseType
+  status             ComplianceCaseStatus @default(OPEN)
+  evidence           String
+  linkedContractIds  String[]
+  authorityReference String? // police report reference
+  outcome            String?
+  openedById         String
+  openedBy           User                 @relation("ComplianceCase_openedById", fields: [openedById], references: [id])
+  openedAt           DateTime             @default(now()) @db.Timestamptz(3)
+  closedById         String?
+  closedBy           User?                @relation("ComplianceCase_closedById", fields: [closedById], references: [id])
+  closedAt           DateTime?            @db.Timestamptz(3)
+
+  actions   ComplianceAction[]
+  lossCases LossCase[]
+
+  @@index([organizationId, status])
+  @@index([openedById])
+  @@index([closedById])
+  @@map("compliance_cases")
+}
+
+// Each action taken from a compliance case (FR-ORG-09). Append-only.
+model ComplianceAction {
+  id        String               @id @default(uuid())
+  caseId    String
+  case      ComplianceCase       @relation(fields: [caseId], references: [id])
+  kind      ComplianceActionKind
+  targetId  String? // field station or API key id
+  note      String?
+  actorId   String
+  actor     User                 @relation(fields: [actorId], references: [id])
+  createdAt DateTime             @default(now()) @db.Timestamptz(3)
+
+  @@index([caseId, createdAt])
+  @@index([actorId])
+  @@map("compliance_actions")
 }
 
 // @module devices ──────────────────────────────────────────────────────────────────────────
@@ -500,12 +582,19 @@ enum DeviceStatus {
   MAINTENANCE
   LOST
   RETIRED
+  DISPOSED // after a verified wipe (FR-DEV-16, D-045)
 }
 
 enum MaintenanceStatus {
   OPEN
+  PENDING_APPROVAL // estimate or actual cost above devices.maintenanceApprovalThresholdVnd (FR-DEV-20, D-047)
   COMPLETED
   UNREPAIRABLE
+}
+
+enum MaintenanceWorkBy {
+  IN_HOUSE
+  VENDOR
 }
 
 enum InspectionResult {
@@ -525,6 +614,8 @@ model HardwareVariant {
   // remaining value by age in whole months, descending; the first row at or below the age wins
   // (FR-BILL-05): [{ "fromMonths": 0, "valueVnd": 2500000 }, { "fromMonths": 12, ... }]
   remainingValueSchedule Json
+  serviceIntervalDays    Int? // days between periodic services; null for none (FR-DEV-04, D-047)
+  serviceChecklist       String[] @default([]) // items checked at each periodic service
   isActive               Boolean  @default(true)
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)
@@ -560,6 +651,7 @@ model Device {
   registeredById    String
   registeredBy      User            @relation("Device_registeredById", fields: [registeredById], references: [id])
   retiredAt         DateTime?       @db.Timestamptz(3)
+  serviceDueAt      DateTime?       @db.Date // next periodic service (FR-DEV-17); null when the variant has no interval
   version           Int             @default(0)
   createdAt         DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
@@ -577,6 +669,8 @@ model Device {
   incidents          Incident[]
   invoiceLines       InvoiceLine[]
   damageCharges      DamageCharge[]
+  lossCases          LossCase[]
+  disposal           DeviceDisposal?
 
   @@index([status])
   @@index([hardwareVariantId, status])
@@ -658,6 +752,95 @@ model DeviceReset {
   @@map("device_resets") // append-only trigger
 }
 
+enum LossCaseState {
+  REPORTED
+  SEARCHING
+  RECOVERED
+  CONFIRMED
+  SETTLED
+}
+
+enum LossCustody {
+  RENTER // a custody interval of a contract contains the last seen time (D-040)
+  TREKLINK
+}
+
+enum LossDecision {
+  CHARGED
+  REDUCED
+  WAIVED
+  WRITTEN_OFF // TrekLink custody: no charge
+}
+
+// One reported loss of a device (FR-DEV-12 to FR-DEV-15, D-045). At most one case per device
+// outside RECOVERED and SETTLED: partial unique index in constraints.sql.
+model LossCase {
+  id               String          @id @default(uuid())
+  code             String          @unique // LOSS-0001
+  deviceId         String
+  device           Device          @relation(fields: [deviceId], references: [id])
+  state            LossCaseState   @default(REPORTED)
+  stateFromDevice  DeviceStatus // the in-service state the device left when reported
+  reportedById     String
+  reportedBy       User            @relation("LossCase_reportedById", fields: [reportedById], references: [id])
+  reportedAt       DateTime        @default(now()) @db.Timestamptz(3)
+  description      String
+  lastSeenAt       DateTime?       @db.Timestamptz(3) // from the device projection at report time
+  lastLatitude     Float?
+  lastLongitude    Float?
+  // triage (FR-DEV-13)
+  custody          LossCustody?
+  contractDeviceId String? // the custody interval, for RENTER custody
+  contractDevice   ContractDevice? @relation(fields: [contractDeviceId], references: [id])
+  keyExposed       Boolean         @default(false)
+  suspectedTheft   Boolean         @default(false) // opens or links a compliance case (D-046)
+  complianceCaseId String?
+  complianceCase   ComplianceCase? @relation(fields: [complianceCaseId], references: [id])
+  policeReference  String? // required on the compliance case for suspected theft or fraud
+  triagedById      String?
+  triagedBy        User?           @relation("LossCase_triagedById", fields: [triagedById], references: [id])
+  triagedAt        DateTime?       @db.Timestamptz(3)
+  searchEndsAt     DateTime?       @db.Timestamptz(3) // triagedAt + devices.lossSearchDays
+  recoveredAt      DateTime?       @db.Timestamptz(3)
+  confirmedAt      DateTime?       @db.Timestamptz(3)
+  // settlement (FR-BILL-05, FR-BILL-11); the decider is never the triager (BR-39)
+  decision         LossDecision?
+  chargeVnd        Int? // remaining value charged, after any reduction
+  decisionReason   String?
+  decidedById      String?
+  decidedBy        User?           @relation("LossCase_decidedById", fields: [decidedById], references: [id])
+  settledAt        DateTime?       @db.Timestamptz(3)
+  version          Int             @default(0)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+
+  @@index([deviceId, state])
+  @@index([state, searchEndsAt])
+  @@index([contractDeviceId])
+  @@index([complianceCaseId])
+  @@index([reportedById])
+  @@index([triagedById])
+  @@index([decidedById])
+  @@map("loss_cases")
+}
+
+// The verified wipe before disposal (FR-DEV-16, BR-42). One per device.
+model DeviceDisposal {
+  id            String   @id @default(uuid())
+  deviceId      String   @unique
+  device        Device   @relation(fields: [deviceId], references: [id])
+  keyRemoved    Boolean
+  nodeDbCleared Boolean
+  ownerCleared  Boolean
+  method        String // for example: sold for parts, recycled, destroyed
+  verifiedById  String
+  verifiedBy    User     @relation(fields: [verifiedById], references: [id])
+  disposedAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([verifiedById])
+  @@map("device_disposals")
+}
+
 // Inspection after check-in and reset (UC-44). A DAMAGED result feeds billing (FR-BILL-04).
 model Inspection {
   id               String           @id @default(uuid())
@@ -681,23 +864,43 @@ model Inspection {
 }
 
 model MaintenanceRecord {
-  id          String            @id @default(uuid())
-  deviceId    String
-  device      Device            @relation(fields: [deviceId], references: [id])
-  reason      String // INTAKE_FAILED, INSPECTION_FAILED, HANDOVER_CHECK_FAILED, SCHEDULED, STAFF_REPORTED
-  status      MaintenanceStatus @default(OPEN)
-  description String
-  resolution  String?
-  openedById  String
-  openedBy    User              @relation("MaintenanceRecord_openedById", fields: [openedById], references: [id])
-  closedById  String?
-  closedBy    User?             @relation("MaintenanceRecord_closedById", fields: [closedById], references: [id])
-  openedAt    DateTime          @default(now()) @db.Timestamptz(3)
-  closedAt    DateTime?         @db.Timestamptz(3)
+  id               String             @id @default(uuid())
+  deviceId         String
+  device           Device             @relation(fields: [deviceId], references: [id])
+  reason           String // INTAKE_FAILED, INSPECTION_FAILED, HANDOVER_CHECK_FAILED, SCHEDULED, FIRMWARE_UPDATE, STAFF_REPORTED
+  status           MaintenanceStatus  @default(OPEN)
+  description      String
+  expectedAt       DateTime           @db.Date // expected completion (FR-DEV-08)
+  workBy           MaintenanceWorkBy?
+  vendorName       String? // required when workBy is VENDOR
+  estimatedCostVnd BigInt?
+  estimatedById    String? // separation of duty: never the deciding Admin (BR-44)
+  estimatedBy      User?              @relation("MaintenanceRecord_estimatedById", fields: [estimatedById], references: [id])
+  approvedCostVnd  BigInt?
+  decision         String? // APPROVED, REJECTED
+  decisionReason   String?
+  decidedById      String?
+  decidedBy        User?              @relation("MaintenanceRecord_decidedById", fields: [decidedById], references: [id])
+  decidedAt        DateTime?          @db.Timestamptz(3)
+  actualCostVnd    BigInt?
+  warrantyUntil    DateTime?          @db.Date
+  checklistResults Json? // [{ "item": "Battery health", "passed": true, "note": "replaced" }], required for SCHEDULED
+  firmwareVersion  String? // firmware on the unit after the work; required for FIRMWARE_UPDATE (FR-DEV-21)
+  resolution       String?
+  openedById       String? // null when the weekly scan opened it (SYSTEM)
+  openedBy         User?              @relation("MaintenanceRecord_openedById", fields: [openedById], references: [id])
+  closedById       String?
+  closedBy         User?              @relation("MaintenanceRecord_closedById", fields: [closedById], references: [id])
+  openedAt         DateTime           @default(now()) @db.Timestamptz(3)
+  closedAt         DateTime?          @db.Timestamptz(3)
+  version          Int                @default(0)
 
   @@index([deviceId, status])
+  @@index([status])
   @@index([openedById])
   @@index([closedById])
+  @@index([estimatedById])
+  @@index([decidedById])
   @@map("maintenance_records")
 }
 
@@ -844,8 +1047,16 @@ model ContractDevice {
   holderPhone            String?
   holderEmergencyContact String?
 
+  // a replacement on a running contract (FR-CON-15, D-045): the row it replaces and its signed note
+  replacesId            String?         @unique
+  replaces              ContractDevice? @relation("ContractDevice_replaces", fields: [replacesId], references: [id])
+  replacedBy            ContractDevice? @relation("ContractDevice_replaces")
+  replacementNotePath   String?
+  replacementNoteSha256 String?
+
   inspections Inspection[]
   fieldEvents FieldEvent[] // events attributed to this custody interval (D-040)
+  lossCases   LossCase[]
 
   @@index([contractId])
   @@index([deviceId])
@@ -1294,40 +1505,40 @@ enum SyncOutcome {
 
 // Append-only ledger of accepted field events and the telemetry history.
 model FieldEvent {
-  id             String        @id @default(uuid())
-  seq            BigInt        @unique @default(autoincrement()) // ingestion order
-  eventId        String        @unique // sha256(nodeNum:packetId), D-006
-  deviceId       String
-  device         Device        @relation(fields: [deviceId], references: [id])
+  id               String           @id @default(uuid())
+  seq              BigInt           @unique @default(autoincrement()) // ingestion order
+  eventId          String           @unique // sha256(nodeNum:packetId), D-006
+  deviceId         String
+  device           Device           @relation(fields: [deviceId], references: [id])
   // the organization of the custody interval the event is attributed to; null when UNATTRIBUTED.
   // Never the device's current holder (FR-EVT-16, BR-36, D-040)
   organizationId   String?
-  organization     Organization?   @relation(fields: [organizationId], references: [id])
+  organization     Organization?    @relation(fields: [organizationId], references: [id])
   contractDeviceId String? // the custody interval; null when UNATTRIBUTED
-  contractDevice   ContractDevice? @relation(fields: [contractDeviceId], references: [id])
+  contractDevice   ContractDevice?  @relation(fields: [contractDeviceId], references: [id])
   attribution      AttributionState
-  fieldStationId String?
-  fieldStation   FieldStation? @relation(fields: [fieldStationId], references: [id])
-  uplinkKey      String // node id or Field Station MQTT username
-  ingress        IngressPath
-  kind           EventKind
-  priority       PriorityTier
-  observedAt     DateTime?     @db.Timestamptz(3) // device rx_time; null when 0 (FR-EVT-08)
-  capturedAt     DateTime?     @db.Timestamptz(3) // Stage C: fs_captured_at, station clock, uncorrected
-  occurredAt     DateTime      @db.Timestamptz(3) // attribution only, never ordering (FR-EVT-15)
-  timeSource     TimeSource
-  receivedAt     DateTime      @default(now()) @db.Timestamptz(3)
-  latitude       Float?
-  longitude      Float?
-  altitude       Float?
-  batteryPct     Int?
-  rssi           Int?
-  snr            Float?
-  hopsAway       Int?
-  plotted        Boolean       @default(true) // false for IMPLAUSIBLE_POSITION
-  payload        Json // raw payload, persisted verbatim
-  incidentId     String? // set when this event opened or joined an episode
-  incident       Incident?     @relation("FieldEvent_incidentId", fields: [incidentId], references: [id])
+  fieldStationId   String?
+  fieldStation     FieldStation?    @relation(fields: [fieldStationId], references: [id])
+  uplinkKey        String // node id or Field Station MQTT username
+  ingress          IngressPath
+  kind             EventKind
+  priority         PriorityTier
+  observedAt       DateTime?        @db.Timestamptz(3) // device rx_time; null when 0 (FR-EVT-08)
+  capturedAt       DateTime?        @db.Timestamptz(3) // Stage C: fs_captured_at, station clock, uncorrected
+  occurredAt       DateTime         @db.Timestamptz(3) // attribution only, never ordering (FR-EVT-15)
+  timeSource       TimeSource
+  receivedAt       DateTime         @default(now()) @db.Timestamptz(3)
+  latitude         Float?
+  longitude        Float?
+  altitude         Float?
+  batteryPct       Int?
+  rssi             Int?
+  snr              Float?
+  hopsAway         Int?
+  plotted          Boolean          @default(true) // false for IMPLAUSIBLE_POSITION
+  payload          Json // raw payload, persisted verbatim
+  incidentId       String? // set when this event opened or joined an episode
+  incident         Incident?        @relation("FieldEvent_incidentId", fields: [incidentId], references: [id])
 
   openedIncident        Incident?            @relation("Incident_openedByEventId")
   transitionsAsRefEvent IncidentTransition[] @relation("IncidentTransition_refEventId")

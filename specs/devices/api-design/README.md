@@ -15,12 +15,21 @@
 | 09 | POST | `/api/devices/:id/intake-checks` | TrekLink Staff | [09-post-devices-id-intake-checks.md](09-post-devices-id-intake-checks.md) |
 | 10 | POST | `/api/devices/:id/reset` | TrekLink Staff | [10-post-devices-id-reset.md](10-post-devices-id-reset.md) |
 | 11 | POST | `/api/devices/:id/maintenance` | TrekLink Staff | [11-post-devices-id-maintenance.md](11-post-devices-id-maintenance.md) |
-| 12 | PATCH | `/api/devices/:id/maintenance/:recordId` | TrekLink Staff | [12-patch-devices-id-maintenance-recordid.md](12-patch-devices-id-maintenance-recordid.md) |
-| 13 | POST | `/api/devices/:id/retire` | TrekLink Admin | [13-post-devices-id-retire.md](13-post-devices-id-retire.md) |
-| 14 | POST | `/api/devices/:id/recover` | TrekLink Staff | [14-post-devices-id-recover.md](14-post-devices-id-recover.md) |
-| 15 | GET | `/api/devices/availability` | TrekLink Staff, TrekLink Admin; Org Manager (counts only) | [15-get-devices-availability.md](15-get-devices-availability.md) |
-| 16 | POST | `/api/stock-takes` | TrekLink Staff, TrekLink Admin | [16-post-stock-takes.md](16-post-stock-takes.md) |
-| 17 | GET | `/api/stock-takes` | TrekLink Staff, TrekLink Admin | [17-get-stock-takes.md](17-get-stock-takes.md) |
+| 12 | PATCH | `/api/devices/:id/maintenance/:recordId/estimate` | TrekLink Staff | [12-patch-devices-id-maintenance-recordid-estimate.md](12-patch-devices-id-maintenance-recordid-estimate.md) |
+| 13 | POST | `/api/devices/:id/maintenance/:recordId/decision` | TrekLink Admin | [13-post-devices-id-maintenance-recordid-decision.md](13-post-devices-id-maintenance-recordid-decision.md) |
+| 14 | PATCH | `/api/devices/:id/maintenance/:recordId` | TrekLink Staff | [14-patch-devices-id-maintenance-recordid.md](14-patch-devices-id-maintenance-recordid.md) |
+| 15 | GET | `/api/maintenance-records` | TrekLink Staff, TrekLink Admin | [15-get-maintenance-records.md](15-get-maintenance-records.md) |
+| 16 | POST | `/api/devices/:id/retire` | TrekLink Admin | [16-post-devices-id-retire.md](16-post-devices-id-retire.md) |
+| 17 | POST | `/api/devices/:id/loss-cases` | Org Manager: a device rented by the organization; TrekLink Staff: any device in service | [17-post-devices-id-loss-cases.md](17-post-devices-id-loss-cases.md) |
+| 18 | GET | `/api/loss-cases` | TrekLink Staff, TrekLink Admin; Org Manager: own organization | [18-get-loss-cases.md](18-get-loss-cases.md) |
+| 19 | POST | `/api/loss-cases/:id/triage` | TrekLink Staff | [19-post-loss-cases-id-triage.md](19-post-loss-cases-id-triage.md) |
+| 20 | POST | `/api/loss-cases/:id/recover` | TrekLink Staff | [20-post-loss-cases-id-recover.md](20-post-loss-cases-id-recover.md) |
+| 21 | POST | `/api/loss-cases/:id/confirm` | TrekLink Staff | [21-post-loss-cases-id-confirm.md](21-post-loss-cases-id-confirm.md) |
+| 22 | POST | `/api/loss-cases/:id/decision` | TrekLink Admin | [22-post-loss-cases-id-decision.md](22-post-loss-cases-id-decision.md) |
+| 23 | POST | `/api/devices/:id/dispose` | TrekLink Admin | [23-post-devices-id-dispose.md](23-post-devices-id-dispose.md) |
+| 24 | GET | `/api/devices/availability` | TrekLink Staff, TrekLink Admin; Org Manager (counts only) | [24-get-devices-availability.md](24-get-devices-availability.md) |
+| 25 | POST | `/api/stock-takes` | TrekLink Staff, TrekLink Admin | [25-post-stock-takes.md](25-post-stock-takes.md) |
+| 26 | GET | `/api/stock-takes` | TrekLink Staff, TrekLink Admin | [26-get-stock-takes.md](26-get-stock-takes.md) |
 
 Route order: `GET /api/devices/availability` is declared before `GET /api/devices/:id` in `DevicesController`, so the literal segment is never read as an id.
 

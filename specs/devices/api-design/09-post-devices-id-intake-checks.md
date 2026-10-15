@@ -74,6 +74,7 @@ Records the GPS fix, radio, battery and, where the variant has one, motion-senso
         "lat": 11.5544,
         "lon": 108.5381
       },
+      "serviceDueAt": "2026-12-12",
       "version": 1
     }
   },

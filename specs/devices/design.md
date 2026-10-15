@@ -21,6 +21,7 @@ erDiagram
         string assetTag UK
         bigint nodeNum UK
         enum status
+        date serviceDueAt
         int keyVersion
         int version
     }
@@ -36,46 +37,107 @@ Remaining value (FR-BILL-05) is read from the variant's `remainingValueSchedule`
 
 ---
 
-## 2. Device lifecycle (D-035, amended by D-038)
+## 2. Device lifecycle (D-035, amended by D-045 and D-047)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> IN_INTAKE : registered
-    IN_INTAKE --> AVAILABLE : intake passed
-    IN_INTAKE --> MAINTENANCE : intake failed
-    AVAILABLE --> RESERVED : contract approved
-    RESERVED --> AVAILABLE : reservation released
-    RESERVED --> RENTED : handover signed
-    RENTED --> RETURNED : checked in
-    RENTED --> LOST : reported lost, or unrecovered after default
-    LOST --> RETURNED : recovered
-    LOST --> RETIRED : written off
-    RETURNED --> AVAILABLE : reset and inspection passed
-    RETURNED --> MAINTENANCE : inspection damaged or failed
-    AVAILABLE --> MAINTENANCE : scheduled or reported
-    MAINTENANCE --> AVAILABLE : intake passed again
-    MAINTENANCE --> RETIRED : retired
-    RETIRED --> [*]
+    [*] --> IN_SERVICE : registered
+    state "In service" as IN_SERVICE {
+        [*] --> IN_INTAKE
+        IN_INTAKE --> AVAILABLE : intake passed
+        IN_INTAKE --> MAINTENANCE : intake failed
+        AVAILABLE --> RESERVED : contract approved
+        RESERVED --> AVAILABLE : reservation released
+        RESERVED --> MAINTENANCE : failed counter check, swapped
+        RESERVED --> RENTED : handover or replacement signed
+        RENTED --> RETURNED : checked in, or replaced
+        RETURNED --> AVAILABLE : reset and inspection passed
+        RETURNED --> MAINTENANCE : inspection damaged or failed, or due for service or firmware
+        AVAILABLE --> MAINTENANCE : weekly scan, or fault reported
+        MAINTENANCE --> AVAILABLE : intake passed again
+    }
+    IN_SERVICE --> LOST : loss reported, from any state in service
+    LOST --> IN_SERVICE : recovered at the counter, to RETURNED
+    LOST --> RETIRED : loss case settled
+    IN_SERVICE --> RETIRED : retired, from MAINTENANCE
+    RETIRED --> DISPOSED : verified wipe
+    DISPOSED --> [*]
 ```
 
-***Figure 2***: Device lifecycle; SRS Figure 22.
+***Figure 2***: Device lifecycle; SRS Figure 23.
 
 | From | To | Trigger | Caller | Guard |
 |---|---|---|---|---|
 | (none) | `IN_INTAKE` | register | Staff | unique tag and `nodeNum` |
 | `IN_INTAKE`, `MAINTENANCE` | `AVAILABLE` | intake passed | Staff | no open maintenance record |
-| `IN_INTAKE`, `AVAILABLE` | `MAINTENANCE` | intake failed, or maintenance opened | Staff | reason |
-| `AVAILABLE` | `RESERVED` | `reserve()` | rentals | locked with `SKIP LOCKED` |
+| `IN_INTAKE`, `AVAILABLE` | `MAINTENANCE` | intake failed, or maintenance opened | Staff | reason, expected date |
+| `AVAILABLE` | `MAINTENANCE` | `devices.serviceScan` | SYSTEM | service due within 7 days plus lead days, or firmware differs from the baseline; no open record |
+| `AVAILABLE` | `RESERVED` | `reserve()`, `reserveExplicit()` | rentals | locked with `SKIP LOCKED` |
 | `RESERVED` | `AVAILABLE` | `release()` | rentals | contract cancelled, or swap |
 | `RESERVED` | `MAINTENANCE` | `failHandoverCheck()` | rentals | swap at the counter (E01-5) |
-| `RESERVED` | `RENTED` | `markRented()` | rentals | provisioned at the organization's current key version |
-| `RENTED` | `RETURNED` | `markReturned()` | rentals | check-in |
-| `RENTED` | `LOST` | `markLost()` | rentals | contract `RETURN_DUE`, `OVERDUE` or `DEFAULTED` (D-038) |
-| `LOST` | `RETURNED` | recover | Staff | note |
-| `RETURNED` | `AVAILABLE`, `MAINTENANCE` | `recordInspection()` | rentals | reset logged after the last check-in |
-| `MAINTENANCE`, `LOST` | `RETIRED` | retire | Admin | not on a live contract row |
+| `RESERVED` | `RENTED` | `markRented()` | rentals | handover or replacement, provisioned at the organization's current key version |
+| `RENTED` | `RETURNED` | `markReturned()` | rentals | check-in, or the faulty unit of a replacement |
+| any in-service state | `LOST` | report loss | Org Manager (own rented device), Staff | no open loss case (BR-37) |
+| `LOST` | `RETURNED` | recover | Staff | loss case `REPORTED`, `SEARCHING` or `SETTLED` |
+| `LOST` | `RETIRED` | settle loss case | Admin | case `CONFIRMED`, Admin not the triager |
+| `RETURNED` | `AVAILABLE`, `MAINTENANCE` | `recordInspection()` | rentals | reset logged after the last check-in; a passed unit due for service or firmware goes to `MAINTENANCE` (FR-DEV-19) |
+| `MAINTENANCE` | `RETIRED` | retire | Admin | not on a live contract row |
+| `RETIRED` | `DISPOSED` | dispose | Admin | wipe recorded (BR-42) |
 
 Manual endpoints never reach the system-only rows; those are exported service methods taking `tx`.
+
+---
+
+## 2.1 Loss case (D-045)
+
+```mermaid
+stateDiagram-v2
+    [*] --> REPORTED : loss reported
+    REPORTED --> SEARCHING : triaged, custody decided, key exposure flagged
+    REPORTED --> RECOVERED : device back before triage
+    SEARCHING --> RECOVERED : device back at the counter
+    SEARCHING --> CONFIRMED : Staff confirm, or search window elapsed
+    CONFIRMED --> SETTLED : charged, reduced, waived or written off
+    RECOVERED --> [*]
+    SETTLED --> [*]
+```
+
+***Figure 2a***: Loss case lifecycle; SRS Figure 24.
+
+Custody is decided at triage from `rentals.custodyAt(deviceId, lastSeenAt)`, the same custody intervals that
+attribute field events (D-040). `RENTER` custody marks the organization's channel key exposed through
+`organizations.markKeyExposed`, and confirmation charges the remaining value through `billing.chargeLoss`;
+`TREKLINK` custody is written off. The `devices.lossSearch` job confirms `SEARCHING` cases whose
+`searchEndsAt` has passed, with the usual compare-and-set on state and version. A device recovered after
+settlement goes to `RETURNED` while its case stays `SETTLED`; any refund is a billing adjustment (E05-10).
+
+## 2.2 Maintenance record and the weekly service scan (D-047)
+
+```mermaid
+stateDiagram-v2
+    [*] --> OPEN : opened by Staff, the weekly scan or an inspection
+    OPEN --> PENDING_APPROVAL : estimate above the threshold, or actual cost above the approved amount
+    PENDING_APPROVAL --> OPEN : Admin approves an amount, or rejects with a reason
+    OPEN --> COMPLETED : work, cost and checklist recorded
+    OPEN --> UNREPAIRABLE : beyond repair
+    COMPLETED --> [*]
+    UNREPAIRABLE --> [*]
+```
+
+***Figure 2b***: Maintenance record lifecycle; SRS Figure 25.
+
+| Rule | Design |
+|---|---|
+| Service plan | `HardwareVariant.serviceIntervalDays` and `serviceChecklist`; no interval means no periodic service |
+| Due date | `Device.serviceDueAt`: the first passed intake check plus the interval; each completed `SCHEDULED` record sets it to its completion date plus the interval (FR-DEV-17) |
+| Weekly scan | `ServiceScanJob`, registered as `devices.serviceScan` (`platform` design §4.6), Monday at `devices.serviceScanHourLocal`. Window: `serviceDueAt < runDate + 7 days + devices.maintenanceLeadDays`, or `firmwareVersion <> variant.firmwareBaseline`. `AVAILABLE` devices without an open record get one, `openedById` null (SYSTEM), `expectedAt` the due date, in one transaction each with the transition; the list goes to Staff by email after commit (FR-DEV-18) |
+| On a contract | `RESERVED` and `RENTED` devices are listed, never moved (BR-45); `recordInspection()` checks the same window and the baseline and opens the record when the inspection passes (FR-DEV-19) |
+| Cost approval | `estimate()` and `complete()` compare against `devices.maintenanceApprovalThresholdVnd` or `approvedCostVnd`; `decide()` refuses the estimator (`maintenance_records_decider_not_estimator`) |
+| Firmware | `complete()` writes `Device.firmwareVersion` from the record; a `FIRMWARE_UPDATE` record requires it (`maintenance_records_firmware_on_completion`) |
+| One open record | `maintenance_records_one_open_per_device`; the scan skips a device that has one |
+
+Paying the vendor happens outside the platform. A renter's share of a repair is the damage charge of the
+inspection (BR-24), never the maintenance cost.
 
 ---
 
@@ -88,7 +150,8 @@ Manual endpoints never reach the system-only rows; those are exported service me
 | `release(deviceIds, tx)`, `failHandoverCheck(deviceId, reason, tx)` | rentals |
 | `recordProvisioning(deviceId, orgId, keyVersion, actor, tx)` | rentals |
 | `assertReadyForHandover(deviceIds, keyVersion)` | rentals |
-| `markRented(ids, tx)`, `markReturned(id, tx)`, `markLost(id, tx)` | rentals |
+| `markRented(ids, tx)`, `markReturned(id, tx)` | rentals |
+| `openLossForReplacement(deviceId)` returns whether the device has an open loss case | rentals |
 | `recordInspection(deviceId, dto, contractDeviceId, actor, tx)` returns the inspection | rentals |
 | `valueAt(deviceId, date)` | billing |
 | `projectReading(nodeNum, reading, tx)` returns the device id or null | gateway-sync |
@@ -111,6 +174,11 @@ Manual endpoints never reach the system-only rows; those are exported service me
 | `SCHEDULE_INVALID` | 400 |
 | `KEY_VERSION_MISMATCH` | 409 |
 | `DEVICE_NOT_PROVISIONED` | 409 |
+| `SEPARATION_OF_DUTY` | 403 |
+| `CHECKLIST_INCOMPLETE` | 400 |
+| `CHECKLIST_REQUIRED` | 400 |
+| `FIRMWARE_VERSION_REQUIRED` | 400 |
+| `VENDOR_REQUIRED` | 400 |
 
 ---
 
@@ -141,5 +209,433 @@ sequenceDiagram
 
 ## 6. Testing strategy
 
-State-matrix test over all 64 pairs; reservation race with two transactions on Postgres; reset-before-
-inspection guard; remaining-value lookup by age; projection ignores older readings.
+State-matrix test over all 81 pairs; reservation race with two transactions on Postgres; reset-before-
+inspection guard; remaining-value lookup by age; projection ignores older readings. Service scan with a fake
+clock: the window boundary of AC-09, a rented unit listed but not moved, no second record; inspection routing
+of AC-10; the approval path of AC-11 including the estimator's 403; firmware update of AC-12; the four
+maintenance constraints on Postgres.
+
+---
+
+## 7. Detailed design for Report 4 (D-044)
+
+Layering as in `organizations` design §9. Figures 4, 7 and 12 are the class views, core, loss cases and
+maintenance; Figures 5, 6, 8 to 11 and 13 to 16 are the MF-05 reset, inspection, loss case, disposal, service
+scan, maintenance and cost approval interactions.
+
+<!-- sdd: MF-05 class devices -->
+```mermaid
+classDiagram
+    class DevicesController {
+        +register(dto, actor) DeviceDto
+        +intakeCheck(id, dto, actor) DeviceDto
+        +reset(id, dto, actor) DeviceDto
+        +maintenance(id, dto, actor) MaintenanceDto
+        +retire(id, dto, actor) DeviceDto
+    }
+    class DevicesService {
+        +reserve(variantId, quantity, contractId, tx) string[]
+        +recordProvisioning(deviceId, orgId, keyVersion, actor, tx)
+        +markRented(ids, tx)
+        +markReturned(id, tx)
+        +recordInspection(deviceId, dto, contractDeviceId, actor, tx) Inspection
+        +projectReading(nodeNum, reading, tx) string
+    }
+    class DeviceLifecycleService {
+        +reset(id, dto, actor) Device
+        +retire(id, dto, actor) Device
+        +dispose(id, dto, actor) Device
+        -apply(id, from, to, reason, tx)
+    }
+    class DeviceFsm {
+        +assertTransition(from, to)
+    }
+    class DevicesRepository {
+        +lockAvailable(variantId, quantity, tx) Device[]
+        +transition(id, from, to, version, reason, tx)
+        +insertReset(row, tx)
+        +insertInspection(row, tx) Inspection
+    }
+    DevicesController --> DeviceLifecycleService
+    DevicesController --> DevicesService
+    DeviceLifecycleService --> DeviceFsm
+    DevicesService --> DeviceFsm
+    DeviceLifecycleService --> DevicesRepository
+    DevicesService --> DevicesRepository
+```
+
+***Figure 4***: devices classes. `DeviceFsm` holds the transition table of Figure 2.
+
+<!-- sdd: MF-05 seq UC-44 part 1 of 2: reset -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as DeviceDetailPage
+    participant C as DevicesController
+    participant L as DeviceLifecycleService
+    participant R as DevicesRepository
+    St->>P: reset the returned device
+    P->>C: POST /api/devices/{id}/reset
+    C->>L: reset(id, dto, actor)
+    L->>R: lock and require RETURNED
+    opt reset failed on the counter tool
+        L->>R: transition(id, RETURNED, MAINTENANCE, version, tx)
+    end
+    L->>R: insertReset(row, tx)
+    R->>R: INSERT device_resets, clear key version
+    L-->>C: DeviceDto
+    C-->>P: 200 envelope
+```
+
+***Figure 5***: UC-44 Reset and Inspect Device, part 1 of 2: reset.
+
+<!-- sdd: MF-05 seq UC-44 part 2 of 2: inspection -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as CounterPage
+    participant C as ContractsController
+    participant RS as ReturnService
+    participant S as DevicesService
+    participant R as DevicesRepository
+    participant Ch as ChargesService
+    St->>P: condition, photos of damage
+    P->>C: POST /api/contracts/{id}/devices/{deviceId}/inspection
+    C->>RS: inspect(id, deviceId, dto, actor)
+    RS->>S: recordInspection(deviceId, dto, contractDeviceId, actor, tx)
+    S->>R: insertInspection(row, tx)
+    alt passed, not due for service or firmware
+        S->>R: transition(id, RETURNED, AVAILABLE, version, tx)
+    else passed, due for service or firmware differs
+        S->>R: insertMaintenance(SCHEDULED or FIRMWARE_UPDATE, tx)
+        S->>R: transition(id, RETURNED, MAINTENANCE, version, tx)
+    else damaged or failed
+        S->>R: transition(id, RETURNED, MAINTENANCE, version, tx)
+        RS->>Ch: chargeDamage(contract, inspection, tx)
+    end
+    RS-->>C: InspectionDto
+    C-->>P: 200 envelope
+```
+
+***Figure 6***: UC-44 Reset and Inspect Device, part 2 of 2: inspection. A device reaches `AVAILABLE`
+only after a logged reset and a passed inspection (BR-28), and a unit due for service goes to maintenance
+instead (FR-DEV-19, BR-45).
+
+<!-- sdd: MF-05 class devices-loss -->
+```mermaid
+classDiagram
+    class LossCasesController {
+        +report(deviceId, dto, caller) LossCaseDto
+        +triage(id, dto, actor) LossCaseDto
+        +recover(id, dto, actor) LossCaseDto
+        +confirm(id, dto, actor) LossCaseDto
+        +decide(id, dto, actor) LossCaseDto
+    }
+    class LossCaseService {
+        +report(deviceId, dto, caller) LossCase
+        +triage(id, dto, actor) LossCase
+        +confirm(id, actor) LossCase
+        +decide(id, dto, actor) LossCase
+    }
+    class LossSearchJob {
+        +run()
+    }
+    class LossCasesRepository {
+        +insert(row, tx) LossCase
+        +compareAndSet(id, from, to, patch, tx) bool
+        +dueForConfirmation(now) LossCase[]
+    }
+    class DevicesService
+    class RentalsService
+    class OrganizationsService
+    class ComplianceCaseService
+    class ChargesService
+    LossCasesController --> LossCaseService
+    LossSearchJob --> LossCaseService
+    LossCaseService --> LossCasesRepository
+    LossCaseService --> DevicesService : LOST, RETURNED, RETIRED
+    LossCaseService --> RentalsService : custodyAt
+    LossCaseService --> OrganizationsService : markKeyExposed
+    LossCaseService --> ComplianceCaseService : openOrLink
+    LossCaseService --> ChargesService : chargeLoss, adjustLoss
+```
+
+***Figure 7***: devices classes for loss cases (D-045).
+
+<!-- sdd: MF-05 seq UC-49 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Org Manager
+    participant P as ContractDetailPage
+    participant C as LossCasesController
+    participant S as LossCaseService
+    participant D as DevicesService
+    participant R as LossCasesRepository
+    M->>P: report TL-0042 lost, last seen at Phan Dung camp
+    P->>C: POST /api/devices/{id}/loss-cases
+    C->>S: report(deviceId, dto, caller)
+    S->>D: require in service and rented by the caller's organization
+    alt refused: a loss case is already open
+        S-->>C: 409 LOSS_CASE_OPEN
+    else accepted: no open loss case
+        S->>D: transition(deviceId, current, LOST, tx)
+        S->>R: insert(case REPORTED, last seen time and position, tx)
+        S->>S: COMMIT, notify TrekLink Staff
+        S-->>C: LossCaseDto REPORTED
+        C-->>P: 201 envelope
+    end
+```
+
+***Figure 8***: UC-49 Report Lost Device. Staff report a unit missing at stock-take through the same call.
+
+<!-- sdd: MF-05 seq UC-60 part 1 of 2: triage -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as LossCasePage
+    participant C as LossCasesController
+    participant S as LossCaseService
+    participant Rt as RentalsService
+    participant O as OrganizationsService
+    participant R as LossCasesRepository
+    St->>P: triage, suspected theft no
+    P->>C: POST /api/loss-cases/{id}/triage
+    C->>S: triage(id, dto, actor)
+    S->>Rt: custodyAt(deviceId, lastSeenAt)
+    alt a custody interval contains the time
+        S->>O: markKeyExposed(orgId)
+        S->>S: custody RENTER
+    else none
+        S->>S: custody TREKLINK
+    end
+    opt suspected theft or fraud
+        S->>O: openOrLink compliance case
+    end
+    S->>R: compareAndSet(id, REPORTED, SEARCHING, searchEndsAt, tx)
+    S-->>C: LossCaseDto SEARCHING
+    C-->>P: 200 envelope
+```
+
+***Figure 9***: UC-60 Resolve Loss Case, part 1 of 2: triage by custody (D-040, D-045).
+
+<!-- sdd: MF-05 seq UC-60 part 2 of 2: confirmation and settlement -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant J as LossSearchJob
+    participant S as LossCaseService
+    participant B as ChargesService
+    participant R as LossCasesRepository
+    actor Ad as TrekLink Admin
+    participant C as LossCasesController
+    J->>R: SEARCHING cases with searchEndsAt passed
+    J->>S: confirm(id, SYSTEM)
+    S->>R: compareAndSet(id, SEARCHING, CONFIRMED, tx)
+    opt RENTER custody
+        S->>B: chargeLoss(contract, device, confirmedAt, tx)
+    end
+    Ad->>C: POST /api/loss-cases/{id}/decision, REDUCED
+    C->>S: decide(id, dto, actor)
+    alt refused: the actor triaged the case
+        S-->>C: 403 SEPARATION_OF_DUTY
+    else accepted: another Admin
+        S->>B: adjustLoss(caseId, REDUCED, chargeVnd, tx)
+        S->>R: compareAndSet(id, CONFIRMED, SETTLED, decision, tx)
+        S->>S: device LOST to RETIRED, rentals sets lostAt
+        S-->>C: LossCaseDto SETTLED
+    end
+```
+
+***Figure 10***: UC-60 Resolve Loss Case, part 2 of 2: confirmation and settlement with the waiver rule
+(BR-39).
+
+<!-- sdd: MF-05 seq UC-62 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ad as TrekLink Admin
+    participant P as DeviceDetailPage
+    participant C as DevicesController
+    participant L as DeviceLifecycleService
+    participant R as DevicesRepository
+    Ad->>P: wipe recorded, method recycled
+    P->>C: POST /api/devices/{id}/dispose
+    C->>L: dispose(id, dto, actor)
+    L->>R: lock and require RETIRED
+    alt refused: a wipe step not done
+        L-->>C: 400 WIPE_INCOMPLETE
+    else accepted: every wipe step done
+        L->>R: insertDisposal(row, tx)
+        L->>R: transition(id, RETIRED, DISPOSED, version, tx)
+        L-->>C: DeviceDto DISPOSED
+        C-->>P: 201 envelope
+    end
+```
+
+***Figure 11***: UC-62 Dispose Device (BR-42).
+
+<!-- sdd: MF-05 class devices-maintenance -->
+```mermaid
+classDiagram
+    class MaintenanceController {
+        +open(deviceId, dto, actor) MaintenanceDto
+        +estimate(recordId, dto, actor) MaintenanceDto
+        +decide(recordId, dto, actor) MaintenanceDto
+        +complete(recordId, dto, actor) MaintenanceDto
+        +list(query) Page
+    }
+    class MaintenanceService {
+        +open(deviceId, dto, actor) MaintenanceRecord
+        +openScheduled(device, reason, dueAt, tx) MaintenanceRecord
+        +estimate(recordId, dto, actor) MaintenanceRecord
+        +decide(recordId, dto, actor) MaintenanceRecord
+        +complete(recordId, dto, actor) MaintenanceRecord
+        +isDue(device, at) bool
+    }
+    class ServiceScanJob {
+        +run()
+    }
+    class MaintenanceRepository {
+        +insert(row, tx) MaintenanceRecord
+        +compareAndSet(id, from, to, patch, tx) bool
+        +dueDevices(windowEnd) Device[]
+        +list(query) Page
+    }
+    class DevicesRepository
+    class ParametersService
+    class MailerService
+    MaintenanceController --> MaintenanceService
+    ServiceScanJob --> MaintenanceService
+    MaintenanceService --> MaintenanceRepository
+    MaintenanceService --> DevicesRepository : transition, serviceDueAt, firmwareVersion
+    MaintenanceService --> ParametersService : lead days, threshold
+    ServiceScanJob --> MailerService : week's list to Staff
+```
+
+***Figure 12***: devices classes for maintenance (D-047). `DevicesService.recordInspection()` calls
+`MaintenanceService.isDue()` and `openScheduled()` for FR-DEV-19.
+
+<!-- sdd: MF-05 seq UC-65 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant J as ServiceScanJob
+    participant S as MaintenanceService
+    participant Pm as ParametersService
+    participant R as MaintenanceRepository
+    participant D as DevicesRepository
+    participant Ml as MailerService
+    J->>Pm: devices.maintenanceLeadDays
+    Pm-->>J: 5
+    J->>R: dueDevices(runDate + 7 + 5 days)
+    R-->>J: due devices, by status
+    loop each due device
+        alt AVAILABLE without an open record
+            J->>S: openScheduled(device, SCHEDULED or FIRMWARE_UPDATE, dueAt, tx)
+            S->>R: insert(record OPEN, opener SYSTEM, tx)
+            S->>D: transition(id, AVAILABLE, MAINTENANCE, version, tx)
+            S-->>J: record
+        else RESERVED or RENTED, or a record already open
+            J->>J: add to the list only
+        end
+    end
+    J->>Ml: send the week's list to TrekLink Staff
+```
+
+***Figure 13***: UC-65 Scan for Due Service. A unit on a contract is listed, never moved (BR-45).
+
+<!-- sdd: MF-05 seq UC-52 part 1 of 2: open and estimate -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as MaintenancePage
+    participant C as MaintenanceController
+    participant S as MaintenanceService
+    participant R as MaintenanceRepository
+    participant D as DevicesRepository
+    St->>P: reason, expected date, vendor, estimate
+    P->>C: POST /api/devices/{id}/maintenance
+    C->>S: open(deviceId, dto, actor)
+    S->>D: lock and require AVAILABLE
+    alt refused: not AVAILABLE, or a record already open
+        S-->>C: 409 INVALID_STATE_TRANSITION or MAINTENANCE_OPEN
+        C-->>P: failure envelope
+    else accepted
+        S->>R: insert(record, estimator, tx)
+        S->>D: transition(id, AVAILABLE, MAINTENANCE, version, tx)
+        alt estimate above devices.maintenanceApprovalThresholdVnd
+            S->>R: status PENDING_APPROVAL, tx
+            S->>S: COMMIT, notify TrekLink Admins
+        else within the threshold, or no estimate yet
+            S->>S: COMMIT, status OPEN
+        end
+        S-->>C: MaintenanceDto
+        C-->>P: 201 envelope
+    end
+```
+
+***Figure 14***: UC-52 Record Maintenance, part 1 of 2: opening with an estimate (FR-DEV-08, FR-DEV-20).
+A record the scan opened gets its estimate through `PATCH .../estimate` with the same threshold check.
+
+<!-- sdd: MF-05 seq UC-52 part 2 of 2: completion -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as MaintenancePage
+    participant C as MaintenanceController
+    participant S as MaintenanceService
+    participant R as MaintenanceRepository
+    participant D as DevicesRepository
+    St->>P: work done, actual cost, checklist, firmware
+    P->>C: PATCH /api/devices/{id}/maintenance/{recordId}
+    C->>S: complete(recordId, dto, actor)
+    S->>R: lock and require OPEN
+    alt refused: checklist item or firmware version missing
+        S-->>C: 400 CHECKLIST_INCOMPLETE or FIRMWARE_VERSION_REQUIRED
+        C-->>P: failure envelope
+    else actual cost above the approved amount
+        S->>R: compareAndSet(id, OPEN, PENDING_APPROVAL, actual cost, tx)
+        S-->>C: MaintenanceDto PENDING_APPROVAL
+        C-->>P: 200 envelope, approval required
+    else accepted
+        S->>R: compareAndSet(id, OPEN, COMPLETED, patch, tx)
+        S->>D: set firmwareVersion, and serviceDueAt for SCHEDULED, tx
+        S-->>C: MaintenanceDto COMPLETED
+        C-->>P: 200 envelope, intake check next
+    end
+```
+
+***Figure 15***: UC-52 Record Maintenance, part 2 of 2: completion (FR-DEV-17, FR-DEV-21). The device stays
+`MAINTENANCE` until it passes the intake check (UC-12).
+
+<!-- sdd: MF-05 seq UC-64 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ad as TrekLink Admin
+    participant P as MaintenanceApprovalPage
+    participant C as MaintenanceController
+    participant S as MaintenanceService
+    participant R as MaintenanceRepository
+    Ad->>P: approve 1 800 000 VND
+    P->>C: POST /api/devices/{id}/maintenance/{recordId}/decision
+    C->>S: decide(recordId, dto, actor)
+    S->>R: lock and require PENDING_APPROVAL
+    alt refused: the Admin recorded the estimate
+        S-->>C: 403 SEPARATION_OF_DUTY
+        C-->>P: failure envelope
+    else accepted: another Admin
+        S->>R: compareAndSet(id, PENDING_APPROVAL, OPEN, decision, tx)
+        S->>S: COMMIT, notify the estimator
+        S-->>C: MaintenanceDto OPEN
+        C-->>P: 200 envelope
+    end
+```
+
+***Figure 16***: UC-64 Approve Maintenance Cost (BR-44). A rejection takes the same path with a reason.
