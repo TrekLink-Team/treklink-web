@@ -59,6 +59,7 @@ Registers a physical unit with its printed asset tag and its radio `nodeNum`, bo
     "batteryPct": null,
     "lastSeenAt": null,
     "lastPosition": null,
+    "serviceDueAt": "2026-12-12",
     "version": 0
   },
   "isSuccess": true,

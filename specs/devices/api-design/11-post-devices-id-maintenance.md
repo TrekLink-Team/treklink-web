@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Moves an `AVAILABLE` device to `MAINTENANCE` for scheduled service or a reported fault, with a reason (FR-DEV-08). A reserved device that fails its check at handover is swapped through the contract instead.
+Moves an `AVAILABLE` device to `MAINTENANCE` for a reported fault, a service or a firmware update, with a reason and an expected completion date (FR-DEV-08). The weekly scan opens `SCHEDULED` and `FIRMWARE_UPDATE` records itself (FR-DEV-18). An estimate above `devices.maintenanceApprovalThresholdVnd` puts the record in `PENDING_APPROVAL` (FR-DEV-20). A reserved device that fails its check at handover is swapped through the contract instead.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for scheduled service or a reported
 | --- | --- |
 | POST | /api/devices/:id/maintenance |
 | Permission | TrekLink Staff |
-| Traces | UC-52, FR-DEV-08 |
+| Traces | UC-52, FR-DEV-08, FR-DEV-20, D-047 |
 
 ### Path parameters
 
@@ -27,16 +27,24 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for scheduled service or a reported
 
 ```json
 {
-  "reason": "SCHEDULED",
-  "description": "Battery replacement",
+  "reason": "STAFF_REPORTED",
+  "description": "Battery does not hold charge",
+  "expectedAt": "2026-10-20",
+  "workBy": "VENDOR",
+  "vendorName": "Hoang Long Electronics",
+  "estimatedCostVnd": 650000,
   "expectedVersion": 5
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| reason | `SCHEDULED` or `STAFF_REPORTED` | enum | yes | `SCHEDULED` |
-| description | What is to be done | string | yes | `Battery replacement` |
+| reason | `STAFF_REPORTED`, `SCHEDULED` or `FIRMWARE_UPDATE` | enum | yes | `STAFF_REPORTED` |
+| description | What is to be done | string | yes | `Battery does not hold charge` |
+| expectedAt | Expected completion date | date | yes | `2026-10-20` |
+| workBy | `IN_HOUSE` or `VENDOR` | enum | no | `VENDOR` |
+| vendorName | Required when workBy is VENDOR | string | no | `Hoang Long Electronics` |
+| estimatedCostVnd | Estimated cost; may be set later | int | no | `650000` |
 | expectedVersion | Device version the caller saw | int | yes | `5` |
 
 ## Response sample
@@ -46,9 +54,24 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for scheduled service or a reported
   "result": {
     "record": {
       "id": "mr-1",
-      "reason": "SCHEDULED",
+      "device": {
+        "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+        "assetTag": "TL-0042"
+      },
+      "reason": "STAFF_REPORTED",
       "status": "OPEN",
-      "openedAt": "2026-10-20T03:15:00.000Z"
+      "description": "Battery does not hold charge",
+      "expectedAt": "2026-10-20",
+      "workBy": "VENDOR",
+      "vendorName": "Hoang Long Electronics",
+      "estimatedCostVnd": 650000,
+      "approvedCostVnd": null,
+      "actualCostVnd": null,
+      "warrantyUntil": null,
+      "checklistResults": null,
+      "firmwareVersion": null,
+      "openedAt": "2026-10-20T03:15:00.000Z",
+      "version": 1
     },
     "device": {
       "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
@@ -71,6 +94,7 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for scheduled service or a reported
         "lat": 11.5544,
         "lon": 108.5381
       },
+      "serviceDueAt": "2026-12-12",
       "version": 5
     }
   },
@@ -189,6 +213,40 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for scheduled service or a reported
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>The device already has an open record (<code>MAINTENANCE_OPEN</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "MAINTENANCE_OPEN"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "Finish the open maintenance record first."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>workBy is VENDOR without a vendor name (<code>VENDOR_REQUIRED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VENDOR_REQUIRED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Name the vendor."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -219,9 +277,19 @@ flowchart TB
     E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require AVAILABLE"]
-    D4 -->|no| P0
-    P1["Insert the record"]
+    D5{"The device already has an open record?"}
+    D4 -->|no| D5
+    E5["Return 409 MAINTENANCE_OPEN"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
+    D6{"workBy is VENDOR without a vendor name?"}
+    D5 -->|no| D6
+    E6["Return 400 VENDOR_REQUIRED"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
+    P0["Require AVAILABLE and no open record"]
+    D6 -->|no| P0
+    P1["Insert the record, OPEN or PENDING_APPROVAL by the estimate"]
     P0 --> P1
     P2["Transition to MAINTENANCE"]
     P1 --> P2
@@ -237,10 +305,10 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as MaintenanceController
-    participant Svc as DeviceLifecycleService
+    participant Svc as MaintenanceService
     participant DB as Postgres
     C->>Ctl: POST /api/devices/:id/maintenance
-    Ctl->>Svc: openMaintenance(id, dto, actor)
+    Ctl->>Svc: open(id, dto, actor)
     Svc->>DB: INSERT maintenance_records, device_transitions, UPDATE devices
     Svc-->>Ctl: result
     Ctl-->>C: 201 envelope

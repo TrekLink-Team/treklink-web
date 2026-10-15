@@ -225,15 +225,16 @@ sequenceDiagram
     participant R as StreamRepository
     X->>Gd: GET /api/telemetry/stream?after=seq with the API key
     Gd->>Gd: resolve key hash, read-only scope, rate limit per minute
-    alt revoked key or over the limit
+    alt refused: revoked key or over the limit
         Gd-->>X: 401 or 429
+    else accepted: valid key within the limit
+        Gd->>C: request with organizationId from the key
+        C->>S: replay(organizationId, after, limit)
+        S->>R: after(organizationId, after, limit)
+        R->>R: SELECT stream_events WHERE organizationId AND seq > after
+        S-->>C: entries attributed to this organization only
+        C-->>X: 200 envelope, next cursor
     end
-    Gd->>C: request with organizationId from the key
-    C->>S: replay(organizationId, after, limit)
-    S->>R: after(organizationId, after, limit)
-    R->>R: SELECT stream_events WHERE organizationId AND seq > after
-    S-->>C: entries attributed to this organization only
-    C-->>X: 200 envelope, next cursor
 ```
 
 ***Figure 5***: UC-39 Stream Telemetry via API (FR-MON-06, BR-36).

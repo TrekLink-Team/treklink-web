@@ -282,14 +282,15 @@ sequenceDiagram
     In->>R: lockOpenByDevice(deviceId, tx)
     alt open incident inside the correlation window
         In->>R: append event, bump count
-    end
-    In->>R: insert(incident DETECTED, tx)
-    In->>Ro: route(incident, attribution, tx)
-    alt event UNATTRIBUTED
-        Ro->>L: apply(id, DETECTED, UNROUTED, SYSTEM, tx)
-    else attributed to a contract
-        Ro->>Os: tiersAt(organizationId, now)
-        Ro->>L: apply(id, DETECTED, first non-empty tier, SYSTEM, tx)
+    else no open incident in the window
+        In->>R: insert(incident DETECTED, tx)
+        In->>Ro: route(incident, attribution, tx)
+        alt event UNATTRIBUTED
+            Ro->>L: apply(id, DETECTED, UNROUTED, SYSTEM, tx)
+        else attributed to a contract
+            Ro->>Os: tiersAt(organizationId, now)
+            Ro->>L: apply(id, DETECTED, first non-empty tier, SYSTEM, tx)
+        end
     end
 ```
 
@@ -335,10 +336,11 @@ sequenceDiagram
         alt a member acknowledged first
             R-->>L: 0 rows
             L-->>J: skip, the human won
+        else still unacknowledged
+            L->>R: insertTransition(row, tx)
+            L->>Ob: enqueue(alerts for the next tier, tx)
+            R->>R: COMMIT
         end
-        L->>R: insertTransition(row, tx)
-        L->>Ob: enqueue(alerts for the next tier, tx)
-        R->>R: COMMIT
     end
     Note over J: after NOTIFY_MANAGER times out the next tier is ESCALATED to TrekLink Staff
 ```
@@ -364,12 +366,13 @@ sequenceDiagram
         R-->>L: 0 rows
         L-->>C: 409 ALREADY_OWNED with the owner
         C-->>P: MSG27 owner shown
+    else first acknowledgement
+        L->>R: insertTransition(row, tx)
+        L->>Ob: enqueue(stream update, tx)
+        R->>R: COMMIT
+        L-->>C: IncidentDto ACKNOWLEDGED
+        C-->>P: 200 envelope, time to acknowledge recorded
     end
-    L->>R: insertTransition(row, tx)
-    L->>Ob: enqueue(stream update, tx)
-    R->>R: COMMIT
-    L-->>C: IncidentDto ACKNOWLEDGED
-    C-->>P: 200 envelope, time to acknowledge recorded
 ```
 
 ***Figure 8***: UC-32 Acknowledge Incident.
@@ -392,14 +395,15 @@ sequenceDiagram
     Op->>P: report the outcome
     P->>C: POST /api/incidents/{id}/resolve
     C->>L: resolve(id, dto, caller)
-    alt caller is not the owner
+    alt refused: caller is not the owner
         L-->>C: 403 NOT_OWNER
+    else accepted: caller is the owner
+        L->>R: compareAndSet(id, ACKNOWLEDGED or RESPONDING, version, resolvedAt, tx)
+        L->>R: insertTransition(row, tx), set reopen window
+        R->>R: COMMIT
+        L-->>C: IncidentDto RESOLVED
+        C-->>P: 200 envelope, time to resolve recorded
     end
-    L->>R: compareAndSet(id, ACKNOWLEDGED or RESPONDING, version, resolvedAt, tx)
-    L->>R: insertTransition(row, tx), set reopen window
-    R->>R: COMMIT
-    L-->>C: IncidentDto RESOLVED
-    C-->>P: 200 envelope, time to resolve recorded
 ```
 
 ***Figure 9***: UC-33 Report Incident Status, ending in `RESOLVED`.
@@ -418,15 +422,16 @@ sequenceDiagram
     P->>C: POST /api/incidents/{id}/authority-reports
     C->>A: reportIncident(id, dto, actor)
     A->>R: lock(id, tx)
-    alt not ESCALATED or UNROUTED
+    alt refused: not ESCALATED or UNROUTED
         A-->>C: 409 INVALID_STATE_TRANSITION
+    else accepted: ESCALATED or UNROUTED
+        A->>R: insert authority_reports
+        A->>L: apply(id, current, REPORTED, actor, tx)
+        L->>R: compareAndSet, insertTransition
+        R->>R: COMMIT
+        A-->>C: IncidentDto REPORTED
+        C-->>P: 200 envelope
     end
-    A->>R: insert authority_reports
-    A->>L: apply(id, current, REPORTED, actor, tx)
-    L->>R: compareAndSet, insertTransition
-    R->>R: COMMIT
-    A-->>C: IncidentDto REPORTED
-    C-->>P: 200 envelope
 ```
 
 ***Figure 10***: UC-35 Report to Authorities (BR-17).

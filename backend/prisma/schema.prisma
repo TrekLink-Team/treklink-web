@@ -170,15 +170,17 @@ model User {
   fieldStationsAsRevokedBy  FieldStation[]           @relation("FieldStation_revokedById")
   rosterShiftsAsCreatedBy   RosterShift[]            @relation("RosterShift_createdById")
 
-  devicesAsRegisteredBy Device[]             @relation("Device_registeredById")
-  deviceTransitions     DeviceTransition[]
-  intakeChecks          IntakeCheck[]
-  deviceProvisionings   DeviceProvisioning[]
-  deviceResets          DeviceReset[]
-  inspections           Inspection[]
-  maintenanceAsOpenedBy MaintenanceRecord[]  @relation("MaintenanceRecord_openedById")
-  maintenanceAsClosedBy MaintenanceRecord[]  @relation("MaintenanceRecord_closedById")
-  stockTakes            StockTake[]
+  devicesAsRegisteredBy    Device[]             @relation("Device_registeredById")
+  deviceTransitions        DeviceTransition[]
+  intakeChecks             IntakeCheck[]
+  deviceProvisionings      DeviceProvisioning[]
+  deviceResets             DeviceReset[]
+  inspections              Inspection[]
+  maintenanceAsOpenedBy    MaintenanceRecord[]  @relation("MaintenanceRecord_openedById")
+  maintenanceAsClosedBy    MaintenanceRecord[]  @relation("MaintenanceRecord_closedById")
+  maintenanceAsEstimatedBy MaintenanceRecord[]  @relation("MaintenanceRecord_estimatedById")
+  maintenanceAsDecidedBy   MaintenanceRecord[]  @relation("MaintenanceRecord_decidedById")
+  stockTakes               StockTake[]
 
   contractsAsRequestedBy       RentalContract[]     @relation("RentalContract_requestedById")
   contractsAsDecidedBy         RentalContract[]     @relation("RentalContract_decidedById")
@@ -585,8 +587,14 @@ enum DeviceStatus {
 
 enum MaintenanceStatus {
   OPEN
+  PENDING_APPROVAL // estimate or actual cost above devices.maintenanceApprovalThresholdVnd (FR-DEV-20, D-047)
   COMPLETED
   UNREPAIRABLE
+}
+
+enum MaintenanceWorkBy {
+  IN_HOUSE
+  VENDOR
 }
 
 enum InspectionResult {
@@ -606,6 +614,8 @@ model HardwareVariant {
   // remaining value by age in whole months, descending; the first row at or below the age wins
   // (FR-BILL-05): [{ "fromMonths": 0, "valueVnd": 2500000 }, { "fromMonths": 12, ... }]
   remainingValueSchedule Json
+  serviceIntervalDays    Int? // days between periodic services; null for none (FR-DEV-04, D-047)
+  serviceChecklist       String[] @default([]) // items checked at each periodic service
   isActive               Boolean  @default(true)
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)
@@ -641,6 +651,7 @@ model Device {
   registeredById    String
   registeredBy      User            @relation("Device_registeredById", fields: [registeredById], references: [id])
   retiredAt         DateTime?       @db.Timestamptz(3)
+  serviceDueAt      DateTime?       @db.Date // next periodic service (FR-DEV-17); null when the variant has no interval
   version           Int             @default(0)
   createdAt         DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
@@ -853,23 +864,43 @@ model Inspection {
 }
 
 model MaintenanceRecord {
-  id          String            @id @default(uuid())
-  deviceId    String
-  device      Device            @relation(fields: [deviceId], references: [id])
-  reason      String // INTAKE_FAILED, INSPECTION_FAILED, HANDOVER_CHECK_FAILED, SCHEDULED, STAFF_REPORTED
-  status      MaintenanceStatus @default(OPEN)
-  description String
-  resolution  String?
-  openedById  String
-  openedBy    User              @relation("MaintenanceRecord_openedById", fields: [openedById], references: [id])
-  closedById  String?
-  closedBy    User?             @relation("MaintenanceRecord_closedById", fields: [closedById], references: [id])
-  openedAt    DateTime          @default(now()) @db.Timestamptz(3)
-  closedAt    DateTime?         @db.Timestamptz(3)
+  id               String             @id @default(uuid())
+  deviceId         String
+  device           Device             @relation(fields: [deviceId], references: [id])
+  reason           String // INTAKE_FAILED, INSPECTION_FAILED, HANDOVER_CHECK_FAILED, SCHEDULED, FIRMWARE_UPDATE, STAFF_REPORTED
+  status           MaintenanceStatus  @default(OPEN)
+  description      String
+  expectedAt       DateTime           @db.Date // expected completion (FR-DEV-08)
+  workBy           MaintenanceWorkBy?
+  vendorName       String? // required when workBy is VENDOR
+  estimatedCostVnd BigInt?
+  estimatedById    String? // separation of duty: never the deciding Admin (BR-44)
+  estimatedBy      User?              @relation("MaintenanceRecord_estimatedById", fields: [estimatedById], references: [id])
+  approvedCostVnd  BigInt?
+  decision         String? // APPROVED, REJECTED
+  decisionReason   String?
+  decidedById      String?
+  decidedBy        User?              @relation("MaintenanceRecord_decidedById", fields: [decidedById], references: [id])
+  decidedAt        DateTime?          @db.Timestamptz(3)
+  actualCostVnd    BigInt?
+  warrantyUntil    DateTime?          @db.Date
+  checklistResults Json? // [{ "item": "Battery health", "passed": true, "note": "replaced" }], required for SCHEDULED
+  firmwareVersion  String? // firmware on the unit after the work; required for FIRMWARE_UPDATE (FR-DEV-21)
+  resolution       String?
+  openedById       String? // null when the weekly scan opened it (SYSTEM)
+  openedBy         User?              @relation("MaintenanceRecord_openedById", fields: [openedById], references: [id])
+  closedById       String?
+  closedBy         User?              @relation("MaintenanceRecord_closedById", fields: [closedById], references: [id])
+  openedAt         DateTime           @default(now()) @db.Timestamptz(3)
+  closedAt         DateTime?          @db.Timestamptz(3)
+  version          Int                @default(0)
 
   @@index([deviceId, status])
+  @@index([status])
   @@index([openedById])
   @@index([closedById])
+  @@index([estimatedById])
+  @@index([decidedById])
   @@map("maintenance_records")
 }
 

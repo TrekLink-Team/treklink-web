@@ -5,14 +5,23 @@ VARIANT = {"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, S
            "hasMotionSensor": False, "mqttCapable": True, "firmwareBaseline": "2.7.19-treklink.3",
            "remainingValueSchedule": [{"fromMonths": 0, "valueVnd": 2500000}, {"fromMonths": 12, "valueVnd": 1800000},
                                       {"fromMonths": 24, "valueVnd": 1200000}],
+           "serviceIntervalDays": 180,
+           "serviceChecklist": ["Battery health", "Antenna and connector", "Enclosure seal", "Button and buzzer"],
            "isActive": True, "deviceCount": 18}
 DEVICE = {"id": DEVICE_ID, "assetTag": "TL-0042", "nodeNum": 2763113171, "nodeId": "!a4b1c2d3",
           "hardwareVariant": {"id": VARIANT_ID, "code": "treklink-v3"}, "firmwareVersion": "2.7.19-treklink.3",
           "acquiredAt": "2026-06-15T00:00:00Z", "status": "AVAILABLE", "statusChangedAt": NOW,
           "keyVersion": None, "keyOrganizationId": None, "batteryPct": 96, "lastSeenAt": NOW,
-          "lastPosition": {"lat": 11.5544, "lon": 108.5381}, "version": 5}
+          "lastPosition": {"lat": 11.5544, "lon": 108.5381}, "serviceDueAt": "2026-12-12", "version": 5}
 DEV_PATH = ["id", "Device id", "uuid", f"`{DEVICE_ID}`"]
 VERSION = ["expectedVersion", "Device version the caller saw", "int", "yes", "`5`"]
+
+MREC = {"id": "mr-1", "device": {"id": DEVICE_ID, "assetTag": "TL-0042"}, "reason": "SCHEDULED", "status": "OPEN",
+        "description": "Six-month service", "expectedAt": "2026-10-20", "workBy": "VENDOR", "vendorName": "Hoang Long Electronics",
+        "estimatedCostVnd": 650000, "approvedCostVnd": None, "actualCostVnd": None, "warrantyUntil": None,
+        "checklistResults": None, "firmwareVersion": None, "openedAt": NOW, "version": 1}
+MR_PATH = ["recordId", "Maintenance record id", "uuid", "`mr-1`"]
+MR_VERSION = ["expectedVersion", "Record version the caller saw", "int", "yes", "`1`"]
 
 LOSS = {"id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", "code": "LOSS-0003", "device": {"id": DEVICE_ID, "assetTag": "TL-0042"},
         "state": "SEARCHING", "stateFromDevice": "RENTED", "reportedAt": NOW, "description": "Last seen at Phan Dung camp",
@@ -34,30 +43,38 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT hardware_variants"]),
 
     ep("POST", "/api/hardware-variants", "Create a hardware variant", "TrekLink Admin",
-       "Adds a device model with its sensors, firmware baseline and remaining-value schedule (FR-DEV-04).",
+       "Adds a device model with its sensors, firmware baseline, remaining-value schedule and service plan (FR-DEV-04, D-047).",
        "UC-13, FR-DEV-04, FR-BILL-05",
        body=[["code", "Stable code", "string", "yes", "`treklink-v4`"], ["name", "Display name", "string", "yes", "`TrekLink v4`"],
              ["hasGps", "Has a GPS receiver", "bool", "yes", "`true`"],
              ["hasMotionSensor", "Has an IMU; adds the motion row to the intake check", "bool", "yes", "`true`"],
              ["mqttCapable", "False for builds with MQTT compiled out (v1)", "bool", "yes", "`true`"],
              ["firmwareBaseline", "Firmware the variant ships with", "string", "yes", "`2.7.19-treklink.4`"],
-             ["remainingValueSchedule", "Descending value by age in months; first row fromMonths 0", "json", "yes", "see sample"]],
-       sample={k: VARIANT[k] for k in ("hasGps", "hasMotionSensor", "mqttCapable", "remainingValueSchedule")}
+             ["remainingValueSchedule", "Descending value by age in months; first row fromMonths 0", "json", "yes", "see sample"],
+             ["serviceIntervalDays", "Days between periodic services; null for none (D-047)", "int", "no", "`180`"],
+             ["serviceChecklist", "Items checked at each periodic service; required with an interval", "string[]", "no", "see sample"]],
+       sample={k: VARIANT[k] for k in ("hasGps", "hasMotionSensor", "mqttCapable", "remainingValueSchedule",
+                                       "serviceIntervalDays", "serviceChecklist")}
               | {"code": "treklink-v4", "name": "TrekLink v4 (GPS, SOS, fall detection)", "firmwareBaseline": "2.7.19-treklink.4"},
        response={**VARIANT, "code": "treklink-v4", "deviceCount": 0}, status=201, message="Saved.",
        errors=[(409, "CONFLICT_UNIQUE", "The code exists", "treklink-v4 is already registered."),
                (400, "SCHEDULE_INVALID", "The schedule does not start at 0 months or is not descending",
-                "remainingValueSchedule must start at 0 months and never increase.")],
-       steps=["Validate the schedule", "Insert the variant"],
+                "remainingValueSchedule must start at 0 months and never increase."),
+               (400, "CHECKLIST_REQUIRED", "An interval is set without a checklist", "Add at least one service checklist item.")],
+       steps=["Validate the schedule and the service plan", "Insert the variant"],
        controller="VariantsController", service="VariantsService", call="create(dto, actor)",
        seq=["Svc->>DB: INSERT hardware_variants"]),
 
     ep("PATCH", "/api/hardware-variants/:id", "Edit a hardware variant", "TrekLink Admin",
-       "Edits a variant's name, baseline, schedule or active flag. Sensor flags are fixed once devices "
-       "exist, because past intake checks depend on them.", "UC-13, FR-DEV-04",
+       "Edits a variant's name, baseline, schedule, service plan or active flag. Sensor flags are fixed once devices "
+       "exist, because past intake checks depend on them. A new interval applies from each device's next completed "
+       "service; a new baseline makes the weekly scan flag every device on an older firmware (D-047).", "UC-13, FR-DEV-04, FR-DEV-18",
        path=[["id", "Variant id", "uuid", f"`{VARIANT_ID}`"]],
        body=[["name", "Name", "string", "no", "`...`"], ["firmwareBaseline", "Baseline", "string", "no", "`...`"],
-             ["remainingValueSchedule", "Schedule", "json", "no", "`[...]`"], ["isActive", "Offer in new requests", "bool", "no", "`false`"]],
+             ["remainingValueSchedule", "Schedule", "json", "no", "`[...]`"],
+             ["serviceIntervalDays", "Days between services, or null", "int", "no", "`180`"],
+             ["serviceChecklist", "Service checklist items", "string[]", "no", "`[...]`"],
+             ["isActive", "Offer in new requests", "bool", "no", "`false`"]],
        sample={"isActive": False}, response={**VARIANT, "isActive": False}, message="Saved.", entity="Hardware variant",
        errors=[(409, "VARIANT_IN_USE", "A sensor flag change was attempted while devices exist",
                 "Sensor flags cannot change once devices are registered.")],
@@ -162,33 +179,111 @@ ENDPOINTS = [
        seq=["Svc->>DB: INSERT device_resets; UPDATE devices"]),
 
     ep("POST", "/api/devices/:id/maintenance", "Open maintenance", "TrekLink Staff",
-       "Moves an `AVAILABLE` device to `MAINTENANCE` for scheduled service or a reported fault, with a "
-       "reason (FR-DEV-08). A reserved device that fails its check at handover is swapped through the "
-       "contract instead.", "UC-52, FR-DEV-08",
+       "Moves an `AVAILABLE` device to `MAINTENANCE` for a reported fault, a service or a firmware update, with a "
+       "reason and an expected completion date (FR-DEV-08). The weekly scan opens `SCHEDULED` and `FIRMWARE_UPDATE` "
+       "records itself (FR-DEV-18). An estimate above `devices.maintenanceApprovalThresholdVnd` puts the record in "
+       "`PENDING_APPROVAL` (FR-DEV-20). A reserved device that fails its check at handover is swapped through the "
+       "contract instead.", "UC-52, FR-DEV-08, FR-DEV-20, D-047",
        path=[DEV_PATH],
-       body=[["reason", "`SCHEDULED` or `STAFF_REPORTED`", "enum", "yes", "`SCHEDULED`"],
-             ["description", "What is to be done", "string", "yes", "`Battery replacement`"], VERSION],
-       sample={"reason": "SCHEDULED", "description": "Battery replacement", "expectedVersion": 5},
-       response={"record": {"id": "mr-1", "reason": "SCHEDULED", "status": "OPEN", "openedAt": NOW},
+       body=[["reason", "`STAFF_REPORTED`, `SCHEDULED` or `FIRMWARE_UPDATE`", "enum", "yes", "`STAFF_REPORTED`"],
+             ["description", "What is to be done", "string", "yes", "`Battery does not hold charge`"],
+             ["expectedAt", "Expected completion date", "date", "yes", "`2026-10-20`"],
+             ["workBy", "`IN_HOUSE` or `VENDOR`", "enum", "no", "`VENDOR`"],
+             ["vendorName", "Required when workBy is VENDOR", "string", "no", "`Hoang Long Electronics`"],
+             ["estimatedCostVnd", "Estimated cost; may be set later", "int", "no", "`650000`"], VERSION],
+       sample={"reason": "STAFF_REPORTED", "description": "Battery does not hold charge", "expectedAt": "2026-10-20",
+               "workBy": "VENDOR", "vendorName": "Hoang Long Electronics", "estimatedCostVnd": 650000, "expectedVersion": 5},
+       response={"record": {**MREC, "reason": "STAFF_REPORTED", "description": "Battery does not hold charge"},
                  "device": {**DEVICE, "status": "MAINTENANCE"}}, status=201, message="Maintenance opened",
-       entity="Device", errors=[state_409("device", "RENTED"), STALE],
-       steps=["Require AVAILABLE", "Insert the record", "Transition to MAINTENANCE"],
-       controller="MaintenanceController", service="DeviceLifecycleService", call="openMaintenance(id, dto, actor)",
+       entity="Device",
+       errors=[state_409("device", "RENTED"), STALE,
+               (409, "MAINTENANCE_OPEN", "The device already has an open record", "Finish the open maintenance record first."),
+               (400, "VENDOR_REQUIRED", "workBy is VENDOR without a vendor name", "Name the vendor.")],
+       steps=["Require AVAILABLE and no open record", "Insert the record, OPEN or PENDING_APPROVAL by the estimate",
+              "Transition to MAINTENANCE"],
+       controller="MaintenanceController", service="MaintenanceService", call="open(id, dto, actor)",
        seq=["Svc->>DB: INSERT maintenance_records, device_transitions; UPDATE devices"]),
 
-    ep("PATCH", "/api/devices/:id/maintenance/:recordId", "Close maintenance", "TrekLink Staff",
-       "Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device stays "
-       "`MAINTENANCE` until it passes an intake check (FR-DEV-08); an unrepairable one waits for an Admin "
-       "to retire it.", "UC-52, FR-DEV-08",
-       path=[DEV_PATH, ["recordId", "Maintenance record id", "uuid", "`mr-1`"]],
-       body=[["status", "`COMPLETED` or `UNREPAIRABLE`", "enum", "yes", "`COMPLETED`"],
-             ["resolution", "What was done", "string", "yes", "`Battery replaced`"]],
-       sample={"status": "COMPLETED", "resolution": "Battery replaced"},
-       response={"id": "mr-1", "status": "COMPLETED", "closedAt": NOW}, message="Maintenance closed",
-       entity="Maintenance record", errors=[state_409("maintenance record", "COMPLETED")],
-       steps=["Require OPEN", "Close the record"], controller="MaintenanceController",
-       service="DeviceLifecycleService", call="closeMaintenance(id, recordId, dto, actor)",
+    ep("PATCH", "/api/devices/:id/maintenance/:recordId/estimate", "Record a maintenance estimate", "TrekLink Staff",
+       "Sets or revises who does the work and its estimated cost on an `OPEN` record, for example one the weekly "
+       "scan opened or one an Admin rejected. Above `devices.maintenanceApprovalThresholdVnd` the record becomes "
+       "`PENDING_APPROVAL` (FR-DEV-20, BR-44).", "UC-52, UC-64, FR-DEV-20, BR-44",
+       path=[DEV_PATH, MR_PATH],
+       body=[["workBy", "`IN_HOUSE` or `VENDOR`", "enum", "yes", "`VENDOR`"],
+             ["vendorName", "Required when workBy is VENDOR", "string", "no", "`Hoang Long Electronics`"],
+             ["estimatedCostVnd", "Estimated cost", "int", "yes", "`1800000`"], MR_VERSION],
+       sample={"workBy": "VENDOR", "vendorName": "Hoang Long Electronics", "estimatedCostVnd": 1800000, "expectedVersion": 1},
+       response={**MREC, "status": "PENDING_APPROVAL", "estimatedCostVnd": 1800000, "version": 2},
+       message="Estimate recorded; Admin approval required", entity="Maintenance record",
+       errors=[state_409("maintenance record", "PENDING_APPROVAL"), STALE,
+               (400, "VENDOR_REQUIRED", "workBy is VENDOR without a vendor name", "Name the vendor.")],
+       steps=["Require OPEN", "Record the estimate and its author",
+              "Set PENDING_APPROVAL and notify the Admins when above the threshold"],
+       controller="MaintenanceController", service="MaintenanceService", call="estimate(recordId, dto, actor)",
        seq=["Svc->>DB: UPDATE maintenance_records"]),
+
+    ep("POST", "/api/devices/:id/maintenance/:recordId/decision", "Approve or reject a maintenance cost", "TrekLink Admin",
+       "Approves an amount or rejects the estimate with a reason. Either way the record returns to `OPEN`: "
+       "approved, the work can be completed up to the amount; rejected, Staff re-estimate or close it "
+       "`UNREPAIRABLE`. The Admin is never the person who recorded the estimate (FR-DEV-20, BR-44).",
+       "UC-64, FR-DEV-20, BR-44",
+       path=[DEV_PATH, MR_PATH],
+       body=[["decision", "`APPROVED` or `REJECTED`", "enum", "yes", "`APPROVED`"],
+             ["approvedCostVnd", "Approved amount, for APPROVED", "int", "no", "`1800000`"],
+             ["reason", "Required for REJECTED", "string", "no", "`...`"], MR_VERSION],
+       sample={"decision": "APPROVED", "approvedCostVnd": 1800000, "expectedVersion": 2},
+       response={**MREC, "status": "OPEN", "estimatedCostVnd": 1800000, "approvedCostVnd": 1800000, "version": 3},
+       message="Maintenance cost approved", entity="Maintenance record",
+       errors=[(403, "SEPARATION_OF_DUTY", "The caller recorded the estimate", "A different Admin must approve this cost."),
+               state_409("maintenance record", "OPEN"), STALE],
+       steps=["Require PENDING_APPROVAL and the caller not the estimator", "Record the decision, the amount or the reason",
+              "Return the record to OPEN"],
+       controller="MaintenanceController", service="MaintenanceService", call="decide(recordId, dto, actor)",
+       seq=["Svc->>DB: UPDATE maintenance_records; INSERT audit"]),
+
+    ep("PATCH", "/api/devices/:id/maintenance/:recordId", "Complete or close maintenance", "TrekLink Staff",
+       "Completes a record with the work done, the actual cost, any vendor warranty date, a result per checklist "
+       "item for `SCHEDULED` and the new firmware version for `FIRMWARE_UPDATE`, or closes it `UNREPAIRABLE` for an "
+       "Admin to retire the device. An actual cost above the approved amount, or above the threshold when nothing "
+       "was approved, returns the record to `PENDING_APPROVAL` instead. A completed device stays `MAINTENANCE` "
+       "until it passes an intake check; a completed `SCHEDULED` record moves `serviceDueAt` forward by the "
+       "variant's interval (FR-DEV-08, FR-DEV-17, FR-DEV-21).", "UC-52, FR-DEV-08, FR-DEV-17, FR-DEV-20, FR-DEV-21",
+       path=[DEV_PATH, MR_PATH],
+       body=[["status", "`COMPLETED` or `UNREPAIRABLE`", "enum", "yes", "`COMPLETED`"],
+             ["resolution", "What was done", "string", "yes", "`Battery and seal replaced`"],
+             ["actualCostVnd", "Required for COMPLETED", "int", "no", "`620000`"],
+             ["warrantyUntil", "Vendor warranty on the work", "date", "no", "`2027-01-20`"],
+             ["checklistResults", "One result per checklist item; required for SCHEDULED", "json", "no", "see sample"],
+             ["firmwareVersion", "Firmware now on the unit; required for FIRMWARE_UPDATE", "string", "no", "`2.7.19-treklink.4`"],
+             MR_VERSION],
+       sample={"status": "COMPLETED", "resolution": "Battery and seal replaced", "actualCostVnd": 620000,
+               "warrantyUntil": "2027-01-20", "expectedVersion": 3,
+               "checklistResults": [{"item": "Battery health", "passed": True, "note": "replaced"},
+                                    {"item": "Antenna and connector", "passed": True},
+                                    {"item": "Enclosure seal", "passed": True, "note": "replaced"},
+                                    {"item": "Button and buzzer", "passed": True}]},
+       response={**MREC, "status": "COMPLETED", "actualCostVnd": 620000, "warrantyUntil": "2027-01-20",
+                 "closedAt": NOW, "version": 4}, message="Maintenance completed",
+       entity="Maintenance record",
+       errors=[state_409("maintenance record", "PENDING_APPROVAL"), STALE,
+               (400, "CHECKLIST_INCOMPLETE", "A checklist item of a SCHEDULED record has no result", "Record every checklist item."),
+               (400, "FIRMWARE_VERSION_REQUIRED", "A FIRMWARE_UPDATE record without the new version", "Enter the firmware version now on the unit.")],
+       steps=["Require OPEN", "Validate checklist and firmware for the reason",
+              "Above the approved amount: set PENDING_APPROVAL and stop",
+              "Close the record; update firmwareVersion; move serviceDueAt for SCHEDULED"],
+       controller="MaintenanceController", service="MaintenanceService", call="complete(recordId, dto, actor)",
+       seq=["Svc->>DB: UPDATE maintenance_records; UPDATE devices firmwareVersion, serviceDueAt"]),
+
+    ep("GET", "/api/maintenance-records", "List maintenance records", "TrekLink Staff, TrekLink Admin",
+       "Lists records by status and reason, for the week's service list (FR-DEV-18) and the Admins' approval queue "
+       "(FR-DEV-20). `dueBefore` adds the devices due for service that are still `RESERVED` or `RENTED`.",
+       "UC-52, UC-64, UC-65, FR-DEV-18, FR-DEV-20",
+       query=[["status", "OPEN, PENDING_APPROVAL, COMPLETED or UNREPAIRABLE, repeatable", "enum", "no", "`PENDING_APPROVAL`"],
+              ["reason", "Reason, repeatable", "enum", "no", "`SCHEDULED`"],
+              ["dueBefore", "Also list devices on contracts due before this date", "date", "no", "`2026-10-26`"]] + PAGE_QUERY,
+       response=paged(MREC, 6), steps=["Read records", "Add due devices on contracts when dueBefore is given"],
+       controller="MaintenanceController", service="MaintenanceService", call="list(query)",
+       seq=["Svc->>DB: SELECT maintenance_records, devices"]),
 
     ep("POST", "/api/devices/:id/retire", "Retire a device", "TrekLink Admin",
        "Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the "
