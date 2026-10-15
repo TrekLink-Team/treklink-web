@@ -1,4 +1,4 @@
-# PATCH /api/devices/:id/maintenance/:recordId: Close maintenance
+# POST /api/devices/:id/maintenance/:recordId/decision: Approve or reject a maintenance cost
 
 > Module `devices`. Generated from `scripts/specs/endpoints/devices.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
 
@@ -7,15 +7,15 @@
 ---
 ## Overview
 
-Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device stays `MAINTENANCE` until it passes an intake check (FR-DEV-08); an unrepairable one waits for an Admin to retire it.
+Approves an amount or rejects the estimate with a reason. Either way the record returns to `OPEN`: approved, the work can be completed up to the amount; rejected, Staff re-estimate or close it `UNREPAIRABLE`. The Admin is never the person who recorded the estimate (FR-DEV-20, BR-44).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
-| PATCH | /api/devices/:id/maintenance/:recordId |
-| Permission | TrekLink Staff |
-| Traces | UC-52, FR-DEV-08 |
+| POST | /api/devices/:id/maintenance/:recordId/decision |
+| Permission | TrekLink Admin |
+| Traces | UC-64, FR-DEV-20, BR-44 |
 
 ### Path parameters
 
@@ -28,15 +28,18 @@ Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device
 
 ```json
 {
-  "status": "COMPLETED",
-  "resolution": "Battery replaced"
+  "decision": "APPROVED",
+  "approvedCostVnd": 1800000,
+  "expectedVersion": 2
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| status | `COMPLETED` or `UNREPAIRABLE` | enum | yes | `COMPLETED` |
-| resolution | What was done | string | yes | `Battery replaced` |
+| decision | `APPROVED` or `REJECTED` | enum | yes | `APPROVED` |
+| approvedCostVnd | Approved amount, for APPROVED | int | no | `1800000` |
+| reason | Required for REJECTED | string | no | `...` |
+| expectedVersion | Record version the caller saw | int | yes | `1` |
 
 ## Response sample
 
@@ -44,12 +47,28 @@ Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device
 {
   "result": {
     "id": "mr-1",
-    "status": "COMPLETED",
-    "closedAt": "2026-10-20T03:15:00.000Z"
+    "device": {
+      "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+      "assetTag": "TL-0042"
+    },
+    "reason": "SCHEDULED",
+    "status": "OPEN",
+    "description": "Six-month service",
+    "expectedAt": "2026-10-20",
+    "workBy": "VENDOR",
+    "vendorName": "Hoang Long Electronics",
+    "estimatedCostVnd": 1800000,
+    "approvedCostVnd": 1800000,
+    "actualCostVnd": null,
+    "warrantyUntil": null,
+    "checklistResults": null,
+    "firmwareVersion": null,
+    "openedAt": "2026-10-20T03:15:00.000Z",
+    "version": 3
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Maintenance closed"
+  "message": "Maintenance cost approved"
 }
 ```
 
@@ -129,6 +148,23 @@ Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device
 </td>
         </tr>
         <tr>
+            <td>403</td>
+            <td>The caller recorded the estimate (<code>SEPARATION_OF_DUTY</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "SEPARATION_OF_DUTY"
+  },
+  "isSuccess": false,
+  "statusCode": 403,
+  "message": "A different Admin must approve this cost."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>The maintenance record is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
@@ -140,7 +176,24 @@ Closes a maintenance record as `COMPLETED` or `UNREPAIRABLE`. A completed device
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is COMPLETED."
+  "message": "This cannot be done while it is OPEN."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "STALE_VERSION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This was changed by someone else. Reload and try again."
 }
 ```
 </td>
@@ -170,12 +223,19 @@ flowchart TB
     E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    P0["Require OPEN"]
-    D3 -->|no| P0
-    P1["Close the record"]
+    D4{"Another user changed the record first (expectedVersion differs)?"}
+    D3 -->|no| D4
+    E4["Return 409 STALE_VERSION"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
+    P0["Require PENDING_APPROVAL and the caller not the estimator"]
+    D4 -->|no| P0
+    P1["Record the decision, the amount or the reason"]
     P0 --> P1
+    P2["Return the record to OPEN"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -186,11 +246,11 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as MaintenanceController
-    participant Svc as DeviceLifecycleService
+    participant Svc as MaintenanceService
     participant DB as Postgres
-    C->>Ctl: PATCH /api/devices/:id/maintenance/:recordId
-    Ctl->>Svc: closeMaintenance(id, recordId, dto, actor)
-    Svc->>DB: UPDATE maintenance_records
+    C->>Ctl: POST /api/devices/:id/maintenance/:recordId/decision
+    Ctl->>Svc: decide(recordId, dto, actor)
+    Svc->>DB: UPDATE maintenance_records, INSERT audit
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

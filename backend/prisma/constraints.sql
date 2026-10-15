@@ -99,3 +99,17 @@ ALTER TABLE "compliance_cases"
   ADD CONSTRAINT "compliance_cases_police_reference_to_close"
   CHECK ("status" <> 'CLOSED' OR "type" NOT IN ('SUSPECTED_FRAUD', 'SUSPECTED_THEFT')
          OR "authorityReference" IS NOT NULL);
+
+-- devices, FR-DEV-08 and D-047: at most one open maintenance record per device.
+CREATE UNIQUE INDEX "maintenance_records_one_open_per_device"
+  ON "maintenance_records" ("deviceId")
+  WHERE "status" NOT IN ('COMPLETED', 'UNREPAIRABLE');
+
+-- devices, FR-DEV-20 and BR-44: the Admin who decides a maintenance cost never recorded the estimate.
+ALTER TABLE "maintenance_records"
+  ADD CONSTRAINT "maintenance_records_decider_not_estimator"
+  CHECK ("decidedById" IS NULL OR "estimatedById" IS NULL OR "decidedById" <> "estimatedById"),
+  ADD CONSTRAINT "maintenance_records_vendor_named"
+  CHECK ("workBy" IS DISTINCT FROM 'VENDOR' OR "vendorName" IS NOT NULL),
+  ADD CONSTRAINT "maintenance_records_firmware_on_completion"
+  CHECK ("status" <> 'COMPLETED' OR "reason" <> 'FIRMWARE_UPDATE' OR "firmwareVersion" IS NOT NULL);

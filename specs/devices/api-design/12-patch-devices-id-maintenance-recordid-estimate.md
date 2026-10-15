@@ -1,4 +1,4 @@
-# POST /api/devices/:id/retire: Retire a device
+# PATCH /api/devices/:id/maintenance/:recordId/estimate: Record a maintenance estimate
 
 > Module `devices`. Generated from `scripts/specs/endpoints/devices.py` by `scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: `02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.
 
@@ -7,66 +7,69 @@
 ---
 ## Overview
 
-Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the device is on a running contract (FR-DEV-09). A lost device is retired by settling its loss case (FR-DEV-15).
+Sets or revises who does the work and its estimated cost on an `OPEN` record, for example one the weekly scan opened or one an Admin rejected. Above `devices.maintenanceApprovalThresholdVnd` the record becomes `PENDING_APPROVAL` (FR-DEV-20, BR-44).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
-| POST | /api/devices/:id/retire |
-| Permission | TrekLink Admin |
-| Traces | UC-53, FR-DEV-09 |
+| PATCH | /api/devices/:id/maintenance/:recordId/estimate |
+| Permission | TrekLink Staff |
+| Traces | UC-52, UC-64, FR-DEV-20, BR-44 |
 
 ### Path parameters
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
 | id | Device id | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| recordId | Maintenance record id | uuid | `mr-1` |
 
 ## Request sample
 
 ```json
 {
-  "reason": "Unrepairable water damage",
-  "expectedVersion": 12
+  "workBy": "VENDOR",
+  "vendorName": "Hoang Long Electronics",
+  "estimatedCostVnd": 1800000,
+  "expectedVersion": 1
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| reason | Why | string | yes | `Unrepairable water damage` |
-| expectedVersion | Device version the caller saw | int | yes | `5` |
+| workBy | `IN_HOUSE` or `VENDOR` | enum | yes | `VENDOR` |
+| vendorName | Required when workBy is VENDOR | string | no | `Hoang Long Electronics` |
+| estimatedCostVnd | Estimated cost | int | yes | `1800000` |
+| expectedVersion | Record version the caller saw | int | yes | `1` |
 
 ## Response sample
 
 ```json
 {
   "result": {
-    "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
-    "assetTag": "TL-0042",
-    "nodeNum": 2763113171,
-    "nodeId": "!a4b1c2d3",
-    "hardwareVariant": {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "code": "treklink-v3"
+    "id": "mr-1",
+    "device": {
+      "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+      "assetTag": "TL-0042"
     },
-    "firmwareVersion": "2.7.19-treklink.3",
-    "acquiredAt": "2026-06-15T00:00:00Z",
-    "status": "RETIRED",
-    "statusChangedAt": "2026-10-20T03:15:00.000Z",
-    "keyVersion": null,
-    "keyOrganizationId": null,
-    "batteryPct": 96,
-    "lastSeenAt": "2026-10-20T03:15:00.000Z",
-    "lastPosition": {
-      "lat": 11.5544,
-      "lon": 108.5381
-    },
-    "version": 5
+    "reason": "SCHEDULED",
+    "status": "PENDING_APPROVAL",
+    "description": "Six-month service",
+    "expectedAt": "2026-10-20",
+    "workBy": "VENDOR",
+    "vendorName": "Hoang Long Electronics",
+    "estimatedCostVnd": 1800000,
+    "approvedCostVnd": null,
+    "actualCostVnd": null,
+    "warrantyUntil": null,
+    "checklistResults": null,
+    "firmwareVersion": null,
+    "openedAt": "2026-10-20T03:15:00.000Z",
+    "version": 2
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Device retired"
+  "message": "Estimate recorded; Admin approval required"
 }
 ```
 
@@ -140,14 +143,14 @@ Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; re
   },
   "isSuccess": false,
   "statusCode": 404,
-  "message": "Device not found."
+  "message": "Maintenance record not found."
 }
 ```
 </td>
         </tr>
         <tr>
             <td>409</td>
-            <td>The device is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+            <td>The maintenance record is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
 ```json
@@ -157,7 +160,7 @@ Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; re
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is RENTED."
+  "message": "This cannot be done while it is PENDING_APPROVAL."
 }
 ```
 </td>
@@ -175,6 +178,23 @@ Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; re
   "isSuccess": false,
   "statusCode": 409,
   "message": "This was changed by someone else. Reload and try again."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>workBy is VENDOR without a vendor name (<code>VENDOR_REQUIRED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VENDOR_REQUIRED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Name the vendor."
 }
 ```
 </td>
@@ -199,7 +219,7 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The device is not in a state that allows this?"}
+    D3{"The maintenance record is not in a state that allows this?"}
     D2 -->|no| D3
     E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
@@ -209,12 +229,19 @@ flowchart TB
     E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require MAINTENANCE"]
-    D4 -->|no| P0
-    P1["Transition to RETIRED, set retiredAt"]
+    D5{"workBy is VENDOR without a vendor name?"}
+    D4 -->|no| D5
+    E5["Return 400 VENDOR_REQUIRED"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
+    P0["Require OPEN"]
+    D5 -->|no| P0
+    P1["Record the estimate and its author"]
     P0 --> P1
+    P2["Set PENDING_APPROVAL and notify the Admins when above the threshold"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -224,12 +251,12 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as DevicesController
-    participant Svc as DeviceLifecycleService
+    participant Ctl as MaintenanceController
+    participant Svc as MaintenanceService
     participant DB as Postgres
-    C->>Ctl: POST /api/devices/:id/retire
-    Ctl->>Svc: retire(id, dto, actor)
-    Svc->>DB: INSERT device_transitions, UPDATE devices
+    C->>Ctl: PATCH /api/devices/:id/maintenance/:recordId/estimate
+    Ctl->>Svc: estimate(recordId, dto, actor)
+    Svc->>DB: UPDATE maintenance_records
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

@@ -62,7 +62,7 @@ stateDiagram-v2
     CLOSED --> [*]
 ```
 
-***Figure 2***: Rental-contract lifecycle; SRS Figure 28. Devices checked in early, while a day plan is
+***Figure 2***: Rental-contract lifecycle; SRS Figure 29. Devices checked in early, while a day plan is
 `ACTIVE` or a monthly contract `ENDING`, stay checked in; when the plan or term ends, the job moves the
 contract to `RETURN_DUE` and, finding every device back or lost, straight on to `RETURNED` in the same
 transaction. No edge outside D-035 is needed.
@@ -295,15 +295,16 @@ sequenceDiagram
     P->>C: POST /api/contracts
     C->>S: request(dto, caller)
     S->>O: assertActive(orgId)
-    alt organization not ACTIVE
+    alt refused: organization not ACTIVE
         S-->>C: 409 ORGANIZATION_NOT_ACTIVE
+    else accepted: organization ACTIVE
+        S->>S: minimum order quantity, day-plan length
+        S->>Pr: snapshot(variantId)
+        S->>R: insertRequested(contract, snapshot, tx)
+        R->>R: INSERT REQUESTED and transition
+        S-->>C: ContractDto REQUESTED
+        C-->>P: 201 envelope
     end
-    S->>S: minimum order quantity, day-plan length
-    S->>Pr: snapshot(variantId)
-    S->>R: insertRequested(contract, snapshot, tx)
-    R->>R: INSERT REQUESTED and transition
-    S-->>C: ContractDto REQUESTED
-    C-->>P: 201 envelope
 ```
 
 ***Figure 5***: UC-15 Request Rental Contract. The quote shown before the request is `POST /api/quotes`,
@@ -325,14 +326,15 @@ sequenceDiagram
     C->>L: approve(id, dto, actor)
     L->>R: lockById(id, tx)
     L->>D: reserve(variantId, quantity, id, tx)
-    alt fewer AVAILABLE than requested
+    alt refused: fewer AVAILABLE than requested
         L-->>C: 409 INSUFFICIENT_DEVICES, rolled back
+    else accepted: enough AVAILABLE
+        L->>R: insertContractDevices(rows, tx)
+        L->>I: issueTermInvoice(contract, term 1, tx)
+        L->>R: transition(id, REQUESTED, APPROVED, version, tx)
+        L-->>C: ContractDto APPROVED
+        C-->>P: 200 envelope
     end
-    L->>R: insertContractDevices(rows, tx)
-    L->>I: issueTermInvoice(contract, term 1, tx)
-    L->>R: transition(id, REQUESTED, APPROVED, version, tx)
-    L-->>C: ContractDto APPROVED
-    C-->>P: 200 envelope
 ```
 
 ***Figure 6***: UC-17 Approve Rental Contract. `reserve` locks `AVAILABLE` devices with `SKIP LOCKED`
@@ -377,16 +379,17 @@ sequenceDiagram
     P->>C: POST /api/contracts/{id}/handover
     C->>H: complete(id, dto, actor)
     H->>B: firstPaymentConfirmed(id)
-    alt not paid
+    alt refused: not paid
         H-->>C: 409 FIRST_PAYMENT_MISSING, MSG23
+    else accepted: paid
+        H->>D: assertReadyForHandover(deviceIds, keyVersion)
+        H->>H: render PDF with signature, store it with its SHA-256
+        H->>D: markRented(deviceIds, tx)
+        H->>R: setHandedOver(rows, now, tx)
+        H->>R: transition(id, APPROVED, ACTIVE, version, tx)
+        H-->>C: ContractDto ACTIVE
+        C-->>P: 200 envelope
     end
-    H->>D: assertReadyForHandover(deviceIds, keyVersion)
-    H->>H: render PDF with signature, store it with its SHA-256
-    H->>D: markRented(deviceIds, tx)
-    H->>R: setHandedOver(rows, now, tx)
-    H->>R: transition(id, APPROVED, ACTIVE, version, tx)
-    H-->>C: ContractDto ACTIVE
-    C-->>P: 200 envelope
 ```
 
 ***Figure 8***: UC-20 Hand Over Devices, part 2 of 2: UC-21 Sign Handover Note and activation.
@@ -407,19 +410,20 @@ sequenceDiagram
     P->>C: POST /api/contracts/{id}/check-ins
     C->>S: checkIn(id, dto, actor)
     S->>R: lockById(id, tx)
-    alt tag not on this contract
+    alt refused: tag not on this contract
         S-->>C: 409 DEVICE_NOT_ON_CONTRACT, MSG12
+    else accepted: tag on this contract
+        loop each device
+            S->>R: setCheckedIn(contractDeviceId, now, actor, tx)
+            S->>D: markReturned(deviceId, tx)
+            S->>Ch: chargeLate(contract, device, checkedInAt, tx)
+        end
+        opt every device back or lost
+            S->>R: transition(id, current, RETURNED, version, tx)
+        end
+        S-->>C: CheckInDto
+        C-->>P: 200 envelope
     end
-    loop each device
-        S->>R: setCheckedIn(contractDeviceId, now, actor, tx)
-        S->>D: markReturned(deviceId, tx)
-        S->>Ch: chargeLate(contract, device, checkedInAt, tx)
-    end
-    opt every device back or lost
-        S->>R: transition(id, current, RETURNED, version, tx)
-    end
-    S-->>C: CheckInDto
-    C-->>P: 200 envelope
 ```
 
 ***Figure 9***: UC-43 Check In Device. `setCheckedIn` closes the custody interval (D-040); late events
@@ -442,15 +446,16 @@ sequenceDiagram
     R->>R: BEGIN, SELECT contract FOR UPDATE
     L->>K: blockingReason(id, deviceIds)
     Note over K: billing reports a balance, incidents report an open incident
-    alt a check blocks
+    alt refused: a check blocks
         L-->>C: 409 BALANCE_OUTSTANDING or OPEN_INCIDENTS
         C-->>P: failure envelope
+    else accepted: every check passes
+        L->>R: eraseHolderLabels(id, tx)
+        L->>R: transition(id, RETURNED, CLOSED, version, tx)
+        R->>R: UPDATE, INSERT transition, COMMIT
+        L-->>C: ContractDto CLOSED
+        C-->>P: 200 envelope
     end
-    L->>R: eraseHolderLabels(id, tx)
-    L->>R: transition(id, RETURNED, CLOSED, version, tx)
-    R->>R: UPDATE, INSERT transition, COMMIT
-    L-->>C: ContractDto CLOSED
-    C-->>P: 200 envelope
 ```
 
 ***Figure 10***: UC-51 Close Rental Contract.
