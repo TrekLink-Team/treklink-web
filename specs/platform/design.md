@@ -411,6 +411,8 @@ restart resumes them (REQ-EVT-06, NFR-AVL-02), and runs under a Postgres advisor
 | `rentals.overdueAndDefault` | rentals | hourly | `RETURN_DUE` past grace to `OVERDUE`; `OVERDUE` past the threshold to `DEFAULTED`, suspending the organization (FR-CON-12) |
 | `rentals.reservationReminders` | rentals | hourly | approved contracts past the reservation expiry (FR-CON-04) |
 | `billing.expirePayments` | billing | 60 s | `PENDING` SePay payments past expiry become `EXPIRED` |
+| `devices.lossSearch` | devices | hourly | `SEARCHING` loss cases past `searchEndsAt` move to `CONFIRMED` (FR-DEV-15) |
+| `devices.serviceScan` | devices | weekly, Monday at `devices.serviceScanHourLocal` | open `SCHEDULED` or `FIRMWARE_UPDATE` records for `AVAILABLE` devices due within 7 days plus `devices.maintenanceLeadDays`, and send Staff the list (FR-DEV-18, D-047) |
 
 ### 4.7 Health and the optional MQTT probe
 

@@ -30,6 +30,9 @@
 | `devices.handoverMinBatteryPct` | `50` | PERCENT | 0 to 100 | percent | Below this battery the handover needs an explicit acknowledgement (MSG19) | FR-CON-05 |
 | `devices.stockTakeSeenHours` | `24` | INT | 1 to 168 | hours | A rented device heard within this window counts as confirmed in a stock-take | FR-DEV-10 |
 | `devices.lossSearchDays` | `7` | INT | 1 to 60 | days | A triaged loss case is confirmed when this long passes without recovery | FR-DEV-15, D-045 |
+| `devices.maintenanceLeadDays` | `5` | INT | 0 to 30 | days | The weekly scan opens a service this long before it falls due, on top of the week to the next run | FR-DEV-18, D-047 |
+| `devices.maintenanceApprovalThresholdVnd` | `1000000` | INT | 0 to 50000000 | VND | A maintenance estimate or actual cost above this needs an Admin's approval | FR-DEV-20, BR-44 |
+| `devices.serviceScanHourLocal` | `1` | INT | 0 to 23 | hour (UTC+7) | Hour on Monday at which the weekly service scan runs | FR-DEV-18 |
 
 ## rentals
 

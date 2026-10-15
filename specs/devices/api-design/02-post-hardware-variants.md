@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Adds a device model with its sensors, firmware baseline and remaining-value schedule (FR-DEV-04).
+Adds a device model with its sensors, firmware baseline, remaining-value schedule and service plan (FR-DEV-04, D-047).
 
 ## API Specification
 
@@ -38,6 +38,13 @@ Adds a device model with its sensors, firmware baseline and remaining-value sche
       "valueVnd": 1200000
     }
   ],
+  "serviceIntervalDays": 180,
+  "serviceChecklist": [
+    "Battery health",
+    "Antenna and connector",
+    "Enclosure seal",
+    "Button and buzzer"
+  ],
   "code": "treklink-v4",
   "name": "TrekLink v4 (GPS, SOS, fall detection)",
   "firmwareBaseline": "2.7.19-treklink.4"
@@ -53,6 +60,8 @@ Adds a device model with its sensors, firmware baseline and remaining-value sche
 | mqttCapable | False for builds with MQTT compiled out (v1) | bool | yes | `true` |
 | firmwareBaseline | Firmware the variant ships with | string | yes | `2.7.19-treklink.4` |
 | remainingValueSchedule | Descending value by age in months; first row fromMonths 0 | json | yes | see sample |
+| serviceIntervalDays | Days between periodic services; null for none (D-047) | int | no | `180` |
+| serviceChecklist | Items checked at each periodic service; required with an interval | string[] | no | see sample |
 
 ## Response sample
 
@@ -79,6 +88,13 @@ Adds a device model with its sensors, firmware baseline and remaining-value sche
         "fromMonths": 24,
         "valueVnd": 1200000
       }
+    ],
+    "serviceIntervalDays": 180,
+    "serviceChecklist": [
+      "Battery health",
+      "Antenna and connector",
+      "Enclosure seal",
+      "Button and buzzer"
     ],
     "isActive": true,
     "deviceCount": 0
@@ -181,6 +197,23 @@ Adds a device model with its sensors, firmware baseline and remaining-value sche
 ```
 </td>
         </tr>
+        <tr>
+            <td>400</td>
+            <td>An interval is set without a checklist (<code>CHECKLIST_REQUIRED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "CHECKLIST_REQUIRED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Add at least one service checklist item."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -206,8 +239,13 @@ flowchart TB
     E3["Return 400 SCHEDULE_INVALID"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    P0["Validate the schedule"]
-    D3 -->|no| P0
+    D4{"An interval is set without a checklist?"}
+    D3 -->|no| D4
+    E4["Return 400 CHECKLIST_REQUIRED"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
+    P0["Validate the schedule and the service plan"]
+    D4 -->|no| P0
     P1["Insert the variant"]
     P0 --> P1
     OK["Return 201"]

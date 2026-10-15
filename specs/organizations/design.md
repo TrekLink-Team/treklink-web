@@ -54,7 +54,7 @@ stateDiagram-v2
 ```
 
 ***Figure 2***: Organization lifecycle. Verification is a recorded fact on a `PENDING` organization, not a
-state, matching SRS Figure 27.
+state, matching SRS Figure 28.
 
 | From | To | Who | Guard |
 |---|---|---|---|
@@ -273,17 +273,18 @@ sequenceDiagram
     P->>C: POST /api/organizations/register
     C->>S: register(dto)
     S->>R: existsTaxCodeOrEmail(taxCode, email)
-    alt already registered
+    alt refused: already registered
         S-->>C: 409 DUPLICATE
         C-->>P: failure envelope, MSG10
+    else accepted: new organization
+        S->>R: insertPending(dto, tx)
+        R->>R: INSERT organization PENDING and transition
+        S->>A: createOrganizationAccount(manager, MANAGER, tx)
+        S->>S: COMMIT, then SET_PASSWORD code and Staff notice
+        S-->>C: OrganizationDto PENDING
+        C-->>P: 201 envelope
+        P-->>G: MSG04 next steps
     end
-    S->>R: insertPending(dto, tx)
-    R->>R: INSERT organization PENDING and transition
-    S->>A: createOrganizationAccount(manager, MANAGER, tx)
-    S->>S: COMMIT, then SET_PASSWORD code and Staff notice
-    S-->>C: OrganizationDto PENDING
-    C-->>P: 201 envelope
-    P-->>G: MSG04 next steps
 ```
 
 ***Figure 5***: UC-01 Register Organization.
@@ -322,15 +323,16 @@ sequenceDiagram
     P->>C: POST /api/organizations/{id}/approve
     C->>S: approve(id, dto, actor)
     S->>R: findById(id)
-    alt not verified
+    alt refused: not verified
         S-->>C: 409 NOT_VERIFIED
         C-->>P: failure envelope
+    else accepted: verified
+        S->>R: transition(id, PENDING, ACTIVE, version, tx)
+        R->>R: UPDATE WHERE version, INSERT transition
+        S->>S: MSG05 email to the Manager, audit.record
+        S-->>C: OrganizationDto ACTIVE
+        C-->>P: 200 envelope
     end
-    S->>R: transition(id, PENDING, ACTIVE, version, tx)
-    R->>R: UPDATE WHERE version, INSERT transition
-    S->>S: MSG05 email to the Manager, audit.record
-    S-->>C: OrganizationDto ACTIVE
-    C-->>P: 200 envelope
 ```
 
 ***Figure 7***: UC-03 Approve Organization.
@@ -349,18 +351,19 @@ sequenceDiagram
     P->>C: POST /api/organizations/{id}/field-stations
     C->>S: create(orgId, dto, actor)
     S->>R: countActive(orgId)
-    alt limit reached
+    alt refused: limit reached
         S-->>C: 409 STATION_LIMIT
+    else accepted: below the limit
+        S->>S: username fs-org-n, 32 random bytes, bcrypt hash
+        S->>R: insert(station, tx)
+        S-->>C: username and secret, shown once
+        C-->>P: 201 envelope
+        M->>P: download the Field Station
+        P->>C: GET /api/organizations/{id}/field-stations/release
+        C->>V: current()
+        V-->>C: version, files with SHA-256
+        C-->>P: 200 envelope, download link
     end
-    S->>S: username fs-org-n, 32 random bytes, bcrypt hash
-    S->>R: insert(station, tx)
-    S-->>C: username and secret, shown once
-    C-->>P: 201 envelope
-    M->>P: download the Field Station
-    P->>C: GET /api/organizations/{id}/field-stations/release
-    C->>V: current()
-    V-->>C: version, files with SHA-256
-    C-->>P: 200 envelope, download link
 ```
 
 ***Figure 8***: UC-06 for a Field Station, part 1 of 2: credential and download (FR-EVT-18).
@@ -445,11 +448,12 @@ sequenceDiagram
     St->>P: close with outcome
     P->>C: POST /api/compliance-cases/{id}/close
     C->>S: close(id, dto, actor)
-    alt no police reference for suspected theft or fraud
+    alt refused: no police reference for suspected theft or fraud
         S-->>C: 409 POLICE_REFERENCE_REQUIRED
+    else accepted: reference present or not required
+        S->>R: setClosed(id, outcome, authorityReference, tx)
+        C-->>P: 200 envelope
     end
-    S->>R: setClosed(id, outcome, authorityReference, tx)
-    C-->>P: 200 envelope
 ```
 
 ***Figure 11***: UC-63 Handle Compliance Case (BR-40, D-046).

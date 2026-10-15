@@ -245,16 +245,17 @@ sequenceDiagram
     B->>A: deliver on treklink/fs/username/2/json
     A->>S: ingest(envelope)
     S->>D: byNodeNum(from)
-    alt unknown device
+    alt rejected: unknown device
         S->>S: audit UNKNOWN_DEVICE, stop
-    end
-    S->>S: occurredAt = fs_captured_at + receivedAt - fs_sent_at
-    S->>Rt: custodyAt(deviceId, occurredAt, margin)
-    alt station's organization, clear of the margin
-        Rt-->>S: contractDeviceId, organizationId
-    else no interval, other organization or near a boundary
-        Rt-->>S: none or nearBoundary
-        S->>S: attribution UNATTRIBUTED
+    else accepted: known device
+        S->>S: occurredAt = fs_captured_at + receivedAt - fs_sent_at
+        S->>Rt: custodyAt(deviceId, occurredAt, margin)
+        alt station's organization, clear of the margin
+            Rt-->>S: contractDeviceId, organizationId
+        else no interval, other organization or near a boundary
+            Rt-->>S: none or nearBoundary
+            S->>S: attribution UNATTRIBUTED
+        end
     end
 ```
 
@@ -273,17 +274,18 @@ sequenceDiagram
     participant B as Mosquitto
     S->>R: insertIgnoreDuplicate(event, tx)
     R->>R: INSERT field_events ON CONFLICT eventId DO NOTHING
-    alt eventId already stored
+    alt rejected: eventId already stored
         S->>S: audit DUPLICATE_REJECTED, COMMIT
+    else accepted: new eventId
+        S->>D: projectReading(nodeNum, reading, tx)
+        opt SOS or fall SOS
+            S->>I: onSos(event with attribution, tx)
+        end
+        S->>S: audit ACCEPTED or ACCEPTED_UNATTRIBUTED, COMMIT
+        S->>S: emit field.position or field.telemetry with organizationId
+        S-->>A: outcome
+        A-->>B: PUBACK after ingest returns
     end
-    S->>D: projectReading(nodeNum, reading, tx)
-    opt SOS or fall SOS
-        S->>I: onSos(event with attribution, tx)
-    end
-    S->>S: audit ACCEPTED or ACCEPTED_UNATTRIBUTED, COMMIT
-    S->>S: emit field.position or field.telemetry with organizationId
-    S-->>A: outcome
-    A-->>B: PUBACK after ingest returns
 ```
 
 ***Figure 6***: UC-26 Ingest Field Event, part 2 of 2: deduplication, persistence and hand-off in one

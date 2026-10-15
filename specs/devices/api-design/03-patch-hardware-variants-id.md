@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Edits a variant's name, baseline, schedule or active flag. Sensor flags are fixed once devices exist, because past intake checks depend on them.
+Edits a variant's name, baseline, schedule, service plan or active flag. Sensor flags are fixed once devices exist, because past intake checks depend on them. A new interval applies from each device's next completed service; a new baseline makes the weekly scan flag every device on an older firmware (D-047).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Edits a variant's name, baseline, schedule or active flag. Sensor flags are fixe
 | --- | --- |
 | PATCH | /api/hardware-variants/:id |
 | Permission | TrekLink Admin |
-| Traces | UC-13, FR-DEV-04 |
+| Traces | UC-13, FR-DEV-04, FR-DEV-18 |
 
 ### Path parameters
 
@@ -36,6 +36,8 @@ Edits a variant's name, baseline, schedule or active flag. Sensor flags are fixe
 | name | Name | string | no | `...` |
 | firmwareBaseline | Baseline | string | no | `...` |
 | remainingValueSchedule | Schedule | json | no | `[...]` |
+| serviceIntervalDays | Days between services, or null | int | no | `180` |
+| serviceChecklist | Service checklist items | string[] | no | `[...]` |
 | isActive | Offer in new requests | bool | no | `false` |
 
 ## Response sample
@@ -63,6 +65,13 @@ Edits a variant's name, baseline, schedule or active flag. Sensor flags are fixe
         "fromMonths": 24,
         "valueVnd": 1200000
       }
+    ],
+    "serviceIntervalDays": 180,
+    "serviceChecklist": [
+      "Battery health",
+      "Antenna and connector",
+      "Enclosure seal",
+      "Button and buzzer"
     ],
     "isActive": false,
     "deviceCount": 18
