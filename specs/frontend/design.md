@@ -1,6 +1,7 @@
 # Technical Design: frontend
 
-> Fulfills `requirements.md` in this folder. Conventions: `06-frontend-conventions.md`.
+> Fulfills `requirements.md` in this folder. Conventions: `06-frontend-conventions.md`. Routes for loss
+> cases, maintenance, compliance cases and replacement added 2026-10-18 (D-045 to D-047).
 
 ---
 
@@ -35,10 +36,14 @@ Matches SRS Table 72. `own` routes are inside the organization workspace and alw
 | `/o/contracts`, `/o/contracts/:id` | Contracts, devices, holder labels | Org Operator (read), Org Manager |
 | `/o/contracts/new` | Request with quote | Org Manager |
 | `/o/invoices`, `/o/invoices/:id`, `/o/pay/:paymentId` | Invoices and SePay payment | Org Manager |
-| `/o/members`, `/o/roster`, `/o/api-keys`, `/o/field-stations` | Organization administration | Org Manager (roster and stations readable by Operators) |
-| `/t/organizations`, `/t/organizations/:id` | Verification and approval queues | TrekLink Staff, Admin |
-| `/t/contracts`, `/t/contracts/:id`, `/t/counter/:contractId` | Approval queue, counter handover and check-in | TrekLink Staff |
-| `/t/fleet`, `/t/devices/:id`, `/t/stock-take` | Fleet, device detail and history, stock-take | TrekLink Staff |
+| `/o/members`, `/o/roster`, `/o/api-keys`, `/o/field-stations` | Organization administration; the Field Stations page shows each station's version, `outdated`, and the current release download (FR-EVT-18) | Org Manager (roster and stations readable by Operators) |
+| `/o/loss-cases` | Loss cases of the organization's devices; a loss is reported from the contract's device row (D-045) | Org Manager |
+| `/t/organizations`, `/t/organizations/:id` | Verification (NDA and software licence) and approval queues; channel key exposure and rotation | TrekLink Staff, Admin |
+| `/t/contracts`, `/t/contracts/:id`, `/t/counter/:contractId` | Approval queue, counter handover and check-in, inspection, mid-contract replacement (UC-61) | TrekLink Staff |
+| `/t/fleet`, `/t/devices/:id`, `/t/stock-take` | Fleet, device detail and history (reset, retire, dispose actions), stock-take | TrekLink Staff, Admin (retire, dispose) |
+| `/t/maintenance` | Maintenance records, the week's service list, estimates, completion with checklist and firmware, cost approvals (D-047) | TrekLink Staff, Admin (decisions) |
+| `/t/loss-cases`, `/t/loss-cases/:id` | Loss cases: triage, recover, confirm, settle (D-045) | TrekLink Staff, Admin (decisions) |
+| `/t/compliance-cases`, `/t/compliance-cases/:id` | Compliance cases with actions and close (D-046) | TrekLink Staff, Admin (suspend) |
 | `/t/incidents` | Unrouted and escalated queue, authority reports | TrekLink Staff |
 | `/t/map` | Fleet map | TrekLink Staff |
 | `/t/billing`, `/t/damage-charges` | Invoices, counter payments, damage approvals | TrekLink Staff, Admin (decisions) |

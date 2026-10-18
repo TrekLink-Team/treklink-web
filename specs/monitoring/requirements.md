@@ -85,7 +85,7 @@ The `monitoring` section of the [Configuration Matrix](../platform/configuration
 - **AC-04**: A position 50 km from the last one 10 s earlier is not plotted. (TC-22)
 - **AC-05**: After check-in, the organization's map and API stop showing the device. (E04-7)
 - **AC-06**: A position from A's custody that synchronizes after the device was handed to B reaches A's stream and history flagged late, and never B's room or API. (E02-7, TC-36)
-- **AC-06**: The map shows the Vietnamese labels over Hoàng Sa and Trường Sa. (TC-30)
+- **AC-07**: The map shows the Vietnamese labels over Hoàng Sa and Trường Sa. (TC-30)
 
 ---
 

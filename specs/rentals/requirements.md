@@ -16,7 +16,7 @@
   the organization lifecycle (`organizations`); incidents (`incidents`, which reads contracts to route).
 - **Depends on**: `platform`, `organizations`, `devices`, `billing`. Declares `CONTRACT_CLOSE_CHECKS`,
   provided by `incidents`; provides `ORGANIZATION_EXIT_CHECKS.canClose`.
-- **Owners**: TanNB (MF-01: request to handover), LongLP (MF-05: notice to close).
+- **Owner**: LongLP (roadmap §5.1, remapped 2026-10-18).
 
 ### Traceability
 

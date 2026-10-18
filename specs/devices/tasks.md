@@ -1,45 +1,109 @@
 # Implementation Tasks: devices
 
-> Rewritten 2026-10-04 (D-036); loss cases and disposal (D-045) and periodic maintenance (D-047) added
-> 2026-10-14. Owner: LongLP (D-035). Jira keys assigned when the backlog is regenerated.
-> Fulfills `design.md`. Starts after auth Phase 4 (policies).
+> Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6; covers loss cases and
+> disposal (D-045) and periodic maintenance (D-047). Fulfills `design.md`; endpoints are `api-design/01`
+> to `26`.
+
+| | |
+|---|---|
+| Lane owner | KhoaDD (roadmap §5.1, remapped 2026-10-18) |
+| Reviewer | LongLP |
+| Sprint | 3 (W7 to W8) for Phases 1 to 2.6 and the MF-01 endpoints; 5 (W11) for loss cases, disposal and maintenance cost approval |
+| Stories | US-UC11, US-UC12, US-UC13, US-UC14 (provisioning record), US-UC43 (`markReturned`), US-UC44, US-UC49, US-UC52, US-UC53, US-UC54, US-UC60, US-UC62, US-UC64, US-UC65 |
+| Depends on | platform 2.5 to 2.8; auth 4.2 |
+| Unblocks | rentals 2.2 (reserve), gateway-sync 2.3 (projection), billing 2.6 (`valueAt`) |
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 `DevicesModule`; `DevicesRepository`, `LossCasesRepository` and `MaintenanceRepository` over its eleven models
-- [ ] 1.2 `DeviceLifecycle` transition table (design §2) with manual and system rows, compare-and-set, transition row
-  - _Requirements: REQ-UBI-01, AC-01_
-- [ ] 1.3 `nodeId` and `nodeNum` conversion; remaining-value lookup `valueAt()`
+- [ ] 1.1 `DevicesModule` and repositories (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/devices.module.ts`, `devices.repository.ts`, `variants.repository.ts`, `loss-cases.repository.ts`, `maintenance.repository.ts`
+  - **Do**: repositories over the `// @module devices` models only; every service method that may join a caller's transaction takes `tx?`
+  - _Requirements: REQ-UBI-04, NFR-MNT-01_
+- [ ] 1.2 `DeviceLifecycle` (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/device-lifecycle.ts`
+  - **Do**: the transition table of design §2 with manual and system rows; manual endpoints may only use manual rows; compare-and-set on `version`, one `DeviceTransition` row with actor or `SYSTEM` and reason; other pairs 409 `INVALID_STATE_TRANSITION`
+  - **Test**: `device-lifecycle.spec.ts` over all 81 pairs of the nine states (AC-01)
+  - _Requirements: REQ-UBI-01, REQ-STA-01, AC-01, FR-DEV-01, BR-10_
+- [ ] 1.3 Identity helpers and remaining value (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/node-id.ts`, `remaining-value.ts`
+  - **Do**: `nodeId` (`!` plus 8 hex) to and from `nodeNum`; `valueAt(deviceId, date)` from the variant's depreciation schedule and the acquisition date
+  - **Test**: round trip of `nodeId`; `valueAt` at acquisition, mid-schedule and past the last step
   - _Requirements: REQ-EVT-01, FR-BILL-05_
+- [ ] 1.4 Loss-case ports (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/ports/custody-resolver.port.ts`, `loss-case-listener.port.ts`
+  - **Do**: declare `CUSTODY_RESOLVER` and the multi-provider `LOSS_CASE_LISTENERS` exactly as design §3; `CUSTODY_RESOLVER` is required (Nest fails at boot without a provider), `LOSS_CASE_LISTENERS` is injected `@Optional()` as an array
+  - _Requirements: design §3, platform design §2.1, REQ-EVT-14_
 
 ## Phase 2: Core Service Logic
 
-- [ ] 2.1 Variants CRUD with schedule and service-plan validation and the in-use guards
-  - _Requirements: REQ-STA-02, REQ-ERR-10_
-- [ ] 2.2 Registration and intake checks; first `serviceDueAt` on the first pass
-  - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-EVT-18, REQ-ERR-01, REQ-ERR-04, AC-03_
-- [ ] 2.3 Exported methods for `rentals`: reserve (`SKIP LOCKED`), release, swap failure, provisioning, handover readiness, rented, returned, lost, inspection
-  - _Requirements: REQ-EVT-03 to REQ-EVT-05, REQ-EVT-07, REQ-ERR-02, AC-02, AC-10_
-- [ ] 2.4 Reset, retire, recover
-  - _Requirements: REQ-EVT-06, REQ-EVT-10, REQ-EVT-11, REQ-ERR-03_
-- [ ] 2.5 `projectReading()` for `gateway-sync`
-  - _Requirements: REQ-EVT-08_
-- [ ] 2.6 Stock-take
-  - _Requirements: REQ-EVT-12, AC-04_
-- [ ] 2.7 Loss cases: report, triage by custody, recover, confirm, settle; the `devices.lossSearch` job; disposal
-  - _Requirements: REQ-EVT-13 to REQ-EVT-17, REQ-ERR-05 to REQ-ERR-07, AC-05 to AC-08_
-- [ ] 2.8 `MaintenanceService`: open, estimate, decide, complete, `isDue()`; the `devices.serviceScan` job and the Staff email
-  - _Requirements: REQ-EVT-09, REQ-EVT-18 to REQ-EVT-22, REQ-STA-03, REQ-STA-04, REQ-ERR-08, REQ-ERR-09, AC-09 to AC-12_
+- [ ] 2.1 Hardware variants with service plans (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/variants.service.ts`
+  - **Do**: create, edit, delete; sensor flags and deletion refused while devices exist (409 `VARIANT_IN_USE`); depreciation schedule validated (400 `SCHEDULE_INVALID`); `serviceIntervalDays` with at least one checklist item (400 `CHECKLIST_REQUIRED`); `firmwareBaseline`
+  - **Test**: each guard; deleting an unused variant succeeds
+  - _Requirements: REQ-STA-02, REQ-ERR-10, FR-DEV-04_
+  - _Story: US-UC13_
+- [ ] 2.2 Registration and intake checks (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/devices.service.ts`, `intake.service.ts`
+  - **Do**: `register(dto)` creates `IN_INTAKE`; asset tag and `nodeNum` unique across every device ever registered (409 `CONFLICT_UNIQUE`, MSG10) and immutable; `recordIntake(id, dto)` requires GPS, radio, battery and, for a motion-sensor variant, motion (400 `MOTION_RESULT_REQUIRED`); pass moves `IN_INTAKE` or `MAINTENANCE` without an open record to `AVAILABLE` and sets the first `serviceDueAt`; fail opens a record and moves to `MAINTENANCE`
+  - **Test**: AC-03; first pass sets `serviceDueAt`, a later pass does not move it
+  - _Requirements: REQ-UBI-02, REQ-EVT-01, REQ-EVT-02, REQ-EVT-18, REQ-ERR-01, REQ-ERR-04, AC-03, FR-DEV-02, FR-DEV-03, FR-DEV-17_
+  - _Story: US-UC11, US-UC12_
+- [ ] 2.3 Methods for `rentals` (owner KhoaDD)
+  - **Do**: the design §3 methods: `reserve(variantId, quantity, contractId, tx)` with `FOR UPDATE SKIP LOCKED`, all or none (409 `INSUFFICIENT_DEVICES`); `reserveExplicit`; `release`; `failHandoverCheck`; `recordProvisioning(deviceId, orgId, keyVersion, actor, tx)` storing only the key version; `assertReadyForHandover(ids, keyVersion)` (409 `DEVICE_NOT_PROVISIONED`, `KEY_VERSION_MISMATCH`); `markRented`; `markReturned`; `openLossForReplacement`; `availability(variantId?)`
+  - **Test**: the reservation race with two transactions on Postgres; provisioning never stores a key
+  - _Requirements: REQ-UBI-03, REQ-EVT-03, REQ-EVT-04, REQ-EVT-05, REQ-STA-01, FR-DEV-05, FR-CON-03, BR-03, BR-09_
+  - _Story: US-UC14, US-UC43_
+- [ ] 2.4 Reset, inspection, retirement (owner KhoaDD)
+  - **Do**: `reset(id, steps)` on `RETURNED` with all three steps (400 `RESET_INCOMPLETE`), clears key version and key organization; `recordInspection(deviceId, dto, contractDeviceId, actor, tx)` requires a reset after the last check-in (409 `RESET_REQUIRED`); `PASSED` to `AVAILABLE`, or to `MAINTENANCE` with a `SCHEDULED` or `FIRMWARE_UPDATE` record when due within `devices.maintenanceLeadDays` or off the baseline; `DAMAGED` and `FAILED` to `MAINTENANCE`; `retire(id, reason)` from `MAINTENANCE` only
+  - **Test**: AC-02; AC-10 inspection routing; retire from `AVAILABLE` refused
+  - _Requirements: REQ-EVT-06, REQ-EVT-07, REQ-EVT-10, REQ-ERR-02, REQ-ERR-03, AC-02, AC-10, FR-DEV-07, FR-DEV-09, FR-DEV-19, BR-04, BR-28_
+  - _Story: US-UC44, US-UC53_
+- [ ] 2.5 Projection for `gateway-sync` (owner KhoaDD)
+  - **Do**: `projectReading(nodeNum, reading, tx)` updates `lastSeenAt`, battery and last position only for a newer reading, returns the device id or null; `byNodeNum`, `projections(ids)`, `trail(id)`
+  - **Test**: an older reading is discarded
+  - _Requirements: REQ-EVT-08, FR-DEV-06_
+  - _Story: US-UC26 (projection side)_
+- [ ] 2.6 Stock-take (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/stock-take.service.ts`
+  - **Do**: compare scanned asset tags with in-stock units, rented units heard within `devices.stockTakeSeenHours`, units confirmed by neither and unknown tags; store the run
+  - **Test**: AC-04
+  - _Requirements: REQ-EVT-12, AC-04, FR-DEV-10_
+  - _Story: US-UC54_
+- [ ] 2.7 Loss cases and disposal (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/loss-cases.service.ts`, `jobs/loss-search.job.ts`
+  - **Do**: report from any in-service state (Org Manager only for its rented device), one open case per device (409 `LOSS_CASE_OPEN`); triage asks the `CUSTODY_RESOLVER` port (`custodyAt(deviceId, lastSeenAt)`), records `RENTER` or `TREKLINK`, calls `OrganizationsService.markKeyExposed` for `RENTER` and `ComplianceCaseService.openOrLink` for suspected theft or fraud, sets `searchEndsAt` from `devices.lossSearchDays`; confirm by Staff or the hourly `devices.lossSearch` job calls every `LOSS_CASE_LISTENERS.onConfirmed` (billing charges `RENTER` custody); settle by an Admin who did not triage (403 `SEPARATION_OF_DUTY`) calls every `onSettled` (billing adjusts a reduction or waiver, rentals sets `lostAt`), device to `RETIRED`; recover to `RETURNED` (a `SETTLED` case stays `SETTLED`); dispose of a `RETIRED` device with the three wipe steps (400 `WIPE_INCOMPLETE`)
+  - **Test**: AC-05 to AC-08; the job confirms a case once under a concurrent manual confirm
+  - _Requirements: REQ-EVT-11, REQ-EVT-13, REQ-EVT-14, REQ-EVT-15, REQ-EVT-16, REQ-EVT-17, REQ-ERR-05, REQ-ERR-06, REQ-ERR-07, AC-05, AC-06, AC-07, AC-08, FR-DEV-12 to FR-DEV-16, BR-37, BR-38, BR-39, BR-42_
+  - _Story: US-UC49, US-UC60, US-UC62_
+  - _Depends on: 1.4, organizations 2.9 and 2.10; the port providers are rentals 1.3 and billing 2.6_
+- [ ] 2.8 Maintenance and the weekly service scan (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/maintenance.service.ts`, `jobs/service-scan.job.ts`
+  - **Do**: `open(id, dto)` on `AVAILABLE` with reason and expected date, refused for `RESERVED` and `RENTED`; `estimate()` above `devices.maintenanceApprovalThresholdVnd` sets `PENDING_APPROVAL` and notifies Admins; `decide()` by another Admin (403 `SEPARATION_OF_DUTY`) returns to `OPEN`; `complete()` refused while `PENDING_APPROVAL`, requires resolution and actual cost, every checklist result for `SCHEDULED` (400 `CHECKLIST_INCOMPLETE`), firmware for `FIRMWARE_UPDATE` (400 `FIRMWARE_VERSION_REQUIRED`), vendor name for `VENDOR` (400 `VENDOR_REQUIRED`); cost above the approved amount returns to `PENDING_APPROVAL`; `COMPLETED` moves `serviceDueAt` for `SCHEDULED` and writes `firmwareVersion`; `ServiceScanJob` registered as `devices.serviceScan` (Monday, `devices.serviceScanHourLocal`) per design §2.2, emailing Staff the list after commit
+  - **Test**: with a fake clock, AC-09 to AC-12; the four maintenance constraints on Postgres
+  - _Requirements: REQ-EVT-09, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-EVT-21, REQ-EVT-22, REQ-STA-03, REQ-STA-04, REQ-ERR-08, REQ-ERR-09, REQ-ERR-10, AC-09, AC-11, AC-12, FR-DEV-08, FR-DEV-17 to FR-DEV-21, BR-44, BR-45_
+  - _Story: US-UC52, US-UC64, US-UC65_
 
-## Phase 3: API Presentation Layer
+## Phase 3: Query / Retrieval
 
-- [ ] 3.1 Controllers for api-design 01 to 26 (`/api/devices/availability` declared before `/:id`)
-- [ ] 3.2 E2E for every Validation row; the reservation race and the four maintenance constraints against Postgres
+- [ ] 3.1 Lists (owner KhoaDD)
+  - **Do**: devices with state, variant and search filters; device detail with transitions; maintenance records with state and due filters; loss cases (Org Manager sees own only); stock-take runs; availability counts (Org Manager gets counts only)
+  - **Test**: paging; an Org Manager reading another organization's loss case gets 404
+  - _Requirements: FR-DEV-11, FR-AUTH-11_
 
-## Phase 4: Frontend Integration
+## Phase 4: API Presentation Layer
 
-- [ ] 4.1 Staff fleet pages: variants with service plans, register, intake, maintenance with the week's list, Admin cost approvals, reset, loss cases, stock-take (tracked in `specs/frontend/tasks.md`)
+- [ ] 4.1 Controllers (owner KhoaDD)
+  - **Files**: `variants.controller.ts`, `devices.controller.ts`, `maintenance.controller.ts`, `loss-cases.controller.ts`, `stock-takes.controller.ts`
+  - **Do**: api-design 01 to 26 with each file's permission and `@ResponseMessage`; `GET /api/devices/availability` declared before `GET /api/devices/:id`
+- [ ] 4.2 E2E (owner KhoaDD)
+  - **Files**: `backend/test/devices.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
+  - **Do**: every Validation row of api-design 01 to 26; the reservation race; the four maintenance constraints
+  - _Requirements: AC-01 to AC-12_
 
-## Phase 5: Verification & DoD
+## Phase 5: Frontend Integration
 
-- [ ] 5.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour
+- [ ] 5.1 Staff fleet pages: variants with service plans, register, intake, maintenance with the week's list, Admin cost approvals, reset, loss cases, disposal, stock-take (owner LongNN, tracked in `specs/frontend/tasks.md` 4.1 to 4.5)
+
+## Phase 6: Verification & DoD
+
+- [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner KhoaDD)

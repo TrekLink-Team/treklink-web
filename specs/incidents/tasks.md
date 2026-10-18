@@ -1,47 +1,109 @@
 # Implementation Tasks: incidents
 
-> Rewritten 2026-10-04 (D-036). Owner: HoangTK (MF-03); KhoaDD co-owns the lifecycle (D-034). Jira keys
-> assigned when the backlog is regenerated. Fulfills `design.md`. Starts after rentals Phase 1 and
-> organizations Phase 2 (roster).
+> Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6. Fulfills `design.md`;
+> endpoints are `api-design/01` to `14`. The lifecycle (D-034) and the alert outbox are the graded state
+> machine and the MF-03 core.
+
+| | |
+|---|---|
+| Lane owner | HoangTK (roadmap §5.1) |
+| Reviewer | KhoaDD |
+| Sprint | 4 (W9 to W10); Phase 1 and 2.3 start in Sprint 3 so gateway-sync can hand over SOS events |
+| Stories | US-UC29, US-UC30, US-UC31, US-UC32, US-UC33, US-UC34, US-UC35, US-UC36, US-UC37 |
+| Depends on | platform 2.7 and 2.8; auth 5.2 (`contactCard`); organizations 2.6 (`tiersAt`); rentals 4.5 |
+| Unblocks | gateway-sync 2.3 (SOS hand-off), monitoring 2.3 (`incident.alert` listener), rentals 4.4 (close checks) |
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 `IncidentsModule`; repositories for its five models; incident code sequence
-- [ ] 1.2 `IncidentLifecycle` table (design §2) with guards, compare-and-set, sequenced transition rows, timer columns
-  - _Requirements: REQ-UBI-01, REQ-UBI-03, REQ-ERR-01, AC-06_
-- [ ] 1.3 Provide `CONTRACT_CLOSE_CHECKS`
-  - _Requirements: REQ-STA-02_
+- [ ] 1.1 `IncidentsModule` and repositories (owner HoangTK)
+  - **Files**: `backend/src/modules/incidents/incidents.module.ts`, `incidents.repository.ts`, `alert-deliveries.repository.ts`, `authority-reports.repository.ts`
+  - **Do**: repositories over the `// @module incidents` models only; incident code `INC-<year>-<6 digits>` as the `schema.prisma` example `INC-2026-000045`; `incidents_one_open_per_device` maps to the correlation path, never to a 500
+  - _Requirements: REQ-UBI-02, BR-13_
+- [ ] 1.2 `IncidentLifecycle.apply(id, expectedState, to, actor, reason, tx)` (owner HoangTK)
+  - **Files**: `backend/src/modules/incidents/incident-lifecycle.ts`
+  - **Do**: the D-034 transition table of design §2 with guards; compare-and-set on `state` and `version`; one sequenced `IncidentTransition` row; set or clear `tierDeadlineAt`, `statusDueAt`, owner and the reopen window per target state; outbox rows of design §3 in the same transaction; `incident.changed` and `audit.record` after commit; a packet never moves an incident except to open or reopen it
+  - **Test**: `incident-lifecycle.spec.ts` over every pair of the twelve states (AC-06); each owned state has an owner with a status deadline or a pending tier deadline
+  - _Requirements: REQ-UBI-01, REQ-UBI-03, REQ-UBI-04, REQ-UBI-05, REQ-ERR-01, AC-06, FR-INC-04, BR-15, BR-18, NFR-REL-07_
+- [ ] 1.3 Provide `CONTRACT_CLOSE_CHECKS` (owner HoangTK)
+  - **Do**: `blockingReason(contractId, deviceIds)` returns `OPEN_INCIDENTS` when any incident routed to the contract is outside `CLOSED`
+  - **Test**: rentals AC-06
+  - _Requirements: REQ-STA-02, FR-CON-13, BR-27_
 
-## Phase 2: Creation and routing
+## Phase 2: Creation, routing, alerts
 
-- [ ] 2.1 `IncidentIngress.onSos` and `onPosition`: correlation, cadence, routing with empty-tier skipping
-  - _Requirements: REQ-UBI-02, REQ-UBI-05, REQ-EVT-01 to REQ-EVT-03, REQ-EVT-10, AC-01, AC-05_
+- [ ] 2.1 Outbox and dispatcher (owner HoangTK)
+  - **Files**: `backend/src/modules/incidents/alerts/alert-dispatcher.job.ts`, `channels/*.channel.ts`
+  - **Do**: `incidents.deliverAlerts` every 2 s reads `PENDING` rows due now with `FOR UPDATE SKIP LOCKED`; channels web inbox, WebSocket (emits `incident.alert`, sent when the listener returns), email through `MailPort`, organization API stream; failure backs off `incidents.alertRetryBaseSeconds × 2^attempts` up to `incidents.alertMaxAttempts`, then `FAILED` and logged; delivery never blocks a transition
+  - **Test**: AC-07 with a failing mail transport; WebSocket alert within 2 s of commit under the test load
+  - _Requirements: REQ-UBI-04, REQ-EVT-13, AC-07, FR-INC-12, NFR-PERF-04_
+  - _Story: US-UC30_
+- [ ] 2.2 Routing (owner HoangTK)
+  - **Files**: `backend/src/modules/incidents/routing.service.ts`
+  - **Do**: route to the contract and organization the triggering event is attributed to, whatever that contract's state now; `RosterService.tiersAt(orgId, now)`; skip empty tiers; `UNATTRIBUTED` or nobody to alert goes to `UNROUTED`; the device's current holder is never consulted
+  - **Test**: AC-09 (A's late SOS after handover to B routes to A); a suspended organization still routed
+  - _Requirements: REQ-EVT-03, REQ-STA-01, AC-09, FR-INC-03, BR-32, BR-36_
+  - _Story: US-UC29_
+- [ ] 2.3 `IncidentIngress.onSos(event, tx)` and `onPosition(event, tx)` (owner HoangTK)
+  - **Files**: `backend/src/modules/incidents/incident-ingress.ts`
+  - **Do**: the five correlation steps of design §4 under the device lock; reopen inside the reopen window (re-routed, reopen count, owner cleared); cadence: `incidents.cadenceCount` positions within `incidents.cadenceWindowSeconds` and no open incident create `SUSPECTED` from `CADENCE_INFERRED`, upgraded to `CONFIRMED` in place by a later SOS text; positions within `gatewaySync.retroTagGraceSeconds` before the SOS join the episode
+  - **Test**: AC-01, AC-05; a replay produces no second incident or alert per tier
+  - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-EVT-10, REQ-ERR-03, AC-01, AC-05, FR-INC-01, FR-INC-02, FR-INC-11, BR-14, NFR-REL-03_
+  - _Story: US-UC29, US-UC36_
 
-## Phase 3: Timers and outbox
+## Phase 3: Timers
 
-- [ ] 3.1 Outbox rows per transition (design §3) and the dispatcher with backoff
-  - _Requirements: REQ-UBI-04, REQ-EVT-13, AC-07_
-- [ ] 3.2 Jobs: tier timeouts, stale responses, close after the reopen window; restart resume
-  - _Requirements: REQ-EVT-04, REQ-EVT-07, REQ-EVT-10, REQ-ERR-04, AC-02_
+- [ ] 3.1 Scheduler jobs (owner HoangTK)
+  - **Files**: `jobs/tier-timeouts.job.ts`, `jobs/stale-responses.job.ts`, `jobs/close-after-reopen-window.job.ts`
+  - **Do**: `incidents.tierTimeouts` (5 s) moves `NOTIFY_*` past `tierDeadlineAt` to the next non-empty tier or `ESCALATED` with Staff alerted (MSG34); `incidents.staleResponses` (30 s) moves `ACKNOWLEDGED` or `RESPONDING` past `statusDueAt` to `ESCALATED`, owner kept, Manager and Staff alerted; `incidents.closeAfterReopenWindow` (60 s) closes `RESOLVED` and `FALSE_ALARM` past the window; every job calls `apply()` with the expected state, so a raced human action wins cleanly
+  - **Test**: AC-02 with a fake clock; restart with a pending deadline fires once at the stored time (platform AC-09)
+  - _Requirements: REQ-EVT-04, REQ-EVT-07, REQ-ERR-04, AC-02, FR-INC-05, FR-INC-07, FR-INC-11, BR-16, NFR-AVL-02_
+  - _Story: US-UC31, US-UC37_
 
 ## Phase 4: Human actions
 
-- [ ] 4.1 Acknowledge, responding, status updates, resolve, false alarm, owner deactivation
-  - _Requirements: REQ-EVT-05 to REQ-EVT-08, REQ-EVT-11, REQ-ERR-02, AC-03_
-- [ ] 4.2 Authority reports on incidents and on defaulted contracts; case close
-  - _Requirements: REQ-EVT-09, AC-04_
-- [ ] 4.3 Stale flag from the sweep
-  - _Requirements: REQ-EVT-12_
+- [ ] 4.1 Acknowledge, responding, status, resolve (owner HoangTK)
+  - **Files**: `backend/src/modules/incidents/incidents.service.ts`
+  - **Do**: acknowledge from `NOTIFY_*`, `ESCALATED` or `REPORTED` by a member of the routed organization: owner, time-to-acknowledge, status deadline; the loser of a concurrent acknowledgement gets 409 `ALREADY_OWNED` with the owner (MSG27); responding, status updates (reset the deadline) and resolve (time-to-resolve, reopen window) by the owner only (403 `NOT_OWNER`)
+  - **Test**: AC-03 with two concurrent requests
+  - _Requirements: REQ-EVT-05, REQ-EVT-06, REQ-EVT-08, REQ-ERR-02, AC-03, FR-INC-06, FR-INC-07, FR-INC-08_
+  - _Story: US-UC32, US-UC33_
+- [ ] 4.2 False alarm and owner deactivation (owner HoangTK)
+  - **Do**: a member declares a false alarm with a reason from `NOTIFY_*`, `ACKNOWLEDGED` or `RESPONDING`, Staff from `UNROUTED`; listen to `member.deactivated`: an owned `ACKNOWLEDGED` or `RESPONDING` incident goes to `NOTIFY_BACKUP` and alerts that tier
+  - **Test**: Staff false alarm from `NOTIFY_PRIMARY` refused 409
+  - _Requirements: REQ-EVT-08, REQ-EVT-11, FR-INC-08, D-034_
+  - _Story: US-UC34_
+- [ ] 4.3 Authority reports (owner HoangTK)
+  - **Files**: `authority-reports.service.ts`
+  - **Do**: a report with agency, reference and time on an `ESCALATED` or `UNROUTED` incident moves it to `REPORTED`; a report on a `DEFAULTED` contract (api-design 10, 409 `CONTRACT_NOT_DEFAULTED` otherwise); closing the case moves the incident to `CLOSED` (409 `CASE_ALREADY_CLOSED` on a repeat)
+  - **Test**: AC-04
+  - _Requirements: REQ-EVT-09, AC-04, FR-INC-10, BR-17_
+  - _Story: US-UC35_
+- [ ] 4.4 Stale flag (owner HoangTK)
+  - **Do**: `markDeviceStale(deviceId, stale, lastPosition)` from the monitoring sweep flags or clears the incident, state unchanged, and alerts the owner or current tier
+  - **Test**: the flag clears when the device is heard again
+  - _Requirements: REQ-EVT-12, FR-INC-13_
 
-## Phase 5: API Presentation Layer
+## Phase 5: Query / Retrieval
 
-- [ ] 5.1 Controllers for api-design 01 to 14
-- [ ] 5.2 E2E for every Validation row; replay ×10 (TC-11); tenancy cases
+- [ ] 5.1 Incidents, transitions, events, alerts, authority reports (owner HoangTK)
+  - **Do**: list with state, organization and stale filters (members see their own only); detail; transitions; events through `GatewaySyncService.eventsOfIncident`; alert deliveries; authority reports; `openByDevices`, `incidentsOfDevice`, `responseTimes(range)`, `alertDeliveryStats()` for monitoring
+  - **Test**: a member reading another organization's incident gets 404 (auth AC-01)
+  - _Requirements: REQ-STA-01, FR-AUTH-11_
 
-## Phase 6: Frontend Integration
+## Phase 6: API Presentation Layer
 
-- [ ] 6.1 Alert banner (MSG31), incident queue and detail with one-step acknowledge, status and outcome forms, Staff escalation queue and authority report form (tracked in `specs/frontend/tasks.md`)
+- [ ] 6.1 Controllers (owner HoangTK)
+  - **Files**: `incidents.controller.ts`, `authority-reports.controller.ts`
+  - **Do**: api-design 01 to 14 with each file's permission and `@ResponseMessage`
+- [ ] 6.2 E2E (owner HoangTK)
+  - **Files**: `backend/test/incidents.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
+  - **Do**: every Validation row of api-design 01 to 14; replay ×10 (TC-11); AC-01 to AC-09
+  - _Requirements: AC-01 to AC-09_
 
-## Phase 7: Verification & DoD
+## Phase 7: Frontend Integration
 
-- [ ] 7.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour
+- [ ] 7.1 Alert banner (MSG31), incident queue and detail with one-step acknowledge, status and outcome forms, Staff escalation queue and authority report form (owner LongNN, tracked in `specs/frontend/tasks.md` 8.1 to 8.3)
+
+## Phase 8: Verification & DoD
+
+- [ ] 8.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner HoangTK)

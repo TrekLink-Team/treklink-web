@@ -104,9 +104,9 @@ stateDiagram-v2
 
 ***Figure 2a***: Loss case lifecycle; SRS Figure 24.
 
-Custody is decided at triage from `rentals.custodyAt(deviceId, lastSeenAt)`, the same custody intervals that
+Custody is decided at triage from `CUSTODY_RESOLVER.custodyAt(deviceId, lastSeenAt)`, the same custody intervals that
 attribute field events (D-040). `RENTER` custody marks the organization's channel key exposed through
-`organizations.markKeyExposed`, and confirmation charges the remaining value through `billing.chargeLoss`;
+`organizations.markKeyExposed`, and confirmation charges the remaining value through the `LOSS_CASE_LISTENERS` port, which `billing` provides with `chargeLoss`;
 `TREKLINK` custody is written off. The `devices.lossSearch` job confirms `SEARCHING` cases whose
 `searchEndsAt` has passed, with the usual compare-and-set on state and version. A device recovered after
 settlement goes to `RETURNED` while its case stays `SETTLED`; any refund is a billing adjustment (E05-10).
@@ -157,6 +157,28 @@ inspection (BR-24), never the maintenance cost.
 | `projectReading(nodeNum, reading, tx)` returns the device id or null | gateway-sync |
 | `byNodeNum(nodeNum)`, `projections(ids)`, `trail(id)` | gateway-sync, monitoring |
 | `availability(variantId?)` | rentals, monitoring |
+
+**Ports declared here (corrected 2026-10-18).** `rentals` and `billing` both import `devices` (`platform`
+design Figure 3), so the loss-case flow of D-045 reaches them through ports, never by import:
+
+```typescript
+export const CUSTODY_RESOLVER = Symbol('CUSTODY_RESOLVER'); // provided by rentals
+export interface CustodyResolver {
+  custodyAt(deviceId: string, at: Date): Promise<{ contractId: string; organizationId: string;
+                                                   contractDeviceId: string } | null>;
+}
+
+export const LOSS_CASE_LISTENERS = Symbol('LOSS_CASE_LISTENERS'); // multi: billing, rentals
+export interface LossCaseListener {
+  onConfirmed(lossCase: LossCaseView, tx: Prisma.TransactionClient): Promise<void>;
+  onSettled(lossCase: LossCaseView, decision: LossDecision, tx: Prisma.TransactionClient): Promise<void>;
+}
+```
+
+`billing` charges the remaining value in `onConfirmed` for `RENTER` custody (`chargeLoss`) and writes the
+`ADJUSTMENT` line of a reduction or waiver in `onSettled` (`adjustLoss`); `rentals` sets the contract row's
+`lostAt` to the confirmation time in `onSettled` (rentals REQ-EVT-12). Both run inside the loss-case
+transaction.
 
 ---
 
@@ -348,18 +370,18 @@ classDiagram
         +dueForConfirmation(now) LossCase[]
     }
     class DevicesService
-    class RentalsService
+    class CustodyResolver
+    class LossCaseListener
     class OrganizationsService
     class ComplianceCaseService
-    class ChargesService
     LossCasesController --> LossCaseService
     LossSearchJob --> LossCaseService
     LossCaseService --> LossCasesRepository
     LossCaseService --> DevicesService : LOST, RETURNED, RETIRED
-    LossCaseService --> RentalsService : custodyAt
+    LossCaseService ..> CustodyResolver : custodyAt (port, rentals provides)
     LossCaseService --> OrganizationsService : markKeyExposed
     LossCaseService --> ComplianceCaseService : openOrLink
-    LossCaseService --> ChargesService : chargeLoss, adjustLoss
+    LossCaseService ..> LossCaseListener : onConfirmed, onSettled (port, billing and rentals provide)
 ```
 
 ***Figure 7***: devices classes for loss cases (D-045).
@@ -399,7 +421,7 @@ sequenceDiagram
     participant P as LossCasePage
     participant C as LossCasesController
     participant S as LossCaseService
-    participant Rt as RentalsService
+    participant Rt as CustodyResolver
     participant O as OrganizationsService
     participant R as LossCasesRepository
     St->>P: triage, suspected theft no
@@ -428,7 +450,7 @@ sequenceDiagram
     autonumber
     participant J as LossSearchJob
     participant S as LossCaseService
-    participant B as ChargesService
+    participant B as LossCaseListener
     participant R as LossCasesRepository
     actor Ad as TrekLink Admin
     participant C as LossCasesController
@@ -436,16 +458,16 @@ sequenceDiagram
     J->>S: confirm(id, SYSTEM)
     S->>R: compareAndSet(id, SEARCHING, CONFIRMED, tx)
     opt RENTER custody
-        S->>B: chargeLoss(contract, device, confirmedAt, tx)
+        S->>B: onConfirmed(case, tx), billing chargeLoss
     end
     Ad->>C: POST /api/loss-cases/{id}/decision, REDUCED
     C->>S: decide(id, dto, actor)
     alt refused: the actor triaged the case
         S-->>C: 403 SEPARATION_OF_DUTY
     else accepted: another Admin
-        S->>B: adjustLoss(caseId, REDUCED, chargeVnd, tx)
+        S->>B: onSettled(case, REDUCED, tx), billing adjustLoss, rentals lostAt
         S->>R: compareAndSet(id, CONFIRMED, SETTLED, decision, tx)
-        S->>S: device LOST to RETIRED, rentals sets lostAt
+        S->>S: device LOST to RETIRED
         S-->>C: LossCaseDto SETTLED
     end
 ```

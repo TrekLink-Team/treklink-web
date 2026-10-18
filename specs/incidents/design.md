@@ -171,7 +171,7 @@ sequenceDiagram
     autonumber
     participant G as gateway-sync
     participant I as IncidentIngress
-    participant R as RentalsService
+    participant R as ContractsService
     participant O as RosterService
     participant DB as Postgres
     participant J as tierTimeouts job

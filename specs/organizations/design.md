@@ -157,6 +157,8 @@ Events emitted: `member.deactivated`, `apiKey.revoked`, `fieldStation.revoked`, 
 | `KEY_LIMIT` | 409 |
 | `STATION_LIMIT` | 409 |
 | `ORGANIZATION_NOT_ACTIVE` | 409 (raised for `rentals` by `assertActive`) |
+| `CONTRACT_TERMS_MISSING` | 400 (verification without the NDA or the software licence, BR-43) |
+| `POLICE_REFERENCE_REQUIRED` | 409 (closing a suspected fraud or theft case without an authority reference, BR-40) |
 
 ---
 
