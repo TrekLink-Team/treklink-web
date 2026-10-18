@@ -51,3 +51,7 @@ Thumbs.db
 
 # Prisma generated artifacts (kept in node_modules usually)
 prisma/migrations/.env
+
+# Python bytecode (untracked 2026-10-18; every spec build rewrote it)
+__pycache__/
+*.pyc

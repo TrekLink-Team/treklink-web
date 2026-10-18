@@ -131,11 +131,12 @@ arithmetic.
 
 | Export | Used by |
 |---|---|
-| `RentalsService.custodyAt(deviceId, at, marginSeconds)` returns the `ContractDevice` whose interval (`handedOverAt` to `checkedInAt` or `lostAt`, open-ended while neither is set) contains `at`, with its contract and organization and a `nearBoundary` flag, whatever state the contract is in now; none when no interval contains `at` (D-040) | gateway-sync |
-| `RentalsService.currentHolder(deviceId)` returns the contract and organization holding the device now | monitoring (`device.*` entries) |
-| `RentalsService.visibleDevices(ctx)`, `rentalPeriods(deviceId, orgId)` | monitoring |
-| `RentalsService.contractsOfDevice(deviceId)`, `statusOf(contractId)`, `utilization(range)` | monitoring, incidents |
+| `ContractsService.custodyAt(deviceId, at, marginSeconds)` returns the `ContractDevice` whose interval (`handedOverAt` to `checkedInAt` or `lostAt`, open-ended while neither is set) contains `at`, with its contract and organization and a `nearBoundary` flag, whatever state the contract is in now; none when no interval contains `at` (D-040) | gateway-sync; devices through `CUSTODY_RESOLVER` (D-045) |
+| `ContractsService.currentHolder(deviceId)` returns the contract and organization holding the device now | monitoring (`device.*` entries) |
+| `ContractsService.visibleDevices(ctx)`, `rentalPeriods(deviceId, orgId)` | monitoring |
+| `ContractsService.contractsOfDevice(deviceId)`, `statusOf(contractId)`, `utilization(range)` | monitoring, incidents |
 | provider of `ORGANIZATION_EXIT_CHECKS.canClose` | organizations |
+| provider of `CUSTODY_RESOLVER` (delegates to `custodyAt`) and of `LOSS_CASE_LISTENERS.onSettled` (sets `lostAt`) | devices (D-045) |
 
 Declares `CONTRACT_CLOSE_CHECKS` (multi): `{ blockingReason(contractId, deviceIds): Promise<Reason | null> }`.
 

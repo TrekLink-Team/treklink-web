@@ -86,8 +86,9 @@ sequenceDiagram
 
 ***Figure 2***: SePay flow. Facts verified on 2026-10-04 at https://docs.sepay.vn/tich-hop-webhooks.html:
 the `Authorization: Apikey <key>` header, the payload fields, the required `{"success": true}` body and
-the retry policy (7 retries over 5 hours). The VietQR image URL format (`qr.sepay.vn/img?acc=&bank=&amount=&des=`)
-is configuration (`SEPAY_QR_BASE_URL`) and is checked against SePay's sandbox in task 3.2 (unverified).
+the retry policy (7 retries over 5 hours). The VietQR image URL format is configuration (`SEPAY_QR_BASE_URL`). On 2026-10-18
+https://docs.sepay.vn/tao-qr-code-vietqr-dong.html documents `https://vietqr.app/img?acc=&bank=&amount=&des=`, with optional `template`
+and `download`; it replaces the older `qr.sepay.vn/img` default. Rendering against SePay's sandbox stays in task 3.2.
 
 The reference is `TL` plus 8 Crockford base32 characters, so it survives banks that strip punctuation
 from transfer content. The webhook's `transferAmount` must equal the payment amount; a different amount
@@ -102,7 +103,8 @@ for Staff, rather than rejected, because the money has moved.
 |---|---|
 | `PricingService.snapshot(variantId)` | rentals |
 | `InvoicesService.issueTermInvoice(contract, term, tx)`, `issueDayPlanInvoice(contract, tx)` | rentals |
-| `ChargesService.chargeLate(contract, device, checkedInAt, tx)`, `chargeDamage(contract, inspection, tx)`, `chargeLoss(contract, device, lostAt, tx)` | rentals |
+| `ChargesService.chargeLate(contract, device, checkedInAt, tx)`, `chargeDamage(contract, inspection, tx)` | rentals |
+| `ChargesService.chargeLoss(contract, device, lostAt, tx)` and `adjustLoss(contract, device, decision, amountVnd, reason, actor, tx)` (an `ADJUSTMENT` line for a reduced or waived loss, never an edit of the `LOSS` line, FR-BILL-11, BR-39), called from this module's provider of the `devices` port `LOSS_CASE_LISTENERS` (`onConfirmed` for `RENTER` custody, `onSettled`) | devices, through the port (D-045) |
 | `ChargesService.settleCancellation(contract, tx)` | rentals |
 | `BalanceService.firstPaymentConfirmed(contractId)`, `outstanding(contractId)`, `balanceSummary(contractId)` | rentals |
 | `BalanceService.revenue(range)` | monitoring |

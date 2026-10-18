@@ -124,7 +124,7 @@ ENDPOINTS = [
        "UC-19, FR-BILL-07, FR-BILL-09, BR-34, MSG25",
        path=[INV_PATH], body=[["lineSeq", "Pay one line; default every line due now", "int", "no", "`1`"]],
        sample={"lineSeq": 2},
-       response={**PAYMENT, "vietQr": {"imageUrl": "https://qr.sepay.vn/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
+       response={**PAYMENT, "vietQr": {"imageUrl": "https://vietqr.app/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
                                        "bankAccount": "SANDBOX-0001", "content": "TL7K2Q9M4D"}},
        status=201, message="Scan the QR code to pay (sandbox).", entity="Invoice",
        errors=[(409, "NOTHING_DUE", "No unpaid amount on the invoice or line", "This invoice has nothing to pay."),

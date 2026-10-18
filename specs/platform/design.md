@@ -118,6 +118,7 @@ flowchart TB
     AUTH --> PLT
     ORG --> AUTH
     DEVS --> AUTH
+    DEVS --> ORG
     BILL --> ORG
     BILL --> DEVS
     RENT --> ORG
@@ -140,6 +141,8 @@ flowchart TB
     BILL -.->|"provides ORGANIZATION_EXIT_CHECKS"| ORG
     RENT -.->|"provides ORGANIZATION_EXIT_CHECKS"| ORG
     INC -.->|"provides CONTRACT_CLOSE_CHECKS"| RENT
+    RENT -.->|"provides CUSTODY_RESOLVER, LOSS_CASE_LISTENERS"| DEVS
+    BILL -.->|"provides LOSS_CASE_LISTENERS"| DEVS
     GWS -.->|"provides MQTT_HEALTH_PROBE"| PLT
 ```
 
@@ -152,6 +155,8 @@ flowchart TB
 | `API_KEY_RESOLVER` | auth | organizations | `ApiKeyGuard` authenticates an `X-Api-Key`; keys are an organizations table |
 | `ORGANIZATION_EXIT_CHECKS` (multi) | organizations | billing, rentals | Reactivation needs no balance (billing); closing needs no open contract (rentals) |
 | `CONTRACT_CLOSE_CHECKS` (multi) | rentals | incidents | Closing a contract needs no incident outside `CLOSED` on its devices (FR-CON-13) |
+| `CUSTODY_RESOLVER` | devices | rentals | Loss-case triage needs the custody interval (D-045); rentals imports devices |
+| `LOSS_CASE_LISTENERS` (multi) | devices | billing, rentals | Loss confirmation charges and settlement adjusts (billing) and closes the custody interval (rentals) (D-045) |
 
 Placement consequences, so no module reaches upward:
 
@@ -246,6 +251,39 @@ flowchart LR
 
 ***Figure 6***: Deployment. One cloud deployment; per organization only browsers, the Field Station and
 its USB node.
+
+**Hardware connections (added 2026-10-18).** See **Figure 6a**. Every device runs the TrekLink build of
+the Meshtastic firmware on an ESP32 or ESP32-S3 board, in the 433 MHz `MY_433` region at up to 20 dBm
+(`04-firmware-ground-truth.md` §5 and §5.1). Devices reach the cloud in two ways: a node with Wi-Fi
+publishes JSON over MQTT itself (Stage A and B, D-005), or the organization's Field Station reads one
+rented node over USB serial and publishes for the whole mesh (Stage C, D-018).
+
+<!-- sdd: II hardware -->
+```mermaid
+flowchart LR
+    subgraph Field["Field: LoRa mesh, 433 MHz MY_433, up to 20 dBm"]
+        D2["v2 device<br/>ESP32-S3, ICM-20948 IMU<br/>dedicated SOS button"]
+        D3["v3 device<br/>T-Beam ESP32, no IMU<br/>3 s button hold"]
+        D4["v4 device<br/>T-Beam S3 ESP32-S3, QMI8658 IMU<br/>3 s button hold"]
+    end
+    subgraph OrgSide["Organization"]
+        NODE["Rented node"]
+        LAP["Field Station laptop<br/>SQLite queue, local page"]
+    end
+    subgraph Cloud["TrekLink cloud"]
+        BRK["Mosquitto broker<br/>TLS 8883"]
+        API["Backend<br/>gateway-sync ingestion"]
+    end
+    D2 <-->|"LoRa mesh packets"| D3
+    D3 <-->|"LoRa mesh packets"| D4
+    D2 <-->|"LoRa mesh packets"| NODE
+    NODE -->|"USB serial, Meshtastic serial protocol"| LAP
+    LAP -->|"MQTT over TLS, treklink/fs/username/..."| BRK
+    D4 -->|"Wi-Fi, MQTT JSON treklink/2/json/..., Stage A and B"| BRK
+    BRK -->|"subscription, QoS 1"| API
+```
+
+***Figure 6a***: Hardware connections. v1 units compile MQTT out and are not in the demo set (D-005).
 
 ---
 

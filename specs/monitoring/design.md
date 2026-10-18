@@ -150,7 +150,7 @@ classDiagram
         +after(organizationId, seq, limit) StreamEvent[]
         +maxSeq() bigint
     }
-    class RentalsService
+    class ContractsService
     class DevicesService
     class IncidentsService
     class GatewaySyncService
@@ -161,7 +161,7 @@ classDiagram
     StreamListener --> LiveGateway
     LiveGateway --> StreamService : replay on reconnect
     StreamService --> StreamRepository
-    LiveMapService --> RentalsService : visibleDevices
+    LiveMapService --> ContractsService : visibleDevices
     LiveMapService --> DevicesService : projections
     LiveMapService --> IncidentsService : openByDevices
     HistoryService --> GatewaySyncService : events
@@ -180,7 +180,7 @@ sequenceDiagram
     participant P as LiveMapPage
     participant C as MapController
     participant S as LiveMapService
-    participant Rt as RentalsService
+    participant Rt as ContractsService
     participant D as DevicesService
     participant R as StreamRepository
     Op->>P: open the live map

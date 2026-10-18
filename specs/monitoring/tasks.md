@@ -1,38 +1,89 @@
 # Implementation Tasks: monitoring
 
-> Rewritten 2026-10-04 (D-036). Owner: LongNN (MF-04). Jira keys assigned when the backlog is regenerated.
-> Fulfills `design.md`. Starts after gateway-sync Phase 2 (events) and rentals Phase 1.
+> Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6. Fulfills `design.md`;
+> endpoints are `api-design/01` to `08`; live push is `api-design/ws-live-contract.md`. This module is
+> the read model and may import every other module (`platform` design §2.1).
+
+| | |
+|---|---|
+| Lane owner | HoangTK, backend and WebSocket (roadmap §5.1); LongNN owns the screens (UC-38, UC-42, UC-59 stories) |
+| Reviewer | KhoaDD |
+| Sprint | 4 (W9 to W10); 1.1 and 2.1 start in Sprint 3 so MF-02 events show on a map at Review 2 |
+| Stories | US-UC38, US-UC39, US-UC40, US-UC41, US-UC42, US-UC53 (device history), US-UC59 |
+| Depends on | gateway-sync 2.2; rentals 4.5; incidents 5.1; organizations 2.8; billing 2.4 |
 
 ## Phase 1: Foundation
 
-- [ ] 1.1 `MonitoringModule`; `StreamEvent` repository; `LiveGateway` (Socket.io `/live`) with JWT and API-key handshakes and server-assigned rooms
-  - _Requirements: REQ-UBI-01, ws-live-contract.md_
+- [ ] 1.1 `MonitoringModule`, stream and `LiveGateway` (owner HoangTK)
+  - **Files**: `backend/src/modules/monitoring/monitoring.module.ts`, `stream.repository.ts`, `stream.service.ts`, `live.gateway.ts`
+  - **Do**: `StreamEvent` repository (`insert`, `after(organizationId, seq, limit)`, `maxSeq`); Socket.io namespace `/live` with JWT and API-key handshakes; rooms assigned by the server only (`fleet`, `org:<id>`, `user:<id>`) per design §2 and `ws-live-contract.md`; an entry with no organization goes to `fleet` only
+  - **Test**: a client cannot join a room by naming it; an `UNATTRIBUTED` entry reaches `fleet` only
+  - _Requirements: REQ-UBI-01, FR-MON-02, FR-MON-06, BR-19, BR-36_
 
 ## Phase 2: Stream
 
-- [ ] 2.1 Listeners for the domain events; organization resolution cache; throttling; `incident.alert` publishing
-  - _Requirements: REQ-EVT-01, REQ-EVT-04, REQ-EVT-07, AC-01, AC-05_
-- [ ] 2.2 Replay on connect, `replay.done`, `replay.expired`; REST replay with 410; key revocation closing sockets
-  - _Requirements: REQ-EVT-02, REQ-EVT-08, AC-02_
-- [ ] 2.3 Staleness sweep and pruning jobs
-  - _Requirements: REQ-EVT-03, AC-03_
+- [ ] 2.1 Stream listeners (owner HoangTK)
+  - **Files**: `stream.listener.ts`
+  - **Do**: listen to `field.position`, `field.telemetry`, `incident.changed`, `device.labelChanged`, `device.handedOver`, `device.checkedIn`; take the organization from the event (field: attributed, incident: routed) and use `ContractsService.currentHolder` only for `device.*`, cached and invalidated on handover and check-in; mark a field entry `late` when it occurred before the organization's latest check-in of the device and keep it off the live map; throttle positions per device to `monitoring.positionEmitMinIntervalMs`; on check-in emit `device.released` and send nothing about the device after it; never push an entry marked not plotted as a position
+  - **Test**: AC-01, AC-04 (not plotted), AC-05, AC-06
+  - _Requirements: REQ-UBI-03, REQ-EVT-01, REQ-EVT-04, AC-01, AC-04, AC-05, AC-06, FR-MON-02, FR-MON-04, FR-MON-08, BR-22_
+  - _Story: US-UC38_
+- [ ] 2.2 Replay and key revocation (owner HoangTK)
+  - **Do**: on connect or reconnect with a cursor, replay every entry after it for the client's rooms, then `replay.done`, then live; a cursor older than `monitoring.streamRetentionHours` gets `replay.expired` (REST 410); on `apiKey.revoked` close that key's sockets
+  - **Test**: AC-02 (two minutes disconnected, every entry once and in order)
+  - _Requirements: REQ-EVT-02, REQ-EVT-08, AC-02, FR-MON-05, FR-ORG-06_
+- [ ] 2.3 `incident.alert` publishing (owner HoangTK)
+  - **Do**: a synchronous listener publishes the alert to `user:<recipientId>`; returning means sent (incidents design §3)
+  - **Test**: an alert reaches the recipient's socket within 2 s of the transition commit
+  - _Requirements: REQ-EVT-07, FR-INC-12, NFR-PERF-04_
+- [ ] 2.4 Staleness sweep and pruning (owner HoangTK)
+  - **Files**: `jobs/stale-sweep.job.ts`, `jobs/prune-stream.job.ts`
+  - **Do**: `monitoring.staleSweep` every `monitoring.staleSweepSeconds`: devices past `monitoring.deviceStaleSeconds` and stations past `monitoring.fieldStationStaleSeconds` emit stale and recovered transitions only and call `IncidentsService.markDeviceStale`; `monitoring.pruneStream` hourly deletes entries past retention
+  - **Test**: AC-03; a device heard again emits one recovery
+  - _Requirements: REQ-EVT-03, AC-03, FR-MON-03, FR-INC-13, BR-21_
+  - _Story: US-UC41_
 
 ## Phase 3: Read models
 
-- [ ] 3.1 Map config and snapshot; organization API with the per-key rate limit
-  - _Requirements: REQ-UBI-02, REQ-EVT-05, AC-06_
-- [ ] 3.2 Clipped telemetry history; device history; reports with CSV; system health
-  - _Requirements: REQ-EVT-06, REQ-ERR-02, FR-DEV-11, FR-BILL-10, FR-MON-10_
+- [ ] 3.1 Map configuration and snapshot (owner HoangTK)
+  - **Files**: `live-map.service.ts`, `map.controller.ts`
+  - **Do**: map provider, tile URL, attribution, viewport and the sovereignty overlay from configuration (api-design 01); snapshot from `visibleDevices`, `projections`, `openByDevices`, station health and the max `seq` (api-design 02)
+  - **Test**: the overlay is present in the configuration response
+  - _Requirements: REQ-UBI-02, FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01_
+  - _Story: US-UC38_
+- [ ] 3.2 Organization API (owner HoangTK)
+  - **Files**: `org-api.controller.ts`
+  - **Do**: api-design 04 and 05 behind `ApiKeyGuard`; `monitoring.apiRateLimitPerMinute` per key, 429 `RATE_LIMITED` beyond; only the key's organization
+  - **Test**: organizations AC-05 end to end; the 61st request in a minute gets 429
+  - _Requirements: REQ-EVT-05, FR-MON-05, FR-MON-06, BR-20_
+  - _Story: US-UC39_
+- [ ] 3.3 Telemetry and device history (owner HoangTK)
+  - **Files**: `history.service.ts`
+  - **Do**: api-design 03 serves events attributed to the caller's organization inside its rental periods; TrekLink staff get the whole history including `UNATTRIBUTED`; a range over 7 days or reversed is 400; api-design 07 composes `devices.trail`, `contractsOfDevice` and `incidentsOfDevice`
+  - **Test**: a member asking for another organization's device gets 404 and nothing is sent
+  - _Requirements: REQ-EVT-06, REQ-ERR-01, REQ-ERR-02, FR-MON-07, FR-DEV-11_
+  - _Story: US-UC40, US-UC53_
+- [ ] 3.4 Reports and system health (owner HoangTK)
+  - **Files**: `reports.service.ts`, `system-health.service.ts`
+  - **Do**: api-design 08: utilization, revenue per variant, overdue and lost units, time-to-acknowledge and time-to-resolve as medians and 95th percentiles over a date range, JSON or CSV in the envelope; api-design 06: `HealthService`, `gatewaySync.stats`, station health with `outdated`, buffering devices, `alertDeliveryStats`
+  - **Test**: CSV header row and one row per variant; a station on an old version shows `outdated`
+  - _Requirements: FR-BILL-10, FR-MON-10, FR-EVT-13_
+  - _Story: US-UC42, US-UC59_
 
 ## Phase 4: API Presentation Layer
 
-- [ ] 4.1 Controllers for api-design 01 to 08
-- [ ] 4.2 E2E for every Validation row; tenancy cases including the device moving between organizations
+- [ ] 4.1 Controllers (owner HoangTK)
+  - **Do**: api-design 01 to 08 with each file's permission and `@ResponseMessage`
+- [ ] 4.2 E2E (owner HoangTK)
+  - **Files**: `backend/test/monitoring.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
+  - **Do**: every Validation row of api-design 01 to 08; the device moving from A's contract to B's (AC-01, AC-06); socket tests with two organizations
+  - _Requirements: AC-01 to AC-07_
 
 ## Phase 5: Frontend Integration
 
-- [ ] 5.1 Live map widget with the overlay, stale and incident markers, reconnect banner, map error state (tracked in `specs/frontend/tasks.md`)
+- [ ] 5.1 Live map widget with the overlay, stale and incident markers, reconnect banner (MSG32) that keeps the last positions, map error state (MSG33) that keeps the panels live; system health and reports pages (owner LongNN, tracked in `specs/frontend/tasks.md` 9.1 to 9.4)
+  - _Requirements: REQ-STA-01, REQ-STA-02, AC-07, FR-MON-09_
 
 ## Phase 6: Verification & DoD
 
-- [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour
+- [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner HoangTK)

@@ -51,7 +51,7 @@ Creates a SePay payment request in the sandbox for the amount due now on the inv
     "expiresAt": "2026-10-20T03:45:00Z",
     "confirmedAt": null,
     "vietQr": {
-      "imageUrl": "https://qr.sepay.vn/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
+      "imageUrl": "https://vietqr.app/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
       "bankAccount": "SANDBOX-0001",
       "content": "TL7K2Q9M4D"
     }
