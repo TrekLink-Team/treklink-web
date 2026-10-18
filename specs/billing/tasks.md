@@ -1,42 +1,107 @@
 # Implementation Tasks: billing
 
-> Rewritten 2026-10-04 (D-036). Owner: LongLP (D-035). Jira keys assigned when the backlog is regenerated.
-> Fulfills `design.md`. Starts after devices Phase 1.
+> Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6; adds the loss charge and
+> its adjustment (FR-BILL-05, FR-BILL-11, D-045) through the `devices` port `LOSS_CASE_LISTENERS`.
+> Fulfills `design.md`; endpoints are `api-design/01` to `17`. Reports (FR-BILL-10) are `monitoring`.
+
+| | |
+|---|---|
+| Lane owner | LongLP (roadmap §5.1) |
+| Reviewer | KhoaDD |
+| Sprint | 3 (W7 to W8) for prices, term invoices, payments (MF-01); 5 (W11) for late, damage and loss charges (MF-05) |
+| Stories | US-UC19, US-UC22, US-UC45, US-UC46, US-UC47, US-UC48, US-UC56, US-UC60 (charge side) |
+| Depends on | platform 2.5 to 2.10; auth 4.2; organizations 1.3; devices 1.3 (`valueAt`) and 1.4 (port) |
+| Unblocks | rentals 2.1 (snapshot), 2.2 (invoices), 2.4 (first payment), 4.1 and 4.2 (charges) |
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 `BillingModule`; repositories for its six models; invoice number sequence
-- [ ] 1.2 Money helpers in integer VND with ceiling rounding
-  - _Requirements: REQ-UBI-01_
-- [ ] 1.3 Provide `ORGANIZATION_EXIT_CHECKS.canReactivate`
+- [ ] 1.1 `BillingModule` and repositories (owner LongLP)
+  - **Files**: `backend/src/modules/billing/billing.module.ts`, `pricing.repository.ts`, `invoices.repository.ts`, `payments.repository.ts`
+  - **Do**: repositories over the `// @module billing` models only; invoice number `INV-<year>-<6 digits>` as the `schema.prisma` example `INV-2026-000123`
+  - _Requirements: NFR-MNT-01_
+- [ ] 1.2 Money helpers (owner LongLP)
+  - **Files**: `backend/src/modules/billing/money.ts`
+  - **Do**: integer VND only; `ceilVnd(x)` rounds each line up to the whole đồng; no floating amount is stored
+  - **Test**: the AC-01 and AC-02 figures; ratio 0.5 of an odd amount rounds up
+  - _Requirements: REQ-UBI-01, BR-29_
+- [ ] 1.3 Provide `ORGANIZATION_EXIT_CHECKS.canReactivate` (owner LongLP)
+  - **Do**: any unpaid line or pending damage charge of the organization returns `BALANCE_OUTSTANDING`
+  - **Test**: reactivation refused with one unpaid line
+  - _Requirements: design §4, FR-ORG-07_
 
 ## Phase 2: Core Service Logic
 
-- [ ] 2.1 Price schedule, damage schedule, plan catalogue, quote, snapshot
-  - _Requirements: REQ-UBI-05, REQ-EVT-01, AC-01, AC-02_
-- [ ] 2.2 Term, day-plan and closing invoices; late, damage, loss charges; cancellation adjustment
-  - _Requirements: REQ-EVT-02 to REQ-EVT-07, REQ-EVT-11, REQ-UBI-02, AC-04, AC-05_
-- [ ] 2.3 Damage-charge decisions with separation of duty
-  - _Requirements: REQ-EVT-06, REQ-ERR-03_
-- [ ] 2.4 Balance service for `rentals` and `monitoring`
-  - _Requirements: REQ-STA-02_
+- [ ] 2.1 Prices, damage rates, plans, quotes, snapshot (owner LongLP)
+  - **Files**: `backend/src/modules/billing/pricing.service.ts`
+  - **Do**: price schedule append-only, a new row effective from a time not in the past; damage rates per variant with a generic fallback; plan catalogue (public); quote for a variant, plan, quantity and length; `snapshot(variantId)` returns monthly price, `billing.dayPremium` and `billing.holdingFeeRatio`
+  - **Test**: a past effective time is refused; the snapshot ignores a price effective tomorrow
+  - _Requirements: REQ-UBI-05, REQ-EVT-01, AC-01, AC-02, FR-CFG-02_
+  - _Story: US-UC56_
+- [ ] 2.2 Term and day-plan invoices (owner LongLP)
+  - **Files**: `backend/src/modules/billing/invoices.service.ts`
+  - **Do**: `issueTermInvoice(contract, term, tx)`: one `TERM` invoice, `HOLDING_FEE` line due at the term start and `TERM_BALANCE` due at the term end; `issueDayPlanInvoice(contract, tx)`: one `DAY_PLAN_FEE` line due at the start date; issued lines never change
+  - **Test**: AC-01 and AC-02
+  - _Requirements: REQ-EVT-02, REQ-EVT-03, REQ-UBI-02, FR-BILL-01, FR-BILL-02, BR-06, BR-07_
+- [ ] 2.3 Cancellation adjustment (owner LongLP)
+  - **Do**: `ChargesService.settleCancellation(contract, tx)` voids the unpaid first-invoice lines with a zero-sum `ADJUSTMENT`, keeping a paid holding fee
+  - **Test**: cancel before and after the holding fee is paid
+  - _Requirements: REQ-EVT-11, FR-CON-04_
+- [ ] 2.4 Balance service (owner LongLP)
+  - **Files**: `backend/src/modules/billing/balance.service.ts`
+  - **Do**: `firstPaymentConfirmed(contractId)`, `outstanding(contractId)` (unpaid lines plus pending damage charges), `balanceSummary(contractId)`, `revenue(range)` for monitoring
+  - **Test**: a pending damage charge counts as outstanding
+  - _Requirements: REQ-STA-02, FR-CON-13, BR-27_
+- [ ] 2.5 Late and damage charges, damage decisions (owner LongLP)
+  - **Files**: `backend/src/modules/billing/charges.service.ts`
+  - **Do**: `chargeLate(contract, device, checkedInAt, tx)` per started day past `returnDueAt` and the grace, on the `CLOSING` invoice (created on the first charge); `chargeDamage(contract, inspection, tx)` prices each code, `PENDING_APPROVAL` above `billing.damageApprovalThresholdVnd`; a decision by an Admin who did not record the inspection (403 `SEPARATION_OF_DUTY`) approves, reduces or waives, an approved or reduced amount becomes a `DAMAGE` line (MSG30)
+  - **Test**: AC-04; three late days on two devices give two lines of three days
+  - _Requirements: REQ-EVT-04, REQ-EVT-05, REQ-EVT-06, REQ-ERR-03, AC-04, FR-BILL-03, FR-BILL-04, BR-23, BR-24_
+  - _Story: US-UC46, US-UC47, US-UC48_
+- [ ] 2.6 Loss charge and adjustment (owner LongLP)
+  - **Files**: `charges.service.ts`, `providers/loss-case-listener.provider.ts`
+  - **Do**: provide `LOSS_CASE_LISTENERS`: `onConfirmed` for `RENTER` custody calls `chargeLoss(contract, device, confirmedAt, tx)`, a `LOSS` line of `DevicesService.valueAt(device, confirmedAt)` on the closing invoice; `TREKLINK` custody adds nothing; `onSettled` with a reduced or waived decision calls `adjustLoss(...)`, an `ADJUSTMENT` line with the reason and author, never an edit of the `LOSS` line
+  - **Test**: AC-05; a waiver leaves the `LOSS` line and adds a negative `ADJUSTMENT` of the same amount
+  - _Requirements: REQ-EVT-07, AC-05, FR-BILL-05, FR-BILL-11, BR-25, BR-39_
+  - _Story: US-UC60_
+  - _Depends on: devices 1.3 and 1.4_
 
 ## Phase 3: Payments
 
-- [ ] 3.1 Counter payments with line application under a row lock
-  - _Requirements: REQ-EVT-10, REQ-ERR-04, REQ-ERR-05_
-- [ ] 3.2 SePay request and VietQR; webhook with constant-time key check, `@RawResponse()`, dedup on reference and transaction id; expiry job; verify the VietQR URL against the sandbox
-  - _Requirements: REQ-EVT-08, REQ-EVT-09, REQ-UBI-03, REQ-UBI-04, REQ-STA-01, REQ-ERR-01, REQ-ERR-02, AC-03_
+- [ ] 3.1 Counter payments (owner LongLP)
+  - **Files**: `backend/src/modules/billing/payments.service.ts`
+  - **Do**: cash or bank transfer with a receipt reference, `CONFIRMED` at once (MSG20); applied to unpaid lines oldest due first under `SELECT ... FOR UPDATE` on the invoice; more than due 400 `OVERPAYMENT`; a known reference 409 `DUPLICATE_REFERENCE`
+  - **Test**: two concurrent counter payments on one invoice never over-apply
+  - _Requirements: REQ-EVT-10, REQ-ERR-04, REQ-ERR-05, FR-BILL-08_
+  - _Story: US-UC22_
+- [ ] 3.2 SePay sandbox (owner LongLP)
+  - **Files**: `backend/src/modules/billing/sepay.service.ts`, `sepay-webhook.controller.ts`, `jobs/expire-payments.job.ts`
+  - **Do**: create a `PENDING` payment with reference `TL` plus 8 Crockford base32 characters and expiry `billing.sepayPaymentTtlMinutes`; return the VietQR URL built from `SEPAY_QR_BASE_URL` and `SEPAY_BANK_CODE`, labelled sandbox; the webhook checks `Authorization: Apikey` in constant time (401 and nothing recorded otherwise), dedups on reference and gateway transaction id, applies the amount, answers `{ "success": true }` through `@RawResponse()`, logs an unknown reference for Staff; `billing.expirePayments` every 60 s marks expired payments `EXPIRED` with no partial settlement; render the QR once against the sandbox to verify the URL format
+  - **Test**: AC-03 (ten identical webhooks record one payment); wrong key 401; an expired payment leaves the amount due (MSG25)
+  - _Requirements: REQ-EVT-08, REQ-EVT-09, REQ-UBI-03, REQ-UBI-04, REQ-STA-01, REQ-ERR-01, REQ-ERR-02, AC-03, FR-BILL-07, FR-BILL-09, NFR-SEC-07, BR-31, BR-34_
+  - _Story: US-UC19_
 
-## Phase 4: API Presentation Layer
+## Phase 4: Query / Retrieval
 
-- [ ] 4.1 Controllers for api-design 01 to 17
-- [ ] 4.2 E2E for every Validation row; webhook replay; tenancy cases
+- [ ] 4.1 Invoices, payments, damage charges (owner LongLP)
+  - **Do**: invoices and payments with status and contract filters (Org Manager sees own); invoice detail with lines; contract balance; damage charges pending approval
+  - **Test**: a Manager reading another organization's invoice gets 404
+  - _Requirements: FR-BILL-06, FR-AUTH-11_
+  - _Story: US-UC45, US-UC55 (data)_
 
-## Phase 5: Frontend Integration
+## Phase 5: API Presentation Layer
 
-- [ ] 5.1 Plans page; quote in the request form; invoices and payment page with QR and polling; Admin price and damage schedules; damage approval queue (tracked in `specs/frontend/tasks.md`)
+- [ ] 5.1 Controllers (owner LongLP)
+  - **Files**: `pricing.controller.ts`, `invoices.controller.ts`, `payments.controller.ts`, `damage-charges.controller.ts`, `sepay-webhook.controller.ts`
+  - **Do**: api-design 01 to 17 with each file's permission and `@ResponseMessage`; the webhook is the one `@RawResponse()` route (D-038)
+- [ ] 5.2 E2E (owner LongLP)
+  - **Files**: `backend/test/billing.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
+  - **Do**: every Validation row of api-design 01 to 17; webhook replay; AC-01 to AC-05
+  - _Requirements: AC-01 to AC-05_
 
-## Phase 6: Verification & DoD
+## Phase 6: Frontend Integration
 
-- [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour
+- [ ] 6.1 Plans page; quote in the request form; invoices and payment page with QR and polling; Admin price and damage schedules; damage approval queue (owner LongNN, tracked in `specs/frontend/tasks.md` 6.1 to 6.4)
+
+## Phase 7: Verification & DoD
+
+- [ ] 7.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner LongLP)

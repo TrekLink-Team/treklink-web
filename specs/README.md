@@ -16,19 +16,19 @@ specs/{module_name}/
 
 ## 2. Module Index
 
-Status: every suite drafted 2026-10-04, **awaiting its owner's review** before implementation (AGENTS.md §2.3). Order is dependency order (`platform/design.md` Figure 3).
+Order is dependency order (`platform/design.md` Figure 3). Owners are the lanes of roadmap §5.1 (remapped 2026-10-18); KhoaDD, LongLP and TanNB cover a lane that falls behind.
 
 | Module | Main Flow | Scope | Owner |
 |---|---|---|---|
-| [`platform/`](./platform/) | all | Envelope, errors, configuration, parameters, audit, scheduler, health; **system context, architecture, module graph, ports, domain events, ERD overview**; [Configuration Matrix](platform/configuration-matrix.md) | KhoaDD, LongLP (Phase 2) |
-| [`auth/`](./auth/) | all | Email sign-in, tokens, codes, roles as data, organization scoping, API-key guard, TrekLink accounts; [Permission Matrix](auth/permission-matrix.md) | LongLP, KhoaDD, LongNN |
-| [`organizations/`](./organizations/) | MF-01, MF-03, MF-04 | **New.** Registration, verification, approval, suspension; members; on-duty roster; API keys; Field Station credentials (D-037) | KhoaDD |
-| [`devices/`](./devices/) | MF-01, MF-05 | Variants, registration, **8-state device lifecycle**, intake, reset, maintenance, stock-take | LongLP |
+| [`platform/`](./platform/) | all | Envelope, errors, configuration, parameters, audit, scheduler, health; **system context, architecture, module graph, ports, domain events, ERD overview**; [Configuration Matrix](platform/configuration-matrix.md) | KhoaDD |
+| [`auth/`](./auth/) | all | Email sign-in, tokens, codes, roles as data, organization scoping, API-key guard, TrekLink accounts; [Permission Matrix](auth/permission-matrix.md) | LongLP |
+| [`organizations/`](./organizations/) | MF-01, MF-03, MF-04 | **New.** Registration, verification, approval, suspension; members; on-duty roster; API keys; Field Station credentials (D-037), NDA and licence, compliance cases (D-046) | TanNB |
+| [`devices/`](./devices/) | MF-01, MF-05 | Variants, registration, **device lifecycle**, intake, reset, loss cases, disposal, periodic maintenance (D-045, D-047), stock-take | KhoaDD |
 | [`billing/`](./billing/) | MF-01, MF-05 | Prices, damage schedule, term and day-plan invoices, late, damage and loss charges, SePay sandbox, counter payments | LongLP |
-| [`rentals/`](./rentals/) | MF-01, MF-05 | **Rental-contract lifecycle**, approval with reservation, counter handover with signed note, terms, notice, check-in, inspection, default, close | TanNB, LongLP |
-| [`incidents/`](./incidents/) | MF-03 | **12-state incident lifecycle** (D-034), tiered alerts, outbox, authority reports | HoangTK, KhoaDD |
+| [`rentals/`](./rentals/) | MF-01, MF-05 | **Rental-contract lifecycle**, approval with reservation, counter handover with signed note, terms, notice, check-in, inspection, default, mid-contract replacement, close | LongLP |
+| [`incidents/`](./incidents/) | MF-03 | **12-state incident lifecycle** (D-034), tiered alerts, outbox, authority reports | HoangTK |
 | [`gateway-sync/`](./gateway-sync/) | MF-02 | MQTT ingestion Stage A to C, `eventId` dedup, sync audit, broker hooks, Field Station executable | KhoaDD |
-| [`monitoring/`](./monitoring/) | MF-04 | Organization-scoped stream, WebSocket and REST replay, live map, organization API, history, reports, system health | LongNN |
+| [`monitoring/`](./monitoring/) | MF-04 | Organization-scoped stream, WebSocket and REST replay, live map, organization API, history, reports, system health | HoangTK (backend), LongNN (screens) |
 | [`frontend/`](./frontend/) | all | FSD web client, routes per SRS Table 72, Leaflet map with the sovereignty overlay | LongNN |
 
 `trips/` is retired: there are no trips, trek packages or bookings in the platform (D-033, rejected alternative (e)).
@@ -61,3 +61,31 @@ Hand-written contracts under `api-design/` (lower-case names, kept by the genera
 - No module imports a module above it; upward needs go through ports (`platform/design.md` §2.1).
 - Every business parameter is a catalogue key with a default and an owner (D-015).
 - Mermaid only (D-017).
+
+## 6. Working a task list
+
+Rewritten 2026-10-18 (D-051). The leader writes the specs and the task lists; members implement
+them. Each `tasks.md` is complete enough to code from without re-deriving the design.
+
+| Field on a task | Meaning |
+|---|---|
+| `(owner NAME)` | Who implements it. The lane owner unless stated |
+| **Files** | Where the code goes; create the file if it does not exist |
+| **Do** | The behaviour, in order; names come from `design.md` and `api-design/*.md` |
+| **Test** | The test file and the cases it must contain |
+| **Done when** | The observable result a reviewer checks |
+| _Requirements_ | EARS IDs of this module, then SRS IDs |
+| _Story_ | The backlog story (`treklink-docs/_docs/03-backlog/02-user-stories.md`); its Jira key names the branch |
+| _Depends on_ | Tasks that must be merged on `dev` first, `module N.N` for another module |
+
+Rules:
+
+1. One branch per story, `feat/<jira-key>-<short-desc>`; a task without a story (foundation, tests)
+   rides the branch of the first story that needs it.
+2. Tick the box in the same PR that implements the task. A task the code proves wrong is corrected in
+   `tasks.md` (and `design.md` if needed) in that PR, never left stale.
+3. `python3 scripts/specs/check_tasks.py` must stay clean: every requirement, endpoint, SRS FR and
+   backlog story is named by a task.
+4. Controllers declare `@ResponseMessage` with the exact message of the endpoint's `api-design` file;
+   every Validation row of that file has an e2e test.
+5. Every module extends `backend/test/tenancy.e2e-spec.ts` with its cross-organization 404 cases.

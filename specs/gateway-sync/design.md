@@ -95,8 +95,9 @@ A Node.js program in `treklink-web/gateway/`, packaged as one executable per OS 
 
 mosquitto 2 with the go-auth plugin, HTTP backend, JSON params, **status** response mode
 (https://github.com/iegomez/mosquitto-go-auth, read 2026-10-04): any 2xx allows. The hooks answer through
-the normal envelope with 200, 401 or 403, which status mode reads correctly. The plugin's auth cache is set to at
-most 60 s (option name confirmed in task 3.1; `auth_opt_cache_seconds` is assumed, unverified), which bounds how long a revoked station keeps a
+the normal envelope with 200, 401 or 403, which status mode reads correctly. The plugin's cache is on (`auth_opt_cache true`)
+with `auth_opt_auth_cache_seconds` and `auth_opt_acl_cache_seconds` at most 60 and `auth_opt_cache_refresh false` (option names read
+from the plugin README on 2026-10-18), which bounds how long a revoked station keeps a
 fresh connection; the backend additionally drops every message from a revoked username at once (§2 step 2).
 
 | Credential kind | Username | Publish | Subscribe |
@@ -112,7 +113,7 @@ fresh connection; the backend additionally drops every message from a revoked us
 | Export | Used by |
 |---|---|
 | `GatewaySyncService.eventsOfIncident(id)`, `events(deviceId, periods, kinds)`, `stats(window)` | incidents, monitoring |
-| consumes `RentalsService.custodyAt(deviceId, at)` | attribution (§2 step 2a) |
+| consumes `ContractsService.custodyAt(deviceId, at)` | attribution (§2 step 2a) |
 | provider of `MQTT_HEALTH_PROBE` | platform |
 
 Listens to `fieldStation.revoked`. Emits `field.position`, `field.telemetry`, `fieldStation.synced`.
@@ -212,7 +213,7 @@ classDiagram
     class SyncAuditRepository {
         +insert(row, tx)
     }
-    class RentalsService
+    class ContractsService
     class DevicesService
     class IncidentIngress
     class FieldStationsService
@@ -223,7 +224,7 @@ classDiagram
     IngestionService --> Normalizer
     IngestionService --> FieldEventsRepository
     IngestionService --> SyncAuditRepository
-    IngestionService --> RentalsService : custodyAt
+    IngestionService --> ContractsService : custodyAt
     IngestionService --> DevicesService : byNodeNum, projectReading
     IngestionService --> IncidentIngress : onSos, onPosition
 ```
@@ -240,7 +241,7 @@ sequenceDiagram
     participant A as FieldStationJsonAdapter
     participant S as IngestionService
     participant D as DevicesService
-    participant Rt as RentalsService
+    participant Rt as ContractsService
     FS->>B: PUBLISH QoS 1, stock JSON plus fs_captured_at, fs_sent_at
     B->>A: deliver on treklink/fs/username/2/json
     A->>S: ingest(envelope)
