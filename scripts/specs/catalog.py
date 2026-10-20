@@ -24,6 +24,10 @@ PARAMETERS = {
     "devices": [
         ("devices.handoverMinBatteryPct", 50, "PERCENT", {"min": 0, "max": 100}, "percent", "Below this battery the handover needs an explicit acknowledgement (MSG19)", "FR-CON-05"),
         ("devices.stockTakeSeenHours", 24, "INT", {"min": 1, "max": 168}, "hours", "A rented device heard within this window counts as confirmed in a stock-take", "FR-DEV-10"),
+        ("devices.lossSearchDays", 7, "INT", {"min": 1, "max": 60}, "days", "A triaged loss case is confirmed when this long passes without recovery", "FR-DEV-15, D-045"),
+        ("devices.maintenanceLeadDays", 5, "INT", {"min": 0, "max": 30}, "days", "The weekly scan opens a service this long before it falls due, on top of the week to the next run", "FR-DEV-18, D-047"),
+        ("devices.maintenanceApprovalThresholdVnd", 1000000, "INT", {"min": 0, "max": 50000000}, "VND", "A maintenance estimate or actual cost above this needs an Admin's approval", "FR-DEV-20, BR-44"),
+        ("devices.serviceScanHourLocal", 1, "INT", {"min": 0, "max": 23}, "hour (UTC+7)", "Hour on Monday at which the weekly service scan runs", "FR-DEV-18"),
     ],
     "rentals": [
         ("rentals.minOrderQuantity", 5, "INT", {"min": 1, "max": 100}, "devices", "Minimum order quantity per contract", "FR-CON-01, BR-02"),
@@ -43,6 +47,9 @@ PARAMETERS = {
     ],
     "gateway-sync": [
         ("gatewaySync.retroTagGraceSeconds", 60, "DURATION_SECONDS", {"min": 0, "max": 600}, "seconds", "Positions this long before an SOS text are tagged into its episode", "FR-INC-01"),
+        ("gatewaySync.lateUploadGraceHours", 168, "INT", {"min": 1, "max": 720}, "hours", "A Field Station may still upload a device's events this long after its organization returned it", "FR-EVT-14, D-040"),
+        ("gatewaySync.attributionMarginSeconds", 300, "DURATION_SECONDS", {"min": 0, "max": 3600}, "seconds", "An occurrence time this close to a handover or check-in is `UNATTRIBUTED`", "FR-EVT-17, D-040"),
+        ("gatewaySync.deviceTimeMaxAheadSeconds", 60, "DURATION_SECONDS", {"min": 0, "max": 3600}, "seconds", "A device `rx_time` later than receipt by more than this is implausible", "FR-EVT-15, D-040"),
     ],
     "incidents": [
         ("incidents.correlationWindowSeconds", 300, "DURATION_SECONDS", {"min": 30, "max": 3600}, "seconds", "An SOS within this time of the episode's last event joins it", "FR-INC-01, BR-13"),

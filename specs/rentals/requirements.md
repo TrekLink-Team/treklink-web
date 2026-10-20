@@ -1,9 +1,9 @@
 # Requirements Specification: rentals (rental contracts, handover and return)
 
 **User Story**: As an **Org Manager**, I want to request devices by monthly or day plan, collect them at the TrekLink counter, give notice when I am done and return them, so that my organization rents exactly what it needs; and as **TrekLink Staff**, I want every handover and return recorded so that no device is ever double-allocated or lost track of.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-01 (request to handover), MF-05 (term end to close)
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-01 (request to handover), MF-05 (term end to close)
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-045 (loss cases, replacement on a running contract; supersedes D-038 rule 3). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-045 (loss cases, replacement on a running contract; supersedes D-038 rule 3). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
 
 ---
 
@@ -26,7 +26,7 @@
 | Handover | UC-14, UC-20, UC-21, FR-CON-05, FR-CON-06, FR-DEV-05, BR-09 |
 | Terms, notice, day-plan end | UC-23, UC-24, FR-CON-08 to FR-CON-10, BR-06 to BR-08 |
 | Running contract is fixed | FR-CON-07, BR-05 |
-| Holder labels | UC-25, FR-CON-14, BR-33 |
+| Holder labels | UC-25, FR-CON-14, BR-33, NFR-LEG-02 |
 | Return | UC-43, UC-44, FR-MON-08 |
 | Custody for loss cases | UC-60, FR-DEV-13, D-040, D-045 |
 | Replacement on a running contract | UC-61, FR-CON-15, BR-41, E05-8 |

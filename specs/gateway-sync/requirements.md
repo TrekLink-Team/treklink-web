@@ -1,9 +1,9 @@
 # Requirements Specification: gateway-sync (field data to the cloud, exactly once)
 
 **User Story**: As an **organization running groups where phones have no signal**, I want every SOS, position and telemetry packet my rented devices send to reach the platform exactly once and SOS first, even after hours offline, so that nothing that happened in the field is lost or counted twice.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: Highest | **Milestone**: MF-02
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: Highest | **Milestone**: MF-02
 
-> **Authority**: Report 3 SRS (2026-10-13) UC-26 to UC-28, UC-42, FR-EVT-01 to FR-EVT-17, FR-DEV-06, FR-MON-04, BR-11, BR-12, BR-36, NFR-REL-01 to NFR-REL-06, NFR-IF-01, NFR-PERF-02, E02-1 to E02-8; D-005, D-006 (`eventId`), D-007 (envelope and strategies), D-018 (stages), D-027 (operation endpoint), D-033 item 8 (Field Station), D-037 (credentials), D-038 (no device-side cancel), D-040 (occurrence time and custody attribution), D-042 (isolation and load tests). Firmware facts: `04-firmware-ground-truth.md`. Rewritten 2026-10-04 (D-036); attribution added 2026-10-13 (D-040).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-26 to UC-28, UC-42, FR-EVT-01 to FR-EVT-17, FR-DEV-06, FR-MON-04, BR-11, BR-12, BR-36, NFR-REL-01 to NFR-REL-06, NFR-IF-01, NFR-PERF-02, E02-1 to E02-8; D-005, D-006 (`eventId`), D-007 (envelope and strategies), D-018 (stages), D-027 (operation endpoint), D-033 item 8 (Field Station), D-037 (credentials), D-038 (no device-side cancel), D-040 (occurrence time and custody attribution), D-042 (isolation and load tests). Firmware facts: `04-firmware-ground-truth.md`. Rewritten 2026-10-04 (D-036); attribution added 2026-10-13 (D-040).
 
 ---
 

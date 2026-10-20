@@ -5,6 +5,8 @@
 > domain-event table and the system-wide ERD overview. Module ERD slices, state machines and sequence
 > diagrams live in each module's own `design.md`. Rewritten 2026-10-04 for the enterprise rental platform
 > (D-033 to D-038); section numbers are unchanged because code cites them.
+>
+> **Status**: Approved, written by KhoaDD and merged on `dev` (treklink-web PR #30 and #31, 2026-10-18). Changes go through a pull request reviewed by KhoaDD (D-052).
 
 ---
 

@@ -2,6 +2,8 @@
 
 > Fulfills `requirements.md` in this folder. Schema: the `// @module monitoring` block of
 > `backend/prisma/schema.prisma` is authoritative. Push contract: [ws-live-contract.md](api-design/ws-live-contract.md).
+>
+> **Status**: Approved, written by KhoaDD and merged on `dev` (treklink-web PR #30 and #31, 2026-10-18). Changes go through a pull request reviewed by KhoaDD (D-052).
 
 ---
 

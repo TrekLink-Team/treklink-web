@@ -2,6 +2,8 @@
 
 > Fulfills `requirements.md` in this folder. Schema: the `// @module rentals` block of
 > `backend/prisma/schema.prisma` is authoritative.
+>
+> **Status**: Approved, written by KhoaDD and merged on `dev` (treklink-web PR #30 and #31, 2026-10-18). Changes go through a pull request reviewed by KhoaDD (D-052).
 
 ---
 
