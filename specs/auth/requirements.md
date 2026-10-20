@@ -1,9 +1,9 @@
 # Requirements Specification: auth (identity, sessions, roles and organization scoping)
 
 **User Story**: As a **TrekLink Staff member, an Org Manager or an Org Operator**, I want to sign in with my email, keep a session that is safe to leave open on a phone, and see only what my role and my organization allow, so that tenants never see each other's devices, incidents or money.
-**Story ID**: assigned when the backlog is regenerated (D-033 consequence) | **Priority**: High | **Milestone**: foundation, with `platform`
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: foundation, with `platform`
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-08 to UC-10, FR-AUTH-01 to FR-AUTH-11, BR-19, BR-20, BR-35, NFR-SEC-01 to NFR-SEC-03, NFR-SEC-08, Table 72 (screen authorization); D-033 (organizations), D-036 (rewrite).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-08 to UC-10, FR-AUTH-01 to FR-AUTH-11, BR-19, BR-20, BR-35, NFR-SEC-01 to NFR-SEC-03, NFR-SEC-08, Table 72 (screen authorization); D-033 (organizations), D-036 (rewrite).
 >
 > Rewritten 2026-10-04. The booking-scope suite identified accounts by username and had Customer and Guide roles; both are gone. Requirement identifiers are **renumbered**; `tasks.md` maps the open branches `feat/TK-20-password-reset` and `feat/TK-22-admin-manage-user-account` onto the new ones.
 

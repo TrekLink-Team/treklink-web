@@ -2,6 +2,8 @@
 
 > Fulfills `requirements.md` in this folder. Conventions: `06-frontend-conventions.md`. Routes for loss
 > cases, maintenance, compliance cases and replacement added 2026-10-18 (D-045 to D-047).
+>
+> **Status**: Approved, written by KhoaDD and merged on `dev` (treklink-web PR #30 and #31, 2026-10-18). Changes go through a pull request reviewed by KhoaDD (D-052).
 
 ---
 

@@ -64,8 +64,10 @@ Hand-written contracts under `api-design/` (lower-case names, kept by the genera
 
 ## 6. Working a task list
 
-Rewritten 2026-10-18 (D-051). The leader writes the specs and the task lists; members implement
-them. Each `tasks.md` is complete enough to code from without re-deriving the design.
+Rewritten 2026-10-18 (D-051), ownership per D-052. The leader writes every suite; each member
+studies the suites of their lane, owns and defends them, and implements them. Screen layouts are
+delegated to members with a 2 to 3 day deadline. Each `tasks.md` is complete enough to code from
+without re-deriving the design; a defect found while studying goes to the leader as a PR or a comment.
 
 | Field on a task | Meaning |
 |---|---|

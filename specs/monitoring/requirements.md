@@ -1,9 +1,9 @@
 # Requirements Specification: monitoring (live map, organization API, history and reports)
 
 **User Story**: As an **Org Operator**, I want a live map of my organization's rented devices and incidents that keeps working through reconnects, and as an **organization's own system**, I want the same stream through an API key; as **TrekLink Staff and Admin**, I want the whole fleet, device histories, reports and the system's health.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-04
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-04
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-38 to UC-42, UC-53 (history), UC-59, FR-MON-01 to FR-MON-10, FR-AUTH-11, FR-DEV-11, FR-BILL-10, FR-CFG-03, FR-EVT-13, FR-INC-13, BR-19, BR-21, BR-22, BR-30, NFR-LEG-01, NFR-LEG-04, E04-1 to E04-7, MSG32, MSG33; D-031 (Leaflet, OpenStreetMap, sovereignty overlay). Rewritten 2026-10-04 (D-036). This module is the read model: the only one allowed to import every other (`platform` design §2.1).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-38 to UC-42, UC-53 (history), UC-59, FR-MON-01 to FR-MON-10, FR-AUTH-11, FR-DEV-11, FR-BILL-10, FR-CFG-03, FR-EVT-13, FR-INC-13, BR-19, BR-21, BR-22, BR-30, NFR-LEG-01, NFR-LEG-04, E04-1 to E04-7, MSG32, MSG33; D-031 (Leaflet, OpenStreetMap, sovereignty overlay). Rewritten 2026-10-04 (D-036). This module is the read model: the only one allowed to import every other (`platform` design §2.1).
 
 ---
 

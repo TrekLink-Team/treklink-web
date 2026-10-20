@@ -319,7 +319,8 @@ ENDPOINTS = [
             "Svc->>Bill: chargeDamage(contract, inspection, tx)", "Svc->>DB: COMMIT"]),
 
     ep("POST", "/api/contracts/:id/close", "Close a contract", "TrekLink Staff, TrekLink Admin",
-       "Closes a `RETURNED` contract when every device is `RETURNED` or `LOST`, nothing is owed, no damage "
+       "Closes a `RETURNED` contract when every device is checked in, or lost with its loss case `SETTLED` "
+       "(`lostAt` set), nothing is owed, no damage "
        "charge awaits approval, and no incident on its devices is outside `CLOSED`. Holder labels are erased "
        "(FR-CON-13, FR-CON-14, BR-27, E05-7).",
        "UC-51, FR-CON-13, FR-CON-14, BR-27, BR-33, E05-4, E05-7, MSG29",

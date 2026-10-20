@@ -1,9 +1,9 @@
 # Requirements Specification: billing (prices, invoices, charges and payments)
 
 **User Story**: As an **Org Manager**, I want to see what each plan costs, receive one clear invoice per term, and pay online or at the counter; as **TrekLink Staff and Admin**, I want late, damage and loss charges computed from configuration and every payment recorded exactly once.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-01 (first payment), MF-05 (balance and close)
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-01 (first payment), MF-05 (balance and close)
 
-> **Authority**: Report 3 SRS (2026-10-14) UC-19, UC-22, UC-45 to UC-48, UC-56, UC-60, FR-BILL-01 to FR-BILL-09, FR-BILL-11, BR-39, FR-CFG-02, BR-06, BR-07, BR-23 to BR-25, BR-29, BR-31, BR-34, NFR-SEC-07, NFR-UI-03, MSG20, MSG25, MSG30; D-033 item 9 (SePay sandbox); D-037 (one invoice per term, two dated lines); D-038 (webhook body). Rewritten 2026-10-04 (D-036). Reports (FR-BILL-10) are served by `monitoring` (`platform` design §2.1).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-19, UC-22, UC-45 to UC-48, UC-56, UC-60, FR-BILL-01 to FR-BILL-09, FR-BILL-11, BR-39, FR-CFG-02, BR-06, BR-07, BR-23 to BR-25, BR-29, BR-31, BR-34, NFR-SEC-07, NFR-UI-03, MSG20, MSG25, MSG30; D-033 item 9 (SePay sandbox); D-037 (one invoice per term, two dated lines); D-038 (webhook body). Rewritten 2026-10-04 (D-036). Reports (FR-BILL-10) are served by `monitoring` (`platform` design §2.1).
 
 ---
 

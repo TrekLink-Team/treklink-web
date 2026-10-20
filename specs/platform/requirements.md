@@ -1,9 +1,9 @@
 # Requirements Specification: platform (cross-cutting backend foundation)
 
 **User Story**: As a **member of the TrekLink team building any backend module**, I want one response envelope, one error catalogue, one validated configuration source, one audit sink, one runtime business-parameter store and one scheduler host, so that every module behaves the same way at its boundary and no module reinvents them.
-**Story ID**: assigned when the backlog is regenerated (D-033 consequence) | **Priority**: High | **Milestone**: foundation, before any MF-01 module code
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: foundation, before any MF-01 module code
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-56 to UC-58, FR-CFG-01 to FR-CFG-03, NFR-CFG-01, NFR-CFG-02, NFR-SEC-05, NFR-MNT-01, NFR-AVL-02; D-001 (Prisma), D-002 (envelope), D-010 (databases), D-015 (business parameters are configuration), D-026 (error code in `result`), D-028 (this module), D-032 (MQTT health probe), D-036 (rewrite), D-038 (the SePay webhook exception to D-002). Conventions `04-architecture-conventions.md`, `05-backend-conventions.md`.
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-56 to UC-58, FR-CFG-01 to FR-CFG-03, NFR-CFG-01, NFR-CFG-02, NFR-SEC-05, NFR-MNT-01, NFR-AVL-02; D-001 (Prisma), D-002 (envelope), D-010 (databases), D-015 (business parameters are configuration), D-026 (error code in `result`), D-028 (this module), D-032 (MQTT health probe), D-036 (rewrite), D-038 (the SePay webhook exception to D-002). Conventions `04-architecture-conventions.md`, `05-backend-conventions.md`.
 >
 > Rewritten 2026-10-04 for the enterprise rental platform (D-033). Requirement identifiers are unchanged from the booking-scope suite, because merged code cites them; only their traces and examples changed.
 
