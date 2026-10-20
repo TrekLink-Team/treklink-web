@@ -20,12 +20,13 @@ The Design DoD block is OPTIONAL, fill it only if this branch introduced or chan
 
 ## AI Disclosure (mandatory)
 
-> Required by `01-conventions/11-ai-first-doctrine-and-toolchain.md` §2.4. Self-declared,
-> this is a guideline and a review prior, not an enforcement mechanism.
+> Every commit carries a sealed `Checksum` trailer declaring its model and stage
+> (`01-conventions/07-github-workflow-git-conventions.md` §3.6, D-054). The Commit Checksum check
+> verifies them; an unsealed commit gets the `provenance-review` label and a review by hand.
 
-* **Model used**: <!-- e.g. Claude Opus 5 / Claude Sonnet 5 / GPT-6 Astra / hand-written -->
-* [ ] If a restricted model (any Gemini, or any model outside the approved list) touched this
-      code, I have said so above and explained why below.
+* [ ] Every commit is sealed through the hook with my own key, or I explain below why one is not.
+* [ ] If a restricted model (any Gemini or Claude Haiku, or any model outside the approved list)
+      touched this code, I have said so below and explained why.
 
 ---
 
