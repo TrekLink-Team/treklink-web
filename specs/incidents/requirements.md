@@ -1,9 +1,9 @@
 # Requirements Specification: incidents (SOS to tiered alert to escalation)
 
 **User Story**: As an **Org Operator on duty**, I want every SOS from my organization's devices to reach me at once as one incident I can take ownership of, and to escalate on its own if I cannot answer; as **TrekLink Staff**, I want every unanswered or unroutable SOS to land with us, so that we can report it to the authorities with a full record.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: Highest | **Milestone**: MF-03
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: Highest | **Milestone**: MF-03
 
-> **Authority**: Report 3 SRS (2026-10-04) UC-29 to UC-37, FR-INC-01 to FR-INC-13 (FR-INC-09 withdrawn by D-038), BR-13 to BR-18, BR-32, E03-1 to E03-7, E03-9, NFR-REL-03, NFR-REL-07, NFR-PERF-04, NFR-AVL-02, MSG27, MSG28, MSG31, MSG34; D-034 (lifecycle and rules) as amended by D-038; D-033 item 6 (TrekLink never coordinates a rescue). Rewritten 2026-10-04 (D-036).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-29 to UC-37, FR-INC-01 to FR-INC-13 (FR-INC-09 withdrawn by D-038), BR-13 to BR-18, BR-32, E03-1 to E03-7, E03-9, NFR-REL-03, NFR-REL-07, NFR-PERF-04, NFR-AVL-02, MSG27, MSG28, MSG31, MSG34; D-034 (lifecycle and rules) as amended by D-038; D-033 item 6 (TrekLink never coordinates a rescue). Rewritten 2026-10-04 (D-036).
 
 ---
 

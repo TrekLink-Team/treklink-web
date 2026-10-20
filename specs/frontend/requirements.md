@@ -1,9 +1,9 @@
 # Requirements Specification: frontend (web client)
 
 **User Story**: As **any user of TrekLink**, I want one responsive web application that shows me only what my role and organization allow, works on a phone for on-duty operators, and tells me plainly what happened when something fails.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: every Main Flow
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: every Main Flow
 
-> **Authority**: Report 3 SRS (2026-10-04) Table 72 (screen authorization), NFR-UI-01 to NFR-UI-04, NFR-USE-01 to NFR-USE-05, NFR-SEC-03, §5.3 messages MSG01 to MSG34, FR-MON-01, FR-MON-05, FR-MON-09, BR-30; D-031 (Leaflet, OpenStreetMap, overlay); `06-frontend-conventions.md` (FSD, Tailwind, TanStack Query). Rewritten 2026-10-04 (D-036): the customer portal and every booking and trip screen are retired. Screens Flow and Screen Descriptions of the SRS are due at W8; this suite fixes routes and behaviour, not visual design.
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) Table 72 (screen authorization), NFR-UI-01 to NFR-UI-04, NFR-USE-01 to NFR-USE-05, NFR-SEC-03, NFR-LEG-05, §5.3 messages MSG01 to MSG34, FR-MON-01, FR-MON-05, FR-MON-09, BR-30; D-031 (Leaflet, OpenStreetMap, overlay); `06-frontend-conventions.md` (FSD, Tailwind, TanStack Query). Rewritten 2026-10-04 (D-036): the customer portal and every booking and trip screen are retired. Screens Flow and Screen Descriptions of the SRS are due at W8; this suite fixes routes and behaviour, not visual design.
 
 ---
 
@@ -29,6 +29,7 @@
 - **REQ-UBI-06**: Every map SHALL use Leaflet with the configured tiles and attribution and SHALL draw the Vietnamese sovereignty overlay over Hoàng Sa and Trường Sa. [FR-MON-01, BR-30, D-031]
 - **REQ-UBI-07**: Every multi-step flow SHALL take at most 4 steps of at most 6 fields; acknowledging an incident SHALL be one step with at most 2 fields. [NFR-USE-01, NFR-USE-02]
 - **REQ-UBI-08**: Sandbox payments SHALL be labelled as sandbox wherever shown. [NFR-UI-03]
+- **REQ-UBI-09**: The public plans page, the registration page and the organization incident screens SHALL state that TrekLink does not replace official search-and-rescue channels and that the organization remains responsible for its own emergency response. [NFR-LEG-05]
 
 ### Event-Driven
 

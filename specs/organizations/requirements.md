@@ -1,9 +1,9 @@
 # Requirements Specification: organizations (tenants, members, roster, keys and Field Station credentials)
 
 **User Story**: As an **Org Manager**, I want to register my company, get it verified, and then manage my own members, on-duty roster, API keys and Field Station credentials, so that my organization rents and operates TrekLink devices without asking TrekLink for routine changes.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-01, before rentals
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-01, before rentals
 
-> **Authority**: Report 3 SRS (2026-10-14) UC-01 to UC-07, UC-63, FR-ORG-01 to FR-ORG-09, BR-40, BR-43, FR-EVT-13, FR-EVT-14, FR-EVT-18, BR-01, BR-16, BR-19, BR-20, BR-26, BR-32, MSG04, MSG05, MSG10, MSG16, MSG21, MSG22; D-033 items 2, 6, 7; D-035 (organization lifecycle); D-037 (self-service Field Station credentials); D-039 (Field Station updated by download); D-045 (key exposure on a lost device); D-046 (NDA, software licence, compliance cases). New module (D-036).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-01 to UC-07, UC-63, FR-ORG-01 to FR-ORG-09, BR-40, BR-43, FR-EVT-13, FR-EVT-14, FR-EVT-18, BR-01, BR-16, BR-19, BR-20, BR-26, BR-32, MSG04, MSG05, MSG10, MSG16, MSG21, MSG22; D-033 items 2, 6, 7; D-035 (organization lifecycle); D-037 (self-service Field Station credentials); D-039 (Field Station updated by download); D-045 (key exposure on a lost device); D-046 (NDA, software licence, compliance cases). New module (D-036).
 
 ---
 
@@ -46,7 +46,7 @@
 ### Event-Driven
 
 - **REQ-EVT-01**: WHEN a Guest registers with a tax code and a Manager email not already registered, the system SHALL create the organization `PENDING`, its Manager account and membership in one transaction, email the Manager an invitation, and notify TrekLink Staff. [FR-ORG-01, MSG04]
-- **REQ-EVT-02**: WHEN Staff record a verification, the system SHALL store the method, documents seen, master contract reference and verifying Staff member, SHALL require `ndaSigned` and `softwareLicenceSigned`, and SHALL notify Admins. [FR-ORG-02, BR-43]
+- **REQ-EVT-02**: WHEN Staff record a verification, the system SHALL store the method, documents seen, master contract reference and verifying Staff member, SHALL require `ndaSigned` and `softwareLicenceSigned`, and SHALL notify Admins. [FR-ORG-02, BR-43, NFR-LEG-03]
 - **REQ-EVT-03**: WHEN an Admin approves a verified `PENDING` organization, the system SHALL move it to `ACTIVE` and email the Manager (MSG05); WHEN an Admin rejects it, the system SHALL move it to `REJECTED` with the reason (MSG16). [FR-ORG-03]
 - **REQ-EVT-04**: WHEN an Admin suspends an `ACTIVE` organization, or `rentals` reports a defaulted contract, the system SHALL move it to `SUSPENDED` with the reason and notify the Manager. [FR-ORG-07, BR-26]
 - **REQ-EVT-05**: WHEN an Admin reactivates a `SUSPENDED` organization and every `ORGANIZATION_EXIT_CHECKS` provider reports nothing outstanding, the system SHALL move it to `ACTIVE`. [FR-ORG-07]

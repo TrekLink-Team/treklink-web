@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Closes a `RETURNED` contract when every device is `RETURNED` or `LOST`, nothing is owed, no damage charge awaits approval, and no incident on its devices is outside `CLOSED`. Holder labels are erased (FR-CON-13, FR-CON-14, BR-27, E05-7).
+Closes a `RETURNED` contract when every device is checked in, or lost with its loss case `SETTLED` (`lostAt` set), nothing is owed, no damage charge awaits approval, and no incident on its devices is outside `CLOSED`. Holder labels are erased (FR-CON-13, FR-CON-14, BR-27, E05-7).
 
 ## API Specification
 

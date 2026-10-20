@@ -1,9 +1,9 @@
 # Requirements Specification: devices (asset management)
 
 **User Story**: As **TrekLink Staff**, I want every device registered with two permanent identities, checked on intake, tracked through its whole life and reset between renters, so that each organization gets a clean, working unit and the fleet keeps its value.
-**Story ID**: assigned when the backlog is regenerated | **Priority**: High | **Milestone**: MF-01 (intake), MF-05 (return loop)
+**Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-01 (intake), MF-05 (return loop)
 
-> **Authority**: Report 3 SRS (2026-10-14) UC-11 to UC-14, UC-44, UC-49, UC-52 to UC-54, UC-60, UC-62, UC-64, UC-65, FR-DEV-01 to FR-DEV-21, BR-04, BR-09, BR-10, BR-28, BR-37, BR-38, BR-42, BR-44, BR-45; D-035 (device lifecycle) as amended by D-045 (composite lifecycle, loss case, `DISPOSED`) and D-047 (periodic maintenance); D-021 (key versions only). Rewritten 2026-10-04 (D-036); loss cases and disposal added 2026-10-14 (D-045); service plans, weekly scan, cost approval and firmware updates added 2026-10-14 (D-047).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-11 to UC-14, UC-44, UC-49, UC-52 to UC-54, UC-60, UC-62, UC-64, UC-65, FR-DEV-01 to FR-DEV-21, BR-04, BR-09, BR-10, BR-28, BR-37, BR-38, BR-42, BR-44, BR-45; D-035 (device lifecycle) as amended by D-045 (composite lifecycle, loss case, `DISPOSED`) and D-047 (periodic maintenance); D-021 (key versions only). Rewritten 2026-10-04 (D-036); loss cases and disposal added 2026-10-14 (D-045); service plans, weekly scan, cost approval and firmware updates added 2026-10-14 (D-047).
 
 ---
 
@@ -46,7 +46,7 @@
 
 - **REQ-UBI-01**: The system SHALL change device state only through the transition table of design §2 and SHALL reject any other change with 409 `INVALID_STATE_TRANSITION`; each transition SHALL be one compare-and-set on `version` plus one append-only `DeviceTransition` row with actor or `SYSTEM`, reason and UTC time. [FR-DEV-01, BR-10]
 - **REQ-UBI-02**: The system SHALL keep `assetTag` and `nodeNum` unique across every device ever registered, retired devices included, and SHALL never change either after registration. [FR-DEV-02]
-- **REQ-UBI-03**: The system SHALL store only the version of an organization channel key on a device, never the key, and SHALL never display, return or log a key. [FR-DEV-05, NFR-SEC-06]
+- **REQ-UBI-03**: The system SHALL store only the version of an organization channel key on a device, never the key, and SHALL never display, return or log a key. [FR-DEV-05, NFR-SEC-06, NFR-IF-03]
 - **REQ-UBI-04**: The system SHALL never delete a device; retirement keeps the device and its history. [FR-DEV-09]
 
 ### Event-Driven
