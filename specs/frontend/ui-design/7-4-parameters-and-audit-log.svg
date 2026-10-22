@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" width="1000" height="700" font-family="Arial, sans-serif" font-size="13">
+<title>Parameters and audit log</title><rect width="1000" height="700" fill="#ffffff"/>
+<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
+<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
+<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/parameters</text>
+<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
+<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Business parameters</text>
+<text x="24" y="106" font-size="12" fill="#5f6368" text-anchor="start">Changes apply within the cache TTL. Every change is audited.</text>
+<rect x="24" y="120" width="220" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="138.0" font-size="13" fill="#5f6368" text-anchor="start">Module: All</text>
+<text x="24" y="176" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">incidents (12)  v</text>
+<rect x="24" y="188" width="830" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="32" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Key</text>
+<text x="282" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Value</text>
+<text x="382" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Range</text>
+<text x="492" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Type</text>
+<text x="602" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Changed</text>
+<text x="702" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start"></text>
+<rect x="24" y="222" width="830" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="243.0" font-size="13" fill="#202124" text-anchor="start">primaryAckTimeoutSeconds</text>
+<text x="282" y="243.0" font-size="13" fill="#202124" text-anchor="start">120 s</text>
+<text x="382" y="243.0" font-size="13" fill="#202124" text-anchor="start">30 to 900</text>
+<text x="492" y="243.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
+<text x="602" y="243.0" font-size="13" fill="#202124" text-anchor="start">20 Oct</text>
+<text x="702" y="243.0" font-size="13" fill="#202124" text-anchor="start">Edit | History</text>
+<rect x="24" y="256" width="830" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="277.0" font-size="13" fill="#202124" text-anchor="start">backupAckTimeoutSeconds</text>
+<text x="282" y="277.0" font-size="13" fill="#202124" text-anchor="start">120 s</text>
+<text x="382" y="277.0" font-size="13" fill="#202124" text-anchor="start">30 to 900</text>
+<text x="492" y="277.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
+<text x="602" y="277.0" font-size="13" fill="#202124" text-anchor="start">02 Oct</text>
+<text x="702" y="277.0" font-size="13" fill="#202124" text-anchor="start">Edit | History</text>
+<rect x="24" y="282" width="830" height="64" rx="3" fill="#fffbe6" stroke="#d4a017"/>
+<text x="36" y="304" font-size="12" fill="#202124" text-anchor="start">Inline edit: primaryAckTimeoutSeconds  [ 90 ] s   Reason [ Faster escalation for the drill ]</text>
+<text x="36" y="326" font-size="12" fill="#5f6368" text-anchor="start">Range 30 to 900 always visible.  STALE_VERSION: Reload shows the new value.</text>
+<rect x="700" y="296" width="70" height="26" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="735.0" y="313.0" font-size="13" fill="#ffffff" text-anchor="middle">Save</text>
+<rect x="778" y="296" width="70" height="26" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="813.0" y="313.0" font-size="13" fill="#202124" text-anchor="middle">Cancel</text>
+<text x="24" y="372" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">monitoring (6)  &gt;      gatewaySync (9)  &gt;      billing (4)  &gt;</text>
+<rect x="700" y="400" width="276" height="280" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="714" y="424" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">History: primaryAckTimeout</text>
+<text x="714" y="448" font-size="12" fill="#202124" text-anchor="start">20 Oct 10:15  120 -&gt; 90</text>
+<text x="714" y="466" font-size="11" fill="#5f6368" text-anchor="start">TrekLink Admin: Faster escalation</text>
+<text x="714" y="492" font-size="12" fill="#202124" text-anchor="start">02 Oct 09:00  180 -&gt; 120</text>
+<text x="714" y="510" font-size="11" fill="#5f6368" text-anchor="start">TrekLink Admin: Seed review</text>
+<rect x="714" y="640" width="70" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="749.0" y="658.0" font-size="13" fill="#202124" text-anchor="middle">Close</text>
+<rect x="24" y="400" width="650" height="280" rx="3" fill="#fff" stroke="#9aa0a6" stroke-dasharray="5 3"/>
+<text x="40" y="424" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Audit log tab (/t/admin/audit)</text>
+<rect x="40" y="438" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="48" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Actor</text>
+<rect x="200" y="438" width="170" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="208" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Organization: All</text>
+<rect x="380" y="438" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="388" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Subject</text>
+<rect x="510" y="438" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="518" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Action prefix</text>
+<rect x="40" y="474" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="48" y="492.0" font-size="13" fill="#5f6368" text-anchor="start">From</text>
+<rect x="200" y="474" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="208" y="492.0" font-size="13" fill="#5f6368" text-anchor="start">To</text>
+<rect x="360" y="474" width="70" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="395.0" y="492.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
+<rect x="40" y="516" width="610" height="30" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="48" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Time</text>
+<text x="158" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Actor</text>
+<text x="258" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Org</text>
+<text x="338" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Action</text>
+<text x="508" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Subject</text>
+<rect x="40" y="546" width="610" height="30" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="48" y="565.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:15</text>
+<text x="158" y="565.0" font-size="13" fill="#202124" text-anchor="start">Staff A</text>
+<text x="258" y="565.0" font-size="13" fill="#202124" text-anchor="start">ACME</text>
+<text x="338" y="565.0" font-size="13" fill="#202124" text-anchor="start">contract.approve</text>
+<text x="508" y="565.0" font-size="13" fill="#202124" text-anchor="start">RentalContract</text>
+<rect x="40" y="576" width="610" height="30" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="48" y="595.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:20</text>
+<text x="158" y="595.0" font-size="13" fill="#202124" text-anchor="start">Admin</text>
+<text x="258" y="595.0" font-size="13" fill="#202124" text-anchor="start">-</text>
+<text x="338" y="595.0" font-size="13" fill="#202124" text-anchor="start">parameter.update</text>
+<text x="508" y="595.0" font-size="13" fill="#202124" text-anchor="start">Parameter</text>
+<text x="40" y="600" font-size="11" fill="#5f6368" text-anchor="start">Row expands to a before and after diff.</text>
+</svg>
