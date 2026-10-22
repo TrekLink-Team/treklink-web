@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" width="1100" height="720" font-family="Arial, sans-serif" font-size="13">
+<title>LiveMapPage</title><rect width="1100" height="720" fill="#ffffff"/>
+<rect x="0" y="0" width="1100" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
+<text x="16" y="30" font-size="14" fill="#fff" text-anchor="start">TrekLink   Live map  /o/map or /t/map</text>
+<rect x="0" y="48" width="700" height="34" rx="0" fill="#fef2f2" stroke="#dc2626"/>
+<text x="12" y="70" font-size="12" fill="#991b1b" text-anchor="start">SOS: TL-0042 (Le Thi E), 10:15. Acknowledge now.   [global incident banner, always on top]</text>
+<rect x="0" y="82" width="700" height="22" rx="0" fill="#fffbe6" stroke="#d4a017"/>
+<text x="12" y="98" font-size="11" fill="#202124" text-anchor="start">Reconnecting. Live data is paused. (MSG32, only while disconnected)</text>
+<rect x="0" y="104" width="700" height="560" rx="3" fill="#e8f0e8" stroke="#9aa0a6"/>
+<text x="14" y="126" font-size="12" fill="#5f6368" text-anchor="start">Leaflet map, tiles from /api/map/config</text>
+<text x="520" y="160" font-size="11" font-weight="bold" fill="#202124" text-anchor="start">Quan dao Hoang Sa (Viet Nam)</text>
+<text x="520" y="500" font-size="11" font-weight="bold" fill="#202124" text-anchor="start">Quan dao Truong Sa (Viet Nam)</text>
+<circle cx="260" cy="320" r="14" fill="none" stroke="#dc2626" stroke-width="3"/><circle cx="260" cy="320" r="6" fill="#dc2626"/>
+<text x="280" y="316" font-size="11" font-weight="bold" fill="#202124" text-anchor="start">TL-0042 SOS, ACKNOWLEDGED</text>
+<circle cx="400" cy="400" r="7" fill="#1a56db"/>
+<text x="414" y="404" font-size="11" fill="#202124" text-anchor="start">TL-0051  81 %</text>
+<circle cx="150" cy="450" r="7" fill="#9aa0a6"/>
+<text x="164" y="454" font-size="11" fill="#202124" text-anchor="start">TL-0060 Stale, last seen 03:15</text>
+<rect x="10" y="590" width="330" height="64" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="20" y="608" font-size="11" fill="#202124" text-anchor="start">Popup: TL-0042  holder Le Thi E  battery 81 %</text>
+<rect x="20" y="620" width="110" height="24" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="75.0" y="636.0" font-size="13" fill="#ffffff" text-anchor="middle">Open incident</text>
+<rect x="140" y="620" width="130" height="24" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="205.0" y="636.0" font-size="13" fill="#202124" text-anchor="middle">Position history</text>
+<rect x="700" y="48" width="400" height="616" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="716" y="74" font-size="12" fill="#202124" text-anchor="start">Org: All  v   (/t/map only)</text>
+<rect x="716" y="88" width="368" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="724" y="106.0" font-size="13" fill="#5f6368" text-anchor="start">Search asset tag</text>
+<text x="716" y="138" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Devices (3)   Open incidents 1</text>
+<rect x="716" y="150" width="368" height="46" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="728" y="170" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TL-0042  SOS</text>
+<text x="728" y="188" font-size="11" fill="#5f6368" text-anchor="start">ACKNOWLEDGED  81 %</text>
+<rect x="716" y="202" width="368" height="46" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="728" y="222" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TL-0051</text>
+<text x="728" y="240" font-size="11" fill="#5f6368" text-anchor="start">Active  81 %</text>
+<rect x="716" y="254" width="368" height="46" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="728" y="274" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TL-0060</text>
+<text x="728" y="292" font-size="11" fill="#5f6368" text-anchor="start">Stale, last seen 03:15</text>
+<text x="716" y="330" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Field Stations</text>
+<rect x="716" y="342" width="368" height="40" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="728" y="366" font-size="12" fill="#202124" text-anchor="start">Ta Nang basecamp laptop  synced 10:14</text>
+<rect x="716" y="396" width="368" height="60" rx="3" fill="#fffbe6" stroke="#d4a017"/>
+<text x="728" y="418" font-size="11" fill="#202124" text-anchor="start">MSG33 replaces the tile area if the map</text>
+<text x="728" y="436" font-size="11" fill="#202124" text-anchor="start">provider is unreachable; lists stay live.</text>
+<rect x="716" y="470" width="170" height="240" rx="14" fill="#fff" stroke="#1f2937"/>
+<text x="801" y="488" font-size="11" fill="#5f6368" text-anchor="middle">360 px</text>
+<rect x="724" y="496" width="154" height="16" rx="0" fill="#fef2f2" stroke="#dc2626"/>
+<text x="728" y="508" font-size="10" fill="#202124" text-anchor="start">SOS banner</text>
+<rect x="724" y="516" width="154" height="110" rx="3" fill="#e8f0e8" stroke="#9aa0a6"/>
+<text x="730" y="534" font-size="10" fill="#5f6368" text-anchor="start">Map full screen</text>
+<rect x="724" y="630" width="154" height="72" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="730" y="648" font-size="10" font-weight="bold" fill="#202124" text-anchor="start">Bottom sheet (peek)</text>
+<text x="730" y="664" font-size="10" fill="#202124" text-anchor="start">3 devices, 1 open incident</text>
+<text x="730" y="680" font-size="10" fill="#202124" text-anchor="start">Marker tap: bottom card</text>
+</svg>
