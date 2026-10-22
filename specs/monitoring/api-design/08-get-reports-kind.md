@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Utilization, revenue per variant, overdue contracts, lost units, and time-to-acknowledge and time-to-resolve over a date range; `format=csv` returns the rows as CSV text in `result` (FR-BILL-10).
+Utilization, revenue per variant, overdue contracts, lost units, and time-to-acknowledge and time-to-resolve over a date range; `format=csv` returns the rows as CSV text in `result` (FR-BILL-10). The period must end after it starts and span at most `monitoring.reportMaxRangeDays` (366) days, otherwise 400 `VALIDATION_FAILED` (D-057 rule 10). Row shape per kind: `utilization` {variant, unitsInService, rentedUnitDays, availableUnitDays, utilizationPct}; `revenue` {variant, invoicedVnd, paidVnd, outstandingVnd}; `overdue` {contractCode, organization, endDate, daysOverdue, unitsOut, lateFeeVnd, state}, as of `to`; `lost` {assetTag, variant, organization, contractCode, lostAt, lossCaseState, chargeVnd}; `incident-times` {organization, incidents, ackMedianSec, ackP95Sec, resolveMedianSec, resolveP95Sec}. `utilizationPct` is rented unit-days over unit-days in service.
 
 ## API Specification
 
@@ -47,7 +47,8 @@ No body.
       {
         "variant": "treklink-v3",
         "invoicedVnd": 18000000,
-        "paidVnd": 13500000
+        "paidVnd": 13500000,
+        "outstandingVnd": 4500000
       }
     ]
   },
@@ -151,10 +152,12 @@ sequenceDiagram
     participant Inc as IncidentsService
     participant Rent as RentalsService
     participant Bill as BillingService
+    participant Dev as DevicesService
     C->>Ctl: GET /api/reports/:kind
     Ctl->>Svc: run(kind, query)
     Svc->>Bill: revenue(range)
-    Svc->>Rent: utilization(range)
+    Svc->>Rent: utilization(range), overdue(asOf)
+    Svc->>Dev: lostUnits(range)
     Svc->>Inc: responseTimes(range)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope

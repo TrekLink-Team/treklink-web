@@ -35,6 +35,7 @@ No body.
     "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "email": "staff1@treklink.vn",
     "fullName": "Tran Thi B",
+    "phoneNumber": "0901234567",
     "accountType": "TREKLINK",
     "roles": [
       "STAFF"

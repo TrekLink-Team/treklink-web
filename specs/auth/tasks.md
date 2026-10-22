@@ -112,19 +112,20 @@
   - **Test**: invitation not sent when the caller's transaction rolls back
   - _Requirements: design §5, FR-ORG-02_
   - _Story: US-UC04_
-- [ ] 5.3 Roles: list and replace permissions (owner LongLP)
-  - **Do**: unknown permission 400 `UNKNOWN_PERMISSION`; a change that leaves no role able to manage roles 409 `ADMIN_LOCKOUT`; emit `policy.changed`
-  - _Requirements: REQ-EVT-08_
+- [ ] 5.3 Roles: list and replace permissions, permission catalog (owner LongLP)
+  - **Do**: `GET /api/roles` returns permission keys only; `GET /api/permissions` (api-design 18) serves the seeded catalog with `scope`, `accountType` and `protected`, never `conditions`, `fields` or `inverted`; replace: unknown permission 400 `UNKNOWN_PERMISSION`; a permission of the other account type 400 `PERMISSION_SCOPE_MISMATCH`; a change that leaves no role able to manage roles 409 `ADMIN_LOCKOUT`; emit `policy.changed` (D-057 rule 2)
+  - **Test**: `organization.decide` sent for `ORG_MANAGER` gets 400 `PERMISSION_SCOPE_MISMATCH` and the role is unchanged; the catalog lists a permission that no role holds
+  - _Requirements: REQ-EVT-08, REQ-ERR-09_
   - _Story: US-UC10_
 
 ## Phase 6: API Presentation Layer
 
 - [ ] 6.1 `AuthController`, `AccountsController`, `RolesController`, `AuthEventsController` (owner LongLP)
-  - **Do**: api-design 01 to 17 with the routes, permissions and `@ResponseMessage` of each file; the refresh token travels in the request body (api-design 02), and `apiClient` refreshes once on 401 (frontend design)
+  - **Do**: api-design 01 to 18 with the routes, permissions and `@ResponseMessage` of each file; the refresh token travels in the request body (api-design 02), and `apiClient` refreshes once on 401 (frontend design)
   - _Requirements: FR-AUTH-01 to FR-AUTH-08_
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/auth.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts` (created here)
-  - **Do**: every Validation row of api-design 01 to 17; AC-01 to AC-06
+  - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-06
   - _Requirements: AC-01 to AC-06_
 
 ## Phase 7: Frontend Integration

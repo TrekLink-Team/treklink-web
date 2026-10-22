@@ -28,7 +28,7 @@ Positions and telemetry of one device over a period, clipped to the periods the 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | from | Inclusive start | datetime | yes | `2026-10-20T00:00:00Z` |
-| to | Exclusive end, at most 7 days after from | datetime | yes | `2026-10-21T00:00:00Z` |
+| to | Exclusive end, after from and at most `monitoring.historyMaxRangeDays` (7) days later | datetime | yes | `2026-10-21T00:00:00Z` |
 | kind | `POSITION`, `TELEMETRY` or both | enum[] | no | `["POSITION"]` |
 | format | `json` or `csv` | enum | no | `json` |
 

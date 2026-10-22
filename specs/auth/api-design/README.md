@@ -21,6 +21,7 @@
 | 15 | GET | `/api/roles` | TrekLink Admin | [15-get-roles.md](15-get-roles.md) |
 | 16 | PUT | `/api/roles/:id/permissions` | TrekLink Admin | [16-put-roles-id-permissions.md](16-put-roles-id-permissions.md) |
 | 17 | GET | `/api/auth-events` | TrekLink Admin | [17-get-auth-events.md](17-get-auth-events.md) |
+| 18 | GET | `/api/permissions` | TrekLink Admin | [18-get-permissions.md](18-get-permissions.md) |
 
 
 Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).

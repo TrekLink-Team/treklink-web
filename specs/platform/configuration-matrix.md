@@ -96,3 +96,5 @@
 | `monitoring.mapTileUrl` | `"https://tile.openstreetmap.org/{z}/{x}/{y}.png"` | JSON |  |  | Tile URL template | FR-CFG-03 |
 | `monitoring.mapAttribution` | `"© OpenStreetMap contributors"` | JSON |  |  | Attribution shown on the map | FR-CFG-03, NFR-LEG-04 |
 | `monitoring.mapDefaultViewport` | `{"lat": 11.56, "lon": 108.54, "zoom": 12}` | JSON |  |  | Initial map view | FR-CFG-03 |
+| `monitoring.historyMaxRangeDays` | `7` | INT | 1 to 31 | days | Longest period one telemetry history request may cover | FR-MON-07 |
+| `monitoring.reportMaxRangeDays` | `366` | INT | 1 to 732 | days | Longest period one report may cover (D-057) | FR-BILL-10 |

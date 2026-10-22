@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Ingestion rate, duplicate and malformed counts, Field Station connectivity, Stage B devices buffering, failed alert deliveries and the platform health (FR-MON-10, FR-EVT-13).
+Ingestion rate, duplicate and malformed counts, Field Station connectivity, Stage B devices buffering, failed alert deliveries and the platform health (FR-MON-10, FR-EVT-13). `fieldStations.items[]` lists every station that is not revoked with its health and `outdated` against `currentRelease` (organizations REQ-EVT-11); queue depths are named per priority, P0 to P3 (D-057 rule 9).
 
 ## API Specification
 
@@ -49,11 +49,34 @@ No body.
     "fieldStations": {
       "total": 6,
       "stale": 1,
-      "maxQueueDepth": [
-        0,
-        0,
-        14,
-        230
+      "outdated": 1,
+      "currentRelease": "1.2.0",
+      "maxQueueDepth": {
+        "p0": 0,
+        "p1": 0,
+        "p2": 14,
+        "p3": 230
+      },
+      "items": [
+        {
+          "id": "f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b",
+          "name": "Ta Nang basecamp laptop",
+          "organization": {
+            "id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
+            "name": "ACME Trek Co., Ltd."
+          },
+          "lastSyncAt": "2026-10-20T03:15:00.000Z",
+          "stale": false,
+          "queueDepth": {
+            "p0": 0,
+            "p1": 0,
+            "p2": 14,
+            "p3": 230
+          },
+          "oldestRetryCount": 2,
+          "version": "1.1.0",
+          "outdated": true
+        }
       ]
     },
     "devicesBuffering": 2,

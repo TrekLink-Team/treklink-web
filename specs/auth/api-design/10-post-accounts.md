@@ -41,6 +41,7 @@ Creates a TrekLink Staff or Admin account and emails an invitation code; the acc
     "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "email": "staff2@treklink.vn",
     "fullName": "Le Van C",
+    "phoneNumber": "0901234567",
     "accountType": "TREKLINK",
     "roles": [
       "STAFF"

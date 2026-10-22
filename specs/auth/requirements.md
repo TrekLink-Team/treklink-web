@@ -3,7 +3,7 @@
 **User Story**: As a **TrekLink Staff member, an Org Manager or an Org Operator**, I want to sign in with my email, keep a session that is safe to leave open on a phone, and see only what my role and my organization allow, so that tenants never see each other's devices, incidents or money.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: foundation, with `platform`
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-08 to UC-10, FR-AUTH-01 to FR-AUTH-11, BR-19, BR-20, BR-35, NFR-SEC-01 to NFR-SEC-03, NFR-SEC-08, Table 72 (screen authorization); D-033 (organizations), D-036 (rewrite).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-08 to UC-10, FR-AUTH-01 to FR-AUTH-11, BR-19, BR-20, BR-35, NFR-SEC-01 to NFR-SEC-03, NFR-SEC-08, Table 78 (screen authorization); D-033 (organizations), D-036 (rewrite).
 >
 > Rewritten 2026-10-04. The booking-scope suite identified accounts by username and had Customer and Guide roles; both are gone. Requirement identifiers are **renumbered**; `tasks.md` maps the open branches `feat/TK-20-password-reset` and `feat/TK-22-admin-manage-user-account` onto the new ones.
 
@@ -78,6 +78,7 @@
 - **REQ-ERR-06**: IF an organization member or API key asks for a record of another organization, THEN the system SHALL return 404 `NOT_FOUND`, never 403 (`platform` design §4.2). [E04-4]
 - **REQ-ERR-07**: IF an Admin would remove the last active `ADMIN` (deactivation, role change) or their own Admin role, THEN the system SHALL refuse with 409 `LAST_ADMIN` or `SELF_DEMOTION`.
 - **REQ-ERR-08**: IF a code is requested again before `auth.codeResendCooldownSeconds`, THEN the system SHALL return 429 `OTP_COOLDOWN`.
+- **REQ-ERR-09**: IF a permission set sent for a role contains a permission whose account type differs from the role's, THEN the system SHALL refuse the whole set with 400 `PERMISSION_SCOPE_MISMATCH` and leave the role unchanged. [FR-AUTH-06, D-057]
 
 ### Optional Features
 
