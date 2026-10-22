@@ -28,7 +28,7 @@ Order is dependency order (`platform/design.md` Figure 3). Owners are the lanes 
 | [`rentals/`](./rentals/) | MF-01, MF-05 | **Rental-contract lifecycle**, approval with reservation, counter handover with signed note, terms, notice, check-in, inspection, default, mid-contract replacement, close | LongLP |
 | [`incidents/`](./incidents/) | MF-03 | **12-state incident lifecycle** (D-034), tiered alerts, outbox, authority reports | HoangTK |
 | [`gateway-sync/`](./gateway-sync/) | MF-02 | MQTT ingestion Stage A to C, `eventId` dedup, sync audit, broker hooks, Field Station executable | KhoaDD |
-| [`monitoring/`](./monitoring/) | MF-04 | Organization-scoped stream, WebSocket and REST replay, live map, organization API, history, reports, system health | HoangTK (backend), LongNN (screens) |
+| [`monitoring/`](./monitoring/) | MF-04 | Organization-scoped stream, WebSocket and REST replay, live map, organization API, history, reports, system health | LongNN (backend and screens, D-056); HoangTK task 2.3 |
 | [`frontend/`](./frontend/) | all | FSD web client, routes per SRS Table 72, Leaflet map with the sovereignty overlay | LongNN |
 
 `trips/` is retired: there are no trips, trek packages or bookings in the platform (D-033, rejected alternative (e)).
