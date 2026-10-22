@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Arial, sans-serif" font-size="13">
+<title>Reports</title><rect width="1000" height="640" fill="#ffffff"/>
+<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
+<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
+<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/reports</text>
+<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
+<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Reports</text>
+<rect x="850" y="66" width="126" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="913.0" y="84.0" font-size="13" fill="#202124" text-anchor="middle">Download CSV</text>
+<rect x="24" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="94.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Utilization</text>
+<rect x="174" y="112" width="140" height="20" rx="10" fill="#dbeafe" stroke="#9aa0a6"/>
+<text x="244.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Revenue</text>
+<rect x="324" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="394.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Overdue contracts</text>
+<rect x="474" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="544.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Lost units</text>
+<rect x="624" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="694.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Incident times</text>
+<rect x="24" y="152" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="170.0" font-size="13" fill="#5f6368" text-anchor="start">From 2026-10-01</text>
+<rect x="184" y="152" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="192" y="170.0" font-size="13" fill="#5f6368" text-anchor="start">To 2026-10-31</text>
+<rect x="344" y="152" width="70" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="379.0" y="170.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
+<rect x="424" y="152" width="110" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="479.0" y="170.0" font-size="13" fill="#202124" text-anchor="middle">This month</text>
+<rect x="544" y="152" width="110" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="599.0" y="170.0" font-size="13" fill="#202124" text-anchor="middle">Last month</text>
+<rect x="24" y="200" width="760" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="32" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Variant</text>
+<text x="252" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Invoiced (VND)</text>
+<text x="432" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Paid (VND)</text>
+<text x="612" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Unpaid (VND)</text>
+<rect x="24" y="234" width="760" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="255.0" font-size="13" fill="#202124" text-anchor="start">treklink-v3</text>
+<text x="252" y="255.0" font-size="13" fill="#202124" text-anchor="start">18,000,000</text>
+<text x="432" y="255.0" font-size="13" fill="#202124" text-anchor="start">13,500,000</text>
+<text x="612" y="255.0" font-size="13" fill="#202124" text-anchor="start">4,500,000</text>
+<rect x="24" y="268" width="760" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="289.0" font-size="13" fill="#202124" text-anchor="start">Total</text>
+<text x="252" y="289.0" font-size="13" fill="#202124" text-anchor="start">18,000,000</text>
+<text x="432" y="289.0" font-size="13" fill="#202124" text-anchor="start">13,500,000</text>
+<text x="612" y="289.0" font-size="13" fill="#202124" text-anchor="start">4,500,000</text>
+<rect x="24" y="296" width="760" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="40" y="320" font-size="12" fill="#5f6368" text-anchor="start">Revenue by variant (bar chart; the table above is the text equivalent)</text>
+<rect x="60" y="340" width="300" height="26" rx="3" fill="#93c5fd" stroke="#9aa0a6"/>
+<text x="366" y="358" font-size="11" fill="#202124" text-anchor="start">Invoiced</text>
+<rect x="60" y="372" width="225" height="26" rx="3" fill="#1a56db" stroke="#9aa0a6"/>
+<text x="291" y="390" font-size="11" fill="#202124" text-anchor="start">Paid</text>
+<text x="24" y="476" font-size="12" fill="#5f6368" text-anchor="start">1 row, generated 10:15. Download uses the server CSV (format=csv).</text>
+</svg>
