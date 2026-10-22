@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="560" viewBox="0 0 1040 560" font-family="sans-serif" font-size="12" role="img" aria-label="Stock-take wireframe">
+<title>Stock-take wireframe</title>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<rect x="0" y="0" width="1040" height="48" fill="#1f2d3d" stroke="#1f2d3d"/><text fill="#ffffff" x="8" y="19.0" font-size="12">TrekLink   Stock-take</text>
+<text x="24" y="84" font-size="18" font-weight="bold">Stock-take</text>
+<rect x="24" y="100" width="420" height="36" fill="#ffffff" stroke="#888"/><text x="32" y="119.0" font-size="12">Scan or type an asset tag, then Enter</text>
+<text x="460" y="123" font-size="12">37 scanned</text>
+<rect x="24" y="150" width="420" height="28" fill="#e6e6e6" stroke="#888"/><text x="32.0" y="168" font-size="12" font-weight="bold">Scanned tag</text><text x="242.0" y="168" font-size="12" font-weight="bold"></text><rect x="24" y="178" width="420" height="28" fill="#ffffff" stroke="#cccccc"/><text x="32.0" y="196" font-size="12">TL-0042</text><text x="242.0" y="196" font-size="12">Remove</text><rect x="24" y="206" width="420" height="28" fill="#ffffff" stroke="#cccccc"/><text x="32.0" y="224" font-size="12">TL-0043</text><text x="242.0" y="224" font-size="12">Remove</text><rect x="24" y="234" width="420" height="28" fill="#ffffff" stroke="#cccccc"/><text x="32.0" y="252" font-size="12">TL-0051</text><text x="242.0" y="252" font-size="12">Remove</text>
+<rect x="24" y="280" width="180" height="32" rx="4" fill="#2b5fab" stroke="#2b5fab"/><text x="114.0" y="301" text-anchor="middle" fill="#ffffff">Finish stock-take</text>
+<text x="520" y="84" font-size="15" font-weight="bold">Result</text>
+<rect x="520" y="100" width="496" height="40" fill="#fff3d6" stroke="#c9a227"/><text x="528" y="119.0" font-size="11">Unconfirmed (2): TL-0009 Rented, not heard for 30 h; TL-0031 Available</text>
+<rect x="520" y="148" width="496" height="40" fill="#ffffff" stroke="#888"/><text x="528" y="167.0" font-size="11">Unknown tags (1): TL-9999, register it</text>
+<rect x="520" y="196" width="496" height="40" fill="#ffffff" stroke="#888"/><text x="528" y="215.0" font-size="11">In stock and confirmed (31)</text>
+<rect x="520" y="244" width="496" height="40" fill="#ffffff" stroke="#888"/><text x="528" y="263.0" font-size="11">Rented and heard (40)</text>
+<text x="24" y="340" font-size="13" font-weight="bold">Past stock-takes</text>
+<rect x="24" y="352" width="600" height="28" fill="#e6e6e6" stroke="#888"/><text x="32.0" y="370" font-size="12" font-weight="bold">When</text><text x="232.0" y="370" font-size="12" font-weight="bold">By</text><text x="432.0" y="370" font-size="12" font-weight="bold">Unconfirmed</text><rect x="24" y="380" width="600" height="28" fill="#ffffff" stroke="#cccccc"/><text x="32.0" y="398" font-size="12">2026-10-20 08:30</text><text x="232.0" y="398" font-size="12">Tran Thi B</text><text x="432.0" y="398" font-size="12">2</text><rect x="24" y="408" width="600" height="28" fill="#ffffff" stroke="#cccccc"/><text x="32.0" y="426" font-size="12">2026-10-13 08:10</text><text x="232.0" y="426" font-size="12">Le Van C</text><text x="432.0" y="426" font-size="12">0</text>
+</svg>
