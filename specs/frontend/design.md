@@ -47,7 +47,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/t/contracts`, `/t/contracts/:id`, `/t/counter/:contractId` | Approval queue, counter handover and check-in, inspection, mid-contract replacement (UC-61) | TrekLink Staff |
 | `/t/fleet`, `/t/devices/:id`, `/t/stock-take` | Fleet, device detail and lifecycle history (reset, retire, dispose actions), stock-take | TrekLink Staff, Admin (retire, dispose) |
 | `/t/devices/:id/telemetry` | Position and telemetry history of any device; period in `?from=&to=` (D-057 rule 8) | TrekLink Staff |
-| `/t/maintenance` | Maintenance records, the week's service list, estimates, completion with checklist and firmware, cost approvals (D-047) | TrekLink Staff, Admin (decisions) |
+| `/t/maintenance`, `/t/maintenance/approvals` | Maintenance records, the week's service list, estimates, completion with checklist and firmware; cost approvals on their own tab route (D-047, D-057 rule 3) | TrekLink Staff, Admin (approvals) |
 | `/t/loss-cases`, `/t/loss-cases/:id` | Loss cases: triage, recover, confirm, settle (D-045) | TrekLink Staff, Admin (decisions) |
 | `/t/compliance-cases`, `/t/compliance-cases/:id` | Compliance cases with actions and close (D-046) | TrekLink Staff, Admin (suspend) |
 | `/t/incidents` | Unrouted and escalated queue, authority reports | TrekLink Staff |
