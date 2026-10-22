@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" width="1000" height="720" font-family="Arial, sans-serif" font-size="13">
+<title>Plans page</title><rect width="1000" height="720" fill="#ffffff"/>
+<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
+<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
+<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">[Sign in]</text>
+<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Rent LoRa mesh safety devices for your treks</text>
+<rect x="24" y="100" width="620" height="56" rx="3" fill="#fff7ed" stroke="#c2410c"/>
+<text x="36" y="122" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TrekLink does not replace official search-and-rescue channels.</text>
+<text x="36" y="142" font-size="12" fill="#202124" text-anchor="start">Your organization remains responsible for its own emergency response.</text>
+<rect x="480" y="170" width="164" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="562.0" y="188.0" font-size="13" fill="#ffffff" text-anchor="middle">Register your organization</text>
+<rect x="24" y="200" width="200" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="36" y="226" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TrekLink v3 (GPS, SOS)</text>
+<text x="36" y="262" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">450,000 VND / month</text>
+<text x="36" y="284" font-size="12" fill="#202124" text-anchor="start">22,500 VND / day</text>
+<rect x="36" y="300" width="110" height="20" rx="10" fill="#fef3c7" stroke="#9aa0a6"/>
+<text x="91.0" y="314" font-size="11" fill="#202124" text-anchor="middle">Sandbox prices</text>
+<rect x="236" y="200" width="200" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="248" y="226" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">Variant 2</text>
+<text x="248" y="262" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">...</text>
+<text x="248" y="284" font-size="12" fill="#202124" text-anchor="start">...</text>
+<rect x="248" y="300" width="110" height="20" rx="10" fill="#fef3c7" stroke="#9aa0a6"/>
+<text x="303.0" y="314" font-size="11" fill="#202124" text-anchor="middle">Sandbox prices</text>
+<rect x="448" y="200" width="200" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="460" y="226" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">Variant 3</text>
+<text x="460" y="262" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">...</text>
+<text x="460" y="284" font-size="12" fill="#202124" text-anchor="start">...</text>
+<rect x="460" y="300" width="110" height="20" rx="10" fill="#fef3c7" stroke="#9aa0a6"/>
+<text x="515.0" y="314" font-size="11" fill="#202124" text-anchor="middle">Sandbox prices</text>
+<text x="24" y="382" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Terms (billing 01)</text>
+<text x="24" y="404" font-size="12" fill="#202124" text-anchor="start">Minimum order: 5 devices  |  Day plans: 3, 4 or 7 days at 1.5 times the daily rate  |  Holding fee: 50 % at term start</text>
+<text x="24" y="440" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">How renting works</text>
+<rect x="24" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="34" y="484" font-size="12" fill="#202124" text-anchor="start">1 Register</text>
+<rect x="184" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="194" y="484" font-size="12" fill="#202124" text-anchor="start">2 Verified at counter</text>
+<rect x="344" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="354" y="484" font-size="12" fill="#202124" text-anchor="start">3 Request and pay</text>
+<rect x="504" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="514" y="484" font-size="12" fill="#202124" text-anchor="start">4 Collect at counter</text>
+<rect x="24" y="530" width="620" height="40" rx="3" fill="#fff7ed" stroke="#c2410c"/>
+<text x="36" y="555" font-size="12" fill="#202124" text-anchor="start">Disclaimer repeated above the footer. Empty or error state replaces the cards only.</text>
+<rect x="700" y="70" width="260" height="620" rx="18" fill="#fff" stroke="#1f2937"/>
+<text x="830" y="92" font-size="11" fill="#5f6368" text-anchor="middle">360 px (single column)</text>
+<rect x="712" y="104" width="236" height="26" rx="0" fill="#1f2937" stroke="#1f2937"/>
+<text x="722" y="122" font-size="11" fill="#fff" text-anchor="start">TrekLink      Sign in</text>
+<rect x="712" y="140" width="236" height="62" rx="3" fill="#fff7ed" stroke="#c2410c"/>
+<text x="720" y="162" font-size="11" fill="#202124" text-anchor="start">Not a replacement for official</text>
+<text x="720" y="178" font-size="11" fill="#202124" text-anchor="start">search-and-rescue channels.</text>
+<rect x="712" y="214" width="236" height="86" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="722" y="238" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TrekLink v3</text>
+<text x="722" y="260" font-size="12" fill="#202124" text-anchor="start">450,000 VND / month</text>
+<rect x="712" y="312" width="236" height="60" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="722" y="336" font-size="11" fill="#202124" text-anchor="start">Min order 5 | Day plans</text>
+<rect x="712" y="384" width="236" height="36" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="830.0" y="406.0" font-size="13" fill="#ffffff" text-anchor="middle">Register your organization</text>
+<rect x="712" y="432" width="236" height="120" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="722" y="456" font-size="11" fill="#202124" text-anchor="start">How renting works (4 steps)</text>
+</svg>
