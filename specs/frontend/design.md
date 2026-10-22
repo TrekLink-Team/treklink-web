@@ -26,7 +26,9 @@ replaced by the workspace home pages below.
 
 ## 2. Routes and screen authorization
 
-Matches SRS Table 72. `own` routes are inside the organization workspace and always scoped by the token.
+Matches SRS Table 78. `own` routes are inside the organization workspace and always scoped by the token.
+TrekLink Admin inherits every TrekLink Staff route, and Org Manager every Org Operator route (FR-AUTH-10,
+auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the page is Admin-only.
 
 | Route | Page | Roles |
 |---|---|---|
@@ -34,6 +36,7 @@ Matches SRS Table 72. `own` routes are inside the organization workspace and alw
 | `/register` | Register an organization (MSG04) | public |
 | `/sign-in`, `/forgot`, `/reset`, `/welcome` (set password) | Auth | public |
 | `/o/map` | Live map | Org Operator, Org Manager |
+| `/o/devices/:id/telemetry` | Position and telemetry history of a rented device, clipped to the organization's rental periods; period in `?from=&to=` (D-057 rule 8) | Org Operator, Org Manager |
 | `/o/incidents`, `/o/incidents/:id` | Incident queue and detail | Org Operator, Org Manager |
 | `/o/contracts`, `/o/contracts/:id` | Contracts, devices, holder labels | Org Operator (read), Org Manager |
 | `/o/contracts/new` | Request with quote | Org Manager |
@@ -42,7 +45,8 @@ Matches SRS Table 72. `own` routes are inside the organization workspace and alw
 | `/o/loss-cases` | Loss cases of the organization's devices; a loss is reported from the contract's device row (D-045) | Org Manager |
 | `/t/organizations`, `/t/organizations/:id` | Verification (NDA and software licence) and approval queues; channel key exposure and rotation | TrekLink Staff, Admin |
 | `/t/contracts`, `/t/contracts/:id`, `/t/counter/:contractId` | Approval queue, counter handover and check-in, inspection, mid-contract replacement (UC-61) | TrekLink Staff |
-| `/t/fleet`, `/t/devices/:id`, `/t/stock-take` | Fleet, device detail and history (reset, retire, dispose actions), stock-take | TrekLink Staff, Admin (retire, dispose) |
+| `/t/fleet`, `/t/devices/:id`, `/t/stock-take` | Fleet, device detail and lifecycle history (reset, retire, dispose actions), stock-take | TrekLink Staff, Admin (retire, dispose) |
+| `/t/devices/:id/telemetry` | Position and telemetry history of any device; period in `?from=&to=` (D-057 rule 8) | TrekLink Staff |
 | `/t/maintenance` | Maintenance records, the week's service list, estimates, completion with checklist and firmware, cost approvals (D-047) | TrekLink Staff, Admin (decisions) |
 | `/t/loss-cases`, `/t/loss-cases/:id` | Loss cases: triage, recover, confirm, settle (D-045) | TrekLink Staff, Admin (decisions) |
 | `/t/compliance-cases`, `/t/compliance-cases/:id` | Compliance cases with actions and close (D-046) | TrekLink Staff, Admin (suspend) |
@@ -50,7 +54,8 @@ Matches SRS Table 72. `own` routes are inside the organization workspace and alw
 | `/t/map` | Fleet map | TrekLink Staff |
 | `/t/billing`, `/t/damage-charges` | Invoices, counter payments, damage approvals | TrekLink Staff, Admin (decisions) |
 | `/t/reports` | Reports | TrekLink Staff |
-| `/t/admin/accounts`, `/t/admin/roles`, `/t/admin/parameters`, `/t/admin/prices`, `/t/admin/variants`, `/t/admin/audit`, `/t/admin/health` | Administration | TrekLink Admin |
+| `/t/admin/accounts`, `/t/admin/roles`, `/t/admin/parameters`, `/t/admin/prices`, `/t/admin/variants`, `/t/admin/health` | Administration | TrekLink Admin |
+| `/t/admin/audit/changes`, `/t/admin/audit/sign-ins` | Audit: the change log (`auditLog.read`) and the sign-in log (`authEvent.read`), one tab per route, each tab hidden without its permission; `/t/admin/audit` redirects to `changes`; filters in the query (D-057 rule 3) | TrekLink Admin |
 
 ---
 

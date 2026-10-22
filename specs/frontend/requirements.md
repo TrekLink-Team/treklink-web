@@ -3,7 +3,7 @@
 **User Story**: As **any user of TrekLink**, I want one responsive web application that shows me only what my role and organization allow, works on a phone for on-duty operators, and tells me plainly what happened when something fails.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: every Main Flow
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) Table 72 (screen authorization), NFR-UI-01 to NFR-UI-04, NFR-USE-01 to NFR-USE-05, NFR-SEC-03, NFR-LEG-05, §5.3 messages MSG01 to MSG34, FR-MON-01, FR-MON-05, FR-MON-09, BR-30; D-031 (Leaflet, OpenStreetMap, overlay); `06-frontend-conventions.md` (FSD, Tailwind, TanStack Query). Rewritten 2026-10-04 (D-036): the customer portal and every booking and trip screen are retired. Screens Flow and Screen Descriptions of the SRS are due at W8; this suite fixes routes and behaviour, not visual design.
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) Table 78 (screen authorization), NFR-UI-01 to NFR-UI-04, NFR-USE-01 to NFR-USE-05, NFR-SEC-03, NFR-LEG-05, §5.3 messages MSG01 to MSG39, FR-MON-01, FR-MON-05, FR-MON-09, BR-30; D-031 (Leaflet, OpenStreetMap, overlay); `06-frontend-conventions.md` (FSD, Tailwind, TanStack Query). Rewritten 2026-10-04 (D-036): the customer portal and every booking and trip screen are retired. Screens Flow and Screen Descriptions of the SRS are due at W8; this suite fixes routes and behaviour, not visual design.
 
 ---
 

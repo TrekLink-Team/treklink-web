@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists TrekLink Staff and Admin accounts (UC-10). Organization accounts are managed by their Manager through the organizations module.
+Lists TrekLink Staff and Admin accounts (UC-10). Organization accounts are managed by their Manager through the organizations module. `lastLoginAt` null means the invitation is still pending (D-057 rule 1).
 
 ## API Specification
 
@@ -40,6 +40,7 @@ No body.
         "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
         "email": "staff1@treklink.vn",
         "fullName": "Tran Thi B",
+        "phoneNumber": "0901234567",
         "accountType": "TREKLINK",
         "roles": [
           "STAFF"

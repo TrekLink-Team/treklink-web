@@ -76,6 +76,8 @@ PARAMETERS = {
         ("monitoring.mapTileUrl", "https://tile.openstreetmap.org/{z}/{x}/{y}.png", "JSON", None, None, "Tile URL template", "FR-CFG-03"),
         ("monitoring.mapAttribution", "© OpenStreetMap contributors", "JSON", None, None, "Attribution shown on the map", "FR-CFG-03, NFR-LEG-04"),
         ("monitoring.mapDefaultViewport", {"lat": 11.56, "lon": 108.54, "zoom": 12}, "JSON", None, None, "Initial map view", "FR-CFG-03"),
+        ("monitoring.historyMaxRangeDays", 7, "INT", {"min": 1, "max": 31}, "days", "Longest period one telemetry history request may cover", "FR-MON-07"),
+        ("monitoring.reportMaxRangeDays", 366, "INT", {"min": 1, "max": 732}, "days", "Longest period one report may cover (D-057)", "FR-BILL-10"),
     ],
 }
 
@@ -91,6 +93,9 @@ OWN_ORG = {"id": "${user.organizationId}"}
 
 # key, action, subject, conditions, roles. FR-AUTH-10: ADMIN gets every STAFF row and ORG_MANAGER
 # every ORG_OPERATOR row; the generator adds them, so a row lists only the lowest role.
+# D-057: every permission belongs to one account type. `.own` marks an organization permission bound to
+# the caller's organization; `.org` marks an organization permission on data no tenant owns (variants,
+# availability, quotes), the counterpart of the TrekLink key without the suffix.
 PERMISSIONS = [
     # platform
     ("parameter.manage", "manage", "Parameter", None, ["ADMIN"]),
@@ -120,13 +125,15 @@ PERMISSIONS = [
     ("fieldStation.read", "read", "FieldStation", None, ["STAFF"]),
     ("fieldStation.revoke", "revoke", "FieldStation", None, ["STAFF"]),
     # devices
-    ("hardwareVariant.read", "read", "HardwareVariant", None, ["STAFF", "ORG_MANAGER"]),
+    ("hardwareVariant.read", "read", "HardwareVariant", None, ["STAFF"]),
+    ("hardwareVariant.read.org", "read", "HardwareVariant", None, ["ORG_MANAGER"]),  # active variants, no counts
     ("hardwareVariant.manage", "manage", "HardwareVariant", None, ["ADMIN"]),
     ("device.read", "read", "Device", None, ["STAFF"]),
     ("device.register", "create", "Device", None, ["STAFF"]),
     ("device.operate", "operate", "Device", None, ["STAFF"]),
     ("device.retire", "retire", "Device", None, ["ADMIN"]),
-    ("device.availability", "readAvailability", "Device", None, ["STAFF", "ORG_MANAGER"]),
+    ("device.availability", "readAvailability", "Device", None, ["STAFF"]),
+    ("device.availability.org", "readAvailability", "Device", None, ["ORG_MANAGER"]),
     ("stockTake.manage", "manage", "StockTake", None, ["STAFF"]),
     # rentals
     ("contract.read", "read", "RentalContract", None, ["STAFF"]),
@@ -139,7 +146,8 @@ PERMISSIONS = [
     ("handoverNote.read.own", "read", "HandoverNote", OWN, ["ORG_MANAGER"]),
     ("handoverNote.read", "read", "HandoverNote", None, ["STAFF"]),
     # billing
-    ("plan.quote.own", "quote", "Plan", None, ["ORG_MANAGER", "STAFF"]),
+    ("plan.quote", "quote", "Plan", None, ["STAFF"]),
+    ("plan.quote.org", "quote", "Plan", None, ["ORG_MANAGER"]),
     ("priceSchedule.manage", "manage", "PriceSchedule", None, ["ADMIN"]),
     ("damageRate.read", "read", "DamageRate", None, ["STAFF"]),
     ("damageRate.manage", "manage", "DamageRate", None, ["ADMIN"]),
@@ -173,3 +181,6 @@ PERMISSIONS = [
 ]
 
 INHERITS = {"ADMIN": "STAFF", "ORG_MANAGER": "ORG_OPERATOR"}
+
+# Permissions the ADMIN role can never lose (ADMIN_LOCKOUT); served as `protected` by GET /api/permissions.
+PROTECTED = {"role.manage"}

@@ -39,7 +39,7 @@ ENDPOINTS = [
        "(FR-MON-07, FR-MON-04).", "UC-40, FR-AUTH-11, FR-MON-07, BR-19",
        path=[["id", "Device id", "uuid", f"`{DEVICE_ID}`"]],
        query=[["from", "Inclusive start", "datetime", "yes", "`2026-10-20T00:00:00Z`"],
-              ["to", "Exclusive end, at most 7 days after from", "datetime", "yes", "`2026-10-21T00:00:00Z`"],
+              ["to", "Exclusive end, after from and at most `monitoring.historyMaxRangeDays` (7) days later", "datetime", "yes", "`2026-10-21T00:00:00Z`"],
               ["kind", "`POSITION`, `TELEMETRY` or both", "enum[]", "no", "`[\"POSITION\"]`"],
               ["format", "`json` or `csv`", "enum", "no", "`json`"]],
        response={"deviceId": DEVICE_ID, "clippedTo": [{"from": "2026-10-20T02:00:00Z", "to": "2026-10-21T00:00:00Z"}],
@@ -81,12 +81,21 @@ ENDPOINTS = [
 
     ep("GET", "/api/system-health", "System health", "TrekLink Admin",
        "Ingestion rate, duplicate and malformed counts, Field Station connectivity, Stage B devices "
-       "buffering, failed alert deliveries and the platform health (FR-MON-10, FR-EVT-13).",
+       "buffering, failed alert deliveries and the platform health (FR-MON-10, FR-EVT-13). "
+       "`fieldStations.items[]` lists every station that is not revoked with its health and `outdated` "
+       "against `currentRelease` (organizations REQ-EVT-11); queue depths are named per priority, P0 to P3 "
+       "(D-057 rule 9).",
        "UC-42, FR-EVT-13, FR-MON-10",
        query=[["windowMinutes", "Look-back for rates, default 60", "int", "no", "`60`"]],
        response={"health": {"status": "ok", "components": {"database": "up", "mqtt": "up"}},
                  "ingestion": {"perMinute": 41.2, "accepted": 2471, "duplicates": 12, "malformed": 0, "unknownDevice": 1},
-                 "fieldStations": {"total": 6, "stale": 1, "maxQueueDepth": [0, 0, 14, 230]},
+                 "fieldStations": {"total": 6, "stale": 1, "outdated": 1, "currentRelease": "1.2.0",
+                                   "maxQueueDepth": {"p0": 0, "p1": 0, "p2": 14, "p3": 230},
+                                   "items": [{"id": STATION_ID, "name": "Ta Nang basecamp laptop",
+                                              "organization": {"id": ORG_ID, "name": "ACME Trek Co., Ltd."},
+                                              "lastSyncAt": NOW, "stale": False,
+                                              "queueDepth": {"p0": 0, "p1": 0, "p2": 14, "p3": 230},
+                                              "oldestRetryCount": 2, "version": "1.1.0", "outdated": True}]},
                  "devicesBuffering": 2, "alerts": {"pending": 0, "failed": 1}},
        steps=["Collect from platform, gateway-sync, organizations and incidents services"],
        controller="SystemHealthController", service="SystemHealthService", call="report(query)",
@@ -108,17 +117,28 @@ ENDPOINTS = [
 
     ep("GET", "/api/reports/:kind", "Reports", "TrekLink Staff, TrekLink Admin",
        "Utilization, revenue per variant, overdue contracts, lost units, and time-to-acknowledge and "
-       "time-to-resolve over a date range; `format=csv` returns the rows as CSV text in `result` (FR-BILL-10).",
+       "time-to-resolve over a date range; `format=csv` returns the rows as CSV text in `result` (FR-BILL-10). "
+       "The period must end after it starts and span at most `monitoring.reportMaxRangeDays` (366) days, "
+       "otherwise 400 `VALIDATION_FAILED` (D-057 rule 10). Row shape per kind: "
+       "`utilization` {variant, unitsInService, rentedUnitDays, availableUnitDays, utilizationPct}; "
+       "`revenue` {variant, invoicedVnd, paidVnd, outstandingVnd}; "
+       "`overdue` {contractCode, organization, endDate, daysOverdue, unitsOut, lateFeeVnd, state}, as of `to`; "
+       "`lost` {assetTag, variant, organization, contractCode, lostAt, lossCaseState, chargeVnd}; "
+       "`incident-times` {organization, incidents, ackMedianSec, ackP95Sec, resolveMedianSec, resolveP95Sec}. "
+       "`utilizationPct` is rented unit-days over unit-days in service.",
        "UC-59, FR-BILL-10",
        path=[["kind", "`utilization`, `revenue`, `overdue`, `lost`, `incident-times`", "enum", "`revenue`"]],
        query=[["from", "Inclusive start", "date", "yes", "`2026-10-01`"], ["to", "Exclusive end", "date", "yes", "`2026-11-01`"],
               ["format", "`json` or `csv`", "enum", "no", "`json`"]],
        response={"kind": "revenue", "from": "2026-10-01", "to": "2026-11-01",
-                 "rows": [{"variant": "treklink-v3", "invoicedVnd": 18000000, "paidVnd": 13500000}]},
+                 "rows": [{"variant": "treklink-v3", "invoicedVnd": 18000000, "paidVnd": 13500000,
+                           "outstandingVnd": 4500000}]},
        no404=True, steps=["Ask the owning module for each report's rows", "Format as JSON or CSV"],
        controller="ReportsController", service="ReportsService", call="run(kind, query)",
-       participants=[["Inc", "IncidentsService"], ["Rent", "RentalsService"], ["Bill", "BillingService"]],
-       seq=["Svc->>Bill: revenue(range)", "Svc->>Rent: utilization(range)", "Svc->>Inc: responseTimes(range)"]),
+       participants=[["Inc", "IncidentsService"], ["Rent", "RentalsService"], ["Bill", "BillingService"],
+                     ["Dev", "DevicesService"]],
+       seq=["Svc->>Bill: revenue(range)", "Svc->>Rent: utilization(range), overdue(asOf)",
+            "Svc->>Dev: lostUnits(range)", "Svc->>Inc: responseTimes(range)"]),
 ]
 
 NOTES = ("Live push is the Socket.io contract in [ws-live-contract.md](ws-live-contract.md). The staleness "

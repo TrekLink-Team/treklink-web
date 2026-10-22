@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Searches the append-only authentication log by account, type and time (FR-AUTH-08).
+Searches the append-only authentication log by account, organization, type and time (FR-AUTH-08). `organizationId` is a filter, never an authorization input: `authEvent.read` decides access. The organization is resolved through the account's membership; an attempt whose email matched no account belongs to no organization and never matches the filter. A malformed id is 400 `VALIDATION_FAILED`; an unknown organization returns an empty page (D-057 rule 4).
 
 ## API Specification
 
@@ -22,6 +22,7 @@ Searches the append-only authentication log by account, type and time (FR-AUTH-0
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | userId | Account | uuid | no | `3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f` |
+| organizationId | Organization of the account | uuid | no | `5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f` |
 | type | AuthEventType | enum | no | `LOGIN_FAILED` |
 | from | Inclusive start | datetime | no | `2026-10-01T00:00:00Z` |
 | to | Exclusive end | datetime | no | `2026-10-21T00:00:00Z` |
@@ -42,6 +43,10 @@ No body.
         "id": "e-1",
         "userId": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
         "email": "manager@acme-trek.vn",
+        "organization": {
+          "id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
+          "name": "ACME Trek Co., Ltd."
+        },
         "type": "LOGIN_FAILED",
         "ip": "203.0.113.7",
         "createdAt": "2026-10-20T03:15:00.000Z"
@@ -131,7 +136,7 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Read auth_events newest first"]
+    P0["Read auth_events newest first, joined to the account's membership"]
     D1 -->|no| P0
     OK["Return 200"]
     P0 --> OK
@@ -149,7 +154,7 @@ sequenceDiagram
     participant DB as Postgres
     C->>Ctl: GET /api/auth-events
     Ctl->>Svc: search(query)
-    Svc->>DB: SELECT auth_events
+    Svc->>DB: SELECT auth_events LEFT JOIN organization_members
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```
