@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Arial, sans-serif" font-size="13">
+<title>Roles and permissions</title><rect width="1000" height="640" fill="#ffffff"/>
+<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
+<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
+<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/roles</text>
+<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
+<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Roles and permissions</text>
+<rect x="850" y="66" width="126" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="913.0" y="84.0" font-size="13" fill="#ffffff" text-anchor="middle">Save permissions</text>
+<rect x="740" y="66" width="100" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="790.0" y="84.0" font-size="13" fill="#202124" text-anchor="middle">Discard</text>
+<rect x="24" y="120" width="230" height="300" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<rect x="32" y="130" width="214" height="48" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="44" y="150" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">ADMIN</text>
+<text x="44" y="168" font-size="11" fill="#5f6368" text-anchor="start">32 perms  System role</text>
+<rect x="32" y="186" width="214" height="48" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="44" y="206" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">STAFF</text>
+<text x="44" y="224" font-size="11" fill="#5f6368" text-anchor="start">24 perms  System role</text>
+<rect x="32" y="242" width="214" height="48" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
+<text x="44" y="262" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">ORG_MANAGER</text>
+<text x="44" y="280" font-size="11" fill="#5f6368" text-anchor="start">18 perms  System role</text>
+<rect x="32" y="298" width="214" height="48" rx="3" fill="#dbeafe" stroke="#9aa0a6"/>
+<text x="44" y="318" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">ORG_OPERATOR</text>
+<text x="44" y="336" font-size="11" fill="#5f6368" text-anchor="start">9 perms  System role</text>
+<rect x="270" y="120" width="706" height="470" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="286" y="146" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">ORG_OPERATOR (ORGANIZATION)</text>
+<text x="286" y="166" font-size="12" fill="#5f6368" text-anchor="start">Inherited: none. Changes apply on the holders' next request.</text>
+<text x="286" y="196" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Incident</text>
+<text x="300" y="218" font-size="13" fill="#202124" text-anchor="start">[x] incident.read.own   Own organization only</text>
+<text x="300" y="244" font-size="13" fill="#202124" text-anchor="start">[x] incident.acknowledge.own   Own organization only</text>
+<text x="300" y="270" font-size="13" fill="#202124" text-anchor="start">[ ] incident.report.own</text>
+<text x="286" y="296" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Contract</text>
+<text x="300" y="318" font-size="13" fill="#202124" text-anchor="start">[x] contract.read.own   Own organization only</text>
+<text x="286" y="344" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Device</text>
+<text x="300" y="366" font-size="13" fill="#202124" text-anchor="start">[x] device.availability</text>
+<text x="286" y="392" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Roster</text>
+<text x="300" y="414" font-size="13" fill="#202124" text-anchor="start">[x] roster.read.own   Own organization only</text>
+<rect x="286" y="450" width="674" height="60" rx="3" fill="#fffbe6" stroke="#d4a017"/>
+<text x="298" y="472" font-size="12" fill="#202124" text-anchor="start">ADMIN row: role.manage checkbox is locked (ADMIN_LOCKOUT).  Dirty draft asks before leaving.</text>
+<text x="298" y="494" font-size="12" fill="#b45309" text-anchor="start">Catalogue source is open item O-2 (no endpoint lists every permission).</text>
+</svg>
