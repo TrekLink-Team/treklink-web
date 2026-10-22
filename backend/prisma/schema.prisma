@@ -229,15 +229,16 @@ model Role {
 }
 
 model Permission {
-  id         String           @id @default(uuid())
-  key        String           @unique // stable seed key, e.g. "incident.acknowledge.ownOrganization"
-  action     String
-  subject    String // Organization, RentalContract, Incident, ... or 'all'
-  conditions Json? // CASL conditions with ${user.*} placeholders, e.g. { organizationId: "${user.organizationId}" }
-  fields     String[]
-  inverted   Boolean          @default(false)
-  reason     String?
-  roles      RolePermission[]
+  id          String           @id @default(uuid())
+  key         String           @unique // stable seed key, e.g. "incident.respond.own"
+  action      String
+  subject     String // Organization, RentalContract, Incident, ... or 'all'
+  accountType AccountType // the only account type whose roles may hold it (D-057); filled from the catalog's role grants
+  conditions  Json? // CASL conditions with ${user.*} placeholders, e.g. { organizationId: "${user.organizationId}" }
+  fields      String[]
+  inverted    Boolean          @default(false)
+  reason      String?
+  roles       RolePermission[]
 
   @@map("permissions")
 }

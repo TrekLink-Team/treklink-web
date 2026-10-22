@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists the four system roles with their permissions as data (FR-AUTH-06).
+Lists the four system roles with the keys of their permissions (FR-AUTH-06). The screen joins the keys to `GET /api/permissions`; CASL conditions stay on the server (D-057 rule 2).
 
 ## API Specification
 
@@ -31,15 +31,9 @@ No body.
       "key": "ORG_OPERATOR",
       "accountType": "ORGANIZATION",
       "isSystem": true,
-      "permissions": [
-        {
-          "key": "incident.acknowledge.ownOrganization",
-          "action": "acknowledge",
-          "subject": "Incident",
-          "conditions": {
-            "organizationId": "${user.organizationId}"
-          }
-        }
+      "permissionKeys": [
+        "liveMap.read.own",
+        "telemetryHistory.read.own"
       ]
     }
   ],

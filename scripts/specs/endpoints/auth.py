@@ -3,8 +3,8 @@ from ._common import USER_ID, ORG_ID, NOW, ep, paged, PAGE_QUERY
 ME = {"id": USER_ID, "email": "manager@acme-trek.vn", "fullName": "Nguyen Van A", "accountType": "ORGANIZATION",
       "roles": ["ORG_MANAGER"], "organization": {"id": ORG_ID, "code": "ORG-0007", "legalName": "ACME Trek Co., Ltd.",
                                                   "status": "ACTIVE", "memberRole": "MANAGER"}}
-ACCOUNT = {"id": USER_ID, "email": "staff1@treklink.vn", "fullName": "Tran Thi B", "accountType": "TREKLINK",
-           "roles": ["STAFF"], "isActive": True, "lastLoginAt": NOW, "createdAt": NOW}
+ACCOUNT = {"id": USER_ID, "email": "staff1@treklink.vn", "fullName": "Tran Thi B", "phoneNumber": "0901234567",
+           "accountType": "TREKLINK", "roles": ["STAFF"], "isActive": True, "lastLoginAt": NOW, "createdAt": NOW}
 TOKENS = {"accessToken": "eyJhbGciOiJIUzI1NiIs...", "accessTokenExpiresIn": 900,
           "refreshToken": "rt_7Zq...opaque", "refreshTokenExpiresIn": 1209600}
 BAD_CODE = (400, "CODE_INVALID", "The code is wrong, expired, used or out of attempts",
@@ -119,7 +119,8 @@ ENDPOINTS = [
 
     ep("GET", "/api/accounts", "List TrekLink accounts", "TrekLink Admin",
        "Lists TrekLink Staff and Admin accounts (UC-10). Organization accounts are managed by their "
-       "Manager through the organizations module.",
+       "Manager through the organizations module. `lastLoginAt` null means the invitation is still pending "
+       "(D-057 rule 1).",
        "UC-10, FR-AUTH-06",
        query=[["q", "Name or email contains", "string", "no", "`tran`"],
               ["isActive", "Filter by active flag", "bool", "no", "`true`"]] + PAGE_QUERY,
@@ -192,42 +193,67 @@ ENDPOINTS = [
        seq=["Svc->>DB: INSERT one_time_codes", "Svc-)Mail: send code"]),
 
     ep("GET", "/api/roles", "List roles and permissions", "TrekLink Admin",
-       "Lists the four system roles with their permissions as data (FR-AUTH-06).", "UC-10, FR-AUTH-06",
+       "Lists the four system roles with the keys of their permissions (FR-AUTH-06). The screen joins the keys "
+       "to `GET /api/permissions`; CASL conditions stay on the server (D-057 rule 2).", "UC-10, FR-AUTH-06",
        response=[{"id": "r-1", "key": "ORG_OPERATOR", "accountType": "ORGANIZATION", "isSystem": True,
-                  "permissions": [{"key": "incident.acknowledge.ownOrganization", "action": "acknowledge",
-                                   "subject": "Incident", "conditions": {"organizationId": "${user.organizationId}"}}]}],
+                  "permissionKeys": ["liveMap.read.own", "telemetryHistory.read.own"]}],
        steps=["Read roles with permissions"],
        controller="RolesController", service="RolesService", call="list()",
        seq=["Svc->>DB: SELECT roles, role_permissions, permissions"]),
 
     ep("PUT", "/api/roles/:id/permissions", "Replace a role's permissions", "TrekLink Admin",
        "Replaces the permission set of a role. The change applies on the next request, without a redeploy "
-       "(FR-AUTH-06). Removing `role.manage` from ADMIN is refused.",
+       "(FR-AUTH-06). Removing `role.manage` from ADMIN is refused. A role holds only permissions of its own "
+       "account type, so an organization role can never receive a platform permission (D-057 rule 2).",
        "UC-10, FR-AUTH-06",
        path=[["id", "Role id", "uuid", "`r-1`"]],
        body=[["permissionKeys", "Full list of permission keys", "string[]", "yes",
-              "`[\"incident.acknowledge.ownOrganization\"]`"]],
-       sample={"permissionKeys": ["incident.read.ownOrganization", "incident.acknowledge.ownOrganization"]},
+              "`[\"incident.read.own\"]`"]],
+       sample={"permissionKeys": ["incident.read.own", "incident.respond.own"]},
        response={"id": "r-1", "key": "ORG_OPERATOR", "permissionCount": 2}, message="Permissions updated",
        entity="Role",
        errors=[(400, "UNKNOWN_PERMISSION", "A key is not in the permission catalogue", "Unknown permission: x."),
+               (400, "PERMISSION_SCOPE_MISMATCH", "A key belongs to the other account type than the role",
+                "organization.decide cannot be granted to an organization role."),
                (409, "ADMIN_LOCKOUT", "The change would remove role.manage from ADMIN",
                 "Admins must keep the right to manage roles.")],
-       steps=["Validate the keys", "Replace role_permissions in one transaction", "Bump the policy cache version",
+       steps=["Validate the keys against the catalog and the role's account type", "Replace role_permissions in one transaction", "Bump the policy cache version",
               "Emit audit.record role.permissions"],
        controller="RolesController", service="RolesService", call="replacePermissions(id, dto, actor)",
        seq=["Svc->>DB: DELETE + INSERT role_permissions", "Svc-)Svc: emit policy.changed"]),
 
     ep("GET", "/api/auth-events", "Authentication audit", "TrekLink Admin",
-       "Searches the append-only authentication log by account, type and time (FR-AUTH-08).",
+       "Searches the append-only authentication log by account, organization, type and time (FR-AUTH-08). "
+       "`organizationId` is a filter, never an authorization input: `authEvent.read` decides access. The "
+       "organization is resolved through the account's membership; an attempt whose email matched no account "
+       "belongs to no organization and never matches the filter. A malformed id is 400 `VALIDATION_FAILED`; an "
+       "unknown organization returns an empty page (D-057 rule 4).",
        "UC-58, FR-AUTH-08",
        query=[["userId", "Account", "uuid", "no", f"`{USER_ID}`"],
+              ["organizationId", "Organization of the account", "uuid", "no", f"`{ORG_ID}`"],
               ["type", "AuthEventType", "enum", "no", "`LOGIN_FAILED`"],
               ["from", "Inclusive start", "datetime", "no", "`2026-10-01T00:00:00Z`"],
               ["to", "Exclusive end", "datetime", "no", "`2026-10-21T00:00:00Z`"]] + PAGE_QUERY,
-       response=paged({"id": "e-1", "userId": USER_ID, "email": "manager@acme-trek.vn", "type": "LOGIN_FAILED",
+       response=paged({"id": "e-1", "userId": USER_ID, "email": "manager@acme-trek.vn",
+                       "organization": {"id": ORG_ID, "name": "ACME Trek Co., Ltd."}, "type": "LOGIN_FAILED",
                        "ip": "203.0.113.7", "createdAt": NOW}),
-       steps=["Read auth_events newest first"],
+       steps=["Read auth_events newest first, joined to the account's membership"],
        controller="AuthEventsController", service="AuthEventsService", call="search(query)",
-       seq=["Svc->>DB: SELECT auth_events"]),
+       seq=["Svc->>DB: SELECT auth_events LEFT JOIN organization_members"]),
+
+    ep("GET", "/api/permissions", "List the permission catalog", "TrekLink Admin",
+       "Lists every permission a role can hold, from the seeded catalog, so the roles screen can grant a "
+       "permission that no role holds today (D-057 rule 2). Read-only: permissions come from "
+       "`scripts/specs/catalog.py` and the seed, never from an endpoint. Each item states the account type "
+       "whose roles may hold it and whether ADMIN may lose it; CASL `conditions`, `fields` and `inverted` are "
+       "not returned. Gated by `role.manage`.",
+       "UC-10, FR-AUTH-06, FR-AUTH-10",
+       response=[{"key": "liveMap.read.own", "action": "read", "subject": "LiveMap", "scope": "own",
+                  "accountType": "ORGANIZATION", "description": "Read the live map of the own organization",
+                  "protected": False},
+                 {"key": "role.manage", "action": "manage", "subject": "Role", "scope": "any",
+                  "accountType": "TREKLINK", "description": "Manage roles and their permissions", "protected": True}],
+       steps=["Read permissions ordered by key", "Map conditions to `scope` (`own` when bound to the caller's organization)"],
+       controller="PermissionsController", service="RolesService", call="catalog()",
+       seq=["Svc->>DB: SELECT permissions ORDER BY key"]),
 ]

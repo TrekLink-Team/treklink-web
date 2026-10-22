@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Replaces the permission set of a role. The change applies on the next request, without a redeploy (FR-AUTH-06). Removing `role.manage` from ADMIN is refused.
+Replaces the permission set of a role. The change applies on the next request, without a redeploy (FR-AUTH-06). Removing `role.manage` from ADMIN is refused. A role holds only permissions of its own account type, so an organization role can never receive a platform permission (D-057 rule 2).
 
 ## API Specification
 
@@ -28,15 +28,15 @@ Replaces the permission set of a role. The change applies on the next request, w
 ```json
 {
   "permissionKeys": [
-    "incident.read.ownOrganization",
-    "incident.acknowledge.ownOrganization"
+    "incident.read.own",
+    "incident.respond.own"
   ]
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| permissionKeys | Full list of permission keys | string[] | yes | `["incident.acknowledge.ownOrganization"]` |
+| permissionKeys | Full list of permission keys | string[] | yes | `["incident.read.own"]` |
 
 ## Response sample
 
@@ -146,6 +146,23 @@ Replaces the permission set of a role. The change applies on the next request, w
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>A key belongs to the other account type than the role (<code>PERMISSION_SCOPE_MISMATCH</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "PERMISSION_SCOPE_MISMATCH"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "organization.decide cannot be granted to an organization role."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>The change would remove role.manage from ADMIN (<code>ADMIN_LOCKOUT</code>)</td>
 <td>
@@ -187,13 +204,18 @@ flowchart TB
     E3["Return 400 UNKNOWN_PERMISSION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The change would remove role.manage from ADMIN?"}
+    D4{"A key belongs to the other account type than the role?"}
     D3 -->|no| D4
-    E4["Return 409 ADMIN_LOCKOUT"]
+    E4["Return 400 PERMISSION_SCOPE_MISMATCH"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Validate the keys"]
-    D4 -->|no| P0
+    D5{"The change would remove role.manage from ADMIN?"}
+    D4 -->|no| D5
+    E5["Return 409 ADMIN_LOCKOUT"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
+    P0["Validate the keys against the catalog and the role's account type"]
+    D5 -->|no| P0
     P1["Replace role_permissions in one transaction"]
     P0 --> P1
     P2["Bump the policy cache version"]
