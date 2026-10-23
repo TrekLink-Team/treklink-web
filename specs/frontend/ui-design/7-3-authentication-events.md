@@ -1,4 +1,4 @@
-# Authentication events (`/t/admin/audit`, Authentication tab)
+# Authentication events (`/t/admin/audit/sign-ins`)
 
 | | |
 |---|---|
@@ -6,7 +6,7 @@
 | Task | `specs/frontend/tasks.md` 7.3 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
-| Routes | `/t/admin/audit` (`specs/frontend/design.md` §2 lists one audit route; this screen is its "Authentication" tab and the audit log of 7.4 is the other tab, see open item O-3) |
+| Routes | `/t/admin/audit/sign-ins`, its own tab route beside the change log of screen 7.4 (`/t/admin/audit/changes`); `/t/admin/audit` redirects to `changes`. The tab is hidden for a user without `authEvent.read`. Filters live in the URL query (`specs/frontend/design.md` §2, D-057 rule 3). |
 | Roles | TrekLink Admin only. Staff and organization roles: MSG26. |
 | Use case, FRs, story | UC-58; FR-AUTH-08; US-UC58 |
 | Requirements | `specs/auth/requirements.md` REQ-UBI-08, REQ-ERR-02 |
@@ -21,6 +21,7 @@ Scope from the task: auth api-design 17 with filters
 | Time (viewer timezone, UTC on hover) | auth 17 `items[].createdAt` |
 | Event type, as a text badge | auth 17 `items[].type` |
 | Email | auth 17 `items[].email` |
+| Organization (name; "None" when the email matched no account) | auth 17 `items[].organization.name`; `null` when the attempt matched no account |
 | Account (link to filter by this account) | auth 17 `items[].userId` |
 | IP address | auth 17 `items[].ip` |
 | Pager | auth 17 `pageNumber`, `pageSize`, `totalCount`, `totalPages` |
@@ -37,7 +38,8 @@ action. The log never holds an attempted password (REQ-UBI-08), so no such colum
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
 | Apply filters: account, type, from, to | auth 17 `GET /api/auth-events?userId&type&from&to&pageNumber&pageSize` | none | none |
-| Account filter | auth 09 `GET /api/accounts?q=` for TrekLink accounts; organization members are matched by the `email` shown on the row (auth 17 has no organization filter, open item O-4) | none | none |
+| Account filter | auth 09 `GET /api/accounts?q=` for TrekLink accounts; for an organization member the filter is the organization filter below plus the email on the row | none | none |
+| Organization filter | auth 17 query `organizationId`, options from organizations 02 `GET /api/organizations` (`items[].id`, `legalName`). A filter only: access is decided by `authEvent.read` (D-057 rule 4). An unknown organization gives an empty page, a malformed id 400. | none | none |
 | Clear filters | none (resets the query) | none | none |
 | Refresh | same as Apply | none | none |
 | Row: "Filter by this account" | auth 17 with `userId` set | none | none |
@@ -50,18 +52,19 @@ There is no primary action: the screen is read-only. Filters sit above the table
 |---|---|
 | Loading | Table skeleton of 8 rows; filter bar usable |
 | Empty | MSG01 "No results match your filters." with Clear filters |
-| Error `VALIDATION_FAILED` (400) | Banner with the server message; typical cause is a reversed range, which the form also blocks with MSG02 "From must be before To." (wording to confirm, open item O-5) |
+| Error `VALIDATION_FAILED` (400) | Banner with the server message. A period that ends before it starts is blocked first by the form with MSG35 under the To field; auth 17 sets no maximum, so the "at most {n} days later" clause is not used here. |
 | Error `UNAUTHENTICATED` (401) | One silent refresh, then `/sign-in` |
 | Not found or forbidden (403) | MSG26 full-page notice |
 | Success | Rows render newest first; the filter values are kept in the URL query string so a link reproduces the view (no personal data goes in it: ids and enum values only) |
 
 ## Form fields (if any)
 
-One step of 4 filter fields.
+One step of 5 filter fields.
 
 | Step | Field | Type | Required | Rule |
 |---|---|---|---|---|
 | 1 | Account | typeahead (name or email) | no | Resolves to a uuid for `userId` |
+| 1 | Organization | select, "All" first | no | Resolves to a uuid for `organizationId` |
 | 1 | Event type | select, 11 values above | no | Enum `AuthEventType` |
 | 1 | From | date and time | no | Inclusive; sent as ISO 8601 UTC |
 | 1 | To | date and time | no | Exclusive; must be after From |
@@ -69,14 +72,14 @@ One step of 4 filter fields.
 ## Mobile, accessibility, live data
 
 - 360 px layout: not an operator screen. Filters collapse into a "Filters" disclosure above the list; each row becomes a card: badge and time on the first line, email and IP below.
-- Tab order and focus after each action: tab bar (Authentication, Audit log), filter fields, Apply, table, pager. After Apply, focus moves to the result count line ("{n} events"), announced by a polite live region so a screen reader hears the new count.
+- Tab order and focus after each action: tab bar (Change log, Sign-ins), filter fields, Apply, table, pager. After Apply, focus moves to the result count line ("{n} events"), announced by a polite live region so a screen reader hears the new count.
 - WebSocket events and invalidated query keys: none; the log is not streamed. The query key is `['auth-events', filters]`; the Refresh control refetches it.
 
 ## Checklist
 
 Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked by the owner before review.
 
-- [x] Route and roles match `design.md` §2 (tab split noted as O-3)
+- [x] Route and roles match `design.md` §2 (`/t/admin/audit/sign-ins`, tab hidden without `authEvent.read`)
 - [x] Data: every column names its source; the 11 event types come from the Prisma enum
 - [x] Actions: read-only, no primary action, filters named
 - [x] States: loading, empty, 400, 401, 403, success

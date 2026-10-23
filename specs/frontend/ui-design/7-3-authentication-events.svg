@@ -2,55 +2,63 @@
 <title>Authentication events</title><rect width="1000" height="640" fill="#ffffff"/>
 <rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
 <text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/audit</text>
+<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/audit/sign-ins</text>
 <text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
 <text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Audit</text>
-<rect x="24" y="118" width="120" height="20" rx="10" fill="#dbeafe" stroke="#9aa0a6"/>
-<text x="84.0" y="132" font-size="11" fill="#202124" text-anchor="middle">Authentication</text>
-<rect x="152" y="118" width="90" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="197.0" y="132" font-size="11" fill="#202124" text-anchor="middle">Audit log</text>
-<rect x="24" y="156" width="200" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Account (name or email)</text>
-<rect x="236" y="156" width="200" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="244" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Type: All (11)</text>
-<rect x="448" y="156" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="456" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">From</text>
-<rect x="610" y="156" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="618" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">To</text>
-<rect x="772" y="156" width="70" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="807.0" y="174.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
-<rect x="852" y="156" width="70" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="887.0" y="174.0" font-size="13" fill="#202124" text-anchor="middle">Clear</text>
-<rect x="24" y="204" width="840" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
+<rect x="24" y="118" width="100" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="74.0" y="132" font-size="11" fill="#202124" text-anchor="middle">Change log</text>
+<rect x="132" y="118" width="90" height="20" rx="10" fill="#dbeafe" stroke="#9aa0a6"/>
+<text x="177.0" y="132" font-size="11" fill="#202124" text-anchor="middle">Sign-ins</text>
+<rect x="24" y="156" width="170" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Account</text>
+<rect x="204" y="156" width="190" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="212" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Organization: All</text>
+<rect x="404" y="156" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="412" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Type: All (11)</text>
+<rect x="564" y="156" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="572" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">From</text>
+<rect x="694" y="156" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="702" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">To</text>
+<rect x="824" y="156" width="60" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
+<text x="854.0" y="174.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
+<rect x="892" y="156" width="60" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
+<text x="922.0" y="174.0" font-size="13" fill="#202124" text-anchor="middle">Clear</text>
+<rect x="24" y="204" width="850" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
 <text x="32" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Time</text>
-<text x="182" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Type</text>
-<text x="392" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Email</text>
-<text x="622" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">IP</text>
-<text x="772" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Account</text>
-<rect x="24" y="238" width="840" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="162" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Type</text>
+<text x="352" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Email</text>
+<text x="542" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Organization</text>
+<text x="682" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">IP</text>
+<text x="802" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Account</text>
+<rect x="24" y="238" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="32" y="259.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:15</text>
-<text x="182" y="259.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_FAILED</text>
-<text x="392" y="259.0" font-size="13" fill="#202124" text-anchor="start">manager@acme-trek.vn</text>
-<text x="622" y="259.0" font-size="13" fill="#202124" text-anchor="start">203.0.113.7</text>
-<text x="772" y="259.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
-<rect x="24" y="272" width="840" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="162" y="259.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_FAILED</text>
+<text x="352" y="259.0" font-size="13" fill="#202124" text-anchor="start">manager@acme-trek.vn</text>
+<text x="542" y="259.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
+<text x="682" y="259.0" font-size="13" fill="#202124" text-anchor="start">203.0.113.7</text>
+<text x="802" y="259.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
+<rect x="24" y="272" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="32" y="293.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:16</text>
-<text x="182" y="293.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_SUCCEEDED</text>
-<text x="392" y="293.0" font-size="13" fill="#202124" text-anchor="start">manager@acme-trek.vn</text>
-<text x="622" y="293.0" font-size="13" fill="#202124" text-anchor="start">203.0.113.7</text>
-<text x="772" y="293.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
-<rect x="24" y="306" width="840" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="162" y="293.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_SUCCEEDED</text>
+<text x="352" y="293.0" font-size="13" fill="#202124" text-anchor="start">manager@acme-trek.vn</text>
+<text x="542" y="293.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
+<text x="682" y="293.0" font-size="13" fill="#202124" text-anchor="start">203.0.113.7</text>
+<text x="802" y="293.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
+<rect x="24" y="306" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="32" y="327.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 11:02</text>
-<text x="182" y="327.0" font-size="13" fill="#202124" text-anchor="start">TOKEN_REUSE_DETECTED</text>
-<text x="392" y="327.0" font-size="13" fill="#202124" text-anchor="start">op@acme-trek.vn</text>
-<text x="622" y="327.0" font-size="13" fill="#202124" text-anchor="start">198.51.100.4</text>
-<text x="772" y="327.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
-<rect x="24" y="340" width="840" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="162" y="327.0" font-size="13" fill="#202124" text-anchor="start">TOKEN_REUSE_DETECTED</text>
+<text x="352" y="327.0" font-size="13" fill="#202124" text-anchor="start">op@acme-trek.vn</text>
+<text x="542" y="327.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
+<text x="682" y="327.0" font-size="13" fill="#202124" text-anchor="start">198.51.100.4</text>
+<text x="802" y="327.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
+<rect x="24" y="340" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="32" y="361.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 11:30</text>
-<text x="182" y="361.0" font-size="13" fill="#202124" text-anchor="start">ACCOUNT_LOCKED</text>
-<text x="392" y="361.0" font-size="13" fill="#202124" text-anchor="start">op@acme-trek.vn</text>
-<text x="622" y="361.0" font-size="13" fill="#202124" text-anchor="start">198.51.100.4</text>
-<text x="772" y="361.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
+<text x="162" y="361.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_FAILED</text>
+<text x="352" y="361.0" font-size="13" fill="#202124" text-anchor="start">unknown@mail.com</text>
+<text x="542" y="361.0" font-size="13" fill="#202124" text-anchor="start">-</text>
+<text x="682" y="361.0" font-size="13" fill="#202124" text-anchor="start">198.51.100.9</text>
+<text x="802" y="361.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
 <text x="24" y="396" font-size="12" fill="#5f6368" text-anchor="start">4 events  |  Page 1 of 1   (read-only, append-only; no row actions)</text>
+<text x="24" y="440" font-size="12" fill="#5f6368" text-anchor="start">Organization is - when the email matched no account. Tab hidden without authEvent.read.</text>
 <text x="24" y="420" font-size="12" fill="#5f6368" text-anchor="start">Security types (TOKEN_REUSE_DETECTED, ACCOUNT_LOCKED) carry a red badge with their text.</text>
 </svg>
