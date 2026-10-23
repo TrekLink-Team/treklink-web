@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { validationExceptionFactory } from './common/pipes/validation-exception.factory';
 import { ValidatedEnvironment } from './modules/platform/config/environment-variables';
 
 // `CORS_ORIGINS` is a comma-separated list (specs/platform/requirements.md §4). A credentialed
@@ -29,6 +30,7 @@ export function configureApp(app: INestApplication): void {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
+      exceptionFactory: validationExceptionFactory,
     }),
   );
 
