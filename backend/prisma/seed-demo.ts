@@ -267,7 +267,7 @@ export async function seedDemo(
           created.push(`price ${v.code}`);
         }
       }
-      // findFirst rather than the (code, hardwareVariantId) unique: Postgres treats NULLs as distinct.
+      // findFirst: a NULL variant cannot be looked up through the (code, hardwareVariantId) unique.
       for (const rate of DAMAGE_RATES) {
         if (
           !(await tx.damageRate.findFirst({ where: { code: rate.code, hardwareVariantId: null } }))

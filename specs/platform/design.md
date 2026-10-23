@@ -356,7 +356,7 @@ TrekLink's asset; which organization may see it is derived from its live `Contra
 | 7 | Every `DateTime` is `@db.Timestamptz(3)`, except `RentalContract.requestedStartDate` (`@db.Date`, a calendar day). | Required by the `tstzrange` exclusion constraint on `roster_shifts`. |
 | 8 | Money is integer VND in `BigInt`; ratios are `Decimal`. | No floating-point money anywhere. |
 | 12 | Every foreign-key column leads an index. | An FK column that already leads a composite index, unique constraint or primary key gets no second index. |
-| 15 | Constraints Prisma cannot express live in `backend/prisma/constraints.sql`: roster exclusion, one live `ContractDevice` per device (BR-03), one open incident per device (FR-INC-01), CHECKs on plans, amounts and authority reports, and the append-only triggers. | Appended to the baseline by `rebuild-baseline.sh`. |
+| 15 | Constraints Prisma cannot express live in `backend/prisma/constraints.sql`: roster exclusion, one live `ContractDevice` per device (BR-03), one open incident per device (FR-INC-01), one damage rate per code among the rates for every variant (FR-BILL-04, a NULL variant escapes the Prisma unique), CHECKs on plans, amounts and authority reports, and the append-only triggers. | Appended to the baseline by `rebuild-baseline.sh`. |
 
 ---
 

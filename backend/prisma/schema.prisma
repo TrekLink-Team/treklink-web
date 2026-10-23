@@ -1158,7 +1158,7 @@ model DamageRate {
   createdBy         User             @relation(fields: [createdById], references: [id])
   createdAt         DateTime         @default(now()) @db.Timestamptz(3)
 
-  @@unique([code, hardwareVariantId])
+  @@unique([code, hardwareVariantId]) // a NULL variant is covered by damage_rates_one_global_code (constraints.sql)
   @@index([hardwareVariantId])
   @@index([createdById])
   @@map("damage_rates")
