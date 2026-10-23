@@ -1,0 +1,27 @@
+{
+  "description": "TL-0009 position outside monitoring.positionBounds: kept with no position, INVALID_POSITION",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834576215,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724400,
+          "latitude_i": 356895000,
+          "longitude_i": 1396917000,
+          "altitude": 40
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    }
+  ]
+}

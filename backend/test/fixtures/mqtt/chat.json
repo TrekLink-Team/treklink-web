@@ -1,0 +1,24 @@
+{
+  "description": "TL-0009 plain text, classified CHAT (TEXT_MESSAGE_APP)",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834576213,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "text",
+        "sender": "!de000009",
+        "payload": {
+          "text": "Reached camp 2"
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    }
+  ]
+}
