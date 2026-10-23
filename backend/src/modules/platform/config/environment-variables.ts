@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   Min,
   validateSync,
 } from 'class-validator';
@@ -17,6 +18,9 @@ import {
 
 export const NODE_ENVIRONMENTS = ['development', 'test', 'production'] as const;
 export type NodeEnvironment = (typeof NODE_ENVIRONMENTS)[number];
+
+export const MAIL_TRANSPORTS = ['smtp', 'console'] as const;
+export type MailTransportName = (typeof MAIL_TRANSPORTS)[number];
 
 const POSTGRES_URL = /^postgres(ql)?:\/\/\S+$/;
 const MQTT_URL = /^(mqtts?|wss?|tcp|ssl):\/\/\S+$/;
@@ -84,6 +88,25 @@ export class EnvironmentVariables {
 
   @Matches(DURATION, { message: 'JWT_REFRESH_TTL must look like 15m, 1h or 7d' })
   JWT_REFRESH_TTL = '14d'; // auth requirements §4 (D-060 rule 4)
+
+  // BCRYPT_COST and MAIL_* are owned by `auth` (specs/auth/requirements.md §4).
+  @Transform(toInteger)
+  @IsInt()
+  @Min(4)
+  @Max(15)
+  BCRYPT_COST = 12;
+
+  // `console` writes outbound email to the server log, for local development and CI (REQ-OPT-01).
+  @IsIn(MAIL_TRANSPORTS)
+  MAIL_TRANSPORT: MailTransportName = 'console';
+
+  @IsString()
+  @IsNotEmpty()
+  MAIL_FROM = 'TrekLink <no-reply@treklink.local>';
+
+  @IsOptional()
+  @IsString()
+  SMTP_URL?: string;
 
   // Comma-separated list of allowed browser origins.
   @IsString()
