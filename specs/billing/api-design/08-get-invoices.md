@@ -40,7 +40,10 @@ No body.
       {
         "id": "1e2d3c4b-5a69-4788-9a0b-c1d2e3f4a5b6",
         "number": "INV-2026-000123",
-        "organizationId": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
+        "organization": {
+          "id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
+          "code": "ORG-0007"
+        },
         "contract": {
           "id": "c0ffee00-1234-4abc-9def-001122334455",
           "code": "RC-2026-0042"

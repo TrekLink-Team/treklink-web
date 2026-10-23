@@ -1,7 +1,7 @@
 from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, INVOICE_ID, NOW, ep, paged, PAGE_QUERY,
                       state_409)
 
-INVOICE = {"id": INVOICE_ID, "number": "INV-2026-000123", "organizationId": ORG_ID,
+INVOICE = {"id": INVOICE_ID, "number": "INV-2026-000123", "organization": {"id": ORG_ID, "code": "ORG-0007"},
            "contract": {"id": CONTRACT_ID, "code": "RC-2026-0042"}, "kind": "TERM", "term": {"seq": 1},
            "status": "PARTIALLY_PAID", "totalVnd": 4500000, "paidVnd": 2250000, "issuedAt": NOW,
            "lines": [{"seq": 1, "type": "HOLDING_FEE", "description": "Term 1 holding fee, 10 x treklink-v3",
@@ -13,6 +13,8 @@ INVOICE = {"id": INVOICE_ID, "number": "INV-2026-000123", "organizationId": ORG_
 PAYMENT = {"id": "p-1", "reference": "TL7K2Q9M4D", "invoiceId": INVOICE_ID, "contractId": CONTRACT_ID,
            "amountVnd": 2250000, "method": "SEPAY", "status": "PENDING", "isSandbox": True,
            "expiresAt": "2026-10-20T03:45:00Z", "confirmedAt": None}
+VIETQR = {"imageUrl": "https://vietqr.app/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
+          "bankAccount": "SANDBOX-0001", "content": "TL7K2Q9M4D"}
 INV_PATH = ["id", "Invoice id; members may use only their own", "uuid", f"`{INVOICE_ID}`"]
 
 ENDPOINTS = [
@@ -31,13 +33,24 @@ ENDPOINTS = [
 
     ep("POST", "/api/quotes", "Quote a plan", "Org Manager: own; TrekLink Staff",
        "Prices a prospective contract before it is requested: first payment, term fee or day-plan total "
-       "(FR-BILL-01, FR-BILL-02). Nothing is stored.",
+       "(FR-BILL-01, FR-BILL-02). Nothing is stored. The sample is a day plan; a `MONTHLY` quote returns "
+       "`planType`, `quantity`, `termFeeVnd`, `firstPaymentVnd` (the holding fee) and `formula`, for example "
+       "10 devices at 450000 give `termFeeVnd` 4500000, `firstPaymentVnd` 2250000 and `formula` "
+       "\"450000 x 10 x 0.5\" (the names rentals api-design 01 uses in its `quote`, D-059 rule 6).",
        "UC-15, FR-BILL-01, FR-BILL-02, BR-06, BR-07",
        body=[["planType", "`MONTHLY` or `DAY`", "enum", "yes", "`DAY`"], ["dayPlanDays", "DAY only", "int", "cond.", "`4`"],
              ["hardwareVariantId", "Variant", "uuid", "yes", f"`{VARIANT_ID}`"], ["quantity", "Devices", "int", "yes", "`8`"]],
        sample={"planType": "DAY", "dayPlanDays": 4, "hardwareVariantId": VARIANT_ID, "quantity": 8},
        response={"planType": "DAY", "quantity": 8, "unitPerDayVnd": 22500, "days": 4, "totalVnd": 720000,
                  "firstPaymentVnd": 720000, "formula": "450000 / 30 x 1.5 x 4 x 8"},
+       fields=[["planType", "`MONTHLY` or `DAY`, as requested", "enum", "`DAY`"],
+               ["quantity", "Devices", "int", "`8`"],
+               ["unitPerDayVnd", "DAY only: monthly price / 30 x `billing.dayPremium`, per device", "int", "`22500`"],
+               ["days", "DAY only: the day-plan length", "int", "`4`"],
+               ["totalVnd", "DAY only: the whole day-plan amount", "int", "`720000`"],
+               ["termFeeVnd", "MONTHLY only: one term for every device", "int", "`4500000`"],
+               ["firstPaymentVnd", "MONTHLY: the holding fee, term fee x `billing.holdingFeeRatio`; DAY: the total", "int", "`720000`"],
+               ["formula", "The calculation as text, for the quote panel", "string", "`450000 x 10 x 0.5`"]],
        errors=[(400, "BELOW_MOQ", "Quantity below the minimum order quantity", "The minimum order is 5 devices.")],
        steps=["Read the current price and plan parameters", "Compute in integer VND, rounding up per line"],
        controller="QuotesController", service="PricingService", call="quote(dto)", seq=["Svc->>DB: SELECT current price"]),
@@ -124,8 +137,7 @@ ENDPOINTS = [
        "UC-19, FR-BILL-07, FR-BILL-09, BR-34, MSG25",
        path=[INV_PATH], body=[["lineSeq", "Pay one line; default every line due now", "int", "no", "`1`"]],
        sample={"lineSeq": 2},
-       response={**PAYMENT, "vietQr": {"imageUrl": "https://vietqr.app/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
-                                       "bankAccount": "SANDBOX-0001", "content": "TL7K2Q9M4D"}},
+       response={**PAYMENT, "vietQr": VIETQR},
        status=201, message="Scan the QR code to pay (sandbox).", entity="Invoice",
        errors=[(409, "NOTHING_DUE", "No unpaid amount on the invoice or line", "This invoice has nothing to pay."),
                (409, "PAYMENT_PENDING", "A pending SePay payment for this invoice has not expired",
@@ -192,8 +204,10 @@ ENDPOINTS = [
 
     ep("GET", "/api/payments/:id", "Payment status", "Org Manager: own; TrekLink Staff, TrekLink Admin",
        "Returns one payment; the payment page polls it while the QR is shown. A `PENDING` payment past its "
-       "expiry is reported `EXPIRED` and the amount stays due (FR-BILL-09).", "UC-19, FR-BILL-09, E05-4",
-       path=[["id", "Payment id", "uuid", "`p-1`"]], response={**PAYMENT, "status": "CONFIRMED", "confirmedAt": NOW},
+       "expiry is reported `EXPIRED` and the amount stays due (FR-BILL-09). While the payment is `PENDING` "
+       "the response carries the same `vietQr` block as api-design 11, so the payment page redraws the QR "
+       "after a reload; otherwise `vietQr` is null (D-059 rule 6).", "UC-19, FR-BILL-09, E05-4",
+       path=[["id", "Payment id", "uuid", "`p-1`"]], response={**PAYMENT, "vietQr": VIETQR},
        entity="Payment", steps=["Read within scope", "Expire a stale PENDING row lazily"],
        controller="PaymentsController", service="PaymentsService", call="get(id, caller)",
        seq=["Svc->>DB: SELECT payment; UPDATE EXPIRED if past expiresAt"]),

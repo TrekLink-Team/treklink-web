@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns one payment; the payment page polls it while the QR is shown. A `PENDING` payment past its expiry is reported `EXPIRED` and the amount stays due (FR-BILL-09).
+Returns one payment; the payment page polls it while the QR is shown. A `PENDING` payment past its expiry is reported `EXPIRED` and the amount stays due (FR-BILL-09). While the payment is `PENDING` the response carries the same `vietQr` block as api-design 11, so the payment page redraws the QR after a reload; otherwise `vietQr` is null (D-059 rule 6).
 
 ## API Specification
 
@@ -38,10 +38,15 @@ No body.
     "contractId": "c0ffee00-1234-4abc-9def-001122334455",
     "amountVnd": 2250000,
     "method": "SEPAY",
-    "status": "CONFIRMED",
+    "status": "PENDING",
     "isSandbox": true,
     "expiresAt": "2026-10-20T03:45:00Z",
-    "confirmedAt": "2026-10-20T03:15:00.000Z"
+    "confirmedAt": null,
+    "vietQr": {
+      "imageUrl": "https://vietqr.app/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
+      "bankAccount": "SANDBOX-0001",
+      "content": "TL7K2Q9M4D"
+    }
   },
   "isSuccess": true,
   "statusCode": 200,

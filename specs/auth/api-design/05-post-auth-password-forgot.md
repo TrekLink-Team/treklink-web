@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Sends a single-use, time-limited code to the registered email. The response is identical whether or not the email exists (FR-AUTH-05).
+Sends a single-use, time-limited code to the registered email. The response is identical whether or not the email exists (FR-AUTH-05). For an active account that has never set a password the code is a `SET_PASSWORD` code, used on `/welcome` (api-design 07), so an invitee whose invitation code expired gets a new one here (D-059 rule 6).
 
 ## API Specification
 
@@ -66,7 +66,7 @@ Sends a single-use, time-limited code to the registered email. The response is i
         </tr>
         <tr>
             <td>429</td>
-            <td>A code was sent less than auth.otpResendCooldownSeconds ago (<code>OTP_COOLDOWN</code>)</td>
+            <td>A code was sent less than auth.codeResendCooldownSeconds ago (<code>OTP_COOLDOWN</code>)</td>
 <td>
 
 ```json
@@ -96,14 +96,14 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"A code was sent less than auth.otpResendCooldownSeconds ago?"}
+    D2{"A code was sent less than auth.codeResendCooldownSeconds ago?"}
     D1 -->|no| D2
     E2["Return 429 OTP_COOLDOWN"]
     D2 -->|yes| E2
     E2 --> X2((End))
     P0["Look up the user"]
     D2 -->|no| P0
-    P1["If found and active: store the code hash, email the code"]
+    P1["If found and active: store the code hash (SET_PASSWORD when no password is set, else PASSWORD_RESET), email the code"]
     P0 --> P1
     P2["Record AuthEvent PASSWORD_RESET_REQUESTED"]
     P1 --> P2

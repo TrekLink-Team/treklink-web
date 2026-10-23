@@ -10,7 +10,7 @@
 |---|---|
 | Lane owner | LongNN for the shell (Phase 1), shared components, maps, plans, administration, monitoring and verification; each module's pages belong to that module's lane owner (D-053), and LongNN reviews them |
 | Reviewer | KhoaDD; LongNN reviews every page PR for consistency with §7 and §8 of `06-frontend-conventions.md` |
-| Sprint | 3 (W7 to W8) for Phases 1, 2, 3.1, 4.1, 4.2, 5.1 to 5.3, 6.1 to 6.3 and 9.1 (MF-01, MF-02 demo); 4 for 8 and 9; 5 for the rest |
+| Sprint | 3 (W7 to W8) for Phases 1, 2, 3.1, 4.1, 4.2, 5.1 to 5.3, 6.1 to 6.3 and 9.1 (MF-01, MF-02 demo); 4 for 5.6, 8 and 9; 5 for the rest |
 | Stories | screens of every story with a human actor (secondary owner in the backlog); primary owner of US-UC38, US-UC42, US-UC55, US-UC59 |
 | Depends on | platform 2.1; each backend module's controllers |
 
@@ -44,7 +44,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 ## Phase 2: Public and auth pages
 
 - [ ] 2.1 Sign-in, forgot, reset, welcome (set password) (owner LongLP)
-  - **Do**: auth api-design 01, 05, 06, 07; one message for wrong credentials (MSG09); code errors MSG08
+  - **Do**: auth api-design 01, 05, 06, 07; one message for wrong credentials (MSG09); code errors MSG08; landing after sign-in per `design.md` §2 (D-059 rule 1)
   - _Story: US-UC08, US-UC09_
 - [ ] 2.2 Account menu: profile and change password (owner LongLP)
   - **Do**: auth api-design 04 and 08
@@ -110,6 +110,9 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [ ] 5.5 Check-in, inspection, replacement, close (owner LongLP)
   - **Do**: rentals api-design 14 to 17; check-in by scan (MSG07); inspection with damage codes; replacement of a faulty or lost unit with a signed note; close with MSG29 on open incidents
   - _Story: US-UC43, US-UC44, US-UC51, US-UC61_
+- [ ] 5.6 Organization home dashboard `/o` (owner LongLP)
+  - **Do**: Sprint 4. The Org Manager's landing page (D-059 rule 1): contract summary from rentals api-design 02, balance due from billing api-design 10, open incidents from incidents api-design 01 (`open=true`), devices out; widgets `ContractSummary`, `InvoiceTable`, `IncidentQueue` of §1; screen design first (`ui-design/5-6-*.md`)
+  - _Story: US-UC55_
 
 ## Phase 6: Billing
 

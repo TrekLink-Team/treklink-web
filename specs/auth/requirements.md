@@ -55,7 +55,7 @@
 - **REQ-EVT-01**: WHEN valid credentials of an active, unlocked account are submitted, the system SHALL issue an access token (lifetime `JWT_ACCESS_TTL`) carrying `sub`, `accountType`, `roles`, `organizationId` and `memberRole`, and an opaque refresh token in a new family (lifetime `JWT_REFRESH_TTL`). [FR-AUTH-02]
 - **REQ-EVT-02**: WHEN a valid refresh token is presented, the system SHALL revoke it, issue a new access and refresh token in the same family, and re-read roles and organization membership. [FR-AUTH-03]
 - **REQ-EVT-03**: WHEN a user signs out, the system SHALL revoke the presented refresh token immediately. [FR-AUTH-04]
-- **REQ-EVT-04**: WHEN a password reset is requested, the system SHALL email a single-use six-digit code valid for `auth.resetCodeTtlMinutes` to the account's own email, and SHALL answer identically whether or not the email exists. [FR-AUTH-05]
+- **REQ-EVT-04**: WHEN a password reset is requested, the system SHALL email a single-use six-digit code valid for `auth.resetCodeTtlMinutes` to the account's own email, and SHALL answer identically whether or not the email exists. WHEN the active account has never set a password, the code SHALL be a `SET_PASSWORD` code valid for `auth.invitationTtlHours`, which renews an expired invitation (D-059 rule 6). [FR-AUTH-05]
 - **REQ-EVT-05**: WHEN a valid code and a policy-compliant password are submitted, the system SHALL set the hash, consume the code and revoke every refresh token of the account.
 - **REQ-EVT-06**: WHEN an account is created by an Admin (TrekLink) or through `organizations` (members, the registering Manager), the system SHALL create it without a password and email a `SET_PASSWORD` code valid for `auth.invitationTtlHours`; WHEN the code is used with a compliant password, the system SHALL set it and sign the user in.
 - **REQ-EVT-07**: WHEN an account is deactivated, the system SHALL reject its refresh tokens immediately and its access tokens at their next policy check. [FR-AUTH-07]
@@ -70,7 +70,7 @@
 
 ### Unwanted Behaviour
 
-- **REQ-ERR-01**: IF the email is unknown or the password wrong, THEN the system SHALL return 401 `INVALID_CREDENTIALS` with one message for both (MSG09).
+- **REQ-ERR-01**: IF the email is unknown, the password wrong, or the member's organization `CLOSED` or `REJECTED`, THEN the system SHALL return 401 `INVALID_CREDENTIALS` with one message for all of them (MSG09, D-059 rule 2).
 - **REQ-ERR-02**: IF a rotated refresh token is presented again, THEN the system SHALL revoke the whole family, record `TOKEN_REUSE_DETECTED`, and return 401 `REFRESH_REUSED`. [FR-AUTH-03]
 - **REQ-ERR-03**: IF a code is wrong, expired, consumed, or past `auth.codeMaxAttempts`, THEN the system SHALL return 400 `CODE_INVALID` (MSG08) and count the attempt.
 - **REQ-ERR-04**: IF a password is shorter than `auth.passwordMinLength`, THEN the system SHALL return 400 `PASSWORD_POLICY`.

@@ -20,35 +20,46 @@ SEQ = ["Svc->>DB: BEGIN, SELECT incident FOR UPDATE", "Svc->>Svc: transition tab
 ENDPOINTS = [
     ep("GET", "/api/incidents", "List incidents", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Lists incidents with state filters. Organization members see their organization's incidents; "
-       "TrekLink staff see every incident, and `state=UNROUTED,ESCALATED` is their queue.",
+       "TrekLink staff see every incident, and `state=UNROUTED,ESCALATED` is their queue. Rows come most "
+       "urgent first: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first. There is no "
+       "sort parameter (D-059 rule 7).",
        "UC-29, UC-32, FR-AUTH-11",
        query=[["state", "IncidentState, repeatable", "enum", "no", "`NOTIFY_PRIMARY`"],
               ["open", "Every state except CLOSED", "bool", "no", "`true`"],
               ["deviceId", "Device", "uuid", "no", f"`{DEVICE_ID}`"],
               ["from", "createdAt lower bound", "datetime", "no", "`...`"]] + PAGE_QUERY,
-       response=paged(INC, 2), steps=["Apply scope", "Read incidents newest first"],
+       response=paged(INC, 2), steps=["Apply scope", "Read incidents by tierDeadlineAt ascending, nulls last, then firstEventAt newest first"],
        controller="IncidentsController", service="IncidentsQueryService", call="list(query, caller)",
        seq=["Svc->>DB: SELECT incidents WHERE scope"]),
 
     ep("GET", "/api/incidents/:id", "Incident detail", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Returns the incident with its device and holder label, owner, pending deadline, latest status "
-       "updates and authority reports.", "UC-32, UC-33, FR-AUTH-11",
-       path=[I_PATH], response={**INC, "statusUpdates": [], "authorityReports": []}, entity="Incident",
+       "updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an "
+       "incident with none returns empty arrays (D-059 rule 7).", "UC-32, UC-33, FR-AUTH-11",
+       path=[I_PATH],
+       response={**INC, "statusUpdates": [{"id": "su-3", "note": "Reached the holder, minor ankle injury",
+                                           "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW}],
+                 "authorityReports": [{"id": "ar-1", "agency": "Lam Dong provincial rescue (114)",
+                                       "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}]},
+       entity="Incident",
        steps=["Read within scope"], controller="IncidentsController", service="IncidentsQueryService",
        call="get(id, caller)", seq=["Svc->>DB: SELECT incident, updates, reports"]),
 
     ep("POST", "/api/incidents/:id/acknowledge", "Acknowledge an incident", "Org Manager, Org Operator: own",
        "One step, no required field (NFR-USE-02). Moves a `NOTIFY_*`, `ESCALATED` or `REPORTED` incident to "
        "`ACKNOWLEDGED` with the caller as owner; that time is time-to-acknowledge. A concurrent second "
-       "acknowledgement loses the compare-and-set and is shown the owner (FR-INC-06, E03-3, MSG27).",
+       "acknowledgement loses the compare-and-set and is shown the owner (FR-INC-06, E03-3, MSG27). The owner "
+       "check comes first, so a second member always learns who took it; a version mismatch on an unowned "
+       "incident is `STALE_VERSION` (MSG36, D-059 rule 7).",
        "UC-32, FR-INC-04, FR-INC-06, BR-15, E03-3, MSG27",
        path=[I_PATH], body=[["note", "Optional first note", "string", "no", "`On my way to the ridge`"], VERSION],
        sample={"expectedVersion": 1},
        response={**INC, "state": "ACKNOWLEDGED", "owner": {"id": USER_ID, "fullName": "Pham Van D"},
                  "tierDeadlineAt": None, "statusDueAt": "2026-10-20T03:45:00Z", "version": 2},
        message="Incident acknowledged", entity="Incident",
-       errors=[TAKEN, state_409("incident", "RESOLVED")],
-       steps=["Require NOTIFY_*, ESCALATED or REPORTED", "Compare-and-set to ACKNOWLEDGED, set owner",
+       errors=[TAKEN, STALE, state_409("incident", "RESOLVED")],
+       steps=["Require NOTIFY_*, ESCALATED or REPORTED", "If another member owns it: ALREADY_OWNED",
+              "If the version differs: STALE_VERSION", "Compare-and-set to ACKNOWLEDGED, set owner",
               "Clear the tier deadline, set statusDueAt", "Write transition and outbox rows"],
        controller="IncidentsController", service="IncidentLifecycleService", call="acknowledge(id, dto, caller)",
        seq=SEQ),
@@ -150,7 +161,8 @@ ENDPOINTS = [
        participants=[["Rent", "RentalsService"]], seq=["Svc->>Rent: statusOf(contractId)", "Svc->>DB: INSERT authority_reports"]),
 
     ep("GET", "/api/authority-reports", "List authority reports", "TrekLink Staff, TrekLink Admin",
-       "Lists authority reports, open cases first.", "UC-35, BR-17",
+       "Lists authority reports, open cases first, then `reportedAt` newest first. There is no sort "
+       "parameter (D-059 rule 7).", "UC-35, BR-17",
        query=[["open", "Case not closed", "bool", "no", "`true`"]] + PAGE_QUERY,
        response=paged({"id": "ar-1", "incidentId": INCIDENT_ID, "contractId": None, "agency": "Lam Dong provincial rescue (114)",
                        "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}),

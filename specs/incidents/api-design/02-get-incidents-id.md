@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the incident with its device and holder label, owner, pending deadline, latest status updates and authority reports.
+Returns the incident with its device and holder label, owner, pending deadline, latest status updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an incident with none returns empty arrays (D-059 rule 7).
 
 ## API Specification
 
@@ -61,8 +61,26 @@ No body.
     "statusDueAt": null,
     "reopenCount": 0,
     "version": 1,
-    "statusUpdates": [],
-    "authorityReports": []
+    "statusUpdates": [
+      {
+        "id": "su-3",
+        "note": "Reached the holder, minor ankle injury",
+        "author": {
+          "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
+          "fullName": "Pham Van D"
+        },
+        "createdAt": "2026-10-20T03:15:00.000Z"
+      }
+    ],
+    "authorityReports": [
+      {
+        "id": "ar-1",
+        "agency": "Lam Dong provincial rescue (114)",
+        "reference": "LD-114-2026-1020-07",
+        "reportedAt": "2026-10-20T03:15:00.000Z",
+        "caseClosedAt": null
+      }
+    ]
   },
   "isSuccess": true,
   "statusCode": 200,

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists authority reports, open cases first.
+Lists authority reports, open cases first, then `reportedAt` newest first. There is no sort parameter (D-059 rule 7).
 
 ## API Specification
 

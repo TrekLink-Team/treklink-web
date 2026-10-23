@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Exchanges email and password for a short-lived access token and a rotating refresh token. The response never says which field was wrong (FR-AUTH-02). Repeated failures lock the account for `auth.lockoutMinutes`.
+Exchanges email and password for a short-lived access token and a rotating refresh token. The response never says which field was wrong (FR-AUTH-02). Repeated failures lock the account for `auth.lockoutMinutes`. A member of a `CLOSED` or `REJECTED` organization gets the same 401 `INVALID_CREDENTIALS` as an unknown account (REQ-STA-03, D-059 rule 2).
 
 ## API Specification
 
@@ -89,7 +89,7 @@ Exchanges email and password for a short-lived access token and a rotating refre
         </tr>
         <tr>
             <td>401</td>
-            <td>Unknown email, wrong password, or inactive account (<code>INVALID_CREDENTIALS</code>)</td>
+            <td>Unknown email, wrong password, inactive account, or a closed or rejected organization (<code>INVALID_CREDENTIALS</code>)</td>
 <td>
 
 ```json

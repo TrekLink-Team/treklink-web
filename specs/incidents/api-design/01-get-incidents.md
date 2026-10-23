@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists incidents with state filters. Organization members see their organization's incidents; TrekLink staff see every incident, and `state=UNROUTED,ESCALATED` is their queue.
+Lists incidents with state filters. Organization members see their organization's incidents; TrekLink staff see every incident, and `state=UNROUTED,ESCALATED` is their queue. Rows come most urgent first: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first. There is no sort parameter (D-059 rule 7).
 
 ## API Specification
 
@@ -156,7 +156,7 @@ flowchart TB
     E1 --> X1((End))
     P0["Apply scope"]
     D1 -->|no| P0
-    P1["Read incidents newest first"]
+    P1["Read incidents by tierDeadlineAt ascending, nulls last, then firstEventAt newest first"]
     P0 --> P1
     OK["Return 200"]
     P1 --> OK
