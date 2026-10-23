@@ -19,6 +19,7 @@
   - **Files**: `backend/src/modules/gateway-sync/gateway-sync.module.ts`, `mqtt/mqtt-subscriber.ts`, `providers/mqtt-health.probe.ts`
   - **Do**: connect with `MQTT_BROKER_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`; QoS 1, persistent session, subscribe `treklink/2/json/+/+`, `treklink/fs/+/2/json/+/+`, `treklink/fs/+/health`; acknowledge only after `ingest()` returns; provide `MQTT_HEALTH_PROBE.isConnected()`
   - **Test**: health reports `mqtt: "down"` while the broker container is stopped
+  - **Progress**: `MqttSubscriber` on the node topic, QoS 1, `clean: false`, PUBACK after `ingest()` through mqtt.js `handleMessage`, retry while the database is unreachable; `MQTT_HEALTH_PROBE` from `GatewaySyncPortsModule` (platform design §2.1). Verified against Mosquitto 2: `degraded` and `mqtt: "down"` with the broker stopped, `ok` again after it returns. `MQTT_INGESTION_ENABLED=false` keeps it off (e2e suite). The two Field Station subscriptions join with the station adapter (Sprint 4, D-058 rule 2)
   - _Requirements: REQ-UBI-05, design §2_
 - [ ] 1.2 Golden fixtures (owner KhoaDD)
   - **Files**: `backend/test/fixtures/mqtt/*.json`
@@ -32,17 +33,20 @@
   - **Files**: `adapters/node-json.adapter.ts`, `adapters/field-station-json.adapter.ts`, `normalizer/text.strategy.ts`, `position.strategy.ts`, `telemetry.strategy.ts`, `queue-health.strategy.ts`
   - **Do**: adapters translate topic and envelope into the `CanonicalEnvelope`; the station adapter resolves the station through `FieldStationsService.byUsername`; text tests `SOS - FALL DETECTED` before `SOS - `, both P0; a decode failure audits `MALFORMED_ENVELOPE` and continues; a throwing strategy audits `NORMALIZATION_FAILED` for that packet only
   - **Test**: every fixture of 1.2; the fall prefix; AC-05
+  - **Progress**: `NodeJsonAdapter` and the text, position and telemetry strategies are built and tested on every fixture. Open: `field-station-json.adapter.ts` (needs `FieldStationsService`, organizations 2.8) and `queue-health.strategy.ts` (task 2.6); until then a `treklink_queue_health` report is ignored like any type ingestion does not read
   - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-ERR-01, REQ-ERR-05, AC-05, FR-EVT-05, FR-EVT-09_
   - _Story: US-UC26_
 - [ ] 2.2 `IngestionService.ingest(envelope)` (owner KhoaDD)
   - **Files**: `backend/src/modules/gateway-sync/ingestion.service.ts`, `ingestion.repository.ts`
   - **Do**: the five steps of design §2: `eventId = sha256(from + ":" + id)` lower-case hex; resolve the device by `nodeNum` (`UNKNOWN_DEVICE`); `INSERT ... ON CONFLICT (eventId) DO NOTHING` (`DUPLICATE_REJECTED`, nothing else changes); one audit row per attempt; `rx_time` 0 stored as unknown; ordering by queue sequence and priority only; post-commit `field.position` and `field.telemetry`
   - **Test**: AC-01 (node uplink and station deliver the same packet, stored once); AC-02 replay ten times
+  - **Progress**: built for the node path. Against Postgres 16 and Mosquitto 2: 21 audited attempts for 21 ingestible fixture messages; the SOS replayed ten times is stored once with ten `DUPLICATE_REJECTED`. AC-01 waits for the station path; AC-02's single incident waits for incidents 2.3
   - _Requirements: REQ-UBI-01, REQ-UBI-02, REQ-UBI-04, REQ-EVT-06, REQ-ERR-02, AC-01, AC-02, FR-EVT-01, FR-EVT-11, BR-11_
   - _Story: US-UC26_
 - [ ] 2.3 Positions, projection, incident hand-off (owner KhoaDD)
   - **Do**: outside `monitoring.positionBounds` or WGS-84: keep without position (`INVALID_POSITION`); faster than `monitoring.maxPlausibleSpeedKmh` from the last plotted: keep with `plotted = false`, no projection (`IMPLAUSIBLE_POSITION`); `DevicesService.projectReading` in the same transaction; SOS and fall SOS call `IncidentsService.onSos`, positions call `onPosition`, passing the attribution; set `incidentId` on the event when it joined an episode
   - **Test**: both position rules; an SOS creates one incident inside the ingestion transaction
+  - **Progress**: both position rules and the projection are built. The speed rule compares occurrence times with the last plotted position in `seq` order. Open: the `IncidentsService.onSos` and `onPosition` calls (incidents 2.3); every event is `UNATTRIBUTED` until rentals 4.5 (task 2.4)
   - _Requirements: REQ-EVT-03, REQ-EVT-04, FR-DEV-06, FR-MON-04, FR-INC-01, FR-INC-02_
   - _Depends on: devices 2.5, incidents 2.3_
 - [ ] 2.4 Occurrence time and attribution (owner KhoaDD)
@@ -79,6 +83,7 @@
 - [ ] 4.2 E2E and replay harness (owner KhoaDD)
   - **Files**: `backend/test/gateway-sync.e2e-spec.ts`, `backend/test/harness/replay.ts`
   - **Do**: every Validation row of api-design 01 to 06; publish fixtures to a real Mosquitto; TC-11 replay
+  - **Progress**: `test/harness/replay.ts` (`npm run replay:mqtt`) publishes fixtures at QoS 1 with `--times`, `--now`, `--new-ids` and `--interval`; its unit test runs in the e2e job. Open: `gateway-sync.e2e-spec.ts` with the Validation rows, once the endpoints of api-design 01 to 06 exist (tasks 3.1 and 4.1)
   - _Requirements: AC-01 to AC-08_
 - [ ] 4.3 Two-organization isolation and load harness (owner KhoaDD, secondary TanNB)
   - **Files**: `backend/test/harness/load.ts`

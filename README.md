@@ -60,6 +60,14 @@ npm --prefix backend run prisma:deploy
 npm --prefix backend run seed:demo
 ```
 
+Replay recorded MQTT messages through the local broker into ingestion (fixtures in
+`backend/test/fixtures/mqtt`; the backend must be running). For a demo, `--now` moves the timestamps to the
+present and `--new-ids` avoids deduplication on repeat runs:
+```bash
+npm --prefix backend run replay:mqtt -- position telemetry sos
+npm --prefix backend run replay:mqtt -- trek --now --new-ids --interval 2000
+```
+
 ### Step 6: Start Development Services
 Run all services concurrently:
 ```bash
