@@ -74,6 +74,7 @@ MQTT has no response. Each message yields one `SyncAuditLog` row and, when accep
 
 | Condition | Outcome | Effect |
 | --- | --- | --- |
+| `type` is not `text`, `position`, `telemetry` or `treklink_queue_health`, or is empty | none: not an ingestion attempt, so no audit row | ignored; consumption continues |
 | JSON unparsable or a required field missing | `MALFORMED_ENVELOPE`, raw message stored | nothing else; consumption continues (FR-EVT-05, E02-4) |
 | `from` matches no device | `UNKNOWN_DEVICE`, raw message stored | quarantined; replayable after registration (`op replayAudit`) |
 | Stage C, and the station's organization neither holds the device nor returned it less than `gatewaySync.lateUploadGraceHours` ago | `NOT_RENTED_TO_STATION_ORG` | dropped (FR-EVT-14) |
