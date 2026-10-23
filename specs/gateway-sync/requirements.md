@@ -95,7 +95,9 @@
 
 The `gateway-sync` section of the [Configuration Matrix](../platform/configuration-matrix.md), plus the
 position rules owned by `monitoring`. Environment: `MQTT_BROKER_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`
-(subscribe-only), `MQTT_ROOT` (default `treklink`), `MQTT_AUTH_HOOK_SECRET`. Field Station: its local
+(subscribe-only), `MQTT_ROOT` (default `treklink`), `MQTT_CLIENT_ID_BACKEND` (default
+`treklink-backend-service`, stable because the session is persistent), `MQTT_INGESTION_ENABLED` (default
+`true`; `false` runs the backend without a broker), `MQTT_AUTH_HOOK_SECRET`. Field Station: its local
 configuration file (`field-station-local-page.md`).
 
 ---

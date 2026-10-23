@@ -4,6 +4,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth';
+import { DevicesModule } from './modules/devices';
+import { GatewaySyncModule } from './modules/gateway-sync';
 import { OrganizationsModule } from './modules/organizations';
 import { validate } from './modules/platform/config/environment-variables';
 import { PlatformModule } from './modules/platform/platform.module';
@@ -23,6 +25,8 @@ import { PlatformModule } from './modules/platform/platform.module';
     PlatformModule,
     AuthModule,
     OrganizationsModule,
+    DevicesModule,
+    GatewaySyncModule,
   ],
 })
 export class AppModule {}
