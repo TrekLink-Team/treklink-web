@@ -430,7 +430,10 @@ values, for example `SEPAY_WEBHOOK_API_KEY`.
 
 `AuditSinkListener` persists `audit.record` into `audit_log` with the organization id (REQ-UBI-10). A
 redaction list (`passwordHash`, `tokenHash`, `codeHash`, `keyHash`, `secretHash`, `signaturePng`,
-`password`, `key`, `mqttSecret`) is applied to `before` and `after` before insert. The baseline installs
+`password`, `key`, `mqttSecret`) is applied to `before` and `after` before insert, matching keys exactly
+at any depth. Because `key` is listed, an entry about a business parameter carries the parameter key in
+`subjectId`, never in a snapshot. A failed insert is logged with the whole redacted entry and is not
+rethrown (REQ-ERR-06). The baseline installs
 `raise_append_only()` on `audit_log`, `business_parameter_history`, `auth_events`,
 `organization_transitions`, `device_transitions`, `intake_checks`, `device_provisionings`,
 `device_resets`, `inspections`, `contract_transitions`, `price_schedules`, `incident_transitions`,
