@@ -7,7 +7,7 @@
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
 | Routes | `/o/map` (organization workspace) and `/t/map` (fleet map); one `LiveMapPage` component, the route sets the scope (`specs/frontend/design.md` §2) |
-| Roles | `/o/map`: Org Operator and Org Manager, own organization only (the token fixes the organization, REQ-UBI-06). `/t/map`: TrekLink Staff, plus the organization filter. TrekLink Admin is allowed by the snapshot permission (monitoring api-design 02) but `design.md` §2 lists `/t/map` for Staff only (open item O-7). Other roles: MSG26. |
+| Roles | `/o/map`: Org Operator and Org Manager, own organization only (the token fixes the organization, REQ-UBI-06). `/t/map`: TrekLink Staff and TrekLink Admin (Admin inherits every Staff route, FR-AUTH-10, auth REQ-UBI-05; D-057 rule 7), plus the organization filter. Other roles: MSG26. |
 | Use case, FRs, story | UC-38, UC-41; FR-MON-01 to FR-MON-05, FR-MON-09, FR-AUTH-11, FR-CFG-03, FR-INC-13; BR-19, BR-21, BR-30; E04-1, E04-3; US-UC38, US-UC41 |
 | Requirements | `specs/monitoring/requirements.md` REQ-UBI-01 to REQ-UBI-03, REQ-EVT-01 to REQ-EVT-04, REQ-STA-01, REQ-STA-02; NFR-UI-01, NFR-LEG-01 |
 | Wireframe | ![LiveMapPage](9-1-livemappage-for-organizations-and-the-fleet.svg) (desktop and 360 px frames) |
@@ -53,7 +53,7 @@ Rules for what is drawn, from the contract and the requirements:
 | Organization filter (`/t/map` only) | monitoring 02 with `organizationId`; the socket stays on the `fleet` room and the client filters entries by the organization of the device | none | none |
 | Marker click: opens popup | none (data already loaded) | none | none |
 | Popup: "Open incident" (only when `openIncident` is set) | navigation to `/o/incidents/:id` (screen 8.1) on `/o/map`, or `/t/incidents` (screen 8.2) on `/t/map` | none | none |
-| Popup: "Position history" | navigation to the history screen 9.2 for this device | none | none |
+| Popup: "Position history" | navigation to the telemetry screen 9.2: `/o/devices/:id/telemetry` on `/o/map`, `/t/devices/:id/telemetry` on `/t/map` | none | none |
 | Side panel row click | centres the map on the marker and opens its popup | none | none |
 | Reload map (shown with MSG33 or after `replay.expired`) | repeats steps 1 and 2 | none | none |
 
@@ -97,7 +97,7 @@ filter in the client.
 
 Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked by the owner before review.
 
-- [x] Route and roles match `design.md` §2 (Admin gap noted as O-7)
+- [x] Route and roles match `design.md` §2 (Admin inherits the Staff route, D-057 rule 7)
 - [x] Data: every field names its source; stream payload properties are cited from `ws-live-contract.md`
 - [x] Actions: load sequence, filter, popup links; no mutating call
 - [x] States: loading, empty, reconnecting, `replay.expired`, MSG33, 401, 400, 403, stale, success
