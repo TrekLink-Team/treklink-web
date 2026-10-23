@@ -39,15 +39,29 @@ export const useSession = create<SessionState>((set) => ({
   signOut: () => set({ tokens: null, user: null }),
 }));
 
-// A path on this origin: one leading slash, not followed by another slash or a backslash, which
-// browsers read as `//` and so as another host.
-const SAME_ORIGIN_PATH = /^\/(?![/\\])/;
+// `next` as a path on this origin, or null. The browser's own URL parser resolves it, so the check
+// cannot drift from how the browser reads `//host`, `/\host` or `/<tab>/host`, which all leave the
+// origin.
+const sameOriginPath = (next: string, origin: string): string | null => {
+  if (!next.startsWith('/')) return null;
+  try {
+    const url = new URL(next, origin);
+    return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : null;
+  } catch {
+    return null;
+  }
+};
 
 // Where a user lands after sign-in (specs/frontend/design.md §2, D-059 rule 1): a same-origin `next`
 // path wins; otherwise the Org Manager lands on `/o/contracts` until the `/o` dashboard (task 5.6)
 // exists, the Org Operator on `/o/map`, TrekLink Staff and Admin on `/t/map`.
-export const landingRoute = (next: string | null, user: SessionUser): string => {
-  if (next && SAME_ORIGIN_PATH.test(next)) return next;
+export const landingRoute = (
+  next: string | null,
+  user: SessionUser,
+  origin: string = window.location.origin,
+): string => {
+  const path = next ? sameOriginPath(next, origin) : null;
+  if (path) return path;
   if (user.accountType === 'TREKLINK') return '/t/map';
   return user.organization?.memberRole === 'MANAGER' ? '/o/contracts' : '/o/map';
 };
