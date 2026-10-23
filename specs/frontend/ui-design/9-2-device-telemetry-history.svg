@@ -1,52 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 680" width="1000" height="680" font-family="Arial, sans-serif" font-size="13">
-<title>Device telemetry history</title><rect width="1000" height="680" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/o|/t/devices/:id/telemetry?from=&amp;to=</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">TL-0042 telemetry</text>
-<rect x="850" y="66" width="126" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="913.0" y="84.0" font-size="13" fill="#202124" text-anchor="middle">Download CSV</text>
-<rect x="24" y="120" width="170" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="138.0" font-size="13" fill="#5f6368" text-anchor="start">From 20 Oct 00:00</text>
-<rect x="204" y="120" width="170" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="212" y="138.0" font-size="13" fill="#5f6368" text-anchor="start">To 21 Oct 00:00</text>
-<rect x="384" y="120" width="120" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="444.0" y="138.0" font-size="13" fill="#202124" text-anchor="middle">Last 24 hours</text>
-<rect x="514" y="120" width="110" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="569.0" y="138.0" font-size="13" fill="#202124" text-anchor="middle">Last {n} days</text>
-<text x="640" y="140" font-size="12" fill="#202124" text-anchor="start">[x] Positions   [x] Telemetry</text>
-<rect x="850" y="120" width="70" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="885.0" y="138.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
-<text x="24" y="176" font-size="12" fill="#5f6368" text-anchor="start">Showing 20 Oct 02:00 to 21 Oct 00:00 (your rental period). Maximum range {n} days (monitoring.historyMaxRangeDays, 7 by default).</text>
-<rect x="24" y="190" width="600" height="260" rx="3" fill="#e8f0e8" stroke="#9aa0a6"/>
-<text x="40" y="214" font-size="12" fill="#5f6368" text-anchor="start">Map with sovereignty overlay and attribution; track A to B</text>
-<polyline points="80,400 160,330 240,350 320,270 420,290 520,230" fill="none" stroke="#1a56db" stroke-width="3"/>
-<text x="70" y="420" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">A</text>
-<text x="526" y="224" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">B</text>
-<rect x="640" y="190" width="336" height="260" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="656" y="214" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Battery over time</text>
-<polyline points="656,250 740,260 820,300 900,340 960,380" fill="none" stroke="#1a56db" stroke-width="2"/>
-<text x="656" y="430" font-size="11" fill="#5f6368" text-anchor="start">Data table equivalent below</text>
-<rect x="24" y="470" width="740" height="30" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="32" y="489.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Time</text>
-<text x="192" y="489.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Kind</text>
-<text x="332" y="489.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Lat</text>
-<text x="452" y="489.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Lon</text>
-<text x="572" y="489.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Alt (m)</text>
-<text x="672" y="489.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Battery</text>
-<rect x="24" y="500" width="740" height="30" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="519.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:15</text>
-<text x="192" y="519.0" font-size="13" fill="#202124" text-anchor="start">POSITION</text>
-<text x="332" y="519.0" font-size="13" fill="#202124" text-anchor="start">11.5601</text>
-<text x="452" y="519.0" font-size="13" fill="#202124" text-anchor="start">108.5402</text>
-<text x="572" y="519.0" font-size="13" fill="#202124" text-anchor="start">1320</text>
-<text x="672" y="519.0" font-size="13" fill="#202124" text-anchor="start">81 %</text>
-<rect x="24" y="530" width="740" height="30" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="549.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:20</text>
-<text x="192" y="549.0" font-size="13" fill="#202124" text-anchor="start">TELEMETRY</text>
-<text x="332" y="549.0" font-size="13" fill="#202124" text-anchor="start">-</text>
-<text x="452" y="549.0" font-size="13" fill="#202124" text-anchor="start">-</text>
-<text x="572" y="549.0" font-size="13" fill="#202124" text-anchor="start">-</text>
-<text x="672" y="549.0" font-size="13" fill="#202124" text-anchor="start">80 %</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 900" width="1280" height="900"><title>Device telemetry</title><foreignObject x="0" y="0" width="1280" height="900"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:900px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:600;color:#5a6370;padding:10px 16px;background:#eef0f3;border-bottom:1px solid #dde1e7}
+td{font-size:14px;padding:10px 16px;border-bottom:1px solid #e6e9ee}
+</style><div style="width:1280px;height:900px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink</div>
+    <div style="display:flex;gap:28px;font-size:14px;color:#c9ced6"><span>Live map</span><span>Incidents</span><span style="color:#fff;font-weight:600">Contracts</span><span>Members</span></div>
+    <div style="font-size:14px;color:#c9ced6">Le Thi E &#183; ORG_OPERATOR</div>
+  </div>
+  <div style="padding:28px 32px;display:flex;flex-direction:column;gap:18px;flex:1;min-height:0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div><a href="#back" style="font-size:13px;font-weight:500">Back to contract RC-2026-0042</a><h1 style="margin:6px 0 0;font-size:24px;font-weight:700">TL-0042 telemetry</h1><div style="font-size:13px;color:#5a6370;margin-top:4px">/o/devices/:id/telemetry?from=&amp;to=</div></div>
+      <a href="#csv" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Download CSV</a>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">From</div><div style="width:170px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">20 Oct 2026, 00:00</div></div>
+      <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">To</div><div style="width:170px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">21 Oct 2026, 00:00</div></div>
+      <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Show</div><div style="display:flex;gap:14px;font-size:14px;color:#12161c;padding:9px 0"><span>&#9745; Positions</span><span>&#9745; Telemetry</span></div></div>
+      <a href="#a" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">Apply</a>
+      <a href="#d" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:500;font-size:13px;padding:9px 14px;border-radius:8px">Last 24 hours</a>
+      <a href="#n" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:500;font-size:13px;padding:9px 14px;border-radius:8px">Last 7 days</a>
+    </div>
+    <div style="background:#e3f1ee;border:1px solid #9fcfc5;border-radius:10px;padding:10px 14px;font-size:13px;color:#08493f">Showing 20 Oct 02:00 to 21 Oct 00:00, your rental period. The period is at most 7 days.</div>
+    <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:20px">
+      <div style="background:#e6ece4;border:1px solid #dde1e7;border-radius:12px;height:300px;position:relative;overflow:hidden;background-image:linear-gradient(#dbe3d8 1px,transparent 1px),linear-gradient(90deg,#dbe3d8 1px,transparent 1px);background-size:56px 56px">
+        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="100%" height="300" viewBox="0 0 640 300" preserveAspectRatio="none" style="position:absolute;left:0;top:0"><polyline points="70,240 140,190 220,205 300,130 400,150 520,70" fill="none" stroke="#0d6e5f" stroke-width="4" stroke-linejoin="round"/><circle cx="70" cy="240" r="8" fill="#12161c"/><circle cx="520" cy="70" r="8" fill="#a8261b"/></svg>
+        <div style="position:absolute;left:84px;top:244px;font-size:12px;font-weight:700;background:#fff;border-radius:6px;padding:2px 8px">Start 02:05</div>
+        <div style="position:absolute;left:480px;top:34px;font-size:12px;font-weight:700;background:#fff;border-radius:6px;padding:2px 8px">End 10:15</div>
+        <div style="position:absolute;right:10px;bottom:8px;font-size:11px;color:#3a424d;background:rgba(255,255,255,0.8);padding:2px 6px;border-radius:4px">&#169; OpenStreetMap contributors</div>
+        <div style="position:absolute;left:12px;top:12px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.9);border:1px solid #9aa3af;border-radius:6px;padding:3px 6px">Quan dao Hoang Sa (Viet Nam)</div>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:18px 20px;height:300px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:15px;font-weight:700">Battery over time</div>
+        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="100%" height="180" viewBox="0 0 400 180" preserveAspectRatio="none"><line x1="0" y1="179" x2="400" y2="179" stroke="#c4cad3"/><polyline points="0,20 80,32 160,60 240,100 320,130 400,160" fill="none" stroke="#0d6e5f" stroke-width="3"/></svg>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#5a6370"><span>02:00, 96 %</span><span>10:15, 81 %</span></div>
+        <div style="font-size:12px;color:#5a6370">The table below holds the same values.</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden">
+      <table>
+        <thead><tr><th>Time</th><th>Kind</th><th>Latitude</th><th>Longitude</th><th>Altitude (m)</th><th>Battery</th></tr></thead>
+        <tbody>
+          <tr><td>20 Oct 2026, 10:15</td><td><span style="font-size:12px;font-weight:600;background:#e1ecf8;color:#123a63;border-radius:999px;padding:3px 10px">POSITION</span></td><td>11.5601</td><td>108.5402</td><td>1320</td><td>81 %</td></tr>
+          <tr><td>20 Oct 2026, 10:10</td><td><span style="font-size:12px;font-weight:600;background:#eceef1;color:#3a424d;border-radius:999px;padding:3px 10px">TELEMETRY</span></td><td style="color:#8a919c">None</td><td style="color:#8a919c">None</td><td style="color:#8a919c">None</td><td>82 %</td></tr>
+        </tbody>
+      </table>
+      <div style="padding:10px 16px;font-size:13px;color:#5a6370;display:flex;justify-content:space-between"><span>2 points shown</span><span>Page 1 of 1</span></div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
