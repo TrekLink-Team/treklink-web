@@ -7,7 +7,7 @@
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
 | Routes | `/t/reports` (`specs/frontend/design.md` §2) |
-| Roles | TrekLink Staff and TrekLink Admin (monitoring 08 permits both; `design.md` §2 lists Staff, and Admin holds every Staff permission, REQ-UBI-05). Organization roles: MSG26. |
+| Roles | TrekLink Staff and TrekLink Admin (monitoring 08 permits both; `design.md` §2 lists Staff, and Admin holds every Staff permission, auth REQ-UBI-05, FR-AUTH-10; three modules have a REQ-UBI-05, so the module is named). Organization roles: MSG26. |
 | Use case, FRs, story | UC-59; FR-BILL-10; US-UC59 |
 | Requirements | `specs/monitoring/requirements.md` (Health, reports, device history group), `specs/billing/requirements.md` FR-BILL-10 |
 | Wireframe | ![Reports](9-4-reports.svg) |
@@ -22,10 +22,19 @@ One page, five tabs, one per `kind`. The date range and the CSV button are share
 |---|---|
 | Tab labels: Utilization, Revenue, Overdue contracts, Lost units, Incident times | monitoring 08 path parameter `kind`: `utilization`, `revenue`, `overdue`, `lost`, `incident-times` |
 | Echo of the range ("1 Oct 2026 to 31 Oct 2026") | monitoring 08 `from`, `to` (`to` is exclusive; the page shows the last included day) |
-| Revenue rows: variant, invoiced (VND), paid (VND), unpaid (derived as invoiced minus paid) | monitoring 08 `rows[].variant`, `invoicedVnd`, `paidVnd` (revenue sample) |
-| Revenue total row (sum of the column) | derived on the client from `rows[]` |
-| Utilization, Overdue, Lost, Incident-times rows | `rows[]` of the same endpoint; the response sample only documents the `revenue` row shape. The columns of the other four kinds are not specified (open item O-10). The screen renders `rows[]` generically as a table whose columns are the keys of the first row until the contract fixes them. |
-| Revenue bar chart per variant (invoiced and paid) | monitoring 08 `rows[]` (revenue); every other kind is a table only |
+| Utilization tab: table columns variant, units in service, rented unit-days, available unit-days, utilization (%) | monitoring 08 `rows[].variant`, `unitsInService`, `rentedUnitDays`, `availableUnitDays`, `utilizationPct` |
+| Utilization tab: horizontal bar per variant, length = `utilizationPct` | monitoring 08 `rows[].utilizationPct` |
+| Revenue tab: table columns variant, invoiced, paid, outstanding (VND), with a totals row (sum of each column, computed on the client) | monitoring 08 `rows[].variant`, `invoicedVnd`, `paidVnd`, `outstandingVnd` |
+| Revenue tab: bar chart per variant, invoiced beside paid | monitoring 08 `rows[].invoicedVnd`, `paidVnd` |
+| Overdue tab: table columns contract code, organization, end date, days overdue, units out, late fee (VND), state; sorted by days overdue, largest first; the figures are as of the `to` date | monitoring 08 `rows[].contractCode`, `organization`, `endDate`, `daysOverdue`, `unitsOut`, `lateFeeVnd`, `state` |
+| Lost tab: table columns asset tag, variant, organization, contract code, lost at, loss-case state, charge (VND) | monitoring 08 `rows[].assetTag`, `variant`, `organization`, `contractCode`, `lostAt`, `lossCaseState`, `chargeVnd` |
+| Incident-times tab: four tiles (acknowledge median, acknowledge P95, resolve median, resolve P95) in seconds shown as "42 s" or "14 min" | monitoring 08 `rows[].ackMedianSec`, `ackP95Sec`, `resolveMedianSec`, `resolveP95Sec` of the selected organization row (see note below) |
+| Incident-times tab: table per organization, columns organization, incidents, the four figures | monitoring 08 `rows[].organization`, `incidents`, `ackMedianSec`, `ackP95Sec`, `resolveMedianSec`, `resolveP95Sec` |
+| Every chart has its table directly beside or under it, as the text equivalent | same `rows[]` |
+
+Row shapes per kind are those of monitoring 08 (D-057 rule 10). Notes:
+- A percentile of several organizations cannot be computed from their per-organization percentiles, so the four tiles show the organization row that is selected in the table (the row with the most incidents is selected on load). A platform-wide figure would need the endpoint to return it; none is invented here.
+- Rows carry a code, not an id: the overdue row has `contractCode` and the lost row has `assetTag` and `contractCode`. The row links therefore open the filtered list of the target screen by that code (`/t/contracts` and `/t/loss-cases`, search by code; the query name is unverified until those screens' lists are specified), not a detail page by id.
 
 ## Actions
 
@@ -35,8 +44,9 @@ One page, five tabs, one per `kind`. The date range and the CSV button are share
 | Apply range (From, To) | same | none | none |
 | Quick ranges: This month, Last month, Last 30 days | same | none | none |
 | Download CSV (secondary, top right) | monitoring 08 `GET /api/reports/:kind?from&to&format=csv`; the CSV text arrives in `result` and the client saves it as `treklink-{kind}-{from}-{to}.csv` | none | the browser's download; button text "Downloaded" for 3 seconds |
-| Row link, Overdue tab: contract code | navigation to `/t/contracts/:id` (screen 5.2) | none | none |
-| Row link, Lost tab: asset tag | navigation to `/t/devices/:id` (screen 4.2) | none | none |
+| Row link, Overdue tab: contract code | navigation to the contract list filtered by the code, `/t/contracts` (screen 5.2), and from there its detail page | none | none |
+| Row link, Lost tab: asset tag | navigation to the loss-case list filtered by the asset tag, `/t/loss-cases` (screen 4.4), and from there the case | none | none |
+| Row select, Incident-times tab | none (the tiles update from the loaded rows) | none | none |
 
 The CSV is never built from the table in the client: the server file is the export, so what is
 downloaded equals what the report states. The screen is read-only; the range is its main input.
@@ -47,7 +57,7 @@ downloaded equals what the report states. The screen is read-only; the range is 
 |---|---|
 | Loading | Table skeleton under the tabs; range and tabs usable |
 | Empty | MSG01 "No results match your filters." plus "Try a longer range" |
-| Error `VALIDATION_FAILED` (400): range missing, reversed or the date unparsable | Banner with the server message; the form blocks a reversed range first with MSG02 under To (wording to confirm, open item O-5) |
+| Error `VALIDATION_FAILED` (400): period missing, ending before it starts, or longer than `monitoring.reportMaxRangeDays` (366) | The form blocks it first with MSG35 under To ("Choose an end after the start, at most 366 days later."); the server message is the backstop in a banner |
 | Error `UNAUTHENTICATED` (401) | One silent refresh, then `/sign-in` |
 | CSV download fails | Inline error beside the button with the server message and a Retry; the table stays |
 | Not found or forbidden (403) | MSG26 full-page notice |
@@ -60,10 +70,9 @@ One step of 2 fields; the active tab is not a field.
 | Step | Field | Type | Required | Rule |
 |---|---|---|---|---|
 | 1 | From | date | yes | Inclusive, `YYYY-MM-DD` as in monitoring 08 |
-| 1 | To | date | yes | Exclusive in the API; the picker shows the last included day and sends the next day; must be after From |
+| 1 | To | date | yes | Exclusive in the API; the picker shows the last included day and sends the next day; must be after From and at most `monitoring.reportMaxRangeDays` days after it (MSG35) |
 
-Defaults: the current calendar month. No maximum range is documented for this endpoint (open
-item O-10), so none is enforced in the form.
+Defaults: the current calendar month. The form enforces `monitoring.reportMaxRangeDays` (366 by default, 1 to 732) and MSG35.
 
 ## Mobile, accessibility, live data
 
@@ -76,7 +85,7 @@ item O-10), so none is enforced in the form.
 Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked by the owner before review.
 
 - [x] Route and roles match `design.md` §2 (Admin noted)
-- [x] Data: revenue columns cited; the four other kinds' columns are open item O-10
+- [x] Data: row shape per kind cited from monitoring 08; every chart has its table
 - [x] Actions: endpoint for each control, CSV path stated
 - [x] States: loading, empty, 400, 401, CSV failure, 403, success
 - [x] Forms: 1 step, 2 fields
