@@ -62,7 +62,7 @@
 - [ ] 2.5 Projection for `gateway-sync` (owner KhoaDD)
   - **Do**: `projectReading(nodeNum, reading, tx)` updates `lastSeenAt`, battery and last position only for a newer reading, returns the device id or null; `byNodeNum`, `projections(ids)`, `trail(id)`
   - **Test**: an older reading is discarded
-  - **Progress**: `projectReading`, `byNodeNum` and `projections` are built; the newer-only rule is one conditional `UPDATE` on `lastSeenAt`. `trail(id)` is the device's lifecycle history for `monitoring` api-design 07 (transitions, intake, provisioning, resets, inspections, maintenance), not a position trail, and ships with that endpoint
+  - **Progress**: `projectReading`, `byNodeNum` and `projections` are built; the rule is one conditional `UPDATE` on `lastSeenAt` that skips only an older reading (a same-second position and telemetry both apply). `trail(id)` is the device's lifecycle history for `monitoring` api-design 07 (transitions, intake, provisioning, resets, inspections, maintenance), not a position trail, and ships with that endpoint
   - _Requirements: REQ-EVT-08, FR-DEV-06_
   - _Story: US-UC26 (projection side)_
 - [ ] 2.6 Stock-take (owner KhoaDD)
