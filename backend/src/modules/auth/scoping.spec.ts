@@ -3,7 +3,13 @@ import { ErrorCode } from '../../common/errors';
 import { AppAbility } from './casl/ability.factory';
 import { assertOwnOr404, scopeWhere } from './scoping';
 
-const MEMBER_ORG = { id: 'org-a', status: 'ACTIVE', memberRole: 'OPERATOR' as const };
+const MEMBER_ORG = {
+  id: 'org-a',
+  code: 'ORG-0001',
+  legalName: 'ACME Trek Co., Ltd.',
+  status: 'ACTIVE',
+  memberRole: 'OPERATOR' as const,
+};
 
 describe('scopeWhere', () => {
   it('does not filter a TrekLink account (BR-19)', () => {

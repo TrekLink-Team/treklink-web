@@ -52,7 +52,13 @@ class IncidentProbeController {
 }
 
 const MEMBERSHIPS: Record<string, AccountMembership> = {
-  'operator-a': { organizationId: 'org-a', memberRole: 'OPERATOR', organizationStatus: 'ACTIVE' },
+  'operator-a': {
+    organizationId: 'org-a',
+    organizationCode: 'ORG-0001',
+    legalName: 'ACME Trek Co., Ltd.',
+    memberRole: 'OPERATOR',
+    organizationStatus: 'ACTIVE',
+  },
 };
 
 @Global()
