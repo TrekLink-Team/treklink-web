@@ -1,64 +1,54 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Arial, sans-serif" font-size="13">
-<title>Authentication events</title><rect width="1000" height="640" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/audit/sign-ins</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Audit</text>
-<rect x="24" y="118" width="100" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="74.0" y="132" font-size="11" fill="#202124" text-anchor="middle">Change log</text>
-<rect x="132" y="118" width="90" height="20" rx="10" fill="#dbeafe" stroke="#9aa0a6"/>
-<text x="177.0" y="132" font-size="11" fill="#202124" text-anchor="middle">Sign-ins</text>
-<rect x="24" y="156" width="170" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Account</text>
-<rect x="204" y="156" width="190" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="212" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Organization: All</text>
-<rect x="404" y="156" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="412" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">Type: All (11)</text>
-<rect x="564" y="156" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="572" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">From</text>
-<rect x="694" y="156" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="702" y="174.0" font-size="13" fill="#5f6368" text-anchor="start">To</text>
-<rect x="824" y="156" width="60" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="854.0" y="174.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
-<rect x="892" y="156" width="60" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="922.0" y="174.0" font-size="13" fill="#202124" text-anchor="middle">Clear</text>
-<rect x="24" y="204" width="850" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="32" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Time</text>
-<text x="162" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Type</text>
-<text x="352" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Email</text>
-<text x="542" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Organization</text>
-<text x="682" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">IP</text>
-<text x="802" y="225.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Account</text>
-<rect x="24" y="238" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="259.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:15</text>
-<text x="162" y="259.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_FAILED</text>
-<text x="352" y="259.0" font-size="13" fill="#202124" text-anchor="start">manager@acme-trek.vn</text>
-<text x="542" y="259.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
-<text x="682" y="259.0" font-size="13" fill="#202124" text-anchor="start">203.0.113.7</text>
-<text x="802" y="259.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
-<rect x="24" y="272" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="293.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:16</text>
-<text x="162" y="293.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_SUCCEEDED</text>
-<text x="352" y="293.0" font-size="13" fill="#202124" text-anchor="start">manager@acme-trek.vn</text>
-<text x="542" y="293.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
-<text x="682" y="293.0" font-size="13" fill="#202124" text-anchor="start">203.0.113.7</text>
-<text x="802" y="293.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
-<rect x="24" y="306" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="327.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 11:02</text>
-<text x="162" y="327.0" font-size="13" fill="#202124" text-anchor="start">TOKEN_REUSE_DETECTED</text>
-<text x="352" y="327.0" font-size="13" fill="#202124" text-anchor="start">op@acme-trek.vn</text>
-<text x="542" y="327.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
-<text x="682" y="327.0" font-size="13" fill="#202124" text-anchor="start">198.51.100.4</text>
-<text x="802" y="327.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
-<rect x="24" y="340" width="850" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="361.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 11:30</text>
-<text x="162" y="361.0" font-size="13" fill="#202124" text-anchor="start">LOGIN_FAILED</text>
-<text x="352" y="361.0" font-size="13" fill="#202124" text-anchor="start">unknown@mail.com</text>
-<text x="542" y="361.0" font-size="13" fill="#202124" text-anchor="start">-</text>
-<text x="682" y="361.0" font-size="13" fill="#202124" text-anchor="start">198.51.100.9</text>
-<text x="802" y="361.0" font-size="13" fill="#202124" text-anchor="start">Filter</text>
-<text x="24" y="396" font-size="12" fill="#5f6368" text-anchor="start">4 events  |  Page 1 of 1   (read-only, append-only; no row actions)</text>
-<text x="24" y="440" font-size="12" fill="#5f6368" text-anchor="start">Organization is - when the email matched no account. Tab hidden without authEvent.read.</text>
-<text x="24" y="420" font-size="12" fill="#5f6368" text-anchor="start">Security types (TOKEN_REUSE_DETECTED, ACCOUNT_LOCKED) carry a red badge with their text.</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720"><title>Sign-in log</title><foreignObject x="0" y="0" width="1280" height="720"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:720px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:600;color:#5a6370;padding:12px 16px;background:#eef0f3;border-bottom:1px solid #dde1e7}
+td{font-size:14px;padding:12px 16px;border-bottom:1px solid #e6e9ee;vertical-align:middle}
+</style><div style="width:1280px;height:720px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Admin</span></div>
+    <div style="font-size:14px;color:#c9ced6">Nguyen Van A &#183; ADMIN</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:220px;flex:none;background:#fff;border-right:1px solid #dde1e7;padding:20px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px">
+      <div style="padding:10px 12px;color:#3a424d">Accounts</div>
+      <div style="padding:10px 12px;color:#3a424d">Roles and permissions</div>
+      <div style="padding:10px 12px;color:#3a424d">Parameters</div>
+      <div style="padding:10px 12px;color:#3a424d">Change log</div>
+      <div style="background:#e3f1ee;color:#08493f;font-weight:600;padding:10px 12px;border-radius:8px">Sign-in log</div>
+      <div style="padding:10px 12px;color:#3a424d">System health</div>
+    </div>
+    <div style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div><h1 style="margin:0;font-size:24px;font-weight:700">Audit</h1><div style="font-size:13px;color:#5a6370;margin-top:4px">/t/admin/audit/sign-ins</div></div>
+        <div style="display:flex;gap:4px;background:#e4e7ec;border-radius:10px;padding:4px;font-size:14px;font-weight:600">
+          <a href="#changes" style="text-decoration:none;color:#3a424d;padding:8px 18px;border-radius:7px">Change log</a>
+          <span style="background:#fff;color:#12161c;padding:8px 18px;border-radius:7px;box-shadow:0 1px 2px rgba(0,0,0,0.12)">Sign-ins</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Account</div><div style="width:200px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">Any</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Organization</div><div style="width:220px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">ACME Trek Co., Ltd.</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Event type</div><div style="width:200px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">All 11 types</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">From</div><div style="width:130px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">01 Oct 2026</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">To</div><div style="width:130px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">21 Oct 2026</div></div>
+        <a href="#apply" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">Apply</a>
+        <a href="#clear" style="font-size:14px;font-weight:500;padding:11px 4px">Clear</a>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden">
+        <table>
+          <thead><tr><th>Time</th><th>Event</th><th>Email</th><th>Organization</th><th>IP address</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>20 Oct 2026, 10:15</td><td><span style="font-size:12px;font-weight:600;background:#fff4de;color:#4a3000;border-radius:999px;padding:4px 10px">LOGIN_FAILED</span></td><td>manager@acme-trek.vn</td><td>ACME Trek Co., Ltd.</td><td>203.0.113.7</td><td style="text-align:right;font-size:13px;font-weight:500"><a href="#f">Filter by account</a></td></tr>
+            <tr><td>20 Oct 2026, 10:16</td><td><span style="font-size:12px;font-weight:600;background:#dff3e6;color:#14532d;border-radius:999px;padding:4px 10px">LOGIN_SUCCEEDED</span></td><td>manager@acme-trek.vn</td><td>ACME Trek Co., Ltd.</td><td>203.0.113.7</td><td style="text-align:right;font-size:13px;font-weight:500"><a href="#f">Filter by account</a></td></tr>
+            <tr><td>20 Oct 2026, 11:02</td><td><span style="font-size:12px;font-weight:600;background:#fdeceb;color:#7a1c13;border-radius:999px;padding:4px 10px">TOKEN_REUSE_DETECTED</span></td><td>op@acme-trek.vn</td><td>ACME Trek Co., Ltd.</td><td>198.51.100.4</td><td style="text-align:right;font-size:13px;font-weight:500"><a href="#f">Filter by account</a></td></tr>
+            <tr><td>20 Oct 2026, 11:30</td><td><span style="font-size:12px;font-weight:600;background:#fdeceb;color:#7a1c13;border-radius:999px;padding:4px 10px">ACCOUNT_LOCKED</span></td><td>op@acme-trek.vn</td><td>ACME Trek Co., Ltd.</td><td>198.51.100.4</td><td style="text-align:right;font-size:13px;font-weight:500"><a href="#f">Filter by account</a></td></tr>
+            <tr><td>20 Oct 2026, 11:41</td><td><span style="font-size:12px;font-weight:600;background:#fff4de;color:#4a3000;border-radius:999px;padding:4px 10px">LOGIN_FAILED</span></td><td>unknown@example.com</td><td style="color:#5a6370">None, no matching account</td><td>198.51.100.9</td><td style="text-align:right;font-size:13px;color:#8a919c">No account</td></tr>
+          </tbody>
+        </table>
+        <div style="padding:12px 16px;font-size:13px;color:#5a6370;display:flex;justify-content:space-between"><span>5 events</span><span>Page 1 of 1</span></div>
+      </div>
+      <div style="font-size:12px;color:#5a6370">Read-only and append-only. An attempted password is never stored, so no password column exists.</div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
