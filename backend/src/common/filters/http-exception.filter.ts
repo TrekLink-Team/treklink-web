@@ -66,12 +66,40 @@ export const mapPrismaError = (exception: unknown): DomainException | undefined 
   return undefined;
 };
 
+// Errors raised by the Express body parser before any handler runs (REQ-ERR-07). They follow the
+// http-errors convention: `type` names the failure and `expose` marks the message as safe to show.
+// Malformed JSON needs no case here: Nest already raises it as a BadRequestException.
+interface BodyParserError {
+  type?: unknown;
+  status?: unknown;
+  expose?: unknown;
+  limit?: unknown;
+}
+
+export const mapBodyParserError = (exception: unknown): DomainException | undefined => {
+  if (!(exception instanceof Error)) return undefined;
+  const { type, status, expose, limit } = exception as BodyParserError;
+
+  if (type === 'entity.too.large') {
+    const detail = typeof limit === 'number' ? ` the ${limit}-byte limit` : ' the size limit';
+    return new DomainException(
+      HttpStatus.PAYLOAD_TOO_LARGE,
+      ErrorCode.PAYLOAD_TOO_LARGE,
+      `Request body exceeds${detail}.`,
+    );
+  }
+  if (typeof status === 'number' && status >= 400 && status < 500 && expose === true) {
+    return new DomainException(status, ErrorCode.CLIENT_ERROR, exception.message);
+  }
+  return undefined;
+};
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   catch(thrown: unknown, host: ArgumentsHost) {
-    const exception = mapPrismaError(thrown) ?? thrown;
+    const exception = mapPrismaError(thrown) ?? mapBodyParserError(thrown) ?? thrown;
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 

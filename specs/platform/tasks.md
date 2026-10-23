@@ -60,7 +60,7 @@
   - **Do**: `PrismaClientKnownRequestError` `P2002` to 409 `CONFLICT_UNIQUE` with the target field in `message`; `P2025` to 404 `NOT_FOUND`; any other error 500 `INTERNAL_ERROR`, stack logged with the request id, message `Internal server error`
   - **Test**: extend `http-exception.filter.spec.ts` with `P2002`, `P2025`, an unknown Prisma code and a plain `Error`; assert no stack or SQL in the body
   - _Requirements: REQ-ERR-02, REQ-ERR-03, REQ-ERR-04_
-- [ ] 2.4 Request id and body limit (owner KhoaDD)
+- [x] 2.4 Request id and body limit (owner KhoaDD)
   - **Files**: `backend/src/common/middleware/request-id.middleware.ts`, `backend/src/common/context/request-context.ts`, `app.setup.ts`
   - **Do**: take `X-Request-Id` from the request or generate a UUID; store it in an `AsyncLocalStorage`; echo it in the response header; the logger prefixes it. Body parser limit `HTTP_BODY_LIMIT`; an oversize body maps to 413 `PAYLOAD_TOO_LARGE`
   - **Test**: e2e: the header is echoed and generated when absent; a 2 MB body gets 413 with the envelope

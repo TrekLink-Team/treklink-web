@@ -1,8 +1,11 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { RequestIdLogger } from './common/logging/request-id.logger';
+import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 import { validationExceptionFactory } from './common/pipes/validation-exception.factory';
 import { ValidatedEnvironment } from './modules/platform/config/environment-variables';
 
@@ -15,8 +18,16 @@ export const parseCorsOrigins = (raw: string): string[] =>
     .filter((origin) => origin.length > 0);
 
 // Global HTTP wiring shared by main.ts and the e2e tests, so tests exercise the real envelope.
-export function configureApp(app: INestApplication): void {
+export function configureApp(app: NestExpressApplication): void {
   const config = app.get<ConfigService<ValidatedEnvironment, true>>(ConfigService);
+
+  app.useLogger(new RequestIdLogger());
+
+  // Request id before the body parser, so a 413 carries X-Request-Id too (REQ-UBI-08).
+  app.use(requestIdMiddleware);
+  const bodyLimit = config.get('HTTP_BODY_LIMIT', { infer: true });
+  app.useBodyParser('json', { limit: bodyLimit });
+  app.useBodyParser('urlencoded', { limit: bodyLimit, extended: true });
 
   app.setGlobalPrefix('api');
 
