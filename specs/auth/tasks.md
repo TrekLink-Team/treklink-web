@@ -20,11 +20,11 @@
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 `AuthModule` and its public surface (owner LongLP)
+- [x] 1.1 `AuthModule` and its public surface (owner LongLP)
   - **Files**: `backend/src/modules/auth/auth.module.ts`, `index.ts`
   - **Do**: export only `AccountsService`, `JwtAuthGuard`, `ApiKeyGuard`, `PoliciesGuard`, `@CheckPolicies`, `@AuthOneOf`, `@CurrentUser`, `scopeWhere`, `assertOwnOr404` and the two port tokens; import `PlatformModule`, `JwtModule.registerAsync` with `JWT_ACCESS_SECRET` and `JWT_ACCESS_TTL`
   - _Requirements: design §5_
-- [ ] 1.2 Port tokens and interfaces (owner LongLP)
+- [x] 1.2 Port tokens and interfaces (owner LongLP)
   - **Files**: `backend/src/modules/auth/ports/account-context.port.ts`, `api-key-resolver.port.ts`
   - **Do**: `ACCOUNT_CONTEXT_PROVIDER` with `forUser(userId)` and `API_KEY_RESOLVER` with `resolve(keyHash)`, exactly as design §2; `organizations` 1.3 provides both
   - _Requirements: design §2, platform design §2.1_
@@ -33,31 +33,31 @@
   - **Do**: `send({ to, subject, text })`; `MAIL_TRANSPORT=console` writes the email to the server log, for local development and CI only. Other modules (incidents email channel) reuse it
   - **Test**: console transport logs one line per mail
   - _Requirements: REQ-OPT-01_
-- [ ] 1.4 `AccountsRepository` over `User`, `Role`, `UserRole`, `RefreshToken`, `OneTimeCode`, `AuthEvent` (owner LongLP)
+- [x] 1.4 `AccountsRepository` over `User`, `Role`, `UserRole`, `RefreshToken`, `OneTimeCode`, `AuthEvent` (owner LongLP)
   - **Do**: email stored lower-case; uniqueness checked case-insensitively including soft-deleted rows; `accountType` and role compatibility enforced (`TREKLINK` holds `ADMIN` or `STAFF`, `ORGANIZATION` holds `ORG_MANAGER` or `ORG_OPERATOR`); reads exclude `deletedAt` rows except audit lookups
   - **Test**: mixed-case duplicate email rejected 409 `CONFLICT_UNIQUE`; a `TREKLINK` account given `ORG_MANAGER` rejected
   - _Requirements: REQ-UBI-01, REQ-UBI-03, REQ-UBI-07, REQ-ERR-05, FR-AUTH-09_
 
 ## Phase 2: Sessions
 
-- [ ] 2.1 `PasswordService` (owner LongLP)
+- [x] 2.1 `PasswordService` (owner LongLP)
   - **Files**: `backend/src/modules/auth/password.service.ts`
   - **Do**: `assertPolicy(pw)` against `auth.passwordMinLength` (400 `PASSWORD_POLICY`); `hash()` with `BCRYPT_COST`; `verify()` constant-time, and a dummy compare when the user is unknown
   - **Test**: policy boundary at the minimum length; a hash never equals its input
   - _Requirements: REQ-UBI-02, REQ-ERR-04_
-- [ ] 2.2 `AuthService.login(dto, ip, userAgent)` (owner LongLP)
+- [x] 2.2 `AuthService.login(dto, ip, userAgent)` (owner LongLP)
   - **Files**: `backend/src/modules/auth/auth.service.ts`
   - **Do**: find by lower-cased email; refuse inactive, deleted or password-less accounts; refuse members of `CLOSED` or `REJECTED` organizations via `ACCOUNT_CONTEXT_PROVIDER`; lockout after `auth.loginMaxFailures` in `auth.loginFailureWindowMinutes` for `auth.lockoutMinutes` (423 `ACCOUNT_LOCKED`); one message for unknown email and wrong password (401 `INVALID_CREDENTIALS`, MSG09); write `AuthEvent` for success and failure without the attempted password
   - **Test**: `auth.service.spec.ts`: success; wrong password; unknown email returns the same body; lockout at the threshold and release after the window; `CLOSED` organization refused, `SUSPENDED` allowed
   - _Requirements: REQ-EVT-01, REQ-STA-01, REQ-STA-02, REQ-STA-03, REQ-ERR-01, REQ-UBI-08, FR-AUTH-02, FR-AUTH-08_
   - _Story: US-UC08_
-- [ ] 2.3 `TokenService` (owner LongLP)
+- [x] 2.3 `TokenService` (owner LongLP)
   - **Files**: `backend/src/modules/auth/token.service.ts`
   - **Do**: access JWT `{ sub, accountType, roles, organizationId?, memberRole?, pv }`; refresh token 32 random bytes, stored as SHA-256, new `familyId` per sign-in, `replacedById` chain on rotation; `refresh()` re-reads roles and membership; a reused token revokes the family, writes `TOKEN_REUSE_DETECTED`, returns 401 `REFRESH_REUSED`; `logout()` revokes the presented token
   - **Test**: rotation chain; reuse revokes every token in the family; logout then refresh gets 401 `REFRESH_INVALID`
   - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-EVT-03, REQ-ERR-02, AC-02, FR-AUTH-03, FR-AUTH-04_
   - _Story: US-UC08_
-- [ ] 2.4 `JwtStrategy` and `JwtAuthGuard` (owner LongLP)
+- [x] 2.4 `JwtStrategy` and `JwtAuthGuard` (owner LongLP)
   - **Files**: `backend/src/modules/auth/strategies/jwt.strategy.ts`, `guards/jwt-auth.guard.ts`
   - **Do**: per request rebuild the context: user active and not deleted, permissions from the CASL cache, membership from `ACCOUNT_CONTEXT_PROVIDER` cached 30 s and invalidated by `member.deactivated`; a deactivated account fails the next request with 401
   - **Test**: AC-04 in e2e 6.2
@@ -79,12 +79,12 @@
 
 ## Phase 4: Authorization (reviewed by KhoaDD)
 
-- [ ] 4.1 CASL ability factory (owner LongLP)
+- [x] 4.1 CASL ability factory (owner LongLP)
   - **Files**: `backend/src/modules/auth/casl/ability.factory.ts`, `permission-cache.ts`
   - **Do**: build from permission rows; `ADMIN` inherits `STAFF`, `ORG_MANAGER` inherits `ORG_OPERATOR`; interpolate `${user.organizationId}` from the request context only; cache by role, invalidated by `policy.changed`
   - **Test**: a request body carrying `organizationId` cannot change the interpolated value; AC-03 permission removal applies on the next request
   - _Requirements: REQ-UBI-05, REQ-UBI-06, REQ-EVT-08, AC-03, FR-AUTH-06, FR-AUTH-10, FR-AUTH-11_
-- [ ] 4.2 `PoliciesGuard`, `@CheckPolicies`, `scopeWhere(ctx)`, `assertOwnOr404()` (owner LongLP)
+- [x] 4.2 `PoliciesGuard`, `@CheckPolicies`, `scopeWhere(ctx)`, `assertOwnOr404()` (owner LongLP)
   - **Files**: `guards/policies.guard.ts`, `decorators/check-policies.decorator.ts`, `scoping.ts`
   - **Do**: missing permission 403 `FORBIDDEN`; record of another organization 404 `NOT_FOUND` (scoped 404 rule); `scopeWhere` returns `{}` for TrekLink accounts and `{ organizationId }` otherwise
   - **Test**: AC-01 seeds `backend/test/tenancy.e2e-spec.ts`
@@ -123,6 +123,7 @@
 - [ ] 6.1 `AuthController`, `AccountsController`, `RolesController`, `AuthEventsController` (owner LongLP)
   - **Do**: api-design 01 to 18 with the routes, permissions and `@ResponseMessage` of each file; the refresh token travels in the request body (api-design 02), and `apiClient` refreshes once on 401 (frontend design)
   - _Requirements: FR-AUTH-01 to FR-AUTH-08_
+  - **Done**: `AuthController` with api-design 01 to 04 (login, refresh, logout, me), in treklink-web#48; the other controllers are open
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/auth.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts` (created here)
   - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-06
