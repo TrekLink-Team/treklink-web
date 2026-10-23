@@ -23,7 +23,13 @@ export interface SessionUser {
   fullName: string;
   accountType: AccountType;
   roles: string[];
-  organization: { id: string; status: string; memberRole: MemberRole } | null;
+  organization: {
+    id: string;
+    code: string;
+    legalName: string;
+    status: string;
+    memberRole: MemberRole;
+  } | null;
 }
 
 // Members of these organizations may neither sign in nor refresh (REQ-STA-03).
@@ -37,7 +43,7 @@ interface CachedMembership {
 
 // Decides whether an account may hold a session and builds its SessionUser (REQ-STA-02,
 // REQ-STA-03, REQ-EVT-07). Membership comes from ACCOUNT_CONTEXT_PROVIDER, cached 30 s and
-// invalidated by member.deactivated. Until `organizations` provides the port (task 2.9), an
+// invalidated by member.deactivated. Until `organizations` provides the port (task 1.3), an
 // ORGANIZATION account has no membership and is refused, as the port contract reads null.
 @Injectable()
 export class AccountSessionService {
@@ -68,6 +74,8 @@ export class AccountSessionService {
       }
       organization = {
         id: membership.organizationId,
+        code: membership.organizationCode,
+        legalName: membership.legalName,
         status: membership.organizationStatus,
         memberRole: membership.memberRole,
       };

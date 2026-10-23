@@ -16,7 +16,7 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto, RefreshTokenDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthUser } from './strategies/jwt.strategy';
-import { ClientInfo } from './token.service';
+import { ClientInfo, TokenPair } from './token.service';
 
 const clientInfo = (ip: string | undefined, userAgent: string | undefined): ClientInfo => ({
   ip: ip ?? null,
@@ -47,7 +47,7 @@ export class AuthController {
     @Body() dto: RefreshTokenDto,
     @Ip() ip: string | undefined,
     @Headers('user-agent') userAgent: string | undefined,
-  ): Promise<SignInResult> {
+  ): Promise<TokenPair> {
     return this.auth.refresh(dto.refreshToken, clientInfo(ip, userAgent));
   }
 

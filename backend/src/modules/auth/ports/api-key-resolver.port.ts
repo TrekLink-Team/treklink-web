@@ -1,5 +1,5 @@
 // Organization API keys (specs/auth/design.md §2). Declared by `auth`, provided by `organizations`
-// (task 2.9); `ApiKeyGuard` (task 4.3) resolves `X-Api-Key` through it.
+// (task 1.3); `ApiKeyGuard` (task 4.3) resolves `X-Api-Key` through it.
 export const API_KEY_RESOLVER = Symbol('API_KEY_RESOLVER');
 
 export interface ResolvedApiKey {

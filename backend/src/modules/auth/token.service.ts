@@ -117,11 +117,9 @@ export class TokenService {
   }
 
   // Rotates a refresh token (REQ-EVT-02): re-reads the account and its membership, issues a new
-  // pair in the same family and revokes the presented token.
-  async refresh(
-    refreshToken: string,
-    client: ClientInfo,
-  ): Promise<{ tokens: TokenPair; user: SessionUser }> {
+  // pair in the same family and revokes the presented token. Only the pair is returned; clients
+  // read GET /api/auth/me for fresh roles (api-design 02, D-060 rule 7).
+  async refresh(refreshToken: string, client: ClientInfo): Promise<TokenPair> {
     const now = new Date();
     const row = await this.accounts.findRefreshTokenByHash(hashToken(refreshToken));
     if (!row) throw sessionEnded(ErrorCode.REFRESH_INVALID);
@@ -141,7 +139,7 @@ export class TokenService {
     }
 
     try {
-      const tokens = await this.events.transaction(async (tx) => {
+      return await this.events.transaction(async (tx) => {
         const { tokens: pair, refreshTokenId } = await this.issue(user, client, tx, row.familyId);
         if (!(await this.accounts.revokeIfLive(row.id, now, refreshTokenId, tx))) {
           throw new ConcurrentRotation();
@@ -157,7 +155,6 @@ export class TokenService {
         );
         return pair;
       });
-      return { tokens, user };
     } catch (error) {
       if (!(error instanceof ConcurrentRotation)) throw error;
       return this.revokeReusedFamily(row.userId, row.familyId, now, client);
