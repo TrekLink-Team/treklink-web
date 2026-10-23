@@ -11,6 +11,8 @@ export enum ErrorCode {
   INVALID_STATE_TRANSITION = 'INVALID_STATE_TRANSITION',
   STALE_VERSION = 'STALE_VERSION',
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
+  // An organization API key over its request limit.
+  RATE_LIMITED = 'RATE_LIMITED',
   PARAMETER_OUT_OF_RANGE = 'PARAMETER_OUT_OF_RANGE',
   // Any 4xx that has no code of its own above (D-026 consequence, TK-90).
   CLIENT_ERROR = 'CLIENT_ERROR',

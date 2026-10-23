@@ -1,6 +1,7 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { lastValueFrom, of } from 'rxjs';
+import { RawResponse } from '../decorators/raw-response.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import { DEFAULT_SUCCESS_MESSAGE, ResponseInterceptor } from './response.interceptor';
 
@@ -10,6 +11,12 @@ class SampleController {
   declared(this: void): void {}
 
   undeclared(this: void): void {}
+}
+
+class WebhookController {
+  @RawResponse()
+  @ResponseMessage('Ignored')
+  receive(this: void): void {}
 }
 
 @ResponseMessage('Class message')
@@ -68,5 +75,11 @@ describe('ResponseInterceptor', () => {
       statusCode: 201,
       message: DEFAULT_SUCCESS_MESSAGE,
     });
+  });
+
+  it('passes a @RawResponse() handler body through unwrapped (D-038)', async () => {
+    const context = contextFor(WebhookController, WebhookController.prototype.receive);
+
+    await expect(run(context, { success: true })).resolves.toEqual({ success: true });
   });
 });
