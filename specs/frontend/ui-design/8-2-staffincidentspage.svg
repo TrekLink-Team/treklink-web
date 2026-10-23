@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1470" viewBox="0 0 1600 1470" role="img" aria-labelledby="title desc">
+<title id="title">8.2  Staff incident queue</title>
+<desc id="desc">Existing /t/incidents | Staff and Admin | Selected detail stays inside this route. Desktop and exact 360 pixel mobile wireframes with form and recovery states. Illustrative API sample data, not live records.</desc>
+<rect x="0" y="0" width="1600" height="1470" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
+<text x="28" y="38" fill="#172b26" font-family="Arial, sans-serif" font-size="26" font-weight="700">8.2  Staff incident queue</text>
+<text x="28" y="66" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Existing /t/incidents | Staff and Admin | Selected detail stays inside this route</text>
+<text x="28" y="1452" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. See Markdown for permissions and H-01 to H-06.</text>
+<rect x="28" y="92" width="1120" height="675" rx="8" fill="white" stroke="#cbd5e1"/>
+<rect x="28" y="92" width="1120" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
+<text x="44" y="126" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  TrekLink workspace</text>
+<rect x="44" y="164" width="1088" height="88" rx="8" fill="#fef2f2" stroke="#cbd5e1"/>
+<text x="60" y="189" fill="#991b1b" font-family="Arial, sans-serif" font-size="15" font-weight="700">Escalated incident (MSG34)</text>
+<text x="60" y="214" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">TrekLink records and reports incidents. It does not coordinate rescue operations. Staff use Open queue; no organization acknowledgement.</text>
+<text x="44" y="288" fill="#172b26" font-family="Arial, sans-serif" font-size="24" font-weight="700">Incident queue</text>
+<text x="44" y="320" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Incident queue [active]  |  Authority reports</text>
+<text x="44" y="351" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">State</text>
+<rect x="44" y="361" width="214" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="56" y="387" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Unrouted + Escalated</text>
+<text x="274" y="351" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Device ID / Created from</text>
+<rect x="274" y="361" width="244" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="286" y="387" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Optional filters</text>
+<rect x="534" y="361" width="140" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="546" y="389" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Apply filters</text>
+<rect x="690" y="361" width="140" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="702" y="389" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">All incidents</text>
+<rect x="846" y="361" width="116" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="858" y="389" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Refresh</text>
+<rect x="44" y="444" width="510" height="190" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="60" y="473" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">INC-2026-000045 / TL-0042</text>
+<rect x="60" y="490" width="86" height="28" rx="14" fill="#fef2f2" stroke="#fef2f2"/>
+<text x="70" y="509" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="700">UNROUTED</text>
+<rect x="190" y="490" width="94" height="28" rx="14" fill="#f0fdf4" stroke="#f0fdf4"/>
+<text x="200" y="509" fill="#15803d" font-family="Arial, sans-serif" font-size="12" font-weight="700">CONFIRMED</text>
+<text x="60" y="547" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">TrekLink Staff queue  |  Le Thi E</text>
+<text x="60" y="575" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Latest episode event 10:15 ICT</text>
+<rect x="362" y="566" width="176" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="374" y="594" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Inspect incident</text>
+<text x="44" y="672" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Page 1 / returned total   |   Previous / Next</text>
+<text x="44" y="711" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">No manual Create, Escalate, Reopen or Resolve control. State transitions</text>
+<text x="44" y="731" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">remain on the server.</text>
+<rect x="574" y="444" width="558" height="303" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="590" y="476" fill="#172b26" font-family="Arial, sans-serif" font-size="20" font-weight="700">Selected incident</text>
+<text x="590" y="507" fill="#172b26" font-family="Arial, sans-serif" font-size="16" font-weight="700">INC-2026-000045 | UNROUTED</text>
+<text x="590" y="536" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Last position 11.5601, 108.5402</text>
+<text x="590" y="564" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Routing: inspect transition reason</text>
+<rect x="590" y="586" width="248" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
+<text x="602" y="614" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record authority report</text>
+<rect x="854" y="586" width="260" height="44" rx="8" fill="white" stroke="#991b1b"/>
+<text x="866" y="614" fill="#991b1b" font-family="Arial, sans-serif" font-size="14" font-weight="700">Declare false alarm</text>
+<text x="590" y="666" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Transitions  /  Episode events  /  Alert delivery</text>
+<text x="590" y="697" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">View organization / contract only when IDs exist</text>
+<text x="590" y="724" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Staff never take the organization response owner role.</text>
+<text x="1184" y="118" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">360 px / Staff queue</text>
+<rect x="1184" y="138" width="360" height="960" rx="8" fill="white" stroke="#cbd5e1"/>
+<rect x="1184" y="138" width="360" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
+<text x="1200" y="172" fill="white" font-family="Arial, sans-serif" font-size="15" font-weight="700">TrekLink  /  Staff incidents</text>
+<rect x="1200" y="210" width="328" height="112" rx="8" fill="#fef2f2" stroke="#cbd5e1"/>
+<text x="1216" y="235" fill="#991b1b" font-family="Arial, sans-serif" font-size="15" font-weight="700">Escalated alert</text>
+<text x="1216" y="260" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">MSG34 | Open queue. No Staff Acknowledge</text>
+<text x="1216" y="279" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">button.</text>
+<text x="1200" y="360" fill="#172b26" font-family="Arial, sans-serif" font-size="22" font-weight="700">Incident queue</text>
+<text x="1200" y="391" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Queue [active]   /   Reports</text>
+<text x="1200" y="424" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">State</text>
+<rect x="1200" y="434" width="328" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="1212" y="460" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Both: UNROUTED, ESCALATED</text>
+<text x="1200" y="514" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Device ID / Created from</text>
+<rect x="1200" y="524" width="328" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="1212" y="550" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Stacked optional fields</text>
+<rect x="1200" y="604" width="328" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="1212" y="632" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Apply filters</text>
+<rect x="1200" y="670" width="328" height="212" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="1216" y="700" fill="#172b26" font-family="Arial, sans-serif" font-size="18" font-weight="700">INC-2026-000045</text>
+<rect x="1216" y="718" width="86" height="28" rx="14" fill="#fef2f2" stroke="#fef2f2"/>
+<text x="1226" y="737" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="700">UNROUTED</text>
+<text x="1216" y="775" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">TL-0042 / CONFIRMED</text>
+<text x="1216" y="802" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Owner: TrekLink Staff queue</text>
+<rect x="1216" y="823" width="296" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="1228" y="851" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Inspect incident</text>
+<text x="1200" y="924" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Selected detail replaces this list. Back to queue</text>
+<text x="1200" y="944" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">restores the row and scroll position.</text>
+<text x="1200" y="1014" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">TrekLink reports to authorities; it does not</text>
+<text x="1200" y="1034" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">coordinate rescue.</text>
+<text x="28" y="816" fill="#172b26" font-family="Arial, sans-serif" font-size="20" font-weight="700">Selected incident action variants</text>
+<rect x="28" y="837" width="540" height="112" rx="8" fill="#fef2f2" stroke="#cbd5e1"/>
+<text x="44" y="862" fill="#991b1b" font-family="Arial, sans-serif" font-size="15" font-weight="700">UNROUTED</text>
+<text x="44" y="887" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">Primary: Record authority report. Secondary: Declare false alarm, with required reason</text>
+<text x="44" y="906" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">and explicit confirmation.</text>
+<rect x="590" y="837" width="558" height="112" rx="8" fill="#fffbeb" stroke="#cbd5e1"/>
+<text x="606" y="862" fill="#92400e" font-family="Arial, sans-serif" font-size="15" font-weight="700">ESCALATED</text>
+<text x="606" y="887" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="400">Primary: Record authority report. Retain the organization&#x27;s owner name if returned. No</text>
+<text x="606" y="906" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="400">Staff false-alarm action.</text>
+<rect x="28" y="973" width="540" height="272" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="48" y="1007" fill="#172b26" font-family="Arial, sans-serif" font-size="20" font-weight="700">Declare false alarm?</text>
+<text x="48" y="1037" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">INC-2026-000045 / TL-0042</text>
+<text x="48" y="1074" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Reason *</text>
+<rect x="48" y="1084" width="500" height="66" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="60" y="1110" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Holder confirmed safe; explain the false alarm.</text>
+<rect x="48" y="1187" width="220" height="44" rx="8" fill="white" stroke="#991b1b"/>
+<text x="60" y="1215" fill="#991b1b" font-family="Arial, sans-serif" font-size="14" font-weight="700">Declare false alarm</text>
+<rect x="284" y="1187" width="130" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="296" y="1215" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Cancel</text>
+<rect x="590" y="973" width="558" height="126" rx="8" fill="#fffbeb" stroke="#cbd5e1"/>
+<text x="606" y="998" fill="#92400e" font-family="Arial, sans-serif" font-size="15" font-weight="700">State changed while editing</text>
+<text x="606" y="1023" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="400">MSG28: refresh current state and remove invalid action. MSG36: Reload preserves the</text>
+<text x="606" y="1042" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="400">reason; a new submit is deliberate. No automatic POST retry.</text>
+<rect x="590" y="1119" width="558" height="126" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="606" y="1144" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Empty / denied / disconnected</text>
+<text x="606" y="1169" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">No unrouted or escalated incidents need attention. Filtered empty uses MSG01. MSG26</text>
+<text x="606" y="1188" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">clears inaccessible records. MSG32 labels cached data stale.</text>
+<rect x="28" y="1273" width="1120" height="124" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="44" y="1298" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Read-only evidence and contract boundaries</text>
+<text x="44" y="1323" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Transitions, episode events and delivery attempts are GETs. Organization and contract links use returned IDs, without inventing labels. Keep server pagination/order; H-01 requests</text>
+<text x="44" y="1342" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">sorting. Reconnect and refetch never erase a dirty form.</text>
+<rect x="1184" y="1120" width="360" height="184" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="1200" y="1145" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Access boundary</text>
+<text x="1200" y="1170" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Organization roles receive MSG26 here. Admin inherits</text>
+<text x="1200" y="1189" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Staff. Staff alert actions open the queue, not an</text>
+<text x="1200" y="1208" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">acknowledgement mutation.</text>
+</svg>
