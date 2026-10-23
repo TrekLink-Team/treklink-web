@@ -13,26 +13,26 @@
 <text x="32" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Key</text>
 <text x="282" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Value</text>
 <text x="382" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Range</text>
-<text x="492" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Type</text>
-<text x="602" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Changed</text>
-<text x="702" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start"></text>
+<text x="482" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Type</text>
+<text x="582" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Changed</text>
+<text x="662" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start"></text>
 <rect x="24" y="222" width="830" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="32" y="243.0" font-size="13" fill="#202124" text-anchor="start">primaryAckTimeoutSeconds</text>
 <text x="282" y="243.0" font-size="13" fill="#202124" text-anchor="start">120 s</text>
 <text x="382" y="243.0" font-size="13" fill="#202124" text-anchor="start">30 to 900</text>
-<text x="492" y="243.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
-<text x="602" y="243.0" font-size="13" fill="#202124" text-anchor="start">20 Oct</text>
-<text x="702" y="243.0" font-size="13" fill="#202124" text-anchor="start">Edit | History</text>
+<text x="482" y="243.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
+<text x="582" y="243.0" font-size="13" fill="#202124" text-anchor="start">20 Oct</text>
+<text x="662" y="243.0" font-size="13" fill="#202124" text-anchor="start">Edit | History | Changes</text>
 <rect x="24" y="256" width="830" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="32" y="277.0" font-size="13" fill="#202124" text-anchor="start">backupAckTimeoutSeconds</text>
 <text x="282" y="277.0" font-size="13" fill="#202124" text-anchor="start">120 s</text>
 <text x="382" y="277.0" font-size="13" fill="#202124" text-anchor="start">30 to 900</text>
-<text x="492" y="277.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
-<text x="602" y="277.0" font-size="13" fill="#202124" text-anchor="start">02 Oct</text>
-<text x="702" y="277.0" font-size="13" fill="#202124" text-anchor="start">Edit | History</text>
+<text x="482" y="277.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
+<text x="582" y="277.0" font-size="13" fill="#202124" text-anchor="start">02 Oct</text>
+<text x="662" y="277.0" font-size="13" fill="#202124" text-anchor="start">Edit | History | Changes</text>
 <rect x="24" y="282" width="830" height="64" rx="3" fill="#fffbe6" stroke="#d4a017"/>
 <text x="36" y="304" font-size="12" fill="#202124" text-anchor="start">Inline edit: primaryAckTimeoutSeconds  [ 90 ] s   Reason [ Faster escalation for the drill ]</text>
-<text x="36" y="326" font-size="12" fill="#5f6368" text-anchor="start">Range 30 to 900 always visible.  STALE_VERSION: Reload shows the new value.</text>
+<text x="36" y="326" font-size="12" fill="#5f6368" text-anchor="start">Range 30 to 900 always visible.  STALE_VERSION: dialog with Reload, input kept (MSG36).</text>
 <rect x="700" y="296" width="70" height="26" rx="3" fill="#1a56db" stroke="#1a56db"/>
 <text x="735.0" y="313.0" font-size="13" fill="#ffffff" text-anchor="middle">Save</text>
 <rect x="778" y="296" width="70" height="26" rx="3" fill="#ffffff" stroke="#5f6368"/>
@@ -47,7 +47,7 @@
 <rect x="714" y="640" width="70" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
 <text x="749.0" y="658.0" font-size="13" fill="#202124" text-anchor="middle">Close</text>
 <rect x="24" y="400" width="650" height="280" rx="3" fill="#fff" stroke="#9aa0a6" stroke-dasharray="5 3"/>
-<text x="40" y="424" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Audit log tab (/t/admin/audit)</text>
+<text x="40" y="424" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Change log tab (/t/admin/audit/changes?subjectId=...)</text>
 <rect x="40" y="438" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="48" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Actor</text>
 <rect x="200" y="438" width="170" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
@@ -80,5 +80,5 @@
 <text x="258" y="595.0" font-size="13" fill="#202124" text-anchor="start">-</text>
 <text x="338" y="595.0" font-size="13" fill="#202124" text-anchor="start">parameter.update</text>
 <text x="508" y="595.0" font-size="13" fill="#202124" text-anchor="start">Parameter</text>
-<text x="40" y="600" font-size="11" fill="#5f6368" text-anchor="start">Row expands to a before and after diff.</text>
+<text x="40" y="600" font-size="11" fill="#5f6368" text-anchor="start">Row expands to a before and after diff. Tab hidden without auditLog.read.</text>
 </svg>
