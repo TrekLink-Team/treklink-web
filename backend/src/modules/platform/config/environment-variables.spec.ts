@@ -35,7 +35,32 @@ describe('validate (environment)', () => {
       DEFAULT_PAGE_SIZE: 20,
       MAX_PAGE_SIZE: 100,
       DISPLAY_TIMEZONE_DEFAULT: 'Asia/Ho_Chi_Minh',
+      BCRYPT_COST: 12,
+      MAIL_TRANSPORT: 'console',
+      MAIL_FROM: 'TrekLink <no-reply@treklink.local>',
     });
+  });
+
+  it('reads the auth variables and rejects a bcrypt cost or mail transport out of range', () => {
+    expect(validate({ ...REQUIRED, BCRYPT_COST: '10', SMTP_URL: 'smtp://mail:25' })).toMatchObject({
+      BCRYPT_COST: 10,
+      SMTP_URL: 'smtp://mail:25',
+    });
+    expect(problemsOf({ ...REQUIRED, BCRYPT_COST: '3', MAIL_TRANSPORT: 'pigeon' })).toEqual([
+      expect.stringMatching(/^BCRYPT_COST:/),
+      expect.stringMatching(/^MAIL_TRANSPORT:/),
+    ]);
+  });
+
+  it('keeps values that are already typed and rejects an empty number', () => {
+    expect(validate({ ...REQUIRED, SWAGGER_ENABLED: true, BCRYPT_COST: 11 })).toMatchObject({
+      SWAGGER_ENABLED: true,
+      BCRYPT_COST: 11,
+    });
+    expect(validate({ ...REQUIRED, SWAGGER_ENABLED: ' TRUE ' }).SWAGGER_ENABLED).toBe(true);
+    expect(problemsOf({ ...REQUIRED, BCRYPT_COST: '' })).toEqual([
+      expect.stringMatching(/^BCRYPT_COST:/),
+    ]);
   });
 
   it('names every missing required variable in one error (AC-04)', () => {
