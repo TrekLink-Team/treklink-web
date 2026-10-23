@@ -2,10 +2,10 @@ import { ExecutionContext } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { currentUserOf } from './decorators/current-user.decorator';
-import { aSessionUser, CLIENT } from './testing/auth-fixtures';
+import { anAuthUser, aSessionUser, CLIENT } from './testing/auth-fixtures';
 
 describe('AuthController', () => {
-  const user = { ...aSessionUser(), kind: 'USER' as const };
+  const user = anAuthUser();
   const signedIn = {
     accessToken: 'a',
     accessTokenExpiresIn: 900,

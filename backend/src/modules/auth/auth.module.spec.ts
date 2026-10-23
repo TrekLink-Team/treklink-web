@@ -6,7 +6,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { validate } from '../platform/config/environment-variables';
-import { AuthModule, JwtAuthGuard, MAIL_PORT } from './index';
+import { AbilityFactory, AuthModule, JwtAuthGuard, MAIL_PORT, PoliciesGuard } from './index';
 
 // Values a developer's shell already holds win, as in test/e2e-env.ts.
 const TEST_ENVIRONMENT: Record<string, string> = {
@@ -40,6 +40,8 @@ describe('AuthModule', () => {
       .compile();
 
     expect(moduleRef.get(JwtAuthGuard)).toBeInstanceOf(JwtAuthGuard);
+    expect(moduleRef.get(PoliciesGuard)).toBeInstanceOf(PoliciesGuard);
+    expect(moduleRef.get(AbilityFactory)).toBeInstanceOf(AbilityFactory);
     expect(moduleRef.get(MAIL_PORT)).toBeDefined();
 
     const jwt = moduleRef.get(JwtService);

@@ -1,7 +1,12 @@
 import { AccountType, AuthEventType } from '@prisma/client';
 import { ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { ACCOUNT_SELECT, AccountsRepository, normalizeEmail } from './accounts.repository';
+import {
+  ACCOUNT_SELECT,
+  AccountsRepository,
+  normalizeEmail,
+  PERMISSION_RULE_SELECT,
+} from './accounts.repository';
 
 const NOW = new Date('2026-10-23T03:00:00.000Z');
 
@@ -31,6 +36,7 @@ describe('AccountsRepository', () => {
     role: { findMany: jest.Mock };
     authEvent: { count: jest.Mock; create: jest.Mock };
     refreshToken: Record<string, jest.Mock>;
+    rolePermission: { findMany: jest.Mock };
   };
   let repository: AccountsRepository;
 
@@ -54,6 +60,7 @@ describe('AccountsRepository', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      rolePermission: { findMany: jest.fn() },
     };
     repository = new AccountsRepository(prisma as unknown as PrismaService);
   });
@@ -246,6 +253,17 @@ describe('AccountsRepository', () => {
     expect(prisma.refreshToken.updateMany).toHaveBeenLastCalledWith({
       where: { userId: 'user-1', tokenHash: 'abc', revokedAt: null },
       data: { revokedAt: NOW },
+    });
+  });
+
+  it('reads the permission rows granted to a role key (auth task 4.1)', async () => {
+    const row = { key: 'incident.read', action: 'read', subject: 'Incident' };
+    prisma.rolePermission.findMany.mockResolvedValue([{ permission: row }]);
+
+    await expect(repository.findRolePermissions('STAFF')).resolves.toEqual([row]);
+    expect(prisma.rolePermission.findMany).toHaveBeenCalledWith({
+      where: { role: { key: 'STAFF' } },
+      select: { permission: { select: PERMISSION_RULE_SELECT } },
     });
   });
 });

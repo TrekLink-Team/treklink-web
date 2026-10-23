@@ -66,6 +66,7 @@ describe('auth sessions (e2e)', () => {
       },
       count: () => Promise.resolve(events.filter((e) => e.type === 'LOGIN_FAILED').length),
     },
+    rolePermission: { findMany: () => Promise.resolve([]) },
     refreshToken: {
       create: ({ data }: { data: Omit<StoredToken, 'id' | 'revokedAt' | 'replacedById'> }) => {
         const row = { ...data, id: `rt-${tokens.length + 1}`, revokedAt: null, replacedById: null };

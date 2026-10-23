@@ -1,12 +1,12 @@
 import { DomainException, ErrorCode } from '../../../common/errors';
-import { aSessionUser } from '../testing/auth-fixtures';
+import { anAuthUser } from '../testing/auth-fixtures';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 describe('JwtAuthGuard.handleRequest', () => {
   const guard = new JwtAuthGuard();
 
   it('passes the authenticated user through', () => {
-    const user = { ...aSessionUser(), kind: 'USER' as const };
+    const user = anAuthUser();
     expect(guard.handleRequest(null, user)).toBe(user);
   });
 
