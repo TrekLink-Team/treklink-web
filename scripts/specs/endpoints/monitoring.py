@@ -122,10 +122,12 @@ ENDPOINTS = [
        "otherwise 400 `VALIDATION_FAILED` (D-057 rule 10). Row shape per kind: "
        "`utilization` {variant, unitsInService, rentedUnitDays, availableUnitDays, utilizationPct}; "
        "`revenue` {variant, invoicedVnd, paidVnd, outstandingVnd}; "
-       "`overdue` {contractCode, organization, endDate, daysOverdue, unitsOut, lateFeeVnd, state}, as of `to`; "
-       "`lost` {assetTag, variant, organization, contractCode, lostAt, lossCaseState, chargeVnd}; "
-       "`incident-times` {organization, incidents, ackMedianSec, ackP95Sec, resolveMedianSec, resolveP95Sec}. "
-       "`utilizationPct` is rented unit-days over unit-days in service.",
+       "`overdue` {contractId, contractCode, organization, endDate, daysOverdue, unitsOut, lateFeeVnd, state}, as of `to`; "
+       "`lost` {lossCaseId, assetTag, variant, organization, contractId, contractCode, lostAt, lossCaseState, chargeVnd}; "
+       "`incident-times` {organization, incidents, ackMedianSec, ackP95Sec, resolveMedianSec, resolveP95Sec}, "
+       "one row per organization plus one row with `organization` null computed over every incident of the period. "
+       "`utilizationPct` is rented unit-days over unit-days in service. The ids let a row link to its detail page "
+       "(D-059 rule 6).",
        "UC-59, FR-BILL-10",
        path=[["kind", "`utilization`, `revenue`, `overdue`, `lost`, `incident-times`", "enum", "`revenue`"]],
        query=[["from", "Inclusive start", "date", "yes", "`2026-10-01`"], ["to", "Exclusive end", "date", "yes", "`2026-11-01`"],

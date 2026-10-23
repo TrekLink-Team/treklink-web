@@ -72,7 +72,7 @@
   - _Requirements: REQ-EVT-04, REQ-ERR-03, REQ-ERR-08_
 - [ ] 3.2 Forgot, reset, set-password and change-password flows (owner LongLP)
   - **Files**: `auth.service.ts`, `password-flows.service.ts`
-  - **Do**: forgot answers identically for unknown emails; reset sets the hash, consumes the code and revokes every refresh token; set-password (invitation) sets the first password and signs in; change-password checks the current one; Staff-triggered reset (api-design 14) emails the account's own address and returns no code
+  - **Do**: forgot answers identically for unknown emails and sends a `SET_PASSWORD` code to an active account with no password (D-059 rule 6); reset sets the hash, consumes the code and revokes every refresh token; set-password (invitation) sets the first password and signs in; change-password checks the current one; Staff-triggered reset (api-design 14) emails the account's own address and returns no code
   - **Test**: AC-06: no response body or log line contains a password or a code
   - _Requirements: REQ-EVT-04, REQ-EVT-05, REQ-EVT-06, REQ-UBI-09, AC-06, FR-AUTH-05, BR-35_
   - _Story: US-UC09_

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-One step, no required field (NFR-USE-02). Moves a `NOTIFY_*`, `ESCALATED` or `REPORTED` incident to `ACKNOWLEDGED` with the caller as owner; that time is time-to-acknowledge. A concurrent second acknowledgement loses the compare-and-set and is shown the owner (FR-INC-06, E03-3, MSG27).
+One step, no required field (NFR-USE-02). Moves a `NOTIFY_*`, `ESCALATED` or `REPORTED` incident to `ACKNOWLEDGED` with the caller as owner; that time is time-to-acknowledge. A concurrent second acknowledgement loses the compare-and-set and is shown the owner (FR-INC-06, E03-3, MSG27). The owner check comes first, so a second member always learns who took it; a version mismatch on an unowned incident is `STALE_VERSION` (MSG36, D-059 rule 7).
 
 ## API Specification
 
@@ -174,6 +174,23 @@ One step, no required field (NFR-USE-02). Moves a `NOTIFY_*`, `ESCALATED` or `RE
         </tr>
         <tr>
             <td>409</td>
+            <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "STALE_VERSION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This was changed by someone else. Reload and try again."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>The incident is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
@@ -214,21 +231,30 @@ flowchart TB
     E3["Return 409 ALREADY_OWNED"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The incident is not in a state that allows this?"}
+    D4{"Another user changed the record first (expectedVersion differs)?"}
     D3 -->|no| D4
-    E4["Return 409 INVALID_STATE_TRANSITION"]
+    E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"The incident is not in a state that allows this?"}
+    D4 -->|no| D5
+    E5["Return 409 INVALID_STATE_TRANSITION"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Require NOTIFY_*, ESCALATED or REPORTED"]
-    D4 -->|no| P0
-    P1["Compare-and-set to ACKNOWLEDGED, set owner"]
+    D5 -->|no| P0
+    P1["If another member owns it: ALREADY_OWNED"]
     P0 --> P1
-    P2["Clear the tier deadline, set statusDueAt"]
+    P2["If the version differs: STALE_VERSION"]
     P1 --> P2
-    P3["Write transition and outbox rows"]
+    P3["Compare-and-set to ACKNOWLEDGED, set owner"]
     P2 --> P3
+    P4["Clear the tier deadline, set statusDueAt"]
+    P3 --> P4
+    P5["Write transition and outbox rows"]
+    P4 --> P5
     OK["Return 200"]
-    P3 --> OK
+    P5 --> OK
     OK --> Z((End))
 ```
 

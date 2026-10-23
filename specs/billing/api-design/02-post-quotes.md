@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Prices a prospective contract before it is requested: first payment, term fee or day-plan total (FR-BILL-01, FR-BILL-02). Nothing is stored.
+Prices a prospective contract before it is requested: first payment, term fee or day-plan total (FR-BILL-01, FR-BILL-02). Nothing is stored. The sample is a day plan; a `MONTHLY` quote returns `planType`, `quantity`, `termFeeVnd`, `firstPaymentVnd` (the holding fee) and `formula`, for example 10 devices at 450000 give `termFeeVnd` 4500000, `firstPaymentVnd` 2250000 and `formula` "450000 x 10 x 0.5" (the names rentals api-design 01 uses in its `quote`, D-059 rule 6).
 
 ## API Specification
 
@@ -53,6 +53,17 @@ Prices a prospective contract before it is requested: first payment, term fee or
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| planType | `MONTHLY` or `DAY`, as requested | enum | `DAY` |
+| quantity | Devices | int | `8` |
+| unitPerDayVnd | DAY only: monthly price / 30 x `billing.dayPremium`, per device | int | `22500` |
+| days | DAY only: the day-plan length | int | `4` |
+| totalVnd | DAY only: the whole day-plan amount | int | `720000` |
+| termFeeVnd | MONTHLY only: one term for every device | int | `4500000` |
+| firstPaymentVnd | MONTHLY: the holding fee, term fee x `billing.holdingFeeRatio`; DAY: the total | int | `720000` |
+| formula | The calculation as text, for the quote panel | string | `450000 x 10 x 0.5` |
 
 ## Validation
 

@@ -16,13 +16,14 @@ ENDPOINTS = [
     ep("POST", "/api/auth/login", "Sign in", "Public",
        "Exchanges email and password for a short-lived access token and a rotating refresh token. The "
        "response never says which field was wrong (FR-AUTH-02). Repeated failures lock the account for "
-       "`auth.lockoutMinutes`.",
+       "`auth.lockoutMinutes`. A member of a `CLOSED` or `REJECTED` organization gets the same 401 "
+       "`INVALID_CREDENTIALS` as an unknown account (REQ-STA-03, D-059 rule 2).",
        "UC-08, FR-AUTH-02, FR-AUTH-08, MSG09",
        body=[["email", "Login email, case-insensitive", "string", "yes", "`manager@acme-trek.vn`"],
              ["password", "Password", "string", "yes", "`********`"]],
        sample={"email": "manager@acme-trek.vn", "password": "********"},
        response={**TOKENS, "user": ME}, message="Signed in",
-       errors=[(401, "INVALID_CREDENTIALS", "Unknown email, wrong password, or inactive account",
+       errors=[(401, "INVALID_CREDENTIALS", "Unknown email, wrong password, inactive account, or a closed or rejected organization",
                 "Incorrect email or password. Please try again."),
                (423, "ACCOUNT_LOCKED", "Too many failures inside auth.loginFailureWindowMinutes",
                 "Too many attempts. Try again in 15 minutes.")],
@@ -65,14 +66,16 @@ ENDPOINTS = [
 
     ep("POST", "/api/auth/password/forgot", "Request a password reset", "Public",
        "Sends a single-use, time-limited code to the registered email. The response is identical whether "
-       "or not the email exists (FR-AUTH-05).",
+       "or not the email exists (FR-AUTH-05). For an active account that has never set a password the code "
+       "is a `SET_PASSWORD` code, used on `/welcome` (api-design 07), so an invitee whose invitation code "
+       "expired gets a new one here (D-059 rule 6).",
        "UC-09, FR-AUTH-05, BR-35",
        body=[["email", "Account email", "string", "yes", "`manager@acme-trek.vn`"]],
        sample={"email": "manager@acme-trek.vn"}, response=None,
        message="If the email is registered, a code has been sent.",
-       errors=[(429, "OTP_COOLDOWN", "A code was sent less than auth.otpResendCooldownSeconds ago",
+       errors=[(429, "OTP_COOLDOWN", "A code was sent less than auth.codeResendCooldownSeconds ago",
                 "Please wait a minute before requesting another code.")],
-       steps=["Look up the user", "If found and active: store the code hash, email the code",
+       steps=["Look up the user", "If found and active: store the code hash (SET_PASSWORD when no password is set, else PASSWORD_RESET), email the code",
               "Record AuthEvent PASSWORD_RESET_REQUESTED", "Answer identically either way"],
        controller="PasswordController", service="PasswordService", call="forgot(email)",
        participants=[["Mail", "Email service"]],

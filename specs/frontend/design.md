@@ -35,6 +35,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/` , `/plans` | Plans and how renting works | public |
 | `/register` | Register an organization (MSG04) | public |
 | `/sign-in`, `/forgot`, `/reset`, `/welcome` (set password) | Auth | public |
+| `/o` | Organization home dashboard: contract summary, balance due, open incidents, devices out; built in Sprint 4, task 5.6 (D-059 rule 1) | Org Manager |
 | `/o/map` | Live map | Org Operator, Org Manager |
 | `/o/devices/:id/telemetry` | Position and telemetry history of a rented device, clipped to the organization's rental periods; period in `?from=&to=` (D-057 rule 8) | Org Operator, Org Manager |
 | `/o/incidents`, `/o/incidents/:id` | Incident queue and detail | Org Operator, Org Manager |
@@ -56,6 +57,11 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/t/reports` | Reports | TrekLink Staff |
 | `/t/admin/accounts`, `/t/admin/roles`, `/t/admin/parameters`, `/t/admin/prices`, `/t/admin/variants`, `/t/admin/health` | Administration | TrekLink Admin |
 | `/t/admin/audit/changes`, `/t/admin/audit/sign-ins` | Audit: the change log (`auditLog.read`) and the sign-in log (`authEvent.read`), one tab per route, each tab hidden without its permission; `/t/admin/audit` redirects to `changes`; filters in the query (D-057 rule 3) | TrekLink Admin |
+
+**Landing after sign-in** (D-059 rule 1): a same-origin `?next=` path wins; otherwise the Org Manager lands
+on `/o` (on `/o/contracts` until task 5.6 is built), the Org Operator on `/o/map`, TrekLink Staff and Admin
+on `/t/map`. **No route of their own** (D-059 rule 5): the account menu is a header menu with a
+change-password dialog; damage rates are a section of `/t/admin/prices`.
 
 ---
 
