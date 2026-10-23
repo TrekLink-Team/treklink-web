@@ -74,9 +74,8 @@ export class AuthService {
     });
   }
 
-  async refresh(refreshToken: string, client: ClientInfo): Promise<SignInResult> {
-    const { tokens, user } = await this.tokens.refresh(refreshToken, client);
-    return { ...tokens, user };
+  refresh(refreshToken: string, client: ClientInfo): Promise<TokenPair> {
+    return this.tokens.refresh(refreshToken, client);
   }
 
   logout(userId: string, refreshToken: string, client: ClientInfo): Promise<void> {
