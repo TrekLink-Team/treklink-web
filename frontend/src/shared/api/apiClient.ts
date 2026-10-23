@@ -5,11 +5,33 @@ export interface StandardApiResponse<T> {
   message: string;
 }
 
+export interface TokenPair {
+  accessToken: string;
+  accessTokenExpiresIn: number;
+  refreshToken: string;
+  refreshTokenExpiresIn: number;
+}
+
+// What the client needs from the session. `shared` cannot import the session entity, so the app layer
+// registers these at startup (app/providers/registerApiAuth.ts).
+export interface ApiAuthHandlers {
+  getTokens: () => { accessToken: string; refreshToken: string } | null;
+  onTokens: (tokens: TokenPair) => void;
+  onSessionExpired: () => void;
+}
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+
+// Endpoints whose 401 is an answer, not an expired access token.
+const NO_REFRESH = ['/auth/login', '/auth/refresh'];
+
+const FALLBACK_MESSAGE = 'API request failed';
+const FALLBACK_CODE = 'UNKNOWN';
 
 export class ApiError extends Error {
   constructor(
     public statusCode: number,
+    public errorCode: string,
     public message: string,
   ) {
     super(message);
@@ -17,28 +39,84 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiClient<T>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const token = localStorage.getItem('treklink_access_token');
+let handlers: ApiAuthHandlers | null = null;
+let refreshing: Promise<string | null> | null = null;
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
+export const registerApiAuth = (next: ApiAuthHandlers | null): void => {
+  handlers = next;
+  refreshing = null;
+};
 
-  const response = await fetch(`${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`, {
+const normalize = (endpoint: string): string => (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+
+// Reads the envelope once. A body that is not JSON (a proxy page, a dropped connection) still
+// surfaces as an ApiError.
+async function unwrap<T>(response: Response): Promise<T> {
+  let body: Partial<StandardApiResponse<T | { errorCode?: string }>> | null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+  if (!response.ok || !body || !body.isSuccess) {
+    const detail = body?.result as { errorCode?: string } | null | undefined;
+    throw new ApiError(
+      body?.statusCode || response.status,
+      detail?.errorCode ?? FALLBACK_CODE,
+      body?.message || FALLBACK_MESSAGE,
+    );
+  }
+  return body.result as T;
+}
+
+const send = (endpoint: string, options: RequestInit, accessToken: string | null): Promise<Response> =>
+  fetch(`${BASE_URL}${normalize(endpoint)}`, {
     ...options,
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...options.headers,
+    },
   });
 
-  const data: StandardApiResponse<T> = await response.json();
+// One refresh at a time: a second rotation of the same token revokes the session (D-060 rule 8), so
+// concurrent callers share this promise. Resolves to the new access token, or null when the session is over.
+const refreshTokens = (): Promise<string | null> => {
+  if (refreshing) return refreshing;
+  const current = handlers?.getTokens();
+  if (!handlers || !current) return Promise.resolve(null);
+  const active = handlers;
+  refreshing = (async () => {
+    try {
+      const response = await send(
+        '/auth/refresh',
+        { method: 'POST', body: JSON.stringify({ refreshToken: current.refreshToken }) },
+        null,
+      );
+      const tokens = await unwrap<TokenPair>(response);
+      active.onTokens(tokens);
+      return tokens.accessToken;
+    } catch {
+      active.onSessionExpired();
+      return null;
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+};
 
-  if (!response.ok || !data.isSuccess) {
-    throw new ApiError(data.statusCode || response.status, data.message || 'API request failed');
+export async function apiClient<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const sentToken = handlers?.getTokens()?.accessToken ?? null;
+  const response = await send(endpoint, options, sentToken);
+
+  if (response.status !== 401 || !handlers || NO_REFRESH.includes(normalize(endpoint))) {
+    return unwrap<T>(response);
   }
 
-  return data.result as T;
+  // Another caller may already have rotated the tokens; retry with theirs instead of rotating again.
+  const latest = handlers.getTokens()?.accessToken ?? null;
+  const accessToken = latest && latest !== sentToken ? latest : await refreshTokens();
+  if (!accessToken) return unwrap<T>(response);
+  return unwrap<T>(await send(endpoint, options, accessToken));
 }
