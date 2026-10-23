@@ -64,6 +64,21 @@ export type RefreshTokenRow = Prisma.RefreshTokenGetPayload<{
   select: typeof REFRESH_TOKEN_SELECT;
 }>;
 
+// A permission row as the CASL ability factory reads it (auth task 4.1).
+export const PERMISSION_RULE_SELECT = {
+  key: true,
+  action: true,
+  subject: true,
+  conditions: true,
+  fields: true,
+  inverted: true,
+  reason: true,
+} satisfies Prisma.PermissionSelect;
+
+export type PermissionRuleRow = Prisma.PermissionGetPayload<{
+  select: typeof PERMISSION_RULE_SELECT;
+}>;
+
 // Emails are stored lower-case and compared case-insensitively (REQ-UBI-01).
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
@@ -229,5 +244,14 @@ export class AccountsRepository {
       data: { revokedAt: at },
     });
     return count === 1;
+  }
+
+  // The permissions granted to the role with this key; an unknown key grants nothing (auth task 4.1).
+  async findRolePermissions(roleKey: string): Promise<PermissionRuleRow[]> {
+    const grants = await this.prisma.rolePermission.findMany({
+      where: { role: { key: roleKey } },
+      select: { permission: { select: PERMISSION_RULE_SELECT } },
+    });
+    return grants.map((grant) => grant.permission);
   }
 }
