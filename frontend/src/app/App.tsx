@@ -1,12 +1,13 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { DashboardPage } from '../pages/DashboardPage';
-import { SignInPage } from '../pages/SignInPage';
+import { BrowserRouter, Link } from 'react-router-dom';
+import { AuthProvider } from './providers/AuthProvider';
+import { AppRoutes } from './router';
 import { Radio, Compass, ShieldCheck } from 'lucide-react';
 
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
+      <AuthProvider>
       <div className="min-h-screen flex flex-col bg-slate-50">
         {/* Navigation Bar */}
         <header className="bg-slate-900 text-white border-b border-slate-800">
@@ -35,12 +36,10 @@ export const App: React.FC = () => {
 
         {/* Main Content Area */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/sign-in" element={<SignInPage />} />
-          </Routes>
+          <AppRoutes />
         </main>
       </div>
+      </AuthProvider>
     </BrowserRouter>
   );
 };
