@@ -76,6 +76,18 @@ decode payloads; `IngestionService` alone writes.
 The MQTT client uses QoS 1 and a persistent session, and acknowledges a message only after `ingest()`
 returns, so a backend crash mid-transaction gets the message redelivered and dedup absorbs it.
 
+Implementation notes (2026-10-23):
+
+- The acknowledgement rides on mqtt.js `handleMessage`, which sends the PUBACK when it calls back and
+  handles one message at a time, so ingestion is also serial and in arrival order.
+- While the database is unreachable (Prisma `P1001`, `P1002`, `P1008`, `P1017`, `P2024`, or an
+  initialization error) the message is retried with backoff from 1 s up to 30 s and stays unacknowledged.
+  Any other error is a defect: it is logged and the message is acknowledged, so one bad packet cannot
+  stall the stream.
+- The speed rule compares occurrence times against the device's last plotted position in `seq` order.
+- The device projection skips only an older reading; a reading of the same second applies (devices
+  REQ-EVT-08), because a node reports position and telemetry together.
+
 ---
 
 ## 3. Field Station (Stage C) executable
