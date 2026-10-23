@@ -15,7 +15,7 @@
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 `IncidentsModule` and repositories (owner HoangTK)
+- [x] 1.1 `IncidentsModule` and repositories (owner HoangTK)
   - **Files**: `backend/src/modules/incidents/incidents.module.ts`, `incidents.repository.ts`, `alert-deliveries.repository.ts`, `authority-reports.repository.ts`
   - **Do**: repositories over the `// @module incidents` models only; incident code `INC-<year>-<6 digits>` as the `schema.prisma` example `INC-2026-000045`; `incidents_one_open_per_device` maps to the correlation path, never to a 500
   - _Requirements: REQ-UBI-02, BR-13_

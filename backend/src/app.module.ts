@@ -6,6 +6,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth';
 import { DevicesModule } from './modules/devices';
 import { GatewaySyncModule } from './modules/gateway-sync';
+import { IncidentsModule } from './modules/incidents';
 import { OrganizationsModule } from './modules/organizations';
 import { validate } from './modules/platform/config/environment-variables';
 import { PlatformModule } from './modules/platform/platform.module';
@@ -27,6 +28,7 @@ import { PlatformModule } from './modules/platform/platform.module';
     OrganizationsModule,
     DevicesModule,
     GatewaySyncModule,
+    IncidentsModule,
   ],
 })
 export class AppModule {}
