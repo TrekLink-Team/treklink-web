@@ -178,4 +178,39 @@ describe('GlobalExceptionFilter', () => {
       expect(JSON.stringify(body)).not.toMatch(/SELECT|password_hash|at /);
     });
   });
+
+  describe('body parser errors (REQ-ERR-07)', () => {
+    const parserError = (fields: Record<string, unknown>) =>
+      Object.assign(new Error('parser said no'), fields);
+
+    it('maps entity.too.large to 413 PAYLOAD_TOO_LARGE', () => {
+      const { status, body } = handle(
+        parserError({ type: 'entity.too.large', status: 413, expose: true, limit: 1048576 }),
+      );
+
+      expect(status).toBe(413);
+      expect(body).toMatchObject({
+        result: { errorCode: 'PAYLOAD_TOO_LARGE' },
+        message: 'Request body exceeds the 1048576-byte limit.',
+      });
+    });
+
+    it('keeps another exposed 4xx parser error as CLIENT_ERROR', () => {
+      const { status, body } = handle(
+        parserError({ type: 'charset.unsupported', status: 415, expose: true }),
+      );
+
+      expect(status).toBe(415);
+      expect(body).toMatchObject({
+        result: { errorCode: 'CLIENT_ERROR' },
+        message: 'parser said no',
+      });
+    });
+
+    it('treats an unexposed error with a status as a 500', () => {
+      const { status } = handle(parserError({ status: 400, expose: false }));
+
+      expect(status).toBe(500);
+    });
+  });
 });

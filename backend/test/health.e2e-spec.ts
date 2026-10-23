@@ -1,9 +1,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { INestApplication } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/prisma/prisma.service';
@@ -16,14 +15,14 @@ describe('GET /api/health (e2e)', () => {
     JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')) as { version: string }
   ).version;
   const prisma = { $queryRaw: jest.fn() };
-  let app: INestApplication<App>;
+  let app: NestExpressApplication;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)
       .compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();
   });
