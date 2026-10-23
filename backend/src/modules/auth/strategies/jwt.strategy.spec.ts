@@ -46,7 +46,13 @@ describe('JwtStrategy', () => {
       aSessionUser({
         accountType: 'ORGANIZATION',
         roles: ['ORG_OPERATOR'],
-        organization: { id: 'org-a', status: 'ACTIVE', memberRole: 'OPERATOR' },
+        organization: {
+          id: 'org-a',
+          code: 'ORG-0001',
+          legalName: 'ACME Trek Co., Ltd.',
+          status: 'ACTIVE',
+          memberRole: 'OPERATOR',
+        },
       }),
     );
 
