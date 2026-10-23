@@ -6,13 +6,9 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { AccountSessionService } from './account-session.service';
 import { AccountsRepository } from './accounts.repository';
+import { PermissionCache } from './casl/permission-cache';
 import { aSessionUser, CLIENT } from './testing/auth-fixtures';
-import {
-  durationToSeconds,
-  hashToken,
-  INITIAL_POLICY_VERSION,
-  TokenService,
-} from './token.service';
+import { durationToSeconds, hashToken, TokenService } from './token.service';
 
 const tx = { tx: true } as unknown as Prisma.TransactionClient;
 const NOW = new Date('2026-10-23T03:00:00.000Z');
@@ -72,6 +68,7 @@ describe('TokenService', () => {
       accounts as unknown as AccountsRepository,
       sessions as unknown as AccountSessionService,
       events as unknown as TransactionalEvents,
+      { version: 3 } as PermissionCache,
       config as unknown as ConfigService<ValidatedEnvironment, true>,
     );
   });
@@ -93,7 +90,7 @@ describe('TokenService', () => {
         sub: 'user-1',
         accountType: 'TREKLINK',
         roles: ['STAFF'],
-        pv: INITIAL_POLICY_VERSION,
+        pv: 3,
       });
       const [stored, client] = accounts.createRefreshToken.mock.calls[0] as [
         Record<string, unknown>,
