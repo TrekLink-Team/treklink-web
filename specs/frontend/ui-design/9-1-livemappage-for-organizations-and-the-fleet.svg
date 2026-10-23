@@ -1,55 +1,92 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" width="1100" height="720" font-family="Arial, sans-serif" font-size="13">
-<title>LiveMapPage</title><rect width="1100" height="720" fill="#ffffff"/>
-<rect x="0" y="0" width="1100" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="14" fill="#fff" text-anchor="start">TrekLink   Live map  /o/map or /t/map</text>
-<rect x="0" y="48" width="700" height="34" rx="0" fill="#fef2f2" stroke="#dc2626"/>
-<text x="12" y="70" font-size="12" fill="#991b1b" text-anchor="start">SOS: TL-0042 (Le Thi E), 10:15. Acknowledge now.   [global incident banner, always on top]</text>
-<rect x="0" y="82" width="700" height="22" rx="0" fill="#fffbe6" stroke="#d4a017"/>
-<text x="12" y="98" font-size="11" fill="#202124" text-anchor="start">Reconnecting. Live data is paused. (MSG32, only while disconnected)</text>
-<rect x="0" y="104" width="700" height="560" rx="3" fill="#e8f0e8" stroke="#9aa0a6"/>
-<text x="14" y="126" font-size="12" fill="#5f6368" text-anchor="start">Leaflet map, tiles from /api/map/config</text>
-<text x="520" y="160" font-size="11" font-weight="bold" fill="#202124" text-anchor="start">Quan dao Hoang Sa (Viet Nam)</text>
-<text x="520" y="500" font-size="11" font-weight="bold" fill="#202124" text-anchor="start">Quan dao Truong Sa (Viet Nam)</text>
-<circle cx="260" cy="320" r="14" fill="none" stroke="#dc2626" stroke-width="3"/><circle cx="260" cy="320" r="6" fill="#dc2626"/>
-<text x="280" y="316" font-size="11" font-weight="bold" fill="#202124" text-anchor="start">TL-0042 SOS, ACKNOWLEDGED</text>
-<circle cx="400" cy="400" r="7" fill="#1a56db"/>
-<text x="414" y="404" font-size="11" fill="#202124" text-anchor="start">TL-0051  81 %</text>
-<circle cx="150" cy="450" r="7" fill="#9aa0a6"/>
-<text x="164" y="454" font-size="11" fill="#202124" text-anchor="start">TL-0060 Stale, last seen 03:15</text>
-<rect x="10" y="590" width="330" height="64" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="20" y="608" font-size="11" fill="#202124" text-anchor="start">Popup: TL-0042  holder Le Thi E  battery 81 %</text>
-<rect x="20" y="620" width="110" height="24" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="75.0" y="636.0" font-size="13" fill="#ffffff" text-anchor="middle">Open incident</text>
-<rect x="140" y="620" width="130" height="24" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="205.0" y="636.0" font-size="13" fill="#202124" text-anchor="middle">Position history</text>
-<rect x="700" y="48" width="400" height="616" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="716" y="74" font-size="12" fill="#202124" text-anchor="start">Org: All  v   (/t/map only)</text>
-<rect x="716" y="88" width="368" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="724" y="106.0" font-size="13" fill="#5f6368" text-anchor="start">Search asset tag</text>
-<text x="716" y="138" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Devices (3)   Open incidents 1</text>
-<rect x="716" y="150" width="368" height="46" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="728" y="170" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TL-0042  SOS</text>
-<text x="728" y="188" font-size="11" fill="#5f6368" text-anchor="start">ACKNOWLEDGED  81 %</text>
-<rect x="716" y="202" width="368" height="46" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="728" y="222" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TL-0051</text>
-<text x="728" y="240" font-size="11" fill="#5f6368" text-anchor="start">Active  81 %</text>
-<rect x="716" y="254" width="368" height="46" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="728" y="274" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TL-0060</text>
-<text x="728" y="292" font-size="11" fill="#5f6368" text-anchor="start">Stale, last seen 03:15</text>
-<text x="716" y="330" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Field Stations</text>
-<rect x="716" y="342" width="368" height="40" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="728" y="366" font-size="12" fill="#202124" text-anchor="start">Ta Nang basecamp laptop  synced 10:14</text>
-<rect x="716" y="396" width="368" height="60" rx="3" fill="#fffbe6" stroke="#d4a017"/>
-<text x="728" y="418" font-size="11" fill="#202124" text-anchor="start">MSG33 replaces the tile area if the map</text>
-<text x="728" y="436" font-size="11" fill="#202124" text-anchor="start">provider is unreachable; lists stay live.</text>
-<rect x="716" y="470" width="170" height="240" rx="14" fill="#fff" stroke="#1f2937"/>
-<text x="801" y="488" font-size="11" fill="#5f6368" text-anchor="middle">360 px</text>
-<rect x="724" y="496" width="154" height="16" rx="0" fill="#fef2f2" stroke="#dc2626"/>
-<text x="728" y="508" font-size="10" fill="#202124" text-anchor="start">SOS banner</text>
-<rect x="724" y="516" width="154" height="110" rx="3" fill="#e8f0e8" stroke="#9aa0a6"/>
-<text x="730" y="534" font-size="10" fill="#5f6368" text-anchor="start">Map full screen</text>
-<rect x="724" y="630" width="154" height="72" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="730" y="648" font-size="10" font-weight="bold" fill="#202124" text-anchor="start">Bottom sheet (peek)</text>
-<text x="730" y="664" font-size="10" fill="#202124" text-anchor="start">3 devices, 1 open incident</text>
-<text x="730" y="680" font-size="10" fill="#202124" text-anchor="start">Marker tap: bottom card</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1710 844" width="1710" height="844"><title>Live map, desktop and 360 px</title><foreignObject x="0" y="0" width="1280" height="840"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:840px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+</style><div style="width:1280px;height:840px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column;overflow:hidden">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink</div>
+    <div style="display:flex;gap:28px;font-size:14px;color:#c9ced6"><span style="color:#fff;font-weight:600">Live map</span><span>Incidents</span><span>Contracts</span><span>Members</span></div>
+    <div style="font-size:14px;color:#c9ced6">Le Thi E &#183; ORG_OPERATOR</div>
+  </div>
+  <div style="flex:none;background:#fdeceb;border-bottom:2px solid #c0392b;padding:12px 32px;display:flex;align-items:center;gap:16px;font-size:14px;color:#7a1c13">
+    <b>SOS: TL-0042 (Le Thi E), 10:15.</b> Acknowledge now.
+    <a href="#ack" style="margin-left:auto;background:#a8261b;color:#fff;text-decoration:none;font-weight:600;padding:8px 18px;border-radius:8px">Open incident</a>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="flex:1;position:relative;background:#e6ece4;background-image:linear-gradient(#dbe3d8 1px,transparent 1px),linear-gradient(90deg,#dbe3d8 1px,transparent 1px);background-size:64px 64px;overflow:hidden">
+      <div style="position:absolute;left:220px;top:90px;width:420px;height:240px;border-radius:50% 40% 55% 45%;background:#d3dfcb;opacity:0.9"></div>
+      <div style="position:absolute;left:480px;top:330px;width:360px;height:200px;border-radius:45% 55% 40% 60%;background:#cfdcc7;opacity:0.9"></div>
+      <div style="position:absolute;right:140px;top:80px;font-size:12px;font-weight:600;color:#12161c;background:rgba(255,255,255,0.88);border:1px solid #9aa3af;border-radius:6px;padding:4px 8px">Quan dao Hoang Sa (Viet Nam)</div>
+      <div style="position:absolute;right:120px;bottom:90px;font-size:12px;font-weight:600;color:#12161c;background:rgba(255,255,255,0.88);border:1px solid #9aa3af;border-radius:6px;padding:4px 8px">Quan dao Truong Sa (Viet Nam)</div>
+
+      <div style="position:absolute;left:330px;top:210px;display:flex;align-items:center;gap:8px">
+        <div style="width:34px;height:34px;border-radius:50%;border:3px solid #c0392b;background:rgba(192,57,43,0.15);display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#c0392b"></div></div>
+        <div style="background:#fff;border:1px solid #c0392b;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;color:#7a1c13">TL-0042 SOS, ACKNOWLEDGED</div>
+      </div>
+      <div style="position:absolute;left:560px;top:400px;display:flex;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:50%;background:#0d6e5f;border:2px solid #fff"></div><div style="background:#fff;border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600">TL-0051 &#183; 81 %</div></div>
+      <div style="position:absolute;left:250px;top:430px;display:flex;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:50%;background:#9aa3af;border:2px solid #fff"></div><div style="background:#fff;border-radius:6px;padding:3px 8px;font-size:12px;color:#3a424d">TL-0060 &#183; Stale, last seen 03:15</div></div>
+
+      <div style="position:absolute;left:330px;top:262px;width:300px;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(18,22,28,0.22);padding:16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between"><b style="font-size:15px">TL-0042</b><span style="font-size:12px;font-weight:600;background:#fdeceb;color:#7a1c13;border-radius:999px;padding:3px 10px">SOS</span></div>
+        <div style="font-size:13px;color:#3a424d;line-height:1.6">Holder: Le Thi E<br/>Contract: RC-2026-0042<br/>Battery: 81 %<br/>Last seen: 10:15</div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <a href="#open" style="flex:1;text-align:center;background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:13px;padding:9px;border-radius:8px">Open incident</a>
+          <a href="#hist" style="flex:1;text-align:center;background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:13px;padding:8px;border-radius:8px">Position history</a>
+        </div>
+      </div>
+
+      <div style="position:absolute;left:16px;bottom:12px;font-size:11px;color:#3a424d;background:rgba(255,255,255,0.8);padding:2px 6px;border-radius:4px">&#169; OpenStreetMap contributors</div>
+      <div style="position:absolute;right:16px;top:16px;display:flex;flex-direction:column;gap:6px"><div style="width:36px;height:36px;background:#fff;border:1px solid #c4cad3;border-radius:8px;text-align:center;line-height:34px;font-weight:700">+</div><div style="width:36px;height:36px;background:#fff;border:1px solid #c4cad3;border-radius:8px;text-align:center;line-height:34px;font-weight:700">&#8722;</div></div>
+    </div>
+    <div style="width:340px;flex:none;background:#fff;border-left:1px solid #dde1e7;padding:20px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+      <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Organization</div><div style="background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">All organizations (fleet map only)</div></div>
+      <div style="background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">Search asset tag</div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><b>Devices 3</b><span style="color:#7a1c13;font-weight:600">1 open incident</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="border:1px solid #e5a29c;background:#fdeceb;border-radius:10px;padding:10px 12px"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600"><span>TL-0042</span><span style="font-size:12px;color:#7a1c13">SOS, ACKNOWLEDGED</span></div><div style="font-size:12px;color:#5a6370;margin-top:2px">Le Thi E &#183; 81 % &#183; 10:15</div></div>
+        <div style="border:1px solid #e6e9ee;border-radius:10px;padding:10px 12px"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600"><span>TL-0051</span><span style="font-size:12px;color:#14532d">Active</span></div><div style="font-size:12px;color:#5a6370;margin-top:2px">[Holder] &#183; 81 % &#183; 10:14</div></div>
+        <div style="border:1px solid #e6e9ee;border-radius:10px;padding:10px 12px"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;color:#5a6370"><span>TL-0060</span><span style="font-size:12px">Stale</span></div><div style="font-size:12px;color:#5a6370;margin-top:2px">[Holder] &#183; last seen 03:15</div></div>
+      </div>
+      <div style="font-size:13px;font-weight:700;margin-top:6px">Field Stations</div>
+      <div style="border:1px solid #e6e9ee;border-radius:10px;padding:10px 12px;font-size:13px"><b>Ta Nang basecamp laptop</b><div style="font-size:12px;color:#5a6370;margin-top:2px">Last sync 10:14</div></div>
+      <div style="margin-top:auto;font-size:12px;color:#5a6370;line-height:1.5;border-top:1px dashed #c4cad3;padding-top:12px">Other states: "Reconnecting. Live data is paused." replaces the banner while the socket is down. "The map is unavailable. Device and incident lists are still live." replaces the map if tiles fail.</div>
+    </div>
+  </div>
+</div></div></foreignObject><foreignObject x="1320" y="0" width="390" height="844"><div xmlns="http://www.w3.org/1999/xhtml" style="width:390px;height:844px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+</style><div style="width:390px;height:844px;box-sizing:border-box;background:#e6ece4;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column;position:relative;overflow:hidden">
+  <div style="height:52px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex:none">
+    <div style="font-weight:700;font-size:16px">TrekLink</div>
+    <div style="font-size:14px;color:#c9ced6">Live map</div>
+  </div>
+  <div style="flex:none;background:#fdeceb;border-bottom:2px solid #c0392b;padding:10px 16px;font-size:13px;color:#7a1c13;line-height:1.4">
+    <b>SOS: TL-0042 (Le Thi E), 10:15.</b> Acknowledge now.
+  </div>
+  <div style="flex:1;position:relative;background-image:linear-gradient(#dbe3d8 1px,transparent 1px),linear-gradient(90deg,#dbe3d8 1px,transparent 1px);background-size:56px 56px">
+    <div style="position:absolute;left:30px;top:50px;width:260px;height:180px;border-radius:50% 40% 55% 45%;background:#d3dfcb"></div>
+    <div style="position:absolute;right:12px;top:12px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.9);border:1px solid #9aa3af;border-radius:6px;padding:3px 6px">Quan dao Hoang Sa (Viet Nam)</div>
+    <div style="position:absolute;left:90px;top:130px;display:flex;align-items:center;gap:6px">
+      <div style="width:32px;height:32px;border-radius:50%;border:3px solid #c0392b;background:rgba(192,57,43,0.15);display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-radius:50%;background:#c0392b"></div></div>
+    </div>
+    <div style="position:absolute;left:60px;top:172px;background:#fff;border:1px solid #c0392b;border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;color:#7a1c13">TL-0042 SOS, ACKNOWLEDGED</div>
+    <div style="position:absolute;left:210px;top:210px;width:14px;height:14px;border-radius:50%;background:#0d6e5f;border:2px solid #fff"></div>
+    <div style="position:absolute;left:40px;top:250px;width:14px;height:14px;border-radius:50%;background:#9aa3af;border:2px solid #fff"></div>
+    <div style="position:absolute;left:12px;bottom:312px;font-size:10px;color:#3a424d;background:rgba(255,255,255,0.8);padding:2px 5px;border-radius:4px">&#169; OpenStreetMap contributors</div>
+    <div style="position:absolute;right:12px;top:52px;display:flex;flex-direction:column;gap:6px"><div style="width:44px;height:44px;background:#fff;border:1px solid #c4cad3;border-radius:10px;text-align:center;line-height:42px;font-weight:700;font-size:18px">+</div><div style="width:44px;height:44px;background:#fff;border:1px solid #c4cad3;border-radius:10px;text-align:center;line-height:42px;font-weight:700;font-size:18px">&#8722;</div></div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -8px 24px rgba(18,22,28,0.18);padding:10px 16px 20px;display:flex;flex-direction:column;gap:12px">
+    <div style="width:40px;height:4px;border-radius:2px;background:#c4cad3;align-self:center"></div>
+    <div style="display:flex;justify-content:space-between;font-size:14px"><b>3 devices</b><span style="color:#7a1c13;font-weight:600">1 open incident</span></div>
+    <div style="border:1px solid #e5a29c;background:#fdeceb;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700"><span>TL-0042</span><span style="font-size:12px;color:#7a1c13">SOS, ACKNOWLEDGED</span></div>
+      <div style="font-size:13px;color:#3a424d">Le Thi E &#183; battery 81 % &#183; last seen 10:15</div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <a href="#open" style="flex:1;text-align:center;background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:13px 8px;border-radius:10px">Open incident</a>
+        <a href="#hist" style="flex:1;text-align:center;background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:12px 8px;border-radius:10px">Position history</a>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:6px 2px"><b>TL-0051</b><span style="color:#14532d;font-size:13px">Active &#183; 81 %</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:6px 2px;color:#5a6370"><b>TL-0060</b><span style="font-size:13px">Stale, last seen 03:15</span></div>
+  </div>
+</div></div></foreignObject></svg>
