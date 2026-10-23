@@ -35,8 +35,8 @@
 - [x] 1.9 `PagedQueryDto` and `PagedResult<T>` in `common/dto/paging.ts`, 1-based `pageNumber`, `DEFAULT_PAGE_SIZE` and `MAX_PAGE_SIZE` (owner KhoaDD)
   - _Requirements: REQ-UBI-03_
 - [x] 1.10 Module-boundary check `backend/scripts/check-module-boundaries.js` wired into `npm run lint` (owner KhoaDD)
-- [ ] 1.11 Boundary test for the D-033 module set (owner KhoaDD)
-  - **Files**: `backend/src/module-boundaries.spec.ts`
+- [x] 1.11 Boundary test for the D-033 module set (owner KhoaDD)
+  - **Files**: `backend/src/module-boundaries.spec.ts`, `backend/scripts/check-module-boundaries.js`
   - **Do**: list the nine modules `platform`, `auth`, `organizations`, `devices`, `rentals`, `billing`, `incidents`, `gateway-sync`, `monitoring`; assert each model's `// @module` owner from `schema.prisma`; assert the DI graph of design Figure 3 is acyclic
   - **Test**: the spec itself; it fails when `src/modules/a/` references a model owned by `b`
   - _Requirements: NFR-MNT-01_
