@@ -30,23 +30,42 @@
 <text x="40" y="332" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">6 total, 1 stale</text>
 <text x="40" y="358" font-size="12" fill="#5f6368" text-anchor="start">Queue depth, highest across stations</text>
 <rect x="40" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="48" y="388" font-size="11" fill="#5f6368" text-anchor="start">Tier 1</text>
+<text x="48" y="388" font-size="11" fill="#5f6368" text-anchor="start">p0</text>
 <text x="48" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">0</text>
 <rect x="140" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="148" y="388" font-size="11" fill="#5f6368" text-anchor="start">Tier 2</text>
+<text x="148" y="388" font-size="11" fill="#5f6368" text-anchor="start">p1</text>
 <text x="148" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">0</text>
 <rect x="240" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="248" y="388" font-size="11" fill="#5f6368" text-anchor="start">Tier 3</text>
+<text x="248" y="388" font-size="11" fill="#5f6368" text-anchor="start">p2</text>
 <text x="248" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">14</text>
 <rect x="340" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="348" y="388" font-size="11" fill="#5f6368" text-anchor="start">Tier 4</text>
+<text x="348" y="388" font-size="11" fill="#5f6368" text-anchor="start">p3</text>
 <text x="348" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">230</text>
 <rect x="656" y="280" width="320" height="160" rx="3" fill="#fff" stroke="#9aa0a6"/>
 <text x="672" y="306" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Devices buffering (Stage B)</text>
 <text x="672" y="340" font-size="26" font-weight="bold" fill="#202124" text-anchor="start">2</text>
 <text x="672" y="368" font-size="12" fill="#1a56db" text-anchor="start">View Field Stations &gt;</text>
-<rect x="24" y="460" width="952" height="100" rx="3" fill="#fffbe6" stroke="#d4a017" stroke-dasharray="5 3"/>
-<text x="40" y="486" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">Conditional (open item O-9): per-station table with queue depth per tier and outdated</text>
-<text x="40" y="508" font-size="12" fill="#5f6368" text-anchor="start">Drawn only when monitoring 06 returns per-station rows. Not drawn today; no data is invented.</text>
+<rect x="24" y="460" width="952" height="32" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
+<text x="32" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Station</text>
+<text x="252" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Organization</text>
+<text x="422" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Synced</text>
+<text x="522" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Depth p0/p1/p2/p3</text>
+<text x="722" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Version</text>
+<text x="822" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start"></text>
+<rect x="24" y="492" width="952" height="32" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="512.0" font-size="13" fill="#202124" text-anchor="start">Ta Nang basecamp laptop</text>
+<text x="252" y="512.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
+<text x="422" y="512.0" font-size="13" fill="#202124" text-anchor="start">10:14</text>
+<text x="522" y="512.0" font-size="13" fill="#202124" text-anchor="start">0 / 0 / 14 / 230</text>
+<text x="722" y="512.0" font-size="13" fill="#202124" text-anchor="start">1.1.0</text>
+<text x="822" y="512.0" font-size="13" fill="#202124" text-anchor="start">OUTDATED</text>
+<rect x="24" y="524" width="952" height="32" rx="3" fill="#fff" stroke="#9aa0a6"/>
+<text x="32" y="544.0" font-size="13" fill="#202124" text-anchor="start">Fansipan base</text>
+<text x="252" y="544.0" font-size="13" fill="#202124" text-anchor="start">Sapa Treks</text>
+<text x="422" y="544.0" font-size="13" fill="#202124" text-anchor="start">10:15</text>
+<text x="522" y="544.0" font-size="13" fill="#202124" text-anchor="start">0 / 0 / 0 / 0</text>
+<text x="722" y="544.0" font-size="13" fill="#202124" text-anchor="start">1.2.0</text>
+<text x="822" y="544.0" font-size="13" fill="#202124" text-anchor="start">Current</text>
+<text x="24" y="548" font-size="11" fill="#5f6368" text-anchor="start">Current release 1.2.0. Revoked stations are not listed. Empty: No Field Stations are registered yet.</text>
 <text x="24" y="590" font-size="12" fill="#5f6368" text-anchor="start">Updated 10:15. Polls every 30 s; station.stale invalidates immediately.</text>
 </svg>
