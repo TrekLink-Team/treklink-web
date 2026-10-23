@@ -1,81 +1,85 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Arial, sans-serif" font-size="13">
-<title>TrekLink accounts</title><rect width="1000" height="640" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/accounts</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">TrekLink accounts</text>
-<rect x="850" y="66" width="126" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="913.0" y="84.0" font-size="13" fill="#ffffff" text-anchor="middle">New account</text>
-<rect x="24" y="120" width="260" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="138.0" font-size="13" fill="#5f6368" text-anchor="start">Search name or email</text>
-<rect x="300" y="120" width="140" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="308" y="138.0" font-size="13" fill="#5f6368" text-anchor="start">Active: All</text>
-<rect x="456" y="120" width="70" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="491.0" y="138.0" font-size="13" fill="#202124" text-anchor="middle">Clear</text>
-<rect x="24" y="166" width="900" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="32" y="187.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Name</text>
-<text x="172" y="187.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Email</text>
-<text x="372" y="187.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Role</text>
-<text x="462" y="187.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Status</text>
-<text x="582" y="187.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Last sign-in</text>
-<text x="732" y="187.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Created</text>
-<text x="822" y="187.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start"></text>
-<rect x="24" y="200" width="900" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="221.0" font-size="13" fill="#202124" text-anchor="start">Tran Thi B</text>
-<text x="172" y="221.0" font-size="13" fill="#202124" text-anchor="start">staff1@treklink.vn</text>
-<text x="372" y="221.0" font-size="13" fill="#202124" text-anchor="start">STAFF</text>
-<text x="462" y="221.0" font-size="13" fill="#202124" text-anchor="start">ACTIVE</text>
-<text x="582" y="221.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:15</text>
-<text x="732" y="221.0" font-size="13" fill="#202124" text-anchor="start">20 Oct</text>
-<text x="822" y="221.0" font-size="13" fill="#202124" text-anchor="start">Actions v</text>
-<rect x="24" y="234" width="900" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="255.0" font-size="13" fill="#202124" text-anchor="start">Nguyen Van A</text>
-<text x="172" y="255.0" font-size="13" fill="#202124" text-anchor="start">admin@treklink.vn</text>
-<text x="372" y="255.0" font-size="13" fill="#202124" text-anchor="start">ADMIN</text>
-<text x="462" y="255.0" font-size="13" fill="#202124" text-anchor="start">ACTIVE</text>
-<text x="582" y="255.0" font-size="13" fill="#202124" text-anchor="start">21 Oct 08:02</text>
-<text x="732" y="255.0" font-size="13" fill="#202124" text-anchor="start">01 Oct</text>
-<text x="822" y="255.0" font-size="13" fill="#202124" text-anchor="start">Actions v</text>
-<rect x="24" y="268" width="900" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="289.0" font-size="13" fill="#202124" text-anchor="start">Le Van C</text>
-<text x="172" y="289.0" font-size="13" fill="#202124" text-anchor="start">staff2@treklink.vn</text>
-<text x="372" y="289.0" font-size="13" fill="#202124" text-anchor="start">STAFF</text>
-<text x="462" y="289.0" font-size="13" fill="#202124" text-anchor="start">ACTIVE</text>
-<text x="582" y="289.0" font-size="13" fill="#202124" text-anchor="start">Never (invited)</text>
-<text x="732" y="289.0" font-size="13" fill="#202124" text-anchor="start">21 Oct</text>
-<text x="822" y="289.0" font-size="13" fill="#202124" text-anchor="start">Actions v</text>
-<rect x="24" y="302" width="900" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="323.0" font-size="13" fill="#202124" text-anchor="start">Pham Thi D</text>
-<text x="172" y="323.0" font-size="13" fill="#202124" text-anchor="start">staff3@treklink.vn</text>
-<text x="372" y="323.0" font-size="13" fill="#202124" text-anchor="start">STAFF</text>
-<text x="462" y="323.0" font-size="13" fill="#202124" text-anchor="start">DEACTIVATED</text>
-<text x="582" y="323.0" font-size="13" fill="#202124" text-anchor="start">02 Oct 17:40</text>
-<text x="732" y="323.0" font-size="13" fill="#202124" text-anchor="start">15 Sep</text>
-<text x="822" y="323.0" font-size="13" fill="#202124" text-anchor="start">Actions v</text>
-<text x="24" y="360" font-size="12" fill="#5f6368" text-anchor="start">Row actions: Edit | Deactivate (reason required) | Reactivate (deactivated rows) | Send reset code</text>
-<text x="24" y="380" font-size="12" fill="#5f6368" text-anchor="start">Own row: role control disabled (SELF_DEMOTION). Last active Admin: Deactivate disabled (LAST_ADMIN).</text>
-<text x="24" y="400" font-size="12" fill="#5f6368" text-anchor="start">Page 1 of 1, 4 accounts</text>
-<rect x="24" y="430" width="430" height="170" rx="3" fill="#fff" stroke="#9aa0a6" stroke-dasharray="5 3"/>
-<text x="40" y="454" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">New account (dialog)</text>
-<rect x="40" y="466" width="396" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="48" y="484.0" font-size="13" fill="#5f6368" text-anchor="start">Email *</text>
-<rect x="40" y="500" width="396" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="48" y="518.0" font-size="13" fill="#5f6368" text-anchor="start">Full name *</text>
-<rect x="40" y="534" width="200" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="48" y="552.0" font-size="13" fill="#5f6368" text-anchor="start">Role *  STAFF | ADMIN</text>
-<text x="40" y="580" font-size="11" fill="#5f6368" text-anchor="start">An invitation code is emailed. Nobody sets another person's password.</text>
-<rect x="262" y="540" width="80" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="302.0" y="558.0" font-size="13" fill="#202124" text-anchor="middle">Cancel</text>
-<rect x="352" y="540" width="84" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="394.0" y="558.0" font-size="13" fill="#ffffff" text-anchor="middle">Create</text>
-<rect x="480" y="430" width="360" height="170" rx="3" fill="#fff" stroke="#9aa0a6" stroke-dasharray="5 3"/>
-<text x="496" y="454" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Deactivate Tran Thi B? (dialog)</text>
-<text x="496" y="476" font-size="12" fill="#202124" text-anchor="start">Sessions end at once.</text>
-<rect x="496" y="490" width="328" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="504" y="508.0" font-size="13" fill="#5f6368" text-anchor="start">Reason *</text>
-<rect x="640" y="550" width="84" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="682.0" y="568.0" font-size="13" fill="#202124" text-anchor="middle">Cancel</text>
-<rect x="734" y="550" width="90" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="779.0" y="568.0" font-size="13" fill="#ffffff" text-anchor="middle">Deactivate</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 780" width="1280" height="780"><title>TrekLink accounts</title><foreignObject x="0" y="0" width="1280" height="780"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:780px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:600;color:#5a6370;padding:12px 16px;background:#eef0f3;border-bottom:1px solid #dde1e7}
+td{font-size:14px;padding:12px 16px;border-bottom:1px solid #e6e9ee;vertical-align:middle}
+</style><div style="width:1280px;height:780px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Admin</span></div>
+    <div style="font-size:14px;color:#c9ced6">Nguyen Van A &#183; ADMIN</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:220px;flex:none;background:#fff;border-right:1px solid #dde1e7;padding:20px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px">
+      <div style="background:#e3f1ee;color:#08493f;font-weight:600;padding:10px 12px;border-radius:8px">Accounts</div>
+      <div style="padding:10px 12px;color:#3a424d">Roles and permissions</div>
+      <div style="padding:10px 12px;color:#3a424d">Parameters</div>
+      <div style="padding:10px 12px;color:#3a424d">Change log</div>
+      <div style="padding:10px 12px;color:#3a424d">Sign-in log</div>
+      <div style="padding:10px 12px;color:#3a424d">System health</div>
+    </div>
+    <div style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h1 style="margin:0;font-size:24px;font-weight:700">TrekLink accounts</h1>
+        <a href="#new" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">New account</a>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div style="width:300px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:10px 14px;font-size:14px;color:#6b7482">Search name or email</div>
+        <div style="background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:10px 14px;font-size:14px">Status: All</div>
+        <a href="#clear" style="font-size:14px;font-weight:500;margin-left:4px">Clear filters</a>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden">
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Last sign-in</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div style="font-weight:600">Nguyen Van A <span style="font-weight:400;color:#5a6370">(you)</span></div><div style="font-size:13px;color:#5a6370">admin@treklink.vn &#183; 0901 000 111</div></td>
+              <td><span style="font-size:12px;font-weight:600;background:#e8e4f7;color:#3d2c80;border-radius:999px;padding:4px 10px">ADMIN</span></td>
+              <td><span style="font-size:12px;font-weight:600;background:#dff3e6;color:#14532d;border-radius:999px;padding:4px 10px">ACTIVE</span></td>
+              <td>21 Oct 2026, 08:02</td><td>01 Oct 2026</td>
+              <td style="text-align:right;font-size:13px;color:#8a919c">Edit &#183; <span title="">Deactivate</span></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight:600">Tran Thi B</div><div style="font-size:13px;color:#5a6370">staff1@treklink.vn &#183; 0901 234 567</div></td>
+              <td><span style="font-size:12px;font-weight:600;background:#e1ecf8;color:#123a63;border-radius:999px;padding:4px 10px">STAFF</span></td>
+              <td><span style="font-size:12px;font-weight:600;background:#dff3e6;color:#14532d;border-radius:999px;padding:4px 10px">ACTIVE</span></td>
+              <td>20 Oct 2026, 10:15</td><td>20 Oct 2026</td>
+              <td style="text-align:right;font-size:13px;font-weight:500"><a href="#e">Edit</a> &#183; <a href="#r">Send reset code</a> &#183; <a href="#d" style="color:#a8261b">Deactivate</a></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight:600">Le Van C</div><div style="font-size:13px;color:#5a6370">staff2@treklink.vn &#183; None</div></td>
+              <td><span style="font-size:12px;font-weight:600;background:#e1ecf8;color:#123a63;border-radius:999px;padding:4px 10px">STAFF</span></td>
+              <td><span style="font-size:12px;font-weight:600;background:#fff4de;color:#4a3000;border-radius:999px;padding:4px 10px">Invitation pending</span></td>
+              <td>Never</td><td>21 Oct 2026</td>
+              <td style="text-align:right;font-size:13px;font-weight:500"><a href="#e">Edit</a> &#183; <a href="#r">Send reset code</a> &#183; <a href="#d" style="color:#a8261b">Deactivate</a></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight:600;color:#5a6370">Pham Thi D</div><div style="font-size:13px;color:#5a6370">staff3@treklink.vn &#183; 0912 345 678</div></td>
+              <td><span style="font-size:12px;font-weight:600;background:#e1ecf8;color:#123a63;border-radius:999px;padding:4px 10px">STAFF</span></td>
+              <td><span style="font-size:12px;font-weight:600;background:#eceef1;color:#3a424d;border-radius:999px;padding:4px 10px">DEACTIVATED</span></td>
+              <td>02 Oct 2026, 17:40</td><td>15 Sep 2026</td>
+              <td style="text-align:right;font-size:13px;font-weight:500"><a href="#e">Edit</a> &#183; <a href="#re">Reactivate</a></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding:12px 16px;font-size:13px;color:#5a6370;display:flex;justify-content:space-between"><span>4 accounts</span><span>Page 1 of 1</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:16px;font-weight:700">New account</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 150px;gap:10px;font-size:13px">
+            <div><div style="color:#5a6370;margin-bottom:4px">Email</div><div style="border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;color:#6b7482">name@treklink.vn</div></div>
+            <div><div style="color:#5a6370;margin-bottom:4px">Full name</div><div style="border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;color:#6b7482">Full name</div></div>
+            <div><div style="color:#5a6370;margin-bottom:4px">Role</div><div style="border:1px solid #c4cad3;border-radius:8px;padding:9px 12px">STAFF</div></div>
+          </div>
+          <div style="font-size:12px;color:#5a6370">An invitation code is emailed. Nobody sets another person's password.</div>
+        </div>
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:16px;font-weight:700">Deactivate Nguyen Van A?</div>
+          <div style="background:#fdeceb;border:1px solid #e5a29c;border-radius:8px;padding:10px 12px;font-size:13px;color:#7a1c13">At least one active Admin must remain.</div>
+          <div style="font-size:13px;color:#5a6370">Sessions end at once. A reason is required.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
