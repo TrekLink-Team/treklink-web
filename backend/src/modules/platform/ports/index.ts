@@ -4,3 +4,4 @@
 // `auth`, ORGANIZATION_EXIT_CHECKS in `organizations`, CONTRACT_CLOSE_CHECKS in `rentals`. A
 // multi-provider port is injected `@Optional()` as an array, so an unprovided port is empty.
 export { MQTT_HEALTH_PROBE, type MqttHealthProbe } from '../health/mqtt-health-probe';
+export { ACCOUNT_DIRECTORY, type AccountDirectory } from './account-directory.port';

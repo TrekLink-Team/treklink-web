@@ -102,10 +102,11 @@
 
 ## Phase 3: Query / Retrieval
 
-- [ ] 3.1 Parameter list and history; audit-log query (owner KhoaDD)
+- [x] 3.1 Parameter list and history; audit-log query (owner KhoaDD)
   - **Files**: `parameter.service.ts`, `parameter.repository.ts`, `backend/src/modules/platform/audit/audit-log.service.ts`
   - **Do**: list grouped by module with current value, bounds and version; history newest first, paged; audit log filtered by organization, actor, action, subject and date range, paged
   - **Test**: paging boundaries and each filter
+  - **Done**: `ParameterReadsService` and `AuditLogService`. The list follows api-design 02: one paged list sorted by owning module then key, with an `ownerModule` filter, rather than nested groups. Actor names come through the `ACCOUNT_DIRECTORY` port that `auth` provides (design §2.1). Checked on Postgres 16 with the seed through the Nest context: history and audit rows resolve "Demo Admin", the `parameter.` action prefix matches, an unknown key is 404
   - _Requirements: UC-57, UC-58, FR-CFG-02_
   - _Story: US-UC57, US-UC58_
 

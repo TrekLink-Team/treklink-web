@@ -6,6 +6,7 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { PlatformModule } from '../platform/platform.module';
 import { AccountSessionService } from './account-session.service';
 import { AccountsRepository } from './accounts.repository';
+import { AuthPortsModule } from './auth-ports.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AbilityFactory } from './casl/ability.factory';
@@ -23,6 +24,7 @@ import { TokenService } from './token.service';
 @Module({
   imports: [
     PlatformModule,
+    AuthPortsModule,
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

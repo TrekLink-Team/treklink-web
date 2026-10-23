@@ -17,6 +17,18 @@ export const PARAMETER_SELECT = {
 
 export type ParameterRow = Prisma.BusinessParameterGetPayload<{ select: typeof PARAMETER_SELECT }>;
 
+export const HISTORY_SELECT = {
+  previousValue: true,
+  newValue: true,
+  changedById: true,
+  reason: true,
+  changedAt: true,
+} satisfies Prisma.BusinessParameterHistorySelect;
+
+export type HistoryRow = Prisma.BusinessParameterHistoryGetPayload<{
+  select: typeof HISTORY_SELECT;
+}>;
+
 type Client = Prisma.TransactionClient | PrismaService;
 
 @Injectable()
@@ -58,5 +70,38 @@ export class ParameterRepository {
     tx: Prisma.TransactionClient,
   ): Promise<void> {
     await tx.businessParameterHistory.create({ data: entry });
+  }
+
+  // One page of parameters, by owning module then key (api-design 02).
+  page(
+    where: Prisma.BusinessParameterWhereInput,
+    skip: number,
+    take: number,
+  ): Promise<[ParameterRow[], number]> {
+    return Promise.all([
+      this.prisma.businessParameter.findMany({
+        where,
+        select: PARAMETER_SELECT,
+        orderBy: [{ ownerModule: 'asc' }, { key: 'asc' }],
+        skip,
+        take,
+      }),
+      this.prisma.businessParameter.count({ where }),
+    ]);
+  }
+
+  // One page of a parameter's history, newest first (api-design 04).
+  historyPage(key: string, skip: number, take: number): Promise<[HistoryRow[], number]> {
+    const where = { key };
+    return Promise.all([
+      this.prisma.businessParameterHistory.findMany({
+        where,
+        select: HISTORY_SELECT,
+        orderBy: [{ changedAt: 'desc' }, { id: 'desc' }],
+        skip,
+        take,
+      }),
+      this.prisma.businessParameterHistory.count({ where }),
+    ]);
   }
 }
