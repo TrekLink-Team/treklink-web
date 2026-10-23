@@ -11,7 +11,7 @@ const INHERITED: Record<Role, readonly Role[]> = {
   ORG_OPERATOR: ['ORG_OPERATOR'],
 };
 
-const isRole = (value: string): value is Role => value in INHERITED;
+const isRole = (value: string): value is Role => Object.hasOwn(INHERITED, value);
 
 export const effectiveRoles = (roles: readonly string[]): Set<Role> =>
   new Set(roles.filter(isRole).flatMap((role) => INHERITED[role]));

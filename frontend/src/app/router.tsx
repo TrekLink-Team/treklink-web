@@ -4,7 +4,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
 import { SignInPage } from '../pages/SignInPage';
 import { hasAnyRole, type Role } from '../shared/lib/permissions';
-import { useAuth } from './providers/AuthProvider';
+import { useAuth } from './providers/useAuth';
 
 // Sends an anonymous visitor to sign-in and back to the page they asked for (design §2, `?next=`).
 export const RequireAuth: React.FC = () => {
@@ -29,7 +29,7 @@ const STAFF: Role[] = ['STAFF'];
 
 // Routes of specs/frontend/design.md §2. Only built pages are registered; the rest of the table is
 // added with the task that builds each page. The map routes show the interim dashboard until
-// `LiveMapPage` (task 9.1).
+// `LiveMapPage` (task 9.1), and `/o/contracts`, the Org Manager's landing route, until task 5.1.
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/" element={<DashboardPage />} />
@@ -37,6 +37,7 @@ export const AppRoutes: React.FC = () => (
     <Route element={<RequireAuth />}>
       <Route element={<RequireRole roles={ORG_OPERATOR} />}>
         <Route path="/o/map" element={<DashboardPage />} />
+        <Route path="/o/contracts" element={<DashboardPage />} />
       </Route>
       <Route element={<RequireRole roles={STAFF} />}>
         <Route path="/t/map" element={<DashboardPage />} />
