@@ -55,7 +55,7 @@
   - **Do**: flatten nested `ValidationError`s into `"<property> <constraint>; ..."` and throw `DomainException(400, VALIDATION_FAILED, message)`; `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`
   - **Test**: `validation-exception.factory.spec.ts`: one bad property, two bad properties, a nested DTO property
   - _Requirements: REQ-ERR-01, AC-03_
-- [ ] 2.3 Prisma error mapping in `GlobalExceptionFilter` (owner KhoaDD)
+- [x] 2.3 Prisma error mapping in `GlobalExceptionFilter` (owner KhoaDD)
   - **Files**: `backend/src/common/filters/http-exception.filter.ts`
   - **Do**: `PrismaClientKnownRequestError` `P2002` to 409 `CONFLICT_UNIQUE` with the target field in `message`; `P2025` to 404 `NOT_FOUND`; any other error 500 `INTERNAL_ERROR`, stack logged with the request id, message `Internal server error`
   - **Test**: extend `http-exception.filter.spec.ts` with `P2002`, `P2025`, an unknown Prisma code and a plain `Error`; assert no stack or SQL in the body

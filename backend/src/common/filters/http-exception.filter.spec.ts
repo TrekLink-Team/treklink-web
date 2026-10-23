@@ -12,6 +12,7 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../errors';
 import { GlobalExceptionFilter } from './http-exception.filter';
 
@@ -114,5 +115,67 @@ describe('GlobalExceptionFilter', () => {
     );
 
     expect(body).toMatchObject({ message: 'name must be a string, age must be a number' });
+  });
+
+  describe('Prisma errors (REQ-ERR-03, REQ-ERR-04)', () => {
+    const prismaError = (code: string, meta?: Record<string, unknown>) =>
+      new Prisma.PrismaClientKnownRequestError(
+        `Invalid prisma.user.create() invocation: SELECT "password_hash" FROM "users" failed (${code})`,
+        { code, clientVersion: '6.19.3', meta },
+      );
+
+    it('maps P2002 to 409 CONFLICT_UNIQUE naming the target field', () => {
+      const { status, body } = handle(
+        prismaError('P2002', { modelName: 'User', target: ['email'] }),
+      );
+
+      expect(status).toBe(409);
+      expect(body).toEqual({
+        result: { errorCode: 'CONFLICT_UNIQUE' },
+        isSuccess: false,
+        statusCode: 409,
+        message: 'email is already registered.',
+      });
+    });
+
+    it('names every field of a composite P2002 target', () => {
+      const { body } = handle(prismaError('P2002', { target: ['organizationId', 'serial'] }));
+
+      expect(body).toMatchObject({ message: 'organizationId, serial is already registered.' });
+    });
+
+    it('maps P2025 to 404 NOT_FOUND', () => {
+      const { status, body } = handle(
+        prismaError('P2025', { modelName: 'Device', cause: 'No record' }),
+      );
+
+      expect(status).toBe(404);
+      expect(body).toEqual({
+        result: { errorCode: 'NOT_FOUND' },
+        isSuccess: false,
+        statusCode: 404,
+        message: 'Device not found.',
+      });
+    });
+
+    it('answers an unknown Prisma code with a generic 500 and logs it', () => {
+      const { status, body } = handle(prismaError('P2034'));
+
+      expect(status).toBe(500);
+      expect(body).toEqual({
+        result: { errorCode: 'INTERNAL_ERROR' },
+        isSuccess: false,
+        statusCode: 500,
+        message: 'Internal server error',
+      });
+      expect(JSON.stringify(body)).not.toMatch(/SELECT|password_hash|prisma/);
+      expect(errorLog).toHaveBeenCalledWith(expect.stringContaining('P2034'));
+    });
+
+    it('never puts the stack or the SQL of a plain Error in the body', () => {
+      const { body } = handle(new Error('SELECT "password_hash" FROM "users"'));
+
+      expect(JSON.stringify(body)).not.toMatch(/SELECT|password_hash|at /);
+    });
   });
 });

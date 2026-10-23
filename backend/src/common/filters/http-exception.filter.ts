@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Response } from 'express';
 import { DomainException, ErrorCode } from '../errors';
 
@@ -36,11 +37,41 @@ export const errorCodeFor = (exception: HttpException): ErrorCode => {
   );
 };
 
+// Prisma errors that escape a service (REQ-ERR-03, REQ-ERR-04). A service that can name the
+// conflicting value throws its own DomainException; this is the fallback. Any other Prisma code
+// stays unmapped and becomes a logged 500, so no query detail reaches the client (REQ-ERR-02).
+export const mapPrismaError = (exception: unknown): DomainException | undefined => {
+  if (!(exception instanceof Prisma.PrismaClientKnownRequestError)) return undefined;
+  const meta = exception.meta ?? {};
+
+  if (exception.code === 'P2002') {
+    const target = meta.target;
+    const fields = Array.isArray(target)
+      ? target.join(', ')
+      : typeof target === 'string'
+        ? target
+        : 'value';
+    return new DomainException(
+      HttpStatus.CONFLICT,
+      ErrorCode.CONFLICT_UNIQUE,
+      `${fields} is already registered.`,
+    );
+  }
+
+  if (exception.code === 'P2025') {
+    const model = typeof meta.modelName === 'string' ? meta.modelName : 'Record';
+    return new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, `${model} not found.`);
+  }
+
+  return undefined;
+};
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(thrown: unknown, host: ArgumentsHost) {
+    const exception = mapPrismaError(thrown) ?? thrown;
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
