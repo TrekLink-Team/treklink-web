@@ -4,6 +4,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth';
+import { OrganizationsModule } from './modules/organizations';
 import { validate } from './modules/platform/config/environment-variables';
 import { PlatformModule } from './modules/platform/platform.module';
 
@@ -21,6 +22,7 @@ import { PlatformModule } from './modules/platform/platform.module';
     PrismaModule,
     PlatformModule,
     AuthModule,
+    OrganizationsModule,
   ],
 })
 export class AppModule {}
