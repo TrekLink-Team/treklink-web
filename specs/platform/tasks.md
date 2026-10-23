@@ -65,7 +65,7 @@
   - **Do**: take `X-Request-Id` from the request or generate a UUID; store it in an `AsyncLocalStorage`; echo it in the response header; the logger prefixes it. Body parser limit `HTTP_BODY_LIMIT`; an oversize body maps to 413 `PAYLOAD_TOO_LARGE`
   - **Test**: e2e: the header is echoed and generated when absent; a 2 MB body gets 413 with the envelope
   - _Requirements: REQ-UBI-08, REQ-ERR-07_
-- [ ] 2.5 `ParameterService` and registry (owner KhoaDD)
+- [x] 2.5 `ParameterService` and registry (owner KhoaDD)
   - **Files**: `backend/src/modules/platform/parameters/parameter.service.ts`, `parameter.repository.ts`, `parameter-registry.ts`
   - **Do**: `get<K extends ParameterKey>(key, tx?)` through a TTL cache (`PARAMETER_CACHE_TTL_SECONDS`); inside a transaction the value read first is reused for that transaction; `update(key, { value, expectedVersion, reason }, actor)`: `SELECT ... FOR UPDATE`, validate type and bounds, compare version, update the value, insert history, commit, then `parameter.changed` and `audit.record`
   - **Test**: `parameter.service.spec.ts`: bounds rejection leaves the value, stale version 409, cache hit and invalidation; `parameter-registry.spec.ts`: registry keys equal the seeded keys

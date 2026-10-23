@@ -420,9 +420,15 @@ values, for example `SEPAY_WEBHOOK_API_KEY`.
 - `ParameterService.get<K>(key)` reads through an in-memory cache with TTL `PARAMETER_CACHE_TTL_SECONDS`;
   an update invalidates the local cache at once and emits `parameter.changed`.
 - Keys, types, bounds and defaults are declared once, in `scripts/specs/catalog.py`, which generates the
-  seed migration and the [Configuration Matrix](configuration-matrix.md). The backend's
-  `platform/parameters/parameter-registry.ts` mirrors the keys as a TypeScript union so a key missing from
-  the registry cannot be read; a unit test compares the registry with the seeded rows.
+  seed migration, the [Configuration Matrix](configuration-matrix.md) and the backend's
+  `platform/parameters/parameter-registry.ts`. The registry maps each key to its declared type, so a key
+  missing from it cannot be read and `get()` returns the type's TypeScript value; a unit test compares
+  the registry with the seeded rows.
+- `ParameterService.update(key, { value, expectedVersion, reason }, actor)` locks the row
+  (`SELECT ... FOR UPDATE`), then checks in the order of `api-design/03`: 404 `NOT_FOUND`, 400
+  `PARAMETER_OUT_OF_RANGE` against the stored type and bounds, 409 `STALE_VERSION`. It writes the value
+  with `version + 1` and a history row in one transaction; `parameter.changed` and `audit.record` follow
+  the commit.
 - Contracts snapshot the price inputs they depend on at request time (FR-CFG-02), so a later change to
   `billing.holdingFeeRatio` or `billing.dayPremium` never reprices a contract.
 

@@ -48,7 +48,7 @@ Order is dependency order (`platform/design.md` Figure 3). Owners are the lanes 
 | Output | Source | Command |
 |---|---|---|
 | `*/api-design/NN-*.md`, `*/api-design/README.md` | `scripts/specs/endpoints/<module>.py` | `python3 scripts/specs/build_api_design.py [module]` |
-| `platform/configuration-matrix.md`, `auth/permission-matrix.md`, `backend/prisma/migrations/20261004120100_seed/` | `scripts/specs/catalog.py` | `python3 scripts/specs/build_seed.py` |
+| `platform/configuration-matrix.md`, `auth/permission-matrix.md`, `backend/prisma/migrations/20261004120100_seed/`, `backend/src/modules/platform/parameters/parameter-registry.ts` | `scripts/specs/catalog.py` | `python3 scripts/specs/build_seed.py` |
 | `backend/prisma/migrations/20261004120000_initial_schema/` | `backend/prisma/schema.prisma` + `backend/prisma/constraints.sql` | `backend/scripts/rebuild-baseline.sh` |
 
 Hand-written contracts under `api-design/` (lower-case names, kept by the generator): `gateway-sync` MQTT ingress, queue-health payload, Field Station local page; `monitoring` WebSocket contract; `platform` testing guide. The baseline and seed are rewritten in place only while no shared database has applied them (D-036); after that, changes are forward migrations.
