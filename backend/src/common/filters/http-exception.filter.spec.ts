@@ -66,6 +66,7 @@ describe('GlobalExceptionFilter', () => {
     [new ForbiddenException(), 403, 'FORBIDDEN'],
     [new NotFoundException('Cannot GET /api/nowhere'), 404, 'NOT_FOUND'],
     [new PayloadTooLargeException(), 413, 'PAYLOAD_TOO_LARGE'],
+    [new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS), 429, 'RATE_LIMITED'],
     [new ServiceUnavailableException(), 503, 'SERVICE_UNAVAILABLE'],
   ])('maps a Nest %p to its catalogue code', (exception, expectedStatus, expectedCode) => {
     const { status, body } = handle(exception);
@@ -81,7 +82,6 @@ describe('GlobalExceptionFilter', () => {
   it.each([
     [new ConflictException('duplicate'), 409],
     [new HttpException('I am a teapot', HttpStatus.I_AM_A_TEAPOT), 418],
-    [new HttpException('Too many requests', HttpStatus.TOO_MANY_REQUESTS), 429],
   ])('keeps the status of an uncatalogued 4xx and uses CLIENT_ERROR', (exception, expected) => {
     const { status, body } = handle(exception);
 

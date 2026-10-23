@@ -91,7 +91,7 @@
   - **Files**: `backend/src/modules/platform/ports/index.ts` re-exporting `MQTT_HEALTH_PROBE`; the other tokens live in the declaring module (`ACCOUNT_CONTEXT_PROVIDER` and `API_KEY_RESOLVER` in `auth`, `ORGANIZATION_EXIT_CHECKS` in `organizations`, `CONTRACT_CLOSE_CHECKS` in `rentals`)
   - **Do**: multi-providers injected `@Optional()` as arrays
   - _Requirements: design §2.1_
-- [ ] 2.10 `RATE_LIMITED` and `@RawResponse()` (owner KhoaDD)
+- [x] 2.10 `RATE_LIMITED` and `@RawResponse()` (owner KhoaDD)
   - **Files**: `error-code.enum.ts`, `backend/src/common/decorators/raw-response.decorator.ts`, `response.interceptor.ts`
   - **Do**: add `RATE_LIMITED` (429); the interceptor passes a `@RawResponse()` handler's body through unwrapped (the SePay webhook, D-038)
   - **Test**: interceptor spec: a raw handler returns `{ "success": true }` unchanged
