@@ -12,7 +12,7 @@
 | Requirements | [Frontend](../requirements.md): REQ-UBI-01 to REQ-UBI-05, REQ-UBI-07, REQ-UBI-09, REQ-EVT-01 to REQ-EVT-03, REQ-ERR-01, AC-02. [Incidents](../../incidents/requirements.md): REQ-EVT-05 to REQ-EVT-08, REQ-EVT-10 to REQ-EVT-12, REQ-STA-01, REQ-ERR-01 and REQ-ERR-02. |
 | Wireframe | ![Organization queue, incident detail, action forms and 360 px mobile layouts](8-1-organization-incident-queue-and-incidentdetailpage.svg) |
 
-Scope: incidents API 01 to 07 and 12 to 14. Numbers below refer to the [API index](../../incidents/api-design/README.md). Messages follow [SRS section 5.3](../../../../Documents/reports/Report3_SRS_DRAFT.md), with MSG36 from [D-057 rule 5](../../../../treklink-docs/_docs/00-project-context/03-decisions-and-risk-register.md). Ready for review means the design is submitted for discussion; the review notes are not implementation approval.
+Scope: incidents API 01 to 07 and 12 to 14. Numbers below refer to the [API index](../../incidents/api-design/README.md). Message source: Report 3 SRS, `Documents/reports/Report3_SRS_DRAFT.md` section 5.3. MSG36 follows D-057 rule 5; ordering, nested rows and acknowledgement errors follow D-059 rule 7 in the `treklink-docs` decisions register. Cross-repository sources are cited by name so their references do not become broken GitHub links. Ready for review is the status of this follow-up to the approved design.
 
 ## Layout
 
@@ -37,12 +37,12 @@ Paths are inside unwrapped `result`; list rows start at `items[]`.
 | Tier deadline / next update due | API 01/02 `tierDeadlineAt`, `statusDueAt`; derive countdown from returned timestamps. Null: "No pending deadline". Expiry refetches; it never causes a local state transition. |
 | Last known coordinates | API 01/02 `lastPosition.lat`, `lastPosition.lon`; null: "Position unavailable". Label `lastEventAt` as latest episode event, not a claimed GPS fix time. |
 | Reopen window, when returned | API 06/07 `reopenWindowEndsAt`. API 02 does not document it; after reload do not invent an expiry. |
-| Latest saved status note | [API 05](../../incidents/api-design/05-post-incidents-id-status-updates.md): mutation `note`, `createdAt`, `statusDueAt`. API 02 `statusUpdates[]` is intended history; its non-empty shape awaits H-02. Do not invent an author field. |
-| Organization's authority report collection | API 02 `authorityReports[]`; zero length: "No authority reports recorded." Nested rows await H-02. Never call Staff-only API 11 for organization roles. |
+| Status history and latest saved note | API 02 `statusUpdates[].id` as row key, `note`, `author.id`, `author.fullName`, `createdAt`, newest first. Show author and time above the wrapped note. [API 05](../../incidents/api-design/05-post-incidents-id-status-updates.md) returns the newly saved `note`, `createdAt` and `statusDueAt`; refetch API 02 for authoritative history and author. Empty: "No status updates recorded." |
+| Organization's authority report collection | API 02 `authorityReports[].id` as row key, `agency`, `reference`, `reportedAt`, `caseClosedAt`, newest first. Show agency, full reference, report time and Open/Closed derived from `caseClosedAt`; show closure time when non-null. Empty: "No authority reports recorded." Both organization roles read this list without Staff-only actions or API 11 calls. |
 | Transition trail | [API 12](../../incidents/api-design/12-get-incidents-id-transitions.md): `seq`, `fromState`, `toState`, `actor`, `reason`, `createdAt`; null origin means Created. Keep sequence order. |
 | Episode evidence | [API 13](../../incidents/api-design/13-get-incidents-id-events.md): `eventId` as key, `kind`, `observedAt`, `latitude`, `longitude`, oldest first. Coordinates remain text; Open map navigates to `/o/map` (task 9.1). |
 | Manager-only alert log | [API 14](../../incidents/api-design/14-get-incidents-id-alerts.md): `tier`, `recipient`, `channel`, `status`, `attempts`, optional `sentAt`, `lastError`. Operators neither request nor render it. Failed delivery does not mean failed transition. |
-| Pager | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Start at 20 within platform `MAX_PAGE_SIZE`. Keep server order; sorting awaits H-01. |
+| Pager and ordering | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Start at 20 within platform `MAX_PAGE_SIZE`. Keep `tierDeadlineAt` ascending, nulls last, then `firstEventAt` newest first. D-059 rule 7 deliberately provides no sort parameter; do not add client sort controls. |
 
 ## Actions
 
@@ -55,6 +55,7 @@ Paths are inside unwrapped `result`; list rows start at `items[]`.
 | Add status | API 05 `POST /api/incidents/:id/status-updates` | None | MSG03; saved note and updated deadline |
 | Report outcome | [API 06](../../incidents/api-design/06-post-incidents-id-resolve.md) `POST /api/incidents/:id/resolve` | Form says "Resolve {code}? A new SOS may reopen this incident." Submit: Resolve incident | MSG03; `RESOLVED` |
 | Declare false alarm | [API 07](../../incidents/api-design/07-post-incidents-id-false-alarm.md) `POST /api/incidents/:id/false-alarm` | Reason dialog names incident code and device tag; explicit danger submit | MSG03; `FALSE_ALARM` |
+| Status history / authority reports disclosure | Existing API 02 detail result; Refresh uses `GET /api/incidents/:id` | None; read-only collections | Rows expand, no toast |
 | Evidence disclosures / retry | API 12, 13, permitted API 14 GETs | None | Panel updates, no toast |
 | Back / Open map | `/o/incidents` / `/o/map`; destinations own GETs | Ask before discarding dirty form | No toast |
 
@@ -68,7 +69,7 @@ Paths are inside unwrapped `result`; list rows start at `items[]`.
 | `RESOLVED`, `FALSE_ALARM`, `CLOSED` | Read-only; reopen and timed closure are automatic. |
 | `DETECTED`, `UNROUTED` | No organization mutations; refresh transient `DETECTED`. Server scope controls visibility. Staff handle `UNROUTED`. |
 
-One-tap banner acknowledge immediately shows pending feedback, obtains API 02 `version` if fresh detail is unavailable, then sends API 03 with `expectedVersion`. `incident.alert` has no version (H-04). No required typing or confirmation is added. Do not automatically retry a POST after network loss; refetch before offering another deliberate attempt.
+One-tap banner acknowledge immediately shows pending feedback, obtains API 02 `version` if fresh detail is unavailable, then sends API 03 with `expectedVersion`. The alert payload has no version. API 03 checks `ALREADY_OWNED` (MSG27) before `STALE_VERSION` (MSG36), so a second member learns who took the incident. No required typing or confirmation is added. Do not automatically retry a POST after network loss; refetch before offering another deliberate attempt.
 
 ## States
 
@@ -77,7 +78,7 @@ Known `result.errorCode` maps to SRS messages; server `message` is fallback (D-0
 | State | What the user sees |
 |---|---|
 | Loading | Queue/detail skeleton, `aria-busy`; no actions until state/version are known. |
-| Empty | MSG01 "No results match your filters." plus Reset. Evidence panels use specific empty copy. |
+| Empty | MSG01 "No results match your filters." plus Reset. Status history: "No status updates recorded." Authority reports: "No authority reports recorded." Empty nested arrays do not replace the incident summary. |
 | `VALIDATION_FAILED` (400, API 01/03 to 07) | MSG02 under known invalid fields; server-only validation at form level, preserving input. |
 | `UNAUTHENTICATED` (401, all calls) | One shared silent refresh; `/sign-in` and sensitive cache/socket clear if it fails. |
 | `FORBIDDEN` (403, all calls) | MSG26 "You do not have access to this." Main-record refusal reveals no data; panel refusal hides that panel. |
@@ -85,7 +86,7 @@ Known `result.errorCode` maps to SRS messages; server `message` is fallback (D-0
 | `ALREADY_OWNED` (409, API 03) | MSG27 "{actor} took this incident at {time}." Use server message; refetch owner. Do not assume structured winner/time fields. |
 | `NOT_OWNER` (403, API 04 to 06) | MSG26 by form, retain draft, refetch owner and remove unavailable submits. |
 | `INVALID_STATE_TRANSITION` (409, API 03 to 07) | MSG28 "This cannot be done while it is {state}." Refetch and recompute actions; keep unsaved text for copying. |
-| `STALE_VERSION` (409, API 04/06/07) | MSG36 dialog: "This was changed by someone else. Reload and try again." Reload keeps input; require a new deliberate submit after reviewing state/version. API 03 coverage awaits H-04. |
+| `STALE_VERSION` (409, API 03/04/06/07) | MSG36 dialog: "This was changed by someone else. Reload and try again." Reload keeps input; require a new deliberate submit after reviewing state/version. API 03 checks `ALREADY_OWNED` first, so a losing acknowledgement uses MSG27 when another member already owns it. |
 | Network / unknown error | Server fallback or connection message, Retry for GETs. Preserve draft, check state before retrying a write; no success toast. |
 | Reconnecting | MSG32 "Reconnecting. Live data is paused." Label retained data stale until replay completes. |
 | Alert / escalation | MSG31 for a recipient SOS; MSG34 beside escalated state, with history distinguishing timeout from stale owner response. No rescue-dispatch promise. |
@@ -109,6 +110,7 @@ Queue filters: optional state enum, open boolean, device UUID and ISO datetime `
 ## Mobile, accessibility, live data
 
 - **360 px:** separate queue and detail screens are drawn at 360 px. Use 16 px side padding, full-width cards, controls at least 44 px high. State stays visible; More filters expands the Device ID, Created from, Open-only and Reset controls in one column, pushing the list down. Detail opens its route, not a narrow side panel. Alert, primary action and disclaimer precede evidence. Long text wraps; no page-level horizontal scroll.
+- **Nested detail panels:** status updates and authority reports are separate disclosures, ordered newest first as returned by API 02. Desktop expanded rows are drawn; mobile disclosures expand into full-width cards and push later evidence down. Status author/time precede note text; authority agency/reference precede reported time and Open/Closed. Full references remain available without truncation. No author, authority or case-close control is inferred from a display row.
 - **Keyboard/focus:** skip link, alert action, navigation, filters, Apply/Reset, rows, pager. Detail: Back, heading/summary, primary, secondary actions, evidence. Enter submits; Escape closes a dialog and restores its trigger. Trap modal focus below the visible alert; a Close control restores access to the banner. Announce new alerts without moving focus. After acknowledge focus owner/state summary; other actions return focus to their card. Errors focus first invalid field or form summary; dirty navigation asks before discard.
 - **Visual feedback:** text labels accompany badges and icons, including "Device silent" and Back to incidents. Pending label appears within 1 second and disables repeat submit. Respect reduced motion for pulse. Target 4.5:1 normal text and 3:1 focus contrast. Times use viewer timezone, UTC+7 default, with zone on focus/hover.
 - **Queries:** `['incidents', orgId, filters, pageNumber, pageSize]`, `['incident', orgId, incidentId]`, and `['incident', orgId, incidentId, 'transitions'|'events'|'alerts']`. Scope comes from auth; no editable organization ID. Clear cache, drafts and cursor on sign-out/account change.
@@ -117,12 +119,12 @@ Queue filters: optional state enum, open boolean, device UUID and ISO datetime `
 
 ## Review notes
 
-[H-01 to H-06](../../../docs/sessions/2026-10-23-1111-hoangtk-screen-design.md) accompany the review. This screen depends on H-01 (sorting), H-02 (nested collections), H-04 (acknowledgement errors) and H-05 (validation limits). KhoaDD decides the contract changes. No approved API or lifecycle is edited here.
+D-059 rule 7 resolves H-01, H-02 and H-04; merged spec PR #46 is reflected above. [Follow-up record](../../../docs/sessions/2026-10-23-1303-hoangtk-screen-review-fixes.md) maps the leader's PR #45 review to these changes. H-03 uses the existing report list, H-05 preserves documented validation and H-06 follows API 09's conditional transition. No endpoint, requirement or lifecycle is changed here.
 
 ## Checklist
 
 - [x] Routes, organization scope, owner restrictions and Manager-only log are stated.
-- [x] Data fields have API sources; undocumented nested rows await H-02.
+- [x] Data fields and both non-empty detail collections map to API 02, including status author and newest-first order.
 - [x] Actions, endpoints, confirmations and messages are mapped.
 - [x] Loading, empty, success and every documented error code are covered.
 - [x] Forms fit limits; acknowledge is one tap with no required visible field.
@@ -131,4 +133,4 @@ Queue filters: optional state enum, open boolean, device UUID and ISO datetime `
 - [x] Stream, replay, invalidation and cache isolation are stated.
 - [x] Use cases, FRs, requirements and stories are traced.
 - [x] Chapter 06 section 8 primary action, placement, labelled state, feedback, recovery, input preservation, time, alert priority, disclaimer and reuse are addressed.
-- [ ] Section 8 item 4 server sorting awaits H-01; no unsupported sort control is drawn.
+- [x] D-059 rule 7 governs section 8 item 4: preserve documented server order with pagination and no sort parameter/control.
