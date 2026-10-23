@@ -74,15 +74,16 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   JWT_ACCESS_SECRET!: string;
 
+  // Reserved and unused: the refresh token is opaque and stored as SHA-256 (D-060 rule 6).
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  JWT_REFRESH_SECRET!: string;
+  JWT_REFRESH_SECRET?: string;
 
   @Matches(DURATION, { message: 'JWT_ACCESS_TTL must look like 15m, 1h or 7d' })
   JWT_ACCESS_TTL = '15m';
 
   @Matches(DURATION, { message: 'JWT_REFRESH_TTL must look like 15m, 1h or 7d' })
-  JWT_REFRESH_TTL = '7d';
+  JWT_REFRESH_TTL = '14d'; // auth requirements §4 (D-060 rule 4)
 
   // Comma-separated list of allowed browser origins.
   @IsString()

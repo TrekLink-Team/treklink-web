@@ -56,8 +56,8 @@ organization account, membership through `ACCOUNT_CONTEXT_PROVIDER`:
 export const ACCOUNT_CONTEXT_PROVIDER = Symbol('ACCOUNT_CONTEXT_PROVIDER');
 export interface AccountContextProvider {
   // null for a TrekLink account or a deactivated member
-  forUser(userId: string): Promise<{ organizationId: string; memberRole: 'MANAGER' | 'OPERATOR';
-                                     organizationStatus: string } | null>;
+  forUser(userId: string): Promise<{ organizationId: string; organizationCode: string; legalName: string;
+                                     memberRole: 'MANAGER' | 'OPERATOR'; organizationStatus: string } | null>;
 }
 
 export const API_KEY_RESOLVER = Symbol('API_KEY_RESOLVER');
@@ -68,7 +68,19 @@ export interface ApiKeyResolver {
 ```
 
 Re-reading membership per request (cached 30 s, invalidated by `member.deactivated`) is what makes
-REQ-EVT-07 and REQ-STA-03 hold without waiting for the access token to expire.
+REQ-EVT-07 and REQ-STA-03 hold without waiting for the access token to expire. `organizationCode` and
+`legalName` fill `organization.code` and `organization.legalName` of the login and `me` responses (api-design
+01 and 04, D-060 rule 5). `organizations` 1.3 provides both ports.
+
+Refresh rotation is strict (D-060 rule 8): when two requests rotate one refresh token at once, the second
+loses the compare-and-set on `revokedAt` and is treated as reuse (REQ-ERR-02). The client runs one refresh at
+a time (`frontend` 1.2). Refresh returns the token pair only (api-design 02, D-060 rule 7).
+
+Lockout counting (REQ-STA-01, D-060 rule 9): a failed sign-in records `LOGIN_FAILED`, then counts the
+account's `LOGIN_FAILED` events newer than the latest of three instants: now minus
+`auth.loginFailureWindowMinutes`, the last successful sign-in, and the end of the last lock. When the count
+reaches `auth.loginMaxFailures`, that attempt sets `lockedUntil` to now plus `auth.lockoutMinutes`, records
+`ACCOUNT_LOCKED` and answers 423. While locked, an attempt answers 423 before the password is checked.
 
 `ApiKeyGuard` authenticates `X-Api-Key` into a context `{ kind: 'API_KEY', organizationId }` whose
 ability is the fixed read-only set `liveMap.read.own`, `telemetryHistory.read.own`, `incident.read.own`

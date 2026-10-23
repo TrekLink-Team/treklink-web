@@ -100,6 +100,7 @@
 
 Business parameters: the `auth` section of the [Configuration Matrix](../platform/configuration-matrix.md).
 Environment: `JWT_ACCESS_SECRET`, `JWT_ACCESS_TTL` (default `15m`), `JWT_REFRESH_TTL` (default `14d`),
+`JWT_REFRESH_SECRET` (optional, reserved and unused: the refresh token is opaque, D-060 rule 6),
 `BCRYPT_COST` (default 12), `MAIL_TRANSPORT` (`smtp` or `console`), `MAIL_FROM`, `SMTP_URL`.
 Permissions: the generated [Permission Matrix](permission-matrix.md).
 

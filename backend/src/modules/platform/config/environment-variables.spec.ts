@@ -6,7 +6,6 @@ const REQUIRED = {
     'postgresql://postgres:postgrespassword@localhost:5432/treklink?schema=public',
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
   JWT_ACCESS_SECRET: 'access-secret',
-  JWT_REFRESH_SECRET: 'refresh-secret',
 };
 
 const problemsOf = (raw: Record<string, unknown>): string[] => {
@@ -27,7 +26,7 @@ describe('validate (environment)', () => {
       NODE_ENV: 'development',
       PORT_BACKEND: 3000,
       JWT_ACCESS_TTL: '15m',
-      JWT_REFRESH_TTL: '7d',
+      JWT_REFRESH_TTL: '14d',
       CORS_ORIGINS: 'http://localhost:5173',
       HTTP_BODY_LIMIT: '1mb',
       SWAGGER_ENABLED: true,
