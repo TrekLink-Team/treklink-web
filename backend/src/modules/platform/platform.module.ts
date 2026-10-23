@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
+import { AuditLogRepository } from './audit/audit-log.repository';
+import { AuditLogService } from './audit/audit-log.service';
+import { ParameterReadsService } from './parameters/parameter-reads.service';
 import { AuditSinkListener } from './audit/audit-sink.listener';
 import { TransactionalEvents } from './events/emit-after-commit';
 import { HealthController } from './health/health.controller';
@@ -20,6 +23,9 @@ import { JobRunnerService } from './scheduler/job-runner.service';
     ParameterRepository,
     ParameterService,
     JobRunnerService,
+    ParameterReadsService,
+    AuditLogRepository,
+    AuditLogService,
   ],
   exports: [TransactionalEvents, ParameterService],
 })

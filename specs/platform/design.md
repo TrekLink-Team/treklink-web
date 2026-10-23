@@ -146,6 +146,7 @@ flowchart TB
     RENT -.->|"provides CUSTODY_RESOLVER, LOSS_CASE_LISTENERS"| DEVS
     BILL -.->|"provides LOSS_CASE_LISTENERS"| DEVS
     GWS -.->|"provides MQTT_HEALTH_PROBE"| PLT
+    AUTH -.->|"provides ACCOUNT_DIRECTORY"| PLT
 ```
 
 ***Figure 3***: Module dependencies. Every module also imports `platform`; those edges are omitted.
@@ -153,6 +154,7 @@ flowchart TB
 | Port | Declared by | Provided by | Why |
 |---|---|---|---|
 | `MQTT_HEALTH_PROBE` | platform | gateway-sync | Health reports MQTT state without importing a module (D-032) |
+| `ACCOUNT_DIRECTORY` | platform | auth | The parameter history and the audit log show the actor's full name (api-design 04 and 05); `users` belongs to `auth` |
 | `ACCOUNT_CONTEXT_PROVIDER` | auth | organizations | Sign-in puts `organizationId` and the member role into the token; membership is an organizations table |
 | `API_KEY_RESOLVER` | auth | organizations | `ApiKeyGuard` authenticates an `X-Api-Key`; keys are an organizations table |
 | `ORGANIZATION_EXIT_CHECKS` (multi) | organizations | billing, rentals | Reactivation needs no balance (billing); closing needs no open contract (rentals) |

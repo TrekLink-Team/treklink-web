@@ -72,6 +72,9 @@ REQ-EVT-07 and REQ-STA-03 hold without waiting for the access token to expire. `
 `legalName` fill `organization.code` and `organization.legalName` of the login and `me` responses (api-design
 01 and 04, D-060 rule 5). `organizations` 1.3 provides both ports.
 
+`auth` in turn provides `platform`'s `ACCOUNT_DIRECTORY` (`namesOf(userIds)`, inactive and soft-deleted accounts
+included) from `AuthPortsModule`, for the actor names of the parameter history and the audit log.
+
 Refresh rotation is strict (D-060 rule 8): when two requests rotate one refresh token at once, the second
 loses the compare-and-set on `revokedAt` and is treated as reuse (REQ-ERR-02). The client runs one refresh at
 a time (`frontend` 1.2). Refresh returns the token pair only (api-design 02, D-060 rule 7).

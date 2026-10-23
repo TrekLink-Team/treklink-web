@@ -254,4 +254,17 @@ export class AccountsRepository {
     });
     return grants.map((grant) => grant.permission);
   }
+
+  // Full names for display (the ACCOUNT_DIRECTORY port of platform). Includes inactive and
+  // soft-deleted accounts, so an old row keeps its actor (REQ-UBI-07).
+  async namesOf(
+    ids: readonly string[],
+    client: Client = this.prisma,
+  ): Promise<Map<string, string>> {
+    const rows = await client.user.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, fullName: true },
+    });
+    return new Map(rows.map((row) => [row.id, row.fullName]));
+  }
 }
