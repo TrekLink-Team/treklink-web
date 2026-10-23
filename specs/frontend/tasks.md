@@ -20,7 +20,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 ## Phase 1: Shell
 
-- [ ] 1.1 Router, auth context, role guards (owner LongNN)
+- [x] 1.1 Router, auth context, role guards (owner LongNN)
   - **Files**: `frontend/src/app/router.tsx`, `app/providers/AuthProvider.tsx`, `shared/lib/permissions.ts`
   - **Do**: the routes of design §2; a route shows only when the role holds its permission, as convenience; the query cache is cleared on sign-in and sign-out
   - **Test**: AC-01; switching accounts never shows the previous organization's cached data
