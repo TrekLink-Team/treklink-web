@@ -87,7 +87,7 @@
   - **Do**: `@ScheduledJob(name, cron)` wraps a handler: `pg_try_advisory_lock(hashtext(name))`, skip when held; log start, outcome and duration; catch and log errors so one job never stops another. Jobs read deadlines from the database. Module owners register their jobs of design §4.6 in their own module
   - **Test**: `job-runner.service.spec.ts`: lock held skips, an error is logged and the next run fires; e2e AC-09 restart resume lives in `incidents` 4.3
   - _Requirements: REQ-EVT-05, REQ-EVT-06, AC-09_
-- [ ] 2.9 Port tokens (owner KhoaDD)
+- [x] 2.9 Port tokens (owner KhoaDD)
   - **Files**: `backend/src/modules/platform/ports/index.ts` re-exporting `MQTT_HEALTH_PROBE`; the other tokens live in the declaring module (`ACCOUNT_CONTEXT_PROVIDER` and `API_KEY_RESOLVER` in `auth`, `ORGANIZATION_EXIT_CHECKS` in `organizations`, `CONTRACT_CLOSE_CHECKS` in `rentals`)
   - **Do**: multi-providers injected `@Optional()` as arrays
   - _Requirements: design §2.1_
