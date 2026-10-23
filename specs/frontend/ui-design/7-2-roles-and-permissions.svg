@@ -1,41 +1,62 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Arial, sans-serif" font-size="13">
-<title>Roles and permissions</title><rect width="1000" height="640" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/roles</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Roles and permissions</text>
-<rect x="850" y="66" width="126" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="913.0" y="84.0" font-size="13" fill="#ffffff" text-anchor="middle">Save permissions</text>
-<rect x="740" y="66" width="100" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="790.0" y="84.0" font-size="13" fill="#202124" text-anchor="middle">Discard</text>
-<rect x="24" y="120" width="230" height="300" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<rect x="32" y="130" width="214" height="48" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="44" y="150" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">ADMIN</text>
-<text x="44" y="168" font-size="11" fill="#5f6368" text-anchor="start">32 perms  System role</text>
-<rect x="32" y="186" width="214" height="48" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="44" y="206" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">STAFF</text>
-<text x="44" y="224" font-size="11" fill="#5f6368" text-anchor="start">24 perms  System role</text>
-<rect x="32" y="242" width="214" height="48" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="44" y="262" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">ORG_MANAGER</text>
-<text x="44" y="280" font-size="11" fill="#5f6368" text-anchor="start">18 perms  System role</text>
-<rect x="32" y="298" width="214" height="48" rx="3" fill="#dbeafe" stroke="#9aa0a6"/>
-<text x="44" y="318" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">ORG_OPERATOR</text>
-<text x="44" y="336" font-size="11" fill="#5f6368" text-anchor="start">9 perms  System role</text>
-<rect x="270" y="120" width="706" height="470" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="286" y="146" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">ORG_OPERATOR (ORGANIZATION)</text>
-<text x="286" y="166" font-size="12" fill="#5f6368" text-anchor="start">Inherited: none. Changes apply on the holders' next request.</text>
-<text x="286" y="196" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Incident</text>
-<text x="300" y="218" font-size="13" fill="#202124" text-anchor="start">[x] incident.read.own   Own organization only</text>
-<text x="300" y="244" font-size="13" fill="#202124" text-anchor="start">[x] incident.acknowledge.own   Own organization only</text>
-<text x="300" y="270" font-size="13" fill="#202124" text-anchor="start">[ ] incident.report.own</text>
-<text x="286" y="296" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Contract</text>
-<text x="300" y="318" font-size="13" fill="#202124" text-anchor="start">[x] contract.read.own   Own organization only</text>
-<text x="286" y="344" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Device</text>
-<text x="300" y="366" font-size="13" fill="#202124" text-anchor="start">[x] device.availability</text>
-<text x="286" y="392" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Roster</text>
-<text x="300" y="414" font-size="13" fill="#202124" text-anchor="start">[x] roster.read.own   Own organization only</text>
-<rect x="286" y="450" width="674" height="60" rx="3" fill="#fffbe6" stroke="#d4a017"/>
-<text x="298" y="472" font-size="12" fill="#202124" text-anchor="start">ADMIN: [x] role.manage (locked, required for Admin).  Dirty draft asks before leaving.</text>
-<text x="298" y="494" font-size="12" fill="#5f6368" text-anchor="start">Checkbox list: GET /api/permissions filtered by account type. Protected permissions are locked.</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800"><title>Roles and permissions</title><foreignObject x="0" y="0" width="1280" height="800"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:800px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+</style><div style="width:1280px;height:800px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Admin</span></div>
+    <div style="font-size:14px;color:#c9ced6">Nguyen Van A &#183; ADMIN</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:220px;flex:none;background:#fff;border-right:1px solid #dde1e7;padding:20px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px">
+      <div style="padding:10px 12px;color:#3a424d">Accounts</div>
+      <div style="background:#e3f1ee;color:#08493f;font-weight:600;padding:10px 12px;border-radius:8px">Roles and permissions</div>
+      <div style="padding:10px 12px;color:#3a424d">Parameters</div>
+      <div style="padding:10px 12px;color:#3a424d">Change log</div>
+      <div style="padding:10px 12px;color:#3a424d">Sign-in log</div>
+      <div style="padding:10px 12px;color:#3a424d">System health</div>
+    </div>
+    <div style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h1 style="margin:0;font-size:24px;font-weight:700">Roles and permissions</h1>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="font-size:13px;color:#5a6370">2 changes not saved</span>
+          <a href="#discard" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Discard</a>
+          <a href="#save" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">Save permissions</a>
+        </div>
+      </div>
+      <div style="display:flex;gap:20px;flex:1;min-height:0">
+        <div style="width:260px;flex:none;display:flex;flex-direction:column;gap:8px">
+          <div style="background:#fff;border:1px solid #dde1e7;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px">ADMIN</div><div style="font-size:12px;color:#5a6370;margin-top:2px">TrekLink &#183; 32 permissions &#183; system role</div></div>
+          <div style="background:#fff;border:1px solid #dde1e7;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px">STAFF</div><div style="font-size:12px;color:#5a6370;margin-top:2px">TrekLink &#183; 24 permissions &#183; system role</div></div>
+          <div style="background:#fff;border:1px solid #dde1e7;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px">ORG_MANAGER</div><div style="font-size:12px;color:#5a6370;margin-top:2px">Organization &#183; 18 permissions &#183; system role</div></div>
+          <div style="background:#e3f1ee;border:1px solid #0d6e5f;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px;color:#08493f">ORG_OPERATOR</div><div style="font-size:12px;color:#2f5f56;margin-top:2px">Organization &#183; 9 permissions &#183; system role</div></div>
+        </div>
+        <div style="flex:1;background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:24px 28px;display:flex;flex-direction:column;gap:18px;min-width:0">
+          <div>
+            <div style="font-size:18px;font-weight:700">ORG_OPERATOR</div>
+            <div style="font-size:13px;color:#5a6370;margin-top:4px">Only permissions for an organization role are listed. A change applies on the holders' next request. ORG_MANAGER also holds everything ORG_OPERATOR holds.</div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#5a6370;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px">Live map</div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">liveMap.read.own</div><div style="font-size:13px;color:#5a6370">Read the live map of the own organization</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">telemetryHistory.read.own</div><div style="font-size:13px;color:#5a6370">Read the position and telemetry history of a rented device</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#5a6370;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px">Incident</div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">incident.read.own</div><div style="font-size:13px;color:#5a6370">Read the incidents of the own organization</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">incident.respond.own</div><div style="font-size:13px;color:#5a6370">Acknowledge and update an incident</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;border:1.5px solid #8a919c;background:#fff"></div><div style="flex:1"><div style="font-size:14px;font-weight:500">[permission key]</div><div style="font-size:13px;color:#5a6370">[A permission this role does not hold yet]</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
+            </div>
+          </div>
+          <div style="border-top:1px dashed #c4cad3;padding-top:16px;display:flex;gap:16px;align-items:center;font-size:13px;color:#5a6370">
+            <div style="width:18px;height:18px;border-radius:4px;background:#9aa3af;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700;flex:none">&#10003;</div>
+            <div><b style="color:#12161c">On ADMIN, role.manage is locked.</b> A protected permission stays checked and shows "Required for Admin". Saving without it would return: The Admin role must keep role management.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
