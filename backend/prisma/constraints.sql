@@ -113,3 +113,9 @@ ALTER TABLE "maintenance_records"
   CHECK ("workBy" IS DISTINCT FROM 'VENDOR' OR "vendorName" IS NOT NULL),
   ADD CONSTRAINT "maintenance_records_firmware_on_completion"
   CHECK ("status" <> 'COMPLETED' OR "reason" <> 'FIRMWARE_UPDATE' OR "firmwareVersion" IS NOT NULL);
+
+-- billing, FR-BILL-04: one damage rate per code among the rates for every variant. The Prisma unique on
+-- ("code", "hardwareVariantId") does not apply when the variant is NULL, because NULLs are distinct.
+CREATE UNIQUE INDEX "damage_rates_one_global_code"
+  ON "damage_rates" ("code")
+  WHERE "hardwareVariantId" IS NULL;
