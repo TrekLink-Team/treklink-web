@@ -73,6 +73,30 @@ export class EnvironmentVariables {
   })
   MQTT_BROKER_URL!: string;
 
+  // MQTT_* below are owned by `gateway-sync` (specs/gateway-sync/requirements.md §4).
+  // false keeps the subscriber from connecting: the e2e suite and a backend run without a broker.
+  @Transform(toBoolean)
+  @IsBoolean()
+  MQTT_INGESTION_ENABLED = true;
+
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]+$/, { message: 'MQTT_ROOT must be one topic level such as treklink' })
+  MQTT_ROOT = 'treklink';
+
+  // A persistent session (clean: false) is keyed by the client id, so it must be stable per backend.
+  @IsString()
+  @IsNotEmpty()
+  MQTT_CLIENT_ID_BACKEND = 'treklink-backend-service';
+
+  // The subscribe-only backend credential; unset against the open local broker of docker-compose.yml.
+  @IsOptional()
+  @IsString()
+  MQTT_USERNAME?: string;
+
+  @IsOptional()
+  @IsString()
+  MQTT_PASSWORD?: string;
+
   // JWT_* are owned by `auth` and validated here (platform requirements §4).
   @IsString()
   @IsNotEmpty()
