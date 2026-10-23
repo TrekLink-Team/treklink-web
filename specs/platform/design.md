@@ -185,7 +185,10 @@ incidents). The rule:
 
 Enforcement: `backend/scripts/check-module-boundaries.js` maps each model to the module that owns it (the
 `// @module` markers of `schema.prisma`) and fails `npm run lint` when `src/modules/<a>/` references a
-model owned by `<b>`.
+model owned by `<b>`. It also reads the solid edges of Figure 3 from this file, adds the implicit edge to
+`platform`, and fails when that graph has a cycle or when a file in `src/modules/<a>/` imports from
+`src/modules/<b>/` without an `a --> b` edge. Figure 3 is therefore parsed: keep one node per line as
+`ID["module"]` and one solid edge per line as `A --> B`.
 
 ### 2.3 Domain events
 

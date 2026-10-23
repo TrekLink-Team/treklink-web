@@ -1,8 +1,10 @@
 'use strict';
 
-// Module-boundary check (specs/platform tasks.md 1.9, design §2.2, NFR-MNT-01).
+// Module-boundary check (specs/platform tasks.md 1.10 and 1.11, design §2.1 and §2.2, NFR-MNT-01).
 //
-// Each Prisma model belongs to the module whose `// @module <name>` marker precedes it in
+// Two checks.
+//
+// Model ownership. Each Prisma model belongs to the module whose `// @module <name>` marker precedes it in
 // prisma/schema.prisma. Code under src/modules/<a>/ may touch only models owned by <a>; anything
 // else goes through the owning module's exported service (04-architecture-conventions.md §1.1).
 //
@@ -11,6 +13,10 @@
 //   type      Prisma.DeviceWhereInput, Prisma.DeviceGetPayload<...>
 //   import    import { Device } from '@prisma/client'
 //   sql       FROM "devices", JOIN devices, INSERT INTO devices, UPDATE devices in raw queries
+//
+// Module dependencies. The solid edges of design Figure 3 (specs/platform/design.md) are the allowed
+// DI imports; every module may also import platform. The declared graph must be acyclic, and an import
+// from src/modules/<a>/ into src/modules/<b>/ is allowed only when Figure 3 has the edge a --> b.
 //
 // Run: node scripts/check-module-boundaries.js   (part of `npm run lint`)
 
@@ -125,6 +131,94 @@ function findViolations(files, ownership) {
   return violations;
 }
 
+const PLATFORM = 'platform';
+
+/**
+ * Reads the allowed module dependencies from the Mermaid block that Figure 3 captions.
+ * @returns {Map<string, Set<string>>} module to the modules it may import
+ */
+function readDependencyGraph(designText) {
+  const caption = designText.indexOf('***Figure 3***');
+  if (caption < 0) throw new Error('design.md: Figure 3 caption not found');
+  const start = designText.lastIndexOf('```mermaid', caption);
+  const end = designText.indexOf('```', start + '```mermaid'.length);
+  if (start < 0 || end < 0 || end > caption) {
+    throw new Error('design.md: no Mermaid block directly above Figure 3');
+  }
+  const block = designText.slice(start, end);
+
+  const names = new Map();
+  for (const m of block.matchAll(/^\s*(\w+)\["([a-z][a-z0-9-]*)"\]\s*$/gm)) names.set(m[1], m[2]);
+  const graph = new Map([...names.values()].map((n) => [n, new Set()]));
+  for (const m of block.matchAll(/^\s*(\w+)\s*-->\s*(\w+)\s*$/gm)) {
+    const [from, to] = [names.get(m[1]), names.get(m[2])];
+    if (!from || !to) throw new Error(`design.md Figure 3: edge ${m[1]} --> ${m[2]} names no node`);
+    graph.get(from).add(to);
+  }
+  if (!graph.has(PLATFORM)) throw new Error('design.md Figure 3: no platform node');
+  for (const [module, deps] of graph) if (module !== PLATFORM) deps.add(PLATFORM);
+  return graph;
+}
+
+/**
+ * @param {Map<string, Set<string>>} graph
+ * @returns {string[] | null} the modules of one cycle, first repeated last, or null
+ */
+function findCycle(graph) {
+  const state = new Map();
+  const stack = [];
+  const visit = (node) => {
+    state.set(node, 'open');
+    stack.push(node);
+    for (const next of graph.get(node) ?? []) {
+      if (state.get(next) === 'open') return [...stack.slice(stack.indexOf(next)), next];
+      if (!state.has(next)) {
+        const cycle = visit(next);
+        if (cycle) return cycle;
+      }
+    }
+    stack.pop();
+    state.set(node, 'done');
+    return null;
+  };
+  for (const node of graph.keys()) {
+    if (!state.has(node)) {
+      const cycle = visit(node);
+      if (cycle) return cycle;
+    }
+  }
+  return null;
+}
+
+/**
+ * Finds imports that cross from one module directory into another.
+ * @param {{ file: string, module: string, text: string }[]} files
+ * @param {string} modulesDir absolute path of src/modules
+ */
+function findImportEdges(files, modulesDir) {
+  const specifierRe =
+    /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)['"](\.{1,2}\/[^'"]*)['"]/gm;
+  const edges = [];
+  for (const { file, module, text } of files) {
+    for (const m of text.matchAll(specifierRe)) {
+      const target = path.relative(modulesDir, path.resolve(path.dirname(file), m[1]));
+      const [to] = target.split(path.sep);
+      if (to && to !== '..' && !path.isAbsolute(target) && to !== module) {
+        edges.push({ file, line: lineOf(text, m.index), from: module, to, specifier: m[1] });
+      }
+    }
+  }
+  return edges;
+}
+
+/**
+ * @param {ReturnType<typeof findImportEdges>} edges
+ * @param {Map<string, Set<string>>} graph
+ */
+function findUndeclaredEdges(edges, graph) {
+  return edges.filter((e) => !graph.get(e.from)?.has(e.to));
+}
+
 function collectModuleFiles(modulesDir) {
   const files = [];
   if (!fs.existsSync(modulesDir)) return files;
@@ -150,8 +244,14 @@ function main() {
   const ownership = readOwnership(
     fs.readFileSync(path.join(backend, 'prisma', 'schema.prisma'), 'utf8'),
   );
-  const files = collectModuleFiles(path.join(backend, 'src', 'modules'));
+  const modulesDir = path.join(backend, 'src', 'modules');
+  const files = collectModuleFiles(modulesDir);
   const violations = findViolations(files, ownership);
+  const graph = readDependencyGraph(
+    fs.readFileSync(path.join(backend, '..', 'specs', 'platform', 'design.md'), 'utf8'),
+  );
+  const cycle = findCycle(graph);
+  const undeclared = findUndeclaredEdges(findImportEdges(files, modulesDir), graph);
 
   for (const v of violations) {
     console.error(
@@ -159,15 +259,34 @@ function main() {
         `${v.model} owned by '${v.owner}' (${v.kind}). Use the owning module's exported service.`,
     );
   }
-  if (violations.length > 0) {
-    console.error(`Module boundary check failed: ${violations.length} violation(s).`);
+  if (cycle) {
+    console.error(`specs/platform/design.md Figure 3: dependency cycle ${cycle.join(' --> ')}.`);
+  }
+  for (const e of undeclared) {
+    console.error(
+      `${path.relative(backend, e.file)}:${e.line}: module '${e.from}' imports '${e.specifier}' ` +
+        `from '${e.to}', an edge design Figure 3 does not declare.`,
+    );
+  }
+  const failures = violations.length + undeclared.length + (cycle ? 1 : 0);
+  if (failures > 0) {
+    console.error(`Module boundary check failed: ${failures} violation(s).`);
     process.exit(1);
   }
   console.log(
-    `Module boundary check passed: ${files.length} file(s), ${ownership.size} model(s) owned.`,
+    `Module boundary check passed: ${files.length} file(s), ${ownership.size} model(s) owned, ` +
+      `${graph.size} module(s) in an acyclic graph.`,
   );
 }
 
-module.exports = { readOwnership, findViolations, collectModuleFiles };
+module.exports = {
+  readOwnership,
+  findViolations,
+  collectModuleFiles,
+  readDependencyGraph,
+  findCycle,
+  findImportEdges,
+  findUndeclaredEdges,
+};
 
 if (require.main === module) main();
