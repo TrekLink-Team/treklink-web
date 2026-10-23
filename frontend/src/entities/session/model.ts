@@ -27,6 +27,7 @@ interface SessionState {
   tokens: SessionTokens | null;
   user: SessionUser | null;
   signIn: (tokens: SessionTokens, user: SessionUser) => void;
+  setTokens: (tokens: SessionTokens) => void;
   signOut: () => void;
 }
 
@@ -36,6 +37,7 @@ export const useSession = create<SessionState>((set) => ({
   tokens: null,
   user: null,
   signIn: (tokens, user) => set({ tokens, user }),
+  setTokens: (tokens) => set({ tokens }),
   signOut: () => set({ tokens: null, user: null }),
 }));
 
