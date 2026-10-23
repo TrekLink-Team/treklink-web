@@ -23,7 +23,7 @@ Scope from the task: rentals api-design 01 and billing api-design 02; four steps
 | Minimum order quantity, as the quantity field's hint | billing 01 `result.minOrderQuantity` |
 | Holding-fee ratio, as a percentage in the quote | billing 01 `result.holdingFeeRatio` |
 | Quote: first payment, day-plan unit per day, days, total and the formula | billing 02 `result.firstPaymentVnd`, `unitPerDayVnd`, `days`, `totalVnd`, `formula` |
-| Quote for a monthly plan: term fee and first payment | billing 02 `result` for `MONTHLY`; the sample shows a `DAY` quote only, and rentals 01 `result.quote.termFeeVnd` and `firstPaymentVnd` name the monthly fields |
+| Quote for a monthly plan: term fee, first payment (the holding fee) and the formula | billing 02 `result.termFeeVnd`, `firstPaymentVnd`, `formula` for `MONTHLY` (D-059 rule 6) |
 | Organization state, for the not-active banner | auth 04 `result.organization.status` (`['me']`) |
 | After sending: the new contract's code | rentals 01 `result.code` |
 

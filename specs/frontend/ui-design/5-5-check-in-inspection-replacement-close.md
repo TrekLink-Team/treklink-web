@@ -37,7 +37,7 @@ Scope from the task: rentals api-design 14 to 17; check-in by scan (MSG07); insp
 | Inspect (device row) | reset logged, not inspected | rentals 16 `POST /api/contracts/:id/devices/:deviceId/inspection` | none | toast MSG03; the row shows the result and the device's new state |
 | Lost? (device row, still out) | device out | navigation to the loss case report of screen 4.4 | as in screen 4.4 | as in screen 4.4 |
 | Replace device (replacement tab, primary) | `ACTIVE` or `ENDING`, a faulty unit or one with an open loss case | rentals 15 `POST /api/contracts/:id/devices/:deviceId/replacement` | the Manager's signature is the confirmation | toast MSG03; the new asset tag joins the device list |
-| Close contract (close tab, primary) | `RETURNED` | rentals 17 `POST /api/contracts/:id/close` | dialog: "Close contract {code}? Holder labels are erased and nothing more can be charged." | toast MSG03; the contract shows `CLOSED` |
+| Close contract (close tab, primary) | `RETURNED` | rentals 17 `POST /api/contracts/:id/close` | dialog: "Close contract {code}? Holder labels are erased." (rentals 17, FR-CON-14) | toast MSG03; the contract shows `CLOSED` |
 
 ## States
 
