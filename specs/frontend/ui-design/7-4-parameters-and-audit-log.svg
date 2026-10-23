@@ -1,84 +1,133 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" width="1000" height="700" font-family="Arial, sans-serif" font-size="13">
-<title>Parameters and audit log</title><rect width="1000" height="700" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/parameters</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Business parameters</text>
-<text x="24" y="106" font-size="12" fill="#5f6368" text-anchor="start">Changes apply within the cache TTL. Every change is audited.</text>
-<rect x="24" y="120" width="220" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="138.0" font-size="13" fill="#5f6368" text-anchor="start">Module: All</text>
-<text x="24" y="176" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">incidents (12)  v</text>
-<rect x="24" y="188" width="830" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="32" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Key</text>
-<text x="282" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Value</text>
-<text x="382" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Range</text>
-<text x="482" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Type</text>
-<text x="582" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Changed</text>
-<text x="662" y="209.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start"></text>
-<rect x="24" y="222" width="830" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="243.0" font-size="13" fill="#202124" text-anchor="start">primaryAckTimeoutSeconds</text>
-<text x="282" y="243.0" font-size="13" fill="#202124" text-anchor="start">120 s</text>
-<text x="382" y="243.0" font-size="13" fill="#202124" text-anchor="start">30 to 900</text>
-<text x="482" y="243.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
-<text x="582" y="243.0" font-size="13" fill="#202124" text-anchor="start">20 Oct</text>
-<text x="662" y="243.0" font-size="13" fill="#202124" text-anchor="start">Edit | History | Changes</text>
-<rect x="24" y="256" width="830" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="277.0" font-size="13" fill="#202124" text-anchor="start">backupAckTimeoutSeconds</text>
-<text x="282" y="277.0" font-size="13" fill="#202124" text-anchor="start">120 s</text>
-<text x="382" y="277.0" font-size="13" fill="#202124" text-anchor="start">30 to 900</text>
-<text x="482" y="277.0" font-size="13" fill="#202124" text-anchor="start">DURATION</text>
-<text x="582" y="277.0" font-size="13" fill="#202124" text-anchor="start">02 Oct</text>
-<text x="662" y="277.0" font-size="13" fill="#202124" text-anchor="start">Edit | History | Changes</text>
-<rect x="24" y="282" width="830" height="64" rx="3" fill="#fffbe6" stroke="#d4a017"/>
-<text x="36" y="304" font-size="12" fill="#202124" text-anchor="start">Inline edit: primaryAckTimeoutSeconds  [ 90 ] s   Reason [ Faster escalation for the drill ]</text>
-<text x="36" y="326" font-size="12" fill="#5f6368" text-anchor="start">Range 30 to 900 always visible.  STALE_VERSION: dialog with Reload, input kept (MSG36).</text>
-<rect x="700" y="296" width="70" height="26" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="735.0" y="313.0" font-size="13" fill="#ffffff" text-anchor="middle">Save</text>
-<rect x="778" y="296" width="70" height="26" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="813.0" y="313.0" font-size="13" fill="#202124" text-anchor="middle">Cancel</text>
-<text x="24" y="372" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">monitoring (6)  &gt;      gatewaySync (9)  &gt;      billing (4)  &gt;</text>
-<rect x="700" y="400" width="276" height="280" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="714" y="424" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">History: primaryAckTimeout</text>
-<text x="714" y="448" font-size="12" fill="#202124" text-anchor="start">20 Oct 10:15  120 -&gt; 90</text>
-<text x="714" y="466" font-size="11" fill="#5f6368" text-anchor="start">TrekLink Admin: Faster escalation</text>
-<text x="714" y="492" font-size="12" fill="#202124" text-anchor="start">02 Oct 09:00  180 -&gt; 120</text>
-<text x="714" y="510" font-size="11" fill="#5f6368" text-anchor="start">TrekLink Admin: Seed review</text>
-<rect x="714" y="640" width="70" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="749.0" y="658.0" font-size="13" fill="#202124" text-anchor="middle">Close</text>
-<rect x="24" y="400" width="650" height="280" rx="3" fill="#fff" stroke="#9aa0a6" stroke-dasharray="5 3"/>
-<text x="40" y="424" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Change log tab (/t/admin/audit/changes?subjectId=...)</text>
-<rect x="40" y="438" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="48" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Actor</text>
-<rect x="200" y="438" width="170" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="208" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Organization: All</text>
-<rect x="380" y="438" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="388" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Subject</text>
-<rect x="510" y="438" width="120" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="518" y="456.0" font-size="13" fill="#5f6368" text-anchor="start">Action prefix</text>
-<rect x="40" y="474" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="48" y="492.0" font-size="13" fill="#5f6368" text-anchor="start">From</text>
-<rect x="200" y="474" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="208" y="492.0" font-size="13" fill="#5f6368" text-anchor="start">To</text>
-<rect x="360" y="474" width="70" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="395.0" y="492.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
-<rect x="40" y="516" width="610" height="30" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="48" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Time</text>
-<text x="158" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Actor</text>
-<text x="258" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Org</text>
-<text x="338" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Action</text>
-<text x="508" y="535.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Subject</text>
-<rect x="40" y="546" width="610" height="30" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="48" y="565.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:15</text>
-<text x="158" y="565.0" font-size="13" fill="#202124" text-anchor="start">Staff A</text>
-<text x="258" y="565.0" font-size="13" fill="#202124" text-anchor="start">ACME</text>
-<text x="338" y="565.0" font-size="13" fill="#202124" text-anchor="start">contract.approve</text>
-<text x="508" y="565.0" font-size="13" fill="#202124" text-anchor="start">RentalContract</text>
-<rect x="40" y="576" width="610" height="30" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="48" y="595.0" font-size="13" fill="#202124" text-anchor="start">20 Oct 10:20</text>
-<text x="158" y="595.0" font-size="13" fill="#202124" text-anchor="start">Admin</text>
-<text x="258" y="595.0" font-size="13" fill="#202124" text-anchor="start">-</text>
-<text x="338" y="595.0" font-size="13" fill="#202124" text-anchor="start">parameter.update</text>
-<text x="508" y="595.0" font-size="13" fill="#202124" text-anchor="start">Parameter</text>
-<text x="40" y="600" font-size="11" fill="#5f6368" text-anchor="start">Row expands to a before and after diff. Tab hidden without auditLog.read.</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1680" width="1280" height="1680"><title>Parameters and change log</title><foreignObject x="0" y="0" width="1280" height="880"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:880px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:600;color:#5a6370;padding:10px 16px;background:#eef0f3;border-bottom:1px solid #dde1e7}
+td{font-size:14px;padding:12px 16px;border-bottom:1px solid #e6e9ee;vertical-align:middle}
+</style><div style="width:1280px;height:880px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column;position:relative;overflow:hidden">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Admin</span></div>
+    <div style="font-size:14px;color:#c9ced6">Nguyen Van A &#183; ADMIN</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:220px;flex:none;background:#fff;border-right:1px solid #dde1e7;padding:20px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px">
+      <div style="padding:10px 12px;color:#3a424d">Accounts</div>
+      <div style="padding:10px 12px;color:#3a424d">Roles and permissions</div>
+      <div style="background:#e3f1ee;color:#08493f;font-weight:600;padding:10px 12px;border-radius:8px">Parameters</div>
+      <div style="padding:10px 12px;color:#3a424d">Change log</div>
+      <div style="padding:10px 12px;color:#3a424d">Sign-in log</div>
+      <div style="padding:10px 12px;color:#3a424d">System health</div>
+    </div>
+    <div style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:18px;min-width:0">
+      <div><h1 style="margin:0;font-size:24px;font-weight:700">Business parameters</h1><div style="font-size:13px;color:#5a6370;margin-top:4px">A change applies without a release, within the cache time. Every change is audited with its old and new value.</div></div>
+      <div style="display:flex;gap:12px;align-items:center"><div style="background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 14px;font-size:14px">Module: All</div><span style="font-size:13px;color:#5a6370">41 parameters</span></div>
+
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden">
+        <div style="padding:14px 16px;font-size:15px;font-weight:700;background:#fff;border-bottom:1px solid #dde1e7">incidents <span style="font-weight:500;color:#5a6370;font-size:13px">12 parameters</span></div>
+        <table>
+          <thead><tr><th style="width:290px">Key</th><th style="width:150px">Value</th><th style="width:120px">Allowed</th><th style="width:140px">Type</th><th style="width:120px">Changed</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody>
+            <tr style="background:#fbf7ec">
+              <td><div style="font-weight:600">incidents.primaryAckTimeoutSeconds</div><div style="font-size:12px;color:#5a6370;margin-top:2px;max-width:270px">How long the primary on-duty member has to acknowledge before the backup is alerted</div></td>
+              <td colspan="5">
+                <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+                  <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">New value (seconds)</div><div style="width:110px;background:#fff;border:2px solid #0d6e5f;border-radius:8px;padding:8px 12px;font-size:14px;color:#12161c">90</div></div>
+                  <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Reason, optional</div><div style="width:300px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">Faster escalation for the drill</div></div>
+                  <div style="font-size:13px;color:#3a424d;padding-bottom:9px">Allowed 30 to 900. Change from 120 to 90.</div>
+                  <a href="#save" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Save</a>
+                  <a href="#cancel" style="font-size:14px;font-weight:500;padding:10px 4px">Cancel</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td><div style="font-weight:600">incidents.backupAckTimeoutSeconds</div><div style="font-size:12px;color:#5a6370;margin-top:2px;max-width:270px">Backup tier acknowledge timeout</div></td>
+              <td style="font-weight:600">120 seconds</td><td style="color:#5a6370">30 to 900</td><td style="color:#5a6370">DURATION_SECONDS</td><td>02 Oct 2026</td>
+              <td style="text-align:right;font-size:13px;font-weight:500"><a href="#e">Edit</a> &#183; <a href="#h">History</a> &#183; <a href="#c">Changes</a></td>
+            </tr>
+            <tr>
+              <td><div style="font-weight:600">incidents.managerAckTimeoutSeconds</div><div style="font-size:12px;color:#5a6370;margin-top:2px;max-width:270px">Manager tier acknowledge timeout, then ESCALATED</div></td>
+              <td style="font-weight:600">180 seconds</td><td style="color:#5a6370">30 to 1800</td><td style="color:#5a6370">DURATION_SECONDS</td><td>Seed</td>
+              <td style="text-align:right;font-size:13px;font-weight:500"><a href="#e">Edit</a> &#183; <a href="#h">History</a> &#183; <a href="#c">Changes</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:14px 16px;font-size:15px;font-weight:700;display:flex;justify-content:space-between"><span>monitoring <span style="font-weight:500;color:#5a6370;font-size:13px">6 parameters</span></span><span style="color:#5a6370;font-weight:400">Show</span></div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:14px 16px;font-size:15px;font-weight:700;display:flex;justify-content:space-between"><span>gatewaySync <span style="font-weight:500;color:#5a6370;font-size:13px">9 parameters</span></span><span style="color:#5a6370;font-weight:400">Show</span></div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:14px 16px;font-size:15px;font-weight:700;display:flex;justify-content:space-between"><span>billing <span style="font-weight:500;color:#5a6370;font-size:13px">4 parameters</span></span><span style="color:#5a6370;font-weight:400">Show</span></div>
+    </div>
+  </div>
+
+  <div style="position:absolute;right:0;top:56px;bottom:0;width:360px;background:#fff;border-left:1px solid #dde1e7;box-shadow:-8px 0 24px rgba(18,22,28,0.10);padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:16px;font-weight:700">History</div><div style="font-size:12px;color:#5a6370;margin-top:2px">incidents.primaryAckTimeoutSeconds</div></div><a href="#close" style="font-size:14px;font-weight:500">Close</a></div>
+    <div style="border-top:1px solid #e6e9ee;padding-top:14px"><div style="font-size:14px;font-weight:600">120 to 90</div><div style="font-size:13px;color:#5a6370;margin-top:2px">20 Oct 2026, 10:15 &#183; TrekLink Admin</div><div style="font-size:13px;margin-top:4px">Faster escalation for the drill</div></div>
+    <div style="border-top:1px solid #e6e9ee;padding-top:14px"><div style="font-size:14px;font-weight:600">180 to 120</div><div style="font-size:13px;color:#5a6370;margin-top:2px">02 Oct 2026, 09:00 &#183; TrekLink Admin</div><div style="font-size:13px;margin-top:4px">[Reason]</div></div>
+    <div style="margin-top:auto;border:1px solid #e5a29c;background:#fdeceb;border-radius:10px;padding:14px;font-size:13px;color:#7a1c13;line-height:1.5"><b>If someone else saved first:</b> Someone else changed this. Reload to see the latest. Your typed value and reason stay in the form.</div>
+  </div>
+</div></div></foreignObject><foreignObject x="0" y="920" width="1280" height="760"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:760px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:600;color:#5a6370;padding:12px 16px;background:#eef0f3;border-bottom:1px solid #dde1e7}
+td{font-size:14px;padding:12px 16px;border-bottom:1px solid #e6e9ee;vertical-align:top}
+</style><div style="width:1280px;height:760px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Admin</span></div>
+    <div style="font-size:14px;color:#c9ced6">Nguyen Van A &#183; ADMIN</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:220px;flex:none;background:#fff;border-right:1px solid #dde1e7;padding:20px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px">
+      <div style="padding:10px 12px;color:#3a424d">Accounts</div>
+      <div style="padding:10px 12px;color:#3a424d">Roles and permissions</div>
+      <div style="padding:10px 12px;color:#3a424d">Parameters</div>
+      <div style="background:#e3f1ee;color:#08493f;font-weight:600;padding:10px 12px;border-radius:8px">Change log</div>
+      <div style="padding:10px 12px;color:#3a424d">Sign-in log</div>
+      <div style="padding:10px 12px;color:#3a424d">System health</div>
+    </div>
+    <div style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:18px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div><h1 style="margin:0;font-size:24px;font-weight:700">Audit</h1><div style="font-size:13px;color:#5a6370;margin-top:4px">/t/admin/audit/changes</div></div>
+        <div style="display:flex;gap:4px;background:#e4e7ec;border-radius:10px;padding:4px;font-size:14px;font-weight:600">
+          <span style="background:#fff;color:#12161c;padding:8px 18px;border-radius:7px;box-shadow:0 1px 2px rgba(0,0,0,0.12)">Change log</span>
+          <a href="#sign-ins" style="text-decoration:none;color:#3a424d;padding:8px 18px;border-radius:7px">Sign-ins</a>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#e3f1ee;border:1px solid #9fcfc5;border-radius:10px;padding:10px 14px;font-size:13px;color:#08493f">
+        Filtered to parameter incidents.primaryAckTimeoutSeconds <a href="#clear" style="margin-left:auto;font-weight:600">Clear filter</a>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Actor</div><div style="width:160px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">Any</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Organization</div><div style="width:200px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">All</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Subject type</div><div style="width:150px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">Any</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">Action starts with</div><div style="width:150px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#12161c">parameter.</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">From</div><div style="width:120px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">Any</div></div>
+        <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">To</div><div style="width:120px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px;color:#6b7482">Any</div></div>
+        <a href="#apply" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">Apply</a>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden">
+        <table>
+          <thead><tr><th style="width:170px">Time</th><th style="width:200px">Actor</th><th style="width:190px">Action</th><th>Subject</th><th style="width:130px"></th></tr></thead>
+          <tbody>
+            <tr>
+              <td>20 Oct 2026, 10:15</td><td><div style="font-weight:600">TrekLink Admin</div><div style="font-size:12px;color:#5a6370">ADMIN</div></td><td><span style="font-size:12px;font-weight:600;background:#e1ecf8;color:#123a63;border-radius:6px;padding:4px 8px">parameter.update</span></td>
+              <td>incidents.primaryAckTimeoutSeconds</td><td style="text-align:right;font-size:13px;font-weight:500"><a href="#x">Hide details</a></td>
+            </tr>
+            <tr style="background:#f9fafb"><td colspan="5" style="padding:12px 16px 16px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px">
+                <div style="background:#fdeceb;border-radius:8px;padding:12px 14px"><div style="font-size:12px;font-weight:600;color:#7a1c13;margin-bottom:4px">Before</div>value: 120</div>
+                <div style="background:#dff3e6;border-radius:8px;padding:12px 14px"><div style="font-size:12px;font-weight:600;color:#14532d;margin-bottom:4px">After</div>value: 90</div>
+              </div>
+              <div style="font-size:12px;color:#5a6370;margin-top:10px">Request id req-8f2a</div>
+            </td></tr>
+            <tr>
+              <td>02 Oct 2026, 09:00</td><td><div style="font-weight:600">TrekLink Admin</div><div style="font-size:12px;color:#5a6370">ADMIN</div></td><td><span style="font-size:12px;font-weight:600;background:#e1ecf8;color:#123a63;border-radius:6px;padding:4px 8px">parameter.update</span></td>
+              <td>incidents.primaryAckTimeoutSeconds</td><td style="text-align:right;font-size:13px;font-weight:500"><a href="#x">Show details</a></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding:12px 16px;font-size:13px;color:#5a6370;display:flex;justify-content:space-between"><span>2 entries</span><span>Page 1 of 1</span></div>
+      </div>
+      <div style="font-size:12px;color:#5a6370">This tab is hidden without the right to read the audit log. Before and after values are redacted by the server.</div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
