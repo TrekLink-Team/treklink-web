@@ -8,10 +8,7 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { AccountSessionService, SessionUser } from './account-session.service';
 import { AccountsRepository } from './accounts.repository';
-
-// Policy version carried as `pv` (specs/auth/design.md §2). Task 4.1 replaces it with the version of
-// the CASL permission cache; until then every token carries the initial version.
-export const INITIAL_POLICY_VERSION = 0;
+import { PermissionCache } from './casl/permission-cache';
 
 export interface AccessTokenPayload {
   sub: string;
@@ -19,6 +16,7 @@ export interface AccessTokenPayload {
   roles: string[];
   organizationId?: string;
   memberRole?: string;
+  // The permission cache version the token was issued under (specs/auth/design.md §2).
   pv: number;
 }
 
@@ -69,6 +67,7 @@ export class TokenService {
     private readonly accounts: AccountsRepository,
     private readonly sessions: AccountSessionService,
     private readonly events: TransactionalEvents,
+    private readonly permissions: PermissionCache,
     config: ConfigService<ValidatedEnvironment, true>,
   ) {
     this.accessTtlSeconds = durationToSeconds(config.get('JWT_ACCESS_TTL', { infer: true }));
@@ -102,7 +101,7 @@ export class TokenService {
       ...(user.organization
         ? { organizationId: user.organization.id, memberRole: user.organization.memberRole }
         : {}),
-      pv: INITIAL_POLICY_VERSION,
+      pv: this.permissions.version,
     };
 
     return {

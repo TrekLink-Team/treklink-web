@@ -8,7 +8,10 @@ import { AccountSessionService } from './account-session.service';
 import { AccountsRepository } from './accounts.repository';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AbilityFactory } from './casl/ability.factory';
+import { PermissionCache } from './casl/permission-cache';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { PoliciesGuard } from './guards/policies.guard';
 import { createMailPort } from './mail/mail.factory';
 import { MAIL_PORT } from './mail/mail.port';
 import { PasswordService } from './password.service';
@@ -39,10 +42,13 @@ import { TokenService } from './token.service';
     PasswordService,
     TokenService,
     AuthService,
+    PermissionCache,
+    AbilityFactory,
     JwtStrategy,
     JwtAuthGuard,
+    PoliciesGuard,
     { provide: MAIL_PORT, inject: [ConfigService], useFactory: createMailPort },
   ],
-  exports: [JwtAuthGuard, MAIL_PORT],
+  exports: [JwtAuthGuard, PoliciesGuard, AbilityFactory, MAIL_PORT],
 })
 export class AuthModule {}
