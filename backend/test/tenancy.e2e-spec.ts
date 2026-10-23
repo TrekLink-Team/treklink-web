@@ -1,4 +1,4 @@
-import { Controller, Get, Global, Module, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Module, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -7,8 +7,6 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import {
-  ACCOUNT_CONTEXT_PROVIDER,
-  AccountMembership,
   assertOwnOr404,
   AuthModule,
   type AuthUser,
@@ -23,7 +21,8 @@ import {
 // module does not exist yet, so a probe controller stands in for GET /api/incidents/{id} and the
 // incident list, guarded exactly as the module will be. The permission rows are the seeded
 // `incident.read` (STAFF) and `incident.read.own` (ORG_OPERATOR) of the permission matrix. The
-// incidents module replaces the probe with its own routes when it lands.
+// membership comes through the real `organizations` provider (organizations 1.3) from the stubbed
+// member row. The incidents module replaces the probe with its own routes when it lands.
 
 const INCIDENTS = [
   { id: 'incident-a', organizationId: 'org-a' },
@@ -51,27 +50,18 @@ class IncidentProbeController {
   }
 }
 
-const MEMBERSHIPS: Record<string, AccountMembership> = {
+// The live member rows, as `MembersRepository.findLiveMembership` selects them.
+const MEMBER_ROWS: Record<string, unknown> = {
   'operator-a': {
-    organizationId: 'org-a',
-    organizationCode: 'ORG-0001',
-    legalName: 'ACME Trek Co., Ltd.',
-    memberRole: 'OPERATOR',
-    organizationStatus: 'ACTIVE',
+    role: 'OPERATOR',
+    organization: {
+      id: 'org-a',
+      code: 'ORG-0001',
+      legalName: 'ACME Trek Co., Ltd.',
+      status: 'ACTIVE',
+    },
   },
 };
-
-@Global()
-@Module({
-  providers: [
-    {
-      provide: ACCOUNT_CONTEXT_PROVIDER,
-      useValue: { forUser: (userId: string) => Promise.resolve(MEMBERSHIPS[userId] ?? null) },
-    },
-  ],
-  exports: [ACCOUNT_CONTEXT_PROVIDER],
-})
-class MembershipStubModule {}
 
 @Module({ imports: [AuthModule], controllers: [IncidentProbeController] })
 class IncidentProbeModule {}
@@ -128,6 +118,10 @@ describe('tenant isolation (e2e)', () => {
       findUnique: ({ where }: { where: { id: string } }) =>
         Promise.resolve(ACCOUNTS[where.id] ?? null),
     },
+    organizationMember: {
+      findFirst: ({ where }: { where: { userId: string } }) =>
+        Promise.resolve(MEMBER_ROWS[where.userId] ?? null),
+    },
     rolePermission: {
       findMany: ({ where }: { where: { role: { key: string } } }) =>
         Promise.resolve((PERMISSIONS[where.role.key] ?? []).map((permission) => ({ permission }))),
@@ -143,7 +137,7 @@ describe('tenant isolation (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule, MembershipStubModule, IncidentProbeModule],
+      imports: [AppModule, IncidentProbeModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prisma)
