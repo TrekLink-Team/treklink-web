@@ -4,7 +4,7 @@
 <rect x="0" y="0" width="1600" height="1470" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
 <text x="28" y="38" fill="#172b26" font-family="Arial, sans-serif" font-size="26" font-weight="700">8.2  Staff incident queue</text>
 <text x="28" y="66" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Existing /t/incidents | Staff and Admin | Selected detail stays inside this route</text>
-<text x="28" y="1452" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. See Markdown for permissions and H-01 to H-06.</text>
+<text x="28" y="1452" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. D-059 rule 7 applied; see Markdown for permissions.</text>
 <rect x="28" y="92" width="1120" height="675" rx="8" fill="white" stroke="#cbd5e1"/>
 <rect x="28" y="92" width="1120" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
 <text x="44" y="126" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  TrekLink workspace</text>
@@ -35,6 +35,7 @@
 <text x="60" y="575" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Latest episode event 10:15 ICT</text>
 <rect x="362" y="566" width="176" height="44" rx="8" fill="white" stroke="#172b26"/>
 <text x="374" y="594" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Inspect incident</text>
+<text x="44" y="648" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Order: tier deadline (nulls last), then newest first event</text>
 <text x="44" y="672" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Page 1 / returned total   |   Previous / Next</text>
 <text x="44" y="711" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">No manual Create, Escalate, Reopen or Resolve control. State transitions</text>
 <text x="44" y="731" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">remain on the server.</text>
@@ -109,8 +110,8 @@
 <text x="606" y="1188" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">clears inaccessible records. MSG32 labels cached data stale.</text>
 <rect x="28" y="1273" width="1120" height="124" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="44" y="1298" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Read-only evidence and contract boundaries</text>
-<text x="44" y="1323" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Transitions, episode events and delivery attempts are GETs. Organization and contract links use returned IDs, without inventing labels. Keep server pagination/order; H-01 requests</text>
-<text x="44" y="1342" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">sorting. Reconnect and refetch never erase a dirty form.</text>
+<text x="44" y="1323" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Transitions, episode events and delivery attempts are GETs. Organization and contract links use returned IDs, without inventing labels. D-059 fixes server order with no sort parameter.</text>
+<text x="44" y="1342" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Reconnect and refetch never erase a dirty form.</text>
 <rect x="1184" y="1120" width="360" height="184" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="1200" y="1145" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Access boundary</text>
 <text x="1200" y="1170" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Organization roles receive MSG26 here. Admin inherits</text>

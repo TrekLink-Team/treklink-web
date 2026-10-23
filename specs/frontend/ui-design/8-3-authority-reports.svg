@@ -4,7 +4,7 @@
 <rect x="0" y="0" width="1600" height="1660" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
 <text x="28" y="38" fill="#172b26" font-family="Arial, sans-serif" font-size="26" font-weight="700">8.3  Authority reports</text>
 <text x="28" y="66" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Existing /t/incidents, Authority reports tab | Staff and Admin | Report recording does not contact an authority</text>
-<text x="28" y="1642" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. See Markdown for permissions and H-01 to H-06.</text>
+<text x="28" y="1642" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. D-059 rule 7 applied; see Markdown for permissions.</text>
 <rect x="28" y="92" width="1120" height="568" rx="8" fill="white" stroke="#cbd5e1"/>
 <rect x="28" y="92" width="1120" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
 <text x="44" y="126" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  TrekLink workspace</text>
@@ -31,7 +31,7 @@
 <text x="878" y="474" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="700">OPEN</text>
 <rect x="868" y="501" width="244" height="44" rx="8" fill="white" stroke="#172b26"/>
 <text x="880" y="529" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record case closed</text>
-<text x="44" y="607" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Server-paged list | Open cases first | Previous / Next</text>
+<text x="44" y="607" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Open cases first, then newest reported time | Previous / Next</text>
 <text x="44" y="635" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">No note preview: API 11 does not return note. No invented report-detail route.</text>
 <text x="1184" y="118" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">360 px / Report list</text>
 <rect x="1184" y="138" width="360" height="644" rx="8" fill="white" stroke="#cbd5e1"/>

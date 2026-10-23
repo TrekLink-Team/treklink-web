@@ -12,7 +12,7 @@
 | Requirements | [Incidents](../../incidents/requirements.md): REQ-UBI-01, REQ-EVT-09, REQ-EVT-10, REQ-ERR-01, AC-04. [Frontend](../requirements.md): REQ-UBI-01 to REQ-UBI-05, REQ-UBI-07, REQ-ERR-01. |
 | Wireframe | ![Report list, incident and contract forms, case closure and mobile layouts](8-3-authority-reports.svg) |
 
-Scope: incidents API 08 to 11, linked through [API index](../../incidents/api-design/README.md). Messages follow [SRS section 5.3](../../../../Documents/reports/Report3_SRS_DRAFT.md), with MSG36 from D-057. Ready for review is not approval of the contract questions below.
+Scope: incidents API 08 to 11, linked through [API index](../../incidents/api-design/README.md). Message source: Report 3 SRS, `Documents/reports/Report3_SRS_DRAFT.md` section 5.3. MSG36 follows D-057; report order follows D-059 rule 7 in the `treklink-docs` decisions register. Cross-repository sources are cited by name. Ready for review is the status of this follow-up to the approved design.
 
 ## Layout
 
@@ -34,7 +34,7 @@ Reuse shared forms/dialogs, pager, badges and task 8.1's Tailwind/brand tokens. 
 | Subject kind and link | API 11 `items[].incidentId` or `contractId`. Use View incident / View contract unless a separate subject GET supplies its code. `id` is the internal report action key, not an invented report code. |
 | Incident selection/heading | [API 01](../../incidents/api-design/01-get-incidents.md) and [API 02](../../incidents/api-design/02-get-incidents-id.md): `id`, `code`, `state`, `device.assetTag`, `version`. Version is hidden metadata for API 08. |
 | Contract selection/heading | [Rentals API 02](../../rentals/api-design/02-get-contracts.md), [API 03](../../rentals/api-design/03-get-contracts-id.md): `id`, `code`, `status`, `organization.legalName`. Select `status=DEFAULTED`; overdue days never substitute for this state. |
-| Pagination | API 11 `pageNumber`, `pageSize`, `totalCount`, `totalPages`; initial size 20 within `MAX_PAGE_SIZE`. Server returns open cases first. |
+| Pagination and ordering | API 11 `pageNumber`, `pageSize`, `totalCount`, `totalPages`; initial size 20 within `MAX_PAGE_SIZE`. Server returns open cases first, then `reportedAt` newest first. D-059 rule 7 provides no sort parameter; preserve that order without client sort controls. |
 | Closure result | [API 09](../../incidents/api-design/09-post-authority-reports-reportid-close-case.md): `id`, `caseClosedAt`, `incidentState` when returned. Contract report closure does not mean contract closed. |
 | Note | Request `note` in API 08/10/09. API 11 returns no note; there is no note preview or invented report-detail endpoint. |
 
@@ -93,7 +93,7 @@ At most two create steps and four visible detail fields. Entry context can skip 
 | Close, 1 | Closed at, `closedAt` | Datetime with zone | Yes | Valid datetime, API 09; temporal bounds not specified (H-05). |
 | Close, 1 | Closure note, `note` | Textarea | No | String. Report ID comes from API 11 row; API 09 has no version field. |
 
-Confirmation is embedded in create step 2 and the separate one-step close dialog. Show timezone beside the datetime control; serialize explicit offset/UTC. Enforce documented types and required fields only; H-05 requests remaining validation limits from KhoaDD.
+Confirmation is embedded in create step 2 and the separate one-step close dialog. Show timezone beside the datetime control; serialize explicit offset/UTC. Enforce documented types and required fields only. Additional limits require an approved contract change; they are not imposed by this screen.
 
 ## Mobile, accessibility, live data
 
@@ -105,7 +105,7 @@ Confirmation is embedded in create step 2 and the separate one-step close dialog
 
 ## Review notes
 
-Carry [the review-note dispositions](../../../docs/sessions/2026-10-23-1111-hoangtk-screen-design.md#review-and-submission-continuation) into the PR description. H-01 still requests a sorting ruling. H-03 uses the existing paged list, H-05 preserves documented validation, and H-06 is resolved by API 09's activity diagram and catalog steps. No generated catalog, requirement or lifecycle is modified.
+D-059 rule 7 resolves H-01: open reports first, then newest `reportedAt`, with no sort parameter. H-03 uses the existing paged list, H-05 preserves documented validation, and H-06 follows API 09's activity diagram and catalog steps. See the [follow-up record](../../../docs/sessions/2026-10-23-1303-hoangtk-screen-review-fixes.md). No generated catalog, requirement or lifecycle is modified.
 
 ## Checklist
 
@@ -119,5 +119,5 @@ Carry [the review-note dispositions](../../../docs/sessions/2026-10-23-1111-hoan
 - [x] Invalidation, stream limits and refresh fallback are stated.
 - [x] Use cases, FRs, business rules and stories are traced.
 - [x] Chapter 06 section 8 placement, primary action, labelled state, feedback, recovery, input preservation, time, alert priority and reuse are addressed.
-- [ ] Server sorting awaits H-01.
+- [x] D-059 rule 7 supplies the approved report order, without a sort parameter/control.
 - [x] H-06 follows API 09: record authority closure, and close the incident only if still `REPORTED`.

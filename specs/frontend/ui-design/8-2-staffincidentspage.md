@@ -12,7 +12,7 @@
 | Requirements | [Incidents](../../incidents/requirements.md): REQ-UBI-01 to REQ-UBI-05, REQ-EVT-01 to REQ-EVT-04, REQ-EVT-07 to REQ-EVT-09, REQ-EVT-12, REQ-STA-01, REQ-ERR-01; AC-02, AC-04, AC-09. [Frontend](../requirements.md): REQ-UBI-01 to REQ-UBI-05, REQ-EVT-01 to REQ-EVT-03, REQ-ERR-01. |
 | Wireframe | ![Staff queue, selected incident, false alarm form and mobile collapse](8-2-staffincidentspage.svg) |
 
-Scope: unrouted/escalated queue, read-only incident evidence and false alarm from `UNROUTED`. Creation, correlation, routing and escalation are automatic, with no manual Staff controls. Sources: [incidents API index](../../incidents/api-design/README.md), [lifecycle](../../incidents/design.md#2-incident-lifecycle-d-034-d-038), [SRS messages](../../../../Documents/reports/Report3_SRS_DRAFT.md), D-057 MSG36. Ready for review does not approve unresolved contract decisions.
+Scope: unrouted/escalated queue, read-only incident evidence and false alarm from `UNROUTED`. Creation, correlation, routing and escalation are automatic, with no manual Staff controls. Sources: [incidents API index](../../incidents/api-design/README.md), [lifecycle](../../incidents/design.md#2-incident-lifecycle-d-034-d-038), Report 3 SRS (`Documents/reports/Report3_SRS_DRAFT.md` section 5.3), D-057 MSG36 and D-059 rule 7 in the `treklink-docs` decisions register. Cross-repository sources are cited by name. Ready for review is the status of this follow-up to the approved design.
 
 ## Layout
 
@@ -41,7 +41,7 @@ List paths are relative to API 01 `result.items[]`; detail paths to API 02 `resu
 | Transition trail | [API 12](../../incidents/api-design/12-get-incidents-id-transitions.md): `seq`, `fromState`, `toState`, `actor`, `reason`, `createdAt`. Keep sequence order. |
 | Episode evidence | [API 13](../../incidents/api-design/13-get-incidents-id-events.md): `eventId` key, `kind`, `observedAt`, `latitude`, `longitude`, oldest first. Text coordinates; Fleet map uses `/t/map`. |
 | Alert delivery evidence | [API 14](../../incidents/api-design/14-get-incidents-id-alerts.md): `tier`, `recipient`, `channel`, `attempts`, `status`, optional `sentAt`, `lastError`. Retry failure never blocks an incident action. |
-| Pager | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Total belongs to active filters. Preserve server order; H-01 holds sorting. |
+| Pager and ordering | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Total belongs to active filters. Keep `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first (D-059 rule 7). There is no sort parameter or client sort control. |
 | Reopen window after false alarm | API 07 `reopenWindowEndsAt`; do not calculate a configured window if the GET omits it. |
 
 ## Actions
@@ -101,7 +101,7 @@ False alarm is one step with one visible field and confirmation in the same form
 
 ## Review notes
 
-[Session notes](../../../docs/sessions/2026-10-23-1111-hoangtk-screen-design.md): H-01 sorting, H-02 nested detail collections, H-05 validation limits. Staff use task 8.3 API 11 for fully documented report rows. No scope, routing, endpoint or lifecycle rule is changed.
+D-059 rule 7 resolves H-01 with the documented server order, without a sort parameter. API 02's nested rows are now specified and displayed in task 8.1; Staff authority-report workflows remain in task 8.3 using API 11. H-05 follows documented validation. See the [follow-up record](../../../docs/sessions/2026-10-23-1303-hoangtk-screen-review-fixes.md). No scope, routing, endpoint or lifecycle rule is changed.
 
 ## Checklist
 
@@ -115,4 +115,4 @@ False alarm is one step with one visible field and confirmation in the same form
 - [x] Fleet stream, keys, replay and isolation are defined.
 - [x] System stories introduce no manual create/escalate controls.
 - [x] Chapter 06 section 8 placement, primary action, labelled state, feedback, recovery, input preservation, time, alerts, disclaimer and reuse are addressed.
-- [ ] Server sorting awaits H-01; pagination preserves API order.
+- [x] D-059 rule 7 supplies the approved server order; pagination preserves it without a sort control.

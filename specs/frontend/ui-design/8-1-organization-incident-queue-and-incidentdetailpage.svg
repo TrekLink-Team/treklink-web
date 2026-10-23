@@ -4,7 +4,7 @@
 <rect x="0" y="0" width="1600" height="1620" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
 <text x="28" y="38" fill="#172b26" font-family="Arial, sans-serif" font-size="26" font-weight="700">8.1  Organization incident queue and detail</text>
 <text x="28" y="66" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Routes /o/incidents and /o/incidents/:id | Organization scope | Desktop views above, 360 px mobile below</text>
-<text x="28" y="1602" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. See Markdown for permissions and H-01 to H-06.</text>
+<text x="28" y="1602" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. D-059 rule 7 applied; see Markdown for permissions.</text>
 <rect x="28" y="92" width="630" height="598" rx="8" fill="white" stroke="#cbd5e1"/>
 <rect x="28" y="92" width="630" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
 <text x="44" y="126" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  Organization</text>
@@ -32,6 +32,7 @@
 <text x="60" y="522" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Latest episode event 10:15 ICT</text>
 <rect x="466" y="483" width="160" height="44" rx="8" fill="white" stroke="#172b26"/>
 <text x="478" y="511" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Open incident</text>
+<text x="44" y="558" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Order: tier deadline (nulls last), then newest first event</text>
 <text x="44" y="578" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Showing 1 of returned total  |  Page 1  |  Previous / Next</text>
 <rect x="44" y="602" width="598" height="72" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="60" y="627" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Emergency response</text>
@@ -57,23 +58,22 @@
 <text x="706" y="521" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Acknowledge</text>
 <rect x="895" y="493" width="191" height="44" rx="8" fill="white" stroke="#991b1b"/>
 <text x="907" y="521" fill="#991b1b" font-family="Arial, sans-serif" font-size="14" font-weight="700">Declare false alarm</text>
-<text x="1118" y="288" fill="#172b26" font-family="Arial, sans-serif" font-size="18" font-weight="700">Evidence</text>
-<rect x="1110" y="312" width="442" height="44" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
-<text x="1124" y="340" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Transitions (sequence order)</text>
-<rect x="1110" y="368" width="442" height="44" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
-<text x="1124" y="396" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Episode events (oldest first)</text>
-<rect x="1110" y="424" width="442" height="44" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
-<text x="1124" y="452" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Status history</text>
-<rect x="1110" y="480" width="442" height="44" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
-<text x="1124" y="508" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Authority reports</text>
-<rect x="1110" y="536" width="442" height="44" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
-<text x="1124" y="564" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Alert delivery (Manager only)</text>
+<text x="1118" y="288" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Status history / newest first</text>
+<rect x="1110" y="302" width="442" height="114" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="1126" y="328" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Pham Van D  |  20 Oct, 10:15 ICT</text>
+<text x="1126" y="356" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reached the holder, minor ankle injury</text>
+<text x="1118" y="446" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Authority reports / newest first</text>
+<rect x="1110" y="460" width="442" height="114" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="1126" y="486" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Lam Dong provincial rescue (114)</text>
+<text x="1126" y="513" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">LD-114-2026-1020-07</text>
+<text x="1126" y="540" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reported 20 Oct, 10:15 ICT  |  Open</text>
+<text x="1118" y="600" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Transitions / Episode events / Open map</text>
 <rect x="694" y="566" width="392" height="106" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="710" y="591" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Emergency response</text>
 <text x="710" y="616" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Use official search-and-rescue channels. Your organization</text>
 <text x="710" y="635" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">owns its response.</text>
-<text x="1118" y="621" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">No alert-log request for Operators.</text>
-<text x="1118" y="647" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Open map -&gt; existing /o/map</text>
+<text x="1118" y="628" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Alert delivery: Org Manager only</text>
+<text x="1118" y="655" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Both organization roles read these two lists.</text>
 <text x="28" y="731" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">360 px / Queue</text>
 <rect x="28" y="750" width="360" height="810" rx="8" fill="white" stroke="#cbd5e1"/>
 <rect x="28" y="750" width="360" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
@@ -124,8 +124,12 @@
 <text x="440" y="1234" fill="#991b1b" font-family="Arial, sans-serif" font-size="14" font-weight="700">Declare false alarm</text>
 <text x="428" y="1292" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Use official search-and-rescue channels. Your</text>
 <text x="428" y="1312" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">organization remains responsible for its response.</text>
-<text x="428" y="1387" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Evidence disclosures below actions</text>
-<text x="428" y="1420" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Alert log hidden for Operators</text>
+<rect x="428" y="1364" width="328" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="440" y="1392" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Status history (1)</text>
+<rect x="428" y="1424" width="328" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="440" y="1452" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Authority reports (1)</text>
+<text x="428" y="1510" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Expand for full rows; newest first</text>
+<text x="428" y="1536" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Alert log hidden for Operators</text>
 <text x="804" y="731" fill="#172b26" font-family="Arial, sans-serif" font-size="18" font-weight="700">One-step forms and recovery states</text>
 <rect x="804" y="750" width="768" height="242" rx="8" fill="white" stroke="#cbd5e1"/>
 <text x="824" y="782" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Owner response / status / outcome (separate forms)</text>
