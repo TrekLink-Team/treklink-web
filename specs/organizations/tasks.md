@@ -24,10 +24,11 @@
   - **Do**: the transition table of design §2; compare-and-set on `version` (409 `STALE_VERSION`), one `OrganizationTransition` row, `organization.statusChanged` and `audit.record` after commit; any other pair 409 `INVALID_STATE_TRANSITION`
   - **Test**: `organization-lifecycle.spec.ts`: every pair of the five states, allowed or 409
   - _Requirements: REQ-UBI-01, FR-ORG-07_
-- [ ] 1.3 Ports (owner TanNB)
+- [ ] 1.3 Ports (owner TanNB; the `ACCOUNT_CONTEXT_PROVIDER` half KhoaDD, D-060 rule 1)
   - **Files**: `backend/src/modules/organizations/ports/exit-checks.port.ts`, `providers/account-context.provider.ts`, `providers/api-key-resolver.provider.ts`
-  - **Do**: provide `ACCOUNT_CONTEXT_PROVIDER` (`forUser` returns organization, member role and status, null for TrekLink accounts) and `API_KEY_RESOLVER` (`resolve(keyHash)`, `lastUsedAt` touched at most once a minute); declare the multi-provider `ORGANIZATION_EXIT_CHECKS`
-  - **Test**: resolver ignores revoked keys; `lastUsedAt` not rewritten within a minute
+  - **Do**: provide `ACCOUNT_CONTEXT_PROVIDER` (`forUser` returns organization id, code and legal name, member role and status; null for TrekLink accounts and deactivated members, D-060 rule 5) and `API_KEY_RESOLVER` (`resolve(keyHash)`, `lastUsedAt` touched at most once a minute); declare the multi-provider `ORGANIZATION_EXIT_CHECKS`
+  - **Test**: resolver ignores revoked keys; `lastUsedAt` not rewritten within a minute; `forUser` returns null for a TrekLink account and a deactivated member
+  - **Note**: KhoaDD lands the `ACCOUNT_CONTEXT_PROVIDER` half first, in the smallest `OrganizationsModule` that can host it, so organization accounts sign in for Iteration 1; task 1.1 completes the module
   - _Requirements: design §5, REQ-EVT-09_
 
 ## Phase 2: Core Service Logic

@@ -26,7 +26,7 @@
   - _Requirements: design §5_
 - [ ] 1.2 Port tokens and interfaces (owner LongLP)
   - **Files**: `backend/src/modules/auth/ports/account-context.port.ts`, `api-key-resolver.port.ts`
-  - **Do**: `ACCOUNT_CONTEXT_PROVIDER` with `forUser(userId)` and `API_KEY_RESOLVER` with `resolve(keyHash)`, exactly as design §2; `organizations` 2.9 provides both
+  - **Do**: `ACCOUNT_CONTEXT_PROVIDER` with `forUser(userId)` and `API_KEY_RESOLVER` with `resolve(keyHash)`, exactly as design §2; `organizations` 1.3 provides both
   - _Requirements: design §2, platform design §2.1_
 - [ ] 1.3 `MailPort` with `smtp` and `console` transports (owner LongLP)
   - **Files**: `backend/src/modules/auth/mail/mail.port.ts`, `smtp.transport.ts`, `console.transport.ts`
