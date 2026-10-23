@@ -36,6 +36,6 @@
 <text x="286" y="392" font-size="12" font-weight="bold" fill="#5f6368" text-anchor="start">Roster</text>
 <text x="300" y="414" font-size="13" fill="#202124" text-anchor="start">[x] roster.read.own   Own organization only</text>
 <rect x="286" y="450" width="674" height="60" rx="3" fill="#fffbe6" stroke="#d4a017"/>
-<text x="298" y="472" font-size="12" fill="#202124" text-anchor="start">ADMIN row: role.manage checkbox is locked (ADMIN_LOCKOUT).  Dirty draft asks before leaving.</text>
-<text x="298" y="494" font-size="12" fill="#b45309" text-anchor="start">Catalogue source is open item O-2 (no endpoint lists every permission).</text>
+<text x="298" y="472" font-size="12" fill="#202124" text-anchor="start">ADMIN: [x] role.manage (locked, required for Admin).  Dirty draft asks before leaving.</text>
+<text x="298" y="494" font-size="12" fill="#5f6368" text-anchor="start">Checkbox list: GET /api/permissions filtered by account type. Protected permissions are locked.</text>
 </svg>
