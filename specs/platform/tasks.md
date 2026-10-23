@@ -24,7 +24,7 @@
   - _Requirements: REQ-UBI-07, design §3.4, D-036_
 - [x] 1.6 Seed `20261004120100_seed` generated from `scripts/specs/catalog.py` (owner KhoaDD)
   - _Requirements: REQ-UBI-06, FR-AUTH-06, NFR-CFG-02_
-- [ ] 1.7 Organization id on the audit payload (owner KhoaDD)
+- [x] 1.7 Organization id on the audit payload (owner KhoaDD)
   - **Files**: `backend/src/modules/platform/audit/audit-record.event.ts`, `audit-sink.listener.ts`
   - **Do**: add `organizationId: string | null` to `AuditRecordEvent`; the sink writes it to `audit_log.organization_id`. Members drop and recreate their local database once (D-036)
   - **Test**: `audit-sink.listener.spec.ts`: an event with and without `organizationId` persists the column as given
@@ -71,7 +71,7 @@
   - **Test**: `parameter.service.spec.ts`: bounds rejection leaves the value, stale version 409, cache hit and invalidation; `parameter-registry.spec.ts`: registry keys equal the seeded keys
   - _Requirements: REQ-UBI-06, REQ-EVT-03, REQ-STA-02, REQ-ERR-05, AC-06, FR-CFG-01, FR-CFG-02_
   - _Story: US-UC57_
-- [ ] 2.6 Audit sink (owner KhoaDD)
+- [x] 2.6 Audit sink (owner KhoaDD)
   - **Files**: `backend/src/modules/platform/audit/audit-sink.listener.ts`, `redact.ts`
   - **Do**: listen to `audit.record`; redact the keys of design §4.5 in `before` and `after`; insert with actor, roles, organization, action, subject, request id; on failure log the whole entry and return without rethrowing
   - **Test**: `redact.spec.ts` for every listed key, nested; `audit-sink.listener.spec.ts`: a failing insert does not throw

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditSinkListener } from './audit/audit-sink.listener';
 import { TransactionalEvents } from './events/emit-after-commit';
 import { HealthController } from './health/health.controller';
 import { HealthService } from './health/health.service';
@@ -7,7 +8,7 @@ import { HealthService } from './health/health.service';
 // (specs/platform/requirements.md §1, "Depends on").
 @Module({
   controllers: [HealthController],
-  providers: [HealthService, TransactionalEvents],
+  providers: [HealthService, TransactionalEvents, AuditSinkListener],
   exports: [TransactionalEvents],
 })
 export class PlatformModule {}
