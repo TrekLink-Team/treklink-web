@@ -27,7 +27,7 @@ Scope from the task: auth api-design 01, 05, 06, 07; one message for wrong crede
 
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
-| Sign in (`/sign-in`, primary) | auth 01 `POST /api/auth/login` | none | none; the user lands on the page that sent them to sign-in (`?next=`, same-origin paths only), otherwise `/o/map` for an organization account and `/t/map` for a TrekLink account |
+| Sign in (`/sign-in`, primary) | auth 01 `POST /api/auth/login` | none | none; landing per `specs/frontend/design.md` §2 (D-059 rule 1): the page that sent them to sign-in (`?next=`, same-origin paths only) wins; otherwise the Org Manager lands on `/o/contracts` until the `/o` dashboard (task 5.6) exists, the Org Operator on `/o/map`, TrekLink Staff and Admin on `/t/map` |
 | Forgot password? (link) | navigation to `/forgot` | none | none |
 | Send code (`/forgot`, primary) | auth 05 `POST /api/auth/password/forgot` | none | info panel with the auth 05 `message`; the link "I have a code: enter it" opens `/reset` with the email carried in router state, never in the URL |
 | Reset password (`/reset`, primary) | auth 06 `POST /api/auth/password/reset` | none | `/sign-in` with an info banner showing the auth 06 `message` ("Password changed"); every other session of the account is signed out by the server (REQ-EVT-05) |
@@ -42,10 +42,10 @@ Scope from the task: auth api-design 01, 05, 06, 07; one message for wrong crede
 | Loading | The primary button shows its pending state at once and stays disabled until the server answers (chapter 06 §8.5) |
 | Empty | Not applicable: no lists |
 | Error `VALIDATION_FAILED` (400, auth 01, 05, 06, 07) | MSG02 under the field the server names |
-| Error `INVALID_CREDENTIALS` (401, auth 01) | MSG09 in line above the form; one message for an unknown email, a wrong password or an inactive account (REQ-ERR-01) |
+| Error `INVALID_CREDENTIALS` (401, auth 01) | MSG09 in line above the form; one message for an unknown email, a wrong password, an inactive account or a member of a `CLOSED` or `REJECTED` organization (REQ-ERR-01, D-059 rule 2) |
 | Error `ACCOUNT_LOCKED` (423, auth 01) | The server's `message` in line above the form ("Too many attempts. Try again in 15 minutes."); SRS §5.3 has no code for it, so the server wording is the fallback |
 | Error `OTP_COOLDOWN` (429, auth 05) | The server's `message` in line under "Send code" ("Please wait a minute before requesting another code."); no SRS code exists |
-| Error `CODE_INVALID` (400, auth 06, 07) | MSG08 under the code field |
+| Error `CODE_INVALID` (400, auth 06, 07) | MSG08 under the code field. On `/welcome`, "Request a new one" links to `/forgot`, which sends a new `SET_PASSWORD` code to an account that never set a password (auth 05, D-059 rule 6) |
 | Error `PASSWORD_POLICY` (400, auth 06, 07) | MSG02 under the password field, with the minimum `auth.passwordMinLength` (8) |
 | Confirm field differs (browser only) | MSG02 style text under the confirm field, "Passwords do not match."; the request is not sent |
 | Not found or forbidden | Not applicable: public pages. A signed-in user is redirected to the landing route |

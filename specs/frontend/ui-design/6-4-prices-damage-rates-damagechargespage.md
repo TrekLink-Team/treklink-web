@@ -49,7 +49,7 @@ On a charge the viewer inspected, the row shows "Another Admin must decide" in p
 | Error `EFFECTIVE_IN_PAST` (400, billing 04) | MSG02 style text under Effective from: the server's `message` ("effectiveFrom must not be in the past.") |
 | Error `CONFLICT_UNIQUE` (409, billing 06) | MSG10 under Code, with the code |
 | Error `INVALID_STATE_TRANSITION` (409, billing 17) | MSG28 with the charge's state; the queue refetches (another Admin decided first) |
-| Inspector decides own charge (billing requirements REQ-ERR-03, 403 `SEPARATION_OF_DUTY`) | MSG30 dialog; the control is hidden, so only a forced request reaches it |
+| Error `SEPARATION_OF_DUTY` (403, billing 17) | MSG30 dialog ("A different Admin must approve this charge."); the control is hidden, so only a forced request reaches it |
 | Not found or forbidden | `NOT_FOUND` (404, billing 07, 17) or `FORBIDDEN` (403): MSG26 |
 | Success | Toast MSG03; the section refetches |
 

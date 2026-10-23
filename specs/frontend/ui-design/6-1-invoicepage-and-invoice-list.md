@@ -8,7 +8,7 @@
 | Status | Ready for review |
 | Routes | `/o/invoices` and `/o/invoices/:id` (organization); the invoice tab of `/t/billing` with the same detail in a side panel (TrekLink) (`specs/frontend/design.md` §2) |
 | Roles | Org Manager: the organization's invoices, Pay with SePay. TrekLink Staff and Admin: every organization's invoices with the organization column, Record counter payment (screen 6.3). Org Operator: MSG26 (billing 08 and 09 grant no Operator access). |
-| Use case, FRs, story | UC-55, UC-45; FR-BILL-06, FR-AUTH-11, NFR-UI-03; US-UC55 |
+| Use case, FRs, story | UC-55, UC-45, UC-19 (starting a payment); FR-BILL-06, FR-BILL-07, FR-AUTH-11, NFR-UI-03; US-UC55 |
 | Requirements | `specs/billing/requirements.md` REQ-UBI-02, REQ-UBI-04, REQ-EVT-02, REQ-EVT-03, REQ-STA-02; `specs/frontend/requirements.md` REQ-UBI-08 |
 | Wireframe | ![InvoicePage and invoice list](6-1-invoicepage-and-invoice-list.svg) |
 
@@ -20,11 +20,11 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 |---|---|
 | List: number, kind and term, contract, status, total, paid, issued | billing 08 `items[].number`, `kind`, `term.seq`, `contract.code`, `status`, `totalVnd`, `paidVnd`, `issuedAt` |
 | List paging | billing 08 `pageNumber`, `pageSize`, `totalCount`, `totalPages` |
-| Organization (TrekLink list only) | billing 08 `items[].organizationId`, shown by code from the cached organizations list (screen 3.2) |
+| Organization (TrekLink list and detail only) | billing 08 `items[].organization.code`; billing 09 `organization.code` |
 | Detail header | billing 09 `number`, `status`, `kind`, `term.seq`, `contract.code`, `issuedAt`, `totalVnd`, `paidVnd` |
 | Lines: number, type, description, quantity, unit, amount, due date, paid | billing 09 `lines[].seq`, `type`, `description`, `quantity`, `unitVnd`, `amountVnd`, `dueAt`, `paidVnd` |
-| Line status, derived on the client | Paid when `paidVnd` equals `amountVnd`; Overdue when `dueAt` is past and not paid; Due now when `dueAt` is today or past; else Due later |
-| Payments: reference, method, amount, status, sandbox label, confirmed | billing 09 `payments[].reference`, `method`, `amountVnd`, `status`, `isSandbox`, `confirmedAt` |
+| Line status, derived on the client; the first matching rule wins | 1. Paid when `paidVnd` equals `amountVnd`; 2. Overdue when `dueAt` is before today; 3. Due now when `dueAt` is today; 4. Due later |
+| Payments: reference, method, amount, status, sandbox label, confirmed | billing 09 `payments[].id`, `reference`, `method`, `amountVnd`, `status`, `isSandbox`, `confirmedAt` |
 
 ## Actions
 
@@ -32,7 +32,8 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 |---|---|---|---|---|
 | Filter by contract, status, overdue only | always | billing 08 `GET /api/invoices?contractId=&status=&overdue=` | none | none |
 | Open an invoice (row) | always | billing 09 `GET /api/invoices/:id` | none | none |
-| Pay with SePay (detail, primary) | Org Manager, an unpaid amount is due now | navigation to `/o/pay/:paymentId` after billing 11 creates the payment (screen 6.2) | none | none |
+| Pay with SePay (detail, primary) | Org Manager, an unpaid amount is due now | billing 11 `POST /api/invoices/:id/payments/sepay`, then navigation to `/o/pay/:paymentId` (screen 6.2) | none | none |
+| Open the waiting payment (payment row, and after `PAYMENT_PENDING`) | Org Manager, a `PENDING` SePay payment on the invoice | navigation to `/o/pay/:paymentId` with billing 09 `payments[].id` of that payment (screen 6.2) | none | none |
 | Record counter payment (detail) | TrekLink Staff or Admin, an unpaid line | opens the form of screen 6.3 for this invoice | none | none |
 | Contract link | always | navigation to the contract (screen 5.2) | none | none |
 
@@ -43,8 +44,10 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 | Loading | List skeleton rows; detail header and line table skeletons |
 | Empty | No invoices: "No invoices yet. Invoices appear when TrekLink approves a contract." With a filter: MSG01 |
 | Error `VALIDATION_FAILED` (400, billing 08) | MSG02 next to the filter the server names; the filters reset |
+| Error `NOTHING_DUE` (409, billing 11) | The server's `message` ("This invoice has nothing to pay.") in line above the lines; the invoice refetches (D-059 rule 3) |
+| Error `PAYMENT_PENDING` (409, billing 11) | The server's `message` ("A payment for this invoice is already waiting. Use its QR code."); the page opens that payment at `/o/pay/:paymentId`, taking its id from billing 09 `payments[]` (the `PENDING` SePay row) |
 | Error `UNAUTHENTICATED` (401) | `apiClient` refreshes once and retries, else `/sign-in` (frontend REQ-EVT-02) |
-| Not found or forbidden | `NOT_FOUND` (404, billing 09) or `FORBIDDEN` (403): MSG26 full page; another organization's invoice answers 404 (auth REQ-ERR-06) |
+| Not found or forbidden | `NOT_FOUND` (404, billing 09, 11) or `FORBIDDEN` (403): MSG26 full page; another organization's invoice answers 404 (auth REQ-ERR-06) |
 | Sandbox payment | Amber `SANDBOX` label on the payment row, never in a tooltip (NFR-UI-03, chapter 06 §8.10) |
 | Success | The list and the detail show the server's figures; a payment made elsewhere shows after refetch |
 
@@ -67,9 +70,9 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked by the owner before review.
 
 - [x] Route and roles match `design.md` §2; Org Operator gets MSG26
-- [x] Data: every field names billing 08 or 09; line status rule stated
-- [x] Actions: filters, open, pay (screen 6.2), counter payment (screen 6.3)
-- [x] States: loading, empty, every error code of billing 08 and 09, 403 and 404, sandbox label
+- [x] Data: every field names billing 08 or 09; line status rule stated, first match wins
+- [x] Actions: filters, open, pay (billing 11, then screen 6.2), open a waiting payment, counter payment (screen 6.3)
+- [x] States: loading, empty, every error code of billing 08, 09 and 11 (`NOTHING_DUE`, `PAYMENT_PENDING` here, where the payment is created), 403 and 404, sandbox label
 - [x] Forms: filter fields with type and rule
 - [x] Mobile: 360 px layout described
 - [x] Accessibility: focus on open, text status labels, VND and timezone formatting
