@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="560" viewBox="0 0 1040 560" font-family="sans-serif" font-size="12" role="img" aria-label="Members and roster wireframe">
+<title>Members and roster wireframe</title>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<rect x="0" y="0" width="1040" height="48" fill="#1f2d3d" stroke="#1f2d3d"/><text fill="#ffffff" x="8" y="29" font-size="12">TrekLink   Organization administration</text>
+
+<rect x="24" y="64" width="100" height="30" fill="#2b5fab"/><text x="74" y="84" text-anchor="middle" fill="#ffffff" font-size="12">Members</text>
+<rect x="124" y="64" width="100" height="30" fill="#e6e6e6"/><text x="174" y="84" text-anchor="middle" font-size="12">Roster</text>
+<rect x="124" y="64" width="100" height="30" fill="#e6e6e6" stroke="#2b5fab" stroke-dasharray="3,2"/><text x="174" y="97" text-anchor="middle" font-size="9">(Operator sees this tab only)</text>
+
+<rect x="900" y="68" width="116" height="30" rx="4" fill="#2b5fab"/><text x="958" y="88" text-anchor="middle" fill="#ffffff" font-size="11">Invite member</text>
+
+<rect x="24" y="112" width="992" height="24" fill="#e6e6e6" stroke="#888"/><text x="32" y="128" font-size="11" font-weight="bold">Name</text><text x="340" y="128" font-size="11" font-weight="bold">Email</text><text x="640" y="128" font-size="11" font-weight="bold">Role</text><text x="820" y="128" font-size="11" font-weight="bold">Status</text>
+<rect x="24" y="136" width="992" height="26" fill="#ffffff" stroke="#cccccc"/><text x="32" y="153" font-size="11">Nguyen Van A</text><text x="340" y="153" font-size="11">manager@acme-trek.vn</text><text x="640" y="153" font-size="11">MANAGER</text><text x="820" y="153" font-size="11">Active</text>
+<rect x="24" y="162" width="992" height="26" fill="#ffffff" stroke="#cccccc"/><text x="32" y="179" font-size="11">Pham Van D</text><text x="340" y="179" font-size="11">operator@acme-trek.vn</text><text x="640" y="179" font-size="11">OPERATOR</text><text x="820" y="179" font-size="11">Invitation pending</text><rect x="900" y="166" width="100" height="18" fill="#ffffff" stroke="#888"/><text x="950" y="179" text-anchor="middle" font-size="9">Deactivate</text>
+
+<rect x="24" y="210" width="992" height="320" fill="#fafafa" stroke="#888"/>
+<text x="36" y="234" font-size="13" font-weight="bold">Roster, week of 2026-10-20</text>
+<rect x="880" y="220" width="112" height="28" rx="4" fill="#2b5fab"/><text x="936" y="239" text-anchor="middle" fill="#ffffff" font-size="11">Add shift</text>
+
+<rect x="36" y="252" width="960" height="28" fill="#ffffff" stroke="#cccccc"/><text x="44" y="270" font-size="11">Mon 00:00-12:00   Primary Pham Van D   Backup (none)</text>
+<rect x="36" y="282" width="960" height="28" fill="#fff8e1" stroke="#c9a227"/><text x="44" y="300" font-size="11">Mon 12:00-Tue 00:00   NO PRIMARY, alerts start at the backup tier (MSG22)</text>
+<rect x="36" y="312" width="960" height="28" fill="#ffffff" stroke="#cccccc"/><text x="44" y="330" font-size="11">Tue 00:00-12:00   Primary Nguyen Van A   Backup Pham Van D</text>
+
+<text x="36" y="372" font-size="12" font-weight="bold">Add / edit shift dialog</text>
+<text x="44" y="394" font-size="11">Starts at [ 2026-10-20 00:00 ]   Ends at [ 2026-10-20 12:00 ]</text>
+<text x="44" y="416" font-size="11">Primary [ Pham Van D v ]   Backup [ (none) v ]</text>
+<rect x="44" y="432" width="90" height="28" rx="4" fill="#2b5fab"/><text x="89" y="451" text-anchor="middle" fill="#ffffff" font-size="11">Save</text>
+<rect x="142" y="432" width="90" height="28" rx="4" fill="#ffffff" stroke="#888"/><text x="187" y="451" text-anchor="middle" font-size="11">Cancel</text>
+</svg>

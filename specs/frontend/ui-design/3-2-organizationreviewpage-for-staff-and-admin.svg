@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620" font-family="sans-serif" font-size="12" role="img" aria-label="OrganizationReviewPage wireframe">
+<title>OrganizationReviewPage wireframe</title>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<rect x="0" y="0" width="1040" height="48" fill="#1f2d3d" stroke="#1f2d3d"/><text fill="#ffffff" x="8" y="29" font-size="12">TrekLink   Organizations</text>
+
+<text x="24" y="84" font-size="18" font-weight="bold">Organizations</text>
+<rect x="24" y="100" width="70" height="24" rx="12" fill="#2b5fab"/><text x="59" y="117" text-anchor="middle" fill="#ffffff" font-size="11">Pending</text>
+<rect x="100" y="100" width="60" height="24" rx="12" fill="#e6e6e6"/><text x="130" y="117" text-anchor="middle" font-size="11">Active</text>
+<rect x="166" y="100" width="76" height="24" rx="12" fill="#e6e6e6"/><text x="204" y="117" text-anchor="middle" font-size="11">Suspended</text>
+<rect x="690" y="98" width="330" height="28" fill="#ffffff" stroke="#888"/><text x="700" y="117" font-size="11" fill="#888">Q Search name, code or tax code</text>
+
+<rect x="24" y="136" width="420" height="24" fill="#e6e6e6" stroke="#888"/><text x="32" y="153" font-size="11" font-weight="bold">Code</text><text x="130" y="153" font-size="11" font-weight="bold">Legal name</text><text x="330" y="153" font-size="11" font-weight="bold">Status</text>
+<rect x="24" y="160" width="420" height="26" fill="#eef4ff" stroke="#2b5fab"/><text x="32" y="177" font-size="11">ORG-0007</text><text x="130" y="177" font-size="11">ACME Trek Co., Ltd.</text><text x="330" y="177" font-size="11">PENDING</text>
+<rect x="24" y="186" width="420" height="26" fill="#ffffff" stroke="#cccccc"/><text x="32" y="203" font-size="11">ORG-0005</text><text x="130" y="203" font-size="11">Viet Trail JSC</text><text x="330" y="203" font-size="11">ACTIVE</text>
+<rect x="24" y="212" width="420" height="26" fill="#ffffff" stroke="#cccccc"/><text x="32" y="229" font-size="11">ORG-0003</text><text x="130" y="229" font-size="11">Highland Expeditions</text><text x="330" y="229" font-size="11">SUSPENDED</text>
+
+<rect x="460" y="136" width="556" height="460" fill="#fafafa" stroke="#888"/>
+<text x="476" y="162" font-size="14" font-weight="bold">ORG-0007   ACME Trek Co., Ltd.</text>
+<rect x="840" y="146" width="70" height="22" rx="11" fill="#2b5fab"/><text x="875" y="161" text-anchor="middle" fill="#ffffff" font-size="10">PENDING</text>
+<text x="476" y="186" font-size="11">Tax code 0312345678   Address 12 Nguyen Hue, D1, HCMC</text>
+<text x="476" y="204" font-size="11">Channel key v1   Members 4   Running contracts 1   Open incidents 0</text>
+
+<text x="476" y="236" font-size="12" font-weight="bold">Verification (Staff)</text>
+<text x="476" y="254" font-size="11">Method  IN_PERSON     Master contract ref  MC-2026-0007</text>
+<text x="476" y="270" font-size="11">[x] NDA signed   [x] Software licence signed</text>
+<rect x="476" y="282" width="150" height="28" rx="4" fill="#ffffff" stroke="#2b5fab"/><text x="551" y="301" text-anchor="middle" fill="#2b5fab" font-size="11">Record verification</text>
+
+<text x="476" y="330" font-size="12" font-weight="bold">Decision (Admin)</text>
+<rect x="476" y="340" width="110" height="30" rx="4" fill="#2b5fab"/><text x="531" y="360" text-anchor="middle" fill="#ffffff" font-size="11">Approve</text>
+<rect x="596" y="340" width="100" height="30" rx="4" fill="#ffffff" stroke="#b33"/><text x="646" y="360" text-anchor="middle" fill="#b33" font-size="11">Reject</text>
+
+<text x="476" y="396" font-size="12" font-weight="bold">Lifecycle (Admin)</text>
+<rect x="476" y="406" width="100" height="28" rx="4" fill="#ffffff" stroke="#888"/><text x="526" y="425" text-anchor="middle" font-size="11">Suspend</text>
+<rect x="586" y="406" width="100" height="28" rx="4" fill="#ffffff" stroke="#888"/><text x="636" y="425" text-anchor="middle" font-size="11">Reactivate</text>
+<rect x="696" y="406" width="80" height="28" rx="4" fill="#ffffff" stroke="#888"/><text x="736" y="425" text-anchor="middle" font-size="11">Close</text>
+
+<text x="476" y="458" font-size="12" font-weight="bold">Channel key (Staff, see 3-6)</text>
+<text x="476" y="476" font-size="11">Version 1   Exposed: no</text>
+<rect x="476" y="486" width="130" height="28" rx="4" fill="#ffffff" stroke="#888"/><text x="541" y="505" text-anchor="middle" font-size="11">Rotate key</text>
+
+<text x="476" y="540" font-size="12" font-weight="bold">Transition history</text>
+<text x="476" y="560" font-size="11">(none) to PENDING   Guest   2026-10-20</text>
+</svg>
