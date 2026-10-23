@@ -45,6 +45,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 - [ ] 2.1 Sign-in, forgot, reset, welcome (set password) (owner LongLP)
   - **Do**: auth api-design 01, 05, 06, 07; one message for wrong credentials (MSG09); code errors MSG08; landing after sign-in per `design.md` §2 (D-059 rule 1)
+  - **Done**: the sign-in page at `/sign-in` with the landing rule, in treklink-web#48 and the same-origin `next` check of #50; forgot, reset and welcome are open
   - _Story: US-UC08, US-UC09_
 - [ ] 2.2 Account menu: profile and change password (owner LongLP)
   - **Do**: auth api-design 04 and 08
