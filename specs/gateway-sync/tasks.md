@@ -22,7 +22,7 @@
   - _Requirements: REQ-UBI-05, design §2_
 - [ ] 1.2 Golden fixtures (owner KhoaDD)
   - **Files**: `backend/test/fixtures/mqtt/*.json`
-  - **Do**: captured stock JSON from real v2, v3 and v4 devices for text, `SOS - `, `SOS - FALL DETECTED`, position, telemetry and `treklink_queue_health`, per `mqtt-ingress-contract.md` and `queue-health-payload.md`
+  - **Do**: captured stock JSON from real v2, v3 and v4 devices for text, `SOS - `, `SOS - FALL DETECTED`, position, telemetry and `treklink_queue_health`, per `mqtt-ingress-contract.md` and `queue-health-payload.md`; give the rented devices TL-0009 and TL-0010 of `backend/prisma/seed-demo.ts` the captured node numbers, so a replay lands on contract RC-2026-0001 (platform 1.12)
   - _Requirements: REQ-UBI-05, FR-EVT-10_
 
 ## Phase 2: Ingestion
