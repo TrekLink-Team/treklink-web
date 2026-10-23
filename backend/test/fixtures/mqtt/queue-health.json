@@ -1,0 +1,36 @@
+{
+  "description": "Stage B treklink_queue_health report (MeshPacketSerializer.cpp PRIVATE_APP case); stored by gateway-sync 2.6",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834576218,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "treklink_queue_health",
+        "sender": "!de000009",
+        "payload": {
+          "schema": "treklink.queue_health",
+          "v": 1,
+          "uptime_s": 3600,
+          "capacity": 64,
+          "depth": [0, 0, 1, 2],
+          "enqueued": [0, 4, 30, 60],
+          "published": [0, 4, 29, 58],
+          "shed": [0, 0, 0, 0],
+          "p0_refused": 0,
+          "flash_write_failed": 0,
+          "restore_discarded": 0,
+          "flash_bytes": 2048,
+          "flash_budget": 65536
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    }
+  ]
+}

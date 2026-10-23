@@ -1,0 +1,24 @@
+{
+  "description": "TL-0010 fall SOS without a fix, \"SOS - FALL DETECTED - [No GPS]\" (TrekLinkSOSHelper.h:20)",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de00000a",
+      "message": {
+        "id": 2201000002,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724541962,
+        "channel": 0,
+        "type": "text",
+        "sender": "!de00000a",
+        "payload": {
+          "text": "SOS - FALL DETECTED - [No GPS]"
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    }
+  ]
+}

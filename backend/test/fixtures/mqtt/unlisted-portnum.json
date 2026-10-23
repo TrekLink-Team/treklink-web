@@ -1,0 +1,21 @@
+{
+  "description": "A PortNum the serializer does not list: empty type and no payload key (FGT section 4); ignored",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834576217,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "",
+        "sender": "!de000009",
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    }
+  ]
+}

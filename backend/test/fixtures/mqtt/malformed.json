@@ -1,0 +1,9 @@
+{
+  "description": "A message that is not JSON: MALFORMED_ENVELOPE, consumption continues",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "raw": "{\"id\": 1834576219, \"from\": "
+    }
+  ]
+}

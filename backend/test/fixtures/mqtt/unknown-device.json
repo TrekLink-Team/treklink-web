@@ -1,0 +1,27 @@
+{
+  "description": "A node number no device carries: UNKNOWN_DEVICE, quarantined",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de0000ff",
+      "message": {
+        "id": 3000000001,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724542207,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de0000ff",
+        "payload": {
+          "time": 1792724400,
+          "latitude_i": 115544000,
+          "longitude_i": 1085381000,
+          "altitude": 1320
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    }
+  ]
+}

@@ -1,0 +1,269 @@
+{
+  "description": "TL-0009 walking about 25 m every 30 s: twelve plotted positions for the fleet map",
+  "messages": [
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577000,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724400,
+          "latitude_i": 115544000,
+          "longitude_i": 1085381000,
+          "altitude": 1320
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577001,
+        "timestamp": 1792724430,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724430,
+          "latitude_i": 115545600,
+          "longitude_i": 1085382200,
+          "altitude": 1322
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577002,
+        "timestamp": 1792724460,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724460,
+          "latitude_i": 115547200,
+          "longitude_i": 1085383400,
+          "altitude": 1324
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577003,
+        "timestamp": 1792724490,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724490,
+          "latitude_i": 115548800,
+          "longitude_i": 1085384600,
+          "altitude": 1326
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577004,
+        "timestamp": 1792724520,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724520,
+          "latitude_i": 115550400,
+          "longitude_i": 1085385800,
+          "altitude": 1328
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577005,
+        "timestamp": 1792724550,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724550,
+          "latitude_i": 115552000,
+          "longitude_i": 1085387000,
+          "altitude": 1330
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577006,
+        "timestamp": 1792724580,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724580,
+          "latitude_i": 115553600,
+          "longitude_i": 1085388200,
+          "altitude": 1332
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577007,
+        "timestamp": 1792724610,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724610,
+          "latitude_i": 115555200,
+          "longitude_i": 1085389400,
+          "altitude": 1334
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577008,
+        "timestamp": 1792724640,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724640,
+          "latitude_i": 115556800,
+          "longitude_i": 1085390600,
+          "altitude": 1336
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577009,
+        "timestamp": 1792724670,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724670,
+          "latitude_i": 115558400,
+          "longitude_i": 1085391800,
+          "altitude": 1338
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577010,
+        "timestamp": 1792724700,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724700,
+          "latitude_i": 115560000,
+          "longitude_i": 1085393000,
+          "altitude": 1340
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    },
+    {
+      "topic": "treklink/2/json/LongFast/!de000009",
+      "message": {
+        "id": 1834577011,
+        "timestamp": 1792724730,
+        "to": 4294967295,
+        "from": 3724541961,
+        "channel": 0,
+        "type": "position",
+        "sender": "!de000009",
+        "payload": {
+          "time": 1792724730,
+          "latitude_i": 115561600,
+          "longitude_i": 1085394200,
+          "altitude": 1342
+        },
+        "rssi": -97,
+        "snr": 6.25,
+        "hops_away": 0,
+        "hop_start": 3
+      }
+    }
+  ]
+}
