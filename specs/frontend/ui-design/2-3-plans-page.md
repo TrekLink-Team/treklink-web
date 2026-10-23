@@ -56,7 +56,7 @@ The page changes nothing on the server. Quoting a specific order happens after s
 | State | What the user sees |
 |---|---|
 | Loading | Three variant-card skeletons and the disclaimer already visible (it is static) |
-| Empty | No active variants: MSG01 is worded for filtered lists and does not fit a public catalogue, so the panel reads "No plans are open right now. Contact TrekLink at the counter." (copy to confirm, open item O-6); the disclaimer and how-it-works stay |
+| Empty | No active variants: the panel reads "No plans are available right now. Contact TrekLink to ask about renting." with "Contact TrekLink" linking to the footer contact details. Screen copy, no MSG code (D-057 rule 6); the disclaimer and how-it-works stay |
 | Error `INTERNAL_ERROR` or network failure | Panel with the server `message` (or "The prices could not be loaded." when none) and a Retry button. The disclaimer and how-it-works stay visible. |
 | Error `VALIDATION_FAILED`, `UNAUTHENTICATED`, `FORBIDDEN` | Not returned: the endpoint takes no input and is public |
 | Not found or forbidden | MSG26 does not apply to the public route |
