@@ -77,7 +77,7 @@
   - **Test**: `redact.spec.ts` for every listed key, nested; `audit-sink.listener.spec.ts`: a failing insert does not throw
   - _Requirements: REQ-EVT-02, REQ-UBI-09, REQ-ERR-06, AC-07_
   - _Story: US-UC58_
-- [ ] 2.7 `emitAfterCommit` (owner KhoaDD)
+- [x] 2.7 `emitAfterCommit` (owner KhoaDD)
   - **Files**: `backend/src/modules/platform/events/emit-after-commit.ts`
   - **Do**: queue events on the transaction context and emit them through `EventEmitter2` only after `$transaction` resolves; outside a transaction emit at once
   - **Test**: a rolled-back transaction emits nothing; a committed one emits once

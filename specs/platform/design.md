@@ -175,8 +175,9 @@ incidents). The rule:
 
 - A service method that may take part in a caller's transaction accepts an optional last parameter
   `tx?: Prisma.TransactionClient` and uses `tx ?? this.prisma`.
-- Only the module that **starts** the business operation opens `prisma.$transaction`. Callees never open
-  their own.
+- Only the module that **starts** the business operation opens the transaction, through
+  `TransactionalEvents.transaction(work)` (`platform/events/emit-after-commit.ts`), which wraps
+  `prisma.$transaction` and queues the domain events of §2.3. Callees never open their own.
 - A callee still queries **only its own tables**, even when handed a `tx`. The transaction client is a
   connection, not a licence to reach into another module's tables.
 - Row locks a callee needs on its own rows are taken by the callee through an exported method, for
@@ -188,7 +189,10 @@ model owned by `<b>`.
 
 ### 2.3 Domain events
 
-Emitted **after commit** through `emitAfterCommit`, never inside a transaction that may still roll back.
+Emitted **after commit** through `TransactionalEvents.emitAfterCommit(name, payload)`, never inside a
+transaction that may still roll back. Inside `transaction()` the event is queued and emitted once the
+transaction resolves; a rollback discards it; outside a transaction it is emitted at once. A listener that
+throws is logged and the remaining events still go out.
 Delivery never gates the business write. Alert delivery is not an event: it is the `incidents` outbox
 (D-034 rule 3), because an alert must survive a restart.
 
