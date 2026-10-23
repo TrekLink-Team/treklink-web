@@ -1,66 +1,74 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Arial, sans-serif" font-size="13">
-<title>Reports</title><rect width="1000" height="640" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/reports</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Reports</text>
-<rect x="850" y="66" width="126" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="913.0" y="84.0" font-size="13" fill="#202124" text-anchor="middle">Download CSV</text>
-<rect x="24" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="94.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Utilization</text>
-<rect x="174" y="112" width="140" height="20" rx="10" fill="#dbeafe" stroke="#9aa0a6"/>
-<text x="244.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Revenue</text>
-<rect x="324" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="394.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Overdue contracts</text>
-<rect x="474" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="544.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Lost units</text>
-<rect x="624" y="112" width="140" height="20" rx="10" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="694.0" y="126" font-size="11" fill="#202124" text-anchor="middle">Incident times</text>
-<rect x="24" y="152" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="170.0" font-size="13" fill="#5f6368" text-anchor="start">From 2026-10-01</text>
-<rect x="184" y="152" width="150" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="192" y="170.0" font-size="13" fill="#5f6368" text-anchor="start">To 2026-10-31</text>
-<rect x="344" y="152" width="70" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="379.0" y="170.0" font-size="13" fill="#ffffff" text-anchor="middle">Apply</text>
-<rect x="424" y="152" width="110" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="479.0" y="170.0" font-size="13" fill="#202124" text-anchor="middle">This month</text>
-<rect x="544" y="152" width="110" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="599.0" y="170.0" font-size="13" fill="#202124" text-anchor="middle">Last month</text>
-<rect x="24" y="200" width="760" height="34" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="32" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Variant</text>
-<text x="252" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Invoiced (VND)</text>
-<text x="432" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Paid (VND)</text>
-<text x="612" y="221.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Outstanding (VND)</text>
-<rect x="24" y="234" width="760" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="255.0" font-size="13" fill="#202124" text-anchor="start">treklink-v3</text>
-<text x="252" y="255.0" font-size="13" fill="#202124" text-anchor="start">18,000,000</text>
-<text x="432" y="255.0" font-size="13" fill="#202124" text-anchor="start">13,500,000</text>
-<text x="612" y="255.0" font-size="13" fill="#202124" text-anchor="start">4,500,000</text>
-<rect x="24" y="268" width="760" height="34" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="289.0" font-size="13" fill="#202124" text-anchor="start">Total</text>
-<text x="252" y="289.0" font-size="13" fill="#202124" text-anchor="start">18,000,000</text>
-<text x="432" y="289.0" font-size="13" fill="#202124" text-anchor="start">13,500,000</text>
-<text x="612" y="289.0" font-size="13" fill="#202124" text-anchor="start">4,500,000</text>
-<rect x="24" y="296" width="760" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="40" y="320" font-size="12" fill="#5f6368" text-anchor="start">Revenue by variant (bar chart; the table above is the text equivalent)</text>
-<rect x="60" y="340" width="300" height="26" rx="3" fill="#93c5fd" stroke="#9aa0a6"/>
-<text x="366" y="358" font-size="11" fill="#202124" text-anchor="start">Invoiced</text>
-<rect x="60" y="372" width="225" height="26" rx="3" fill="#1a56db" stroke="#9aa0a6"/>
-<text x="291" y="390" font-size="11" fill="#202124" text-anchor="start">Paid</text>
-<text x="24" y="476" font-size="12" fill="#5f6368" text-anchor="start">1 row, generated 10:15. Download uses the server CSV (format=csv). Period at most 366 days (MSG35).</text>
-<rect x="24" y="500" width="952" height="120" rx="3" fill="#fff" stroke="#9aa0a6" stroke-dasharray="5 3"/>
-<text x="40" y="524" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">Incident times tab: four tiles for the selected organization row, then a table per organization</text>
-<rect x="40" y="536" width="215" height="70" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="52" y="558" font-size="11" fill="#5f6368" text-anchor="start">Acknowledge median</text>
-<text x="52" y="590" font-size="18" font-weight="bold" fill="#202124" text-anchor="start">42 s</text>
-<rect x="270" y="536" width="215" height="70" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="282" y="558" font-size="11" fill="#5f6368" text-anchor="start">Acknowledge P95</text>
-<text x="282" y="590" font-size="18" font-weight="bold" fill="#202124" text-anchor="start">118 s</text>
-<rect x="500" y="536" width="215" height="70" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="512" y="558" font-size="11" fill="#5f6368" text-anchor="start">Resolve median</text>
-<text x="512" y="590" font-size="18" font-weight="bold" fill="#202124" text-anchor="start">14 min</text>
-<rect x="730" y="536" width="215" height="70" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="742" y="558" font-size="11" fill="#5f6368" text-anchor="start">Resolve P95</text>
-<text x="742" y="590" font-size="18" font-weight="bold" fill="#202124" text-anchor="start">47 min</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960"><title>Reports</title><foreignObject x="0" y="0" width="1280" height="960"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:960px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:600;color:#5a6370;padding:10px 16px;background:#eef0f3;border-bottom:1px solid #dde1e7}
+td{font-size:14px;padding:11px 16px;border-bottom:1px solid #e6e9ee}
+</style><div style="width:1280px;height:960px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Staff</span></div>
+    <div style="display:flex;gap:28px;font-size:14px;color:#c9ced6"><span>Fleet map</span><span>Contracts</span><span>Fleet</span><span style="color:#fff;font-weight:600">Reports</span></div>
+    <div style="font-size:14px;color:#c9ced6">Tran Thi B &#183; STAFF</div>
+  </div>
+  <div style="padding:28px 32px;display:flex;flex-direction:column;gap:18px;flex:1;min-height:0">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h1 style="margin:0;font-size:24px;font-weight:700">Reports</h1>
+      <a href="#csv" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Download CSV</a>
+    </div>
+    <div style="display:flex;gap:4px;background:#e4e7ec;border-radius:10px;padding:4px;font-size:14px;font-weight:600;align-self:flex-start">
+      <span style="color:#3a424d;padding:8px 16px">Utilization</span>
+      <span style="background:#fff;color:#12161c;padding:8px 16px;border-radius:7px;box-shadow:0 1px 2px rgba(0,0,0,0.12)">Revenue</span>
+      <span style="color:#3a424d;padding:8px 16px">Overdue</span>
+      <span style="color:#3a424d;padding:8px 16px">Lost units</span>
+      <span style="color:#3a424d;padding:8px 16px">Incident times</span>
+    </div>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">From</div><div style="width:140px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px">01 Oct 2026</div></div>
+      <div style="font-size:12px;color:#5a6370"><div style="margin-bottom:4px">To</div><div style="width:140px;background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 12px;font-size:14px">31 Oct 2026</div></div>
+      <a href="#a" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">Apply</a>
+      <a href="#tm" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:500;font-size:13px;padding:9px 14px;border-radius:8px">This month</a>
+      <a href="#lm" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:500;font-size:13px;padding:9px 14px;border-radius:8px">Last month</a>
+      <a href="#l30" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:500;font-size:13px;padding:9px 14px;border-radius:8px">Last 30 days</a>
+      <span style="font-size:12px;color:#5a6370;padding-bottom:10px">At most 366 days.</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:15px;font-weight:700">Revenue by variant</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:13px;font-weight:600">treklink-v3</div>
+          <div style="display:flex;align-items:center;gap:10px"><div style="width:62px;font-size:12px;color:#5a6370">Invoiced</div><div style="height:22px;width:360px;background:#9fcfc5;border-radius:4px"></div><div style="font-size:12px">18,000,000</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><div style="width:62px;font-size:12px;color:#5a6370">Paid</div><div style="height:22px;width:270px;background:#0d6e5f;border-radius:4px"></div><div style="font-size:12px">13,500,000</div></div>
+        </div>
+        <div style="font-size:12px;color:#5a6370">Amounts in VND. The table is the text equivalent.</div>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden;align-self:flex-start">
+        <table>
+          <thead><tr><th>Variant</th><th style="text-align:right">Invoiced</th><th style="text-align:right">Paid</th><th style="text-align:right">Outstanding</th></tr></thead>
+          <tbody>
+            <tr><td>treklink-v3</td><td style="text-align:right">18,000,000</td><td style="text-align:right">13,500,000</td><td style="text-align:right">4,500,000</td></tr>
+            <tr style="background:#f5f6f8;font-weight:700"><td>Total</td><td style="text-align:right">18,000,000</td><td style="text-align:right">13,500,000</td><td style="text-align:right">4,500,000</td></tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 16px;font-size:12px;color:#5a6370">1 row, generated 10:15</div>
+      </div>
+    </div>
+    <div style="border-top:1px dashed #c4cad3;padding-top:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;font-weight:600;color:#5a6370">Incident times tab, for the organization row selected in the table below</div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:14px 18px"><div style="font-size:12px;color:#5a6370">Acknowledge, median</div><div style="font-size:26px;font-weight:700;margin-top:4px">42 s</div></div>
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:14px 18px"><div style="font-size:12px;color:#5a6370">Acknowledge, P95</div><div style="font-size:26px;font-weight:700;margin-top:4px">118 s</div></div>
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:14px 18px"><div style="font-size:12px;color:#5a6370">Resolve, median</div><div style="font-size:26px;font-weight:700;margin-top:4px">14 min</div></div>
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:14px 18px"><div style="font-size:12px;color:#5a6370">Resolve, P95</div><div style="font-size:26px;font-weight:700;margin-top:4px">47 min</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden">
+        <table>
+          <thead><tr><th>Organization</th><th style="text-align:right">Incidents</th><th style="text-align:right">Ack median</th><th style="text-align:right">Ack P95</th><th style="text-align:right">Resolve median</th><th style="text-align:right">Resolve P95</th></tr></thead>
+          <tbody>
+            <tr style="background:#e3f1ee"><td style="font-weight:600">ACME Trek Co., Ltd.</td><td style="text-align:right">12</td><td style="text-align:right">42 s</td><td style="text-align:right">118 s</td><td style="text-align:right">14 min</td><td style="text-align:right">47 min</td></tr>
+            <tr><td>[Organization]</td><td style="text-align:right">[n]</td><td style="text-align:right">[s]</td><td style="text-align:right">[s]</td><td style="text-align:right">[min]</td><td style="text-align:right">[min]</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
