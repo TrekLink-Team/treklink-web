@@ -127,7 +127,13 @@ describe('TokenService', () => {
         aSessionUser({
           accountType: 'ORGANIZATION',
           roles: ['ORG_OPERATOR'],
-          organization: { id: 'org-1', status: 'ACTIVE', memberRole: 'OPERATOR' },
+          organization: {
+            id: 'org-1',
+            code: 'ORG-0001',
+            legalName: 'ACME Trek Co., Ltd.',
+            status: 'ACTIVE',
+            memberRole: 'OPERATOR',
+          },
         }),
         CLIENT,
         tx,
@@ -142,7 +148,7 @@ describe('TokenService', () => {
     it('rotates within the family, chains the old token and records the refresh', async () => {
       accounts.findRefreshTokenByHash.mockResolvedValue(liveToken());
 
-      const { tokens, user } = await service.refresh('rt_presented', CLIENT);
+      const tokens = await service.refresh('rt_presented', CLIENT);
 
       expect(accounts.findRefreshTokenByHash).toHaveBeenCalledWith(hashToken('rt_presented'));
       expect(accounts.createRefreshToken).toHaveBeenCalledWith(
@@ -154,8 +160,12 @@ describe('TokenService', () => {
         expect.objectContaining({ type: AuthEventType.TOKEN_REFRESHED, userId: 'user-1' }),
         tx,
       );
-      expect(tokens.accessToken).toBe('access.jwt');
-      expect(user.id).toBe('user-1');
+      expect(tokens).toEqual({
+        accessToken: 'access.jwt',
+        accessTokenExpiresIn: 900,
+        refreshToken: expect.stringMatching(/^rt_/) as string,
+        refreshTokenExpiresIn: 1_209_600,
+      });
     });
 
     it.each([
