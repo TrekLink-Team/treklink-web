@@ -82,9 +82,9 @@
   - **Do**: queue events on the transaction context and emit them through `EventEmitter2` only after `$transaction` resolves; outside a transaction emit at once
   - **Test**: a rolled-back transaction emits nothing; a committed one emits once
   - _Requirements: design §2.3_
-- [ ] 2.8 Scheduler host (owner KhoaDD)
+- [x] 2.8 Scheduler host (owner KhoaDD)
   - **Files**: `backend/src/modules/platform/scheduler/scheduled-job.decorator.ts`, `job-runner.service.ts`
-  - **Do**: `@ScheduledJob(name, cron)` wraps a handler: `pg_try_advisory_lock(hashtext(name))`, skip when held; log start, outcome and duration; catch and log errors so one job never stops another. Jobs read deadlines from the database. Module owners register their jobs of design §4.6 in their own module
+  - **Do**: `@ScheduledJob(name, cron)` wraps a handler: `pg_try_advisory_xact_lock(hashtext(name))` in its own transaction (design §4.6, pooled connections), skip when held; log start, outcome and duration; catch and log errors so one job never stops another. Jobs read deadlines from the database. Module owners register their jobs of design §4.6 in their own module
   - **Test**: `job-runner.service.spec.ts`: lock held skips, an error is logged and the next run fires; e2e AC-09 restart resume lives in `incidents` 4.3
   - _Requirements: REQ-EVT-05, REQ-EVT-06, AC-09_
 - [x] 2.9 Port tokens (owner KhoaDD)

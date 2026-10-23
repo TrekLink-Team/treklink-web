@@ -449,8 +449,15 @@ rule 1).
 ### 4.6 Scheduler
 
 `@nestjs/schedule` hosts every time-triggered rule. Each job reads its deadlines from the database, so a
-restart resumes them (REQ-EVT-06, NFR-AVL-02), and runs under a Postgres advisory lock per job name
-(`pg_try_advisory_lock`), so a second replica skips rather than double-runs (REQ-EVT-05).
+restart resumes them (REQ-EVT-06, NFR-AVL-02), and runs under a Postgres advisory lock per job name, so a
+second replica, or an overlapping tick of the same one, skips rather than double-runs (REQ-EVT-05). A
+method opts in with `@ScheduledJob(name, cron)` (six-field cron with seconds); `JobRunnerService` finds it
+at bootstrap and registers it with `SchedulerRegistry`. Each run opens an interactive transaction and takes
+`pg_try_advisory_xact_lock(hashtext(name))`: the transaction-scoped lock is used because Prisma pools
+connections, so a session lock (`pg_try_advisory_lock`) taken on one connection could be released on
+another. The lock's transaction holds one pooled connection while the job runs, bounded by
+`JOB_MAX_DURATION_MS` (10 minutes); the job's own queries run outside it. Start, outcome and duration
+are logged, and a failed run never stops the next one.
 
 | Job | Owner | Cadence | Rule |
 |---|---|---|---|
