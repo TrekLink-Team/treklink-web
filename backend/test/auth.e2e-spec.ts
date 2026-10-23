@@ -132,7 +132,7 @@ describe('auth sessions (e2e)', () => {
         accessToken: expect.any(String) as string,
         accessTokenExpiresIn: 900,
         refreshToken: expect.stringMatching(/^rt_/) as string,
-        refreshTokenExpiresIn: 604_800,
+        refreshTokenExpiresIn: 1_209_600,
         user: {
           id: 'user-1',
           email: 'staff@treklink.vn',
@@ -191,6 +191,12 @@ describe('auth sessions (e2e)', () => {
       .send({ refreshToken: first })
       .expect(200);
     expect(rotated.body).toMatchObject({ isSuccess: true, message: 'Token refreshed' });
+    expect(Object.keys(sessionOf(rotated)).sort()).toEqual([
+      'accessToken',
+      'accessTokenExpiresIn',
+      'refreshToken',
+      'refreshTokenExpiresIn',
+    ]);
     const second = sessionOf(rotated).refreshToken;
     expect(second).not.toBe(first);
 

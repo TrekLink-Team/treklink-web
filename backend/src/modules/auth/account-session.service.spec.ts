@@ -19,6 +19,8 @@ describe('AccountSessionService', () => {
     provider = {
       forUser: jest.fn().mockResolvedValue({
         organizationId: 'org-1',
+        organizationCode: 'ORG-0001',
+        legalName: 'ACME Trek Co., Ltd.',
         memberRole: 'MANAGER',
         organizationStatus: 'ACTIVE',
       }),
@@ -46,15 +48,23 @@ describe('AccountSessionService', () => {
     await expect(service.eligible(anAccount(overrides))).resolves.toBeNull();
   });
 
-  it('attaches the membership of an organization account', async () => {
+  it('attaches the membership of an organization account with its code and legal name', async () => {
     await expect(service.eligible(member)).resolves.toMatchObject({
-      organization: { id: 'org-1', status: 'ACTIVE', memberRole: 'MANAGER' },
+      organization: {
+        id: 'org-1',
+        code: 'ORG-0001',
+        legalName: 'ACME Trek Co., Ltd.',
+        status: 'ACTIVE',
+        memberRole: 'MANAGER',
+      },
     });
   });
 
   it.each(['CLOSED', 'REJECTED'])('refuses a member of a %s organization', async (status) => {
     provider.forUser.mockResolvedValue({
       organizationId: 'org-1',
+      organizationCode: 'ORG-0001',
+      legalName: 'ACME Trek Co., Ltd.',
       memberRole: 'OPERATOR',
       organizationStatus: status,
     });
@@ -64,6 +74,8 @@ describe('AccountSessionService', () => {
   it.each(['PENDING', 'SUSPENDED'])('lets a member of a %s organization in', async (status) => {
     provider.forUser.mockResolvedValue({
       organizationId: 'org-1',
+      organizationCode: 'ORG-0001',
+      legalName: 'ACME Trek Co., Ltd.',
       memberRole: 'OPERATOR',
       organizationStatus: status,
     });

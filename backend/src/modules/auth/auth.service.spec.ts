@@ -47,7 +47,7 @@ describe('AuthService', () => {
     passwords = { verify: jest.fn().mockResolvedValue(true) };
     tokens = {
       issue: jest.fn().mockResolvedValue({ tokens: TOKENS, refreshTokenId: 'rt-1' }),
-      refresh: jest.fn().mockResolvedValue({ tokens: TOKENS, user: aSessionUser() }),
+      refresh: jest.fn().mockResolvedValue(TOKENS),
       logout: jest.fn().mockResolvedValue(undefined),
     };
     const parameters = { get: jest.fn((key: string) => Promise.resolve(PARAMETERS[key])) };
@@ -207,11 +207,8 @@ describe('AuthService', () => {
     });
   });
 
-  it('refresh returns the rotated pair with the current account', async () => {
-    await expect(service.refresh('rt_old', CLIENT)).resolves.toEqual({
-      ...TOKENS,
-      user: aSessionUser(),
-    });
+  it('refresh returns the rotated pair only (api-design 02, D-060 rule 7)', async () => {
+    await expect(service.refresh('rt_old', CLIENT)).resolves.toEqual(TOKENS);
     expect(tokens.refresh).toHaveBeenCalledWith('rt_old', CLIENT);
   });
 
