@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { DashboardPage } from '../pages/DashboardPage';
+import { SignInPage } from '../pages/SignInPage';
 import { Radio, Compass, ShieldCheck } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/sign-in" element={<SignInPage />} />
           </Routes>
         </main>
       </div>
