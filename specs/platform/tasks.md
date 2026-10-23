@@ -50,7 +50,7 @@
 
 - [x] 2.1 `ResponseInterceptor` with `@ResponseMessage`, `statusCode` equal to the HTTP status, paged results passed through (owner KhoaDD)
   - _Requirements: REQ-UBI-01, REQ-UBI-02, REQ-UBI-03, AC-01_
-- [ ] 2.2 `ValidationPipe.exceptionFactory` (owner KhoaDD)
+- [x] 2.2 `ValidationPipe.exceptionFactory` (owner KhoaDD)
   - **Files**: `backend/src/app.setup.ts`, `backend/src/common/pipes/validation-exception.factory.ts`
   - **Do**: flatten nested `ValidationError`s into `"<property> <constraint>; ..."` and throw `DomainException(400, VALIDATION_FAILED, message)`; `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`
   - **Test**: `validation-exception.factory.spec.ts`: one bad property, two bad properties, a nested DTO property
