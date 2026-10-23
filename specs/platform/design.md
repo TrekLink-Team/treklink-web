@@ -380,9 +380,10 @@ through unchanged.
 - **The one exception (D-038)**: `SepayWebhookController` is marked `@RawResponse()`, which the
   interceptor honours by passing the body through unwrapped; it returns `{ "success": true }`.
 
-**Implemented by TK-90**: the `@ResponseMessage` decorator and the error-code rule. The
-`ValidationPipe.exceptionFactory`, the Prisma mapping, `RequestIdMiddleware`, `RATE_LIMITED` and
-`@RawResponse()` remain open (tasks 2.1 to 2.3, 2.9).
+**Implemented**: the `@ResponseMessage` decorator and the error-code rule (TK-90); the
+`ValidationPipe.exceptionFactory`, the Prisma mapping, `requestIdMiddleware` with `RequestIdLogger`, the
+body-parser 413 mapping, `RATE_LIMITED` and `@RawResponse()` (tasks 2.2 to 2.4 and 2.10). Malformed JSON
+reaches the filter as Nest's own `BadRequestException`, so it maps to 400 `VALIDATION_FAILED` by status.
 
 ### 4.2 Error catalogue
 
