@@ -1,71 +1,67 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" font-family="Arial, sans-serif" font-size="13">
-<title>SystemHealthPage</title><rect width="1000" height="640" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="110" y="30" font-size="12" fill="#d1d5db" text-anchor="start">/t/admin/health</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">Admin  [Sign out]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">System health</text>
-<rect x="700" y="66" width="140" height="28" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="708" y="84.0" font-size="13" fill="#5f6368" text-anchor="start">Last 60 minutes</text>
-<rect x="850" y="66" width="126" height="28" rx="3" fill="#ffffff" stroke="#5f6368"/>
-<text x="913.0" y="84.0" font-size="13" fill="#202124" text-anchor="middle">Refresh</text>
-<rect x="24" y="120" width="300" height="140" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="40" y="146" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Platform</text>
-<rect x="40" y="158" width="30" height="20" rx="10" fill="#dcfce7" stroke="#9aa0a6"/>
-<text x="55.0" y="172" font-size="11" fill="#202124" text-anchor="middle">OK</text>
-<text x="40" y="196" font-size="12" fill="#202124" text-anchor="start">Database: UP</text>
-<text x="40" y="216" font-size="12" fill="#202124" text-anchor="start">MQTT broker: UP</text>
-<rect x="340" y="120" width="300" height="140" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="356" y="146" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Ingestion (60 min)</text>
-<text x="356" y="176" font-size="16" font-weight="bold" fill="#202124" text-anchor="start">41.2 / minute</text>
-<text x="356" y="200" font-size="12" fill="#202124" text-anchor="start">Accepted 2,471   Duplicates 12</text>
-<text x="356" y="220" font-size="12" fill="#202124" text-anchor="start">Malformed 0   Unknown device 1</text>
-<rect x="656" y="120" width="320" height="140" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="672" y="146" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Alert delivery</text>
-<text x="672" y="176" font-size="14" fill="#202124" text-anchor="start">Pending 0</text>
-<text x="672" y="200" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">Failed 1</text>
-<text x="672" y="224" font-size="12" fill="#1a56db" text-anchor="start">View failed alerts &gt;</text>
-<rect x="24" y="280" width="616" height="160" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="40" y="306" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Field Stations</text>
-<text x="40" y="332" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">6 total, 1 stale</text>
-<text x="40" y="358" font-size="12" fill="#5f6368" text-anchor="start">Queue depth, highest across stations</text>
-<rect x="40" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="48" y="388" font-size="11" fill="#5f6368" text-anchor="start">p0</text>
-<text x="48" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">0</text>
-<rect x="140" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="148" y="388" font-size="11" fill="#5f6368" text-anchor="start">p1</text>
-<text x="148" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">0</text>
-<rect x="240" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="248" y="388" font-size="11" fill="#5f6368" text-anchor="start">p2</text>
-<text x="248" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">14</text>
-<rect x="340" y="368" width="90" height="50" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="348" y="388" font-size="11" fill="#5f6368" text-anchor="start">p3</text>
-<text x="348" y="410" font-size="15" font-weight="bold" fill="#202124" text-anchor="start">230</text>
-<rect x="656" y="280" width="320" height="160" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="672" y="306" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Devices buffering (Stage B)</text>
-<text x="672" y="340" font-size="26" font-weight="bold" fill="#202124" text-anchor="start">2</text>
-<text x="672" y="368" font-size="12" fill="#1a56db" text-anchor="start">View Field Stations &gt;</text>
-<rect x="24" y="460" width="952" height="32" rx="3" fill="#e8eaed" stroke="#9aa0a6"/>
-<text x="32" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Station</text>
-<text x="252" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Organization</text>
-<text x="422" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Synced</text>
-<text x="522" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Depth p0/p1/p2/p3</text>
-<text x="722" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Version</text>
-<text x="822" y="480.0" font-size="13" font-weight="bold" fill="#202124" text-anchor="start"></text>
-<rect x="24" y="492" width="952" height="32" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="512.0" font-size="13" fill="#202124" text-anchor="start">Ta Nang basecamp laptop</text>
-<text x="252" y="512.0" font-size="13" fill="#202124" text-anchor="start">ACME Trek Co.</text>
-<text x="422" y="512.0" font-size="13" fill="#202124" text-anchor="start">10:14</text>
-<text x="522" y="512.0" font-size="13" fill="#202124" text-anchor="start">0 / 0 / 14 / 230</text>
-<text x="722" y="512.0" font-size="13" fill="#202124" text-anchor="start">1.1.0</text>
-<text x="822" y="512.0" font-size="13" fill="#202124" text-anchor="start">OUTDATED</text>
-<rect x="24" y="524" width="952" height="32" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="32" y="544.0" font-size="13" fill="#202124" text-anchor="start">Fansipan base</text>
-<text x="252" y="544.0" font-size="13" fill="#202124" text-anchor="start">Sapa Treks</text>
-<text x="422" y="544.0" font-size="13" fill="#202124" text-anchor="start">10:15</text>
-<text x="522" y="544.0" font-size="13" fill="#202124" text-anchor="start">0 / 0 / 0 / 0</text>
-<text x="722" y="544.0" font-size="13" fill="#202124" text-anchor="start">1.2.0</text>
-<text x="822" y="544.0" font-size="13" fill="#202124" text-anchor="start">Current</text>
-<text x="24" y="548" font-size="11" fill="#5f6368" text-anchor="start">Current release 1.2.0. Revoked stations are not listed. Empty: No Field Stations are registered yet.</text>
-<text x="24" y="590" font-size="12" fill="#5f6368" text-anchor="start">Updated 10:15. Polls every 30 s; station.stale invalidates immediately.</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 900" width="1280" height="900"><title>System health</title><foreignObject x="0" y="0" width="1280" height="900"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:900px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:600;color:#5a6370;padding:10px 16px;background:#eef0f3;border-bottom:1px solid #dde1e7}
+td{font-size:14px;padding:12px 16px;border-bottom:1px solid #e6e9ee}
+</style><div style="width:1280px;height:900px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Admin</span></div>
+    <div style="font-size:14px;color:#c9ced6">Nguyen Van A &#183; ADMIN</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:220px;flex:none;background:#fff;border-right:1px solid #dde1e7;padding:20px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px">
+      <div style="padding:10px 12px;color:#3a424d">Accounts</div>
+      <div style="padding:10px 12px;color:#3a424d">Roles and permissions</div>
+      <div style="padding:10px 12px;color:#3a424d">Parameters</div>
+      <div style="padding:10px 12px;color:#3a424d">Change log</div>
+      <div style="padding:10px 12px;color:#3a424d">Sign-in log</div>
+      <div style="background:#e3f1ee;color:#08493f;font-weight:600;padding:10px 12px;border-radius:8px">System health</div>
+    </div>
+    <div style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div><h1 style="margin:0;font-size:24px;font-weight:700">System health</h1><div style="font-size:13px;color:#5a6370;margin-top:4px">Updated 10:15. Refreshes every 30 seconds.</div></div>
+        <div style="display:flex;gap:10px;align-items:center"><div style="background:#fff;border:1px solid #c4cad3;border-radius:8px;padding:9px 14px;font-size:14px">Last 60 minutes</div><a href="#r" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Refresh</a></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px">
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:13px;color:#5a6370">Platform</div>
+          <div><span style="font-size:13px;font-weight:700;background:#dff3e6;color:#14532d;border-radius:999px;padding:4px 12px">OK</span></div>
+          <div style="font-size:13px;color:#3a424d;line-height:1.6">Database: UP<br/>MQTT broker: UP</div>
+        </div>
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:13px;color:#5a6370">Ingestion</div>
+          <div style="font-size:28px;font-weight:700">41.2 <span style="font-size:14px;font-weight:500;color:#5a6370">per minute</span></div>
+          <div style="font-size:13px;color:#3a424d;line-height:1.6">Accepted 2,471 &#183; Duplicates 12<br/>Malformed 0 &#183; Unknown device 1</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5a29c;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:13px;color:#5a6370">Alert delivery</div>
+          <div style="font-size:28px;font-weight:700;color:#7a1c13">1 failed</div>
+          <div style="font-size:13px;color:#3a424d">0 pending</div>
+          <a href="#f" style="font-size:13px;font-weight:600">View failed alerts</a>
+        </div>
+        <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:13px;color:#5a6370">Devices buffering</div>
+          <div style="font-size:28px;font-weight:700">2</div>
+          <div style="font-size:13px;color:#3a424d">Holding messages that have not reached a Field Station</div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid #dde1e7;display:flex;gap:28px;align-items:baseline;flex-wrap:wrap">
+          <div style="font-size:16px;font-weight:700">Field Stations</div>
+          <div style="font-size:14px">6 total &#183; <span style="font-weight:600;color:#4a3000">1 stale</span> &#183; <span style="font-weight:600;color:#4a3000">1 outdated</span> &#183; current release 1.2.0</div>
+          <div style="font-size:13px;color:#5a6370;margin-left:auto">Highest queue depth: p0 0 &#183; p1 0 &#183; p2 14 &#183; p3 230</div>
+        </div>
+        <table>
+          <thead><tr><th>Station</th><th>Organization</th><th>Last sync</th><th>Queue depth p0 / p1 / p2 / p3</th><th>Oldest retry</th><th>Version</th></tr></thead>
+          <tbody>
+            <tr><td style="font-weight:600">Ta Nang basecamp laptop</td><td><a href="#o">ACME Trek Co., Ltd.</a></td><td>10:14</td><td>0 / 0 / 14 / 230</td><td>2</td><td>1.1.0 <span style="font-size:12px;font-weight:600;background:#fff4de;color:#4a3000;border-radius:999px;padding:3px 10px;margin-left:6px">Outdated</span></td></tr>
+            <tr><td style="font-weight:600">[Station name]</td><td><a href="#o">[Organization]</a></td><td>09:41 <span style="font-size:12px;font-weight:600;background:#fff4de;color:#4a3000;border-radius:999px;padding:3px 10px;margin-left:6px">Stale</span></td><td>0 / 0 / 0 / 0</td><td>0</td><td>1.2.0 <span style="font-size:12px;color:#5a6370;margin-left:6px">Current</span></td></tr>
+            <tr><td style="font-weight:600">[Station name]</td><td><a href="#o">[Organization]</a></td><td>10:15</td><td>0 / 0 / 0 / 0</td><td>0</td><td>1.2.0 <span style="font-size:12px;color:#5a6370;margin-left:6px">Current</span></td></tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 20px;font-size:12px;color:#5a6370">Revoked stations are not listed. With none registered this table reads: No Field Stations are registered yet.</div>
+      </div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
