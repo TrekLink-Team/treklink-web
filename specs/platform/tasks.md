@@ -40,10 +40,11 @@
   - **Do**: list the nine modules `platform`, `auth`, `organizations`, `devices`, `rentals`, `billing`, `incidents`, `gateway-sync`, `monitoring`; assert each model's `// @module` owner from `schema.prisma`; assert the DI graph of design Figure 3 is acyclic
   - **Test**: the spec itself; it fails when `src/modules/a/` references a model owned by `b`
   - _Requirements: NFR-MNT-01_
-- [ ] 1.12 Demo seed `backend/prisma/seed-demo.ts` (owner KhoaDD)
+- [x] 1.12 Demo seed `backend/prisma/seed-demo.ts` (owner KhoaDD)
   - **Do**: idempotent upserts: one account per role, one `ACTIVE` organization with Manager and Operator, hardware variants v2 to v4 with prices and damage rates, eight `AVAILABLE` devices, one `ACTIVE` contract; passwords from `SEED_*_PASSWORD`, never committed; no real personal data
   - **Test**: run twice on an empty database after `prisma migrate deploy`; the second run changes nothing
   - **Done when**: `npm run seed:demo` loads the data `api-design/00-api-testing-guide.md` §2 assumes
+  - **Done**: CI runs the seed twice on the migrated Postgres 16; the second run uses `--expect-unchanged` and fails if it would create a row. The contract has no invoice, payment or handover note until billing and the handover exist. Device node numbers are placeholders until gateway-sync 1.2 captures the golden fixtures
   - _Story: US-X02_
 
 ## Phase 2: Core Service Logic

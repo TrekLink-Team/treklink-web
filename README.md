@@ -52,7 +52,15 @@ From the repository root:
 npm install
 ```
 
-### Step 5: Start Development Services
+### Step 5: Migrate and Seed the Database
+Apply the migrations, then load the demo accounts, organization, devices and contract. Set the four
+`SEED_*_PASSWORD` variables in `.env` first (see `.env.example`); a repeated run changes nothing.
+```bash
+npm --prefix backend run prisma:deploy
+npm --prefix backend run seed:demo
+```
+
+### Step 6: Start Development Services
 Run all services concurrently:
 ```bash
 npm run dev

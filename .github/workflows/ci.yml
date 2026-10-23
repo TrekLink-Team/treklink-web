@@ -52,6 +52,16 @@ jobs:
       # run on the team database version fails CI (platform PR #12, leader decision 11).
       - name: Prisma migrate deploy
         run: npm --prefix backend run prisma:deploy
+      # The demo seed loads on the migrated database and a second run creates nothing (platform 1.12,
+      # US-X02). Passwords are generated per run, never committed.
+      - name: Demo seed is idempotent
+        run: |
+          for role in ADMIN STAFF MANAGER OPERATOR; do
+            export "SEED_${role}_PASSWORD=$(openssl rand -hex 12)"
+          done
+          export BCRYPT_COST=4
+          npm --prefix backend run seed:demo
+          npm --prefix backend run seed:demo -- --expect-unchanged
       - run: npm --prefix backend run lint
       - run: npm --prefix backend run typecheck
       - run: npm --prefix backend run test -- --ci --passWithNoTests
