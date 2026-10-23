@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1660" viewBox="0 0 1600 1660" role="img" aria-labelledby="title desc">
+<title id="title">8.3  Authority reports</title>
+<desc id="desc">Existing /t/incidents, Authority reports tab | Staff and Admin | Report recording does not contact an authority. Desktop and exact 360 pixel mobile wireframes with form and recovery states. Illustrative API sample data, not live records.</desc>
+<rect x="0" y="0" width="1600" height="1660" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
+<text x="28" y="38" fill="#172b26" font-family="Arial, sans-serif" font-size="26" font-weight="700">8.3  Authority reports</text>
+<text x="28" y="66" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Existing /t/incidents, Authority reports tab | Staff and Admin | Report recording does not contact an authority</text>
+<text x="28" y="1642" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. See Markdown for permissions and H-01 to H-06.</text>
+<rect x="28" y="92" width="1120" height="568" rx="8" fill="white" stroke="#cbd5e1"/>
+<rect x="28" y="92" width="1120" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
+<text x="44" y="126" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  TrekLink workspace</text>
+<text x="44" y="184" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Incident queue  |  Authority reports [active]</text>
+<text x="44" y="225" fill="#172b26" font-family="Arial, sans-serif" font-size="25" font-weight="700">Authority reports</text>
+<rect x="900" y="194" width="232" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
+<text x="912" y="222" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record report</text>
+<rect x="44" y="248" width="1088" height="90" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="60" y="273" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Record an external report already made</text>
+<text x="60" y="298" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">TrekLink records reports to authorities. It does not coordinate rescue operations. This form does not dispatch or send a report.</text>
+<text x="44" y="376" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">[x] Open cases only</text>
+<rect x="958" y="350" width="174" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="970" y="378" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Refresh</text>
+<rect x="44" y="410" width="1088" height="160" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="60" y="439" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">SUBJECT</text>
+<text x="254" y="439" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">AGENCY / REFERENCE</text>
+<text x="680" y="439" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">REPORTED AT</text>
+<text x="868" y="439" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">CASE</text>
+<text x="60" y="475" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">View incident</text>
+<text x="254" y="475" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Lam Dong provincial rescue (114)</text>
+<text x="254" y="504" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">LD-114-2026-1020-07</text>
+<text x="680" y="475" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">20 Oct, 10:15 ICT</text>
+<rect x="868" y="455" width="84" height="28" rx="14" fill="#fffbeb" stroke="#fffbeb"/>
+<text x="878" y="474" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="700">OPEN</text>
+<rect x="868" y="501" width="244" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="880" y="529" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record case closed</text>
+<text x="44" y="607" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Server-paged list | Open cases first | Previous / Next</text>
+<text x="44" y="635" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">No note preview: API 11 does not return note. No invented report-detail route.</text>
+<text x="1184" y="118" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">360 px / Report list</text>
+<rect x="1184" y="138" width="360" height="644" rx="8" fill="white" stroke="#cbd5e1"/>
+<rect x="1184" y="138" width="360" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
+<text x="1200" y="172" fill="white" font-family="Arial, sans-serif" font-size="15" font-weight="700">TrekLink  /  Authority reports</text>
+<text x="1200" y="233" fill="#172b26" font-family="Arial, sans-serif" font-size="22" font-weight="700">Authority reports</text>
+<rect x="1200" y="254" width="328" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
+<text x="1212" y="282" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record report</text>
+<text x="1200" y="334" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">[x] Open cases only  /  Refresh</text>
+<rect x="1200" y="358" width="328" height="268" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<rect x="1216" y="374" width="84" height="28" rx="14" fill="#fffbeb" stroke="#fffbeb"/>
+<text x="1226" y="393" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="700">OPEN</text>
+<text x="1216" y="432" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Incident / View incident</text>
+<text x="1216" y="464" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Lam Dong provincial rescue (114)</text>
+<text x="1216" y="516" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">LD-114-2026-1020-07</text>
+<text x="1216" y="543" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reported 20 Oct, 10:15 ICT</text>
+<rect x="1216" y="566" width="296" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="1228" y="594" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record case closed</text>
+<text x="1200" y="662" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reporting records an action already made. It does</text>
+<text x="1200" y="682" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">not contact authorities.</text>
+<text x="1200" y="752" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Previous   Page 1   Next</text>
+<text x="28" y="706" fill="#172b26" font-family="Arial, sans-serif" font-size="20" font-weight="700">Create: at most two steps, four detail fields</text>
+<rect x="28" y="730" width="540" height="284" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="48" y="764" fill="#172b26" font-family="Arial, sans-serif" font-size="19" font-weight="700">Step 1 / Select subject</text>
+<text x="48" y="800" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Subject kind *</text>
+<rect x="48" y="810" width="500" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="60" y="836" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Incident or Defaulted contract</text>
+<text x="48" y="891" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Eligible record *</text>
+<rect x="48" y="901" width="500" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="60" y="927" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Paged list of eligible records, not a typed UUID</text>
+<rect x="48" y="955" width="140" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
+<text x="60" y="983" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Continue</text>
+<text x="206" y="983" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Skip when a validated entry supplies the subject</text>
+<rect x="590" y="730" width="558" height="644" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="610" y="764" fill="#172b26" font-family="Arial, sans-serif" font-size="19" font-weight="700">Step 2 / Record report</text>
+<text x="610" y="797" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Incident INC-2026-000045, ESCALATED; or selected contract RC-2026-0042,</text>
+<text x="610" y="817" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">DEFAULTED.</text>
+<text x="610" y="869" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Agency *</text>
+<rect x="610" y="879" width="518" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="622" y="905" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Authority already contacted</text>
+<text x="610" y="959" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Authority reference *</text>
+<rect x="610" y="969" width="518" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="622" y="995" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">External case or call reference</text>
+<text x="610" y="1049" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Reported at * (ICT / UTC+7)</text>
+<rect x="610" y="1059" width="518" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="622" y="1085" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Actual report time, not automatic submission time</text>
+<text x="610" y="1139" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Note (optional)</text>
+<rect x="610" y="1149" width="518" height="66" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="622" y="1175" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">What evidence was shared</text>
+<text x="610" y="1257" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">This records a report you have already made. Review subject, agency, reference and</text>
+<text x="610" y="1276" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">time before submitting.</text>
+<rect x="610" y="1310" width="188" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
+<text x="622" y="1338" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record report</text>
+<rect x="814" y="1310" width="120" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="826" y="1338" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Back</text>
+<rect x="950" y="1310" width="178" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="962" y="1338" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Cancel</text>
+<rect x="28" y="1038" width="540" height="336" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="48" y="1072" fill="#172b26" font-family="Arial, sans-serif" font-size="19" font-weight="700">Record authority case closed?</text>
+<text x="48" y="1101" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">LD-114-2026-1020-07 / linked incident</text>
+<text x="48" y="1137" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Closed at * (ICT / UTC+7)</text>
+<rect x="48" y="1147" width="500" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="60" y="1173" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Actual closure time</text>
+<text x="48" y="1227" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Closure note (optional)</text>
+<rect x="48" y="1237" width="500" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="60" y="1263" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Outcome reported by the authority</text>
+<rect x="48" y="1306" width="234" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="60" y="1334" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record case closed</text>
+<rect x="298" y="1306" width="140" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="310" y="1334" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Cancel</text>
+<text x="1184" y="830" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">360 px / Report form</text>
+<rect x="1184" y="850" width="360" height="710" rx="8" fill="white" stroke="#cbd5e1"/>
+<rect x="1184" y="850" width="360" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
+<text x="1200" y="884" fill="white" font-family="Arial, sans-serif" font-size="15" font-weight="700">TrekLink  /  Record report</text>
+<text x="1200" y="945" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Selected incident: INC-2026-000045</text>
+<text x="1200" y="966" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">(ESCALATED)</text>
+<text x="1200" y="1008" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Agency *</text>
+<rect x="1200" y="1018" width="328" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="1212" y="1044" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Authority contacted</text>
+<text x="1200" y="1098" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Authority reference *</text>
+<rect x="1200" y="1108" width="328" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="1212" y="1134" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">External reference</text>
+<text x="1200" y="1188" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Reported at * / ICT</text>
+<rect x="1200" y="1198" width="328" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="1212" y="1224" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Actual report time</text>
+<text x="1200" y="1278" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Note (optional)</text>
+<rect x="1200" y="1288" width="328" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="1212" y="1314" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Evidence shared</text>
+<text x="1200" y="1370" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">This records a report you already made. No</text>
+<text x="1200" y="1390" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">message is sent.</text>
+<rect x="1200" y="1432" width="328" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
+<text x="1212" y="1460" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Record report</text>
+<rect x="1200" y="1492" width="328" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="1212" y="1520" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Cancel</text>
+<rect x="28" y="1400" width="540" height="170" rx="8" fill="#fffbeb" stroke="#cbd5e1"/>
+<text x="44" y="1425" fill="#92400e" font-family="Arial, sans-serif" font-size="15" font-weight="700">Race and closure boundary</text>
+<text x="44" y="1450" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="400">MSG36 keeps draft after Reload. Record authority closure on an open report. Only a</text>
+<text x="44" y="1469" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="400">still-REPORTED incident moves to CLOSED; an active organization response keeps</text>
+<text x="44" y="1488" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="400">its state.</text>
+<rect x="590" y="1400" width="558" height="170" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="606" y="1425" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">After saving / empty / reconnecting</text>
+<text x="606" y="1450" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">MSG03 and refetched list. New report ID is not in API 08: select a real API 11 row. No</text>
+<text x="606" y="1469" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">open cases: Show all. MSG32 labels stale data; Refresh remains available.</text>
+</svg>
