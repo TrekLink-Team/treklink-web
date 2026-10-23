@@ -38,15 +38,17 @@ export class DevicesRepository {
     return client.device.findUnique({ where: { nodeNum }, select: IDENTITY });
   }
 
-  // Applies a reading only when it is newer than the stored last-seen time, in one statement, so two
-  // concurrent ingestions cannot move the projection backwards (REQ-EVT-08). Returns whether it applied.
+  // Applies a reading unless it is older than the stored last-seen time, in one statement, so two
+  // concurrent ingestions cannot move the projection backwards (REQ-EVT-08). A reading of the same second
+  // applies: a node sends its position and telemetry together, and dropping the second would lose the
+  // battery. Returns whether it applied.
   async projectIfNewer(
     id: string,
     update: ProjectionUpdate,
     client: Client = this.prisma,
   ): Promise<boolean> {
     const { count } = await client.device.updateMany({
-      where: { id, OR: [{ lastSeenAt: null }, { lastSeenAt: { lt: update.at } }] },
+      where: { id, OR: [{ lastSeenAt: null }, { lastSeenAt: { lte: update.at } }] },
       data: {
         lastSeenAt: update.at,
         ...(update.latitude !== undefined && update.longitude !== undefined
