@@ -18,13 +18,14 @@
 - [ ] 1.1 `DevicesModule` and repositories (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/devices.module.ts`, `devices.repository.ts`, `variants.repository.ts`, `loss-cases.repository.ts`, `maintenance.repository.ts`
   - **Do**: repositories over the `// @module devices` models only; every service method that may join a caller's transaction takes `tx?`
+  - **Progress**: `DevicesModule`, `DevicesRepository` and `DevicesService` exist with the projection side ingestion needs (2.5); `variants.repository.ts`, `loss-cases.repository.ts` and `maintenance.repository.ts` join with 2.1, 2.7 and 2.8
   - _Requirements: REQ-UBI-04, NFR-MNT-01_
 - [ ] 1.2 `DeviceLifecycle` (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/device-lifecycle.ts`
   - **Do**: the transition table of design §2 with manual and system rows; manual endpoints may only use manual rows; compare-and-set on `version`, one `DeviceTransition` row with actor or `SYSTEM` and reason; other pairs 409 `INVALID_STATE_TRANSITION`
   - **Test**: `device-lifecycle.spec.ts` over all 81 pairs of the nine states (AC-01)
   - _Requirements: REQ-UBI-01, REQ-STA-01, AC-01, FR-DEV-01, BR-10_
-- [ ] 1.3 Identity helpers and remaining value (owner KhoaDD)
+- [x] 1.3 Identity helpers and remaining value (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/node-id.ts`, `remaining-value.ts`
   - **Do**: `nodeId` (`!` plus 8 hex) to and from `nodeNum`; `valueAt(deviceId, date)` from the variant's depreciation schedule and the acquisition date
   - **Test**: round trip of `nodeId`; `valueAt` at acquisition, mid-schedule and past the last step
@@ -61,6 +62,7 @@
 - [ ] 2.5 Projection for `gateway-sync` (owner KhoaDD)
   - **Do**: `projectReading(nodeNum, reading, tx)` updates `lastSeenAt`, battery and last position only for a newer reading, returns the device id or null; `byNodeNum`, `projections(ids)`, `trail(id)`
   - **Test**: an older reading is discarded
+  - **Progress**: `projectReading`, `byNodeNum` and `projections` are built; the newer-only rule is one conditional `UPDATE` on `lastSeenAt`. `trail(id)` is the device's lifecycle history for `monitoring` api-design 07 (transitions, intake, provisioning, resets, inspections, maintenance), not a position trail, and ships with that endpoint
   - _Requirements: REQ-EVT-08, FR-DEV-06_
   - _Story: US-UC26 (projection side)_
 - [ ] 2.6 Stock-take (owner KhoaDD)
