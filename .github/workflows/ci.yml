@@ -99,4 +99,5 @@ jobs:
       - run: npm ci
       - run: npm --prefix frontend run lint
       - run: npm --prefix frontend run typecheck
+      - run: npm --prefix frontend run test
       - run: npm --prefix frontend run build
