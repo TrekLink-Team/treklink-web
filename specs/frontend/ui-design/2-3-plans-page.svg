@@ -1,59 +1,115 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" width="1000" height="720" font-family="Arial, sans-serif" font-size="13">
-<title>Plans page</title><rect width="1000" height="720" fill="#ffffff"/>
-<rect x="0" y="0" width="1000" height="48" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="16" y="30" font-size="16" font-weight="bold" fill="#fff" text-anchor="start">TrekLink</text>
-<text x="984" y="30" font-size="12" fill="#d1d5db" text-anchor="end">[Sign in]</text>
-<text x="24" y="86" font-size="20" font-weight="bold" fill="#202124" text-anchor="start">Rent LoRa mesh safety devices for your treks</text>
-<rect x="24" y="100" width="620" height="56" rx="3" fill="#fff7ed" stroke="#c2410c"/>
-<text x="36" y="122" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TrekLink does not replace official search-and-rescue channels.</text>
-<text x="36" y="142" font-size="12" fill="#202124" text-anchor="start">Your organization remains responsible for its own emergency response.</text>
-<rect x="480" y="170" width="164" height="28" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="562.0" y="188.0" font-size="13" fill="#ffffff" text-anchor="middle">Register your organization</text>
-<rect x="24" y="200" width="200" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="36" y="226" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TrekLink v3 (GPS, SOS)</text>
-<text x="36" y="262" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">450,000 VND / month</text>
-<text x="36" y="284" font-size="12" fill="#202124" text-anchor="start">22,500 VND / day</text>
-<rect x="36" y="300" width="110" height="20" rx="10" fill="#fef3c7" stroke="#9aa0a6"/>
-<text x="91.0" y="314" font-size="11" fill="#202124" text-anchor="middle">Sandbox prices</text>
-<rect x="236" y="200" width="200" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="248" y="226" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">Variant 2</text>
-<text x="248" y="262" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">...</text>
-<text x="248" y="284" font-size="12" fill="#202124" text-anchor="start">...</text>
-<rect x="248" y="300" width="110" height="20" rx="10" fill="#fef3c7" stroke="#9aa0a6"/>
-<text x="303.0" y="314" font-size="11" fill="#202124" text-anchor="middle">Sandbox prices</text>
-<rect x="448" y="200" width="200" height="150" rx="3" fill="#fff" stroke="#9aa0a6"/>
-<text x="460" y="226" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">Variant 3</text>
-<text x="460" y="262" font-size="14" font-weight="bold" fill="#202124" text-anchor="start">...</text>
-<text x="460" y="284" font-size="12" fill="#202124" text-anchor="start">...</text>
-<rect x="460" y="300" width="110" height="20" rx="10" fill="#fef3c7" stroke="#9aa0a6"/>
-<text x="515.0" y="314" font-size="11" fill="#202124" text-anchor="middle">Sandbox prices</text>
-<text x="24" y="382" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">Terms (billing 01)</text>
-<text x="24" y="404" font-size="12" fill="#202124" text-anchor="start">Minimum order: 5 devices  |  Day plans: 3, 4 or 7 days at 1.5 times the daily rate  |  Holding fee: 50 % at term start</text>
-<text x="24" y="440" font-size="13" font-weight="bold" fill="#202124" text-anchor="start">How renting works</text>
-<rect x="24" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="34" y="484" font-size="12" fill="#202124" text-anchor="start">1 Register</text>
-<rect x="184" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="194" y="484" font-size="12" fill="#202124" text-anchor="start">2 Verified at counter</text>
-<rect x="344" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="354" y="484" font-size="12" fill="#202124" text-anchor="start">3 Request and pay</text>
-<rect x="504" y="452" width="150" height="54" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="514" y="484" font-size="12" fill="#202124" text-anchor="start">4 Collect at counter</text>
-<rect x="24" y="530" width="620" height="40" rx="3" fill="#fff7ed" stroke="#c2410c"/>
-<text x="36" y="555" font-size="12" fill="#202124" text-anchor="start">Disclaimer repeated above the footer. Empty or error state replaces the cards only.</text>
-<rect x="700" y="70" width="260" height="620" rx="18" fill="#fff" stroke="#1f2937"/>
-<text x="830" y="92" font-size="11" fill="#5f6368" text-anchor="middle">360 px (single column)</text>
-<rect x="712" y="104" width="236" height="26" rx="0" fill="#1f2937" stroke="#1f2937"/>
-<text x="722" y="122" font-size="11" fill="#fff" text-anchor="start">TrekLink      Sign in</text>
-<rect x="712" y="140" width="236" height="62" rx="3" fill="#fff7ed" stroke="#c2410c"/>
-<text x="720" y="162" font-size="11" fill="#202124" text-anchor="start">Not a replacement for official</text>
-<text x="720" y="178" font-size="11" fill="#202124" text-anchor="start">search-and-rescue channels.</text>
-<rect x="712" y="214" width="236" height="86" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="722" y="238" font-size="12" font-weight="bold" fill="#202124" text-anchor="start">TrekLink v3</text>
-<text x="722" y="260" font-size="12" fill="#202124" text-anchor="start">450,000 VND / month</text>
-<rect x="712" y="312" width="236" height="60" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="722" y="336" font-size="11" fill="#202124" text-anchor="start">Min order 5 | Day plans</text>
-<rect x="712" y="384" width="236" height="36" rx="3" fill="#1a56db" stroke="#1a56db"/>
-<text x="830.0" y="406.0" font-size="13" fill="#ffffff" text-anchor="middle">Register your organization</text>
-<rect x="712" y="432" width="236" height="120" rx="3" fill="#f4f5f7" stroke="#9aa0a6"/>
-<text x="722" y="456" font-size="11" fill="#202124" text-anchor="start">How renting works (4 steps)</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1710 1180" width="1710" height="1180"><title>Plans page, desktop and 360 px</title><foreignObject x="0" y="0" width="1280" height="1180"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:1180px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}a:hover{color:#08493f}
+</style><div style="width:1280px;min-height:1180px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:64px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 48px">
+    <div style="font-weight:700;font-size:18px;letter-spacing:0.2px">TrekLink</div>
+    <div style="display:flex;gap:28px;align-items:center;font-size:14px">
+      <a href="#plans" style="color:#c9ced6;text-decoration:none">Plans</a>
+      <a href="#how" style="color:#c9ced6;text-decoration:none">How renting works</a>
+      <a href="#contact" style="color:#c9ced6;text-decoration:none">Contact</a>
+      <a href="#sign-in" style="color:#12161c;background:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:8px">Sign in</a>
+    </div>
+  </div>
+
+  <div style="padding:56px 48px 0;display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:760px">
+      <h1 style="margin:0;font-size:40px;line-height:1.15;font-weight:700">Rent LoRa mesh safety devices for your treks</h1>
+      <p style="margin:0;font-size:17px;line-height:1.55;color:#3a424d">TrekLink gives trekking organizations a monthly or day-plan rental of mesh devices with GPS and an SOS button, and a live map and incident queue for the people on duty.</p>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start;background:#fff4de;border:1px solid #d9a441;border-radius:10px;padding:18px 20px;max-width:760px">
+      <div style="font-size:14px;line-height:1.55;color:#4a3000"><b>TrekLink does not replace official search-and-rescue channels.</b> Your organization remains responsible for its own emergency response.</div>
+    </div>
+    <div style="display:flex;gap:12px">
+      <a href="#register" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 24px;border-radius:8px">Register your organization</a>
+      <a href="#how" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:15px;padding:13px 24px;border-radius:8px">How renting works</a>
+    </div>
+  </div>
+
+  <div id="plans" style="padding:56px 48px 0;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h2 style="margin:0;font-size:24px;font-weight:700">Devices and prices</h2>
+      <span style="font-size:13px;font-weight:600;background:#fff4de;color:#4a3000;border:1px solid #d9a441;border-radius:999px;padding:6px 14px">Sandbox prices, no real charge</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px">
+      <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <div><div style="font-size:18px;font-weight:700">TrekLink v3</div><div style="font-size:13px;color:#5a6370;margin-top:4px">GPS, SOS button</div></div>
+        <div><div style="font-size:30px;font-weight:700">450,000 VND</div><div style="font-size:14px;color:#5a6370">per device, per month</div></div>
+        <div style="border-top:1px solid #e6e9ee;padding-top:14px;font-size:14px;color:#3a424d">22,500 VND per device, per day on a day plan</div>
+      </div>
+      <div style="background:#fff;border:1px dashed #b7bec9;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <div><div style="font-size:18px;font-weight:700;color:#5a6370">[Variant 2 name]</div><div style="font-size:13px;color:#5a6370;margin-top:4px">[Variant 2 features]</div></div>
+        <div><div style="font-size:30px;font-weight:700;color:#5a6370">[Price] VND</div><div style="font-size:14px;color:#5a6370">per device, per month</div></div>
+        <div style="border-top:1px solid #e6e9ee;padding-top:14px;font-size:14px;color:#5a6370">[Day price] VND per device, per day</div>
+      </div>
+      <div style="background:#fff;border:1px dashed #b7bec9;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <div><div style="font-size:18px;font-weight:700;color:#5a6370">[Variant 3 name]</div><div style="font-size:13px;color:#5a6370;margin-top:4px">[Variant 3 features]</div></div>
+        <div><div style="font-size:30px;font-weight:700;color:#5a6370">[Price] VND</div><div style="font-size:14px;color:#5a6370">per device, per month</div></div>
+        <div style="border-top:1px solid #e6e9ee;padding-top:14px;font-size:14px;color:#5a6370">[Day price] VND per device, per day</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:8px 24px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px">
+      <div style="padding:16px 0"><div style="font-size:13px;color:#5a6370">Minimum order</div><div style="font-size:18px;font-weight:600;margin-top:4px">5 devices per contract</div></div>
+      <div style="padding:16px 0"><div style="font-size:13px;color:#5a6370">Day plans</div><div style="font-size:18px;font-weight:600;margin-top:4px">3, 4 or 7 days, at 1.5 times the daily share</div></div>
+      <div style="padding:16px 0"><div style="font-size:13px;color:#5a6370">Holding fee</div><div style="font-size:18px;font-weight:600;margin-top:4px">50 % of the first month, due at term start</div></div>
+    </div>
+  </div>
+
+  <div id="how" style="padding:56px 48px 0;display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font-size:24px;font-weight:700">How renting works</h2>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px">
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">1</div><div style="font-weight:600;font-size:16px">Register</div><div style="font-size:14px;line-height:1.5;color:#3a424d">Send your organization details online.</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">2</div><div style="font-weight:600;font-size:16px">Get verified</div><div style="font-size:14px;line-height:1.5;color:#3a424d">Visit the TrekLink counter so staff can verify you.</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">3</div><div style="font-weight:600;font-size:16px">Request and pay</div><div style="font-size:14px;line-height:1.5;color:#3a424d">Choose devices, see a quote, pay the first invoice.</div></div>
+      <div style="display:flex;flex-direction:column;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">4</div><div style="font-weight:600;font-size:16px">Collect</div><div style="font-size:14px;line-height:1.5;color:#3a424d">Pick up the devices at the counter and sign the handover.</div></div>
+    </div>
+  </div>
+
+  <div id="contact" style="margin-top:64px;background:#12161c;color:#c9ced6;padding:32px 48px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:48px">
+      <div style="font-size:14px;line-height:1.6;max-width:560px"><b style="color:#fff">TrekLink does not replace official search-and-rescue channels.</b> Your organization remains responsible for its own emergency response.</div>
+      <div style="font-size:14px;line-height:1.6;text-align:right"><div style="color:#fff;font-weight:600">Contact TrekLink</div><div>[Counter address]</div><div>[Phone] and [Email]</div></div>
+    </div>
+  </div>
+</div></div></foreignObject><foreignObject x="1320" y="0" width="390" height="1180"><div xmlns="http://www.w3.org/1999/xhtml" style="width:390px;height:1180px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+
+a{color:#0d6e5f}
+</style><div style="width:390px;min-height:1180px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px">
+    <div style="font-weight:700;font-size:17px">TrekLink</div>
+    <a href="#sign-in" style="color:#12161c;background:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 16px;border-radius:8px;min-height:20px">Sign in</a>
+  </div>
+  <div style="padding:24px 16px 0;display:flex;flex-direction:column;gap:16px">
+    <h1 style="margin:0;font-size:28px;line-height:1.2;font-weight:700">Rent LoRa mesh safety devices for your treks</h1>
+    <div style="background:#fff4de;border:1px solid #d9a441;border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.55;color:#4a3000"><b>TrekLink does not replace official search-and-rescue channels.</b> Your organization remains responsible for its own emergency response.</div>
+  </div>
+  <div style="padding:28px 16px 0;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:20px;font-weight:700">Devices and prices</h2></div>
+    <span style="align-self:flex-start;font-size:12px;font-weight:600;background:#fff4de;color:#4a3000;border:1px solid #d9a441;border-radius:999px;padding:5px 12px">Sandbox prices, no real charge</span>
+    <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px">
+      <div><div style="font-size:17px;font-weight:700">TrekLink v3</div><div style="font-size:13px;color:#5a6370;margin-top:2px">GPS, SOS button</div></div>
+      <div><div style="font-size:26px;font-weight:700">450,000 VND</div><div style="font-size:13px;color:#5a6370">per device, per month</div></div>
+      <div style="border-top:1px solid #e6e9ee;padding-top:12px;font-size:14px;color:#3a424d">22,500 VND per device, per day on a day plan</div>
+    </div>
+    <div style="background:#fff;border:1px dashed #b7bec9;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:6px;color:#5a6370">
+      <div style="font-size:17px;font-weight:700">[Variant 2 name]</div><div style="font-size:14px">[Price] VND per device, per month</div>
+    </div>
+    <div style="background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:6px 18px;display:flex;flex-direction:column">
+      <div style="padding:14px 0;border-bottom:1px solid #e6e9ee"><div style="font-size:12px;color:#5a6370">Minimum order</div><div style="font-size:16px;font-weight:600;margin-top:2px">5 devices per contract</div></div>
+      <div style="padding:14px 0;border-bottom:1px solid #e6e9ee"><div style="font-size:12px;color:#5a6370">Day plans</div><div style="font-size:16px;font-weight:600;margin-top:2px">3, 4 or 7 days, at 1.5 times the daily share</div></div>
+      <div style="padding:14px 0"><div style="font-size:12px;color:#5a6370">Holding fee</div><div style="font-size:16px;font-weight:600;margin-top:2px">50 % of the first month, due at term start</div></div>
+    </div>
+    <a href="#register" style="display:block;text-align:center;background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:16px;padding:16px;border-radius:10px">Register your organization</a>
+  </div>
+  <div style="padding:32px 16px 0;display:flex;flex-direction:column;gap:14px">
+    <h2 style="margin:0;font-size:20px;font-weight:700">How renting works</h2>
+    <div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:none;width:32px;height:32px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">1</div><div style="font-size:14px;line-height:1.5"><b>Register.</b> Send your organization details online.</div></div>
+    <div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:none;width:32px;height:32px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">2</div><div style="font-size:14px;line-height:1.5"><b>Get verified.</b> Visit the counter so staff can verify you.</div></div>
+    <div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:none;width:32px;height:32px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">3</div><div style="font-size:14px;line-height:1.5"><b>Request and pay.</b> Choose devices, see a quote, pay the first invoice.</div></div>
+    <div style="display:flex;gap:12px;align-items:flex-start"><div style="flex:none;width:32px;height:32px;border-radius:50%;background:#0d6e5f;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">4</div><div style="font-size:14px;line-height:1.5"><b>Collect.</b> Pick up the devices at the counter and sign the handover.</div></div>
+  </div>
+  <div style="margin-top:36px;background:#12161c;color:#c9ced6;padding:24px 16px;display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.6">
+    <div><b style="color:#fff">TrekLink does not replace official search-and-rescue channels.</b> Your organization remains responsible for its own emergency response.</div>
+    <div><div style="color:#fff;font-weight:600">Contact TrekLink</div><div>[Counter address], [Phone], [Email]</div></div>
+  </div>
+</div></div></foreignObject></svg>
