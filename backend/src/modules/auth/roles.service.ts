@@ -81,7 +81,7 @@ export class RolesService {
         throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Role not found.');
       }
 
-      const rows = await this.accounts.listPermissions(keys);
+      const rows = await this.accounts.listPermissions(keys, tx);
       const known = new Map(rows.map((row) => [row.key, row]));
       const unknown = keys.find((key) => !known.has(key));
       if (unknown) {
