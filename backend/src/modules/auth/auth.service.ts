@@ -19,7 +19,7 @@ const MINUTE_MS = 60_000;
 
 // One message for an unknown email, a wrong password and an account that may not sign in, so the
 // response never says which field was wrong (REQ-ERR-01, MSG09).
-const invalidCredentials = () =>
+export const invalidCredentials = () =>
   new DomainException(
     HttpStatus.UNAUTHORIZED,
     ErrorCode.INVALID_CREDENTIALS,

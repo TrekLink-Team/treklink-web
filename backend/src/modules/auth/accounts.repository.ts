@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { AccountType, AuthEventType, Prisma } from '@prisma/client';
+import { AccountType, AuthEventType, OtpPurpose, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -50,6 +50,24 @@ export interface NewRefreshToken {
   ip: string | null;
   userAgent: string | null;
 }
+
+export interface NewOneTimeCode {
+  userId: string;
+  purpose: OtpPurpose;
+  codeHash: string;
+  expiresAt: Date;
+}
+
+export const ONE_TIME_CODE_SELECT = {
+  id: true,
+  codeHash: true,
+  attempts: true,
+  expiresAt: true,
+} satisfies Prisma.OneTimeCodeSelect;
+
+export type OneTimeCodeRow = Prisma.OneTimeCodeGetPayload<{
+  select: typeof ONE_TIME_CODE_SELECT;
+}>;
 
 export const REFRESH_TOKEN_SELECT = {
   id: true,
@@ -242,6 +260,75 @@ export class AccountsRepository {
     const { count } = await client.refreshToken.updateMany({
       where: { userId, tokenHash, revokedAt: null },
       data: { revokedAt: at },
+    });
+    return count === 1;
+  }
+
+  // Every live refresh token of the account, after a password reset or change (REQ-EVT-05).
+  async revokeAllUserTokens(userId: string, at: Date, client: Client = this.prisma): Promise<void> {
+    await client.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: at },
+    });
+  }
+
+  async setPasswordHash(
+    userId: string,
+    passwordHash: string,
+    client: Client = this.prisma,
+  ): Promise<void> {
+    await client.user.update({ where: { id: userId }, data: { passwordHash } });
+  }
+
+  // When the account was last sent a code of any purpose, for the resend cooldown (REQ-ERR-08).
+  async lastCodeSentAt(userId: string, client: Client = this.prisma): Promise<Date | null> {
+    const row = await client.oneTimeCode.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    return row?.createdAt ?? null;
+  }
+
+  // Spends the account's live codes of a purpose, so only the code sent next works.
+  async consumeLiveCodes(
+    userId: string,
+    purpose: OtpPurpose,
+    at: Date,
+    client: Client = this.prisma,
+  ): Promise<void> {
+    await client.oneTimeCode.updateMany({
+      where: { userId, purpose, consumedAt: null },
+      data: { consumedAt: at },
+    });
+  }
+
+  async createCode(code: NewOneTimeCode, client: Client = this.prisma): Promise<void> {
+    await client.oneTimeCode.create({ data: code });
+  }
+
+  // The newest code of a purpose that is not consumed; expiry and attempts are the caller's check.
+  findLiveCode(
+    userId: string,
+    purpose: OtpPurpose,
+    client: Client = this.prisma,
+  ): Promise<OneTimeCodeRow | null> {
+    return client.oneTimeCode.findFirst({
+      where: { userId, purpose, consumedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: ONE_TIME_CODE_SELECT,
+    });
+  }
+
+  async countCodeAttempt(id: string, client: Client = this.prisma): Promise<void> {
+    await client.oneTimeCode.update({ where: { id }, data: { attempts: { increment: 1 } } });
+  }
+
+  // Compare-and-set, so one code cannot be used by two concurrent requests.
+  async consumeCode(id: string, at: Date, client: Client = this.prisma): Promise<boolean> {
+    const { count } = await client.oneTimeCode.updateMany({
+      where: { id, consumedAt: null },
+      data: { consumedAt: at },
     });
     return count === 1;
   }
