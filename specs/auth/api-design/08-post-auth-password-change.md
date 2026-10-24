@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Changes the caller's password after checking the current one; other sessions are revoked.
+Changes the caller's password after checking the current one; every session of the account is revoked, the caller's included, so the user signs in again (D-063 rule 1).
 
 ## API Specification
 
@@ -163,7 +163,7 @@ flowchart TB
     D3 -->|no| P0
     P1["Store the new hash"]
     P0 --> P1
-    P2["Revoke other refresh-token families"]
+    P2["Revoke every refresh-token family"]
     P1 --> P2
     OK["Return 200"]
     P2 --> OK

@@ -77,12 +77,12 @@
 - **REQ-ERR-05**: IF an email is already held by any account, THEN the system SHALL return 409 `CONFLICT_UNIQUE` (MSG10).
 - **REQ-ERR-06**: IF an organization member or API key asks for a record of another organization, THEN the system SHALL return 404 `NOT_FOUND`, never 403 (`platform` design §4.2). [E04-4]
 - **REQ-ERR-07**: IF an Admin would remove the last active `ADMIN` (deactivation, role change) or their own Admin role, THEN the system SHALL refuse with 409 `LAST_ADMIN` or `SELF_DEMOTION`.
-- **REQ-ERR-08**: IF a code is requested again before `auth.codeResendCooldownSeconds`, THEN the system SHALL return 429 `OTP_COOLDOWN`.
+- **REQ-ERR-08**: IF a code is requested again before `auth.codeResendCooldownSeconds`, THEN the system SHALL send no code; a Staff-triggered reset SHALL return 429 `OTP_COOLDOWN`, and a forgot request SHALL answer as usual, so the cooldown cannot reveal a registered email (D-063 rules 2 and 7).
 - **REQ-ERR-09**: IF a permission set sent for a role contains a permission whose account type differs from the role's, THEN the system SHALL refuse the whole set with 400 `PERMISSION_SCOPE_MISMATCH` and leave the role unchanged. [FR-AUTH-06, D-057]
 
 ### Optional Features
 
-- **REQ-OPT-01**: WHERE `MAIL_TRANSPORT` is `console`, the system SHALL write outbound email to the server log instead of sending it, for local development and CI.
+- **REQ-OPT-01**: WHERE `MAIL_TRANSPORT` is `console`, the system SHALL write outbound email to the server log instead of sending it, for local development and CI; WHERE `NODE_ENV` is `production`, the system SHALL refuse to start with the `console` transport (D-063 rule 4). WHERE `MAIL_TRANSPORT` is `smtp`, the system SHALL send through `SMTP_URL` from `MAIL_FROM`.
 
 ---
 
@@ -113,7 +113,7 @@ Permissions: the generated [Permission Matrix](permission-matrix.md).
 - **AC-03**: An Admin removes `incident.respond.own` from `ORG_OPERATOR`; the operator's next acknowledge gets 403 without a restart.
 - **AC-04**: A deactivated member's refresh fails at once; their next mutating request gets 401.
 - **AC-05**: An API key calls `POST /api/incidents/{id}/acknowledge` and gets 403; `GET /api/telemetry/devices` with it gets 200. (TC-20)
-- **AC-06**: Staff trigger a reset for an Org Manager; the code goes to the Manager's email and no response or log contains a password or code. (TC-35)
+- **AC-06**: Staff trigger a reset for an Org Manager; the code goes to the Manager's email and no response or log contains a password or code. The `console` transport of REQ-OPT-01 is exempt, and never runs in production (D-063 rule 4). (TC-35)
 
 ---
 
