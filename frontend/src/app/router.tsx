@@ -1,8 +1,12 @@
 import React from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { landingRoute } from '../entities/session/model';
 import { DashboardPage } from '../pages/DashboardPage';
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
+import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SignInPage } from '../pages/SignInPage';
+import { WelcomePage } from '../pages/WelcomePage';
 import { hasAnyRole, type Role } from '../shared/lib/permissions';
 import { useAuth } from './providers/useAuth';
 
@@ -15,6 +19,13 @@ export const RequireAuth: React.FC = () => {
     return <Navigate to={`/sign-in?next=${next}`} replace />;
   }
   return <Outlet />;
+};
+
+// The sign-in, forgot, reset and welcome pages are for visitors; a signed-in user is sent to their
+// landing route (screen 2.1).
+export const SignedOutOnly: React.FC = () => {
+  const { user } = useAuth();
+  return user ? <Navigate to={landingRoute(null, user)} replace /> : <Outlet />;
 };
 
 // A route shows only when the role holds it. This is a convenience: the server refuses the data
@@ -33,7 +44,12 @@ const STAFF: Role[] = ['STAFF'];
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/" element={<DashboardPage />} />
-    <Route path="/sign-in" element={<SignInPage />} />
+    <Route element={<SignedOutOnly />}>
+      <Route path="/sign-in" element={<SignInPage />} />
+      <Route path="/forgot" element={<ForgotPasswordPage />} />
+      <Route path="/reset" element={<ResetPasswordPage />} />
+      <Route path="/welcome" element={<WelcomePage />} />
+    </Route>
     <Route element={<RequireAuth />}>
       <Route element={<RequireRole roles={ORG_OPERATOR} />}>
         <Route path="/o/map" element={<DashboardPage />} />
