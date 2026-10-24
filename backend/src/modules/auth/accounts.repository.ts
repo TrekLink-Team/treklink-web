@@ -508,8 +508,11 @@ export class AccountsRepository {
   }
 
   // The seeded permission catalog (api-design 18), or the rows of the given keys.
-  listPermissions(keys?: readonly string[]): Promise<CatalogPermissionRow[]> {
-    return this.prisma.permission.findMany({
+  listPermissions(
+    keys?: readonly string[],
+    client: Client = this.prisma,
+  ): Promise<CatalogPermissionRow[]> {
+    return client.permission.findMany({
       where: keys ? { key: { in: [...keys] } } : {},
       orderBy: { key: 'asc' },
       select: CATALOG_PERMISSION_SELECT,
