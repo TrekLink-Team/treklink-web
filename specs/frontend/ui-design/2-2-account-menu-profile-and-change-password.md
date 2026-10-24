@@ -5,7 +5,7 @@
 | Owner | LongLP |
 | Task | `specs/frontend/tasks.md` 2.2 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
-| Status | Ready for review |
+| Status | Built (TK-186) |
 | Routes | No route of its own: a menu in the header of every `/o/*` and `/t/*` page, and a change-password dialog opened from it. `specs/frontend/design.md` §2 lists no account route. |
 | Roles | Every signed-in account: TrekLink Admin and Staff, Org Manager and Org Operator. An organization account also sees its organization line; a TrekLink account does not. |
 | Use case, FRs, story | UC-08; FR-AUTH-02, FR-AUTH-04, FR-AUTH-10; US-UC08 |
@@ -32,7 +32,7 @@ changed by an Admin (screen 7.1), an organization member's by the Org Manager (s
 |---|---|---|---|
 | Account button (header, top right) | none; opens the menu with the cached `['me']` | none | none |
 | Change password (menu) | none; opens the dialog | none | none |
-| Change (dialog, primary) | auth 08 `POST /api/auth/password/change` | none | toast with the auth 08 `message` ("Password changed"); the dialog closes; other sessions of the account are signed out by the server |
+| Change (dialog, primary) | auth 08 `POST /api/auth/password/change` | none | the server ends every session, this one included (D-063 rule 1), so the client signs out as Sign out does and opens `/sign-in` with the info banner "Password changed" (the auth 08 `message`), as `/reset` does |
 | Cancel (dialog) | none | asks first if a field is filled (chapter 06 §8.7) | none |
 | Sign out (menu) | auth 03 `POST /api/auth/logout` with the refresh token | none | `/sign-in`; the query cache and the auth context are cleared (task 1.1) |
 

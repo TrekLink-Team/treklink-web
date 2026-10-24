@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Link } from 'react-router-dom';
+import { AccountMenu } from '../widgets/AccountMenu/AccountMenu';
 import { AlertBanner } from './AlertBanner';
 import { AuthProvider } from './providers/AuthProvider';
 import { LiveProvider } from './providers/LiveProvider';
@@ -34,6 +35,7 @@ export const App: React.FC = () => {
               <span className="text-xs text-slate-400 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> FSD + Leaflet + Tailwind
               </span>
+              <AccountMenu />
             </nav>
           </div>
         </header>
