@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Sends a reset code to the account's own email. Staff can trigger it for any account but never see or set the password (BR-35).
+Sends a reset code to the account's own email. Staff can trigger it for any account but never see or set the password (BR-35). The resend cooldown applies (D-063 rule 7), and a deactivated account is refused, because reset would not accept its code (D-063 rule 8).
 
 ## API Specification
 
@@ -96,6 +96,40 @@ No body.
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>The account is deactivated (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This account is deactivated. Reactivate it before sending a reset code."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>429</td>
+            <td>A code was sent less than auth.codeResendCooldownSeconds ago (<code>OTP_COOLDOWN</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "OTP_COOLDOWN"
+  },
+  "isSuccess": false,
+  "statusCode": 429,
+  "message": "Please wait a minute before requesting another code."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -111,8 +145,18 @@ flowchart TB
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
+    D2{"The account is deactivated?"}
+    D1 -->|no| D2
+    E2["Return 409 INVALID_STATE_TRANSITION"]
+    D2 -->|yes| E2
+    E2 --> X2((End))
+    D3{"A code was sent less than auth.codeResendCooldownSeconds ago?"}
+    D2 -->|no| D3
+    E3["Return 429 OTP_COOLDOWN"]
+    D3 -->|yes| E3
+    E3 --> X3((End))
     P0["Store a PASSWORD_RESET code hash"]
-    D1 -->|no| P0
+    D3 -->|no| P0
     P1["Email the code to the account"]
     P0 --> P1
     P2["Emit audit.record"]

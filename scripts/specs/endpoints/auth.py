@@ -68,14 +68,14 @@ ENDPOINTS = [
        "Sends a single-use, time-limited code to the registered email. The response is identical whether "
        "or not the email exists (FR-AUTH-05). For an active account that has never set a password the code "
        "is a `SET_PASSWORD` code, used on `/welcome` (api-design 07), so an invitee whose invitation code "
-       "expired gets a new one here (D-059 rule 6).",
+       "expired gets a new one here (D-059 rule 6). Within `auth.codeResendCooldownSeconds` of the last code "
+       "the answer is the same and nothing is sent, so the cooldown cannot reveal a registered email "
+       "(D-063 rule 2).",
        "UC-09, FR-AUTH-05, BR-35",
        body=[["email", "Account email", "string", "yes", "`manager@acme-trek.vn`"]],
        sample={"email": "manager@acme-trek.vn"}, response=None,
        message="If the email is registered, a code has been sent.",
-       errors=[(429, "OTP_COOLDOWN", "A code was sent less than auth.codeResendCooldownSeconds ago",
-                "Please wait a minute before requesting another code.")],
-       steps=["Look up the user", "If found and active: store the code hash (SET_PASSWORD when no password is set, else PASSWORD_RESET), email the code",
+       steps=["Look up the user", "If found, active and outside the cooldown: store the code hash (SET_PASSWORD when no password is set, else PASSWORD_RESET), email the code",
               "Record AuthEvent PASSWORD_RESET_REQUESTED", "Answer identically either way"],
        controller="PasswordController", service="PasswordService", call="forgot(email)",
        participants=[["Mail", "Email service"]],
@@ -110,13 +110,14 @@ ENDPOINTS = [
        seq=["Svc->>DB: UPDATE users, one_time_codes", "Svc->>DB: INSERT refresh_tokens"]),
 
     ep("POST", "/api/auth/password/change", "Change own password", "Any signed-in user",
-       "Changes the caller's password after checking the current one; other sessions are revoked.",
+       "Changes the caller's password after checking the current one; every session of the account is "
+       "revoked, the caller's included, so the user signs in again (D-063 rule 1).",
        "UC-08, FR-AUTH-02",
        body=[["currentPassword", "Current password", "string", "yes", "`********`"],
              ["newPassword", "New password", "string", "yes", "`********`"]],
        sample={"currentPassword": "********", "newPassword": "********"}, response=None, message="Password changed",
        errors=[(400, "INVALID_CREDENTIALS", "The current password is wrong", "The current password is incorrect."), WEAK],
-       steps=["Verify the current password", "Store the new hash", "Revoke other refresh-token families"],
+       steps=["Verify the current password", "Store the new hash", "Revoke every refresh-token family"],
        controller="PasswordController", service="PasswordService", call="change(dto, caller)",
        seq=["Svc->>DB: UPDATE users, refresh_tokens"]),
 
@@ -186,10 +187,15 @@ ENDPOINTS = [
 
     ep("POST", "/api/accounts/:id/password-reset", "Trigger a password reset", "TrekLink Staff, TrekLink Admin",
        "Sends a reset code to the account's own email. Staff can trigger it for any account but never see "
-       "or set the password (BR-35).",
+       "or set the password (BR-35). The resend cooldown applies (D-063 rule 7), and a deactivated account "
+       "is refused, because reset would not accept its code (D-063 rule 8).",
        "UC-09, FR-AUTH-05, BR-35",
        path=[["id", "Account id, TrekLink or organization", "uuid", f"`{USER_ID}`"]], response=None,
        message="Reset code sent to the account email", entity="Account",
+       errors=[(409, "INVALID_STATE_TRANSITION", "The account is deactivated",
+                "This account is deactivated. Reactivate it before sending a reset code."),
+               (429, "OTP_COOLDOWN", "A code was sent less than auth.codeResendCooldownSeconds ago",
+                "Please wait a minute before requesting another code.")],
        steps=["Store a PASSWORD_RESET code hash", "Email the code to the account", "Emit audit.record"],
        controller="AccountsController", service="PasswordService", call="triggerReset(id, actor)",
        participants=[["Mail", "Email service"]],

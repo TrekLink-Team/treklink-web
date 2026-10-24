@@ -28,10 +28,10 @@
   - **Files**: `backend/src/modules/auth/ports/account-context.port.ts`, `api-key-resolver.port.ts`
   - **Do**: `ACCOUNT_CONTEXT_PROVIDER` with `forUser(userId)` and `API_KEY_RESOLVER` with `resolve(keyHash)`, exactly as design §2; `organizations` 1.3 provides both
   - _Requirements: design §2, platform design §2.1_
-- [ ] 1.3 `MailPort` with `smtp` and `console` transports (owner LongLP)
+- [x] 1.3 `MailPort` with `smtp` and `console` transports (owner LongLP)
   - **Files**: `backend/src/modules/auth/mail/mail.port.ts`, `smtp.transport.ts`, `console.transport.ts`
-  - **Do**: `send({ to, subject, text })`; `MAIL_TRANSPORT=console` writes the email to the server log, for local development and CI only. Other modules (incidents email channel) reuse it
-  - **Test**: console transport logs one line per mail
+  - **Do**: `send({ to, subject, text })`; `MAIL_TRANSPORT=console` writes the email to the server log, for local development and CI only, and the backend refuses to start with it in production; `MAIL_TRANSPORT=smtp` sends through `SMTP_URL` with `nodemailer` (D-063 rules 3 and 4). Other modules (incidents email channel) reuse it
+  - **Test**: console transport logs one line per mail; console under `NODE_ENV=production` and smtp without `SMTP_URL` stop the boot
   - _Requirements: REQ-OPT-01_
 - [x] 1.4 `AccountsRepository` over `User`, `Role`, `UserRole`, `RefreshToken`, `OneTimeCode`, `AuthEvent` (owner LongLP)
   - **Do**: email stored lower-case; uniqueness checked case-insensitively including soft-deleted rows; `accountType` and role compatibility enforced (`TREKLINK` holds `ADMIN` or `STAFF`, `ORGANIZATION` holds `ORG_MANAGER` or `ORG_OPERATOR`); reads exclude `deletedAt` rows except audit lookups

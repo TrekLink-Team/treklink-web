@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Sends a single-use, time-limited code to the registered email. The response is identical whether or not the email exists (FR-AUTH-05). For an active account that has never set a password the code is a `SET_PASSWORD` code, used on `/welcome` (api-design 07), so an invitee whose invitation code expired gets a new one here (D-059 rule 6).
+Sends a single-use, time-limited code to the registered email. The response is identical whether or not the email exists (FR-AUTH-05). For an active account that has never set a password the code is a `SET_PASSWORD` code, used on `/welcome` (api-design 07), so an invitee whose invitation code expired gets a new one here (D-059 rule 6). Within `auth.codeResendCooldownSeconds` of the last code the answer is the same and nothing is sent, so the cooldown cannot reveal a registered email (D-063 rule 2).
 
 ## API Specification
 
@@ -64,23 +64,6 @@ Sends a single-use, time-limited code to the registered email. The response is i
 ```
 </td>
         </tr>
-        <tr>
-            <td>429</td>
-            <td>A code was sent less than auth.codeResendCooldownSeconds ago (<code>OTP_COOLDOWN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "OTP_COOLDOWN"
-  },
-  "isSuccess": false,
-  "statusCode": 429,
-  "message": "Please wait a minute before requesting another code."
-}
-```
-</td>
-        </tr>
     </tbody>
 </table>
 
@@ -96,14 +79,9 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"A code was sent less than auth.codeResendCooldownSeconds ago?"}
-    D1 -->|no| D2
-    E2["Return 429 OTP_COOLDOWN"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
     P0["Look up the user"]
-    D2 -->|no| P0
-    P1["If found and active: store the code hash (SET_PASSWORD when no password is set, else PASSWORD_RESET), email the code"]
+    D1 -->|no| P0
+    P1["If found, active and outside the cooldown: store the code hash (SET_PASSWORD when no password is set, else PASSWORD_RESET), email the code"]
     P0 --> P1
     P2["Record AuthEvent PASSWORD_RESET_REQUESTED"]
     P1 --> P2
