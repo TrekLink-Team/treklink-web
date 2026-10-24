@@ -125,7 +125,7 @@ next request (FR-AUTH-06).
 | `REFRESH_INVALID` | 401 | refresh |
 | `REFRESH_REUSED` | 401 | refresh |
 | `CODE_INVALID` | 400 | reset, invitation |
-| `OTP_COOLDOWN` | 429 | forgot password |
+| `OTP_COOLDOWN` | 429 | Staff-triggered reset (D-063 rule 7); forgot answers as usual inside the cooldown (rule 2) |
 | `PASSWORD_POLICY` | 400 | reset, invitation, change |
 | `SELF_DEMOTION` | 409 | account edit |
 | `LAST_ADMIN` | 409 | account deactivate, role edit |
