@@ -109,7 +109,7 @@ describe('RolesService', () => {
         ),
       ).resolves.toEqual({ id: 'r-ORG_OPERATOR', key: 'ORG_OPERATOR', permissionCount: 1 });
 
-      expect(accounts.listPermissions).toHaveBeenCalledWith(['incident.read.own']);
+      expect(accounts.listPermissions).toHaveBeenCalledWith(['incident.read.own'], tx);
       expect(accounts.replaceRolePermissions).toHaveBeenCalledWith(
         'r-ORG_OPERATOR',
         ['p-incident.read.own'],
