@@ -337,7 +337,7 @@ describe('AccountsRepository, codes and passwords (auth tasks 3.1, 3.2)', () => 
     expect(prisma.oneTimeCode.create).toHaveBeenCalledWith({ data: code });
   });
 
-  it('reads the newest live code of a purpose and counts an attempt on it', async () => {
+  it('reads the newest live code of a purpose and spends an attempt on it atomically', async () => {
     await repository.findLiveCode('user-1', OtpPurpose.SET_PASSWORD);
     expect(prisma.oneTimeCode.findFirst).toHaveBeenCalledWith({
       where: { userId: 'user-1', purpose: OtpPurpose.SET_PASSWORD, consumedAt: null },
@@ -345,11 +345,14 @@ describe('AccountsRepository, codes and passwords (auth tasks 3.1, 3.2)', () => 
       select: ONE_TIME_CODE_SELECT,
     });
 
-    await repository.countCodeAttempt('otp-1');
-    expect(prisma.oneTimeCode.update).toHaveBeenCalledWith({
-      where: { id: 'otp-1' },
+    await expect(repository.spendAttempt('otp-1', 5, NOW)).resolves.toBe(true);
+    expect(prisma.oneTimeCode.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'otp-1', consumedAt: null, expiresAt: { gt: NOW }, attempts: { lt: 5 } },
       data: { attempts: { increment: 1 } },
     });
+
+    prisma.oneTimeCode.updateMany.mockResolvedValue({ count: 0 });
+    await expect(repository.spendAttempt('otp-1', 5, NOW)).resolves.toBe(false);
   });
 
   it('consumes a code only while it is live, so one code cannot be used twice', async () => {

@@ -33,7 +33,7 @@ describe('OneTimeCodeService', () => {
       consumeLiveCodes: jest.fn().mockResolvedValue(undefined),
       createCode: jest.fn().mockResolvedValue(undefined),
       findLiveCode: jest.fn().mockResolvedValue(liveCode()),
-      countCodeAttempt: jest.fn().mockResolvedValue(undefined),
+      spendAttempt: jest.fn().mockResolvedValue(true),
     };
     parameters = { get: jest.fn((key: string) => Promise.resolve(PARAMETERS[key])) };
     service = new OneTimeCodeService(
@@ -93,12 +93,12 @@ describe('OneTimeCodeService', () => {
   });
 
   describe('verify', () => {
-    it('returns the id of a matching live code without counting an attempt', async () => {
+    it('spends an attempt before comparing, and returns the id of a matching code', async () => {
       await expect(
         service.verify('user-1', OtpPurpose.PASSWORD_RESET, '482913', NOW),
       ).resolves.toBe('otp-1');
       expect(accounts.findLiveCode).toHaveBeenCalledWith('user-1', OtpPurpose.PASSWORD_RESET);
-      expect(accounts.countCodeAttempt).not.toHaveBeenCalled();
+      expect(accounts.spendAttempt).toHaveBeenCalledWith('otp-1', 5, NOW);
     });
 
     it('refuses with MSG08 when no live code exists (consumed or never sent)', async () => {
@@ -110,21 +110,25 @@ describe('OneTimeCodeService', () => {
         errorCode: ErrorCode.CODE_INVALID,
         message: 'This code is invalid or has expired. Request a new one.',
       });
-      expect(accounts.countCodeAttempt).not.toHaveBeenCalled();
+      expect(accounts.spendAttempt).not.toHaveBeenCalled();
     });
 
     it.each([
-      ['a wrong code', liveCode(), '000000'],
-      ['a code of another length', liveCode(), '48291'],
-      ['an expired code', liveCode({ expiresAt: NOW }), '482913'],
-      ['a code out of attempts', liveCode({ attempts: 5 }), '482913'],
-    ])('refuses %s and counts the attempt (REQ-ERR-03)', async (_label, row, code) => {
-      accounts.findLiveCode.mockResolvedValue(row);
-
+      ['a wrong code', '000000'],
+      ['a code of another length', '48291'],
+    ])('refuses %s after spending its attempt (REQ-ERR-03)', async (_label, code) => {
       await expect(
         service.verify('user-1', OtpPurpose.PASSWORD_RESET, code, NOW),
       ).rejects.toMatchObject({ errorCode: ErrorCode.CODE_INVALID });
-      expect(accounts.countCodeAttempt).toHaveBeenCalledWith('otp-1');
+      expect(accounts.spendAttempt).toHaveBeenCalledWith('otp-1', 5, NOW);
+    });
+
+    it('refuses even the right code when the database spends no attempt (expired or exhausted)', async () => {
+      accounts.spendAttempt.mockResolvedValue(false);
+
+      await expect(
+        service.verify('user-1', OtpPurpose.PASSWORD_RESET, '482913', NOW),
+      ).rejects.toMatchObject({ errorCode: ErrorCode.CODE_INVALID });
     });
   });
 });

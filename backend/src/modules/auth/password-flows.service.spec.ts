@@ -23,6 +23,11 @@ const TOKENS = {
 const STAFF = { id: 'staff-1', roles: ['STAFF'], organizationId: null };
 const RESET = { email: 'Staff@TrekLink.vn', code: '482913', password: 'new-password' };
 
+// Lets an unawaited send (forgot) reach its catch; fake timers leave microtasks alone.
+const settle = async () => {
+  for (let tick = 0; tick < 10; tick += 1) await Promise.resolve();
+};
+
 describe('codeEmail', () => {
   it('names a reset code and its validity in minutes', () => {
     expect(codeEmail('a@treklink.vn', OtpPurpose.PASSWORD_RESET, ISSUED)).toEqual({
@@ -156,12 +161,21 @@ describe('PasswordFlowsService', () => {
       mail.send.mockRejectedValueOnce(new TypeError('smtp down 482913'));
 
       await expect(service.forgot('staff@treklink.vn', CLIENT)).resolves.toBeUndefined();
+      await settle();
       expect(logged).toHaveBeenCalledWith('Code email to account user-1 failed: TypeError');
 
       mail.send.mockRejectedValueOnce('not an error');
       await service.forgot('staff@treklink.vn', CLIENT);
+      await settle();
       expect(logged).toHaveBeenLastCalledWith('Code email to account user-1 failed: unknown error');
       logged.mockRestore();
+    });
+
+    it('answers without waiting for the mail, so a known email is as fast as an unknown one', async () => {
+      mail.send.mockReturnValue(new Promise(() => undefined));
+
+      await expect(service.forgot('staff@treklink.vn', CLIENT)).resolves.toBeUndefined();
+      expect(mail.send).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -318,6 +332,17 @@ describe('PasswordFlowsService', () => {
       expect(mail.send).toHaveBeenCalledWith(
         codeEmail('staff@treklink.vn', OtpPurpose.PASSWORD_RESET, ISSUED),
       );
+    });
+
+    it('refuses a deactivated account, whose code reset would not accept', async () => {
+      accounts.findById.mockResolvedValue(anAccount({ isActive: false }));
+
+      await expect(service.triggerReset(STAFF, 'user-1', CLIENT)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+        message: 'This account is deactivated. Reactivate it before sending a reset code.',
+      });
+      expect(codes.issue).not.toHaveBeenCalled();
+      expect(mail.send).not.toHaveBeenCalled();
     });
 
     it.each([
