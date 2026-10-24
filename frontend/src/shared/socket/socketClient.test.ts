@@ -7,6 +7,9 @@ class FakeSocket {
   handlers = new Map<string, Handler>();
   emitted: [string, unknown][] = [];
   disconnected = false;
+  connected = false;
+  active = true;
+  connectCalls = 0;
   constructor(
     public url: string,
     public options: { auth: (send: (data: object) => void) => void },
@@ -21,10 +24,16 @@ class FakeSocket {
   disconnect() {
     this.disconnected = true;
   }
+  connect() {
+    this.connectCalls += 1;
+  }
   receive(event: string, ...args: unknown[]) {
     (this.handlers.get(event) as (...a: unknown[]) => void)(...args);
   }
 }
+
+const apiClient = vi.fn((path: string) => Promise.resolve({ path }));
+vi.mock('../api/apiClient', () => ({ apiClient: (path: string) => apiClient(path) }));
 
 let fake: FakeSocket;
 vi.mock('socket.io-client', () => ({
@@ -53,6 +62,7 @@ let live: typeof import('./socketClient');
 
 beforeEach(async () => {
   sessionStorage.clear();
+  apiClient.mockClear();
   vi.resetModules();
   live = await import('./socketClient');
 });
@@ -112,7 +122,52 @@ describe('socketClient', () => {
 
   it('passes a new access token to the server as auth.refresh', () => {
     live.startLive(() => 'access-1');
+    fake.connected = true;
     live.refreshLiveAuth('access-2');
     expect(fake.emitted).toEqual([['auth.refresh', { token: 'access-2' }]]);
+    expect(fake.connectCalls).toBe(0);
+  });
+
+  it('stores the cursor of replay.done so an empty replay still advances it', () => {
+    live.startLive(() => 'access-1');
+    fake.receive('stream', { ...entry(0, 'replay.done'), cursor: 42 });
+    expect(sessionStorage.getItem('treklink.live.cursor')).toBe('42');
+  });
+
+  it('recovers from a refused handshake: probes the API once, then reconnects with the new token', () => {
+    live.startLive(() => 'access-1');
+    fake.receive('stream', entry(7));
+    fake.active = false;
+    fake.receive('disconnect', 'io server disconnect');
+    fake.receive('connect_error', new Error('UNAUTHENTICATED'));
+    fake.receive('connect_error', new Error('UNAUTHENTICATED'));
+    expect(live.isLivePaused()).toBe(true);
+    expect(apiClient).toHaveBeenCalledOnce();
+    expect(apiClient).toHaveBeenCalledWith('/auth/me');
+
+    live.refreshLiveAuth('access-2');
+    expect(fake.connectCalls).toBe(1);
+    fake.active = true;
+    fake.receive('connect');
+    expect(live.isLivePaused()).toBe(true);
+    fake.receive('stream', { ...entry(0, 'replay.done'), cursor: 9 });
+    expect(live.isLivePaused()).toBe(false);
+  });
+
+  it('probes the API again after a connection succeeded and was refused later', () => {
+    live.startLive(() => 'access-1');
+    fake.active = false;
+    fake.receive('connect_error', new Error('UNAUTHENTICATED'));
+    fake.receive('connect');
+    fake.receive('disconnect', 'io server disconnect');
+    expect(apiClient).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves automatic reconnection alone while socket.io is still retrying', () => {
+    live.startLive(() => 'access-1');
+    fake.receive('connect_error', new Error('xhr poll error'));
+    live.refreshLiveAuth('access-2');
+    expect(apiClient).not.toHaveBeenCalled();
+    expect(fake.connectCalls).toBe(0);
   });
 });

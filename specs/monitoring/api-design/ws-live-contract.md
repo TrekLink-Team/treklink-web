@@ -30,7 +30,7 @@ MSG32 ("Reconnecting. Live data is paused.") from disconnect to `replay.done`. A
 `monitoring.streamRetentionHours` gets `{ "type": "replay.expired" }` and the client reloads
 `GET /api/map/snapshot`.
 
-Both control messages are delivered as the event `stream`, with `type` `replay.done` or `replay.expired` in the same body as an entry (`seq` 0), so a client needs one listener (frontend 1.4).
+Both control messages are delivered as the event `stream`, with `type` `replay.done` or `replay.expired` in the same body as an entry (`seq` 0), so a client needs one listener (frontend 1.4). `replay.done` keeps its `cursor` field, and the client stores it so an empty replay still advances the cursor.
 
 ## Server-to-client event: `stream`
 

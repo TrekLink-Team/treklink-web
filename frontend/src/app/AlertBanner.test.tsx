@@ -85,6 +85,16 @@ describe('AlertBanner', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
   });
 
+  it('keeps the banner on STALE_VERSION so the next tap reads a fresh version (MSG36)', async () => {
+    acknowledgeIncident.mockRejectedValue(new ApiError(409, 'STALE_VERSION', 'Another user changed this incident first.'));
+    render(<AlertBanner />);
+    push(entry('incident.alert', alertPayload));
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
+    await waitFor(() => expect(screen.getByText('Another user changed this incident first.')).toBeTruthy());
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Acknowledge' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('removes the banner when the incident moves to a state nobody can acknowledge', () => {
     render(<AlertBanner />);
     push(entry('incident.alert', alertPayload));
