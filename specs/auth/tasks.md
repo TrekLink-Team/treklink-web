@@ -65,12 +65,12 @@
 
 ## Phase 3: Codes
 
-- [ ] 3.1 `OneTimeCodeService` (owner LongLP)
+- [x] 3.1 `OneTimeCodeService` (owner LongLP)
   - **Files**: `backend/src/modules/auth/one-time-code.service.ts`
   - **Do**: six-digit code, SHA-256 stored, purpose `SET_PASSWORD` or `PASSWORD_RESET`, expiry from `auth.resetCodeTtlMinutes` or `auth.invitationTtlHours`, attempts up to `auth.codeMaxAttempts`, resend cooldown `auth.codeResendCooldownSeconds` (429 `OTP_COOLDOWN`); a wrong, expired, consumed or exhausted code is 400 `CODE_INVALID` (MSG08)
   - **Test**: each failure branch increments attempts; cooldown boundary
   - _Requirements: REQ-EVT-04, REQ-ERR-03, REQ-ERR-08_
-- [ ] 3.2 Forgot, reset, set-password and change-password flows (owner LongLP)
+- [x] 3.2 Forgot, reset, set-password and change-password flows (owner LongLP)
   - **Files**: `auth.service.ts`, `password-flows.service.ts`
   - **Do**: forgot answers identically for unknown emails and sends a `SET_PASSWORD` code to an active account with no password (D-059 rule 6); reset sets the hash, consumes the code and revokes every refresh token; set-password (invitation) sets the first password and signs in; change-password checks the current one; Staff-triggered reset (api-design 14) emails the account's own address and returns no code
   - **Test**: AC-06: no response body or log line contains a password or a code
@@ -123,7 +123,7 @@
 - [ ] 6.1 `AuthController`, `AccountsController`, `RolesController`, `AuthEventsController` (owner LongLP)
   - **Do**: api-design 01 to 18 with the routes, permissions and `@ResponseMessage` of each file; the refresh token travels in the request body (api-design 02), and `apiClient` refreshes once on 401 (frontend design)
   - _Requirements: FR-AUTH-01 to FR-AUTH-08_
-  - **Done**: `AuthController` with api-design 01 to 04 (login, refresh, logout, me), in treklink-web#48; the other controllers are open
+  - **Done**: `AuthController` with api-design 01 to 04 (login, refresh, logout, me), in treklink-web#48, and 05 to 08 (forgot, reset, set, change password); `AccountsController` with api-design 14 (Staff-triggered reset), for US-UC09. The rest of `AccountsController`, `RolesController` and `AuthEventsController` are open
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/auth.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts` (created here)
   - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-06
