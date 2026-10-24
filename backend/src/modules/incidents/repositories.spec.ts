@@ -1,16 +1,34 @@
+import { Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AlertChannel, Prisma } from '@prisma/client';
+import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ParameterService } from '../platform/parameters/parameter.service';
+import { PlatformModule } from '../platform/platform.module';
 import { AlertDeliveriesRepository } from './alert-deliveries.repository';
 import { AuthorityReportsRepository } from './authority-reports.repository';
 import { IncidentsModule } from './incidents.module';
 import { IncidentsRepository } from './incidents.repository';
+import { IncidentLifecycle } from './incident-lifecycle';
+
+@Module({
+  providers: [
+    { provide: TransactionalEvents, useValue: {} },
+    { provide: ParameterService, useValue: {} },
+  ],
+  exports: [TransactionalEvents, ParameterService],
+})
+class TestPlatformModule {}
 
 describe('incident persistence (task 1.1)', () => {
-  it('registers the three private repositories without external module providers', async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [IncidentsModule] }).compile();
+  it('registers the private repositories and lifecycle with only platform dependencies', async () => {
+    const moduleRef = await Test.createTestingModule({ imports: [IncidentsModule] })
+      .overrideModule(PlatformModule)
+      .useModule(TestPlatformModule)
+      .compile();
     expect(moduleRef.get(IncidentsRepository)).toBeInstanceOf(IncidentsRepository);
     expect(moduleRef.get(AlertDeliveriesRepository)).toBeInstanceOf(AlertDeliveriesRepository);
     expect(moduleRef.get(AuthorityReportsRepository)).toBeInstanceOf(AuthorityReportsRepository);
+    expect(moduleRef.get(IncidentLifecycle)).toBeInstanceOf(IncidentLifecycle);
     await moduleRef.close();
   });
 
