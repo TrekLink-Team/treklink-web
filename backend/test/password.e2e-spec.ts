@@ -77,7 +77,17 @@ describe('password flows (e2e)', () => {
   const output: string[] = [];
 
   const matches = (row: object, where: Record<string, unknown>) =>
-    Object.entries(where).every(([key, value]) => (row as Record<string, unknown>)[key] === value);
+    Object.entries(where).every(([key, value]) => {
+      const field = (row as Record<string, unknown>)[key];
+      // The two range filters the repository uses: `{ gt }` on a date, `{ lt }` on a count.
+      if (value && typeof value === 'object' && 'gt' in value) {
+        return (field as Date) > (value as { gt: Date }).gt;
+      }
+      if (value && typeof value === 'object' && 'lt' in value) {
+        return (field as number) < (value as { lt: number }).lt;
+      }
+      return field === value;
+    });
 
   const byWhere = (where: { email?: string; id?: string }) =>
     Object.values(users).find((user) => user.email === where.email || user.id === where.id);
@@ -134,20 +144,19 @@ describe('password flows (e2e)', () => {
         codes.push(row);
         return Promise.resolve(row);
       },
-      update: ({ where }: { where: { id: string } }) => {
-        const row = codes.find((code) => code.id === where.id)!;
-        row.attempts += 1;
-        return Promise.resolve(row);
-      },
       updateMany: ({
         where,
         data,
       }: {
         where: Record<string, unknown>;
-        data: Partial<StoredCode>;
+        data: Partial<Omit<StoredCode, 'attempts'>> & { attempts?: { increment: number } };
       }) => {
         const hits = codes.filter((code) => matches(code, where));
-        hits.forEach((code) => Object.assign(code, data));
+        hits.forEach((code) => {
+          const { attempts, ...rest } = data;
+          Object.assign(code, rest);
+          if (attempts) code.attempts += attempts.increment;
+        });
         return Promise.resolve({ count: hits.length });
       },
     },
