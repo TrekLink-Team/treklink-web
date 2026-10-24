@@ -2,14 +2,25 @@ import { ConfigService } from '@nestjs/config';
 import { ValidatedEnvironment } from '../../platform/config/environment-variables';
 import { ConsoleMailTransport } from './console.transport';
 import { MailPort } from './mail.port';
+import { SmtpMailTransport } from './smtp.transport';
 
-// Chooses the transport from MAIL_TRANSPORT. The SMTP transport ships with the first story that
-// sends mail (US-UC09, auth task 3.2); until then `smtp` stops the process at boot instead of
-// silently dropping email.
+// Chooses the transport from MAIL_TRANSPORT, and stops the boot rather than run a misconfigured one:
+// SMTP needs SMTP_URL, and the console transport, which writes codes to the log, never runs in
+// production (D-063 rule 4, AC-06, REQ-OPT-01).
 export const createMailPort = (config: ConfigService<ValidatedEnvironment, true>): MailPort => {
-  const transport = config.get('MAIL_TRANSPORT', { infer: true });
-  if (transport === 'console') {
-    return new ConsoleMailTransport(config.get('MAIL_FROM', { infer: true }));
+  const from = config.get('MAIL_FROM', { infer: true });
+
+  if (config.get('MAIL_TRANSPORT', { infer: true }) === 'smtp') {
+    const url = config.get('SMTP_URL', { infer: true });
+    if (!url) throw new Error('MAIL_TRANSPORT=smtp needs SMTP_URL.');
+    return new SmtpMailTransport(url, from);
   }
-  throw new Error(`MAIL_TRANSPORT=${transport} is not available yet; use console.`);
+
+  if (config.get('NODE_ENV', { infer: true }) === 'production') {
+    throw new Error(
+      'MAIL_TRANSPORT=console writes codes to the log and is for development and CI only; ' +
+        'set MAIL_TRANSPORT=smtp in production.',
+    );
+  }
+  return new ConsoleMailTransport(from);
 };
