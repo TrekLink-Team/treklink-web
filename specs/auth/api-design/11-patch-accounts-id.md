@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Changes the name, phone or role of a TrekLink account. A role change takes effect on the next request (FR-AUTH-06). An Admin cannot remove their own Admin role.
+Changes the name, phone or role of a TrekLink account. A role change takes effect on the next request (FR-AUTH-06). An Admin cannot remove their own Admin role, and the last active Admin keeps it. An organization account answers 404; its Manager handles it through `organizations` (D-064 rule 5).
 
 ## API Specification
 
@@ -152,6 +152,23 @@ Changes the name, phone or role of a TrekLink account. A role change takes effec
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>The role change would leave no active Admin (<code>LAST_ADMIN</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "LAST_ADMIN"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "At least one Admin must stay active."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -177,8 +194,13 @@ flowchart TB
     E3["Return 409 SELF_DEMOTION"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"The role change would leave no active Admin?"}
+    D3 -->|no| D4
+    E4["Return 409 LAST_ADMIN"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
     P0["Update the fields and role"]
-    D3 -->|no| P0
+    D4 -->|no| P0
     P1["Emit audit.record account.update"]
     P0 --> P1
     OK["Return 200"]
