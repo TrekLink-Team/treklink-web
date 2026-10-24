@@ -100,7 +100,9 @@ export class PasswordFlowsService {
       );
       return code;
     });
-    await this.deliver(account, purpose, issued);
+    // Not awaited: a known email must answer as fast as an unknown one once SMTP sends for real
+    // (FR-AUTH-05). `deliver` catches its own failure.
+    void this.deliver(account, purpose, issued);
   }
 
   // api-design 06: sets the password, spends the code and ends every session (REQ-EVT-05).
@@ -197,11 +199,19 @@ export class PasswordFlowsService {
   }
 
   // api-design 14: Staff send a reset code to the account's own email and never see it (BR-35,
-  // REQ-UBI-09). No cooldown applies (treklink-docs#96, 7).
+  // REQ-UBI-09). No cooldown applies (treklink-docs#96, 7). A deactivated account is refused, because
+  // reset would not accept its code.
   async triggerReset(caller: Caller, accountId: string, client: ClientInfo): Promise<void> {
     const account = await this.accounts.findById(accountId);
     if (!account || account.deletedAt) {
       throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Account not found.');
+    }
+    if (!account.isActive) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.INVALID_STATE_TRANSITION,
+        'This account is deactivated. Reactivate it before sending a reset code.',
+      );
     }
     const now = new Date();
 

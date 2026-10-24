@@ -80,18 +80,17 @@ export class OneTimeCodeService {
   }
 
   // Checks a submitted code against the newest live code of the purpose and returns its id, for the
-  // caller to consume in its own transaction. Every refusal of a live code counts an attempt, written
-  // at once so that the caller's rollback cannot erase it.
+  // caller to consume in its own transaction. The attempt is spent atomically before the comparison,
+  // and the database refuses an expired or exhausted code, so concurrent guesses cannot all read the
+  // same count (REQ-ERR-03). A correct code spends an attempt too; the spend is outside the caller's
+  // transaction, so a rollback cannot give it back.
   async verify(userId: string, purpose: OtpPurpose, code: string, now: Date): Promise<string> {
     const row = await this.accounts.findLiveCode(userId, purpose);
     if (!row) throw codeInvalid();
 
     const maxAttempts = await this.parameters.get('auth.codeMaxAttempts');
-    const usable = row.expiresAt > now && row.attempts < maxAttempts;
-    if (!usable || !sameHash(hashCode(code), row.codeHash)) {
-      await this.accounts.countCodeAttempt(row.id);
-      throw codeInvalid();
-    }
+    if (!(await this.accounts.spendAttempt(row.id, maxAttempts, now))) throw codeInvalid();
+    if (!sameHash(hashCode(code), row.codeHash)) throw codeInvalid();
     return row.id;
   }
 }
