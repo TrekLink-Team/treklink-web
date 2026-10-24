@@ -116,6 +116,7 @@
   - _Requirements: REQ-EVT-04, AC-08, api-design 01_
 - [ ] 4.2 `ParametersController` and `AuditLogController` (owner KhoaDD)
   - **Do**: api-design 02 to 05, `JwtAuthGuard` and `PoliciesGuard` (`parameter.manage`, `auditLog.read`), messages from each file
+  - **Progress**: both controllers are built on the global guards of D-061 with `@CheckPolicies`; `test/platform-admin.e2e-spec.ts` covers every Validation row of 02 to 05 (401, 403, 400, 404, `PARAMETER_OUT_OF_RANGE`, `STALE_VERSION`) and AC-06 through the HTTP pipeline. Open: the AC-07 trigger test (`UPDATE audit_log` fails) needs a real database and joins the `test:db` suite of incidents 1.1 (#56)
   - **Test**: e2e for every Validation row of 02 to 05; AC-07 trigger test (`UPDATE audit_log` fails); AC-06 parameter change visible to the next reader
   - _Requirements: AC-01 to AC-09_
   - _Depends on: auth 4.2_

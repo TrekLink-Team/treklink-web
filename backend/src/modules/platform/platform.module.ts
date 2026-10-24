@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
+import { AuditLogController } from './audit/audit-log.controller';
 import { AuditLogRepository } from './audit/audit-log.repository';
 import { AuditLogService } from './audit/audit-log.service';
 import { ParameterReadsService } from './parameters/parameter-reads.service';
+import { ParametersController } from './parameters/parameters.controller';
 import { AuditSinkListener } from './audit/audit-sink.listener';
 import { TransactionalEvents } from './events/emit-after-commit';
 import { HealthController } from './health/health.controller';
@@ -15,7 +17,7 @@ import { JobRunnerService } from './scheduler/job-runner.service';
 // (specs/platform/requirements.md §1, "Depends on").
 @Module({
   imports: [DiscoveryModule],
-  controllers: [HealthController],
+  controllers: [HealthController, ParametersController, AuditLogController],
   providers: [
     HealthService,
     TransactionalEvents,
