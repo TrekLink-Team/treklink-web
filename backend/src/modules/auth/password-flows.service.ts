@@ -67,15 +67,16 @@ export class PasswordFlowsService {
     @Inject(MAIL_PORT) private readonly mail: MailPort,
   ) {}
 
-  // api-design 05. The answer is the same for an unknown email (FR-AUTH-05). An account that never
-  // set a password is sent a SET_PASSWORD code instead (D-059 rule 6).
+  // api-design 05. The answer is the same for an unknown email and inside the cooldown, where nothing
+  // is sent (FR-AUTH-05, D-063 rule 2). An account that never set a password is sent a SET_PASSWORD
+  // code instead (D-059 rule 6).
   async forgot(email: string, client: ClientInfo): Promise<void> {
     const normalized = normalizeEmail(email);
     const account = await this.accounts.findByEmail(normalized);
     const knownUserId = account?.id ?? null;
     const now = new Date();
 
-    if (!canUseCodes(account)) {
+    if (!canUseCodes(account) || (await this.codes.inCooldown(account.id, now))) {
       await this.accounts.insertAuthEvent({
         userId: knownUserId,
         email: normalized,
@@ -85,7 +86,6 @@ export class PasswordFlowsService {
       return;
     }
 
-    await this.codes.assertCooldown(account.id, now);
     const purpose = account.passwordHash ? OtpPurpose.PASSWORD_RESET : OtpPurpose.SET_PASSWORD;
     const issued = await this.events.transaction(async (tx) => {
       const code = await this.codes.issue(account.id, purpose, now, tx);
@@ -132,7 +132,7 @@ export class PasswordFlowsService {
   }
 
   // api-design 07: the first password of an invited account, then a session (REQ-EVT-06). An account
-  // that may not hold a session keeps the password and gets the login refusal (treklink-docs#96, 5).
+  // that may not hold a session keeps the password and gets the login refusal (D-063 rule 5).
   async setPassword(input: CodeAndPassword, client: ClientInfo): Promise<SignInResult> {
     const account = await this.accounts.findByEmail(input.email);
     if (!canUseCodes(account)) throw codeInvalid();
@@ -170,7 +170,7 @@ export class PasswordFlowsService {
   }
 
   // api-design 08: checks the current password, then ends every session of the account, the
-  // caller's included (treklink-docs#96, 1).
+  // caller's included (D-063 rule 1).
   async change(userId: string, input: PasswordChange, client: ClientInfo): Promise<void> {
     const account = await this.accounts.findById(userId);
     const matches = await this.passwords.verify(
@@ -199,8 +199,8 @@ export class PasswordFlowsService {
   }
 
   // api-design 14: Staff send a reset code to the account's own email and never see it (BR-35,
-  // REQ-UBI-09). No cooldown applies (treklink-docs#96, 7). A deactivated account is refused, because
-  // reset would not accept its code.
+  // REQ-UBI-09). The resend cooldown answers 429 here (D-063 rule 7). A deactivated account is
+  // refused, because reset would not accept its code (D-063 rule 8).
   async triggerReset(caller: Caller, accountId: string, client: ClientInfo): Promise<void> {
     const account = await this.accounts.findById(accountId);
     if (!account || account.deletedAt) {
@@ -214,6 +214,7 @@ export class PasswordFlowsService {
       );
     }
     const now = new Date();
+    await this.codes.assertCooldown(account.id, now);
 
     const issued = await this.events.transaction(async (tx) => {
       const code = await this.codes.issue(account.id, OtpPurpose.PASSWORD_RESET, now, tx);

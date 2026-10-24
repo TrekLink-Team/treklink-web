@@ -31,7 +31,7 @@ export interface IssuedCode {
 
 // Six-digit, single-use, time-limited codes for a password reset and an invitation (auth task 3.1,
 // REQ-EVT-04, REQ-ERR-03, REQ-ERR-08). Only the SHA-256 of a code is stored. Sending a code spends
-// the account's earlier live codes of that purpose, so only the newest works (treklink-docs#96, 6).
+// the account's earlier live codes of that purpose, so only the newest works (D-063 rule 6).
 @Injectable()
 export class OneTimeCodeService {
   constructor(
@@ -39,12 +39,18 @@ export class OneTimeCodeService {
     private readonly parameters: ParameterService,
   ) {}
 
-  // 429 OTP_COOLDOWN when the account was sent a code less than auth.codeResendCooldownSeconds ago.
-  async assertCooldown(userId: string, now: Date): Promise<void> {
+  // Whether the account was sent a code less than auth.codeResendCooldownSeconds ago (REQ-ERR-08).
+  async inCooldown(userId: string, now: Date): Promise<boolean> {
     const lastSent = await this.accounts.lastCodeSentAt(userId);
-    if (!lastSent) return;
+    if (!lastSent) return false;
     const cooldownSeconds = await this.parameters.get('auth.codeResendCooldownSeconds');
-    if (now.getTime() - lastSent.getTime() < cooldownSeconds * 1000) {
+    return now.getTime() - lastSent.getTime() < cooldownSeconds * 1000;
+  }
+
+  // 429 OTP_COOLDOWN inside the cooldown, for the Staff trigger (D-063 rule 7). `forgot` answers
+  // as usual instead, so the cooldown cannot reveal a registered email (D-063 rule 2).
+  async assertCooldown(userId: string, now: Date): Promise<void> {
+    if (await this.inCooldown(userId, now)) {
       throw new DomainException(
         HttpStatus.TOO_MANY_REQUESTS,
         ErrorCode.OTP_COOLDOWN,
