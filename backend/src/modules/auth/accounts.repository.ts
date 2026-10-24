@@ -51,6 +51,65 @@ export interface NewRefreshToken {
   userAgent: string | null;
 }
 
+// The account as the Admin screens show it (api-design 09 to 13).
+export const ACCOUNT_VIEW_SELECT = {
+  id: true,
+  email: true,
+  fullName: true,
+  phoneNumber: true,
+  accountType: true,
+  isActive: true,
+  lastLoginAt: true,
+  createdAt: true,
+  roles: { select: { role: { select: { key: true } } } },
+} satisfies Prisma.UserSelect;
+
+type AccountViewRow = Prisma.UserGetPayload<{ select: typeof ACCOUNT_VIEW_SELECT }>;
+
+export interface AccountView extends Omit<AccountViewRow, 'roles'> {
+  roles: string[];
+}
+
+const toAccountView = (row: AccountViewRow): AccountView => ({
+  ...row,
+  roles: row.roles.map((grant) => grant.role.key),
+});
+
+const ROLE_VIEW_SELECT = {
+  id: true,
+  key: true,
+  accountType: true,
+  isSystem: true,
+  permissions: { select: { permission: { select: { key: true } } } },
+} satisfies Prisma.RoleSelect;
+
+type RoleViewRow = Prisma.RoleGetPayload<{ select: typeof ROLE_VIEW_SELECT }>;
+
+export interface RoleView extends Omit<RoleViewRow, 'permissions'> {
+  permissionKeys: string[];
+}
+
+const toRoleView = ({ permissions, ...role }: RoleViewRow): RoleView => ({
+  ...role,
+  permissionKeys: permissions.map((grant) => grant.permission.key).sort(),
+});
+
+export const CATALOG_PERMISSION_SELECT = {
+  id: true,
+  key: true,
+  action: true,
+  subject: true,
+  accountType: true,
+  conditions: true,
+} satisfies Prisma.PermissionSelect;
+
+export type CatalogPermissionRow = Prisma.PermissionGetPayload<{
+  select: typeof CATALOG_PERMISSION_SELECT;
+}>;
+
+// pg_advisory_xact_lock key of the last-Admin guard, named as incidents names its code lock.
+export const ADMIN_CHANGES_LOCK = 'auth:active-admins';
+
 export interface NewOneTimeCode {
   userId: string;
   purpose: OtpPurpose;
@@ -351,6 +410,121 @@ export class AccountsRepository {
       select: { permission: { select: PERMISSION_RULE_SELECT } },
     });
     return grants.map((grant) => grant.permission);
+  }
+
+  // TrekLink accounts for the Admin list, newest first; soft-deleted rows are not listed (api-design
+  // 09). `q` matches the name or the email, case-insensitively.
+  async pageTreklinkAccounts(
+    filter: { q?: string; isActive?: boolean },
+    skip: number,
+    take: number,
+  ): Promise<[AccountView[], number]> {
+    const where: Prisma.UserWhereInput = {
+      accountType: AccountType.TREKLINK,
+      deletedAt: null,
+      ...(filter.isActive === undefined ? {} : { isActive: filter.isActive }),
+      ...(filter.q
+        ? {
+            OR: [
+              { fullName: { contains: filter.q, mode: 'insensitive' } },
+              { email: { contains: filter.q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip,
+        take,
+        select: ACCOUNT_VIEW_SELECT,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return [rows.map(toAccountView), total];
+  }
+
+  // A TrekLink account that is not deleted; organization accounts belong to `organizations`.
+  async findTreklinkAccount(id: string, client: Client = this.prisma): Promise<AccountView | null> {
+    const row = await client.user.findFirst({
+      where: { id, accountType: AccountType.TREKLINK, deletedAt: null },
+      select: ACCOUNT_VIEW_SELECT,
+    });
+    return row ? toAccountView(row) : null;
+  }
+
+  async updateProfile(
+    id: string,
+    profile: { fullName?: string; phoneNumber?: string },
+    client: Client = this.prisma,
+  ): Promise<void> {
+    await client.user.update({ where: { id }, data: profile });
+  }
+
+  async setActive(id: string, isActive: boolean, client: Client = this.prisma): Promise<void> {
+    await client.user.update({ where: { id }, data: { isActive } });
+  }
+
+  // A TrekLink account holds one role (STAFF or ADMIN); an Admin inherits Staff (FR-AUTH-10).
+  async replaceRole(
+    userId: string,
+    roleKey: string,
+    grantedById: string,
+    client: Client = this.prisma,
+  ): Promise<void> {
+    const role = await client.role.findUniqueOrThrow({
+      where: { key: roleKey },
+      select: { id: true },
+    });
+    await client.userRole.deleteMany({ where: { userId } });
+    await client.userRole.create({ data: { userId, roleId: role.id, grantedById } });
+  }
+
+  // Serializes every change that can lower the number of active Admins, inside the caller's
+  // transaction, so two concurrent changes cannot both see a second Admin (auth task 5.1).
+  async lockAdminChanges(tx: Prisma.TransactionClient): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ADMIN_CHANGES_LOCK}))`;
+  }
+
+  countActiveAdmins(client: Client = this.prisma): Promise<number> {
+    return client.user.count({
+      where: { isActive: true, deletedAt: null, roles: { some: { role: { key: 'ADMIN' } } } },
+    });
+  }
+
+  // The four system roles with the keys of their permissions (api-design 15).
+  async listRoles(): Promise<RoleView[]> {
+    const rows = await this.prisma.role.findMany({
+      orderBy: { key: 'asc' },
+      select: ROLE_VIEW_SELECT,
+    });
+    return rows.map(toRoleView);
+  }
+
+  async findRole(id: string, client: Client = this.prisma): Promise<RoleView | null> {
+    const row = await client.role.findUnique({ where: { id }, select: ROLE_VIEW_SELECT });
+    return row ? toRoleView(row) : null;
+  }
+
+  // The seeded permission catalog (api-design 18), or the rows of the given keys.
+  listPermissions(keys?: readonly string[]): Promise<CatalogPermissionRow[]> {
+    return this.prisma.permission.findMany({
+      where: keys ? { key: { in: [...keys] } } : {},
+      orderBy: { key: 'asc' },
+      select: CATALOG_PERMISSION_SELECT,
+    });
+  }
+
+  async replaceRolePermissions(
+    roleId: string,
+    permissionIds: readonly string[],
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.rolePermission.deleteMany({ where: { roleId } });
+    await tx.rolePermission.createMany({
+      data: permissionIds.map((permissionId) => ({ roleId, permissionId })),
+    });
   }
 
   // Full names for display (the ACCOUNT_DIRECTORY port of platform). Includes inactive and
