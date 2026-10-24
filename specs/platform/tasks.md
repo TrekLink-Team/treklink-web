@@ -122,6 +122,11 @@
   - _Depends on: auth 4.2_
 - [ ] 4.3 Swagger envelope wrapper on every operation when `SWAGGER_ENABLED` (owner KhoaDD)
   - _Requirements: REQ-OPT-01_
+- [ ] 4.4 Request throttling, Sprint 4 (owner KhoaDD)
+  - **Files**: `backend/src/modules/platform/platform.module.ts`, `backend/src/common/decorators/access.decorator.ts`
+  - **Do**: register `@nestjs/throttler` (approved 2026-09-25) as a global guard with a default limit, and a stricter limit on the `@Public` auth routes (`login`, `refresh`, `password/forgot`, `password/reset`, `password/set`); an exceeded limit answers 429 `RATE_LIMITED` in the envelope; limits are parameters, not literals (D-015)
+  - **Test**: e2e that the next request past each limit is 429 `RATE_LIMITED` and that an authenticated route keeps the default limit
+  - _Requirements: D-063 rule 11, OWASP Forgot Password Cheat Sheet (rate limiting)_
 
 ## Phase 5: Frontend Integration
 
