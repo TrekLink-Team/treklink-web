@@ -101,7 +101,7 @@
 
 ## Phase 5: TrekLink account administration
 
-- [ ] 5.1 `AccountsService` for TrekLink accounts (owner LongLP)
+- [x] 5.1 `AccountsService` for TrekLink accounts (owner LongLP)
   - **Files**: `backend/src/modules/auth/accounts.service.ts`
   - **Do**: list with filters (role, active, search by email or name), create without password and send `SET_PASSWORD`, edit name and roles, deactivate (revoke refresh tokens, emit `audit.record`), reactivate; there is no hard-delete path (soft delete only); last-Admin and self-demotion guards under `pg_advisory_xact_lock` (409 `LAST_ADMIN`, `SELF_DEMOTION`)
   - **Test**: removing the last active Admin by deactivation and by role change both refused; concurrent attempts do not both pass
@@ -112,7 +112,7 @@
   - **Test**: invitation not sent when the caller's transaction rolls back
   - _Requirements: design §5, FR-ORG-02_
   - _Story: US-UC04_
-- [ ] 5.3 Roles: list and replace permissions, permission catalog (owner LongLP)
+- [x] 5.3 Roles: list and replace permissions, permission catalog (owner LongLP)
   - **Do**: `GET /api/roles` returns permission keys only; `GET /api/permissions` (api-design 18) serves the seeded catalog with `scope`, `accountType` and `protected`, never `conditions`, `fields` or `inverted`; replace: unknown permission 400 `UNKNOWN_PERMISSION`; a permission of the other account type 400 `PERMISSION_SCOPE_MISMATCH`; a change that leaves no role able to manage roles 409 `ADMIN_LOCKOUT`; emit `policy.changed` (D-057 rule 2)
   - **Test**: `organization.decide` sent for `ORG_MANAGER` gets 400 `PERMISSION_SCOPE_MISMATCH` and the role is unchanged; the catalog lists a permission that no role holds
   - _Requirements: REQ-EVT-08, REQ-ERR-09_
@@ -123,7 +123,7 @@
 - [ ] 6.1 `AuthController`, `AccountsController`, `RolesController`, `AuthEventsController` (owner LongLP)
   - **Do**: api-design 01 to 18 with the routes, permissions and `@ResponseMessage` of each file; the refresh token travels in the request body (api-design 02), and `apiClient` refreshes once on 401 (frontend design)
   - _Requirements: FR-AUTH-01 to FR-AUTH-08_
-  - **Done**: `AuthController` with api-design 01 to 04 (login, refresh, logout, me), in treklink-web#48, and 05 to 08 (forgot, reset, set, change password); `AccountsController` with api-design 14 (Staff-triggered reset), for US-UC09. The rest of `AccountsController`, `RolesController` and `AuthEventsController` are open
+  - **Done**: `AuthController` with api-design 01 to 04 (login, refresh, logout, me), in treklink-web#48, and 05 to 08 (forgot, reset, set, change password); `AccountsController` with api-design 14 (Staff-triggered reset), for US-UC09; api-design 09 to 13, `RolesController` (15, 16) and `PermissionsController` (18), for US-UC10. `AuthEventsController` (17) is open
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/auth.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts` (created here)
   - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-06
