@@ -1,4 +1,16 @@
-import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsEmail,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
+import { PagedQueryDto } from '../../../common/dto/paging';
+import { TREKLINK_ROLES, type TreklinkRole } from '../accounts.service';
 
 // auth api-design 01
 export class LoginDto {
@@ -59,6 +71,67 @@ export class ChangePasswordDto {
   @IsNotEmpty()
   @MaxLength(128)
   newPassword!: string;
+}
+
+// auth api-design 09. `isActive` arrives as the query text `true` or `false`.
+export class AccountListQueryDto extends PagedQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  isActive?: 'true' | 'false';
+}
+
+// auth api-design 10
+export class CreateAccountDto {
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  fullName!: string;
+
+  @IsIn(TREKLINK_ROLES)
+  role!: TreklinkRole;
+}
+
+// auth api-design 11
+export class UpdateAccountDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+?[0-9 ]{8,20}$/, { message: 'phoneNumber must be a phone number' })
+  phoneNumber?: string;
+
+  @IsOptional()
+  @IsIn(TREKLINK_ROLES)
+  role?: TreklinkRole;
+}
+
+// auth api-design 12
+export class DeactivateAccountDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason!: string;
+}
+
+// auth api-design 16: the full list; an empty list removes every permission.
+export class ReplacePermissionsDto {
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  permissionKeys!: string[];
 }
 
 // auth api-design 02 and 03: the refresh token travels in the body.

@@ -130,6 +130,7 @@ next request (FR-AUTH-06).
 | `SELF_DEMOTION` | 409 | account edit |
 | `LAST_ADMIN` | 409 | account deactivate, role edit |
 | `UNKNOWN_PERMISSION` | 400 | role permissions |
+| `PERMISSION_SCOPE_MISMATCH` | 400 | role permissions: a permission of the other account type (D-057 rule 2) |
 | `ADMIN_LOCKOUT` | 409 | role permissions |
 
 ---

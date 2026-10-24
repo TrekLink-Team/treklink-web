@@ -151,7 +151,8 @@ ENDPOINTS = [
 
     ep("PATCH", "/api/accounts/:id", "Edit a TrekLink account", "TrekLink Admin",
        "Changes the name, phone or role of a TrekLink account. A role change takes effect on the next "
-       "request (FR-AUTH-06). An Admin cannot remove their own Admin role.",
+       "request (FR-AUTH-06). An Admin cannot remove their own Admin role, and the last active Admin keeps it. "
+       "An organization account answers 404; its Manager handles it through `organizations` (D-064 rule 5).",
        "UC-10, FR-AUTH-06",
        path=[["id", "Account id", "uuid", f"`{USER_ID}`"]],
        body=[["fullName", "Full name", "string", "no", "`Tran Thi B`"],
@@ -160,28 +161,36 @@ ENDPOINTS = [
        sample={"role": "ADMIN"}, response={**ACCOUNT, "roles": ["ADMIN"]}, message="Account updated",
        entity="Account",
        errors=[(409, "SELF_DEMOTION", "An Admin tried to remove their own Admin role",
-                "You cannot remove your own Admin role.")],
+                "You cannot remove your own Admin role."),
+               (409, "LAST_ADMIN", "The role change would leave no active Admin", "At least one Admin must stay active.")],
        steps=["Update the fields and role", "Emit audit.record account.update"],
        controller="AccountsController", service="AccountsService", call="update(id, dto, actor)",
        seq=["Svc->>DB: UPDATE users, user_roles"]),
 
     ep("POST", "/api/accounts/:id/deactivate", "Deactivate a TrekLink account", "TrekLink Admin",
        "Deactivates the account and revokes its refresh tokens immediately (FR-AUTH-07). The last active "
-       "Admin cannot be deactivated.",
+       "Admin cannot be deactivated; an Admin may deactivate their own account while another Admin stays "
+       "active (D-064 rule 2). Deactivating an inactive account answers 200 with the account unchanged and "
+       "writes no auth event and no audit row (D-064 rule 3). An organization account answers 404; its "
+       "Manager handles it through `organizations` (D-064 rule 5).",
        "UC-10, FR-AUTH-07, FR-AUTH-09",
        path=[["id", "Account id", "uuid", f"`{USER_ID}`"]],
        body=[["reason", "Why", "string", "yes", "`Left the company`"]],
        sample={"reason": "Left the company"}, response={**ACCOUNT, "isActive": False}, message="Account deactivated",
        entity="Account",
        errors=[(409, "LAST_ADMIN", "This is the last active Admin", "At least one Admin must stay active.")],
-       steps=["Set isActive false", "Revoke all refresh tokens", "Record AuthEvent ACCOUNT_DEACTIVATED"],
+       steps=["Set isActive false", "Revoke all refresh tokens", "Record AuthEvent ACCOUNT_DEACTIVATED",
+              "Emit audit.record account.deactivate"],
        controller="AccountsController", service="AccountsService", call="deactivate(id, dto, actor)",
        seq=["Svc->>DB: UPDATE users, refresh_tokens; INSERT auth_events"]),
 
     ep("POST", "/api/accounts/:id/reactivate", "Reactivate a TrekLink account", "TrekLink Admin",
-       "Reactivates a deactivated TrekLink account.", "UC-10, FR-AUTH-07",
+       "Reactivates a deactivated TrekLink account. Reactivating an active account answers 200 with the "
+       "account unchanged and writes no auth event and no audit row (D-064 rule 3). An organization account "
+       "answers 404 (D-064 rule 5).", "UC-10, FR-AUTH-07",
        path=[["id", "Account id", "uuid", f"`{USER_ID}`"]], response=ACCOUNT, message="Account reactivated",
-       entity="Account", steps=["Set isActive true", "Record AuthEvent ACCOUNT_REACTIVATED"],
+       entity="Account", steps=["Set isActive true", "Record AuthEvent ACCOUNT_REACTIVATED",
+                                "Emit audit.record account.reactivate"],
        controller="AccountsController", service="AccountsService", call="reactivate(id, actor)",
        seq=["Svc->>DB: UPDATE users; INSERT auth_events"]),
 
