@@ -101,8 +101,8 @@ export class PasswordFlowsService {
       return code;
     });
     // Not awaited: a known email must answer as fast as an unknown one once SMTP sends for real
-    // (FR-AUTH-05). `deliver` catches its own failure.
-    void this.deliver(account, purpose, issued);
+    // (FR-AUTH-05). `sendCode` catches its own failure.
+    void this.sendCode(account, purpose, issued);
   }
 
   // api-design 06: sets the password, spends the code and ends every session (REQ-EVT-05).
@@ -238,12 +238,17 @@ export class PasswordFlowsService {
       } satisfies AuditRecordEvent);
       return code;
     });
-    await this.deliver(account, OtpPurpose.PASSWORD_RESET, issued);
+    await this.sendCode(account, OtpPurpose.PASSWORD_RESET, issued);
   }
 
-  // A failed send is logged without the code and does not change the answer, so a known email
-  // still answers like an unknown one (FR-AUTH-05). The user asks for a new code after the cooldown.
-  private async deliver(account: Account, purpose: OtpPurpose, issued: IssuedCode): Promise<void> {
+  // Emails a code. A failed send is logged without the code and does not change the answer, so a
+  // known email still answers like an unknown one (FR-AUTH-05); the user asks for a new code after
+  // the cooldown. AccountsService sends invitations through it too.
+  async sendCode(
+    account: Pick<Account, 'id' | 'email'>,
+    purpose: OtpPurpose,
+    issued: IssuedCode,
+  ): Promise<void> {
     try {
       await this.mail.send(codeEmail(account.email, purpose, issued));
     } catch (error) {
