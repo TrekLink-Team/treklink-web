@@ -6,6 +6,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { PlatformModule } from '../platform/platform.module';
 import { AccountSessionService } from './account-session.service';
+import { AccountsController } from './accounts.controller';
 import { AccountsRepository } from './accounts.repository';
 import { AuthPortsModule } from './auth-ports.module';
 import { AuthController } from './auth.controller';
@@ -16,6 +17,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PoliciesGuard } from './guards/policies.guard';
 import { createMailPort } from './mail/mail.factory';
 import { MAIL_PORT } from './mail/mail.port';
+import { OneTimeCodeService } from './one-time-code.service';
+import { PasswordFlowsService } from './password-flows.service';
 import { PasswordService } from './password.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TokenService } from './token.service';
@@ -38,13 +41,15 @@ import { TokenService } from './token.service';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, AccountsController],
   providers: [
     AccountsRepository,
     AccountSessionService,
     PasswordService,
     TokenService,
     AuthService,
+    OneTimeCodeService,
+    PasswordFlowsService,
     PermissionCache,
     AbilityFactory,
     JwtStrategy,
