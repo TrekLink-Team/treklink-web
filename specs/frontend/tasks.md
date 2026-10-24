@@ -30,7 +30,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: unwrap the D-002 envelope once; throw `ApiError { statusCode, errorCode, message }`; on 401 refresh once (auth api-design 02) and retry, else go to sign-in; run one refresh at a time and share its result between concurrent callers, because a second rotation of the same token revokes the session (D-060 rule 8)
   - **Test**: unit tests for success, failure envelope, refresh-and-retry, refresh failure
   - _Requirements: REQ-UBI-02, REQ-EVT-02, NFR-UI-02_
-- [ ] 1.3 Leaflet map with the overlay (owner LongNN)
+- [x] 1.3 Leaflet map with the overlay (owner LongNN)
   - **Files**: the existing `shared/config/map.ts` and `widgets/LiveMapWidget/LiveMapWidget.tsx`
   - **Do**: replace MapLibre with Leaflet; remove `maplibre-gl`; tiles and attribution from `GET /api/map/config`; an overlay `LayerGroup` with the two archipelago labels, always on top, not removable; markers with text alternatives; MSG33 when tiles fail, lists stay live
   - **Test**: AC-03 at each zoom where the archipelagos show
