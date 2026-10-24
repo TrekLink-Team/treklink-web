@@ -283,23 +283,29 @@ describe('IncidentLifecycle task 1.2', () => {
     },
   );
 
-  it('returns ALREADY_OWNED before stale state/version and exposes no cross-tenant ownership', async () => {
-    current = row('ACKNOWLEDGED', { ownerId: 'someone-else' });
-    await expect(
-      lifecycle.apply(
-        current.id,
-        'NOTIFY_PRIMARY',
-        'ACKNOWLEDGED',
-        MEMBER,
-        { ...OPTIONS, code: 'ACKNOWLEDGED', expectedVersion: 0 },
-        tx,
-      ),
-    ).rejects.toMatchObject({ errorCode: ErrorCode.ALREADY_OWNED });
-    current.organizationId = 'org-b';
-    await expect(apply('ACKNOWLEDGED', 'ACKNOWLEDGED', MEMBER)).rejects.toMatchObject({
-      errorCode: ErrorCode.NOT_FOUND,
-    });
-  });
+  it.each(['ACKNOWLEDGED', 'RESPONDING'] as const)(
+    'returns ALREADY_OWNED from %s before stale state/version and exposes no cross-tenant ownership',
+    async (state) => {
+      current = row(state, { ownerId: 'someone-else' });
+      await expect(
+        lifecycle.apply(
+          current.id,
+          'NOTIFY_PRIMARY',
+          'ACKNOWLEDGED',
+          MEMBER,
+          { ...OPTIONS, code: 'ACKNOWLEDGED', expectedVersion: 0 },
+          tx,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ALREADY_OWNED,
+        message: 'Another member has already acknowledged this incident.',
+      });
+      current.organizationId = 'org-b';
+      await expect(apply('ACKNOWLEDGED', 'ACKNOWLEDGED', MEMBER)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+    },
+  );
 
   it('reports a mismatched state or explicit version as STALE_VERSION', async () => {
     await expect(
@@ -322,7 +328,38 @@ describe('IncidentLifecycle task 1.2', () => {
     expect((await apply('ACKNOWLEDGED', 'ACKNOWLEDGED', MEMBER)).acknowledgedAt).toEqual(BEFORE);
   });
 
-  it('handles a CAS loss by reading the winner, with owner precedence', async () => {
+  it.each(['ESCALATED', 'REPORTED'] as const)(
+    'allows a different member to take over %s despite a retained owner',
+    async (state) => {
+      current = row(state, { ownerId: 'silent-operator', acknowledgedAt: BEFORE });
+      const manager: IncidentActor = { ...MEMBER, id: 'manager', roles: ['ORG_MANAGER'] };
+      const result = await apply('ACKNOWLEDGED', 'ACKNOWLEDGED', manager, { expectedVersion: 7 });
+      expect(result).toMatchObject({
+        state: 'ACKNOWLEDGED',
+        ownerId: 'manager',
+        version: 8,
+        acknowledgedAt: BEFORE,
+      });
+      expect(result.statusDueAt).toEqual(new Date(AT.getTime() + 600000));
+      expect(repository.insertTransition).toHaveBeenCalledWith(
+        expect.objectContaining({ actorId: 'manager', fromState: state, toState: 'ACKNOWLEDGED' }),
+        tx,
+      );
+    },
+  );
+
+  it.each(['ESCALATED', 'REPORTED'] as const)(
+    'still requires the expected version for takeover from %s',
+    async (state) => {
+      current = row(state, { ownerId: 'silent-operator' });
+      await expect(
+        apply('ACKNOWLEDGED', 'ACKNOWLEDGED', MEMBER, { expectedVersion: 6 }),
+      ).rejects.toMatchObject({ errorCode: ErrorCode.STALE_VERSION });
+      expect(repository.compareAndSet).not.toHaveBeenCalled();
+    },
+  );
+
+  it('handles a defensive CAS failure by re-reading the row, with owner precedence', async () => {
     repository.compareAndSet.mockResolvedValue(null);
     await expect(apply('NOTIFY_PRIMARY', 'ROUTED')).rejects.toMatchObject({
       errorCode: ErrorCode.STALE_VERSION,
