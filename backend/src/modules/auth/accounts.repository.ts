@@ -320,8 +320,19 @@ export class AccountsRepository {
     });
   }
 
-  async countCodeAttempt(id: string, client: Client = this.prisma): Promise<void> {
-    await client.oneTimeCode.update({ where: { id }, data: { attempts: { increment: 1 } } });
+  // Counts one attempt on a code that is live, unexpired and under the limit, in one statement, and
+  // reports whether it did. Concurrent callers each see the count the database holds (REQ-ERR-03).
+  async spendAttempt(
+    id: string,
+    maxAttempts: number,
+    now: Date,
+    client: Client = this.prisma,
+  ): Promise<boolean> {
+    const { count } = await client.oneTimeCode.updateMany({
+      where: { id, consumedAt: null, expiresAt: { gt: now }, attempts: { lt: maxAttempts } },
+      data: { attempts: { increment: 1 } },
+    });
+    return count === 1;
   }
 
   // Compare-and-set, so one code cannot be used by two concurrent requests.
