@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -49,6 +50,9 @@ import { TokenService } from './token.service';
     JwtStrategy,
     JwtAuthGuard,
     PoliciesGuard,
+    // Every route: token first, then policy (D-061). Order of registration is order of execution.
+    { provide: APP_GUARD, useExisting: JwtAuthGuard },
+    { provide: APP_GUARD, useExisting: PoliciesGuard },
     { provide: MAIL_PORT, inject: [ConfigService], useFactory: createMailPort },
   ],
   exports: [JwtAuthGuard, PoliciesGuard, AbilityFactory, MAIL_PORT],

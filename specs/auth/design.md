@@ -93,6 +93,14 @@ ability is the fixed read-only set `liveMap.read.own`, `telemetryHistory.read.ow
 
 ## 3. Authorization
 
+**Global guards (D-061).** `AuthModule` registers `JwtAuthGuard` and then `PoliciesGuard` as `APP_GUARD`,
+so every route of every module needs a valid access token and a passing policy. `@Public()` opts a route
+out of both (sign-in, refresh, health, the SePay webhook, the broker hooks); `@Authenticated()` needs the
+token only (sign-out, `me`). A route with none of `@Public()`, `@Authenticated()` or `@CheckPolicies` is
+refused with 403, so a forgotten policy fails closed. The decorators and `@CurrentCaller()` live in
+`backend/src/common/decorators/access.decorator.ts`, so a module below `auth` in `platform` Figure 3 can
+declare them without importing `auth`.
+
 `PoliciesGuard` evaluates the handler's `@CheckPolicies((ability) => ability.can(action, subject))`.
 The ability is built from the permission rows: `conditions` placeholders `${user.organizationId}` are
 interpolated from the request context, never from the request. Record-level checks use

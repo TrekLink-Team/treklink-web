@@ -162,6 +162,10 @@ flowchart TB
 | `CUSTODY_RESOLVER` | devices | rentals | Loss-case triage needs the custody interval (D-045); rentals imports devices |
 | `LOSS_CASE_LISTENERS` (multi) | devices | billing, rentals | Loss confirmation charges and settlement adjusts (billing) and closes the custody interval (rentals) (D-045) |
 
+Route protection follows the same constraint: `platform` cannot import `auth`'s guards, so `auth` applies
+them globally and a controller in any module declares only `@CheckPolicies`, `@Public()` or
+`@Authenticated()` from `common` (D-061, `auth` design §3).
+
 Wiring: a lower module cannot import the module that provides its port, because that module imports it.
 The providing module therefore registers its port providers in a small `@Global()` module that exports the
 port tokens and nothing else (for example `OrganizationsPortsModule`), and the declaring module injects the
