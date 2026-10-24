@@ -1,10 +1,11 @@
-import { AccountType, AuthEventType } from '@prisma/client';
+import { AccountType, AuthEventType, OtpPurpose } from '@prisma/client';
 import { ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   ACCOUNT_SELECT,
   AccountsRepository,
   normalizeEmail,
+  ONE_TIME_CODE_SELECT,
   PERMISSION_RULE_SELECT,
 } from './accounts.repository';
 
@@ -264,6 +265,111 @@ describe('AccountsRepository', () => {
     expect(prisma.rolePermission.findMany).toHaveBeenCalledWith({
       where: { role: { key: 'STAFF' } },
       select: { permission: { select: PERMISSION_RULE_SELECT } },
+    });
+  });
+});
+
+describe('AccountsRepository, codes and passwords (auth tasks 3.1, 3.2)', () => {
+  let prisma: {
+    user: { update: jest.Mock; findMany: jest.Mock };
+    refreshToken: { updateMany: jest.Mock };
+    oneTimeCode: Record<string, jest.Mock>;
+  };
+  let repository: AccountsRepository;
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        update: jest.fn().mockResolvedValue(undefined),
+        findMany: jest.fn().mockResolvedValue([{ id: 'user-1', fullName: 'Tran Thi B' }]),
+      },
+      refreshToken: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      oneTimeCode: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn().mockResolvedValue(undefined),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    repository = new AccountsRepository(prisma as unknown as PrismaService);
+  });
+
+  it('revokes every live refresh token of the account and stores a new hash', async () => {
+    await repository.revokeAllUserTokens('user-1', NOW);
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', revokedAt: null },
+      data: { revokedAt: NOW },
+    });
+
+    await repository.setPasswordHash('user-1', '$2b$04$new');
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { passwordHash: '$2b$04$new' },
+    });
+  });
+
+  it('reads when the account was last sent a code of any purpose', async () => {
+    await expect(repository.lastCodeSentAt('user-1')).resolves.toBeNull();
+
+    prisma.oneTimeCode.findFirst.mockResolvedValue({ createdAt: NOW });
+    await expect(repository.lastCodeSentAt('user-1')).resolves.toBe(NOW);
+    expect(prisma.oneTimeCode.findFirst).toHaveBeenLastCalledWith({
+      where: { userId: 'user-1' },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+  });
+
+  it('spends the live codes of a purpose, then stores a new one', async () => {
+    await repository.consumeLiveCodes('user-1', OtpPurpose.PASSWORD_RESET, NOW);
+    expect(prisma.oneTimeCode.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', purpose: OtpPurpose.PASSWORD_RESET, consumedAt: null },
+      data: { consumedAt: NOW },
+    });
+
+    const code = {
+      userId: 'user-1',
+      purpose: OtpPurpose.PASSWORD_RESET,
+      codeHash: 'abc',
+      expiresAt: NOW,
+    };
+    await repository.createCode(code);
+    expect(prisma.oneTimeCode.create).toHaveBeenCalledWith({ data: code });
+  });
+
+  it('reads the newest live code of a purpose and counts an attempt on it', async () => {
+    await repository.findLiveCode('user-1', OtpPurpose.SET_PASSWORD);
+    expect(prisma.oneTimeCode.findFirst).toHaveBeenCalledWith({
+      where: { userId: 'user-1', purpose: OtpPurpose.SET_PASSWORD, consumedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: ONE_TIME_CODE_SELECT,
+    });
+
+    await repository.countCodeAttempt('otp-1');
+    expect(prisma.oneTimeCode.update).toHaveBeenCalledWith({
+      where: { id: 'otp-1' },
+      data: { attempts: { increment: 1 } },
+    });
+  });
+
+  it('consumes a code only while it is live, so one code cannot be used twice', async () => {
+    await expect(repository.consumeCode('otp-1', NOW)).resolves.toBe(true);
+    expect(prisma.oneTimeCode.updateMany).toHaveBeenCalledWith({
+      where: { id: 'otp-1', consumedAt: null },
+      data: { consumedAt: NOW },
+    });
+
+    prisma.oneTimeCode.updateMany.mockResolvedValue({ count: 0 });
+    await expect(repository.consumeCode('otp-1', NOW)).resolves.toBe(false);
+  });
+
+  it('maps account ids to full names for the ACCOUNT_DIRECTORY port', async () => {
+    await expect(repository.namesOf(['user-1', 'user-9'])).resolves.toEqual(
+      new Map([['user-1', 'Tran Thi B']]),
+    );
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['user-1', 'user-9'] } },
+      select: { id: true, fullName: true },
     });
   });
 });
