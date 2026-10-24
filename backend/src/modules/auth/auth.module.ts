@@ -7,6 +7,7 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { PlatformModule } from '../platform/platform.module';
 import { AccountSessionService } from './account-session.service';
 import { AccountsController } from './accounts.controller';
+import { AccountsService } from './accounts.service';
 import { AccountsRepository } from './accounts.repository';
 import { AuthPortsModule } from './auth-ports.module';
 import { AuthController } from './auth.controller';
@@ -20,6 +21,8 @@ import { MAIL_PORT } from './mail/mail.port';
 import { OneTimeCodeService } from './one-time-code.service';
 import { PasswordFlowsService } from './password-flows.service';
 import { PasswordService } from './password.service';
+import { PermissionsController, RolesController } from './roles.controller';
+import { RolesService } from './roles.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TokenService } from './token.service';
 
@@ -41,7 +44,7 @@ import { TokenService } from './token.service';
       }),
     }),
   ],
-  controllers: [AuthController, AccountsController],
+  controllers: [AuthController, AccountsController, RolesController, PermissionsController],
   providers: [
     AccountsRepository,
     AccountSessionService,
@@ -50,6 +53,8 @@ import { TokenService } from './token.service';
     AuthService,
     OneTimeCodeService,
     PasswordFlowsService,
+    AccountsService,
+    RolesService,
     PermissionCache,
     AbilityFactory,
     JwtStrategy,
