@@ -47,8 +47,9 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: auth api-design 01, 05, 06, 07; one message for wrong credentials (MSG09); code errors MSG08; landing after sign-in per `design.md` §2 (D-059 rule 1)
   - **Done**: the sign-in page at `/sign-in` with the landing rule, in treklink-web#48 and the same-origin `next` check of #50; `/forgot`, `/reset` and `/welcome` with US-UC09; a signed-in user on any of the four is sent to the landing route
   - _Story: US-UC08, US-UC09_
-- [ ] 2.2 Account menu: profile and change password (owner LongLP)
+- [x] 2.2 Account menu: profile and change password (owner LongLP)
   - **Do**: auth api-design 04 and 08
+  - **Done**: the header account menu with the read-only profile (`['me']`), the change-password dialog and sign out (auth 03), in TK-186; after a password change the client signs out to `/sign-in`, because the server ends every session (D-063 rule 1)
   - _Story: US-UC08_
 - [ ] 2.3 Plans page (owner LongNN)
   - **Do**: billing api-design 01, public; the search-and-rescue disclaimer (also on `RegisterPage`)
