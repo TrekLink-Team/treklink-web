@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Reactivates a deactivated TrekLink account.
+Reactivates a deactivated TrekLink account. Reactivating an active account answers 200 with the account unchanged and writes no auth event and no audit row (D-064 rule 3). An organization account answers 404 (D-064 rule 5).
 
 ## API Specification
 
@@ -127,8 +127,10 @@ flowchart TB
     D1 -->|no| P0
     P1["Record AuthEvent ACCOUNT_REACTIVATED"]
     P0 --> P1
+    P2["Emit audit.record account.reactivate"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 

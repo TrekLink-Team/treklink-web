@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Deactivates the account and revokes its refresh tokens immediately (FR-AUTH-07). The last active Admin cannot be deactivated.
+Deactivates the account and revokes its refresh tokens immediately (FR-AUTH-07). The last active Admin cannot be deactivated; an Admin may deactivate their own account while another Admin stays active (D-064 rule 2). Deactivating an inactive account answers 200 with the account unchanged and writes no auth event and no audit row (D-064 rule 3). An organization account answers 404; its Manager handles it through `organizations` (D-064 rule 5).
 
 ## API Specification
 
@@ -181,8 +181,10 @@ flowchart TB
     P0 --> P1
     P2["Record AuthEvent ACCOUNT_DEACTIVATED"]
     P1 --> P2
+    P3["Emit audit.record account.deactivate"]
+    P2 --> P3
     OK["Return 200"]
-    P2 --> OK
+    P3 --> OK
     OK --> Z((End))
 ```
 
