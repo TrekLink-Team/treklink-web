@@ -168,6 +168,8 @@ export class IncidentLifecycle {
     const patch = await this.patch(current, to, actor, reason, tx);
     const updated = await this.repository.compareAndSet(current, patch, tx);
     if (!updated) {
+      // Defensive only after FOR UPDATE. Normal acknowledgement losers read the winning
+      // owner when lockById above finishes waiting, before reaching this CAS.
       const winner = await this.repository.lockById(id, tx);
       if (winner) this.assertOwnerBeforeVersion(winner, actor, reason.code);
       throw stale();
@@ -186,6 +188,8 @@ export class IncidentLifecycle {
       tx,
     );
     await this.alerts.enqueue(this.deliveries(updated, transition.id, reason.recipients), tx);
+    // In-process routing IDs, not the WebSocket DTO. Monitoring 1.1 must enrich this event
+    // with code, ownerName, lastPosition and stale per monitoring/api-design/ws-live-contract.md.
     this.events.emitAfterCommit('incident.changed', {
       incidentId: id,
       organizationId: updated.organizationId,
@@ -227,6 +231,7 @@ export class IncidentLifecycle {
   ): void {
     if (
       reason === 'ACKNOWLEDGED' &&
+      (current.state === 'ACKNOWLEDGED' || current.state === 'RESPONDING') &&
       current.ownerId &&
       'id' in actor &&
       current.ownerId !== actor.id
@@ -234,7 +239,7 @@ export class IncidentLifecycle {
       throw new DomainException(
         HttpStatus.CONFLICT,
         ErrorCode.ALREADY_OWNED,
-        `Account ${current.ownerId} already owns this incident.`,
+        'Another member has already acknowledged this incident.',
       );
     }
   }
