@@ -34,7 +34,7 @@ const textOf = (marker: MapMarker): string =>
 const overlayIcon = (label: string): L.DivIcon => {
   const element = document.createElement('div');
   element.className =
-    '-translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-white/90 px-2 py-0.5 text-xs font-semibold text-red-700 shadow';
+    'w-max -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-white/90 px-2 py-0.5 text-xs font-semibold text-red-700 shadow';
   element.textContent = label;
   return L.divIcon({ html: element, className: '', iconSize: [0, 0] });
 };
@@ -93,8 +93,19 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
       const instance = L.map(node).setView([lat, lon], zoom);
 
       const tiles = L.tileLayer(config.tileUrl, { attribution: config.attribution });
-      tiles.on('tileerror', () => setTilesFailed(true));
-      tiles.on('tileload', () => setTilesFailed(false));
+      // One failed tile is normal on a flaky link. The panel appears only when a whole batch of tiles
+      // finishes without a single success, and goes as soon as one tile loads (REQ-EVT-04).
+      let loadedInBatch = 0;
+      tiles.on('loading', () => {
+        loadedInBatch = 0;
+      });
+      tiles.on('tileload', () => {
+        loadedInBatch += 1;
+        setTilesFailed(false);
+      });
+      tiles.on('load', () => {
+        if (loadedInBatch === 0) setTilesFailed(true);
+      });
       tiles.addTo(instance);
 
       // Always on, never in a layer control, never removed by the user (REQ-UBI-06).
@@ -166,11 +177,17 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
  * MSG33 and the rest of the page keeps working.
  */
 export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [] }) => {
-  const config = useQuery({ queryKey: MAP_CONFIG_KEY, queryFn: getMapConfig, retry: false });
+  const config = useQuery({
+    queryKey: MAP_CONFIG_KEY,
+    queryFn: getMapConfig,
+    retry: false,
+    // The map is built once from this config; a refetch must not hand it a new one mid-session.
+    staleTime: Infinity,
+  });
 
   return (
     <div className="relative w-full h-[500px] rounded-xl overflow-hidden shadow-sm border border-slate-200">
-      {config.data && <LeafletMap config={config.data} markers={markers} />}
+      {config.data && <LeafletMap key={config.data.tileUrl} config={config.data} markers={markers} />}
       {config.isPending && (
         <p className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Loading map</p>
       )}
