@@ -21,7 +21,13 @@ describe('IncidentsRepository (task 1.1)', () => {
   let tx: {
     $queryRaw: jest.Mock;
     $executeRaw: jest.Mock;
-    incident: { create: jest.Mock; findFirst: jest.Mock };
+    incident: {
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      updateMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+    };
+    incidentTransition: { aggregate: jest.Mock; create: jest.Mock };
   };
   let client: Prisma.TransactionClient;
   let repository: IncidentsRepository;
@@ -33,10 +39,55 @@ describe('IncidentsRepository (task 1.1)', () => {
       incident: {
         create: jest.fn().mockResolvedValue(ROW),
         findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(ROW),
+      },
+      incidentTransition: {
+        aggregate: jest.fn().mockResolvedValue({ _max: { seq: null } }),
+        create: jest.fn().mockResolvedValue({ id: 'transition' }),
       },
     };
     client = tx as unknown as Prisma.TransactionClient;
     repository = new IncidentsRepository();
+  });
+
+  it('locks by id and distinguishes a missing incident', async () => {
+    await expect(repository.lockById('missing', client)).resolves.toBeNull();
+    tx.$queryRaw.mockResolvedValue([ROW]);
+    await expect(repository.lockById(ROW.id, client)).resolves.toBe(ROW);
+    const [sql, id] = tx.$queryRaw.mock.calls[1] as [TemplateStringsArray, string];
+    expect(sql.join('?')).toContain('FOR UPDATE');
+    expect(id).toBe(ROW.id);
+  });
+
+  it('compares both state and version and increments the version itself', async () => {
+    const current = { id: ROW.id, state: 'DETECTED' as const, version: 7 };
+    await expect(repository.compareAndSet(current, { state: 'UNROUTED' }, client)).resolves.toBe(
+      ROW,
+    );
+    expect(tx.incident.updateMany).toHaveBeenCalledWith({
+      where: current,
+      data: { state: 'UNROUTED', version: { increment: 1 } },
+    });
+    tx.incident.findUniqueOrThrow.mockClear();
+    tx.incident.updateMany.mockResolvedValue({ count: 0 });
+    await expect(
+      repository.compareAndSet(current, { state: 'UNROUTED' }, client),
+    ).resolves.toBeNull();
+    expect(tx.incident.findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+
+  it('assigns append-only history sequences from one, under the caller row lock', async () => {
+    const data = { incidentId: ROW.id, toState: 'UNROUTED' as const, reason: 'ROUTED' };
+    await expect(repository.insertTransition(data, client)).resolves.toEqual({ id: 'transition' });
+    expect(tx.incidentTransition.create).toHaveBeenLastCalledWith({ data: { ...data, seq: 1 } });
+    tx.incidentTransition.aggregate.mockResolvedValue({ _max: { seq: 8 } });
+    await repository.insertTransition(data, client);
+    expect(tx.incidentTransition.create).toHaveBeenLastCalledWith({ data: { ...data, seq: 9 } });
+    expect(tx.incidentTransition.aggregate).toHaveBeenCalledWith({
+      where: { incidentId: ROW.id },
+      _max: { seq: true },
+    });
   });
 
   it('locks the open incident on the supplied connection, excluding CLOSED', async () => {

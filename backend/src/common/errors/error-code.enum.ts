@@ -28,4 +28,8 @@ export enum ErrorCode {
   PASSWORD_POLICY = 'PASSWORD_POLICY',
   CODE_INVALID = 'CODE_INVALID',
   OTP_COOLDOWN = 'OTP_COOLDOWN',
+
+  // incidents (specs/incidents/design.md §7)
+  ALREADY_OWNED = 'ALREADY_OWNED',
+  NOT_OWNER = 'NOT_OWNER',
 }

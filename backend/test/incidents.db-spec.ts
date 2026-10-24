@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   AccountType,
   AlertChannel,
@@ -12,6 +14,17 @@ import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AlertDeliveriesRepository } from '../src/modules/incidents/alert-deliveries.repository';
 import { AuthorityReportsRepository } from '../src/modules/incidents/authority-reports.repository';
 import { IncidentsRepository, NewIncident } from '../src/modules/incidents/incidents.repository';
+import {
+  IncidentActor,
+  IncidentLifecycle,
+  IncidentRecipients,
+  IncidentTransitionReason,
+} from '../src/modules/incidents/incident-lifecycle';
+import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
+import { ParameterService } from '../src/modules/platform/parameters/parameter.service';
+import { ParameterRepository } from '../src/modules/platform/parameters/parameter.repository';
+import { ValidatedEnvironment } from '../src/modules/platform/config/environment-variables';
+import { ErrorCode } from '../src/common/errors';
 
 // Capture explicit connection settings before Prisma can load a local .env at construction.
 const databaseUrl = process.env.DATABASE_URL;
@@ -26,10 +39,21 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
   const repository = new IncidentsRepository();
   const alerts = new AlertDeliveriesRepository();
   const reports = new AuthorityReportsRepository();
+  const emitter = new EventEmitter2();
+  const events = new TransactionalEvents(prisma, emitter);
+  const parameters = new ParameterService(
+    new ParameterRepository(prisma),
+    events,
+    new ConfigService<ValidatedEnvironment, true>({ PARAMETER_CACHE_TTL_SECONDS: 0 }),
+  );
+  const lifecycle = new IncidentLifecycle(repository, alerts, parameters, events);
   const at = new Date('2026-10-23T09:00:00Z');
   const runId = randomUUID();
   let staffId: string;
   let variantId: string;
+  let organizationId: string;
+  let operatorId: string;
+  let secondOperatorId: string;
   let serial = 0;
 
   const input = (deviceId: string): NewIncident => ({
@@ -79,9 +103,80 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
         },
       })
     ).id;
+    organizationId = (
+      await prisma.organization.create({
+        data: {
+          code: `lifecycle-${runId}`,
+          legalName: 'Lifecycle test organization',
+          taxCode: runId,
+          address: 'Test only',
+          contactEmail: 'test@example.invalid',
+          contactPhone: '0000000000',
+          documentsSeen: [],
+        },
+      })
+    ).id;
+    const users = await Promise.all(
+      ['operator', 'second'].map((name) =>
+        prisma.user.create({
+          data: {
+            email: `${name}-${runId}@example.invalid`,
+            fullName: `Test ${name}`,
+            accountType: AccountType.ORGANIZATION,
+          },
+        }),
+      ),
+    );
+    operatorId = users[0].id;
+    secondOperatorId = users[1].id;
   });
 
   afterAll(async () => prisma.$disconnect());
+  beforeEach(() => emitter.removeAllListeners());
+
+  const member = (id = operatorId): IncidentActor => ({
+    kind: 'MEMBER',
+    id,
+    organizationId,
+    roles: ['ORG_OPERATOR'],
+  });
+  const recipients = (): IncidentRecipients => ({
+    primary: [operatorId],
+    backup: [secondOperatorId],
+    managers: [operatorId],
+    staff: [staffId],
+  });
+  const reason = (
+    code: IncidentTransitionReason['code'],
+    extra: Partial<IncidentTransitionReason> = {},
+  ): IncidentTransitionReason => ({
+    code,
+    at,
+    recipients: recipients(),
+    expectedVersion: 0,
+    ...extra,
+  });
+  const fixture = async (
+    state: IncidentState,
+    patch: Partial<Prisma.IncidentUncheckedCreateInput> = {},
+  ) => {
+    const { id } = await device();
+    const incident = await prisma.incident.create({
+      data: {
+        ...input(id),
+        code: `lifecycle-${randomUUID()}`,
+        state,
+        organizationId,
+        stateChangedAt: new Date(at.getTime() - 60000),
+        tierDeadlineAt: new Date(at.getTime() - 1),
+        ...patch,
+      },
+    });
+    await prisma.incidentTransition.create({
+      data: { incidentId: incident.id, seq: 1, toState: state, reason: 'TEST_FIXTURE' },
+    });
+    return incident;
+  };
 
   it('ten concurrent inserts correlate to exactly one open incident', async () => {
     const { id } = await device();
@@ -235,5 +330,352 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
       } satisfies Partial<Prisma.PrismaClientKnownRequestError>);
       expect((await repository.insert(input(id), at, tx)).created).toBe(true);
     });
+  });
+
+  it.each(['NOTIFY_PRIMARY', 'ESCALATED', 'REPORTED'] as const)(
+    'two concurrent acknowledgements from %s produce one owner, one transition and one stream row',
+    async (state) => {
+      const incident = await fixture(state, {
+        ownerId: state === 'NOTIFY_PRIMARY' ? null : operatorId,
+      });
+      const changed = jest.fn();
+      emitter.on('incident.changed', changed);
+      const results = await Promise.allSettled(
+        [operatorId, secondOperatorId].map((id) =>
+          events.transaction((tx) =>
+            lifecycle.apply(
+              incident.id,
+              state,
+              'ACKNOWLEDGED',
+              member(id),
+              reason('ACKNOWLEDGED'),
+              tx,
+            ),
+          ),
+        ),
+      );
+      const won = results.filter((result) => result.status === 'fulfilled');
+      const lost = results.filter((result) => result.status === 'rejected');
+      expect(won).toHaveLength(1);
+      expect(lost).toHaveLength(1);
+      expect(lost[0]).toMatchObject({ reason: { errorCode: ErrorCode.ALREADY_OWNED } });
+      const saved = await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } });
+      expect([operatorId, secondOperatorId]).toContain(saved.ownerId);
+      expect(saved.state).toBe('ACKNOWLEDGED');
+      expect(saved.statusDueAt).toEqual(
+        new Date(at.getTime() + (await parameters.get('incidents.staleLimitMinutes')) * 60000),
+      );
+      expect(saved.tierDeadlineAt).toBeNull();
+      expect(changed).toHaveBeenCalledTimes(1);
+      expect(
+        await prisma.incidentTransition.findMany({
+          where: { incidentId: incident.id },
+          orderBy: { seq: 'asc' },
+          select: { seq: true },
+        }),
+      ).toEqual([{ seq: 1 }, { seq: 2 }]);
+      expect(await prisma.alertDelivery.count({ where: { incidentId: incident.id } })).toBe(1);
+    },
+  );
+
+  it.each(['ACKNOWLEDGED', 'RESPONDING'] as const)(
+    'a different Manager takes over after stale escalation from %s',
+    async (state) => {
+      const firstAcknowledgedAt = new Date(at.getTime() - 60000);
+      const incident = await fixture(state, {
+        ownerId: operatorId,
+        acknowledgedAt: firstAcknowledgedAt,
+        statusDueAt: new Date(at.getTime() - 1),
+      });
+      const targets = { ...recipients(), managers: [secondOperatorId] };
+      const escalated = await events.transaction((tx) =>
+        lifecycle.apply(
+          incident.id,
+          state,
+          'ESCALATED',
+          { kind: 'SYSTEM' },
+          reason('STALE_LIMIT', { recipients: targets }),
+          tx,
+        ),
+      );
+      expect(escalated.ownerId).toBe(operatorId);
+      const manager: IncidentActor = {
+        kind: 'MEMBER',
+        id: secondOperatorId,
+        organizationId,
+        roles: ['ORG_MANAGER'],
+      };
+      const takeover = await events.transaction((tx) =>
+        lifecycle.apply(
+          incident.id,
+          'ESCALATED',
+          'ACKNOWLEDGED',
+          manager,
+          reason('ACKNOWLEDGED', { expectedVersion: 1, recipients: targets }),
+          tx,
+        ),
+      );
+      expect(takeover).toMatchObject({
+        state: 'ACKNOWLEDGED',
+        ownerId: secondOperatorId,
+        version: 2,
+        acknowledgedAt: firstAcknowledgedAt,
+      });
+      expect(takeover.statusDueAt).toEqual(
+        new Date(at.getTime() + (await parameters.get('incidents.staleLimitMinutes')) * 60000),
+      );
+      expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toEqual(
+        takeover,
+      );
+      expect(
+        await prisma.incidentTransition.findMany({
+          where: { incidentId: incident.id },
+          orderBy: { seq: 'asc' },
+          select: { seq: true, toState: true, actorId: true },
+        }),
+      ).toEqual([
+        { seq: 1, toState: state, actorId: null },
+        { seq: 2, toState: 'ESCALATED', actorId: null },
+        { seq: 3, toState: 'ACKNOWLEDGED', actorId: secondOperatorId },
+      ]);
+    },
+  );
+
+  it('a timer waiting behind an acknowledgement loses without escalating', async () => {
+    const incident = await fixture('NOTIFY_PRIMARY');
+    let signalLocked!: () => void;
+    let release!: () => void;
+    const locked = new Promise<void>((resolve) => {
+      signalLocked = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const acknowledgement = events.transaction(async (tx) => {
+      const result = await lifecycle.apply(
+        incident.id,
+        'NOTIFY_PRIMARY',
+        'ACKNOWLEDGED',
+        member(),
+        reason('ACKNOWLEDGED'),
+        tx,
+      );
+      signalLocked();
+      await gate;
+      return result;
+    });
+    await locked;
+    const timer = events.transaction((tx) =>
+      lifecycle.apply(
+        incident.id,
+        'NOTIFY_PRIMARY',
+        'NOTIFY_BACKUP',
+        { kind: 'SYSTEM' },
+        reason('TIER_TIMEOUT'),
+        tx,
+      ),
+    );
+    // Attach the rejection handler before allowing the competing transaction to finish.
+    const timerResult = expect(timer).rejects.toMatchObject({ errorCode: ErrorCode.STALE_VERSION });
+    release();
+    await acknowledgement;
+    await timerResult;
+    expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(2);
+    expect((await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).state).toBe(
+      'ACKNOWLEDGED',
+    );
+  });
+
+  it('skips empty tiers with consecutive history, pending outbox and events after commit', async () => {
+    const incident = await fixture('DETECTED');
+    const changed = jest.fn();
+    const audited = jest.fn();
+    emitter.on('incident.changed', changed);
+    emitter.on('audit.record', audited);
+    const saved = await events.transaction(async (tx) => {
+      const result = await lifecycle.apply(
+        incident.id,
+        'DETECTED',
+        'NOTIFY_PRIMARY',
+        { kind: 'SYSTEM' },
+        reason('ROUTED', {
+          recipients: { ...recipients(), primary: [], backup: [] },
+        }),
+        tx,
+      );
+      expect(changed).not.toHaveBeenCalled();
+      expect(audited).not.toHaveBeenCalled();
+      expect(await tx.alertDelivery.count({ where: { incidentId: incident.id } })).toBe(6);
+      return result;
+    });
+    expect(saved.state).toBe('NOTIFY_MANAGER');
+    expect(saved.version).toBe(3);
+    expect(saved.tierDeadlineAt).toEqual(
+      new Date(at.getTime() + (await parameters.get('incidents.managerAckTimeoutSeconds')) * 1000),
+    );
+    expect(changed).toHaveBeenCalledTimes(3);
+    expect(audited).toHaveBeenCalledTimes(3);
+    expect(
+      await prisma.incidentTransition.findMany({
+        where: { incidentId: incident.id },
+        orderBy: { seq: 'asc' },
+        select: { seq: true, toState: true },
+      }),
+    ).toEqual([
+      { seq: 1, toState: 'DETECTED' },
+      { seq: 2, toState: 'NOTIFY_PRIMARY' },
+      { seq: 3, toState: 'NOTIFY_BACKUP' },
+      { seq: 4, toState: 'NOTIFY_MANAGER' },
+    ]);
+    expect(
+      await prisma.alertDelivery.count({ where: { incidentId: incident.id, status: 'PENDING' } }),
+    ).toBe(6);
+  });
+
+  it('discards queued events and all incident/outbox/report writes when the caller rolls back', async () => {
+    const incident = await fixture('DETECTED', { organizationId: null });
+    const changed = jest.fn();
+    const audited = jest.fn();
+    emitter.on('incident.changed', changed);
+    emitter.on('audit.record', audited);
+    const aborted = new Error('caller aborts');
+    await expect(
+      events.transaction(async (tx) => {
+        await lifecycle.apply(
+          incident.id,
+          'DETECTED',
+          'UNROUTED',
+          { kind: 'SYSTEM' },
+          reason('ROUTED'),
+          tx,
+        );
+        await reports.insert(
+          {
+            incidentId: incident.id,
+            agency: 'Test',
+            reference: 'rollback',
+            reportedAt: at,
+            reportedById: staffId,
+          },
+          tx,
+        );
+        throw aborted;
+      }),
+    ).rejects.toBe(aborted);
+    expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toEqual(
+      incident,
+    );
+    expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(1);
+    expect(await prisma.alertDelivery.count({ where: { incidentId: incident.id } })).toBe(0);
+    expect(await prisma.authorityReport.count({ where: { incidentId: incident.id } })).toBe(0);
+    expect(changed).not.toHaveBeenCalled();
+    expect(audited).not.toHaveBeenCalled();
+  });
+
+  it('rolls back state and history if the outbox insert fails', async () => {
+    const incident = await fixture('DETECTED');
+    const error = new Error('outbox unavailable');
+    const enqueue = jest.spyOn(alerts, 'enqueue').mockRejectedValueOnce(error);
+    try {
+      await expect(
+        events.transaction((tx) =>
+          lifecycle.apply(
+            incident.id,
+            'DETECTED',
+            'NOTIFY_PRIMARY',
+            { kind: 'SYSTEM' },
+            reason('ROUTED'),
+            tx,
+          ),
+        ),
+      ).rejects.toBe(error);
+    } finally {
+      enqueue.mockRestore();
+    }
+    expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toEqual(
+      incident,
+    );
+    expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(1);
+    expect(await prisma.alertDelivery.count({ where: { incidentId: incident.id } })).toBe(0);
+  });
+
+  it('a reconstructed lifecycle uses persisted deadlines and rejects a repeated timeout', async () => {
+    const incident = await fixture('NOTIFY_PRIMARY');
+    const restarted = new IncidentLifecycle(repository, alerts, parameters, events);
+    const result = await events.transaction((tx) =>
+      restarted.apply(
+        incident.id,
+        'NOTIFY_PRIMARY',
+        'NOTIFY_BACKUP',
+        { kind: 'SYSTEM' },
+        reason('TIER_TIMEOUT'),
+        tx,
+      ),
+    );
+    expect(result.state).toBe('NOTIFY_BACKUP');
+    expect(result.tierDeadlineAt).toEqual(
+      new Date(at.getTime() + (await parameters.get('incidents.backupAckTimeoutSeconds')) * 1000),
+    );
+    await expect(
+      events.transaction((tx) =>
+        restarted.apply(
+          incident.id,
+          'NOTIFY_PRIMARY',
+          'NOTIFY_BACKUP',
+          { kind: 'SYSTEM' },
+          reason('TIER_TIMEOUT'),
+          tx,
+        ),
+      ),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.STALE_VERSION });
+    expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(2);
+  });
+
+  it('response, resolution and device-triggered reopen share the lifecycle and clear old ownership', async () => {
+    const incident = await fixture('ACKNOWLEDGED', {
+      ownerId: operatorId,
+      acknowledgedAt: at,
+      statusDueAt: new Date(at.getTime() + 60000),
+    });
+    const result = await events.transaction(async (tx) => {
+      await lifecycle.apply(
+        incident.id,
+        'ACKNOWLEDGED',
+        'RESPONDING',
+        member(),
+        reason('RESPONDING'),
+        tx,
+      );
+      await lifecycle.apply(
+        incident.id,
+        'RESPONDING',
+        'RESOLVED',
+        member(),
+        reason('RESOLVED', { expectedVersion: 1, note: 'Reached safety' }),
+        tx,
+      );
+      return lifecycle.apply(
+        incident.id,
+        'RESOLVED',
+        'NOTIFY_PRIMARY',
+        { kind: 'DEVICE' },
+        reason('REOPENED', {
+          expectedVersion: 2,
+          occurredAt: at,
+          route: { organizationId, contractId: null },
+        }),
+        tx,
+      );
+    });
+    expect(result).toMatchObject({
+      state: 'NOTIFY_PRIMARY',
+      version: 3,
+      ownerId: null,
+      acknowledgedAt: null,
+      resolvedAt: null,
+      outcomeNote: null,
+      reopenCount: 1,
+    });
+    expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(4);
   });
 });
