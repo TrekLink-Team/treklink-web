@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Link } from 'react-router-dom';
+import { AlertBanner } from './AlertBanner';
 import { AuthProvider } from './providers/AuthProvider';
+import { LiveProvider } from './providers/LiveProvider';
 import { AppRoutes } from './router';
 import { Radio, Compass, ShieldCheck } from 'lucide-react';
 
@@ -8,7 +10,9 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+      <LiveProvider>
       <div className="min-h-screen flex flex-col bg-slate-50">
+        <AlertBanner />
         {/* Navigation Bar */}
         <header className="bg-slate-900 text-white border-b border-slate-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -39,6 +43,7 @@ export const App: React.FC = () => {
           <AppRoutes />
         </main>
       </div>
+      </LiveProvider>
       </AuthProvider>
     </BrowserRouter>
   );
