@@ -23,9 +23,10 @@ const CLIENT = { ip: null, userAgent: 'test:db' };
 
 // TrekLink accounts and roles against Postgres (auth tasks 5.1, 5.3): the last-Admin guard under
 // concurrent changes, and the queries the Admin screens read. Run only through test:db against a
-// migrated disposable database, where the migrations seed roles and permissions but no account, so
-// the run's own Admins are the only ones. Never deletes data: fixtures carry a fresh run ID, and each
-// test leaves no run Admin active.
+// migrated disposable database. The guard counts every active Admin, and CI loads the demo seed (its
+// admin@ account) first, so the suite sets the Admins it finds aside for its own run and restores
+// them afterwards; the run's own Admins are then the only active ones. Never deletes data: fixtures
+// carry a fresh run ID, and each test leaves no run Admin active.
 describe('TrekLink accounts against Postgres (REQ-ERR-05, REQ-ERR-07)', () => {
   const prisma = new PrismaService({ datasourceUrl: databaseUrl });
   const repository = new AccountsRepository(prisma);
@@ -58,12 +59,22 @@ describe('TrekLink accounts against Postgres (REQ-ERR-05, REQ-ERR-07)', () => {
   const retire = (ids: string[]) =>
     prisma.user.updateMany({ where: { id: { in: ids } }, data: { isActive: false } });
 
+  let setAside: string[] = [];
+
   beforeAll(async () => {
     await prisma.$connect();
+    setAside = (
+      await prisma.user.findMany({
+        where: { isActive: true, deletedAt: null, roles: { some: { role: { key: 'ADMIN' } } } },
+        select: { id: true },
+      })
+    ).map((admin) => admin.id);
+    await retire(setAside);
     expect(await repository.countActiveAdmins()).toBe(0);
   });
 
   afterAll(async () => {
+    await prisma.user.updateMany({ where: { id: { in: setAside } }, data: { isActive: true } });
     await prisma.$disconnect();
   });
 
