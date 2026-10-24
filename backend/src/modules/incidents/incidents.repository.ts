@@ -23,6 +23,37 @@ export interface IncidentInsertResult {
 // Writes require the caller's transaction: routing, history and outbox must commit together.
 @Injectable()
 export class IncidentsRepository {
+  async lockById(id: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
+    const rows = await tx.$queryRaw<
+      Incident[]
+    >`SELECT * FROM "incidents" WHERE "id" = ${id} FOR UPDATE`;
+    return rows[0] ?? null;
+  }
+
+  async compareAndSet(
+    current: Pick<Incident, 'id' | 'state' | 'version'>,
+    patch: Prisma.IncidentUncheckedUpdateManyInput,
+    tx: Prisma.TransactionClient,
+  ): Promise<Incident | null> {
+    const { count } = await tx.incident.updateMany({
+      where: { id: current.id, state: current.state, version: current.version },
+      data: { ...patch, version: { increment: 1 } },
+    });
+    return count === 1 ? tx.incident.findUniqueOrThrow({ where: { id: current.id } }) : null;
+  }
+
+  // Called with the incident row locked, so the next sequence belongs to this transaction.
+  async insertTransition(
+    data: Omit<Prisma.IncidentTransitionUncheckedCreateInput, 'seq'>,
+    tx: Prisma.TransactionClient,
+  ) {
+    const latest = await tx.incidentTransition.aggregate({
+      where: { incidentId: data.incidentId },
+      _max: { seq: true },
+    });
+    return tx.incidentTransition.create({ data: { ...data, seq: (latest._max.seq ?? 0) + 1 } });
+  }
+
   async lockOpenByDevice(deviceId: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
     const rows = await tx.$queryRaw<Incident[]>`
       SELECT * FROM "incidents"

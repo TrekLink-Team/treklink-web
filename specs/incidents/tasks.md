@@ -19,7 +19,7 @@
   - **Files**: `backend/src/modules/incidents/incidents.module.ts`, `incidents.repository.ts`, `alert-deliveries.repository.ts`, `authority-reports.repository.ts`
   - **Do**: repositories over the `// @module incidents` models only; incident code `INC-<year>-<6 digits>` as the `schema.prisma` example `INC-2026-000045`; `incidents_one_open_per_device` maps to the correlation path, never to a 500
   - _Requirements: REQ-UBI-02, BR-13_
-- [ ] 1.2 `IncidentLifecycle.apply(id, expectedState, to, actor, reason, tx)` (owner HoangTK)
+- [x] 1.2 `IncidentLifecycle.apply(id, expectedState, to, actor, reason, tx)` (owner HoangTK)
   - **Files**: `backend/src/modules/incidents/incident-lifecycle.ts`
   - **Do**: the D-034 transition table of design §2 with guards; compare-and-set on `state` and `version`; one sequenced `IncidentTransition` row; set or clear `tierDeadlineAt`, `statusDueAt`, owner and the reopen window per target state; outbox rows of design §3 in the same transaction; `incident.changed` and `audit.record` after commit; a packet never moves an incident except to open or reopen it
   - **Test**: `incident-lifecycle.spec.ts` over every pair of the twelve states (AC-06); each owned state has an owner with a status deadline or a pending tier deadline
