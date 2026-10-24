@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../shared/api/apiClient';
 import { landingRoute, useSession } from '../entities/session/model';
 import { signIn } from '../features/sign-in/api';
@@ -16,6 +16,8 @@ export const SignInPage: React.FC = () => {
   const [pending, setPending] = useState(false);
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  // The banner a page leaves after sending the user here, such as "Password changed" after a reset.
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
   const storeSession = useSession((state) => state.signIn);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -44,6 +46,15 @@ export const SignInPage: React.FC = () => {
         <h1 id="sign-in-title" className="text-2xl font-bold text-slate-900">
           Sign in
         </h1>
+
+        {notice && !error && (
+          <div
+            role="status"
+            className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2.5 text-sm text-blue-900"
+          >
+            {notice}
+          </div>
+        )}
 
         {error && (
           <div
@@ -103,9 +114,9 @@ export const SignInPage: React.FC = () => {
           {pending ? 'Signing in…' : 'Sign in'}
         </button>
 
-        <a href="/forgot" className="self-start text-sm font-semibold text-blue-700">
+        <Link to="/forgot" className="self-start text-sm font-semibold text-blue-700">
           Forgot password?
-        </a>
+        </Link>
       </form>
     </div>
   );
