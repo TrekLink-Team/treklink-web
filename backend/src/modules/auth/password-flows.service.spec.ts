@@ -77,6 +77,7 @@ describe('PasswordFlowsService', () => {
       verify: jest.fn().mockResolvedValue(true),
     };
     codes = {
+      inCooldown: jest.fn().mockResolvedValue(false),
       assertCooldown: jest.fn().mockResolvedValue(undefined),
       issue: jest.fn().mockResolvedValue(ISSUED),
       verify: jest.fn().mockResolvedValue('otp-1'),
@@ -105,7 +106,7 @@ describe('PasswordFlowsService', () => {
       await expect(service.forgot('  Staff@TrekLink.vn ', CLIENT)).resolves.toBeUndefined();
 
       expect(accounts.findByEmail).toHaveBeenCalledWith('staff@treklink.vn');
-      expect(codes.assertCooldown).toHaveBeenCalledWith('user-1', NOW);
+      expect(codes.inCooldown).toHaveBeenCalledWith('user-1', NOW);
       expect(codes.issue).toHaveBeenCalledWith('user-1', OtpPurpose.PASSWORD_RESET, NOW, tx);
       expect(accounts.insertAuthEvent).toHaveBeenCalledWith(
         {
@@ -149,10 +150,17 @@ describe('PasswordFlowsService', () => {
       },
     );
 
-    it('passes the cooldown refusal through and sends nothing', async () => {
-      codes.assertCooldown.mockRejectedValue(new Error('cooldown'));
+    it('answers as usual inside the cooldown and sends nothing (D-063 rule 2)', async () => {
+      codes.inCooldown.mockResolvedValue(true);
 
-      await expect(service.forgot('staff@treklink.vn', CLIENT)).rejects.toThrow('cooldown');
+      await expect(service.forgot('staff@treklink.vn', CLIENT)).resolves.toBeUndefined();
+      expect(accounts.insertAuthEvent).toHaveBeenCalledWith({
+        userId: 'user-1',
+        email: 'staff@treklink.vn',
+        type: AuthEventType.PASSWORD_RESET_REQUESTED,
+        ...CLIENT,
+      });
+      expect(codes.issue).not.toHaveBeenCalled();
       expect(mail.send).not.toHaveBeenCalled();
     });
 
@@ -311,7 +319,7 @@ describe('PasswordFlowsService', () => {
     it("emails a PASSWORD_RESET code to the account's own email and audits the trigger (BR-35)", async () => {
       await expect(service.triggerReset(STAFF, 'user-1', CLIENT)).resolves.toBeUndefined();
 
-      expect(codes.assertCooldown).not.toHaveBeenCalled();
+      expect(codes.assertCooldown).toHaveBeenCalledWith('user-1', NOW);
       expect(codes.issue).toHaveBeenCalledWith('user-1', OtpPurpose.PASSWORD_RESET, NOW, tx);
       expect(accounts.insertAuthEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -332,6 +340,14 @@ describe('PasswordFlowsService', () => {
       expect(mail.send).toHaveBeenCalledWith(
         codeEmail('staff@treklink.vn', OtpPurpose.PASSWORD_RESET, ISSUED),
       );
+    });
+
+    it('passes the 429 of the cooldown through and sends nothing (D-063 rule 7)', async () => {
+      codes.assertCooldown.mockRejectedValue(new Error('cooldown'));
+
+      await expect(service.triggerReset(STAFF, 'user-1', CLIENT)).rejects.toThrow('cooldown');
+      expect(codes.issue).not.toHaveBeenCalled();
+      expect(mail.send).not.toHaveBeenCalled();
     });
 
     it('refuses a deactivated account, whose code reset would not accept', async () => {

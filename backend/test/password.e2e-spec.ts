@@ -265,13 +265,15 @@ describe('password flows (e2e)', () => {
     });
   });
 
-  it('answers 429 OTP_COOLDOWN to a second request inside the cooldown (REQ-ERR-08)', async () => {
-    await post('/api/auth/password/forgot', { email: 'admin@treklink.vn' }).expect(200);
+  it('answers a second request inside the cooldown as usual and sends nothing (REQ-ERR-08, D-063 rule 2)', async () => {
+    const first = await post('/api/auth/password/forgot', { email: 'admin@treklink.vn' }).expect(
+      200,
+    );
     const again = await post('/api/auth/password/forgot', { email: 'admin@treklink.vn' }).expect(
-      429,
+      200,
     );
 
-    expect(again.body).toMatchObject({ result: { errorCode: 'OTP_COOLDOWN' }, statusCode: 429 });
+    expect(again.body).toEqual(first.body);
     expect(mails).toHaveLength(1);
   });
 
@@ -398,6 +400,14 @@ describe('password flows (e2e)', () => {
     });
     expect(mails).toHaveLength(1);
     expect(mails[0].to).toBe('manager@acme-trek.vn');
+
+    const again = await post(
+      '/api/accounts/3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f/password-reset',
+      {},
+      staff.accessToken,
+    ).expect(429);
+    expect(again.body).toMatchObject({ result: { errorCode: 'OTP_COOLDOWN' } });
+    expect(mails).toHaveLength(1);
     await new Promise((resolve) => setImmediate(resolve));
     expect(audit).toContainEqual(
       expect.objectContaining({
