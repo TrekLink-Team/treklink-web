@@ -96,8 +96,10 @@ const refreshTokens = (): Promise<string | null> => {
       const tokens = await unwrap<TokenPair>(response);
       active.onTokens(tokens);
       return tokens.accessToken;
-    } catch {
-      active.onSessionExpired();
+    } catch (error) {
+      // Only a refresh the server answered with 401 (REFRESH_INVALID, REFRESH_REUSED) ends the session.
+      // A network failure or a restarting backend leaves the tokens as they are.
+      if (error instanceof ApiError && error.statusCode === 401) active.onSessionExpired();
       return null;
     } finally {
       refreshing = null;

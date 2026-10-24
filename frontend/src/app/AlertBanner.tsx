@@ -80,7 +80,7 @@ export const AlertBanner: React.FC = () => {
         </div>
       )}
       {current && (
-        <div role="alert" className="animate-pulse bg-red-600 px-4 py-3 text-white">
+        <div role="alert" className="motion-safe:animate-pulse bg-red-600 px-4 py-3 text-white">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-semibold">
               {current.text}

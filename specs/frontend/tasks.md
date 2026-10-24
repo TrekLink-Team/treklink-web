@@ -25,7 +25,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: the routes of design §2; a route shows only when the role holds its permission, as convenience; the query cache is cleared on sign-in and sign-out
   - **Test**: AC-01; switching accounts never shows the previous organization's cached data
   - _Requirements: REQ-UBI-01, REQ-ERR-01, AC-01, NFR-SEC-03_
-- [ ] 1.2 `apiClient` (owner LongNN)
+- [x] 1.2 `apiClient` (owner LongNN)
   - **Files**: the existing `frontend/src/shared/api/apiClient.ts`
   - **Do**: unwrap the D-002 envelope once; throw `ApiError { statusCode, errorCode, message }`; on 401 refresh once (auth api-design 02) and retry, else go to sign-in; run one refresh at a time and share its result between concurrent callers, because a second rotation of the same token revokes the session (D-060 rule 8)
   - **Test**: unit tests for success, failure envelope, refresh-and-retry, refresh failure
@@ -35,7 +35,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: replace MapLibre with Leaflet; remove `maplibre-gl`; tiles and attribution from `GET /api/map/config`; an overlay `LayerGroup` with the two archipelago labels, always on top, not removable; markers with text alternatives; MSG33 when tiles fail, lists stay live
   - **Test**: AC-03 at each zoom where the archipelagos show
   - _Requirements: REQ-UBI-06, REQ-EVT-04, AC-03, FR-MON-01, FR-MON-09, BR-30, D-031_
-- [ ] 1.4 `socketClient` and the global alert banner (owner LongNN)
+- [x] 1.4 `socketClient` and the global alert banner (owner LongNN)
   - **Files**: the existing `shared/socket/socketClient.ts`, `app/AlertBanner.tsx`
   - **Do**: one socket to `/live` (`ws-live-contract.md`); last cursor in `sessionStorage`; MSG32 while reconnecting, cleared on `replay.done`; `incident.alert` shows the red pulsing MSG31 banner on every page with one-tap acknowledge until acknowledged or taken (MSG27); stream entries invalidate the matching query keys
   - **Test**: AC-02 on a 360 px viewport

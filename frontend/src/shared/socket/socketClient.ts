@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
+import { apiClient } from '../api/apiClient';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
 const CURSOR_KEY = 'treklink.live.cursor';
@@ -6,6 +7,8 @@ const CURSOR_KEY = 'treklink.live.cursor';
 // One entry of the stream (monitoring ws-live-contract). A push and a REST replay carry this shape.
 export interface LiveEntry {
   seq: number;
+  /** Only on `replay.done`: the cursor to resume from. */
+  cursor?: number;
   type: string;
   deviceId?: string;
   payload: Record<string, unknown>;
@@ -23,6 +26,8 @@ type Listener = (message: LiveMessage) => void;
 let socket: Socket | null = null;
 let getAccessToken: () => string | null = () => null;
 let paused = false;
+// One recovery attempt per refusal, so a server that keeps refusing is not retried in a tight loop.
+let recovering = false;
 const listeners = new Set<Listener>();
 
 const emit = (message: LiveMessage): void => listeners.forEach((listener) => listener(message));
@@ -74,13 +79,31 @@ export const startLive = (tokenSource: () => string | null): void => {
     reconnectionDelay: 2000,
   });
 
+  // socket.io does not retry a refused handshake or a close ordered by the server; it waits for
+  // connect() to be called. Asking the API for `me` makes the API client refresh an expired token,
+  // and the new token reaches refreshLiveAuth, which reconnects. MSG32 stays up meanwhile.
+  const recover = (): void => {
+    if (recovering) return;
+    recovering = true;
+    void apiClient('/auth/me').catch(() => undefined);
+  };
+  socket.on('connect_error', () => {
+    setPaused(true);
+    if (socket && !socket.active) recover();
+  });
+
   socket.on('connect', () => {
+    recovering = false;
     // Without a cursor the server sends no replay, so there is nothing to wait for.
     if (readCursor() === undefined) setPaused(false);
   });
-  socket.on('disconnect', () => setPaused(true));
+  socket.on('disconnect', (reason: string) => {
+    setPaused(true);
+    if (reason === 'io server disconnect') recover();
+  });
   socket.on('stream', (entry: LiveEntry) => {
     if (entry.type === 'replay.done') {
+      if (typeof entry.cursor === 'number') writeCursor(entry.cursor);
       setPaused(false);
       emit({ kind: 'replay.done' });
       return;
@@ -101,12 +124,16 @@ export const startLive = (tokenSource: () => string | null): void => {
 
 // A new access token during a session (auth api-design 02): the server re-validates it.
 export const refreshLiveAuth = (token: string): void => {
-  socket?.emit('auth.refresh', { token });
+  if (!socket) return;
+  if (socket.connected) socket.emit('auth.refresh', { token });
+  // A closed socket reads the latest token and cursor in its `auth` callback when it reconnects.
+  else if (!socket.active) socket.connect();
 };
 
 export const stopLive = (): void => {
   socket?.disconnect();
   socket = null;
+  recovering = false;
   writeCursor(null);
   setPaused(false);
 };

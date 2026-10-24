@@ -55,7 +55,7 @@ describe('apiClient', () => {
 
   it('refreshes once on 401 and retries with the new token', async () => {
     fetchMock
-      .mockResolvedValueOnce(envelope(401, { errorCode: 'UNAUTHORIZED' }, 'Unauthorized'))
+      .mockResolvedValueOnce(envelope(401, { errorCode: 'UNAUTHENTICATED' }, 'Unauthorized'))
       .mockResolvedValueOnce(envelope(200, fresh))
       .mockResolvedValueOnce(envelope(200, { ok: true }));
     await expect(apiClient('/things')).resolves.toEqual({ ok: true });
@@ -67,7 +67,7 @@ describe('apiClient', () => {
   it('shares one refresh between concurrent callers', async () => {
     fetchMock.mockImplementation(async (url, init) => {
       if (url.endsWith('/auth/refresh')) return envelope(200, fresh);
-      return authOf(init) === 'Bearer new-access' ? envelope(200, { ok: true }) : envelope(401, { errorCode: 'UNAUTHORIZED' }, 'Unauthorized');
+      return authOf(init) === 'Bearer new-access' ? envelope(200, { ok: true }) : envelope(401, { errorCode: 'UNAUTHENTICATED' }, 'Unauthorized');
     });
     await Promise.all([apiClient('/a'), apiClient('/b'), apiClient('/c')]);
     const refreshes = fetchMock.mock.calls.filter(([url]) => url.endsWith('/auth/refresh'));
@@ -76,10 +76,19 @@ describe('apiClient', () => {
 
   it('ends the session and reports the 401 when the refresh fails', async () => {
     fetchMock
-      .mockResolvedValueOnce(envelope(401, { errorCode: 'UNAUTHORIZED' }, 'Unauthorized'))
-      .mockResolvedValueOnce(envelope(401, { errorCode: 'REFRESH_TOKEN_INVALID' }, 'Session expired'));
+      .mockResolvedValueOnce(envelope(401, { errorCode: 'UNAUTHENTICATED' }, 'Unauthorized'))
+      .mockResolvedValueOnce(envelope(401, { errorCode: 'REFRESH_INVALID' }, 'Session expired'));
     await expect(apiClient('/things')).rejects.toMatchObject({ statusCode: 401 });
     expect(onSessionExpired).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the session when the refresh fails for a reason other than 401', async () => {
+    fetchMock
+      .mockResolvedValueOnce(envelope(401, { errorCode: 'UNAUTHENTICATED' }, 'Unauthorized'))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(apiClient('/things')).rejects.toMatchObject({ statusCode: 401 });
+    expect(onSessionExpired).not.toHaveBeenCalled();
+    expect(tokens).toEqual({ accessToken: 'old-access', refreshToken: 'old-refresh' });
   });
 
   it('does not refresh when the sign-in itself is refused', async () => {
