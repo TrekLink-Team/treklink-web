@@ -1,20 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  HttpCode,
-  HttpStatus,
-  Ip,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Ip, Post } from '@nestjs/common';
+import { Authenticated, Public } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { SessionUser } from './account-session.service';
 import { AuthService, SignInResult } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto, RefreshTokenDto } from './dto/auth.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthUser } from './strategies/jwt.strategy';
 import { ClientInfo, TokenPair } from './token.service';
 
@@ -24,12 +14,13 @@ const clientInfo = (ip: string | undefined, userAgent: string | undefined): Clie
 });
 
 // Sessions (auth task 6.1, api-design 01 to 04). Login and refresh are public by design: they are
-// how a caller obtains a token. Logout and me need a valid access token.
+// how a caller obtains a token. Logout and me need a valid access token and no permission (D-061).
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('login')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Signed in')
   login(
@@ -41,6 +32,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Token refreshed')
   refresh(
@@ -53,7 +45,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
+  @Authenticated()
   @ResponseMessage('Signed out')
   async logout(
     @CurrentUser() user: AuthUser,
@@ -66,7 +58,7 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @Authenticated()
   @ResponseMessage('OK')
   me(@CurrentUser() user: AuthUser): Promise<SessionUser> {
     return this.auth.me(user.id);

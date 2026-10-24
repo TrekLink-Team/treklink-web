@@ -1,6 +1,7 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { createMongoAbility } from '@casl/ability';
+import { AUTHENTICATED_ONLY_KEY, IS_PUBLIC_KEY } from '../../../common/decorators/access.decorator';
 import { ErrorCode } from '../../../common/errors';
 import { AppAbility } from '../casl/ability.factory';
 import {
@@ -54,7 +55,21 @@ describe('PoliciesGuard', () => {
     );
   });
 
+  it('lets a @Public route through, even without a caller (D-061)', () => {
+    reflector.getAllAndOverride.mockImplementation((key: string) => key === IS_PUBLIC_KEY);
+    expect(guard.canActivate(contextFor(undefined))).toBe(true);
+  });
+
+  it('lets an @Authenticated route through with a caller and no policy, and still needs the caller', () => {
+    reflector.getAllAndOverride.mockImplementation((key: string) => key === AUTHENTICATED_ONLY_KEY);
+    expect(guard.canActivate(contextFor(staff))).toBe(true);
+    expect(() => guard.canActivate(contextFor(undefined))).toThrow(
+      expect.objectContaining({ errorCode: ErrorCode.UNAUTHENTICATED }) as Error,
+    );
+  });
+
   it('answers 401 when no guard authenticated the caller', () => {
+    reflector.getAllAndOverride.mockReset();
     reflector.getAllAndOverride.mockReturnValue([canRead]);
 
     expect(() => guard.canActivate(contextFor(undefined))).toThrow(
