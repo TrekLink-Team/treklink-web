@@ -44,6 +44,7 @@ describe('OneTimeCodeService', () => {
 
   describe('assertCooldown', () => {
     it('lets an account that was never sent a code ask for one', async () => {
+      await expect(service.inCooldown('user-1', NOW)).resolves.toBe(false);
       await expect(service.assertCooldown('user-1', NOW)).resolves.toBeUndefined();
       expect(parameters.get).not.toHaveBeenCalled();
     });
@@ -59,6 +60,7 @@ describe('OneTimeCodeService', () => {
 
     it('lets the account ask again once the cooldown has passed', async () => {
       accounts.lastCodeSentAt.mockResolvedValue(new Date(NOW.getTime() - 60_000));
+      await expect(service.inCooldown('user-1', NOW)).resolves.toBe(false);
 
       await expect(service.assertCooldown('user-1', NOW)).resolves.toBeUndefined();
     });
