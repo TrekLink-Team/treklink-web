@@ -1,9 +1,12 @@
-import { AccountType, AuthEventType, OtpPurpose } from '@prisma/client';
+import { AccountType, AuthEventType, OtpPurpose, Prisma } from '@prisma/client';
 import { ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   ACCOUNT_SELECT,
   AccountsRepository,
+  ADMIN_CHANGES_LOCK,
+  ACCOUNT_VIEW_SELECT,
+  CATALOG_PERMISSION_SELECT,
   normalizeEmail,
   ONE_TIME_CODE_SELECT,
   PERMISSION_RULE_SELECT,
@@ -373,6 +376,187 @@ describe('AccountsRepository, codes and passwords (auth tasks 3.1, 3.2)', () => 
     expect(prisma.user.findMany).toHaveBeenCalledWith({
       where: { id: { in: ['user-1', 'user-9'] } },
       select: { id: true, fullName: true },
+    });
+  });
+});
+
+describe('AccountsRepository, TrekLink accounts and roles (auth tasks 5.1, 5.3)', () => {
+  const viewRow = {
+    id: 'staff-1',
+    email: 'staff@treklink.vn',
+    fullName: 'Tran Thi B',
+    phoneNumber: null,
+    accountType: AccountType.TREKLINK,
+    isActive: true,
+    lastLoginAt: null,
+    createdAt: NOW,
+    roles: [{ role: { key: 'STAFF' } }],
+  };
+  const roleRow = {
+    id: 'r-1',
+    key: 'STAFF',
+    accountType: AccountType.TREKLINK,
+    isSystem: true,
+    permissions: [{ permission: { key: 'incident.read' } }, { permission: { key: 'device.read' } }],
+  };
+  let prisma: {
+    user: Record<string, jest.Mock>;
+    role: Record<string, jest.Mock>;
+    userRole: Record<string, jest.Mock>;
+    permission: { findMany: jest.Mock };
+    rolePermission: Record<string, jest.Mock>;
+  };
+  let repository: AccountsRepository;
+  const tx = { $executeRaw: jest.fn().mockResolvedValue(1) };
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findMany: jest.fn().mockResolvedValue([viewRow]),
+        findFirst: jest.fn().mockResolvedValue(viewRow),
+        count: jest.fn().mockResolvedValue(1),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+      role: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ id: 'r-admin' }),
+        findMany: jest.fn().mockResolvedValue([roleRow]),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      userRole: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      permission: { findMany: jest.fn().mockResolvedValue([]) },
+      rolePermission: {
+        deleteMany: jest.fn().mockResolvedValue(undefined),
+        createMany: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    repository = new AccountsRepository(prisma as unknown as PrismaService);
+  });
+
+  it('pages TrekLink accounts newest first, filtered by the query and the active flag', async () => {
+    await expect(
+      repository.pageTreklinkAccounts({ q: 'tran', isActive: false }, 20, 10),
+    ).resolves.toEqual([[{ ...viewRow, roles: ['STAFF'] }], 1]);
+    const where = {
+      accountType: AccountType.TREKLINK,
+      deletedAt: null,
+      isActive: false,
+      OR: [
+        { fullName: { contains: 'tran', mode: 'insensitive' } },
+        { email: { contains: 'tran', mode: 'insensitive' } },
+      ],
+    };
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      skip: 20,
+      take: 10,
+      select: ACCOUNT_VIEW_SELECT,
+    });
+    expect(prisma.user.count).toHaveBeenCalledWith({ where });
+
+    await repository.pageTreklinkAccounts({}, 0, 10);
+    expect(prisma.user.count).toHaveBeenLastCalledWith({
+      where: { accountType: AccountType.TREKLINK, deletedAt: null },
+    });
+  });
+
+  it('finds a TrekLink account that is not deleted', async () => {
+    await expect(repository.findTreklinkAccount('staff-1')).resolves.toMatchObject({
+      roles: ['STAFF'],
+    });
+    expect(prisma.user.findFirst).toHaveBeenCalledWith({
+      where: { id: 'staff-1', accountType: AccountType.TREKLINK, deletedAt: null },
+      select: ACCOUNT_VIEW_SELECT,
+    });
+
+    prisma.user.findFirst.mockResolvedValue(null);
+    await expect(repository.findTreklinkAccount('member-1')).resolves.toBeNull();
+  });
+
+  it('updates the profile and the active flag', async () => {
+    await repository.updateProfile('staff-1', { fullName: 'Tran Thi C' });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'staff-1' },
+      data: { fullName: 'Tran Thi C' },
+    });
+
+    await repository.setActive('staff-1', false);
+    expect(prisma.user.update).toHaveBeenLastCalledWith({
+      where: { id: 'staff-1' },
+      data: { isActive: false },
+    });
+  });
+
+  it('replaces the role of a TrekLink account with the given one', async () => {
+    await repository.replaceRole('staff-1', 'ADMIN', 'admin-1');
+
+    expect(prisma.role.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { key: 'ADMIN' },
+      select: { id: true },
+    });
+    expect(prisma.userRole.deleteMany).toHaveBeenCalledWith({ where: { userId: 'staff-1' } });
+    expect(prisma.userRole.create).toHaveBeenCalledWith({
+      data: { userId: 'staff-1', roleId: 'r-admin', grantedById: 'admin-1' },
+    });
+  });
+
+  it('takes the advisory lock of the last-Admin guard and counts active Admins', async () => {
+    await repository.lockAdminChanges(tx as unknown as Prisma.TransactionClient);
+    const [sql, key] = tx.$executeRaw.mock.calls[0] as [TemplateStringsArray, string];
+    expect(sql.join('?')).toBe('SELECT pg_advisory_xact_lock(hashtext(?))');
+    expect(key).toBe(ADMIN_CHANGES_LOCK);
+
+    await expect(repository.countActiveAdmins()).resolves.toBe(1);
+    expect(prisma.user.count).toHaveBeenCalledWith({
+      where: { isActive: true, deletedAt: null, roles: { some: { role: { key: 'ADMIN' } } } },
+    });
+  });
+
+  it('reads roles with sorted permission keys', async () => {
+    await expect(repository.listRoles()).resolves.toEqual([
+      {
+        id: 'r-1',
+        key: 'STAFF',
+        accountType: AccountType.TREKLINK,
+        isSystem: true,
+        permissionKeys: ['device.read', 'incident.read'],
+      },
+    ]);
+    expect(prisma.role.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { key: 'asc' } }),
+    );
+
+    await expect(repository.findRole('r-x')).resolves.toBeNull();
+    prisma.role.findUnique.mockResolvedValue(roleRow);
+    await expect(repository.findRole('r-1')).resolves.toMatchObject({ key: 'STAFF' });
+  });
+
+  it('reads the catalog, all of it or by keys, and replaces a role permission set', async () => {
+    await repository.listPermissions();
+    expect(prisma.permission.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { key: 'asc' },
+      select: CATALOG_PERMISSION_SELECT,
+    });
+    await repository.listPermissions(['role.manage']);
+    expect(prisma.permission.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { key: { in: ['role.manage'] } } }),
+    );
+
+    await repository.replaceRolePermissions(
+      'r-1',
+      ['p-1', 'p-2'],
+      prisma as unknown as Prisma.TransactionClient,
+    );
+    expect(prisma.rolePermission.deleteMany).toHaveBeenCalledWith({ where: { roleId: 'r-1' } });
+    expect(prisma.rolePermission.createMany).toHaveBeenCalledWith({
+      data: [
+        { roleId: 'r-1', permissionId: 'p-1' },
+        { roleId: 'r-1', permissionId: 'p-2' },
+      ],
     });
   });
 });
