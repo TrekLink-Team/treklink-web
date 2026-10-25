@@ -67,13 +67,20 @@ describe('LiveGateway over a socket', () => {
   let app: INestApplication;
   let url: string;
   let stream: StreamService;
+  let gateway: LiveGateway;
   let nextSeq = 0;
   let resolveKey: jest.Mock;
   let clients: Socket[];
 
-  const authenticate = jest.fn((token: unknown) =>
-    Promise.resolve(typeof token === 'string' ? (sessions.get(token) ?? null) : null),
-  );
+  // Tokens expire an hour out, except these, which expire after the given milliseconds.
+  const shortLived = new Map<string, number>([['short-token', 400]]);
+  sessions.set('short-token', orgUser('a-1', 'org-a'));
+  const authenticate = jest.fn((token: unknown) => {
+    const user = typeof token === 'string' ? sessions.get(token) : undefined;
+    if (!user || typeof token !== 'string') return Promise.resolve(null);
+    const expiresAt = Date.now() + (shortLived.get(token) ?? 3_600_000);
+    return Promise.resolve({ user, expiresAt });
+  });
 
   beforeAll(async () => {
     resolveKey = jest.fn();
@@ -104,6 +111,7 @@ describe('LiveGateway over a socket', () => {
     await app.listen(0);
     url = `http://127.0.0.1:${((app.getHttpServer() as Server).address() as AddressInfo).port}/live`;
     stream = moduleRef.get(StreamService);
+    gateway = moduleRef.get(LiveGateway);
   });
 
   afterAll(() => app.close());
@@ -237,5 +245,30 @@ describe('LiveGateway over a socket', () => {
     await settle();
     expect(client.connected).toBe(true);
     expect(seen).toEqual([seq]);
+  });
+
+  it('closes the socket when its access token expires', async () => {
+    const client = await connect({ token: 'short-token' });
+    const closed = new Promise<string>((resolve) => client.on('disconnect', resolve));
+    await expect(closed).resolves.toBe('io server disconnect');
+  });
+
+  it('keeps the socket past the old expiry after a successful auth.refresh', async () => {
+    const client = await connect({ token: 'short-token' });
+    client.emit('auth.refresh', { token: 'org-a-token' });
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(client.connected).toBe(true);
+  });
+
+  it('closes the sockets of a member who was deactivated, and only theirs', async () => {
+    const deactivated = await connect({ token: 'org-a-token' });
+    const colleague = await connect({ token: 'org-b-token' });
+    const closed = new Promise<string>((resolve) => deactivated.on('disconnect', resolve));
+
+    gateway.onMemberDeactivated({ userId: 'a-1' });
+
+    await expect(closed).resolves.toBe('io server disconnect');
+    await settle();
+    expect(colleague.connected).toBe(true);
   });
 });

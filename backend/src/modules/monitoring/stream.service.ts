@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { NewStreamEntry, StreamEntry, StreamRepository } from './stream.repository';
 import { roomsFor } from './rooms';
 
@@ -21,6 +21,7 @@ const toWire = ({ seq, type, deviceId, payload, createdAt }: StreamEntry): WireE
 // it is stored first and a reconnecting client replays it (REQ-EVT-02).
 @Injectable()
 export class StreamService {
+  private readonly logger = new Logger(StreamService.name);
   private readonly subscribers = new Set<StreamSubscriber>();
 
   constructor(private readonly repository: StreamRepository) {}
@@ -38,8 +39,11 @@ export class StreamService {
     for (const subscriber of this.subscribers) {
       try {
         subscriber(rooms, toWire(stored));
-      } catch {
-        // Isolated from the other subscribers and from the caller.
+      } catch (error) {
+        // Isolated from the other subscribers and from the caller, but never silent.
+        this.logger.warn(
+          `A stream subscriber failed on entry ${stored.seq} (${stored.type}): ${String(error)}`,
+        );
       }
     }
     return stored;

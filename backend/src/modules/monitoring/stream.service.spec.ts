@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { StreamEntry, StreamRepository } from './stream.repository';
 import { StreamService } from './stream.service';
 
@@ -70,8 +71,9 @@ describe('StreamService', () => {
     expect(subscriber).not.toHaveBeenCalled();
   });
 
-  it('isolates a failing subscriber from the others and from the caller', async () => {
+  it('isolates a failing subscriber from the others and from the caller, and logs it', async () => {
     repository.insert.mockResolvedValue(stored('o-1'));
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const later = jest.fn();
     service.subscribe(() => {
       throw new Error('socket closed');
@@ -81,6 +83,8 @@ describe('StreamService', () => {
       service.publish({ organizationId: 'o-1', type: 'device.position', payload: {} }),
     ).resolves.toMatchObject({ seq: 7 });
     expect(later).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('entry 7 (device.position)'));
+    warn.mockRestore();
   });
 
   it('stops delivering to a subscriber that unsubscribed', async () => {

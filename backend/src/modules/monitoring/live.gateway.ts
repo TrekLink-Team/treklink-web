@@ -1,9 +1,10 @@
-import { createHash } from 'crypto';
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayDisconnect,
   OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
@@ -14,7 +15,10 @@ import { ErrorCode } from '../../common/errors';
 import {
   API_KEY_RESOLVER,
   AccessTokenAuthenticator,
+  MEMBER_DEACTIVATED,
+  hashApiKey,
   type ApiKeyResolver,
+  type MemberDeactivatedEvent,
   type SessionUser,
 } from '../auth';
 import { FLEET_ROOM, orgRoom, userRoom } from './rooms';
@@ -24,6 +28,9 @@ import { StreamService, WireEntry } from './stream.service';
 interface LiveIdentity {
   userId: string | null;
   rooms: string[];
+  // When the access token expires, in epoch milliseconds; null for an API key.
+  expiresAt: number | null;
+  expiryTimer: NodeJS.Timeout | null;
 }
 
 // The server-decided identity travels in `socket.data`, typed so it is never read as `any`.
@@ -52,9 +59,6 @@ export const roomsOfUser = (user: SessionUser): string[] => [
   ...(user.organization ? [orgRoom(user.organization.id)] : []),
 ];
 
-// An API key is stored only as its SHA-256 hex, the same as a refresh token (REQ-UBI-02).
-const hashApiKey = (key: string): string => createHash('sha256').update(key).digest('hex');
-
 const unauthenticated = (): Error =>
   Object.assign(new Error(ErrorCode.UNAUTHENTICATED), {
     data: { errorCode: ErrorCode.UNAUTHENTICATED },
@@ -62,11 +66,12 @@ const unauthenticated = (): Error =>
 
 // Socket.io namespace `/live` (task 1.1, FR-MON-02; ws-live-contract). One authenticated socket per
 // client, joined to rooms by the server only. The only client event is `auth.refresh`; nothing a
-// client sends can name a room. Replay on connect is task 2.2.
+// client sends can name a room. A socket ends with its access token, and with its member's
+// deactivation (REQ-UBI-01). Replay on connect is task 2.2.
 @Injectable()
 @WebSocketGateway({ namespace: '/live' })
 export class LiveGateway
-  implements OnGatewayInit, OnGatewayConnection, OnModuleInit, OnModuleDestroy
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
 {
   @WebSocketServer()
   private namespace!: LiveNamespace;
@@ -105,6 +110,19 @@ export class LiveGateway
 
   handleConnection(socket: LiveSocket): void {
     void socket.join(socket.data.identity.rooms);
+    this.armExpiry(socket);
+  }
+
+  handleDisconnect(socket: LiveSocket): void {
+    const timer = socket.data.identity.expiryTimer;
+    if (timer) clearTimeout(timer);
+  }
+
+  // A deactivated member stops receiving at once: their sockets are closed, and the client's recovery
+  // asks the API, which now answers 401.
+  @OnEvent(MEMBER_DEACTIVATED)
+  onMemberDeactivated({ userId }: MemberDeactivatedEvent): void {
+    this.namespace.in(userRoom(userId)).disconnectSockets(true);
   }
 
   // A token refreshed during the session is re-validated. A failure, or a token of another account,
@@ -116,27 +134,55 @@ export class LiveGateway
   ): Promise<void> {
     const identity = socket.data.identity;
     if (identity.userId === null) return;
-    const user = await this.authenticator.authenticate(body?.token);
-    if (!user || user.id !== identity.userId) {
+    const session = await this.authenticator.authenticate(body?.token);
+    if (!session || session.user.id !== identity.userId) {
       socket.disconnect(true);
       return;
     }
-    const rooms = roomsOfUser(user);
+    const rooms = roomsOfUser(session.user);
     for (const room of identity.rooms) if (!rooms.includes(room)) void socket.leave(room);
     void socket.join(rooms);
     identity.rooms = rooms;
+    identity.expiresAt = session.expiresAt;
+    this.armExpiry(socket);
   }
 
   publish(rooms: string[], entry: WireEntry): void {
     this.namespace.to(rooms).emit('stream', entry);
   }
 
+  // The server enforces "refresh before expiry": at the token's expiry the socket closes, unless an
+  // auth.refresh moved the expiry first.
+  private armExpiry(socket: LiveSocket): void {
+    const identity = socket.data.identity;
+    if (identity.expiryTimer) clearTimeout(identity.expiryTimer);
+    identity.expiryTimer = null;
+    if (identity.expiresAt === null) return;
+    const delay = Math.max(0, identity.expiresAt - Date.now());
+    identity.expiryTimer = setTimeout(() => socket.disconnect(true), delay);
+    identity.expiryTimer.unref();
+  }
+
   private async identify(auth: Record<string, unknown> | undefined): Promise<LiveIdentity | null> {
     if (typeof auth?.apiKey === 'string' && auth.apiKey !== '') {
       const key = await this.apiKeys?.resolve(hashApiKey(auth.apiKey));
-      return key ? { userId: null, rooms: [orgRoom(key.organizationId)] } : null;
+      return key
+        ? {
+            userId: null,
+            rooms: [orgRoom(key.organizationId)],
+            expiresAt: null,
+            expiryTimer: null,
+          }
+        : null;
     }
-    const user = await this.authenticator.authenticate(auth?.token);
-    return user ? { userId: user.id, rooms: roomsOfUser(user) } : null;
+    const session = await this.authenticator.authenticate(auth?.token);
+    return session
+      ? {
+          userId: session.user.id,
+          rooms: roomsOfUser(session.user),
+          expiresAt: session.expiresAt,
+          expiryTimer: null,
+        }
+      : null;
   }
 }
