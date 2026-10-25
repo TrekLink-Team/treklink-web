@@ -19,11 +19,13 @@
   - **Files**: `backend/src/modules/billing/billing.module.ts`, `pricing.repository.ts`, `invoices.repository.ts`, `payments.repository.ts`
   - **Do**: repositories over the `// @module billing` models only; invoice number `INV-<year>-<6 digits>` as the `schema.prisma` example `INV-2026-000123`
   - _Requirements: NFR-MNT-01_
-- [ ] 1.2 Money helpers (owner LongLP)
+  - **Partly done** (Jira card pending, treklink-docs#114 point 4): `BillingModule` and `invoices.repository.ts` with `INV-<year>-NNNNNN` under a per-year advisory lock (the year in UTC+7, a range error past 999999). `pricing.repository.ts` waits on points 1 and 2 of treklink-docs#114; `payments.repository.ts` comes with 3.1.
+- [x] 1.2 Money helpers (owner LongLP)
   - **Files**: `backend/src/modules/billing/money.ts`
   - **Do**: integer VND only; `ceilVnd(x)` rounds each line up to the whole đồng; no floating amount is stored
   - **Test**: the AC-01 and AC-02 figures; ratio 0.5 of an odd amount rounds up
   - _Requirements: REQ-UBI-01, BR-29_
+  - **Done**: also `termFeeVnd`, `holdingFeeVnd` and `dayPlanFeeVnd`; the day-plan division runs last, so a whole fee stays exact
 - [ ] 1.3 Provide `ORGANIZATION_EXIT_CHECKS.canReactivate` (owner LongLP)
   - **Do**: any unpaid line or pending damage charge of the organization returns `BALANCE_OUTSTANDING`
   - **Test**: reactivation refused with one unpaid line
@@ -37,20 +39,23 @@
   - **Test**: a past effective time is refused; the snapshot ignores a price effective tomorrow
   - _Requirements: REQ-UBI-05, REQ-EVT-01, AC-01, AC-02, FR-CFG-02_
   - _Story: US-UC56_
-- [ ] 2.2 Term and day-plan invoices (owner LongLP)
+- [x] 2.2 Term and day-plan invoices (owner LongLP)
   - **Files**: `backend/src/modules/billing/invoices.service.ts`
   - **Do**: `issueTermInvoice(contract, term, tx)`: one `TERM` invoice, `HOLDING_FEE` line due at the term start and `TERM_BALANCE` due at the term end; `issueDayPlanInvoice(contract, tx)`: one `DAY_PLAN_FEE` line due at the start date; issued lines never change
   - **Test**: AC-01 and AC-02
   - _Requirements: REQ-EVT-02, REQ-EVT-03, REQ-UBI-02, FR-BILL-01, FR-BILL-02, BR-06, BR-07_
-- [ ] 2.3 Cancellation adjustment (owner LongLP)
+  - **Done** (Jira card pending): the inputs are billing's `BillableMonthlyContract`, `BillableTerm` and `BillableDayPlan`, filled by `rentals` from its snapshot and term, with the variant code for the line description; the day plan carries its `termId` and anchored `startsAt`. The balance line takes the remainder of the rounded-up holding fee; a line keeps the device count only when the amount divides by it
+- [x] 2.3 Cancellation adjustment (owner LongLP)
   - **Do**: `ChargesService.settleCancellation(contract, tx)` voids the unpaid first-invoice lines with a zero-sum `ADJUSTMENT`, keeping a paid holding fee
   - **Test**: cancel before and after the holding fee is paid
   - _Requirements: REQ-EVT-11, FR-CON-04_
+  - **Done** (Jira card pending): as `settleCancellation(contract, actorId, tx)`, `actorId` null for SYSTEM, so the `ADJUSTMENT` carries its author (REQ-UBI-02); one line of minus the unpaid total on the contract's `CLOSING` invoice, created under a per-contract advisory lock when missing; nothing when no invoice was issued yet or nothing is unpaid
 - [ ] 2.4 Balance service (owner LongLP)
   - **Files**: `backend/src/modules/billing/balance.service.ts`
   - **Do**: `firstPaymentConfirmed(contractId)`, `outstanding(contractId)` (unpaid lines plus pending damage charges), `balanceSummary(contractId)`, `revenue(range)` for monitoring
   - **Test**: a pending damage charge counts as outstanding
   - _Requirements: REQ-STA-02, FR-CON-13, BR-27_
+  - **Partly done** (Jira card pending): `firstPaymentConfirmed`, `outstanding` and `balanceSummary` over the contract's invoice lines, with negative adjustments credited against the oldest-due lines first. Pending damage charges wait on a contract link (`DamageCharge` carries none) and `revenue(range)` per variant on a variant link; both are raised in treklink-docs#114
 - [ ] 2.5 Late and damage charges, damage decisions (owner LongLP)
   - **Files**: `backend/src/modules/billing/charges.service.ts`
   - **Do**: `chargeLate(contract, device, checkedInAt, tx)` per started day past `returnDueAt` and the grace, on the `CLOSING` invoice (created on the first charge); `chargeDamage(contract, inspection, tx)` prices each code, `PENDING_APPROVAL` above `billing.damageApprovalThresholdVnd`; a decision by an Admin who did not record the inspection (403 `SEPARATION_OF_DUTY`) approves, reduces or waives, an approved or reduced amount becomes a `DAMAGE` line (MSG30)
