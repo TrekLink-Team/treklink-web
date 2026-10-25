@@ -140,6 +140,33 @@ describe('account menu (screen 2.2)', () => {
     expect(document.activeElement).toBe(accountButton());
   });
 
+  it('closes when a pointer is pressed outside, and stays open for a press inside', () => {
+    show(STAFF);
+    openMenu();
+
+    fireEvent.pointerDown(screen.getByRole('menu'));
+    expect(screen.getByRole('menu')).toBeTruthy();
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(accountButton().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes when focus leaves the menu, and stays open while it moves between items', () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    show(STAFF);
+    openMenu();
+    const [change, signOut] = screen.getAllByRole('menuitem');
+
+    fireEvent.blur(change, { relatedTarget: signOut });
+    expect(screen.getByRole('menu')).toBeTruthy();
+
+    fireEvent.blur(signOut, { relatedTarget: outside });
+    expect(screen.queryByRole('menu')).toBeNull();
+    outside.remove();
+  });
+
   it.each([
     ['answers', () => Promise.resolve(null)],
     ['fails', () => Promise.reject(new Error('offline'))],
