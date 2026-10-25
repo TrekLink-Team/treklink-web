@@ -14,7 +14,11 @@ export {
   type MemberDeactivatedEvent,
   type SessionUser,
 } from './account-session.service';
-export { AccessTokenAuthenticator } from './access-token-authenticator.service';
+export {
+  AccessTokenAuthenticator,
+  type AuthenticatedSession,
+} from './access-token-authenticator.service';
+export { hashApiKey } from './token.service';
 export { MAIL_PORT, type MailMessage, type MailPort } from './mail/mail.port';
 export {
   ACCOUNT_CONTEXT_PROVIDER,

@@ -8,7 +8,7 @@ import { AccountSessionService } from './account-session.service';
 import { AccountsRepository } from './accounts.repository';
 import { PermissionCache } from './casl/permission-cache';
 import { aSessionUser, CLIENT } from './testing/auth-fixtures';
-import { durationToSeconds, hashToken, TokenService } from './token.service';
+import { durationToSeconds, hashApiKey, hashToken, TokenService } from './token.service';
 
 const tx = { tx: true } as unknown as Prisma.TransactionClient;
 const NOW = new Date('2026-10-23T03:00:00.000Z');
@@ -35,6 +35,17 @@ describe('durationToSeconds', () => {
 
   it('refuses anything else', () => {
     expect(() => durationToSeconds('2w')).toThrow('Invalid duration 2w');
+  });
+});
+
+describe('hashApiKey', () => {
+  it('is the SHA-256 hex of the whole key, prefix included', () => {
+    expect(hashApiKey('tlk_abc')).toBe(
+      '263d00eaf6bf7f006b141bfdd38d30d3aebb3e5d65badf8968daee880830a5f7',
+    );
+    expect(hashApiKey('tlk_abc')).not.toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    );
   });
 });
 

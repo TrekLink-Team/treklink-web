@@ -44,6 +44,11 @@ export const durationToSeconds = (duration: string): number => {
 export const hashToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
 
+// An organization API key is stored only as the SHA-256 hex of the whole key, `tlk_` prefix included
+// (organizations api-design 21). The socket handshake, `ApiKeyGuard` and key creation all hash through
+// this one function, so a key resolves the same way everywhere.
+export const hashApiKey = (key: string): string => hashToken(key);
+
 const sessionEnded = (code: ErrorCode.REFRESH_INVALID | ErrorCode.REFRESH_REUSED) =>
   new DomainException(
     HttpStatus.UNAUTHORIZED,

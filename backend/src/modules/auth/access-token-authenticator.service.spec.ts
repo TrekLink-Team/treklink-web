@@ -9,7 +9,7 @@ describe('AccessTokenAuthenticator', () => {
   let authenticator: AccessTokenAuthenticator;
 
   beforeEach(() => {
-    jwt = { verifyAsync: jest.fn().mockResolvedValue({ sub: 'user-1' }) };
+    jwt = { verifyAsync: jest.fn().mockResolvedValue({ sub: 'user-1', exp: 1_792_900_000 }) };
     sessions = { load: jest.fn().mockResolvedValue(aSessionUser()) };
     authenticator = new AccessTokenAuthenticator(
       jwt as unknown as JwtService,
@@ -17,8 +17,11 @@ describe('AccessTokenAuthenticator', () => {
     );
   });
 
-  it('returns the account the token names, rebuilt from the database', async () => {
-    await expect(authenticator.authenticate('access.jwt')).resolves.toEqual(aSessionUser());
+  it('returns the account the token names, rebuilt from the database, with the token expiry', async () => {
+    await expect(authenticator.authenticate('access.jwt')).resolves.toEqual({
+      user: aSessionUser(),
+      expiresAt: 1_792_900_000_000,
+    });
     expect(jwt.verifyAsync).toHaveBeenCalledWith('access.jwt', { algorithms: ['HS256'] });
     expect(sessions.load).toHaveBeenCalledWith('user-1');
   });
