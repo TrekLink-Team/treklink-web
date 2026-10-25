@@ -9,7 +9,12 @@ export { AbilityFactory, type AbilityContext, type AppAbility } from './casl/abi
 export { POLICY_CHANGED } from './casl/permission-cache';
 export { assertOwnOr404, scopeWhere } from './scoping';
 export type { AuthUser } from './strategies/jwt.strategy';
-export { MEMBER_DEACTIVATED, type MemberDeactivatedEvent } from './account-session.service';
+export {
+  MEMBER_DEACTIVATED,
+  type MemberDeactivatedEvent,
+  type SessionUser,
+} from './account-session.service';
+export { AccessTokenAuthenticator } from './access-token-authenticator.service';
 export { MAIL_PORT, type MailMessage, type MailPort } from './mail/mail.port';
 export {
   ACCOUNT_CONTEXT_PROVIDER,

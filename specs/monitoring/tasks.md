@@ -15,7 +15,7 @@
 
 ## Phase 1: Foundation
 
-- [ ] 1.1 `MonitoringModule`, stream and `LiveGateway` (owner LongNN)
+- [x] 1.1 `MonitoringModule`, stream and `LiveGateway` (owner LongNN)
   - **Files**: `backend/src/modules/monitoring/monitoring.module.ts`, `stream.repository.ts`, `stream.service.ts`, `live.gateway.ts`
   - **Do**: `StreamEvent` repository (`insert`, `after(organizationId, seq, limit)`, `maxSeq`); Socket.io namespace `/live` with JWT and API-key handshakes; rooms assigned by the server only (`fleet`, `org:<id>`, `user:<id>`) per design §2 and `ws-live-contract.md`; an entry with no organization goes to `fleet` only
   - **Test**: a client cannot join a room by naming it; an `UNATTRIBUTED` entry reaches `fleet` only
