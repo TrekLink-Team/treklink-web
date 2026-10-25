@@ -66,7 +66,7 @@ describe('ContractsRepository', () => {
       contractDevice: {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
         findFirst: jest.fn().mockResolvedValue(null),
-        update: jest.fn().mockResolvedValue(undefined),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
     repository = new ContractsRepository(tx as unknown as PrismaService);
@@ -209,9 +209,18 @@ describe('ContractsRepository', () => {
     });
 
     await repository.setLostAt('cd-1', AT, client());
-    expect(tx.contractDevice.update).toHaveBeenCalledWith({
-      where: { id: 'cd-1' },
+    expect(tx.contractDevice.updateMany).toHaveBeenCalledWith({
+      where: { id: 'cd-1', checkedInAt: null, lostAt: null },
       data: { lostAt: AT },
+    });
+  });
+
+  it('refuses to set lostAt on a custody interval that is already closed', async () => {
+    tx.contractDevice.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(repository.setLostAt('cd-1', AT, client())).rejects.toMatchObject({
+      errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      message: 'The custody interval is already closed.',
     });
   });
 });

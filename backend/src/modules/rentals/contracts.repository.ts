@@ -163,13 +163,25 @@ export class ContractsRepository {
     });
   }
 
-  // Closes a custody interval at the loss confirmation time (REQ-EVT-12).
+  // Closes a custody interval at the loss confirmation time (REQ-EVT-12). Only an open interval
+  // qualifies: a row already checked in or lost is refused with 409, so a wrong call cannot rewrite
+  // the end of an interval that gateway-sync attribution relies on (D-040).
   async setLostAt(
     contractDeviceId: string,
     lostAt: Date,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
-    await tx.contractDevice.update({ where: { id: contractDeviceId }, data: { lostAt } });
+    const { count } = await tx.contractDevice.updateMany({
+      where: { id: contractDeviceId, checkedInAt: null, lostAt: null },
+      data: { lostAt },
+    });
+    if (count !== 1) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.INVALID_STATE_TRANSITION,
+        'The custody interval is already closed.',
+      );
+    }
   }
 
   // RC-<year>-<4 digits>, serialized per year as incidents does (treklink-docs#103, 4).
