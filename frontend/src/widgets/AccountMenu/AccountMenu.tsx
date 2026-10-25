@@ -26,7 +26,28 @@ export const AccountMenu: React.FC = () => {
     if (open) menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [open]);
 
+  // A pointer pressed anywhere outside the menu and its button closes the menu, and focus stays
+  // where the user put it (WAI-ARIA menu button pattern, review of #67).
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnOutside = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (menu.current?.contains(target) || button.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutside);
+    return () => document.removeEventListener('pointerdown', closeOnOutside);
+  }, [open]);
+
   if (!tokens) return null;
+
+  // Tab out of the last item, or Shift+Tab out of the first, closes the menu; moving focus between
+  // its items or back to the button does not.
+  const closeOnFocusOut = (event: React.FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget as Node | null;
+    if (menu.current?.contains(next) || button.current?.contains(next)) return;
+    setOpen(false);
+  };
 
   const closeMenu = () => {
     setOpen(false);
@@ -82,6 +103,7 @@ export const AccountMenu: React.FC = () => {
           role="menu"
           aria-label="Account"
           onKeyDown={moveFocus}
+          onBlur={closeOnFocusOut}
           className="fixed inset-x-0 top-16 z-40 bg-white p-4 text-slate-900 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-80 sm:rounded-xl"
         >
           <div className="border-b border-slate-200 pb-3">

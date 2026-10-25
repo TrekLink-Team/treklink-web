@@ -63,7 +63,7 @@ One step of three fields. A failed submit keeps every field (chapter 06 §8.7).
 ## Mobile, accessibility, live data
 
 - 360 px layout: the header shows only the initials button; the menu opens as a full-width sheet with each item at least 44 px high; the dialog opens full screen.
-- Tab order and focus after each action: the account button is a menu button (`aria-haspopup="menu"`, `aria-expanded`); arrow keys move through the items and Escape closes the menu and returns focus to the button. The dialog traps focus, starts on Current password and returns focus to the account button when it closes. An error is announced and linked to its field (`aria-describedby`). Fields carry `autocomplete` `current-password` and `new-password`.
+- Tab order and focus after each action: the account button is a menu button (`aria-haspopup="menu"`, `aria-expanded`); arrow keys move through the items and Escape closes the menu and returns focus to the button. A pointer pressed outside the menu and the button, or focus moving outside them, closes the menu and leaves focus where the user put it. The dialog traps focus, starts on Current password and returns focus to the account button when it closes. An error is announced and linked to its field (`aria-describedby`). Fields carry `autocomplete` `current-password` and `new-password`.
 - WebSocket events and invalidated query keys: no live events. Query key `['me']`, read once after sign-in; Sign out clears the whole cache.
 
 ## Checklist
