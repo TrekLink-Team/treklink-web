@@ -133,6 +133,7 @@ flowchart TB
     GWS --> DEVS
     GWS --> RENT
     GWS --> INC
+    MON --> AUTH
     MON --> ORG
     MON --> DEVS
     MON --> BILL

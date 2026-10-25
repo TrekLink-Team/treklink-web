@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth';
 import { DevicesModule } from './modules/devices';
 import { GatewaySyncModule } from './modules/gateway-sync';
 import { IncidentsModule } from './modules/incidents';
+import { MonitoringModule } from './modules/monitoring';
 import { OrganizationsModule } from './modules/organizations';
 import { validate } from './modules/platform/config/environment-variables';
 import { PlatformModule } from './modules/platform/platform.module';
@@ -29,6 +30,7 @@ import { PlatformModule } from './modules/platform/platform.module';
     DevicesModule,
     GatewaySyncModule,
     IncidentsModule,
+    MonitoringModule,
   ],
 })
 export class AppModule {}

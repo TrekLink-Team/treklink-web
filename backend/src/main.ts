@@ -1,15 +1,22 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { configureApp } from './app.setup';
+import { ValidatedEnvironment } from './modules/platform/config/environment-variables';
+import { configureApp, parseCorsOrigins } from './app.setup';
+import { LiveIoAdapter } from './modules/monitoring';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
 
   configureApp(app);
+  const env = app.get<ConfigService<ValidatedEnvironment, true>>(ConfigService);
+  app.useWebSocketAdapter(
+    new LiveIoAdapter(app, parseCorsOrigins(env.get('CORS_ORIGINS', { infer: true }))),
+  );
 
   // Swagger OpenAPI setup
   const config = new DocumentBuilder()

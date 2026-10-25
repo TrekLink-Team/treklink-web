@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { PlatformModule } from '../platform/platform.module';
+import { AccessTokenAuthenticator } from './access-token-authenticator.service';
 import { AccountSessionService } from './account-session.service';
 import { AccountsController } from './accounts.controller';
 import { AccountsRepository } from './accounts.repository';
@@ -45,6 +46,7 @@ import { TokenService } from './token.service';
   providers: [
     AccountsRepository,
     AccountSessionService,
+    AccessTokenAuthenticator,
     PasswordService,
     TokenService,
     AuthService,
@@ -60,6 +62,6 @@ import { TokenService } from './token.service';
     { provide: APP_GUARD, useExisting: PoliciesGuard },
     { provide: MAIL_PORT, inject: [ConfigService], useFactory: createMailPort },
   ],
-  exports: [JwtAuthGuard, PoliciesGuard, AbilityFactory, MAIL_PORT],
+  exports: [JwtAuthGuard, PoliciesGuard, AbilityFactory, AccessTokenAuthenticator, MAIL_PORT],
 })
 export class AuthModule {}

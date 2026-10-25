@@ -1,0 +1,77 @@
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { StreamRepository } from './stream.repository';
+
+const row = (seq: bigint, organizationId: string | null = 'o-1') => ({
+  seq,
+  organizationId,
+  type: 'device.position',
+  deviceId: 'd-1',
+  payload: { lat: 11.5 },
+  createdAt: new Date('2026-10-25T03:00:00.000Z'),
+});
+
+describe('StreamRepository', () => {
+  let streamEvent: { create: jest.Mock; findMany: jest.Mock; aggregate: jest.Mock };
+  let repository: StreamRepository;
+
+  beforeEach(() => {
+    streamEvent = { create: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() };
+    repository = new StreamRepository({ streamEvent } as unknown as PrismaService);
+  });
+
+  it('inserts an entry and returns the cursor as a number with an ISO time', async () => {
+    streamEvent.create.mockResolvedValue(row(88_214n));
+    await expect(
+      repository.insert({ organizationId: 'o-1', type: 'device.position', payload: { lat: 11.5 } }),
+    ).resolves.toEqual({
+      seq: 88_214,
+      organizationId: 'o-1',
+      type: 'device.position',
+      deviceId: 'd-1',
+      payload: { lat: 11.5 },
+      createdAt: '2026-10-25T03:00:00.000Z',
+    });
+    expect(streamEvent.create).toHaveBeenCalledWith({
+      data: {
+        organizationId: 'o-1',
+        type: 'device.position',
+        deviceId: null,
+        payload: { lat: 11.5 },
+      },
+    });
+  });
+
+  it('stores a platform-wide entry with no organization', async () => {
+    streamEvent.create.mockResolvedValue(row(1n, null));
+    await repository.insert({ organizationId: null, type: 'station.stale', payload: {} });
+    expect(streamEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ organizationId: null }) as unknown,
+    });
+  });
+
+  it('reads an organization its own entries after the cursor, oldest first', async () => {
+    streamEvent.findMany.mockResolvedValue([row(11n), row(12n)]);
+    const entries = await repository.after('o-1', 10, 500);
+    expect(entries.map((e) => e.seq)).toEqual([11, 12]);
+    expect(streamEvent.findMany).toHaveBeenCalledWith({
+      where: { seq: { gt: 10n }, organizationId: 'o-1' },
+      orderBy: { seq: 'asc' },
+      take: 500,
+    });
+  });
+
+  it('reads the fleet every entry after the cursor', async () => {
+    streamEvent.findMany.mockResolvedValue([]);
+    await repository.after(null, 10, 500);
+    expect(streamEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { seq: { gt: 10n } } }) as unknown,
+    );
+  });
+
+  it('reads the newest cursor, or 0 for an empty stream', async () => {
+    streamEvent.aggregate.mockResolvedValueOnce({ _max: { seq: 90n } });
+    await expect(repository.maxSeq()).resolves.toBe(90);
+    streamEvent.aggregate.mockResolvedValueOnce({ _max: { seq: null } });
+    await expect(repository.maxSeq()).resolves.toBe(0);
+  });
+});
