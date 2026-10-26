@@ -130,6 +130,49 @@ export class InvoicesRepository {
     });
   }
 
+  // Locks the invoice row for the rest of the transaction, so concurrent payments on one invoice
+  // apply one after the other (billing task 3.1), and returns it with its lines oldest due first;
+  // null when it does not exist.
+  async lockWithLines(
+    invoiceId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<InvoiceWithLines | null> {
+    await tx.$queryRaw`SELECT 1 FROM "invoices" WHERE "id" = ${invoiceId} FOR UPDATE`;
+    return tx.invoice.findUnique({
+      where: { id: invoiceId },
+      select: {
+        ...INVOICE_SELECT,
+        lines: { select: LINE_SELECT, orderBy: [{ dueAt: 'asc' }, { seq: 'asc' }] },
+      },
+    });
+  }
+
+  // Applies an amount to the invoice's unpaid lines, oldest due first, and moves the invoice's paid
+  // total and status. Call under lockWithLines; the caller checks the amount is at most what is due.
+  async applyPayment(
+    invoice: InvoiceWithLines,
+    amountVnd: bigint,
+    tx: Prisma.TransactionClient,
+  ): Promise<InvoiceRow> {
+    let left = amountVnd;
+    for (const line of invoice.lines) {
+      const unpaid = line.amountVnd - line.paidVnd;
+      if (left === 0n || unpaid <= 0n) continue;
+      const applied = unpaid < left ? unpaid : left;
+      await tx.invoiceLine.update({
+        where: { id: line.id },
+        data: { paidVnd: line.paidVnd + applied },
+      });
+      left -= applied;
+    }
+    const paidVnd = invoice.paidVnd + amountVnd;
+    return tx.invoice.update({
+      where: { id: invoice.id },
+      data: { paidVnd, status: invoiceStatusOf(invoice.totalVnd, paidVnd) },
+      select: INVOICE_SELECT,
+    });
+  }
+
   // The contract's first TERM or DAY_PLAN invoice, the one its first payment pays, with its lines.
   firstChargeableInvoice(
     contractId: string,

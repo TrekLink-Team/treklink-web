@@ -10,3 +10,9 @@ export {
   type BillableTerm,
 } from './invoices.service';
 export { ceilVnd, dayPlanFeeVnd, holdingFeeVnd, termFeeVnd } from './money';
+export {
+  PAYMENT_CONFIRMED,
+  PaymentsService,
+  type CounterPaymentInput,
+  type PaymentConfirmedEvent,
+} from './payments.service';

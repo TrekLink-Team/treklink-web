@@ -37,4 +37,8 @@ export enum ErrorCode {
   // incidents (specs/incidents/design.md §7)
   ALREADY_OWNED = 'ALREADY_OWNED',
   NOT_OWNER = 'NOT_OWNER',
+
+  // billing (specs/billing/design.md §6)
+  DUPLICATE_REFERENCE = 'DUPLICATE_REFERENCE',
+  OVERPAYMENT = 'OVERPAYMENT',
 }
