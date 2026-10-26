@@ -1,5 +1,6 @@
-import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, HttpStatus, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { DomainException, ErrorCode } from '../errors';
 
 // Route access metadata (D-061). `auth` registers JwtAuthGuard and PoliciesGuard globally; these
 // decorators live in `common` so a module below `auth` in platform design Figure 3 can declare them.
@@ -50,13 +51,23 @@ export interface Caller {
 }
 
 interface RequestUser {
+  kind?: string;
   id: string;
   roles: string[];
   organization?: { id: string } | null;
 }
 
+// An organization API key acts as no account, so it has no Caller: a handler that needs one is a
+// handler a key must not reach, and the key is refused with 403 (auth task 4.3, BR-20).
 export const callerOf = (_data: unknown, context: ExecutionContext): Caller => {
   const user = context.switchToHttp().getRequest<{ user: RequestUser }>().user;
+  if (user.kind === 'API_KEY') {
+    throw new DomainException(
+      HttpStatus.FORBIDDEN,
+      ErrorCode.FORBIDDEN,
+      'You do not have access to this.',
+    );
+  }
   return { id: user.id, roles: user.roles, organizationId: user.organization?.id ?? null };
 };
 

@@ -58,4 +58,12 @@ export class AbilityFactory {
     const rows = await this.permissions.rulesFor(context.roles);
     return createMongoAbility<AppAbility>(rows.map((row) => toRule(row, context)));
   }
+
+  // The ability of an organization API key: exactly these permission rows, their `own` conditions
+  // bound to the key's organization, and no role (auth task 4.3, BR-20).
+  async forApiKey(organizationId: string, permissionKeys: readonly string[]): Promise<AppAbility> {
+    const rows = await this.permissions.rulesForKeys(permissionKeys);
+    const context: AbilityContext = { userId: null, organizationId, roles: [] };
+    return createMongoAbility<AppAbility>(rows.map((row) => toRule(row, context)));
+  }
 }

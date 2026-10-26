@@ -108,9 +108,22 @@ describe('AbilityFactory', () => {
   beforeEach(() => {
     const accounts = {
       findRolePermissions: jest.fn((key: string) => Promise.resolve(ROWS[key] ?? [])),
+      findPermissionRules: jest
+        .fn()
+        .mockResolvedValue([row(), row({ key: 'liveMap.read.own', subject: 'LiveMap' })]),
     };
     cache = new PermissionCache(accounts as unknown as AccountsRepository);
     factory = new AbilityFactory(cache);
+  });
+
+  it('gives an API key only its permissions, bound to its organization (auth task 4.3, BR-20)', async () => {
+    const ability = await factory.forApiKey('org-a', ['incident.read.own', 'liveMap.read.own']);
+
+    expect(ability.can('read', record('Incident', { organizationId: 'org-a' }))).toBe(true);
+    expect(ability.can('read', record('LiveMap', { organizationId: 'org-a' }))).toBe(true);
+    expect(ability.can('read', record('Incident', { organizationId: 'org-b' }))).toBe(false);
+    expect(ability.can('acknowledge', 'Incident')).toBe(false);
+    expect(ability.can('manage', 'Member')).toBe(false);
   });
 
   it('limits an `own` permission to the organization of the context (FR-AUTH-11)', async () => {

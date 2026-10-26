@@ -1,10 +1,18 @@
-// Public surface of `auth` (task 1.1). Other modules import only from here. `AccountsService`,
-// `ApiKeyGuard` and `@AuthOneOf` join this list with tasks 4.3 and 5.1.
+// Public surface of `auth` (task 1.1). Other modules import only from here. `AccountsService` joins
+// this list with task 5.2.
 export { AuthModule } from './auth.module';
 export { JwtAuthGuard } from './guards/jwt-auth.guard';
+export {
+  API_KEY_HEADER,
+  API_KEY_PERMISSIONS,
+  ApiKeyGuard,
+  type ApiKeyCaller,
+  type RequestPrincipal,
+} from './guards/api-key.guard';
 export { PoliciesGuard } from './guards/policies.guard';
 export { CheckPolicies, type PolicyHandler } from './decorators/check-policies.decorator';
-export { CurrentUser } from './decorators/current-user.decorator';
+export { AuthOneOf, type AuthKind } from './decorators/auth-one-of.decorator';
+export { CurrentPrincipal, CurrentUser } from './decorators/current-user.decorator';
 export { AbilityFactory, type AbilityContext, type AppAbility } from './casl/ability.factory';
 export { POLICY_CHANGED } from './casl/permission-cache';
 export { assertOwnOr404, scopeWhere } from './scoping';

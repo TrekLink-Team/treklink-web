@@ -18,6 +18,7 @@ export const INHERITED_ROLES: Readonly<Record<string, readonly string[]>> = {
 @Injectable()
 export class PermissionCache {
   private readonly byRole = new Map<string, Promise<PermissionRuleRow[]>>();
+  private readonly byKeys = new Map<string, Promise<PermissionRuleRow[]>>();
   private policyVersion = 0;
 
   constructor(private readonly accounts: AccountsRepository) {}
@@ -37,9 +38,23 @@ export class PermissionCache {
     return perRole.flat();
   }
 
+  // The rows of these permission keys, read once per key set: the fixed ability of an API key holds
+  // permissions by key, not by role (auth task 4.3).
+  rulesForKeys(permissionKeys: readonly string[]): Promise<PermissionRuleRow[]> {
+    const cacheKey = [...permissionKeys].sort().join(',');
+    let rows = this.byKeys.get(cacheKey);
+    if (!rows) {
+      rows = this.accounts.findPermissionRules(permissionKeys);
+      rows.catch(() => this.byKeys.delete(cacheKey));
+      this.byKeys.set(cacheKey, rows);
+    }
+    return rows;
+  }
+
   @OnEvent(POLICY_CHANGED)
   invalidate(): void {
     this.byRole.clear();
+    this.byKeys.clear();
     this.policyVersion += 1;
   }
 

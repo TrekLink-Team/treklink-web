@@ -2,15 +2,17 @@ import { HttpStatus } from '@nestjs/common';
 import { subject } from '@casl/ability';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AppAbility } from './casl/ability.factory';
+import { AccountType } from '@prisma/client';
 import { forbidden } from './guards/policies.guard';
-import { AuthUser } from './strategies/jwt.strategy';
 
 // The organization filter every repository method that serves an organization takes
 // (specs/auth/design.md §3, FR-AUTH-11, BR-19): no filter for a TrekLink account, the caller's own
-// organization for a member. The organization comes from the verified token, never the request.
-export const scopeWhere = (
-  caller: Pick<AuthUser, 'accountType' | 'organization'>,
-): { organizationId?: string } => {
+// organization for a member or an API key. The organization comes from the verified token or key,
+// never the request.
+export const scopeWhere = (caller: {
+  accountType: AccountType;
+  organization: { id: string } | null;
+}): { organizationId?: string } => {
   if (caller.accountType === 'TREKLINK') return {};
   if (!caller.organization) throw forbidden();
   return { organizationId: caller.organization.id };
