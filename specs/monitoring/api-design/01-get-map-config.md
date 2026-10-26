@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Map provider, tile URL template, attribution, default viewport and the sovereignty overlay labels, all from configuration (FR-CFG-03, D-031). The client never hard-codes a provider.
+Map provider, tile URL template, attribution and default viewport from the business parameters (FR-CFG-03, D-031). The sovereignty overlay labels are a constant of the build, `SOVEREIGNTY_OVERLAY` in `monitoring`, and an Admin cannot edit them away (D-031, BR-30). The client never hard-codes a provider or a label.
 
 ## API Specification
 

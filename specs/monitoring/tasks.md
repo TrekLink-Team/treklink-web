@@ -50,6 +50,7 @@
   - **Files**: `live-map.service.ts`, `map.controller.ts`
   - **Do**: map provider, tile URL, attribution, viewport and the sovereignty overlay from configuration (api-design 01); snapshot from `visibleDevices`, `projections`, `openByDevices`, station health and the max `seq` (api-design 02)
   - **Test**: the overlay is present in the configuration response
+  - **Status**: `GET /api/map/config` is built (api-design 01). The snapshot (api-design 02) waits for `rentals.visibleDevices`, `devices.projections`, `incidents.openByDevices` and the Field Station health read; the box stays unticked until it lands.
   - _Requirements: REQ-UBI-02, FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01_
   - _Story: US-UC38_
 - [ ] 3.2 Organization API (owner LongNN)
