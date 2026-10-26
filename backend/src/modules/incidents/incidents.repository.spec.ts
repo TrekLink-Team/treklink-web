@@ -200,3 +200,27 @@ describe('IncidentsRepository (task 1.1)', () => {
     expect(tx.$queryRaw).not.toHaveBeenCalled();
   });
 });
+
+describe('IncidentsRepository status updates (task 4.1)', () => {
+  it('appends the note and moves only the status deadline, leaving the version alone', async () => {
+    const tx = {
+      incidentStatusUpdate: { create: jest.fn().mockResolvedValue({ id: 'update-1' }) },
+      incident: { update: jest.fn().mockResolvedValue(ROW) },
+    };
+    const client = tx as unknown as Prisma.TransactionClient;
+    const repository = new IncidentsRepository();
+    const data = {
+      incidentId: ROW.id,
+      authorId: 'owner',
+      note: 'Reached the holder',
+      createdAt: NOW,
+    };
+    await expect(repository.insertStatusUpdate(data, client)).resolves.toEqual({ id: 'update-1' });
+    expect(tx.incidentStatusUpdate.create).toHaveBeenCalledWith({ data });
+    await repository.resetStatusDue(ROW.id, NOW, client);
+    expect(tx.incident.update).toHaveBeenCalledWith({
+      where: { id: ROW.id },
+      data: { statusDueAt: NOW },
+    });
+  });
+});
