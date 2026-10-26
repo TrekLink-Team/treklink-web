@@ -70,6 +70,11 @@ export class ContractDecisionsService {
     actor: Caller,
     at: Date = new Date(),
   ): Promise<Approved> {
+    // The variant catalogue and the expiry parameter are read before the transaction opens, so the
+    // transaction holds its connection only for its own statements (both reads are cached outside
+    // any transaction).
+    const variants = await this.devices.variants(false);
+    const hours = await this.parameters.get('rentals.reservationExpiryHours');
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
       assertVersion(contract, input.expectedVersion);
@@ -81,9 +86,7 @@ export class ContractDecisionsService {
         );
       }
 
-      const variant = (await this.devices.variants(false)).find(
-        (item) => item.id === contract.hardwareVariantId,
-      );
+      const variant = variants.find((item) => item.id === contract.hardwareVariantId);
       const variantCode = variant?.code ?? contract.hardwareVariantId;
       const devices = await this.devices.reserve(
         { id: contract.hardwareVariantId, code: variantCode },
@@ -103,7 +106,6 @@ export class ContractDecisionsService {
       );
       await this.issueFirstInvoice(contract, term, variantCode, tx, at);
 
-      const hours = await this.parameters.get('rentals.reservationExpiryHours', tx);
       const reservationExpiresAt = new Date(input.handoverAt.getTime() + hours * HOUR_MS);
       const approved = await this.lifecycle.apply(
         id,
