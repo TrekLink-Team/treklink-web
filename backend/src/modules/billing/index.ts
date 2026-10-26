@@ -16,3 +16,10 @@ export {
   type CounterPaymentInput,
   type PaymentConfirmedEvent,
 } from './payments.service';
+export {
+  PricingService,
+  type Catalogue,
+  type PriceSnapshot,
+  type Quote,
+  type QuoteInput,
+} from './pricing.service';
