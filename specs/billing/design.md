@@ -103,14 +103,19 @@ for Staff, rather than rejected, because the money has moved.
 
 | Export | Used by |
 |---|---|
-| `PricingService.snapshot(variantId)` | rentals |
+| `PricingService.snapshot(variantId, tx?)`, 404 when no price is in effect | rentals |
 | `InvoicesService.issueTermInvoice(contract, term, tx)`, `issueDayPlanInvoice(contract, tx)` | rentals |
-| `ChargesService.chargeLate(contract, device, checkedInAt, tx)`, `chargeDamage(contract, inspection, tx)` | rentals |
+| `ChargesService.chargeLate(contract, device, checkedInAt, actorId, tx)`, `chargeDamage(contract, inspection, actorId, tx)`; `actorId` is null for SYSTEM | rentals |
 | `ChargesService.chargeLoss(contract, device, lostAt, tx)` and `adjustLoss(contract, device, decision, amountVnd, reason, actor, tx)` (an `ADJUSTMENT` line for a reduced or waived loss, never an edit of the `LOSS` line, FR-BILL-11, BR-39), called from this module's provider of the `devices` port `LOSS_CASE_LISTENERS` (`onConfirmed` for `RENTER` custody, `onSettled`) | devices, through the port (D-045) |
 | `ChargesService.settleCancellation(contract, tx)` | rentals |
 | `BalanceService.firstPaymentConfirmed(contractId)`, `outstanding(contractId)`, `balanceSummary(contractId)` | rentals |
 | `BalanceService.revenue(range)` | monitoring |
 | provider of `ORGANIZATION_EXIT_CHECKS.canReactivate` | organizations |
+
+Port declared: `CONTRACT_DIRECTORY` (`ports/contract-directory.port.ts`), the contract code, organization
+code and term sequence the invoice and payment reads show (api-design 08, 09, 14). `billing` may not read
+`rental_contracts` or `contract_terms`, and `rentals` depends on `billing`, so `rentals` provides it the
+D-032 way; the reads inject it `@Optional()` and show null codes without it.
 
 Events emitted: `payment.confirmed`, `audit.record`.
 

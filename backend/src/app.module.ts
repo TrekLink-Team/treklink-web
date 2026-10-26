@@ -4,6 +4,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth';
+import { BillingModule } from './modules/billing';
 import { DevicesModule } from './modules/devices';
 import { GatewaySyncModule } from './modules/gateway-sync';
 import { IncidentsModule } from './modules/incidents';
@@ -29,6 +30,7 @@ import { RentalsModule } from './modules/rentals';
     AuthModule,
     OrganizationsModule,
     DevicesModule,
+    BillingModule,
     GatewaySyncModule,
     IncidentsModule,
     MonitoringModule,
