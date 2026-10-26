@@ -26,7 +26,7 @@
 - **REQ-UBI-03**: The client SHALL be usable on a 360 px wide mobile browser for the operator's incident and map screens. [NFR-UI-01]
 - **REQ-UBI-04**: The client SHALL meet WCAG 2.1 AA: logical tab order, visible focus, keyboard operation of every control, text alternatives on map markers. [NFR-USE-03]
 - **REQ-UBI-05**: The client SHALL show times in the viewer's timezone, UTC+7 by default. [NFR-USE-05]
-- **REQ-UBI-06**: Every map SHALL use Leaflet with the configured tiles and attribution and SHALL draw the Vietnamese sovereignty overlay over Hoàng Sa and Trường Sa. [FR-MON-01, BR-30, D-031]
+- **REQ-UBI-06**: Every map SHALL use Leaflet with the configured basemaps and their attribution, open on the default basemap, let the user switch between basemaps, and draw the Vietnamese sovereignty overlay over Hoàng Sa and Trường Sa on every basemap. The overlay SHALL NOT appear in the layer control. [FR-MON-01, BR-30, D-031, D-072]
 - **REQ-UBI-07**: Every multi-step flow SHALL take at most 4 steps of at most 6 fields; acknowledging an incident SHALL be one step with at most 2 fields. [NFR-USE-01, NFR-USE-02]
 - **REQ-UBI-08**: Sandbox payments SHALL be labelled as sandbox wherever shown. [NFR-UI-03]
 - **REQ-UBI-09**: The public plans page, the registration page and the organization incident screens SHALL state that TrekLink does not replace official search-and-rescue channels and that the organization remains responsible for its own emergency response. [NFR-LEG-05]

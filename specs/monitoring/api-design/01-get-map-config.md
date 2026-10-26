@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Map provider, tile URL template, attribution and default viewport from the business parameters (FR-CFG-03, D-031). The sovereignty overlay labels are a constant of the build, `SOVEREIGNTY_OVERLAY` in `monitoring`, and an Admin cannot edit them away (D-031, BR-30). The client never hard-codes a provider or a label.
+Basemaps the user can switch between, the default one and the default viewport, from the business parameters (FR-CFG-03, D-031, D-072). `provider`, `tileUrl` and `attribution` repeat the default basemap for a client that draws one layer. Above an entry's `maxNativeZoom` the client enlarges the deepest tiles up to `maxZoom`. The sovereignty overlay labels are a constant of the build, `SOVEREIGNTY_OVERLAY` in `monitoring`, and an Admin cannot edit them away (D-031, BR-30). The client never hard-codes a provider or a label.
 
 ## API Specification
 
@@ -26,9 +26,27 @@ No body.
 ```json
 {
   "result": {
-    "provider": "cyclosm",
-    "tileUrl": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
-    "attribution": "© OpenStreetMap contributors, style CyclOSM, tiles by OpenStreetMap France",
+    "provider": "opentopomap",
+    "tileUrl": "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    "attribution": "Map data © OpenStreetMap contributors, SRTM; style © OpenTopoMap (CC-BY-SA)",
+    "basemaps": [
+      {
+        "id": "opentopomap",
+        "name": "Topographic (OpenTopoMap)",
+        "tileUrl": "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+        "attribution": "Map data © OpenStreetMap contributors, SRTM; style © OpenTopoMap (CC-BY-SA)",
+        "maxZoom": 18,
+        "maxNativeZoom": 17
+      },
+      {
+        "id": "openstreetmap",
+        "name": "OpenStreetMap",
+        "tileUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "attribution": "© OpenStreetMap contributors",
+        "maxZoom": 19,
+        "maxNativeZoom": 19
+      }
+    ],
     "defaultViewport": {
       "lat": 11.56,
       "lon": 108.54,

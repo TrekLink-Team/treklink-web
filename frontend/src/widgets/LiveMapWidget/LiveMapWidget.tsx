@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MAP_CONFIG_KEY, getMapConfig, type MapConfig } from '../../shared/config/map';
+import {
+  MAP_CONFIG_KEY,
+  getMapConfig,
+  type Basemap,
+  type MapConfig,
+} from '../../shared/config/map';
 
 export interface MapMarker {
   id: string;
@@ -92,21 +97,48 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
       const { lat, lon, zoom } = config.defaultViewport;
       const instance = L.map(node).setView([lat, lon], zoom);
 
-      const tiles = L.tileLayer(config.tileUrl, { attribution: config.attribution });
+      // One tile layer per basemap, in the server's order, opening on the default (D-072). Only the
+      // active layer is on the map, so only it reports loads and failures.
+      const basemaps: Basemap[] = config.basemaps.length
+        ? config.basemaps
+        : [
+            {
+              id: config.provider,
+              name: config.provider,
+              tileUrl: config.tileUrl,
+              attribution: config.attribution,
+              maxZoom: 18,
+              maxNativeZoom: 18,
+            },
+          ];
       // One failed tile is normal on a flaky link. The panel appears only when a whole batch of tiles
       // finishes without a single success, and goes as soon as one tile loads (REQ-EVT-04).
       let loadedInBatch = 0;
-      tiles.on('loading', () => {
-        loadedInBatch = 0;
-      });
-      tiles.on('tileload', () => {
-        loadedInBatch += 1;
-        setTilesFailed(false);
-      });
-      tiles.on('load', () => {
-        if (loadedInBatch === 0) setTilesFailed(true);
-      });
-      tiles.addTo(instance);
+      const layers: Record<string, L.TileLayer> = {};
+      for (const basemap of basemaps) {
+        const tiles = L.tileLayer(basemap.tileUrl, {
+          attribution: basemap.attribution,
+          maxZoom: basemap.maxZoom,
+          maxNativeZoom: basemap.maxNativeZoom,
+        });
+        tiles.on('loading', () => {
+          loadedInBatch = 0;
+        });
+        tiles.on('tileload', () => {
+          loadedInBatch += 1;
+          setTilesFailed(false);
+        });
+        tiles.on('load', () => {
+          if (loadedInBatch === 0) setTilesFailed(true);
+        });
+        layers[basemap.name] = tiles;
+      }
+      const initial = basemaps.find((basemap) => basemap.id === config.provider) ?? basemaps[0];
+      layers[initial.name].addTo(instance);
+      // Base layers only: the sovereignty overlay is never offered for switching off (REQ-UBI-06).
+      if (basemaps.length > 1)
+        L.control.layers(layers, undefined, { collapsed: false }).addTo(instance);
+      instance.on('baselayerchange', () => setTilesFailed(false));
 
       // Always on, never in a layer control, never removed by the user (REQ-UBI-06).
       const pane = instance.createPane(OVERLAY_PANE);
@@ -172,8 +204,8 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
 /**
  * Live operational map (MF-04, task 1.3).
  *
- * Leaflet over the tiles and attribution that GET /api/map/config returns, with the Vietnamese
- * sovereignty overlay always drawn on top (D-031). If the config or the tiles fail, the panel shows
+ * Leaflet over the basemaps that GET /api/map/config returns, switchable in a layer control, with the
+ * Vietnamese sovereignty overlay always drawn on top of every basemap (D-031, D-072). If the config or the tiles fail, the panel shows
  * MSG33 and the rest of the page keeps working.
  */
 export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [] }) => {
@@ -187,9 +219,13 @@ export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [
 
   return (
     <div className="relative w-full h-[500px] rounded-xl overflow-hidden shadow-sm border border-slate-200">
-      {config.data && <LeafletMap key={config.data.tileUrl} config={config.data} markers={markers} />}
+      {config.data && (
+        <LeafletMap key={config.data.tileUrl} config={config.data} markers={markers} />
+      )}
       {config.isPending && (
-        <p className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Loading map</p>
+        <p className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Loading map
+        </p>
       )}
       {config.isError && <Unavailable overlay={[]} />}
     </div>
