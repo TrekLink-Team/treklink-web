@@ -33,12 +33,13 @@
 
 ## Phase 2: Core Service Logic
 
-- [ ] 2.1 Prices, damage rates, plans, quotes, snapshot (owner LongLP)
+- [x] 2.1 Prices, damage rates, plans, quotes, snapshot (owner LongLP)
   - **Files**: `backend/src/modules/billing/pricing.service.ts`
   - **Do**: price schedule append-only, a new row effective from a time not in the past; damage rates per variant with a generic fallback; plan catalogue (public); quote for a variant, plan, quantity and length; `snapshot(variantId)` returns monthly price, `billing.dayPremium` and `billing.holdingFeeRatio`
   - **Test**: a past effective time is refused; the snapshot ignores a price effective tomorrow
   - _Requirements: REQ-UBI-05, REQ-EVT-01, AC-01, AC-02, FR-CFG-02_
   - _Story: US-UC56_
+  - **Done**: `PricingService` over a new `PricingRepository` (PriceSchedule, DamageRate) backs api-design 01 to 07; the endpoints are 5.1. `snapshot(variantId, tx?)` reads in the caller's transaction and answers 404 when no price is in effect (no code of its own in design §6). A day-plan length outside `rentals.dayPlanLengths` in a quote is 400 `VALIDATION_FAILED`, the only codes api-design 02 lists besides `BELOW_MOQ`. An unknown variant on a price or damage rate is 404 from the foreign key. `damageRateFor(code, variantId)` gives task 2.5 the variant rate or the generic fallback. The catalogue returns prices by variant id: the variant code, name and active flag of api-design 01 belong to `devices`, which has no variant read yet, so 5.1 joins them once it does. The "ignores tomorrow's price" case is the `effectiveFrom <= at` query, unit-tested; a test:db case waits for PGlite here
 - [x] 2.2 Term and day-plan invoices (owner LongLP)
   - **Files**: `backend/src/modules/billing/invoices.service.ts`
   - **Do**: `issueTermInvoice(contract, term, tx)`: one `TERM` invoice, `HOLDING_FEE` line due at the term start and `TERM_BALANCE` due at the term end; `issueDayPlanInvoice(contract, tx)`: one `DAY_PLAN_FEE` line due at the start date; issued lines never change
