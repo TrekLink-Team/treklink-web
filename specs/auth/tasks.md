@@ -89,15 +89,17 @@
   - **Do**: missing permission 403 `FORBIDDEN`; record of another organization 404 `NOT_FOUND` (scoped 404 rule); `scopeWhere` returns `{}` for TrekLink accounts and `{ organizationId }` otherwise
   - **Test**: AC-01 seeds `backend/test/tenancy.e2e-spec.ts`
   - _Requirements: REQ-UBI-04, REQ-ERR-06, AC-01, FR-AUTH-01, BR-19, BR-20_
-- [ ] 4.3 `ApiKeyGuard` and `@AuthOneOf('jwt', 'apiKey')` (owner LongLP)
+- [x] 4.3 `ApiKeyGuard` and `@AuthOneOf('jwt', 'apiKey')` (owner LongLP)
   - **Files**: `guards/api-key.guard.ts`, `decorators/auth-one-of.decorator.ts`
   - **Do**: hash `X-Api-Key`, resolve through `API_KEY_RESOLVER`, context `{ kind: 'API_KEY', organizationId }` with the fixed read-only ability `liveMap.read.own`, `telemetryHistory.read.own`, `incident.read.own`; an API key on a mutating route is 403
   - **Test**: AC-05
   - _Requirements: REQ-EVT-09, AC-05_
-- [ ] 4.4 Route-enumeration test (owner LongLP)
+  - **Done**: the global `JwtAuthGuard` hands a request with `X-Api-Key` and no bearer token to `ApiKeyGuard` (a bearer token wins when both are sent); the caller is `{ kind: 'API_KEY', apiKeyId, accountType: ORGANIZATION, organization: { id }, roles: [] }`, so `scopeWhere` scopes it as a member. The ability is the three permission rows read by key (`AbilityFactory.forApiKey`), bound to the key's organization. `PoliciesGuard` refuses a key with 403 everywhere except a GET or HEAD route marked `@AuthOneOf(..., 'apiKey')`; `@CurrentCaller()` refuses a key with 403, because a key acts as no account; `@CurrentPrincipal()` reads either caller. With no `API_KEY_RESOLVER` provider (until `organizations` 1.3) every key is 401. AC-05 runs on a test-only controller, because the organization API routes are not built yet
+- [x] 4.4 Route-enumeration test (owner LongLP)
   - **Files**: `backend/test/route-guards.e2e-spec.ts`
   - **Do**: walk Nest's router; every POST, PUT, PATCH and DELETE route except the routes marked Public or secret-authenticated in their api-design file (login, refresh, forgot, reset, set-password, organization registration, the SePay webhook, the MQTT hooks) declares an auth guard and a policy
   - _Requirements: REQ-UBI-04_
+  - **Done**: the test walks every controller through Nest's discovery service. A mutating route needs `@CheckPolicies` unless it is on the public list or the token-only list of D-061 rule 2 (logout, `me`, password change); a `@Public` route off the public list fails, as does any route with no guard marking or a mutating route marked for API keys. A module adding a public or token-only route adds it to the list in the same PR
 
 ## Phase 5: TrekLink account administration
 
