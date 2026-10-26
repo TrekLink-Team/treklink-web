@@ -7,8 +7,9 @@ import { FINISHED_STATES } from './contract-states';
 type Client = Prisma.TransactionClient | PrismaService;
 
 const HOUR_MS = 3_600_000;
-// Contract codes count by the calendar year of the request in Vietnam (UTC+7).
-const CODE_ZONE_OFFSET_MS = 7 * HOUR_MS;
+// Contract codes count by the calendar year of the request in Vietnam (UTC+7); the start-date check
+// of a request uses the same calendar.
+export const CODE_ZONE_OFFSET_MS = 7 * HOUR_MS;
 const CODE_MAX = 9999;
 
 export const CONTRACT_SELECT = {
@@ -16,12 +17,97 @@ export const CONTRACT_SELECT = {
   code: true,
   organizationId: true,
   planType: true,
+  dayPlanDays: true,
+  hardwareVariantId: true,
   quantity: true,
+  requestedStartDate: true,
+  monthlyUnitPriceVnd: true,
+  dayPremium: true,
+  holdingFeeRatio: true,
   status: true,
+  statusChangedAt: true,
+  handedOverAt: true,
+  endsAt: true,
+  noticeGivenAt: true,
+  returnDueAt: true,
   version: true,
 } satisfies Prisma.RentalContractSelect;
 
 export type ContractRow = Prisma.RentalContractGetPayload<{ select: typeof CONTRACT_SELECT }>;
+
+export const TERM_SELECT = {
+  id: true,
+  seq: true,
+  startsAt: true,
+  endsAt: true,
+  status: true,
+} as const;
+
+// A list row: the contract with its latest term, which is the current one (api-design 02).
+export const LIST_SELECT = {
+  ...CONTRACT_SELECT,
+  reservationExpiresAt: true,
+  terms: { select: TERM_SELECT, orderBy: { seq: 'desc' }, take: 1 },
+} satisfies Prisma.RentalContractSelect;
+
+export type ContractListRow = Prisma.RentalContractGetPayload<{ select: typeof LIST_SELECT }>;
+
+export const DEVICE_ROW_SELECT = {
+  id: true,
+  deviceId: true,
+  handedOverAt: true,
+  checkedInAt: true,
+  lostAt: true,
+  holderName: true,
+  holderPhone: true,
+  holderEmergencyContact: true,
+} satisfies Prisma.ContractDeviceSelect;
+
+// The detail: every term in order and the device rows still on the contract (api-design 03).
+export const DETAIL_SELECT = {
+  ...CONTRACT_SELECT,
+  reservationExpiresAt: true,
+  terms: { select: TERM_SELECT, orderBy: { seq: 'asc' } },
+  devices: {
+    where: { releasedAt: null },
+    select: DEVICE_ROW_SELECT,
+    orderBy: { reservedAt: 'asc' },
+  },
+} satisfies Prisma.RentalContractSelect;
+
+export type ContractDetailRow = Prisma.RentalContractGetPayload<{ select: typeof DETAIL_SELECT }>;
+
+export const TRANSITION_SELECT = {
+  fromStatus: true,
+  toStatus: true,
+  actorId: true,
+  reason: true,
+  createdAt: true,
+} satisfies Prisma.ContractTransitionSelect;
+
+export type TransitionRow = Prisma.ContractTransitionGetPayload<{
+  select: typeof TRANSITION_SELECT;
+}>;
+
+export interface ContractFilter {
+  organizationId?: string;
+  status?: ContractStatus;
+  planType?: PlanType;
+}
+
+export interface NewTerm {
+  contractId: string;
+  seq: number;
+  startsAt: Date;
+  endsAt: Date;
+}
+
+export interface Decision {
+  decidedById: string;
+  decidedAt: Date;
+  reservationExpiresAt?: Date;
+  rejectionReason?: string;
+}
 
 export interface NewContract {
   organizationId: string;
@@ -182,6 +268,100 @@ export class ContractsRepository {
         'The custody interval is already closed.',
       );
     }
+  }
+
+  // A page of contracts, newest first (api-design 02).
+  page(
+    filter: ContractFilter,
+    skip: number,
+    take: number,
+    client: Client = this.prisma,
+  ): Promise<[ContractListRow[], number]> {
+    const where: Prisma.RentalContractWhereInput = {
+      ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
+      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.planType ? { planType: filter.planType } : {}),
+    };
+    return Promise.all([
+      client.rentalContract.findMany({
+        where,
+        orderBy: [{ statusChangedAt: 'desc' }, { code: 'desc' }],
+        skip,
+        take,
+        select: LIST_SELECT,
+      }),
+      client.rentalContract.count({ where }),
+    ]);
+  }
+
+  detail(id: string, client: Client = this.prisma): Promise<ContractDetailRow | null> {
+    return client.rentalContract.findUnique({ where: { id }, select: DETAIL_SELECT });
+  }
+
+  transitionsOf(contractId: string, client: Client = this.prisma): Promise<TransitionRow[]> {
+    return client.contractTransition.findMany({
+      where: { contractId },
+      orderBy: { createdAt: 'asc' },
+      select: TRANSITION_SELECT,
+    });
+  }
+
+  insertTerm(term: NewTerm, tx: Prisma.TransactionClient) {
+    return tx.contractTerm.create({ data: term, select: TERM_SELECT });
+  }
+
+  // The approval or rejection fields beside the status change, which `transition` writes.
+  async recordDecision(
+    id: string,
+    decision: Decision,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.rentalContract.update({ where: { id }, data: decision });
+  }
+
+  async recordCancellation(
+    id: string,
+    reason: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.rentalContract.update({
+      where: { id },
+      data: { cancelledAt: at, cancelReason: reason },
+    });
+  }
+
+  // Releases the rows not yet handed over, so the devices may serve another contract (BR-03), and
+  // returns their device ids.
+  async releaseReservedRows(
+    contractId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<string[]> {
+    const rows = await tx.contractDevice.findMany({
+      where: { contractId, releasedAt: null, handedOverAt: null },
+      select: { deviceId: true },
+    });
+    await tx.contractDevice.updateMany({
+      where: { contractId, releasedAt: null, handedOverAt: null },
+      data: { releasedAt: at },
+    });
+    return rows.map((row) => row.deviceId);
+  }
+
+  // Codes for the billing reads (the CONTRACT_DIRECTORY port).
+  codes(ids: readonly string[], client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, code: true, organizationId: true },
+    });
+  }
+
+  termSeqs(ids: readonly string[], client: Client = this.prisma) {
+    return client.contractTerm.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, seq: true },
+    });
   }
 
   // RC-<year>-<4 digits>, serialized per year as incidents does (treklink-docs#103, 4).

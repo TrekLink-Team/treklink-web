@@ -42,12 +42,14 @@
   - **Test**: each refusal; a later price change does not change the snapshot
   - _Requirements: REQ-EVT-01, REQ-UBI-04, REQ-ERR-02, REQ-ERR-03, FR-CON-01, FR-CON-02, FR-CFG-02, BR-01, BR-02_
   - _Story: US-UC15_
+  - **Partly done**: `request(input, caller, at)` runs every check in one transaction, takes `PricingService.snapshot` (billing 2.1), inserts `REQUESTED`, audits `contract.request` and returns the contract with the api-design 01 `quote` (term fee and holding fee, or the day-plan total). A start date before today in UTC+7 is 400 `VALIDATION_FAILED`, as api-design 01 lists no code of its own. The minimal `OrganizationsService.assertActive` it needs is built here too (organizations 2.4, owner TanNB). Open: the active-variant check, since `devices` has no variant read and a variant without a price is only refused as 404 by the snapshot; and the Staff notification, since no Staff notification channel exists yet (MSG14 itself is the requester's success message)
 - [ ] 2.2 Approve, reject, cancel (owner LongLP)
   - **Files**: `contract-lifecycle.service.ts`
   - **Do**: `approve(id, dto, actor)`: one transaction with `DevicesService.reserve` (409 `INSUFFICIENT_DEVICES`, MSG11, nothing reserved), term 1 anchored to the start date at 09:00 UTC+7, `InvoicesService.issueTermInvoice` or `issueDayPlanInvoice`, `reservationExpiresAt`, `APPROVED`; `reject` with a reason; `cancel` from `REQUESTED` or `APPROVED` releases devices and calls `ChargesService.settleCancellation` (holding fee kept), `CANCELLED` (MSG15)
   - **Test**: AC-01 with two concurrent approvals on Postgres; cancel after a paid holding fee keeps the payment
   - _Requirements: REQ-EVT-02, REQ-EVT-03, REQ-ERR-01, AC-01, FR-CON-03, FR-CON-04, FR-CON-11, BR-03, BR-04_
   - _Story: US-UC16, US-UC17, US-UC18_
+  - **Partly done**: in `contract-decisions.service.ts`. `approve` checks `expectedVersion` (409 `STALE_VERSION`, MSG36), reserves through `DevicesService.reserve` (409 `INSUFFICIENT_DEVICES`, nothing reserved), creates term 1 from 09:00 UTC+7 on the start date (`contract-terms.ts`), issues the term or day-plan invoice, sets `reservationExpiresAt` to the handover appointment plus `rentals.reservationExpiryHours` and moves to `APPROVED`. The schema has no column for the appointment, so it is kept in the transition reason. `reject` stores the reason; `cancel` (Org Manager own, or Staff) releases the reserved rows and units, calls `settleCancellation` and answers the paid amount as `retainedVnd`. Unit-tested; open: AC-01 with two concurrent approvals on Postgres (`test:db`, no Docker on this machine), the explicit `deviceIds` of api-design 04, and the Manager notification of MSG16
 - [ ] 2.3 Provisioning and swap at the counter (owner LongLP)
   - **Files**: `backend/src/modules/rentals/handover.service.ts`
   - **Do**: `provision(id, deviceId, dto, actor)` records the organization's current `channelKeyVersion` through `DevicesService.recordProvisioning`; a scanned tag not on the contract is 409 `DEVICE_NOT_ON_CONTRACT` (MSG12); `swap` moves a failing reserved unit to `MAINTENANCE` through `failHandoverCheck` and reserves another `AVAILABLE` unit of the variant in the same transaction
@@ -118,11 +120,13 @@
   - **Test**: a member reading another organization's contract gets 404
   - _Requirements: FR-AUTH-11_
   - _Story: US-UC55_
+  - **Partly done**: `ContractReadsService` serves the list with status and plan filters and the current term, the detail with every term, the device rows still on the contract (asset tags from `devices`) and the balance from `billing`, and the transitions with the actor's name; a member reads its own organization's contracts only, another's answers 404. Organization and variant labels come from `OrganizationsService.labelsOf` and `DevicesService.variants`. Open: the organization filter for Staff
 
 ## Phase 6: API Presentation Layer
 
 - [ ] 6.1 `ContractsController` (owner LongLP)
   - **Do**: api-design 01 to 18 with each file's permission and `@ResponseMessage`
+  - **Partly done**: api-design 01 `POST /api/contracts` (`contract.request.own`, Org Manager); 02 `GET /api/contracts`, 03 `GET /api/contracts/:id` and 18 `GET /api/contracts/:id/transitions` (`contract.read`); 04 `POST /api/contracts/:id/approve` and 05 `.../reject` (`contract.operate`, Staff); 06 `.../cancel` (`contract.cancel.own` or `contract.operate`). For 01, answering the api-design shape with every VND amount as a JSON number, the organization from the verified context and the variant code from `DevicesService.variants`; `currentTerm` is null until approval creates term 1. Exercised on the shared Neon seed on 2026-10-26: every refusal of api-design 01 answers as specified (400 `BELOW_MOQ`, `DAY_PLAN_LENGTH`, `VALIDATION_FAILED` for a past or malformed date, 403 for an Org Operator, 401 without a token); the successful request was not sent, to keep the shared database clean
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/rentals.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-07; the 50 parallel approvals of the non-functional table

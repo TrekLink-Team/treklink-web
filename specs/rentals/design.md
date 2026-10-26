@@ -139,6 +139,7 @@ arithmetic.
 | `ContractsService.contractsOfDevice(deviceId)`, `statusOf(contractId)`, `utilization(range)` | monitoring, incidents |
 | provider of `ORGANIZATION_EXIT_CHECKS.canClose` | organizations |
 | provider of `CUSTODY_RESOLVER` (delegates to `custodyAt`) and of `LOSS_CASE_LISTENERS.onSettled` (sets `lostAt`) | devices (D-045) |
+| provider of `CONTRACT_DIRECTORY` (contract code, organization code, term sequence), in the global `RentalsPortsModule` | billing (billing design §4) |
 
 Declares `CONTRACT_CLOSE_CHECKS` (multi): `{ blockingReason(contractId, deviceIds): Promise<Reason | null> }`.
 

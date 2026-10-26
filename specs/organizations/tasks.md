@@ -54,6 +54,7 @@
   - **Test**: AC-07 (contract request refused while the SOS route still resolves); close with an open contract refused
   - _Requirements: REQ-EVT-04, REQ-EVT-05, REQ-EVT-06, REQ-STA-01, REQ-ERR-04, AC-07, FR-ORG-07, BR-26, BR-32_
   - _Story: US-UC07_
+  - **Note**: `labelsOf(ids)` (code and legal name) was added by LongLP for the contract and invoice reads of rentals and billing. `assertActive(orgId, tx?)` exists already, built by LongLP with rentals 2.1 (a minimal `OrganizationsRepository.findStatus` and `OrganizationsService`; 404 for an unknown id); the rest of 2.4 builds around it
 - [ ] 2.5 Members (owner TanNB)
   - **Files**: `backend/src/modules/organizations/members.service.ts`
   - **Do**: invite through `AccountsService.createOrganizationAccount` with role `ORG_MANAGER` or `ORG_OPERATOR`; change role through `setOrganizationRole`; deactivate through `AccountsService.deactivate`, clear the member from every shift not yet ended, emit `member.deactivated`; the last active Manager can neither be deactivated nor demoted (409 `LAST_MANAGER`), checked under `SELECT ... FOR UPDATE` on the organization row

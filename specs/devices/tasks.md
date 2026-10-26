@@ -53,6 +53,7 @@
 - [ ] 2.3 Methods for `rentals` (owner KhoaDD)
   - **Do**: the design §3 methods: `reserve(variantId, quantity, contractId, tx)` with `FOR UPDATE SKIP LOCKED`, all or none (409 `INSUFFICIENT_DEVICES`); `reserveExplicit`; `release`; `failHandoverCheck`; `recordProvisioning(deviceId, orgId, keyVersion, actor, tx)` storing only the key version; `assertReadyForHandover(ids, keyVersion)` (409 `DEVICE_NOT_PROVISIONED`, `KEY_VERSION_MISMATCH`); `markRented`; `markReturned`; `openLossForReplacement`; `availability(variantId?)`
   - **Test**: the reservation race with two transactions on Postgres; provisioning never stores a key
+  - **Note**: LongLP built a first `reserve(variant, quantity, at, tx)` for rentals 2.2 (MF-01 demo, 2026-10-26): `FOR UPDATE SKIP LOCKED` on the longest-unchanged `AVAILABLE` units, all or none with 409 `INSUFFICIENT_DEVICES` (MSG11); `release(ids, at, tx)` returns `RESERVED` units to `AVAILABLE`; `countAvailable(variantId)` and `assetTags(ids)` are reads. They live in `DevicesRepository` and write no `DeviceTransition` row yet; the signature takes the variant code for MSG11 instead of the contract id. Rework them into this task's shape when 1.2 and 2.3 are built
   - _Requirements: REQ-UBI-03, REQ-EVT-03, REQ-EVT-04, REQ-EVT-05, REQ-STA-01, FR-DEV-05, FR-CON-03, BR-03, BR-09_
   - _Story: US-UC14, US-UC43_
 - [ ] 2.4 Reset, inspection, retirement (owner KhoaDD)

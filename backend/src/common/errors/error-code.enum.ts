@@ -43,4 +43,11 @@ export enum ErrorCode {
   EFFECTIVE_IN_PAST = 'EFFECTIVE_IN_PAST',
   DUPLICATE_REFERENCE = 'DUPLICATE_REFERENCE',
   OVERPAYMENT = 'OVERPAYMENT',
+
+  // organizations (specs/organizations/design.md)
+  ORGANIZATION_NOT_ACTIVE = 'ORGANIZATION_NOT_ACTIVE',
+
+  // rentals (specs/rentals/design.md)
+  DAY_PLAN_LENGTH = 'DAY_PLAN_LENGTH',
+  INSUFFICIENT_DEVICES = 'INSUFFICIENT_DEVICES',
 }
