@@ -54,6 +54,19 @@ export class IncidentsRepository {
     return tx.incidentTransition.create({ data: { ...data, seq: (latest._max.seq ?? 0) + 1 } });
   }
 
+  async insertStatusUpdate(
+    data: Prisma.IncidentStatusUpdateUncheckedCreateInput,
+    tx: Prisma.TransactionClient,
+  ) {
+    return tx.incidentStatusUpdate.create({ data });
+  }
+
+  // A status note is not a transition: the deadline moves, the version stays (task 4.1, Q2), so the
+  // owner's expectedVersion for resolve remains valid. Called with the incident row locked.
+  async resetStatusDue(id: string, statusDueAt: Date, tx: Prisma.TransactionClient) {
+    return tx.incident.update({ where: { id }, data: { statusDueAt } });
+  }
+
   async lockOpenByDevice(deviceId: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
     const rows = await tx.$queryRaw<Incident[]>`
       SELECT * FROM "incidents"

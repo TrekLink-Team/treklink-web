@@ -65,6 +65,7 @@
   - **Files**: `backend/src/modules/incidents/incidents.service.ts`
   - **Do**: acknowledge from `NOTIFY_*`, `ESCALATED` or `REPORTED` by a member of the routed organization: owner, time-to-acknowledge, status deadline; the loser of a concurrent acknowledgement gets 409 `ALREADY_OWNED` with the owner (MSG27); responding, status updates (reset the deadline) and resolve (time-to-resolve, reopen window) by the owner only (403 `NOT_OWNER`)
   - **Test**: AC-03 with two concurrent requests
+  - **Note**: `IncidentsService` is in place (2026-10-26) and AC-03 passes against Postgres; the box stays open for MSG27. Until auth 5.2 `contactCard` merges, the loser receives the generic `ALREADY_OWNED` text. The owner name then comes from `contactCard`, and the time from the latest `ACKNOWLEDGED` transition row in the display timezone, because `acknowledgedAt` keeps the first acknowledgement after an escalation takeover. A status update moves `statusDueAt` without a version bump, so the owner's `expectedVersion` for resolve stays valid
   - _Requirements: REQ-EVT-05, REQ-EVT-06, REQ-EVT-08, REQ-ERR-02, AC-03, FR-INC-06, FR-INC-07, FR-INC-08_
   - _Story: US-UC32, US-UC33_
 - [ ] 4.2 False alarm and owner deactivation (owner HoangTK)

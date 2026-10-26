@@ -20,6 +20,8 @@ import {
   IncidentRecipients,
   IncidentTransitionReason,
 } from '../src/modules/incidents/incident-lifecycle';
+import { IncidentsService } from '../src/modules/incidents/incidents.service';
+import { Caller } from '../src/common/decorators/access.decorator';
 import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
 import { ParameterService } from '../src/modules/platform/parameters/parameter.service';
 import { ParameterRepository } from '../src/modules/platform/parameters/parameter.repository';
@@ -677,5 +679,85 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
       reopenCount: 1,
     });
     expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(4);
+  });
+
+  describe('owner actions through IncidentsService (task 4.1)', () => {
+    const service = new IncidentsService(repository, lifecycle, parameters, events);
+    const caller = (id = operatorId): Caller => ({
+      id,
+      roles: ['ORG_OPERATOR'],
+      organizationId,
+    });
+
+    it('AC-03: two members acknowledge at once; one owns it, the other gets ALREADY_OWNED', async () => {
+      const incident = await fixture('NOTIFY_PRIMARY');
+      const results = await Promise.allSettled(
+        [operatorId, secondOperatorId].map((id) =>
+          service.acknowledge(incident.id, { expectedVersion: 0 }, caller(id)),
+        ),
+      );
+      const won = results.filter((result) => result.status === 'fulfilled');
+      const lost = results.filter((result) => result.status === 'rejected');
+      expect(won).toHaveLength(1);
+      expect(lost).toHaveLength(1);
+      expect(lost[0]).toMatchObject({ reason: { errorCode: ErrorCode.ALREADY_OWNED } });
+      const saved = await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } });
+      expect(saved).toMatchObject({ state: 'ACKNOWLEDGED', version: 1 });
+      expect([operatorId, secondOperatorId]).toContain(saved.ownerId);
+      expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(2);
+    });
+
+    it('a status update resets the deadline without a version bump, so resolve keeps its version', async () => {
+      const incident = await fixture('RESPONDING', {
+        ownerId: operatorId,
+        acknowledgedAt: at,
+        statusDueAt: new Date(at.getTime() + 60000),
+      });
+      const changed = jest.fn();
+      emitter.on('incident.changed', changed);
+      const before = Date.now();
+      const update = await service.addStatus(incident.id, { note: 'Reached the holder' }, caller());
+      const staleLimit = (await parameters.get('incidents.staleLimitMinutes')) * 60000;
+      expect(update.statusDueAt.getTime()).toBe(update.createdAt.getTime() + staleLimit);
+      expect(update.createdAt.getTime()).toBeGreaterThanOrEqual(before);
+      expect(changed).toHaveBeenCalledTimes(1);
+      const afterUpdate = await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } });
+      expect(afterUpdate).toMatchObject({
+        state: 'RESPONDING',
+        version: 0,
+        statusDueAt: update.statusDueAt,
+      });
+      expect(
+        await prisma.incidentStatusUpdate.findMany({
+          where: { incidentId: incident.id },
+          select: { id: true, authorId: true, note: true },
+        }),
+      ).toEqual([{ id: update.id, authorId: operatorId, note: 'Reached the holder' }]);
+      const resolved = await service.resolve(
+        incident.id,
+        { expectedVersion: 0, outcomeNote: 'Walked out with assistance' },
+        caller(),
+      );
+      expect(resolved).toMatchObject({
+        state: 'RESOLVED',
+        version: 1,
+        statusDueAt: null,
+        outcomeNote: 'Walked out with assistance',
+      });
+      expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(2);
+    });
+
+    it('refuses a status update from the kept owner after escalation and writes nothing', async () => {
+      const incident = await fixture('ESCALATED', { ownerId: operatorId, acknowledgedAt: at });
+      await expect(
+        service.addStatus(incident.id, { note: 'Still here' }, caller()),
+      ).rejects.toMatchObject({ errorCode: ErrorCode.INVALID_STATE_TRANSITION });
+      expect(await prisma.incidentStatusUpdate.count({ where: { incidentId: incident.id } })).toBe(
+        0,
+      );
+      expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toEqual(
+        incident,
+      );
+    });
   });
 });
