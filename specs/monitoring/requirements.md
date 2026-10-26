@@ -35,7 +35,7 @@
 ### Ubiquitous
 
 - **REQ-UBI-01**: The system SHALL write every live update to the append-only stream with its organization: for a field event, the organization it is attributed to; for an incident, the routed organization; for a `device.*` event, the current holder. It SHALL deliver each entry only to that organization's members and keys and to TrekLink staff, enforced on the server; an entry with no organization, including every `UNATTRIBUTED` event, goes to the fleet room only. [FR-MON-02, FR-MON-06, FR-AUTH-11, BR-19, BR-36]
-- **REQ-UBI-02**: The system SHALL serve the map provider, tile URL, attribution, viewport and the sovereignty overlay from configuration, and the client SHALL render the overlay over Hoàng Sa and Trường Sa on every map. [FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01]
+- **REQ-UBI-02**: The system SHALL serve the basemaps (tile URL, attribution and zoom limits of each), the default basemap, the viewport and the sovereignty overlay from configuration, and the client SHALL render the overlay over Hoàng Sa and Trường Sa on every map and every basemap. [FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01, D-072]
 - **REQ-UBI-03**: The system SHALL never plot a position marked not plotted. [FR-MON-04, BR-22]
 
 ### Event-Driven

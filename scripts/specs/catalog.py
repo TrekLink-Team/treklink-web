@@ -5,6 +5,28 @@ specs/auth/permission-matrix.md. Module specs link to those pages instead of cop
 """
 
 # key, default, type, bounds, unit, description, requirement
+# The basemaps of the live map (D-072). Every entry is keyless; maxNativeZoom is the deepest zoom the
+# provider draws over the default viewport (checked 2026-10-27), and Leaflet enlarges those tiles up to
+# maxZoom instead of requesting tiles that do not exist.
+BASEMAPS = [
+    {"id": "opentopomap", "name": "Topographic (OpenTopoMap)",
+     "tileUrl": "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+     "attribution": "Map data © OpenStreetMap contributors, SRTM; style © OpenTopoMap (CC-BY-SA)",
+     "maxZoom": 18, "maxNativeZoom": 17},
+    {"id": "stadia-terrain", "name": "Terrain (Stadia)",
+     "tileUrl": "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png",
+     "attribution": "© Stadia Maps © Stamen Design © OpenMapTiles © OpenStreetMap contributors",
+     "maxZoom": 18, "maxNativeZoom": 18},
+    {"id": "esri-topo", "name": "Topographic (Esri)",
+     "tileUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+     "attribution": "Tiles © Esri and the GIS user community",
+     "maxZoom": 18, "maxNativeZoom": 16},
+    {"id": "openstreetmap", "name": "OpenStreetMap",
+     "tileUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+     "attribution": "© OpenStreetMap contributors",
+     "maxZoom": 19, "maxNativeZoom": 19},
+]
+
 PARAMETERS = {
     "auth": [
         ("auth.passwordMinLength", 8, "INT", {"min": 8, "max": 64}, "characters", "Minimum password length", "FR-AUTH-02"),
@@ -72,9 +94,8 @@ PARAMETERS = {
         ("monitoring.positionEmitMinIntervalMs", 1000, "INT", {"min": 0, "max": 60000}, "milliseconds", "Minimum interval between position pushes per device", "FR-MON-02"),
         ("monitoring.streamRetentionHours", 72, "INT", {"min": 1, "max": 720}, "hours", "Stream entries older than this are pruned; older cursors get 410", "FR-MON-05"),
         ("monitoring.apiRateLimitPerMinute", 120, "INT", {"min": 10, "max": 6000}, "requests", "Organization API requests per key per minute", "FR-MON-06"),
-        ("monitoring.mapProvider", "cyclosm", "JSON", None, None, "Map provider identifier (D-031, D-071)", "FR-CFG-03"),
-        ("monitoring.mapTileUrl", "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png", "JSON", None, None, "Tile URL template", "FR-CFG-03"),
-        ("monitoring.mapAttribution", "© OpenStreetMap contributors, style CyclOSM, tiles by OpenStreetMap France", "JSON", None, None, "Attribution shown on the map", "FR-CFG-03, NFR-LEG-04"),
+        ("monitoring.mapProvider", "opentopomap", "JSON", None, None, "Default basemap, an id in monitoring.mapBasemaps (D-031, D-072)", "FR-CFG-03"),
+        ("monitoring.mapBasemaps", BASEMAPS, "JSON", None, None, "Basemaps the user can switch between: id, name, tile URL, attribution, maxZoom, maxNativeZoom (D-072)", "FR-CFG-03, NFR-LEG-04"),
         ("monitoring.mapDefaultViewport", {"lat": 11.56, "lon": 108.54, "zoom": 12}, "JSON", None, None, "Initial map view", "FR-CFG-03"),
         ("monitoring.historyMaxRangeDays", 7, "INT", {"min": 1, "max": 31}, "days", "Longest period one telemetry history request may cover", "FR-MON-07"),
         ("monitoring.reportMaxRangeDays", 366, "INT", {"min": 1, "max": 732}, "days", "Longest period one report may cover (D-057)", "FR-BILL-10"),
