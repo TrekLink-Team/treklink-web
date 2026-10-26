@@ -178,7 +178,7 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
       });
     });
 
-    it('lets a shortfall from devices stop the approval before any term or invoice', async () => {
+    it('lets a device shortfall stop the approval before any term or invoice', async () => {
       devices.reserve.mockRejectedValue(new Error('INSUFFICIENT_DEVICES'));
       await expect(service.approve('c-1', input, STAFF, AT)).rejects.toThrow(
         'INSUFFICIENT_DEVICES',
