@@ -144,6 +144,8 @@ Declares `CONTRACT_CLOSE_CHECKS` (multi): `{ blockingReason(contractId, deviceId
 
 Events emitted: `contract.statusChanged`, `device.handedOver`, `device.checkedIn`, `device.labelChanged`, `audit.record`.
 
+`contract.statusChanged` carries `{ contractId, organizationId, from, to, at }`, with `from` and `to` contract statuses and `at` the UTC time of the transition row; it is emitted after commit by `ContractLifecycleService.apply`, whose `actor` is null for the `SYSTEM` jobs of §5.
+
 ---
 
 ## 7. Error catalogue
@@ -234,7 +236,7 @@ classDiagram
     class ContractLifecycleService {
         +approve(id, dto, actor) RentalContract
         +close(id, dto, actor) RentalContract
-        -apply(id, from, to, reason, tx)
+        +apply(id, from, to, reason, actor, tx) RentalContract
     }
     class HandoverService {
         +provision(id, deviceId, dto, actor)
@@ -248,11 +250,12 @@ classDiagram
         +replace(id, deviceId, dto, actor) ContractDevice
     }
     class ContractsRepository {
-        +insertRequested(data, tx) RentalContract
+        +insertRequested(data, at, tx) RentalContract
         +lockById(id, tx) RentalContract
         +insertContractDevices(rows, tx)
         +findCustody(deviceId, at) ContractDevice
-        +transition(id, from, to, version, reason, tx)
+        +transition(id, change, tx) bool
+        +setLostAt(contractDeviceId, lostAt, tx)
     }
     class OrganizationsService
     class DevicesService

@@ -11,6 +11,7 @@ import { MonitoringModule } from './modules/monitoring';
 import { OrganizationsModule } from './modules/organizations';
 import { validate } from './modules/platform/config/environment-variables';
 import { PlatformModule } from './modules/platform/platform.module';
+import { RentalsModule } from './modules/rentals';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PlatformModule } from './modules/platform/platform.module';
     GatewaySyncModule,
     IncidentsModule,
     MonitoringModule,
+    RentalsModule,
   ],
 })
 export class AppModule {}

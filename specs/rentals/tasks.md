@@ -15,21 +15,24 @@
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 `RentalsModule` and `ContractsRepository` (owner LongLP)
+- [x] 1.1 `RentalsModule` and `ContractsRepository` (owner LongLP)
   - **Files**: `backend/src/modules/rentals/rentals.module.ts`, `contracts.repository.ts`
   - **Do**: repository over `RentalContract`, `ContractDevice`, `ContractTerm`, `ContractTransition` only; methods of design Figure 4 (`insertRequested`, `lockById`, `insertContractDevices`, `findCustody`, `transition`); contract code `RC-<year>-<4 digits>` as the `schema.prisma` example `RC-2026-0042`
   - **Test**: the partial unique index rejects a second live row for one device (BR-03)
   - _Requirements: REQ-UBI-02, BR-03_
-- [ ] 1.2 `ContractLifecycleService.apply(id, from, to, reason, tx)` (owner LongLP)
+  - **Done**: in TK-187; `insertRequested` also writes the first transition row, and the year of a code is the request's year in UTC+7
+- [x] 1.2 `ContractLifecycleService.apply(id, from, to, reason, tx)` (owner LongLP)
   - **Files**: `backend/src/modules/rentals/contract-lifecycle.service.ts`
   - **Do**: the transition table of design §2; compare-and-set on `version`, one `ContractTransition` row, `contract.statusChanged` and `audit.record` after commit; other pairs 409 `INVALID_STATE_TRANSITION`
   - **Test**: every pair of the eleven states, allowed or 409
   - _Requirements: REQ-UBI-01, FR-CON-13_
+  - **Done**: in TK-187, as `apply(id, from, to, reason, actor, tx)` with `actor` null for SYSTEM (treklink-docs#103, 2)
 - [ ] 1.3 Ports (owner LongLP)
   - **Files**: `backend/src/modules/rentals/ports/contract-close-checks.port.ts`, `providers/exit-checks.provider.ts`, `providers/custody-resolver.provider.ts`, `providers/loss-case-listener.provider.ts`
   - **Do**: declare the multi-provider `CONTRACT_CLOSE_CHECKS`; provide `ORGANIZATION_EXIT_CHECKS.canClose` (open contracts block closing), `CUSTODY_RESOLVER` (delegates to `custodyAt`) and `LOSS_CASE_LISTENERS.onSettled` (sets the row's `lostAt` to the case's confirmation time; `onConfirmed` does nothing)
   - **Test**: closing an organization with an `ACTIVE` contract is refused; `onSettled` sets `lostAt` inside the caller's transaction
   - _Requirements: design §6, REQ-EVT-12, FR-DEV-13_
+  - **Partly done** in TK-187: `CONTRACT_CLOSE_CHECKS` is declared, and `ContractsService.canClose`, `custodyAt` and `onLossSettled` are built and tested; they are registered under `ORGANIZATION_EXIT_CHECKS`, `CUSTODY_RESOLVER` and `LOSS_CASE_LISTENERS` once `organizations` and `devices` declare those tokens (treklink-docs#103, 1)
 
 ## Phase 2: Request to handover (MF-01)
 
