@@ -49,6 +49,8 @@ export interface NewInvoice {
 export interface NewInvoiceLine {
   type: InvoiceLineType;
   description: string;
+  // The device a late, damage or loss line charges for; absent on plan lines.
+  deviceId?: string;
   quantity: number;
   unitVnd: bigint;
   amountVnd: bigint;

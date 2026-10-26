@@ -1,11 +1,42 @@
-import { Injectable } from '@nestjs/common';
-import { InvoiceKind, InvoiceLineType, Prisma } from '@prisma/client';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { DamageChargeStatus, InvoiceKind, InvoiceLineType, Prisma } from '@prisma/client';
+import { DomainException, ErrorCode } from '../../common/errors';
+import { ParameterService } from '../platform/parameters/parameter.service';
+import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
 import { InvoiceRow, InvoicesRepository, LineRow, NewInvoiceLine } from './invoices.repository';
+import { PricingService } from './pricing.service';
 
 export interface ChargedContract {
   id: string;
   organizationId: string;
 }
+
+export interface LateContract extends ChargedContract {
+  returnDueAt: Date;
+}
+
+export interface ChargedDevice {
+  id: string;
+  assetTag: string;
+}
+
+// A DAMAGED inspection as `rentals` passes it after check-in (REQ-EVT-05).
+export interface DamagedInspection {
+  id: string;
+  deviceId: string;
+  assetTag: string;
+  hardwareVariantId: string;
+  damageCodes: readonly string[];
+}
+
+export interface DamageResult {
+  charge: DamageChargeRow;
+  // The closing invoice when the charge was approved at once; null while it waits for an Admin.
+  invoice: InvoiceRow | null;
+}
+
+const DAY_MS = 86_400_000;
+const HOUR_MS = 3_600_000;
 
 const unpaidOf = (lines: readonly LineRow[]): bigint =>
   lines.reduce(
@@ -14,11 +45,17 @@ const unpaidOf = (lines: readonly LineRow[]): bigint =>
     0n,
   );
 
-// Charges outside the plan, on the contract's closing invoice (billing design §1 and §2). Task 2.3:
-// the cancellation adjustment. Late, damage and loss charges (2.5, 2.6) join this service later.
+// Charges outside the plan, on the contract's closing invoice (billing design §1 and §2): the
+// cancellation adjustment (task 2.3), late fees and damage charges (task 2.5). Loss charges (2.6)
+// join this service later.
 @Injectable()
 export class ChargesService {
-  constructor(private readonly invoices: InvoicesRepository) {}
+  constructor(
+    private readonly invoices: InvoicesRepository,
+    private readonly damageCharges: DamageChargesRepository,
+    private readonly pricing: PricingService,
+    private readonly parameters: ParameterService,
+  ) {}
 
   // A contract cancelled before handover (REQ-EVT-11, FR-CON-04, E01-7): the unpaid lines of its
   // first invoice are voided by one ADJUSTMENT line of the opposite amount on the closing invoice,
@@ -36,17 +73,129 @@ export class ChargesService {
     const unpaid = unpaidOf(first.lines);
     if (unpaid === 0n) return null;
 
-    const adjustment: NewInvoiceLine = {
-      type: InvoiceLineType.ADJUSTMENT,
-      description: `Cancellation before handover: voids the unpaid lines of ${first.number}`,
-      quantity: 1,
-      unitVnd: -unpaid,
-      amountVnd: -unpaid,
-      dueAt: at,
-      createdById: actorId,
-    };
+    return this.addToClosing(
+      contract,
+      {
+        type: InvoiceLineType.ADJUSTMENT,
+        description: `Cancellation before handover: voids the unpaid lines of ${first.number}`,
+        quantity: 1,
+        unitVnd: -unpaid,
+        amountVnd: -unpaid,
+        dueAt: at,
+        createdById: actorId,
+      },
+      tx,
+      at,
+    );
+  }
+
+  // A device checked in after `returnDueAt` plus `rentals.returnGraceHours` (REQ-EVT-04, FR-BILL-03,
+  // BR-23): one LATE_FEE line for that device of `billing.lateFeePerDevicePerDayVnd` per started day
+  // after the due time, on the closing invoice. Within the grace nothing is charged and null is
+  // returned. Called by `rentals` once per device at check-in, inside its transaction.
+  async chargeLate(
+    contract: LateContract,
+    device: ChargedDevice,
+    checkedInAt: Date,
+    actorId: string | null,
+    tx: Prisma.TransactionClient,
+  ): Promise<InvoiceRow | null> {
+    const [graceHours, feePerDay] = await Promise.all([
+      this.parameters.get('rentals.returnGraceHours', tx),
+      this.parameters.get('billing.lateFeePerDevicePerDayVnd', tx),
+    ]);
+    const lateMs = checkedInAt.getTime() - contract.returnDueAt.getTime();
+    if (lateMs <= graceHours * HOUR_MS) return null;
+
+    const days = Math.ceil(lateMs / DAY_MS);
+    const unitVnd = BigInt(feePerDay);
+    return this.addToClosing(
+      contract,
+      {
+        type: InvoiceLineType.LATE_FEE,
+        description: `Late return of ${device.assetTag}, ${days} day${days === 1 ? '' : 's'}`,
+        deviceId: device.id,
+        quantity: days,
+        unitVnd,
+        amountVnd: unitVnd * BigInt(days),
+        dueAt: checkedInAt,
+        createdById: actorId,
+      },
+      tx,
+      checkedInAt,
+    );
+  }
+
+  // A DAMAGED inspection (REQ-EVT-05, FR-BILL-04, BR-24): each damage code is priced from the
+  // schedule, the variant's own rate first and the generic rate otherwise, into one DamageCharge.
+  // Above `billing.damageApprovalThresholdVnd` it waits for an Admin (PENDING_APPROVAL); at or below
+  // it is APPROVED at once and becomes a DAMAGE line on the closing invoice. A code with no active
+  // rate is 400 VALIDATION_FAILED and records nothing. Null for an inspection without damage codes.
+  async chargeDamage(
+    contract: ChargedContract,
+    inspection: DamagedInspection,
+    actorId: string | null,
+    tx: Prisma.TransactionClient,
+    at: Date = new Date(),
+  ): Promise<DamageResult | null> {
+    if (inspection.damageCodes.length === 0) return null;
+
+    let totalVnd = 0n;
+    for (const code of inspection.damageCodes) {
+      const amount = await this.pricing.damageRateFor(code, inspection.hardwareVariantId, tx);
+      if (amount === null) {
+        throw new DomainException(
+          HttpStatus.BAD_REQUEST,
+          ErrorCode.VALIDATION_FAILED,
+          `No active damage rate for ${code}.`,
+        );
+      }
+      totalVnd += amount;
+    }
+
+    const threshold = BigInt(await this.parameters.get('billing.damageApprovalThresholdVnd', tx));
+    const approved = totalVnd <= threshold;
+    const charge = await this.damageCharges.insert(
+      {
+        inspectionId: inspection.id,
+        deviceId: inspection.deviceId,
+        amountVnd: totalVnd,
+        status: approved ? DamageChargeStatus.APPROVED : DamageChargeStatus.PENDING_APPROVAL,
+        finalVnd: approved ? totalVnd : null,
+        decidedAt: approved ? at : null,
+      },
+      tx,
+    );
+    if (!approved) return { charge, invoice: null };
+
+    const invoice = await this.addToClosing(
+      contract,
+      {
+        type: InvoiceLineType.DAMAGE,
+        description: `Damage to ${inspection.assetTag}: ${inspection.damageCodes.join(', ')}`,
+        deviceId: inspection.deviceId,
+        quantity: 1,
+        unitVnd: totalVnd,
+        amountVnd: totalVnd,
+        dueAt: at,
+        createdById: actorId,
+      },
+      tx,
+      at,
+    );
+    return { charge, invoice };
+  }
+
+  // Appends the line to the contract's closing invoice, created with it on the first charge (design
+  // §1: one CLOSING invoice per contract, serialized by lockClosingInvoice).
+  private async addToClosing(
+    contract: ChargedContract,
+    line: NewInvoiceLine,
+    tx: Prisma.TransactionClient,
+    at: Date,
+  ): Promise<InvoiceRow> {
     const closing = await this.invoices.lockClosingInvoice(contract.id, tx);
-    if (closing) return this.invoices.appendLines(closing, [adjustment], tx);
+    if (closing) return this.invoices.appendLines(closing, [line], tx);
     return this.invoices.insert(
       {
         organizationId: contract.organizationId,
@@ -55,7 +204,7 @@ export class ChargesService {
         kind: InvoiceKind.CLOSING,
         issuedAt: at,
       },
-      [adjustment],
+      [line],
       tx,
     );
   }

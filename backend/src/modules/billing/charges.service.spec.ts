@@ -54,7 +54,13 @@ describe('ChargesService.settleCancellation (billing task 2.3, REQ-EVT-11, E01-7
       insert: jest.fn().mockResolvedValue({ id: 'closing-1' }),
       appendLines: jest.fn().mockResolvedValue({ id: 'closing-0' }),
     };
-    service = new ChargesService(invoices as unknown as InvoicesRepository);
+    // Late and damage charges are covered in charges.service.late-damage.spec.ts.
+    service = new ChargesService(
+      invoices as unknown as InvoicesRepository,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
   });
 
   it('cancelled before the holding fee is paid: voids both lines on a new closing invoice', async () => {

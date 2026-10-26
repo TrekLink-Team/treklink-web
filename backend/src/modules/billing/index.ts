@@ -1,7 +1,14 @@
 // Public surface of `billing`. Other modules import only from here.
 export { BillingModule } from './billing.module';
 export { BalanceService, type BalanceSummary } from './balance.service';
-export { ChargesService, type ChargedContract } from './charges.service';
+export {
+  ChargesService,
+  type ChargedContract,
+  type ChargedDevice,
+  type DamagedInspection,
+  type DamageResult,
+  type LateContract,
+} from './charges.service';
 export {
   InvoicesService,
   type BillableContract,
