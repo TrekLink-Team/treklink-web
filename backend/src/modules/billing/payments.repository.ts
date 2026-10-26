@@ -31,6 +31,12 @@ export interface NewCounterPayment {
   confirmedAt: Date;
 }
 
+export interface PaymentFilter {
+  organizationId?: string;
+  contractId?: string;
+  status?: PaymentStatus;
+}
+
 // The only class of `billing` that touches Payment (D-044 rule 4, billing task 1.1).
 @Injectable()
 export class PaymentsRepository {
@@ -39,6 +45,39 @@ export class PaymentsRepository {
   async referenceExists(reference: string, client: Client = this.prisma): Promise<boolean> {
     const found = await client.payment.findUnique({ where: { reference }, select: { id: true } });
     return found !== null;
+  }
+
+  // A page of payments, newest first (api-design 14).
+  page(
+    filter: PaymentFilter,
+    skip: number,
+    take: number,
+    client: Client = this.prisma,
+  ): Promise<[PaymentRow[], number]> {
+    const where: Prisma.PaymentWhereInput = {
+      ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
+      ...(filter.contractId ? { contractId: filter.contractId } : {}),
+      ...(filter.status ? { status: filter.status } : {}),
+    };
+    return Promise.all([
+      client.payment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+        select: PAYMENT_SELECT,
+      }),
+      client.payment.count({ where }),
+    ]);
+  }
+
+  // The payments of one invoice, oldest first (api-design 09).
+  ofInvoice(invoiceId: string, client: Client = this.prisma): Promise<PaymentRow[]> {
+    return client.payment.findMany({
+      where: { invoiceId },
+      orderBy: { createdAt: 'asc' },
+      select: PAYMENT_SELECT,
+    });
   }
 
   // A counter payment is confirmed when it is recorded, and moves no real sandbox money (BR-34).

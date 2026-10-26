@@ -95,12 +95,14 @@
   - **Test**: a Manager reading another organization's invoice gets 404
   - _Requirements: FR-BILL-06, FR-AUTH-11_
   - _Story: US-UC45, US-UC55 (data)_
+  - **Partly done**: `BillingReadsService` serves the invoice page (contract, status and overdue filters), the invoice detail with its lines and payments, the payment page and the contract balance; a member reads only its own organization's rows, and another organization's invoice or contract answers 404. The contract code, organization code and term sequence of a row come from the port `CONTRACT_DIRECTORY` (design §4), which `rentals` provides; without it they are null. A contract with no invoice yet answers a zero balance, since billing cannot see its organization before the first invoice. Open: damage charges pending approval, which wait on the contract link of treklink-docs#114
 
 ## Phase 5: API Presentation Layer
 
 - [ ] 5.1 Controllers (owner LongLP)
   - **Files**: `pricing.controller.ts`, `invoices.controller.ts`, `payments.controller.ts`, `damage-charges.controller.ts`, `sepay-webhook.controller.ts`
   - **Do**: api-design 01 to 17 with each file's permission and `@ResponseMessage`; the webhook is the one `@RawResponse()` route (D-038)
+  - **Partly done**: `pricing.controller.ts` serves api-design 01 `GET /api/plans` (public, listed in the route-guard test) and 02 `POST /api/quotes` (`plan.quote`); `invoices.controller.ts` serves 08 `GET /api/invoices`, 09 `GET /api/invoices/:id`, 10 `GET /api/contracts/:id/balance` (`invoice.read`), 13 `POST /api/invoices/:id/payments/counter` (`payment.recordCounter`) and 14 `GET /api/payments` (`payment.read`). Every VND amount is a JSON number, because the response layer cannot serialize a bigint. The counter payment answers the static message `Payment received.`; the page builds MSG20 with the amount from the result, since `@ResponseMessage` cannot carry a value. Open: 03 to 07 (price and damage schedules), 11, 12 and 15 (SePay, task 3.2), 16 and 17 (damage charges, task 2.5)
 - [ ] 5.2 E2E (owner LongLP)
   - **Files**: `backend/test/billing.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 17; webhook replay; AC-01 to AC-05

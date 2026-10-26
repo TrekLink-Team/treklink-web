@@ -30,3 +30,8 @@ export {
   type Quote,
   type QuoteInput,
 } from './pricing.service';
+export {
+  CONTRACT_DIRECTORY,
+  type ContractDirectory,
+  type ContractLabel,
+} from './ports/contract-directory.port';

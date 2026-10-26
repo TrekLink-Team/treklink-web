@@ -38,6 +38,29 @@ export type LineRow = Prisma.InvoiceLineGetPayload<{ select: typeof LINE_SELECT 
 
 export type InvoiceWithLines = InvoiceRow & { lines: LineRow[] };
 
+export const DETAIL_LINE_SELECT = {
+  seq: true,
+  type: true,
+  description: true,
+  quantity: true,
+  unitVnd: true,
+  amountVnd: true,
+  dueAt: true,
+  paidVnd: true,
+} satisfies Prisma.InvoiceLineSelect;
+
+export type DetailLineRow = Prisma.InvoiceLineGetPayload<{ select: typeof DETAIL_LINE_SELECT }>;
+
+export type InvoiceDetailRow = InvoiceRow & { lines: DetailLineRow[] };
+
+export interface InvoiceFilter {
+  organizationId?: string;
+  contractId?: string;
+  status?: InvoiceStatus;
+  // Only invoices with an unpaid line due before this instant.
+  overdueAt?: Date;
+}
+
 export interface NewInvoice {
   organizationId: string;
   contractId: string;
@@ -194,6 +217,62 @@ export class InvoicesRepository {
       orderBy: [{ dueAt: 'asc' }, { seq: 'asc' }],
       select: LINE_SELECT,
     });
+  }
+
+  // A page of invoices, newest first (api-design 08). `overdue` keeps invoices with a line past its
+  // due time and not fully paid.
+  async page(
+    filter: InvoiceFilter,
+    skip: number,
+    take: number,
+    client: Client = this.prisma,
+  ): Promise<[InvoiceRow[], number]> {
+    const where: Prisma.InvoiceWhereInput = {
+      ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
+      ...(filter.contractId ? { contractId: filter.contractId } : {}),
+      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.overdueAt
+        ? {
+            lines: {
+              some: {
+                dueAt: { lt: filter.overdueAt },
+                paidVnd: { lt: this.prisma.invoiceLine.fields.amountVnd },
+              },
+            },
+          }
+        : {}),
+    };
+    return Promise.all([
+      client.invoice.findMany({
+        where,
+        orderBy: [{ issuedAt: 'desc' }, { number: 'desc' }],
+        skip,
+        take,
+        select: INVOICE_SELECT,
+      }),
+      client.invoice.count({ where }),
+    ]);
+  }
+
+  // The invoice with its dated lines in seq order (api-design 09); null when it does not exist.
+  detail(id: string, client: Client = this.prisma): Promise<InvoiceDetailRow | null> {
+    return client.invoice.findUnique({
+      where: { id },
+      select: { ...INVOICE_SELECT, lines: { select: DETAIL_LINE_SELECT, orderBy: { seq: 'asc' } } },
+    });
+  }
+
+  // The organization of any invoice of the contract, or null when none was issued yet. The balance
+  // read uses it for the scoped 404 rule.
+  async organizationOfContract(
+    contractId: string,
+    client: Client = this.prisma,
+  ): Promise<string | null> {
+    const invoice = await client.invoice.findFirst({
+      where: { contractId },
+      select: { organizationId: true },
+    });
+    return invoice?.organizationId ?? null;
   }
 
   // INV-<year>-<6 digits>, serialized per year as the contract code is.

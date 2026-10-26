@@ -112,6 +112,11 @@ for Staff, rather than rejected, because the money has moved.
 | `BalanceService.revenue(range)` | monitoring |
 | provider of `ORGANIZATION_EXIT_CHECKS.canReactivate` | organizations |
 
+Port declared: `CONTRACT_DIRECTORY` (`ports/contract-directory.port.ts`), the contract code, organization
+code and term sequence the invoice and payment reads show (api-design 08, 09, 14). `billing` may not read
+`rental_contracts` or `contract_terms`, and `rentals` depends on `billing`, so `rentals` provides it the
+D-032 way; the reads inject it `@Optional()` and show null codes without it.
+
 Events emitted: `payment.confirmed`, `audit.record`.
 
 ---
