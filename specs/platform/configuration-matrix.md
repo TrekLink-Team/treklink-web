@@ -92,9 +92,9 @@
 | `monitoring.positionEmitMinIntervalMs` | `1000` | INT | 0 to 60000 | milliseconds | Minimum interval between position pushes per device | FR-MON-02 |
 | `monitoring.streamRetentionHours` | `72` | INT | 1 to 720 | hours | Stream entries older than this are pruned; older cursors get 410 | FR-MON-05 |
 | `monitoring.apiRateLimitPerMinute` | `120` | INT | 10 to 6000 | requests | Organization API requests per key per minute | FR-MON-06 |
-| `monitoring.mapProvider` | `"openstreetmap"` | JSON |  |  | Map provider identifier (D-031) | FR-CFG-03 |
-| `monitoring.mapTileUrl` | `"https://tile.openstreetmap.org/{z}/{x}/{y}.png"` | JSON |  |  | Tile URL template | FR-CFG-03 |
-| `monitoring.mapAttribution` | `"© OpenStreetMap contributors"` | JSON |  |  | Attribution shown on the map | FR-CFG-03, NFR-LEG-04 |
+| `monitoring.mapProvider` | `"cyclosm"` | JSON |  |  | Map provider identifier (D-031, D-071) | FR-CFG-03 |
+| `monitoring.mapTileUrl` | `"https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png"` | JSON |  |  | Tile URL template | FR-CFG-03 |
+| `monitoring.mapAttribution` | `"© OpenStreetMap contributors, style CyclOSM, tiles by OpenStreetMap France"` | JSON |  |  | Attribution shown on the map | FR-CFG-03, NFR-LEG-04 |
 | `monitoring.mapDefaultViewport` | `{"lat": 11.56, "lon": 108.54, "zoom": 12}` | JSON |  |  | Initial map view | FR-CFG-03 |
 | `monitoring.historyMaxRangeDays` | `7` | INT | 1 to 31 | days | Longest period one telemetry history request may cover | FR-MON-07 |
 | `monitoring.reportMaxRangeDays` | `366` | INT | 1 to 732 | days | Longest period one report may cover (D-057) | FR-BILL-10 |
