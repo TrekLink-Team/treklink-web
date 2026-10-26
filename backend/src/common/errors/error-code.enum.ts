@@ -49,4 +49,5 @@ export enum ErrorCode {
 
   // rentals (specs/rentals/design.md)
   DAY_PLAN_LENGTH = 'DAY_PLAN_LENGTH',
+  INSUFFICIENT_DEVICES = 'INSUFFICIENT_DEVICES',
 }

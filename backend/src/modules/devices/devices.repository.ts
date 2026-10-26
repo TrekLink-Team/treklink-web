@@ -95,6 +95,55 @@ export class DevicesRepository {
     });
   }
 
+  // Reserves up to `quantity` AVAILABLE devices of the variant, the longest unchanged first, under row
+  // locks that skip units another approval holds, so two concurrent approvals never take the same
+  // unit (BR-03). Returns the units taken; fewer than asked means the caller must roll back.
+  async reserveAvailable(
+    variantId: string,
+    quantity: number,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<DeviceTag[]> {
+    const picked = await tx.$queryRaw<DeviceTag[]>`
+      SELECT "id", "assetTag" FROM "devices"
+      WHERE "hardwareVariantId" = ${variantId} AND "status" = 'AVAILABLE'::"DeviceStatus"
+      ORDER BY "statusChangedAt" ASC, "assetTag" ASC
+      LIMIT ${quantity}
+      FOR UPDATE SKIP LOCKED`;
+    if (picked.length === quantity) {
+      await tx.device.updateMany({
+        where: { id: { in: picked.map((device) => device.id) } },
+        data: { status: DeviceStatus.RESERVED, statusChangedAt: at, version: { increment: 1 } },
+      });
+    }
+    return picked;
+  }
+
+  countAvailable(variantId: string, client: Client = this.prisma): Promise<number> {
+    return client.device.count({
+      where: { hardwareVariantId: variantId, status: DeviceStatus.AVAILABLE },
+    });
+  }
+
+  // Returns RESERVED units to AVAILABLE; a unit in any other state is left as it is.
+  async releaseReserved(
+    ids: readonly string[],
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.device.updateMany({
+      where: { id: { in: [...ids] }, status: DeviceStatus.RESERVED },
+      data: { status: DeviceStatus.AVAILABLE, statusChangedAt: at, version: { increment: 1 } },
+    });
+  }
+
+  tags(ids: readonly string[], client: Client = this.prisma): Promise<DeviceTag[]> {
+    return client.device.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, assetTag: true },
+    });
+  }
+
   // Every variant, or only the active ones, by code.
   variants(activeOnly: boolean, client: Client = this.prisma): Promise<VariantSummary[]> {
     return client.hardwareVariant.findMany({
@@ -103,6 +152,11 @@ export class DevicesRepository {
       select: { id: true, code: true, name: true, isActive: true },
     });
   }
+}
+
+export interface DeviceTag {
+  id: string;
+  assetTag: string;
 }
 
 export interface VariantSummary {

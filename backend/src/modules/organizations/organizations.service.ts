@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { OrganizationStatus, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { OrganizationsRepository } from './organizations.repository';
+import { OrganizationLabel, OrganizationsRepository } from './organizations.repository';
 
 // The methods other modules call (design §5). Only `assertActive` exists so far, for rentals 2.1;
 // task 2.4 builds the rest of the lifecycle around it.
@@ -27,5 +27,13 @@ export class OrganizationsService {
         `Your organization cannot request devices while it is ${status}.`,
       );
     }
+  }
+
+  // Code and legal name by organization id, for the contract and invoice reads of rentals and
+  // billing; an unknown id is absent.
+  async labelsOf(ids: readonly string[]): Promise<Map<string, OrganizationLabel>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.organizations.labels([...new Set(ids)]);
+    return new Map(rows.map((row) => [row.id, row]));
   }
 }

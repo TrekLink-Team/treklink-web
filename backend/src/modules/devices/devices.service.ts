@@ -4,6 +4,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import {
   DeviceIdentity,
   DeviceProjection,
+  DeviceTag,
   DevicesRepository,
   VariantSummary,
 } from './devices.repository';
@@ -64,6 +65,44 @@ export class DevicesService {
     const schedule = device.hardwareVariant
       .remainingValueSchedule as unknown as RemainingValueStep[];
     return remainingValue(schedule, device.acquiredAt, at);
+  }
+
+  // Reserves `quantity` AVAILABLE units of the variant for a contract approval, inside the caller's
+  // transaction (rentals task 2.2, FR-CON-03, BR-03). Fewer units than asked is 409
+  // INSUFFICIENT_DEVICES with MSG11 and reserves nothing, because the caller's transaction rolls back
+  // (REQ-ERR-01 of rentals). The device transition rows join with the lifecycle of task 1.2.
+  async reserve(
+    variant: { id: string; code: string },
+    quantity: number,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<DeviceTag[]> {
+    const taken = await this.devices.reserveAvailable(variant.id, quantity, at, tx);
+    if (taken.length < quantity) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.INSUFFICIENT_DEVICES,
+        `Only ${taken.length} ${variant.code} devices are available. Lower the quantity or choose another variant.`,
+      );
+    }
+    return taken;
+  }
+
+  // Returns reserved units to AVAILABLE when a contract is cancelled before handover (FR-CON-04).
+  release(ids: readonly string[], at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    return ids.length === 0 ? Promise.resolve() : this.devices.releaseReserved(ids, at, tx);
+  }
+
+  // AVAILABLE units of a variant now; advisory for the approval queue (devices api-design 24).
+  countAvailable(variantId: string): Promise<number> {
+    return this.devices.countAvailable(variantId);
+  }
+
+  // Asset tags by device id, for contract reads.
+  async assetTags(ids: readonly string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.devices.tags(ids);
+    return new Map(rows.map((row) => [row.id, row.assetTag]));
   }
 
   // Hardware variants by code, for the plan catalogue and the contract request (billing api-design 01,

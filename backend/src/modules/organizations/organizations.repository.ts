@@ -14,4 +14,17 @@ export class OrganizationsRepository {
     const row = await client.organization.findUnique({ where: { id }, select: { status: true } });
     return row?.status ?? null;
   }
+
+  labels(ids: readonly string[], client: Client = this.prisma): Promise<OrganizationLabel[]> {
+    return client.organization.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, code: true, legalName: true },
+    });
+  }
+}
+
+export interface OrganizationLabel {
+  id: string;
+  code: string;
+  legalName: string;
 }
