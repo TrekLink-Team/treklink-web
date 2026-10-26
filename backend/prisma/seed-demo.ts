@@ -4,7 +4,8 @@
 //   - one account per role: admin@, staff@, manager@ and operator@treklink.local
 //   - one ACTIVE organization, ORG-0001, with the Manager and the Operator as members
 //   - hardware variants treklink-v2 to treklink-v4, a price schedule each, two damage rates
-//   - eight AVAILABLE devices, and two RENTED devices on one ACTIVE monthly contract, RC-2026-0001
+//   - fourteen AVAILABLE devices (ten treklink-v3, so two requests at the minimum order of five can be
+//     approved), and two RENTED devices on one ACTIVE monthly contract, RC-2026-0001
 //
 // Idempotent: every row is found by its natural key and created only when absent, and the history rows of
 // a parent (transitions, intake checks, provisioning) are written only when the parent is created. A second
@@ -123,6 +124,14 @@ const DEVICES: { assetTag: string; nodeNum: bigint; variant: string; rented: boo
   { assetTag: 'TL-0008', nodeNum: 0xde000008n, variant: 'treklink-v4', rented: false },
   { assetTag: 'TL-0009', nodeNum: 0xde000009n, variant: CONTRACT_VARIANT, rented: true },
   { assetTag: 'TL-0010', nodeNum: 0xde00000an, variant: CONTRACT_VARIANT, rented: true },
+  // Six more v3 units: with TL-0003 to TL-0006 the demo can approve a request of rentals.minOrderQuantity
+  // (5) devices twice (MF-01). Added after the first seed run, so an existing database gains only these.
+  { assetTag: 'TL-0011', nodeNum: 0xde00000bn, variant: 'treklink-v3', rented: false },
+  { assetTag: 'TL-0012', nodeNum: 0xde00000cn, variant: 'treklink-v3', rented: false },
+  { assetTag: 'TL-0013', nodeNum: 0xde00000dn, variant: 'treklink-v3', rented: false },
+  { assetTag: 'TL-0014', nodeNum: 0xde00000en, variant: 'treklink-v3', rented: false },
+  { assetTag: 'TL-0015', nodeNum: 0xde00000fn, variant: 'treklink-v3', rented: false },
+  { assetTag: 'TL-0016', nodeNum: 0xde000010n, variant: 'treklink-v3', rented: false },
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;

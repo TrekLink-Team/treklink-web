@@ -41,10 +41,10 @@
   - **Test**: the spec itself; it fails when `src/modules/a/` references a model owned by `b`
   - _Requirements: NFR-MNT-01_
 - [x] 1.12 Demo seed `backend/prisma/seed-demo.ts` (owner KhoaDD)
-  - **Do**: idempotent upserts: one account per role, one `ACTIVE` organization with Manager and Operator, hardware variants v2 to v4 with prices and damage rates, eight `AVAILABLE` devices, one `ACTIVE` contract; passwords from `SEED_*_PASSWORD`, never committed; no real personal data
+  - **Do**: idempotent upserts: one account per role, one `ACTIVE` organization with Manager and Operator, hardware variants v2 to v4 with prices and damage rates, fourteen `AVAILABLE` devices (ten `treklink-v3`), one `ACTIVE` contract; passwords from `SEED_*_PASSWORD`, never committed; no real personal data
   - **Test**: run twice on an empty database after `prisma migrate deploy`; the second run changes nothing
   - **Done when**: `npm run seed:demo` loads the data `api-design/00-api-testing-guide.md` §2 assumes
-  - **Done**: CI runs the seed twice on the migrated Postgres 16; the second run uses `--expect-unchanged` and fails if it would create a row. The contract has no invoice, payment or handover note until billing and the handover exist. Device node numbers are placeholders until gateway-sync 1.2 captures the golden fixtures
+  - **Done**: CI runs the seed twice on the migrated Postgres 16; the second run uses `--expect-unchanged` and fails if it would create a row. The contract has no invoice, payment or handover note until billing and the handover exist. Device node numbers are placeholders until gateway-sync 1.2 captures the golden fixtures. On 2026-10-27 LongLP added TL-0011 to TL-0016 (`treklink-v3`), because the eight `AVAILABLE` units were below `rentals.minOrderQuantity` per variant and no request could be approved for the MF-01 demo; a rerun on an existing database creates only those six
   - _Story: US-X02_
 
 ## Phase 2: Core Service Logic
