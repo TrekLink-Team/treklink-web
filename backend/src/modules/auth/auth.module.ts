@@ -75,6 +75,7 @@ import { TokenService } from './token.service';
     PoliciesGuard,
     AbilityFactory,
     AccessTokenAuthenticator,
+    AccountsService,
     MAIL_PORT,
   ],
 })

@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OnEvent } from '@nestjs/event-emitter';
 import { AccountType, AuthEventType, OtpPurpose, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import {
@@ -13,8 +14,8 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
-import { AccountsRepository, AccountView } from './accounts.repository';
-import { OneTimeCodeService } from './one-time-code.service';
+import { Account, AccountsRepository, AccountView, ContactCard } from './accounts.repository';
+import { IssuedCode, OneTimeCodeService } from './one-time-code.service';
 import { PasswordFlowsService } from './password-flows.service';
 import { ClientInfo } from './token.service';
 
@@ -37,6 +38,46 @@ export interface AccountChange {
   phoneNumber?: string;
   role?: TreklinkRole;
 }
+
+export const ORGANIZATION_ROLES = ['ORG_MANAGER', 'ORG_OPERATOR'] as const;
+export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
+
+// A member invited by its Manager, or the Manager who registers the organization (design §5).
+// `createdById` is the inviting account, or null for a Guest registration.
+export interface NewOrganizationAccount {
+  email: string;
+  fullName: string;
+  phone?: string | null;
+  role: OrganizationRole;
+  createdById?: string | null;
+}
+
+// An account as `organizations` sees it after creating or changing it; never the password hash.
+export interface OrganizationAccount {
+  id: string;
+  email: string;
+  fullName: string;
+  isActive: boolean;
+  roles: string[];
+}
+
+// Internal to `auth`: the invitation of a new organization account, sent once the caller's
+// transaction has committed. The payload carries the code, so no other module listens to it.
+export const ORGANIZATION_INVITATION_ISSUED = 'auth.organizationInvitationIssued';
+
+interface OrganizationInvitationIssued {
+  userId: string;
+  email: string;
+  issued: IssuedCode;
+}
+
+const toOrganizationAccount = (account: Account): OrganizationAccount => ({
+  id: account.id,
+  email: account.email,
+  fullName: account.fullName,
+  isActive: account.isActive,
+  roles: account.roles,
+});
 
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Account not found.');
@@ -198,6 +239,115 @@ export class AccountsService {
       this.audit(actor, 'account.reactivate', id, client, { isActive: false }, { isActive: true });
       return { ...account, isActive: true };
     });
+  }
+
+  // Services `organizations` and `incidents` call (auth task 5.2, design §5). They take the caller's
+  // transaction; `organizations` opens it with TransactionalEvents.transaction, so the invitation of
+  // createOrganizationAccount is sent only after it commits. The membership, the last-Manager rule
+  // and `member.deactivated` stay with `organizations`.
+
+  // A new organization account without a password and a SET_PASSWORD code (REQ-EVT-06, FR-ORG-02).
+  // An email already registered is 409 CONFLICT_UNIQUE; a role outside the organization roles 400.
+  async createOrganizationAccount(
+    input: NewOrganizationAccount,
+    tx: Prisma.TransactionClient,
+    now: Date = new Date(),
+  ): Promise<OrganizationAccount> {
+    const created = await this.accounts.create(
+      {
+        email: input.email,
+        fullName: input.fullName,
+        phoneNumber: input.phone ?? null,
+        accountType: AccountType.ORGANIZATION,
+        roleKeys: [input.role],
+        createdById: input.createdById ?? null,
+      },
+      tx,
+    );
+    const issued = await this.codes.issue(created.id, OtpPurpose.SET_PASSWORD, now, tx);
+    this.events.emitAfterCommit(ORGANIZATION_INVITATION_ISSUED, {
+      userId: created.id,
+      email: created.email,
+      issued,
+    } satisfies OrganizationInvitationIssued);
+    return toOrganizationAccount(created);
+  }
+
+  @OnEvent(ORGANIZATION_INVITATION_ISSUED)
+  sendOrganizationInvitation(event: OrganizationInvitationIssued): Promise<void> {
+    return this.passwords.sendCode(
+      { id: event.userId, email: event.email },
+      OtpPurpose.SET_PASSWORD,
+      event.issued,
+    );
+  }
+
+  // A Manager changes a member's role; it applies on the member's next request (FR-AUTH-06).
+  // `actorId` records who granted it, or null.
+  async setOrganizationRole(
+    userId: string,
+    role: OrganizationRole,
+    tx: Prisma.TransactionClient,
+    actorId: string | null = null,
+  ): Promise<OrganizationAccount> {
+    const account = await this.organizationAccount(userId, tx);
+    if (!account.roles.includes(role)) await this.accounts.replaceRole(userId, role, actorId, tx);
+    return { ...toOrganizationAccount(account), roles: [role] };
+  }
+
+  // Member deactivation and organization closing: the account and its sessions end at once
+  // (FR-AUTH-07, REQ-EVT-07, REQ-UBI-08). An inactive account changes nothing. Named apart from
+  // `deactivate`, the TrekLink route of api-design 12.
+  async deactivateOrganizationAccount(
+    userId: string,
+    reason: string,
+    actor: Caller | null,
+    tx: Prisma.TransactionClient,
+    now: Date = new Date(),
+  ): Promise<OrganizationAccount> {
+    const account = await this.organizationAccount(userId, tx);
+    if (!account.isActive) return toOrganizationAccount(account);
+
+    await this.accounts.setActive(userId, false, tx);
+    await this.accounts.revokeAllUserTokens(userId, now, tx);
+    await this.accounts.insertAuthEvent(
+      {
+        userId,
+        email: account.email,
+        type: AuthEventType.ACCOUNT_DEACTIVATED,
+        ip: null,
+        userAgent: null,
+      },
+      tx,
+    );
+    this.events.emitAfterCommit(AUDIT_RECORD, {
+      actorId: actor?.id ?? null,
+      actorRoles: actor?.roles ?? [],
+      organizationId: actor?.organizationId ?? null,
+      action: 'account.deactivate',
+      subjectType: 'Account',
+      subjectId: userId,
+      before: { isActive: true },
+      after: { isActive: false, reason },
+    } satisfies AuditRecordEvent);
+    return { ...toOrganizationAccount(account), isActive: false };
+  }
+
+  // Name, email and phone for alert delivery (`incidents`).
+  contactCard(userIds: readonly string[]): Promise<ContactCard[]> {
+    return userIds.length === 0 ? Promise.resolve([]) : this.accounts.contactCards(userIds);
+  }
+
+  // An organization account, or 404 for an unknown id or a TrekLink account.
+  private async organizationAccount(
+    userId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<Account> {
+    const account = await this.accounts.findById(userId, tx);
+    if (!account || account.accountType !== AccountType.ORGANIZATION || account.deletedAt) {
+      throw notFound();
+    }
+    return account;
   }
 
   // An Admin cannot drop their own Admin role (SELF_DEMOTION), and the last active Admin keeps it
