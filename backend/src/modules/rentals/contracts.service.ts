@@ -1,6 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { ContractStatus, Prisma } from '@prisma/client';
-import { ContractsRepository } from './contracts.repository';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { ContractStatus, PlanType, Prisma } from '@prisma/client';
+import { Caller } from '../../common/decorators/access.decorator';
+import { DomainException, ErrorCode } from '../../common/errors';
+import { dayPlanFeeVnd, holdingFeeVnd, PricingService, termFeeVnd } from '../billing';
+import { OrganizationsService } from '../organizations';
+import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
+import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ParameterService } from '../platform/parameters/parameter.service';
+import { CODE_ZONE_OFFSET_MS, ContractRow, ContractsRepository } from './contracts.repository';
 
 export interface Custody {
   contractDeviceId: string;
@@ -14,12 +21,142 @@ export interface Custody {
 const near = (at: Date, edge: Date | null, marginMs: number) =>
   edge !== null && Math.abs(at.getTime() - edge.getTime()) <= marginMs;
 
+export interface ContractRequest {
+  planType: PlanType;
+  dayPlanDays?: number;
+  hardwareVariantId: string;
+  quantity: number;
+  // The handover day, a calendar date at UTC midnight as Prisma reads a @db.Date column.
+  requestedStartDate: Date;
+}
+
+// The amounts of rentals api-design 01's `quote`: the term fee and holding fee of a monthly plan, or
+// the whole day-plan amount, paid up front.
+export type RequestQuote =
+  { firstPaymentVnd: bigint; termFeeVnd: bigint } | { firstPaymentVnd: bigint; totalVnd: bigint };
+
+export interface RequestedContract {
+  contract: ContractRow;
+  quote: RequestQuote;
+}
+
+const badRequest = (code: ErrorCode, message: string) =>
+  new DomainException(HttpStatus.BAD_REQUEST, code, message);
+
+// The calendar day of `at` in UTC+7, as yyyy-mm-dd.
+const localDay = (at: Date): string =>
+  new Date(at.getTime() + CODE_ZONE_OFFSET_MS).toISOString().slice(0, 10);
+
+const lengthsOf = (value: Prisma.JsonValue): number[] =>
+  Array.isArray(value) ? value.filter((n): n is number => typeof n === 'number') : [];
+
 // Contract reads and the behaviours behind the ports `rentals` provides (rentals task 1.3, design §6).
 // Until `organizations` and `devices` declare ORGANIZATION_EXIT_CHECKS, CUSTODY_RESOLVER and
 // LOSS_CASE_LISTENERS, these methods are not yet registered under them (treklink-docs#103, 1).
 @Injectable()
 export class ContractsService {
-  constructor(private readonly contracts: ContractsRepository) {}
+  constructor(
+    private readonly contracts: ContractsRepository,
+    private readonly organizations: OrganizationsService,
+    private readonly pricing: PricingService,
+    private readonly parameters: ParameterService,
+    private readonly events: TransactionalEvents,
+  ) {}
+
+  // An Org Manager requests a plan (rentals task 2.1, UC-15, REQ-EVT-01, api-design 01). In one
+  // transaction: the organization must be ACTIVE (409 ORGANIZATION_NOT_ACTIVE), the quantity at
+  // least `rentals.minOrderQuantity` (400 BELOW_MOQ, MSG13), a DAY plan one of
+  // `rentals.dayPlanLengths` (400 DAY_PLAN_LENGTH) and the start date not before today in UTC+7;
+  // then the price, day premium and holding-fee ratio are snapshotted from billing (FR-CFG-02) and
+  // the contract is inserted REQUESTED. A variant without a price in effect is 404 from the snapshot.
+  async request(
+    input: ContractRequest,
+    caller: Caller,
+    at: Date = new Date(),
+  ): Promise<RequestedContract> {
+    const organizationId = caller.organizationId;
+    if (organizationId === null) {
+      throw new DomainException(
+        HttpStatus.FORBIDDEN,
+        ErrorCode.FORBIDDEN,
+        'You do not have access to this.',
+      );
+    }
+
+    return this.events.transaction(async (tx) => {
+      await this.organizations.assertActive(organizationId, tx);
+
+      const minOrderQuantity = await this.parameters.get('rentals.minOrderQuantity', tx);
+      if (input.quantity < minOrderQuantity) {
+        throw badRequest(ErrorCode.BELOW_MOQ, `The minimum order is ${minOrderQuantity} devices.`);
+      }
+      const isDayPlan = input.planType === PlanType.DAY;
+      if (isDayPlan) {
+        const lengths = lengthsOf(await this.parameters.get('rentals.dayPlanLengths', tx));
+        if (input.dayPlanDays === undefined || !lengths.includes(input.dayPlanDays)) {
+          throw badRequest(
+            ErrorCode.DAY_PLAN_LENGTH,
+            `Choose a plan of ${lengths.slice(0, -1).join(', ')} or ${lengths.at(-1)} days.`,
+          );
+        }
+      }
+      if (input.requestedStartDate.toISOString().slice(0, 10) < localDay(at)) {
+        throw badRequest(
+          ErrorCode.VALIDATION_FAILED,
+          'requestedStartDate must not be in the past.',
+        );
+      }
+
+      const snapshot = await this.pricing.snapshot(input.hardwareVariantId, tx, at);
+      const contract = await this.contracts.insertRequested(
+        {
+          organizationId,
+          planType: input.planType,
+          dayPlanDays: isDayPlan ? (input.dayPlanDays as number) : null,
+          hardwareVariantId: input.hardwareVariantId,
+          quantity: input.quantity,
+          requestedStartDate: input.requestedStartDate,
+          monthlyUnitPriceVnd: snapshot.monthlyUnitPriceVnd,
+          dayPremium: isDayPlan ? snapshot.dayPremium : null,
+          holdingFeeRatio: snapshot.holdingFeeRatio,
+          requestedById: caller.id,
+        },
+        at,
+        tx,
+      );
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: caller.id,
+        actorRoles: caller.roles,
+        organizationId,
+        action: 'contract.request',
+        subjectType: 'RentalContract',
+        subjectId: contract.id,
+        after: {
+          code: contract.code,
+          planType: input.planType,
+          quantity: input.quantity,
+          monthlyUnitPriceVnd: snapshot.monthlyUnitPriceVnd.toString(),
+        },
+      } satisfies AuditRecordEvent);
+
+      const price = snapshot.monthlyUnitPriceVnd;
+      const quote: RequestQuote = isDayPlan
+        ? (() => {
+            const totalVnd = dayPlanFeeVnd(
+              price,
+              snapshot.dayPremium,
+              input.dayPlanDays as number,
+              input.quantity,
+            );
+            return { firstPaymentVnd: totalVnd, totalVnd };
+          })()
+        : {
+            firstPaymentVnd: holdingFeeVnd(price, input.quantity, snapshot.holdingFeeRatio),
+            termFeeVnd: termFeeVnd(price, input.quantity),
+          };
+      return { contract, quote };
+    });
+  }
 
   // The custody interval containing `at`, whatever state the contract is in now; null when none does.
   async custodyAt(deviceId: string, at: Date, marginSeconds: number): Promise<Custody | null> {

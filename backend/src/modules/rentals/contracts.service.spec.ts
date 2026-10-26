@@ -28,7 +28,14 @@ describe('ContractsService', () => {
       countUnfinishedContracts: jest.fn().mockResolvedValue(0),
       setLostAt: jest.fn().mockResolvedValue(undefined),
     };
-    service = new ContractsService(contracts as unknown as ContractsRepository);
+    // The request's collaborators are exercised in contracts.service.request.spec.ts.
+    service = new ContractsService(
+      contracts as unknown as ContractsRepository,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
   });
 
   describe('custodyAt (D-040, CUSTODY_RESOLVER)', () => {

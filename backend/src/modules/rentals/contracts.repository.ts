@@ -7,8 +7,9 @@ import { FINISHED_STATES } from './contract-states';
 type Client = Prisma.TransactionClient | PrismaService;
 
 const HOUR_MS = 3_600_000;
-// Contract codes count by the calendar year of the request in Vietnam (UTC+7).
-const CODE_ZONE_OFFSET_MS = 7 * HOUR_MS;
+// Contract codes count by the calendar year of the request in Vietnam (UTC+7); the start-date check
+// of a request uses the same calendar.
+export const CODE_ZONE_OFFSET_MS = 7 * HOUR_MS;
 const CODE_MAX = 9999;
 
 export const CONTRACT_SELECT = {
