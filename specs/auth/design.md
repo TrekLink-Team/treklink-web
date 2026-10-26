@@ -143,10 +143,16 @@ next request (FR-AUTH-06).
 
 | Method | Caller | Purpose |
 |---|---|---|
-| `AccountsService.createOrganizationAccount({ email, fullName, phone, role }, tx)` | organizations | Member invitation and the registering Manager; sends the `SET_PASSWORD` code after commit |
-| `AccountsService.setOrganizationRole(userId, role, tx)` | organizations | Manager changes a member's role |
-| `AccountsService.deactivate(userId, reason, actor, tx)` | organizations | Member deactivation and organization closing |
-| `AccountsService.contactCard(userIds)` | incidents | Name, email and phone for alert delivery |
+| `AccountsService.createOrganizationAccount({ email, fullName, phone, role, createdById }, tx)` | organizations | Member invitation and the registering Manager; sends the `SET_PASSWORD` code after commit |
+| `AccountsService.setOrganizationRole(userId, role, tx, actorId?)` | organizations | Manager changes a member's role |
+| `AccountsService.deactivateOrganizationAccount(userId, reason, actor, tx)` | organizations | Member deactivation and organization closing |
+| `AccountsService.contactCard(userIds)` | incidents | Name, email, phone and `isActive` for alert delivery |
+
+The caller opens its transaction with `TransactionalEvents.transaction`, so the invitation is sent only
+after commit and never for a rolled-back one. These methods return the account without its password
+hash, answer 404 for an id that is not an organization account, and leave the membership, the
+last-Manager rule and `member.deactivated` to `organizations`. Deactivation is named apart from
+`deactivate`, the TrekLink route of api-design 12.
 
 ---
 

@@ -109,11 +109,12 @@
   - **Test**: removing the last active Admin by deactivation and by role change both refused; concurrent attempts do not both pass
   - _Requirements: REQ-EVT-06, REQ-EVT-07, REQ-ERR-05, REQ-ERR-07, FR-AUTH-07, FR-AUTH-09_
   - _Story: US-UC10_
-- [ ] 5.2 Services for other modules (owner LongLP)
+- [x] 5.2 Services for other modules (owner LongLP)
   - **Do**: `createOrganizationAccount(input, tx)` (sends the invitation after commit), `setOrganizationRole(userId, role, tx)`, `deactivate(userId, reason, actor, tx)`, `contactCard(userIds)`, as design §5
   - **Test**: invitation not sent when the caller's transaction rolls back
   - _Requirements: design §5, FR-ORG-02_
   - _Story: US-UC04_
+  - **Done**: the four methods of design §5, exported from `auth`. The invitation goes out through an internal after-commit event, so a rolled-back caller sends none (tested with the real `TransactionalEvents`). Deactivation is `deactivateOrganizationAccount(userId, reason, actor, tx)`, because `deactivate` is already the TrekLink route of api-design 12; `organizations` task 2.5 calls it by that name. `setOrganizationRole` takes an optional `actorId` for `grantedById`; `contactCard` adds `isActive` and leaves out soft-deleted accounts
 - [x] 5.3 Roles: list and replace permissions, permission catalog (owner LongLP)
   - **Do**: `GET /api/roles` returns permission keys only; `GET /api/permissions` (api-design 18) serves the seeded catalog with `scope`, `accountType` and `protected`, never `conditions`, `fields` or `inverted`; replace: unknown permission 400 `UNKNOWN_PERMISSION`; a permission of the other account type 400 `PERMISSION_SCOPE_MISMATCH`; a change that leaves no role able to manage roles 409 `ADMIN_LOCKOUT`; emit `policy.changed` (D-057 rule 2)
   - **Test**: `organization.decide` sent for `ORG_MANAGER` gets 400 `PERMISSION_SCOPE_MISMATCH` and the role is unchanged; the catalog lists a permission that no role holds
