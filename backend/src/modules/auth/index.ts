@@ -1,6 +1,13 @@
-// Public surface of `auth` (task 1.1). Other modules import only from here. `AccountsService` joins
-// this list with task 5.2.
+// Public surface of `auth` (task 1.1). Other modules import only from here.
 export { AuthModule } from './auth.module';
+export {
+  AccountsService,
+  ORGANIZATION_ROLES,
+  type NewOrganizationAccount,
+  type OrganizationAccount,
+  type OrganizationRole,
+} from './accounts.service';
+export type { ContactCard } from './accounts.repository';
 export { JwtAuthGuard } from './guards/jwt-auth.guard';
 export {
   API_KEY_HEADER,

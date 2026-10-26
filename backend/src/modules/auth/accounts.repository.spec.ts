@@ -7,6 +7,7 @@ import {
   ADMIN_CHANGES_LOCK,
   ACCOUNT_VIEW_SELECT,
   CATALOG_PERMISSION_SELECT,
+  CONTACT_CARD_SELECT,
   normalizeEmail,
   ONE_TIME_CODE_SELECT,
   PERMISSION_RULE_SELECT,
@@ -568,6 +569,20 @@ describe('AccountsRepository, TrekLink accounts and roles (auth tasks 5.1, 5.3)'
         { roleId: 'r-1', permissionId: 'p-1' },
         { roleId: 'r-1', permissionId: 'p-2' },
       ],
+    });
+  });
+
+  it('reads contact cards without soft-deleted accounts, and grants a role with no actor (auth task 5.2)', async () => {
+    await repository.contactCards(['member-1', 'member-2']);
+    expect(prisma.user.findMany).toHaveBeenLastCalledWith({
+      where: { id: { in: ['member-1', 'member-2'] }, deletedAt: null },
+      orderBy: { fullName: 'asc' },
+      select: CONTACT_CARD_SELECT,
+    });
+
+    await repository.replaceRole('member-1', 'ORG_MANAGER', null);
+    expect(prisma.userRole.create).toHaveBeenLastCalledWith({
+      data: { userId: 'member-1', roleId: 'r-admin', grantedById: null },
     });
   });
 });

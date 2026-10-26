@@ -156,6 +156,17 @@ export type PermissionRuleRow = Prisma.PermissionGetPayload<{
   select: typeof PERMISSION_RULE_SELECT;
 }>;
 
+// What another module may know of an account to reach its holder (auth task 5.2, design §5).
+export const CONTACT_CARD_SELECT = {
+  id: true,
+  fullName: true,
+  email: true,
+  phoneNumber: true,
+  isActive: true,
+} satisfies Prisma.UserSelect;
+
+export type ContactCard = Prisma.UserGetPayload<{ select: typeof CONTACT_CARD_SELECT }>;
+
 // Emails are stored lower-case and compared case-insensitively (REQ-UBI-01).
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
@@ -475,11 +486,13 @@ export class AccountsRepository {
     await client.user.update({ where: { id }, data: { isActive } });
   }
 
-  // A TrekLink account holds one role (STAFF or ADMIN); an Admin inherits Staff (FR-AUTH-10).
+  // An account holds one role: STAFF or ADMIN for TrekLink, ORG_MANAGER or ORG_OPERATOR for an
+  // organization; Admin and Manager inherit the other (FR-AUTH-10). `grantedById` is null when no
+  // TrekLink actor is known, as for a change `organizations` makes for its Manager.
   async replaceRole(
     userId: string,
     roleKey: string,
-    grantedById: string,
+    grantedById: string | null,
     client: Client = this.prisma,
   ): Promise<void> {
     const role = await client.role.findUniqueOrThrow({
@@ -550,5 +563,15 @@ export class AccountsRepository {
       select: { id: true, fullName: true },
     });
     return new Map(rows.map((row) => [row.id, row.fullName]));
+  }
+
+  // Name, email and phone of these accounts for alert delivery (auth task 5.2); `isActive` lets the
+  // caller skip an account that can no longer receive alerts. Soft-deleted accounts are left out.
+  contactCards(ids: readonly string[], client: Client = this.prisma): Promise<ContactCard[]> {
+    return client.user.findMany({
+      where: { id: { in: [...ids] }, deletedAt: null },
+      orderBy: { fullName: 'asc' },
+      select: CONTACT_CARD_SELECT,
+    });
   }
 }
