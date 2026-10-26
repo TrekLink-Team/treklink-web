@@ -1,8 +1,14 @@
 import React from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { landingRoute } from '../entities/session/model';
+import { BillingPage } from '../pages/BillingPage';
+import { ContractApprovalPage } from '../pages/ContractApprovalPage';
+import { ContractDetailPage } from '../pages/ContractDetailPage';
+import { ContractRequestPage } from '../pages/ContractRequestPage';
+import { ContractsPage } from '../pages/ContractsPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
+import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SignInPage } from '../pages/SignInPage';
@@ -22,10 +28,12 @@ export const RequireAuth: React.FC = () => {
 };
 
 // The sign-in, forgot, reset and welcome pages are for visitors; a signed-in user is sent to their
-// landing route (screen 2.1).
+// landing route (screen 2.1). A same-origin `?next=` wins here too: the sign-in page stores the
+// session before it navigates, so this guard renders first and would otherwise drop `next`.
 export const SignedOutOnly: React.FC = () => {
   const { user } = useAuth();
-  return user ? <Navigate to={landingRoute(null, user)} replace /> : <Outlet />;
+  const next = new URLSearchParams(useLocation().search).get('next');
+  return user ? <Navigate to={landingRoute(next, user)} replace /> : <Outlet />;
 };
 
 // A route shows only when the role holds it. This is a convenience: the server refuses the data
@@ -36,11 +44,12 @@ export const RequireRole: React.FC<{ roles: readonly Role[] }> = ({ roles }) => 
 };
 
 const ORG_OPERATOR: Role[] = ['ORG_OPERATOR'];
+const ORG_MANAGER: Role[] = ['ORG_MANAGER'];
 const STAFF: Role[] = ['STAFF'];
 
 // Routes of specs/frontend/design.md §2. Only built pages are registered; the rest of the table is
 // added with the task that builds each page. The map routes show the interim dashboard until
-// `LiveMapPage` (task 9.1), and `/o/contracts`, the Org Manager's landing route, until task 5.1.
+// `LiveMapPage` (task 9.1). Contracts and billing are screens 5.1 to 5.3, 6.1 and 6.3.
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/" element={<DashboardPage />} />
@@ -53,10 +62,19 @@ export const AppRoutes: React.FC = () => (
     <Route element={<RequireAuth />}>
       <Route element={<RequireRole roles={ORG_OPERATOR} />}>
         <Route path="/o/map" element={<DashboardPage />} />
-        <Route path="/o/contracts" element={<DashboardPage />} />
+        <Route path="/o/contracts" element={<ContractsPage />} />
+        <Route path="/o/contracts/:id" element={<ContractDetailPage scope="o" />} />
+      </Route>
+      <Route element={<RequireRole roles={ORG_MANAGER} />}>
+        <Route path="/o/contracts/new" element={<ContractRequestPage />} />
+        <Route path="/o/invoices" element={<InvoicesPage />} />
+        <Route path="/o/invoices/:id" element={<InvoiceDetailPage />} />
       </Route>
       <Route element={<RequireRole roles={STAFF} />}>
         <Route path="/t/map" element={<DashboardPage />} />
+        <Route path="/t/contracts" element={<ContractApprovalPage />} />
+        <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
+        <Route path="/t/billing" element={<BillingPage />} />
       </Route>
     </Route>
     <Route path="*" element={<NoAccessPage />} />

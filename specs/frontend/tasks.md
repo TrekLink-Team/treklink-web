@@ -46,6 +46,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [x] 2.1 Sign-in, forgot, reset, welcome (set password) (owner LongLP)
   - **Do**: auth api-design 01, 05, 06, 07; one message for wrong credentials (MSG09); code errors MSG08; landing after sign-in per `design.md` §2 (D-059 rule 1)
   - **Done**: the sign-in page at `/sign-in` with the landing rule, in treklink-web#48 and the same-origin `next` check of #50; `/forgot`, `/reset` and `/welcome` with US-UC09; a signed-in user on any of the four is sent to the landing route
+  - **Fix** (2026-10-27): that redirect now keeps a same-origin `?next=`; before, `SignedOutOnly` rendered first after sign-in and sent every user to the default landing route, dropping `next`
   - _Story: US-UC08, US-UC09_
 - [x] 2.2 Account menu: profile and change password (owner LongLP)
   - **Do**: auth api-design 04 and 08
@@ -97,15 +98,18 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 ## Phase 5: Contracts
 
-- [ ] 5.1 `ContractRequestPage` with quote (owner LongLP)
+- [x] 5.1 `ContractRequestPage` with quote (owner LongLP)
   - **Do**: rentals api-design 01 and billing api-design 02; four steps at most
   - _Story: US-UC15_
+  - **Done** (2026-10-27): `/o/contracts/new` in three steps with the debounced quote panel (term fee, holding fee, balance per term, or the day-plan total and formula), field-level BELOW_MOQ, DAY_PLAN_LENGTH and date errors, the MSG28 banner for a not-active organization, a dirty-form check on Cancel, and MSG14 on the contract page
 - [ ] 5.2 `ContractDetailPage` and contract lists (owner LongLP)
   - **Do**: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing api-design 10; cancel, notice (MSG18), holder labels, handover note download
   - _Story: US-UC18, US-UC23, US-UC25, US-UC55_
+  - **Partly done** (2026-10-27): `/o/contracts` (status and plan filters, cards below 768 px) and the detail at `/o/contracts/:id` and `/t/contracts/:id` with prices, terms, devices, balance (billing 10), history (rentals 18) and Cancel with its reason dialog, STALE_VERSION reload and MSG15. Open: notice (12), holder labels (13) and the handover note (11), whose endpoints are not built yet
 - [ ] 5.3 `ContractApprovalPage` (owner LongLP)
   - **Do**: rentals api-design 04 and 05; availability from devices api-design 24; MSG11 on shortfall
   - _Story: US-UC16, US-UC17_
+  - **Partly done** (2026-10-27): `/t/contracts` with the Requested, Approved and All tabs as a table (cards below 768 px), the request panel with the handover appointment, Approve (reserved tags and expiry shown), Reject with its reason dialog, MSG11 and STALE_VERSION. Open: the advisory availability banner, since devices api-design 24 has no endpoint yet
 - [ ] 5.4 `CounterPage` handover (owner LongLP)
   - **Do**: rentals api-design 07 to 10 in four steps (design §5): devices with scan, provisioning, battery and GPS check and swap; payment status; preview note; signature pad (PNG) and identity field; nothing stored in the browser after submit
   - _Story: US-UC14, US-UC20, US-UC21_
@@ -118,16 +122,18 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 ## Phase 6: Billing
 
-- [ ] 6.1 `InvoicePage` and invoice list (owner LongLP)
+- [x] 6.1 `InvoicePage` and invoice list (owner LongLP)
   - **Do**: billing api-design 08, 09; lines with due dates and status
   - _Story: US-UC55_
+  - **Done** (2026-10-27): `/o/invoices` and `/o/invoices/:id` for the Org Manager, the invoice tab of `/t/billing` with the detail in a side panel for Staff; status and overdue filters, a contract filter from the contract page link, the line table with the derived line status, payments with the SANDBOX label. Pay with SePay waits on 6.2
 - [ ] 6.2 SePay payment page (owner LongLP)
   - **Do**: billing api-design 11, 15; VietQR image labelled sandbox; poll the payment until `CONFIRMED` (MSG20) or `EXPIRED` (MSG25)
   - _Requirements: REQ-UBI-08, NFR-UI-03_
   - _Story: US-UC19_
-- [ ] 6.3 Counter payments (owner LongLP)
+- [x] 6.3 Counter payments (owner LongLP)
   - **Do**: billing api-design 13, 14; overpayment and duplicate reference errors
   - _Story: US-UC22_
+  - **Done** (2026-10-27): the record dialog from the invoice detail (method, amount, reference; OVERPAYMENT under Amount, DUPLICATE_REFERENCE under Reference, MSG20 with the amount) and the payments tab of `/t/billing` with a status filter
 - [ ] 6.4 Prices, damage rates, `DamageChargesPage` (owner LongLP)
   - **Do**: billing api-design 03 to 07, 16, 17; decision hidden for the inspector (MSG30)
   - _Story: US-UC48, US-UC56_

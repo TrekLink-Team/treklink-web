@@ -9,6 +9,14 @@ import { AuthProvider } from './providers/AuthProvider';
 import { AppRoutes } from './router';
 
 vi.mock('../pages/DashboardPage', () => ({ DashboardPage: () => <p>interim dashboard</p> }));
+vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
+vi.mock('../pages/InvoicesPage', () => ({
+  InvoicesPage: () => <p>invoices page</p>,
+  InvoiceDetailPage: () => <p>invoice page</p>,
+}));
+vi.mock('../pages/ContractApprovalPage', () => ({
+  ContractApprovalPage: () => <p>approval queue</p>,
+}));
 vi.mock('../pages/SignInPage', () => ({
   SignInPage: () => {
     const location = useLocation();
@@ -16,7 +24,12 @@ vi.mock('../pages/SignInPage', () => ({
   },
 }));
 
-const tokens = { accessToken: 'a', accessTokenExpiresIn: 900, refreshToken: 'r', refreshTokenExpiresIn: 1209600 };
+const tokens = {
+  accessToken: 'a',
+  accessTokenExpiresIn: 900,
+  refreshToken: 'r',
+  refreshTokenExpiresIn: 1209600,
+};
 
 const account = (roles: string[], accountType: SessionUser['accountType']): SessionUser => ({
   id: roles[0],
@@ -56,9 +69,30 @@ describe('route guards (AC-01)', () => {
     expect(screen.getByText('You do not have access to this.')).toBeTruthy();
   });
 
-  it.each(['/o/map', '/o/contracts'])('lets an Org Manager reach %s', (path) => {
-    visit(path, account(['ORG_MANAGER'], 'ORGANIZATION'));
+  it('lets an Org Manager reach the map and the contracts', () => {
+    visit('/o/map', account(['ORG_MANAGER'], 'ORGANIZATION'));
     expect(screen.getByText('interim dashboard')).toBeTruthy();
+    cleanup();
+    visit('/o/contracts', account(['ORG_MANAGER'], 'ORGANIZATION'));
+    expect(screen.getByText('contracts page')).toBeTruthy();
+  });
+
+  it('keeps invoices for the Org Manager and shows MSG26 to an Org Operator', () => {
+    visit('/o/invoices', account(['ORG_MANAGER'], 'ORGANIZATION'));
+    expect(screen.getByText('invoices page')).toBeTruthy();
+    cleanup();
+    visit('/o/invoices', account(['ORG_OPERATOR'], 'ORGANIZATION'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+  });
+
+  it('gives TrekLink Staff the approval queue', () => {
+    visit('/t/contracts', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('approval queue')).toBeTruthy();
+  });
+
+  it('sends a signed-in user on /sign-in to the same-origin next path', () => {
+    visit('/sign-in?next=%2Fo%2Finvoices', account(['ORG_MANAGER'], 'ORGANIZATION'));
+    expect(screen.getByText('invoices page')).toBeTruthy();
   });
 
   it('lets an Admin reach /t/map', () => {
