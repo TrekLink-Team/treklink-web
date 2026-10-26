@@ -19,7 +19,7 @@
   - **Files**: `backend/src/modules/billing/billing.module.ts`, `pricing.repository.ts`, `invoices.repository.ts`, `payments.repository.ts`
   - **Do**: repositories over the `// @module billing` models only; invoice number `INV-<year>-<6 digits>` as the `schema.prisma` example `INV-2026-000123`
   - _Requirements: NFR-MNT-01_
-  - **Partly done** (Jira card pending, treklink-docs#114 point 4): `BillingModule` and `invoices.repository.ts` with `INV-<year>-NNNNNN` under a per-year advisory lock (the year in UTC+7, a range error past 999999). `pricing.repository.ts` waits on points 1 and 2 of treklink-docs#114; `payments.repository.ts` comes with 3.1.
+  - **Partly done** (Jira card pending, treklink-docs#114 point 4): `BillingModule` and `invoices.repository.ts` with `INV-<year>-NNNNNN` under a per-year advisory lock (the year in UTC+7, a range error past 999999). `payments.repository.ts` with the counter payment of 3.1. `pricing.repository.ts` waits on points 1 and 2 of treklink-docs#114.
 - [x] 1.2 Money helpers (owner LongLP)
   - **Files**: `backend/src/modules/billing/money.ts`
   - **Do**: integer VND only; `ceilVnd(x)` rounds each line up to the whole đồng; no floating amount is stored
@@ -78,6 +78,7 @@
   - **Test**: two concurrent counter payments on one invoice never over-apply
   - _Requirements: REQ-EVT-10, REQ-ERR-04, REQ-ERR-05, FR-BILL-08_
   - _Story: US-UC22_
+  - **Partly done** (Jira card pending): `PaymentsService.recordCounter(invoiceId, input, actor)` locks the invoice (`InvoicesRepository.lockWithLines`), refuses a known reference (409 `DUPLICATE_REFERENCE`, also when another invoice takes it at the same moment and the unique index fires) and more than the invoice's net amount due (400 `OVERPAYMENT`, message `amountVnd must be between 1 and {due}`), records the payment `CONFIRMED` and outside the sandbox, applies it oldest due first (`applyPayment`) and emits `payment.confirmed` and `audit.record` after commit. Open: the concurrency test on Postgres (`test:db`), which this machine cannot run; endpoint 13 comes with 5.1
 - [ ] 3.2 SePay sandbox (owner LongLP)
   - **Files**: `backend/src/modules/billing/sepay.service.ts`, `sepay-webhook.controller.ts`, `jobs/expire-payments.job.ts`
   - **Do**: create a `PENDING` payment with reference `TL` plus 8 Crockford base32 characters and expiry `billing.sepayPaymentTtlMinutes`; return the VietQR URL built from `SEPAY_QR_BASE_URL` and `SEPAY_BANK_CODE`, labelled sandbox; the webhook checks `Authorization: Apikey` in constant time (401 and nothing recorded otherwise), dedups on reference and gateway transaction id, applies the amount, answers `{ "success": true }` through `@RawResponse()`, logs an unknown reference for Staff; `billing.expirePayments` every 60 s marks expired payments `EXPIRED` with no partial settlement; render the QR once against the sandbox to verify the URL format
