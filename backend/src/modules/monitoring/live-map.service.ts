@@ -45,6 +45,7 @@ export class LiveMapService {
     ) {
       this.refuse('monitoring.mapDefaultViewport', 'an object with numeric lat, lon and zoom');
     }
+    if (!isNumber(staleAfterSeconds)) this.refuse('monitoring.deviceStaleSeconds', 'a number');
     const { lat, lon, zoom } = viewport as { lat: number; lon: number; zoom: number };
     return {
       provider,

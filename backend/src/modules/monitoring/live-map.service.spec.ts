@@ -70,6 +70,7 @@ describe('LiveMapService.config', () => {
     ['monitoring.mapDefaultViewport', [11.56, 108.54, 12]],
     ['monitoring.mapDefaultViewport', null],
     ['monitoring.mapDefaultViewport', { lat: 11.56, lon: 108.54 }],
+    ['monitoring.deviceStaleSeconds', 'soon'],
   ])('refuses %s set to %p and names the parameter, with no silent default', async (key, bad) => {
     values[key] = bad;
     await expect(service.config()).rejects.toThrow(`Map parameter ${key} is malformed.`);

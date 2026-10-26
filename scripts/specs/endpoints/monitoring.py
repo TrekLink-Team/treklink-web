@@ -7,8 +7,10 @@ API_KEY_HDR = [["X-Api-Key", "Organization API key (read-only)", "string", "yes"
 
 ENDPOINTS = [
     ep("GET", "/api/map/config", "Map configuration", "Any signed-in user",
-       "Map provider, tile URL template, attribution, default viewport and the sovereignty overlay labels, "
-       "all from configuration (FR-CFG-03, D-031). The client never hard-codes a provider.",
+       "Map provider, tile URL template, attribution and default viewport from the business parameters "
+       "(FR-CFG-03, D-031). The sovereignty overlay labels are a constant of the build, "
+       "`SOVEREIGNTY_OVERLAY` in `monitoring`, and an Admin cannot edit them away (D-031, BR-30). "
+       "The client never hard-codes a provider or a label.",
        "UC-38, FR-CFG-03, FR-MON-01, BR-30, NFR-LEG-01",
        response={"provider": "openstreetmap", "tileUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                  "attribution": "© OpenStreetMap contributors", "defaultViewport": {"lat": 11.56, "lon": 108.54, "zoom": 12},
