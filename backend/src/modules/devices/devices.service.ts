@@ -1,7 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { DeviceIdentity, DeviceProjection, DevicesRepository } from './devices.repository';
+import {
+  DeviceIdentity,
+  DeviceProjection,
+  DevicesRepository,
+  VariantSummary,
+} from './devices.repository';
 import { RemainingValueStep, remainingValue } from './remaining-value';
 
 // One reading of a field event, as `gateway-sync` reports it (task 2.5). `at` is the event's occurrence
@@ -59,5 +64,11 @@ export class DevicesService {
     const schedule = device.hardwareVariant
       .remainingValueSchedule as unknown as RemainingValueStep[];
     return remainingValue(schedule, device.acquiredAt, at);
+  }
+
+  // Hardware variants by code, for the plan catalogue and the contract request (billing api-design 01,
+  // rentals api-design 01). Read only; variant administration is task 4.1.
+  variants(activeOnly = true): Promise<VariantSummary[]> {
+    return this.devices.variants(activeOnly);
   }
 }

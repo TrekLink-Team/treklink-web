@@ -94,4 +94,20 @@ export class DevicesRepository {
       select: { acquiredAt: true, hardwareVariant: { select: { remainingValueSchedule: true } } },
     });
   }
+
+  // Every variant, or only the active ones, by code.
+  variants(activeOnly: boolean, client: Client = this.prisma): Promise<VariantSummary[]> {
+    return client.hardwareVariant.findMany({
+      where: activeOnly ? { isActive: true } : {},
+      orderBy: { code: 'asc' },
+      select: { id: true, code: true, name: true, isActive: true },
+    });
+  }
+}
+
+export interface VariantSummary {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
 }

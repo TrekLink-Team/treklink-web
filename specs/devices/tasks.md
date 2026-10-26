@@ -19,6 +19,7 @@
   - **Files**: `backend/src/modules/devices/devices.module.ts`, `devices.repository.ts`, `variants.repository.ts`, `loss-cases.repository.ts`, `maintenance.repository.ts`
   - **Do**: repositories over the `// @module devices` models only; every service method that may join a caller's transaction takes `tx?`
   - **Progress**: `DevicesModule`, `DevicesRepository` and `DevicesService` exist with the projection side ingestion needs (2.5); `variants.repository.ts`, `loss-cases.repository.ts` and `maintenance.repository.ts` join with 2.1, 2.7 and 2.8
+  - **Note**: a read-only `DevicesService.variants(activeOnly)` (id, code, name, active flag) was added by LongLP for billing api-design 01 and rentals api-design 01, in `DevicesRepository` for now; it moves to `variants.repository.ts` when this task builds it
   - _Requirements: REQ-UBI-04, NFR-MNT-01_
 - [ ] 1.2 `DeviceLifecycle` (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/device-lifecycle.ts`

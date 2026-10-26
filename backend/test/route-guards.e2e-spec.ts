@@ -26,8 +26,9 @@ const MUTATING = new Set([
   RequestMethod.DELETE,
 ]);
 
-// The routes that need no access token: sign-in, refresh, the password code flows and health. The
-// organization registration, the SePay webhook and the broker hooks join when their modules land.
+// The routes that need no access token: sign-in, refresh, the password code flows, health and the
+// plan catalogue (billing api-design 01). The organization registration, the SePay webhook and the
+// broker hooks join when their modules land.
 const PUBLIC_ROUTES = new Set([
   'POST /auth/login',
   'POST /auth/refresh',
@@ -35,14 +36,16 @@ const PUBLIC_ROUTES = new Set([
   'POST /auth/password/reset',
   'POST /auth/password/set',
   'GET /health',
+  'GET /plans',
 ]);
 
 // The routes that need a token and no permission (D-061 rule 2): sign-out, the caller's own
-// account and the caller's own password.
+// account, the caller's own password and the map configuration (monitoring api-design 01).
 const AUTHENTICATED_ROUTES = new Set([
   'POST /auth/logout',
   'GET /auth/me',
   'POST /auth/password/change',
+  'GET /map/config',
 ]);
 
 interface RouteInfo {
