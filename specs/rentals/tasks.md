@@ -42,6 +42,7 @@
   - **Test**: each refusal; a later price change does not change the snapshot
   - _Requirements: REQ-EVT-01, REQ-UBI-04, REQ-ERR-02, REQ-ERR-03, FR-CON-01, FR-CON-02, FR-CFG-02, BR-01, BR-02_
   - _Story: US-UC15_
+  - **Partly done**: `request(input, caller, at)` runs every check in one transaction, takes `PricingService.snapshot` (billing 2.1), inserts `REQUESTED`, audits `contract.request` and returns the contract with the api-design 01 `quote` (term fee and holding fee, or the day-plan total). A start date before today in UTC+7 is 400 `VALIDATION_FAILED`, as api-design 01 lists no code of its own. The minimal `OrganizationsService.assertActive` it needs is built here too (organizations 2.4, owner TanNB). Open: the active-variant check, since `devices` has no variant read and a variant without a price is only refused as 404 by the snapshot; and the Staff notification, since no Staff notification channel exists yet (MSG14 itself is the requester's success message)
 - [ ] 2.2 Approve, reject, cancel (owner LongLP)
   - **Files**: `contract-lifecycle.service.ts`
   - **Do**: `approve(id, dto, actor)`: one transaction with `DevicesService.reserve` (409 `INSUFFICIENT_DEVICES`, MSG11, nothing reserved), term 1 anchored to the start date at 09:00 UTC+7, `InvoicesService.issueTermInvoice` or `issueDayPlanInvoice`, `reservationExpiresAt`, `APPROVED`; `reject` with a reason; `cancel` from `REQUESTED` or `APPROVED` releases devices and calls `ChargesService.settleCancellation` (holding fee kept), `CANCELLED` (MSG15)
