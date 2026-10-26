@@ -26,9 +26,9 @@ No body.
 ```json
 {
   "result": {
-    "provider": "openstreetmap",
-    "tileUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    "attribution": "© OpenStreetMap contributors",
+    "provider": "cyclosm",
+    "tileUrl": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+    "attribution": "© OpenStreetMap contributors, style CyclOSM, tiles by OpenStreetMap France",
     "defaultViewport": {
       "lat": 11.56,
       "lon": 108.54,
