@@ -412,6 +412,15 @@ export class AccountsRepository {
     return grants.map((grant) => grant.permission);
   }
 
+  // The permission rows with these keys, for the fixed ability of an API key (auth task 4.3).
+  findPermissionRules(keys: readonly string[]): Promise<PermissionRuleRow[]> {
+    return this.prisma.permission.findMany({
+      where: { key: { in: [...keys] } },
+      orderBy: { key: 'asc' },
+      select: PERMISSION_RULE_SELECT,
+    });
+  }
+
   // TrekLink accounts for the Admin list, newest first; soft-deleted rows are not listed (api-design
   // 09). `q` matches the name or the email, case-insensitively.
   async pageTreklinkAccounts(

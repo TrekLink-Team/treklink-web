@@ -9,15 +9,16 @@ import {
   CheckPolicies,
   PolicyHandler,
 } from '../decorators/check-policies.decorator';
-import { AuthUser } from '../strategies/jwt.strategy';
+import { AUTH_ONE_OF_KEY } from '../decorators/auth-one-of.decorator';
 import { anAuthUser } from '../testing/auth-fixtures';
+import { RequestPrincipal } from './api-key.guard';
 import { PoliciesGuard } from './policies.guard';
 
-const contextFor = (user: AuthUser | undefined): ExecutionContext =>
+const contextFor = (user: RequestPrincipal | undefined, method = 'GET'): ExecutionContext =>
   ({
     getHandler: () => function handler() {},
     getClass: () => class Controller {},
-    switchToHttp: () => ({ getRequest: () => ({ user }) }),
+    switchToHttp: () => ({ getRequest: () => ({ user, method }) }),
   }) as unknown as ExecutionContext;
 
 describe('PoliciesGuard', () => {
@@ -66,6 +67,56 @@ describe('PoliciesGuard', () => {
     expect(() => guard.canActivate(contextFor(undefined))).toThrow(
       expect.objectContaining({ errorCode: ErrorCode.UNAUTHENTICATED }) as Error,
     );
+  });
+
+  describe('an organization API key (auth task 4.3, AC-05)', () => {
+    const key: RequestPrincipal = {
+      kind: 'API_KEY',
+      apiKeyId: 'key-1',
+      accountType: 'ORGANIZATION',
+      organization: { id: 'org-1' },
+      roles: [],
+      ability: createMongoAbility<AppAbility>([
+        { action: 'read', subject: 'Incident', conditions: { organizationId: 'org-1' } },
+      ]),
+    };
+    const marked = (others: (key: string) => unknown) => (metadata: string) =>
+      metadata === AUTH_ONE_OF_KEY ? ['jwt', 'apiKey'] : others(metadata);
+
+    it('passes a read route marked for keys when the policy allows', () => {
+      reflector.getAllAndOverride.mockImplementation(
+        marked((metadata) => (metadata === CHECK_POLICIES_KEY ? [canRead] : undefined)),
+      );
+      expect(guard.canActivate(contextFor(key, 'GET'))).toBe(true);
+    });
+
+    it('answers 403 on a mutating route even when it is marked', () => {
+      reflector.getAllAndOverride.mockImplementation(
+        marked((metadata) => (metadata === CHECK_POLICIES_KEY ? [canRead] : undefined)),
+      );
+      expect(() => guard.canActivate(contextFor(key, 'POST'))).toThrow(
+        expect.objectContaining({ errorCode: ErrorCode.FORBIDDEN }) as Error,
+      );
+    });
+
+    it.each([
+      ['an unmarked read route with an allowing policy', CHECK_POLICIES_KEY],
+      ['an @Authenticated route', AUTHENTICATED_ONLY_KEY],
+    ])('answers 403 on %s', (_label, granted) => {
+      reflector.getAllAndOverride.mockImplementation((metadata: string) =>
+        metadata === granted ? (granted === CHECK_POLICIES_KEY ? [canRead] : true) : undefined,
+      );
+      expect(() => guard.canActivate(contextFor(key, 'GET'))).toThrow(
+        expect.objectContaining({ errorCode: ErrorCode.FORBIDDEN }) as Error,
+      );
+    });
+
+    it('lets a marked @Authenticated read route through', () => {
+      reflector.getAllAndOverride.mockImplementation(
+        marked((metadata) => metadata === AUTHENTICATED_ONLY_KEY),
+      );
+      expect(guard.canActivate(contextFor(key, 'GET'))).toBe(true);
+    });
   });
 
   it('answers 401 when no guard authenticated the caller', () => {

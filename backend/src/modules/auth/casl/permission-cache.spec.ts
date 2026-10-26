@@ -19,12 +19,15 @@ const ROWS: Record<string, PermissionRuleRow[]> = {
 };
 
 describe('PermissionCache', () => {
-  let accounts: { findRolePermissions: jest.Mock };
+  let accounts: { findRolePermissions: jest.Mock; findPermissionRules: jest.Mock };
   let cache: PermissionCache;
 
   beforeEach(() => {
     accounts = {
       findRolePermissions: jest.fn((key: string) => Promise.resolve(ROWS[key] ?? [])),
+      findPermissionRules: jest.fn((keys: string[]) =>
+        Promise.resolve(keys.map((key) => rule(key, 'LiveMap'))),
+      ),
     };
     cache = new PermissionCache(accounts as unknown as AccountsRepository);
   });
@@ -59,6 +62,25 @@ describe('PermissionCache', () => {
     expect(cache.version).toBe(1);
     expect(accounts.findRolePermissions).toHaveBeenCalledTimes(2);
     ROWS.STAFF = [rule('incident.read', 'Incident')];
+  });
+
+  describe('rulesForKeys (auth task 4.3)', () => {
+    it('reads a key set once, whatever its order, and again after policy.changed', async () => {
+      await cache.rulesForKeys(['b.read.own', 'a.read.own']);
+      await expect(cache.rulesForKeys(['a.read.own', 'b.read.own'])).resolves.toHaveLength(2);
+      expect(accounts.findPermissionRules).toHaveBeenCalledTimes(1);
+
+      cache.invalidate();
+      await cache.rulesForKeys(['a.read.own', 'b.read.own']);
+      expect(accounts.findPermissionRules).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not keep a failed read', async () => {
+      accounts.findPermissionRules.mockRejectedValueOnce(new Error('database down'));
+
+      await expect(cache.rulesForKeys(['a.read.own'])).rejects.toThrow('database down');
+      await expect(cache.rulesForKeys(['a.read.own'])).resolves.toHaveLength(1);
+    });
   });
 
   it('does not keep a failed read', async () => {

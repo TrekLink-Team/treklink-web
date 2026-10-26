@@ -41,11 +41,13 @@ describe('AccountsRepository', () => {
     authEvent: { count: jest.Mock; create: jest.Mock };
     refreshToken: Record<string, jest.Mock>;
     rolePermission: { findMany: jest.Mock };
+    permission: { findMany: jest.Mock };
   };
   let repository: AccountsRepository;
 
   beforeEach(() => {
     prisma = {
+      permission: { findMany: jest.fn().mockResolvedValue([]) },
       user: {
         findUnique: jest.fn(),
         findFirst: jest.fn().mockResolvedValue(null),
@@ -268,6 +270,15 @@ describe('AccountsRepository', () => {
     expect(prisma.rolePermission.findMany).toHaveBeenCalledWith({
       where: { role: { key: 'STAFF' } },
       select: { permission: { select: PERMISSION_RULE_SELECT } },
+    });
+  });
+
+  it('reads permission rows by key for the API key ability (auth task 4.3)', async () => {
+    await repository.findPermissionRules(['liveMap.read.own', 'incident.read.own']);
+    expect(prisma.permission.findMany).toHaveBeenCalledWith({
+      where: { key: { in: ['liveMap.read.own', 'incident.read.own'] } },
+      orderBy: { key: 'asc' },
+      select: PERMISSION_RULE_SELECT,
     });
   });
 });

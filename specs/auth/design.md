@@ -85,9 +85,13 @@ account's `LOGIN_FAILED` events newer than the latest of three instants: now min
 reaches `auth.loginMaxFailures`, that attempt sets `lockedUntil` to now plus `auth.lockoutMinutes`, records
 `ACCOUNT_LOCKED` and answers 423. While locked, an attempt answers 423 before the password is checked.
 
-`ApiKeyGuard` authenticates `X-Api-Key` into a context `{ kind: 'API_KEY', organizationId }` whose
-ability is the fixed read-only set `liveMap.read.own`, `telemetryHistory.read.own`, `incident.read.own`
-(BR-20). Controllers that serve the organization API accept either guard via `@AuthOneOf('jwt', 'apiKey')`.
+`ApiKeyGuard` authenticates `X-Api-Key` into a context `{ kind: 'API_KEY', apiKeyId, organizationId }`
+(carried as `organization: { id }` with `accountType: ORGANIZATION`, so `scopeWhere` treats it as a
+member) whose ability is the fixed read-only set `liveMap.read.own`, `telemetryHistory.read.own`,
+`incident.read.own` (BR-20). The global `JwtAuthGuard` hands it a request that carries a key and no bearer
+token. Controllers that serve the organization API accept either credential via
+`@AuthOneOf('jwt', 'apiKey')`; `PoliciesGuard` refuses a key with 403 on any other route and on every
+mutating route, and `@CurrentCaller()` refuses it because a key acts as no account.
 
 ---
 
