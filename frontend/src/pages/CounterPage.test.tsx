@@ -9,6 +9,7 @@ import { CounterPage } from './CounterPage';
 
 const recordProvisioning = vi.fn();
 const completeHandover = vi.fn();
+const refetchInvoice = vi.fn(() => Promise.resolve());
 
 const contract = {
   id: 'c-1',
@@ -85,6 +86,7 @@ vi.mock('../entities/billing/api', async (importOriginal) => ({
       lines: [{ seq: 1, description: 'Holding fee', amountVnd: 1_125_000, paidVnd: 0 }],
       payments: [],
     },
+    refetch: refetchInvoice,
   }),
 }));
 
