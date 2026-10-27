@@ -37,16 +37,19 @@
   - **Files**: `backend/src/modules/organizations/organizations.service.ts`
   - **Do**: `register(dto)`: one transaction creating the organization `PENDING` with code `ORG-` plus a padded sequence, the Manager account through `AccountsService.createOrganizationAccount(..., tx)`, the membership and the first transition; notify Staff after commit; duplicate tax code or Manager email 409 `CONFLICT_UNIQUE` (MSG10)
   - **Test**: duplicate tax code; duplicate email in another organization; a failure after the account insert rolls everything back
+  - **Partly done** (2026-10-27, by LongLP for Review 2 in this lane): `OrganizationOnboardingService.register` creates the organization `PENDING` with the next `ORG-` code, the Manager account through `createOrganizationAccount` (the invitation goes after commit), the `MANAGER` membership and the first transition in one transaction; a taken tax code or email is 409 `CONFLICT_UNIQUE`, and a race on the unique index answers the same. `auth.invitationTtlHours` is read before the transaction, because `ParameterService` reads on the shared client even inside one (treklink-web#87) and PGlite waited on it until the timeout. Served as `POST /api/organizations/register` (public, in the route-guard list) with MSG04. Walked on local PGlite. Open: the Staff notification after commit, and unit tests
   - _Requirements: REQ-EVT-01, REQ-ERR-01, AC-01, FR-ORG-01, BR-01_
   - _Story: US-UC01_
 - [ ] 2.2 Verification with contract terms (owner TanNB)
   - **Do**: `verify(id, dto, staff)` on a `PENDING` organization: method, documents seen, master contract reference, `ndaSigned` and `softwareLicenceSigned`; either false 400 `CONTRACT_TERMS_MISSING` and nothing stored; sets `verifiedAt` and notifies Admins
   - **Test**: AC-09; a second verification overwrites the first only while `PENDING`
+  - **Partly done** (2026-10-27, LongLP): `verify` refuses an unsigned NDA or software licence with 400 `CONTRACT_TERMS_MISSING` before anything is read, locks the row, requires `PENDING` (409 `INVALID_STATE_TRANSITION`), compares the version (409 `STALE_VERSION`) and stores method, documents, contract number, both terms, `verifiedAt` and `verifiedById`, with an `organization.verified` audit record. `POST /api/organizations/:id/verification` (`organization.verify`). Open: the Admin notification
   - _Requirements: REQ-EVT-02, REQ-ERR-07, AC-09, FR-ORG-02, BR-43_
   - _Story: US-UC02_
 - [ ] 2.3 Approval and rejection (owner TanNB)
   - **Do**: `approve(id, admin)` requires `verifiedAt` (409 `NOT_VERIFIED`, MSG21), moves to `ACTIVE`, emails MSG05; `reject(id, reason, admin)` moves to `REJECTED` (MSG16)
   - **Test**: AC-02
+  - **Partly done** (2026-10-27, LongLP): `approve` requires `PENDING` and `verifiedAt` (409 `NOT_VERIFIED`, MSG21) and moves to `ACTIVE`; `reject` moves to `REJECTED` with the reason; both compare the version, write `decidedAt`, `decidedById` and an `OrganizationTransition`, and an audit record. `POST /api/organizations/:id/approve` and `.../reject` (`organization.decide`, Admin). The list `GET /api/organizations` (api-design 02) filters by status and `q`, with `organization.verify` (Staff and Admin). Walked on local PGlite: every refusal of api-design 05 to 07 answers as specified. Open: the MSG05 and MSG16 emails, the lifecycle table of 1.2 (transitions are inline for these two pairs), and unit tests
   - _Requirements: REQ-EVT-03, REQ-ERR-02, AC-02, FR-ORG-03_
   - _Story: US-UC03_
 - [ ] 2.4 Suspension, reactivation, closing (owner TanNB)

@@ -117,6 +117,9 @@ export const SignInPage: React.FC = () => {
         <Link to="/forgot" className="self-start text-sm font-semibold text-blue-700">
           Forgot password?
         </Link>
+        <Link to="/register" className="self-start text-sm font-semibold text-blue-700">
+          Register your organization
+        </Link>
       </form>
     </div>
   );
