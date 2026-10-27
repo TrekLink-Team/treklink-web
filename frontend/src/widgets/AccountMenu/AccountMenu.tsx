@@ -89,12 +89,18 @@ export const AccountMenu: React.FC = () => {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={me ? `Account: ${me.fullName}` : 'Account'}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-11 min-w-11 items-center gap-2 rounded-lg border border-slate-600 px-3 text-sm font-semibold text-white"
+        className="flex h-11 min-w-11 items-center gap-2 rounded-control px-1 text-body-sm font-semibold text-ink transition duration-tl hover:bg-chrome/60 sm:pr-3"
       >
-        <span aria-hidden="true">{me ? initialsOf(me.fullName) : '…'}</span>
-        <span className="hidden sm:inline">{me?.fullName}</span>
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-chrome text-caption font-extrabold text-brand"
+        >
+          {me ? initialsOf(me.fullName) : '…'}
+        </span>
+        {/* The name comes from the content so the visible text is part of it (WCAG 2.5.3). */}
+        <span className="sr-only">{me ? 'Account: ' : 'Account'}</span>
+        {me && <span className="sr-only lg:not-sr-only lg:max-w-[10rem] lg:truncate">{me.fullName}</span>}
       </button>
 
       {open && me && (
@@ -104,14 +110,14 @@ export const AccountMenu: React.FC = () => {
           aria-label="Account"
           onKeyDown={moveFocus}
           onBlur={closeOnFocusOut}
-          className="fixed inset-x-0 top-16 z-40 bg-white p-4 text-slate-900 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-80 sm:rounded-xl"
+          className="absolute right-0 top-12 z-drawer w-[min(20rem,calc(100vw-1rem))] rounded-panel border border-line bg-surface p-4 text-ink shadow-overlay"
         >
-          <div className="border-b border-slate-200 pb-3">
+          <div className="border-b border-line pb-3">
             <p className="font-semibold">{me.fullName}</p>
-            <p className="text-sm text-slate-600">{me.email}</p>
-            <p className="text-sm text-slate-600">{roleLabel(me.roles)}</p>
+            <p className="text-body-sm text-ink-muted">{me.email}</p>
+            <p className="text-body-sm text-ink-muted">{roleLabel(me.roles)}</p>
             {me.organization && (
-              <p className="text-sm text-slate-600">{organizationLine(me.organization)}</p>
+              <p className="text-body-sm text-ink-muted">{organizationLine(me.organization)}</p>
             )}
           </div>
           <button
@@ -121,7 +127,7 @@ export const AccountMenu: React.FC = () => {
               setOpen(false);
               setChanging(true);
             }}
-            className="mt-2 flex h-11 w-full items-center rounded-lg px-3 text-left text-sm font-semibold hover:bg-slate-100"
+            className="mt-2 flex h-11 w-full items-center rounded-control px-3 text-left text-body font-semibold hover:bg-chrome/60"
           >
             Change password
           </button>
@@ -129,7 +135,7 @@ export const AccountMenu: React.FC = () => {
             type="button"
             role="menuitem"
             onClick={() => void signOut()}
-            className="flex h-11 w-full items-center rounded-lg px-3 text-left text-sm font-semibold hover:bg-slate-100"
+            className="flex h-11 w-full items-center rounded-control px-3 text-left text-body font-semibold hover:bg-chrome/60"
           >
             Sign out
           </button>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Siren, WifiOff } from 'lucide-react';
 import { acknowledgeIncident } from '../features/acknowledge-incident/api';
 import { ApiError } from '../shared/api/apiClient';
 import { isLivePaused, subscribeLive } from '../shared/socket/socketClient';
@@ -73,38 +74,45 @@ export const AlertBanner: React.FC = () => {
   };
 
   return (
-    <div className="sticky top-0 z-[1000]">
+    <div className="sticky top-0 z-banner">
       {paused && (
-        <div role="status" className="bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-900">
+        <div
+          role="status"
+          className="flex min-h-9 items-center justify-center gap-2 border-b border-status-attention-line bg-status-attention-tint px-4 py-1.5 text-center text-body-sm font-semibold text-status-attention-fg"
+        >
+          <WifiOff aria-hidden="true" className="h-4 w-4 shrink-0" />
           {MSG32}
         </div>
       )}
       {current && (
-        <div role="alert" className="motion-safe:animate-pulse bg-red-600 px-4 py-3 text-white">
-          <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-semibold">
-              {current.text}
-              {alerts.length > 1 && <span className="ml-2 text-sm">(+{alerts.length - 1} more)</span>}
+        <div role="alert" className="bg-status-critical-strong px-4 py-2 text-status-critical-on">
+          <div className="mx-auto flex max-w-page flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-2 font-bold">
+              <span aria-hidden="true" className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+                <span className="absolute inset-0 rounded-full bg-status-critical-on/25 motion-safe:animate-ping" />
+                <Siren className="relative h-4 w-4" />
+              </span>
+              <span>
+                {current.text}
+                {alerts.length > 1 && <span className="ml-2 text-body-sm font-semibold">(+{alerts.length - 1} more)</span>}
+              </span>
             </p>
             <button
               type="button"
               disabled={pending}
               onClick={() => void acknowledge(current)}
-              className="min-h-11 rounded-lg bg-white px-5 font-semibold text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-60"
+              className="min-h-11 shrink-0 rounded-control bg-status-critical-on px-5 font-extrabold text-status-critical-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-status-critical-on disabled:opacity-60"
             >
               {pending ? 'Acknowledging' : 'Acknowledge'}
             </button>
           </div>
-          {failure && <p className="mt-1 text-sm">{failure}</p>}
+          {failure && <p className="mx-auto mt-1 max-w-page text-body-sm">{failure}</p>}
         </div>
       )}
       {notice && (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-4 bg-slate-900 px-4 py-2 text-sm text-white"
-        >
+        <div role="status" className="flex items-center justify-between gap-4 bg-inverse px-4 py-1 text-body-sm text-ink-inverse">
           <span>{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} className="min-h-11 px-3 underline">
+          <button type="button" onClick={() => setNotice(null)} className="min-h-11 px-3 font-semibold underline underline-offset-4">
             Dismiss
           </button>
         </div>

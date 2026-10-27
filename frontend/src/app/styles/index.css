@@ -1,0 +1,324 @@
+/*
+ * Global styles of the TrekLink System. Imported once by src/app/main.tsx.
+ * Order: fonts, tokens, Tailwind layers, base, components, Leaflet chrome, user preferences.
+ */
+@import '@fontsource-variable/inter/opsz.css';
+@import '@fontsource-variable/plus-jakarta-sans/wght.css';
+@import '@fontsource-variable/geist-mono/index.css';
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Elevation per theme: one recipe, tinted by --tl-shadow-tint. */
+:root,
+:root[data-theme='light'] {
+  --tl-shadow-glass: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 10px 30px rgb(var(--tl-shadow-tint) / 0.08);
+  --tl-shadow-raise: inset 0 1px 0 rgb(255 255 255 / 1), 0 1px 2px rgb(var(--tl-shadow-tint) / 0.12);
+  --tl-shadow-press: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 2px 0 rgb(var(--tl-shadow-tint) / 0.22),
+    0 6px 14px rgb(var(--tl-accent) / 0.28);
+  --tl-shadow-overlay: 0 24px 60px rgb(var(--tl-shadow-tint) / 0.22);
+  --tl-shadow-sheet: 0 -12px 36px rgb(var(--tl-shadow-tint) / 0.18);
+}
+:root[data-theme='dark'] {
+  --tl-shadow-glass: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 10px 30px rgb(0 0 0 / 0.35);
+  --tl-shadow-raise: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4);
+  --tl-shadow-press: inset 0 1px 0 rgb(255 255 255 / 0.45), 0 2px 0 rgb(0 0 0 / 0.5),
+    0 6px 14px rgb(var(--tl-accent) / 0.3);
+  --tl-shadow-overlay: 0 24px 60px rgb(0 0 0 / 0.6);
+  --tl-shadow-sheet: 0 -12px 36px rgb(0 0 0 / 0.55);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-ground font-sans text-body text-ink antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    text-wrap: balance;
+  }
+  ::selection {
+    @apply bg-spark text-on-spark;
+  }
+  /* One focus ring for every control, 2 px plus a 2 px offset (WCAG 2.4.7, 2.4.11). */
+  :focus-visible {
+    outline: 2px solid rgb(var(--tl-focus));
+    outline-offset: 2px;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--tl-ink-muted));
+    opacity: 1;
+  }
+  [hidden] {
+    display: none !important;
+  }
+  /* Native fields follow the theme even where a page gives them no background. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    background-color: rgb(var(--tl-surface));
+    color: rgb(var(--tl-ink));
+  }
+}
+
+@layer components {
+  /* The page backdrop: two soft glows give the glass something to refract (DS-07). */
+  .tl-backdrop {
+    background:
+      radial-gradient(50% 60% at 12% 0%, rgb(var(--tl-glow) / 0.5), transparent 70%),
+      radial-gradient(45% 55% at 100% 100%, rgb(var(--tl-glow-2) / 0.45), transparent 70%),
+      rgb(var(--tl-ground));
+    background-attachment: fixed;
+  }
+  :root[data-theme='dark'] .tl-backdrop {
+    background:
+      radial-gradient(50% 60% at 12% 0%, rgb(var(--tl-glow) / 0.75), transparent 70%),
+      radial-gradient(45% 55% at 100% 100%, rgb(var(--tl-glow-2) / 0.7), transparent 70%),
+      rgb(var(--tl-ground));
+    background-attachment: fixed;
+  }
+
+  /*
+   * Liquid glass for chrome: header, sidebars, toolbar, floating map panels.
+   * Text contrast is checked over the brightest glow at 72 % opacity (tokens.test.ts).
+   */
+  .tl-glass {
+    background:
+      linear-gradient(150deg, rgb(255 255 255 / var(--tl-glass-sheen)), rgb(255 255 255 / 0) 45%),
+      rgb(var(--tl-surface) / var(--tl-glass-alpha));
+    border: 1px solid rgb(var(--tl-glass-edge));
+    box-shadow: var(--tl-shadow-glass);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    backdrop-filter: blur(20px) saturate(170%);
+  }
+  /* Overlay sheets (drawer, info sheet, bottom sheet) need more body behind their text. */
+  .tl-glass-strong {
+    background: rgb(var(--tl-surface) / 0.92);
+    border: 1px solid rgb(var(--tl-glass-edge));
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    backdrop-filter: blur(20px) saturate(170%);
+  }
+
+  /* Neumorphic press for primary actions; raise for secondary controls (DS-07). */
+  .tl-press {
+    box-shadow: var(--tl-shadow-press);
+    transition:
+      transform 120ms cubic-bezier(0.2, 0.7, 0.3, 1),
+      box-shadow 120ms cubic-bezier(0.2, 0.7, 0.3, 1),
+      background-color 200ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  .tl-press:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.2);
+  }
+  .tl-raise {
+    box-shadow: var(--tl-shadow-raise);
+  }
+  .tl-raise:active:not(:disabled) {
+    box-shadow: inset 0 1px 3px rgb(var(--tl-shadow-tint) / 0.25);
+  }
+
+  /* Visually hidden but read by screen readers; Tailwind's sr-only does the same for classes. */
+  .tl-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Skeleton shimmer. */
+  .tl-skeleton {
+    background: linear-gradient(
+      90deg,
+      rgb(var(--tl-sunken)) 25%,
+      rgb(var(--tl-chrome) / 0.6) 50%,
+      rgb(var(--tl-sunken)) 75%
+    );
+    background-size: 200% 100%;
+    animation: tl-shimmer 1.8s linear infinite;
+  }
+  @keyframes tl-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Live map markers (shared/ui/map/markers.ts). Shape carries the state, not only colour. */
+  .tl-marker {
+    display: block;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    border: 3px solid #ffffff;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
+  }
+  .tl-marker--fresh {
+    background: #2f63e0;
+  }
+  .tl-marker--attention {
+    background: #b86e00;
+  }
+  .tl-marker--stale {
+    background: #6b7378;
+    border-style: dashed;
+  }
+  .tl-marker--sos {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    transform: rotate(45deg);
+    background: #d0151d;
+    animation: tl-pulse-ring 1.6s ease-out infinite;
+  }
+  @keyframes tl-pulse-ring {
+    0% {
+      box-shadow: 0 0 0 0 rgb(208 21 29 / 0.55), 0 1px 4px rgb(0 0 0 / 0.45);
+    }
+    100% {
+      box-shadow: 0 0 0 14px rgb(208 21 29 / 0), 0 1px 4px rgb(0 0 0 / 0.45);
+    }
+  }
+  .tl-marker-label {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: rgb(32 38 40 / 0.88);
+    color: #ffffff;
+    font: 700 11px/16px 'Inter Variable', Inter, system-ui, sans-serif;
+    white-space: nowrap;
+  }
+}
+
+/* Leaflet chrome: zoom, layer control, attribution and popups follow the theme. The map pane and
+   the sovereignty overlay pane are not touched (widgets/LiveMapWidget). */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  isolation: isolate;
+  font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+  background: rgb(var(--tl-sunken));
+}
+.leaflet-bar,
+.leaflet-control-layers {
+  border: 1px solid rgb(var(--tl-glass-edge)) !important;
+  border-radius: 0.75rem !important;
+  overflow: hidden;
+  box-shadow: var(--tl-shadow-glass) !important;
+  background: rgb(var(--tl-surface) / 0.92) !important;
+  color: rgb(var(--tl-ink)) !important;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  width: 40px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  background: transparent !important;
+  color: rgb(var(--tl-ink)) !important;
+  border-bottom-color: rgb(var(--tl-line)) !important;
+}
+.leaflet-bar a:hover {
+  background: rgb(var(--tl-chrome) / 0.7) !important;
+}
+.leaflet-control-layers-expanded {
+  padding: 8px 12px !important;
+  font-size: 0.8125rem;
+}
+.leaflet-control-layers label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+}
+.leaflet-control-layers input {
+  accent-color: rgb(var(--tl-accent));
+}
+/* Attribution stays readable over any tile (OpenStreetMap usage policy). */
+.leaflet-control-attribution {
+  background: rgb(255 255 255 / 0.9) !important;
+  color: #20302a !important;
+  font-size: 11px !important;
+  border-top-left-radius: 6px;
+}
+.leaflet-control-attribution a {
+  color: #035b46 !important;
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgb(var(--tl-surface)) !important;
+  color: rgb(var(--tl-ink)) !important;
+  box-shadow: var(--tl-shadow-overlay) !important;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 0.75rem !important;
+}
+
+/* User preferences. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The SOS marker keeps a static ring so it still differs from other markers. */
+  .tl-marker--sos {
+    box-shadow: 0 0 0 6px rgb(208 21 29 / 0.35), 0 1px 4px rgb(0 0 0 / 0.45);
+  }
+}
+/* Opaque chrome where translucency is unwanted or unsupported. */
+@media (prefers-reduced-transparency: reduce) {
+  .tl-glass,
+  .tl-glass-strong {
+    background: rgb(var(--tl-surface));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tl-glass,
+  .tl-glass-strong {
+    background: rgb(var(--tl-surface));
+  }
+}
+@media (prefers-contrast: more) {
+  .tl-glass,
+  .tl-glass-strong {
+    background: rgb(var(--tl-surface));
+    border-color: rgb(var(--tl-line-strong));
+  }
+}
+@media (forced-colors: active) {
+  .tl-glass,
+  .tl-glass-strong {
+    border: 1px solid CanvasText;
+  }
+}

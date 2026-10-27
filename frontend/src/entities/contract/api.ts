@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
+import { CONTRACT_STATUS, TONE_CLASSES } from '../../shared/ui/status';
 
 // Rental contracts as rentals api-design 01 to 06 and 18 return them.
 export type ContractStatus =
@@ -166,19 +167,10 @@ export const STATUS_LABELS: Record<ContractStatus, string> = {
   CLOSED: 'Closed',
 };
 
-export const STATUS_TONES: Record<ContractStatus, string> = {
-  REQUESTED: 'bg-blue-50 text-blue-800 border-blue-200',
-  APPROVED: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  REJECTED: 'bg-slate-100 text-slate-700 border-slate-300',
-  CANCELLED: 'bg-slate-100 text-slate-700 border-slate-300',
-  ACTIVE: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  ENDING: 'bg-amber-50 text-amber-900 border-amber-200',
-  RETURN_DUE: 'bg-amber-50 text-amber-900 border-amber-200',
-  OVERDUE: 'bg-red-50 text-red-800 border-red-200',
-  DEFAULTED: 'bg-red-50 text-red-800 border-red-200',
-  RETURNED: 'bg-slate-100 text-slate-700 border-slate-300',
-  CLOSED: 'bg-slate-100 text-slate-700 border-slate-300',
-};
+// Badge classes per status, from the contract palette of the TrekLink System (shared/ui/status.ts).
+export const STATUS_TONES: Record<ContractStatus, string> = Object.fromEntries(
+  Object.entries(CONTRACT_STATUS).map(([status, entry]) => [status, TONE_CLASSES[entry.tone]]),
+) as Record<ContractStatus, string>;
 
 export const planLabel = (contract: Pick<Contract, 'planType' | 'dayPlanDays'>): string =>
   contract.planType === 'DAY' ? `Day plan, ${contract.dayPlanDays} days` : 'Monthly';

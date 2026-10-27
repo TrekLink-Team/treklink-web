@@ -1,0 +1,14 @@
+export { AppShell } from './AppShell';
+export { AuthLayout } from './AuthLayout';
+export { AppHeader } from './AppHeader';
+export { workspaceOf } from './workspace';
+export { BrandMark } from './BrandMark';
+export { ConnectionIndicator } from './ConnectionIndicator';
+export { EnvironmentBadge } from './EnvironmentBadge';
+export { InfoPane, InfoPaneToggle } from './InfoPane';
+export { MobileTabBar } from './MobileTabBar';
+export { SideNav } from './SideNav';
+export { ThemeToggle } from './ThemeToggle';
+export { useShell, type InfoPaneContent } from './shellStore';
+export { useInfoPane, useOpenInfoPane } from './useInfoPane';
+export { useConnection, type ConnectionState } from './useConnection';

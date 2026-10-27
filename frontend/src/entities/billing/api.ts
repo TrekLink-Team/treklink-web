@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
+import { INVOICE_STATUS, TONE_CLASSES } from '../../shared/ui/status';
 import { queryString, type Page, type PlanType } from '../contract/api';
 
 // Plans, quotes, invoices, payments and balances as billing api-design 01, 02, 08 to 10, 13 and 14
@@ -173,10 +174,11 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   PAID: 'Paid',
 };
 
+// Badge classes per status, from the invoice palette of the TrekLink System (shared/ui/status.ts).
 export const INVOICE_TONES: Record<InvoiceStatus, string> = {
-  ISSUED: 'bg-blue-50 text-blue-800 border-blue-200',
-  PARTIALLY_PAID: 'bg-amber-50 text-amber-900 border-amber-200',
-  PAID: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  ISSUED: TONE_CLASSES[INVOICE_STATUS.ISSUED.tone],
+  PARTIALLY_PAID: TONE_CLASSES[INVOICE_STATUS.PARTIALLY_PAID.tone],
+  PAID: TONE_CLASSES[INVOICE_STATUS.PAID.tone],
 };
 
 // Line status of screen 6.1, derived on the client; the first matching rule wins.

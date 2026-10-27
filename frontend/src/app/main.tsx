@@ -1,11 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { startTheme } from '../shared/lib/theme';
 import { App } from './App';
 import { connectApiToSession } from './providers/registerApiAuth';
-import './styles/globals.css';
+import './styles/index.css';
 
 connectApiToSession();
+startTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {
