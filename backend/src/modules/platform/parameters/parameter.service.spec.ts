@@ -93,6 +93,11 @@ describe('ParameterService', () => {
       await expect(service.get(KEY)).resolves.toBe(60);
     });
 
+    it('reads a cache miss through the transaction it was given', async () => {
+      await expect(service.get(KEY, tx)).resolves.toBe(120);
+      expect(repository.findByKey).toHaveBeenCalledWith(KEY, tx);
+    });
+
     it('fails loudly for a registry key that has no seeded row', async () => {
       repository.findByKey.mockResolvedValueOnce(null);
 

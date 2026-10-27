@@ -115,7 +115,7 @@
 
 ## Phase 5: Frontend Integration
 
-- [ ] 5.1 Registration page, Staff verification queue with the NDA and licence checkboxes, Admin approvals, Manager pages for members, roster, API keys, Field Stations and the release download, Staff compliance cases and key rotation (owner LongNN, tracked in `specs/frontend/tasks.md` 3.1 to 3.6)
+- [ ] 5.1 Registration page, Staff verification queue with the NDA and licence checkboxes, Admin approvals, Manager pages for members, roster, API keys, Field Stations and the release download, Staff compliance cases and key rotation (owner LongNN, tracked in `specs/frontend/tasks.md` 3.1 to 3.6; the registration page and the Staff and Admin review page, 3.1 and 3.2, are LongLP's from 2026-10-27, issue #98)
 
 ## Phase 6: Verification & DoD
 

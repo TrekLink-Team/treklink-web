@@ -29,7 +29,7 @@ Scope from the task: billing api-design 13, 14; overpayment and duplicate refere
 | Control | Shown when | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
 | Filter by contract or status | always | billing 14 `GET /api/payments?contractId=&status=` | none | none |
-| Record counter payment (invoice row, counter step 2) | the invoice has an unpaid amount | opens the dialog for that invoice | none | none |
+| Record counter payment (invoice row, counter step 2) | the invoice has an unpaid amount and its contract balance is not settled (leader ruling 2026-10-27, issue #87 point 4: a cancelled contract nets to zero on its CLOSING invoice, so its earlier invoices offer no payment) | opens the dialog for that invoice | none | none |
 | Record (dialog, primary) | form valid | billing 13 `POST /api/invoices/:id/payments/counter` | none: the amount and reference are on the form | MSG20; the dialog closes, the list, the invoice and the contract balance refetch |
 | Cancel (dialog) | always | none | asks first if a field is filled (chapter 06 §8.7) | none |
 

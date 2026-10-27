@@ -59,11 +59,11 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 ## Phase 3: Organization onboarding and administration
 
-- [ ] 3.1 `RegisterPage` (owner TanNB)
+- [ ] 3.1 `RegisterPage` (owner LongLP, reassigned from TanNB 2026-10-27, issue #98)
   - **Do**: organizations api-design 01; MSG04 on success; MSG10 on a duplicate
   - **Partly done** (2026-10-27, by LongLP for Review 2 in TanNB's lane): `/register`, public and linked from sign-in: seven fields with required checks, the server's field errors under each field, MSG10 as a page alert, MSG04 with the new code. Built on the pre-#95 `shared/ui`; it moves to the design-system components when it is rebased. Walked in the browser on local PGlite. Open: the screen design file `ui-design/3-1-*.md`, still a template
   - _Story: US-UC01_
-- [ ] 3.2 `OrganizationReviewPage` for Staff and Admin (owner TanNB)
+- [ ] 3.2 `OrganizationReviewPage` for Staff and Admin (owner LongLP, reassigned from TanNB 2026-10-27, issue #98)
   - **Do**: organizations api-design 02, 03, 05 to 11; verification form with method, documents, master contract reference and the NDA and software licence checkboxes (both required); approve or reject (MSG16, MSG21); suspend, reactivate, close
   - **Partly done** (2026-10-27, LongLP): `/t/organizations` for Staff and Admin with the Pending, Active, Rejected and All tabs, the queue table and a side panel: details, the verification form (both terms required) and, for the Admin, Approve (held until verified, MSG21) and Reject with its reason dialog (MSG16). Typecheck and lint clean; not walked in a browser, which needs a Staff and an Admin sign-in. Open: suspend, reactivate and close (api-design 08 to 11), the screen design file, the move to the design-system components after #95
   - _Story: US-UC02, US-UC03, US-UC07_
