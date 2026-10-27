@@ -13,3 +13,4 @@ export {
   type CloseBlockingReason,
   type ContractCloseCheck,
 } from './ports/contract-close-checks.port';
+export { DEVICE_HANDED_OVER, type DeviceHandedOverEvent } from './handover.service';

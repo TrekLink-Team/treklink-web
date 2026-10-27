@@ -172,6 +172,52 @@ export class DevicesRepository {
     });
   }
 
+  // Records that the organization's channel key at `keyVersion` was written to the device (D-021):
+  // the device keeps only the version and the organization, and a DeviceProvisioning row the history.
+  async recordProvisioning(
+    provisioning: { deviceId: string; organizationId: string; keyVersion: number; actorId: string },
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<ProvisionedDevice> {
+    await tx.deviceProvisioning.create({
+      data: {
+        deviceId: provisioning.deviceId,
+        organizationId: provisioning.organizationId,
+        keyVersion: provisioning.keyVersion,
+        provisionedById: provisioning.actorId,
+        createdAt: at,
+      },
+    });
+    return tx.device.update({
+      where: { id: provisioning.deviceId },
+      data: {
+        keyVersion: provisioning.keyVersion,
+        keyOrganizationId: provisioning.organizationId,
+        provisionedAt: at,
+      },
+      select: PROVISIONED_SELECT,
+    });
+  }
+
+  provisioning(ids: readonly string[], client: Client = this.prisma): Promise<ProvisionedDevice[]> {
+    return client.device.findMany({ where: { id: { in: [...ids] } }, select: PROVISIONED_SELECT });
+  }
+
+  // Moves units from one status to another; a unit in any other status is left as it is.
+  async moveStatus(
+    ids: readonly string[],
+    from: DeviceStatus,
+    to: DeviceStatus,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<number> {
+    const { count } = await tx.device.updateMany({
+      where: { id: { in: [...ids] }, status: from },
+      data: { status: to, statusChangedAt: at, version: { increment: 1 } },
+    });
+    return count;
+  }
+
   // Every variant, or only the active ones, by code.
   variants(activeOnly: boolean, client: Client = this.prisma): Promise<VariantSummary[]> {
     return client.hardwareVariant.findMany({
@@ -181,6 +227,18 @@ export class DevicesRepository {
     });
   }
 }
+
+export const PROVISIONED_SELECT = {
+  id: true,
+  assetTag: true,
+  status: true,
+  keyVersion: true,
+  keyOrganizationId: true,
+  provisionedAt: true,
+  batteryPct: true,
+} satisfies Prisma.DeviceSelect;
+
+export type ProvisionedDevice = Prisma.DeviceGetPayload<{ select: typeof PROVISIONED_SELECT }>;
 
 export interface DeviceTag {
   id: string;

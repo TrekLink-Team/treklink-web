@@ -1,13 +1,19 @@
 import { ContractStatus, PlanType } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
+  IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
+  Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
 
@@ -39,6 +45,63 @@ export class ContractReasonDto {
   @IsNotEmpty()
   @MaxLength(500)
   reason!: string;
+
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
+}
+
+// rentals api-design 07.
+export class SwapDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(300)
+  reason!: string;
+}
+
+// rentals api-design 09.
+export class ProvisioningDto {
+  @IsInt()
+  @Min(1)
+  keyVersion!: number;
+}
+
+export class DeviceCheckDto {
+  @IsUUID()
+  deviceId!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  batteryPct!: number;
+
+  @IsBoolean()
+  gpsFixOk!: boolean;
+}
+
+// rentals api-design 10. `signedByMemberId` is the signing Manager's account id, as in
+// organizations api-design 12 `userId`.
+export class HandoverDto {
+  @IsUUID()
+  signedByMemberId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(60)
+  identityChecked!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  signaturePng!: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DeviceCheckDto)
+  deviceChecks!: DeviceCheckDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  acknowledgeLowBattery?: boolean;
 
   @IsInt()
   @Min(0)

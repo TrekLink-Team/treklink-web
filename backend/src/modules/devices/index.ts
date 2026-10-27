@@ -5,6 +5,7 @@ export type {
   DeviceIdentity,
   DeviceProjection,
   DeviceTag,
+  ProvisionedDevice,
   VariantSummary,
 } from './devices.repository';
 export { fromNodeId, toNodeId } from './node-id';

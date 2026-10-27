@@ -404,6 +404,49 @@ export class ContractsRepository {
     });
   }
 
+  // The rows still on the contract (not released), oldest reservation first.
+  liveRows(contractId: string, client: Client = this.prisma) {
+    return client.contractDevice.findMany({
+      where: { contractId, releasedAt: null },
+      orderBy: { reservedAt: 'asc' },
+      select: { id: true, deviceId: true, handedOverAt: true },
+    });
+  }
+
+  // A failing reserved unit leaves the contract before handover (rentals 2.3, swap).
+  async releaseRow(rowId: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.contractDevice.update({ where: { id: rowId }, data: { releasedAt: at } });
+  }
+
+  async markRowsHandedOver(contractId: string, at: Date, tx: Prisma.TransactionClient) {
+    await tx.contractDevice.updateMany({
+      where: { contractId, releasedAt: null, handedOverAt: null },
+      data: { handedOverAt: at },
+    });
+  }
+
+  async recordHandover(
+    id: string,
+    handover: {
+      handedOverAt: Date;
+      handedOverById: string;
+      identityChecked: string;
+      handoverNotePath: string;
+      handoverNoteSha256: string;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.rentalContract.update({ where: { id }, data: handover });
+  }
+
+  // The stored note of a contract, for the download and its integrity check (api-design 11).
+  noteOf(id: string, client: Client = this.prisma) {
+    return client.rentalContract.findUnique({
+      where: { id },
+      select: { organizationId: true, handoverNotePath: true, handoverNoteSha256: true },
+    });
+  }
+
   // Codes for the billing reads (the CONTRACT_DIRECTORY port).
   codes(ids: readonly string[], client: Client = this.prisma) {
     return client.rentalContract.findMany({
