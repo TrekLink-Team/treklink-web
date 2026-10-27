@@ -19,6 +19,7 @@ async function main() {
       simulationMode: gatewayConfig.serial.simulationMode,
     },
     queue,
+    () => mqttClient.flushQueue(),
   );
 
   mqttClient.connect();

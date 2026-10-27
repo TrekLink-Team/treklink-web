@@ -8,6 +8,7 @@ const logger = pino({ name: 'GatewayMQTT' });
 export class GatewayMqttClient {
   private client: mqtt.MqttClient | null = null;
   private isConnected = false;
+  private flushing = false;
 
   constructor(
     private brokerUrl: string = gatewayConfig.mqtt.brokerUrl,
@@ -29,6 +30,7 @@ export class GatewayMqttClient {
 
     this.client.on('close', () => {
       this.isConnected = false;
+      this.flushing = false;
       logger.warn('MQTT connection closed. Storing upcoming events offline in SQLite.');
     });
 
@@ -37,21 +39,52 @@ export class GatewayMqttClient {
     });
   }
 
-  public flushQueue(): void {
-    if (!this.isConnected || !this.client) return;
+  // The node's own uplink topic for a queued packet (Stage B, D-005): `<prefix>/<channel>/<sender>`.
+  private topicOf(payload: string): string | null {
+    try {
+      const sender = (JSON.parse(payload) as { sender?: unknown }).sender;
+      return typeof sender === 'string' && sender !== ''
+        ? `${gatewayConfig.mqtt.topicPrefix}/${gatewayConfig.mqtt.channelName}/${sender}`
+        : null;
+    } catch {
+      return null;
+    }
+  }
 
+  // Publishes one batch in tier order and waits for every acknowledgement, then takes the next batch
+  // until the queue is empty. One flush runs at a time, so a row is never published twice by two
+  // overlapping flushes; a row whose publish failed stays queued for the next flush.
+  public flushQueue(): void {
+    if (!this.isConnected || !this.client || this.flushing) return;
     const batch = this.queue.peek(gatewayConfig.queue.flushBatchSize);
     if (batch.length === 0) return;
 
-    logger.info(`Flushing ${batch.length} prioritized events from offline SQLite queue...`);
+    this.flushing = true;
+    logger.info(`Flushing ${batch.length} prioritized events from the SQLite queue...`);
+    let pending = batch.length;
+    let failed = false;
+    const done = () => {
+      pending -= 1;
+      if (pending > 0) return;
+      this.flushing = false;
+      if (!failed) this.flushQueue();
+    };
     for (const item of batch) {
-      const topic = `${gatewayConfig.mqtt.topicPrefix}/${item.priority}`;
+      const topic = this.topicOf(item.payload);
+      if (!topic) {
+        logger.error(`Dropping event ${item.eventId}: its packet has no sender to publish under.`);
+        this.queue.remove(item.id);
+        done();
+        continue;
+      }
       this.client.publish(topic, item.payload, { qos: gatewayConfig.mqtt.qos }, (err) => {
         if (!err) {
           this.queue.remove(item.id);
         } else {
+          failed = true;
           logger.error(`Failed to publish event ${item.eventId}: ${err.message}`);
         }
+        done();
       });
     }
   }

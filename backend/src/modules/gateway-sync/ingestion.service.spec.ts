@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { DevicesService } from '../devices';
+import { ContractsService } from '../rentals';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
@@ -17,6 +18,7 @@ const PARAMETERS: Record<string, unknown> = {
   'monitoring.maxPlausibleSpeedKmh': 30,
   'gatewaySync.deviceTimeMaxAheadSeconds': 60,
   'gatewaySync.lateUploadGraceHours': 168,
+  'gatewaySync.attributionMarginSeconds': 300,
 };
 const device = { id: 'dev-9', assetTag: 'TL-0009', nodeNum: 0xde000009n, status: 'RENTED' };
 const receivedAt = new Date('2026-10-23T03:00:05Z');
@@ -40,6 +42,7 @@ describe('IngestionService', () => {
     lastPlottedPosition: jest.Mock;
   };
   let devices: { byNodeNum: jest.Mock; projectReading: jest.Mock };
+  let contracts: { custodyAt: jest.Mock };
   let emitted: { name: string; payload: unknown }[];
   let service: IngestionService;
 
@@ -53,6 +56,7 @@ describe('IngestionService', () => {
       byNodeNum: jest.fn().mockResolvedValue(device),
       projectReading: jest.fn().mockResolvedValue(device.id),
     };
+    contracts = { custodyAt: jest.fn().mockResolvedValue(null) };
     emitted = [];
     const events = {
       transaction: async <T>(work: (client: Prisma.TransactionClient) => Promise<T>) => {
@@ -69,6 +73,7 @@ describe('IngestionService', () => {
     service = new IngestionService(
       repository as unknown as IngestionRepository,
       devices as unknown as DevicesService,
+      contracts as unknown as ContractsService,
       new Normalizer(),
       parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
@@ -78,6 +83,46 @@ describe('IngestionService', () => {
   const audits = () =>
     repository.insertAudit.mock.calls.map(([row]) => (row as { outcome: string }).outcome);
   const storedEvent = () => repository.insertEventOnce.mock.calls[0][0];
+
+  describe('attribution (task 2.4, D-040)', () => {
+    const custody = {
+      contractDeviceId: 'cd-9',
+      contractId: 'c-1',
+      organizationId: 'org-1',
+      contractStatus: 'ACTIVE',
+      nearBoundary: false,
+    };
+
+    it('attributes an event inside a custody interval to its organization and interval', async () => {
+      contracts.custodyAt.mockResolvedValue(custody);
+      await expect(service.ingest(envelopeOf('position'))).resolves.toBe('ACCEPTED');
+      expect(contracts.custodyAt).toHaveBeenCalledWith(
+        'dev-9',
+        new Date('2026-10-23T03:00:00.000Z'),
+        300,
+      );
+      expect(storedEvent()).toMatchObject({
+        attribution: 'ATTRIBUTED',
+        organizationId: 'org-1',
+        contractDeviceId: 'cd-9',
+      });
+      expect(audits()).toEqual(['ACCEPTED']);
+      expect(emitted[0]).toMatchObject({
+        name: 'field.position',
+        payload: { organizationId: 'org-1' },
+      });
+    });
+
+    it('leaves an event near a handover or check-in UNATTRIBUTED (margin)', async () => {
+      contracts.custodyAt.mockResolvedValue({ ...custody, nearBoundary: true });
+      await expect(service.ingest(envelopeOf('position'))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
+      expect(storedEvent()).toMatchObject({
+        attribution: 'UNATTRIBUTED',
+        organizationId: null,
+        contractDeviceId: null,
+      });
+    });
+  });
 
   it('derives eventId as sha256 of "from:id" in lower-case hex (D-006)', () => {
     expect(eventIdOf(3724541961, 1834576211)).toBe(
