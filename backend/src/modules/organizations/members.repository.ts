@@ -67,4 +67,15 @@ export class MembersRepository {
       select: { id: true, userId: true, role: true, deactivatedAt: true },
     });
   }
+
+  // The first Manager of a newly registered organization (task 2.1).
+  addMember(
+    row: { organizationId: string; userId: string; role: MemberRole },
+    client: Client,
+  ): Promise<MemberRow> {
+    return client.organizationMember.create({
+      data: row,
+      select: { id: true, userId: true, role: true, deactivatedAt: true },
+    });
+  }
 }

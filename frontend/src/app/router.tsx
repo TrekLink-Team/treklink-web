@@ -11,6 +11,8 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
+import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
+import { RegisterPage } from '../pages/RegisterPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SignInPage } from '../pages/SignInPage';
 import { WelcomePage } from '../pages/WelcomePage';
@@ -65,6 +67,7 @@ export const AppRoutes: React.FC = () => (
       <Route path="/forgot" element={<ForgotPasswordPage />} />
       <Route path="/reset" element={<ResetPasswordPage />} />
       <Route path="/welcome" element={<WelcomePage />} />
+      <Route path="/register" element={<RegisterPage />} />
     </Route>
     <Route element={<RequireAuth />}>
       <Route element={<RequireRole roles={ORG_OPERATOR} />}>
@@ -82,6 +85,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
         <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
         <Route path="/t/billing" element={<BillingPage />} />
+        <Route path="/t/organizations" element={<OrganizationReviewPage />} />
         <Route path="/t/counter/:contractId" element={<CounterPage />} />
       </Route>
     </Route>
