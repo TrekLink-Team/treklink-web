@@ -134,6 +134,29 @@ export const fetchPlans = () => apiClient<Plans>('/plans');
 export const fetchQuote = (request: QuoteRequest) =>
   apiClient<Quote>('/quotes', { method: 'POST', body: JSON.stringify(request) });
 
+export interface VietQr {
+  imageUrl: string;
+  bankAccount: string;
+  content: string;
+}
+
+export type SepayPayment = Payment & { vietQr: VietQr | null };
+
+// billing api-design 11: a PENDING sandbox payment with its QR (409 PAYMENT_PENDING, NOTHING_DUE).
+export const requestSepayPayment = (invoiceId: string) =>
+  apiClient<SepayPayment>(`/invoices/${invoiceId}/payments/sepay`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+
+// billing api-design 15, polled every few seconds while the payment is PENDING.
+export const usePayment = (id: string) =>
+  useQuery({
+    queryKey: ['payment', id] as const,
+    queryFn: () => apiClient<SepayPayment>(`/payments/${id}`),
+    refetchInterval: (query) => (query.state.data?.status === 'PENDING' ? 3000 : false),
+  });
+
 export const recordCounterPayment = (invoiceId: string, payment: CounterPayment) =>
   apiClient<Payment>(`/invoices/${invoiceId}/payments/counter`, {
     method: 'POST',

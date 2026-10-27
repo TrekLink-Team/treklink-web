@@ -56,3 +56,11 @@ export class CounterPaymentDto {
   @MaxLength(64)
   reference!: string;
 }
+
+// billing api-design 11: one line, or by default every line due now.
+export class SepayPaymentDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  lineSeq?: number;
+}

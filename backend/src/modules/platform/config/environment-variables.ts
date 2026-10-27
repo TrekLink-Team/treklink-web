@@ -175,6 +175,21 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   HANDOVER_NOTE_STORAGE_DIR = 'storage/handover-notes';
+
+  // SEPAY_* are owned by `billing` (specs/billing/tasks.md 3.2, design §3). The VietQR image URL
+  // and the bank code are configuration; the receiving account is the parameter
+  // `billing.sepayBankAccount`. Without SEPAY_WEBHOOK_API_KEY every webhook call is refused (401).
+  @IsString()
+  @IsNotEmpty()
+  SEPAY_QR_BASE_URL = 'https://vietqr.app/img';
+
+  @IsString()
+  @IsNotEmpty()
+  SEPAY_BANK_CODE = 'SANDBOX';
+
+  @IsOptional()
+  @IsString()
+  SEPAY_WEBHOOK_API_KEY?: string;
 }
 
 export type ValidatedEnvironment = EnvironmentVariables & { SWAGGER_ENABLED: boolean };

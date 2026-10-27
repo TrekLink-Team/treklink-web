@@ -131,8 +131,9 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: billing api-design 08, 09; lines with due dates and status
   - _Story: US-UC55_
   - **Done** (2026-10-27): `/o/invoices` and `/o/invoices/:id` for the Org Manager, the invoice tab of `/t/billing` with the detail in a side panel for Staff; status and overdue filters, a contract filter from the contract page link, the line table with the derived line status, payments with the SANDBOX label. Pay with SePay waits on 6.2
-- [ ] 6.2 SePay payment page (owner LongLP)
+- [x] 6.2 SePay payment page (owner LongLP)
   - **Do**: billing api-design 11, 15; VietQR image labelled sandbox; poll the payment until `CONFIRMED` (MSG20) or `EXPIRED` (MSG25)
+  - **Done** (2026-10-27): Pay with SePay on `/o/invoices/:id` for the Org Manager (PAYMENT_PENDING opens the waiting request, NOTHING_DUE shows the server's message) and `/o/pay/:paymentId`: the VietQR image with amount, transfer content, account and a countdown, the SANDBOX label, polling every 3 s until CONFIRMED (MSG20) or EXPIRED (MSG25), then the invoice and balance refetch
   - _Requirements: REQ-UBI-08, NFR-UI-03_
   - _Story: US-UC19_
 - [x] 6.3 Counter payments (owner LongLP)

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { ApiError } from '../../shared/api/apiClient';
 import {
   INVOICE_STATUS_LABELS,
   INVOICE_TONES,
+  requestSepayPayment,
   lineStatus,
   useBalance,
   useInvoice,
 } from '../../entities/billing/api';
 import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
-import { Button } from '../../shared/ui';
+import { Alert, Button } from '../../shared/ui';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
 import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK, TD, TH } from '../../shared/ui/styles';
@@ -28,21 +30,47 @@ const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'Se
 
 // The invoice detail of screen 6.1 (billing api-design 09): header, dated lines with a status derived
 // on the client, and payments. TrekLink Staff and Admin record a counter payment from here (6.3);
-// Pay with SePay (6.2) joins with its task.
+// the Org Manager pays with SePay (6.2, billing api-design 11) and is taken to the QR page.
 export const InvoiceDetailView: React.FC<{
   invoiceId: string;
   contractPath: (contractId: string) => string;
   canRecordCounter: boolean;
-}> = ({ invoiceId, contractPath, canRecordCounter }) => {
+  canPayOnline?: boolean;
+}> = ({ invoiceId, contractPath, canRecordCounter, canPayOnline = false }) => {
   const { data, isLoading, error, refetch } = useInvoice(invoiceId);
+  const navigate = useNavigate();
   const [recording, setRecording] = useState(false);
   const [lineText, setLineText] = useState('');
   const [lineFilter, setLineFilter] = useState('');
   // A cancelled contract's voiding ADJUSTMENT sits on its CLOSING invoice, so an earlier invoice
-  // can still show an amount due while the contract owes nothing. Record counter payment shows
-  // only while the contract balance is open (ruling on #87 point 4); invoice lines stay unchanged.
-  const owing = canRecordCounter && !!data && data.totalVnd > data.paidVnd;
+  // can still show an amount due while the contract owes nothing. Payment actions show only while
+  // the contract balance is open (ruling on #87 point 4); invoice lines stay unchanged.
+  const owing = (canRecordCounter || canPayOnline) && !!data && data.totalVnd > data.paidVnd;
   const balance = useBalance(data?.contract.id ?? '', owing);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  const pay = async () => {
+    if (!data) return;
+    setPaying(true);
+    setPayError(null);
+    try {
+      const payment = await requestSepayPayment(data.id);
+      navigate(`/o/pay/${payment.id}`);
+    } catch (failure) {
+      setPaying(false);
+      const waiting = data.payments.find(
+        (payment) => payment.method === 'SEPAY' && payment.status === 'PENDING',
+      );
+      // PAYMENT_PENDING: open the request that is already waiting (screen 6.1 States).
+      if (failure instanceof ApiError && failure.errorCode === 'PAYMENT_PENDING' && waiting) {
+        navigate(`/o/pay/${waiting.id}`);
+        return;
+      }
+      setPayError(failure instanceof ApiError ? failure.message : 'Something went wrong.');
+      if (failure instanceof ApiError && failure.errorCode === 'NOTHING_DUE') void refetch();
+    }
+  };
 
   if (isLoading) return <Loading label="Loading invoice" />;
   if (error || !data) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -76,7 +104,23 @@ export const InvoiceDetailView: React.FC<{
           <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
           <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
         </dl>
-        {owing && balance.data && !balance.data.settled && (
+        {payError && (
+          <Alert tone="error" className="mt-3">
+            {payError}
+          </Alert>
+        )}
+        {canPayOnline && owing && balance.data && !balance.data.settled && (
+          <Button
+            variant="primary"
+            className="mt-4 w-full sm:w-auto"
+            loading={paying}
+            loadingLabel="Preparing QR"
+            onClick={() => void pay()}
+          >
+            Pay with SePay
+          </Button>
+        )}
+        {canRecordCounter && owing && balance.data && !balance.data.settled && (
           <Button variant="primary" className="mt-4" onClick={() => setRecording(true)}>
             Record counter payment
           </Button>

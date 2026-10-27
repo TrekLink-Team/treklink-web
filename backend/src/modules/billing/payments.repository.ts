@@ -31,6 +31,22 @@ export interface NewCounterPayment {
   confirmedAt: Date;
 }
 
+export interface NewSepayPayment {
+  reference: string;
+  organizationId: string;
+  contractId: string;
+  invoiceId: string;
+  amountVnd: bigint;
+  requestedById: string;
+  expiresAt: Date;
+}
+
+export interface Settlement {
+  gatewayTxnId: string;
+  gatewayPayload: Prisma.InputJsonValue;
+  confirmedAt: Date;
+}
+
 export interface PaymentFilter {
   organizationId?: string;
   contractId?: string;
@@ -78,6 +94,86 @@ export class PaymentsRepository {
       orderBy: { createdAt: 'asc' },
       select: PAYMENT_SELECT,
     });
+  }
+
+  findById(id: string, client: Client = this.prisma): Promise<PaymentRow | null> {
+    return client.payment.findUnique({ where: { id }, select: PAYMENT_SELECT });
+  }
+
+  // The SePay request of the invoice still waiting for its money, if any.
+  findPendingSepay(invoiceId: string, at: Date, client: Client = this.prisma) {
+    return client.payment.findFirst({
+      where: {
+        invoiceId,
+        method: PaymentMethod.SEPAY,
+        status: PaymentStatus.PENDING,
+        expiresAt: { gt: at },
+      },
+      select: PAYMENT_SELECT,
+    });
+  }
+
+  insertSepayPayment(payment: NewSepayPayment, tx: Prisma.TransactionClient): Promise<PaymentRow> {
+    return tx.payment.create({
+      data: {
+        ...payment,
+        method: PaymentMethod.SEPAY,
+        status: PaymentStatus.PENDING,
+        isSandbox: true,
+      },
+      select: PAYMENT_SELECT,
+    });
+  }
+
+  // Locks the payment of a reference for the webhook, so two deliveries of one transfer apply once.
+  async lockByReference(
+    reference: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<PaymentRow | null> {
+    await tx.$queryRaw`SELECT 1 FROM "payments" WHERE "reference" = ${reference} FOR UPDATE`;
+    return tx.payment.findUnique({ where: { reference }, select: PAYMENT_SELECT });
+  }
+
+  async gatewayTxnExists(gatewayTxnId: string, client: Client = this.prisma): Promise<boolean> {
+    const found = await client.payment.findUnique({
+      where: { gatewayTxnId },
+      select: { id: true },
+    });
+    return found !== null;
+  }
+
+  confirmSepay(id: string, settlement: Settlement, tx: Prisma.TransactionClient) {
+    return tx.payment.update({
+      where: { id },
+      data: { ...settlement, status: PaymentStatus.CONFIRMED },
+      select: PAYMENT_SELECT,
+    });
+  }
+
+  // Money that moved without matching its request (another amount, or after expiry) is recorded as
+  // its own confirmed payment of what arrived (billing design §3).
+  insertReceivedSepay(
+    payment: Omit<NewSepayPayment, 'expiresAt' | 'requestedById'> & Settlement,
+    tx: Prisma.TransactionClient,
+  ): Promise<PaymentRow> {
+    return tx.payment.create({
+      data: {
+        ...payment,
+        method: PaymentMethod.SEPAY,
+        status: PaymentStatus.CONFIRMED,
+        isSandbox: true,
+      },
+      select: PAYMENT_SELECT,
+    });
+  }
+
+  // PENDING SePay requests past their expiry become EXPIRED; nothing is settled (REQ-STA-01).
+  async expireDue(at: Date, client: Client = this.prisma): Promise<number> {
+    const { count } = await client.payment.updateMany({
+      where: { method: PaymentMethod.SEPAY, status: PaymentStatus.PENDING, expiresAt: { lte: at } },
+      data: { status: PaymentStatus.EXPIRED },
+    });
+    return count;
   }
 
   // A counter payment is confirmed when it is recorded, and moves no real sandbox money (BR-34).
