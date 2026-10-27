@@ -52,7 +52,7 @@ export class SQLitePriorityQueue {
     const stmt = this.db.prepare(`
       SELECT id, event_id as eventId, priority, payload, created_at as createdAt, retry_count as retryCount
       FROM event_queue
-      ORDER BY priority ASC, created_at ASC
+      ORDER BY priority ASC, id ASC
       LIMIT ?
     `);
     return stmt.all(limit) as QueuedEvent[];
@@ -64,7 +64,9 @@ export class SQLitePriorityQueue {
   }
 
   public count(): number {
-    const row = this.db.prepare('SELECT count(*) as count FROM event_queue').get() as { count: number };
+    const row = this.db.prepare('SELECT count(*) as count FROM event_queue').get() as {
+      count: number;
+    };
     return row.count;
   }
 
