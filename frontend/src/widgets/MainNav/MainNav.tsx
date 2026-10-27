@@ -14,6 +14,7 @@ interface Entry {
 const ENTRIES: Entry[] = [
   { to: '/o/contracts', label: 'Contracts', roles: ['ORG_OPERATOR'] },
   { to: '/o/invoices', label: 'Invoices', roles: ['ORG_MANAGER'] },
+  { to: '/t/organizations', label: 'Organizations', roles: ['STAFF'] },
   { to: '/t/contracts', label: 'Contract requests', roles: ['STAFF'] },
   { to: '/t/billing', label: 'Billing', roles: ['STAFF'] },
 ];

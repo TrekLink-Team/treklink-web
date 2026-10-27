@@ -37,6 +37,7 @@ const PUBLIC_ROUTES = new Set([
   'POST /auth/password/set',
   'GET /health',
   'GET /plans',
+  'POST /organizations/register',
 ]);
 
 // The routes that need a token and no permission (D-061 rule 2): sign-out, the caller's own
