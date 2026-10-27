@@ -113,7 +113,9 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `JWT_*` (owned by `auth`, validated here) | see `auth` | env | no |
 | `MQTT_BROKER_URL` | none, required | env | no |
 | `MQTT_AUTH_HOOK_SECRET` | none, required (owned by `gateway-sync`, validated here) | env | no |
-| `SEPAY_WEBHOOK_API_KEY` | none, required (owned by `billing`, validated here) | env | no |
+| `SEPAY_WEBHOOK_API_KEY` | none, optional until the SePay sandbox account exists; without it the webhook answers 401 to every call (owned by `billing`, validated here) | env | no |
+| `SEPAY_QR_BASE_URL` | `https://vietqr.app/img` (owned by `billing`) | env | no |
+| `SEPAY_BANK_CODE` | `SANDBOX` (owned by `billing`) | env | no |
 | `CORS_ORIGINS` | `http://localhost:5173` | env | no |
 | `HTTP_BODY_LIMIT` | `1mb` | env | no |
 | `SWAGGER_ENABLED` | `true` outside production | env | no |
