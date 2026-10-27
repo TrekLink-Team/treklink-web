@@ -105,11 +105,11 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [ ] 5.2 `ContractDetailPage` and contract lists (owner LongLP)
   - **Do**: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing api-design 10; cancel, notice (MSG18), holder labels, handover note download
   - _Story: US-UC18, US-UC23, US-UC25, US-UC55_
-  - **Partly done** (2026-10-27): `/o/contracts` (status and plan filters, cards below 768 px) and the detail at `/o/contracts/:id` and `/t/contracts/:id` with prices, terms, devices, balance (billing 10), history (rentals 18) and Cancel with its reason dialog, STALE_VERSION reload and MSG15. Open: notice (12), holder labels (13) and the handover note (11), whose endpoints are not built yet
-- [ ] 5.3 `ContractApprovalPage` (owner LongLP)
+  - **Partly done** (2026-10-27): `/o/contracts` (status and plan filters, cards below 768 px) and the detail at `/o/contracts/:id` and `/t/contracts/:id` with prices, terms, devices, balance (billing 10), history (rentals 18) and Cancel with its reason dialog, STALE_VERSION reload and MSG15. Give notice (12, MSG18) and the holder label dialog with Clear label (13, MSG03) followed on 2026-10-27. Open: the handover note download (11), which comes with the handover (5.4), and Lost on a device row (screen 4.4)
+- [x] 5.3 `ContractApprovalPage` (owner LongLP)
   - **Do**: rentals api-design 04 and 05; availability from devices api-design 24; MSG11 on shortfall
   - _Story: US-UC16, US-UC17_
-  - **Partly done** (2026-10-27): `/t/contracts` with the Requested, Approved and All tabs as a table (cards below 768 px), the request panel with the handover appointment, Approve (reserved tags and expiry shown), Reject with its reason dialog, MSG11 and STALE_VERSION. Open: the advisory availability banner, since devices api-design 24 has no endpoint yet
+  - **Partly done** (2026-10-27): `/t/contracts` with the Requested, Approved and All tabs as a table (cards below 768 px), the request panel with the handover appointment, Approve (reserved tags and expiry shown), Reject with its reason dialog, MSG11 and STALE_VERSION. The advisory availability banner (devices api-design 24) followed on 2026-10-27: amber with the count when fewer units than requested are available
 - [ ] 5.4 `CounterPage` handover (owner LongLP)
   - **Do**: rentals api-design 07 to 10 in four steps (design §5): devices with scan, provisioning, battery and GPS check and swap; payment status; preview note; signature pad (PNG) and identity field; nothing stored in the browser after submit
   - _Story: US-UC14, US-UC20, US-UC21_

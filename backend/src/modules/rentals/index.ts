@@ -6,6 +6,7 @@ export {
   type ContractStatusChangedEvent,
 } from './contract-lifecycle.service';
 export { ContractsService, type Custody } from './contracts.service';
+export { DEVICE_LABEL_CHANGED, type DeviceLabelChangedEvent } from './contract-decisions.service';
 export { ALLOWED_TRANSITIONS, isAllowedTransition } from './contract-states';
 export {
   CONTRACT_CLOSE_CHECKS,
