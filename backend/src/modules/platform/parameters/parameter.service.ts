@@ -107,7 +107,7 @@ export class ParameterService {
       reads = new Map();
       this.transactionReads.set(tx, reads);
     }
-    if (!reads.has(key)) reads.set(key, await this.readThroughCache(key));
+    if (!reads.has(key)) reads.set(key, await this.readThroughCache(key, tx));
     return reads.get(key) as ParameterValue<K>;
   }
 
@@ -165,12 +165,17 @@ export class ParameterService {
     return updated;
   }
 
-  private async readThroughCache(key: string): Promise<Prisma.JsonValue> {
+  // A cache miss inside a caller's transaction reads through that transaction, so the value is in its
+  // snapshot and a single-session database does not wait on the open transaction (issue #87 point 3).
+  private async readThroughCache(
+    key: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Prisma.JsonValue> {
     const now = Date.now();
     const cached = this.cache.get(key);
     if (cached && cached.expiresAt > now) return cached.value;
 
-    const row = await this.repository.findByKey(key);
+    const row = await this.repository.findByKey(key, tx);
     // A registry key without a seeded row is a deployment fault, so it surfaces as a 500.
     if (!row) throw new Error(`Business parameter ${key} is not seeded`);
     this.cache.set(key, { value: row.value, expiresAt: now + this.ttlMs });
