@@ -1,7 +1,15 @@
 import { ConfigService } from '@nestjs/config';
-import { InvoiceKind, InvoiceLineType, InvoiceStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
+import {
+  InvoiceKind,
+  InvoiceLineType,
+  InvoiceStatus,
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+} from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { ErrorCode } from '../../common/errors';
+import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { InvoicesRepository } from './invoices.repository';
@@ -15,7 +23,13 @@ const MANAGER: Caller = { id: 'u-mgr', roles: ['ORG_MANAGER'], organizationId: '
 const OTHER: Caller = { id: 'u-x', roles: ['ORG_MANAGER'], organizationId: 'org-2' };
 const KEY = 'sandbox-key-123';
 
-const line = (seq: number, type: InvoiceLineType, amountVnd: bigint, paidVnd: bigint, dueAt: string) => ({
+const line = (
+  seq: number,
+  type: InvoiceLineType,
+  amountVnd: bigint,
+  paidVnd: bigint,
+  dueAt: string,
+) => ({
   seq,
   type,
   description: type,
@@ -26,10 +40,12 @@ const line = (seq: number, type: InvoiceLineType, amountVnd: bigint, paidVnd: bi
   paidVnd,
 });
 
-const invoice = (lines = [
-  line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 0n, '2026-11-02T02:00:00.000Z'),
-  line(2, InvoiceLineType.TERM_BALANCE, 1_125_000n, 0n, '2026-12-02T02:00:00.000Z'),
-]) => ({
+const invoice = (
+  lines = [
+    line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 0n, '2026-11-02T02:00:00.000Z'),
+    line(2, InvoiceLineType.TERM_BALANCE, 1_125_000n, 0n, '2026-12-02T02:00:00.000Z'),
+  ],
+) => ({
   id: 'inv-1',
   number: 'INV-2026-000001',
   organizationId: 'org-1',
@@ -74,16 +90,18 @@ describe('SePay sandbox (billing task 3.2)', () => {
     };
     payments = {
       findPendingSepay: jest.fn().mockResolvedValue(null),
-      insertSepayPayment: jest.fn().mockImplementation((data: object) =>
-        Promise.resolve({ ...pending(), ...data }),
-      ),
+      insertSepayPayment: jest
+        .fn()
+        .mockImplementation((data: object) => Promise.resolve({ ...pending(), ...data })),
       findById: jest.fn().mockResolvedValue(pending()),
       gatewayTxnExists: jest.fn().mockResolvedValue(false),
       lockByReference: jest.fn().mockResolvedValue(pending()),
       confirmSepay: jest.fn().mockResolvedValue(pending({ status: PaymentStatus.CONFIRMED })),
-      insertReceivedSepay: jest.fn().mockImplementation((data: object) =>
-        Promise.resolve({ ...pending({ status: PaymentStatus.CONFIRMED }), ...data }),
-      ),
+      insertReceivedSepay: jest
+        .fn()
+        .mockImplementation((data: object) =>
+          Promise.resolve({ ...pending({ status: PaymentStatus.CONFIRMED }), ...data }),
+        ),
       expireDue: jest.fn().mockResolvedValue(2),
     };
     emitAfterCommit = jest.fn();
@@ -108,7 +126,7 @@ describe('SePay sandbox (billing task 3.2)', () => {
         transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
         emitAfterCommit,
       } as unknown as TransactionalEvents,
-      config as unknown as ConfigService,
+      config as unknown as ConfigService<ValidatedEnvironment, true>,
     );
   });
 
@@ -158,7 +176,9 @@ describe('SePay sandbox (billing task 3.2)', () => {
         errorCode: ErrorCode.PAYMENT_PENDING,
       });
       invoices.detail.mockResolvedValueOnce(
-        invoice([line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 1_125_000n, '2026-11-02T02:00:00.000Z')]),
+        invoice([
+          line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 1_125_000n, '2026-11-02T02:00:00.000Z'),
+        ]),
       );
       await expect(service.request('inv-1', undefined, MANAGER, AT)).rejects.toMatchObject({
         errorCode: ErrorCode.NOTHING_DUE,
@@ -171,14 +191,20 @@ describe('SePay sandbox (billing task 3.2)', () => {
 
   it('builds the VietQR URL from configuration and the receiving account', async () => {
     await expect(service.vietQr(pending() as never)).resolves.toEqual({
-      imageUrl: 'https://vietqr.app/img?acc=SANDBOX-0001&bank=SANDBOX&amount=1125000&des=TL7K2Q9M4D',
+      imageUrl:
+        'https://vietqr.app/img?acc=SANDBOX-0001&bank=SANDBOX&amount=1125000&des=TL7K2Q9M4D',
       bankAccount: 'SANDBOX-0001',
       content: 'TL7K2Q9M4D',
     });
   });
 
   describe('handleWebhook (api-design 12, AC-03)', () => {
-    const hook = { id: 92704, transferType: 'in', transferAmount: 1_125_000, content: 'CK TL7K2Q9M4D' };
+    const hook = {
+      id: 92704,
+      transferType: 'in',
+      transferAmount: 1_125_000,
+      content: 'CK TL7K2Q9M4D',
+    };
 
     it('refuses a missing or wrong key with 401 and records nothing', async () => {
       await expect(service.handleWebhook(undefined, hook, AT)).rejects.toMatchObject({

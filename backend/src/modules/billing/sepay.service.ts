@@ -155,7 +155,7 @@ export class SepayService {
   async vietQr(payment: PaymentRow): Promise<VietQr | null> {
     if (payment.method !== PaymentMethod.SEPAY) return null;
     const account = await this.parameters.get('billing.sepayBankAccount');
-    const bankAccount = typeof account === 'string' ? account : String(account);
+    const bankAccount = typeof account === 'string' ? account : JSON.stringify(account);
     const url = new URL(this.config.get('SEPAY_QR_BASE_URL', { infer: true }));
     url.searchParams.set('acc', bankAccount);
     url.searchParams.set('bank', this.config.get('SEPAY_BANK_CODE', { infer: true }));
