@@ -32,6 +32,7 @@ import {
   SECONDARY_BUTTON,
   WARNING,
 } from '../shared/ui/styles';
+import { CounterPaymentDialog } from '../widgets/InvoiceDetail/CounterPaymentDialog';
 import { SignaturePad } from '../widgets/SignaturePad/SignaturePad';
 
 const STEPS = ['Devices', 'Payment', 'Preview note', 'Sign'] as const;
@@ -153,7 +154,14 @@ export const CounterPage: React.FC = () => {
   const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState<{ count: number; code: string } | null>(null);
+  const [recordingPayment, setRecordingPayment] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
+  const refetchInvoice = firstInvoice.refetch;
+
+  // The payment may have been recorded elsewhere while step 1 was open: read it again on step 2.
+  useEffect(() => {
+    if (step === 1) void refetchInvoice();
+  }, [step, refetchInvoice]);
 
   const preview = useQuery({
     queryKey: ['handover-preview', contractId] as const,
@@ -597,13 +605,24 @@ export const CounterPage: React.FC = () => {
                 {paymentError ?? 'The first payment is not recorded yet.'}
               </p>
             )}
-            {firstInvoiceId && (
-              <Link
-                to={`/t/billing?contractId=${data.id}`}
-                className={`${LINK} self-start text-sm`}
+            {firstInvoice.data && !firstPaid && (
+              // Recorded here, not on screen 6.3: leaving the page would drop step 1's checks.
+              <button
+                type="button"
+                className={`${SECONDARY_BUTTON} self-start`}
+                onClick={() => setRecordingPayment(true)}
               >
                 Record a counter payment
-              </Link>
+              </button>
+            )}
+            {recordingPayment && firstInvoice.data && (
+              <CounterPaymentDialog
+                invoice={firstInvoice.data}
+                onClose={() => {
+                  setRecordingPayment(false);
+                  setPaymentError(null);
+                }}
+              />
             )}
           </div>
         )}
