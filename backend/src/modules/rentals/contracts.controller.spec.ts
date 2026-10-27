@@ -164,6 +164,8 @@ describe('ContractsController (rentals api-design 01)', () => {
     ['transitions', 'read'],
     ['approve', 'operate'],
     ['reject', 'operate'],
+    ['notice', 'notice'],
+    ['holder', 'label'],
   ])('checks the %s route against %s on RentalContract', (method, action) => {
     const can = jest.fn().mockReturnValue(true);
     const ability: PolicyAbility = { can };

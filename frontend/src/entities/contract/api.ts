@@ -136,6 +136,38 @@ export const rejectContract = (id: string, reason: string, expectedVersion: numb
 export const cancelContract = (id: string, reason: string, expectedVersion: number) =>
   post<Contract & { retainedVnd: number }>(`/contracts/${id}/cancel`, { reason, expectedVersion });
 
+// rentals api-design 12: notice on an ACTIVE monthly contract (MSG18).
+export const giveNotice = (id: string, expectedVersion: number) =>
+  post<Contract & { dueAtEndVnd: number }>(`/contracts/${id}/notice`, { expectedVersion });
+
+export interface HolderInput {
+  name: string | null;
+  phone?: string | null;
+  emergencyContact?: string | null;
+}
+
+// rentals api-design 13: set or, with a null name, clear a device's holder label (MSG03).
+export const setHolder = (id: string, deviceId: string, holder: HolderInput) =>
+  apiClient<ContractDevice>(`/contracts/${id}/devices/${deviceId}/holder`, {
+    method: 'PUT',
+    body: JSON.stringify(holder),
+  });
+
+export interface Availability {
+  hardwareVariantId: string;
+  code: string;
+  available: number;
+}
+
+// devices api-design 24: AVAILABLE units per variant, advisory (approval decides, FR-CON-03).
+export const useAvailability = (hardwareVariantId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['availability', hardwareVariantId] as const,
+    queryFn: () =>
+      apiClient<Availability[]>(`/devices/availability${queryString({ hardwareVariantId })}`),
+    enabled,
+  });
+
 export const useContracts = (scope: 'o' | 't', filters: ContractFilters) =>
   useQuery({
     queryKey: contractKeys.list(scope, filters),

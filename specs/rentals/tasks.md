@@ -62,11 +62,12 @@
   - **Test**: AC-02; a tampered stored PDF fails the download check
   - _Requirements: REQ-EVT-05, REQ-UBI-05, REQ-ERR-04, REQ-ERR-08, AC-02, FR-CON-05, FR-CON-06, BR-09_
   - _Story: US-UC20, US-UC21_
-- [ ] 2.5 Holder labels (owner LongLP)
+- [x] 2.5 Holder labels (owner LongLP)
   - **Do**: set or clear a label on a handed-over device by a member of the renting organization; emit `device.labelChanged`; closing erases every label
   - **Test**: AC-07
   - _Requirements: REQ-EVT-15, AC-07, FR-CON-14, BR-33_
   - _Story: US-UC25_
+  - **Done** (2026-10-27): `ContractDecisionsService.setHolder` sets or, with a blank name, clears the label of a device that is out (handed over, not back, not lost) on a contract that is not CLOSED, for a member of the renting organization only (a TrekLink account or another organization answers 404); 409 `DEVICE_NOT_ON_CONTRACT` (MSG12) and `INVALID_STATE_TRANSITION`; emits `device.labelChanged` with the name only. Erasing every label on close joins with 4.4
 
 ## Phase 3: Terms and end of contract (MF-05)
 
@@ -76,6 +77,7 @@
   - **Test**: AC-03; a re-run after downtime closes each term once
   - _Requirements: REQ-EVT-07, REQ-EVT-08, REQ-EVT-09, REQ-ERR-06, REQ-UBI-03, AC-03, FR-CON-07, FR-CON-08, FR-CON-09, FR-CON-10, BR-05 to BR-08_
   - _Story: US-UC23, US-UC24_
+  - **Partly done** (2026-10-27): notice, as `ContractDecisionsService.giveNotice`: ACTIVE monthly to ENDING with `endsAt` at the open term's end and `noticeGivenAt`/`noticeGivenById`, `expectedVersion` checked, 409 `DAY_PLAN_NO_NOTICE`; the answer carries `dueAtEndVnd` (the balance due later) for MSG18. Open: the `rentals.termRollover` job
 - [ ] 3.2 Overdue, default, reminders (owner LongLP)
   - **Files**: `jobs/overdue-and-default.job.ts`, `jobs/reservation-reminders.job.ts`
   - **Do**: `RETURN_DUE` past `returnDueAt` plus `rentals.returnGraceHours` with devices out to `OVERDUE`; `OVERDUE` for `rentals.defaultAfterDays` to `DEFAULTED` and `OrganizationsService.suspendForDefault`; one reminder per approved contract past `reservationExpiresAt`; `RETURN_DUE`, `OVERDUE` and `DEFAULTED` contracts stay visible and routed to the organization
@@ -126,7 +128,7 @@
 
 - [ ] 6.1 `ContractsController` (owner LongLP)
   - **Do**: api-design 01 to 18 with each file's permission and `@ResponseMessage`
-  - **Partly done**: api-design 01 `POST /api/contracts` (`contract.request.own`, Org Manager); 02 `GET /api/contracts`, 03 `GET /api/contracts/:id` and 18 `GET /api/contracts/:id/transitions` (`contract.read`); 04 `POST /api/contracts/:id/approve` and 05 `.../reject` (`contract.operate`, Staff); 06 `.../cancel` (`contract.cancel.own` or `contract.operate`). For 01, answering the api-design shape with every VND amount as a JSON number, the organization from the verified context and the variant code from `DevicesService.variants`; `currentTerm` is null until approval creates term 1. Exercised on the shared Neon seed on 2026-10-26: every refusal of api-design 01 answers as specified (400 `BELOW_MOQ`, `DAY_PLAN_LENGTH`, `VALIDATION_FAILED` for a past or malformed date, 403 for an Org Operator, 401 without a token); the successful request was not sent, to keep the shared database clean
+  - **Partly done**: api-design 01 `POST /api/contracts` (`contract.request.own`, Org Manager); 02 `GET /api/contracts`, 03 `GET /api/contracts/:id` and 18 `GET /api/contracts/:id/transitions` (`contract.read`); 04 `POST /api/contracts/:id/approve` and 05 `.../reject` (`contract.operate`, Staff); 06 `.../cancel` (`contract.cancel.own` or `contract.operate`); 12 `POST /api/contracts/:id/notice` (`contract.notice.own`) and 13 `PUT /api/contracts/:id/devices/:deviceId/holder` (`contract.label.own`), both with static messages, the page building MSG18. For 01, answering the api-design shape with every VND amount as a JSON number, the organization from the verified context and the variant code from `DevicesService.variants`; `currentTerm` is null until approval creates term 1. Exercised on the shared Neon seed on 2026-10-26: every refusal of api-design 01 answers as specified (400 `BELOW_MOQ`, `DAY_PLAN_LENGTH`, `VALIDATION_FAILED` for a past or malformed date, 403 for an Org Operator, 401 without a token); the successful request was not sent, to keep the shared database clean
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/rentals.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-07; the 50 parallel approvals of the non-functional table

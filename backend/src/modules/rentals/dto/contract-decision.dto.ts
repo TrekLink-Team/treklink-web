@@ -44,3 +44,28 @@ export class ContractReasonDto {
   @Min(0)
   expectedVersion!: number;
 }
+
+// rentals api-design 12.
+export class NoticeDto {
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
+}
+
+// rentals api-design 13. A null or empty name clears the label; the other fields are optional.
+export class HolderDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  name?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  phone?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  emergencyContact?: string | null;
+}

@@ -119,6 +119,34 @@ export class DevicesRepository {
     return picked;
   }
 
+  // AVAILABLE units per variant, every variant listed even at zero.
+  async availability(
+    variantId: string | undefined,
+    client: Client = this.prisma,
+  ): Promise<{ hardwareVariantId: string; code: string; available: number }[]> {
+    const [variants, counts] = await Promise.all([
+      client.hardwareVariant.findMany({
+        where: variantId ? { id: variantId } : { isActive: true },
+        orderBy: { code: 'asc' },
+        select: { id: true, code: true },
+      }),
+      client.device.groupBy({
+        by: ['hardwareVariantId'],
+        where: {
+          status: DeviceStatus.AVAILABLE,
+          ...(variantId ? { hardwareVariantId: variantId } : {}),
+        },
+        _count: { _all: true },
+      }),
+    ]);
+    const countOf = new Map(counts.map((row) => [row.hardwareVariantId, row._count._all]));
+    return variants.map((variant) => ({
+      hardwareVariantId: variant.id,
+      code: variant.code,
+      available: countOf.get(variant.id) ?? 0,
+    }));
+  }
+
   countAvailable(variantId: string, client: Client = this.prisma): Promise<number> {
     return client.device.count({
       where: { hardwareVariantId: variantId, status: DeviceStatus.AVAILABLE },
