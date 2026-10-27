@@ -102,6 +102,14 @@ export interface NewTerm {
   endsAt: Date;
 }
 
+export interface Holder {
+  name: string;
+  phone: string | null;
+  emergencyContact: string | null;
+}
+
+export type DeviceRow = Prisma.ContractDeviceGetPayload<{ select: typeof DEVICE_ROW_SELECT }>;
+
 export interface Decision {
   decidedById: string;
   decidedAt: Date;
@@ -347,6 +355,53 @@ export class ContractsRepository {
       data: { releasedAt: at },
     });
     return rows.map((row) => row.deviceId);
+  }
+
+  // The open term of a contract, the latest by seq; null before approval.
+  openTerm(contractId: string, tx: Prisma.TransactionClient) {
+    return tx.contractTerm.findFirst({
+      where: { contractId, status: 'OPEN' },
+      orderBy: { seq: 'desc' },
+      select: TERM_SELECT,
+    });
+  }
+
+  async recordNotice(
+    id: string,
+    notice: { noticeGivenAt: Date; noticeGivenById: string; endsAt: Date },
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.rentalContract.update({ where: { id }, data: notice });
+  }
+
+  // The row of the device that is still on the contract (not released), with its custody times.
+  findDeviceRow(
+    contractId: string,
+    deviceId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<DeviceRow | null> {
+    return tx.contractDevice.findFirst({
+      where: { contractId, deviceId, releasedAt: null },
+      orderBy: { reservedAt: 'desc' },
+      select: DEVICE_ROW_SELECT,
+    });
+  }
+
+  // Sets or clears the optional holder label of one row (FR-CON-14, BR-33).
+  setHolder(
+    rowId: string,
+    holder: Holder | null,
+    tx: Prisma.TransactionClient,
+  ): Promise<DeviceRow> {
+    return tx.contractDevice.update({
+      where: { id: rowId },
+      data: {
+        holderName: holder?.name ?? null,
+        holderPhone: holder?.phone ?? null,
+        holderEmergencyContact: holder?.emergencyContact ?? null,
+      },
+      select: DEVICE_ROW_SELECT,
+    });
   }
 
   // Codes for the billing reads (the CONTRACT_DIRECTORY port).

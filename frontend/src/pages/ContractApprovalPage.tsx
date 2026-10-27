@@ -12,6 +12,7 @@ import {
   type Approved,
   type Contract,
   type ContractStatus,
+  useAvailability,
 } from '../entities/contract/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
@@ -31,6 +32,7 @@ import {
   TABLE,
   TD,
   TH,
+  WARNING,
 } from '../shared/ui/styles';
 
 const TABS: { label: string; status?: ContractStatus }[] = [
@@ -129,6 +131,13 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   const [pending, setPending] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [approved, setApproved] = useState<Approved | null>(null);
+  const availability = useAvailability(
+    contract.hardwareVariant.id,
+    contract.status === 'REQUESTED',
+  );
+  const available = availability.data?.find(
+    (row) => row.hardwareVariantId === contract.hardwareVariant.id,
+  )?.available;
 
   const approve = async () => {
     if (appointment === '') {
@@ -200,6 +209,22 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
       ) : (
         contract.status === 'REQUESTED' && (
           <>
+            <div
+              role="status"
+              className={
+                available !== undefined && available < contract.quantity
+                  ? WARNING
+                  : 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900'
+              }
+            >
+              {availability.isLoading
+                ? 'Checking availability…'
+                : available === undefined
+                  ? 'Availability is unknown; approval checks it.'
+                  : available < contract.quantity
+                    ? `Only ${available} ${contract.hardwareVariant.code} available now.`
+                    : `${available} ${contract.hardwareVariant.code} available now; approval reserves ${contract.quantity}.`}
+            </div>
             {failure && (
               <div role="alert" className={ALERT}>
                 {failure.message}

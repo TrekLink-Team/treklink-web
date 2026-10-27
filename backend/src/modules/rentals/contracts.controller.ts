@@ -9,6 +9,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -24,6 +25,8 @@ import {
   ApproveContractDto,
   ContractQueryDto,
   ContractReasonDto,
+  HolderDto,
+  NoticeDto,
 } from './dto/contract-decision.dto';
 import { ContractRequestDto } from './dto/contract-request.dto';
 
@@ -298,5 +301,55 @@ export class ContractsController {
     const variants = await this.devices.variants(false);
     const variant = variants.find((item) => item.id === contract.hardwareVariantId);
     return toContractView(contract, organization, variant?.code ?? null, quote);
+  }
+
+  // Org Manager (own). The envelope message is static; the page shows MSG18 with the date and
+  // `dueAtEndVnd` from the result.
+  @Post(':id/notice')
+  @HttpCode(HttpStatus.OK)
+  @CheckPolicies((ability) => ability.can('notice', 'RentalContract'))
+  @ResponseMessage('Notice recorded.')
+  async notice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: NoticeDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    const { contract, term, dueAtEndVnd } = await this.decisions.giveNotice(
+      id,
+      dto.expectedVersion,
+      caller,
+    );
+    const label = await this.reads.labeller([contract]);
+    return {
+      ...labelledView(contract, label(contract), term),
+      dueAtEndVnd: Number(dueAtEndVnd),
+    };
+  }
+
+  // Org Manager and Org Operator (own). A blank name clears the whole label (BR-33).
+  @Put(':id/devices/:deviceId/holder')
+  @CheckPolicies((ability) => ability.can('label', 'RentalContract'))
+  @ResponseMessage('Saved.')
+  async holder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @Body() dto: HolderDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<DeviceRowView> {
+    const name = dto.name?.trim();
+    const row = await this.decisions.setHolder(
+      id,
+      deviceId,
+      name
+        ? {
+            name,
+            phone: dto.phone?.trim() || null,
+            emergencyContact: dto.emergencyContact?.trim() || null,
+          }
+        : null,
+      caller,
+    );
+    const tags = await this.devices.assetTags([deviceId]);
+    return toDeviceRowView(row, tags.get(deviceId) ?? null);
   }
 }

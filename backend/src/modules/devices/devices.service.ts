@@ -93,7 +93,13 @@ export class DevicesService {
     return ids.length === 0 ? Promise.resolve() : this.devices.releaseReserved(ids, at, tx);
   }
 
-  // AVAILABLE units of a variant now; advisory for the approval queue (devices api-design 24).
+  // AVAILABLE units per variant now; advisory for the approval queue and the request form
+  // (devices api-design 24). Approval decides (FR-CON-03).
+  availability(variantId?: string) {
+    return this.devices.availability(variantId);
+  }
+
+  // AVAILABLE units of a variant now.
   countAvailable(variantId: string): Promise<number> {
     return this.devices.countAvailable(variantId);
   }

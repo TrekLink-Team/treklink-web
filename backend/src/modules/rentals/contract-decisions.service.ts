@@ -8,7 +8,7 @@ import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { firstTerm } from './contract-terms';
-import { ContractRow, ContractsRepository } from './contracts.repository';
+import { ContractRow, ContractsRepository, DeviceRow, Holder } from './contracts.repository';
 
 const HOUR_MS = 3_600_000;
 
@@ -22,6 +22,24 @@ export interface Approved {
   devices: DeviceTag[];
   term: { seq: number; startsAt: Date; endsAt: Date };
   reservationExpiresAt: Date;
+}
+
+export const DEVICE_LABEL_CHANGED = 'device.labelChanged';
+
+// `monitoring` turns it into the `device.label` stream entry (ws-live-contract), so only the name
+// leaves rentals; the phone numbers stay on the contract.
+export interface DeviceLabelChangedEvent {
+  deviceId: string;
+  contractId: string;
+  organizationId: string;
+  holder: { name: string } | null;
+  at: Date;
+}
+
+export interface Notice {
+  contract: ContractRow;
+  term: { seq: number; startsAt: Date; endsAt: Date };
+  dueAtEndVnd: bigint;
 }
 
 export interface Cancelled {
@@ -190,6 +208,101 @@ export class ContractDecisionsService {
       await this.contracts.recordCancellation(id, input.reason, at, tx);
       const { paidVnd } = await this.balances.balanceSummary(id, at, tx);
       return { contract: { ...cancelled, statusChangedAt: at }, retainedVnd: paidVnd };
+    });
+  }
+
+  // An Org Manager gives notice on an ACTIVE monthly contract (rentals task 3.1 part, UC-23,
+  // REQ-EVT-07): it moves to ENDING and ends with the current term, when the term balance falls due
+  // and the devices are returned (MSG18). A day plan ends on its own (409 DAY_PLAN_NO_NOTICE).
+  async giveNotice(
+    id: string,
+    expectedVersion: number,
+    actor: Caller,
+    at: Date = new Date(),
+  ): Promise<Notice> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(id, tx);
+      if (actor.organizationId !== null && actor.organizationId !== contract.organizationId) {
+        throw notFound();
+      }
+      assertVersion(contract, expectedVersion);
+      if (contract.planType === PlanType.DAY) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.DAY_PLAN_NO_NOTICE,
+          'A day plan ends on its own end date.',
+        );
+      }
+      const term = await this.contracts.openTerm(id, tx);
+      if (contract.status !== ContractStatus.ACTIVE || !term) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.INVALID_STATE_TRANSITION,
+          `This cannot be done while it is ${contract.status}.`,
+        );
+      }
+      const ending = await this.lifecycle.apply(
+        id,
+        ContractStatus.ACTIVE,
+        ContractStatus.ENDING,
+        'NOTICE',
+        actor,
+        tx,
+      );
+      await this.contracts.recordNotice(
+        id,
+        { noticeGivenAt: at, noticeGivenById: actor.id, endsAt: term.endsAt },
+        tx,
+      );
+      const { dueLaterVnd } = await this.balances.balanceSummary(id, at, tx);
+      return {
+        contract: { ...ending, statusChangedAt: at, noticeGivenAt: at, endsAt: term.endsAt },
+        term: { seq: term.seq, startsAt: term.startsAt, endsAt: term.endsAt },
+        dueAtEndVnd: dueLaterVnd,
+      };
+    });
+  }
+
+  // A member of the renting organization labels a handed-over device with its holder, or clears
+  // the label with a null name (rentals task 2.5, UC-25, REQ-EVT-15, BR-33). Only a device that is
+  // out (handed over, not back, not lost) on a contract that is not CLOSED can be labelled.
+  async setHolder(
+    id: string,
+    deviceId: string,
+    holder: Holder | null,
+    actor: Caller,
+    at: Date = new Date(),
+  ): Promise<DeviceRow> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(id, tx);
+      if (actor.organizationId === null || actor.organizationId !== contract.organizationId) {
+        throw notFound();
+      }
+      const row = await this.contracts.findDeviceRow(id, deviceId, tx);
+      if (!row) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.DEVICE_NOT_ON_CONTRACT,
+          `This device does not belong to contract ${contract.code}.`,
+        );
+      }
+      const out = row.handedOverAt !== null && row.checkedInAt === null && row.lostAt === null;
+      if (contract.status === ContractStatus.CLOSED || !out) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.INVALID_STATE_TRANSITION,
+          `This cannot be done while it is ${out ? contract.status : 'not handed over'}.`,
+        );
+      }
+      const labelled = await this.contracts.setHolder(row.id, holder, tx);
+      this.events.emitAfterCommit(DEVICE_LABEL_CHANGED, {
+        deviceId,
+        contractId: id,
+        organizationId: contract.organizationId,
+        holder: holder ? { name: holder.name } : null,
+        at,
+      } satisfies DeviceLabelChangedEvent);
+      return labelled;
     });
   }
 
