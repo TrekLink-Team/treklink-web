@@ -17,7 +17,6 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: ['.env', '../.env'] });
 
-
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw === undefined || raw === '') return fallback;
@@ -58,8 +57,13 @@ export const gatewayConfig = {
   mqtt: {
     brokerUrl: str('MQTT_BROKER_URL', 'mqtt://localhost:1883'),
     clientIdPrefix: str('MQTT_CLIENT_ID_GATEWAY', 'treklink-gateway'),
-    /** Topic prefix; the priority tier is appended as the final segment. */
-    topicPrefix: str('GATEWAY_MQTT_TOPIC_PREFIX', 'treklink/events/priority'),
+    /**
+     * Stage B (D-005): the bridge republishes each node's packet on that node's own uplink topic,
+     * `<prefix>/<channel>/<sender>`, the topic the backend ingests (gateway-sync design §4).
+     */
+    topicPrefix: str('GATEWAY_MQTT_TOPIC_PREFIX', 'treklink/2/json'),
+    /** The channel name in the topic; the backend does not read it. */
+    channelName: str('GATEWAY_MQTT_CHANNEL', 'LongFast'),
     /** Milliseconds between reconnect attempts when the uplink is down. */
     reconnectPeriodMs: num('GATEWAY_MQTT_RECONNECT_PERIOD_MS', 3_000),
     /** QoS for published events. 1 = at-least-once; dedup is handled backend-side by eventId. */
@@ -70,6 +74,22 @@ export const gatewayConfig = {
     port: str('GATEWAY_SERIAL_PORT', '/dev/ttyUSB0'),
     baudRate: num('GATEWAY_SERIAL_BAUD', 115_200),
     simulationMode: process.env.GATEWAY_SERIAL_SIMULATION !== 'false',
+  },
+
+  /** Simulation mode only: what the simulated nodes send, for demos without hardware. */
+  simulation: {
+    /** Node ids to simulate; the defaults are TL-0009 and TL-0010 of the demo seed. */
+    nodes: str('GATEWAY_SIM_NODES', '!de000009,!de00000a')
+      .split(',')
+      .map((node) => node.trim())
+      .filter((node) => node !== ''),
+    /** Milliseconds between ticks; each tick sends a position and a telemetry reading per node. */
+    intervalMs: num('GATEWAY_SIM_INTERVAL_MS', 5_000),
+    /** Every n-th tick the first node sends an SOS; 0 never. */
+    sosEvery: num('GATEWAY_SIM_SOS_EVERY', 12),
+    /** Where the walk starts (Ta Nang, the fixtures' area). */
+    startLat: num('GATEWAY_SIM_START_LAT', 11.5544),
+    startLon: num('GATEWAY_SIM_START_LON', 108.5381),
   },
 } as const;
 

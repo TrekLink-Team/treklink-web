@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { AttributionState, IngressPath, Prisma, SyncOutcome } from '@prisma/client';
 import { DevicesService } from '../devices';
+import { ContractsService } from '../rentals';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { CanonicalEnvelope } from './canonical-envelope';
@@ -25,15 +26,15 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 
 // The one writer of field events (tasks 2.2 and 2.3, design §2). Every attempt leaves one audit row.
 //
-// Iteration 1 (D-058): `rentals` and `incidents` do not exist yet, so every event is UNATTRIBUTED
-// (outcome ACCEPTED_UNATTRIBUTED, fleet stream only) and an SOS is stored without the incidents hand-off.
-// Attribution (task 2.4) and IncidentsService.onSos and onPosition (task 2.3) join here, in the same
-// transaction, when those modules land.
+// Attribution (task 2.4) asks `rentals` for the custody interval at the occurrence time. An SOS is still
+// stored without the incidents hand-off: IncidentsService.onSos and onPosition (task 2.3, incidents 2.3)
+// join here, in the same transaction, when they are built.
 @Injectable()
 export class IngestionService {
   constructor(
     private readonly repository: IngestionRepository,
     private readonly devices: DevicesService,
+    private readonly contracts: ContractsService,
     private readonly normalizer: Normalizer,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
@@ -87,20 +88,30 @@ export class IngestionService {
       return SyncOutcome.NORMALIZATION_FAILED;
     }
 
-    const [bounds, maxSpeedKmh, deviceTimeMaxAheadSeconds, lateUploadGraceHours] =
+    const [bounds, maxSpeedKmh, deviceTimeMaxAheadSeconds, lateUploadGraceHours, marginSeconds] =
       await Promise.all([
         this.parameters.get('monitoring.positionBounds'),
         this.parameters.get('monitoring.maxPlausibleSpeedKmh'),
         this.parameters.get('gatewaySync.deviceTimeMaxAheadSeconds'),
         this.parameters.get('gatewaySync.lateUploadGraceHours'),
+        this.parameters.get('gatewaySync.attributionMarginSeconds'),
       ]);
     const time = occurrenceTime(packet.timestamp, receivedAt, {
       deviceTimeMaxAheadSeconds,
       lateUploadGraceHours,
     });
 
+    // Attribution (task 2.4, D-040): the custody interval holding the device at the occurrence time,
+    // clear of the margin around its handover and end; anything else stays UNATTRIBUTED and reaches
+    // the fleet stream only (BR-36). Read before the transaction: custody changes only at a
+    // handover, check-in or loss, never because of a field event.
+    const custody = await this.contracts.custodyAt(device.id, time.occurredAt, marginSeconds);
+    const attributed = custody !== null && !custody.nearBoundary ? custody : null;
+
     return this.events.transaction(async (tx) => {
-      let outcome: SyncOutcome = SyncOutcome.ACCEPTED_UNATTRIBUTED;
+      let outcome: SyncOutcome = attributed
+        ? SyncOutcome.ACCEPTED
+        : SyncOutcome.ACCEPTED_UNATTRIBUTED;
       let position = reading.position;
       let plotted = true;
       if (position && !isValidPosition(position, toBounds(bounds))) {
@@ -125,7 +136,9 @@ export class IngestionService {
         {
           eventId,
           deviceId: device.id,
-          attribution: AttributionState.UNATTRIBUTED,
+          attribution: attributed ? AttributionState.ATTRIBUTED : AttributionState.UNATTRIBUTED,
+          organizationId: attributed?.organizationId ?? null,
+          contractDeviceId: attributed?.contractDeviceId ?? null,
           uplinkKey,
           ingress,
           kind: reading.kind,
@@ -170,7 +183,7 @@ export class IngestionService {
       if (position) {
         this.events.emitAfterCommit(FIELD_POSITION, {
           deviceId: device.id,
-          organizationId: null,
+          organizationId: attributed?.organizationId ?? null,
           lat: position.latitude,
           lon: position.longitude,
           at,
@@ -180,7 +193,7 @@ export class IngestionService {
       if (reading.batteryPct !== undefined) {
         this.events.emitAfterCommit(FIELD_TELEMETRY, {
           deviceId: device.id,
-          organizationId: null,
+          organizationId: attributed?.organizationId ?? null,
           batteryPct: reading.batteryPct,
           at,
         } satisfies FieldTelemetryEvent);
