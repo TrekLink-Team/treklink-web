@@ -15,6 +15,9 @@ const HEIGHT = 160;
 export const SignaturePad: React.FC<Props> = ({ id, onChange, invalid }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
+  // Whether any stroke has left ink since the last clear: a tap without movement draws nothing and
+  // must not count as a signature.
+  const inked = useRef(false);
 
   // The canvas takes its container's width once, at the device pixel ratio, so strokes stay sharp.
   useEffect(() => {
@@ -53,17 +56,19 @@ export const SignaturePad: React.FC<Props> = ({ id, onChange, invalid }) => {
     const { x, y } = point(event);
     context.lineTo(x, y);
     context.stroke();
+    inked.current = true;
   };
 
   const end = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!drawing.current) return;
     drawing.current = false;
-    onChange(event.currentTarget.toDataURL('image/png'));
+    if (inked.current) onChange(event.currentTarget.toDataURL('image/png'));
   };
 
   const clear = () => {
     const element = canvas.current;
     element?.getContext('2d')?.clearRect(0, 0, element.width, element.height);
+    inked.current = false;
     onChange(null);
   };
 
