@@ -14,7 +14,9 @@ import {
 import { formatDate, formatDay } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { Badge, Empty, ErrorState, Loading, PageTitle, Pager } from '../shared/ui/bits';
-import { INPUT, LINK, PRIMARY_BUTTON } from '../shared/ui/styles';
+import { LINK, PRIMARY_BUTTON } from '../shared/ui/styles';
+import { matchesText } from '../shared/lib/filter';
+import { FilterBar, FilterRow, NoMatchRow, type FilterField } from '../shared/ui/TableFilters';
 
 const STATUSES = Object.keys(STATUS_LABELS) as ContractStatus[];
 
@@ -25,7 +27,43 @@ export const ContractsPage: React.FC = () => {
   const isManager = hasAnyRole(user?.roles ?? [], ['ORG_MANAGER']);
   const [filters, setFilters] = useState<ContractFilters>({ pageNumber: 1 });
   const { data, isLoading, error, refetch } = useContracts('o', filters);
-  const filtered = filters.status !== undefined || filters.planType !== undefined;
+  const [code, setCode] = useState('');
+  const filtered = filters.status !== undefined || filters.planType !== undefined || code !== '';
+  const rows = data?.items.filter((contract) => matchesText(code, contract.code)) ?? [];
+  const clear = () => {
+    setCode('');
+    setFilters({ pageNumber: 1 });
+  };
+  const fields: Record<'code' | 'plan' | 'status', FilterField> = {
+    code: { label: 'code', kind: 'text', value: code, onChange: setCode, placeholder: 'RC-...' },
+    plan: {
+      label: 'plan',
+      kind: 'select',
+      value: filters.planType ?? '',
+      options: [
+        { value: 'MONTHLY', label: 'Monthly' },
+        { value: 'DAY', label: 'Day plan' },
+      ],
+      onChange: (value) =>
+        setFilters({
+          ...filters,
+          planType: (value || undefined) as PlanType | undefined,
+          pageNumber: 1,
+        }),
+    },
+    status: {
+      label: 'status',
+      kind: 'select',
+      value: filters.status ?? '',
+      options: STATUSES.map((status) => ({ value: status, label: STATUS_LABELS[status] })),
+      onChange: (value) =>
+        setFilters({
+          ...filters,
+          status: (value || undefined) as ContractStatus | undefined,
+          pageNumber: 1,
+        }),
+    },
+  };
 
   return (
     <section aria-labelledby="contracts-title">
@@ -41,67 +79,29 @@ export const ContractsPage: React.FC = () => {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <select
-          aria-label="Filter by status"
-          className={INPUT}
-          value={filters.status ?? ''}
-          onChange={(event) =>
-            setFilters({
-              ...filters,
-              status: (event.target.value || undefined) as ContractStatus | undefined,
-              pageNumber: 1,
-            })
-          }
-        >
-          <option value="">All statuses</option>
-          {STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {STATUS_LABELS[status]}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Filter by plan"
-          className={INPUT}
-          value={filters.planType ?? ''}
-          onChange={(event) =>
-            setFilters({
-              ...filters,
-              planType: (event.target.value || undefined) as PlanType | undefined,
-              pageNumber: 1,
-            })
-          }
-        >
-          <option value="">All plans</option>
-          <option value="MONTHLY">Monthly</option>
-          <option value="DAY">Day plan</option>
-        </select>
-      </div>
-
       {isLoading && <Loading />}
       {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-      {data && data.items.length === 0 && (
+      {data && data.items.length === 0 && !filtered && (
         <Empty>
-          {filtered ? (
-            'No results match your filters.'
-          ) : (
-            <>
-              <p>Your organization has no contracts yet.</p>
-              {isManager && (
-                <Link to="/o/contracts/new" className={`${LINK} mt-2 inline-block`}>
-                  Request a contract
-                </Link>
-              )}
-            </>
+          <p>Your organization has no contracts yet.</p>
+          {isManager && (
+            <Link to="/o/contracts/new" className={`${LINK} mt-2 inline-block`}>
+              Request a contract
+            </Link>
           )}
         </Empty>
       )}
 
-      {data && data.items.length > 0 && (
+      {data && (data.items.length > 0 || filtered) && (
         <>
+          <FilterBar
+            className="mb-3 md:hidden"
+            fields={[fields.code, fields.plan, fields.status]}
+            onClear={clear}
+          />
           <ul className="flex flex-col gap-3 md:hidden">
-            {data.items.map((contract) => {
+            {rows.length === 0 && <li className="text-slate-700">No rows match these filters.</li>}
+            {rows.map((contract) => {
               const next = nextDateOf(contract);
               return (
                 <li key={contract.id} className="rounded-xl border border-slate-200 bg-white p-4">
@@ -132,9 +132,14 @@ export const ContractsPage: React.FC = () => {
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Next date</th>
               </tr>
+              <FilterRow
+                columns={[fields.code, fields.plan, null, fields.status, null]}
+                onClear={clear}
+              />
             </thead>
             <tbody>
-              {data.items.map((contract) => {
+              {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
+              {rows.map((contract) => {
                 const next = nextDateOf(contract);
                 return (
                   <tr key={contract.id} className="border-t border-slate-200">

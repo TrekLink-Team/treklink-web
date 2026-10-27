@@ -19,6 +19,8 @@ import { Badge, Empty, ErrorState, Fact, Field, Loading, PageTitle } from '../sh
 import { Dialog } from '../shared/ui/Dialog';
 import { invalid } from '../shared/ui/errors';
 import { useToast } from '../shared/ui/toastStore';
+import { matchesText } from '../shared/lib/filter';
+import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
 import {
   ALERT,
   CARD,
@@ -233,6 +235,17 @@ export const OrganizationReviewPage: React.FC = () => {
   const [deciding, setDeciding] = useState(false);
   const organizations = useOrganizations(TABS[tab].status);
   const selected = organizations.data?.items.find((item) => item.id === selectedId) ?? null;
+  const [find, setFind] = useState({ code: '', name: '', verified: '' });
+  const set = (key: keyof typeof find) => (value: string) =>
+    setFind((current) => ({ ...current, [key]: value }));
+  const clear = () => setFind({ code: '', name: '', verified: '' });
+  const rows =
+    organizations.data?.items.filter(
+      (item) =>
+        matchesText(find.code, item.code) &&
+        matchesText(find.name, item.legalName, item.taxCode) &&
+        (find.verified === '' || (find.verified === 'YES') === Boolean(item.verifiedAt)),
+    ) ?? [];
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: organizationKeys.all });
 
@@ -291,9 +304,35 @@ export const OrganizationReviewPage: React.FC = () => {
                   <th className={TH}>Verified</th>
                   <th className={TH}>Status</th>
                 </tr>
+                <FilterRow
+                  columns={[
+                    { label: 'code', kind: 'text', value: find.code, onChange: set('code') },
+                    {
+                      label: 'organization',
+                      kind: 'text',
+                      value: find.name,
+                      onChange: set('name'),
+                      placeholder: 'Name or tax code',
+                    },
+                    null,
+                    {
+                      label: 'verified',
+                      kind: 'select',
+                      value: find.verified,
+                      onChange: set('verified'),
+                      options: [
+                        { value: 'YES', label: 'Verified' },
+                        { value: 'NO', label: 'Not yet' },
+                      ],
+                    },
+                    null,
+                  ]}
+                  onClear={clear}
+                />
               </thead>
               <tbody>
-                {organizations.data.items.map((item) => (
+                {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
+                {rows.map((item) => (
                   <tr
                     key={item.id}
                     className={`cursor-pointer border-t border-slate-200 hover:bg-slate-50 ${
