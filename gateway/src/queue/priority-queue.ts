@@ -1,4 +1,6 @@
 import Database from 'better-sqlite3';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { gatewayConfig, PriorityTier } from '../config';
 
 export { PriorityTier };
@@ -16,6 +18,9 @@ export class SQLitePriorityQueue {
   private db: Database.Database;
 
   constructor(dbPath: string = gatewayConfig.queue.dbPath) {
+    // A fresh clone has no folder for GATEWAY_SQLITE_DB_PATH (./data/ by default); SQLite creates the
+    // file but not its folder. An in-memory database has no folder to create.
+    if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.init();
   }
