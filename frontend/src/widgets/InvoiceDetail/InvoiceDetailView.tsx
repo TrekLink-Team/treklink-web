@@ -10,6 +10,8 @@ import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
 import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK, PRIMARY_BUTTON, TD, TH } from '../../shared/ui/styles';
+import { matchesText } from '../../shared/lib/filter';
+import { FilterRow, NoMatchRow } from '../../shared/ui/TableFilters';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
 
 // Line status tones (TrekLink System Colors, shared/ui/status.ts).
@@ -32,10 +34,17 @@ export const InvoiceDetailView: React.FC<{
 }> = ({ invoiceId, contractPath, canRecordCounter }) => {
   const { data, isLoading, error, refetch } = useInvoice(invoiceId);
   const [recording, setRecording] = useState(false);
+  const [lineText, setLineText] = useState('');
+  const [lineFilter, setLineFilter] = useState('');
 
   if (isLoading) return <Loading label="Loading invoice" />;
   if (error || !data) return <ErrorState error={error} onRetry={() => void refetch()} />;
   const due = data.totalVnd - data.paidVnd;
+  const lines = data.lines.filter(
+    (line) =>
+      matchesText(lineText, line.description, line.type) &&
+      (lineFilter === '' || lineStatus(line) === lineFilter),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,9 +92,37 @@ export const InvoiceDetailView: React.FC<{
                 <th className={`${TH} text-right`}>Amount</th>
                 <th className={TH}>Status</th>
               </tr>
+              <FilterRow
+                columns={[
+                  null,
+                  { label: 'line', kind: 'text', value: lineText, onChange: setLineText },
+                  null,
+                  null,
+                  {
+                    label: 'line status',
+                    kind: 'select',
+                    value: lineFilter,
+                    onChange: setLineFilter,
+                    options: Object.keys(LINE_TONES).map((value) => ({ value, label: value })),
+                  },
+                ]}
+                onClear={() => {
+                  setLineText('');
+                  setLineFilter('');
+                }}
+              />
             </thead>
             <tbody>
-              {data.lines.map((line) => {
+              {lines.length === 0 && (
+                <NoMatchRow
+                  colSpan={5}
+                  onClear={() => {
+                    setLineText('');
+                    setLineFilter('');
+                  }}
+                />
+              )}
+              {lines.map((line) => {
                 const status = lineStatus(line);
                 return (
                   <tr key={line.seq} className="border-b border-slate-100 last:border-0">

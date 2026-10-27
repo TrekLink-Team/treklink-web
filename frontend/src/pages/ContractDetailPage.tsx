@@ -37,6 +37,8 @@ import {
   PRIMARY_BUTTON,
   SECONDARY_BUTTON,
 } from '../shared/ui/styles';
+import { matchesText } from '../shared/lib/filter';
+import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
 import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 
@@ -202,12 +204,19 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   const [noticing, setNoticing] = useState(false);
   const [labelling, setLabelling] = useState<ContractDevice | null>(null);
   const isMember = hasAnyRole(roles, ['ORG_OPERATOR']);
+  const [tag, setTag] = useState('');
+  const [holder, setHolder] = useState('');
 
   if (contract.isLoading) return <Loading label="Loading contract" />;
   if (contract.error || !contract.data) {
     return <ErrorState error={contract.error} onRetry={() => void contract.refetch()} />;
   }
   const data = contract.data;
+  const devices = data.devices.filter(
+    (device) =>
+      matchesText(tag, device.assetTag, device.deviceId) &&
+      matchesText(holder, device.holder?.name ?? 'No label'),
+  );
   // Holder labels belong to the renting organization's members, on a contract not yet closed.
   const canLabel = scope === 'o' && isMember && data.status !== 'CLOSED';
   const back = scope === 'o' ? '/o/contracts' : '/t/contracts';
@@ -317,9 +326,31 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                     <th className="py-2">Back</th>
                     {canLabel && <th className="py-2 sr-only">Actions</th>}
                   </tr>
+                  <FilterRow
+                    columns={[
+                      { label: 'asset tag', kind: 'text', value: tag, onChange: setTag },
+                      { label: 'holder', kind: 'text', value: holder, onChange: setHolder },
+                      null,
+                      null,
+                      ...(canLabel ? [null] : []),
+                    ]}
+                    onClear={() => {
+                      setTag('');
+                      setHolder('');
+                    }}
+                  />
                 </thead>
                 <tbody>
-                  {data.devices.map((device) => (
+                  {devices.length === 0 && (
+                    <NoMatchRow
+                      colSpan={canLabel ? 5 : 4}
+                      onClear={() => {
+                        setTag('');
+                        setHolder('');
+                      }}
+                    />
+                  )}
+                  {devices.map((device) => (
                     <tr key={device.deviceId} className="border-t border-slate-200">
                       <td className="py-2 font-mono">{device.assetTag ?? device.deviceId}</td>
                       <td className="py-2">{device.holder?.name ?? 'No label'}</td>

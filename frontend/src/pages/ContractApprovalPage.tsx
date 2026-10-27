@@ -20,6 +20,8 @@ import { Badge, Empty, ErrorState, Field, Loading, PageTitle, Pager } from '../s
 import { invalid } from '../shared/ui/errors';
 import { Dialog } from '../shared/ui/Dialog';
 import { useToast } from '../shared/ui/toastStore';
+import { matchesText } from '../shared/lib/filter';
+import { FilterBar, FilterRow, NoMatchRow, type FilterField } from '../shared/ui/TableFilters';
 import {
   ALERT,
   CARD,
@@ -301,6 +303,43 @@ export const ContractApprovalPage: React.FC = () => {
   const [selected, setSelected] = useState<Contract | null>(null);
   const status = TABS[tab].status;
   const { data, isLoading, error, refetch } = useContracts('t', { status, pageNumber });
+  const [find, setFind] = useState({ code: '', organization: '', plan: '', variant: '' });
+  const set = (key: keyof typeof find) => (value: string) =>
+    setFind((current) => ({ ...current, [key]: value }));
+  const clear = () => setFind({ code: '', organization: '', plan: '', variant: '' });
+  const filtered = Object.values(find).some((value) => value !== '');
+  const rows =
+    data?.items.filter(
+      (contract) =>
+        matchesText(find.code, contract.code) &&
+        matchesText(
+          find.organization,
+          contract.organization?.code,
+          contract.organization?.legalName,
+        ) &&
+        (find.plan === '' || contract.planType === find.plan) &&
+        matchesText(find.variant, contract.hardwareVariant.code),
+    ) ?? [];
+  const fields: Record<keyof typeof find, FilterField> = {
+    code: { label: 'contract', kind: 'text', value: find.code, onChange: set('code') },
+    organization: {
+      label: 'organization',
+      kind: 'text',
+      value: find.organization,
+      onChange: set('organization'),
+    },
+    plan: {
+      label: 'plan',
+      kind: 'select',
+      value: find.plan,
+      onChange: set('plan'),
+      options: [
+        { value: 'MONTHLY', label: 'Monthly' },
+        { value: 'DAY', label: 'Day plan' },
+      ],
+    },
+    variant: { label: 'variant', kind: 'text', value: find.variant, onChange: set('variant') },
+  };
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: contractKeys.all });
@@ -338,13 +377,21 @@ export const ContractApprovalPage: React.FC = () => {
             <Empty>
               {status === 'REQUESTED'
                 ? 'No contract requests are waiting.'
-                : 'No results match your filters.'}
+                : 'No contracts in this queue.'}
             </Empty>
           )}
           {data && data.items.length > 0 && (
             <>
+              <FilterBar
+                className="mb-3 md:hidden"
+                fields={[fields.code, fields.organization, fields.plan, fields.variant]}
+                onClear={clear}
+              />
               <ul className="flex flex-col gap-2 md:hidden">
-                {data.items.map((contract) => (
+                {filtered && rows.length === 0 && (
+                  <li className="text-slate-700">No rows match these filters.</li>
+                )}
+                {rows.map((contract) => (
                   <li key={contract.id}>
                     <button
                       type="button"
@@ -383,9 +430,21 @@ export const ContractApprovalPage: React.FC = () => {
                     <th className={TH}>Start</th>
                     <th className={TH}>Status</th>
                   </tr>
+                  <FilterRow
+                    columns={[
+                      fields.code,
+                      fields.organization,
+                      fields.plan,
+                      fields.variant,
+                      null,
+                      null,
+                    ]}
+                    onClear={clear}
+                  />
                 </thead>
                 <tbody>
-                  {data.items.map((contract) => {
+                  {rows.length === 0 && <NoMatchRow colSpan={6} onClear={clear} />}
+                  {rows.map((contract) => {
                     const active = contract.id === selected?.id;
                     return (
                       <tr
