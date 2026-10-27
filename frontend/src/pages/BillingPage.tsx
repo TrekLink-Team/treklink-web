@@ -8,7 +8,9 @@ import {
 } from '../entities/billing/api';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { Empty, ErrorState, Loading, PageTitle, Pager } from '../shared/ui/bits';
-import { INPUT, TAB } from '../shared/ui/styles';
+import { TAB } from '../shared/ui/styles';
+import { matchesText } from '../shared/lib/filter';
+import { FilterRow, NoMatchRow, type FilterField } from '../shared/ui/TableFilters';
 import { InvoiceDetailView } from '../widgets/InvoiceDetail/InvoiceDetailView';
 import { InvoiceTable } from '../widgets/InvoiceDetail/InvoiceTable';
 import { InvoiceFilterBar } from './InvoicesPage';
@@ -27,12 +29,13 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
         <InvoiceFilterBar filters={filters} onChange={setFilters} />
         {isLoading && <Loading />}
         {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-        {data && data.items.length === 0 && <Empty>No results match your filters.</Empty>}
-        {data && data.items.length > 0 && (
+        {data && (
           <>
             <InvoiceTable
               invoices={data.items}
               showOrganization
+              filters={filters}
+              onFilters={setFilters}
               selectedId={selectedId}
               onOpen={(invoice) => setSelectedId(invoice.id)}
             />
@@ -61,68 +64,89 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
 const PaymentsTab: React.FC = () => {
   const [filters, setFilters] = useState<PaymentFilters>({ pageNumber: 1 });
   const { data, isLoading, error, refetch } = usePayments(filters);
+  const [reference, setReference] = useState('');
+  const [method, setMethod] = useState('');
+  const filtered = filters.status !== undefined || reference !== '' || method !== '';
+  const clear = () => {
+    setReference('');
+    setMethod('');
+    setFilters({ pageNumber: 1 });
+  };
+  const rows =
+    data?.items.filter(
+      (payment) =>
+        matchesText(reference, payment.reference) && (method === '' || payment.method === method),
+    ) ?? [];
+  const columns: (FilterField | null)[] = [
+    { label: 'reference', kind: 'text', value: reference, onChange: setReference },
+    {
+      label: 'method',
+      kind: 'select',
+      value: method,
+      onChange: setMethod,
+      options: Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label })),
+    },
+    null,
+    {
+      label: 'status',
+      kind: 'select',
+      value: filters.status ?? '',
+      options: PAYMENT_STATUSES.map((status) => ({
+        value: status,
+        label: status.charAt(0) + status.slice(1).toLowerCase(),
+      })),
+      onChange: (value) =>
+        setFilters({
+          ...filters,
+          status: (value || undefined) as PaymentFilters['status'],
+          pageNumber: 1,
+        }),
+    },
+    null,
+  ];
 
   return (
     <div>
-      <div className="mb-4">
-        <select
-          aria-label="Filter by status"
-          className={INPUT}
-          value={filters.status ?? ''}
-          onChange={(event) =>
-            setFilters({
-              ...filters,
-              status: (event.target.value || undefined) as PaymentFilters['status'],
-              pageNumber: 1,
-            })
-          }
-        >
-          <option value="">All statuses</option>
-          {PAYMENT_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {status.charAt(0) + status.slice(1).toLowerCase()}
-            </option>
-          ))}
-        </select>
-      </div>
       {isLoading && <Loading />}
       {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-      {data && data.items.length === 0 && (
-        <Empty>{filters.status ? 'No results match your filters.' : 'No payments recorded.'}</Empty>
-      )}
-      {data && data.items.length > 0 && (
+      {data && data.items.length === 0 && !filtered && <Empty>No payments recorded.</Empty>}
+      {data && (data.items.length > 0 || filtered) && (
         <>
-          <table className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
-              <tr>
-                <th className="px-3 py-3">Reference</th>
-                <th className="px-3 py-3">Method</th>
-                <th className="px-3 py-3 text-right">Amount</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">Confirmed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((payment) => (
-                <tr key={payment.id} className="border-t border-slate-200">
-                  <td className="px-3 py-3 font-mono">{payment.reference}</td>
-                  <td className="px-3 py-3">
-                    {METHOD_LABELS[payment.method]}
-                    {payment.isSandbox && (
-                      <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-900">
-                        SANDBOX
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-right">{formatVnd(payment.amountVnd)}</td>
-                  <td className="px-3 py-3">{payment.status.toLowerCase()}</td>
-                  <td className="px-3 py-3">
-                    {payment.confirmedAt ? formatDateTime(payment.confirmedAt) : 'Not yet'}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="px-3 py-3">Reference</th>
+                  <th className="px-3 py-3">Method</th>
+                  <th className="px-3 py-3 text-right">Amount</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Confirmed</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+                <FilterRow columns={columns} onClear={clear} />
+              </thead>
+              <tbody>
+                {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
+                {rows.map((payment) => (
+                  <tr key={payment.id} className="border-t border-slate-200">
+                    <td className="px-3 py-3 font-mono">{payment.reference}</td>
+                    <td className="px-3 py-3">
+                      {METHOD_LABELS[payment.method]}
+                      {payment.isSandbox && (
+                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-900">
+                          SANDBOX
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-right">{formatVnd(payment.amountVnd)}</td>
+                    <td className="px-3 py-3">{payment.status.toLowerCase()}</td>
+                    <td className="px-3 py-3">
+                      {payment.confirmedAt ? formatDateTime(payment.confirmedAt) : 'Not yet'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <Pager
             pageNumber={data.pageNumber}
             totalPages={data.totalPages}
