@@ -6,6 +6,8 @@ import { useBalance } from '../entities/billing/api';
 import {
   cancelContract,
   contractKeys,
+  downloadPdf,
+  fetchHandoverNote,
   planLabel,
   STATUS_LABELS,
   STATUS_TONES,
@@ -24,7 +26,7 @@ import {
 } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { Badge, ErrorState, Fact, Field, Loading, PageTitle } from '../shared/ui/bits';
-import { invalid } from '../shared/ui/errors';
+import { invalid, messageOf } from '../shared/ui/errors';
 import { Dialog } from '../shared/ui/Dialog';
 import { useToast } from '../shared/ui/toastStore';
 import {
@@ -140,8 +142,51 @@ const CancelDialog: React.FC<{ contract: ContractDetail; onClose: () => void }> 
   );
 };
 
+// The signed handover note (rentals api-design 11) as a download, with its integrity check: a note
+// whose hash no longer matches the one recorded at signing still downloads, with a warning.
+const HandoverNoteButton: React.FC<{ contract: ContractDetail }> = ({ contract }) => {
+  const [pending, setPending] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  const download = async () => {
+    setPending(true);
+    setNote(null);
+    try {
+      const stored = await fetchHandoverNote(contract.id);
+      if (stored.pdfBase64) downloadPdf(stored.pdfBase64, `${contract.code}-handover-note.pdf`);
+      if (stored.integrity === 'MISMATCH') {
+        setNote('This note does not match the one signed at the counter. Tell TrekLink Staff.');
+      } else if (stored.integrity === 'MISSING') {
+        setNote('The stored note cannot be found. Tell TrekLink Staff.');
+      }
+    } catch (failure) {
+      setNote(messageOf(failure));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        className={SECONDARY_BUTTON}
+        disabled={pending}
+        onClick={() => void download()}
+      >
+        {pending ? 'Preparing…' : 'Download handover note'}
+      </button>
+      {note && (
+        <p role="alert" className="text-sm text-red-700">
+          {note}
+        </p>
+      )}
+    </div>
+  );
+};
+
 // /o/contracts/:id and /t/contracts/:id, the contract detail of screen 5.2 (rentals api-design 03,
-// 06, 12, 13, 18; billing api-design 10). The Org Operator reads it without balance, history,
+// 06, 11, 12, 13, 18; billing api-design 10). The Org Operator reads it without balance, history,
 // notice or cancel, and may label holders.
 export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const { id = '' } = useParams();
@@ -364,6 +409,12 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
               Cancel contract
             </button>
           )}
+          {isStaff && data.status === 'APPROVED' && (
+            <Link to={`/t/counter/${data.id}`} className={PRIMARY_BUTTON}>
+              Open the counter
+            </Link>
+          )}
+          {canSeeMoney && data.handedOverAt && <HandoverNoteButton contract={data} />}
           {isStaff && data.status === 'REQUESTED' && (
             <Link to="/t/contracts" className={PRIMARY_BUTTON}>
               Open the approval queue

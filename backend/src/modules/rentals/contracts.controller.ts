@@ -32,7 +32,7 @@ import { ContractRequestDto } from './dto/contract-request.dto';
 
 // The caller's organization as the verified request context holds it (auth design §2): id, code and
 // legal name. Read structurally, because `rentals` does not import `auth`.
-interface OrganizationRef {
+export interface OrganizationRef {
   id: string;
   code: string;
   legalName: string;

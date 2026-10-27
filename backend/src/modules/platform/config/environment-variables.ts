@@ -169,6 +169,12 @@ export class EnvironmentVariables {
 
   @IsString()
   DISPLAY_TIMEZONE_DEFAULT = 'Asia/Ho_Chi_Minh';
+
+  // Owned by `rentals` (specs/rentals/requirements.md §4): where signed handover notes are stored,
+  // relative to the backend's working directory unless absolute.
+  @IsString()
+  @IsNotEmpty()
+  HANDOVER_NOTE_STORAGE_DIR = 'storage/handover-notes';
 }
 
 export type ValidatedEnvironment = EnvironmentVariables & { SWAGGER_ENABLED: boolean };
