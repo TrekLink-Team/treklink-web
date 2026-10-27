@@ -1,6 +1,8 @@
 import { OrganizationStatus, Prisma } from '@prisma/client';
 import { ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AccountsService } from '../auth';
+import { MembersRepository } from './members.repository';
 import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationsService } from './organizations.service';
 
@@ -12,7 +14,11 @@ describe('OrganizationsService.assertActive (FR-CON-02, for rentals 2.1)', () =>
 
   beforeEach(() => {
     organizations = { findStatus: jest.fn().mockResolvedValue(OrganizationStatus.ACTIVE) };
-    service = new OrganizationsService(organizations as unknown as OrganizationsRepository);
+    service = new OrganizationsService(
+      organizations as unknown as OrganizationsRepository,
+      {} as MembersRepository,
+      {} as AccountsService,
+    );
   });
 
   it('passes an ACTIVE organization, reading in the caller transaction', async () => {
@@ -55,5 +61,70 @@ describe('OrganizationsRepository.findStatus', () => {
       repository.findStatus('org-9', prisma as unknown as Prisma.TransactionClient),
     ).resolves.toBeNull();
     expect(findUnique).toHaveBeenCalledWith({ where: { id: 'org-1' }, select: { status: true } });
+  });
+});
+
+describe('OrganizationsService reads for the counter handover (screen 5.4)', () => {
+  const STAFF = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
+  const MEMBER = { id: 'u-mgr', roles: ['ORG_MANAGER'], organizationId: 'org-1' };
+  const OTHER = { id: 'u-x', roles: ['ORG_MANAGER'], organizationId: 'org-2' };
+  let organizations: Record<string, jest.Mock>;
+  let members: Record<string, jest.Mock>;
+  let service: OrganizationsService;
+
+  beforeEach(() => {
+    organizations = {
+      findStatus: jest.fn().mockResolvedValue(OrganizationStatus.ACTIVE),
+      findSummary: jest.fn().mockResolvedValue({ id: 'org-1', channelKeyVersion: 2 }),
+      channelKeyVersion: jest.fn().mockResolvedValue(2),
+    };
+    members = {
+      membersOf: jest.fn().mockResolvedValue([
+        { id: 'm-1', userId: 'u-mgr', role: 'MANAGER', deactivatedAt: null },
+        { id: 'm-2', userId: 'u-op', role: 'OPERATOR', deactivatedAt: null },
+      ]),
+      findLiveMember: jest.fn().mockResolvedValue({ role: 'MANAGER' }),
+    };
+    const accounts = {
+      contactCard: jest.fn().mockResolvedValue([
+        { id: 'u-mgr', email: 'mgr@acme.vn', fullName: 'Nguyen Van A', isActive: true },
+        { id: 'u-op', email: 'op@acme.vn', fullName: 'Le Thi B', isActive: false },
+      ]),
+    };
+    service = new OrganizationsService(
+      organizations as unknown as OrganizationsRepository,
+      members as unknown as MembersRepository,
+      accounts as unknown as AccountsService,
+    );
+  });
+
+  it('lists members with names, and an invitation pending while the account is inactive', async () => {
+    await expect(service.membersOf('org-1', false, STAFF)).resolves.toEqual([
+      expect.objectContaining({
+        userId: 'u-mgr',
+        fullName: 'Nguyen Van A',
+        invitationPending: false,
+      }),
+      expect.objectContaining({ userId: 'u-op', role: 'OPERATOR', invitationPending: true }),
+    ]);
+    expect(members.membersOf).toHaveBeenCalledWith('org-1', false);
+  });
+
+  it("answers 404 for another organization's members and summary", async () => {
+    await expect(service.membersOf('org-1', false, OTHER)).rejects.toMatchObject({
+      errorCode: ErrorCode.NOT_FOUND,
+    });
+    await expect(service.summary('org-1', OTHER)).rejects.toMatchObject({
+      errorCode: ErrorCode.NOT_FOUND,
+    });
+    await expect(service.summary('org-1', MEMBER)).resolves.toMatchObject({ channelKeyVersion: 2 });
+  });
+
+  it('tells a live Manager from an Operator or a former member', async () => {
+    await expect(service.isActiveManager('org-1', 'u-mgr')).resolves.toBe(true);
+    members.findLiveMember.mockResolvedValueOnce({ role: 'OPERATOR' });
+    await expect(service.isActiveManager('org-1', 'u-op')).resolves.toBe(false);
+    members.findLiveMember.mockResolvedValueOnce(null);
+    await expect(service.isActiveManager('org-1', 'u-gone')).resolves.toBe(false);
   });
 });

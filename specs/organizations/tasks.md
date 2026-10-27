@@ -59,6 +59,7 @@
   - **Files**: `backend/src/modules/organizations/members.service.ts`
   - **Do**: invite through `AccountsService.createOrganizationAccount` with role `ORG_MANAGER` or `ORG_OPERATOR`; change role through `setOrganizationRole`; deactivate through `AccountsService.deactivate`, clear the member from every shift not yet ended, emit `member.deactivated`; the last active Manager can neither be deactivated nor demoted (409 `LAST_MANAGER`), checked under `SELECT ... FOR UPDATE` on the organization row
   - **Test**: AC-03; two concurrent demotions of the last two Managers leave one Manager
+  - **Note**: LongLP built the read-only part for the counter handover (rentals 2.4, 2026-10-27): `MembersRepository.membersOf` and `findLiveMember`, `OrganizationsService.membersOf` (names and email from `AccountsService.contactCard`, `invitationPending` while the account is inactive), `isActiveManager` and `channelKeyVersion`. Invite, role change and deactivation stay with this task
   - _Requirements: REQ-UBI-02, REQ-EVT-07, REQ-EVT-08, REQ-ERR-03, AC-03, FR-ORG-04, FR-AUTH-07_
   - _Story: US-UC04_
 - [ ] 2.6 Roster (owner TanNB)
@@ -103,6 +104,7 @@
 - [ ] 4.1 Controllers (owner TanNB)
   - **Files**: `organizations.controller.ts`, `members.controller.ts`, `roster.controller.ts`, `credentials.controller.ts`, `compliance-cases.controller.ts`
   - **Do**: api-design 01 to 31 with each file's permission and `@ResponseMessage`; the registration endpoint is public; `/api/organizations/:id/field-stations/release` declared before `/:stationId` routes
+  - **Note**: LongLP opened `organizations.controller.ts` for the counter handover (2026-10-27): 03 `GET /api/organizations/:id` answering only its head (`id`, `code`, `legalName`, `status`, `statusChangedAt`, `channelKeyVersion`, `version`; `organization.read`, `organization.read.own`), and 12 `GET /api/organizations/:id/members` (`member.read`, `member.read.own`). Another organization answers 404. The rest of 03 (the verification record and the counts) joins with 1.1 and 2.4
 - [ ] 4.2 E2E (owner TanNB)
   - **Files**: `backend/test/organizations.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 31; AC-01 to AC-11 except AC-06 (gateway-sync 4.2); cross-organization 404 for every route with `:id`

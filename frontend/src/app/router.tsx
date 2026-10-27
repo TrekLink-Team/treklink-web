@@ -6,6 +6,7 @@ import { ContractApprovalPage } from '../pages/ContractApprovalPage';
 import { ContractDetailPage } from '../pages/ContractDetailPage';
 import { ContractRequestPage } from '../pages/ContractRequestPage';
 import { ContractsPage } from '../pages/ContractsPage';
+import { CounterPage } from '../pages/CounterPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
@@ -49,7 +50,7 @@ const STAFF: Role[] = ['STAFF'];
 
 // Routes of specs/frontend/design.md §2. Only built pages are registered; the rest of the table is
 // added with the task that builds each page. The map routes show the interim dashboard until
-// `LiveMapPage` (task 9.1). Contracts and billing are screens 5.1 to 5.3, 6.1 and 6.3.
+// `LiveMapPage` (task 9.1). Contracts and billing are screens 5.1 to 5.4, 6.1 and 6.3.
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/" element={<DashboardPage />} />
@@ -75,6 +76,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
         <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
         <Route path="/t/billing" element={<BillingPage />} />
+        <Route path="/t/counter/:contractId" element={<CounterPage />} />
       </Route>
     </Route>
     <Route path="*" element={<NoAccessPage />} />

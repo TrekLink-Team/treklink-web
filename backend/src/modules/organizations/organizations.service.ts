@@ -1,13 +1,89 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { OrganizationStatus, Prisma } from '@prisma/client';
+import { MemberRole, OrganizationStatus, Prisma } from '@prisma/client';
+import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { AccountsService } from '../auth';
+import { MembersRepository } from './members.repository';
 import { OrganizationLabel, OrganizationsRepository } from './organizations.repository';
 
-// The methods other modules call (design §5). Only `assertActive` exists so far, for rentals 2.1;
-// task 2.4 builds the rest of the lifecycle around it.
+export interface MemberView {
+  id: string;
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  role: MemberRole;
+  invitationPending: boolean;
+  deactivatedAt: Date | null;
+}
+
+const notFound = () =>
+  new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Organization not found.');
+
+// The methods other modules call (design §5). `assertActive` for rentals 2.1; the member list, the
+// channel key version and the live-Manager check for the counter handover (rentals 2.3, 2.4); task
+// 2.4 builds the rest of the lifecycle around them.
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly organizations: OrganizationsRepository) {}
+  constructor(
+    private readonly organizations: OrganizationsRepository,
+    private readonly members: MembersRepository,
+    private readonly accounts: AccountsService,
+  ) {}
+
+  // organizations api-design 12, read-only part of task 2.5: a member reads its own organization,
+  // TrekLink Staff any; another organization answers 404. `invitationPending` is true while the
+  // account is still inactive (it has not set its password).
+  async membersOf(
+    organizationId: string,
+    includeDeactivated: boolean,
+    caller: Caller,
+  ): Promise<MemberView[]> {
+    if (caller.organizationId !== null && caller.organizationId !== organizationId)
+      throw notFound();
+    if ((await this.organizations.findStatus(organizationId)) === null) throw notFound();
+    const rows = await this.members.membersOf(organizationId, includeDeactivated);
+    const cards = await this.accounts.contactCard(rows.map((row) => row.userId));
+    const cardOf = new Map(cards.map((card) => [card.id, card]));
+    return rows.map((row) => {
+      const card = cardOf.get(row.userId);
+      return {
+        id: row.id,
+        userId: row.userId,
+        email: card?.email ?? null,
+        fullName: card?.fullName ?? null,
+        role: row.role,
+        invitationPending: card ? !card.isActive : false,
+        deactivatedAt: row.deactivatedAt,
+      };
+    });
+  }
+
+  // organizations api-design 03, the head only: the counter handover (screen 5.4) needs the key
+  // version to write. A member reads its own organization, TrekLink Staff any; another is 404.
+  async summary(organizationId: string, caller: Caller) {
+    if (caller.organizationId !== null && caller.organizationId !== organizationId)
+      throw notFound();
+    const row = await this.organizations.findSummary(organizationId);
+    if (!row) throw notFound();
+    return row;
+  }
+
+  // The version of the channel key the organization's devices must carry (D-021); 404 when unknown.
+  async channelKeyVersion(organizationId: string, tx?: Prisma.TransactionClient): Promise<number> {
+    const version = await this.organizations.channelKeyVersion(organizationId, tx);
+    if (version === null) throw notFound();
+    return version;
+  }
+
+  // Whether the account is a live Manager of the organization (the handover signer, rentals 2.4).
+  async isActiveManager(
+    organizationId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const member = await this.members.findLiveMember(organizationId, userId, tx);
+    return member?.role === MemberRole.MANAGER;
+  }
 
   // An organization that is not ACTIVE may not request devices: 409 ORGANIZATION_NOT_ACTIVE naming
   // its status (FR-CON-02, rentals api-design 01); an unknown id is 404.
@@ -30,10 +106,13 @@ export class OrganizationsService {
   }
 
   // Code and legal name by organization id, for the contract and invoice reads of rentals and
-  // billing; an unknown id is absent.
-  async labelsOf(ids: readonly string[]): Promise<Map<string, OrganizationLabel>> {
+  // billing; an unknown id is absent. In the caller's transaction when it passes one.
+  async labelsOf(
+    ids: readonly string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<Map<string, OrganizationLabel>> {
     if (ids.length === 0) return new Map();
-    const rows = await this.organizations.labels([...new Set(ids)]);
+    const rows = await this.organizations.labels([...new Set(ids)], tx);
     return new Map(rows.map((row) => [row.id, row]));
   }
 }

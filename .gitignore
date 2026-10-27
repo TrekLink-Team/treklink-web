@@ -56,3 +56,6 @@ prisma/migrations/.env
 __pycache__/
 *.pyc
 .neon
+
+# Signed handover notes written by a local backend (HANDOVER_NOTE_STORAGE_DIR)
+/backend/storage/

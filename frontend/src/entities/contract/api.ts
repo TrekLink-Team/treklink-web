@@ -152,6 +152,68 @@ export const setHolder = (id: string, deviceId: string, holder: HolderInput) =>
     body: JSON.stringify(holder),
   });
 
+export interface Swapped {
+  released: { deviceId: string; assetTag: string | null; status: string };
+  reserved: { id: string; assetTag: string; status: string };
+}
+
+export interface Provisioned {
+  deviceId: string;
+  assetTag: string;
+  status: string;
+  keyVersion: number;
+  keyOrganizationId: string;
+  provisionedAt: string;
+}
+
+export interface DeviceCheck {
+  deviceId: string;
+  batteryPct: number;
+  gpsFixOk: boolean;
+}
+
+export interface HandoverInput {
+  signedByMemberId: string;
+  identityChecked: string;
+  signaturePng: string;
+  deviceChecks: DeviceCheck[];
+  acknowledgeLowBattery?: boolean;
+  expectedVersion: number;
+}
+
+export interface HandoverNote {
+  pdfBase64: string | null;
+  sha256: string | null;
+  integrity?: 'OK' | 'MISMATCH' | 'MISSING';
+}
+
+// rentals api-design 07 to 11, the counter handover of screen 5.4.
+export const swapDevice = (id: string, deviceId: string, reason: string) =>
+  post<Swapped>(`/contracts/${id}/devices/${deviceId}/swap`, { reason });
+
+export const recordProvisioning = (id: string, deviceId: string, keyVersion: number) =>
+  post<Provisioned>(`/contracts/${id}/devices/${deviceId}/provisioning`, { keyVersion });
+
+export const fetchHandoverPreview = (id: string) =>
+  apiClient<HandoverNote>(`/contracts/${id}/handover-note/preview`);
+
+export const completeHandover = (id: string, input: HandoverInput) =>
+  post<Contract & { devicesHandedOver: number }>(`/contracts/${id}/handover`, input);
+
+export const fetchHandoverNote = (id: string) =>
+  apiClient<HandoverNote>(`/contracts/${id}/handover-note`);
+
+// Opens a base64 PDF as a download without keeping it anywhere after the click.
+export const downloadPdf = (pdfBase64: string, fileName: string) => {
+  const bytes = Uint8Array.from(atob(pdfBase64), (char) => char.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 export interface Availability {
   hardwareVariantId: string;
   code: string;

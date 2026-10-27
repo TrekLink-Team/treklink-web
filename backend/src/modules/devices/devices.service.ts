@@ -1,11 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DeviceStatus, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import {
   DeviceIdentity,
   DeviceProjection,
   DeviceTag,
   DevicesRepository,
+  ProvisionedDevice,
   VariantSummary,
 } from './devices.repository';
 import { RemainingValueStep, remainingValue } from './remaining-value';
@@ -93,6 +94,41 @@ export class DevicesService {
     return ids.length === 0 ? Promise.resolve() : this.devices.releaseReserved(ids, at, tx);
   }
 
+  // The counter's provisioning record (rentals 2.3, D-021): only the key version is stored, never the
+  // key. The caller checks the version against the organization's.
+  recordProvisioning(
+    provisioning: { deviceId: string; organizationId: string; keyVersion: number; actorId: string },
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<ProvisionedDevice> {
+    return this.devices.recordProvisioning(provisioning, at, tx);
+  }
+
+  // Key version, organization and battery of the units, for the handover checks.
+  provisioning(
+    ids: readonly string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<ProvisionedDevice[]> {
+    return ids.length === 0 ? Promise.resolve([]) : this.devices.provisioning(ids, tx);
+  }
+
+  // A reserved unit that fails the counter check goes to MAINTENANCE (E01-5). The maintenance record
+  // itself joins with task 2.8.
+  async failHandoverCheck(deviceId: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await this.devices.moveStatus(
+      [deviceId],
+      DeviceStatus.RESERVED,
+      DeviceStatus.MAINTENANCE,
+      at,
+      tx,
+    );
+  }
+
+  // Reserved units go out with the handover (FR-CON-05).
+  async markRented(ids: readonly string[], at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await this.devices.moveStatus(ids, DeviceStatus.RESERVED, DeviceStatus.RENTED, at, tx);
+  }
+
   // AVAILABLE units per variant now; advisory for the approval queue and the request form
   // (devices api-design 24). Approval decides (FR-CON-03).
   availability(variantId?: string) {
@@ -104,10 +140,13 @@ export class DevicesService {
     return this.devices.countAvailable(variantId);
   }
 
-  // Asset tags by device id, for contract reads.
-  async assetTags(ids: readonly string[]): Promise<Map<string, string>> {
+  // Asset tags by device id, for contract reads; in the caller's transaction when it passes one.
+  async assetTags(
+    ids: readonly string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
-    const rows = await this.devices.tags(ids);
+    const rows = await this.devices.tags(ids, tx);
     return new Map(rows.map((row) => [row.id, row.assetTag]));
   }
 
