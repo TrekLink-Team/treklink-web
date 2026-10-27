@@ -8,14 +8,16 @@ import {
 } from '../../entities/billing/api';
 import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
+import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK, PRIMARY_BUTTON, TD, TH } from '../../shared/ui/styles';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
 
+// Line status tones (TrekLink System Colors, shared/ui/status.ts).
 const LINE_TONES: Record<string, string> = {
-  Paid: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  Overdue: 'bg-red-50 text-red-800 border-red-200',
-  'Due now': 'bg-amber-50 text-amber-900 border-amber-200',
-  'Due later': 'bg-slate-100 text-slate-700 border-slate-300',
+  Paid: TONE_CLASSES.done,
+  Overdue: TONE_CLASSES.critical,
+  'Due now': TONE_CLASSES.attention,
+  'Due later': TONE_CLASSES.active,
 };
 
 const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'SePay' } as const;

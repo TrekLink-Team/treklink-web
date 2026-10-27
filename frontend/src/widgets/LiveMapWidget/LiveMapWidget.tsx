@@ -8,6 +8,9 @@ import {
   type Basemap,
   type MapConfig,
 } from '../../shared/config/map';
+import { cn } from '../../shared/ui/cn';
+import { markerIcon as systemMarkerIcon } from '../../shared/ui/map/markers';
+import type { MarkerState } from '../../shared/ui/status';
 
 export interface MapMarker {
   id: string;
@@ -19,11 +22,12 @@ export interface MapMarker {
   status?: 'ok' | 'warning' | 'stale' | 'incident';
 }
 
-const STATUS_COLOR: Record<NonNullable<MapMarker['status']>, string> = {
-  ok: '#2563eb',
-  warning: '#f59e0b',
-  stale: '#94a3b8',
-  incident: '#dc2626',
+// Marker chrome of the TrekLink System (shared/ui/map/markers.ts): shape and colour per state.
+const MARKER_STATE: Record<NonNullable<MapMarker['status']>, MarkerState> = {
+  ok: 'fresh',
+  warning: 'attention',
+  stale: 'stale',
+  incident: 'sos',
 };
 
 // MSG33: the tile area is replaced; lists elsewhere on the page stay live (FR-MON-09).
@@ -44,14 +48,13 @@ const overlayIcon = (label: string): L.DivIcon => {
   return L.divIcon({ html: element, className: '', iconSize: [0, 0] });
 };
 
-const markerIcon = (marker: MapMarker): L.DivIcon => {
-  const element = document.createElement('div');
-  element.className = 'h-3 w-3 rounded-full border-2 border-white shadow';
-  element.style.backgroundColor = STATUS_COLOR[marker.status ?? 'ok'];
-  element.setAttribute('role', 'img');
-  element.setAttribute('aria-label', textOf(marker));
-  return L.divIcon({ html: element, className: '', iconSize: [12, 12] });
-};
+const markerIcon = (marker: MapMarker): L.DivIcon =>
+  systemMarkerIcon({
+    state: MARKER_STATE[marker.status ?? 'ok'],
+    label: marker.title,
+    name: textOf(marker),
+    showChip: false,
+  });
 
 const popupContent = (marker: MapMarker): HTMLElement => {
   const element = document.createElement('div');
@@ -61,7 +64,7 @@ const popupContent = (marker: MapMarker): HTMLElement => {
   element.append(title);
   if (marker.subtitle) {
     const subtitle = document.createElement('p');
-    subtitle.className = 'text-xs text-slate-500';
+    subtitle.className = 'text-xs text-ink-muted';
     subtitle.textContent = marker.subtitle;
     element.append(subtitle);
   }
@@ -71,11 +74,11 @@ const popupContent = (marker: MapMarker): HTMLElement => {
 const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ overlay }) => (
   <div
     role="alert"
-    className="absolute inset-0 z-[800] flex flex-col items-center justify-center gap-1 bg-slate-50 p-4 text-center"
+    className="absolute inset-0 z-[800] flex flex-col items-center justify-center gap-1 bg-sunken p-4 text-center"
   >
-    <p className="text-sm font-semibold text-slate-700">{MSG33}</p>
+    <p className="text-body font-semibold text-ink">{MSG33}</p>
     {overlay.length > 0 && (
-      <ul className="text-xs text-slate-600">
+      <ul className="text-body-sm text-ink-muted">
         {overlay.map((place) => (
           <li key={place.label}>{place.label}</li>
         ))}
@@ -208,7 +211,12 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
  * Vietnamese sovereignty overlay always drawn on top of every basemap (D-031, D-072). If the config or the tiles fail, the panel shows
  * MSG33 and the rest of the page keeps working.
  */
-export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [] }) => {
+export const LiveMapWidget: React.FC<{
+  markers?: MapMarker[];
+  /** Size of the map box. The default keeps the interim dashboard's height; a full-bleed map page
+   * passes `h-full` inside MapWorkspace. */
+  className?: string;
+}> = ({ markers = [], className }) => {
   const config = useQuery({
     queryKey: MAP_CONFIG_KEY,
     queryFn: getMapConfig,
@@ -218,12 +226,12 @@ export const LiveMapWidget: React.FC<{ markers?: MapMarker[] }> = ({ markers = [
   });
 
   return (
-    <div className="relative w-full h-[500px] rounded-xl overflow-hidden shadow-sm border border-slate-200">
+    <div className={cn('relative h-[500px] w-full overflow-hidden rounded-panel border border-line bg-sunken shadow-raise', className)}>
       {config.data && (
         <LeafletMap key={config.data.tileUrl} config={config.data} markers={markers} />
       )}
       {config.isPending && (
-        <p className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+        <p className="absolute inset-0 flex items-center justify-center text-body text-ink-muted">
           Loading map
         </p>
       )}

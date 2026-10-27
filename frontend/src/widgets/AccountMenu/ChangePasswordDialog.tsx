@@ -75,17 +75,17 @@ export const ChangePasswordDialog: React.FC<Props> = ({ onClose, onChanged }) =>
   const filled = current !== '' && password !== '' && confirm !== '';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 sm:p-4">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--tl-banner-h,0px)] z-dialog flex items-center justify-center bg-scrim/[var(--tl-scrim-alpha)] sm:p-4">
       <div
         ref={dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby="change-title"
         onKeyDown={keepFocusInside}
-        className="h-full w-full bg-white p-6 sm:h-auto sm:max-w-sm sm:rounded-xl"
+        className="h-full w-full overflow-y-auto bg-surface p-6 text-ink shadow-overlay sm:h-auto sm:max-w-sm sm:rounded-sheet sm:border sm:border-line"
       >
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <h2 id="change-title" className="text-xl font-bold text-slate-900">
+          <h2 id="change-title" className="text-title text-ink">
             Change password
           </h2>
           {errors.form && <Notice tone="error">{errors.form}</Notice>}

@@ -1,0 +1,221 @@
+/*
+ * TrekLink System colour tokens. Light theme "Canopy", dark theme "Volt" (docs/design-system.md).
+ * Values are RGB channels so Tailwind opacity modifiers work: rgb(var(--tl-ink) / 0.6).
+ * Every text and control pairing is checked by src/shared/ui/tokens.test.ts (WCAG 2.2 AA).
+ * Edit a value here, then run npm test.
+ */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --tl-ground: 239 250 247; /* #effaf7 */
+  --tl-surface: 250 255 254; /* #fafffe */
+  --tl-surface-raised: 255 255 255; /* #ffffff */
+  --tl-sunken: 225 241 238; /* #e1f1ee */
+  --tl-chrome: 198 241 233; /* #c6f1e9 */
+  --tl-chrome-strong: 168 230 216; /* #a8e6d8 */
+  --tl-ink: 21 44 40; /* #152c28 */
+  --tl-ink-muted: 78 102 98; /* #4e6662 */
+  --tl-ink-inverse: 250 255 254; /* #fafffe */
+  --tl-inverse: 21 44 40; /* #152c28 */
+  --tl-line: 202 220 216; /* #cadcd8 */
+  --tl-line-strong: 124 149 144; /* #7c9590 */
+  --tl-brand: 2 114 88; /* #027258 */
+  --tl-accent: 7 126 98; /* #077e62 */
+  --tl-accent-hover: 4 107 83; /* #046b53 */
+  --tl-accent-pressed: 3 91 70; /* #035b46 */
+  --tl-on-accent: 255 255 255; /* #ffffff */
+  --tl-spark: 182 242 89; /* #b6f259 */
+  --tl-on-spark: 57 77 26; /* #394d1a */
+  --tl-focus: 6 119 93; /* #06775d */
+  --tl-glow: 84 216 177; /* #54d8b1 */
+  --tl-glow-2: 129 207 252; /* #81cffc */
+  --tl-scrim: 8 22 19; /* #081613 */
+  --tl-status-critical-tint: 254 231 228; /* #fee7e4 */
+  --tl-status-critical-fg: 204 21 29; /* #cc151d */
+  --tl-status-critical-line: 248 76 69; /* #f84c45 */
+  --tl-status-critical-strong: 204 21 29; /* #cc151d */
+  --tl-status-critical-on-strong: 255 255 255; /* #ffffff */
+  --tl-status-attention-tint: 255 233 209; /* #ffe9d1 */
+  --tl-status-attention-fg: 145 91 2; /* #915b02 */
+  --tl-status-attention-line: 193 123 5; /* #c17b05 */
+  --tl-status-attention-strong: 145 91 2; /* #915b02 */
+  --tl-status-attention-on-strong: 255 255 255; /* #ffffff */
+  --tl-status-active-tint: 229 237 255; /* #e5edff */
+  --tl-status-active-fg: 65 95 203; /* #415fcb */
+  --tl-status-active-line: 97 132 243; /* #6184f3 */
+  --tl-status-active-strong: 65 95 203; /* #415fcb */
+  --tl-status-active-on-strong: 255 255 255; /* #ffffff */
+  --tl-status-waiting-tint: 248 229 255; /* #f8e5ff */
+  --tl-status-waiting-fg: 142 74 162; /* #8e4aa2 */
+  --tl-status-waiting-line: 181 111 202; /* #b56fca */
+  --tl-status-waiting-strong: 142 74 162; /* #8e4aa2 */
+  --tl-status-waiting-on-strong: 255 255 255; /* #ffffff */
+  --tl-status-done-tint: 188 243 255; /* #bcf3ff */
+  --tl-status-done-fg: 3 111 127; /* #036f7f */
+  --tl-status-done-line: 5 152 173; /* #0598ad */
+  --tl-status-done-strong: 7 116 146; /* #077492 */
+  --tl-status-done-on-strong: 255 255 255; /* #ffffff */
+  --tl-status-ended-tint: 243 235 229; /* #f3ebe5 */
+  --tl-status-ended-fg: 108 101 96; /* #6c6560 */
+  --tl-status-ended-line: 145 137 132; /* #918984 */
+  --tl-status-ended-strong: 108 101 96; /* #6c6560 */
+  --tl-status-ended-on-strong: 255 255 255; /* #ffffff */
+  /* Legacy Tailwind names, kept so pages written before the system follow the theme. */
+  --tl-legacy-slate-50: 239 250 247; /* #effaf7 */
+  --tl-legacy-slate-100: 231 242 240; /* #e7f2f0 */
+  --tl-legacy-slate-200: 207 225 221; /* #cfe1dd */
+  --tl-legacy-slate-300: 177 194 191; /* #b1c2bf */
+  --tl-legacy-slate-400: 128 144 141; /* #80908d */
+  --tl-legacy-slate-500: 104 121 117; /* #687975 */
+  --tl-legacy-slate-600: 87 103 100; /* #576764 */
+  --tl-legacy-slate-700: 65 81 78; /* #41514e */
+  --tl-legacy-slate-800: 42 57 54; /* #2a3936 */
+  --tl-legacy-slate-900: 27 42 39; /* #1b2a27 */
+  --tl-legacy-slate-950: 9 23 20; /* #091714 */
+  --tl-legacy-white: 250 255 254; /* #fafffe */
+  --tl-legacy-blue-50: 227 246 241; /* #e3f6f1 */
+  --tl-legacy-blue-100: 210 240 232; /* #d2f0e8 */
+  --tl-legacy-blue-200: 181 228 215; /* #b5e4d7 */
+  --tl-legacy-blue-300: 140 207 189; /* #8ccfbd */
+  --tl-legacy-blue-500: 6 119 93; /* #06775d */
+  --tl-legacy-blue-700: 7 126 98; /* #077e62 */
+  --tl-legacy-blue-800: 4 107 83; /* #046b53 */
+  --tl-legacy-blue-900: 4 80 62; /* #04503e */
+  --tl-legacy-emerald-50: 230 248 251; /* #e6f8fb */
+  --tl-legacy-emerald-200: 159 221 232; /* #9fdde8 */
+  --tl-legacy-emerald-300: 5 152 173; /* #0598ad */
+  --tl-legacy-emerald-400: 5 152 173; /* #0598ad */
+  --tl-legacy-emerald-500: 5 152 173; /* #0598ad */
+  --tl-legacy-emerald-600: 3 111 127; /* #036f7f */
+  --tl-legacy-emerald-700: 3 111 127; /* #036f7f */
+  --tl-legacy-emerald-800: 4 91 104; /* #045b68 */
+  --tl-legacy-red-50: 254 241 239; /* #fef1ef */
+  --tl-legacy-red-200: 246 189 182; /* #f6bdb6 */
+  --tl-legacy-red-300: 248 76 69; /* #f84c45 */
+  --tl-legacy-red-600: 204 21 29; /* #cc151d */
+  --tl-legacy-red-700: 204 21 29; /* #cc151d */
+  --tl-legacy-red-800: 163 16 26; /* #a3101a */
+  --tl-legacy-rose-50: 254 241 239; /* #fef1ef */
+  --tl-legacy-rose-600: 204 21 29; /* #cc151d */
+  --tl-legacy-amber-50: 255 244 230; /* #fff4e6 */
+  --tl-legacy-amber-100: 255 233 209; /* #ffe9d1 */
+  --tl-legacy-amber-200: 240 201 140; /* #f0c98c */
+  --tl-legacy-amber-300: 193 123 5; /* #c17b05 */
+  --tl-legacy-amber-600: 145 91 2; /* #915b02 */
+  --tl-legacy-amber-900: 107 67 0; /* #6b4300 */
+  --tl-legacy-indigo-50: 248 229 255; /* #f8e5ff */
+  --tl-legacy-indigo-600: 142 74 162; /* #8e4aa2 */
+  --tl-scrim-alpha: 0.5;
+  --tl-glass-alpha: 0.72;
+  --tl-glass-sheen: 0.55;
+  --tl-glass-edge: 255 255 255 / 0.75;
+  --tl-shadow-tint: 21 44 40;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --tl-ground: 6 17 11; /* #06110b */
+  --tl-surface: 13 28 20; /* #0d1c14 */
+  --tl-surface-raised: 19 36 27; /* #13241b */
+  --tl-sunken: 3 12 7; /* #030c07 */
+  --tl-chrome: 18 45 25; /* #122d19 */
+  --tl-chrome-strong: 27 61 35; /* #1b3d23 */
+  --tl-ink: 220 235 226; /* #dcebe2 */
+  --tl-ink-muted: 143 164 152; /* #8fa498 */
+  --tl-ink-inverse: 13 28 20; /* #0d1c14 */
+  --tl-inverse: 220 235 226; /* #dcebe2 */
+  --tl-line: 37 56 46; /* #25382e */
+  --tl-line-strong: 94 110 100; /* #5e6e64 */
+  --tl-brand: 126 205 6; /* #7ecd06 */
+  --tl-accent: 159 244 64; /* #9ff440 */
+  --tl-accent-hover: 178 255 106; /* #b2ff6a */
+  --tl-accent-pressed: 146 222 64; /* #92de40 */
+  --tl-on-accent: 54 75 49; /* #364b31 */
+  --tl-spark: 0 68 88; /* #004458 */
+  --tl-on-spark: 134 221 254; /* #86ddfe */
+  --tl-focus: 159 244 64; /* #9ff440 */
+  --tl-glow: 35 105 13; /* #23690d */
+  --tl-glow-2: 0 83 124; /* #00537c */
+  --tl-scrim: 0 0 0; /* #000000 */
+  --tl-status-critical-tint: 72 27 23; /* #481b17 */
+  --tl-status-critical-fg: 255 101 90; /* #ff655a */
+  --tl-status-critical-line: 255 127 115; /* #ff7f73 */
+  --tl-status-critical-strong: 255 127 115; /* #ff7f73 */
+  --tl-status-critical-on-strong: 58 33 30; /* #3a211e */
+  --tl-status-attention-tint: 63 37 1; /* #3f2501 */
+  --tl-status-attention-fg: 213 137 10; /* #d5890a */
+  --tl-status-attention-line: 234 150 2; /* #ea9602 */
+  --tl-status-attention-strong: 234 150 2; /* #ea9602 */
+  --tl-status-attention-on-strong: 56 39 20; /* #382714 */
+  --tl-status-active-tint: 28 41 78; /* #1c294e */
+  --tl-status-active-fg: 113 149 254; /* #7195fe */
+  --tl-status-active-line: 135 167 254; /* #87a7fe */
+  --tl-status-active-strong: 135 167 254; /* #87a7fe */
+  --tl-status-active-on-strong: 35 43 64; /* #232b40 */
+  --tl-status-waiting-tint: 57 31 66; /* #391f42 */
+  --tl-status-waiting-fg: 195 125 217; /* #c37dd9 */
+  --tl-status-waiting-line: 210 138 232; /* #d28ae8 */
+  --tl-status-waiting-strong: 210 138 232; /* #d28ae8 */
+  --tl-status-waiting-on-strong: 49 34 54; /* #312236 */
+  --tl-status-done-tint: 0 55 64; /* #003740 */
+  --tl-status-done-fg: 13 177 201; /* #0db1c9 */
+  --tl-status-done-line: 9 191 217; /* #09bfd9 */
+  --tl-status-done-strong: 9 191 217; /* #09bfd9 */
+  --tl-status-done-on-strong: 18 51 57; /* #123339 */
+  --tl-status-ended-tint: 48 42 37; /* #302a25 */
+  --tl-status-ended-fg: 160 153 147; /* #a09993 */
+  --tl-status-ended-line: 177 169 163; /* #b1a9a3 */
+  --tl-status-ended-strong: 177 169 163; /* #b1a9a3 */
+  --tl-status-ended-on-strong: 60 40 24; /* #3c2818 */
+  /* Legacy Tailwind names, kept so pages written before the system follow the theme. */
+  --tl-legacy-slate-50: 11 23 16; /* #0b1710 */
+  --tl-legacy-slate-100: 19 31 24; /* #131f18 */
+  --tl-legacy-slate-200: 36 49 42; /* #24312a */
+  --tl-legacy-slate-300: 54 67 60; /* #36433c */
+  --tl-legacy-slate-400: 95 109 101; /* #5f6d65 */
+  --tl-legacy-slate-500: 136 150 142; /* #88968e */
+  --tl-legacy-slate-600: 161 175 166; /* #a1afa6 */
+  --tl-legacy-slate-700: 182 197 188; /* #b6c5bc */
+  --tl-legacy-slate-800: 202 216 208; /* #cad8d0 */
+  --tl-legacy-slate-900: 218 233 224; /* #dae9e0 */
+  --tl-legacy-slate-950: 231 246 237; /* #e7f6ed */
+  --tl-legacy-white: 13 28 20; /* #0d1c14 */
+  --tl-legacy-blue-50: 15 36 23; /* #0f2417 */
+  --tl-legacy-blue-100: 20 48 28; /* #14301c */
+  --tl-legacy-blue-200: 31 68 38; /* #1f4426 */
+  --tl-legacy-blue-300: 63 122 44; /* #3f7a2c */
+  --tl-legacy-blue-500: 159 244 64; /* #9ff440 */
+  --tl-legacy-blue-700: 159 244 64; /* #9ff440 */
+  --tl-legacy-blue-800: 178 255 106; /* #b2ff6a */
+  --tl-legacy-blue-900: 201 250 146; /* #c9fa92 */
+  --tl-legacy-emerald-50: 0 38 45; /* #00262d */
+  --tl-legacy-emerald-200: 10 79 89; /* #0a4f59 */
+  --tl-legacy-emerald-300: 9 191 217; /* #09bfd9 */
+  --tl-legacy-emerald-400: 9 191 217; /* #09bfd9 */
+  --tl-legacy-emerald-500: 9 191 217; /* #09bfd9 */
+  --tl-legacy-emerald-600: 13 177 201; /* #0db1c9 */
+  --tl-legacy-emerald-700: 13 177 201; /* #0db1c9 */
+  --tl-legacy-emerald-800: 95 211 227; /* #5fd3e3 */
+  --tl-legacy-red-50: 58 20 17; /* #3a1411 */
+  --tl-legacy-red-200: 110 38 32; /* #6e2620 */
+  --tl-legacy-red-300: 255 127 115; /* #ff7f73 */
+  --tl-legacy-red-600: 255 127 115; /* #ff7f73 */
+  --tl-legacy-red-700: 255 101 90; /* #ff655a */
+  --tl-legacy-red-800: 255 155 146; /* #ff9b92 */
+  --tl-legacy-rose-50: 58 20 17; /* #3a1411 */
+  --tl-legacy-rose-600: 255 101 90; /* #ff655a */
+  --tl-legacy-amber-50: 51 30 1; /* #331e01 */
+  --tl-legacy-amber-100: 63 37 1; /* #3f2501 */
+  --tl-legacy-amber-200: 107 66 5; /* #6b4205 */
+  --tl-legacy-amber-300: 234 150 2; /* #ea9602 */
+  --tl-legacy-amber-600: 213 137 10; /* #d5890a */
+  --tl-legacy-amber-900: 243 178 79; /* #f3b24f */
+  --tl-legacy-indigo-50: 57 31 66; /* #391f42 */
+  --tl-legacy-indigo-600: 195 125 217; /* #c37dd9 */
+  --tl-scrim-alpha: 0.6;
+  --tl-glass-alpha: 0.72;
+  --tl-glass-sheen: 0.06;
+  --tl-glass-edge: 255 255 255 / 0.09;
+  --tl-shadow-tint: 0 0 0;
+}

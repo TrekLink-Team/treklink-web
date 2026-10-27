@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { landingRoute } from '../entities/session/model';
 import { BillingPage } from '../pages/BillingPage';
@@ -15,6 +15,12 @@ import { SignInPage } from '../pages/SignInPage';
 import { WelcomePage } from '../pages/WelcomePage';
 import { hasAnyRole, type Role } from '../shared/lib/permissions';
 import { useAuth } from './providers/useAuth';
+
+// Development only: the design system page (docs/design-system.md). Vite drops the import from a
+// production build because the route below is behind import.meta.env.DEV.
+const DesignSystemPage = import.meta.env.DEV
+  ? React.lazy(() => import('../pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage })))
+  : null;
 
 // Sends an anonymous visitor to sign-in and back to the page they asked for (design §2, `?next=`).
 export const RequireAuth: React.FC = () => {
@@ -77,6 +83,16 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/billing" element={<BillingPage />} />
       </Route>
     </Route>
+    {DesignSystemPage && (
+      <Route
+        path="/dev/design-system"
+        element={
+          <Suspense fallback={null}>
+            <DesignSystemPage />
+          </Suspense>
+        }
+      />
+    )}
     <Route path="*" element={<NoAccessPage />} />
   </Routes>
 );
