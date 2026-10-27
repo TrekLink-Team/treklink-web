@@ -69,7 +69,8 @@ npm --prefix backend run replay:mqtt -- trek --now --new-ids --interval 2000
 ```
 
 ### Step 6: Start Development Services
-Run all services concurrently:
+Run the backend, the gateway and the frontend together (`scripts/dev.mjs`, each line prefixed with
+its service; Ctrl+C stops all three):
 ```bash
 npm run dev
 ```
