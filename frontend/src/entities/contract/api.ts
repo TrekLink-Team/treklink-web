@@ -237,6 +237,37 @@ export const inspectDevice = (
   input: { result: InspectionResult; damageCodes: string[]; note?: string },
 ) => post<InspectionOutcome>(`/contracts/${id}/devices/${deviceId}/inspection`, input);
 
+export interface Replaced {
+  replacedDeviceId: string;
+  replacementDeviceId: string;
+  contractDeviceId: string;
+  replacesId: string;
+  noteSha256: string;
+}
+
+// rentals api-design 15: a faulty or missing unit on a running contract is replaced at the counter.
+export const replaceDevice = (
+  id: string,
+  deviceId: string,
+  input: {
+    replacementDeviceId: string;
+    keyVersion: number;
+    signatureImage: string;
+    faultyPresent: boolean;
+  },
+) => post<Replaced>(`/contracts/${id}/devices/${deviceId}/replacement`, input);
+
+// devices api-design 06: the AVAILABLE unit of a variant with exactly this asset tag, or null.
+export const findAvailableUnit = async (
+  assetTag: string,
+  hardwareVariantId: string,
+): Promise<{ id: string; assetTag: string } | null> => {
+  const page = await apiClient<{ items: { id: string; assetTag: string }[] }>(
+    `/devices${queryString({ q: assetTag, status: 'AVAILABLE', hardwareVariantId, pageSize: 20 })}`,
+  );
+  return page.items.find((unit) => unit.assetTag.toUpperCase() === assetTag) ?? null;
+};
+
 export const closeContract = (id: string, expectedVersion: number) =>
   post<Contract & { closedAt: string }>(`/contracts/${id}/close`, { expectedVersion });
 
