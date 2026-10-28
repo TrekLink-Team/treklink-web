@@ -13,8 +13,8 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
     expect(routes(visibleNav('ORGANIZATION', ['ORG_OPERATOR']))).toEqual(['/o/map', '/o/contracts']);
   });
 
-  it('adds invoices for the Org Manager through inheritance', () => {
-    expect(routes(visibleNav('ORGANIZATION', ['ORG_MANAGER']))).toEqual(['/o/map', '/o/contracts', '/o/invoices']);
+  it('adds the overview and invoices for the Org Manager through inheritance', () => {
+    expect(routes(visibleNav('ORGANIZATION', ['ORG_MANAGER']))).toEqual(['/o', '/o/map', '/o/contracts', '/o/invoices']);
   });
 
   it('gives TrekLink Staff the fleet map, contracts, organizations and billing, and Admin the same while administration is unbuilt', () => {
