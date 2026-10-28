@@ -3,8 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
 import {
   approveOrganization,
-  ORGANIZATION_STATUS_LABELS,
-  ORGANIZATION_STATUS_TONES,
   organizationKeys,
   rejectOrganization,
   useOrganizations,
@@ -15,47 +13,50 @@ import {
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
-import { Badge, Empty, ErrorState, Fact, Field, Loading, PageTitle } from '../shared/ui/bits';
-import { Dialog } from '../shared/ui/Dialog';
-import { invalid } from '../shared/ui/errors';
-import { useToast } from '../shared/ui/toastStore';
+import {
+  Alert,
+  Button,
+  Card,
+  Checkbox,
+  Dialog,
+  EmptyState,
+  Field,
+  Input,
+  ORGANIZATION_STATUS,
+  PageHeader,
+  RadioGroup,
+  Skeleton,
+  StatusBadge,
+  TabPanel,
+  Tabs,
+  Textarea,
+  useToast,
+} from '../shared/ui';
+import { ErrorState, Fact } from '../shared/ui/bits';
+import { invalid, messageOf } from '../shared/ui/errors';
 import { matchesText } from '../shared/lib/filter';
 import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
-import {
-  ALERT,
-  CARD,
-  DANGER_BUTTON,
-  INPUT,
-  PRIMARY_BUTTON,
-  SECONDARY_BUTTON,
-  TAB,
-  TABLE,
-  TD,
-  TH,
-} from '../shared/ui/styles';
+import { TABLE, TD, TH } from '../shared/ui/styles';
 
-const TABS: { label: string; status?: OrganizationStatus }[] = [
-  { label: 'Pending', status: 'PENDING' },
-  { label: 'Active', status: 'ACTIVE' },
-  { label: 'Rejected', status: 'REJECTED' },
-  { label: 'All' },
+type Tab = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ALL';
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'PENDING', label: 'Pending' },
+  { key: 'ACTIVE', label: 'Active' },
+  { key: 'REJECTED', label: 'Rejected' },
+  { key: 'ALL', label: 'All' },
 ];
 
 const DOCUMENTS = ['Business registration', 'Manager ID card', 'Tour operator licence'];
 
-const messageOf = (failure: unknown) =>
-  failure instanceof ApiError
-    ? failure.statusCode === 403 || failure.statusCode === 404
-      ? 'You do not have access to this.'
-      : failure.message
-    : 'Something went wrong.';
+type Method = 'IN_PERSON' | 'PHONE';
 
 // The counter verification of api-design 05 (FR-ORG-02, BR-43): both contract terms are required.
 const VerifyForm: React.FC<{ organization: OrganizationReview; onSaved: () => void }> = ({
   organization,
   onSaved,
 }) => {
-  const [method, setMethod] = useState<'IN_PERSON' | 'PHONE'>('IN_PERSON');
+  const [method, setMethod] = useState<Method>('IN_PERSON');
   const [documents, setDocuments] = useState<string[]>(organization.documentsSeen);
   const [reference, setReference] = useState(organization.masterContractRef ?? '');
   const [nda, setNda] = useState(organization.ndaSigned);
@@ -101,66 +102,50 @@ const VerifyForm: React.FC<{ organization: OrganizationReview; onSaved: () => vo
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-3">
-      <h3 className="font-bold text-slate-900">Counter verification</h3>
-      <fieldset className="flex gap-4 text-sm">
-        <legend className="sr-only">Method</legend>
-        {(['IN_PERSON', 'PHONE'] as const).map((value) => (
-          <label key={value} className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="method"
-              checked={method === value}
-              onChange={() => setMethod(value)}
-            />
-            {value === 'IN_PERSON' ? 'In person' : 'By phone'}
-          </label>
-        ))}
-      </fieldset>
-      <fieldset className="flex flex-col gap-1 text-sm">
-        <legend className="mb-1 font-semibold text-slate-900">Documents seen</legend>
+      <h3 className="text-title-sm text-ink">Counter verification</h3>
+      <RadioGroup<Method>
+        name="verification-method"
+        legend="Method"
+        layout="row"
+        options={[
+          { value: 'IN_PERSON', label: 'In person' },
+          { value: 'PHONE', label: 'By phone' },
+        ]}
+        value={method}
+        onChange={setMethod}
+      />
+      <fieldset className="flex flex-col">
+        <legend className="text-body-sm font-semibold text-ink">Documents seen</legend>
         {DOCUMENTS.map((document) => (
-          <label key={document} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={documents.includes(document)}
-              onChange={() => toggle(document)}
-            />
-            {document}
-          </label>
+          <Checkbox
+            key={document}
+            label={document}
+            checked={documents.includes(document)}
+            onChange={() => toggle(document)}
+          />
         ))}
       </fieldset>
-      <Field id="master-contract" label="Master contract number">
-        <input
+      <Field id="master-contract" label="Master contract number" required>
+        <Input
           id="master-contract"
-          className={INPUT}
           value={reference}
           onChange={(event) => setReference(event.target.value)}
         />
       </Field>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={nda} onChange={(event) => setNda(event.target.checked)} />
-        The master contract includes the signed NDA
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={licence}
-          onChange={(event) => setLicence(event.target.checked)}
-        />
-        The master contract includes the Field Station software licence
-      </label>
-      {error && (
-        <p role="alert" className="text-sm text-red-700">
-          {error}
-        </p>
-      )}
-      <button type="submit" disabled={pending} className={SECONDARY_BUTTON}>
-        {pending
-          ? 'Saving…'
-          : organization.verifiedAt
-            ? 'Update verification'
-            : 'Record verification'}
-      </button>
+      <Checkbox
+        label="The master contract includes the signed NDA"
+        checked={nda}
+        onChange={(event) => setNda(event.target.checked)}
+      />
+      <Checkbox
+        label="The master contract includes the Field Station software licence"
+        checked={licence}
+        onChange={(event) => setLicence(event.target.checked)}
+      />
+      {error && <Alert tone="error">{error}</Alert>}
+      <Button type="submit" loading={pending} loadingLabel="Saving">
+        {organization.verifiedAt ? 'Update verification' : 'Record verification'}
+      </Button>
     </form>
   );
 };
@@ -175,8 +160,7 @@ const RejectDialog: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const submit = async () => {
     if (reason.trim() === '') {
       setError('Reason is required.');
       return;
@@ -191,31 +175,36 @@ const RejectDialog: React.FC<{
   };
 
   return (
-    <Dialog titleId="reject-org-title" title={`Reject ${organization.code}?`} onClose={onClose}>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Field
-          id="reject-org-reason"
-          label="Reason shown to the Manager"
-          error={error ?? undefined}
-        >
-          <textarea
-            id="reject-org-reason"
-            rows={3}
-            className="rounded-lg border border-slate-400 p-3"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            {...invalid('reject-org-reason', error ?? undefined)}
-          />
-        </Field>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={pending} className={`${DANGER_BUTTON} flex-1`}>
-            {pending ? 'Rejecting…' : 'Reject organization'}
-          </button>
-          <button type="button" onClick={onClose} className={`${SECONDARY_BUTTON} flex-1`}>
+    <Dialog
+      titleId="reject-org-title"
+      title={`Reject ${organization.code}?`}
+      description={organization.legalName}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={pending}>
             Keep pending
-          </button>
-        </div>
-      </form>
+          </Button>
+          <Button variant="danger" loading={pending} onClick={() => void submit()}>
+            Reject organization
+          </Button>
+        </>
+      }
+    >
+      <Field
+        id="reject-org-reason"
+        label="Reason shown to the Manager"
+        error={error ?? undefined}
+        required
+      >
+        <Textarea
+          id="reject-org-reason"
+          rows={3}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          {...invalid('reject-org-reason', error ?? undefined)}
+        />
+      </Field>
     </Dialog>
   );
 };
@@ -228,12 +217,14 @@ export const OrganizationReviewPage: React.FC = () => {
   const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState<Tab>('PENDING');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
-  const organizations = useOrganizations(TABS[tab].status);
+  const organizations = useOrganizations(
+    tab === 'ALL' ? undefined : (tab satisfies OrganizationStatus),
+  );
   const selected = organizations.data?.items.find((item) => item.id === selectedId) ?? null;
   const [find, setFind] = useState({ code: '', name: '', verified: '' });
   const set = (key: keyof typeof find) => (value: string) =>
@@ -248,6 +239,11 @@ export const OrganizationReviewPage: React.FC = () => {
     ) ?? [];
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+
+  const select = (id: string) => {
+    setSelectedId(id);
+    setDecisionError(null);
+  };
 
   const approve = async (organization: OrganizationReview) => {
     setDeciding(true);
@@ -266,181 +262,192 @@ export const OrganizationReviewPage: React.FC = () => {
 
   return (
     <section aria-labelledby="orgs-title">
-      <PageTitle id="orgs-title" title="Organizations" />
-      <div role="tablist" aria-label="Status" className="mb-4 flex flex-wrap gap-2">
-        {TABS.map((item, index) => (
-          <button
-            key={item.label}
-            type="button"
-            role="tab"
-            aria-selected={tab === index}
-            className={TAB(tab === index)}
-            onClick={() => {
-              setTab(index);
-              setSelectedId(null);
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <PageHeader id="orgs-title" title="Organizations" />
+      <Tabs
+        label="Status"
+        idPrefix="orgs"
+        items={TABS}
+        value={tab}
+        onChange={(key) => {
+          setTab(key);
+          setSelectedId(null);
+        }}
+        className="mb-4"
+      />
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-        <div className="min-w-0 overflow-x-auto">
-          {organizations.isLoading && <Loading label="Loading organizations" />}
-          {organizations.error && (
-            <ErrorState error={organizations.error} onRetry={() => void organizations.refetch()} />
-          )}
-          {organizations.data && organizations.data.items.length === 0 && (
-            <Empty>No organizations here.</Empty>
-          )}
-          {organizations.data && organizations.data.items.length > 0 && (
-            <table className={TABLE}>
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className={TH}>Code</th>
-                  <th className={TH}>Organization</th>
-                  <th className={TH}>Registered</th>
-                  <th className={TH}>Verified</th>
-                  <th className={TH}>Status</th>
-                </tr>
-                <FilterRow
-                  columns={[
-                    { label: 'code', kind: 'text', value: find.code, onChange: set('code') },
-                    {
-                      label: 'organization',
-                      kind: 'text',
-                      value: find.name,
-                      onChange: set('name'),
-                      placeholder: 'Name or tax code',
-                    },
-                    null,
-                    {
-                      label: 'verified',
-                      kind: 'select',
-                      value: find.verified,
-                      onChange: set('verified'),
-                      options: [
-                        { value: 'YES', label: 'Verified' },
-                        { value: 'NO', label: 'Not yet' },
-                      ],
-                    },
-                    null,
-                  ]}
-                  onClear={clear}
-                />
-              </thead>
-              <tbody>
-                {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
-                {rows.map((item) => (
-                  <tr
-                    key={item.id}
-                    className={`cursor-pointer border-t border-slate-200 hover:bg-slate-50 ${
-                      item.id === selectedId ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectedId(item.id);
-                      setDecisionError(null);
-                    }}
-                  >
-                    <td className={`${TD} font-mono`}>
-                      <button
-                        type="button"
-                        className="font-semibold text-blue-700 hover:underline"
-                        onClick={() => setSelectedId(item.id)}
-                      >
-                        {item.code}
-                      </button>
-                    </td>
-                    <td className={TD}>{item.legalName}</td>
-                    <td className={TD}>{formatDateTime(item.createdAt)}</td>
-                    <td className={TD}>{item.verifiedAt ? 'Yes' : 'Not yet'}</td>
-                    <td className={TD}>
-                      <Badge tone={ORGANIZATION_STATUS_TONES[item.status]}>
-                        {ORGANIZATION_STATUS_LABELS[item.status]}
-                      </Badge>
-                    </td>
-                  </tr>
+      <TabPanel idPrefix="orgs" tabKey={tab}>
+        <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
+          <div className="min-w-0 overflow-x-auto">
+            {organizations.isLoading && (
+              <div role="status" className="flex flex-col gap-2">
+                <span className="sr-only">Loading organizations</span>
+                {[0, 1, 2].map((row) => (
+                  <Skeleton key={row} className="h-12" />
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
+            {organizations.error && (
+              <ErrorState
+                error={organizations.error}
+                onRetry={() => void organizations.refetch()}
+              />
+            )}
+            {organizations.data && organizations.data.items.length === 0 && (
+              <Card>
+                <EmptyState title="No organizations here." />
+              </Card>
+            )}
+            {organizations.data && organizations.data.items.length > 0 && (
+              <table className={TABLE}>
+                <caption className="sr-only">Organizations</caption>
+                <thead>
+                  <tr>
+                    <th className={TH}>Code</th>
+                    <th className={TH}>Organization</th>
+                    <th className={TH}>Registered</th>
+                    <th className={TH}>Verified</th>
+                    <th className={TH}>Status</th>
+                  </tr>
+                  <FilterRow
+                    columns={[
+                      { label: 'code', kind: 'text', value: find.code, onChange: set('code') },
+                      {
+                        label: 'organization',
+                        kind: 'text',
+                        value: find.name,
+                        onChange: set('name'),
+                        placeholder: 'Name or tax code',
+                      },
+                      null,
+                      {
+                        label: 'verified',
+                        kind: 'select',
+                        value: find.verified,
+                        onChange: set('verified'),
+                        options: [
+                          { value: 'YES', label: 'Verified' },
+                          { value: 'NO', label: 'Not yet' },
+                        ],
+                      },
+                      null,
+                    ]}
+                    onClear={clear}
+                  />
+                </thead>
+                <tbody>
+                  {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
+                  {rows.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={`cursor-pointer transition-colors duration-tl ${
+                        item.id === selectedId ? 'bg-chrome/50' : 'hover:bg-chrome/40'
+                      }`}
+                      onClick={() => select(item.id)}
+                    >
+                      <td className={`${TD} font-mono`}>
+                        <button
+                          type="button"
+                          aria-pressed={item.id === selectedId}
+                          className="font-semibold text-brand hover:underline"
+                          onClick={() => select(item.id)}
+                        >
+                          {item.code}
+                        </button>
+                      </td>
+                      <td className={TD}>{item.legalName}</td>
+                      <td className={`${TD} whitespace-nowrap`}>
+                        {formatDateTime(item.createdAt)}
+                      </td>
+                      <td className={TD}>{item.verifiedAt ? 'Yes' : 'Not yet'}</td>
+                      <td className={TD}>
+                        <StatusBadge entry={ORGANIZATION_STATUS[item.status]} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {selected ? (
+            <Card as="article" className="flex flex-col gap-4 xl:sticky xl:top-4">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-title-sm text-ink">{selected.legalName}</h2>
+                <StatusBadge entry={ORGANIZATION_STATUS[selected.status]} />
+              </div>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <Fact label="Code">{selected.code}</Fact>
+                <Fact label="Tax code">{selected.taxCode}</Fact>
+                <Fact label="Address">{selected.address}</Fact>
+                <Fact label="Contact">
+                  {selected.contactEmail}, {selected.contactPhone}
+                </Fact>
+                {selected.verifiedAt && (
+                  <Fact label="Verified">
+                    {formatDateTime(selected.verifiedAt)},{' '}
+                    {selected.verificationMethod === 'PHONE' ? 'by phone' : 'in person'}, contract{' '}
+                    {selected.masterContractRef}
+                  </Fact>
+                )}
+                {selected.rejectionReason && (
+                  <Fact label="Rejection reason">{selected.rejectionReason}</Fact>
+                )}
+              </dl>
+
+              {selected.status === 'PENDING' && (
+                <>
+                  <VerifyForm
+                    key={`${selected.id}-${selected.version}`}
+                    organization={selected}
+                    onSaved={() => {
+                      void refresh();
+                      showToast('Saved.');
+                    }}
+                  />
+                  {isAdmin && (
+                    <div className="flex flex-col gap-3 border-t border-line pt-4">
+                      <h3 className="text-title-sm text-ink">Decision</h3>
+                      {!selected.verifiedAt && (
+                        <Alert tone="warning">
+                          Verify this organization at the counter before approving it.
+                        </Alert>
+                      )}
+                      {decisionError && <Alert tone="error">{decisionError}</Alert>}
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          variant="primary"
+                          className="flex-1"
+                          loading={deciding}
+                          loadingLabel="Approving"
+                          disabled={!selected.verifiedAt}
+                          onClick={() => void approve(selected)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="danger"
+                          className="flex-1"
+                          onClick={() => setRejecting(true)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+          ) : (
+            organizations.data &&
+            organizations.data.items.length > 0 && (
+              <Card surface="glass" className="text-body text-ink-muted">
+                Select an organization to see its details, record the counter verification and
+                decide.
+              </Card>
+            )
           )}
         </div>
-
-        {selected && (
-          <aside aria-label={`${selected.code} details`} className={`${CARD} flex flex-col gap-4`}>
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-bold text-slate-900">{selected.legalName}</h2>
-              <Badge tone={ORGANIZATION_STATUS_TONES[selected.status]}>
-                {ORGANIZATION_STATUS_LABELS[selected.status]}
-              </Badge>
-            </div>
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <Fact label="Code">{selected.code}</Fact>
-              <Fact label="Tax code">{selected.taxCode}</Fact>
-              <Fact label="Address">{selected.address}</Fact>
-              <Fact label="Contact">
-                {selected.contactEmail}, {selected.contactPhone}
-              </Fact>
-              {selected.verifiedAt && (
-                <Fact label="Verified">
-                  {formatDateTime(selected.verifiedAt)},{' '}
-                  {selected.verificationMethod === 'PHONE' ? 'by phone' : 'in person'}, contract{' '}
-                  {selected.masterContractRef}
-                </Fact>
-              )}
-              {selected.rejectionReason && (
-                <Fact label="Rejection reason">{selected.rejectionReason}</Fact>
-              )}
-            </dl>
-
-            {selected.status === 'PENDING' && (
-              <>
-                <VerifyForm
-                  key={`${selected.id}-${selected.version}`}
-                  organization={selected}
-                  onSaved={() => {
-                    void refresh();
-                    showToast('Saved.');
-                  }}
-                />
-                {isAdmin && (
-                  <div className="flex flex-col gap-2 border-t border-slate-200 pt-4">
-                    <h3 className="font-bold text-slate-900">Decision</h3>
-                    {!selected.verifiedAt && (
-                      <p className="text-sm text-slate-700">
-                        Verify this organization at the counter before approving it.
-                      </p>
-                    )}
-                    {decisionError && (
-                      <div role="alert" className={ALERT}>
-                        {decisionError}
-                      </div>
-                    )}
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <button
-                        type="button"
-                        className={`${PRIMARY_BUTTON} flex-1`}
-                        disabled={deciding || !selected.verifiedAt}
-                        onClick={() => void approve(selected)}
-                      >
-                        {deciding ? 'Approving…' : 'Approve'}
-                      </button>
-                      <button
-                        type="button"
-                        className={`${DANGER_BUTTON} flex-1`}
-                        onClick={() => setRejecting(true)}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </aside>
-        )}
-      </div>
+      </TabPanel>
 
       {rejecting && selected && (
         <RejectDialog
