@@ -12,6 +12,7 @@ import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { PricesPage } from '../pages/PricesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
+import { OrgDashboardPage } from '../pages/OrgDashboardPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
@@ -82,6 +83,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/contracts/:id" element={<ContractDetailPage scope="o" />} />
       </Route>
       <Route element={<RequireRole roles={ORG_MANAGER} />}>
+        <Route path="/o" element={<OrgDashboardPage />} />
         <Route path="/o/contracts/new" element={<ContractRequestPage />} />
         <Route path="/o/invoices" element={<InvoicesPage />} />
         <Route path="/o/invoices/:id" element={<InvoiceDetailPage />} />

@@ -62,7 +62,7 @@ export const ORGANIZATION_NAV: NavGroup[] = [
     id: 'o-operate',
     label: 'Operate',
     entries: [
-      { route: '/o', label: 'Overview', icon: LayoutGrid, roles: MANAGER, built: false, tabBar: 1 },
+      { route: '/o', label: 'Overview', icon: LayoutGrid, roles: MANAGER, built: true, tabBar: 1 },
       { route: '/o/map', label: 'Live map', icon: MapIcon, roles: OPERATOR, built: true, fullBleed: true, tabBar: 2 },
       { route: '/o/incidents', label: 'Incidents', icon: Siren, roles: OPERATOR, built: false, tabBar: 3 },
     ],

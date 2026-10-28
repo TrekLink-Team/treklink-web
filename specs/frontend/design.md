@@ -59,7 +59,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/t/admin/audit/changes`, `/t/admin/audit/sign-ins` | Audit: the change log (`auditLog.read`) and the sign-in log (`authEvent.read`), one tab per route, each tab hidden without its permission; `/t/admin/audit` redirects to `changes`; filters in the query (D-057 rule 3) | TrekLink Admin |
 
 **Landing after sign-in** (D-059 rule 1): a same-origin `?next=` path wins; otherwise the Org Manager lands
-on `/o` (on `/o/contracts` until task 5.6 is built), the Org Operator on `/o/map`, TrekLink Staff and Admin
+on `/o`, the Org Operator on `/o/map`, TrekLink Staff and Admin
 on `/t/map`. **No route of their own** (D-059 rule 5): the account menu is a header menu with a
 change-password dialog; damage rates are a section of `/t/admin/prices`.
 

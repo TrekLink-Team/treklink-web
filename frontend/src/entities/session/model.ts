@@ -69,5 +69,5 @@ export const landingRoute = (
   const path = next ? sameOriginPath(next, origin) : null;
   if (path) return path;
   if (user.accountType === 'TREKLINK') return '/t/map';
-  return user.organization?.memberRole === 'MANAGER' ? '/o/contracts' : '/o/map';
+  return user.organization?.memberRole === 'MANAGER' ? '/o' : '/o/map';
 };
