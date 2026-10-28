@@ -13,6 +13,9 @@ export interface HandoverNoteInput {
   signer?: { fullName: string; identityChecked: string };
   signaturePng?: Buffer;
   at: Date;
+  // A replacement on a running contract (rentals 4.3) prints its own title and the unit it replaces.
+  title?: string;
+  replaces?: { assetTag: string; how: string };
 }
 
 const ZONE = 'Asia/Ho_Chi_Minh';
@@ -31,7 +34,7 @@ export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(18).text('TrekLink device handover note', { align: 'left' });
+    doc.fontSize(18).text(input.title ?? 'TrekLink device handover note', { align: 'left' });
     doc
       .moveDown(0.3)
       .fontSize(10)
@@ -61,6 +64,9 @@ export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
             : 'no GPS fix';
       doc.text(`${index + 1}. ${device.assetTag}, ${battery}, ${gps}`);
     });
+    if (input.replaces) {
+      doc.moveDown(0.3).text(`Replaces ${input.replaces.assetTag}, ${input.replaces.how}.`);
+    }
     doc.moveDown();
 
     doc

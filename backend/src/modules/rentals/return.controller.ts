@@ -3,6 +3,8 @@ import { InspectionResult } from '@prisma/client';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
+  IsUUID,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -15,6 +17,7 @@ import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/ac
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { ContractReadsService } from './contract-reads.service';
 import { contractBase } from './contracts.controller';
+import { ReplacementService } from './replacement.service';
 import { ReturnService } from './return.service';
 
 // rentals api-design 14.
@@ -24,6 +27,23 @@ export class CheckInDto {
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
   assetTags!: string[];
+}
+
+// rentals api-design 15. The signature PNG stays under the global HTTP_BODY_LIMIT.
+export class ReplacementDto {
+  @IsUUID()
+  replacementDeviceId!: string;
+
+  @IsInt()
+  @Min(1)
+  keyVersion!: number;
+
+  @IsString()
+  @IsNotEmpty()
+  signatureImage!: string;
+
+  @IsBoolean()
+  faultyPresent!: boolean;
 }
 
 // rentals api-design 16.
@@ -58,6 +78,7 @@ export class ReturnController {
   constructor(
     private readonly returns: ReturnService,
     private readonly reads: ContractReadsService,
+    private readonly replacements: ReplacementService,
   ) {}
 
   @Post(':id/check-ins')
@@ -70,6 +91,18 @@ export class ReturnController {
     @CurrentCaller() caller: Caller,
   ) {
     return this.returns.checkIn(id, dto.assetTags, caller);
+  }
+
+  @Post(':id/devices/:deviceId/replacement')
+  @CheckPolicies((ability) => ability.can('operate', 'RentalContract'))
+  @ResponseMessage('Device replaced')
+  replace(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @Body() dto: ReplacementDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    return this.replacements.replace(id, deviceId, dto, caller);
   }
 
   @Post(':id/devices/:deviceId/inspection')

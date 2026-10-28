@@ -5,6 +5,8 @@ import {
   DeviceIdentity,
   DeviceProjection,
   DeviceTag,
+  DeviceFilter,
+  DeviceListRow,
   DevicesRepository,
   ProvisionedDevice,
   UnitRow,
@@ -218,6 +220,53 @@ export class DevicesService {
       inspection,
       device: { ...unit, status: next },
     };
+  }
+
+  // devices api-design 06 (task 4.1 part, built by LongLP for rentals 4.3): the fleet for Staff,
+  // filtered by status, variant and asset tag. Battery, last seen and the service date come from the
+  // projection; the last position joins with the live map work.
+  page(filter: DeviceFilter, skip: number, take: number): Promise<[DeviceListRow[], number]> {
+    return this.devices.page(filter, skip, take);
+  }
+
+  // The unit Staff chose to replace a faulty or lost one on a running contract (rentals 4.3, BR-41):
+  // locked, of the contract's variant (409 VARIANT_MISMATCH) and AVAILABLE (409
+  // DEVICE_NOT_AVAILABLE); it moves to RESERVED until the caller provisions and hands it over.
+  async takeForReplacement(
+    deviceId: string,
+    variantId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<DeviceTag> {
+    const unit = await this.devices.lockUnit(deviceId, tx);
+    if (!unit) throw notFound();
+    if (unit.hardwareVariantId !== variantId) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.VARIANT_MISMATCH,
+        'Choose a unit of the same variant.',
+      );
+    }
+    if (unit.status !== DeviceStatus.AVAILABLE) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.DEVICE_NOT_AVAILABLE,
+        'Choose an available unit.',
+      );
+    }
+    await this.devices.moveStatus(
+      [deviceId],
+      DeviceStatus.AVAILABLE,
+      DeviceStatus.RESERVED,
+      at,
+      tx,
+    );
+    return { id: unit.id, assetTag: unit.assetTag };
+  }
+
+  // Whether a missing unit has a loss case open, so it may be replaced while away (rentals 4.3).
+  hasOpenLossCase(deviceId: string, tx: Prisma.TransactionClient): Promise<boolean> {
+    return this.devices.hasOpenLossCase(deviceId, tx);
   }
 
   // AVAILABLE units per variant now; advisory for the approval queue and the request form
