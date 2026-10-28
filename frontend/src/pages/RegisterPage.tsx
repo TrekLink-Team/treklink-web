@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { registerOrganization, type RegistrationInput } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
-import { Field } from '../shared/ui/bits';
+import { Alert, Button, Card, Field, Input } from '../shared/ui';
 import { invalid } from '../shared/ui/errors';
-import { ALERT, CARD, INPUT, LINK, PRIMARY_BUTTON } from '../shared/ui/styles';
+import { LINK } from '../shared/ui/styles';
 
 const EMPTY: RegistrationInput = {
   legalName: '',
@@ -81,65 +81,63 @@ export const RegisterPage: React.FC = () => {
   if (done) {
     return (
       <section aria-labelledby="register-title" className="mx-auto max-w-lg">
-        <div role="status" className={CARD}>
-          <h1 id="register-title" className="mb-3 text-2xl font-bold text-slate-900">
+        <Card className="flex flex-col gap-4">
+          <h1 id="register-title" className="text-title-lg text-ink">
             Registration received
           </h1>
-          <p className="text-slate-800">
-            Registration received. Visit the TrekLink counter or call us to verify your
-            organization.
+          <Alert tone="success" title="Registration received.">
+            Visit the TrekLink counter or call us to verify your organization.
+          </Alert>
+          <p className="text-body text-ink-muted">
+            Your organization code is{' '}
+            <span className="font-mono font-semibold text-ink">{done}</span>. The Manager receives
+            an email to set a password.
           </p>
-          <p className="mt-3 text-sm text-slate-700">
-            Your organization code is <span className="font-mono font-semibold">{done}</span>. The
-            Manager receives an email to set a password.
-          </p>
-          <Link to="/sign-in" className={`${LINK} mt-4 inline-block`}>
+          <Link to="/sign-in" className={`${LINK} self-start`}>
             Back to sign in
           </Link>
-        </div>
+        </Card>
       </section>
     );
   }
 
   return (
     <section aria-labelledby="register-title" className="mx-auto max-w-lg">
-      <form onSubmit={submit} noValidate className={`${CARD} flex flex-col gap-4`}>
-        <h1 id="register-title" className="text-2xl font-bold text-slate-900">
-          Register your organization
-        </h1>
-        <p className="-mt-2 text-sm text-slate-700">
-          TrekLink verifies every organization at the counter or by phone before it can rent
-          devices.
-        </p>
-        {failure && (
-          <div role="alert" className={ALERT}>
-            {failure}
-          </div>
-        )}
-        {FIELDS.map((field) => (
-          <Field
-            key={field.name}
-            id={`register-${field.name}`}
-            label={field.label}
-            error={errors[field.name]}
-            hint={field.hint}
-          >
-            <input
+      <form onSubmit={submit} noValidate>
+        <Card className="flex flex-col gap-4">
+          <h1 id="register-title" className="text-title-lg text-ink">
+            Register your organization
+          </h1>
+          <p className="-mt-2 text-body text-ink-muted">
+            TrekLink verifies every organization at the counter or by phone before it can rent
+            devices.
+          </p>
+          {failure && <Alert tone="error">{failure}</Alert>}
+          {FIELDS.map((field) => (
+            <Field
+              key={field.name}
               id={`register-${field.name}`}
-              type={field.type ?? 'text'}
-              className={INPUT}
-              value={form[field.name]}
-              onChange={(event) => set(field.name, event.target.value)}
-              {...invalid(`register-${field.name}`, errors[field.name])}
-            />
-          </Field>
-        ))}
-        <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
-          {pending ? 'Sending…' : 'Register'}
-        </button>
-        <Link to="/sign-in" className={`${LINK} self-start text-sm`}>
-          Already registered? Sign in
-        </Link>
+              label={field.label}
+              error={errors[field.name]}
+              hint={field.hint}
+              required
+            >
+              <Input
+                id={`register-${field.name}`}
+                type={field.type ?? 'text'}
+                value={form[field.name]}
+                onChange={(event) => set(field.name, event.target.value)}
+                {...invalid(`register-${field.name}`, errors[field.name])}
+              />
+            </Field>
+          ))}
+          <Button type="submit" variant="primary" loading={pending} loadingLabel="Sending">
+            Register
+          </Button>
+          <Link to="/sign-in" className={`${LINK} self-start text-body-sm`}>
+            Already registered? Sign in
+          </Link>
+        </Card>
       </form>
     </section>
   );

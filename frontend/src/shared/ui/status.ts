@@ -95,6 +95,16 @@ export const CONTRACT_STATUS: Palette<ContractStatus> = {
   CLOSED: { label: 'Closed', tone: 'done' },
 };
 
+export type OrganizationStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED' | 'CLOSED';
+
+export const ORGANIZATION_STATUS: Palette<OrganizationStatus> = {
+  PENDING: { label: 'Pending', tone: 'waiting' },
+  ACTIVE: { label: 'Active', tone: 'active' },
+  REJECTED: { label: 'Rejected', tone: 'ended' },
+  SUSPENDED: { label: 'Suspended', tone: 'attention' },
+  CLOSED: { label: 'Closed', tone: 'ended' },
+};
+
 export type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID';
 
 export const INVOICE_STATUS: Palette<InvoiceStatus> = {

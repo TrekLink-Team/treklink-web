@@ -104,22 +104,6 @@ export const useOrganizations = (status: OrganizationStatus | undefined) =>
       ),
   });
 
-export const ORGANIZATION_STATUS_LABELS: Record<OrganizationStatus, string> = {
-  PENDING: 'Pending',
-  ACTIVE: 'Active',
-  REJECTED: 'Rejected',
-  SUSPENDED: 'Suspended',
-  CLOSED: 'Closed',
-};
-
-export const ORGANIZATION_STATUS_TONES: Record<OrganizationStatus, string> = {
-  PENDING: 'bg-blue-50 text-blue-800 border-blue-200',
-  ACTIVE: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  REJECTED: 'bg-slate-100 text-slate-700 border-slate-300',
-  SUSPENDED: 'bg-amber-50 text-amber-900 border-amber-200',
-  CLOSED: 'bg-slate-100 text-slate-700 border-slate-300',
-};
-
 export const useOrganization = (id: string | undefined) =>
   useQuery({
     queryKey: organizationKeys.detail(id ?? ''),
