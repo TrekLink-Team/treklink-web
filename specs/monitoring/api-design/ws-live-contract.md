@@ -42,12 +42,13 @@ Every live entry is emitted as the event `stream` with this body:
 
 | `type` | `payload` | Source |
 |---|---|---|
-| `device.position` | `{ lat, lon, altitude, at }`; never an unplotted position (FR-MON-04) | gateway-sync after commit, throttled by `monitoring.positionEmitMinIntervalMs` per device |
-| `device.telemetry` | `{ batteryPct, at }` | gateway-sync |
+| `device.position` | `{ lat, lon, at }` and `late: true` for a late entry; never an unplotted position (FR-MON-04). `altitude` is not carried by `field.position` yet | gateway-sync after commit, throttled by `monitoring.positionEmitMinIntervalMs` per device |
+| `device.telemetry` | `{ batteryPct, at }` and `late: true` for a late entry | gateway-sync |
 | `device.stale` | `{ stale: true, lastSeenAt }` or `{ stale: false }` | staleness sweep (FR-MON-03, BR-21) |
 | `device.label` | `{ holder: { name } \| null }` | rentals (FR-CON-14) |
+| `device.handedOver` | `{ contractId, at }`; the organization's map learns of the device, its first position follows | rentals on handover |
 | `device.released` | `{ checkedInAt }`; the client removes the device; nothing more is sent for it to that organization (FR-MON-08) | rentals on check-in |
-| `incident.changed` | `{ incidentId, code, state, tier, ownerName, lastPosition, stale }` | incidents after commit (FR-INC-12) |
+| `incident.changed` | `{ incidentId, state, tier, ownerId }` today; `code`, `ownerName`, `lastPosition` and `stale` join when `incidents` exports a read for them (task 2.1 status) | incidents after commit (FR-INC-12) |
 | `incident.alert` | `{ incidentId, code, deviceLabel, holderName, at, message }`; MSG31 for the recipient's tier | incidents outbox, WEBSOCKET channel, sent only to the recipient's personal room `user:<id>` |
 | `station.stale` | `{ fieldStationId, stale, lastSyncAt }` | staleness sweep (E04-2) |
 

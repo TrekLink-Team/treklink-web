@@ -62,6 +62,20 @@ export class StreamRepository {
     return rows.map(toEntry);
   }
 
+  // When the organization last checked the device in, read from its newest `device.released` entry,
+  // or null when the stream holds none (never checked in, or pruned past retention).
+  async latestRelease(organizationId: string, deviceId: string): Promise<Date | null> {
+    const row = await this.prisma.streamEvent.findFirst({
+      where: { organizationId, deviceId, type: 'device.released' },
+      orderBy: { seq: 'desc' },
+      select: { payload: true },
+    });
+    const payload = row?.payload;
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+    const at = typeof payload.checkedInAt === 'string' ? new Date(payload.checkedInAt) : null;
+    return at && !Number.isNaN(at.getTime()) ? at : null;
+  }
+
   // The newest cursor, or 0 when the stream is empty.
   async maxSeq(): Promise<number> {
     const { _max } = await this.prisma.streamEvent.aggregate({ _max: { seq: true } });

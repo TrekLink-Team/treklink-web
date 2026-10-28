@@ -11,11 +11,21 @@ const row = (seq: bigint, organizationId: string | null = 'o-1') => ({
 });
 
 describe('StreamRepository', () => {
-  let streamEvent: { create: jest.Mock; findMany: jest.Mock; aggregate: jest.Mock };
+  let streamEvent: {
+    create: jest.Mock;
+    findMany: jest.Mock;
+    findFirst: jest.Mock;
+    aggregate: jest.Mock;
+  };
   let repository: StreamRepository;
 
   beforeEach(() => {
-    streamEvent = { create: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() };
+    streamEvent = {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      aggregate: jest.fn(),
+    };
     repository = new StreamRepository({ streamEvent } as unknown as PrismaService);
   });
 
@@ -66,6 +76,31 @@ describe('StreamRepository', () => {
     expect(streamEvent.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { seq: { gt: 10n } } }) as unknown,
     );
+  });
+
+  it("reads an organization's latest check-in of a device from its newest device.released entry", async () => {
+    streamEvent.findFirst.mockResolvedValue({
+      payload: { checkedInAt: '2026-10-25T03:00:00.000Z' },
+    });
+    await expect(repository.latestRelease('o-1', 'd-1')).resolves.toEqual(
+      new Date('2026-10-25T03:00:00.000Z'),
+    );
+    expect(streamEvent.findFirst).toHaveBeenCalledWith({
+      where: { organizationId: 'o-1', deviceId: 'd-1', type: 'device.released' },
+      orderBy: { seq: 'desc' },
+      select: { payload: true },
+    });
+  });
+
+  it.each([
+    [null],
+    [{ payload: null }],
+    [{ payload: [] }],
+    [{ payload: {} }],
+    [{ payload: { checkedInAt: 'never' } }],
+  ])('reads no check-in from %p', async (row) => {
+    streamEvent.findFirst.mockResolvedValue(row);
+    await expect(repository.latestRelease('o-1', 'd-1')).resolves.toBeNull();
   });
 
   it('reads the newest cursor, or 0 for an empty stream', async () => {
