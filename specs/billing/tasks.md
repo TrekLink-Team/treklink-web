@@ -106,6 +106,7 @@
 - [ ] 5.2 E2E (owner LongLP)
   - **Files**: `backend/test/billing.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 17; webhook replay; AC-01 to AC-05
+  - **Partly done** (2026-10-28): `backend/test/billing.e2e-spec.ts` (20) through the real HTTP pipeline with Prisma stubbed: 401 without a token; the role rules (an Org Manager may not record a counter payment, an Org Operator reads no invoice or payment and gets no quote); the 400 rows of api-design 02, 08, 13 and 14, and an invoice id that is not a uuid; 404 for another organization's invoice and balance, and for an unknown invoice. Open: the webhook replay (with SePay, #92), the rows of 03 to 07 (with #91), AC-01 to AC-05 and the service-level rows on Postgres (`test:db`)
   - _Requirements: AC-01 to AC-05_
 
 ## Phase 6: Frontend Integration

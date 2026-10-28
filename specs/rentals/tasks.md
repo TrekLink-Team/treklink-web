@@ -134,6 +134,7 @@
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/rentals.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-07; the 50 parallel approvals of the non-functional table
+  - **Partly done** (2026-10-28): `backend/test/rentals.e2e-spec.ts` (28) through the real HTTP pipeline with Prisma stubbed, callers from `backend/test/e2e-callers.ts` with the seeded permission rows: 401 without a token; the role rules (an Org Operator may not request or give notice, an Org Manager may not approve, reject, swap or provision); the 400 rows of api-design 01, 02, 04, 05, 07, 09, 10, 12 and 13 that the ValidationPipe decides, and a contract id that is not a uuid; 404 for another organization's contract and its history, and for an unknown one. Open: AC-01 to AC-07, the 50 parallel approvals and the service-level rows (409s), which need Postgres (`test:db`); the rows of api-design 14 to 17, which join once #104 and #107 merge
   - _Requirements: AC-01 to AC-07_
 
 ## Phase 7: Frontend Integration
