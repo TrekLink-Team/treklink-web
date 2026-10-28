@@ -33,6 +33,7 @@ import {
   WARNING,
 } from '../shared/ui/styles';
 import { CounterPaymentDialog } from '../widgets/InvoiceDetail/CounterPaymentDialog';
+import { ReturnCounter } from '../widgets/ReturnCounter/ReturnCounter';
 import { SignaturePad } from '../widgets/SignaturePad/SignaturePad';
 
 const STEPS = ['Devices', 'Payment', 'Preview note', 'Sign'] as const;
@@ -375,15 +376,25 @@ export const CounterPage: React.FC = () => {
   }
 
   if (data.status !== 'APPROVED') {
+    // Past the handover the same route is screen 5.5: check-in, reset and inspection, close.
     return (
       <section aria-labelledby="counter-title">
-        <PageTitle id="counter-title" title={`Counter: ${data.code}`} />
-        <div role="alert" className={ALERT}>
-          This cannot be done while it is {STATUS_LABELS[data.status]}.{' '}
-          <Link to={`/t/contracts/${data.id}`} className="font-semibold underline">
-            Open the contract
-          </Link>
-        </div>
+        <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm`}>
+          Back to the contract
+        </Link>
+        <PageTitle
+          id="counter-title"
+          title={`Counter: ${data.code}`}
+          action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
+        />
+        <p className="-mt-3 mb-5 text-ink-muted">
+          {data.organization
+            ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
+            : ''}
+          {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}
+          {data.returnDueAt ? `, return due ${formatDay(data.returnDueAt.slice(0, 10))}` : ''}
+        </p>
+        <ReturnCounter contract={data} />
       </section>
     );
   }

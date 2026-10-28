@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DeviceStatus, Prisma } from '@prisma/client';
+import { DeviceStatus, InspectionResult, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -226,7 +226,69 @@ export class DevicesRepository {
       select: { id: true, code: true, name: true, isActive: true },
     });
   }
+
+  // Return, reset and inspection (task 2.4 part, built by LongLP for MF-05).
+  findUnit(id: string, client: Client = this.prisma): Promise<UnitRow | null> {
+    return client.device.findUnique({ where: { id }, select: UNIT_SELECT });
+  }
+
+  // The latest reset of a unit, null when it was never reset.
+  async lastResetAt(deviceId: string, client: Client = this.prisma): Promise<Date | null> {
+    const row = await client.deviceReset.findFirst({
+      where: { deviceId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    return row?.createdAt ?? null;
+  }
+
+  // Records the three reset steps and clears the organization key the unit carried (D-021).
+  async insertReset(
+    deviceId: string,
+    steps: { keyRemoved: boolean; nodeDbCleared: boolean; ownerCleared: boolean },
+    resetById: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<UnitRow> {
+    await tx.deviceReset.create({ data: { deviceId, ...steps, resetById, createdAt: at } });
+    return tx.device.update({
+      where: { id: deviceId },
+      data: { keyVersion: null, keyOrganizationId: null, version: { increment: 1 } },
+      select: UNIT_SELECT,
+    });
+  }
+
+  insertInspection(
+    data: {
+      deviceId: string;
+      contractDeviceId: string | null;
+      result: InspectionResult;
+      damageCodes: string[];
+      note: string | null;
+      inspectorId: string;
+      createdAt: Date;
+    },
+    tx: Prisma.TransactionClient,
+  ) {
+    return tx.inspection.create({
+      data,
+      select: { id: true, result: true, damageCodes: true, createdAt: true },
+    });
+  }
 }
+
+export const UNIT_SELECT = {
+  id: true,
+  assetTag: true,
+  hardwareVariantId: true,
+  status: true,
+  statusChangedAt: true,
+  keyVersion: true,
+  keyOrganizationId: true,
+  version: true,
+} satisfies Prisma.DeviceSelect;
+
+export type UnitRow = Prisma.DeviceGetPayload<{ select: typeof UNIT_SELECT }>;
 
 export const PROVISIONED_SELECT = {
   id: true,

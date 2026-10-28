@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { DeviceStatus, Prisma } from '@prisma/client';
+import { DeviceStatus, InspectionResult, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import {
   DeviceIdentity,
@@ -7,8 +7,19 @@ import {
   DeviceTag,
   DevicesRepository,
   ProvisionedDevice,
+  UnitRow,
   VariantSummary,
 } from './devices.repository';
+
+const notFound = () =>
+  new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Device not found.');
+
+const wrongState = (status: DeviceStatus) =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.INVALID_STATE_TRANSITION,
+    `This cannot be done while it is ${status}.`,
+  );
 import { RemainingValueStep, remainingValue } from './remaining-value';
 
 // One reading of a field event, as `gateway-sync` reports it (task 2.5). `at` is the event's occurrence
@@ -127,6 +138,86 @@ export class DevicesService {
   // Reserved units go out with the handover (FR-CON-05).
   async markRented(ids: readonly string[], at: Date, tx: Prisma.TransactionClient): Promise<void> {
     await this.devices.moveStatus(ids, DeviceStatus.RESERVED, DeviceStatus.RENTED, at, tx);
+  }
+
+  // Units come back at the counter (rentals 4.1, FR-DEV-01): RENTED to RETURNED; the reset and the
+  // inspection decide where each goes next.
+  async markReturned(
+    ids: readonly string[],
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await this.devices.moveStatus(ids, DeviceStatus.RENTED, DeviceStatus.RETURNED, at, tx);
+  }
+
+  // devices api-design 10 (task 2.4 part, built by LongLP for MF-05): a RETURNED unit is reset with all
+  // three steps (400 RESET_INCOMPLETE otherwise), which clears the organization key it carried (D-021).
+  async reset(
+    deviceId: string,
+    steps: { keyRemoved: boolean; nodeDbCleared: boolean; ownerCleared: boolean },
+    actorId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<UnitRow> {
+    const unit = await this.devices.findUnit(deviceId, tx);
+    if (!unit) throw notFound();
+    if (unit.status !== DeviceStatus.RETURNED) throw wrongState(unit.status);
+    if (!steps.keyRemoved || !steps.nodeDbCleared || !steps.ownerCleared) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.RESET_INCOMPLETE,
+        'Complete every reset step first.',
+      );
+    }
+    return this.devices.insertReset(deviceId, steps, actorId, at, tx);
+  }
+
+  // The inspection of a returned unit (task 2.4 part, rentals 4.2): it needs a reset after the unit's
+  // last check-in (409 RESET_REQUIRED, BR-28). PASSED makes the unit AVAILABLE again; DAMAGED and FAILED
+  // send it to MAINTENANCE. The maintenance record and the service-due rule join with task 2.8.
+  async recordInspection(
+    deviceId: string,
+    input: {
+      result: InspectionResult;
+      damageCodes: string[];
+      note: string | null;
+      contractDeviceId: string | null;
+      checkedInAt: Date;
+    },
+    actorId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ) {
+    const unit = await this.devices.findUnit(deviceId, tx);
+    if (!unit) throw notFound();
+    if (unit.status !== DeviceStatus.RETURNED) throw wrongState(unit.status);
+    const resetAt = await this.devices.lastResetAt(deviceId, tx);
+    if (!resetAt || resetAt < input.checkedInAt) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.RESET_REQUIRED,
+        'Reset this device before inspecting it.',
+      );
+    }
+    const inspection = await this.devices.insertInspection(
+      {
+        deviceId,
+        contractDeviceId: input.contractDeviceId,
+        result: input.result,
+        damageCodes: input.result === InspectionResult.DAMAGED ? input.damageCodes : [],
+        note: input.note,
+        inspectorId: actorId,
+        createdAt: at,
+      },
+      tx,
+    );
+    const next =
+      input.result === InspectionResult.PASSED ? DeviceStatus.AVAILABLE : DeviceStatus.MAINTENANCE;
+    await this.devices.moveStatus([deviceId], DeviceStatus.RETURNED, next, at, tx);
+    return {
+      inspection,
+      device: { ...unit, status: next },
+    };
   }
 
   // AVAILABLE units per variant now; advisory for the approval queue and the request form

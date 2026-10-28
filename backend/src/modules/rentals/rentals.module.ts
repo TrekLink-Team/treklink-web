@@ -12,14 +12,18 @@ import { ContractsService } from './contracts.service';
 import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
 import { RentalsPortsModule } from './rentals-ports.module';
+import { ReturnController } from './return.controller';
+import { ReturnService } from './return.service';
+import { TermRolloverJob } from './term-rollover.job';
 
 // Rental contracts (specs/rentals/design.md). Phase 1: the repository, the lifecycle and the port
 // behaviours; Phase 2 so far: the request, approval, rejection and cancellation (tasks 2.1, 2.2);
 // the counter handover (tasks 2.3, 2.4); the reads of task 5.1 and their endpoints; billing's
-// CONTRACT_DIRECTORY. The end-of-contract services join with their tasks.
+// CONTRACT_DIRECTORY; MF-05: the term rollover job (3.1), check-in, inspection and close (4.1, 4.2,
+// 4.4). Replacement (4.3) and the overdue and default job (3.2) join with their tasks.
 @Module({
   imports: [PlatformModule, OrganizationsModule, BillingModule, DevicesModule, RentalsPortsModule],
-  controllers: [ContractsController, HandoverController],
+  controllers: [ContractsController, HandoverController, ReturnController],
   providers: [
     ContractsRepository,
     ContractLifecycleService,
@@ -27,6 +31,8 @@ import { RentalsPortsModule } from './rentals-ports.module';
     ContractReadsService,
     ContractDecisionsService,
     HandoverService,
+    ReturnService,
+    TermRolloverJob,
   ],
   exports: [ContractLifecycleService, ContractsService],
 })

@@ -80,6 +80,7 @@
   - _Requirements: REQ-EVT-07, REQ-EVT-08, REQ-EVT-09, REQ-ERR-06, REQ-UBI-03, AC-03, FR-CON-07, FR-CON-08, FR-CON-09, FR-CON-10, BR-05 to BR-08_
   - _Story: US-UC23, US-UC24_
   - **Partly done** (2026-10-27): notice, as `ContractDecisionsService.giveNotice`: ACTIVE monthly to ENDING with `endsAt` at the open term's end and `noticeGivenAt`/`noticeGivenById`, `expectedVersion` checked, 409 `DAY_PLAN_NO_NOTICE`; the answer carries `dueAtEndVnd` (the balance due later) for MSG18. Open: the `rentals.termRollover` job
+  - **Partly done** (2026-10-28): `TermRolloverJob` (`rentals.termRollover`, hourly at minute 5, which also covers the catch-up) closes each ended `OPEN` term by compare-and-set; a monthly `ACTIVE` contract gets term n+1 (one calendar month) with its invoice through `InvoicesService.issueTermInvoice`; an `ENDING` contract or a day plan moves to `RETURN_DUE` with `returnDueAt` at the term end (reason `TERM_ENDED`), and on to `RETURNED` when every device is already back or lost. Unit-tested (renewal, notice, day plan, re-run). Walked on local PGlite on 2026-10-28 through the API, RC-2026-0001 from notice to CLOSED. Open: running at `rentals.termRolloverHourLocal` rather than hourly, AC-03 on Postgres
 - [ ] 3.2 Overdue, default, reminders (owner LongLP)
   - **Files**: `jobs/overdue-and-default.job.ts`, `jobs/reservation-reminders.job.ts`
   - **Do**: `RETURN_DUE` past `returnDueAt` plus `rentals.returnGraceHours` with devices out to `OVERDUE`; `OVERDUE` for `rentals.defaultAfterDays` to `DEFAULTED` and `OrganizationsService.suspendForDefault`; one reminder per approved contract past `reservationExpiresAt`; `RETURN_DUE`, `OVERDUE` and `DEFAULTED` contracts stay visible and routed to the organization
@@ -93,11 +94,13 @@
   - **Files**: `backend/src/modules/rentals/return.service.ts`
   - **Do**: accepted only in the states of REQ-STA-01; mark the row `checkedInAt`, `DevicesService.markReturned`, `ChargesService.chargeLate` past the grace, emit `device.checkedIn`; a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` contract moves to `RETURNED` once every device is back or lost (MSG07)
   - **Test**: check-in refused on a running monthly `ACTIVE` contract; late line count per device
+  - **Partly done** (2026-10-28): `ReturnService.checkIn` (api-design 14, `POST /api/contracts/:id/check-ins`, `contract.operate`) accepts the states of REQ-STA-01, refuses a tag not out on the contract with 409 `DEVICE_NOT_ON_CONTRACT` naming it and stores nothing, marks the rows, `DevicesService.markReturned`, `ChargesService.chargeLate` per device past `returnDueAt` plus the grace, emits `device.checkedIn` after commit, and moves a due contract to `RETURNED` (reason `CHECKED_IN`) with the last device. The answer carries `returned`, `total`, `contractStatus` and `lateFeeVnd` (the outstanding difference) for MSG07. Unit-tested. Walked on local PGlite on 2026-10-28 through the API, RC-2026-0001 from notice to CLOSED.
   - _Requirements: REQ-EVT-10, REQ-STA-01, FR-MON-08, FR-BILL-03_
   - _Story: US-UC43_
 - [ ] 4.2 Inspection orchestration (owner LongLP)
   - **Do**: `inspect(id, deviceId, dto, actor)`: `DevicesService.recordInspection` and, for `DAMAGED`, `ChargesService.chargeDamage` in the same transaction, unless the contract is `CLOSED`; reset-before-inspection is enforced by devices (409 `RESET_REQUIRED`)
   - **Test**: a damaged inspection creates the damage line in the same transaction
+  - **Partly done** (2026-10-28): `ReturnService.inspect` (api-design 16, `POST /api/contracts/:id/devices/:deviceId/inspection`) refuses a `CLOSED` contract and a device not handed over on it, calls `DevicesService.recordInspection` (which enforces the reset after the check-in, 409 `RESET_REQUIRED`), and for `DAMAGED` `ChargesService.chargeDamage` in the same transaction; an unknown code is 400 `UNKNOWN_DAMAGE_CODE`. Unit-tested. Walked on local PGlite on 2026-10-28 through the API, RC-2026-0001 from notice to CLOSED.
   - _Requirements: REQ-EVT-11, FR-BILL-04, UC-44_
   - _Story: US-UC44_
 - [ ] 4.3 Replacement on a running contract (owner LongLP)
@@ -109,6 +112,7 @@
 - [ ] 4.4 Close (owner LongLP)
   - **Do**: `close(id, dto, actor)` on `RETURNED`: `BalanceService.outstanding` and pending damage approvals (409 `BALANCE_OUTSTANDING`), every `CONTRACT_CLOSE_CHECKS.blockingReason` (409 `OPEN_INCIDENTS`, MSG29); erase labels; `CLOSED`
   - **Test**: AC-06 and AC-07
+  - **Partly done** (2026-10-28): `ReturnService.close` (api-design 17, `POST /api/contracts/:id/close`) checks the version (409 `STALE_VERSION`), `RETURNED`, `BalanceService.outstanding` (409 `BALANCE_OUTSTANDING`) and every `CONTRACT_CLOSE_CHECKS` provider (409 `OPEN_INCIDENTS`, MSG29), erases the holder labels and moves to `CLOSED`. Unit-tested. Walked on local PGlite on 2026-10-28 through the API, RC-2026-0001 from notice to CLOSED. Open: pending damage approvals in the check, which needs the contract on `DamageCharge` (treklink-docs#114); no `CONTRACT_CLOSE_CHECKS` provider exists yet (incidents)
   - _Requirements: REQ-ERR-05, AC-06, FR-CON-13, BR-27_
   - _Story: US-UC51_
 - [ ] 4.5 Services for other modules (owner LongLP)

@@ -465,6 +465,81 @@ export class ContractsRepository {
     });
   }
 
+  // MF-05 (tasks 3.1, 4.1, 4.2, 4.4). The rows handed over and still out: not checked in, not lost.
+  rowsOut(contractId: string, tx: Prisma.TransactionClient) {
+    return tx.contractDevice.findMany({
+      where: {
+        contractId,
+        releasedAt: null,
+        handedOverAt: { not: null },
+        checkedInAt: null,
+        lostAt: null,
+      },
+      orderBy: { reservedAt: 'asc' },
+      select: { id: true, deviceId: true },
+    });
+  }
+
+  // Handed-over rows of the contract, and how many of them are back or lost.
+  async returnCounts(
+    contractId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ total: number; returned: number }> {
+    const where = { contractId, releasedAt: null, handedOverAt: { not: null } };
+    const [total, returned] = await Promise.all([
+      tx.contractDevice.count({ where }),
+      tx.contractDevice.count({
+        where: { ...where, OR: [{ checkedInAt: { not: null } }, { lostAt: { not: null } }] },
+      }),
+    ]);
+    return { total, returned };
+  }
+
+  async markCheckedIn(
+    rowIds: readonly string[],
+    at: Date,
+    actorId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.contractDevice.updateMany({
+      where: { id: { in: [...rowIds] }, checkedInAt: null },
+      data: { checkedInAt: at, checkedInById: actorId },
+    });
+  }
+
+  // Holder labels are personal data and leave with the contract (BR-33).
+  async eraseLabels(contractId: string, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.contractDevice.updateMany({
+      where: { contractId },
+      data: { holderName: null, holderPhone: null, holderEmergencyContact: null },
+    });
+  }
+
+  async setReturnDueAt(id: string, returnDueAt: Date, tx: Prisma.TransactionClient) {
+    await tx.rentalContract.update({ where: { id }, data: { returnDueAt } });
+  }
+
+  async closeTerm(termId: string, tx: Prisma.TransactionClient): Promise<boolean> {
+    const { count } = await tx.contractTerm.updateMany({
+      where: { id: termId, status: 'OPEN' },
+      data: { status: 'CLOSED' },
+    });
+    return count === 1;
+  }
+
+  // The open terms that have ended, on contracts the rollover moves (ACTIVE or ENDING).
+  dueTerms(at: Date, client: Client = this.prisma) {
+    return client.contractTerm.findMany({
+      where: {
+        status: 'OPEN',
+        endsAt: { lte: at },
+        contract: { status: { in: [ContractStatus.ACTIVE, ContractStatus.ENDING] } },
+      },
+      orderBy: { endsAt: 'asc' },
+      select: { ...TERM_SELECT, contractId: true },
+    });
+  }
+
   // RC-<year>-<4 digits>, serialized per year as incidents does (treklink-docs#103, 4).
   private async nextCode(at: Date, tx: Prisma.TransactionClient): Promise<string> {
     const year = codeYear(at);

@@ -204,6 +204,42 @@ export const fetchHandoverPreview = (id: string) =>
 export const completeHandover = (id: string, input: HandoverInput) =>
   post<Contract & { devicesHandedOver: number }>(`/contracts/${id}/handover`, input);
 
+// MF-05 at the counter (rentals api-design 14, 16, 17; devices api-design 10).
+export interface CheckInResult {
+  checkedIn: string[];
+  returned: number;
+  total: number;
+  contractStatus: ContractStatus;
+  lateFeeVnd: number;
+}
+
+export type InspectionResult = 'PASSED' | 'DAMAGED' | 'FAILED';
+
+export interface InspectionOutcome {
+  inspection: { id: string; result: InspectionResult; damageCodes: string[]; createdAt: string };
+  device: { id: string; assetTag: string; status: string };
+  damageCharge: { id: string; amountVnd: number; status: string } | null;
+}
+
+export const checkInDevices = (id: string, assetTags: string[]) =>
+  post<CheckInResult>(`/contracts/${id}/check-ins`, { assetTags });
+
+export const resetDevice = (deviceId: string) =>
+  post<{ id: string; status: string }>(`/devices/${deviceId}/reset`, {
+    keyRemoved: true,
+    nodeDbCleared: true,
+    ownerCleared: true,
+  });
+
+export const inspectDevice = (
+  id: string,
+  deviceId: string,
+  input: { result: InspectionResult; damageCodes: string[]; note?: string },
+) => post<InspectionOutcome>(`/contracts/${id}/devices/${deviceId}/inspection`, input);
+
+export const closeContract = (id: string, expectedVersion: number) =>
+  post<Contract & { closedAt: string }>(`/contracts/${id}/close`, { expectedVersion });
+
 export const fetchHandoverNote = (id: string) =>
   apiClient<HandoverNote>(`/contracts/${id}/handover-note`);
 

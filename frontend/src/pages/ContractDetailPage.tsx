@@ -45,6 +45,17 @@ import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 
 const CANCELLABLE = ['REQUESTED', 'APPROVED'];
 
+// Staff open the counter for the handover (5.4) and for the return, inspection and close (5.5).
+const COUNTER_STATES = [
+  'APPROVED',
+  'ACTIVE',
+  'ENDING',
+  'RETURN_DUE',
+  'OVERDUE',
+  'DEFAULTED',
+  'RETURNED',
+];
+
 const When: React.FC<{ iso: string | null | undefined }> = ({ iso }) =>
   iso ? (
     <time dateTime={iso} title={viewerTimeZone()}>
@@ -446,7 +457,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
               Cancel contract
             </button>
           )}
-          {isStaff && data.status === 'APPROVED' && (
+          {isStaff && COUNTER_STATES.includes(data.status) && (
             <Link to={`/t/counter/${data.id}`} className={PRIMARY_BUTTON}>
               Open the counter
             </Link>
