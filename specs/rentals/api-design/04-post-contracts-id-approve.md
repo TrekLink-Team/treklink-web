@@ -74,6 +74,7 @@ Reserves exactly the requested number of `AVAILABLE` devices of the variant in o
     "returnDueAt": null,
     "version": 4,
     "reservationExpiresAt": "2026-10-27T02:00:00Z",
+    "handoverAppointmentAt": "2026-10-25T02:00:00Z",
     "devices": [
       {
         "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",

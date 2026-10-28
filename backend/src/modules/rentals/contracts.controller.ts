@@ -175,13 +175,18 @@ export class ContractsController {
   async list(
     @Query() query: ContractQueryDto,
     @CurrentCaller() caller: Caller,
-  ): Promise<PagedResult<ContractView & { reservationExpiresAt: Date | null }>> {
+  ): Promise<
+    PagedResult<
+      ContractView & { reservationExpiresAt: Date | null; handoverAppointmentAt: Date | null }
+    >
+  > {
     const page = await this.reads.page(query, caller);
     return {
       ...page,
       items: page.items.map(({ row, ...labels }) => ({
         ...labelledView(row, labels, termOf(row.terms)),
         reservationExpiresAt: row.reservationExpiresAt,
+        handoverAppointmentAt: row.handoverAppointmentAt,
       })),
     };
   }
@@ -194,6 +199,7 @@ export class ContractsController {
     return {
       ...labelledView(row, labels, termOf(row.terms)),
       reservationExpiresAt: row.reservationExpiresAt,
+      handoverAppointmentAt: row.handoverAppointmentAt,
       terms: row.terms.map((term) => ({
         seq: term.seq,
         startsAt: term.startsAt,
@@ -235,6 +241,7 @@ export class ContractsController {
     return {
       ...labelledView(approved.contract, label(approved.contract), approved.term),
       reservationExpiresAt: approved.reservationExpiresAt,
+      handoverAppointmentAt: approved.handoverAppointmentAt,
       devices: approved.devices.map((device) => ({
         deviceId: device.id,
         assetTag: device.assetTag,

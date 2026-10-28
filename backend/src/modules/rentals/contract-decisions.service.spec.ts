@@ -141,9 +141,11 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
           decidedById: 'u-staff',
           decidedAt: AT,
           reservationExpiresAt: approved.reservationExpiresAt,
+          handoverAppointmentAt: new Date('2026-11-01T02:00:00.000Z'),
         },
         TX,
       );
+      expect(approved.handoverAppointmentAt).toEqual(new Date('2026-11-01T02:00:00.000Z'));
       expect(approved.devices.map((device) => device.assetTag)).toEqual(['TL-0001', 'TL-0002']);
     });
 
