@@ -18,7 +18,7 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| List: code, plan (Monthly, or Day with its length), quantity, status, next date | rentals 02 `items[].code`, `planType`, `dayPlanDays`, `quantity`, `status`; next date is `currentTerm.endsAt`, else `returnDueAt`, else `requestedStartDate` |
+| List: code, plan (Monthly, or Day with its length), quantity, status, next date | rentals 02 `items[].code`, `planType`, `dayPlanDays`, `quantity`, `status`; next date is `currentTerm.endsAt`, else `returnDueAt`, else `requestedStartDate`; none once the contract is `REJECTED`, `CANCELLED`, `RETURNED` or `CLOSED` |
 | List paging | rentals 02 `pageNumber`, `pageSize`, `totalCount`, `totalPages` |
 | Organization (TrekLink detail only) | rentals 03 `organization.code`, `legalName` |
 | Header: code, status, plan, quantity, variant | rentals 03 `code`, `status`, `planType`, `dayPlanDays`, `quantity`, `hardwareVariant.code` |

@@ -64,6 +64,18 @@ describe('route guards (AC-01)', () => {
     expect(screen.getByText(/^sign-in \?next=%2Ft%2Fmap$/)).toBeTruthy();
   });
 
+  it('keeps the page in `next` when the session expires', () => {
+    visit('/t/map', account(['STAFF'], 'TREKLINK'));
+    act(() => useSession.getState().signOut());
+    expect(screen.getByText(/^sign-in \?next=%2Ft%2Fmap$/)).toBeTruthy();
+  });
+
+  it('adds no `next` after Sign out, which navigates to sign-in itself', () => {
+    visit('/t/map', account(['STAFF'], 'TREKLINK'));
+    act(() => useSession.getState().signOut(true));
+    expect(screen.queryByText(/^sign-in/)).toBeNull();
+  });
+
   it('shows MSG26 to an Org Operator who types a TrekLink route', () => {
     visit('/t/map', account(['ORG_OPERATOR'], 'ORGANIZATION'));
     expect(screen.getByText('You do not have access to this.')).toBeTruthy();

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import {
-  nextDateOf,
+  formatNextDate,
   planLabel,
   STATUS_LABELS,
   STATUS_TONES,
@@ -11,7 +11,6 @@ import {
   type ContractStatus,
   type PlanType,
 } from '../entities/contract/api';
-import { formatDate, formatDay } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { Badge, Empty, ErrorState, Loading, PageTitle, Pager } from '../shared/ui/bits';
 import { LINK, PRIMARY_BUTTON } from '../shared/ui/styles';
@@ -102,7 +101,7 @@ export const ContractsPage: React.FC = () => {
           <ul className="flex flex-col gap-3 md:hidden">
             {rows.length === 0 && <li className="text-slate-700">No rows match these filters.</li>}
             {rows.map((contract) => {
-              const next = nextDateOf(contract);
+              const next = formatNextDate(contract);
               return (
                 <li key={contract.id} className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="flex items-center justify-between">
@@ -116,9 +115,7 @@ export const ContractsPage: React.FC = () => {
                   <p className="mt-1 text-sm text-slate-700">
                     {planLabel(contract)}, {contract.quantity} devices
                   </p>
-                  <p className="text-sm text-slate-700">
-                    Next date: {next.iso ? formatDate(next.iso) : formatDay(next.day as string)}
-                  </p>
+                  {next && <p className="text-sm text-ink-muted">Next date: {next}</p>}
                 </li>
               );
             })}
@@ -140,7 +137,7 @@ export const ContractsPage: React.FC = () => {
             <tbody>
               {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
               {rows.map((contract) => {
-                const next = nextDateOf(contract);
+                const next = formatNextDate(contract);
                 return (
                   <tr key={contract.id} className="border-t border-slate-200">
                     <td className="px-4 py-3">
@@ -155,9 +152,7 @@ export const ContractsPage: React.FC = () => {
                         {STATUS_LABELS[contract.status]}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">
-                      {next.iso ? formatDate(next.iso) : formatDay(next.day as string)}
-                    </td>
+                    <td className="px-4 py-3">{next}</td>
                   </tr>
                 );
               })}

@@ -63,7 +63,7 @@ export const AccountMenu: React.FC = () => {
     } catch {
       // Ignored: the session ends locally either way.
     }
-    endSession();
+    endSession(true);
     navigate('/sign-in', { replace: true, state: notice ? { notice } : undefined });
   };
 

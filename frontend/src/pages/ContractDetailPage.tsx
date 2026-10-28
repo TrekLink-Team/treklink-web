@@ -21,6 +21,7 @@ import {
   formatDate,
   formatDateTime,
   formatDay,
+  formatInstantsIn,
   formatVnd,
   viewerTimeZone,
 } from '../shared/lib/format';
@@ -391,7 +392,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                     <span>
                       {step.fromStatus ? `${STATUS_LABELS[step.fromStatus]} to ` : ''}
                       {STATUS_LABELS[step.toStatus]}
-                      {step.reason ? `: ${step.reason}` : ''}
+                      {step.reason ? `: ${formatInstantsIn(step.reason)}` : ''}
                     </span>
                     <span className="text-slate-600">
                       {step.actor ?? 'System'}, {formatDateTime(step.createdAt)}

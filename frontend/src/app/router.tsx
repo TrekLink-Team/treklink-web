@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
-import { landingRoute } from '../entities/session/model';
+import { landingRoute, useSession } from '../entities/session/model';
 import { BillingPage } from '../pages/BillingPage';
 import { ContractApprovalPage } from '../pages/ContractApprovalPage';
 import { ContractDetailPage } from '../pages/ContractDetailPage';
@@ -26,9 +26,13 @@ const DesignSystemPage = import.meta.env.DEV
   : null;
 
 // Sends an anonymous visitor to sign-in and back to the page they asked for (design §2, `?next=`).
+// After Sign out it renders nothing: the session ends at once but the router's navigation is a
+// transition, so this guard would otherwise run first and send the next user to the old page.
 export const RequireAuth: React.FC = () => {
   const { user } = useAuth();
+  const signedOutByUser = useSession((state) => state.signedOutByUser);
   const location = useLocation();
+  if (!user && signedOutByUser) return null;
   if (!user) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/sign-in?next=${next}`} replace />;

@@ -105,6 +105,10 @@ export const ContractRequestPage: React.FC = () => {
     heading.current?.focus();
   }, [step]);
 
+  // A field's error clears as soon as the field changes; Next checks it again.
+  const clearError = (field: keyof Errors) =>
+    setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
+
   const dirty = variantId !== '' || quantity !== '' || startDate !== '' || dayPlanDays !== '';
   const cancel = () => {
     if (!dirty || window.confirm(DISCARD_PROMPT)) navigate('/o/contracts');
@@ -315,9 +319,10 @@ export const ContractRequestPage: React.FC = () => {
                     id="day-plan-days"
                     className={INPUT}
                     value={dayPlanDays}
-                    onChange={(event) =>
-                      setDayPlanDays(event.target.value ? Number(event.target.value) : '')
-                    }
+                    onChange={(event) => {
+                      setDayPlanDays(event.target.value ? Number(event.target.value) : '');
+                      clearError('dayPlanDays');
+                    }}
                     {...invalid('day-plan-days', errors.dayPlanDays)}
                   >
                     <option value="">Choose a length</option>
@@ -335,7 +340,10 @@ export const ContractRequestPage: React.FC = () => {
                   id="variant"
                   className={INPUT}
                   value={variantId}
-                  onChange={(event) => setVariantId(event.target.value)}
+                  onChange={(event) => {
+                    setVariantId(event.target.value);
+                    clearError('hardwareVariantId');
+                  }}
                   {...invalid('variant', errors.hardwareVariantId)}
                 >
                   <option value="">Choose a variant</option>
@@ -360,7 +368,10 @@ export const ContractRequestPage: React.FC = () => {
                   min={minOrder}
                   className={INPUT}
                   value={quantity}
-                  onChange={(event) => setQuantity(event.target.value)}
+                  onChange={(event) => {
+                    setQuantity(event.target.value);
+                    clearError('quantity');
+                  }}
                   {...invalid('quantity', errors.quantity)}
                 />
               </Field>
@@ -379,7 +390,10 @@ export const ContractRequestPage: React.FC = () => {
                 min={todayDay()}
                 className={INPUT}
                 value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
+                onChange={(event) => {
+                  setStartDate(event.target.value);
+                  clearError('requestedStartDate');
+                }}
                 {...invalid('start-date', errors.requestedStartDate)}
               />
             </Field>
