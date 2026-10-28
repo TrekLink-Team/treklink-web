@@ -138,6 +138,15 @@ export interface NewContractDevice {
   deviceId: string;
 }
 
+export interface NewReplacementRow {
+  contractId: string;
+  deviceId: string;
+  replacesId: string;
+  handedOverAt: Date;
+  replacementNotePath: string;
+  replacementNoteSha256: string;
+}
+
 export interface TransitionInput {
   from: ContractStatus;
   to: ContractStatus;
@@ -477,6 +486,17 @@ export class ContractsRepository {
       },
       orderBy: { reservedAt: 'asc' },
       select: { id: true, deviceId: true },
+    });
+  }
+
+  // The replacement's own custody interval (rentals 4.3, D-045), handed over at once.
+  async insertReplacementRow(
+    row: NewReplacementRow,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ id: string }> {
+    return tx.contractDevice.create({
+      data: { ...row, reservedAt: row.handedOverAt },
+      select: { id: true },
     });
   }
 

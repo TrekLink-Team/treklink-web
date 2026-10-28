@@ -67,9 +67,9 @@ const localDay = (at: Date): string =>
   new Date(at.getTime() + CODE_ZONE_OFFSET_MS).toISOString().slice(0, 10);
 
 // The eight bytes every PNG starts with; the signature pad sends a PNG data URL.
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+export const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-const sha256 = (data: Buffer): string => createHash('sha256').update(data).digest('hex');
+export const sha256 = (data: Buffer): string => createHash('sha256').update(data).digest('hex');
 
 const planLabel = (contract: ContractRow) =>
   contract.planType === PlanType.DAY ? `Day plan, ${contract.dayPlanDays} days` : 'Monthly';
@@ -416,8 +416,13 @@ export class HandoverService {
 
   // Writes the signed note under HANDOVER_NOTE_STORAGE_DIR and returns the path stored on the
   // contract, relative to that directory.
-  private async store(contractId: string, pdf: Buffer): Promise<string> {
-    const name = `${contractId}.pdf`;
+  private store(contractId: string, pdf: Buffer): Promise<string> {
+    return this.storeNote(`${contractId}.pdf`, pdf);
+  }
+
+  // Writes a signed note under HANDOVER_NOTE_STORAGE_DIR by name; the replacement note of rentals
+  // 4.3 uses it too.
+  async storeNote(name: string, pdf: Buffer): Promise<string> {
     const dir = this.absolute('');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, name), pdf);

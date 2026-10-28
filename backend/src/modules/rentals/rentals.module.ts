@@ -13,6 +13,7 @@ import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
 import { RentalsPortsModule } from './rentals-ports.module';
 import { ReturnController } from './return.controller';
+import { ReplacementService } from './replacement.service';
 import { ReturnService } from './return.service';
 import { TermRolloverJob } from './term-rollover.job';
 
@@ -32,6 +33,7 @@ import { TermRolloverJob } from './term-rollover.job';
     ContractDecisionsService,
     HandoverService,
     ReturnService,
+    ReplacementService,
     TermRolloverJob,
   ],
   exports: [ContractLifecycleService, ContractsService],

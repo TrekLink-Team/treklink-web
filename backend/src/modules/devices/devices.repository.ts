@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DeviceStatus, InspectionResult, Prisma } from '@prisma/client';
+import { DeviceStatus, InspectionResult, LossCaseState, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -227,6 +227,44 @@ export class DevicesRepository {
     });
   }
 
+  // devices api-design 06 (task 4.1 part, built by LongLP for the replacement of rentals 4.3): the
+  // fleet by status, variant and asset tag, oldest change first.
+  page(filter: DeviceFilter, skip: number, take: number): Promise<[DeviceListRow[], number]> {
+    const where: Prisma.DeviceWhereInput = {
+      ...(filter.statuses?.length ? { status: { in: filter.statuses } } : {}),
+      ...(filter.hardwareVariantId ? { hardwareVariantId: filter.hardwareVariantId } : {}),
+      ...(filter.q ? { assetTag: { contains: filter.q, mode: 'insensitive' } } : {}),
+    };
+    return this.prisma.$transaction([
+      this.prisma.device.findMany({
+        where,
+        select: LIST_SELECT,
+        orderBy: [{ assetTag: 'asc' }],
+        skip,
+        take,
+      }),
+      this.prisma.device.count({ where }),
+    ]);
+  }
+
+  // Locks one unit for the rest of the caller's transaction, so two replacements cannot take it.
+  async lockUnit(id: string, tx: Prisma.TransactionClient): Promise<UnitRow | null> {
+    await tx.$queryRaw`SELECT "id" FROM "devices" WHERE "id" = ${id} FOR UPDATE`;
+    return tx.device.findUnique({ where: { id }, select: UNIT_SELECT });
+  }
+
+  // A loss case still open on the unit (reported, searching or confirmed, not yet settled or
+  // recovered).
+  async hasOpenLossCase(deviceId: string, tx: Prisma.TransactionClient): Promise<boolean> {
+    const open = await tx.lossCase.count({
+      where: {
+        deviceId,
+        state: { in: [LossCaseState.REPORTED, LossCaseState.SEARCHING, LossCaseState.CONFIRMED] },
+      },
+    });
+    return open > 0;
+  }
+
   // Return, reset and inspection (task 2.4 part, built by LongLP for MF-05).
   findUnit(id: string, client: Client = this.prisma): Promise<UnitRow | null> {
     return client.device.findUnique({ where: { id }, select: UNIT_SELECT });
@@ -275,6 +313,31 @@ export class DevicesRepository {
       select: { id: true, result: true, damageCodes: true, createdAt: true },
     });
   }
+}
+
+export const LIST_SELECT = {
+  id: true,
+  assetTag: true,
+  nodeNum: true,
+  firmwareVersion: true,
+  acquiredAt: true,
+  status: true,
+  statusChangedAt: true,
+  keyVersion: true,
+  keyOrganizationId: true,
+  batteryPct: true,
+  lastSeenAt: true,
+  serviceDueAt: true,
+  version: true,
+  hardwareVariant: { select: { id: true, code: true } },
+} satisfies Prisma.DeviceSelect;
+
+export type DeviceListRow = Prisma.DeviceGetPayload<{ select: typeof LIST_SELECT }>;
+
+export interface DeviceFilter {
+  statuses?: DeviceStatus[];
+  hardwareVariantId?: string;
+  q?: string;
 }
 
 export const UNIT_SELECT = {
