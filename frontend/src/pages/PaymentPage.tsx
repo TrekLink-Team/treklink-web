@@ -21,6 +21,9 @@ export const PaymentPage: React.FC = () => {
   const { paymentId = '' } = useParams();
   const queryClient = useQueryClient();
   const [now, setNow] = useState(() => Date.now());
+  // The QR service answers no image for an account or bank code it cannot read, such as the
+  // sandbox placeholders; the transfer details below still let the payment go through.
+  const [qrFailed, setQrFailed] = useState(false);
   const payment = usePayment(paymentId);
   const status = payment.data?.status;
 
@@ -81,11 +84,18 @@ export const PaymentPage: React.FC = () => {
             updates by itself once the payment arrives.
           </Alert>
           <Card className="flex flex-col items-center gap-4">
-            <img
-              src={data.vietQr.imageUrl}
-              alt={`VietQR for ${formatVnd(data.amountVnd)} with transfer content ${data.vietQr.content}`}
-              className="h-64 w-64 rounded-card border border-line bg-white object-contain"
-            />
+            {qrFailed ? (
+              <Alert tone="warning" title="The QR image could not be loaded." className="w-full">
+                Transfer the amount to the account below with the transfer content exactly as shown.
+              </Alert>
+            ) : (
+              <img
+                src={data.vietQr.imageUrl}
+                alt={`VietQR for ${formatVnd(data.amountVnd)} with transfer content ${data.vietQr.content}`}
+                onError={() => setQrFailed(true)}
+                className="h-64 w-64 rounded-card border border-line bg-white object-contain"
+              />
+            )}
             <dl className="grid w-full grid-cols-2 gap-3 text-body">
               <div>
                 <dt className="text-body-sm font-semibold text-ink-muted">Amount</dt>
