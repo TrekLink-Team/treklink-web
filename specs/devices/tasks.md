@@ -99,6 +99,7 @@
 ## Phase 4: API Presentation Layer
 
 - [ ] 4.1 Controllers (owner KhoaDD)
+  - **Note** (2026-10-28): LongLP served api-design 06 `GET /api/devices` minimally for the replacement of rentals 4.3: `device.read`, filters `status` (repeatable), `hardwareVariantId` and `q` on the asset tag, ordered by asset tag; the last position is not in the answer yet. `DevicesService.takeForReplacement` and `hasOpenLossCase` came with it
   - **Note**: LongLP added `devices.controller.ts` with api-design 24 `GET /api/devices/availability` (`readAvailability` on Device, Staff, Admin and Org Manager) for screen 5.3, counts per active variant from `DevicesRepository.availability`; the other endpoints join with this task
   - **Files**: `variants.controller.ts`, `devices.controller.ts`, `maintenance.controller.ts`, `loss-cases.controller.ts`, `stock-takes.controller.ts`
   - **Do**: api-design 01 to 26 with each file's permission and `@ResponseMessage`; `GET /api/devices/availability` declared before `GET /api/devices/:id`
