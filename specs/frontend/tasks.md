@@ -139,6 +139,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Done** (2026-10-27): the record dialog from the invoice detail (method, amount, reference; OVERPAYMENT under Amount, DUPLICATE_REFERENCE under Reference, MSG20 with the amount) and the payments tab of `/t/billing` with a status filter
 - [ ] 6.4 Prices, damage rates, `DamageChargesPage` (owner LongLP)
   - **Do**: billing api-design 03 to 07, 16, 17; decision hidden for the inspector (MSG30)
+  - **Partly done** (2026-10-27): `/t/admin/prices` for TrekLink Admin, the price history with Current, Upcoming and Past labels and the Schedule price dialog (confirmation, EFFECTIVE_IN_PAST under Effective from), the damage rates with Add and Edit (deactivation asks first, CONFLICT_UNIQUE under Code). Rebuilt on 2026-10-28 with the `shared/ui` components: `DataTable` with `StatusBadge` for both lists, a `Toolbar` of filters above each (variant and state for prices, text and active for rates), `Dialog` with `Field` and `Input`, and a `ConfirmDialog` naming the price or the rate; the entry sits under Administration in `navigation.ts`. Open: `/t/damage-charges` and the decision dialog, waiting on billing 16 and 17 (treklink-docs#114)
   - _Story: US-UC48, US-UC56_
 
 ## Phase 7: Administration

@@ -168,6 +168,55 @@ export const useBalance = (contractId: string, enabled: boolean) =>
     enabled,
   });
 
+// Price and damage schedules (billing api-design 03 to 07), TrekLink Admin.
+export interface PriceRow {
+  id: string;
+  hardwareVariantId: string;
+  monthlyPriceVnd: number;
+  effectiveFrom: string;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface DamageRate {
+  id: string;
+  code: string;
+  label: string;
+  hardwareVariantId: string | null;
+  amountVnd: number;
+  isActive: boolean;
+}
+
+export const usePriceHistory = (pageNumber: number) =>
+  useQuery({
+    queryKey: ['price-schedules', pageNumber] as const,
+    queryFn: () => apiClient<Page<PriceRow>>(`/price-schedules${queryString({ pageNumber })}`),
+  });
+
+export const useDamageRates = () =>
+  useQuery({
+    queryKey: ['damage-rates'] as const,
+    queryFn: () => apiClient<DamageRate[]>('/damage-rates'),
+  });
+
+export const schedulePrice = (input: {
+  hardwareVariantId: string;
+  monthlyPriceVnd: number;
+  effectiveFrom: string;
+}) => apiClient<PriceRow>('/price-schedules', { method: 'POST', body: JSON.stringify(input) });
+
+export const createDamageRate = (input: {
+  code: string;
+  label: string;
+  hardwareVariantId: string | null;
+  amountVnd: number;
+}) => apiClient<DamageRate>('/damage-rates', { method: 'POST', body: JSON.stringify(input) });
+
+export const updateDamageRate = (
+  id: string,
+  patch: { label?: string; amountVnd?: number; isActive?: boolean },
+) => apiClient<DamageRate>(`/damage-rates/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   ISSUED: 'Issued',
   PARTIALLY_PAID: 'Partly paid',
