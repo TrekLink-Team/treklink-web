@@ -107,9 +107,25 @@ export const OrgDashboardPage: React.FC = () => {
   );
   const detailsLoading = details.some((detail) => detail.isLoading);
 
-  const unpaid = (invoices.data?.items ?? []).filter((invoice) => invoice.status !== 'PAID');
-  const due = unpaid.reduce((sum, invoice) => sum + invoice.totalVnd - invoice.paidVnd, 0);
-  const overdueIds = new Set((overdue.data?.items ?? []).map((invoice) => invoice.id));
+  // What each contract still owes across its invoices: a cancellation's voiding ADJUSTMENT sits on
+  // the CLOSING invoice with a negative total, so an earlier invoice of a settled contract still
+  // shows an amount due (ruling on treklink-web#87 point 4). Only contracts that owe count.
+  const owedByContract = new Map<string, number>();
+  for (const invoice of invoices.data?.items ?? []) {
+    owedByContract.set(
+      invoice.contract.id,
+      (owedByContract.get(invoice.contract.id) ?? 0) + invoice.totalVnd - invoice.paidVnd,
+    );
+  }
+  const unpaid = (invoices.data?.items ?? []).filter(
+    (invoice) => invoice.status !== 'PAID' && (owedByContract.get(invoice.contract.id) ?? 0) > 0,
+  );
+  const due = [...owedByContract.values()].reduce((sum, owed) => sum + Math.max(owed, 0), 0);
+  const overdueIds = new Set(
+    (overdue.data?.items ?? [])
+      .filter((invoice) => (owedByContract.get(invoice.contract.id) ?? 0) > 0)
+      .map((invoice) => invoice.id),
+  );
   // Overdue invoices first, then the others still unpaid; five rows.
   const toPay = [...unpaid]
     .sort((a, b) => Number(overdueIds.has(b.id)) - Number(overdueIds.has(a.id)))

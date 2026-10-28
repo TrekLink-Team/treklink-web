@@ -127,6 +127,26 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     expect(screen.getByText('Return due 20 Oct 2026')).toBeTruthy();
   });
 
+  it('leaves out a cancelled contract whose CLOSING adjustment settled its earlier invoice', () => {
+    invoices = [
+      {
+        ...invoice('INV-2026-000001', 'PARTIALLY_PAID', 2_250_000, 1_125_000),
+        contract: { id: 'c-2', code: 'RC-2026-0002' },
+      },
+      {
+        ...invoice('INV-2026-000002', 'PAID', -1_125_000, 0),
+        contract: { id: 'c-2', code: 'RC-2026-0002' },
+      },
+      invoice('INV-2026-000004', 'ISSUED', 400_000, 0),
+    ];
+    overdue = [invoices[0]];
+    renderPage();
+    expect(within(tile('Still due')).getByText('400,000 VND')).toBeTruthy();
+    expect(within(tile('Still due')).getByText('1 unpaid invoice')).toBeTruthy();
+    expect(screen.queryByText('INV-2026-000001')).toBeNull();
+    expect(screen.getByText('INV-2026-000004')).toBeTruthy();
+  });
+
   it('greets an organization with no contracts and nothing to pay', () => {
     renderPage();
     expect(screen.getByText('Your organization has no contracts yet.')).toBeTruthy();
