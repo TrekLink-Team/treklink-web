@@ -54,6 +54,7 @@
   - _Requirements: REQ-EVT-03, REQ-ERR-02, AC-02, FR-ORG-03_
   - _Story: US-UC03_
 - [ ] 2.4 Suspension, reactivation, closing (owner TanNB)
+  - **Note** (2026-10-28): LongLP built the two calls rentals 3.2 needs: `suspendForDefault(orgId, contractCode, at, tx)` moves an `ACTIVE` organization to `SUSPENDED` by SYSTEM in the caller's transaction with a transition naming the contract (any other status is left as it is), and `emailContact(orgId, subject, text)` mails the contact address through `MAIL_PORT`, logging a failed send. Unit-tested. The rest of this task stays open: `suspend` and `reactivate` by an Admin, `close`, and the exit checks
   - **Do**: `suspend(id, reason, admin)`; `suspendForDefault(orgId, contractCode, tx)` with actor `SYSTEM`; `reactivate(id, admin)` asks every `ORGANIZATION_EXIT_CHECKS.canReactivate` (409 `BALANCE_OUTSTANDING`); `close(id, admin)` asks `canClose` (409 `OPEN_CONTRACTS`), then deactivates members, revokes keys and stations, moves to `CLOSED`; `assertActive(orgId)` throws 409 `ORGANIZATION_NOT_ACTIVE`; a `SUSPENDED` organization's roster and keys still resolve
   - **Test**: AC-07 (contract request refused while the SOS route still resolves); close with an open contract refused
   - _Requirements: REQ-EVT-04, REQ-EVT-05, REQ-EVT-06, REQ-STA-01, REQ-ERR-04, AC-07, FR-ORG-07, BR-26, BR-32_
