@@ -194,8 +194,8 @@ describe('ChargesService late and damage charges (billing task 2.5)', () => {
       await expect(
         service.chargeDamage(CONTRACT, INSPECTION, 'staff-1', TX, AT),
       ).rejects.toMatchObject({
-        errorCode: ErrorCode.VALIDATION_FAILED,
-        message: 'No active damage rate for CASING_CRACKED.',
+        errorCode: ErrorCode.UNKNOWN_DAMAGE_CODE,
+        message: 'Unknown damage code: CASING_CRACKED.',
       });
       expect(damageCharges.insert).not.toHaveBeenCalled();
     });

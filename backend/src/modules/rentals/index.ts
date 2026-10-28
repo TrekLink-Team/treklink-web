@@ -14,3 +14,4 @@ export {
   type ContractCloseCheck,
 } from './ports/contract-close-checks.port';
 export { DEVICE_HANDED_OVER, type DeviceHandedOverEvent } from './handover.service';
+export { DEVICE_CHECKED_IN, type DeviceCheckedInEvent } from './return.service';

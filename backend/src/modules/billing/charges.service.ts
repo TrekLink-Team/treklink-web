@@ -144,10 +144,11 @@ export class ChargesService {
     for (const code of inspection.damageCodes) {
       const amount = await this.pricing.damageRateFor(code, inspection.hardwareVariantId, tx);
       if (amount === null) {
+        // rentals api-design 16: a code with no active rate is unknown to the price list.
         throw new DomainException(
           HttpStatus.BAD_REQUEST,
-          ErrorCode.VALIDATION_FAILED,
-          `No active damage rate for ${code}.`,
+          ErrorCode.UNKNOWN_DAMAGE_CODE,
+          `Unknown damage code: ${code}.`,
         );
       }
       totalVnd += amount;
