@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import { CONTRACT_STATUS, TONE_CLASSES } from '../../shared/ui/status';
+import { formatDate, formatDay } from '../../shared/lib/format';
 
 // Rental contracts as rentals api-design 01 to 06 and 18 return them.
 export type ContractStatus =
@@ -269,11 +270,22 @@ export const STATUS_TONES: Record<ContractStatus, string> = Object.fromEntries(
 export const planLabel = (contract: Pick<Contract, 'planType' | 'dayPlanDays'>): string =>
   contract.planType === 'DAY' ? `Day plan, ${contract.dayPlanDays} days` : 'Monthly';
 
+const ENDED: readonly ContractStatus[] = ['REJECTED', 'CANCELLED', 'RETURNED', 'CLOSED'];
+
 // The next date of a list row (screen 5.2): the current term's end, else the return due time, else
-// the requested start date.
-export const nextDateOf = (contract: Contract): { iso?: string; day?: string } =>
-  contract.currentTerm
-    ? { iso: contract.currentTerm.endsAt }
-    : contract.returnDueAt
-      ? { iso: contract.returnDueAt }
-      : { day: contract.requestedStartDate };
+// the requested start date; none once the contract has ended.
+export const nextDateOf = (contract: Contract): { iso?: string; day?: string } | null =>
+  ENDED.includes(contract.status)
+    ? null
+    : contract.currentTerm
+      ? { iso: contract.currentTerm.endsAt }
+      : contract.returnDueAt
+        ? { iso: contract.returnDueAt }
+        : { day: contract.requestedStartDate };
+
+// The next date as a list shows it, or empty when there is none.
+export const formatNextDate = (contract: Contract): string => {
+  const next = nextDateOf(contract);
+  if (!next) return '';
+  return next.iso ? formatDate(next.iso) : formatDay(next.day as string);
+};

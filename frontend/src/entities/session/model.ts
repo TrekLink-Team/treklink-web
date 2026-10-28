@@ -26,9 +26,12 @@ export interface SessionTokens {
 interface SessionState {
   tokens: SessionTokens | null;
   user: SessionUser | null;
+  // True after Sign out in the account menu, which navigates to sign-in itself; false when the
+  // session expired, so the route guard keeps `?next=` for the page the user was on.
+  signedOutByUser: boolean;
   signIn: (tokens: SessionTokens, user: SessionUser) => void;
   setTokens: (tokens: SessionTokens) => void;
-  signOut: () => void;
+  signOut: (byUser?: boolean) => void;
 }
 
 // Held in memory only. The auth context and silent refresh of `frontend` tasks 1.1 and 1.2 build on
@@ -36,9 +39,10 @@ interface SessionState {
 export const useSession = create<SessionState>((set) => ({
   tokens: null,
   user: null,
-  signIn: (tokens, user) => set({ tokens, user }),
+  signedOutByUser: false,
+  signIn: (tokens, user) => set({ tokens, user, signedOutByUser: false }),
   setTokens: (tokens) => set({ tokens }),
-  signOut: () => set({ tokens: null, user: null }),
+  signOut: (byUser = false) => set({ tokens: null, user: null, signedOutByUser: byUser }),
 }));
 
 // `next` as a path on this origin, or null. The browser's own URL parser resolves it, so the check

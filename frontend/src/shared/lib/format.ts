@@ -24,6 +24,13 @@ export const formatDateTime = (iso: string): string =>
     minute: '2-digit',
   });
 
+// Free text from the server with instants in it, such as "Handover appointment
+// 2026-10-28T02:00:00.000Z" in a contract's history, with each instant shown as formatDateTime.
+export const formatInstantsIn = (text: string): string =>
+  text.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z/g, (iso) =>
+    formatDateTime(iso),
+  );
+
 export const formatDate = (iso: string): string =>
   new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 

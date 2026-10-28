@@ -18,6 +18,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, Empty, ErrorState, Field, Loading, PageTitle, Pager } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
+import { Alert } from '../shared/ui';
 import { Dialog } from '../shared/ui/Dialog';
 import { useToast } from '../shared/ui/toastStore';
 import { matchesText } from '../shared/lib/filter';
@@ -140,6 +141,9 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   const available = availability.data?.find(
     (row) => row.hardwareVariantId === contract.hardwareVariant.id,
   )?.available;
+  // The panel keeps the contract as it was selected, so a rejection is remembered here to hide
+  // Approve and Reject.
+  const [rejected, setRejected] = useState(false);
 
   const approve = async () => {
     if (appointment === '') {
@@ -208,6 +212,8 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
           </p>
           <p>Reservation expires {formatDateTime(approved.reservationExpiresAt)}.</p>
         </div>
+      ) : rejected ? (
+        <Alert tone="info" title="Rejected. The Manager sees the reason." />
       ) : (
         contract.status === 'REQUESTED' && (
           <>
@@ -284,6 +290,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
           onClose={() => setRejecting(false)}
           onDone={() => {
             setRejecting(false);
+            setRejected(true);
             onDecided();
           }}
         />
@@ -369,7 +376,7 @@ export const ContractApprovalPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[1fr_380px]">
+      <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
         <div className="min-w-0">
           {isLoading && <Loading />}
           {error && <ErrorState error={error} onRetry={() => void refetch()} />}
@@ -420,68 +427,71 @@ export const ContractApprovalPage: React.FC = () => {
                   </li>
                 ))}
               </ul>
-              <table className={`${TABLE} hidden md:table`}>
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className={TH}>Contract</th>
-                    <th className={TH}>Organization</th>
-                    <th className={TH}>Plan</th>
-                    <th className={TH}>Variant x qty</th>
-                    <th className={TH}>Start</th>
-                    <th className={TH}>Status</th>
-                  </tr>
-                  <FilterRow
-                    columns={[
-                      fields.code,
-                      fields.organization,
-                      fields.plan,
-                      fields.variant,
-                      null,
-                      null,
-                    ]}
-                    onClear={clear}
-                  />
-                </thead>
-                <tbody>
-                  {rows.length === 0 && <NoMatchRow colSpan={6} onClear={clear} />}
-                  {rows.map((contract) => {
-                    const active = contract.id === selected?.id;
-                    return (
-                      <tr
-                        key={contract.id}
-                        onClick={() => setSelected(contract)}
-                        className={`cursor-pointer border-t border-slate-200 transition ${
-                          active ? 'bg-blue-50' : 'hover:bg-slate-50'
-                        }`}
-                      >
-                        <td className={TD}>
-                          <button
-                            type="button"
-                            aria-pressed={active}
-                            onClick={() => setSelected(contract)}
-                            className={`${LINK} whitespace-nowrap text-left`}
-                          >
-                            {contract.code}
-                          </button>
-                        </td>
-                        <td className={TD}>{contract.organization?.code}</td>
-                        <td className={`${TD} whitespace-nowrap`}>{planLabel(contract)}</td>
-                        <td className={`${TD} whitespace-nowrap`}>
-                          {contract.hardwareVariant.code} x {contract.quantity}
-                        </td>
-                        <td className={`${TD} whitespace-nowrap`}>
-                          {formatDay(contract.requestedStartDate)}
-                        </td>
-                        <td className={TD}>
-                          <Badge tone={STATUS_TONES[contract.status]}>
-                            {STATUS_LABELS[contract.status]}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              {/* Scrolls inside its column, so the side panel never covers the last columns. */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className={TABLE}>
+                  <thead className="bg-sunken">
+                    <tr>
+                      <th className={TH}>Contract</th>
+                      <th className={TH}>Organization</th>
+                      <th className={TH}>Plan</th>
+                      <th className={TH}>Variant x qty</th>
+                      <th className={TH}>Start</th>
+                      <th className={TH}>Status</th>
+                    </tr>
+                    <FilterRow
+                      columns={[
+                        fields.code,
+                        fields.organization,
+                        fields.plan,
+                        fields.variant,
+                        null,
+                        null,
+                      ]}
+                      onClear={clear}
+                    />
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 && <NoMatchRow colSpan={6} onClear={clear} />}
+                    {rows.map((contract) => {
+                      const active = contract.id === selected?.id;
+                      return (
+                        <tr
+                          key={contract.id}
+                          onClick={() => setSelected(contract)}
+                          className={`cursor-pointer border-t border-line transition ${
+                            active ? 'bg-chrome/50' : 'hover:bg-chrome/40'
+                          }`}
+                        >
+                          <td className={TD}>
+                            <button
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() => setSelected(contract)}
+                              className={`${LINK} whitespace-nowrap text-left`}
+                            >
+                              {contract.code}
+                            </button>
+                          </td>
+                          <td className={TD}>{contract.organization?.code}</td>
+                          <td className={`${TD} whitespace-nowrap`}>{planLabel(contract)}</td>
+                          <td className={`${TD} whitespace-nowrap`}>
+                            {contract.hardwareVariant.code} x {contract.quantity}
+                          </td>
+                          <td className={`${TD} whitespace-nowrap`}>
+                            {formatDay(contract.requestedStartDate)}
+                          </td>
+                          <td className={TD}>
+                            <Badge tone={STATUS_TONES[contract.status]}>
+                              {STATUS_LABELS[contract.status]}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
               <Pager
                 pageNumber={data.pageNumber}
                 totalPages={data.totalPages}
@@ -490,7 +500,7 @@ export const ContractApprovalPage: React.FC = () => {
             </>
           )}
         </div>
-        <div className="lg:sticky lg:top-4">
+        <div className="xl:sticky xl:top-4">
           {selected ? (
             <RequestPanel key={selected.id} contract={selected} onDecided={refresh} />
           ) : (
