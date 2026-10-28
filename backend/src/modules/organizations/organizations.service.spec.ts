@@ -128,3 +128,65 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
     await expect(service.isActiveManager('org-1', 'u-gone')).resolves.toBe(false);
   });
 });
+
+describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)', () => {
+  const AT = new Date('2026-11-30T03:00:00.000Z');
+  let organizations: Record<string, jest.Mock>;
+  let mail: { send: jest.Mock };
+  let service: OrganizationsService;
+
+  beforeEach(() => {
+    organizations = {
+      lockById: jest.fn().mockResolvedValue({ status: OrganizationStatus.ACTIVE, version: 4 }),
+      update: jest.fn().mockResolvedValue({ id: 'org-1' }),
+      addTransition: jest.fn().mockResolvedValue({}),
+      contactEmail: jest.fn().mockResolvedValue('manager@example.com'),
+    };
+    mail = { send: jest.fn().mockResolvedValue(undefined) };
+    service = new OrganizationsService(
+      organizations as unknown as OrganizationsRepository,
+      {} as MembersRepository,
+      {} as AccountsService,
+      mail,
+    );
+  });
+
+  it('suspends an ACTIVE organization by SYSTEM with a transition naming the contract', async () => {
+    await expect(service.suspendForDefault('org-1', 'RC-2026-0001', AT, tx)).resolves.toBe(true);
+    expect(organizations.update).toHaveBeenCalledWith(
+      'org-1',
+      4,
+      { status: OrganizationStatus.SUSPENDED, statusChangedAt: AT },
+      tx,
+    );
+    expect(organizations.addTransition).toHaveBeenCalledWith(
+      {
+        organizationId: 'org-1',
+        fromStatus: OrganizationStatus.ACTIVE,
+        toStatus: OrganizationStatus.SUSPENDED,
+        actorId: null,
+        reason: 'Contract RC-2026-0001 defaulted',
+      },
+      tx,
+    );
+  });
+
+  it('leaves an organization that is not ACTIVE, and one another change won', async () => {
+    organizations.lockById.mockResolvedValueOnce({ status: OrganizationStatus.SUSPENDED });
+    await expect(service.suspendForDefault('org-1', 'RC-2026-0001', AT, tx)).resolves.toBe(false);
+    organizations.update.mockResolvedValueOnce(null);
+    await expect(service.suspendForDefault('org-1', 'RC-2026-0001', AT, tx)).resolves.toBe(false);
+    expect(organizations.addTransition).not.toHaveBeenCalled();
+  });
+
+  it('emails the contact address, and reports a failed send without throwing', async () => {
+    await expect(service.emailContact('org-1', 'Subject', 'Text')).resolves.toBe(true);
+    expect(mail.send).toHaveBeenCalledWith({
+      to: 'manager@example.com',
+      subject: 'Subject',
+      text: 'Text',
+    });
+    mail.send.mockRejectedValueOnce(new Error('SMTP down'));
+    await expect(service.emailContact('org-1', 'Subject', 'Text')).resolves.toBe(false);
+  });
+});

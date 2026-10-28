@@ -139,6 +139,9 @@ const LIVE = {
   replacedBy: { is: null },
 } satisfies Prisma.ContractDeviceWhereInput;
 
+// The reason that flags a reservation reminder on the transition table (rentals 3.2).
+export const RESERVATION_REMINDED = 'RESERVATION_REMINDED';
+
 export interface NewContractDevice {
   contractId: string;
   deviceId: string;
@@ -564,6 +567,62 @@ export class ContractsRepository {
     await tx.contractDevice.updateMany({
       where: { contractId },
       data: { holderName: null, holderPhone: null, holderEmergencyContact: null },
+    });
+  }
+
+  // rentals 3.2: RETURN_DUE contracts whose return was due at or before `dueBy`.
+  returnDueBefore(dueBy: Date, client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: { status: ContractStatus.RETURN_DUE, returnDueAt: { lte: dueBy } },
+      select: { id: true },
+      orderBy: { returnDueAt: 'asc' },
+    });
+  }
+
+  // rentals 3.2: OVERDUE contracts that became overdue at or before `overdueBy`.
+  overdueBefore(overdueBy: Date, client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: { status: ContractStatus.OVERDUE, overdueAt: { lte: overdueBy } },
+      select: { id: true },
+      orderBy: { overdueAt: 'asc' },
+    });
+  }
+
+  // rentals 3.2: the time a contract went OVERDUE or DEFAULTED.
+  async stampOverdue(
+    id: string,
+    data: { overdueAt?: Date; defaultedAt?: Date },
+    tx: Prisma.TransactionClient,
+  ) {
+    await tx.rentalContract.update({ where: { id }, data });
+  }
+
+  // rentals 3.2 (REQ-EVT-14): APPROVED contracts past their reservation expiry that have no reminder
+  // yet. The reminder is flagged by a transition row (design §5).
+  reservationsToRemind(at: Date, client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: {
+        status: ContractStatus.APPROVED,
+        reservationExpiresAt: { lte: at },
+        transitions: { none: { reason: RESERVATION_REMINDED } },
+      },
+      select: { id: true, code: true, organizationId: true, reservationExpiresAt: true },
+      orderBy: { reservationExpiresAt: 'asc' },
+    });
+  }
+
+  // The reminder flag: an APPROVED to APPROVED transition row by SYSTEM, which the append-only table
+  // keeps, so a re-run never reminds twice.
+  async flagReminded(contractId: string, at: Date, tx: Prisma.TransactionClient) {
+    await tx.contractTransition.create({
+      data: {
+        contractId,
+        fromStatus: ContractStatus.APPROVED,
+        toStatus: ContractStatus.APPROVED,
+        actorId: null,
+        reason: RESERVATION_REMINDED,
+        createdAt: at,
+      },
     });
   }
 

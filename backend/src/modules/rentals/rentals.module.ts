@@ -13,7 +13,9 @@ import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
 import { RentalsPortsModule } from './rentals-ports.module';
 import { ReturnController } from './return.controller';
+import { OverdueAndDefaultJob } from './overdue-and-default.job';
 import { ReplacementService } from './replacement.service';
+import { ReservationRemindersJob } from './reservation-reminders.job';
 import { ReturnService } from './return.service';
 import { TermRolloverJob } from './term-rollover.job';
 
@@ -34,6 +36,8 @@ import { TermRolloverJob } from './term-rollover.job';
     HandoverService,
     ReturnService,
     ReplacementService,
+    OverdueAndDefaultJob,
+    ReservationRemindersJob,
     TermRolloverJob,
   ],
   exports: [ContractLifecycleService, ContractsService],
