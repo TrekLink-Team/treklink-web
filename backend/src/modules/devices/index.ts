@@ -9,3 +9,8 @@ export type {
   VariantSummary,
 } from './devices.repository';
 export { fromNodeId, toNodeId } from './node-id';
+export {
+  LOSS_CASE_LISTENERS,
+  type LossCaseListener,
+  type LossCaseView,
+} from './ports/loss-case-listener.port';

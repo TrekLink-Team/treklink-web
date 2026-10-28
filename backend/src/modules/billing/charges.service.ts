@@ -46,8 +46,8 @@ const unpaidOf = (lines: readonly LineRow[]): bigint =>
   );
 
 // Charges outside the plan, on the contract's closing invoice (billing design §1 and §2): the
-// cancellation adjustment (task 2.3), late fees and damage charges (task 2.5). Loss charges (2.6)
-// join this service later.
+// cancellation adjustment (task 2.3), late fees and damage charges (task 2.5), and loss charges with
+// their adjustments (task 2.6).
 @Injectable()
 export class ChargesService {
   constructor(
@@ -184,6 +184,71 @@ export class ChargesService {
       at,
     );
     return { charge, invoice };
+  }
+
+  // A loss confirmed in RENTER custody (REQ-EVT-07, FR-BILL-05, BR-25): one LOSS line of the device's
+  // remaining value at the confirmation date on the contract's closing invoice. `valueVnd` comes from
+  // `devices.valueAt` through the loss-case listener; a device with no value left adds nothing.
+  async chargeLoss(
+    contract: ChargedContract,
+    device: ChargedDevice,
+    valueVnd: number,
+    lossCaseCode: string,
+    confirmedAt: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<InvoiceRow | null> {
+    const amount = BigInt(Math.round(valueVnd));
+    if (amount <= 0n) return null;
+    return this.addToClosing(
+      contract,
+      {
+        type: InvoiceLineType.LOSS,
+        description: `Loss of ${device.assetTag} (${lossCaseCode}): remaining value`,
+        deviceId: device.id,
+        quantity: 1,
+        unitVnd: amount,
+        amountVnd: amount,
+        dueAt: confirmedAt,
+        createdById: null,
+      },
+      tx,
+      confirmedAt,
+    );
+  }
+
+  // A loss settled as reduced or waived (FR-BILL-11, BR-39): an ADJUSTMENT line of the difference
+  // between the LOSS line and the decided amount, with the reason and its author; the LOSS line itself
+  // never changes. Null when nothing was charged for the device or nothing is taken back.
+  async adjustLoss(
+    contract: ChargedContract,
+    device: ChargedDevice,
+    decision: 'REDUCED' | 'WAIVED',
+    finalVnd: number,
+    reason: string,
+    actorId: string | null,
+    tx: Prisma.TransactionClient,
+    at: Date = new Date(),
+  ): Promise<InvoiceRow | null> {
+    const loss = await this.invoices.lossLine(contract.id, device.id, tx);
+    if (!loss) return null;
+    const kept = decision === 'WAIVED' ? 0n : BigInt(Math.round(Math.max(finalVnd, 0)));
+    const back = loss.amountVnd - (kept < loss.amountVnd ? kept : loss.amountVnd);
+    if (back <= 0n) return null;
+    return this.addToClosing(
+      contract,
+      {
+        type: InvoiceLineType.ADJUSTMENT,
+        description: `Loss of ${device.assetTag} ${decision === 'WAIVED' ? 'waived' : 'reduced'}: ${reason}`,
+        deviceId: device.id,
+        quantity: 1,
+        unitVnd: -back,
+        amountVnd: -back,
+        dueAt: at,
+        createdById: actorId,
+      },
+      tx,
+      at,
+    );
   }
 
   // Appends the line to the contract's closing invoice, created with it on the first charge (design
