@@ -10,6 +10,7 @@ import { CounterPage } from '../pages/CounterPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
+import { PricesPage } from '../pages/PricesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
 import { RegisterPage } from '../pages/RegisterPage';
@@ -58,11 +59,12 @@ export const RequireRole: React.FC<{ roles: readonly Role[] }> = ({ roles }) => 
 
 const ORG_OPERATOR: Role[] = ['ORG_OPERATOR'];
 const ORG_MANAGER: Role[] = ['ORG_MANAGER'];
+const ADMIN: Role[] = ['ADMIN'];
 const STAFF: Role[] = ['STAFF'];
 
 // Routes of specs/frontend/design.md §2. Only built pages are registered; the rest of the table is
 // added with the task that builds each page. The map routes show the interim dashboard until
-// `LiveMapPage` (task 9.1). Contracts and billing are screens 5.1 to 5.4, 6.1 and 6.3.
+// `LiveMapPage` (task 9.1). Contracts and billing are screens 5.1 to 5.4, 6.1, 6.3 and 6.4.
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/" element={<DashboardPage />} />
@@ -91,6 +93,9 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/billing" element={<BillingPage />} />
         <Route path="/t/organizations" element={<OrganizationReviewPage />} />
         <Route path="/t/counter/:contractId" element={<CounterPage />} />
+      </Route>
+      <Route element={<RequireRole roles={ADMIN} />}>
+        <Route path="/t/admin/prices" element={<PricesPage />} />
       </Route>
     </Route>
     {DesignSystemPage && (
