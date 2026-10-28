@@ -4,12 +4,14 @@ import {
   INVOICE_STATUS_LABELS,
   INVOICE_TONES,
   lineStatus,
+  useBalance,
   useInvoice,
 } from '../../entities/billing/api';
 import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
+import { Button } from '../../shared/ui';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
 import { TONE_CLASSES } from '../../shared/ui/status';
-import { CARD, LINK, PRIMARY_BUTTON, TD, TH } from '../../shared/ui/styles';
+import { CARD, LINK, TD, TH } from '../../shared/ui/styles';
 import { matchesText } from '../../shared/lib/filter';
 import { FilterRow, NoMatchRow } from '../../shared/ui/TableFilters';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
@@ -36,6 +38,11 @@ export const InvoiceDetailView: React.FC<{
   const [recording, setRecording] = useState(false);
   const [lineText, setLineText] = useState('');
   const [lineFilter, setLineFilter] = useState('');
+  // A cancelled contract's voiding ADJUSTMENT sits on its CLOSING invoice, so an earlier invoice
+  // can still show an amount due while the contract owes nothing. Record counter payment shows
+  // only while the contract balance is open (ruling on #87 point 4); invoice lines stay unchanged.
+  const owing = canRecordCounter && !!data && data.totalVnd > data.paidVnd;
+  const balance = useBalance(data?.contract.id ?? '', owing);
 
   if (isLoading) return <Loading label="Loading invoice" />;
   if (error || !data) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -69,14 +76,10 @@ export const InvoiceDetailView: React.FC<{
           <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
           <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
         </dl>
-        {canRecordCounter && due > 0 && (
-          <button
-            type="button"
-            className={`${PRIMARY_BUTTON} mt-4`}
-            onClick={() => setRecording(true)}
-          >
+        {owing && balance.data && !balance.data.settled && (
+          <Button variant="primary" className="mt-4" onClick={() => setRecording(true)}>
             Record counter payment
-          </button>
+          </Button>
         )}
       </div>
 

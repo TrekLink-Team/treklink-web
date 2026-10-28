@@ -17,7 +17,7 @@ import {
 } from '../entities/contract/api';
 import { organizationKeys, useMembers, useOrganization } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
-import { formatDay, formatVnd } from '../shared/lib/format';
+import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { Dialog } from '../shared/ui/Dialog';
@@ -399,9 +399,14 @@ export const CounterPage: React.FC = () => {
         action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
       />
       <p className="-mt-3 mb-5 text-slate-700">
-        {data.organization ? `${data.organization.code}, ${data.organization.legalName}. ` : ''}
+        {data.organization
+          ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
+          : ''}
         {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}, from{' '}
         {formatDay(data.requestedStartDate)}
+        {data.handoverAppointmentAt
+          ? `. Handover appointment ${formatDateTime(data.handoverAppointmentAt)}`
+          : ''}
       </p>
 
       {beforeStart && (

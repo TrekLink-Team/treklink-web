@@ -22,6 +22,7 @@ export interface Approved {
   devices: DeviceTag[];
   term: { seq: number; startsAt: Date; endsAt: Date };
   reservationExpiresAt: Date;
+  handoverAppointmentAt: Date;
 }
 
 export const DEVICE_LABEL_CHANGED = 'device.labelChanged';
@@ -80,8 +81,8 @@ export class ContractDecisionsService {
   // Reserves exactly the requested number of AVAILABLE units (409 INSUFFICIENT_DEVICES, nothing
   // reserved), creates term 1 anchored to the start date, issues its invoice and moves the contract
   // to APPROVED (REQ-EVT-02). The reservation expires `rentals.reservationExpiryHours` after the
-  // handover appointment; the appointment itself is kept in the transition reason, as the schema has
-  // no column for it.
+  // handover appointment, which is stored on the contract (`handoverAppointmentAt`, ruling on #87
+  // point 1) and also named in the transition reason for the history.
   async approve(
     id: string,
     input: ApprovalInput,
@@ -135,7 +136,12 @@ export class ContractDecisionsService {
       );
       await this.contracts.recordDecision(
         id,
-        { decidedById: actor.id, decidedAt: at, reservationExpiresAt },
+        {
+          decidedById: actor.id,
+          decidedAt: at,
+          reservationExpiresAt,
+          handoverAppointmentAt: input.handoverAt,
+        },
         tx,
       );
       return {
@@ -143,6 +149,7 @@ export class ContractDecisionsService {
         devices,
         term: { seq: term.seq, startsAt: term.startsAt, endsAt: term.endsAt },
         reservationExpiresAt,
+        handoverAppointmentAt: input.handoverAt,
       };
     });
   }

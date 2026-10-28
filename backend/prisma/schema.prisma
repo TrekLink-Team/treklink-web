@@ -946,53 +946,54 @@ enum TermStatus {
 }
 
 model RentalContract {
-  id                   String          @id @default(uuid())
-  code                 String          @unique // RC-2026-0042
-  organizationId       String
-  organization         Organization    @relation(fields: [organizationId], references: [id])
-  planType             PlanType
-  dayPlanDays          Int? // 3, 4 or 7 for a day plan (rentals.dayPlanLengths)
-  hardwareVariantId    String
-  hardwareVariant      HardwareVariant @relation(fields: [hardwareVariantId], references: [id])
-  quantity             Int
-  requestedStartDate   DateTime        @db.Date
+  id                    String          @id @default(uuid())
+  code                  String          @unique // RC-2026-0042
+  organizationId        String
+  organization          Organization    @relation(fields: [organizationId], references: [id])
+  planType              PlanType
+  dayPlanDays           Int? // 3, 4 or 7 for a day plan (rentals.dayPlanLengths)
+  hardwareVariantId     String
+  hardwareVariant       HardwareVariant @relation(fields: [hardwareVariantId], references: [id])
+  quantity              Int
+  requestedStartDate    DateTime        @db.Date
   // price snapshot at request time (FR-CFG-02: a price change applies only to later requests)
-  monthlyUnitPriceVnd  BigInt
-  dayPremium           Decimal?        @db.Decimal(5, 2)
-  holdingFeeRatio      Decimal         @db.Decimal(4, 3)
-  status               ContractStatus  @default(REQUESTED)
-  statusChangedAt      DateTime        @default(now()) @db.Timestamptz(3)
-  requestedById        String
-  requestedBy          User            @relation("RentalContract_requestedById", fields: [requestedById], references: [id])
-  decidedById          String?
-  decidedBy            User?           @relation("RentalContract_decidedById", fields: [decidedById], references: [id])
-  decidedAt            DateTime?       @db.Timestamptz(3)
-  rejectionReason      String?
-  reservationExpiresAt DateTime?       @db.Timestamptz(3) // FR-CON-04
-  cancelledAt          DateTime?       @db.Timestamptz(3)
-  cancelReason         String?
+  monthlyUnitPriceVnd   BigInt
+  dayPremium            Decimal?        @db.Decimal(5, 2)
+  holdingFeeRatio       Decimal         @db.Decimal(4, 3)
+  status                ContractStatus  @default(REQUESTED)
+  statusChangedAt       DateTime        @default(now()) @db.Timestamptz(3)
+  requestedById         String
+  requestedBy           User            @relation("RentalContract_requestedById", fields: [requestedById], references: [id])
+  decidedById           String?
+  decidedBy             User?           @relation("RentalContract_decidedById", fields: [decidedById], references: [id])
+  decidedAt             DateTime?       @db.Timestamptz(3)
+  rejectionReason       String?
+  reservationExpiresAt  DateTime?       @db.Timestamptz(3) // FR-CON-04
+  handoverAppointmentAt DateTime?       @db.Timestamptz(3) // the counter appointment set at approval
+  cancelledAt           DateTime?       @db.Timestamptz(3)
+  cancelReason          String?
   // handover (FR-CON-05, FR-CON-06, D-037)
-  handedOverAt         DateTime?       @db.Timestamptz(3)
-  handedOverById       String?
-  handedOverBy         User?           @relation("RentalContract_handedOverById", fields: [handedOverById], references: [id])
-  identityChecked      String? // document type and last digits seen at the counter
-  handoverNotePath     String? // stored PDF
-  handoverNoteSha256   String?
+  handedOverAt          DateTime?       @db.Timestamptz(3)
+  handedOverById        String?
+  handedOverBy          User?           @relation("RentalContract_handedOverById", fields: [handedOverById], references: [id])
+  identityChecked       String? // document type and last digits seen at the counter
+  handoverNotePath      String? // stored PDF
+  handoverNoteSha256    String?
   // end of contract
-  endsAt               DateTime?       @db.Timestamptz(3) // day plan end, or the term end after notice
-  noticeGivenAt        DateTime?       @db.Timestamptz(3)
-  noticeGivenById      String?
-  noticeGivenBy        User?           @relation("RentalContract_noticeGivenById", fields: [noticeGivenById], references: [id])
-  returnDueAt          DateTime?       @db.Timestamptz(3)
-  overdueAt            DateTime?       @db.Timestamptz(3)
-  defaultedAt          DateTime?       @db.Timestamptz(3)
-  returnedAt           DateTime?       @db.Timestamptz(3)
-  closedAt             DateTime?       @db.Timestamptz(3)
-  closedById           String?
-  closedBy             User?           @relation("RentalContract_closedById", fields: [closedById], references: [id])
-  version              Int             @default(0)
-  createdAt            DateTime        @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime        @updatedAt @db.Timestamptz(3)
+  endsAt                DateTime?       @db.Timestamptz(3) // day plan end, or the term end after notice
+  noticeGivenAt         DateTime?       @db.Timestamptz(3)
+  noticeGivenById       String?
+  noticeGivenBy         User?           @relation("RentalContract_noticeGivenById", fields: [noticeGivenById], references: [id])
+  returnDueAt           DateTime?       @db.Timestamptz(3)
+  overdueAt             DateTime?       @db.Timestamptz(3)
+  defaultedAt           DateTime?       @db.Timestamptz(3)
+  returnedAt            DateTime?       @db.Timestamptz(3)
+  closedAt              DateTime?       @db.Timestamptz(3)
+  closedById            String?
+  closedBy              User?           @relation("RentalContract_closedById", fields: [closedById], references: [id])
+  version               Int             @default(0)
+  createdAt             DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @db.Timestamptz(3)
 
   terms            ContractTerm[]
   devices          ContractDevice[]

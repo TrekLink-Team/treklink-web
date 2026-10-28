@@ -46,6 +46,8 @@ export interface Contract {
   returnDueAt: string | null;
   version: number;
   reservationExpiresAt?: string | null;
+  // The counter appointment set at approval (rentals api-design 03 and 04).
+  handoverAppointmentAt?: string | null;
 }
 
 export interface ContractDevice {

@@ -261,6 +261,11 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                   ? `Term ${data.currentTerm.seq}, ${formatDate(data.currentTerm.startsAt)} to ${formatDate(data.currentTerm.endsAt)}`
                   : 'Not started'}
               </Fact>
+              {data.handoverAppointmentAt && (
+                <Fact label="Handover appointment">
+                  <When iso={data.handoverAppointmentAt} />
+                </Fact>
+              )}
               {data.reservationExpiresAt && (
                 <Fact label="Reservation expires">
                   <When iso={data.reservationExpiresAt} />

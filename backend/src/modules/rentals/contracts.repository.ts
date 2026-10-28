@@ -47,6 +47,7 @@ export const TERM_SELECT = {
 export const LIST_SELECT = {
   ...CONTRACT_SELECT,
   reservationExpiresAt: true,
+  handoverAppointmentAt: true,
   terms: { select: TERM_SELECT, orderBy: { seq: 'desc' }, take: 1 },
 } satisfies Prisma.RentalContractSelect;
 
@@ -67,6 +68,7 @@ export const DEVICE_ROW_SELECT = {
 export const DETAIL_SELECT = {
   ...CONTRACT_SELECT,
   reservationExpiresAt: true,
+  handoverAppointmentAt: true,
   terms: { select: TERM_SELECT, orderBy: { seq: 'asc' } },
   devices: {
     where: { releasedAt: null },
@@ -114,6 +116,7 @@ export interface Decision {
   decidedById: string;
   decidedAt: Date;
   reservationExpiresAt?: Date;
+  handoverAppointmentAt?: Date;
   rejectionReason?: string;
 }
 

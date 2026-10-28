@@ -22,7 +22,7 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 | List paging | rentals 02 `pageNumber`, `pageSize`, `totalCount`, `totalPages` |
 | Organization (TrekLink detail only) | rentals 03 `organization.code`, `legalName` |
 | Header: code, status, plan, quantity, variant | rentals 03 `code`, `status`, `planType`, `dayPlanDays`, `quantity`, `hardwareVariant.code` |
-| Dates: requested start, handed over, current term, notice given, ends, return due | rentals 03 `requestedStartDate`, `handedOverAt`, `currentTerm.seq`, `startsAt`, `endsAt`, `noticeGivenAt`, `endsAt`, `returnDueAt` |
+| Dates: requested start, handover appointment, handed over, current term, notice given, ends, return due | rentals 03 `requestedStartDate`, `handoverAppointmentAt`, `handedOverAt`, `currentTerm.seq`, `startsAt`, `endsAt`, `noticeGivenAt`, `endsAt`, `returnDueAt` |
 | Prices fixed at request | rentals 03 `monthlyUnitPriceVnd`, `dayPremium`, `holdingFeeRatio` |
 | Terms | rentals 03 `terms[].seq`, `startsAt`, `endsAt`, `status` |
 | Devices: asset tag, holder, handed over, back, lost | rentals 03 `devices[].assetTag`, `holder.name`, `phone`, `emergencyContact`, `handedOverAt`, `checkedInAt`, `lostAt` |

@@ -136,7 +136,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [x] 6.3 Counter payments (owner LongLP)
   - **Do**: billing api-design 13, 14; overpayment and duplicate reference errors
   - _Story: US-UC22_
-  - **Done** (2026-10-27): the record dialog from the invoice detail (method, amount, reference; OVERPAYMENT under Amount, DUPLICATE_REFERENCE under Reference, MSG20 with the amount) and the payments tab of `/t/billing` with a status filter
+  - **Done** (2026-10-27): the record dialog from the invoice detail (method, amount, reference; OVERPAYMENT under Amount, DUPLICATE_REFERENCE under Reference, MSG20 with the amount) and the payments tab of `/t/billing` with a status filter. 2026-10-28: Record counter payment on an invoice shows only while the contract balance (billing 10 `settled`) is open, per the ruling on issue #87 point 4; component-tested. The contract page and the counter header show the handover appointment from `handoverAppointmentAt`
 - [ ] 6.4 Prices, damage rates, `DamageChargesPage` (owner LongLP)
   - **Do**: billing api-design 03 to 07, 16, 17; decision hidden for the inspector (MSG30)
   - _Story: US-UC48, US-UC56_

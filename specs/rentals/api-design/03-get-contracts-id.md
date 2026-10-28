@@ -62,6 +62,7 @@ No body.
     "noticeGivenAt": null,
     "returnDueAt": null,
     "version": 4,
+    "handoverAppointmentAt": "2026-10-25T02:00:00Z",
     "terms": [
       {
         "seq": 1,
