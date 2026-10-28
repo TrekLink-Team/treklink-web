@@ -29,6 +29,7 @@
   - **Test**: AC-01, AC-04 (not plotted), AC-05, AC-06
   - _Requirements: REQ-UBI-03, REQ-EVT-01, REQ-EVT-04, AC-01, AC-04, AC-05, AC-06, FR-MON-02, FR-MON-04, FR-MON-08, BR-22_
   - _Story: US-UC38_
+  - **Status**: all six listeners are built. Each event already names its organization, so no `currentHolder` lookup exists and none is needed; the latest check-in of a device is read from the stream's own `device.released` entries. Two parts wait on other modules: `incident.changed` carries ids only until `incidents` exports a read for `code`, `ownerName`, `lastPosition` and `stale`, and `rentals` does not emit `device.checkedIn` yet, so `device.released` and the late flag are tested with direct events. The box stays unticked until both land.
 - [ ] 2.2 Replay and key revocation (owner LongNN)
   - **Do**: on connect or reconnect with a cursor, replay every entry after it for the client's rooms, then `replay.done`, then live; a cursor older than `monitoring.streamRetentionHours` gets `replay.expired` (REST 410); on `apiKey.revoked` close that key's sockets
   - **Test**: AC-02 (two minutes disconnected, every entry once and in order)
