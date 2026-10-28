@@ -5,7 +5,7 @@
 | Owner | LongLP |
 | Task | `specs/frontend/tasks.md` 5.6 |
 | Assigned, due | Sprint 4 |
-| Status | Draft for review |
+| Status | Built (2026-10-28), ready for review |
 | Routes | `/o` (`specs/frontend/design.md` §2); the Org Manager's landing route after sign-in (D-059 rule 1), replacing the interim `/o/contracts` landing |
 | Roles | Org Manager: the whole page. Org Operator: MSG26 (the route is Org Manager only; the Operator lands on `/o/map`). TrekLink accounts: MSG26. |
 | Use case, FRs, story | UC-55; FR-BILL-06, FR-CON-14, FR-INC-01; US-UC55 |
@@ -22,8 +22,8 @@ open incidents from incidents api-design 01 (`open=true`), devices out; widgets 
 |---|---|
 | Summary tiles: contracts by state (Requested, Approved, Active, Ending, Return due or Overdue) | rentals 02 `items[].status`, counted on the client from one page of `pageSize` at most `MAX_PAGE_SIZE`; the tile links to `/o/contracts?status=` |
 | Devices out | rentals 03 `devices[]` of each ACTIVE, ENDING, RETURN_DUE or OVERDUE contract, counting rows with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; at most five contracts are read, the tile says "and more" beyond that |
-| Balance due now and later | billing 08 `items[]` of the organization's ISSUED and PARTIALLY_PAID invoices, `totalVnd` minus `paidVnd`, split by billing 09 line `dueAt` only on the invoice page; the tile shows the total still due and the count of invoices with an overdue line (billing 08 `overdue=true`) |
-| Invoices needing payment | the `InvoiceTable` widget of screen 6.1 with billing 08 `overdue=true`, then ISSUED and PARTIALLY_PAID, five rows |
+| Still due | billing 08 `items[]`, `totalVnd` minus `paidVnd` summed per contract, CLOSING invoices included, so a cancelled contract whose voiding adjustment settled it counts nothing (ruling on treklink-web#87 point 4); the tile shows the sum of what contracts still owe and the count of invoices with an overdue line (billing 08 `overdue=true`) of contracts that owe. The split into due now and later stays on the invoice page |
+| Invoices needing payment | billing 08: the unpaid invoices of contracts that still owe, overdue first, five rows, in a `DataTable`; Pay opens the invoice |
 | Open incidents | the `IncidentQueue` widget with incidents 01 `open=true`: `code`, `device.assetTag`, `device.holder.name`, `state`, `firstEventAt`, five rows; each row opens `/o/incidents/:id` (screen 8.1) |
 | Next dates | rentals 02 `items[].currentTerm.endsAt` and `returnDueAt` of running contracts, the three nearest |
 
@@ -59,7 +59,7 @@ None.
 
 ## Open points for review
 
-1. **Incidents endpoint**: incidents api-design 01 has no controller yet (HoangTK's lane). Until it exists the incident widget shows "Incidents are not available yet." instead of an error.
+1. **Incidents endpoint**: incidents api-design 01 has no controller yet (HoangTK's lane). Until it exists the incident widget shows "Incidents are not available yet." instead of an error. Built that way on 2026-10-28.
 2. **No aggregate endpoint**: the page composes existing list endpoints rather than adding a dashboard endpoint. If the reads prove slow on Neon, an `organizations` or `monitoring` summary endpoint is the follow-up, through a spec.
 3. **Wireframe**: an SVG wireframe in the style of the other screens follows if the layout above is approved.
 
@@ -76,4 +76,4 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: tab order, text status labels, VND formatting
 - [x] Live data: `incident.changed`, `device.label`, `device.released`; query keys shared with the pages
 - [x] Traceability: UC-55, US-UC55
-- [ ] Wireframe SVG: after approval of the layout
+- [ ] Wireframe SVG: not drawn; the built page was walked in a browser on local PGlite on 2026-10-28

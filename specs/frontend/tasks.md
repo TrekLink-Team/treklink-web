@@ -122,6 +122,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - _Story: US-UC43, US-UC44, US-UC51, US-UC61_
 - [ ] 5.6 Organization home dashboard `/o` (owner LongLP)
   - **Do**: Sprint 4. The Org Manager's landing page (D-059 rule 1): contract summary from rentals api-design 02, balance due from billing api-design 10, open incidents from incidents api-design 01 (`open=true`), devices out; widgets `ContractSummary`, `InvoiceTable`, `IncidentQueue` of §1; screen design first (`ui-design/5-6-*.md`)
+  - **Partly done** (2026-10-28): `/o` on the `shared/ui` components, the Org Manager's landing route, Overview built in `navigation.ts`. Tiles inside router links (the `href` of `StatCard` is a plain anchor, which reloads the page and drops the in-memory session): running contracts with the requested and approved counts, devices out on the first five running contracts, return due or overdue, and what contracts still owe with their overdue invoices; invoices to pay, overdue first; the three nearest dates; MSG28 when the organization is not `ACTIVE`; loading and errors per source. Still due nets each contract's invoices, CLOSING included, as the ruling on treklink-web#87 point 4 asks. Component-tested (5, with the landing route); walked in the browser on local PGlite. Open: the open incidents, until incidents api-design 01 is served; live updates through the stream
   - _Story: US-UC55_
 
 ## Phase 6: Billing
