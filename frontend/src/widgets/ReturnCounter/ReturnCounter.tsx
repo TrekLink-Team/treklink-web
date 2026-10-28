@@ -37,8 +37,9 @@ import {
   type StatusEntry,
 } from '../../shared/ui';
 import { messageOf } from '../../shared/ui/errors';
+import { ReplacementPanel } from './ReplacementPanel';
 
-type Tab = 'checkin' | 'inspection' | 'close';
+type Tab = 'checkin' | 'replace' | 'inspection' | 'close';
 
 // The states that accept a check-in (REQ-STA-01): a running monthly ACTIVE contract does not.
 const RETURNING = ['ENDING', 'RETURN_DUE', 'OVERDUE', 'DEFAULTED'];
@@ -356,6 +357,9 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
         onChange={setTab}
         items={[
           { key: 'checkin', label: 'Check-in', count: out.length },
+          ...(contract.status === 'ACTIVE' || contract.status === 'ENDING'
+            ? [{ key: 'replace' as const, label: 'Replace a device' }]
+            : []),
           { key: 'inspection', label: 'Reset and inspection', count: back.length },
           { key: 'close', label: 'Close' },
         ]}
@@ -416,6 +420,12 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
               </Alert>
             )}
           </Card>
+        </TabPanel>
+      )}
+
+      {tab === 'replace' && (
+        <TabPanel idPrefix="return" tabKey="replace">
+          <ReplacementPanel contract={contract} onReplaced={refresh} />
         </TabPanel>
       )}
 
