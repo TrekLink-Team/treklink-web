@@ -86,7 +86,9 @@ describe('RegisterPage (screen 3.1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Register' }));
     await waitFor(() => expect(screen.getByText('ORG-0002')).toBeTruthy());
     expect(
-      screen.getByText('Visit the TrekLink counter or call us to verify your organization.'),
+      screen.getByText(
+        /^Registration received. Visit the TrekLink counter or call us to verify your organization.$/,
+      ),
     ).toBeTruthy();
     expect(registerOrganization).toHaveBeenCalledWith(
       expect.objectContaining({ managerEmail: 'manager@example.com' }),
