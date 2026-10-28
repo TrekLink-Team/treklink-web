@@ -112,6 +112,15 @@ export class OrganizationsRepository {
     return client.organization.findUnique({ where: { id }, select: REVIEW_SELECT });
   }
 
+  // The contact address given at registration, the Manager's email (rentals 3.2 reminders).
+  async contactEmail(id: string): Promise<string | null> {
+    const row = await this.prisma.organization.findUnique({
+      where: { id },
+      select: { contactEmail: true },
+    });
+    return row?.contactEmail ?? null;
+  }
+
   // Compare-and-set on version: null when someone else saved first.
   async update(
     id: string,

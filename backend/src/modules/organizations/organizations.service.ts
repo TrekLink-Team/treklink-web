@@ -1,8 +1,8 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { MemberRole, OrganizationStatus, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { AccountsService } from '../auth';
+import { AccountsService, MAIL_PORT, type MailPort } from '../auth';
 import { MembersRepository } from './members.repository';
 import { OrganizationLabel, OrganizationsRepository } from './organizations.repository';
 
@@ -24,11 +24,59 @@ const notFound = () =>
 // 2.4 builds the rest of the lifecycle around them.
 @Injectable()
 export class OrganizationsService {
+  private readonly logger = new Logger(OrganizationsService.name);
+
   constructor(
     private readonly organizations: OrganizationsRepository,
     private readonly members: MembersRepository,
     private readonly accounts: AccountsService,
+    @Optional() @Inject(MAIL_PORT) private readonly mail?: MailPort,
   ) {}
+
+  // Task 2.4 part, built by LongLP for rentals 3.2 (REQ-EVT-13, D-035): a contract that defaulted
+  // suspends its ACTIVE organization, by SYSTEM, in the caller's transaction, with a transition naming
+  // the contract. An organization in any other status is left as it is. Returns whether it changed.
+  async suspendForDefault(
+    organizationId: string,
+    contractCode: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const current = await this.organizations.lockById(organizationId, tx);
+    if (!current || current.status !== OrganizationStatus.ACTIVE) return false;
+    const saved = await this.organizations.update(
+      organizationId,
+      current.version,
+      { status: OrganizationStatus.SUSPENDED, statusChangedAt: at },
+      tx,
+    );
+    if (!saved) return false;
+    await this.organizations.addTransition(
+      {
+        organizationId,
+        fromStatus: OrganizationStatus.ACTIVE,
+        toStatus: OrganizationStatus.SUSPENDED,
+        actorId: null,
+        reason: `Contract ${contractCode} defaulted`,
+      },
+      tx,
+    );
+    return true;
+  }
+
+  // Emails the organization's contact address, the Manager given at registration (rentals 3.2
+  // reminders). A failed send is logged, never thrown, so a job carries on with the next contract.
+  async emailContact(organizationId: string, subject: string, text: string): Promise<boolean> {
+    const to = await this.organizations.contactEmail(organizationId);
+    if (!to || !this.mail) return false;
+    try {
+      await this.mail.send({ to, subject, text });
+      return true;
+    } catch (error) {
+      this.logger.warn(`Email to organization ${organizationId} failed: ${String(error)}`);
+      return false;
+    }
+  }
 
   // organizations api-design 12, read-only part of task 2.5: a member reads its own organization,
   // TrekLink Staff any; another organization answers 404. `invitationPending` is true while the
