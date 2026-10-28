@@ -34,6 +34,7 @@
 - [ ] 1.4 Loss-case ports (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/ports/custody-resolver.port.ts`, `loss-case-listener.port.ts`
   - **Do**: declare `CUSTODY_RESOLVER` and the multi-provider `LOSS_CASE_LISTENERS` exactly as design §3; `CUSTODY_RESOLVER` is required (Nest fails at boot without a provider), `LOSS_CASE_LISTENERS` is injected `@Optional()` as an array
+  - **Note** (2026-10-28): LongLP declared `LOSS_CASE_LISTENERS`, `LossCaseListener` and `LossCaseView` in `ports/loss-case-listener.port.ts`, exported from `index.ts`, for billing 2.6. `LossCaseView` carries the custody interval CUSTODY_RESOLVER found at triage (`custodyContract`), because billing cannot read rentals. Open for this task: `CUSTODY_RESOLVER`, and the multi-provider wiring that collects the billing and rentals listeners under the token
   - _Requirements: design §3, platform design §2.1, REQ-EVT-14_
 
 ## Phase 2: Core Service Logic

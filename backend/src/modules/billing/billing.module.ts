@@ -3,6 +3,7 @@ import { DevicesModule } from '../devices';
 import { PlatformModule } from '../platform/platform.module';
 import { BalanceService } from './balance.service';
 import { BillingReadsService } from './billing-reads.service';
+import { BillingLossCaseListener } from './providers/loss-case-listener.provider';
 import { ChargesService } from './charges.service';
 import { DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesController } from './invoices.controller';
@@ -27,6 +28,7 @@ import { PricingService } from './pricing.service';
     PaymentsRepository,
     InvoicesService,
     ChargesService,
+    BillingLossCaseListener,
     BalanceService,
     PaymentsService,
     PricingRepository,

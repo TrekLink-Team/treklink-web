@@ -121,6 +121,18 @@ export class InvoicesRepository {
 
   // Serializes closing-invoice work per contract, then returns its closing invoice or null, so two
   // transactions can never both create one (design §1: one CLOSING invoice per contract).
+  // The LOSS line charged for a device on the contract's closing invoice (billing 2.6), or null.
+  lossLine(contractId: string, deviceId: string, tx: Prisma.TransactionClient) {
+    return tx.invoiceLine.findFirst({
+      where: {
+        type: InvoiceLineType.LOSS,
+        deviceId,
+        invoice: { contractId, kind: InvoiceKind.CLOSING },
+      },
+      select: { id: true, amountVnd: true },
+    });
+  }
+
   async lockClosingInvoice(
     contractId: string,
     tx: Prisma.TransactionClient,
