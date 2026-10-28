@@ -85,8 +85,9 @@ export const RegisterPage: React.FC = () => {
           <h1 id="register-title" className="text-title-lg text-ink">
             Registration received
           </h1>
-          <Alert tone="success" title="Registration received.">
-            Visit the TrekLink counter or call us to verify your organization.
+          <Alert tone="success">
+            Registration received. Visit the TrekLink counter or call us to verify your
+            organization.
           </Alert>
           <p className="text-body text-ink-muted">
             Your organization code is{' '}
