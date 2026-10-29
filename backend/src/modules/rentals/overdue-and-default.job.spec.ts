@@ -118,18 +118,18 @@ describe('ReservationRemindersJob (rentals 3.2, REQ-EVT-14)', () => {
   let organizations: { emailContact: jest.Mock };
   let job: ReservationRemindersJob;
   const EXPIRED = new Date('2026-11-29T02:00:00.000Z');
+  const CANDIDATE = {
+    id: 'c-1',
+    code: 'RC-2026-0003',
+    organizationId: 'org-1',
+    reservationExpiresAt: EXPIRED,
+  };
 
   beforeEach(() => {
     contracts = {
-      reservationsToRemind: jest.fn().mockResolvedValue([
-        {
-          id: 'c-1',
-          code: 'RC-2026-0003',
-          organizationId: 'org-1',
-          reservationExpiresAt: EXPIRED,
-        },
-      ]),
+      reservationsToRemind: jest.fn().mockResolvedValue([CANDIDATE]),
       lockById: jest.fn().mockResolvedValue({ status: ContractStatus.APPROVED }),
+      hasReminder: jest.fn().mockResolvedValue(false),
       flagReminded: jest.fn().mockResolvedValue(undefined),
     };
     organizations = { emailContact: jest.fn().mockResolvedValue(true) };
@@ -140,18 +140,42 @@ describe('ReservationRemindersJob (rentals 3.2, REQ-EVT-14)', () => {
     );
   });
 
-  it('flags the reminder in the transaction, then emails the Manager once', async () => {
+  it('emails the Manager under the contract lock, then flags the reminder', async () => {
     await expect(job.run(AT)).resolves.toBe(1);
     expect(contracts.reservationsToRemind).toHaveBeenCalledWith(AT);
-    expect(contracts.flagReminded).toHaveBeenCalledWith('c-1', AT, TX);
+    expect(contracts.hasReminder).toHaveBeenCalledWith('c-1', TX);
     expect(organizations.emailContact).toHaveBeenCalledWith(
       'org-1',
       'TrekLink contract RC-2026-0003: reservation expired',
       expect.stringContaining('29 Nov 2026'),
+      TX,
+    );
+    expect(contracts.flagReminded).toHaveBeenCalledWith('c-1', AT, TX);
+    expect(organizations.emailContact.mock.invocationCallOrder[0]).toBeLessThan(
+      contracts.flagReminded.mock.invocationCallOrder[0],
     );
   });
 
-  it('reminds nothing when the query finds no unreminded contract, as on a re-run', async () => {
+  it('reminds once when two runs picked the same contract: the second sees the flag under the lock', async () => {
+    // Both runs read the candidate before either committed; the lock serializes them.
+    contracts.hasReminder.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const [first, second] = await Promise.all([job.run(AT), job.run(AT)]);
+    expect(first + second).toBe(1);
+    expect(organizations.emailContact).toHaveBeenCalledTimes(1);
+    expect(contracts.flagReminded).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the reminder unflagged when the email is not delivered, and retries on the next run', async () => {
+    organizations.emailContact.mockResolvedValueOnce(false);
+    await expect(job.run(AT)).resolves.toBe(0);
+    expect(contracts.flagReminded).not.toHaveBeenCalled();
+
+    await expect(job.run(AT)).resolves.toBe(1);
+    expect(organizations.emailContact).toHaveBeenCalledTimes(2);
+    expect(contracts.flagReminded).toHaveBeenCalledTimes(1);
+  });
+
+  it('reminds nothing when the query finds no unreminded contract', async () => {
     contracts.reservationsToRemind.mockResolvedValue([]);
     await expect(job.run(AT)).resolves.toBe(0);
     expect(organizations.emailContact).not.toHaveBeenCalled();
@@ -160,7 +184,7 @@ describe('ReservationRemindersJob (rentals 3.2, REQ-EVT-14)', () => {
   it('skips a contract handed over or cancelled since the query', async () => {
     contracts.lockById.mockResolvedValue({ status: ContractStatus.ACTIVE });
     await expect(job.run(AT)).resolves.toBe(0);
-    expect(contracts.flagReminded).not.toHaveBeenCalled();
     expect(organizations.emailContact).not.toHaveBeenCalled();
+    expect(contracts.flagReminded).not.toHaveBeenCalled();
   });
 });

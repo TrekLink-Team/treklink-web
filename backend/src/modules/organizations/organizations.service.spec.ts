@@ -188,5 +188,7 @@ describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)
     });
     mail.send.mockRejectedValueOnce(new Error('SMTP down'));
     await expect(service.emailContact('org-1', 'Subject', 'Text')).resolves.toBe(false);
+    await service.emailContact('org-1', 'Subject', 'Text', tx);
+    expect(organizations.contactEmail).toHaveBeenLastCalledWith('org-1', tx);
   });
 });
