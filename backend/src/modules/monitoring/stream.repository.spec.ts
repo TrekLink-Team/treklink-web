@@ -126,6 +126,18 @@ describe('StreamRepository', () => {
     await expect(repository.oldestSeqSince(cutoff)).resolves.toBeNull();
   });
 
+  it('deletes a batch of entries older than the cutoff, oldest first, and reports how many went', async () => {
+    executeRaw.mockResolvedValue(42);
+    const cutoff = new Date('2026-10-27T03:00:00.000Z');
+    await expect(repository.pruneBefore(cutoff, 5000)).resolves.toBe(42);
+    const [strings, ...values] = executeRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
+    const sql = strings.join('?');
+    expect(sql).toContain('DELETE FROM "stream_events"');
+    expect(sql).toContain('ORDER BY "seq"');
+    expect(sql).not.toContain('device_releases');
+    expect(values).toEqual([cutoff, 5000]);
+  });
+
   it('reads the newest cursor, or 0 for an empty stream', async () => {
     streamEvent.aggregate.mockResolvedValueOnce({ _max: { seq: 90n } });
     await expect(repository.maxSeq()).resolves.toBe(90);

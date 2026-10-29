@@ -44,6 +44,7 @@
   - **Files**: `jobs/stale-sweep.job.ts`, `jobs/prune-stream.job.ts`
   - **Do**: `monitoring.staleSweep` every `monitoring.staleSweepSeconds`: devices past `monitoring.deviceStaleSeconds` and stations past `monitoring.fieldStationStaleSeconds` emit stale and recovered transitions only and call `IncidentsService.markDeviceStale`; `monitoring.pruneStream` hourly deletes entries past retention
   - **Test**: AC-03; a device heard again emits one recovery
+  - **Status**: `monitoring.pruneStream` is built (`jobs/prune-stream.job.ts`): hourly at minute 10, it deletes `stream_events` older than `monitoring.streamRetentionHours` in batches of 5000 and never touches `device_releases`. `monitoring.staleSweep` is not: it needs a read of devices silent past `monitoring.deviceStaleSeconds` from `devices`, the Field Station `lastSyncAt` from `organizations`, and `IncidentsService.markDeviceStale`, and none of the three exists on `dev`. The box stays unticked until the sweep lands.
   - _Requirements: REQ-EVT-03, AC-03, FR-MON-03, FR-INC-13, BR-21_
   - _Story: US-UC41_
 

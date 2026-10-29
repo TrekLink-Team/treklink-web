@@ -91,6 +91,20 @@ export class StreamRepository {
     return row === null ? null : Number(row.seq);
   }
 
+  // Deletes up to `limit` entries created before the cutoff, oldest first, and returns how many went.
+  // A statement per batch keeps each lock short. `device_releases` is a different table and is never
+  // touched here.
+  async pruneBefore(cutoff: Date, limit: number): Promise<number> {
+    return this.prisma.$executeRaw`
+      DELETE FROM "stream_events"
+      WHERE "seq" IN (
+        SELECT "seq" FROM "stream_events"
+        WHERE "createdAt" < ${cutoff}
+        ORDER BY "seq"
+        LIMIT ${limit}
+      )`;
+  }
+
   // The newest cursor, or 0 when the stream is empty.
   async maxSeq(): Promise<number> {
     const { _max } = await this.prisma.streamEvent.aggregate({ _max: { seq: true } });
