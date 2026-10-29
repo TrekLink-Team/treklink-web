@@ -133,6 +133,12 @@ export interface NewContract {
   requestedById: string;
 }
 
+// Live contract rows: not released before handover or by a swap, and not replaced (rentals 4.3).
+const LIVE = {
+  releasedAt: null,
+  replacedBy: { is: null },
+} satisfies Prisma.ContractDeviceWhereInput;
+
 export interface NewContractDevice {
   contractId: string;
   deviceId: string;
@@ -417,9 +423,11 @@ export class ContractsRepository {
   }
 
   // The rows still on the contract (not released), oldest reservation first.
+  // A row is live while it is neither released nor replaced (rentals 4.3): a replaced row keeps its
+  // custody history, and the replacement takes its place, so the live rows stay at the quantity.
   liveRows(contractId: string, client: Client = this.prisma) {
     return client.contractDevice.findMany({
-      where: { contractId, releasedAt: null },
+      where: { contractId, ...LIVE },
       orderBy: { reservedAt: 'asc' },
       select: { id: true, deviceId: true, handedOverAt: true },
     });
@@ -479,13 +487,37 @@ export class ContractsRepository {
     return tx.contractDevice.findMany({
       where: {
         contractId,
-        releasedAt: null,
+        ...LIVE,
         handedOverAt: { not: null },
         checkedInAt: null,
         lostAt: null,
       },
       orderBy: { reservedAt: 'asc' },
       select: { id: true, deviceId: true },
+    });
+  }
+
+  // Every device the contract held, replaced ones included, for the close checks: an incident or a
+  // pending damage charge on a replaced unit still belongs to this contract.
+  async custodyDevices(contractId: string, tx: Prisma.TransactionClient): Promise<string[]> {
+    const rows = await tx.contractDevice.findMany({
+      where: { contractId, releasedAt: null, handedOverAt: { not: null } },
+      select: { deviceId: true },
+    });
+    return [...new Set(rows.map((row) => row.deviceId))];
+  }
+
+  // Units replaced while missing whose loss is not settled yet (no check-in, no lostAt): the contract
+  // cannot close until the loss case settles and sets lostAt (rentals 4.3, REQ-EVT-12).
+  unsettledReplacedLosses(contractId: string, tx: Prisma.TransactionClient): Promise<number> {
+    return tx.contractDevice.count({
+      where: {
+        contractId,
+        releasedAt: null,
+        replacedBy: { isNot: null },
+        checkedInAt: null,
+        lostAt: null,
+      },
     });
   }
 
@@ -505,7 +537,7 @@ export class ContractsRepository {
     contractId: string,
     tx: Prisma.TransactionClient,
   ): Promise<{ total: number; returned: number }> {
-    const where = { contractId, releasedAt: null, handedOverAt: { not: null } };
+    const where = { contractId, ...LIVE, handedOverAt: { not: null } };
     const [total, returned] = await Promise.all([
       tx.contractDevice.count({ where }),
       tx.contractDevice.count({

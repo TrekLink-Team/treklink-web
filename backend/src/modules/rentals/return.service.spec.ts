@@ -59,6 +59,8 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         .mockResolvedValue({ id: 'cd-1', deviceId: 'd-1', handedOverAt: DUE, checkedInAt: AT }),
       liveRows: jest.fn().mockResolvedValue([{ id: 'cd-1', deviceId: 'd-1' }]),
       eraseLabels: jest.fn().mockResolvedValue(undefined),
+      custodyDevices: jest.fn().mockResolvedValue(['d-1']),
+      unsettledReplacedLosses: jest.fn().mockResolvedValue(0),
     };
     lifecycle = {
       apply: jest
@@ -269,6 +271,14 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       });
       expect(closeCheck.blockingReason).not.toHaveBeenCalled();
       expect(contracts.eraseLabels).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('refuses a contract with a unit replaced while missing until its loss settles (rentals 4.3)', async () => {
+      contracts.unsettledReplacedLosses.mockResolvedValueOnce(1);
+      await expect(service.close('c-1', 6, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.BALANCE_OUTSTANDING,
+      });
       expect(lifecycle.apply).not.toHaveBeenCalled();
     });
 
