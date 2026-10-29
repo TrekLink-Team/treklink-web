@@ -46,46 +46,43 @@ export class IncidentIngress {
     // Step 1: the device's incident outside CLOSED, locked.
     const open = await this.repository.lockOpenByDevice(event.deviceId, tx);
     if (!open) return this.open(event, at, tx);
-    // Step 3: inside the reopen window, a resolved or false-alarm episode reopens, re-routed.
-    if (
-      REOPENABLE.has(open.state) &&
-      event.organizationId &&
-      open.reopenWindowEndsAt &&
-      event.occurredAt >= open.stateChangedAt &&
-      event.occurredAt < open.reopenWindowEndsAt
-    ) {
+    // Step 3: a resolved or false-alarm episode. A person already ended it, and no packet ever does
+    // (REQ-UBI-05, D-038 rule 2). An SOS that occurred before the episode ended is recorded on it below.
+    if (REOPENABLE.has(open.state) && event.occurredAt >= open.stateChangedAt) {
+      const ends = open.reopenWindowEndsAt;
+      // Past the window on both clocks (server and occurrence): the window has genuinely ended, so the
+      // system closes the episode exactly as the closeAfterReopenWindow job (task 3.1) would, and the
+      // SOS opens a new incident in this transaction (REQ-EVT-10).
+      if (ends && ends <= at && event.occurredAt >= ends) {
+        await this.lifecycle.apply(
+          open.id,
+          open.state,
+          'CLOSED',
+          { kind: 'SYSTEM' },
+          { code: 'REOPEN_WINDOW_ENDED', at, recipients: NO_RECIPIENTS, refEventId: event.eventId },
+          tx,
+        );
+        return this.open(event, at, tx);
+      }
+      // Inside the window, or a window never set: the device reopens the episode, re-routed as at
+      // creation, so an unattributed SOS or an organization with nobody to alert reopens to UNROUTED.
       await this.repository.appendEvent(open, event.occurredAt, tx);
-      const { recipients } = await this.routing.route(event, at, tx);
+      const route = await this.routing.route(event, at, tx);
       return this.lifecycle.apply(
         open.id,
         open.state,
-        'NOTIFY_PRIMARY',
+        route.to,
         { kind: 'DEVICE' },
         {
           code: 'REOPENED',
           at,
-          recipients,
+          recipients: route.recipients,
           refEventId: event.eventId,
           occurredAt: event.occurredAt,
           route: { organizationId: event.organizationId, contractId: event.contractId },
         },
         tx,
       );
-    }
-    // A newer SOS that cannot reopen the ended episode (past its window, or unattributed inside it)
-    // must not be swallowed: the device closes the old episode and the SOS opens a new incident, in
-    // this transaction (PR #114 review). Without this, nothing closes a RESOLVED incident until the
-    // closeAfterReopenWindow job (task 3.1) exists.
-    if (REOPENABLE.has(open.state) && event.occurredAt >= open.stateChangedAt) {
-      await this.lifecycle.apply(
-        open.id,
-        open.state,
-        'CLOSED',
-        { kind: 'DEVICE' },
-        { code: 'REOPEN_WINDOW_ENDED', at, recipients: NO_RECIPIENTS, refEventId: event.eventId },
-        tx,
-      );
-      return this.open(event, at, tx);
     }
     // Steps 4 and 5: any other open episode is the same emergency still running. A late SOS that
     // occurred before the episode ended is recorded on it.

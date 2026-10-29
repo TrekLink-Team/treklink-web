@@ -94,9 +94,12 @@ const EDGES: Readonly<Record<ReasonCode, readonly (readonly [IncidentState, Inci
     ['ESCALATED', 'REPORTED'],
   ],
   CASE_CLOSED: [['REPORTED', 'CLOSED']],
+  // Re-routed as at creation (REQ-EVT-10 with REQ-EVT-03): UNROUTED when unattributed.
   REOPENED: [
     ['RESOLVED', 'NOTIFY_PRIMARY'],
     ['FALSE_ALARM', 'NOTIFY_PRIMARY'],
+    ['RESOLVED', 'UNROUTED'],
+    ['FALSE_ALARM', 'UNROUTED'],
   ],
   REOPEN_WINDOW_ENDED: [
     ['RESOLVED', 'CLOSED'],
@@ -275,10 +278,8 @@ export class IncidentLifecycle {
         !actor.roles.some((role) => role === 'STAFF' || role === 'ADMIN')
       )
         throw forbidden();
-    } else if (
-      actor.kind !== 'SYSTEM' &&
-      !(actor.kind === 'DEVICE' && (code === 'REOPENED' || code === 'REOPEN_WINDOW_ENDED'))
-    ) {
+    } else if (actor.kind !== 'SYSTEM' && !(actor.kind === 'DEVICE' && code === 'REOPENED')) {
+      // A packet may open or reopen an incident, never end it (REQ-UBI-05, D-038 rule 2).
       throw invalid();
     }
     if ((code === 'FALSE_ALARM' || code === 'RESOLVED') && !reason.note?.trim()) {
@@ -292,11 +293,9 @@ export class IncidentLifecycle {
       throw invalid();
     if (code === 'STALE_LIMIT' && (!current.statusDueAt || current.statusDueAt > at))
       throw invalid();
-    // The scheduler closes only past the window; a newer SOS that cannot reopen the episode closes
-    // it at once, because it supersedes it (DEVICE actor, IncidentIngress.onSos).
+    // Only past the window, whether the timer or an SOS arriving after it ends asks.
     if (
       code === 'REOPEN_WINDOW_ENDED' &&
-      actor.kind !== 'DEVICE' &&
       (!current.reopenWindowEndsAt || current.reopenWindowEndsAt > at)
     )
       throw invalid();
@@ -305,15 +304,15 @@ export class IncidentLifecycle {
       (!isTier(current.state) || tierMembers(current.state, reason.recipients).length > 0)
     )
       throw invalid();
+    // A reopen needs an SOS that occurred after the episode ended, and occurred or arrives inside the
+    // window. A window never set has not ended.
+    const ends = current.reopenWindowEndsAt;
     if (
       code === 'REOPENED' &&
       (!reason.route ||
         !reason.occurredAt ||
-        !current.reopenWindowEndsAt ||
-        !(
-          reason.occurredAt >= current.stateChangedAt &&
-          reason.occurredAt < current.reopenWindowEndsAt
-        ))
+        reason.occurredAt < current.stateChangedAt ||
+        (ends && reason.occurredAt >= ends && at >= ends))
     )
       throw invalid();
     if (code === 'OWNER_DEACTIVATED' && !current.ownerId) throw invalid();
