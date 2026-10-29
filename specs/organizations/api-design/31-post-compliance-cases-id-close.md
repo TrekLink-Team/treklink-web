@@ -60,13 +60,30 @@ Closes the case with an outcome. A suspected fraud or theft case needs a police 
     "authorityReference": "CA-PD-2026-118",
     "outcome": "Devices recovered by police; contract settled",
     "openedAt": "2026-10-20T03:15:00.000Z",
-    "actions": []
+    "actions": [
+      {
+        "kind": "SUSPEND_ORGANIZATION",
+        "actor": {
+          "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
+          "fullName": "Tran Thi B"
+        },
+        "at": "2026-10-20T03:15:00.000Z"
+      }
+    ]
   },
   "isSuccess": true,
   "statusCode": 200,
   "message": "Compliance case closed"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| actions[] | Actions taken from the case, in the order they were recorded | object[] | see sample |
+| actions[].kind | SUSPEND_ORGANIZATION, REVOKE_FIELD_STATION, REVOKE_API_KEY or OTHER | enum | `SUSPEND_ORGANIZATION` |
+| actions[].actor.id | User who took the action (ComplianceAction.actorId) | uuid | `3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f` |
+| actions[].actor.fullName | That user's name | string | `Tran Thi B` |
+| actions[].at | When the action was recorded (createdAt), UTC | datetime | `2026-10-20T03:15:00.000Z` |
 
 ## Validation
 

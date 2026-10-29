@@ -46,7 +46,7 @@ Creates a named Field Station credential (D-037). The MQTT username and secret a
     "createdAt": "2026-10-20T03:15:00.000Z",
     "revokedAt": null,
     "lastSyncAt": null,
-    "queueDepth": [],
+    "queueDepth": null,
     "oldestRetryCount": 0,
     "version": "1.2.0",
     "outdated": false,

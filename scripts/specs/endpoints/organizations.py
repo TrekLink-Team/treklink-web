@@ -12,7 +12,7 @@ SHIFT = {"id": "s-1", "startsAt": "2026-10-20T00:00:00Z", "endsAt": "2026-10-20T
 KEY = {"id": "k-1", "name": "ERP integration", "prefix": "tlk_7Hc2", "createdAt": NOW, "lastUsedAt": None,
        "revokedAt": None}
 STATION = {"id": STATION_ID, "name": "Ta Nang basecamp laptop", "mqttUsername": "fs-org-0007-1",
-           "createdAt": NOW, "revokedAt": None, "lastSyncAt": NOW, "queueDepth": [0, 0, 3, 12],
+           "createdAt": NOW, "revokedAt": None, "lastSyncAt": NOW, "queueDepth": {"p0": 0, "p1": 0, "p2": 3, "p3": 12},
            "oldestRetryCount": 0, "version": "1.2.0", "outdated": False}
 NOT_MEMBER = (404, "NOT_FOUND", "No such member in this organization", "Member not found.")
 VERSION = ["expectedVersion", "Version the caller saw; mismatch returns 409", "int", "yes", "`3`"]
@@ -22,6 +22,25 @@ CASE = {"id": "c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f", "code": "CMP-0002", "organ
         "linkedContractIds": ["c0ffee00-1234-4abc-9def-001122334455"], "linkedLossCases": ["LOSS-0003"],
         "authorityReference": None, "outcome": None, "openedAt": NOW, "actions": []}
 CASE_PATH = ["id", "Compliance case id", "uuid", f"`{CASE['id']}`"]
+# Each action names its actor (ComplianceAction.actorId, the name from the User): AC-10, FR-ORG-09 (ruling 2026-10-30).
+STAFF_ACTOR = {"id": USER_ID, "fullName": "Tran Thi B"}
+ACTION = {"kind": "SUSPEND_ORGANIZATION", "actor": STAFF_ACTOR, "at": NOW}
+
+
+def action_fields(prefix="actions[]"):
+    return [[prefix, "Actions taken from the case, in the order they were recorded", "object[]", "see sample"],
+            [f"{prefix}.kind", "SUSPEND_ORGANIZATION, REVOKE_FIELD_STATION, REVOKE_API_KEY or OTHER", "enum",
+             "`SUSPEND_ORGANIZATION`"],
+            [f"{prefix}.actor.id", "User who took the action (ComplianceAction.actorId)", "uuid", f"`{USER_ID}`"],
+            [f"{prefix}.actor.fullName", "That user's name", "string", "`Tran Thi B`"],
+            [f"{prefix}.at", "When the action was recorded (createdAt), UTC", "datetime", f"`{NOW}`"]]
+
+
+def limit_field(key, guard):
+    return [["items", "The list", "object[]", "see sample"],
+            ["limit", f"`{key}`, the most active ones the organization may hold; at that count the create "
+                      f"endpoint answers 409 `{guard}` (ruling 2026-10-30)", "int", "`5`"]]
+
 
 ENDPOINTS = [
     ep("POST", "/api/organizations/register", "Register an organization", "Public",
@@ -266,13 +285,20 @@ ENDPOINTS = [
 
     ep("PATCH", "/api/organizations/:id/roster/:shiftId", "Edit a shift", "Org Manager: own",
        "Changes a shift's window or members. A change takes effect for the next alert; an incident "
-       "already in a tier keeps its recipient.", "UC-05, FR-ORG-05",
+       "already in a tier keeps its recipient. On a shift that has started only `endsAt` may change, and "
+       "not to a time before now, so the record of who was on duty stays (ruling 2026-10-30).", "UC-05, FR-ORG-05",
        path=[ORG_PATH, ["shiftId", "Shift id", "uuid", "`s-1`"]],
-       body=[["startsAt", "Start", "datetime", "no", "`...`"], ["endsAt", "End", "datetime", "no", "`...`"],
-             ["primaryMemberId", "Member or null", "uuid", "no", "`...`"], ["backupMemberId", "Member or null", "uuid", "no", "`...`"]],
+       body=[["startsAt", "Start; not accepted once the shift has started", "datetime", "no", "`...`"],
+             ["endsAt", "End; the only field accepted once the shift has started, then not before now", "datetime", "no", "`...`"],
+             ["primaryMemberId", "Member or null; not accepted once the shift has started", "uuid", "no", "`...`"],
+             ["backupMemberId", "Member or null; not accepted once the shift has started", "uuid", "no", "`...`"]],
        sample={"backupMemberId": "8d7c6b5a-..."}, response={"shift": SHIFT, "warnings": []}, message="Saved.",
        entity="Shift",
-       errors=[(409, "SHIFT_OVERLAP", "The window overlaps another shift", "This shift overlaps another one.")],
+       errors=[(409, "SHIFT_STARTED", "The shift has started and the body changes a field other than endsAt",
+                "Only the end of a started shift can change."),
+               (400, "VALIDATION_FAILED", "The shift has started and endsAt is before now",
+                "endsAt must not be in the past."),
+               (409, "SHIFT_OVERLAP", "The window overlaps another shift", "This shift overlaps another one.")],
        steps=["Validate members", "Update the shift"],
        controller="RosterController", service="RosterService", call="update(orgId, shiftId, dto, actor)",
        seq=["Svc->>DB: UPDATE roster_shifts"]),
@@ -287,12 +313,17 @@ ENDPOINTS = [
        controller="RosterController", service="RosterService", call="remove(orgId, shiftId, actor)",
        seq=["Svc->>DB: DELETE roster_shifts WHERE startsAt > now()"]),
 
-    ep("GET", "/api/organizations/:id/api-keys", "List API keys", "Org Manager: own",
-       "Lists the organization's API keys by name and prefix, with last use and revocation time. The full "
-       "key is never shown again.", "UC-06, FR-ORG-06",
-       path=[ORG_PATH], response=[KEY], entity="Organization", steps=["Read api_keys of the organization"],
+    ep("GET", "/api/organizations/:id/api-keys", "List API keys",
+       "Org Manager: own; TrekLink Staff, TrekLink Admin: any organization",
+       "Lists the organization's API keys by name and prefix, with last use and revocation time, and the "
+       "number of active keys it may hold. The full key is never shown again. TrekLink Staff and Admin "
+       "read any organization's keys, for example from a compliance case; creating and revoking stay with "
+       "the Org Manager (ruling 2026-10-30).", "UC-06, FR-ORG-06",
+       path=[ORG_PATH], response={"items": [KEY], "limit": 5}, fields=limit_field("organizations.maxApiKeys", "KEY_LIMIT"),
+       entity="Organization", steps=["Read api_keys of the organization", "Read organizations.maxApiKeys"],
        controller="ApiKeysController", service="ApiKeysService", call="list(orgId, caller)",
-       seq=["Svc->>DB: SELECT api_keys"]),
+       participants=[["Prm", "ParameterService"]],
+       seq=["Svc->>DB: SELECT api_keys", "Svc->>Prm: get(organizations.maxApiKeys)"]),
 
     ep("POST", "/api/organizations/:id/api-keys", "Create an API key", "Org Manager: own",
        "Creates a named read-only key scoped to the organization. The key is returned once and only its "
@@ -319,11 +350,18 @@ ENDPOINTS = [
        "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Lists the organization's Field Station credentials with their health: last sync, queue depth per "
        "tier, the retry count of the oldest queued event, and the version the station last reported, "
-       "flagged `outdated` when it is older than the current release (FR-EVT-13, FR-EVT-18).",
+       "flagged `outdated` when it is older than the current release (FR-EVT-13, FR-EVT-18). `queueDepth` "
+       "is named per priority, `{p0, p1, p2, p3}`, while the column stays `Int[]` (D-057 rule 9). The list carries the number of active credentials "
+       "the organization may hold (ruling 2026-10-30).",
        "UC-06, UC-42, FR-EVT-13, FR-EVT-14, FR-EVT-18",
-       path=[ORG_PATH], response=[STATION], entity="Organization", steps=["Read field_stations"],
+       path=[ORG_PATH], response={"items": [STATION], "limit": 5},
+       fields=limit_field("organizations.maxFieldStations", "STATION_LIMIT")
+       + [["items[].queueDepth", "Queued events per priority, `{p0, p1, p2, p3}`; null until the station first reports",
+           "object", "`{\"p0\": 0, \"p1\": 0, \"p2\": 3, \"p3\": 12}`"]],
+       entity="Organization", steps=["Read field_stations", "Read organizations.maxFieldStations"],
        controller="FieldStationsController", service="FieldStationsService", call="list(orgId, caller)",
-       seq=["Svc->>DB: SELECT field_stations"]),
+       participants=[["Prm", "ParameterService"]],
+       seq=["Svc->>DB: SELECT field_stations", "Svc->>Prm: get(organizations.maxFieldStations)"]),
 
     ep("POST", "/api/organizations/:id/field-stations", "Create a Field Station credential", "Org Manager: own",
        "Creates a named Field Station credential (D-037). The MQTT username and secret are returned once; "
@@ -331,7 +369,7 @@ ENDPOINTS = [
        "the organization rents (FR-EVT-14).", "UC-06, FR-EVT-14, D-037",
        path=[ORG_PATH], body=[["name", "Label, for example where the laptop runs", "string", "yes", "`Ta Nang basecamp laptop`"]],
        sample={"name": "Ta Nang basecamp laptop"},
-       response={**STATION, "lastSyncAt": None, "queueDepth": [], "mqttSecret": "fs_s3cr3t...shown-once",
+       response={**STATION, "lastSyncAt": None, "queueDepth": None, "mqttSecret": "fs_s3cr3t...shown-once",
                  "brokerUrl": "mqtts://mqtt.treklink.vn:8883"}, status=201,
        message="Field Station credential created. Copy it now; it will not be shown again.", entity="Organization",
        errors=[state_409("organization", "SUSPENDED"),
@@ -389,7 +427,8 @@ ENDPOINTS = [
 
     ep("GET", "/api/compliance-cases", "List compliance cases", "TrekLink Staff, TrekLink Admin",
        "Lists compliance cases by status and type (FR-ORG-08).", "UC-63, FR-ORG-08",
-       query=PAGE_QUERY + [["status", "OPEN or CLOSED", "string", "no", "`OPEN`"]], response=paged(CASE),
+       query=PAGE_QUERY + [["status", "OPEN or CLOSED", "string", "no", "`OPEN`"]],
+       response=paged({**CASE, "actions": [ACTION]}), fields=action_fields("items[].actions[]"),
        steps=["Read compliance_cases"], controller="ComplianceCasesController", service="ComplianceCaseService",
        call="list(query, caller)", seq=["Svc->>DB: SELECT compliance_cases"]),
 
@@ -416,7 +455,7 @@ ENDPOINTS = [
                                ["targetId", "Field Station or API key id, for a revocation", "uuid", "no", f"`{STATION_ID}`"],
                                ["note", "Why", "string", "yes", "`Devices withheld after default`"]],
        sample={"kind": "SUSPEND_ORGANIZATION", "targetId": None, "note": "Devices withheld after default"},
-       response={**CASE, "actions": [{"kind": "SUSPEND_ORGANIZATION", "at": NOW}]}, status=201, message="Action recorded",
+       response={**CASE, "actions": [ACTION]}, fields=action_fields(), status=201, message="Action recorded",
        entity="Compliance case",
        errors=[(403, "FORBIDDEN", "Only an Admin may suspend", "Ask a TrekLink Admin to suspend the organization."),
                state_409("compliance case", "CLOSED")],
@@ -431,11 +470,23 @@ ENDPOINTS = [
                                ["authorityReference", "Police report reference", "string", "no", "`CA-PD-2026-118`"]],
        sample={"outcome": "Devices recovered by police; contract settled", "authorityReference": "CA-PD-2026-118"},
        response={**CASE, "status": "CLOSED", "authorityReference": "CA-PD-2026-118",
-                 "outcome": "Devices recovered by police; contract settled"}, message="Compliance case closed",
+                 "outcome": "Devices recovered by police; contract settled", "actions": [ACTION]},
+       fields=action_fields(), message="Compliance case closed",
        entity="Compliance case",
        errors=[(409, "POLICE_REFERENCE_REQUIRED", "Suspected fraud or theft without authorityReference",
                 "Record the police report reference before closing.")],
        steps=["Require OPEN", "Require authorityReference for SUSPECTED_FRAUD or SUSPECTED_THEFT", "Set CLOSED, outcome, closedBy"],
        controller="ComplianceCasesController", service="ComplianceCaseService", call="close(id, dto, actor)",
        seq=["Svc->>DB: UPDATE compliance_cases CLOSED"]),
+
+    ep("GET", "/api/compliance-cases/:id", "Compliance case detail", "TrekLink Staff, TrekLink Admin",
+       "Returns one compliance case, the same fields as an item of the list, with every action taken from "
+       "it and the actor and time of each (FR-ORG-08, FR-ORG-09, ruling 2026-10-30).",
+       "UC-63, FR-ORG-08, FR-ORG-09",
+       path=[CASE_PATH], response={**CASE, "actions": [ACTION]}, fields=action_fields(),
+       entity="Compliance case",
+       steps=["Read the compliance case", "Read its compliance_actions with the actor's name, oldest first"],
+       controller="ComplianceCasesController", service="ComplianceCaseService", call="get(id, caller)",
+       seq=["Svc->>DB: SELECT compliance_cases WHERE id",
+            "Svc->>DB: SELECT compliance_actions JOIN users ORDER BY createdAt"]),
 ]

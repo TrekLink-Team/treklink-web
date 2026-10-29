@@ -2,7 +2,7 @@
 
 > Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6; adds the NDA and licence
 > at verification, compliance cases (D-046), channel key exposure and rotation (D-045) and the Field
-> Station release (D-039). Fulfills `design.md`; endpoints are `api-design/01` to `31`.
+> Station release (D-039). Fulfills `design.md`; endpoints are `api-design/01` to `32`.
 
 | | |
 |---|---|
@@ -69,7 +69,7 @@
   - _Story: US-UC04_
 - [ ] 2.6 Roster (owner TanNB)
   - **Files**: `backend/src/modules/organizations/roster.service.ts`
-  - **Do**: create, edit, delete shifts `[startsAt, endsAt)`; primary and backup different active members of the organization (400 `MEMBER_NOT_ELIGIBLE`); overlap rejected by `roster_shifts_no_overlap`, mapped to 409 `SHIFT_OVERLAP`; editing a started shift 409 `SHIFT_STARTED`; list returns `NO_PRIMARY` warnings (MSG22); `tiersAt(orgId, instant)` returns primary, backup and active Managers
+  - **Do**: create, edit, delete shifts `[startsAt, endsAt)`; primary and backup different active members of the organization (400 `MEMBER_NOT_ELIGIBLE`); overlap rejected by `roster_shifts_no_overlap`, mapped to 409 `SHIFT_OVERLAP`; deleting a started shift 409 `SHIFT_STARTED`; on a started shift PATCH accepts only `endsAt` (any other field 409 `SHIFT_STARTED`, an `endsAt` before now 400 `VALIDATION_FAILED`, ruling 2026-10-30); list returns `NO_PRIMARY` warnings (MSG22); `tiersAt(orgId, instant)` returns primary, backup and active Managers
   - **Test**: AC-04 against Postgres; `tiersAt` with no shift, a shift without primary, and a deactivated backup
   - **Note**: `tiersAt` is built read only by HoangTK in the MF-03 PR (2026-10-29), because incidents routing needs it for D-066. It returns user ids, the ids alert rows and incident owners reference. Shift create, edit, delete, list and AC-04 stay with TanNB
   - _Requirements: REQ-UBI-04, REQ-EVT-10, REQ-STA-02, AC-04, FR-ORG-05, BR-16_
@@ -93,7 +93,7 @@
   - _Depends on: 1.2_
 - [ ] 2.10 Compliance cases (owner TanNB)
   - **Files**: `backend/src/modules/organizations/compliance-case.service.ts`
-  - **Do**: open a case with type `SUSPECTED_FRAUD`, `SUSPECTED_THEFT`, `IP_VIOLATION`, `NDA_BREACH` or `OTHER_BREACH`, evidence, linked contracts and loss cases; `openOrLink(orgId, lossCaseId, actor, tx)` for devices; record an action (`SUSPEND` through `suspend`, Admin only; `REVOKE_STATIONS`, `REVOKE_API_KEYS`) appending a `ComplianceAction`; close with outcome and `authorityReference`, required for fraud and theft (409 `POLICE_REFERENCE_REQUIRED`, also the `compliance_cases_police_reference_to_close` CHECK)
+  - **Do**: open a case with type `SUSPECTED_FRAUD`, `SUSPECTED_THEFT`, `IP_VIOLATION`, `NDA_BREACH` or `OTHER_BREACH`, evidence, linked contracts and loss cases; `openOrLink(orgId, lossCaseId, actor, tx)` for devices; record an action (`SUSPEND_ORGANIZATION` through `suspend`, Admin only; `REVOKE_FIELD_STATION`, `REVOKE_API_KEY`, `OTHER`, the `ComplianceActionKind` values) appending a `ComplianceAction`; `get(id)` returns one case with its actions in recorded order, each with `kind`, `at` and `actor { id, fullName }` from the actor's user (api-design 32; the same action shape in 28, 30 and 31, ruling 2026-10-30); close with outcome and `authorityReference`, required for fraud and theft (409 `POLICE_REFERENCE_REQUIRED`, also the `compliance_cases_police_reference_to_close` CHECK)
   - **Test**: AC-10; `openOrLink` links to an open case of the same type instead of opening a second
   - _Requirements: REQ-EVT-12, REQ-ERR-08, AC-10, FR-ORG-08, FR-ORG-09, BR-40_
   - _Story: US-UC63_
@@ -101,7 +101,7 @@
 ## Phase 3: Query / Retrieval
 
 - [ ] 3.1 Lists and details (owner TanNB)
-  - **Do**: organizations list for Staff with status and search filters, paged; detail for Staff or own members; transitions; members; roster for a date range; keys and stations with health; compliance cases with type and status filters
+  - **Do**: organizations list for Staff with status and search filters, paged; detail for Staff or own members; transitions; members; roster for a date range; keys and stations with health, each list returned as `{ items, limit }` with `limit` from `organizations.maxApiKeys` or `organizations.maxFieldStations` (ruling 2026-10-30); API keys readable by Staff and Admin for any organization (api-design 20), through a new permission `apiKey.read` (`read` on `ApiKey`, no condition) granted to TrekLink Staff and Admin by a forward migration, because the seed migration is already applied on the shared database; compliance cases with type and status filters, and one case with its actions (api-design 32)
   - **Test**: paging and each filter; a member reading another organization gets 404
   - _Requirements: REQ-ERR-05, FR-AUTH-11_
 
@@ -109,11 +109,11 @@
 
 - [ ] 4.1 Controllers (owner TanNB)
   - **Files**: `organizations.controller.ts`, `members.controller.ts`, `roster.controller.ts`, `credentials.controller.ts`, `compliance-cases.controller.ts`
-  - **Do**: api-design 01 to 31 with each file's permission and `@ResponseMessage`; the registration endpoint is public; `/api/organizations/:id/field-stations/release` declared before `/:stationId` routes
+  - **Do**: api-design 01 to 32 with each file's permission and `@ResponseMessage`; the registration endpoint is public; `/api/organizations/:id/field-stations/release` declared before `/:stationId` routes
   - **Note**: LongLP opened `organizations.controller.ts` for the counter handover (2026-10-27): 03 `GET /api/organizations/:id` answering only its head (`id`, `code`, `legalName`, `status`, `statusChangedAt`, `channelKeyVersion`, `version`; `organization.read`, `organization.read.own`), and 12 `GET /api/organizations/:id/members` (`member.read`, `member.read.own`). Another organization answers 404. The rest of 03 (the verification record and the counts) joins with 1.1 and 2.4
 - [ ] 4.2 E2E (owner TanNB)
   - **Files**: `backend/test/organizations.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
-  - **Do**: every Validation row of api-design 01 to 31; AC-01 to AC-11 except AC-06 (gateway-sync 4.2); cross-organization 404 for every route with `:id`
+  - **Do**: every Validation row of api-design 01 to 32; AC-01 to AC-11 except AC-06 (gateway-sync 4.2); cross-organization 404 for every route with `:id`
   - _Requirements: AC-01 to AC-11_
 
 ## Phase 5: Frontend Integration

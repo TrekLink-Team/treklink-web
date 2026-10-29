@@ -23,7 +23,7 @@
 | 17 | POST | `/api/organizations/:id/roster` | Org Manager: own | [17-post-organizations-id-roster.md](17-post-organizations-id-roster.md) |
 | 18 | PATCH | `/api/organizations/:id/roster/:shiftId` | Org Manager: own | [18-patch-organizations-id-roster-shiftid.md](18-patch-organizations-id-roster-shiftid.md) |
 | 19 | DELETE | `/api/organizations/:id/roster/:shiftId` | Org Manager: own | [19-delete-organizations-id-roster-shiftid.md](19-delete-organizations-id-roster-shiftid.md) |
-| 20 | GET | `/api/organizations/:id/api-keys` | Org Manager: own | [20-get-organizations-id-api-keys.md](20-get-organizations-id-api-keys.md) |
+| 20 | GET | `/api/organizations/:id/api-keys` | Org Manager: own; TrekLink Staff, TrekLink Admin: any organization | [20-get-organizations-id-api-keys.md](20-get-organizations-id-api-keys.md) |
 | 21 | POST | `/api/organizations/:id/api-keys` | Org Manager: own | [21-post-organizations-id-api-keys.md](21-post-organizations-id-api-keys.md) |
 | 22 | POST | `/api/organizations/:id/api-keys/:keyId/revoke` | Org Manager: own | [22-post-organizations-id-api-keys-keyid-revoke.md](22-post-organizations-id-api-keys-keyid-revoke.md) |
 | 23 | GET | `/api/organizations/:id/field-stations` | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin | [23-get-organizations-id-field-stations.md](23-get-organizations-id-field-stations.md) |
@@ -35,6 +35,7 @@
 | 29 | POST | `/api/organizations/:id/compliance-cases` | TrekLink Staff, TrekLink Admin | [29-post-organizations-id-compliance-cases.md](29-post-organizations-id-compliance-cases.md) |
 | 30 | POST | `/api/compliance-cases/:id/actions` | TrekLink Admin (suspend); TrekLink Staff, TrekLink Admin (revoke) | [30-post-compliance-cases-id-actions.md](30-post-compliance-cases-id-actions.md) |
 | 31 | POST | `/api/compliance-cases/:id/close` | TrekLink Staff, TrekLink Admin | [31-post-compliance-cases-id-close.md](31-post-compliance-cases-id-close.md) |
+| 32 | GET | `/api/compliance-cases/:id` | TrekLink Staff, TrekLink Admin | [32-get-compliance-cases-id.md](32-get-compliance-cases-id.md) |
 
 
 Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).

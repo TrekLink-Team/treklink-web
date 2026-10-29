@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists the organization's Field Station credentials with their health: last sync, queue depth per tier, the retry count of the oldest queued event, and the version the station last reported, flagged `outdated` when it is older than the current release (FR-EVT-13, FR-EVT-18).
+Lists the organization's Field Station credentials with their health: last sync, queue depth per tier, the retry count of the oldest queued event, and the version the station last reported, flagged `outdated` when it is older than the current release (FR-EVT-13, FR-EVT-18). `queueDepth` is named per priority, `{p0, p1, p2, p3}`, while the column stays `Int[]` (D-057 rule 9). The list carries the number of active credentials the organization may hold (ruling 2026-10-30).
 
 ## API Specification
 
@@ -31,30 +31,39 @@ No body.
 
 ```json
 {
-  "result": [
-    {
-      "id": "f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b",
-      "name": "Ta Nang basecamp laptop",
-      "mqttUsername": "fs-org-0007-1",
-      "createdAt": "2026-10-20T03:15:00.000Z",
-      "revokedAt": null,
-      "lastSyncAt": "2026-10-20T03:15:00.000Z",
-      "queueDepth": [
-        0,
-        0,
-        3,
-        12
-      ],
-      "oldestRetryCount": 0,
-      "version": "1.2.0",
-      "outdated": false
-    }
-  ],
+  "result": {
+    "items": [
+      {
+        "id": "f1e2d3c4-b5a6-4978-8a9b-0c1d2e3f4a5b",
+        "name": "Ta Nang basecamp laptop",
+        "mqttUsername": "fs-org-0007-1",
+        "createdAt": "2026-10-20T03:15:00.000Z",
+        "revokedAt": null,
+        "lastSyncAt": "2026-10-20T03:15:00.000Z",
+        "queueDepth": {
+          "p0": 0,
+          "p1": 0,
+          "p2": 3,
+          "p3": 12
+        },
+        "oldestRetryCount": 0,
+        "version": "1.2.0",
+        "outdated": false
+      }
+    ],
+    "limit": 5
+  },
   "isSuccess": true,
   "statusCode": 200,
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| items | The list | object[] | see sample |
+| limit | `organizations.maxFieldStations`, the most active ones the organization may hold; at that count the create endpoint answers 409 `STATION_LIMIT` (ruling 2026-10-30) | int | `5` |
+| items[].queueDepth | Queued events per priority, `{p0, p1, p2, p3}`; null until the station first reports | object | `{"p0": 0, "p1": 0, "p2": 3, "p3": 12}` |
 
 ## Validation
 
@@ -131,8 +140,10 @@ flowchart TB
     E1 --> X1((End))
     P0["Read field_stations"]
     D1 -->|no| P0
+    P1["Read organizations.maxFieldStations"]
+    P0 --> P1
     OK["Return 200"]
-    P0 --> OK
+    P1 --> OK
     OK --> Z((End))
 ```
 
@@ -145,9 +156,11 @@ sequenceDiagram
     participant Ctl as FieldStationsController
     participant Svc as FieldStationsService
     participant DB as Postgres
+    participant Prm as ParameterService
     C->>Ctl: GET /api/organizations/:id/field-stations
     Ctl->>Svc: list(orgId, caller)
     Svc->>DB: SELECT field_stations
+    Svc->>Prm: get(organizations.maxFieldStations)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```
