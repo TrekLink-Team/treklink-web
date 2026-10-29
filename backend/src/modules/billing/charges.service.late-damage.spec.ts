@@ -2,6 +2,7 @@ import { DamageChargeStatus, InvoiceKind, InvoiceLineType, Prisma } from '@prism
 import { ErrorCode } from '../../common/errors';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ChargesService, DamagedInspection } from './charges.service';
+import { DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesRepository } from './invoices.repository';
 import { PricingService } from './pricing.service';
 
@@ -51,7 +52,7 @@ describe('ChargesService late and damage charges (billing task 2.5)', () => {
     parameters = { get: jest.fn((key: string) => Promise.resolve(PARAMETERS[key])) };
     service = new ChargesService(
       invoices as unknown as InvoicesRepository,
-      damageCharges,
+      damageCharges as unknown as DamageChargesRepository,
       pricing as unknown as PricingService,
       parameters as unknown as ParameterService,
     );
@@ -213,5 +214,22 @@ describe('ChargesService late and damage charges (billing task 2.5)', () => {
       const result = await service.chargeDamage(CONTRACT, INSPECTION, null, TX);
       expect((result?.charge.decidedAt as Date).getTime()).toBeGreaterThanOrEqual(before);
     });
+  });
+});
+
+describe('ChargesService.pendingDamage (rentals close guard, api-design 17)', () => {
+  it('counts the charges still waiting for an Admin on the devices since the handover', async () => {
+    const countPending = jest.fn().mockResolvedValue(2);
+    const service = new ChargesService(
+      {} as InvoicesRepository,
+      { countPending } as unknown as DamageChargesRepository,
+      {} as PricingService,
+      {} as ParameterService,
+    );
+    const since = new Date('2026-10-25T03:00:00.000Z');
+    await expect(service.pendingDamage(['dev-1'], since, TX)).resolves.toBe(2);
+    expect(countPending).toHaveBeenCalledWith(['dev-1'], since, TX);
+    await expect(service.pendingDamage([], since, TX)).resolves.toBe(0);
+    expect(countPending).toHaveBeenCalledTimes(1);
   });
 });

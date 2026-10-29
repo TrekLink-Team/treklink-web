@@ -252,6 +252,18 @@ export class ChargesService {
     );
   }
 
+  // Damage charges on these devices since `since` still waiting for an Admin decision: they have no
+  // invoice line yet, so the balance does not show them (rentals api-design 17 close guard).
+  pendingDamage(
+    deviceIds: readonly string[],
+    since: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<number> {
+    return deviceIds.length === 0
+      ? Promise.resolve(0)
+      : this.damageCharges.countPending(deviceIds, since, tx);
+  }
+
   // Appends the line to the contract's closing invoice, created with it on the first charge (design
   // §1: one CLOSING invoice per contract, serialized by lockClosingInvoice).
   private async addToClosing(
