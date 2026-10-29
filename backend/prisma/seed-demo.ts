@@ -2,7 +2,8 @@
 // assumes, on top of the migration seed (roles, permissions, business parameters):
 //
 //   - one account per role: admin@, staff@, manager@ and operator@treklink.local
-//   - one ACTIVE organization, ORG-0001, with the Manager and the Operator as members
+//   - one ACTIVE organization, ORG-0001, with the Manager and the Operator as members, and one
+//     roster shift with the Operator as primary and the Manager as backup (MF-03 routing)
 //   - hardware variants treklink-v2 to treklink-v4, a price schedule each, two damage rates
 //   - fourteen AVAILABLE devices (ten treklink-v3, so two requests at the minimum order of five can be
 //     approved), and two RENTED devices on one ACTIVE monthly contract, RC-2026-0001
@@ -242,6 +243,24 @@ export async function seedDemo(
           });
           created.push(`member ${role}`);
         }
+      }
+
+      // One on-duty shift for MF-03: the Operator is primary and the Manager backup, from a day
+      // before the seed for a year, so a demo SOS routes to NOTIFY_PRIMARY (incidents 2.2).
+      if (!(await tx.rosterShift.findFirst({ where: { organizationId: organization.id } }))) {
+        const memberOf = async (userId: string) =>
+          (await tx.organizationMember.findUniqueOrThrow({ where: { userId } })).id;
+        await tx.rosterShift.create({
+          data: {
+            organizationId: organization.id,
+            startsAt: new Date(now.getTime() - 24 * 3600 * 1000),
+            endsAt: new Date(now.getTime() + 365 * 24 * 3600 * 1000),
+            primaryMemberId: await memberOf(operator),
+            backupMemberId: await memberOf(manager),
+            createdById: manager,
+          },
+        });
+        created.push('roster shift');
       }
 
       const variants = new Map<string, { id: string }>();

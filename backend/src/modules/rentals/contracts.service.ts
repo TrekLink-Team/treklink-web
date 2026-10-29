@@ -18,6 +18,11 @@ export interface Custody {
   nearBoundary: boolean;
 }
 
+export interface HolderLabel {
+  name: string;
+  phone: string | null;
+}
+
 const near = (at: Date, edge: Date | null, marginMs: number) =>
   edge !== null && Math.abs(at.getTime() - edge.getTime()) <= marginMs;
 
@@ -172,6 +177,22 @@ export class ContractsService {
       contractStatus: row.contract.status,
       nearBoundary: near(at, row.handedOverAt, marginMs) || near(at, end, marginMs),
     };
+  }
+
+  // The holder label of a device on a contract, keyed `contractId:deviceId`, for the incident alert,
+  // list and detail (incidents 2.1, 5.1). A pair without a handed-over row, or whose label was erased
+  // at close (FR-CON-14), is absent. A replaced device keeps its own row's label.
+  async holderLabels(
+    pairs: readonly { contractId: string; deviceId: string }[],
+  ): Promise<Map<string, HolderLabel>> {
+    if (pairs.length === 0) return new Map();
+    const labels = new Map<string, HolderLabel>();
+    for (const row of await this.contracts.findHolderLabels(pairs)) {
+      const key = `${row.contractId}:${row.deviceId}`;
+      if (labels.has(key) || row.holderName === null) continue;
+      labels.set(key, { name: row.holderName, phone: row.holderPhone });
+    }
+    return labels;
   }
 
   // ORGANIZATION_EXIT_CHECKS.canClose: an organization with a contract that is not REJECTED,

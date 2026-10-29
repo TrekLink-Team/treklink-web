@@ -21,6 +21,7 @@ import {
   type MemberDeactivatedEvent,
   type SessionUser,
 } from '../auth';
+import { INCIDENT_ALERT, type IncidentAlertEvent } from '../incidents';
 import { FLEET_ROOM, orgRoom, userRoom } from './rooms';
 import { StreamService, WireEntry } from './stream.service';
 
@@ -123,6 +124,20 @@ export class LiveGateway
   @OnEvent(MEMBER_DEACTIVATED)
   onMemberDeactivated({ userId }: MemberDeactivatedEvent): void {
     this.namespace.in(userRoom(userId)).disconnectSockets(true);
+  }
+
+  // Task 2.3: an incident alert goes to the recipient's own room only, as a `stream` event with
+  // seq 0. It is not a stored stream entry, so the client handles it outside its replay cursor
+  // (incidents design §3). Synchronous: the dispatcher counts the alert sent when this returns.
+  @OnEvent(INCIDENT_ALERT)
+  onIncidentAlert({ recipientId, alert }: IncidentAlertEvent): void {
+    this.namespace.to(userRoom(recipientId)).emit('stream', {
+      seq: 0,
+      type: INCIDENT_ALERT,
+      deviceId: null,
+      payload: alert,
+      createdAt: alert.at,
+    });
   }
 
   // A token refreshed during the session is re-validated. A failure, or a token of another account,

@@ -68,3 +68,27 @@ Every edit adds a read or a call. None changes an existing behaviour of that lan
 ## Open for the leader
 
 - Design note 3, the Staff recipients of `UNROUTED` and `ESCALATED`.
+
+## CO record (2026-10-29)
+
+### Implementation
+
+- `organizations`: `RosterRepository` and `RosterService.tiersAt`, exported; `OrganizationsService.memberNames`.
+- `rentals`: `ContractsService.holderLabels` over `ContractsRepository.findHolderLabels`.
+- `incidents`: `RoutingService`, `IncidentIngress.onSos`, `AlertDispatcherJob` (`incidents.deliverAlerts`, every 2 s), the outbox claim and settlement in `AlertDeliveriesRepository`, `IncidentsQueryService`, `IncidentsController` (api-design 01 to 07), `IncidentsService.falseAlarm` and MSG27. The module now imports `organizations`, `rentals` and `devices` (Figure 3 edges) and exports `IncidentIngress`.
+- `gateway-sync`: ingestion calls `onSos` for `SOS` and `FALL_SOS` in its transaction and links the event (`IngestionRepository.linkIncident`).
+- `monitoring`: `LiveGateway.onIncidentAlert`.
+- Seed: one roster shift on ORG-0001, Operator primary and Manager backup.
+- Frontend: `entities/incident`, `IncidentsPage`, `IncidentDetailPage`, the routes and the navigation entry, and the `incident.alert` bypass in `socketClient`.
+
+### Verification
+
+- Backend: typecheck and `nest build` passed; lint and the module-boundary check passed (254 files, 9 modules, acyclic). Unit: 106 suites, 1154 tests passed. HTTP and replay e2e: 9 suites, 69 tests passed.
+- Postgres: all 5 database suites, 44 tests, passed on a disposable Postgres 16 container with explicit URLs and migrations applied there only. The container was removed afterwards; Neon was not touched. The new `backend/test/mf03.db-spec.ts` runs the main success scenario: an attributed SOS opens an incident in ingestion, routed to `NOTIFY_PRIMARY` with transitions 1 and 2 and the outbox rows; a replay is `DUPLICATE_REJECTED`; the dispatcher sends WEB and WEBSOCKET (MSG31 with the holder) and leaves EMAIL and API_EVENT `PENDING`; a second SOS appends; the primary acknowledges and the backup receives MSG27 naming the owner; responding, status and resolve; an SOS inside the window reopens it.
+- Coverage of the changed backend files (incidents and roster): 97.6% lines, 95.7% branches. Below the D-053 bar: `incidents.controller.ts`, 80.4% lines and 0% branches, the DTO transforms and policy lambdas. These are for the UT phase through an HTTP e2e suite (task 6.2).
+- Frontend: typecheck, lint and `vite build` passed; 15 files, 292 tests passed.
+
+### Findings recorded in the same pass
+
+- An SOS text carries no position on the wire (firmware ground truth, the SOS PortNum row): the fix arrives as a separate `POSITION_APP` packet, which reaches an incident only through `onPosition`. Until `onPosition` lands, an incident shows "Position unavailable". Recorded in incidents 2.3 and gateway-sync 2.3.
+- Running `npm ci` inside `backend/` rebuilds the shared root `node_modules` for that workspace only and drops the frontend packages. Run it at the repository root.

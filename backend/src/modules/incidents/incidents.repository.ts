@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Incident, Prisma } from '@prisma/client';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type NewIncident = Pick<
   Prisma.IncidentUncheckedCreateInput,
@@ -23,6 +24,8 @@ export interface IncidentInsertResult {
 // Writes require the caller's transaction: routing, history and outbox must commit together.
 @Injectable()
 export class IncidentsRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
   async lockById(id: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
     const rows = await tx.$queryRaw<
       Incident[]
@@ -78,6 +81,75 @@ export class IncidentsRepository {
         state: { not: 'CLOSED' },
         OR: [{ contractId }, { deviceId: { in: [...deviceIds] } }],
       },
+    });
+  }
+
+  // An SOS joining an open episode (design §4 steps 4 and 5): counters, last event, last position and
+  // the CONFIRMED upgrade. State and version stay, like a status note, so a member's expectedVersion
+  // stays valid. Called with the incident row locked.
+  async appendEvent(
+    current: Pick<Incident, 'id' | 'lastEventAt'>,
+    event: { occurredAt: Date; latitude?: number; longitude?: number },
+    tx: Prisma.TransactionClient,
+  ): Promise<Incident> {
+    const later = event.occurredAt > current.lastEventAt;
+    return tx.incident.update({
+      where: { id: current.id },
+      data: {
+        eventCount: { increment: 1 },
+        confidence: 'CONFIRMED',
+        ...(later ? { lastEventAt: event.occurredAt } : {}),
+        ...(later && event.latitude !== undefined && event.longitude !== undefined
+          ? { lastLatitude: event.latitude, lastLongitude: event.longitude }
+          : {}),
+      },
+    });
+  }
+
+  // api-design 01 order (D-059 rule 7): most urgent deadline first, nulls last, then newest episode.
+  async page(
+    where: Prisma.IncidentWhereInput,
+    skip: number,
+    take: number,
+  ): Promise<[Incident[], number]> {
+    return this.prisma.$transaction([
+      this.prisma.incident.findMany({
+        where,
+        orderBy: [{ tierDeadlineAt: { sort: 'asc', nulls: 'last' } }, { firstEventAt: 'desc' }],
+        skip,
+        take,
+      }),
+      this.prisma.incident.count({ where }),
+    ]);
+  }
+
+  findById(id: string): Promise<Incident | null> {
+    return this.prisma.incident.findUnique({ where: { id } });
+  }
+
+  // Newest first (api-design 02).
+  statusUpdates(incidentId: string) {
+    return this.prisma.incidentStatusUpdate.findMany({
+      where: { incidentId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, note: true, authorId: true, createdAt: true },
+    });
+  }
+
+  authorityReports(incidentId: string) {
+    return this.prisma.authorityReport.findMany({
+      where: { incidentId },
+      orderBy: { reportedAt: 'desc' },
+      select: { id: true, agency: true, reference: true, reportedAt: true, caseClosedAt: true },
+    });
+  }
+
+  // The latest acknowledgement, for MSG27: `acknowledgedAt` keeps the first one after a takeover.
+  latestAcknowledgement(incidentId: string) {
+    return this.prisma.incidentTransition.findFirst({
+      where: { incidentId, toState: 'ACKNOWLEDGED' },
+      orderBy: { seq: 'desc' },
+      select: { actorId: true, createdAt: true },
     });
   }
 

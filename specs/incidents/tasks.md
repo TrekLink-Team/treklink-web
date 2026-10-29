@@ -49,6 +49,7 @@
   - **Files**: `backend/src/modules/incidents/incident-ingress.ts`
   - **Do**: the five correlation steps of design §4 under the device lock; reopen inside the reopen window (re-routed, reopen count, owner cleared); cadence: `incidents.cadenceCount` positions within `incidents.cadenceWindowSeconds` and no open incident create `SUSPECTED` from `CADENCE_INFERRED`, upgraded to `CONFIRMED` in place by a later SOS text; positions within `gatewaySync.retroTagGraceSeconds` before the SOS join the episode
   - **Test**: AC-01, AC-05; a replay produces no second incident or alert per tier
+  - **Note**: `onSos` is built in the MF-03 PR (2026-10-29) with the five correlation steps and reopen, and runs inside ingestion. `backend/test/mf03.db-spec.ts` proves create, route, replay rejection, append and reopen against Postgres. Open: `onPosition`, cadence `SUSPECTED` creation and retro-tagging, so the box stays open. Until `onPosition` lands an incident has no last position, because an SOS text carries none
   - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-EVT-10, REQ-ERR-03, AC-01, AC-05, FR-INC-01, FR-INC-02, FR-INC-11, BR-14, NFR-REL-03_
   - _Story: US-UC29, US-UC36_
 
@@ -63,16 +64,17 @@
 
 ## Phase 4: Human actions
 
-- [ ] 4.1 Acknowledge, responding, status, resolve (owner HoangTK)
+- [x] 4.1 Acknowledge, responding, status, resolve (owner HoangTK)
   - **Files**: `backend/src/modules/incidents/incidents.service.ts`
   - **Do**: acknowledge from `NOTIFY_*`, `ESCALATED` or `REPORTED` by a member of the routed organization: owner, time-to-acknowledge, status deadline; the loser of a concurrent acknowledgement gets 409 `ALREADY_OWNED` with the owner (MSG27); responding, status updates (reset the deadline) and resolve (time-to-resolve, reopen window) by the owner only (403 `NOT_OWNER`)
   - **Test**: AC-03 with two concurrent requests
-  - **Note**: `IncidentsService` is in place (2026-10-26) and AC-03 passes against Postgres; the box stays open for MSG27. `contactCard` is on dev since 2026-10-26, and the MF-03 PR (2026-10-29) builds MSG27 through `OrganizationsService.memberNames`. The owner name comes from `contactCard`, and the time from the latest `ACKNOWLEDGED` transition row in the display timezone, because `acknowledgedAt` keeps the first acknowledgement after an escalation takeover. A status update moves `statusDueAt` without a version bump, so the owner's `expectedVersion` for resolve stays valid
+  - **Note**: `IncidentsService` is in place (2026-10-26) and AC-03 passes against Postgres. MSG27 is built in the MF-03 PR (2026-10-29) through `OrganizationsService.memberNames` and passes against Postgres in `backend/test/mf03.db-spec.ts`. The owner name comes from `contactCard`, and the time from the latest `ACKNOWLEDGED` transition row in the display timezone, because `acknowledgedAt` keeps the first acknowledgement after an escalation takeover. A status update moves `statusDueAt` without a version bump, so the owner's `expectedVersion` for resolve stays valid
   - _Requirements: REQ-EVT-05, REQ-EVT-06, REQ-EVT-08, REQ-ERR-02, AC-03, FR-INC-06, FR-INC-07, FR-INC-08_
   - _Story: US-UC32, US-UC33_
 - [ ] 4.2 False alarm and owner deactivation (owner HoangTK)
   - **Do**: a member declares a false alarm with a reason from `NOTIFY_*`, `ACKNOWLEDGED` or `RESPONDING`, Staff from `UNROUTED`; listen to `member.deactivated`: an owned `ACKNOWLEDGED` or `RESPONDING` incident goes to `NOTIFY_BACKUP` and alerts that tier
   - **Test**: Staff false alarm from `NOTIFY_PRIMARY` refused 409
+  - **Note**: the member false alarm (api-design 07) is built in the MF-03 PR (2026-10-29). Open: Staff from `UNROUTED`, which needs a Staff permission row and the Staff recipients ruling, and the `member.deactivated` listener
   - _Requirements: REQ-EVT-08, REQ-EVT-11, FR-INC-08, D-034_
   - _Story: US-UC34_
 - [ ] 4.3 Authority reports (owner HoangTK)
@@ -91,6 +93,7 @@
 - [ ] 5.1 Incidents, transitions, events, alerts, authority reports (owner HoangTK)
   - **Do**: list with state, organization and stale filters (members see their own only); detail; transitions; events through `GatewaySyncService.eventsOfIncident`; alert deliveries; authority reports; `openByDevices`, `incidentsOfDevice`, `responseTimes(range)`, `alertDeliveryStats()` for monitoring
   - **Test**: a member reading another organization's incident gets 404 (auth AC-01)
+  - **Note**: list and detail (api-design 01, 02) are built in the MF-03 PR (2026-10-29) as `IncidentsQueryService`. The `stale` list filter waits for 4.4. Open: transitions, events, alerts and the monitoring reads
   - _Requirements: REQ-STA-01, FR-AUTH-11_
 
 ## Phase 6: API Presentation Layer
@@ -98,6 +101,7 @@
 - [ ] 6.1 Controllers (owner HoangTK)
   - **Files**: `incidents.controller.ts`, `authority-reports.controller.ts`
   - **Do**: api-design 01 to 14 with each file's permission and `@ResponseMessage`
+  - **Note**: `IncidentsController` serves api-design 01 to 07 since the MF-03 PR (2026-10-29). Open: 08 to 14 and `AuthorityReportsController`
 - [ ] 6.2 E2E (owner HoangTK)
   - **Files**: `backend/test/incidents.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 14; replay ×10 (TC-11); AC-01 to AC-09

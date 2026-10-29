@@ -25,6 +25,15 @@ export class IngestionRepository {
     return count === 1;
   }
 
+  // The one-way link of an SOS to the incident it opened or joined (the append-only trigger allows it).
+  async linkIncident(
+    eventId: string,
+    incidentId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.fieldEvent.update({ where: { eventId }, data: { incidentId } });
+  }
+
   async insertAudit(
     data: Prisma.SyncAuditLogUncheckedCreateInput,
     client: Client = this.prisma,

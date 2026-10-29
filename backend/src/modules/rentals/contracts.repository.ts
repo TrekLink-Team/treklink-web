@@ -272,6 +272,21 @@ export class ContractsRepository {
     });
   }
 
+  // The holder labels of handed-over devices per (contract, device), latest handover first.
+  findHolderLabels(
+    pairs: readonly { contractId: string; deviceId: string }[],
+    client: Client = this.prisma,
+  ) {
+    return client.contractDevice.findMany({
+      where: {
+        handedOverAt: { not: null },
+        OR: pairs.map(({ contractId, deviceId }) => ({ contractId, deviceId })),
+      },
+      orderBy: { handedOverAt: 'desc' },
+      select: { contractId: true, deviceId: true, holderName: true, holderPhone: true },
+    });
+  }
+
   countUnfinishedContracts(organizationId: string, client: Client = this.prisma): Promise<number> {
     return client.rentalContract.count({
       where: { organizationId, status: { notIn: [...FINISHED_STATES] } },

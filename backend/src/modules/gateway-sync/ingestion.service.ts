@@ -1,7 +1,8 @@
 import { createHash } from 'crypto';
 import { Injectable } from '@nestjs/common';
-import { AttributionState, IngressPath, Prisma, SyncOutcome } from '@prisma/client';
+import { AttributionState, EventKind, IngressPath, Prisma, SyncOutcome } from '@prisma/client';
 import { DevicesService } from '../devices';
+import { IncidentIngress } from '../incidents';
 import { ContractsService } from '../rentals';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
@@ -26,15 +27,16 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 
 // The one writer of field events (tasks 2.2 and 2.3, design §2). Every attempt leaves one audit row.
 //
-// Attribution (task 2.4) asks `rentals` for the custody interval at the occurrence time. An SOS is still
-// stored without the incidents hand-off: IncidentsService.onSos and onPosition (task 2.3, incidents 2.3)
-// join here, in the same transaction, when they are built.
+// Attribution (task 2.4) asks `rentals` for the custody interval at the occurrence time. An SOS is
+// handed to `IncidentIngress.onSos` in the same transaction, and the stored event is linked to the
+// incident it opened or joined (incidents 2.3, MF-03). The position hand-off, `onPosition`, joins later.
 @Injectable()
 export class IngestionService {
   constructor(
     private readonly repository: IngestionRepository,
     private readonly devices: DevicesService,
     private readonly contracts: ContractsService,
+    private readonly incidents: IncidentIngress,
     private readonly normalizer: Normalizer,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
@@ -176,6 +178,23 @@ export class IngestionService {
           { at: time.occurredAt, position, batteryPct: reading.batteryPct },
           tx,
         );
+      }
+      if (reading.kind === EventKind.SOS || reading.kind === EventKind.FALL_SOS) {
+        const incident = await this.incidents.onSos(
+          {
+            eventId,
+            deviceId: device.id,
+            source: reading.kind === EventKind.SOS ? 'DEVICE_SOS' : 'DEVICE_FALL',
+            occurredAt: time.occurredAt,
+            organizationId: attributed?.organizationId ?? null,
+            contractId: attributed?.contractId ?? null,
+            ...(position && plotted
+              ? { latitude: position.latitude, longitude: position.longitude }
+              : {}),
+          },
+          tx,
+        );
+        await this.repository.linkIncident(eventId, incident.id, tx);
       }
       await this.repository.insertAudit({ ...audit, deviceId: device.id, outcome }, tx);
 
