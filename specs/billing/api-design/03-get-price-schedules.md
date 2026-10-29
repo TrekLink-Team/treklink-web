@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists the append-only monthly price schedule per variant, current and future rows included.
+Lists the append-only monthly price schedule per variant, current and future rows included. `state` is `CURRENT` for the row in effect for its variant, `UPCOMING` for a later one and `PAST` otherwise, judged against the whole schedule rather than the page.
 
 ## API Specification
 
@@ -40,6 +40,7 @@ No body.
         "hardwareVariantId": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
         "monthlyPriceVnd": 450000,
         "effectiveFrom": "2026-10-01T00:00:00Z",
+        "state": "CURRENT",
         "createdBy": "TrekLink Admin",
         "createdAt": "2026-10-20T03:15:00.000Z"
       }

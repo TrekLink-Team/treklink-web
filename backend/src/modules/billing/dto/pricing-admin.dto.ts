@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -12,6 +13,10 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
+
+// Trims a label before validation, so a label of spaces is empty and refused (review of #91).
+const trimmed = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 // billing api-design 03.
 export class PriceHistoryQueryDto extends PagedQueryDto {
@@ -46,6 +51,7 @@ export class NewDamageRateDto {
   @MaxLength(40)
   code!: string;
 
+  @Transform(trimmed)
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
@@ -64,6 +70,7 @@ export class NewDamageRateDto {
 // billing api-design 07.
 export class DamageRatePatchDto {
   @IsOptional()
+  @Transform(trimmed)
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)

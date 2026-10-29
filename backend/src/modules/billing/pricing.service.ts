@@ -81,7 +81,12 @@ export interface NewDamageRateInput {
   amountVnd: bigint;
 }
 
-export type PriceHistoryItem = Omit<PriceRow, 'createdById'> & { createdBy: ActorRef | null };
+export type PriceState = 'CURRENT' | 'UPCOMING' | 'PAST';
+
+export type PriceHistoryItem = Omit<PriceRow, 'createdById'> & {
+  createdBy: ActorRef | null;
+  state: PriceState;
+};
 
 const decimal = (value: number): Prisma.Decimal => new Prisma.Decimal(value.toString());
 
@@ -251,6 +256,7 @@ export class PricingService {
   async history(
     variantId: string | undefined,
     query: PagedQueryDto,
+    at: Date = new Date(),
   ): Promise<PagedResult<PriceHistoryItem>> {
     const page = resolvePage(
       query,
@@ -260,14 +266,22 @@ export class PricingService {
       }),
     );
     const [rows, total] = await this.pricing.pricePage(variantId, page.skip, page.take);
+    // Current, upcoming or past against the whole schedule, not this page (review of #91).
+    const current = await this.pricing.currentPriceIds(at);
+    const stateOf = (row: PriceRow): PriceState =>
+      row.effectiveFrom.getTime() > at.getTime()
+        ? 'UPCOMING'
+        : current.has(row.id)
+          ? 'CURRENT'
+          : 'PAST';
     const actorOf = await resolveActors(
       this.directory,
       rows.map((row) => row.createdById),
     );
-    const items = rows.map(({ createdById, ...row }) => ({
-      ...row,
-      createdBy: actorOf(createdById),
-    }));
+    const items = rows.map((row) => {
+      const { createdById, ...rest } = row;
+      return { ...rest, createdBy: actorOf(createdById), state: stateOf(row) };
+    });
     return toPagedResult(items, total, page);
   }
 

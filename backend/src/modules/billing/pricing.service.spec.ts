@@ -73,6 +73,7 @@ describe('PricingService (billing task 2.1)', () => {
       currentPrices: jest.fn().mockResolvedValue([PRICE]),
       insertPrice: jest.fn().mockResolvedValue(PRICE),
       pricePage: jest.fn().mockResolvedValue([[PRICE], 1]),
+      currentPriceIds: jest.fn().mockResolvedValue(new Set(['ps-1'])),
       damageRates: jest.fn().mockResolvedValue([]),
       activeRates: jest.fn().mockResolvedValue([]),
       insertDamageRate: jest.fn().mockResolvedValue(rate('dr-1', null, 300_000n)),
@@ -267,6 +268,7 @@ describe('PricingService (billing task 2.1)', () => {
             effectiveFrom: PRICE.effectiveFrom,
             createdAt: NOW,
             createdBy: { id: 'admin-1', fullName: 'Tran Admin' },
+            state: 'CURRENT',
           },
         ],
         pageNumber: 1,
@@ -275,6 +277,31 @@ describe('PricingService (billing task 2.1)', () => {
         totalPages: 1,
       });
       expect(pricing.pricePage).toHaveBeenCalledWith('v-3', 0, 20);
+    });
+
+    it('labels every row against the whole schedule, so an old page shows no second Current (review of #91)', async () => {
+      const LATER = new Date(PRICE.effectiveFrom.getTime() + 86_400_000);
+      pricing.pricePage.mockResolvedValueOnce([
+        [
+          { ...PRICE, id: 'ps-9', effectiveFrom: LATER },
+          { ...PRICE, id: 'ps-2' },
+        ],
+        3,
+      ]);
+      pricing.currentPriceIds.mockResolvedValueOnce(new Set(['ps-1']));
+      const page = await service.history('v-3', { pageNumber: 2, pageSize: 2 }, LATER);
+      // ps-9 starts exactly now: in effect, but ps-1 on page 1 is the current row of the schedule.
+      expect(page.items.map((item) => [item.id, item.state])).toEqual([
+        ['ps-9', 'PAST'],
+        ['ps-2', 'PAST'],
+      ]);
+      expect(pricing.currentPriceIds).toHaveBeenCalledWith(LATER);
+    });
+
+    it('marks a row that starts after now as UPCOMING', async () => {
+      const AFTER = new Date(PRICE.effectiveFrom.getTime() - 1);
+      const page = await service.history('v-3', {}, AFTER);
+      expect(page.items[0].state).toBe('UPCOMING');
     });
 
     it('leaves the name null without an account directory', async () => {

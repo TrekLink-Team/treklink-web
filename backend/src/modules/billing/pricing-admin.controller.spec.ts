@@ -1,3 +1,8 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { RESPONSE_MESSAGE_KEY } from '../../common/decorators/response-message.decorator';
+import { ErrorCode } from '../../common/errors';
+import { DamageRatePatchDto, NewDamageRateDto } from './dto/pricing-admin.dto';
 import {
   Caller,
   CHECK_POLICIES_KEY,
@@ -113,5 +118,43 @@ describe('PricingAdminController', () => {
     const ability: PolicyAbility = { can };
     expect(policiesOf(method).every((handler) => handler(ability))).toBe(true);
     expect(can).toHaveBeenCalledWith(action, subject);
+  });
+});
+
+// Review of #91: the documented message, an empty PATCH, and labels of spaces.
+describe('PricingAdminController contract details', () => {
+  const messageOf = (method: string): unknown =>
+    Reflect.getMetadata(
+      RESPONSE_MESSAGE_KEY,
+      Object.getOwnPropertyDescriptor(PricingAdminController.prototype, method)?.value as object,
+    );
+
+  it('answers POST /price-schedules with "Price scheduled" (api-design 04)', () => {
+    expect(messageOf('setPrice')).toBe('Price scheduled');
+  });
+
+  it('refuses a PATCH that changes nothing with 400 VALIDATION_FAILED', async () => {
+    const pricing = { updateDamageRate: jest.fn() };
+    const controller = new PricingAdminController(pricing as unknown as PricingService);
+    await expect(
+      controller.updateDamageRate(
+        'dr-1',
+        {},
+        { id: 'u-admin', roles: ['ADMIN'], organizationId: null },
+      ),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+    expect(pricing.updateDamageRate).not.toHaveBeenCalled();
+  });
+
+  it('refuses a label of spaces after trimming it, on create and on update', async () => {
+    const created = plainToInstance(NewDamageRateDto, {
+      code: 'STRAP_TORN',
+      label: '   ',
+      amountVnd: 50_000,
+    });
+    const patched = plainToInstance(DamageRatePatchDto, { label: '   ' });
+    expect((await validate(created)).map((error) => error.property)).toContain('label');
+    expect((await validate(patched)).map((error) => error.property)).toContain('label');
+    expect(created.label).toBe('');
   });
 });

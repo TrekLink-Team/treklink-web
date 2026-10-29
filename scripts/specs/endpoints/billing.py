@@ -56,10 +56,13 @@ ENDPOINTS = [
        controller="QuotesController", service="PricingService", call="quote(dto)", seq=["Svc->>DB: SELECT current price"]),
 
     ep("GET", "/api/price-schedules", "Price history", "TrekLink Admin",
-       "Lists the append-only monthly price schedule per variant, current and future rows included.",
+       "Lists the append-only monthly price schedule per variant, current and future rows included. "
+       "`state` is `CURRENT` for the row in effect for its variant, `UPCOMING` for a later one and `PAST` "
+       "otherwise, judged against the whole schedule rather than the page.",
        "UC-56, FR-CFG-02", query=[["hardwareVariantId", "Variant", "uuid", "no", f"`{VARIANT_ID}`"]] + PAGE_QUERY,
        response=paged({"id": "ps-1", "hardwareVariantId": VARIANT_ID, "monthlyPriceVnd": 450000,
-                       "effectiveFrom": "2026-10-01T00:00:00Z", "createdBy": "TrekLink Admin", "createdAt": NOW}),
+                       "effectiveFrom": "2026-10-01T00:00:00Z", "state": "CURRENT", "createdBy": "TrekLink Admin",
+                       "createdAt": NOW}),
        steps=["Read price_schedules"], controller="PriceSchedulesController", service="PricingService",
        call="history(query)", seq=["Svc->>DB: SELECT price_schedules"]),
 

@@ -349,34 +349,15 @@ const RateDialog: React.FC<{ rate: DamageRate | null; onClose: () => void }> = (
   );
 };
 
-type PriceState = 'Current' | 'Upcoming' | 'Past';
-
-const PRICE_STATE: Record<PriceState, StatusEntry> = {
-  Current: { label: 'Current', tone: 'active' },
-  Upcoming: { label: 'Upcoming', tone: 'waiting' },
-  Past: { label: 'Past', tone: 'ended' },
+const PRICE_STATE: Record<PriceRow['state'], StatusEntry> = {
+  CURRENT: { label: 'Current', tone: 'active' },
+  UPCOMING: { label: 'Upcoming', tone: 'waiting' },
+  PAST: { label: 'Past', tone: 'ended' },
 };
 
 const RATE_STATE: Record<'active' | 'inactive', StatusEntry> = {
   active: { label: 'Active', tone: 'active' },
   inactive: { label: 'Inactive', tone: 'ended' },
-};
-
-// The latest row already in effect per variant is current; later rows are upcoming.
-const priceStates = (rows: PriceRow[], now: number) => {
-  const current = new Map<string, string>();
-  [...rows]
-    .filter((row) => new Date(row.effectiveFrom).getTime() <= now)
-    .sort((a, b) => new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime())
-    .forEach((row) => {
-      if (!current.has(row.hardwareVariantId)) current.set(row.hardwareVariantId, row.id);
-    });
-  return (row: PriceRow): PriceState =>
-    new Date(row.effectiveFrom).getTime() > now
-      ? 'Upcoming'
-      : current.get(row.hardwareVariantId) === row.id
-        ? 'Current'
-        : 'Past';
 };
 
 // /t/admin/prices, screen 6.4 (billing api-design 03 to 07): the append-only monthly price
@@ -394,14 +375,11 @@ export const PricesPage: React.FC = () => {
   const [priceState, setPriceState] = useState('');
   const [rateText, setRateText] = useState('');
   const [rateActive, setRateActive] = useState('');
-  // The page's moment, fixed when it opens, so a render never reads the clock.
-  const [openedAt] = useState(() => Date.now());
-  const stateOf = priceStates(prices.data?.items ?? [], openedAt);
 
   const priceRows = prices.data?.items.filter(
     (row) =>
       (priceVariant === '' || row.hardwareVariantId === priceVariant) &&
-      (priceState === '' || stateOf(row) === priceState),
+      (priceState === '' || row.state === priceState),
   );
   const rateRows = rates.data?.filter(
     (rate) =>
@@ -431,7 +409,7 @@ export const PricesPage: React.FC = () => {
     {
       key: 'state',
       header: 'State',
-      cell: (row) => <StatusBadge entry={PRICE_STATE[stateOf(row)]} />,
+      cell: (row) => <StatusBadge entry={PRICE_STATE[row.state]} />,
     },
     {
       key: 'by',
@@ -500,9 +478,9 @@ export const PricesPage: React.FC = () => {
                   onChange={(event) => setPriceState(event.target.value)}
                 >
                   <option value="">All states</option>
-                  {Object.keys(PRICE_STATE).map((state) => (
+                  {(Object.keys(PRICE_STATE) as PriceRow['state'][]).map((state) => (
                     <option key={state} value={state}>
-                      {state}
+                      {PRICE_STATE[state].label}
                     </option>
                   ))}
                 </Select>
