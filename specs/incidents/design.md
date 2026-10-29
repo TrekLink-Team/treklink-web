@@ -113,6 +113,11 @@ whose synchronous listener in `monitoring` publishes to the recipient's room `us
 (`ws-live-contract.md`); `incidents` never imports `monitoring`. It counts as sent when the listener
 returns, whether or not a socket is connected, because the web inbox holds the same alert.
 
+On the wire, `incident.alert` is a `stream` event with `seq: 0`. It is not stored in the stream table,
+whose entries are scoped by organization rather than by person, so it has no replay sequence. The
+client delivers it without reading or moving its replay cursor; a missed alert stays visible in the
+queue through its web inbox row.
+
 ---
 
 ## 4. Correlation
