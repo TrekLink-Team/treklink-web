@@ -24,9 +24,10 @@
   - **Do**: the D-034 transition table of design §2 with guards; compare-and-set on `state` and `version`; one sequenced `IncidentTransition` row; set or clear `tierDeadlineAt`, `statusDueAt`, owner and the reopen window per target state; outbox rows of design §3 in the same transaction; `incident.changed` and `audit.record` after commit; a packet never moves an incident except to open or reopen it
   - **Test**: `incident-lifecycle.spec.ts` over every pair of the twelve states (AC-06); each owned state has an owner with a status deadline or a pending tier deadline
   - _Requirements: REQ-UBI-01, REQ-UBI-03, REQ-UBI-04, REQ-UBI-05, REQ-ERR-01, AC-06, FR-INC-04, BR-15, BR-18, NFR-REL-07_
-- [ ] 1.3 Provide `CONTRACT_CLOSE_CHECKS` (owner HoangTK)
+- [x] 1.3 Provide `CONTRACT_CLOSE_CHECKS` (owner HoangTK)
   - **Do**: `blockingReason(contractId, deviceIds)` returns `OPEN_INCIDENTS` when any incident routed to the contract is outside `CLOSED`
   - **Test**: rentals AC-06
+  - **Note**: built by LongLP in the rentals close-guard work (`60652b7`, review of #104) as `IncidentsCloseCheck` in `providers/contract-close-check.provider.ts`, registered by `IncidentsPortsModule`; it also blocks on an open incident of any of the contract's devices. Unit-tested in `contract-close-check.provider.spec.ts`; ticked in TK-144 (2026-10-30)
   - _Requirements: REQ-STA-02, FR-CON-13, BR-27_
 
 ## Phase 2: Creation, routing, alerts
@@ -56,9 +57,10 @@
 ## Phase 3: Timers
 
 - [ ] 3.1 Scheduler jobs (owner HoangTK)
-  - **Files**: `jobs/tier-timeouts.job.ts`, `jobs/stale-responses.job.ts`, `jobs/close-after-reopen-window.job.ts`
+  - **Files**: `backend/src/modules/incidents/jobs/incident-timers.job.ts`
   - **Do**: `incidents.tierTimeouts` (5 s) moves `NOTIFY_*` past `tierDeadlineAt` to the next non-empty tier or `ESCALATED` with Staff alerted (MSG34); `incidents.staleResponses` (30 s) moves `ACKNOWLEDGED` or `RESPONDING` past `statusDueAt` to `ESCALATED`, owner kept, Manager and Staff alerted; `incidents.closeAfterReopenWindow` (60 s) closes `RESOLVED` and `FALSE_ALARM` past the window; every job calls `apply()` with the expected state, so a raced human action wins cleanly
   - **Test**: AC-02 with a fake clock; restart with a pending deadline fires once at the stored time (platform AC-09)
+  - **Note**: built in TK-144 (2026-10-30) as one `IncidentTimersJob` with the three scheduled methods, sharing one loop (design §6). Each run reads up to 100 due incidents through `IncidentsRepository.dueTimers` and applies one transition per incident in its own transaction as `SYSTEM`; a `STALE_VERSION` or `INVALID_STATE_TRANSITION` from `apply()` means a person or an SOS moved it first and is skipped, any other failure is logged and retried on the next tick. Recipients come from `RoutingService.recipientsOf`, the routed organization's tiers at the run time. A window never set is not selected, so it never closes (leader ruling on PR #114). `backend/test/mf03-escalation.db-spec.ts` proves AC-02 with the empty backup tier skipped, the stale escalation with the owner kept, the window close and the null window against Postgres, by moving deadlines into the past instead of a fake clock; a deadline that fired once is not selected again. Open: Staff recipients of `ESCALATED` wait for treklink-web#118 (R1), so `ESCALATED` alerts the organization's Managers only and the box stays open
   - _Requirements: REQ-EVT-04, REQ-EVT-07, REQ-ERR-04, AC-02, FR-INC-05, FR-INC-07, FR-INC-11, BR-16, NFR-AVL-02_
   - _Story: US-UC31, US-UC37_
 
@@ -111,7 +113,7 @@
 
 ## Phase 7: Frontend Integration
 
-- [ ] 7.1 Alert banner (MSG31), incident queue and detail with one-step acknowledge, status and outcome forms, Staff escalation queue and authority report form (owner LongNN, tracked in `specs/frontend/tasks.md` 8.1 to 8.3)
+- [ ] 7.1 Alert banner (MSG31), incident queue and detail with one-step acknowledge, status and outcome forms, Staff escalation queue and authority report form (owner HoangTK per D-053 rule 4, tracked in `specs/frontend/tasks.md` 8.1 to 8.3; the alert banner is LongNN's shell work, frontend 1.4)
 
 ## Phase 8: Verification & DoD
 
