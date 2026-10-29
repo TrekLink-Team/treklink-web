@@ -33,6 +33,26 @@ describe('RoutingService (incidents 2.2)', () => {
     ).resolves.toMatchObject({ to: 'NOTIFY_PRIMARY' });
   });
 
+  it('gives a timer the tiers of the routed organization, staff empty (task 3.1)', async () => {
+    await expect(routing.recipientsOf('org-a', AT, tx)).resolves.toEqual({
+      primary: ['p'],
+      backup: ['b'],
+      managers: ['m'],
+      staff: [],
+    });
+    expect(roster.tiersAt).toHaveBeenCalledWith('org-a', AT, tx);
+  });
+
+  it('gives a timer no tier for an incident without an organization', async () => {
+    await expect(routing.recipientsOf(null, AT, tx)).resolves.toEqual({
+      primary: [],
+      backup: [],
+      managers: [],
+      staff: [],
+    });
+    expect(roster.tiersAt).not.toHaveBeenCalled();
+  });
+
   it('sends an unattributed event to UNROUTED without reading a roster (BR-36)', async () => {
     await expect(
       routing.route({ organizationId: null, contractId: null }, AT, tx),
