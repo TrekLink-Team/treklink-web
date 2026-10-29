@@ -8,18 +8,18 @@ import {
 } from '../gateway-sync';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import {
+  DEVICE_CHECKED_IN,
   DEVICE_HANDED_OVER,
   DEVICE_LABEL_CHANGED,
+  type DeviceCheckedInEvent,
   type DeviceHandedOverEvent,
   type DeviceLabelChangedEvent,
 } from '../rentals';
 import { StreamRepository } from './stream.repository';
 import { StreamService } from './stream.service';
 
-// `incidents` emits these as plain strings and `rentals` has no check-in event yet; the names are the
-// ones of platform design §2.3.
+// `incidents` emits its event as a plain string, the name of platform design §2.3.
 export const INCIDENT_CHANGED = 'incident.changed';
-export const DEVICE_CHECKED_IN = 'device.checkedIn';
 
 // In-process routing ids, not the WebSocket DTO (incidents emits only these today).
 export interface IncidentChangedEvent {
@@ -30,16 +30,7 @@ export interface IncidentChangedEvent {
   ownerId: string | null;
 }
 
-export interface DeviceCheckedInEvent {
-  deviceId: string;
-  contractId: string;
-  organizationId: string;
-  // The time of the check-in; the moment the event is handled when the emitter does not say.
-  at?: string | Date;
-}
-
-const asDate = (value: string | Date | undefined): Date =>
-  value === undefined ? new Date() : new Date(value);
+const asDate = (value: string | Date): Date => new Date(value);
 
 // Turns domain events into stream entries (task 2.1, REQ-EVT-01). The organization of an entry comes
 // with its event: a field event carries the organization attributed by occurrence time (D-040) and an
