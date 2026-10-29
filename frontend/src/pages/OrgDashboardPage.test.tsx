@@ -14,6 +14,7 @@ let overdue: object[] = [];
 let contractPages = 1;
 let detailFails = false;
 let overdueError: Error | null = null;
+let overdueLoading = false;
 const filtersSeen: object[] = [];
 
 vi.mock('../app/providers/useAuth', () => ({
@@ -68,6 +69,8 @@ vi.mock('../entities/billing/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/billing/api')>()),
   useInvoices: (_scope: string, filters: { overdue?: boolean }) => {
     filtersSeen.push(filters);
+    if (filters.overdue && overdueLoading)
+      return { data: undefined, isLoading: true, error: null, refetch: vi.fn() };
     return filters.overdue && overdueError
       ? { data: undefined, isLoading: false, error: overdueError, refetch: vi.fn() }
       : {
@@ -123,6 +126,7 @@ afterEach(() => {
   contractPages = 1;
   detailFails = false;
   overdueError = null;
+  overdueLoading = false;
   filtersSeen.length = 0;
 });
 
@@ -203,6 +207,24 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     renderPage();
     expect(screen.queryAllByText('Still due').every((element) => !element.closest('a'))).toBe(true);
     expect(screen.getAllByRole('button', { name: 'Try again' }).length).toBeGreaterThan(0);
+  });
+
+  it('keeps Invoices to pay loading while the overdue query loads (review of #109)', () => {
+    invoices = [invoice('INV-2026-000004', 'ISSUED', 400_000, 0)];
+    overdueLoading = true;
+    renderPage();
+    expect(screen.getByText('Loading Invoices to pay')).toBeTruthy();
+    expect(screen.queryByText('INV-2026-000004')).toBeNull();
+  });
+
+  it('shows a failed overdue query on Invoices to pay, not rows without the Overdue badge (review of #109)', () => {
+    invoices = [invoice('INV-2026-000004', 'ISSUED', 400_000, 0)];
+    overdueError = new Error('timeout');
+    renderPage();
+    expect(screen.queryByText('INV-2026-000004')).toBeNull();
+    expect(screen.queryByText('Nothing to pay right now.')).toBeNull();
+    // One Try again on the Still due tile, one on the widget.
+    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(2);
   });
 
   it('greets an organization with no contracts and nothing to pay', () => {

@@ -20,8 +20,8 @@ open incidents from incidents api-design 01 (`open=true`), devices out; widgets 
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Summary tiles: contracts by state (Requested, Approved, Active, Ending, Return due or Overdue) | rentals 02 `items[].status`, counted on the client from one page of `pageSize` at most `MAX_PAGE_SIZE`; the tile links to `/o/contracts?status=` |
-| Devices out | rentals 03 `devices[]` of each ACTIVE, ENDING, RETURN_DUE or OVERDUE contract, counting rows with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; at most five contracts are read, the tile says "and more" beyond that |
+| Summary tiles: contracts by state (Requested, Approved, Active, Ending, Return due or Overdue) | rentals 02 `items[].status`, counted on the client from one page of `pageSize` at most `MAX_PAGE_SIZE`; the tile links to `/o/contracts` |
+| Devices out | rentals 03 `devices[]` of each ACTIVE, ENDING, RETURN_DUE, OVERDUE or DEFAULTED contract (a defaulted contract's devices are still out), counting rows with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; at most five contracts are read, the tile says "and more" beyond that |
 | Still due | billing 08 `items[]`, `totalVnd` minus `paidVnd` summed per contract, CLOSING invoices included, so a cancelled contract whose voiding adjustment settled it counts nothing (ruling on treklink-web#87 point 4); the tile shows the sum of what contracts still owe and the count of invoices with an overdue line (billing 08 `overdue=true`) of contracts that owe. The split into due now and later stays on the invoice page |
 | Invoices needing payment | billing 08: the unpaid invoices of contracts that still owe, overdue first, five rows, in a `DataTable`; Pay opens the invoice |
 | Open incidents | the `IncidentQueue` widget with incidents 01 `open=true`: `code`, `device.assetTag`, `device.holder.name`, `state`, `firstEventAt`, five rows; each row opens `/o/incidents/:id` (screen 8.1) |
@@ -43,7 +43,7 @@ The dashboard changes nothing itself; every write happens on the page a link ope
 |---|---|
 | Loading | Each tile and widget shows its own skeleton; one slow source never blanks the page |
 | Empty | No contracts: "Your organization has no contracts yet." with Request a contract. No open incidents: "No open incidents." No unpaid invoices: "Nothing to pay right now." |
-| Error in one source | That tile or widget shows the server's message with Try again; the others stay. A failed contract detail replaces the devices-out tile, and a failed overdue query replaces the Still due tile, rather than showing a lower count |
+| Error in one source | That tile or widget shows the server's message with Try again; the others stay. A failed contract detail replaces the devices-out tile, and a failed overdue query replaces the Still due tile and the Invoices to pay widget, rather than showing a lower count or rows without the Overdue badge; the widget also waits for the overdue query to load |
 | More than one page | An info banner: "Counted on the first 100 contracts" (or invoices, or both); the Contracts and Invoices pages list them all |
 | Organization not ACTIVE | An amber MSG28 banner with the organization's state from auth 04 `organization.status` |
 | Not found or forbidden | `FORBIDDEN` (403): MSG26 full page |
