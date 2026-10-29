@@ -25,9 +25,9 @@ import { useAuth } from './providers/useAuth';
 
 // Development only: the design system page (docs/design-system.md). Vite drops the import from a
 // production build because the route below is behind import.meta.env.DEV.
-const DesignSystemPage = import.meta.env.DEV
-  ? React.lazy(() => import('../pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage })))
-  : null;
+const loadDesignSystem = () =>
+  import('../pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage }));
+const DesignSystemPage = import.meta.env.DEV ? React.lazy(loadDesignSystem) : null;
 
 // Sends an anonymous visitor to sign-in and back to the page they asked for (design §2, `?next=`).
 // After Sign out it renders nothing: the session ends at once but the router's navigation is a
