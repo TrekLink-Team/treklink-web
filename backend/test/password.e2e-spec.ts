@@ -418,6 +418,19 @@ describe('password flows (e2e)', () => {
     );
   });
 
+  it('refuses a reset for a deactivated account with 409 INVALID_STATE_TRANSITION (api-design 14)', async () => {
+    const staff = resultOf<Session>(await login('staff@treklink.vn', 'old-password').expect(200));
+    const id = '6c5b4a3f-2e1d-4c0b-9a8f-7e6d5c4b3a2f';
+    users[id] = { ...users['admin-1'], id, email: 'left@acme-trek.vn', isActive: false };
+    const sentBefore = mails.length;
+
+    const response = await post(`/api/accounts/${id}/password-reset`, {}, staff.accessToken);
+
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({ result: { errorCode: 'INVALID_STATE_TRANSITION' } });
+    expect(mails).toHaveLength(sentBefore);
+  });
+
   it('never writes a code or a password to a response or a log line (AC-06)', async () => {
     const before = output.length;
     const bodies: string[] = [];
