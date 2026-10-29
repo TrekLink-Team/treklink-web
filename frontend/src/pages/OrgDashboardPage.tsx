@@ -117,6 +117,10 @@ export const OrgDashboardPage: React.FC = () => {
   // The overdue count belongs to the same tile, so the tile waits for and fails with it too.
   const dueLoading = invoices.isLoading || overdue.isLoading;
   const dueError = invoices.error ?? overdue.error;
+  const retryDue = () => {
+    if (invoices.error) void invoices.refetch();
+    if (overdue.error) void overdue.refetch();
+  };
 
   // What each contract still owes across its invoices: a cancellation's voiding ADJUSTMENT sits on
   // the CLOSING invoice with a negative total, so an earlier invoice of a settled contract still
@@ -141,6 +145,7 @@ export const OrgDashboardPage: React.FC = () => {
   const toPay = [...unpaid]
     .sort((a, b) => Number(overdueIds.has(b.id)) - Number(overdueIds.has(a.id)))
     .slice(0, 5);
+  const upcoming = nextDates(items);
 
   const invoiceColumns: Column<Invoice>[] = [
     {
@@ -246,13 +251,7 @@ export const OrgDashboardPage: React.FC = () => {
             {dueLoading ? (
               <Skeleton className="h-28" rounded="panel" />
             ) : dueError ? (
-              <SourceError
-                error={dueError}
-                onRetry={() => {
-                  if (invoices.error) void invoices.refetch();
-                  if (overdue.error) void overdue.refetch();
-                }}
-              />
+              <SourceError error={dueError} onRetry={retryDue} />
             ) : (
               <Tile to="/o/invoices">
                 <StatCard
@@ -306,15 +305,17 @@ export const OrgDashboardPage: React.FC = () => {
               </Link>
             }
           />
-          {invoices.error ? (
-            <SourceError error={invoices.error} onRetry={() => void invoices.refetch()} />
+          {/* The overdue query orders the rows and marks them Overdue, so the widget waits for and
+              fails with it too, as the Still due tile does. */}
+          {dueError ? (
+            <SourceError error={dueError} onRetry={retryDue} />
           ) : (
             <DataTable
               caption="Invoices to pay"
               columns={invoiceColumns}
-              rows={invoices.isLoading ? undefined : toPay}
+              rows={dueLoading ? undefined : toPay}
               rowId={(invoice) => invoice.id}
-              loading={invoices.isLoading}
+              loading={dueLoading}
               empty={{ title: 'Nothing to pay right now.' }}
               rowActions={(invoice) => (
                 <Link
@@ -334,11 +335,11 @@ export const OrgDashboardPage: React.FC = () => {
             <CardHeader title="Next dates" />
             {contracts.isLoading ? (
               <Skeleton className="h-20" />
-            ) : nextDates(items).length === 0 ? (
+            ) : upcoming.length === 0 ? (
               <p className="text-body text-ink-muted">No running contract.</p>
             ) : (
               <ul className="flex flex-col divide-y divide-line">
-                {nextDates(items).map(({ contract, at, label }) => (
+                {upcoming.map(({ contract, at, label }) => (
                   <li key={contract.id} className="flex items-center justify-between gap-3 py-2">
                     <Link to={`/o/contracts/${contract.id}`} className={LINK}>
                       {contract.code}
