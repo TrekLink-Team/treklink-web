@@ -8,6 +8,7 @@ import {
   IncidentRecipients,
   IncidentTransitionReason,
 } from './incident-lifecycle';
+import { AlertDeliveriesRepository } from './alert-deliveries.repository';
 import { IncidentsRepository } from './incidents.repository';
 
 const AT = new Date('2026-10-24T12:00:00Z');
@@ -120,7 +121,7 @@ describe('IncidentLifecycle task 1.2', () => {
     events = { emitAfterCommit: jest.fn() };
     lifecycle = new IncidentLifecycle(
       repository as unknown as IncidentsRepository,
-      alerts,
+      alerts as unknown as AlertDeliveriesRepository,
       parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
     );

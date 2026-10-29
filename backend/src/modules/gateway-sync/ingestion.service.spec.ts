@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { DevicesService } from '../devices';
+import { IncidentIngress, type SosEvent } from '../incidents';
 import { ContractsService } from '../rentals';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -40,9 +41,11 @@ describe('IngestionService', () => {
     insertEventOnce: jest.Mock<Promise<boolean>, [Row, unknown?]>;
     insertAudit: jest.Mock<Promise<void>, [Row, unknown?]>;
     lastPlottedPosition: jest.Mock;
+    linkIncident: jest.Mock;
   };
   let devices: { byNodeNum: jest.Mock; projectReading: jest.Mock };
   let contracts: { custodyAt: jest.Mock };
+  let incidents: { onSos: jest.Mock<Promise<{ id: string }>, [SosEvent, unknown]> };
   let emitted: { name: string; payload: unknown }[];
   let service: IngestionService;
 
@@ -51,6 +54,7 @@ describe('IngestionService', () => {
       insertEventOnce: jest.fn<Promise<boolean>, [Row, unknown?]>().mockResolvedValue(true),
       insertAudit: jest.fn<Promise<void>, [Row, unknown?]>().mockResolvedValue(undefined),
       lastPlottedPosition: jest.fn().mockResolvedValue(null),
+      linkIncident: jest.fn().mockResolvedValue(undefined),
     };
     devices = {
       byNodeNum: jest.fn().mockResolvedValue(device),
@@ -70,10 +74,16 @@ describe('IngestionService', () => {
       emitAfterCommit: (name: string, payload: unknown) => events.pending.push({ name, payload }),
     };
     const parameters = { get: (key: string) => Promise.resolve(PARAMETERS[key]) };
+    incidents = {
+      onSos: jest
+        .fn<Promise<{ id: string }>, [SosEvent, unknown]>()
+        .mockResolvedValue({ id: 'incident-1' }),
+    };
     service = new IngestionService(
       repository as unknown as IngestionRepository,
       devices as unknown as DevicesService,
       contracts as unknown as ContractsService,
+      incidents as unknown as IncidentIngress,
       new Normalizer(),
       parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
@@ -111,6 +121,16 @@ describe('IngestionService', () => {
         name: 'field.position',
         payload: { organizationId: 'org-1' },
       });
+    });
+
+    it('hands an attributed SOS to incidents with its contract and organization (MF-03)', async () => {
+      contracts.custodyAt.mockResolvedValue(custody);
+      await expect(service.ingest(envelopeOf('sos-fall'))).resolves.toBe('ACCEPTED');
+      expect(incidents.onSos).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: 'org-1', contractId: 'c-1' }),
+        tx,
+      );
+      expect(repository.linkIncident).toHaveBeenCalledTimes(1);
     });
 
     it('leaves an event near a handover or check-in UNATTRIBUTED (margin)', async () => {
@@ -193,6 +213,21 @@ describe('IngestionService', () => {
     devices.byNodeNum.mockResolvedValue({ ...device, id: 'dev-10' });
     await expect(service.ingest(envelopeOf('sos-fall'))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
     expect(storedEvent()).toMatchObject({ kind: 'FALL_SOS', priority: 'P0_SOS', latitude: null });
+    expect(incidents.onSos).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: 'dev-10',
+        source: 'DEVICE_FALL',
+        organizationId: null,
+        contractId: null,
+      }),
+      tx,
+    );
+    expect(incidents.onSos.mock.calls[0][0]).not.toHaveProperty('latitude');
+    expect(repository.linkIncident).toHaveBeenCalledWith(
+      (storedEvent() as { eventId: string }).eventId,
+      'incident-1',
+      tx,
+    );
     expect(devices.projectReading).not.toHaveBeenCalled();
     expect(emitted).toEqual([]);
   });
