@@ -64,6 +64,13 @@ def activity(ep, errs):
     lines = ["flowchart TB", "    S((Start))",
              f'    A0["{"Accept request" if public else "Check token, policy and organization scope"}"]', "    S --> A0"]
     prev, edge = "A0", ""
+    if ep.get("pre_validation_auth"):
+        call, code = ep["pre_validation_auth"]
+        lines += [f'    Auth["{call}"]', "    A0 --> Auth",
+                  '    AuthCheck{"API key missing or wrong?"}', "    Auth --> AuthCheck",
+                  f'    AuthError["Return 401 {code}"]', "    AuthCheck -->|yes| AuthError",
+                  "    AuthError --> AuthEnd((End))"]
+        prev, edge = "AuthCheck", "|no|"
     n = 0
     for status, code, desc, _ in errs:
         if status in (401, 403):
@@ -91,21 +98,28 @@ def sequence(ep):
     for p in extra:
         lines.append(f"    participant {p[0]} as {p[1]}")
     lines.append(f"    C->>Ctl: {ep['method']} {ep['url']}")
+    if ep.get("pre_validation_auth"):
+        guard = ep.get("pre_validation_guard", "Route guard")
+        lines.append(f"    Note over Ctl,Svc: {guard} calls {ep['pre_validation_auth'][0]} before DTO validation")
+        lines.append("    Note over Ctl: Global ValidationPipe validates body before the controller handler")
     lines.append(f"    Ctl->>Svc: {ep.get('call', 'handle(dto, caller)')}")
     for s in ep.get("seq", []):
         lines.append("    " + s.replace(";", ","))  # ";" ends a Mermaid statement
     lines.append("    Svc-->>Ctl: result")
-    lines.append(f"    Ctl-->>C: {ep.get('status', 200)} envelope")
+    response_kind = "raw acknowledgement" if ep.get("raw_response") else "envelope"
+    lines.append(f"    Ctl-->>C: {ep.get('status', 200)} {response_kind}")
     return "\n".join(lines)
 
 
 def render(module, ep):
     errs = errors_for(ep)
     op = f" op {ep['op']}" if ep.get("op") else ""
+    response_contract = ("D-038 raw success acknowledgement; D-002 errors." if ep.get("raw_response")
+                         else "Envelope: D-002.")
     out = [f"# {ep['method']} {ep['url']}{op}: {ep['title']}", "",
            f"> Module `{module}`. Generated from `scripts/specs/endpoints/{module.replace('-', '_')}.py` by "
            "`scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: "
-           "`02-templates/04-api-endpoint-template.md` with Mermaid (D-017). Envelope: D-002.", "",
+           f"`02-templates/04-api-endpoint-template.md` with Mermaid (D-017). {response_contract}", "",
            "[TOC]", "", "---", "## Overview", "", ep["overview"], "", "## API Specification", "",
            table([[ep["method"], ep["url"]], ["Permission", ep["permission"]]]
                  + ([["Operation", f'`op: "{ep["op"]}"` (D-027)']] if ep.get("op") else [])
@@ -120,8 +134,9 @@ def render(module, ep):
                 table(ep["body"], ["Field", "Description", "Data Type", "Required", "Examples"])]
     else:
         out += ["", "## Request sample", "", "No body."]
-    out += ["", "## Response sample", "", "```json",
-            envelope(ep.get("response"), True, ep.get("status", 200), ep.get("message", "OK")), "```"]
+    response = (json.dumps(ep.get("response"), indent=2, ensure_ascii=False) if ep.get("raw_response")
+                else envelope(ep.get("response"), True, ep.get("status", 200), ep.get("message", "OK")))
+    out += ["", "## Response sample", "", "```json", response, "```"]
     if ep.get("fields"):
         out += ["", table(ep["fields"], ["Field", "Description", "Data Type", "Examples"])]
     out += ["", "## Validation", "", "<table>", "    <th>Status code</th>", "    <th>Description</th>",

@@ -9,6 +9,7 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ScheduledJob } from '../platform/scheduler/scheduled-job.decorator';
+import { BalanceService } from './balance.service';
 import { InvoiceDetailRow, InvoicesRepository } from './invoices.repository';
 import { PaymentRow, PaymentsRepository } from './payments.repository';
 import { PAYMENT_CONFIRMED, PaymentConfirmedEvent } from './payments.service';
@@ -86,6 +87,7 @@ export class SepayService {
 
   constructor(
     private readonly invoices: InvoicesRepository,
+    private readonly balance: BalanceService,
     private readonly payments: PaymentsRepository,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
@@ -125,6 +127,14 @@ export class SepayService {
           // The check and the insert run under one per-invoice lock, so two concurrent requests
           // cannot both create a waiting QR payment (review of #92).
           await this.payments.lockInvoiceRequests(invoiceId, tx);
+          // A cancellation credit on the closing invoice can settle an earlier unpaid invoice.
+          if ((await this.balance.outstanding(invoice.contractId, tx)) <= 0n) {
+            throw new DomainException(
+              HttpStatus.CONFLICT,
+              ErrorCode.NOTHING_DUE,
+              'This contract has nothing to pay.',
+            );
+          }
           if (await this.payments.findPendingSepay(invoiceId, at, tx)) {
             throw new DomainException(
               HttpStatus.CONFLICT,
@@ -193,15 +203,8 @@ export class SepayService {
     return { ...payment, receivedLater };
   }
 
-  // The SePay webhook (api-design 12, D-038). The `Authorization: Apikey <key>` header is compared
-  // in constant time; a missing or wrong key is 401 and records nothing. A transaction id or a
-  // confirmed reference seen before answers success again without applying twice (AC-03); an
-  // unknown reference is logged for Staff and answered success, so SePay stops retrying.
-  async handleWebhook(
-    authorization: string | undefined,
-    hook: SepayWebhook,
-    at: Date = new Date(),
-  ): Promise<WebhookOutcome> {
+  // Called by the route guard before the validation pipe and again for service-level callers.
+  assertWebhookKey(authorization: string | undefined): void {
     const key = this.config.get('SEPAY_WEBHOOK_API_KEY', { infer: true });
     const given = authorization?.replace(/^Apikey\s+/i, '') ?? '';
     if (!key || !authorization || !sameKey(given, key)) {
@@ -211,6 +214,17 @@ export class SepayService {
         'Missing or wrong SePay API key.',
       );
     }
+  }
+
+  // The SePay webhook (api-design 12, D-038). Only an already recorded transaction id is a
+  // duplicate (AC-03). Another transfer for a confirmed reference is money that must be recorded;
+  // unknown references are logged for Staff and answered success, so SePay stops retrying.
+  async handleWebhook(
+    authorization: string | undefined,
+    hook: SepayWebhook,
+    at: Date = new Date(),
+  ): Promise<WebhookOutcome> {
+    this.assertWebhookKey(authorization);
     if (hook.transferType && hook.transferType !== 'in') return 'ignored';
     const reference = REFERENCE.exec(`${hook.content ?? ''} ${hook.description ?? ''}`)?.[0];
     const gatewayTxnId = String(hook.id);
@@ -227,8 +241,6 @@ export class SepayService {
           this.logger.warn(`SePay transfer ${gatewayTxnId} names unknown reference ${reference}`);
           return 'unknown';
         }
-        if (payment.status === PaymentStatus.CONFIRMED) return 'duplicate';
-
         const received = BigInt(Math.trunc(hook.transferAmount));
         const settlement = {
           gatewayTxnId,

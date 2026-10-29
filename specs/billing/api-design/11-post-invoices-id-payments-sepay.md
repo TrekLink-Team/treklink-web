@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Creates a SePay payment request in the sandbox for the amount due now on the invoice (or a chosen line), with a unique reference, and returns its VietQR. The payment is recorded only when SePay's webhook confirms it (FR-BILL-07, BR-34, NFR-UI-03).
+Creates a SePay payment request in the sandbox for the amount due now on the invoice (or a chosen line), with a unique reference, and returns its VietQR. The payment is recorded only when SePay's webhook confirms it (FR-BILL-07, BR-34, NFR-UI-03). The contract balance must still be open: a cancellation adjustment on a closing invoice may offset an earlier unpaid invoice, in which case the request is refused with 409 NOTHING_DUE.
 
 ## API Specification
 
@@ -139,7 +139,7 @@ Creates a SePay payment request in the sandbox for the amount due now on the inv
         </tr>
         <tr>
             <td>409</td>
-            <td>No unpaid amount on the invoice or line (<code>NOTHING_DUE</code>)</td>
+            <td>No unpaid amount on the invoice or line, or the contract balance is settled (<code>NOTHING_DUE</code>)</td>
 <td>
 
 ```json
@@ -149,7 +149,7 @@ Creates a SePay payment request in the sandbox for the amount due now on the inv
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This invoice has nothing to pay."
+  "message": "This invoice or contract has nothing to pay."
 }
 ```
 </td>
@@ -191,7 +191,7 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"No unpaid amount on the invoice or line?"}
+    D3{"No unpaid amount on the invoice or line, or the contract balance is settled?"}
     D2 -->|no| D3
     E3["Return 409 NOTHING_DUE"]
     D3 -->|yes| E3
@@ -201,7 +201,7 @@ flowchart TB
     E4["Return 409 PAYMENT_PENDING"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Compute the amount due"]
+    P0["Compute the invoice amount due and verify the contract balance is open"]
     D4 -->|no| P0
     P1["Insert payment PENDING with a fresh reference and expiry"]
     P0 --> P1
@@ -218,11 +218,12 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as PaymentsController
+    participant Ctl as SepayController
     participant Svc as SepayService
     participant DB as Postgres
     C->>Ctl: POST /api/invoices/:id/payments/sepay
-    Ctl->>Svc: createRequest(invoiceId, dto, caller)
+    Ctl->>Svc: request(invoiceId, lineSeq, caller)
+    Svc->>DB: Read outstanding contract balance under the request transaction
     Svc->>DB: INSERT payments (PENDING)
     Svc->>Svc: build VietQR URL
     Svc-->>Ctl: result

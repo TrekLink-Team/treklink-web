@@ -16,6 +16,7 @@ import { PricingController } from './pricing.controller';
 import { PricingRepository } from './pricing.repository';
 import { PricingService } from './pricing.service';
 import { SepayController } from './sepay.controller';
+import { SepayWebhookGuard } from './sepay-webhook.guard';
 import { SepayService } from './sepay.service';
 
 // Billing (specs/billing/design.md). Foundation: the invoices, payments and pricing repositories,
@@ -39,6 +40,7 @@ import { SepayService } from './sepay.service';
     DamageChargesRepository,
     BillingReadsService,
     SepayService,
+    SepayWebhookGuard,
   ],
   exports: [InvoicesService, ChargesService, BalanceService, PaymentsService, PricingService],
 })

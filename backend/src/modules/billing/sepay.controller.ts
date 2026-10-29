@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   Caller,
@@ -20,6 +21,7 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 import { SepayPaymentDto, SepayWebhookDto } from './dto/billing-queries.dto';
 import { toPaymentView } from './invoices.controller';
 import { PaymentRow } from './payments.repository';
+import { SepayWebhookGuard } from './sepay-webhook.guard';
 import { SepayService } from './sepay.service';
 
 // SePay sandbox endpoints (billing task 3.2, api-design 11, 12, 15). The webhook is the one
@@ -61,6 +63,7 @@ export class SepayController {
 
   @Post('payments/sepay/webhook')
   @Public()
+  @UseGuards(SepayWebhookGuard)
   @RawResponse()
   @HttpCode(HttpStatus.OK)
   async webhook(
