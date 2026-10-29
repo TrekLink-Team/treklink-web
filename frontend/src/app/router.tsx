@@ -9,6 +9,8 @@ import { ContractsPage } from '../pages/ContractsPage';
 import { CounterPage } from '../pages/CounterPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
+import { IncidentDetailPage } from '../pages/IncidentDetailPage';
+import { IncidentsPage } from '../pages/IncidentsPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { PricesPage } from '../pages/PricesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
@@ -79,6 +81,8 @@ export const AppRoutes: React.FC = () => (
     <Route element={<RequireAuth />}>
       <Route element={<RequireRole roles={ORG_OPERATOR} />}>
         <Route path="/o/map" element={<DashboardPage />} />
+        <Route path="/o/incidents" element={<IncidentsPage />} />
+        <Route path="/o/incidents/:id" element={<IncidentDetailPage />} />
         <Route path="/o/contracts" element={<ContractsPage />} />
         <Route path="/o/contracts/:id" element={<ContractDetailPage scope="o" />} />
       </Route>

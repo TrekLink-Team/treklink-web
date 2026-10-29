@@ -46,7 +46,7 @@
 - [ ] 2.3 Positions, projection, incident hand-off (owner KhoaDD)
   - **Do**: outside `monitoring.positionBounds` or WGS-84: keep without position (`INVALID_POSITION`); faster than `monitoring.maxPlausibleSpeedKmh` from the last plotted: keep with `plotted = false`, no projection (`IMPLAUSIBLE_POSITION`); `DevicesService.projectReading` in the same transaction; SOS and fall SOS call `IncidentsService.onSos`, positions call `onPosition`, passing the attribution; set `incidentId` on the event when it joined an episode
   - **Test**: both position rules; an SOS creates one incident inside the ingestion transaction
-  - **Progress**: both position rules and the projection are built. The speed rule compares occurrence times with the last plotted position in `seq` order. Open: the `IncidentsService.onSos` and `onPosition` calls (incidents 2.3). Attribution followed on 2026-10-27 (task 2.4)
+  - **Progress**: both position rules and the projection are built. The speed rule compares occurrence times with the last plotted position in `seq` order. Attribution followed on 2026-10-27 (task 2.4). The SOS hand-off followed on 2026-10-29 (MF-03 PR): `IncidentIngress.onSos` runs in the ingestion transaction and the event's `incidentId` is set. Open: the `onPosition` call (incidents 2.3). Until it lands an incident has no last position, because an SOS text carries none (FGT row on SOS PortNums)
   - _Requirements: REQ-EVT-03, REQ-EVT-04, FR-DEV-06, FR-MON-04, FR-INC-01, FR-INC-02_
   - _Depends on: devices 2.5, incidents 2.3_
 - [ ] 2.4 Occurrence time and attribution (owner KhoaDD)

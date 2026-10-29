@@ -37,6 +37,7 @@
 - [ ] 2.3 `incident.alert` publishing (owner HoangTK)
   - **Do**: a synchronous listener publishes the alert to `user:<recipientId>`; returning means sent (incidents design §3)
   - **Test**: an alert reaches the recipient's socket within 2 s of the transition commit
+  - **Note**: `LiveGateway.onIncidentAlert` is built in the MF-03 PR (2026-10-29), sending a `stream` event with `seq: 0` to `user:<id>` (incidents design §3). The 2 s socket timing test is open, so the box stays open
   - _Requirements: REQ-EVT-07, FR-INC-12, NFR-PERF-04_
 - [ ] 2.4 Staleness sweep and pruning (owner LongNN)
   - **Files**: `jobs/stale-sweep.job.ts`, `jobs/prune-stream.job.ts`

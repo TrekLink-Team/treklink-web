@@ -4,6 +4,7 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { OrganizationsService } from '../organizations';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import {
   IncidentActor,
@@ -32,6 +33,11 @@ export interface ResolveInput {
   outcomeNote: string;
 }
 
+export interface FalseAlarmInput {
+  expectedVersion: number;
+  reason: string;
+}
+
 export interface StatusUpdateResult {
   id: string;
   note: string;
@@ -45,6 +51,13 @@ type MemberActor = Extract<IncidentActor, { kind: 'MEMBER' }>;
 const NO_RECIPIENTS: IncidentRecipients = { primary: [], backup: [], managers: [], staff: [] };
 const OWNED_STATES: readonly IncidentState[] = ['ACKNOWLEDGED', 'RESPONDING'];
 const MEMBER_ROLES = ['ORG_OPERATOR', 'ORG_MANAGER'];
+// MSG27 time, HH:mm in the display timezone.
+const CLOCK = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
 
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Incident not found.');
@@ -63,8 +76,8 @@ const required = (value: string | undefined, field: string): string => {
 
 // Owner actions of UC-32 and UC-33 (incidents task 4.1). State rules, ownership, versions, timers,
 // history and the outbox stay in IncidentLifecycle; this service supplies the locked source state,
-// the request time and the caller. MSG27's owner name and time wait for auth 5.2 `contactCard`, so
-// the loser of a concurrent acknowledgement receives the lifecycle's generic ALREADY_OWNED message.
+// the request time and the caller. The loser of a concurrent acknowledgement receives MSG27 with the
+// owner's name and time.
 @Injectable()
 export class IncidentsService {
   constructor(
@@ -72,13 +85,29 @@ export class IncidentsService {
     private readonly lifecycle: IncidentLifecycle,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
+    private readonly organizations: OrganizationsService,
   ) {}
 
   async acknowledge(id: string, input: AcknowledgeInput, caller: Caller): Promise<Incident> {
-    return this.transition(id, 'ACKNOWLEDGED', caller, {
-      code: 'ACKNOWLEDGED',
+    try {
+      return await this.transition(id, 'ACKNOWLEDGED', caller, {
+        code: 'ACKNOWLEDGED',
+        expectedVersion: input.expectedVersion,
+        note: input.note?.trim() || undefined,
+      });
+    } catch (error) {
+      if (error instanceof DomainException && error.errorCode === ErrorCode.ALREADY_OWNED)
+        throw await this.alreadyOwned(id);
+      throw error;
+    }
+  }
+
+  // UC-34 by a member of the routed organization (api-design 07). Staff from UNROUTED waits for 4.2.
+  async falseAlarm(id: string, input: FalseAlarmInput, caller: Caller): Promise<Incident> {
+    return this.transition(id, 'FALSE_ALARM', caller, {
+      code: 'FALSE_ALARM',
       expectedVersion: input.expectedVersion,
-      note: input.note?.trim() || undefined,
+      note: required(input.reason, 'reason'),
     });
   }
 
@@ -171,6 +200,20 @@ export class IncidentsService {
         tx,
       );
     });
+  }
+
+  // MSG27, read after the losing transaction rolled back: the owner's name and the time of the latest
+  // acknowledgement, because `acknowledgedAt` keeps the first one after an escalation takeover.
+  private async alreadyOwned(id: string): Promise<DomainException> {
+    const latest = await this.repository.latestAcknowledgement(id);
+    const names = await this.organizations.memberNames(latest?.actorId ? [latest.actorId] : []);
+    const name = (latest?.actorId && names.get(latest.actorId)) || 'Another member';
+    const time = latest ? ` at ${CLOCK.format(latest.createdAt)}` : '';
+    return new DomainException(
+      HttpStatus.CONFLICT,
+      ErrorCode.ALREADY_OWNED,
+      `${name} took this incident${time}.`,
+    );
   }
 
   private async lock(

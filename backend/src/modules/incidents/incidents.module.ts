@@ -1,22 +1,36 @@
 import { Module } from '@nestjs/common';
+import { DevicesModule } from '../devices';
+import { OrganizationsModule } from '../organizations';
 import { PlatformModule } from '../platform/platform.module';
+import { RentalsModule } from '../rentals';
 import { AlertDeliveriesRepository } from './alert-deliveries.repository';
+import { AlertDispatcherJob } from './alerts/alert-dispatcher.job';
 import { AuthorityReportsRepository } from './authority-reports.repository';
-import { IncidentsRepository } from './incidents.repository';
+import { IncidentIngress } from './incident-ingress';
 import { IncidentLifecycle } from './incident-lifecycle';
 import { IncidentsPortsModule } from './incidents-ports.module';
+import { IncidentsQueryService } from './incidents-query.service';
+import { IncidentsController } from './incidents.controller';
+import { IncidentsRepository } from './incidents.repository';
 import { IncidentsService } from './incidents.service';
+import { RoutingService } from './routing.service';
 
-// Repositories remain private. IncidentsService serves this module's controllers (task 6.1);
-// exported domain services join in the later incident tasks.
+// Repositories remain private. IncidentIngress is exported for gateway-sync's SOS hand-off (task 2.3);
+// the monitoring reads join with the rest of task 5.1.
 @Module({
-  imports: [PlatformModule, IncidentsPortsModule],
+  imports: [PlatformModule, IncidentsPortsModule, OrganizationsModule, RentalsModule, DevicesModule],
+  controllers: [IncidentsController],
   providers: [
     IncidentsRepository,
     AlertDeliveriesRepository,
     AuthorityReportsRepository,
     IncidentLifecycle,
     IncidentsService,
+    IncidentsQueryService,
+    RoutingService,
+    IncidentIngress,
+    AlertDispatcherJob,
   ],
+  exports: [IncidentIngress],
 })
 export class IncidentsModule {}

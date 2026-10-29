@@ -159,6 +159,14 @@ export class OrganizationsService {
     }
   }
 
+  // Full names by account id, for the incident owner, status authors and MSG27 (incidents 5.1, 4.1).
+  // An unknown or soft-deleted account is absent.
+  async memberNames(userIds: readonly string[]): Promise<Map<string, string>> {
+    if (userIds.length === 0) return new Map();
+    const cards = await this.accounts.contactCard([...new Set(userIds)]);
+    return new Map(cards.map((card) => [card.id, card.fullName]));
+  }
+
   // Code and legal name by organization id, for the contract and invoice reads of rentals and
   // billing; an unknown id is absent. In the caller's transaction when it passes one.
   async labelsOf(

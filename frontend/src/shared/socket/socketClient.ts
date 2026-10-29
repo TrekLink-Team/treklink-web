@@ -114,6 +114,12 @@ export const startLive = (tokenSource: () => string | null): void => {
       emit({ kind: 'replay.expired' });
       return;
     }
+    // A personal incident alert is not a stored stream entry: it carries seq 0 and neither reads nor
+    // moves the replay cursor (incidents design §3). A missed one stays in the incident queue.
+    if (entry.type === 'incident.alert') {
+      emit({ kind: 'entry', entry });
+      return;
+    }
     // Duplicates at or below the cursor are ignored (screen 8-2 recovery rule).
     const cursor = readCursor();
     if (cursor !== undefined && entry.seq <= cursor) return;
