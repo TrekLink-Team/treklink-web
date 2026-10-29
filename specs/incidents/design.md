@@ -177,7 +177,10 @@ Listens to `member.deactivated` (REQ-EVT-11). Emits `incident.changed`, `audit.r
 
 `incidents.tierTimeouts`, `incidents.staleResponses`, `incidents.closeAfterReopenWindow`,
 `incidents.deliverAlerts`: `platform` design §4.6. Each selects by its deadline column and state, then
-calls `apply()` with the expected state, so a job racing a human action loses cleanly.
+calls `apply()` with the expected state, so a job racing a human action loses cleanly. The three timers
+apply one transition per incident in its own transaction, up to 100 per run; a failure on one incident
+is logged and that incident is due again on the next run. A `RESOLVED` or `FALSE_ALARM` row with no
+reopen window is never selected, since a window never set has not ended.
 
 ---
 
