@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../../common/prisma/prisma.service';
 import { IncidentsRepository } from '../incidents.repository';
 import { IncidentsCloseCheck } from './contract-close-check.provider';
 
@@ -6,7 +7,7 @@ import { IncidentsCloseCheck } from './contract-close-check.provider';
 describe('IncidentsCloseCheck', () => {
   const count = jest.fn();
   const tx = { incident: { count } } as unknown as Prisma.TransactionClient;
-  const check = new IncidentsCloseCheck(new IncidentsRepository());
+  const check = new IncidentsCloseCheck(new IncidentsRepository({} as PrismaService));
 
   beforeEach(() => count.mockReset());
 

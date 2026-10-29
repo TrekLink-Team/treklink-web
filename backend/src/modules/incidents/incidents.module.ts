@@ -18,7 +18,13 @@ import { RoutingService } from './routing.service';
 // Repositories remain private. IncidentIngress is exported for gateway-sync's SOS hand-off (task 2.3);
 // the monitoring reads join with the rest of task 5.1.
 @Module({
-  imports: [PlatformModule, IncidentsPortsModule, OrganizationsModule, RentalsModule, DevicesModule],
+  imports: [
+    PlatformModule,
+    IncidentsPortsModule,
+    OrganizationsModule,
+    RentalsModule,
+    DevicesModule,
+  ],
   controllers: [IncidentsController],
   providers: [
     IncidentsRepository,

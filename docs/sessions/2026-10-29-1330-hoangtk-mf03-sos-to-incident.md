@@ -177,6 +177,8 @@ Handled on PR #114, started through Auto-fix and finished in a follow-up session
 
 Verification, 2026-10-29: backend lint and module boundaries, 1184 unit tests, 99 e2e tests and `nest build` pass; frontend lint, 312 tests and `tsc && vite build` pass. `test:db` and the new migration were not run locally: no Docker daemon and no Postgres on 5432, and Neon is off limits for tests (D-010). CI runs both against its own `postgres:16` service.
 
+Rebased onto `dev` the same day at HoangTK's request, because the PR had turned `CONFLICTING` and CI does not run on a conflicting PR. Conflicts in `incidents.module.ts` and `incidents.repository.ts` kept both sides: dev's `IncidentsPortsModule` and `countOpenFor`, and this branch's controller, reads and ingress. Three integration fixes followed. Dev's close-check spec now builds `IncidentsRepository` with a `PrismaService`. The module test's stand-in platform module is global, like `PrismaModule` in the app. The new rentals calls spec expects dev's live-row filter `replacedBy: { is: null }`. After the rebase: backend lint, typecheck, 1315 unit tests, 166 e2e tests and the build pass, and frontend lint, 335 tests and the build pass.
+
 ### Starting the next session
 
 Open the agent on `capstone/` and paste:
