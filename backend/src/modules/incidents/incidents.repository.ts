@@ -67,6 +67,20 @@ export class IncidentsRepository {
     return tx.incident.update({ where: { id }, data: { statusDueAt } });
   }
 
+  // Incidents not yet CLOSED on a contract or on any of its devices (FR-CON-13, rentals close).
+  countOpenFor(
+    contractId: string,
+    deviceIds: readonly string[],
+    client: Prisma.TransactionClient,
+  ): Promise<number> {
+    return client.incident.count({
+      where: {
+        state: { not: 'CLOSED' },
+        OR: [{ contractId }, { deviceId: { in: [...deviceIds] } }],
+      },
+    });
+  }
+
   async lockOpenByDevice(deviceId: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
     const rows = await tx.$queryRaw<Incident[]>`
       SELECT * FROM "incidents"

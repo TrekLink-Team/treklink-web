@@ -72,6 +72,14 @@ export class ReturnService {
   // (MSG07).
   async checkIn(id: string, assetTags: string[], actor: Caller, at: Date = new Date()) {
     const tags = [...new Set(assetTags.map((tag) => tag.trim()).filter((tag) => tag !== ''))];
+    // Blank tags trim to nothing; with none left there is nothing to check in (api-design 14).
+    if (tags.length === 0) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.VALIDATION_FAILED,
+        'assetTags must name at least one device.',
+      );
+    }
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
       const dayPlanActive =
@@ -235,8 +243,19 @@ export class ReturnService {
         );
       }
       const deviceIds = (await this.contracts.liveRows(id, tx)).map((row) => row.deviceId);
+      // A damage charge above the approval threshold waits for an Admin with no invoice line yet;
+      // it is part of what the contract owes (api-design 17, REQ-ERR-05).
+      if (
+        contract.handedOverAt &&
+        (await this.charges.pendingDamage(deviceIds, contract.handedOverAt, tx)) > 0
+      ) {
+        throw conflict(
+          ErrorCode.BALANCE_OUTSTANDING,
+          'This cannot be done while it has open balances.',
+        );
+      }
       for (const check of this.closeChecks) {
-        const reason = await check.blockingReason(id, deviceIds);
+        const reason = await check.blockingReason(id, deviceIds, tx);
         if (reason) {
           throw conflict(
             ErrorCode.OPEN_INCIDENTS,

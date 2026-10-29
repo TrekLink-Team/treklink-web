@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 // Checks another module runs before a contract may close (specs/rentals/design.md §6). Declared by
 // `rentals`, provided by `incidents` (FR-CON-13: no incident outside CLOSED on the contract's devices).
 // Multi-provider: injected `@Optional()` as an array, so an unprovided port is empty (platform design
@@ -10,8 +12,10 @@ export interface CloseBlockingReason {
 }
 
 export interface ContractCloseCheck {
+  // `tx` is the close transaction, so the check reads what it has locked and never waits on it.
   blockingReason(
     contractId: string,
     deviceIds: readonly string[],
+    tx: Prisma.TransactionClient,
   ): Promise<CloseBlockingReason | null>;
 }

@@ -86,6 +86,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       }),
     };
     charges = {
+      pendingDamage: jest.fn().mockResolvedValue(0),
       chargeLate: jest.fn().mockResolvedValue(null),
       chargeDamage: jest.fn().mockResolvedValue({
         charge: { id: 'dc-1', amountVnd: 300_000n, status: 'APPROVED' },
@@ -160,6 +161,16 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       expect(charges.chargeLate).not.toHaveBeenCalled();
     });
 
+    it('refuses tags that trim to nothing and moves nothing (review of #104)', async () => {
+      await expect(service.checkIn('c-1', ['   ', ''], STAFF, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        message: 'assetTags must name at least one device.',
+      });
+      expect(contracts.lockById).not.toHaveBeenCalled();
+      expect(contracts.markCheckedIn).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
     it('refuses a tag that is not out on the contract and stores nothing (MSG12)', async () => {
       await expect(service.checkIn('c-1', ['TL-0099'], STAFF, AT)).rejects.toMatchObject({
         errorCode: ErrorCode.DEVICE_NOT_ON_CONTRACT,
@@ -224,7 +235,12 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         status: ContractStatus.CLOSED,
       });
       expect(contracts.eraseLabels).toHaveBeenCalledWith('c-1', TX);
-      expect(closeCheck.blockingReason).toHaveBeenCalledWith('c-1', ['d-1']);
+      expect(closeCheck.blockingReason).toHaveBeenCalledWith('c-1', ['d-1'], TX);
+      expect(charges.pendingDamage).toHaveBeenCalledWith(
+        ['d-1'],
+        new Date('2026-10-25T03:00:00.000Z'),
+        TX,
+      );
     });
 
     it('refuses a stale version, an open balance and an open incident', async () => {
@@ -242,6 +258,17 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       await expect(service.close('c-1', 6, STAFF)).rejects.toMatchObject({
         errorCode: ErrorCode.OPEN_INCIDENTS,
       });
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('refuses a contract with a damage charge still waiting for an Admin (api-design 17, REQ-ERR-05)', async () => {
+      charges.pendingDamage.mockResolvedValueOnce(1);
+      await expect(service.close('c-1', 6, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.BALANCE_OUTSTANDING,
+        message: 'This cannot be done while it has open balances.',
+      });
+      expect(closeCheck.blockingReason).not.toHaveBeenCalled();
+      expect(contracts.eraseLabels).not.toHaveBeenCalled();
       expect(lifecycle.apply).not.toHaveBeenCalled();
     });
 
