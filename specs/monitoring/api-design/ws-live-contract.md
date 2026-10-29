@@ -20,7 +20,7 @@ the client choose a room, so organization scoping is enforced on the server (FR-
 
 A failed handshake answers `connect_error` with `{ "errorCode": "UNAUTHENTICATED" }` and closes. A token
 expiring during the session is refreshed by the client with `emit("auth.refresh", { token })`; an API key
-revoked during the session closes the socket with `{ "errorCode": "KEY_REVOKED" }` (E04-5).
+revoked during the session first receives the event `auth.error` with `{ "errorCode": "KEY_REVOKED" }` and then has its socket closed (E04-5); the organization's other sockets stay open.
 
 ## Replay on connect and reconnect (FR-MON-05, E04-3)
 
@@ -29,6 +29,8 @@ order, then `{ "type": "replay.done", "cursor": <seq> }`, then live entries. The
 MSG32 ("Reconnecting. Live data is paused.") from disconnect to `replay.done`. A cursor older than
 `monitoring.streamRetentionHours` gets `{ "type": "replay.expired" }` and the client reloads
 `GET /api/map/snapshot`.
+
+While a client replays, live entries for it are held back and delivered after the replay in `seq` order, so a replay and the live stream never interleave out of order. An account with no stream rights (no `fleet` and no organization room) gets `replay.done` at its own cursor and nothing else. A cursor that is not a non-negative integer counts as no cursor.
 
 Both control messages are delivered as the event `stream`, with `type` `replay.done` or `replay.expired` in the same body as an entry (`seq` 0), so a client needs one listener (frontend 1.4). `replay.done` keeps its `cursor` field, and the client stores it so an empty replay still advances the cursor.
 

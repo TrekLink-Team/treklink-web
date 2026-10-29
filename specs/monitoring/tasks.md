@@ -29,10 +29,11 @@
   - **Test**: AC-01, AC-04 (not plotted), AC-05, AC-06
   - _Requirements: REQ-UBI-03, REQ-EVT-01, REQ-EVT-04, AC-01, AC-04, AC-05, AC-06, FR-MON-02, FR-MON-04, FR-MON-08, BR-22_
   - _Story: US-UC38_
-  - **Status**: all six listeners are built. Each event already names its organization, so no `currentHolder` lookup exists and none is needed; the latest check-in of a device is stored in `DeviceRelease`, which pruning the stream never touches. Two parts wait on other modules: `incident.changed` carries ids only until `incidents` exports a read for `code`, `ownerName`, `lastPosition` and `stale`, and `rentals` does not emit `device.checkedIn` yet, so `device.released` and the late flag are tested with direct events. The box stays unticked until both land.
+  - **Status**: all six listeners are built. Each event already names its organization, so no `currentHolder` lookup exists and none is needed; the latest check-in of a device is stored in `DeviceRelease`, which pruning the stream never touches. Two parts wait on other modules: `incident.changed` carries ids only until `incidents` exports a read for `code`, `ownerName`, `lastPosition` and `stale`, while `rentals` now emits and exports `device.checkedIn`, which the listener uses. The box stays unticked until the incident enrichment lands.
 - [ ] 2.2 Replay and key revocation (owner LongNN)
   - **Do**: on connect or reconnect with a cursor, replay every entry after it for the client's rooms, then `replay.done`, then live; a cursor older than `monitoring.streamRetentionHours` gets `replay.expired` (REST 410); on `apiKey.revoked` close that key's sockets
   - **Test**: AC-02 (two minutes disconnected, every entry once and in order)
+  - **Status**: the socket side is built: replay in batches for the client's scope, `replay.done` with its cursor, `replay.expired` for a cursor outside the retention window, live entries held back during a replay, and key revocation by `apiKey.revoked`. The REST 410 belongs to `GET /api/telemetry/stream` (task 3.2). `organizations` does not emit `apiKey.revoked` yet, so revocation is tested by calling the handler. The box stays unticked until 3.2 and that emitter land.
   - _Requirements: REQ-EVT-02, REQ-EVT-08, AC-02, FR-MON-05, FR-ORG-06_
 - [ ] 2.3 `incident.alert` publishing (owner HoangTK)
   - **Do**: a synchronous listener publishes the alert to `user:<recipientId>`; returning means sent (incidents design §3)

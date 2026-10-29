@@ -6,7 +6,9 @@ import type { AddressInfo } from 'net';
 import { io, Socket } from 'socket.io-client';
 import { API_KEY_RESOLVER, AccessTokenAuthenticator, type SessionUser } from '../auth';
 import { aSessionUser } from '../auth/testing/auth-fixtures';
+import { ParameterService } from '../platform/parameters/parameter.service';
 import { LiveGateway, roomsOfUser } from './live.gateway';
+import { ReplayService } from './replay.service';
 import { StreamEntry, StreamRepository } from './stream.repository';
 import { StreamService } from './stream.service';
 
@@ -101,6 +103,8 @@ describe('LiveGateway over a socket', () => {
       providers: [
         LiveGateway,
         StreamService,
+        ReplayService,
+        { provide: ParameterService, useValue: { get: () => Promise.resolve(72) } },
         { provide: StreamRepository, useValue: repository },
         { provide: AccessTokenAuthenticator, useValue: { authenticate } },
         { provide: API_KEY_RESOLVER, useValue: { resolve: resolveKey } },

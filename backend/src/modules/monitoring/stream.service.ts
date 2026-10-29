@@ -8,7 +8,7 @@ export type WireEntry = Pick<StreamEntry, 'seq' | 'type' | 'deviceId' | 'payload
 
 export type StreamSubscriber = (rooms: string[], entry: WireEntry) => void;
 
-const toWire = ({ seq, type, deviceId, payload, createdAt }: StreamEntry): WireEntry => ({
+export const toWire = ({ seq, type, deviceId, payload, createdAt }: StreamEntry): WireEntry => ({
   seq,
   type,
   deviceId,
