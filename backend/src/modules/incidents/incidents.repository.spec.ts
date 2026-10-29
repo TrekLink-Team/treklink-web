@@ -1,4 +1,5 @@
 import { Incident, IncidentConfidence, IncidentSource, Prisma } from '@prisma/client';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { IncidentsRepository, NewIncident } from './incidents.repository';
 
 const NOW = new Date('2026-10-23T09:00:00.000Z');
@@ -48,7 +49,7 @@ describe('IncidentsRepository (task 1.1)', () => {
       },
     };
     client = tx as unknown as Prisma.TransactionClient;
-    repository = new IncidentsRepository();
+    repository = new IncidentsRepository({} as PrismaService);
   });
 
   it('locks by id and distinguishes a missing incident', async () => {
@@ -208,7 +209,7 @@ describe('IncidentsRepository status updates (task 4.1)', () => {
       incident: { update: jest.fn().mockResolvedValue(ROW) },
     };
     const client = tx as unknown as Prisma.TransactionClient;
-    const repository = new IncidentsRepository();
+    const repository = new IncidentsRepository({} as PrismaService);
     const data = {
       incidentId: ROW.id,
       authorId: 'owner',

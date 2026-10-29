@@ -1,0 +1,52 @@
+import { Prisma } from '@prisma/client';
+import { RosterService } from '../organizations';
+import { RoutingService } from './routing.service';
+
+const tx = { tx: true } as unknown as Prisma.TransactionClient;
+const AT = new Date('2026-10-29T03:00:00Z');
+
+describe('RoutingService (incidents 2.2)', () => {
+  let roster: { tiersAt: jest.Mock };
+  let routing: RoutingService;
+
+  beforeEach(() => {
+    roster = {
+      tiersAt: jest.fn().mockResolvedValue({ primary: ['p'], backup: ['b'], managers: ['m'] }),
+    };
+    routing = new RoutingService(roster as unknown as RosterService);
+  });
+
+  it('routes an attributed event to the primary tier of its organization, staff empty', async () => {
+    await expect(
+      routing.route({ organizationId: 'org-a', contractId: 'c-a' }, AT, tx),
+    ).resolves.toEqual({
+      to: 'NOTIFY_PRIMARY',
+      recipients: { primary: ['p'], backup: ['b'], managers: ['m'], staff: [] },
+    });
+    expect(roster.tiersAt).toHaveBeenCalledWith('org-a', AT, tx);
+  });
+
+  it('keeps NOTIFY_PRIMARY when only later tiers have members; the lifecycle skips empty ones', async () => {
+    roster.tiersAt.mockResolvedValue({ primary: [], backup: [], managers: ['m'] });
+    await expect(
+      routing.route({ organizationId: 'org-a', contractId: null }, AT, tx),
+    ).resolves.toMatchObject({ to: 'NOTIFY_PRIMARY' });
+  });
+
+  it('sends an unattributed event to UNROUTED without reading a roster (BR-36)', async () => {
+    await expect(
+      routing.route({ organizationId: null, contractId: null }, AT, tx),
+    ).resolves.toEqual({
+      to: 'UNROUTED',
+      recipients: { primary: [], backup: [], managers: [], staff: [] },
+    });
+    expect(roster.tiersAt).not.toHaveBeenCalled();
+  });
+
+  it('sends an organization with nobody to alert to UNROUTED', async () => {
+    roster.tiersAt.mockResolvedValue({ primary: [], backup: [], managers: [] });
+    await expect(
+      routing.route({ organizationId: 'org-a', contractId: 'c-a' }, AT, tx),
+    ).resolves.toMatchObject({ to: 'UNROUTED' });
+  });
+});

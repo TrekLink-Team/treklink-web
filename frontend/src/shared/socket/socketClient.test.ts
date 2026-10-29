@@ -89,6 +89,17 @@ describe('socketClient', () => {
     expect(handshake()).toEqual({ token: 'access-1', after: 11 });
   });
 
+  it('delivers a personal incident.alert (seq 0) without reading or moving the cursor', () => {
+    const types: string[] = [];
+    live.subscribeLive((message) => message.kind === 'entry' && types.push(message.entry.type));
+    live.startLive(() => 'access-1');
+    fake.receive('stream', entry(10));
+    fake.receive('stream', entry(0, 'incident.alert'));
+    fake.receive('stream', entry(0, 'incident.alert'));
+    expect(types).toEqual(['device.position', 'incident.alert', 'incident.alert']);
+    expect(sessionStorage.getItem('treklink.live.cursor')).toBe('10');
+  });
+
   it('is paused from disconnect until replay.done (MSG32)', () => {
     const states: boolean[] = [];
     live.subscribeLive((message) => message.kind === 'paused' && states.push(message.paused));

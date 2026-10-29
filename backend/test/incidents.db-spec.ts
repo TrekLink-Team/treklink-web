@@ -21,6 +21,7 @@ import {
   IncidentTransitionReason,
 } from '../src/modules/incidents/incident-lifecycle';
 import { IncidentsService } from '../src/modules/incidents/incidents.service';
+import { OrganizationsService } from '../src/modules/organizations';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
 import { ParameterService } from '../src/modules/platform/parameters/parameter.service';
@@ -38,7 +39,8 @@ if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
 // Fixtures carry a fresh run ID; the local container or CI service is discarded after verification.
 describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
   const prisma = new PrismaService({ datasourceUrl: databaseUrl });
-  const repository = new IncidentsRepository();
+  const repository = new IncidentsRepository(prisma);
+  const organizations = { memberNames: () => Promise.resolve(new Map<string, string>()) };
   const alerts = new AlertDeliveriesRepository();
   const reports = new AuthorityReportsRepository();
   const emitter = new EventEmitter2();
@@ -682,7 +684,13 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
   });
 
   describe('owner actions through IncidentsService (task 4.1)', () => {
-    const service = new IncidentsService(repository, lifecycle, parameters, events);
+    const service = new IncidentsService(
+      repository,
+      lifecycle,
+      parameters,
+      events,
+      organizations as unknown as OrganizationsService,
+    );
     const caller = (id = operatorId): Caller => ({
       id,
       roles: ['ORG_OPERATOR'],

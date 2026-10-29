@@ -8,6 +8,7 @@ import { ParameterService } from '../platform/parameters/parameter.service';
 import { IncidentLifecycle } from './incident-lifecycle';
 import { IncidentsRepository } from './incidents.repository';
 import { IncidentsService } from './incidents.service';
+import { OrganizationsService } from '../organizations';
 
 const OPERATOR: Caller = { id: 'owner', roles: ['ORG_OPERATOR'], organizationId: 'org-a' };
 const STAFF: Caller = { id: 'staff', roles: ['STAFF'], organizationId: null };
@@ -33,11 +34,13 @@ describe('IncidentsService task 4.1', () => {
     lockById: jest.Mock;
     insertStatusUpdate: jest.Mock;
     resetStatusDue: jest.Mock;
+    latestAcknowledgement?: jest.Mock;
   };
   let lifecycle: { apply: jest.Mock };
   let parameters: { get: jest.Mock };
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let service: IncidentsService;
+  let organizations: { memberNames: jest.Mock };
   const applyCall = (n: number) =>
     lifecycle.apply.mock.calls[n] as Parameters<IncidentLifecycle['apply']>;
 
@@ -54,6 +57,7 @@ describe('IncidentsService task 4.1', () => {
     };
     lifecycle = { apply: jest.fn().mockResolvedValue({ id: 'incident', state: 'APPLIED' }) };
     parameters = { get: jest.fn().mockResolvedValue(30) };
+    organizations = { memberNames: jest.fn().mockResolvedValue(new Map()) };
     events = {
       transaction: jest.fn((work: (client: Prisma.TransactionClient) => unknown) => work(tx)),
       emitAfterCommit: jest.fn(),
@@ -63,6 +67,7 @@ describe('IncidentsService task 4.1', () => {
       lifecycle as unknown as IncidentLifecycle,
       parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
+      organizations as unknown as OrganizationsService,
     );
   });
 
@@ -122,14 +127,64 @@ describe('IncidentsService task 4.1', () => {
       expect(applyCall(1)[4]).toMatchObject({ note: undefined });
     });
 
-    it('passes the locked ACKNOWLEDGED state so a concurrent loser gets the lifecycle ALREADY_OWNED', async () => {
+    it('passes the locked ACKNOWLEDGED state so a concurrent loser gets MSG27 with the owner and time', async () => {
       current = row('ACKNOWLEDGED', { ownerId: 'winner' });
       const owned = new DomainException(HttpStatus.CONFLICT, ErrorCode.ALREADY_OWNED, 'owned');
       lifecycle.apply.mockRejectedValueOnce(owned);
-      await expect(service.acknowledge('incident', { expectedVersion: 4 }, OPERATOR)).rejects.toBe(
-        owned,
-      );
+      repository.latestAcknowledgement = jest
+        .fn()
+        .mockResolvedValue({ actorId: 'winner', createdAt: new Date('2026-10-20T03:15:00Z') });
+      organizations.memberNames.mockResolvedValue(new Map([['winner', 'Pham Van D']]));
+      await expect(
+        service.acknowledge('incident', { expectedVersion: 4 }, OPERATOR),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ALREADY_OWNED,
+        message: 'Pham Van D took this incident at 10:15.',
+      });
       expect(applyCall(0)[1]).toBe('ACKNOWLEDGED');
+      expect(organizations.memberNames).toHaveBeenCalledWith(['winner']);
+    });
+
+    it('falls back to a generic MSG27 when no acknowledgement row is readable', async () => {
+      lifecycle.apply.mockRejectedValueOnce(
+        new DomainException(HttpStatus.CONFLICT, ErrorCode.ALREADY_OWNED, 'owned'),
+      );
+      repository.latestAcknowledgement = jest.fn().mockResolvedValue(null);
+      await expect(
+        service.acknowledge('incident', { expectedVersion: 4 }, OPERATOR),
+      ).rejects.toMatchObject({ message: 'Another member took this incident.' });
+      expect(organizations.memberNames).toHaveBeenCalledWith([]);
+    });
+
+    it('rethrows any other acknowledge failure unchanged', async () => {
+      const other = new DomainException(HttpStatus.CONFLICT, ErrorCode.STALE_VERSION, 'stale');
+      lifecycle.apply.mockRejectedValueOnce(other);
+      await expect(service.acknowledge('incident', { expectedVersion: 4 }, OPERATOR)).rejects.toBe(
+        other,
+      );
+    });
+
+    it('declares a false alarm with the trimmed reason as the note', async () => {
+      await service.falseAlarm(
+        'incident',
+        { expectedVersion: 2, reason: '  pressed by mistake ' },
+        OPERATOR,
+      );
+      expect(applyCall(0)[2]).toBe('FALSE_ALARM');
+      expect(applyCall(0)[4]).toMatchObject({
+        code: 'FALSE_ALARM',
+        expectedVersion: 2,
+        note: 'pressed by mistake',
+      });
+    });
+
+    it('refuses a blank false-alarm reason before opening a transaction', async () => {
+      await expectError(
+        service.falseAlarm('incident', { expectedVersion: 2, reason: ' ' }, OPERATOR),
+        400,
+        ErrorCode.VALIDATION_FAILED,
+      );
+      expect(events.transaction).not.toHaveBeenCalled();
     });
 
     it('refuses a TrekLink account before opening a transaction', async () => {

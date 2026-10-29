@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { AlertChannel, Prisma } from '@prisma/client';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { DevicesModule, DevicesService } from '../devices';
+import { OrganizationsModule, OrganizationsService, RosterService } from '../organizations';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { PlatformModule } from '../platform/platform.module';
@@ -9,22 +14,57 @@ import { AuthorityReportsRepository } from './authority-reports.repository';
 import { IncidentsModule } from './incidents.module';
 import { IncidentsRepository } from './incidents.repository';
 import { IncidentLifecycle } from './incident-lifecycle';
+import { ContractsService, RentalsModule } from '../rentals';
+import { IncidentIngress } from './incident-ingress';
 
 @Module({
   providers: [
     { provide: TransactionalEvents, useValue: {} },
     { provide: ParameterService, useValue: {} },
+    { provide: PrismaService, useValue: {} },
+    { provide: EventEmitter2, useValue: {} },
+    // Global in the application (ConfigModule.forRoot); stood in here.
+    { provide: ConfigService, useValue: {} },
   ],
-  exports: [TransactionalEvents, ParameterService],
+  exports: [TransactionalEvents, ParameterService, PrismaService, EventEmitter2, ConfigService],
 })
 class TestPlatformModule {}
 
+// The exported services of the modules incidents imports (platform design Figure 3).
+@Module({
+  providers: [
+    { provide: OrganizationsService, useValue: {} },
+    { provide: RosterService, useValue: {} },
+  ],
+  exports: [OrganizationsService, RosterService],
+})
+class TestOrganizationsModule {}
+
+@Module({
+  providers: [{ provide: ContractsService, useValue: {} }],
+  exports: [ContractsService],
+})
+class TestRentalsModule {}
+
+@Module({
+  providers: [{ provide: DevicesService, useValue: {} }],
+  exports: [DevicesService],
+})
+class TestDevicesModule {}
+
 describe('incident persistence (task 1.1)', () => {
-  it('registers the private repositories and lifecycle with only platform dependencies', async () => {
+  it('registers the private repositories, lifecycle and ingress over its Figure 3 dependencies', async () => {
     const moduleRef = await Test.createTestingModule({ imports: [IncidentsModule] })
       .overrideModule(PlatformModule)
       .useModule(TestPlatformModule)
+      .overrideModule(OrganizationsModule)
+      .useModule(TestOrganizationsModule)
+      .overrideModule(RentalsModule)
+      .useModule(TestRentalsModule)
+      .overrideModule(DevicesModule)
+      .useModule(TestDevicesModule)
       .compile();
+    expect(moduleRef.get(IncidentIngress)).toBeInstanceOf(IncidentIngress);
     expect(moduleRef.get(IncidentsRepository)).toBeInstanceOf(IncidentsRepository);
     expect(moduleRef.get(AlertDeliveriesRepository)).toBeInstanceOf(AlertDeliveriesRepository);
     expect(moduleRef.get(AuthorityReportsRepository)).toBeInstanceOf(AuthorityReportsRepository);
