@@ -92,3 +92,29 @@ Every edit adds a read or a call. None changes an existing behaviour of that lan
 
 - An SOS text carries no position on the wire (firmware ground truth, the SOS PortNum row): the fix arrives as a separate `POSITION_APP` packet, which reaches an incident only through `onPosition`. Until `onPosition` lands, an incident shows "Position unavailable". Recorded in incidents 2.3 and gateway-sync 2.3.
 - Running `npm ci` inside `backend/` rebuilds the shared root `node_modules` for that workspace only and drops the frontend packages. Run it at the repository root.
+
+## Completion round (2026-10-29, UT and the position hand-off)
+
+Asked by HoangTK: finish the MF-03 scope with position handling, the HTTP e2e of 6.2, and the D-053 coverage bar, then mark PR #114 ready.
+
+### Changes
+
+- `IncidentIngress.onPosition`: a plotted position joins the device's running episode (not `RESOLVED` or `FALSE_ALARM`) when it is at most `gatewaySync.retroTagGraceSeconds` older than the first SOS. It sets the last position when none is known, or moves it unless the fix is older than the last SOS, and emits `incident.changed` after commit when it moved. Ingestion calls it for every plotted position that is not an SOS and links the event to a joined incident.
+- `appendEvent` no longer takes a position, and `SosEvent` carries none: an SOS text never has one (FGT), so those branches could not run. `eventCount` stays a count of SOS packets, and a position never moves `lastEventAt`, the SOS correlation anchor.
+- Not built, outside the happy path: cadence `SUSPECTED` creation, and tagging positions stored before the SOS arrived (incidents 2.3 stays open).
+- `frontend/src/app/router.tsx`: the dev-only design-system loader is a named function, so the production branch is one line. Behaviour is unchanged.
+
+### Tests added
+
+- Backend: `test/incidents.e2e-spec.ts` (30 tests, api-design 01 to 07 on the real HTTP pipeline); `onPosition` and `movePosition` unit cases; the position step of `test/mf03.db-spec.ts`; unit tests for the repository and service lines this PR's changed files did not yet cover (`ContractsRepository` delegate calls, `OrganizationsService.channelKeyVersion` and `labelsOf`, the `IngestionRepository` reads and writes, the `LiveGateway` refused handshake).
+- Frontend: `src/pages/incident-pages.test.tsx` (16 tests), the incident routes and the production build branch in `router.test.tsx`, and the storage-blocked path of `socketClient`.
+
+### Coverage method
+
+D-053 measures the files the PR changes through the CI coverage report, and CI produces none. The backend figure merges the Jest coverage of the unit, e2e and database runs (`istanbul-lib-coverage`, configs rooted at `backend/` in the scratchpad, not committed). The frontend figure uses `@vitest/coverage-v8` 3.2.7, installed with `--no-save` so no dependency enters the PR. One frontend run failed a test while the backend suites ran on the same CPU; three later runs passed, so the failure is load timing, not a defect (unverified which test).
+
+### Verification, completion round
+
+- Backend, in CI order on a fresh disposable Postgres 16 (removed afterwards, Neon untouched): migrations applied; demo seed created 35 row groups and a second run created none; lint and the boundary check passed (255 files, 9 modules, acyclic); typecheck and build passed. Unit: 107 suites, 1175 tests. Database: 5 suites, 44 tests, `mf03.db-spec.ts` now including the position step. HTTP e2e: 10 suites, 99 tests. The `organizations` unit suites were rerun after their last added cases: 23 tests passed.
+- Merged coverage of the 22 changed backend production files: 100% lines on every file; branches at least 83.3% on every file (`incidents.controller.ts` 83.3%, the lowest).
+- Frontend: typecheck, lint and `vite build` passed; 312 tests passed. Coverage of the 7 changed source files: 100% lines on every file; branches at least 88.5% (`navigation.ts`).

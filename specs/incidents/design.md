@@ -133,7 +133,11 @@ queue through its web inbox row.
    episode on an open incident is the same emergency still running.
 
 `onPosition(event, tx)` appends positions of an open incident (`gatewaySync.retroTagGraceSeconds`
-before the SOS included) and counts cadence for `SUSPECTED` creation.
+before the SOS included) and counts cadence for `SUSPECTED` creation. A position joins only an
+episode still running (not `RESOLVED` or `FALSE_ALARM`). An SOS text carries no position on the wire
+(FGT), so the incident's last position comes from these packets: it is set when none is known, and
+moved unless the fix is older than the last SOS. Positions move neither `eventCount` nor
+`lastEventAt`, the SOS correlation anchor.
 
 ---
 
