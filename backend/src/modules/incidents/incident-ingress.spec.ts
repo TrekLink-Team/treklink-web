@@ -1,5 +1,7 @@
 import { Incident, IncidentState, Prisma } from '@prisma/client';
-import { IncidentIngress, SosEvent } from './incident-ingress';
+import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ParameterService } from '../platform/parameters/parameter.service';
+import { IncidentIngress, PositionEvent, SosEvent } from './incident-ingress';
 import { IncidentLifecycle } from './incident-lifecycle';
 import { IncidentsRepository } from './incidents.repository';
 import { RoutingService } from './routing.service';
@@ -14,8 +16,14 @@ const event = (overrides: Partial<SosEvent> = {}): SosEvent => ({
   occurredAt: new Date('2026-10-29T03:00:00Z'),
   organizationId: 'org-a',
   contractId: 'c-a',
-  latitude: 21.03,
-  longitude: 105.85,
+  ...overrides,
+});
+
+const position = (overrides: Partial<PositionEvent> = {}): PositionEvent => ({
+  deviceId: 'dev-1',
+  occurredAt: new Date('2026-10-29T03:01:00Z'),
+  latitude: 11.561,
+  longitude: 108.552,
   ...overrides,
 });
 
@@ -24,6 +32,9 @@ const incident = (state: IncidentState, overrides: Partial<Incident> = {}): Inci
     id: 'inc-1',
     state,
     version: 3,
+    organizationId: 'org-a',
+    ownerId: null,
+    firstEventAt: new Date('2026-10-29T02:45:00Z'),
     lastEventAt: new Date('2026-10-29T02:50:00Z'),
     stateChangedAt: new Date('2026-10-29T02:55:00Z'),
     reopenWindowEndsAt: null,
@@ -36,9 +47,11 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     insert: jest.Mock;
     insertTransition: jest.Mock;
     appendEvent: jest.Mock;
+    movePosition: jest.Mock;
   };
   let lifecycle: { apply: jest.Mock };
   let routing: { route: jest.Mock };
+  let events: { emitAfterCommit: jest.Mock };
   let ingress: IncidentIngress;
 
   beforeEach(() => {
@@ -49,7 +62,9 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
         .mockResolvedValue({ incident: incident('DETECTED', { version: 0 }), created: true }),
       insertTransition: jest.fn().mockResolvedValue({ id: 't-1' }),
       appendEvent: jest.fn().mockImplementation((row: Incident) => Promise.resolve(row)),
+      movePosition: jest.fn().mockImplementation((row: Incident) => Promise.resolve(row)),
     };
+    events = { emitAfterCommit: jest.fn() };
     lifecycle = { apply: jest.fn().mockResolvedValue(incident('NOTIFY_PRIMARY')) };
     routing = {
       route: jest.fn().mockResolvedValue({ to: 'NOTIFY_PRIMARY', recipients: RECIPIENTS }),
@@ -58,6 +73,8 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
       repository as unknown as IncidentsRepository,
       lifecycle as unknown as IncidentLifecycle,
       routing as unknown as RoutingService,
+      { get: jest.fn().mockResolvedValue(60) } as unknown as ParameterService,
+      events as unknown as TransactionalEvents,
     );
   });
 
@@ -72,8 +89,6 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
         openedByEventId: 'evt-1',
         organizationId: 'org-a',
         contractId: 'c-a',
-        lastLatitude: 21.03,
-        lastLongitude: 105.85,
       }),
       expect.any(Date),
       tx,
@@ -100,14 +115,11 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     expect(reason).toMatchObject({ code: 'ROUTED', recipients: RECIPIENTS, refEventId: 'evt-1' });
   });
 
-  it('routes an unattributed SOS to UNROUTED with no position when none was plotted', async () => {
+  it('routes an unattributed SOS to UNROUTED', async () => {
     routing.route.mockResolvedValue({ to: 'UNROUTED', recipients: RECIPIENTS });
-    await ingress.onSos(
-      event({ organizationId: null, contractId: null, latitude: undefined, longitude: undefined }),
-      tx,
-    );
+    await ingress.onSos(event({ organizationId: null, contractId: null }), tx);
     expect(repository.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ lastLatitude: null, lastLongitude: null, organizationId: null }),
+      expect.objectContaining({ organizationId: null, contractId: null }),
       expect.any(Date),
       tx,
     );
@@ -118,7 +130,7 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     const winner = incident('NOTIFY_PRIMARY');
     repository.insert.mockResolvedValue({ incident: winner, created: false });
     await expect(ingress.onSos(event(), tx)).resolves.toBe(winner);
-    expect(repository.appendEvent).toHaveBeenCalledWith(winner, expect.any(Object), tx);
+    expect(repository.appendEvent).toHaveBeenCalledWith(winner, event().occurredAt, tx);
     expect(repository.insertTransition).not.toHaveBeenCalled();
     expect(lifecycle.apply).not.toHaveBeenCalled();
   });
@@ -129,7 +141,7 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
       const open = incident(state);
       repository.lockOpenByDevice.mockResolvedValue(open);
       await ingress.onSos(event(), tx);
-      expect(repository.appendEvent).toHaveBeenCalledWith(open, expect.any(Object), tx);
+      expect(repository.appendEvent).toHaveBeenCalledWith(open, event().occurredAt, tx);
       expect(repository.insert).not.toHaveBeenCalled();
       expect(lifecycle.apply).not.toHaveBeenCalled();
     },
@@ -171,5 +183,53 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     repository.lockOpenByDevice.mockResolvedValue(incident('RESOLVED'));
     await ingress.onSos(event(), tx);
     expect(lifecycle.apply).not.toHaveBeenCalled();
+  });
+
+  describe('onPosition', () => {
+    it('joins a running episode, moves its last position and announces it after commit', async () => {
+      const open = incident('ACKNOWLEDGED', { ownerId: 'u-1' });
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      await expect(ingress.onPosition(position(), tx)).resolves.toBe(open);
+      expect(repository.movePosition).toHaveBeenCalledWith(open, position(), tx);
+      expect(events.emitAfterCommit).toHaveBeenCalledWith('incident.changed', {
+        incidentId: 'inc-1',
+        organizationId: 'org-a',
+        state: 'ACKNOWLEDGED',
+        tier: null,
+        ownerId: 'u-1',
+      });
+    });
+
+    it('tags a position up to the grace before the first SOS into the episode', async () => {
+      repository.lockOpenByDevice.mockResolvedValue(incident('NOTIFY_PRIMARY'));
+      await ingress.onPosition(position({ occurredAt: new Date('2026-10-29T02:44:00Z') }), tx);
+      expect(repository.movePosition).toHaveBeenCalled();
+    });
+
+    it('joins without announcing when an older position does not move the last one', async () => {
+      const open = incident('RESPONDING');
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      repository.movePosition.mockResolvedValue(null);
+      await expect(ingress.onPosition(position(), tx)).resolves.toBe(open);
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['no open incident', null],
+      ['a RESOLVED episode', incident('RESOLVED')],
+      ['a FALSE_ALARM episode', incident('FALSE_ALARM')],
+    ])('ignores a position with %s', async (_label, open) => {
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      await expect(ingress.onPosition(position(), tx)).resolves.toBeNull();
+      expect(repository.movePosition).not.toHaveBeenCalled();
+    });
+
+    it('ignores a position older than the grace before the first SOS', async () => {
+      repository.lockOpenByDevice.mockResolvedValue(incident('NOTIFY_PRIMARY'));
+      await expect(
+        ingress.onPosition(position({ occurredAt: new Date('2026-10-29T02:43:59Z') }), tx),
+      ).resolves.toBeNull();
+      expect(repository.movePosition).not.toHaveBeenCalled();
+    });
   });
 });

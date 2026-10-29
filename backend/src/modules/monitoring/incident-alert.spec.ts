@@ -1,6 +1,23 @@
 import { INCIDENT_ALERT } from '../incidents';
 import { LiveGateway } from './live.gateway';
 
+describe('LiveGateway handshake', () => {
+  it('refuses a socket with UNAUTHENTICATED when the token check fails', async () => {
+    const authenticate = jest.fn().mockRejectedValue(new Error('jwt malformed'));
+    const gateway = new LiveGateway({ authenticate } as never, {} as never);
+    let middleware: ((socket: unknown, next: (error?: Error) => void) => void) | undefined;
+    gateway.afterInit({
+      use: (fn: typeof middleware) => {
+        middleware = fn;
+      },
+    } as never);
+    const refused = await new Promise<Error | undefined>((resolve) =>
+      middleware!({ handshake: { auth: { token: 'bad' } }, data: {} }, resolve),
+    );
+    expect(refused?.message).toBe('UNAUTHENTICATED');
+  });
+});
+
 describe('LiveGateway.onIncidentAlert (monitoring 2.3)', () => {
   it('sends the alert to the recipient room only, outside the stream sequence', () => {
     const emit = jest.fn();
