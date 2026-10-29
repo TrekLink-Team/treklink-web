@@ -24,6 +24,7 @@ export interface PositionEvent {
 }
 
 const REOPENABLE = new Set(['RESOLVED', 'FALSE_ALARM']);
+const NO_RECIPIENTS = { primary: [], backup: [], managers: [], staff: [] };
 
 // Task 2.3 (design §4). gateway-sync calls `onSos` and `onPosition` inside the ingestion transaction,
 // so the incident, its history, the outbox rows and the field event commit together. A replayed
@@ -71,7 +72,23 @@ export class IncidentIngress {
         tx,
       );
     }
-    // Steps 4 and 5: any other open episode is the same emergency still running.
+    // A newer SOS that cannot reopen the ended episode (past its window, or unattributed inside it)
+    // must not be swallowed: the device closes the old episode and the SOS opens a new incident, in
+    // this transaction (PR #114 review). Without this, nothing closes a RESOLVED incident until the
+    // closeAfterReopenWindow job (task 3.1) exists.
+    if (REOPENABLE.has(open.state) && event.occurredAt >= open.stateChangedAt) {
+      await this.lifecycle.apply(
+        open.id,
+        open.state,
+        'CLOSED',
+        { kind: 'DEVICE' },
+        { code: 'REOPEN_WINDOW_ENDED', at, recipients: NO_RECIPIENTS, refEventId: event.eventId },
+        tx,
+      );
+      return this.open(event, at, tx);
+    }
+    // Steps 4 and 5: any other open episode is the same emergency still running. A late SOS that
+    // occurred before the episode ended is recorded on it.
     return this.repository.appendEvent(open, event.occurredAt, tx);
   }
 

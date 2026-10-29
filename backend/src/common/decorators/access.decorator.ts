@@ -72,3 +72,10 @@ export const callerOf = (_data: unknown, context: ExecutionContext): Caller => {
 };
 
 export const CurrentCaller = createParamDecorator(callerOf);
+
+// The caller's CASL ability, which JwtAuthGuard set, for a record-level scope a module below `auth`
+// decides itself (incidents reads, PR #114 review).
+export const abilityOf = (_data: unknown, context: ExecutionContext): PolicyAbility =>
+  context.switchToHttp().getRequest<{ user: { ability: PolicyAbility } }>().user.ability;
+
+export const CurrentAbility = createParamDecorator(abilityOf);

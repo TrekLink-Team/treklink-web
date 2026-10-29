@@ -12,6 +12,7 @@ import {
   IncidentRecipients,
   IncidentTransitionReason,
 } from './incident-lifecycle';
+import { clockTime } from './display-time';
 import { IncidentsRepository } from './incidents.repository';
 
 export interface AcknowledgeInput {
@@ -51,13 +52,6 @@ type MemberActor = Extract<IncidentActor, { kind: 'MEMBER' }>;
 const NO_RECIPIENTS: IncidentRecipients = { primary: [], backup: [], managers: [], staff: [] };
 const OWNED_STATES: readonly IncidentState[] = ['ACKNOWLEDGED', 'RESPONDING'];
 const MEMBER_ROLES = ['ORG_OPERATOR', 'ORG_MANAGER'];
-// MSG27 time, HH:mm in the display timezone.
-const CLOCK = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Asia/Ho_Chi_Minh',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
 
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Incident not found.');
@@ -208,7 +202,7 @@ export class IncidentsService {
     const latest = await this.repository.latestAcknowledgement(id);
     const names = await this.organizations.memberNames(latest?.actorId ? [latest.actorId] : []);
     const name = (latest?.actorId && names.get(latest.actorId)) || 'Another member';
-    const time = latest ? ` at ${CLOCK.format(latest.createdAt)}` : '';
+    const time = latest ? ` at ${clockTime(latest.createdAt)}` : '';
     return new DomainException(
       HttpStatus.CONFLICT,
       ErrorCode.ALREADY_OWNED,

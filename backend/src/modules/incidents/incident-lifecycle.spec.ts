@@ -448,6 +448,23 @@ describe('IncidentLifecycle task 1.2', () => {
     },
   );
 
+  it.each(['RESOLVED', 'FALSE_ALARM'] as const)(
+    'lets a superseding SOS (DEVICE) close a %s episode before its window ends',
+    async (from) => {
+      current = row(from, { reopenWindowEndsAt: AFTER });
+      await expect(
+        apply('CLOSED', 'REOPEN_WINDOW_ENDED', { kind: 'DEVICE' }),
+      ).resolves.toMatchObject({ state: 'CLOSED' });
+    },
+  );
+
+  it('keeps every other edge closed to a DEVICE actor', async () => {
+    current = row('NOTIFY_PRIMARY', { tierDeadlineAt: BEFORE });
+    await expect(apply('NOTIFY_BACKUP', 'TIER_TIMEOUT', { kind: 'DEVICE' })).rejects.toMatchObject({
+      errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+    });
+  });
+
   it('requires an actually empty tier and a deactivated owner for the respective system actions', async () => {
     current = row('NOTIFY_PRIMARY');
     await expect(apply('NOTIFY_BACKUP', 'EMPTY_TIER')).rejects.toMatchObject({

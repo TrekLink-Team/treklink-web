@@ -132,16 +132,16 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
   };
 
   // A stock position packet of the same node, as the SOS helper sends next to the text.
-  const fix = (): CanonicalEnvelope => {
+  const fix = (aheadSeconds = 0, latitude_i = 115544000): CanonicalEnvelope => {
     packetId += 1;
-    const time = Math.ceil(Date.now() / 1000);
+    const time = Math.ceil(Date.now() / 1000) + aheadSeconds;
     const message = {
       id: packetId,
       from: nodeNum,
       timestamp: time,
       type: 'position' as const,
       sender: `!${nodeNum.toString(16)}`,
-      payload: { time, latitude_i: 115544000, longitude_i: 1085381000, altitude: 1320 },
+      payload: { time, latitude_i, longitude_i: 1085381000, altitude: 1320 },
     };
     return {
       ingress: IngressPath.MQTT_NODE,
@@ -287,12 +287,23 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     );
 
     // 1b. The device's position packet joins the episode and gives the incident its position.
-    await expect(ingestion.ingest(fix())).resolves.toBe('ACCEPTED');
-    expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toMatchObject({
+    const latest = fix(4);
+    await expect(ingestion.ingest(latest)).resolves.toBe('ACCEPTED');
+    const located = await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } });
+    expect(located).toMatchObject({
       lastLatitude: 11.5544,
       lastLongitude: 108.5381,
       eventCount: 1,
       version: incident.version,
+    });
+    expect(located.lastPositionAt?.getTime()).toBe(Number(latest.message.timestamp) * 1000);
+
+    // 1c. An out-of-order fix, newer than the SOS but older than the stored fix, joins the episode
+    //     without overwriting the newer position (PR #114 review).
+    await expect(ingestion.ingest(fix(2, 116000000))).resolves.toBe('ACCEPTED');
+    expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toMatchObject({
+      lastLatitude: 11.5544,
+      lastPositionAt: located.lastPositionAt,
     });
     const positionEvent = await prisma.fieldEvent.findFirstOrThrow({
       where: { deviceId, kind: 'POSITION' },
@@ -372,5 +383,50 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     await expect(ingestion.ingest(sos(2))).resolves.toBe('ACCEPTED');
     const reopened = await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } });
     expect(reopened).toMatchObject({ state: 'NOTIFY_PRIMARY', reopenCount: 1, ownerId: null });
+
+    // Ends the open incident as a false alarm through the API path.
+    const falseAlarm = async (id: string) => {
+      const current = await prisma.incident.findUniqueOrThrow({ where: { id } });
+      await incidents.falseAlarm(
+        id,
+        { expectedVersion: current.version, reason: 'Pressed by mistake' },
+        caller(operatorId),
+      );
+    };
+    const openIncidents = () =>
+      prisma.incident.findMany({ where: { deviceId, state: { not: 'CLOSED' } } });
+
+    // 8. Past the reopen window, a new SOS closes the ended episode and opens a new incident
+    //    instead of being swallowed (PR #114 review).
+    await falseAlarm(incident.id);
+    await prisma.incident.update({
+      where: { id: incident.id },
+      data: { reopenWindowEndsAt: new Date(Date.now() - 1000) },
+    });
+    await expect(ingestion.ingest(sos(3))).resolves.toBe('ACCEPTED');
+    expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toMatchObject({
+      state: 'CLOSED',
+    });
+    const [second] = await openIncidents();
+    expect(second).toMatchObject({ state: 'NOTIFY_PRIMARY', organizationId, eventCount: 1 });
+    expect(second.id).not.toBe(incident.id);
+    const closing = await prisma.incidentTransition.findFirstOrThrow({
+      where: { incidentId: incident.id, toState: 'CLOSED' },
+    });
+    expect(closing).toMatchObject({ fromState: 'FALSE_ALARM', reason: 'REOPEN_WINDOW_ENDED' });
+
+    // 9. Inside the window, an unattributed SOS cannot reopen the episode, so it too closes it and
+    //    opens a new, UNROUTED incident.
+    await falseAlarm(second.id);
+    await prisma.contractDevice.updateMany({
+      where: { deviceId },
+      data: { checkedInAt: new Date(Date.now() - 10 * 60_000) },
+    });
+    await expect(ingestion.ingest(sos(4))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
+    expect(await prisma.incident.findUniqueOrThrow({ where: { id: second.id } })).toMatchObject({
+      state: 'CLOSED',
+    });
+    const [third] = await openIncidents();
+    expect(third).toMatchObject({ state: 'UNROUTED', organizationId: null, contractId: null });
   });
 });

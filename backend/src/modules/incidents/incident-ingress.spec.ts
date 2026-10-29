@@ -168,21 +168,53 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
 
   it.each([
     ['after the window', { occurredAt: new Date('2026-10-29T04:00:00Z') }],
-    ['before the resolution', { occurredAt: new Date('2026-10-29T02:54:00Z') }],
-    ['unattributed', { organizationId: null, contractId: null }],
-  ])('appends instead of reopening when the SOS is %s', async (_label, overrides) => {
-    repository.lockOpenByDevice.mockResolvedValue(
-      incident('FALSE_ALARM', { reopenWindowEndsAt: new Date('2026-10-29T03:55:00Z') }),
-    );
-    await ingress.onSos(event(overrides), tx);
-    expect(repository.appendEvent).toHaveBeenCalled();
-    expect(lifecycle.apply).not.toHaveBeenCalled();
-  });
+    ['unattributed inside the window', { organizationId: null, contractId: null }],
+  ])(
+    'closes the ended episode and opens a new incident when the SOS is %s (PR #114 review)',
+    async (_label, overrides) => {
+      const ended = incident('FALSE_ALARM', {
+        reopenWindowEndsAt: new Date('2026-10-29T03:55:00Z'),
+      });
+      repository.lockOpenByDevice.mockResolvedValue(ended);
+      await ingress.onSos(event(overrides), tx);
+      const [id, expected, to, actor, reason] = lifecycle.apply.mock.calls[0] as Parameters<
+        IncidentLifecycle['apply']
+      >;
+      expect([id, expected, to, actor]).toEqual([
+        'inc-1',
+        'FALSE_ALARM',
+        'CLOSED',
+        { kind: 'DEVICE' },
+      ]);
+      expect(reason).toMatchObject({ code: 'REOPEN_WINDOW_ENDED', refEventId: 'evt-1' });
+      expect(repository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ openedByEventId: 'evt-1' }),
+        expect.any(Date),
+        tx,
+      );
+      expect((lifecycle.apply.mock.calls[1] as unknown[])[3]).toEqual({ kind: 'SYSTEM' });
+      expect(repository.appendEvent).not.toHaveBeenCalled();
+    },
+  );
 
-  it('appends to a RESOLVED episode whose window was never set', async () => {
+  it('closes a RESOLVED episode whose window was never set and opens a new incident', async () => {
     repository.lockOpenByDevice.mockResolvedValue(incident('RESOLVED'));
     await ingress.onSos(event(), tx);
+    expect((lifecycle.apply.mock.calls[0] as unknown[])[2]).toBe('CLOSED');
+    expect(repository.insert).toHaveBeenCalled();
+  });
+
+  it('records a late SOS that occurred before the episode ended on that episode', async () => {
+    const resolved = incident('RESOLVED', { reopenWindowEndsAt: new Date('2026-10-29T03:55:00Z') });
+    repository.lockOpenByDevice.mockResolvedValue(resolved);
+    await ingress.onSos(event({ occurredAt: new Date('2026-10-29T02:54:00Z') }), tx);
+    expect(repository.appendEvent).toHaveBeenCalledWith(
+      resolved,
+      new Date('2026-10-29T02:54:00Z'),
+      tx,
+    );
     expect(lifecycle.apply).not.toHaveBeenCalled();
+    expect(repository.insert).not.toHaveBeenCalled();
   });
 
   describe('onPosition', () => {

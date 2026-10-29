@@ -1335,6 +1335,7 @@ model Incident {
   eventCount         Int                @default(1)
   lastLatitude       Float?
   lastLongitude      Float?
+  lastPositionAt     DateTime?          @db.Timestamptz(3) // fix time of the last position; an older fix never overwrites it
   // owner and timers (NFR-REL-07: every non-terminal state has an owner or a pending deadline)
   ownerId            String?
   owner              User?              @relation("Incident_ownerId", fields: [ownerId], references: [id])
