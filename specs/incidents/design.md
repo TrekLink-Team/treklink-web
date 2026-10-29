@@ -64,10 +64,12 @@ stateDiagram-v2
     UNROUTED --> REPORTED : Staff report
     ESCALATED --> REPORTED : Staff report
     REPORTED --> CLOSED : authority case closed
-    RESOLVED --> NOTIFY_PRIMARY : new SOS in reopen window
-    FALSE_ALARM --> NOTIFY_PRIMARY : new SOS in reopen window
-    RESOLVED --> CLOSED : reopen window ends
-    FALSE_ALARM --> CLOSED : reopen window ends
+    RESOLVED --> NOTIFY_PRIMARY : device SOS in reopen window
+    FALSE_ALARM --> NOTIFY_PRIMARY : device SOS in reopen window
+    RESOLVED --> UNROUTED : unattributed device SOS in reopen window
+    FALSE_ALARM --> UNROUTED : unattributed device SOS in reopen window
+    RESOLVED --> CLOSED : system, reopen window ended
+    FALSE_ALARM --> CLOSED : system, reopen window ended
     CLOSED --> [*]
 ```
 
@@ -75,7 +77,10 @@ stateDiagram-v2
 to `FALSE_ALARM` (D-034 "`NOTIFY_*`"); those two arrows are omitted from the figure for legibility.
 `DETECTED` is transient: routing happens in the creating transaction. The route is the contract and
 organization the triggering field event is attributed to (D-040), never the device's current holder; an
-`UNATTRIBUTED` event routes to `UNROUTED`.
+`UNATTRIBUTED` event routes to `UNROUTED`. A reopen is re-routed the same way (REQ-EVT-10 with
+REQ-EVT-03), so an unattributed SOS, or an organization with nobody to alert, reopens to `UNROUTED`. A
+device packet only opens or reopens an incident; a person ends it, and only the system closes a
+`RESOLVED` or `FALSE_ALARM` episode, once its reopen window has ended (REQ-UBI-05, D-038 rule 2).
 
 | Timer column | Set when entering | Cleared when leaving |
 |---|---|---|
@@ -126,13 +131,20 @@ queue through its web inbox row.
 
 1. Lock the device's incident outside `CLOSED`, if any (`incidents_one_open_per_device`).
 2. If none: create, route (§2), return.
-3. If `RESOLVED` or `FALSE_ALARM` and the event is within the reopen window: reopen. If it cannot
-   reopen (past the window, or unattributed inside it) and it occurred after the episode ended, the
-   device closes the episode (`REOPEN_WINDOW_ENDED`, `DEVICE` actor, allowed before the window ends)
-   and the SOS opens a new incident through step 2, in the same transaction, so no SOS is swallowed
-   (PR #114 review). An earlier SOS uploaded late is appended to the ended episode. The state diagram
-   of §2 still labels that edge "reopen window ends"; its label update goes through the handbook gate
-   (D-067) with the next diagram pass.
+3. If `RESOLVED` or `FALSE_ALARM`, a person has already ended the episode, and no packet ends it
+   (REQ-UBI-05, D-038 rule 2). For an SOS that occurred after the episode ended:
+   - **Past the window**: `reopenWindowEndsAt` is set and both the server time and the SOS occurrence
+     time are at or after it. The window has genuinely ended, so the system closes the episode
+     (`REOPEN_WINDOW_ENDED`, `SYSTEM` actor, under the same window guard as the
+     `closeAfterReopenWindow` job) and the SOS opens a new incident through step 2, in the same
+     transaction, so no SOS is swallowed.
+   - **Otherwise**, the SOS occurred or arrives inside the window, or the window was never set (`null`
+     counts as not ended): the device reopens the episode (`REOPENED`, `DEVICE` actor), re-routed as
+     at creation. An attributed SOS whose organization has someone to alert reopens to
+     `NOTIFY_PRIMARY`; an unattributed SOS, or one whose organization has nobody to alert, reopens to
+     `UNROUTED`, exactly as a new incident would route (REQ-EVT-03). Nothing is closed.
+
+   An earlier SOS uploaded late, which occurred before the episode ended, is appended to it.
 4. Otherwise, if within the correlation window of `lastEventAt`: append (event count, last position,
    `CONFIRMED` upgrade for a suspected incident).
 5. Otherwise (open, but older than the window): append too. One open incident per device means a new
