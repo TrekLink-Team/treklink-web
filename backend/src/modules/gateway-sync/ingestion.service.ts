@@ -28,8 +28,8 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 // The one writer of field events (tasks 2.2 and 2.3, design §2). Every attempt leaves one audit row.
 //
 // Attribution (task 2.4) asks `rentals` for the custody interval at the occurrence time. An SOS is
-// handed to `IncidentIngress.onSos` in the same transaction, and the stored event is linked to the
-// incident it opened or joined (incidents 2.3, MF-03). The position hand-off, `onPosition`, joins later.
+// handed to `IncidentIngress.onSos` in the same transaction, and a plotted position to `onPosition`;
+// the stored event is linked to the incident it opened or joined (incidents 2.3, MF-03).
 @Injectable()
 export class IngestionService {
   constructor(
@@ -188,13 +188,21 @@ export class IngestionService {
             occurredAt: time.occurredAt,
             organizationId: attributed?.organizationId ?? null,
             contractId: attributed?.contractId ?? null,
-            ...(position && plotted
-              ? { latitude: position.latitude, longitude: position.longitude }
-              : {}),
           },
           tx,
         );
         await this.repository.linkIncident(eventId, incident.id, tx);
+      } else if (position && plotted) {
+        const joined = await this.incidents.onPosition(
+          {
+            deviceId: device.id,
+            occurredAt: time.occurredAt,
+            latitude: position.latitude,
+            longitude: position.longitude,
+          },
+          tx,
+        );
+        if (joined) await this.repository.linkIncident(eventId, joined.id, tx);
       }
       await this.repository.insertAudit({ ...audit, deviceId: device.id, outcome }, tx);
 

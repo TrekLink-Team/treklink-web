@@ -84,25 +84,37 @@ export class IncidentsRepository {
     });
   }
 
-  // An SOS joining an open episode (design §4 steps 4 and 5): counters, last event, last position and
-  // the CONFIRMED upgrade. State and version stay, like a status note, so a member's expectedVersion
-  // stays valid. Called with the incident row locked.
+  // An SOS joining an open episode (design §4 steps 4 and 5): the SOS count, the last SOS time and
+  // the CONFIRMED upgrade. An SOS text carries no position (FGT); positions arrive through
+  // `movePosition`. State and version stay, like a status note, so a member's expectedVersion stays
+  // valid. Called with the incident row locked.
   async appendEvent(
     current: Pick<Incident, 'id' | 'lastEventAt'>,
-    event: { occurredAt: Date; latitude?: number; longitude?: number },
+    occurredAt: Date,
     tx: Prisma.TransactionClient,
   ): Promise<Incident> {
-    const later = event.occurredAt > current.lastEventAt;
     return tx.incident.update({
       where: { id: current.id },
       data: {
         eventCount: { increment: 1 },
         confidence: 'CONFIRMED',
-        ...(later ? { lastEventAt: event.occurredAt } : {}),
-        ...(later && event.latitude !== undefined && event.longitude !== undefined
-          ? { lastLatitude: event.latitude, lastLongitude: event.longitude }
-          : {}),
+        ...(occurredAt > current.lastEventAt ? { lastEventAt: occurredAt } : {}),
       },
+    });
+  }
+
+  // A position of the episode (onPosition): it becomes the last known position when the incident has
+  // none yet, or when it is not older than the last SOS. Counters, state and version stay. Null when
+  // the position is older and one is already known. Called with the incident row locked.
+  async movePosition(
+    current: Pick<Incident, 'id' | 'lastEventAt' | 'lastLatitude'>,
+    position: { occurredAt: Date; latitude: number; longitude: number },
+    tx: Prisma.TransactionClient,
+  ): Promise<Incident | null> {
+    if (current.lastLatitude !== null && position.occurredAt < current.lastEventAt) return null;
+    return tx.incident.update({
+      where: { id: current.id },
+      data: { lastLatitude: position.latitude, lastLongitude: position.longitude },
     });
   }
 
