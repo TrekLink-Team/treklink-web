@@ -89,7 +89,10 @@ describe('SePay sandbox (billing task 3.2)', () => {
       applyPayment: jest.fn().mockResolvedValue(undefined),
     };
     payments = {
+      lockInvoiceRequests: jest.fn().mockResolvedValue(undefined),
       findPendingSepay: jest.fn().mockResolvedValue(null),
+      expireIfDue: jest.fn().mockImplementation((row: object) => Promise.resolve(row)),
+      receivedFor: jest.fn().mockResolvedValue([]),
       insertSepayPayment: jest
         .fn()
         .mockImplementation((data: object) => Promise.resolve({ ...pending(), ...data })),
@@ -168,6 +171,20 @@ describe('SePay sandbox (billing task 3.2)', () => {
         TX,
       );
       expect(payment.reference).toMatch(/^TL/);
+      // The waiting check runs under the per-invoice lock, in the insert's transaction.
+      expect(payments.lockInvoiceRequests).toHaveBeenCalledWith('inv-1', TX);
+      expect(payments.findPendingSepay).toHaveBeenCalledWith('inv-1', AT, TX);
+      expect(payments.lockInvoiceRequests.mock.invocationCallOrder[0]).toBeLessThan(
+        payments.findPendingSepay.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('creates nothing when a waiting request is found under the lock (review of #92)', async () => {
+      payments.findPendingSepay.mockResolvedValueOnce(pending());
+      await expect(service.request('inv-1', undefined, MANAGER, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.PAYMENT_PENDING,
+      });
+      expect(payments.insertSepayPayment).not.toHaveBeenCalled();
     });
 
     it('refuses while another request waits, when nothing is due, and for another organization', async () => {
@@ -187,6 +204,25 @@ describe('SePay sandbox (billing task 3.2)', () => {
         errorCode: ErrorCode.NOT_FOUND,
       });
     });
+  });
+
+  it('shows no QR once the request is confirmed or expired (api-design 15)', async () => {
+    await expect(
+      service.vietQr(pending({ status: PaymentStatus.CONFIRMED }) as never),
+    ).resolves.toBeNull();
+    await expect(
+      service.vietQr(pending({ status: PaymentStatus.EXPIRED }) as never),
+    ).resolves.toBeNull();
+  });
+
+  it('expires a stale request on read and lists money recorded for its reference (review of #92)', async () => {
+    payments.expireIfDue.mockResolvedValueOnce(pending({ status: PaymentStatus.EXPIRED }));
+    payments.receivedFor.mockResolvedValueOnce([{ amountVnd: 500_000n, confirmedAt: AT }]);
+    const found = await service.find('p-1', MANAGER, AT);
+    expect(payments.expireIfDue).toHaveBeenCalledWith(expect.objectContaining({ id: 'p-1' }), AT);
+    expect(found.status).toBe(PaymentStatus.EXPIRED);
+    expect(found.receivedLater).toEqual([{ amountVnd: 500_000n, confirmedAt: AT }]);
+    expect(payments.receivedFor).toHaveBeenCalledWith('TL7K2Q9M4D');
   });
 
   it('builds the VietQR URL from configuration and the receiving account', async () => {
@@ -240,6 +276,13 @@ describe('SePay sandbox (billing task 3.2)', () => {
       payments.lockByReference.mockResolvedValueOnce(pending({ status: PaymentStatus.CONFIRMED }));
       await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('duplicate');
       expect(invoices.applyPayment).not.toHaveBeenCalled();
+    });
+
+    it('confirms an expired request itself when its exact amount arrives late (review of #92)', async () => {
+      payments.lockByReference.mockResolvedValueOnce(pending({ status: PaymentStatus.EXPIRED }));
+      await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('confirmed');
+      expect(payments.confirmSepay).toHaveBeenCalledWith('p-1', expect.anything(), TX);
+      expect(payments.insertReceivedSepay).not.toHaveBeenCalled();
     });
 
     it('records a different amount as its own payment of what arrived', async () => {

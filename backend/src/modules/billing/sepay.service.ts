@@ -108,13 +108,6 @@ export class SepayService {
     ) {
       throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Invoice not found.');
     }
-    if (await this.payments.findPendingSepay(invoiceId, at)) {
-      throw new DomainException(
-        HttpStatus.CONFLICT,
-        ErrorCode.PAYMENT_PENDING,
-        'A payment for this invoice is already waiting. Use its QR code.',
-      );
-    }
     const amountVnd = amountToRequest(invoice, lineSeq, at);
     if (amountVnd <= 0n) {
       throw new DomainException(
@@ -128,8 +121,18 @@ export class SepayService {
 
     for (let attempt = 1; ; attempt += 1) {
       try {
-        return await this.events.transaction((tx) =>
-          this.payments.insertSepayPayment(
+        return await this.events.transaction(async (tx) => {
+          // The check and the insert run under one per-invoice lock, so two concurrent requests
+          // cannot both create a waiting QR payment (review of #92).
+          await this.payments.lockInvoiceRequests(invoiceId, tx);
+          if (await this.payments.findPendingSepay(invoiceId, at, tx)) {
+            throw new DomainException(
+              HttpStatus.CONFLICT,
+              ErrorCode.PAYMENT_PENDING,
+              'A payment for this invoice is already waiting. Use its QR code.',
+            );
+          }
+          return this.payments.insertSepayPayment(
             {
               reference: newReference(),
               organizationId: invoice.organizationId,
@@ -140,8 +143,8 @@ export class SepayService {
               expiresAt,
             },
             tx,
-          ),
-        );
+          );
+        });
       } catch (error) {
         const collision =
           error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -153,7 +156,10 @@ export class SepayService {
   // The QR of a SePay payment: the configured VietQR image URL with account, bank, amount and the
   // reference as transfer content.
   async vietQr(payment: PaymentRow): Promise<VietQr | null> {
-    if (payment.method !== PaymentMethod.SEPAY) return null;
+    // Only a waiting request is paid by QR; a confirmed or expired one shows none (api-design 15).
+    if (payment.method !== PaymentMethod.SEPAY || payment.status !== PaymentStatus.PENDING) {
+      return null;
+    }
     const account = await this.parameters.get('billing.sepayBankAccount');
     const bankAccount = typeof account === 'string' ? account : JSON.stringify(account);
     const url = new URL(this.config.get('SEPAY_QR_BASE_URL', { infer: true }));
@@ -164,16 +170,27 @@ export class SepayService {
     return { imageUrl: url.toString(), bankAccount, content: payment.reference };
   }
 
-  // One payment for the polling page (api-design 15); another organization's is 404.
-  async find(id: string, caller: Caller): Promise<PaymentRow> {
-    const payment = await this.payments.findById(id);
+  // One payment for the polling page (api-design 15); another organization's is 404. A stale
+  // PENDING request is expired on read, and money recorded separately for its reference (another
+  // amount) is listed, so the page never says nothing was charged when something was.
+  async find(
+    id: string,
+    caller: Caller,
+    at: Date = new Date(),
+  ): Promise<PaymentRow & { receivedLater: { amountVnd: bigint; confirmedAt: Date | null }[] }> {
+    const found = await this.payments.findById(id);
     if (
-      !payment ||
-      (caller.organizationId !== null && caller.organizationId !== payment.organizationId)
+      !found ||
+      (caller.organizationId !== null && caller.organizationId !== found.organizationId)
     ) {
       throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Payment not found.');
     }
-    return payment;
+    const payment = await this.payments.expireIfDue(found, at);
+    const receivedLater =
+      payment.method === PaymentMethod.SEPAY
+        ? await this.payments.receivedFor(payment.reference)
+        : [];
+    return { ...payment, receivedLater };
   }
 
   // The SePay webhook (api-design 12, D-038). The `Authorization: Apikey <key>` header is compared
@@ -218,7 +235,11 @@ export class SepayService {
           gatewayPayload: hook as unknown as Prisma.InputJsonValue,
           confirmedAt: at,
         };
-        const exact = payment.status === PaymentStatus.PENDING && received === payment.amountVnd;
+        // The requested amount confirms the request itself, also after it expired, so the request
+        // and the money carry one status (review of #92); another amount is its own payment.
+        const exact =
+          (payment.status === PaymentStatus.PENDING || payment.status === PaymentStatus.EXPIRED) &&
+          received === payment.amountVnd;
         const confirmed = exact
           ? await this.payments.confirmSepay(payment.id, settlement, tx)
           : await this.payments.insertReceivedSepay(

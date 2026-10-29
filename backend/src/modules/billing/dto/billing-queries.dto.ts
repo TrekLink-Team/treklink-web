@@ -5,6 +5,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -63,4 +64,57 @@ export class SepayPaymentDto {
   @IsInt()
   @Min(1)
   lineSeq?: number;
+}
+
+// billing api-design 12, the SePay webhook body (docs.sepay.vn/tich-hop-webhooks.html). Every field
+// SePay sends is declared, because the global pipe refuses unknown ones; billing reads id, the
+// transfer type and amount, and the content. A missing or non-positive amount is 400 and records
+// nothing (review of #92).
+export class SepayWebhookDto {
+  @IsNotEmpty()
+  id!: number | string;
+
+  @IsOptional()
+  @IsString()
+  gateway?: string;
+
+  @IsOptional()
+  @IsString()
+  transactionDate?: string;
+
+  @IsOptional()
+  @IsString()
+  accountNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  code?: string | null;
+
+  @IsOptional()
+  @IsString()
+  content?: string | null;
+
+  @IsOptional()
+  @IsIn(['in', 'out'])
+  transferType?: string;
+
+  @IsInt()
+  @Min(1)
+  transferAmount!: number;
+
+  @IsOptional()
+  @IsNumber()
+  accumulated?: number;
+
+  @IsOptional()
+  @IsString()
+  subAccount?: string | null;
+
+  @IsOptional()
+  @IsString()
+  referenceCode?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string | null;
 }

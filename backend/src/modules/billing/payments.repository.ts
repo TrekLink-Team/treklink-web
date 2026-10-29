@@ -101,6 +101,43 @@ export class PaymentsRepository {
   }
 
   // The SePay request of the invoice still waiting for its money, if any.
+  // Serializes the SePay requests of one invoice for the rest of the transaction, so the check for a
+  // waiting request and the insert of a new one cannot interleave (review of #92).
+  async lockInvoiceRequests(invoiceId: string, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing:sepay:${invoiceId}`}))`;
+  }
+
+  // A PENDING request read after its expiry becomes EXPIRED at once (api-design 15), without
+  // waiting for the minutely job. Returns the row as it now stands.
+  async expireIfDue(payment: PaymentRow, at: Date): Promise<PaymentRow> {
+    if (
+      payment.status !== PaymentStatus.PENDING ||
+      !payment.expiresAt ||
+      payment.expiresAt.getTime() > at.getTime()
+    ) {
+      return payment;
+    }
+    await this.prisma.payment.updateMany({
+      where: { id: payment.id, status: PaymentStatus.PENDING },
+      data: { status: PaymentStatus.EXPIRED },
+    });
+    return { ...payment, status: PaymentStatus.EXPIRED };
+  }
+
+  // Money that arrived for a request but was recorded as its own payment (another amount), keyed
+  // `<reference>-<transaction>`, so the request's page can show it (review of #92).
+  receivedFor(reference: string, client: Client = this.prisma) {
+    return client.payment.findMany({
+      where: {
+        reference: { startsWith: `${reference}-` },
+        method: PaymentMethod.SEPAY,
+        status: PaymentStatus.CONFIRMED,
+      },
+      orderBy: { confirmedAt: 'asc' },
+      select: { amountVnd: true, confirmedAt: true },
+    });
+  }
+
   findPendingSepay(invoiceId: string, at: Date, client: Client = this.prisma) {
     return client.payment.findFirst({
       where: {

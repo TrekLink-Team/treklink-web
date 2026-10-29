@@ -60,6 +60,12 @@ export const PaymentPage: React.FC = () => {
     return <ErrorState error={payment.error} onRetry={() => void payment.refetch()} />;
   }
   const data = payment.data;
+  // A transfer of another amount is credited separately; the page must not then say nothing was
+  // charged (review of #92).
+  const credited = (data.receivedLater ?? []).reduce(
+    (sum, received) => sum + received.amountVnd,
+    0,
+  );
   const back = `/o/invoices/${data.invoiceId}`;
   const backLink = (
     <Link to={back} className={LINK}>
@@ -118,7 +124,20 @@ export const PaymentPage: React.FC = () => {
           {data.confirmedAt && `Confirmed ${formatDateTime(data.confirmedAt)}.`}
         </Alert>
       )}
-      {(data.status === 'EXPIRED' || data.status === 'FAILED') && (
+      {data.status !== 'CONFIRMED' && credited > 0 && (
+        <Alert
+          tone="info"
+          title={`${formatVnd(credited)} arrived for this request and was credited to the invoice.`}
+          action={
+            <Link to={back} className={LINK}>
+              See what remains due
+            </Link>
+          }
+        >
+          The transfer did not match the requested amount, so it was recorded as its own payment.
+        </Alert>
+      )}
+      {(data.status === 'EXPIRED' || data.status === 'FAILED') && credited === 0 && (
         <Alert
           tone="error"
           title="Payment not completed."
