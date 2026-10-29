@@ -158,3 +158,22 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
     });
   });
 });
+
+describe('IncidentsRepository.dueTimers (task 3.1)', () => {
+  it('reads the states whose deadline has passed, oldest deadline first, over the index', async () => {
+    const findMany = jest.fn().mockResolvedValue([{ id: 'inc-1' }]);
+    const repository = new IncidentsRepository({
+      incident: { findMany },
+    } as unknown as PrismaService);
+    const now = new Date('2026-10-30T03:00:00Z');
+    await expect(
+      repository.dueTimers(['ACKNOWLEDGED', 'RESPONDING'], 'statusDueAt', now, 100),
+    ).resolves.toEqual([{ id: 'inc-1' }]);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { state: { in: ['ACKNOWLEDGED', 'RESPONDING'] }, statusDueAt: { lte: now } },
+      orderBy: { statusDueAt: 'asc' },
+      take: 100,
+      select: { id: true, state: true, organizationId: true },
+    });
+  });
+});

@@ -16,6 +16,7 @@ import { IncidentsRepository } from './incidents.repository';
 import { IncidentLifecycle } from './incident-lifecycle';
 import { ContractsService, RentalsModule } from '../rentals';
 import { IncidentIngress } from './incident-ingress';
+import { IncidentTimersJob } from './jobs/incident-timers.job';
 
 @Module({
   providers: [
@@ -71,6 +72,7 @@ describe('incident persistence (task 1.1)', () => {
     expect(moduleRef.get(AlertDeliveriesRepository)).toBeInstanceOf(AlertDeliveriesRepository);
     expect(moduleRef.get(AuthorityReportsRepository)).toBeInstanceOf(AuthorityReportsRepository);
     expect(moduleRef.get(IncidentLifecycle)).toBeInstanceOf(IncidentLifecycle);
+    expect(moduleRef.get(IncidentTimersJob)).toBeInstanceOf(IncidentTimersJob);
     await moduleRef.close();
   });
 
