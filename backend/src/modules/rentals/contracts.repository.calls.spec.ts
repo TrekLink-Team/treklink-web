@@ -72,8 +72,14 @@ describe('ContractsRepository delegate calls', () => {
       ['rentalContract.findUnique', { id: 'c-1' }],
       ['contractTransition.findMany', { contractId: 'c-1' }],
       ['contractTransition.findMany', { contractId: 'c-1' }],
-      ['contractDevice.findMany', { contractId: 'c-1', releasedAt: null }],
-      ['contractDevice.findMany', { contractId: 'c-1', releasedAt: null }],
+      [
+        'contractDevice.findMany',
+        { contractId: 'c-1', releasedAt: null, replacedBy: { is: null } },
+      ],
+      [
+        'contractDevice.findMany',
+        { contractId: 'c-1', releasedAt: null, replacedBy: { is: null } },
+      ],
       ['rentalContract.findUnique', { id: 'c-1' }],
       ['rentalContract.findUnique', { id: 'c-1' }],
       ['rentalContract.findMany', { id: { in: ['c-1'] } }],

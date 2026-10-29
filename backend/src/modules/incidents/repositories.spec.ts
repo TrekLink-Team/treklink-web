@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
@@ -28,6 +28,8 @@ import { IncidentIngress } from './incident-ingress';
   ],
   exports: [TransactionalEvents, ParameterService, PrismaService, EventEmitter2, ConfigService],
 })
+// Global like PrismaModule in the application, so IncidentsPortsModule resolves PrismaService too.
+@Global()
 class TestPlatformModule {}
 
 // The exported services of the modules incidents imports (platform design Figure 3).
