@@ -165,6 +165,18 @@ D-053 measures the files the PR changes through the CI coverage report, and CI p
 2. Ask the leader for the Staff-recipients ruling. Then build incidents 3.1, the escalation half of MF-03, as one new story PR through SD, CO, UT and RV (D-053).
 3. Then 4.3 with frontend 8.2 and 8.3 (the Staff end of escalation), then api-design 08 to 14 with the 8.1 panels.
 
+### Review round 1 (KhoaDD, changes requested, after the closeout)
+
+Handled on PR #114, started through Auto-fix and finished in a follow-up session on 2026-10-29 at HoangTK's request:
+
+- **Blocking, fixed:** an SOS against a `RESOLVED` or `FALSE_ALARM` incident that could not reopen it (past the window, or unattributed inside it) was appended silently. Now the device closes the episode with `REOPEN_WINDOW_ENDED` and the SOS opens a new incident in the same transaction. `IncidentLifecycle` lets the `DEVICE` actor take that edge, and only for that actor drops the window guard. Covered by ingress and lifecycle unit cases and by steps 8 and 9 of `mf03.db-spec.ts`. Design §4 step 3 records the rule; the §2 diagram label waits for the next handbook-gated diagram pass.
+- **Suggestion, fixed:** list and detail scope by the caller's CASL ability, passed from the controller through a new `@CurrentAbility()` in `common/decorators/access.decorator.ts` (incidents sits below `auth`). An unconditioned `read Incident` rule reads every organization; `incident.read.own` reads the caller's organization; an account with no organization and no unconditioned rule is refused 403 before any row is read, so an org-less member can no longer match `organizationId: null` rows either.
+- **Suggestion, documented:** WebSocket delivery is at least once; a failed `markSent` commit repeats the alert, and the banner replaces it by incident id.
+- **Suggestion, fixed:** `incidents.lastPositionAt` stores the fix time (migration `20261029180000_incident_last_position_at`, additive, backfilled from `lastEventAt` where a position exists). `movePosition` compares against it, so an out-of-order fix newer than the last SOS no longer overwrites a newer position. Unit case in `incidents.repository.reads.spec.ts`, db-spec step 1c.
+- **Nits:** one `clockTime` helper (`incidents/display-time.ts`) for MSG27 and MSG31; the incident entity reads `queryString` and `Page` from the new `shared/api/query.ts`. The contract and billing entities keep their copies, because moving them would bring LongLP's `entities/contract/api.ts` (52.6% lines) under this PR's coverage bar; that cleanup is left to the entity owner.
+
+Verification, 2026-10-29: backend lint and module boundaries, 1184 unit tests, 99 e2e tests and `nest build` pass; frontend lint, 312 tests and `tsc && vite build` pass. `test:db` and the new migration were not run locally: no Docker daemon and no Postgres on 5432, and Neon is off limits for tests (D-010). CI runs both against its own `postgres:16` service.
+
 ### Starting the next session
 
 Open the agent on `capstone/` and paste:

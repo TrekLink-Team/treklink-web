@@ -126,7 +126,13 @@ queue through its web inbox row.
 
 1. Lock the device's incident outside `CLOSED`, if any (`incidents_one_open_per_device`).
 2. If none: create, route (§2), return.
-3. If `RESOLVED` or `FALSE_ALARM` and the event is within the reopen window: reopen.
+3. If `RESOLVED` or `FALSE_ALARM` and the event is within the reopen window: reopen. If it cannot
+   reopen (past the window, or unattributed inside it) and it occurred after the episode ended, the
+   device closes the episode (`REOPEN_WINDOW_ENDED`, `DEVICE` actor, allowed before the window ends)
+   and the SOS opens a new incident through step 2, in the same transaction, so no SOS is swallowed
+   (PR #114 review). An earlier SOS uploaded late is appended to the ended episode. The state diagram
+   of §2 still labels that edge "reopen window ends"; its label update goes through the handbook gate
+   (D-067) with the next diagram pass.
 4. Otherwise, if within the correlation window of `lastEventAt`: append (event count, last position,
    `CONFIRMED` upgrade for a suspected incident).
 5. Otherwise (open, but older than the window): append too. One open incident per device means a new
@@ -136,7 +142,8 @@ queue through its web inbox row.
 before the SOS included) and counts cadence for `SUSPECTED` creation. A position joins only an
 episode still running (not `RESOLVED` or `FALSE_ALARM`). An SOS text carries no position on the wire
 (FGT), so the incident's last position comes from these packets: it is set when none is known, and
-moved unless the fix is older than the last SOS. Positions move neither `eventCount` nor
+moved unless its fix time is older than the stored fix time `lastPositionAt`, so an out-of-order
+packet never overwrites a newer position (PR #114 review). Positions move neither `eventCount` nor
 `lastEventAt`, the SOS correlation anchor.
 
 ---
