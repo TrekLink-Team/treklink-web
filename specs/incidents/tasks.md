@@ -35,7 +35,7 @@
   - **Files**: `backend/src/modules/incidents/alerts/alert-dispatcher.job.ts`, `channels/*.channel.ts`
   - **Do**: `incidents.deliverAlerts` every 2 s reads `PENDING` rows due now with `FOR UPDATE SKIP LOCKED`; channels web inbox, WebSocket (emits `incident.alert`, sent when the listener returns), email through `MailPort`, organization API stream; failure backs off `incidents.alertRetryBaseSeconds × 2^attempts` up to `incidents.alertMaxAttempts`, then `FAILED` and logged; delivery never blocks a transition
   - **Test**: AC-07 with a failing mail transport; WebSocket alert within 2 s of commit under the test load
-  - **Note**: the MF-03 PR (2026-10-29, `docs/sessions/2026-10-29-1330-hoangtk-mf03-sos-to-incident.md`) builds the job with the web inbox and WebSocket channels only. Email and API event rows stay `PENDING` until their channels land, so the box stays open
+  - **Note**: the MF-03 PR (2026-10-29, `docs/sessions/2026-10-29-1330-hoangtk-mf03-sos-to-incident.md`) builds the job with the web inbox and WebSocket channels only. Delivery is at least once: the WebSocket alert is emitted before `markSent` commits, so a failed commit repeats it (documented in the job; the banner keys by incident). Email and API event rows stay `PENDING` until their channels land, so the box stays open
   - _Requirements: REQ-UBI-04, REQ-EVT-13, AC-07, FR-INC-12, NFR-PERF-04_
   - _Story: US-UC30_
 - [ ] 2.2 Routing (owner HoangTK)
@@ -49,7 +49,7 @@
   - **Files**: `backend/src/modules/incidents/incident-ingress.ts`
   - **Do**: the five correlation steps of design §4 under the device lock; reopen inside the reopen window (re-routed, reopen count, owner cleared); cadence: `incidents.cadenceCount` positions within `incidents.cadenceWindowSeconds` and no open incident create `SUSPECTED` from `CADENCE_INFERRED`, upgraded to `CONFIRMED` in place by a later SOS text; positions within `gatewaySync.retroTagGraceSeconds` before the SOS join the episode
   - **Test**: AC-01, AC-05; a replay produces no second incident or alert per tier
-  - **Note**: `onSos` and `onPosition` are built in the MF-03 PR (2026-10-29) and run inside ingestion. `onSos` covers the five correlation steps and reopen. An SOS text carries no position, so the last position comes from `onPosition`: a plotted position joins a running episode (not `RESOLVED` or `FALSE_ALARM`) when it is at most `gatewaySync.retroTagGraceSeconds` older than the first SOS, and moves the last position unless an older fix arrives after a known one. `backend/test/mf03.db-spec.ts` proves create, route, position, replay rejection, append and reopen against Postgres. Open, outside the MF-03 happy path: cadence `SUSPECTED` creation, and tagging positions stored before the SOS arrived. The box stays open
+  - **Note**: `onSos` and `onPosition` are built in the MF-03 PR (2026-10-29) and run inside ingestion. `onSos` covers the five correlation steps and reopen. An SOS text carries no position, so the last position comes from `onPosition`: a plotted position joins a running episode (not `RESOLVED` or `FALSE_ALARM`) when it is at most `gatewaySync.retroTagGraceSeconds` older than the first SOS, and moves the last position unless its fix time is older than the stored `lastPositionAt` (migration `20261029180000_incident_last_position_at`, PR #114 review). `backend/test/mf03.db-spec.ts` proves create, route, position, replay rejection, append and reopen against Postgres. After the PR #114 review, an SOS that cannot reopen a `RESOLVED` or `FALSE_ALARM` episode (past the window, or unattributed inside it) closes it and opens a new incident (design §4 step 3). Open, outside the MF-03 happy path: cadence `SUSPECTED` creation, and tagging positions stored before the SOS arrived. The box stays open
   - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-EVT-10, REQ-ERR-03, AC-01, AC-05, FR-INC-01, FR-INC-02, FR-INC-11, BR-14, NFR-REL-03_
   - _Story: US-UC29, US-UC36_
 
@@ -93,7 +93,7 @@
 - [ ] 5.1 Incidents, transitions, events, alerts, authority reports (owner HoangTK)
   - **Do**: list with state, organization and stale filters (members see their own only); detail; transitions; events through `GatewaySyncService.eventsOfIncident`; alert deliveries; authority reports; `openByDevices`, `incidentsOfDevice`, `responseTimes(range)`, `alertDeliveryStats()` for monitoring
   - **Test**: a member reading another organization's incident gets 404 (auth AC-01)
-  - **Note**: list and detail (api-design 01, 02) are built in the MF-03 PR (2026-10-29) as `IncidentsQueryService`. The `stale` list filter waits for 4.4. Open: transitions, events, alerts and the monitoring reads
+  - **Note**: list and detail (api-design 01, 02) are built in the MF-03 PR (2026-10-29) as `IncidentsQueryService`. Both scope by the caller's CASL ability (PR #114 review): an unconditioned `incident.read` rule reads every organization, `incident.read.own` the caller's own, and an account with no organization and no unconditioned rule gets 403. The `stale` list filter waits for 4.4. Open: transitions, events, alerts and the monitoring reads
   - _Requirements: REQ-STA-01, FR-AUTH-11_
 
 ## Phase 6: API Presentation Layer
