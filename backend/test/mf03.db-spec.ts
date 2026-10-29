@@ -396,8 +396,9 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     const openIncidents = () =>
       prisma.incident.findMany({ where: { deviceId, state: { not: 'CLOSED' } } });
 
-    // 8. Past the reopen window, a new SOS closes the ended episode and opens a new incident
-    //    instead of being swallowed (PR #114 review).
+    // 8. Past the reopen window, the system (no actor) closes the episode a person already ended,
+    //    as the closeAfterReopenWindow job would, and the new SOS opens a new incident. No packet
+    //    ends an incident (REQ-UBI-05, D-038 rule 2).
     await falseAlarm(incident.id);
     await prisma.incident.update({
       where: { id: incident.id },
@@ -413,20 +414,45 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     const closing = await prisma.incidentTransition.findFirstOrThrow({
       where: { incidentId: incident.id, toState: 'CLOSED' },
     });
-    expect(closing).toMatchObject({ fromState: 'FALSE_ALARM', reason: 'REOPEN_WINDOW_ENDED' });
+    expect(closing).toMatchObject({
+      fromState: 'FALSE_ALARM',
+      reason: 'REOPEN_WINDOW_ENDED',
+      actorId: null,
+    });
 
-    // 9. Inside the window, an unattributed SOS cannot reopen the episode, so it too closes it and
-    //    opens a new, UNROUTED incident.
+    // 9. Inside the window, an unattributed SOS reopens the episode, routed as a new unattributed
+    //    incident would be: UNROUTED, with no organization. Nothing is closed.
     await falseAlarm(second.id);
     await prisma.contractDevice.updateMany({
       where: { deviceId },
       data: { checkedInAt: new Date(Date.now() - 10 * 60_000) },
     });
     await expect(ingestion.ingest(sos(4))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
-    expect(await prisma.incident.findUniqueOrThrow({ where: { id: second.id } })).toMatchObject({
-      state: 'CLOSED',
+    const open = await openIncidents();
+    expect(open).toHaveLength(1);
+    expect(open[0]).toMatchObject({
+      id: second.id,
+      state: 'UNROUTED',
+      organizationId: null,
+      contractId: null,
+      ownerId: null,
+      reopenCount: 1,
+      eventCount: 2,
     });
-    const [third] = await openIncidents();
-    expect(third).toMatchObject({ state: 'UNROUTED', organizationId: null, contractId: null });
+    const reopening = await prisma.incidentTransition.findMany({
+      where: { incidentId: second.id },
+      orderBy: { seq: 'desc' },
+      take: 1,
+    });
+    expect(reopening[0]).toMatchObject({
+      fromState: 'FALSE_ALARM',
+      toState: 'UNROUTED',
+      reason: 'REOPENED',
+    });
+    expect(
+      await prisma.incidentTransition.count({
+        where: { incidentId: second.id, toState: 'CLOSED' },
+      }),
+    ).toBe(0);
   });
 });

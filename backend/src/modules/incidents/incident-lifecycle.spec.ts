@@ -84,8 +84,9 @@ const TARGETS: Partial<Record<IncidentState, Partial<Record<IncidentState, Code>
   ESCALATED: { ACKNOWLEDGED: 'ACKNOWLEDGED', REPORTED: 'AUTHORITY_REPORTED' },
   UNROUTED: { REPORTED: 'AUTHORITY_REPORTED', FALSE_ALARM: 'FALSE_ALARM' },
   REPORTED: { ACKNOWLEDGED: 'ACKNOWLEDGED', CLOSED: 'CASE_CLOSED' },
-  RESOLVED: { NOTIFY_PRIMARY: 'REOPENED', CLOSED: 'REOPEN_WINDOW_ENDED' },
-  FALSE_ALARM: { NOTIFY_PRIMARY: 'REOPENED', CLOSED: 'REOPEN_WINDOW_ENDED' },
+  // A reopen is re-routed as at creation, so it may land in UNROUTED (REQ-EVT-10, REQ-EVT-03).
+  RESOLVED: { NOTIFY_PRIMARY: 'REOPENED', UNROUTED: 'REOPENED', CLOSED: 'REOPEN_WINDOW_ENDED' },
+  FALSE_ALARM: { NOTIFY_PRIMARY: 'REOPENED', UNROUTED: 'REOPENED', CLOSED: 'REOPEN_WINDOW_ENDED' },
 };
 
 describe('IncidentLifecycle task 1.2', () => {
@@ -448,15 +449,18 @@ describe('IncidentLifecycle task 1.2', () => {
     },
   );
 
-  it.each(['RESOLVED', 'FALSE_ALARM'] as const)(
-    'lets a superseding SOS (DEVICE) close a %s episode before its window ends',
-    async (from) => {
-      current = row(from, { reopenWindowEndsAt: AFTER });
-      await expect(
-        apply('CLOSED', 'REOPEN_WINDOW_ENDED', { kind: 'DEVICE' }),
-      ).resolves.toMatchObject({ state: 'CLOSED' });
-    },
-  );
+  it.each(
+    (['RESOLVED', 'FALSE_ALARM'] as const).flatMap((from) =>
+      [null, BEFORE, AT, AFTER].map((ends) => [from, ends] as const),
+    ),
+  )('never lets a DEVICE actor close a %s episode (window end %s)', async (from, ends) => {
+    // REQ-UBI-05, D-038 rule 2: a person ends every incident; past the window the system closes it.
+    current = row(from, { reopenWindowEndsAt: ends });
+    await expect(apply('CLOSED', 'REOPEN_WINDOW_ENDED', { kind: 'DEVICE' })).rejects.toMatchObject({
+      errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+    });
+    expect(repository.compareAndSet).not.toHaveBeenCalled();
+  });
 
   it('keeps every other edge closed to a DEVICE actor', async () => {
     current = row('NOTIFY_PRIMARY', { tierDeadlineAt: BEFORE });
@@ -515,7 +519,7 @@ describe('IncidentLifecycle task 1.2', () => {
   it.each([
     { occurredAt: AT },
     { route: { organizationId: 'org-a', contractId: 'contract-a' } },
-    { occurredAt: AFTER, route: { organizationId: 'org-a', contractId: 'contract-a' } },
+    { at: AFTER, occurredAt: AFTER, route: { organizationId: 'org-a', contractId: 'contract-a' } },
     {
       occurredAt: new Date(BEFORE.getTime() - 1),
       route: { organizationId: 'org-a', contractId: 'contract-a' },
@@ -527,14 +531,54 @@ describe('IncidentLifecycle task 1.2', () => {
     });
   });
 
-  it('rejects a missing window, a route without an organization, or an invalid clock', async () => {
-    current = row('RESOLVED', { reopenWindowEndsAt: null });
+  it.each([
+    ['a window never set', null, AT, AT],
+    ['an SOS stamped past the window that arrives inside it', AT, AFTER, BEFORE],
+  ])('reopens on %s', async (_label, ends, occurredAt, at) => {
+    current = row('RESOLVED', { reopenWindowEndsAt: ends });
     await expect(
-      apply('NOTIFY_PRIMARY', 'REOPENED', SYSTEM, {
-        occurredAt: AT,
-        route: { organizationId: 'org-a', contractId: 'contract-a' },
-      }),
-    ).rejects.toMatchObject({ errorCode: ErrorCode.INVALID_STATE_TRANSITION });
+      apply(
+        'NOTIFY_PRIMARY',
+        'REOPENED',
+        { kind: 'DEVICE' },
+        {
+          at,
+          occurredAt,
+          route: { organizationId: 'org-a', contractId: 'contract-a' },
+        },
+      ),
+    ).resolves.toMatchObject({ state: 'NOTIFY_PRIMARY', reopenCount: 1 });
+  });
+
+  it('reopens an unattributed SOS to UNROUTED, as a new unattributed incident is routed', async () => {
+    current = row('FALSE_ALARM', { ownerId: 'owner', falseAlarmReason: 'Old' });
+    const result = await apply(
+      'UNROUTED',
+      'REOPENED',
+      { kind: 'DEVICE' },
+      { occurredAt: AT, route: { organizationId: null, contractId: null } },
+    );
+    expect(result).toMatchObject({
+      state: 'UNROUTED',
+      organizationId: null,
+      contractId: null,
+      ownerId: null,
+      tierDeadlineAt: null,
+      reopenWindowEndsAt: null,
+      falseAlarmReason: null,
+      reopenCount: 1,
+    });
+    expect(alerts.enqueue).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({ tier: 'TREKLINK', recipientId: 'staff' }),
+        expect.objectContaining({ recipientId: 'staff' }),
+        expect.objectContaining({ recipientId: 'staff' }),
+      ],
+      tx,
+    );
+  });
+
+  it('rejects a route without an organization into a tier, or an invalid clock', async () => {
     current = row('RESOLVED');
     await expect(
       apply('NOTIFY_PRIMARY', 'REOPENED', SYSTEM, {
