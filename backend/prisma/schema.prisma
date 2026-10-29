@@ -1614,3 +1614,17 @@ model StreamEvent {
   @@index([createdAt])
   @@map("stream_events") // pruned after monitoring.streamRetentionHours
 }
+
+// The latest check-in of a device from an organization, one row per pair, replaced on each check-in.
+// A field event is accepted late for gatewaySync.lateUploadGraceHours (168), longer than the stream is
+// kept (monitoring.streamRetentionHours, 72), so the boundary that marks a late upload cannot live in the
+// pruned stream (REQ-EVT-04, AC-06). Plain ids, as on StreamEvent.deviceId: a boundary outlives neither
+// an organization nor a device and needs no foreign key.
+model DeviceRelease {
+  organizationId String
+  deviceId       String
+  checkedInAt    DateTime @db.Timestamptz(3)
+
+  @@id([organizationId, deviceId])
+  @@map("device_releases")
+}

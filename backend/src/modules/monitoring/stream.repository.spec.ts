@@ -11,22 +11,20 @@ const row = (seq: bigint, organizationId: string | null = 'o-1') => ({
 });
 
 describe('StreamRepository', () => {
-  let streamEvent: {
-    create: jest.Mock;
-    findMany: jest.Mock;
-    findFirst: jest.Mock;
-    aggregate: jest.Mock;
-  };
+  let streamEvent: { create: jest.Mock; findMany: jest.Mock; aggregate: jest.Mock };
+  let deviceRelease: { findUnique: jest.Mock };
+  let executeRaw: jest.Mock;
   let repository: StreamRepository;
 
   beforeEach(() => {
-    streamEvent = {
-      create: jest.fn(),
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      aggregate: jest.fn(),
-    };
-    repository = new StreamRepository({ streamEvent } as unknown as PrismaService);
+    streamEvent = { create: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() };
+    deviceRelease = { findUnique: jest.fn() };
+    executeRaw = jest.fn().mockResolvedValue(1);
+    repository = new StreamRepository({
+      streamEvent,
+      deviceRelease,
+      $executeRaw: executeRaw,
+    } as unknown as PrismaService);
   });
 
   it('inserts an entry and returns the cursor as a number with an ISO time', async () => {
@@ -78,28 +76,30 @@ describe('StreamRepository', () => {
     );
   });
 
-  it("reads an organization's latest check-in of a device from its newest device.released entry", async () => {
-    streamEvent.findFirst.mockResolvedValue({
-      payload: { checkedInAt: '2026-10-25T03:00:00.000Z' },
-    });
-    await expect(repository.latestRelease('o-1', 'd-1')).resolves.toEqual(
-      new Date('2026-10-25T03:00:00.000Z'),
+  it('records a check-in, keeping the later one when recorded twice or out of order', async () => {
+    const checkedInAt = new Date('2026-10-25T03:00:00.000Z');
+    await repository.recordRelease('o-1', 'd-1', checkedInAt);
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    const [strings, ...values] = executeRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
+    expect(strings.join('?')).toContain('INSERT INTO "device_releases"');
+    expect(strings.join('?')).toContain(
+      'GREATEST("device_releases"."checkedInAt", EXCLUDED."checkedInAt")',
     );
-    expect(streamEvent.findFirst).toHaveBeenCalledWith({
-      where: { organizationId: 'o-1', deviceId: 'd-1', type: 'device.released' },
-      orderBy: { seq: 'desc' },
-      select: { payload: true },
+    expect(values).toEqual(['o-1', 'd-1', checkedInAt]);
+  });
+
+  it("reads an organization's latest check-in of a device from its own table", async () => {
+    const checkedInAt = new Date('2026-10-25T03:00:00.000Z');
+    deviceRelease.findUnique.mockResolvedValue({ checkedInAt });
+    await expect(repository.latestRelease('o-1', 'd-1')).resolves.toEqual(checkedInAt);
+    expect(deviceRelease.findUnique).toHaveBeenCalledWith({
+      where: { organizationId_deviceId: { organizationId: 'o-1', deviceId: 'd-1' } },
+      select: { checkedInAt: true },
     });
   });
 
-  it.each([
-    [null],
-    [{ payload: null }],
-    [{ payload: [] }],
-    [{ payload: {} }],
-    [{ payload: { checkedInAt: 'never' } }],
-  ])('reads no check-in from %p', async (row) => {
-    streamEvent.findFirst.mockResolvedValue(row);
+  it('reads no check-in for a device the organization never checked in', async () => {
+    deviceRelease.findUnique.mockResolvedValue(null);
     await expect(repository.latestRelease('o-1', 'd-1')).resolves.toBeNull();
   });
 

@@ -13,6 +13,11 @@
 is the cursor for both the WebSocket replay and `GET /api/telemetry/stream`. Rows are pruned after
 `monitoring.streamRetentionHours`. `organizationId` null means platform-wide (fleet room only).
 
+`DeviceRelease(organizationId, deviceId, checkedInAt)`: the latest check-in of a device from an organization,
+one row per pair, replaced on each check-in. It is a table of its own because a field event is accepted
+late for `gatewaySync.lateUploadGraceHours` (168), longer than the stream is kept (72), so the boundary
+that marks an upload late must outlive the pruned stream (REQ-EVT-04, AC-06).
+
 Everything else this module shows is read through other modules' services; it owns no other table.
 
 ---
@@ -27,11 +32,11 @@ Everything else this module shows is read through other modules' services; it ow
 
 The organization of an entry comes with the event: a `field.*` event carries the organization
 `gateway-sync` attributed it to by occurrence time (D-040), and an `incident.*` event its routed
-organization. Only `device.*` entries use the current holder, `rentals.currentHolder(deviceId)`, cached per
-device and invalidated by `device.handedOver` and `device.checkedIn`. That keeps a device that moves from A
-to B from leaking A's late entries to B or B's new ones to A (AC-01, AC-06). A `field.*` entry whose
-occurrence time is before the device's latest check-in from that organization is marked `late` and is
-not plotted as a live marker.
+organization. A `device.*` event names its organization as well (`device.handedOver`, `device.checkedIn`
+and `device.labelChanged` all carry `organizationId`), so no lookup of the current holder is made. That
+keeps a device that moves from A to B from leaking A's late entries to B or B's new ones to A (AC-01,
+AC-06). A `field.*` entry whose occurrence time is at or before the device's latest check-in from that
+organization, read from `DeviceRelease`, is marked `late` and is not plotted as a live marker.
 
 ---
 

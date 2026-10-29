@@ -62,18 +62,23 @@ export class StreamRepository {
     return rows.map(toEntry);
   }
 
-  // When the organization last checked the device in, read from its newest `device.released` entry,
-  // or null when the stream holds none (never checked in, or pruned past retention).
+  // Remembers a check-in, keeping the later one if a check-in is recorded twice or out of order.
+  async recordRelease(organizationId: string, deviceId: string, checkedInAt: Date): Promise<void> {
+    await this.prisma.$executeRaw`
+      INSERT INTO "device_releases" ("organizationId", "deviceId", "checkedInAt")
+      VALUES (${organizationId}, ${deviceId}, ${checkedInAt})
+      ON CONFLICT ("organizationId", "deviceId")
+      DO UPDATE SET "checkedInAt" = GREATEST("device_releases"."checkedInAt", EXCLUDED."checkedInAt")`;
+  }
+
+  // When the organization last checked the device in, or null if it never did. Kept in its own table, so
+  // pruning the stream cannot lose it (REQ-EVT-04, AC-06).
   async latestRelease(organizationId: string, deviceId: string): Promise<Date | null> {
-    const row = await this.prisma.streamEvent.findFirst({
-      where: { organizationId, deviceId, type: 'device.released' },
-      orderBy: { seq: 'desc' },
-      select: { payload: true },
+    const row = await this.prisma.deviceRelease.findUnique({
+      where: { organizationId_deviceId: { organizationId, deviceId } },
+      select: { checkedInAt: true },
     });
-    const payload = row?.payload;
-    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
-    const at = typeof payload.checkedInAt === 'string' ? new Date(payload.checkedInAt) : null;
-    return at && !Number.isNaN(at.getTime()) ? at : null;
+    return row?.checkedInAt ?? null;
   }
 
   // The newest cursor, or 0 when the stream is empty.

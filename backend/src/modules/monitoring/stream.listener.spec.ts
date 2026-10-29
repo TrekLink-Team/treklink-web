@@ -9,7 +9,7 @@ const AT = '2026-10-28T02:59:00.000Z';
 describe('StreamListener', () => {
   let published: Record<string, unknown>[];
   let stream: { publish: jest.Mock };
-  let repository: { latestRelease: jest.Mock };
+  let repository: { latestRelease: jest.Mock; recordRelease: jest.Mock };
   let interval: number;
   let listener: StreamListener;
 
@@ -22,7 +22,10 @@ describe('StreamListener', () => {
         return Promise.resolve({ seq: published.length });
       }),
     };
-    repository = { latestRelease: jest.fn().mockResolvedValue(null) };
+    repository = {
+      latestRelease: jest.fn().mockResolvedValue(null),
+      recordRelease: jest.fn().mockResolvedValue(undefined),
+    };
     interval = 1000;
     const parameters = { get: jest.fn(() => Promise.resolve(interval)) };
     listener = new StreamListener(
@@ -164,6 +167,37 @@ describe('StreamListener', () => {
           payload: { checkedInAt: '2026-10-28T02:58:00.000Z' },
         },
       ]);
+    });
+
+    it('records the check-in durably before it publishes device.released', async () => {
+      const order: string[] = [];
+      repository.recordRelease.mockImplementation(() => {
+        order.push('record');
+        return Promise.resolve();
+      });
+      stream.publish.mockImplementation(() => {
+        order.push('publish');
+        return Promise.resolve({ seq: 1 });
+      });
+      await listener.onDeviceCheckedIn({ ...checkedIn, at: '2026-10-28T02:58:00.000Z' });
+      expect(order).toEqual(['record', 'publish']);
+      expect(repository.recordRelease).toHaveBeenCalledWith(
+        'org-a',
+        'd-1',
+        new Date('2026-10-28T02:58:00.000Z'),
+      );
+    });
+
+    it('publishes nothing when the check-in cannot be recorded, so the event is not half applied', async () => {
+      repository.recordRelease.mockRejectedValue(new Error('db down'));
+      await expect(listener.onDeviceCheckedIn(checkedIn)).rejects.toThrow('db down');
+      expect(published).toEqual([]);
+    });
+
+    it('flags a late upload from the stored boundary after a restart, days after the stream entry is gone', async () => {
+      repository.latestRelease.mockResolvedValue(new Date('2026-10-23T00:00:00.000Z'));
+      await listener.onFieldPosition(position({ at: '2026-10-22T12:00:00.000Z' }));
+      expect(published[0].payload).toMatchObject({ late: true });
     });
 
     it('uses the moment it handles the event when the emitter gives no time', async () => {
