@@ -53,7 +53,13 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
   const alerts = new AlertDeliveriesRepository();
   const lifecycle = new IncidentLifecycle(incidentsRepository, alerts, parameters, events);
   const roster = new RosterService(new RosterRepository(prisma));
-  const ingress = new IncidentIngress(incidentsRepository, lifecycle, new RoutingService(roster));
+  const ingress = new IncidentIngress(
+    incidentsRepository,
+    lifecycle,
+    new RoutingService(roster),
+    parameters,
+    events,
+  );
   const devices = new DevicesService(new DevicesRepository(prisma));
   const contracts = new ContractsService(
     new ContractsRepository(prisma),
@@ -115,6 +121,27 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
       type: 'text' as const,
       sender: `!${nodeNum.toString(16)}`,
       payload: { text: 'SOS - [11.561000], [108.552000]' },
+    };
+    return {
+      ingress: IngressPath.MQTT_NODE,
+      uplinkKey: message.sender,
+      receivedAt: new Date(),
+      packet: message,
+      message,
+    };
+  };
+
+  // A stock position packet of the same node, as the SOS helper sends next to the text.
+  const fix = (): CanonicalEnvelope => {
+    packetId += 1;
+    const time = Math.ceil(Date.now() / 1000);
+    const message = {
+      id: packetId,
+      from: nodeNum,
+      timestamp: time,
+      type: 'position' as const,
+      sender: `!${nodeNum.toString(16)}`,
+      payload: { time, latitude_i: 115544000, longitude_i: 1085381000, altitude: 1320 },
     };
     return {
       ingress: IngressPath.MQTT_NODE,
@@ -233,7 +260,7 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
       confidence: 'CONFIRMED',
       eventCount: 1,
       // The SOS text carries no position on the wire (FGT: the fix rides a separate POSITION_APP
-      // packet), and the onPosition hand-off is not built yet.
+      // packet), which reaches the incident through onPosition below.
       lastLatitude: null,
       lastLongitude: null,
       ownerId: null,
@@ -258,6 +285,19 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
         'org:API_EVENT',
       ].sort(),
     );
+
+    // 1b. The device's position packet joins the episode and gives the incident its position.
+    await expect(ingestion.ingest(fix())).resolves.toBe('ACCEPTED');
+    expect(await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).toMatchObject({
+      lastLatitude: 11.5544,
+      lastLongitude: 108.5381,
+      eventCount: 1,
+      version: incident.version,
+    });
+    const positionEvent = await prisma.fieldEvent.findFirstOrThrow({
+      where: { deviceId, kind: 'POSITION' },
+    });
+    expect(positionEvent.incidentId).toBe(incident.id);
 
     // 2. A replay of the same packet is rejected before it reaches incidents (REQ-ERR-03).
     await expect(ingestion.ingest(first)).resolves.toBe('DUPLICATE_REJECTED');

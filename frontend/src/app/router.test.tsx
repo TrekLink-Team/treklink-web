@@ -14,6 +14,11 @@ vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
   InvoiceDetailPage: () => <p>invoice page</p>,
 }));
+vi.mock('../pages/DesignSystemPage', () => ({ DesignSystemPage: () => <p>design system</p> }));
+vi.mock('../pages/IncidentsPage', () => ({ IncidentsPage: () => <p>incident queue</p> }));
+vi.mock('../pages/IncidentDetailPage', () => ({
+  IncidentDetailPage: () => <p>incident detail</p>,
+}));
 vi.mock('../pages/ContractApprovalPage', () => ({
   ContractApprovalPage: () => <p>approval queue</p>,
 }));
@@ -110,5 +115,42 @@ describe('route guards (AC-01)', () => {
   it('lets an Admin reach /t/map', () => {
     visit('/t/map', account(['ADMIN'], 'TREKLINK'));
     expect(screen.getByText('interim dashboard')).toBeTruthy();
+  });
+
+  it('gives an Org Operator the incident queue and detail, and shows MSG26 to Staff', () => {
+    visit('/o/incidents', account(['ORG_OPERATOR'], 'ORGANIZATION'));
+    expect(screen.getByText('incident queue')).toBeTruthy();
+    cleanup();
+    visit('/o/incidents/inc-1', account(['ORG_MANAGER'], 'ORGANIZATION'));
+    expect(screen.getByText('incident detail')).toBeTruthy();
+    cleanup();
+    visit('/o/incidents', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+  });
+
+  it('loads the design system page lazily in development', async () => {
+    visit('/dev/design-system', null);
+    expect(await screen.findByText('design system')).toBeTruthy();
+  });
+
+  it('has no design system route in a production build', async () => {
+    vi.resetModules();
+    vi.stubEnv('DEV', false);
+    try {
+      const { AppRoutes: ProductionRoutes } = await import('./router');
+      useSession.getState().signIn(tokens, account(['ADMIN'], 'TREKLINK'));
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter initialEntries={['/dev/design-system']}>
+            <AuthProvider>
+              <ProductionRoutes />
+            </AuthProvider>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

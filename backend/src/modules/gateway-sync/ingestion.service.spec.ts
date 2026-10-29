@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { DevicesService } from '../devices';
-import { IncidentIngress, type SosEvent } from '../incidents';
+import { IncidentIngress, type PositionEvent, type SosEvent } from '../incidents';
 import { ContractsService } from '../rentals';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -45,7 +45,10 @@ describe('IngestionService', () => {
   };
   let devices: { byNodeNum: jest.Mock; projectReading: jest.Mock };
   let contracts: { custodyAt: jest.Mock };
-  let incidents: { onSos: jest.Mock<Promise<{ id: string }>, [SosEvent, unknown]> };
+  let incidents: {
+    onSos: jest.Mock<Promise<{ id: string }>, [SosEvent, unknown]>;
+    onPosition: jest.Mock<Promise<{ id: string } | null>, [PositionEvent, unknown]>;
+  };
   let emitted: { name: string; payload: unknown }[];
   let service: IngestionService;
 
@@ -78,6 +81,9 @@ describe('IngestionService', () => {
       onSos: jest
         .fn<Promise<{ id: string }>, [SosEvent, unknown]>()
         .mockResolvedValue({ id: 'incident-1' }),
+      onPosition: jest
+        .fn<Promise<{ id: string } | null>, [PositionEvent, unknown]>()
+        .mockResolvedValue(null),
     };
     service = new IngestionService(
       repository as unknown as IngestionRepository,
@@ -179,6 +185,16 @@ describe('IngestionService', () => {
       tx,
     );
     expect(audits()).toEqual(['ACCEPTED_UNATTRIBUTED']);
+    expect(incidents.onPosition).toHaveBeenCalledWith(
+      {
+        deviceId: 'dev-9',
+        occurredAt: new Date('2026-10-23T03:00:00Z'),
+        latitude: 11.5544,
+        longitude: 108.5381,
+      },
+      tx,
+    );
+    expect(repository.linkIncident).not.toHaveBeenCalled();
     expect(emitted).toEqual([
       {
         name: 'field.position',
@@ -192,6 +208,16 @@ describe('IngestionService', () => {
         },
       },
     ]);
+  });
+
+  it('links a position to the incident episode it joined (MF-03)', async () => {
+    incidents.onPosition.mockResolvedValue({ id: 'incident-7' });
+    await service.ingest(envelopeOf('position'));
+    expect(repository.linkIncident).toHaveBeenCalledWith(
+      (storedEvent() as { eventId: string }).eventId,
+      'incident-7',
+      tx,
+    );
   });
 
   it('projects telemetry and emits field.telemetry', async () => {
@@ -222,7 +248,7 @@ describe('IngestionService', () => {
       }),
       tx,
     );
-    expect(incidents.onSos.mock.calls[0][0]).not.toHaveProperty('latitude');
+    expect(incidents.onPosition).not.toHaveBeenCalled();
     expect(repository.linkIncident).toHaveBeenCalledWith(
       (storedEvent() as { eventId: string }).eventId,
       'incident-1',

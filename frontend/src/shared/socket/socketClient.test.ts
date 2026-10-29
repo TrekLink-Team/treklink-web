@@ -131,6 +131,26 @@ describe('socketClient', () => {
     expect(kinds).toContain('replay.expired');
   });
 
+  it('keeps streaming without a cursor when session storage is unavailable', () => {
+    const seen: number[] = [];
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    try {
+      live.subscribeLive((message) => message.kind === 'entry' && seen.push(message.entry.seq));
+      live.startLive(() => 'access-1');
+      fake.receive('stream', entry(3));
+      expect(seen).toEqual([3]);
+      expect(handshake()).toEqual({ token: 'access-1', after: undefined });
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
+  });
+
   it('passes a new access token to the server as auth.refresh', () => {
     live.startLive(() => 'access-1');
     fake.connected = true;

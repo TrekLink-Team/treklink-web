@@ -6,48 +6,71 @@ const tx = (update: jest.Mock) => ({ incident: { update } }) as unknown as Prism
 const CURRENT = {
   id: 'inc-1',
   lastEventAt: new Date('2026-10-29T03:00:00Z'),
-} as Pick<Incident, 'id' | 'lastEventAt'>;
+  lastLatitude: null,
+} as Pick<Incident, 'id' | 'lastEventAt' | 'lastLatitude'>;
 
 describe('IncidentsRepository.appendEvent (design §4 steps 4 and 5)', () => {
   const repository = new IncidentsRepository({} as PrismaService);
 
-  it('counts a later SOS, moves the last event and position, and confirms', async () => {
+  it('counts a later SOS, moves the last SOS time and confirms', async () => {
     const update = jest.fn().mockResolvedValue({});
     const occurredAt = new Date('2026-10-29T03:05:00Z');
-    await repository.appendEvent(CURRENT, { occurredAt, latitude: 21, longitude: 105 }, tx(update));
+    await repository.appendEvent(CURRENT, occurredAt, tx(update));
     expect(update).toHaveBeenCalledWith({
       where: { id: 'inc-1' },
-      data: {
-        eventCount: { increment: 1 },
-        confidence: 'CONFIRMED',
-        lastEventAt: occurredAt,
-        lastLatitude: 21,
-        lastLongitude: 105,
-      },
+      data: { eventCount: { increment: 1 }, confidence: 'CONFIRMED', lastEventAt: occurredAt },
     });
   });
 
-  it('counts a late SOS without moving the last event or position, and never the version', async () => {
+  it('counts a late SOS without moving the last SOS time, and never the version', async () => {
     const update = jest.fn().mockResolvedValue({});
-    await repository.appendEvent(
-      CURRENT,
-      { occurredAt: new Date('2026-10-29T02:00:00Z'), latitude: 1, longitude: 2 },
-      tx(update),
-    );
+    await repository.appendEvent(CURRENT, new Date('2026-10-29T02:00:00Z'), tx(update));
     expect(update).toHaveBeenCalledWith({
       where: { id: 'inc-1' },
       data: { eventCount: { increment: 1 }, confidence: 'CONFIRMED' },
     });
   });
+});
 
-  it('keeps the position when a later SOS carried none', async () => {
-    const update = jest.fn().mockResolvedValue({});
-    const occurredAt = new Date('2026-10-29T03:05:00Z');
-    await repository.appendEvent(CURRENT, { occurredAt }, tx(update));
-    expect((update.mock.calls[0] as unknown[])[0]).toEqual({
+describe('IncidentsRepository.movePosition (onPosition)', () => {
+  const repository = new IncidentsRepository({} as PrismaService);
+  const fix = (occurredAt: string) => ({
+    occurredAt: new Date(occurredAt),
+    latitude: 11.5,
+    longitude: 108.5,
+  });
+
+  it('sets the first known position even when it precedes the last SOS', async () => {
+    const update = jest.fn().mockResolvedValue({ id: 'inc-1' });
+    await expect(
+      repository.movePosition(CURRENT, fix('2026-10-29T02:59:00Z'), tx(update)),
+    ).resolves.toEqual({ id: 'inc-1' });
+    expect(update).toHaveBeenCalledWith({
       where: { id: 'inc-1' },
-      data: { eventCount: { increment: 1 }, confidence: 'CONFIRMED', lastEventAt: occurredAt },
+      data: { lastLatitude: 11.5, lastLongitude: 108.5 },
     });
+  });
+
+  it('moves a known position for a fix not older than the last SOS', async () => {
+    const update = jest.fn().mockResolvedValue({ id: 'inc-1' });
+    await repository.movePosition(
+      { ...CURRENT, lastLatitude: 10 },
+      fix('2026-10-29T03:00:00Z'),
+      tx(update),
+    );
+    expect(update).toHaveBeenCalled();
+  });
+
+  it('keeps a known position against an older fix', async () => {
+    const update = jest.fn();
+    await expect(
+      repository.movePosition(
+        { ...CURRENT, lastLatitude: 10 },
+        fix('2026-10-29T02:59:00Z'),
+        tx(update),
+      ),
+    ).resolves.toBeNull();
+    expect(update).not.toHaveBeenCalled();
   });
 });
 
