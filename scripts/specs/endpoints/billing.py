@@ -209,8 +209,10 @@ ENDPOINTS = [
        "Returns one payment; the payment page polls it while the QR is shown. A `PENDING` payment past its "
        "expiry is reported `EXPIRED` and the amount stays due (FR-BILL-09). While the payment is `PENDING` "
        "the response carries the same `vietQr` block as api-design 11, so the payment page redraws the QR "
-       "after a reload; otherwise `vietQr` is null (D-059 rule 6).", "UC-19, FR-BILL-09, E05-4",
-       path=[["id", "Payment id", "uuid", "`p-1`"]], response={**PAYMENT, "vietQr": VIETQR},
+       "after a reload; otherwise `vietQr` is null (D-059 rule 6). `receivedLater` lists money that arrived "
+       "for this reference with another amount and was recorded as its own confirmed payment, so the page "
+       "never says nothing was charged when something was.", "UC-19, FR-BILL-09, E05-4",
+       path=[["id", "Payment id", "uuid", "`p-1`"]], response={**PAYMENT, "vietQr": VIETQR, "receivedLater": []},
        entity="Payment", steps=["Read within scope", "Expire a stale PENDING row lazily"],
        controller="PaymentsController", service="PaymentsService", call="get(id, caller)",
        seq=["Svc->>DB: SELECT payment; UPDATE EXPIRED if past expiresAt"]),

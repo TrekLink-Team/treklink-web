@@ -140,7 +140,12 @@ export interface VietQr {
   content: string;
 }
 
-export type SepayPayment = Payment & { vietQr: VietQr | null };
+export type SepayPayment = Payment & {
+  vietQr: VietQr | null;
+  // Money that arrived for this request with another amount, recorded as its own payment
+  // (billing api-design 15); empty when none.
+  receivedLater?: { amountVnd: number; confirmedAt: string | null }[];
+};
 
 // billing api-design 11: a PENDING sandbox payment with its QR (409 PAYMENT_PENDING, NOTHING_DUE).
 export const requestSepayPayment = (invoiceId: string) =>

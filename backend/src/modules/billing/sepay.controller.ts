@@ -17,10 +17,10 @@ import {
 } from '../../common/decorators/access.decorator';
 import { RawResponse } from '../../common/decorators/raw-response.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
-import { SepayPaymentDto } from './dto/billing-queries.dto';
+import { SepayPaymentDto, SepayWebhookDto } from './dto/billing-queries.dto';
 import { toPaymentView } from './invoices.controller';
 import { PaymentRow } from './payments.repository';
-import { SepayService, SepayWebhook } from './sepay.service';
+import { SepayService } from './sepay.service';
 
 // SePay sandbox endpoints (billing task 3.2, api-design 11, 12, 15). The webhook is the one
 // @RawResponse() route of the application (D-038): SePay expects `{ "success": true }`.
@@ -49,7 +49,14 @@ export class SepayController {
   @CheckPolicies((ability) => ability.can('read', 'Payment'))
   @ResponseMessage('OK')
   async find(@Param('id', ParseUUIDPipe) id: string, @CurrentCaller() caller: Caller) {
-    return this.view(await this.sepay.find(id, caller));
+    const { receivedLater, ...payment } = await this.sepay.find(id, caller);
+    return {
+      ...(await this.view(payment)),
+      receivedLater: receivedLater.map((received) => ({
+        amountVnd: Number(received.amountVnd),
+        confirmedAt: received.confirmedAt,
+      })),
+    };
   }
 
   @Post('payments/sepay/webhook')
@@ -58,7 +65,7 @@ export class SepayController {
   @HttpCode(HttpStatus.OK)
   async webhook(
     @Headers('authorization') authorization: string | undefined,
-    @Body() hook: SepayWebhook,
+    @Body() hook: SepayWebhookDto,
   ): Promise<{ success: true }> {
     await this.sepay.handleWebhook(authorization, hook);
     return { success: true };
