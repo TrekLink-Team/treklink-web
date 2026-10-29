@@ -6,8 +6,8 @@ const tx = (update: jest.Mock) => ({ incident: { update } }) as unknown as Prism
 const CURRENT = {
   id: 'inc-1',
   lastEventAt: new Date('2026-10-29T03:00:00Z'),
-  lastLatitude: null,
-} as Pick<Incident, 'id' | 'lastEventAt' | 'lastLatitude'>;
+  lastPositionAt: null,
+} as Pick<Incident, 'id' | 'lastEventAt' | 'lastPositionAt'>;
 
 describe('IncidentsRepository.appendEvent (design §4 steps 4 and 5)', () => {
   const repository = new IncidentsRepository({} as PrismaService);
@@ -40,33 +40,37 @@ describe('IncidentsRepository.movePosition (onPosition)', () => {
     longitude: 108.5,
   });
 
-  it('sets the first known position even when it precedes the last SOS', async () => {
+  it('sets the first known position and its fix time', async () => {
     const update = jest.fn().mockResolvedValue({ id: 'inc-1' });
     await expect(
       repository.movePosition(CURRENT, fix('2026-10-29T02:59:00Z'), tx(update)),
     ).resolves.toEqual({ id: 'inc-1' });
     expect(update).toHaveBeenCalledWith({
       where: { id: 'inc-1' },
-      data: { lastLatitude: 11.5, lastLongitude: 108.5 },
+      data: {
+        lastLatitude: 11.5,
+        lastLongitude: 108.5,
+        lastPositionAt: new Date('2026-10-29T02:59:00Z'),
+      },
     });
   });
 
-  it('moves a known position for a fix not older than the last SOS', async () => {
+  it('moves a known position for a fix not older than the stored fix', async () => {
     const update = jest.fn().mockResolvedValue({ id: 'inc-1' });
     await repository.movePosition(
-      { ...CURRENT, lastLatitude: 10 },
+      { ...CURRENT, lastPositionAt: new Date('2026-10-29T03:00:00Z') },
       fix('2026-10-29T03:00:00Z'),
       tx(update),
     );
     expect(update).toHaveBeenCalled();
   });
 
-  it('keeps a known position against an older fix', async () => {
+  it('keeps a known position against an out-of-order older fix, even one newer than the last SOS', async () => {
     const update = jest.fn();
     await expect(
       repository.movePosition(
-        { ...CURRENT, lastLatitude: 10 },
-        fix('2026-10-29T02:59:00Z'),
+        { ...CURRENT, lastPositionAt: new Date('2026-10-29T03:10:00Z') },
+        fix('2026-10-29T03:05:00Z'),
         tx(update),
       ),
     ).resolves.toBeNull();

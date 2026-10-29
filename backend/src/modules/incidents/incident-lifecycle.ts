@@ -275,7 +275,10 @@ export class IncidentLifecycle {
         !actor.roles.some((role) => role === 'STAFF' || role === 'ADMIN')
       )
         throw forbidden();
-    } else if (actor.kind !== 'SYSTEM' && !(actor.kind === 'DEVICE' && code === 'REOPENED')) {
+    } else if (
+      actor.kind !== 'SYSTEM' &&
+      !(actor.kind === 'DEVICE' && (code === 'REOPENED' || code === 'REOPEN_WINDOW_ENDED'))
+    ) {
       throw invalid();
     }
     if ((code === 'FALSE_ALARM' || code === 'RESOLVED') && !reason.note?.trim()) {
@@ -289,8 +292,11 @@ export class IncidentLifecycle {
       throw invalid();
     if (code === 'STALE_LIMIT' && (!current.statusDueAt || current.statusDueAt > at))
       throw invalid();
+    // The scheduler closes only past the window; a newer SOS that cannot reopen the episode closes
+    // it at once, because it supersedes it (DEVICE actor, IncidentIngress.onSos).
     if (
       code === 'REOPEN_WINDOW_ENDED' &&
+      actor.kind !== 'DEVICE' &&
       (!current.reopenWindowEndsAt || current.reopenWindowEndsAt > at)
     )
       throw invalid();

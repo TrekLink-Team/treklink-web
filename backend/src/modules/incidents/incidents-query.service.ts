@@ -1,7 +1,8 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Incident, IncidentState, Prisma } from '@prisma/client';
-import { Caller } from '../../common/decorators/access.decorator';
+import { subject } from '@casl/ability';
+import { Caller, PolicyAbility } from '../../common/decorators/access.decorator';
 import {
   PagedQueryDto,
   PagedResult,
@@ -68,6 +69,25 @@ export interface IncidentDetailView extends IncidentView {
 
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Incident not found.');
+// An organization id no row carries. Only an unconditioned `read Incident` rule (`incident.read`,
+// TrekLink Staff and Admin) matches it; `incident.read.own` matches the caller's organization only.
+const ANY_ORGANIZATION = '*any organization*';
+
+// The organization filter of the reads, decided by the caller's CASL ability (FR-AUTH-11, PR #114
+// review): an unconditioned rule reads every organization, `incident.read.own` reads the caller's
+// own. An account with no organization and no unconditioned rule is refused, so a missing
+// membership never widens the read to every organization.
+const readScope = (ability: PolicyAbility, caller: Caller): { organizationId?: string } => {
+  if (ability.can('read', subject('Incident', { organizationId: ANY_ORGANIZATION }))) return {};
+  const { organizationId } = caller;
+  if (organizationId !== null && ability.can('read', subject('Incident', { organizationId })))
+    return { organizationId };
+  throw new DomainException(
+    HttpStatus.FORBIDDEN,
+    ErrorCode.FORBIDDEN,
+    'You do not have access to this.',
+  );
+};
 
 // Task 5.1, the reads of api-design 01 and 02 (FR-AUTH-11). A member sees the routed organization's
 // incidents only; another organization's incident answers 404. TrekLink Staff see every incident.
@@ -81,7 +101,11 @@ export class IncidentsQueryService {
     private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
 
-  async list(query: IncidentListQuery, caller: Caller): Promise<PagedResult<IncidentView>> {
+  async list(
+    query: IncidentListQuery,
+    caller: Caller,
+    ability: PolicyAbility,
+  ): Promise<PagedResult<IncidentView>> {
     const page = resolvePage(
       query,
       pagingBoundsFrom({
@@ -93,7 +117,7 @@ export class IncidentsQueryService {
     if (query.state?.length) state.in = query.state;
     if (query.open) state.not = 'CLOSED';
     const where: Prisma.IncidentWhereInput = {
-      ...(caller.organizationId !== null ? { organizationId: caller.organizationId } : {}),
+      ...readScope(ability, caller),
       ...(Object.keys(state).length ? { state } : {}),
       ...(query.deviceId ? { deviceId: query.deviceId } : {}),
       ...(query.from ? { createdAt: { gte: query.from } } : {}),
@@ -102,12 +126,10 @@ export class IncidentsQueryService {
     return toPagedResult(await this.views(rows), total, page);
   }
 
-  async detail(id: string, caller: Caller): Promise<IncidentDetailView> {
+  async detail(id: string, caller: Caller, ability: PolicyAbility): Promise<IncidentDetailView> {
+    const { organizationId } = readScope(ability, caller);
     const incident = await this.repository.findById(id);
-    if (
-      !incident ||
-      (caller.organizationId !== null && incident.organizationId !== caller.organizationId)
-    )
+    if (!incident || (organizationId !== undefined && incident.organizationId !== organizationId))
       throw notFound();
     const [updates, reports] = await Promise.all([
       this.repository.statusUpdates(id),

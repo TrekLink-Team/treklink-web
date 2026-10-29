@@ -32,10 +32,12 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 07)', () => {
     );
   });
 
-  it('passes the list and detail reads through with the caller', async () => {
-    await controller.list({ open: true }, CALLER);
-    expect(queries.list).toHaveBeenCalledWith({ open: true }, CALLER);
-    await expect(controller.detail('inc-1', CALLER)).resolves.toBe(VIEW);
+  it('passes the list and detail reads through with the caller and its ability', async () => {
+    const ability = { can: () => true };
+    await controller.list({ open: true }, CALLER, ability);
+    expect(queries.list).toHaveBeenCalledWith({ open: true }, CALLER, ability);
+    await expect(controller.detail('inc-1', CALLER, ability)).resolves.toBe(VIEW);
+    expect(queries.detail).toHaveBeenCalledWith('inc-1', CALLER, ability);
   });
 
   it.each([

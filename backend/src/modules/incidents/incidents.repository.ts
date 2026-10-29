@@ -104,17 +104,23 @@ export class IncidentsRepository {
   }
 
   // A position of the episode (onPosition): it becomes the last known position when the incident has
-  // none yet, or when it is not older than the last SOS. Counters, state and version stay. Null when
-  // the position is older and one is already known. Called with the incident row locked.
+  // none yet, or when its fix is not older than the stored fix (`lastPositionAt`), so an
+  // out-of-order packet never overwrites a newer position (PR #114 review). Counters, state and
+  // version stay. Null when the fix is older. Called with the incident row locked.
   async movePosition(
-    current: Pick<Incident, 'id' | 'lastEventAt' | 'lastLatitude'>,
+    current: Pick<Incident, 'id' | 'lastPositionAt'>,
     position: { occurredAt: Date; latitude: number; longitude: number },
     tx: Prisma.TransactionClient,
   ): Promise<Incident | null> {
-    if (current.lastLatitude !== null && position.occurredAt < current.lastEventAt) return null;
+    if (current.lastPositionAt !== null && position.occurredAt < current.lastPositionAt)
+      return null;
     return tx.incident.update({
       where: { id: current.id },
-      data: { lastLatitude: position.latitude, lastLongitude: position.longitude },
+      data: {
+        lastLatitude: position.latitude,
+        lastLongitude: position.longitude,
+        lastPositionAt: position.occurredAt,
+      },
     });
   }
 

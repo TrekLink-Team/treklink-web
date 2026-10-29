@@ -7,6 +7,7 @@ import { ParameterService } from '../../platform/parameters/parameter.service';
 import { ScheduledJob } from '../../platform/scheduler/scheduled-job.decorator';
 import { ContractsService } from '../../rentals';
 import { AlertDeliveriesRepository, DueAlert } from '../alert-deliveries.repository';
+import { clockTime } from '../display-time';
 
 export const INCIDENT_ALERT = 'incident.alert';
 
@@ -28,22 +29,18 @@ export interface IncidentAlertEvent {
 const CHANNELS: readonly AlertChannel[] = [AlertChannel.WEB, AlertChannel.WEBSOCKET];
 const BATCH = 100;
 
-const clock = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Asia/Ho_Chi_Minh',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
 // MSG31: SOS: {device} ({holder}), {time}. Acknowledge now.
 export const msg31 = (device: string, holder: string | null, at: Date): string =>
-  `SOS: ${device}${holder ? ` (${holder})` : ''}, ${clock.format(at)}. Acknowledge now.`;
+  `SOS: ${device}${holder ? ` (${holder})` : ''}, ${clockTime(at)}. Acknowledge now.`;
 
 // Task 2.1 (design §3, D-034 rule 3). Rows are claimed with SKIP LOCKED and settled in the same
 // transaction. WEB is sent once the row exists: the queue page reads it. WEBSOCKET emits
 // `incident.alert`, whose synchronous listener in monitoring publishes to `user:<id>`; returning
 // means sent. A failure backs off `alertRetryBaseSeconds x 2^attempts`, then FAILED at
 // `alertMaxAttempts`. Delivery never blocks a transition: it runs after the transition committed.
+// Delivery is at least once: the alert is emitted before `markSent` commits, so if that commit
+// fails the row is claimed again and the recipient sees the alert twice. The client keys the banner
+// by incident id, so a repeat replaces the shown alert rather than adding one (AlertBanner).
 @Injectable()
 export class AlertDispatcherJob {
   private readonly logger = new Logger(AlertDispatcherJob.name);

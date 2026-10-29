@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import { formatDateTime } from '../../shared/lib/format';
 import type { IncidentConfidence, IncidentState } from '../../shared/ui/status';
-import { queryString, type Page } from '../contract/api';
+import { queryString, type Page } from '../../shared/api/query';
 
 // Incidents as incidents api-design 01 to 07 return them.
 export interface PersonRef {

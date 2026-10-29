@@ -1,3 +1,4 @@
+import { createMongoAbility } from '@casl/ability';
 import { ConfigService } from '@nestjs/config';
 import { Incident } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
@@ -11,6 +12,14 @@ import { IncidentsRepository } from './incidents.repository';
 
 const MEMBER: Caller = { id: 'u-1', roles: ['ORG_OPERATOR'], organizationId: 'org-a' };
 const STAFF: Caller = { id: 's-1', roles: ['STAFF'], organizationId: null };
+
+// The seeded rules as the ability factory binds them: `incident.read` for TrekLink roles,
+// `incident.read.own` with `${user.organizationId}` filled from the caller for members.
+const readAll = createMongoAbility([{ action: 'read', subject: 'Incident' }]);
+const readOwn = (caller: Caller) =>
+  createMongoAbility([
+    { action: 'read', subject: 'Incident', conditions: { organizationId: caller.organizationId } },
+  ]);
 
 const ROW = {
   id: 'inc-1',
@@ -76,7 +85,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
   });
 
   it('scopes a member to the own organization and maps the api-design 01 row', async () => {
-    const page = await service.list({ open: true, pageNumber: 1 }, MEMBER);
+    const page = await service.list({ open: true, pageNumber: 1 }, MEMBER, readOwn(MEMBER));
     expect(repository.page).toHaveBeenCalledWith(
       { organizationId: 'org-a', state: { not: 'CLOSED' } },
       0,
@@ -97,6 +106,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     await service.list(
       { state: ['UNROUTED', 'ESCALATED'], deviceId: 'dev-1', from, pageNumber: 2, pageSize: 5 },
       STAFF,
+      readAll,
     );
     expect(repository.page).toHaveBeenCalledWith(
       {
@@ -114,12 +124,12 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       [{ ...ROW, contractId: null, ownerId: null, lastLatitude: null, lastLongitude: null }],
       1,
     ]);
-    const [view] = (await service.list({}, STAFF)).items;
+    const [view] = (await service.list({}, STAFF, readAll)).items;
     expect(view).toMatchObject({ owner: null, lastPosition: null, device: { holder: null } });
   });
 
   it('returns the detail with status updates and their authors (api-design 02)', async () => {
-    const detail = await service.detail('inc-1', MEMBER);
+    const detail = await service.detail('inc-1', MEMBER, readOwn(MEMBER));
     expect(detail.statusUpdates).toEqual([
       {
         id: 'su-1',
@@ -136,8 +146,31 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     ['another organization', { ...ROW, organizationId: 'org-b' }, MEMBER],
   ])('answers 404 for %s (auth AC-01)', async (_label, row, caller) => {
     repository.findById.mockResolvedValue(row);
-    await expect(service.detail('inc-1', caller)).rejects.toMatchObject({
+    await expect(service.detail('inc-1', caller, readOwn(caller))).rejects.toMatchObject({
       errorCode: ErrorCode.NOT_FOUND,
     });
   });
+
+  it('lets an unconditioned read rule (Staff, Admin) read any organization', async () => {
+    const admin: Caller = { id: 'a-1', roles: ['ADMIN'], organizationId: null };
+    await expect(service.detail('inc-1', admin, readAll)).resolves.toMatchObject({ id: 'inc-1' });
+  });
+
+  it.each([
+    ['an own rule and no organization', { ...MEMBER, organizationId: null }],
+    ['an organization and no read rule', MEMBER],
+  ])(
+    'refuses an account with %s before reading any row (PR #114 review)',
+    async (label, caller) => {
+      const ability = label.endsWith('no read rule') ? createMongoAbility([]) : readOwn(caller);
+      await expect(service.list({}, caller, ability)).rejects.toMatchObject({
+        errorCode: ErrorCode.FORBIDDEN,
+      });
+      await expect(service.detail('inc-1', caller, ability)).rejects.toMatchObject({
+        errorCode: ErrorCode.FORBIDDEN,
+      });
+      expect(repository.page).not.toHaveBeenCalled();
+      expect(repository.findById).not.toHaveBeenCalled();
+    },
+  );
 });

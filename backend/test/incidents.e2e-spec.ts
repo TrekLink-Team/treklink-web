@@ -55,6 +55,9 @@ const permission = (key: string, action: string, own: boolean) => ({
   reason: null,
 });
 
+// The CASL ability the controller passes to the reads (PR #114 review).
+const AN_ABILITY: unknown = expect.objectContaining({ can: expect.any(Function) as unknown });
+
 // The seeded permission rows of the migration seed for these two roles.
 const PERMISSIONS: Record<string, unknown[]> = {
   STAFF: [permission('incident.read', 'read', false)],
@@ -162,6 +165,7 @@ describe('incidents API (e2e, api-design 01 to 07)', () => {
           pageSize: 5,
         },
         { id: 'operator-a', roles: ['ORG_OPERATOR'], organizationId: 'org-a' },
+        AN_ABILITY,
       );
     });
 
@@ -170,6 +174,7 @@ describe('incidents API (e2e, api-design 01 to 07)', () => {
       expect(queries.list).toHaveBeenCalledWith(
         { open: false },
         { id: 'staff-1', roles: ['STAFF'], organizationId: null },
+        AN_ABILITY,
       );
     });
 

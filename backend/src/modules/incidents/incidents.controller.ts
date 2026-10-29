@@ -23,7 +23,13 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
+import {
+  Caller,
+  CheckPolicies,
+  CurrentAbility,
+  CurrentCaller,
+  type PolicyAbility,
+} from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { PagedQueryDto, PagedResult } from '../../common/dto/paging';
 import { IncidentDetailView, IncidentsQueryService, IncidentView } from './incidents-query.service';
@@ -114,8 +120,9 @@ export class IncidentsController {
   list(
     @Query() query: IncidentListQueryDto,
     @CurrentCaller() caller: Caller,
+    @CurrentAbility() ability: PolicyAbility,
   ): Promise<PagedResult<IncidentView>> {
-    return this.queries.list(query, caller);
+    return this.queries.list(query, caller, ability);
   }
 
   @Get(':id')
@@ -124,8 +131,9 @@ export class IncidentsController {
   detail(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentCaller() caller: Caller,
+    @CurrentAbility() ability: PolicyAbility,
   ): Promise<IncidentDetailView> {
-    return this.queries.detail(id, caller);
+    return this.queries.detail(id, caller, ability);
   }
 
   @Post(':id/acknowledge')
