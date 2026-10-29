@@ -69,15 +69,19 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - _Story: US-UC02, US-UC03, US-UC07_
 - [ ] 3.3 Members and roster (owner TanNB)
   - **Do**: organizations api-design 12 to 19; invite, change role, deactivate (MSG for `LAST_MANAGER`); `RosterCalendar` widget with overlap errors and `NO_PRIMARY` warnings (MSG22)
+  - **SD done** (2026-10-29, TanNB): `ui-design/3-3-members-and-roster.md` and its wireframe `3-3-members-and-roster.svg` written; the open points for the leader are at the end of the file. CO, UT and RV are open
   - _Story: US-UC04, US-UC05_
 - [ ] 3.4 API keys (owner TanNB)
   - **Do**: organizations api-design 20 to 22; the secret is shown once with a copy button and never again
+  - **SD done** (2026-10-29, TanNB): `ui-design/3-4-api-keys.md` and its wireframe `3-4-api-keys.svg` written; the open points for the leader are at the end of the file. CO, UT and RV are open
   - _Story: US-UC06_
 - [ ] 3.5 `FieldStationsPage` (owner TanNB)
   - **Do**: organizations api-design 23 to 26; create shows the secret once; health columns with `outdated`; the current release with its version, SHA-256 and one download per operating system
+  - **SD done** (2026-10-29, TanNB): `ui-design/3-5-fieldstationspage.md` and its wireframe `3-5-fieldstationspage.svg` written; the open points for the leader are at the end of the file. CO, UT and RV are open
   - _Story: US-UC06, US-UC42_
 - [ ] 3.6 `ComplianceCasePage` and channel key rotation (owner TanNB)
   - **Do**: organizations api-design 27 to 31; open a case, record actions (suspend for Admin only), close with outcome and authority reference (required for fraud and theft); rotate key on the organization page clears the exposed flag
+  - **SD done** (2026-10-29, TanNB): `ui-design/3-6-compliancecasepage-and-channel-key-rotation.md` and its wireframe `3-6-compliancecasepage-and-channel-key-rotation.svg` written; the open points for the leader are at the end of the file (no endpoint returns one case, `actions[]` has no actor, `channelKeyExposedAt` is returned by no endpoint). CO, UT and RV are open
   - _Story: US-UC63_
 
 ## Phase 4: Fleet
