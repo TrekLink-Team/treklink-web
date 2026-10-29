@@ -1,4 +1,11 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
@@ -22,17 +29,50 @@ import {
   type SessionUser,
 } from '../auth';
 import { INCIDENT_ALERT, type IncidentAlertEvent } from '../incidents';
-import { FLEET_ROOM, orgRoom, userRoom } from './rooms';
+import { ReplayService } from './replay.service';
+import { FLEET_ROOM, REPLAYING_ROOM, orgRoom, replayScopeOf, userRoom } from './rooms';
 import { StreamService, WireEntry } from './stream.service';
+
+// Emitted by `organizations` when an organization API key is revoked (platform design 2.3).
+export const API_KEY_REVOKED = 'apiKey.revoked';
+
+export interface ApiKeyRevokedEvent {
+  organizationId: string;
+  apiKeyId: string;
+}
 
 // Who the server decided this socket is. Rooms come from here and nowhere else.
 interface LiveIdentity {
   userId: string | null;
   rooms: string[];
+  // The API key behind an API-key socket, so revoking it closes that socket only.
+  apiKeyId: string | null;
+  // The cursor the client reconnected with, or null on a first connect.
+  after: number | null;
   // When the access token expires, in epoch milliseconds; null for an API key.
   expiresAt: number | null;
   expiryTimer: NodeJS.Timeout | null;
 }
+
+// Live entries that arrive for a socket while it replays, delivered after the replay in `seq` order.
+interface ReplayState {
+  rooms: string[];
+  pending: WireEntry[];
+}
+
+// A cursor is a non-negative integer; anything else is treated as no cursor.
+const parseCursor = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+
+// Control messages travel as the `stream` event with seq 0, so a client needs one listener.
+const control = (type: 'replay.done' | 'replay.expired', cursor?: number) => ({
+  seq: 0,
+  type,
+  deviceId: null,
+  payload: {},
+  createdAt: new Date().toISOString(),
+  ...(cursor === undefined ? {} : { cursor }),
+});
 
 // The server-decided identity travels in `socket.data`, typed so it is never read as `any`.
 type LiveSocket = IoSocket<
@@ -68,7 +108,8 @@ const unauthenticated = (): Error =>
 // Socket.io namespace `/live` (task 1.1, FR-MON-02; ws-live-contract). One authenticated socket per
 // client, joined to rooms by the server only. The only client event is `auth.refresh`; nothing a
 // client sends can name a room. A socket ends with its access token, and with its member's
-// deactivation (REQ-UBI-01). Replay on connect is task 2.2.
+// deactivation (REQ-UBI-01). A client that reconnects with a cursor is replayed what it missed, then
+// `replay.done`, then live (task 2.2).
 @Injectable()
 @WebSocketGateway({ namespace: '/live' })
 export class LiveGateway
@@ -78,10 +119,13 @@ export class LiveGateway
   private namespace!: LiveNamespace;
 
   private unsubscribe: (() => void) | null = null;
+  private readonly logger = new Logger(LiveGateway.name);
+  private readonly replaying = new Map<string, ReplayState>();
 
   constructor(
     private readonly authenticator: AccessTokenAuthenticator,
     private readonly stream: StreamService,
+    private readonly replays: ReplayService,
     @Optional()
     @Inject(API_KEY_RESOLVER)
     private readonly apiKeys?: ApiKeyResolver,
@@ -110,11 +154,17 @@ export class LiveGateway
   }
 
   handleConnection(socket: LiveSocket): void {
-    void socket.join(socket.data.identity.rooms);
+    const identity = socket.data.identity;
     this.armExpiry(socket);
+    if (identity.after === null) {
+      void socket.join(identity.rooms);
+      return;
+    }
+    void this.replay(socket, identity.after);
   }
 
   handleDisconnect(socket: LiveSocket): void {
+    this.replaying.delete(socket.id);
     const timer = socket.data.identity.expiryTimer;
     if (timer) clearTimeout(timer);
   }
@@ -124,6 +174,17 @@ export class LiveGateway
   @OnEvent(MEMBER_DEACTIVATED)
   onMemberDeactivated({ userId }: MemberDeactivatedEvent): void {
     this.namespace.in(userRoom(userId)).disconnectSockets(true);
+  }
+
+  // A revoked key closes its own sockets and no other socket of the organization (FR-ORG-06, E04-5).
+  @OnEvent(API_KEY_REVOKED)
+  async onApiKeyRevoked({ organizationId, apiKeyId }: ApiKeyRevokedEvent): Promise<void> {
+    const sockets = await this.namespace.in(orgRoom(organizationId)).fetchSockets();
+    for (const socket of sockets) {
+      if (socket.data.identity.apiKeyId !== apiKeyId) continue;
+      socket.emit('auth.error', { errorCode: 'KEY_REVOKED' });
+      socket.disconnect(true);
+    }
   }
 
   // Task 2.3: an incident alert goes to the recipient's own room only, as a `stream` event with
@@ -158,12 +219,65 @@ export class LiveGateway
     for (const room of identity.rooms) if (!rooms.includes(room)) void socket.leave(room);
     void socket.join(rooms);
     identity.rooms = rooms;
+    const replaying = this.replaying.get(socket.id);
+    if (replaying) replaying.rooms = rooms;
     identity.expiresAt = session.expiresAt;
     this.armExpiry(socket);
   }
 
+  // A live entry goes to the rooms, except to sockets still replaying: those get it buffered, and the
+  // replay delivers it in order once they have caught up.
   publish(rooms: string[], entry: WireEntry): void {
-    this.namespace.to(rooms).emit('stream', entry);
+    for (const state of this.replaying.values()) {
+      if (state.rooms.some((room) => rooms.includes(room))) state.pending.push(entry);
+    }
+    this.namespace.to(rooms).except(REPLAYING_ROOM).emit('stream', entry);
+  }
+
+  // Catches a reconnecting client up: every entry after its cursor that it may see, oldest first, then
+  // what arrived live meanwhile, then `replay.done`. The socket sits in the replaying room until the
+  // last step, which runs without waiting, so no live entry can slip between the replay and the live
+  // stream. A cursor older than the retention window gets `replay.expired` and no replay (E04-3).
+  private async replay(socket: LiveSocket, after: number): Promise<void> {
+    const identity = socket.data.identity;
+    const scope = replayScopeOf(identity.rooms);
+    if (scope === null) {
+      void socket.join(identity.rooms);
+      socket.emit('stream', control('replay.done', after));
+      return;
+    }
+    const state: ReplayState = { rooms: identity.rooms, pending: [] };
+    this.replaying.set(socket.id, state);
+    void socket.join([...identity.rooms, REPLAYING_ROOM]);
+    try {
+      if (await this.replays.isExpired(after)) {
+        this.replaying.delete(socket.id);
+        void socket.leave(REPLAYING_ROOM);
+        socket.emit('stream', control('replay.expired'));
+        return;
+      }
+      let last = after;
+      for (;;) {
+        const batch = await this.replays.batchAfter(scope.organizationId, last);
+        if (!socket.connected) return;
+        if (batch.length === 0) break;
+        for (const entry of batch) socket.emit('stream', entry);
+        last = batch[batch.length - 1].seq;
+      }
+      for (const entry of [...state.pending].sort((a, b) => a.seq - b.seq)) {
+        if (entry.seq <= last) continue;
+        socket.emit('stream', entry);
+        last = entry.seq;
+      }
+      this.replaying.delete(socket.id);
+      void socket.leave(REPLAYING_ROOM);
+      socket.emit('stream', control('replay.done', last));
+    } catch (error) {
+      // The client reconnects with the same cursor and tries again.
+      this.logger.error(`Replay failed for socket ${socket.id}: ${String(error)}`);
+      this.replaying.delete(socket.id);
+      socket.disconnect(true);
+    }
   }
 
   // The server enforces "refresh before expiry": at the token's expiry the socket closes, unless an
@@ -185,6 +299,8 @@ export class LiveGateway
         ? {
             userId: null,
             rooms: [orgRoom(key.organizationId)],
+            apiKeyId: key.apiKeyId,
+            after: parseCursor(auth.after),
             expiresAt: null,
             expiryTimer: null,
           }
@@ -195,6 +311,8 @@ export class LiveGateway
       ? {
           userId: session.user.id,
           rooms: roomsOfUser(session.user),
+          apiKeyId: null,
+          after: parseCursor(auth?.after),
           expiresAt: session.expiresAt,
           expiryTimer: null,
         }

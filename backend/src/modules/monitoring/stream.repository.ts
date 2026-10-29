@@ -81,6 +81,16 @@ export class StreamRepository {
     return row?.checkedInAt ?? null;
   }
 
+  // The oldest cursor still within the retention window, or null when no entry is that recent.
+  async oldestSeqSince(cutoff: Date): Promise<number | null> {
+    const row = await this.prisma.streamEvent.findFirst({
+      where: { createdAt: { gte: cutoff } },
+      orderBy: { seq: 'asc' },
+      select: { seq: true },
+    });
+    return row === null ? null : Number(row.seq);
+  }
+
   // The newest cursor, or 0 when the stream is empty.
   async maxSeq(): Promise<number> {
     const { _max } = await this.prisma.streamEvent.aggregate({ _max: { seq: true } });

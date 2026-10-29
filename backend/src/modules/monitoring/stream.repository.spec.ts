@@ -11,13 +11,23 @@ const row = (seq: bigint, organizationId: string | null = 'o-1') => ({
 });
 
 describe('StreamRepository', () => {
-  let streamEvent: { create: jest.Mock; findMany: jest.Mock; aggregate: jest.Mock };
+  let streamEvent: {
+    create: jest.Mock;
+    findMany: jest.Mock;
+    findFirst: jest.Mock;
+    aggregate: jest.Mock;
+  };
   let deviceRelease: { findUnique: jest.Mock };
   let executeRaw: jest.Mock;
   let repository: StreamRepository;
 
   beforeEach(() => {
-    streamEvent = { create: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() };
+    streamEvent = {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      aggregate: jest.fn(),
+    };
     deviceRelease = { findUnique: jest.fn() };
     executeRaw = jest.fn().mockResolvedValue(1);
     repository = new StreamRepository({
@@ -101,6 +111,19 @@ describe('StreamRepository', () => {
   it('reads no check-in for a device the organization never checked in', async () => {
     deviceRelease.findUnique.mockResolvedValue(null);
     await expect(repository.latestRelease('o-1', 'd-1')).resolves.toBeNull();
+  });
+
+  it('reads the oldest cursor inside the retention window, or null when none is that recent', async () => {
+    const cutoff = new Date('2026-10-27T03:00:00.000Z');
+    streamEvent.findFirst.mockResolvedValueOnce({ seq: 412n });
+    await expect(repository.oldestSeqSince(cutoff)).resolves.toBe(412);
+    expect(streamEvent.findFirst).toHaveBeenCalledWith({
+      where: { createdAt: { gte: cutoff } },
+      orderBy: { seq: 'asc' },
+      select: { seq: true },
+    });
+    streamEvent.findFirst.mockResolvedValueOnce(null);
+    await expect(repository.oldestSeqSince(cutoff)).resolves.toBeNull();
   });
 
   it('reads the newest cursor, or 0 for an empty stream', async () => {

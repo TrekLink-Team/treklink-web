@@ -4,7 +4,7 @@ import { LiveGateway } from './live.gateway';
 describe('LiveGateway handshake', () => {
   it('refuses a socket with UNAUTHENTICATED when the token check fails', async () => {
     const authenticate = jest.fn().mockRejectedValue(new Error('jwt malformed'));
-    const gateway = new LiveGateway({ authenticate } as never, {} as never);
+    const gateway = new LiveGateway({ authenticate } as never, {} as never, {} as never);
     let middleware: ((socket: unknown, next: (error?: Error) => void) => void) | undefined;
     gateway.afterInit({
       use: (fn: typeof middleware) => {
@@ -22,7 +22,7 @@ describe('LiveGateway.onIncidentAlert (monitoring 2.3)', () => {
   it('sends the alert to the recipient room only, outside the stream sequence', () => {
     const emit = jest.fn();
     const to = jest.fn().mockReturnValue({ emit });
-    const gateway = new LiveGateway({} as never, {} as never);
+    const gateway = new LiveGateway({} as never, {} as never, {} as never);
     (gateway as unknown as { namespace: { to: jest.Mock } }).namespace = { to };
     const alert = {
       incidentId: 'inc-1',
