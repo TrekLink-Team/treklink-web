@@ -54,7 +54,16 @@ No body.
         "authorityReference": null,
         "outcome": null,
         "openedAt": "2026-10-20T03:15:00.000Z",
-        "actions": []
+        "actions": [
+          {
+            "kind": "SUSPEND_ORGANIZATION",
+            "actor": {
+              "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
+              "fullName": "Tran Thi B"
+            },
+            "at": "2026-10-20T03:15:00.000Z"
+          }
+        ]
       }
     ],
     "pageNumber": 1,
@@ -67,6 +76,14 @@ No body.
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| items[].actions[] | Actions taken from the case, in the order they were recorded | object[] | see sample |
+| items[].actions[].kind | SUSPEND_ORGANIZATION, REVOKE_FIELD_STATION, REVOKE_API_KEY or OTHER | enum | `SUSPEND_ORGANIZATION` |
+| items[].actions[].actor.id | User who took the action (ComplianceAction.actorId) | uuid | `3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f` |
+| items[].actions[].actor.fullName | That user's name | string | `Tran Thi B` |
+| items[].actions[].at | When the action was recorded (createdAt), UTC | datetime | `2026-10-20T03:15:00.000Z` |
 
 ## Validation
 

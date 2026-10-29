@@ -94,10 +94,12 @@ the backup tier, or at the Managers when there is no backup (D-034).
 |---|---|---|
 | Created by | Org Manager | Org Manager (D-037) |
 | Revoked by | Org Manager | Org Manager, TrekLink Staff, Admin |
+| Listed by | Org Manager: own; TrekLink Staff, Admin: any organization, read only (api-design 20, ruling 2026-10-30) | Org Manager, Org Operator: own; TrekLink Staff, Admin (api-design 23) |
+| Limit | `organizations.maxApiKeys`, returned as `limit` by the list; 409 `KEY_LIMIT` on create | `organizations.maxFieldStations`, returned as `limit` by the list; 409 `STATION_LIMIT` on create |
 | Secret | `tlk_` + 43 base64url chars; SHA-256 stored; prefix of 8 shown | `fs_` + 43 base64url chars; bcrypt stored |
 | Identity | the hash | `mqttUsername` = `fs-<org code lower-case>-<n>` |
 | Used by | `ApiKeyGuard` via `API_KEY_RESOLVER` | the broker's go-auth hook via `gateway-sync` |
-| Health | `lastUsedAt` | `lastSyncAt`, `queueDepth`, `oldestRetryCount`, `version`, written by `gateway-sync` through `recordStationHealth()`; `outdated` is computed on read against the current release |
+| Health | `lastUsedAt` | `lastSyncAt`, `queueDepth` (stored `Int[]`, index = priority; returned as `{p0, p1, p2, p3}`, D-057 rule 9), `oldestRetryCount`, `version`, written by `gateway-sync` through `recordStationHealth()`; `outdated` is computed on read against the current release |
 
 The Field Station is updated by download (D-039 (b)). `FieldStationReleaseService.current()` reads
 `release.json` from `FIELD_STATION_RELEASE_DIR`, caches it until the file changes, and compares versions
@@ -154,7 +156,7 @@ Events emitted: `member.deactivated`, `apiKey.revoked`, `fieldStation.revoked`, 
 | `BALANCE_OUTSTANDING` | 409 |
 | `OPEN_CONTRACTS` | 409 |
 | `SHIFT_OVERLAP` | 409 |
-| `SHIFT_STARTED` | 409 |
+| `SHIFT_STARTED` | 409 (deleting a shift that has started, api-design 19; changing any field but `endsAt` of one, api-design 18. An `endsAt` before now on a started shift is 400 `VALIDATION_FAILED`) |
 | `MEMBER_NOT_ELIGIBLE` | 400 |
 | `KEY_LIMIT` | 409 |
 | `STATION_LIMIT` | 409 |

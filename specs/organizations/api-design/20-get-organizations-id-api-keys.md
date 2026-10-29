@@ -7,14 +7,14 @@
 ---
 ## Overview
 
-Lists the organization's API keys by name and prefix, with last use and revocation time. The full key is never shown again.
+Lists the organization's API keys by name and prefix, with last use and revocation time, and the number of active keys it may hold. The full key is never shown again. TrekLink Staff and Admin read any organization's keys, for example from a compliance case; creating and revoking stay with the Org Manager (ruling 2026-10-30).
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
 | GET | /api/organizations/:id/api-keys |
-| Permission | Org Manager: own |
+| Permission | Org Manager: own; TrekLink Staff, TrekLink Admin: any organization |
 | Traces | UC-06, FR-ORG-06 |
 
 ### Path parameters
@@ -31,21 +31,29 @@ No body.
 
 ```json
 {
-  "result": [
-    {
-      "id": "k-1",
-      "name": "ERP integration",
-      "prefix": "tlk_7Hc2",
-      "createdAt": "2026-10-20T03:15:00.000Z",
-      "lastUsedAt": null,
-      "revokedAt": null
-    }
-  ],
+  "result": {
+    "items": [
+      {
+        "id": "k-1",
+        "name": "ERP integration",
+        "prefix": "tlk_7Hc2",
+        "createdAt": "2026-10-20T03:15:00.000Z",
+        "lastUsedAt": null,
+        "revokedAt": null
+      }
+    ],
+    "limit": 5
+  },
   "isSuccess": true,
   "statusCode": 200,
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| items | The list | object[] | see sample |
+| limit | `organizations.maxApiKeys`, the most active ones the organization may hold; at that count the create endpoint answers 409 `KEY_LIMIT` (ruling 2026-10-30) | int | `5` |
 
 ## Validation
 
@@ -122,8 +130,10 @@ flowchart TB
     E1 --> X1((End))
     P0["Read api_keys of the organization"]
     D1 -->|no| P0
+    P1["Read organizations.maxApiKeys"]
+    P0 --> P1
     OK["Return 200"]
-    P0 --> OK
+    P1 --> OK
     OK --> Z((End))
 ```
 
@@ -136,9 +146,11 @@ sequenceDiagram
     participant Ctl as ApiKeysController
     participant Svc as ApiKeysService
     participant DB as Postgres
+    participant Prm as ParameterService
     C->>Ctl: GET /api/organizations/:id/api-keys
     Ctl->>Svc: list(orgId, caller)
     Svc->>DB: SELECT api_keys
+    Svc->>Prm: get(organizations.maxApiKeys)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

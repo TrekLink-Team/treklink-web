@@ -65,6 +65,10 @@ Takes and records an action from the case: suspend the organization (FR-ORG-07),
     "actions": [
       {
         "kind": "SUSPEND_ORGANIZATION",
+        "actor": {
+          "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
+          "fullName": "Tran Thi B"
+        },
         "at": "2026-10-20T03:15:00.000Z"
       }
     ]
@@ -74,6 +78,14 @@ Takes and records an action from the case: suspend the organization (FR-ORG-07),
   "message": "Action recorded"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| actions[] | Actions taken from the case, in the order they were recorded | object[] | see sample |
+| actions[].kind | SUSPEND_ORGANIZATION, REVOKE_FIELD_STATION, REVOKE_API_KEY or OTHER | enum | `SUSPEND_ORGANIZATION` |
+| actions[].actor.id | User who took the action (ComplianceAction.actorId) | uuid | `3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f` |
+| actions[].actor.fullName | That user's name | string | `Tran Thi B` |
+| actions[].at | When the action was recorded (createdAt), UTC | datetime | `2026-10-20T03:15:00.000Z` |
 
 ## Validation
 

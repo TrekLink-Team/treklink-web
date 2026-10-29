@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Changes a shift's window or members. A change takes effect for the next alert; an incident already in a tier keeps its recipient.
+Changes a shift's window or members. A change takes effect for the next alert; an incident already in a tier keeps its recipient. On a shift that has started only `endsAt` may change, and not to a time before now, so the record of who was on duty stays (ruling 2026-10-30).
 
 ## API Specification
 
@@ -34,10 +34,10 @@ Changes a shift's window or members. A change takes effect for the next alert; a
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| startsAt | Start | datetime | no | `...` |
-| endsAt | End | datetime | no | `...` |
-| primaryMemberId | Member or null | uuid | no | `...` |
-| backupMemberId | Member or null | uuid | no | `...` |
+| startsAt | Start; not accepted once the shift has started | datetime | no | `...` |
+| endsAt | End; the only field accepted once the shift has started, then not before now | datetime | no | `...` |
+| primaryMemberId | Member or null; not accepted once the shift has started | uuid | no | `...` |
+| backupMemberId | Member or null; not accepted once the shift has started | uuid | no | `...` |
 
 ## Response sample
 
@@ -139,6 +139,40 @@ Changes a shift's window or members. A change takes effect for the next alert; a
         </tr>
         <tr>
             <td>409</td>
+            <td>The shift has started and the body changes a field other than endsAt (<code>SHIFT_STARTED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "SHIFT_STARTED"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "Only the end of a started shift can change."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>The shift has started and endsAt is before now (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "endsAt must not be in the past."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>The window overlaps another shift (<code>SHIFT_OVERLAP</code>)</td>
 <td>
 
@@ -174,13 +208,23 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The window overlaps another shift?"}
+    D3{"The shift has started and the body changes a field other than endsAt?"}
     D2 -->|no| D3
-    E3["Return 409 SHIFT_OVERLAP"]
+    E3["Return 409 SHIFT_STARTED"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"The shift has started and endsAt is before now?"}
+    D3 -->|no| D4
+    E4["Return 400 VALIDATION_FAILED"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
+    D5{"The window overlaps another shift?"}
+    D4 -->|no| D5
+    E5["Return 409 SHIFT_OVERLAP"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Validate members"]
-    D3 -->|no| P0
+    D5 -->|no| P0
     P1["Update the shift"]
     P0 --> P1
     OK["Return 200"]

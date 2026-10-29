@@ -47,12 +47,12 @@ Revokes a credential; the broker refuses it from the next connection (FR-EVT-14)
     "createdAt": "2026-10-20T03:15:00.000Z",
     "revokedAt": "2026-10-20T03:15:00.000Z",
     "lastSyncAt": "2026-10-20T03:15:00.000Z",
-    "queueDepth": [
-      0,
-      0,
-      3,
-      12
-    ],
+    "queueDepth": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 3,
+      "p3": 12
+    },
     "oldestRetryCount": 0,
     "version": "1.2.0",
     "outdated": false
