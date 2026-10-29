@@ -49,7 +49,7 @@
   - **Files**: `backend/src/modules/incidents/incident-ingress.ts`
   - **Do**: the five correlation steps of design §4 under the device lock; reopen inside the reopen window (re-routed, reopen count, owner cleared); cadence: `incidents.cadenceCount` positions within `incidents.cadenceWindowSeconds` and no open incident create `SUSPECTED` from `CADENCE_INFERRED`, upgraded to `CONFIRMED` in place by a later SOS text; positions within `gatewaySync.retroTagGraceSeconds` before the SOS join the episode
   - **Test**: AC-01, AC-05; a replay produces no second incident or alert per tier
-  - **Note**: `onSos` is built in the MF-03 PR (2026-10-29) with the five correlation steps and reopen, and runs inside ingestion. `backend/test/mf03.db-spec.ts` proves create, route, replay rejection, append and reopen against Postgres. Open: `onPosition`, cadence `SUSPECTED` creation and retro-tagging, so the box stays open. Until `onPosition` lands an incident has no last position, because an SOS text carries none
+  - **Note**: `onSos` and `onPosition` are built in the MF-03 PR (2026-10-29) and run inside ingestion. `onSos` covers the five correlation steps and reopen. An SOS text carries no position, so the last position comes from `onPosition`: a plotted position joins a running episode (not `RESOLVED` or `FALSE_ALARM`) when it is at most `gatewaySync.retroTagGraceSeconds` older than the first SOS, and moves the last position unless an older fix arrives after a known one. `backend/test/mf03.db-spec.ts` proves create, route, position, replay rejection, append and reopen against Postgres. Open, outside the MF-03 happy path: cadence `SUSPECTED` creation, and tagging positions stored before the SOS arrived. The box stays open
   - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-EVT-10, REQ-ERR-03, AC-01, AC-05, FR-INC-01, FR-INC-02, FR-INC-11, BR-14, NFR-REL-03_
   - _Story: US-UC29, US-UC36_
 
@@ -105,6 +105,7 @@
 - [ ] 6.2 E2E (owner HoangTK)
   - **Files**: `backend/test/incidents.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 14; replay ×10 (TC-11); AC-01 to AC-09
+  - **Note**: the MF-03 PR (2026-10-29) adds `backend/test/incidents.e2e-spec.ts`, 30 tests over api-design 01 to 07 through the real HTTP pipeline: the JWT guard, each route's CASL policy (Staff refused 403 on member actions), the query and body validation rows, the envelope and messages, and MSG27 as 409. `backend/test/mf03.db-spec.ts` covers the MF-03 main success scenario against Postgres, including a replay. Open: api-design 08 to 14, the tenancy suite on the real routes, replay ×10 (TC-11) and AC-02, AC-04 and AC-06 to AC-09, so the box stays open
   - _Requirements: AC-01 to AC-09_
 
 ## Phase 7: Frontend Integration

@@ -163,7 +163,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 - [ ] 8.1 Organization incident queue and `IncidentDetailPage` (owner HoangTK)
   - **Do**: incidents api-design 01 to 07, 12 to 14; one-step acknowledge with at most 2 fields; status and outcome forms; false alarm with a reason; the search-and-rescue disclaimer on the queue
-  - **Note**: `/o/incidents` and `/o/incidents/:id` are built in the MF-03 PR (2026-10-29) over api-design 01 to 07, with the state-and-viewer action table of screen 8.1. The false alarm uses an inline confirming form rather than a dialog. Open: the transitions, events and alert-log panels (api-design 12 to 14), the device and created-from filters, and the dirty-form guard
+  - **Note**: `/o/incidents` and `/o/incidents/:id` are built in the MF-03 PR (2026-10-29) over api-design 01 to 07, with the state-and-viewer action table of screen 8.1. The false alarm uses an inline confirming form rather than a dialog. `src/pages/incident-pages.test.tsx` covers the queue, the detail, every action form and the MSG26, MSG27, MSG28 and MSG36 paths. Open: the transitions, events and alert-log panels (api-design 12 to 14), the device and created-from filters, and the dirty-form guard
   - _Requirements: REQ-UBI-03, REQ-UBI-07, REQ-UBI-09, AC-02_
   - _Story: US-UC32, US-UC33, US-UC34_
 - [ ] 8.2 `StaffIncidentsPage` (owner HoangTK)
