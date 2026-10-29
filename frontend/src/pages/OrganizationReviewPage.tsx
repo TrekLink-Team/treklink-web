@@ -56,7 +56,8 @@ const VerifyForm: React.FC<{ organization: OrganizationReview; onSaved: () => vo
   organization,
   onSaved,
 }) => {
-  const [method, setMethod] = useState<Method>('IN_PERSON');
+  // An update keeps the recorded method; a first verification starts at in person.
+  const [method, setMethod] = useState<Method>(organization.verificationMethod ?? 'IN_PERSON');
   const [documents, setDocuments] = useState<string[]>(organization.documentsSeen);
   const [reference, setReference] = useState(organization.masterContractRef ?? '');
   const [nda, setNda] = useState(organization.ndaSigned);
