@@ -43,7 +43,8 @@ The dashboard changes nothing itself; every write happens on the page a link ope
 |---|---|
 | Loading | Each tile and widget shows its own skeleton; one slow source never blanks the page |
 | Empty | No contracts: "Your organization has no contracts yet." with Request a contract. No open incidents: "No open incidents." No unpaid invoices: "Nothing to pay right now." |
-| Error in one source | That tile or widget shows the server's message with Try again; the others stay |
+| Error in one source | That tile or widget shows the server's message with Try again; the others stay. A failed contract detail replaces the devices-out tile, and a failed overdue query replaces the Still due tile, rather than showing a lower count |
+| More than one page | An info banner: "Counted on the first 100 contracts" (or invoices, or both); the Contracts and Invoices pages list them all |
 | Organization not ACTIVE | An amber MSG28 banner with the organization's state from auth 04 `organization.status` |
 | Not found or forbidden | `FORBIDDEN` (403): MSG26 full page |
 

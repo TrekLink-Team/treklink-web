@@ -85,6 +85,7 @@ export interface ContractFilters {
   status?: ContractStatus;
   planType?: PlanType;
   pageNumber?: number;
+  pageSize?: number;
 }
 
 export interface ContractRequest {

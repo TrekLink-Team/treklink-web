@@ -34,6 +34,10 @@ import { LINK } from '../shared/ui/styles';
 // The states whose devices are with the organization (design of screen 5.6, "devices out").
 const RUNNING: ContractStatus[] = ['ACTIVE', 'ENDING', 'RETURN_DUE', 'OVERDUE', 'DEFAULTED'];
 
+// The list endpoints' MAX_PAGE_SIZE (backend default, specs/platform/requirements.md §4): the
+// dashboard reads one page of that size per source, as screen 5.6 says.
+const MAX_PAGE_SIZE = 100;
+
 // At most this many running contracts are read for the devices-out count; the tile says so beyond.
 const DETAIL_LIMIT = 5;
 
@@ -85,9 +89,12 @@ const nextDates = (contracts: Contract[]) =>
 export const OrgDashboardPage: React.FC = () => {
   const { user } = useAuth();
   const organization = user?.organization;
-  const contracts = useContracts('o', {});
-  const invoices = useInvoices('o', {});
-  const overdue = useInvoices('o', { overdue: true });
+  const contracts = useContracts('o', { pageSize: MAX_PAGE_SIZE });
+  const invoices = useInvoices('o', { pageSize: MAX_PAGE_SIZE });
+  const overdue = useInvoices('o', { overdue: true, pageSize: MAX_PAGE_SIZE });
+  // More than one page means the sums below cover the first page only; the page says so.
+  const contractsCut = (contracts.data?.totalPages ?? 1) > 1;
+  const invoicesCut = (invoices.data?.totalPages ?? 1) > 1;
 
   const items = contracts.data?.items ?? [];
   const running = items.filter((contract) => RUNNING.includes(contract.status));
@@ -106,6 +113,10 @@ export const OrgDashboardPage: React.FC = () => {
     0,
   );
   const detailsLoading = details.some((detail) => detail.isLoading);
+  const detailsFailed = details.find((detail) => detail.error);
+  // The overdue count belongs to the same tile, so the tile waits for and fails with it too.
+  const dueLoading = invoices.isLoading || overdue.isLoading;
+  const dueError = invoices.error ?? overdue.error;
 
   // What each contract still owes across its invoices: a cancellation's voiding ADJUSTMENT sits on
   // the CLOSING invoice with a negative total, so an earlier invoice of a settled contract still
@@ -194,18 +205,29 @@ export const OrgDashboardPage: React.FC = () => {
                 icon={<FileText />}
               />
             </Tile>
-            <Tile to="/o/contracts">
-              <StatCard
-                label="Devices out"
-                value={detailsLoading ? '…' : devicesOut}
-                hint={
-                  running.length > DETAIL_LIMIT
-                    ? `on the first ${DETAIL_LIMIT} contracts, and more`
-                    : `on ${running.length} running contract${running.length === 1 ? '' : 's'}`
+            {detailsFailed ? (
+              <SourceError
+                error={detailsFailed.error}
+                onRetry={() =>
+                  details
+                    .filter((detail) => detail.error)
+                    .forEach((detail) => void detail.refetch())
                 }
-                icon={<Radio />}
               />
-            </Tile>
+            ) : (
+              <Tile to="/o/contracts">
+                <StatCard
+                  label="Devices out"
+                  value={detailsLoading ? '…' : devicesOut}
+                  hint={
+                    running.length > DETAIL_LIMIT
+                      ? `on the first ${DETAIL_LIMIT} contracts, and more`
+                      : `on ${running.length} running contract${running.length === 1 ? '' : 's'}`
+                  }
+                  icon={<Radio />}
+                />
+              </Tile>
+            )}
             <Tile to="/o/contracts">
               <StatCard
                 label="Return due or overdue"
@@ -221,10 +243,16 @@ export const OrgDashboardPage: React.FC = () => {
                 icon={<Siren />}
               />
             </Tile>
-            {invoices.isLoading ? (
+            {dueLoading ? (
               <Skeleton className="h-28" rounded="panel" />
-            ) : invoices.error ? (
-              <SourceError error={invoices.error} onRetry={() => void invoices.refetch()} />
+            ) : dueError ? (
+              <SourceError
+                error={dueError}
+                onRetry={() => {
+                  if (invoices.error) void invoices.refetch();
+                  if (overdue.error) void overdue.refetch();
+                }}
+              />
             ) : (
               <Tile to="/o/invoices">
                 <StatCard
@@ -243,6 +271,17 @@ export const OrgDashboardPage: React.FC = () => {
           </>
         )}
       </div>
+
+      {(contractsCut || invoicesCut) && (
+        <Alert tone="info">
+          {contractsCut && invoicesCut
+            ? `Counted on the first ${MAX_PAGE_SIZE} contracts and invoices.`
+            : contractsCut
+              ? `Counted on the first ${MAX_PAGE_SIZE} contracts.`
+              : `Counted on the first ${MAX_PAGE_SIZE} invoices.`}{' '}
+          The Contracts and Invoices pages list them all.
+        </Alert>
+      )}
 
       {contracts.data && items.length === 0 && (
         <Card>

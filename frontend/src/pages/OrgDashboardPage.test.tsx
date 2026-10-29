@@ -11,6 +11,10 @@ let organizationStatus = 'ACTIVE';
 let contracts: object[] = [];
 let invoices: object[] = [];
 let overdue: object[] = [];
+let contractPages = 1;
+let detailFails = false;
+let overdueError: Error | null = null;
+const filtersSeen: object[] = [];
 
 vi.mock('../app/providers/useAuth', () => ({
   useAuth: () => ({
@@ -28,30 +32,50 @@ vi.mock('../app/providers/useAuth', () => ({
 
 vi.mock('../entities/contract/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/contract/api')>()),
-  useContracts: () => ({ data: { items: contracts }, isLoading: false, error: null }),
+  useContracts: (_scope: string, filters: object) => {
+    filtersSeen.push(filters);
+    return { data: { items: contracts, totalPages: contractPages }, isLoading: false, error: null };
+  },
   fetchContract: (id: string) =>
-    Promise.resolve({
-      id,
-      devices: [
-        { deviceId: 'd-1', handedOverAt: '2026-10-25T03:00:00Z', checkedInAt: null, lostAt: null },
-        { deviceId: 'd-2', handedOverAt: '2026-10-25T03:00:00Z', checkedInAt: null, lostAt: null },
-        {
-          deviceId: 'd-3',
-          handedOverAt: '2026-10-25T03:00:00Z',
-          checkedInAt: '2026-10-28T03:00:00Z',
-          lostAt: null,
-        },
-      ],
-    }),
+    detailFails
+      ? Promise.reject(new Error('network down'))
+      : Promise.resolve({
+          id,
+          devices: [
+            {
+              deviceId: 'd-1',
+              handedOverAt: '2026-10-25T03:00:00Z',
+              checkedInAt: null,
+              lostAt: null,
+            },
+            {
+              deviceId: 'd-2',
+              handedOverAt: '2026-10-25T03:00:00Z',
+              checkedInAt: null,
+              lostAt: null,
+            },
+            {
+              deviceId: 'd-3',
+              handedOverAt: '2026-10-25T03:00:00Z',
+              checkedInAt: '2026-10-28T03:00:00Z',
+              lostAt: null,
+            },
+          ],
+        }),
 }));
 
 vi.mock('../entities/billing/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/billing/api')>()),
-  useInvoices: (_scope: string, filters: { overdue?: boolean }) => ({
-    data: { items: filters.overdue ? overdue : invoices },
-    isLoading: false,
-    error: null,
-  }),
+  useInvoices: (_scope: string, filters: { overdue?: boolean }) => {
+    filtersSeen.push(filters);
+    return filters.overdue && overdueError
+      ? { data: undefined, isLoading: false, error: overdueError, refetch: vi.fn() }
+      : {
+          data: { items: filters.overdue ? overdue : invoices, totalPages: 1 },
+          isLoading: false,
+          error: null,
+        };
+  },
 }));
 
 const contract = (code: string, status: string, overrides: object = {}) => ({
@@ -74,7 +98,9 @@ const invoice = (number: string, status: string, totalVnd: number, paidVnd: numb
 
 const renderPage = () =>
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <MemoryRouter>
         <OrgDashboardPage />
       </MemoryRouter>
@@ -94,6 +120,10 @@ afterEach(() => {
   contracts = [];
   invoices = [];
   overdue = [];
+  contractPages = 1;
+  detailFails = false;
+  overdueError = null;
+  filtersSeen.length = 0;
 });
 
 describe('OrgDashboardPage (screen 5.6)', () => {
@@ -145,6 +175,34 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     expect(within(tile('Still due')).getByText('1 unpaid invoice')).toBeTruthy();
     expect(screen.queryByText('INV-2026-000001')).toBeNull();
     expect(screen.getByText('INV-2026-000004')).toBeTruthy();
+  });
+
+  it('reads one page of MAX_PAGE_SIZE per source, and says so when there is more (review of #109)', () => {
+    contracts = [contract('RC-2026-0001', 'ACTIVE')];
+    contractPages = 2;
+    renderPage();
+    expect(filtersSeen).toContainEqual({ pageSize: 100 });
+    expect(filtersSeen).toContainEqual({ overdue: true, pageSize: 100 });
+    expect(screen.getByText(/Counted on the first 100 contracts./)).toBeTruthy();
+  });
+
+  it('shows a failed contract detail as an error with Try again, not as fewer devices', async () => {
+    contracts = [contract('RC-2026-0001', 'ACTIVE')];
+    detailFails = true;
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy(),
+    );
+    expect(screen.queryByText('Devices out')).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Try again' }).length).toBeGreaterThan(0);
+  });
+
+  it('shows a failed overdue query on the Still due tile instead of a count without it', () => {
+    invoices = [invoice('INV-2026-000004', 'ISSUED', 400_000, 0)];
+    overdueError = new Error('timeout');
+    renderPage();
+    expect(screen.queryAllByText('Still due').every((element) => !element.closest('a'))).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Try again' }).length).toBeGreaterThan(0);
   });
 
   it('greets an organization with no contracts and nothing to pay', () => {

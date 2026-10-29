@@ -98,6 +98,7 @@ export interface InvoiceFilters {
   status?: InvoiceStatus;
   overdue?: boolean;
   pageNumber?: number;
+  pageSize?: number;
 }
 
 export interface PaymentFilters {
