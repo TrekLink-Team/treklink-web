@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Incident, Prisma } from '@prisma/client';
+import { Incident, IncidentState, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type NewIncident = Pick<
@@ -20,6 +20,8 @@ export interface IncidentInsertResult {
   incident: Incident;
   created: boolean;
 }
+
+export type DueTimer = 'tierDeadlineAt' | 'statusDueAt' | 'reopenWindowEndsAt';
 
 // Writes require the caller's transaction: routing, history and outbox must commit together.
 @Injectable()
@@ -139,6 +141,17 @@ export class IncidentsRepository {
       }),
       this.prisma.incident.count({ where }),
     ]);
+  }
+
+  // Task 3.1 (design §6): incidents in one of the states whose deadline has passed, oldest deadline
+  // first, over the (state, deadline) indexes. A null deadline never matches.
+  dueTimers(states: IncidentState[], column: DueTimer, now: Date, take: number) {
+    return this.prisma.incident.findMany({
+      where: { state: { in: states }, [column]: { lte: now } },
+      orderBy: { [column]: 'asc' },
+      take,
+      select: { id: true, state: true, organizationId: true },
+    });
   }
 
   findById(id: string): Promise<Incident | null> {

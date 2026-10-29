@@ -34,6 +34,17 @@ export class RoutingService {
     return { to: 'NOTIFY_PRIMARY', recipients: { ...tiers, staff: NO_STAFF } };
   }
 
+  // The tiers of the organization an incident is already routed to, for a timer's transition
+  // (task 3.1). No organization alerts no tier.
+  async recipientsOf(
+    organizationId: string | null,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<IncidentRecipients> {
+    if (!organizationId) return this.unrouted().recipients;
+    return { ...(await this.roster.tiersAt(organizationId, at, tx)), staff: NO_STAFF };
+  }
+
   private unrouted(): Route {
     return {
       to: 'UNROUTED',
