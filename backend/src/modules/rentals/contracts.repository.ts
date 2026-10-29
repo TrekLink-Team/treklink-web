@@ -611,6 +611,15 @@ export class ContractsRepository {
     });
   }
 
+  // Whether the contract was reminded already; read under the contract lock, so two job runs that
+  // picked the same contract remind it once (review of #108).
+  async hasReminder(contractId: string, tx: Prisma.TransactionClient): Promise<boolean> {
+    const flags = await tx.contractTransition.count({
+      where: { contractId, reason: RESERVATION_REMINDED },
+    });
+    return flags > 0;
+  }
+
   // The reminder flag: an APPROVED to APPROVED transition row by SYSTEM, which the append-only table
   // keeps, so a re-run never reminds twice.
   async flagReminded(contractId: string, at: Date, tx: Prisma.TransactionClient) {

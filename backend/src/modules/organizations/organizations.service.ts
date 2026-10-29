@@ -65,9 +65,15 @@ export class OrganizationsService {
   }
 
   // Emails the organization's contact address, the Manager given at registration (rentals 3.2
-  // reminders). A failed send is logged, never thrown, so a job carries on with the next contract.
-  async emailContact(organizationId: string, subject: string, text: string): Promise<boolean> {
-    const to = await this.organizations.contactEmail(organizationId);
+  // reminders). Returns whether the transport accepted it; a failed send is logged, never thrown, so
+  // a job carries on with the next contract. `tx` reads the address in the caller's transaction.
+  async emailContact(
+    organizationId: string,
+    subject: string,
+    text: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const to = await this.organizations.contactEmail(organizationId, tx);
     if (!to || !this.mail) return false;
     try {
       await this.mail.send({ to, subject, text });

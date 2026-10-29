@@ -113,8 +113,8 @@ export class OrganizationsRepository {
   }
 
   // The contact address given at registration, the Manager's email (rentals 3.2 reminders).
-  async contactEmail(id: string): Promise<string | null> {
-    const row = await this.prisma.organization.findUnique({
+  async contactEmail(id: string, client: Client = this.prisma): Promise<string | null> {
+    const row = await client.organization.findUnique({
       where: { id },
       select: { contactEmail: true },
     });
