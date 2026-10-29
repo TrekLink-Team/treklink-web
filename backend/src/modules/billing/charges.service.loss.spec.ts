@@ -2,6 +2,7 @@ import { InvoiceKind, InvoiceLineType, LossCustody, LossDecision, Prisma } from 
 import { DevicesService, LossCaseView } from '../devices';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ChargesService } from './charges.service';
+import { DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesRepository } from './invoices.repository';
 import { PricingService } from './pricing.service';
 import { BillingLossCaseListener } from './providers/loss-case-listener.provider';
@@ -39,7 +40,7 @@ describe('ChargesService loss charges (billing task 2.6, REQ-EVT-07, AC-05)', ()
     };
     service = new ChargesService(
       invoices as unknown as InvoicesRepository,
-      { insert: jest.fn() },
+      { insert: jest.fn() } as unknown as DamageChargesRepository,
       {} as PricingService,
       {} as ParameterService,
     );
