@@ -155,10 +155,10 @@ describe('StreamListener', () => {
   });
 
   describe('device.checkedIn', () => {
-    const checkedIn = { deviceId: 'd-1', contractId: 'c-1', organizationId: 'org-a' };
+    const checkedIn = { deviceId: 'd-1', contractId: 'c-1', organizationId: 'org-a', at: NOW };
 
     it('emits device.released to the organization with the check-in time (AC-05)', async () => {
-      await listener.onDeviceCheckedIn({ ...checkedIn, at: '2026-10-28T02:58:00.000Z' });
+      await listener.onDeviceCheckedIn({ ...checkedIn, at: new Date('2026-10-28T02:58:00.000Z') });
       expect(published).toEqual([
         {
           organizationId: 'org-a',
@@ -179,7 +179,7 @@ describe('StreamListener', () => {
         order.push('publish');
         return Promise.resolve({ seq: 1 });
       });
-      await listener.onDeviceCheckedIn({ ...checkedIn, at: '2026-10-28T02:58:00.000Z' });
+      await listener.onDeviceCheckedIn({ ...checkedIn, at: new Date('2026-10-28T02:58:00.000Z') });
       expect(order).toEqual(['record', 'publish']);
       expect(repository.recordRelease).toHaveBeenCalledWith(
         'org-a',
@@ -200,13 +200,8 @@ describe('StreamListener', () => {
       expect(published[0].payload).toMatchObject({ late: true });
     });
 
-    it('uses the moment it handles the event when the emitter gives no time', async () => {
-      await listener.onDeviceCheckedIn(checkedIn);
-      expect(published[0].payload).toEqual({ checkedInAt: NOW.toISOString() });
-    });
-
     it('flags the next event that occurred before the check-in as late without a lookup (AC-06)', async () => {
-      await listener.onDeviceCheckedIn({ ...checkedIn, at: '2026-10-28T03:00:00.000Z' });
+      await listener.onDeviceCheckedIn({ ...checkedIn, at: new Date('2026-10-28T03:00:00.000Z') });
       await listener.onFieldPosition(position());
       expect(repository.latestRelease).not.toHaveBeenCalled();
       expect(published[1].payload).toMatchObject({ late: true });
@@ -214,7 +209,7 @@ describe('StreamListener', () => {
 
     it('lets the first position of a new custody through after a check-in', async () => {
       await listener.onFieldPosition(position({ at: '2026-10-28T02:00:00.000Z' }));
-      await listener.onDeviceCheckedIn({ ...checkedIn, at: '2026-10-28T02:30:00.000Z' });
+      await listener.onDeviceCheckedIn({ ...checkedIn, at: new Date('2026-10-28T02:30:00.000Z') });
       await listener.onFieldPosition(position({ at: '2026-10-28T02:45:00.000Z' }));
       expect(published[2].payload).not.toHaveProperty('late');
     });
