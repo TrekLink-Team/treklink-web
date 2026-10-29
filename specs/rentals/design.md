@@ -214,8 +214,8 @@ ports; holder labels erased on close.
 
 ## 10. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 11 are the
-contract interactions of MF-01 and MF-05.
+Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 17 are the
+contract interactions of MF-01 and MF-05, Figures 16 and 17 the two scheduled jobs.
 
 <!-- sdd: MF-01 class rentals -->
 ```mermaid
@@ -228,6 +228,9 @@ classDiagram
         +checkIn(id, dto, actor) CheckInDto
         +inspect(id, deviceId, dto, actor) InspectionDto
         +close(id, dto, actor) ContractDto
+        +cancel(id, dto, caller) ContractDto
+        +giveNotice(id, dto, caller) ContractDto
+        +setHolder(id, deviceId, dto, caller) ContractDeviceDto
     }
     class ContractsService {
         +request(dto, caller) RentalContract
@@ -238,6 +241,17 @@ classDiagram
         +approve(id, dto, actor) RentalContract
         +close(id, dto, actor) RentalContract
         +apply(id, from, to, reason, actor, tx) RentalContract
+    }
+    class ContractDecisionsService {
+        +cancel(id, dto, caller) Cancelled
+        +giveNotice(id, dto, caller) Notice
+        +setHolder(id, deviceId, dto, caller) ContractDevice
+    }
+    class TermRolloverJob {
+        +run(at) RolloverOutcome
+    }
+    class OverdueAndDefaultJob {
+        +run(at) OverdueOutcome
     }
     class HandoverService {
         +provision(id, deviceId, dto, actor)
@@ -269,6 +283,18 @@ classDiagram
     ContractsController --> HandoverService
     ContractsController --> ReturnService
     ContractsController --> ReplacementService
+    ContractsController --> ContractDecisionsService
+    ContractDecisionsService --> ContractsRepository
+    ContractDecisionsService --> ContractLifecycleService : apply
+    ContractDecisionsService --> DevicesService : release
+    ContractDecisionsService --> ChargesService : settleCancellation
+    ContractDecisionsService --> BalanceService : balanceSummary
+    TermRolloverJob --> ContractsRepository
+    TermRolloverJob --> ContractLifecycleService : apply
+    TermRolloverJob --> InvoicesService : issueTermInvoice
+    OverdueAndDefaultJob --> ContractsRepository
+    OverdueAndDefaultJob --> ContractLifecycleService : apply
+    OverdueAndDefaultJob --> OrganizationsService : suspendForDefault
     ReplacementService --> ContractsRepository
     ReplacementService --> DevicesService : reserveExplicit, markRented
     ContractsService --> ContractsRepository
@@ -496,3 +522,197 @@ sequenceDiagram
 
 ***Figure 11***: UC-61 Replace Device on Contract. The new row opens its own custody interval; plan, variant
 and quantity are unchanged (BR-41).
+
+<!-- sdd: MF-01 seq UC-16 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as ContractApprovalPage
+    participant C as DevicesController
+    participant S as DevicesService
+    participant R as DevicesRepository
+    St->>P: select a requested contract
+    P->>C: GET /api/devices/availability?hardwareVariantId={id}
+    C->>S: availability(hardwareVariantId)
+    S->>R: availability(hardwareVariantId)
+    R-->>S: AVAILABLE units per variant
+    S-->>C: counts
+    C-->>P: 200 envelope
+    alt enough AVAILABLE units for the requested quantity
+        P->>St: show the count beside Approve
+    else fewer AVAILABLE units than requested
+        P->>St: warn before Approve, which the server refuses with 409 INSUFFICIENT_DEVICES (UC-17)
+    end
+```
+
+***Figure 12***: UC-16 Verify Device Availability. The count is advisory; the reservation at approval is
+the check that holds (§8). The Org Manager reads the same counts with `device.availability.org`.
+
+<!-- sdd: MF-01 seq UC-18 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Org Manager or TrekLink Staff
+    participant P as ContractDetailPage
+    participant C as ContractsController
+    participant S as ContractDecisionsService
+    participant L as ContractLifecycleService
+    participant D as DevicesService
+    participant Ch as ChargesService
+    participant B as BalanceService
+    participant R as ContractsRepository
+    A->>P: cancel the contract with a reason
+    P->>C: POST /api/contracts/{id}/cancel
+    C->>S: cancel(id, dto, caller)
+    S->>R: lockById(id, tx)
+    alt refused: another organization's contract
+        S-->>C: 404 NOT_FOUND
+        C-->>P: error envelope
+    else refused: stale version, or not REQUESTED or APPROVED
+        S->>L: apply(id, status, CANCELLED, reason, actor, tx)
+        S-->>C: 409 STALE_VERSION or 409 INVALID_STATE_TRANSITION
+        C-->>P: error envelope
+    else accepted
+        S->>L: apply(id, status, CANCELLED, reason, actor, tx)
+        S->>R: releaseReservedRows(id, at, tx)
+        S->>D: release(deviceIds, at, tx)
+        S->>Ch: settleCancellation(contract, tx)
+        S->>R: recordCancellation(id, reason, at, tx)
+        S->>B: balanceSummary(id, at, tx)
+        S-->>C: contract CANCELLED, retainedVnd
+        C-->>P: 200 envelope
+    end
+```
+
+***Figure 13***: UC-18 Cancel Rental Contract. Reserved units return to `AVAILABLE`; the unpaid lines of the
+first invoice are voided by one negative `ADJUSTMENT` line on the closing invoice, so the balance nets to
+zero while a paid holding fee stays paid and retained (FR-CON-04, REQ-EVT-11).
+
+<!-- sdd: MF-01 seq UC-25 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Org Manager
+    participant P as ContractDetailPage
+    participant C as ContractsController
+    participant S as ContractDecisionsService
+    participant R as ContractsRepository
+    M->>P: enter the holder's name and phone for one device
+    P->>C: PUT /api/contracts/{id}/devices/{deviceId}/holder
+    C->>S: setHolder(id, deviceId, dto, caller)
+    S->>R: lockById(id, tx)
+    S->>R: findDeviceRow(id, deviceId, tx)
+    alt refused: device not on this contract
+        S-->>C: 409 DEVICE_NOT_ON_CONTRACT, naming the asset tag
+        C-->>P: error envelope
+    else refused: contract not ACTIVE
+        S-->>C: 409 INVALID_STATE_TRANSITION
+        C-->>P: error envelope
+    else accepted
+        S->>R: setHolder(contractDeviceId, holder, tx)
+        S-)S: emit DEVICE_LABEL_CHANGED after commit
+        S-->>C: device row with its label
+        C-->>P: 200 envelope
+    end
+```
+
+***Figure 14***: UC-25 Label Device Holder. The label names who carries the unit for incident messages;
+TrekLink still tracks the unit by its asset tag, and the labels are erased when the contract closes.
+
+<!-- sdd: MF-05 seq UC-23 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Org Manager
+    participant P as ContractDetailPage
+    participant C as ContractsController
+    participant S as ContractDecisionsService
+    participant L as ContractLifecycleService
+    participant B as BalanceService
+    participant R as ContractsRepository
+    M->>P: give notice
+    P->>C: POST /api/contracts/{id}/notice
+    C->>S: giveNotice(id, dto, caller)
+    S->>R: lockById(id, tx)
+    alt refused: a day plan, which ends by itself
+        S-->>C: 409 DAY_PLAN_NO_NOTICE
+        C-->>P: error envelope
+    else monthly plan
+        S->>R: openTerm(id, tx)
+        alt refused: not ACTIVE or no open term
+            S-->>C: 409 INVALID_STATE_TRANSITION
+            C-->>P: error envelope
+        else accepted
+            S->>L: apply(id, ACTIVE, ENDING, notice, actor, tx)
+            S->>R: recordNotice(id, at, actor, tx)
+            S->>B: balanceSummary(id, at, tx)
+            S-->>C: contract ENDING, current term, due at the term end
+            C-->>P: 200 envelope
+        end
+    end
+```
+
+***Figure 15***: UC-23 Give Cancellation Notice. The current term is not shortened: the contract ends at
+its end and the term balance falls due then (REQ-EVT-07, MSG18).
+
+<!-- sdd: MF-05 seq UC-24 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant J as TermRolloverJob
+    participant R as ContractsRepository
+    participant L as ContractLifecycleService
+    participant I as InvoicesService
+    J->>R: dueTerms(now)
+    R-->>J: open terms that have ended, on ACTIVE or ENDING contracts
+    loop each due term, one transaction each
+        J->>R: lockById(contractId, tx)
+        J->>R: closeTerm(termId, tx)
+        alt renews: monthly plan still ACTIVE
+            J->>R: insertTerm(seq + 1, starts at the old end, one month long, tx)
+            J->>I: issueTermInvoice(contract, next term, tx)
+        else ends: notice given, or a day plan
+            J->>R: setReturnDueAt(id, term end, tx)
+            J->>L: apply(id, status, RETURN_DUE, TERM_ENDED, system, tx)
+            J->>R: returnCounts(id, tx)
+            opt every device already back
+                J->>L: apply(id, RETURN_DUE, RETURNED, ALL_DEVICES_BACK, system, tx)
+            end
+        end
+    end
+```
+
+***Figure 16***: UC-24 Roll Over Monthly Term. The job runs every hour; a term is due from its end until
+it is closed, so a run after downtime catches up with the same query.
+
+<!-- sdd: MF-05 seq UC-50 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant J as OverdueAndDefaultJob
+    participant Pm as ParameterService
+    participant R as ContractsRepository
+    participant L as ContractLifecycleService
+    participant O as OrganizationsService
+    J->>Pm: rentals.returnGraceHours, rentals.defaultAfterDays
+    J->>R: returnDueBefore(now minus the grace)
+    loop each contract past the grace, one transaction each
+        J->>R: lockById(id, tx)
+        J->>R: rowsOut(id, tx)
+        opt RETURN_DUE with devices still out
+            J->>L: apply(id, RETURN_DUE, OVERDUE, GRACE_ELAPSED, system, tx)
+            J->>R: stampOverdue(id, overdueAt, tx)
+        end
+    end
+    J->>R: overdueBefore(now minus the default threshold)
+    loop each contract overdue past the threshold, one transaction each
+        J->>R: lockById(id, tx)
+        J->>L: apply(id, OVERDUE, DEFAULTED, DEFAULT_THRESHOLD, system, tx)
+        J->>R: stampOverdue(id, defaultedAt, tx)
+        J->>O: suspendForDefault(organizationId, code, now, tx)
+    end
+```
+
+***Figure 17***: UC-50 Default Overdue Contract. A defaulted contract suspends its organization; the
+organization is reactivated only when nothing is outstanding (Report 3, organization lifecycle).

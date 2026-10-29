@@ -181,15 +181,27 @@ one invoice.
 
 ## 8. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 3 is the class view; Figures 4 to 6 are the
-MF-05 payment and damage approval.
+Layering as in `organizations` design §9. Figure 3 is the class view; Figures 4 to 11 are the
+payments, prices, balance and return charges of MF-01 and MF-05.
 
 <!-- sdd: MF-05 class billing -->
 ```mermaid
 classDiagram
     class PaymentsController {
         +createSepay(invoiceId, dto, caller) PaymentDto
+    }
+    class InvoicesController {
         +recordCounter(invoiceId, dto, actor) PaymentDto
+        +balance(contractId, caller) BalanceDto
+    }
+    class PricingAdminController {
+        +setPrice(dto, caller) PriceDto
+    }
+    class PaymentsService {
+        +recordCounter(invoiceId, input, actor) Payment
+    }
+    class BillingReadsService {
+        +balance(contractId, caller) BalanceSummary
     }
     class SepayWebhookController {
         +handle(body, headers) SepayAck
@@ -219,7 +231,16 @@ classDiagram
     class PricingService {
         +quote(dto) Quote
         +snapshot(variantId) PriceSnapshot
+        +setPrice(input, caller) PriceSchedule
+        +damageRateFor(code, variantId, tx) int
     }
+    class PricingRepository {
+        +insertPrice(row, tx) PriceSchedule
+    }
+    class DamageChargesRepository {
+        +insert(charge, tx) DamageCharge
+    }
+    class ParameterService
     class PaymentsRepository {
         +insertPending(row, tx) Payment
         +lockByReference(ref, tx) Payment
@@ -227,9 +248,24 @@ classDiagram
     }
     class InvoicesRepository {
         +insert(invoice, lines, tx) Invoice
+        +lockWithLines(invoiceId, tx) Invoice
+        +lockClosingInvoice(contractId, tx) Invoice
+        +appendLines(invoice, lines, tx) Invoice
         +applyPayment(invoiceId, amount, tx)
+        +linesOfContract(contractId) InvoiceLine[]
     }
     PaymentsController --> SepayService
+    InvoicesController --> PaymentsService
+    InvoicesController --> BillingReadsService
+    PricingAdminController --> PricingService
+    PaymentsService --> InvoicesRepository
+    PaymentsService --> PaymentsRepository
+    BillingReadsService --> BalanceService
+    BillingReadsService --> InvoicesRepository
+    PricingService --> PricingRepository
+    ChargesService --> PricingService : damageRateFor
+    ChargesService --> DamageChargesRepository
+    ChargesService --> ParameterService : grace, late fee, threshold
     SepayWebhookController --> SepayService
     DamageChargesController --> DamageChargeService
     SepayService --> PaymentsRepository
@@ -326,3 +362,183 @@ sequenceDiagram
 ```
 
 ***Figure 6***: UC-48 Approve Damage Charge. The approver is never the inspector (BR-24).
+
+<!-- sdd: MF-01 seq UC-22 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as BillingPage
+    participant C as InvoicesController
+    participant S as PaymentsService
+    participant I as InvoicesRepository
+    participant R as PaymentsRepository
+    St->>P: record a counter payment: amount, method, receipt reference
+    P->>C: POST /api/invoices/{id}/payments/counter
+    C->>S: recordCounter(invoiceId, dto, actor)
+    S->>I: lockWithLines(invoiceId, tx)
+    alt refused: invoice not found
+        S-->>C: 404 NOT_FOUND
+        C-->>P: error envelope
+    else refused: receipt reference already registered
+        S->>R: referenceExists(reference, tx)
+        S-->>C: 409 DUPLICATE_REFERENCE
+        C-->>P: error envelope
+    else refused: amount above what the invoice still owes
+        S-->>C: 400 OVERPAYMENT
+        C-->>P: error envelope
+    else accepted
+        S->>R: insertCounterPayment(row CONFIRMED, tx)
+        S->>I: applyPayment(invoice, amount, tx)
+        S-)S: emit PAYMENT_CONFIRMED and the audit record after commit
+        S-->>C: payment
+        C-->>P: 201 envelope
+        P->>St: MSG20 with the amount
+    end
+```
+
+***Figure 7***: UC-22 Record Counter Payment. The same dialog is step 2 of the counter handover; the
+amount is applied to the invoice's lines oldest due first.
+
+<!-- sdd: MF-01 seq UC-56 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as TrekLink Admin
+    participant P as PricesPage
+    participant C as PricingAdminController
+    participant S as PricingService
+    participant R as PricingRepository
+    A->>P: schedule a monthly price for a variant from a date
+    P->>C: POST /api/price-schedules
+    C->>S: setPrice(input, caller)
+    alt refused: effective date in the past
+        S-->>C: 400 EFFECTIVE_IN_PAST
+        C-->>P: error envelope
+    else effective now or later
+        S->>R: insertPrice(row, tx)
+        alt refused: unknown hardware variant
+            R-->>S: foreign key violation
+            S-->>C: 404 NOT_FOUND
+            C-->>P: error envelope
+        else accepted
+            S-)S: emit the price.set audit record after commit
+            S-->>C: price row
+            C-->>P: 201 envelope
+        end
+    end
+```
+
+***Figure 8***: UC-56 Configure Plans and Prices. The schedule is append-only: a new row takes effect at
+its date, and a contract keeps the price snapshotted at its request (UC-15).
+
+<!-- sdd: MF-05 seq UC-45 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Org Manager or TrekLink Staff
+    participant P as ContractDetailPage
+    participant C as InvoicesController
+    participant S as BillingReadsService
+    participant B as BalanceService
+    participant I as InvoicesRepository
+    U->>P: open a contract
+    P->>C: GET /api/contracts/{id}/balance
+    C->>S: balance(contractId, caller)
+    S->>I: organizationOfContract(contractId)
+    alt refused: another organization's contract
+        S-->>C: 404 NOT_FOUND
+        C-->>P: error envelope
+    else own contract, or TrekLink Staff
+        S->>B: balanceSummary(contractId)
+        B->>I: linesOfContract(contractId)
+        B->>B: remaining after credits, split at now
+        B-->>S: due now, due later, paid, settled
+        S-->>C: BalanceSummary
+        C-->>P: 200 envelope
+    end
+```
+
+***Figure 9***: UC-45 Calculate Contract Balance. Due now is what falls due at or before the current time;
+a settled contract offers no counter payment.
+
+<!-- sdd: MF-05 seq UC-46 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as CounterPage
+    participant C as ContractsController
+    participant S as ReturnService
+    participant Ch as ChargesService
+    participant Pm as ParameterService
+    participant I as InvoicesRepository
+    St->>P: scan a device returned after its due time
+    P->>C: POST /api/contracts/{id}/check-ins
+    C->>S: checkIn(id, dto, actor)
+    loop each checked-in device
+        S->>Ch: chargeLate(contract, device, checkedInAt, actor, tx)
+        Ch->>Pm: rentals.returnGraceHours, billing.lateFeePerDevicePerDayVnd
+        alt within the grace
+            Ch-->>S: no charge
+        else past the grace
+            Ch->>Ch: days = started days after the due time
+            Ch->>I: lockClosingInvoice(contractId, tx)
+            alt closing invoice open
+                Ch->>I: appendLines(closing, LATE_FEE line, tx)
+            else no closing invoice yet
+                Ch->>I: insert(CLOSING invoice with the LATE_FEE line, tx)
+            end
+            Ch-->>S: closing invoice
+        end
+    end
+    S-->>C: CheckInDto with the late fee added
+    C-->>P: 200 envelope
+```
+
+***Figure 10***: UC-46 Apply Late Fee, included in UC-43 Check In Device. One `LATE_FEE` line per late
+device (FR-BILL-03, BR-23).
+
+<!-- sdd: MF-05 seq UC-47 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as CounterPage
+    participant C as ContractsController
+    participant S as ReturnService
+    participant D as DevicesService
+    participant Ch as ChargesService
+    participant Pr as PricingService
+    participant Pm as ParameterService
+    participant Dc as DamageChargesRepository
+    participant I as InvoicesRepository
+    St->>P: record the inspection as DAMAGED with damage codes
+    P->>C: POST /api/contracts/{id}/devices/{deviceId}/inspection
+    C->>S: inspect(id, deviceId, dto, actor)
+    S->>D: recordInspection(device, DAMAGED, codes, tx)
+    S->>Ch: chargeDamage(contract, inspection, actor, tx)
+    loop each damage code
+        Ch->>Pr: damageRateFor(code, variantId, tx)
+    end
+    alt refused: a code with no active rate
+        Ch-->>S: 400 VALIDATION_FAILED, nothing recorded
+        S-->>C: error, rolled back
+        C-->>P: error envelope
+    else every code priced
+        Ch->>Pm: billing.damageApprovalThresholdVnd
+        alt above the threshold
+            Ch->>Dc: insert(charge PENDING_APPROVAL, tx)
+            Ch-->>S: charge waiting for an Admin (UC-48)
+        else at or below the threshold
+            Ch->>Dc: insert(charge APPROVED, tx)
+            Ch->>I: DAMAGE line on the closing invoice (lockClosingInvoice, appendLines or insert)
+            Ch-->>S: charge and closing invoice
+        end
+        S-->>C: InspectionDto
+        C-->>P: 201 envelope
+    end
+```
+
+***Figure 11***: UC-47 Apply Damage Fee, included in the return inspection. Each code is priced from the
+damage schedule, the variant's own rate first and the generic rate otherwise (FR-BILL-04, BR-24).

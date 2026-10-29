@@ -194,3 +194,281 @@ sequenceDiagram
   request value can set `organizationId`), last-Admin guard.
 - E2E: every api-design Validation row; the cross-organization 404 suite shared by all modules lives in
   `backend/test/tenancy.e2e-spec.ts` and is extended by each module.
+
+## 8. Detailed design for Report 4 (D-044)
+
+Layering as in `organizations` design §9. Figure 3 is the class view; Figures 4 to 8 are the account
+interactions that start MF-01: an invited Manager or TrekLink account sets its first password and
+signs in, and a forgotten password is reset with a one-time code.
+
+<!-- sdd: MF-01 class auth -->
+```mermaid
+classDiagram
+    class AuthController {
+        +login(dto, ip, ua) SignInResult
+        +refresh(dto, ip, ua) Tokens
+        +logout(caller, dto, ip, ua)
+        +forgot(dto, ip, ua)
+        +reset(dto, ip, ua)
+        +setPassword(dto, ip, ua) SignInResult
+    }
+    class AccountsController {
+        +create(dto, caller) AccountView
+        +deactivate(id, dto, caller) AccountView
+        +triggerReset(id, caller)
+    }
+    class AuthService {
+        +login(credentials, client) SignInResult
+        +refresh(refreshToken, client) Tokens
+        +logout(userId, refreshToken, client)
+    }
+    class PasswordFlowsService {
+        +forgot(email, client)
+        +reset(input, client)
+        +setPassword(input, client) SignInResult
+        +triggerReset(caller, accountId, client)
+        +sendCode(account, purpose, code)
+    }
+    class AccountsService {
+        +create(actor, input, client) AccountView
+        +deactivate(actor, id, reason, client) AccountView
+    }
+    class TokenService {
+        +issue(user, client, tx) Tokens
+        +refresh(refreshToken, client) Tokens
+    }
+    class OneTimeCodeService {
+        +issue(userId, purpose, now, tx) string
+        +verify(userId, purpose, code, now) string
+        +inCooldown(userId, now) bool
+    }
+    class PasswordService {
+        +verify(password, hash) bool
+        +hash(password) string
+        +assertPolicy(password)
+    }
+    class AccountSessionService {
+        +eligible(account) SessionUser
+    }
+    class AccountsRepository {
+        +findByEmail(email) Account
+        +create(data, tx) Account
+        +recordLoginSuccess(userId, at, tx)
+        +recordLoginFailure(userId, failures, lockedUntil, tx)
+        +insertAuthEvent(event, tx)
+        +consumeCode(codeId, at, tx) bool
+        +setPasswordHash(userId, hash, tx)
+        +revokeAllUserTokens(userId, at, tx)
+    }
+    class MailPort {
+        +send(message)
+    }
+    class ParameterService
+    AuthController --> AuthService
+    AuthController --> PasswordFlowsService
+    AccountsController --> AccountsService
+    AccountsController --> PasswordFlowsService
+    AuthService --> AccountsRepository
+    AuthService --> PasswordService
+    AuthService --> AccountSessionService
+    AuthService --> TokenService
+    AuthService --> ParameterService : lockout limits
+    PasswordFlowsService --> AccountsRepository
+    PasswordFlowsService --> OneTimeCodeService
+    PasswordFlowsService --> PasswordService
+    PasswordFlowsService --> TokenService
+    PasswordFlowsService --> MailPort : code email
+    AccountsService --> AccountsRepository
+    AccountsService --> OneTimeCodeService
+    AccountsService --> PasswordFlowsService : sendCode
+    OneTimeCodeService --> AccountsRepository
+    TokenService --> AccountsRepository
+```
+
+***Figure 3***: auth classes. `MailPort` is an injected port: the console transport in development and SMTP
+in production (D-063); `ParameterService` belongs to `platform`.
+
+<!-- sdd: MF-01 seq UC-08 -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Account holder
+    participant P as SignInPage
+    participant C as AuthController
+    participant S as AuthService
+    participant Pw as PasswordService
+    participant Se as AccountSessionService
+    participant Pm as ParameterService
+    participant T as TokenService
+    participant R as AccountsRepository
+    U->>P: enter email and password
+    P->>C: POST /api/auth/login
+    C->>S: login(dto, client)
+    S->>R: findByEmail(email)
+    alt refused: account locked until a later time
+        S-->>C: 423 ACCOUNT_LOCKED
+        C-->>P: 423 envelope with the minutes left
+    else not locked
+        S->>Pw: verify(password, hash)
+        S->>Se: eligible(account)
+        alt refused: unknown email, wrong password or inactive account
+            S->>Pm: auth.loginMaxFailures, auth.loginFailureWindowMinutes, auth.lockoutMinutes
+            S->>R: insertAuthEvent(LOGIN_FAILED, tx)
+            S->>R: countLoginFailuresSince(userId, since, tx)
+            S->>R: recordLoginFailure(userId, failures, lockedUntil, tx)
+            S-->>C: 401 INVALID_CREDENTIALS, or 423 ACCOUNT_LOCKED at the limit
+            C-->>P: error envelope
+        else accepted: password matches an active account
+            S->>R: recordLoginSuccess(userId, now, tx)
+            S->>R: insertAuthEvent(LOGIN_SUCCEEDED, tx)
+            S->>T: issue(user, client, tx)
+            T-->>S: access token, refresh token (new family)
+            S-->>C: SignInResult
+            C-->>P: 200 envelope
+            P->>U: landing route of the role
+        end
+    end
+```
+
+***Figure 4***: UC-08 Authenticate. An unknown email answers the same 401 as a wrong password, so the
+response never reveals which emails exist (REQ-ERR-01, MSG09).
+
+<!-- sdd: MF-01 seq UC-09 part 1 of 2: request a code -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Account holder
+    participant P as ForgotPasswordPage
+    participant C as AuthController
+    participant F as PasswordFlowsService
+    participant O as OneTimeCodeService
+    participant R as AccountsRepository
+    participant M as MailPort
+    U->>P: enter email
+    P->>C: POST /api/auth/password/forgot
+    C->>F: forgot(email, client)
+    F->>R: findByEmail(email)
+    alt refused quietly: unknown or inactive account, or a code sent within the cooldown
+        F->>R: insertAuthEvent(PASSWORD_RESET_REQUESTED)
+    else accepted: active account outside the cooldown
+        F->>O: issue(userId, PASSWORD_RESET, now, tx)
+        O-->>F: six-digit code, stored as a hash
+        F->>R: insertAuthEvent(PASSWORD_RESET_REQUESTED, tx)
+        F-)M: send(code email), not awaited
+    end
+    C-->>P: 200 envelope, the same message in both branches
+    P->>U: check your email, then open the reset page
+```
+
+***Figure 5***: UC-09 Reset Password, part 1 of 2. Both branches answer alike and the mail is not
+awaited, so the timing does not reveal whether the email exists (FR-AUTH-05).
+
+<!-- sdd: MF-01 seq UC-09 part 2 of 2: set the new password -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Account holder
+    participant P as ResetPasswordPage
+    participant C as AuthController
+    participant F as PasswordFlowsService
+    participant O as OneTimeCodeService
+    participant Pw as PasswordService
+    participant R as AccountsRepository
+    U->>P: enter email, code and new password
+    P->>C: POST /api/auth/password/reset
+    C->>F: reset(input, client)
+    F->>R: findByEmail(email)
+    F->>O: verify(userId, PASSWORD_RESET, code, now)
+    alt refused: wrong or expired code
+        F-->>C: 400 CODE_INVALID
+        C-->>P: error envelope
+    else code valid
+        F->>Pw: assertPolicy(password)
+        alt refused: password breaks the policy
+            F-->>C: 400 PASSWORD_POLICY
+            C-->>P: error envelope
+        else accepted
+        F->>Pw: hash(password)
+        F->>R: consumeCode(codeId, now, tx)
+        F->>R: setPasswordHash(userId, hash, tx)
+        F->>R: revokeAllUserTokens(userId, now, tx)
+        F->>R: insertAuthEvent(PASSWORD_RESET_COMPLETED, tx)
+        C-->>P: 200 envelope
+        P->>U: sign-in page with the reset notice
+        end
+    end
+```
+
+***Figure 6***: UC-09 Reset Password, part 2 of 2. Every session of the account ends with the reset
+(REQ-EVT-05).
+
+<!-- sdd: MF-01 seq UC-10 part 1 of 2: create an account -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as TrekLink Admin
+    participant P as AccountsPage
+    participant C as AccountsController
+    participant S as AccountsService
+    participant O as OneTimeCodeService
+    participant F as PasswordFlowsService
+    participant R as AccountsRepository
+    participant M as MailPort
+    A->>P: fill name, email and role
+    P->>C: POST /api/accounts
+    C->>S: create(caller, dto, client)
+    S->>R: create(account without a password, role, tx)
+    alt refused: email already registered
+        R-->>S: unique violation
+        S-->>C: 409 CONFLICT_UNIQUE
+        C-->>P: error envelope
+    else accepted: new email
+        S->>O: issue(userId, SET_PASSWORD, now, tx)
+        S->>R: findTreklinkAccount(userId, tx)
+        S-)F: sendCode(account, SET_PASSWORD, code), after commit
+        F-)M: send(invitation email)
+        S-->>C: AccountView
+        C-->>P: 201 envelope
+    end
+```
+
+***Figure 7***: UC-10 Manage Platform Accounts, part 1 of 2. An account has no password until its
+invitation code is used (REQ-EVT-06, BR-35). Deactivation follows the same layering and refuses the last
+active Admin (409 `LAST_ADMIN`).
+
+<!-- sdd: MF-01 seq UC-10 part 2 of 2: first password from the invitation -->
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Invited account holder
+    participant P as WelcomePage
+    participant C as AuthController
+    participant F as PasswordFlowsService
+    participant O as OneTimeCodeService
+    participant Pw as PasswordService
+    participant T as TokenService
+    participant R as AccountsRepository
+    U->>P: enter email, invitation code and password
+    P->>C: POST /api/auth/password/set
+    C->>F: setPassword(input, client)
+    F->>R: findByEmail(email)
+    F->>O: verify(userId, SET_PASSWORD, code, now)
+    alt refused: wrong or expired code, or a password against the policy
+        F-->>C: 400 CODE_INVALID or 400 PASSWORD_POLICY
+        C-->>P: error envelope
+    else accepted
+        F->>Pw: hash(password)
+        F->>R: consumeCode(codeId, now, tx)
+        F->>R: setPasswordHash(userId, hash, tx)
+        F->>R: insertAuthEvent(PASSWORD_SET, tx)
+        F->>R: recordLoginSuccess(userId, now, tx)
+        F->>R: insertAuthEvent(LOGIN_SUCCEEDED, tx)
+        F->>T: issue(user, client, tx)
+        F-->>C: SignInResult
+        C-->>P: 200 envelope
+        P->>U: landing route of the role
+    end
+```
+
+***Figure 8***: UC-10 Manage Platform Accounts, part 2 of 2. The same page serves an Org Manager created
+by organization registration (UC-01), so MF-01 continues from here with a signed-in Manager.
