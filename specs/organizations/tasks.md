@@ -29,6 +29,7 @@
   - **Do**: provide `ACCOUNT_CONTEXT_PROVIDER` (`forUser` returns organization id, code and legal name, member role and status; null for TrekLink accounts and deactivated members, D-060 rule 5) and `API_KEY_RESOLVER` (`resolve(keyHash)`, `lastUsedAt` touched at most once a minute); declare the multi-provider `ORGANIZATION_EXIT_CHECKS`
   - **Test**: resolver ignores revoked keys; `lastUsedAt` not rewritten within a minute; `forUser` returns null for a TrekLink account and a deactivated member
   - **Note**: KhoaDD lands the `ACCOUNT_CONTEXT_PROVIDER` half first, in the smallest `OrganizationsModule` that can host it, so organization accounts sign in for Iteration 1; task 1.1 completes the module
+  - **Note**: LongLP added `organizationsOf(userIds)` and `memberUserIds(organizationId)` to the provider for the authentication log (auth task 6.1, api-design 17, 2026-10-29), over `MembersRepository.organizationsOfUsers` and `membersOf(id, true)`; both count a deactivated member
   - _Requirements: design §5, REQ-EVT-09_
 
 ## Phase 2: Core Service Logic

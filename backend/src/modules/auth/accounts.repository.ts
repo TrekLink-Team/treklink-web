@@ -42,6 +42,15 @@ export interface AuthEventInput {
   userAgent: string | null;
 }
 
+export interface AuthEventRow {
+  id: string;
+  userId: string | null;
+  email: string | null;
+  type: AuthEventType;
+  ip: string | null;
+  createdAt: Date;
+}
+
 export interface NewRefreshToken {
   userId: string;
   familyId: string;
@@ -273,6 +282,24 @@ export class AccountsRepository {
       where: { id: userId },
       data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: at },
     });
+  }
+
+  // The authentication log, newest first (api-design 17).
+  pageAuthEvents(
+    where: Prisma.AuthEventWhereInput,
+    skip: number,
+    take: number,
+  ): Promise<[AuthEventRow[], number]> {
+    return Promise.all([
+      this.prisma.authEvent.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip,
+        take,
+        select: { id: true, userId: true, email: true, type: true, ip: true, createdAt: true },
+      }),
+      this.prisma.authEvent.count({ where }),
+    ]);
   }
 
   // Append-only (trigger). Never receives an attempted password (REQ-UBI-08).

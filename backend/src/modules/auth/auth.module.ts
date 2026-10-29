@@ -8,6 +8,8 @@ import { PlatformModule } from '../platform/platform.module';
 import { AccessTokenAuthenticator } from './access-token-authenticator.service';
 import { AccountSessionService } from './account-session.service';
 import { AccountsController } from './accounts.controller';
+import { AuthEventsController } from './auth-events.controller';
+import { AuthEventsService } from './auth-events.service';
 import { AccountsService } from './accounts.service';
 import { AccountsRepository } from './accounts.repository';
 import { AuthPortsModule } from './auth-ports.module';
@@ -46,7 +48,13 @@ import { TokenService } from './token.service';
       }),
     }),
   ],
-  controllers: [AuthController, AccountsController, RolesController, PermissionsController],
+  controllers: [
+    AuthController,
+    AccountsController,
+    RolesController,
+    PermissionsController,
+    AuthEventsController,
+  ],
   providers: [
     AccountsRepository,
     AccountSessionService,
@@ -58,6 +66,7 @@ import { TokenService } from './token.service';
     PasswordFlowsService,
     AccountsService,
     RolesService,
+    AuthEventsService,
     PermissionCache,
     AbilityFactory,
     JwtStrategy,
