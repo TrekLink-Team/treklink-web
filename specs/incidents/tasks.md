@@ -35,12 +35,14 @@
   - **Files**: `backend/src/modules/incidents/alerts/alert-dispatcher.job.ts`, `channels/*.channel.ts`
   - **Do**: `incidents.deliverAlerts` every 2 s reads `PENDING` rows due now with `FOR UPDATE SKIP LOCKED`; channels web inbox, WebSocket (emits `incident.alert`, sent when the listener returns), email through `MailPort`, organization API stream; failure backs off `incidents.alertRetryBaseSeconds × 2^attempts` up to `incidents.alertMaxAttempts`, then `FAILED` and logged; delivery never blocks a transition
   - **Test**: AC-07 with a failing mail transport; WebSocket alert within 2 s of commit under the test load
+  - **Note**: the MF-03 PR (2026-10-29, `docs/sessions/2026-10-29-1330-hoangtk-mf03-sos-to-incident.md`) builds the job with the web inbox and WebSocket channels only. Email and API event rows stay `PENDING` until their channels land, so the box stays open
   - _Requirements: REQ-UBI-04, REQ-EVT-13, AC-07, FR-INC-12, NFR-PERF-04_
   - _Story: US-UC30_
 - [ ] 2.2 Routing (owner HoangTK)
   - **Files**: `backend/src/modules/incidents/routing.service.ts`
   - **Do**: route to the contract and organization the triggering event is attributed to, whatever that contract's state now; `RosterService.tiersAt(orgId, now)`; skip empty tiers; `UNATTRIBUTED` or nobody to alert goes to `UNROUTED`; the device's current holder is never consulted
   - **Test**: AC-09 (A's late SOS after handover to B routes to A); a suspended organization still routed
+  - **Note**: `tiersAt` is added by HoangTK in the MF-03 PR (organizations 2.6, read only). Staff recipients of `UNROUTED` and `ESCALATED` are empty until the leader rules how `incidents` reads Staff accounts: platform design Figure 3 has no `incidents --> auth` edge. Open; the box stays open
   - _Requirements: REQ-EVT-03, REQ-STA-01, AC-09, FR-INC-03, BR-32, BR-36_
   - _Story: US-UC29_
 - [ ] 2.3 `IncidentIngress.onSos(event, tx)` and `onPosition(event, tx)` (owner HoangTK)
@@ -65,7 +67,7 @@
   - **Files**: `backend/src/modules/incidents/incidents.service.ts`
   - **Do**: acknowledge from `NOTIFY_*`, `ESCALATED` or `REPORTED` by a member of the routed organization: owner, time-to-acknowledge, status deadline; the loser of a concurrent acknowledgement gets 409 `ALREADY_OWNED` with the owner (MSG27); responding, status updates (reset the deadline) and resolve (time-to-resolve, reopen window) by the owner only (403 `NOT_OWNER`)
   - **Test**: AC-03 with two concurrent requests
-  - **Note**: `IncidentsService` is in place (2026-10-26) and AC-03 passes against Postgres; the box stays open for MSG27. Until auth 5.2 `contactCard` merges, the loser receives the generic `ALREADY_OWNED` text. The owner name then comes from `contactCard`, and the time from the latest `ACKNOWLEDGED` transition row in the display timezone, because `acknowledgedAt` keeps the first acknowledgement after an escalation takeover. A status update moves `statusDueAt` without a version bump, so the owner's `expectedVersion` for resolve stays valid
+  - **Note**: `IncidentsService` is in place (2026-10-26) and AC-03 passes against Postgres; the box stays open for MSG27. `contactCard` is on dev since 2026-10-26, and the MF-03 PR (2026-10-29) builds MSG27 through `OrganizationsService.memberNames`. The owner name comes from `contactCard`, and the time from the latest `ACKNOWLEDGED` transition row in the display timezone, because `acknowledgedAt` keeps the first acknowledgement after an escalation takeover. A status update moves `statusDueAt` without a version bump, so the owner's `expectedVersion` for resolve stays valid
   - _Requirements: REQ-EVT-05, REQ-EVT-06, REQ-EVT-08, REQ-ERR-02, AC-03, FR-INC-06, FR-INC-07, FR-INC-08_
   - _Story: US-UC32, US-UC33_
 - [ ] 4.2 False alarm and owner deactivation (owner HoangTK)

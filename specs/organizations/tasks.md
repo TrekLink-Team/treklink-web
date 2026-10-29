@@ -71,6 +71,7 @@
   - **Files**: `backend/src/modules/organizations/roster.service.ts`
   - **Do**: create, edit, delete shifts `[startsAt, endsAt)`; primary and backup different active members of the organization (400 `MEMBER_NOT_ELIGIBLE`); overlap rejected by `roster_shifts_no_overlap`, mapped to 409 `SHIFT_OVERLAP`; editing a started shift 409 `SHIFT_STARTED`; list returns `NO_PRIMARY` warnings (MSG22); `tiersAt(orgId, instant)` returns primary, backup and active Managers
   - **Test**: AC-04 against Postgres; `tiersAt` with no shift, a shift without primary, and a deactivated backup
+  - **Note**: `tiersAt` is built read only by HoangTK in the MF-03 PR (2026-10-29), because incidents routing needs it for D-066. It returns user ids, the ids alert rows and incident owners reference. Shift create, edit, delete, list and AC-04 stay with TanNB
   - _Requirements: REQ-UBI-04, REQ-EVT-10, REQ-STA-02, AC-04, FR-ORG-05, BR-16_
   - _Story: US-UC05_
 - [ ] 2.7 API keys (owner TanNB)
