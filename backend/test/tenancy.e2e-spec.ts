@@ -1,4 +1,4 @@
-import { Controller, Get, Module, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Module, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -22,7 +22,8 @@ import {
 // incident list, guarded exactly as the module will be. The permission rows are the seeded
 // `incident.read` (STAFF) and `incident.read.own` (ORG_OPERATOR) of the permission matrix. The
 // membership comes through the real `organizations` provider (organizations 1.3) from the stubbed
-// member row. The incidents module replaces the probe with its own routes when it lands.
+// member row. The incidents module replaces the probe with its own routes when it lands. The
+// acknowledge probe carries the seeded `incident.respond.own` of ORG_OPERATOR for AC-03.
 
 const INCIDENTS = [
   { id: 'incident-a', organizationId: 'org-a' },
@@ -47,6 +48,12 @@ class IncidentProbeController {
     const row = INCIDENTS.find((incident) => incident.id === id);
     if (row) assertOwnOr404(caller.ability, 'read', 'Incident', row, 'Incident not found.');
     return row;
+  }
+
+  @Post(':id/acknowledge')
+  @CheckPolicies((ability) => ability.can('respond', 'Incident'))
+  acknowledge(@Param('id') id: string) {
+    return { id };
   }
 }
 
@@ -82,9 +89,53 @@ const account = (id: string, accountType: string, role: string) => ({
 const ACCOUNTS: Record<string, ReturnType<typeof account>> = {
   'staff-1': account('staff-1', 'TREKLINK', 'STAFF'),
   'operator-a': account('operator-a', 'ORGANIZATION', 'ORG_OPERATOR'),
+  'admin-1': account('admin-1', 'TREKLINK', 'ADMIN'),
 };
 
+const OPERATOR_ROLE_ID = '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a';
+
+const READ_OWN = {
+  key: 'incident.read.own',
+  action: 'read',
+  subject: 'Incident',
+  conditions: { organizationId: '${user.organizationId}' },
+  fields: [],
+  inverted: false,
+  reason: null,
+};
+
+const RESPOND_OWN = {
+  key: 'incident.respond.own',
+  action: 'respond',
+  subject: 'Incident',
+  conditions: { organizationId: '${user.organizationId}' },
+  fields: [],
+  inverted: false,
+  reason: null,
+};
+
+// The permission catalog rows `RolesService.replacePermissions` validates against.
+const CATALOG = [READ_OWN, RESPOND_OWN].map((permission) => ({
+  id: `p-${permission.key}`,
+  key: permission.key,
+  action: permission.action,
+  subject: permission.subject,
+  accountType: 'ORGANIZATION',
+  conditions: permission.conditions,
+}));
+
 const PERMISSIONS: Record<string, unknown[]> = {
+  ADMIN: [
+    {
+      key: 'role.manage',
+      action: 'manage',
+      subject: 'Role',
+      conditions: null,
+      fields: [],
+      inverted: false,
+      reason: null,
+    },
+  ],
   STAFF: [
     {
       key: 'incident.read',
@@ -96,17 +147,7 @@ const PERMISSIONS: Record<string, unknown[]> = {
       reason: null,
     },
   ],
-  ORG_OPERATOR: [
-    {
-      key: 'incident.read.own',
-      action: 'read',
-      subject: 'Incident',
-      conditions: { organizationId: '${user.organizationId}' },
-      fields: [],
-      inverted: false,
-      reason: null,
-    },
-  ],
+  ORG_OPERATOR: [READ_OWN, RESPOND_OWN],
 };
 
 describe('tenant isolation (e2e)', () => {
@@ -114,6 +155,26 @@ describe('tenant isolation (e2e)', () => {
   let jwt: JwtService;
 
   const prisma = {
+    $transaction: (work: (tx: unknown) => Promise<unknown>): Promise<unknown> => work(prisma),
+    role: {
+      findUnique: ({ where }: { where: { id: string } }) =>
+        Promise.resolve(
+          where.id === OPERATOR_ROLE_ID
+            ? {
+                id: OPERATOR_ROLE_ID,
+                key: 'ORG_OPERATOR',
+                accountType: 'ORGANIZATION',
+                isSystem: true,
+                permissions: [],
+              }
+            : null,
+        ),
+    },
+    permission: {
+      findMany: ({ where }: { where: { key: { in: string[] } } }) =>
+        Promise.resolve(CATALOG.filter((row) => where.key.in.includes(row.key))),
+    },
+    auditLog: { create: ({ data }: { data: unknown }) => Promise.resolve(data) },
     user: {
       findUnique: ({ where }: { where: { id: string } }) =>
         Promise.resolve(ACCOUNTS[where.id] ?? null),
@@ -125,6 +186,17 @@ describe('tenant isolation (e2e)', () => {
     rolePermission: {
       findMany: ({ where }: { where: { role: { key: string } } }) =>
         Promise.resolve((PERMISSIONS[where.role.key] ?? []).map((permission) => ({ permission }))),
+      // Only the operator role is ever replaced here.
+      deleteMany: () => {
+        PERMISSIONS.ORG_OPERATOR = [];
+        return Promise.resolve({ count: 0 });
+      },
+      createMany: ({ data }: { data: { permissionId: string }[] }) => {
+        PERMISSIONS.ORG_OPERATOR = data.map(({ permissionId }) =>
+          [READ_OWN, RESPOND_OWN].find((row) => `p-${row.key}` === permissionId)!,
+        );
+        return Promise.resolve({ count: data.length });
+      },
     },
   };
 
@@ -201,5 +273,30 @@ describe('tenant isolation (e2e)', () => {
 
   it('answers 401 without a token', async () => {
     await request(app.getHttpServer()).get('/api/tenancy-probe/incidents/incident-a').expect(401);
+  });
+
+  it("refuses the operator's next acknowledge once the Admin removes incident.respond.own, without a restart (AC-03)", async () => {
+    const token = (userId: string) => jwt.signAsync({ sub: userId, roles: [], pv: 0 });
+    const acknowledge = async () =>
+      request(app.getHttpServer())
+        .post('/api/tenancy-probe/incidents/incident-a/acknowledge')
+        .set('Authorization', `Bearer ${await token('operator-a')}`);
+
+    expect((await acknowledge()).status).toBe(201);
+
+    const replaced = await request(app.getHttpServer())
+      .put(`/api/roles/${OPERATOR_ROLE_ID}/permissions`)
+      .set('Authorization', `Bearer ${await token('admin-1')}`)
+      .send({ permissionKeys: ['incident.read.own'] });
+    expect(replaced.status).toBe(200);
+    expect(replaced.body).toMatchObject({ result: { key: 'ORG_OPERATOR', permissionCount: 1 } });
+
+    const refused = await acknowledge();
+    expect(refused.status).toBe(403);
+    expect(refused.body).toMatchObject({ result: { errorCode: 'FORBIDDEN' } });
+    // Reading is still allowed: only the removed permission is gone.
+    expect((await asCaller('operator-a', '/api/tenancy-probe/incidents/incident-a')).status).toBe(
+      200,
+    );
   });
 });
