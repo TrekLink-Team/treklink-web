@@ -58,6 +58,10 @@ export interface AccountContextProvider {
   // null for a TrekLink account or a deactivated member
   forUser(userId: string): Promise<{ organizationId: string; organizationCode: string; legalName: string;
                                      memberRole: 'MANAGER' | 'OPERATOR'; organizationStatus: string } | null>;
+  // api-design 17: the organization of each listed account with a member row, deactivated or not
+  organizationsOf(userIds: readonly string[]): Promise<Map<string, { id: string; name: string }>>;
+  // api-design 17: every account that is or was a member; empty for an unknown organization
+  memberUserIds(organizationId: string): Promise<string[]>;
 }
 
 export const API_KEY_RESOLVER = Symbol('API_KEY_RESOLVER');

@@ -123,14 +123,15 @@
 
 ## Phase 6: API Presentation Layer
 
-- [ ] 6.1 `AuthController`, `AccountsController`, `RolesController`, `AuthEventsController` (owner LongLP)
+- [x] 6.1 `AuthController`, `AccountsController`, `RolesController`, `AuthEventsController` (owner LongLP)
   - **Do**: api-design 01 to 18 with the routes, permissions and `@ResponseMessage` of each file; the refresh token travels in the request body (api-design 02), and `apiClient` refreshes once on 401 (frontend design)
   - _Requirements: FR-AUTH-01 to FR-AUTH-08_
-  - **Done**: `AuthController` with api-design 01 to 04 (login, refresh, logout, me), in treklink-web#48, and 05 to 08 (forgot, reset, set, change password); `AccountsController` with api-design 14 (Staff-triggered reset), for US-UC09; api-design 09 to 13, `RolesController` (15, 16) and `PermissionsController` (18), for US-UC10. `AuthEventsController` (17) is open
+  - **Done**: `AuthController` with api-design 01 to 04 (login, refresh, logout, me), in treklink-web#48, and 05 to 08 (forgot, reset, set, change password); `AccountsController` with api-design 14 (Staff-triggered reset), for US-UC09; api-design 09 to 13, `RolesController` (15, 16) and `PermissionsController` (18), for US-UC10. `AuthEventsController` (17, 2026-10-29) over `AuthEventsService.search`: account, type and half-open time filters, newest first; the organization of each event and the `organizationId` filter come from two reads added to `ACCOUNT_CONTEXT_PROVIDER` (`organizationsOf`, `memberUserIds`, design §2), which count a deactivated member too, so `auth` reads no `organizations` table; an unknown organization, or a `userId` outside it, answers an empty page; `from` not before `to` is 400 `VALIDATION_FAILED`, as on the audit log
 - [ ] 6.2 E2E (owner LongLP)
   - **Files**: `backend/test/auth.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts` (created here)
   - **Do**: every Validation row of api-design 01 to 18; AC-01 to AC-06
   - _Requirements: AC-01 to AC-06_
+  - **Partly done** (2026-10-29): the suites are split by area, `auth.e2e-spec.ts` (01 to 04, AC-02, AC-04), `password.e2e-spec.ts` (05 to 08 and 14, AC-06, `OTP_COOLDOWN`), `accounts.e2e-spec.ts` (09 to 13 and 15 to 18), `tenancy.e2e-spec.ts` (AC-01) and `route-guards.e2e-spec.ts` (AC-05). `accounts.e2e-spec.ts` now also answers every domain code of 10 to 13 and 16 (`CONFLICT_UNIQUE`, `NOT_FOUND`, `SELF_DEMOTION`, `LAST_ADMIN`, `UNKNOWN_PERMISSION`, `PERMISSION_SCOPE_MISMATCH`, `ADMIN_LOCKOUT`) and all of 17. Open: AC-03 (a permission removed from `ORG_OPERATOR` refuses the operator's next acknowledge without a restart) through HTTP, and 14's `INVALID_STATE_TRANSITION`
 
 ## Phase 7: Frontend Integration
 

@@ -13,11 +13,13 @@ const memberRow = {
 
 describe('OrganizationAccountContextProvider', () => {
   let findFirst: jest.Mock;
+  let findMany: jest.Mock;
   let provider: OrganizationAccountContextProvider;
 
   beforeEach(() => {
     findFirst = jest.fn();
-    const prisma = { organizationMember: { findFirst } } as unknown as PrismaService;
+    findMany = jest.fn();
+    const prisma = { organizationMember: { findFirst, findMany } } as unknown as PrismaService;
     provider = new OrganizationAccountContextProvider(new MembersRepository(prisma));
   });
 
@@ -40,6 +42,30 @@ describe('OrganizationAccountContextProvider', () => {
     findFirst.mockResolvedValue(null);
 
     await expect(provider.forUser('staff-1')).resolves.toBeNull();
+  });
+
+  it('names the organization of each member for the authentication log, deactivated or not', async () => {
+    findMany.mockResolvedValue([
+      { userId: 'user-1', organization: { id: 'org-1', legalName: 'Demo Tours' } },
+    ]);
+
+    await expect(provider.organizationsOf(['user-1', 'staff-1'])).resolves.toEqual(
+      new Map([['user-1', { id: 'org-1', name: 'Demo Tours' }]]),
+    );
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: { in: ['user-1', 'staff-1'] } } }),
+    );
+    await expect(provider.organizationsOf([])).resolves.toEqual(new Map());
+    expect(findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists every account that is or was a member of the organization', async () => {
+    findMany.mockResolvedValue([{ userId: 'user-1' }, { userId: 'user-2' }]);
+
+    await expect(provider.memberUserIds('org-1')).resolves.toEqual(['user-1', 'user-2']);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: 'org-1' } }),
+    );
   });
 });
 

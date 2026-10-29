@@ -1,11 +1,15 @@
+import { AuthEventType } from '@prisma/client';
 import {
   ArrayMaxSize,
   IsArray,
   IsEmail,
+  IsEnum,
   IsIn,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
 } from 'class-validator';
@@ -83,6 +87,29 @@ export class AccountListQueryDto extends PagedQueryDto {
   @IsOptional()
   @IsIn(['true', 'false'])
   isActive?: 'true' | 'false';
+}
+
+// auth api-design 17. `from` is inclusive, `to` exclusive.
+export class AuthEventListQueryDto extends PagedQueryDto {
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  organizationId?: string;
+
+  @IsOptional()
+  @IsEnum(AuthEventType)
+  type?: AuthEventType;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  from?: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  to?: string;
 }
 
 // auth api-design 10

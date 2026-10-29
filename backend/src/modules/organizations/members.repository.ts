@@ -43,6 +43,23 @@ export class MembersRepository {
     };
   }
 
+  // The organization of each listed account that has a member row, deactivated or not.
+  async organizationsOfUsers(
+    userIds: readonly string[],
+  ): Promise<Map<string, { id: string; name: string }>> {
+    if (userIds.length === 0) return new Map();
+    const rows = await this.prisma.organizationMember.findMany({
+      where: { userId: { in: [...userIds] } },
+      select: { userId: true, organization: { select: { id: true, legalName: true } } },
+    });
+    return new Map(
+      rows.map((row) => [
+        row.userId,
+        { id: row.organization.id, name: row.organization.legalName },
+      ]),
+    );
+  }
+
   // The members of an organization, Managers first (organizations api-design 12).
   membersOf(
     organizationId: string,

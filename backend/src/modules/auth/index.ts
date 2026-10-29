@@ -39,6 +39,7 @@ export {
   ACCOUNT_CONTEXT_PROVIDER,
   type AccountContextProvider,
   type AccountMembership,
+  type AccountOrganization,
   type MemberRole,
 } from './ports/account-context.port';
 export {

@@ -1,5 +1,6 @@
 import { AccountType } from '@prisma/client';
 import { AccountSessionService } from './account-session.service';
+import { AccountContextProvider } from './ports/account-context.port';
 import { AccountsRepository } from './accounts.repository';
 import { anAccount } from './testing/auth-fixtures';
 
@@ -25,7 +26,10 @@ describe('AccountSessionService', () => {
         organizationStatus: 'ACTIVE',
       }),
     };
-    service = new AccountSessionService(repository as unknown as AccountsRepository, provider);
+    service = new AccountSessionService(
+      repository as unknown as AccountsRepository,
+      provider as unknown as AccountContextProvider,
+    );
   });
 
   it('builds the session of an active TrekLink account without a membership lookup', async () => {
