@@ -51,4 +51,41 @@ describe('device release boundary against Postgres (REQ-EVT-04, AC-06)', () => {
     await prisma.streamEvent.deleteMany({ where: { organizationId } });
     await expect(repository.latestRelease(organizationId, deviceId)).resolves.toEqual(before);
   });
+
+  describe('pruning the stream (task 2.4)', () => {
+    const marker = `prune-test-${runId}`;
+    const old = new Date('2001-01-01T00:00:00.000Z');
+    const cutoff = new Date('2002-01-01T00:00:00.000Z');
+
+    const entry = (createdAt: Date) =>
+      prisma.streamEvent.create({
+        data: { organizationId: null, type: marker, payload: {}, createdAt },
+      });
+
+    it('deletes entries before the cutoff in batches and keeps the newer ones', async () => {
+      await entry(old);
+      await entry(old);
+      await entry(old);
+      const kept = await entry(new Date());
+
+      const first = await repository.pruneBefore(cutoff, 2);
+      expect(first).toBe(2);
+      const second = await repository.pruneBefore(cutoff, 2);
+      expect(second).toBe(1);
+      await expect(repository.pruneBefore(cutoff, 2)).resolves.toBe(0);
+
+      const left = await prisma.streamEvent.findMany({ where: { type: marker } });
+      expect(left.map((row) => row.seq)).toEqual([kept.seq]);
+    });
+
+    it('never touches the check-in boundary', async () => {
+      const checkedInAt = new Date('2026-10-20T03:00:00.000Z');
+      await repository.recordRelease(organizationId, `${deviceId}-prune`, checkedInAt);
+      await entry(old);
+      await repository.pruneBefore(cutoff, 5000);
+      await expect(repository.latestRelease(organizationId, `${deviceId}-prune`)).resolves.toEqual(
+        checkedInAt,
+      );
+    });
+  });
 });
