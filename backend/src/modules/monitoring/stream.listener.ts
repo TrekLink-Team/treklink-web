@@ -50,7 +50,7 @@ export class StreamListener {
   // Last time a position was pushed for a device, for the per-device throttle.
   private readonly lastPositionPush = new Map<string, number>();
   // Latest check-in of a device from an organization, so a late field event can be flagged. Written on
-  // check-in and read through from the stream's own `device.released` entries after a restart.
+  // check-in and read through from the `device_releases` table, which pruning the stream never touches.
   private readonly releases = new Map<string, Date | null>();
 
   constructor(
@@ -126,6 +126,8 @@ export class StreamListener {
   @OnEvent(DEVICE_CHECKED_IN)
   async onDeviceCheckedIn(event: DeviceCheckedInEvent): Promise<void> {
     const checkedInAt = asDate(event.at);
+    // Durable first: a late upload may arrive days after the stream entry is pruned (168 h against 72 h).
+    await this.repository.recordRelease(event.organizationId, event.deviceId, checkedInAt);
     this.releases.set(this.releaseKey(event.organizationId, event.deviceId), checkedInAt);
     this.lastPositionPush.delete(event.deviceId);
     await this.stream.publish({
