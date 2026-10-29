@@ -242,7 +242,15 @@ export class ReturnService {
           'This cannot be done while it has open balances.',
         );
       }
-      const deviceIds = (await this.contracts.liveRows(id, tx)).map((row) => row.deviceId);
+      // Every device the contract held, replaced units included (rentals 4.3).
+      const deviceIds = await this.contracts.custodyDevices(id, tx);
+      // A unit replaced while missing blocks until its loss case settles and sets lostAt.
+      if ((await this.contracts.unsettledReplacedLosses(id, tx)) > 0) {
+        throw conflict(
+          ErrorCode.BALANCE_OUTSTANDING,
+          'This cannot be done while it has open balances.',
+        );
+      }
       // A damage charge above the approval threshold waits for an Admin with no invoice line yet;
       // it is part of what the contract owes (api-design 17, REQ-ERR-05).
       if (

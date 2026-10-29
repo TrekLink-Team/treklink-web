@@ -224,3 +224,55 @@ describe('ContractsRepository', () => {
     });
   });
 });
+
+// Review of #107: a replaced row keeps its history but is no longer live, so the live rows of a
+// contract stay at its quantity after a replacement (rentals 4.3).
+describe('ContractsRepository live rows after a replacement', () => {
+  const tx = (contractDevice: Record<string, jest.Mock>) =>
+    ({ contractDevice }) as unknown as Prisma.TransactionClient;
+  const repository = new ContractsRepository({} as PrismaService);
+  const LIVE = { releasedAt: null, replacedBy: { is: null } };
+
+  it('leaves replaced rows out of liveRows, rowsOut and returnCounts', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const count = jest.fn().mockResolvedValue(0);
+    const client = tx({ findMany, count });
+
+    await repository.liveRows('c-1', client);
+    await repository.rowsOut('c-1', client);
+    await repository.returnCounts('c-1', client);
+
+    const [[live], [out]] = findMany.mock.calls as [object][];
+    expect(live).toMatchObject({ where: { contractId: 'c-1', ...LIVE } });
+    expect(out).toMatchObject({
+      where: { contractId: 'c-1', ...LIVE, checkedInAt: null, lostAt: null },
+    });
+    for (const [args] of count.mock.calls as [object][]) {
+      expect(args).toMatchObject({ where: { contractId: 'c-1', ...LIVE } });
+    }
+  });
+
+  it('keeps replaced units in the close checks, and counts a missing one until its loss settles', async () => {
+    const findMany = jest
+      .fn()
+      .mockResolvedValue([{ deviceId: 'd-1' }, { deviceId: 'd-2' }, { deviceId: 'd-9' }]);
+    const count = jest.fn().mockResolvedValue(1);
+    const client = tx({ findMany, count });
+
+    await expect(repository.custodyDevices('c-1', client)).resolves.toEqual(['d-1', 'd-2', 'd-9']);
+    const [[custody]] = findMany.mock.calls as [object][];
+    expect(custody).toMatchObject({
+      where: { contractId: 'c-1', releasedAt: null },
+    });
+    await expect(repository.unsettledReplacedLosses('c-1', client)).resolves.toBe(1);
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        contractId: 'c-1',
+        releasedAt: null,
+        replacedBy: { isNot: null },
+        checkedInAt: null,
+        lostAt: null,
+      },
+    });
+  });
+});
