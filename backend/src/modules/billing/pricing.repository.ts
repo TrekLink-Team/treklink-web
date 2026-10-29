@@ -80,6 +80,18 @@ export class PricingRepository {
     });
   }
 
+  // The row in effect for each variant at `at`: the latest effective time not after it (api-design 03
+  // state). Read over the whole schedule, so a row on any page is labelled correctly.
+  async currentPriceIds(at: Date): Promise<Set<string>> {
+    const rows = await this.prisma.priceSchedule.findMany({
+      where: { effectiveFrom: { lte: at } },
+      distinct: ['hardwareVariantId'],
+      orderBy: [{ hardwareVariantId: 'asc' }, { effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+      select: { id: true },
+    });
+    return new Set(rows.map((row) => row.id));
+  }
+
   pricePage(
     variantId: string | undefined,
     skip: number,

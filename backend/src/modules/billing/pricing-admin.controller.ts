@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
+import { DomainException, ErrorCode } from '../../common/errors';
 import {
   DamageRatePatchDto,
   DamageRateQueryDto,
@@ -46,6 +57,7 @@ export class PricingAdminController {
       ...page,
       items: page.items.map((item) => ({
         ...toPriceView(item),
+        state: item.state,
         createdBy: item.createdBy?.fullName ?? null,
       })),
     };
@@ -53,7 +65,7 @@ export class PricingAdminController {
 
   @Post('price-schedules')
   @CheckPolicies((ability) => ability.can('manage', 'PriceSchedule'))
-  @ResponseMessage('Saved.')
+  @ResponseMessage('Price scheduled')
   async setPrice(@Body() dto: NewPriceDto, @CurrentCaller() caller: Caller) {
     const price = await this.pricing.setPrice(
       {
@@ -97,6 +109,14 @@ export class PricingAdminController {
     @Body() dto: DamageRatePatchDto,
     @CurrentCaller() caller: Caller,
   ) {
+    // An empty PATCH would write a no-op update and an audit record (review of #91).
+    if (dto.label === undefined && dto.amountVnd === undefined && dto.isActive === undefined) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.VALIDATION_FAILED,
+        'Change at least one of label, amountVnd or isActive.',
+      );
+    }
     const rate = await this.pricing.updateDamageRate(
       id,
       {

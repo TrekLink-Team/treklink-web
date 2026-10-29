@@ -176,6 +176,8 @@ export interface PriceRow {
   effectiveFrom: string;
   createdAt: string;
   createdBy: string | null;
+  // Against the whole schedule, from the server (billing api-design 03).
+  state: 'CURRENT' | 'UPCOMING' | 'PAST';
 }
 
 export interface DamageRate {
