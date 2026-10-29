@@ -125,6 +125,29 @@ describe('OrganizationReviewPage (screen 3.2)', () => {
     expect(verifyOrganization).not.toHaveBeenCalled();
   });
 
+  it('keeps a phone verification as by phone when it is updated (review of #106)', async () => {
+    verifyOrganization.mockResolvedValue({});
+    items = [
+      organization({
+        verifiedAt: '2026-10-28T04:00:00Z',
+        verificationMethod: 'PHONE',
+        documentsSeen: ['Business registration'],
+        masterContractRef: 'MC-2026-0002',
+        ndaSigned: true,
+        softwareLicenceSigned: true,
+      }),
+    ];
+    renderPage(<OrganizationReviewPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'ORG-0002' }));
+    expect((screen.getByLabelText('By phone') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Update verification' }));
+    await waitFor(() => expect(verifyOrganization).toHaveBeenCalled());
+    expect(verifyOrganization).toHaveBeenCalledWith(
+      'org-2',
+      expect.objectContaining({ method: 'PHONE', masterContractRef: 'MC-2026-0002' }),
+    );
+  });
+
   it('offers Approve on a verified organization', () => {
     items = [
       organization({
