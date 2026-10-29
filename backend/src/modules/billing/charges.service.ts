@@ -130,7 +130,7 @@ export class ChargesService {
   // schedule, the variant's own rate first and the generic rate otherwise, into one DamageCharge.
   // Above `billing.damageApprovalThresholdVnd` it waits for an Admin (PENDING_APPROVAL); at or below
   // it is APPROVED at once and becomes a DAMAGE line on the closing invoice. A code with no active
-  // rate is 400 VALIDATION_FAILED and records nothing. Null for an inspection without damage codes.
+  // rate is 400 UNKNOWN_DAMAGE_CODE and records nothing. Null for an inspection without damage codes.
   async chargeDamage(
     contract: ChargedContract,
     inspection: DamagedInspection,

@@ -65,25 +65,38 @@ contract is not `CLOSED`, never changed (REQ-UBI-02).
 sequenceDiagram
     autonumber
     actor M as Org Manager
-    participant API as PaymentsController
-    participant S as SepayService
+    participant P as InvoicePage
+    participant API as :SepayController
+    participant S as :SepayService
     participant DB as Postgres
     participant SP as SePay sandbox
-    M->>API: POST /api/invoices/{id}/payments/sepay
-    S->>DB: INSERT payment PENDING, reference TLxxxx, expiresAt
-    API-->>M: VietQR image URL with amount and reference
-    M->>SP: scan and pay (sandbox)
-    SP->>API: POST /api/payments/sepay/webhook, Authorization Apikey
+    M->>+P: pay the invoice online
+    P->>+API: POST /api/invoices/{id}/payments/sepay
+    API->>+S: request(invoiceId, lineSeq, caller)
+    S->>+DB: INSERT payment PENDING, reference TLxxxx, expiresAt
+    DB-->>-S: pending payment
+    S-->>-API: payment and VietQR
+    API-->>-P: VietQR image URL with amount and reference
+    P-->>-M: show sandbox QR
+    M->>+SP: scan and pay (sandbox)
+    SP->>+API: POST /api/payments/sepay/webhook, Authorization Apikey
+    Note over API,S: SepayWebhookGuard checks the API key before DTO validation
+    API->>+S: handleWebhook(authorization, body)
     S->>S: constant-time key check, extract reference from content
-    S->>DB: BEGIN, SELECT payment WHERE reference FOR UPDATE
-    alt already confirmed or txn id known
-        S-->>SP: 200 {"success": true}, duplicate logged
+    S->>+DB: SELECT payment by gateway transaction id
+    DB-->>-S: whether the transaction is known
+    alt gateway transaction id already recorded
+        S->>S: no payment recorded
+    else new gateway transaction id
+        S->>+DB: BEGIN, lock reference, confirm or insert received payment, apply to lines, COMMIT
+        DB-->>-S: recorded transfer
+        S-)S: emit payment.confirmed
     end
-    S->>DB: CONFIRMED, apply to lines, invoice status, COMMIT
-    S-)S: emit payment.confirmed
-    S-->>SP: 200 {"success": true}
-    M->>API: GET /api/payments/{id} (polling)
-    API-->>M: CONFIRMED, MSG20
+    S-->>-API: webhook outcome
+    API-->>-SP: 200 {"success": true}
+    SP-->>-M: sandbox transfer complete
+    P->>+API: GET /api/payments/{id} (polling)
+    API-->>-P: CONFIRMED, MSG20
 ```
 
 ***Figure 2***: SePay flow. Facts verified on 2026-10-04 at https://docs.sepay.vn/tich-hop-webhooks.html:
@@ -96,6 +109,17 @@ The reference is `TL` plus 8 Crockford base32 characters, so it survives banks t
 from transfer content. The webhook's `transferAmount` must equal the payment amount; a different amount
 is recorded as a separate `CONFIRMED` payment of the received amount against the same invoice and logged
 for Staff, rather than rejected, because the money has moved.
+
+The contract balance must be open before a new QR request is inserted. An earlier invoice may
+still have unpaid lines after a cancellation adjustment on the closing invoice settles the
+contract; the request is then 409 `NOTHING_DUE`. The invoice page applies the same balance rule
+to both SePay and counter-payment actions (the ruling on #87 point 4).
+
+The API-key guard runs before body validation. A missing or wrong key is always 401
+`WEBHOOK_UNAUTHENTICATED`, including when the DTO is invalid. The constant-time comparison also
+runs for direct service callers. Deduplication is by gateway transaction id only. A different
+transaction on a confirmed reference is its own confirmed payment; the invoice receives at most
+what remains due, and any excess stays on that payment and is logged for Staff.
 
 ---
 
@@ -141,6 +165,9 @@ Events emitted: `payment.confirmed`, `audit.record`.
 | `DUPLICATE_REFERENCE` | 409 |
 | `OVERPAYMENT` | 400 |
 | `SEPARATION_OF_DUTY` | 403 |
+
+`NOTHING_DUE` covers either an invoice/line with no unpaid amount or a contract whose balance
+is settled after all invoices and cancellation credits are netted.
 
 ---
 
@@ -242,27 +269,34 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant G as SePay sandbox
-    participant W as SepayWebhookController
-    participant S as SepayService
-    participant R as PaymentsRepository
-    participant IR as InvoicesRepository
-    G->>W: POST /api/payments/sepay/webhook
-    W->>S: handleWebhook(body, headers)
+    participant W as :SepayController
+    participant S as :SepayService
+    participant R as :PaymentsRepository
+    participant IR as :InvoicesRepository
+    G->>+W: POST /api/payments/sepay/webhook
+    Note over W,S: SepayWebhookGuard checks the API key before DTO validation
+    W->>+S: handleWebhook(authorization, body)
     S->>S: verify the API key in constant time
-    S->>R: lockByReference(reference, tx)
-    alt already CONFIRMED or transaction id known
-        S->>S: log duplicate, COMMIT
-    else first confirmation
-        S->>R: confirm(id, txnId, tx)
-        S->>IR: applyPayment(invoiceId, amount, tx)
+    S->>+R: gatewayTxnExists(gatewayTxnId)
+    R-->>-S: whether the transaction is known
+    alt gateway transaction id already recorded
+        S->>S: no payment recorded
+    else new gateway transaction id
+        S->>+R: lockByReference(reference, tx)
+        R-->>-S: request
+        S->>+R: confirmSepay(id, settlement, tx) or insertReceivedSepay(payment, tx)
+        R-->>-S: confirmed payment
+        S->>+IR: applyPayment(invoice, applied, tx)
+        IR-->>-S: updated invoice
         S->>S: COMMIT, emit payment.confirmed
     end
-    S-->>W: success
-    W-->>G: 200 in the gateway's format
+    S-->>-W: outcome
+    W-->>-G: 200 {"success": true}
 ```
 
 ***Figure 5***: UC-19 Pay Online, part 2 of 2: the gateway's confirming webhook, recorded once per
-reference (FR-BILL-07, FR-BILL-08).
+gateway transaction id. A different transfer for a confirmed reference is recorded as its own
+payment, with only the unpaid invoice amount applied (FR-BILL-07, FR-BILL-08).
 
 <!-- sdd: MF-05 seq UC-48 -->
 ```mermaid

@@ -12,6 +12,7 @@ import { ErrorCode } from '../../common/errors';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
+import { BalanceService } from './balance.service';
 import { InvoicesRepository } from './invoices.repository';
 import { PaymentsRepository } from './payments.repository';
 import { PAYMENT_CONFIRMED } from './payments.service';
@@ -76,6 +77,7 @@ const pending = (overrides: Record<string, unknown> = {}) => ({
 
 describe('SePay sandbox (billing task 3.2)', () => {
   let invoices: Record<string, jest.Mock>;
+  let balance: { outstanding: jest.Mock };
   let payments: Record<string, jest.Mock>;
   let emitAfterCommit: jest.Mock;
   let key: string | undefined;
@@ -88,6 +90,7 @@ describe('SePay sandbox (billing task 3.2)', () => {
       lockWithLines: jest.fn().mockResolvedValue(invoice()),
       applyPayment: jest.fn().mockResolvedValue(undefined),
     };
+    balance = { outstanding: jest.fn().mockResolvedValue(2_250_000n) };
     payments = {
       lockInvoiceRequests: jest.fn().mockResolvedValue(undefined),
       findPendingSepay: jest.fn().mockResolvedValue(null),
@@ -123,6 +126,7 @@ describe('SePay sandbox (billing task 3.2)', () => {
     };
     service = new SepayService(
       invoices as unknown as InvoicesRepository,
+      balance as unknown as BalanceService,
       payments as unknown as PaymentsRepository,
       parameters as unknown as ParameterService,
       {
@@ -184,6 +188,15 @@ describe('SePay sandbox (billing task 3.2)', () => {
       await expect(service.request('inv-1', undefined, MANAGER, AT)).rejects.toMatchObject({
         errorCode: ErrorCode.PAYMENT_PENDING,
       });
+      expect(payments.insertSepayPayment).not.toHaveBeenCalled();
+    });
+
+    it('refuses a settled contract even when the invoice still shows unpaid lines', async () => {
+      balance.outstanding.mockResolvedValueOnce(0n);
+      await expect(service.request('inv-1', undefined, MANAGER, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOTHING_DUE,
+      });
+      expect(balance.outstanding).toHaveBeenCalledWith('c-1', TX);
       expect(payments.insertSepayPayment).not.toHaveBeenCalled();
     });
 
@@ -273,9 +286,27 @@ describe('SePay sandbox (billing task 3.2)', () => {
     it('answers a repeated delivery without applying it twice', async () => {
       payments.gatewayTxnExists.mockResolvedValueOnce(true);
       await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('duplicate');
-      payments.lockByReference.mockResolvedValueOnce(pending({ status: PaymentStatus.CONFIRMED }));
-      await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('duplicate');
       expect(invoices.applyPayment).not.toHaveBeenCalled();
+    });
+
+    it('records another transfer on a confirmed reference and deduplicates only its transaction id', async () => {
+      payments.lockByReference.mockResolvedValueOnce(pending({ status: PaymentStatus.CONFIRMED }));
+      const second = { ...hook, id: 92705 };
+      await expect(service.handleWebhook(`Apikey ${KEY}`, second, AT)).resolves.toBe('recorded');
+      expect(payments.confirmSepay).not.toHaveBeenCalled();
+      expect(payments.insertReceivedSepay).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reference: 'TL7K2Q9M4D-92705',
+          gatewayTxnId: '92705',
+          amountVnd: 1_125_000n,
+        }),
+        TX,
+      );
+      expect(invoices.applyPayment).toHaveBeenCalledTimes(1);
+      payments.gatewayTxnExists.mockResolvedValueOnce(true);
+      await expect(service.handleWebhook(`Apikey ${KEY}`, second, AT)).resolves.toBe('duplicate');
+      expect(payments.insertReceivedSepay).toHaveBeenCalledTimes(1);
+      expect(invoices.applyPayment).toHaveBeenCalledTimes(1);
     });
 
     it('confirms an expired request itself when its exact amount arrives late (review of #92)', async () => {
@@ -283,6 +314,18 @@ describe('SePay sandbox (billing task 3.2)', () => {
       await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('confirmed');
       expect(payments.confirmSepay).toHaveBeenCalledWith('p-1', expect.anything(), TX);
       expect(payments.insertReceivedSepay).not.toHaveBeenCalled();
+    });
+
+    it('answers a concurrent replay as duplicate when the gateway transaction unique index rejects it', async () => {
+      payments.lockByReference.mockResolvedValueOnce(pending({ status: PaymentStatus.CONFIRMED }));
+      payments.insertReceivedSepay.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('gateway transaction already recorded', {
+          code: 'P2002',
+          clientVersion: '6.4.1',
+        }),
+      );
+      await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('duplicate');
+      expect(invoices.applyPayment).not.toHaveBeenCalled();
     });
 
     it('records a different amount as its own payment of what arrived', async () => {

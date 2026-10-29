@@ -5,7 +5,6 @@ import { usePayment } from '../entities/billing/api';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { Alert, Badge, Card, PageHeader, Skeleton } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
-import { LINK } from '../shared/ui/styles';
 
 // mm:ss left until `expiresAt`, never below zero.
 const remaining = (expiresAt: string | null, now: number): string => {
@@ -68,7 +67,7 @@ export const PaymentPage: React.FC = () => {
   );
   const back = `/o/invoices/${data.invoiceId}`;
   const backLink = (
-    <Link to={back} className={LINK}>
+    <Link to={back} className="font-semibold text-brand underline-offset-4 hover:underline">
       Back to the invoice
     </Link>
   );
@@ -95,11 +94,12 @@ export const PaymentPage: React.FC = () => {
                 Transfer the amount to the account below with the transfer content exactly as shown.
               </Alert>
             ) : (
+              // Literal white keeps banking-app scanner contrast; bg-white follows the app theme.
               <img
                 src={data.vietQr.imageUrl}
                 alt={`VietQR for ${formatVnd(data.amountVnd)} with transfer content ${data.vietQr.content}`}
                 onError={() => setQrFailed(true)}
-                className="h-64 w-64 rounded-card border border-line bg-white object-contain"
+                className="h-64 w-64 rounded-card border border-line bg-[#fff] object-contain"
               />
             )}
             <dl className="grid w-full grid-cols-2 gap-3 text-body">
@@ -124,17 +124,17 @@ export const PaymentPage: React.FC = () => {
           {data.confirmedAt && `Confirmed ${formatDateTime(data.confirmedAt)}.`}
         </Alert>
       )}
-      {data.status !== 'CONFIRMED' && credited > 0 && (
+      {credited > 0 && (
         <Alert
           tone="info"
-          title={`${formatVnd(credited)} arrived for this request and was credited to the invoice.`}
+          title={`${formatVnd(credited)} arrived for this request and was recorded.`}
           action={
-            <Link to={back} className={LINK}>
+            <Link to={back} className="font-semibold text-brand underline-offset-4 hover:underline">
               See what remains due
             </Link>
           }
         >
-          The transfer did not match the requested amount, so it was recorded as its own payment.
+          This transfer was recorded as a separate payment for this request.
         </Alert>
       )}
       {(data.status === 'EXPIRED' || data.status === 'FAILED') && credited === 0 && (
@@ -142,7 +142,7 @@ export const PaymentPage: React.FC = () => {
           tone="error"
           title="Payment not completed."
           action={
-            <Link to={back} className={LINK}>
+            <Link to={back} className="font-semibold text-brand underline-offset-4 hover:underline">
               Back to the invoice to try again
             </Link>
           }

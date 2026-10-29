@@ -136,25 +136,31 @@ ENDPOINTS = [
     ep("POST", "/api/invoices/:id/payments/sepay", "Pay online with SePay", "Org Manager: own",
        "Creates a SePay payment request in the sandbox for the amount due now on the invoice (or a chosen "
        "line), with a unique reference, and returns its VietQR. The payment is recorded only when SePay's "
-       "webhook confirms it (FR-BILL-07, BR-34, NFR-UI-03).",
+       "webhook confirms it (FR-BILL-07, BR-34, NFR-UI-03). The contract balance must still be open: "
+       "a cancellation adjustment on a closing invoice may offset an earlier unpaid invoice, in which "
+       "case the request is refused with 409 NOTHING_DUE.",
        "UC-19, FR-BILL-07, FR-BILL-09, BR-34, MSG25",
        path=[INV_PATH], body=[["lineSeq", "Pay one line; default every line due now", "int", "no", "`1`"]],
        sample={"lineSeq": 2},
        response={**PAYMENT, "vietQr": VIETQR},
        status=201, message="Scan the QR code to pay (sandbox).", entity="Invoice",
-       errors=[(409, "NOTHING_DUE", "No unpaid amount on the invoice or line", "This invoice has nothing to pay."),
+       errors=[(409, "NOTHING_DUE", "No unpaid amount on the invoice or line, or the contract balance is settled", "This invoice or contract has nothing to pay."),
                (409, "PAYMENT_PENDING", "A pending SePay payment for this invoice has not expired",
                 "A payment for this invoice is already waiting. Use its QR code.")],
-       steps=["Compute the amount due", "Insert payment PENDING with a fresh reference and expiry",
+       steps=["Compute the invoice amount due and verify the contract balance is open", "Insert payment PENDING with a fresh reference and expiry",
               "Build the VietQR from configuration (sandbox account)"],
-       controller="PaymentsController", service="SepayService", call="createRequest(invoiceId, dto, caller)",
-       seq=["Svc->>DB: INSERT payments (PENDING)", "Svc->>Svc: build VietQR URL"]),
+       controller="SepayController", service="SepayService", call="request(invoiceId, lineSeq, caller)",
+       seq=["Svc->>DB: Read outstanding contract balance under the request transaction",
+            "Svc->>DB: INSERT payments (PENDING)", "Svc->>Svc: build VietQR URL"]),
 
-    ep("POST", "/api/payments/sepay/webhook", "SePay confirmation webhook", "Public (SePay API key header)",
+    ep("POST", "/api/payments/sepay/webhook", "SePay confirmation webhook", "Public",
        "Receives SePay's transaction notification. Authenticated by the `Authorization: Apikey ...` header "
-       "and matched to a reference the system issued (NFR-SEC-07). A repeated transaction id or reference "
-       "records nothing and logs the duplicate (FR-BILL-08, BR-31, E01-6). The amount is applied to the "
-       "invoice lines oldest due first, in one transaction.",
+       "before DTO body validation and matched to a reference the system issued (NFR-SEC-07). A repeated "
+       "gateway transaction id records nothing (FR-BILL-08, BR-31, E01-6). A different transaction id "
+       "for an already confirmed reference records a separate CONFIRMED payment, even for the same "
+       "amount. The amount is applied to unpaid invoice lines oldest due first, up to what remains due; "
+       "any excess is retained on the payment and logged for Staff, in one transaction. Outgoing "
+       "transfers and unknown references record nothing and return the same success acknowledgement.",
        "UC-19, FR-BILL-07, FR-BILL-08, BR-31, NFR-SEC-07, E01-6",
        body=[["id", "SePay transaction id", "int", "yes", "`92704`"],
              ["transferAmount", "Amount received", "int", "yes", "`2250000`"],
@@ -164,19 +170,21 @@ ENDPOINTS = [
                "subAccount": None, "code": None, "content": "TL7K2Q9M4D", "transferType": "in",
                "description": "TL7K2Q9M4D", "transferAmount": 2250000, "accumulated": 2250000,
                "referenceCode": "FT26293...."},
-       response={"success": True}, message="OK",
+       response={"success": True}, message="OK", raw_response=True,
+       pre_validation_auth=("assertWebhookKey(authorization)", "WEBHOOK_UNAUTHENTICATED"),
+       pre_validation_guard="SepayWebhookGuard",
        notes=("Verified against https://docs.sepay.vn/tich-hop-webhooks.html (2026-10-04): SePay sends "
               "`Authorization: Apikey <key>`, posts id, gateway, transactionDate, accountNumber, subAccount, code, "
               "content, transferType, description, transferAmount, accumulated, referenceCode; it expects HTTP 200 "
               "or 201 with the body `{\"success\": true}` within 30 s and otherwise retries up to 7 times over 5 hours. "
-              "OPEN (D-038 pending): whether this endpoint answers the bare body, an exception to D-002, or the "
-              "envelope shown here."),
-       errors=[(401, "WEBHOOK_UNAUTHENTICATED", "Missing or wrong SePay API key", "Authentication required."),
-               (200, "UNMATCHED", "No issued reference in the content: logged for Staff, not recorded", "OK")],
-       steps=["Verify the API key in constant time", "Extract the reference", "Lock the payment by reference",
-              "If already CONFIRMED or the txn id is known: log duplicate, return 200",
-              "Confirm the payment, apply to lines, update invoice status", "Emit payment.confirmed"],
-       controller="SepayWebhookController", service="SepayService", call="handleWebhook(body, headers)",
+              "D-038 makes the success acknowledgement a bare body through @RawResponse(). "
+              "The route guard verifies the key before the global validation pipe: an invalid key gives "
+              "401 WEBHOOK_UNAUTHENTICATED even when the DTO fields are missing or invalid."),
+       errors=[(401, "WEBHOOK_UNAUTHENTICATED", "Missing or wrong SePay API key", "Authentication required.")],
+       steps=["Extract the reference; outgoing transfers and unknown references return success without recording", "Lock the payment by reference",
+              "If the gateway transaction id is known: return 200 without recording it again",
+              "Confirm the matching request or record a separate received payment, apply to lines, update invoice status", "Emit payment.confirmed"],
+       controller="SepayController", service="SepayService", call="handleWebhook(authorization, body)",
        actor="SePay",
        seq=["Svc->>DB: BEGIN, SELECT payment WHERE reference FOR UPDATE",
             "Svc->>DB: UPDATE payment CONFIRMED, invoice_lines.paidVnd, invoices, COMMIT", "Svc-)Svc: emit payment.confirmed"]),
@@ -210,7 +218,7 @@ ENDPOINTS = [
        "expiry is reported `EXPIRED` and the amount stays due (FR-BILL-09). While the payment is `PENDING` "
        "the response carries the same `vietQr` block as api-design 11, so the payment page redraws the QR "
        "after a reload; otherwise `vietQr` is null (D-059 rule 6). `receivedLater` lists money that arrived "
-       "for this reference with another amount and was recorded as its own confirmed payment, so the page "
+       "for this reference with another amount or after confirmation and was recorded as its own confirmed payment, so the page "
        "never says nothing was charged when something was.", "UC-19, FR-BILL-09, E05-4",
        path=[["id", "Payment id", "uuid", "`p-1`"]], response={**PAYMENT, "vietQr": VIETQR, "receivedLater": []},
        entity="Payment", steps=["Read within scope", "Expire a stale PENDING row lazily"],

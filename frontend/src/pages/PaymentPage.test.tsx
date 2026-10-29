@@ -55,9 +55,20 @@ describe('PaymentPage (screen 6.2)', () => {
       receivedLater: [{ amountVnd: 500_000, confirmedAt: '2026-11-02T04:00:00Z' }],
     });
     renderPage();
-    expect(
-      screen.getByText('500,000 VND arrived for this request and was credited to the invoice.'),
-    ).toBeTruthy();
+    expect(screen.getByText('500,000 VND arrived for this request and was recorded.')).toBeTruthy();
     expect(screen.queryByText(/Nothing was charged/)).toBeNull();
+  });
+
+  it('shows a separate transfer that arrived after this request was confirmed', () => {
+    payment = expired({
+      status: 'CONFIRMED',
+      confirmedAt: '2026-11-02T03:15:00Z',
+      receivedLater: [{ amountVnd: 1_125_000, confirmedAt: '2026-11-02T04:00:00Z' }],
+    });
+    renderPage();
+    expect(screen.getByText('Payment of 1,125,000 VND received.')).toBeTruthy();
+    expect(
+      screen.getByText('1,125,000 VND arrived for this request and was recorded.'),
+    ).toBeTruthy();
   });
 });
