@@ -118,3 +118,57 @@ D-053 measures the files the PR changes through the CI coverage report, and CI p
 - Backend, in CI order on a fresh disposable Postgres 16 (removed afterwards, Neon untouched): migrations applied; demo seed created 35 row groups and a second run created none; lint and the boundary check passed (255 files, 9 modules, acyclic); typecheck and build passed. Unit: 107 suites, 1175 tests. Database: 5 suites, 44 tests, `mf03.db-spec.ts` now including the position step. HTTP e2e: 10 suites, 99 tests. The `organizations` unit suites were rerun after their last added cases: 23 tests passed.
 - Merged coverage of the 22 changed backend production files: 100% lines on every file; branches at least 83.3% on every file (`incidents.controller.ts` 83.3%, the lowest).
 - Frontend: typecheck, lint and `vite build` passed; 312 tests passed. Coverage of the 7 changed source files: 100% lines on every file; branches at least 88.5% (`navigation.ts`).
+
+## Closeout (2026-10-29)
+
+### State at close
+
+- Branch `feat/TK-142-mf03-sos-to-incident`, 8 commits on `dev` `582c1f2` (this record is the last), all sealed by HoangTK with `claude-opus-5-5`. `dev` had not moved; nothing to rebase.
+- [PR #114](https://github.com/TrekLink-Team/treklink-web/pull/114), open and Ready for Review. Before this record was pushed, CI passed on `60b83ae`: Backend (NestJS), Frontend (React), Gateway Bridge, checksum / verify. Mergeable; blocked only by the required review. Reviewer requested: ruskicoder (KhoaDD); no review or comment yet. Auto-fix is on in the session that opened it.
+- Not merged into `dev`, by instruction.
+- Left untouched, not this session's: `capstone/.provenance/` and `capstone/Documents/meetings/2026-10-21-screen-design/` (untracked), and the uncommitted edits to the generated backlog files in `treklink-docs/_docs/03-backlog/`.
+
+### Done in this session
+
+- Verified for the leader that HoangTK had five merged PRs (#45, #49, #56, #66, #81) and none since 2026-10-26.
+- MF-03 main success scenario (D-066), SD, CO and UT on PR #114: incidents 4.1 ticked; incidents 2.1, 2.2, 2.3, 4.2, 5.1, 6.1, 6.2, monitoring 2.3 and frontend 8.1 built in part, each with a dated note in its `tasks.md`.
+
+### Open and owned by HoangTK
+
+| Task | Remaining |
+|---|---|
+| incidents 3.1 | `tierTimeouts`, `staleResponses`, `closeAfterReopenWindow`: the escalation half of MF-03 (roadmap MF-03 row: SOS, tiered alert, escalation) |
+| incidents 2.2 | Staff recipients of `UNROUTED` and `ESCALATED`, waiting on a leader ruling (below) |
+| incidents 2.1 | EMAIL through `MailPort`, the organization API stream |
+| incidents 2.3 | cadence `SUSPECTED` creation; tagging positions stored before the SOS |
+| incidents 4.2 | Staff false alarm from `UNROUTED`; the `member.deactivated` listener |
+| incidents 4.3, 4.4, 1.3 | authority reports; stale flag; `CONTRACT_CLOSE_CHECKS` |
+| incidents 5.1, 6.1 | api-design 08 to 14, transitions, events, alerts, monitoring reads, `AuthorityReportsController` |
+| incidents 6.2, 8.1 | e2e for 08 to 14, tenancy on the real routes, replay ×10, AC-02, AC-04, AC-06 to AC-09; final DoD |
+| monitoring 2.3 | the 2 s socket timing test |
+| frontend 8.1 | panels for api-design 12 to 14, device and created-from filters, dirty-form guard |
+| frontend 8.2, 8.3 | `StaffIncidentsPage`; authority reports |
+| treklink-docs#59 | core direction study, assigned to every member, still open |
+| Report 4 (SDD) | co-owner with KhoaDD; Report 5 reviewer (roadmap §documents) |
+| Reviews | secondary reviewer of LongNN's monitoring PRs, for example #103 (roadmap lane table) |
+
+### Blockers and dependencies
+
+- **Leader ruling, Staff recipients:** platform design Figure 3 has no `incidents --> auth` edge. Needed before 3.1 can alert Staff on `ESCALATED` (MSG34), and before 4.2 and 8.2 for Staff.
+- **PR #114 review by KhoaDD:** the next incidents branch builds on its files. Either wait for the merge and branch from `dev`, or stack on `feat/TK-142-mf03-sos-to-incident` and say so in the new PR.
+- **D-066, Saturday 2026-10-31:** MF-03 must run through the real screens and the real API on the seed. This session verified the API and the database path, not a browser walk.
+- **Roadmap:** W9 (Nov 2 to 8) Iteration 1 review, W10 all main flows demoable, W11 feature complete.
+
+### Recommended next, in order
+
+1. Walk MF-03 in the browser on the local stack and the demo seed before 2026-10-31: replay an SOS for TL-0009 or TL-0010, see the MSG31 banner as `operator@treklink.local`, then acknowledge, respond, add a status and resolve on `/o/incidents/:id`. Fix what the walk finds on PR #114, and answer KhoaDD's review there.
+2. Ask the leader for the Staff-recipients ruling. Then build incidents 3.1, the escalation half of MF-03, as one new story PR through SD, CO, UT and RV (D-053).
+3. Then 4.3 with frontend 8.2 and 8.3 (the Staff end of escalation), then api-design 08 to 14 with the 8.1 panels.
+
+### Starting the next session
+
+Open the agent on `capstone/` and paste:
+
+```text
+You are an expert assistant specializing in NestJS, Prisma and React on the TrekLink capstone (FPT FA26SE159), a LoRa-mesh trekking safety platform. You are working on project TrekLink for HoangTK (GitHub wangf28), lane owner of the `incidents` module and MF-03 (SOS to tiered alert to escalation). Here is the context of where we left off: the MF-03 main success scenario (D-066) is on PR #114 (https://github.com/TrekLink-Team/treklink-web/pull/114), branch feat/TK-142-mf03-sos-to-incident, Ready for Review with CI green, review requested from KhoaDD (ruskicoder); do not merge it. The full record, open-task table, blockers and recommended order are in treklink-web/docs/sessions/2026-10-29-1330-hoangtk-mf03-sos-to-incident.md; read its Closeout section first and do not redo completed work. Follow AGENTS.md: resolve the docs root, read conventions 07, 10, 11 and 14, the decision register and the roadmap, and check recent session files. Perform a full project scan of treklink-web/specs/incidents (requirements, design, tasks, api-design), backend/src/modules/incidents and the related gateway-sync, organizations and monitoring code, and frontend/src/pages/Incident*.tsx to fully understand the current setup. Check PR #114 for review comments and CI first. Then propose today's task, normally the MF-03 browser walk on the demo seed before Saturday 2026-10-31, then incidents 3.1 escalation timers once the leader rules on Staff recipients. Ask your clarification questions and wait for my approval before writing code.
+```
