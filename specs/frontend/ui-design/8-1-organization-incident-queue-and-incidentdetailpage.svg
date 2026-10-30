@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1620" viewBox="0 0 1600 1620" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2180" viewBox="0 0 1600 2180" role="img" aria-labelledby="title desc">
 <title id="title">8.1  Organization incident queue and detail</title>
-<desc id="desc">Routes /o/incidents and /o/incidents/:id | Organization scope | Desktop views above, 360 px mobile below. Desktop and exact 360 pixel mobile wireframes with form and recovery states. Illustrative API sample data, not live records.</desc>
-<rect x="0" y="0" width="1600" height="1620" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
+<desc id="desc">Routes /o/incidents and /o/incidents/:id | Organization scope | Desktop views above, 360 px mobile below. Desktop and exact 360 pixel mobile wireframes with form and recovery states. Bottom row: owner view while Responding with a status correction, and the resolved view with the Outcome fact and history notes. Illustrative API sample data, not live records.</desc>
+<rect x="0" y="0" width="1600" height="2180" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
 <text x="28" y="38" fill="#172b26" font-family="Arial, sans-serif" font-size="26" font-weight="700">8.1  Organization incident queue and detail</text>
 <text x="28" y="66" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Routes /o/incidents and /o/incidents/:id | Organization scope | Desktop views above, 360 px mobile below</text>
-<text x="28" y="1602" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026 | Illustrative API data; alternate states are separate views. D-059 rule 7 applied; see Markdown for permissions.</text>
+<text x="28" y="2162" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">HoangTK | SD handoff | 23 Oct 2026, bottom row 31 Oct 2026 (#191, #194) | Illustrative API data; alternate states are separate views. D-059 rule 7 applied; see Markdown for permissions.</text>
 <rect x="28" y="92" width="630" height="598" rx="8" fill="white" stroke="#cbd5e1"/>
 <rect x="28" y="92" width="630" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
 <text x="44" y="126" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  Organization</text>
@@ -58,7 +58,7 @@
 <text x="706" y="521" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Acknowledge</text>
 <rect x="895" y="493" width="191" height="44" rx="8" fill="white" stroke="#991b1b"/>
 <text x="907" y="521" fill="#991b1b" font-family="Arial, sans-serif" font-size="14" font-weight="700">Declare false alarm</text>
-<text x="1118" y="288" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Status history / newest first</text>
+<text x="1118" y="288" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Status updates / newest first</text>
 <rect x="1110" y="302" width="442" height="114" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="1126" y="328" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Pham Van D  |  20 Oct, 10:15 ICT</text>
 <text x="1126" y="356" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reached the holder, minor ankle injury</text>
@@ -67,7 +67,7 @@
 <text x="1126" y="486" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Lam Dong provincial rescue (114)</text>
 <text x="1126" y="513" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">LD-114-2026-1020-07</text>
 <text x="1126" y="540" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reported 20 Oct, 10:15 ICT  |  Open</text>
-<text x="1118" y="600" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Transitions / Episode events / Open map</text>
+<text x="1118" y="600" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">History / Episode events / Open map</text>
 <rect x="694" y="566" width="392" height="106" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="710" y="591" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Emergency response</text>
 <text x="710" y="616" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Use official search-and-rescue channels. Your organization</text>
@@ -125,7 +125,7 @@
 <text x="428" y="1292" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Use official search-and-rescue channels. Your</text>
 <text x="428" y="1312" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">organization remains responsible for its response.</text>
 <rect x="428" y="1364" width="328" height="44" rx="8" fill="white" stroke="#172b26"/>
-<text x="440" y="1392" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Status history (1)</text>
+<text x="440" y="1392" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Status updates (1)</text>
 <rect x="428" y="1424" width="328" height="44" rx="8" fill="white" stroke="#172b26"/>
 <text x="440" y="1452" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Authority reports (1)</text>
 <text x="428" y="1510" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Expand for full rows; newest first</text>
@@ -152,4 +152,68 @@
 <text x="820" y="1313" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Loading, empty, denied and reconnecting</text>
 <text x="820" y="1338" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Skeleton during load. MSG01 with Reset for no results. MSG26 replaces an inaccessible record. MSG32 stays until</text>
 <text x="820" y="1357" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">replay.done; cached rows are labelled stale.</text>
+<text x="28" y="1614" fill="#172b26" font-family="Arial, sans-serif" font-size="18" font-weight="700">Desktop detail: owner while Responding, then after Report outcome</text>
+<rect x="28" y="1632" width="762" height="500" rx="8" fill="white" stroke="#cbd5e1"/>
+<rect x="28" y="1632" width="762" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
+<text x="44" y="1666" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  Incident detail  (viewer owns it, Responding)</text>
+<text x="44" y="1726" fill="#172b26" font-family="Arial, sans-serif" font-size="23" font-weight="700">INC-2026-000045</text>
+<rect x="44" y="1740" width="104" height="28" rx="14" fill="#f0fdf4" stroke="#f0fdf4"/>
+<text x="54" y="1759" fill="#15803d" font-family="Arial, sans-serif" font-size="12" font-weight="700">Responding</text>
+<text x="44" y="1794" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Owner: Pham Van D (you)  |  Next update by 20 Oct, 11:10 ICT</text>
+<rect x="44" y="1810" width="400" height="306" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="60" y="1836" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Status updates / newest first</text>
+<text x="60" y="1866" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Pham Van D, 20 Oct, 10:40</text>
+<rect x="232" y="1852" width="196" height="22" rx="11" fill="#f1f5f9" stroke="#cbd5e1"/>
+<text x="242" y="1868" fill="#334155" font-family="Arial, sans-serif" font-size="12" font-weight="700">Correction of 20 Oct, 10:30</text>
+<text x="60" y="1890" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reached the holder; left ankle sprained, not</text>
+<text x="60" y="1908" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">broken. Walking out with two members.</text>
+<rect x="60" y="1918" width="86" height="32" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="74" y="1939" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Correct</text>
+<text x="60" y="1976" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Pham Van D, 20 Oct, 10:30</text>
+<rect x="232" y="1962" width="104" height="22" rx="11" fill="white" stroke="#94a3b8"/>
+<text x="242" y="1978" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">× Corrected</text>
+<text x="60" y="2000" fill="#64748b" font-family="Arial, sans-serif" font-size="14" font-weight="400">Reached the holder; right ankle broken.</text>
+<text x="60" y="2036" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Pham Van D, 20 Oct, 10:20</text>
+<text x="60" y="2060" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Two members left the station toward km 12.</text>
+<rect x="60" y="2070" width="86" height="32" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="74" y="2091" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Correct</text>
+<rect x="460" y="1810" width="314" height="306" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="476" y="1836" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Correct status</text>
+<text x="476" y="1860" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Corrects the update of 20 Oct, 10:30. The</text>
+<text x="476" y="1878" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">original stays in the history, marked</text>
+<text x="476" y="1896" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">corrected.</text>
+<text x="476" y="1926" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Corrected status update *</text>
+<rect x="476" y="1936" width="282" height="96" rx="8" fill="white" stroke="#cbd5e1"/>
+<text x="488" y="1960" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Reached the holder; right ankle</text>
+<text x="488" y="1978" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">broken.</text>
+<rect x="476" y="2048" width="160" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
+<text x="488" y="2076" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700">Save correction</text>
+<rect x="648" y="2048" width="110" height="44" rx="8" fill="white" stroke="#172b26"/>
+<text x="660" y="2076" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700">Cancel</text>
+<rect x="810" y="1632" width="762" height="500" rx="8" fill="white" stroke="#cbd5e1"/>
+<rect x="810" y="1632" width="762" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
+<text x="826" y="1666" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="700">TrekLink  /  Incident detail  (after Report outcome)</text>
+<text x="826" y="1726" fill="#172b26" font-family="Arial, sans-serif" font-size="23" font-weight="700">INC-2026-000045</text>
+<rect x="826" y="1740" width="90" height="28" rx="14" fill="#f0fdf4" stroke="#f0fdf4"/>
+<text x="836" y="1759" fill="#15803d" font-family="Arial, sans-serif" font-size="12" font-weight="700">Resolved</text>
+<rect x="826" y="1784" width="730" height="150" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="842" y="1808" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">Device</text>
+<text x="842" y="1828" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">TL-0042</text>
+<text x="1190" y="1808" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">Holder</text>
+<text x="1190" y="1828" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Le Thi E, 0912345678</text>
+<text x="842" y="1852" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">Owner</text>
+<text x="842" y="1872" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Pham Van D</text>
+<text x="1190" y="1852" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">Deadline</text>
+<text x="1190" y="1872" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">No pending deadline</text>
+<text x="842" y="1898" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">Outcome</text>
+<text x="842" y="1918" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Holder walked out with the team at 11:20 and was handed to Lam Dong provincial rescue (114).</text>
+<rect x="826" y="1950" width="730" height="166" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="842" y="1974" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">History</text>
+<text x="1340" y="1974" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Sequence order; earlier rows not drawn</text>
+<text x="842" y="2000" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Acknowledged to Responding</text>
+<text x="842" y="2018" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Response under way, by Pham Van D, 20 Oct, 10:18</text>
+<text x="842" y="2038" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Two members leaving the station toward km 12.</text>
+<text x="842" y="2066" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Responding to Resolved</text>
+<text x="842" y="2084" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">Resolved, by Pham Van D, 20 Oct, 11:25</text>
+<text x="842" y="2104" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="400">Holder walked out with the team at 11:20 and was handed to Lam Dong provincial rescue (114).</text>
 </svg>

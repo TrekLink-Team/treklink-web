@@ -10,7 +10,7 @@
 | Roles | Org Operator and Org Manager: own organization only. Both acknowledge and declare false alarms in allowed states. Only the response owner reports response, status or outcome. Alert delivery log: Org Manager only, API 14. TrekLink roles use task 8.2. |
 | Use case, FRs, story | UC-32, UC-33, UC-34; FR-INC-04, FR-INC-06 to FR-INC-08; US-UC32, US-UC33, US-UC34. Supporting FR-INC-11 to FR-INC-13 and FR-AUTH-11. |
 | Requirements | [Frontend](../requirements.md): REQ-UBI-01 to REQ-UBI-05, REQ-UBI-07, REQ-UBI-09, REQ-EVT-01 to REQ-EVT-03, REQ-ERR-01, AC-02. [Incidents](../../incidents/requirements.md): REQ-EVT-05 to REQ-EVT-08, REQ-EVT-10 to REQ-EVT-12, REQ-STA-01, REQ-ERR-01 and REQ-ERR-02. |
-| Wireframe | ![Organization queue, incident detail, action forms and 360 px mobile layouts](8-1-organization-incident-queue-and-incidentdetailpage.svg) |
+| Wireframe | ![Organization queue, incident detail, action forms, 360 px mobile layouts, and the owner correction and resolved detail views](8-1-organization-incident-queue-and-incidentdetailpage.svg) |
 
 Scope: incidents API 01 to 07 and 12 to 14. Numbers below refer to the [API index](../../incidents/api-design/README.md). Message source: Report 3 SRS, `Documents/reports/Report3_SRS_DRAFT.md` section 5.3. MSG36 follows D-057 rule 5; ordering, nested rows and acknowledgement errors follow D-059 rule 7 in the `treklink-docs` decisions register. Cross-repository sources are cited by name so their references do not become broken GitHub links. Ready for review is the status of this follow-up to the approved design.
 
