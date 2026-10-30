@@ -35,6 +35,9 @@ import { useToast } from '../../shared/ui/toastStore';
 import { ALERT, LINK, TABLE, TD, TH, WARNING } from '../../shared/ui/styles';
 
 const MSG03 = 'Saved.';
+// A table cell that is a labelled line of a card below the sm breakpoint.
+const CELL = `${TD} block border-t-0 py-2 first:pt-4 last:pb-4 sm:table-cell sm:border-t sm:py-3`;
+const CARD_LABEL = 'mb-0.5 block text-label uppercase text-ink-muted sm:hidden';
 const MSG28 = (state: string) => `This cannot be done while it is ${state}.`;
 const REQUIRED = 'Please fill in this field.';
 // Screen 8.3 visible copy.
@@ -561,56 +564,75 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
       )}
       {data && data.items.length > 0 && (
         <>
-          <div className="overflow-x-auto">
-            <table className={TABLE}>
-              <thead>
-                <tr>
-                  <th className={TH}>Subject</th>
-                  <th className={TH}>Agency</th>
-                  <th className={TH}>Reference</th>
-                  <th className={TH}>Reported</th>
-                  <th className={TH}>Case</th>
-                  <th className={TH}>Action</th>
+          {/* One table; below the sm breakpoint each row is a labelled card (screen 8.3, 360 px). */}
+          <table
+            className={`${TABLE} block border-0 bg-transparent shadow-none sm:table sm:border sm:bg-surface sm:shadow-raise`}
+          >
+            <thead className="hidden sm:table-header-group">
+              <tr>
+                <th className={TH}>Subject</th>
+                <th className={TH}>Agency</th>
+                <th className={TH}>Reference</th>
+                <th className={TH}>Reported</th>
+                <th className={TH}>Case</th>
+                <th className={TH}>Action</th>
+              </tr>
+            </thead>
+            <tbody className="flex flex-col gap-3 sm:table-row-group">
+              {data.items.map((report) => (
+                <tr
+                  key={report.id}
+                  className="flex flex-col rounded-panel border border-line bg-surface shadow-raise sm:table-row sm:rounded-none sm:border-0 sm:shadow-none"
+                >
+                  <td className={CELL}>
+                    <span className={CARD_LABEL}>
+                      {report.incidentId ? 'Incident report' : 'Contract report'}
+                    </span>
+                    {report.incidentId ? (
+                      <button
+                        type="button"
+                        className={`${LINK} text-left`}
+                        onClick={() => onViewIncident(report.incidentId!)}
+                      >
+                        View incident
+                      </button>
+                    ) : (
+                      <Link to={`/t/contracts/${report.contractId}`} className={LINK}>
+                        View contract
+                      </Link>
+                    )}
+                  </td>
+                  <td className={`${CELL} break-words`}>
+                    <span className={CARD_LABEL}>Agency</span>
+                    {report.agency}
+                  </td>
+                  <td className={`${CELL} break-all`}>
+                    <span className={CARD_LABEL}>Reference</span>
+                    {report.reference}
+                  </td>
+                  <td className={CELL}>
+                    <span className={CARD_LABEL}>Reported</span>
+                    {formatDateTime(report.reportedAt)}
+                  </td>
+                  <td className={CELL}>
+                    <span className={CARD_LABEL}>Case</span>
+                    {report.caseClosedAt ? (
+                      <Badge tone="ended">Closed {formatDateTime(report.caseClosedAt)}</Badge>
+                    ) : (
+                      <Badge tone="attention">Open</Badge>
+                    )}
+                  </td>
+                  <td className={CELL}>
+                    {!report.caseClosedAt && (
+                      <Button className="w-full sm:w-auto" onClick={() => setClosing(report)}>
+                        Record case closed
+                      </Button>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {data.items.map((report) => (
-                  <tr key={report.id}>
-                    <td className={TD}>
-                      {report.incidentId ? (
-                        <button
-                          type="button"
-                          className={LINK}
-                          onClick={() => onViewIncident(report.incidentId!)}
-                        >
-                          View incident
-                        </button>
-                      ) : (
-                        <Link to={`/t/contracts/${report.contractId}`} className={LINK}>
-                          View contract
-                        </Link>
-                      )}
-                    </td>
-                    <td className={`${TD} break-words`}>{report.agency}</td>
-                    <td className={`${TD} break-all`}>{report.reference}</td>
-                    <td className={TD}>{formatDateTime(report.reportedAt)}</td>
-                    <td className={TD}>
-                      {report.caseClosedAt ? (
-                        <Badge tone="ended">Closed {formatDateTime(report.caseClosedAt)}</Badge>
-                      ) : (
-                        <Badge tone="attention">Open</Badge>
-                      )}
-                    </td>
-                    <td className={TD}>
-                      {!report.caseClosedAt && (
-                        <Button onClick={() => setClosing(report)}>Record case closed</Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
           <Pager pageNumber={data.pageNumber} totalPages={data.totalPages} onPage={setPageNumber} />
         </>
       )}
