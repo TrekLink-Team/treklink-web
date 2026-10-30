@@ -80,13 +80,14 @@
 
 ## Phase 3: Payments
 
-- [ ] 3.1 Counter payments (owner LongLP)
+- [x] 3.1 Counter payments (owner LongLP)
   - **Files**: `backend/src/modules/billing/payments.service.ts`
   - **Do**: cash or bank transfer with a receipt reference, `CONFIRMED` at once (MSG20); applied to unpaid lines oldest due first under `SELECT ... FOR UPDATE` on the invoice; more than due 400 `OVERPAYMENT`; a known reference 409 `DUPLICATE_REFERENCE`
   - **Test**: two concurrent counter payments on one invoice never over-apply
   - _Requirements: REQ-EVT-10, REQ-ERR-04, REQ-ERR-05, FR-BILL-08_
   - _Story: US-UC22_
   - **Partly done** (Jira card pending): `PaymentsService.recordCounter(invoiceId, input, actor)` locks the invoice (`InvoicesRepository.lockWithLines`), refuses a known reference (409 `DUPLICATE_REFERENCE`, also when another invoice takes it at the same moment and the unique index fires) and more than the invoice's net amount due (400 `OVERPAYMENT`, message `amountVnd must be between 1 and {due}`), records the payment `CONFIRMED` and outside the sandbox, applies it oldest due first (`applyPayment`) and emits `payment.confirmed` and `audit.record` after commit. Open: the concurrency test on Postgres (`test:db`), which this machine cannot run; endpoint 13 comes with 5.1
+  - **Done** (2026-10-30, LongLP): the concurrency test on Postgres (`test/billing-acceptance.db-spec.ts`, `test:db`): two counter payments of the whole amount due on one invoice at once, one recorded and the other 400 `OVERPAYMENT`, the invoice paid exactly once; one reference sent twice at once records one payment and the other answers 409 `DUPLICATE_REFERENCE`. Endpoint 13 is served by `invoices.controller.ts` (frontend 6.3)
 - [ ] 3.2 SePay sandbox (owner LongLP)
   - **Files**: `backend/src/modules/billing/sepay.service.ts`, `sepay-webhook.controller.ts`, `jobs/expire-payments.job.ts`
   - **Do**: create a `PENDING` payment with reference `TL` plus 8 Crockford base32 characters and expiry `billing.sepayPaymentTtlMinutes`, only while the contract balance is open; return the VietQR URL built from `SEPAY_QR_BASE_URL` and `SEPAY_BANK_CODE`, labelled sandbox; the webhook checks `Authorization: Apikey` in constant time before body validation (401 and nothing recorded otherwise), dedups on gateway transaction id, records a different transfer on an already confirmed reference as its own payment, applies at most the invoice's unpaid amount, answers `{ "success": true }` through `@RawResponse()`, logs an unknown reference for Staff; `billing.expirePayments` every 60 s marks expired payments `EXPIRED` with no partial settlement; render the QR once against the sandbox to verify the URL format
@@ -95,6 +96,7 @@
   - **Review of #92 (2026-10-29)**: the request checks `BalanceService.outstanding(contractId, tx)` before insertion, so a cancellation credit that settles the contract returns 409 `NOTHING_DUE`; the invoice page uses the same balance gate for SePay and counter payments. `SepayWebhookGuard` checks the key before DTO validation, while direct service calls retain the same constant-time check. Regression cases cover a settled contract with an unpaid earlier invoice, a separate transfer on a confirmed reference, the gateway-id unique-index race, missing/wrong keys with an invalid body, and SePay hidden on a settled contract. Additional received transfers remain visible on the payment page after confirmation; the QR alone keeps a literal white scanner background in both themes. The endpoint catalog and regenerated api-design 11, 12 and 15 document these rules, including the D-038 bare success acknowledgement.
   - _Requirements: REQ-EVT-08, REQ-EVT-09, REQ-UBI-03, REQ-UBI-04, REQ-STA-01, REQ-ERR-01, REQ-ERR-02, AC-03, FR-BILL-07, FR-BILL-09, NFR-SEC-07, BR-31, BR-34_
   - _Story: US-UC19_
+  - **Progress** (2026-10-30, LongLP): AC-03 on Postgres (`test/billing-acceptance.db-spec.ts`, `test:db`): the same webhook delivered 10 times at once answers `confirmed` once and `duplicate` nine times, records one SePay payment and pays the invoice once. Open: the VietQR render check against SePay and the webhook on the staging URL, both waiting for a staging deployment
 
 ## Phase 4: Query / Retrieval
 
@@ -116,6 +118,7 @@
   - **Do**: every Validation row of api-design 01 to 17; webhook replay; AC-01 to AC-05
   - **Partly done** (2026-10-28): `backend/test/billing.e2e-spec.ts` (20) through the real HTTP pipeline with Prisma stubbed: 401 without a token; the role rules (an Org Manager may not record a counter payment, an Org Operator reads no invoice or payment and gets no quote); the 400 rows of api-design 02, 08, 13 and 14, and an invoice id that is not a uuid; 404 for another organization's invoice and balance, and for an unknown invoice. Open: the webhook replay (with SePay, #92), the rows of 03 to 07 (with #91), AC-01 to AC-05 and the service-level rows on Postgres (`test:db`)
   - _Requirements: AC-01 to AC-05_
+  - **Progress** (2026-10-30, LongLP): AC-01 to AC-05 on Postgres (`test/billing-acceptance.db-spec.ts`, `test:db`), through the real services: the 4,500,000 VND term invoice with its two 2,250,000 lines, the 720,000 VND day plan due at handover, the webhook delivered 10 times at once (the replay), the 700,000 VND damage waiting for an Admin with the inspector's own decision 403 `SEPARATION_OF_DUTY` and another Admin's approval adding the `DAMAGE` line, and the 1,800,000 VND `LOSS` line for a 14-month-old unit from the variant's schedule (through `BillingLossCaseListener.onConfirmed`, since the loss-case flow of devices 2.7 is not built). `billing.e2e-spec.ts` adds the 400 rows of api-design 03 to 07 with an Admin caller (`test/e2e-callers.ts`). Open: the 409 rows through HTTP against Postgres
 
 ## Phase 6: Frontend Integration
 

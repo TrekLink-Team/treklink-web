@@ -14,6 +14,14 @@ The suite checks the explicit variables before constructing its client and passe
 to Prisma. It creates fixtures with a unique run ID and never deletes existing rows. Discard the test
 container after the run.
 
+`rentals-acceptance.db-spec.ts` and `billing-acceptance.db-spec.ts` run the rentals and billing
+acceptance criteria through the real services: `db-rental-flow.ts` compiles `AppModule` against the
+same database without init, so after-commit listeners and scheduled jobs stay off and no email is
+sent, and `db-app-env.ts` sets the remaining boot variables (MQTT ingestion off, signed handover
+notes under the system temporary directory, a SePay webhook key). The jobs are called with explicit
+times. Some of these suites read every due row of the database (the term rollover, the alert
+dispatcher), so run the whole suite on a fresh database, as CI does.
+
 The incident database tests create fixture states and initial history directly. Subsequent lifecycle
 actions run through the real repositories, parameter service and transaction/event wrapper. They cover
 acknowledgement races, timer races, empty-tier skipping, persisted deadlines, response/reopen and atomic

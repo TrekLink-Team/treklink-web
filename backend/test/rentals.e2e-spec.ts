@@ -1,10 +1,10 @@
 import { bootE2e, E2eApp, envelope } from './e2e-callers';
 
 // rentals task 6.2, the part the stubbed pipeline can prove: the Validation rows of api-design 01 to
-// 11 and 18 that the guards and the ValidationPipe decide before any service runs, the role rules of
-// the permission matrix, and tenant isolation of the contract reads (another organization's contract
-// is 404, FR-AUTH-11). The AC-01 to AC-07 flows and the 50 parallel approvals need Postgres
-// (`test:db`) and stay open.
+// 18 that the guards, the ValidationPipe or a service decide before any database read, the role rules
+// of the permission matrix, and tenant isolation of the contract reads (another organization's
+// contract is 404, FR-AUTH-11). The AC-01 to AC-07 flows, the 409 rows and the 50 parallel approvals
+// run on Postgres in `test/rentals-acceptance.db-spec.ts` (`test:db`).
 
 const C = '0c0ffee0-1234-4abc-9def-001122334455';
 const OTHER = '0c0ffee0-1234-4abc-9def-0011223344aa';
@@ -157,6 +157,17 @@ describe('rentals (e2e)', () => {
       );
     });
 
+    it.each([
+      ['an empty reason', { reason: '', expectedVersion: 0 }],
+      ['a missing version', { reason: 'Trip cancelled' }],
+    ])('api-design 06 refuses a cancellation with %s', async (_, body) => {
+      expectError(
+        await e2e.send('manager-a', 'post', `/api/contracts/${C}/cancel`, body),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
     it('api-design 07 refuses a swap without a reason', async () => {
       expectError(
         await e2e.send('staff-1', 'post', `/api/contracts/${C}/devices/${D}/swap`, { reason: '' }),
@@ -203,6 +214,60 @@ describe('rentals (e2e)', () => {
           name: 'Nguyen Van A',
           phone: '0'.repeat(31),
         }),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it.each([
+      ['no tags', { assetTags: [] }],
+      ['an empty tag', { assetTags: [''] }],
+      ['tags that are not a list', { assetTags: 'TL-0042' }],
+    ])('api-design 14 refuses a check-in with %s', async (_, body) => {
+      expectError(
+        await e2e.send('staff-1', 'post', `/api/contracts/${C}/check-ins`, body),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it.each([
+      ['a replacement that is not a uuid', { replacementDeviceId: 'TL-0050' }],
+      ['a key version below 1', { keyVersion: 0 }],
+      ['no signature', { signatureImage: '' }],
+      ['no answer on the faulty unit', { faultyPresent: undefined }],
+    ])('api-design 15 refuses %s', async (_, change) => {
+      expectError(
+        await e2e.send('staff-1', 'post', `/api/contracts/${C}/devices/${D}/replacement`, {
+          replacementDeviceId: VARIANT,
+          keyVersion: 1,
+          signatureImage: 'iVBORw0KGgo=',
+          faultyPresent: true,
+          ...change,
+        }),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it.each([
+      ['an unknown result', { result: 'BROKEN' }],
+      ['a note over 500 characters', { result: 'PASSED', note: 'x'.repeat(501) }],
+      ['DAMAGED without a damage code', { result: 'DAMAGED', damageCodes: [] }],
+    ])('api-design 16 refuses %s', async (_, body) => {
+      expectError(
+        await e2e.send('staff-1', 'post', `/api/contracts/${C}/devices/${D}/inspection`, body),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it.each([
+      ['a missing version', {}],
+      ['a negative version', { expectedVersion: -1 }],
+    ])('api-design 17 refuses a close with %s', async (_, body) => {
+      expectError(
+        await e2e.send('staff-1', 'post', `/api/contracts/${C}/close`, body),
         400,
         'VALIDATION_FAILED',
       );
