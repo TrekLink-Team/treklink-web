@@ -5,3 +5,4 @@
 // multi-provider port is injected `@Optional()` as an array, so an unprovided port is empty.
 export { MQTT_HEALTH_PROBE, type MqttHealthProbe } from '../health/mqtt-health-probe';
 export { ACCOUNT_DIRECTORY, type AccountDirectory } from './account-directory.port';
+export { STAFF_NOTIFICATIONS, type StaffNotifications } from './staff-notifications.port';

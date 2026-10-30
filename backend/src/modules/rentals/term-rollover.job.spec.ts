@@ -2,6 +2,7 @@ import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { InvoicesService } from '../billing';
 import { DevicesService } from '../devices';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractRow, ContractsRepository } from './contracts.repository';
 import { TermRolloverJob } from './term-rollover.job';
@@ -37,6 +38,7 @@ describe('TermRolloverJob (rentals task 3.1)', () => {
   let lifecycle: { apply: jest.Mock };
   let invoices: { issueTermInvoice: jest.Mock };
   let job: TermRolloverJob;
+  let parameters: { get: jest.Mock };
 
   beforeEach(() => {
     contracts = {
@@ -51,6 +53,7 @@ describe('TermRolloverJob (rentals task 3.1)', () => {
     };
     lifecycle = { apply: jest.fn().mockResolvedValue(contract()) };
     invoices = { issueTermInvoice: jest.fn().mockResolvedValue({ id: 'inv-2' }) };
+    parameters = { get: jest.fn().mockResolvedValue(9) };
     job = new TermRolloverJob(
       contracts as unknown as ContractsRepository,
       lifecycle as unknown as ContractLifecycleService,
@@ -61,6 +64,7 @@ describe('TermRolloverJob (rentals task 3.1)', () => {
       {
         transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
       } as unknown as TransactionalEvents,
+      parameters as unknown as ParameterService,
     );
   });
 
@@ -81,6 +85,28 @@ describe('TermRolloverJob (rentals task 3.1)', () => {
       TX,
       AT,
     );
+  });
+
+  it('leaves a term ending after the daily cutoff for the next daily batch', async () => {
+    const later = { ...term, endsAt: new Date('2026-11-25T03:00:00Z') };
+    contracts.dueTerms.mockImplementation((cutoff: Date) =>
+      Promise.resolve(later.endsAt <= cutoff ? [later] : []),
+    );
+    await job.run(new Date('2026-11-25T03:00:00Z'));
+    await job.run(new Date('2026-11-26T01:59:59Z'));
+    expect(contracts.closeTerm).not.toHaveBeenCalled();
+    await job.run(new Date('2026-11-26T02:00:00Z'));
+    expect(contracts.closeTerm).toHaveBeenCalledWith('t-1', TX);
+  });
+
+  it('reads a changed configured hour on the next run', async () => {
+    contracts.dueTerms.mockResolvedValue([]);
+    parameters.get.mockResolvedValueOnce(11).mockResolvedValueOnce(9);
+    await job.run(AT);
+    expect(contracts.dueTerms).toHaveBeenLastCalledWith(new Date('2026-11-24T04:00:00Z'));
+    await job.run(AT);
+    expect(contracts.dueTerms).toHaveBeenLastCalledWith(new Date('2026-11-25T02:00:00Z'));
+    expect(parameters.get).toHaveBeenCalledWith('rentals.termRolloverHourLocal');
   });
 
   it('moves a contract under notice to RETURN_DUE at the term end', async () => {

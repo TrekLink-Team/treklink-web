@@ -33,6 +33,7 @@
   - **Do**: `send({ to, subject, text })`; `MAIL_TRANSPORT=console` writes the email to the server log, for local development and CI only, and the backend refuses to start with it in production; `MAIL_TRANSPORT=smtp` sends through `SMTP_URL` with `nodemailer` (D-063 rules 3 and 4). Other modules (incidents email channel) reuse it
   - **Test**: console transport logs one line per mail; console under `NODE_ENV=production` and smtp without `SMTP_URL` stop the boot
   - _Requirements: REQ-OPT-01_
+  - **2026-10-30**: the existing transport factory is registered once in `AuthPortsModule`, re-exported by `AuthModule`. The global `STAFF_NOTIFICATIONS` port sends operational emails to active Staff and Admin accounts through that same transport, with recipient reads optionally joining the caller transaction
 - [x] 1.4 `AccountsRepository` over `User`, `Role`, `UserRole`, `RefreshToken`, `OneTimeCode`, `AuthEvent` (owner LongLP)
   - **Do**: email stored lower-case; uniqueness checked case-insensitively including soft-deleted rows; `accountType` and role compatibility enforced (`TREKLINK` holds `ADMIN` or `STAFF`, `ORGANIZATION` holds `ORG_MANAGER` or `ORG_OPERATOR`); reads exclude `deletedAt` rows except audit lookups
   - **Test**: mixed-case duplicate email rejected 409 `CONFLICT_UNIQUE`; a `TREKLINK` account given `ORG_MANAGER` rejected

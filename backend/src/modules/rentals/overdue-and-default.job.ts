@@ -6,6 +6,7 @@ import { ParameterService } from '../platform/parameters/parameter.service';
 import { ScheduledJob } from '../platform/scheduler/scheduled-job.decorator';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractsRepository } from './contracts.repository';
+import { latestRentalDailyCutoff } from './rental-daily-cutoff';
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
@@ -19,7 +20,8 @@ export interface OverdueOutcome {
 // rentals.overdueAndDefault (task 3.2, design §5, REQ-EVT-13, AC-04, AC-05): a RETURN_DUE contract
 // with devices still out once `rentals.returnGraceHours` have passed after `returnDueAt` becomes
 // OVERDUE; an OVERDUE contract that stays so for `rentals.defaultAfterDays` becomes DEFAULTED and
-// suspends its organization. Both moves are SYSTEM transitions by compare-and-set, so a re-run after
+// suspends its organization. Candidate thresholds use the latest configured daily cutoff, while the
+// stored event times remain the actual run time. Both moves are SYSTEM transitions by compare-and-set, so a re-run after
 // downtime moves each contract once. Check-in moves any of the three to RETURNED (rentals 4.1).
 @Injectable()
 export class OverdueAndDefaultJob {
@@ -38,9 +40,11 @@ export class OverdueAndDefaultJob {
     const outcome: OverdueOutcome = { overdue: 0, defaulted: 0, suspended: 0 };
     const graceHours = await this.parameters.get('rentals.returnGraceHours');
     const defaultAfterDays = await this.parameters.get('rentals.defaultAfterDays');
+    const hourLocal = await this.parameters.get('rentals.termRolloverHourLocal');
+    const cutoff = latestRentalDailyCutoff(at, hourLocal);
 
     for (const { id } of await this.contracts.returnDueBefore(
-      new Date(at.getTime() - graceHours * HOUR_MS),
+      new Date(cutoff.getTime() - graceHours * HOUR_MS),
     )) {
       await this.events.transaction(async (tx) => {
         const contract = await this.contracts.lockById(id, tx);
@@ -61,7 +65,7 @@ export class OverdueAndDefaultJob {
     }
 
     for (const { id } of await this.contracts.overdueBefore(
-      new Date(at.getTime() - defaultAfterDays * DAY_MS),
+      new Date(cutoff.getTime() - defaultAfterDays * DAY_MS),
     )) {
       await this.events.transaction(async (tx) => {
         const contract = await this.contracts.lockById(id, tx);

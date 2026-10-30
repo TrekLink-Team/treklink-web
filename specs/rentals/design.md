@@ -123,9 +123,30 @@ arithmetic.
 
 | Job | Rule | Idempotency |
 |---|---|---|
-| `rentals.termRollover` | terms with `endsAt <= now` and status `OPEN`; day plans past their end; a contract reaching `RETURN_DUE` with every device back or lost continues to `RETURNED` | each term closed by compare-and-set; a re-run finds nothing |
-| `rentals.overdueAndDefault` | `RETURN_DUE` past grace to `OVERDUE`; `OVERDUE` past threshold to `DEFAULTED` and `organizations.suspendForDefault` | state compare-and-set |
-| `rentals.reservationReminders` | `APPROVED` past `reservationExpiresAt`, not yet reminded | reminder flag in the transition reason |
+| `rentals.termRollover` | terms with `endsAt <= cutoff` and status `OPEN`; day plans past their end; a contract reaching `RETURN_DUE` with every device back or lost continues to `RETURNED` | each term closed by compare-and-set; a re-run finds nothing |
+| `rentals.overdueAndDefault` | `RETURN_DUE` past grace at `cutoff` to `OVERDUE`; `OVERDUE` past threshold at `cutoff` to `DEFAULTED` and `organizations.suspendForDefault` | state compare-and-set |
+| `rentals.reservationReminders` | `APPROVED` past `reservationExpiresAt`, either audience not yet reminded | separate Manager and Staff acceptance flags in transition reasons |
+
+The daily batch cutoff is the most recent occurrence of `rentals.termRolloverHourLocal` in fixed
+UTC+7. Before today's configured hour, it is yesterday's boundary; at that hour it becomes today's
+boundary. Term rollover and overdue/default wake hourly to catch up already-due daily batches,
+and read the current configured hour on every run. Items due after the cutoff wait for the next
+daily batch. Their persisted operation timestamps remain the real run time. Reservation reminders
+continue to compare the actual run time with the handover appointment's reservation expiry.
+
+Contract email uses the existing configured mail transport (user choice, 2026-10-30). A new request
+emits `contract.requested` after commit and emails active Staff and Admin accounts through the
+`STAFF_NOTIFICATIONS` port. `ContractNotificationsListener` consumes that event and
+`contract.statusChanged`: APPROVED, REJECTED, OVERDUE and DEFAULTED email the organization's contact
+address through `OrganizationsService.emailContact`. These notices are best effort: a failed send
+is logged, does not undo the committed operation and has no persistent retry queue.
+
+Reservation reminders retain persistent retry markers: `RESERVATION_REMINDED` for the Manager and
+`RESERVATION_STAFF_REMINDED` for Staff. Each audience has its own transaction, contract lock and
+transport-acceptance flag, so a Staff failure does not discard the accepted Manager marker. The
+next run selects an expired APPROVED contract while either marker is missing. SMTP acceptance and
+the database commit are not atomic; a crash between them, or a partial Staff delivery, may repeat
+an email. The job's numeric result remains the count of accepted Manager reminders.
 
 ---
 
@@ -143,7 +164,7 @@ arithmetic.
 
 Declares `CONTRACT_CLOSE_CHECKS` (multi): `{ blockingReason(contractId, deviceIds): Promise<Reason | null> }`.
 
-Events emitted: `contract.statusChanged`, `device.handedOver`, `device.checkedIn`, `device.labelChanged`, `audit.record`.
+Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOver`, `device.checkedIn`, `device.labelChanged`, `audit.record`.
 
 `contract.statusChanged` carries `{ contractId, organizationId, from, to, at }`, with `from` and `to` contract statuses and `at` the UTC time of the transition row; it is emitted after commit by `ContractLifecycleService.apply`, whose `actor` is null for the `SYSTEM` jobs of §5.
 
@@ -560,10 +581,14 @@ classDiagram
 
 <!-- sdd: MF-05 class rentals-uc-24 -->
 ```mermaid
+%%{init: {"htmlLabels": false}}%%
 classDiagram
-    direction TB
+    direction LR
     class TermRolloverJob {
         +run(Date) RolloverOutcome
+    }
+    class ParameterService {
+        +get(K, Tx) ParameterValue~K~
     }
     class ContractsRepository {
         +closeTerm(string, Tx) boolean
@@ -583,6 +608,7 @@ classDiagram
     TermRolloverJob ..> ContractLifecycleService : calls
     TermRolloverJob ..> ContractsRepository : calls
     TermRolloverJob ..> InvoicesService : calls
+    TermRolloverJob ..> ParameterService : calls
 ```
 
 ***Figure 15***: rentals classes used in MF-05, UC-24. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -1166,9 +1192,14 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant J as :TermRolloverJob
+    participant Pm as :ParameterService
     participant R as :ContractsRepository
     participant I as :InvoicesService
-    J->>R: dueTerms(now)
+    J->>Pm: get(rentals.termRolloverHourLocal)
+    activate Pm
+    deactivate Pm
+    Note over J,R: cutoff is the latest configured daily boundary in UTC+7
+    J->>R: dueTerms(cutoff)
     activate R
     deactivate R
     R-->>J: open terms that have ended, on ACTIVE or ENDING contracts
@@ -1179,21 +1210,27 @@ sequenceDiagram
         J->>R: closeTerm(termId, tx)
         activate R
         deactivate R
-        J->>R: insertTerm(seq + 1, starts at the old end, one month long, tx)
-        activate R
-        deactivate R
-        J->>I: issueTermInvoice(contract, next term, tx)
-        activate I
-        deactivate I
+        alt failure: another run already closed this term
+            Note over J,R: skip this term without another invoice
+        else success: this run closed the term
+            J->>R: insertTerm(seq + 1, starts at the old end, one month long, tx)
+            activate R
+            deactivate R
+            J->>I: issueTermInvoice(contract, next term, tx)
+            activate I
+            deactivate I
+        end
     end
 ```
 
-***Figure 28***: UC-24 Roll Over Monthly Term. The job runs every hour; a term is due from its end until
-it is closed, so a run after downtime catches up with the same query. A due term of an `ENDING` contract
+***Figure 28***: UC-24 Roll Over Monthly Term. Each hourly wakeup selects terms due by the most recent
+configured daily cutoff in UTC+7. A run before today's configured hour catches up yesterday's batch;
+terms ending after that cutoff wait until the next daily batch. A due term of an `ENDING` contract
 (notice given) or a day plan does not renew: the job closes the term, sets `returnDueAt` to the term end
 and applies `RETURN_DUE` with reason `TERM_ENDED` through `ContractLifecycleService.apply`; when
 `returnCounts` shows every device already back, it applies `RETURNED` with `ALL_DEVICES_BACK` in the same
-transaction.
+transaction. If another run already closed the selected term, the compare-and-set fails and this
+run skips it without inserting another term or invoice.
 
 <!-- sdd: MF-05 seq UC-50 -->
 ```mermaid
@@ -1210,7 +1247,11 @@ sequenceDiagram
     J->>Pm: get(rentals.defaultAfterDays)
     activate Pm
     deactivate Pm
-    J->>R: returnDueBefore(now minus grace)
+    J->>Pm: get(rentals.termRolloverHourLocal)
+    activate Pm
+    deactivate Pm
+    Note over J,R: cutoff is the latest configured daily boundary in UTC+7
+    J->>R: returnDueBefore(cutoff minus grace)
     activate R
     deactivate R
     loop each contract past grace, still RETURN_DUE with devices out, one transaction
@@ -1227,7 +1268,7 @@ sequenceDiagram
         activate R
         deactivate R
     end
-    J->>R: overdueBefore(now minus default threshold)
+    J->>R: overdueBefore(cutoff minus default threshold)
     activate R
     deactivate R
     loop each default candidate, one transaction

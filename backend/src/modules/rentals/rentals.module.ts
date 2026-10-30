@@ -5,6 +5,7 @@ import { OrganizationsModule } from '../organizations';
 import { PlatformModule } from '../platform/platform.module';
 import { ContractDecisionsService } from './contract-decisions.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
+import { ContractNotificationsListener } from './contract-notifications.listener';
 import { ContractReadsService } from './contract-reads.service';
 import { ContractsController } from './contracts.controller';
 import { ContractsRepository } from './contracts.repository';
@@ -30,6 +31,7 @@ import { TermRolloverJob } from './term-rollover.job';
   providers: [
     ContractsRepository,
     ContractLifecycleService,
+    ContractNotificationsListener,
     ContractsService,
     ContractReadsService,
     ContractDecisionsService,
