@@ -515,16 +515,16 @@ describe('AccountsRepository, TrekLink accounts and roles (auth tasks 5.1, 5.3)'
     });
   });
 
-  it('reads the ids of active TrekLink Staff accounts in the given client (D-079)', async () => {
+  it('reads the ids of active TrekLink Staff and Admin accounts (D-079)', async () => {
     prisma.user.findMany.mockResolvedValueOnce([{ id: 'staff-1' }, { id: 'staff-2' }]);
 
-    await expect(repository.activeStaffIds()).resolves.toEqual(['staff-1', 'staff-2']);
+    await expect(repository.activeStaffAndAdminIds()).resolves.toEqual(['staff-1', 'staff-2']);
     expect(prisma.user.findMany).toHaveBeenLastCalledWith({
       where: {
         accountType: AccountType.TREKLINK,
         isActive: true,
         deletedAt: null,
-        roles: { some: { role: { key: 'STAFF' } } },
+        roles: { some: { role: { key: { in: ['STAFF', 'ADMIN'] } } } },
       },
       orderBy: { id: 'asc' },
       select: { id: true },

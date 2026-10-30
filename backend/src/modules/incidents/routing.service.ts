@@ -14,8 +14,8 @@ export interface Route {
   recipients: IncidentRecipients;
 }
 
-// Staff recipients of UNROUTED stay empty until task 2.2 takes them; ESCALATED reads them from `auth`
-// in recipientsOf (D-079).
+// Staff recipients of UNROUTED stay empty until task 2.2 takes them; ESCALATED reads the active Staff
+// and Admin accounts from `auth` in recipientsOf (design §3, D-079).
 const NO_STAFF: readonly string[] = [];
 
 // Task 2.2 (FR-INC-03, BR-32, BR-36). The incident goes to the contract and organization the
@@ -38,9 +38,9 @@ export class RoutingService {
     return { to: 'NOTIFY_PRIMARY', recipients: { ...tiers, staff: NO_STAFF } };
   }
 
-  // The tiers of the organization an incident is already routed to, and the active TrekLink Staff,
-  // for a timer's transition (task 3.1). The lifecycle alerts Staff only on ESCALATED (MSG34, D-079).
-  // No organization alerts nobody.
+  // The tiers of the organization an incident is already routed to, and the active TrekLink Staff and
+  // Admin accounts, for a timer's transition (task 3.1). The lifecycle alerts the TrekLink accounts only
+  // on ESCALATED (MSG34, design §3, D-079). No organization alerts nobody.
   async recipientsOf(
     organizationId: string | null,
     at: Date,
@@ -48,7 +48,7 @@ export class RoutingService {
   ): Promise<IncidentRecipients> {
     if (!organizationId) return this.unrouted().recipients;
     const tiers = await this.roster.tiersAt(organizationId, at, tx);
-    return { ...tiers, staff: await this.accounts.activeStaffIds(tx) };
+    return { ...tiers, staff: await this.accounts.activeStaffAndAdminIds(tx) };
   }
 
   private unrouted(): Route {

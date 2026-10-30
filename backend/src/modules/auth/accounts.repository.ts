@@ -546,14 +546,15 @@ export class AccountsRepository {
     });
   }
 
-  // Ids of the active TrekLink Staff accounts, the Staff recipients of an ESCALATED incident (D-079).
-  async activeStaffIds(client: Client = this.prisma): Promise<string[]> {
+  // Ids of the active TrekLink Staff and Admin accounts, alerted when an incident reaches ESCALATED
+  // (incidents design §3, D-079). An invitation not yet accepted still counts (leader ruling 2026-10-30).
+  async activeStaffAndAdminIds(client: Client = this.prisma): Promise<string[]> {
     const rows = await client.user.findMany({
       where: {
         accountType: AccountType.TREKLINK,
         isActive: true,
         deletedAt: null,
-        roles: { some: { role: { key: 'STAFF' } } },
+        roles: { some: { role: { key: { in: ['STAFF', 'ADMIN'] } } } },
       },
       orderBy: { id: 'asc' },
       select: { id: true },
