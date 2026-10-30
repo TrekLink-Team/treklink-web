@@ -168,6 +168,40 @@ Reserves exactly the requested number of `AVAILABLE` devices of the variant in o
 </td>
         </tr>
         <tr>
+            <td>409</td>
+            <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "STALE_VERSION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This was changed by someone else. Reload and try again."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>The contract is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is APPROVED."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>400</td>
             <td>deviceIds is not exactly the contract quantity of distinct ids (<code>VALIDATION_FAILED</code>)</td>
 <td>
@@ -180,23 +214,6 @@ Reserves exactly the requested number of `AVAILABLE` devices of the variant in o
   "isSuccess": false,
   "statusCode": 400,
   "message": "Choose exactly 10 distinct devices."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
-            <td>Fewer AVAILABLE devices of the variant than requested (<code>INSUFFICIENT_DEVICES</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "INSUFFICIENT_DEVICES"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "Only 7 treklink-v3 devices are available. Lower the quantity or choose another variant."
 }
 ```
 </td>
@@ -220,34 +237,17 @@ Reserves exactly the requested number of `AVAILABLE` devices of the variant in o
         </tr>
         <tr>
             <td>409</td>
-            <td>The contract is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+            <td>Fewer AVAILABLE devices of the variant than requested (<code>INSUFFICIENT_DEVICES</code>)</td>
 <td>
 
 ```json
 {
   "result": {
-    "errorCode": "INVALID_STATE_TRANSITION"
+    "errorCode": "INSUFFICIENT_DEVICES"
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it is APPROVED."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
-            <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "STALE_VERSION"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "This was changed by someone else. Reload and try again."
+  "message": "Only 7 treklink-v3 devices are available. Lower the quantity or choose another variant."
 }
 ```
 </td>
@@ -272,38 +272,38 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"deviceIds is not exactly the contract quantity of distinct ids?"}
+    D3{"Another user changed the record first (expectedVersion differs)?"}
     D2 -->|no| D3
-    E3["Return 400 VALIDATION_FAILED"]
+    E3["Return 409 STALE_VERSION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"Fewer AVAILABLE devices of the variant than requested?"}
+    D4{"The contract is not in a state that allows this?"}
     D3 -->|no| D4
-    E4["Return 409 INSUFFICIENT_DEVICES"]
+    E4["Return 409 INVALID_STATE_TRANSITION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
+    D5{"deviceIds is not exactly the contract quantity of distinct ids?"}
     D4 -->|no| D5
-    E5["Return 409 DEVICE_NOT_AVAILABLE"]
+    E5["Return 400 VALIDATION_FAILED"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    D6{"The contract is not in a state that allows this?"}
+    D6{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
     D5 -->|no| D6
-    E6["Return 409 INVALID_STATE_TRANSITION"]
+    E6["Return 409 DEVICE_NOT_AVAILABLE"]
     D6 -->|yes| E6
     E6 --> X6((End))
-    D7{"Another user changed the record first (expectedVersion differs)?"}
+    D7{"Fewer AVAILABLE devices of the variant than requested?"}
     D6 -->|no| D7
-    E7["Return 409 STALE_VERSION"]
+    E7["Return 409 INSUFFICIENT_DEVICES"]
     D7 -->|yes| E7
     E7 --> X7((End))
     P0["Lock the contract"]
     D7 -->|no| P0
-    P1["Check the version, the REQUESTED state and any chosen deviceIds"]
+    P1["Check the version, then the REQUESTED state, then any chosen deviceIds"]
     P0 --> P1
     P2["SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity"]
     P1 --> P2
-    P3["Insert contract_devices, move devices to RESERVED"]
+    P3["Move the devices to RESERVED, insert contract_devices"]
     P2 --> P3
     P4["Create term 1 from the requested start date and issue its invoice through billing"]
     P3 --> P4
