@@ -24,6 +24,12 @@ Renders the handover note PDF without a signature, for the Manager to read at th
 | --- | --- | --- | --- |
 | id | Contract id; members may use only their own organization's | uuid | `c0ffee00-1234-4abc-9def-001122334455` |
 
+### Query parameters
+
+| Field | Description | Data Type | Required | Examples |
+| --- | --- | --- | --- | --- |
+| checks | JSON array of the readings the counter holds, in the shape of api-design 10 `deviceChecks` (`deviceId`, `batteryPct` 0 to 100, `gpsFixOk`); the note prints each unit's battery and GPS fix, and "not checked" for a unit without a reading. Nothing is stored | string (JSON) | no | `[{"deviceId":"0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10","batteryPct":96,"gpsFixOk":true}]` |
+
 ## Request sample
 
 No body.
@@ -49,6 +55,23 @@ No body.
     <th>Description</th>
     <th>Examples</th>
     <tbody>
+        <tr>
+            <td>400</td>
+            <td>The body or query fails validation (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "{field} is required."
+}
+```
+</td>
+        </tr>
         <tr>
             <td>401</td>
             <td>Missing, malformed or expired access token or API key (<code>UNAUTHENTICATED</code>)</td>
@@ -127,19 +150,24 @@ flowchart TB
     S((Start))
     A0["Check token, policy and organization scope"]
     S --> A0
-    D1{"No such record, or it belongs to another organization?"}
+    D1{"The body or query fails validation?"}
     A0 --> D1
-    E1["Return 404 NOT_FOUND"]
+    E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"The contract is not in a state that allows this?"}
+    D2{"No such record, or it belongs to another organization?"}
     D1 -->|no| D2
-    E2["Return 409 INVALID_STATE_TRANSITION"]
+    E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
+    D3{"The contract is not in a state that allows this?"}
+    D2 -->|no| D3
+    E3["Return 409 INVALID_STATE_TRANSITION"]
+    D3 -->|yes| E3
+    E3 --> X3((End))
     P0["Require APPROVED"]
-    D2 -->|no| P0
-    P1["Render organization, plan, term dates and every device by asset tag"]
+    D3 -->|no| P0
+    P1["Render organization, plan, term dates and every device by asset tag, with its battery and GPS fix from checks"]
     P0 --> P1
     OK["Return 200"]
     P1 --> OK
@@ -156,7 +184,7 @@ sequenceDiagram
     participant Svc as HandoverNoteService
     participant DB as Postgres
     C->>Ctl: GET /api/contracts/:id/handover-note/preview
-    Ctl->>Svc: preview(id)
+    Ctl->>Svc: preview(id, checks)
     Svc->>DB: SELECT contract, devices, organization
     Svc->>Svc: render PDF
     Svc-->>Ctl: result

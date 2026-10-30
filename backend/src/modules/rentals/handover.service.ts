@@ -170,13 +170,20 @@ export class HandoverService {
     });
   }
 
-  // The unsigned note Staff show the Manager before signing (api-design 08).
-  async preview(id: string, at: Date = new Date()): Promise<Buffer> {
+  // The unsigned note Staff show the Manager before signing (api-design 08), with the battery and
+  // GPS readings the counter has taken so far; a check for a unit not on the contract is ignored.
+  async preview(id: string, checks: DeviceCheck[] = [], at: Date = new Date()): Promise<Buffer> {
     const contract = await this.contracts.detail(id);
     if (!contract) throw notFound();
     if (contract.status !== ContractStatus.APPROVED) throw notApproved(contract.status);
     return renderHandoverNote(
-      await this.noteInput(contract, null, await this.devices.variants(false), at),
+      await this.noteInput(
+        contract,
+        null,
+        new Map(checks.map((check) => [check.deviceId, check])),
+        await this.devices.variants(false),
+        at,
+      ),
     );
   }
 
@@ -284,8 +291,8 @@ export class HandoverService {
           {
             signer: { fullName: signer, identityChecked: input.identityChecked },
             signaturePng: signature,
-            checks: checkOf,
           },
+          checkOf,
           variants,
           at,
           tx,
@@ -374,11 +381,8 @@ export class HandoverService {
 
   private async noteInput(
     contract: NonNullable<Awaited<ReturnType<ContractsRepository['detail']>>>,
-    signed: {
-      signer: { fullName: string; identityChecked: string };
-      signaturePng: Buffer;
-      checks: Map<string, DeviceCheck>;
-    } | null,
+    signed: { signer: { fullName: string; identityChecked: string }; signaturePng: Buffer } | null,
+    checks: Map<string, DeviceCheck>,
     variants: { id: string; code: string }[],
     at: Date,
     tx?: Prisma.TransactionClient,
@@ -403,7 +407,7 @@ export class HandoverService {
         contract.hardwareVariantId,
       requestedStartDate: contract.requestedStartDate.toISOString().slice(0, 10),
       devices: ids.map((deviceId) => {
-        const check = signed?.checks.get(deviceId);
+        const check = checks.get(deviceId);
         return {
           assetTag: tags.get(deviceId) ?? deviceId,
           batteryPct: check?.batteryPct ?? null,

@@ -13,6 +13,7 @@ import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractRow, ContractsRepository } from './contracts.repository';
+import * as renderer from './handover-note.renderer';
 import { renderHandoverNote } from './handover-note.renderer';
 import { DEVICE_HANDED_OVER, HandoverInput, HandoverService } from './handover.service';
 
@@ -289,6 +290,43 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       await expect(
         service.complete('c-1', { ...low, acknowledgeLowBattery: true }, STAFF, AT),
       ).resolves.toMatchObject({ status: ContractStatus.ACTIVE });
+    });
+  });
+
+  describe('preview (api-design 08)', () => {
+    it("prints the counter's battery and GPS readings, and not checked for a unit without one", async () => {
+      const render = jest.spyOn(renderer, 'renderHandoverNote');
+      try {
+        const pdf = await service.preview(
+          'c-1',
+          [
+            { deviceId: 'd-1', batteryPct: 96, gpsFixOk: true },
+            { deviceId: 'd-9', batteryPct: 50, gpsFixOk: false },
+          ],
+          AT,
+        );
+        expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+        expect(render.mock.calls[0][0]).toMatchObject({
+          devices: [
+            { assetTag: 'TL-d-1', batteryPct: 96, gpsFixOk: true },
+            { assetTag: 'TL-d-2', batteryPct: null, gpsFixOk: null },
+          ],
+          signer: undefined,
+          signaturePng: undefined,
+        });
+      } finally {
+        render.mockRestore();
+      }
+    });
+
+    it('is 409 INVALID_STATE_TRANSITION once the contract is past APPROVED', async () => {
+      contracts.detail.mockResolvedValue({
+        ...contract({ status: ContractStatus.ACTIVE }),
+        devices: [],
+      });
+      await expect(service.preview('c-1', [], AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
     });
   });
 

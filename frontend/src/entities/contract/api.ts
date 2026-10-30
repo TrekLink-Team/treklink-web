@@ -204,8 +204,14 @@ export const swapDevice = (id: string, deviceId: string, reason: string) =>
 export const recordProvisioning = (id: string, deviceId: string, keyVersion: number) =>
   post<Provisioned>(`/contracts/${id}/devices/${deviceId}/provisioning`, { keyVersion });
 
-export const fetchHandoverPreview = (id: string) =>
-  apiClient<HandoverNote>(`/contracts/${id}/handover-note/preview`);
+// The readings the counter holds go with the preview, so the note prints each unit's battery and GPS
+// fix (api-design 08 `checks`); nothing is stored until the handover.
+export const fetchHandoverPreview = (id: string, checks: DeviceCheck[] = []) =>
+  apiClient<HandoverNote>(
+    `/contracts/${id}/handover-note/preview${
+      checks.length > 0 ? `?${new URLSearchParams({ checks: JSON.stringify(checks) })}` : ''
+    }`,
+  );
 
 export const completeHandover = (id: string, input: HandoverInput) =>
   post<Contract & { devicesHandedOver: number }>(`/contracts/${id}/handover`, input);

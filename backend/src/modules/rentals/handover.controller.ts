@@ -7,12 +7,18 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { ContractReadsService } from './contract-reads.service';
 import { contractBase } from './contracts.controller';
-import { HandoverDto, ProvisioningDto, SwapDto } from './dto/contract-decision.dto';
+import {
+  HandoverDto,
+  HandoverPreviewQueryDto,
+  ProvisioningDto,
+  SwapDto,
+} from './dto/contract-decision.dto';
 import { HandoverService } from './handover.service';
 
 // The counter handover (rentals tasks 2.3 and 2.4, api-design 07 to 11). TrekLink Staff operate the
@@ -62,8 +68,8 @@ export class HandoverController {
   @Get(':id/handover-note/preview')
   @CheckPolicies((ability) => ability.can('operate', 'RentalContract'))
   @ResponseMessage('OK')
-  async preview(@Param('id', ParseUUIDPipe) id: string) {
-    const pdf = await this.handover.preview(id);
+  async preview(@Param('id', ParseUUIDPipe) id: string, @Query() query: HandoverPreviewQueryDto) {
+    const pdf = await this.handover.preview(id, query.checks ?? []);
     return { pdfBase64: pdf.toString('base64'), sha256: null };
   }
 
