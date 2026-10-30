@@ -79,6 +79,12 @@ REQ-EVT-07 and REQ-STA-03 hold without waiting for the access token to expire. `
 `auth` in turn provides `platform`'s `ACCOUNT_DIRECTORY` (`namesOf(userIds)`, inactive and soft-deleted accounts
 included) from `AuthPortsModule`, for the actor names of the parameter history and the audit log.
 
+The same global module provides `STAFF_NOTIFICATIONS.send(subject, text, tx?)` for operational
+contract email. It reads active, non-deleted TrekLink accounts with Staff or Admin roles through
+`AccountsRepository` and reuses the single `MAIL_PORT` instance. `MAIL_PORT` is constructed in
+`AuthPortsModule`, which `AuthModule` re-exports. A false result means no eligible recipient or a
+transport failure; after partial success, retrying may repeat mail to a recipient already served.
+
 Refresh rotation is strict (D-060 rule 8): when two requests rotate one refresh token at once, the second
 loses the compare-and-set on `revokedAt` and is treated as reuse (REQ-ERR-02). The client runs one refresh at
 a time (`frontend` 1.2). Refresh returns the token pair only (api-design 02, D-060 rule 7).

@@ -9,6 +9,7 @@ import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.e
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { CODE_ZONE_OFFSET_MS, ContractRow, ContractsRepository } from './contracts.repository';
+import { CONTRACT_REQUESTED, ContractRequestedEvent } from './contract-notification.events';
 
 export interface Custody {
   contractDeviceId: string;
@@ -178,6 +179,10 @@ export class ContractsService {
           monthlyUnitPriceVnd: snapshot.monthlyUnitPriceVnd.toString(),
         },
       } satisfies AuditRecordEvent);
+      this.events.emitAfterCommit(CONTRACT_REQUESTED, {
+        contractId: contract.id,
+        organizationId,
+      } satisfies ContractRequestedEvent);
 
       const price = snapshot.monthlyUnitPriceVnd;
       const quote: RequestQuote = isDayPlan

@@ -20,8 +20,6 @@ import { PermissionCache } from './casl/permission-cache';
 import { ApiKeyGuard } from './guards/api-key.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PoliciesGuard } from './guards/policies.guard';
-import { createMailPort } from './mail/mail.factory';
-import { MAIL_PORT } from './mail/mail.port';
 import { OneTimeCodeService } from './one-time-code.service';
 import { PasswordFlowsService } from './password-flows.service';
 import { PasswordService } from './password.service';
@@ -76,7 +74,6 @@ import { TokenService } from './token.service';
     // Every route: token first, then policy (D-061). Order of registration is order of execution.
     { provide: APP_GUARD, useExisting: JwtAuthGuard },
     { provide: APP_GUARD, useExisting: PoliciesGuard },
-    { provide: MAIL_PORT, inject: [ConfigService], useFactory: createMailPort },
   ],
   exports: [
     JwtAuthGuard,
@@ -85,7 +82,7 @@ import { TokenService } from './token.service';
     AbilityFactory,
     AccessTokenAuthenticator,
     AccountsService,
-    MAIL_PORT,
+    AuthPortsModule,
   ],
 })
 export class AuthModule {}

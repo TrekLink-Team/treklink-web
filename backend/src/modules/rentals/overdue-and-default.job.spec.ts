@@ -21,6 +21,7 @@ describe('OverdueAndDefaultJob (rentals 3.2, REQ-EVT-13, AC-04, AC-05)', () => {
   let lifecycle: { apply: jest.Mock };
   let organizations: { suspendForDefault: jest.Mock };
   let job: OverdueAndDefaultJob;
+  let parameters: { get: jest.Mock };
 
   beforeEach(() => {
     contracts = {
@@ -39,11 +40,17 @@ describe('OverdueAndDefaultJob (rentals 3.2, REQ-EVT-13, AC-04, AC-05)', () => {
     };
     lifecycle = { apply: jest.fn().mockResolvedValue({}) };
     organizations = { suspendForDefault: jest.fn().mockResolvedValue(true) };
-    const parameters = {
+    parameters = {
       get: jest
         .fn()
         .mockImplementation((key: string) =>
-          Promise.resolve(key === 'rentals.returnGraceHours' ? 24 : 7),
+          Promise.resolve(
+            key === 'rentals.returnGraceHours'
+              ? 24
+              : key === 'rentals.termRolloverHourLocal'
+                ? 9
+                : 7,
+          ),
         ),
     };
     job = new OverdueAndDefaultJob(
@@ -55,10 +62,33 @@ describe('OverdueAndDefaultJob (rentals 3.2, REQ-EVT-13, AC-04, AC-05)', () => {
     );
   });
 
-  it('asks for contracts due before now minus the grace, and overdue since before now minus the threshold', async () => {
+  it('bases the grace and default thresholds on the most recent daily cutoff', async () => {
     await job.run(AT);
-    expect(contracts.returnDueBefore).toHaveBeenCalledWith(new Date(AT.getTime() - 24 * HOUR_MS));
-    expect(contracts.overdueBefore).toHaveBeenCalledWith(new Date(AT.getTime() - 7 * 24 * HOUR_MS));
+    const cutoff = new Date('2026-11-30T02:00:00Z');
+    expect(contracts.returnDueBefore).toHaveBeenCalledWith(
+      new Date(cutoff.getTime() - 24 * HOUR_MS),
+    );
+    expect(contracts.overdueBefore).toHaveBeenCalledWith(
+      new Date(cutoff.getTime() - 7 * 24 * HOUR_MS),
+    );
+  });
+
+  it('catches up the previous daily batch before the configured hour', async () => {
+    await job.run(new Date('2026-11-30T01:59:59Z'));
+    expect(contracts.returnDueBefore).toHaveBeenCalledWith(new Date('2026-11-28T02:00:00Z'));
+    expect(contracts.overdueBefore).toHaveBeenCalledWith(new Date('2026-11-22T02:00:00Z'));
+  });
+
+  it('uses a changed configured hour without changing the actual event instant', async () => {
+    parameters.get.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === 'rentals.returnGraceHours' ? 24 : key === 'rentals.termRolloverHourLocal' ? 11 : 7,
+      ),
+    );
+    contracts.returnDueBefore.mockResolvedValue([{ id: 'due-1' }]);
+    await job.run(AT);
+    expect(contracts.returnDueBefore).toHaveBeenCalledWith(new Date('2026-11-28T04:00:00Z'));
+    expect(contracts.stampOverdue).toHaveBeenCalledWith('due-1', { overdueAt: AT }, TX);
   });
 
   it('moves a RETURN_DUE contract with devices out to OVERDUE by SYSTEM (AC-04)', async () => {

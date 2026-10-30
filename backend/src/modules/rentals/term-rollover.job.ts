@@ -3,10 +3,12 @@ import { ContractStatus, PlanType } from '@prisma/client';
 import { InvoicesService } from '../billing';
 import { DevicesService } from '../devices';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ParameterService } from '../platform/parameters/parameter.service';
 import { ScheduledJob } from '../platform/scheduler/scheduled-job.decorator';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { addMonths } from './contract-terms';
 import { ContractsRepository } from './contracts.repository';
+import { latestRentalDailyCutoff } from './rental-daily-cutoff';
 
 export interface RolloverOutcome {
   renewed: number;
@@ -14,7 +16,7 @@ export interface RolloverOutcome {
   returned: number;
 }
 
-// rentals.termRollover (task 3.1, design §5; MF-05): every open term whose end has passed is closed
+// rentals.termRollover (task 3.1, design §5; MF-05): every open term due by the latest daily cutoff closes
 // once, by compare-and-set. A monthly contract with no notice opens the next term with its invoice; a
 // monthly contract under notice (ENDING) and a day plan move to RETURN_DUE with the term end as
 // returnDueAt, and straight on to RETURNED when every device is already back or lost. A re-run after
@@ -29,14 +31,16 @@ export class TermRolloverJob {
     private readonly invoices: InvoicesService,
     private readonly devices: DevicesService,
     private readonly events: TransactionalEvents,
+    private readonly parameters: ParameterService,
   ) {}
 
-  // Hourly: the daily run at rentals.termRolloverHourLocal and the catch-up after downtime are the same
-  // query, since a term is due from its end until it is closed.
+  // Hourly wakeups catch up only daily batches already due at the configured local-hour boundary.
   @ScheduledJob('rentals.termRollover', '0 5 * * * *')
   async run(at: Date = new Date()): Promise<RolloverOutcome> {
     const outcome: RolloverOutcome = { renewed: 0, returnDue: 0, returned: 0 };
-    const due = await this.contracts.dueTerms(at);
+    const hourLocal = await this.parameters.get('rentals.termRolloverHourLocal');
+    const cutoff = latestRentalDailyCutoff(at, hourLocal);
+    const due = await this.contracts.dueTerms(cutoff);
     if (due.length === 0) return outcome;
     const variants = await this.devices.variants(false);
 

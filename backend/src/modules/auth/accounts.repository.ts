@@ -625,4 +625,18 @@ export class AccountsRepository {
       passwordSet: passwordHash !== null,
     }));
   }
+
+  // Staff and Admin receive operational contract emails; organization accounts never do.
+  staffEmailRecipients(client: Client = this.prisma): Promise<{ id: string; email: string }[]> {
+    return client.user.findMany({
+      where: {
+        accountType: AccountType.TREKLINK,
+        isActive: true,
+        deletedAt: null,
+        roles: { some: { role: { key: { in: ['STAFF', 'ADMIN'] } } } },
+      },
+      orderBy: { id: 'asc' },
+      select: { id: true, email: true },
+    });
+  }
 }
