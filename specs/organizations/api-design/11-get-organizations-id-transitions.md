@@ -121,7 +121,7 @@ No body.
         </tr>
         <tr>
             <td>403</td>
-            <td>The caller is an Org Operator; only the Manager reads the history of its organization (<code>FORBIDDEN</code>)</td>
+            <td>The caller lacks organization.history.read.own (an Org Operator by the seeded grants) (<code>FORBIDDEN</code>)</td>
 <td>
 
 ```json
@@ -131,7 +131,7 @@ No body.
   },
   "isSuccess": false,
   "statusCode": 403,
-  "message": "Only the Manager of the organization may read its status history."
+  "message": "You do not have permission to read the status history of this organization."
 }
 ```
 </td>
@@ -151,7 +151,7 @@ flowchart TB
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Org member: require ORG_MANAGER and the own organization"]
+    P0["Org member: require organization.history.read.own and the own organization"]
     D1 -->|no| P0
     P1["Read organization_transitions"]
     P0 --> P1
