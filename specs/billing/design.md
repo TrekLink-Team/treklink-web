@@ -143,7 +143,7 @@ what remains due, and any excess stays on that payment and is logged for Staff.
 | `ChargesService.settleCancellation(contract, tx)` | rentals |
 | `BalanceService.firstPaymentConfirmed(contractId)`, `outstanding(contractId)`, `balanceSummary(contractId)` | rentals |
 | `BalanceService.revenue(range)` | monitoring |
-| provider of `ORGANIZATION_EXIT_CHECKS.canReactivate` | organizations |
+| provider of `ORGANIZATION_EXIT_CHECKS.canReactivate(orgId, tx, at)`: 409 `BALANCE_OUTSTANDING` while an invoice line is due and unpaid at `at` (`BalanceService.dueUnpaidOfOrganization`, credits netted per contract, oldest due first; a line not yet due does not count, leader ruling 2026-10-30) or a damage charge waits for an Admin | organizations |
 
 Port declared: `CONTRACT_DIRECTORY` (`ports/contract-directory.port.ts`), the contract code, organization
 code and term sequence the invoice and payment reads show (api-design 08, 09, 14). `billing` may not read

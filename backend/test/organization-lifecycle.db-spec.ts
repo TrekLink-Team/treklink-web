@@ -2,12 +2,24 @@ import { randomUUID } from 'node:crypto';
 import { createMongoAbility } from '@casl/ability';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AccountType, MemberRole, OrganizationStatus } from '@prisma/client';
+import {
+  AccountType,
+  InvoiceKind,
+  InvoiceLineType,
+  MemberRole,
+  OrganizationStatus,
+  PlanType,
+  Prisma,
+} from '@prisma/client';
 import { Caller, PolicyAbility } from '../src/common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../src/common/errors';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountsService, MEMBER_DEACTIVATED } from '../src/modules/auth';
 import { AccountsRepository } from '../src/modules/auth/accounts.repository';
+import { BalanceService } from '../src/modules/billing/balance.service';
+import { DamageChargesRepository } from '../src/modules/billing/damage-charges.repository';
+import { InvoicesRepository } from '../src/modules/billing/invoices.repository';
+import { BillingOrganizationExitCheck } from '../src/modules/billing/providers/organization-exit-check.provider';
 import { OneTimeCodeService } from '../src/modules/auth/one-time-code.service';
 import { PasswordFlowsService } from '../src/modules/auth/password-flows.service';
 import { API_KEY_REVOKED } from '../src/modules/organizations/api-key-events';
@@ -291,6 +303,148 @@ describe('Organization lifecycle against Postgres (REQ-UBI-01, REQ-EVT-04, REQ-E
     expect(history[0]).toMatchObject({
       actor: expect.stringContaining('Lifecycle Admin') as unknown,
       reason: 'Unpaid balance',
+    });
+  });
+
+  // The real billing reactivation check (billing task 1.3) over one invoiced contract of a suspended
+  // organization: a TERM invoice with a paid holding fee and the given further lines.
+  const invoiced = async (
+    lines: { type: InvoiceLineType; amountVnd: bigint; paidVnd: bigint; dueAt: Date }[],
+  ) => {
+    const root = await admin();
+    const { org, people } = await organization(root);
+    new BillingOrganizationExitCheck(
+      new BalanceService(new InvoicesRepository(prisma), new DamageChargesRepository(prisma)),
+      checks,
+    );
+    serial += 1;
+    const tag = `${runId.slice(0, 8)}-${serial}`;
+    const variant = await prisma.hardwareVariant.create({
+      data: {
+        code: `lifecycle-test-${tag}`,
+        name: 'Lifecycle test variant',
+        hasGps: true,
+        hasMotionSensor: false,
+        mqttCapable: true,
+        firmwareBaseline: 'test-only',
+        remainingValueSchedule: [],
+      },
+    });
+    const device = await prisma.device.create({
+      data: {
+        assetTag: `lifecycle-test-${tag}`,
+        nodeNum: BigInt(`0x${randomUUID().slice(0, 8)}`),
+        hardwareVariantId: variant.id,
+        firmwareVersion: 'test-only',
+        acquiredAt: new Date('2026-10-01T00:00:00.000Z'),
+        registeredById: root.id,
+      },
+    });
+    const contract = await prisma.rentalContract.create({
+      data: {
+        code: `RC-L-${tag}`,
+        organizationId: org.id,
+        planType: PlanType.MONTHLY,
+        hardwareVariantId: variant.id,
+        quantity: 1,
+        requestedStartDate: new Date('2026-10-01T00:00:00.000Z'),
+        monthlyUnitPriceVnd: 250_000n,
+        holdingFeeRatio: new Prisma.Decimal('0.5'),
+        requestedById: people[0].userId,
+      },
+    });
+    const all = [
+      {
+        type: InvoiceLineType.HOLDING_FEE,
+        amountVnd: 125_000n,
+        paidVnd: 125_000n,
+        dueAt: new Date('2026-10-01T00:00:00.000Z'),
+      },
+      ...lines,
+    ];
+    await prisma.invoice.create({
+      data: {
+        number: `INV-L-${tag}`,
+        organizationId: org.id,
+        contractId: contract.id,
+        kind: InvoiceKind.TERM,
+        totalVnd: all.reduce((total, line) => total + line.amountVnd, 0n),
+        paidVnd: all.reduce((total, line) => total + line.paidVnd, 0n),
+        lines: {
+          create: all.map((line, index) => ({
+            ...line,
+            seq: index + 1,
+            description: line.type,
+            unitVnd: line.amountVnd,
+          })),
+        },
+      },
+    });
+    const suspended = await service.suspend(org.id, 'Unpaid balance', org.version, root);
+    return { root, org, device, contract, suspended };
+  };
+
+  // Leader ruling 2026-10-30 (REQ-EVT-05, REQ-ERR-04): reactivation counts only lines due at or before
+  // the reactivation time and unpaid. A second installment due later does not block it.
+  describe('reactivation counts only due and unpaid lines (leader ruling 2026-10-30)', () => {
+    const reactivatedAt = new Date('2026-10-30T03:00:00.000Z');
+
+    it('reactivates a suspended organization whose only unpaid line is a future installment', async () => {
+      const { root, org, suspended } = await invoiced([
+        {
+          type: InvoiceLineType.TERM_BALANCE,
+          amountVnd: 125_000n,
+          paidVnd: 0n,
+          dueAt: new Date('2026-11-30T02:00:00.000Z'),
+        },
+      ]);
+
+      await expect(
+        service.reactivate(org.id, suspended.version, root, reactivatedAt),
+      ).resolves.toMatchObject({ status: OrganizationStatus.ACTIVE });
+    });
+
+    it('refuses with 409 BALANCE_OUTSTANDING while a line due before now is unpaid', async () => {
+      const { root, org, suspended } = await invoiced([
+        {
+          type: InvoiceLineType.LATE_FEE,
+          amountVnd: 50_000n,
+          paidVnd: 0n,
+          dueAt: new Date('2026-10-20T02:00:00.000Z'),
+        },
+        {
+          type: InvoiceLineType.TERM_BALANCE,
+          amountVnd: 125_000n,
+          paidVnd: 0n,
+          dueAt: new Date('2026-11-30T02:00:00.000Z'),
+        },
+      ]);
+
+      const refusal = await service
+        .reactivate(org.id, suspended.version, root, reactivatedAt)
+        .catch((error: unknown) => error);
+
+      expect(refusal).toBeInstanceOf(DomainException);
+      expect((refusal as DomainException).getStatus()).toBe(409);
+      expect((refusal as DomainException).errorCode).toBe(ErrorCode.BALANCE_OUTSTANDING);
+      expect((await read(org.id)).status).toBe(OrganizationStatus.SUSPENDED);
+    });
+  });
+
+  // Migration 20261030210000 (review of treklink-web#135): the status history of api-design 11 is the
+  // Manager's through a permission, which the Operator does not inherit.
+  it('grants organization.history.read.own to the Org Manager only', async () => {
+    const holders = await prisma.rolePermission.findMany({
+      where: { permission: { key: 'organization.history.read.own' } },
+      select: { role: { select: { key: true } }, permission: true },
+    });
+
+    expect(holders.map((row) => row.role.key)).toEqual(['ORG_MANAGER']);
+    expect(holders[0].permission).toMatchObject({
+      action: 'readHistory',
+      subject: 'Organization',
+      accountType: AccountType.ORGANIZATION,
+      conditions: { id: '${user.organizationId}' },
     });
   });
 

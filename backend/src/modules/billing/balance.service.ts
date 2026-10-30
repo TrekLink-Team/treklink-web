@@ -65,9 +65,15 @@ export class BalanceService {
     return sum(remainingAfterCredits(await this.invoices.linesOfContract(contractId, client)));
   }
 
-  // What every contract of the organization still owes, in VND. Credits net inside one contract only, so
-  // a credit on one contract never pays another contract's debt.
-  async outstandingOfOrganization(organizationId: string, client?: Client): Promise<bigint> {
+  // What every contract of the organization owes that is due at or before `at` and unpaid, in VND: the
+  // reactivation check counts only due and unpaid lines, so an installment not yet due never blocks it
+  // (leader ruling 2026-10-30). Credits net inside one contract only, oldest due first as in
+  // `balanceSummary`, so a credit on one contract never pays another contract's debt.
+  async dueUnpaidOfOrganization(
+    organizationId: string,
+    at: Date,
+    client?: Client,
+  ): Promise<bigint> {
     const byContract = new Map<string, LineRow[]>();
     for (const line of await this.invoices.linesOfOrganization(organizationId, client)) {
       const lines = byContract.get(line.invoice.contractId) ?? [];
@@ -75,12 +81,16 @@ export class BalanceService {
       byContract.set(line.invoice.contractId, lines);
     }
     let total = 0n;
-    for (const lines of byContract.values()) total += sum(remainingAfterCredits(lines));
+    for (const lines of byContract.values()) {
+      total += sum(
+        remainingAfterCredits(lines).filter((item) => item.dueAt.getTime() <= at.getTime()),
+      );
+    }
     return total;
   }
 
   // Damage charges of the organization's contracts still waiting for an Admin (UC-48). They have no
-  // invoice line yet, so `outstandingOfOrganization` cannot see them; the reactivation check reads both.
+  // invoice line yet, so `dueUnpaidOfOrganization` cannot see them; the reactivation check reads both.
   async pendingDamageOfOrganization(organizationId: string, client?: Client): Promise<number> {
     const contractIds = await this.invoices.contractIdsOfOrganization(organizationId, client);
     return this.damageCharges.countPendingOfContracts(contractIds, client);

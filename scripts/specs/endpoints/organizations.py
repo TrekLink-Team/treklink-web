@@ -183,13 +183,15 @@ ENDPOINTS = [
            "end"]),
 
     ep("POST", "/api/organizations/:id/reactivate", "Reactivate an organization", "TrekLink Admin",
-       "Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstanding (FR-ORG-07). "
-       "Billing answers through the `ORGANIZATION_EXIT_CHECKS` port, read in the same transaction.",
+       "Returns a `SUSPENDED` organization to `ACTIVE`, only when nothing is due and unpaid (FR-ORG-07): an "
+       "invoice line due at or before the reactivation time and unpaid, or a damage charge waiting for an Admin, "
+       "blocks it; a line not yet due does not (leader ruling 2026-10-30). Billing answers through the "
+       "`ORGANIZATION_EXIT_CHECKS` port, read in the same transaction.",
        "UC-07, FR-ORG-07",
        path=[ORG_PATH], body=[VERSION], sample={"expectedVersion": 4}, response=ORG,
        message="Organization reactivated", entity="Organization",
        errors=[state_409("organization", "ACTIVE"),
-               (409, "BALANCE_OUTSTANDING", "An invoice line is still unpaid",
+               (409, "BALANCE_OUTSTANDING", "An invoice line is due and unpaid, or a damage charge waits for an Admin",
                 "This cannot be done while it has open balances."), STALE],
        steps=["Lock the organization row", "Require SUSPENDED",
               "Ask each ORGANIZATION_EXIT_CHECKS provider canReactivate", "Move to ACTIVE, write the transition",
