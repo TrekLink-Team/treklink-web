@@ -126,6 +126,7 @@ flowchart TB
     RENT --> ORG
     RENT --> DEVS
     RENT --> BILL
+    INC --> AUTH
     INC --> ORG
     INC --> RENT
     INC --> DEVS

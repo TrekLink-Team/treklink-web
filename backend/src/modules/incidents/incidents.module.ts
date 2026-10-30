@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth';
 import { DevicesModule } from '../devices';
 import { OrganizationsModule } from '../organizations';
 import { PlatformModule } from '../platform/platform.module';
@@ -23,6 +24,7 @@ import { RoutingService } from './routing.service';
 @Module({
   imports: [
     PlatformModule,
+    AuthModule,
     IncidentsPortsModule,
     OrganizationsModule,
     RentalsModule,

@@ -546,6 +546,21 @@ export class AccountsRepository {
     });
   }
 
+  // Ids of the active TrekLink Staff accounts, the Staff recipients of an ESCALATED incident (D-079).
+  async activeStaffIds(client: Client = this.prisma): Promise<string[]> {
+    const rows = await client.user.findMany({
+      where: {
+        accountType: AccountType.TREKLINK,
+        isActive: true,
+        deletedAt: null,
+        roles: { some: { role: { key: 'STAFF' } } },
+      },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
   // The four system roles with the keys of their permissions (api-design 15).
   async listRoles(): Promise<RoleView[]> {
     const rows = await this.prisma.role.findMany({

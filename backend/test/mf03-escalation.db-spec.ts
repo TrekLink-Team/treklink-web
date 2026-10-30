@@ -4,6 +4,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AccountType, IncidentConfidence, IncidentSource } from '@prisma/client';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { AccountsService } from '../src/modules/auth';
+import { AccountsRepository } from '../src/modules/auth/accounts.repository';
 import { AlertDeliveriesRepository } from '../src/modules/incidents/alert-deliveries.repository';
 import { IncidentLifecycle } from '../src/modules/incidents/incident-lifecycle';
 import { IncidentsRepository } from '../src/modules/incidents/incidents.repository';
@@ -42,7 +44,15 @@ describe('MF-03 escalation timers against Postgres', () => {
     parameters,
     events,
   );
-  const routing = new RoutingService(new RosterService(new RosterRepository(prisma)));
+  // Only activeStaffIds is used, so the code, password and config collaborators are left out.
+  const accounts = new AccountsService(
+    new AccountsRepository(prisma),
+    {} as never,
+    {} as never,
+    events,
+    {} as never,
+  );
+  const routing = new RoutingService(new RosterService(new RosterRepository(prisma)), accounts);
   const job = new IncidentTimersJob(repository, lifecycle, routing, events);
   const incidents = new IncidentsService(repository, lifecycle, parameters, events, {
     memberNames: () => Promise.resolve(new Map<string, string>()),
@@ -53,6 +63,7 @@ describe('MF-03 escalation timers against Postgres', () => {
   let managerId: string;
   let variantId: string;
   let staffId: string;
+  let inactiveStaffId: string;
   let serial = 0;
 
   const user = async (name: string, accountType: AccountType) =>
@@ -121,6 +132,12 @@ describe('MF-03 escalation timers against Postgres', () => {
   beforeAll(async () => {
     await prisma.$connect();
     staffId = await user('staff', AccountType.TREKLINK);
+    inactiveStaffId = await user('inactive-staff', AccountType.TREKLINK);
+    const staffRole = await prisma.role.findUniqueOrThrow({ where: { key: 'STAFF' } });
+    await prisma.userRole.createMany({
+      data: [staffId, inactiveStaffId].map((userId) => ({ userId, roleId: staffRole.id })),
+    });
+    await prisma.user.update({ where: { id: inactiveStaffId }, data: { isActive: false } });
     operatorId = await user('operator', AccountType.ORGANIZATION);
     managerId = await user('manager', AccountType.ORGANIZATION);
     variantId = (
@@ -195,13 +212,28 @@ describe('MF-03 escalation timers against Postgres', () => {
       ['NOTIFY_BACKUP', 'NOTIFY_MANAGER', 'EMPTY_TIER', null],
       ['NOTIFY_MANAGER', 'ESCALATED', 'TIER_TIMEOUT', null],
     ]);
-    // ESCALATED alerts the organization's Managers; Staff wait for treklink-web#118 (R1).
+    // ESCALATED alerts the organization's Managers and every active TrekLink Staff account (MSG34,
+    // D-079). The database may hold Staff of other runs, so only this run's accounts are compared.
     const escalation = await prisma.incidentTransition.findFirstOrThrow({
       where: { incidentId: incident.id, toState: 'ESCALATED' },
     });
     const rows = await prisma.alertDelivery.findMany({ where: { transitionId: escalation.id } });
-    expect(rows.map((row) => `${row.recipientId ?? 'org'}:${row.channel}`).sort()).toEqual(
-      [`${managerId}:EMAIL`, `${managerId}:WEB`, `${managerId}:WEBSOCKET`, 'org:API_EVENT'].sort(),
+    const mine = [managerId, staffId, inactiveStaffId, null];
+    expect(
+      rows
+        .filter((row) => mine.includes(row.recipientId))
+        .map((row) => `${row.recipientId ?? 'org'}:${row.tier}:${row.channel}`)
+        .sort(),
+    ).toEqual(
+      [
+        `${managerId}:MANAGER:EMAIL`,
+        `${managerId}:MANAGER:WEB`,
+        `${managerId}:MANAGER:WEBSOCKET`,
+        `${staffId}:TREKLINK:EMAIL`,
+        `${staffId}:TREKLINK:WEB`,
+        `${staffId}:TREKLINK:WEBSOCKET`,
+        'org:TREKLINK:API_EVENT',
+      ].sort(),
     );
 
     // A deadline fires once: a second run finds nothing due for this incident.
