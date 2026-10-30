@@ -219,7 +219,7 @@ classDiagram
         +eligible(Account) SessionUser ?
     }
     class TokenService {
-        +issue(SessionUser, ClientInfo, Tx, string) object
+        +issue(SessionUser, ClientInfo, Tx, string) IssuedTokens
     }
     class AccountsRepository {
         +countLoginFailuresSince(string, Date, Client) number
@@ -239,7 +239,7 @@ classDiagram
     AuthService ..> TokenService : calls
 ```
 
-***Figure 3***: auth classes used in MF-01, UC-08. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 3***: auth classes used in MF-01, UC-08. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class auth-uc-09-part-1-of-2 -->
 ```mermaid
@@ -269,7 +269,7 @@ classDiagram
     PasswordFlowsService ..> OneTimeCodeService : calls
 ```
 
-***Figure 4***: auth classes used in MF-01, UC-09 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 4***: auth classes used in MF-01, UC-09 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class auth-uc-09-part-2-of-2 -->
 ```mermaid
@@ -303,7 +303,7 @@ classDiagram
     PasswordFlowsService ..> PasswordService : calls
 ```
 
-***Figure 5***: auth classes used in MF-01, UC-09 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 5***: auth classes used in MF-01, UC-09 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class auth-uc-10-part-1-of-2 -->
 ```mermaid
@@ -337,7 +337,7 @@ classDiagram
     PasswordFlowsService ..> MailPort : calls
 ```
 
-***Figure 6***: auth classes used in MF-01, UC-10 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 6***: auth classes used in MF-01, UC-10 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class auth-uc-10-part-2-of-2 -->
 ```mermaid
@@ -356,7 +356,7 @@ classDiagram
         +hash(string) string
     }
     class TokenService {
-        +issue(SessionUser, ClientInfo, Tx, string) object
+        +issue(SessionUser, ClientInfo, Tx, string) IssuedTokens
     }
     class AccountsRepository {
         +consumeCode(string, Date, Client) boolean
@@ -374,7 +374,7 @@ classDiagram
     PasswordFlowsService ..> TokenService : calls
 ```
 
-***Figure 7***: auth classes used in MF-01, UC-10 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 7***: auth classes used in MF-01, UC-10 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 
 <!-- sdd: MF-01 seq UC-08 -->

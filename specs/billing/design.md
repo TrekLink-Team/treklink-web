@@ -188,7 +188,7 @@ Layering follows `organizations` design §9. Separate class views cover MF-01 co
 classDiagram
     direction TB
     class InvoicesController {
-        +recordCounter(string, CounterPaymentDto, Caller) inferred
+        +recordCounter(string, CounterPaymentDto, Caller) PaymentView
     }
     class PaymentsService {
         +recordCounter(string, CounterPaymentInput, Caller, Date) PaymentRow
@@ -202,7 +202,7 @@ classDiagram
         +referenceExists(string, Client) boolean
     }
     class PricingAdminController {
-        +setPrice(NewPriceDto, Caller) inferred
+        +setPrice(NewPriceDto, Caller) PriceView
     }
     class PricingService {
         +setPrice(NewPriceInput, Caller, Date) PriceRow
@@ -217,18 +217,18 @@ classDiagram
     PricingService ..> PricingRepository : calls
 ```
 
-***Figure 3***: billing classes used in MF-01, UC-22, UC-56. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 3***: billing classes used in MF-01, UC-22, UC-56. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class billing -->
 ```mermaid
 classDiagram
     direction TB
     class SepayController {
-        +find(string, Caller) inferred
-        +request(string, SepayPaymentDto, Caller) inferred
+        +find(string, Caller) PaymentView
+        +request(string, SepayPaymentDto, Caller) PaymentView
     }
     class SepayService {
-        +find(string, Caller, Date) object
+        +find(string, Caller, Date) PaymentWithLateTransfers
         +request(string, number ?, Caller, Date) PaymentRow
     }
     class BalanceService {
@@ -239,8 +239,8 @@ classDiagram
         +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
     }
     class PaymentsRepository {
-        +findPendingSepay(string, Date, Client) inferred
-        +insertReceivedSepay(object, Tx) PaymentRow
+        +findPendingSepay(string, Date, Client) PaymentRow ?
+        +insertReceivedSepay(ReceivedTransfer, Tx) PaymentRow
         +insertSepayPayment(NewSepayPayment, Tx) PaymentRow
         +lockInvoiceRequests(string, Tx) void
     }
@@ -250,25 +250,25 @@ classDiagram
     SepayService ..> PaymentsRepository : calls
 ```
 
-***Figure 4***: billing classes used in MF-05, UC-19 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 4***: billing classes used in MF-05, UC-19 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class billing-uc-19-part-2-of-2 -->
 ```mermaid
 classDiagram
     direction TB
     class SepayController {
-        +find(string, Caller) inferred
-        +webhook(string ?, SepayWebhookDto) object
+        +find(string, Caller) PaymentView
+        +webhook(string ?, SepayWebhookDto) WebhookAck
     }
     class SepayService {
         +assertWebhookKey(string ?) void
-        +find(string, Caller, Date) object
+        +find(string, Caller, Date) PaymentWithLateTransfers
         +handleWebhook(string ?, SepayWebhook, Date) WebhookOutcome
     }
     class PaymentsRepository {
-        +confirmSepay(string, Settlement, Tx) inferred
+        +confirmSepay(string, Settlement, Tx) PaymentRow
         +gatewayTxnExists(string, Client) boolean
-        +insertReceivedSepay(object, Tx) PaymentRow
+        +insertReceivedSepay(ReceivedTransfer, Tx) PaymentRow
         +lockByReference(string, Tx) PaymentRow ?
     }
     class InvoicesRepository {
@@ -281,7 +281,7 @@ classDiagram
     SepayService ..> PaymentsRepository : calls
 ```
 
-***Figure 5***: billing classes used in MF-05, UC-19 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 5***: billing classes used in MF-05, UC-19 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class billing-uc-48 -->
 ```mermaid
@@ -309,14 +309,14 @@ classDiagram
     DamageChargesController ..> DamageChargeService : calls
 ```
 
-***Figure 6***: billing classes used in MF-05, UC-48. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 6***: billing classes used in MF-05, UC-48. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class billing-uc-45 -->
 ```mermaid
 classDiagram
     direction TB
     class InvoicesController {
-        +balance(string, Caller) inferred
+        +balance(string, Caller) BalanceView
     }
     class BillingReadsService {
         +balance(string, Caller) BalanceSummary
@@ -335,17 +335,17 @@ classDiagram
     InvoicesController ..> BillingReadsService : calls
 ```
 
-***Figure 7***: billing classes used in MF-05, UC-45. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 7***: billing classes used in MF-05, UC-45. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class billing-uc-46 -->
 ```mermaid
 classDiagram
     direction TB
     class ReturnController {
-        +checkIn(string, CheckInDto, Caller) inferred
+        +checkIn(string, CheckInDto, Caller) CheckInResult
     }
     class ReturnService {
-        +checkIn(string, string[], Caller, Date) inferred
+        +checkIn(string, string[], Caller, Date) CheckInResult
     }
     class ChargesService {
         +chargeLate(LateContract, ChargedDevice, Date, string ?, Tx) InvoiceRow ?
@@ -364,20 +364,20 @@ classDiagram
     ReturnService ..> ChargesService : calls
 ```
 
-***Figure 8***: billing classes used in MF-05, UC-46. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 8***: billing classes used in MF-05, UC-46. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class billing-uc-47 -->
 ```mermaid
 classDiagram
     direction TB
     class ReturnController {
-        +inspect(string, string, InspectionDto, Caller) inferred
+        +inspect(string, string, InspectionDto, Caller) InspectionOutcome
     }
     class ReturnService {
-        +inspect(string, string, InspectionInput, Caller, Date) inferred
+        +inspect(string, string, InspectionInput, Caller, Date) InspectionOutcome
     }
     class DevicesService {
-        +recordInspection(string, object, string, Date, Tx) inferred
+        +recordInspection(string, InspectionInput, string, Date, Tx) InspectionRow
     }
     class ChargesService {
         +chargeDamage(ChargedContract, DamagedInspection, string ?, Tx, Date) DamageResult ?
@@ -405,7 +405,7 @@ classDiagram
     ReturnService ..> DevicesService : calls
 ```
 
-***Figure 9***: billing classes used in MF-05, UC-47. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 9***: billing classes used in MF-05, UC-47. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 
 <!-- sdd: MF-05 seq UC-19 part 1 of 2: payment request -->
