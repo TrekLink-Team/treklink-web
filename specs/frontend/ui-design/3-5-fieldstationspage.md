@@ -87,7 +87,7 @@ Create Field Station (one step, one field):
 |---|---|---|---|---|
 | 1 | Name | text | yes | not blank; hint "Where the laptop runs, for example."; organizations 24 `name` |
 
-Revoke (one step, one field): Reason, text, optional for a Manager, organizations 25 `reason`; the hint says it is required when TrekLink Staff revoke.
+Revoke (one step, one field): Reason, text, optional for a Manager, organizations 25 `reason`; the hint says it is required when TrekLink Staff or Admin revoke (leader ruling 2026-10-30, api-design 25).
 
 ## Mobile, accessibility, live data
 
