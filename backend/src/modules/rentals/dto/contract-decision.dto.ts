@@ -1,6 +1,7 @@
 import { ContractStatus, PlanType } from '@prisma/client';
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   ArrayUnique,
   IsBoolean,
@@ -106,6 +107,8 @@ export class HandoverPreviewQueryDto {
   @IsOptional()
   @Transform(parseChecks)
   @IsArray()
+  // One reading per unit at most; a contract holds at most the request maximum of 10,000 units.
+  @ArrayMaxSize(10_000)
   @ValidateNested({ each: true })
   checks?: DeviceCheckDto[];
 }
