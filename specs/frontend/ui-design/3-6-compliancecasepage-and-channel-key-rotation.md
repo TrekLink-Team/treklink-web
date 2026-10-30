@@ -7,7 +7,7 @@
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
 | Routes | `/t/compliance-cases` (the list) and `/t/compliance-cases/:id` (the case page); the channel key section sits in the organization panel of `/t/organizations`, which task 3.2 builds (`specs/frontend/design.md` §2; `/t/organizations/:id` is not built) |
-| Roles | TrekLink Staff: the list, the case page, Open case, revocation actions, Close case, Record key rotation. TrekLink Admin: the same except Record key rotation, which organizations 27 gives to Staff only (see Open points), plus the suspension action. Organization accounts: MSG26 (TrekLink routes). |
+| Roles | TrekLink Staff: the list, the case page, Open case, revocation actions, Close case, Record key rotation. TrekLink Admin: the same, Record key rotation included (FR-AUTH-10 inheritance, leader ruling 2026-10-30), plus the suspension action. Organization accounts: MSG26 (TrekLink routes). |
 | Use case, FRs, story | UC-63, and UC-60 for the key rotation; FR-ORG-07, FR-ORG-08, FR-ORG-09, FR-DEV-13; US-UC63 |
 | Requirements | `specs/organizations/requirements.md` REQ-EVT-12, REQ-EVT-13, REQ-ERR-08, AC-10, AC-11; BR-40 |
 | Wireframe | Figure 1 below, `3-6-compliancecasepage-and-channel-key-rotation.svg` |
@@ -64,7 +64,7 @@ Channel key section of the organization panel (`/t/organizations`, an `ACTIVE` o
 | Close case (primary action of an open case) | organizations 31 `POST /api/compliance-cases/:id/close` | dialog naming the case ("Close case CMP-0002?") | "Compliance case closed" (server message) |
 | Suspend organization (Admin only; Staff see it disabled with the hint "Ask a TrekLink Admin to suspend the organization.") | organizations 30 `POST /api/compliance-cases/:id/actions` with `kind` `SUSPEND_ORGANIZATION` | the record action dialog, with a note | "Action recorded" (server message) |
 | Revoke Field Station, Revoke API key, Other action | organizations 30 with `kind` `REVOKE_FIELD_STATION`, `REVOKE_API_KEY` or `OTHER` and `targetId` for a revocation | the record action dialog, with a note | "Action recorded" |
-| Record key rotation (Staff) | organizations 27 `POST /api/organizations/:id/channel-key/rotate` | dialog naming the organization ("Record key rotation for ORG-0007?") | "Channel key rotated" (server message) |
+| Record key rotation (Staff, Admin) | organizations 27 `POST /api/organizations/:id/channel-key/rotate` | dialog naming the organization ("Record key rotation for ORG-0007?") | "Channel key rotated" (server message) |
 
 An open case offers Close case and the actions. A closed case offers neither: its page is read only.
 
@@ -123,9 +123,9 @@ Record key rotation (one step, one field): Reason, text, required, organizations
 
 1. **`channelKeyExposedAt` has no read source.** It exists in the schema and organizations 27 returns it (always null after a rotation), but organizations 02 and 03 return `channelKeyVersion` and `version` only, so the exposure notice has no source. The `expectedVersion` of organizations 27 is also ambiguous: the request sample says 4, its table says 3, and the response `channelKeyVersion` is 3. The screen assumes it is the organization's `version`.
 2. **Status filter only.** The overview of organizations 28 says "by status and type", and its query has `status` alone. The screen offers status tabs.
-3. **Who rotates the key.** organizations 27 names TrekLink Staff only. The screen shows the control to Staff and not to Admin until this is ruled.
+3. **Who rotates the key.** Ruled by the leader 2026-10-30: TrekLink Staff and, through FR-AUTH-10 inheritance, Admin. organizations 27 names both; the screen shows the control to both.
 4. **`OTHER` has no permission.** organizations 30 defines the permission for suspension (Admin) and for the two revocations (Staff, Admin), and none for `OTHER`. The screen offers `OTHER` to Staff and Admin.
-5. **Pickers and names.** The case responses return contract ids (not codes) and the organization code (not its name). The screen links the contract id to the contract page and shows the code. The linked contract and loss case pickers rely on rentals and devices lists that this module does not specify, and the Organization select assumes organizations 02 without `CLOSED` ones (UC-63 precondition). Ruling 2026-10-30: organizations 29 takes `linkedLossCaseIds` as `uuid[]`, while organizations 28 and 32 return `linkedLossCases` as loss case codes (for example `LOSS-0003`), not ids. A future loss case picker resolves the chosen code to its id before sending `linkedLossCaseIds`; it never sends the displayed code as the id. The current screen sends `linkedLossCaseIds: []` always, so this does not yet surface as a bug.
+5. **Pickers and names.** The case responses return contract ids (not codes) and the organization code (not its name). The screen links the contract id to the contract page and shows the code. The linked contract and loss case pickers rely on rentals and devices lists that this module does not specify, and the Organization select assumes organizations 02 without `CLOSED` ones (UC-63 precondition). Leader ruling 2026-10-30 (kept for the demo): organizations 29 takes `linkedLossCaseIds` as `uuid[]`, while organizations 28 and 32 return `linkedLossCases` as loss case codes (for example `LOSS-0003`), not ids. A future loss case picker resolves the chosen code to its id before sending `linkedLossCaseIds`; it never sends the displayed code as the id. The current screen sends `linkedLossCaseIds: []` always, and the backend refuses a non-empty list with 400 and returns `linkedLossCases: []`, until `devices` provides a port for linking; responses keep returning codes.
 6. **No SRS message codes** for `POLICE_REFERENCE_REQUIRED` and the 403 suspension message; the screen shows the server message (D-059 rule 3).
 
 ## Checklist

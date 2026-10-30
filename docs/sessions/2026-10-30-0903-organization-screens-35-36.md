@@ -23,6 +23,8 @@ Fixed in this session, on top of the wip commit:
 
 - `specs/frontend/ui-design/3-5-fieldstationspage.md`: the revoke hint names Staff or Admin.
 - `scripts/specs/endpoints/organizations.py`: api-design 27 sample `expectedVersion` 3, regenerated (the file had been hand-edited).
+- `specs/frontend/ui-design/3-6-compliancecasepage-and-channel-key-rotation.md`: roles, the rotation row and open points 3 and 5 follow the two rulings below.
+- `scripts/specs/endpoints/organizations.py`: api-design 27 audience is Staff and Admin, regenerated with the api-design README.
 - `specs/frontend/tasks.md`: 3.5 ticked, 3.6 partly done. `specs/organizations/tasks.md`: 2.9 and 2.10 partly done.
 
 ## Tests
@@ -38,19 +40,14 @@ Fixed in this session, on top of the wip commit:
 
 ## Not in this PR
 
-- Linking loss cases to a compliance case, and `openOrLink` for devices (decision 1).
+- Linking loss cases to a compliance case, and `openOrLink` for devices (ruling 1).
 - `markKeyExposed` with the Manager notification, and `channelKeyVersion(orgId)` for rentals (organizations 2.9).
 - The linked contract picker of the open case dialog.
 
-## Open decisions for the leader
+## Leader rulings of 2026-10-30
 
-1. **Loss case id contract.** organizations 29 takes `linkedLossCaseIds` as `uuid[]`, while 28 and 32 return `linkedLossCases` as codes (`LOSS-0003`). Today a non-empty list is refused with 400 and responses carry `[]`, because `LossCase` belongs to `devices`, which imports `organizations`. The wip commit wrote this in open point 5 of the 3.6 design as "Ruling 2026-10-30"; that ruling is unverified.
-   - (a) Keep the current behaviour for the demo; after it, `devices` provides a port for linking and reading, and responses keep codes. Recommended.
-   - (b) Return ids in responses as well.
-   - (c) Take linking out of scope.
-2. **Admin and key rotation.** The migration grants `organization.rotateKey` to Admin (FR-AUTH-10 inheritance), and the UI shows Record key rotation to Admin through `hasAnyRole`. Open point 3 of the 3.6 design hides it from Admin until ruled.
-   - (a) Accept the inheritance and update the design. Recommended.
-   - (b) Hide it from Admin in the UI.
+1. **Loss case id contract.** Kept for the demo: organizations 29 takes `linkedLossCaseIds` as `uuid[]`, a non-empty list is refused with 400, and responses carry `linkedLossCases: []`. After the demo `devices` provides a port for linking and reading, and responses keep returning codes (`LOSS-0003`). Recorded in open point 5 of the 3.6 design and organizations 2.10.
+2. **Admin and key rotation.** Admin may record a key rotation through FR-AUTH-10 inheritance. api-design 27 (from its endpoint source) and the 3.6 design now name Staff and Admin; no code change was needed.
 
 ## Demo steps
 

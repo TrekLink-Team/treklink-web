@@ -423,7 +423,7 @@ ENDPOINTS = [
        controller="FieldStationsController", service="FieldStationReleaseService", call="current()",
        participants=[["Store", "File storage"]], seq=["Svc->>Store: read release.json"]),
 
-    ep("POST", "/api/organizations/:id/channel-key/rotate", "Rotate the organization channel key", "TrekLink Staff",
+    ep("POST", "/api/organizations/:id/channel-key/rotate", "Rotate the organization channel key", "TrekLink Staff, TrekLink Admin",
        "Records that TrekLink rotated the organization's channel key with the counter's provisioning tool: "
        "`channelKeyVersion` increases and `channelKeyExposedAt` is cleared. Devices take the new version as "
        "they are re-provisioned at the counter; until then they hold the old key (D-045, D-021).",
