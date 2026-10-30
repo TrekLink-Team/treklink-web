@@ -3,6 +3,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import type { PolicyAbility } from '../../common/decorators/access.decorator';
 import type { DevicesService } from '../devices';
 import type { IncidentsQueryService } from '../incidents';
+import type { OrganizationsService } from '../organizations';
 import type { ParameterService } from '../platform/parameters/parameter.service';
 import type { ContractsService } from '../rentals';
 import { LiveMapService } from './live-map.service';
@@ -93,6 +94,13 @@ const member = (organizationId: string): PolicyAbility => ({
 });
 const nobody: PolicyAbility = { can: () => false };
 
+// The organization's Field Stations: one fresh, one silent past the threshold, one never synced (MF-02).
+const STATIONS = [
+  { id: 'fs-1', organizationId: 'org-1', name: 'Ta Nang basecamp laptop', lastSyncAt: ago(60) },
+  { id: 'fs-2', organizationId: 'org-1', name: 'Phan Dung ranger post', lastSyncAt: ago(600) },
+  { id: 'fs-3', organizationId: 'org-1', name: 'Spare laptop', lastSyncAt: null },
+];
+
 const callerOf = (organizationId: string | null) => ({ id: 'u-1', roles: [], organizationId });
 
 describe('LiveMapService.snapshot', () => {
@@ -100,11 +108,15 @@ describe('LiveMapService.snapshot', () => {
   let projections: jest.Mock;
   let openByDevices: jest.Mock;
   let maxSeq: jest.Mock;
+  let fieldStationHealth: jest.Mock;
   let stale: unknown;
+  let stationStale: unknown;
   let service: LiveMapService;
 
   beforeEach(() => {
     stale = 300;
+    stationStale = 180;
+    fieldStationHealth = jest.fn().mockResolvedValue(STATIONS);
     visibleDevices = jest.fn().mockResolvedValue(VISIBLE);
     projections = jest.fn().mockResolvedValue(PROJECTIONS);
     openByDevices = jest.fn().mockResolvedValue(
@@ -121,11 +133,16 @@ describe('LiveMapService.snapshot', () => {
     );
     maxSeq = jest.fn().mockResolvedValue(42);
     service = new LiveMapService(
-      { get: jest.fn(() => Promise.resolve(stale)) } as unknown as ParameterService,
+      {
+        get: jest.fn((key: string) =>
+          Promise.resolve(key === 'monitoring.fieldStationStaleSeconds' ? stationStale : stale),
+        ),
+      } as unknown as ParameterService,
       { visibleDevices } as unknown as ContractsService,
       { projections } as unknown as DevicesService,
       { openByDevices } as unknown as IncidentsQueryService,
       { maxSeq } as unknown as StreamRepository,
+      { fieldStationHealth } as unknown as OrganizationsService,
     );
   });
 
@@ -133,7 +150,21 @@ describe('LiveMapService.snapshot', () => {
     const result = await service.snapshot({}, callerOf('org-1'), member('org-1'), NOW);
     expect(result).toEqual({
       cursor: 42,
-      fieldStations: [],
+      fieldStations: [
+        {
+          id: 'fs-1',
+          name: 'Ta Nang basecamp laptop',
+          lastSyncAt: ago(60).toISOString(),
+          stale: false,
+        },
+        {
+          id: 'fs-2',
+          name: 'Phan Dung ranger post',
+          lastSyncAt: ago(600).toISOString(),
+          stale: true,
+        },
+        { id: 'fs-3', name: 'Spare laptop', lastSyncAt: null, stale: false },
+      ],
       devices: [
         {
           id: 'd-1',
@@ -179,6 +210,7 @@ describe('LiveMapService.snapshot', () => {
     expect(visibleDevices).toHaveBeenCalledWith({ organizationId: 'org-1' });
     expect(projections).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
     expect(openByDevices).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
+    expect(fieldStationHealth).toHaveBeenCalledWith('org-1');
   });
 
   it('reads the cursor before the devices, so nothing committed meanwhile is lost', async () => {
@@ -198,6 +230,7 @@ describe('LiveMapService.snapshot', () => {
   it('gives TrekLink staff the fleet, or the one organization they ask for', async () => {
     await service.snapshot({}, callerOf(null), staff);
     expect(visibleDevices).toHaveBeenLastCalledWith({ organizationId: null });
+    expect(fieldStationHealth).toHaveBeenLastCalledWith(null);
     const fleet = await service.snapshot({}, callerOf(null), staff, NOW);
     // The fleet sees the incident routed to another organization than the device's custodian.
     expect(fleet.devices[1].openIncident).toEqual({
@@ -233,6 +266,14 @@ describe('LiveMapService.snapshot', () => {
     );
     await expect(service.snapshot({}, callerOf(null), staff, NOW)).rejects.not.toBeInstanceOf(
       DomainException,
+    );
+  });
+
+  it('fails when the Field Station stale threshold is malformed', async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    stationStale = null;
+    await expect(service.snapshot({}, callerOf(null), staff, NOW)).rejects.toThrow(
+      'Map parameter monitoring.fieldStationStaleSeconds is malformed.',
     );
   });
 });

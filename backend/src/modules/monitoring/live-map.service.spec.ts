@@ -40,6 +40,7 @@ describe('LiveMapService.config', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });

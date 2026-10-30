@@ -5,6 +5,7 @@ import { Caller, type PolicyAbility } from '../../common/decorators/access.decor
 import { DomainException, ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
 import { IncidentsQueryService, type OpenIncidentRef } from '../incidents';
+import { OrganizationsService } from '../organizations';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ParameterKey } from '../platform/parameters/parameter-registry';
 import { ContractsService } from '../rentals';
@@ -85,14 +86,16 @@ export class LiveMapService {
     private readonly devices: DevicesService,
     private readonly incidents: IncidentsQueryService,
     private readonly stream: StreamRepository,
+    private readonly organizations: OrganizationsService,
   ) {}
 
   // The state the map draws before it applies stream entries (api-design 02, FR-MON-02, FR-MON-03,
   // FR-AUTH-11). The scope comes from the caller's ability: TrekLink staff see the fleet or the one
   // organization they ask for, a member sees their own organization and is refused another. The
   // cursor is read first, so an entry committed while the rest is read is replayed, never lost; the
-  // client drops entries at or below the cursor. Field Stations are not modelled yet, so the list is
-  // empty until organizations exports their health read.
+  // client drops entries at or below the cursor. Field Stations are listed with their last sync time
+  // (MF-02); a station is stale once silent longer than `monitoring.fieldStationStaleSeconds`, and a
+  // station that never synced is not stale, it has no sync yet.
   async snapshot(
     query: { organizationId?: string },
     caller: Caller,
@@ -101,11 +104,15 @@ export class LiveMapService {
   ): Promise<MapSnapshotDto> {
     const organizationId = this.scopeOf(query, caller, ability);
     const cursor = await this.stream.maxSeq();
-    const [visible, staleSeconds] = await Promise.all([
+    const [visible, staleSeconds, stations, stationStaleSeconds] = await Promise.all([
       this.contracts.visibleDevices({ organizationId }),
       this.parameters.get('monitoring.deviceStaleSeconds'),
+      this.organizations.fieldStationHealth(organizationId),
+      this.parameters.get('monitoring.fieldStationStaleSeconds'),
     ]);
     if (!isNumber(staleSeconds)) this.refuse('monitoring.deviceStaleSeconds', 'a number');
+    if (!isNumber(stationStaleSeconds))
+      this.refuse('monitoring.fieldStationStaleSeconds', 'a number');
     const ids = visible.map((device) => device.deviceId);
     const [projections, incidents] = await Promise.all([
       this.devices.projections(ids),
@@ -142,7 +149,14 @@ export class LiveMapService {
         },
       ];
     });
-    return { cursor, devices, fieldStations: [] };
+    const stationStaleBefore = now.getTime() - stationStaleSeconds * 1000;
+    const fieldStations = stations.map((station): SnapshotFieldStationDto => ({
+      id: station.id,
+      name: station.name,
+      lastSyncAt: station.lastSyncAt?.toISOString() ?? null,
+      stale: station.lastSyncAt !== null && station.lastSyncAt.getTime() < stationStaleBefore,
+    }));
+    return { cursor, devices, fieldStations };
   }
 
   // An incident routed to another organization is never shown on an organization's map (incidents

@@ -151,7 +151,31 @@ export class OrganizationsRepository {
   ) {
     return client.organizationTransition.create({ data: row });
   }
+
+  // --- live map read (monitoring api-design 02, FR-EVT-13) ---
+  // The stations not revoked, of one organization or of every one, oldest first.
+  activeFieldStations(
+    organizationId: string | null,
+    client: Client = this.prisma,
+  ): Promise<FieldStationHealthRow[]> {
+    return client.fieldStation.findMany({
+      where: { revokedAt: null, ...(organizationId === null ? {} : { organizationId }) },
+      select: { id: true, organizationId: true, name: true, lastSyncAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+  // --- end live map read ---
 }
+
+// --- live map read (monitoring api-design 02, FR-EVT-13) ---
+// A Field Station not revoked, with the sync time gateway-sync records on it.
+export interface FieldStationHealthRow {
+  id: string;
+  organizationId: string;
+  name: string;
+  lastSyncAt: Date | null;
+}
+// --- end live map read ---
 
 export interface OrganizationLabel {
   id: string;

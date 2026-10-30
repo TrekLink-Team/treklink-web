@@ -4,7 +4,11 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AccountsService, MAIL_PORT, type MailPort } from '../auth';
 import { MembersRepository } from './members.repository';
-import { OrganizationLabel, OrganizationsRepository } from './organizations.repository';
+import {
+  FieldStationHealthRow,
+  OrganizationLabel,
+  OrganizationsRepository,
+} from './organizations.repository';
 
 export interface MemberView {
   id: string;
@@ -177,4 +181,12 @@ export class OrganizationsService {
     const rows = await this.organizations.labels([...new Set(ids)], tx);
     return new Map(rows.map((row) => [row.id, row]));
   }
+
+  // --- live map read (monitoring api-design 02, FR-EVT-13) ---
+  // The Field Stations the live map lists with their last sync time: one organization's, or the
+  // whole fleet's for null. A revoked station is not listed.
+  fieldStationHealth(organizationId: string | null): Promise<FieldStationHealthRow[]> {
+    return this.organizations.activeFieldStations(organizationId);
+  }
+  // --- end live map read ---
 }
