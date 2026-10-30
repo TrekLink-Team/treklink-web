@@ -71,9 +71,9 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: organizations api-design 12 to 19; invite, change role, deactivate (MSG for `LAST_MANAGER`); `RosterCalendar` widget with overlap errors and `NO_PRIMARY` warnings (MSG22)
   - **Partly done** (2026-10-29, TanNB): `ui-design/3-3-members-and-roster.md` filled in, with its wireframe `3-3-members-and-roster.svg`. Open: the pages, their tests and the review
   - _Story: US-UC04, US-UC05_
-- [ ] 3.4 API keys (owner TanNB)
+- [x] 3.4 API keys (owner TanNB)
   - **Do**: organizations api-design 20 to 22; the secret is shown once with a copy button and never again
-  - **Partly done** (2026-10-29, TanNB): `ui-design/3-4-api-keys.md` filled in, with its wireframe `3-4-api-keys.svg`. Open: the page, its tests and the review
+  - **Done** (2026-10-30, D-078 takeover, KhoaDD's agent, PR #125): `ApiKeysPage` at `/o/api-keys`, built against `ui-design/3-4-api-keys.md` as merged from #117. `src/entities/api-key/api.ts`, `src/features/manage-api-keys/api.ts`, `src/pages/ApiKeysPage.tsx`, component tests in `ApiKeysPage.test.tsx`. Route registered in `app/router.tsx`; `/o/api-keys` flipped to `built: true` in `shared/config/navigation.ts`. Open: TanNB's review
   - _Story: US-UC06_
 - [ ] 3.5 `FieldStationsPage` (owner TanNB)
   - **Do**: organizations api-design 23 to 26; create shows the secret once; health columns with `outdated`; the current release with its version, SHA-256 and one download per operating system
