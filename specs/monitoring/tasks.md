@@ -54,7 +54,7 @@
   - **Files**: `live-map.service.ts`, `map.controller.ts`
   - **Do**: map provider, tile URL, attribution, viewport and the sovereignty overlay from configuration (api-design 01); snapshot from `visibleDevices`, `projections`, `openByDevices`, station health and the max `seq` (api-design 02)
   - **Test**: the overlay is present in the configuration response
-  - **Status**: `GET /api/map/config` is built (api-design 01). 2026-10-30 (D-078 takeover, KhoaDD): `GET /api/map/snapshot` is built (api-design 02) behind `read LiveMap`, composed from `ContractsService.visibleDevices`, `DevicesService.projections`, `IncidentsQueryService.openByDevices` and `StreamRepository.maxSeq`, read cursor first. `position.at` is the last-seen time until the projection keeps a fix time. `fieldStations` is an empty list until `organizations` exports the Field Station health read, so the box stays unticked.
+  - **Status**: `GET /api/map/config` is built (api-design 01). 2026-10-30 (D-078 takeover, KhoaDD): `GET /api/map/snapshot` is built (api-design 02) behind `read LiveMap`, composed from `ContractsService.visibleDevices`, `DevicesService.projections`, `IncidentsQueryService.openByDevices`, `OrganizationsService.fieldStationHealth` and `StreamRepository.maxSeq`, read cursor first. `position.at` is the last-seen time until the projection keeps a fix time. `fieldStations` now lists each organization's stations not revoked with `lastSyncAt` and staleness against `monitoring.fieldStationStaleSeconds`. The box stays unticked: no db-spec was written, and the response was not walked against a running stack in this session.
   - _Requirements: REQ-UBI-02, FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01_
   - _Story: US-UC38_
 - [ ] 3.2 Organization API (owner LongNN)
