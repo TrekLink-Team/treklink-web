@@ -68,7 +68,7 @@ Reports return JSON or CSV text in the envelope; time-to-acknowledge and time-to
 
 Leaflet with the tile URL and attribution from `GET /api/map/config`, the overlay layer from the same
 response, markers by state (normal, low battery, stale, incident), a reconnecting banner, and a map error
-state that leaves the lists working. Tiles go from the browser to OpenStreetMap with the browser's own
+state that leaves the lists working. Tiles go from the browser to the chosen basemap's tile server with the browser's own
 User-Agent and Referer; nothing prefetches tiles (D-031 tile policy).
 
 ---

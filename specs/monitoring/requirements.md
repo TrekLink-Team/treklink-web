@@ -14,7 +14,7 @@
   rental periods; the organization API (devices, stream); device history (FR-DEV-11); reports
   (FR-BILL-10); system health (FR-MON-10).
 - **Out-of-Scope**: decoding and storing events (`gateway-sync`); incident state (`incidents`); tile
-  serving (OpenStreetMap, from the browser).
+  serving (the basemap tile servers of `monitoring.mapBasemaps`, from the browser).
 - **Depends on**: every module. Listens to the domain events of `platform` design §2.3.
 
 ### Traceability

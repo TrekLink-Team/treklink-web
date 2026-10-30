@@ -21,10 +21,8 @@ BASEMAPS = [
      "tileUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
      "attribution": "Tiles © Esri and the GIS user community",
      "maxZoom": 18, "maxNativeZoom": 16},
-    {"id": "openstreetmap", "name": "OpenStreetMap",
-     "tileUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-     "attribution": "© OpenStreetMap contributors",
-     "maxZoom": 19, "maxNativeZoom": 19},
+    # The OpenStreetMap standard tiles were dropped on 2026-10-30 (dry run defect 11): over the Paracel and
+    # Spratly islands they print PRC district names beside the Vietnamese sovereignty overlay (D-031).
 ]
 
 PARAMETERS = {
