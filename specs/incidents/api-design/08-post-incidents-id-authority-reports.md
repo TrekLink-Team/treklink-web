@@ -249,40 +249,26 @@ sequenceDiagram
     U->>P: record agency, reference, time
     P->>Ctl: POST /api/incidents/:id/authority-reports
     Ctl->>Svc: reportIncident(id, input, caller)
-    alt caller has an organization, or agency, reference or reportedAt invalid
-        Svc-->>Ctl: 403 FORBIDDEN or 400 VALIDATION_FAILED
-        Ctl-->>P: 403 or 400 envelope
-        P-->>U: MSG26, or the field error
-    else valid Staff request
-        Note over Svc,R: BEGIN
-        Svc->>R: lockById(id, tx)
-        alt incident not found
-            Svc-->>Ctl: 404 NOT_FOUND
-            Ctl-->>P: 404 envelope
-            P-->>U: MSG26
-        else not ESCALATED or UNROUTED
-            Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
-            Ctl-->>P: 409 envelope
-            P-->>U: MSG28, incident reloaded
-        else ESCALATED or UNROUTED
-            Svc->>L: apply(id, current, REPORTED, STAFF, AUTHORITY_REPORTED with expectedVersion, tx)
-            L->>R: lockById(id, tx)
-            alt expectedVersion differs
-                L-->>Svc: 409 STALE_VERSION
-                Svc-->>Ctl: 409 STALE_VERSION
-                Ctl-->>P: 409 envelope
-                P-->>U: MSG36, Reload keeps the values
-            else version matches
-                L->>R: compareAndSet(current, patch, tx)
-                L->>R: insertTransition(row, tx)
-                L-->>Svc: incident REPORTED
-                Svc->>Ar: insert(report, tx)
-                Svc->>R: COMMIT, then audit.record and incident.changed
-                Svc-->>Ctl: incident REPORTED
-                Note over Ctl: IncidentsQueryService.views adds device and owner
-                Ctl-->>P: 201 envelope
-                P-->>U: MSG03, REPORTED
-            end
-        end
+    Svc->>R: lockById(id, tx)
+    R-->>Svc: incident
+    alt refused: not ESCALATED or UNROUTED
+        Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
+        Ctl-->>P: 409 envelope
+        P-->>U: MSG28, incident reloaded
+    else accepted: ESCALATED or UNROUTED
+        Svc->>L: apply(id, current, REPORTED, STAFF, AUTHORITY_REPORTED with expectedVersion, tx)
+        L->>R: lockById(id, tx)
+        R-->>L: incident
+        L->>R: compareAndSet(current, patch, tx)
+        L->>R: insertTransition(row, tx)
+        L-->>Svc: incident REPORTED
+        Svc->>Ar: insert(report, tx)
+        Ar-->>Svc: authority report
+        Svc->>R: COMMIT, then audit.record and incident.changed
+        Svc-->>Ctl: incident REPORTED
+        Ctl-->>P: 201 envelope
+        P-->>U: MSG03, REPORTED
     end
 ```
+
+Not drawn in the sequence: 400 VALIDATION_FAILED, 403 FORBIDDEN, 404 NOT_FOUND and 409 STALE_VERSION, which the Validation table and the activity diagram carry.
