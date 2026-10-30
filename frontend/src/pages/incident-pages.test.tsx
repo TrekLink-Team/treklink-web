@@ -17,7 +17,65 @@ vi.mock('../shared/api/apiClient', async (importOriginal) => ({
   apiClient: (...args: unknown[]) => api(...args),
 }));
 
-const ME = { id: 'u-me', fullName: 'Me' } as SessionUser;
+const ME = { id: 'u-me', fullName: 'Me', roles: ['ORG_OPERATOR'] } as SessionUser;
+const MANAGER = { id: 'u-mgr', fullName: 'Manager', roles: ['ORG_MANAGER'] } as SessionUser;
+
+// api-design 12 and 14 rows.
+const TRAIL = [
+  {
+    seq: 1,
+    fromState: null,
+    toState: 'DETECTED',
+    actor: 'SYSTEM',
+    reason: 'CREATED',
+    createdAt: '2026-10-29T03:15:00Z',
+  },
+  {
+    seq: 2,
+    fromState: 'DETECTED',
+    toState: 'NOTIFY_PRIMARY',
+    actor: 'SYSTEM',
+    reason: 'ROUTED',
+    createdAt: '2026-10-29T03:15:00Z',
+  },
+  {
+    seq: 3,
+    fromState: 'NOTIFY_PRIMARY',
+    toState: 'ACKNOWLEDGED',
+    actor: 'Pham Van D',
+    reason: 'SOME_NEW_CODE',
+    createdAt: '2026-10-29T03:16:00Z',
+  },
+];
+const ALERTS = [
+  {
+    tier: 'PRIMARY',
+    recipient: 'Pham Van D',
+    channel: 'WEBSOCKET',
+    status: 'SENT',
+    attempts: 1,
+    sentAt: '2026-10-29T03:15:01Z',
+    lastError: null,
+  },
+  {
+    tier: 'PRIMARY',
+    recipient: null,
+    channel: 'API_EVENT',
+    status: 'PENDING',
+    attempts: 0,
+    sentAt: null,
+    lastError: null,
+  },
+  {
+    tier: 'MANAGER',
+    recipient: 'Tran Van B',
+    channel: 'EMAIL',
+    status: 'FAILED',
+    attempts: 5,
+    sentAt: null,
+    lastError: 'SMTP 451',
+  },
+];
 
 const view = (overrides: Record<string, unknown> = {}) => ({
   id: 'inc-1',
@@ -52,9 +110,9 @@ const page = (items: unknown[]) => ({
   totalPages: items.length > 0 ? 2 : 0,
 });
 
-const renderAt = (path: string) =>
+const renderAt = (path: string, user: SessionUser = ME) =>
   render(
-    <AuthContext.Provider value={{ user: ME, signOut: vi.fn() }}>
+    <AuthContext.Provider value={{ user, signOut: vi.fn() }}>
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
@@ -152,11 +210,22 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
 });
 
 describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
-  const detail = (overrides: Record<string, unknown> = {}) => {
-    api.mockImplementation((endpoint: string, options?: RequestInit) =>
-      options?.method === 'POST' ? Promise.resolve(view()) : Promise.resolve(view(overrides)),
-    );
+  // Answers by endpoint: the trail and the alert log are their own GETs (api-design 12 and 14).
+  const detail = (
+    overrides: Record<string, unknown> = {},
+    panels: { trail?: () => Promise<unknown>; alerts?: () => Promise<unknown> } = {},
+  ) => {
+    api.mockImplementation((endpoint: string, options?: RequestInit) => {
+      if (options?.method === 'POST') return Promise.resolve(view());
+      if (endpoint.endsWith('/transitions'))
+        return panels.trail ? panels.trail() : Promise.resolve(TRAIL);
+      if (endpoint.endsWith('/alerts'))
+        return panels.alerts ? panels.alerts() : Promise.resolve(ALERTS);
+      return Promise.resolve(view(overrides));
+    });
   };
+  const gets = (endpoint: string) =>
+    api.mock.calls.filter(([called]) => called === endpoint).length;
   const posted = () =>
     api.mock.calls
       .filter(([, options]) => (options as RequestInit | undefined)?.method === 'POST')
@@ -193,7 +262,7 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     });
     renderAt('/o/incidents/inc-1');
     expect(await screen.findByRole('heading', { name: 'INC-2026-000001' })).toBeTruthy();
-    expect(lastGet()).toBe('/incidents/inc-1');
+    expect(gets('/incidents/inc-1')).toBe(1);
     expect(screen.getByText('Le Thi E')).toBeTruthy();
     expect(screen.getByText('1, reopened 2 times')).toBeTruthy();
     expect(screen.getByText('11.55440, 108.53810')).toBeTruthy();
@@ -352,5 +421,97 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(screen.getByRole('link', { name: 'Back to incidents' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(api.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it('shows the transition trail in order, with SYSTEM and unknown reason codes as sent (api-design 12)', async () => {
+    detail();
+    renderAt('/o/incidents/inc-1');
+    const trail = await screen.findByRole('region', { name: 'History' });
+    expect(await within(trail).findByText('Created as Detected')).toBeTruthy();
+    const rows = within(trail).getAllByRole('listitem');
+    expect(rows.map((row) => row.firstChild?.textContent)).toEqual([
+      'Created as Detected',
+      'Detected to Notifying primary',
+      'Notifying primary to Acknowledged',
+    ]);
+    expect(within(rows[1]).getByText(/^Routed, by the system, /)).toBeTruthy();
+    expect(within(rows[2]).getByText(/^SOME_NEW_CODE, by Pham Van D, /)).toBeTruthy();
+    expect(gets('/incidents/inc-1/transitions')).toBe(1);
+  });
+
+  it('never requests or shows the alert log to an Org Operator', async () => {
+    detail();
+    renderAt('/o/incidents/inc-1');
+    await screen.findByRole('region', { name: 'History' });
+    expect(screen.queryByRole('region', { name: 'Alert deliveries' })).toBeNull();
+    expect(gets('/incidents/inc-1/alerts')).toBe(0);
+  });
+
+  it('shows an Org Manager the alert log with its outcomes and a Refresh (api-design 14)', async () => {
+    detail();
+    renderAt('/o/incidents/inc-1', MANAGER);
+    const log = await screen.findByRole('region', { name: 'Alert deliveries' });
+    expect(await within(log).findByText(/^PRIMARY, Pham Van D, Live alert/)).toBeTruthy();
+    expect(within(log).getByText(/^PRIMARY, Organization API stream, API event/)).toBeTruthy();
+    expect(within(log).getByText(/^MANAGER, Tran Van B, Email/)).toBeTruthy();
+    expect(within(log).getByText('Sent')).toBeTruthy();
+    expect(within(log).getByText('Pending')).toBeTruthy();
+    expect(within(log).getByText('Failed')).toBeTruthy();
+    expect(within(log).getByText(/^1 attempt, sent /)).toBeTruthy();
+    expect(within(log).getByText('0 attempts')).toBeTruthy();
+    expect(within(log).getByText('5 attempts, last error: SMTP 451')).toBeTruthy();
+    expect(within(log).getByText(/does not undo the incident's state change/)).toBeTruthy();
+    fireEvent.click(within(log).getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(gets('/incidents/inc-1/alerts')).toBe(2));
+  });
+
+  it('shows the empty trail and the empty alert log', async () => {
+    detail({}, { trail: () => Promise.resolve([]), alerts: () => Promise.resolve([]) });
+    renderAt('/o/incidents/inc-1', MANAGER);
+    expect(await screen.findByText('No history recorded.')).toBeTruthy();
+    expect(await screen.findByText('No alerts sent for this incident.')).toBeTruthy();
+  });
+
+  it('hides a panel the caller may not read and keeps the rest of the page', async () => {
+    const forbidden = () =>
+      Promise.reject(new ApiError(403, 'FORBIDDEN', 'You do not have access to this.'));
+    detail({}, { trail: forbidden, alerts: forbidden });
+    renderAt('/o/incidents/inc-1', MANAGER);
+    await screen.findByRole('heading', { name: 'INC-2026-000001' });
+    await waitFor(() => expect(gets('/incidents/inc-1/alerts')).toBe(1));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'History' })).toBeNull());
+    expect(screen.queryByRole('region', { name: 'Alert deliveries' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeTruthy();
+  });
+
+  it('rechecks the main record when a panel answers 404', async () => {
+    detail(
+      {},
+      { trail: () => Promise.reject(new ApiError(404, 'NOT_FOUND', 'Incident not found.')) },
+    );
+    renderAt('/o/incidents/inc-1');
+    await screen.findByRole('heading', { name: 'INC-2026-000001' });
+    await waitFor(() => expect(gets('/incidents/inc-1')).toBe(2));
+    expect(screen.queryByRole('region', { name: 'History' })).toBeNull();
+  });
+
+  it('offers a retry inside the panel for any other failure', async () => {
+    let fail = true;
+    detail(
+      {},
+      {
+        trail: () =>
+          fail
+            ? Promise.reject(new ApiError(500, 'INTERNAL_ERROR', 'Something broke.'))
+            : Promise.resolve(TRAIL),
+      },
+    );
+    renderAt('/o/incidents/inc-1');
+    const trail = await screen.findByRole('region', { name: 'History' });
+    expect(await within(trail).findByText('Something broke.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeTruthy();
+    fail = false;
+    fireEvent.click(within(trail).getByRole('button', { name: 'Try again' }));
+    expect(await within(trail).findByText('Created as Detected')).toBeTruthy();
   });
 });

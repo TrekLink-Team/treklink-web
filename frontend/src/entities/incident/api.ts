@@ -47,6 +47,27 @@ export interface IncidentDetail extends Incident {
   }[];
 }
 
+// api-design 12: the append-only trail. `actor` is the person's name, or SYSTEM.
+export interface IncidentTransition {
+  seq: number;
+  fromState: IncidentState | null;
+  toState: IncidentState;
+  actor: string;
+  reason: string;
+  createdAt: string;
+}
+
+// api-design 14: one alert delivery. `recipient` is null for an organization API event.
+export interface AlertDelivery {
+  tier: string;
+  recipient: string | null;
+  channel: 'WEB' | 'WEBSOCKET' | 'EMAIL' | 'API_EVENT';
+  status: 'PENDING' | 'SENT' | 'FAILED';
+  attempts: number;
+  sentAt: string | null;
+  lastError: string | null;
+}
+
 export interface IncidentFilters {
   state?: IncidentState;
   open?: boolean;
@@ -65,11 +86,14 @@ export const SOURCE_LABEL: Record<Incident['source'], string> = {
 export const SAR_DISCLAIMER =
   'TrekLink does not replace official search-and-rescue channels. Your organization remains responsible for its own emergency response.';
 
-// LiveProvider invalidates ['incident', id] and ['incidents'] on `incident.changed`.
+// LiveProvider invalidates ['incident', id] and ['incidents'] on `incident.changed`; the panel keys
+// sit under ['incident', id], so the same event refreshes them.
 export const incidentKeys = {
   all: ['incidents'] as const,
   list: (filters: IncidentFilters) => ['incidents', filters] as const,
   detail: (id: string) => ['incident', id] as const,
+  transitions: (id: string) => ['incident', id, 'transitions'] as const,
+  alerts: (id: string) => ['incident', id, 'alerts'] as const,
 };
 
 export const fetchIncidents = (filters: IncidentFilters) =>
@@ -95,6 +119,37 @@ export const useIncidents = (filters: IncidentFilters) =>
 
 export const useIncident = (id: string) =>
   useQuery({ queryKey: incidentKeys.detail(id), queryFn: () => fetchIncident(id) });
+
+export const fetchTransitions = (id: string) =>
+  apiClient<IncidentTransition[]>(`/incidents/${id}/transitions`);
+
+export const fetchAlerts = (id: string) => apiClient<AlertDelivery[]>(`/incidents/${id}/alerts`);
+
+export const useIncidentTransitions = (id: string) =>
+  useQuery({ queryKey: incidentKeys.transitions(id), queryFn: () => fetchTransitions(id) });
+
+// Operators neither request nor render the alert log (screen 8.1), so the query is off for them.
+export const useIncidentAlerts = (id: string, enabled: boolean) =>
+  useQuery({ queryKey: incidentKeys.alerts(id), queryFn: () => fetchAlerts(id), enabled });
+
+// Transition reasons as the history shows them; timeout and stale owner response stay apart
+// (screen 8.1 MSG34). An unknown code is shown as sent.
+export const REASON_LABEL: Record<string, string> = {
+  CREATED: 'Created',
+  ROUTED: 'Routed',
+  EMPTY_TIER: 'Tier empty, skipped',
+  TIER_TIMEOUT: 'No acknowledgement in time',
+  ACKNOWLEDGED: 'Acknowledged',
+  RESPONDING: 'Response under way',
+  STALE_LIMIT: 'No status update in time',
+  OWNER_DEACTIVATED: 'Owner deactivated',
+  RESOLVED: 'Resolved',
+  FALSE_ALARM: 'False alarm',
+  AUTHORITY_REPORTED: 'Reported to authorities',
+  CASE_CLOSED: 'Authority case closed',
+  REOPENED: 'Reopened',
+  REOPEN_WINDOW_ENDED: 'Reopen window ended',
+};
 
 const post = <T>(endpoint: string, body: object): Promise<T> =>
   apiClient<T>(endpoint, { method: 'POST', body: JSON.stringify(body) });
