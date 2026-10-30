@@ -92,3 +92,66 @@ describe('FieldEventQueryService.listEvents (api-design 03)', () => {
     });
   });
 });
+
+describe('FieldEventQueryService.historyPoints (monitoring api-design 03)', () => {
+  const from = new Date('2026-10-20T00:00:00Z');
+  const to = new Date('2026-10-21T00:00:00Z');
+  let repository: { historyRows: jest.Mock };
+  let service: FieldEventQueryService;
+
+  beforeEach(() => {
+    repository = {
+      historyRows: jest.fn().mockResolvedValue([
+        {
+          occurredAt: new Date('2026-10-20T03:15:00Z'),
+          kind: 'POSITION',
+          latitude: 11.56,
+          longitude: 108.54,
+          altitude: 1320,
+          batteryPct: null,
+        },
+      ]),
+    };
+    service = new FieldEventQueryService(repository as unknown as SyncQueryRepository, {} as never);
+  });
+
+  it("scopes an organization's read to its events and never returns an unplotted position", async () => {
+    const points = await service.historyPoints({
+      deviceId: 'd-1',
+      organizationId: 'org-1',
+      from,
+      to,
+      kinds: ['POSITION', 'TELEMETRY'],
+    });
+    expect(repository.historyRows).toHaveBeenCalledWith({
+      deviceId: 'd-1',
+      organizationId: 'org-1',
+      kind: { in: ['POSITION', 'TELEMETRY'] },
+      occurredAt: { gte: from, lt: to },
+      NOT: { kind: 'POSITION', plotted: false },
+    });
+    expect(points).toEqual([
+      {
+        at: new Date('2026-10-20T03:15:00Z'),
+        kind: 'POSITION',
+        lat: 11.56,
+        lon: 108.54,
+        altitude: 1320,
+        batteryPct: null,
+      },
+    ]);
+  });
+
+  it('does not filter by organization for the whole history of Staff and Admin', async () => {
+    await service.historyPoints({
+      deviceId: 'd-1',
+      organizationId: null,
+      from,
+      to,
+      kinds: ['TELEMETRY'],
+    });
+    const [where] = repository.historyRows.mock.calls[0] as [Record<string, unknown>];
+    expect(where).not.toHaveProperty('organizationId');
+    expect(where.kind).toEqual({ in: ['TELEMETRY'] });
+  });
+});
