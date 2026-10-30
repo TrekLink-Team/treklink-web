@@ -91,4 +91,18 @@ describe('ContractDetailPage', () => {
     renderPage();
     expect(screen.getByText('5 x treklink-v3')).toBeTruthy();
   });
+
+  it('shows the reservation expiry while the contract is APPROVED', () => {
+    renderPage();
+    expect(screen.getByText('Reservation expires')).toBeTruthy();
+  });
+
+  it.each(['ACTIVE', 'ENDING', 'RETURN_DUE', 'CANCELLED', 'CLOSED'])(
+    'hides the reservation expiry once the contract is %s',
+    (status) => {
+      contract = { ...baseContract, status, handedOverAt: '2026-10-30T09:30:00Z' };
+      renderPage();
+      expect(screen.queryByText('Reservation expires')).toBeNull();
+    },
+  );
 });

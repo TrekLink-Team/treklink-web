@@ -23,6 +23,7 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 | Organization (TrekLink detail only) | rentals 03 `organization.code`, `legalName` |
 | Header: code, status, plan, quantity, variant | rentals 03 `code`, `status`, `planType`, `dayPlanDays`, `quantity`, `hardwareVariant.id`; the variant is named by its display name, billing 01 `variants[].name` matched on `id` (the name the request form shows, screen 5.1), and by `hardwareVariant.code` until that read answers or for a variant no longer listed (dry run 2026-10-30) |
 | Dates: requested start, handover appointment, handed over, current term, notice given, ends, return due | rentals 03 `requestedStartDate`, `handoverAppointmentAt`, `handedOverAt`, `currentTerm.seq`, `startsAt`, `endsAt`, `noticeGivenAt`, `endsAt`, `returnDueAt` |
+| Reservation expires, only while the contract is `APPROVED`: the reservation holds the units from approval to the handover (rentals REQ-EVT-02, REQ-EVT-14) | rentals 03 `reservationExpiresAt` |
 | Prices fixed at request | rentals 03 `monthlyUnitPriceVnd`, `dayPremium`, `holdingFeeRatio` |
 | Terms | rentals 03 `terms[].seq`, `startsAt`, `endsAt`, `status` |
 | Devices: asset tag, holder, handed over, back, lost | rentals 03 `devices[].assetTag`, `holder.name`, `phone`, `emergencyContact`, `handedOverAt`, `checkedInAt`, `lostAt` |
