@@ -62,7 +62,10 @@ export interface PageHeaderProps {
   className?: string;
 }
 
-/** Breadcrumb, title and the primary action. One per page, first in the content area. */
+/**
+ * Breadcrumb, title and the primary action. One per page, first in the content area. Inside a
+ * StickyPageHeader it shrinks while compact: a smaller title, no description.
+ */
 export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
   id,
@@ -73,16 +76,23 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
   className,
 }) => (
-  <header className={cn('mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3', className)}>
+  <header
+    className={cn(
+      'mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 group-data-[compact=true]/chrome:mb-2 group-data-[compact=true]/chrome:gap-y-1',
+      className,
+    )}
+  >
     <div className="flex min-w-0 flex-col gap-1">
       {breadcrumb && <Breadcrumb items={breadcrumb} />}
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 id={id} tabIndex={-1} className="text-title-lg text-ink outline-none">
+        <h1 id={id} tabIndex={-1} className="text-title-lg text-ink outline-none group-data-[compact=true]/chrome:text-title-sm">
           {title}
         </h1>
         {meta && <span className="text-body text-ink-muted">{meta}</span>}
       </div>
-      {description && <p className="max-w-measure text-body text-ink-muted">{description}</p>}
+      {description && (
+        <p className="max-w-measure text-body text-ink-muted group-data-[compact=true]/chrome:hidden">{description}</p>
+      )}
     </div>
     {(actions || primaryAction) && (
       <div className="flex flex-wrap items-center gap-2">
