@@ -89,7 +89,7 @@ def activity(ep, errs):
 
 
 def sequence(ep):
-    # An endpoint may carry its whole sequence (participants, messages, alt fragments) when the generic
+    # An endpoint may carry its whole sequence (participants, messages, one alt) when the generic
     # Client, controller, service, Postgres outline would not match the code; autonumber stays.
     if ep.get("sequence"):
         return "\n".join(["sequenceDiagram", "    autonumber"] + ["    " + line for line in ep["sequence"]])
@@ -150,6 +150,9 @@ def render(module, ep):
                 "<td>", "", "```json", envelope({"errorCode": code}, False, status, msg), "```", "</td>", "        </tr>"]
     out += ["    </tbody>", "</table>", "", "## Activity Diagram", "", "```mermaid", activity(ep, errs), "```", "",
             "## Sequence Diagram", "", "```mermaid", sequence(ep), "```", ""]
+    # One line naming the refusals the sequence leaves to the Validation table and the activity diagram.
+    if ep.get("sequence_note"):
+        out += [ep["sequence_note"], ""]
     return "\n".join(out)
 
 
