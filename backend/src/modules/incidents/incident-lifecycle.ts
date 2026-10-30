@@ -195,6 +195,7 @@ export class IncidentLifecycle {
     // with code, ownerName, lastPosition and stale per monitoring/api-design/ws-live-contract.md.
     this.events.emitAfterCommit('incident.changed', {
       incidentId: id,
+      deviceId: updated.deviceId,
       organizationId: updated.organizationId,
       state: to,
       tier: tierOf(to),
