@@ -7,7 +7,9 @@ const STAFF = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 
 describe('ChannelKeyController (api-design 27)', () => {
   const channelKey = {
-    rotate: jest.fn().mockResolvedValue({ id: ORG, channelKeyVersion: 3, channelKeyExposedAt: null }),
+    rotate: jest
+      .fn()
+      .mockResolvedValue({ id: ORG, channelKeyVersion: 3, channelKeyExposedAt: null }),
   };
   const controller = new ChannelKeyController(channelKey as unknown as ChannelKeyService);
 

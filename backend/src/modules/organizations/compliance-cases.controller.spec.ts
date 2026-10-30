@@ -8,9 +8,7 @@ const CASE_ID = 'c4d3e2f1-a0b9-4c8d-9e7f-6a5b4c3d2e1f';
 const STAFF = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 const ADMIN = { id: 'u-admin', roles: ['ADMIN'], organizationId: null };
 
-const policyOf = (
-  method: 'page' | 'detail' | 'open' | 'act' | 'close',
-): PolicyHandler => {
+const policyOf = (method: 'page' | 'detail' | 'open' | 'act' | 'close'): PolicyHandler => {
   const handler = Object.getOwnPropertyDescriptor(ComplianceCasesController.prototype, method)!
     .value as object;
   return (Reflect.getMetadata(CHECK_POLICIES_KEY, handler) as PolicyHandler[])[0];
@@ -34,7 +32,11 @@ describe('ComplianceCasesController (api-design 28 to 32)', () => {
   });
 
   it('opens a case with trimmed evidence and defaulted link arrays', async () => {
-    await controller.open(ORG, { type: ComplianceCaseType.OTHER_BREACH, evidence: ' Evidence ' }, STAFF);
+    await controller.open(
+      ORG,
+      { type: ComplianceCaseType.OTHER_BREACH, evidence: ' Evidence ' },
+      STAFF,
+    );
     expect(cases.open).toHaveBeenCalledWith(
       ORG,
       {

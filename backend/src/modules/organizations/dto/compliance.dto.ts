@@ -3,11 +3,13 @@ import {
   ArrayMaxSize,
   IsArray,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
 
@@ -69,4 +71,16 @@ export class CloseComplianceCaseDto {
   @IsString()
   @MaxLength(100)
   authorityReference?: string | null;
+}
+
+// organizations api-design 27, the channel key rotation recorded from screen 3.6.
+export class RotateChannelKeyDto {
+  @IsString()
+  @Matches(TEXT, { message: 'reason is required.' })
+  @MaxLength(500)
+  reason!: string;
+
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
 }

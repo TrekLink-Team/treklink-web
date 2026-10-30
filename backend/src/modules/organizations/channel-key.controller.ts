@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post } fr
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { ChannelKeyService } from './channel-key.service';
-import { RotateChannelKeyDto } from './dto/field-stations.dto';
+import { RotateChannelKeyDto } from './dto/compliance.dto';
 
 // api-design 27 (screen 3.6): `organization.rotateKey`, granted to TrekLink Staff and, through
 // FR-AUTH-10 inheritance, to Admin.
