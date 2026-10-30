@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Approves, reduces or waives a charge above `billing.damageApprovalThresholdVnd`. The approver must not be the inspector (BR-24, E05-6, MSG30). The decided amount becomes a DAMAGE line on the closing invoice.
+Approves, reduces or waives a charge above `billing.damageApprovalThresholdVnd`. The approver must not be the inspector (BR-24, E05-6, MSG30), checked against the inspector the charge stores (D-081). An approved or reduced amount becomes a DAMAGE line on the contract's closing invoice, found by the charge's contract; a waiver adds no line.
 
 ## API Specification
 
@@ -190,16 +190,18 @@ flowchart TB
     E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    P0["Require PENDING_APPROVAL"]
+    P0["Lock the charge"]
     D3 -->|no| P0
-    P1["Refuse the inspector"]
+    P1["Require PENDING_APPROVAL"]
     P0 --> P1
-    P2["Record the decision"]
+    P2["Refuse the inspector"]
     P1 --> P2
-    P3["Add the DAMAGE line to the closing invoice draft"]
+    P3["Record the decision"]
     P2 --> P3
+    P4["Add the DAMAGE line to the closing invoice, unless waived"]
+    P3 --> P4
     OK["Return 200"]
-    P3 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -213,9 +215,10 @@ sequenceDiagram
     participant Svc as DamageChargeService
     participant DB as Postgres
     C->>Ctl: POST /api/damage-charges/:id/decision
-    Ctl->>Svc: decide(id, dto, actor)
-    Svc->>DB: SELECT charge, inspection FOR UPDATE
+    Ctl->>Svc: decide(id, input, actor)
+    Svc->>DB: SELECT damage_charges FOR UPDATE
     Svc->>DB: UPDATE damage_charges
+    Svc->>DB: INSERT invoice_lines (DAMAGE)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

@@ -131,10 +131,12 @@ export class ChargesService {
   // Above `billing.damageApprovalThresholdVnd` it waits for an Admin (PENDING_APPROVAL); at or below
   // it is APPROVED at once and becomes a DAMAGE line on the closing invoice. A code with no active
   // rate is 400 UNKNOWN_DAMAGE_CODE and records nothing. Null for an inspection without damage codes.
+  // The charge stores its contract, its inspector and its codes (D-081), so the Admin decision
+  // (UC-48) needs no read from `rentals` or `devices`.
   async chargeDamage(
     contract: ChargedContract,
     inspection: DamagedInspection,
-    actorId: string | null,
+    inspectorId: string,
     tx: Prisma.TransactionClient,
     at: Date = new Date(),
   ): Promise<DamageResult | null> {
@@ -160,6 +162,9 @@ export class ChargesService {
       {
         inspectionId: inspection.id,
         deviceId: inspection.deviceId,
+        contractId: contract.id,
+        inspectorId,
+        damageCodes: [...inspection.damageCodes],
         amountVnd: totalVnd,
         status: approved ? DamageChargeStatus.APPROVED : DamageChargeStatus.PENDING_APPROVAL,
         finalVnd: approved ? totalVnd : null,
@@ -179,7 +184,7 @@ export class ChargesService {
         unitVnd: totalVnd,
         amountVnd: totalVnd,
         dueAt: at,
-        createdById: actorId,
+        createdById: inspectorId,
       },
       tx,
       at,
@@ -252,16 +257,40 @@ export class ChargesService {
     );
   }
 
-  // Damage charges on these devices since `since` still waiting for an Admin decision: they have no
-  // invoice line yet, so the balance does not show them (rentals api-design 17 close guard).
-  pendingDamage(
-    deviceIds: readonly string[],
-    since: Date,
+  // The contract's damage charges still waiting for an Admin decision: they have no invoice line yet,
+  // so the lines alone do not show them (rentals api-design 17 close guard, D-081).
+  async pendingDamage(contractId: string, tx: Prisma.TransactionClient): Promise<number> {
+    return (await this.damageCharges.pendingOfContract(contractId, tx)).length;
+  }
+
+  // The Admin decision on a charge above the threshold (UC-48, api-design 17, FR-BILL-04, BR-24): an
+  // approved or reduced amount becomes a DAMAGE line on the contract's closing invoice; a waiver adds
+  // nothing. The caller holds the charge lock and has checked the state and the approver.
+  async addDecidedDamage(
+    contract: ChargedContract,
+    charge: { deviceId: string; damageCodes: readonly string[] },
+    assetTag: string,
+    amountVnd: bigint,
+    actorId: string,
     tx: Prisma.TransactionClient,
-  ): Promise<number> {
-    return deviceIds.length === 0
-      ? Promise.resolve(0)
-      : this.damageCharges.countPending(deviceIds, since, tx);
+    at: Date,
+  ): Promise<InvoiceRow | null> {
+    if (amountVnd <= 0n) return null;
+    return this.addToClosing(
+      contract,
+      {
+        type: InvoiceLineType.DAMAGE,
+        description: `Damage to ${assetTag}: ${charge.damageCodes.join(', ')}`,
+        deviceId: charge.deviceId,
+        quantity: 1,
+        unitVnd: amountVnd,
+        amountVnd,
+        dueAt: at,
+        createdById: actorId,
+      },
+      tx,
+      at,
+    );
   }
 
   // Appends the line to the contract's closing invoice, created with it on the first charge (design

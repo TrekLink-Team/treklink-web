@@ -17,9 +17,9 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
     expect(routes(visibleNav('ORGANIZATION', ['ORG_MANAGER']))).toEqual(['/o', '/o/map', '/o/incidents', '/o/contracts', '/o/invoices', '/o/api-keys']);
   });
 
-  it('gives TrekLink Staff the fleet map, contracts, organizations and billing, and Admin those plus the built administration pages', () => {
-    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/organizations', '/t/billing']);
-    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/organizations', '/t/billing', '/t/admin/prices']);
+  it('gives TrekLink Staff the fleet map, contracts, organizations, billing and damage charges, and Admin those plus the built administration pages', () => {
+    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/organizations', '/t/billing', '/t/damage-charges']);
+    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/organizations', '/t/billing', '/t/damage-charges', '/t/admin/prices']);
   });
 
   it('keeps Administration for Admin only once its pages are built', () => {

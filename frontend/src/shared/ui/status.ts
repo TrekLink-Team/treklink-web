@@ -18,8 +18,10 @@ export const TONE_GLYPH: Record<StatusTone, string> = {
 
 /** Badge classes per tone. Solid tones carry a 1 px edge so the fill reads on every surface. */
 export const TONE_CLASSES: Record<StatusTone, string> = {
-  critical: 'bg-status-critical-strong text-status-critical-on border-status-critical-fg font-extrabold',
-  attention: 'bg-status-attention-tint text-status-attention-fg border-status-attention-line font-bold',
+  critical:
+    'bg-status-critical-strong text-status-critical-on border-status-critical-fg font-extrabold',
+  attention:
+    'bg-status-attention-tint text-status-attention-fg border-status-attention-line font-bold',
   active: 'bg-status-active-tint text-status-active-fg border-status-active-line font-bold',
   waiting: 'bg-status-waiting-tint text-status-waiting-fg border-status-waiting-line font-bold',
   done: 'bg-status-done-strong text-status-done-on border-status-done-fg font-extrabold',
@@ -111,6 +113,15 @@ export const INVOICE_STATUS: Palette<InvoiceStatus> = {
   ISSUED: { label: 'Issued', tone: 'active' },
   PARTIALLY_PAID: { label: 'Partly paid', tone: 'attention' },
   PAID: { label: 'Paid', tone: 'done' },
+};
+
+export type DamageChargeStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REDUCED' | 'WAIVED';
+
+export const DAMAGE_CHARGE_STATUS: Palette<DamageChargeStatus> = {
+  PENDING_APPROVAL: { label: 'Waiting for an Admin', tone: 'attention' },
+  APPROVED: { label: 'Approved', tone: 'done' },
+  REDUCED: { label: 'Reduced', tone: 'done' },
+  WAIVED: { label: 'Waived', tone: 'ended' },
 };
 
 export type IncidentState =

@@ -90,7 +90,13 @@ export class InvoicesController {
       dueNowVnd: vnd(summary.dueNowVnd),
       dueLaterVnd: vnd(summary.dueLaterVnd),
       paidVnd: vnd(summary.paidVnd),
-      pendingDamageCharges: [],
+      pendingDamageCharges: summary.pendingDamageCharges.map((charge) => ({
+        id: charge.id,
+        deviceId: charge.deviceId,
+        damageCodes: charge.damageCodes,
+        amountVnd: vnd(charge.amountVnd),
+        createdAt: charge.createdAt,
+      })),
       settled: summary.settled,
     };
   }

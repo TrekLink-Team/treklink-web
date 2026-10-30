@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesRepository, LineRow } from './invoices.repository';
 
 type Client = Prisma.TransactionClient;
@@ -9,6 +10,9 @@ export interface BalanceSummary {
   dueNowVnd: bigint;
   dueLaterVnd: bigint;
   paidVnd: bigint;
+  // Damage charges above the threshold still waiting for an Admin (UC-48): they have no invoice line
+  // yet, so they are listed apart and `settled` covers the lines only. The close guard counts them.
+  pendingDamageCharges: DamageChargeRow[];
   settled: boolean;
 }
 
@@ -39,12 +43,14 @@ const remainingAfterCredits = (lines: readonly LineRow[]): Remaining[] => {
 const sum = (items: readonly Remaining[]): bigint =>
   items.reduce((total, item) => total + item.vnd, 0n);
 
-// Balances over the contract's invoice lines (billing task 2.4, REQ-STA-02, FR-CON-13, BR-27).
-// Damage charges awaiting approval are not counted yet: `DamageCharge` carries no contract, so
-// billing cannot find a contract's pending charges from its own tables (treklink-docs#114).
+// Balances over the contract's invoice lines (billing task 2.4, REQ-STA-02, FR-CON-13, BR-27), with
+// the damage charges awaiting approval, found by the contract each charge stores (D-081).
 @Injectable()
 export class BalanceService {
-  constructor(private readonly invoices: InvoicesRepository) {}
+  constructor(
+    private readonly invoices: InvoicesRepository,
+    private readonly damageCharges: DamageChargesRepository,
+  ) {}
 
   // The first payment rule of the handover (FR-CON-05, BR-09): the first line of the contract's
   // first TERM or DAY_PLAN invoice, the holding fee or the day-plan fee, is paid in full.
@@ -65,7 +71,10 @@ export class BalanceService {
     at: Date = new Date(),
     client?: Client,
   ): Promise<BalanceSummary> {
-    const lines = await this.invoices.linesOfContract(contractId, client);
+    const [lines, pendingDamageCharges] = await Promise.all([
+      this.invoices.linesOfContract(contractId, client),
+      this.damageCharges.pendingOfContract(contractId, client),
+    ]);
     const remaining = remainingAfterCredits(lines);
     const dueNowVnd = sum(remaining.filter((item) => item.dueAt.getTime() <= at.getTime()));
     const dueLaterVnd = sum(remaining) - dueNowVnd;
@@ -75,6 +84,7 @@ export class BalanceService {
       dueNowVnd,
       dueLaterVnd,
       paidVnd,
+      pendingDamageCharges,
       settled: dueNowVnd + dueLaterVnd === 0n,
     };
   }

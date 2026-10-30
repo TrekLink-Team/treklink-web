@@ -1,5 +1,6 @@
 import { InvoiceLineType, Prisma } from '@prisma/client';
 import { BalanceService } from './balance.service';
+import { DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesRepository } from './invoices.repository';
 
 const NOW = new Date('2026-11-01T00:00:00.000Z');
@@ -15,6 +16,7 @@ const line = (type: InvoiceLineType, amountVnd: bigint, paidVnd: bigint, dueAt: 
 
 describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
   let invoices: Record<string, jest.Mock>;
+  let damageCharges: Record<string, jest.Mock>;
   let service: BalanceService;
 
   beforeEach(() => {
@@ -22,7 +24,11 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
       firstChargeableInvoice: jest.fn().mockResolvedValue(null),
       linesOfContract: jest.fn().mockResolvedValue([]),
     };
-    service = new BalanceService(invoices as unknown as InvoicesRepository);
+    damageCharges = { pendingOfContract: jest.fn().mockResolvedValue([]) };
+    service = new BalanceService(
+      invoices as unknown as InvoicesRepository,
+      damageCharges as unknown as DamageChargesRepository,
+    );
   });
 
   describe('firstPaymentConfirmed (FR-CON-05, BR-09)', () => {
@@ -93,6 +99,7 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         dueNowVnd: 100_000n,
         dueLaterVnd: 2_250_000n,
         paidVnd: 2_250_000n,
+        pendingDamageCharges: [],
         settled: false,
       });
     });
@@ -120,8 +127,23 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         dueNowVnd: 0n,
         dueLaterVnd: 0n,
         paidVnd: 720_000n,
+        pendingDamageCharges: [],
         settled: true,
       });
+    });
+
+    it('lists the damage charges still waiting for an Admin apart from the lines (D-081)', async () => {
+      const pending = { id: 'dc-1', amountVnd: 700_000n };
+      damageCharges.pendingOfContract.mockResolvedValue([pending]);
+      invoices.linesOfContract.mockResolvedValue([
+        line(InvoiceLineType.DAY_PLAN_FEE, 720_000n, 720_000n, EARLY),
+      ]);
+      await expect(service.balanceSummary('c-1', NOW, TX)).resolves.toMatchObject({
+        dueNowVnd: 0n,
+        pendingDamageCharges: [pending],
+        settled: true,
+      });
+      expect(damageCharges.pendingOfContract).toHaveBeenCalledWith('c-1', TX);
     });
   });
 });

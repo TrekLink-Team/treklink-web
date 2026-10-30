@@ -125,7 +125,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     label: 'Billing',
     entries: [
       { route: '/t/billing', label: 'Invoices and payments', icon: Receipt, roles: STAFF, built: true, tabBar: 4 },
-      { route: '/t/damage-charges', label: 'Damage charges', icon: BadgeDollarSign, roles: STAFF, built: false },
+      { route: '/t/damage-charges', label: 'Damage charges', icon: BadgeDollarSign, roles: STAFF, built: true },
     ],
   },
   {
