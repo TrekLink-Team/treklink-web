@@ -10,8 +10,8 @@ export interface PlottedPosition {
   occurredAt: Date;
 }
 
-// The only class of `gateway-sync` that touches Prisma. Models: FieldEvent, SyncAuditLog,
-// DeviceQueueReport (the `// @module gateway-sync` block).
+// The writer of `gateway-sync` (models FieldEvent, SyncAuditLog, DeviceQueueReport of the
+// `// @module gateway-sync` block); the reads of api-design 03 and 07 are SyncQueryRepository.
 @Injectable()
 export class IngestionRepository {
   constructor(private readonly prisma: PrismaService) {}

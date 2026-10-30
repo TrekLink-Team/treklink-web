@@ -70,6 +70,18 @@ export const gatewayConfig = {
     qos: num('GATEWAY_MQTT_QOS', 1) as 0 | 1 | 2,
   },
 
+  /**
+   * The Field Station identity and its health report (gateway-sync design §3, FR-EVT-13). The report goes
+   * to `<root>/fs/<username>/health`; with no username the station sends none.
+   */
+  station: {
+    username: str('GATEWAY_FS_USERNAME', ''),
+    /** The topic root, `MQTT_ROOT` on the backend. */
+    mqttRoot: str('GATEWAY_MQTT_ROOT', 'treklink'),
+    /** Milliseconds between health reports while connected; the design's cadence is 60 s. */
+    healthIntervalMs: num('GATEWAY_HEALTH_INTERVAL_MS', 60_000),
+  },
+
   serial: {
     port: str('GATEWAY_SERIAL_PORT', '/dev/ttyUSB0'),
     baudRate: num('GATEWAY_SERIAL_BAUD', 115_200),

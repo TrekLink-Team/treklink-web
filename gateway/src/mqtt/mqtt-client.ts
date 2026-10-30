@@ -2,6 +2,7 @@ import * as mqtt from 'mqtt';
 import pino from 'pino';
 import { SQLitePriorityQueue } from '../queue/priority-queue';
 import { gatewayConfig } from '../config';
+import { buildHealthReport, gatewayVersion, healthTopic } from './health-report';
 
 const logger = pino({ name: 'GatewayMQTT' });
 
@@ -9,6 +10,10 @@ export class GatewayMqttClient {
   private client: mqtt.MqttClient | null = null;
   private isConnected = false;
   private flushing = false;
+  private healthTimer: NodeJS.Timeout | null = null;
+  /** Station clock, epoch ms, of the last publish the broker acknowledged. */
+  private lastFlushAt: number | null = null;
+  private readonly version = gatewayVersion();
 
   constructor(
     private brokerUrl: string = gatewayConfig.mqtt.brokerUrl,
@@ -25,12 +30,16 @@ export class GatewayMqttClient {
     this.client.on('connect', () => {
       this.isConnected = true;
       logger.info('Connected to MQTT broker. Triggering queue flush...');
+      // The first report shows the backlog the outage left, before the flush drains it.
+      this.publishHealth();
+      this.startHealthTimer();
       this.flushQueue();
     });
 
     this.client.on('close', () => {
       this.isConnected = false;
       this.flushing = false;
+      this.stopHealthTimer();
       logger.warn('MQTT connection closed. Storing upcoming events offline in SQLite.');
     });
 
@@ -53,7 +62,8 @@ export class GatewayMqttClient {
 
   // Publishes one batch in tier order and waits for every acknowledgement, then takes the next batch
   // until the queue is empty. One flush runs at a time, so a row is never published twice by two
-  // overlapping flushes; a row whose publish failed stays queued for the next flush.
+  // overlapping flushes; a row whose publish failed stays queued for the next flush, its attempt counted.
+  // A drained queue sends a health report, so the cloud sees the empty queue and the flush time at once.
   public flushQueue(): void {
     if (!this.isConnected || !this.client || this.flushing) return;
     const batch = this.queue.peek(gatewayConfig.queue.flushBatchSize);
@@ -67,7 +77,9 @@ export class GatewayMqttClient {
       pending -= 1;
       if (pending > 0) return;
       this.flushing = false;
-      if (!failed) this.flushQueue();
+      if (failed) return;
+      if (this.queue.count() === 0) this.publishHealth();
+      else this.flushQueue();
     };
     for (const item of batch) {
       const topic = this.topicOf(item.payload);
@@ -80,8 +92,10 @@ export class GatewayMqttClient {
       this.client.publish(topic, item.payload, { qos: gatewayConfig.mqtt.qos }, (err) => {
         if (!err) {
           this.queue.remove(item.id);
+          this.lastFlushAt = Date.now();
         } else {
           failed = true;
+          this.queue.markAttempt(item.id);
           logger.error(`Failed to publish event ${item.eventId}: ${err.message}`);
         }
         done();
@@ -89,7 +103,34 @@ export class GatewayMqttClient {
     }
   }
 
+  // The Field Station health report (gateway-sync design §3, FR-EVT-13): depth per tier, the oldest
+  // entry's attempts, the last flush and the version, on `<root>/fs/<username>/health`. Sent only while
+  // connected and only when GATEWAY_FS_USERNAME names the station.
+  public publishHealth(): void {
+    const { username, mqttRoot } = gatewayConfig.station;
+    if (!this.isConnected || !this.client || username === '') return;
+    const report = buildHealthReport(this.queue, this.version, this.lastFlushAt);
+    this.client.publish(healthTopic(mqttRoot, username), JSON.stringify(report), { qos: 1 }, (err) => {
+      if (err) logger.warn(`Health report not sent: ${err.message}`);
+    });
+  }
+
+  private startHealthTimer(): void {
+    this.stopHealthTimer();
+    if (gatewayConfig.station.username === '') {
+      logger.info('GATEWAY_FS_USERNAME is not set: no Field Station health reports are sent.');
+      return;
+    }
+    this.healthTimer = setInterval(() => this.publishHealth(), gatewayConfig.station.healthIntervalMs);
+  }
+
+  private stopHealthTimer(): void {
+    if (this.healthTimer) clearInterval(this.healthTimer);
+    this.healthTimer = null;
+  }
+
   public disconnect(): void {
+    this.stopHealthTimer();
     if (this.client) {
       this.client.end();
     }
