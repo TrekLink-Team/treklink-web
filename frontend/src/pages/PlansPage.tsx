@@ -4,6 +4,7 @@ import { useAuth } from '../app/providers/useAuth';
 import { usePlans, type Plans } from '../entities/billing/api';
 import { landingRoute } from '../entities/session/model';
 import { ApiError } from '../shared/api/apiClient';
+import { CONTACT_EMAIL } from '../shared/config/contact';
 import { formatVnd } from '../shared/lib/format';
 import {
   Alert,
@@ -17,8 +18,6 @@ import {
   buttonClasses,
 } from '../shared/ui';
 import { LINK, WARNING } from '../shared/ui/styles';
-
-export const CONTACT_EMAIL = 'treklink.team@gmail.com';
 
 // Static copy of the rental flow MF-01 and MF-02 (main flows, SRS): no endpoint.
 const STEPS = [
@@ -72,12 +71,13 @@ export const PlansPage: React.FC = () => {
   const retried = useRef(false);
 
   // After Retry succeeds, focus moves to the first variant card heading (screen 2.3, accessibility).
+  // Keyed on dataUpdatedAt: a refetch that returns equal prices keeps the same `data` reference.
   useEffect(() => {
     if (retried.current && plans.data && plans.data.variants.length > 0) {
       firstCard.current?.focus();
       retried.current = false;
     }
-  }, [plans.data]);
+  }, [plans.dataUpdatedAt, plans.data]);
 
   const retry = () => {
     retried.current = true;
@@ -183,7 +183,9 @@ export const PlansPage: React.FC = () => {
               ))}
             </div>
             <Terms plans={plans.data} />
-            {!user && <div className="flex sm:justify-start [&>a]:w-full sm:[&>a]:w-auto">{register}</div>}
+            {!user && (
+              <div className="flex sm:justify-start [&>a]:w-full sm:[&>a]:w-auto">{register}</div>
+            )}
           </>
         )}
       </section>

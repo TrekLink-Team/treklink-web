@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -47,9 +47,9 @@ const plans = (overrides: Partial<Plans> = {}): Plans => ({
   ...overrides,
 });
 
-const renderPage = () =>
+const renderPage = (client = new QueryClient()) =>
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <MemoryRouter>
         <PlansPage />
       </MemoryRouter>
@@ -146,6 +146,21 @@ describe('PlansPage (screen 2.3)', () => {
     expect(screen.getAllByText(SAR_DISCLAIMER)).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     const heading = await screen.findByText('TrekLink v3 (GPS, SOS button)');
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
+
+  it('returns focus after a Retry that loads the same prices again', async () => {
+    fetchPlans.mockResolvedValueOnce(plans());
+    fetchPlans.mockRejectedValueOnce(new ApiError(500, 'INTERNAL_ERROR', 'Prices are unavailable.'));
+    fetchPlans.mockResolvedValue(plans());
+    const client = new QueryClient();
+    renderPage(client);
+    const heading = await screen.findByText('TrekLink v3 (GPS, SOS button)');
+    // A background refetch fails: the prices stay with the error and Retry.
+    await act(() => client.refetchQueries({ queryKey: ['plans'] }));
+    expect(await screen.findByText('Prices are unavailable.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.queryByText('Prices are unavailable.')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(heading));
   });
 
