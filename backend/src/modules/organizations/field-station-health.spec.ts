@@ -1,6 +1,7 @@
 import type { PrismaService } from '../../common/prisma/prisma.service';
 import type { AccountsService } from '../auth';
 import type { MembersRepository } from './members.repository';
+import type { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationsService } from './organizations.service';
 
@@ -23,6 +24,7 @@ describe('OrganizationsService.fieldStationHealth', () => {
       new OrganizationsRepository(prisma),
       {} as MembersRepository,
       {} as AccountsService,
+      {} as OrganizationLifecycle,
     );
   });
 

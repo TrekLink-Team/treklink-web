@@ -70,6 +70,26 @@ export class ApiKeysRepository {
     return count === 1 ? this.find(organizationId, id, client) : null;
   }
 
+  // Revokes every key of the organization still live, as the closing of the organization does
+  // (REQ-EVT-06); returns their ids. Read and written under the organization row lock.
+  async revokeAllActive(
+    organizationId: string,
+    by: string,
+    at: Date,
+    client: Client = this.prisma,
+  ): Promise<string[]> {
+    const live = await client.apiKey.findMany({
+      where: { organizationId, revokedAt: null },
+      select: { id: true },
+    });
+    if (live.length === 0) return [];
+    await client.apiKey.updateMany({
+      where: { organizationId, revokedAt: null },
+      data: { revokedAt: at, revokedById: by },
+    });
+    return live.map((key) => key.id);
+  }
+
   // The live key behind a hash (API_KEY_RESOLVER); a revoked key is not found.
   findLiveByHash(keyHash: string, client: Client = this.prisma) {
     return client.apiKey.findFirst({

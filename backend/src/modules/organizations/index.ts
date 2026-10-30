@@ -4,6 +4,15 @@ export { OrganizationsService } from './organizations.service';
 export type { FieldStationHealthRow, OrganizationLabel } from './organizations.repository';
 export { RosterService } from './roster.service';
 export type { RosterTiers } from './roster.service';
+export {
+  ORGANIZATION_STATUS_CHANGED,
+  type OrganizationStatusChangedEvent,
+} from './organization-events';
+export {
+  ORGANIZATION_EXIT_CHECKS,
+  type ExitBlockingReason,
+  type OrganizationExitCheck,
+} from './ports/exit-checks.port';
 export { API_KEY_REVOKED, type ApiKeyRevokedEvent } from './api-key-events';
 export { FIELD_STATION_REVOKED, type FieldStationRevokedEvent } from './field-station-events';
 export { FieldStationsService } from './field-stations.service';

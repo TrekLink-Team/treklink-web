@@ -1,5 +1,6 @@
 import { AccountsService } from '../auth';
 import { MembersRepository } from './members.repository';
+import { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationsService } from './organizations.service';
 
@@ -11,6 +12,7 @@ describe('OrganizationsService.memberNames', () => {
       {} as OrganizationsRepository,
       {} as MembersRepository,
       { contactCard } as unknown as AccountsService,
+      {} as OrganizationLifecycle,
     );
     await expect(service.memberNames([])).resolves.toEqual(new Map());
     expect(contactCard).not.toHaveBeenCalled();
@@ -28,6 +30,7 @@ describe('OrganizationsService reads for other modules', () => {
       organizations as unknown as OrganizationsRepository,
       {} as MembersRepository,
       {} as AccountsService,
+      {} as OrganizationLifecycle,
     );
 
   it('answers 404 for the members or summary of an unknown organization', async () => {
@@ -50,6 +53,7 @@ describe('OrganizationsService reads for other modules', () => {
       { findStatus: jest.fn().mockResolvedValue('ACTIVE') } as unknown as OrganizationsRepository,
       { membersOf: jest.fn().mockResolvedValue([row]) } as unknown as MembersRepository,
       { contactCard: jest.fn().mockResolvedValue([]) } as unknown as AccountsService,
+      {} as OrganizationLifecycle,
     );
     await expect(
       organizations.membersOf('org-1', false, {

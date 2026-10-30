@@ -75,10 +75,14 @@ describe('ContractsService', () => {
 
   it('lets an organization close only with no unfinished contract (ORGANIZATION_EXIT_CHECKS)', async () => {
     await expect(service.canClose('org-1')).resolves.toBe(true);
-    expect(contracts.countUnfinishedContracts).toHaveBeenCalledWith('org-1');
+    expect(contracts.countUnfinishedContracts).toHaveBeenCalledWith('org-1', undefined);
 
     contracts.countUnfinishedContracts.mockResolvedValue(1);
     await expect(service.canClose('org-1')).resolves.toBe(false);
+
+    // In the closing transaction of `organizations`, so it reads what that transaction has locked.
+    await expect(service.canClose('org-1', tx)).resolves.toBe(false);
+    expect(contracts.countUnfinishedContracts).toHaveBeenLastCalledWith('org-1', tx);
   });
 
   it('ends the custody interval at the loss confirmation, in the caller transaction (REQ-EVT-12)', async () => {

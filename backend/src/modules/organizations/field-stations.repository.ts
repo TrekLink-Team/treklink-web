@@ -120,6 +120,26 @@ export class FieldStationsRepository {
     return count === 1 ? this.find(organizationId, id, client) : null;
   }
 
+  // Revokes every station of the organization still live, as the closing of the organization does
+  // (REQ-EVT-06); returns what `gateway-sync` needs to drop each topic. Under the organization row lock.
+  async revokeAllActive(
+    organizationId: string,
+    by: string,
+    at: Date,
+    client: Client = this.prisma,
+  ): Promise<{ id: string; mqttUsername: string }[]> {
+    const live = await client.fieldStation.findMany({
+      where: { organizationId, revokedAt: null },
+      select: { id: true, mqttUsername: true },
+    });
+    if (live.length === 0) return [];
+    await client.fieldStation.updateMany({
+      where: { organizationId, revokedAt: null },
+      data: { revokedAt: at, revokedById: by },
+    });
+    return live;
+  }
+
   findByUsername(
     mqttUsername: string,
     client: Client = this.prisma,

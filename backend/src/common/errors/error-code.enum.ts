@@ -93,6 +93,7 @@ export enum ErrorCode {
   LOSS_CASE_REQUIRED = 'LOSS_CASE_REQUIRED',
   UNKNOWN_DAMAGE_CODE = 'UNKNOWN_DAMAGE_CODE',
   BALANCE_OUTSTANDING = 'BALANCE_OUTSTANDING',
+  OPEN_CONTRACTS = 'OPEN_CONTRACTS',
   OPEN_INCIDENTS = 'OPEN_INCIDENTS',
 
   // devices (specs/devices/design.md §4): intake and maintenance (tasks 2.2, 2.8). SEPARATION_OF_DUTY

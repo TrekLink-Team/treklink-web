@@ -231,6 +231,16 @@ export class InvoicesRepository {
     });
   }
 
+  // Every line of every invoice of the organization with the contract it belongs to, oldest due first
+  // (the reactivation check of `organizations`).
+  linesOfOrganization(organizationId: string, client: Client = this.prisma) {
+    return client.invoiceLine.findMany({
+      where: { invoice: { organizationId } },
+      orderBy: [{ dueAt: 'asc' }, { seq: 'asc' }],
+      select: { ...LINE_SELECT, invoice: { select: { contractId: true } } },
+    });
+  }
+
   // A page of invoices, newest first (api-design 08). `overdue` keeps invoices with a line past its
   // due time and not fully paid.
   async page(
