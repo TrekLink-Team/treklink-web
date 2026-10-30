@@ -2,7 +2,8 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import L from 'leaflet';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMapConfig, type MapConfig } from '../../shared/config/map';
 import { LiveMapWidget, type MapMarker } from './LiveMapWidget';
 
@@ -244,5 +245,110 @@ describe('LiveMapWidget', () => {
       'Street contributors',
     );
     expect(screen.getByText('Quần đảo Hoàng Sa (Việt Nam)')).toBeTruthy();
+  });
+});
+
+describe('LiveMapWidget marker glide (dry run defect 10)', () => {
+  // A frame queue the test advances by hand, with the timestamp each frame receives.
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 1;
+  const runFrame = (now: number) => {
+    const pending = [...frames.values()];
+    frames.clear();
+    act(() => pending.forEach((callback) => callback(now)));
+  };
+  const at: [number, number] = [11.56, 108.54];
+  const near: [number, number] = [11.562, 108.542];
+  const other: [number, number] = [11.558, 108.538];
+  const lastMove = (spy: { mock: { calls: unknown[][] } }) =>
+    L.latLng(spy.mock.calls.at(-1)?.[0] as L.LatLngExpression);
+  const markerImg = () => screen.findByRole('img', { name: 'TL-0001, Battery 80%' });
+
+  beforeEach(() => {
+    giveContainersASize();
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.set(nextFrame, callback);
+      return nextFrame++;
+    });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  });
+
+  afterEach(() => {
+    frames.clear();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('places a new marker at once, then glides it to the next reading with its popup', async () => {
+    const move = vi.spyOn(L.Marker.prototype, 'setLatLng');
+    const popupMove = vi.spyOn(L.Popup.prototype, 'setLatLng');
+    const { rerender } = render(tree([device('TL-0001', at)]));
+    fireEvent.click((await markerImg()).parentElement as HTMLElement);
+    await waitFor(() => expect(document.querySelector('.leaflet-popup-content')).toBeTruthy());
+    expect(move).not.toHaveBeenCalled();
+    expect(frames.size).toBe(0);
+
+    rerender(tree([device('TL-0001', near)]));
+    expect(frames.size).toBe(1);
+    runFrame(0);
+    runFrame(500);
+    const half = lastMove(move);
+    expect(half.lat).toBeGreaterThan(at[0]);
+    expect(half.lat).toBeLessThan(near[0]);
+    runFrame(1000);
+    expect(lastMove(move).equals(L.latLng(near))).toBe(true);
+    expect(lastMove(popupMove).equals(L.latLng(near))).toBe(true);
+    expect(frames.size).toBe(0);
+  });
+
+  it('restarts from where the marker is when a reading arrives mid-glide', async () => {
+    const move = vi.spyOn(L.Marker.prototype, 'setLatLng');
+    const { rerender } = render(tree([device('TL-0001', at)]));
+    await markerImg();
+    rerender(tree([device('TL-0001', near)]));
+    runFrame(0);
+    runFrame(400);
+    const mid = lastMove(move);
+    rerender(tree([device('TL-0001', other)]));
+    expect(frames.size).toBe(1);
+    runFrame(450);
+    expect(lastMove(move).equals(mid)).toBe(true);
+    runFrame(1450);
+    expect(lastMove(move).equals(L.latLng(other))).toBe(true);
+  });
+
+  it('pans a selected device to its latest reading, not to the marker mid-glide', async () => {
+    const pan = vi.spyOn(L.Map.prototype, 'panTo');
+    const { rerender } = render(tree([device('TL-0001', at)]));
+    await markerImg();
+    rerender(tree([device('TL-0001', near)]));
+    runFrame(0);
+    runFrame(300);
+    rerender(tree([device('TL-0001', near)], 'TL-0001'));
+    expect(L.latLng(pan.mock.calls.at(-1)?.[0] as L.LatLngExpression).equals(L.latLng(near))).toBe(
+      true,
+    );
+  });
+
+  it('jumps without a frame when the user prefers reduced motion', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    const move = vi.spyOn(L.Marker.prototype, 'setLatLng');
+    const { rerender } = render(tree([device('TL-0001', at)]));
+    await markerImg();
+    rerender(tree([device('TL-0001', near)]));
+    expect(frames.size).toBe(0);
+    expect(lastMove(move).equals(L.latLng(near))).toBe(true);
+  });
+
+  it('cancels a glide when its marker is removed and every glide on unmount', async () => {
+    const { rerender, unmount } = render(tree([device('TL-0001', at), device('TL-0002', at)]));
+    await markerImg();
+    rerender(tree([device('TL-0001', near), device('TL-0002', other)]));
+    expect(frames.size).toBe(2);
+    rerender(tree([device('TL-0001', near)]));
+    expect(frames.size).toBe(1);
+    unmount();
+    expect(frames.size).toBe(0);
   });
 });

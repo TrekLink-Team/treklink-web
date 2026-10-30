@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -9,6 +9,7 @@ import {
   type MapConfig,
 } from '../../shared/config/map';
 import { cn } from '../../shared/ui/cn';
+import { createMarkerGlider } from '../../shared/ui/map/glide';
 import { markerIcon as systemMarkerIcon } from '../../shared/ui/map/markers';
 import type { MarkerState } from '../../shared/ui/status';
 
@@ -117,6 +118,9 @@ const LeafletMap: React.FC<{
   const [tilesFailed, setTilesFailed] = useState(false);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
   const looks = useRef<Map<string, string>>(new Map());
+  // The latest reading per marker; mid-glide the marker itself is still on its way there.
+  const targets = useRef<Map<string, [number, number]>>(new Map());
+  const glider = useMemo(() => (map ? createMarkerGlider(map) : null), [map]);
 
   // The map is created in a callback ref: creation needs the DOM node, and reporting a tile failure
   // sets state, which an effect body should not do synchronously.
@@ -200,24 +204,29 @@ const LeafletMap: React.FC<{
     if (!map) return;
     const tracked = markerRefs.current;
     const tracedLooks = looks.current;
+    const tracedTargets = targets.current;
     return () => {
+      glider?.cancelAll();
       tracked.clear();
       tracedLooks.clear();
+      tracedTargets.clear();
       map.remove();
     };
-  }, [map]);
+  }, [map, glider]);
 
-  // Reconcile markers against the current set: update in place, add new, remove departed.
+  // Reconcile markers against the current set: update in place, add new, remove departed. A moved
+  // marker glides to its new reading; a new one is placed at once.
   useEffect(() => {
-    if (!map) return;
+    if (!map || !glider) return;
     const seen = new Set<string>();
 
     for (const m of markers) {
       seen.add(m.id);
+      targets.current.set(m.id, m.position);
       const look = lookOf(m);
       const existing = markerRefs.current.get(m.id);
       if (existing) {
-        existing.setLatLng(m.position);
+        glider.moveTo(existing, m.position);
         if (looks.current.get(m.id) !== look) {
           existing.setIcon(markerIcon(m));
           existing.setPopupContent(popupContent(m));
@@ -234,19 +243,22 @@ const LeafletMap: React.FC<{
 
     for (const [id, marker] of markerRefs.current) {
       if (!seen.has(id)) {
+        glider.cancel(marker);
         marker.remove();
         markerRefs.current.delete(id);
         looks.current.delete(id);
+        targets.current.delete(id);
       }
     }
-  }, [map, markers]);
+  }, [map, glider, markers]);
 
-  // A device chosen in a list beside the map: centre on its marker and open its popup.
+  // A device chosen in a list beside the map: centre on its latest reading, where a gliding marker is
+  // heading, and open its popup.
   useEffect(() => {
     if (!map || !selectedId) return;
     const marker = markerRefs.current.get(selectedId);
     if (!marker) return;
-    map.panTo(marker.getLatLng());
+    map.panTo(targets.current.get(selectedId) ?? marker.getLatLng());
     marker.openPopup();
   }, [map, selectedId]);
 

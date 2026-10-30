@@ -81,6 +81,9 @@ two archipelago labels from the same response, always on top and not removable b
 state with text alternatives; a stale marker shows last-seen time; an incident marker pulses. The map
 starts from `GET /api/map/snapshot` and then applies `stream` entries in `seq` order, ignoring entries
 at or below the snapshot cursor.
+A moved marker glides to its new reading over about 1 s with an ease-out (`shared/ui/map/glide.ts`),
+restarting from where it is if a newer reading arrives mid-glide; a first placement, a move over 2 km or
+out of the visible map, and `prefers-reduced-motion: reduce` move it at once (dry run defect 10).
 
 ---
 
