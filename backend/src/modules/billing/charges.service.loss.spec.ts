@@ -150,6 +150,23 @@ describe('BillingLossCaseListener (the billing side of LOSS_CASE_LISTENERS)', ()
     );
   });
 
+  it('registers itself under LOSS_CASE_LISTENERS at boot when the token is provided', () => {
+    const tokenArray: unknown[] = [];
+    const booted = new BillingLossCaseListener(
+      charges as unknown as ChargesService,
+      devices as unknown as DevicesService,
+      tokenArray as never,
+    );
+    booted.onModuleInit();
+    expect(tokenArray).toEqual([booted]);
+    booted.onModuleInit(); // idempotent
+    expect(tokenArray).toHaveLength(1);
+  });
+
+  it('does nothing at boot when the token was not provided (devices not yet booted)', () => {
+    expect(() => listener.onModuleInit()).not.toThrow();
+  });
+
   it('charges a RENTER-custody confirmation the remaining value at the confirmation date', async () => {
     await listener.onConfirmed(lossCase(), TX);
     expect(devices.valueAt).toHaveBeenCalledWith('dev-9', CONFIRMED);

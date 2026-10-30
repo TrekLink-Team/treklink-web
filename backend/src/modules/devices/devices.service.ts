@@ -12,6 +12,7 @@ import {
   DevicesRepository,
   ProvisionedDevice,
   UnitRow,
+  VariantRow,
   VariantSummary,
 } from './devices.repository';
 import { MaintenanceService } from './maintenance.service';
@@ -530,6 +531,11 @@ export class DevicesService {
 
   // Hardware variants by code, for the plan catalogue and the contract request (billing api-design 01,
   // rentals api-design 01). Read only; variant administration is task 4.1.
+  // devices api-design 01: the full variant rows, active only unless an Admin asks for all.
+  variantCatalog(activeOnly: boolean): Promise<VariantRow[]> {
+    return this.devices.variantCatalog(activeOnly);
+  }
+
   variants(activeOnly = true): Promise<VariantSummary[]> {
     return this.devices.variants(activeOnly);
   }

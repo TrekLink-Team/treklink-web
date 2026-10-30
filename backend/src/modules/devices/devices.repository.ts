@@ -227,6 +227,47 @@ export class DevicesRepository {
     });
   }
 
+  // devices api-design 01 (task 4.1 part): the variants with their sensors, firmware baseline,
+  // remaining-value schedule and service plan, by code.
+  variantCatalog(activeOnly: boolean, client: Client = this.prisma): Promise<VariantRow[]> {
+    return client.hardwareVariant.findMany({
+      where: activeOnly ? { isActive: true } : {},
+      orderBy: { code: 'asc' },
+      select: VARIANT_SELECT,
+    });
+  }
+
+  findVariant(id: string, client: Client = this.prisma): Promise<VariantRow | null> {
+    return client.hardwareVariant.findUnique({ where: { id }, select: VARIANT_SELECT });
+  }
+
+  // The device holding an asset tag or a node number, ever registered (REQ-ERR-01).
+  findRegistered(assetTag: string, nodeNum: bigint, client: Client = this.prisma) {
+    return client.device.findFirst({
+      where: { OR: [{ assetTag: { equals: assetTag, mode: 'insensitive' } }, { nodeNum }] },
+      select: { assetTag: true, nodeNum: true },
+    });
+  }
+
+  // devices api-design 05: a new unit IN_INTAKE.
+  insertDevice(
+    data: {
+      assetTag: string;
+      nodeNum: bigint;
+      hardwareVariantId: string;
+      firmwareVersion: string;
+      acquiredAt: Date;
+      registeredById: string;
+      statusChangedAt: Date;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<DeviceListRow> {
+    return tx.device.create({
+      data: { ...data, status: DeviceStatus.IN_INTAKE },
+      select: LIST_SELECT,
+    });
+  }
+
   // devices api-design 06 (task 4.1 part, built by LongLP for the replacement of rentals 4.3): the
   // fleet by status, variant and asset tag, oldest change first.
   page(filter: DeviceFilter, skip: number, take: number): Promise<[DeviceListRow[], number]> {
@@ -512,6 +553,22 @@ export interface DeviceTag {
   id: string;
   assetTag: string;
 }
+
+export const VARIANT_SELECT = {
+  id: true,
+  code: true,
+  name: true,
+  hasGps: true,
+  hasMotionSensor: true,
+  mqttCapable: true,
+  firmwareBaseline: true,
+  remainingValueSchedule: true,
+  serviceIntervalDays: true,
+  serviceChecklist: true,
+  isActive: true,
+} satisfies Prisma.HardwareVariantSelect;
+
+export type VariantRow = Prisma.HardwareVariantGetPayload<{ select: typeof VARIANT_SELECT }>;
 
 export interface VariantSummary {
   id: string;
