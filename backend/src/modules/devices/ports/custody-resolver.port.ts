@@ -1,10 +1,8 @@
 // The custody port of devices design §3 (task 1.4): the loss-case flow (task 2.7) asks who has
 // custody of a device without `devices` importing `rentals`, because `rentals` already imports
 // `devices` (`platform` design Figure 3) and a reverse import would cycle. `rentals` provides the
-// token (`RentalsModule`), wrapping `ContractsService.custodyAt(deviceId, at, marginSeconds)` with
-// the margin a loss triage does not need.
-//
-//   @Module({ providers: [{ provide: CUSTODY_RESOLVER, useExisting: ContractsService }], ... })
+// token from its global `RentalsPortsModule` (`RentalsCustodyResolver`, rentals task 1.3), with the
+// rule of `ContractsService.custodyAt` and none of the margin a loss triage does not need.
 //
 // `devices` injects it required, so Nest refuses to boot without a provider:
 //

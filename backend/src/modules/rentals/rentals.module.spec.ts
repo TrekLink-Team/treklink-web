@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CUSTODY_RESOLVER, LOSS_CASE_LISTENERS, LossCaseListener } from '../devices';
 import { validate } from '../platform/config/environment-variables';
 import {
   ALLOWED_TRANSITIONS,
@@ -14,6 +15,8 @@ import {
   isAllowedTransition,
   RentalsModule,
 } from './index';
+import { RentalsCustodyResolver } from './providers/custody-resolver.provider';
+import { RentalsLossCaseListener } from './providers/loss-case-listener.provider';
 
 // Values a developer's shell already holds win, as in test/e2e-env.ts.
 const TEST_ENVIRONMENT: Record<string, string> = {
@@ -24,6 +27,20 @@ const TEST_ENVIRONMENT: Record<string, string> = {
   MAIL_TRANSPORT: 'console',
 };
 
+const compileRentals = () =>
+  Test.createTestingModule({
+    imports: [
+      ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, validate }),
+      EventEmitterModule.forRoot(),
+      ScheduleModule.forRoot(),
+      PrismaModule,
+      RentalsModule,
+    ],
+  })
+    .overrideProvider(PrismaService)
+    .useValue({})
+    .compile();
+
 // The module wires its repository and exports its services through the public surface.
 describe('RentalsModule', () => {
   beforeAll(() => {
@@ -31,21 +48,24 @@ describe('RentalsModule', () => {
   });
 
   it('compiles and exports the lifecycle and contract services', async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, validate }),
-        EventEmitterModule.forRoot(),
-        ScheduleModule.forRoot(),
-        PrismaModule,
-        RentalsModule,
-      ],
-    })
-      .overrideProvider(PrismaService)
-      .useValue({})
-      .compile();
+    const moduleRef = await compileRentals();
 
     expect(moduleRef.get(ContractLifecycleService)).toBeInstanceOf(ContractLifecycleService);
     expect(moduleRef.get(ContractsService)).toBeInstanceOf(ContractsService);
+    await moduleRef.close();
+  });
+
+  // Task 1.3: `rentals` provides the ports `devices` declares, so `devices` never imports it.
+  it('provides CUSTODY_RESOLVER and adds its listener to the LOSS_CASE_LISTENERS array', async () => {
+    const moduleRef = await compileRentals();
+    const listeners = moduleRef.get<LossCaseListener[]>(LOSS_CASE_LISTENERS, { strict: false });
+    const rentalsListener = moduleRef.get(RentalsLossCaseListener);
+    rentalsListener.onModuleInit();
+
+    expect(moduleRef.get(CUSTODY_RESOLVER, { strict: false })).toBeInstanceOf(
+      RentalsCustodyResolver,
+    );
+    expect(listeners).toContain(rentalsListener);
     await moduleRef.close();
   });
 

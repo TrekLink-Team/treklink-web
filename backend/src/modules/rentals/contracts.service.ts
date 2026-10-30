@@ -8,7 +8,12 @@ import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
-import { CODE_ZONE_OFFSET_MS, ContractRow, ContractsRepository } from './contracts.repository';
+import {
+  CODE_ZONE_OFFSET_MS,
+  ContractRow,
+  ContractsRepository,
+  CustodyRow,
+} from './contracts.repository';
 import { CONTRACT_REQUESTED, ContractRequestedEvent } from './contract-notification.events';
 
 export interface Custody {
@@ -69,6 +74,26 @@ export interface VisibleDevice {
 const near = (at: Date, edge: Date | null, marginMs: number) =>
   edge !== null && Math.abs(at.getTime() - edge.getTime()) <= marginMs;
 
+// The custody of the interval `findCustody` returned for `at`: none for no row or a row never
+// handed over. Shared by `custodyAt` and the CUSTODY_RESOLVER provider, which has no
+// ContractsService in the ports module.
+export const custodyOf = (
+  row: CustodyRow | null,
+  at: Date,
+  marginSeconds: number,
+): Custody | null => {
+  if (!row?.handedOverAt) return null;
+  const end = row.checkedInAt ?? row.lostAt;
+  const marginMs = marginSeconds * 1000;
+  return {
+    contractDeviceId: row.id,
+    contractId: row.contract.id,
+    organizationId: row.contract.organizationId,
+    contractStatus: row.contract.status,
+    nearBoundary: near(at, row.handedOverAt, marginMs) || near(at, end, marginMs),
+  };
+};
+
 export interface ContractRequest {
   planType: PlanType;
   dayPlanDays?: number;
@@ -99,8 +124,9 @@ const lengthsOf = (value: Prisma.JsonValue): number[] =>
   Array.isArray(value) ? value.filter((n): n is number => typeof n === 'number') : [];
 
 // Contract reads and the behaviours behind the ports `rentals` provides (rentals task 1.3, design §6).
-// ORGANIZATION_EXIT_CHECKS and CUSTODY_RESOLVER are not declared yet. LOSS_CASE_LISTENERS exists,
-// but the device loss flow still needs to register and dispatch its listeners (task 1.3).
+// They are registered by RentalsOrganizationExitCheck (ORGANIZATION_EXIT_CHECKS),
+// RentalsCustodyResolver in RentalsPortsModule (CUSTODY_RESOLVER) and RentalsLossCaseListener
+// (LOSS_CASE_LISTENERS).
 @Injectable()
 export class ContractsService {
   constructor(
@@ -224,18 +250,7 @@ export class ContractsService {
 
   // The custody interval containing `at`, whatever state the contract is in now; null when none does.
   async custodyAt(deviceId: string, at: Date, marginSeconds: number): Promise<Custody | null> {
-    const row = await this.contracts.findCustody(deviceId, at);
-    if (!row?.handedOverAt) return null;
-
-    const end = row.checkedInAt ?? row.lostAt;
-    const marginMs = marginSeconds * 1000;
-    return {
-      contractDeviceId: row.id,
-      contractId: row.contract.id,
-      organizationId: row.contract.organizationId,
-      contractStatus: row.contract.status,
-      nearBoundary: near(at, row.handedOverAt, marginMs) || near(at, end, marginMs),
-    };
+    return custodyOf(await this.contracts.findCustody(deviceId, at), at, marginSeconds);
   }
 
   // The holder label of a device on a contract, keyed `contractId:deviceId`, for the incident alert,
@@ -345,8 +360,9 @@ export class ContractsService {
     return (await this.contracts.countUnfinishedContracts(organizationId, tx)) === 0;
   }
 
-  // LOSS_CASE_LISTENERS.onSettled: the row's interval ends at the loss confirmation, inside the
-  // caller's transaction (REQ-EVT-12, FR-DEV-13). `onConfirmed` does nothing for rentals.
+  // LOSS_CASE_LISTENERS.onSettled (RentalsLossCaseListener): the row's interval ends at the loss
+  // confirmation, inside the caller's transaction (REQ-EVT-12, FR-DEV-13). `onConfirmed` does
+  // nothing for rentals.
   onLossSettled(
     contractDeviceId: string,
     confirmedAt: Date,
