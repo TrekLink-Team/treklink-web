@@ -242,24 +242,46 @@ sequenceDiagram
     U->>P: declare a false alarm
     P->>Ctl: POST /api/incidents/:id/false-alarm
     Ctl->>Svc: falseAlarm(id, input, caller)
-    Svc->>R: lockById(id, tx)
-    R-->>Svc: incident
-    Svc->>L: apply(id, current, FALSE_ALARM, member, FALSE_ALARM with expectedVersion, tx)
-    L->>R: lockById(id, tx)
-    R-->>L: incident
-    alt refused: not NOTIFY_*, ACKNOWLEDGED or RESPONDING
-        L-->>Svc: 409 INVALID_STATE_TRANSITION
-        Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
-        Ctl-->>P: 409 envelope
-        P-->>U: MSG28
-    else accepted
-        L->>R: compareAndSet(current, patch, tx)
-        L->>R: insertTransition(row, tx)
-        L->>Ob: enqueue(API event, tx)
-        L-->>Svc: incident FALSE_ALARM
-        Note over Svc,R: COMMIT, then incident.changed and audit.record
-        Svc-->>Ctl: incident
-        Ctl-->>P: 200 envelope
-        P-->>U: FALSE_ALARM, reopen window started
+    alt blank reason, or caller has no organization
+        Svc-->>Ctl: 400 VALIDATION_FAILED or 403 FORBIDDEN
+        Ctl-->>P: 400 or 403 envelope
+        P-->>U: field error, or MSG26
+    else member request
+        Note over Svc,R: BEGIN
+        Svc->>R: lockById(id, tx)
+        alt no such incident, or another organization's
+            Svc-->>Ctl: 404 NOT_FOUND
+            Ctl-->>P: 404 envelope
+            P-->>U: MSG26
+        else incident found
+            Svc->>L: apply(id, current, FALSE_ALARM, member, FALSE_ALARM with expectedVersion, tx)
+            L->>R: lockById(id, tx)
+            alt expectedVersion differs
+                L-->>Svc: 409 STALE_VERSION
+                Svc-->>Ctl: 409 STALE_VERSION
+                Ctl-->>P: 409 envelope
+                P-->>U: MSG36, reload
+            else state is not NOTIFY_*, ACKNOWLEDGED or RESPONDING
+                L-->>Svc: 409 INVALID_STATE_TRANSITION
+                Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
+                Ctl-->>P: 409 envelope
+                P-->>U: MSG28
+            else caller is not an Org Operator or Org Manager
+                L-->>Svc: 403 FORBIDDEN
+                Svc-->>Ctl: 403 FORBIDDEN
+                Ctl-->>P: 403 envelope
+                P-->>U: MSG26
+            else accepted
+                L->>R: compareAndSet(current, patch, tx)
+                L->>R: insertTransition(row, tx)
+                L->>Ob: enqueue(API event, tx)
+                L-->>Svc: incident FALSE_ALARM
+                Svc->>R: COMMIT, then incident.changed and audit.record
+                Svc-->>Ctl: incident
+                Note over Ctl: IncidentsQueryService.views adds device and owner
+                Ctl-->>P: 200 envelope
+                P-->>U: FALSE_ALARM, reopen window started
+            end
+        end
     end
 ```
