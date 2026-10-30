@@ -93,11 +93,16 @@ continues immediately to the next tier in the same transaction, one transition r
 trail shows the skip (BR-16). A Manager tier is never empty while the organization has an active
 Manager (`organizations` REQ-UBI-02); if it is, the incident goes to `ESCALATED`.
 
-**Transition implementation.** `IncidentLifecycle.apply(incidentId, event, actor, expectedVersion?, tx)`:
-`SELECT ... FOR UPDATE`, look up `(state, event)` in the table, check guards (owner, actor kind,
-organization), `UPDATE ... SET state, version = version + 1 ... WHERE id AND version`, insert the
-transition row with the next `seq`, insert outbox rows, all in one transaction. A loser of a race reads
-the winner's row and answers 409 with the owner (MSG27).
+**Transition implementation.** `IncidentLifecycle.apply(id, expectedState, to, actor, reason, tx)`,
+called inside the caller's transaction by `IncidentsService`, `AuthorityReportsService`,
+`IncidentIngress`, `IncidentTimersJob` and the owner-deactivation listener (there is no separate
+lifecycle service): `SELECT ... FOR UPDATE` through `IncidentsRepository.lockById`, compare the state
+and `reason.expectedVersion`, look up `(from, to)` for the reason code in its transition table, check
+guards (owner, actor kind, deadlines), `UPDATE ... SET state, version = version + 1 ... WHERE id AND
+state AND version` (`compareAndSet`), insert the transition row with the next `seq`, insert outbox rows
+(`AlertDeliveriesRepository.enqueue`), all in one transaction. A second member acknowledging an owned
+incident gets 409 `ALREADY_OWNED`; after the rollback `IncidentsService` reads the latest
+acknowledgement and names the owner and time (MSG27).
 
 ---
 
@@ -244,69 +249,131 @@ runs with at least two organizations, including A's late SOS after the device pa
 ## 10. Detailed design for Report 4 (D-044)
 
 Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 10 are the
-MF-03 interactions.
+MF-03 interactions. Names are the classes in `backend/src/modules/incidents/`. There is no separate
+lifecycle service: `IncidentsService` holds the member actions (acknowledge, responding, status
+update, resolve, false alarm), `AuthorityReportsService` the authority reports, and both, the ingress
+and the timer job hand every state change to `IncidentLifecycle.apply`. The transition table
+(`EDGES`) and the guards live inside `IncidentLifecycle`; no separate state machine class exists. The
+outbox is `AlertDeliveriesRepository` over `alert_deliveries`.
 
 <!-- sdd: MF-03 class incidents -->
 ```mermaid
 classDiagram
     class IncidentsController {
-        +acknowledge(id, dto, caller) IncidentDto
-        +addStatus(id, dto, caller) IncidentDto
-        +resolve(id, dto, caller) IncidentDto
-        +falseAlarm(id, dto, caller) IncidentDto
-        +reportToAuthority(id, dto, actor) IncidentDto
+        +list(query, caller, ability) PagedResult
+        +detail(id, caller, ability) IncidentDetailView
+        +transitions(id, caller, ability) TransitionView[]
+        +alerts(id, caller, ability) AlertDeliveryView[]
+        +acknowledge(id, dto, caller) IncidentView
+        +responding(id, dto, caller) IncidentView
+        +statusUpdate(id, dto, caller) StatusUpdateResult
+        +resolve(id, dto, caller) IncidentView
+        +falseAlarm(id, dto, caller) IncidentView
+        +reportToAuthority(id, dto, caller) IncidentView
     }
-    class IncidentIngress {
-        +onSos(event, tx)
-        +onPosition(event, tx)
+    class AuthorityReportsController {
+        +list(query) PagedResult
+        +reportContract(dto, caller) AuthorityReportView
+        +closeCase(reportId, dto, caller) CloseCaseResult
     }
-    class IncidentLifecycleService {
-        +acknowledge(id, dto, caller) Incident
-        +resolve(id, dto, caller) Incident
-        +apply(id, expected, to, actor, reason, tx)
+    class IncidentsService {
+        +acknowledge(id, input, caller) Incident
+        +responding(id, input, caller) Incident
+        +addStatus(id, input, caller) StatusUpdateResult
+        +resolve(id, input, caller) Incident
+        +falseAlarm(id, input, caller) Incident
     }
-    class RoutingService {
-        +route(incident, attribution, tx)
+    class IncidentsQueryService {
+        +list(query, caller, ability) PagedResult
+        +detail(id, caller, ability) IncidentDetailView
+        +views(rows) IncidentView[]
+        +openByDevices(ids) Map
     }
     class AuthorityReportsService {
-        +reportIncident(id, dto, actor) Incident
+        +reportIncident(id, input, caller) Incident
+        +reportContract(input, caller) AuthorityReportView
+        +list(query) PagedResult
+        +closeCase(reportId, input, caller) CloseCaseResult
     }
-    class TierTimeoutJob {
-        +run()
+    class IncidentIngress {
+        +onSos(event, tx) Incident
+        +onPosition(event, tx) Incident
     }
-    class AlertDispatcher {
-        +run()
+    class RoutingService {
+        +route(attribution, at, tx) Route
+        +recipientsOf(organizationId, at, tx) IncidentRecipients
     }
-    class IncidentFsm {
-        +assertTransition(from, to)
+    class IncidentLifecycle {
+        +apply(id, expectedState, to, actor, reason, tx) Incident
+    }
+    class IncidentTimersJob {
+        +tierTimeouts() number
+        +staleResponses() number
+        +closeAfterReopenWindow() number
+    }
+    class AlertDispatcherJob {
+        +deliverAlerts() number
     }
     class IncidentsRepository {
+        +lockById(id, tx) Incident
         +lockOpenByDevice(deviceId, tx) Incident
-        +insert(incident, tx) Incident
-        +compareAndSet(id, state, version, patch, tx) bool
-        +insertTransition(row, tx)
-        +dueTiers(now) Incident[]
+        +insert(incident, at, tx) IncidentInsertResult
+        +appendEvent(incident, occurredAt, tx) Incident
+        +compareAndSet(current, patch, tx) Incident
+        +insertTransition(row, tx) IncidentTransition
+        +insertStatusUpdate(row, tx) IncidentStatusUpdate
+        +resetStatusDue(id, statusDueAt, tx)
+        +dueTimers(states, column, now, limit) DueIncident[]
+        +latestAcknowledgement(id) IncidentTransition
     }
-    class OutboxRepository {
-        +enqueue(alerts, tx)
-        +lockPending(now, limit) AlertDelivery[]
+    class AuthorityReportsRepository {
+        +insert(data, tx) AuthorityReport
+        +lockById(id, tx) AuthorityReport
+        +closeCase(id, caseClosedAt, caseClosedById, tx) AuthorityReport
+        +countOpenOnIncident(incidentId, tx) number
+        +page(where, skip, take) AuthorityReportRow[]
     }
-    class RosterService
-    IncidentsController --> IncidentLifecycleService
-    IncidentsController --> AuthorityReportsService
-    IncidentIngress --> RoutingService
+    class AlertDeliveriesRepository {
+        +enqueue(rows, tx)
+        +claimDue(channels, now, limit, tx) DueAlert[]
+        +markSent(ids, at, tx)
+        +markFailedAttempt(id, error, retryAt, tx)
+    }
+    class ContractsService {
+        +statusOf(contractId) ContractStatus
+    }
+    class RosterService {
+        +tiersAt(organizationId, at, tx) Tiers
+    }
+    class AccountsService {
+        +activeStaffAndAdminIds(tx) string[]
+    }
+    IncidentsController --> IncidentsService
+    IncidentsController --> IncidentsQueryService
+    IncidentsController --> AuthorityReportsService : reportIncident
+    AuthorityReportsController --> AuthorityReportsService
+    IncidentsService --> IncidentLifecycle : apply
+    IncidentsService --> IncidentsRepository
+    AuthorityReportsService --> IncidentLifecycle : apply
+    AuthorityReportsService --> IncidentsRepository : lockById
+    AuthorityReportsService --> AuthorityReportsRepository
+    AuthorityReportsService --> ContractsService : statusOf
     IncidentIngress --> IncidentsRepository
+    IncidentIngress --> RoutingService : route
+    IncidentIngress --> IncidentLifecycle : apply
     RoutingService --> RosterService : tiersAt
-    RoutingService --> IncidentLifecycleService
-    TierTimeoutJob --> IncidentLifecycleService
-    AuthorityReportsService --> IncidentLifecycleService
-    IncidentLifecycleService --> IncidentFsm
-    IncidentLifecycleService --> IncidentsRepository
-    IncidentLifecycleService --> OutboxRepository
-    AlertDispatcher --> OutboxRepository
+    RoutingService --> AccountsService : activeStaffAndAdminIds
+    IncidentTimersJob --> IncidentsRepository : dueTimers
+    IncidentTimersJob --> RoutingService : recipientsOf
+    IncidentTimersJob --> IncidentLifecycle : apply
+    IncidentLifecycle --> IncidentsRepository
+    IncidentLifecycle --> AlertDeliveriesRepository : enqueue
+    AlertDispatcherJob --> AlertDeliveriesRepository
 ```
 
-***Figure 4***: incidents classes. `RosterService` belongs to `organizations`.
+***Figure 4***: incidents classes. `ContractsService` belongs to `rentals`, `RosterService` to
+`organizations` and `AccountsService` to `auth`; each is called through its module's exported service.
+Read-only repository methods of the query service are left out.
 
 <!-- sdd: MF-03 seq UC-29 part 1 of 2: correlation and routing -->
 ```mermaid
@@ -317,43 +384,100 @@ sequenceDiagram
     participant R as IncidentsRepository
     participant Ro as RoutingService
     participant Os as RosterService
-    participant L as IncidentLifecycleService
+    participant L as IncidentLifecycle
     G->>In: onSos(event with attribution, tx)
+    activate In
     In->>R: lockOpenByDevice(deviceId, tx)
-    alt open incident inside the correlation window
-        In->>R: append event, bump count
-    else no open incident in the window
-        In->>R: insert(incident DETECTED, tx)
-        In->>Ro: route(incident, attribution, tx)
-        alt event UNATTRIBUTED
-            Ro->>L: apply(id, DETECTED, UNROUTED, SYSTEM, tx)
-        else attributed to a contract
-            Ro->>Os: tiersAt(organizationId, now)
-            Ro->>L: apply(id, DETECTED, first non-empty tier, SYSTEM, tx)
+    activate R
+    R-->>In: open incident or none
+    deactivate R
+    alt no incident outside CLOSED
+        In->>R: insert(incident DETECTED, at, tx)
+        activate R
+        R-->>In: incident, created
+        deactivate R
+        alt a concurrent SOS of the device created it first
+            In->>R: appendEvent(incident, occurredAt, tx)
+        else created here
+            In->>R: insertTransition(null to DETECTED, CREATED, tx)
+            In->>Ro: route(event, at, tx)
+            activate Ro
+            opt event attributed to an organization
+                Ro->>Os: tiersAt(organizationId, at, tx)
+                activate Os
+                Os-->>Ro: primary, backup, managers
+                deactivate Os
+            end
+            Ro-->>In: NOTIFY_PRIMARY, or UNROUTED when unattributed or nobody is on any tier
+            deactivate Ro
+            In->>L: apply(id, DETECTED, route.to, SYSTEM, ROUTED, tx)
+            activate L
+            L-->>In: incident, empty tiers skipped in the same transaction
+            deactivate L
         end
+    else RESOLVED or FALSE_ALARM, SOS inside the reopen window
+        In->>R: appendEvent(open, occurredAt, tx)
+        In->>Ro: route(event, at, tx)
+        activate Ro
+        Ro-->>In: route
+        deactivate Ro
+        In->>L: apply(id, current, route.to, DEVICE, REOPENED, tx)
+        activate L
+        L-->>In: incident reopened
+        deactivate L
+    else RESOLVED or FALSE_ALARM, reopen window ended
+        In->>L: apply(id, current, CLOSED, SYSTEM, REOPEN_WINDOW_ENDED, tx)
+        activate L
+        L-->>In: closed
+        deactivate L
+        Note over In,L: then a new incident opens as in the first branch
+    else any other open episode
+        In->>R: appendEvent(open, occurredAt, tx)
     end
+    In-->>G: incident the event opened or joined
+    deactivate In
 ```
 
 ***Figure 5***: UC-29 Create Incident, part 1 of 2: one incident per episode, routed by attribution
-(FR-INC-03, D-040).
+(FR-INC-03, D-040). `RoutingService` only chooses the target; `IncidentIngress` applies it.
 
 <!-- sdd: MF-03 seq UC-29 part 2 of 2: alert outbox -->
 ```mermaid
 sequenceDiagram
     autonumber
-    participant L as IncidentLifecycleService
+    participant L as IncidentLifecycle
     participant R as IncidentsRepository
-    participant Ob as OutboxRepository
-    participant Dp as AlertDispatcher
+    participant Ob as AlertDeliveriesRepository
+    participant Dp as AlertDispatcherJob
     participant W as LiveGateway
-    L->>R: compareAndSet(id, state, version, patch, tx)
+    activate L
+    L->>R: compareAndSet(current, patch, tx)
+    activate R
+    R-->>L: updated incident
+    deactivate R
     L->>R: insertTransition(row, tx)
-    L->>Ob: enqueue(alerts for the tier, tx)
-    Note over L,Ob: committed with the ingestion transaction
-    Dp->>Ob: lockPending(now, limit)
-    Dp-)W: emit incident.alert, monitoring publishes to user rooms
-    Dp->>Dp: email, web inbox, API event
-    Dp->>Ob: SENT, or retry with backoff
+    L->>Ob: enqueue(rows for the tier, tx)
+    Note over L,Ob: committed with the caller's transaction, then incident.changed and audit.record
+    deactivate L
+    Dp->>Ob: claimDue(WEB and WEBSOCKET, now, limit, tx)
+    activate Dp
+    activate Ob
+    Ob-->>Dp: due rows, FOR UPDATE SKIP LOCKED
+    deactivate Ob
+    loop each due row
+        alt WEBSOCKET
+            Dp-)W: emit incident.alert, monitoring publishes to user room
+        else WEB
+            Note over Dp: the queue page reads the row, nothing to send
+        end
+        opt the send threw
+            Dp->>Ob: markFailedAttempt(id, error, retryAt with backoff, or FAILED, tx)
+        end
+    end
+    Dp->>Ob: markSent(ids of the rows sent, now, tx)
+    Note over Dp,Ob: COMMIT
+    deactivate Dp
+    Note over Ob: EMAIL and API_EVENT rows stay PENDING until their senders exist
 ```
 
 ***Figure 6***: UC-29 Create Incident, part 2 of 2: UC-30 Send Alert through the outbox.
@@ -362,30 +486,41 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant J as TierTimeoutJob
+    participant J as IncidentTimersJob
     participant R as IncidentsRepository
-    participant L as IncidentLifecycleService
-    participant Os as RosterService
-    participant Ob as OutboxRepository
-    J->>R: dueTiers(now)
-    R->>R: SELECT NOTIFY_* WHERE tierDueAt <= now
-    loop each due incident
-        J->>Os: tiersAt(organizationId, now)
-        J->>L: apply(id, expected NOTIFY_PRIMARY, next tier, SYSTEM, tx)
-        L->>R: compareAndSet(id, state, version, patch, tx)
-        alt a member acknowledged first
-            R-->>L: 0 rows
-            L-->>J: skip, the human won
+    participant Ro as RoutingService
+    participant L as IncidentLifecycle
+    participant Ob as AlertDeliveriesRepository
+    J->>R: dueTimers(NOTIFY_*, tierDeadlineAt, now, 100)
+    activate J
+    activate R
+    R-->>J: due incidents
+    deactivate R
+    loop each due incident, own transaction
+        J->>Ro: recipientsOf(organizationId, now, tx)
+        activate Ro
+        Ro-->>J: tiers, plus Staff and Admin for ESCALATED
+        deactivate Ro
+        J->>L: apply(id, expected state, next tier, SYSTEM, TIER_TIMEOUT, tx)
+        activate L
+        L->>R: lockById(id, tx)
+        alt a member acknowledged first, or the deadline moved
+            L-->>J: 409 STALE_VERSION or INVALID_STATE_TRANSITION
+            Note over J: the human won, skip this incident
         else still unacknowledged
+            L->>R: compareAndSet(current, patch, tx)
             L->>R: insertTransition(row, tx)
-            L->>Ob: enqueue(alerts for the next tier, tx)
-            R->>R: COMMIT
+            L->>Ob: enqueue(rows for the next tier, tx)
+            L-->>J: incident in the next tier, COMMIT
         end
+        deactivate L
     end
-    Note over J: after NOTIFY_MANAGER times out the next tier is ESCALATED to TrekLink Staff
+    deactivate J
+    Note over J: after NOTIFY_MANAGER times out the next state is ESCALATED, alerting TrekLink Staff
 ```
 
-***Figure 7***: UC-31 Escalate Alert Tier. A job racing a human loses on the compare-and-set.
+***Figure 7***: UC-31 Escalate Alert Tier (`incidents.tierTimeouts`). A job racing a human loses under
+the row lock.
 
 <!-- sdd: MF-03 seq UC-32 -->
 ```mermaid
@@ -394,25 +529,56 @@ sequenceDiagram
     actor Op as Org Operator
     participant P as IncidentDetailPage
     participant C as IncidentsController
-    participant L as IncidentLifecycleService
+    participant S as IncidentsService
+    participant L as IncidentLifecycle
     participant R as IncidentsRepository
-    participant Ob as OutboxRepository
+    participant Ob as AlertDeliveriesRepository
     Op->>P: acknowledge
+    activate P
     P->>C: POST /api/incidents/{id}/acknowledge
-    C->>L: acknowledge(id, dto, caller)
-    L->>R: compareAndSet(id, NOTIFY_* or ESCALATED or REPORTED, version, owner, tx)
-    R->>R: BEGIN, UPDATE WHERE state AND version
-    alt another member acknowledged first
-        R-->>L: 0 rows
-        L-->>C: 409 ALREADY_OWNED with the owner
-        C-->>P: MSG27 owner shown
-    else first acknowledgement
-        L->>R: insertTransition(row, tx)
-        L->>Ob: enqueue(stream update, tx)
-        R->>R: COMMIT
-        L-->>C: IncidentDto ACKNOWLEDGED
-        C-->>P: 200 envelope, time to acknowledge recorded
+    activate C
+    C->>S: acknowledge(id, input, caller)
+    activate S
+    S->>R: lockById(id, tx)
+    alt no such incident, or another organization's
+        S-->>C: 404 NOT_FOUND
+        C-->>P: 404 envelope
+        P-->>Op: MSG26
+    else incident found
+        S->>L: apply(id, current, ACKNOWLEDGED, member, ACKNOWLEDGED, tx)
+        activate L
+        L->>R: lockById(id, tx)
+        alt another member owns it
+            L-->>S: ALREADY_OWNED
+            S->>R: latestAcknowledgement(id), after rollback
+            S-->>C: 409 ALREADY_OWNED, owner and time
+            C-->>P: 409 envelope
+            P-->>Op: MSG27, owner shown
+        else expectedVersion differs
+            L-->>S: 409 STALE_VERSION
+            S-->>C: 409 STALE_VERSION
+            C-->>P: 409 envelope
+            P-->>Op: MSG36, reload
+        else state is not NOTIFY_*, ESCALATED or REPORTED
+            L-->>S: 409 INVALID_STATE_TRANSITION
+            S-->>C: 409 INVALID_STATE_TRANSITION
+            C-->>P: 409 envelope
+            P-->>Op: MSG28
+        else first acknowledgement
+            L->>R: compareAndSet(current, owner and statusDueAt, tx)
+            L->>R: insertTransition(row, tx)
+            L->>Ob: enqueue(API event, tx)
+            L-->>S: incident ACKNOWLEDGED
+            Note over S,R: COMMIT, then incident.changed and audit.record
+            S-->>C: incident
+            C-->>P: 200 envelope, time to acknowledge recorded
+            P-->>Op: ACKNOWLEDGED, owner is the caller
+        end
+        deactivate L
     end
+    deactivate S
+    deactivate C
+    deactivate P
 ```
 
 ***Figure 8***: UC-32 Acknowledge Incident.
@@ -424,29 +590,71 @@ sequenceDiagram
     actor Op as Org Operator
     participant P as IncidentDetailPage
     participant C as IncidentsController
-    participant L as IncidentLifecycleService
+    participant S as IncidentsService
+    participant L as IncidentLifecycle
     participant R as IncidentsRepository
     Op->>P: post a status update
+    activate P
     P->>C: POST /api/incidents/{id}/status-updates
-    C->>L: addStatus(id, dto, caller)
-    L->>R: insert update, reset statusDueAt
-    R->>R: INSERT, UPDATE
-    C-->>P: 200 envelope
-    Op->>P: report the outcome
-    P->>C: POST /api/incidents/{id}/resolve
-    C->>L: resolve(id, dto, caller)
-    alt refused: caller is not the owner
-        L-->>C: 403 NOT_OWNER
-    else accepted: caller is the owner
-        L->>R: compareAndSet(id, ACKNOWLEDGED or RESPONDING, version, resolvedAt, tx)
-        L->>R: insertTransition(row, tx), set reopen window
-        R->>R: COMMIT
-        L-->>C: IncidentDto RESOLVED
-        C-->>P: 200 envelope, time to resolve recorded
+    activate C
+    C->>S: addStatus(id, input, caller)
+    activate S
+    S->>R: lockById(id, tx)
+    alt not ACKNOWLEDGED or RESPONDING
+        S-->>C: 409 INVALID_STATE_TRANSITION
+        C-->>P: 409 envelope
+        P-->>Op: MSG28
+    else caller is not the owner
+        S-->>C: 403 NOT_OWNER
+        C-->>P: 403 envelope
+        P-->>Op: MSG26
+    else owner
+        S->>R: insertStatusUpdate(row, tx)
+        S->>R: resetStatusDue(id, statusDueAt, tx)
+        S-->>C: status update, COMMIT
+        C-->>P: 201 envelope
+        P-->>Op: update shown, next update due
     end
+    deactivate S
+    deactivate C
+    deactivate P
+    Op->>P: report the outcome
+    activate P
+    P->>C: POST /api/incidents/{id}/resolve
+    activate C
+    C->>S: resolve(id, input, caller)
+    activate S
+    S->>R: lockById(id, tx)
+    S->>L: apply(id, current, RESOLVED, member, RESOLVED, tx)
+    activate L
+    L->>R: lockById(id, tx)
+    alt caller is not the owner
+        L-->>S: 403 NOT_OWNER
+        S-->>C: 403 NOT_OWNER
+        C-->>P: 403 envelope
+        P-->>Op: MSG26
+    else expectedVersion differs
+        L-->>S: 409 STALE_VERSION
+        S-->>C: 409 STALE_VERSION
+        C-->>P: 409 envelope
+        P-->>Op: MSG36, reload
+    else owner, ACKNOWLEDGED or RESPONDING
+        L->>R: compareAndSet(current, resolvedAt, outcomeNote, reopen window, tx)
+        L->>R: insertTransition(row, tx)
+        L-->>S: incident RESOLVED
+        S-->>C: incident, COMMIT
+        C-->>P: 200 envelope, time to resolve recorded
+        P-->>Op: RESOLVED
+    end
+    deactivate L
+    deactivate S
+    deactivate C
+    deactivate P
 ```
 
-***Figure 9***: UC-33 Report Incident Status, ending in `RESOLVED`.
+***Figure 9***: UC-33 Report Incident Status, ending in `RESOLVED`. A missing or other organization's
+incident answers 404 at the first `lockById`, as in Figure 8; a blank note or outcome is refused
+with 400 before the transaction opens.
 
 <!-- sdd: MF-03 seq UC-35 -->
 ```mermaid
@@ -456,22 +664,62 @@ sequenceDiagram
     participant P as StaffIncidentsPage
     participant C as IncidentsController
     participant A as AuthorityReportsService
-    participant L as IncidentLifecycleService
+    participant L as IncidentLifecycle
     participant R as IncidentsRepository
+    participant Ar as AuthorityReportsRepository
     St->>P: record agency, reference, time
+    activate P
     P->>C: POST /api/incidents/{id}/authority-reports
-    C->>A: reportIncident(id, dto, actor)
-    A->>R: lock(id, tx)
-    alt refused: not ESCALATED or UNROUTED
-        A-->>C: 409 INVALID_STATE_TRANSITION
-    else accepted: ESCALATED or UNROUTED
-        A->>R: insert authority_reports
-        A->>L: apply(id, current, REPORTED, actor, tx)
-        L->>R: compareAndSet, insertTransition
-        R->>R: COMMIT
-        A-->>C: IncidentDto REPORTED
-        C-->>P: 200 envelope
+    activate C
+    C->>A: reportIncident(id, input, caller)
+    activate A
+    alt caller has an organization, or agency, reference or reportedAt invalid
+        A-->>C: 403 FORBIDDEN or 400 VALIDATION_FAILED
+        C-->>P: 403 or 400 envelope
+        P-->>St: MSG26, or the field error
+    else valid Staff request
+        Note over A,R: BEGIN
+        A->>R: lockById(id, tx)
+        activate R
+        R-->>A: incident or none
+        deactivate R
+        alt incident not found
+            A-->>C: 404 NOT_FOUND
+            C-->>P: 404 envelope
+            P-->>St: MSG26
+        else not ESCALATED or UNROUTED
+            A-->>C: 409 INVALID_STATE_TRANSITION
+            C-->>P: 409 envelope
+            P-->>St: MSG28, incident reloaded
+        else ESCALATED or UNROUTED
+            A->>L: apply(id, current, REPORTED, STAFF, AUTHORITY_REPORTED with expectedVersion, tx)
+            activate L
+            L->>R: lockById(id, tx)
+            alt expectedVersion differs
+                L-->>A: 409 STALE_VERSION
+                A-->>C: 409 STALE_VERSION
+                C-->>P: 409 envelope
+                P-->>St: MSG36, Reload keeps the values
+            else version matches
+                L->>R: compareAndSet(current, patch, tx)
+                L->>R: insertTransition(row, tx)
+                L-->>A: incident REPORTED
+                A->>Ar: insert(report, tx)
+                activate Ar
+                Ar-->>A: authority report
+                deactivate Ar
+                Note over A,Ar: COMMIT, then audit.record and incident.changed
+                A-->>C: incident REPORTED
+                C-->>P: 201 envelope
+                P-->>St: MSG03, REPORTED
+            end
+            deactivate L
+        end
     end
+    deactivate A
+    deactivate C
+    deactivate P
 ```
 
-***Figure 10***: UC-35 Report to Authorities (BR-17).
+***Figure 10***: UC-35 Report to Authorities (BR-17), in the order of
+`AuthorityReportsService.reportIncident`: the state is checked before the version.
