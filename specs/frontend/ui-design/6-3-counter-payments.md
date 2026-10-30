@@ -19,7 +19,7 @@ Scope from the task: billing api-design 13, 14; overpayment and duplicate refere
 | Shown | Source (api-design file, property) |
 |---|---|
 | Dialog header: invoice number, contract, organization | billing 09 `number`, `contract.code`, `organization.code` |
-| Amount still due | billing 09 `totalVnd` minus `paidVnd`, and the unpaid `lines[]` with their `dueAt` |
+| Amount due now, and due later | billing 09 `lines[]`: due now is the unpaid part of the lines with `dueAt` at or before now, capped at `totalVnd` minus `paidVnd`; due later is the rest. Amount received is prefilled with due now (the whole unpaid amount when nothing is due yet), so accepting it never prepays a later installment unseen (dry run 2026-10-30) |
 | Recorded payment | billing 13 `result.reference`, `amountVnd`, `method`, `status`, `confirmedAt` |
 | Payments list: reference, method, sandbox label, amount, status, confirmed | billing 14 `items[].reference`, `method`, `isSandbox`, `amountVnd`, `status`, `confirmedAt` |
 | List paging | billing 14 `pageNumber`, `pageSize`, `totalCount`, `totalPages` |
