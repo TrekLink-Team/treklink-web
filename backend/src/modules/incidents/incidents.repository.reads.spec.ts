@@ -157,6 +157,15 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
       select: { actorId: true, createdAt: true },
     });
   });
+
+  it('reads the ACKNOWLEDGED and RESPONDING incidents an account owns (REQ-EVT-11)', async () => {
+    await repository.ownedActive('u-1');
+    expect(prisma.incident.findMany).toHaveBeenCalledWith({
+      where: { ownerId: 'u-1', state: { in: ['ACKNOWLEDGED', 'RESPONDING'] } },
+      orderBy: { firstEventAt: 'asc' },
+      select: { id: true, state: true, organizationId: true, contractId: true },
+    });
+  });
 });
 
 describe('IncidentsRepository.dueTimers (task 3.1)', () => {
