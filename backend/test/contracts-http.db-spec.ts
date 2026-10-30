@@ -232,7 +232,8 @@ describe('contract and billing 409 rows over HTTP against Postgres', () => {
     };
 
     it('BEFORE_START_DATE, INVALID_STATE_TRANSITION and STALE_VERSION', async () => {
-      const future = await approved();
+      // Handover runs on the real clock, so the start date must stay in the future whenever this runs.
+      const future = await approved({ requestedStartDate: new Date(Date.now() + 60 * 86_400_000) });
       const checks = future.reserved.map((deviceId) => ({ deviceId }));
       expectConflict(
         await handover(future.contract.id, future.org.manager, checks),
