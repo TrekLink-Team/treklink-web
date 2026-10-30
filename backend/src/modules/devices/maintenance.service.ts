@@ -356,8 +356,14 @@ export class MaintenanceService {
     return this.records.ofDevice(deviceId);
   }
 
-  private threshold(tx?: Prisma.TransactionClient): Promise<number> {
+  // The cost above which an estimate or an actual cost waits for an Admin, read on every call so a
+  // parameter change applies at once (D-015). Also shown to Staff beside the estimate (api-design 15).
+  approvalThresholdVnd(tx?: Prisma.TransactionClient): Promise<number> {
     return this.parameters.get('devices.maintenanceApprovalThresholdVnd', tx);
+  }
+
+  private threshold(tx?: Prisma.TransactionClient): Promise<number> {
+    return this.approvalThresholdVnd(tx);
   }
 
   // A SCHEDULED record needs a result for every item of the variant's checklist (REQ-ERR-09).

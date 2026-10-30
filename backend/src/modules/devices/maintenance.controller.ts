@@ -26,6 +26,12 @@ import {
 } from './dto/maintenance.dto';
 import { MaintenanceService } from './maintenance.service';
 
+// devices api-design 15: the page of records plus the approval threshold, so Staff see the amount
+// beside the estimate without the Admin-only parameters endpoint.
+export interface MaintenanceRecordPage extends PagedResult<RecordView> {
+  approvalThresholdVnd: number;
+}
+
 // devices api-design 11 to 15 (tasks 2.8 and 4.1). Staff open, estimate and complete with
 // `device.operate`; Staff and Admin list with `device.read`; an Admin decides a cost with
 // `maintenance.decide`. Each mutation runs in one transaction.
@@ -96,7 +102,7 @@ export class MaintenanceController {
   @Get('maintenance-records')
   @CheckPolicies((ability) => ability.can('read', 'Device'))
   @ResponseMessage('OK')
-  async list(@Query() query: MaintenanceQueryDto): Promise<PagedResult<RecordView>> {
+  async list(@Query() query: MaintenanceQueryDto): Promise<MaintenanceRecordPage> {
     const page = resolvePage(
       query,
       pagingBoundsFrom({
@@ -104,15 +110,18 @@ export class MaintenanceController {
         MAX_PAGE_SIZE: this.config.get('MAX_PAGE_SIZE', { infer: true }),
       }),
     );
-    const [rows, total] = await this.maintenance.page(
-      {
-        statuses: query.status,
-        reasons: query.reason,
-        expectedBy: query.dueBefore ? parseDay(query.dueBefore) : undefined,
-      },
-      page.skip,
-      page.take,
-    );
-    return toPagedResult(rows, total, page);
+    const [[rows, total], approvalThresholdVnd] = await Promise.all([
+      this.maintenance.page(
+        {
+          statuses: query.status,
+          reasons: query.reason,
+          expectedBy: query.dueBefore ? parseDay(query.dueBefore) : undefined,
+        },
+        page.skip,
+        page.take,
+      ),
+      this.maintenance.approvalThresholdVnd(),
+    ]);
+    return { ...toPagedResult(rows, total, page), approvalThresholdVnd };
   }
 }

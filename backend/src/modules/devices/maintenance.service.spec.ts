@@ -112,6 +112,16 @@ describe('MaintenanceService (devices task 2.8, api-design 11 to 15)', () => {
     );
   });
 
+  describe('approvalThresholdVnd (api-design 15)', () => {
+    it('reads devices.maintenanceApprovalThresholdVnd from the parameters', async () => {
+      await expect(service.approvalThresholdVnd()).resolves.toBe(THRESHOLD);
+      expect(parameters.get).toHaveBeenCalledWith(
+        'devices.maintenanceApprovalThresholdVnd',
+        undefined,
+      );
+    });
+  });
+
   describe('dueReason (REQ-EVT-07)', () => {
     const facts = (serviceDueAt: Date | null, firmwareVersion = 'a') => ({
       serviceDueAt,

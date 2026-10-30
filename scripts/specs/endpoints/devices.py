@@ -280,14 +280,20 @@ ENDPOINTS = [
 
     ep("GET", "/api/maintenance-records", "List maintenance records", "TrekLink Staff, TrekLink Admin",
        "Lists records by status and reason, for the week's service list (FR-DEV-18) and the Admins' approval queue "
-       "(FR-DEV-20). `dueBefore` adds the devices due for service that are still `RESERVED` or `RENTED`.",
+       "(FR-DEV-20). `dueBefore` keeps the records whose expected completion date is on or before it; it "
+       "lists records only, so the devices due for service that are still `RESERVED` or `RENTED` come from "
+       "devices api-design 06. The page also carries `approvalThresholdVnd`, the parameter "
+       "`devices.maintenanceApprovalThresholdVnd` read at request time, for the hint beside the estimate "
+       "(FR-DEV-20, D-015).",
        "UC-52, UC-64, UC-65, FR-DEV-18, FR-DEV-20",
        query=[["status", "OPEN, PENDING_APPROVAL, COMPLETED or UNREPAIRABLE, repeatable", "enum", "no", "`PENDING_APPROVAL`"],
               ["reason", "Reason, repeatable", "enum", "no", "`SCHEDULED`"],
-              ["dueBefore", "Also list devices on contracts due before this date", "date", "no", "`2026-10-26`"]] + PAGE_QUERY,
-       response=paged(MREC, 6), steps=["Read records", "Add due devices on contracts when dueBefore is given"],
-       controller="MaintenanceController", service="MaintenanceService", call="list(query)",
-       seq=["Svc->>DB: SELECT maintenance_records, devices"]),
+              ["dueBefore", "Records expected to complete on or before this date", "date", "no", "`2026-10-26`"]] + PAGE_QUERY,
+       response={**paged(MREC, 6), "approvalThresholdVnd": 1000000},
+       steps=["Read records, on expectedAt when dueBefore is given",
+              "Read devices.maintenanceApprovalThresholdVnd"],
+       controller="MaintenanceController", service="MaintenanceService", call="page(filter) and approvalThresholdVnd()",
+       seq=["Svc->>DB: SELECT maintenance_records, parameters"]),
 
     ep("POST", "/api/devices/:id/retire", "Retire a device", "TrekLink Admin",
        "Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the "
