@@ -11,6 +11,7 @@ export * from './Dialog';
 export * from './Drawer';
 export * from './EmptyState';
 export * from './Field';
+export * from './PageChrome';
 export * from './PageHeader';
 export * from './Skeleton';
 export * from './StatCard';

@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { SessionUser } from '../../entities/session/model';
 import { isFullBleed, visibleNav } from '../../shared/config/navigation';
 import { cn } from '../../shared/ui/cn';
 import { Drawer } from '../../shared/ui/Drawer';
 import { Switch } from '../../shared/ui/Field';
+import { PageChromeProvider, type PageChromeSlot } from '../../shared/ui/PageChrome';
 import { useTheme } from '../../shared/lib/theme';
 import { AppHeader } from './AppHeader';
 import { BrandMark } from './BrandMark';
@@ -65,6 +66,17 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
     };
   }, []);
 
+  // A StickyPageHeader takes the breadcrumb into itself, so the trail stays in view with the title.
+  const [claims, setClaims] = useState(0);
+  const claim = useCallback(() => {
+    setClaims((count) => count + 1);
+    return () => setClaims((count) => count - 1);
+  }, []);
+  const chrome = useMemo<PageChromeSlot>(
+    () => ({ breadcrumb: <ShellBreadcrumb groups={groups} workspace={workspace.name} />, claim }),
+    [groups, workspace.name, claim],
+  );
+
   // A route change closes the drawer; growing past the breakpoint does too.
   useEffect(() => setDrawer(false), [pathname, setDrawer]);
   useEffect(() => {
@@ -104,11 +116,24 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
         <main
           id="main"
           tabIndex={-1}
-          className={cn('relative flex min-w-0 flex-1 flex-col outline-none', fullBleed ? 'overflow-y-auto' : 'overflow-y-auto px-1 md:px-2')}
+          className={cn(
+            'relative flex min-w-0 flex-1 flex-col outline-none',
+            // The sticky page header and action bar publish their heights; focus scrolls clear of both.
+            'scroll-pb-[calc(var(--tl-page-actions-h,0px)+0.5rem)] scroll-pt-[calc(var(--tl-page-header-h,0px)+0.5rem)]',
+            fullBleed ? 'overflow-y-auto' : 'overflow-y-auto px-1 md:px-2',
+          )}
         >
-          <div className={cn('mx-auto flex w-full flex-1 flex-col', !fullBleed && 'max-w-page pb-6 pt-1')}>
-            <ShellBreadcrumb groups={groups} workspace={workspace.name} />
-            {children}
+          <div
+            className={cn(
+              'mx-auto flex w-full flex-1 flex-col',
+              // A page action bar sits flush with the bottom, so its page drops the bottom padding.
+              !fullBleed && 'max-w-page pb-6 pt-1 has-[[data-page-actions]]:pb-0',
+            )}
+          >
+            <PageChromeProvider value={chrome}>
+              {claims === 0 && chrome.breadcrumb}
+              {children}
+            </PageChromeProvider>
           </div>
         </main>
 

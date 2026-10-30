@@ -15,7 +15,10 @@ interface StepperProps {
   className?: string;
 }
 
-/** Progress of a multi-step form. Done steps show a tick, the current one is marked for readers. */
+/**
+ * Progress of a multi-step form. Done steps show a tick, the current one is marked for readers.
+ * Inside a compact StickyPageHeader the markers shrink and the step descriptions hide.
+ */
 export const Stepper: React.FC<StepperProps> = ({ steps, current, className }) => {
   if (import.meta.env.DEV && steps.length > 4) {
     console.warn('Stepper: convention 06 §3 allows at most 4 steps.');
@@ -33,7 +36,7 @@ export const Stepper: React.FC<StepperProps> = ({ steps, current, className }) =
               <span
                 aria-hidden="true"
                 className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-body-sm font-extrabold',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-body-sm font-extrabold group-data-[compact=true]/chrome:h-6 group-data-[compact=true]/chrome:w-6',
                   state === 'done' && 'border-transparent bg-chrome text-brand',
                   state === 'current' && 'border-transparent bg-accent text-on-accent',
                   state === 'todo' && 'border-dashed border-line-strong text-ink-muted',
@@ -41,14 +44,16 @@ export const Stepper: React.FC<StepperProps> = ({ steps, current, className }) =
               >
                 {state === 'done' ? <Check className="h-4 w-4" /> : index + 1}
               </span>
-              <span className="flex min-w-0 flex-col pt-1">
+              <span className="flex min-w-0 flex-col pt-1 group-data-[compact=true]/chrome:pt-0.5">
                 <span className={cn('text-body-sm font-semibold', state === 'todo' ? 'text-ink-muted' : 'text-ink')}>
                   <span className="sr-only">{state === 'done' ? 'Completed: ' : state === 'current' ? 'Current: ' : ''}</span>
                   {step.label}
                 </span>
-                {step.description && <span className="text-caption text-ink-muted">{step.description}</span>}
+                {step.description && (
+                  <span className="text-caption text-ink-muted group-data-[compact=true]/chrome:hidden">{step.description}</span>
+                )}
               </span>
-              {index < steps.length - 1 && <span aria-hidden="true" className="mt-4 hidden h-px flex-1 bg-line lg:block" />}
+              {index < steps.length - 1 && <span aria-hidden="true" className="mt-4 hidden h-px flex-1 bg-line group-data-[compact=true]/chrome:mt-3 lg:block" />}
             </li>
           );
         })}

@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useSession, type SessionUser } from '../../entities/session/model';
+import { PageHeader } from '../../shared/ui/PageHeader';
+import { StickyPageHeader } from '../../shared/ui/PageChrome';
 import { AppShell } from './AppShell';
 import { useShell } from './shellStore';
 
@@ -22,7 +24,7 @@ const MANAGER: SessionUser = {
   organization: { id: 'o', code: 'ORG-0007', legalName: 'ACME Trek Co., Ltd.', status: 'ACTIVE', memberRole: 'MANAGER' },
 };
 
-const show = (path: string) => {
+const show = (path: string, page: React.ReactNode = <p>page body</p>) => {
   act(() =>
     useSession.getState().signIn({ accessToken: 'a', accessTokenExpiresIn: 1, refreshToken: 'r', refreshTokenExpiresIn: 1 }, MANAGER),
   );
@@ -30,7 +32,7 @@ const show = (path: string) => {
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[path]}>
         <AppShell user={MANAGER} home="/o/contracts" banner={<div role="alert">SOS banner</div>}>
-          <p>page body</p>
+          {page}
         </AppShell>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -78,6 +80,26 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(links.map((link) => link.getAttribute('href'))).toEqual(links.map(() => '/o/invoices'));
     expect(crumbs.textContent).toContain('Payment');
     expect(crumbs.textContent).not.toContain('Overview');
+  });
+
+  it('moves the breadcrumb into a sticky page header, once (leader rule of 2026-10-30)', () => {
+    show(
+      '/o/contracts/abc',
+      <StickyPageHeader>
+        <PageHeader title="Contract CT-1" />
+      </StickyPageHeader>,
+    );
+    const crumbs = screen.getAllByRole('navigation', { name: 'Breadcrumb' });
+    expect(crumbs).toHaveLength(1);
+    expect(crumbs[0].closest('[data-compact]')).toBe(screen.getByRole('heading', { level: 1 }).closest('[data-compact]'));
+    expect(crumbs[0].textContent).toContain('Details');
+  });
+
+  it('turns the published header and action bar heights into scroll padding on the content area', () => {
+    show('/o/contracts');
+    const main = document.getElementById('main')!;
+    expect(main.className).toContain('scroll-pt-[calc(var(--tl-page-header-h,0px)+0.5rem)]');
+    expect(main.className).toContain('scroll-pb-[calc(var(--tl-page-actions-h,0px)+0.5rem)]');
   });
 
   it('shows no Info pane on map pages', () => {

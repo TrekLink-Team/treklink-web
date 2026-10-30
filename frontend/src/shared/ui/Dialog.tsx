@@ -21,7 +21,9 @@ const WIDTH = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-2xl' } as co
 
 /**
  * A modal that traps focus, closes on Escape through `onClose` and returns focus to the control that
- * opened it. Full screen on a narrow viewport. It sits under the incident banner (z-banner), never
+ * opened it. Full screen on a narrow viewport. The title and the footer stay in place and only the
+ * body scrolls (leader rule of 2026-10-30), so a long form keeps its buttons in view: put them in
+ * `footer`, with `form="<form id>"` on the submit button. It sits under the incident banner (z-banner), never
  * over it (convention 06 §8.9).
  */
 export const Dialog: React.FC<Props> = ({
@@ -45,19 +47,21 @@ export const Dialog: React.FC<Props> = ({
         aria-describedby={description ? `${titleId}-desc` : undefined}
         onKeyDown={onKeyDown}
         className={cn(
-          'relative flex h-full w-full flex-col overflow-y-auto border-line bg-surface p-6 text-ink shadow-overlay sm:h-auto sm:max-h-[calc(100vh-6rem)] sm:rounded-sheet sm:border',
+          'relative flex h-full w-full flex-col overflow-hidden border-line bg-surface text-ink shadow-overlay sm:h-auto sm:max-h-[calc(100vh-6rem)] sm:rounded-sheet sm:border',
           WIDTH[size],
         )}
       >
-        <h2 id={titleId} className="mb-1 pr-10 text-title text-ink">
-          {title}
-        </h2>
-        {description && (
-          <p id={`${titleId}-desc`} className="mb-4 text-body text-ink-muted">
-            {description}
-          </p>
-        )}
-        {!description && <div className="mb-3" />}
+        <div className="shrink-0 px-6 pt-6">
+          <h2 id={titleId} className="mb-1 pr-10 text-title text-ink">
+            {title}
+          </h2>
+          {description && (
+            <p id={`${titleId}-desc`} className="mb-4 text-body text-ink-muted">
+              {description}
+            </p>
+          )}
+          {!description && <div className="mb-3" />}
+        </div>
         {showClose && (
           <button
             type="button"
@@ -68,8 +72,12 @@ export const Dialog: React.FC<Props> = ({
             <X aria-hidden="true" className="h-5 w-5" />
           </button>
         )}
-        <div className="flex-1">{children}</div>
-        {footer && <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{footer}</div>}
+        <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 pt-1', footer ? 'pb-1' : 'pb-6')}>{children}</div>
+        {footer && (
+          <div className="flex shrink-0 flex-col-reverse gap-2 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 sm:flex-row sm:justify-end sm:pb-6">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
