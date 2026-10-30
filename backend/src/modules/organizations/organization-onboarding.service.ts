@@ -10,6 +10,7 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { MembersRepository } from './members.repository';
+import { invalidState, OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationReviewRow, OrganizationsRepository } from './organizations.repository';
 
 export interface Registration {
@@ -61,6 +62,7 @@ export class OrganizationOnboardingService {
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
     private readonly parameters: ParameterService,
+    private readonly lifecycle: OrganizationLifecycle,
   ) {}
 
   // api-design 02, the Staff and Admin queue.
@@ -201,48 +203,32 @@ export class OrganizationOnboardingService {
     to: OrganizationStatus,
     reason: string | null,
   ) {
-    return this.events.transaction(async (tx) => {
-      const current = await this.organizations.lockById(id, tx);
-      if (!current) throw notFound();
-      if (current.status !== OrganizationStatus.PENDING) throw notPending(current.status);
-      if (to === OrganizationStatus.ACTIVE && !current.verifiedAt) {
-        throw conflict(
-          ErrorCode.NOT_VERIFIED,
-          'Verify this organization at the counter before approving it.',
-        );
-      }
-      const saved = await this.organizations.update(
+    return this.events.transaction((tx) =>
+      this.lifecycle.transition(
         id,
-        expectedVersion,
+        to,
         {
-          status: to,
-          statusChangedAt: at,
-          decidedAt: at,
-          decidedById: admin.id,
-          rejectionReason: reason,
-        },
-        tx,
-      );
-      if (!saved) throw stale();
-      await this.organizations.addTransition(
-        {
-          organizationId: id,
-          fromStatus: OrganizationStatus.PENDING,
-          toStatus: to,
-          actorId: admin.id,
+          expectedVersion,
+          at,
+          actor: admin,
           reason,
+          data: { decidedAt: at, decidedById: admin.id, rejectionReason: reason },
+          audit:
+            to === OrganizationStatus.ACTIVE ? 'organization.approved' : 'organization.rejected',
+          // The table lets a SUSPENDED organization return to ACTIVE; only a PENDING one is decided here.
+          guard: (current) => {
+            if (current.status !== OrganizationStatus.PENDING) throw invalidState(current.status);
+            if (to === OrganizationStatus.ACTIVE && !current.verifiedAt) {
+              throw conflict(
+                ErrorCode.NOT_VERIFIED,
+                'Verify this organization at the counter before approving it.',
+              );
+            }
+          },
         },
         tx,
-      );
-      this.audit(
-        admin,
-        id,
-        to === OrganizationStatus.ACTIVE ? 'organization.approved' : 'organization.rejected',
-        { status: OrganizationStatus.PENDING },
-        { status: to, reason },
-      );
-      return saved;
-    });
+      ),
+    );
   }
 
   private audit(

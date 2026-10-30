@@ -4,6 +4,7 @@ import { PlatformModule } from '../platform/platform.module';
 import { BalanceService } from './balance.service';
 import { BillingReadsService } from './billing-reads.service';
 import { BillingLossCaseListener } from './providers/loss-case-listener.provider';
+import { BillingOrganizationExitCheck } from './providers/organization-exit-check.provider';
 import { ChargesService } from './charges.service';
 import { DamageChargeService } from './damage-charge.service';
 import { DamageChargesController } from './damage-charges.controller';
@@ -25,7 +26,7 @@ import { SepayService } from './sepay.service';
 // prices and quotes, term and day-plan invoices, the cancellation adjustment, late and damage charges,
 // balances and counter payments; the plan catalogue, quotes, price and damage schedules, invoice,
 // payment and balance endpoints, SePay sandbox payments and their expiry job, and the damage charge
-// queue and decision (UC-48, D-081). The exit-check provider joins with its task.
+// queue and decision (UC-48, D-081). Its exit-check provider (the reactivation check of `organizations`) is BillingOrganizationExitCheck.
 @Module({
   imports: [PlatformModule, DevicesModule],
   controllers: [
@@ -50,6 +51,7 @@ import { SepayService } from './sepay.service';
     BillingReadsService,
     SepayService,
     SepayWebhookGuard,
+    BillingOrganizationExitCheck,
   ],
   exports: [InvoicesService, ChargesService, BalanceService, PaymentsService, PricingService],
 })

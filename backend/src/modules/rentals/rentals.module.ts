@@ -12,6 +12,7 @@ import { ContractsRepository } from './contracts.repository';
 import { ContractsService } from './contracts.service';
 import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
+import { RentalsOrganizationExitCheck } from './providers/organization-exit-check.provider';
 import { RentalsPortsModule } from './rentals-ports.module';
 import { ReturnController } from './return.controller';
 import { OverdueAndDefaultJob } from './overdue-and-default.job';
@@ -41,6 +42,7 @@ import { TermRolloverJob } from './term-rollover.job';
     OverdueAndDefaultJob,
     ReservationRemindersJob,
     TermRolloverJob,
+    RentalsOrganizationExitCheck,
   ],
   exports: [ContractLifecycleService, ContractsService],
 })

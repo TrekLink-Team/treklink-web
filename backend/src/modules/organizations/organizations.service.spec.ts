@@ -3,7 +3,11 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AccountsService } from '../auth';
+import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
+import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ORGANIZATION_STATUS_CHANGED } from './organization-events';
 import { MembersRepository } from './members.repository';
+import { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationsService } from './organizations.service';
 
@@ -19,6 +23,7 @@ describe('OrganizationsService.assertActive (FR-CON-02, for rentals 2.1)', () =>
       organizations as unknown as OrganizationsRepository,
       {} as MembersRepository,
       {} as AccountsService,
+      {} as OrganizationLifecycle,
     );
   });
 
@@ -109,6 +114,7 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
       organizations as unknown as OrganizationsRepository,
       members as unknown as MembersRepository,
       accounts as unknown as AccountsService,
+      {} as OrganizationLifecycle,
     );
   });
 
@@ -161,6 +167,7 @@ describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)
   const AT = new Date('2026-11-30T03:00:00.000Z');
   let organizations: Record<string, jest.Mock>;
   let mail: { send: jest.Mock };
+  let emitted: [string, Record<string, unknown>][];
   let service: OrganizationsService;
 
   beforeEach(() => {
@@ -171,10 +178,19 @@ describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)
       contactEmail: jest.fn().mockResolvedValue('manager@example.com'),
     };
     mail = { send: jest.fn().mockResolvedValue(undefined) };
+    emitted = [];
+    const events = {
+      emitAfterCommit: (name: string, payload: Record<string, unknown>) =>
+        emitted.push([name, payload]),
+    };
     service = new OrganizationsService(
       organizations as unknown as OrganizationsRepository,
       {} as MembersRepository,
       {} as AccountsService,
+      new OrganizationLifecycle(
+        organizations as unknown as OrganizationsRepository,
+        events as unknown as TransactionalEvents,
+      ),
       mail,
     );
   });
@@ -184,7 +200,11 @@ describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)
     expect(organizations.update).toHaveBeenCalledWith(
       'org-1',
       4,
-      { status: OrganizationStatus.SUSPENDED, statusChangedAt: AT },
+      {
+        suspensionReason: 'Contract RC-2026-0001 defaulted',
+        status: OrganizationStatus.SUSPENDED,
+        statusChangedAt: AT,
+      },
       tx,
     );
     expect(organizations.addTransition).toHaveBeenCalledWith(
@@ -197,14 +217,35 @@ describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)
       },
       tx,
     );
+    expect(emitted).toEqual([
+      [
+        ORGANIZATION_STATUS_CHANGED,
+        {
+          organizationId: 'org-1',
+          from: OrganizationStatus.ACTIVE,
+          to: OrganizationStatus.SUSPENDED,
+        },
+      ],
+      [
+        AUDIT_RECORD,
+        expect.objectContaining({
+          actorId: null,
+          actorRoles: [],
+          action: 'organization.suspended',
+          before: { status: OrganizationStatus.ACTIVE },
+        }),
+      ],
+    ]);
   });
 
-  it('leaves an organization that is not ACTIVE, and one another change won', async () => {
+  it('leaves an organization that is not ACTIVE, or one that is gone, as it is', async () => {
     organizations.lockById.mockResolvedValueOnce({ status: OrganizationStatus.SUSPENDED });
     await expect(service.suspendForDefault('org-1', 'RC-2026-0001', AT, tx)).resolves.toBe(false);
-    organizations.update.mockResolvedValueOnce(null);
+    organizations.lockById.mockResolvedValueOnce(null);
     await expect(service.suspendForDefault('org-1', 'RC-2026-0001', AT, tx)).resolves.toBe(false);
+    expect(organizations.update).not.toHaveBeenCalled();
     expect(organizations.addTransition).not.toHaveBeenCalled();
+    expect(emitted).toEqual([]);
   });
 
   it('emails the contact address, and reports a failed send without throwing', async () => {

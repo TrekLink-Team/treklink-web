@@ -65,6 +65,20 @@ export class BalanceService {
     return sum(remainingAfterCredits(await this.invoices.linesOfContract(contractId, client)));
   }
 
+  // What every contract of the organization still owes, in VND. Credits net inside one contract only, so
+  // a credit on one contract never pays another contract's debt.
+  async outstandingOfOrganization(organizationId: string, client?: Client): Promise<bigint> {
+    const byContract = new Map<string, LineRow[]>();
+    for (const line of await this.invoices.linesOfOrganization(organizationId, client)) {
+      const lines = byContract.get(line.invoice.contractId) ?? [];
+      lines.push(line);
+      byContract.set(line.invoice.contractId, lines);
+    }
+    let total = 0n;
+    for (const lines of byContract.values()) total += sum(remainingAfterCredits(lines));
+    return total;
+  }
+
   // The contract balance: due now (due at or before `at`), due later, and paid (api-design 10).
   async balanceSummary(
     contractId: string,

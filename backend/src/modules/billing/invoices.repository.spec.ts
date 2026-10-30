@@ -245,6 +245,19 @@ describe('InvoicesRepository (billing task 1.1)', () => {
     });
   });
 
+  it('reads every line of every invoice of an organization with its contract, oldest due first', async () => {
+    await repository.linesOfOrganization('org-1', client());
+    await repository.linesOfOrganization('org-2');
+    expect(tx.invoiceLine.findMany).toHaveBeenCalledWith({
+      where: { invoice: { organizationId: 'org-1' } },
+      orderBy: [{ dueAt: 'asc' }, { seq: 'asc' }],
+      select: { ...LINE_SELECT, invoice: { select: { contractId: true } } },
+    });
+    expect(tx.invoiceLine.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { invoice: { organizationId: 'org-2' } } }),
+    );
+  });
+
   it('reads the first TERM or DAY_PLAN invoice of a contract with its lines in order', async () => {
     await repository.firstChargeableInvoice('c-1');
     expect(tx.invoice.findFirst).toHaveBeenCalledWith({

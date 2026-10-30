@@ -278,9 +278,9 @@ export class ContractsService {
   }
 
   // ORGANIZATION_EXIT_CHECKS.canClose: an organization with a contract that is not REJECTED,
-  // CANCELLED or CLOSED may not close.
-  async canClose(organizationId: string): Promise<boolean> {
-    return (await this.contracts.countUnfinishedContracts(organizationId)) === 0;
+  // CANCELLED or CLOSED may not close. `tx` is the closing transaction (RentalsOrganizationExitCheck).
+  async canClose(organizationId: string, tx?: Prisma.TransactionClient): Promise<boolean> {
+    return (await this.contracts.countUnfinishedContracts(organizationId, tx)) === 0;
   }
 
   // LOSS_CASE_LISTENERS.onSettled: the row's interval ends at the loss confirmation, inside the

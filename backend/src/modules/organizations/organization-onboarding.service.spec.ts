@@ -7,6 +7,8 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { MembersRepository } from './members.repository';
+import { ORGANIZATION_STATUS_CHANGED } from './organization-events';
+import { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationOnboardingService, Verification } from './organization-onboarding.service';
 import { OrganizationsRepository } from './organizations.repository';
 
@@ -42,6 +44,8 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
   let accounts: { createOrganizationAccount: jest.Mock };
   let parameters: { get: jest.Mock };
   let emitted: [string, Record<string, unknown>][];
+  const auditActions = () =>
+    emitted.filter(([name]) => name === AUDIT_RECORD).map(([, payload]) => payload.action);
   let service: OrganizationOnboardingService;
 
   beforeEach(() => {
@@ -79,6 +83,10 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
       events as unknown as TransactionalEvents,
       config as unknown as ConfigService<ValidatedEnvironment, true>,
       parameters as unknown as ParameterService,
+      new OrganizationLifecycle(
+        organizations as unknown as OrganizationsRepository,
+        events as unknown as TransactionalEvents,
+      ),
     );
   });
 
@@ -267,7 +275,15 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
         TX,
       );
       expect(saved).toMatchObject({ status: OrganizationStatus.ACTIVE });
-      expect(emitted.map(([, payload]) => payload.action)).toEqual(['organization.approved']);
+      expect(auditActions()).toEqual(['organization.approved']);
+      expect(emitted).toContainEqual([
+        ORGANIZATION_STATUS_CHANGED,
+        {
+          organizationId: 'org-1',
+          from: OrganizationStatus.PENDING,
+          to: OrganizationStatus.ACTIVE,
+        },
+      ]);
     });
 
     it('refuses to approve an organization not yet verified with 409 NOT_VERIFIED (MSG21)', async () => {
@@ -296,7 +312,7 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
         }),
         TX,
       );
-      expect(emitted.map(([, payload]) => payload.action)).toEqual(['organization.rejected']);
+      expect(auditActions()).toEqual(['organization.rejected']);
     });
 
     it('refuses a decision on an organization that is not PENDING', async () => {

@@ -152,6 +152,15 @@ export class OrganizationsRepository {
     return client.organizationTransition.create({ data: row });
   }
 
+  // The append-only status history of an organization, oldest first (api-design 11).
+  transitionsOf(organizationId: string, client: Client = this.prisma) {
+    return client.organizationTransition.findMany({
+      where: { organizationId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { fromStatus: true, toStatus: true, actorId: true, reason: true, createdAt: true },
+    });
+  }
+
   // --- live map read (monitoring api-design 02, FR-EVT-13) ---
   // The stations not revoked, of one organization or of every one, oldest first.
   activeFieldStations(

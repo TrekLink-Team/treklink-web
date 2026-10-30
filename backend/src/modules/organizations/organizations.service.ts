@@ -4,6 +4,7 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AccountsService, MAIL_PORT, type MailPort } from '../auth';
 import { MembersRepository } from './members.repository';
+import { OrganizationLifecycle } from './organization-lifecycle';
 import {
   FieldStationHealthRow,
   OrganizationLabel,
@@ -25,7 +26,7 @@ const notFound = () =>
 
 // The methods other modules call (design §5). `assertActive` for rentals 2.1; the member list, the
 // channel key version and the live-Manager check for the counter handover (rentals 2.3, 2.4); task
-// 2.4 builds the rest of the lifecycle around them.
+// 2.4 builds the rest of the lifecycle around them (`OrganizationStatusService`).
 @Injectable()
 export class OrganizationsService {
   private readonly logger = new Logger(OrganizationsService.name);
@@ -34,6 +35,7 @@ export class OrganizationsService {
     private readonly organizations: OrganizationsRepository,
     private readonly members: MembersRepository,
     private readonly accounts: AccountsService,
+    private readonly lifecycle: OrganizationLifecycle,
     @Optional() @Inject(MAIL_PORT) private readonly mail?: MailPort,
   ) {}
 
@@ -48,20 +50,17 @@ export class OrganizationsService {
   ): Promise<boolean> {
     const current = await this.organizations.lockById(organizationId, tx);
     if (!current || current.status !== OrganizationStatus.ACTIVE) return false;
-    const saved = await this.organizations.update(
+    const reason = `Contract ${contractCode} defaulted`;
+    await this.lifecycle.transition(
       organizationId,
-      current.version,
-      { status: OrganizationStatus.SUSPENDED, statusChangedAt: at },
-      tx,
-    );
-    if (!saved) return false;
-    await this.organizations.addTransition(
+      OrganizationStatus.SUSPENDED,
       {
-        organizationId,
-        fromStatus: OrganizationStatus.ACTIVE,
-        toStatus: OrganizationStatus.SUSPENDED,
-        actorId: null,
-        reason: `Contract ${contractCode} defaulted`,
+        expectedVersion: current.version,
+        at,
+        actor: null,
+        reason,
+        data: { suspensionReason: reason },
+        audit: 'organization.suspended',
       },
       tx,
     );

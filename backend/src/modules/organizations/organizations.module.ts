@@ -16,8 +16,11 @@ import { FieldStationsService } from './field-stations.service';
 import { MembersController } from './members.controller';
 import { MembersRepository } from './members.repository';
 import { MembersService } from './members.service';
+import { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationOnboardingController } from './organization-onboarding.controller';
 import { OrganizationOnboardingService } from './organization-onboarding.service';
+import { OrganizationStatusController } from './organization-status.controller';
+import { OrganizationStatusService } from './organization-status.service';
 import { OrganizationsController } from './organizations.controller';
 import { OrganizationsPortsModule } from './organizations-ports.module';
 import { OrganizationsRepository } from './organizations.repository';
@@ -39,6 +42,7 @@ import { ShiftsService } from './shifts.service';
   controllers: [
     OrganizationsController,
     OrganizationOnboardingController,
+    OrganizationStatusController,
     ApiKeysController,
     FieldStationsController,
     ChannelKeyController,
@@ -52,6 +56,8 @@ import { ShiftsService } from './shifts.service';
     MembersRepository,
     MembersService,
     OrganizationOnboardingService,
+    OrganizationLifecycle,
+    OrganizationStatusService,
     RosterRepository,
     RosterService,
     ApiKeysRepository,

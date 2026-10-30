@@ -23,6 +23,7 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
     invoices = {
       firstChargeableInvoice: jest.fn().mockResolvedValue(null),
       linesOfContract: jest.fn().mockResolvedValue([]),
+      linesOfOrganization: jest.fn().mockResolvedValue([]),
     };
     damageCharges = { pendingOfContract: jest.fn().mockResolvedValue([]) };
     service = new BalanceService(
@@ -83,6 +84,37 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         line(InvoiceLineType.ADJUSTMENT, -80_000n, 0n, NOW),
       ]);
       await expect(service.outstanding('c-1')).resolves.toBe(0n);
+    });
+  });
+
+  describe('outstandingOfOrganization (organizations exit check, reactivation)', () => {
+    const lineOf = (contractId: string, ...args: Parameters<typeof line>) => ({
+      ...line(...args),
+      invoice: { contractId },
+    });
+
+    it('is zero for an organization with no invoice', async () => {
+      await expect(service.outstandingOfOrganization('org-1', TX)).resolves.toBe(0n);
+      expect(invoices.linesOfOrganization).toHaveBeenCalledWith('org-1', TX);
+    });
+
+    it('sums what every contract of the organization still owes', async () => {
+      invoices.linesOfOrganization.mockResolvedValue([
+        lineOf('c-1', InvoiceLineType.TERM_BALANCE, 2_250_000n, 1_000_000n, EARLY),
+        lineOf('c-2', InvoiceLineType.LATE_FEE, 150_000n, 0n, NOW),
+        lineOf('c-1', InvoiceLineType.LATE_FEE, 50_000n, 0n, LATE),
+      ]);
+      await expect(service.outstandingOfOrganization('org-1')).resolves.toBe(1_450_000n);
+    });
+
+    it('nets a credit inside its own contract only, never against another contract', async () => {
+      invoices.linesOfOrganization.mockResolvedValue([
+        lineOf('c-1', InvoiceLineType.ADJUSTMENT, -500_000n, 0n, NOW),
+        lineOf('c-1', InvoiceLineType.LATE_FEE, 100_000n, 0n, EARLY),
+        lineOf('c-2', InvoiceLineType.LATE_FEE, 300_000n, 0n, EARLY),
+      ]);
+      // c-1 owes nothing (its credit exceeds its fee); c-2 still owes its own 300 000.
+      await expect(service.outstandingOfOrganization('org-1')).resolves.toBe(300_000n);
     });
   });
 
