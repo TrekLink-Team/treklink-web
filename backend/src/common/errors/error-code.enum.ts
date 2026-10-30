@@ -52,6 +52,8 @@ export enum ErrorCode {
   // organizations (specs/organizations/design.md)
   ORGANIZATION_NOT_ACTIVE = 'ORGANIZATION_NOT_ACTIVE',
   KEY_LIMIT = 'KEY_LIMIT',
+  // The last active Manager cannot be demoted or deactivated (api-design 14, 15, FR-ORG-04).
+  LAST_MANAGER = 'LAST_MANAGER',
 
   // monitoring (specs/monitoring/design.md §6)
   CURSOR_EXPIRED = 'CURSOR_EXPIRED',

@@ -110,6 +110,20 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
     expect(members.membersOf).toHaveBeenCalledWith('org-1', false);
   });
 
+  it('does not show a deactivated member as an invitation pending', async () => {
+    members.membersOf.mockResolvedValueOnce([
+      {
+        id: 'm-3',
+        userId: 'u-op',
+        role: 'OPERATOR',
+        deactivatedAt: new Date('2026-10-20T03:15:00Z'),
+      },
+    ]);
+    await expect(service.membersOf('org-1', true, STAFF)).resolves.toEqual([
+      expect.objectContaining({ userId: 'u-op', invitationPending: false }),
+    ]);
+  });
+
   it("answers 404 for another organization's members and summary", async () => {
     await expect(service.membersOf('org-1', false, OTHER)).rejects.toMatchObject({
       errorCode: ErrorCode.NOT_FOUND,

@@ -106,7 +106,8 @@ export class OrganizationsService {
         email: card?.email ?? null,
         fullName: card?.fullName ?? null,
         role: row.role,
-        invitationPending: card ? !card.isActive : false,
+        // An inactive account of a member who is not deactivated has not set its password yet.
+        invitationPending: card ? !card.isActive && row.deactivatedAt === null : false,
         deactivatedAt: row.deactivatedAt,
       };
     });

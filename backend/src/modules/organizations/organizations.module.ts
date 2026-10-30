@@ -4,7 +4,9 @@ import { PlatformModule } from '../platform/platform.module';
 import { ApiKeysController } from './api-keys.controller';
 import { ApiKeysRepository } from './api-keys.repository';
 import { ApiKeysService } from './api-keys.service';
+import { MembersController } from './members.controller';
 import { MembersRepository } from './members.repository';
+import { MembersService } from './members.service';
 import { OrganizationOnboardingController } from './organization-onboarding.controller';
 import { OrganizationOnboardingService } from './organization-onboarding.service';
 import { OrganizationsController } from './organizations.controller';
@@ -22,11 +24,17 @@ import { RosterService } from './roster.service';
 // remaining repositories and services.
 @Module({
   imports: [OrganizationsPortsModule, AuthModule, PlatformModule],
-  controllers: [OrganizationsController, OrganizationOnboardingController, ApiKeysController],
+  controllers: [
+    OrganizationsController,
+    OrganizationOnboardingController,
+    ApiKeysController,
+    MembersController,
+  ],
   providers: [
     OrganizationsRepository,
     OrganizationsService,
     MembersRepository,
+    MembersService,
     OrganizationOnboardingService,
     RosterRepository,
     RosterService,
