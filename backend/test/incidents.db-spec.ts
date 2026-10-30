@@ -856,6 +856,58 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
       expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(2);
     });
 
+    // Dry run defect 15: a correction is a new row naming the old one; the old row is never edited.
+    it('appends a correction linked to the corrected update and leaves that update unchanged', async () => {
+      const incident = await fixture('RESPONDING', {
+        ownerId: operatorId,
+        acknowledgedAt: at,
+        statusDueAt: new Date(at.getTime() + 60000),
+      });
+      const other = await fixture('RESPONDING', { ownerId: operatorId, acknowledgedAt: at });
+      const first = await service.addStatus(incident.id, { note: 'At the ridge' }, caller());
+      const original = await prisma.incidentStatusUpdate.findUniqueOrThrow({
+        where: { id: first.id },
+      });
+      const fix = await service.addStatus(
+        incident.id,
+        { note: 'At the second ridge', correctsId: first.id },
+        caller(),
+      );
+      expect(fix).toMatchObject({ note: 'At the second ridge', correctsId: first.id });
+      expect(
+        await prisma.incidentStatusUpdate.findUniqueOrThrow({ where: { id: first.id } }),
+      ).toEqual(original);
+      await expect(
+        service.addStatus(incident.id, { note: 'Again', correctsId: first.id }, caller()),
+      ).rejects.toMatchObject({ errorCode: ErrorCode.CONFLICT_UNIQUE });
+      await expect(
+        service.addStatus(other.id, { note: 'Elsewhere', correctsId: fix.id }, caller()),
+      ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+      // A correction can itself be corrected once.
+      const second = await service.addStatus(
+        incident.id,
+        { note: 'At the third ridge', correctsId: fix.id },
+        caller(),
+      );
+      expect(second.correctsId).toBe(fix.id);
+      expect(
+        await prisma.incidentStatusUpdate.findMany({
+          where: { incidentId: incident.id },
+          orderBy: { createdAt: 'asc' },
+          select: { note: true, correctsId: true },
+        }),
+      ).toEqual([
+        { note: 'At the ridge', correctsId: null },
+        { note: 'At the second ridge', correctsId: first.id },
+        { note: 'At the third ridge', correctsId: fix.id },
+      ]);
+      expect(await prisma.incidentStatusUpdate.count({ where: { incidentId: other.id } })).toBe(0);
+      // The append-only trigger still refuses an edit in place.
+      await expect(
+        prisma.incidentStatusUpdate.update({ where: { id: first.id }, data: { note: 'Edited' } }),
+      ).rejects.toThrow(/append-only/);
+    });
+
     it('refuses a status update from the kept owner after escalation and writes nothing', async () => {
       const incident = await fixture('ESCALATED', { ownerId: operatorId, acknowledgedAt: at });
       await expect(
