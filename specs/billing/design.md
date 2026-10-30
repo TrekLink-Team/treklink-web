@@ -181,124 +181,278 @@ one invoice.
 
 ## 8. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 3 is the class view; Figures 4 to 11 are the
-payments, prices, balance and return charges of MF-01 and MF-05.
+Layering follows `organizations` design §9. Separate class views cover MF-01 counter payments/prices and MF-05 balances/return charges. UC-19 follows `SepayController`, `SepayService` and `SepayWebhookGuard`, while UC-48 remains planned and is labelled accordingly.
+
+<!-- sdd: MF-01 class billing -->
+```mermaid
+classDiagram
+    direction TB
+    class InvoicesController {
+        +recordCounter(string, CounterPaymentDto, Caller) inferred
+    }
+    class PaymentsService {
+        +recordCounter(string, CounterPaymentInput, Caller, Date) PaymentRow
+    }
+    class InvoicesRepository {
+        +applyPayment(InvoiceWithLines, bigint, Tx) InvoiceRow
+        +lockWithLines(string, Tx) InvoiceWithLines ?
+    }
+    class PaymentsRepository {
+        +insertCounterPayment(NewCounterPayment, Tx) PaymentRow
+        +referenceExists(string, Client) boolean
+    }
+    class PricingAdminController {
+        +setPrice(NewPriceDto, Caller) inferred
+    }
+    class PricingService {
+        +setPrice(NewPriceInput, Caller, Date) PriceRow
+    }
+    class PricingRepository {
+        +insertPrice(NewPrice, Client) PriceRow
+    }
+    InvoicesController ..> PaymentsService : calls
+    PaymentsService ..> InvoicesRepository : calls
+    PaymentsService ..> PaymentsRepository : calls
+    PricingAdminController ..> PricingService : calls
+    PricingService ..> PricingRepository : calls
+```
+
+***Figure 3***: billing classes used in MF-01, UC-22, UC-56. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class billing -->
 ```mermaid
 classDiagram
-    class PaymentsController {
-        +createSepay(invoiceId, dto, caller) PaymentDto
-    }
-    class InvoicesController {
-        +recordCounter(invoiceId, dto, actor) PaymentDto
-        +balance(contractId, caller) BalanceDto
-    }
-    class PricingAdminController {
-        +setPrice(dto, caller) PriceDto
-    }
-    class PaymentsService {
-        +recordCounter(invoiceId, input, actor) Payment
-    }
-    class BillingReadsService {
-        +balance(contractId, caller) BalanceSummary
-    }
-    class SepayWebhookController {
-        +handle(body, headers) SepayAck
-    }
-    class DamageChargesController {
-        +decide(id, dto, actor) DamageChargeDto
+    direction TB
+    class SepayController {
+        +find(string, Caller) inferred
+        +request(string, SepayPaymentDto, Caller) inferred
     }
     class SepayService {
-        +createRequest(invoiceId, dto, caller) Payment
-        +handleWebhook(body, headers) SepayAck
-    }
-    class DamageChargeService {
-        +decide(id, dto, actor) DamageCharge
-    }
-    class InvoicesService {
-        +issueTermInvoice(contract, term, tx) Invoice
-    }
-    class ChargesService {
-        +chargeLate(contract, device, checkedInAt, tx)
-        +chargeDamage(contract, inspection, tx)
-        +chargeLoss(contract, device, lostAt, tx)
+        +find(string, Caller, Date) object
+        +request(string, number ?, Caller, Date) PaymentRow
     }
     class BalanceService {
-        +firstPaymentConfirmed(contractId) bool
-        +outstanding(contractId) int
-    }
-    class PricingService {
-        +quote(dto) Quote
-        +snapshot(variantId) PriceSnapshot
-        +setPrice(input, caller) PriceSchedule
-        +damageRateFor(code, variantId, tx) int
-    }
-    class PricingRepository {
-        +insertPrice(row, tx) PriceSchedule
-    }
-    class DamageChargesRepository {
-        +insert(charge, tx) DamageCharge
-    }
-    class ParameterService
-    class PaymentsRepository {
-        +insertPending(row, tx) Payment
-        +lockByReference(ref, tx) Payment
-        +confirm(id, txnId, tx)
+        +outstanding(string, Client) bigint
     }
     class InvoicesRepository {
-        +insert(invoice, lines, tx) Invoice
-        +lockWithLines(invoiceId, tx) Invoice
-        +lockClosingInvoice(contractId, tx) Invoice
-        +appendLines(invoice, lines, tx) Invoice
-        +applyPayment(invoiceId, amount, tx)
-        +linesOfContract(contractId) InvoiceLine[]
+        +detail(string, Client) InvoiceDetailRow ?
+        +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
     }
-    PaymentsController --> SepayService
-    InvoicesController --> PaymentsService
-    InvoicesController --> BillingReadsService
-    PricingAdminController --> PricingService
-    PaymentsService --> InvoicesRepository
-    PaymentsService --> PaymentsRepository
-    BillingReadsService --> BalanceService
-    BillingReadsService --> InvoicesRepository
-    PricingService --> PricingRepository
-    ChargesService --> PricingService : damageRateFor
-    ChargesService --> DamageChargesRepository
-    ChargesService --> ParameterService : grace, late fee, threshold
-    SepayWebhookController --> SepayService
-    DamageChargesController --> DamageChargeService
-    SepayService --> PaymentsRepository
-    SepayService --> InvoicesRepository
-    DamageChargeService --> InvoicesRepository
-    InvoicesService --> InvoicesRepository
-    ChargesService --> InvoicesRepository
-    BalanceService --> InvoicesRepository
+    class PaymentsRepository {
+        +findPendingSepay(string, Date, Client) inferred
+        +insertReceivedSepay(object, Tx) PaymentRow
+        +insertSepayPayment(NewSepayPayment, Tx) PaymentRow
+        +lockInvoiceRequests(string, Tx) void
+    }
+    SepayController ..> SepayService : calls
+    SepayService ..> BalanceService : calls
+    SepayService ..> InvoicesRepository : calls
+    SepayService ..> PaymentsRepository : calls
 ```
 
-***Figure 3***: billing classes. `SepayWebhookController` is the one raw-response controller (D-038).
+***Figure 4***: billing classes used in MF-05, UC-19 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class billing-uc-19-part-2-of-2 -->
+```mermaid
+classDiagram
+    direction TB
+    class SepayController {
+        +find(string, Caller) inferred
+        +webhook(string ?, SepayWebhookDto) object
+    }
+    class SepayService {
+        +assertWebhookKey(string ?) void
+        +find(string, Caller, Date) object
+        +handleWebhook(string ?, SepayWebhook, Date) WebhookOutcome
+    }
+    class PaymentsRepository {
+        +confirmSepay(string, Settlement, Tx) inferred
+        +gatewayTxnExists(string, Client) boolean
+        +insertReceivedSepay(object, Tx) PaymentRow
+        +lockByReference(string, Tx) PaymentRow ?
+    }
+    class InvoicesRepository {
+        +applyPayment(InvoiceWithLines, bigint, Tx) InvoiceRow
+        +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
+        +lockWithLines(string, Tx) InvoiceWithLines ?
+    }
+    SepayController ..> SepayService : calls
+    SepayService ..> InvoicesRepository : calls
+    SepayService ..> PaymentsRepository : calls
+```
+
+***Figure 5***: billing classes used in MF-05, UC-19 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class billing-uc-48 -->
+```mermaid
+classDiagram
+    direction TB
+    class DamageChargesController {
+        <<planned>>
+        +decide() Planned
+    }
+    class DamageChargeService {
+        <<planned>>
+        +decide() Planned
+    }
+    class DamageChargesRepository {
+        +insert(NewDamageCharge, Tx) DamageChargeRow
+        +lock() Planned
+        +recordDecision() Planned
+    }
+    class InvoicesRepository {
+        +addDamageLine() Planned
+        +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
+    }
+    DamageChargeService ..> DamageChargesRepository : calls
+    DamageChargeService ..> InvoicesRepository : calls
+    DamageChargesController ..> DamageChargeService : calls
+```
+
+***Figure 6***: billing classes used in MF-05, UC-48. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class billing-uc-45 -->
+```mermaid
+classDiagram
+    direction TB
+    class InvoicesController {
+        +balance(string, Caller) inferred
+    }
+    class BillingReadsService {
+        +balance(string, Caller) BalanceSummary
+    }
+    class BalanceService {
+        +balanceSummary(string, Date, Client) BalanceSummary
+    }
+    class InvoicesRepository {
+        +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
+        +linesOfContract(string, Client) LineRow[]
+        +organizationOfContract(string, Client) string ?
+    }
+    BalanceService ..> InvoicesRepository : calls
+    BillingReadsService ..> BalanceService : calls
+    BillingReadsService ..> InvoicesRepository : calls
+    InvoicesController ..> BillingReadsService : calls
+```
+
+***Figure 7***: billing classes used in MF-05, UC-45. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class billing-uc-46 -->
+```mermaid
+classDiagram
+    direction TB
+    class ReturnController {
+        +checkIn(string, CheckInDto, Caller) inferred
+    }
+    class ReturnService {
+        +checkIn(string, string[], Caller, Date) inferred
+    }
+    class ChargesService {
+        +chargeLate(LateContract, ChargedDevice, Date, string ?, Tx) InvoiceRow ?
+    }
+    class ParameterService {
+        +get(K, Tx) ParameterValue~K~
+    }
+    class InvoicesRepository {
+        +appendLines(InvoiceRow, NewInvoiceLine[], Tx) InvoiceRow
+        +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
+        +lockClosingInvoice(string, Tx) InvoiceRow ?
+    }
+    ChargesService ..> InvoicesRepository : calls
+    ChargesService ..> ParameterService : calls
+    ReturnController ..> ReturnService : calls
+    ReturnService ..> ChargesService : calls
+```
+
+***Figure 8***: billing classes used in MF-05, UC-46. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class billing-uc-47 -->
+```mermaid
+classDiagram
+    direction TB
+    class ReturnController {
+        +inspect(string, string, InspectionDto, Caller) inferred
+    }
+    class ReturnService {
+        +inspect(string, string, InspectionInput, Caller, Date) inferred
+    }
+    class DevicesService {
+        +recordInspection(string, object, string, Date, Tx) inferred
+    }
+    class ChargesService {
+        +chargeDamage(ChargedContract, DamagedInspection, string ?, Tx, Date) DamageResult ?
+    }
+    class PricingService {
+        +damageRateFor(string, string, Tx) bigint ?
+    }
+    class ParameterService {
+        +get(K, Tx) ParameterValue~K~
+    }
+    class DamageChargesRepository {
+        +insert(NewDamageCharge, Tx) DamageChargeRow
+    }
+    class InvoicesRepository {
+        +appendLines(InvoiceRow, NewInvoiceLine[], Tx) InvoiceRow
+        +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
+        +lockClosingInvoice(string, Tx) InvoiceRow ?
+    }
+    ChargesService ..> DamageChargesRepository : calls
+    ChargesService ..> InvoicesRepository : calls
+    ChargesService ..> ParameterService : calls
+    ChargesService ..> PricingService : calls
+    ReturnController ..> ReturnService : calls
+    ReturnService ..> ChargesService : calls
+    ReturnService ..> DevicesService : calls
+```
+
+***Figure 9***: billing classes used in MF-05, UC-47. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
 
 <!-- sdd: MF-05 seq UC-19 part 1 of 2: payment request -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor M as Org Manager
-    participant P as InvoicePage
-    participant C as PaymentsController
-    participant S as SepayService
-    participant R as PaymentsRepository
+    participant P as :InvoicePage
+    participant C as :SepayController
+    participant S as :SepayService
+    participant B as :BalanceService
+    participant I as :InvoicesRepository
+    participant R as :PaymentsRepository
     M->>P: pay the invoice online
+    activate P
+    deactivate P
     P->>C: POST /api/invoices/{id}/payments/sepay
-    C->>S: createRequest(invoiceId, dto, caller)
-    S->>S: amount due, fresh reference, expiry
-    S->>R: insertPending(amount, reference, expiresAt, tx)
-    S-->>C: PaymentDto with VietQR
-    C-->>P: 201 envelope, QR shown
-    P->>C: poll the payment status
-    C-->>P: PENDING, then CONFIRMED
+    activate C
+    deactivate C
+    C->>S: request(invoiceId, lineSeq, caller)
+    activate S
+    deactivate S
+    S->>I: detail(invoiceId)
+    activate I
+    deactivate I
+    S->>R: lockInvoiceRequests(invoiceId, tx)
+    activate R
+    deactivate R
+    S->>B: outstanding(contractId, tx)
+    activate B
+    deactivate B
+    alt failure: contract balance is settled
+        S-->>C: 409 NOTHING_DUE
+        C-->>P: error envelope
+    else success: balance open and no pending request
+        S->>R: findPendingSepay(invoiceId, at, tx)
+        activate R
+        deactivate R
+        S->>R: insertSepayPayment(row, tx)
+        activate R
+        deactivate R
+        S-->>C: PENDING payment
+        C-->>P: 201 envelope, VietQR shown
+    end
 ```
 
-***Figure 4***: UC-19 Pay Online, part 1 of 2: payment request.
+***Figure 10***: UC-19 Pay Online, part 1 of 2: the payment request. SepayController delegates to SepayService.request. The named failure is a settled contract balance (409 NOTHING_DUE). Wrong ownership is 404 and an existing pending request is 409 PAYMENT_PENDING outside these two lanes. Status polling uses SepayController.find and SepayService.find.
 
 <!-- sdd: MF-05 seq UC-19 part 2 of 2: confirming webhook -->
 ```mermaid
@@ -308,158 +462,199 @@ sequenceDiagram
     participant W as :SepayController
     participant S as :SepayService
     participant R as :PaymentsRepository
-    participant IR as :InvoicesRepository
-    G->>+W: POST /api/payments/sepay/webhook
-    Note over W,S: SepayWebhookGuard checks the API key before DTO validation
-    W->>+S: handleWebhook(authorization, body)
-    S->>S: verify the API key in constant time
-    S->>+R: gatewayTxnExists(gatewayTxnId)
-    R-->>-S: whether the transaction is known
-    alt gateway transaction id already recorded
-        S->>S: no payment recorded
-    else new gateway transaction id
-        S->>+R: lockByReference(reference, tx)
-        R-->>-S: request
-        S->>+R: confirmSepay(id, settlement, tx) or insertReceivedSepay(payment, tx)
-        R-->>-S: confirmed payment
-        S->>+IR: applyPayment(invoice, applied, tx)
-        IR-->>-S: updated invoice
-        S->>S: COMMIT, emit payment.confirmed
+    participant I as :InvoicesRepository
+    G->>W: POST /api/payments/sepay/webhook
+    activate W
+    deactivate W
+    Note over W,S: SepayWebhookGuard authenticates before DTO validation
+    W->>S: handleWebhook(authorization, body)
+    activate S
+    deactivate S
+    S->>S: assertWebhookKey(authorization)
+    S->>R: gatewayTxnExists(txnId)
+    activate R
+    deactivate R
+    alt failure to apply: transaction id already recorded
+        S-->>W: duplicate, no new payment
+    else success: new transfer matches an open request exactly
+        S->>R: lockByReference(reference, tx)
+        activate R
+        deactivate R
+        S->>R: confirmSepay(id, settlement, tx)
+        activate R
+        deactivate R
+        S->>I: lockWithLines(invoiceId, tx)
+        activate I
+        deactivate I
+        S->>I: applyPayment(invoice, appliedAmount, tx)
+        activate I
+        deactivate I
+        Note over S,I: emit payment.confirmed after commit
+        S-->>W: confirmed
     end
-    S-->>-W: outcome
-    W-->>-G: 200 {"success": true}
+    W-->>G: 200 success in gateway format
 ```
 
-***Figure 5***: UC-19 Pay Online, part 2 of 2: the gateway's confirming webhook, recorded once per
-gateway transaction id. A different transfer for a confirmed reference is recorded as its own
-payment, with only the unpaid invoice amount applied (FR-BILL-07, FR-BILL-08).
+***Figure 11***: UC-19 Pay Online, part 2 of 2: the confirming webhook. SepayController.webhook is the raw-response route (D-038). SepayWebhookGuard validates the key before body validation. Gateway transaction id is the deduplication key; a different transfer for an already confirmed reference is recorded by insertReceivedSepay and applied up to the invoice due amount. Unknown references and outgoing transfers acknowledge success without recording a payment. These additional outcomes are described here, outside the named duplicate lane.
 
 <!-- sdd: MF-05 seq UC-48 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor Ad as TrekLink Admin
-    participant P as DamageChargesPage
-    participant C as DamageChargesController
-    participant S as DamageChargeService
-    participant R as DamageChargesRepository
-    participant IR as InvoicesRepository
+    participant P as :DamageChargesPage
+    participant C as :DamageChargesController
+    participant S as :DamageChargeService
+    participant R as :DamageChargesRepository
+    participant IR as :InvoicesRepository
     Ad->>P: approve, reduce or waive a charge
+    activate P
+    deactivate P
     P->>C: POST /api/damage-charges/{id}/decision
+    activate C
+    deactivate C
     C->>S: decide(id, dto, actor)
+    activate S
+    deactivate S
     S->>R: lock(id, tx)
-    R->>R: BEGIN, SELECT damage_charges FOR UPDATE
-    alt not PENDING_APPROVAL
-        S-->>C: 409
-    else actor is the inspector
+    activate R
+    deactivate R
+    Note over R: BEGIN, SELECT damage_charges FOR UPDATE
+    alt failure: approver is the inspector
         S-->>C: 403 SEPARATION_OF_DUTY
-    end
+        C-->>P: error envelope
+    else success: other Admin and PENDING_APPROVAL charge
     S->>R: recordDecision(id, decision, amount, actor, tx)
+    activate R
+    deactivate R
     S->>IR: addDamageLine(contractId, amount, tx)
-    IR->>IR: UPDATE, INSERT invoice line, COMMIT
+    activate IR
+    deactivate IR
+    Note over IR: UPDATE, INSERT invoice line, COMMIT
     S-->>C: DamageChargeDto
     C-->>P: 200 envelope
+    end
 ```
 
-***Figure 6***: UC-48 Approve Damage Charge. The approver is never the inspector (BR-24).
+***Figure 12***: UC-48 Approve Damage Charge, planned interface from billing api-design 17 and task 2.5, not merged implementation. The approver must differ from the inspector (BR-24); a non-PENDING_APPROVAL charge is a separate 409 refusal outside this two-lane view. DamageChargesController, DamageChargeService, lock, recordDecision and addDamageLine remain planned, as labelled in the class view.
 
 <!-- sdd: MF-01 seq UC-22 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as BillingPage
-    participant C as InvoicesController
-    participant S as PaymentsService
-    participant I as InvoicesRepository
-    participant R as PaymentsRepository
-    St->>P: record a counter payment: amount, method, receipt reference
+    participant P as :BillingPage
+    participant C as :InvoicesController
+    participant S as :PaymentsService
+    participant I as :InvoicesRepository
+    participant R as :PaymentsRepository
+    St->>P: enter amount, method and receipt reference
+    activate P
+    deactivate P
     P->>C: POST /api/invoices/{id}/payments/counter
-    C->>S: recordCounter(invoiceId, dto, actor)
+    activate C
+    deactivate C
+    C->>S: recordCounter(invoiceId, input, actor)
+    activate S
+    deactivate S
     S->>I: lockWithLines(invoiceId, tx)
-    alt refused: invoice not found
-        S-->>C: 404 NOT_FOUND
-        C-->>P: error envelope
-    else refused: receipt reference already registered
-        S->>R: referenceExists(reference, tx)
+    activate I
+    deactivate I
+    S->>R: referenceExists(reference, tx)
+    activate R
+    deactivate R
+    alt failure: receipt reference already registered
         S-->>C: 409 DUPLICATE_REFERENCE
         C-->>P: error envelope
-    else refused: amount above what the invoice still owes
-        S-->>C: 400 OVERPAYMENT
-        C-->>P: error envelope
-    else accepted
-        S->>R: insertCounterPayment(row CONFIRMED, tx)
+    else success: unique reference and amount within invoice due
+        S->>R: insertCounterPayment(row, tx)
+        activate R
+        deactivate R
         S->>I: applyPayment(invoice, amount, tx)
-        S-)S: emit PAYMENT_CONFIRMED and the audit record after commit
-        S-->>C: payment
+        activate I
+        deactivate I
+        Note over S,R: payment.confirmed and audit.record after commit
+        S-->>C: confirmed payment
         C-->>P: 201 envelope
         P->>St: MSG20 with the amount
     end
 ```
 
-***Figure 7***: UC-22 Record Counter Payment. The same dialog is step 2 of the counter handover; the
-amount is applied to the invoice's lines oldest due first.
+***Figure 13***: UC-22 Record Counter Payment. The same dialog is step 2 of counter handover; payment is applied to unpaid lines oldest due first. A missing invoice is 404 NOT_FOUND and an amount above its remaining amount is 400 OVERPAYMENT; those refusals are outside the named duplicate-reference lane. The invoice screen also hides payment when the contract balance is settled.
 
 <!-- sdd: MF-01 seq UC-56 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor A as TrekLink Admin
-    participant P as PricesPage
-    participant C as PricingAdminController
-    participant S as PricingService
-    participant R as PricingRepository
-    A->>P: schedule a monthly price for a variant from a date
+    participant P as :PricesPage
+    participant C as :PricingAdminController
+    participant S as :PricingService
+    participant R as :PricingRepository
+    A->>P: schedule a variant price from a date
+    activate P
+    deactivate P
     P->>C: POST /api/price-schedules
+    activate C
+    deactivate C
     C->>S: setPrice(input, caller)
-    alt refused: effective date in the past
+    activate S
+    deactivate S
+    alt failure: effective date is in the past
         S-->>C: 400 EFFECTIVE_IN_PAST
         C-->>P: error envelope
-    else effective now or later
+    else success: valid variant and present or future date
         S->>R: insertPrice(row, tx)
-        alt refused: unknown hardware variant
-            R-->>S: foreign key violation
-            S-->>C: 404 NOT_FOUND
-            C-->>P: error envelope
-        else accepted
-            S-)S: emit the price.set audit record after commit
-            S-->>C: price row
-            C-->>P: 201 envelope
-        end
+        activate R
+        deactivate R
+        Note over S,R: price.set audit record after commit
+        S-->>C: price schedule
+        C-->>P: 201 envelope
     end
 ```
 
-***Figure 8***: UC-56 Configure Plans and Prices. The schedule is append-only: a new row takes effect at
-its date, and a contract keeps the price snapshotted at its request (UC-15).
+***Figure 14***: UC-56 Configure Plans and Prices. The schedule is append-only, and each contract keeps its requested price snapshot. An unknown variant fails the insert with 404 NOT_FOUND outside this two-lane view.
 
 <!-- sdd: MF-05 seq UC-45 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as Org Manager or TrekLink Staff
-    participant P as ContractDetailPage
-    participant C as InvoicesController
-    participant S as BillingReadsService
-    participant B as BalanceService
-    participant I as InvoicesRepository
+    participant P as :ContractDetailPage
+    participant C as :InvoicesController
+    participant S as :BillingReadsService
+    participant B as :BalanceService
+    participant I as :InvoicesRepository
     U->>P: open a contract
+    activate P
+    deactivate P
     P->>C: GET /api/contracts/{id}/balance
+    activate C
+    deactivate C
     C->>S: balance(contractId, caller)
+    activate S
+    deactivate S
     S->>I: organizationOfContract(contractId)
-    alt refused: another organization's contract
+    activate I
+    deactivate I
+    alt failure: another organization's contract
         S-->>C: 404 NOT_FOUND
         C-->>P: error envelope
-    else own contract, or TrekLink Staff
+    else success: own contract, or TrekLink Staff
         S->>B: balanceSummary(contractId)
+        activate B
+        deactivate B
         B->>I: linesOfContract(contractId)
-        B->>B: remaining after credits, split at now
+        activate I
+        deactivate I
+        Note over B: remaining after credits, split at now
         B-->>S: due now, due later, paid, settled
         S-->>C: BalanceSummary
         C-->>P: 200 envelope
     end
 ```
 
-***Figure 9***: UC-45 Calculate Contract Balance. Due now is what falls due at or before the current time;
+***Figure 15***: UC-45 Calculate Contract Balance. Due now is what falls due at or before the current time;
 a settled contract offers no counter payment.
 
 <!-- sdd: MF-05 seq UC-46 -->
@@ -467,78 +662,101 @@ a settled contract offers no counter payment.
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as CounterPage
-    participant C as ContractsController
-    participant S as ReturnService
-    participant Ch as ChargesService
-    participant Pm as ParameterService
-    participant I as InvoicesRepository
-    St->>P: scan a device returned after its due time
+    participant P as :CounterPage
+    participant C as :ReturnController
+    participant S as :ReturnService
+    participant Ch as :ChargesService
+    participant Pm as :ParameterService
+    participant I as :InvoicesRepository
+    St->>P: scan a returned device
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/check-ins
-    C->>S: checkIn(id, dto, actor)
-    loop each checked-in device
-        S->>Ch: chargeLate(contract, device, checkedInAt, actor, tx)
-        Ch->>Pm: rentals.returnGraceHours, billing.lateFeePerDevicePerDayVnd
-        alt within the grace
-            Ch-->>S: no charge
-        else past the grace
-            Ch->>Ch: days = started days after the due time
-            Ch->>I: lockClosingInvoice(contractId, tx)
-            alt closing invoice open
-                Ch->>I: appendLines(closing, LATE_FEE line, tx)
-            else no closing invoice yet
-                Ch->>I: insert(CLOSING invoice with the LATE_FEE line, tx)
-            end
-            Ch-->>S: closing invoice
-        end
+    activate C
+    deactivate C
+    C->>S: checkIn(id, assetTags, actor)
+    activate S
+    deactivate S
+    S->>Ch: chargeLate(contract, device, at, actorId, tx)
+    activate Ch
+    deactivate Ch
+    Ch->>Pm: get(rentals.returnGraceHours, tx)
+    activate Pm
+    deactivate Pm
+    Ch->>Pm: get(billing.lateFeePerDevicePerDayVnd, tx)
+    activate Pm
+    deactivate Pm
+    alt failure to charge: return is within grace
+        Ch-->>S: null, no fee
+    else success: return is beyond grace
+        Note over Ch,I: charge one fee per started day after returnDueAt
+        Ch->>I: lockClosingInvoice(contractId, tx)
+        activate I
+        deactivate I
+        Ch->>I: appendLines(closing, lateFeeLines, tx)
+        activate I
+        deactivate I
+        Ch-->>S: closing invoice
     end
-    S-->>C: CheckInDto with the late fee added
+    S-->>C: check-in result with lateFeeVnd
     C-->>P: 200 envelope
 ```
 
-***Figure 10***: UC-46 Apply Late Fee, included in UC-43 Check In Device. One `LATE_FEE` line per late
-device (FR-BILL-03, BR-23).
+***Figure 16***: UC-46 Apply Late Fee, included in UC-43 Check In Device. chargeLate is called for each checked-in device when returnDueAt is set. Outside this two-lane grace test, the first fee creates a CLOSING invoice through InvoicesRepository.insert instead of appendLines; later fees append. Started days are counted from returnDueAt, not from the end of grace (FR-BILL-03, BR-23).
 
 <!-- sdd: MF-05 seq UC-47 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as CounterPage
-    participant C as ContractsController
-    participant S as ReturnService
-    participant D as DevicesService
-    participant Ch as ChargesService
-    participant Pr as PricingService
-    participant Pm as ParameterService
-    participant Dc as DamageChargesRepository
-    participant I as InvoicesRepository
-    St->>P: record the inspection as DAMAGED with damage codes
+    participant P as :CounterPage
+    participant C as :ReturnController
+    participant S as :ReturnService
+    participant D as :DevicesService
+    participant Ch as :ChargesService
+    participant Pr as :PricingService
+    participant Pm as :ParameterService
+    participant Dc as :DamageChargesRepository
+    participant I as :InvoicesRepository
+    St->>P: record DAMAGED inspection and damage codes
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/devices/{deviceId}/inspection
-    C->>S: inspect(id, deviceId, dto, actor)
-    S->>D: recordInspection(device, DAMAGED, codes, tx)
-    S->>Ch: chargeDamage(contract, inspection, actor, tx)
-    loop each damage code
-        Ch->>Pr: damageRateFor(code, variantId, tx)
-    end
-    alt refused: a code with no active rate
-        Ch-->>S: 400 VALIDATION_FAILED, nothing recorded
-        S-->>C: error, rolled back
+    activate C
+    deactivate C
+    C->>S: inspect(id, deviceId, input, actor)
+    activate S
+    deactivate S
+    S->>D: recordInspection(deviceId, input, actorId, at, tx)
+    activate D
+    deactivate D
+    S->>Ch: chargeDamage(contract, inspection, actorId, tx, at)
+    activate Ch
+    deactivate Ch
+    Ch->>Pr: damageRateFor(code, variantId, tx)
+    activate Pr
+    deactivate Pr
+    alt failure: a code has no active rate
+        Ch-->>S: 400 UNKNOWN_DAMAGE_CODE
+        S-->>C: rollback inspection and charge
         C-->>P: error envelope
-    else every code priced
-        Ch->>Pm: billing.damageApprovalThresholdVnd
-        alt above the threshold
-            Ch->>Dc: insert(charge PENDING_APPROVAL, tx)
-            Ch-->>S: charge waiting for an Admin (UC-48)
-        else at or below the threshold
-            Ch->>Dc: insert(charge APPROVED, tx)
-            Ch->>I: DAMAGE line on the closing invoice (lockClosingInvoice, appendLines or insert)
-            Ch-->>S: charge and closing invoice
-        end
-        S-->>C: InspectionDto
+    else success: all codes priced, amount within threshold
+        Ch->>Pm: get(billing.damageApprovalThresholdVnd, tx)
+        activate Pm
+        deactivate Pm
+        Ch->>Dc: insert(approvedCharge, tx)
+        activate Dc
+        deactivate Dc
+        Ch->>I: lockClosingInvoice(contractId, tx)
+        activate I
+        deactivate I
+        Ch->>I: appendLines(closing, damageLines, tx)
+        activate I
+        deactivate I
+        Ch-->>S: charge and closing invoice
+        S-->>C: inspection result
         C-->>P: 201 envelope
     end
 ```
 
-***Figure 11***: UC-47 Apply Damage Fee, included in the return inspection. Each code is priced from the
-damage schedule, the variant's own rate first and the generic rate otherwise (FR-BILL-04, BR-24).
+***Figure 17***: UC-47 Apply Damage Fee, included in return inspection. damageRateFor runs for every code, preferring a variant-specific rate over its generic rate. The named failure is 400 UNKNOWN_DAMAGE_CODE, which rolls back the whole inspection. Above billing.damageApprovalThresholdVnd, the alternative success inserts PENDING_APPROVAL and no invoice line; at or below it the charge is APPROVED. If no CLOSING invoice exists, InvoicesRepository.insert creates it instead of appendLines (FR-BILL-04, BR-24).

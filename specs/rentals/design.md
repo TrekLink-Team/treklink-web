@@ -214,133 +214,450 @@ ports; holder labels erased on close.
 
 ## 10. Detailed design for Report 4 (D-044)
 
-Layering as in `organizations` design §9. Figure 4 is the class view; Figures 5 to 17 are the
-contract interactions of MF-01 and MF-05, Figures 16 and 17 the two scheduled jobs.
+Layering follows `organizations` design §9. The class views are split by MF-01 and MF-05; the following sequences cover the contract interactions and the two scheduled jobs. Controller names follow the rebased implementation, including HandoverController and ReturnController.
 
 <!-- sdd: MF-01 class rentals -->
 ```mermaid
 classDiagram
+    direction TB
     class ContractsController {
-        +request(dto, caller) ContractDto
-        +approve(id, dto, actor) ContractDto
-        +provision(id, deviceId, dto, actor) ContractDeviceDto
-        +handover(id, dto, actor) ContractDto
-        +checkIn(id, dto, actor) CheckInDto
-        +inspect(id, deviceId, dto, actor) InspectionDto
-        +close(id, dto, actor) ContractDto
-        +cancel(id, dto, caller) ContractDto
-        +giveNotice(id, dto, caller) ContractDto
-        +setHolder(id, deviceId, dto, caller) ContractDeviceDto
+        +request(ContractRequestDto, Caller, OrganizationRef ?) ContractView
     }
     class ContractsService {
-        +request(dto, caller) RentalContract
-        +custodyAt(deviceId, at, margin) Custody
-        +currentHolder(deviceId) Holder
+        +request(ContractRequest, Caller, Date) RequestedContract
     }
-    class ContractLifecycleService {
-        +approve(id, dto, actor) RentalContract
-        +close(id, dto, actor) RentalContract
-        +apply(id, from, to, reason, actor, tx) RentalContract
+    class OrganizationsService {
+        +assertActive(string, Tx) void
     }
-    class ContractDecisionsService {
-        +cancel(id, dto, caller) Cancelled
-        +giveNotice(id, dto, caller) Notice
-        +setHolder(id, deviceId, dto, caller) ContractDevice
-    }
-    class TermRolloverJob {
-        +run(at) RolloverOutcome
-    }
-    class OverdueAndDefaultJob {
-        +run(at) OverdueOutcome
-    }
-    class HandoverService {
-        +provision(id, deviceId, dto, actor)
-        +complete(id, dto, actor) RentalContract
-    }
-    class ReturnService {
-        +checkIn(id, dto, actor)
-        +inspect(id, deviceId, dto, actor)
-    }
-    class ReplacementService {
-        +replace(id, deviceId, dto, actor) ContractDevice
+    class PricingService {
+        +snapshot(string, Tx, Date) PriceSnapshot
     }
     class ContractsRepository {
-        +insertRequested(data, at, tx) RentalContract
-        +lockById(id, tx) RentalContract
-        +insertContractDevices(rows, tx)
-        +findCustody(deviceId, at) ContractDevice
-        +transition(id, change, tx) bool
-        +setLostAt(contractDeviceId, lostAt, tx)
+        +insertRequested(NewContract, Date, Tx) ContractRow
     }
-    class OrganizationsService
-    class DevicesService
-    class PricingService
-    class InvoicesService
-    class BalanceService
-    class ChargesService
-    ContractsController --> ContractsService
-    ContractsController --> ContractLifecycleService
-    ContractsController --> HandoverService
-    ContractsController --> ReturnService
-    ContractsController --> ReplacementService
-    ContractsController --> ContractDecisionsService
-    ContractDecisionsService --> ContractsRepository
-    ContractDecisionsService --> ContractLifecycleService : apply
-    ContractDecisionsService --> DevicesService : release
-    ContractDecisionsService --> ChargesService : settleCancellation
-    ContractDecisionsService --> BalanceService : balanceSummary
-    TermRolloverJob --> ContractsRepository
-    TermRolloverJob --> ContractLifecycleService : apply
-    TermRolloverJob --> InvoicesService : issueTermInvoice
-    OverdueAndDefaultJob --> ContractsRepository
-    OverdueAndDefaultJob --> ContractLifecycleService : apply
-    OverdueAndDefaultJob --> OrganizationsService : suspendForDefault
-    ReplacementService --> ContractsRepository
-    ReplacementService --> DevicesService : reserveExplicit, markRented
-    ContractsService --> ContractsRepository
-    ContractLifecycleService --> ContractsRepository
-    HandoverService --> ContractsRepository
-    ReturnService --> ContractsRepository
-    ContractsService --> OrganizationsService : assertActive
-    ContractsService --> PricingService : snapshot
-    ContractLifecycleService --> DevicesService : reserve
-    ContractLifecycleService --> InvoicesService : issueTermInvoice
-    HandoverService --> BalanceService : firstPaymentConfirmed
-    HandoverService --> DevicesService : markRented
-    ReturnService --> DevicesService : markReturned
-    ReturnService --> ChargesService : chargeLate, chargeDamage
+    ContractsController ..> ContractsService : calls
+    ContractsService ..> ContractsRepository : calls
+    ContractsService ..> OrganizationsService : calls
+    ContractsService ..> PricingService : calls
 ```
 
-***Figure 4***: rentals classes. Services on the right belong to `organizations`, `devices` and `billing`.
+***Figure 4***: rentals classes used in MF-01, UC-15. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class rentals-uc-17 -->
+```mermaid
+classDiagram
+    direction TB
+    class ContractsController {
+        +approve(string, ApproveContractDto, Caller) inferred
+        +reject(string, ContractReasonDto, Caller) ContractView
+    }
+    class ContractDecisionsService {
+        +approve(string, ApprovalInput, Caller, Date) Approved
+        +reject(string, object, Caller, Date) ContractRow
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class DevicesService {
+        +reserve(object, number, Date, Tx) DeviceTag[]
+    }
+    class InvoicesService {
+        +issueDayPlanInvoice(BillableDayPlan, Tx, Date) InvoiceRow
+        +issueTermInvoice(BillableMonthlyContract, BillableTerm, Tx, Date) InvoiceRow
+    }
+    class ContractsRepository {
+        +insertContractDevices(NewContractDevice[], Tx) void
+        +insertTerm(NewTerm, Tx) inferred
+        +lockById(string, Tx) ContractRow
+        +recordDecision(string, Decision, Tx) void
+    }
+    ContractDecisionsService ..> ContractLifecycleService : calls
+    ContractDecisionsService ..> ContractsRepository : calls
+    ContractDecisionsService ..> DevicesService : calls
+    ContractDecisionsService ..> InvoicesService : calls
+    ContractsController ..> ContractDecisionsService : calls
+```
+
+***Figure 5***: rentals classes used in MF-01, UC-17. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class rentals-uc-20-part-1-of-2 -->
+```mermaid
+classDiagram
+    direction TB
+    class HandoverController {
+        +provision(string, string, ProvisioningDto, Caller) inferred
+    }
+    class HandoverService {
+        +provision(string, string, number, Caller, Date) ProvisionedDevice
+    }
+    class OrganizationsService {
+        +channelKeyVersion(string, Tx) number
+    }
+    class DevicesService {
+        +recordProvisioning(object, Date, Tx) ProvisionedDevice
+    }
+    HandoverController ..> HandoverService : calls
+    HandoverService ..> DevicesService : calls
+    HandoverService ..> OrganizationsService : calls
+```
+
+***Figure 6***: rentals classes used in MF-01, UC-20 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class rentals-uc-20-part-2-of-2 -->
+```mermaid
+classDiagram
+    direction TB
+    class HandoverController {
+        +complete(string, HandoverDto, Caller) inferred
+    }
+    class HandoverService {
+        +complete(string, HandoverInput, Caller, Date) ContractRow
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class BalanceService {
+        +firstPaymentConfirmed(string, Client) boolean
+    }
+    class DevicesService {
+        +markRented(string[], Date, Tx) void
+        +provisioning(string[], Tx) ProvisionedDevice[]
+    }
+    class ContractsRepository {
+        +markRowsHandedOver(string, Date, Tx) inferred
+    }
+    HandoverController ..> HandoverService : calls
+    HandoverService ..> BalanceService : calls
+    HandoverService ..> ContractLifecycleService : calls
+    HandoverService ..> ContractsRepository : calls
+    HandoverService ..> DevicesService : calls
+```
+
+***Figure 7***: rentals classes used in MF-01, UC-20 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class rentals-uc-16 -->
+```mermaid
+classDiagram
+    direction TB
+    class DevicesController {
+        +availability(AvailabilityQueryDto) inferred
+    }
+    class DevicesService {
+        +availability(string) inferred
+    }
+    class DevicesRepository {
+        +availability(string ?, Client) object
+    }
+    DevicesController ..> DevicesService : calls
+    DevicesService ..> DevicesRepository : calls
+```
+
+***Figure 8***: rentals classes used in MF-01, UC-16. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class rentals-uc-18 -->
+```mermaid
+classDiagram
+    direction TB
+    class ContractsController {
+        +cancel(string, ContractReasonDto, Caller) inferred
+    }
+    class ContractDecisionsService {
+        +cancel(string, object, Caller, Date) Cancelled
+        +reject(string, object, Caller, Date) ContractRow
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class DevicesService {
+        +release(string[], Date, Tx) void
+    }
+    class ChargesService {
+        +settleCancellation(ChargedContract, string ?, Tx, Date) InvoiceRow ?
+    }
+    class BalanceService {
+        +balanceSummary(string, Date, Client) BalanceSummary
+    }
+    class ContractsRepository {
+        +lockById(string, Tx) ContractRow
+        +recordCancellation(string, string, Date, Tx) void
+        +releaseReservedRows(string, Date, Tx) string[]
+    }
+    ContractDecisionsService ..> BalanceService : calls
+    ContractDecisionsService ..> ChargesService : calls
+    ContractDecisionsService ..> ContractLifecycleService : calls
+    ContractDecisionsService ..> ContractsRepository : calls
+    ContractDecisionsService ..> DevicesService : calls
+    ContractsController ..> ContractDecisionsService : calls
+```
+
+***Figure 9***: rentals classes used in MF-01, UC-18. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class rentals-uc-25 -->
+```mermaid
+classDiagram
+    direction TB
+    class ContractsController {
+        +holder(string, string, HolderDto, Caller) DeviceRowView
+    }
+    class ContractDecisionsService {
+        +reject(string, object, Caller, Date) ContractRow
+        +setHolder(string, string, Holder ?, Caller, Date) DeviceRow
+    }
+    class ContractsRepository {
+        +findDeviceRow(string, string, Tx) DeviceRow ?
+        +lockById(string, Tx) ContractRow
+        +setHolder(string, Holder ?, Tx) DeviceRow
+    }
+    ContractDecisionsService ..> ContractsRepository : calls
+    ContractsController ..> ContractDecisionsService : calls
+```
+
+***Figure 10***: rentals classes used in MF-01, UC-25. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class rentals -->
+```mermaid
+classDiagram
+    direction TB
+    class ReturnController {
+        +checkIn(string, CheckInDto, Caller) inferred
+    }
+    class ReturnService {
+        +checkIn(string, string[], Caller, Date) inferred
+    }
+    class DevicesService {
+        +markReturned(string[], Date, Tx) void
+    }
+    class ChargesService {
+        +chargeLate(LateContract, ChargedDevice, Date, string ?, Tx) InvoiceRow ?
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class ContractsRepository {
+        +lockById(string, Tx) ContractRow
+        +markCheckedIn(string[], Date, string, Tx) void
+        +returnCounts(string, Tx) object
+        +rowsOut(string, Tx) inferred
+    }
+    ReturnController ..> ReturnService : calls
+    ReturnService ..> ChargesService : calls
+    ReturnService ..> ContractLifecycleService : calls
+    ReturnService ..> ContractsRepository : calls
+    ReturnService ..> DevicesService : calls
+```
+
+***Figure 11***: rentals classes used in MF-05, UC-43. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class rentals-uc-51 -->
+```mermaid
+classDiagram
+    direction TB
+    class ReturnController {
+        +close(string, CloseDto, Caller) inferred
+    }
+    class ReturnService {
+        +close(string, number, Caller) inferred
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class BalanceService {
+        +outstanding(string, Client) bigint
+    }
+    class ChargesService {
+        +pendingDamage(string[], Date, Tx) number
+    }
+    class ContractCloseCheck {
+        <<interface>>
+        +blockingReason(string, string[], Tx) CloseBlockingReason ?
+    }
+    class ContractsRepository {
+        +custodyDevices(string, Tx) string[]
+        +eraseLabels(string, Tx) void
+        +lockById(string, Tx) ContractRow
+        +returnCounts(string, Tx) object
+        +rowsOut(string, Tx) inferred
+        +unsettledReplacedLosses(string, Tx) number
+    }
+    ReturnController ..> ReturnService : calls
+    ReturnService ..> BalanceService : calls
+    ReturnService ..> ChargesService : calls
+    ReturnService ..> ContractCloseCheck : calls
+    ReturnService ..> ContractLifecycleService : calls
+    ReturnService ..> ContractsRepository : calls
+```
+
+***Figure 12***: rentals classes used in MF-05, UC-51. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class rentals-uc-61 -->
+```mermaid
+classDiagram
+    direction TB
+    class ReturnController {
+        +replace(string, string, ReplacementDto, Caller) inferred
+    }
+    class ReplacementService {
+        +replace(string, string, ReplacementInput, Caller, Date) Replaced
+    }
+    class HandoverService {
+        +storeNote(string, Buffer) string
+    }
+    class DevicesService {
+        +hasOpenLossCase(string, Tx) boolean
+        +markRented(string[], Date, Tx) void
+        +markReturned(string[], Date, Tx) void
+        +recordProvisioning(object, Date, Tx) ProvisionedDevice
+        +takeForReplacement(string, string, Date, Tx) DeviceTag
+    }
+    class ContractsRepository {
+        +insertReplacementRow(NewReplacementRow, Tx) object
+        +lockById(string, Tx) ContractRow
+        +markCheckedIn(string[], Date, string, Tx) void
+        +returnCounts(string, Tx) object
+        +rowsOut(string, Tx) inferred
+    }
+    ReplacementService ..> ContractsRepository : calls
+    ReplacementService ..> DevicesService : calls
+    ReplacementService ..> HandoverService : calls
+    ReturnController ..> ReplacementService : calls
+```
+
+***Figure 13***: rentals classes used in MF-05, UC-61. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class rentals-uc-23 -->
+```mermaid
+classDiagram
+    direction TB
+    class ContractsController {
+        +notice(string, NoticeDto, Caller) inferred
+    }
+    class ContractDecisionsService {
+        +giveNotice(string, number, Caller, Date) Notice
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class BalanceService {
+        +balanceSummary(string, Date, Client) BalanceSummary
+    }
+    class ContractsRepository {
+        +lockById(string, Tx) ContractRow
+        +openTerm(string, Tx) inferred
+        +recordNotice(string, object, Tx) void
+        +returnCounts(string, Tx) object
+        +rowsOut(string, Tx) inferred
+    }
+    ContractDecisionsService ..> BalanceService : calls
+    ContractDecisionsService ..> ContractLifecycleService : calls
+    ContractDecisionsService ..> ContractsRepository : calls
+    ContractsController ..> ContractDecisionsService : calls
+```
+
+***Figure 14***: rentals classes used in MF-05, UC-23. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class rentals-uc-24 -->
+```mermaid
+classDiagram
+    direction TB
+    class TermRolloverJob {
+        +run(Date) RolloverOutcome
+    }
+    class ContractsRepository {
+        +closeTerm(string, Tx) boolean
+        +dueTerms(Date, Client) inferred
+        +insertTerm(NewTerm, Tx) inferred
+        +lockById(string, Tx) ContractRow
+        +returnCounts(string, Tx) object
+        +rowsOut(string, Tx) inferred
+        +setReturnDueAt(string, Date, Tx) inferred
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class InvoicesService {
+        +issueTermInvoice(BillableMonthlyContract, BillableTerm, Tx, Date) InvoiceRow
+    }
+    TermRolloverJob ..> ContractLifecycleService : calls
+    TermRolloverJob ..> ContractsRepository : calls
+    TermRolloverJob ..> InvoicesService : calls
+```
+
+***Figure 15***: rentals classes used in MF-05, UC-24. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-05 class rentals-uc-50 -->
+```mermaid
+classDiagram
+    direction TB
+    class OverdueAndDefaultJob {
+        +run(Date) OverdueOutcome
+    }
+    class ParameterService {
+        +get(K, Tx) ParameterValue~K~
+    }
+    class ContractsRepository {
+        +lockById(string, Tx) ContractRow
+        +overdueBefore(Date, Client) inferred
+        +returnCounts(string, Tx) object
+        +returnDueBefore(Date, Client) inferred
+        +rowsOut(string, Tx) inferred
+        +stampOverdue(string, object, Tx) inferred
+    }
+    class ContractLifecycleService {
+        +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
+    }
+    class OrganizationsService {
+        +suspendForDefault(string, string, Date, Tx) boolean
+    }
+    OverdueAndDefaultJob ..> ContractLifecycleService : calls
+    OverdueAndDefaultJob ..> ContractsRepository : calls
+    OverdueAndDefaultJob ..> OrganizationsService : calls
+    OverdueAndDefaultJob ..> ParameterService : calls
+```
+
+***Figure 16***: rentals classes used in MF-05, UC-50. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
 
 <!-- sdd: MF-01 seq UC-15 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor M as Org Manager
-    participant P as ContractRequestPage
-    participant C as ContractsController
-    participant S as ContractsService
-    participant O as OrganizationsService
-    participant Pr as PricingService
-    participant R as ContractsRepository
+    participant P as :ContractRequestPage
+    participant C as :ContractsController
+    participant S as :ContractsService
+    participant O as :OrganizationsService
+    participant Pr as :PricingService
+    participant R as :ContractsRepository
     M->>P: plan, variant, quantity, start date
+    activate P
+    deactivate P
     P->>C: POST /api/contracts
+    activate C
+    deactivate C
     C->>S: request(dto, caller)
+    activate S
+    deactivate S
     S->>O: assertActive(orgId)
-    alt refused: organization not ACTIVE
+    activate O
+    deactivate O
+    alt failure: organization not ACTIVE
         S-->>C: 409 ORGANIZATION_NOT_ACTIVE
-    else accepted: organization ACTIVE
-        S->>S: minimum order quantity, day-plan length
+        C-->>P: error envelope
+    else success: organization ACTIVE
+        Note over S: minimum order quantity, day-plan length
         S->>Pr: snapshot(variantId)
+        activate Pr
+        deactivate Pr
         S->>R: insertRequested(contract, snapshot, tx)
-        R->>R: INSERT REQUESTED and transition
+        activate R
+        deactivate R
+        Note over R: INSERT REQUESTED and transition
         S-->>C: ContractDto REQUESTED
         C-->>P: 201 envelope
     end
 ```
 
-***Figure 5***: UC-15 Request Rental Contract. The quote shown before the request is `POST /api/quotes`,
+***Figure 17***: UC-15 Request Rental Contract. The quote shown before the request is `POST /api/quotes`,
 answered by `PricingService.quote`.
 
 <!-- sdd: MF-01 seq UC-17 -->
@@ -348,118 +665,193 @@ answered by `PricingService.quote`.
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as ContractApprovalPage
-    participant C as ContractsController
-    participant L as ContractLifecycleService
-    participant D as DevicesService
-    participant I as InvoicesService
-    participant R as ContractsRepository
-    St->>P: approve contract
+    participant P as :ContractApprovalPage
+    participant C as :ContractsController
+    participant S as :ContractDecisionsService
+    participant L as :ContractLifecycleService
+    participant D as :DevicesService
+    participant I as :InvoicesService
+    participant R as :ContractsRepository
+    St->>P: approve contract and handover appointment
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/approve
-    C->>L: approve(id, dto, actor)
-    L->>R: lockById(id, tx)
-    L->>D: reserve(variantId, quantity, id, tx)
-    alt refused: fewer AVAILABLE than requested
-        L-->>C: 409 INSUFFICIENT_DEVICES, rolled back
-    else accepted: enough AVAILABLE
-        L->>R: insertContractDevices(rows, tx)
-        L->>I: issueTermInvoice(contract, term 1, tx)
-        L->>R: transition(id, REQUESTED, APPROVED, version, tx)
-        L-->>C: ContractDto APPROVED
+    activate C
+    deactivate C
+    C->>S: approve(id, input, actor)
+    activate S
+    deactivate S
+    S->>R: lockById(id, tx)
+    activate R
+    deactivate R
+    S->>D: reserve(variant, quantity, at, tx)
+    activate D
+    deactivate D
+    alt failure: fewer AVAILABLE than requested
+        S-->>C: 409 INSUFFICIENT_DEVICES, rollback
+        C-->>P: error envelope
+    else success: enough AVAILABLE
+        S->>R: insertContractDevices(rows, tx)
+        activate R
+        deactivate R
+        S->>R: insertTerm(term, tx)
+        activate R
+        deactivate R
+        S->>I: issueTermInvoice(contract, term, tx, at)
+        activate I
+        deactivate I
+        S->>L: apply(id, REQUESTED, APPROVED, reason, actor, tx)
+        activate L
+        deactivate L
+        S->>R: recordDecision(id, decision, tx)
+        activate R
+        deactivate R
+        S-->>C: Approved
         C-->>P: 200 envelope
     end
 ```
 
-***Figure 6***: UC-17 Approve Rental Contract. `reserve` locks `AVAILABLE` devices with `SKIP LOCKED`
-(Figure 3).
+***Figure 18***: UC-17 Approve Rental Contract. ContractDecisionsService reserves AVAILABLE devices with SKIP LOCKED and delegates the transition to ContractLifecycleService.apply. The monthly success path issues term 1; a day plan calls InvoicesService.issueDayPlanInvoice instead. Stale versions and non-REQUESTED contracts are refused before reservation.
 
 <!-- sdd: MF-01 seq UC-20 part 1 of 2: provisioning -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as CounterPage
-    participant C as ContractsController
-    participant H as HandoverService
-    participant O as OrganizationsService
-    participant D as DevicesService
+    participant P as :CounterPage
+    participant C as :HandoverController
+    participant H as :HandoverService
+    participant O as :OrganizationsService
+    participant D as :DevicesService
     loop each reserved device
-        St->>P: channel key written with the provisioning tool
+        St->>P: record the provisioned channel key version
+        activate P
+        deactivate P
         P->>C: POST /api/contracts/{id}/devices/{deviceId}/provisioning
-        C->>H: provision(id, deviceId, dto, actor)
-        H->>O: channelKeyVersion(orgId)
-        H->>D: recordProvisioning(deviceId, orgId, keyVersion, actor, tx)
-        D-->>H: provisioned, key version only
-        H-->>C: ContractDeviceDto
-        C-->>P: 200 envelope
+        activate C
+        deactivate C
+        C->>H: provision(id, deviceId, keyVersion, actor)
+        activate H
+        deactivate H
+        H->>O: channelKeyVersion(orgId, tx)
+        activate O
+        deactivate O
+        alt failure: provided key version is no longer current
+            H-->>C: 409 KEY_VERSION_MISMATCH
+            C-->>P: error envelope
+        else success: current key and APPROVED contract
+            H->>D: recordProvisioning(provisioning, at, tx)
+            activate D
+            deactivate D
+            D-->>H: ProvisionedDevice
+            H-->>C: ProvisionedDevice
+            C-->>P: 200 envelope
+        end
     end
 ```
 
-***Figure 7***: UC-20 Hand Over Devices, part 1 of 2: UC-14 Provision Device for each reserved device.
+***Figure 19***: UC-20 Hand Over Devices, part 1 of 2: UC-14 Provision Device for each reserved device. HandoverService verifies the APPROVED contract and its device row before comparing the submitted key version to the organization current version. A stale key is 409 KEY_VERSION_MISMATCH; only the version is recorded, never the channel secret.
 
 <!-- sdd: MF-01 seq UC-20 part 2 of 2: signed handover -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor M as Org Manager
-    participant P as CounterPage
-    participant C as ContractsController
-    participant H as HandoverService
-    participant B as BalanceService
-    participant D as DevicesService
-    participant R as ContractsRepository
+    participant P as :CounterPage
+    participant C as :HandoverController
+    participant H as :HandoverService
+    participant L as :ContractLifecycleService
+    participant B as :BalanceService
+    participant D as :DevicesService
+    participant R as :ContractsRepository
     M->>P: sign the handover note on screen
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/handover
+    activate C
+    deactivate C
     C->>H: complete(id, dto, actor)
+    activate H
+    deactivate H
     H->>B: firstPaymentConfirmed(id)
-    alt refused: not paid
+    activate B
+    deactivate B
+    alt failure: first payment not confirmed
         H-->>C: 409 FIRST_PAYMENT_MISSING, MSG23
-    else accepted: paid
-        H->>D: assertReadyForHandover(deviceIds, keyVersion)
-        H->>H: render PDF with signature, store it with its SHA-256
-        H->>D: markRented(deviceIds, tx)
-        H->>R: setHandedOver(rows, now, tx)
-        H->>R: transition(id, APPROVED, ACTIVE, version, tx)
+        C-->>P: error envelope
+    else success: first payment confirmed
+        H->>D: provisioning(deviceIds, tx)
+        activate D
+        deactivate D
+        Note over H,D: verify readiness and current organization key
+        Note over H: render PDF with signature, store it with its SHA-256
+        H->>D: markRented(deviceIds, at, tx)
+        activate D
+        deactivate D
+        H->>R: markRowsHandedOver(id, at, tx)
+        activate R
+        deactivate R
+        H->>L: apply(id, APPROVED, ACTIVE, HANDED_OVER, actor, tx)
+        activate L
+        deactivate L
         H-->>C: ContractDto ACTIVE
         C-->>P: 200 envelope
     end
 ```
 
-***Figure 8***: UC-20 Hand Over Devices, part 2 of 2: UC-21 Sign Handover Note and activation.
-`setHandedOver` opens each device's custody interval (D-040).
+***Figure 20***: UC-20 Hand Over Devices, part 2 of 2: UC-21 Sign Handover Note and activation.
+`markRowsHandedOver` opens each device's custody interval (D-040).
 
 <!-- sdd: MF-05 seq UC-43 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as CounterPage
-    participant C as ContractsController
-    participant S as ReturnService
-    participant D as DevicesService
-    participant Ch as ChargesService
-    participant R as ContractsRepository
+    participant P as :CounterPage
+    participant C as :ReturnController
+    participant S as :ReturnService
+    participant D as :DevicesService
+    participant Ch as :ChargesService
+    participant L as :ContractLifecycleService
+    participant R as :ContractsRepository
     St->>P: scan returned asset tags
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/check-ins
-    C->>S: checkIn(id, dto, actor)
+    activate C
+    deactivate C
+    C->>S: checkIn(id, assetTags, actor)
+    activate S
+    deactivate S
     S->>R: lockById(id, tx)
-    alt refused: tag not on this contract
+    activate R
+    deactivate R
+    alt failure: tag not on this contract
         S-->>C: 409 DEVICE_NOT_ON_CONTRACT, MSG12
-    else accepted: tag on this contract
+        C-->>P: error envelope
+    else success: tag on this contract
         loop each device
-            S->>R: setCheckedIn(contractDeviceId, now, actor, tx)
-            S->>D: markReturned(deviceId, tx)
-            S->>Ch: chargeLate(contract, device, checkedInAt, tx)
+            S->>R: markCheckedIn(rowIds, at, actorId, tx)
+            activate R
+            deactivate R
+            S->>D: markReturned(deviceIds, at, tx)
+            activate D
+            deactivate D
+            S->>Ch: chargeLate(contract, device, checkedInAt, actorId, tx)
+            activate Ch
+            deactivate Ch
         end
         opt every device back or lost
-            S->>R: transition(id, current, RETURNED, version, tx)
+            S->>L: apply(id, current, RETURNED, CHECKED_IN, actor, tx)
+            activate L
+            deactivate L
         end
         S-->>C: CheckInDto
         C-->>P: 200 envelope
     end
 ```
 
-***Figure 9***: UC-43 Check In Device. `setCheckedIn` closes the custody interval (D-040); late events
+***Figure 21***: UC-43 Check In Device. `markCheckedIn` closes the custody interval (D-040); late events
 from the organization's Field Station are still attributed to it.
 
 <!-- sdd: MF-05 seq UC-51 -->
@@ -467,86 +859,159 @@ from the organization's Field Station are still attributed to it.
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as ContractDetailPage
-    participant C as ContractsController
-    participant L as ContractLifecycleService
-    participant K as CONTRACT_CLOSE_CHECKS
-    participant R as ContractsRepository
+    participant P as :ContractDetailPage
+    participant C as :ReturnController
+    participant S as :ReturnService
+    participant L as :ContractLifecycleService
+    participant B as :BalanceService
+    participant Ch as :ChargesService
+    participant K as :ContractCloseCheck
+    participant R as :ContractsRepository
     St->>P: close contract
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/close
-    C->>L: close(id, dto, actor)
-    L->>R: lockById(id, tx)
-    R->>R: BEGIN, SELECT contract FOR UPDATE
-    L->>K: blockingReason(id, deviceIds)
+    activate C
+    deactivate C
+    C->>S: close(id, expectedVersion, actor)
+    activate S
+    deactivate S
+    S->>R: lockById(id, tx)
+    activate R
+    deactivate R
+    Note over R: BEGIN, SELECT contract FOR UPDATE
+    S->>B: outstanding(id, tx)
+    activate B
+    deactivate B
+    S->>R: custodyDevices(id, tx)
+    activate R
+    deactivate R
+    S->>R: unsettledReplacedLosses(id, tx)
+    activate R
+    deactivate R
+    S->>Ch: pendingDamage(deviceIds, since, tx)
+    activate Ch
+    deactivate Ch
+    S->>K: blockingReason(id, deviceIds, tx)
+    activate K
+    deactivate K
     Note over K: billing reports a balance, incidents report an open incident
-    alt refused: a check blocks
-        L-->>C: 409 BALANCE_OUTSTANDING or OPEN_INCIDENTS
-        C-->>P: failure envelope
-    else accepted: every check passes
-        L->>R: eraseHolderLabels(id, tx)
-        L->>R: transition(id, RETURNED, CLOSED, version, tx)
-        R->>R: UPDATE, INSERT transition, COMMIT
-        L-->>C: ContractDto CLOSED
+    alt failure: a check blocks
+        S-->>C: 409 BALANCE_OUTSTANDING or OPEN_INCIDENTS
+        C-->>P: error envelope
+    else success: every check passes
+        S->>R: eraseLabels(id, tx)
+        activate R
+        deactivate R
+        S->>L: apply(id, RETURNED, CLOSED, CLOSED, actor, tx)
+        activate L
+        deactivate L
+        Note over R: UPDATE, INSERT transition, COMMIT
+        S-->>C: ContractDto CLOSED
         C-->>P: 200 envelope
     end
 ```
 
-***Figure 10***: UC-51 Close Rental Contract.
+***Figure 22***: UC-51 Close Rental Contract.
 
 <!-- sdd: MF-05 seq UC-61 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as CounterPage
-    participant C as ContractsController
-    participant S as ReplacementService
-    participant D as DevicesService
-    participant R as ContractsRepository
-    St->>P: replace faulty TL-0042 with TL-0051, Manager signs
+    participant P as :CounterPage
+    participant C as :ReturnController
+    participant S as :ReplacementService
+    participant H as :HandoverService
+    participant D as :DevicesService
+    participant R as :ContractsRepository
+    St->>P: choose a replacement and capture the Manager signature
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/devices/{deviceId}/replacement
-    C->>S: replace(id, deviceId, dto, actor)
-    S->>R: lockById(id, tx), require ACTIVE or ENDING
-    opt faulty unit at the counter
-        S->>R: setCheckedIn(oldRow, now, tx)
-        S->>D: markReturned(oldDeviceId, tx)
+    activate C
+    deactivate C
+    C->>S: replace(id, deviceId, input, actor)
+    activate S
+    deactivate S
+    S->>R: lockById(id, tx)
+    activate R
+    deactivate R
+    S->>R: rowsOut(id, tx)
+    activate R
+    deactivate R
+    S->>D: takeForReplacement(newDeviceId, variantId, at, tx)
+    activate D
+    deactivate D
+    opt faulty unit is missing
+        S->>D: hasOpenLossCase(deviceId, tx)
+        activate D
+        deactivate D
     end
-    S->>D: reserveExplicit([newDeviceId], id, tx)
-    S->>D: recordProvisioning(newDeviceId, orgId, keyVersion, tx)
-    S->>S: render the signed replacement note, SHA-256
-    S->>R: insert(contract device, replacesId, handedOverAt now, tx)
-    S->>D: markRented([newDeviceId], tx)
-    S-->>C: ReplacementDto
-    C-->>P: 201 envelope
+    alt failure: missing faulty unit has no open loss case
+        S-->>C: 409 LOSS_CASE_REQUIRED, rollback
+        C-->>P: error envelope
+    else success: faulty unit present or its loss case is open
+        opt faulty unit is at the counter
+            S->>R: markCheckedIn([oldRowId], at, actorId, tx)
+            activate R
+            deactivate R
+            S->>D: markReturned([deviceId], at, tx)
+            activate D
+            deactivate D
+        end
+        S->>D: recordProvisioning(provisioning, at, tx)
+        activate D
+        deactivate D
+        S->>D: markRented([newDeviceId], at, tx)
+        activate D
+        deactivate D
+        Note over S,H: render replacement note with signature and SHA-256
+        S->>H: storeNote(name, pdf)
+        activate H
+        deactivate H
+        S->>R: insertReplacementRow(row, tx)
+        activate R
+        deactivate R
+        S-->>C: replacement row and signed note
+        C-->>P: 201 envelope
+    end
 ```
 
-***Figure 11***: UC-61 Replace Device on Contract. The new row opens its own custody interval; plan, variant
-and quantity are unchanged (BR-41).
+***Figure 23***: UC-61 Replace Device on Contract. The new row opens its custody interval with replacesId; plan, variant and quantity remain unchanged (BR-41). A missing faulty device needs an open loss case (409 LOSS_CASE_REQUIRED). The service also checks the running contract, replacement availability and organization key before completing the exchange; those additional refusals are outside these two lanes.
 
 <!-- sdd: MF-01 seq UC-16 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor St as TrekLink Staff
-    participant P as ContractApprovalPage
-    participant C as DevicesController
-    participant S as DevicesService
-    participant R as DevicesRepository
+    participant P as :ContractApprovalPage
+    participant C as :DevicesController
+    participant S as :DevicesService
+    participant R as :DevicesRepository
     St->>P: select a requested contract
+    activate P
+    deactivate P
     P->>C: GET /api/devices/availability?hardwareVariantId={id}
+    activate C
+    deactivate C
     C->>S: availability(hardwareVariantId)
+    activate S
+    deactivate S
     S->>R: availability(hardwareVariantId)
+    activate R
+    deactivate R
     R-->>S: AVAILABLE units per variant
     S-->>C: counts
     C-->>P: 200 envelope
-    alt enough AVAILABLE units for the requested quantity
+    alt success: enough AVAILABLE units for the requested quantity
         P->>St: show the count beside Approve
-    else fewer AVAILABLE units than requested
+    else failure: fewer AVAILABLE units than requested
         P->>St: warn before Approve, which the server refuses with 409 INSUFFICIENT_DEVICES (UC-17)
     end
 ```
 
-***Figure 12***: UC-16 Verify Device Availability. The count is advisory; the reservation at approval is
+***Figure 24***: UC-16 Verify Device Availability. The count is advisory; the reservation at approval is
 the check that holds (§8). The Org Manager reads the same counts with `device.availability.org`.
 
 <!-- sdd: MF-01 seq UC-18 -->
@@ -554,165 +1019,243 @@ the check that holds (§8). The Org Manager reads the same counts with `device.a
 sequenceDiagram
     autonumber
     actor A as Org Manager or TrekLink Staff
-    participant P as ContractDetailPage
-    participant C as ContractsController
-    participant S as ContractDecisionsService
-    participant L as ContractLifecycleService
-    participant D as DevicesService
-    participant Ch as ChargesService
-    participant B as BalanceService
-    participant R as ContractsRepository
+    participant P as :ContractDetailPage
+    participant C as :ContractsController
+    participant S as :ContractDecisionsService
+    participant L as :ContractLifecycleService
+    participant D as :DevicesService
+    participant Ch as :ChargesService
+    participant B as :BalanceService
+    participant R as :ContractsRepository
     A->>P: cancel the contract with a reason
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/cancel
+    activate C
+    deactivate C
     C->>S: cancel(id, dto, caller)
+    activate S
+    deactivate S
     S->>R: lockById(id, tx)
-    alt refused: another organization's contract
+    activate R
+    deactivate R
+    alt failure: another organization's contract
         S-->>C: 404 NOT_FOUND
         C-->>P: error envelope
-    else refused: stale version, or not REQUESTED or APPROVED
+    else success: authorized, current version, cancellable state
         S->>L: apply(id, status, CANCELLED, reason, actor, tx)
-        S-->>C: 409 STALE_VERSION or 409 INVALID_STATE_TRANSITION
-        C-->>P: error envelope
-    else accepted
-        S->>L: apply(id, status, CANCELLED, reason, actor, tx)
+        activate L
+        deactivate L
         S->>R: releaseReservedRows(id, at, tx)
+        activate R
+        deactivate R
         S->>D: release(deviceIds, at, tx)
-        S->>Ch: settleCancellation(contract, tx)
+        activate D
+        deactivate D
+        S->>Ch: settleCancellation(contract, actorId, tx, at)
+        activate Ch
+        deactivate Ch
         S->>R: recordCancellation(id, reason, at, tx)
+        activate R
+        deactivate R
         S->>B: balanceSummary(id, at, tx)
+        activate B
+        deactivate B
         S-->>C: contract CANCELLED, retainedVnd
         C-->>P: 200 envelope
     end
 ```
 
-***Figure 13***: UC-18 Cancel Rental Contract. Reserved units return to `AVAILABLE`; the unpaid lines of the
-first invoice are voided by one negative `ADJUSTMENT` line on the closing invoice, so the balance nets to
-zero while a paid holding fee stays paid and retained (FR-CON-04, REQ-EVT-11).
+***Figure 25***: UC-18 Cancel Rental Contract. Reserved units return to AVAILABLE; a negative ADJUSTMENT on the closing invoice voids unpaid first-invoice lines, while a paid holding fee stays retained (FR-CON-04, REQ-EVT-11). Outside the named ownership failure, a stale version returns 409 STALE_VERSION and any state other than REQUESTED or APPROVED returns 409 INVALID_STATE_TRANSITION. Every refusal rolls the transaction back.
 
 <!-- sdd: MF-01 seq UC-25 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor M as Org Manager
-    participant P as ContractDetailPage
-    participant C as ContractsController
-    participant S as ContractDecisionsService
-    participant R as ContractsRepository
-    M->>P: enter the holder's name and phone for one device
+    participant P as :ContractDetailPage
+    participant C as :ContractsController
+    participant S as :ContractDecisionsService
+    participant R as :ContractsRepository
+    M->>P: enter or clear the holder label
+    activate P
+    deactivate P
     P->>C: PUT /api/contracts/{id}/devices/{deviceId}/holder
-    C->>S: setHolder(id, deviceId, dto, caller)
+    activate C
+    deactivate C
+    C->>S: setHolder(id, deviceId, holder, caller)
+    activate S
+    deactivate S
     S->>R: lockById(id, tx)
+    activate R
+    deactivate R
     S->>R: findDeviceRow(id, deviceId, tx)
-    alt refused: device not on this contract
-        S-->>C: 409 DEVICE_NOT_ON_CONTRACT, naming the asset tag
-        C-->>P: error envelope
-    else refused: contract not ACTIVE
+    activate R
+    deactivate R
+    alt failure: CLOSED contract or device not out
         S-->>C: 409 INVALID_STATE_TRANSITION
         C-->>P: error envelope
-    else accepted
-        S->>R: setHolder(contractDeviceId, holder, tx)
-        S-)S: emit DEVICE_LABEL_CHANGED after commit
+    else success: contract not CLOSED and device still out
+        S->>R: setHolder(rowId, holder, tx)
+        activate R
+        deactivate R
+        Note over S,R: emit device.labelChanged after commit
         S-->>C: device row with its label
         C-->>P: 200 envelope
     end
 ```
 
-***Figure 14***: UC-25 Label Device Holder. The label names who carries the unit for incident messages;
-TrekLink still tracks the unit by its asset tag, and the labels are erased when the contract closes.
+***Figure 26***: UC-25 Label Device Holder. A device is out when handedOverAt is set and checkedInAt and lostAt are null; the contract need not be ACTIVE. Ownership is checked first (404 NOT_FOUND), then membership of the device (409 DEVICE_NOT_ON_CONTRACT), before the named state failure. Labels are erased when the contract closes (BR-33).
 
 <!-- sdd: MF-05 seq UC-23 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor M as Org Manager
-    participant P as ContractDetailPage
-    participant C as ContractsController
-    participant S as ContractDecisionsService
-    participant L as ContractLifecycleService
-    participant B as BalanceService
-    participant R as ContractsRepository
+    participant P as :ContractDetailPage
+    participant C as :ContractsController
+    participant S as :ContractDecisionsService
+    participant L as :ContractLifecycleService
+    participant B as :BalanceService
+    participant R as :ContractsRepository
     M->>P: give notice
+    activate P
+    deactivate P
     P->>C: POST /api/contracts/{id}/notice
-    C->>S: giveNotice(id, dto, caller)
+    activate C
+    deactivate C
+    C->>S: giveNotice(id, expectedVersion, caller)
+    activate S
+    deactivate S
     S->>R: lockById(id, tx)
-    alt refused: a day plan, which ends by itself
+    activate R
+    deactivate R
+    alt failure: day plan ends on its own
         S-->>C: 409 DAY_PLAN_NO_NOTICE
         C-->>P: error envelope
-    else monthly plan
+    else success: monthly ACTIVE contract with an open term
         S->>R: openTerm(id, tx)
-        alt refused: not ACTIVE or no open term
-            S-->>C: 409 INVALID_STATE_TRANSITION
-            C-->>P: error envelope
-        else accepted
-            S->>L: apply(id, ACTIVE, ENDING, notice, actor, tx)
-            S->>R: recordNotice(id, at, actor, tx)
-            S->>B: balanceSummary(id, at, tx)
-            S-->>C: contract ENDING, current term, due at the term end
-            C-->>P: 200 envelope
-        end
+        activate R
+        deactivate R
+        S->>L: apply(id, ACTIVE, ENDING, NOTICE, actor, tx)
+        activate L
+        deactivate L
+        S->>R: recordNotice(id, notice, tx)
+        activate R
+        deactivate R
+        S->>B: balanceSummary(id, at, tx)
+        activate B
+        deactivate B
+        S-->>C: ENDING contract, term, dueAtEndVnd
+        C-->>P: 200 envelope
     end
 ```
 
-***Figure 15***: UC-23 Give Cancellation Notice. The current term is not shortened: the contract ends at
-its end and the term balance falls due then (REQ-EVT-07, MSG18).
+***Figure 27***: UC-23 Give Cancellation Notice. The current term is not shortened; the contract ends at its term end and the remaining term balance falls due then (REQ-EVT-07, MSG18). Other-organization requests return 404, stale versions return 409 STALE_VERSION, and a non-ACTIVE contract or absent open term returns 409 INVALID_STATE_TRANSITION outside this two-lane view.
 
 <!-- sdd: MF-05 seq UC-24 -->
 ```mermaid
 sequenceDiagram
     autonumber
-    participant J as TermRolloverJob
-    participant R as ContractsRepository
-    participant L as ContractLifecycleService
-    participant I as InvoicesService
+    participant J as :TermRolloverJob
+    participant R as :ContractsRepository
+    participant L as :ContractLifecycleService
+    participant I as :InvoicesService
     J->>R: dueTerms(now)
+    activate R
+    deactivate R
     R-->>J: open terms that have ended, on ACTIVE or ENDING contracts
     loop each due term, one transaction each
         J->>R: lockById(contractId, tx)
+        activate R
+        deactivate R
         J->>R: closeTerm(termId, tx)
+        activate R
+        deactivate R
         alt renews: monthly plan still ACTIVE
             J->>R: insertTerm(seq + 1, starts at the old end, one month long, tx)
+            activate R
+            deactivate R
             J->>I: issueTermInvoice(contract, next term, tx)
+            activate I
+            deactivate I
         else ends: notice given, or a day plan
             J->>R: setReturnDueAt(id, term end, tx)
+            activate R
+            deactivate R
             J->>L: apply(id, status, RETURN_DUE, TERM_ENDED, system, tx)
+            activate L
+            deactivate L
             J->>R: returnCounts(id, tx)
+            activate R
+            deactivate R
             opt every device already back
                 J->>L: apply(id, RETURN_DUE, RETURNED, ALL_DEVICES_BACK, system, tx)
+                activate L
+                deactivate L
             end
         end
     end
 ```
 
-***Figure 16***: UC-24 Roll Over Monthly Term. The job runs every hour; a term is due from its end until
+***Figure 28***: UC-24 Roll Over Monthly Term. The job runs every hour; a term is due from its end until
 it is closed, so a run after downtime catches up with the same query.
 
 <!-- sdd: MF-05 seq UC-50 -->
 ```mermaid
 sequenceDiagram
     autonumber
-    participant J as OverdueAndDefaultJob
-    participant Pm as ParameterService
-    participant R as ContractsRepository
-    participant L as ContractLifecycleService
-    participant O as OrganizationsService
-    J->>Pm: rentals.returnGraceHours, rentals.defaultAfterDays
-    J->>R: returnDueBefore(now minus the grace)
-    loop each contract past the grace, one transaction each
+    participant J as :OverdueAndDefaultJob
+    participant Pm as :ParameterService
+    participant R as :ContractsRepository
+    participant L as :ContractLifecycleService
+    participant O as :OrganizationsService
+    J->>Pm: get(rentals.returnGraceHours)
+    activate Pm
+    deactivate Pm
+    J->>Pm: get(rentals.defaultAfterDays)
+    activate Pm
+    deactivate Pm
+    J->>R: returnDueBefore(now minus grace)
+    activate R
+    deactivate R
+    loop each contract past grace, one transaction
         J->>R: lockById(id, tx)
+        activate R
+        deactivate R
         J->>R: rowsOut(id, tx)
-        opt RETURN_DUE with devices still out
-            J->>L: apply(id, RETURN_DUE, OVERDUE, GRACE_ELAPSED, system, tx)
-            J->>R: stampOverdue(id, overdueAt, tx)
+        activate R
+        deactivate R
+        opt still RETURN_DUE with devices out
+            J->>L: apply(id, RETURN_DUE, OVERDUE, GRACE_ELAPSED, null, tx)
+            activate L
+            deactivate L
+            J->>R: stampOverdue(id, overdueStamp, tx)
+            activate R
+            deactivate R
         end
     end
-    J->>R: overdueBefore(now minus the default threshold)
-    loop each contract overdue past the threshold, one transaction each
+    J->>R: overdueBefore(now minus default threshold)
+    activate R
+    deactivate R
+    loop each default candidate, one transaction
         J->>R: lockById(id, tx)
-        J->>L: apply(id, OVERDUE, DEFAULTED, DEFAULT_THRESHOLD, system, tx)
-        J->>R: stampOverdue(id, defaultedAt, tx)
-        J->>O: suspendForDefault(organizationId, code, now, tx)
+        activate R
+        deactivate R
+        alt success: locked contract is still OVERDUE
+            J->>L: apply(id, OVERDUE, DEFAULTED, DEFAULT_THRESHOLD, null, tx)
+            activate L
+            deactivate L
+            J->>R: stampOverdue(id, defaultStamp, tx)
+            activate R
+            deactivate R
+            J->>O: suspendForDefault(orgId, code, now, tx)
+            activate O
+            deactivate O
+        else failure to default: another operation changed its state
+            Note over J,R: skip this candidate without a transition
+        end
     end
 ```
 
-***Figure 17***: UC-50 Default Overdue Contract. A defaulted contract suspends its organization; the
-organization is reactivated only when nothing is outstanding (Report 3, organization lifecycle).
+***Figure 29***: UC-50 Default Overdue Contract. A defaulted contract suspends its organization. The named failure is a candidate whose locked state is no longer OVERDUE, so the job skips it without writes; compare-and-set transitions keep reruns idempotent. Reactivation waits until the organization has nothing outstanding (Report 3 organization lifecycle).
