@@ -135,12 +135,10 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
   it('reads the transition trail in sequence order (api-design 12)', async () => {
     await repository.transitions('inc-1');
     expect(prisma.incidentTransition.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { incidentId: 'inc-1' },
-        orderBy: { seq: 'asc' },
-        select: expect.objectContaining({ reason: true, note: true }),
-      }),
+      expect.objectContaining({ where: { incidentId: 'inc-1' }, orderBy: { seq: 'asc' } }),
     );
+    const [[query]] = prisma.incidentTransition.findMany.mock.calls as [[{ select: object }]];
+    expect(query.select).toMatchObject({ reason: true, note: true });
   });
 
   it('reads the alert deliveries oldest first (api-design 14)', async () => {
