@@ -158,6 +158,7 @@ inspection (BR-24), never the maintenance cost.
 | `reserveExplicit(deviceIds, contractId, tx)` | rentals |
 | `release(deviceIds, tx)`, `failHandoverCheck(deviceId, reason, tx)` | rentals |
 | `recordProvisioning(deviceId, orgId, keyVersion, actor, tx)` | rentals |
+| `clearProvisioning(deviceId, tx)`: undoes the record before the handover (rentals api-design 19); the `DeviceProvisioning` row stays | rentals |
 | `assertReadyForHandover(deviceIds, keyVersion)` | rentals |
 | `markRented(ids, tx)`, `markReturned(id, tx)` | rentals |
 | `openLossForReplacement(deviceId)` returns whether the device has an open loss case | rentals |
@@ -267,6 +268,7 @@ classDiagram
     class DevicesService {
         +reserve(variantId, quantity, contractId, tx) string[]
         +recordProvisioning(deviceId, orgId, keyVersion, actor, tx)
+        +clearProvisioning(deviceId, tx)
         +markRented(ids, tx)
         +markReturned(id, tx)
         +recordInspection(deviceId, dto, contractDeviceId, actor, tx) Inspection
