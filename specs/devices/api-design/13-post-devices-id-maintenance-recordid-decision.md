@@ -79,7 +79,7 @@ Approves an amount or rejects the estimate with a reason. Either way the record 
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Maintenance cost approved"
+  "message": "Maintenance cost decided"
 }
 ```
 
