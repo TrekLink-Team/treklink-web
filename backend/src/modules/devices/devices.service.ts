@@ -38,7 +38,8 @@ import { RemainingValueStep, remainingValue } from './remaining-value';
 import { toNodeId } from './node-id';
 
 // One unit as the handover note prints it (rentals design §4.1): its radio identity, the key version
-// on it, and the remaining value a confirmed loss would charge at `at` (FR-BILL-05).
+// on it, and the remaining value a confirmed loss would charge at `at` (FR-BILL-05), null when the
+// variant's schedule has no row for the unit's age, so the note never blocks a handover.
 export interface HandoverUnit {
   id: string;
   assetTag: string;
@@ -46,8 +47,17 @@ export interface HandoverUnit {
   keyVersion: number | null;
   firmwareVersion: string;
   variantCode: string;
-  remainingValueVnd: number;
+  remainingValueVnd: number | null;
 }
+
+const valueOrNull = (schedule: unknown, acquiredAt: Date, at: Date): number | null => {
+  if (!Array.isArray(schedule)) return null;
+  try {
+    return remainingValue(schedule as RemainingValueStep[], acquiredAt, at);
+  } catch {
+    return null;
+  }
+};
 
 // The organization whose channel key is on a unit (D-021): the renter while it is out, until the reset.
 export interface KeyOrganization {
@@ -840,8 +850,8 @@ export class DevicesService {
           keyVersion: row.keyVersion,
           firmwareVersion: row.firmwareVersion,
           variantCode: row.hardwareVariant.code,
-          remainingValueVnd: remainingValue(
-            row.hardwareVariant.remainingValueSchedule as unknown as RemainingValueStep[],
+          remainingValueVnd: valueOrNull(
+            row.hardwareVariant.remainingValueSchedule,
             row.acquiredAt,
             at,
           ),
