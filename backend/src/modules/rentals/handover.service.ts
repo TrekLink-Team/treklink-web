@@ -139,7 +139,7 @@ export class HandoverService {
         variants.find((variant) => variant.id === contract.hardwareVariantId)?.code ??
         contract.hardwareVariantId;
       await this.contracts.releaseRow(row.id, at, tx);
-      await this.devices.failHandoverCheck(deviceId, at, tx);
+      await this.devices.failHandoverCheck(deviceId, reason, actor.id, at, tx);
       const [replacement] = await this.devices.reserve(
         { id: contract.hardwareVariantId, code },
         1,
