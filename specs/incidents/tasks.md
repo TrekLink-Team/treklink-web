@@ -93,7 +93,7 @@
 - [ ] 5.1 Incidents, transitions, events, alerts, authority reports (owner HoangTK)
   - **Do**: list with state, organization and stale filters (members see their own only); detail; transitions; events through `GatewaySyncService.eventsOfIncident`; alert deliveries; authority reports; `openByDevices`, `incidentsOfDevice`, `responseTimes(range)`, `alertDeliveryStats()` for monitoring
   - **Test**: a member reading another organization's incident gets 404 (auth AC-01)
-  - **Note**: list and detail (api-design 01, 02) are built in the MF-03 PR (2026-10-29) as `IncidentsQueryService`. Both scope by the caller's CASL ability (PR #114 review): an unconditioned `incident.read` rule reads every organization, `incident.read.own` the caller's own, and an account with no organization and no unconditioned rule gets 403. The `stale` list filter waits for 4.4. Open: transitions, events, alerts and the monitoring reads
+  - **Note**: list and detail (api-design 01, 02) are built in the MF-03 PR (2026-10-29) as `IncidentsQueryService`. Both scope by the caller's CASL ability (PR #114 review): an unconditioned `incident.read` rule reads every organization, `incident.read.own` the caller's own, and an account with no organization and no unconditioned rule gets 403. The `stale` list filter waits for 4.4. Transitions (api-design 12) and alert deliveries (api-design 14) are built in TK-145 (2026-10-30) through the same scope check: the trail needs `read Incident`, the alert log `read AlertDelivery` (`alertDelivery.read` for Staff, `alertDelivery.read.own` for an Org Manager), so an Org Operator gets 403. `actor` is `SYSTEM` or the person's name, and `recipient` is null for an organization API event; an account `contactCard` cannot name is shown by its id. `sentAt` and `lastError` are returned as null when unset. Open: events (api-design 13, waits for R2 in treklink-web#118) and the monitoring reads
   - _Requirements: REQ-STA-01, FR-AUTH-11_
 
 ## Phase 6: API Presentation Layer
@@ -101,11 +101,11 @@
 - [ ] 6.1 Controllers (owner HoangTK)
   - **Files**: `incidents.controller.ts`, `authority-reports.controller.ts`
   - **Do**: api-design 01 to 14 with each file's permission and `@ResponseMessage`
-  - **Note**: `IncidentsController` serves api-design 01 to 07 since the MF-03 PR (2026-10-29). Open: 08 to 14 and `AuthorityReportsController`
+  - **Note**: `IncidentsController` serves api-design 01 to 07 since the MF-03 PR (2026-10-29), and 12 and 14 since TK-145 (2026-10-30). Open: 08 to 11, 13 and `AuthorityReportsController`
 - [ ] 6.2 E2E (owner HoangTK)
   - **Files**: `backend/test/incidents.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 14; replay ×10 (TC-11); AC-01 to AC-09
-  - **Note**: the MF-03 PR (2026-10-29) adds `backend/test/incidents.e2e-spec.ts`, 30 tests over api-design 01 to 07 through the real HTTP pipeline: the JWT guard, each route's CASL policy (Staff refused 403 on member actions), the query and body validation rows, the envelope and messages, and MSG27 as 409. `backend/test/mf03.db-spec.ts` covers the MF-03 main success scenario against Postgres, including a replay. Open: api-design 08 to 14, the tenancy suite on the real routes, replay ×10 (TC-11) and AC-02, AC-04 and AC-06 to AC-09, so the box stays open
+  - **Note**: the MF-03 PR (2026-10-29) adds `backend/test/incidents.e2e-spec.ts`, 30 tests over api-design 01 to 07 through the real HTTP pipeline: the JWT guard, each route's CASL policy (Staff refused 403 on member actions), the query and body validation rows, the envelope and messages, and MSG27 as 409. `backend/test/mf03.db-spec.ts` covers the MF-03 main success scenario against Postgres, including a replay. TK-145 (2026-10-30) adds api-design 12 and 14 to that suite: envelope, 401, 404, the UUID check, Staff reads, and 403 for an Org Operator on the alert log. Open: api-design 08 to 11 and 13, the tenancy suite on the real routes, replay ×10 (TC-11) and AC-02, AC-04 and AC-06 to AC-09, so the box stays open
   - _Requirements: AC-01 to AC-09_
 
 ## Phase 7: Frontend Integration
