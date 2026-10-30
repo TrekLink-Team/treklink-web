@@ -217,7 +217,10 @@ export class LiveMapService {
       attribution: selected.attribution,
       basemaps,
       defaultViewport: { lat, lon, zoom },
-      sovereigntyOverlay: SOVEREIGNTY_OVERLAY.map((place) => ({ ...place })),
+      sovereigntyOverlay: SOVEREIGNTY_OVERLAY.map((place) => ({
+        ...place,
+        mask: place.mask.map(([lat, lon]): [number, number] => [lat, lon]),
+      })),
       staleAfterSeconds,
     };
   }

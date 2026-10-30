@@ -92,7 +92,7 @@ PARAMETERS = {
         ("monitoring.positionEmitMinIntervalMs", 1000, "INT", {"min": 0, "max": 60000}, "milliseconds", "Minimum interval between position pushes per device", "FR-MON-02"),
         ("monitoring.streamRetentionHours", 72, "INT", {"min": 1, "max": 720}, "hours", "Stream entries older than this are pruned; older cursors get 410", "FR-MON-05"),
         ("monitoring.apiRateLimitPerMinute", 120, "INT", {"min": 10, "max": 6000}, "requests", "Organization API requests per key per minute", "FR-MON-06"),
-        ("monitoring.mapProvider", "opentopomap", "JSON", None, None, "Default basemap, an id in monitoring.mapBasemaps (D-031, D-072)", "FR-CFG-03"),
+        ("monitoring.mapProvider", "esri-topo", "JSON", None, None, "Default basemap, an id in monitoring.mapBasemaps (D-031, D-072)", "FR-CFG-03"),
         ("monitoring.mapBasemaps", BASEMAPS, "JSON", None, None, "Basemaps the user can switch between: id, name, tile URL, attribution, maxZoom, maxNativeZoom (D-072)", "FR-CFG-03, NFR-LEG-04"),
         ("monitoring.mapDefaultViewport", {"lat": 11.56, "lon": 108.54, "zoom": 12}, "JSON", None, None, "Initial map view", "FR-CFG-03"),
         ("monitoring.historyMaxRangeDays", 7, "INT", {"min": 1, "max": 31}, "days", "Longest period one telemetry history request may cover", "FR-MON-07"),

@@ -19,7 +19,8 @@ export interface MapConfig {
   attribution: string;
   basemaps: Basemap[];
   defaultViewport: { lat: number; lon: number; zoom: number };
-  sovereigntyOverlay: { label: string; lat: number; lon: number }[];
+  /** `mask`: [lat, lon] polygon the client fills opaque under the label, hiding the basemap's own labels (D-085). */
+  sovereigntyOverlay: { label: string; lat: number; lon: number; mask: [number, number][] }[];
   staleAfterSeconds: number;
 }
 

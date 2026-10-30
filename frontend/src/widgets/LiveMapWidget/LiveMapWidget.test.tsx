@@ -35,8 +35,28 @@ const config: MapConfig = {
   basemaps: [street, topo],
   defaultViewport: { lat: 11.56, lon: 108.54, zoom: 12 },
   sovereigntyOverlay: [
-    { label: 'Quần đảo Hoàng Sa (Việt Nam)', lat: 16.5, lon: 112.0 },
-    { label: 'Quần đảo Trường Sa (Việt Nam)', lat: 10.0, lon: 114.0 },
+    {
+      label: 'Quần đảo Hoàng Sa (Việt Nam)',
+      lat: 16.5,
+      lon: 112.0,
+      mask: [
+        [17.7, 110.6],
+        [17.7, 113.6],
+        [15.2, 113.6],
+        [15.2, 110.6],
+      ],
+    },
+    {
+      label: 'Quần đảo Trường Sa (Việt Nam)',
+      lat: 10.0,
+      lon: 114.0,
+      mask: [
+        [12.3, 111.1],
+        [12.3, 117.7],
+        [7.0, 115.2],
+        [7.0, 111.1],
+      ],
+    },
   ],
   staleAfterSeconds: 300,
 };
@@ -83,6 +103,19 @@ describe('LiveMapWidget', () => {
       'Example contributors',
     );
     expect(container.querySelector('.leaflet-sovereignty-pane')).toBeTruthy();
+  });
+
+  it('draws an opaque mask under each label, below the label pane and the markers (D-085)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const { container } = renderWidget();
+    await waitFor(() =>
+      expect(container.querySelectorAll('.leaflet-sovereignty-mask-pane path')).toHaveLength(2),
+    );
+    const pane = container.querySelector<HTMLElement>('.leaflet-sovereignty-mask-pane');
+    expect(pane?.style.zIndex).toBe('450');
+    for (const path of container.querySelectorAll('.leaflet-sovereignty-mask-pane path')) {
+      expect(path.getAttribute('fill-opacity')).toBe('1');
+    }
   });
 
   it('shows MSG33 when the config cannot be loaded (REQ-EVT-04)', async () => {

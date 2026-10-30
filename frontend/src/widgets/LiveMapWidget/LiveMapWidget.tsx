@@ -38,6 +38,20 @@ const MSG33 = 'The map is unavailable. Device and incident lists are still live.
 // Above markers (600) and below popups (700), so a label is never hidden by a device (BR-30).
 const OVERLAY_PANE = 'sovereignty';
 const OVERLAY_Z_INDEX = '650';
+// Above the tiles (200) and vector paths (400), below markers (600): the opaque area under each label
+// that hides the basemap's own names for the archipelagos (D-085, dry run defect 11).
+const MASK_PANE = 'sovereignty-mask';
+const MASK_Z_INDEX = '450';
+// The tiles are not themed, so the mask uses one sea colour on every basemap and both themes. Opaque on
+// purpose: any transparency lets a tile label read through.
+const MASK_STYLE: L.PathOptions = {
+  color: '#2f6f95',
+  weight: 1,
+  dashArray: '4 4',
+  fillColor: '#a9cfe3',
+  fillOpacity: 1,
+  interactive: false,
+};
 
 const textOf = (marker: MapMarker): string =>
   marker.subtitle ? `${marker.title}, ${marker.subtitle}` : marker.title;
@@ -155,7 +169,16 @@ const LeafletMap: React.FC<{
         L.control.layers(layers, undefined, { collapsed: false }).addTo(instance);
       instance.on('baselayerchange', () => setTilesFailed(false));
 
-      // Always on, never in a layer control, never removed by the user (REQ-UBI-06).
+      // Always on, never in a layer control, never removed by the user (REQ-UBI-06). The mask goes
+      // first, under the label, with its own SVG renderer so it stays in its pane.
+      const maskPane = instance.createPane(MASK_PANE);
+      maskPane.style.zIndex = MASK_Z_INDEX;
+      maskPane.style.pointerEvents = 'none';
+      const maskRenderer = L.svg({ pane: MASK_PANE });
+      for (const place of config.sovereigntyOverlay) {
+        if (place.mask.length < 3) continue;
+        L.polygon(place.mask, { ...MASK_STYLE, pane: MASK_PANE, renderer: maskRenderer }).addTo(instance);
+      }
       const pane = instance.createPane(OVERLAY_PANE);
       pane.style.zIndex = OVERLAY_Z_INDEX;
       pane.style.pointerEvents = 'none';

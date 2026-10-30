@@ -55,8 +55,8 @@ describe('LiveMapService.config', () => {
       basemaps: [TOPO, OSM],
       defaultViewport: { lat: 11.56, lon: 108.54, zoom: 12 },
       sovereigntyOverlay: [
-        { label: 'Quần đảo Hoàng Sa (Việt Nam)', lat: 16.5, lon: 112.0 },
-        { label: 'Quần đảo Trường Sa (Việt Nam)', lat: 10.0, lon: 114.0 },
+        expect.objectContaining({ label: 'Quần đảo Hoàng Sa (Việt Nam)', lat: 16.5, lon: 112.0 }),
+        expect.objectContaining({ label: 'Quần đảo Trường Sa (Việt Nam)', lat: 10.0, lon: 114.0 }),
       ],
       staleAfterSeconds: 300,
     });
@@ -77,6 +77,39 @@ describe('LiveMapService.config', () => {
     first.sovereigntyOverlay[0].label = 'changed';
     const second = await service.config();
     expect(second.sovereigntyOverlay[0].label).toBe('Quần đảo Hoàng Sa (Việt Nam)');
+  });
+
+  it('hands out a copy of each mask, so a caller cannot move the constant area', async () => {
+    const first = await service.config();
+    first.sovereigntyOverlay[0].mask[0][0] = 0;
+    const second = await service.config();
+    expect(second.sovereigntyOverlay[0].mask[0][0]).toBe(17.7);
+  });
+
+  // Ray casting over [lat, lon] pairs: the label must sit on its own mask (D-085).
+  const inside = ([lat, lon]: [number, number], polygon: [number, number][]): boolean => {
+    let hit = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [latI, lonI] = polygon[i];
+      const [latJ, lonJ] = polygon[j];
+      if (latI > lat !== latJ > lat && lon < ((lonJ - lonI) * (lat - latI)) / (latJ - latI) + lonI) hit = !hit;
+    }
+    return hit;
+  };
+
+  it('masks the basemap under each label, the PRC label anchors included (D-085)', async () => {
+    const { sovereigntyOverlay } = await service.config();
+    const [paracels, spratlys] = sovereigntyOverlay;
+    for (const place of sovereigntyOverlay) {
+      expect(place.mask.length).toBeGreaterThanOrEqual(3);
+      expect(inside([place.lat, place.lon], place.mask)).toBe(true);
+    }
+    // Where OpenTopoMap anchors "西沙区" (Woody Island) and "南沙区" (Fiery Cross Reef).
+    expect(inside([16.834, 112.338], paracels.mask)).toBe(true);
+    expect(inside([9.55, 112.89], spratlys.mask)).toBe(true);
+    // The mainland coast stays visible.
+    expect(inside([16.05, 108.2], paracels.mask)).toBe(false);
+    expect(inside([10.8, 106.7], spratlys.mask)).toBe(false);
   });
 
   it('follows an Admin edit of the default basemap and the list (D-072)', async () => {
