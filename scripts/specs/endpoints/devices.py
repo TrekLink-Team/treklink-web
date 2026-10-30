@@ -306,7 +306,8 @@ ENDPOINTS = [
        errors=[state_409("device", "RENTED"),
                (409, "MAINTENANCE_OPEN", "The device has an open maintenance record", "Finish the open maintenance record first."),
                STALE],
-       steps=["Require MAINTENANCE", "Require no open maintenance record", "Transition to RETIRED, set retiredAt"],
+       steps=["Require MAINTENANCE", "Require no open maintenance record",
+              "Transition to RETIRED with reason RETIRED and the request's reason, trimmed, in note; set retiredAt"],
        controller="DevicesController", service="DeviceLifecycleService", call="retire(id, dto, actor)",
        seq=["Svc->>DB: INSERT device_transitions; UPDATE devices"]),
 

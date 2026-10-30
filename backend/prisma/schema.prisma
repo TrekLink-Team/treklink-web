@@ -689,8 +689,8 @@ model DeviceTransition {
   toStatus   DeviceStatus
   actorId    String? // null = SYSTEM
   actor      User?         @relation(fields: [actorId], references: [id])
-  reason     String // REGISTERED, INTAKE_PASSED, RESERVED, HANDED_OVER, CHECKED_IN, ...
-  note       String?
+  reason     String // REGISTERED, INTAKE_PASSED, RESERVED, HANDED_OVER, CHECKED_IN, RETIRED, DISPOSED, ...
+  note       String? // free text; for RETIRED, the Admin's retire reason (devices api-design 16)
   refType    String? // CONTRACT, INTAKE_CHECK, INSPECTION, MAINTENANCE
   refId      String?
   createdAt  DateTime      @default(now()) @db.Timestamptz(3)

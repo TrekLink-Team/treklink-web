@@ -237,7 +237,7 @@ flowchart TB
     D5 -->|no| P0
     P1["Require no open maintenance record"]
     P0 --> P1
-    P2["Transition to RETIRED, set retiredAt"]
+    P2["Transition to RETIRED with reason RETIRED and the request's reason, trimmed, in note; set retiredAt"]
     P1 --> P2
     OK["Return 200"]
     P2 --> OK
