@@ -66,8 +66,8 @@ ENDPOINTS = [
                                 "devices": [{**CDEV, "resetAt": None, "inspection": None,
                                              "provisionedKeyVersion": None}],
                                 "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
-       fields=[["devices[].resetAt", "First reset of the unit at or after this row's check-in (devices api-design 10), "
-                "null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
+       fields=[["devices[].resetAt", "First reset of the unit at or after this row's check-in and before the unit's "
+                "next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
                 "`2026-10-30T03:05:00.000Z`"],
                ["devices[].inspection", "Last inspection recorded against this row (api-design 16): `result` "
                 "PASSED, DAMAGED or FAILED, and `at`; null when none", "object", "`null`"],

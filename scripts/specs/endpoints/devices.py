@@ -182,8 +182,9 @@ ENDPOINTS = [
                (409, "ALREADY_RESET", "A reset is recorded since the unit became RETURNED",
                 "This device is already reset for this return.")],
        steps=["Require RETURNED", "Insert device_resets", "Clear keyVersion and keyOrganizationId"],
-       controller="DevicesController", service="DeviceLifecycleService", call="reset(id, dto, actor)",
-       seq=["Svc->>DB: INSERT device_resets; UPDATE devices"]),
+       controller="DevicesController", service="DevicesService", call="reset(id, steps, actor, at, tx)",
+       seq=["Svc->>DB: SELECT device FOR UPDATE", "Svc->>DB: SELECT last device_resets row",
+            "Svc->>DB: INSERT device_resets; UPDATE devices"]),
 
     ep("POST", "/api/devices/:id/maintenance", "Open maintenance", "TrekLink Staff",
        "Moves an `AVAILABLE` device to `MAINTENANCE` for a reported fault, a service or a firmware update, with a "

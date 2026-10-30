@@ -59,6 +59,7 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('payment.recordCounter', 'recordCounter', 'Invoice'),
     rule('plan.quote', 'quote', 'Plan'),
     rule('damageCharge.read', 'read', 'DamageCharge'),
+    rule('device.operate', 'operate', 'Device'),
   ],
   // The Admin rows the price and damage-rate routes need (billing api-design 03 to 07).
   ADMIN: [

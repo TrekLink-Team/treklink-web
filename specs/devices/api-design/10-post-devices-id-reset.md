@@ -253,10 +253,12 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as DevicesController
-    participant Svc as DeviceLifecycleService
+    participant Svc as DevicesService
     participant DB as Postgres
     C->>Ctl: POST /api/devices/:id/reset
-    Ctl->>Svc: reset(id, dto, actor)
+    Ctl->>Svc: reset(id, steps, actor, at, tx)
+    Svc->>DB: SELECT device FOR UPDATE
+    Svc->>DB: SELECT last device_resets row
     Svc->>DB: INSERT device_resets, UPDATE devices
     Svc-->>Ctl: result
     Ctl-->>C: 201 envelope
