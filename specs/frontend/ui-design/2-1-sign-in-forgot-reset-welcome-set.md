@@ -29,6 +29,7 @@ Scope from the task: auth api-design 01, 05, 06, 07; one message for wrong crede
 |---|---|---|---|
 | Sign in (`/sign-in`, primary) | auth 01 `POST /api/auth/login` | none | none; landing per `specs/frontend/design.md` §2 (D-059 rule 1): the page that sent them to sign-in (`?next=`, same-origin paths only) wins; otherwise the Org Manager lands on `/o/contracts` until the `/o` dashboard (task 5.6) exists, the Org Operator on `/o/map`, TrekLink Staff and Admin on `/t/map` |
 | Forgot password? (link) | navigation to `/forgot` | none | none |
+| Set password (link on `/sign-in`) | navigation to `/welcome` | none | none; the invitation email tells the invitee to choose "Set password" (dry run 2026-10-30) |
 | Send code (`/forgot`, primary) | auth 05 `POST /api/auth/password/forgot` | none | info panel with the auth 05 `message`; the link "I have a code: enter it" opens `/reset` with the email carried in router state, never in the URL |
 | Reset password (`/reset`, primary) | auth 06 `POST /api/auth/password/reset` | none | `/sign-in` with an info banner showing the auth 06 `message` ("Password changed"); every other session of the account is signed out by the server (REQ-EVT-05) |
 | Send a new code (`/reset`, link) | auth 05 `POST /api/auth/password/forgot` with the email field | none | the same info panel as on `/forgot` |

@@ -117,6 +117,10 @@ export const SignInPage: React.FC = () => {
         <Link to="/forgot" className="self-start text-sm font-semibold text-blue-700">
           Forgot password?
         </Link>
+        {/* An invited account sets its first password on /welcome with the emailed code. */}
+        <Link to="/welcome" className="self-start text-sm font-semibold text-blue-700">
+          Set password
+        </Link>
         <Link to="/register" className="self-start text-sm font-semibold text-blue-700">
           Register your organization
         </Link>
