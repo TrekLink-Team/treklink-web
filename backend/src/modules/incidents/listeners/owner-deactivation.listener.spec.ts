@@ -8,26 +8,24 @@ import { RoutingService } from '../routing.service';
 import { OwnerDeactivationListener } from './owner-deactivation.listener';
 
 const tx = { tx: true } as unknown as Prisma.TransactionClient;
-const RECIPIENTS = { primary: ['p'], backup: ['b'], managers: ['m'], staff: [] };
+const RECIPIENTS = { primary: ['p'], backup: ['b'], managers: ['m'], staff: ['s', 'a'] };
 
 describe('OwnerDeactivationListener (incidents 4.2, REQ-EVT-11)', () => {
   let incidents: { ownedActive: jest.Mock };
   let lifecycle: { apply: jest.Mock };
-  let routing: { route: jest.Mock };
+  let routing: { recipientsOf: jest.Mock };
   let events: { transaction: jest.Mock };
   let listener: OwnerDeactivationListener;
 
   beforeEach(() => {
     incidents = {
       ownedActive: jest.fn().mockResolvedValue([
-        { id: 'inc-1', state: 'ACKNOWLEDGED', organizationId: 'org-a', contractId: 'c-a' },
-        { id: 'inc-2', state: 'RESPONDING', organizationId: 'org-a', contractId: null },
+        { id: 'inc-1', state: 'ACKNOWLEDGED', organizationId: 'org-a' },
+        { id: 'inc-2', state: 'RESPONDING', organizationId: 'org-b' },
       ]),
     };
     lifecycle = { apply: jest.fn().mockResolvedValue({}) };
-    routing = {
-      route: jest.fn().mockResolvedValue({ to: 'NOTIFY_PRIMARY', recipients: RECIPIENTS }),
-    };
+    routing = { recipientsOf: jest.fn().mockResolvedValue(RECIPIENTS) };
     events = {
       transaction: jest.fn((work: (client: Prisma.TransactionClient) => unknown) => work(tx)),
     };
@@ -44,11 +42,9 @@ describe('OwnerDeactivationListener (incidents 4.2, REQ-EVT-11)', () => {
 
     expect(incidents.ownedActive).toHaveBeenCalledWith('u-1');
     expect(events.transaction).toHaveBeenCalledTimes(2);
-    expect(routing.route).toHaveBeenCalledWith(
-      { organizationId: 'org-a', contractId: 'c-a' },
-      expect.any(Date),
-      tx,
-    );
+    // recipientsOf carries the Staff and Admin, so an all-empty cascade still alerts somebody.
+    expect(routing.recipientsOf).toHaveBeenNthCalledWith(1, 'org-a', expect.any(Date), tx);
+    expect(routing.recipientsOf).toHaveBeenNthCalledWith(2, 'org-b', expect.any(Date), tx);
     expect(lifecycle.apply).toHaveBeenNthCalledWith(
       1,
       'inc-1',

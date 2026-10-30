@@ -40,7 +40,7 @@ Finishes incidents task 3.1 on draft PR #120 (HoangTK) after the leader rulings 
 
 ## Leader rulings (2026-10-30, in the session chat)
 
-- `ESCALATED` alerts every active TrekLink Staff **and Admin** account, as incidents design §3 states; design §3 is unchanged. D-079's wording ("active TrekLink Staff accounts") should be read that way; the decision register lives in `treklink-docs` and was not edited from here.
+- `ESCALATED` alerts every active TrekLink Staff **and Admin** account, as incidents design §3 stated before `bf88119`; design §3 is restored to name Admin (third bullet). D-079's wording ("active TrekLink Staff accounts") should be read that way; the decision register lives in `treklink-docs` and was not edited from here.
 - An account whose invitation is not yet accepted (active, no password) is still alerted.
 - incidents design §3 names Admin again; HoangTK's `bf88119` had narrowed it to Staff pending this confirmation.
 - Checks after the change, on `33ef4dd` plus the Admin commit: `tsc` exit 0; lint 0 errors, boundary check passed (341 files, 9 modules); `jest` 148 suites, 1614 passed; `test:e2e` 13 suites, 181 passed; `test:db` on a local Postgres 16, 11 suites, 77 passed.

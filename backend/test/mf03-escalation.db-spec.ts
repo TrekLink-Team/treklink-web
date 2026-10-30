@@ -65,6 +65,7 @@ describe('MF-03 escalation timers against Postgres', () => {
   let staffId: string;
   let secondStaffId: string;
   let inactiveStaffId: string;
+  let deletedStaffId: string;
   let adminId: string;
   let serial = 0;
 
@@ -136,12 +137,13 @@ describe('MF-03 escalation timers against Postgres', () => {
     staffId = await user('staff', AccountType.TREKLINK);
     secondStaffId = await user('second-staff', AccountType.TREKLINK);
     inactiveStaffId = await user('inactive-staff', AccountType.TREKLINK);
+    deletedStaffId = await user('deleted-staff', AccountType.TREKLINK);
     adminId = await user('admin', AccountType.TREKLINK);
     const staffRole = await prisma.role.findUniqueOrThrow({ where: { key: 'STAFF' } });
     const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: 'ADMIN' } });
     await prisma.userRole.createMany({
       data: [
-        ...[staffId, secondStaffId, inactiveStaffId].map((userId) => ({
+        ...[staffId, secondStaffId, inactiveStaffId, deletedStaffId].map((userId) => ({
           userId,
           roleId: staffRole.id,
         })),
@@ -149,6 +151,8 @@ describe('MF-03 escalation timers against Postgres', () => {
       ],
     });
     await prisma.user.update({ where: { id: inactiveStaffId }, data: { isActive: false } });
+    // Soft-deleted but still flagged active, so only the deletedAt filter keeps it out (FR-AUTH-09).
+    await prisma.user.update({ where: { id: deletedStaffId }, data: { deletedAt: new Date() } });
     operatorId = await user('operator', AccountType.ORGANIZATION);
     managerId = await user('manager', AccountType.ORGANIZATION);
     variantId = (
@@ -224,13 +228,21 @@ describe('MF-03 escalation timers against Postgres', () => {
       ['NOTIFY_MANAGER', 'ESCALATED', 'TIER_TIMEOUT', null],
     ]);
     // ESCALATED alerts the organization's Managers and every active TrekLink Staff and Admin account
-    // (MSG34, design §3, D-079). The database may hold accounts of other runs, so only this run's are
-    // compared.
+    // (MSG34, design §3, D-079); an inactive or soft-deleted account gets nothing. The database may hold
+    // accounts of other runs, so only this run's are compared.
     const escalation = await prisma.incidentTransition.findFirstOrThrow({
       where: { incidentId: incident.id, toState: 'ESCALATED' },
     });
     const rows = await prisma.alertDelivery.findMany({ where: { transitionId: escalation.id } });
-    const mine = [managerId, staffId, secondStaffId, inactiveStaffId, adminId, null];
+    const mine = [
+      managerId,
+      staffId,
+      secondStaffId,
+      inactiveStaffId,
+      deletedStaffId,
+      adminId,
+      null,
+    ];
     expect(
       rows
         .filter((row) => mine.includes(row.recipientId))
