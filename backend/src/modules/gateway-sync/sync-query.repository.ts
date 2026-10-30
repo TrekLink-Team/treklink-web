@@ -51,11 +51,13 @@ export class SyncQueryRepository {
     ]);
   }
 
-  // Positions and telemetry of one device by occurrence time, oldest first (monitoring api-design 03).
-  historyRows(where: Prisma.FieldEventWhereInput) {
+  // Positions and telemetry of one device by occurrence time, oldest first (monitoring api-design 03),
+  // at most `take` rows; the caller passes one more than its cap to learn whether the range holds more.
+  historyRows(where: Prisma.FieldEventWhereInput, take: number) {
     return this.prisma.fieldEvent.findMany({
       where,
       orderBy: [{ occurredAt: 'asc' }, { seq: 'asc' }],
+      take,
       select: {
         occurredAt: true,
         kind: true,

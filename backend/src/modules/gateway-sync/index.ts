@@ -3,6 +3,7 @@ export { GatewaySyncModule } from './gateway-sync.module';
 export {
   FieldEventQueryService,
   HISTORY_KINDS,
+  HISTORY_MAX_POINTS,
   type HistoryKind,
   type HistoryPoint,
 } from './field-event-query.service';

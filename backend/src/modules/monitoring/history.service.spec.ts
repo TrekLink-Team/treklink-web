@@ -49,7 +49,9 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     };
     devices = { assetTags: jest.fn().mockResolvedValue(new Map([[DEVICE, 'TL-0042']])) };
     events = {
-      historyPoints: jest.fn().mockResolvedValue([point('2026-10-20T03:15:00.000Z')]),
+      historyPoints: jest
+        .fn()
+        .mockResolvedValue({ points: [point('2026-10-20T03:15:00.000Z')], truncated: false }),
     };
     parameters = { get: jest.fn().mockResolvedValue(7) };
     service = new HistoryService(
@@ -77,6 +79,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
             batteryPct: 81,
           },
         ],
+        truncated: false,
       });
       expect(contracts.rentalPeriods).toHaveBeenCalledWith(DEVICE, 'org-1');
       expect(events.historyPoints).toHaveBeenCalledWith({
@@ -109,9 +112,9 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
       contracts.rentalPeriods.mockResolvedValue([
         { from: new Date('2026-09-01T00:00:00.000Z'), to: new Date('2026-09-10T00:00:00.000Z') },
       ]);
-      events.historyPoints.mockResolvedValue([]);
+      events.historyPoints.mockResolvedValue({ points: [], truncated: false });
       const result = await service.history(DEVICE, { from: FROM, to: TO }, memberCaller, member);
-      expect(result).toEqual({ deviceId: DEVICE, clippedTo: [], points: [] });
+      expect(result).toEqual({ deviceId: DEVICE, clippedTo: [], points: [], truncated: false });
     });
 
     it('is refused when the caller has no organization', async () => {
@@ -194,6 +197,16 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     });
   });
 
+  it('passes the truncated flag through when the range holds more points than the cap', async () => {
+    events.historyPoints.mockResolvedValue({
+      points: [point('2026-10-20T03:15:00.000Z')],
+      truncated: true,
+    });
+    const result = await service.history(DEVICE, { from: FROM, to: TO }, staffCaller, staff);
+    expect(result.truncated).toBe(true);
+    expect(result.points).toHaveLength(1);
+  });
+
   it('passes the kinds the caller asked for', async () => {
     await service.history(DEVICE, { from: FROM, to: TO, kind: ['TELEMETRY'] }, staffCaller, staff);
     expect(events.historyPoints).toHaveBeenCalledWith(
@@ -206,6 +219,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
       const csv = service.csv({
         deviceId: DEVICE,
         clippedTo: [],
+        truncated: false,
         points: [
           {
             at: '2026-10-20T03:15:00.000Z',
@@ -235,7 +249,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     });
 
     it('is only the header for no points', () => {
-      expect(service.csv({ deviceId: DEVICE, clippedTo: [], points: [] })).toBe(
+      expect(service.csv({ deviceId: DEVICE, clippedTo: [], points: [], truncated: false })).toBe(
         'at,kind,lat,lon,altitude,batteryPct',
       );
     });

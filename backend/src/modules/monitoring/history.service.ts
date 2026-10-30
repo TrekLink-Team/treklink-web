@@ -43,11 +43,13 @@ export interface HistoryPointDto {
 
 // The body of GET /api/telemetry/devices/:id/history (api-design 03). `clippedTo` lists the periods the
 // caller's organization held the device that overlap the range, whole and not cut to the range, so a
-// screen can say when it was rented even if the range misses it; Staff and Admin get none.
+// screen can say when it was rented even if the range misses it; Staff and Admin get none. `truncated`
+// is true when the range holds more than HISTORY_MAX_POINTS points and only the oldest are answered.
 export interface HistoryDto {
   deviceId: string;
   clippedTo: { from: string; to: string | null }[];
   points: HistoryPointDto[];
+  truncated: boolean;
 }
 
 const CSV_HEADER = 'at,kind,lat,lon,altitude,batteryPct';
@@ -92,14 +94,14 @@ export class HistoryService {
         }));
     }
 
-    const points = await this.events.historyPoints({
+    const { points, truncated } = await this.events.historyPoints({
       deviceId,
       organizationId,
       from: query.from,
       to: query.to,
       kinds: query.kind?.length ? query.kind : HISTORY_KINDS,
     });
-    return { deviceId, clippedTo, points: points.map(toDto) };
+    return { deviceId, clippedTo, points: points.map(toDto), truncated };
   }
 
   // `format=csv`: the points as CSV text, which the envelope carries in `result` (api-design 08 does the
