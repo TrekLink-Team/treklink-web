@@ -429,7 +429,7 @@ ENDPOINTS = [
        "they are re-provisioned at the counter; until then they hold the old key (D-045, D-021).",
        "UC-60, FR-DEV-13, D-045",
        path=[ORG_PATH], body=[["reason", "Why", "string", "yes", "`Device TL-0042 lost in renter custody`"], VERSION],
-       sample={"reason": "Device TL-0042 lost in renter custody", "expectedVersion": 4},
+       sample={"reason": "Device TL-0042 lost in renter custody", "expectedVersion": 3},
        response={"id": ORG_ID, "channelKeyVersion": 3, "channelKeyExposedAt": None}, message="Channel key rotated",
        entity="Organization", errors=[state_409("organization", "CLOSED"), STALE],
        steps=["Require ACTIVE or SUSPENDED", "Increase channelKeyVersion, clear channelKeyExposedAt",

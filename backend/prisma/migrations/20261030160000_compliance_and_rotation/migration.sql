@@ -17,10 +17,6 @@ SELECT r."id", p."id" FROM (VALUES
 JOIN "roles" r ON r."key" = g."role"
 JOIN "permissions" p ON p."key" = g."perm";
 
--- BR-40, design §4.1: a suspected fraud or theft case closes only with a police report reference. The
--- service answers 409 POLICE_REFERENCE_REQUIRED first; this CHECK holds the rule for any other writer.
-ALTER TABLE "compliance_cases" ADD CONSTRAINT "compliance_cases_police_reference_to_close" CHECK (
-  "status" <> 'CLOSED'
-  OR "type" NOT IN ('SUSPECTED_FRAUD', 'SUSPECTED_THEFT')
-  OR length(btrim(coalesce("authorityReference", ''))) > 0
-);
+-- BR-40, design §4.1: the CHECK "compliance_cases_police_reference_to_close" already exists from
+-- 20261014090000_asset_loss_and_compliance. The service answers 409 POLICE_REFERENCE_REQUIRED first and
+-- stores a blank reference as NULL, so that CHECK also covers a blank one.

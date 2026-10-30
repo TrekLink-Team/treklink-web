@@ -17,9 +17,12 @@ describe('ChannelKeyService.rotate (api-design 27)', () => {
       lockById: jest
         .fn()
         .mockResolvedValue({ id: ORG_ID, status: 'ACTIVE', version: 3, channelKeyVersion: 2 }),
-      update: jest
-        .fn()
-        .mockResolvedValue({ id: ORG_ID, version: 4, channelKeyVersion: 3, channelKeyExposedAt: null }),
+      update: jest.fn().mockResolvedValue({
+        id: ORG_ID,
+        version: 4,
+        channelKeyVersion: 3,
+        channelKeyExposedAt: null,
+      }),
     };
     emitted = [];
     const events = {
@@ -60,7 +63,12 @@ describe('ChannelKeyService.rotate (api-design 27)', () => {
   it.each(['PENDING', 'REJECTED', 'CLOSED'])(
     'refuses a %s organization with 409 INVALID_STATE_TRANSITION',
     async (status) => {
-      organizations.lockById.mockResolvedValue({ id: ORG_ID, status, version: 3, channelKeyVersion: 2 });
+      organizations.lockById.mockResolvedValue({
+        id: ORG_ID,
+        status,
+        version: 3,
+        channelKeyVersion: 2,
+      });
       await expect(service.rotate(ORG_ID, 'reason', 3, STAFF)).rejects.toMatchObject({
         errorCode: 'INVALID_STATE_TRANSITION',
       });

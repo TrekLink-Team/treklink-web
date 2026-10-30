@@ -67,13 +67,20 @@ const REVOCATIONS: readonly ComplianceActionKind[] = [
 const caseNotFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Compliance case not found.');
 
+const notOpen = (status: ComplianceCaseStatus) =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.INVALID_STATE_TRANSITION,
+    `This cannot be done while it is ${status}.`,
+  );
+
 const validation = (message: string) =>
   new DomainException(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED, message);
 
 // Compliance cases (task 2.10, api-design 28 to 32, UC-63, D-046), TrekLink Staff and Admin through
-// `complianceCase.manage`. Actions reuse the existing operations in the case's transaction: the Admin
-// suspension (`OrganizationsService.suspendFromCompliance`), `FieldStationsService.revoke`, and
-// `ApiKeysService.revoke` (treklink-web#125). Each action appends a `ComplianceAction` with its actor
+// `complianceCase.manage`. Actions reuse the existing operations: the Admin suspension
+// (`OrganizationsService.suspendFromCompliance`) inside the case's transaction, and
+// `FieldStationsService.revoke` and `ApiKeysService.revoke` (treklink-web#125) just before it. Each action appends a `ComplianceAction` with its actor
 // (FR-ORG-09).
 //
 // Gap: `linkedLossCases` is always empty. `LossCase` belongs to `devices`, which imports this module,
@@ -169,33 +176,33 @@ export class ComplianceCasesService {
     if (isRevocation && !action.targetId) {
       throw validation('targetId is required for a revocation.');
     }
-    // FieldStationsService (treklink-web#134) manages its own transaction and takes no `tx`, so it
-    // cannot join this one. Called first, a missing station answers before the case is touched; the
-    // revoke is idempotent (a second revoke of the same station answers it as it is), so running it
-    // ahead of the transaction below is safe even if that transaction later fails for another reason.
-    if (action.kind === ComplianceActionKind.REVOKE_FIELD_STATION) {
+    // FieldStationsService (treklink-web#134) and ApiKeysService (treklink-web#125) each manage their
+    // own transaction and take no `tx`, so a revocation cannot join the case transaction below. It runs
+    // first, after a precheck that the case exists and is OPEN, so an unknown target answers before the
+    // case is touched. Both revokes are idempotent (a second revoke answers the target as it is), so
+    // running one ahead of the case transaction is safe if that transaction later fails.
+    if (isRevocation) {
       const precheck = await this.cases.find(id);
       if (!precheck) throw caseNotFound();
-      await this.stations.revoke(precheck.organization.id, action.targetId!, action.note, caller);
+      if (precheck.status !== ComplianceCaseStatus.OPEN) throw notOpen(precheck.status);
+      const organizationId = precheck.organization.id;
+      if (action.kind === ComplianceActionKind.REVOKE_FIELD_STATION) {
+        await this.stations.revoke(organizationId, action.targetId!, action.note, caller);
+      } else {
+        await this.apiKeys.revoke(organizationId, action.targetId!, caller);
+      }
     }
     const row = await this.events.transaction(async (tx) => {
       const current = await this.openCase(id, tx);
       const organizationId = current.organization.id;
-      switch (action.kind) {
-        case ComplianceActionKind.SUSPEND_ORGANIZATION:
-          await this.organizations.suspendFromCompliance(
-            organizationId,
-            `Compliance case ${current.code}: ${action.note}`,
-            caller,
-            at,
-            tx,
-          );
-          break;
-        case ComplianceActionKind.REVOKE_API_KEY:
-          await this.apiKeys.revoke(organizationId, action.targetId!, caller, tx);
-          break;
-        default:
-          break;
+      if (action.kind === ComplianceActionKind.SUSPEND_ORGANIZATION) {
+        await this.organizations.suspendFromCompliance(
+          organizationId,
+          `Compliance case ${current.code}: ${action.note}`,
+          caller,
+          at,
+          tx,
+        );
       }
       await this.cases.addAction(
         {
@@ -259,13 +266,7 @@ export class ComplianceCasesService {
   private async openCase(id: string, tx: Prisma.TransactionClient): Promise<ComplianceCaseRow> {
     const current = await this.cases.lock(id, tx);
     if (!current) throw caseNotFound();
-    if (current.status !== ComplianceCaseStatus.OPEN) {
-      throw new DomainException(
-        HttpStatus.CONFLICT,
-        ErrorCode.INVALID_STATE_TRANSITION,
-        `This cannot be done while it is ${current.status}.`,
-      );
-    }
+    if (current.status !== ComplianceCaseStatus.OPEN) throw notOpen(current.status);
     return current;
   }
 

@@ -8,6 +8,7 @@ describe('ComplianceCasesRepository', () => {
   let complianceAction: Record<string, jest.Mock>;
   let apiKey: Record<string, jest.Mock>;
   let queryRaw: jest.Mock;
+  let executeRaw: jest.Mock;
   let repository: ComplianceCasesRepository;
   let client: unknown;
 
@@ -25,11 +26,13 @@ describe('ComplianceCasesRepository', () => {
       count: jest.fn().mockResolvedValue(1),
     };
     queryRaw = jest.fn();
+    executeRaw = jest.fn().mockResolvedValue(1);
     client = {
       complianceCase,
       complianceAction,
       apiKey,
       $queryRaw: queryRaw,
+      $executeRaw: executeRaw,
     };
     repository = new ComplianceCasesRepository({} as never);
   });
@@ -72,14 +75,15 @@ describe('ComplianceCasesRepository', () => {
   });
 
   it('takes an advisory lock before computing the next CMP- code', async () => {
-    queryRaw.mockResolvedValueOnce(undefined).mockResolvedValueOnce([{ max: 2 }]);
+    queryRaw.mockResolvedValueOnce([{ max: 2 }]);
     await expect(repository.nextCode(client as never)).resolves.toBe('CMP-0003');
-    const [sql] = queryRaw.mock.calls[0] as [string[]];
+    // $executeRaw: a $queryRaw of the lock fails, Prisma cannot read its `void` column.
+    const [sql] = executeRaw.mock.calls[0] as [string[]];
     expect(sql[0]).toContain('pg_advisory_xact_lock');
   });
 
   it('pads the first code to CMP-0001 when none exist', async () => {
-    queryRaw.mockResolvedValueOnce(undefined).mockResolvedValueOnce([{ max: null }]);
+    queryRaw.mockResolvedValueOnce([{ max: null }]);
     await expect(repository.nextCode(client as never)).resolves.toBe('CMP-0001');
   });
 

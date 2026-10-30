@@ -189,7 +189,7 @@ describe('ComplianceCasesService', () => {
       );
     });
 
-    it('revokes an API key through ApiKeysService.revoke, in the case transaction', async () => {
+    it('revokes an API key through ApiKeysService.revoke, ahead of the case transaction', async () => {
       await service.act(
         'case-1',
         { kind: ComplianceActionKind.REVOKE_API_KEY, targetId: 'key-1', note: 'Compromised' },
@@ -197,7 +197,8 @@ describe('ComplianceCasesService', () => {
         false,
         AT,
       );
-      expect(apiKeys.revoke).toHaveBeenCalledWith('org-1', 'key-1', STAFF, TX);
+      // ApiKeysService (treklink-web#125) manages its own transaction and takes no `tx`.
+      expect(apiKeys.revoke).toHaveBeenCalledWith('org-1', 'key-1', STAFF);
       expect(cases.addAction).toHaveBeenCalledWith(
         expect.objectContaining({ kind: ComplianceActionKind.REVOKE_API_KEY, targetId: 'key-1' }),
         TX,
@@ -227,6 +228,20 @@ describe('ComplianceCasesService', () => {
         ),
       ).rejects.toMatchObject({ errorCode: 'NOT_FOUND' });
       expect(stations.revoke).not.toHaveBeenCalled();
+    });
+
+    it('revokes nothing for a CLOSED case', async () => {
+      cases.find.mockResolvedValue({ ...CASE, status: ComplianceCaseStatus.CLOSED });
+      for (const [kind, targetId] of [
+        [ComplianceActionKind.REVOKE_FIELD_STATION, 'fs-1'],
+        [ComplianceActionKind.REVOKE_API_KEY, 'key-1'],
+      ] as const) {
+        await expect(
+          service.act('case-1', { kind, targetId, note: 'x' }, STAFF, false),
+        ).rejects.toMatchObject({ errorCode: 'INVALID_STATE_TRANSITION' });
+      }
+      expect(stations.revoke).not.toHaveBeenCalled();
+      expect(apiKeys.revoke).not.toHaveBeenCalled();
     });
 
     it('refuses a revocation without targetId with 400', async () => {

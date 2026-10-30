@@ -67,7 +67,7 @@ export class ComplianceCasesRepository {
   // The next CMP- code: the highest numeric suffix plus one, under a transaction-scoped advisory
   // lock, so two cases opened at the same moment take consecutive codes instead of colliding.
   async nextCode(client: Client): Promise<string> {
-    await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('compliance_cases.code'))`;
+    await client.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('compliance_cases.code'))`;
     const rows = await client.$queryRaw<{ max: number | null }[]>`
       SELECT MAX(CAST(SUBSTRING(code FROM 5) AS INTEGER)) AS max
       FROM compliance_cases WHERE code ~ '^CMP-[0-9]+$'`;

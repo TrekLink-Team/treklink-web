@@ -267,17 +267,20 @@ describe('OrganizationsService.suspendFromCompliance (task 2.10, api-design 30)'
 
   it('answers 404 for an unknown organization', async () => {
     organizations.lockById.mockResolvedValueOnce(null);
-    await expect(
-      service.suspendFromCompliance('org-9', 'x', ADMIN, AT, tx),
-    ).rejects.toMatchObject({ errorCode: 'NOT_FOUND' });
+    await expect(service.suspendFromCompliance('org-9', 'x', ADMIN, AT, tx)).rejects.toMatchObject({
+      errorCode: 'NOT_FOUND',
+    });
     expect(organizations.update).not.toHaveBeenCalled();
   });
 
   it('answers 409 INVALID_STATE_TRANSITION for an organization that is not ACTIVE', async () => {
-    organizations.lockById.mockResolvedValueOnce({ status: OrganizationStatus.SUSPENDED, version: 2 });
-    await expect(
-      service.suspendFromCompliance('org-1', 'x', ADMIN, AT, tx),
-    ).rejects.toMatchObject({ errorCode: 'INVALID_STATE_TRANSITION' });
+    organizations.lockById.mockResolvedValueOnce({
+      status: OrganizationStatus.SUSPENDED,
+      version: 2,
+    });
+    await expect(service.suspendFromCompliance('org-1', 'x', ADMIN, AT, tx)).rejects.toMatchObject({
+      errorCode: 'INVALID_STATE_TRANSITION',
+    });
     expect(organizations.update).not.toHaveBeenCalled();
     expect(organizations.addTransition).not.toHaveBeenCalled();
   });
