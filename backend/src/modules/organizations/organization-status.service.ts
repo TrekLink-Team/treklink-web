@@ -30,6 +30,15 @@ export interface TransitionView {
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Organization not found.');
 
+const ORG_MANAGER = 'ORG_MANAGER';
+
+const managerOnly = () =>
+  new DomainException(
+    HttpStatus.FORBIDDEN,
+    ErrorCode.FORBIDDEN,
+    'Only the Manager of the organization may read its status history.',
+  );
+
 const blocked = (reason: ExitBlockingReason) =>
   new DomainException(HttpStatus.CONFLICT, reason.code as ErrorCode, reason.message);
 
@@ -160,9 +169,12 @@ export class OrganizationStatusService {
   }
 
   // api-design 11: the append-only history, for Staff and Admin and for the Manager of the organization.
+  // An Org Operator shares `organization.read.own` but may not read suspension reasons (leader ruling
+  // on treklink-web#135), so a member caller without ORG_MANAGER is 403 before anything is read.
   async transitions(organizationId: string, caller: Caller): Promise<TransitionView[]> {
-    if (caller.organizationId !== null && caller.organizationId !== organizationId) {
-      throw notFound();
+    if (caller.organizationId !== null) {
+      if (!caller.roles.includes(ORG_MANAGER)) throw managerOnly();
+      if (caller.organizationId !== organizationId) throw notFound();
     }
     if ((await this.organizations.findStatus(organizationId)) === null) throw notFound();
     const rows = await this.organizations.transitionsOf(organizationId);

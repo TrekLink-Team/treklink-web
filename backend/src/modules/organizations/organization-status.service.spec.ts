@@ -21,6 +21,8 @@ const AT = new Date('2026-10-30T03:00:00.000Z');
 const ADMIN: Caller = { id: 'u-admin', roles: ['ADMIN'], organizationId: null };
 const STAFF: Caller = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 const MANAGER: Caller = { id: 'u-mgr', roles: ['ORG_MANAGER'], organizationId: 'org-1' };
+const OPERATOR: Caller = { id: 'u-op', roles: ['ORG_OPERATOR'], organizationId: 'org-1' };
+const OTHER_MANAGER: Caller = { id: 'u-mgr-9', roles: ['ORG_MANAGER'], organizationId: 'org-9' };
 
 const row = (status: OrganizationStatus, version = 3) => ({
   id: 'org-1',
@@ -454,6 +456,26 @@ describe('OrganizationStatusService (organizations 2.4, api-design 08 to 11, UC-
       expect(await codeOf(service.transitions('org-9', MANAGER))).toBe(ErrorCode.NOT_FOUND);
       organizations.findStatus.mockResolvedValueOnce(null);
       expect(await codeOf(service.transitions('org-1', ADMIN))).toBe(ErrorCode.NOT_FOUND);
+    });
+
+    it('answers Staff and Admin for any organization', async () => {
+      await expect(service.transitions('org-1', STAFF)).resolves.toHaveLength(4);
+      await expect(service.transitions('org-1', ADMIN)).resolves.toHaveLength(4);
+    });
+
+    it("refuses an Org Operator its own organization's history with 403, before anything is read", async () => {
+      const refusal = await service.transitions('org-1', OPERATOR).catch((error: unknown) => error);
+
+      expect(refusal).toBeInstanceOf(DomainException);
+      expect((refusal as DomainException).getStatus()).toBe(403);
+      expect((refusal as DomainException).errorCode).toBe(ErrorCode.FORBIDDEN);
+      expect(organizations.findStatus).not.toHaveBeenCalled();
+      expect(organizations.transitionsOf).not.toHaveBeenCalled();
+    });
+
+    it("answers another organization's Manager 404, as the module does for a foreign id", async () => {
+      expect(await codeOf(service.transitions('org-1', OTHER_MANAGER))).toBe(ErrorCode.NOT_FOUND);
+      expect(organizations.transitionsOf).not.toHaveBeenCalled();
     });
   });
 });
