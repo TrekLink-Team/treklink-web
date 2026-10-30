@@ -107,6 +107,15 @@ export class OrganizationsRepository {
     return client.organization.count({ where: { taxCode } }).then((count) => count > 0);
   }
 
+  // The status read under a FOR SHARE row lock held to the end of the caller's transaction. A status
+  // change locks the row FOR UPDATE (OrganizationLifecycle), so it waits for this transaction, and this
+  // read waits for a change already in flight and then sees its result.
+  async lockStatus(id: string, tx: Prisma.TransactionClient): Promise<OrganizationStatus | null> {
+    const rows = await tx.$queryRaw<{ status: OrganizationStatus }[]>`
+      SELECT status FROM organizations WHERE id = ${id} FOR SHARE`;
+    return rows[0]?.status ?? null;
+  }
+
   async lockById(id: string, client: Client) {
     await client.$queryRaw`SELECT id FROM organizations WHERE id = ${id} FOR UPDATE`;
     return client.organization.findUnique({ where: { id }, select: REVIEW_SELECT });

@@ -185,7 +185,18 @@ export class OrganizationsService {
   // An organization that is not ACTIVE may not request devices: 409 ORGANIZATION_NOT_ACTIVE naming
   // its status (FR-CON-02, rentals api-design 01); an unknown id is 404.
   async assertActive(organizationId: string, tx?: Prisma.TransactionClient): Promise<void> {
-    const status = await this.organizations.findStatus(organizationId, tx);
+    this.requireActive(await this.organizations.findStatus(organizationId, tx));
+  }
+
+  // `assertActive` that also takes the organization row FOR SHARE until the caller's transaction ends,
+  // for a write that must not commit next to a closing (rentals api-design 01, organizations
+  // api-design 10). A closing locks the row FOR UPDATE before it counts unfinished contracts, so a
+  // request either commits first and is counted, or waits and then sees CLOSED.
+  async lockActive(organizationId: string, tx: Prisma.TransactionClient): Promise<void> {
+    this.requireActive(await this.organizations.lockStatus(organizationId, tx));
+  }
+
+  private requireActive(status: OrganizationStatus | null): void {
     if (status === null) {
       throw new DomainException(
         HttpStatus.NOT_FOUND,
