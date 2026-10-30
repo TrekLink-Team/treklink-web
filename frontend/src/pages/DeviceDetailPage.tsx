@@ -332,7 +332,23 @@ export const DeviceDetailPage: React.FC = () => {
                 Open maintenance
               </Button>
             )}
-            {canRetire && <Button variant="danger" onClick={() => setRetiring(true)}>Retire</Button>}
+            {canRetire && (
+              // Disabled while a maintenance record is open, since the server refuses with
+              // MAINTENANCE_OPEN (leader ruling, 2026-10-30); the hint says why.
+              <Button
+                variant="danger"
+                disabled={Boolean(device.openMaintenance)}
+                aria-describedby={device.openMaintenance ? 'retire-blocked' : undefined}
+                onClick={() => setRetiring(true)}
+              >
+                Retire
+              </Button>
+            )}
+            {canRetire && device.openMaintenance && (
+              <p id="retire-blocked" className="w-full text-body-sm text-ink-muted">
+                {MSG29}
+              </p>
+            )}
             {canDispose && <Button variant="danger" onClick={() => setDisposing(true)}>Dispose</Button>}
           </div>
         </div>

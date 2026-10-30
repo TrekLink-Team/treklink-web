@@ -227,6 +227,24 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     ).toBeTruthy();
   });
 
+  it('disables Retire while a maintenance record is open, and says why', async () => {
+    currentRoles = ['ADMIN'];
+    currentDevice = device({
+      status: 'MAINTENANCE',
+      version: 4,
+      openMaintenance: { id: 'm-1', status: 'OPEN', description: 'Antenna loose' },
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    const retire = screen.getByRole('button', { name: 'Retire' }) as HTMLButtonElement;
+    expect(retire.disabled).toBe(true);
+    const hint = document.getElementById(retire.getAttribute('aria-describedby') ?? '');
+    expect(hint?.textContent).toBe('Finish the open maintenance record first.');
+    fireEvent.click(retire);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(retireDevice).not.toHaveBeenCalled();
+  });
+
   it('asks to finish the open maintenance record when retire answers MAINTENANCE_OPEN', async () => {
     currentRoles = ['ADMIN'];
     currentDevice = device({ status: 'MAINTENANCE', version: 4 });
