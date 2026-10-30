@@ -89,6 +89,47 @@ MQTT has no response. Each message yields one `SyncAuditLog` row and, when accep
 The `FieldEvent` insert, the device projection and the incident correlation run in one transaction
 keyed by the unique `eventId` (FR-EVT-01); the stream and alert emits happen after commit.
 
+## Field Station health
+
+A Field Station also publishes its own health, separate from the packets it forwards (design §3,
+FR-EVT-13, FR-EVT-18). The gateway sends it every `GATEWAY_HEALTH_INTERVAL_MS` (default 60 000 ms)
+while connected, with QoS 1, on `<root>/fs/<username>/health`, and only when `GATEWAY_FS_USERNAME`
+names the station (`gateway/src/mqtt/mqtt-client.ts`, `health-report.ts`).
+
+```json
+{
+  "schema": "treklink.fs_health",
+  "v": 1,
+  "version": "0.1.0",
+  "depth": [0, 1, 12, 40],
+  "oldest_attempts": 2,
+  "last_flush_at": 1761810000000,
+  "sent_at": 1761810060000
+}
+```
+
+| Field | Description | Data Type | Required | Examples |
+| --- | --- | --- | --- | --- |
+| schema | Always `treklink.fs_health` | string | yes | `treklink.fs_health` |
+| v | Payload version; only `1` is accepted | integer | yes | `1` |
+| version | The gateway package version (FR-EVT-18), 1 to 64 characters | string | yes | `0.1.0` |
+| depth | Queued entries per priority tier P0 to P3, exactly four non-negative integers | integer[4] | yes | `[0, 1, 12, 40]` |
+| oldest_attempts | Publish attempts of the oldest queued entry; null when the queue is empty | integer or null | yes | `2` |
+| last_flush_at | Station clock at the last publish the broker acknowledged (PUBACK); null before the first | uint64 epoch ms or null | yes | `1761810000000` |
+| sent_at | Station clock at this publish; `receivedAt - sent_at` is the clock offset applied to `last_flush_at` (D-040) | uint64 epoch ms | yes | `1761810060000` |
+
+**Outcomes.** A health report is not an ingestion attempt: it writes no `SyncAuditLog` row and no
+`FieldEvent`. A valid report from an active station updates that station's health through
+`organizations` (`FieldStationsService.recordStationHealth`): queue depth per tier, the oldest retry
+count (`0` when `oldest_attempts` is null), the version, and `lastFlushAt` corrected onto the backend
+clock, never later than receipt. A payload that does not match this table, or a username with no active
+(unrevoked) Field Station, is logged and dropped
+(`backend/src/modules/gateway-sync/station-health.handler.ts`).
+
+**Trust.** The station is identified by the username in the topic, not by the payload. Only the broker's
+ACL stops one station from publishing on another station's health topic, so each Field Station's broker
+account must be limited to its own `<root>/fs/<username>/#` topics.
+
 ## Activity Diagram
 
 ```mermaid
