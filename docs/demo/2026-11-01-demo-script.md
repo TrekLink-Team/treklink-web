@@ -2,7 +2,8 @@
 
 Prepared 2026-10-30 by KhoaDD under D-078, from `dev` at `cdaecf1`; refreshed on `dev` at `ca7711c`
 (#128 plans page, #135 organization lifecycle, #147 sync status page, #149 DEFAULTED contract seed,
-#150 incidents figures), with every changed step cited again. Every step names the source it
+#150 incidents figures), with every changed step cited again; checked again on `dev` at `c5cd3a2`
+against the code and the demo smoke record (`docs/sessions/2026-10-30-1830-demo-smoke.md`). Every step names the source it
 was traced to, as `file:line`. A step marked **(unverified)** could not be traced to code or to a
 handoff that ran it.
 
@@ -142,7 +143,7 @@ Plus one terminal at the repository root for `replay:mqtt` and `demo:term-end`.
 | 11 | B | **Next**, Step 4 Sign: Signing Manager **Demo Manager**, Identity document checked "CCCD, last 4 digits 1234", the Manager signs in the box, **Complete handover** | Toast "Handover complete. 5 devices issued under contract RC-2026-0004."; page "Handover of RC-2026-0004", "5 devices issued. The contract is active and the signed note is stored." | `CounterPage.tsx:300-307, 362-376, 674-745` |
 | 12 | B | **Open the contract and the handover note** | Contract page, Active, Handed over today | `CounterPage.tsx:370-372`, `ContractDetailPage.tsx:267` |
 | 13 | A Manager | Sidebar **Field stations** (`/o/field-stations`): the seeded "Ta Nang basecamp laptop" is already listed. **Create Field Station**, Name "Phan Dung ranger post", **Create** | Dialog "Credential for Phan Dung ranger post": Broker URL, Username **fs-org-0001-2**, Secret, each with Copy; "Copy it now; it will not be shown again." | `FieldStationsPage.tsx:150-165, 224-240, 347`; seeded station `seed-demo.ts:1011-1033`; username rule in §1.3 |
-| 14 | A | **Done** | Two rows, both Active; the new one shows Last sync "No data yet"; count "2 of 5" **(unverified: the exact count wording)** | `FieldStationsPage.tsx:44-63, 231, 388`; limit 5 in `migration.sql:14` |
+| 14 | A | **Done** | Two rows, both Active; the new one shows Last sync "No data yet"; the count line reads "2 of 5 active stations" (", N revoked" is added only when a credential was revoked), and **Create Field Station** is disabled at 5 | `FieldStationsPage.tsx:44-63, 231, 327-336, 343`; limit 5 in `migration.sql:14` |
 
 Say at step 13: this is MF-01's last step, the credential the organization installs on its base
 laptop (`specs/frontend/tasks.md:84`). Then go straight to MF-02, where the seeded station
@@ -163,7 +164,7 @@ of #147, and the gateway-sync task notes of 2026-10-27 and 2026-10-30
 | 3 | C Operator | Live map `/o/map`, device list | TL-0009 (Le Thi E) and TL-0010 (Pham Van F) with a battery percentage and a recent last-seen time; markers move every few seconds | `LiveMapPage.tsx:117-137, 248-253` |
 | 4 | B Staff | Sidebar **Field data sync** (`/t/admin/sync`, group Fleet) | "Field data sync": cards MQTT subscriber UP, Accepted (last 60 min), Duplicates rejected, Unknown device; the Field Stations table lists "Ta Nang basecamp laptop", TrekLink Demo Tours Co., Ltd., **Connected**, its Last sync and Last flush, Queue depth (P0 to P3) "0, 0, 0, 0"; Recent field events list TL-0009 and TL-0010 with Ingress "Node uplink" and Attribution "Attributed" | `frontend/src/app/router.tsx:130`, `frontend/src/shared/config/navigation.ts:111`, `frontend/src/pages/SyncStatusPage.tsx:15-27, 39-169`; Connected while the last report is under `monitoring.fieldStationStaleSeconds` (180 s), `backend/src/modules/gateway-sync/sync-status.service.ts:59-66`, `migration.sql:49`; organization legal name `sync-status.service.ts:100`; the simulator's packets arrive on the node topic, `backend/src/modules/gateway-sync/adapters/node-json.adapter.ts:32`. Needs `GATEWAY_FS_USERNAME=fs-org-0001-1` (§1.1) |
 | 5 | B | Change Window to another value, **Refresh** | The Accepted count grows with each refresh while the gateway runs | `SyncStatusPage.tsx:44-66, 82` |
-| 6 (optional) | Terminal | Outage: `docker compose stop mosquitto`, wait about 20 s, `docker compose start mosquitto`, then **Refresh** on the sync page | The gateway queues while the broker is down and flushes on reconnect, SOS before positions; a drained queue sends a health report at once, so Last flush moves to the reconnect time; the map catches up | `specs/gateway-sync/tasks.md:115` ("2 SOS, 12 positions and 12 telemetry readings queued with the broker down, flushed SOS first"); `gateway/src/mqtt/mqtt-client.ts:62-66` **(unverified on screen: the map and the sync page after the flush were not watched)** |
+| 6 (optional) | Terminal | Outage: `docker compose stop mosquitto`, wait about 20 s, `docker compose start mosquitto`, then **Refresh** on the sync page | A Refresh during the outage shows MQTT subscriber **DOWN** (red), the station still **Connected** (20 s is under the 180 s stale limit) and the queue depth of its last report, because no health report is sent while the uplink is down. After the restart the backend subscriber reconnects within 5 s and shows **UP**; the gateway reconnects within 3 s, flushes the queue in tier order (SOS first) and, once drained, sends a health report at once, so Last flush moves to the reconnect time, depth reads "0, 0, 0, 0" and Accepted grows by the queued packets; the map markers catch up | Simulator packets go through the SQLite queue, `gateway/src/index.ts:13-26`; flush on connect `gateway/src/mqtt/mqtt-client.ts:30-36`, reconnect every 3 s `gateway/src/config.ts:67-68`; drain then health report `mqtt-client.ts:63-83, 106-115`; subscriber reconnect 5 s and up or down `backend/src/modules/gateway-sync/mqtt/mqtt-subscriber.ts:60`, `sync-status.service.ts:91`, card `SyncStatusPage.tsx:78-80`; stale rule `sync-status.service.ts:59-66`; `specs/gateway-sync/tasks.md:115` ("2 SOS, 12 positions and 12 telemetry readings queued with the broker down, flushed SOS first"). Traced in code; watch it once at the Saturday rehearsal |
 
 If the gateway does not start, publish the recorded trek instead (12 positions of TL-0009):
 
@@ -186,12 +187,14 @@ Before the meeting (optional, to show escalation): as Admin in Swagger (`/api/do
 Sources: `backend/src/modules/platform/parameters/parameters.controller.ts:26-38`,
 `parameter-update.dto.ts`, defaults and bounds `migration.sql:41-45`,
 `docs/sessions/2026-10-30-0903-escalation-timers.md:52-58`. Read `expectedVersion` from
-`GET /api/parameters` first **(unverified: the list response shape was not read)**. With the defaults
+`GET /api/parameters?ownerModule=incidents`: a page `{ items, pageNumber, pageSize, totalCount,
+totalPages }` whose items carry `key`, `value` and `version` (`parameter-reads.service.ts:35-40`,
+`parameter.repository.ts:6-16`). With the defaults
 (120 s per tier) the happy path below still works; only escalation is slower.
 
 | # | Window | Action | Expected | Source |
 |---|---|---|---|---|
-| 1 | Terminal | `npm --prefix backend run replay:mqtt -- sos --now --new-ids` | One SOS packet from TL-0010 (`!de00000a`), RC-2026-0001 | `backend/test/fixtures/mqtt/sos.json`; replay `backend/test/harness/replay.ts:1-12` |
+| 1 | Terminal | `npm --prefix backend run replay:mqtt -- sos --now --new-ids`, at least 5 minutes after `seed:demo` | One SOS packet from TL-0010 (`!de00000a`), RC-2026-0001. Earlier than 5 minutes the SOS falls inside `gatewaySync.attributionMarginSeconds` (300 s) of the seeded handover, opens an UNROUTED incident, and later SOS packets from that unit join it | `backend/test/fixtures/mqtt/sos.json`; replay `backend/test/harness/replay.ts:1-12`; margin `migration.sql:36`; demo smoke `docs/sessions/2026-10-30-1830-demo-smoke.md` §2 MF-02 and §5 |
 | 2 | C Operator | Any page | Red banner on every page: "SOS: TL-0010 (Pham Van F), hh:mm. Acknowledge now." with **Acknowledge** | `frontend/src/app/AlertBanner.tsx:20-31, 38-60, 132`; holder label `seed-demo.ts:85-88`; routed to the Operator as primary, `seed-demo.ts:318-319` |
 | 3 | C | Sidebar **Incidents** (`/o/incidents`), click the new code | Incident page: Device TL-0010, Holder Pham Van F, Owner Unclaimed, state Notifying primary, last known coordinates | `IncidentsPage.tsx:35, 102-122`; `IncidentDetailPage.tsx:234-262`; label `shared/ui/status.ts:168` |
 | 4 | C | **Acknowledge** | Toast "Saved."; Owner Demo Operator, state Acknowledged; the banner clears | `IncidentDetailPage.tsx:156-162, 178-186, 207-221`; `AlertBanner.tsx:61-63` |
@@ -217,16 +220,21 @@ supervisor asks for the design, incidents design Figures 4 to 10 were redrawn fr
 
 ## 5. MF-04: live map and the organization API (about 4 minutes)
 
-No 2026-10-30 handoff covers MF-04; the steps come from the page code. The gateway keeps running
+The demo smoke of 2026-10-30 (`docs/sessions/2026-10-30-1830-demo-smoke.md` §2 MF-04, §3 and §5
+step 4) ran this flow: `operator@` on Live map, `staff@` on Fleet map, every page at 1280 px and
+360 px with no console error or failed call. Over HTTP, `GET /api/map/config` and
+`GET /api/map/snapshot` answered 200 for Operator, Manager, Staff and Admin, and
+`GET /api/telemetry/devices` with the seeded `X-Api-Key` answered 200. The gateway keeps running
 from MF-02.
 
 | # | Window | Action | Expected | Source |
 |---|---|---|---|---|
-| 1 | C Operator | Sidebar **Live map** (`/o/map`) | Header "Live map", "N devices, 0 SOS open, 0 stale"; the devices in custody: RC-2026-0001's TL-0009 and TL-0010, RC-2026-0002's TL-0017 and TL-0018 until MF-05 returns them, RC-2026-0003's TL-0019 (DEFAULTED keeps its device visible) and, after MF-01, RC-2026-0004's five units; those without a report show "No position yet" | `LiveMapPage.tsx:212, 248-253`; "No position yet" `LiveMapPage.tsx:62`; custody rule `backend/src/modules/rentals/contracts.service.ts:244-250` |
+| 1 | C Operator | Sidebar **Live map** (`/o/map`) | Header "Live map", "N devices, 0 SOS open, 0 stale"; the devices in custody: RC-2026-0001's TL-0009 and TL-0010, RC-2026-0002's TL-0017 and TL-0018 until MF-05 returns them, RC-2026-0003's TL-0019 (DEFAULTED keeps its device visible) and, after MF-01, RC-2026-0004's five units; those without a report show "No position yet" | `LiveMapPage.tsx:212, 248-253`; "No position yet" `LiveMapPage.tsx:62`; custody rule `backend/src/modules/rentals/contracts.service.ts:244-250`; smoke §5 step 4 |
 | 2 | C | Type "TL-0010" in **Search asset tag, holder or contract** | One row: TL-0010, Pham Van F, battery | `LiveMapPage.tsx:257-266, 117-137` |
-| 3 | C | Point at the Vietnamese sovereignty overlay and the attribution on the map | Hoang Sa and Truong Sa labels drawn over the OpenStreetMap tiles (D-031) | `frontend/src/shared/config/map.ts`, `widgets/LiveMapWidget/LiveMapWidget.tsx` **(unverified: overlay rendering not checked for this document)** |
-| 4 | B Staff | Sidebar **Fleet map** (`/t/map`), Organization filter **All organizations**, then ORG-0001 | "Fleet map", every organization's devices; the filter narrows to ORG-0001 | `LiveMapPage.tsx:90-104, 212, 252-253` |
-| 5 (optional) | Terminal | `curl -s -H "X-Api-Key: $SEED_ORG_API_KEY" http://localhost:3000/api/telemetry/devices` | ORG-0001's devices as JSON in the `{ result, isSuccess, statusCode, message }` envelope, for the organization's own systems | `backend/src/modules/monitoring/org-api.controller.ts:28, 44-51`; key `seed-demo.ts:990-1008` **(unverified: response body not read)** |
+| 3 | C | Point at the Vietnamese sovereignty overlay and the attribution on the map | Hoang Sa and Truong Sa labels drawn over the OpenStreetMap tiles (D-031) | `frontend/src/shared/config/map.ts`, `widgets/LiveMapWidget/LiveMapWidget.tsx` **(unverified: the smoke record does not name the overlay; look for it at the Saturday rehearsal)** |
+| 4 | B Staff | Sidebar **Fleet map** (`/t/map`), Organization filter **All organizations**, then ORG-0001 | "Fleet map", every organization's devices; the filter narrows to ORG-0001 | `LiveMapPage.tsx:90-104, 212, 252-253`; smoke §5 step 4 |
+| 5 (optional) | Terminal | `curl -s -H "X-Api-Key: $SEED_ORG_API_KEY" http://localhost:3000/api/telemetry/devices` | 200 with ORG-0001's devices in the `{ result, isSuccess, statusCode, message }` envelope, for the organization's own systems | `backend/src/modules/monitoring/org-api.controller.ts:28, 44-51`; key `seed-demo.ts:990-1008`; 200 in smoke §2 MF-04 (the body was not recorded) |
+| 6 (optional) | B Staff | `/t/devices/<TL-0009 id>` from **Devices** | The device history (monitoring api-design 07); it is Staff and Admin only, 403 for an Operator or Manager | smoke §2 MF-04 (`GET /api/devices/:id/history` 200 for Staff and Admin, 403 for Operator and Manager) |
 
 Talking point: a device that sends nothing for `monitoring.deviceStaleSeconds` (300 s) shows a
 Stale badge (`migration.sql:48`, `LiveMapPage.tsx:129`).
