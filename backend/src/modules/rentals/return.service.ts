@@ -118,6 +118,7 @@ export class ReturnService {
         rows.map((row) => row.deviceId),
         at,
         tx,
+        { contractId: id, contractCode: contract.code, actorId: actor.id },
       );
       if (returnDueAt) {
         for (const row of rows) {

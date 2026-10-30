@@ -124,6 +124,7 @@ export class ContractDecisionsService {
         contract.quantity,
         at,
         tx,
+        { contractId: id, contractCode: contract.code, actorId: actor.id },
         input.deviceIds,
       );
       await this.contracts.insertContractDevices(
@@ -218,7 +219,11 @@ export class ContractDecisionsService {
         tx,
       );
       const released = await this.contracts.releaseReservedRows(id, at, tx);
-      await this.devices.release(released, at, tx);
+      await this.devices.release(released, at, tx, {
+        contractId: id,
+        contractCode: contract.code,
+        actorId: actor.id,
+      });
       await this.charges.settleCancellation(
         { id, organizationId: contract.organizationId },
         actor.id,

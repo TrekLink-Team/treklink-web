@@ -4,6 +4,15 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
 
+// What a transition row says besides the two statuses: who, why, and the record it belongs to.
+export interface TransitionContext {
+  actorId: string | null;
+  reason: string;
+  note?: string;
+  refType?: string;
+  refId?: string;
+}
+
 export interface DeviceIdentity {
   id: string;
   assetTag: string;
@@ -204,6 +213,55 @@ export class DevicesRepository {
 
   provisioning(ids: readonly string[], client: Client = this.prisma): Promise<ProvisionedDevice[]> {
     return client.device.findMany({ where: { id: { in: [...ids] } }, select: PROVISIONED_SELECT });
+  }
+
+  // Moves units from one status to another and writes one transition row per unit moved, in the
+  // caller's transaction; a unit in any other status is left as it is and gets no row. Answers the ids
+  // moved.
+  async moveWithTransitions(
+    ids: readonly string[],
+    from: DeviceStatus,
+    to: DeviceStatus,
+    at: Date,
+    tx: Prisma.TransactionClient,
+    row: TransitionContext,
+  ): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const moved = await tx.device.updateManyAndReturn({
+      where: { id: { in: [...ids] }, status: from },
+      data: { status: to, statusChangedAt: at, version: { increment: 1 } },
+      select: { id: true },
+    });
+    await this.insertTransitions(
+      moved.map(({ id }) => id),
+      from,
+      to,
+      at,
+      tx,
+      row,
+    );
+    return moved.map(({ id }) => id);
+  }
+
+  // One transition row per unit for a move already written, such as the reservation of approval.
+  async insertTransitions(
+    ids: readonly string[],
+    from: DeviceStatus,
+    to: DeviceStatus,
+    at: Date,
+    tx: Prisma.TransactionClient,
+    row: TransitionContext,
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    await tx.deviceTransition.createMany({
+      data: ids.map((deviceId) => ({
+        deviceId,
+        fromStatus: from,
+        toStatus: to,
+        ...row,
+        createdAt: at,
+      })),
+    });
   }
 
   // Moves units from one status to another; a unit in any other status is left as it is.

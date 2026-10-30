@@ -11,6 +11,7 @@ import {
   DeviceListRow,
   DevicesRepository,
   ProvisionedDevice,
+  TransitionContext,
   UnitRow,
   VariantRow,
   VariantSummary,
@@ -63,14 +64,33 @@ export interface TrailEntry {
 
 const titleCase = (code: string) => code.charAt(0) + code.slice(1).toLowerCase().replace(/_/g, ' ');
 
-// One reading of a field event, as `gateway-sync` reports it (task 2.5). `at` is the event's occurrence
-// time; a position is passed only when it is plotted, so an implausible one never moves the projection.
 // What the return counter shows of one returned contract row (devices api-design 10, rentals 16).
 export interface ReturnCheck {
   resetAt: Date | null;
   inspection: { result: InspectionResult; at: Date } | null;
 }
 
+// The contract a move driven by rentals belongs to (design §2): its transition row carries refType
+// CONTRACT, the contract id and, as the note, the contract code the device history shows; the actor
+// is the Staff account, or null for SYSTEM. `reason` overrides the method's own, such as REPLACED for
+// the faulty unit a replacement checks in.
+export interface ContractMove {
+  contractId: string;
+  contractCode: string;
+  actorId: string | null;
+  reason?: string;
+}
+
+const contractRow = (move: ContractMove, reason: string): TransitionContext => ({
+  actorId: move.actorId,
+  reason: move.reason ?? reason,
+  note: move.contractCode,
+  refType: 'CONTRACT',
+  refId: move.contractId,
+});
+
+// One reading of a field event, as `gateway-sync` reports it (task 2.5). `at` is the event's occurrence
+// time; a position is passed only when it is plotted, so an implausible one never moves the projection.
 export interface DeviceReading {
   at: Date;
   position?: { latitude: number; longitude: number };
@@ -133,14 +153,16 @@ export class DevicesService {
   // Reserves `quantity` AVAILABLE units of the variant for a contract approval, inside the caller's
   // transaction (rentals task 2.2, FR-CON-03, BR-03). Fewer units than asked is 409
   // INSUFFICIENT_DEVICES with MSG11 and reserves nothing, because the caller's transaction rolls back
-  // (REQ-ERR-01 of rentals). The device transition rows join with the lifecycle of task 1.2. When the
-  // caller names the units, one that is not an AVAILABLE unit of the variant (another status, another
-  // variant, unknown, or held by a concurrent approval) is 409 DEVICE_NOT_AVAILABLE naming it.
+  // (REQ-ERR-01 of rentals). Each unit taken gets an AVAILABLE to RESERVED transition row naming the
+  // contract (design §2). When the caller names the units, one that is not an AVAILABLE unit of the
+  // variant (another status, another variant, unknown, or held by a concurrent approval) is 409
+  // DEVICE_NOT_AVAILABLE naming it.
   async reserve(
     variant: { id: string; code: string },
     quantity: number,
     at: Date,
     tx: Prisma.TransactionClient,
+    move: ContractMove,
     deviceIds?: readonly string[],
   ): Promise<DeviceTag[]> {
     const taken = await this.devices.reserveAvailable(variant.id, quantity, at, tx, deviceIds);
@@ -166,12 +188,33 @@ export class DevicesService {
         `Only ${taken.length} ${variant.code} devices are available. Lower the quantity or choose another variant.`,
       );
     }
+    await this.devices.insertTransitions(
+      taken.map((device) => device.id),
+      DeviceStatus.AVAILABLE,
+      DeviceStatus.RESERVED,
+      at,
+      tx,
+      contractRow(move, 'RESERVED'),
+    );
     return taken;
   }
 
-  // Returns reserved units to AVAILABLE when a contract is cancelled before handover (FR-CON-04).
-  release(ids: readonly string[], at: Date, tx: Prisma.TransactionClient): Promise<void> {
-    return ids.length === 0 ? Promise.resolve() : this.devices.releaseReserved(ids, at, tx);
+  // Returns reserved units to AVAILABLE when a contract is cancelled before handover (FR-CON-04),
+  // with a RESERVED to AVAILABLE transition row each.
+  async release(
+    ids: readonly string[],
+    at: Date,
+    tx: Prisma.TransactionClient,
+    move: ContractMove,
+  ): Promise<void> {
+    await this.devices.moveWithTransitions(
+      ids,
+      DeviceStatus.RESERVED,
+      DeviceStatus.AVAILABLE,
+      at,
+      tx,
+      contractRow(move, 'RELEASED'),
+    );
   }
 
   // The counter's provisioning record (rentals 2.3, D-021): only the key version is stored, never the
@@ -201,13 +244,15 @@ export class DevicesService {
     actorId: string,
     at: Date,
     tx: Prisma.TransactionClient,
+    move: Omit<ContractMove, 'actorId'>,
   ): Promise<void> {
-    await this.devices.moveStatus(
+    await this.devices.moveWithTransitions(
       [deviceId],
       DeviceStatus.RESERVED,
       DeviceStatus.MAINTENANCE,
       at,
       tx,
+      contractRow({ ...move, actorId }, 'HANDOVER_CHECK_FAILED'),
     );
     await this.maintenance.openForSystem(
       {
@@ -222,9 +267,21 @@ export class DevicesService {
     );
   }
 
-  // Reserved units go out with the handover (FR-CON-05).
-  async markRented(ids: readonly string[], at: Date, tx: Prisma.TransactionClient): Promise<void> {
-    await this.devices.moveStatus(ids, DeviceStatus.RESERVED, DeviceStatus.RENTED, at, tx);
+  // Reserved units go out with the handover or a replacement (FR-CON-05).
+  async markRented(
+    ids: readonly string[],
+    at: Date,
+    tx: Prisma.TransactionClient,
+    move: ContractMove,
+  ): Promise<void> {
+    await this.devices.moveWithTransitions(
+      ids,
+      DeviceStatus.RESERVED,
+      DeviceStatus.RENTED,
+      at,
+      tx,
+      contractRow(move, 'HANDED_OVER'),
+    );
   }
 
   // Units come back at the counter (rentals 4.1, FR-DEV-01): RENTED to RETURNED; the reset and the
@@ -233,8 +290,16 @@ export class DevicesService {
     ids: readonly string[],
     at: Date,
     tx: Prisma.TransactionClient,
+    move: ContractMove,
   ): Promise<void> {
-    await this.devices.moveStatus(ids, DeviceStatus.RENTED, DeviceStatus.RETURNED, at, tx);
+    await this.devices.moveWithTransitions(
+      ids,
+      DeviceStatus.RENTED,
+      DeviceStatus.RETURNED,
+      at,
+      tx,
+      contractRow(move, 'CHECKED_IN'),
+    );
   }
 
   // devices api-design 10 (task 2.4 part, built by LongLP for MF-05): a RETURNED unit is reset with all
@@ -656,6 +721,7 @@ export class DevicesService {
     variantId: string,
     at: Date,
     tx: Prisma.TransactionClient,
+    move: ContractMove,
   ): Promise<DeviceTag> {
     const unit = await this.devices.lockUnit(deviceId, tx);
     if (!unit) throw notFound();
@@ -673,12 +739,13 @@ export class DevicesService {
         'Choose an available unit.',
       );
     }
-    await this.devices.moveStatus(
+    await this.devices.moveWithTransitions(
       [deviceId],
       DeviceStatus.AVAILABLE,
       DeviceStatus.RESERVED,
       at,
       tx,
+      contractRow(move, 'RESERVED'),
     );
     return { id: unit.id, assetTag: unit.assetTag };
   }

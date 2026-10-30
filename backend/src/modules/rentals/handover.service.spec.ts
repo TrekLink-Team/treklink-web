@@ -165,8 +165,22 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       reserved: { id: 'd-9', assetTag: 'TL-d-9', status: 'RESERVED' },
     });
     expect(contracts.releaseRow).toHaveBeenCalledWith('cd-1', AT, TX);
-    expect(devices.failHandoverCheck).toHaveBeenCalledWith('d-1', 'No GPS fix', STAFF.id, AT, TX);
-    expect(devices.reserve).toHaveBeenCalledWith({ id: 'v-3', code: 'treklink-v3' }, 1, AT, TX);
+    const move = { contractId: 'c-1', contractCode: 'RC-2026-0001', actorId: STAFF.id };
+    expect(devices.failHandoverCheck).toHaveBeenCalledWith(
+      'd-1',
+      'No GPS fix',
+      STAFF.id,
+      AT,
+      TX,
+      move,
+    );
+    expect(devices.reserve).toHaveBeenCalledWith(
+      { id: 'v-3', code: 'treklink-v3' },
+      1,
+      AT,
+      TX,
+      move,
+    );
     expect(devices.assetTags).toHaveBeenCalledWith(['d-1'], TX);
     expect(contracts.insertContractDevices).toHaveBeenCalledWith(
       [{ contractId: 'c-1', deviceId: 'd-9' }],
@@ -180,7 +194,11 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         status: ContractStatus.ACTIVE,
         handedOverAt: AT,
       });
-      expect(devices.markRented).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX);
+      expect(devices.markRented).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX, {
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        actorId: STAFF.id,
+      });
       expect(lifecycle.apply).toHaveBeenCalledWith(
         'c-1',
         ContractStatus.APPROVED,

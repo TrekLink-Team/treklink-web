@@ -3,6 +3,7 @@ export { DevicesModule } from './devices.module';
 export {
   DevicesService,
   type DeviceDetail,
+  type ContractMove,
   type DeviceReading,
   type FleetDevice,
   type ReturnCheck,

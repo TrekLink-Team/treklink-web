@@ -15,6 +15,8 @@ const unit = (overrides: Record<string, unknown> = {}) => ({
 });
 
 // The device side of rentals 4.3 and the fleet list of devices api-design 06, built by LongLP.
+const MOVE = { contractId: 'c-1', contractCode: 'RC-2026-0002', actorId: 'staff-1' };
+
 describe('DevicesService for the replacement on a running contract', () => {
   let repository: Record<string, jest.Mock>;
   let service: DevicesService;
@@ -22,7 +24,7 @@ describe('DevicesService for the replacement on a running contract', () => {
   beforeEach(() => {
     repository = {
       lockUnit: jest.fn().mockResolvedValue(unit()),
-      moveStatus: jest.fn().mockResolvedValue(1),
+      moveWithTransitions: jest.fn().mockResolvedValue(['d-9']),
       hasOpenLossCase: jest.fn().mockResolvedValue(true),
       page: jest.fn().mockResolvedValue([[], 0]),
     };
@@ -34,34 +36,41 @@ describe('DevicesService for the replacement on a running contract', () => {
   });
 
   it('locks an AVAILABLE unit of the variant and moves it to RESERVED', async () => {
-    await expect(service.takeForReplacement('d-9', 'v-3', AT, TX)).resolves.toEqual({
+    await expect(service.takeForReplacement('d-9', 'v-3', AT, TX, MOVE)).resolves.toEqual({
       id: 'd-9',
       assetTag: 'TL-0009',
     });
     expect(repository.lockUnit).toHaveBeenCalledWith('d-9', TX);
-    expect(repository.moveStatus).toHaveBeenCalledWith(
+    expect(repository.moveWithTransitions).toHaveBeenCalledWith(
       ['d-9'],
       DeviceStatus.AVAILABLE,
       DeviceStatus.RESERVED,
       AT,
       TX,
+      {
+        actorId: 'staff-1',
+        reason: 'RESERVED',
+        note: 'RC-2026-0002',
+        refType: 'CONTRACT',
+        refId: 'c-1',
+      },
     );
   });
 
   it('refuses another variant with 409 VARIANT_MISMATCH', async () => {
     repository.lockUnit.mockResolvedValue(unit({ hardwareVariantId: 'v-4' }));
-    await expect(service.takeForReplacement('d-9', 'v-3', AT, TX)).rejects.toMatchObject({
+    await expect(service.takeForReplacement('d-9', 'v-3', AT, TX, MOVE)).rejects.toMatchObject({
       errorCode: ErrorCode.VARIANT_MISMATCH,
       message: 'Choose a unit of the same variant.',
     });
-    expect(repository.moveStatus).not.toHaveBeenCalled();
+    expect(repository.moveWithTransitions).not.toHaveBeenCalled();
   });
 
   it.each([DeviceStatus.RESERVED, DeviceStatus.RENTED, DeviceStatus.MAINTENANCE])(
     'refuses a %s unit with 409 DEVICE_NOT_AVAILABLE',
     async (status) => {
       repository.lockUnit.mockResolvedValue(unit({ status }));
-      await expect(service.takeForReplacement('d-9', 'v-3', AT, TX)).rejects.toMatchObject({
+      await expect(service.takeForReplacement('d-9', 'v-3', AT, TX, MOVE)).rejects.toMatchObject({
         errorCode: ErrorCode.DEVICE_NOT_AVAILABLE,
       });
     },
@@ -69,7 +78,7 @@ describe('DevicesService for the replacement on a running contract', () => {
 
   it('answers 404 for an unknown unit', async () => {
     repository.lockUnit.mockResolvedValue(null);
-    await expect(service.takeForReplacement('d-0', 'v-3', AT, TX)).rejects.toMatchObject({
+    await expect(service.takeForReplacement('d-0', 'v-3', AT, TX, MOVE)).rejects.toMatchObject({
       errorCode: ErrorCode.NOT_FOUND,
     });
   });
