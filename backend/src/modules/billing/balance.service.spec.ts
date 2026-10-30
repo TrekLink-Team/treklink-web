@@ -311,6 +311,29 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
       ]);
     });
 
+    it('orders mixed-case codes by code unit, upper case first, whatever the locale (review of #177)', async () => {
+      directory.variantsOf.mockResolvedValue(
+        new Map([
+          ['c-1', 'v-lower'],
+          ['c-2', 'v-upper'],
+          ['c-3', 'v-mixed'],
+        ]),
+      );
+      devices.variants.mockResolvedValue([
+        { id: 'v-lower', code: 'tk-gps' },
+        { id: 'v-upper', code: 'TK-basic' },
+        { id: 'v-mixed', code: 'Tk-mid' },
+      ]);
+      invoices.linesDueBetween.mockResolvedValue([
+        due('c-1', 100_000n, 0n),
+        due('c-2', 100_000n, 0n),
+        due('c-3', 100_000n, 0n),
+      ]);
+      const rows = await withPorts().revenue(RANGE);
+      // A locale-aware compare would answer TK-basic, tk-gps, Tk-mid.
+      expect(rows.map((row) => row.variantCode)).toEqual(['TK-basic', 'Tk-mid', 'tk-gps']);
+    });
+
     it('answers no rows for an empty range, and reads no variants then', async () => {
       await expect(withPorts().revenue(RANGE)).resolves.toEqual([]);
       expect(directory.variantsOf).not.toHaveBeenCalled();
