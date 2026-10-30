@@ -37,6 +37,8 @@ export interface Incident {
 }
 
 export interface IncidentDetail extends Incident {
+  // What the owner reported on resolving; null until resolved and again after a reopen.
+  outcomeNote: string | null;
   statusUpdates: { id: string; note: string; author: PersonRef; createdAt: string }[];
   authorityReports: {
     id: string;
@@ -54,6 +56,8 @@ export interface IncidentTransition {
   toState: IncidentState;
   actor: string;
   reason: string;
+  // The free text saved with the step (the response, the outcome, the false-alarm reason).
+  note: string | null;
   createdAt: string;
 }
 

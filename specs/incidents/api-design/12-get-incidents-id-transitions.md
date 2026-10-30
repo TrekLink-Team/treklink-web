@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The append-only transition trail: sequence, from, to, actor or SYSTEM, reason and UTC time (FR-INC-04, BR-18).
+The append-only transition trail: sequence, from, to, actor or SYSTEM, reason, note and UTC time (FR-INC-04, BR-18). `note` is the free text saved with the step (what is being done on `RESPONDING`, the outcome on `RESOLVED`, the reason on `FALSE_ALARM`) and is `null` for a step that carries none, such as a system step.
 
 ## API Specification
 
@@ -38,6 +38,7 @@ No body.
       "toState": "DETECTED",
       "actor": "SYSTEM",
       "reason": "CREATED",
+      "note": null,
       "createdAt": "2026-10-20T03:15:00.000Z"
     },
     {
@@ -46,6 +47,16 @@ No body.
       "toState": "NOTIFY_PRIMARY",
       "actor": "SYSTEM",
       "reason": "ROUTED",
+      "note": null,
+      "createdAt": "2026-10-20T03:15:00.000Z"
+    },
+    {
+      "seq": 3,
+      "fromState": "ACKNOWLEDGED",
+      "toState": "RESPONDING",
+      "actor": "Pham Van D",
+      "reason": "RESPONDING",
+      "note": "Two rangers are walking up the north trail",
       "createdAt": "2026-10-20T03:15:00.000Z"
     }
   ],

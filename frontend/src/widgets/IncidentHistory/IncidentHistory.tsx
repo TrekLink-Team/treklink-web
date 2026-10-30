@@ -60,6 +60,11 @@ export const TransitionTrail: React.FC<PanelProps> = ({ incidentId, onLostAccess
                 {REASON_LABEL[row.reason] ?? row.reason}, by{' '}
                 {row.actor === 'SYSTEM' ? 'the system' : row.actor}, {formatDateTime(row.createdAt)}
               </p>
+              {row.note && (
+                <p className="mt-1 whitespace-pre-wrap break-words text-body text-ink">
+                  {row.note}
+                </p>
+              )}
             </li>
           ))}
         </ol>

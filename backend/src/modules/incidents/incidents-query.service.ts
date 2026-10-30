@@ -66,6 +66,8 @@ export interface IncidentView {
 }
 
 export interface IncidentDetailView extends IncidentView {
+  // What the Operator reported on resolving; null until the incident is resolved (api-design 02).
+  outcomeNote: string | null;
   statusUpdates: { id: string; note: string; author: PersonRef; createdAt: Date }[];
   authorityReports: {
     id: string;
@@ -77,12 +79,15 @@ export interface IncidentDetailView extends IncidentView {
 }
 
 // One row of the transition trail (api-design 12). `actor` is the person's name, or `SYSTEM`.
+// `note` is the free text saved with the step (the response, the outcome, the false-alarm reason),
+// null for a system step.
 export interface TransitionView {
   seq: number;
   fromState: IncidentState | null;
   toState: IncidentState;
   actor: string;
   reason: string;
+  note: string | null;
   createdAt: Date;
 }
 
@@ -192,6 +197,7 @@ export class IncidentsQueryService {
     const [view] = await this.views([incident]);
     return {
       ...view,
+      outcomeNote: incident.outcomeNote,
       statusUpdates: updates.map(({ id: updateId, note, authorId, createdAt }) => ({
         id: updateId,
         note,
@@ -209,8 +215,9 @@ export class IncidentsQueryService {
     const names = await this.organizations.memberNames(
       rows.flatMap((row) => (row.actorId ? [row.actorId] : [])),
     );
-    return rows.map(({ actorId, ...row }) => ({
+    return rows.map(({ actorId, note, ...row }) => ({
       ...row,
+      note: note ?? null,
       actor: actorId === null ? 'SYSTEM' : (names.get(actorId) ?? actorId),
     }));
   }

@@ -261,6 +261,13 @@ export const IncidentDetailPage: React.FC = () => {
                   ? `${incident.lastPosition.lat.toFixed(5)}, ${incident.lastPosition.lon.toFixed(5)}`
                   : 'Position unavailable'}
               </Fact>
+              {incident.outcomeNote && (
+                <div className="sm:col-span-2">
+                  <Fact label="Outcome">
+                    <span className="whitespace-pre-wrap break-words">{incident.outcomeNote}</span>
+                  </Fact>
+                </div>
+              )}
             </dl>
           </div>
 
