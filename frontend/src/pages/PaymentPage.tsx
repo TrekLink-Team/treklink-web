@@ -5,6 +5,7 @@ import { usePayment } from '../entities/billing/api';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { Alert, Badge, Card, PageHeader, Skeleton } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
+import { LINK } from '../shared/ui/styles';
 
 // mm:ss left until `expiresAt`, never below zero.
 const remaining = (expiresAt: string | null, now: number): string => {
@@ -67,7 +68,7 @@ export const PaymentPage: React.FC = () => {
   );
   const back = `/o/invoices/${data.invoiceId}`;
   const backLink = (
-    <Link to={back} className="font-semibold text-brand underline-offset-4 hover:underline">
+    <Link to={back} className={LINK}>
       Back to the invoice
     </Link>
   );
@@ -129,7 +130,7 @@ export const PaymentPage: React.FC = () => {
           tone="info"
           title={`${formatVnd(credited)} arrived for this request and was recorded.`}
           action={
-            <Link to={back} className="font-semibold text-brand underline-offset-4 hover:underline">
+            <Link to={back} className={LINK}>
               See what remains due
             </Link>
           }
@@ -142,7 +143,7 @@ export const PaymentPage: React.FC = () => {
           tone="error"
           title="Payment not completed."
           action={
-            <Link to={back} className="font-semibold text-brand underline-offset-4 hover:underline">
+            <Link to={back} className={LINK}>
               Back to the invoice to try again
             </Link>
           }
