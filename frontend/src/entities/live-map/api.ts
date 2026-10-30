@@ -46,7 +46,11 @@ export const useMapSnapshot = (organizationId: string | null) =>
   useQuery({
     queryKey: mapSnapshotKey(organizationId),
     queryFn: () => getMapSnapshot(organizationId),
-    // The stream keeps the map current; a refetch would only redraw what the stream already moved.
+    // The stream keeps the map current while it is mounted; a refetch would only redraw what the
+    // stream already moved.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    // The stream entries are kept only while the map is mounted, so a map shown again starts from a
+    // fresh snapshot: an incident resolved on its own page no longer reads as an open SOS (smoke 3).
+    refetchOnMount: 'always',
   });
