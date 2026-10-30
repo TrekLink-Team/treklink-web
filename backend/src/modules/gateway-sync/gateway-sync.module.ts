@@ -41,5 +41,6 @@ import { SyncStatusService } from './sync-status.service';
     FieldEventQueryService,
     SyncStatusService,
   ],
+  exports: [FieldEventQueryService],
 })
 export class GatewaySyncModule {}

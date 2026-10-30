@@ -290,7 +290,6 @@ export class ContractsService {
       holder: row.holderName === null ? null : { name: row.holderName },
     }));
   }
-  // --- end monitoring reads ---------------------------------------------------------------------------
 
   // The periods a device was in the organization's custody, oldest first (rentals 4.5, design §6), so
   // monitoring serves a member only the telemetry of its own rental periods (REQ-EVT-06).

@@ -51,6 +51,22 @@ export class SyncQueryRepository {
     ]);
   }
 
+  // Positions and telemetry of one device by occurrence time, oldest first (monitoring api-design 03).
+  historyRows(where: Prisma.FieldEventWhereInput) {
+    return this.prisma.fieldEvent.findMany({
+      where,
+      orderBy: [{ occurredAt: 'asc' }, { seq: 'asc' }],
+      select: {
+        occurredAt: true,
+        kind: true,
+        latitude: true,
+        longitude: true,
+        altitude: true,
+        batteryPct: true,
+      },
+    });
+  }
+
   async outcomesSince(since: Date): Promise<Map<SyncOutcome, number>> {
     const groups = await this.prisma.syncAuditLog.groupBy({
       by: ['outcome'],
