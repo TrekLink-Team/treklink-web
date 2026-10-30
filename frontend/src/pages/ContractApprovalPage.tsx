@@ -166,7 +166,8 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
         contract.version,
       );
       setApproved(result);
-      showToast('Saved.');
+      // The pattern of the organization approval toast (screen 3.2), with what was reserved.
+      showToast(`${contract.code} approved. ${result.devices.length} devices reserved.`);
       onDecided();
     } catch (error) {
       setFailure(failureOf(error));
