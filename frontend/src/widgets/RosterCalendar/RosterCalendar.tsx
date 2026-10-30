@@ -6,10 +6,18 @@ import { dayLabel, isGap, windowLabel } from './labels';
 const shiftName = (shift: Shift): string =>
   `${shift.primary?.fullName ?? 'No primary'}, primary, ${windowLabel(shift.startsAt, shift.endsAt)}`;
 
-// The day of the week a time falls on; times before the week start count as its first day.
+// The day of the week a time falls on, by calendar day in the viewer's timezone: the first of the seven
+// days whose date it shares. Times before the week start count as its first day, after it as its last.
+const sameDay = (a: Date, b: Date): boolean =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
 const dayIndex = (iso: string, weekStart: Date): number => {
-  const days = Math.floor((new Date(iso).getTime() - weekStart.getTime()) / 86_400_000);
-  return Math.min(Math.max(days, 0), 6);
+  const at = new Date(iso);
+  if (at < weekStart) return 0;
+  const index = Array.from({ length: 7 }, (_, offset) => addDays(weekStart, offset)).findIndex((day) =>
+    sameDay(day, at),
+  );
+  return index === -1 ? 6 : index;
 };
 
 interface Props {

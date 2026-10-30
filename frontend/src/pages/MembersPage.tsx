@@ -47,6 +47,10 @@ const ROLE_OPTIONS = [
   { value: 'MANAGER' as const, label: 'Manager', description: 'Also manages members, the roster, contracts and API keys.' },
 ];
 
+const ROLE_LABEL: Record<MemberRole, string> = Object.fromEntries(
+  ROLE_OPTIONS.map((option) => [option.value, option.label]),
+) as Record<MemberRole, string>;
+
 const StatusOf: React.FC<{ member: Member }> = ({ member }) => {
   const status = memberStatus(member);
   if (status === 'Deactivated')
@@ -303,7 +307,8 @@ export const MembersPage: React.FC = () => {
     setResending(member.id);
     try {
       await resendInvitation(member.email);
-      showToast(`Invitation sent again to ${member.email}`);
+      // Auth api-design 05 answers alike whether or not a code went out (no account enumeration).
+      showToast(`If an invitation is due, a new code was sent to ${member.email}.`);
     } catch (caught) {
       showToast(messageOf(caught));
     } finally {
@@ -350,7 +355,7 @@ export const MembersPage: React.FC = () => {
 
   const columns: Column<Member>[] = [
     { key: 'name', header: 'Member', cell: nameCell },
-    { key: 'role', header: 'Role', cell: (row) => <Badge>{row.role}</Badge>, width: '8rem' },
+    { key: 'role', header: 'Role', cell: (row) => <Badge>{ROLE_LABEL[row.role]}</Badge>, width: '8rem' },
     { key: 'status', header: 'Status', cell: (row) => <StatusOf member={row} /> },
   ];
 
@@ -390,7 +395,7 @@ export const MembersPage: React.FC = () => {
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               {nameCell(row)}
-              <Badge>{row.role}</Badge>
+              <Badge>{ROLE_LABEL[row.role]}</Badge>
             </div>
             <StatusOf member={row} />
             {!row.deactivatedAt && (
