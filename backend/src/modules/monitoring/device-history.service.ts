@@ -66,7 +66,10 @@ export class DeviceHistoryService {
           : []),
       ];
     });
-    const entries: Entry[] = [...trail, ...contractEntries].sort(
+    // devices writes a CONTRACT-referenced state row for every move rentals drives; the contract
+    // entries above already tell those moves with the organization, so the merged view keeps one.
+    const deviceEntries = trail.filter((entry) => entry.refType !== 'CONTRACT');
+    const entries: Entry[] = [...deviceEntries, ...contractEntries].sort(
       (a, b) => b.at.getTime() - a.at.getTime(),
     );
     const page = entries.slice(skip, skip + take);
