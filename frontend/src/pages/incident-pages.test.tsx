@@ -484,6 +484,25 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeTruthy();
   });
 
+  it('retries the alert log in place after a failure', async () => {
+    let fail = true;
+    detail(
+      {},
+      {
+        alerts: () =>
+          fail
+            ? Promise.reject(new ApiError(500, 'INTERNAL_ERROR', 'Something broke.'))
+            : Promise.resolve(ALERTS),
+      },
+    );
+    renderAt('/o/incidents/inc-1', MANAGER);
+    const log = await screen.findByRole('region', { name: 'Alert deliveries' });
+    expect(await within(log).findByText('Something broke.')).toBeTruthy();
+    fail = false;
+    fireEvent.click(within(log).getByRole('button', { name: 'Try again' }));
+    expect(await within(log).findByText('Sent')).toBeTruthy();
+  });
+
   it('rechecks the main record when a panel answers 404', async () => {
     detail(
       {},
