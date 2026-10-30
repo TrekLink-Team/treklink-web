@@ -532,6 +532,11 @@ export class ContractsRepository {
     });
   }
 
+  // The status alone, for the incidents authority report on a contract (incidents api-design 10).
+  statusOf(id: string, client: Client = this.prisma) {
+    return client.rentalContract.findUnique({ where: { id }, select: { status: true } });
+  }
+
   termSeqs(ids: readonly string[], client: Client = this.prisma) {
     return client.contractTerm.findMany({
       where: { id: { in: [...ids] } },

@@ -111,6 +111,23 @@ Records the report to the authorities for a `DEFAULTED` contract, with the audit
 </td>
         </tr>
         <tr>
+            <td>404</td>
+            <td>No such contract (<code>NOT_FOUND</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "NOT_FOUND"
+  },
+  "isSuccess": false,
+  "statusCode": 404,
+  "message": "Contract not found."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>The contract is not DEFAULTED (<code>CONTRACT_NOT_DEFAULTED</code>)</td>
 <td>
@@ -142,13 +159,18 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"The contract is not DEFAULTED?"}
+    D2{"No such contract?"}
     D1 -->|no| D2
-    E2["Return 409 CONTRACT_NOT_DEFAULTED"]
+    E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
+    D3{"The contract is not DEFAULTED?"}
+    D2 -->|no| D3
+    E3["Return 409 CONTRACT_NOT_DEFAULTED"]
+    D3 -->|yes| E3
+    E3 --> X3((End))
     P0["Ask rentals for the contract state"]
-    D2 -->|no| P0
+    D3 -->|no| P0
     P1["Insert authority_reports"]
     P0 --> P1
     OK["Return 201"]

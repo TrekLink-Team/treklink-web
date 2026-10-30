@@ -10,6 +10,7 @@ import { AuthorityReportsRepository } from './authority-reports.repository';
 import { AuthorityReportsService } from './authority-reports.service';
 import { IncidentLifecycle } from './incident-lifecycle';
 import { IncidentsRepository } from './incidents.repository';
+import { ContractsService } from '../rentals';
 
 const STAFF: Caller = { id: 'staff-1', roles: ['STAFF'], organizationId: null };
 const OPERATOR: Caller = { id: 'op-1', roles: ['ORG_OPERATOR'], organizationId: 'org-a' };
@@ -67,6 +68,7 @@ describe('AuthorityReportsService (incidents task 4.3, api-design 08, 09 and 11)
       lifecycle as unknown as IncidentLifecycle,
       events as unknown as TransactionalEvents,
       config as unknown as ConfigService<ValidatedEnvironment, true>,
+      {} as ContractsService,
     );
   });
 
