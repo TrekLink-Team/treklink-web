@@ -225,7 +225,17 @@ describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {
     expect(reads['i-2']).toBe(1);
   });
 
-  it('refreshes every open invoice when no cached contract holds the released device', async () => {
+  it('refreshes only the invoice of the contract the release names, with no contract cached', async () => {
+    const reads = mountInvoices(false);
+    await screen.findByText('i-1 read 1');
+    await screen.findByText('i-2 read 1');
+    push('device.released', 'd-9', { contractId: 'c-2', checkedInAt: '2026-10-30T07:00:00Z' });
+    await screen.findByText('i-2 read 2');
+    await act(() => new Promise((resolve) => setTimeout(resolve, 250)));
+    expect(reads['i-1']).toBe(1);
+  });
+
+  it('refreshes every open invoice when a release without a contract id names an uncached device', async () => {
     const reads = mountInvoices(false);
     await screen.findByText('i-1 read 1');
     await screen.findByText('i-2 read 1');

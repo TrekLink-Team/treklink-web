@@ -15,11 +15,15 @@ const LIVE_BATCH_MS = 100;
 type CachedContract = { id?: string; devices?: { deviceId: string }[] } | undefined;
 type CachedInvoice = { contract?: { id: string } } | undefined;
 
-// The contracts whose cached detail holds one of the released devices, or null when a release names no
-// device or a device no cached contract holds: the `device.released` payload carries no contract id
-// (ws-live-contract), so the invoice of an unknown contract cannot be told apart.
-const contractsHolding = (queryClient: QueryClient, deviceIds: Set<string | undefined>) => {
-  const holding = new Set<string>();
+// The contracts of a burst of releases: those the entries name (`contractId`, ws-live-contract), plus,
+// for an entry stored before the field was added, those whose cached detail holds its device. Null when
+// such an entry names no device or a device no cached contract holds, so its contract is unknown.
+const contractsReleased = (
+  queryClient: QueryClient,
+  named: Set<string>,
+  deviceIds: Set<string | undefined>,
+) => {
+  const holding = new Set(named);
   const contracts = queryClient.getQueriesData<CachedContract>({ queryKey: ['contract'] });
   for (const deviceId of deviceIds) {
     if (!deviceId) return null;
@@ -44,16 +48,18 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     if (!signedIn) return;
-    // The list keys and released devices of the current burst, flushed once after LIVE_BATCH_MS.
+    // The list keys and released contracts of the current burst, flushed once after LIVE_BATCH_MS.
+    // A release without a contract id is kept by its device.
     const lists = new Set<string>();
+    const releasedContracts = new Set<string>();
     const released = new Set<string | undefined>();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const flush = () => {
       timer = undefined;
       for (const key of lists) void queryClient.invalidateQueries({ queryKey: [key] });
-      if (released.size > 0) {
-        // Only the invoice of a contract holding a released device can gain a late fee line.
-        const holding = contractsHolding(queryClient, released);
+      if (releasedContracts.size > 0 || released.size > 0) {
+        // Only the invoice of a contract that took a device back can gain a late fee line.
+        const holding = contractsReleased(queryClient, releasedContracts, released);
         void queryClient.invalidateQueries({
           queryKey: ['invoice'],
           predicate: (query) => {
@@ -63,6 +69,7 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         });
       }
       lists.clear();
+      releasedContracts.clear();
       released.clear();
     };
     const later = (keys: string[]) => {
@@ -126,7 +133,9 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         if (type === 'device.released') {
           // A check-in past the grace adds a late fee line (rentals 4.1), which the invoice lists, the
           // invoice of that contract and the dashboard's amount due read (screens 5.6 and 6.1).
-          released.add(message.entry.deviceId);
+          const contractId = message.entry.payload.contractId;
+          if (typeof contractId === 'string') releasedContracts.add(contractId);
+          else released.add(message.entry.deviceId);
           later(['contracts', 'contract-balance', 'contract-transitions', 'invoices']);
         }
       }
