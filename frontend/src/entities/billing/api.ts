@@ -173,6 +173,15 @@ export const recordCounterPayment = (invoiceId: string, payment: CounterPayment)
 export const usePlans = (options: { staleTime?: number; refetchOnWindowFocus?: boolean } = {}) =>
   useQuery({ queryKey: billingKeys.plans, queryFn: fetchPlans, staleTime: 60_000, ...options });
 
+// A contract names its hardware variant by the display name the request form shows (screen 5.1),
+// read from the public plans list (billing api-design 01), so every role can read it. The variant
+// code stands in until the list loads, and for a variant no longer on the price list.
+export const useVariantName = () => {
+  const plans = usePlans();
+  return (variant: { id: string; code: string | null }) =>
+    plans.data?.variants.find((item) => item.id === variant.id)?.name ?? variant.code ?? 'variant';
+};
+
 export const useInvoices = (scope: 'o' | 't', filters: InvoiceFilters) =>
   useQuery({
     queryKey: billingKeys.invoices(scope, filters),

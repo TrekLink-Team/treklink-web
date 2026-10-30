@@ -5,6 +5,7 @@ import {
   type ContractDetail,
   type Replaced,
 } from '../../entities/contract/api';
+import { useVariantName } from '../../entities/billing/api';
 import { useOrganization } from '../../entities/organization/api';
 import { ApiError } from '../../shared/api/apiClient';
 import { Alert, Button, Card, CardHeader, Checkbox, Field, Input, Select } from '../../shared/ui';
@@ -22,6 +23,7 @@ export const ReplacementPanel: React.FC<{
   onReplaced: () => Promise<unknown>;
 }> = ({ contract, onReplaced }) => {
   const organization = useOrganization(contract.organization?.id);
+  const variant = useVariantName()(contract.hardwareVariant);
   const keyVersion = organization.data?.channelKeyVersion;
   const out = contract.devices.filter(
     (device) => device.handedOverAt && !device.checkedInAt && !device.lostAt,
@@ -52,7 +54,7 @@ export const ReplacementPanel: React.FC<{
       const unit = await findAvailableUnit(wanted, contract.hardwareVariant.id);
       if (!unit) {
         setErrors({
-          tag: `${wanted} is not an available ${contract.hardwareVariant.code ?? ''} unit.`,
+          tag: `${wanted} is not an available ${variant} unit.`,
         });
         return;
       }
@@ -130,7 +132,7 @@ export const ReplacementPanel: React.FC<{
           <Field
             id="replace-tag"
             label="Replacement asset tag"
-            hint={`An available ${contract.hardwareVariant.code ?? ''} unit.`}
+            hint={`An available ${variant} unit.`}
             error={errors.tag}
             required
           >

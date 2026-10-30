@@ -14,6 +14,7 @@ import {
   type ContractStatus,
   useAvailability,
 } from '../entities/contract/api';
+import { useVariantName } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, Empty, ErrorState, Field, Loading, PageTitle, Pager } from '../shared/ui/bits';
@@ -128,6 +129,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   onDecided,
 }) => {
   const showToast = useToast((state) => state.show);
+  const variant = useVariantName()(contract.hardwareVariant);
   const [appointment, setAppointment] = useState(appointmentOf(contract.requestedStartDate));
   const [failure, setFailure] = useState<Failure | null>(null);
   const [pending, setPending] = useState(false);
@@ -184,7 +186,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
         <div>
           <dt className="font-semibold text-ink-muted">Devices</dt>
           <dd>
-            {contract.quantity} x {contract.hardwareVariant.code}
+            {contract.quantity} x {variant}
           </dd>
         </div>
         <div>
@@ -227,8 +229,8 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
                 : available === undefined
                   ? 'Availability is unknown; approval checks it.'
                   : available < contract.quantity
-                    ? `Only ${available} ${contract.hardwareVariant.code} available now.`
-                    : `${available} ${contract.hardwareVariant.code} available now; approval reserves ${contract.quantity}.`}
+                    ? `Only ${available} ${variant} available now.`
+                    : `${available} ${variant} available now; approval reserves ${contract.quantity}.`}
             </Alert>
             {failure && (
               <div role="alert" className={ALERT}>
@@ -307,6 +309,7 @@ export const ContractApprovalPage: React.FC = () => {
   const [selected, setSelected] = useState<Contract | null>(null);
   const status = TABS[tab].status;
   const { data, isLoading, error, refetch } = useContracts('t', { status, pageNumber });
+  const variantName = useVariantName();
   const [find, setFind] = useState({ code: '', organization: '', plan: '', variant: '' });
   const set = (key: keyof typeof find) => (value: string) =>
     setFind((current) => ({ ...current, [key]: value }));
@@ -322,7 +325,7 @@ export const ContractApprovalPage: React.FC = () => {
           contract.organization?.legalName,
         ) &&
         (find.plan === '' || contract.planType === find.plan) &&
-        matchesText(find.variant, contract.hardwareVariant.code),
+        matchesText(find.variant, variantName(contract.hardwareVariant), contract.hardwareVariant.code),
     ) ?? [];
   const fields: Record<keyof typeof find, FilterField> = {
     code: { label: 'contract', kind: 'text', value: find.code, onChange: set('code') },
@@ -413,7 +416,7 @@ export const ContractApprovalPage: React.FC = () => {
                           {contract.organization?.code}
                         </span>
                         <span className="block text-sm text-ink-muted">
-                          {planLabel(contract)}, {contract.hardwareVariant.code} x{' '}
+                          {planLabel(contract)}, {variantName(contract.hardwareVariant)} x{' '}
                           {contract.quantity}, starts {formatDay(contract.requestedStartDate)}
                         </span>
                       </span>
@@ -473,7 +476,7 @@ export const ContractApprovalPage: React.FC = () => {
                           <td className={TD}>{contract.organization?.code}</td>
                           <td className={`${TD} whitespace-nowrap`}>{planLabel(contract)}</td>
                           <td className={`${TD} whitespace-nowrap`}>
-                            {contract.hardwareVariant.code} x {contract.quantity}
+                            {variantName(contract.hardwareVariant)} x {contract.quantity}
                           </td>
                           <td className={`${TD} whitespace-nowrap`}>
                             {formatDay(contract.requestedStartDate)}

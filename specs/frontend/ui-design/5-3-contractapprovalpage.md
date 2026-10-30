@@ -18,7 +18,7 @@ Scope from the task: rentals api-design 04 and 05; availability from devices api
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Queue: code, organization, plan, variant and quantity, requested start | rentals 02 with `status=REQUESTED`: `items[].code`, `organization.code`, `planType`, `dayPlanDays`, `hardwareVariant.code`, `quantity`, `requestedStartDate` |
+| Queue: code, organization, plan, variant and quantity, requested start | rentals 02 with `status=REQUESTED`: `items[].code`, `organization.code`, `planType`, `dayPlanDays`, `hardwareVariant.id`, `quantity`, `requestedStartDate`; the variant here, in the request panel and in the availability banner is its display name, billing 01 `variants[].name` matched on `id`, else `hardwareVariant.code` (screen 5.2) |
 | Tabs "Approved" (handover queue) and "All" | rentals 02 with `status=APPROVED`, and without a status |
 | Request panel: organization name, prices fixed at request | rentals 02 `items[].organization.legalName`, `monthlyUnitPriceVnd`, `dayPremium`, `holdingFeeRatio` |
 | Available devices of the requested variant (advisory) | devices 24 `[].code`, `available`, queried with `hardwareVariantId` |
@@ -44,7 +44,7 @@ Devices are chosen by the server, the oldest-checked first. rentals 04 also acce
 |---|---|
 | Loading | Queue skeleton rows; the availability banner shows a spinner while devices 24 runs; Approve and Reject show their pending state and are disabled until the server answers |
 | Empty | "No contract requests are waiting." With a filter or another tab: MSG01 |
-| Availability below the quantity (devices 24) | Amber banner "Only {available} {code} available now"; Approve stays enabled because the count is advisory and approval decides (FR-CON-03) |
+| Availability below the quantity (devices 24) | Amber banner "Only {available} {variant name} available now"; Approve stays enabled because the count is advisory and approval decides (FR-CON-03) |
 | Error `VALIDATION_FAILED` (400, rentals 04, 05) | MSG02 under the field the server names |
 | Error `INSUFFICIENT_DEVICES` (409, rentals 04) | MSG11 dialog with the available count and the variant; nothing is reserved (REQ-ERR-01) |
 | Error `INVALID_STATE_TRANSITION` (409, rentals 04, 05) | MSG28 with the current state; the queue refetches (another Staff member acted first) |
