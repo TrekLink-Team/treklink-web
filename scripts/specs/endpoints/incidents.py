@@ -8,6 +8,9 @@ INC = {"id": INCIDENT_ID, "code": "INC-2026-000045", "device": {"id": DEVICE_ID,
        "lastEventAt": NOW, "eventCount": 4, "lastPosition": {"lat": 11.5601, "lon": 108.5402}, "stale": False,
        "owner": None, "tierDeadlineAt": "2026-10-20T03:17:00Z", "statusDueAt": None, "reopenCount": 0,
        "version": 1}
+# Authority report ids of the examples: an incident report (02, 09, 11) and a contract report (10).
+REPORT_ID = "0b6c9f2e-4d1a-4c3b-9e8f-7a6b5c4d3e2f"
+CONTRACT_REPORT_ID = "4e3d2c1b-0a9f-4e8d-8c7b-6a5f4e3d2c1b"
 I_PATH = ["id", "Incident id; members may use only their own organization's", "uuid", f"`{INCIDENT_ID}`"]
 VERSION = ["expectedVersion", "Incident version the caller saw", "int", "yes", "`1`"]
 TAKEN = (409, "ALREADY_OWNED", "Another member acknowledged first (compare-and-set lost)",
@@ -39,7 +42,7 @@ ENDPOINTS = [
        path=[I_PATH],
        response={**INC, "statusUpdates": [{"id": "su-3", "note": "Reached the holder, minor ankle injury",
                                            "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW}],
-                 "authorityReports": [{"id": "ar-1", "agency": "Lam Dong provincial rescue (114)",
+                 "authorityReports": [{"id": REPORT_ID, "agency": "Lam Dong provincial rescue (114)",
                                        "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}]},
        entity="Incident",
        steps=["Read within scope"], controller="IncidentsController", service="IncidentsQueryService",
@@ -131,16 +134,21 @@ ENDPOINTS = [
 
     ep("POST", "/api/authority-reports/:reportId/close-case", "Record the authority case closed",
        "TrekLink Staff, TrekLink Admin",
-       "Records that the authorities closed their case. A `REPORTED` incident moves to `CLOSED` (D-034); a "
-       "contract report only records the time.", "UC-35, UC-37, FR-INC-04, D-034",
-       path=[["reportId", "Authority report id", "uuid", "`ar-1`"]],
+       "Records that the authorities closed their case. A `REPORTED` incident moves to `CLOSED` (D-034) once "
+       "no other report on it is still open; a contract report only records the time.",
+       "UC-35, UC-37, FR-INC-04, D-034",
+       path=[["reportId", "Authority report id", "uuid", f"`{REPORT_ID}`"]],
        body=[["closedAt", "When the authority closed it", "datetime", "yes", "`2026-10-21T08:00:00Z`"],
              ["note", "Outcome as reported", "string", "no", "`Holder found safe`"]],
        sample={"closedAt": "2026-10-21T08:00:00Z", "note": "Holder found safe by the rescue team."},
-       response={"id": "ar-1", "caseClosedAt": "2026-10-21T08:00:00Z", "incidentState": "CLOSED"},
+       response={"id": REPORT_ID, "caseClosedAt": "2026-10-21T08:00:00Z", "incidentState": "CLOSED"},
        message="Case closed", entity="Authority report",
-       errors=[(409, "CASE_ALREADY_CLOSED", "caseClosedAt is set", "This cannot be done while it is CLOSED.")],
-       steps=["Set caseClosedAt", "If the subject is a REPORTED incident: transition to CLOSED"],
+       errors=[(400, "VALIDATION_FAILED", "closedAt is in the future", "closedAt must not be in the future."),
+               (400, "VALIDATION_FAILED", "closedAt is before the report's reportedAt",
+                "closedAt must not be before reportedAt."),
+               (409, "CASE_ALREADY_CLOSED", "caseClosedAt is set", "This cannot be done while it is CLOSED.")],
+       steps=["Set caseClosedAt",
+              "If the subject is a REPORTED incident with no other open report: transition to CLOSED"],
        controller="AuthorityReportsController", service="AuthorityReportsService", call="closeCase(reportId, dto, actor)",
        seq=["Svc->>DB: UPDATE authority_reports", "Svc->>DB: UPDATE incident, INSERT transition"]),
 
@@ -153,7 +161,7 @@ ENDPOINTS = [
              ["reportedAt", "When", "datetime", "yes", "`2026-11-30T02:00:00Z`"], ["note", "What was shared", "string", "no", "`...`"]],
        sample={"contractId": CONTRACT_ID, "agency": "District 1 police", "reference": "PC-Q1-2026-338",
                "reportedAt": "2026-11-30T02:00:00Z"},
-       response={"id": "ar-2", "contractId": CONTRACT_ID, "agency": "District 1 police", "reference": "PC-Q1-2026-338"},
+       response={"id": CONTRACT_REPORT_ID, "contractId": CONTRACT_ID, "agency": "District 1 police", "reference": "PC-Q1-2026-338"},
        status=201, message="Report recorded",
        errors=[(404, "NOT_FOUND", "No such contract", "Contract not found."),
                (409, "CONTRACT_NOT_DEFAULTED", "The contract is not DEFAULTED", "This cannot be done while it is OVERDUE.")],
@@ -165,7 +173,7 @@ ENDPOINTS = [
        "Lists authority reports, open cases first, then `reportedAt` newest first. There is no sort "
        "parameter (D-059 rule 7).", "UC-35, BR-17",
        query=[["open", "Case not closed", "bool", "no", "`true`"]] + PAGE_QUERY,
-       response=paged({"id": "ar-1", "incidentId": INCIDENT_ID, "contractId": None, "agency": "Lam Dong provincial rescue (114)",
+       response=paged({"id": REPORT_ID, "incidentId": INCIDENT_ID, "contractId": None, "agency": "Lam Dong provincial rescue (114)",
                        "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}),
        steps=["Read authority_reports"], controller="AuthorityReportsController", service="AuthorityReportsService",
        call="list(query)", seq=["Svc->>DB: SELECT authority_reports"]),

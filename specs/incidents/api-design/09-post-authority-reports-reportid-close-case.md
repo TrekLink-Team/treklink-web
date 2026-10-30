@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records that the authorities closed their case. A `REPORTED` incident moves to `CLOSED` (D-034); a contract report only records the time.
+Records that the authorities closed their case. A `REPORTED` incident moves to `CLOSED` (D-034) once no other report on it is still open; a contract report only records the time.
 
 ## API Specification
 
@@ -21,7 +21,7 @@ Records that the authorities closed their case. A `REPORTED` incident moves to `
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| reportId | Authority report id | uuid | `ar-1` |
+| reportId | Authority report id | uuid | `0b6c9f2e-4d1a-4c3b-9e8f-7a6b5c4d3e2f` |
 
 ## Request sample
 
@@ -42,7 +42,7 @@ Records that the authorities closed their case. A `REPORTED` incident moves to `
 ```json
 {
   "result": {
-    "id": "ar-1",
+    "id": "0b6c9f2e-4d1a-4c3b-9e8f-7a6b5c4d3e2f",
     "caseClosedAt": "2026-10-21T08:00:00Z",
     "incidentState": "CLOSED"
   },
@@ -128,6 +128,40 @@ Records that the authorities closed their case. A `REPORTED` incident moves to `
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>closedAt is in the future (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "closedAt must not be in the future."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>closedAt is before the report's reportedAt (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "closedAt must not be before reportedAt."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>caseClosedAt is set (<code>CASE_ALREADY_CLOSED</code>)</td>
 <td>
@@ -164,14 +198,24 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"caseClosedAt is set?"}
+    D3{"closedAt is in the future?"}
     D2 -->|no| D3
-    E3["Return 409 CASE_ALREADY_CLOSED"]
+    E3["Return 400 VALIDATION_FAILED"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"closedAt is before the report's reportedAt?"}
+    D3 -->|no| D4
+    E4["Return 400 VALIDATION_FAILED"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
+    D5{"caseClosedAt is set?"}
+    D4 -->|no| D5
+    E5["Return 409 CASE_ALREADY_CLOSED"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Set caseClosedAt"]
-    D3 -->|no| P0
-    P1["If the subject is a REPORTED incident: transition to CLOSED"]
+    D5 -->|no| P0
+    P1["If the subject is a REPORTED incident with no other open report: transition to CLOSED"]
     P0 --> P1
     OK["Return 200"]
     P1 --> OK

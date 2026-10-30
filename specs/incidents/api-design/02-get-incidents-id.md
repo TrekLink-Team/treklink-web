@@ -74,7 +74,7 @@ No body.
     ],
     "authorityReports": [
       {
-        "id": "ar-1",
+        "id": "0b6c9f2e-4d1a-4c3b-9e8f-7a6b5c4d3e2f",
         "agency": "Lam Dong provincial rescue (114)",
         "reference": "LD-114-2026-1020-07",
         "reportedAt": "2026-10-20T03:15:00.000Z",

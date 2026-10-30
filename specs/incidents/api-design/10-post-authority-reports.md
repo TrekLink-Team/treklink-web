@@ -41,7 +41,7 @@ Records the report to the authorities for a `DEFAULTED` contract, with the audit
 ```json
 {
   "result": {
-    "id": "ar-2",
+    "id": "4e3d2c1b-0a9f-4e8d-8c7b-6a5f4e3d2c1b",
     "contractId": "c0ffee00-1234-4abc-9def-001122334455",
     "agency": "District 1 police",
     "reference": "PC-Q1-2026-338"
