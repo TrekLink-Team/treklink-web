@@ -19,7 +19,9 @@ acceptance criteria through the real services: `db-rental-flow.ts` compiles `App
 same database without init, so after-commit listeners and scheduled jobs stay off and no email is
 sent, and `db-app-env.ts` sets the remaining boot variables (MQTT ingestion off, signed handover
 notes under the system temporary directory, a SePay webhook key). The jobs are called with explicit
-times. Some of these suites read every due row of the database (the term rollover, the alert
+times. `contracts-http.db-spec.ts` goes through HTTP: `compileRentalFlow({ http: true })` starts the whole
+application with the scheduler replaced, and `send` calls it as a flow account. `auth-http.db-spec.ts`
+starts the application the same way on its own. Some of these suites read every due row of the database (the term rollover, the alert
 dispatcher), so run the whole suite on a fresh database, as CI does.
 
 The incident database tests create fixture states and initial history directly. Subsequent lifecycle

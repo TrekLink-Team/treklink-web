@@ -141,5 +141,7 @@
 
 ## Phase 8: Verification & DoD
 
-- [ ] 8.1 Suite green; lint, boundary check, typecheck clean (owner LongLP)
-- [ ] 8.2 `api-design/*.md` and the Permission Matrix regenerated and matching behaviour (owner LongLP)
+- [x] 8.1 Suite green; lint, boundary check, typecheck clean (owner LongLP)
+  - **Done** (2026-10-30, LongLP): green on 2026-10-30: backend unit 190 suites and 2067 tests, e2e 15 and 256, `test:db` 22 and 140 on a fresh local Postgres 16; `npm run lint` with 0 errors and the module boundary check passed; `tsc --noEmit` clean, the auth suites included (`auth-http.db-spec.ts` among them)
+- [x] 8.2 `api-design/*.md` and the Permission Matrix regenerated and matching behaviour (owner LongLP)
+  - **Done** (2026-10-30, LongLP): `build_api_design.py` regenerates every auth api-design file unchanged (after #160 made a qualified Public permission public). `build_seed.permissions_md()` produces `permission-matrix.md` byte for byte, called on its own because `build_seed.py` would also rewrite the frozen seed migration (D-036); and the 120 grants of `build_seed.grants()` equal the `role_permissions` rows of a database migrated from scratch, so the matrix matches what the guards enforce

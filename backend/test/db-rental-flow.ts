@@ -1,5 +1,7 @@
 import './db-app-env';
 import { randomUUID } from 'node:crypto';
+import { JwtService } from '@nestjs/jwt';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
   AccountType,
@@ -10,13 +12,16 @@ import {
   PlanType,
   Prisma,
 } from '@prisma/client';
+import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/app.setup';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { DomainException } from '../src/common/errors';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { PaymentsService } from '../src/modules/billing/payments.service';
 import { ContractDecisionsService } from '../src/modules/rentals/contract-decisions.service';
 import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
+import { JobRunnerService } from '../src/modules/platform/scheduler/job-runner.service';
 import { HandoverService } from '../src/modules/rentals/handover.service';
 
 // The rental flow the acceptance suites of test:db share (rentals and billing task 6.2 and 5.2):
@@ -43,14 +48,32 @@ export interface ContractTerms {
   dayPlanDays?: number | null;
   dayPremium?: string | null;
   monthlyUnitPriceVnd?: bigint;
+  // The first day; default 2 November 2026. A handover over HTTP runs at the real time, so a suite
+  // that reaches the checks after BEFORE_START_DATE starts its contract today.
+  requestedStartDate?: Date;
 }
 
-export const compileRentalFlow = async () => {
+// With `http`, the whole application also serves HTTP with the scheduler replaced, so no job fires,
+// and `send` calls it as one of the flow's accounts (rentals 6.2, billing 5.2).
+export const compileRentalFlow = async (options: { http?: boolean } = {}) => {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
     throw new Error('test:db requires explicit DATABASE_URL and DATABASE_DIRECT_URL.');
   }
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  const moduleRef = await (
+    options.http
+      ? builder
+          .overrideProvider(JobRunnerService)
+          .useValue({ onApplicationBootstrap: () => undefined })
+      : builder
+  ).compile();
+  let app: NestExpressApplication | null = null;
+  if (options.http) {
+    app = moduleRef.createNestApplication<NestExpressApplication>();
+    configureApp(app);
+    await app.init();
+  }
   const get = <T>(type: new (...args: never[]) => T): T => moduleRef.get(type, { strict: false });
   const prisma = moduleRef.get(PrismaService);
   const repository = get(ContractsRepository);
@@ -65,20 +88,29 @@ export const compileRentalFlow = async () => {
     return `${runId}-${serial}`;
   };
 
-  const user = async (accountType: AccountType) =>
-    (
+  // An activated account with its seeded role, so a signed token opens a session over HTTP.
+  const user = async (accountType: AccountType, roleKey?: string) => {
+    const role = roleKey ? await prisma.role.findUniqueOrThrow({ where: { key: roleKey } }) : null;
+    return (
       await prisma.user.create({
-        data: { email: `flow-${next()}@example.invalid`, fullName: `Flow ${serial}`, accountType },
+        data: {
+          email: `flow-${next()}@example.invalid`,
+          fullName: `Flow ${serial}`,
+          accountType,
+          passwordHash: 'not-a-real-hash',
+          ...(role ? { roles: { create: { roleId: role.id } } } : {}),
+        },
       })
     ).id;
+  };
 
   const staff: Caller = {
-    id: await user(AccountType.TREKLINK),
+    id: await user(AccountType.TREKLINK, 'STAFF'),
     roles: ['STAFF'],
     organizationId: null,
   };
   const admin = async (): Promise<Caller> => ({
-    id: await user(AccountType.TREKLINK),
+    id: await user(AccountType.TREKLINK, 'ADMIN'),
     roles: ['ADMIN'],
     organizationId: null,
   });
@@ -98,7 +130,7 @@ export const compileRentalFlow = async () => {
         },
       })
     ).id;
-    const managerId = await user(AccountType.ORGANIZATION);
+    const managerId = await user(AccountType.ORGANIZATION, 'ORG_MANAGER');
     await prisma.organizationMember.create({
       data: { userId: managerId, organizationId: id, role: MemberRole.MANAGER },
     });
@@ -160,7 +192,7 @@ export const compileRentalFlow = async () => {
           dayPlanDays: terms.dayPlanDays ?? null,
           hardwareVariantId: variantId,
           quantity,
-          requestedStartDate: START_DATE,
+          requestedStartDate: terms.requestedStartDate ?? START_DATE,
           monthlyUnitPriceVnd: terms.monthlyUnitPriceVnd ?? 450_000n,
           dayPremium: terms.dayPremium ? new Prisma.Decimal(terms.dayPremium) : null,
           holdingFeeRatio: new Prisma.Decimal('0.5'),
@@ -263,6 +295,21 @@ export const compileRentalFlow = async () => {
       ).map((row) => [row.key, row.value]),
     );
 
+  // An HTTP call as one of the flow's accounts; only with `http`.
+  const send = async (
+    caller: Caller,
+    method: 'get' | 'post' | 'put' | 'patch',
+    path: string,
+    body?: object,
+  ) => {
+    if (!app) throw new Error('compileRentalFlow({ http: true }) serves HTTP.');
+    const token = await moduleRef
+      .get(JwtService, { strict: false })
+      .signAsync({ sub: caller.id, roles: [], pv: 0 });
+    const call = request(app.getHttpServer())[method](path).set('Authorization', `Bearer ${token}`);
+    return body ? call.send(body) : call;
+  };
+
   return {
     moduleRef,
     get,
@@ -283,7 +330,8 @@ export const compileRentalFlow = async () => {
     rented,
     codeOf,
     seededParameters,
-    close: () => moduleRef.close(),
+    send,
+    close: () => (app ? app.close() : moduleRef.close()),
   };
 };
 
