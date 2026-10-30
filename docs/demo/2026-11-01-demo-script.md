@@ -5,7 +5,9 @@ Prepared 2026-10-30 by KhoaDD under D-078, from `dev` at `cdaecf1`; refreshed on
 #150 incidents figures), with every changed step cited again; checked again on `dev` at `c5cd3a2`
 against the code and the demo smoke record (`docs/sessions/2026-10-30-1830-demo-smoke.md`); corrected
 on 2026-10-30 from the second demo smoke (`docs/sessions/2026-10-30-2200-demo-smoke-2.md`), which
-clicked the steps it lists in a browser. Every step names the source it was traced to, as `file:line`.
+clicked the steps it lists in a browser; corrected again from the leader's in-person dry run of onboarding
+and MF-01 on 2026-10-30 (MF-01a added, MF-01 steps 6, 9 and 11). Every step names the
+source it was traced to, as `file:line`.
 A step marked **(unverified)** could not be traced to code or to a handoff that ran it.
 
 > [!IMPORTANT]
@@ -20,6 +22,7 @@ The five main flows, as `specs/README.md:25-31` maps them to modules:
 
 | Flow | What it shows | Modules |
 |---|---|---|
+| MF-01a | Onboarding: an organization registers, Staff verify it, an Admin approves it, its Manager sets a password | organizations, auth |
 | MF-01 | Request a contract to counter handover, then the Field Station credential | rentals, billing, devices, organizations |
 | MF-02 | Device data reaching the platform through the Field Station bridge, and its sync status | gateway-sync, `gateway/` |
 | MF-03 | SOS to incident: alert, acknowledge, resolve; Staff authority reports on an incident and a defaulted contract | incidents |
@@ -96,6 +99,12 @@ This starts the backend, the gateway (simulation mode) and the frontend together
 | **RC-2026-0003** | DEFAULTED monthly, one device TL-0019 (Dang Van Long) still RENTED; handed over two months ago, defaulted yesterday. ORG-0001 stays ACTIVE: the seed writes the status directly and does not suspend the organization | MF-03 step 11 | `seed-demo.ts:13-18, 97-99, 840-988` |
 | **Field Station `fs-org-0001-1`** | "Ta Nang basecamp laptop" of ORG-0001, active, never reported until the gateway sends its first health report | MF-02 step 4 | `seed-demo.ts:81-82, 1011-1033` |
 
+**ORG-0002 is the organization registered live in MF-01a.** The code is `ORG-` and one more than the
+highest number in use (`backend/src/modules/organizations/organizations.repository.ts:84-90`); the seed
+holds only ORG-0001. A rehearsal without a reset moves it to ORG-0003 and on, and a second registration
+with the same tax code or Manager email is refused with "This tax code is already registered."
+(`backend/src/modules/organizations/organization-onboarding.service.ts:93-100`).
+
 **RC-2026-0004 is the contract the Manager requests live in MF-01.** It is the next contract number
 after the seeded RC-2026-0001 to RC-2026-0003 (`RC-<year>-<4 digits>`, one more than the highest code
 of the year, `backend/src/modules/rentals/contracts.repository.ts:735-747`). A rehearsal without a
@@ -116,7 +125,8 @@ Sign-in lands each account on its own page (`frontend/src/entities/session/model
 | A | `manager@treklink.local` (`SEED_MANAGER_PASSWORD`) | `/o`, Overview | MF-01, MF-05 |
 | B | `staff@treklink.local` (`SEED_STAFF_PASSWORD`) | `/t/map`, Fleet map | MF-01, MF-02 step 4, MF-03 steps 7 to 11, MF-04, MF-05 |
 | C | `operator@treklink.local` (`SEED_OPERATOR_PASSWORD`) | `/o/map`, Live map | MF-02, MF-03, MF-04 |
-| D (optional) | `admin@treklink.local` (`SEED_ADMIN_PASSWORD`) | `/t/map` | Swagger parameter change for MF-03; MF-05 tail |
+| D | `admin@treklink.local` (`SEED_ADMIN_PASSWORD`) | `/t/map` | MF-01a approval; Swagger parameter change for MF-03; MF-05 tail |
+| E | Not signed in: a new tab | `/` or `/register` | MF-01a registration and the new Manager's first sign-in |
 
 Plus one terminal at the repository root for `replay:mqtt` and `demo:term-end`.
 
@@ -128,7 +138,30 @@ Plus one terminal at the repository root for `replay:mqtt` and `demo:term-end`.
 
 ---
 
-## 2. MF-01: request to handover (about 9 minutes)
+## 2a. MF-01a: onboarding, register to the Manager's first sign-in (about 4 minutes)
+
+Run on the leader's dry run of 2026-10-30; the steps below are traced to the code on `dev`. The new
+organization is ORG-0002 (§1.3). MF-01 then continues with the seeded ORG-0001, whose devices, Field
+Station and contracts the later flows use; ORG-0002 rents nothing in this demo.
+
+| # | Window | Page and click | Expected on screen | Source |
+|---|---|---|---|---|
+| 1 | E (not signed in) | Plans page `/`, **Register your organization** (or `/sign-in`, **Register your organization**) | "Register your organization" with seven fields and the SAR disclaimer | `frontend/src/pages/PlansPage.tsx:89`, `SignInPage.tsx:124-126`, `RegisterPage.tsx:19-27, 109-139` |
+| 2 | E | Registered company name **Phan Dung Trekking Co., Ltd.**, Tax code **0312345678** (10 or 13 digits, not ORG-0001's `0000000001`), Registered address, Company phone, Manager full name **Tran Van Binh**, Manager email **binh.manager@example.com**, Manager phone; **Register** | "Registration received. Visit the TrekLink counter or call us to verify your organization."; "Your organization code is **ORG-0002**. The Manager receives an email to set a password." | `RegisterPage.tsx:86-98`; seed tax code `backend/prisma/seed-demo.ts:277`; the invitation is issued in the same transaction and mailed after commit (`backend/src/modules/organizations/organization-onboarding.service.ts:90-92`, `backend/src/modules/auth/accounts.service.ts:252-286`) |
+| 3 | B Staff | Sidebar **Organizations** (`/t/organizations`), tab **Pending**, row **ORG-0002** | Detail: code, tax code, address, contact; "Counter verification" form | `OrganizationReviewPage.tsx:48-49, 520-534, 548-556`; nav `frontend/src/shared/config/navigation.ts:121` |
+| 4 | B | Counter verification: Method **In person**, tick **Business registration** and **Manager ID card**, Master contract number **MC-2026-0002**, tick **The master contract includes the signed NDA** and **... the Field Station software licence**, **Record verification** | Toast "Saved."; the detail adds "Verified ..., in person, contract MC-2026-0002"; the button reads **Update verification**. Staff see no Approve button: approval is an Admin decision | `OrganizationReviewPage.tsx:56, 61-157, 535-540, 548-557` |
+| 5 | D Admin | Sidebar **Organizations**, tab **Pending**, row **ORG-0002**, Decision **Approve** | Toast "ORG-0002 approved. The Manager can now request devices."; the row leaves Pending. **Approve** is disabled until step 4 is recorded ("Verify this organization at the counter before approving it.") | `OrganizationReviewPage.tsx:396-410, 557-581` |
+| 6 | Terminal (the `npm run dev` log) | Find the `[backend]` line `[Mail] ... to=binh.manager@example.com subject="Your TrekLink invitation code"` and read the code in its text | `text="Your TrekLink invitation code is <code>. It is valid for 72 hours. Open TrekLink, choose \"Set password\" and enter it with your new password."` | `MAIL_TRANSPORT=console` writes each email to the log (`backend/src/modules/auth/mail/console.transport.ts:11-16`); text `backend/src/modules/auth/password-flows.service.ts:33-43`; 72 hours is `auth.invitationTtlHours` (`backend/prisma/migrations/20261004120100_seed/migration.sql:10`) |
+| 7 | E | `/sign-in`, **Set password** | `/welcome`, "Welcome to TrekLink" with Email, Invitation code, Password, Confirm password | `SignInPage.tsx:120-123` (link added on `dev` in `f9fc055`), `WelcomePage.tsx:50-100` |
+| 8 | E | Email **binh.manager@example.com**, the code from step 6, a password of at least 8 characters twice, **Set password and sign in** | Signed in as the ORG-0002 Manager on `/o`, the organization overview | `WelcomePage.tsx:37-39`, landing `frontend/src/entities/session/model.ts:64-73`; `auth.passwordMinLength` 8 in `migration.sql:5` |
+
+Say during step 6: the code is in the log because mail goes to the console in this demo (§7, Email
+delivery); with an SMTP server it arrives by email. If the Manager email or tax code was used in a
+rehearsal, register with another one (§1.3).
+
+---
+
+## 2b. MF-01: request to handover (about 9 minutes)
 
 | # | Window | Page and click | Expected on screen | Source |
 |---|---|---|---|---|
@@ -138,12 +171,12 @@ Plus one terminal at the repository root for `replay:mqtt` and `demo:term-end`.
 | 3 | A | Start date (handover day): **today**, **Next** | Today is the earliest date allowed | `ContractRequestPage.tsx:375-385` |
 | 4 | A | Review, **Send request** | Toast "Request sent. TrekLink will confirm availability and your handover appointment."; the new contract page opens with code **RC-2026-0004**, Requested | `ContractRequestPage.tsx:28, 145-146, 448` |
 | 5 | B Staff | Sidebar **Contracts** (`/t/contracts`), tab **Requested**, click **RC-2026-0004** | Side panel: plan, devices, prices; status line "10 treklink-v3 available now; approval reserves 5." | `ContractApprovalPage.tsx:41-45, 228-237, 456-476`; ten v3 units in `seed-demo.ts:185-192` |
-| 6 | B | Keep the Handover appointment (today 09:00 local), **Approve** | Toast "Saved."; a green box "Reserved: TL-00xx, ..." (five tags chosen by the server) and "Reservation expires ..." | `ContractApprovalPage.tsx:46-48, 160-162, 205-213, 250-256, 278`; server picks the units, `ContractApprovalPage.tsx:303` |
+| 6 | B | Handover appointment: it opens on today 09:00 local; **after 09:00 change it to a time later today** (for example the next full hour), then **Approve** | Toast "Saved."; a green box "Reserved: TL-00xx, ..." (five tags chosen by the server) and "Reservation expires ...". An appointment in the past is refused under the field: "The handover appointment is in the past. Choose a time from now on." (dry run 2026-10-30, rentals REQ-ERR-09). A later appointment today does not hold up the handover, which checks only the start date | `ContractApprovalPage.tsx:50, 159-174, 217-222, 257-275`; refusal `backend/src/modules/rentals/contract-decisions.service.ts` (approve, REQ-ERR-09); handover day check `backend/src/modules/rentals/handover.service.ts:212` |
 | 7 | B | In the same panel **Open the contract**, then **Open the counter** | "Counter handover: RC-2026-0004" with four steps: Devices, Payment, Preview note, Sign | `ContractApprovalPage.tsx:284-285`, `ContractDetailPage.tsx:49-57, 459-463`, `CounterPage.tsx:39, 407-412` |
 | 8 | B | Step 1 Devices: type a reserved tag (for example TL-0011) in **Scan or type an asset tag**, **Find**; then on each of the five rows **Record provisioning**, Battery % **90**, tick **GPS fix**; **Next** | The found row is highlighted, "TL-00xx is on this contract."; each row reads "Provisioned v1" | `CounterPage.tsx:212-220, 466-490, 520-575`; checks in `CounterPage.tsx:243-268`; minimum battery 50 % in `migration.sql:16` |
-| 9 | B | Step 2 Payment: **Record a counter payment**, Method **Cash**, Amount received **1125000**, a receipt number, **Record** | "The first payment is recorded." The first line is the holding fee: 5 x 450,000 VND x 0.5 = 1,125,000 VND | `CounterPage.tsx:582-640`, `CounterPaymentDialog.tsx:79-133`; first invoice issued on approval, `backend/src/modules/rentals/contract-decisions.service.ts:139, 329-362`; `billing.holdingFeeRatio` 0.5 in `migration.sql:28`, formula `backend/src/modules/billing/money.ts:24-30` |
+| 9 | B | Step 2 Payment: **Record a counter payment**; the dialog reads "Due now: **1,125,000 VND**. Due later: **1,125,000 VND**" and Amount received is prefilled with **1125000**; Method **Cash**, a receipt number, **Record** | "The first payment is recorded." Due now is the holding fee, 5 x 450,000 VND x 0.5 = 1,125,000 VND, due at the term start; Due later is the term balance, due at the term end, shown apart so the prefill never prepays it | `CounterPage.tsx:624, 637`; `frontend/src/widgets/InvoiceDetail/CounterPaymentDialog.tsx:14-20, 40-43, 96-104` (`c319812`); lines and due dates `backend/src/modules/billing/invoices.service.ts:64-103`; `billing.holdingFeeRatio` 0.5 in `migration.sql:28`, formula `backend/src/modules/billing/money.ts:24-30`. Before 09:00 local on the start day the holding fee is not due yet: Due now reads 0 VND and the prefill is the whole 2,250,000 VND; type **1125000** then |
 | 10 | B | **Next**, Step 3 Preview note | The unsigned handover note renders in a frame ("Handover note preview, not signed") | `CounterPage.tsx:645-665` |
-| 11 | B | **Next**, Step 4 Sign: Signing Manager **Demo Manager**, Identity document checked "CCCD, last 4 digits 1234", the Manager signs in the box, **Complete handover** | Toast "Handover complete. 5 devices issued under contract RC-2026-0004."; page "Handover of RC-2026-0004", "5 devices issued. The contract is active and the signed note is stored." | `CounterPage.tsx:300-307, 362-376, 674-745` |
+| 11 | B | **Next**, Step 4 Sign. The signer is the organization's Manager, not the Staff member: Signing Manager lists only ORG-0001's active Managers, choose **Demo Manager** (`manager@treklink.local`); Identity document checked "CCCD, last 4 digits 1234"; hand the screen to the Manager, who signs in the box; **Complete handover** | Toast "Handover complete. 5 devices issued under contract RC-2026-0004."; page "Handover of RC-2026-0004", "5 devices issued. The contract is active and the signed note is stored." | `CounterPage.tsx:190-192, 682-700, 750`; the server refuses any other signer: "The signer must be an active Manager of the organization." (`backend/src/modules/rentals/handover.service.ts:228`) |
 | 12 | B | **Open the contract and the handover note** | Contract page, Active, Handed over today | `CounterPage.tsx:370-372`, `ContractDetailPage.tsx:267` |
 | 13 | A Manager | Sidebar **Field stations** (`/o/field-stations`): the seeded "Ta Nang basecamp laptop" is already listed. **Create Field Station**, Name "Phan Dung ranger post", **Create** | Dialog "Credential for Phan Dung ranger post": Broker URL, Username **fs-org-0001-2**, Secret, each with Copy; "Copy it now; it will not be shown again." | `FieldStationsPage.tsx:150-165, 224-240, 347`; seeded station `seed-demo.ts:1011-1033`; username rule in §1.3 |
 | 14 | A | **Done** | Two rows, both Active; the new one shows Last sync "No data yet"; the count line reads "2 of 5 active stations" (", N revoked" is added only when a credential was revoked), and **Create Field Station** is disabled at 5 | `FieldStationsPage.tsx:44-63, 231, 327-336, 343`; limit 5 in `migration.sql:14` |
@@ -358,6 +391,7 @@ Second records to fall back on without a reset:
 | Flow | Minutes | Who presents |
 |---|---|---|
 | Opening, architecture in one slide, windows signed in | 3 | |
+| MF-01a onboarding, register to the Manager's first sign-in | 4 | |
 | MF-01 request to handover, Field Station credential | 9 | |
 | MF-02 device data through the Field Station bridge, sync status | 5 | |
 | MF-03 SOS to incident, authority reports on an incident and a contract | 9 | |
@@ -365,4 +399,4 @@ Second records to fall back on without a reset:
 | MF-05 term end to close | 9 | |
 | Disclosures (if not already covered) | 2 | |
 | Questions and buffer | 4 | |
-| **Total** | **45** | |
+| **Total** | **49** | |
