@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StaffIncidentsPage } from './StaffIncidentsPage';
+import { useSession, type SessionUser } from '../entities/session/model';
+import { incidentKeys } from '../entities/incident/api';
+import { ApiError } from '../shared/api/apiClient';
 
 const api = vi.fn();
 vi.mock('../shared/api/apiClient', async (importOriginal) => ({
@@ -45,10 +48,10 @@ const page = (items: unknown[]) => ({
   totalPages: items.length > 0 ? 1 : 0,
 });
 
-const renderPage = () =>
+const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
   render(
     <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      client={client}
     >
       <MemoryRouter>
         <StaffIncidentsPage />
@@ -56,10 +59,136 @@ const renderPage = () =>
     </QueryClientProvider>,
   );
 
-beforeEach(() => api.mockReset());
+beforeEach(() => {
+  api.mockReset();
+  useSession.setState({ user: { roles: ['STAFF'] } as SessionUser });
+});
 afterEach(cleanup);
 
 describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
+  it('preserves a dirty reason across a failed background detail refresh', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let offline = false;
+    api.mockImplementation((url: string) => {
+      if (url === '/incidents/inc-1' && offline) return Promise.reject(new Error('Offline'));
+      return Promise.resolve(url === '/incidents/inc-1' ? incident({ state: 'UNROUTED' }) : page([incident()]));
+    });
+    renderPage(client);
+    fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Declare false alarm' }));
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Do not lose this draft' } });
+    offline = true;
+    await act(() => client.invalidateQueries({ queryKey: incidentKeys.detail('inc-1') }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect((screen.getByLabelText(/Reason/) as HTMLTextAreaElement).value).toBe('Do not lose this draft');
+    offline = false;
+    await act(() => client.invalidateQueries({ queryKey: incidentKeys.detail('inc-1') }));
+    expect((screen.getByLabelText(/Reason/) as HTMLTextAreaElement).value).toBe('Do not lose this draft');
+  });
+
+  it.each([['POST', 404], ['GET', 404], ['POST', 403], ['GET', 403]] as const)(
+    'closes inaccessible detail and refreshes the queue after %s returns %i', async (method, status) => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      let lost = false;
+      api.mockImplementation((url: string, options?: RequestInit) => {
+        if (options?.method === 'POST') lost = true;
+        if (lost && url.startsWith('/incidents/inc-1')) return Promise.reject(new ApiError(status, 'NOT_FOUND', 'Unavailable'));
+        return Promise.resolve(url === '/incidents/inc-1' ? incident({ state: 'UNROUTED' }) : page(lost ? [] : [incident()]));
+      });
+      renderPage(client);
+      fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Declare false alarm' }));
+      fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Safe' } });
+      if (method === 'POST') fireEvent.submit(screen.getByLabelText(/Reason/).closest('form')!);
+      else {
+        lost = true;
+        await act(() => client.invalidateQueries({ queryKey: incidentKeys.detail('inc-1') }));
+      }
+      await screen.findByText('No unrouted or escalated incidents need attention.');
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Back to queue' })).toBeNull();
+      expect(client.getQueryData(incidentKeys.detail('inc-1'))).toBeUndefined();
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Incident queue' })));
+    },
+  );
+  it('keeps the updated detail in All incidents with authority history', async () => {
+    let state = 'UNROUTED';
+    const row = () => incident({ state, authorityReports: [
+      { id: 'ar-1', agency: 'Rescue', reference: 'OPEN-1', reportedAt: '2026-10-29T03:00:00Z', caseClosedAt: null },
+      { id: 'ar-2', agency: 'Rescue', reference: 'CLOSED-2', reportedAt: '2026-10-29T03:00:00Z', caseClosedAt: '2026-10-29T04:00:00Z' },
+    ] });
+    api.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method === 'POST') state = 'FALSE_ALARM';
+      return Promise.resolve(url.includes('/incidents/inc-1') ? row() : page([row()]));
+    });
+    renderPage(); fireEvent.click(screen.getByRole('button', { name: 'All incidents' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
+    expect(await screen.findByText(/OPEN-1.*case open/)).toBeTruthy();
+    expect(screen.getByText(/CLOSED-2.*case closed/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh detail' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Declare false alarm' }));
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Safe' } });
+    fireEvent.submit(screen.getByLabelText(/Reason/).closest('form')!);
+    await screen.findByText('Saved. INC-2026-000007 marked as false alarm.');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'INC-2026-000007' })));
+    expect(screen.getByRole('button', { name: 'Back to queue' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Declare false alarm' })).toBeNull();
+  });
+  it.each(['STAFF', 'ADMIN'])(
+    'saves an unrouted false alarm as %s, refreshes and focuses the queue',
+    async (role) => {
+      useSession.setState({ user: { roles: [role] } as SessionUser });
+      let state = 'UNROUTED';
+      api.mockImplementation((endpoint: string, options?: RequestInit) => {
+        if (options?.method === 'POST') {
+          state = 'FALSE_ALARM';
+          return Promise.resolve(incident({ state }));
+        }
+        return Promise.resolve(
+          endpoint.includes('/incidents/inc-1')
+            ? incident({ state })
+            : page(state === 'UNROUTED' ? [incident({ state })] : []),
+        );
+      });
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
+      const trigger = await screen.findByRole('button', { name: 'Declare false alarm' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(document.activeElement).toBe(trigger);
+      fireEvent.click(trigger);
+      fireEvent.change(screen.getByLabelText(/Reason/), {
+        target: { value: 'Holder confirmed safe' },
+      });
+      fireEvent.submit(screen.getByLabelText(/Reason/).closest('form')!);
+      await screen.findByText('Saved. INC-2026-000007 marked as false alarm.');
+      expect(
+        await screen.findByText('No unrouted or escalated incidents need attention.'),
+      ).toBeTruthy();
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByRole('heading', { name: 'Incident queue' }),
+        ),
+      );
+      expect(
+        api.mock.calls.filter(([url]) => String(url).includes('/incidents/inc-1')).length,
+      ).toBeGreaterThan(2);
+    },
+  );
+
+  it('does not offer false alarm to an organization member', async () => {
+    useSession.setState({ user: { roles: ['ORG_OPERATOR'] } as SessionUser });
+    api.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.includes('/incidents/inc-1') ? incident({ state: 'UNROUTED' }) : page([incident()]),
+      ),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
+    await screen.findByText('No status updates recorded.');
+    expect(screen.queryByRole('button', { name: 'Declare false alarm' })).toBeNull();
+  });
   it('reads the unrouted and escalated queue by default, with the Staff disclaimer', async () => {
     api.mockResolvedValue(page([incident()]));
     renderPage();

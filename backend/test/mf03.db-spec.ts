@@ -319,7 +319,23 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     ).toBe(1);
 
     // 3. The dispatcher sends the web inbox and WebSocket rows; email and the API event wait.
-    await expect(dispatcher.deliverAlerts()).resolves.toBeGreaterThanOrEqual(2);
+    // Other suites leave due rows in this disposable database. One dispatcher batch need not
+    // reach this incident; drain the finite due backlog rather than depending on suite order.
+    let remaining = await prisma.alertDelivery.count({
+      where: {
+        status: 'PENDING',
+        channel: { in: ['WEB', 'WEBSOCKET'] },
+        nextAttemptAt: { lte: new Date() },
+      },
+    });
+    let sent = 0;
+    while (remaining > 0) {
+      const batch = await dispatcher.deliverAlerts();
+      expect(batch).toBeGreaterThan(0);
+      sent += batch;
+      remaining -= batch;
+    }
+    expect(sent).toBeGreaterThanOrEqual(2);
     expect(delivered).toContainEqual({
       recipientId: operatorId,
       alert: expect.objectContaining({
