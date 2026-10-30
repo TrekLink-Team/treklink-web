@@ -63,13 +63,17 @@ ENDPOINTS = [
        path=[C_PATH], response={**CONTRACT, "handoverAppointmentAt": "2026-10-25T02:00:00Z",
                                 "terms": [{"seq": 1, "startsAt": "2026-10-25T02:00:00Z",
                                                        "endsAt": "2026-11-25T02:00:00Z", "status": "OPEN"}],
-                                "devices": [{**CDEV, "resetAt": None, "inspection": None}],
+                                "devices": [{**CDEV, "resetAt": None, "inspection": None,
+                                             "provisionedKeyVersion": None}],
                                 "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
        fields=[["devices[].resetAt", "First reset of the unit at or after this row's check-in (devices api-design 10), "
                 "null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
                 "`2026-10-30T03:05:00.000Z`"],
                ["devices[].inspection", "Last inspection recorded against this row (api-design 16): `result` "
-                "PASSED, DAMAGED or FAILED, and `at`; null when none", "object", "`null`"]],
+                "PASSED, DAMAGED or FAILED, and `at`; null when none", "object", "`null`"],
+               ["devices[].provisionedKeyVersion", "The channel key version the unit carries for this "
+                "contract's organization (api-design 09), null when it holds none of it; the counter keeps "
+                "provisioning after a reload", "int", "`1`"]],
        entity="Contract", steps=["Read within scope", "Ask billing for the balance summary",
                                  "Ask DevicesService.returnChecks for the reset and inspection of each returned row"],
        controller="ContractsController", service="ContractsService", call="get(id, caller)",

@@ -21,7 +21,7 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Header: contract code, organization, status, plan, variant, quantity, requested start | rentals 03 `code`, `organization.code`, `legalName`, `status`, `planType`, `hardwareVariant.code`, `quantity`, `requestedStartDate` |
 | Reserved devices by asset tag | rentals 03 `devices[].deviceId`, `assetTag` |
 | Organization's current key version (the version to write and record) | organizations 03 `channelKeyVersion` |
-| Provisioning recorded per device | rentals 09 `result.keyVersion`, `provisionedAt` |
+| Provisioning recorded per device | rentals 09 `result.keyVersion`, `provisionedAt` in this visit; after a reload, rentals 03 `devices[].provisionedKeyVersion` ("Provisioned v{n}", or "Not provisioned yet") |
 | Swap result: released and newly reserved device | rentals 07 `released.assetTag`, `status`; `reserved.assetTag`, `status` |
 | First payment: amount, paid, payment status and sandbox flag | billing 08 with `contractId` (`items[].id`, `status`); billing 09 `lines[]` of type `HOLDING_FEE` (monthly) or the day-plan fee line, `amountVnd`, `paidVnd`; `payments[].status`, `method`, `isSandbox` |
 | Note preview (unsigned PDF) | rentals 08 `pdfBase64` |

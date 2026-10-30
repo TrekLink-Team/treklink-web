@@ -195,10 +195,8 @@ export class ContractsController {
   @CheckPolicies((ability) => ability.can('read', 'RentalContract'))
   @ResponseMessage('OK')
   async detail(@Param('id', ParseUUIDPipe) id: string, @CurrentCaller() caller: Caller) {
-    const { row, assetTags, returnChecks, balance, ...labels } = await this.reads.detail(
-      id,
-      caller,
-    );
+    const { row, assetTags, returnChecks, balance, provisionedKeyVersions, ...labels } =
+      await this.reads.detail(id, caller);
     return {
       ...labelledView(row, labels, termOf(row.terms)),
       reservationExpiresAt: row.reservationExpiresAt,
@@ -216,6 +214,8 @@ export class ContractsController {
           ...toDeviceRowView(device, assetTags.get(device.deviceId) ?? null),
           resetAt: check?.resetAt ?? null,
           inspection: check?.inspection ?? null,
+          // The key version written at the counter, so a reload keeps step 1 (frontend 5.4).
+          provisionedKeyVersion: provisionedKeyVersions.get(device.deviceId) ?? null,
         };
       }),
       balance: { dueNowVnd: Number(balance.dueNowVnd), dueLaterVnd: Number(balance.dueLaterVnd) },

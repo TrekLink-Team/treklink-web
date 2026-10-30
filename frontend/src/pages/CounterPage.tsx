@@ -244,12 +244,16 @@ export const CounterPage: React.FC = () => {
     }
   };
 
-  // Step 1 is complete when every unit is provisioned in this visit and has a battery reading.
+  // What this visit recorded, else what the server holds, so a reload keeps step 1 (frontend 5.4).
+  const versionOf = (device: ContractDevice): number | undefined =>
+    provisioned[device.deviceId] ?? device.provisionedKeyVersion ?? undefined;
+
+  // Step 1 is complete when every unit carries the current key version and has a battery reading.
   const devicesReady = () => {
     const errors: Record<string, string> = {};
     devices.forEach((device) => {
       const battery = Number(checkOf(device.deviceId).battery);
-      if (provisioned[device.deviceId] !== keyVersion) {
+      if (versionOf(device) !== keyVersion) {
         errors[device.deviceId] =
           "Provision this device with the organization's key before handover.";
       } else if (
@@ -330,6 +334,8 @@ export const CounterPage: React.FC = () => {
             ),
           );
           setProvisioned({});
+          // The server's record is the truth now: reload it rather than trust the cached versions.
+          void queryClient.invalidateQueries({ queryKey: contractKeys.detail(contractId) });
           setStep(0);
           return;
         case 'DEVICE_CHECK_FAILED':
@@ -519,9 +525,9 @@ export const CounterPage: React.FC = () => {
                       <div>
                         <p className="font-mono font-semibold text-slate-900">{tagOf(device)}</p>
                         <p className="text-sm text-slate-600">
-                          {provisioned[device.deviceId]
-                            ? `Provisioned v${provisioned[device.deviceId]}`
-                            : 'Not provisioned in this visit'}
+                          {versionOf(device)
+                            ? `Provisioned v${versionOf(device)}`
+                            : 'Not provisioned yet'}
                         </p>
                       </div>
                       <button

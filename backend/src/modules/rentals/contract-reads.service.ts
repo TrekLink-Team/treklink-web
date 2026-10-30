@@ -40,6 +40,9 @@ export interface ContractDetail extends ContractLabels {
   assetTags: Map<string, string>;
   // The reset and inspection of each returned row, by contract device id.
   returnChecks: Map<string, ReturnCheck>;
+  // The channel key version each unit carries for this contract's organization, by device id; absent
+  // when the unit holds no key of it. The counter keeps provisioning across a reload with it.
+  provisionedKeyVersions: Map<string, number>;
   balance: BalanceSummary;
 }
 
@@ -98,7 +101,7 @@ export class ContractReadsService {
 
   async detail(id: string, caller: Caller, at: Date = new Date()): Promise<ContractDetail> {
     const row = await this.visible(id, caller);
-    const [label, assetTags, returnChecks, balance] = await Promise.all([
+    const [label, assetTags, returnChecks, balance, units] = await Promise.all([
       this.labeller([row]),
       this.devices.assetTags(row.devices.map((device) => device.deviceId)),
       this.devices.returnChecks(
@@ -109,8 +112,16 @@ export class ContractReadsService {
         })),
       ),
       this.balances.balanceSummary(id, at),
+      this.devices.provisioning(row.devices.map((device) => device.deviceId)),
     ]);
-    return { row, ...label(row), assetTags, returnChecks, balance };
+    const provisionedKeyVersions = new Map(
+      units.flatMap((unit) =>
+        unit.keyOrganizationId === row.organizationId && unit.keyVersion !== null
+          ? [[unit.id, unit.keyVersion] as const]
+          : [],
+      ),
+    );
+    return { row, ...label(row), assetTags, returnChecks, balance, provisionedKeyVersions };
   }
 
   async transitions(id: string, caller: Caller): Promise<TransitionView[]> {

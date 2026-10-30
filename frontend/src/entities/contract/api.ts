@@ -60,6 +60,8 @@ export interface ContractDevice {
   // The reset and inspection of this row's return (rentals api-design 03); absent outside the detail.
   resetAt?: string | null;
   inspection?: { result: InspectionResult; at: string } | null;
+  // The channel key version the unit carries for this organization (api-design 03); null when none.
+  provisionedKeyVersion?: number | null;
 }
 
 export interface ContractDetail extends Contract {
