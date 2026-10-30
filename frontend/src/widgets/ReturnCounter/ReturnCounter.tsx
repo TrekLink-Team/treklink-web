@@ -141,7 +141,9 @@ const InspectDialog: React.FC<{
       setError('Choose the result.');
       return;
     }
-    const damageCodes = codes;
+    // Only the codes still offered: one deactivated since the list loaded has no checkbox left to
+    // untick after the reload, so it would be sent again (review of #129).
+    const damageCodes = codes.filter((code) => choices.some((rate) => rate.code === code));
     if (result === 'DAMAGED' && damageCodes.length === 0) {
       setCodesError('Choose at least one damage code.');
       return;
