@@ -513,6 +513,20 @@ describe('IncidentsService task 4.1', () => {
       expect(events.emitAfterCommit).not.toHaveBeenCalled();
     });
 
+    it.each(['RESOLVED', 'CLOSED'] as const)(
+      'refuses a correction on a %s incident before it reads the corrected update',
+      async (state) => {
+        current = row(state);
+        await expectError(
+          service.addStatus('incident', { note: 'x', correctsId: 'update-0' }, OPERATOR),
+          409,
+          ErrorCode.INVALID_STATE_TRANSITION,
+        );
+        expect(repository.findStatusUpdateForCorrection).not.toHaveBeenCalled();
+        expect(repository.insertStatusUpdate).not.toHaveBeenCalled();
+      },
+    );
+
     it('checks ownership before it reads the corrected update', async () => {
       current = row('RESPONDING', { ownerId: 'other' });
       await expectError(
