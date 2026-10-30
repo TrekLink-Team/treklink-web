@@ -52,7 +52,13 @@ ENDPOINTS = [
        "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Positions and telemetry of one device over a period, clipped to the periods the caller's "
        "organization rented it (from handover to check-in). Unplotted implausible positions are excluded "
-       "(FR-MON-07, FR-MON-04).", "UC-40, FR-AUTH-11, FR-MON-07, BR-19",
+       "(FR-MON-07, FR-MON-04). An organization gets the events attributed to it; TrekLink Staff and Admin "
+       "get the whole history, `UNATTRIBUTED` events included (REQ-EVT-06). `clippedTo` lists the periods "
+       "the organization held the device that overlap the range, whole and not cut to the range, and is "
+       "empty for Staff and Admin. A reversed range or one longer than `monitoring.historyMaxRangeDays` "
+       "days answers 400 `to must be after from and at most {n} days later.`. `format=csv` returns the "
+       "points as CSV text in `result`, with the header `at,kind,lat,lon,altitude,batteryPct`.",
+       "UC-40, FR-AUTH-11, FR-MON-07, BR-19",
        path=[["id", "Device id", "uuid", f"`{DEVICE_ID}`"]],
        query=[["from", "Inclusive start", "datetime", "yes", "`2026-10-20T00:00:00Z`"],
               ["to", "Exclusive end, after from and at most `monitoring.historyMaxRangeDays` (7) days later", "datetime", "yes", "`2026-10-21T00:00:00Z`"],
