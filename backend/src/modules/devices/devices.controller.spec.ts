@@ -174,4 +174,22 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       'expectedVersion',
     ]);
   });
+
+  it('trims the retire reason and the dispose method, and rejects whitespace only', async () => {
+    const retire = plainToInstance(RetireDeviceDto, {
+      reason: '  Water damage  ',
+      expectedVersion: 0,
+    });
+    expect(await validate(retire)).toEqual([]);
+    expect(retire.reason).toBe('Water damage');
+    const blankRetire = plainToInstance(RetireDeviceDto, { reason: ' \t\n ', expectedVersion: 0 });
+    expect((await validate(blankRetire)).map((error) => error.property)).toEqual(['reason']);
+
+    const wipe = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true, expectedVersion: 3 };
+    const dispose = plainToInstance(DisposeDeviceDto, { ...wipe, method: ' Recycled by vendor ' });
+    expect(await validate(dispose)).toEqual([]);
+    expect(dispose.method).toBe('Recycled by vendor');
+    const blankDispose = plainToInstance(DisposeDeviceDto, { ...wipe, method: '   ' });
+    expect((await validate(blankDispose)).map((error) => error.property)).toEqual(['method']);
+  });
 });
