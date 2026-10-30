@@ -424,6 +424,18 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     );
   });
 
+  it('keeps the pager when the list shrinks below the page the user is on', async () => {
+    weekRecords = [record({ id: 'm-3' })];
+    pages = 2;
+    renderPage();
+    await table();
+    fireEvent.click(screen.getByRole('tab', { name: /This week's service/ }));
+    const panel = () => within(screen.getByRole('tabpanel', { name: /This week's service/ }));
+    pages = 1; // the row on page 2 was completed; the list now has one page
+    fireEvent.click(panel().getByRole('button', { name: 'Next page' }));
+    await waitFor(() => expect(panel().getByRole('button', { name: 'Previous page' })).toBeTruthy());
+  });
+
   it('searches the available devices in the picker and names the 100-device cap', async () => {
     pages = 6;
     renderPage();

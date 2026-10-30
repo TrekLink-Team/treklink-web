@@ -117,7 +117,7 @@ ENDPOINTS = [
        "UC-38, UC-54, FR-AUTH-11",
        query=[["status", "DeviceStatus, repeatable", "enum", "no", "`AVAILABLE`"],
               ["hardwareVariantId", "Variant", "uuid", "no", f"`{VARIANT_ID}`"],
-              ["q", "Asset tag or nodeId contains", "string", "no", "`TL-00`"]] + PAGE_QUERY,
+              ["q", "Asset tag contains", "string", "no", "`TL-00`"]] + PAGE_QUERY,
        response=paged(DEVICE, 40), steps=["Read devices"],
        controller="DevicesController", service="DevicesService", call="list(query)",
        seq=["Svc->>DB: SELECT devices"]),

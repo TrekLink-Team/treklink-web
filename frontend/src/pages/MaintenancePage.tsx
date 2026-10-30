@@ -561,7 +561,7 @@ const PickDeviceDialog: React.FC<{ onPick: (deviceId: string) => void; onCancel:
 }) => {
   const [q, setQ] = useState('');
   const settledQ = useDebounced(q.trim(), PICK_SEARCH_DEBOUNCE_MS);
-  // One page of up to PICK_PAGE_SIZE AVAILABLE devices; the search narrows it by asset tag or node id.
+  // One page of up to PICK_PAGE_SIZE AVAILABLE devices; the search narrows it by asset tag.
   const available = useDevices({ status: ['AVAILABLE'], q: settledQ || undefined, pageSize: PICK_PAGE_SIZE });
   const [deviceId, setDeviceId] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
@@ -592,7 +592,7 @@ const PickDeviceDialog: React.FC<{ onPick: (deviceId: string) => void; onCancel:
         <ErrorState error={available.error} onRetry={() => void available.refetch()} />
       ) : (
         <div className="flex flex-col gap-3">
-          <Field id="pick-search" label="Search" hint="Asset tag or node id.">
+          <Field id="pick-search" label="Search" hint="Asset tag.">
             <Input
               id="pick-search"
               value={q}
@@ -705,12 +705,13 @@ const RecordDrawer: React.FC<{
   </Drawer>
 );
 
-// A pager under a records table, only when there is more than one page.
+// A pager under a records table when there is more than one page, and also when the current page is past
+// the last one (the list shrank after an action), so the user can go back.
 const pagerOf = (
   page: { pageNumber: number; totalPages: number; totalCount: number; pageSize: number } | undefined,
   onPage: (pageNumber: number) => void,
 ) =>
-  page && page.totalPages > 1 ? (
+  page && (page.totalPages > 1 || page.pageNumber > 1) ? (
     <Pagination
       pageNumber={page.pageNumber}
       totalPages={page.totalPages}
