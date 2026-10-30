@@ -30,13 +30,15 @@ const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'Se
 
 // The invoice detail of screen 6.1 (billing api-design 09): header, dated lines with a status derived
 // on the client, and payments. TrekLink Staff and Admin record a counter payment from here (6.3);
-// the Org Manager pays with SePay (6.2, billing api-design 11) and is taken to the QR page.
+// the Org Manager pays with SePay (6.2, billing api-design 11) and is taken to the QR page. On its own
+// page the invoice number is the page's h1 (`asPageTitle`); beside the Staff list it is an h2.
 export const InvoiceDetailView: React.FC<{
   invoiceId: string;
   contractPath: (contractId: string) => string;
   canRecordCounter: boolean;
   canPayOnline?: boolean;
-}> = ({ invoiceId, contractPath, canRecordCounter, canPayOnline = false }) => {
+  asPageTitle?: boolean;
+}> = ({ invoiceId, contractPath, canRecordCounter, canPayOnline = false, asPageTitle = false }) => {
   const { data, isLoading, error, refetch } = useInvoice(invoiceId);
   const navigate = useNavigate();
   const [recording, setRecording] = useState(false);
@@ -85,7 +87,11 @@ export const InvoiceDetailView: React.FC<{
     <div className="flex flex-col gap-4">
       <div className={CARD}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-bold text-slate-900">{data.number}</h2>
+          {asPageTitle ? (
+            <h1 className="text-title-lg text-ink">{data.number}</h1>
+          ) : (
+            <h2 className="text-xl font-bold text-ink">{data.number}</h2>
+          )}
           <Badge tone={INVOICE_TONES[data.status]}>{INVOICE_STATUS_LABELS[data.status]}</Badge>
         </div>
         <dl className="grid gap-3 sm:grid-cols-3">

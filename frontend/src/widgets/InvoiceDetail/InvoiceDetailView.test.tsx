@@ -40,7 +40,7 @@ vi.mock('../../entities/billing/api', async (importOriginal) => ({
   },
 }));
 
-const renderView = (canPayOnline = false) =>
+const renderView = (canPayOnline = false, asPageTitle = false) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
@@ -49,6 +49,7 @@ const renderView = (canPayOnline = false) =>
           contractPath={(id) => `/t/contracts/${id}`}
           canRecordCounter={!canPayOnline}
           canPayOnline={canPayOnline}
+          asPageTitle={asPageTitle}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -93,5 +94,18 @@ describe('InvoiceDetailView, Record counter payment (6.3, ruling on #87 point 4)
     balanceAvailable = false;
     renderView(true);
     expect(screen.queryByRole('button', { name: 'Pay with SePay' })).toBeNull();
+  });
+});
+
+describe('InvoiceDetailView heading', () => {
+  it('makes the invoice number the page h1 on its own page, and an h2 beside the Staff list', () => {
+    renderView(true, true);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBeTruthy();
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
+    cleanup();
+
+    renderView();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBeTruthy();
   });
 });
