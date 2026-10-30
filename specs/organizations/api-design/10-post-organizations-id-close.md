@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Closes an `ACTIVE` organization that has no open contract; its members are deactivated and its API keys and Field Station credentials revoked.
+Closes an `ACTIVE` organization that has no open contract; its members are deactivated and its API keys and Field Station credentials revoked, in the same transaction. Rentals answers through the `ORGANIZATION_EXIT_CHECKS` port; the row is held `FOR UPDATE`, so a contract request that holds it `FOR SHARE` either commits first and is counted, or waits and then sees `CLOSED`.
 
 ## API Specification
 
@@ -140,23 +140,6 @@ Closes an `ACTIVE` organization that has no open contract; its members are deact
         </tr>
         <tr>
             <td>409</td>
-            <td>A contract is not CLOSED, REJECTED or CANCELLED (<code>OPEN_CONTRACTS</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "OPEN_CONTRACTS"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "This cannot be done while it has open contracts."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
             <td>The organization is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
@@ -168,6 +151,23 @@ Closes an `ACTIVE` organization that has no open contract; its members are deact
   "isSuccess": false,
   "statusCode": 409,
   "message": "This cannot be done while it is SUSPENDED."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>A contract is not CLOSED, REJECTED or CANCELLED (<code>OPEN_CONTRACTS</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "OPEN_CONTRACTS"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it has open contracts."
 }
 ```
 </td>
@@ -209,14 +209,14 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"A contract is not CLOSED, REJECTED or CANCELLED?"}
+    D3{"The organization is not in a state that allows this?"}
     D2 -->|no| D3
-    E3["Return 409 OPEN_CONTRACTS"]
+    E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The organization is not in a state that allows this?"}
+    D4{"A contract is not CLOSED, REJECTED or CANCELLED?"}
     D3 -->|no| D4
-    E4["Return 409 INVALID_STATE_TRANSITION"]
+    E4["Return 409 OPEN_CONTRACTS"]
     D4 -->|yes| E4
     E4 --> X4((End))
     D5{"Another user changed the record first (expectedVersion differs)?"}
@@ -224,14 +224,18 @@ flowchart TB
     E5["Return 409 STALE_VERSION"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    P0["Require ACTIVE and no open contract"]
+    P0["Lock the organization row"]
     D5 -->|no| P0
-    P1["Deactivate members, revoke keys and stations"]
+    P1["Require ACTIVE"]
     P0 --> P1
-    P2["Move to CLOSED"]
+    P2["Ask each ORGANIZATION_EXIT_CHECKS provider canClose"]
     P1 --> P2
+    P3["Move to CLOSED, write the transition"]
+    P2 --> P3
+    P4["Deactivate members, revoke API keys and Field Stations"]
+    P3 --> P4
     OK["Return 200"]
-    P2 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -240,15 +244,34 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Client
-    participant Ctl as OrganizationsController
-    participant Svc as OrganizationsService
-    participant DB as Postgres
-    participant Rent as RentalsService
-    C->>Ctl: POST /api/organizations/:id/close
-    Ctl->>Svc: close(id, dto, actor)
-    Svc->>Rent: hasOpenContracts(orgId)
-    Svc->>DB: UPDATE organizations, members, api_keys, field_stations
-    Svc-->>Ctl: result
-    Ctl-->>C: 200 envelope
+    actor U as TrekLink Admin
+    participant Ctl as OrganizationStatusController
+    participant Svc as OrganizationStatusService
+    participant L as OrganizationLifecycle
+    participant R as OrganizationsRepository
+    participant X as ORGANIZATION_EXIT_CHECKS (rentals provider)
+    participant A as AccountsService
+    U->>Ctl: POST /api/organizations/:id/close
+    Ctl->>Svc: close(id, reason, expectedVersion, caller)
+    Svc->>L: transition(id, CLOSED, input with guard, tx)
+    L->>R: lockById(id, tx) FOR UPDATE
+    R-->>L: organization ACTIVE
+    L->>Svc: guard(current, tx)
+    Svc->>X: canClose(id, tx)
+    X-->>Svc: blocking reason or null
+    alt refused: a contract is not finished
+        Svc-->>Ctl: 409 OPEN_CONTRACTS, rollback
+        Ctl-->>U: 409 envelope
+    else accepted: no open contract
+        L->>R: update(id, expectedVersion, CLOSED, tx)
+        L->>R: addTransition(ACTIVE to CLOSED, actorId, reason, tx)
+        L-->>Svc: organization CLOSED
+        Svc->>A: deactivateOrganizationAccount(userId, reason, caller, tx) per member
+        Svc->>R: markDeactivated, revokeAllActive API keys and Field Stations (tx)
+        Svc->>R: COMMIT, then member.deactivated, apiKey.revoked, fieldStation.revoked, audit.record
+        Svc-->>Ctl: organization CLOSED
+        Ctl-->>U: 200 envelope
+    end
 ```
+
+Not drawn in the sequence: 400 VALIDATION_FAILED, 403 FORBIDDEN, 404 NOT_FOUND, 409 INVALID_STATE_TRANSITION and 409 STALE_VERSION, which the Validation table and the activity diagram carry. The billing provider answers null to canClose.

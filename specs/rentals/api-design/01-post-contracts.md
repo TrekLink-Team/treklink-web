@@ -239,7 +239,7 @@ flowchart TB
     E5["Return 409 ORGANIZATION_NOT_ACTIVE"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    P0["Require the organization ACTIVE"]
+    P0["Lock the organization row FOR SHARE in the request transaction and require it ACTIVE"]
     D5 -->|no| P0
     P1["Validate quantity, day-plan length and start date"]
     P0 --> P1
@@ -266,11 +266,11 @@ sequenceDiagram
     participant Svc as ContractsService
     participant DB as Postgres
     participant Org as OrganizationsService
-    participant Bill as BillingService
+    participant Bill as PricingService (billing)
     C->>Ctl: POST /api/contracts
     Ctl->>Svc: request(dto, caller)
-    Svc->>Org: assertActive(orgId)
-    Svc->>Bill: priceSnapshot(variantId)
+    Svc->>Org: lockActive(orgId, tx), SELECT organizations FOR SHARE
+    Svc->>Bill: snapshot(variantId, tx, at)
     Svc->>DB: INSERT rental_contracts, contract_transitions
     Svc-->>Ctl: result
     Ctl-->>C: 201 envelope
