@@ -33,6 +33,8 @@ const MARKER_STATE: Record<NonNullable<MapMarker['status']>, MarkerState> = {
   incident: 'sos',
 };
 
+const LEAFLET_CREDIT = '<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>';
+
 // MSG33: the tile area is replaced; lists elsewhere on the page stay live (FR-MON-09).
 const MSG33 = 'The map is unavailable. Device and incident lists are still live.';
 
@@ -129,6 +131,9 @@ const LeafletMap: React.FC<{
       if (!node) return;
       const { lat, lon, zoom } = config.defaultViewport;
       const instance = L.map(node).setView([lat, lon], zoom);
+      // A plain Leaflet credit: the library's default prefix adds a national flag icon, a political
+      // symbol with no place on a TrekLink map (dry run 2026-10-30, MF-02 step 3).
+      instance.attributionControl.setPrefix(LEAFLET_CREDIT);
 
       // One tile layer per basemap, in the server's order, opening on the default (D-072). Only the
       // active layer is on the map, so only it reports loads and failures.
