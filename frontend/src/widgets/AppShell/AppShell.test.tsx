@@ -59,7 +59,8 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(screen.getAllByText(/Sandbox/).length).toBeGreaterThan(0);
     const nav = screen.getByRole('navigation', { name: 'Modules' });
     expect(within(nav).getByRole('link', { name: 'Invoices' })).toBeTruthy();
-    expect(within(nav).queryByRole('link', { name: 'Members' })).toBeNull();
+    expect(within(nav).getByRole('link', { name: 'Members' })).toBeTruthy();
+    expect(within(nav).queryByRole('link', { name: 'Loss cases' })).toBeNull();
   });
 
   it('gives every page a breadcrumb from the navigation table', () => {
