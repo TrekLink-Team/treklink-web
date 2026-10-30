@@ -26,7 +26,7 @@ describe('RentalsLossCaseListener (the rentals side of LOSS_CASE_LISTENERS, task
 
   beforeEach(() => {
     contracts = { onLossSettled: jest.fn().mockResolvedValue(undefined) };
-    listener = new RentalsLossCaseListener(contracts as unknown as ContractsService);
+    listener = new RentalsLossCaseListener(contracts as unknown as ContractsService, []);
   });
 
   it('registers itself under LOSS_CASE_LISTENERS at boot, once', () => {
@@ -38,10 +38,6 @@ describe('RentalsLossCaseListener (the rentals side of LOSS_CASE_LISTENERS, task
     booted.onModuleInit();
     booted.onModuleInit();
     expect(tokenArray).toEqual([booted]);
-  });
-
-  it('does nothing at boot when the token was not provided', () => {
-    expect(() => listener.onModuleInit()).not.toThrow();
   });
 
   it.each([LossDecision.CHARGED, LossDecision.REDUCED, LossDecision.WAIVED])(
