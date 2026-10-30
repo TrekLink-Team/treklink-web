@@ -230,6 +230,15 @@ export class DevicesService {
     const unit = await this.devices.findUnit(deviceId, tx);
     if (!unit) throw notFound();
     if (unit.status !== DeviceStatus.MAINTENANCE) throw wrongState(unit.status);
+    // An OPEN or PENDING_APPROVAL record is closed first (UNREPAIRABLE when the unit cannot be
+    // repaired), so no record stays open on a RETIRED device (leader ruling, 2026-10-30).
+    if (await this.maintenance.hasOpenRecord(deviceId, tx)) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.MAINTENANCE_OPEN,
+        'Close the maintenance record first.',
+      );
+    }
     if (unit.version !== dto.expectedVersion) throw staleVersion();
     const moved = await this.devices.moveIfCurrent(
       deviceId,

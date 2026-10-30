@@ -46,6 +46,7 @@ describe('DevicesService retire and dispose', () => {
     insertDisposal: jest.Mock;
     findDetail: jest.Mock;
   };
+  let maintenance: { hasOpenRecord: jest.Mock };
   let service: DevicesService;
 
   const unitAt = (status: DeviceStatus, version = 4) =>
@@ -59,9 +60,10 @@ describe('DevicesService retire and dispose', () => {
       insertDisposal: jest.fn(),
       findDetail: jest.fn(),
     };
+    maintenance = { hasOpenRecord: jest.fn().mockResolvedValue(false) };
     service = new DevicesService(
       repository as unknown as DevicesRepository,
-      {} as never,
+      maintenance as never,
       {
         labelsOf: jest.fn().mockResolvedValue(new Map()),
       } as never,
@@ -116,6 +118,19 @@ describe('DevicesService retire and dispose', () => {
         HttpStatus.CONFLICT,
         ErrorCode.INVALID_STATE_TRANSITION,
       );
+      expect(repository.moveIfCurrent).not.toHaveBeenCalled();
+      expect(repository.insertTransition).not.toHaveBeenCalled();
+    });
+
+    it('refuses a device with an open maintenance record with 409 MAINTENANCE_OPEN', async () => {
+      unitAt(DeviceStatus.MAINTENANCE);
+      maintenance.hasOpenRecord.mockResolvedValue(true);
+      await expectDomain(
+        service.retire('dev-1', dto, 'admin-1', at, tx),
+        HttpStatus.CONFLICT,
+        ErrorCode.MAINTENANCE_OPEN,
+      );
+      expect(maintenance.hasOpenRecord).toHaveBeenCalledWith('dev-1', tx);
       expect(repository.moveIfCurrent).not.toHaveBeenCalled();
       expect(repository.insertTransition).not.toHaveBeenCalled();
     });

@@ -216,6 +216,21 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     ).toBeTruthy();
   });
 
+  it('asks to finish the open maintenance record when retire answers MAINTENANCE_OPEN', async () => {
+    currentRoles = ['ADMIN'];
+    currentDevice = device({ status: 'MAINTENANCE', version: 4 });
+    retireDevice.mockRejectedValue(
+      new ApiError(409, 'MAINTENANCE_OPEN', 'Close the maintenance record first.'),
+    );
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    fireEvent.click(screen.getByRole('button', { name: 'Retire' }));
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Cracked casing' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Retire' }));
+    expect(await dialog.findByText('Finish the open maintenance record first.')).toBeTruthy();
+  });
+
   it('shows WIPE_INCOMPLETE from the server on the dispose dialog', async () => {
     currentRoles = ['ADMIN'];
     currentDevice = device({ status: 'RETIRED', version: 7 });

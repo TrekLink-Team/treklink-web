@@ -292,12 +292,15 @@ ENDPOINTS = [
     ep("POST", "/api/devices/:id/retire", "Retire a device", "TrekLink Admin",
        "Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the "
        "device is on a running contract (FR-DEV-09). A lost device is retired by settling its loss case "
-       "(FR-DEV-15).", "UC-53, FR-DEV-09",
+       "(FR-DEV-15). An open maintenance record is closed first, as `UNREPAIRABLE` when the unit cannot be "
+       "repaired.", "UC-53, FR-DEV-09",
        path=[DEV_PATH], body=[["reason", "Why", "string", "yes", "`Unrepairable water damage`"], VERSION],
        sample={"reason": "Unrepairable water damage", "expectedVersion": 12},
        response={**DEVICE, "status": "RETIRED"}, message="Device retired", entity="Device",
-       errors=[state_409("device", "RENTED"), STALE],
-       steps=["Require MAINTENANCE", "Transition to RETIRED, set retiredAt"],
+       errors=[state_409("device", "RENTED"),
+               (409, "MAINTENANCE_OPEN", "A maintenance record is still open", "Close the maintenance record first."),
+               STALE],
+       steps=["Require MAINTENANCE", "Require no open maintenance record", "Transition to RETIRED, set retiredAt"],
        controller="DevicesController", service="DeviceLifecycleService", call="retire(id, dto, actor)",
        seq=["Svc->>DB: INSERT device_transitions; UPDATE devices"]),
 
