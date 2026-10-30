@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists compliance cases by status and type (FR-ORG-08).
+Lists compliance cases, filtered by status (FR-ORG-08).
 
 ## API Specification
 

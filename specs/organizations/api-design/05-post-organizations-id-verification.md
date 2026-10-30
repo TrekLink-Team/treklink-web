@@ -65,6 +65,7 @@ Records the in-person or phone verification: documents seen and the signed maste
     "verifiedAt": "2026-10-20T03:15:00.000Z",
     "decidedAt": null,
     "channelKeyVersion": 1,
+    "channelKeyExposedAt": null,
     "version": 3
   },
   "isSuccess": true,

@@ -4,7 +4,7 @@ from ._common import (USER_ID, ORG_ID, MEMBER_ID, STATION_ID, NOW, ep, paged, PA
 ORG = {"id": ORG_ID, "code": "ORG-0007", "legalName": "ACME Trek Co., Ltd.", "taxCode": "0312345678",
        "address": "12 Nguyen Hue, District 1, Ho Chi Minh City", "contactEmail": "ops@acme-trek.vn",
        "contactPhone": "0281234567", "status": "ACTIVE", "statusChangedAt": NOW, "verifiedAt": NOW,
-       "decidedAt": NOW, "channelKeyVersion": 1, "version": 3}
+       "decidedAt": NOW, "channelKeyVersion": 1, "channelKeyExposedAt": None, "version": 3}
 MEMBER = {"id": MEMBER_ID, "userId": USER_ID, "email": "operator@acme-trek.vn", "fullName": "Pham Van D",
           "role": "OPERATOR", "invitationPending": False, "deactivatedAt": None}
 SHIFT = {"id": "s-1", "startsAt": "2026-10-20T00:00:00Z", "endsAt": "2026-10-20T12:00:00Z",
@@ -438,7 +438,7 @@ ENDPOINTS = [
        seq=["Svc->>DB: UPDATE organizations channelKeyVersion, channelKeyExposedAt"]),
 
     ep("GET", "/api/compliance-cases", "List compliance cases", "TrekLink Staff, TrekLink Admin",
-       "Lists compliance cases by status and type (FR-ORG-08).", "UC-63, FR-ORG-08",
+       "Lists compliance cases, filtered by status (FR-ORG-08).", "UC-63, FR-ORG-08",
        query=PAGE_QUERY + [["status", "OPEN or CLOSED", "string", "no", "`OPEN`"]],
        response=paged({**CASE, "actions": [ACTION]}), fields=action_fields("items[].actions[]"),
        steps=["Read compliance_cases"], controller="ComplianceCasesController", service="ComplianceCaseService",

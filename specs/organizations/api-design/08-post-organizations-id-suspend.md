@@ -54,6 +54,7 @@ Suspends an `ACTIVE` organization by decision. New contracts are refused; rented
     "verifiedAt": "2026-10-20T03:15:00.000Z",
     "decidedAt": "2026-10-20T03:15:00.000Z",
     "channelKeyVersion": 1,
+    "channelKeyExposedAt": null,
     "version": 3
   },
   "isSuccess": true,

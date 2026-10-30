@@ -44,6 +44,7 @@ No body.
     "verifiedAt": "2026-10-20T03:15:00.000Z",
     "decidedAt": "2026-10-20T03:15:00.000Z",
     "channelKeyVersion": 1,
+    "channelKeyExposedAt": null,
     "version": 3,
     "verification": {
       "method": "IN_PERSON",

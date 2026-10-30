@@ -52,6 +52,7 @@ Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstand
     "verifiedAt": "2026-10-20T03:15:00.000Z",
     "decidedAt": "2026-10-20T03:15:00.000Z",
     "channelKeyVersion": 1,
+    "channelKeyExposedAt": null,
     "version": 3
   },
   "isSuccess": true,

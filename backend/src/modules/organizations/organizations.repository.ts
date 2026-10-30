@@ -202,6 +202,8 @@ export const REVIEW_SELECT = {
   decidedAt: true,
   rejectionReason: true,
   channelKeyVersion: true,
+  // Null until devices report a key exposed (organizations 2.9 `markKeyExposed`); screen 3.6 shows it.
+  channelKeyExposedAt: true,
   version: true,
   createdAt: true,
 } satisfies Prisma.OrganizationSelect;
