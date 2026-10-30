@@ -443,7 +443,7 @@ sequenceDiagram
         alt WEBSOCKET
             Dp-)W: emit incident.alert, monitoring publishes to user room
         else WEB
-            Note over Dp: the queue page reads the row, nothing to send
+            Note over Dp,W: the queue page reads the row, nothing to send
         end
         opt the send threw
             Dp->>Ob: markFailedAttempt(id, error, retryAt with backoff, or FAILED, tx)
@@ -474,7 +474,7 @@ sequenceDiagram
         L->>R: lockById(id, tx)
         alt a member acknowledged first, or the deadline moved
             L-->>J: 409 STALE_VERSION or INVALID_STATE_TRANSITION
-            Note over J: the human won, skip this incident
+            Note over J,R: the human won, skip this incident
         else still unacknowledged
             L->>R: compareAndSet(current, patch, tx)
             L->>R: insertTransition(row, tx)
@@ -483,7 +483,7 @@ sequenceDiagram
             J->>R: COMMIT
         end
     end
-    Note over J: after NOTIFY_MANAGER times out the next state is ESCALATED, alerting TrekLink Staff
+    Note over J,L: after NOTIFY_MANAGER times out the next state is ESCALATED, alerting TrekLink Staff and Admin (D-079)
 ```
 
 ***Figure 7***: UC-31 Escalate Alert Tier (`incidents.tierTimeouts`). A job racing a human loses under
