@@ -25,7 +25,11 @@ const Frame: React.FC = () => {
     );
   }
   return (
-    <AppShell user={user} home={landingRoute(null, user)} banner={<AlertBanner />}>
+    <AppShell
+      user={user}
+      home={landingRoute(null, user)}
+      banner={<AlertBanner staff={user.accountType === 'TREKLINK'} />}
+    >
       <AppRoutes />
     </AppShell>
   );

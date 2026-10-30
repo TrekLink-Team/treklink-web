@@ -168,6 +168,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - _Story: US-UC32, US-UC33, US-UC34_
 - [ ] 8.2 `StaffIncidentsPage` (owner HoangTK)
   - **Do**: unrouted and escalated queue; false alarm from `UNROUTED`
+  - **Note**: 2026-10-30 (D-078 chain 4, KhoaDD): `/t/incidents` serves the queue (Unrouted and escalated, Unrouted, Escalated, All incidents) with read-only inline detail from api-design 01 and 02, and the alert banner gives TrekLink accounts an Open queue link instead of Acknowledge. Open: false alarm from `UNROUTED` (needs the Staff permission row, incidents 4.2), the history, episode and delivery panels (api-design 12 to 14, HoangTK's PR #121), filters by device and date, and the Authority reports tab (8.3). The box stays open
   - _Story: US-UC29, US-UC31_
 - [ ] 8.3 Authority reports (owner HoangTK)
   - **Do**: incidents api-design 08 to 11; report on an incident or a defaulted contract; close the case

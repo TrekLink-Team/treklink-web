@@ -48,6 +48,11 @@ export interface SeedOptions {
 
 const ORGANIZATION_CODE = 'ORG-0001';
 const CONTRACT_CODE = 'RC-2026-0001';
+// Chain 4 (D-078): holder label of each rented unit on RC-2026-0001, written when absent.
+const HOLDER_LABELS: readonly (readonly [string, string, string])[] = [
+  ['TL-0009', 'Le Thi E', '0912000009'],
+  ['TL-0010', 'Pham Van F', '0912000010'],
+];
 const CONTRACT_VARIANT = 'treklink-v3';
 
 const ACCOUNTS = [
@@ -439,6 +444,16 @@ export async function seedDemo(
           });
         }
         created.push(`contract device ${d.assetTag}`);
+      }
+
+      // Chain 4 (D-078, MF-03 demo): holder labels for the two rented units, so the SOS alert and the
+      // incident pages name a holder. Written only while the label is still empty; fictitious names.
+      for (const [assetTag, holderName, holderPhone] of HOLDER_LABELS) {
+        const { count } = await tx.contractDevice.updateMany({
+          where: { contractId: contract.id, deviceId: devices.get(assetTag)!.id, holderName: null },
+          data: { holderName, holderPhone },
+        });
+        if (count > 0) created.push(`holder label ${assetTag}`);
       }
 
       return created;

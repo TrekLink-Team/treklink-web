@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import { billingKeys, fetchQuote, usePlans, type QuoteRequest } from '../entities/billing/api';
 import { contractKeys, requestContract, type PlanType } from '../entities/contract/api';
+import { useOrganization } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDay, formatVnd, todayDay } from '../shared/lib/format';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
@@ -75,7 +76,9 @@ export const ContractRequestPage: React.FC = () => {
   const [pending, setPending] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
 
-  const organizationStatus = user?.organization?.status;
+  // Read from the API (organizations api-design 03), never the sign-in session: a Manager who signed in
+  // while PENDING sees the approval without signing in again. Unknown until the head loads.
+  const organizationStatus = useOrganization(user?.organization?.id).data?.status;
   const notActive = organizationStatus !== undefined && organizationStatus !== 'ACTIVE';
   const catalogue = plans.data;
   const minOrder = catalogue?.minOrderQuantity ?? 1;

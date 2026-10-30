@@ -94,7 +94,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     label: 'Operate',
     entries: [
       { route: '/t/map', label: 'Fleet map', icon: MapIcon, roles: STAFF, built: true, fullBleed: true, tabBar: 1 },
-      { route: '/t/incidents', label: 'Incidents', icon: Siren, roles: STAFF, built: false, tabBar: 2 },
+      { route: '/t/incidents', label: 'Incidents', icon: Siren, roles: STAFF, built: true, tabBar: 2 },
     ],
   },
   {
