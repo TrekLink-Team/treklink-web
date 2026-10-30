@@ -21,7 +21,7 @@ vi.mock('../features/password/api', async (importOriginal) => ({
   resetPassword: vi.fn(),
   setPassword: vi.fn(),
 }));
-vi.mock('./DashboardPage', () => ({ DashboardPage: () => <p>landing page</p> }));
+vi.mock('./LiveMapPage', () => ({ LiveMapPage: () => <p>landing page</p> }));
 
 const STAFF: SessionUser = {
   id: 'staff-1',

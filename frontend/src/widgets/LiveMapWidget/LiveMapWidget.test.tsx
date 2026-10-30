@@ -42,9 +42,9 @@ const config: MapConfig = {
 };
 
 const client = new QueryClient();
-const tree = (markers: MapMarker[]) => (
+const tree = (markers: MapMarker[], selectedId: string | null = null) => (
   <QueryClientProvider client={client}>
-    <LiveMapWidget markers={markers} />
+    <LiveMapWidget markers={markers} selectedId={selectedId} />
   </QueryClientProvider>
 );
 const renderWidget = (markers: MapMarker[] = []) => render(tree(markers));
@@ -116,6 +116,32 @@ describe('LiveMapWidget', () => {
     await waitFor(() =>
       expect(document.querySelector('.leaflet-popup-content')?.textContent).toBe(
         'TL-0001Battery 80%',
+      ),
+    );
+  });
+
+  it('redraws a marker whose state changes and opens the popup of a selected marker', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const { rerender } = renderWidget([device('TL-0001', [11.5, 108.5])]);
+    await waitFor(() =>
+      expect(screen.getByRole('img', { name: 'TL-0001, Battery 80%' })).toBeTruthy(),
+    );
+    const sos: MapMarker = {
+      ...device('TL-0001', [11.5, 108.5]),
+      subtitle: 'SOS, state Notifying primary',
+      status: 'incident',
+      details: ['Contract RC-2026-0001'],
+    };
+    rerender(tree([sos]));
+    expect(screen.getByRole('img', { name: 'TL-0001, SOS, state Notifying primary' })).toBeTruthy();
+    expect(screen.queryByRole('img', { name: 'TL-0001, Battery 80%' })).toBeNull();
+
+    rerender(tree([sos], 'missing'));
+    expect(document.querySelector('.leaflet-popup-content')).toBeNull();
+    rerender(tree([sos], 'TL-0001'));
+    await waitFor(() =>
+      expect(document.querySelector('.leaflet-popup-content')?.textContent).toBe(
+        'TL-0001SOS, state Notifying primaryContract RC-2026-0001',
       ),
     );
   });
