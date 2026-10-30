@@ -166,11 +166,18 @@ ENDPOINTS = [
     ep("GET", "/api/contracts/:id/handover-note/preview", "Preview the handover note", "TrekLink Staff",
        "Renders the handover note PDF without a signature, for the Manager to read at the counter before "
        "signing (FR-CON-06).", "UC-21, FR-CON-06",
-       path=[C_PATH], response={"pdfBase64": "JVBERi0xLjcK...", "sha256": None},
+       path=[C_PATH],
+       query=[["checks", "JSON array of the readings the counter holds, in the shape of api-design 10 "
+               "`deviceChecks` (`deviceId`, `batteryPct` 0 to 100, `gpsFixOk`); the note prints each unit's "
+               "battery and GPS fix, and \"not checked\" for a unit without a reading. Nothing is stored",
+               "string (JSON)", "no",
+               '`[{"deviceId":"0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10","batteryPct":96,"gpsFixOk":true}]`']],
+       response={"pdfBase64": "JVBERi0xLjcK...", "sha256": None},
        notes="Returns `application/json` with the PDF as base64 so the envelope holds.",
        entity="Contract", errors=[state_409("contract", "REQUESTED")],
-       steps=["Require APPROVED", "Render organization, plan, term dates and every device by asset tag"],
-       controller="ContractsController", service="HandoverNoteService", call="preview(id)",
+       steps=["Require APPROVED", "Render organization, plan, term dates and every device by asset tag, "
+              "with its battery and GPS fix from checks"],
+       controller="ContractsController", service="HandoverNoteService", call="preview(id, checks)",
        seq=["Svc->>DB: SELECT contract, devices, organization", "Svc->>Svc: render PDF"]),
 
     ep("POST", "/api/contracts/:id/devices/:deviceId/provisioning", "Record provisioning", "TrekLink Staff",

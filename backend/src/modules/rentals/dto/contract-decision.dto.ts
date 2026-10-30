@@ -1,5 +1,5 @@
 import { ContractStatus, PlanType } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
   IsArray,
   ArrayUnique,
@@ -87,6 +87,27 @@ export class DeviceCheckDto {
 
   @IsBoolean()
   gpsFixOk!: boolean;
+}
+
+// rentals api-design 08. `checks` is the JSON array of the readings the counter holds, in the shape
+// of api-design 10 `deviceChecks`, so the preview prints them; a unit without a reading prints
+// "not checked". A value that is not JSON fails the array check (400 VALIDATION_FAILED).
+const parseChecks = ({ value }: { value: unknown }): unknown => {
+  if (typeof value !== 'string') return value;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? plainToInstance(DeviceCheckDto, parsed) : parsed;
+  } catch {
+    return value;
+  }
+};
+
+export class HandoverPreviewQueryDto {
+  @IsOptional()
+  @Transform(parseChecks)
+  @IsArray()
+  @ValidateNested({ each: true })
+  checks?: DeviceCheckDto[];
 }
 
 // rentals api-design 10. `signedByMemberId` is the signing Manager's account id, as in
