@@ -189,6 +189,7 @@ packet never overwrites a newer position (PR #114 review). Positions move neithe
 | `IncidentsService.markDeviceStale(deviceId, stale, lastPosition)` | monitoring |
 | `IncidentsService.openByDevices(ids)`, `incidentsOfDevice(id)`, `responseTimes(range)`, `alertDeliveryStats()` | monitoring |
 | provider of `CONTRACT_CLOSE_CHECKS` | rentals |
+| provider of `ORGANIZATION_COUNTS` `openIncidents` (`IncidentsOrganizationCount` in the global `IncidentsPortsModule`: incidents not CLOSED) | organizations (api-design 03) |
 
 Listens to `member.deactivated` (REQ-EVT-11). Emits `incident.changed`, `audit.record`.
 

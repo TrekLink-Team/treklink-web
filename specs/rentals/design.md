@@ -186,6 +186,7 @@ are not atomic; a crash between them may repeat an email. The job's numeric resu
 | `ContractsService.visibleDevices(ctx)`, `rentalPeriods(deviceId, orgId)` (the handed-over intervals of the device on that organization's contracts, `to` null while out) | monitoring |
 | `ContractsService.contractsOfDevice(deviceId)`, `statusOf(contractId)`, `utilization(range)` (rented unit-days per hardware variant over `[from, to)`, each interval clipped to the range and an open one to now; units in service come from `devices`). It aggregates every organization's contracts, so only a TrekLink caller may read it: monitoring api-design 08 is TrekLink Staff and Admin only, and a future organization-scoped report needs its own filter | monitoring, incidents |
 | provider of `ORGANIZATION_EXIT_CHECKS.canClose` | organizations |
+| provider of `ORGANIZATION_COUNTS` `runningContracts` (`RentalsOrganizationCount`: contracts ACTIVE, ENDING, RETURN_DUE or OVERDUE) | organizations (api-design 03) |
 | provider of `CUSTODY_RESOLVER` (`RentalsCustodyResolver` in the global `RentalsPortsModule`: the rule of `custodyAt` through the shared `custodyOf`, margin 0, over `ContractsRepository.findCustody`, because that module holds no `ContractsService`) and of `LOSS_CASE_LISTENERS.onSettled` (`RentalsLossCaseListener`, required token; sets `lostAt` inside the loss-case transaction) | devices (D-045) |
 | provider of `CONTRACT_DIRECTORY` (contract code, organization code, term sequence), in the global `RentalsPortsModule` | billing (billing design §4) |
 

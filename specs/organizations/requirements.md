@@ -15,7 +15,8 @@
 - **Out-of-Scope**: account credentials and sessions (`auth`); contracts (`rentals`); balances
   (`billing`); alert routing itself (`incidents` reads the roster).
 - **Depends on**: `platform`, `auth`. Provides the ports `ACCOUNT_CONTEXT_PROVIDER` and
-  `API_KEY_RESOLVER` to `auth`; declares `ORGANIZATION_EXIT_CHECKS`, provided by `billing` and `rentals`.
+  `API_KEY_RESOLVER` to `auth`; declares `ORGANIZATION_EXIT_CHECKS`, provided by `billing` and `rentals`, and
+  `ORGANIZATION_COUNTS`, provided by `rentals` and `incidents`.
 
 ### Traceability
 
