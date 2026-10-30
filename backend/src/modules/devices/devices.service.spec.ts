@@ -65,6 +65,21 @@ describe('DevicesService', () => {
     });
     expect(repository.handoverUnits).toHaveBeenCalledWith(['dev-1'], tx);
     await expect(service.handoverUnits([], new Date())).resolves.toEqual(new Map());
+
+    // A schedule without a row for the unit's age gives no value rather than failing the handover.
+    repository.handoverUnits.mockResolvedValue([
+      {
+        id: 'dev-2',
+        assetTag: 'TL-0002',
+        nodeNum: 0xde000002n,
+        keyVersion: null,
+        firmwareVersion: '2.5.0',
+        acquiredAt: new Date('2025-09-01T00:00:00Z'),
+        hardwareVariant: { code: 'treklink-v3', remainingValueSchedule: [] },
+      },
+    ]);
+    const bare = await service.handoverUnits(['dev-2'], new Date('2026-11-02T03:00:00Z'));
+    expect(bare.get('dev-2')?.remainingValueVnd).toBeNull();
   });
 
   it('projects a position reading and returns the device id', async () => {
