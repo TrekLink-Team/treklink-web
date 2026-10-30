@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Plans } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
 import { SAR_DISCLAIMER } from '../shared/ui';
+import { FOCUS } from '../shared/ui/styles';
 import { PlansPage } from './PlansPage';
 
 const fetchPlans = vi.fn();
@@ -126,6 +127,15 @@ describe('PlansPage (screen 2.3)', () => {
       'mailto:treklink.team@gmail.com',
     );
     expect(screen.queryByText('Terms for every plan')).toBeNull();
+  });
+
+  it('shows the keyboard focus ring on the contact link (WCAG 2.4.7)', () => {
+    fetchPlans.mockReturnValue(new Promise(() => undefined));
+    renderPage();
+    const contact = screen.getByRole('link', { name: 'treklink.team@gmail.com' });
+    for (const focusClass of FOCUS.split(' ')) {
+      expect(contact.classList.contains(focusClass)).toBe(true);
+    }
   });
 
   it('shows the server message with Retry, and Retry loads the prices', async () => {
