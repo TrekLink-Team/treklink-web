@@ -91,7 +91,9 @@ Manual endpoints never reach the system-only rows; those are exported service me
 Every move a rentals method drives writes one `device_transitions` row per unit that moved, in the caller's
 transaction (`DevicesRepository.moveWithTransitions`, or `insertTransitions` after the `SKIP LOCKED` pick of
 `reserve()`): `refType` `CONTRACT`, `refId` the contract id, `note` the contract code, `actorId` the Staff or
-Manager account (2026-10-30, demo smoke defect 2). A unit not in the source status neither moves nor gets a row.
+Org Manager account that acted (a Manager's cancel records the Manager), or null (SYSTEM) for a scheduled job
+(2026-10-30, demo smoke defect 2). The monitoring device history (api-design 07) tells these moves through its
+contract entries and leaves the `CONTRACT` rows out, so each move appears once. A unit not in the source status neither moves nor gets a row.
 
 ---
 

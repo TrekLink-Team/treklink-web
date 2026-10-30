@@ -165,18 +165,6 @@ export class DevicesRepository {
     });
   }
 
-  // Returns RESERVED units to AVAILABLE; a unit in any other state is left as it is.
-  async releaseReserved(
-    ids: readonly string[],
-    at: Date,
-    tx: Prisma.TransactionClient,
-  ): Promise<void> {
-    await tx.device.updateMany({
-      where: { id: { in: [...ids] }, status: DeviceStatus.RESERVED },
-      data: { status: DeviceStatus.AVAILABLE, statusChangedAt: at, version: { increment: 1 } },
-    });
-  }
-
   tags(ids: readonly string[], client: Client = this.prisma): Promise<DeviceTag[]> {
     return client.device.findMany({
       where: { id: { in: [...ids] } },
