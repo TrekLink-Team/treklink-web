@@ -70,6 +70,16 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(crumbs.textContent).toContain('Details');
   });
 
+  it('puts the payment page under Business, Invoices, not under Operate, Overview', () => {
+    show('/o/pay/p-1');
+    const crumbs = screen.getAllByRole('navigation', { name: 'Breadcrumb' })[0];
+    expect(crumbs.textContent).toContain('Business');
+    const links = within(crumbs).getAllByRole('link', { name: 'Invoices' });
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(links.map(() => '/o/invoices'));
+    expect(crumbs.textContent).toContain('Payment');
+    expect(crumbs.textContent).not.toContain('Overview');
+  });
+
   it('shows no Info pane on map pages', () => {
     act(() => useShell.setState({ info: { title: 'CT-1', body: <p>details</p> }, infoSheetOpen: true }));
     show('/o/map');
