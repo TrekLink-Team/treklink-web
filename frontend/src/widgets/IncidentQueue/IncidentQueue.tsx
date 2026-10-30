@@ -12,15 +12,20 @@ import {
   StatusBadge,
 } from '../../shared/ui';
 import { messageOf } from '../../shared/ui/errors';
+import type { IncidentState } from '../../shared/ui/status';
 import { LINK } from '../../shared/ui/styles';
 
 // The `IncidentQueue` widget of screen 5.6 (frontend design §1): the organization's open incidents
 // from incidents api-design 01 with `open=true`, five rows, each opening screen 8.1. It uses the
 // `['incidents', ...]` key, so `incident.changed` refreshes it. Its loading, error and empty states
 // are its own, so a failed read never looks like an empty queue.
+const SETTLED: IncidentState[] = ['RESOLVED', 'FALSE_ALARM'];
+
 export const IncidentQueue: React.FC = () => {
   const incidents = useIncidents({ open: true });
-  const items = incidents.data?.items ?? [];
+  // `open=true` keeps a RESOLVED or FALSE_ALARM incident until it is CLOSED, because it may still
+  // reopen; the queue lists only those that need someone (dry run 2026-10-30, MF-05 step 1).
+  const items = (incidents.data?.items ?? []).filter((incident) => !SETTLED.includes(incident.state));
 
   return (
     <Card>

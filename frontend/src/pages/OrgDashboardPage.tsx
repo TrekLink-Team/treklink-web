@@ -34,6 +34,9 @@ import { IncidentQueue } from '../widgets/IncidentQueue/IncidentQueue';
 
 // The states whose devices are with the organization (design of screen 5.6, "devices out").
 const RUNNING: ContractStatus[] = ['ACTIVE', 'ENDING', 'RETURN_DUE', 'OVERDUE', 'DEFAULTED'];
+// The "Running contracts" tile leaves a defaulted contract out: its devices are still out, but it no
+// longer runs (dry run 2026-10-30, MF-05 step 1). The tile's hint names the defaulted count.
+const IN_FORCE: ContractStatus[] = ['ACTIVE', 'ENDING', 'RETURN_DUE', 'OVERDUE'];
 
 // The list endpoints' MAX_PAGE_SIZE (backend default, specs/platform/requirements.md §4): the
 // dashboard reads one page of that size per source, as screen 5.6 says.
@@ -206,8 +209,10 @@ export const OrgDashboardPage: React.FC = () => {
             <Tile to="/o/contracts">
               <StatCard
                 label="Running contracts"
-                value={running.length}
-                hint={`${countOf(items, ['REQUESTED'])} requested, ${countOf(items, ['APPROVED'])} approved`}
+                value={countOf(items, IN_FORCE)}
+                hint={`${countOf(items, ['REQUESTED'])} requested, ${countOf(items, ['APPROVED'])} approved${
+                  countOf(items, ['DEFAULTED']) > 0 ? `, ${countOf(items, ['DEFAULTED'])} defaulted` : ''
+                }`}
                 icon={<FileText />}
               />
             </Tile>
@@ -228,7 +233,7 @@ export const OrgDashboardPage: React.FC = () => {
                   hint={
                     running.length > DETAIL_LIMIT
                       ? `on the first ${DETAIL_LIMIT} contracts, and more`
-                      : `on ${running.length} running contract${running.length === 1 ? '' : 's'}`
+                      : `on ${running.length} contract${running.length === 1 ? '' : 's'}`
                   }
                   icon={<Radio />}
                 />

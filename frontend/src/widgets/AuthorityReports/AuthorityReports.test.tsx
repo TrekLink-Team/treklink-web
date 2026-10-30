@@ -135,7 +135,8 @@ describe('ReportDialog (api-design 08 and 10)', () => {
     expect(screen.getByLabelText(/^Agency/).getAttribute('maxlength')).toBe('200');
     expect(screen.getByLabelText(/^Authority reference/).getAttribute('maxlength')).toBe('200');
     fireEvent.click(screen.getByRole('button', { name: 'Record report' }));
-    expect(await screen.findAllByText('Please fill in this field.')).toHaveLength(3);
+    // Agency and reference; Reported at starts at now.
+    expect(await screen.findAllByText('Please fill in this field.')).toHaveLength(2);
     expect(posts()).toHaveLength(0);
     fill(/^Agency/, ' Lam Dong rescue (114) ');
     fill(/^Authority reference/, 'LD-114-07');
@@ -252,6 +253,17 @@ describe('ReportDialog (api-design 08 and 10)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Discard report' }));
     expect(onClose).toHaveBeenCalled();
   });
+  it('starts Reported at at now, and closes untouched without asking', async () => {
+    const onClose = vi.fn();
+    api.mockResolvedValue(incident());
+    renderWith(<ReportDialog entry={{ kind: 'incident', id: 'inc-1' }} onClose={onClose} />);
+    await screen.findByText('Incident INC-2026-000007, Unrouted');
+    expect((screen.getByLabelText(/^Reported at/) as HTMLInputElement).value).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onClose).toHaveBeenCalled();
+  });
 });
 
 describe('CloseCaseDialog (api-design 09)', () => {
@@ -263,9 +275,15 @@ describe('CloseCaseDialog (api-design 09)', () => {
       incidentState: 'CLOSED',
     });
     renderWith(<CloseCaseDialog report={report()} onClose={onClose} />);
+    // Non-breaking hyphens keep the reference on one line.
     expect(
-      screen.getByText('Record case LD-114-07 with Lam Dong rescue (114) closed?'),
+      screen.getByText('Record case LD\u2011114\u201107 with Lam Dong rescue (114) closed?'),
     ).toBeTruthy();
+    // Closed at starts at now; cleared, it is required.
+    expect((screen.getByLabelText(/^Closed at/) as HTMLInputElement).value).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/,
+    );
+    fill(/^Closed at/, '');
     fireEvent.click(screen.getByRole('button', { name: 'Record case closed' }));
     expect(await screen.findByText('Please fill in this field.')).toBeTruthy();
     fill(/^Closed at/, '2026-11-02T08:00');

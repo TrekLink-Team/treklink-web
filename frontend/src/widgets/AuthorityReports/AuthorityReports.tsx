@@ -13,6 +13,7 @@ import {
   fetchDefaultedContracts,
   fetchReportableContract,
   instantOf,
+  localInputOf,
   isReportable,
   REPORTABLE_STATES,
   reportContract,
@@ -181,13 +182,17 @@ export const ReportDialog: React.FC<{
   const subject = picked ?? (entered.data && !entryRefusal ? entered.data : null);
   const subjectError =
     pickError ?? entryRefusal ?? (entered.error ? messageOf(entered.error) : null);
-  const [form, setForm] = useState<ReportInput>(EMPTY_FORM);
+  // "Reported at" starts at now, the usual case: the report was just made (dry run 2026-10-30).
+  const [opened] = useState<ReportInput>(() => ({ ...EMPTY_FORM, reportedAt: localInputOf(new Date()) }));
+  const [form, setForm] = useState<ReportInput>(opened);
   const [missing, setMissing] = useState<Partial<Record<keyof ReportInput, boolean>>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
   const [discarding, setDiscarding] = useState(false);
-  const dirty = Object.values(form).some((value) => Boolean(value?.trim()));
+  const dirty = (Object.keys(form) as (keyof ReportInput)[]).some(
+    (key) => (form[key] ?? '').trim() !== (opened[key] ?? '').trim(),
+  );
 
   const pick = async (next: ReportEntry) => {
     setLoadingSubject(true);
@@ -417,7 +422,7 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
 }) => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
-  const [closedAt, setClosedAt] = useState('');
+  const [closedAt, setClosedAt] = useState(() => localInputOf(new Date()));
   const [note, setNote] = useState('');
   const [missing, setMissing] = useState(false);
   const [timeError, setTimeError] = useState<string | null>(null);
@@ -465,7 +470,8 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
   return (
     <Dialog
       titleId="close-case-title"
-      title={`Record case ${report.reference} with ${report.agency} closed?`}
+      // Non-breaking hyphens keep a reference such as LD-2026-1101 on one line.
+      title={`Record case ${report.reference.replace(/-/g, '\u2011')} with ${report.agency} closed?`}
       description={
         report.incidentId
           ? 'A linked incident still reported to the authority moves to Closed once no other report on it is open. An incident an organization has acknowledged keeps its response.'

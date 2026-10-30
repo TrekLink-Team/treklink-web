@@ -241,6 +241,31 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(2);
   });
 
+  it('keeps a defaulted contract out of Running contracts but counts its devices out', async () => {
+    contracts = [
+      contract('RC-2026-0001', 'ACTIVE'),
+      contract('RC-2026-0003', 'DEFAULTED', { returnDueAt: '2026-09-30T02:00:00Z' }),
+    ];
+    renderPage();
+    expect(within(tile('Running contracts')).getByText('1')).toBeTruthy();
+    expect(within(tile('Running contracts')).getByText('0 requested, 0 approved, 1 defaulted')).toBeTruthy();
+    await waitFor(() => expect(within(tile('Devices out')).getByText('4')).toBeTruthy());
+  });
+
+  it('leaves a resolved or false-alarm incident out of the open incidents', () => {
+    openIncidents = (['RESOLVED', 'FALSE_ALARM', 'RESPONDING'] as const).map((state, n) => ({
+      id: `inc-${n}`,
+      code: `INC-2026-00000${n + 1}`,
+      device: { id: `d-${n}`, assetTag: `TL-000${n + 1}`, holder: null },
+      state,
+      firstEventAt: '2026-10-30T02:00:00Z',
+    }));
+    renderPage();
+    expect(screen.queryByText('INC-2026-000001')).toBeNull();
+    expect(screen.queryByText('INC-2026-000002')).toBeNull();
+    expect(screen.getByText('INC-2026-000003')).toBeTruthy();
+  });
+
   it('greets an organization with no contracts and nothing to pay', () => {
     renderPage();
     expect(screen.getByText('Your organization has no contracts yet.')).toBeTruthy();
