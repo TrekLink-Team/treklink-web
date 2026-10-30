@@ -6,10 +6,13 @@ import { BillingOrganizationExitCheck } from './organization-exit-check.provider
 const TX = { tx: true } as unknown as Prisma.TransactionClient;
 
 describe('BillingOrganizationExitCheck (organizations port ORGANIZATION_EXIT_CHECKS)', () => {
-  let balances: { outstandingOfOrganization: jest.Mock };
+  let balances: { outstandingOfOrganization: jest.Mock; pendingDamageOfOrganization: jest.Mock };
 
   beforeEach(() => {
-    balances = { outstandingOfOrganization: jest.fn().mockResolvedValue(0n) };
+    balances = {
+      outstandingOfOrganization: jest.fn().mockResolvedValue(0n),
+      pendingDamageOfOrganization: jest.fn().mockResolvedValue(0),
+    };
   });
 
   it('adds itself to the array of the port, and registers nowhere without the port', () => {
@@ -26,6 +29,16 @@ describe('BillingOrganizationExitCheck (organizations port ORGANIZATION_EXIT_CHE
     const check = new BillingOrganizationExitCheck(balances as unknown as BalanceService);
     await expect(check.canReactivate('org-1', TX)).resolves.toBeNull();
     expect(balances.outstandingOfOrganization).toHaveBeenCalledWith('org-1', TX);
+    expect(balances.pendingDamageOfOrganization).toHaveBeenCalledWith('org-1', TX);
+  });
+
+  it('blocks a reactivation while a damage charge waits for an Admin, with nothing invoiced owed (task 1.3)', async () => {
+    balances.pendingDamageOfOrganization.mockResolvedValue(1);
+    const check = new BillingOrganizationExitCheck(balances as unknown as BalanceService);
+    await expect(check.canReactivate('org-1', TX)).resolves.toEqual({
+      code: 'BALANCE_OUTSTANDING',
+      message: 'This cannot be done while it has open balances.',
+    });
   });
 
   it('blocks a reactivation with BALANCE_OUTSTANDING while anything is owed', async () => {

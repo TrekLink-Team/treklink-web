@@ -64,6 +64,7 @@ describe('InvoicesRepository (billing task 1.1)', () => {
       invoice: {
         findFirst: jest.fn().mockResolvedValue(null),
         findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockResolvedValue(ROW),
         update: jest.fn().mockResolvedValue(ROW),
       },
@@ -242,6 +243,19 @@ describe('InvoicesRepository (billing task 1.1)', () => {
         data: { paidVnd: 110_000n, status: InvoiceStatus.PARTIALLY_PAID },
         select: INVOICE_SELECT,
       });
+    });
+  });
+
+  it('lists each contract an organization was invoiced for once', async () => {
+    tx.invoice.findMany.mockResolvedValueOnce([{ contractId: 'c-1' }, { contractId: 'c-2' }]);
+    await expect(repository.contractIdsOfOrganization('org-1', client())).resolves.toEqual([
+      'c-1',
+      'c-2',
+    ]);
+    expect(tx.invoice.findMany).toHaveBeenLastCalledWith({
+      where: { organizationId: 'org-1' },
+      distinct: ['contractId'],
+      select: { contractId: true },
     });
   });
 

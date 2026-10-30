@@ -68,6 +68,17 @@ export class DamageChargesRepository {
     });
   }
 
+  // How many charges of these contracts still wait for an Admin (organizations reactivation, task 1.3).
+  countPendingOfContracts(
+    contractIds: readonly string[],
+    client: Client = this.prisma,
+  ): Promise<number> {
+    if (contractIds.length === 0) return Promise.resolve(0);
+    return client.damageCharge.count({
+      where: { contractId: { in: [...contractIds] }, status: DamageChargeStatus.PENDING_APPROVAL },
+    });
+  }
+
   insert(charge: NewDamageCharge, tx: Prisma.TransactionClient): Promise<DamageChargeRow> {
     return tx.damageCharge.create({ data: charge, select: DAMAGE_CHARGE_SELECT });
   }

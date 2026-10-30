@@ -26,10 +26,11 @@
   - **Test**: the AC-01 and AC-02 figures; ratio 0.5 of an odd amount rounds up
   - _Requirements: REQ-UBI-01, BR-29_
   - **Done**: also `termFeeVnd`, `holdingFeeVnd` and `dayPlanFeeVnd`; the day-plan division runs last, so a whole fee stays exact
-- [ ] 1.3 Provide `ORGANIZATION_EXIT_CHECKS.canReactivate` (owner LongLP)
+- [x] 1.3 Provide `ORGANIZATION_EXIT_CHECKS.canReactivate` (owner LongLP)
   - **Do**: any unpaid line or pending damage charge of the organization returns `BALANCE_OUTSTANDING`
   - **Test**: reactivation refused with one unpaid line
   - _Requirements: design §4, FR-ORG-07_
+  - **Done** (2026-10-30): `BillingOrganizationExitCheck` (`providers/organization-exit-check.provider.ts`) came with TK-120 (TanNB) and refused a reactivation on unpaid lines only (`BalanceService.outstandingOfOrganization`, credits netted per contract). LongLP added the pending damage charges the `Do` line names: `BalanceService.pendingDamageOfOrganization` counts the `PENDING_APPROVAL` charges of every contract the organization was invoiced for (`InvoicesRepository.contractIdsOfOrganization`, then `DamageChargesRepository.countPendingOfContracts`), billing tables only, because a charge stores its contract and not its organization (D-081). Either one answers 409 `BALANCE_OUTSTANDING`. Unit-tested (the provider, the balance service and both repositories)
 
 ## Phase 2: Core Service Logic
 

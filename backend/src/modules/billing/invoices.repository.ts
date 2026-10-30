@@ -233,6 +233,20 @@ export class InvoicesRepository {
 
   // Every line of every invoice of the organization with the contract it belongs to, oldest due first
   // (the reactivation check of `organizations`).
+  // The contracts an organization has been invoiced for, from billing's own table, so the reactivation
+  // check finds the damage charges still waiting for an Admin without reading `rentals` (task 1.3).
+  async contractIdsOfOrganization(
+    organizationId: string,
+    client: Client = this.prisma,
+  ): Promise<string[]> {
+    const rows = await client.invoice.findMany({
+      where: { organizationId },
+      distinct: ['contractId'],
+      select: { contractId: true },
+    });
+    return rows.map((row) => row.contractId);
+  }
+
   linesOfOrganization(organizationId: string, client: Client = this.prisma) {
     return client.invoiceLine.findMany({
       where: { invoice: { organizationId } },

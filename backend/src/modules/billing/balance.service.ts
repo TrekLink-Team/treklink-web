@@ -79,6 +79,13 @@ export class BalanceService {
     return total;
   }
 
+  // Damage charges of the organization's contracts still waiting for an Admin (UC-48). They have no
+  // invoice line yet, so `outstandingOfOrganization` cannot see them; the reactivation check reads both.
+  async pendingDamageOfOrganization(organizationId: string, client?: Client): Promise<number> {
+    const contractIds = await this.invoices.contractIdsOfOrganization(organizationId, client);
+    return this.damageCharges.countPendingOfContracts(contractIds, client);
+  }
+
   // The contract balance: due now (due at or before `at`), due later, and paid (api-design 10).
   async balanceSummary(
     contractId: string,

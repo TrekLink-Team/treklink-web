@@ -24,8 +24,12 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
       firstChargeableInvoice: jest.fn().mockResolvedValue(null),
       linesOfContract: jest.fn().mockResolvedValue([]),
       linesOfOrganization: jest.fn().mockResolvedValue([]),
+      contractIdsOfOrganization: jest.fn().mockResolvedValue([]),
     };
-    damageCharges = { pendingOfContract: jest.fn().mockResolvedValue([]) };
+    damageCharges = {
+      pendingOfContract: jest.fn().mockResolvedValue([]),
+      countPendingOfContracts: jest.fn().mockResolvedValue(0),
+    };
     service = new BalanceService(
       invoices as unknown as InvoicesRepository,
       damageCharges as unknown as DamageChargesRepository,
@@ -115,6 +119,17 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
       ]);
       // c-1 owes nothing (its credit exceeds its fee); c-2 still owes its own 300 000.
       await expect(service.outstandingOfOrganization('org-1')).resolves.toBe(300_000n);
+    });
+  });
+
+  describe('pendingDamageOfOrganization (organizations exit check, reactivation)', () => {
+    it('counts the pending damage charges of the contracts the organization was invoiced for', async () => {
+      invoices.contractIdsOfOrganization.mockResolvedValue(['c-1', 'c-2']);
+      damageCharges.countPendingOfContracts.mockResolvedValue(2);
+
+      await expect(service.pendingDamageOfOrganization('org-1', TX)).resolves.toBe(2);
+      expect(invoices.contractIdsOfOrganization).toHaveBeenCalledWith('org-1', TX);
+      expect(damageCharges.countPendingOfContracts).toHaveBeenCalledWith(['c-1', 'c-2'], TX);
     });
   });
 
