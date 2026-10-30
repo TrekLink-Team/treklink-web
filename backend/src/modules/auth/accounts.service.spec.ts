@@ -48,6 +48,7 @@ describe('AccountsService', () => {
       setActive: jest.fn().mockResolvedValue(undefined),
       revokeAllUserTokens: jest.fn().mockResolvedValue(undefined),
       insertAuthEvent: jest.fn().mockResolvedValue(undefined),
+      activeStaffIds: jest.fn().mockResolvedValue(['staff-1']),
     };
     codes = { issue: jest.fn().mockResolvedValue(ISSUED) };
     passwords = { sendCode: jest.fn().mockResolvedValue(undefined) };
@@ -320,5 +321,10 @@ describe('AccountsService', () => {
         errorCode: ErrorCode.NOT_FOUND,
       });
     });
+  });
+
+  it('reads the active Staff ids for incidents inside the caller transaction (D-079)', async () => {
+    await expect(service.activeStaffIds(tx)).resolves.toEqual(['staff-1']);
+    expect(accounts.activeStaffIds).toHaveBeenCalledWith(tx);
   });
 });

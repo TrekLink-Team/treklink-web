@@ -56,7 +56,8 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
   const ingress = new IncidentIngress(
     incidentsRepository,
     lifecycle,
-    new RoutingService(roster),
+    // Ingress routes to NOTIFY_PRIMARY, which never reads Staff (D-079 reads them for ESCALATED).
+    new RoutingService(roster, {} as never),
     parameters,
     events,
   );

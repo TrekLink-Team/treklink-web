@@ -61,10 +61,8 @@ const lostRace = (error: unknown): boolean =>
 // whose deadline column has passed, then applies one transition per incident in its own transaction
 // with the expected state, as SYSTEM. The lifecycle's guards re-check the deadline under the row lock,
 // so a raced acknowledgement, status update or reopen wins and the job skips that incident. Deadlines
-// live in the database, so after a restart each fires once from its stored time.
-//
-// Staff recipients stay empty until the leader rules how incidents reads Staff accounts
-// (treklink-web#118, R1): ESCALATED is reached and recorded, and alerts the organization's Managers.
+// live in the database, so after a restart each fires once from its stored time. ESCALATED alerts the
+// organization's Managers and the active TrekLink Staff (D-079) through RoutingService.recipientsOf.
 @Injectable()
 export class IncidentTimersJob {
   private readonly logger = new Logger(IncidentTimersJob.name);

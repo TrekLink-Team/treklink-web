@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { AlertChannel, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AccountsService, AuthModule } from '../auth';
 import { DevicesModule, DevicesService } from '../devices';
 import { OrganizationsModule, OrganizationsService, RosterService } from '../organizations';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -50,6 +51,12 @@ class TestOrganizationsModule {}
 class TestRentalsModule {}
 
 @Module({
+  providers: [{ provide: AccountsService, useValue: {} }],
+  exports: [AccountsService],
+})
+class TestAuthModule {}
+
+@Module({
   providers: [{ provide: DevicesService, useValue: {} }],
   exports: [DevicesService],
 })
@@ -66,6 +73,8 @@ describe('incident persistence (task 1.1)', () => {
       .useModule(TestRentalsModule)
       .overrideModule(DevicesModule)
       .useModule(TestDevicesModule)
+      .overrideModule(AuthModule)
+      .useModule(TestAuthModule)
       .compile();
     expect(moduleRef.get(IncidentIngress)).toBeInstanceOf(IncidentIngress);
     expect(moduleRef.get(IncidentsRepository)).toBeInstanceOf(IncidentsRepository);

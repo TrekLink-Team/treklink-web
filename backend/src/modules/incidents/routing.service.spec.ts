@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { AccountsService } from '../auth';
 import { RosterService } from '../organizations';
 import { RoutingService } from './routing.service';
 
@@ -7,13 +8,18 @@ const AT = new Date('2026-10-29T03:00:00Z');
 
 describe('RoutingService (incidents 2.2)', () => {
   let roster: { tiersAt: jest.Mock };
+  let accounts: { activeStaffIds: jest.Mock };
   let routing: RoutingService;
 
   beforeEach(() => {
     roster = {
       tiersAt: jest.fn().mockResolvedValue({ primary: ['p'], backup: ['b'], managers: ['m'] }),
     };
-    routing = new RoutingService(roster as unknown as RosterService);
+    accounts = { activeStaffIds: jest.fn().mockResolvedValue(['s-1', 's-2']) };
+    routing = new RoutingService(
+      roster as unknown as RosterService,
+      accounts as unknown as AccountsService,
+    );
   });
 
   it('routes an attributed event to the primary tier of its organization, staff empty', async () => {
@@ -33,14 +39,15 @@ describe('RoutingService (incidents 2.2)', () => {
     ).resolves.toMatchObject({ to: 'NOTIFY_PRIMARY' });
   });
 
-  it('gives a timer the tiers of the routed organization, staff empty (task 3.1)', async () => {
+  it('gives a timer the tiers of the routed organization and the active Staff (task 3.1, D-079)', async () => {
     await expect(routing.recipientsOf('org-a', AT, tx)).resolves.toEqual({
       primary: ['p'],
       backup: ['b'],
       managers: ['m'],
-      staff: [],
+      staff: ['s-1', 's-2'],
     });
     expect(roster.tiersAt).toHaveBeenCalledWith('org-a', AT, tx);
+    expect(accounts.activeStaffIds).toHaveBeenCalledWith(tx);
   });
 
   it('gives a timer no tier for an incident without an organization', async () => {
@@ -51,6 +58,7 @@ describe('RoutingService (incidents 2.2)', () => {
       staff: [],
     });
     expect(roster.tiersAt).not.toHaveBeenCalled();
+    expect(accounts.activeStaffIds).not.toHaveBeenCalled();
   });
 
   it('sends an unattributed event to UNROUTED without reading a roster (BR-36)', async () => {

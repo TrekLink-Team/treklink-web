@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IncidentState, Prisma } from '@prisma/client';
+import { AccountsService } from '../auth';
 import { RosterService } from '../organizations';
 import { IncidentRecipients } from './incident-lifecycle';
 
@@ -13,8 +14,8 @@ export interface Route {
   recipients: IncidentRecipients;
 }
 
-// Staff recipients wait for the leader's ruling on how `incidents` reads TrekLink Staff accounts:
-// platform design Figure 3 has no `incidents --> auth` edge (tasks.md 2.2 note, MF-03 session).
+// Staff recipients of UNROUTED stay empty until task 2.2 takes them; ESCALATED reads them from `auth`
+// in recipientsOf (D-079).
 const NO_STAFF: readonly string[] = [];
 
 // Task 2.2 (FR-INC-03, BR-32, BR-36). The incident goes to the contract and organization the
@@ -23,7 +24,10 @@ const NO_STAFF: readonly string[] = [];
 // UNROUTED. Empty tiers are skipped by the lifecycle.
 @Injectable()
 export class RoutingService {
-  constructor(private readonly roster: RosterService) {}
+  constructor(
+    private readonly roster: RosterService,
+    private readonly accounts: AccountsService,
+  ) {}
 
   async route(attribution: Attribution, at: Date, tx: Prisma.TransactionClient): Promise<Route> {
     const { organizationId } = attribution;
@@ -34,15 +38,17 @@ export class RoutingService {
     return { to: 'NOTIFY_PRIMARY', recipients: { ...tiers, staff: NO_STAFF } };
   }
 
-  // The tiers of the organization an incident is already routed to, for a timer's transition
-  // (task 3.1). No organization alerts no tier.
+  // The tiers of the organization an incident is already routed to, and the active TrekLink Staff,
+  // for a timer's transition (task 3.1). The lifecycle alerts Staff only on ESCALATED (MSG34, D-079).
+  // No organization alerts nobody.
   async recipientsOf(
     organizationId: string | null,
     at: Date,
     tx: Prisma.TransactionClient,
   ): Promise<IncidentRecipients> {
     if (!organizationId) return this.unrouted().recipients;
-    return { ...(await this.roster.tiersAt(organizationId, at, tx)), staff: NO_STAFF };
+    const tiers = await this.roster.tiersAt(organizationId, at, tx);
+    return { ...tiers, staff: await this.accounts.activeStaffIds(tx) };
   }
 
   private unrouted(): Route {
