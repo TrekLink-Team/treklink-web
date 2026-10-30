@@ -47,6 +47,7 @@ Keys come from `treklink-docs` `build_backlog.py` `JIRA_KEYS`; live Jira was not
 - `test:e2e`: 14 suites, 213 tests pass.
 - `test:cov`: 144 suites, 1587 tests pass. All files 93.42 % lines, 85.96 % branches; `authority-reports.service.ts`, `.controller.ts`, `.repository.ts`, `incidents.controller.ts` and `error-code.enum.ts` are 100 % lines and branches.
 - `typecheck` and `build` exit 0. `lint`: 0 errors, 1 warning in `test/incidents.e2e-spec.ts:299`, which predates this branch. Module boundary check passed.
+- Rebased onto `origin/dev` `2d99717` (five new commits, none in incidents; `error-code.enum.ts` merged cleanly; no migration changed, only `seed-demo.ts`). After the rebase: typecheck, lint (same single warning), `test:cov` 1633 tests and `test:e2e` 213 tests pass, build exits 0, and the four changed source files stay at 100 % lines and branches. `test:db` was not rerun because no migration changed.
 - `npx prisma generate` was run locally because the generated client predated the TK-161 schema on `dev`; no database was touched by it.
 
 ## Not done
