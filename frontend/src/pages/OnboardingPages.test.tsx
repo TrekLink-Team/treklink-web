@@ -258,6 +258,30 @@ describe('OrganizationReviewPage status actions (screen 3.2, organizations api-d
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
+  it('keeps the suspend dialog open with STALE_VERSION and refetches the queue (review of #156)', async () => {
+    const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+    suspendOrganization.mockRejectedValue(
+      new ApiError(409, 'STALE_VERSION', 'This was changed by someone else. Reload and try again.'),
+    );
+    items = [active()];
+    renderPage(<OrganizationReviewPage />);
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+    fireEvent.change(screen.getByLabelText(/^Reason shown to the Manager/), {
+      target: { value: 'Unpaid balance' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Suspend organization' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('This was changed by someone else. Reload and try again.'),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['organizations'] });
+    invalidate.mockRestore();
+  });
+
   it('reactivates a suspended organization, and shows BALANCE_OUTSTANDING when refused', async () => {
     reactivateOrganization.mockRejectedValueOnce(
       new ApiError(409, 'BALANCE_OUTSTANDING', 'This cannot be done while it has open balances.'),

@@ -4,9 +4,13 @@ import {
   IncidentConfidence,
   IncidentSource,
   InvoiceLineType,
+  LossCustody,
+  LossDecision,
   OrganizationStatus,
 } from '@prisma/client';
 import { ErrorCode } from '../src/common/errors';
+import { LossCaseView } from '../src/modules/devices';
+import { RentalsLossCaseListener } from '../src/modules/rentals/providers/loss-case-listener.provider';
 import { ContractDecisionsService } from '../src/modules/rentals/contract-decisions.service';
 import { HandoverService } from '../src/modules/rentals/handover.service';
 import { OverdueAndDefaultJob } from '../src/modules/rentals/overdue-and-default.job';
@@ -33,6 +37,14 @@ describe('rentals acceptance against Postgres (AC-01 to AC-07)', () => {
     returns = flow.get(ReturnService);
     rollover = flow.get(TermRolloverJob);
     overdueJob = flow.get(OverdueAndDefaultJob);
+    const expected = {
+      'rentals.returnGraceHours': 24,
+      'rentals.defaultAfterDays': 7,
+      'rentals.termRolloverHourLocal': 9,
+      'billing.lateFeePerDevicePerDayVnd': 50_000,
+      'devices.handoverMinBatteryPct': 50,
+    };
+    expect(await flow.seededParameters(Object.keys(expected))).toEqual(expected);
   });
 
   afterAll(async () => {
@@ -273,5 +285,49 @@ describe('rentals acceptance against Postgres (AC-01 to AC-07)', () => {
     expect(
       (await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } })).status,
     ).toBe(OrganizationStatus.SUSPENDED);
+  });
+
+  // rentals 1.3 (review of #152): onSettled ends the row's interval at the confirmation time inside
+  // the loss-case transaction, so a settlement that fails later rolls lostAt back with it.
+  it('sets lostAt in the caller transaction on settlement, and rolls it back with that transaction', async () => {
+    const { contract, org, deviceIds } = await flow.rented(5);
+    const row = await flow.prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: contract.id, deviceId: deviceIds[0] },
+    });
+    const device = await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceIds[0] } });
+    const confirmedAt = at('2026-11-20T03:00:00.000Z');
+    const view: LossCaseView = {
+      id: 'loss-case',
+      code: `LOSS-${flow.next()}`,
+      deviceId: device.id,
+      assetTag: device.assetTag,
+      custody: LossCustody.RENTER,
+      custodyContract: {
+        contractId: contract.id,
+        organizationId: org.id,
+        contractDeviceId: row.id,
+      },
+      confirmedAt,
+      chargeVnd: null,
+      decisionReason: null,
+      decidedById: null,
+    };
+    const listener = flow.get(RentalsLossCaseListener);
+    const lostAt = async () =>
+      (await flow.prisma.contractDevice.findUniqueOrThrow({ where: { id: row.id } })).lostAt;
+
+    const failure = new Error('settlement failed after the listeners');
+    await expect(
+      flow.prisma.$transaction(async (tx) => {
+        await listener.onSettled(view, LossDecision.CHARGED, tx);
+        const inside = await tx.contractDevice.findUniqueOrThrow({ where: { id: row.id } });
+        expect(inside.lostAt).toEqual(confirmedAt);
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    expect(await lostAt()).toBeNull();
+
+    await flow.prisma.$transaction((tx) => listener.onSettled(view, LossDecision.CHARGED, tx));
+    expect(await lostAt()).toEqual(confirmedAt);
   });
 });

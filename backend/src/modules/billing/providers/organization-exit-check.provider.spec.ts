@@ -48,6 +48,8 @@ describe('BillingOrganizationExitCheck (organizations port ORGANIZATION_EXIT_CHE
       code: 'BALANCE_OUTSTANDING',
       message: 'This cannot be done while it has open balances.',
     });
+    // Something owed already refuses; the damage charges are not read (review of #154).
+    expect(balances.pendingDamageOfOrganization).not.toHaveBeenCalled();
   });
 
   it('has no view on a closing', async () => {

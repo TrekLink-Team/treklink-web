@@ -251,6 +251,18 @@ export const compileRentalFlow = async () => {
           : String(error),
     );
 
+  // The seeded parameters a suite's amounts and times are computed from, so a changed seed fails in
+  // `beforeAll` with the parameter named instead of deep inside a case (review of #158).
+  const seededParameters = async (keys: readonly string[]) =>
+    Object.fromEntries(
+      (
+        await prisma.businessParameter.findMany({
+          where: { key: { in: [...keys] } },
+          select: { key: true, value: true },
+        })
+      ).map((row) => [row.key, row.value]),
+    );
+
   return {
     moduleRef,
     get,
@@ -270,6 +282,7 @@ export const compileRentalFlow = async () => {
     handOver,
     rented,
     codeOf,
+    seededParameters,
     close: () => moduleRef.close(),
   };
 };
