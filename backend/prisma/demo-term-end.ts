@@ -15,10 +15,16 @@
 
 import { NestFactory } from '@nestjs/core';
 import { PrismaClient } from '@prisma/client';
+import { latestRentalDailyCutoff } from '../src/modules/rentals/rental-daily-cutoff';
 
 const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 const BUSINESS_ZONE_OFFSET_MS = 7 * 60 * MINUTE_MS;
+
+// The job closes only terms due by the latest daily cutoff (`rentals.termRolloverHourLocal`), so the
+// term ends one minute before it, which is never in the future and at most a day ago.
+export const rolloverTermEnd = (now: Date, hourLocal: number): Date =>
+  new Date(latestRentalDailyCutoff(now, hourLocal).getTime() - MINUTE_MS);
 
 export interface DemoArgs {
   contractCode: string;
@@ -80,7 +86,11 @@ async function main() {
       select: { id: true, seq: true, startsAt: true, endsAt: true },
     });
     if (!term) throw new Error(`${args.contractCode} has no open term.`);
-    const endsAt = new Date(now.getTime() - MINUTE_MS);
+    const hour = await prisma.businessParameter.findUnique({
+      where: { key: 'rentals.termRolloverHourLocal' },
+      select: { value: true },
+    });
+    const endsAt = rolloverTermEnd(now, Number(hour?.value));
     const startsAt = term.startsAt < endsAt ? term.startsAt : new Date(endsAt.getTime() - DAY_MS);
     await prisma.contractTerm.update({ where: { id: term.id }, data: { startsAt, endsAt } });
     console.log(
