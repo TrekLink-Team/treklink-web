@@ -78,7 +78,9 @@ const usePublishedHeight = (
  * Keeps keyboard focus clear of a sticky edge. The scroll-padding the shell sets covers anchors and
  * most browsers, but Chrome does not scroll on focus when the control is inside the scroll box and
  * only covered by the sticky element; this moves it out, with `scrollIntoView`, which honours the
- * scroll-padding. It runs on focus only, never on scroll.
+ * scroll-padding. It runs on focus only, never on scroll. Focus inside a modal dialog that does not
+ * hold the sticky element is left alone: the dialog is fixed above the page, so its controls are
+ * never covered, and on a phone they overlap the edge's rect without being under it.
  */
 const useFocusClearOf = (ref: React.RefObject<HTMLElement>, edge: 'top' | 'bottom') => {
   useEffect(() => {
@@ -88,6 +90,8 @@ const useFocusClearOf = (ref: React.RefObject<HTMLElement>, edge: 'top' | 'botto
     const onFocus = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement) || node.contains(target)) return;
+      const modal = target.closest('[aria-modal="true"]');
+      if (modal && !modal.contains(node)) return;
       const cover = node.getBoundingClientRect();
       const box = target.getBoundingClientRect();
       const covered = edge === 'bottom' ? box.bottom > cover.top : box.top < cover.bottom;

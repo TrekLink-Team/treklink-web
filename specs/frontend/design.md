@@ -111,6 +111,8 @@ turn compact once the content has scrolled a little; the action bar with Back, N
 action stays at the bottom; only the content between them scrolls. Pages build it from the shared
 `StickyPageHeader` and `PageActionBar` (design-system §5.2), never with their own sticky or fixed
 positioning. Dialogs follow the same rule: the title and the footer stay put and only the body scrolls.
+A control that takes keyboard focus under the header or the bar is scrolled clear of it; a control in a
+modal dialog is not, because the dialog sits above the page chrome (review of #190).
 
 Moved onto it on 2026-10-30: the counter handover and the counter's screen 5.5 (check-in, reset and
 inspection, close), the contract request, organization review, and the open and complete maintenance

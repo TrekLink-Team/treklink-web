@@ -44,6 +44,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Files**: `shared/ui/PageChrome.tsx` (`StickyPageHeader`, `PageActionBar`), `shared/ui/{PageHeader,Stepper,bits,Dialog}.tsx`, `widgets/AppShell/AppShell.tsx`; pages `CounterPage` (handover and screen 5.5 through `widgets/ReturnCounter`), `ContractRequestPage`, `OrganizationReviewPage`, and the open and complete dialogs of `MaintenancePage`
   - **Do**: the leader rule of 2026-10-30 in design §7 and design-system §5.2
   - **Test**: `shared/ui/PageChrome.test.tsx` (compact switch, breadcrumb hand-over, action bar actions, form submit by `form` attribute, dialog footer outside the scroll), `AppShell.test.tsx` and `CounterPage.test.tsx`; a headless Chromium pass of the counter at 1280 and 360 px in both themes, before and after scrolling, with every Tab stop clear of the header and the bar
+  - **Follow-up** (2026-10-31, KhoaDD under D-078, review of #190): the focus clearing skips a control inside a modal dialog (`[aria-modal="true"]`) that does not hold the sticky element, so a dialog control overlapping the bar's rect on a phone no longer triggers `scrollIntoView`; tested in `PageChrome.test.tsx` (2 more)
   - _Requirements: NFR-USE-01_
 
 ## Phase 2: Public and auth pages
