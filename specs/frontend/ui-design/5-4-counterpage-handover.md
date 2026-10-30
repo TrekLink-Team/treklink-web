@@ -34,6 +34,7 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Control | Step | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
 | Scan or type asset tag | 1 Devices | none; highlights the matching reserved row, MSG12 if the tag is not reserved to this contract | none | row focused |
+| Dock and provision (row, D-080, replaces Record provisioning, Undo and the bulk recording once docking ships) | 1 Devices | Web Serial to the unit (`devices` design §8.4), then rentals 09 `POST /api/contracts/:id/devices/:deviceId/provisioning` with `channelKeyVersion` and the docked `nodeNum` | the browser's port chooser on the first docking of the visit | the row shows "Provisioned v{n}" |
 | Record provisioning (row) | 1 Devices | rentals 09 `POST /api/contracts/:id/devices/:deviceId/provisioning` with the organization's `channelKeyVersion` | none | the row shows "Provisioned v{n}" |
 | Undo (row, next to "Provisioned v{n}"; accessible name "Undo provisioning of {assetTag}") | 1 Devices | rentals 19 `POST /api/contracts/:id/devices/:deviceId/provisioning/undo` with the contract `version` as `expectedVersion`; shown only on a provisioned row, disabled while a row or bulk recording runs | `ConfirmDialog` "Undo the provisioning of {assetTag}?": "Use this when provisioning was recorded on the wrong unit. {assetTag} goes back to "Not provisioned yet" and its battery and GPS readings are cleared. Record it again before handover."; buttons Keep it and Undo provisioning (danger) | toast "Provisioning of {assetTag} undone. Record it again before handover."; the row shows "Not provisioned yet" with empty readings, and Next is held until it is recorded again |
 | Select (row checkbox) and Select all units | 1 Devices | none; Select all is mixed when some units are selected, and shows "{n} of {total} selected" | none | none |
@@ -56,6 +57,11 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Bulk provisioning refused | The run stops at the first refusal. The units recorded before it keep "Provisioned v{n}"; the failed row shows the server's message, mapped as for the single-row action (MSG12, MSG24, or the server's `message`); the selection keeps the failed unit and the units not reached, so the same button resumes; the note reads "Stopped at {assetTag}: {n} of {total} recorded. The selection keeps the unit that failed and the units not reached." |
 | Error `VALIDATION_FAILED` (400, rentals 07, 08, 09, 10) | MSG02 under the field the server names |
 | Error `DEVICE_NOT_ON_CONTRACT` (409, rentals 07, 09) | MSG12 |
+| No Web Serial (draft, D-080) | Amber banner at the top of step 1: "Docking needs Chrome or Edge on a desktop. Open this page there to provision units."; Dock and provision disabled |
+| Docking in progress (draft) | The row shows the step: reading, writing owner, writing key, checking; other rows' Dock buttons are disabled |
+| Wrong unit docked (draft, REQ-ERR-12) | "The docked unit is {nodeId}, not {assetTag}. Nothing was written." on the row |
+| Write failed, read-back differs, unit disconnected or port busy (draft, REQ-ERR-13) | The failed step named on the row, then "Dock {assetTag} again before handover."; nothing recorded |
+| Error `NODE_MISMATCH` (409, rentals 09, draft) | As wrong unit docked |
 | Error `KEY_VERSION_MISMATCH` (409, rentals 09) | MSG24; the page reloads organizations 03 for the current version |
 | Error `INSUFFICIENT_DEVICES` (409, rentals 07) | MSG11 dialog: no replacement exists, so the handover is held (E01-5) |
 | Error `FIRST_PAYMENT_MISSING` (409, rentals 10) | MSG23 on step 2, with the link to screen 6.3 |
