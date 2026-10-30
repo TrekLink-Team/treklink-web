@@ -418,6 +418,68 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(await screen.findByText('Pham Van D owns the response.')).toBeTruthy();
   });
 
+  // Dry run defect 15: status updates are append-only, so a correction is a new update.
+  const ORIGINAL = {
+    id: 'su-1',
+    note: 'At the ridge',
+    author: { id: 'u-me', fullName: 'Me' },
+    createdAt: '2026-10-29T03:20:00Z',
+    correctsId: null,
+    correctedById: null,
+  };
+
+  it('lets the owner correct an update, prefilled, posting a new one with correctsId', async () => {
+    detail({
+      state: 'RESPONDING',
+      owner: { id: 'u-me', fullName: 'Me' },
+      statusUpdates: [ORIGINAL],
+    });
+    renderAt('/o/incidents/inc-1');
+    fireEvent.click(await screen.findByRole('button', { name: /^Correct the update of / }));
+    const form = screen.getByRole('form', { name: 'Correct status' });
+    const box = within(form).getByRole('textbox') as HTMLTextAreaElement;
+    expect(box.value).toBe('At the ridge');
+    fireEvent.change(box, { target: { value: 'At the second ridge' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save correction' }));
+    await waitFor(() => expect(useToast.getState().message).toBe('Saved.'));
+    expect(posted()).toEqual([
+      ['/incidents/inc-1/status-updates', { note: 'At the second ridge', correctsId: 'su-1' }],
+    ]);
+  });
+
+  it('marks the corrected update, names the correction, and offers no second correction', async () => {
+    detail({
+      state: 'RESPONDING',
+      owner: { id: 'u-me', fullName: 'Me' },
+      statusUpdates: [
+        {
+          ...ORIGINAL,
+          id: 'su-2',
+          note: 'At the second ridge',
+          createdAt: '2026-10-29T03:25:00Z',
+          correctsId: 'su-1',
+        },
+        { ...ORIGINAL, correctedById: 'su-2' },
+      ],
+    });
+    renderAt('/o/incidents/inc-1');
+    expect(await screen.findByText('Corrected')).toBeTruthy();
+    expect(screen.getByText(/^Correction of /)).toBeTruthy();
+    // Only the correction can still be corrected.
+    expect(screen.getAllByRole('button', { name: /^Correct the update of / })).toHaveLength(1);
+  });
+
+  it('offers Correct only to a member who may add a status', async () => {
+    detail({
+      state: 'RESPONDING',
+      owner: { id: 'u-2', fullName: 'Pham Van D' },
+      statusUpdates: [ORIGINAL],
+    });
+    renderAt('/o/incidents/inc-1');
+    expect(await screen.findByText('At the ridge')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Correct the update of / })).toBeNull();
+  });
+
   it('shows MSG26 and a way back when the incident cannot be read', async () => {
     api.mockRejectedValue(new ApiError(404, 'NOT_FOUND', 'Incident not found.'));
     renderAt('/o/incidents/inc-9');

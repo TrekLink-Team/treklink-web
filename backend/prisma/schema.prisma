@@ -1415,6 +1415,12 @@ model IncidentStatusUpdate {
   author     User     @relation(fields: [authorId], references: [id])
   note       String
   createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  // A correction is a new row naming the update it corrects; the corrected row is never edited
+  // (dry run defect 15). Unique, so an update is corrected at most once; a correction can itself
+  // be corrected by a later row.
+  correctsId  String?               @unique
+  corrects    IncidentStatusUpdate? @relation("IncidentStatusUpdate_corrects", fields: [correctsId], references: [id], onDelete: Restrict)
+  correctedBy IncidentStatusUpdate? @relation("IncidentStatusUpdate_corrects")
 
   @@index([incidentId, createdAt])
   @@index([authorId])

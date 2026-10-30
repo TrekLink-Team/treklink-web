@@ -76,11 +76,16 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     repository = {
       page: jest.fn().mockResolvedValue([[ROW], 1]),
       findById: jest.fn().mockResolvedValue(ROW),
-      statusUpdates: jest
-        .fn()
-        .mockResolvedValue([
-          { id: 'su-1', note: 'Reached the holder', authorId: 'u-1', createdAt: ROW.lastEventAt },
-        ]),
+      statusUpdates: jest.fn().mockResolvedValue([
+        {
+          id: 'su-1',
+          note: 'Reached the holder',
+          authorId: 'u-1',
+          createdAt: ROW.lastEventAt,
+          correctsId: null,
+          correctedBy: null,
+        },
+      ]),
       authorityReports: jest.fn().mockResolvedValue([]),
       transitions: jest.fn().mockResolvedValue([
         {
@@ -210,6 +215,8 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
         note: 'Reached the holder',
         author: { id: 'u-1', fullName: 'Pham Van D' },
         createdAt: ROW.lastEventAt,
+        correctsId: null,
+        correctedById: null,
       },
     ]);
     expect(detail.authorityReports).toEqual([]);
@@ -224,6 +231,38 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     });
     const detail = await service.detail('inc-1', MEMBER, readOwn(MEMBER));
     expect(detail.outcomeNote).toBe('Holder walked down with the rangers');
+  });
+
+  it('links a correction and the update it corrects both ways (dry run defect 15)', async () => {
+    repository.statusUpdates.mockResolvedValue([
+      {
+        id: 'su-2',
+        note: 'At the second ridge',
+        authorId: 'u-1',
+        createdAt: ROW.lastEventAt,
+        correctsId: 'su-1',
+        correctedBy: null,
+      },
+      {
+        id: 'su-1',
+        note: 'At the ridge',
+        authorId: 'u-1',
+        createdAt: ROW.firstEventAt,
+        correctsId: null,
+        correctedBy: { id: 'su-2' },
+      },
+    ]);
+    const detail = await service.detail('inc-1', MEMBER, readOwn(MEMBER));
+    expect(
+      detail.statusUpdates.map(({ id, correctsId, correctedById }) => ({
+        id,
+        correctsId,
+        correctedById,
+      })),
+    ).toEqual([
+      { id: 'su-2', correctsId: 'su-1', correctedById: null },
+      { id: 'su-1', correctsId: null, correctedById: 'su-2' },
+    ]);
   });
 
   it.each([

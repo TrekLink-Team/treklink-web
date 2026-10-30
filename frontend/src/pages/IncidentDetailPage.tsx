@@ -16,12 +16,14 @@ import {
   useIncident,
   type IncidentAction,
   type IncidentDetail,
+  type StatusUpdate,
 } from '../entities/incident/api';
 import { StateBadges } from '../entities/incident/ui';
 import { AlertLog, TransitionTrail } from '../widgets/IncidentHistory/IncidentHistory';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
+import { Badge } from '../shared/ui/Badge';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
 import { Field, Textarea } from '../shared/ui/Field';
@@ -73,15 +75,25 @@ const FORMS: Record<Exclude<IncidentAction, 'acknowledge'>, FormSpec> = {
   },
 };
 
+// A correction posts a new status update naming the old one; the old one is never edited.
+const CORRECTION: FormSpec = {
+  title: 'Correct status',
+  field: 'Corrected status update',
+  required: true,
+  submit: 'Save correction',
+};
+
 // One action form at a time (screen 8.1 Form fields): a labelled textarea and an explicit submit.
+// With `correcting`, the status form opens prefilled with the update it corrects.
 const ActionForm: React.FC<{
   incident: IncidentDetail;
   action: Exclude<IncidentAction, 'acknowledge'>;
+  correcting?: StatusUpdate;
   onDone: () => void;
   onCancel: () => void;
-}> = ({ incident, action, onDone, onCancel }) => {
-  const spec = FORMS[action];
-  const [text, setText] = useState('');
+}> = ({ incident, action, correcting, onDone, onCancel }) => {
+  const spec = correcting ? CORRECTION : FORMS[action];
+  const [text, setText] = useState(correcting?.note ?? '');
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
@@ -98,7 +110,7 @@ const ActionForm: React.FC<{
     setFailure(null);
     try {
       if (action === 'responding') await markResponding(incident.id, incident.version, value);
-      if (action === 'status') await addStatus(incident.id, value);
+      if (action === 'status') await addStatus(incident.id, value, correcting?.id);
       if (action === 'resolve') await resolve(incident.id, incident.version, value);
       if (action === 'falseAlarm') await declareFalseAlarm(incident.id, incident.version, value);
       onDone();
@@ -120,6 +132,12 @@ const ActionForm: React.FC<{
         {spec.title}
       </h2>
       {spec.prompt && <p className="text-body text-ink">{spec.prompt(incident)}</p>}
+      {correcting && (
+        <p className="text-body-sm text-ink-muted">
+          Corrects the update of {formatDateTime(correcting.createdAt)}. The original stays in the
+          history, marked corrected.
+        </p>
+      )}
       <Field
         id={id}
         label={spec.field}
@@ -171,13 +189,19 @@ export const IncidentDetailPage: React.FC = () => {
   const showToast = useToast((state) => state.show);
   const { data: incident, isLoading, error, refetch } = useIncident(id);
   const [open, setOpen] = useState<Exclude<IncidentAction, 'acknowledge'> | null>(null);
+  const [correcting, setCorrecting] = useState<StatusUpdate | null>(null);
   const [acking, setAcking] = useState(false);
   const [ackFailure, setAckFailure] = useState<string | null>(null);
   // A panel 404 rechecks access to the main record (screen 8.1).
   const recheck = useCallback(() => void refetch(), [refetch]);
 
-  const settled = async () => {
+  const close = () => {
     setOpen(null);
+    setCorrecting(null);
+  };
+
+  const settled = async () => {
+    close();
     showToast(MSG03);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: incidentKeys.detail(id) }),
@@ -222,6 +246,14 @@ export const IncidentDetailPage: React.FC = () => {
 
   const start = (action: IncidentAction) =>
     action === 'acknowledge' ? void ack() : setOpen(action);
+
+  // Correct is offered to whoever may add a status, on an update no later one corrects yet.
+  const mayCorrect = actions.includes('status') && !open;
+  const correct = (update: StatusUpdate) => {
+    setCorrecting(update);
+    setOpen('status');
+  };
+  const createdAtOf = new Map(incident.statusUpdates.map((update) => [update.id, update.createdAt]));
 
   return (
     <section aria-labelledby="incident-title">
@@ -303,11 +335,12 @@ export const IncidentDetailPage: React.FC = () => {
           )}
           {open && (
             <ActionForm
-              key={open}
+              key={correcting ? `correct-${correcting.id}` : open}
               incident={incident}
               action={open}
+              correcting={correcting ?? undefined}
               onDone={() => void settled()}
-              onCancel={() => setOpen(null)}
+              onCancel={close}
             />
           )}
         </div>
@@ -321,16 +354,43 @@ export const IncidentDetailPage: React.FC = () => {
               <p className="text-body text-ink-muted">No status updates recorded.</p>
             ) : (
               <ol className="flex flex-col gap-3">
-                {incident.statusUpdates.map((update) => (
-                  <li key={update.id}>
-                    <p className="text-body-sm text-ink-muted">
-                      {update.author.fullName ?? 'A member'}, {formatDateTime(update.createdAt)}
-                    </p>
-                    <p className="whitespace-pre-wrap break-words text-body text-ink">
-                      {update.note}
-                    </p>
-                  </li>
-                ))}
+                {incident.statusUpdates.map((update) => {
+                  const corrected = createdAtOf.get(update.correctsId ?? '');
+                  return (
+                    <li key={update.id} className="flex flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-body-sm text-ink-muted">
+                          {update.author.fullName ?? 'A member'}, {formatDateTime(update.createdAt)}
+                        </p>
+                        {update.correctedById && <Badge tone="ended">Corrected</Badge>}
+                        {update.correctsId && (
+                          <Badge>
+                            {corrected
+                              ? `Correction of ${formatDateTime(corrected)}`
+                              : 'Correction'}
+                          </Badge>
+                        )}
+                      </div>
+                      <p
+                        className={`whitespace-pre-wrap break-words text-body ${update.correctedById ? 'text-ink-muted' : 'text-ink'}`}
+                      >
+                        {update.note}
+                      </p>
+                      {mayCorrect && !update.correctedById && (
+                        <div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={`Correct the update of ${formatDateTime(update.createdAt)}`}
+                            onClick={() => correct(update)}
+                          >
+                            Correct
+                          </Button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
             )}
           </section>

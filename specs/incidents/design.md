@@ -33,6 +33,13 @@ erDiagram
 ***Figure 1***: incidents slice. Routing (`contractId`, `organizationId`) is fixed at creation and redone
 only on reopen.
 
+`incident_status_updates` is append-only (a trigger refuses UPDATE and DELETE). A wrong status update is
+corrected by a new row whose nullable `correctsId` names it; the corrected row is never edited. `correctsId`
+is unique, so an update is corrected at most once, and a correction can itself be corrected by a later row.
+The detail read (api-design 02) returns `correctsId` and `correctedById` on every update so the page can
+mark the corrected one; a correction must name an update of the same incident (400 `VALIDATION_FAILED`) not
+yet corrected (409 `CONFLICT_UNIQUE`), checked under the incident row lock (dry run defect 15, REQ-EVT-14).
+
 ---
 
 ## 2. Incident lifecycle (D-034, D-038)
@@ -206,6 +213,7 @@ reopen window is never selected, since a window never set has not ended.
 | `STALE_VERSION` | 409 |
 | `CASE_ALREADY_CLOSED` | 409 |
 | `CONTRACT_NOT_DEFAULTED` | 409 |
+| `CONFLICT_UNIQUE` (status update already corrected) | 409 |
 
 ---
 

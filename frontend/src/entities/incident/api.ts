@@ -36,10 +36,21 @@ export interface Incident {
   version: number;
 }
 
+// api-design 02. Status updates are append-only: a correction is a new update naming the one it
+// corrects (`correctsId`), and the corrected one carries `correctedById` (dry run defect 15).
+export interface StatusUpdate {
+  id: string;
+  note: string;
+  author: PersonRef;
+  createdAt: string;
+  correctsId: string | null;
+  correctedById: string | null;
+}
+
 export interface IncidentDetail extends Incident {
   // What the owner reported on resolving; null until resolved and again after a reopen.
   outcomeNote: string | null;
-  statusUpdates: { id: string; note: string; author: PersonRef; createdAt: string }[];
+  statusUpdates: StatusUpdate[];
   authorityReports: {
     id: string;
     agency: string;
@@ -168,11 +179,14 @@ export const acknowledge = (id: string, expectedVersion: number, note?: string) 
 export const markResponding = (id: string, expectedVersion: number, note: string) =>
   post<Incident>(`/incidents/${id}/responding`, { expectedVersion, note });
 
-export const addStatus = (id: string, note: string) =>
-  post<{ id: string; note: string; createdAt: string; statusDueAt: string }>(
-    `/incidents/${id}/status-updates`,
-    { note },
-  );
+export const addStatus = (id: string, note: string, correctsId?: string) =>
+  post<{
+    id: string;
+    note: string;
+    createdAt: string;
+    statusDueAt: string;
+    correctsId: string | null;
+  }>(`/incidents/${id}/status-updates`, correctsId ? { note, correctsId } : { note });
 
 export const resolve = (id: string, expectedVersion: number, outcomeNote: string) =>
   post<Incident>(`/incidents/${id}/resolve`, { expectedVersion, outcomeNote });

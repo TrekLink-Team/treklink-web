@@ -27,6 +27,8 @@ export interface RespondingInput {
 
 export interface StatusUpdateInput {
   note: string;
+  // The earlier update this one corrects (dry run defect 15); the earlier row is never edited.
+  correctsId?: string;
 }
 
 export interface ResolveInput {
@@ -44,6 +46,7 @@ export interface StatusUpdateResult {
   note: string;
   createdAt: Date;
   statusDueAt: Date;
+  correctsId: string | null;
 }
 
 type MemberActor = Extract<IncidentActor, { kind: 'MEMBER' }>;
@@ -172,12 +175,14 @@ export class IncidentsService {
           ErrorCode.NOT_OWNER,
           'You do not have access to this.',
         );
+      const correctsId = input.correctsId ?? null;
+      if (correctsId) await this.correctable(correctsId, id, tx);
       const at = new Date();
       const statusDueAt = new Date(
         at.getTime() + (await this.parameters.get('incidents.staleLimitMinutes', tx)) * 60000,
       );
       const update = await this.repository.insertStatusUpdate(
-        { incidentId: id, authorId: actor.id, note, createdAt: at },
+        { incidentId: id, authorId: actor.id, note, createdAt: at, correctsId },
         tx,
       );
       await this.repository.resetStatusDue(id, statusDueAt, tx);
@@ -196,10 +201,34 @@ export class IncidentsService {
         subjectType: 'Incident',
         subjectId: id,
         before: { statusDueAt: current.statusDueAt },
-        after: { statusDueAt, statusUpdateId: update.id },
+        after: { statusDueAt, statusUpdateId: update.id, correctsId },
       } satisfies AuditRecordEvent);
-      return { id: update.id, note: update.note, createdAt: update.createdAt, statusDueAt };
+      return {
+        id: update.id,
+        note: update.note,
+        createdAt: update.createdAt,
+        statusDueAt,
+        correctsId,
+      };
     });
+  }
+
+  // A correction names an update of the same incident that no other row corrects yet. A foreign or
+  // unknown id is 400, a second correction 409; both run under the incident row lock.
+  private async correctable(correctsId: string, incidentId: string, tx: Prisma.TransactionClient) {
+    const target = await this.repository.findStatusUpdateForCorrection(correctsId, tx);
+    if (!target || target.incidentId !== incidentId)
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.VALIDATION_FAILED,
+        'correctsId must name a status update of this incident.',
+      );
+    if (target.correctedBy)
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.CONFLICT_UNIQUE,
+        'This status update is already corrected.',
+      );
   }
 
   private async transition(

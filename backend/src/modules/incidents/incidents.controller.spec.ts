@@ -2,6 +2,7 @@ import { createMongoAbility } from '@casl/ability';
 import { Reflector } from '@nestjs/core';
 import { Incident } from '@prisma/client';
 import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
 import {
   Caller,
   CHECK_POLICIES_KEY,
@@ -14,6 +15,7 @@ import {
   AuthorityReportDto,
   IncidentListQueryDto,
   IncidentsController,
+  StatusUpdateDto,
 } from './incidents.controller';
 import { IncidentsService } from './incidents.service';
 
@@ -142,5 +144,23 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
     await expect(controller.statusUpdate('inc-1', { note: 'ok' }, CALLER)).resolves.toEqual({
       id: 'su-1',
     });
+  });
+
+  it('passes a correction through with the id it corrects (dry run defect 15)', async () => {
+    const body = {
+      note: 'At the second ridge',
+      correctsId: '8f14e45f-ceea-4e7a-9a4b-1c2d3e4f5a6b',
+    };
+    await controller.statusUpdate('inc-1', body, CALLER);
+    expect(incidents.addStatus).toHaveBeenCalledWith('inc-1', body, CALLER);
+  });
+
+  it('accepts an optional UUID correctsId and rejects any other value', () => {
+    const errors = (body: object) =>
+      validateSync(plainToInstance(StatusUpdateDto, body)).map((error) => error.property);
+    expect(errors({ note: 'ok' })).toEqual([]);
+    expect(errors({ note: 'ok', correctsId: '8f14e45f-ceea-4e7a-9a4b-1c2d3e4f5a6b' })).toEqual([]);
+    expect(errors({ note: 'ok', correctsId: 'su-1' })).toEqual(['correctsId']);
+    expect(errors({ note: 'ok', correctsId: 42 })).toEqual(['correctsId']);
   });
 });

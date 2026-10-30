@@ -224,4 +224,17 @@ describe('IncidentsRepository status updates (task 4.1)', () => {
       data: { statusDueAt: NOW },
     });
   });
+
+  it('reads the corrected update with its correction inside the transaction', async () => {
+    const tx = { incidentStatusUpdate: { findUnique: jest.fn().mockResolvedValue(null) } };
+    const repository = new IncidentsRepository({} as PrismaService);
+    await repository.findStatusUpdateForCorrection(
+      'update-0',
+      tx as unknown as Prisma.TransactionClient,
+    );
+    expect(tx.incidentStatusUpdate.findUnique).toHaveBeenCalledWith({
+      where: { id: 'update-0' },
+      select: { id: true, incidentId: true, correctedBy: { select: { id: true } } },
+    });
+  });
 });

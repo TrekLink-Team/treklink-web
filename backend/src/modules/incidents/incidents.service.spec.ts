@@ -33,6 +33,7 @@ describe('IncidentsService task 4.1', () => {
   let repository: {
     lockById: jest.Mock;
     insertStatusUpdate: jest.Mock;
+    findStatusUpdateForCorrection: jest.Mock;
     resetStatusDue: jest.Mock;
     latestAcknowledgement?: jest.Mock;
   };
@@ -53,6 +54,7 @@ describe('IncidentsService task 4.1', () => {
         .mockImplementation((data: { note: string; createdAt: Date }) =>
           Promise.resolve({ id: 'update-1', ...data }),
         ),
+      findStatusUpdateForCorrection: jest.fn().mockResolvedValue(null),
       resetStatusDue: jest.fn().mockResolvedValue(undefined),
     };
     lifecycle = { apply: jest.fn().mockResolvedValue({ id: 'incident', state: 'APPLIED' }) };
@@ -381,7 +383,10 @@ describe('IncidentsService task 4.1', () => {
           note: 'At the ridge',
           createdAt: data.createdAt,
           statusDueAt: due,
+          correctsId: null,
         });
+        expect(data).toMatchObject({ correctsId: null });
+        expect(repository.findStatusUpdateForCorrection).not.toHaveBeenCalled();
         expect(lifecycle.apply).not.toHaveBeenCalled();
         expect(events.emitAfterCommit).toHaveBeenCalledWith('incident.changed', {
           incidentId: 'incident',
@@ -397,7 +402,7 @@ describe('IncidentsService task 4.1', () => {
             action: 'incident.status_update',
             subjectId: 'incident',
             before: { statusDueAt: DUE_BEFORE },
-            after: { statusDueAt: due, statusUpdateId: 'update-1' },
+            after: { statusDueAt: due, statusUpdateId: 'update-1', correctsId: null },
           }),
         );
       },
@@ -447,6 +452,75 @@ describe('IncidentsService task 4.1', () => {
         ErrorCode.FORBIDDEN,
       );
       expect(events.transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  // Dry run defect 15: a correction is a new row naming the one it corrects; nothing is edited.
+  describe('addStatus with correctsId', () => {
+    beforeEach(() => {
+      current = row('RESPONDING');
+    });
+
+    it('appends a correction of an uncorrected update of the same incident', async () => {
+      repository.findStatusUpdateForCorrection.mockResolvedValue({
+        id: 'update-0',
+        incidentId: 'incident',
+        correctedBy: null,
+      });
+      const result = await service.addStatus(
+        'incident',
+        { note: 'At the second ridge', correctsId: 'update-0' },
+        OPERATOR,
+      );
+      expect(repository.findStatusUpdateForCorrection).toHaveBeenCalledWith('update-0', tx);
+      expect(repository.insertStatusUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ note: 'At the second ridge', correctsId: 'update-0' }),
+        tx,
+      );
+      expect(result.correctsId).toBe('update-0');
+      expect(repository.resetStatusDue).toHaveBeenCalled();
+      expect(events.emitAfterCommit).toHaveBeenCalledWith(
+        'audit.record',
+        expect.objectContaining({
+          after: expect.objectContaining({ correctsId: 'update-0' }) as unknown,
+        }),
+      );
+    });
+
+    it.each([
+      ['an unknown id', null, 400, ErrorCode.VALIDATION_FAILED],
+      [
+        'an update of another incident',
+        { id: 'update-0', incidentId: 'other-incident', correctedBy: null },
+        400,
+        ErrorCode.VALIDATION_FAILED,
+      ],
+      [
+        'an update already corrected',
+        { id: 'update-0', incidentId: 'incident', correctedBy: { id: 'update-1' } },
+        409,
+        ErrorCode.CONFLICT_UNIQUE,
+      ],
+    ] as const)('refuses %s and writes nothing', async (_label, target, status, code) => {
+      repository.findStatusUpdateForCorrection.mockResolvedValue(target);
+      await expectError(
+        service.addStatus('incident', { note: 'x', correctsId: 'update-0' }, OPERATOR),
+        status,
+        code,
+      );
+      expect(repository.insertStatusUpdate).not.toHaveBeenCalled();
+      expect(repository.resetStatusDue).not.toHaveBeenCalled();
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('checks ownership before it reads the corrected update', async () => {
+      current = row('RESPONDING', { ownerId: 'other' });
+      await expectError(
+        service.addStatus('incident', { note: 'x', correctsId: 'update-0' }, OPERATOR),
+        403,
+        ErrorCode.NOT_OWNER,
+      );
+      expect(repository.findStatusUpdateForCorrection).not.toHaveBeenCalled();
     });
   });
 });

@@ -70,11 +70,18 @@ ENDPOINTS = [
        "Returns the incident with its device and holder label, owner, pending deadline, latest status "
        "updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an "
        "incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported "
-       "on resolving, `null` until the incident is resolved.", "UC-32, UC-33, FR-AUTH-11",
+       "on resolving, `null` until the incident is resolved. Each status update carries `correctsId`, the "
+       "update it corrects, and `correctedById`, the update that corrects it; both are null on an uncorrected "
+       "original. Status updates stay append-only, so a corrected update is still returned (dry run defect 15).",
+       "UC-32, UC-33, FR-AUTH-11",
        path=[I_PATH],
        response={**INC, "outcomeNote": None,
-                 "statusUpdates": [{"id": "su-3", "note": "Reached the holder, minor ankle injury",
-                                           "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW}],
+                 "statusUpdates": [{"id": "su-4", "note": "Reached the holder, minor knee injury",
+                                    "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW,
+                                    "correctsId": "su-3", "correctedById": None},
+                                   {"id": "su-3", "note": "Reached the holder, minor ankle injury",
+                                    "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW,
+                                    "correctsId": None, "correctedById": "su-4"}],
                  "authorityReports": [{"id": REPORT_ID, "agency": "Lam Dong provincial rescue (114)",
                                        "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}]},
        entity="Incident",
@@ -124,17 +131,30 @@ ENDPOINTS = [
 
     ep("POST", "/api/incidents/:id/status-updates", "Add a status update", "Owner (Org Manager or Org Operator)",
        "Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale timer; no state "
-       "change. Without one inside the stale limit the incident escalates (FR-INC-07, E03-5).",
+       "change. Without one inside the stale limit the incident escalates (FR-INC-07, E03-5). Status updates "
+       "are append-only: to correct one, the owner posts a new update with `correctsId` naming it. The corrected "
+       "row is never edited; the detail read marks it with `correctedById` (dry run defect 15). An update is "
+       "corrected at most once, and a correction is itself a status update that resets the stale timer.",
        "UC-33, FR-INC-07, E03-5",
-       path=[I_PATH], body=[["note", "Status", "string", "yes", "`Reached the holder, minor ankle injury`"]],
-       sample={"note": "Reached the holder, minor ankle injury"},
-       response={"id": "su-3", "note": "Reached the holder, minor ankle injury", "createdAt": NOW,
-                 "statusDueAt": "2026-10-20T04:45:00Z"}, status=201, message="Status recorded", entity="Incident",
-       errors=[NOT_OWNER, state_409("incident", "RESOLVED")],
-       steps=["Require ACKNOWLEDGED or RESPONDING and the caller as owner", "Insert the update, reset statusDueAt",
+       path=[I_PATH], body=[["note", "Status", "string", "yes", "`Reached the holder, minor ankle injury`"],
+                            ["correctsId", "The earlier update of this incident that this one corrects",
+                             "uuid", "no", "`su-3`"]],
+       sample={"note": "Reached the holder, minor knee injury", "correctsId": "su-3"},
+       response={"id": "su-4", "note": "Reached the holder, minor knee injury", "createdAt": NOW,
+                 "statusDueAt": "2026-10-20T04:45:00Z", "correctsId": "su-3"}, status=201, message="Status recorded",
+       entity="Incident",
+       errors=[(400, "VALIDATION_FAILED", "correctsId names no status update of this incident",
+                "correctsId must name a status update of this incident."),
+               NOT_OWNER, state_409("incident", "RESOLVED"),
+               (409, "CONFLICT_UNIQUE", "The update named by correctsId is already corrected",
+                "This status update is already corrected.")],
+       steps=["Require ACKNOWLEDGED or RESPONDING and the caller as owner",
+              "If correctsId is set: require an update of this incident that no row corrects yet",
+              "Insert the update, reset statusDueAt",
               "Emit incident.changed to the organization stream"],
        controller="IncidentsController", service="IncidentsService", call="addStatus(id, input, caller)",
-       sequence_note="Not drawn in the sequence: 400 VALIDATION_FAILED for a blank note, 403 FORBIDDEN, 404 NOT_FOUND and 409 INVALID_STATE_TRANSITION"
+       sequence_note="Not drawn in the sequence: 400 VALIDATION_FAILED for a blank note or a foreign correctsId, 403 FORBIDDEN, 404 NOT_FOUND, "
+                     "409 INVALID_STATE_TRANSITION and 409 CONFLICT_UNIQUE for an update already corrected"
                      ", which the Validation table and the activity diagram carry.",
        sequence=MEMBER_HEAD[:4] + ["participant R as IncidentsRepository",
            "U->>P: post a status update", "P->>Ctl: POST /api/incidents/:id/status-updates",
@@ -142,6 +162,10 @@ ENDPOINTS = [
            "alt refused: caller is not the owner",
            "    Svc-->>Ctl: 403 NOT_OWNER", "    Ctl-->>P: 403 envelope", "    P-->>U: MSG26",
            "else accepted",
+           "    opt correctsId is set",
+           "        Svc->>R: findStatusUpdateForCorrection(correctsId, tx)",
+           "        R-->>Svc: update of this incident, not yet corrected",
+           "    end",
            "    Svc->>R: insertStatusUpdate(row, tx)", "    Svc->>R: resetStatusDue(id, statusDueAt, tx)",
            "    Svc->>R: COMMIT, then incident.changed and audit.record",
            "    Svc-->>Ctl: status update and statusDueAt", "    Ctl-->>P: 201 envelope",
