@@ -55,11 +55,24 @@ const page = (items: unknown[]) => ({
 
 let records: unknown[] = [record()];
 let approvals: unknown[] = [];
+let devicesOut: unknown[] = [];
+const recordFilters: { status?: string[]; reason?: string[]; dueBefore?: string }[] = [];
 
 vi.mock('../entities/device/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/device/api')>()),
   useDevice: () => ({ data: { id: 'd-9', assetTag: 'TL-0009', version: 5 } }),
+  useDevices: (filters: { status?: string[] }) => ({
+    data: page(
+      filters.status?.includes('AVAILABLE')
+        ? [{ id: 'd-9', assetTag: 'TL-0009', status: 'AVAILABLE' }]
+        : devicesOut,
+    ),
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
   useMaintenanceRecords: (filters: { status?: string[]; dueBefore?: string }, enabled = true) => {
+    recordFilters.push(filters);
     if (!enabled) return { data: page([]), isLoading: false, error: null, refetch: vi.fn() };
     const items = filters.status?.includes('PENDING_APPROVAL')
       ? approvals
@@ -95,20 +108,26 @@ beforeEach(() => {
   currentUserId = 'staff-1';
   records = [record()];
   approvals = [];
+  devicesOut = [];
+  recordFilters.length = 0;
 });
+
+const table = async () => within(await screen.findByRole('table', { name: 'Maintenance records' }));
 afterEach(cleanup);
 
 describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('lists records with their reason, status and cost', async () => {
     renderPage();
-    expect(await screen.findByText('TL-0009')).toBeTruthy();
-    expect(screen.getByText('SCHEDULED')).toBeTruthy();
-    expect(screen.getByText('OPEN')).toBeTruthy();
+    const rows = await table();
+    expect(rows.getByText('TL-0009')).toBeTruthy();
+    expect(rows.getByText('Scheduled service')).toBeTruthy();
+    expect(rows.getByText('Open')).toBeTruthy();
+    expect(rows.getByText(/650,000|650\.000/)).toBeTruthy();
   });
 
   it('hides the approvals tab for Staff, and MSG26 on the approvals route', async () => {
     renderPage();
-    await screen.findByText('TL-0009');
+    await table();
     expect(screen.queryByRole('tab', { name: /Approvals/ })).toBeNull();
     renderPage('/t/maintenance/approvals');
     expect(await screen.findByText(/do not have access/i)).toBeTruthy();
@@ -117,8 +136,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('estimates an OPEN record, sending the amount and work-by', async () => {
     estimateMaintenance.mockResolvedValue(record({ status: 'OPEN' }));
     renderPage();
-    await screen.findByText('TL-0009');
-    fireEvent.click(screen.getByRole('button', { name: 'Estimate' }));
+    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Estimated cost/), { target: { value: '700000' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save estimate' }));
@@ -134,8 +152,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
 
   it('refuses to complete a SCHEDULED record with a missing checklist item', async () => {
     renderPage();
-    await screen.findByText('TL-0009');
-    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
+    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Battery replaced' } });
     fireEvent.change(dialog.getByLabelText(/Actual cost/), { target: { value: '500000' } });
@@ -147,8 +164,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('completes a SCHEDULED record once every checklist item is answered', async () => {
     completeMaintenance.mockResolvedValue(record({ status: 'COMPLETED' }));
     renderPage();
-    await screen.findByText('TL-0009');
-    fireEvent.click(screen.getByRole('button', { name: 'Complete' }));
+    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Battery replaced' } });
     fireEvent.change(dialog.getByLabelText(/Actual cost/), { target: { value: '500000' } });
@@ -177,7 +193,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     renderPage();
     await screen.findByRole('tab', { name: /Approvals/ });
     fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
-    expect(await screen.findByText('A different Admin must decide this.')).toBeTruthy();
+    expect((await screen.findAllByText('A different Admin must decide this.')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Decide' })).toBeNull();
   });
 
@@ -190,7 +206,11 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     renderPage();
     await screen.findByRole('tab', { name: /Approvals/ });
     fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Decide' }));
+    fireEvent.click(
+      within(await screen.findByRole('table', { name: 'Costs waiting for a decision' })).getByRole('button', {
+        name: 'Decide',
+      }),
+    );
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Approved amount/), { target: { value: '600000' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save decision' }));
@@ -214,7 +234,11 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     renderPage();
     await screen.findByRole('tab', { name: /Approvals/ });
     fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Decide' }));
+    fireEvent.click(
+      within(await screen.findByRole('table', { name: 'Costs waiting for a decision' })).getByRole('button', {
+        name: 'Decide',
+      }),
+    );
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Approved amount/), { target: { value: '600000' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save decision' }));
@@ -247,5 +271,120 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
         expectedVersion: 5,
       }),
     );
+  });
+
+  it('filters the records by status and reason', async () => {
+    renderPage();
+    await table();
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'COMPLETED' } });
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'INSPECTION_FAILED' } });
+    await waitFor(() =>
+      expect(recordFilters).toContainEqual(
+        expect.objectContaining({ status: ['COMPLETED'], reason: ['INSPECTION_FAILED'], pageNumber: 1 }),
+      ),
+    );
+  });
+
+  it('shows the record detail with its checklist results', async () => {
+    records = [
+      record({
+        status: 'COMPLETED',
+        resolution: 'Battery replaced',
+        actualCostVnd: 500000,
+        checklistResults: [{ item: 'Battery health', passed: true, note: 'replaced' }],
+      }),
+    ];
+    renderPage();
+    fireEvent.click((await table()).getByRole('button', { name: 'TL-0009' }));
+    const drawer = within(screen.getByRole('dialog', { name: 'Maintenance on TL-0009' }));
+    expect(drawer.getByText('Six-month service')).toBeTruthy();
+    expect(drawer.getByText('Battery replaced')).toBeTruthy();
+    expect(drawer.getByText('Battery health: Pass, replaced')).toBeTruthy();
+    expect(drawer.getByText('Vendor, Hoang Long Electronics')).toBeTruthy();
+    expect(drawer.queryByRole('button', { name: 'Complete' })).toBeNull();
+  });
+
+  it('completes an INSPECTION_FAILED record and says the device needs an intake check', async () => {
+    records = [record({ reason: 'INSPECTION_FAILED', checklist: [] })];
+    completeMaintenance.mockResolvedValue(record({ reason: 'INSPECTION_FAILED', status: 'COMPLETED' }));
+    renderPage();
+    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Antenna reseated' } });
+    fireEvent.change(dialog.getByLabelText(/Actual cost/), { target: { value: '0' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(completeMaintenance).toHaveBeenCalledWith('d-9', 'm-1', {
+        status: 'COMPLETED',
+        resolution: 'Antenna reseated',
+        actualCostVnd: 0,
+        expectedVersion: 1,
+      }),
+    );
+    expect(await screen.findByText(/TL-0009 stays in maintenance until it passes an intake check/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open TL-0009' }).getAttribute('href')).toBe('/t/devices/d-9');
+  });
+
+  it('asks before marking a record unrepairable', async () => {
+    completeMaintenance.mockResolvedValue(record({ status: 'UNREPAIRABLE' }));
+    renderPage();
+    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.click(dialog.getByLabelText('Unrepairable'));
+    fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Board cracked' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    const confirm = within(await screen.findByRole('dialog', { name: 'Mark TL-0009 unrepairable?' }));
+    expect(confirm.getByText('The device stays in maintenance until an Admin retires it.')).toBeTruthy();
+    expect(completeMaintenance).not.toHaveBeenCalled();
+    fireEvent.click(confirm.getByRole('button', { name: 'Mark unrepairable' }));
+    await waitFor(() =>
+      expect(completeMaintenance).toHaveBeenCalledWith('d-9', 'm-1', {
+        status: 'UNREPAIRABLE',
+        resolution: 'Board cracked',
+        expectedVersion: 1,
+      }),
+    );
+  });
+
+  it('shows MSG36 with Reload on STALE_VERSION, and Reload closes the dialog', async () => {
+    estimateMaintenance.mockRejectedValueOnce(new ApiError(409, 'STALE_VERSION', 'stale'));
+    renderPage();
+    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.change(dialog.getByLabelText(/Estimated cost/), { target: { value: '700000' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save estimate' }));
+    expect(await dialog.findByText('Someone else changed this. Reload to see the latest.')).toBeTruthy();
+    expect((dialog.getByLabelText(/Estimated cost/) as HTMLInputElement).value).toBe('700000');
+    fireEvent.click(dialog.getByRole('button', { name: 'Reload' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it("lists the week's service and the units due but still out", async () => {
+    devicesOut = [
+      { id: 'd-5', assetTag: 'TL-0005', status: 'RENTED', serviceDueAt: '2000-01-01' },
+      { id: 'd-6', assetTag: 'TL-0006', status: 'RENTED', serviceDueAt: '2999-01-01' },
+    ];
+    renderPage();
+    await table();
+    fireEvent.click(screen.getByRole('tab', { name: /This week's service/ }));
+    expect(await screen.findByText('Nothing is due this week.')).toBeTruthy();
+    expect(screen.getByText('Due but still out')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'TL-0005' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'TL-0006' })).toBeNull();
+    expect(recordFilters).toContainEqual(
+      expect.objectContaining({ status: ['OPEN'], reason: ['SCHEDULED', 'FIRMWARE_UPDATE'] }),
+    );
+  });
+
+  it('opens maintenance on a chosen available device from the page button', async () => {
+    renderPage();
+    await table();
+    fireEvent.click(screen.getByRole('button', { name: 'Open maintenance' }));
+    const picker = within(screen.getByRole('dialog', { name: 'Open maintenance' }));
+    fireEvent.click(picker.getByRole('button', { name: 'Continue' }));
+    expect(picker.getByText('Choose a device.')).toBeTruthy();
+    fireEvent.change(picker.getByLabelText(/Device/), { target: { value: 'd-9' } });
+    fireEvent.click(picker.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByRole('dialog', { name: 'Open maintenance for TL-0009' })).toBeTruthy();
   });
 });
