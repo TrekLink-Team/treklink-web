@@ -144,6 +144,8 @@ cannot reach, so rotation takes effect device by device at the counter.
 
 Declares `ORGANIZATION_EXIT_CHECKS` (multi): `{ canReactivate(orgId, tx, at): Promise<Reason | null>; canClose(orgId, tx): Promise<Reason | null> }`; `at` is the reactivation time.
 
+Declares `ORGANIZATION_COUNTS` (multi): `{ name: 'runningContracts' | 'openIncidents'; count(orgId): Promise<number> }`, for the counts of api-design 03. Provided by `rentals` (`runningContracts`: ACTIVE, ENDING, RETURN_DUE or OVERDUE) and `incidents` (`openIncidents`: not CLOSED); a count with no provider is reported as 0.
+
 Events emitted: `member.deactivated`, `apiKey.revoked`, `fieldStation.revoked`, `organization.statusChanged`, `audit.record`.
 
 ---
