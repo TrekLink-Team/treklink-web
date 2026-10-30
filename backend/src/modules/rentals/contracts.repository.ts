@@ -431,6 +431,16 @@ export class ContractsRepository {
     return tx.contractTerm.create({ data: term, select: TERM_SELECT });
   }
 
+  // Compare-and-set on version alone, for a change that keeps the status and writes no transition row
+  // (undoing a provisioning record, api-design 19). Returns false when another change won the row.
+  async bumpVersion(id: string, version: number, tx: Prisma.TransactionClient): Promise<boolean> {
+    const { count } = await tx.rentalContract.updateMany({
+      where: { id, version },
+      data: { version: { increment: 1 } },
+    });
+    return count === 1;
+  }
+
   // The approval or rejection fields beside the status change, which `transition` writes.
   async recordDecision(
     id: string,

@@ -79,6 +79,7 @@ describe('rentals (e2e)', () => {
     it.each([
       [`/api/contracts/${C}/devices/${D}/swap`, { reason: 'No GPS fix' }],
       [`/api/contracts/${C}/devices/${D}/provisioning`, { keyVersion: 1 }],
+      [`/api/contracts/${C}/devices/${D}/provisioning/undo`, { expectedVersion: 0 }],
     ])('refuses the counter steps to an Org Manager: %s', async (path, body) => {
       expectError(await e2e.send('manager-a', 'post', path, body), 403, 'FORBIDDEN');
     });
@@ -181,6 +182,22 @@ describe('rentals (e2e)', () => {
         await e2e.send('staff-1', 'post', `/api/contracts/${C}/devices/${D}/provisioning`, {
           keyVersion: 0,
         }),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it.each([
+      ['without a version', {}],
+      ['with a negative version', { expectedVersion: -1 }],
+    ])('api-design 19 refuses an undo %s', async (_, body) => {
+      expectError(
+        await e2e.send(
+          'staff-1',
+          'post',
+          `/api/contracts/${C}/devices/${D}/provisioning/undo`,
+          body,
+        ),
         400,
         'VALIDATION_FAILED',
       );

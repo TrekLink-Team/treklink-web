@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ContractStatus, PlanType, Prisma } from '@prisma/client';
+import { ContractStatus, DeviceStatus, PlanType, Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
@@ -63,6 +63,12 @@ export interface HandoverInput {
 export interface Swapped {
   released: { deviceId: string; assetTag: string | null; status: 'MAINTENANCE' };
   reserved: DeviceTag & { status: 'RESERVED' };
+}
+
+// api-design 19: the unit with its record cleared, and the contract version the page holds next.
+export interface ProvisioningUndone {
+  device: ProvisionedDevice;
+  contractVersion: number;
 }
 
 export interface StoredNote {
@@ -168,6 +174,63 @@ export class HandoverService {
         at,
         tx,
       );
+    });
+  }
+
+  // Staff undo a provisioning recorded on the wrong unit, before the handover (api-design 19,
+  // REQ-EVT-16, REQ-ERR-10). The checks run in the order of REQ-ERR-10; the contract version increases
+  // with the device's record cleared, and the append-only DeviceProvisioning row stays.
+  async undoProvisioning(
+    id: string,
+    deviceId: string,
+    expectedVersion: number,
+    actor: Caller,
+  ): Promise<ProvisioningUndone> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(id, tx);
+      if (contract.version !== expectedVersion) {
+        throw conflict(
+          ErrorCode.STALE_VERSION,
+          'Someone else changed this. Reload to see the latest.',
+        );
+      }
+      if (contract.status !== ContractStatus.APPROVED) throw notApproved(contract.status);
+      const row = await this.rowOf(contract, deviceId, tx);
+      const [unit] = await this.devices.provisioning([deviceId], tx);
+      if (row.handedOverAt || !unit || unit.status !== DeviceStatus.RESERVED) {
+        throw conflict(
+          ErrorCode.INVALID_STATE_TRANSITION,
+          `This cannot be done while it is ${unit?.status ?? 'handed over'}.`,
+        );
+      }
+      if (unit.keyOrganizationId !== contract.organizationId || unit.keyVersion === null) {
+        throw conflict(
+          ErrorCode.DEVICE_NOT_PROVISIONED,
+          `${unit.assetTag} has no provisioning to undo.`,
+        );
+      }
+      if (!(await this.contracts.bumpVersion(id, expectedVersion, tx))) {
+        throw conflict(
+          ErrorCode.STALE_VERSION,
+          'Someone else changed this. Reload to see the latest.',
+        );
+      }
+      const cleared = await this.devices.clearProvisioning(deviceId, tx);
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: actor.id,
+        actorRoles: actor.roles,
+        organizationId: contract.organizationId,
+        action: 'contract.provisioningUndone',
+        subjectType: 'RentalContract',
+        subjectId: id,
+        before: {
+          deviceId,
+          keyVersion: unit.keyVersion,
+          provisionedAt: unit.provisionedAt?.toISOString() ?? null,
+        },
+        after: { deviceId, keyVersion: null },
+      } satisfies AuditRecordEvent);
+      return { device: cleared, contractVersion: expectedVersion + 1 };
     });
   }
 
