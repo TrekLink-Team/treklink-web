@@ -22,6 +22,7 @@ import {
   Card,
   DataTable,
   Dialog,
+  EmptyState,
   Field,
   Input,
   PageHeader,
@@ -64,8 +65,12 @@ const StatusCell: React.FC<{ station: FieldStation }> = ({ station }) =>
   );
 
 // The release card (api-design 26). Its own query: a 503 RELEASE_UNAVAILABLE leaves the table usable.
+// RELEASE_UNAVAILABLE means no release is published on this server (no FIELD_STATION_RELEASE_DIR), a
+// state of the deployment rather than a failure, so it reads as an empty state; other errors keep Retry.
 const ReleaseCard: React.FC<{ organizationId: string }> = ({ organizationId }) => {
   const release = useFieldStationRelease(organizationId);
+  const unpublished =
+    release.error instanceof ApiError && release.error.errorCode === 'RELEASE_UNAVAILABLE';
   return (
     <Card aria-labelledby="release-title" className="mb-4">
       <h2 id="release-title" className="mb-3 text-title-sm text-ink">
@@ -78,7 +83,14 @@ const ReleaseCard: React.FC<{ organizationId: string }> = ({ organizationId }) =
           <Skeleton className="h-10" />
         </div>
       )}
-      {release.error && (
+      {unpublished && (
+        <EmptyState
+          className="py-6"
+          title="No download published yet"
+          description="The Field Station software is not published on this server. Ask TrekLink for the installer; the credentials below work with it."
+        />
+      )}
+      {release.error && !unpublished && (
         <Alert
           tone="error"
           action={

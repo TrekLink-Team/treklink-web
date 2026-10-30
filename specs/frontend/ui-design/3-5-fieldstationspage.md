@@ -72,7 +72,7 @@ A revoked row has no actions.
 | At the limit | Create Field Station is disabled and the count line reads "5 of 5 active stations". |
 | Error `STATION_LIMIT` | The server guard, for a create that raced past the disabled button (Figure 1, C1): the server message "Revoke an unused Field Station before creating another." as an error Alert in the create dialog. No SRS message code exists (D-059 rule 3). |
 | Error `INVALID_STATE_TRANSITION` (create) | MSG28 as an error Alert in the dialog, for example "This cannot be done while it is SUSPENDED." |
-| Error `RELEASE_UNAVAILABLE` (503) | The server message "The Field Station download is unavailable. Try again later." as an error Alert in the release card with Retry; the station table stays usable (Figure 1, C2). |
+| Error `RELEASE_UNAVAILABLE` (503) | No release is published on this server (no `FIELD_STATION_RELEASE_DIR`), a deployment state: the release card shows an empty state, "No download published yet", with no Retry; the station table stays usable. Any other error of the release read keeps the error Alert with Retry (Figure 1, C2, which still draws the earlier Alert; ruling 2026-10-30, leader, demo polish). |
 | Error `NOT_FOUND` (organization, station) | The server message ("Field Station not found.") as an error Alert; the list refetches. |
 | Forbidden | MSG26 full-page notice. |
 | Unauthenticated | Redirect to `/sign-in` with the same-origin `?next=` path (D-059 rule 1). |

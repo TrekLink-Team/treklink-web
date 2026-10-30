@@ -123,7 +123,7 @@ describe('FieldStationsPage (screen 3.5)', () => {
     expect(within(table).getByText('Outdated')).toBeTruthy();
   });
 
-  it('shows RELEASE_UNAVAILABLE in the release card while the station table stays usable', async () => {
+  it('shows RELEASE_UNAVAILABLE as an empty release card while the station table stays usable', async () => {
     serve(
       () => ({ items: [station()], limit: 5 }),
       () => {
@@ -131,8 +131,24 @@ describe('FieldStationsPage (screen 3.5)', () => {
       },
     );
     renderPage();
-    expect(await screen.findByText('The Field Station download is unavailable. Try again later.')).toBeTruthy();
+    const card = await screen.findByRole('region', { name: 'Field Station software' });
+    expect(await within(card).findByText('No download published yet')).toBeTruthy();
+    expect(within(card).queryByRole('alert')).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Retry' })).toBeNull();
     expect(await screen.findByRole('table', { name: 'Field Stations' })).toBeTruthy();
+  });
+
+  it('keeps the error and Retry in the release card for any other failure', async () => {
+    serve(
+      () => ({ items: [station()], limit: 5 }),
+      () => {
+        throw new ApiError(500, 'INTERNAL_ERROR', 'Something went wrong on our side.');
+      },
+    );
+    renderPage();
+    const card = await screen.findByRole('region', { name: 'Field Station software' });
+    expect(await within(card).findByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(within(card).queryByText('No download published yet')).toBeNull();
   });
 
   it('creates a Field Station, shows the credential once, and forgets it on Done', async () => {
