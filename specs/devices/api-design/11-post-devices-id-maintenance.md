@@ -65,12 +65,23 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for a reported fault, a service or 
       "workBy": "VENDOR",
       "vendorName": "Hoang Long Electronics",
       "estimatedCostVnd": 650000,
+      "estimatedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
       "approvedCostVnd": null,
+      "decision": null,
+      "decisionReason": null,
       "actualCostVnd": null,
       "warrantyUntil": null,
+      "checklist": [
+        "Battery health",
+        "Antenna and connector",
+        "Enclosure seal",
+        "Button and buzzer"
+      ],
       "checklistResults": null,
       "firmwareVersion": null,
+      "resolution": null,
       "openedAt": "2026-10-20T03:15:00.000Z",
+      "closedAt": null,
       "version": 1
     },
     "device": {
@@ -88,6 +99,7 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for a reported fault, a service or 
       "statusChangedAt": "2026-10-20T03:15:00.000Z",
       "keyVersion": null,
       "keyOrganizationId": null,
+      "keyOrganization": null,
       "batteryPct": 96,
       "lastSeenAt": "2026-10-20T03:15:00.000Z",
       "lastPosition": {

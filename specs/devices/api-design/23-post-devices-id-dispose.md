@@ -62,6 +62,7 @@ Records the verified wipe of a `RETIRED` device (channel key, node database, own
     "statusChangedAt": "2026-10-20T03:15:00.000Z",
     "keyVersion": null,
     "keyOrganizationId": null,
+    "keyOrganization": null,
     "batteryPct": 96,
     "lastSeenAt": "2026-10-20T03:15:00.000Z",
     "lastPosition": {
