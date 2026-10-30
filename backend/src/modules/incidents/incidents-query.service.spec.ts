@@ -21,6 +21,20 @@ const readOwn = (caller: Caller) =>
     { action: 'read', subject: 'Incident', conditions: { organizationId: caller.organizationId } },
   ]);
 
+// The alert log rules: `alertDelivery.read` for TrekLink roles, `alertDelivery.read.own` for an
+// Org Manager only.
+const alertsAll = createMongoAbility([{ action: 'read', subject: 'AlertDelivery' }]);
+const alertsOwn = (caller: Caller) =>
+  createMongoAbility([
+    { action: 'read', subject: 'Incident', conditions: { organizationId: caller.organizationId } },
+    {
+      action: 'read',
+      subject: 'AlertDelivery',
+      conditions: { organizationId: caller.organizationId },
+    },
+  ]);
+const MANAGER: Caller = { id: 'm-1', roles: ['ORG_MANAGER'], organizationId: 'org-a' };
+
 const ROW = {
   id: 'inc-1',
   code: 'INC-2026-000001',
@@ -50,6 +64,8 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     findById: jest.Mock;
     statusUpdates: jest.Mock;
     authorityReports: jest.Mock;
+    transitions: jest.Mock;
+    alertDeliveries: jest.Mock;
   };
   let organizations: { memberNames: jest.Mock };
   let contracts: { holderLabels: jest.Mock };
@@ -65,6 +81,61 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
           { id: 'su-1', note: 'Reached the holder', authorId: 'u-1', createdAt: ROW.lastEventAt },
         ]),
       authorityReports: jest.fn().mockResolvedValue([]),
+      transitions: jest.fn().mockResolvedValue([
+        {
+          seq: 1,
+          fromState: null,
+          toState: 'DETECTED',
+          actorId: null,
+          reason: 'CREATED',
+          createdAt: ROW.firstEventAt,
+        },
+        {
+          seq: 2,
+          fromState: 'NOTIFY_PRIMARY',
+          toState: 'ACKNOWLEDGED',
+          actorId: 'u-1',
+          reason: 'ACKNOWLEDGED',
+          createdAt: ROW.stateChangedAt,
+        },
+        {
+          seq: 3,
+          fromState: 'ACKNOWLEDGED',
+          toState: 'RESPONDING',
+          actorId: 'u-gone',
+          reason: 'RESPONDING',
+          createdAt: ROW.stateChangedAt,
+        },
+      ]),
+      alertDeliveries: jest.fn().mockResolvedValue([
+        {
+          tier: 'PRIMARY',
+          recipientId: 'u-1',
+          channel: 'WEBSOCKET',
+          status: 'SENT',
+          attempts: 1,
+          sentAt: ROW.firstEventAt,
+          lastError: null,
+        },
+        {
+          tier: 'PRIMARY',
+          recipientId: null,
+          channel: 'API_EVENT',
+          status: 'PENDING',
+          attempts: 0,
+          sentAt: null,
+          lastError: null,
+        },
+        {
+          tier: 'MANAGER',
+          recipientId: 'u-gone',
+          channel: 'EMAIL',
+          status: 'FAILED',
+          attempts: 5,
+          sentAt: null,
+          lastError: 'SMTP 451',
+        },
+      ]),
     };
     organizations = { memberNames: jest.fn().mockResolvedValue(new Map([['u-1', 'Pham Van D']])) };
     contracts = {
@@ -154,6 +225,71 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
   it('lets an unconditioned read rule (Staff, Admin) read any organization', async () => {
     const admin: Caller = { id: 'a-1', roles: ['ADMIN'], organizationId: null };
     await expect(service.detail('inc-1', admin, readAll)).resolves.toMatchObject({ id: 'inc-1' });
+  });
+
+  it('returns the trail in order with SYSTEM, the actor name, or the id of an unknown actor (api-design 12)', async () => {
+    const trail = await service.transitions('inc-1', MEMBER, readOwn(MEMBER));
+    expect(repository.transitions).toHaveBeenCalledWith('inc-1');
+    expect(organizations.memberNames).toHaveBeenCalledWith(['u-1', 'u-gone']);
+    expect(trail).toEqual([
+      {
+        seq: 1,
+        fromState: null,
+        toState: 'DETECTED',
+        actor: 'SYSTEM',
+        reason: 'CREATED',
+        createdAt: ROW.firstEventAt,
+      },
+      expect.objectContaining({ seq: 2, actor: 'Pham Van D' }),
+      expect.objectContaining({ seq: 3, actor: 'u-gone' }),
+    ]);
+  });
+
+  it('returns the alert log to an Org Manager with names and a null API-event recipient (api-design 14)', async () => {
+    const log = await service.alerts('inc-1', MANAGER, alertsOwn(MANAGER));
+    expect(repository.alertDeliveries).toHaveBeenCalledWith('inc-1');
+    expect(organizations.memberNames).toHaveBeenCalledWith(['u-1', 'u-gone']);
+    expect(log).toEqual([
+      {
+        tier: 'PRIMARY',
+        recipient: 'Pham Van D',
+        channel: 'WEBSOCKET',
+        status: 'SENT',
+        attempts: 1,
+        sentAt: ROW.firstEventAt,
+        lastError: null,
+      },
+      expect.objectContaining({ channel: 'API_EVENT', recipient: null }),
+      expect.objectContaining({ recipient: 'u-gone', status: 'FAILED', lastError: 'SMTP 451' }),
+    ]);
+  });
+
+  it('lets Staff read the alert log of any organization', async () => {
+    repository.findById.mockResolvedValue({ ...ROW, organizationId: 'org-b' });
+    await expect(service.alerts('inc-1', STAFF, alertsAll)).resolves.toHaveLength(3);
+  });
+
+  it('refuses the alert log to an Org Operator before reading any row (api-design 14)', async () => {
+    await expect(service.alerts('inc-1', MEMBER, readOwn(MEMBER))).rejects.toMatchObject({
+      errorCode: ErrorCode.FORBIDDEN,
+    });
+    expect(repository.findById).not.toHaveBeenCalled();
+    expect(repository.alertDeliveries).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a missing incident', null],
+    ['another organization', { ...ROW, organizationId: 'org-b' }],
+  ])('answers 404 on the trail and the alert log for %s', async (_label, row) => {
+    repository.findById.mockResolvedValue(row);
+    await expect(service.transitions('inc-1', MEMBER, readOwn(MEMBER))).rejects.toMatchObject({
+      errorCode: ErrorCode.NOT_FOUND,
+    });
+    await expect(service.alerts('inc-1', MANAGER, alertsOwn(MANAGER))).rejects.toMatchObject({
+      errorCode: ErrorCode.NOT_FOUND,
+    });
+    expect(repository.transitions).not.toHaveBeenCalled();
+    expect(repository.alertDeliveries).not.toHaveBeenCalled();
   });
 
   it.each([

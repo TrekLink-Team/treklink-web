@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Incident, IncidentState, Prisma } from '@prisma/client';
+import { AlertChannel, AlertStatus, Incident, IncidentState, Prisma } from '@prisma/client';
 import { subject } from '@casl/ability';
 import { Caller, PolicyAbility } from '../../common/decorators/access.decorator';
 import {
@@ -67,6 +67,28 @@ export interface IncidentDetailView extends IncidentView {
   }[];
 }
 
+// One row of the transition trail (api-design 12). `actor` is the person's name, or `SYSTEM`.
+export interface TransitionView {
+  seq: number;
+  fromState: IncidentState | null;
+  toState: IncidentState;
+  actor: string;
+  reason: string;
+  createdAt: Date;
+}
+
+// One row of the alert delivery log (api-design 14). `recipient` is null for an organization
+// API event, which has no person.
+export interface AlertDeliveryView {
+  tier: string;
+  recipient: string | null;
+  channel: AlertChannel;
+  status: AlertStatus;
+  attempts: number;
+  sentAt: Date | null;
+  lastError: string | null;
+}
+
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Incident not found.');
 // An organization id no row carries. Only an unconditioned `read Incident` rule (`incident.read`,
@@ -77,10 +99,16 @@ const ANY_ORGANIZATION = '*any organization*';
 // review): an unconditioned rule reads every organization, `incident.read.own` reads the caller's
 // own. An account with no organization and no unconditioned rule is refused, so a missing
 // membership never widens the read to every organization.
-const readScope = (ability: PolicyAbility, caller: Caller): { organizationId?: string } => {
-  if (ability.can('read', subject('Incident', { organizationId: ANY_ORGANIZATION }))) return {};
+// The alert log reads the same way through `alertDelivery.read` and `alertDelivery.read.own`, which
+// only an Org Manager holds among members (api-design 14), so an Operator is refused 403.
+const readScope = (
+  ability: PolicyAbility,
+  caller: Caller,
+  model: 'Incident' | 'AlertDelivery' = 'Incident',
+): { organizationId?: string } => {
+  if (ability.can('read', subject(model, { organizationId: ANY_ORGANIZATION }))) return {};
   const { organizationId } = caller;
-  if (organizationId !== null && ability.can('read', subject('Incident', { organizationId })))
+  if (organizationId !== null && ability.can('read', subject(model, { organizationId })))
     return { organizationId };
   throw new DomainException(
     HttpStatus.FORBIDDEN,
@@ -89,7 +117,7 @@ const readScope = (ability: PolicyAbility, caller: Caller): { organizationId?: s
   );
 };
 
-// Task 5.1, the reads of api-design 01 and 02 (FR-AUTH-11). A member sees the routed organization's
+// Task 5.1, the reads of api-design 01, 02, 12 and 14 (FR-AUTH-11). A member sees the routed organization's
 // incidents only; another organization's incident answers 404. TrekLink Staff see every incident.
 @Injectable()
 export class IncidentsQueryService {
@@ -127,10 +155,7 @@ export class IncidentsQueryService {
   }
 
   async detail(id: string, caller: Caller, ability: PolicyAbility): Promise<IncidentDetailView> {
-    const { organizationId } = readScope(ability, caller);
-    const incident = await this.repository.findById(id);
-    if (!incident || (organizationId !== undefined && incident.organizationId !== organizationId))
-      throw notFound();
+    const incident = await this.readable(id, readScope(ability, caller));
     const [updates, reports] = await Promise.all([
       this.repository.statusUpdates(id),
       this.repository.authorityReports(id),
@@ -147,6 +172,43 @@ export class IncidentsQueryService {
       })),
       authorityReports: reports,
     };
+  }
+
+  // api-design 12, FR-INC-04, BR-18.
+  async transitions(id: string, caller: Caller, ability: PolicyAbility): Promise<TransitionView[]> {
+    await this.readable(id, readScope(ability, caller));
+    const rows = await this.repository.transitions(id);
+    const names = await this.organizations.memberNames(
+      rows.flatMap((row) => (row.actorId ? [row.actorId] : [])),
+    );
+    return rows.map(({ actorId, ...row }) => ({
+      ...row,
+      actor: actorId === null ? 'SYSTEM' : (names.get(actorId) ?? actorId),
+    }));
+  }
+
+  // api-design 14, FR-INC-12, E03-7.
+  async alerts(id: string, caller: Caller, ability: PolicyAbility): Promise<AlertDeliveryView[]> {
+    await this.readable(id, readScope(ability, caller, 'AlertDelivery'));
+    const rows = await this.repository.alertDeliveries(id);
+    const names = await this.organizations.memberNames(
+      rows.flatMap((row) => (row.recipientId ? [row.recipientId] : [])),
+    );
+    return rows.map(({ recipientId, ...row }) => ({
+      ...row,
+      recipient: recipientId === null ? null : (names.get(recipientId) ?? recipientId),
+    }));
+  }
+
+  // The incident when the read scope covers it; a missing one or another organization's is 404.
+  private async readable(id: string, scope: { organizationId?: string }): Promise<Incident> {
+    const incident = await this.repository.findById(id);
+    if (
+      !incident ||
+      (scope.organizationId !== undefined && incident.organizationId !== scope.organizationId)
+    )
+      throw notFound();
+    return incident;
   }
 
   // Device asset tag, holder label and owner name for each row, in three batched reads.

@@ -84,7 +84,8 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
     incident: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock };
     incidentStatusUpdate: { findMany: jest.Mock };
     authorityReport: { findMany: jest.Mock };
-    incidentTransition: { findFirst: jest.Mock };
+    incidentTransition: { findFirst: jest.Mock; findMany: jest.Mock };
+    alertDelivery: { findMany: jest.Mock };
   };
   let repository: IncidentsRepository;
 
@@ -98,7 +99,11 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
       },
       incidentStatusUpdate: { findMany: jest.fn().mockResolvedValue([]) },
       authorityReport: { findMany: jest.fn().mockResolvedValue([]) },
-      incidentTransition: { findFirst: jest.fn().mockResolvedValue(null) },
+      incidentTransition: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      alertDelivery: { findMany: jest.fn().mockResolvedValue([]) },
     };
     repository = new IncidentsRepository(prisma as unknown as PrismaService);
   });
@@ -124,6 +129,23 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
     await repository.authorityReports('inc-1');
     expect(prisma.authorityReport.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { incidentId: 'inc-1' }, orderBy: { reportedAt: 'desc' } }),
+    );
+  });
+
+  it('reads the transition trail in sequence order (api-design 12)', async () => {
+    await repository.transitions('inc-1');
+    expect(prisma.incidentTransition.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { incidentId: 'inc-1' }, orderBy: { seq: 'asc' } }),
+    );
+  });
+
+  it('reads the alert deliveries oldest first (api-design 14)', async () => {
+    await repository.alertDeliveries('inc-1');
+    expect(prisma.alertDelivery.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { incidentId: 'inc-1' },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
     );
   });
 

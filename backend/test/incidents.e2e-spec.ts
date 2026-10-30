@@ -11,7 +11,7 @@ import { AlertDispatcherJob } from '../src/modules/incidents/alerts/alert-dispat
 import { IncidentsQueryService } from '../src/modules/incidents/incidents-query.service';
 import { IncidentsService } from '../src/modules/incidents/incidents.service';
 
-// Incidents api-design 01 to 07 through the real HTTP pipeline (incidents 6.2, part): the JWT guard,
+// Incidents api-design 01 to 07, 12 and 14 through the real HTTP pipeline (incidents 6.2, part): the JWT guard,
 // the CASL policy of each route, DTO validation, the response message and the D-002 envelope. The
 // services are stubbed; their behaviour is covered by the unit suites and by mf03.db-spec.ts.
 
@@ -19,6 +19,27 @@ const ID = '7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d';
 const DEVICE = '0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10';
 const ROW = { id: ID, state: 'ACKNOWLEDGED' };
 const VIEW = { id: ID, code: 'INC-2026-000045', state: 'ACKNOWLEDGED', version: 2 };
+const TRAIL = [
+  {
+    seq: 1,
+    fromState: null,
+    toState: 'DETECTED',
+    actor: 'SYSTEM',
+    reason: 'CREATED',
+    createdAt: '2026-10-20T03:15:00.000Z',
+  },
+];
+const ALERT_LOG = [
+  {
+    tier: 'PRIMARY',
+    recipient: 'Pham Van D',
+    channel: 'WEBSOCKET',
+    status: 'SENT',
+    attempts: 1,
+    sentAt: '2026-10-20T03:15:00.000Z',
+    lastError: null,
+  },
+];
 
 const account = (id: string, accountType: string, role: string) => ({
   id,
@@ -36,6 +57,7 @@ const account = (id: string, accountType: string, role: string) => ({
 const ACCOUNTS: Record<string, ReturnType<typeof account>> = {
   'staff-1': account('staff-1', 'TREKLINK', 'STAFF'),
   'operator-a': account('operator-a', 'ORGANIZATION', 'ORG_OPERATOR'),
+  'manager-a': account('manager-a', 'ORGANIZATION', 'ORG_MANAGER'),
 };
 
 const MEMBER_ROWS: Record<string, unknown> = {
@@ -43,12 +65,16 @@ const MEMBER_ROWS: Record<string, unknown> = {
     role: 'OPERATOR',
     organization: { id: 'org-a', code: 'ORG-0001', legalName: 'ACME', status: 'ACTIVE' },
   },
+  'manager-a': {
+    role: 'MANAGER',
+    organization: { id: 'org-a', code: 'ORG-0001', legalName: 'ACME', status: 'ACTIVE' },
+  },
 };
 
-const permission = (key: string, action: string, own: boolean) => ({
+const permission = (key: string, action: string, own: boolean, subject = 'Incident') => ({
   key,
   action,
-  subject: 'Incident',
+  subject,
   conditions: own ? { organizationId: '${user.organizationId}' } : null,
   fields: [],
   inverted: false,
@@ -58,16 +84,25 @@ const permission = (key: string, action: string, own: boolean) => ({
 // The CASL ability the controller passes to the reads (PR #114 review).
 const AN_ABILITY: unknown = expect.objectContaining({ can: expect.any(Function) as unknown });
 
-// The seeded permission rows of the migration seed for these two roles.
+// The seeded permission rows of the migration seed for these roles. An Org Manager holds every Org
+// Operator permission plus `alertDelivery.read.own` (FR-AUTH-10, api-design 14).
+const OPERATOR_PERMISSIONS = [
+  permission('incident.read.own', 'read', true),
+  permission('incident.respond.own', 'respond', true),
+];
 const PERMISSIONS: Record<string, unknown[]> = {
-  STAFF: [permission('incident.read', 'read', false)],
-  ORG_OPERATOR: [
-    permission('incident.read.own', 'read', true),
-    permission('incident.respond.own', 'respond', true),
+  STAFF: [
+    permission('incident.read', 'read', false),
+    permission('alertDelivery.read', 'read', false, 'AlertDelivery'),
+  ],
+  ORG_OPERATOR: OPERATOR_PERMISSIONS,
+  ORG_MANAGER: [
+    ...OPERATOR_PERMISSIONS,
+    permission('alertDelivery.read.own', 'read', true, 'AlertDelivery'),
   ],
 };
 
-describe('incidents API (e2e, api-design 01 to 07)', () => {
+describe('incidents API (e2e, api-design 01 to 07, 12 and 14)', () => {
   let app: NestExpressApplication;
   let jwt: JwtService;
   const incidents = {
@@ -77,7 +112,13 @@ describe('incidents API (e2e, api-design 01 to 07)', () => {
     resolve: jest.fn(),
     falseAlarm: jest.fn(),
   };
-  const queries = { list: jest.fn(), detail: jest.fn(), views: jest.fn() };
+  const queries = {
+    list: jest.fn(),
+    detail: jest.fn(),
+    views: jest.fn(),
+    transitions: jest.fn(),
+    alerts: jest.fn(),
+  };
 
   const prisma = {
     user: {
@@ -137,6 +178,8 @@ describe('incidents API (e2e, api-design 01 to 07)', () => {
     });
     queries.detail.mockResolvedValue({ ...VIEW, statusUpdates: [], authorityReports: [] });
     queries.views.mockResolvedValue([VIEW]);
+    queries.transitions.mockResolvedValue(TRAIL);
+    queries.alerts.mockResolvedValue(ALERT_LOG);
     for (const action of ['acknowledge', 'responding', 'resolve', 'falseAlarm'] as const)
       incidents[action].mockResolvedValue(ROW);
     incidents.addStatus.mockResolvedValue({ id: 'su-1', note: 'ok' });
@@ -320,6 +363,82 @@ describe('incidents API (e2e, api-design 01 to 07)', () => {
         note: 'x',
       });
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe('GET /api/incidents/:id/transitions (12)', () => {
+    it('returns the trail in the envelope to a member', async () => {
+      const response = await get('operator-a', `/api/incidents/${ID}/transitions`);
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        result: TRAIL,
+        isSuccess: true,
+        statusCode: 200,
+        message: 'OK',
+      });
+      expect(queries.transitions).toHaveBeenCalledWith(
+        ID,
+        { id: 'operator-a', roles: ['ORG_OPERATOR'], organizationId: 'org-a' },
+        AN_ABILITY,
+      );
+    });
+
+    it('lets TrekLink Staff read it', async () => {
+      expect((await get('staff-1', `/api/incidents/${ID}/transitions`)).status).toBe(200);
+    });
+
+    it('answers 404 NOT_FOUND for another organization', async () => {
+      queries.transitions.mockRejectedValue(
+        new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Incident not found.'),
+      );
+      const response = await get('operator-a', `/api/incidents/${ID}/transitions`);
+      expect(response.status).toBe(404);
+      expect(response.body).toMatchObject({
+        result: { errorCode: 'NOT_FOUND' },
+        message: 'Incident not found.',
+      });
+    });
+
+    it('refuses an id that is not a UUID with 400', async () => {
+      expect((await get('operator-a', '/api/incidents/INC-1/transitions')).status).toBe(400);
+      expect(queries.transitions).not.toHaveBeenCalled();
+    });
+
+    it('answers 401 without a token', async () => {
+      await request(app.getHttpServer()).get(`/api/incidents/${ID}/transitions`).expect(401);
+    });
+  });
+
+  describe('GET /api/incidents/:id/alerts (14)', () => {
+    it('returns the alert log to an Org Manager', async () => {
+      const response = await get('manager-a', `/api/incidents/${ID}/alerts`);
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        result: ALERT_LOG,
+        isSuccess: true,
+        statusCode: 200,
+        message: 'OK',
+      });
+      expect(queries.alerts).toHaveBeenCalledWith(
+        ID,
+        { id: 'manager-a', roles: ['ORG_MANAGER'], organizationId: 'org-a' },
+        AN_ABILITY,
+      );
+    });
+
+    it('lets TrekLink Staff read it', async () => {
+      expect((await get('staff-1', `/api/incidents/${ID}/alerts`)).status).toBe(200);
+    });
+
+    it('refuses an Org Operator with 403 FORBIDDEN before the service runs', async () => {
+      const response = await get('operator-a', `/api/incidents/${ID}/alerts`);
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ result: { errorCode: 'FORBIDDEN' } });
+      expect(queries.alerts).not.toHaveBeenCalled();
+    });
+
+    it('answers 401 without a token', async () => {
+      await request(app.getHttpServer()).get(`/api/incidents/${ID}/alerts`).expect(401);
     });
   });
 });

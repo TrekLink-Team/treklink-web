@@ -162,6 +162,39 @@ export class IncidentsRepository {
     });
   }
 
+  // The append-only trail in sequence order (api-design 12).
+  transitions(incidentId: string) {
+    return this.prisma.incidentTransition.findMany({
+      where: { incidentId },
+      orderBy: { seq: 'asc' },
+      select: {
+        seq: true,
+        fromState: true,
+        toState: true,
+        actorId: true,
+        reason: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  // Every alert row of the incident, oldest first (api-design 14).
+  alertDeliveries(incidentId: string) {
+    return this.prisma.alertDelivery.findMany({
+      where: { incidentId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        tier: true,
+        recipientId: true,
+        channel: true,
+        status: true,
+        attempts: true,
+        sentAt: true,
+        lastError: true,
+      },
+    });
+  }
+
   // The latest acknowledgement, for MSG27: `acknowledgedAt` keeps the first one after a takeover.
   latestAcknowledgement(incidentId: string) {
     return this.prisma.incidentTransition.findFirst({

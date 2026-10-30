@@ -32,7 +32,13 @@ import {
 } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { PagedQueryDto, PagedResult } from '../../common/dto/paging';
-import { IncidentDetailView, IncidentsQueryService, IncidentView } from './incidents-query.service';
+import {
+  AlertDeliveryView,
+  IncidentDetailView,
+  IncidentsQueryService,
+  IncidentView,
+  TransitionView,
+} from './incidents-query.service';
 import { IncidentsService, StatusUpdateResult } from './incidents.service';
 
 const NOTE_MAX = 2000;
@@ -104,9 +110,10 @@ export class FalseAlarmDto extends VersionDto {
   reason!: string;
 }
 
-// Task 6.1, api-design 01 to 07. Reads need `read Incident` (`incident.read` for Staff,
-// `incident.read.own` for members); member actions need `respond Incident` (`incident.respond.own`).
-// The services check the organization and answer 404 for another one's incident.
+// Task 6.1, api-design 01 to 07, 12 and 14. Reads need `read Incident` (`incident.read` for Staff,
+// `incident.read.own` for members); the alert log needs `read AlertDelivery` (Staff, or an Org
+// Manager's own); member actions need `respond Incident` (`incident.respond.own`). The services
+// check the organization and answer 404 for another one's incident.
 @Controller('incidents')
 export class IncidentsController {
   constructor(
@@ -134,6 +141,28 @@ export class IncidentsController {
     @CurrentAbility() ability: PolicyAbility,
   ): Promise<IncidentDetailView> {
     return this.queries.detail(id, caller, ability);
+  }
+
+  @Get(':id/transitions')
+  @CheckPolicies((ability) => ability.can('read', 'Incident'))
+  @ResponseMessage('OK')
+  transitions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentCaller() caller: Caller,
+    @CurrentAbility() ability: PolicyAbility,
+  ): Promise<TransitionView[]> {
+    return this.queries.transitions(id, caller, ability);
+  }
+
+  @Get(':id/alerts')
+  @CheckPolicies((ability) => ability.can('read', 'AlertDelivery'))
+  @ResponseMessage('OK')
+  alerts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentCaller() caller: Caller,
+    @CurrentAbility() ability: PolicyAbility,
+  ): Promise<AlertDeliveryView[]> {
+    return this.queries.alerts(id, caller, ability);
   }
 
   @Post(':id/acknowledge')
