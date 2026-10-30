@@ -15,7 +15,8 @@ KhoaDD under D-078, built by the leader's cloud agent. Branch `feat/devices-main
 - `ae85349` test: unit tests for device retire and dispose (devices 2.4, 2.7)
 - `9f052dd` fix: send the ticked wipe steps from the dispose dialog
 - `66f2680` docs: record retire and dispose progress on devices 2.4, 2.7 and frontend 4.2
-- this file, `docs: ...`
+- `904962c` docs: this handoff
+- the `MAINTENANCE_OPEN` retire guard and this update (see `git log`)
 
 ## What was built
 
@@ -31,11 +32,11 @@ KhoaDD under D-078, built by the leader's cloud agent. Branch `feat/devices-main
 ## Checks (2026-10-30, this session)
 
 - Backend: eslint 0 errors (1 warning in `test/incidents.e2e-spec.ts`, not touched), `tsc` clean,
-  module-boundary check passed (360 files, 9 modules); devices 13 suites, 107 tests; full suite
+  module-boundary check passed (360 files, 9 modules); devices 13 suites, 108 tests after the ruling; full suite
   153 suites, 1683 tests.
 - Local Postgres 16: `prisma migrate deploy` applies all migrations, `device.dispose` granted to
   ADMIN; `test:db` 10 suites, 73 tests.
-- Frontend: lint and typecheck clean; `DeviceDetailPage.test.tsx` 10 tests; full suite 33 files,
+- Frontend: lint and typecheck clean; `DeviceDetailPage.test.tsx` 11 tests after the ruling; full suite 33 files,
   431 tests.
 - HTTP smoke on a fresh demo seed: Staff retire 403, stale 409, retire 200 `RETIRED`, repeat 409,
   dispose with a false step 400 `WIPE_INCOMPLETE`, dispose 201 `DISPOSED` with a
@@ -45,26 +46,25 @@ KhoaDD under D-078, built by the leader's cloud agent. Branch `feat/devices-main
 
 - `specs/devices/tasks.md`: dated "Partly done" lines on 2.4 (retire) and 2.7 (disposal only).
 - `specs/frontend/tasks.md` 4.2: the progress line no longer claims the routes are unserved.
-- api-design 16 and 23 already existed; no generator run.
+- api-design 16 regenerated (devices only) for the `MAINTENANCE_OPEN` row; 23 unchanged.
 
 ## Shared files touched
 
 None in the new commits. The wip commit touched `error-code.enum.ts`, `catalog.py`,
 `permission-matrix.md` and added the forward migration.
 
-## Open decision (not implemented)
+## Decision: retire with an open maintenance record (ruled 2026-10-30)
 
-Retire accepts a `MAINTENANCE` device whose maintenance record is still `OPEN`; the record stays
-open on a `RETIRED` device. The spec is silent.
-
-1. **Recommended**: refuse with 409 `MAINTENANCE_OPEN`, so the record is closed `UNREPAIRABLE`
-   first.
-2. Close the open record `UNREPAIRABLE` automatically on retire.
-3. Leave as is.
+Retire used to accept a `MAINTENANCE` device whose maintenance record was still `OPEN`, leaving the
+record open on a `RETIRED` device; the spec was silent. Options put to the leader: (1) refuse with
+409 `MAINTENANCE_OPEN`, (2) close the record `UNREPAIRABLE` automatically, (3) leave as is. The
+leader chose option 1. `DevicesService.retire` now asks `MaintenanceService.hasOpenRecord` after the
+state check (409 `MAINTENANCE_OPEN`, "Close the maintenance record first."); the retire dialog shows
+MSG29. api-design 16 regenerated from `scripts/specs/endpoints/devices.py` with the new 409 row.
+Verified over HTTP on TL-0018 (open `INSPECTION_FAILED` record): 409 `MAINTENANCE_OPEN`.
 
 ## Not done
 
-- The open decision above.
 - Loss cases half of devices 2.7 (`loss-cases.service.ts`, `devices.lossSearch` job).
 - Inspection routing unit tests (devices 2.4).
 
