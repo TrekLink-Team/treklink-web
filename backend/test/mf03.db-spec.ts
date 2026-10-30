@@ -68,6 +68,7 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     {} as never,
     {} as never,
     events,
+    devices,
   );
   const ingestion = new IngestionService(
     new IngestionRepository(prisma),

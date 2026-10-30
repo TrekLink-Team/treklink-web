@@ -103,10 +103,13 @@ export class DevicesRepository {
     quantity: number,
     at: Date,
     tx: Prisma.TransactionClient,
+    deviceIds?: readonly string[],
   ): Promise<DeviceTag[]> {
+    const choice = deviceIds ? Prisma.sql`AND "id" IN (${Prisma.join(deviceIds)})` : Prisma.empty;
     const picked = await tx.$queryRaw<DeviceTag[]>`
       SELECT "id", "assetTag" FROM "devices"
       WHERE "hardwareVariantId" = ${variantId} AND "status" = 'AVAILABLE'::"DeviceStatus"
+      ${choice}
       ORDER BY "statusChangedAt" ASC, "assetTag" ASC
       LIMIT ${quantity}
       FOR UPDATE SKIP LOCKED`;

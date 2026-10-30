@@ -234,7 +234,11 @@ export class ContractsController {
   ) {
     const approved = await this.decisions.approve(
       id,
-      { handoverAt: new Date(dto.handoverAt), expectedVersion: dto.expectedVersion },
+      {
+        handoverAt: new Date(dto.handoverAt),
+        expectedVersion: dto.expectedVersion,
+        deviceIds: dto.deviceIds,
+      },
       caller,
     );
     const label = await this.reads.labeller([approved.contract]);

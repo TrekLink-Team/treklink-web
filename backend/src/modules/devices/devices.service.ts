@@ -133,8 +133,9 @@ export class DevicesService {
     quantity: number,
     at: Date,
     tx: Prisma.TransactionClient,
+    deviceIds?: readonly string[],
   ): Promise<DeviceTag[]> {
-    const taken = await this.devices.reserveAvailable(variant.id, quantity, at, tx);
+    const taken = await this.devices.reserveAvailable(variant.id, quantity, at, tx, deviceIds);
     if (taken.length < quantity) {
       throw new DomainException(
         HttpStatus.CONFLICT,
@@ -664,7 +665,7 @@ export class DevicesService {
     return rows.map(({ _count, ...variant }) => ({ ...variant, deviceCount: _count.devices }));
   }
 
-  variants(activeOnly = true): Promise<VariantSummary[]> {
-    return this.devices.variants(activeOnly);
+  variants(activeOnly = true, tx?: Prisma.TransactionClient): Promise<VariantSummary[]> {
+    return this.devices.variants(activeOnly, tx);
   }
 }

@@ -23,7 +23,14 @@ describe('rentals foundation against Postgres (REQ-UBI-01, REQ-UBI-02, BR-03)', 
   const events = new TransactionalEvents(prisma, new EventEmitter2());
   const lifecycle = new ContractLifecycleService(repository, events);
   // The custody and close-check reads use only the repository; the request's collaborators stay out.
-  const contracts = new ContractsService(repository, {} as never, {} as never, {} as never, events);
+  const contracts = new ContractsService(
+    repository,
+    {} as never,
+    {} as never,
+    {} as never,
+    events,
+    {} as never,
+  );
   const at = new Date('2026-10-25T02:00:00.000Z');
   const runId = randomUUID();
   const staff = { id: '', roles: ['STAFF'], organizationId: null };

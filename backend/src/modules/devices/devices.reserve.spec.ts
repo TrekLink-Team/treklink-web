@@ -47,6 +47,26 @@ describe('DevicesService.reserve and release', () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
 
+  it('filters explicit choices under the same variant, availability and row locks', async () => {
+    queryRaw.mockResolvedValue([{ id: 'd-2', assetTag: 'TL-0002' }]);
+    await service.reserve(VARIANT, 1, AT, tx, ['d-2']);
+    const [strings, ...values] = queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
+    const sql = Prisma.sql(strings, ...values);
+    expect(sql.text).toContain('"hardwareVariantId" = $1');
+    expect(sql.text).toContain('"status" = \'AVAILABLE\'');
+    expect(sql.text).toContain('AND "id" IN ($2)');
+    expect(sql.text).toContain('FOR UPDATE SKIP LOCKED');
+    expect(sql.values).toEqual(['v-3', 'd-2', 1]);
+  });
+
+  it('does not replace an unavailable explicit choice with a different device', async () => {
+    queryRaw.mockResolvedValue([]);
+    await expect(service.reserve(VARIANT, 1, AT, tx, ['d-2'])).rejects.toMatchObject({
+      errorCode: ErrorCode.INSUFFICIENT_DEVICES,
+    });
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
   it('returns only RESERVED units to AVAILABLE, and skips an empty release', async () => {
     await service.release(['d-1'], AT, tx);
     expect(updateMany).toHaveBeenCalledWith({

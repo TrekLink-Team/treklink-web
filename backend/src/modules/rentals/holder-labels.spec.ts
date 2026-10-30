@@ -16,6 +16,7 @@ describe('ContractsService.holderLabels', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     await expect(service.holderLabels([])).resolves.toEqual(new Map());
     expect(findHolderLabels).not.toHaveBeenCalled();

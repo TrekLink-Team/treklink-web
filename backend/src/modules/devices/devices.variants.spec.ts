@@ -1,4 +1,5 @@
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { DevicesRepository } from './devices.repository';
 import { DevicesService } from './devices.service';
 
@@ -40,5 +41,18 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
         select: expect.objectContaining({ _count: { select: { devices: true } } }) as unknown,
       }),
     );
+  });
+
+  it('reads through the caller transaction rather than another database connection', async () => {
+    const outside = jest.fn();
+    const inside = jest.fn().mockResolvedValue([{ id: 'v-3', isActive: true }]);
+    const repository = new DevicesRepository({
+      hardwareVariant: { findMany: outside },
+    } as unknown as PrismaService);
+    const tx = { hardwareVariant: { findMany: inside } } as unknown as Prisma.TransactionClient;
+    await expect(
+      new DevicesService(repository, {} as never, {} as never).variants(true, tx),
+    ).resolves.toEqual([{ id: 'v-3', isActive: true }]);
+    expect(outside).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,7 @@ import { ContractRow, ContractsRepository, DeviceRow, Holder } from './contracts
 const HOUR_MS = 3_600_000;
 
 export interface ApprovalInput {
+  deviceIds?: string[];
   handoverAt: Date;
   expectedVersion: number;
 }
@@ -107,11 +108,23 @@ export class ContractDecisionsService {
 
       const variant = variants.find((item) => item.id === contract.hardwareVariantId);
       const variantCode = variant?.code ?? contract.hardwareVariantId;
+      if (
+        input.deviceIds &&
+        (input.deviceIds.length !== contract.quantity ||
+          new Set(input.deviceIds).size !== contract.quantity)
+      ) {
+        throw new DomainException(
+          HttpStatus.BAD_REQUEST,
+          ErrorCode.VALIDATION_FAILED,
+          `Choose exactly ${contract.quantity} distinct devices.`,
+        );
+      }
       const devices = await this.devices.reserve(
         { id: contract.hardwareVariantId, code: variantCode },
         contract.quantity,
         at,
         tx,
+        input.deviceIds,
       );
       await this.contracts.insertContractDevices(
         devices.map((device) => ({ contractId: id, deviceId: device.id })),

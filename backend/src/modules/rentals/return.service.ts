@@ -98,6 +98,15 @@ export class ReturnService {
         return { ...row, assetTag: tag };
       });
 
+      // A delayed daily batch must not waive lateness. Running day plans and monthly contracts
+      // under notice can return before the batch fills returnDueAt; their open term owns the deadline.
+      let returnDueAt = contract.returnDueAt;
+      if (!returnDueAt && (dayPlanActive || contract.status === ContractStatus.ENDING)) {
+        const term = await this.contracts.openTerm(id, tx);
+        if (!term) throw new Error(`Contract ${contract.code} has no open term.`);
+        if (term.endsAt.getTime() < at.getTime()) returnDueAt = term.endsAt;
+      }
+
       const owedBefore = await this.balances.outstanding(id, tx);
       await this.contracts.markCheckedIn(
         rows.map((row) => row.id),
@@ -110,10 +119,10 @@ export class ReturnService {
         at,
         tx,
       );
-      if (contract.returnDueAt) {
+      if (returnDueAt) {
         for (const row of rows) {
           await this.charges.chargeLate(
-            { id, organizationId: contract.organizationId, returnDueAt: contract.returnDueAt },
+            { id, organizationId: contract.organizationId, returnDueAt },
             { id: row.deviceId, assetTag: row.assetTag },
             at,
             actor.id,

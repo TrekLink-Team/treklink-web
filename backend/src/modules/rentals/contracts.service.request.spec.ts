@@ -4,6 +4,7 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { PricingService } from '../billing';
+import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -42,6 +43,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
   let contracts: { insertRequested: jest.Mock };
   let organizations: { assertActive: jest.Mock };
   let pricing: { snapshot: jest.Mock };
+  let devices: { variants: jest.Mock };
   let parameters: { get: jest.Mock };
   let emitter: { emit: jest.Mock };
   let prisma: { $transaction: jest.Mock };
@@ -57,6 +59,9 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
     };
     organizations = { assertActive: jest.fn().mockResolvedValue(undefined) };
     pricing = { snapshot: jest.fn().mockResolvedValue(SNAPSHOT) };
+    devices = {
+      variants: jest.fn().mockResolvedValue([{ id: 'v-3', isActive: true }]),
+    };
     parameters = { get: jest.fn((key: string) => Promise.resolve(PARAMETERS[key])) };
     emitter = { emit: jest.fn() };
     prisma = {
@@ -73,6 +78,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
         prisma as unknown as PrismaService,
         emitter as unknown as EventEmitter2,
       ),
+      devices as unknown as DevicesService,
     );
   });
 
@@ -90,6 +96,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
     });
 
     expect(organizations.assertActive).toHaveBeenCalledWith('org-1', tx);
+    expect(devices.variants).toHaveBeenCalledWith(true, tx);
     expect(pricing.snapshot).toHaveBeenCalledWith('v-3', tx, AT);
     expect(contracts.insertRequested).toHaveBeenCalledWith(
       {
@@ -213,6 +220,16 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
         lateEvening,
       ),
     ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+  });
+
+  it.each([
+    ['unknown', []],
+    ['inactive', [{ id: 'v-3', isActive: false }]],
+  ])('refuses an %s variant before pricing or writing a contract', async (_, variants) => {
+    devices.variants.mockResolvedValue(variants);
+    expect((await refusal(MONTHLY)).errorCode).toBe(ErrorCode.NOT_FOUND);
+    expect(pricing.snapshot).not.toHaveBeenCalled();
+    expect(emitter.emit).not.toHaveBeenCalled();
   });
 
   it('lets a missing price refuse through the snapshot, before anything is inserted', async () => {

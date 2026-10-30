@@ -2,6 +2,7 @@ import { ContractStatus, PlanType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  ArrayUnique,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -20,6 +21,10 @@ import { PagedQueryDto } from '../../../common/dto/paging';
 // rentals api-design 02.
 export class ContractQueryDto extends PagedQueryDto {
   @IsOptional()
+  @IsUUID()
+  organizationId?: string;
+
+  @IsOptional()
   @IsIn(Object.values(ContractStatus))
   status?: ContractStatus;
 
@@ -28,9 +33,14 @@ export class ContractQueryDto extends PagedQueryDto {
   planType?: PlanType;
 }
 
-// rentals api-design 04. The explicit `deviceIds` choice is not offered yet: the server picks the
-// units, the longest unchanged first (screen 5.3).
+// rentals api-design 04. Without an explicit choice, the server picks the longest-unchanged units.
 export class ApproveContractDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  deviceIds?: string[];
+
   @IsDateString()
   handoverAt!: string;
 

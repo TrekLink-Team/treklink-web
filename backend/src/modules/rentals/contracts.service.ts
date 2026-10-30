@@ -3,6 +3,7 @@ import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { dayPlanFeeVnd, holdingFeeVnd, PricingService, termFeeVnd } from '../billing';
+import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -80,8 +81,8 @@ const lengthsOf = (value: Prisma.JsonValue): number[] =>
   Array.isArray(value) ? value.filter((n): n is number => typeof n === 'number') : [];
 
 // Contract reads and the behaviours behind the ports `rentals` provides (rentals task 1.3, design §6).
-// Until `organizations` and `devices` declare ORGANIZATION_EXIT_CHECKS, CUSTODY_RESOLVER and
-// LOSS_CASE_LISTENERS, these methods are not yet registered under them (treklink-docs#103, 1).
+// ORGANIZATION_EXIT_CHECKS and CUSTODY_RESOLVER are not declared yet. LOSS_CASE_LISTENERS exists,
+// but the device loss flow still needs to register and dispatch its listeners (task 1.3).
 @Injectable()
 export class ContractsService {
   constructor(
@@ -90,6 +91,7 @@ export class ContractsService {
     private readonly pricing: PricingService,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
+    private readonly devices: DevicesService,
   ) {}
 
   // An Org Manager requests a plan (rentals task 2.1, UC-15, REQ-EVT-01, api-design 01). In one
@@ -97,7 +99,8 @@ export class ContractsService {
   // least `rentals.minOrderQuantity` (400 BELOW_MOQ, MSG13), a DAY plan one of
   // `rentals.dayPlanLengths` (400 DAY_PLAN_LENGTH) and the start date not before today in UTC+7;
   // then the price, day premium and holding-fee ratio are snapshotted from billing (FR-CFG-02) and
-  // the contract is inserted REQUESTED. A variant without a price in effect is 404 from the snapshot.
+  // the contract is inserted REQUESTED. An inactive or unknown variant is 404, as is a variant
+  // without a price in effect. The variant read joins the request transaction.
   async request(
     input: ContractRequest,
     caller: Caller,
@@ -136,6 +139,14 @@ export class ContractsService {
         );
       }
 
+      const variants = await this.devices.variants(true, tx);
+      if (!variants.some((variant) => variant.id === input.hardwareVariantId && variant.isActive)) {
+        throw new DomainException(
+          HttpStatus.NOT_FOUND,
+          ErrorCode.NOT_FOUND,
+          'Active hardware variant not found.',
+        );
+      }
       const snapshot = await this.pricing.snapshot(input.hardwareVariantId, tx, at);
       const contract = await this.contracts.insertRequested(
         {
