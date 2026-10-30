@@ -66,7 +66,7 @@ describe('Roster shifts against Postgres (REQ-UBI-04, FR-ORG-05, AC-04)', () => 
         status: OrganizationStatus.ACTIVE,
       },
     });
-    const member = async (role: MemberRole, active: boolean) => {
+    const member = async (role: MemberRole, passwordSet: boolean) => {
       serial += 1;
       const user = await accountsRepository.create({
         email: `roster-test-${runId}-${serial}@example.invalid`,
@@ -74,7 +74,10 @@ describe('Roster shifts against Postgres (REQ-UBI-04, FR-ORG-05, AC-04)', () => 
         accountType: AccountType.ORGANIZATION,
         roleKeys: [role === MemberRole.MANAGER ? 'ORG_MANAGER' : 'ORG_OPERATOR'],
       });
-      await prisma.user.update({ where: { id: user.id }, data: { isActive: active } });
+      // An invited account is created active; it has no password until its holder sets one.
+      if (passwordSet) {
+        await prisma.user.update({ where: { id: user.id }, data: { passwordHash: 'test-hash' } });
+      }
       const row = await prisma.organizationMember.create({
         data: { userId: user.id, organizationId: org.id, role },
       });

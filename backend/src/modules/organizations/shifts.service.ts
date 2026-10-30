@@ -328,8 +328,12 @@ export class ShiftsService {
     const members = await this.roster.liveMembers(organizationId, ids, tx);
     if (members.length !== ids.length) throw notEligible();
     const cards = await this.accounts.contactCard(members.map((member) => member.userId));
-    const active = new Set(cards.filter((card) => card.isActive).map((card) => card.id));
-    if (members.some((member) => !active.has(member.userId))) throw notEligible();
+    // An invited account is created active and has no password until its holder sets one, so a member
+    // can answer an alert only when the account is active and `passwordSet`.
+    const reachable = new Set(
+      cards.filter((card) => card.isActive && card.passwordSet).map((card) => card.id),
+    );
+    if (members.some((member) => !reachable.has(member.userId))) throw notEligible();
   }
 
   private async saved(row: ShiftRow): Promise<{ shift: ShiftView; warnings: RosterWarning[] }> {
