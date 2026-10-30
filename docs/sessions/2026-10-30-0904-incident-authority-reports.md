@@ -5,48 +5,55 @@ under D-078 (cards owned by HoangTK and LongNN).
 
 ## Ruling and base
 
-The leader ruled that HoangTK's PR #137 (`feat/TK-148-authority-reports`, api-design 08, 09 and 11
-with unit, e2e and db specs) wins the authority reports backend, as #134 won the Field Station
-backend. This branch was rebuilt on his head `c6a35cf`: my own 08, 09 and 11 (routes, service
-methods, repository methods and their specs) were dropped, and the rest was ported onto his service.
-His commits are unchanged. The previous tip of this branch was `0f29e01`.
+The leader ruled that HoangTK's PR #137 (TK-148, api-design 08, 09 and 11 with unit, e2e and db specs)
+wins the authority reports backend, as #134 won the Field Station backend. My own 08, 09 and 11 were
+dropped and the rest was ported onto his service. #137 is now merged into `dev` (its last commit
+`232426e`), and this branch sits directly on `origin/dev` `eb1b31e`: no commit of HoangTK's is on the
+branch any more. Before the merge it sat on his branch head `c6a35cf`, whose files are identical to
+what landed in `dev`. Previous tips of this branch: `0f29e01` (own backend), `dba246f` (on #137).
 
-## Commits (oldest first)
+## Commits (oldest first, all KhoaDD under D-078, on `origin/dev` `eb1b31e`)
 
-HoangTK's, from #137, unchanged:
+HoangTK's TK-148 work is in `dev` as `be102ec`, `6cf05fd`, `81a161d` and `232426e`; none is on this
+branch.
 
-- `a29ce92` feat(TK-148): report an incident to the authorities and record the case closed
-- `62987f2` test(TK-148): e2e for api-design 08, 09 and 11 and AC-04 against Postgres
-- `5547c70` docs(TK-148): task notes and session record for the authority reports backend
-- `c6a35cf` docs(TK-148): record the rebase onto dev and the rerun gates
-
-KhoaDD's (D-078), on top:
-
-- `4fce12e` feat: add the authority reports tab and report form to /t/incidents
-- `872603a` feat: seed an unrouted incident for the authority report demo
-- `8b7e739` feat: show authority reports as cards on narrow screens
-- `3e9b023` docs: name the authority report service AuthorityReportsService in the incidents spec
-- `ec6965d` feat: report a defaulted contract to the authorities (api-design 10)
-- `8d70ee8` fix: follow the TK-148 rules for closure time and text length on screen 8.3
-- `f3c2adb` docs: tick incidents 4.3 and frontend 8.3 over the TK-148 backend
-- this file, `docs: ...`
+- `3eb0610` feat: add the authority reports tab and report form to /t/incidents
+- `3e1cc5f` feat: seed an unrouted incident for the authority report demo
+- `483e692` feat: show authority reports as cards on narrow screens
+- `98463ec` docs: name the authority report service AuthorityReportsService in the incidents spec
+- `7a03b9f` feat: report a defaulted contract to the authorities (api-design 10)
+- `3e525d7` fix: follow the TK-148 rules for closure time and text length on screen 8.3
+- `fd36412` docs: tick incidents 4.3 and frontend 8.3 over the TK-148 backend
+- `1835830` docs: hand off the authority reports branch rebuilt on TK-148
+- `b67b83d` fix: build the authority reports db spec against the three-argument DevicesService
+- `8e115ee` fix: close a reported incident only when no other report on it is open
+- `951b8d2` docs: use report UUIDs and list the closedAt 400 rows in incidents api-design
+- this file's update, `docs: ...`
 
 No commit carries a trailer or a `Checksum` line; the leader seals them locally.
 
-## Restack once #137 merges
+## Restacking
 
-#137 merges into `dev` by rebase or squash, so its commits get new ids. Drop them from this branch by
-rebasing only my commits onto the new `dev`:
+Not needed for #137 any more. Done with
+`git rebase --onto origin/dev c6a35cf feat/incident-authority-reports` (the TK-148 branch was
+deleted after the merge, so its old head `c6a35cf` is the cut point). If `dev` moves again before
+this branch merges: `git fetch origin dev && git rebase origin/dev`, then
+`git push --force-with-lease origin feat/incident-authority-reports`.
 
-```bash
-git fetch origin dev
-git rebase --onto origin/dev c6a35cf feat/incident-authority-reports
-git push --force-with-lease origin feat/incident-authority-reports
-```
+## Review follow-ups on #137, folded in
 
-`c6a35cf` is HoangTK's head that this branch sits on. If #137 gains commits before it merges, rebase
-onto its new head first (`git rebase --onto origin/feat/TK-148-authority-reports c6a35cf
-feat/incident-authority-reports`), then use that head in the command above.
+- `scripts/specs/endpoints/incidents.py`: report ids in the 02, 09, 10 and 11 examples are UUIDs
+  (10 and 02 were changed too, for the same reason); api-design 09 lists the two 400 rows (`closedAt`
+  in the future, `closedAt` before `reportedAt`) and the open-report condition; the participant is
+  `AuthorityReportsService` (already renamed in `98463ec`). Regenerated.
+- `authority-reports.service.ts` `closeCase`: a `REPORTED` incident moves to `CLOSED` only when
+  `AuthorityReportsRepository.countOpenOnIncident` finds no other open report on it. The count runs
+  after the incident row lock, so two closures on one incident serialise and the last one closes it.
+  Unit tests: the new case in `authority-reports.service.spec.ts`, and
+  `authority-reports.repository.spec.ts`. The close dialog states the rule.
+- Found on the way: `dev` did not type-check. The devices merge gave `DevicesService` three
+  constructor parameters and `test/authority-reports.db-spec.ts` still passed one (`tsc` TS2554 on
+  `origin/dev`). `b67b83d` passes the same stubs as `mf03.db-spec.ts`.
 
 ## What this branch adds over #137
 
@@ -55,8 +62,7 @@ feat/incident-authority-reports`), then use that head in the command above.
   plain read, no row lock). A missing contract is 404, another status 409 `CONTRACT_NOT_DEFAULTED`
   naming it; the contract state never changes. `ContractsService` is the last constructor parameter
   of his service, so his `authority-reports.service.spec.ts` and `test/authority-reports.db-spec.ts`
-  each gain one constructor argument; nothing else in his files changed except the service and
-  controller additions for 10.
+  each gain one constructor argument.
 - Frontend screen 8.3 on `/t/incidents`: the Authority reports tab, the two-step Record report dialog,
   Record case closed, Report to authorities on a selected `UNROUTED` or `ESCALATED` incident, and
   labelled cards below the sm breakpoint. Hooks in `frontend/src/entities/incident/authorityReports.ts`,
@@ -76,14 +82,16 @@ Where his behaviour differs from my first build, his is kept and the frontend fo
 
 ## Checks
 
-- Backend: `npm --prefix backend run lint` clean, boundary check passed (345 files, 9 modules),
-  `tsc --noEmit` clean. `npx jest` (all unit specs) 151 suites, 1640 tests passed.
-- Backend e2e, no database needed (services stubbed): `test/authority-reports.e2e-spec.ts` (his),
-  `test/authority-reports-contract.e2e-spec.ts` (mine) and `test/incidents.e2e-spec.ts`, 3 suites,
-  82 tests passed.
-- `backend/test/*.db-spec.ts`, including his `authority-reports.db-spec.ts`: not run, no Postgres in
-  the session container. CI runs them.
-- Frontend: lint clean, typecheck clean, `vitest --run` 31 files, 421 tests passed.
+On the final tip, on `origin/dev` `eb1b31e`:
+
+- Backend: `npm --prefix backend run lint` clean, boundary check passed (367 files, 9 modules),
+  `tsc --noEmit` clean. `npx jest` (all unit specs) 158 suites, 1726 tests passed.
+- Backend e2e, no database needed (services stubbed): `test/authority-reports.e2e-spec.ts`,
+  `test/authority-reports-contract.e2e-spec.ts` and `test/incidents.e2e-spec.ts`, 3 suites, 82 tests
+  passed.
+- `backend/test/*.db-spec.ts`, including `authority-reports.db-spec.ts` (AC-04): not run, no Postgres
+  in the session container. CI runs them.
+- Frontend: lint clean, typecheck clean, `vitest --run` 34 files, 445 tests passed.
 
 ## Spec changes
 
