@@ -35,7 +35,16 @@
 
 ## Verified
 
-See the PR body for the output. Backend typecheck, lint (0 errors, the existing warning), e2e, unit with coverage and build pass; the three changed backend source files are at 100 % lines, the query service at 93.61 % branches. Frontend typecheck, lint, 352 tests and build pass. The frontend has no coverage provider installed, so its coverage is not measured. Not run: `test:db` (no schema or write path changed) and a browser check against a running stack.
+See the PR body for the output. Backend typecheck, lint (0 errors, the existing warning), e2e, unit with coverage and build pass; the three changed backend source files are at 100 % lines, the query service at 93.61 % branches. Frontend typecheck, lint, tests and build pass.
+
+Final verification, 2026-10-30 08:00 to 08:30:
+
+- **Frontend coverage.** No coverage provider is in the lockfile, so `@vitest/coverage-v8@3.2.7` (matching vitest 3.2.7) was installed with `npm install --no-save --ignore-scripts`, measured, then removed with `npm prune`; `package.json` and `package-lock.json` never changed. `IncidentHistory.tsx` 100 % lines and branches; `entities/incident/api.ts` 100 % lines, 97.77 % branches; `IncidentDetailPage.tsx` 100 % lines, 97.64 % branches (the uncovered branches are pre-existing lines 71 and the `?? []` role fallback). One test added for the alert log retry; 353 tests pass.
+- **Direct API, real permissions.** Disposable `postgres:16` on port 55433, `prisma migrate deploy`, `seed:demo` with passwords generated into a scratchpad file (deleted after), a fixture adding ORG-0099 with one incident, three transitions and alert rows on each organization. The built backend ran against it with no other database configured. 20 of 20 checks pass: 401 without a token; Admin and Staff read both organizations on both routes; Org Manager reads its own and gets 404 `NOT_FOUND` for ORG-0099 and for a missing id; 400 for a non-UUID id; Org Operator reads the trail of its own organization, 404 for ORG-0099, and 403 `FORBIDDEN` on api-design 14 for both organizations.
+- **Browser smoke**, Vite on 5173 against that backend, 1280 x 900 and 375 x 812. Org Manager: History shows "Created as Detected", "Detected to Notifying primary", "Notifying primary to Acknowledged" with SYSTEM and the operator's name; Alert deliveries shows Sent, Pending (API event, "Organization API stream") and Failed with its last error; Refresh sends a second `GET .../alerts`. The ORG-0099 incident shows MSG26 and requests no panel. Org Operator: History shown, no Alert deliveries panel and no `/alerts` request. At 375 px the document is 375 px wide. Console errors: two 401s from a full page reload before signing in again, none from the panels.
+- **Torn down**: container removed, backend and Vite processes stopped, the generated credentials file deleted. Shared Neon not used.
+
+Not run: `test:db` (no schema or write path changed).
 
 ## Not done
 
