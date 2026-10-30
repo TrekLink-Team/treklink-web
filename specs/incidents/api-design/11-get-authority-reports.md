@@ -143,7 +143,7 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as AuthorityReportsController
-    participant Svc as AuthorityReportService
+    participant Svc as AuthorityReportsService
     participant DB as Postgres
     C->>Ctl: GET /api/authority-reports
     Ctl->>Svc: list(query)

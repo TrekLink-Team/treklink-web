@@ -268,7 +268,7 @@ classDiagram
     class RoutingService {
         +route(incident, attribution, tx)
     }
-    class AuthorityReportService {
+    class AuthorityReportsService {
         +reportIncident(id, dto, actor) Incident
     }
     class TierTimeoutJob {
@@ -293,13 +293,13 @@ classDiagram
     }
     class RosterService
     IncidentsController --> IncidentLifecycleService
-    IncidentsController --> AuthorityReportService
+    IncidentsController --> AuthorityReportsService
     IncidentIngress --> RoutingService
     IncidentIngress --> IncidentsRepository
     RoutingService --> RosterService : tiersAt
     RoutingService --> IncidentLifecycleService
     TierTimeoutJob --> IncidentLifecycleService
-    AuthorityReportService --> IncidentLifecycleService
+    AuthorityReportsService --> IncidentLifecycleService
     IncidentLifecycleService --> IncidentFsm
     IncidentLifecycleService --> IncidentsRepository
     IncidentLifecycleService --> OutboxRepository
@@ -455,7 +455,7 @@ sequenceDiagram
     actor St as TrekLink Staff
     participant P as StaffIncidentsPage
     participant C as IncidentsController
-    participant A as AuthorityReportService
+    participant A as AuthorityReportsService
     participant L as IncidentLifecycleService
     participant R as IncidentsRepository
     St->>P: record agency, reference, time

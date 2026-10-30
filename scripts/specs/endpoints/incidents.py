@@ -127,7 +127,7 @@ ENDPOINTS = [
        response={**INC, "state": "REPORTED", "version": 6}, status=201, message="Report recorded", entity="Incident",
        errors=[state_409("incident", "ACKNOWLEDGED"), STALE],
        steps=["Require ESCALATED or UNROUTED", "Insert authority_reports", "Transition to REPORTED"],
-       controller="IncidentsController", service="AuthorityReportService", call="reportIncident(id, dto, actor)", seq=SEQ),
+       controller="IncidentsController", service="AuthorityReportsService", call="reportIncident(id, dto, actor)", seq=SEQ),
 
     ep("POST", "/api/authority-reports/:reportId/close-case", "Record the authority case closed",
        "TrekLink Staff, TrekLink Admin",
@@ -141,7 +141,7 @@ ENDPOINTS = [
        message="Case closed", entity="Authority report",
        errors=[(409, "CASE_ALREADY_CLOSED", "caseClosedAt is set", "This cannot be done while it is CLOSED.")],
        steps=["Set caseClosedAt", "If the subject is a REPORTED incident: transition to CLOSED"],
-       controller="AuthorityReportsController", service="AuthorityReportService", call="closeCase(reportId, dto, actor)",
+       controller="AuthorityReportsController", service="AuthorityReportsService", call="closeCase(reportId, dto, actor)",
        seq=["Svc->>DB: UPDATE authority_reports", "Svc->>DB: UPDATE incident, INSERT transition"]),
 
     ep("POST", "/api/authority-reports", "Report a defaulted contract", "TrekLink Staff, TrekLink Admin",
@@ -157,7 +157,7 @@ ENDPOINTS = [
        status=201, message="Report recorded",
        errors=[(409, "CONTRACT_NOT_DEFAULTED", "The contract is not DEFAULTED", "This cannot be done while it is OVERDUE.")],
        steps=["Ask rentals for the contract state", "Insert authority_reports"],
-       controller="AuthorityReportsController", service="AuthorityReportService", call="reportContract(dto, actor)",
+       controller="AuthorityReportsController", service="AuthorityReportsService", call="reportContract(dto, actor)",
        participants=[["Rent", "RentalsService"]], seq=["Svc->>Rent: statusOf(contractId)", "Svc->>DB: INSERT authority_reports"]),
 
     ep("GET", "/api/authority-reports", "List authority reports", "TrekLink Staff, TrekLink Admin",
@@ -166,7 +166,7 @@ ENDPOINTS = [
        query=[["open", "Case not closed", "bool", "no", "`true`"]] + PAGE_QUERY,
        response=paged({"id": "ar-1", "incidentId": INCIDENT_ID, "contractId": None, "agency": "Lam Dong provincial rescue (114)",
                        "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}),
-       steps=["Read authority_reports"], controller="AuthorityReportsController", service="AuthorityReportService",
+       steps=["Read authority_reports"], controller="AuthorityReportsController", service="AuthorityReportsService",
        call="list(query)", seq=["Svc->>DB: SELECT authority_reports"]),
 
     ep("GET", "/api/incidents/:id/transitions", "Incident audit trail",
