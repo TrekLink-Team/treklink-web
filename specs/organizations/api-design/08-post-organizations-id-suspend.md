@@ -202,14 +202,16 @@ flowchart TB
     E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require ACTIVE"]
+    P0["Lock the organization row"]
     D4 -->|no| P0
-    P1["Move to SUSPENDED with the reason"]
+    P1["Require ACTIVE"]
     P0 --> P1
-    P2["Notify the Manager"]
+    P2["Move to SUSPENDED with the reason, write the transition"]
     P1 --> P2
+    P3["Email the Manager after commit"]
+    P2 --> P3
     OK["Return 200"]
-    P2 --> OK
+    P3 --> OK
     OK --> Z((End))
 ```
 
@@ -218,13 +220,30 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Client
-    participant Ctl as OrganizationsController
-    participant Svc as OrganizationsService
-    participant DB as Postgres
-    C->>Ctl: POST /api/organizations/:id/suspend
-    Ctl->>Svc: suspend(id, dto, actor)
-    Svc->>DB: UPDATE organizations, INSERT organization_transitions
-    Svc-->>Ctl: result
-    Ctl-->>C: 200 envelope
+    actor U as TrekLink Admin
+    participant Ctl as OrganizationStatusController
+    participant Svc as OrganizationStatusService
+    participant L as OrganizationLifecycle
+    participant R as OrganizationsRepository
+    participant O as OrganizationsService
+    U->>Ctl: POST /api/organizations/:id/suspend
+    Ctl->>Svc: suspend(id, reason, expectedVersion, caller)
+    Svc->>L: transition(id, SUSPENDED, input, tx)
+    L->>R: lockById(id, tx) FOR UPDATE
+    R-->>L: organization
+    alt refused: not ACTIVE
+        L-->>Svc: 409 INVALID_STATE_TRANSITION
+        Svc-->>Ctl: 409, rollback
+        Ctl-->>U: 409 envelope
+    else accepted: ACTIVE
+        L->>R: update(id, expectedVersion, SUSPENDED and suspensionReason, tx)
+        L->>R: addTransition(ACTIVE to SUSPENDED, actorId, reason, tx)
+        L-->>Svc: organization SUSPENDED
+        Svc->>R: COMMIT, then organization.statusChanged and audit.record
+        Svc->>O: emailContact(id, subject, text)
+        Svc-->>Ctl: organization SUSPENDED
+        Ctl-->>U: 200 envelope
+    end
 ```
+
+Not drawn in the sequence: 400 VALIDATION_FAILED, 403 FORBIDDEN, 404 NOT_FOUND and 409 STALE_VERSION, which the Validation table and the activity diagram carry.

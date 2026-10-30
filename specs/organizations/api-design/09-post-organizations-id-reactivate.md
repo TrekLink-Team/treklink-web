@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstanding (FR-ORG-07).
+Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstanding (FR-ORG-07). Billing answers through the `ORGANIZATION_EXIT_CHECKS` port, read in the same transaction.
 
 ## API Specification
 
@@ -138,23 +138,6 @@ Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstand
         </tr>
         <tr>
             <td>409</td>
-            <td>An invoice line is still unpaid (<code>BALANCE_OUTSTANDING</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "BALANCE_OUTSTANDING"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "This cannot be done while it has open balances."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
             <td>The organization is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
@@ -166,6 +149,23 @@ Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstand
   "isSuccess": false,
   "statusCode": 409,
   "message": "This cannot be done while it is ACTIVE."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>An invoice line is still unpaid (<code>BALANCE_OUTSTANDING</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "BALANCE_OUTSTANDING"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it has open balances."
 }
 ```
 </td>
@@ -207,14 +207,14 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"An invoice line is still unpaid?"}
+    D3{"The organization is not in a state that allows this?"}
     D2 -->|no| D3
-    E3["Return 409 BALANCE_OUTSTANDING"]
+    E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The organization is not in a state that allows this?"}
+    D4{"An invoice line is still unpaid?"}
     D3 -->|no| D4
-    E4["Return 409 INVALID_STATE_TRANSITION"]
+    E4["Return 409 BALANCE_OUTSTANDING"]
     D4 -->|yes| E4
     E4 --> X4((End))
     D5{"Another user changed the record first (expectedVersion differs)?"}
@@ -222,14 +222,18 @@ flowchart TB
     E5["Return 409 STALE_VERSION"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    P0["Require SUSPENDED"]
+    P0["Lock the organization row"]
     D5 -->|no| P0
-    P1["Ask BillingService for the outstanding balance"]
+    P1["Require SUSPENDED"]
     P0 --> P1
-    P2["Move to ACTIVE"]
+    P2["Ask each ORGANIZATION_EXIT_CHECKS provider canReactivate"]
     P1 --> P2
+    P3["Move to ACTIVE, write the transition"]
+    P2 --> P3
+    P4["Email the Manager after commit"]
+    P3 --> P4
     OK["Return 200"]
-    P2 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -238,15 +242,33 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Client
-    participant Ctl as OrganizationsController
-    participant Svc as OrganizationsService
-    participant DB as Postgres
-    participant Bill as BillingService
-    C->>Ctl: POST /api/organizations/:id/reactivate
-    Ctl->>Svc: reactivate(id, dto, actor)
-    Svc->>Bill: outstandingBalance(orgId)
-    Svc->>DB: UPDATE organizations, INSERT organization_transitions
-    Svc-->>Ctl: result
-    Ctl-->>C: 200 envelope
+    actor U as TrekLink Admin
+    participant Ctl as OrganizationStatusController
+    participant Svc as OrganizationStatusService
+    participant L as OrganizationLifecycle
+    participant R as OrganizationsRepository
+    participant X as ORGANIZATION_EXIT_CHECKS (billing provider)
+    participant O as OrganizationsService
+    U->>Ctl: POST /api/organizations/:id/reactivate
+    Ctl->>Svc: reactivate(id, expectedVersion, caller)
+    Svc->>L: transition(id, ACTIVE, input with guard, tx)
+    L->>R: lockById(id, tx) FOR UPDATE
+    R-->>L: organization SUSPENDED
+    L->>Svc: guard(current, tx)
+    Svc->>X: canReactivate(id, tx)
+    X-->>Svc: blocking reason or null
+    alt refused: a balance is outstanding
+        Svc-->>Ctl: 409 BALANCE_OUTSTANDING, rollback
+        Ctl-->>U: 409 envelope
+    else accepted: nothing outstanding
+        L->>R: update(id, expectedVersion, ACTIVE, suspensionReason null, tx)
+        L->>R: addTransition(SUSPENDED to ACTIVE, actorId, tx)
+        L-->>Svc: organization ACTIVE
+        Svc->>R: COMMIT, then organization.statusChanged and audit.record
+        Svc->>O: emailContact(id, subject, text)
+        Svc-->>Ctl: organization ACTIVE
+        Ctl-->>U: 200 envelope
+    end
 ```
+
+Not drawn in the sequence: 400 VALIDATION_FAILED, 403 FORBIDDEN, 404 NOT_FOUND, 409 INVALID_STATE_TRANSITION and 409 STALE_VERSION, which the Validation table and the activity diagram carry. The rentals provider answers null to canReactivate.

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the append-only state history of the organization.
+Returns the append-only state history of the organization. `actor` is the name of the account that made the change, or `SYSTEM` when none did (a contract that defaulted). An Org Operator holds `organization.read.own` but may not read suspension reasons, so the service answers 403 (ruling on treklink-web#135).
 
 ## API Specification
 
@@ -35,8 +35,15 @@ No body.
     {
       "fromStatus": "PENDING",
       "toStatus": "ACTIVE",
-      "actor": "TrekLink Admin",
+      "actor": "Le Van C",
       "reason": null,
+      "createdAt": "2026-10-20T03:15:00.000Z"
+    },
+    {
+      "fromStatus": "ACTIVE",
+      "toStatus": "SUSPENDED",
+      "actor": "SYSTEM",
+      "reason": "Contract RC-2026-0042 defaulted",
       "createdAt": "2026-10-20T03:15:00.000Z"
     }
   ],
@@ -45,6 +52,14 @@ No body.
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| [].fromStatus | Status before, null for the first row | enum | `PENDING` |
+| [].toStatus | Status after | enum | `ACTIVE` |
+| [].actor | Full name of the account that made the change, `SYSTEM` when actorId is null | string | `Le Van C` |
+| [].reason | Reason given, if any | string | `Contract RC-2026-0042 defaulted` |
+| [].createdAt | When the change was written, UTC | datetime | `2026-10-20T03:15:00.000Z` |
 
 ## Validation
 
@@ -104,6 +119,23 @@ No body.
 ```
 </td>
         </tr>
+        <tr>
+            <td>403</td>
+            <td>The caller is an Org Operator; only the Manager reads the history of its organization (<code>FORBIDDEN</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "FORBIDDEN"
+  },
+  "isSuccess": false,
+  "statusCode": 403,
+  "message": "Only the Manager of the organization may read its status history."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -119,10 +151,14 @@ flowchart TB
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Read organization_transitions"]
+    P0["Org member: require ORG_MANAGER and the own organization"]
     D1 -->|no| P0
+    P1["Read organization_transitions"]
+    P0 --> P1
+    P2["Resolve actor names through AccountsService"]
+    P1 --> P2
     OK["Return 200"]
-    P0 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -131,13 +167,21 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Client
-    participant Ctl as OrganizationsController
-    participant Svc as OrganizationsService
-    participant DB as Postgres
-    C->>Ctl: GET /api/organizations/:id/transitions
+    actor U as Org Manager or TrekLink Staff
+    participant Ctl as OrganizationStatusController
+    participant Svc as OrganizationStatusService
+    participant R as OrganizationsRepository
+    participant A as AccountsService
+    U->>Ctl: GET /api/organizations/:id/transitions
     Ctl->>Svc: transitions(id, caller)
-    Svc->>DB: SELECT organization_transitions
-    Svc-->>Ctl: result
-    Ctl-->>C: 200 envelope
+    Svc->>R: findStatus(id)
+    R-->>Svc: status
+    Svc->>R: transitionsOf(id)
+    R-->>Svc: rows
+    Svc->>A: contactCard(actorIds)
+    A-->>Svc: names
+    Svc-->>Ctl: rows with actor names or SYSTEM
+    Ctl-->>U: 200 envelope
 ```
+
+Not drawn in the sequence: 403 FORBIDDEN for an Org Operator and 404 NOT_FOUND for another organization or an unknown id, which the Validation table carries.
