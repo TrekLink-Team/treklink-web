@@ -380,6 +380,16 @@ export class DevicesRepository {
     });
   }
 
+  // Every move of these units into RETURNED, oldest first: the next return of a unit bounds the reset
+  // the return counter shows for the one before it.
+  returnsOf(deviceIds: readonly string[]): Promise<{ deviceId: string; createdAt: Date }[]> {
+    return this.prisma.deviceTransition.findMany({
+      where: { deviceId: { in: [...deviceIds] }, toStatus: DeviceStatus.RETURNED },
+      orderBy: { createdAt: 'asc' },
+      select: { deviceId: true, createdAt: true },
+    });
+  }
+
   // The inspections recorded against these contract rows, oldest first.
   inspectionsOfContractDevices(
     contractDeviceIds: readonly string[],

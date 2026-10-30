@@ -28,6 +28,7 @@ describe('DevicesService reset and return checks', () => {
     lastResetAt: jest.Mock;
     insertReset: jest.Mock;
     resetsOf: jest.Mock;
+    returnsOf: jest.Mock;
     inspectionsOfContractDevices: jest.Mock;
   };
   let service: DevicesService;
@@ -43,6 +44,7 @@ describe('DevicesService reset and return checks', () => {
       lastResetAt: jest.fn().mockResolvedValue(null),
       insertReset: jest.fn().mockResolvedValue({ id: 'dev-1', version: 5 }),
       resetsOf: jest.fn().mockResolvedValue([]),
+      returnsOf: jest.fn().mockResolvedValue([]),
       inspectionsOfContractDevices: jest.fn().mockResolvedValue([]),
     };
     service = new DevicesService(
@@ -134,6 +136,7 @@ describe('DevicesService reset and return checks', () => {
       ]);
 
       expect(repository.resetsOf).toHaveBeenCalledWith(['dev-1', 'dev-2']);
+      expect(repository.returnsOf).toHaveBeenCalledWith(['dev-1', 'dev-2']);
       expect(repository.inspectionsOfContractDevices).toHaveBeenCalledWith(['cd-1', 'cd-2']);
       expect(checks.get('cd-1')).toEqual({
         resetAt: new Date('2026-10-30T03:05:00Z'),
@@ -141,6 +144,41 @@ describe('DevicesService reset and return checks', () => {
       });
       expect(checks.get('cd-2')).toEqual({ resetAt: null, inspection: null });
       expect(checks.has('cd-3')).toBe(false);
+    });
+
+    it('shows no reset when the only later one follows the next return of the unit', async () => {
+      const nextReturn = new Date('2026-11-20T00:00:00Z');
+      repository.returnsOf.mockResolvedValue([
+        { deviceId: 'dev-1', createdAt: returnedAt },
+        { deviceId: 'dev-1', createdAt: nextReturn },
+      ]);
+      repository.resetsOf.mockResolvedValue([
+        { deviceId: 'dev-1', createdAt: new Date('2026-11-20T00:05:00Z') },
+      ]);
+
+      const checks = await service.returnChecks([
+        { contractDeviceId: 'cd-1', deviceId: 'dev-1', checkedInAt: returnedAt },
+        { contractDeviceId: 'cd-9', deviceId: 'dev-1', checkedInAt: nextReturn },
+      ]);
+
+      expect(checks.get('cd-1')?.resetAt).toBeNull();
+      expect(checks.get('cd-9')?.resetAt).toEqual(new Date('2026-11-20T00:05:00Z'));
+    });
+
+    it('keeps a reset made before the next return of the unit', async () => {
+      repository.returnsOf.mockResolvedValue([
+        { deviceId: 'dev-1', createdAt: returnedAt },
+        { deviceId: 'dev-1', createdAt: new Date('2026-11-20T00:00:00Z') },
+      ]);
+      repository.resetsOf.mockResolvedValue([
+        { deviceId: 'dev-1', createdAt: new Date('2026-10-30T03:05:00Z') },
+      ]);
+
+      const checks = await service.returnChecks([
+        { contractDeviceId: 'cd-1', deviceId: 'dev-1', checkedInAt: returnedAt },
+      ]);
+
+      expect(checks.get('cd-1')?.resetAt).toEqual(new Date('2026-10-30T03:05:00Z'));
     });
   });
 });

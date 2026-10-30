@@ -767,8 +767,8 @@ export class DevicesService {
   }
 
   // The reset and inspection of each returned contract row, for the return counter (rentals api-design
-  // 03 devices[]): the first reset at or after the row's check-in, and the last inspection recorded
-  // against the row. Rows not checked in are left out.
+  // 03 devices[]): the first reset at or after the row's check-in and before the unit's next return, and
+  // the last inspection recorded against the row. Rows not checked in are left out.
   async returnChecks(
     rows: readonly { contractDeviceId: string; deviceId: string; checkedInAt: Date | null }[],
   ): Promise<Map<string, ReturnCheck>> {
@@ -776,14 +776,23 @@ export class DevicesService {
       (row): row is typeof row & { checkedInAt: Date } => row.checkedInAt !== null,
     );
     if (back.length === 0) return new Map();
-    const [resets, inspections] = await Promise.all([
-      this.devices.resetsOf([...new Set(back.map((row) => row.deviceId))]),
+    const deviceIds = [...new Set(back.map((row) => row.deviceId))];
+    const [resets, returns, inspections] = await Promise.all([
+      this.devices.resetsOf(deviceIds),
+      this.devices.returnsOf(deviceIds),
       this.devices.inspectionsOfContractDevices(back.map((row) => row.contractDeviceId)),
     ]);
     return new Map(
       back.map((row) => {
+        // A reset after the unit came back on a later contract belongs to that return, not this one.
+        const nextReturn = returns.find(
+          (entry) => entry.deviceId === row.deviceId && entry.createdAt > row.checkedInAt,
+        );
         const reset = resets.find(
-          (entry) => entry.deviceId === row.deviceId && entry.createdAt >= row.checkedInAt,
+          (entry) =>
+            entry.deviceId === row.deviceId &&
+            entry.createdAt >= row.checkedInAt &&
+            (!nextReturn || entry.createdAt < nextReturn.createdAt),
         );
         const inspection = inspections
           .filter((entry) => entry.contractDeviceId === row.contractDeviceId)
