@@ -34,7 +34,13 @@ describe('LiveMapService.config', () => {
   beforeEach(() => {
     values = { ...SEEDED };
     const parameters = { get: jest.fn((key: string) => Promise.resolve(values[key])) };
-    service = new LiveMapService(parameters as unknown as ParameterService);
+    service = new LiveMapService(
+      parameters as unknown as ParameterService,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
     logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });
 

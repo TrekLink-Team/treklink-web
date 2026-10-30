@@ -208,7 +208,8 @@ export class ContractsService {
   // --- monitoring reads (monitoring design §4), `visibleDevices(caller)` ---------------------------
   // The devices in custody now of the caller's organization, or of every organization for a caller
   // with none (TrekLink Staff and Admin). A Caller fits; the organization API passes its key's
-  // organization. A device appears once, on the contract holding it now.
+  // organization. A device appears once, on the contract holding it now (RETURN_DUE, OVERDUE and
+  // DEFAULTED keep their devices visible, REQ-STA-02).
   async visibleDevices(caller: { organizationId: string | null }): Promise<VisibleDevice[]> {
     const rows = await this.contracts.findInCustody(caller.organizationId);
     return rows.map((row) => ({
