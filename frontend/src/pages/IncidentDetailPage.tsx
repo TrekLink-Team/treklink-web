@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
@@ -18,8 +18,10 @@ import {
   type IncidentDetail,
 } from '../entities/incident/api';
 import { StateBadges } from '../entities/incident/ui';
+import { AlertLog, TransitionTrail } from '../widgets/IncidentHistory/IncidentHistory';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
+import { hasAnyRole } from '../shared/lib/permissions';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
 import { Field, Textarea } from '../shared/ui/Field';
@@ -159,8 +161,9 @@ const LABELS: Record<IncidentAction, string> = {
   falseAlarm: 'Declare false alarm',
 };
 
-// /o/incidents/:id, IncidentDetailPage of screen 8.1 (incidents api-design 02 to 07). The primary
-// action changes with the state and the owner; there is no manual escalate, reopen or close.
+// /o/incidents/:id, IncidentDetailPage of screen 8.1 (incidents api-design 02 to 07, 12 and 14). The
+// primary action changes with the state and the owner; there is no manual escalate, reopen or close.
+// The alert log is requested and shown for an Org Manager only.
 export const IncidentDetailPage: React.FC = () => {
   const { id = '' } = useParams();
   const { user } = useAuth();
@@ -170,6 +173,8 @@ export const IncidentDetailPage: React.FC = () => {
   const [open, setOpen] = useState<Exclude<IncidentAction, 'acknowledge'> | null>(null);
   const [acking, setAcking] = useState(false);
   const [ackFailure, setAckFailure] = useState<string | null>(null);
+  // A panel 404 rechecks access to the main record (screen 8.1).
+  const recheck = useCallback(() => void refetch(), [refetch]);
 
   const settled = async () => {
     setOpen(null);
@@ -340,6 +345,10 @@ export const IncidentDetailPage: React.FC = () => {
               </ul>
             )}
           </section>
+          <TransitionTrail incidentId={incident.id} onLostAccess={recheck} />
+          {hasAnyRole(user?.roles ?? [], ['ORG_MANAGER']) && (
+            <AlertLog incidentId={incident.id} onLostAccess={recheck} />
+          )}
         </div>
       </div>
     </section>
