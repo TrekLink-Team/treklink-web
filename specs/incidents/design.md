@@ -107,9 +107,15 @@ the winner's row and answers 409 with the owner (MSG27).
 |---|---|---|
 | `NOTIFY_PRIMARY`, `NOTIFY_BACKUP` | that tier's member | WebSocket, web inbox, email |
 | `NOTIFY_MANAGER` | every active Manager | WebSocket, web inbox, email |
-| `ESCALATED`, `UNROUTED` | every TrekLink Staff and Admin, plus the organization's Managers for `ESCALATED` | WebSocket, web inbox, email (MSG34) |
+| `ESCALATED`, `UNROUTED` | every active TrekLink Staff account, plus the organization's Managers for `ESCALATED` | WebSocket, web inbox, email (MSG34) |
 | any change | the organization's stream | API event |
 | stale flag | owner, or the current tier | WebSocket, web inbox |
+
+Staff are the active accounts holding the `STAFF` role, read through `AccountsService.activeStaffIds`
+on the `incidents --> auth` edge of platform design Figure 3 (D-079, REQ-EVT-04). Each Staff member gets one
+row per channel; a recipient listed twice gets one set. This row named Admin as well until 2026-10-30; D-079
+and REQ-EVT-04 name Staff only, so an account holding only `ADMIN` is not alerted (confirmation asked on
+PR #120). `ESCALATED` reads Staff since TK-144; `UNROUTED` waits for task 2.2.
 
 The dispatcher job reads `alert_deliveries WHERE status = PENDING AND nextAttemptAt <= now()` with
 `FOR UPDATE SKIP LOCKED`, sends, and sets `SENT`, or bumps `attempts` and `nextAttemptAt` with backoff
