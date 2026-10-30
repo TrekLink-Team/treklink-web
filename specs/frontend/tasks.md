@@ -76,13 +76,15 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: organizations api-design 20 to 22; the secret is shown once with a copy button and never again
   - **Done** (2026-10-30, D-078 takeover, KhoaDD's agent, PR #125): `ApiKeysPage` at `/o/api-keys`, built against `ui-design/3-4-api-keys.md` as merged from #117. `src/entities/api-key/api.ts`, `src/features/manage-api-keys/api.ts`, `src/pages/ApiKeysPage.tsx`, component tests in `ApiKeysPage.test.tsx`. Route registered in `app/router.tsx`; `/o/api-keys` flipped to `built: true` in `shared/config/navigation.ts`. Open: TanNB's review
   - _Story: US-UC06_
-- [ ] 3.5 `FieldStationsPage` (owner TanNB)
+- [x] 3.5 `FieldStationsPage` (owner TanNB)
   - **Do**: organizations api-design 23 to 26; create shows the secret once; health columns with `outdated`; the current release with its version, SHA-256 and one download per operating system
   - **Partly done** (2026-10-29, TanNB): `ui-design/3-5-fieldstationspage.md` filled in, with its wireframe `3-5-fieldstationspage.svg`. Open: the page, its tests and the review
+  - **Done** (2026-10-30, KhoaDD under D-078): `FieldStationsPage` at `/o/field-stations` against `ui-design/3-5-fieldstationspage.md`, on organizations 23 to 26 from #134: the release card with one download per file, the station table with health and `outdated`, "n of limit" with Create disabled at the limit, the credential shown once in its dialog (never in the query cache), and revoke with the reason hint of the 2026-10-30 ruling (optional for a Manager, required for Staff and Admin). `src/entities/organization/fieldStations.ts`, `src/pages/FieldStationsPage.tsx` and its tests; route in `app/router.tsx`, `built: true` in `shared/config/navigation.ts`. Covers MF-01 step 7. Open: TanNB's review
   - _Story: US-UC06, US-UC42_
 - [ ] 3.6 `ComplianceCasePage` and channel key rotation (owner TanNB)
   - **Do**: organizations api-design 27 to 31; open a case, record actions (suspend for Admin only), close with outcome and authority reference (required for fraud and theft); rotate key on the organization page clears the exposed flag
   - **Partly done** (2026-10-29, TanNB): `ui-design/3-6-compliancecasepage-and-channel-key-rotation.md` filled in, with its wireframe `3-6-compliancecasepage-and-channel-key-rotation.svg`. Open: the page, the key rotation section, their tests and the review
+  - **Partly done** (2026-10-30, KhoaDD under D-078): `ComplianceCasesPage` (`/t/compliance-cases`, status tabs, Open case) and `ComplianceCasePage` (`/t/compliance-cases/:id`, record action with the Field Station or API key target, Suspend disabled for Staff, Close case with the police reference for fraud and theft), and `widgets/ChannelKeySection` in the organization panel of `/t/organizations` (Record key rotation, `STALE_VERSION` with Reload). `src/entities/organization/complianceCases.ts` and `complianceCaseUi.tsx`, tests beside each page and the widget. Open: the linked contract and loss case pickers (screen open point 5, the loss case id contract is with the leader), Admin's access to Record key rotation (open point 3), TanNB's review
   - _Story: US-UC63_
 
 ## Phase 4: Fleet
