@@ -20,7 +20,7 @@ Scope from the task: monitoring api-design 01 and 02 then stream entries in `seq
 |---|---|
 | Base tiles and attribution (always visible on the map) | monitoring 01 `tileUrl`, `attribution`, `provider` |
 | Initial centre and zoom | monitoring 01 `defaultViewport.lat`, `lon`, `zoom` |
-| Sovereignty overlay labels over the two archipelagos (always on top, no toggle) | monitoring 01 `sovereigntyOverlay[].label`, `lat`, `lon` |
+| Sovereignty overlay labels over the two archipelagos (always on top, no toggle), each on an opaque mask that hides the basemap's own labels there (D-085) | monitoring 01 `sovereigntyOverlay[].label`, `lat`, `lon`, `mask` |
 | Stale threshold used for the "stale" text | monitoring 01 `staleAfterSeconds` |
 | Device marker position | monitoring 02 `devices[].position.lat`, `lon`; later `device.position` stream payload |
 | Marker label: asset tag | monitoring 02 `devices[].assetTag` |

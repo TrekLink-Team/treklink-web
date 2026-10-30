@@ -35,7 +35,7 @@ const CONFIG = {
   attribution: '© Example',
   basemaps: [],
   defaultViewport: { lat: 11.56, lon: 108.54, zoom: 12 },
-  sovereigntyOverlay: [{ label: 'Quần đảo Hoàng Sa (Việt Nam)', lat: 16.5, lon: 112 }],
+  sovereigntyOverlay: [{ label: 'Quần đảo Hoàng Sa (Việt Nam)', lat: 16.5, lon: 112, mask: [] }],
   staleAfterSeconds: 300,
 };
 
