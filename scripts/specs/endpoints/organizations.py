@@ -393,9 +393,13 @@ ENDPOINTS = [
        "Revokes a credential; the broker refuses it from the next connection (FR-EVT-14). The broker's "
        "auth cache is at most 60 s, and from the moment of revocation the backend drops every message "
        "published under it. Events the station still holds are delivered once a new credential is "
-       "configured, since the queue lives on the laptop.", "UC-06, FR-EVT-14, D-037",
+       "configured, since the queue lives on the laptop. A reason is required when the caller is "
+       "TrekLink Staff or Admin (`caller.organizationId` is null); it is optional for the "
+       "organization's own Manager. Revoking an already-revoked station skips that check and answers "
+       "it as it is.", "UC-06, FR-EVT-14, D-037",
        path=[ORG_PATH, ["stationId", "Field Station id", "uuid", f"`{STATION_ID}`"]],
-       body=[["reason", "Why; required for TrekLink staff", "string", "no", "`Laptop stolen`"]],
+       body=[["reason", "Why; required for TrekLink Staff or Admin, optional for the organization's "
+              "own Manager", "string", "no", "`Laptop stolen`"]],
        sample={"reason": "Laptop stolen"}, response={**STATION, "revokedAt": NOW}, message="Field Station credential revoked",
        entity="Field Station",
        steps=["Set revokedAt and revokedBy", "Emit fieldStation.revoked (gateway-sync stops accepting its topic)"],

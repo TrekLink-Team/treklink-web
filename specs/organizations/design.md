@@ -94,6 +94,7 @@ the backup tier, or at the Managers when there is no backup (D-034).
 |---|---|---|
 | Created by | Org Manager | Org Manager (D-037) |
 | Revoked by | Org Manager | Org Manager, TrekLink Staff, Admin |
+| Revoke reason | not applicable, no `reason` field | required when `caller.organizationId` is null (TrekLink Staff, Admin); optional for the organization's own Manager; not re-checked when the station is already revoked (api-design 25) |
 | Listed by | Org Manager: own; TrekLink Staff, Admin: any organization, read only (api-design 20, ruling 2026-10-30) | Org Manager, Org Operator: own; TrekLink Staff, Admin (api-design 23) |
 | Limit | `organizations.maxApiKeys`, returned as `limit` by the list; 409 `KEY_LIMIT` on create | `organizations.maxFieldStations`, returned as `limit` by the list; 409 `STATION_LIMIT` on create |
 | Secret | `tlk_` + 43 base64url chars; SHA-256 stored; prefix of 8 shown | `fs_` + 43 base64url chars; bcrypt stored |
