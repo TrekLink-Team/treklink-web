@@ -153,7 +153,13 @@ describe('validate (environment)', () => {
   });
 
   it('turns Swagger off by default in production only', () => {
-    expect(validate({ ...REQUIRED, NODE_ENV: 'production' }).SWAGGER_ENABLED).toBe(false);
+    const production = {
+      ...REQUIRED,
+      NODE_ENV: 'production',
+      COMPANY_TAX_CODE: '0312345678',
+      COMPANY_HOTLINE: '+84 28 1234 5678',
+    };
+    expect(validate(production).SWAGGER_ENABLED).toBe(false);
     expect(validate({ ...REQUIRED, NODE_ENV: 'test' }).SWAGGER_ENABLED).toBe(true);
   });
 
