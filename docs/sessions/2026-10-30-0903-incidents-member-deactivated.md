@@ -47,5 +47,5 @@ Staff false alarm from `UNROUTED` (rest of 4.2). The listener is not retried if 
 ## Demo steps
 
 1. As `operator@treklink.local`, acknowledge a fresh SOS (`npm --prefix backend run replay:mqtt -- sos --now --new-ids`) at `/o/incidents/<id>`.
-2. As `manager@treklink.local`, deactivate that Operator on the organization members page.
+2. As `manager@treklink.local`, `POST /api/organizations/:id/members/:memberId/deactivate` (the `/o/members` page is not built yet).
 3. The incident shows `NOTIFY_BACKUP` with no owner, history reason `OWNER_DEACTIVATED`; the backup (or, with no backup on the shift, the Manager tier) is alerted.
