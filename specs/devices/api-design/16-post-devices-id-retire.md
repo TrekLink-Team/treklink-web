@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the device is on a running contract (FR-DEV-09). A lost device is retired by settling its loss case (FR-DEV-15).
+Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; refused while the device is on a running contract (FR-DEV-09). A lost device is retired by settling its loss case (FR-DEV-15). An open maintenance record is closed first, as `UNREPAIRABLE` when the unit cannot be repaired.
 
 ## API Specification
 
@@ -166,6 +166,23 @@ Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; re
         </tr>
         <tr>
             <td>409</td>
+            <td>A maintenance record is still open (<code>MAINTENANCE_OPEN</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "MAINTENANCE_OPEN"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "Close the maintenance record first."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
 <td>
 
@@ -206,17 +223,24 @@ flowchart TB
     E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"Another user changed the record first (expectedVersion differs)?"}
+    D4{"A maintenance record is still open?"}
     D3 -->|no| D4
-    E4["Return 409 STALE_VERSION"]
+    E4["Return 409 MAINTENANCE_OPEN"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"Another user changed the record first (expectedVersion differs)?"}
+    D4 -->|no| D5
+    E5["Return 409 STALE_VERSION"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Require MAINTENANCE"]
-    D4 -->|no| P0
-    P1["Transition to RETIRED, set retiredAt"]
+    D5 -->|no| P0
+    P1["Require no open maintenance record"]
     P0 --> P1
+    P2["Transition to RETIRED, set retiredAt"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
