@@ -7,17 +7,24 @@ import {
   CHECK_POLICIES_KEY,
   PolicyHandler,
 } from '../../common/decorators/access.decorator';
+import { AuthorityReportsService } from './authority-reports.service';
 import { IncidentsQueryService } from './incidents-query.service';
-import { AcknowledgeDto, IncidentListQueryDto, IncidentsController } from './incidents.controller';
+import {
+  AcknowledgeDto,
+  AuthorityReportDto,
+  IncidentListQueryDto,
+  IncidentsController,
+} from './incidents.controller';
 import { IncidentsService } from './incidents.service';
 
 const CALLER: Caller = { id: 'u-1', roles: ['ORG_OPERATOR'], organizationId: 'org-a' };
 const ROW = { id: 'inc-1' } as Incident;
 const VIEW = { id: 'inc-1', code: 'INC-2026-000001' };
 
-describe('IncidentsController (incidents 6.1, api-design 01 to 07)', () => {
+describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
   let incidents: Record<string, jest.Mock>;
   let queries: Record<'list' | 'detail' | 'views' | 'transitions' | 'alerts', jest.Mock>;
+  let authority: { reportIncident: jest.Mock };
   let controller: IncidentsController;
 
   beforeEach(() => {
@@ -35,9 +42,11 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 07)', () => {
       transitions: jest.fn().mockResolvedValue([{ seq: 1 }]),
       alerts: jest.fn().mockResolvedValue([{ tier: 'PRIMARY' }]),
     };
+    authority = { reportIncident: jest.fn().mockResolvedValue(ROW) };
     controller = new IncidentsController(
       incidents as unknown as IncidentsService,
       queries as unknown as IncidentsQueryService,
+      authority as unknown as AuthorityReportsService,
     );
   });
 
@@ -85,6 +94,7 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 07)', () => {
     ['statusUpdate', 'respond', 'Incident'],
     ['resolve', 'respond', 'Incident'],
     ['falseAlarm', 'respond', 'Incident'],
+    ['reportToAuthority', 'manage', 'AuthorityReport'],
   ] as const)('%s needs %s %s', (method, action, subject) => {
     // The route handler as Nest reads its metadata, taken without binding it.
     const handler = Object.getOwnPropertyDescriptor(IncidentsController.prototype, method)
@@ -107,6 +117,24 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 07)', () => {
     expect(
       plainToInstance(IncidentListQueryDto, { state: ['ESCALATED'], open: 'yes' }),
     ).toMatchObject({ state: ['ESCALATED'], open: 'yes' });
+  });
+
+  it('records an authority report and returns the incident view (api-design 08)', async () => {
+    const body = {
+      agency: 'Lam Dong provincial rescue (114)',
+      reference: 'LD-114',
+      reportedAt: new Date('2026-10-20T03:25:00Z'),
+      expectedVersion: 5,
+    };
+    await expect(controller.reportToAuthority('inc-1', body, CALLER)).resolves.toBe(VIEW);
+    expect(authority.reportIncident).toHaveBeenCalledWith('inc-1', body, CALLER);
+    expect(queries.views).toHaveBeenCalledWith([ROW]);
+    expect(
+      plainToInstance(AuthorityReportDto, {
+        reportedAt: '2026-10-20T03:25:00Z',
+        expectedVersion: '5',
+      }),
+    ).toMatchObject({ reportedAt: new Date('2026-10-20T03:25:00Z'), expectedVersion: 5 });
   });
 
   it('returns the saved status update as is (api-design 05)', async () => {
