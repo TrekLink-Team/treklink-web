@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { LossDecision, Prisma } from '@prisma/client';
 import {
   LOSS_CASE_LISTENERS,
@@ -16,13 +16,14 @@ import { ContractsService } from '../contracts.service';
 export class RentalsLossCaseListener implements LossCaseListener, OnModuleInit {
   constructor(
     private readonly contracts: ContractsService,
-    @Optional()
+    // Required: devices provides the array, and a missing token must fail at boot, never leave
+    // rentals silently unregistered (no lostAt on a settled case).
     @Inject(LOSS_CASE_LISTENERS)
-    private readonly listeners?: LossCaseListener[],
+    private readonly listeners: LossCaseListener[],
   ) {}
 
   onModuleInit(): void {
-    if (this.listeners) registerLossCaseListener(this.listeners, this);
+    registerLossCaseListener(this.listeners, this);
   }
 
   async onConfirmed(): Promise<void> {}

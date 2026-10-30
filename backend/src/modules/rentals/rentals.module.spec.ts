@@ -60,7 +60,7 @@ describe('RentalsModule', () => {
     const moduleRef = await compileRentals();
     const listeners = moduleRef.get<LossCaseListener[]>(LOSS_CASE_LISTENERS, { strict: false });
     const rentalsListener = moduleRef.get(RentalsLossCaseListener);
-    rentalsListener.onModuleInit();
+    await moduleRef.init(); // runs the boot hooks, so the listener registers itself as at startup
 
     expect(moduleRef.get(CUSTODY_RESOLVER, { strict: false })).toBeInstanceOf(
       RentalsCustodyResolver,
