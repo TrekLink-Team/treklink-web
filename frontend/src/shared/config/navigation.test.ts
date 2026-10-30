@@ -10,7 +10,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
   });
 
   it('shows an Org Operator only the built routes the operator holds', () => {
-    expect(routes(visibleNav('ORGANIZATION', ['ORG_OPERATOR']))).toEqual(['/o/map', '/o/incidents', '/o/contracts', '/o/roster']);
+    expect(routes(visibleNav('ORGANIZATION', ['ORG_OPERATOR']))).toEqual(['/o/map', '/o/incidents', '/o/contracts', '/o/roster', '/o/field-stations']);
   });
 
   it('adds the overview, invoices, members and API keys for the Org Manager through inheritance', () => {
@@ -23,12 +23,13 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/o/members',
       '/o/roster',
       '/o/api-keys',
+      '/o/field-stations',
     ]);
   });
 
-  it('gives TrekLink Staff the fleet map, contracts, devices, maintenance, organizations, billing and damage charges, and Admin those plus the built administration pages', () => {
-    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/maintenance', '/t/organizations', '/t/billing', '/t/damage-charges']);
-    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/maintenance', '/t/organizations', '/t/billing', '/t/damage-charges', '/t/admin/prices']);
+  it('gives TrekLink Staff the fleet map, contracts, devices, maintenance, organizations, compliance cases, billing and damage charges, and Admin those plus the built administration pages', () => {
+    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges']);
+    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges', '/t/admin/prices']);
   });
 
   it('keeps Administration for Admin only once its pages are built', () => {

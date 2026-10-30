@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
 import {
   ACTION_KIND_LABEL,
+  caseErrorText,
   closeComplianceCase,
   complianceCaseKeys,
   needsPoliceReference,
@@ -34,7 +35,7 @@ import {
 import { Fact } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
-import { caseErrorText, CaseStatusBadge, CaseTypeBadge } from './ComplianceCasesPage';
+import { CaseStatusBadge, CaseTypeBadge } from '../entities/organization/complianceCaseUi';
 
 const TITLE_ID = 'case-title';
 const KINDS = Object.keys(ACTION_KIND_LABEL) as ComplianceActionKind[];

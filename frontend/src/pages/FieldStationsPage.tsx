@@ -282,7 +282,11 @@ const RevokeDialog: React.FC<{
       }
     >
       <div className="flex flex-col gap-3">
-        <Field id="revoke-station-reason" label="Reason" hint="Optional.">
+        <Field
+          id="revoke-station-reason"
+          label="Reason"
+          hint="Optional for a Manager. Required when TrekLink Staff or Admin revoke."
+        >
           <Input id="revoke-station-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
         </Field>
         {error && <Alert tone="error">{error}</Alert>}
