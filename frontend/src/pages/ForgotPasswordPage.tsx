@@ -29,7 +29,7 @@ export const ForgotPasswordPage: React.FC = () => {
   return (
     <div className="flex justify-center py-10">
       <form onSubmit={submit} noValidate aria-labelledby="forgot-title" className={CARD}>
-        <h1 id="forgot-title" className="text-2xl font-bold text-slate-900">
+        <h1 id="forgot-title" className="text-2xl font-bold text-ink">
           Forgot password
         </h1>
 

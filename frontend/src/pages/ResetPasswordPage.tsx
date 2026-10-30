@@ -61,7 +61,7 @@ export const ResetPasswordPage: React.FC = () => {
   return (
     <div className="flex justify-center py-10">
       <form onSubmit={submit} noValidate aria-labelledby="reset-title" className={CARD}>
-        <h1 id="reset-title" className="text-2xl font-bold text-slate-900">
+        <h1 id="reset-title" className="text-2xl font-bold text-ink">
           Reset password
         </h1>
 

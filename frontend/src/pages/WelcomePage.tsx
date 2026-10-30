@@ -48,7 +48,7 @@ export const WelcomePage: React.FC = () => {
   return (
     <div className="flex justify-center py-10">
       <form onSubmit={submit} noValidate aria-labelledby="welcome-title" className={CARD}>
-        <h1 id="welcome-title" className="text-2xl font-bold text-slate-900">
+        <h1 id="welcome-title" className="text-2xl font-bold text-ink">
           Welcome to TrekLink
         </h1>
 

@@ -35,7 +35,6 @@ import {
   TABLE,
   TD,
   TH,
-  WARNING,
 } from '../shared/ui/styles';
 
 const TABS: { label: string; status?: ContractStatus }[] = [
@@ -103,7 +102,7 @@ const RejectDialog: React.FC<{
           <textarea
             id="reject-reason"
             rows={3}
-            className="rounded-lg border border-slate-400 p-3"
+            className="rounded-lg border border-line-strong p-3"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             {...invalid('reject-reason', error)}
@@ -172,57 +171,55 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   return (
     <aside aria-labelledby="panel-title" className={`${CARD} flex h-fit flex-col gap-4`}>
       <div>
-        <h2 id="panel-title" className="text-lg font-bold text-slate-900">
+        <h2 id="panel-title" className="text-lg font-bold text-ink">
           {contract.code}
         </h2>
-        <p className="text-sm text-slate-700">{contract.organization?.legalName}</p>
+        <p className="text-sm text-ink-muted">{contract.organization?.legalName}</p>
       </div>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <dt className="font-semibold text-slate-600">Plan</dt>
+          <dt className="font-semibold text-ink-muted">Plan</dt>
           <dd>{planLabel(contract)}</dd>
         </div>
         <div>
-          <dt className="font-semibold text-slate-600">Devices</dt>
+          <dt className="font-semibold text-ink-muted">Devices</dt>
           <dd>
             {contract.quantity} x {contract.hardwareVariant.code}
           </dd>
         </div>
         <div>
-          <dt className="font-semibold text-slate-600">Monthly price</dt>
+          <dt className="font-semibold text-ink-muted">Monthly price</dt>
           <dd>{formatVnd(contract.monthlyUnitPriceVnd)}</dd>
         </div>
         <div>
-          <dt className="font-semibold text-slate-600">Holding fee</dt>
+          <dt className="font-semibold text-ink-muted">Holding fee</dt>
           <dd>{Math.round(contract.holdingFeeRatio * 100)} %</dd>
         </div>
         <div className="col-span-2">
-          <dt className="font-semibold text-slate-600">Requested start</dt>
+          <dt className="font-semibold text-ink-muted">Requested start</dt>
           <dd>{formatDay(contract.requestedStartDate)}</dd>
         </div>
       </dl>
 
       {approved ? (
-        <div
-          role="status"
-          className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm"
+        <Alert
+          tone="success"
+          title={`Reserved: ${approved.devices.map((device) => device.assetTag).join(', ')}`}
         >
-          <p className="font-semibold">
-            Reserved: {approved.devices.map((device) => device.assetTag).join(', ')}
-          </p>
-          <p>Reservation expires {formatDateTime(approved.reservationExpiresAt)}.</p>
-        </div>
+          Reservation expires {formatDateTime(approved.reservationExpiresAt)}.
+        </Alert>
       ) : rejected ? (
         <Alert tone="info" title="Rejected. The Manager sees the reason." />
       ) : (
         contract.status === 'REQUESTED' && (
           <>
-            <div
-              role="status"
-              className={
-                available !== undefined && available < contract.quantity
-                  ? WARNING
-                  : 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900'
+            <Alert
+              tone={
+                available === undefined
+                  ? 'info'
+                  : available < contract.quantity
+                    ? 'warning'
+                    : 'success'
               }
             >
               {availability.isLoading
@@ -232,7 +229,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
                   : available < contract.quantity
                     ? `Only ${available} ${contract.hardwareVariant.code} available now.`
                     : `${available} ${contract.hardwareVariant.code} available now; approval reserves ${contract.quantity}.`}
-            </div>
+            </Alert>
             {failure && (
               <div role="alert" className={ALERT}>
                 {failure.message}
@@ -396,7 +393,7 @@ export const ContractApprovalPage: React.FC = () => {
               />
               <ul className="flex flex-col gap-2 md:hidden">
                 {filtered && rows.length === 0 && (
-                  <li className="text-slate-700">No rows match these filters.</li>
+                  <li className="text-ink-muted">No rows match these filters.</li>
                 )}
                 {rows.map((contract) => (
                   <li key={contract.id}>
@@ -404,18 +401,18 @@ export const ContractApprovalPage: React.FC = () => {
                       type="button"
                       onClick={() => setSelected(contract)}
                       aria-pressed={contract.id === selected?.id}
-                      className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border bg-white p-4 text-left shadow-sm ${
+                      className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border bg-surface p-4 text-left shadow-sm ${
                         contract.id === selected?.id
-                          ? 'border-blue-700 ring-2 ring-blue-200'
-                          : 'border-slate-200'
+                          ? 'border-accent ring-2 ring-focus/40'
+                          : 'border-line'
                       }`}
                     >
                       <span>
-                        <span className="font-semibold text-slate-900">{contract.code}</span>
-                        <span className="ml-2 text-sm text-slate-600">
+                        <span className="font-semibold text-ink">{contract.code}</span>
+                        <span className="ml-2 text-sm text-ink-muted">
                           {contract.organization?.code}
                         </span>
-                        <span className="block text-sm text-slate-700">
+                        <span className="block text-sm text-ink-muted">
                           {planLabel(contract)}, {contract.hardwareVariant.code} x{' '}
                           {contract.quantity}, starts {formatDay(contract.requestedStartDate)}
                         </span>
@@ -504,7 +501,7 @@ export const ContractApprovalPage: React.FC = () => {
           {selected ? (
             <RequestPanel key={selected.id} contract={selected} onDecided={refresh} />
           ) : (
-            <div className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-600">
+            <div className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-ink-muted">
               Select a request to see its prices, choose the handover appointment and decide.
             </div>
           )}

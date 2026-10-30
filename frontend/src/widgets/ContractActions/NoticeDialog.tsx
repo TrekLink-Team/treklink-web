@@ -51,7 +51,7 @@ export const NoticeDialog: React.FC<{ contract: ContractDetail; onClose: () => v
   return (
     <Dialog titleId="notice-title" title={`Give notice on ${contract.code}?`} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-ink-muted">
           The contract ends at the end of the current term
           {termEnd ? `, ${formatDate(termEnd)}` : ''}. The term balance is due then and the devices
           are returned at the counter.

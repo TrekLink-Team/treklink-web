@@ -15,11 +15,11 @@ export interface FilterField {
 }
 
 const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1';
 
-const CONTROL = `h-9 w-full min-w-0 rounded-md border border-slate-300 bg-white px-2 text-sm font-normal normal-case tracking-normal text-slate-900 ${FOCUS}`;
+const CONTROL = `h-9 w-full min-w-0 rounded-md border border-line-strong bg-surface px-2 text-sm font-normal normal-case tracking-normal text-ink ${FOCUS}`;
 
-const CLEAR = `h-9 whitespace-nowrap rounded-md px-2 text-sm font-semibold normal-case tracking-normal text-blue-700 hover:bg-blue-50 ${FOCUS}`;
+const CLEAR = `h-9 whitespace-nowrap rounded-md px-2 text-sm font-semibold normal-case tracking-normal text-brand hover:bg-chrome/60 ${FOCUS}`;
 
 const Control: React.FC<{ field: FilterField }> = ({ field }) =>
   field.kind === 'select' ? (
@@ -55,7 +55,7 @@ export const FilterRow: React.FC<{
 }> = ({ columns, onClear }) => {
   const active = columns.some((column) => column && column.value !== '');
   return (
-    <tr className="border-t border-slate-200 bg-white">
+    <tr className="border-t border-line bg-surface">
       {columns.map((column, index) => (
         <th key={index} scope="col" className="px-2 py-2 align-top">
           <div className="flex items-center gap-1">
@@ -100,10 +100,10 @@ export const NoMatchRow: React.FC<{ colSpan: number; onClear: () => void }> = ({
   colSpan,
   onClear,
 }) => (
-  <tr className="border-t border-slate-200">
-    <td colSpan={colSpan} className="px-4 py-6 text-center text-slate-700">
+  <tr className="border-t border-line">
+    <td colSpan={colSpan} className="px-4 py-6 text-center text-ink-muted">
       No rows match these filters.{' '}
-      <button type="button" className="font-semibold text-blue-700 underline" onClick={onClear}>
+      <button type="button" className="font-semibold text-brand underline" onClick={onClear}>
         Clear filters
       </button>
     </td>

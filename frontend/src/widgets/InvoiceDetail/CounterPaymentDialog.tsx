@@ -93,7 +93,7 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
   return (
     <Dialog titleId="counter-title" title="Record counter payment" onClose={close}>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-ink-muted">
           {invoice.number}, contract {invoice.contract.code ?? invoice.contract.id}
           {invoice.organization.code ? `, ${invoice.organization.code}` : ''}. Due now:{' '}
           <strong>{formatVnd(dueNow)}</strong>
@@ -109,7 +109,7 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
           </div>
         )}
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-semibold text-slate-900">Method</legend>
+          <legend className="text-sm font-semibold text-ink">Method</legend>
           <div className="flex gap-4">
             {(['CASH', 'BANK_TRANSFER'] as const).map((value) => (
               <label key={value} className="flex items-center gap-2">

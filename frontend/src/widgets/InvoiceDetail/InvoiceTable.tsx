@@ -92,13 +92,13 @@ export const InvoiceTable: React.FC<{
         onClear={clear}
       />
       <ul className="flex flex-col gap-2 md:hidden">
-        {rows.length === 0 && <li className="text-slate-700">No rows match these filters.</li>}
+        {rows.length === 0 && <li className="text-ink-muted">No rows match these filters.</li>}
         {rows.map((invoice) => (
           <li key={invoice.id}>
             <button
               type="button"
               onClick={() => onOpen(invoice)}
-              className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left"
+              className="w-full rounded-xl border border-line bg-surface p-4 text-left"
             >
               <span className="flex justify-between">
                 <span className="font-semibold">{invoice.number}</span>
@@ -106,7 +106,7 @@ export const InvoiceTable: React.FC<{
                   {INVOICE_STATUS_LABELS[invoice.status]}
                 </Badge>
               </span>
-              <span className="block text-sm text-slate-700">
+              <span className="block text-sm text-ink-muted">
                 {invoice.contract.code}, {formatVnd(invoice.totalVnd)}, paid{' '}
                 {formatVnd(invoice.paidVnd)}
               </span>
@@ -114,8 +114,8 @@ export const InvoiceTable: React.FC<{
           </li>
         ))}
       </ul>
-      <table className="hidden w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm md:table">
-        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+      <table className="hidden w-full overflow-hidden rounded-xl border border-line bg-surface text-sm shadow-sm md:table">
+        <thead className="bg-sunken text-left text-xs uppercase tracking-wide text-ink-muted">
           <tr>
             <th className="px-3 py-3">Number</th>
             {showOrganization && <th className="px-3 py-3">Organization</th>}
@@ -133,12 +133,12 @@ export const InvoiceTable: React.FC<{
           {rows.map((invoice) => (
             <tr
               key={invoice.id}
-              className={`border-t border-slate-200 ${invoice.id === selectedId ? 'bg-blue-50' : ''}`}
+              className={`border-t border-line ${invoice.id === selectedId ? 'bg-chrome' : ''}`}
             >
               <td className="px-3 py-3">
                 <button
                   type="button"
-                  className="font-semibold text-blue-700 hover:underline"
+                  className="font-semibold text-brand hover:underline"
                   onClick={() => onOpen(invoice)}
                 >
                   {invoice.number}

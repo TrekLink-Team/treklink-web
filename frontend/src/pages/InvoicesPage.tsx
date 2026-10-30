@@ -13,11 +13,11 @@ export const InvoiceFilterBar: React.FC<{
   onChange: (filters: InvoiceFilters) => void;
 }> = ({ filters, onChange }) =>
   filters.contractId ? (
-    <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-slate-700">
+    <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-ink-muted">
       Showing one contract.
       <button
         type="button"
-        className="font-semibold text-blue-700"
+        className="font-semibold text-brand"
         onClick={() => onChange({ ...filters, contractId: undefined, pageNumber: 1 })}
       >
         Show every contract

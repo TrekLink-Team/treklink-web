@@ -8,6 +8,7 @@ import {
 } from '../entities/billing/api';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { Empty, ErrorState, Loading, PageTitle, Pager } from '../shared/ui/bits';
+import { Badge } from '../shared/ui/Badge';
 import { TAB } from '../shared/ui/styles';
 import { matchesText } from '../shared/lib/filter';
 import { FilterRow, NoMatchRow, type FilterField } from '../shared/ui/TableFilters';
@@ -55,7 +56,7 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
           canRecordCounter
         />
       ) : (
-        <p className="text-sm text-slate-600">Open an invoice to see its lines and payments.</p>
+        <p className="text-sm text-ink-muted">Open an invoice to see its lines and payments.</p>
       )}
     </div>
   );
@@ -113,8 +114,8 @@ const PaymentsTab: React.FC = () => {
       {data && (data.items.length > 0 || filtered) && (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+            <table className="w-full overflow-hidden rounded-xl border border-line bg-surface text-sm shadow-sm">
+              <thead className="bg-sunken text-left text-xs uppercase tracking-wide text-ink-muted">
                 <tr>
                   <th className="px-3 py-3">Reference</th>
                   <th className="px-3 py-3">Method</th>
@@ -127,14 +128,14 @@ const PaymentsTab: React.FC = () => {
               <tbody>
                 {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
                 {rows.map((payment) => (
-                  <tr key={payment.id} className="border-t border-slate-200">
+                  <tr key={payment.id} className="border-t border-line">
                     <td className="px-3 py-3 font-mono">{payment.reference}</td>
                     <td className="px-3 py-3">
                       {METHOD_LABELS[payment.method]}
                       {payment.isSandbox && (
-                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-900">
+                        <Badge tone="attention" className="ml-2">
                           SANDBOX
-                        </span>
+                        </Badge>
                       )}
                     </td>
                     <td className="px-3 py-3 text-right">{formatVnd(payment.amountVnd)}</td>

@@ -270,18 +270,22 @@ The first pages keep importing `styles.ts` (`PRIMARY_BUTTON`, `INPUT`, `CARD`, `
 
 ## 7. Legacy compatibility layer
 
-Pages written before the system use Tailwind colour names such as `bg-white`, `text-slate-600`,
-`bg-blue-700`, `bg-emerald-50`. `tailwind.config.js` remaps exactly the shades in use (`white`,
-`slate`, `blue`, `emerald`, `red`, `rose`, `amber`, `indigo`) to theme variables, so those pages
-follow both themes without edits, and their pairings are in the contrast test. The layer is
-deprecated: new code uses the semantic names, and a page drops the legacy names when it is next
-edited (convention 17 §4).
+Pages written before the system used Tailwind colour names such as `bg-white`, `text-slate-600`,
+`bg-blue-700`, `bg-emerald-50`. `tailwind.config.js` remaps a fixed list of shades (`white`, `slate`,
+`blue`, `emerald`, `red`, `rose`, `amber`, `indigo`) to theme variables. A shade outside that list
+keeps Tailwind's fixed value in both themes: `text-emerald-900` on the remapped `bg-emerald-50` was
+dark text on a dark fill in Volt (dry run defect 2, 2026-10-30). The sweep of 2026-10-30 moved
+`src/pages`, `src/widgets`, `src/features` and `src/entities` to the semantic names, `Alert` and
+`Badge`, and `src/app/styles/rawPalette.test.ts` now fails `npm test` on any raw palette class in
+those folders. The layer stays deprecated and remains only for `src/shared/ui`, which drops it when
+next edited (convention 17 §4).
 
 ## 8. Verification
 
 | Check | How |
 |---|---|
 | Contrast of every allowed pairing, both themes | `npm test` (tokens.test.ts) |
+| No raw Tailwind palette class in pages, widgets, features, entities | `npm test` (rawPalette.test.ts) |
 | Navigation per role, breadcrumb, Info pane rules, Tabs keys, ConfirmDialog focus | `npm test` (navigation.test.ts, components.test.tsx, AppShell.test.tsx) |
 | axe-core, WCAG 2.0 to 2.2 A and AA rules | Run on contracts, billing, map, sign-in and the design system page, both themes, 1440 and 360 px: no violations (HANDBACK.md) |
 | The design system page | `npm run dev`, then `/dev/design-system` (development builds only) |

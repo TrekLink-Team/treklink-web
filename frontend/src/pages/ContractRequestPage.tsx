@@ -167,16 +167,16 @@ export const ContractRequestPage: React.FC = () => {
     <aside
       aria-live="polite"
       aria-label="Quote"
-      className={`${CARD} h-fit border-blue-100 md:sticky md:top-4`}
+      className={`${CARD} h-fit border-chrome-strong md:sticky md:top-4`}
     >
-      <h2 className="text-lg font-bold text-slate-900">Quote</h2>
-      <p className="text-xs text-slate-600">Updates as you choose.</p>
+      <h2 className="text-lg font-bold text-ink">Quote</h2>
+      <p className="text-xs text-ink-muted">Updates as you choose.</p>
       {!quoteRequest && (
-        <p className="mt-2 text-sm text-slate-600">Choose a plan, a variant and a quantity.</p>
+        <p className="mt-2 text-sm text-ink-muted">Choose a plan, a variant and a quantity.</p>
       )}
       {quoteRequest && quote.isFetching && <p className="mt-2 text-sm">Calculating…</p>}
       {quoteRequest && quote.error && (
-        <p className="mt-2 text-sm text-red-700">
+        <p className="mt-2 text-sm text-status-critical-fg">
           {errorsOf(quote.error).quantity ?? errorsOf(quote.error).form}
         </p>
       )}
@@ -217,10 +217,10 @@ export const ContractRequestPage: React.FC = () => {
               </div>
             </>
           )}
-          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          <div className="rounded-lg bg-sunken px-3 py-2 text-xs text-ink-muted">
             Formula: <span className="font-mono">{quote.data.formula}</span>
           </div>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-ink-muted">
             Prices are fixed when you send the request. Nothing is charged until TrekLink approves
             it.
           </p>
@@ -253,10 +253,10 @@ export const ContractRequestPage: React.FC = () => {
             aria-current={index === step ? 'step' : undefined}
             className={`flex items-center gap-2 rounded-full px-3 py-1 font-semibold ${
               index === step
-                ? 'bg-blue-700 text-white'
+                ? 'bg-accent text-on-accent'
                 : index < step
-                  ? 'bg-emerald-50 text-emerald-800'
-                  : 'bg-slate-200 text-slate-700'
+                  ? 'bg-status-done-tint text-status-done-fg'
+                  : 'bg-sunken text-ink-muted'
             }`}
           >
             <span aria-hidden="true">{index < step ? '✓' : index + 1}</span>
@@ -272,7 +272,7 @@ export const ContractRequestPage: React.FC = () => {
             id="request-title"
             ref={heading}
             tabIndex={-1}
-            className="text-lg font-bold text-slate-900"
+            className="text-lg font-bold text-ink"
           >
             {STEPS[step]}
           </h2>
@@ -285,15 +285,15 @@ export const ContractRequestPage: React.FC = () => {
           {step === 0 && (
             <>
               <fieldset className="flex flex-col gap-1.5">
-                <legend className="text-sm font-semibold text-slate-900">Plan</legend>
+                <legend className="text-sm font-semibold text-ink">Plan</legend>
                 <div className="flex gap-2">
                   {(['MONTHLY', 'DAY'] as const).map((type) => (
                     <label
                       key={type}
-                      className={`flex h-11 cursor-pointer items-center rounded-lg border px-4 font-semibold transition focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
+                      className={`flex h-11 cursor-pointer items-center rounded-lg border px-4 font-semibold transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 ${
                         planType === type
-                          ? 'border-blue-700 bg-blue-50 text-blue-800'
-                          : 'border-slate-300 hover:bg-slate-50'
+                          ? 'border-accent bg-chrome text-ink'
+                          : 'border-line-strong hover:bg-chrome/60'
                       }`}
                     >
                       <input
@@ -399,22 +399,22 @@ export const ContractRequestPage: React.FC = () => {
           {step === 2 && (
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="font-semibold text-slate-600">Plan</dt>
+                <dt className="font-semibold text-ink-muted">Plan</dt>
                 <dd>{planType === 'DAY' ? `Day plan, ${dayPlanDays} days` : 'Monthly'}</dd>
               </div>
               <div>
-                <dt className="font-semibold text-slate-600">Hardware variant</dt>
+                <dt className="font-semibold text-ink-muted">Hardware variant</dt>
                 <dd>{variant?.name}</dd>
               </div>
               <div>
-                <dt className="font-semibold text-slate-600">Quantity</dt>
+                <dt className="font-semibold text-ink-muted">Quantity</dt>
                 <dd>{quantityNumber} devices</dd>
               </div>
               <div>
-                <dt className="font-semibold text-slate-600">Start date</dt>
+                <dt className="font-semibold text-ink-muted">Start date</dt>
                 <dd>{startDate && formatDay(startDate)}</dd>
               </div>
-              <p className="sm:col-span-2 text-slate-700">
+              <p className="sm:col-span-2 text-ink-muted">
                 Plan, variant and quantity cannot change after the request. Need more devices? Send
                 another request.
               </p>
