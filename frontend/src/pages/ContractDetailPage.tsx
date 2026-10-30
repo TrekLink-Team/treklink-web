@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
-import { useBalance } from '../entities/billing/api';
+import { useBalance, useVariantName } from '../entities/billing/api';
 import {
   cancelContract,
   contractKeys,
@@ -210,6 +210,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   const isManager = hasAnyRole(roles, ['ORG_MANAGER']);
   const canSeeMoney = isStaff || isManager;
   const contract = useContract(id);
+  const variantName = useVariantName();
   const balance = useBalance(id, canSeeMoney && contract.isSuccess);
   const history = useTransitions(id, canSeeMoney && contract.isSuccess);
   const [cancelling, setCancelling] = useState(false);
@@ -246,7 +247,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
         action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
       />
       <p className="-mt-3 mb-5 text-ink-muted">
-        {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}
+        {planLabel(data)}, {data.quantity} x {variantName(data.hardwareVariant)}
         {scope === 't' && data.organization ? ` for ${data.organization.legalName}` : ''}
       </p>
 
@@ -261,7 +262,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
               )}
               <Fact label="Plan">{planLabel(data)}</Fact>
               <Fact label="Devices">
-                {data.quantity} x {data.hardwareVariant.code ?? 'variant'}
+                {data.quantity} x {variantName(data.hardwareVariant)}
               </Fact>
               <Fact label="Requested start">{formatDay(data.requestedStartDate)}</Fact>
               <Fact label="Handed over">
