@@ -54,6 +54,10 @@ export enum ErrorCode {
   KEY_LIMIT = 'KEY_LIMIT',
   // The last active Manager cannot be demoted or deactivated (api-design 14, 15, FR-ORG-04).
   LAST_MANAGER = 'LAST_MANAGER',
+  // Roster (api-design 17 to 19, FR-ORG-05).
+  SHIFT_OVERLAP = 'SHIFT_OVERLAP',
+  SHIFT_STARTED = 'SHIFT_STARTED',
+  MEMBER_NOT_ELIGIBLE = 'MEMBER_NOT_ELIGIBLE',
 
   // monitoring (specs/monitoring/design.md §6)
   CURSOR_EXPIRED = 'CURSOR_EXPIRED',

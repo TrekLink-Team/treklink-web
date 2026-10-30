@@ -61,4 +61,107 @@ export class RosterRepository {
     });
     return rows.map((row) => row.userId);
   }
+
+  // Shift administration (task 2.6, api-design 16 to 19). Every write runs in the caller's transaction,
+  // under the organization row lock the service takes first.
+
+  // The shifts that touch `[from, to)`, earliest first.
+  shiftsBetween(
+    organizationId: string,
+    from: Date,
+    to: Date,
+    client: Client = this.prisma,
+  ): Promise<ShiftRow[]> {
+    return client.rosterShift.findMany({
+      where: { organizationId, startsAt: { lt: to }, endsAt: { gt: from } },
+      orderBy: { startsAt: 'asc' },
+      select: SHIFT_SELECT,
+    });
+  }
+
+  // A shift of this organization; null for an unknown id or another organization's.
+  findShift(
+    organizationId: string,
+    shiftId: string,
+    client: Client = this.prisma,
+  ): Promise<ShiftRow | null> {
+    return client.rosterShift.findFirst({
+      where: { id: shiftId, organizationId },
+      select: SHIFT_SELECT,
+    });
+  }
+
+  // Whether another shift of the organization overlaps `[startsAt, endsAt)`; two shifts that only touch
+  // do not overlap. `exceptShiftId` leaves the shift being edited out.
+  async overlaps(
+    organizationId: string,
+    startsAt: Date,
+    endsAt: Date,
+    exceptShiftId: string | null,
+    client: Client = this.prisma,
+  ): Promise<boolean> {
+    const found = await client.rosterShift.findFirst({
+      where: {
+        organizationId,
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+        ...(exceptShiftId ? { id: { not: exceptShiftId } } : {}),
+      },
+      select: { id: true },
+    });
+    return found !== null;
+  }
+
+  // The members among `memberIds` that belong to the organization and are not deactivated.
+  liveMembers(
+    organizationId: string,
+    memberIds: readonly string[],
+    client: Client = this.prisma,
+  ): Promise<{ id: string; userId: string }[]> {
+    return client.organizationMember.findMany({
+      where: { organizationId, id: { in: [...memberIds] }, deactivatedAt: null },
+      select: { id: true, userId: true },
+    });
+  }
+
+  insertShift(
+    data: {
+      organizationId: string;
+      startsAt: Date;
+      endsAt: Date;
+      primaryMemberId: string | null;
+      backupMemberId: string | null;
+      createdById: string;
+    },
+    client: Client,
+  ): Promise<ShiftRow> {
+    return client.rosterShift.create({ data, select: SHIFT_SELECT });
+  }
+
+  updateShift(
+    shiftId: string,
+    data: {
+      startsAt?: Date;
+      endsAt?: Date;
+      primaryMemberId?: string | null;
+      backupMemberId?: string | null;
+    },
+    client: Client,
+  ): Promise<ShiftRow> {
+    return client.rosterShift.update({ where: { id: shiftId }, data, select: SHIFT_SELECT });
+  }
+
+  async deleteShift(shiftId: string, client: Client): Promise<void> {
+    await client.rosterShift.delete({ where: { id: shiftId } });
+  }
 }
+
+const SHIFT_SELECT = {
+  id: true,
+  startsAt: true,
+  endsAt: true,
+  primaryMember: { select: { id: true, userId: true } },
+  backupMember: { select: { id: true, userId: true } },
+} satisfies Prisma.RosterShiftSelect;
+
+export type ShiftRow = Prisma.RosterShiftGetPayload<{ select: typeof SHIFT_SELECT }>;

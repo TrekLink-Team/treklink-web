@@ -13,8 +13,10 @@ import { OrganizationsController } from './organizations.controller';
 import { OrganizationsPortsModule } from './organizations-ports.module';
 import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationsService } from './organizations.service';
+import { RosterController } from './roster.controller';
 import { RosterRepository } from './roster.repository';
 import { RosterService } from './roster.service';
+import { ShiftsService } from './shifts.service';
 
 // Organizations, members, roster, keys and compliance (specs/organizations/design.md). So far the
 // ACCOUNT_CONTEXT_PROVIDER port (task 1.3, D-060 rule 1), `assertActive` for rentals 2.1, the member
@@ -29,6 +31,7 @@ import { RosterService } from './roster.service';
     OrganizationOnboardingController,
     ApiKeysController,
     MembersController,
+    RosterController,
   ],
   providers: [
     OrganizationsRepository,
@@ -40,6 +43,7 @@ import { RosterService } from './roster.service';
     RosterService,
     ApiKeysRepository,
     ApiKeysService,
+    ShiftsService,
   ],
   exports: [OrganizationsService, RosterService],
 })
