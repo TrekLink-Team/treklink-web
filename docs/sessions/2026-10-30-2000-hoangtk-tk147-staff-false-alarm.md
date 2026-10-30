@@ -39,3 +39,8 @@ Frontend 8.2 stays open. R2 in #118 only blocks the episode panel, which is outs
 - Frontend source was unchanged by the latest dev changes: 46 files / 565 tests passed after the review fixes; lint, typecheck and production build passed again after rebase. Coverage remains 100% lines / 91.13% branches for StaffIncidentsPage and 100% / 98.07% for StaffFalseAlarmDialog. Gateway lint, typecheck, build and three suites / ten tests passed again.
 - Smoke servers, the fixture script and the clean detached baseline worktree were removed. The existing tool configuration, environment files, keys, package manifests and lockfile remain unchanged. The disposable database container is removed after verification.
 - PR submission is authorized. Request KhoaDD for the story and LongNN for frontend consistency (D-053). Jira IN REVIEW and the Zalo review ping remain developer actions. CI results must be read from GitHub for the pushed head.
+
+## Review handoff
+
+- Opened [PR #168](https://github.com/TrekLink-Team/treklink-web/pull/168) targeting `dev`, Ready for Review, with KhoaDD (`ruskicoder`) and LongNN (`NgocLong216`) requested. The published implementation head was `4ca1e35`; GitHub's checksum check passed for that head and the three CI package jobs started. Consult the PR checks for the latest result, rather than treating local gates as CI evidence.
+- The working tree was clean after submission. The task-owned PostgreSQL container and local smoke servers are stopped. No merge was performed. Frontend 8.2, #118 R2 and unrelated module work remain outside this handoff.
