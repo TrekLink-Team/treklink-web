@@ -278,7 +278,8 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                   <When iso={data.handoverAppointmentAt} />
                 </Fact>
               )}
-              {data.reservationExpiresAt && (
+              {/* The reservation holds the units from approval to the handover (rentals REQ-EVT-02, REQ-EVT-14). */}
+              {data.status === 'APPROVED' && data.reservationExpiresAt && (
                 <Fact label="Reservation expires">
                   <When iso={data.reservationExpiresAt} />
                 </Fact>
