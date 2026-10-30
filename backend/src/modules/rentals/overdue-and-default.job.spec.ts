@@ -68,15 +68,17 @@ describe('OverdueAndDefaultJob (rentals 3.2, REQ-EVT-13, AC-04, AC-05)', () => {
     expect(contracts.returnDueBefore).toHaveBeenCalledWith(
       new Date(cutoff.getTime() - 24 * HOUR_MS),
     );
+    // Found overdue by the batch six days before this one's cutoff or earlier, exclusive: seven
+    // daily batches have passed (REQ-EVT-13).
     expect(contracts.overdueBefore).toHaveBeenCalledWith(
-      new Date(cutoff.getTime() - 7 * 24 * HOUR_MS),
+      new Date(cutoff.getTime() - 6 * 24 * HOUR_MS),
     );
   });
 
   it('catches up the previous daily batch before the configured hour', async () => {
     await job.run(new Date('2026-11-30T01:59:59Z'));
     expect(contracts.returnDueBefore).toHaveBeenCalledWith(new Date('2026-11-28T02:00:00Z'));
-    expect(contracts.overdueBefore).toHaveBeenCalledWith(new Date('2026-11-22T02:00:00Z'));
+    expect(contracts.overdueBefore).toHaveBeenCalledWith(new Date('2026-11-23T02:00:00Z'));
   });
 
   it('uses a changed configured hour without changing the actual event instant', async () => {
