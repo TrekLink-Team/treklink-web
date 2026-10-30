@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import type { DeviceStatus } from '../../shared/ui/status';
 import { queryString, type Page } from '../../shared/api/query';
@@ -111,10 +111,14 @@ export interface DeviceFilters {
   hardwareVariantId?: string;
   q?: string;
   pageNumber?: number;
+  pageSize?: number;
 }
 
 export const fetchDevices = (filters: DeviceFilters) => {
-  const query = new URLSearchParams({ pageSize: '20', pageNumber: String(filters.pageNumber ?? 1) });
+  const query = new URLSearchParams({
+    pageSize: String(filters.pageSize ?? 20),
+    pageNumber: String(filters.pageNumber ?? 1),
+  });
   (filters.status ?? []).forEach((status) => query.append('status', status));
   if (filters.hardwareVariantId) query.set('hardwareVariantId', filters.hardwareVariantId);
   if (filters.q) query.set('q', filters.q);
@@ -123,6 +127,27 @@ export const fetchDevices = (filters: DeviceFilters) => {
 
 export const useDevices = (filters: DeviceFilters) =>
   useQuery({ queryKey: deviceKeys.devices(filters), queryFn: () => fetchDevices(filters) });
+
+// The count above each status chip of screen 4.2: devices api-design 06 `totalCount` for that one
+// status, one cached request per chip, narrowed by the variant and search filters in force.
+export const useDeviceStatusCounts = (
+  statuses: DeviceStatus[],
+  filters: Pick<DeviceFilters, 'hardwareVariantId' | 'q'>,
+) => {
+  const results = useQueries({
+    queries: statuses.map((status) => {
+      const countFilters: DeviceFilters = { ...filters, status: [status], pageSize: 1 };
+      return {
+        queryKey: deviceKeys.devices(countFilters),
+        queryFn: () => fetchDevices(countFilters),
+        staleTime: 30_000,
+      };
+    }),
+  });
+  return Object.fromEntries(
+    statuses.map((status, index) => [status, results[index]?.data?.totalCount]),
+  ) as Partial<Record<DeviceStatus, number>>;
+};
 
 export const fetchDevice = (id: string) => apiClient<DeviceDetail>(`/devices/${id}`);
 
