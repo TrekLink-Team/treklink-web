@@ -57,6 +57,7 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('payment.read', 'read', 'Payment'),
     rule('payment.recordCounter', 'recordCounter', 'Invoice'),
     rule('plan.quote', 'quote', 'Plan'),
+    rule('damageCharge.read', 'read', 'DamageCharge'),
   ],
   ORG_MANAGER: [
     rule('contract.read.own', 'read', 'RentalContract', OWN),

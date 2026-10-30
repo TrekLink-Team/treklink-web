@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Sums every invoice line of the contract into due now, due later and paid, and lists damage charges awaiting approval (UC-45). The closing check uses the same calculation (FR-CON-13).
+Sums every invoice line of the contract into due now, due later and paid, and lists damage charges awaiting approval (UC-45), found by the contract each charge stores (D-081). `settled` covers the lines; a pending charge has no line yet, and the closing check refuses it on its own (FR-CON-13).
 
 ## API Specification
 
@@ -36,7 +36,17 @@ No body.
     "dueNowVnd": 0,
     "dueLaterVnd": 2250000,
     "paidVnd": 2250000,
-    "pendingDamageCharges": [],
+    "pendingDamageCharges": [
+      {
+        "id": "dc-1",
+        "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+        "damageCodes": [
+          "CASING_CRACKED"
+        ],
+        "amountVnd": 700000,
+        "createdAt": "2026-10-20T03:15:00.000Z"
+      }
+    ],
     "settled": false
   },
   "isSuccess": true,

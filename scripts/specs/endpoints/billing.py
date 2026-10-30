@@ -124,11 +124,14 @@ ENDPOINTS = [
 
     ep("GET", "/api/contracts/:id/balance", "Contract balance", "Org Manager: own; TrekLink Staff, TrekLink Admin",
        "Sums every invoice line of the contract into due now, due later and paid, and lists damage charges "
-       "awaiting approval (UC-45). The closing check uses the same calculation (FR-CON-13).",
+       "awaiting approval (UC-45), found by the contract each charge stores (D-081). `settled` covers the "
+       "lines; a pending charge has no line yet, and the closing check refuses it on its own (FR-CON-13).",
        "UC-45, FR-BILL-06, FR-CON-13",
        path=[["id", "Contract id", "uuid", f"`{CONTRACT_ID}`"]],
        response={"contractId": CONTRACT_ID, "dueNowVnd": 0, "dueLaterVnd": 2250000, "paidVnd": 2250000,
-                 "pendingDamageCharges": [], "settled": False},
+                 "pendingDamageCharges": [{"id": "dc-1", "deviceId": DEVICE_ID, "damageCodes": ["CASING_CRACKED"],
+                                           "amountVnd": 700000, "createdAt": NOW}],
+                 "settled": False},
        entity="Contract", steps=["Sum lines by dueAt", "List pending damage charges"],
        controller="BalancesController", service="BalanceService", call="forContract(id, caller)",
        seq=["Svc->>DB: SELECT invoice_lines, damage_charges"]),
@@ -230,16 +233,19 @@ ENDPOINTS = [
        "UC-47, UC-48, FR-BILL-04",
        query=[["status", "DamageChargeStatus", "enum", "no", "`PENDING_APPROVAL`"],
               ["contractId", "Contract", "uuid", "no", f"`{CONTRACT_ID}`"]] + PAGE_QUERY,
-       response=paged({"id": "dc-1", "deviceId": DEVICE_ID, "assetTag": "TL-0042", "inspectionId": "in-1",
-                       "inspector": {"id": USER_ID, "fullName": "Tran Thi B"}, "damageCodes": ["CASING_CRACKED", "ANTENNA_BROKEN"],
-                       "amountVnd": 700000, "status": "PENDING_APPROVAL", "createdAt": NOW}),
-       steps=["Read damage_charges"], controller="DamageChargesController", service="DamageChargeService",
-       call="list(query)", seq=["Svc->>DB: SELECT damage_charges"]),
+       response=paged({"id": "dc-1", "contractId": CONTRACT_ID, "deviceId": DEVICE_ID, "assetTag": "TL-0042",
+                       "inspectionId": "in-1", "inspector": {"id": USER_ID, "fullName": "Tran Thi B"},
+                       "damageCodes": ["CASING_CRACKED", "ANTENNA_BROKEN"], "amountVnd": 700000, "finalVnd": None,
+                       "status": "PENDING_APPROVAL", "decisionNote": None, "decidedAt": None, "createdAt": NOW}),
+       steps=["Read damage_charges, newest first", "Asset tags from devices, inspector names from the account directory"],
+       controller="DamageChargesController", service="DamageChargeService",
+       call="list(filter, query)", seq=["Svc->>DB: SELECT damage_charges"]),
 
     ep("POST", "/api/damage-charges/:id/decision", "Decide a damage charge", "TrekLink Admin, never the inspector",
        "Approves, reduces or waives a charge above `billing.damageApprovalThresholdVnd`. The approver must "
-       "not be the inspector (BR-24, E05-6, MSG30). The decided amount becomes a DAMAGE line on the closing "
-       "invoice.", "UC-48, FR-BILL-04, BR-24, E05-6, MSG30",
+       "not be the inspector (BR-24, E05-6, MSG30), checked against the inspector the charge stores (D-081). "
+       "An approved or reduced amount becomes a DAMAGE line on the contract's closing invoice, found by the "
+       "charge's contract; a waiver adds no line.", "UC-48, FR-BILL-04, BR-24, E05-6, MSG30",
        path=[["id", "Damage charge id", "uuid", "`dc-1`"]],
        body=[["decision", "`APPROVED`, `REDUCED` or `WAIVED`", "enum", "yes", "`REDUCED`"],
              ["finalVnd", "Required for REDUCED, below the amount", "int", "cond.", "`400000`"],
@@ -249,10 +255,11 @@ ENDPOINTS = [
        message="Decision recorded", entity="Damage charge",
        errors=[(403, "SEPARATION_OF_DUTY", "The caller recorded the inspection", "A different Admin must approve this charge."),
                state_409("damage charge", "APPROVED")],
-       steps=["Require PENDING_APPROVAL", "Refuse the inspector", "Record the decision",
-              "Add the DAMAGE line to the closing invoice draft"],
-       controller="DamageChargesController", service="DamageChargeService", call="decide(id, dto, actor)",
-       seq=["Svc->>DB: SELECT charge, inspection FOR UPDATE", "Svc->>DB: UPDATE damage_charges"]),
+       steps=["Lock the charge", "Require PENDING_APPROVAL", "Refuse the inspector", "Record the decision",
+              "Add the DAMAGE line to the closing invoice, unless waived"],
+       controller="DamageChargesController", service="DamageChargeService", call="decide(id, input, actor)",
+       seq=["Svc->>DB: SELECT damage_charges FOR UPDATE", "Svc->>DB: UPDATE damage_charges",
+            "Svc->>DB: INSERT invoice_lines (DAMAGE)"]),
 
 ]
 

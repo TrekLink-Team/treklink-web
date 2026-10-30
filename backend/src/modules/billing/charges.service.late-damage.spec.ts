@@ -145,6 +145,9 @@ describe('ChargesService late and damage charges (billing task 2.5)', () => {
         {
           inspectionId: 'insp-1',
           deviceId: 'dev-1',
+          contractId: CONTRACT.id,
+          inspectorId: 'staff-1',
+          damageCodes: ['ANTENNA_BROKEN', 'CASING_CRACKED'],
           amountVnd: 700_000n,
           status: DamageChargeStatus.PENDING_APPROVAL,
           finalVnd: null,
@@ -203,7 +206,7 @@ describe('ChargesService late and damage charges (billing task 2.5)', () => {
 
     it('does nothing for an inspection without damage codes', async () => {
       await expect(
-        service.chargeDamage(CONTRACT, { ...INSPECTION, damageCodes: [] }, null, TX),
+        service.chargeDamage(CONTRACT, { ...INSPECTION, damageCodes: [] }, 'staff-1', TX),
       ).resolves.toBeNull();
       expect(pricing.damageRateFor).not.toHaveBeenCalled();
     });
@@ -211,25 +214,73 @@ describe('ChargesService late and damage charges (billing task 2.5)', () => {
     it('charges at the current time by default', async () => {
       pricing.damageRateFor.mockResolvedValue(100_000n);
       const before = Date.now();
-      const result = await service.chargeDamage(CONTRACT, INSPECTION, null, TX);
+      const result = await service.chargeDamage(CONTRACT, INSPECTION, 'staff-1', TX);
       expect((result?.charge.decidedAt as Date).getTime()).toBeGreaterThanOrEqual(before);
     });
   });
 });
 
-describe('ChargesService.pendingDamage (rentals close guard, api-design 17)', () => {
-  it('counts the charges still waiting for an Admin on the devices since the handover', async () => {
-    const countPending = jest.fn().mockResolvedValue(2);
+describe('ChargesService.pendingDamage (rentals close guard, api-design 17, D-081)', () => {
+  it('counts the contract charges still waiting for an Admin', async () => {
+    const pendingOfContract = jest.fn().mockResolvedValue([{ id: 'dc-1' }, { id: 'dc-2' }]);
     const service = new ChargesService(
       {} as InvoicesRepository,
-      { countPending } as unknown as DamageChargesRepository,
+      { pendingOfContract } as unknown as DamageChargesRepository,
       {} as PricingService,
       {} as ParameterService,
     );
-    const since = new Date('2026-10-25T03:00:00.000Z');
-    await expect(service.pendingDamage(['dev-1'], since, TX)).resolves.toBe(2);
-    expect(countPending).toHaveBeenCalledWith(['dev-1'], since, TX);
-    await expect(service.pendingDamage([], since, TX)).resolves.toBe(0);
-    expect(countPending).toHaveBeenCalledTimes(1);
+    await expect(service.pendingDamage('c-1', TX)).resolves.toBe(2);
+    expect(pendingOfContract).toHaveBeenCalledWith('c-1', TX);
+  });
+});
+
+describe('ChargesService.addDecidedDamage (UC-48, api-design 17)', () => {
+  const closing = { id: 'closing-1' };
+  const build = () => {
+    const invoices = {
+      lockClosingInvoice: jest.fn().mockResolvedValue(closing),
+      appendLines: jest.fn().mockResolvedValue(closing),
+      insert: jest.fn(),
+    };
+    const service = new ChargesService(
+      invoices as unknown as InvoicesRepository,
+      {} as DamageChargesRepository,
+      {} as PricingService,
+      {} as ParameterService,
+    );
+    return { service, invoices };
+  };
+  const AT = new Date('2026-10-30T04:00:00.000Z');
+  const CHARGE = { deviceId: 'dev-1', damageCodes: ['CASING_CRACKED'] };
+
+  it('adds the decided amount as a DAMAGE line on the closing invoice', async () => {
+    const { service, invoices } = build();
+    await expect(
+      service.addDecidedDamage(CONTRACT, CHARGE, 'TL-0001', 400_000n, 'admin-1', TX, AT),
+    ).resolves.toEqual(closing);
+    expect(invoices.appendLines).toHaveBeenCalledWith(
+      closing,
+      [
+        {
+          type: InvoiceLineType.DAMAGE,
+          description: 'Damage to TL-0001: CASING_CRACKED',
+          deviceId: 'dev-1',
+          quantity: 1,
+          unitVnd: 400_000n,
+          amountVnd: 400_000n,
+          dueAt: AT,
+          createdById: 'admin-1',
+        },
+      ],
+      TX,
+    );
+  });
+
+  it('adds nothing for a waiver', async () => {
+    const { service, invoices } = build();
+    await expect(
+      service.addDecidedDamage(CONTRACT, CHARGE, 'TL-0001', 0n, 'admin-1', TX, AT),
+    ).resolves.toBeNull();
+    expect(invoices.lockClosingInvoice).not.toHaveBeenCalled();
   });
 });

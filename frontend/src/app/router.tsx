@@ -17,6 +17,7 @@ import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { LiveMapPage } from '../pages/LiveMapPage';
 import { PaymentPage } from '../pages/PaymentPage';
 import { PricesPage } from '../pages/PricesPage';
+import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
 import { OrgDashboardPage } from '../pages/OrgDashboardPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
@@ -104,6 +105,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
         <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
         <Route path="/t/billing" element={<BillingPage />} />
+        <Route path="/t/damage-charges" element={<DamageChargesPage />} />
         <Route path="/t/organizations" element={<OrganizationReviewPage />} />
         <Route path="/t/counter/:contractId" element={<CounterPage />} />
       </Route>

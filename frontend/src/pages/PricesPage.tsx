@@ -362,8 +362,7 @@ const RATE_STATE: Record<'active' | 'inactive', StatusEntry> = {
 
 // /t/admin/prices, screen 6.4 (billing api-design 03 to 07): the append-only monthly price
 // schedule and the damage rates, TrekLink Admin only. The filters narrow the rows already loaded.
-// The damage charge queue (/t/damage-charges) waits on the charge's contract link
-// (treklink-docs#114).
+// The damage charge queue is its own page, /t/damage-charges (DamageChargesPage).
 export const PricesPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const prices = usePriceHistory(pageNumber);

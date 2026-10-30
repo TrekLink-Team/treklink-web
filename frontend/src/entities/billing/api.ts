@@ -89,7 +89,8 @@ export interface Balance {
   dueNowVnd: number;
   dueLaterVnd: number;
   paidVnd: number;
-  pendingDamageCharges: unknown[];
+  // Damage charges still waiting for an Admin (UC-48); listed apart, `settled` covers the lines.
+  pendingDamageCharges: PendingDamageCharge[];
   settled: boolean;
 }
 
@@ -286,3 +287,61 @@ export const lineStatus = (line: InvoiceLine, now: Date = new Date()): string =>
   if (sameDay) return 'Due now';
   return 'Due later';
 };
+
+export interface PendingDamageCharge {
+  id: string;
+  deviceId: string;
+  damageCodes: string[];
+  amountVnd: number;
+  createdAt: string;
+}
+
+// billing api-design 16 and 17 (UC-48).
+export type DamageChargeStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REDUCED' | 'WAIVED';
+
+export interface DamageCharge {
+  id: string;
+  contractId: string;
+  deviceId: string;
+  assetTag: string | null;
+  inspectionId: string;
+  inspector: { id: string; fullName: string | null } | null;
+  damageCodes: string[];
+  amountVnd: number;
+  finalVnd: number | null;
+  status: DamageChargeStatus;
+  decisionNote: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export interface DamageChargeFilters {
+  status?: DamageChargeStatus;
+  contractId?: string;
+  pageNumber?: number;
+}
+
+export const damageChargeKeys = {
+  all: ['damage-charges'] as const,
+  list: (filters: DamageChargeFilters) => ['damage-charges', filters] as const,
+};
+
+export const useDamageCharges = (filters: DamageChargeFilters) =>
+  useQuery({
+    queryKey: damageChargeKeys.list(filters),
+    queryFn: () => apiClient<Page<DamageCharge>>(`/damage-charges${queryString({ ...filters })}`),
+  });
+
+export type DamageDecision = 'APPROVED' | 'REDUCED' | 'WAIVED';
+
+export const decideDamageCharge = (
+  id: string,
+  input: { decision: DamageDecision; finalVnd?: number; note: string },
+) =>
+  apiClient<{
+    id: string;
+    status: DamageChargeStatus;
+    amountVnd: number;
+    finalVnd: number;
+    decidedAt: string;
+  }>(`/damage-charges/${id}/decision`, { method: 'POST', body: JSON.stringify(input) });

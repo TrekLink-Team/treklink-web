@@ -224,8 +224,8 @@ export class ReturnService {
 
   // api-design 17 (FR-CON-13, BR-27): a RETURNED contract closes when nothing is owed (409
   // BALANCE_OUTSTANDING) and no incident on its devices is open (409 OPEN_INCIDENTS, MSG29); the holder
-  // labels are erased (BR-33). Pending damage approvals join this check once a damage charge carries
-  // its contract (treklink-docs#114).
+  // labels are erased (BR-33). A damage charge still waiting for an Admin blocks it too, found by the
+  // contract the charge stores (D-081).
   async close(id: string, expectedVersion: number, actor: Caller) {
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
@@ -253,10 +253,7 @@ export class ReturnService {
       }
       // A damage charge above the approval threshold waits for an Admin with no invoice line yet;
       // it is part of what the contract owes (api-design 17, REQ-ERR-05).
-      if (
-        contract.handedOverAt &&
-        (await this.charges.pendingDamage(deviceIds, contract.handedOverAt, tx)) > 0
-      ) {
+      if ((await this.charges.pendingDamage(id, tx)) > 0) {
         throw conflict(
           ErrorCode.BALANCE_OUTSTANDING,
           'This cannot be done while it has open balances.',

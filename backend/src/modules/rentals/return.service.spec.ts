@@ -238,11 +238,8 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       });
       expect(contracts.eraseLabels).toHaveBeenCalledWith('c-1', TX);
       expect(closeCheck.blockingReason).toHaveBeenCalledWith('c-1', ['d-1'], TX);
-      expect(charges.pendingDamage).toHaveBeenCalledWith(
-        ['d-1'],
-        new Date('2026-10-25T03:00:00.000Z'),
-        TX,
-      );
+      // Found by the contract the charge stores (D-081).
+      expect(charges.pendingDamage).toHaveBeenCalledWith('c-1', TX);
     });
 
     it('refuses a stale version, an open balance and an open incident', async () => {

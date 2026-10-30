@@ -190,12 +190,13 @@ model User {
   contractTransitions          ContractTransition[]
   contractDevicesAsCheckedInBy ContractDevice[]     @relation("ContractDevice_checkedInById")
 
-  priceSchedules         PriceSchedule[]
-  damageRates            DamageRate[]
-  paymentsAsRecordedBy   Payment[]       @relation("Payment_recordedById")
-  paymentsAsRequestedBy  Payment[]       @relation("Payment_requestedById")
-  damageChargesAsDecided DamageCharge[]  @relation("DamageCharge_decidedById")
-  invoiceAdjustments     InvoiceLine[]   @relation("InvoiceLine_createdById")
+  priceSchedules           PriceSchedule[]
+  damageRates              DamageRate[]
+  paymentsAsRecordedBy     Payment[]       @relation("Payment_recordedById")
+  paymentsAsRequestedBy    Payment[]       @relation("Payment_requestedById")
+  damageChargesAsDecided   DamageCharge[]  @relation("DamageCharge_decidedById")
+  damageChargesAsInspector DamageCharge[]  @relation("DamageCharge_inspectorId")
+  invoiceAdjustments       InvoiceLine[]   @relation("InvoiceLine_createdById")
 
   incidentsAsOwner      Incident[]             @relation("Incident_ownerId")
   incidentTransitions   IncidentTransition[]
@@ -999,6 +1000,7 @@ model RentalContract {
   devices          ContractDevice[]
   transitions      ContractTransition[]
   invoices         Invoice[]
+  damageCharges    DamageCharge[]
   payments         Payment[]
   incidents        Incident[]
   authorityReports AuthorityReport[]
@@ -1256,6 +1258,15 @@ model DamageCharge {
   inspection   Inspection         @relation(fields: [inspectionId], references: [id])
   deviceId     String
   device       Device             @relation(fields: [deviceId], references: [id])
+  // D-081: the contract and the inspector, written by `chargeDamage`, so the decision (UC-48) checks
+  // SEPARATION_OF_DUTY and finds the closing invoice from billing's own table.
+  contractId   String
+  contract     RentalContract     @relation(fields: [contractId], references: [id])
+  inspectorId  String
+  inspector    User               @relation("DamageCharge_inspectorId", fields: [inspectorId], references: [id])
+  // The codes priced into this charge, as the inspection recorded them; the Admin queue reads them
+  // without a read from `devices`.
+  damageCodes  String[]
   amountVnd    BigInt // from the damage schedule
   finalVnd     BigInt? // after approval, reduction or waiver
   status       DamageChargeStatus
@@ -1267,6 +1278,8 @@ model DamageCharge {
 
   @@index([inspectionId])
   @@index([deviceId])
+  @@index([contractId])
+  @@index([inspectorId])
   @@index([decidedById])
   @@index([status])
   @@map("damage_charges")

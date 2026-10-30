@@ -69,6 +69,24 @@ describe('billing (e2e)', () => {
       },
     );
 
+    // api-design 16 and 17 (UC-48): the queue is TrekLink's, and only an Admin decides.
+    it('refuses the damage charge queue to an Org Manager', async () => {
+      expectError(await e2e.send('manager-a', 'get', '/api/damage-charges'), 403, 'FORBIDDEN');
+    });
+
+    it('refuses a damage charge decision from TrekLink Staff (damageCharge.decide is the Admin’s)', async () => {
+      const response = await e2e.send(
+        'staff-1',
+        'post',
+        `/api/damage-charges/${MISSING}/decision`,
+        {
+          decision: 'APPROVED',
+          note: 'Confirmed',
+        },
+      );
+      expectError(response, 403, 'FORBIDDEN');
+    });
+
     it('refuses a quote to an Org Operator', async () => {
       const response = await e2e.send('operator-a', 'post', '/api/quotes', {
         planType: 'MONTHLY',
@@ -116,6 +134,14 @@ describe('billing (e2e)', () => {
         { ...COUNTER, ...change },
       );
       expectError(response, 400, 'VALIDATION_FAILED');
+    });
+
+    it('api-design 16 refuses an unknown damage charge status', async () => {
+      expectError(
+        await e2e.send('staff-1', 'get', '/api/damage-charges?status=OPEN'),
+        400,
+        'VALIDATION_FAILED',
+      );
     });
 
     it('refuses an invoice id that is not a uuid', async () => {

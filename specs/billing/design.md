@@ -18,6 +18,7 @@ erDiagram
     INVOICE ||--|{ INVOICE_LINE : "lines"
     INVOICE ||--o{ PAYMENT : "paid by"
     INSPECTION ||--o{ DAMAGE_CHARGE : "charges"
+    RENTAL_CONTRACT ||--o{ DAMAGE_CHARGE : "damage charged to"
     INVOICE {
         uuid id PK
         string number UK
@@ -33,9 +34,17 @@ erDiagram
         enum method
         enum status
     }
+    DAMAGE_CHARGE {
+        uuid id PK
+        uuid contractId FK
+        uuid inspectorId FK
+        bigint amountVnd
+        enum status
+    }
 ```
 
-***Figure 1***: billing slice.
+***Figure 1***: billing slice. A damage charge stores its contract, its inspector and the codes it priced
+(D-081), so the Admin decision of UC-48 needs no read from `rentals` or `devices`.
 
 Invoice kinds: `TERM` (monthly, two dated lines), `DAY_PLAN` (one line), `CLOSING` (late, damage, loss,
 adjustments; created on the first such charge of a contract and kept open for more lines until the
@@ -181,7 +190,7 @@ one invoice.
 
 ## 8. Detailed design for Report 4 (D-044)
 
-Layering follows `organizations` design §9. Separate class views cover MF-01 counter payments/prices and MF-05 balances/return charges. UC-19 follows `SepayController`, `SepayService` and `SepayWebhookGuard`, while UC-48 remains planned and is labelled accordingly.
+Layering follows `organizations` design §9. Separate class views cover MF-01 counter payments/prices and MF-05 balances/return charges. UC-19 follows `SepayController`, `SepayService` and `SepayWebhookGuard`, and UC-48 follows `DamageChargesController` and `DamageChargeService` on the columns of D-081.
 
 <!-- sdd: MF-01 class billing -->
 ```mermaid
@@ -288,25 +297,32 @@ classDiagram
 classDiagram
     direction TB
     class DamageChargesController {
-        <<planned>>
-        +decide() Planned
+        +list(DamageChargeQueryDto) DamageChargePage
+        +decide(string, DamageDecisionDto, Caller) DecisionView
     }
     class DamageChargeService {
-        <<planned>>
-        +decide() Planned
+        +list(DamageChargeFilter, PagedQueryDto) DamageChargePage
+        +decide(string, DamageDecisionInput, Caller, Date) DamageChargeRow
     }
     class DamageChargesRepository {
-        +insert(NewDamageCharge, Tx) DamageChargeRow
-        +lock() Planned
-        +recordDecision() Planned
+        +lock(string, Tx) DamageChargeRow ?
+        +page(DamageChargeFilter, number, number) DamageChargeRowPage
+        +recordDecision(string, DamageDecision, Tx) DamageChargeRow
     }
     class InvoicesRepository {
-        +addDamageLine() Planned
-        +insert(NewInvoice, NewInvoiceLine[], Tx) InvoiceRow
+        +organizationOfContract(string, Client) string ?
     }
+    class ChargesService {
+        +addDecidedDamage(ChargedContract, DecidedCharge, string, bigint, string, Tx, Date) InvoiceRow ?
+    }
+    class DevicesService {
+        +assetTags(string[], Tx) AssetTagMap
+    }
+    DamageChargesController ..> DamageChargeService : calls
     DamageChargeService ..> DamageChargesRepository : calls
     DamageChargeService ..> InvoicesRepository : calls
-    DamageChargesController ..> DamageChargeService : calls
+    DamageChargeService ..> ChargesService : calls
+    DamageChargeService ..> DevicesService : calls
 ```
 
 ***Figure 6***: billing classes used in MF-05, UC-48. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -380,7 +396,7 @@ classDiagram
         +recordInspection(string, InspectionInput, string, Date, Tx) InspectionRow
     }
     class ChargesService {
-        +chargeDamage(ChargedContract, DamagedInspection, string ?, Tx, Date) DamageResult ?
+        +chargeDamage(ChargedContract, DamagedInspection, string, Tx, Date) DamageResult ?
     }
     class PricingService {
         +damageRateFor(string, string, Tx) bigint ?
@@ -507,36 +523,43 @@ sequenceDiagram
     participant S as :DamageChargeService
     participant R as :DamageChargesRepository
     participant IR as :InvoicesRepository
-    Ad->>P: approve, reduce or waive a charge
+    participant D as :DevicesService
+    participant Ch as :ChargesService
+    Ad->>P: approve, reduce or waive a charge, with a reason
     activate P
     deactivate P
     P->>C: POST /api/damage-charges/{id}/decision
     activate C
     deactivate C
-    C->>S: decide(id, dto, actor)
+    C->>S: decide(id, input, actor)
     activate S
     deactivate S
     S->>R: lock(id, tx)
     activate R
     deactivate R
-    Note over R: BEGIN, SELECT damage_charges FOR UPDATE
-    alt failure: approver is the inspector
+    alt failure: the approver recorded the inspection
         S-->>C: 403 SEPARATION_OF_DUTY
         C-->>P: error envelope
-    else success: other Admin and PENDING_APPROVAL charge
-    S->>R: recordDecision(id, decision, amount, actor, tx)
-    activate R
-    deactivate R
-    S->>IR: addDamageLine(contractId, amount, tx)
-    activate IR
-    deactivate IR
-    Note over IR: UPDATE, INSERT invoice line, COMMIT
-    S-->>C: DamageChargeDto
-    C-->>P: 200 envelope
+    else success: another Admin decides a PENDING_APPROVAL charge
+        S->>R: recordDecision(id, decision, tx)
+        activate R
+        deactivate R
+        S->>IR: organizationOfContract(contractId, tx)
+        activate IR
+        deactivate IR
+        S->>D: assetTags([deviceId], tx)
+        activate D
+        deactivate D
+        S->>Ch: addDecidedDamage(contract, charge, assetTag, finalVnd, actorId, tx, at)
+        activate Ch
+        deactivate Ch
+        Note over S,Ch: emit damageCharge.decided after commit
+        S-->>C: decided charge
+        C-->>P: 200 envelope
     end
 ```
 
-***Figure 12***: UC-48 Approve Damage Charge, planned interface from billing api-design 17 and task 2.5, not merged implementation. The approver must differ from the inspector (BR-24); a non-PENDING_APPROVAL charge is a separate 409 refusal outside this two-lane view. DamageChargesController, DamageChargeService, lock, recordDecision and addDamageLine remain planned, as labelled in the class view.
+***Figure 12***: UC-48 Approve Damage Charge. Everything the decision needs is on the charge (D-081): `contractId` finds the closing invoice and `inspectorId` decides the separation of duty (BR-24, REQ-ERR-03, MSG30). Approve keeps the charged amount, Reduce takes a `finalVnd` above zero and below it (else 400 `VALIDATION_FAILED`), and Waive keeps nothing, so `addDecidedDamage` adds no line for it. Outside the named lane, an unknown charge is 404 and a charge no longer `PENDING_APPROVAL` is 409 `INVALID_STATE_TRANSITION`, both before any write.
 
 <!-- sdd: MF-01 seq UC-22 -->
 ```mermaid

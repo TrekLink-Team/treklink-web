@@ -38,6 +38,7 @@ No body.
     "items": [
       {
         "id": "dc-1",
+        "contractId": "c0ffee00-1234-4abc-9def-001122334455",
         "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
         "assetTag": "TL-0042",
         "inspectionId": "in-1",
@@ -50,7 +51,10 @@ No body.
           "ANTENNA_BROKEN"
         ],
         "amountVnd": 700000,
+        "finalVnd": null,
         "status": "PENDING_APPROVAL",
+        "decisionNote": null,
+        "decidedAt": null,
         "createdAt": "2026-10-20T03:15:00.000Z"
       }
     ],
@@ -138,10 +142,12 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Read damage_charges"]
+    P0["Read damage_charges, newest first"]
     D1 -->|no| P0
+    P1["Asset tags from devices, inspector names from the account directory"]
+    P0 --> P1
     OK["Return 200"]
-    P0 --> OK
+    P1 --> OK
     OK --> Z((End))
 ```
 
@@ -155,7 +161,7 @@ sequenceDiagram
     participant Svc as DamageChargeService
     participant DB as Postgres
     C->>Ctl: GET /api/damage-charges
-    Ctl->>Svc: list(query)
+    Ctl->>Svc: list(filter, query)
     Svc->>DB: SELECT damage_charges
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
