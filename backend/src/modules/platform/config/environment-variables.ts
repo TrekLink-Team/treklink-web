@@ -259,6 +259,16 @@ export function validate(raw: Record<string, unknown>): ValidatedEnvironment {
   ) {
     problems.push('DEFAULT_PAGE_SIZE: must not exceed MAX_PAGE_SIZE');
   }
+  // The handover note prints these to customers: production must carry the registered values, not
+  // the development placeholders.
+  if (env.NODE_ENV === 'production') {
+    if (env.COMPANY_TAX_CODE === '0000000000') {
+      problems.push('COMPANY_TAX_CODE: set the registered tax code in production');
+    }
+    if (env.COMPANY_HOTLINE === '1900 0000') {
+      problems.push('COMPANY_HOTLINE: set the real hotline in production');
+    }
+  }
   if (problems.length > 0) {
     throw new EnvironmentValidationError(problems);
   }

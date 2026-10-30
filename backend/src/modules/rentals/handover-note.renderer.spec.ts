@@ -268,6 +268,8 @@ describe('renderHandoverNote (rentals task 2.4, design §4.1)', () => {
   it('masks every digit of a document number but the last four', () => {
     expect(maskIdentity('CCCD 079203001234')).toBe('CCCD ********1234');
     expect(maskIdentity('CCCD ending 1234')).toBe('CCCD ending 1234');
+    expect(maskIdentity('CCCD 079 203 001 234')).toBe('CCCD *** *** **1 234');
+    expect(maskIdentity('079-203-001-234')).toBe('***-***-**1-234');
   });
 
   it('embeds a font and Unicode mapping for Vietnamese names', async () => {
