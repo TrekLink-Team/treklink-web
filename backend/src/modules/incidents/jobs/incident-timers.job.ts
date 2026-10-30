@@ -7,8 +7,20 @@ import { IncidentLifecycle, IncidentTransitionReason } from '../incident-lifecyc
 import { DueTimer, IncidentsRepository } from '../incidents.repository';
 import { RoutingService } from '../routing.service';
 
+// The states a timer moves on; each has one target in NEXT.
+type TimedState = Extract<
+  IncidentState,
+  | 'NOTIFY_PRIMARY'
+  | 'NOTIFY_BACKUP'
+  | 'NOTIFY_MANAGER'
+  | 'ACKNOWLEDGED'
+  | 'RESPONDING'
+  | 'RESOLVED'
+  | 'FALSE_ALARM'
+>;
+
 interface Timer {
-  states: IncidentState[];
+  states: TimedState[];
   column: DueTimer;
   code: Extract<
     IncidentTransitionReason['code'],
@@ -37,8 +49,9 @@ const CLOSE_AFTER_REOPEN_WINDOW: Timer = {
   alerts: false,
 };
 
-// The target of each timed state; the states of the three timers do not overlap.
-const NEXT: Partial<Record<IncidentState, IncidentState>> = {
+// The target of each timed state; the states of the three timers do not overlap. A complete Record,
+// so the compiler rejects a timer state without a target (PR #120 review).
+const NEXT: Record<Timer['states'][number], IncidentState> = {
   NOTIFY_PRIMARY: 'NOTIFY_BACKUP',
   NOTIFY_BACKUP: 'NOTIFY_MANAGER',
   NOTIFY_MANAGER: 'ESCALATED',
@@ -108,7 +121,7 @@ export class IncidentTimersJob {
           await this.lifecycle.apply(
             id,
             state,
-            NEXT[state]!,
+            NEXT[state],
             { kind: 'SYSTEM' },
             { code: timer.code, at: now, recipients },
             tx,

@@ -260,6 +260,32 @@ describe('IncidentLifecycle task 1.2', () => {
     );
   });
 
+  it('writes one row per channel for each active Staff member on a tier timeout to ESCALATED (D-079)', async () => {
+    current = row('NOTIFY_MANAGER', { tierDeadlineAt: AT });
+    await apply('ESCALATED', 'TIER_TIMEOUT', SYSTEM, {
+      recipients: { primary: [], backup: [], managers: ['manager'], staff: ['s-1', 's-2', 's-1'] },
+    });
+    const [deliveries] = alerts.enqueue.mock.calls[0] as [
+      { recipientId: string | null; tier: string; channel: string }[],
+    ];
+    const keys = deliveries.map((row) => `${row.recipientId ?? 'org'}:${row.tier}:${row.channel}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys.sort()).toEqual(
+      [
+        'manager:MANAGER:EMAIL',
+        'manager:MANAGER:WEB',
+        'manager:MANAGER:WEBSOCKET',
+        's-1:TREKLINK:EMAIL',
+        's-1:TREKLINK:WEB',
+        's-1:TREKLINK:WEBSOCKET',
+        's-2:TREKLINK:EMAIL',
+        's-2:TREKLINK:WEB',
+        's-2:TREKLINK:WEBSOCKET',
+        'org:TREKLINK:API_EVENT',
+      ].sort(),
+    );
+  });
+
   it('alerts only Staff for an unrouted incident and produces no organization stream row', async () => {
     current = row('DETECTED', { organizationId: null, contractId: null });
     await apply('UNROUTED', 'ROUTED');

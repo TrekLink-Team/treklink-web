@@ -145,13 +145,20 @@ export class IncidentsRepository {
 
   // Task 3.1 (design §6): incidents in one of the states whose deadline has passed, oldest deadline
   // first, over the (state, deadline) indexes. A null deadline never matches.
-  dueTimers(states: IncidentState[], column: DueTimer, now: Date, take: number) {
-    return this.prisma.incident.findMany({
+  // Generic over the requested states: the rows are filtered to them, so `state` narrows to S.
+  async dueTimers<S extends IncidentState>(
+    states: S[],
+    column: DueTimer,
+    now: Date,
+    take: number,
+  ): Promise<{ id: string; state: S; organizationId: string | null }[]> {
+    const rows = await this.prisma.incident.findMany({
       where: { state: { in: states }, [column]: { lte: now } },
       orderBy: { [column]: 'asc' },
       take,
       select: { id: true, state: true, organizationId: true },
     });
+    return rows as { id: string; state: S; organizationId: string | null }[];
   }
 
   findById(id: string): Promise<Incident | null> {
