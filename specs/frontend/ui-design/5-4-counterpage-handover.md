@@ -24,7 +24,7 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Provisioning recorded per device | rentals 09 `result.keyVersion`, `provisionedAt` in this visit; after a reload, rentals 03 `devices[].provisionedKeyVersion` ("Provisioned v{n}", or "Not provisioned yet") |
 | Swap result: released and newly reserved device | rentals 07 `released.assetTag`, `status`; `reserved.assetTag`, `status` |
 | First payment: amount, paid, payment status and sandbox flag | billing 08 with `contractId` (`items[].id`, `status`); billing 09 `lines[]` of type `HOLDING_FEE` (monthly) or the day-plan fee line, `amountVnd`, `paidVnd`; `payments[].status`, `method`, `isSandbox` |
-| Note preview (unsigned PDF) | rentals 08 `pdfBase64` |
+| Note preview (unsigned PDF), listing each unit's battery and GPS fix | rentals 08 `pdfBase64`, requested with `checks`: the step 1 readings of every unit with a valid battery (`deviceId`, `batteryPct`, `gpsFixOk`); a unit without one prints "not checked" |
 | Signing Managers to choose from | organizations 12 `items` with `role` `MANAGER` and active, `id`, `fullName` |
 | After completion: devices issued, note hash | rentals 10 `result.devices[].assetTag`, `handoverNoteSha256` |
 
@@ -34,6 +34,9 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 |---|---|---|---|---|
 | Scan or type asset tag | 1 Devices | none; highlights the matching reserved row, MSG12 if the tag is not reserved to this contract | none | row focused |
 | Record provisioning (row) | 1 Devices | rentals 09 `POST /api/contracts/:id/devices/:deviceId/provisioning` with the organization's `channelKeyVersion` | none | the row shows "Provisioned v{n}" |
+| Select (row checkbox) and Select all units | 1 Devices | none; Select all is mixed when some units are selected, and shows "{n} of {total} selected" | none | none |
+| Record provisioning for selected | 1 Devices | rentals 09, one call per selected unit in list order, one at a time; units already at the current `channelKeyVersion` are skipped without a call | none | progress "Recording provisioning: {done} of {total} done." while it runs; then "Recorded {n} of {total}." and the selection is cleared; a skipped unit adds "Skipped {assetTags}: already provisioned v{n}." |
+| Set readings for selected | 1 Devices | none; writes the bulk battery, the bulk GPS fix or both into each selected row, and an empty bulk value leaves the row's value as it is | none | "Readings set on {n} units." |
 | Swap (row) | 1 Devices | rentals 07 `POST /api/contracts/:id/devices/:deviceId/swap` | dialog: "Send {assetTag} to maintenance and reserve another {variant}?" with the reason field | toast MSG03; the row is replaced by the new asset tag, which needs its own provisioning and check |
 | Record counter payment (link) | 2 Payment | navigation to screen 6.3 for the first invoice, returning here | none | none |
 | Next and Back | all | none | none | none |
@@ -47,7 +50,9 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Loading | Header and device table skeletons; each row action shows its pending state; Complete handover is disabled until the server answers |
 | Empty | Not applicable: an `APPROVED` contract always has reserved devices |
 | Before the start date | Amber banner "Handover is possible from {requestedStartDate}." (`BEFORE_START_DATE`); Complete handover disabled |
-| Error `VALIDATION_FAILED` (400, rentals 07, 09, 10) | MSG02 under the field the server names |
+| Bulk provisioning running | Every row Record provisioning, the selection boxes and both bulk buttons are disabled; the unit being recorded shows "Recording…" and the bulk button "Recording {i} of {total}…" |
+| Bulk provisioning refused | The run stops at the first refusal. The units recorded before it keep "Provisioned v{n}"; the failed row shows the server's message, mapped as for the single-row action (MSG12, MSG24, or the server's `message`); the selection keeps the failed unit and the units not reached, so the same button resumes; the note reads "Stopped at {assetTag}: {n} of {total} recorded. The selection keeps the unit that failed and the units not reached." |
+| Error `VALIDATION_FAILED` (400, rentals 07, 08, 09, 10) | MSG02 under the field the server names |
 | Error `DEVICE_NOT_ON_CONTRACT` (409, rentals 07, 09) | MSG12 |
 | Error `KEY_VERSION_MISMATCH` (409, rentals 09) | MSG24; the page reloads organizations 03 for the current version |
 | Error `INSUFFICIENT_DEVICES` (409, rentals 07) | MSG11 dialog: no replacement exists, so the handover is held (E01-5) |
@@ -69,6 +74,8 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | 1 Devices | Asset tag | text, scanner input | no | a tag reserved to this contract |
 | 1 Devices | Battery %, per device | integer 0 to 100 | yes | below `devices.handoverMinBatteryPct` needs the acknowledgement (rentals 10 `deviceChecks[].batteryPct`) |
 | 1 Devices | GPS fix, per device | checkbox | yes | a failed fix means Swap before handover (rentals 10 `deviceChecks[].gpsFixOk`) |
+| 1 Devices | Battery % for selected | integer 0 to 100 | no | same rule as the row field; a value outside it shows "Enter the battery as a whole number from 0 to 100." and changes no row |
+| 1 Devices | GPS fix for selected | select: Leave as is, GPS fix, No GPS fix | no | with the battery empty and Leave as is, Set readings asks for one of the two |
 | 1 Devices | Swap reason | text, in the swap dialog | yes | what failed (rentals 07 `reason`) |
 | 2 Payment | none | | | read-only status |
 | 3 Preview note | none | | | read-only PDF |
@@ -76,16 +83,19 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | 4 Sign | Identity document checked | text | yes | document type and last digits seen, never the full number (rentals 10 `identityChecked`) |
 | 4 Sign | Signature | signature pad, PNG | yes | not blank (rentals 10 `signaturePng`) |
 
-Four steps (`design.md` §5, NFR-USE-01). Step 1 holds one row per reserved device with two inputs each,
-plus the scan field; the other steps have at most three fields. The request sends the contract
+Four steps (`design.md` §5, NFR-USE-01). Step 1 holds one row per reserved device with a selection
+box and two inputs each, the scan field, and the bulk bar (Select all, Record provisioning for
+selected, the bulk battery and GPS fix with Set readings for selected), so five units need one
+selection, one provisioning click and one readings click (dry run defect 4, 2026-10-30). The
+single-row actions stay. The other steps have at most three fields. The request sends the contract
 `version` as `expectedVersion`. Nothing is stored in the browser after submit: no `localStorage`,
 `sessionStorage` or cache entry holds the signature or the identity text.
 
 ## Mobile, accessibility, live data
 
-- 360 px layout: the counter runs on a desktop or tablet; on a narrow screen the steps stack, the device table becomes one card per device with its inputs and actions, and the signature pad takes the full width at a fixed height.
+- 360 px layout: the counter runs on a desktop or tablet; on a narrow screen the steps stack, the device table becomes one card per device with its selection box, inputs and actions, the bulk bar wraps above the cards, and the signature pad takes the full width at a fixed height.
 - Tab order and focus after each action: the scan field has focus on step 1 and keeps it after each scan; the matching row is announced. Next moves focus to the next step's heading. The signature pad has a text alternative ("Signature area, drawn by the Manager") and Clear signature next to it; Complete handover follows it. Errors are announced and move focus to the failing row or field.
-- WebSocket events and invalidated query keys: no live events. Query keys `['contract', id]`, `['organization', orgId]`, `['org-members', orgId]`, `['invoices', { contractId }]`, `['invoice', invoiceId]`, `['handover-preview', id]`; every mutation invalidates `['contract', id]`; completion also invalidates `['contracts', ...]` and removes `['handover-preview', id]`.
+- WebSocket events and invalidated query keys: no live events. Query keys `['contract', id]`, `['organization', orgId]`, `['org-members', orgId]`, `['invoices', { contractId }]`, `['invoice', invoiceId]`, `['handover-preview', id, checks]` (the readings are part of the key, so changed readings render a new preview); every mutation invalidates `['contract', id]`; completion also invalidates `['contracts', ...]` and removes `['handover-preview', id]`.
 
 ## Checklist
 
@@ -93,7 +103,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 
 - [x] Route and roles match `design.md` §2 and §5; organization accounts get MSG26
 - [x] Data: every field names rentals 03, 07 to 10, organizations 03 and 12, or billing 08 and 09
-- [x] Actions: scan, provisioning, swap, payment link, complete handover (MSG06)
+- [x] Actions: scan, provisioning (row and selected), readings for the selected units, swap, payment link, complete handover (MSG06)
 - [x] States: loading, start-date banner, every error code of rentals 07 to 10, 403 and 404, success
 - [x] Forms: four steps, with type, requirement and rule per field; nothing kept after submit
 - [x] Mobile: narrow layout described

@@ -14,6 +14,7 @@ import {
   useContract,
   type ContractDetail,
   type ContractDevice,
+  type DeviceCheck,
 } from '../entities/contract/api';
 import { organizationKeys, useMembers, useOrganization } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
@@ -26,7 +27,9 @@ import {
   ALERT,
   CARD,
   DANGER_BUTTON,
+  ERROR_TEXT,
   INPUT,
+  LABEL,
   LINK,
   PRIMARY_BUTTON,
   SECONDARY_BUTTON,
@@ -49,6 +52,16 @@ const rowsNamed = (devices: ContractDevice[], message: string) =>
   devices.filter((device) => device.assetTag && message.includes(device.assetTag));
 
 const tagOf = (device: ContractDevice) => device.assetTag ?? device.deviceId;
+
+// A battery reading as rentals api-design 10 takes it: a whole number from 0 to 100, else null.
+const batteryOf = (value: string): number | null => {
+  const battery = Number(value);
+  return value.trim() !== '' && Number.isInteger(battery) && battery >= 0 && battery <= 100
+    ? battery
+    : null;
+};
+
+const BATTERY_RULE = 'Enter the battery as a whole number from 0 to 100.';
 
 // The swap dialog of step 1 (rentals api-design 07): the reason is required; with no spare unit the
 // handover is held (MSG11, E01-5).
@@ -141,6 +154,12 @@ export const CounterPage: React.FC = () => {
   const [provisioned, setProvisioned] = useState<Record<string, number>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [busyRow, setBusyRow] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
+  const [bulkBattery, setBulkBattery] = useState('');
+  const [bulkGps, setBulkGps] = useState<'' | 'ok' | 'none'>('');
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const [swapping, setSwapping] = useState<ContractDevice | null>(null);
   const [scan, setScan] = useState('');
   const [scanned, setScanned] = useState<string | null>(null);
@@ -164,9 +183,20 @@ export const CounterPage: React.FC = () => {
     if (step === 1) void refetchInvoice();
   }, [step, refetchInvoice]);
 
+  // The readings taken on step 1 go with the preview so the note prints each unit's battery and GPS
+  // fix (dry run defect 7, api-design 08 `checks`); a unit without a valid battery is left out.
+  const previewChecks: DeviceCheck[] = (contract.data?.devices ?? [])
+    .filter((device) => !device.lostAt)
+    .flatMap((device) => {
+      const check = checks[device.deviceId];
+      const batteryPct = check ? batteryOf(check.battery) : null;
+      return check && batteryPct !== null
+        ? [{ deviceId: device.deviceId, batteryPct, gpsFixOk: check.gpsFixOk }]
+        : [];
+    });
   const preview = useQuery({
-    queryKey: ['handover-preview', contractId] as const,
-    queryFn: () => fetchHandoverPreview(contractId),
+    queryKey: ['handover-preview', contractId, previewChecks] as const,
+    queryFn: () => fetchHandoverPreview(contractId, previewChecks),
     enabled: step === 2 && contract.data?.status === 'APPROVED',
     staleTime: 0,
     gcTime: 0,
@@ -220,13 +250,14 @@ export const CounterPage: React.FC = () => {
     setScan('');
   };
 
-  const provision = async (device: ContractDevice) => {
-    if (keyVersion === undefined) return;
-    setBusyRow(device.deviceId);
+  // Records one unit and says whether the server took it; a refusal stays on the row.
+  const recordOne = async (device: ContractDevice): Promise<boolean> => {
+    if (keyVersion === undefined) return false;
     try {
       const result = await recordProvisioning(data.id, device.deviceId, keyVersion);
       setProvisioned((current) => ({ ...current, [device.deviceId]: result.keyVersion }));
       setRowError(device.deviceId, null);
+      return true;
     } catch (failure) {
       if (failure instanceof ApiError && failure.errorCode === 'KEY_VERSION_MISMATCH') {
         void queryClient.invalidateQueries({
@@ -239,6 +270,14 @@ export const CounterPage: React.FC = () => {
       } else if (failure instanceof ApiError && failure.errorCode === 'DEVICE_NOT_ON_CONTRACT') {
         setRowError(device.deviceId, `${tagOf(device)} does not belong to contract ${data.code}.`);
       } else setRowError(device.deviceId, messageOf(failure));
+      return false;
+    }
+  };
+
+  const provision = async (device: ContractDevice) => {
+    setBusyRow(device.deviceId);
+    try {
+      await recordOne(device);
     } finally {
       setBusyRow(null);
     }
@@ -247,6 +286,83 @@ export const CounterPage: React.FC = () => {
   // What this visit recorded, else what the server holds, so a reload keeps step 1 (frontend 5.4).
   const versionOf = (device: ContractDevice): number | undefined =>
     provisioned[device.deviceId] ?? device.provisionedKeyVersion ?? undefined;
+
+  // The selection, without units a swap has taken off the contract.
+  const selectedIds = selected.filter((id) => devices.some((device) => device.deviceId === id));
+  const allSelected = devices.length > 0 && selectedIds.length === devices.length;
+  const bulkRunning = bulkProgress !== null;
+
+  const toggleSelected = (deviceId: string, on: boolean) =>
+    setSelected((current) =>
+      on
+        ? [...current.filter((id) => id !== deviceId), deviceId]
+        : current.filter((id) => id !== deviceId),
+    );
+
+  // Record provisioning for the selection (dry run defect 4): one rentals 09 call per unit, in
+  // sequence, so the progress counts up. The first refusal stops the run; the selection keeps the
+  // unit that failed and the units not reached, and the server's message stays on the failed row.
+  // Units already at the current key version are skipped with a note.
+  const provisionSelected = async () => {
+    if (keyVersion === undefined) return;
+    const chosen = devices.filter((device) => selectedIds.includes(device.deviceId));
+    const skipped = chosen.filter((device) => versionOf(device) === keyVersion);
+    const todo = chosen.filter((device) => versionOf(device) !== keyVersion);
+    const skipNote =
+      skipped.length > 0
+        ? ` Skipped ${skipped.map(tagOf).join(', ')}: already provisioned v${keyVersion}.`
+        : '';
+    setBulkNote(null);
+    let recorded = 0;
+    let stoppedAt: number | null = null;
+    for (const [index, device] of todo.entries()) {
+      setBulkProgress({ done: index, total: todo.length });
+      setBusyRow(device.deviceId);
+      if (!(await recordOne(device))) {
+        stoppedAt = index;
+        break;
+      }
+      recorded += 1;
+    }
+    setBusyRow(null);
+    setBulkProgress(null);
+    if (stoppedAt === null) {
+      setSelected([]);
+      setBulkNote(`Recorded ${recorded} of ${todo.length}.${skipNote}`);
+    } else {
+      setSelected(todo.slice(stoppedAt).map((device) => device.deviceId));
+      setBulkNote(
+        `Stopped at ${tagOf(todo[stoppedAt])}: ${recorded} of ${todo.length} recorded. The selection keeps the unit that failed and the units not reached.${skipNote}`,
+      );
+    }
+  };
+
+  // Set the battery, the GPS fix or both once for the selection; an empty value leaves it as is.
+  const applyReadings = (event: React.FormEvent) => {
+    event.preventDefault();
+    const battery = bulkBattery.trim();
+    if (battery !== '' && batteryOf(battery) === null) {
+      setBulkError(BATTERY_RULE);
+      return;
+    }
+    if (battery === '' && bulkGps === '') {
+      setBulkError('Enter a battery reading or choose a GPS fix.');
+      return;
+    }
+    setBulkError(null);
+    setChecks((current) => {
+      const next = { ...current };
+      selectedIds.forEach((deviceId) => {
+        next[deviceId] = {
+          ...(current[deviceId] ?? { battery: '', gpsFixOk: false }),
+          ...(battery !== '' ? { battery } : {}),
+          ...(bulkGps !== '' ? { gpsFixOk: bulkGps === 'ok' } : {}),
+        };
+      });
+      return next;
+    });
+    setBulkNote(`Readings set on ${selectedIds.length} units.`);
+  };
 
   // Step 1 is complete when every unit carries the current key version and has a battery reading.
   const devicesReady = () => {
@@ -262,7 +378,7 @@ export const CounterPage: React.FC = () => {
         battery < 0 ||
         battery > 100
       ) {
-        errors[device.deviceId] = 'Enter the battery as a whole number from 0 to 100.';
+        errors[device.deviceId] = BATTERY_RULE;
       } else if (!checkOf(device.deviceId).gpsFixOk) {
         errors[device.deviceId] = 'No GPS fix: swap this device before handover.';
       }
@@ -506,6 +622,91 @@ export const CounterPage: React.FC = () => {
             </p>
             {organization.error && <ErrorState error={organization.error} />}
 
+            <div className="flex flex-col gap-3 rounded-control border border-line p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className={`flex h-11 items-center gap-2 ${LABEL}`}>
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5"
+                    checked={allSelected}
+                    ref={(box) => {
+                      if (box) box.indeterminate = selectedIds.length > 0 && !allSelected;
+                    }}
+                    disabled={bulkRunning}
+                    onChange={(event) =>
+                      setSelected(
+                        event.target.checked ? devices.map((device) => device.deviceId) : [],
+                      )
+                    }
+                  />
+                  Select all units
+                </label>
+                <span className="text-body-sm text-ink-muted">
+                  {selectedIds.length} of {devices.length} selected
+                </span>
+                <button
+                  type="button"
+                  className={SECONDARY_BUTTON}
+                  disabled={selectedIds.length === 0 || bulkRunning || keyVersion === undefined}
+                  onClick={() => void provisionSelected()}
+                >
+                  {bulkProgress
+                    ? `Recording ${bulkProgress.done + 1} of ${bulkProgress.total}…`
+                    : 'Record provisioning for selected'}
+                </button>
+              </div>
+              <form onSubmit={applyReadings} noValidate className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="bulk-battery" className={LABEL}>
+                    Battery % for selected
+                  </label>
+                  <input
+                    id="bulk-battery"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={100}
+                    className={`${INPUT} w-32`}
+                    value={bulkBattery}
+                    onChange={(event) => setBulkBattery(event.target.value)}
+                    {...invalid('bulk-battery', bulkError ?? undefined)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="bulk-gps" className={LABEL}>
+                    GPS fix for selected
+                  </label>
+                  <select
+                    id="bulk-gps"
+                    className={INPUT}
+                    value={bulkGps}
+                    onChange={(event) => setBulkGps(event.target.value as '' | 'ok' | 'none')}
+                  >
+                    <option value="">Leave as is</option>
+                    <option value="ok">GPS fix</option>
+                    <option value="none">No GPS fix</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className={SECONDARY_BUTTON}
+                  disabled={selectedIds.length === 0 || bulkRunning}
+                >
+                  Set readings for selected
+                </button>
+                {bulkError && (
+                  <p id="bulk-battery-error" role="alert" className={`w-full ${ERROR_TEXT}`}>
+                    {bulkError}
+                  </p>
+                )}
+              </form>
+              <p aria-live="polite" className="text-body-sm text-ink">
+                {bulkProgress
+                  ? `Recording provisioning: ${bulkProgress.done} of ${bulkProgress.total} done.`
+                  : bulkNote}
+              </p>
+            </div>
+
             <ul className="flex flex-col gap-3">
               {devices.map((device) => {
                 const check = checkOf(device.deviceId);
@@ -521,7 +722,19 @@ export const CounterPage: React.FC = () => {
                           : 'border-line'
                     }`}
                   >
-                    <div className="grid items-end gap-3 md:grid-cols-[1fr_auto_120px_auto_auto]">
+                    <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_auto_120px_auto_auto]">
+                      <label className="flex h-11 items-center">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5"
+                          aria-label={`Select ${tagOf(device)}`}
+                          checked={selectedIds.includes(device.deviceId)}
+                          disabled={bulkRunning}
+                          onChange={(event) =>
+                            toggleSelected(device.deviceId, event.target.checked)
+                          }
+                        />
+                      </label>
                       <div>
                         <p className="font-mono font-semibold text-ink">{tagOf(device)}</p>
                         <p className="text-sm text-ink-muted">
@@ -533,7 +746,9 @@ export const CounterPage: React.FC = () => {
                       <button
                         type="button"
                         className={SECONDARY_BUTTON}
-                        disabled={busyRow === device.deviceId || keyVersion === undefined}
+                        disabled={
+                          busyRow === device.deviceId || bulkRunning || keyVersion === undefined
+                        }
                         onClick={() => void provision(device)}
                       >
                         {busyRow === device.deviceId ? 'Recording…' : 'Record provisioning'}
