@@ -43,11 +43,16 @@ def slug(text):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
+def is_public(ep):
+    permission = ep.get("permission", "").lower()
+    return permission == "n/a" or permission.startswith("public")
+
 def errors_for(ep):
     errs = []
     if ep.get("body") or ep.get("query"):
         errs.append((400,) + COMMON[400])
-    if ep.get("permission", "").lower() not in ("public", "n/a"):
+    # "Public (SePay API key header)" names how a public route authenticates; it stays public.
+    if not is_public(ep):
         errs.append((401,) + COMMON[401])
         errs.append((403,) + COMMON[403])
     if re.search(r"/:\w+", ep["url"]) and not ep.get("no404"):
@@ -60,7 +65,7 @@ def errors_for(ep):
 
 def activity(ep, errs):
     """Guards in order (each a yes-branch to its error), then the happy-path steps."""
-    public = ep.get("permission", "").lower() in ("public", "n/a")
+    public = is_public(ep)
     lines = ["flowchart TB", "    S((Start))",
              f'    A0["{"Accept request" if public else "Check token, policy and organization scope"}"]', "    S --> A0"]
     prev, edge = "A0", ""

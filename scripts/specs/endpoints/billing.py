@@ -156,7 +156,7 @@ ENDPOINTS = [
        seq=["Svc->>DB: Read outstanding contract balance under the request transaction",
             "Svc->>DB: INSERT payments (PENDING)", "Svc->>Svc: build VietQR URL"]),
 
-    ep("POST", "/api/payments/sepay/webhook", "SePay confirmation webhook", "Public",
+    ep("POST", "/api/payments/sepay/webhook", "SePay confirmation webhook", "Public (SePay API key header)",
        "Receives SePay's transaction notification. Authenticated by the `Authorization: Apikey ...` header "
        "before DTO body validation and matched to a reference the system issued (NFR-SEC-07). A repeated "
        "gateway transaction id records nothing (FR-BILL-08, BR-31, E01-6). A different transaction id "
