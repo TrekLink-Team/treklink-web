@@ -91,7 +91,7 @@ filter in the client.
   - `device.position` updates the marker (skipped when `late: true`), which glides to the new reading over about 1 s and moves at once on a first placement, a move over 2 km or out of view, or under `prefers-reduced-motion: reduce`; the open popup moves with it and a side-panel selection pans to the new reading; `device.telemetry` updates the battery; `device.stale` toggles the stale state; `device.label` updates the holder; `device.released` removes the device.
   - `incident.changed` updates the pulsing ring and invalidates `['incident', incidentId]` and `['incident-queue']`; `incident.alert` is handled by the global banner (MSG31), not by this page.
   - `station.stale` updates the Field Station row.
-  - Query keys: `['map', 'config']`, `['map', 'snapshot', organizationId]`. A reconnect with `replay.done` does not refetch; `replay.expired` invalidates `['map', 'snapshot']`.
+  - Query keys: `['map', 'config']`, `['map', 'snapshot', organizationId]`. A reconnect with `replay.done` does not refetch; `replay.expired` invalidates `['map', 'snapshot']`. Every mount of the page reads the snapshot again, because the in-memory entries live only while the page is mounted (demo smoke 3, 2026-10-31: an incident resolved on its own page still counted as an open SOS on return to the map).
 
 ## Checklist
 
