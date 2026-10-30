@@ -124,6 +124,32 @@ export const DAMAGE_CHARGE_STATUS: Palette<DamageChargeStatus> = {
   WAIVED: { label: 'Waived', tone: 'ended' },
 };
 
+export type MaintenanceRecordStatus = 'OPEN' | 'PENDING_APPROVAL' | 'COMPLETED' | 'UNREPAIRABLE';
+
+export const MAINTENANCE_STATUS: Palette<MaintenanceRecordStatus> = {
+  OPEN: { label: 'Open', tone: 'waiting' },
+  PENDING_APPROVAL: { label: 'Waiting for an Admin', tone: 'attention' },
+  COMPLETED: { label: 'Completed', tone: 'done' },
+  UNREPAIRABLE: { label: 'Unrepairable', tone: 'ended' },
+};
+
+export type MaintenanceReasonKey =
+  | 'STAFF_REPORTED'
+  | 'SCHEDULED'
+  | 'FIRMWARE_UPDATE'
+  | 'INTAKE_FAILED'
+  | 'INSPECTION_FAILED'
+  | 'HANDOVER_CHECK_FAILED';
+
+export const MAINTENANCE_REASON: Record<MaintenanceReasonKey, string> = {
+  STAFF_REPORTED: 'Staff reported',
+  SCHEDULED: 'Scheduled service',
+  FIRMWARE_UPDATE: 'Firmware update',
+  INTAKE_FAILED: 'Intake check failed',
+  INSPECTION_FAILED: 'Inspection failed',
+  HANDOVER_CHECK_FAILED: 'Handover check failed',
+};
+
 export type IncidentState =
   | 'DETECTED'
   | 'NOTIFY_PRIMARY'

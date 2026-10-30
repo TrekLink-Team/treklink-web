@@ -8,47 +8,80 @@ import {
   estimateMaintenance,
   openMaintenance,
   useDevice,
+  useDevices,
   useMaintenanceRecords,
   weekEnd,
+  type Device,
+  type MaintenanceReason,
   type MaintenanceRecord,
+  type MaintenanceStatus,
   type WorkBy,
 } from '../entities/device/api';
 import { ApiError } from '../shared/api/apiClient';
-import { formatVnd } from '../shared/lib/format';
+import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
-import { Badge, Empty, ErrorState, Loading, PageTitle } from '../shared/ui/bits';
+import { ErrorState, Fact } from '../shared/ui/bits';
+import { Alert } from '../shared/ui/Alert';
+import { StatusBadge } from '../shared/ui/Badge';
 import { Button } from '../shared/ui/Button';
-import { Dialog } from '../shared/ui/Dialog';
+import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
+import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
+import { Drawer } from '../shared/ui/Drawer';
+import { PageHeader } from '../shared/ui/PageHeader';
+import { Toolbar } from '../shared/ui/Toolbar';
+import { DEVICE_STATUS, MAINTENANCE_REASON, MAINTENANCE_STATUS } from '../shared/ui/status';
 import { Field, Input, RadioGroup, Select, Textarea } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
 import { NoAccessPage } from './NoAccessPage';
 import { Tabs, TabPanel } from '../shared/ui/Tabs';
 import { useToast } from '../shared/ui/toastStore';
-import { ALERT, LINK, TABLE, TD, TH } from '../shared/ui/styles';
+import { ALERT, LINK } from '../shared/ui/styles';
 
+const MSG01 = 'No results match your filters.';
 const MSG03 = 'Saved.';
+const MSG29 = 'This device already has an open maintenance record. Finish it first.';
+const MSG36 = 'Someone else changed this. Reload to see the latest.';
 
-const failureOf = (error: unknown, status: string): string => {
+const STATUSES = Object.keys(MAINTENANCE_STATUS) as MaintenanceStatus[];
+const REASONS = Object.keys(MAINTENANCE_REASON) as MaintenanceReason[];
+
+const isStale = (error: unknown) => error instanceof ApiError && error.errorCode === 'STALE_VERSION';
+
+const failureOf = (error: unknown, status: MaintenanceStatus | string): string => {
   if (error instanceof ApiError) {
-    if (error.errorCode === 'INVALID_STATE_TRANSITION') return `This cannot be done while it is ${status}.`;
+    if (error.errorCode === 'INVALID_STATE_TRANSITION') {
+      const label = MAINTENANCE_STATUS[status as MaintenanceStatus]?.label
+        ?? DEVICE_STATUS[status as Device['status']]?.label
+        ?? status;
+      return `This cannot be done while it is ${label.toLowerCase()}.`;
+    }
+    if (error.errorCode === 'MAINTENANCE_OPEN') return MSG29;
+    if (error.errorCode === 'STALE_VERSION') return MSG36;
     return error.message;
   }
   return messageOf(error);
 };
 
-const RECORD_TONE: Record<string, string> = {
-  OPEN: 'waiting',
-  PENDING_APPROVAL: 'attention',
-  COMPLETED: 'done',
-  UNREPAIRABLE: 'ended',
-};
+// The failure line of a dialog. On STALE_VERSION it carries Reload (MSG36): the form keeps its
+// values until the user reloads, which refetches the lists and closes the dialog.
+const Failure: React.FC<{ message: string; stale: boolean; onReload: () => void }> = ({ message, stale, onReload }) => (
+  <div role="alert" className={`${ALERT} flex flex-wrap items-center justify-between gap-2`}>
+    <span>{message}</span>
+    {stale && (
+      <Button size="sm" onClick={onReload}>
+        Reload
+      </Button>
+    )}
+  </div>
+);
 
 // Open maintenance on an AVAILABLE device (devices api-design 11), preselected when opened from the
 // device detail page.
-const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () => void }> = ({
+const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () => void; onReload: () => void }> = ({
   deviceId,
   onDone,
   onCancel,
+  onReload,
 }) => {
   const { data: device } = useDevice(deviceId);
   const [description, setDescription] = useState('');
@@ -58,6 +91,7 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
   const [estimatedCostVnd, setEstimatedCostVnd] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -86,6 +120,7 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
       onDone();
     } catch (failureError) {
       setPending(false);
+      setStale(isStale(failureError));
       setFailure(failureOf(failureError, device.status));
     }
   };
@@ -128,11 +163,7 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
             onChange={(event) => setEstimatedCostVnd(event.target.value)}
           />
         </Field>
-        {failure && (
-          <p role="alert" className={ALERT}>
-            {failure}
-          </p>
-        )}
+        {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
         <div className="flex flex-wrap justify-end gap-3">
           <Button type="button" onClick={onCancel} disabled={pending}>
             Cancel
@@ -147,16 +178,18 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
 };
 
 // Estimate (devices api-design 12) on an OPEN record.
-const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; onCancel: () => void }> = ({
+const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; onCancel: () => void; onReload: () => void }> = ({
   record,
   onDone,
   onCancel,
+  onReload,
 }) => {
   const [workBy, setWorkBy] = useState<WorkBy>(record.workBy ?? 'IN_HOUSE');
   const [vendorName, setVendorName] = useState(record.vendorName ?? '');
   const [estimatedCostVnd, setEstimatedCostVnd] = useState(String(record.estimatedCostVnd ?? ''));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
@@ -179,6 +212,7 @@ const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
       onDone();
     } catch (failureError) {
       setPending(false);
+      setStale(isStale(failureError));
       setFailure(failureOf(failureError, record.status));
     }
   };
@@ -202,7 +236,13 @@ const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
             <Input id="estimate-vendorName" value={vendorName} onChange={(event) => setVendorName(event.target.value)} />
           </Field>
         )}
-        <Field id="estimate-cost" label="Estimated cost" required error={errors.estimatedCostVnd} hint="VND">
+        <Field
+          id="estimate-cost"
+          label="Estimated cost"
+          required
+          error={errors.estimatedCostVnd}
+          hint="VND. Above the approval threshold, an Admin must approve before completion."
+        >
           <Input
             id="estimate-cost"
             type="number"
@@ -211,11 +251,7 @@ const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
             onChange={(event) => setEstimatedCostVnd(event.target.value)}
           />
         </Field>
-        {failure && (
-          <p role="alert" className={ALERT}>
-            {failure}
-          </p>
-        )}
+        {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
         <div className="flex flex-wrap justify-end gap-3">
           <Button type="button" onClick={onCancel} disabled={pending}>
             Cancel
@@ -229,11 +265,17 @@ const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
   );
 };
 
-// Complete or mark unrepairable (devices api-design 14).
-const CompleteDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; onCancel: () => void }> = ({
+// Complete or mark unrepairable (devices api-design 14). Unrepairable asks first (screen 4.3).
+const CompleteDialog: React.FC<{
+  record: MaintenanceRecord;
+  onDone: (saved: MaintenanceRecord) => void;
+  onCancel: () => void;
+  onReload: () => void;
+}> = ({
   record,
   onDone,
   onCancel,
+  onReload,
 }) => {
   const [status, setStatus] = useState<'COMPLETED' | 'UNREPAIRABLE'>('COMPLETED');
   const [resolution, setResolution] = useState('');
@@ -243,7 +285,9 @@ const CompleteDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
   const [results, setResults] = useState<Record<string, boolean | undefined>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -259,11 +303,15 @@ const CompleteDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
     }
     setErrors(next);
     if (Object.keys(next).length > 0) return;
+    if (status === 'UNREPAIRABLE') setConfirming(true);
+    else void save();
+  };
 
+  const save = async () => {
     setPending(true);
     setFailure(null);
     try {
-      await completeMaintenance(record.device.id, record.id, {
+      const saved = await completeMaintenance(record.device.id, record.id, {
         status,
         resolution: resolution.trim(),
         ...(status === 'COMPLETED' ? { actualCostVnd: Number(actualCostVnd) } : {}),
@@ -278,12 +326,29 @@ const CompleteDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
         ...(status === 'COMPLETED' && firmwareVersion.trim() ? { firmwareVersion: firmwareVersion.trim() } : {}),
         expectedVersion: record.version,
       });
-      onDone();
+      onDone(saved);
     } catch (failureError) {
       setPending(false);
+      setConfirming(false);
+      setStale(isStale(failureError));
       setFailure(failureOf(failureError, record.status));
     }
   };
+
+  if (confirming) {
+    return (
+      <ConfirmDialog
+        titleId="unrepairable-title"
+        title={`Mark ${record.device.assetTag} unrepairable?`}
+        description="The device stays in maintenance until an Admin retires it."
+        confirmLabel="Mark unrepairable"
+        destructive
+        pending={pending}
+        onConfirm={() => void save()}
+        onCancel={() => setConfirming(false)}
+      />
+    );
+  }
 
   return (
     <Dialog titleId="complete-title" title={`Complete maintenance for ${record.device.assetTag}`} onClose={onCancel} size="md">
@@ -359,11 +424,7 @@ const CompleteDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
             )}
           </>
         )}
-        {failure && (
-          <p role="alert" className={ALERT}>
-            {failure}
-          </p>
-        )}
+        {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
         <div className="flex flex-wrap justify-end gap-3">
           <Button type="button" onClick={onCancel} disabled={pending}>
             Cancel
@@ -378,16 +439,18 @@ const CompleteDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
 };
 
 // Approve or reject a cost (devices api-design 13, BR-44).
-const DecideDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; onCancel: () => void }> = ({
+const DecideDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; onCancel: () => void; onReload: () => void }> = ({
   record,
   onDone,
   onCancel,
+  onReload,
 }) => {
   const [decision, setDecision] = useState<'APPROVED' | 'REJECTED'>('APPROVED');
   const [approvedCostVnd, setApprovedCostVnd] = useState(String(record.estimatedCostVnd ?? ''));
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
@@ -410,6 +473,7 @@ const DecideDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; on
       onDone();
     } catch (failureError) {
       setPending(false);
+      setStale(isStale(failureError));
       if (failureError instanceof ApiError && failureError.errorCode === 'SEPARATION_OF_DUTY') {
         setFailure('A different Admin must approve this cost.');
       } else setFailure(failureOf(failureError, record.status));
@@ -446,11 +510,7 @@ const DecideDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; on
             <Textarea id="decide-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
           </Field>
         )}
-        {failure && (
-          <p role="alert" className={ALERT}>
-            {failure}
-          </p>
-        )}
+        {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
         <div className="flex flex-wrap justify-end gap-3">
           <Button type="button" onClick={onCancel} disabled={pending}>
             Cancel
@@ -464,59 +524,205 @@ const DecideDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; on
   );
 };
 
-const RecordsTable: React.FC<{
-  records: MaintenanceRecord[];
-  onEstimate: (record: MaintenanceRecord) => void;
-  onComplete: (record: MaintenanceRecord) => void;
-}> = ({ records, onEstimate, onComplete }) => (
-  <table className={TABLE}>
-    <thead>
-      <tr>
-        <th className={TH}>Device</th>
-        <th className={TH}>Reason</th>
-        <th className={TH}>Status</th>
-        <th className={TH}>Expected</th>
-        <th className={TH}>Cost</th>
-        <th className={TH}>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {records.map((record) => (
-        <tr key={record.id}>
-          <td className={TD}>
-            <Link to={`/t/devices/${record.device.id}`} className={LINK}>
-              {record.device.assetTag}
-            </Link>
-          </td>
-          <td className={TD}>{record.reason}</td>
-          <td className={TD}>
-            <Badge tone={RECORD_TONE[record.status]}>{record.status}</Badge>
-          </td>
-          <td className={TD}>{record.expectedAt}</td>
-          <td className={TD}>
-            {record.approvedCostVnd !== null
-              ? formatVnd(record.approvedCostVnd)
-              : record.estimatedCostVnd !== null
-                ? formatVnd(record.estimatedCostVnd)
-                : 'Not estimated'}
-          </td>
-          <td className={TD}>
-            {record.status === 'OPEN' && (
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => onEstimate(record)}>Estimate</Button>
-                <Button variant="primary" onClick={() => onComplete(record)}>Complete</Button>
-              </div>
-            )}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+const costOf = (record: MaintenanceRecord): string => {
+  if (record.actualCostVnd !== null) return `${formatVnd(record.actualCostVnd)} actual`;
+  if (record.approvedCostVnd !== null) return `${formatVnd(record.approvedCostVnd)} approved`;
+  if (record.estimatedCostVnd !== null) return `${formatVnd(record.estimatedCostVnd)} estimated`;
+  return 'Not estimated';
+};
+
+const workByOf = (record: MaintenanceRecord): string => {
+  if (record.workBy === 'VENDOR') return record.vendorName ? `Vendor, ${record.vendorName}` : 'Vendor';
+  if (record.workBy === 'IN_HOUSE') return 'In house';
+  return 'Not decided';
+};
+
+// Choose the AVAILABLE device to open maintenance on, when the page was not opened from a device
+// (screen 4.3: Open maintenance is shown for an AVAILABLE device with no open record).
+const PickDeviceDialog: React.FC<{ onPick: (deviceId: string) => void; onCancel: () => void }> = ({
+  onPick,
+  onCancel,
+}) => {
+  const available = useDevices({ status: ['AVAILABLE'], pageSize: 100 });
+  const [deviceId, setDeviceId] = useState('');
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  return (
+    <Dialog
+      titleId="pick-title"
+      title="Open maintenance"
+      description="Only an available device can go to maintenance from here."
+      onClose={onCancel}
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onCancel}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (!deviceId) setError('Choose a device.');
+              else onPick(deviceId);
+            }}
+          >
+            Continue
+          </Button>
+        </>
+      }
+    >
+      {available.error ? (
+        <ErrorState error={available.error} onRetry={() => void available.refetch()} />
+      ) : (
+        <Field id="pick-device" label="Device" required error={error}>
+          <Select id="pick-device" value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
+            <option value="">{available.isLoading ? 'Loading…' : 'Select a device'}</option>
+            {(available.data?.items ?? []).map((device) => (
+              <option key={device.id} value={device.id}>
+                {device.assetTag}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+    </Dialog>
+  );
+};
+
+// The record detail of screen 4.3 (devices api-design 15), with Estimate and Complete on an OPEN
+// record. Opening it moves focus to its heading; closing returns focus to the row.
+const RecordDrawer: React.FC<{
+  record: MaintenanceRecord;
+  onClose: () => void;
+  onEstimate: () => void;
+  onComplete: () => void;
+}> = ({ record, onClose, onEstimate, onComplete }) => (
+  <Drawer
+    titleId="record-title"
+    title={`Maintenance on ${record.device.assetTag}`}
+    onClose={onClose}
+    footer={
+      record.status === 'OPEN' ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button className="min-h-11" onClick={onEstimate}>
+            Estimate
+          </Button>
+          <Button className="min-h-11" variant="primary" onClick={onComplete}>
+            Complete
+          </Button>
+        </div>
+      ) : undefined
+    }
+  >
+    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Fact label="Device">
+        <Link to={`/t/devices/${record.device.id}`} className={LINK}>
+          {record.device.assetTag}
+        </Link>
+      </Fact>
+      <Fact label="Status">
+        <StatusBadge entry={MAINTENANCE_STATUS[record.status]} />
+      </Fact>
+      <Fact label="Reason">{MAINTENANCE_REASON[record.reason]}</Fact>
+      <Fact label="Opened">{formatDateTime(record.openedAt)}</Fact>
+      <Fact label="Expected completion">{record.expectedAt}</Fact>
+      <Fact label="Work by">{workByOf(record)}</Fact>
+      <Fact label="Estimate">
+        {record.estimatedCostVnd !== null ? formatVnd(record.estimatedCostVnd) : 'Not estimated'}
+      </Fact>
+      {record.decision && (
+        <Fact label="Admin decision">
+          {record.decision === 'APPROVED'
+            ? `Approved ${record.approvedCostVnd !== null ? formatVnd(record.approvedCostVnd) : ''}`.trim()
+            : `Rejected: ${record.decisionReason ?? ''}`}
+        </Fact>
+      )}
+      {record.actualCostVnd !== null && <Fact label="Actual cost">{formatVnd(record.actualCostVnd)}</Fact>}
+      {record.warrantyUntil && <Fact label="Warranty until">{record.warrantyUntil}</Fact>}
+      {record.firmwareVersion && <Fact label="Firmware version">{record.firmwareVersion}</Fact>}
+      {record.closedAt && <Fact label="Closed">{formatDateTime(record.closedAt)}</Fact>}
+    </dl>
+    <h3 className="mt-5 text-body-sm font-semibold text-ink">Description</h3>
+    <p className="mt-1 whitespace-pre-line text-body text-ink">{record.description}</p>
+    {record.resolution && (
+      <>
+        <h3 className="mt-4 text-body-sm font-semibold text-ink">Resolution</h3>
+        <p className="mt-1 whitespace-pre-line text-body text-ink">{record.resolution}</p>
+      </>
+    )}
+    {record.checklistResults && record.checklistResults.length > 0 && (
+      <>
+        <h3 className="mt-4 text-body-sm font-semibold text-ink">Checklist results</h3>
+        <ul className="mt-1 flex flex-col gap-1 text-body text-ink">
+          {record.checklistResults.map((result) => (
+            <li key={result.item}>
+              {result.item}: {result.passed ? 'Pass' : 'Fail'}
+              {result.note ? `, ${result.note}` : ''}
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+  </Drawer>
 );
 
+const RecordsTable: React.FC<{
+  caption: string;
+  records: MaintenanceRecord[] | undefined;
+  loading: boolean;
+  error: unknown;
+  onRetry: () => void;
+  empty: string;
+  onOpen: (record: MaintenanceRecord) => void;
+  rowActions?: (record: MaintenanceRecord) => React.ReactNode;
+  footer?: React.ReactNode;
+}> = ({ caption, records, loading, error, onRetry, empty, onOpen, rowActions, footer }) => {
+  const columns: Column<MaintenanceRecord>[] = [
+    {
+      key: 'device',
+      header: 'Device',
+      cell: (record) => (
+        <button type="button" className={LINK} onClick={() => onOpen(record)}>
+          {record.device.assetTag}
+        </button>
+      ),
+    },
+    { key: 'reason', header: 'Reason', cell: (record) => MAINTENANCE_REASON[record.reason] },
+    { key: 'status', header: 'Status', cell: (record) => <StatusBadge entry={MAINTENANCE_STATUS[record.status]} /> },
+    { key: 'expected', header: 'Expected', cell: (record) => record.expectedAt },
+    { key: 'workBy', header: 'Work by', hideOnMobile: true, cell: workByOf },
+    { key: 'cost', header: 'Cost', align: 'end', cell: costOf },
+  ];
+  return (
+    <DataTable
+      caption={caption}
+      columns={columns}
+      rows={records}
+      rowId={(record) => record.id}
+      loading={loading}
+      error={error ? <ErrorState error={error} onRetry={onRetry} /> : undefined}
+      empty={{ title: empty }}
+      rowActions={rowActions}
+      renderCard={(record) => (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <button type="button" className={LINK} onClick={() => onOpen(record)}>
+              {record.device.assetTag}
+            </button>
+            <StatusBadge entry={MAINTENANCE_STATUS[record.status]} />
+          </div>
+          <p className="text-body-sm text-ink-muted">
+            {MAINTENANCE_REASON[record.reason]}, expected {record.expectedAt}
+          </p>
+          {rowActions && <div className="mt-1 flex flex-wrap gap-2">{rowActions(record)}</div>}
+        </div>
+      )}
+      footer={footer}
+    />
+  );
+};
+
 // /t/maintenance and /t/maintenance/approvals, MaintenancePage and MaintenanceApprovalPage of screen
-// 4.3 (devices api-design 11 to 15). TrekLink Staff list, open, estimate and complete; Admin also
-// decides pending costs, hidden on a record the viewer estimated (BR-44).
+// 4.3 (devices api-design 06 and 11 to 15). TrekLink Staff list, open, estimate and complete; Admin
+// also decides pending costs, hidden on a record the viewer estimated (BR-44).
 export const MaintenancePage: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -528,30 +734,93 @@ export const MaintenancePage: React.FC = () => {
   const [tab, setTab] = useState<'records' | 'week' | 'approvals'>(
     onApprovalsRoute ? 'approvals' : 'records',
   );
+  const [status, setStatus] = useState<MaintenanceStatus | ''>('');
+  const [reason, setReason] = useState<MaintenanceReason | ''>('');
+  const [pageNumber, setPageNumber] = useState(1);
+  const [picking, setPicking] = useState(false);
   const [opening, setOpening] = useState<string | null>(
     (location.state as { deviceId?: string } | null)?.deviceId ?? null,
   );
+  const [viewing, setViewing] = useState<MaintenanceRecord | null>(null);
   const [estimating, setEstimating] = useState<MaintenanceRecord | null>(null);
   const [completing, setCompleting] = useState<MaintenanceRecord | null>(null);
   const [deciding, setDeciding] = useState<MaintenanceRecord | null>(null);
+  const [completed, setCompleted] = useState<MaintenanceRecord | null>(null);
+  const end = weekEnd();
 
-  const records = useMaintenanceRecords({});
+  const records = useMaintenanceRecords({
+    status: status ? [status] : undefined,
+    reason: reason ? [reason] : undefined,
+    pageNumber,
+  });
   const week = useMaintenanceRecords({
     status: ['OPEN'],
     reason: ['SCHEDULED', 'FIRMWARE_UPDATE'],
-    dueBefore: weekEnd(),
+    dueBefore: end,
   });
+  // Devices due for service but still out (REQ-STA-03): listed, never opened. devices api-design 06
+  // has no due-date filter, so the first page of 100 reserved or rented units is narrowed here.
+  const out = useDevices({ status: ['RESERVED', 'RENTED'], pageSize: 100 });
+  const dueButOut = (out.data?.items ?? []).filter(
+    (device) => device.serviceDueAt !== null && device.serviceDueAt <= end,
+  );
   const approvals = useMaintenanceRecords({ status: ['PENDING_APPROVAL'] }, isAdmin);
 
-  const refresh = async () => {
-    showToast(MSG03);
-    await queryClient.invalidateQueries({ queryKey: ['maintenance'] });
-    await queryClient.invalidateQueries({ queryKey: ['devices'] });
+  const invalidate = async (deviceId?: string) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] }),
+      queryClient.invalidateQueries({ queryKey: ['devices'] }),
+      ...(deviceId
+        ? [
+            queryClient.invalidateQueries({ queryKey: ['device', deviceId] }),
+            queryClient.invalidateQueries({ queryKey: ['device-history', deviceId] }),
+          ]
+        : []),
+    ]);
   };
 
+  const saved = async (deviceId: string) => {
+    showToast(MSG03);
+    await invalidate(deviceId);
+  };
+
+  // STALE_VERSION: Reload refetches and closes the dialog, so the next attempt uses the new version.
+  const reload = (close: () => void) => () => {
+    close();
+    setViewing(null);
+    void invalidate();
+  };
+
+  const filtered = Boolean(status || reason);
+
   return (
-    <section aria-labelledby="maintenance-title">
-      <PageTitle id="maintenance-title" title="Maintenance" />
+    <section aria-labelledby="maintenance-title" className="flex flex-col gap-4">
+      <PageHeader
+        id="maintenance-title"
+        title="Maintenance"
+        primaryAction={
+          <Button variant="primary" onClick={() => setPicking(true)}>
+            Open maintenance
+          </Button>
+        }
+      />
+      {completed && (
+        <Alert
+          tone={completed.status === 'PENDING_APPROVAL' ? 'warning' : 'info'}
+          onDismiss={() => setCompleted(null)}
+          action={
+            <Link to={`/t/devices/${completed.device.id}`} className={LINK}>
+              Open {completed.device.assetTag}
+            </Link>
+          }
+        >
+          {completed.status === 'PENDING_APPROVAL'
+            ? `The actual cost on ${completed.device.assetTag} needs an Admin's approval before the record closes.`
+            : completed.status === 'UNREPAIRABLE'
+              ? `${completed.device.assetTag} stays in maintenance until an Admin retires it.`
+              : `${completed.device.assetTag} stays in maintenance until it passes an intake check on its page.`}
+        </Alert>
+      )}
       <Tabs
         label="Maintenance views"
         idPrefix="maintenance"
@@ -562,118 +831,215 @@ export const MaintenancePage: React.FC = () => {
         }}
         items={[
           { key: 'records', label: 'Records' },
-          { key: 'week', label: "This week's service" },
+          { key: 'week', label: "This week's service", count: week.data?.totalCount },
           ...(isAdmin ? [{ key: 'approvals' as const, label: 'Approvals', count: approvals.data?.totalCount }] : []),
         ]}
-        className="mb-4"
       />
 
       <TabPanel idPrefix="maintenance" tabKey="records" className={tab === 'records' ? undefined : 'hidden'}>
-        {records.isLoading && <Loading />}
-        {records.error && <ErrorState error={records.error} onRetry={() => void records.refetch()} />}
-        {records.data && records.data.items.length === 0 && <Empty><p>No results match your filters.</p></Empty>}
-        {records.data && records.data.items.length > 0 && (
-          <RecordsTable
-            records={records.data.items}
-            onEstimate={setEstimating}
-            onComplete={setCompleting}
-          />
-        )}
+        <Toolbar
+          label="Maintenance record filters"
+          start={
+            <>
+              <Field id="maintenance-status" label="Status" hideLabel className="w-full sm:w-56">
+                <Select
+                  id="maintenance-status"
+                  value={status}
+                  onChange={(event) => {
+                    setStatus(event.target.value as MaintenanceStatus | '');
+                    setPageNumber(1);
+                  }}
+                >
+                  <option value="">Every status</option>
+                  {STATUSES.map((key) => (
+                    <option key={key} value={key}>
+                      {MAINTENANCE_STATUS[key].label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field id="maintenance-reason" label="Reason" hideLabel className="w-full sm:w-56">
+                <Select
+                  id="maintenance-reason"
+                  value={reason}
+                  onChange={(event) => {
+                    setReason(event.target.value as MaintenanceReason | '');
+                    setPageNumber(1);
+                  }}
+                >
+                  <option value="">Every reason</option>
+                  {REASONS.map((key) => (
+                    <option key={key} value={key}>
+                      {MAINTENANCE_REASON[key]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </>
+          }
+        />
+        <RecordsTable
+          caption="Maintenance records"
+          records={records.data?.items}
+          loading={records.isLoading}
+          error={records.error}
+          onRetry={() => void records.refetch()}
+          empty={filtered ? MSG01 : 'No maintenance records yet.'}
+          onOpen={setViewing}
+          rowActions={(record) =>
+            record.status === 'OPEN' ? (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => setEstimating(record)}>
+                  Estimate
+                </Button>
+                <Button size="sm" variant="primary" onClick={() => setCompleting(record)}>
+                  Complete
+                </Button>
+              </div>
+            ) : null
+          }
+          footer={
+            records.data && records.data.totalPages > 1 ? (
+              <Pagination
+                pageNumber={records.data.pageNumber}
+                totalPages={records.data.totalPages}
+                totalItems={records.data.totalCount}
+                pageSize={records.data.pageSize}
+                onPage={setPageNumber}
+              />
+            ) : undefined
+          }
+        />
       </TabPanel>
 
-      <TabPanel idPrefix="maintenance" tabKey="week" className={tab === 'week' ? undefined : 'hidden'}>
-        {week.isLoading && <Loading />}
-        {week.error && <ErrorState error={week.error} onRetry={() => void week.refetch()} />}
-        {week.data && week.data.items.length === 0 && <Empty><p>Nothing is due this week.</p></Empty>}
-        {week.data && week.data.items.length > 0 && (
-          <RecordsTable records={week.data.items} onEstimate={setEstimating} onComplete={setCompleting} />
+      <TabPanel idPrefix="maintenance" tabKey="week" className={tab === 'week' ? 'flex flex-col gap-4' : 'hidden'}>
+        <RecordsTable
+          caption="This week's service"
+          records={week.data?.items}
+          loading={week.isLoading}
+          error={week.error}
+          onRetry={() => void week.refetch()}
+          empty="Nothing is due this week."
+          onOpen={setViewing}
+          rowActions={(record) => (
+            <Button size="sm" variant="primary" onClick={() => setCompleting(record)}>
+              Complete
+            </Button>
+          )}
+        />
+        {dueButOut.length > 0 && (
+          <div>
+            <h2 className="mb-2 text-title-sm text-ink">Due but still out</h2>
+            <p className="mb-2 text-body-sm text-ink-muted">
+              These units are due for service and on a contract. They go to maintenance after they come back.
+            </p>
+            <ul className="flex flex-col gap-1">
+              {dueButOut.map((device) => (
+                <li key={device.id} className="flex flex-wrap items-center gap-2 text-body">
+                  <Link to={`/t/devices/${device.id}`} className={LINK}>
+                    {device.assetTag}
+                  </Link>
+                  <StatusBadge entry={DEVICE_STATUS[device.status]} />
+                  <span className="text-ink-muted">due {device.serviceDueAt}</span>
+                </li>
+              ))}
+            </ul>
+            {out.data && out.data.totalPages > 1 && (
+              <p className="mt-2 text-body-sm text-ink-muted">Counted on the first 100 units out.</p>
+            )}
+          </div>
         )}
       </TabPanel>
 
       {isAdmin && (
         <TabPanel idPrefix="maintenance" tabKey="approvals" className={tab === 'approvals' ? undefined : 'hidden'}>
-          {approvals.isLoading && <Loading />}
-          {approvals.error && <ErrorState error={approvals.error} onRetry={() => void approvals.refetch()} />}
-          {approvals.data && approvals.data.items.length === 0 && (
-            <Empty><p>No costs are waiting for a decision.</p></Empty>
-          )}
-          {approvals.data && approvals.data.items.length > 0 && (
-            <table className={TABLE}>
-              <thead>
-                <tr>
-                  <th className={TH}>Device</th>
-                  <th className={TH}>Reason</th>
-                  <th className={TH}>Estimated</th>
-                  <th className={TH}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {approvals.data.items.map((record) => (
-                  <tr key={record.id}>
-                    <td className={TD}>
-                      <Link to={`/t/devices/${record.device.id}`} className={LINK}>
-                        {record.device.assetTag}
-                      </Link>
-                    </td>
-                    <td className={TD}>{record.reason}</td>
-                    <td className={TD}>
-                      {record.estimatedCostVnd !== null ? formatVnd(record.estimatedCostVnd) : 'Not estimated'}
-                    </td>
-                    <td className={TD}>
-                      {record.estimatedById === user?.id ? (
-                        <span className="text-body-sm text-ink-muted">A different Admin must decide this.</span>
-                      ) : (
-                        <Button variant="primary" onClick={() => setDeciding(record)}>
-                          Decide
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <RecordsTable
+            caption="Costs waiting for a decision"
+            records={approvals.data?.items}
+            loading={approvals.isLoading}
+            error={approvals.error}
+            onRetry={() => void approvals.refetch()}
+            empty="No costs are waiting for a decision."
+            onOpen={setViewing}
+            rowActions={(record) =>
+              record.estimatedById === user?.id ? (
+                <span className="text-body-sm text-ink-muted">A different Admin must decide this.</span>
+              ) : (
+                <Button size="sm" variant="primary" onClick={() => setDeciding(record)}>
+                  Decide
+                </Button>
+              )
+            }
+          />
         </TabPanel>
       )}
 
+      {viewing && !estimating && !completing && (
+        <RecordDrawer
+          record={viewing}
+          onClose={() => setViewing(null)}
+          onEstimate={() => setEstimating(viewing)}
+          onComplete={() => setCompleting(viewing)}
+        />
+      )}
+      {picking && (
+        <PickDeviceDialog
+          onPick={(deviceId) => {
+            setPicking(false);
+            setOpening(deviceId);
+          }}
+          onCancel={() => setPicking(false)}
+        />
+      )}
       {opening && (
         <OpenDialog
           deviceId={opening}
           onDone={() => void (async () => {
+            const deviceId = opening;
             setOpening(null);
-            await refresh();
+            await saved(deviceId);
           })()}
           onCancel={() => setOpening(null)}
+          onReload={reload(() => setOpening(null))}
         />
       )}
       {estimating && (
         <EstimateDialog
           record={estimating}
           onDone={() => void (async () => {
+            const deviceId = estimating.device.id;
             setEstimating(null);
-            await refresh();
+            setViewing(null);
+            await saved(deviceId);
           })()}
           onCancel={() => setEstimating(null)}
+          onReload={reload(() => setEstimating(null))}
         />
       )}
       {completing && (
         <CompleteDialog
           record={completing}
-          onDone={() => void (async () => {
+          onDone={(record) => void (async () => {
             setCompleting(null);
-            await refresh();
+            setViewing(null);
+            setCompleted(record);
+            await saved(record.device.id);
           })()}
           onCancel={() => setCompleting(null)}
+          onReload={reload(() => setCompleting(null))}
         />
       )}
       {deciding && (
         <DecideDialog
           record={deciding}
           onDone={() => void (async () => {
+            const deviceId = deciding.device.id;
             setDeciding(null);
-            await refresh();
+            setViewing(null);
+            await saved(deviceId);
           })()}
           onCancel={() => setDeciding(null)}
+          onReload={reload(() => setDeciding(null))}
         />
       )}
     </section>
