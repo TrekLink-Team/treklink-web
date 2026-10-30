@@ -241,7 +241,7 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as IncidentsController
-    participant Svc as AuthorityReportService
+    participant Svc as AuthorityReportsService
     participant DB as Postgres
     C->>Ctl: POST /api/incidents/:id/authority-reports
     Ctl->>Svc: reportIncident(id, dto, actor)

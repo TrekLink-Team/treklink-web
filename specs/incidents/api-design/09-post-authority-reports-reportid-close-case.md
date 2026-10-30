@@ -185,7 +185,7 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as AuthorityReportsController
-    participant Svc as AuthorityReportService
+    participant Svc as AuthorityReportsService
     participant DB as Postgres
     C->>Ctl: POST /api/authority-reports/:reportId/close-case
     Ctl->>Svc: closeCase(reportId, dto, actor)

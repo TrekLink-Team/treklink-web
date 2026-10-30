@@ -163,7 +163,7 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as AuthorityReportsController
-    participant Svc as AuthorityReportService
+    participant Svc as AuthorityReportsService
     participant DB as Postgres
     participant Rent as RentalsService
     C->>Ctl: POST /api/authority-reports
