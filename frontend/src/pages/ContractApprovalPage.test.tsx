@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
+import { useToast } from '../shared/ui/toastStore';
 import { ContractApprovalPage } from './ContractApprovalPage';
 
 const approveContract = vi.fn();
@@ -106,5 +107,29 @@ describe('ContractApprovalPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     const alert = await screen.findByText('Only 4 treklink-v3 devices are available.');
     expect(alert.id).not.toBe('appointment-error');
+  });
+
+  it('names the contract and the reserved count in the approval toast', async () => {
+    approveContract.mockResolvedValue({
+      ...requested,
+      status: 'APPROVED',
+      version: 2,
+      reservationExpiresAt: '2099-01-04T02:00:00Z',
+      devices: ['TL-0003', 'TL-0004', 'TL-0005', 'TL-0006', 'TL-0011'].map((assetTag) => ({
+        deviceId: `d-${assetTag}`,
+        assetTag,
+        handedOverAt: null,
+        checkedInAt: null,
+        lostAt: null,
+        holder: null,
+      })),
+    });
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: /RC-2026-0004/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(
+      await screen.findByText('Reserved: TL-0003, TL-0004, TL-0005, TL-0006, TL-0011'),
+    ).toBeTruthy();
+    expect(useToast.getState().message).toBe('RC-2026-0004 approved. 5 devices reserved.');
   });
 });

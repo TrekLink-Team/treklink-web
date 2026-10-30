@@ -137,6 +137,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - _Story: US-UC16, US-UC17_
   - **Partly done** (2026-10-27): `/t/contracts` with the Requested, Approved and All tabs as a table (cards below 768 px), the request panel with the handover appointment, Approve (reserved tags and expiry shown), Reject with its reason dialog, MSG11 and STALE_VERSION. The advisory availability banner (devices api-design 24) followed on 2026-10-27: amber with the count when fewer units than requested are available
   - **2026-10-30** (KhoaDD under D-078): the queue, the request panel and the availability banner name the variant by its display name (billing 01), from the dry run of 2026-10-30
+  - **2026-10-30** (KhoaDD under D-078): the approval toast reads "{code} approved. {n} devices reserved." in the pattern of the organization approval toast, the leader's ruling on the dry run of 2026-10-30; ui-design 5-3 and the demo script say the same
   - **2026-10-30** (KhoaDD under D-078): a handover appointment in the past is refused by the server (rentals REQ-ERR-09) and the message shows under the appointment field, from the dry run of 2026-10-30
 - [x] 5.4 `CounterPage` handover (owner LongLP)
   - **Do**: rentals api-design 07 to 10 in four steps (design §5): devices with scan, provisioning, battery and GPS check and swap; payment status; preview note; signature pad (PNG) and identity field; nothing stored in the browser after submit

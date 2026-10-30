@@ -29,7 +29,7 @@ Scope from the task: rentals api-design 04 and 05; availability from devices api
 | Control | Shown when | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
 | Select a row | always | none; opens the request panel and loads devices 24 for its variant | none | none |
-| Approve (panel, primary) | `REQUESTED` | rentals 04 `POST /api/contracts/:id/approve` | none: the reservation is released by Cancel (screen 5.2) | toast MSG03; the panel lists the reserved asset tags and the reservation expiry; the row moves to the Approved tab |
+| Approve (panel, primary) | `REQUESTED` | rentals 04 `POST /api/contracts/:id/approve` | none: the reservation is released by Cancel (screen 5.2) | toast "{code} approved. {n} devices reserved." (rentals 04 `code` and the count of `devices[]`, the pattern of the organization approval toast of screen 3.2; dry run 2026-10-30); the panel lists the reserved asset tags and the reservation expiry; the row moves to the Approved tab |
 | Reject (panel, secondary) | `REQUESTED` | rentals 05 `POST /api/contracts/:id/reject` | dialog naming the contract code with the reason field: "The Manager sees this reason." | toast MSG03; the Manager receives MSG16 with the reason |
 | Open (row link) | always | navigation to `/t/contracts/:id` (screen 5.2) | none | none |
 | Go to counter (Approved tab row) | `APPROVED` | navigation to `/t/counter/:contractId` (screen 5.4) | none | none |
@@ -50,7 +50,7 @@ Devices are chosen by the server, the oldest-checked first. rentals 04 also acce
 | Error `INVALID_STATE_TRANSITION` (409, rentals 04, 05) | MSG28 with the current state; the queue refetches (another Staff member acted first) |
 | Error `STALE_VERSION` (409, rentals 04, 05) | MSG36 dialog with Reload |
 | Not found or forbidden | `NOT_FOUND` (404) or `FORBIDDEN` (403): MSG26 |
-| Success | Toast MSG03; the queue and the counts refetch |
+| Success | Approve: toast "{code} approved. {n} devices reserved."; Reject: toast MSG03; the queue and the counts refetch |
 
 ## Form fields (if any)
 
