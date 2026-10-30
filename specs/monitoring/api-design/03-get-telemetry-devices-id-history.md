@@ -167,12 +167,18 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    P0["Ask rentals for the caller's rental periods of the device"]
+    P0["Resolve the scope: the caller's organization, or the whole fleet for TrekLink Staff and Admin"]
     D2 -->|no| P0
-    P1["Read events inside them"]
+    P1["Check the range against monitoring.historyMaxRangeDays"]
     P0 --> P1
+    P2["Organization: ask rentals for its rental periods of the device, none answers 404. Staff and Admin: require the device to exist"]
+    P1 --> P2
+    P3["Read the plotted points of the range from gateway-sync, at most 50,000"]
+    P2 --> P3
+    P4["Answer the points, or CSV text for format=csv"]
+    P3 --> P4
     OK["Return 200"]
-    P1 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -182,15 +188,31 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as TelemetryController
+    participant Ctl as TelemetryHistoryController
     participant Svc as HistoryService
+    participant Prm as ParameterService
+    participant Rent as ContractsService (rentals)
+    participant Dev as DevicesService (devices)
+    participant Ev as FieldEventQueryService (gateway-sync)
     participant DB as Postgres
-    participant Rent as RentalsService
-    participant Gw as GatewaySyncService
     C->>Ctl: GET /api/telemetry/devices/:id/history
-    Ctl->>Svc: history(id, query, caller)
-    Svc->>Rent: rentalPeriods(deviceId, orgId)
-    Svc->>Gw: events(deviceId, periods, kinds)
-    Svc-->>Ctl: result
+    Ctl->>Svc: history(id, query, caller, ability)
+    Note over Svc: scopeOf(caller, ability) gives the caller's organization, or null for Staff and Admin
+    Svc->>Prm: get('monitoring.historyMaxRangeDays')
+    Prm-->>Svc: maxDays, a longer range answers 400
+    alt an organization caller
+        Svc->>Rent: rentalPeriods(deviceId, organizationId)
+        Rent->>DB: SELECT contract_devices of the organization's contracts
+        Rent-->>Svc: periods, none answers 404, the overlapping ones are clippedTo
+    else TrekLink Staff or Admin
+        Svc->>Dev: assetTags([deviceId])
+        Dev-->>Svc: tag, an unknown device answers 404
+    end
+    Svc->>Ev: historyPoints(deviceId, organizationId, from, to, kinds)
+    Ev->>DB: SELECT field_events in [from, to) without unplotted positions, oldest first, at most 50,001 rows
+    Ev-->>Svc: points, truncated
+    Svc-->>Ctl: HistoryDto
+    Ctl->>Svc: csv(history), only for format=csv
+    Svc-->>Ctl: CSV text
     Ctl-->>C: 200 envelope
 ```
