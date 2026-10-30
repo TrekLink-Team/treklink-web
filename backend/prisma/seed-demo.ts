@@ -7,14 +7,20 @@
 //   - hardware variants treklink-v2 to treklink-v4, a price schedule each, two damage rates
 //   - fourteen AVAILABLE devices (ten treklink-v3, so two requests at the minimum order of five can be
 //     approved), and two RENTED devices on one ACTIVE monthly contract, RC-2026-0001
+//   - a second ACTIVE monthly contract, RC-2026-0002, on two more RENTED devices with holder labels
+//     and a paid first (TERM) invoice, so MF-05 (term end, return, balance invoice, close) has a
+//     contract to walk end to end without the MF-03 demo SOS on RC-2026-0001's devices blocking its
+//     close on OPEN_INCIDENTS (D-078, 2026-11-01 demo)
 //
 // Idempotent: every row is found by its natural key and created only when absent, and the history rows of
 // a parent (transitions, intake checks, provisioning) are written only when the parent is created. A second
 // run writes nothing; `--expect-unchanged` makes that run exit 1 if it would create anything. Nothing is
 // updated, so a changed SEED_*_PASSWORD applies only to a fresh database.
 //
-// Out of scope: the contract carries no invoice, payment or signed handover note, because billing and the
-// handover flow do not exist yet. Recreate the database once they do.
+// Out of scope: RC-2026-0001 still carries no invoice, payment or signed handover note. Billing exists
+// now (RC-2026-0002 below is seeded with a paid invoice); backfilling RC-2026-0001 is left open and
+// noted in the PR that added RC-2026-0002. The signed handover note stays out of scope for both
+// contracts, because that flow does not exist yet.
 //
 // Passwords come from SEED_ADMIN_PASSWORD, SEED_STAFF_PASSWORD, SEED_MANAGER_PASSWORD and
 // SEED_OPERATOR_PASSWORD, never from the repository. All names, codes and numbers are fictitious.
@@ -25,8 +31,11 @@
 
 import {
   DeviceStatus,
+  InvoiceKind,
+  InvoiceLineType,
   MemberRole,
   OrganizationStatus,
+  PaymentMethod,
   PlanType,
   Prisma,
   PrismaClient,
@@ -34,6 +43,10 @@ import {
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
+// Pure helpers reused from billing so the MF-05 invoice below (D-078) matches production money and
+// numbering exactly. A prisma/ script importing src/ already has precedent in demo-term-end.ts.
+import { invoiceNumberYear, invoiceStatusOf } from '../src/modules/billing/invoices.repository';
+import { holdingFeeVnd, termFeeVnd } from '../src/modules/billing/money';
 
 type Tx = Prisma.TransactionClient;
 
@@ -63,6 +76,18 @@ const HOLDER_LABELS: readonly (readonly [string, string, string])[] = [
   ['TL-0010', 'Pham Van F', '0912000010'],
 ];
 const CONTRACT_VARIANT = 'treklink-v3';
+
+// MF-05 second demo contract (D-078, Sunday 2026-11-01 demo): kept in its own block, separate from
+// DEVICES, CONTRACT_CODE and HOLDER_LABELS above, so other chains editing this file rebase cleanly.
+const CONTRACT_CODE_2 = 'RC-2026-0002';
+const MF05_DEVICES: { assetTag: string; nodeNum: bigint }[] = [
+  { assetTag: 'TL-0017', nodeNum: 0xde000011n },
+  { assetTag: 'TL-0018', nodeNum: 0xde000012n },
+];
+const HOLDER_LABELS_2: readonly (readonly [string, string, string])[] = [
+  ['TL-0017', 'Hoang Thi Mai', '0912000017'],
+  ['TL-0018', 'Vu Van Nam', '0912000018'],
+];
 
 const ACCOUNTS = [
   { key: 'admin', email: 'admin@treklink.local', fullName: 'Demo Admin', role: 'ADMIN' },
@@ -158,6 +183,16 @@ const addMonths = (d: Date, months: number) => {
 };
 const utcDate = (d: Date) =>
   new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+
+// Mirrors billing InvoicesService's `line()` rounding rule: the quantity stays whole only when the
+// amount divides evenly by it, so quantity x unit always equals the amount (billing task 1.2).
+const invoiceLineShape = (
+  amountVnd: bigint,
+  quantity: number,
+): { quantity: number; unitVnd: bigint } =>
+  amountVnd % BigInt(quantity) === 0n
+    ? { quantity, unitVnd: amountVnd / BigInt(quantity) }
+    : { quantity: 1, unitVnd: amountVnd };
 
 async function parameterValue(tx: Tx, key: string): Promise<unknown> {
   const row = await tx.businessParameter.findUnique({ where: { key } });
@@ -467,6 +502,265 @@ export async function seedDemo(
         });
         if (count > 0) created.push(`holder label ${assetTag}`);
       }
+
+      // --- MF-05 second demo contract (D-078, 2026-11-01 demo) ------------------------------------
+      // A second ACTIVE monthly contract on two more RENTED devices, so MF-05 (term end, return,
+      // balance invoice, close) can be walked end to end without the MF-03 demo SOS on RC-2026-0001's
+      // devices (TL-0009, TL-0010) blocking its close on OPEN_INCIDENTS. Additive and idempotent, kept
+      // separate from the RC-2026-0001 block above so other chains editing this file rebase cleanly.
+      const mf05VariantStatic = VARIANTS.find((v) => v.code === CONTRACT_VARIANT)!;
+      const mf05Devices = new Map<string, { id: string; created: boolean }>();
+      for (const d of MF05_DEVICES) {
+        const existing = await tx.device.findUnique({ where: { assetTag: d.assetTag } });
+        if (existing) {
+          mf05Devices.set(d.assetTag, { id: existing.id, created: false });
+          continue;
+        }
+        const device = await tx.device.create({
+          data: {
+            assetTag: d.assetTag,
+            nodeNum: d.nodeNum,
+            hardwareVariantId: variants.get(CONTRACT_VARIANT)!.id,
+            firmwareVersion: mf05VariantStatic.firmwareBaseline,
+            acquiredAt: addMonths(now, -3),
+            status: DeviceStatus.RENTED,
+            statusChangedAt: now,
+            registeredById: staff,
+            serviceDueAt: utcDate(addDays(now, SERVICE_INTERVAL_DAYS)),
+            keyVersion: 1,
+            keyOrganizationId: organization.id,
+            provisionedAt: now,
+          },
+        });
+        await tx.intakeCheck.create({
+          data: {
+            deviceId: device.id,
+            gpsFixOk: true,
+            radioOk: true,
+            batteryOk: true,
+            motionOk: mf05VariantStatic.hasMotionSensor ? true : null,
+            passed: true,
+            checkedById: staff,
+          },
+        });
+        await tx.deviceTransition.createMany({
+          data: [
+            { deviceId: device.id, toStatus: 'IN_INTAKE', actorId: staff, reason: 'REGISTERED' },
+            {
+              deviceId: device.id,
+              fromStatus: 'IN_INTAKE',
+              toStatus: 'AVAILABLE',
+              actorId: staff,
+              reason: 'INTAKE_PASSED',
+            },
+          ],
+        });
+        mf05Devices.set(d.assetTag, { id: device.id, created: true });
+        created.push(`device ${d.assetTag}`);
+      }
+
+      let contract2 = await tx.rentalContract.findUnique({ where: { code: CONTRACT_CODE_2 } });
+      if (!contract2) {
+        const holdingFeeRatio2 = new Prisma.Decimal(
+          String(await parameterValue(tx, 'billing.holdingFeeRatio')),
+        );
+        contract2 = await tx.rentalContract.create({
+          data: {
+            code: CONTRACT_CODE_2,
+            organizationId: organization.id,
+            planType: PlanType.MONTHLY,
+            hardwareVariantId: variants.get(CONTRACT_VARIANT)!.id,
+            quantity: MF05_DEVICES.length,
+            requestedStartDate: utcDate(now),
+            monthlyUnitPriceVnd: mf05VariantStatic.monthlyPriceVnd,
+            holdingFeeRatio: holdingFeeRatio2,
+            status: 'ACTIVE',
+            statusChangedAt: now,
+            requestedById: manager,
+            decidedById: staff,
+            decidedAt: now,
+            handedOverAt: now,
+            handedOverById: staff,
+            terms: { create: { seq: 1, startsAt: now, endsAt: addMonths(now, 1) } },
+          },
+        });
+        await tx.contractTransition.createMany({
+          data: [
+            { contractId: contract2.id, toStatus: 'REQUESTED', actorId: manager },
+            {
+              contractId: contract2.id,
+              fromStatus: 'REQUESTED',
+              toStatus: 'APPROVED',
+              actorId: staff,
+            },
+            {
+              contractId: contract2.id,
+              fromStatus: 'APPROVED',
+              toStatus: 'ACTIVE',
+              actorId: staff,
+            },
+          ],
+        });
+        created.push(`contract ${CONTRACT_CODE_2}`);
+      }
+      for (const d of MF05_DEVICES) {
+        const device = mf05Devices.get(d.assetTag)!;
+        if (await tx.contractDevice.findFirst({ where: { deviceId: device.id } })) continue;
+        await tx.contractDevice.create({
+          data: {
+            contractId: contract2.id,
+            deviceId: device.id,
+            reservedAt: now,
+            handedOverAt: now,
+          },
+        });
+        if (device.created) {
+          await tx.deviceProvisioning.create({
+            data: {
+              deviceId: device.id,
+              organizationId: organization.id,
+              keyVersion: 1,
+              provisionedById: staff,
+            },
+          });
+          const ref = { refType: 'CONTRACT', refId: contract2.id, actorId: staff };
+          await tx.deviceTransition.createMany({
+            data: [
+              {
+                deviceId: device.id,
+                fromStatus: 'AVAILABLE',
+                toStatus: 'RESERVED',
+                reason: 'RESERVED',
+                ...ref,
+              },
+              {
+                deviceId: device.id,
+                fromStatus: 'RESERVED',
+                toStatus: 'RENTED',
+                reason: 'HANDED_OVER',
+                ...ref,
+              },
+            ],
+          });
+        }
+        created.push(`contract device ${d.assetTag}`);
+      }
+
+      // Holder labels for the two rented units (FR-CON-14, BR-33), the same pattern RC-2026-0001 uses
+      // above: written only while the label is still empty, fictitious names.
+      for (const [assetTag, holderName, holderPhone] of HOLDER_LABELS_2) {
+        const { count } = await tx.contractDevice.updateMany({
+          where: {
+            contractId: contract2.id,
+            deviceId: mf05Devices.get(assetTag)!.id,
+            holderName: null,
+          },
+          data: { holderName, holderPhone },
+        });
+        if (count > 0) created.push(`holder label ${assetTag}`);
+      }
+
+      // Paid first (TERM) invoice for RC-2026-0002: a holding-fee line due at the term start and a
+      // balance line due at the term end, matching InvoicesService.issueTermInvoice and money.ts
+      // (replicated inline since this script runs outside the Nest DI container), paid in full by one
+      // demo counter payment, so MF-05's balance invoice and close steps start from a settled first
+      // term. RC-2026-0001 carries no invoice yet (see the file header); that gap is not touched here.
+      const term2 = await tx.contractTerm.findFirstOrThrow({
+        where: { contractId: contract2.id, seq: 1 },
+        select: { id: true, startsAt: true, endsAt: true },
+      });
+      if (!(await tx.invoice.findUnique({ where: { termId: term2.id } }))) {
+        const feeVnd = termFeeVnd(mf05VariantStatic.monthlyPriceVnd, MF05_DEVICES.length);
+        const holdingVnd = holdingFeeVnd(
+          mf05VariantStatic.monthlyPriceVnd,
+          MF05_DEVICES.length,
+          contract2.holdingFeeRatio,
+        );
+        const balanceVnd = feeVnd - holdingVnd;
+        const totalVnd = feeVnd;
+        const devicesLabel = `${MF05_DEVICES.length} x ${CONTRACT_VARIANT}`;
+
+        // Same numbering as InvoicesRepository.nextNumber: INV-<year>-<6 digits>, serialized under an
+        // advisory lock per year so a real invoice issued the same demo day never collides.
+        const invoiceYear = invoiceNumberYear(now);
+        const invoicePrefix = `INV-${invoiceYear}-`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing:invoice:${invoiceYear}`}))`;
+        const latestInvoice = await tx.invoice.findFirst({
+          where: { number: { startsWith: invoicePrefix } },
+          orderBy: { number: 'desc' },
+          select: { number: true },
+        });
+        const invoiceSequence = latestInvoice
+          ? Number(latestInvoice.number.slice(invoicePrefix.length)) + 1
+          : 1;
+        const invoiceNumber = `${invoicePrefix}${String(invoiceSequence).padStart(6, '0')}`;
+
+        const invoice = await tx.invoice.create({
+          data: {
+            number: invoiceNumber,
+            organizationId: organization.id,
+            contractId: contract2.id,
+            termId: term2.id,
+            kind: InvoiceKind.TERM,
+            status: invoiceStatusOf(totalVnd, 0n),
+            totalVnd,
+            paidVnd: 0n,
+            issuedAt: now,
+            lines: {
+              create: [
+                {
+                  seq: 1,
+                  type: InvoiceLineType.HOLDING_FEE,
+                  description: `Term 1 holding fee, ${devicesLabel}`,
+                  dueAt: term2.startsAt,
+                  createdById: null,
+                  amountVnd: holdingVnd,
+                  ...invoiceLineShape(holdingVnd, MF05_DEVICES.length),
+                },
+                {
+                  seq: 2,
+                  type: InvoiceLineType.TERM_BALANCE,
+                  description: `Term 1 balance, ${devicesLabel}`,
+                  dueAt: term2.endsAt,
+                  createdById: null,
+                  amountVnd: balanceVnd,
+                  ...invoiceLineShape(balanceVnd, MF05_DEVICES.length),
+                },
+              ],
+            },
+          },
+          include: { lines: true },
+        });
+
+        const paymentReference = `DEMO-${CONTRACT_CODE_2}-01`;
+        await tx.payment.create({
+          data: {
+            reference: paymentReference,
+            organizationId: organization.id,
+            contractId: contract2.id,
+            invoiceId: invoice.id,
+            amountVnd: totalVnd,
+            method: PaymentMethod.CASH,
+            status: 'CONFIRMED',
+            isSandbox: false,
+            recordedById: staff,
+            confirmedAt: now,
+          },
+        });
+        for (const invoiceLine of invoice.lines) {
+          await tx.invoiceLine.update({
+            where: { id: invoiceLine.id },
+            data: { paidVnd: invoiceLine.amountVnd },
+          });
+        }
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: { paidVnd: totalVnd, status: invoiceStatusOf(totalVnd, totalVnd) },
+        });
+        created.push(`invoice ${invoiceNumber}`);
+        created.push(`payment ${paymentReference}`);
+      }
+      // --- end MF-05 second demo contract -----------------------------------------------------------
 
       // --- Organization API key (organizations 2.7, monitoring 3.2) ------------------------------
       // One key for ORG-0001 from SEED_ORG_API_KEY, found by its hash, so a second run adds nothing and
