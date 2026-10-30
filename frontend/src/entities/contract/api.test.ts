@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchHandoverPreview, nextDateOf, type Contract } from './api';
+import { fetchHandoverPreview, nextDateOf, undoProvisioning, type Contract } from './api';
 
 const apiClient = vi.fn();
 
@@ -35,5 +35,16 @@ describe('fetchHandoverPreview (rentals api-design 08)', () => {
     expect(url.pathname).toBe('/contracts/c-1/handover-note/preview');
     expect(JSON.parse(url.searchParams.get('checks') ?? '')).toEqual(checks);
     expect(without).toBe('/contracts/c-1/handover-note/preview');
+  });
+});
+
+describe('undoProvisioning (rentals api-design 19)', () => {
+  it('posts the contract version the page holds to the undo route', async () => {
+    apiClient.mockResolvedValue({ deviceId: 'd-1', contractVersion: 4 });
+    await undoProvisioning('c-1', 'd-1', 3);
+    const [path, init] = apiClient.mock.calls.at(-1) as [string, RequestInit];
+    expect(path).toBe('/contracts/c-1/devices/d-1/provisioning/undo');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ expectedVersion: 3 });
   });
 });
