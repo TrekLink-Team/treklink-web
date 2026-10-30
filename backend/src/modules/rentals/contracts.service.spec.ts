@@ -138,3 +138,83 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
     expect(contracts.findInCustody).toHaveBeenLastCalledWith(null);
   });
 });
+
+describe('ContractsService rental periods and utilization (rentals 4.5, design §6)', () => {
+  const FROM = new Date('2026-10-01T00:00:00.000Z');
+  const TO = new Date('2026-11-01T00:00:00.000Z');
+  const day = (n: number) => new Date(FROM.getTime() + n * 86_400_000);
+  let contracts: Record<string, jest.Mock>;
+  let service: ContractsService;
+
+  beforeEach(() => {
+    contracts = {
+      rentalPeriodsOfDevice: jest.fn().mockResolvedValue([]),
+      intervalsOverlapping: jest.fn().mockResolvedValue([]),
+    };
+    service = new ContractsService(
+      contracts as unknown as ContractsRepository,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+  });
+
+  it('lists the periods a device spent with the organization, ending at check-in or loss, open while out', async () => {
+    contracts.rentalPeriodsOfDevice.mockResolvedValue([
+      { contractId: 'c-1', handedOverAt: day(1), checkedInAt: day(3), lostAt: null },
+      { contractId: 'c-2', handedOverAt: day(5), checkedInAt: null, lostAt: day(8) },
+      { contractId: 'c-3', handedOverAt: day(10), checkedInAt: null, lostAt: null },
+    ]);
+
+    await expect(service.rentalPeriods('dev-1', 'org-1')).resolves.toEqual([
+      { contractId: 'c-1', from: day(1), to: day(3) },
+      { contractId: 'c-2', from: day(5), to: day(8) },
+      { contractId: 'c-3', from: day(10), to: null },
+    ]);
+    expect(contracts.rentalPeriodsOfDevice).toHaveBeenCalledWith('dev-1', 'org-1');
+  });
+
+  it('sums rented unit-days per variant, clipped to the range and to now', async () => {
+    const row = (
+      variant: string,
+      from: Date,
+      checkedInAt: Date | null,
+      lostAt: Date | null = null,
+    ) => ({
+      handedOverAt: from,
+      checkedInAt,
+      lostAt,
+      contract: { hardwareVariantId: variant },
+    });
+    contracts.intervalsOverlapping.mockResolvedValue([
+      row('v-2', day(-5), day(2)), // starts before the range: 2 days inside
+      row('v-1', day(10), day(13)), // 3 days
+      row('v-1', day(20), null), // still out: counts up to now, day 25
+      row('v-2', day(3), null, day(3.5)), // lost after half a day
+    ]);
+
+    await expect(service.utilization({ from: FROM, to: TO }, day(25))).resolves.toEqual([
+      { hardwareVariantId: 'v-1', rentedUnitDays: 8 },
+      { hardwareVariantId: 'v-2', rentedUnitDays: 2.5 },
+    ]);
+    expect(contracts.intervalsOverlapping).toHaveBeenCalledWith(FROM, TO);
+  });
+
+  it('counts an open interval to the end of a range already past, and nothing for an empty range', async () => {
+    contracts.intervalsOverlapping.mockResolvedValue([
+      {
+        handedOverAt: day(30),
+        checkedInAt: null,
+        lostAt: null,
+        contract: { hardwareVariantId: 'v-1' },
+      },
+    ]);
+    // day 30 is 31 October, one day before the exclusive end.
+    await expect(service.utilization({ from: FROM, to: TO }, day(60))).resolves.toEqual([
+      { hardwareVariantId: 'v-1', rentedUnitDays: 1 },
+    ]);
+    await expect(service.utilization({ from: FROM, to: TO }, day(-1))).resolves.toEqual([]);
+  });
+});

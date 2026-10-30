@@ -39,6 +39,23 @@ export interface HolderLabel {
   phone: string | null;
 }
 
+// One custody period of a device on an organization's contract: handover to check-in or loss, open
+// (`to` null) while the device is still out (monitoring api-design 03).
+export interface RentalPeriod {
+  contractId: string;
+  from: Date;
+  to: Date | null;
+}
+
+// Rented unit-days of one hardware variant over a range (monitoring api-design 08, utilization):
+// the overlap of every custody interval with the range, in days rounded to two decimals.
+export interface VariantUtilization {
+  hardwareVariantId: string;
+  rentedUnitDays: number;
+}
+
+const DAY_MS = 86_400_000;
+
 // A device the scope may see on the live views now: in custody on one of its contracts.
 export interface VisibleDevice {
   deviceId: string;
@@ -259,6 +276,49 @@ export class ContractsService {
     }));
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
+
+  // The periods a device was in the organization's custody, oldest first (rentals 4.5, design §6), so
+  // monitoring serves a member only the telemetry of its own rental periods (REQ-EVT-06).
+  async rentalPeriods(deviceId: string, organizationId: string): Promise<RentalPeriod[]> {
+    const rows = await this.contracts.rentalPeriodsOfDevice(deviceId, organizationId);
+    return rows.flatMap((row) =>
+      row.handedOverAt
+        ? [
+            {
+              contractId: row.contractId,
+              from: row.handedOverAt,
+              to: row.checkedInAt ?? row.lostAt,
+            },
+          ]
+        : [],
+    );
+  }
+
+  // Rented unit-days per hardware variant over [from, to) (rentals 4.5, design §6), for the
+  // utilization report: each custody interval counts its overlap with the range, and an interval
+  // still open counts up to `at` at most, so a range reaching into the future counts no future day.
+  // Units in service come from `devices`; the report divides the two.
+  async utilization(
+    range: { from: Date; to: Date },
+    at: Date = new Date(),
+  ): Promise<VariantUtilization[]> {
+    const end = Math.min(range.to.getTime(), at.getTime());
+    const msByVariant = new Map<string, number>();
+    for (const row of await this.contracts.intervalsOverlapping(range.from, range.to)) {
+      if (!row.handedOverAt) continue;
+      const start = Math.max(row.handedOverAt.getTime(), range.from.getTime());
+      const stop = Math.min((row.checkedInAt ?? row.lostAt)?.getTime() ?? end, end);
+      if (stop <= start) continue;
+      const variant = row.contract.hardwareVariantId;
+      msByVariant.set(variant, (msByVariant.get(variant) ?? 0) + stop - start);
+    }
+    return [...msByVariant.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([hardwareVariantId, ms]) => ({
+        hardwareVariantId,
+        rentedUnitDays: Math.round((ms / DAY_MS) * 100) / 100,
+      }));
+  }
 
   // The custody rows of a device on every contract, oldest first, for its lifecycle history
   // (monitoring api-design 07, design §3 of monitoring). A row released before handover still shows

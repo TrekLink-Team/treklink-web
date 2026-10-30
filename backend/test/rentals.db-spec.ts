@@ -220,4 +220,70 @@ describe('rentals foundation against Postgres (REQ-UBI-01, REQ-UBI-02, BR-03)', 
 
     await expect(contracts.canClose(organizationId)).resolves.toBe(false);
   });
+
+  // rentals 4.5: custodyAt at an interval start and end, inside a replacement chain and outside every
+  // interval, and the rental periods and utilization reads monitoring composes.
+  it('follows custody across a replacement and reads rental periods and utilization', async () => {
+    const october = {
+      from: new Date('2026-10-01T00:00:00.000Z'),
+      to: new Date('2026-11-01T00:00:00.000Z'),
+    };
+    const usageAt = new Date('2026-10-23T02:00:00.000Z');
+    // The variant is shared with the earlier tests of this run, so only the change is asserted.
+    const rentedDays = async () =>
+      (await contracts.utilization(october, usageAt)).find(
+        (row) => row.hardwareVariantId === variantId,
+      )?.rentedUnitDays ?? 0;
+    const before = await rentedDays();
+    const replaced = await device();
+    const replacement = await device();
+    const contract = await newContract();
+    await prisma.$transaction((tx) =>
+      repository.insertContractDevices([{ contractId: contract.id, deviceId: replaced }], tx),
+    );
+    const handedOverAt = new Date('2026-10-20T02:00:00.000Z');
+    const swappedAt = new Date('2026-10-22T02:00:00.000Z');
+    const old = await prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: contract.id, deviceId: replaced },
+    });
+    await prisma.contractDevice.update({
+      where: { id: old.id },
+      data: { handedOverAt, checkedInAt: swappedAt },
+    });
+    const next = await prisma.contractDevice.create({
+      data: {
+        contractId: contract.id,
+        deviceId: replacement,
+        reservedAt: swappedAt,
+        handedOverAt: swappedAt,
+        replacesId: old.id,
+      },
+    });
+    const hour = (base: Date, hours: number) => new Date(base.getTime() + hours * 3_600_000);
+
+    // The interval start counts and is near its boundary; the end belongs to the next unit.
+    await expect(contracts.custodyAt(replaced, handedOverAt, 60)).resolves.toMatchObject({
+      contractDeviceId: old.id,
+      nearBoundary: true,
+    });
+    await expect(contracts.custodyAt(replaced, hour(swappedAt, 1), 60)).resolves.toBeNull();
+    await expect(contracts.custodyAt(replacement, swappedAt, 60)).resolves.toMatchObject({
+      contractDeviceId: next.id,
+      contractId: contract.id,
+      nearBoundary: true,
+    });
+    await expect(contracts.custodyAt(replacement, hour(swappedAt, -1), 60)).resolves.toBeNull();
+    await expect(contracts.custodyAt(replaced, hour(handedOverAt, -1), 60)).resolves.toBeNull();
+
+    await expect(contracts.rentalPeriods(replaced, organizationId)).resolves.toEqual([
+      { contractId: contract.id, from: handedOverAt, to: swappedAt },
+    ]);
+    await expect(contracts.rentalPeriods(replacement, organizationId)).resolves.toEqual([
+      { contractId: contract.id, from: swappedAt, to: null },
+    ]);
+    await expect(contracts.rentalPeriods(replacement, randomUUID())).resolves.toEqual([]);
+
+    // Two days of the replaced unit plus one of the replacement, up to `usageAt`.
+    expect((await rentedDays()) - before).toBe(3);
+  });
 });

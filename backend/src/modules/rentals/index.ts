@@ -10,6 +10,8 @@ export {
   type Custody,
   type DeviceContractRow,
   type HolderLabel,
+  type RentalPeriod,
+  type VariantUtilization,
   type VisibleDevice,
 } from './contracts.service';
 export { DEVICE_LABEL_CHANGED, type DeviceLabelChangedEvent } from './contract-decisions.service';

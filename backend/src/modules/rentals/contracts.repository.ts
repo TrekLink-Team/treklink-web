@@ -327,6 +327,36 @@ export class ContractsRepository {
     });
   }
 
+  // The handed-over rows of a device on one organization's contracts, oldest first (monitoring
+  // api-design 03 reads a member's history inside these periods only).
+  rentalPeriodsOfDevice(deviceId: string, organizationId: string, client: Client = this.prisma) {
+    return client.contractDevice.findMany({
+      where: { deviceId, handedOverAt: { not: null }, contract: { organizationId } },
+      orderBy: { handedOverAt: 'asc' },
+      select: { contractId: true, handedOverAt: true, checkedInAt: true, lostAt: true },
+    });
+  }
+
+  // Every handed-over row whose custody interval overlaps [from, to), with its contract's variant
+  // (monitoring api-design 08, utilization). An interval ends at its check-in or loss.
+  intervalsOverlapping(from: Date, to: Date, client: Client = this.prisma) {
+    return client.contractDevice.findMany({
+      where: {
+        handedOverAt: { lt: to },
+        AND: [
+          { OR: [{ checkedInAt: null }, { checkedInAt: { gt: from } }] },
+          { OR: [{ lostAt: null }, { lostAt: { gt: from } }] },
+        ],
+      },
+      select: {
+        handedOverAt: true,
+        checkedInAt: true,
+        lostAt: true,
+        contract: { select: { hardwareVariantId: true } },
+      },
+    });
+  }
+
   countUnfinishedContracts(organizationId: string, client: Client = this.prisma): Promise<number> {
     return client.rentalContract.count({
       where: { organizationId, status: { notIn: [...FINISHED_STATES] } },
