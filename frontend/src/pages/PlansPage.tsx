@@ -7,6 +7,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatVnd } from '../shared/lib/format';
 import {
   Alert,
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -15,7 +16,7 @@ import {
   Skeleton,
   buttonClasses,
 } from '../shared/ui';
-import { WARNING } from '../shared/ui/styles';
+import { LINK, WARNING } from '../shared/ui/styles';
 
 export const CONTACT_EMAIL = 'treklink.team@gmail.com';
 
@@ -40,11 +41,7 @@ const Disclaimer: React.FC = () => (
   </p>
 );
 
-const SandboxLabel: React.FC = () => (
-  <span className="ml-2 rounded-control border border-line-strong px-1.5 py-0.5 text-caption font-semibold text-ink-muted">
-    Sandbox price
-  </span>
-);
+const SandboxLabel: React.FC = () => <Badge className="ml-2">Sandbox price</Badge>;
 
 const Terms: React.FC<{ plans: Plans }> = ({ plans }) => (
   <Card aria-labelledby="plans-terms">
@@ -69,7 +66,8 @@ const Terms: React.FC<{ plans: Plans }> = ({ plans }) => (
 // renting works. A signed-in user sees the same page with a link to their workspace instead of Sign in.
 export const PlansPage: React.FC = () => {
   const { user } = useAuth();
-  const plans = usePlans();
+  // Prices change by an Admin edit (UC-56): fresh for 5 minutes, no refetch on window focus.
+  const plans = usePlans({ staleTime: 300_000, refetchOnWindowFocus: false });
   const firstCard = useRef<HTMLHeadingElement>(null);
   const retried = useRef(false);
 
@@ -207,10 +205,7 @@ export const PlansPage: React.FC = () => {
 
       <footer id="contact" className="text-body text-ink-muted">
         Contact TrekLink:{' '}
-        <a
-          href={`mailto:${CONTACT_EMAIL}`}
-          className="rounded-sm font-semibold text-brand underline-offset-4 hover:underline"
-        >
+        <a href={`mailto:${CONTACT_EMAIL}`} className={LINK}>
           {CONTACT_EMAIL}
         </a>
       </footer>

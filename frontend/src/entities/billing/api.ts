@@ -169,8 +169,9 @@ export const recordCounterPayment = (invoiceId: string, payment: CounterPayment)
     body: JSON.stringify(payment),
   });
 
-export const usePlans = () =>
-  useQuery({ queryKey: billingKeys.plans, queryFn: fetchPlans, staleTime: 60_000 });
+// 60 seconds by default; the public plans page passes its own freshness (screen 2.3).
+export const usePlans = (options: { staleTime?: number; refetchOnWindowFocus?: boolean } = {}) =>
+  useQuery({ queryKey: billingKeys.plans, queryFn: fetchPlans, staleTime: 60_000, ...options });
 
 export const useInvoices = (scope: 'o' | 't', filters: InvoiceFilters) =>
   useQuery({
