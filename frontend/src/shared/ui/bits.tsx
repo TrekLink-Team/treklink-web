@@ -12,8 +12,14 @@ import { ALERT } from './styles';
 // components. New code imports the components directly (Badge, Field, Pagination, EmptyState).
 
 /** A label whose colour comes from an entity's *_TONES map (a class string) or a status tone. */
-export const Badge: React.FC<{ tone: string; children: React.ReactNode }> = ({ tone, children }) => (
-  <SystemBadge tone={tone}>{children}</SystemBadge>
+export const Badge: React.FC<{ tone: string; className?: string; children: React.ReactNode }> = ({
+  tone,
+  className,
+  children,
+}) => (
+  <SystemBadge tone={tone} className={className}>
+    {children}
+  </SystemBadge>
 );
 
 export const PageTitle: React.FC<{ title: string; action?: React.ReactNode; id?: string }> = ({

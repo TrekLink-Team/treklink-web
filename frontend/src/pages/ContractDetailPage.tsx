@@ -115,7 +115,7 @@ const CancelDialog: React.FC<{ contract: ContractDetail; onClose: () => void }> 
   return (
     <Dialog titleId="cancel-title" title={`Cancel ${contract.code}?`} onClose={close}>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-ink-muted">
           The reserved devices are released. A holding fee already paid is retained.
         </p>
         {stale && (
@@ -137,7 +137,7 @@ const CancelDialog: React.FC<{ contract: ContractDetail; onClose: () => void }> 
           <textarea
             id="cancel-reason"
             rows={3}
-            className="rounded-lg border border-slate-400 p-3"
+            className="rounded-lg border border-line-strong p-3"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             {...invalid('cancel-reason', error ?? undefined)}
@@ -191,7 +191,7 @@ const HandoverNoteButton: React.FC<{ contract: ContractDetail }> = ({ contract }
         {pending ? 'Preparing…' : 'Download handover note'}
       </button>
       {note && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-status-critical-fg">
           {note}
         </p>
       )}
@@ -245,7 +245,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
         title={data.code}
         action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
       />
-      <p className="-mt-3 mb-5 text-slate-700">
+      <p className="-mt-3 mb-5 text-ink-muted">
         {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}
         {scope === 't' && data.organization ? ` for ${data.organization.legalName}` : ''}
       </p>
@@ -296,7 +296,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
           </div>
 
           <div className={CARD}>
-            <h2 className="mb-3 text-lg font-bold text-slate-900">Prices fixed at request</h2>
+            <h2 className="mb-3 text-lg font-bold text-ink">Prices fixed at request</h2>
             <dl className="grid gap-4 sm:grid-cols-3">
               <Fact label="Monthly price per device">{formatVnd(data.monthlyUnitPriceVnd)}</Fact>
               <Fact label="Holding fee">{Math.round(data.holdingFeeRatio * 100)} % of a term</Fact>
@@ -305,9 +305,9 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
           </div>
 
           <div className={CARD}>
-            <h2 className="mb-3 text-lg font-bold text-slate-900">Terms</h2>
+            <h2 className="mb-3 text-lg font-bold text-ink">Terms</h2>
             {data.terms.length === 0 ? (
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-ink-muted">
                 Term 1 is created when TrekLink approves the request.
               </p>
             ) : (
@@ -328,14 +328,14 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
           </div>
 
           <div className={CARD}>
-            <h2 className="mb-3 text-lg font-bold text-slate-900">Devices</h2>
+            <h2 className="mb-3 text-lg font-bold text-ink">Devices</h2>
             {data.devices.length === 0 ? (
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-ink-muted">
                 Devices are reserved when TrekLink approves the request.
               </p>
             ) : (
               <table className="w-full text-sm">
-                <thead className="text-left text-slate-600">
+                <thead className="text-left text-ink-muted">
                   <tr>
                     <th className="py-2">Asset tag</th>
                     <th className="py-2">Holder</th>
@@ -368,7 +368,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                     />
                   )}
                   {devices.map((device) => (
-                    <tr key={device.deviceId} className="border-t border-slate-200">
+                    <tr key={device.deviceId} className="border-t border-line">
                       <td className="py-2 font-mono">{device.assetTag ?? device.deviceId}</td>
                       <td className="py-2">{device.holder?.name ?? 'No label'}</td>
                       <td className="py-2">
@@ -399,7 +399,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
 
           {canSeeMoney && (
             <div className={CARD}>
-              <h2 className="mb-3 text-lg font-bold text-slate-900">History</h2>
+              <h2 className="mb-3 text-lg font-bold text-ink">History</h2>
               {history.isLoading && <Loading />}
               {history.error && <ErrorState error={history.error} />}
               <ol className="flex flex-col gap-2 text-sm">
@@ -410,7 +410,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                       {STATUS_LABELS[step.toStatus]}
                       {step.reason ? `: ${formatInstantsIn(step.reason)}` : ''}
                     </span>
-                    <span className="text-slate-600">
+                    <span className="text-ink-muted">
                       {step.actor ?? 'System'}, {formatDateTime(step.createdAt)}
                     </span>
                   </li>
@@ -423,7 +423,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
         <div className="flex flex-col gap-5">
           {canSeeMoney && (
             <div className={CARD} aria-live="polite">
-              <h2 className="mb-3 text-lg font-bold text-slate-900">Balance</h2>
+              <h2 className="mb-3 text-lg font-bold text-ink">Balance</h2>
               {balance.isLoading && <Loading />}
               {balance.data && (
                 <dl className="flex flex-col gap-2 text-sm">

@@ -123,7 +123,7 @@ export const ChangePasswordDialog: React.FC<Props> = ({ onClose, onChanged }) =>
             <button
               type="button"
               onClick={close}
-              className="h-12 flex-1 rounded-lg border border-slate-400 font-semibold text-slate-900"
+              className="h-12 flex-1 rounded-lg border border-line-strong font-semibold text-ink"
             >
               Cancel
             </button>

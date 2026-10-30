@@ -81,8 +81,10 @@ export const SignaturePad: React.FC<Props> = ({ id, onChange, invalid }) => {
         aria-label="Signature area, drawn by the Manager"
         aria-invalid={invalid || undefined}
         style={{ height: HEIGHT }}
-        className={`w-full touch-none rounded-lg border bg-white ${
-          invalid ? 'border-red-500' : 'border-slate-400'
+        // Literal white paper in both themes: the ink is a fixed dark stroke so the stored PNG
+        // reads on the printed handover note, and a theme surface would hide it in Volt.
+        className={`w-full touch-none rounded-lg border bg-[#fff] ${
+          invalid ? 'border-status-critical-fg' : 'border-line-strong'
         }`}
         onPointerDown={start}
         onPointerMove={move}

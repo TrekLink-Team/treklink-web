@@ -1,4 +1,5 @@
 import { ApiError } from '../../shared/api/apiClient';
+import { FOCUS, LINK as SHARED_LINK } from '../../shared/ui/styles';
 
 const GENERIC_FAILURE = 'Something went wrong. Please try again.';
 export const PASSWORDS_DIFFER = 'Passwords do not match.';
@@ -23,6 +24,6 @@ export const errorsFrom = (failure: unknown): FormErrors => {
 };
 
 export const CARD =
-  'w-full max-w-sm bg-white border border-slate-200 rounded-xl p-7 flex flex-col gap-4';
-export const PRIMARY = 'h-12 rounded-lg bg-blue-700 font-semibold text-white disabled:opacity-60';
-export const LINK = 'self-start text-sm font-semibold text-blue-700';
+  'w-full max-w-sm bg-surface border border-line rounded-xl p-7 flex flex-col gap-4';
+export const PRIMARY = `h-12 rounded-lg bg-accent font-semibold text-on-accent hover:bg-accent-hover disabled:opacity-60 ${FOCUS}`;
+export const LINK = `self-start text-sm ${SHARED_LINK}`;

@@ -134,11 +134,11 @@ export const InvoiceDetailView: React.FC<{
       </div>
 
       <div className={CARD}>
-        <h3 className="mb-3 font-bold text-slate-900">Lines</h3>
+        <h3 className="mb-3 font-bold text-ink">Lines</h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-sm">
             <thead>
-              <tr className="border-b border-slate-200">
+              <tr className="border-b border-line">
                 <th className={TH}>#</th>
                 <th className={TH}>Line</th>
                 <th className={TH}>Due</th>
@@ -178,11 +178,11 @@ export const InvoiceDetailView: React.FC<{
               {lines.map((line) => {
                 const status = lineStatus(line);
                 return (
-                  <tr key={line.seq} className="border-b border-slate-100 last:border-0">
-                    <td className={`${TD} text-slate-600`}>{line.seq}</td>
+                  <tr key={line.seq} className="border-b border-line last:border-0">
+                    <td className={`${TD} text-ink-muted`}>{line.seq}</td>
                     <td className={TD}>
-                      <span className="font-semibold text-slate-900">{line.description}</span>
-                      <span className="block text-xs text-slate-600">
+                      <span className="font-semibold text-ink">{line.description}</span>
+                      <span className="block text-xs text-ink-muted">
                         {line.quantity} x {formatVnd(line.unitVnd)}
                       </span>
                     </td>
@@ -199,15 +199,15 @@ export const InvoiceDetailView: React.FC<{
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-xs text-slate-600">
+        <p className="mt-3 text-xs text-ink-muted">
           Lines never change; corrections are ADJUSTMENT lines.
         </p>
       </div>
 
       <div className={CARD}>
-        <h3 className="mb-3 font-bold text-slate-900">Payments</h3>
+        <h3 className="mb-3 font-bold text-ink">Payments</h3>
         {data.payments.length === 0 ? (
-          <p className="text-sm text-slate-700">No payments recorded.</p>
+          <p className="text-sm text-ink-muted">No payments recorded.</p>
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {data.payments.map((payment) => (
@@ -215,9 +215,9 @@ export const InvoiceDetailView: React.FC<{
                 <span>
                   {payment.reference}, {METHOD_LABELS[payment.method]}
                   {payment.isSandbox && (
-                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-900">
+                    <Badge tone="attention" className="ml-2">
                       SANDBOX
-                    </span>
+                    </Badge>
                   )}
                 </span>
                 <span className="text-right">

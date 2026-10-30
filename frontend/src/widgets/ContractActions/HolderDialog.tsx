@@ -77,7 +77,7 @@ export const HolderDialog: React.FC<{
           void save(false);
         }}
       >
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-ink-muted">
           Who carries this device on the trek. The label is optional and is erased when the contract
           closes.
         </p>

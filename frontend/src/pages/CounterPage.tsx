@@ -97,7 +97,7 @@ const SwapDialog: React.FC<{
             id="swap-reason"
             rows={3}
             maxLength={300}
-            className="rounded-lg border border-slate-400 p-3"
+            className="rounded-lg border border-line-strong p-3"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             {...invalid('swap-reason', error ?? undefined)}
@@ -370,7 +370,7 @@ export const CounterPage: React.FC = () => {
       <section aria-labelledby="counter-title" className="flex flex-col gap-5">
         <PageTitle id="counter-title" title={`Handover of ${done.code}`} />
         <div role="status" className={CARD}>
-          <p className="text-slate-900">
+          <p className="text-ink">
             {done.count} devices issued. The contract is active and the signed note is stored.
           </p>
           <Link to={`/t/contracts/${data.id}`} className={`${LINK} mt-3 inline-block`}>
@@ -415,7 +415,7 @@ export const CounterPage: React.FC = () => {
         title={`Counter handover: ${data.code}`}
         action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
       />
-      <p className="-mt-3 mb-5 text-slate-700">
+      <p className="-mt-3 mb-5 text-ink-muted">
         {data.organization
           ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
           : ''}
@@ -454,10 +454,10 @@ export const CounterPage: React.FC = () => {
             aria-current={index === step ? 'step' : undefined}
             className={`rounded-lg border px-3 py-2 font-semibold ${
               index === step
-                ? 'border-blue-700 bg-blue-50 text-blue-800'
+                ? 'border-accent bg-chrome text-ink'
                 : index < step
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                  : 'border-slate-200 bg-white text-slate-600'
+                  ? 'border-status-done-line bg-status-done-tint text-status-done-fg'
+                  : 'border-line bg-surface text-ink-muted'
             }`}
           >
             {index + 1}. {label}
@@ -466,7 +466,7 @@ export const CounterPage: React.FC = () => {
       </ol>
 
       <div className={CARD}>
-        <h2 ref={heading} tabIndex={-1} className="mb-4 text-lg font-bold text-slate-900">
+        <h2 ref={heading} tabIndex={-1} className="mb-4 text-lg font-bold text-ink">
           {step + 1}. {STEPS[step]}
         </h2>
 
@@ -474,7 +474,7 @@ export const CounterPage: React.FC = () => {
           <div className="flex flex-col gap-4">
             <form onSubmit={findScanned} className="flex flex-wrap items-end gap-3">
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <label htmlFor="scan" className="text-sm font-semibold text-slate-900">
+                <label htmlFor="scan" className="text-sm font-semibold text-ink">
                   Scan or type an asset tag
                 </label>
                 <input
@@ -491,7 +491,7 @@ export const CounterPage: React.FC = () => {
               </button>
               <p aria-live="polite" className="w-full text-sm">
                 {scanError ? (
-                  <span id="scan-error" className="text-red-700">
+                  <span id="scan-error" className="text-status-critical-fg">
                     {scanError}
                   </span>
                 ) : scanned ? (
@@ -500,7 +500,7 @@ export const CounterPage: React.FC = () => {
               </p>
             </form>
 
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-ink-muted">
               Write channel key version {keyVersion ?? '…'} to each unit, then record it, read the
               battery and check the GPS fix.
             </p>
@@ -515,16 +515,16 @@ export const CounterPage: React.FC = () => {
                     key={device.deviceId}
                     className={`rounded-lg border p-4 ${
                       scanned === device.deviceId
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-focus bg-chrome'
                         : error
-                          ? 'border-red-300'
-                          : 'border-slate-200'
+                          ? 'border-status-critical-line'
+                          : 'border-line'
                     }`}
                   >
                     <div className="grid items-end gap-3 md:grid-cols-[1fr_auto_120px_auto_auto]">
                       <div>
-                        <p className="font-mono font-semibold text-slate-900">{tagOf(device)}</p>
-                        <p className="text-sm text-slate-600">
+                        <p className="font-mono font-semibold text-ink">{tagOf(device)}</p>
+                        <p className="text-sm text-ink-muted">
                           {versionOf(device)
                             ? `Provisioned v${versionOf(device)}`
                             : 'Not provisioned yet'}
@@ -541,7 +541,7 @@ export const CounterPage: React.FC = () => {
                       <div className="flex flex-col gap-1.5">
                         <label
                           htmlFor={`battery-${device.deviceId}`}
-                          className="text-sm font-semibold text-slate-900"
+                          className="text-sm font-semibold text-ink"
                         >
                           Battery %
                         </label>
@@ -558,7 +558,7 @@ export const CounterPage: React.FC = () => {
                           }
                         />
                       </div>
-                      <label className="flex h-11 items-center gap-2 text-sm font-semibold text-slate-900">
+                      <label className="flex h-11 items-center gap-2 text-sm font-semibold text-ink">
                         <input
                           type="checkbox"
                           className="h-5 w-5"
@@ -578,7 +578,7 @@ export const CounterPage: React.FC = () => {
                       </button>
                     </div>
                     {error && (
-                      <p role="alert" className="mt-2 text-sm text-red-700">
+                      <p role="alert" className="mt-2 text-sm text-status-critical-fg">
                         {error}
                       </p>
                     )}
@@ -596,17 +596,17 @@ export const CounterPage: React.FC = () => {
             {firstLine && firstInvoice.data && (
               <dl className="grid gap-3 text-sm sm:grid-cols-3">
                 <div>
-                  <dt className="font-semibold text-slate-600">Invoice</dt>
+                  <dt className="font-semibold text-ink-muted">Invoice</dt>
                   <dd>{firstInvoice.data.number}</dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-600">{firstLine.description}</dt>
+                  <dt className="font-semibold text-ink-muted">{firstLine.description}</dt>
                   <dd>
                     {formatVnd(firstLine.paidVnd)} of {formatVnd(firstLine.amountVnd)} paid
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-600">Payments</dt>
+                  <dt className="font-semibold text-ink-muted">Payments</dt>
                   <dd>
                     {firstInvoice.data.payments.length === 0
                       ? 'None yet'
@@ -621,9 +621,9 @@ export const CounterPage: React.FC = () => {
               </dl>
             )}
             {firstPaid ? (
-              <p className="font-semibold text-emerald-800">The first payment is recorded.</p>
+              <p className="font-semibold text-status-done-fg">The first payment is recorded.</p>
             ) : (
-              <p role="alert" className="text-sm text-red-700">
+              <p role="alert" className="text-sm text-status-critical-fg">
                 {paymentError ?? 'The first payment is not recorded yet.'}
               </p>
             )}
@@ -660,7 +660,7 @@ export const CounterPage: React.FC = () => {
                 <iframe
                   title="Handover note preview, not signed"
                   src={previewUrl}
-                  className="h-[480px] w-full rounded-lg border border-slate-200"
+                  className="h-[480px] w-full rounded-lg border border-line"
                 />
                 <a href={previewUrl} target="_blank" rel="noreferrer" className={`${LINK} text-sm`}>
                   Open the preview in a new tab
@@ -712,14 +712,14 @@ export const CounterPage: React.FC = () => {
               />
             </Field>
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-900">Signature</span>
+              <span className="text-sm font-semibold text-ink">Signature</span>
               <SignaturePad
                 id="signature"
                 invalid={Boolean(formErrors.signature)}
                 onChange={setSignature}
               />
               {formErrors.signature && (
-                <p role="alert" className="text-sm text-red-700">
+                <p role="alert" className="text-sm text-status-critical-fg">
                   {formErrors.signature}
                 </p>
               )}

@@ -99,11 +99,11 @@ export const ContractsPage: React.FC = () => {
             onClear={clear}
           />
           <ul className="flex flex-col gap-3 md:hidden">
-            {rows.length === 0 && <li className="text-slate-700">No rows match these filters.</li>}
+            {rows.length === 0 && <li className="text-ink-muted">No rows match these filters.</li>}
             {rows.map((contract) => {
               const next = formatNextDate(contract);
               return (
-                <li key={contract.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                <li key={contract.id} className="rounded-xl border border-line bg-surface p-4">
                   <div className="flex items-center justify-between">
                     <Link to={`/o/contracts/${contract.id}`} className={LINK}>
                       {contract.code}
@@ -112,7 +112,7 @@ export const ContractsPage: React.FC = () => {
                       {STATUS_LABELS[contract.status]}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-sm text-slate-700">
+                  <p className="mt-1 text-sm text-ink-muted">
                     {planLabel(contract)}, {contract.quantity} devices
                   </p>
                   {next && <p className="text-sm text-ink-muted">Next date: {next}</p>}
@@ -120,8 +120,8 @@ export const ContractsPage: React.FC = () => {
               );
             })}
           </ul>
-          <table className="hidden w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-sm md:table">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+          <table className="hidden w-full overflow-hidden rounded-xl border border-line bg-surface text-sm shadow-sm md:table">
+            <thead className="bg-sunken text-left text-xs uppercase tracking-wide text-ink-muted">
               <tr>
                 <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Plan</th>
@@ -139,7 +139,7 @@ export const ContractsPage: React.FC = () => {
               {rows.map((contract) => {
                 const next = formatNextDate(contract);
                 return (
-                  <tr key={contract.id} className="border-t border-slate-200">
+                  <tr key={contract.id} className="border-t border-line">
                     <td className="px-4 py-3">
                       <Link to={`/o/contracts/${contract.id}`} className={LINK}>
                         {contract.code}

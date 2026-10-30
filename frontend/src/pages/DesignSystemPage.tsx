@@ -553,7 +553,7 @@ export const DesignSystemPage: React.FC = () => {
             </ul>
           </MapPanel>
           <MapLegend className="absolute bottom-3 left-3" states={['fresh', 'attention', 'stale', 'sos']} />
-          <span className="absolute bottom-0 right-0 rounded-tl-md bg-white/90 px-2 py-0.5 text-[11px] text-[#20302a]">© OpenStreetMap contributors</span>
+          <span className="absolute bottom-0 right-0 rounded-tl-md bg-surface/90 px-2 py-0.5 text-[11px] text-ink">© OpenStreetMap contributors</span>
         </div>
       </Section>
 

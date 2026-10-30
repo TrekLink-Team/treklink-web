@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Alert } from '../../shared/ui/Alert';
+import { FOCUS } from '../../shared/ui/styles';
 
 interface FieldProps {
   id: string;
@@ -14,7 +16,7 @@ const describedBy = (id: string, error?: string) =>
 
 const FieldError: React.FC<{ id: string; error?: string }> = ({ id, error }) =>
   error ? (
-    <p id={`${id}-error`} role="alert" className="text-sm text-red-700">
+    <p id={`${id}-error`} role="alert" className="text-sm text-status-critical-fg">
       {error}
     </p>
   ) : null;
@@ -23,7 +25,7 @@ export const TextField: React.FC<
   FieldProps & { type?: string; inputMode?: 'numeric' | 'email'; autoFocus?: boolean }
 > = ({ id, label, value, onChange, autoComplete, error, type = 'text', inputMode, autoFocus }) => (
   <div className="flex flex-col gap-1.5">
-    <label htmlFor={id} className="text-sm font-semibold text-slate-900">
+    <label htmlFor={id} className="text-sm font-semibold text-ink">
       {label}
     </label>
     <input
@@ -35,7 +37,7 @@ export const TextField: React.FC<
       required
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-11 rounded-lg border border-slate-400 px-3"
+      className={`h-11 rounded-lg border border-line-strong px-3 bg-surface text-ink ${FOCUS}`}
       {...describedBy(id, error)}
     />
     <FieldError id={id} error={error} />
@@ -55,7 +57,7 @@ export const PasswordField: React.FC<FieldProps & { toggle?: boolean }> = ({
   const [shown, setShown] = useState(false);
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-semibold text-slate-900">
+      <label htmlFor={id} className="text-sm font-semibold text-ink">
         {label}
       </label>
       <div className="flex gap-2">
@@ -66,7 +68,7 @@ export const PasswordField: React.FC<FieldProps & { toggle?: boolean }> = ({
           required
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-11 min-w-0 flex-1 rounded-lg border border-slate-400 px-3"
+          className={`h-11 min-w-0 flex-1 rounded-lg border border-line-strong px-3 bg-surface text-ink ${FOCUS}`}
           {...describedBy(id, error)}
         />
         {toggle && (
@@ -74,7 +76,7 @@ export const PasswordField: React.FC<FieldProps & { toggle?: boolean }> = ({
             type="button"
             onClick={() => setShown((current) => !current)}
             aria-label={shown ? 'Hide password' : 'Show password'}
-            className="h-11 rounded-lg border border-slate-400 px-3 text-sm font-semibold text-blue-700"
+            className={`h-11 rounded-lg border border-line-strong px-3 text-sm font-semibold text-brand ${FOCUS}`}
           >
             {shown ? 'Hide' : 'Show'}
           </button>
@@ -89,14 +91,5 @@ export const Notice: React.FC<{ tone: 'info' | 'error'; children: React.ReactNod
   tone,
   children,
 }) => (
-  <div
-    role={tone === 'error' ? 'alert' : 'status'}
-    className={
-      tone === 'error'
-        ? 'rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm text-red-800'
-        : 'rounded-lg border border-blue-300 bg-blue-50 px-3 py-2.5 text-sm text-blue-900'
-    }
-  >
-    {children}
-  </div>
+  <Alert tone={tone}>{children}</Alert>
 );

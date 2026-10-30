@@ -95,7 +95,7 @@ export const PaymentPage: React.FC = () => {
                 Transfer the amount to the account below with the transfer content exactly as shown.
               </Alert>
             ) : (
-              // Literal white keeps banking-app scanner contrast; bg-white follows the app theme.
+              // Literal white keeps banking-app scanner contrast; a theme surface would turn dark in Volt.
               <img
                 src={data.vietQr.imageUrl}
                 alt={`VietQR for ${formatVnd(data.amountVnd)} with transfer content ${data.vietQr.content}`}
