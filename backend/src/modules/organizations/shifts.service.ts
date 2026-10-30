@@ -5,6 +5,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { AccountsService } from '../auth';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ParameterService } from '../platform/parameters/parameter.service';
 import { OrganizationsRepository } from './organizations.repository';
 import { RosterRepository, ShiftRow } from './roster.repository';
 
@@ -104,6 +105,7 @@ export class ShiftsService {
     private readonly organizations: OrganizationsRepository,
     private readonly accounts: AccountsService,
     private readonly events: TransactionalEvents,
+    private readonly parameters: ParameterService,
   ) {}
 
   // api-design 16: the shifts touching `[from, to)`, and a `NO_PRIMARY` warning for every part of the
@@ -118,8 +120,9 @@ export class ShiftsService {
   ): Promise<{ shifts: ShiftView[]; warnings: RosterWarning[] }> {
     this.assertOwn(organizationId, caller);
     if (to.getTime() <= from.getTime()) throw invalid('to must be after from.');
-    if (to.getTime() - from.getTime() > MAX_SPAN_MS) {
-      throw invalid('The window is at most 31 days.');
+    const maxDays = await this.parameters.get('organizations.rosterMaxRangeDays');
+    if (to.getTime() - from.getTime() > maxDays * DAY_MS) {
+      throw invalid(`The window is at most ${maxDays} days.`);
     }
     const rows = await this.roster.shiftsBetween(organizationId, from, to);
     const warnFrom = new Date(Math.max(from.getTime(), now.getTime()));

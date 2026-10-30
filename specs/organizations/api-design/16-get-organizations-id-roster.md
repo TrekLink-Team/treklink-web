@@ -28,7 +28,7 @@ Lists shift windows in a time range, with `warnings` for every window or gap wit
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | from | Inclusive start | datetime | yes | `2026-10-20T00:00:00Z` |
-| to | Exclusive end, at most 31 days after from | datetime | yes | `2026-10-27T00:00:00Z` |
+| to | Exclusive end, at most `organizations.rosterMaxRangeDays` (default 31) days after from | datetime | yes | `2026-10-27T00:00:00Z` |
 
 ## Request sample
 

@@ -4,6 +4,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { AccountsService } from '../auth';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ParameterService } from '../platform/parameters/parameter.service';
 import { OrganizationsRepository } from './organizations.repository';
 import { RosterRepository, ShiftRow } from './roster.repository';
 import { noPrimaryGaps, ShiftsService } from './shifts.service';
@@ -94,6 +95,7 @@ describe('ShiftsService (organizations 2.6, api-design 16 to 19)', () => {
   let roster: Record<string, jest.Mock>;
   let organizations: { lockById: jest.Mock };
   let accounts: { contactCard: jest.Mock };
+  let parameters: { get: jest.Mock };
   let emitted: [string, Record<string, unknown>][];
   let service: ShiftsService;
 
@@ -130,6 +132,7 @@ describe('ShiftsService (organizations 2.6, api-design 16 to 19)', () => {
         .mockImplementation((ids: string[]) => ids.map((userId) => card(userId))),
     };
     emitted = [];
+    parameters = { get: jest.fn().mockResolvedValue(31) };
     const events = {
       transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
       emitAfterCommit: (name: string, payload: Record<string, unknown>) =>
@@ -140,6 +143,7 @@ describe('ShiftsService (organizations 2.6, api-design 16 to 19)', () => {
       organizations as unknown as OrganizationsRepository,
       accounts as unknown as AccountsService,
       events as unknown as TransactionalEvents,
+      parameters as unknown as ParameterService,
     );
   });
 
@@ -185,6 +189,20 @@ describe('ShiftsService (organizations 2.6, api-design 16 to 19)', () => {
       accounts.contactCard.mockResolvedValue([]);
       const result = await service.list('org-1', hours(0), hours(3), MANAGER, NOW);
       expect(result.shifts[0].primary).toEqual({ memberId: 'm-1', fullName: '' });
+    });
+
+    it('takes the longest window from organizations.rosterMaxRangeDays', async () => {
+      parameters.get.mockResolvedValue(7);
+
+      await expect(
+        service.list('org-1', hours(0), hours(7 * 24), MANAGER, NOW),
+      ).resolves.toMatchObject({ shifts: [] });
+      expect(parameters.get).toHaveBeenCalledWith('organizations.rosterMaxRangeDays');
+      const error = await service
+        .list('org-1', hours(0), hours(7 * 24 + 1), MANAGER, NOW)
+        .catch((e: unknown) => e as DomainException);
+      expect(error).toBeInstanceOf(DomainException);
+      expect((error as DomainException).message).toBe('The window is at most 7 days.');
     });
 
     it('refuses a window that is empty, longer than 31 days, or another organization', async () => {
