@@ -47,6 +47,41 @@ describe('DevicesService.reserve and release', () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
 
+  it('names a chosen unit that is not AVAILABLE with 409 DEVICE_NOT_AVAILABLE, changing nothing', async () => {
+    queryRaw.mockResolvedValue([{ id: 'd-1', assetTag: 'TL-0001' }]);
+    const findMany = jest.fn().mockResolvedValue([{ id: 'd-2', assetTag: 'TL-0002' }]);
+    tx = {
+      $queryRaw: queryRaw,
+      device: { updateMany, findMany },
+    } as unknown as Prisma.TransactionClient;
+
+    await expect(service.reserve(VARIANT, 2, AT, tx, ['d-1', 'd-2'])).rejects.toMatchObject({
+      errorCode: ErrorCode.DEVICE_NOT_AVAILABLE,
+      message:
+        'TL-0002 is not an available treklink-v3 device. Choose available units of the variant.',
+    });
+    expect(findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['d-2'] } },
+      select: { id: true, assetTag: true },
+    });
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('names every refused choice, and the id of one that does not exist', async () => {
+    queryRaw.mockResolvedValue([]);
+    const findMany = jest.fn().mockResolvedValue([{ id: 'd-2', assetTag: 'TL-0002' }]);
+    tx = {
+      $queryRaw: queryRaw,
+      device: { updateMany, findMany },
+    } as unknown as Prisma.TransactionClient;
+
+    await expect(service.reserve(VARIANT, 2, AT, tx, ['d-2', 'd-x'])).rejects.toMatchObject({
+      errorCode: ErrorCode.DEVICE_NOT_AVAILABLE,
+      message:
+        'TL-0002, d-x are not available treklink-v3 devices. Choose available units of the variant.',
+    });
+  });
+
   it('filters explicit choices under the same variant, availability and row locks', async () => {
     queryRaw.mockResolvedValue([{ id: 'd-2', assetTag: 'TL-0002' }]);
     await service.reserve(VARIANT, 1, AT, tx, ['d-2']);
@@ -61,8 +96,13 @@ describe('DevicesService.reserve and release', () => {
 
   it('does not replace an unavailable explicit choice with a different device', async () => {
     queryRaw.mockResolvedValue([]);
+    const findMany = jest.fn().mockResolvedValue([{ id: 'd-2', assetTag: 'TL-0002' }]);
+    tx = {
+      $queryRaw: queryRaw,
+      device: { updateMany, findMany },
+    } as unknown as Prisma.TransactionClient;
     await expect(service.reserve(VARIANT, 1, AT, tx, ['d-2'])).rejects.toMatchObject({
-      errorCode: ErrorCode.INSUFFICIENT_DEVICES,
+      errorCode: ErrorCode.DEVICE_NOT_AVAILABLE,
     });
     expect(updateMany).not.toHaveBeenCalled();
   });

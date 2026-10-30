@@ -171,6 +171,23 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
 </td>
         </tr>
         <tr>
+            <td>404</td>
+            <td>The hardware variant is unknown or inactive (<code>NOT_FOUND</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "NOT_FOUND"
+  },
+  "isSuccess": false,
+  "statusCode": 404,
+  "message": "Active hardware variant not found."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>The organization is PENDING, REJECTED, SUSPENDED or CLOSED (<code>ORGANIZATION_NOT_ACTIVE</code>)</td>
 <td>
@@ -212,13 +229,18 @@ flowchart TB
     E3["Return 400 DAY_PLAN_LENGTH"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The organization is PENDING, REJECTED, SUSPENDED or CLOSED?"}
+    D4{"The hardware variant is unknown or inactive?"}
     D3 -->|no| D4
-    E4["Return 409 ORGANIZATION_NOT_ACTIVE"]
+    E4["Return 404 NOT_FOUND"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"The organization is PENDING, REJECTED, SUSPENDED or CLOSED?"}
+    D4 -->|no| D5
+    E5["Return 409 ORGANIZATION_NOT_ACTIVE"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Require the organization ACTIVE"]
-    D4 -->|no| P0
+    D5 -->|no| P0
     P1["Validate plan, variant, quantity and date"]
     P0 --> P1
     P2["Snapshot price, premium and holding ratio from billing"]
