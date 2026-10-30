@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { registerOrganization, type RegistrationInput } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
-import { Alert, Button, Card, Field, Input } from '../shared/ui';
+import { Alert, Button, Card, Field, Input, SAR_DISCLAIMER } from '../shared/ui';
 import { invalid } from '../shared/ui/errors';
-import { LINK } from '../shared/ui/styles';
+import { LINK, WARNING } from '../shared/ui/styles';
 
 const EMPTY: RegistrationInput = {
   legalName: '',
@@ -112,6 +112,9 @@ export const RegisterPage: React.FC = () => {
           <p className="-mt-2 text-body text-ink-muted">
             TrekLink verifies every organization at the counter or by phone before it can rent
             devices.
+          </p>
+          <p role="note" className={WARNING}>
+            {SAR_DISCLAIMER}
           </p>
           {failure && <Alert tone="error">{failure}</Alert>}
           {FIELDS.map((field) => (

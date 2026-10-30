@@ -82,9 +82,9 @@ export const SOURCE_LABEL: Record<Incident['source'], string> = {
   CADENCE_INFERRED: 'Inferred from position cadence',
 };
 
-// Screen 8.1 disclaimer (chapter 06 §8).
-export const SAR_DISCLAIMER =
-  'TrekLink does not replace official search-and-rescue channels. Your organization remains responsible for its own emergency response.';
+// Screen 8.1 disclaimer (chapter 06 §8). The string lives in shared/ui so the plans and registration
+// pages show the same one; it is re-exported here for the incident screens.
+export { SAR_DISCLAIMER } from '../../shared/ui/legal';
 
 // LiveProvider invalidates ['incident', id] and ['incidents'] on `incident.changed`; the panel keys
 // sit under ['incident', id], so the same event refreshes them.
