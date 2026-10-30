@@ -647,7 +647,12 @@ export const CounterPage: React.FC = () => {
                 <button
                   type="button"
                   className={SECONDARY_BUTTON}
-                  disabled={selectedIds.length === 0 || bulkRunning || keyVersion === undefined}
+                  disabled={
+                    selectedIds.length === 0 ||
+                    bulkRunning ||
+                    busyRow !== null ||
+                    keyVersion === undefined
+                  }
                   onClick={() => void provisionSelected()}
                 >
                   {bulkProgress
@@ -787,6 +792,7 @@ export const CounterPage: React.FC = () => {
                       <button
                         type="button"
                         className={DANGER_BUTTON}
+                        disabled={bulkRunning}
                         onClick={() => setSwapping(device)}
                       >
                         Swap
