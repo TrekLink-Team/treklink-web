@@ -52,7 +52,7 @@ describe('ContractsRepository delegate calls', () => {
     expect(calls[2][1]).toMatchObject({ where: {} });
   });
 
-  it('reads detail, transitions, live rows, the note, codes and term numbers', async () => {
+  it('reads detail, transitions, live rows, the note, codes, term numbers and variants', async () => {
     const { calls, client } = recorder();
     const repository = new ContractsRepository(client);
     await repository.detail('c-1');
@@ -67,6 +67,8 @@ describe('ContractsRepository delegate calls', () => {
     await repository.codes(['c-1'], client);
     await repository.termSeqs(['t-1']);
     await repository.termSeqs(['t-1'], client);
+    await repository.variantsOf(['c-1']);
+    await repository.variantsOf(['c-1'], client);
     expect(calls.map(([name, args]) => [name, (args as { where: unknown }).where])).toEqual([
       ['rentalContract.findUnique', { id: 'c-1' }],
       ['rentalContract.findUnique', { id: 'c-1' }],
@@ -86,7 +88,12 @@ describe('ContractsRepository delegate calls', () => {
       ['rentalContract.findMany', { id: { in: ['c-1'] } }],
       ['contractTerm.findMany', { id: { in: ['t-1'] } }],
       ['contractTerm.findMany', { id: { in: ['t-1'] } }],
+      ['rentalContract.findMany', { id: { in: ['c-1'] } }],
+      ['rentalContract.findMany', { id: { in: ['c-1'] } }],
     ]);
+    expect(calls[calls.length - 1][1]).toMatchObject({
+      select: { id: true, hardwareVariantId: true },
+    });
   });
 
   it('writes terms, decisions, cancellations, notices and the handover in the caller transaction', async () => {

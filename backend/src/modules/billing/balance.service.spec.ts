@@ -1,4 +1,5 @@
 import { InvoiceLineType, Prisma } from '@prisma/client';
+import { DevicesService } from '../devices';
 import { BalanceService } from './balance.service';
 import { DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesRepository } from './invoices.repository';
@@ -25,6 +26,7 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
       linesOfContract: jest.fn().mockResolvedValue([]),
       linesOfOrganization: jest.fn().mockResolvedValue([]),
       contractIdsOfOrganization: jest.fn().mockResolvedValue([]),
+      linesDueBetween: jest.fn().mockResolvedValue([]),
     };
     damageCharges = {
       pendingOfContract: jest.fn().mockResolvedValue([]),
@@ -210,6 +212,121 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         settled: true,
       });
       expect(damageCharges.pendingOfContract).toHaveBeenCalledWith('c-1', TX);
+    });
+  });
+
+  describe('revenue per variant (task 2.4, monitoring api-design 08)', () => {
+    const RANGE = {
+      from: new Date('2026-11-01T00:00:00.000Z'),
+      to: new Date('2026-12-01T00:00:00.000Z'),
+    };
+    const due = (contractId: string, amountVnd: bigint, paidVnd: bigint) => ({
+      amountVnd,
+      paidVnd,
+      invoice: { contractId },
+    });
+    let directory: { describe: jest.Mock; variantsOf: jest.Mock };
+    let devices: { variants: jest.Mock };
+    const withPorts = () =>
+      new BalanceService(
+        invoices as unknown as InvoicesRepository,
+        damageCharges as unknown as DamageChargesRepository,
+        devices as unknown as DevicesService,
+        directory,
+      );
+
+    beforeEach(() => {
+      directory = {
+        describe: jest.fn(),
+        variantsOf: jest.fn().mockResolvedValue(
+          new Map([
+            ['c-1', 'v-b'],
+            ['c-2', 'v-a'],
+            ['c-3', 'v-b'],
+          ]),
+        ),
+      };
+      devices = {
+        variants: jest.fn().mockResolvedValue([
+          { id: 'v-a', code: 'tk-basic' },
+          { id: 'v-b', code: 'tk-gps' },
+        ]),
+      };
+    });
+
+    it('sums the lines due in the range by the variant of their contract, ordered by code', async () => {
+      invoices.linesDueBetween.mockResolvedValue([
+        due('c-1', 450_000n, 450_000n),
+        due('c-3', 900_000n, 300_000n),
+        due('c-2', 225_000n, 0n),
+      ]);
+      await expect(withPorts().revenue(RANGE)).resolves.toEqual([
+        {
+          hardwareVariantId: 'v-a',
+          variantCode: 'tk-basic',
+          invoicedVnd: 225_000n,
+          paidVnd: 0n,
+          outstandingVnd: 225_000n,
+        },
+        {
+          hardwareVariantId: 'v-b',
+          variantCode: 'tk-gps',
+          invoicedVnd: 1_350_000n,
+          paidVnd: 750_000n,
+          outstandingVnd: 600_000n,
+        },
+      ]);
+      expect(invoices.linesDueBetween).toHaveBeenCalledWith(RANGE.from, RANGE.to);
+      expect(directory.variantsOf).toHaveBeenCalledWith(['c-1', 'c-3', 'c-2']);
+      expect(devices.variants).toHaveBeenCalledWith(false);
+    });
+
+    it('lowers what is invoiced by a negative adjustment and never answers a negative outstanding', async () => {
+      invoices.linesDueBetween.mockResolvedValue([
+        due('c-1', 450_000n, 450_000n),
+        due('c-1', -100_000n, 0n),
+      ]);
+      await expect(withPorts().revenue(RANGE)).resolves.toEqual([
+        expect.objectContaining({ invoicedVnd: 350_000n, paidVnd: 450_000n, outstandingVnd: 0n }),
+      ]);
+    });
+
+    it('puts a contract the directory does not name, or a variant with no code, in a null row last', async () => {
+      directory.variantsOf.mockResolvedValue(
+        new Map([
+          ['c-2', 'v-a'],
+          ['c-4', 'v-gone'],
+        ]),
+      );
+      invoices.linesDueBetween.mockResolvedValue([
+        due('c-9', 100_000n, 0n),
+        due('c-4', 50_000n, 0n),
+        due('c-2', 200_000n, 200_000n),
+      ]);
+      const rows = await withPorts().revenue(RANGE);
+      expect(rows.map((row) => [row.hardwareVariantId, row.variantCode])).toEqual([
+        ['v-a', 'tk-basic'],
+        ['v-gone', null],
+        [null, null],
+      ]);
+    });
+
+    it('answers no rows for an empty range, and reads no variants then', async () => {
+      await expect(withPorts().revenue(RANGE)).resolves.toEqual([]);
+      expect(directory.variantsOf).not.toHaveBeenCalled();
+    });
+
+    it('answers one null row without the ports, as in a module test', async () => {
+      invoices.linesDueBetween.mockResolvedValue([due('c-1', 450_000n, 0n)]);
+      await expect(service.revenue(RANGE)).resolves.toEqual([
+        {
+          hardwareVariantId: null,
+          variantCode: null,
+          invoicedVnd: 450_000n,
+          paidVnd: 0n,
+          outstandingVnd: 450_000n,
+        },
+      ]);
     });
   });
 });

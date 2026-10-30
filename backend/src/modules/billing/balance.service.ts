@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { DevicesService } from '../devices';
+import { CONTRACT_DIRECTORY, ContractDirectory } from './ports/contract-directory.port';
 import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesRepository, LineRow } from './invoices.repository';
 
@@ -40,8 +42,23 @@ const remainingAfterCredits = (lines: readonly LineRow[]): Remaining[] => {
     });
 };
 
+// Sorts after every code and id, so rows without one come last in the revenue report.
+const LAST = '\uffff';
+
 const sum = (items: readonly Remaining[]): bigint =>
   items.reduce((total, item) => total + item.vnd, 0n);
+
+// Revenue of one hardware variant over a range (task 2.4, monitoring api-design 08): what the lines
+// due in the range invoice, what has been paid on them, and what they still owe. A negative
+// adjustment lowers what is invoiced. `hardwareVariantId` is null for contracts the directory does
+// not name (no provider, as in a module test).
+export interface VariantRevenue {
+  hardwareVariantId: string | null;
+  variantCode: string | null;
+  invoicedVnd: bigint;
+  paidVnd: bigint;
+  outstandingVnd: bigint;
+}
 
 // Balances over the contract's invoice lines (billing task 2.4, REQ-STA-02, FR-CON-13, BR-27), with
 // the damage charges awaiting approval, found by the contract each charge stores (D-081).
@@ -50,7 +67,49 @@ export class BalanceService {
   constructor(
     private readonly invoices: InvoicesRepository,
     private readonly damageCharges: DamageChargesRepository,
+    @Optional() private readonly devices?: DevicesService,
+    @Optional() @Inject(CONTRACT_DIRECTORY) private readonly directory?: ContractDirectory,
   ) {}
+
+  // Revenue per variant over [from, to) for the Staff and Admin report (task 2.4). By the ruling of
+  // 2026-10-30 a line belongs to the period of its due time: a holding fee to the term start, a term
+  // balance to the term end, a late, damage or loss line to when it arose. The variant is the
+  // contract's, which a replacement keeps (rentals 4.3).
+  async revenue(range: { from: Date; to: Date }): Promise<VariantRevenue[]> {
+    const lines = await this.invoices.linesDueBetween(range.from, range.to);
+    const contractIds = [...new Set(lines.map((line) => line.invoice.contractId))];
+    const [variantOf, variants] = await Promise.all([
+      this.directory && contractIds.length > 0
+        ? this.directory.variantsOf(contractIds)
+        : Promise.resolve(new Map<string, string>()),
+      this.devices ? this.devices.variants(false) : Promise.resolve([]),
+    ]);
+    const codeOf = new Map(variants.map((variant) => [variant.id, variant.code]));
+    const byVariant = new Map<string | null, { invoicedVnd: bigint; paidVnd: bigint }>();
+    for (const line of lines) {
+      const variantId = variantOf.get(line.invoice.contractId) ?? null;
+      const sums = byVariant.get(variantId) ?? { invoicedVnd: 0n, paidVnd: 0n };
+      sums.invoicedVnd += line.amountVnd;
+      sums.paidVnd += line.paidVnd;
+      byVariant.set(variantId, sums);
+    }
+    return [...byVariant.entries()]
+      .map(([hardwareVariantId, sums]) => {
+        const owed = sums.invoicedVnd - sums.paidVnd;
+        return {
+          hardwareVariantId,
+          variantCode: hardwareVariantId ? (codeOf.get(hardwareVariantId) ?? null) : null,
+          invoicedVnd: sums.invoicedVnd,
+          paidVnd: sums.paidVnd,
+          outstandingVnd: owed > 0n ? owed : 0n,
+        };
+      })
+      .sort(
+        (a, b) =>
+          (a.variantCode ?? LAST).localeCompare(b.variantCode ?? LAST) ||
+          (a.hardwareVariantId ?? LAST).localeCompare(b.hardwareVariantId ?? LAST),
+      );
+  }
 
   // The first payment rule of the handover (FR-CON-05, BR-09): the first line of the contract's
   // first TERM or DAY_PLAN invoice, the holding fee or the day-plan fee, is paid in full.

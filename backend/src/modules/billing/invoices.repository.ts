@@ -245,6 +245,15 @@ export class InvoicesRepository {
     return rows.map((row) => row.contractId);
   }
 
+  // Every line due in [from, to) with its contract, for revenue per variant (task 2.4, ruling of
+  // 2026-10-30: a line belongs to the period of its due time).
+  linesDueBetween(from: Date, to: Date, client: Client = this.prisma) {
+    return client.invoiceLine.findMany({
+      where: { dueAt: { gte: from, lt: to } },
+      select: { amountVnd: true, paidVnd: true, invoice: { select: { contractId: true } } },
+    });
+  }
+
   // Every line of every invoice of the organization with the contract it belongs to, oldest due first
   // (the reactivation check of `organizations`).
   linesOfOrganization(organizationId: string, client: Client = this.prisma) {

@@ -272,6 +272,18 @@ describe('InvoicesRepository (billing task 1.1)', () => {
     );
   });
 
+  it('reads every line due in [from, to) with its contract, for revenue per variant (task 2.4)', async () => {
+    const from = new Date('2026-11-01T00:00:00.000Z');
+    const to = new Date('2026-12-01T00:00:00.000Z');
+    await repository.linesDueBetween(from, to, client());
+    await repository.linesDueBetween(from, to);
+    expect(tx.invoiceLine.findMany).toHaveBeenCalledTimes(2);
+    expect(tx.invoiceLine.findMany).toHaveBeenLastCalledWith({
+      where: { dueAt: { gte: from, lt: to } },
+      select: { amountVnd: true, paidVnd: true, invoice: { select: { contractId: true } } },
+    });
+  });
+
   it('reads the first TERM or DAY_PLAN invoice of a contract with its lines in order', async () => {
     await repository.firstChargeableInvoice('c-1');
     expect(tx.invoice.findFirst).toHaveBeenCalledWith({

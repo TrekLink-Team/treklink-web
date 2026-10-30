@@ -33,7 +33,7 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
   let invoices: Record<string, jest.Mock>;
   let payments: Record<string, jest.Mock>;
   let balances: Record<string, jest.Mock>;
-  let directory: { describe: jest.Mock };
+  let directory: { describe: jest.Mock; variantsOf: jest.Mock };
 
   const service = (withDirectory = true) =>
     new BillingReadsService(
@@ -68,6 +68,7 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
         contracts: new Map([['c-1', { code: 'RC-2026-0001', organizationCode: 'ORG-0001' }]]),
         termSeqs: new Map([['t-1', 1]]),
       }),
+      variantsOf: jest.fn().mockResolvedValue(new Map()),
     };
   });
 
