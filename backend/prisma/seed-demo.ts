@@ -15,7 +15,9 @@
 //     authority report of UC-35 (report, then case closed) from /t/incidents (D-078, 2026-11-01 demo)
 //   - one Field Station of ORG-0001, `fs-org-0001-1`, for the MF-02 sync status page
 //   - one DEFAULTED monthly contract, RC-2026-0003, on one RENTED device, TL-0019, so the contract
-//     authority report of incidents api-design 10 can be walked from /t/incidents (D-078)
+//     authority report of incidents api-design 10 can be walked from /t/incidents (D-078); it carries
+//     its first-term TERM invoice, holding fee paid and term balance unpaid, so the contract page
+//     shows a balance due now (dry-run defect 16)
 //
 // Idempotent: every row is found by its natural key and created only when absent, and the history rows of
 // a parent (transitions, intake checks, provisioning) are written only when the parent is created. A second
@@ -986,6 +988,119 @@ export async function seedDemo(
         created.push(`contract ${DEFAULTED_CONTRACT_CODE}`);
       }
       // --- end contract authority report demo -------------------------------------------------------
+
+      // --- DEFAULTED contract balance demo (dry-run defect 16, D-078) -----------------------------
+      // What RC-2026-0003's default is for: the TERM invoice of its first term, issued at handover as
+      // InvoicesService.issueTermInvoice does (money from money.ts, the contract's own snapshot of the
+      // price and the holding fee ratio). The holding fee was paid at the counter at handover, because
+      // the handover is refused with FIRST_PAYMENT_MISSING until it is (BR-09); the term balance, due
+      // at the term end, was never paid, so the contract page shows it as Due now. No LATE_FEE line:
+      // ChargesService.chargeLate runs only at check-in and the overdue and default job charges
+      // nothing, so a default with the device still out carries none. Found by the term's invoice, so
+      // a database seeded before this block gains it on the next run and a second run adds nothing.
+      const defaultedContract = await tx.rentalContract.findUnique({
+        where: { code: DEFAULTED_CONTRACT_CODE },
+        select: {
+          id: true,
+          quantity: true,
+          monthlyUnitPriceVnd: true,
+          holdingFeeRatio: true,
+          handedOverAt: true,
+        },
+      });
+      const defaultedTerm = defaultedContract
+        ? await tx.contractTerm.findFirst({
+            where: { contractId: defaultedContract.id, seq: 1 },
+            select: { id: true, seq: true, startsAt: true, endsAt: true },
+          })
+        : null;
+      if (
+        defaultedContract &&
+        defaultedTerm &&
+        defaultedContract.handedOverAt &&
+        !(await tx.invoice.findUnique({ where: { termId: defaultedTerm.id } }))
+      ) {
+        const feeVnd = termFeeVnd(
+          defaultedContract.monthlyUnitPriceVnd,
+          defaultedContract.quantity,
+        );
+        const holdingVnd = holdingFeeVnd(
+          defaultedContract.monthlyUnitPriceVnd,
+          defaultedContract.quantity,
+          defaultedContract.holdingFeeRatio,
+        );
+        const balanceVnd = feeVnd - holdingVnd;
+        const issuedAt = defaultedContract.handedOverAt;
+        const devicesLabel = `${defaultedContract.quantity} x ${CONTRACT_VARIANT}`;
+
+        // Same numbering as above and as InvoicesRepository.nextNumber, by the year of the issue time.
+        const defaultedYear = invoiceNumberYear(issuedAt);
+        const defaultedPrefix = `INV-${defaultedYear}-`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing:invoice:${defaultedYear}`}))`;
+        const latestDefaulted = await tx.invoice.findFirst({
+          where: { number: { startsWith: defaultedPrefix } },
+          orderBy: { number: 'desc' },
+          select: { number: true },
+        });
+        const defaultedNumber = `${defaultedPrefix}${String(
+          latestDefaulted ? Number(latestDefaulted.number.slice(defaultedPrefix.length)) + 1 : 1,
+        ).padStart(6, '0')}`;
+
+        const defaultedInvoice = await tx.invoice.create({
+          data: {
+            number: defaultedNumber,
+            organizationId: organization.id,
+            contractId: defaultedContract.id,
+            termId: defaultedTerm.id,
+            kind: InvoiceKind.TERM,
+            status: invoiceStatusOf(feeVnd, holdingVnd),
+            totalVnd: feeVnd,
+            paidVnd: holdingVnd,
+            issuedAt,
+            lines: {
+              create: [
+                {
+                  seq: 1,
+                  type: InvoiceLineType.HOLDING_FEE,
+                  description: `Term ${defaultedTerm.seq} holding fee, ${devicesLabel}`,
+                  dueAt: defaultedTerm.startsAt,
+                  createdById: null,
+                  amountVnd: holdingVnd,
+                  paidVnd: holdingVnd,
+                  ...invoiceLineShape(holdingVnd, defaultedContract.quantity),
+                },
+                {
+                  seq: 2,
+                  type: InvoiceLineType.TERM_BALANCE,
+                  description: `Term ${defaultedTerm.seq} balance, ${devicesLabel}`,
+                  dueAt: defaultedTerm.endsAt,
+                  createdById: null,
+                  amountVnd: balanceVnd,
+                  ...invoiceLineShape(balanceVnd, defaultedContract.quantity),
+                },
+              ],
+            },
+          },
+        });
+        const defaultedPaymentRef = `DEMO-${DEFAULTED_CONTRACT_CODE}-01`;
+        await tx.payment.create({
+          data: {
+            reference: defaultedPaymentRef,
+            organizationId: organization.id,
+            contractId: defaultedContract.id,
+            invoiceId: defaultedInvoice.id,
+            amountVnd: holdingVnd,
+            method: PaymentMethod.CASH,
+            status: 'CONFIRMED',
+            isSandbox: false,
+            recordedById: staff,
+            confirmedAt: issuedAt,
+          },
+        });
+        created.push(`invoice ${defaultedNumber}`);
+        created.push(`payment ${defaultedPaymentRef}`);
+      }
+      // --- end DEFAULTED contract balance demo -------------------------------------------------------
 
       // --- Organization API key (organizations 2.7, monitoring 3.2) ------------------------------
       // One key for ORG-0001 from SEED_ORG_API_KEY, found by its hash, so a second run adds nothing and
