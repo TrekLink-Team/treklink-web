@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Revokes a credential; the broker refuses it from the next connection (FR-EVT-14). The broker's auth cache is at most 60 s, and from the moment of revocation the backend drops every message published under it. Events the station still holds are delivered once a new credential is configured, since the queue lives on the laptop.
+Revokes a credential; the broker refuses it from the next connection (FR-EVT-14). The broker's auth cache is at most 60 s, and from the moment of revocation the backend drops every message published under it. Events the station still holds are delivered once a new credential is configured, since the queue lives on the laptop. A reason is required when the caller is TrekLink Staff or Admin (`caller.organizationId` is null); it is optional for the organization's own Manager. Revoking an already-revoked station skips that check and answers it as it is.
 
 ## API Specification
 
@@ -34,7 +34,7 @@ Revokes a credential; the broker refuses it from the next connection (FR-EVT-14)
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| reason | Why; required for TrekLink staff | string | no | `Laptop stolen` |
+| reason | Why; required for TrekLink Staff or Admin, optional for the organization's own Manager | string | no | `Laptop stolen` |
 
 ## Response sample
 
