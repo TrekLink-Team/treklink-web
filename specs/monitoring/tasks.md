@@ -30,6 +30,7 @@
   - _Requirements: REQ-UBI-03, REQ-EVT-01, REQ-EVT-04, AC-01, AC-04, AC-05, AC-06, FR-MON-02, FR-MON-04, FR-MON-08, BR-22_
   - _Story: US-UC38_
   - **Status**: all six listeners are built. Each event already names its organization, so no `currentHolder` lookup exists and none is needed; the latest check-in of a device is stored in `DeviceRelease`, which pruning the stream never touches. Two parts wait on other modules: `incident.changed` carries ids only until `incidents` exports a read for `code`, `ownerName`, `lastPosition` and `stale`, while `rentals` now emits and exports `device.checkedIn`, which the listener uses. The box stays unticked until the incident enrichment lands.
+  - **Partly done** (2026-10-30, KhoaDD under D-078, review of #157): `device.released` carries the `contractId` of the check-in, as `device.handedOver` does (ws-live-contract), so a client refreshes only that contract's invoices; `stream.listener.spec.ts` asserts it
 - [ ] 2.2 Replay and key revocation (owner LongNN)
   - **Do**: on connect or reconnect with a cursor, replay every entry after it for the client's rooms, then `replay.done`, then live; a cursor older than `monitoring.streamRetentionHours` gets `replay.expired` (REST 410); on `apiKey.revoked` close that key's sockets
   - **Test**: AC-02 (two minutes disconnected, every entry once and in order)

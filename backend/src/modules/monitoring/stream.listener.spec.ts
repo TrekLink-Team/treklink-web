@@ -157,14 +157,14 @@ describe('StreamListener', () => {
   describe('device.checkedIn', () => {
     const checkedIn = { deviceId: 'd-1', contractId: 'c-1', organizationId: 'org-a', at: NOW };
 
-    it('emits device.released to the organization with the check-in time (AC-05)', async () => {
+    it('emits device.released to the organization with the contract and the check-in time (AC-05)', async () => {
       await listener.onDeviceCheckedIn({ ...checkedIn, at: new Date('2026-10-28T02:58:00.000Z') });
       expect(published).toEqual([
         {
           organizationId: 'org-a',
           type: 'device.released',
           deviceId: 'd-1',
-          payload: { checkedInAt: '2026-10-28T02:58:00.000Z' },
+          payload: { contractId: 'c-1', checkedInAt: '2026-10-28T02:58:00.000Z' },
         },
       ]);
     });

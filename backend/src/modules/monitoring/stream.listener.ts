@@ -125,7 +125,8 @@ export class StreamListener {
       organizationId: event.organizationId,
       type: 'device.released',
       deviceId: event.deviceId,
-      payload: { checkedInAt: checkedInAt.toISOString() },
+      // The contract lets a client refresh only that contract's invoice, as device.handedOver does.
+      payload: { contractId: event.contractId, checkedInAt: checkedInAt.toISOString() },
     });
   }
 
