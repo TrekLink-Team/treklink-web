@@ -17,6 +17,7 @@ import { IncidentsController } from './incidents.controller';
 import { IncidentsRepository } from './incidents.repository';
 import { IncidentsService } from './incidents.service';
 import { IncidentTimersJob } from './jobs/incident-timers.job';
+import { OwnerDeactivationListener } from './listeners/owner-deactivation.listener';
 import { RoutingService } from './routing.service';
 
 // Repositories remain private. IncidentIngress is exported for gateway-sync's SOS hand-off (task 2.3),
@@ -43,6 +44,7 @@ import { RoutingService } from './routing.service';
     IncidentIngress,
     AlertDispatcherJob,
     IncidentTimersJob,
+    OwnerDeactivationListener,
   ],
   exports: [IncidentIngress, IncidentsQueryService],
 })

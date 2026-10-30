@@ -76,7 +76,7 @@
 - [ ] 4.2 False alarm and owner deactivation (owner HoangTK)
   - **Do**: a member declares a false alarm with a reason from `NOTIFY_*`, `ACKNOWLEDGED` or `RESPONDING`, Staff from `UNROUTED`; listen to `member.deactivated`: an owned `ACKNOWLEDGED` or `RESPONDING` incident goes to `NOTIFY_BACKUP` and alerts that tier
   - **Test**: Staff false alarm from `NOTIFY_PRIMARY` refused 409
-  - **Note**: the member false alarm (api-design 07) is built in the MF-03 PR (2026-10-29). Open: Staff from `UNROUTED`, which needs a Staff permission row and the Staff recipients ruling, and the `member.deactivated` listener, raised by TanNB in treklink-web#130 and assigned by KhoaDD on PR #120 as its own task after 3.1
+  - **Note**: the member false alarm (api-design 07) is built in the MF-03 PR (2026-10-29). Open: Staff from `UNROUTED`, which needs a Staff permission row and the Staff recipients ruling. **Partly done** (2026-10-30, KhoaDD under D-078): the `member.deactivated` listener is built as `OwnerDeactivationListener`; it moves each `ACKNOWLEDGED` or `RESPONDING` incident the member owns to `NOTIFY_BACKUP` as `SYSTEM` with `OWNER_DEACTIVATED`, one transaction each, routed to the organization's tiers after the member left the roster; a raced move is skipped and any other failure is logged, so the status deadline still escalates it. Importing the event from `auth` needs the `incidents --> auth` edge of platform design Figure 3 (D-079). `backend/test/incidents-owner-deactivation.db-spec.ts` covers it against Postgres
   - _Requirements: REQ-EVT-08, REQ-EVT-11, FR-INC-08, D-034_
   - _Story: US-UC34_
 - [ ] 4.3 Authority reports (owner HoangTK)

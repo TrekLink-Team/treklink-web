@@ -233,6 +233,15 @@ export class IncidentsRepository {
     });
   }
 
+  // ACKNOWLEDGED and RESPONDING incidents this account owns, for the owner deactivation (REQ-EVT-11).
+  ownedActive(ownerId: string) {
+    return this.prisma.incident.findMany({
+      where: { ownerId, state: { in: ['ACKNOWLEDGED', 'RESPONDING'] } },
+      orderBy: { firstEventAt: 'asc' },
+      select: { id: true, state: true, organizationId: true, contractId: true },
+    });
+  }
+
   async lockOpenByDevice(deviceId: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
     const rows = await tx.$queryRaw<Incident[]>`
       SELECT * FROM "incidents"
