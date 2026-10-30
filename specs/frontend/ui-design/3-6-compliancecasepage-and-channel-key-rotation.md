@@ -7,12 +7,14 @@
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
 | Routes | `/t/compliance-cases` (the list) and `/t/compliance-cases/:id` (the case page); the channel key section sits in the organization panel of `/t/organizations`, which task 3.2 builds (`specs/frontend/design.md` §2; `/t/organizations/:id` is not built) |
-| Roles | TrekLink Staff: the list, Open case, revocation actions, Close case, Record key rotation. TrekLink Admin: the same, plus the suspension action. Organization accounts: MSG26 (TrekLink routes). |
+| Roles | TrekLink Staff: the list, the case page, Open case, revocation actions, Close case, Record key rotation. TrekLink Admin: the same except Record key rotation, which organizations 27 gives to Staff only (see Open points), plus the suspension action. Organization accounts: MSG26 (TrekLink routes). |
 | Use case, FRs, story | UC-63, and UC-60 for the key rotation; FR-ORG-07, FR-ORG-08, FR-ORG-09, FR-DEV-13; US-UC63 |
 | Requirements | `specs/organizations/requirements.md` REQ-EVT-12, REQ-EVT-13, REQ-ERR-08, AC-10, AC-11; BR-40 |
 | Wireframe | Figure 1 below, `3-6-compliancecasepage-and-channel-key-rotation.svg` |
 
 Scope from the task: organizations api-design 27 to 31; open a case, record actions (suspend for Admin only), close with outcome and authority reference (required for fraud and theft); rotate key on the organization page clears the exposed flag
+
+Leader rulings of 2026-10-30 (`treklink-web` #119) applied: the case page reads organizations 32 (`GET /api/compliance-cases/:id`); every action carries its actor; organizations 20 is readable by Staff and Admin for any organization, so the Target of a revocation comes from organizations 20 and 23.
 
 ## Wireframe
 
@@ -39,18 +41,18 @@ Case page (`/t/compliance-cases/:id`):
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Code, type, status, organization code | organizations 28 `items[]` (see Open points: no endpoint returns one case) |
-| Evidence and opened time | `evidence`, `openedAt` |
-| Linked contracts (as links to the contract page) and loss cases | `linkedContractIds`, `linkedLossCases` |
-| Actions taken: kind and time | `actions[].kind`, `actions[].at` (organizations 30 `result.actions`) |
-| Outcome and police report reference, on a closed case | `outcome`, `authorityReference` |
+| Code, type, status, organization code | organizations 32 `result.code`, `type`, `status`, `organization.code` |
+| Evidence and opened time | organizations 32 `result.evidence`, `result.openedAt` |
+| Linked contracts (as links to the contract page) and loss cases | organizations 32 `result.linkedContractIds`, `result.linkedLossCases` |
+| Actions taken: kind, actor and time | organizations 32 `result.actions[].kind`, `actions[].actor.fullName`, `actions[].at`; organizations 30 and 31 return the same fields |
+| Outcome and police report reference, on a closed case | organizations 32 `result.outcome`, `result.authorityReference` |
 
 Channel key section of the organization panel (`/t/organizations`, an `ACTIVE` or `SUSPENDED` organization only):
 
 | Shown | Source (api-design file, property) |
 |---|---|
 | Version | organizations 03 `result.channelKeyVersion` |
-| Exposure notice "Channel key exposed since {date}" | `channelKeyExposedAt` of the organization (see Open points: no api-design response returns it) |
+| Exposure notice "Channel key exposed since {date}" | `channelKeyExposedAt` of the organization (see Open points: no read endpoint, organizations 02 or 03, returns it; organizations 27 returns it, always null) |
 | The `expectedVersion` the dialog sends | organizations 03 `result.version` of the selected organization |
 
 ## Actions
@@ -74,9 +76,9 @@ An open case offers Close case and the actions. A closed case offers neither: it
 | Empty list | A tab with no case shows "No compliance cases here." with Open case as the next step. |
 | Error `VALIDATION_FAILED` | MSG02 under the field the server names ("{field} is required."); the dialog keeps every value. |
 | Error `POLICE_REFERENCE_REQUIRED` | The server message "Record the police report reference before closing." under the Police report reference field (BR-40, REQ-ERR-08). No SRS message code exists (D-059 rule 3). |
-| Error `FORBIDDEN` on a suspension by Staff | The server message "Ask a TrekLink Admin to suspend the organization." as an error Alert in the dialog. Any other `FORBIDDEN`: MSG26. |
+| Error `FORBIDDEN` on a suspension by Staff | The server message "Ask a TrekLink Admin to suspend the organization." as an error Alert in the dialog. The page disables Suspend for Staff, so this answer reaches the screen only when the role changed after the page loaded. Any other `FORBIDDEN`: MSG26. |
 | Error `INVALID_STATE_TRANSITION` | MSG28 as an error Alert in the dialog, for example "This cannot be done while it is CLOSED." (an action on a closed case, or a rotation for a closed organization). |
-| Error `STALE_VERSION` (rotation) | MSG36: the server message as an error Alert in the dialog with a Reload control (D-059 rule 7). |
+| Error `STALE_VERSION` (rotation) | MSG36 by code, "Someone else changed this. Reload to see the latest.", as an error Alert in the dialog with a Reload control (D-059 rule 7); the server's own text is not shown. |
 | Error `NOT_FOUND` | The server message ("Compliance case not found.", "Organization not found.") as an error Alert; the list refetches. |
 | Unauthenticated | Redirect to `/sign-in` with the same-origin `?next=` path (D-059 rule 1). |
 | Any other failure | The server message, or "Something went wrong.", as an error Alert. |
@@ -99,7 +101,7 @@ Record action (one step, three fields):
 | Step | Field | Type | Required | Rule |
 |---|---|---|---|---|
 | 1 | Action | select | yes | `SUSPEND_ORGANIZATION` (Admin only), `REVOKE_FIELD_STATION`, `REVOKE_API_KEY`, `OTHER` |
-| 1 | Target | select | for a revocation | a Field Station of the organization (organizations 23) or an API key (see Open points); hint "A Field Station or an API key, for a revocation." |
+| 1 | Target | select | for a revocation | a Field Station of the organization (organizations 23) or an API key (organizations 20); hint "A Field Station or an API key, for a revocation." |
 | 1 | Note | text | yes | not blank |
 
 Close case (one step, two fields):
@@ -119,14 +121,12 @@ Record key rotation (one step, one field): Reason, text, required, organizations
 
 ## Open points raised to the leader (D-052 rule 2)
 
-1. **No endpoint returns one case.** api-design 28 to 31 have the list, open, action and close, but no `GET /api/compliance-cases/:id`, while `design.md` §2 routes `/t/compliance-cases/:id`. A reload of the case page has no source. Add the endpoint, or the page reads the list.
-2. **`actions[]` has no actor and no note.** api-design 30 returns `kind` and `at` only, while FR-ORG-09, REQ-EVT-12 and AC-10 require the actor and the time to be listed. The screen shows kind and time and will show the actor when the API returns it.
-3. **`channelKeyExposedAt` is returned by no endpoint.** It exists in the schema and is cleared by organizations 27, but organizations 03 returns `channelKeyVersion` and `version` only, so the exposure notice has no source. The `expectedVersion` of organizations 27 is also ambiguous: the request sample says 4, its table says 3, and the response `channelKeyVersion` is 3. The screen assumes it is the organization's `version`.
-4. **A Staff member cannot list API keys.** organizations 20 allows the Org Manager only, so the Target of a `REVOKE_API_KEY` action has no source for Staff or Admin. Stations are fine through organizations 23.
-5. **Status filter only.** The overview of organizations 28 says "by status and type", and its query has `status` alone. The screen offers status tabs.
-6. **Who rotates the key.** organizations 27 names TrekLink Staff; the screen shows the control to Staff and assumes Admin too. Confirm.
-7. **Pickers and names.** The case responses return contract ids (not codes) and the organization code (not its name). The screen links the contract id to the contract page and shows the code. The linked contract and loss case pickers rely on rentals and devices lists that this module does not specify, and the Organization select assumes organizations 02 without `CLOSED` ones (UC-63 precondition).
-8. **No SRS message codes** for `POLICE_REFERENCE_REQUIRED` and the 403 suspension message; the screen shows the server message (D-059 rule 3).
+1. **`channelKeyExposedAt` has no read source.** It exists in the schema and organizations 27 returns it (always null after a rotation), but organizations 02 and 03 return `channelKeyVersion` and `version` only, so the exposure notice has no source. The `expectedVersion` of organizations 27 is also ambiguous: the request sample says 4, its table says 3, and the response `channelKeyVersion` is 3. The screen assumes it is the organization's `version`.
+2. **Status filter only.** The overview of organizations 28 says "by status and type", and its query has `status` alone. The screen offers status tabs.
+3. **Who rotates the key.** organizations 27 names TrekLink Staff only. The screen shows the control to Staff and not to Admin until this is ruled.
+4. **`OTHER` has no permission.** organizations 30 defines the permission for suspension (Admin) and for the two revocations (Staff, Admin), and none for `OTHER`. The screen offers `OTHER` to Staff and Admin.
+5. **Pickers and names.** The case responses return contract ids (not codes) and the organization code (not its name). The screen links the contract id to the contract page and shows the code. The linked contract and loss case pickers rely on rentals and devices lists that this module does not specify, and the Organization select assumes organizations 02 without `CLOSED` ones (UC-63 precondition).
+6. **No SRS message codes** for `POLICE_REFERENCE_REQUIRED` and the 403 suspension message; the screen shows the server message (D-059 rule 3).
 
 ## Checklist
 

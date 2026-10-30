@@ -7,12 +7,14 @@
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
 | Routes | `/o/api-keys` (`specs/frontend/design.md` §2) |
-| Roles | Org Manager: the page with every action. Org Operator and TrekLink Staff or Admin: no access; an Operator who opens the route sees MSG26. |
+| Roles | Org Manager: the page with every action. Org Operator: no access, MSG26. TrekLink Staff and Admin: no route here; they read any organization's keys through organizations 20 (ruling 2026-10-30) to pick the target of a revocation from a compliance case (task 3.6). |
 | Use case, FRs, story | UC-06; FR-ORG-06; US-UC06 |
 | Requirements | `specs/organizations/requirements.md` REQ-UBI-03, REQ-EVT-09, REQ-ERR-06, AC-05 |
 | Wireframe | Figure 1 below, `3-4-api-keys.svg` |
 
 Scope from the task: organizations api-design 20 to 22; the secret is shown once with a copy button and never again
+
+Leader rulings of 2026-10-30 (`treklink-web` #119) applied: organizations 20 returns `{ items, limit }`, so the page shows "n of limit" and disables Create at the limit; Staff and Admin may read the list.
 
 ## Wireframe
 
@@ -24,12 +26,12 @@ Scope from the task: organizations api-design 20 to 22; the secret is shown once
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Key name | organizations 20 `result[].name` |
-| Prefix (the first 8 characters, such as `tlk_7Hc2`) | organizations 20 `result[].prefix` |
-| Created | organizations 20 `result[].createdAt`, in the viewer's timezone |
-| Last used, or "Never" when null | organizations 20 `result[].lastUsedAt` |
-| Status badge: Active, or Revoked with its date | organizations 20 `result[].revokedAt` |
-| Count line ("2 active keys, 1 revoked") | counted from organizations 20 `result` |
+| Key name | organizations 20 `result.items[].name` |
+| Prefix (the first 8 characters, such as `tlk_7Hc2`) | organizations 20 `result.items[].prefix` |
+| Created | organizations 20 `result.items[].createdAt`, in the viewer's timezone |
+| Last used, or "Never" when null | organizations 20 `result.items[].lastUsedAt` |
+| Status badge: Active, or Revoked with its date | organizations 20 `result.items[].revokedAt` |
+| Count line ("2 of 5 active keys, 1 revoked") | active and revoked counted from organizations 20 `result.items`; the limit is organizations 20 `result.limit` |
 | The full key, once, in the dialog after creation | organizations 21 `result.key` |
 
 Nothing else about a key exists on the platform: only its SHA-256 hash is stored (REQ-UBI-03), so no screen can show the key again.
@@ -38,7 +40,7 @@ Nothing else about a key exists on the platform: only its SHA-256 hash is stored
 
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
-| Create API key (primary action) | organizations 21 `POST /api/organizations/:id/api-keys` | dialog form with the Name field | "API key created. Copy it now; it will not be shown again." (server message), shown inside the key dialog |
+| Create API key (primary action), disabled when the active count equals the limit | organizations 21 `POST /api/organizations/:id/api-keys` | dialog form with the Name field | "API key created. Copy it now; it will not be shown again." (server message), shown inside the key dialog |
 | Copy | none, browser clipboard | none | the button reads "Copied" for two seconds |
 | Done (key dialog) | none | none | closes the dialog and discards the key from the page |
 | Revoke | organizations 22 `POST /api/organizations/:id/api-keys/:keyId/revoke` | ConfirmDialog naming the key and its prefix ("Revoke API key ERP integration?") and stating that it stops working from the next request and cannot be undone | "API key revoked" (server message) |
@@ -52,7 +54,8 @@ A revoked row has no actions.
 | Loading | Skeleton rows; Create and Revoke show their pending state and are disabled until the server answers. |
 | Empty | EmptyState "No API keys yet" with the text "Create a key to read your devices' telemetry from your own systems." and the Create API key button (Figure 1, C3). |
 | Error `VALIDATION_FAILED` | MSG02 under Name ("{field} is required."); the dialog keeps its value. |
-| Error `KEY_LIMIT` | The server message "Revoke an unused key before creating another." as an error Alert in the create dialog. No SRS message code exists (D-059 rule 3). |
+| At the limit | Create API key is disabled and the count line reads "5 of 5 active keys". |
+| Error `KEY_LIMIT` | The server guard, for a create that raced past the disabled button (Figure 1, C2): the server message "Revoke an unused key before creating another." as an error Alert in the create dialog. No SRS message code exists (D-059 rule 3). |
 | Error `NOT_FOUND` (organization, key) | The server message ("API key not found.") as an error Alert; the list refetches. |
 | Forbidden | MSG26 full-page notice. |
 | Unauthenticated | Redirect to `/sign-in` with the same-origin `?next=` path (D-059 rule 1). |
@@ -75,9 +78,8 @@ Create API key (one step, one field):
 
 ## Open points raised to the leader (D-052 rule 2)
 
-1. **The key limit is not shown.** `organizations.maxApiKeys` defaults to 5 (seed migration), but no endpoint returns it, so the screen cannot show "3 of 5". It shows the count of active keys and the `KEY_LIMIT` refusal.
-2. **`KEY_LIMIT` has no SRS message code.** The screen shows the server message (D-059 rule 3). The message says "an unused key", while the limit counts active keys; confirm the wording.
-3. **Name length and list order.** api-design 20 and 21 give no maximum for `name` and no sort order. The screen shows the list as returned and applies no length check beyond not blank.
+1. **`KEY_LIMIT` has no SRS message code.** The screen shows the server message (D-059 rule 3). The message says "an unused key", while the limit counts active keys; confirm the wording.
+2. **Name length and list order.** api-design 20 and 21 give no maximum for `name` and no sort order. The screen shows the list as returned and applies no length check beyond not blank.
 
 ## Checklist
 
