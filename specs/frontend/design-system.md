@@ -240,6 +240,49 @@ connection state (Live, Reconnecting, Offline), theme switch, account menu.
    lucide icon, roles, `fullBleed` for maps, `tabBar` order for the phone bar).
 3. The sidebar, drawer, tab bar, breadcrumb and Go to page pick it up.
 
+### 5.2 Sticky page chrome on long pages
+
+Leader rule of 2026-10-30 (dry run defect 6): on every long page the title, breadcrumb and stepper stay
+at the top and shrink when the content scrolls; the action bar (Back, Next, the primary action) stays
+at the bottom; only the content scrolls.
+
+```
++--------------------------------------------------+
+| Breadcrumb                     (sticky, top 0)   |
+| Title, meta              [badge]                 |  full height at rest,
+| Description (hidden when compact)                |  compact after 24 px
+| Stepper or step tabs                             |
++--------------------------------------------------+
+| Content: the only part that scrolls              |
+|                                                  |
++--------------------------------------------------+
+| [Back]                  [Secondary] [Primary]    |  sticky, bottom 0,
++--------------------------------------------------+  above the phone tab bar
+```
+
+- `StickyPageHeader` wraps the `PageHeader` or `PageTitle`, a back link and the `Stepper` (or the step
+  `Tabs`). It takes the shell's breadcrumb into itself while mounted. A one-pixel sentinel above it is
+  watched by an `IntersectionObserver`; once it is `COMPACT_AFTER_PX` (24 px) out of view the region
+  sets `data-compact="true"`, gets the `.tl-glass-strong` surface, and the shared components shrink
+  through the `group/chrome` variants: title `text-title-sm`, description hidden, smaller step markers.
+  Page-specific lines take `COMPACT_HIDDEN`. There is no scroll handler.
+- While compact, a bottom margin on the header takes up the height it gave back, so the content does
+  not jump and the page height stays the same; scroll anchoring is off in the content area while the
+  header is mounted, because the anchoring correction otherwise flipped the header straight back to
+  full height. The sentinel is absolutely placed, so the header is one item in a `gap` layout.
+- `PageActionBar` is the last child of the page section, which is `flex flex-1 flex-col`: `start` holds
+  Back, the children hold Next or the primary action, primary last. It is `sticky bottom-0` with
+  `mt-auto`, so it sits at the bottom of the content area even when the content is short, and adds
+  `env(safe-area-inset-bottom)` to its bottom padding. A submit button for a form in the content takes
+  `form="<form id>"`.
+- Both publish their height on the content area as `--tl-page-header-h` and `--tl-page-actions-h`. The
+  shell turns them into `scroll-padding`, and a focus listener scrolls a control out from under either
+  edge, so keyboard focus never lands under the header or the bar. A sticky side panel offsets its top
+  with `top-[calc(var(--tl-page-header-h,0px)+1rem)]`.
+- `Dialog`: the title and the `footer` stay in place and only the body scrolls. Long forms put their
+  buttons in `footer`.
+- Checked at 1280 and 360 px, in both themes, with the side navigation and the phone tab bar.
+
 ## 6. Components (`src/shared/ui`)
 
 | Component | Use | Do | Don't |
@@ -260,6 +303,7 @@ connection state (Live, Reconnecting, Offline), theme switch, account menu.
 | `Toast` (`useToast().show`) | Short success messages | One at a time | Errors that need action (use `Alert`) |
 | `Alert` | Inline info, success, warning, error | One fixing action | Page-wide incident alerts (AlertBanner owns those) |
 | `Stepper` | Multi-step forms | At most 4 steps of 6 fields | More steps |
+| `StickyPageHeader`, `PageActionBar` | Long and multi-step pages (§5.2) | Title, breadcrumb and stepper in the header; Back left, primary right in the bar | Own sticky or fixed positioning on a page |
 | `StatCard` | Dashboard KPIs | Real endpoint figures, formatted VND | Placeholder numbers in production |
 | `EmptyState`, `Skeleton`, `SkeletonText` | Empty and loading | Explain the next step | A blank table |
 | `MapLegend`, `MapPanel`, `MapWorkspace`, `markerIcon` | Map chrome | Shapes per state; queue beside the map | Cover the attribution or the sovereignty overlay |

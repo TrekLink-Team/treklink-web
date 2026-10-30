@@ -97,3 +97,18 @@ field. The signature pad produces a PNG; nothing is stored in the browser after 
 Component tests for the features; Playwright journeys per Main Flow on the seeded demo data; axe-core on
 every route; a test that switching organization in the token never shows the previous organization's
 cached data (query cache cleared on sign-out and sign-in).
+
+---
+
+## 7. Layout rules
+
+**Sticky page chrome** (leader rule of 2026-10-30, dry run defect 6). On every long page the title, the
+breadcrumb and the stepper (or the view tabs that act as steps) stay at the top of the content area and
+turn compact once the content has scrolled a little; the action bar with Back, Next and the primary
+action stays at the bottom; only the content between them scrolls. Pages build it from the shared
+`StickyPageHeader` and `PageActionBar` (design-system §5.2), never with their own sticky or fixed
+positioning. Dialogs follow the same rule: the title and the footer stay put and only the body scrolls.
+
+Moved onto it on 2026-10-30: the counter handover and the counter's screen 5.5 (check-in, reset and
+inspection, close), the contract request, organization review, and the open and complete maintenance
+dialogs. The rule applies to every new long or multi-step page.
