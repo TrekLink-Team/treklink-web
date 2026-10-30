@@ -43,7 +43,7 @@ export const Alert: React.FC<AlertProps> = ({ tone, title, children, action, onD
         type="button"
         aria-label="Dismiss"
         onClick={onDismiss}
-        className="-m-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-control hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+        className="-m-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-control hover:bg-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
       >
         <X aria-hidden="true" className="h-4 w-4" />
       </button>
