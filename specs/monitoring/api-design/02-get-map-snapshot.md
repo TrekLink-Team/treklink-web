@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The initial state the live map draws before it subscribes: every device the caller may see with its last plotted position, battery, staleness, holder label and open incident, plus the organization's Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11).
+The initial state the live map draws before it subscribes: every device the caller may see with its last plotted position, battery, staleness, holder label and open incident, plus the organization's Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11). A device is listed from handover until check-in or a confirmed loss. `position` is null until the device reports a plotted position, and its `at` is the device's last-seen time. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map filter stream entries by organization in the client.
 
 ## API Specification
 
@@ -50,7 +50,8 @@ No body.
         "lastSeenAt": "2026-10-20T03:15:00.000Z",
         "stale": false,
         "openIncident": null,
-        "contractCode": "RC-2026-0042"
+        "contractCode": "RC-2026-0042",
+        "organizationId": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f"
       }
     ],
     "fieldStations": [
