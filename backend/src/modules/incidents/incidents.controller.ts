@@ -239,7 +239,9 @@ export class IncidentsController {
 
   @Post(':id/false-alarm')
   @HttpCode(HttpStatus.OK)
-  @CheckPolicies((ability) => ability.can('respond', 'Incident'))
+  @CheckPolicies(
+    (ability) => ability.can('respond', 'Incident') || ability.can('respondUnrouted', 'Incident'),
+  )
   @ResponseMessage('Marked as false alarm')
   async falseAlarm(
     @Param('id', ParseUUIDPipe) id: string,
