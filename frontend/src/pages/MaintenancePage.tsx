@@ -177,9 +177,17 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
   );
 };
 
-// Estimate (devices api-design 12) on an OPEN record.
-const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; onCancel: () => void; onReload: () => void }> = ({
+// Estimate (devices api-design 12) on an OPEN record. The hint names the approval threshold from
+// devices api-design 15 `approvalThresholdVnd`; before the list loads it names the rule only.
+const EstimateDialog: React.FC<{
+  record: MaintenanceRecord;
+  thresholdVnd: number | undefined;
+  onDone: () => void;
+  onCancel: () => void;
+  onReload: () => void;
+}> = ({
   record,
+  thresholdVnd,
   onDone,
   onCancel,
   onReload,
@@ -241,7 +249,11 @@ const EstimateDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; 
           label="Estimated cost"
           required
           error={errors.estimatedCostVnd}
-          hint="VND. Above the approval threshold, an Admin must approve before completion."
+          hint={
+            thresholdVnd !== undefined
+              ? `VND. Above ${formatVnd(thresholdVnd)}, an Admin must approve before completion.`
+              : 'VND. Above the approval threshold, an Admin must approve before completion.'
+          }
         >
           <Input
             id="estimate-cost"
@@ -1006,6 +1018,7 @@ export const MaintenancePage: React.FC = () => {
       {estimating && (
         <EstimateDialog
           record={estimating}
+          thresholdVnd={records.data?.approvalThresholdVnd ?? week.data?.approvalThresholdVnd}
           onDone={() => void (async () => {
             const deviceId = estimating.device.id;
             setEstimating(null);

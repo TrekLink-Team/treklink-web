@@ -24,7 +24,7 @@ Scope from the task: devices api-design 11 to 15; the week's service list; estim
 | The week's service list (records the scan opened, `SCHEDULED` and `FIRMWARE_UPDATE`) | devices 15 with `reason=SCHEDULED&reason=FIRMWARE_UPDATE&status=OPEN&dueBefore=<end of week>` |
 | Devices due but still rented (listed, not opened, REQ-STA-03) | devices 06 `items[]` with `status=RENTED` and `serviceDueAt` before the end of the week |
 | Checklist to fill on completion | the device's variant `serviceChecklist[]` from devices 01 |
-| Approval threshold shown beside the estimate | configuration `devices.maintenanceApprovalThresholdVnd` (platform parameters) |
+| Approval threshold shown beside the estimate | devices 15 `approvalThresholdVnd` (the parameter `devices.maintenanceApprovalThresholdVnd`, read by the server, since the parameters endpoint is Admin-only) |
 | Approvals tab rows | devices 15 with `status=PENDING_APPROVAL` |
 
 ## Actions
