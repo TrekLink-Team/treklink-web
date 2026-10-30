@@ -69,11 +69,21 @@ vi.mock('../entities/contract/api', async (importOriginal) => ({
 
 vi.mock('../entities/incident/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/incident/api')>()),
-  useIncidents: (filters: object) => {
-    filtersSeen.push(filters);
+  // Answers like the server: only the incidents in the requested states.
+  useFleetIncidents: (states: readonly string[]) => {
+    filtersSeen.push({ states });
     return incidentsError
       ? { data: undefined, isLoading: false, error: incidentsError, refetch: vi.fn() }
-      : { data: { items: openIncidents, totalPages: 1 }, isLoading: false, error: null };
+      : {
+          data: {
+            items: openIncidents.filter((incident) =>
+              states.includes((incident as { state: string }).state),
+            ),
+            totalPages: 1,
+          },
+          isLoading: false,
+          error: null,
+        };
   },
 }));
 
@@ -286,7 +296,9 @@ describe('OrgDashboardPage (screen 5.6)', () => {
       firstEventAt: '2026-10-30T02:00:00Z',
     }));
     renderPage();
-    expect(filtersSeen).toContainEqual({ open: true });
+    expect(filtersSeen).toContainEqual({
+      states: expect.not.arrayContaining(['RESOLVED', 'FALSE_ALARM', 'CLOSED']) as unknown,
+    });
     const first = screen.getByText('INC-2026-000001');
     expect(first.closest('a')?.getAttribute('href')).toBe('/o/incidents/inc-0');
     expect(screen.getByText(/TL-0001, Nguyen Van A, since/)).toBeTruthy();

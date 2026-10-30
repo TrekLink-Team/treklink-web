@@ -101,6 +101,8 @@ export const isReportable = (incident: Pick<Incident, 'state'>) =>
 // A datetime-local value, in the viewer's timezone, as the UTC instant the API takes.
 export const instantOf = (local: string): string => new Date(local).toISOString();
 
-// The reverse, for prefilling a datetime-local input with a moment in the viewer's timezone.
+// The reverse, for prefilling a datetime-local input with a moment in the viewer's timezone. Seconds are
+// kept (the input takes `step={1}`): rounded down to the minute, a case closed in the same minute as its
+// report would prefill a time before the report, which the API refuses (Codex review, 2026-10-31).
 export const localInputOf = (at: Date): string =>
-  new Date(at.getTime() - at.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  new Date(at.getTime() - at.getTimezoneOffset() * 60_000).toISOString().slice(0, 19);
