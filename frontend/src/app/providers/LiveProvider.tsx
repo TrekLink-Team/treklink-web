@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useSession } from '../../entities/session/model';
 import {
   refreshLiveAuth,
@@ -11,6 +11,16 @@ import {
 // Keeps one live socket while someone is signed in, and turns stream entries into query invalidations
 // (specs/frontend/design.md §3). Position and telemetry entries are applied in place by the map, not
 // refetched, so they invalidate nothing here.
+
+// The contracts whose cached detail holds the device: a release payload names no contract.
+const contractsHolding = (queryClient: QueryClient, deviceId: string | undefined): string[] =>
+  queryClient
+    .getQueriesData<{ id?: string; devices?: { deviceId: string }[] }>({ queryKey: ['contract'] })
+    .flatMap(([, data]) =>
+      data?.id && deviceId && data.devices?.some((row) => row.deviceId === deviceId)
+        ? [data.id]
+        : [],
+    );
 export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const queryClient = useQueryClient();
   const signedIn = useSession((state) => state.user !== null);
@@ -18,6 +28,30 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   useEffect(() => {
     if (!signedIn) return;
     startLive(() => useSession.getState().tokens?.accessToken ?? null);
+    // A check-in past the grace adds a late fee line (rentals 4.1), which the invoice lists and the
+    // dashboard's amount due read (screens 5.6 and 6.1). Releases of one bulk check-in arrive
+    // together, so they are gathered and refreshed once: the lists, and the invoice details of the
+    // contracts that held the released devices (review of #157).
+    let invoiceFlush: number | undefined;
+    const releasedContracts = new Set<string>();
+    const refreshInvoicesAfterRelease = (deviceId: string | undefined) => {
+      for (const id of contractsHolding(queryClient, deviceId)) releasedContracts.add(id);
+      if (invoiceFlush !== undefined) return;
+      invoiceFlush = window.setTimeout(() => {
+        invoiceFlush = undefined;
+        const contracts = new Set(releasedContracts);
+        releasedContracts.clear();
+        void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        if (contracts.size === 0) return;
+        void queryClient.invalidateQueries({
+          queryKey: ['invoice'],
+          predicate: (query) => {
+            const data = query.state.data as { contract?: { id: string } } | undefined;
+            return data?.contract !== undefined && contracts.has(data.contract.id);
+          },
+        });
+      }, 0);
+    };
     const stopTokens = useSession.subscribe((state, previous) => {
       const token = state.tokens?.accessToken;
       if (token && token !== previous.tokens?.accessToken) refreshLiveAuth(token);
@@ -45,6 +79,8 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
       if (message.kind === 'entry') {
         const type = message.entry.type;
+        // Read before the contract details refetch, while their cached devices still hold the unit.
+        if (type === 'device.released') refreshInvoicesAfterRelease(message.entry.deviceId);
         if (type === 'device.handedOver') {
           // The payload names the contract. Matching on it also refreshes a contract whose cached
           // devices do not hold this device yet, as after a replacement handover (rentals 4.3).
@@ -72,15 +108,10 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
         }
-        if (type === 'device.released') {
-          // A check-in past the grace adds a late fee line (rentals 4.1), which the invoice lists and
-          // the dashboard's amount due read (screens 5.6 and 6.1).
-          void queryClient.invalidateQueries({ queryKey: ['invoices'] });
-          void queryClient.invalidateQueries({ queryKey: ['invoice'] });
-        }
       }
     });
     return () => {
+      if (invoiceFlush !== undefined) window.clearTimeout(invoiceFlush);
       stopTokens();
       stopMessages();
       stopLive();
