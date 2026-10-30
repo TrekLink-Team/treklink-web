@@ -24,7 +24,7 @@ const expectDomain = async (promise: Promise<unknown>, status: HttpStatus, code:
 
 describe('DevicesService reset and return checks', () => {
   let repository: {
-    findUnit: jest.Mock;
+    lockUnit: jest.Mock;
     lastResetAt: jest.Mock;
     insertReset: jest.Mock;
     resetsOf: jest.Mock;
@@ -34,7 +34,7 @@ describe('DevicesService reset and return checks', () => {
 
   beforeEach(() => {
     repository = {
-      findUnit: jest.fn().mockResolvedValue({
+      lockUnit: jest.fn().mockResolvedValue({
         id: 'dev-1',
         status: DeviceStatus.RETURNED,
         statusChangedAt: returnedAt,
@@ -57,6 +57,15 @@ describe('DevicesService reset and return checks', () => {
       await service.reset('dev-1', steps, 'staff-1', at, tx);
 
       expect(repository.insertReset).toHaveBeenCalledWith('dev-1', steps, 'staff-1', at, tx);
+    });
+
+    it('locks the device row before it checks for an earlier reset', async () => {
+      await service.reset('dev-1', steps, 'staff-1', at, tx);
+
+      expect(repository.lockUnit).toHaveBeenCalledWith('dev-1', tx);
+      expect(repository.lockUnit.mock.invocationCallOrder[0]).toBeLessThan(
+        repository.lastResetAt.mock.invocationCallOrder[0],
+      );
     });
 
     it('records a reset when the last one was before this return', async () => {

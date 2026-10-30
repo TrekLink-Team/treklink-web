@@ -247,7 +247,9 @@ export class DevicesService {
     at: Date,
     tx: Prisma.TransactionClient,
   ): Promise<UnitRow> {
-    const unit = await this.devices.findUnit(deviceId, tx);
+    // Lock the device row first: two counters (or a double click) must not both pass the
+    // ALREADY_RESET check below and insert two resets for one return.
+    const unit = await this.devices.lockUnit(deviceId, tx);
     if (!unit) throw notFound();
     if (unit.status !== DeviceStatus.RETURNED) throw wrongState(unit.status);
     if (!steps.keyRemoved || !steps.nodeDbCleared || !steps.ownerCleared) {
