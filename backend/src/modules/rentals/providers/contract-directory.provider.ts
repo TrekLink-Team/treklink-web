@@ -4,7 +4,7 @@ import { OrganizationsService } from '../../organizations';
 import { ContractsRepository } from '../contracts.repository';
 
 // Provides billing's CONTRACT_DIRECTORY: the contract code, organization code and term sequence the
-// invoice and payment reads show (billing design §4).
+// invoice and payment reads show (billing design §4), and each contract's variant for revenue.
 @Injectable()
 export class RentalsContractDirectory implements ContractDirectory {
   constructor(
@@ -27,5 +27,11 @@ export class RentalsContractDirectory implements ContractDirectory {
       ),
       termSeqs: new Map(terms.map((term) => [term.id, term.seq])),
     };
+  }
+
+  async variantsOf(contractIds: readonly string[]) {
+    if (contractIds.length === 0) return new Map<string, string>();
+    const rows = await this.contracts.variantsOf(contractIds);
+    return new Map(rows.map((row) => [row.id, row.hardwareVariantId]));
   }
 }

@@ -142,11 +142,12 @@ what remains due, and any excess stays on that payment and is logged for Staff.
 | `ChargesService.chargeLoss(contract, device, lostAt, tx)` and `adjustLoss(contract, device, decision, amountVnd, reason, actor, tx)` (an `ADJUSTMENT` line for a reduced or waived loss, never an edit of the `LOSS` line, FR-BILL-11, BR-39), called from this module's provider of the `devices` port `LOSS_CASE_LISTENERS` (`onConfirmed` for `RENTER` custody, `onSettled`) | devices, through the port (D-045) |
 | `ChargesService.settleCancellation(contract, tx)` | rentals |
 | `BalanceService.firstPaymentConfirmed(contractId)`, `outstanding(contractId)`, `balanceSummary(contractId)` | rentals |
-| `BalanceService.revenue(range)` | monitoring |
+| `BalanceService.revenue({from, to})`: per hardware variant, the lines due in `[from, to)` invoiced, paid and still owed (a line belongs to the period of its due time, ruling of 2026-10-30), the rows of api-design 08 `revenue` in monitoring | monitoring |
 | provider of `ORGANIZATION_EXIT_CHECKS.canReactivate(orgId, tx, at)`: 409 `BALANCE_OUTSTANDING` while an invoice line is due and unpaid at `at` (`BalanceService.dueUnpaidOfOrganization`, credits netted per contract, oldest due first; a line not yet due does not count, leader ruling 2026-10-30) or a damage charge waits for an Admin | organizations |
 
 Port declared: `CONTRACT_DIRECTORY` (`ports/contract-directory.port.ts`), the contract code, organization
-code and term sequence the invoice and payment reads show (api-design 08, 09, 14). `billing` may not read
+code and term sequence the invoice and payment reads show (api-design 08, 09, 14), and through
+`variantsOf(contractIds)` the hardware variant of each contract, which `revenue` groups by. `billing` may not read
 `rental_contracts` or `contract_terms`, and `rentals` depends on `billing`, so `rentals` provides it the
 D-032 way; the reads inject it `@Optional()` and show null codes without it.
 

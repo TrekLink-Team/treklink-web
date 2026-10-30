@@ -9,6 +9,7 @@ import {
   PlanType,
 } from '@prisma/client';
 import { ErrorCode } from '../src/common/errors';
+import { BalanceService } from '../src/modules/billing/balance.service';
 import { DamageChargeService } from '../src/modules/billing/damage-charge.service';
 import { PaymentsService } from '../src/modules/billing/payments.service';
 import { BillingLossCaseListener } from '../src/modules/billing/providers/loss-case-listener.provider';
@@ -103,6 +104,49 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
         dueAt: TERM_START,
       }),
     ]);
+  });
+
+  it('reports revenue per variant by the due time of each line (billing task 2.4)', async () => {
+    // Two monthly contracts of one variant, 2 units and 1 unit at 450,000 VND: the holding fees are
+    // due at the term start on 2 November, the term balances at its end on 2 December. Only the
+    // first contract is paid, in full, before the start.
+    const org = await flow.organization();
+    const variantId = await flow.variant();
+    await flow.availableDevices(variantId, 3);
+    const paid = await flow.requested(org.id, org.manager.id, variantId, 2);
+    const unpaid = await flow.requested(org.id, org.manager.id, variantId, 1);
+    await flow.approve(paid.id);
+    await flow.approve(unpaid.id);
+    await flow.payAll(paid.id);
+    const { code } = await flow.prisma.hardwareVariant.findUniqueOrThrow({
+      where: { id: variantId },
+    });
+    const balances = flow.get(BalanceService);
+    const rowOf = async (from: string, to: string) =>
+      (await balances.revenue({ from: at(from), to: at(to) })).find(
+        (row) => row.hardwareVariantId === variantId,
+      );
+
+    await expect(rowOf('2026-11-01T00:00:00.000Z', '2026-12-01T00:00:00.000Z')).resolves.toEqual({
+      hardwareVariantId: variantId,
+      variantCode: code,
+      invoicedVnd: 675_000n,
+      paidVnd: 450_000n,
+      outstandingVnd: 225_000n,
+    });
+    await expect(rowOf('2026-12-01T00:00:00.000Z', '2027-01-01T00:00:00.000Z')).resolves.toEqual({
+      hardwareVariantId: variantId,
+      variantCode: code,
+      invoicedVnd: 675_000n,
+      paidVnd: 450_000n,
+      outstandingVnd: 225_000n,
+    });
+    // The end is exclusive: a range ending at the term end leaves the term balances out.
+    await expect(
+      rowOf('2026-11-01T00:00:00.000Z', '2026-12-02T02:00:00.000Z'),
+    ).resolves.toMatchObject({
+      invoicedVnd: 675_000n,
+    });
   });
 
   it('AC-03: the same SePay webhook posted 10 times at once records one payment', async () => {

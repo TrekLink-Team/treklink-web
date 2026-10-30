@@ -15,4 +15,7 @@ export interface ContractDirectory {
     contractIds: readonly string[],
     termIds: readonly string[],
   ): Promise<{ contracts: Map<string, ContractLabel>; termSeqs: Map<string, number> }>;
+  // The hardware variant of each contract, for revenue per variant (billing task 2.4, monitoring
+  // api-design 08). Kept apart from the display labels, which the invoice reads answer as they are.
+  variantsOf(contractIds: readonly string[]): Promise<Map<string, string>>;
 }

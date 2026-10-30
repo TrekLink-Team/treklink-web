@@ -563,6 +563,14 @@ export class ContractsRepository {
     });
   }
 
+  // The hardware variant of each contract (billing's CONTRACT_DIRECTORY, revenue per variant).
+  variantsOf(ids: readonly string[], client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, hardwareVariantId: true },
+    });
+  }
+
   // The status alone, for the incidents authority report on a contract (incidents api-design 10).
   statusOf(id: string, client: Client = this.prisma) {
     return client.rentalContract.findUnique({ where: { id }, select: { status: true } });
