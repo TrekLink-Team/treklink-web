@@ -63,6 +63,7 @@ describe('MF-03 escalation timers against Postgres', () => {
   let managerId: string;
   let variantId: string;
   let staffId: string;
+  let secondStaffId: string;
   let inactiveStaffId: string;
   let serial = 0;
 
@@ -132,10 +133,14 @@ describe('MF-03 escalation timers against Postgres', () => {
   beforeAll(async () => {
     await prisma.$connect();
     staffId = await user('staff', AccountType.TREKLINK);
+    secondStaffId = await user('second-staff', AccountType.TREKLINK);
     inactiveStaffId = await user('inactive-staff', AccountType.TREKLINK);
     const staffRole = await prisma.role.findUniqueOrThrow({ where: { key: 'STAFF' } });
     await prisma.userRole.createMany({
-      data: [staffId, inactiveStaffId].map((userId) => ({ userId, roleId: staffRole.id })),
+      data: [staffId, secondStaffId, inactiveStaffId].map((userId) => ({
+        userId,
+        roleId: staffRole.id,
+      })),
     });
     await prisma.user.update({ where: { id: inactiveStaffId }, data: { isActive: false } });
     operatorId = await user('operator', AccountType.ORGANIZATION);
@@ -218,7 +223,7 @@ describe('MF-03 escalation timers against Postgres', () => {
       where: { incidentId: incident.id, toState: 'ESCALATED' },
     });
     const rows = await prisma.alertDelivery.findMany({ where: { transitionId: escalation.id } });
-    const mine = [managerId, staffId, inactiveStaffId, null];
+    const mine = [managerId, staffId, secondStaffId, inactiveStaffId, null];
     expect(
       rows
         .filter((row) => mine.includes(row.recipientId))
@@ -232,6 +237,9 @@ describe('MF-03 escalation timers against Postgres', () => {
         `${staffId}:TREKLINK:EMAIL`,
         `${staffId}:TREKLINK:WEB`,
         `${staffId}:TREKLINK:WEBSOCKET`,
+        `${secondStaffId}:TREKLINK:EMAIL`,
+        `${secondStaffId}:TREKLINK:WEB`,
+        `${secondStaffId}:TREKLINK:WEBSOCKET`,
         'org:TREKLINK:API_EVENT',
       ].sort(),
     );
@@ -239,6 +247,10 @@ describe('MF-03 escalation timers against Postgres', () => {
     // A deadline fires once: a second run finds nothing due for this incident.
     await job.tierTimeouts();
     expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(4);
+    // and writes no second set of Staff alerts.
+    expect(await prisma.alertDelivery.count({ where: { transitionId: escalation.id } })).toBe(
+      rows.length,
+    );
   });
 
   it('escalates an owned incident with no status update in time and keeps the owner (REQ-EVT-07)', async () => {
