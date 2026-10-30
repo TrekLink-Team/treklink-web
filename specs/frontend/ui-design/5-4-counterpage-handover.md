@@ -9,7 +9,7 @@
 | Routes | `/t/counter/:contractId` for an `APPROVED` contract; the same route serves check-in for a contract with devices out (screen 5.5) (`specs/frontend/design.md` §2 and §5) |
 | Roles | TrekLink Staff (and Admin, D-057 rule 7): the whole page. Organization accounts: MSG26. The Org Manager is present at the counter and signs on the Staff member's screen. |
 | Use case, FRs, story | UC-14, UC-20, UC-21; FR-CON-05, FR-CON-06, FR-DEV-05, BR-09, E01-4, E01-5, D-037; US-UC14, US-UC20, US-UC21 |
-| Requirements | `specs/rentals/requirements.md` REQ-EVT-04 to REQ-EVT-06, REQ-UBI-05, REQ-ERR-04, REQ-ERR-07, REQ-ERR-08 |
+| Requirements | `specs/rentals/requirements.md` REQ-EVT-04 to REQ-EVT-06, REQ-EVT-16, REQ-UBI-05, REQ-ERR-04, REQ-ERR-07, REQ-ERR-08, REQ-ERR-10 |
 | Wireframe | ![CounterPage handover](5-4-counterpage-handover.svg) |
 
 Scope from the task: rentals api-design 07 to 10 in four steps (design §5): devices with scan, provisioning, battery and GPS check and swap; payment status; preview note; signature pad (PNG) and identity field; nothing stored in the browser after submit
@@ -21,7 +21,8 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Header: contract code, organization, status, plan, variant, quantity, requested start | rentals 03 `code`, `organization.code`, `legalName`, `status`, `planType`, `hardwareVariant.code`, `quantity`, `requestedStartDate` |
 | Reserved devices by asset tag | rentals 03 `devices[].deviceId`, `assetTag` |
 | Organization's current key version (the version to write and record) | organizations 03 `channelKeyVersion` |
-| Provisioning recorded per device | rentals 09 `result.keyVersion`, `provisionedAt` in this visit; after a reload, rentals 03 `devices[].provisionedKeyVersion` ("Provisioned v{n}", or "Not provisioned yet") |
+| Provisioning recorded per device | rentals 09 `result.keyVersion`, `provisionedAt` in this visit; after a reload, rentals 03 `devices[].provisionedKeyVersion` ("Provisioned v{n}", or "Not provisioned yet"); a unit undone in this visit shows "Not provisioned yet" whatever the contract read still says (rentals 19) |
+| Contract version sent by the undo and the handover | rentals 03 `version`, or rentals 19 `result.contractVersion` when an undo answered a higher one |
 | Swap result: released and newly reserved device | rentals 07 `released.assetTag`, `status`; `reserved.assetTag`, `status` |
 | First payment: amount, paid, payment status and sandbox flag | billing 08 with `contractId` (`items[].id`, `status`); billing 09 `lines[]` of type `HOLDING_FEE` (monthly) or the day-plan fee line, `amountVnd`, `paidVnd`; `payments[].status`, `method`, `isSandbox` |
 | Note preview (unsigned PDF), listing each unit's battery and GPS fix | rentals 08 `pdfBase64`, requested with `checks`: the step 1 readings of every unit with a valid battery (`deviceId`, `batteryPct`, `gpsFixOk`); a unit without one prints "not checked" |
@@ -34,6 +35,7 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 |---|---|---|---|---|
 | Scan or type asset tag | 1 Devices | none; highlights the matching reserved row, MSG12 if the tag is not reserved to this contract | none | row focused |
 | Record provisioning (row) | 1 Devices | rentals 09 `POST /api/contracts/:id/devices/:deviceId/provisioning` with the organization's `channelKeyVersion` | none | the row shows "Provisioned v{n}" |
+| Undo (row, next to "Provisioned v{n}"; accessible name "Undo provisioning of {assetTag}") | 1 Devices | rentals 19 `POST /api/contracts/:id/devices/:deviceId/provisioning/undo` with the contract `version` as `expectedVersion`; shown only on a provisioned row, disabled while a row or bulk recording runs | `ConfirmDialog` "Undo the provisioning of {assetTag}?": "Use this when provisioning was recorded on the wrong unit. {assetTag} goes back to "Not provisioned yet" and its battery and GPS readings are cleared. Record it again before handover."; buttons Keep it and Undo provisioning (danger) | toast "Provisioning of {assetTag} undone. Record it again before handover."; the row shows "Not provisioned yet" with empty readings, and Next is held until it is recorded again |
 | Select (row checkbox) and Select all units | 1 Devices | none; Select all is mixed when some units are selected, and shows "{n} of {total} selected" | none | none |
 | Record provisioning for selected | 1 Devices | rentals 09, one call per selected unit in list order, one at a time; units already at the current `channelKeyVersion` are skipped without a call | none | progress "Recording provisioning: {done} of {total} done." while it runs; then "Recorded {n} of {total}." and the selection is cleared; a skipped unit adds "Skipped {assetTags}: already provisioned v{n}." |
 | Set readings for selected | 1 Devices | none; writes the bulk battery, the bulk GPS fix or both into each selected row, and an empty bulk value leaves the row's value as it is | none | "Readings set on {n} units." |
@@ -64,6 +66,9 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Error `SIGNER_NOT_MANAGER` (400, rentals 10) | The server's `message` under Signing Manager ("Only a Manager of the organization can sign."); no SRS code |
 | Error `INVALID_STATE_TRANSITION` (409, rentals 07 to 10) | MSG28 with the contract's state |
 | Error `STALE_VERSION` (409, rentals 10) | MSG36 dialog with Reload |
+| Error `STALE_VERSION` (409, rentals 19) | The undo dialog closes; the page shows the MSG36 banner with Reload, and Complete handover is disabled until the reload |
+| Error `DEVICE_NOT_PROVISIONED` (409, rentals 19) | The server's message in the undo dialog ("{assetTag} has no provisioning to undo."); the row shows "Not provisioned yet" and the contract is read again |
+| Error `INVALID_STATE_TRANSITION` or `DEVICE_NOT_ON_CONTRACT` (409, rentals 19) | MSG28 or MSG12 in the undo dialog, which stays open with Keep it |
 | Not found or forbidden | `NOT_FOUND` (404) or `FORBIDDEN` (403): MSG26 |
 | Success | Toast MSG06; contract `ACTIVE`, devices `RENTED` |
 
@@ -87,7 +92,8 @@ Four steps (`design.md` §5, NFR-USE-01). Step 1 holds one row per reserved devi
 box and two inputs each, the scan field, and the bulk bar (Select all, Record provisioning for
 selected, the bulk battery and GPS fix with Set readings for selected), so five units need one
 selection, one provisioning click and one readings click (dry run defect 4, 2026-10-30). The
-single-row actions stay. The other steps have at most three fields. The request sends the contract
+single-row actions stay. A provisioned row carries Undo, which asks first and then clears the record and the
+unit's readings (rentals 19, dry run defect 5, 2026-10-30). The other steps have at most three fields. The request sends the contract
 `version` as `expectedVersion`. Nothing is stored in the browser after submit: no `localStorage`,
 `sessionStorage` or cache entry holds the signature or the identity text.
 
@@ -102,9 +108,9 @@ single-row actions stay. The other steps have at most three fields. The request 
 Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked by the owner before review.
 
 - [x] Route and roles match `design.md` §2 and §5; organization accounts get MSG26
-- [x] Data: every field names rentals 03, 07 to 10, organizations 03 and 12, or billing 08 and 09
-- [x] Actions: scan, provisioning (row and selected), readings for the selected units, swap, payment link, complete handover (MSG06)
-- [x] States: loading, start-date banner, every error code of rentals 07 to 10, 403 and 404, success
+- [x] Data: every field names rentals 03, 07 to 10, 19, organizations 03 and 12, or billing 08 and 09
+- [x] Actions: scan, provisioning (row and selected) and its undo (row, with a confirmation), readings for the selected units, swap, payment link, complete handover (MSG06)
+- [x] States: loading, start-date banner, every error code of rentals 07 to 10 and 19, 403 and 404, success
 - [x] Forms: four steps, with type, requirement and rule per field; nothing kept after submit
 - [x] Mobile: narrow layout described
 - [x] Accessibility: scan focus, step headings, signature pad text alternative, announced errors

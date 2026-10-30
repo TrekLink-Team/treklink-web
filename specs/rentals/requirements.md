@@ -62,6 +62,7 @@
 - **REQ-EVT-13**: WHEN a `RETURN_DUE` contract is past `returnDueAt` plus `rentals.returnGraceHours` with devices still out, the system SHALL move it to `OVERDUE`; WHEN `OVERDUE` lasts `rentals.defaultAfterDays`, the system SHALL move it to `DEFAULTED` and suspend the organization through `organizations`. [FR-CON-12, BR-26, E05-1, E05-2]
 - **REQ-EVT-14**: WHEN an approved contract passes `reservationExpiresAt`, the system SHALL remind Staff and the Manager once. [FR-CON-04]
 - **REQ-EVT-15**: WHEN a member sets a holder label on a handed-over device, the system SHALL store it and emit `device.labelChanged`; WHEN the contract closes, the system SHALL erase every label. [FR-CON-14, BR-33]
+- **REQ-EVT-16**: WHEN Staff undo the provisioning record of a `RESERVED` device on an `APPROVED` contract before the handover, with the contract `version` they saw, the system SHALL, in one transaction, clear the unit's key version, key organization and provisioning time through `devices`, keep its `DeviceProvisioning` row, and increase the contract `version`; after commit it SHALL record the audit entry `contract.provisioningUndone`. The counter drops that unit's battery and GPS readings, which live only on the page. [FR-DEV-05, UC-14, dry run 2026-10-30 defect 5]
 
 ### State-Driven
 
@@ -79,6 +80,7 @@
 - **REQ-ERR-08**: IF a handover is attempted before the requested start date, THEN the system SHALL return 409 `BEFORE_START_DATE`.
 - **REQ-ERR-07**: IF a scanned tag is not on the contract, THEN the system SHALL return 409 `DEVICE_NOT_ON_CONTRACT` (MSG12).
 - **REQ-ERR-09**: IF Staff approve with a handover appointment before the current minute, THEN the system SHALL return 400 `VALIDATION_FAILED` and reserve nothing. [FR-CON-03]
+- **REQ-ERR-10**: IF an undo of provisioning carries a stale `version`, names a contract not `APPROVED` or a unit not `RESERVED` or already handed over, names a unit not on the contract, or names a unit that carries no key version of the contract's organization, THEN the system SHALL return 409 `STALE_VERSION`, `INVALID_STATE_TRANSITION`, `DEVICE_NOT_ON_CONTRACT` (MSG12) or `DEVICE_NOT_PROVISIONED`, in that order of checks, and change nothing. [FR-DEV-05]
 
 ---
 

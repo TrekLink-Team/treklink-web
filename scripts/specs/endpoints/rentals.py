@@ -389,6 +389,41 @@ ENDPOINTS = [
                   "createdAt": NOW}],
        entity="Contract", steps=["Read contract_transitions"], controller="ContractsController",
        service="ContractsService", call="transitions(id, caller)", seq=["Svc->>DB: SELECT contract_transitions"]),
+
+    # Appended, not placed after 09, so the numbers of 10 to 18 stay as cited elsewhere.
+    ep("POST", "/api/contracts/:id/devices/:deviceId/provisioning/undo", "Undo a provisioning record",
+       "TrekLink Staff",
+       "Undoes the provisioning record of api-design 09 on a unit of an `APPROVED` contract before the "
+       "handover, for a record made on the wrong unit at the counter (dry run 2026-10-30, defect 5). The "
+       "unit's key version, key organization and provisioning time are cleared, so it shows \"Not "
+       "provisioned yet\" and the handover refuses it until it is recorded again. The append-only "
+       "`DeviceProvisioning` row stays; an audit entry `contract.provisioningUndone` records the undo. The "
+       "contract `version` increases, so a screen that still shows the unit provisioned reloads before it "
+       "signs. Undoing the record does not remove a key already written to the device: write the key again "
+       "and record it, or swap the unit (api-design 07) (FR-DEV-05, D-021).",
+       "UC-14, FR-DEV-05, BR-09, D-021",
+       path=[C_PATH, D_PATH], body=[VERSION],
+       sample={"expectedVersion": 2},
+       response={"deviceId": DEVICE_ID, "assetTag": "TL-0042", "status": "RESERVED", "keyVersion": None,
+                 "keyOrganizationId": None, "provisionedAt": None, "contractVersion": 3},
+       message="Provisioning undone", entity="Contract",
+       # In the order HandoverService.undoProvisioning checks them, after the contract lock.
+       errors=[STALE, state_409("contract", "ACTIVE"), NOT_ON,
+               (409, "DEVICE_NOT_PROVISIONED", "The unit carries no provisioning for the contract's organization",
+                "TL-0042 has no provisioning to undo.")],
+       steps=["Lock the contract", "Check the version, then the APPROVED state",
+              "Require the device on the contract, RESERVED and not handed over",
+              "Require a key version of the contract's organization on the unit",
+              "Increase the contract version",
+              "DevicesService.clearProvisioning in the same transaction",
+              "Record the audit entry after commit"],
+       controller="HandoverController", service="HandoverService",
+       call="undoProvisioning(id, deviceId, expectedVersion, actor)",
+       participants=[["Dev", "DevicesService"], ["Audit", "AuditService"]],
+       seq=["Svc->>DB: BEGIN, SELECT contract FOR UPDATE", "Svc->>Dev: provisioning([deviceId], tx)",
+            "Svc->>DB: UPDATE rental_contracts SET version = version + 1",
+            "Svc->>Dev: clearProvisioning(deviceId, tx)", "Svc->>DB: COMMIT",
+            "Svc-)Audit: audit.record contract.provisioningUndone"]),
 ]
 
 NOTES = ("Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end "
