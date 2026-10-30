@@ -236,7 +236,7 @@ export class DevicesService {
       throw new DomainException(
         HttpStatus.CONFLICT,
         ErrorCode.MAINTENANCE_OPEN,
-        'Close the maintenance record first.',
+        'Finish the open maintenance record first.',
       );
     }
     if (unit.version !== dto.expectedVersion) throw staleVersion();

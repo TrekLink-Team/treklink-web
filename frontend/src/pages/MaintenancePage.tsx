@@ -39,7 +39,7 @@ import { ALERT, LINK } from '../shared/ui/styles';
 
 const MSG01 = 'No results match your filters.';
 const MSG03 = 'Saved.';
-const MSG29 = 'This device already has an open maintenance record. Finish it first.';
+const MSG29 = 'Finish the open maintenance record first.';
 const MSG36 = 'Someone else changed this. Reload to see the latest.';
 
 const STATUSES = Object.keys(MAINTENANCE_STATUS) as MaintenanceStatus[];

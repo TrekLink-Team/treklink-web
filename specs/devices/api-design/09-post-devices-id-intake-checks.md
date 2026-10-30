@@ -179,7 +179,7 @@ Records the GPS fix, radio, battery and, where the variant has one, motion-senso
         </tr>
         <tr>
             <td>409</td>
-            <td>A maintenance record is still open (<code>MAINTENANCE_OPEN</code>)</td>
+            <td>The device has an open maintenance record (<code>MAINTENANCE_OPEN</code>)</td>
 <td>
 
 ```json
@@ -189,7 +189,7 @@ Records the GPS fix, radio, battery and, where the variant has one, motion-senso
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "Close the maintenance record first."
+  "message": "Finish the open maintenance record first."
 }
 ```
 </td>
@@ -253,7 +253,7 @@ flowchart TB
     E3["Return 400 MOTION_RESULT_REQUIRED"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"A maintenance record is still open?"}
+    D4{"The device has an open maintenance record?"}
     D3 -->|no| D4
     E4["Return 409 MAINTENANCE_OPEN"]
     D4 -->|yes| E4
