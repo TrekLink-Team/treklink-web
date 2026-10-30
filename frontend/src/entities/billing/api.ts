@@ -224,11 +224,27 @@ export const usePriceHistory = (pageNumber: number) =>
     queryFn: () => apiClient<Page<PriceRow>>(`/price-schedules${queryString({ pageNumber })}`),
   });
 
-export const useDamageRates = () =>
+// billing api-design 05. With a variant, the generic rows come too; without one, every row.
+export const useDamageRates = (hardwareVariantId?: string) =>
   useQuery({
-    queryKey: ['damage-rates'] as const,
-    queryFn: () => apiClient<DamageRate[]>('/damage-rates'),
+    queryKey: ['damage-rates', hardwareVariantId ?? null] as const,
+    queryFn: () => apiClient<DamageRate[]>(`/damage-rates${queryString({ hardwareVariantId })}`),
   });
+
+// The codes a unit of this variant can be charged, one per code: the variant's own rate replaces
+// the generic one, as `PricingService.damageRateFor` prices it (billing design §2).
+export const damageCodesFor = (rates: DamageRate[], hardwareVariantId: string): DamageRate[] => {
+  const byCode = new Map<string, DamageRate>();
+  for (const rate of rates) {
+    if (!rate.isActive) continue;
+    if (rate.hardwareVariantId !== null && rate.hardwareVariantId !== hardwareVariantId) continue;
+    const seen = byCode.get(rate.code);
+    if (!seen || (seen.hardwareVariantId === null && rate.hardwareVariantId !== null)) {
+      byCode.set(rate.code, rate);
+    }
+  }
+  return [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code));
+};
 
 export const schedulePrice = (input: {
   hardwareVariantId: string;
