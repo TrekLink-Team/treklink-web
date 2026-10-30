@@ -113,6 +113,8 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `JWT_*` (owned by `auth`, validated here) | see `auth` | env | no |
 | `MQTT_BROKER_URL` | none, required | env | no |
 | `MQTT_AUTH_HOOK_SECRET` | none, required (owned by `gateway-sync`, validated here) | env | no |
+| `FIELD_STATION_RELEASE_DIR` | none, optional; the directory with the Field Station `release.json` and executables, without it the release endpoint answers 503 `RELEASE_UNAVAILABLE` (owned by `organizations`, D-039) | env | no |
+| `FIELD_STATION_BROKER_URL` | defaults to `MQTT_BROKER_URL`; the broker address a new Field Station credential is given (owned by `organizations`) | env | no |
 | `SEPAY_WEBHOOK_API_KEY` | none, optional until the SePay sandbox account exists; without it the webhook answers 401 to every call (owned by `billing`, validated here) | env | no |
 | `SEPAY_QR_BASE_URL` | `https://vietqr.app/img` (owned by `billing`) | env | no |
 | `SEPAY_BANK_CODE` | `SANDBOX` (owned by `billing`) | env | no |

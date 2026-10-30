@@ -97,6 +97,20 @@ export class EnvironmentVariables {
   @IsString()
   MQTT_PASSWORD?: string;
 
+  // Owned by `organizations` (specs/organizations/requirements.md §4, D-039). The directory holding the
+  // Field Station `release.json` and its executables; unset, the release endpoint answers 503.
+  @IsOptional()
+  @IsString()
+  FIELD_STATION_RELEASE_DIR?: string;
+
+  // The broker address a new Field Station credential is given; falls back to MQTT_BROKER_URL, which is
+  // the address of the backend's own connection.
+  @IsOptional()
+  @Matches(MQTT_URL, {
+    message: 'FIELD_STATION_BROKER_URL must be an mqtt://, mqtts://, ws:// or wss:// URL',
+  })
+  FIELD_STATION_BROKER_URL?: string;
+
   // JWT_* are owned by `auth` and validated here (platform requirements §4).
   @IsString()
   @IsNotEmpty()
