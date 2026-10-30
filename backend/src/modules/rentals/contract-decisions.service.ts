@@ -11,6 +11,7 @@ import { firstTerm } from './contract-terms';
 import { ContractRow, ContractsRepository, DeviceRow, Holder } from './contracts.repository';
 
 const HOUR_MS = 3_600_000;
+const MINUTE_MS = 60_000;
 
 export interface ApprovalInput {
   deviceIds?: string[];
@@ -81,7 +82,8 @@ export class ContractDecisionsService {
 
   // Reserves exactly the requested number of AVAILABLE units (409 INSUFFICIENT_DEVICES, nothing
   // reserved), creates term 1 anchored to the start date, issues its invoice and moves the contract
-  // to APPROVED (REQ-EVT-02). The reservation expires `rentals.reservationExpiryHours` after the
+  // to APPROVED (REQ-EVT-02). An appointment before the current minute is refused (REQ-ERR-09). The
+  // reservation expires `rentals.reservationExpiryHours` after the
   // handover appointment, which is stored on the contract (`handoverAppointmentAt`, ruling on #87
   // point 1) and also named in the transition reason for the history.
   async approve(
@@ -103,6 +105,15 @@ export class ContractDecisionsService {
           HttpStatus.CONFLICT,
           ErrorCode.INVALID_STATE_TRANSITION,
           `This cannot be done while it is ${contract.status}.`,
+        );
+      }
+
+      // REQ-ERR-09: the appointment field has minute precision, so the current minute still counts.
+      if (input.handoverAt.getTime() < Math.floor(at.getTime() / MINUTE_MS) * MINUTE_MS) {
+        throw new DomainException(
+          HttpStatus.BAD_REQUEST,
+          ErrorCode.VALIDATION_FAILED,
+          'The handover appointment is in the past. Choose a time from now on.',
         );
       }
 

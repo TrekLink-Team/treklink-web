@@ -11,7 +11,7 @@ import { DevicesService } from '../src/modules/devices';
 import { ContractDecisionsService } from '../src/modules/rentals/contract-decisions.service';
 import { ReturnService } from '../src/modules/rentals/return.service';
 import { TermRolloverJob } from '../src/modules/rentals/term-rollover.job';
-import { at, compileRentalFlow, ContractTerms, RentalFlow } from './db-rental-flow';
+import { at, compileRentalFlow, ContractTerms, DAY_MS, RentalFlow } from './db-rental-flow';
 
 // A 1 x 1 PNG, the smallest signature the routes accept.
 const PNG =
@@ -109,9 +109,11 @@ describe('contract and billing 409 rows over HTTP against Postgres', () => {
   });
 
   describe('04 approve', () => {
+    // The route runs on the real clock, and an appointment in the past is refused (REQ-ERR-09).
+    const tomorrow = () => new Date(Date.now() + DAY_MS).toISOString();
     const approve = async (contractId: string, body: object = {}) =>
       flow.send(flow.staff, 'post', path(contractId, '/approve'), {
-        handoverAt: '2026-11-02T02:00:00.000Z',
+        handoverAt: tomorrow(),
         expectedVersion: await flow.version(contractId),
         ...body,
       });
@@ -131,6 +133,20 @@ describe('contract and billing 409 rows over HTTP against Postgres', () => {
         data: { status: DeviceStatus.MAINTENANCE },
       });
       expectConflict(await approve(contract.id, { deviceIds }), 'DEVICE_NOT_AVAILABLE');
+    });
+
+    it('VALIDATION_FAILED for an appointment before the current minute, nothing reserved', async () => {
+      const { contract } = await requested();
+      const response = await approve(contract.id, {
+        handoverAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+      });
+      expect({ status: response.status, body: response.body as unknown }).toMatchObject({
+        status: 400,
+        body: { isSuccess: false, statusCode: 400, result: { errorCode: 'VALIDATION_FAILED' } },
+      });
+      expect(await flow.prisma.contractDevice.count({ where: { contractId: contract.id } })).toBe(
+        0,
+      );
     });
 
     it('INVALID_STATE_TRANSITION and STALE_VERSION', async () => {
