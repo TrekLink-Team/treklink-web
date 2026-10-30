@@ -4,19 +4,19 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   CASE_TYPE_LABEL,
   complianceCaseKeys,
+  caseErrorText,
   COMPLIANCE_PAGE_SIZE,
   openComplianceCase,
   useComplianceCases,
   type ComplianceCase,
-  type ComplianceCaseStatus,
   type ComplianceCaseType,
 } from '../entities/organization/complianceCases';
+import { CaseStatusBadge, CaseTypeBadge } from '../entities/organization/complianceCaseUi';
 import { useOrganizations } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDate, formatDateTime } from '../shared/lib/format';
 import {
   Alert,
-  Badge,
   Button,
   DataTable,
   Dialog,
@@ -44,13 +44,6 @@ const TABS: { key: Tab; label: string }[] = [
 
 const TYPES = Object.keys(CASE_TYPE_LABEL) as ComplianceCaseType[];
 
-export const CaseStatusBadge: React.FC<{ status: ComplianceCaseStatus }> = ({ status }) =>
-  status === 'OPEN' ? <Badge tone="active">Open</Badge> : <Badge tone="ended">Closed</Badge>;
-
-export const CaseTypeBadge: React.FC<{ type: ComplianceCaseType }> = ({ type }) => (
-  <Badge>{CASE_TYPE_LABEL[type]}</Badge>
-);
-
 // "1 contract, 1 loss case", or "none" (SD 3.6 Data).
 const linkedText = (item: ComplianceCase) => {
   const parts = [
@@ -61,10 +54,6 @@ const linkedText = (item: ComplianceCase) => {
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : 'none';
 };
-
-// NOT_FOUND names the missing record; other 403 and 404 answers read MSG26 (SD 3.6 States).
-export const caseErrorText = (failure: unknown): string =>
-  failure instanceof ApiError && failure.errorCode === 'NOT_FOUND' ? failure.message : messageOf(failure);
 
 // The open case dialog of api-design 29. Linked contracts and loss cases are not offered: no Staff
 // list of an organization's contracts or loss cases exists yet (SD 3.6 open point 5).

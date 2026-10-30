@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../shared/api/apiClient';
+import { ApiError, apiClient } from '../../shared/api/apiClient';
+import { messageOf } from '../../shared/ui/errors';
 
 // Compliance cases, organizations api-design 28 to 32, and the channel key rotation of 27
 // (screen 3.6).
@@ -154,3 +155,7 @@ export const rotateChannelKey = (organizationId: string, reason: string, expecte
     `/organizations/${organizationId}/channel-key/rotate`,
     { reason, expectedVersion },
   );
+
+// NOT_FOUND names the missing record; other 403 and 404 answers read MSG26 (SD 3.6 States).
+export const caseErrorText = (failure: unknown): string =>
+  failure instanceof ApiError && failure.errorCode === 'NOT_FOUND' ? failure.message : messageOf(failure);
