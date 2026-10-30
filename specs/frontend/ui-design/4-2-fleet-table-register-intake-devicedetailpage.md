@@ -38,6 +38,7 @@ answers 409 for anything else.
 | Control | Shown when | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
 | Register device (primary button on `/t/fleet`) | always | devices 05 `POST /api/devices` | none | MSG03; the new device opens in `IN_INTAKE` |
+| Read from unit (Register panel, draft D-080) | Web Serial available | none on the server; Web Serial to the unit (`devices` design §8.3) | the browser's port chooser | Node number and variant filled; the reported firmware version shown beside the field |
 | Edit firmware version | any state except `DISPOSED` | devices 08 `PATCH /api/devices/:id` with `expectedVersion` | none | MSG03 |
 | Record intake check | `IN_INTAKE`, or `MAINTENANCE` with no open record | devices 09 `POST /api/devices/:id/intake-checks` | none | MSG03; status shows the result (`AVAILABLE` on pass) |
 | Record reset (three steps) | `RETURNED` with no reset since the last check-in | devices 10 `POST /api/devices/:id/reset` | none; the button stays disabled until all three boxes are ticked | MSG03 |
@@ -64,6 +65,9 @@ The inspection after the reset belongs to the counter check-in (screen 5.5); thi
 | Error `INVALID_STATE_TRANSITION` (409) | MSG28 with the current state; the page refetches the device |
 | Error `STALE_VERSION` (409) | MSG36 dialog with Reload; the form keeps its values until Reload |
 | Not found or forbidden | MSG26 full-page notice |
+| No Web Serial (draft, D-080) | On the Register panel: "Reading from a unit needs Chrome or Edge on a desktop. You can type the node number."; Read from unit disabled |
+| Unit not answering, disconnected or port busy (draft) | "The unit did not answer. Check the cable, close other Meshtastic apps and try again." under Read from unit; fields unchanged |
+| Firmware differs from the baseline (draft) | Amber note under the firmware field: "The unit reports {reported}." |
 | Stale data | last seen older than `monitoring.deviceStaleSeconds` shows "Stale, last seen {time}" in text |
 | Success | Toast MSG03; the device and the fleet list refetch |
 

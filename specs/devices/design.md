@@ -663,3 +663,163 @@ sequenceDiagram
 ```
 
 ***Figure 16***: UC-64 Approve Maintenance Cost (BR-44). A rejection takes the same path with a reason.
+
+---
+
+## 8. Docking at the counter over Web Serial (D-080)
+
+> **Status**: Draft for the leader's approval (2026-10-30, branch `docs/devices-docking`). No code before
+> approval (D-052). Library choice: `vetting/meshtastic-web-serial.md` (recommendation: re-author, no
+> dependency). §8.6 holds the decisions the leader has to take.
+
+### 8.1 Scope and placement
+
+Docking runs in the Staff browser only. The backend never talks to a unit; it only checks the docked
+`nodeNum` when provisioning is recorded (§8.5). Two frontend slices (FSD):
+
+| Slice | Contents |
+|---|---|
+| `shared/lib/meshtastic/` | `framing.ts` (`0x94 0xC3` plus a 16-bit big-endian length, frames above 512 bytes dropped), `codec.ts` (varint and length-delimited encoding for the messages of §8.2; `ChannelSettings` kept as raw fields so a write changes field 2 only), `serialLink.ts` (Web Serial port at 115200 baud, wake bytes, one request at a time, a timeout per answer) |
+| `features/dock-device/` | `DockingService` with `readUnit()` and `provision(expected)`, and the `useDocking` hook that pages call; the key lives in one local variable of `provision` and is dropped when it returns |
+
+Pages: the Register panel of screen 4.2 (intake) and step 1 of `CounterPage` (screen 5.4, handover; the
+replacement tab of screen 5.5 reuses it). Web Serial needs a secure context and a Chromium browser.
+
+### 8.2 Protocol facts the client relies on (firmware 2.7.19, `treklink-firmware` at `f062a35`)
+
+| Fact | Source |
+|---|---|
+| A client packet is stamped `from = 0` | `src/mesh/MeshService.cpp:186` |
+| Local admin is accepted unless `security.is_managed`; the session passkey is checked only for `from != 0` | `src/modules/AdminModule.cpp:85-89`, `:132-138` |
+| The serial API needs `security.serial_enabled`, default true | `src/SerialConsole.cpp:129`, `src/mesh/NodeDB.cpp:669` |
+| `want_config_id = 69420` sends `myInfo`, the own `NodeInfo`, `metadata`, channels, config and `config_complete_id`, without the node database | `src/mesh/PhoneAPI.h:23`, `src/mesh/PhoneAPI.cpp:248-300` |
+| Set owner and set channel save without a reboot; get channel returns the PSK to the local client | `AdminModule.cpp:594-626`, `:1015-1022`, `:1323-1336` |
+| Long name holds 39 characters, short name 4 | `mesh.pb.h:704`, `:707` |
+| PSK is 0, 1, 16 or 32 bytes; TrekLink writes 32 | `channel.pb.h:42` |
+
+Field numbers used (`src/mesh/generated/meshtastic/*.pb.h`): `ToRadio` packet 1, want_config_id 3,
+heartbeat 7; `FromRadio` id 1, packet 2, my_info 3, node_info 4, config_complete_id 7, channel 10,
+metadata 13; `MeshPacket` from 1, to 2, channel 3, decoded 4, id 6, want_ack 10; `Data` portnum 1 (`ADMIN_APP`
+= 6), payload 2, want_response 3, request_id 6; `AdminMessage` get_channel_request 1, get_channel_response 2,
+get_owner_request 3, get_owner_response 4, set_owner 32, set_channel 33; `User` id 1, long_name 2,
+short_name 3; `Channel` index 1, settings 2, role 3; `ChannelSettings` psk 2 (others kept as read);
+`MyNodeInfo` my_node_num 1, pio_env 13; `NodeInfo` num 1, user 2; `DeviceMetadata` firmware_version 1.
+
+### 8.3 Intake (screen 4.2, Register panel)
+
+1. Staff press **Read from unit**; the browser's own port chooser opens (a user gesture is required).
+2. `readUnit()` runs the config-only handshake and returns `nodeNum`, `pioEnv`, `firmwareVersion` and
+   the current owner names.
+3. The panel fills Node number, preselects the variant whose code the build environment maps to
+   (`treklink-v2` to `treklink-v2`, `treklink-v3-tbeam` to `treklink-v3`, `treklink-v4-supreme` to
+   `treklink-v4`, a table in `shared/config`), and shows the reported firmware version next to the
+   firmware field. The unit reports `major.minor.build.<sha7>` (`bin/readprops.py`), while variant
+   baselines read `2.7.19-treklink.N`, so the field keeps the baseline and the page warns when the build
+   part differs; it does not overwrite it.
+4. Registration is devices api-design 05, unchanged. Manual entry stays possible; uniqueness is still
+   the server's (REQ-ERR-01).
+
+### 8.4 Handover (screen 5.4, step 1, per reserved device)
+
+1. Staff press **Dock and provision** on the row; the first docking of the visit opens the port chooser,
+   later ones reuse the granted port (`navigator.serial.getPorts()`).
+2. `readUnit()`; the docked `nodeNum` is compared with the row's `nodeNum` (rentals api-design 03 gains
+   `devices[].nodeNum`, §8.5). A mismatch writes nothing (REQ-ERR-12).
+3. The page obtains the organization's channel key at the current version (§8.6, decision 1).
+4. `provision()` sends `set_owner` (long name the asset tag, short name per §8.6 decision 2) and
+   `set_channel` for index 0 with role `PRIMARY` and the settings read in step 2 with field 2 replaced,
+   then repeats the config-only handshake and compares the owner names and the primary PSK.
+5. On a match the page records provisioning (rentals api-design 09) with `keyVersion` and the docked
+   `nodeNum`; the key variable is cleared before the request is sent.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor St as TrekLink Staff
+    participant P as Counter Page
+    participant DS as :DockingService
+    participant U as TrekLink unit (Web Serial)
+    participant C as :ContractsController
+    participant H as :HandoverService
+    participant D as :DevicesService
+    St->>P: press Dock and provision on TL-0042
+    P->>+DS: readUnit()
+    DS->>+U: ToRadio want_config_id 69420
+    U-->>-DS: myInfo(myNodeNum), NodeInfo(owner), channel 0
+    DS-->>-P: UnitInfo(nodeNum, owner, primaryChannel)
+    alt docked nodeNum equals the device record
+        P->>+DS: provision(expected, key, keyVersion)
+        DS->>+U: AdminMessage set_owner(TL-0042, 0042)
+        U-->>-DS: routing ack
+        DS->>+U: AdminMessage set_channel(index 0, PSK of version n)
+        U-->>-DS: routing ack
+        DS->>+U: ToRadio want_config_id 69420
+        U-->>-DS: owner and channel 0 read back
+        DS-->>-P: verified, key dropped
+        P->>+C: POST /api/contracts/{id}/devices/{deviceId}/provisioning
+        C->>+H: provision(id, deviceId, dto, actor)
+        H->>+D: recordProvisioning(deviceId, orgId, keyVersion, actor, tx)
+        D-->>-H: provisioned, key version only
+        H-->>-C: ContractDeviceDto
+        C-->>-P: 201 envelope
+        P-->>St: row shows Provisioned v n
+    else docked nodeNum differs
+        P-->>St: The docked unit is !a4b1c2d4, not TL-0042. Nothing was written.
+    end
+```
+
+***Figure 17***: UC-14 Provision Device by docking at handover (D-080). How the page obtains the key in
+step 3 of §8.4 is decision 1 of §8.6 and is left out of the figure.
+
+### 8.5 Contract changes (made in the catalog after approval)
+
+| Endpoint | Change |
+|---|---|
+| rentals api-design 03 `GET /api/contracts/:id` | `devices[].nodeNum` (read-only) |
+| rentals api-design 09 provisioning | body gains required `nodeNum`; 409 `NODE_MISMATCH` when it differs from the device record, nothing recorded |
+| A key-issuing endpoint | only under option A or C of §8.6 decision 1 |
+
+No schema change for docking itself. `NODE_MISMATCH` joins the error catalogue of `rentals`.
+
+### 8.6 Open for the leader
+
+**Decision 1, how the counter obtains the channel key.** D-021 keeps only the key version in the
+platform, REQ-UBI-03 says a key is never stored, displayed, returned or logged, and `organizations`
+design §1 put the key "only in the counter's provisioning tool". The counter page is now that tool, so it
+must hold the key for one write.
+
+| Option | How | Security | Demo cost |
+|---|---|---|---|
+| **A. Derived on the server, issued once per docking** | One master secret `CHANNEL_KEY_MASTER` in the deployment's secret store, never in the database or the seed. Key = HKDF-SHA256(master, salt = organization id, info = `treklink-channel-key/v{version}`), 32 bytes. A Staff-only endpoint returns it for a device reserved to an `APPROVED` contract, after the docked `nodeNum` matched, with a new permission and an audit row (actor, device, organization, version, never the key), `Cache-Control: no-store` | Nothing stored per organization; rotation is a version bump; escrow is one secret. A leak of the master exposes every organization's keys, past and future; a stolen Staff session can fetch keys for reserved units, each fetch audited. Amends REQ-UBI-03 ("returned once to the counter") | Endpoint, permission row with a forward migration, `crypto.hkdfSync`, env var: about half a day of backend |
+| **B. Staff paste the key from the escrow** | The key stays in TrekLink's escrow (a password manager); Staff paste it into the counter for the visit; the platform holds a non-secret fingerprint per version (SHA-256 of the key, first 8 bytes) so a wrong paste is refused before any write | Closest to D-021 as written; no key on the server. The key passes through people and the clipboard; a fingerprint is needed or a wrong key is written and "verified" against itself | Fingerprint column and its entry at rotation, or none without it: lowest |
+| **C. Stored encrypted at rest** | A random key per organization and version, AES-256-GCM under a key-encryption key in the secret store, issued like A | Independent random keys; a database dump alone reveals nothing; database plus secret store reveals all. Contradicts D-021 directly; needs its own amendment | New table, encryption, endpoint: about a day |
+| **D. The organization brings its own key** | The Org Manager keeps the channel (as the Meshtastic app needs it anyway, D-021) and pastes or shows its channel URL at the counter | TrekLink never holds a key, but loses the escrow D-021 requires and depends on the customer at every visit; a lost key is re-keying the whole fleet | Parsing the channel URL: low |
+
+**Recommendation: A.** No per-device human handling of a secret, the binding to a matched `nodeNum` and a
+reserved unit limits what a Staff account can fetch, rotation needs no storage, and the escrow D-021
+asks for becomes one secret. It needs D-021 and REQ-UBI-03 reworded in the same pass. If the leader reads
+D-021 literally, B with the fingerprint is the fallback.
+
+**Decision 2, the short name.** It holds four characters (`mesh.pb.h:707`), so `TL-0009` does not fit.
+Default proposed: the last four characters of the asset tag (`0009`); the long name carries the full tag.
+
+**Decision 3, provisioning without a dock.** Recommended: once docking ships, rentals api-design 09
+requires the docked `nodeNum`, so a typed record is no longer possible at handover; intake keeps manual
+entry. The alternative keeps a manual path for a browser without Web Serial and loses the check.
+
+**Related, not a decision here.** The reset step "Owner cleared" (screen 4.2, devices api-design 10)
+conflicts with the asset tag as owner name; it should read "Owner set back to the asset tag" when the
+reset is next edited.
+
+### 8.7 Testing and size
+
+Unit tests on the codec against frames captured from a unit (owner, channel, myInfo), the framing parser
+with split and oversized frames, the link with a fake `SerialPort` (timeouts, disconnect mid-write), and
+`DockingService` (mismatch writes nothing, read-back mismatch records nothing, the key is not reachable
+after `provision` returns). Component tests for the banner, the dock buttons and each error state. A
+hardware run on v3 and v4, and on v2 once the USB build flag lands (vetting record §3.3).
+
+Estimated size after approval (estimate, not measured): `shared/lib/meshtastic` about 300 lines,
+`features/dock-device` about 150, page changes about 150, tests about 400; backend `nodeNum` check and
+rentals 03 field about 60 lines with tests; option A adds about 150 lines, a migration and tests. About
+two working days for one developer, plus the v2 firmware flag and its hardware run.

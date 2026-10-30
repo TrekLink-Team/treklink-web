@@ -37,6 +37,7 @@
 | Loss cases | UC-49, UC-60, FR-DEV-12 to FR-DEV-15, BR-37, BR-38, E05-8 to E05-10 |
 | Disposal | UC-62, FR-DEV-16, BR-42 |
 | History | UC-53, FR-DEV-11 (rows owned here, merged by `monitoring`) |
+| Docking at the counter (draft, D-080) | UC-11, UC-14, FR-DEV-02, FR-DEV-05, BR-09, D-021 |
 
 ---
 
@@ -48,6 +49,7 @@
 - **REQ-UBI-02**: The system SHALL keep `assetTag` and `nodeNum` unique across every device ever registered, retired devices included, and SHALL never change either after registration. [FR-DEV-02]
 - **REQ-UBI-03**: The system SHALL store only the version of an organization channel key on a device, never the key, and SHALL never display, return or log a key. [FR-DEV-05, NFR-SEC-06, NFR-IF-03]
 - **REQ-UBI-04**: The system SHALL never delete a device; retirement keeps the device and its history. [FR-DEV-09]
+- **REQ-UBI-05** (draft, D-080): The counter SHALL talk to a docked unit only over Web Serial after Staff choose the port in the browser's own prompt, and SHALL keep no channel key, port handle or unit payload after a docking ends: nothing in `localStorage`, `sessionStorage`, IndexedDB, the query cache or the console. [D-080, NFR-SEC-06]
 
 ### Event-Driven
 
@@ -75,6 +77,10 @@
 - **REQ-EVT-21**: WHEN an Admin who did not record the estimate decides a `PENDING_APPROVAL` record, the system SHALL record the decision, the approved amount or the reason, and return the record to `OPEN`. [FR-DEV-20, BR-44]
 - **REQ-EVT-22**: WHEN Staff complete an `OPEN` record, the system SHALL require the resolution and the actual cost, a result for every checklist item of the variant for `SCHEDULED`, and a firmware version for `FIRMWARE_UPDATE`; IF the actual cost exceeds the approved amount, or the threshold when nothing was approved, THEN it SHALL set the record `PENDING_APPROVAL` instead; otherwise it SHALL set `COMPLETED` and update the device's `firmwareVersion` when one is given. [FR-DEV-20, FR-DEV-21]
 
+- **REQ-EVT-23** (draft, D-080): WHEN Staff dock a unit on the Register panel, the counter SHALL read its `nodeNum`, build environment and reported firmware version, fill the node number, preselect the variant mapped from the build environment and show the reported firmware version beside the firmware field. [FR-DEV-02, D-080]
+- **REQ-EVT-24** (draft, D-080): WHEN Staff dock a unit for a reserved device at handover or replacement and its `nodeNum` equals the device's, the counter SHALL write the owner long name as the asset tag and the short name per design §8.6 decision 2, write the primary channel with the organization's channel key at its current version keeping every other channel setting as read, read both back, and record provisioning with the docked `nodeNum` only when the read-back matches. [FR-DEV-05, BR-09, D-021, D-080]
+- **REQ-EVT-25** (draft, D-080): WHEN `rentals` records provisioning with a docked `nodeNum`, the system SHALL compare it with the device's `nodeNum` before storing the key version. [FR-DEV-05, D-080]
+
 ### State-Driven
 
 - **REQ-STA-01**: WHILE a device is not `AVAILABLE`, the system SHALL NOT reserve it. [FR-CON-11, MSG17]
@@ -94,6 +100,10 @@
 - **REQ-ERR-08**: IF the Admin deciding a maintenance cost recorded its estimate, THEN the system SHALL return 403 `SEPARATION_OF_DUTY`. [BR-44]
 - **REQ-ERR-09**: IF a `SCHEDULED` record is completed without a result for every checklist item, THEN 400 `CHECKLIST_INCOMPLETE`; IF a `FIRMWARE_UPDATE` record is completed without a firmware version, THEN 400 `FIRMWARE_VERSION_REQUIRED`. [FR-DEV-21]
 - **REQ-ERR-10**: IF work is `VENDOR` without a vendor name, THEN 400 `VENDOR_REQUIRED`; IF a variant has a service interval and no checklist item, THEN 400 `CHECKLIST_REQUIRED`. [D-047]
+
+- **REQ-ERR-11** (draft, D-080): IF the browser exposes no Web Serial, THEN the counter SHALL show the Chromium requirement banner and disable docking; intake keeps manual entry.
+- **REQ-ERR-12** (draft, D-080): IF the docked unit's `nodeNum` differs from the device being provisioned, THEN the counter SHALL write nothing and name the docked node id; a forced provisioning request SHALL get 409 `NODE_MISMATCH` and change nothing.
+- **REQ-ERR-13** (draft, D-080): IF a write is not acknowledged, the read-back differs, the unit disconnects or stops answering, or the port is busy or refused, THEN the counter SHALL record nothing, say which step failed and that the unit must be docked again before handover.
 
 ---
 
@@ -127,8 +137,13 @@ The `devices` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-11**: An estimate of 1 800 000 VND against a threshold of 1 000 000 VND leaves the record `PENDING_APPROVAL`; completing it returns 409; the estimating Admin's decision returns 403; another Admin's approval returns it to `OPEN`. (E05-13, BR-44)
 - **AC-12**: Completing a `FIRMWARE_UPDATE` record with version `2.7.19-treklink.4` updates the device's `firmwareVersion`, and the next scan does not reopen it. (FR-DEV-21)
 
+- **AC-13** (draft): Docking a unit on the Register panel fills its node number and the variant; registration succeeds without typing either.
+- **AC-14** (draft): Docking TL-0043's unit on TL-0042's row writes nothing and records nothing; a forced request returns 409 `NODE_MISMATCH`.
+- **AC-15** (draft): After docking at handover the unit reads back long name `TL-0042`, the agreed short name and the organization's key at version n on channel 0 with its other settings unchanged, and the row shows "Provisioned vn".
+- **AC-16** (draft): Unplugging the unit between the two writes records nothing and the row asks to dock again; Firefox shows the Chromium banner with docking disabled; after a docking no key is found in browser storage or console output.
+
 ---
 
 ## 6. Open Questions
 
-None.
+Docking (D-080): the three decisions of design §8.6, key handling first. Every requirement marked draft waits for them.
