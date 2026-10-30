@@ -135,6 +135,7 @@ PERMISSIONS = [
     ("organization.verify", "verify", "Organization", None, ["STAFF"]),
     ("organization.decide", "decide", "Organization", None, ["ADMIN"]),
     ("organization.suspend", "suspend", "Organization", None, ["ADMIN"]),
+    ("organization.rotateKey", "rotateKey", "Organization", None, ["STAFF"]),  # api-design 27; migration 20261030160000_compliance_and_rotation
     ("member.read", "read", "Member", None, ["STAFF"]),
     ("member.read.own", "read", "Member", OWN, ["ORG_OPERATOR"]),
     ("member.manage.own", "manage", "Member", OWN, ["ORG_MANAGER"]),
@@ -146,6 +147,7 @@ PERMISSIONS = [
     ("fieldStation.manage.own", "manage", "FieldStation", OWN, ["ORG_MANAGER"]),
     ("fieldStation.read", "read", "FieldStation", None, ["STAFF"]),
     ("fieldStation.revoke", "revoke", "FieldStation", None, ["STAFF"]),
+    ("complianceCase.manage", "manage", "ComplianceCase", None, ["STAFF"]),  # api-design 28 to 32; migration 20261030160000_compliance_and_rotation
     # devices
     ("hardwareVariant.read", "read", "HardwareVariant", None, ["STAFF"]),
     ("hardwareVariant.read.org", "read", "HardwareVariant", None, ["ORG_MANAGER"]),  # active variants, no counts

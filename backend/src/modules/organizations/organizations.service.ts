@@ -68,6 +68,45 @@ export class OrganizationsService {
     return true;
   }
 
+  // Task 2.4 part, for a compliance case action (task 2.10, api-design 30, FR-ORG-07): an Admin
+  // suspends an ACTIVE organization in the caller's transaction, with a transition naming the Admin
+  // and the reason. Any other status is 409 INVALID_STATE_TRANSITION, an unknown id 404. The policy
+  // check (`organization.suspend`) is the caller's.
+  async suspendFromCompliance(
+    organizationId: string,
+    reason: string,
+    admin: Caller,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    const current = await this.organizations.lockById(organizationId, tx);
+    if (!current) throw notFound();
+    if (current.status !== OrganizationStatus.ACTIVE) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.INVALID_STATE_TRANSITION,
+        `This cannot be done while it is ${current.status}.`,
+      );
+    }
+    // The row is locked, so the version read above is still the current one.
+    await this.organizations.update(
+      organizationId,
+      current.version,
+      { status: OrganizationStatus.SUSPENDED, statusChangedAt: at, suspensionReason: reason },
+      tx,
+    );
+    await this.organizations.addTransition(
+      {
+        organizationId,
+        fromStatus: OrganizationStatus.ACTIVE,
+        toStatus: OrganizationStatus.SUSPENDED,
+        actorId: admin.id,
+        reason,
+      },
+      tx,
+    );
+  }
+
   // Emails the organization's contact address, the Manager given at registration (rentals 3.2
   // reminders). Returns whether the transport accepted it; a failed send is logged, never thrown, so
   // a job carries on with the next contract. `tx` reads the address in the caller's transaction.

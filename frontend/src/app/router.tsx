@@ -9,10 +9,13 @@ import { ContractApprovalPage } from '../pages/ContractApprovalPage';
 import { ContractDetailPage } from '../pages/ContractDetailPage';
 import { ContractRequestPage } from '../pages/ContractRequestPage';
 import { ContractsPage } from '../pages/ContractsPage';
+import { ComplianceCasePage } from '../pages/ComplianceCasePage';
+import { ComplianceCasesPage } from '../pages/ComplianceCasesPage';
 import { CounterPage } from '../pages/CounterPage';
 import { DeviceDetailPage } from '../pages/DeviceDetailPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { FleetPage } from '../pages/FleetPage';
+import { FieldStationsPage } from '../pages/FieldStationsPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { IncidentDetailPage } from '../pages/IncidentDetailPage';
 import { IncidentsPage } from '../pages/IncidentsPage';
@@ -96,6 +99,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/contracts" element={<ContractsPage />} />
         <Route path="/o/contracts/:id" element={<ContractDetailPage scope="o" />} />
         <Route path="/o/roster" element={<RosterPage />} />
+        <Route path="/o/field-stations" element={<FieldStationsPage />} />
       </Route>
       <Route element={<RequireRole roles={ORG_MANAGER} />}>
         <Route path="/o" element={<OrgDashboardPage />} />
@@ -119,6 +123,8 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/devices/:id" element={<DeviceDetailPage />} />
         <Route path="/t/maintenance" element={<MaintenancePage />} />
         <Route path="/t/maintenance/approvals" element={<MaintenanceApprovalPage />} />
+        <Route path="/t/compliance-cases" element={<ComplianceCasesPage />} />
+        <Route path="/t/compliance-cases/:id" element={<ComplianceCasePage />} />
       </Route>
       <Route element={<RequireRole roles={ADMIN} />}>
         <Route path="/t/admin/prices" element={<PricesPage />} />

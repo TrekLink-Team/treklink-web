@@ -4,6 +4,11 @@ import { PlatformModule } from '../platform/platform.module';
 import { ApiKeysController } from './api-keys.controller';
 import { ApiKeysRepository } from './api-keys.repository';
 import { ApiKeysService } from './api-keys.service';
+import { ChannelKeyController } from './channel-key.controller';
+import { ChannelKeyService } from './channel-key.service';
+import { ComplianceCasesController } from './compliance-cases.controller';
+import { ComplianceCasesRepository } from './compliance-cases.repository';
+import { ComplianceCasesService } from './compliance-cases.service';
 import { FieldStationReleaseService } from './field-station-release.service';
 import { FieldStationsController } from './field-stations.controller';
 import { FieldStationsRepository } from './field-stations.repository';
@@ -26,8 +31,9 @@ import { ShiftsService } from './shifts.service';
 // ACCOUNT_CONTEXT_PROVIDER port (task 1.3, D-060 rule 1), `assertActive` for rentals 2.1, the member
 // list (api-design 12), the channel key and Manager reads of the counter handover, and onboarding
 // (registration, verification, approval, api-design 01, 02, 05 to 07), and the roster `tiersAt` read
-// for incidents routing, the API keys (task 2.7, api-design 20 to 22), and the Field Station credentials
-// and release (task 2.8, api-design 23 to 26); task 1.1 adds the remaining repositories and services.
+// for incidents routing, the API keys (task 2.7, api-design 20 to 22), the Field Station credentials
+// and release (task 2.8, api-design 23 to 26), and the channel key rotation and compliance cases of
+// screens 3.5 and 3.6 (api-design 27 to 32); task 1.1 adds the remaining repositories and services.
 @Module({
   imports: [OrganizationsPortsModule, AuthModule, PlatformModule],
   controllers: [
@@ -35,6 +41,8 @@ import { ShiftsService } from './shifts.service';
     OrganizationOnboardingController,
     ApiKeysController,
     FieldStationsController,
+    ChannelKeyController,
+    ComplianceCasesController,
     MembersController,
     RosterController,
   ],
@@ -51,6 +59,9 @@ import { ShiftsService } from './shifts.service';
     FieldStationsRepository,
     FieldStationsService,
     FieldStationReleaseService,
+    ChannelKeyService,
+    ComplianceCasesRepository,
+    ComplianceCasesService,
     ShiftsService,
   ],
   exports: [OrganizationsService, RosterService, FieldStationsService, FieldStationReleaseService],

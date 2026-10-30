@@ -18,6 +18,7 @@
 | `organization.verify` | verify | Organization |  | TREKLINK | X | X |  |  |
 | `organization.decide` | decide | Organization |  | TREKLINK | X |  |  |  |
 | `organization.suspend` | suspend | Organization |  | TREKLINK | X |  |  |  |
+| `organization.rotateKey` | rotateKey | Organization |  | TREKLINK | X | X |  |  |
 | `member.read` | read | Member |  | TREKLINK | X | X |  |  |
 | `member.read.own` | read | Member | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `member.manage.own` | manage | Member | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
@@ -29,6 +30,7 @@
 | `fieldStation.manage.own` | manage | FieldStation | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `fieldStation.read` | read | FieldStation |  | TREKLINK | X | X |  |  |
 | `fieldStation.revoke` | revoke | FieldStation |  | TREKLINK | X | X |  |  |
+| `complianceCase.manage` | manage | ComplianceCase |  | TREKLINK | X | X |  |  |
 | `hardwareVariant.read` | read | HardwareVariant |  | TREKLINK | X | X |  |  |
 | `hardwareVariant.read.org` | read | HardwareVariant |  | ORGANIZATION |  |  | X |  |
 | `hardwareVariant.manage` | manage | HardwareVariant |  | TREKLINK | X |  |  |  |

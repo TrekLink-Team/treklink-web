@@ -9,6 +9,8 @@ export interface OrganizationSummary {
   status: string;
   statusChangedAt: string;
   channelKeyVersion: number;
+  // Not returned by api-design 03 today (SD 3.6 open point 1); the exposure notice shows only when present.
+  channelKeyExposedAt?: string | null;
   version: number;
 }
 

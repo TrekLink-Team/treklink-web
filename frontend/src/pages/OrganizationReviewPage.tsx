@@ -37,6 +37,7 @@ import { invalid, messageOf } from '../shared/ui/errors';
 import { matchesText } from '../shared/lib/filter';
 import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
 import { TABLE, TD, TH } from '../shared/ui/styles';
+import { ChannelKeySection } from '../widgets/ChannelKeySection/ChannelKeySection';
 
 type Tab = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ALL';
 
@@ -394,6 +395,8 @@ export const OrganizationReviewPage: React.FC = () => {
                   <Fact label="Rejection reason">{selected.rejectionReason}</Fact>
                 )}
               </dl>
+
+              <ChannelKeySection organization={selected} />
 
               {selected.status === 'PENDING' && (
                 <>
