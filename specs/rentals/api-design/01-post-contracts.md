@@ -137,6 +137,23 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
 </td>
         </tr>
         <tr>
+            <td>409</td>
+            <td>The organization is PENDING, REJECTED, SUSPENDED or CLOSED (<code>ORGANIZATION_NOT_ACTIVE</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "ORGANIZATION_NOT_ACTIVE"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "Your organization cannot request devices while it is SUSPENDED."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>400</td>
             <td>Quantity below rentals.minOrderQuantity (<code>BELOW_MOQ</code>)</td>
 <td>
@@ -171,6 +188,23 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>requestedStartDate is before today (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "requestedStartDate must not be in the past."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>404</td>
             <td>The hardware variant is unknown or inactive (<code>NOT_FOUND</code>)</td>
 <td>
@@ -183,23 +217,6 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
   "isSuccess": false,
   "statusCode": 404,
   "message": "Active hardware variant not found."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>409</td>
-            <td>The organization is PENDING, REJECTED, SUSPENDED or CLOSED (<code>ORGANIZATION_NOT_ACTIVE</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "ORGANIZATION_NOT_ACTIVE"
-  },
-  "isSuccess": false,
-  "statusCode": 409,
-  "message": "Your organization cannot request devices while it is SUSPENDED."
 }
 ```
 </td>
@@ -219,28 +236,33 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"Quantity below rentals.minOrderQuantity?"}
+    D2{"The organization is PENDING, REJECTED, SUSPENDED or CLOSED?"}
     D1 -->|no| D2
-    E2["Return 400 BELOW_MOQ"]
+    E2["Return 409 ORGANIZATION_NOT_ACTIVE"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"dayPlanDays is not a configured length?"}
+    D3{"Quantity below rentals.minOrderQuantity?"}
     D2 -->|no| D3
-    E3["Return 400 DAY_PLAN_LENGTH"]
+    E3["Return 400 BELOW_MOQ"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The hardware variant is unknown or inactive?"}
+    D4{"dayPlanDays is not a configured length?"}
     D3 -->|no| D4
-    E4["Return 404 NOT_FOUND"]
+    E4["Return 400 DAY_PLAN_LENGTH"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"The organization is PENDING, REJECTED, SUSPENDED or CLOSED?"}
+    D5{"requestedStartDate is before today?"}
     D4 -->|no| D5
-    E5["Return 409 ORGANIZATION_NOT_ACTIVE"]
+    E5["Return 400 VALIDATION_FAILED"]
     D5 -->|yes| E5
     E5 --> X5((End))
+    D6{"The hardware variant is unknown or inactive?"}
+    D5 -->|no| D6
+    E6["Return 404 NOT_FOUND"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
     P0["Lock the organization row FOR SHARE in the request transaction and require it ACTIVE"]
-    D5 -->|no| P0
+    D6 -->|no| P0
     P1["Validate quantity, day-plan length and start date"]
     P0 --> P1
     P2["Require an active hardware variant"]
