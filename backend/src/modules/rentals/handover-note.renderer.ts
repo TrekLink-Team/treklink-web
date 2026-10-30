@@ -1,4 +1,5 @@
 import * as PDFDocument from 'pdfkit';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // What the handover note states (rentals task 2.4, FR-CON-06, D-037). The preview has no signature,
@@ -25,6 +26,11 @@ const stamp = (at: Date) =>
   at.toLocaleString('en-GB', { timeZone: ZONE, dateStyle: 'medium', timeStyle: 'short' }) +
   ' (UTC+7)';
 
+// The bundled Unicode font, read from disk on the first note and kept for the process's lifetime.
+let fontData: Buffer | undefined;
+const unicodeFont = (): Buffer =>
+  (fontData ??= readFileSync(join(__dirname, 'assets', 'DejaVuSans.ttf')));
+
 // Embed the bundled Unicode font so organization and signer names keep their Vietnamese diacritics.
 export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
   new Promise((resolve, reject) => {
@@ -33,7 +39,7 @@ export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
-    doc.font(join(__dirname, 'assets', 'DejaVuSans.ttf'));
+    doc.font(unicodeFont());
 
     doc.fontSize(18).text(input.title ?? 'TrekLink device handover note', { align: 'left' });
     doc
