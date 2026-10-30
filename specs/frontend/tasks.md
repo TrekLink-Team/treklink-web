@@ -61,10 +61,11 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 ## Phase 3: Organization onboarding and administration
 
-- [ ] 3.1 `RegisterPage` (owner LongLP, reassigned from TanNB 2026-10-27, issue #98)
+- [x] 3.1 `RegisterPage` (owner LongLP, reassigned from TanNB 2026-10-27, issue #98)
   - **Do**: organizations api-design 01; MSG04 on success; MSG10 on a duplicate
   - **Partly done** (2026-10-27, by LongLP for Review 2 in TanNB's lane): `/register`, public and linked from sign-in: seven fields with required checks, the server's field errors under each field, MSG10 as a page alert, MSG04 with the new code. Walked in the browser on local PGlite. 2026-10-28: rebuilt on the design-system components of #95, component-tested (required fields, MSG04 with the code), and `ui-design/3-1-registerpage.md` filled in
   - _Story: US-UC01_
+  - **Done** (2026-10-30, LongLP): MSG10 is now component-tested too: a 409 `CONFLICT_UNIQUE` shows the server's message ("0312345678 is already registered.") as the page alert and keeps the form and its values (`OnboardingPages.test.tsx`). Nothing else in the `Do` line is open
 - [x] 3.2 `OrganizationReviewPage` for Staff and Admin (owner LongLP, reassigned from TanNB 2026-10-27, issue #98)
   - **Do**: organizations api-design 02, 03, 05 to 11; verification form with method, documents, master contract reference and the NDA and software licence checkboxes (both required); approve or reject (MSG16, MSG21); suspend, reactivate, close
   - **Partly done** (2026-10-27, LongLP): `/t/organizations` for Staff and Admin with the Pending, Active, Rejected and All tabs, the queue table and a side panel: details, the verification form (both terms required) and, for the Admin, Approve (held until verified, MSG21) and Reject with its reason dialog (MSG16). 2026-10-28: rebuilt on the design-system components of #95 (Tabs, StatusBadge with `ORGANIZATION_STATUS`, Card panel, RadioGroup, Checkbox, Dialog, Alert), component-tested (Approve held until verified, both contract terms required), walked in the browser as the Admin (ORG-0002 verified and approved on local PGlite), and `ui-design/3-2-*.md` filled in. Open: suspend, reactivate and close (api-design 08 to 11)

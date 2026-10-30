@@ -111,6 +111,33 @@ describe('RegisterPage (screen 3.1)', () => {
   });
 });
 
+describe('RegisterPage duplicates (screen 3.1, MSG10)', () => {
+  it("shows the server's MSG10 for a tax code already registered and keeps the form", async () => {
+    registerOrganization.mockRejectedValue(
+      new ApiError(409, 'CONFLICT_UNIQUE', '0312345678 is already registered.'),
+    );
+    renderPage(<RegisterPage />);
+    const values: Record<string, string> = {
+      'Registered company name': 'Lang Biang Trekking Co., Ltd.',
+      'Tax code': '0312345678',
+      'Registered address': '1 Le Loi, Da Lat',
+      'Company phone': '0901234567',
+      'Manager full name': 'Demo Manager',
+      'Manager email': 'manager@example.com',
+      'Manager phone': '0907654321',
+    };
+    for (const [label, value] of Object.entries(values)) {
+      fireEvent.change(screen.getByLabelText(new RegExp(`^${label}`)), { target: { value } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    await waitFor(() =>
+      expect(screen.getByText('0312345678 is already registered.')).toBeTruthy(),
+    );
+    expect((screen.getByLabelText(/^Tax code/) as HTMLInputElement).value).toBe('0312345678');
+    expect(screen.getByRole('button', { name: 'Register' })).toBeTruthy();
+  });
+});
+
 describe('OrganizationReviewPage (screen 3.2)', () => {
   it('holds Approve until the organization is verified (MSG21)', () => {
     items = [organization()];

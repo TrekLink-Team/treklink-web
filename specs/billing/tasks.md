@@ -15,11 +15,12 @@
 
 ## Phase 1: Foundation & Domain Modeling
 
-- [ ] 1.1 `BillingModule` and repositories (owner LongLP)
+- [x] 1.1 `BillingModule` and repositories (owner LongLP)
   - **Files**: `backend/src/modules/billing/billing.module.ts`, `pricing.repository.ts`, `invoices.repository.ts`, `payments.repository.ts`
   - **Do**: repositories over the `// @module billing` models only; invoice number `INV-<year>-<6 digits>` as the `schema.prisma` example `INV-2026-000123`
   - _Requirements: NFR-MNT-01_
   - **Partly done** (Jira card pending, treklink-docs#114 point 4): `BillingModule` and `invoices.repository.ts` with `INV-<year>-NNNNNN` under a per-year advisory lock (the year in UTC+7, a range error past 999999). `payments.repository.ts` with the counter payment of 3.1. `pricing.repository.ts` waits on points 1 and 2 of treklink-docs#114.
+  - **Done** (2026-10-30, LongLP, verified on `dev`): `pricing.repository.ts` exists since the points of treklink-docs#114 were settled (D-081), beside `invoices.repository.ts`, `payments.repository.ts` and `damage-charges.repository.ts`; `node scripts/check-module-boundaries.js` passes (each repository reads only the models `billing` owns)
 - [x] 1.2 Money helpers (owner LongLP)
   - **Files**: `backend/src/modules/billing/money.ts`
   - **Do**: integer VND only; `ceilVnd(x)` rounds each line up to the whole đồng; no floating amount is stored
@@ -100,12 +101,13 @@
 
 ## Phase 4: Query / Retrieval
 
-- [ ] 4.1 Invoices, payments, damage charges (owner LongLP)
+- [x] 4.1 Invoices, payments, damage charges (owner LongLP)
   - **Do**: invoices and payments with status and contract filters (Org Manager sees own); invoice detail with lines; contract balance; damage charges pending approval
   - **Test**: a Manager reading another organization's invoice gets 404
   - _Requirements: FR-BILL-06, FR-AUTH-11_
   - _Story: US-UC45, US-UC55 (data)_
   - **Partly done**: `BillingReadsService` serves the invoice page (contract, status and overdue filters), the invoice detail with its lines and payments, the payment page and the contract balance; a member reads only its own organization's rows, and another organization's invoice or contract answers 404. The contract code, organization code and term sequence of a row come from the port `CONTRACT_DIRECTORY` (design §4), which `rentals` provides; without it they are null. A contract with no invoice yet answers a zero balance, since billing cannot see its organization before the first invoice. Damage charges pending approval followed on 2026-10-30 (D-081, task 2.4)
+  - **Done** (2026-10-30, LongLP, verified on `dev`): the test line holds in `billing.e2e-spec.ts` (an Org Manager reading another organization's invoice or balance gets 404), and the damage charges pending approval are served by api-design 16 and listed in the balance (D-081)
 
 ## Phase 5: API Presentation Layer
 
@@ -127,3 +129,4 @@
 ## Phase 7: Verification & DoD
 
 - [ ] 7.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner LongLP)
+  - **Progress** (2026-10-30, LongLP): `scripts/specs/build_api_design.py` reproduces every committed api-design file again. The billing README had been hand-edited to "Public (SePay API key header)" for api-design 12 while the catalog said "Public", and the generator treated only the exact word as public; the catalog now carries the qualified text and the generator takes any permission starting with "Public" as public, which also drops the access-token 401 and policy 403 rows from auth api-design 02 (the refresh route is `@Public()`). Suite, lint, boundary check and typecheck were green on 2026-10-30. Open: rentals 6.2 and billing 5.2 still open, so the DoD box waits
