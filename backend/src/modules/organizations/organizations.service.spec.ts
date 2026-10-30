@@ -278,6 +278,7 @@ describe('OrganizationsService.suspendFromCompliance (task 2.10, api-design 30)'
       organizations as unknown as OrganizationsRepository,
       {} as MembersRepository,
       {} as AccountsService,
+      {} as OrganizationLifecycle,
       { send: jest.fn() },
     );
   });
