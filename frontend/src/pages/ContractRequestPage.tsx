@@ -7,6 +7,7 @@ import { contractKeys, requestContract, type PlanType } from '../entities/contra
 import { useOrganization } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDay, formatVnd, todayDay } from '../shared/lib/format';
+import { useDebounced } from '../shared/lib/useDebounced';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
 import { useToast } from '../shared/ui/toastStore';
@@ -46,16 +47,6 @@ const errorsOf = (failure: unknown): Errors => {
     return field ? { [field]: failure.message } : { form: failure.message };
   }
   return { form: failure.message };
-};
-
-// Waits until the step 1 values have been still for a moment, so typing a quantity sends one quote.
-const useDebounced = <T,>(value: T, ms: number): T => {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSettled(value), ms);
-    return () => window.clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
 };
 
 // /o/contracts/new, screen 5.1: three steps of at most four fields, with the quote of billing
