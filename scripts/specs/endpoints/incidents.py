@@ -16,9 +16,53 @@ VERSION = ["expectedVersion", "Incident version the caller saw", "int", "yes", "
 TAKEN = (409, "ALREADY_OWNED", "Another member acknowledged first (compare-and-set lost)",
          "Pham Van D took this incident at 10:15.")
 NOT_OWNER = (403, "NOT_OWNER", "Only the member who owns the response may do this", "You do not have access to this.")
-SEQ = ["Svc->>DB: BEGIN, SELECT incident FOR UPDATE", "Svc->>Svc: transition table lookup, guards",
-       "Svc->>DB: UPDATE incident SET state, version+1 WHERE version = expected",
-       "Svc->>DB: INSERT incident_transitions, alert_deliveries (outbox), COMMIT", "Svc-)Svc: dispatcher delivers outbox"]
+
+def _indent(lines, n=1):
+    return ["    " * n + line for line in lines]
+
+
+MEMBER_HEAD = ["actor U as Org Operator or Org Manager", "participant P as IncidentDetailPage",
+               "participant Ctl as IncidentsController", "participant Svc as IncidentsService",
+               "participant L as IncidentLifecycle", "participant R as IncidentsRepository",
+               "participant Ob as AlertDeliveriesRepository"]
+
+
+def member_sequence(action, url, call, pre, to, reason, lifecycle_refusals, status, done):
+    """IncidentsService.transition as the code runs it (api-design 03, 04, 06, 07): checks before the
+    transaction, lockById (404), then IncidentLifecycle.apply with its own refusals."""
+    branches = []
+    for i, (label, st, code, msg, extra) in enumerate(lifecycle_refusals):
+        branches.append(("alt " if i == 0 else "else ") + label)
+        branches += _indent(["L-->>Svc: " + f"{st} {code}"] + extra
+                            + [f"Svc-->>Ctl: {st} {code}", f"Ctl-->>P: {st} envelope", f"P-->>U: {msg}"])
+    branches.append("else accepted")
+    branches += _indent(["L->>R: compareAndSet(current, patch, tx)", "L->>R: insertTransition(row, tx)",
+                         "L->>Ob: enqueue(API event, tx)", f"L-->>Svc: incident {to}",
+                         "Note over Svc,R: COMMIT, then incident.changed and audit.record",
+                         "Svc-->>Ctl: incident", "Note over Ctl: IncidentsQueryService.views adds device and owner",
+                         f"Ctl-->>P: {status} envelope", f"P-->>U: {done}"])
+    branches.append("end")
+    found = ([f"Svc->>L: apply(id, current, {to}, member, {reason} with expectedVersion, tx)", "activate L",
+              "L->>R: lockById(id, tx)"] + branches + ["deactivate L"])
+    body = (["alt " + pre[0]] + _indent([f"Svc-->>Ctl: {pre[1]}", f"Ctl-->>P: {pre[2]}", f"P-->>U: {pre[3]}"])
+            + ["else member request", "    Note over Svc,R: BEGIN", "    Svc->>R: lockById(id, tx)",
+               "    alt no such incident, or another organization's"]
+            + _indent(["Svc-->>Ctl: 404 NOT_FOUND", "Ctl-->>P: 404 envelope", "P-->>U: MSG26"], 2)
+            + ["    else incident found"] + _indent(found, 2) + ["    end", "end"])
+    return (MEMBER_HEAD + [f"U->>P: {action}", "activate P", f"P->>Ctl: POST {url}", "activate Ctl",
+                           f"Ctl->>Svc: {call}", "activate Svc"] + body
+            + ["deactivate Svc", "deactivate Ctl", "deactivate P"])
+
+
+STALE_BRANCH = ("expectedVersion differs", 409, "STALE_VERSION", "MSG36, reload", [])
+NOT_OWNER_BRANCH = ("caller is not the owner", 403, "NOT_OWNER", "MSG26", [])
+
+
+def state_branch(states):
+    return (f"state is not {states}", 409, "INVALID_STATE_TRANSITION", "MSG28", [])
+
+
+NO_ORG = "caller has no organization"
 
 ENDPOINTS = [
     ep("GET", "/api/incidents", "List incidents", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
@@ -64,8 +108,14 @@ ENDPOINTS = [
        steps=["Require NOTIFY_*, ESCALATED or REPORTED", "If another member owns it: ALREADY_OWNED",
               "If the version differs: STALE_VERSION", "Compare-and-set to ACKNOWLEDGED, set owner",
               "Clear the tier deadline, set statusDueAt", "Write transition and outbox rows"],
-       controller="IncidentsController", service="IncidentLifecycleService", call="acknowledge(id, dto, caller)",
-       seq=SEQ),
+       controller="IncidentsController", service="IncidentsService", call="acknowledge(id, input, caller)",
+       sequence=member_sequence(
+           "acknowledge", "/api/incidents/:id/acknowledge", "acknowledge(id, input, caller)",
+           [NO_ORG, "403 FORBIDDEN", "403 envelope", "MSG26"], "ACKNOWLEDGED", "ACKNOWLEDGED",
+           [("another member owns it", 409, "ALREADY_OWNED", "MSG27, owner and time shown",
+             ["Svc->>R: latestAcknowledgement(id), after rollback"]),
+            STALE_BRANCH, state_branch("NOTIFY_*, ESCALATED or REPORTED")],
+           200, "ACKNOWLEDGED, owner is the caller")),
 
     ep("POST", "/api/incidents/:id/responding", "Report a response under way", "Owner (Org Manager or Org Operator)",
        "The owner reports that a response is under way: `ACKNOWLEDGED` to `RESPONDING`, and the stale timer "
@@ -74,8 +124,13 @@ ENDPOINTS = [
        sample={"note": "Guide team of 3 dispatched from camp 2", "expectedVersion": 2},
        response={**INC, "state": "RESPONDING", "statusDueAt": "2026-10-20T04:15:00Z", "version": 3},
        message="Status recorded", entity="Incident", errors=[NOT_OWNER, state_409("incident", "NOTIFY_PRIMARY"), STALE],
-       steps=["Require ACKNOWLEDGED and the caller as owner", "Transition, append the status update, reset statusDueAt"],
-       controller="IncidentsController", service="IncidentLifecycleService", call="markResponding(id, dto, caller)", seq=SEQ),
+       steps=["Require ACKNOWLEDGED and the caller as owner", "Transition with the note on it, reset statusDueAt"],
+       controller="IncidentsController", service="IncidentsService", call="responding(id, input, caller)",
+       sequence=member_sequence(
+           "report a response under way", "/api/incidents/:id/responding", "responding(id, input, caller)",
+           ["blank note, or caller has no organization", "400 VALIDATION_FAILED or 403 FORBIDDEN",
+            "400 or 403 envelope", "field error, or MSG26"], "RESPONDING", "RESPONDING",
+           [STALE_BRANCH, state_branch("ACKNOWLEDGED"), NOT_OWNER_BRANCH], 200, "RESPONDING, next update due")),
 
     ep("POST", "/api/incidents/:id/status-updates", "Add a status update", "Owner (Org Manager or Org Operator)",
        "Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale timer; no state "
@@ -88,8 +143,26 @@ ENDPOINTS = [
        errors=[NOT_OWNER, state_409("incident", "RESOLVED")],
        steps=["Require ACKNOWLEDGED or RESPONDING and the caller as owner", "Insert the update, reset statusDueAt",
               "Emit incident.changed to the organization stream"],
-       controller="IncidentsController", service="IncidentLifecycleService", call="addStatus(id, dto, caller)",
-       seq=["Svc->>DB: INSERT incident_status_updates; UPDATE incidents.statusDueAt"]),
+       controller="IncidentsController", service="IncidentsService", call="addStatus(id, input, caller)",
+       sequence=MEMBER_HEAD[:4] + ["participant R as IncidentsRepository",
+           "U->>P: post a status update", "activate P", "P->>Ctl: POST /api/incidents/:id/status-updates",
+           "activate Ctl", "Ctl->>Svc: addStatus(id, input, caller)", "activate Svc",
+           "alt blank note, or caller has no organization",
+           "    Svc-->>Ctl: 400 VALIDATION_FAILED or 403 FORBIDDEN", "    Ctl-->>P: 400 or 403 envelope",
+           "    P-->>U: field error, or MSG26",
+           "else member request", "    Note over Svc,R: BEGIN", "    Svc->>R: lockById(id, tx)",
+           "    alt no such incident, or another organization's",
+           "        Svc-->>Ctl: 404 NOT_FOUND", "        Ctl-->>P: 404 envelope", "        P-->>U: MSG26",
+           "    else not ACKNOWLEDGED or RESPONDING",
+           "        Svc-->>Ctl: 409 INVALID_STATE_TRANSITION", "        Ctl-->>P: 409 envelope", "        P-->>U: MSG28",
+           "    else caller is not an Org Operator or Org Manager, or not the owner",
+           "        Svc-->>Ctl: 403 FORBIDDEN or NOT_OWNER", "        Ctl-->>P: 403 envelope", "        P-->>U: MSG26",
+           "    else owner",
+           "        Svc->>R: insertStatusUpdate(row, tx)", "        Svc->>R: resetStatusDue(id, statusDueAt, tx)",
+           "        Note over Svc,R: COMMIT, then incident.changed and audit.record",
+           "        Svc-->>Ctl: status update and statusDueAt", "        Ctl-->>P: 201 envelope",
+           "        P-->>U: update shown, next update due",
+           "    end", "end", "deactivate Svc", "deactivate Ctl", "deactivate P"]),
 
     ep("POST", "/api/incidents/:id/resolve", "Report the outcome", "Owner (Org Manager or Org Operator)",
        "The owner reports the outcome with a note: `RESOLVED`; that time is time-to-resolve; the reopen "
@@ -99,7 +172,13 @@ ENDPOINTS = [
        response={**INC, "state": "RESOLVED", "statusDueAt": None, "reopenWindowEndsAt": "2026-10-20T05:20:00Z", "version": 4},
        message="Incident resolved", entity="Incident", errors=[NOT_OWNER, state_409("incident", "NOTIFY_BACKUP"), STALE],
        steps=["Require ACKNOWLEDGED or RESPONDING and the caller as owner", "Transition, set resolvedAt and the reopen window"],
-       controller="IncidentsController", service="IncidentLifecycleService", call="resolve(id, dto, caller)", seq=SEQ),
+       controller="IncidentsController", service="IncidentsService", call="resolve(id, input, caller)",
+       sequence=member_sequence(
+           "report the outcome", "/api/incidents/:id/resolve", "resolve(id, input, caller)",
+           ["blank outcomeNote, or caller has no organization", "400 VALIDATION_FAILED or 403 FORBIDDEN",
+            "400 or 403 envelope", "field error, or MSG26"], "RESOLVED", "RESOLVED",
+           [STALE_BRANCH, state_branch("ACKNOWLEDGED or RESPONDING"), NOT_OWNER_BRANCH], 200,
+           "RESOLVED, reopen window started")),
 
     ep("POST", "/api/incidents/:id/false-alarm", "Declare a false alarm",
        "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin: UNROUTED only",
@@ -112,7 +191,14 @@ ENDPOINTS = [
        response={**INC, "state": "FALSE_ALARM", "reopenWindowEndsAt": "2026-10-20T04:20:00Z", "version": 2},
        message="Marked as false alarm", entity="Incident", errors=[state_409("incident", "ESCALATED"), STALE],
        steps=["Check the caller kind against the state", "Transition, store the reason, set the reopen window"],
-       controller="IncidentsController", service="IncidentLifecycleService", call="declareFalse(id, dto, caller)", seq=SEQ),
+       controller="IncidentsController", service="IncidentsService", call="falseAlarm(id, input, caller)",
+       sequence=member_sequence(
+           "declare a false alarm", "/api/incidents/:id/false-alarm", "falseAlarm(id, input, caller)",
+           ["blank reason, or caller has no organization", "400 VALIDATION_FAILED or 403 FORBIDDEN",
+            "400 or 403 envelope", "field error, or MSG26"], "FALSE_ALARM", "FALSE_ALARM",
+           [STALE_BRANCH, state_branch("NOTIFY_*, ACKNOWLEDGED or RESPONDING"),
+            ("caller is not an Org Operator or Org Manager", 403, "FORBIDDEN", "MSG26", [])],
+           200, "FALSE_ALARM, reopen window started")),
 
     ep("POST", "/api/incidents/:id/authority-reports", "Report to the authorities", "TrekLink Staff, TrekLink Admin",
        "Records a report to the authorities on an `ESCALATED` or `UNROUTED` incident (agency, reference, "
@@ -130,7 +216,38 @@ ENDPOINTS = [
        response={**INC, "state": "REPORTED", "version": 6}, status=201, message="Report recorded", entity="Incident",
        errors=[state_409("incident", "ACKNOWLEDGED"), STALE],
        steps=["Require ESCALATED or UNROUTED", "Insert authority_reports", "Transition to REPORTED"],
-       controller="IncidentsController", service="AuthorityReportsService", call="reportIncident(id, dto, actor)", seq=SEQ),
+       controller="IncidentsController", service="AuthorityReportsService", call="reportIncident(id, input, caller)",
+       sequence=["actor U as TrekLink Staff", "participant P as StaffIncidentsPage",
+           "participant Ctl as IncidentsController", "participant Svc as AuthorityReportsService",
+           "participant L as IncidentLifecycle", "participant R as IncidentsRepository",
+           "participant Ar as AuthorityReportsRepository",
+           "U->>P: record agency, reference, time", "activate P",
+           "P->>Ctl: POST /api/incidents/:id/authority-reports", "activate Ctl",
+           "Ctl->>Svc: reportIncident(id, input, caller)", "activate Svc",
+           "alt caller has an organization, or agency, reference or reportedAt invalid",
+           "    Svc-->>Ctl: 403 FORBIDDEN or 400 VALIDATION_FAILED", "    Ctl-->>P: 403 or 400 envelope",
+           "    P-->>U: MSG26, or the field error",
+           "else valid Staff request", "    Note over Svc,R: BEGIN", "    Svc->>R: lockById(id, tx)",
+           "    alt incident not found",
+           "        Svc-->>Ctl: 404 NOT_FOUND", "        Ctl-->>P: 404 envelope", "        P-->>U: MSG26",
+           "    else not ESCALATED or UNROUTED",
+           "        Svc-->>Ctl: 409 INVALID_STATE_TRANSITION", "        Ctl-->>P: 409 envelope",
+           "        P-->>U: MSG28, incident reloaded",
+           "    else ESCALATED or UNROUTED",
+           "        Svc->>L: apply(id, current, REPORTED, STAFF, AUTHORITY_REPORTED with expectedVersion, tx)",
+           "        activate L", "        L->>R: lockById(id, tx)",
+           "        alt expectedVersion differs",
+           "            L-->>Svc: 409 STALE_VERSION", "            Svc-->>Ctl: 409 STALE_VERSION",
+           "            Ctl-->>P: 409 envelope", "            P-->>U: MSG36, Reload keeps the values",
+           "        else version matches",
+           "            L->>R: compareAndSet(current, patch, tx)", "            L->>R: insertTransition(row, tx)",
+           "            L-->>Svc: incident REPORTED", "            Svc->>Ar: insert(report, tx)",
+           "            Note over Svc,Ar: COMMIT, then audit.record and incident.changed",
+           "            Svc-->>Ctl: incident REPORTED",
+           "            Note over Ctl: IncidentsQueryService.views adds device and owner",
+           "            Ctl-->>P: 201 envelope", "            P-->>U: MSG03, REPORTED",
+           "        end", "        deactivate L", "    end", "end",
+           "deactivate Svc", "deactivate Ctl", "deactivate P"]),
 
     ep("POST", "/api/authority-reports/:reportId/close-case", "Record the authority case closed",
        "TrekLink Staff, TrekLink Admin",
