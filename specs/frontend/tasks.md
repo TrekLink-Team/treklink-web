@@ -40,6 +40,11 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: one socket to `/live` (`ws-live-contract.md`); last cursor in `sessionStorage`; MSG32 while reconnecting, cleared on `replay.done`; `incident.alert` shows the red pulsing MSG31 banner on every page with one-tap acknowledge until acknowledged or taken (MSG27); stream entries invalidate the matching query keys
   - **Test**: AC-02 on a 360 px viewport
   - _Requirements: REQ-EVT-01, REQ-EVT-03, AC-02, FR-MON-05, FR-INC-06_
+- [x] 1.5 Sticky page header and fixed action bar (dry run defect 6; KhoaDD under D-078, 2026-10-30)
+  - **Files**: `shared/ui/PageChrome.tsx` (`StickyPageHeader`, `PageActionBar`), `shared/ui/{PageHeader,Stepper,bits,Dialog}.tsx`, `widgets/AppShell/AppShell.tsx`; pages `CounterPage` (handover and screen 5.5 through `widgets/ReturnCounter`), `ContractRequestPage`, `OrganizationReviewPage`, and the open and complete dialogs of `MaintenancePage`
+  - **Do**: the leader rule of 2026-10-30 in design §7 and design-system §5.2
+  - **Test**: `shared/ui/PageChrome.test.tsx` (compact switch, breadcrumb hand-over, action bar actions, form submit by `form` attribute, dialog footer outside the scroll), `AppShell.test.tsx` and `CounterPage.test.tsx`; a headless Chromium pass of the counter at 1280 and 360 px in both themes, before and after scrolling, with every Tab stop clear of the header and the bar
+  - _Requirements: NFR-USE-01_
 
 ## Phase 2: Public and auth pages
 
