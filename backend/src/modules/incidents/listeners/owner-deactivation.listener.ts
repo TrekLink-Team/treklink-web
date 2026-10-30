@@ -17,6 +17,8 @@ const lostRace = (error: unknown): boolean =>
 // ACKNOWLEDGED or RESPONDING incident they own goes back to NOTIFY_BACKUP as SYSTEM and alerts that
 // tier; the lifecycle skips an empty tier. The member is already off the roster when the event
 // arrives (organizations clears the shifts in the same commit), so the tiers read here exclude them.
+// Recipients come from RoutingService.recipientsOf, so when every tier is empty the EMPTY_TIER cascade
+// reaches ESCALATED with the active TrekLink Staff and Admin alerted (REQ-EVT-04, design §3, D-079).
 // One transaction per incident, so one failure does not hold back the others; a failed one is
 // logged, and its status deadline still escalates it (REQ-EVT-07).
 @Injectable()
@@ -40,11 +42,11 @@ export class OwnerDeactivationListener {
       return [];
     });
     let moved = 0;
-    for (const { id, state, organizationId, contractId } of owned) {
+    for (const { id, state, organizationId } of owned) {
       try {
         await this.events.transaction(async (tx) => {
           const now = new Date();
-          const { recipients } = await this.routing.route({ organizationId, contractId }, now, tx);
+          const recipients = await this.routing.recipientsOf(organizationId, now, tx);
           await this.lifecycle.apply(
             id,
             state,

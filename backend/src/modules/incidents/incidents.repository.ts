@@ -238,7 +238,7 @@ export class IncidentsRepository {
     return this.prisma.incident.findMany({
       where: { ownerId, state: { in: ['ACKNOWLEDGED', 'RESPONDING'] } },
       orderBy: { firstEventAt: 'asc' },
-      select: { id: true, state: true, organizationId: true, contractId: true },
+      select: { id: true, state: true, organizationId: true },
     });
   }
 
