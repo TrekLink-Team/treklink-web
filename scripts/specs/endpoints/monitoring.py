@@ -57,7 +57,11 @@ ENDPOINTS = [
        "the organization held the device that overlap the range, whole and not cut to the range, and is "
        "empty for Staff and Admin. A reversed range or one longer than `monitoring.historyMaxRangeDays` "
        "days answers 400 `to must be after from and at most {n} days later.`. `format=csv` returns the "
-       "points as CSV text in `result`, with the header `at,kind,lat,lon,altitude,batteryPct`.",
+       "points as CSV text in `result`, with the header `at,kind,lat,lon,altitude,batteryPct`. At most "
+       "`HISTORY_MAX_POINTS` (50,000, `field-event-query.service.ts`) points are answered, oldest first; a range "
+       "holding more sets `truncated` and the caller narrows the range (the CSV carries the same first 50,000 "
+       "points and no flag). The read trusts the attribution ingestion wrote on each event and does not re-check "
+       "the custody intervals.",
        "UC-40, FR-AUTH-11, FR-MON-07, BR-19",
        path=[["id", "Device id", "uuid", f"`{DEVICE_ID}`"]],
        query=[["from", "Inclusive start", "datetime", "yes", "`2026-10-20T00:00:00Z`"],
@@ -65,7 +69,11 @@ ENDPOINTS = [
               ["kind", "`POSITION`, `TELEMETRY` or both", "enum[]", "no", "`[\"POSITION\"]`"],
               ["format", "`json` or `csv`", "enum", "no", "`json`"]],
        response={"deviceId": DEVICE_ID, "clippedTo": [{"from": "2026-10-20T02:00:00Z", "to": "2026-10-21T00:00:00Z"}],
-                 "points": [{"at": NOW, "kind": "POSITION", "lat": 11.5601, "lon": 108.5402, "altitude": 1320, "batteryPct": 81}]},
+                 "points": [{"at": NOW, "kind": "POSITION", "lat": 11.5601, "lon": 108.5402, "altitude": 1320, "batteryPct": 81}],
+                 "truncated": False},
+       fields=[["clippedTo[]", "Periods the caller's organization held the device that overlap the range; empty for Staff and Admin", "object[]", "see sample"],
+               ["points[]", "Positions and telemetry by occurrence time, oldest first, at most 50,000", "object[]", "see sample"],
+               ["truncated", "True when the range holds more than 50,000 points and only the oldest 50,000 are answered", "bool", "`false`"]],
        entity="Device", steps=["Ask rentals for the caller's rental periods of the device", "Read events inside them"],
        controller="TelemetryController", service="HistoryService", call="history(id, query, caller)",
        participants=[["Rent", "RentalsService"], ["Gw", "GatewaySyncService"]],

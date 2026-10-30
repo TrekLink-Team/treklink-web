@@ -1561,6 +1561,7 @@ model FieldEvent {
   transitionsAsRefEvent IncidentTransition[] @relation("IncidentTransition_refEventId")
 
   @@index([deviceId, receivedAt])
+  @@index([deviceId, occurredAt]) // device history range (monitoring api-design 03)
   @@index([deviceId, kind, receivedAt])
   @@index([organizationId, seq])
   @@index([contractDeviceId])

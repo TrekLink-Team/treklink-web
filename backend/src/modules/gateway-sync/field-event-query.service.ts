@@ -14,6 +14,11 @@ export type FieldEventView = Omit<FieldEventRow, 'seq'> & { seq: number; assetTa
 export const HISTORY_KINDS = ['POSITION', 'TELEMETRY'] as const;
 export type HistoryKind = (typeof HISTORY_KINDS)[number];
 
+// The most points one device history answers (monitoring api-design 03): seven days of a unit reporting
+// a position and a telemetry reading every 30 s is about 40,000. A range holding more answers the oldest
+// HISTORY_MAX_POINTS with `truncated` true, and the caller narrows the range.
+export const HISTORY_MAX_POINTS = 50_000;
+
 // One point of a device history.
 export interface HistoryPoint {
   at: Date;
@@ -69,22 +74,30 @@ export class FieldEventQueryService {
   // (monitoring api-design 03, UC-40). An organization sees the events attributed to it, which the
   // ingestion already limited to its custody intervals (FR-EVT-16, BR-36); a null organization is the
   // whole history, `UNATTRIBUTED` included, for TrekLink Staff and Admin. A position marked not plotted
-  // (an implausible fix) is never returned (FR-MON-04).
-  async historyPoints(query: {
-    deviceId: string;
-    organizationId: string | null;
-    from: Date;
-    to: Date;
-    kinds: readonly HistoryKind[];
-  }): Promise<HistoryPoint[]> {
-    const rows = await this.repository.historyRows({
-      deviceId: query.deviceId,
-      ...(query.organizationId === null ? {} : { organizationId: query.organizationId }),
-      kind: { in: [...query.kinds] },
-      occurredAt: { gte: query.from, lt: query.to },
-      NOT: { kind: 'POSITION', plotted: false },
-    });
-    return rows.map((row) => ({
+  // (an implausible fix) is never returned (FR-MON-04). At most `maxPoints` points, oldest first;
+  // `truncated` says the range holds more.
+  async historyPoints(
+    query: {
+      deviceId: string;
+      organizationId: string | null;
+      from: Date;
+      to: Date;
+      kinds: readonly HistoryKind[];
+    },
+    maxPoints: number = HISTORY_MAX_POINTS,
+  ): Promise<{ points: HistoryPoint[]; truncated: boolean }> {
+    const rows = await this.repository.historyRows(
+      {
+        deviceId: query.deviceId,
+        ...(query.organizationId === null ? {} : { organizationId: query.organizationId }),
+        kind: { in: [...query.kinds] },
+        occurredAt: { gte: query.from, lt: query.to },
+        NOT: { kind: 'POSITION', plotted: false },
+      },
+      maxPoints + 1,
+    );
+    const truncated = rows.length > maxPoints;
+    const points = rows.slice(0, maxPoints).map((row) => ({
       at: row.occurredAt,
       kind: row.kind as HistoryKind,
       lat: row.latitude,
@@ -92,6 +105,7 @@ export class FieldEventQueryService {
       altitude: row.altitude,
       batteryPct: row.batteryPct,
     }));
+    return { points, truncated };
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
 }

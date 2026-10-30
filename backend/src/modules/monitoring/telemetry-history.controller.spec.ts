@@ -59,7 +59,7 @@ describe('TelemetryHistoryController (monitoring api-design 03)', () => {
   });
 
   describe('the answer', () => {
-    const history = { deviceId: 'd-1', clippedTo: [], points: [] };
+    const history = { deviceId: 'd-1', clippedTo: [], points: [], truncated: false };
     const service = {
       history: jest.fn().mockResolvedValue(history),
       csv: jest.fn().mockReturnValue('at,kind,lat,lon,altitude,batteryPct'),

@@ -1,7 +1,7 @@
 import { EventKind } from '@prisma/client';
 import { ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
-import { FieldEventQueryService } from './field-event-query.service';
+import { FieldEventQueryService, HISTORY_MAX_POINTS } from './field-event-query.service';
 import { SyncQueryRepository } from './sync-query.repository';
 
 const row = (seq: bigint, deviceId: string) => ({
@@ -123,23 +123,56 @@ describe('FieldEventQueryService.historyPoints (monitoring api-design 03)', () =
       to,
       kinds: ['POSITION', 'TELEMETRY'],
     });
-    expect(repository.historyRows).toHaveBeenCalledWith({
-      deviceId: 'd-1',
-      organizationId: 'org-1',
-      kind: { in: ['POSITION', 'TELEMETRY'] },
-      occurredAt: { gte: from, lt: to },
-      NOT: { kind: 'POSITION', plotted: false },
-    });
-    expect(points).toEqual([
+    expect(repository.historyRows).toHaveBeenCalledWith(
       {
-        at: new Date('2026-10-20T03:15:00Z'),
-        kind: 'POSITION',
-        lat: 11.56,
-        lon: 108.54,
-        altitude: 1320,
-        batteryPct: null,
+        deviceId: 'd-1',
+        organizationId: 'org-1',
+        kind: { in: ['POSITION', 'TELEMETRY'] },
+        occurredAt: { gte: from, lt: to },
+        NOT: { kind: 'POSITION', plotted: false },
       },
-    ]);
+      HISTORY_MAX_POINTS + 1,
+    );
+    expect(points).toEqual({
+      points: [
+        {
+          at: new Date('2026-10-20T03:15:00Z'),
+          kind: 'POSITION',
+          lat: 11.56,
+          lon: 108.54,
+          altitude: 1320,
+          batteryPct: null,
+        },
+      ],
+      truncated: false,
+    });
+  });
+
+  it('answers at most the cap, oldest first, and flags a range that holds more', async () => {
+    const row = (minute: number) => ({
+      occurredAt: new Date(Date.UTC(2026, 9, 20, 3, minute)),
+      kind: 'TELEMETRY',
+      latitude: null,
+      longitude: null,
+      altitude: null,
+      batteryPct: 80,
+    });
+    repository.historyRows.mockResolvedValue([row(1), row(2), row(3)]);
+    const query = {
+      deviceId: 'd-1',
+      organizationId: null,
+      from,
+      to,
+      kinds: ['TELEMETRY'] as const,
+    };
+
+    const capped = await service.historyPoints(query, 2);
+    expect(repository.historyRows).toHaveBeenLastCalledWith(expect.anything(), 3);
+    expect(capped.truncated).toBe(true);
+    expect(capped.points.map((point) => point.at.getUTCMinutes())).toEqual([1, 2]);
+
+    repository.historyRows.mockResolvedValue([row(1), row(2)]);
+    await expect(service.historyPoints(query, 2)).resolves.toMatchObject({ truncated: false });
   });
 
   it('does not filter by organization for the whole history of Staff and Admin', async () => {

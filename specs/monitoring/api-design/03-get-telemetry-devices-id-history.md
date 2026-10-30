@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Positions and telemetry of one device over a period, clipped to the periods the caller's organization rented it (from handover to check-in). Unplotted implausible positions are excluded (FR-MON-07, FR-MON-04). An organization gets the events attributed to it; TrekLink Staff and Admin get the whole history, `UNATTRIBUTED` events included (REQ-EVT-06). `clippedTo` lists the periods the organization held the device that overlap the range, whole and not cut to the range, and is empty for Staff and Admin. A reversed range or one longer than `monitoring.historyMaxRangeDays` days answers 400 `to must be after from and at most {n} days later.`. `format=csv` returns the points as CSV text in `result`, with the header `at,kind,lat,lon,altitude,batteryPct`.
+Positions and telemetry of one device over a period, clipped to the periods the caller's organization rented it (from handover to check-in). Unplotted implausible positions are excluded (FR-MON-07, FR-MON-04). An organization gets the events attributed to it; TrekLink Staff and Admin get the whole history, `UNATTRIBUTED` events included (REQ-EVT-06). `clippedTo` lists the periods the organization held the device that overlap the range, whole and not cut to the range, and is empty for Staff and Admin. A reversed range or one longer than `monitoring.historyMaxRangeDays` days answers 400 `to must be after from and at most {n} days later.`. `format=csv` returns the points as CSV text in `result`, with the header `at,kind,lat,lon,altitude,batteryPct`. At most `HISTORY_MAX_POINTS` (50,000, `field-event-query.service.ts`) points are answered, oldest first; a range holding more sets `truncated` and the caller narrows the range (the CSV carries the same first 50,000 points and no flag). The read trusts the attribution ingestion wrote on each event and does not re-check the custody intervals.
 
 ## API Specification
 
@@ -57,13 +57,20 @@ No body.
         "altitude": 1320,
         "batteryPct": 81
       }
-    ]
+    ],
+    "truncated": false
   },
   "isSuccess": true,
   "statusCode": 200,
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| clippedTo[] | Periods the caller's organization held the device that overlap the range; empty for Staff and Admin | object[] | see sample |
+| points[] | Positions and telemetry by occurrence time, oldest first, at most 50,000 | object[] | see sample |
+| truncated | True when the range holds more than 50,000 points and only the oldest 50,000 are answered | bool | `false` |
 
 ## Validation
 

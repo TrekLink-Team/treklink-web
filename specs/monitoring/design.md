@@ -266,6 +266,15 @@ sequenceDiagram
 
 ***Figure 6***: UC-40 Query Device History, served by attribution (FR-MON-07, BR-36).
 
+The history trusts the ingestion attribution. Gateway-sync decides, once and when the event is
+stored, whether it lies inside one custody interval and writes `organizationId` and `attribution`
+on the row (FR-EVT-16, FR-EVT-17); the history read filters on that `organizationId` and does not
+re-check the occurrence time against the rental periods. `clippedTo` only reports the periods.
+A correction to custody after ingestion therefore does not move events already stored. The read
+answers at most `HISTORY_MAX_POINTS` (50,000) points, oldest first, with `truncated` set when the
+range holds more; `field_events("deviceId", "occurredAt")` serves the range (migration
+`20261030200000_field_event_device_occurred_at`).
+
 <!-- sdd: MF-04 seq UC-41 -->
 ```mermaid
 sequenceDiagram
