@@ -1,5 +1,5 @@
 import { PriorityTier } from '../config';
-import { FrameSimulator, tierOf, type StockPacket } from './simulator';
+import { FrameSimulator, simulatedBattery, tierOf, type StockPacket } from './simulator';
 
 const config = {
   nodes: ['!de000009', '!de00000a'],
@@ -48,5 +48,12 @@ describe('tierOf', () => {
     expect(tierOf(packet('text', { text: 'hello' }))).toBe(PriorityTier.P2_GPS);
     expect(tierOf(packet('position', {}))).toBe(PriorityTier.P2_GPS);
     expect(tierOf(packet('telemetry', {}))).toBe(PriorityTier.P3_TELEMETRY);
+  });
+
+  it('drains the simulated battery by one percent per five minutes, never under 15%', () => {
+    expect(simulatedBattery(0)).toBe(100);
+    expect(simulatedBattery(299)).toBe(100);
+    expect(simulatedBattery(80 * 60)).toBe(84);
+    expect(simulatedBattery(10 * 3600)).toBe(15);
   });
 });

@@ -34,6 +34,11 @@ const nodeNum = (sender: string) => Number.parseInt(sender.replace(/^!/, ''), 16
 // configured node, a position that walks a few metres from the start point and a telemetry reading
 // with a slowly draining battery; every GATEWAY_SIM_SOS_EVERY ticks the first node sends an SOS with
 // its position, in the firmware's "SOS - [lat], [lon]" form (TrekLinkSOSHelper.h).
+// One percent per five minutes of simulated uptime, never under 15%: units stay plausible through an
+// hour-long demo (it drained one percent per tick, so a 5 s tick read 5% after under ten minutes).
+export const simulatedBattery = (uptimeSeconds: number): number =>
+  Math.max(15, 100 - Math.floor(uptimeSeconds / 300));
+
 export class FrameSimulator {
   private tick = 0;
   private readonly positions = new Map<string, { lat: number; lon: number }>();
@@ -66,7 +71,7 @@ export class FrameSimulator {
           altitude: 1300 + randomInt(0, 60),
         }),
         this.packet(sender, seconds, 'telemetry', {
-          battery_level: Math.max(5, 100 - this.tick),
+          battery_level: simulatedBattery(this.tick * (this.config.intervalMs / 1000)),
           voltage: 4.1,
           channel_utilization: 3.5,
           air_util_tx: 0.8,
