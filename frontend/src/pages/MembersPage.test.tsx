@@ -249,6 +249,19 @@ describe('MembersPage (screen 3.3)', () => {
     await waitFor(() => expect(api.mock.calls.length).toBeGreaterThan(before + 1));
   });
 
+  it('keeps the phone card actions behind an Actions button', async () => {
+    serve(() => [member(), operator]);
+    renderPage();
+    await screen.findByText('2 members');
+    const toggle = screen.getByRole('button', { name: 'Actions for Pham Van D' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    // Only the table row carries the buttons until the card menu opens.
+    expect(screen.getAllByRole('button', { name: 'Deactivate Pham Van D' })).toHaveLength(1);
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getAllByRole('button', { name: 'Deactivate Pham Van D' })).toHaveLength(2);
+  });
+
   it('shows the list error with a retry', async () => {
     api.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'Database unavailable.'));
     renderPage();
