@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { landingRoute, useSession } from '../entities/session/model';
+import { ApiKeysPage } from '../pages/ApiKeysPage';
 import { BillingPage } from '../pages/BillingPage';
 import { ContractApprovalPage } from '../pages/ContractApprovalPage';
 import { ContractDetailPage } from '../pages/ContractDetailPage';
@@ -94,6 +95,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/invoices" element={<InvoicesPage />} />
         <Route path="/o/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/o/pay/:paymentId" element={<PaymentPage />} />
+        <Route path="/o/api-keys" element={<ApiKeysPage />} />
       </Route>
       <Route element={<RequireRole roles={STAFF} />}>
         <Route path="/t/map" element={<DashboardPage />} />
