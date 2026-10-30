@@ -49,6 +49,7 @@
   - **Files**: `backend/src/modules/devices/devices.service.ts`, `intake.service.ts`
   - **Do**: `register(dto)` creates `IN_INTAKE`; asset tag and `nodeNum` unique across every device ever registered (409 `CONFLICT_UNIQUE`, MSG10) and immutable; `recordIntake(id, dto)` requires GPS, radio, battery and, for a motion-sensor variant, motion (400 `MOTION_RESULT_REQUIRED`); pass moves `IN_INTAKE` or `MAINTENANCE` without an open record to `AVAILABLE` and sets the first `serviceDueAt`; fail opens a record and moves to `MAINTENANCE`
   - **Test**: AC-03; first pass sets `serviceDueAt`, a later pass does not move it
+  - **Progress** (2026-10-30, D-078 chain 3): `intake.service.ts` serves api-design 09 (`device.operate`): GPS, radio, battery and motion for a motion variant (400 `MOTION_RESULT_REQUIRED`), 409 `MAINTENANCE_OPEN` and `STALE_VERSION`; a pass moves `IN_INTAKE` or `MAINTENANCE` to `AVAILABLE` and sets the first `serviceDueAt`, a failure opens an `INTAKE_FAILED` record; a `DeviceTransition` row is written. Open: registration (api-design 05) and unit tests
   - _Requirements: REQ-UBI-02, REQ-EVT-01, REQ-EVT-02, REQ-EVT-18, REQ-ERR-01, REQ-ERR-04, AC-03, FR-DEV-02, FR-DEV-03, FR-DEV-17_
   - _Story: US-UC11, US-UC12_
 - [ ] 2.3 Methods for `rentals` (owner KhoaDD)
@@ -60,6 +61,7 @@
 - [ ] 2.4 Reset, inspection, retirement (owner KhoaDD)
   - **Do**: `reset(id, steps)` on `RETURNED` with all three steps (400 `RESET_INCOMPLETE`), clears key version and key organization; `recordInspection(deviceId, dto, contractDeviceId, actor, tx)` requires a reset after the last check-in (409 `RESET_REQUIRED`); `PASSED` to `AVAILABLE`, or to `MAINTENANCE` with a `SCHEDULED` or `FIRMWARE_UPDATE` record when due within `devices.maintenanceLeadDays` or off the baseline; `DAMAGED` and `FAILED` to `MAINTENANCE`; `retire(id, reason)` from `MAINTENANCE` only
   - **Test**: AC-02; AC-10 inspection routing; retire from `AVAILABLE` refused
+  - **Progress** (2026-10-30, D-078 chain 3): `recordInspection` now routes a `PASSED` unit due within `devices.maintenanceLeadDays`, or off the firmware baseline, to `MAINTENANCE` with a `SCHEDULED` or `FIRMWARE_UPDATE` record (REQ-EVT-07), and opens an `INSPECTION_FAILED` record for `DAMAGED` and `FAILED`; each writes a `DeviceTransition` row. Open: `retire`, unit tests for the routing
   - **Note** (2026-10-28): LongLP built the part MF-05 needs, in this lane: `markReturned(ids, at, tx)` (`RENTED` to `RETURNED`); `reset(id, steps, actorId, at, tx)` on `RETURNED` with all three steps (400 `RESET_INCOMPLETE`), a `DeviceReset` row and the key version and key organization cleared, served as `POST /api/devices/:id/reset` (api-design 10, `device.operate`); `recordInspection(deviceId, input, actorId, at, tx)` that requires a reset after the last check-in (409 `RESET_REQUIRED`), writes the `Inspection` and moves `PASSED` to `AVAILABLE`, `DAMAGED` and `FAILED` to `MAINTENANCE`. Open for this task: the maintenance record and the `devices.maintenanceLeadDays` and firmware baseline routing, `retire`, and `DeviceTransition` rows (task 1.2)
   - _Requirements: REQ-EVT-06, REQ-EVT-07, REQ-EVT-10, REQ-ERR-02, REQ-ERR-03, AC-02, AC-10, FR-DEV-07, FR-DEV-09, FR-DEV-19, BR-04, BR-28_
   - _Story: US-UC44, US-UC53_
@@ -88,6 +90,7 @@
   - **Test**: with a fake clock, AC-09 to AC-12; the four maintenance constraints on Postgres
   - _Requirements: REQ-EVT-09, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-EVT-21, REQ-EVT-22, REQ-STA-03, REQ-STA-04, REQ-ERR-08, REQ-ERR-09, REQ-ERR-10, AC-09, AC-11, AC-12, FR-DEV-08, FR-DEV-17 to FR-DEV-21, BR-44, BR-45_
   - _Story: US-UC52, US-UC64, US-UC65_
+  - **Progress** (2026-10-30, D-078 chain 3): `maintenance.repository.ts`, `maintenance.service.ts` and `maintenance.controller.ts` serve api-design 11 to 15: open (`device.operate`), estimate, complete or `UNREPAIRABLE`, list (`device.read`), and the Admin decision with the new permission `maintenance.decide` (forward migration `20261030120000_permission_maintenance_decide`). Smoke-tested through the API on the seed. Open: `ServiceScanJob`, the Admin notification on `PENDING_APPROVAL`, unit and Postgres tests
 
 ## Phase 3: Query / Retrieval
 

@@ -1,6 +1,12 @@
 // Public surface of `devices`. Other modules import only from here.
 export { DevicesModule } from './devices.module';
-export { DevicesService, type DeviceReading } from './devices.service';
+export {
+  DevicesService,
+  type DeviceDetail,
+  type DeviceReading,
+  type FleetDevice,
+  type TrailEntry,
+} from './devices.service';
 export type {
   DeviceIdentity,
   DeviceProjection,

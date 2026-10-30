@@ -22,6 +22,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "seed:demo": "ts-node --transpile-only prisma/seed-demo.ts",
+    "demo:term-end": "ts-node --transpile-only prisma/demo-term-end.ts",
     "replay:mqtt": "ts-node --transpile-only test/harness/replay.ts"
   },
   "dependencies": {

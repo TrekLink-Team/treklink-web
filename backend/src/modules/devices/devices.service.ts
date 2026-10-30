@@ -1,6 +1,8 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { DeviceStatus, InspectionResult, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { OrganizationsService } from '../organizations';
+import { businessDay, DeviceView, RecordView, toDeviceView } from './device-view';
 import {
   DeviceIdentity,
   DeviceProjection,
@@ -12,6 +14,7 @@ import {
   UnitRow,
   VariantSummary,
 } from './devices.repository';
+import { MaintenanceService } from './maintenance.service';
 
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Device not found.');
@@ -23,6 +26,34 @@ const wrongState = (status: DeviceStatus) =>
     `This cannot be done while it is ${status}.`,
   );
 import { RemainingValueStep, remainingValue } from './remaining-value';
+
+// The organization whose channel key is on a unit (D-021): the renter while it is out, until the reset.
+export interface KeyOrganization {
+  id: string;
+  code: string;
+  legalName: string;
+}
+
+export type FleetDevice = DeviceView & { keyOrganization: KeyOrganization | null };
+
+// devices api-design 07.
+export type DeviceDetail = FleetDevice & {
+  openMaintenance: RecordView | null;
+  lastIntakeCheck: { passed: boolean; createdAt: Date } | null;
+  lastReset: { createdAt: Date } | null;
+};
+
+// One entry of a device's lifecycle history (monitoring api-design 07); `actorId` null is SYSTEM.
+export interface TrailEntry {
+  at: Date;
+  kind: 'STATE' | 'INTAKE' | 'PROVISIONING' | 'RESET' | 'INSPECTION' | 'MAINTENANCE';
+  summary: string;
+  actorId: string | null;
+  refType: string | null;
+  refId: string | null;
+}
+
+const titleCase = (code: string) => code.charAt(0) + code.slice(1).toLowerCase().replace(/_/g, ' ');
 
 // One reading of a field event, as `gateway-sync` reports it (task 2.5). `at` is the event's occurrence
 // time; a position is passed only when it is plotted, so an implausible one never moves the projection.
@@ -36,7 +67,11 @@ export interface DeviceReading {
 // 1.2 and 2.1 to 2.8.
 @Injectable()
 export class DevicesService {
-  constructor(private readonly devices: DevicesRepository) {}
+  constructor(
+    private readonly devices: DevicesRepository,
+    private readonly maintenance: MaintenanceService,
+    private readonly organizations: OrganizationsService,
+  ) {}
 
   byNodeNum(nodeNum: bigint, tx?: Prisma.TransactionClient): Promise<DeviceIdentity | null> {
     return this.devices.findByNodeNum(nodeNum, tx);
@@ -175,8 +210,10 @@ export class DevicesService {
   }
 
   // The inspection of a returned unit (task 2.4 part, rentals 4.2): it needs a reset after the unit's
-  // last check-in (409 RESET_REQUIRED, BR-28). PASSED makes the unit AVAILABLE again; DAMAGED and FAILED
-  // send it to MAINTENANCE. The maintenance record and the service-due rule join with task 2.8.
+  // last check-in (409 RESET_REQUIRED, BR-28). PASSED makes the unit AVAILABLE again, unless its service
+  // falls due within `devices.maintenanceLeadDays` or its firmware is off the baseline: then it goes to
+  // MAINTENANCE with a SCHEDULED or FIRMWARE_UPDATE record (REQ-EVT-07, FR-DEV-19, BR-45). DAMAGED and
+  // FAILED send it to MAINTENANCE with an INSPECTION_FAILED record.
   async recordInspection(
     deviceId: string,
     input: {
@@ -201,25 +238,226 @@ export class DevicesService {
         'Reset this device before inspecting it.',
       );
     }
+    const damageCodes = input.result === InspectionResult.DAMAGED ? input.damageCodes : [];
     const inspection = await this.devices.insertInspection(
       {
         deviceId,
         contractDeviceId: input.contractDeviceId,
         result: input.result,
-        damageCodes: input.result === InspectionResult.DAMAGED ? input.damageCodes : [],
+        damageCodes,
         note: input.note,
         inspectorId: actorId,
         createdAt: at,
       },
       tx,
     );
-    const next =
-      input.result === InspectionResult.PASSED ? DeviceStatus.AVAILABLE : DeviceStatus.MAINTENANCE;
+
+    const record = await this.routeInspected(
+      deviceId,
+      input.result,
+      damageCodes,
+      input.note,
+      at,
+      tx,
+    );
+    const next = record ? DeviceStatus.MAINTENANCE : DeviceStatus.AVAILABLE;
     await this.devices.moveStatus([deviceId], DeviceStatus.RETURNED, next, at, tx);
+    if (record) {
+      await this.maintenance.openForSystem({ deviceId, ...record }, actorId, at, tx);
+    }
+    await this.devices.insertTransition(
+      {
+        deviceId,
+        fromStatus: DeviceStatus.RETURNED,
+        toStatus: next,
+        actorId,
+        reason: `INSPECTION_${input.result}`,
+        refType: 'INSPECTION',
+        refId: inspection.id,
+        createdAt: at,
+      },
+      tx,
+    );
     return {
       inspection,
       device: { ...unit, status: next },
     };
+  }
+
+  // The maintenance record an inspection opens, or null when the unit returns to the fleet.
+  private async routeInspected(
+    deviceId: string,
+    result: InspectionResult,
+    damageCodes: string[],
+    note: string | null,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<{
+    reason: 'SCHEDULED' | 'FIRMWARE_UPDATE' | 'INSPECTION_FAILED';
+    description: string;
+    expectedAt: Date;
+  } | null> {
+    const today = businessDay(at);
+    if (result !== InspectionResult.PASSED) {
+      const detail = [damageCodes.join(', '), note?.trim()].filter(Boolean).join('; ');
+      return {
+        reason: 'INSPECTION_FAILED',
+        description: `Inspection ${result.toLowerCase()}${detail ? `: ${detail}` : ''}.`,
+        expectedAt: today,
+      };
+    }
+    const detail = await this.devices.findDetail(deviceId, tx);
+    if (!detail) throw notFound();
+    const due = await this.maintenance.dueReason(
+      {
+        serviceDueAt: detail.serviceDueAt,
+        firmwareVersion: detail.firmwareVersion,
+        firmwareBaseline: detail.hardwareVariant.firmwareBaseline,
+      },
+      at,
+      tx,
+    );
+    if (due === 'SCHEDULED') {
+      const dueAt = detail.serviceDueAt!;
+      return {
+        reason: due,
+        description: `Periodic service due ${dueAt.toISOString().slice(0, 10)}.`,
+        expectedAt: dueAt > today ? dueAt : today,
+      };
+    }
+    if (due === 'FIRMWARE_UPDATE') {
+      return {
+        reason: due,
+        description: `Update firmware ${detail.firmwareVersion} to ${detail.hardwareVariant.firmwareBaseline}.`,
+        expectedAt: today,
+      };
+    }
+    return null;
+  }
+
+  // devices api-design 07 (task 3.1 part): one device with its open maintenance, last intake check
+  // and last reset, and the organization whose key it carries.
+  async detail(deviceId: string): Promise<DeviceDetail> {
+    const row = await this.devices.findDetail(deviceId);
+    if (!row) throw notFound();
+    const [openMaintenance, lastIntakeCheck, lastReset, [device]] = await Promise.all([
+      this.maintenance.openRecordOf(deviceId),
+      this.devices.lastIntakeCheck(deviceId),
+      this.devices.lastReset(deviceId),
+      this.withKeyOrganizations([toDeviceView(row)]),
+    ]);
+    return {
+      ...device,
+      openMaintenance,
+      lastIntakeCheck: lastIntakeCheck
+        ? { passed: lastIntakeCheck.passed, createdAt: lastIntakeCheck.createdAt }
+        : null,
+      lastReset: lastReset ? { createdAt: lastReset.createdAt } : null,
+    };
+  }
+
+  // devices api-design 06 with the last position and the key organization of each unit.
+  async fleetPage(
+    filter: DeviceFilter,
+    skip: number,
+    take: number,
+  ): Promise<[FleetDevice[], number]> {
+    const [rows, total] = await this.devices.page(filter, skip, take);
+    return [await this.withKeyOrganizations(rows.map(toDeviceView)), total];
+  }
+
+  // The lifecycle rows `devices` owns for one device (design §3, task 2.5): state changes, intake
+  // checks, provisioning, resets, inspections and maintenance, oldest first. Contracts and incidents
+  // are added by `monitoring` (monitoring api-design 07). Throws 404 for an unknown device.
+  async trail(deviceId: string): Promise<TrailEntry[]> {
+    if (!(await this.devices.findUnit(deviceId))) throw notFound();
+    const [rows, records] = await Promise.all([
+      this.devices.lifecycle(deviceId),
+      this.maintenance.ofDevice(deviceId),
+    ]);
+    const entries: TrailEntry[] = [
+      ...rows.transitions.map((row) => ({
+        at: row.createdAt,
+        kind: 'STATE' as const,
+        summary: `${row.fromStatus ?? 'Registered'} to ${row.toStatus} (${titleCase(row.reason)})`,
+        actorId: row.actorId,
+        refType: row.refType,
+        refId: row.refId,
+      })),
+      ...rows.intakeChecks.map((row) => ({
+        at: row.createdAt,
+        kind: 'INTAKE' as const,
+        summary: row.passed ? 'Intake check passed' : 'Intake check failed',
+        actorId: row.checkedById,
+        refType: 'INTAKE_CHECK',
+        refId: row.id,
+      })),
+      ...rows.provisionings.map((row) => ({
+        at: row.createdAt,
+        kind: 'PROVISIONING' as const,
+        summary: `Provisioned with key version ${row.keyVersion}`,
+        actorId: row.provisionedById,
+        refType: 'ORGANIZATION',
+        refId: row.organizationId,
+      })),
+      ...rows.resets.map((row) => ({
+        at: row.createdAt,
+        kind: 'RESET' as const,
+        summary: 'Reset: key removed, node database and owner cleared',
+        actorId: row.resetById,
+        refType: null,
+        refId: null,
+      })),
+      ...rows.inspections.map((row) => ({
+        at: row.createdAt,
+        kind: 'INSPECTION' as const,
+        summary:
+          `Inspection ${row.result.toLowerCase()}` +
+          (row.damageCodes.length ? `: ${row.damageCodes.join(', ')}` : ''),
+        actorId: row.inspectorId,
+        refType: 'INSPECTION',
+        refId: row.id,
+      })),
+      ...records.flatMap((row) => [
+        {
+          at: row.openedAt,
+          kind: 'MAINTENANCE' as const,
+          summary: `Maintenance opened: ${titleCase(row.reason)}`,
+          actorId: row.openedById,
+          refType: 'MAINTENANCE',
+          refId: row.id,
+        },
+        ...(row.closedAt
+          ? [
+              {
+                at: row.closedAt,
+                kind: 'MAINTENANCE' as const,
+                summary: `Maintenance ${row.status.toLowerCase()}`,
+                actorId: row.closedById,
+                refType: 'MAINTENANCE',
+                refId: row.id,
+              },
+            ]
+          : []),
+      ]),
+    ];
+    return entries.sort((a, b) => a.at.getTime() - b.at.getTime());
+  }
+
+  private async withKeyOrganizations(devices: DeviceView[]): Promise<FleetDevice[]> {
+    const ids = devices
+      .map((device) => device.keyOrganizationId)
+      .filter((id): id is string => id !== null);
+    const labels = await this.organizations.labelsOf(ids);
+    return devices.map((device) => {
+      const label = device.keyOrganizationId ? labels.get(device.keyOrganizationId) : undefined;
+      return {
+        ...device,
+        keyOrganization: label
+          ? { id: label.id, code: label.code, legalName: label.legalName }
+          : null,
+      };
+    });
   }
 
   // devices api-design 06 (task 4.1 part, built by LongLP for rentals 4.3): the fleet for Staff,

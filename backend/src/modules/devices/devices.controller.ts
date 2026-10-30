@@ -14,8 +14,9 @@ import {
 } from '../../common/dto/paging';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
-import { DevicesService } from './devices.service';
-import { toNodeId } from './node-id';
+import { DeviceDetail, DevicesService, FleetDevice } from './devices.service';
+import { IntakeCheckDto } from './dto/intake-check.dto';
+import { IntakeService } from './intake.service';
 
 // devices api-design 06; `status` repeats (`?status=AVAILABLE&status=RESERVED`).
 export class DeviceQueryDto extends PagedQueryDto {
@@ -63,16 +64,17 @@ export class ResetDto {
 export class DevicesController {
   constructor(
     private readonly devices: DevicesService,
+    private readonly intake: IntakeService,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
 
-  // devices api-design 06 (task 4.1 part, built by LongLP for the replacement of rentals 4.3): the
-  // fleet for Staff and Admin (`device.read`). The last position is not served yet.
+  // devices api-design 06 (task 4.1 part): the fleet for Staff and Admin (`device.read`), with the
+  // last position and the organization whose key each unit carries.
   @Get()
   @CheckPolicies((ability) => ability.can('read', 'Device'))
   @ResponseMessage('OK')
-  async list(@Query() query: DeviceQueryDto): Promise<PagedResult<Record<string, unknown>>> {
+  async list(@Query() query: DeviceQueryDto): Promise<PagedResult<FleetDevice>> {
     const page = resolvePage(
       query,
       pagingBoundsFrom({
@@ -80,7 +82,7 @@ export class DevicesController {
         MAX_PAGE_SIZE: this.config.get('MAX_PAGE_SIZE', { infer: true }),
       }),
     );
-    const [rows, total] = await this.devices.page(
+    const [rows, total] = await this.devices.fleetPage(
       {
         statuses: query.status,
         hardwareVariantId: query.hardwareVariantId,
@@ -89,16 +91,7 @@ export class DevicesController {
       page.skip,
       page.take,
     );
-    return toPagedResult(
-      rows.map(({ nodeNum, serviceDueAt, ...row }) => ({
-        ...row,
-        nodeNum: Number(nodeNum),
-        nodeId: toNodeId(nodeNum),
-        serviceDueAt: serviceDueAt?.toISOString().slice(0, 10) ?? null,
-      })),
-      total,
-      page,
-    );
+    return toPagedResult(rows, total, page);
   }
 
   @Post(':id/reset')
@@ -117,5 +110,27 @@ export class DevicesController {
   @ResponseMessage('OK')
   availability(@Query() query: AvailabilityQueryDto) {
     return this.devices.availability(query.hardwareVariantId);
+  }
+
+  // devices api-design 07 (task 4.1 part), declared after `availability` so that path is not read as
+  // an id.
+  @Get(':id')
+  @CheckPolicies((ability) => ability.can('read', 'Device'))
+  @ResponseMessage('OK')
+  detail(@Param('id', ParseUUIDPipe) id: string): Promise<DeviceDetail> {
+    return this.devices.detail(id);
+  }
+
+  // devices api-design 09 (task 2.2, intake part): Staff record the intake check of a new unit or of
+  // a unit back from maintenance (`device.operate`).
+  @Post(':id/intake-checks')
+  @CheckPolicies((ability) => ability.can('operate', 'Device'))
+  @ResponseMessage('Intake check recorded')
+  recordIntake(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: IntakeCheckDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    return this.events.transaction((tx) => this.intake.record(id, dto, caller.id, new Date(), tx));
   }
 }

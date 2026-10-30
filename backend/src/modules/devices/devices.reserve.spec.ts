@@ -18,7 +18,11 @@ describe('DevicesService.reserve and release', () => {
     queryRaw = jest.fn();
     updateMany = jest.fn().mockResolvedValue({ count: 0 });
     tx = { $queryRaw: queryRaw, device: { updateMany } } as unknown as Prisma.TransactionClient;
-    service = new DevicesService(new DevicesRepository({} as PrismaService));
+    service = new DevicesService(
+      new DevicesRepository({} as PrismaService),
+      {} as never,
+      {} as never,
+    );
   });
 
   it('marks exactly the picked units RESERVED', async () => {

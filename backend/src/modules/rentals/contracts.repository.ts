@@ -308,6 +308,24 @@ export class ContractsRepository {
     });
   }
 
+  // Every contract row of a device, for its lifecycle history (monitoring api-design 07).
+  contractRowsOfDevice(deviceId: string, client: Client = this.prisma) {
+    return client.contractDevice.findMany({
+      where: { deviceId },
+      orderBy: { reservedAt: 'asc' },
+      select: {
+        id: true,
+        reservedAt: true,
+        releasedAt: true,
+        handedOverAt: true,
+        checkedInAt: true,
+        checkedInById: true,
+        lostAt: true,
+        contract: { select: { id: true, code: true, organizationId: true } },
+      },
+    });
+  }
+
   countUnfinishedContracts(organizationId: string, client: Client = this.prisma): Promise<number> {
     return client.rentalContract.count({
       where: { organizationId, status: { notIn: [...FINISHED_STATES] } },

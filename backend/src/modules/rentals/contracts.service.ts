@@ -18,6 +18,20 @@ export interface Custody {
   nearBoundary: boolean;
 }
 
+// One custody row of a device on a contract (monitoring api-design 07).
+export interface DeviceContractRow {
+  contractDeviceId: string;
+  contractId: string;
+  contractCode: string;
+  organizationId: string;
+  reservedAt: Date;
+  releasedAt: Date | null;
+  handedOverAt: Date | null;
+  checkedInAt: Date | null;
+  checkedInById: string | null;
+  lostAt: Date | null;
+}
+
 export interface HolderLabel {
   name: string;
   phone: string | null;
@@ -221,6 +235,25 @@ export class ContractsService {
     }));
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
+
+  // The custody rows of a device on every contract, oldest first, for its lifecycle history
+  // (monitoring api-design 07, design §3 of monitoring). A row released before handover still shows
+  // that the unit was reserved.
+  async contractsOfDevice(deviceId: string): Promise<DeviceContractRow[]> {
+    const rows = await this.contracts.contractRowsOfDevice(deviceId);
+    return rows.map((row) => ({
+      contractDeviceId: row.id,
+      contractId: row.contract.id,
+      contractCode: row.contract.code,
+      organizationId: row.contract.organizationId,
+      reservedAt: row.reservedAt,
+      releasedAt: row.releasedAt,
+      handedOverAt: row.handedOverAt,
+      checkedInAt: row.checkedInAt,
+      checkedInById: row.checkedInById,
+      lostAt: row.lostAt,
+    }));
+  }
 
   // ORGANIZATION_EXIT_CHECKS.canClose: an organization with a contract that is not REJECTED,
   // CANCELLED or CLOSED may not close.
