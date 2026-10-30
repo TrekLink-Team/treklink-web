@@ -207,40 +207,20 @@ sequenceDiagram
     participant Svc as IncidentsService
     participant R as IncidentsRepository
     U->>P: post a status update
-    activate P
     P->>Ctl: POST /api/incidents/:id/status-updates
-    activate Ctl
     Ctl->>Svc: addStatus(id, input, caller)
-    activate Svc
-    alt blank note, or caller has no organization
-        Svc-->>Ctl: 400 VALIDATION_FAILED or 403 FORBIDDEN
-        Ctl-->>P: 400 or 403 envelope
-        P-->>U: field error, or MSG26
-    else member request
-        Note over Svc,R: BEGIN
-        Svc->>R: lockById(id, tx)
-        alt no such incident, or another organization's
-            Svc-->>Ctl: 404 NOT_FOUND
-            Ctl-->>P: 404 envelope
-            P-->>U: MSG26
-        else not ACKNOWLEDGED or RESPONDING
-            Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
-            Ctl-->>P: 409 envelope
-            P-->>U: MSG28
-        else caller is not an Org Operator or Org Manager, or not the owner
-            Svc-->>Ctl: 403 FORBIDDEN or NOT_OWNER
-            Ctl-->>P: 403 envelope
-            P-->>U: MSG26
-        else owner
-            Svc->>R: insertStatusUpdate(row, tx)
-            Svc->>R: resetStatusDue(id, statusDueAt, tx)
-            Note over Svc,R: COMMIT, then incident.changed and audit.record
-            Svc-->>Ctl: status update and statusDueAt
-            Ctl-->>P: 201 envelope
-            P-->>U: update shown, next update due
-        end
+    Svc->>R: lockById(id, tx)
+    R-->>Svc: incident
+    alt refused: caller is not the owner
+        Svc-->>Ctl: 403 NOT_OWNER
+        Ctl-->>P: 403 envelope
+        P-->>U: MSG26
+    else accepted
+        Svc->>R: insertStatusUpdate(row, tx)
+        Svc->>R: resetStatusDue(id, statusDueAt, tx)
+        Note over Svc,R: COMMIT, then incident.changed and audit.record
+        Svc-->>Ctl: status update and statusDueAt
+        Ctl-->>P: 201 envelope
+        P-->>U: update shown, next update due
     end
-    deactivate Svc
-    deactivate Ctl
-    deactivate P
 ```

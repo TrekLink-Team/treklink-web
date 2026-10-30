@@ -271,57 +271,28 @@ sequenceDiagram
     participant R as IncidentsRepository
     participant Ob as AlertDeliveriesRepository
     U->>P: acknowledge
-    activate P
     P->>Ctl: POST /api/incidents/:id/acknowledge
-    activate Ctl
     Ctl->>Svc: acknowledge(id, input, caller)
-    activate Svc
-    alt caller has no organization
-        Svc-->>Ctl: 403 FORBIDDEN
-        Ctl-->>P: 403 envelope
-        P-->>U: MSG26
-    else member request
-        Note over Svc,R: BEGIN
-        Svc->>R: lockById(id, tx)
-        alt no such incident, or another organization's
-            Svc-->>Ctl: 404 NOT_FOUND
-            Ctl-->>P: 404 envelope
-            P-->>U: MSG26
-        else incident found
-            Svc->>L: apply(id, current, ACKNOWLEDGED, member, ACKNOWLEDGED with expectedVersion, tx)
-            activate L
-            L->>R: lockById(id, tx)
-            alt another member owns it
-                L-->>Svc: 409 ALREADY_OWNED
-                Svc->>R: latestAcknowledgement(id), after rollback
-                Svc-->>Ctl: 409 ALREADY_OWNED
-                Ctl-->>P: 409 envelope
-                P-->>U: MSG27, owner and time shown
-            else expectedVersion differs
-                L-->>Svc: 409 STALE_VERSION
-                Svc-->>Ctl: 409 STALE_VERSION
-                Ctl-->>P: 409 envelope
-                P-->>U: MSG36, reload
-            else state is not NOTIFY_*, ESCALATED or REPORTED
-                L-->>Svc: 409 INVALID_STATE_TRANSITION
-                Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
-                Ctl-->>P: 409 envelope
-                P-->>U: MSG28
-            else accepted
-                L->>R: compareAndSet(current, patch, tx)
-                L->>R: insertTransition(row, tx)
-                L->>Ob: enqueue(API event, tx)
-                L-->>Svc: incident ACKNOWLEDGED
-                Note over Svc,R: COMMIT, then incident.changed and audit.record
-                Svc-->>Ctl: incident
-                Note over Ctl: IncidentsQueryService.views adds device and owner
-                Ctl-->>P: 200 envelope
-                P-->>U: ACKNOWLEDGED, owner is the caller
-            end
-            deactivate L
-        end
+    Svc->>R: lockById(id, tx)
+    R-->>Svc: incident
+    Svc->>L: apply(id, current, ACKNOWLEDGED, member, ACKNOWLEDGED with expectedVersion, tx)
+    L->>R: lockById(id, tx)
+    R-->>L: incident
+    alt refused: another member already owns it
+        L-->>Svc: 409 ALREADY_OWNED
+        Svc->>R: latestAcknowledgement(id), after rollback
+        R-->>Svc: owner and time
+        Svc-->>Ctl: 409 ALREADY_OWNED
+        Ctl-->>P: 409 envelope
+        P-->>U: MSG27, owner shown
+    else accepted
+        L->>R: compareAndSet(current, patch, tx)
+        L->>R: insertTransition(row, tx)
+        L->>Ob: enqueue(API event, tx)
+        L-->>Svc: incident ACKNOWLEDGED
+        Note over Svc,R: COMMIT, then incident.changed and audit.record
+        Svc-->>Ctl: incident
+        Ctl-->>P: 200 envelope
+        P-->>U: ACKNOWLEDGED, owner is the caller
     end
-    deactivate Svc
-    deactivate Ctl
-    deactivate P
 ```
