@@ -1,14 +1,10 @@
 # 2026-10-30 09:22 UTC: fleet and maintenance pages (MF-05 step 6)
 
-KhoaDD under D-078, built by the leader's cloud agent. Branch `feat/fleet-maintenance-pages`,
-stacked on PR #124 (`feat/devices-maintenance` at `350d0c6`), which is not merged into `dev` yet.
-
-## Restack after #124 merges
-
-```
-git fetch origin dev
-git rebase --onto origin/dev 350d0c6 feat/fleet-maintenance-pages
-```
+KhoaDD under D-078, built by the leader's cloud agent. Branch `feat/fleet-maintenance-pages`.
+Started stacked on PR #124 at `350d0c6`. #124 merged into `dev` (head `eb1b31e`, resealed by the
+lead); this branch was restacked with
+`git rebase --onto origin/dev 350d0c6 feat/fleet-maintenance-pages` (no conflicts) and
+force-pushed with lease. It now sits on `eb1b31e`; no further restack is needed.
 
 ## Starting point
 
@@ -74,6 +70,41 @@ Screen 4.3 Data row for the threshold now names devices 15 `approvalThresholdVnd
   (`MaintenancePage.test.tsx` 18, `DeviceDetailPage.test.tsx` 12).
 - `scripts/specs/check_mermaid.py` did not run: it needs `scripts/srs/node_modules/.bin/mmdc`,
   absent here. The changed sequence line is `Svc->>DB: SELECT maintenance_records, parameters`.
+
+## #124 review follow-ups (after the restack, one commit each)
+
+- `b0484da` Retire writes `reason: 'RETIRED'` and the Admin's text in `note`;
+  `insertTransition` takes an optional `note`; the lifecycle history reads `note` and shows
+  "MAINTENANCE to RETIRED (Retired): <text>". No migration: `device_transitions.note` exists.
+- `b753c8f` `RetireDeviceDto.reason` and `DisposeDeviceDto.method` are trimmed by `@Transform`
+  before validation, so whitespace only fails `MinLength(1)` (400); controller spec cases.
+- `8c2c73b` The controller answers one message per route whatever the outcome, so api-design 12,
+  13 and 14 now read "Estimate recorded", "Maintenance cost decided" and "Maintenance updated"
+  (source `scripts/specs/endpoints/devices.py`, regenerated). The controller is unchanged.
+- `9749b83` Policy and message specs for every `MaintenanceController` route (device.operate,
+  maintenance.decide, device.read), one transaction per mutation; `DeviceHistoryController` spec
+  (device.read, paging).
+- `9ebac1a` `deviceCount` added to `GET /hardware-variants` (devices ever registered on the
+  variant, screen 4.1 "Registered units"), counted in the catalog query only. api-design 01
+  already declared it.
+- `0f9f422` One wording for `MAINTENANCE_OPEN`: "Finish the open maintenance record first." in
+  retire, intake and open maintenance, both pages' MSG29, and api-design 09, 11, 16 (case "The
+  device has an open maintenance record").
+- `d1c8aac` `DeviceDetailPage` disables Retire while a record is open, with MSG29 beside it
+  (`aria-describedby`).
+
+## Checks after the follow-ups (this session)
+
+- Backend: eslint 0 errors (1 warning in `test/incidents.e2e-spec.ts`, not touched),
+  module-boundary check passed (366 files, 9 modules); `npx jest` 157 suites, 1737 tests passed.
+- `tsc --noEmit` fails with one error that is on `dev` itself, verified on a clean `eb1b31e`
+  worktree: `test/authority-reports.db-spec.ts(71,5)` calls `new DevicesService(repository)` with
+  one argument, but #124 made the constructor take three. Not fixed here (another member's TK-148
+  file, outside this task). Fix: pass `{} as never` twice more, as the devices specs do.
+- Database specs on local Postgres 16: `prisma migrate deploy` applied every migration; `test:db`
+  10 of 11 suites, 73 tests passed; `authority-reports.db-spec.ts` fails to compile for the reason
+  above.
+- Frontend: lint and typecheck clean; 33 files, 447 tests passed.
 
 ## Demo steps (after the #124 demo steps 1 to 5, contract RC-2026-0002)
 
