@@ -158,9 +158,9 @@ are not atomic; a crash between them may repeat an email. The job's numeric resu
 | Export | Used by |
 |---|---|
 | `ContractsService.custodyAt(deviceId, at, marginSeconds)` returns the `ContractDevice` whose interval (`handedOverAt` to `checkedInAt` or `lostAt`, open-ended while neither is set) contains `at`, with its contract and organization and a `nearBoundary` flag, whatever state the contract is in now; none when no interval contains `at` (D-040) | gateway-sync; devices through `CUSTODY_RESOLVER` (D-045) |
-| `ContractsService.currentHolder(deviceId)` returns the contract and organization holding the device now | monitoring (`device.*` entries) |
-| `ContractsService.visibleDevices(ctx)`, `rentalPeriods(deviceId, orgId)` | monitoring |
-| `ContractsService.contractsOfDevice(deviceId)`, `statusOf(contractId)`, `utilization(range)` | monitoring, incidents |
+| `ContractsService.currentHolder(deviceId)`: not built. Every `device.*` event names its organization, so monitoring needs no holder lookup (monitoring task 2.x status, 2026-10-30) | none |
+| `ContractsService.visibleDevices(ctx)`, `rentalPeriods(deviceId, orgId)` (the handed-over intervals of the device on that organization's contracts, `to` null while out) | monitoring |
+| `ContractsService.contractsOfDevice(deviceId)`, `statusOf(contractId)`, `utilization(range)` (rented unit-days per hardware variant over `[from, to)`, each interval clipped to the range and an open one to now; units in service come from `devices`) | monitoring, incidents |
 | provider of `ORGANIZATION_EXIT_CHECKS.canClose` | organizations |
 | provider of `CUSTODY_RESOLVER` (delegates to `custodyAt`) and of `LOSS_CASE_LISTENERS.onSettled` (sets `lostAt`) | devices (D-045) |
 | provider of `CONTRACT_DIRECTORY` (contract code, organization code, term sequence), in the global `RentalsPortsModule` | billing (billing design §4) |

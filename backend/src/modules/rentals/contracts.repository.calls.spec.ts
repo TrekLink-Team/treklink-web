@@ -167,6 +167,46 @@ describe('ContractsRepository delegate calls', () => {
     ]);
   });
 
+  it('reads the rental periods of a device and the intervals overlapping a range (rentals 4.5)', async () => {
+    const { calls, client } = recorder();
+    const repository = new ContractsRepository(client);
+    const from = new Date('2026-10-01T00:00:00Z');
+    await repository.rentalPeriodsOfDevice('dev-1', 'org-1');
+    await repository.intervalsOverlapping(from, AT, client);
+    expect(calls).toEqual([
+      [
+        'contractDevice.findMany',
+        {
+          where: {
+            deviceId: 'dev-1',
+            handedOverAt: { not: null },
+            contract: { organizationId: 'org-1' },
+          },
+          orderBy: { handedOverAt: 'asc' },
+          select: { contractId: true, handedOverAt: true, checkedInAt: true, lostAt: true },
+        },
+      ],
+      [
+        'contractDevice.findMany',
+        {
+          where: {
+            handedOverAt: { lt: AT },
+            AND: [
+              { OR: [{ checkedInAt: null }, { checkedInAt: { gt: from } }] },
+              { OR: [{ lostAt: null }, { lostAt: { gt: from } }] },
+            ],
+          },
+          select: {
+            handedOverAt: true,
+            checkedInAt: true,
+            lostAt: true,
+            contract: { select: { hardwareVariantId: true } },
+          },
+        },
+      ],
+    ]);
+  });
+
   it('sets a holder label, partial or full, and clears it', async () => {
     const { calls, client } = recorder();
     const repository = new ContractsRepository({} as PrismaService);
