@@ -14,6 +14,8 @@
 
 Scope from the task: organizations api-design 23 to 26; create shows the secret once; health columns with `outdated`; the current release with its version, SHA-256 and one download per operating system
 
+Leader rulings of 2026-10-30 (`treklink-web` #119) applied: organizations 23 returns `{ items, limit }`, so the page shows "n of limit" and disables Create at the limit; `queueDepth` is the named object `{p0, p1, p2, p3}`, null until the station first reports.
+
 ## Wireframe
 
 ![FieldStationsPage](3-5-fieldstationspage.svg)
@@ -27,21 +29,21 @@ Release card:
 | Shown | Source (api-design file, property) |
 |---|---|
 | Version and publication date | organizations 26 `result.version`, `result.publishedAt` |
-| One row per file: operating system, size in MB, SHA-256 | organizations 26 `result.files[].os`, `sizeBytes`, `sha256`; the real SHA-256 is shown in full, wrapped on a phone |
+| One row per file: operating system, size in MB, SHA-256 | organizations 26 `result.files[].os`, `sizeBytes`, `sha256`; the real SHA-256 is 64 hex characters, shown in full and wrapped on a phone (the sample in the wireframe is truncated) |
 | Download | organizations 26 `result.files[].downloadUrl`, a static file served outside the envelope |
 
 Station table:
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Name and username | organizations 23 `result[].name`, `result[].mqttUsername` |
-| Version, with the badge Current or Outdated | organizations 23 `result[].version` and `result[].outdated`; a revoked row shows the version without a badge |
-| Last sync, or "Never" when null | organizations 23 `result[].lastSyncAt`, in the viewer's timezone |
-| Queue p0 / p1 / p2 / p3, or "No data yet" for an empty array | organizations 23 `result[].queueDepth`, read in index order (see Open points) |
-| Oldest retry | organizations 23 `result[].oldestRetryCount` |
-| Status: Active, or Revoked with its date | organizations 23 `result[].revokedAt` |
+| Name and username | organizations 23 `result.items[].name`, `result[].mqttUsername` |
+| Version, with the badge Current or Outdated | organizations 23 `result.items[].version` and `result[].outdated`; a revoked row shows the version without a badge |
+| Last sync, or "Never" when null | organizations 23 `result.items[].lastSyncAt`, in the viewer's timezone |
+| Queue p0 / p1 / p2 / p3, or "No data yet" when null | organizations 23 `result.items[].queueDepth.p0` to `p3`; null until the station first reports |
+| Oldest retry | organizations 23 `result.items[].oldestRetryCount` |
+| Status: Active, or Revoked with its date | organizations 23 `result.items[].revokedAt` |
 | Outdated notice ("1 of 3 active stations runs an older version") | counted from organizations 23: rows with `revokedAt` null and `outdated` true, against the rows with `revokedAt` null |
-| Count line ("3 active stations, 1 revoked") | counted from organizations 23 `result` |
+| Count line ("3 of 5 active stations, 1 revoked") | active and revoked counted from organizations 23 `result.items`; the limit is organizations 23 `result.limit` |
 
 Credential dialog after creation: organizations 24 `result.brokerUrl`, `result.mqttUsername`, `result.mqttSecret`.
 
@@ -49,7 +51,7 @@ Credential dialog after creation: organizations 24 `result.brokerUrl`, `result.m
 
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
-| Create Field Station (primary action) | organizations 24 `POST /api/organizations/:id/field-stations` | dialog form with the Name field | "Field Station credential created. Copy it now; it will not be shown again." (server message), shown inside the credential dialog |
+| Create Field Station (primary action), disabled when the active count equals the limit | organizations 24 `POST /api/organizations/:id/field-stations` | dialog form with the Name field | "Field Station credential created. Copy it now; it will not be shown again." (server message), shown inside the credential dialog |
 | Copy (broker URL, username, secret) | none, browser clipboard | none | the button reads "Copied" for two seconds |
 | Done (credential dialog) | none | none | closes the dialog and discards the secret from the page |
 | Revoke | organizations 25 `POST /api/organizations/:id/field-stations/:stationId/revoke` | ConfirmDialog naming the station ("Revoke Field Station Office laptop?") with the effect: the broker refuses it from the next connection, its cache lasts up to 60 seconds, and events the station still holds are delivered once a new credential is configured | "Field Station credential revoked" (server message) |
@@ -67,7 +69,8 @@ A revoked row has no actions.
 | Never synced | Last sync "Never" and queue "No data yet" for a station that has not reported yet. |
 | Outdated | An amber Alert above the table and the badge "Outdated" on each such row; the badge carries its words, never colour alone. |
 | Error `VALIDATION_FAILED` | MSG02 under Name ("{field} is required."); the dialog keeps its value. |
-| Error `STATION_LIMIT` | The server message "Revoke an unused Field Station before creating another." as an error Alert in the create dialog. No SRS message code exists (D-059 rule 3). |
+| At the limit | Create Field Station is disabled and the count line reads "5 of 5 active stations". |
+| Error `STATION_LIMIT` | The server guard, for a create that raced past the disabled button (Figure 1, C1): the server message "Revoke an unused Field Station before creating another." as an error Alert in the create dialog. No SRS message code exists (D-059 rule 3). |
 | Error `INVALID_STATE_TRANSITION` (create) | MSG28 as an error Alert in the dialog, for example "This cannot be done while it is SUSPENDED." |
 | Error `RELEASE_UNAVAILABLE` (503) | The server message "The Field Station download is unavailable. Try again later." as an error Alert in the release card with Retry; the station table stays usable (Figure 1, C2). |
 | Error `NOT_FOUND` (organization, station) | The server message ("Field Station not found.") as an error Alert; the list refetches. |
@@ -94,11 +97,10 @@ Revoke (one step, one field): Reason, text, optional for a Manager, organization
 
 ## Open points raised to the leader (D-052 rule 2)
 
-1. **`queueDepth` shape.** organizations 23 returns four numbers in an array, and monitoring 06 returns an object `queueDepth.p0` to `p3`. The screen reads the array in index order as p0 to p3; confirm the order and whether both endpoints should use one shape.
-2. **Health refresh.** No event pushes station health to the page, so the screen polls every 30 seconds (a proposal, not in any spec). Confirm the interval or an event.
-3. **`STATION_LIMIT` has no SRS message code**, and the limit (`organizations.maxFieldStations`, default 5 in the seed migration) is not returned by any endpoint, so the screen cannot show "3 of 5".
-4. **Staff revoke.** api-design 25 lets TrekLink Staff and Admin revoke, but no screen of this task gives them a route. The screen assumes they use the compliance case action of task 3.6; confirm.
-5. **The release lists one row per file.** The sample has only `windows-x64`; the layout holds any number of operating systems.
+1. **Health refresh.** No event pushes station health to the page, so the screen polls every 30 seconds (a proposal, not in any spec). Confirm the interval or an event.
+2. **`STATION_LIMIT` has no SRS message code**; the screen shows the server message (D-059 rule 3).
+3. **Staff revoke.** api-design 25 lets TrekLink Staff and Admin revoke, but no screen of this task gives them a route. The screen assumes they use the compliance case action of task 3.6; confirm.
+4. **The release lists one row per file.** The sample has only `windows-x64`; the layout holds any number of operating systems.
 
 ## Checklist
 

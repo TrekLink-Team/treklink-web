@@ -44,9 +44,9 @@
 <text x="440" y="442" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">05 Oct, 17:40</text>
 <rect x="570" y="422" width="128" height="28" rx="14" fill="#e2e8f0" stroke="#e2e8f0"/>
 <text x="634.0" y="441" fill="#172b26" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">Revoked 21 Oct</text>
-<text x="44" y="494" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">2 active keys, 1 revoked</text>
+<text x="44" y="494" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">2 of 5 active keys, 1 revoked</text>
 <text x="44" y="520" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">The list keeps the first 8 characters of each key. The full key cannot be shown again.</text>
-<text x="44" y="542" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">An Org Operator who opens this route sees the full-page notice MSG26.</text>
+<text x="44" y="542" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">At 5 of 5 the Create API key button is disabled. An Org Operator who opens this route sees MSG26.</text>
 <text x="820" y="86" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">B1. Create API key (UC-06)</text>
 <rect x="820" y="92" width="752" height="270" rx="8" fill="white" stroke="#cbd5e1"/>
 <text x="840" y="126" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Create API key</text>
@@ -79,7 +79,7 @@
 <text x="320.0" y="928" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Cancel</text>
 <rect x="388" y="900" width="120" height="44" rx="8" fill="#b91c1c" stroke="#b91c1c"/>
 <text x="448.0" y="928" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Revoke key</text>
-<text x="548" y="700" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">C2. Key limit reached</text>
+<text x="548" y="700" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">C2. Limit reached by a race: the server guard</text>
 <rect x="548" y="710" width="500" height="270" rx="8" fill="white" stroke="#cbd5e1"/>
 <text x="568" y="744" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Create API key</text>
 <text x="568" y="770" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Name *</text>

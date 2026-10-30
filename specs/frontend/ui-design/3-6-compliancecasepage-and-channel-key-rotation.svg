@@ -13,10 +13,10 @@
 <text x="44" y="188" fill="#172b26" font-family="Arial, sans-serif" font-size="23" font-weight="700">Compliance cases</text>
 <rect x="1384" y="158" width="172" height="44" rx="8" fill="#15803d" stroke="#15803d"/>
 <text x="1470.0" y="186" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Open case</text>
-<text x="44" y="232" fill="#15803d" font-family="Arial, sans-serif" font-size="14" font-weight="700">Open</text>
-<rect x="44" y="240" width="40" height="3" rx="0" fill="#15803d" stroke="#15803d"/>
+<text x="44" y="232" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Open</text>
 <text x="112" y="232" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Closed</text>
-<text x="190" y="232" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">All</text>
+<text x="190" y="232" fill="#15803d" font-family="Arial, sans-serif" font-size="14" font-weight="700">All</text>
+<rect x="190" y="240" width="24" height="3" rx="0" fill="#15803d" stroke="#15803d"/>
 <rect x="44" y="252" width="1512" height="36" rx="0" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="60" y="275" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">Code</text>
 <text x="170" y="275" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="700">Organization</text>
@@ -72,12 +72,13 @@
 <text x="60" y="924" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Actions taken</text>
 <line x1="60" y1="936" x2="928" y2="936" stroke="#cbd5e1"/>
 <text x="60" y="964" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Suspend organization</text>
+<text x="60" y="982" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Tran Thi B</text>
 <text x="928" y="964" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400" text-anchor="end">20 Oct 2026, 03:15</text>
-<text x="60" y="1000" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Actions are append-only: each row keeps its kind and time.</text>
+<text x="60" y="1040" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Actions are append-only: each row keeps its kind, actor and time.</text>
 <rect x="980" y="700" width="576" height="398" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="996" y="726" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Take an action</text>
-<rect x="996" y="740" width="544" height="44" rx="8" fill="white" stroke="#172b26"/>
-<text x="1268.0" y="768" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Suspend organization</text>
+<rect x="996" y="740" width="544" height="44" rx="8" fill="#e2e8f0" stroke="#cbd5e1"/>
+<text x="1268.0" y="768" fill="#64748b" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Suspend organization</text>
 <text x="996" y="806" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Admin only. Staff see: Ask a TrekLink Admin to suspend the organization.</text>
 <rect x="996" y="826" width="544" height="44" rx="8" fill="white" stroke="#172b26"/>
 <text x="1268.0" y="854" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Revoke Field Station</text>
@@ -161,7 +162,7 @@
 <text x="48" y="2142" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Staff record a rotation after the counter's provisioning tool</text>
 <text x="48" y="2160" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">has changed the key. Devices take the new key when they are</text>
 <text x="48" y="2178" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">re-provisioned at the counter.</text>
-<text x="608" y="1778" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">D2. Record key rotation (UC-60), changed by someone else</text>
+<text x="608" y="1778" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">D2. Record key rotation (UC-60), MSG36 on a version conflict</text>
 <rect x="608" y="1788" width="440" height="460" rx="8" fill="white" stroke="#cbd5e1"/>
 <text x="628" y="1824" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Record key rotation for ORG-0007?</text>
 <text x="628" y="1864" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">The channel key version goes up and the exposure</text>
@@ -170,8 +171,8 @@
 <rect x="628" y="1924" width="400" height="44" rx="8" fill="white" stroke="#cbd5e1"/>
 <text x="640" y="1951" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Device TL-0042 lost in renter custody</text>
 <rect x="628" y="2000" width="400" height="84" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
-<text x="642" y="2024" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">This was changed by someone else. Reload and try again.</text>
-<text x="642" y="2044" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="400">STALE_VERSION, 409: MSG36, the server message</text>
+<text x="642" y="2024" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">Someone else changed this. Reload to see the latest.</text>
+<text x="642" y="2044" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="400">STALE_VERSION, 409: shown as MSG36</text>
 <text x="642" y="2070" fill="#15803d" font-family="Arial, sans-serif" font-size="13" font-weight="700">Reload</text>
 <rect x="820" y="2184" width="100" height="44" rx="8" fill="white" stroke="#172b26"/>
 <text x="870.0" y="2212" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Cancel</text>
@@ -198,5 +199,5 @@
 <rect x="1084" y="2128" width="328" height="90" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="1098" y="2152" fill="#172b26" font-family="Arial, sans-serif" font-size="12" font-weight="700">Actions taken</text>
 <text x="1098" y="2176" fill="#172b26" font-family="Arial, sans-serif" font-size="12" font-weight="700">Suspend organization</text>
-<text x="1098" y="2196" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">20 Oct 2026, 03:15</text>
+<text x="1098" y="2196" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Tran Thi B, 20 Oct 2026, 03:15</text>
 </svg>

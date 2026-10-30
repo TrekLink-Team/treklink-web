@@ -14,6 +14,8 @@
 
 Scope from the task: organizations api-design 12 to 19; invite, change role, deactivate (MSG for `LAST_MANAGER`); `RosterCalendar` widget with overlap errors and `NO_PRIMARY` warnings (MSG22)
 
+Leader rulings of 2026-10-30 (`treklink-web` #119) applied: on a started shift the edit form locks every field except Ends, and Ends cannot be before now (organizations 18).
+
 ## Wireframe
 
 ![Members and roster](3-3-members-and-roster.svg)
@@ -38,7 +40,7 @@ Roster page (`/o/roster`):
 |---|---|
 | Shift block: window, primary, backup | organizations 16 `result.shifts[].startsAt`, `endsAt`, `primary.fullName`, `backup.fullName` |
 | MSG22 banner and the amber cells for a window or gap without a primary | organizations 16 `result.warnings[]` with `kind` `NO_PRIMARY`, `from`, `to` |
-| Note under a shift without a backup | organizations 17 and 18 `result.warnings[]` with `kind` `NO_BACKUP` (see Open points) |
+| "backup: none" inside a shift block | organizations 16 `result.shifts[].backup`, null |
 | Week label | the `from` and `to` the page sent; the page asks for Monday 00:00 to the next Monday 00:00 in the viewer's timezone, converted to UTC, well inside the 31 day limit of organizations 16 |
 | Options of the Primary and Backup selects | organizations 12 members with no `deactivatedAt` and `invitationPending` false (see Open points) |
 
@@ -52,7 +54,7 @@ Roster page (`/o/roster`):
 | Show deactivated | organizations 12 with `includeDeactivated=true` | none | none |
 | Previous, Next week | organizations 16 with the new `from` and `to` | none | none |
 | Add shift (primary action of `/o/roster`) | organizations 17 `POST /api/organizations/:id/roster` | dialog form | MSG03 "Saved." |
-| Edit shift (select a shift) | organizations 18 `PATCH /api/organizations/:id/roster/:shiftId` | the same dialog, filled in | MSG03 "Saved." |
+| Edit shift (select a shift) | organizations 18 `PATCH /api/organizations/:id/roster/:shiftId` | the same dialog, filled in; on a shift that has started it locks every field except Ends | MSG03 "Saved." |
 | Delete shift | organizations 19 `DELETE /api/organizations/:id/roster/:shiftId` | ConfirmDialog naming the window ("Delete the shift Tue 21 Oct 00:00 to 12:00?"); disabled with the hint "A started shift is shortened by editing its end." on a shift that has started | "Shift deleted" (server message; no SRS code) |
 
 An Org Operator sees none of these controls on `/o/roster`; the calendar and the MSG22 banner stay.
@@ -67,13 +69,14 @@ An Org Operator sees none of these controls on `/o/roster`; the calendar and the
 | Error `VALIDATION_FAILED` | MSG02 under the field the server names ("{field} is required."); the form keeps every value. |
 | Error `CONFLICT_UNIQUE` (invite) | MSG10 under Email: "{email} is already registered." The email is unique across the platform, not only in this organization. |
 | Error `INVALID_STATE_TRANSITION` (invite) | MSG28 as an error Alert in the dialog, for example "This cannot be done while it is CLOSED." |
-| Error `LAST_MANAGER` (change role, deactivate) | The server message "The organization must keep at least one Manager." as an error Alert in the dialog; the dialog stays open. No SRS message code exists (D-059 rule 3). |
+| Error `LAST_MANAGER` (change role, deactivate) | The server message "The organization must keep at least one Manager." as an error Alert in the dialog; the dialog stays open. The SRS (UC-04) cites MSG29 for this refusal; see Open points. |
 | Error `NOT_FOUND` (member, shift, organization) | The server message ("Member not found.", "Shift not found.") as an error Alert; the list refetches. |
 | Error `SHIFT_OVERLAP` (add, edit) | "This shift overlaps another one." under Starts. |
-| Error `MEMBER_NOT_ELIGIBLE` (add, edit) | "Choose two different active members of your organization." under Backup. |
-| Error `SHIFT_STARTED` (edit, delete) | The server message ("Shorten a started shift instead of deleting it.") as an error Alert in the dialog. |
+| Error `MEMBER_NOT_ELIGIBLE` (add; defined by organizations 17 only, see Open points) | "Choose two different active members of your organization." under Backup. |
+| Error `SHIFT_STARTED` (edit, delete) | Edit (organizations 18): "Only the end of a started shift can change." as an error Alert; the form already locks the other fields, so it appears only if the shift started while the form was open. Delete (organizations 19): "Shorten a started shift instead of deleting it." as an error Alert in the dialog. |
+| Error `VALIDATION_FAILED` (edit a started shift, Ends before now) | "endsAt must not be in the past." under Ends; the field's minimum is the current time. |
 | Warning `NO_PRIMARY` | MSG22 amber banner above the calendar, one amber dashed cell per window or gap, each with its text. |
-| Warning `NO_BACKUP` | A muted note inside the shift block: "backup: none". |
+| Shift without a backup | The muted line "backup: none" inside the shift block; no banner. |
 | Forbidden | MSG26 full-page notice. |
 | Unauthenticated | Redirect to `/sign-in` with the same-origin `?next=` path (D-059 rule 1). |
 | Any other failure | The server message, or "Something went wrong.", as an error Alert. |
@@ -98,10 +101,10 @@ Shift, add and edit (one step, four fields):
 
 | Step | Field | Type | Required | Rule |
 |---|---|---|---|---|
-| 1 | Starts | date and time | yes | entered in the viewer's timezone, sent as UTC; the zone is shown in the week label and on hover |
-| 1 | Ends | date and time | yes | after Starts; the page blocks Save and shows "Choose an end after the start." under the field |
-| 1 | Primary | select | no | an active member; an empty primary raises the MSG22 warning |
-| 1 | Backup | select | no | an active member other than the primary |
+| 1 | Starts | date and time | yes | entered in the viewer's timezone, sent as UTC; the zone is shown in the week label and on hover; disabled on a started shift |
+| 1 | Ends | date and time | yes | after Starts; on a started shift the only editable field, not before now (the minimum is the current time); the page blocks Save and shows "Choose an end after the start." under the field |
+| 1 | Primary | select | no | an active member; an empty primary raises the MSG22 warning; disabled on a started shift |
+| 1 | Backup | select | no | an active member other than the primary; disabled on a started shift |
 
 The server repeats every rule (organizations 13 to 18) and its message is shown when it disagrees.
 
@@ -113,12 +116,12 @@ The server repeats every rule (organizations 13 to 18) and its message is shown 
 
 ## Open points raised to the leader (D-052 rule 2)
 
-1. **`LAST_MANAGER` has no SRS message code.** The SRS has MSG37 for the last Admin only. The screen shows the server message until the Sprint 4 SRS revision adds a code (D-059 rule 3).
-2. **Editing a started shift.** `specs/organizations/tasks.md` 2.6 and `design.md` §6 say editing a started shift answers 409 `SHIFT_STARTED`, while api-design 18 lists no such error and api-design 19 says a started shift is shortened by editing its end. This screen follows api-design 18 and 19: Edit opens on a started shift, Delete is disabled.
-3. **`NO_BACKUP` has no SRS message.** api-design 17 and 18 return it in `warnings`, and nothing defines its text. The screen shows the muted note "backup: none" and no banner.
+1. **`LAST_MANAGER` and MSG29.** The SRS (UC-04) cites MSG29 for the refusal to deactivate the last Manager, and its template reads "This cannot be done while it has open {dependency}.", which does not fit this case. The server answers "The organization must keep at least one Manager." and the screen shows that text in the dialog. Does MSG29 apply with the server's text, or is a new code needed? The SRS names the deactivation only; the screen applies the same dialog to a demotion.
+2. **`MEMBER_NOT_ELIGIBLE` on edit.** organizations 17 defines it, organizations 18 does not, although both can set the primary and the backup. Confirm that 18 returns it too.
+3. **`NO_BACKUP` has no text.** organizations 17 shows `NO_BACKUP` in the sample of `warnings` and nothing defines it. The screen does not use it: "backup: none" comes from organizations 16.
 4. **Who counts as an active member for the selects.** The screen offers members that are neither deactivated nor invitation pending. The server decides through `MEMBER_NOT_ELIGIBLE`; confirm that a member who has not yet set a password is not eligible.
 5. **Shift length.** No document bounds a shift. The screen checks only that Ends is after Starts, with a shortened MSG35 ("Choose an end after the start.").
-6. **The member list is not paged.** api-design 12 has no paging parameters; an organization is small. The default role of the invite form is Operator, the least privilege.
+6. **The member list is not paged.** organizations 12 has no paging parameters; an organization is small. The default role of the invite form is Operator, the least privilege.
 
 ## Checklist
 

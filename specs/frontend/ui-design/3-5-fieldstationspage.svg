@@ -51,7 +51,7 @@
 <rect x="520" y="486" width="90" height="28" rx="14" fill="#fffbeb" stroke="#fffbeb"/>
 <text x="565.0" y="505" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">Outdated</text>
 <text x="650" y="506" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">20 Oct, 09:40</text>
-<text x="810" y="506" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">0 / 0 / 0 / 0</text>
+<text x="810" y="506" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">0 / 0 / 1 / 4</text>
 <text x="1030" y="506" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">2</text>
 <rect x="1140" y="486" width="86" height="28" rx="14" fill="#f0fdf4" stroke="#f0fdf4"/>
 <text x="1183.0" y="505" fill="#15803d" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">Active</text>
@@ -77,9 +77,9 @@
 <text x="1030" y="618" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">0</text>
 <rect x="1140" y="598" width="128" height="28" rx="14" fill="#e2e8f0" stroke="#e2e8f0"/>
 <text x="1204.0" y="617" fill="#172b26" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle">Revoked 21 Oct</text>
-<text x="44" y="664" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">3 active stations, 1 revoked</text>
+<text x="44" y="664" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">3 of 5 active stations, 1 revoked</text>
 <text x="44" y="688" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">A Field Station keeps its queue on the laptop. After a revoke, queued events are delivered once a new credential is configured.</text>
-<text x="44" y="710" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">An Org Operator sees this page without Create Field Station and Revoke. Version is text, the badge repeats it in words.</text>
+<text x="44" y="710" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="400">At 5 of 5 Create Field Station is disabled. An Org Operator sees no Create or Revoke. The sample SHA-256 is truncated.</text>
 <text x="28" y="760" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">B1. Create (UC-06)</text>
 <rect x="28" y="770" width="500" height="380" rx="8" fill="white" stroke="#cbd5e1"/>
 <text x="48" y="804" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Create Field Station</text>
@@ -128,7 +128,7 @@
 <text x="1311.0" y="1114" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Cancel</text>
 <rect x="1394" y="1086" width="158" height="44" rx="8" fill="#b91c1c" stroke="#b91c1c"/>
 <text x="1473.0" y="1114" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Revoke station</text>
-<text x="28" y="1170" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">C1. Station limit reached</text>
+<text x="28" y="1170" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">C1. Limit reached by a race: the server guard</text>
 <rect x="28" y="1180" width="500" height="290" rx="8" fill="white" stroke="#cbd5e1"/>
 <text x="48" y="1214" fill="#172b26" font-family="Arial, sans-serif" font-size="17" font-weight="700">Create Field Station</text>
 <text x="48" y="1256" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="700">Name *</text>
@@ -176,7 +176,7 @@
 <text x="358" y="1772" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="700" text-anchor="end">Revoke</text>
 <text x="58" y="1796" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">fs-org-0007-2   Active</text>
 <text x="58" y="1818" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">v1.1.0 Outdated   Sync 20 Oct, 09:40</text>
-<text x="58" y="1840" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Queue p0 to p3: 0 / 0 / 0 / 0</text>
+<text x="58" y="1840" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Queue p0 to p3: 0 / 0 / 1 / 4</text>
 <text x="420" y="1500" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">D2. 360 px, release and outdated notice</text>
 <rect x="420" y="1510" width="360" height="380" rx="8" fill="white" stroke="#cbd5e1"/>
 <rect x="420" y="1510" width="360" height="56" rx="0" fill="#143c30" stroke="#143c30"/>
