@@ -227,7 +227,7 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for a reported fault, a service or 
         </tr>
         <tr>
             <td>409</td>
-            <td>The device already has an open record (<code>MAINTENANCE_OPEN</code>)</td>
+            <td>The device has an open maintenance record (<code>MAINTENANCE_OPEN</code>)</td>
 <td>
 
 ```json
@@ -289,7 +289,7 @@ flowchart TB
     E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"The device already has an open record?"}
+    D5{"The device has an open maintenance record?"}
     D4 -->|no| D5
     E5["Return 409 MAINTENANCE_OPEN"]
     D5 -->|yes| E5

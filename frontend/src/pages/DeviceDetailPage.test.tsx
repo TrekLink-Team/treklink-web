@@ -132,7 +132,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
 
   it('shows MAINTENANCE_OPEN as a dependency message', async () => {
     recordIntakeCheck.mockRejectedValueOnce(
-      new ApiError(409, 'MAINTENANCE_OPEN', 'Close the maintenance record first.'),
+      new ApiError(409, 'MAINTENANCE_OPEN', 'Finish the open maintenance record first.'),
     );
     renderPage();
     await screen.findByRole('heading', { name: 'TL-0042' });
@@ -231,7 +231,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     currentRoles = ['ADMIN'];
     currentDevice = device({ status: 'MAINTENANCE', version: 4 });
     retireDevice.mockRejectedValue(
-      new ApiError(409, 'MAINTENANCE_OPEN', 'Close the maintenance record first.'),
+      new ApiError(409, 'MAINTENANCE_OPEN', 'Finish the open maintenance record first.'),
     );
     renderPage();
     await screen.findByRole('heading', { name: 'TL-0042' });

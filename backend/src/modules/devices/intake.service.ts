@@ -119,7 +119,7 @@ export class IntakeService {
       throw new DomainException(
         HttpStatus.CONFLICT,
         ErrorCode.MAINTENANCE_OPEN,
-        'Close the maintenance record first.',
+        'Finish the open maintenance record first.',
       );
     }
     if (device.version !== dto.expectedVersion) {
