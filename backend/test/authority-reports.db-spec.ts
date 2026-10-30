@@ -5,6 +5,8 @@ import { AccountType, IngressPath } from '@prisma/client';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { ErrorCode } from '../src/common/errors';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { AccountsService } from '../src/modules/auth';
+import { AccountsRepository } from '../src/modules/auth/accounts.repository';
 import { DevicesRepository } from '../src/modules/devices/devices.repository';
 import { DevicesService } from '../src/modules/devices/devices.service';
 import { CanonicalEnvelope } from '../src/modules/gateway-sync/canonical-envelope';
@@ -55,7 +57,16 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
   const ingress = new IncidentIngress(
     incidentsRepository,
     lifecycle,
-    new RoutingService(new RosterService(new RosterRepository(prisma)), {} as never),
+    new RoutingService(
+      new RosterService(new RosterRepository(prisma)),
+      new AccountsService(
+        new AccountsRepository(prisma),
+        {} as never,
+        {} as never,
+        events,
+        {} as never,
+      ),
+    ),
     parameters,
     events,
   );

@@ -66,15 +66,35 @@ describe('RoutingService (incidents 2.2)', () => {
       routing.route({ organizationId: null, contractId: null }, AT, tx),
     ).resolves.toEqual({
       to: 'UNROUTED',
-      recipients: { primary: [], backup: [], managers: [], staff: [] },
+      recipients: { primary: [], backup: [], managers: [], staff: ['s-1', 's-2'] },
     });
     expect(roster.tiersAt).not.toHaveBeenCalled();
+    expect(accounts.activeStaffAndAdminIds).toHaveBeenCalledWith(tx);
   });
 
   it('sends an organization with nobody to alert to UNROUTED', async () => {
     roster.tiersAt.mockResolvedValue({ primary: [], backup: [], managers: [] });
     await expect(
       routing.route({ organizationId: 'org-a', contractId: 'c-a' }, AT, tx),
-    ).resolves.toMatchObject({ to: 'UNROUTED' });
+    ).resolves.toEqual({
+      to: 'UNROUTED',
+      recipients: { primary: [], backup: [], managers: [], staff: ['s-1', 's-2'] },
+    });
+    expect(accounts.activeStaffAndAdminIds).toHaveBeenCalledWith(tx);
+  });
+
+  it('keeps UNROUTED when no active Staff or Admin account exists', async () => {
+    accounts.activeStaffAndAdminIds.mockResolvedValue([]);
+    await expect(
+      routing.route({ organizationId: null, contractId: null }, AT, tx),
+    ).resolves.toMatchObject({ to: 'UNROUTED', recipients: { staff: [] } });
+  });
+
+  it('propagates a recipient read failure instead of silently losing the alerts', async () => {
+    const failure = new Error('account read failed');
+    accounts.activeStaffAndAdminIds.mockRejectedValue(failure);
+    await expect(routing.route({ organizationId: null, contractId: null }, AT, tx)).rejects.toBe(
+      failure,
+    );
   });
 });

@@ -14,8 +14,7 @@ export interface Route {
   recipients: IncidentRecipients;
 }
 
-// Staff recipients of UNROUTED stay empty until task 2.2 takes them; ESCALATED reads the active Staff
-// and Admin accounts from `auth` in recipientsOf (design §3, D-079).
+// A routed organization tier alerts its own members; UNROUTED reads the TrekLink recipients below.
 const NO_STAFF: readonly string[] = [];
 
 // Task 2.2 (FR-INC-03, BR-32, BR-36). The incident goes to the contract and organization the
@@ -31,10 +30,10 @@ export class RoutingService {
 
   async route(attribution: Attribution, at: Date, tx: Prisma.TransactionClient): Promise<Route> {
     const { organizationId } = attribution;
-    if (!organizationId) return this.unrouted();
+    if (!organizationId) return this.unrouted(tx);
     const tiers = await this.roster.tiersAt(organizationId, at, tx);
     if (tiers.primary.length + tiers.backup.length + tiers.managers.length === 0)
-      return this.unrouted();
+      return this.unrouted(tx);
     return { to: 'NOTIFY_PRIMARY', recipients: { ...tiers, staff: NO_STAFF } };
   }
 
@@ -46,15 +45,20 @@ export class RoutingService {
     at: Date,
     tx: Prisma.TransactionClient,
   ): Promise<IncidentRecipients> {
-    if (!organizationId) return this.unrouted().recipients;
+    if (!organizationId) return { primary: [], backup: [], managers: [], staff: NO_STAFF };
     const tiers = await this.roster.tiersAt(organizationId, at, tx);
     return { ...tiers, staff: await this.accounts.activeStaffAndAdminIds(tx) };
   }
 
-  private unrouted(): Route {
+  private async unrouted(tx: Prisma.TransactionClient): Promise<Route> {
     return {
       to: 'UNROUTED',
-      recipients: { primary: [], backup: [], managers: [], staff: NO_STAFF },
+      recipients: {
+        primary: [],
+        backup: [],
+        managers: [],
+        staff: await this.accounts.activeStaffAndAdminIds(tx),
+      },
     };
   }
 }
