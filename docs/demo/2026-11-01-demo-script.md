@@ -6,7 +6,7 @@ Prepared 2026-10-30 by KhoaDD under D-078, from `dev` at `cdaecf1`; refreshed on
 against the code and the demo smoke record (`docs/sessions/2026-10-30-1830-demo-smoke.md`); corrected
 on 2026-10-30 from the second demo smoke (`docs/sessions/2026-10-30-2200-demo-smoke-2.md`), which
 clicked the steps it lists in a browser; corrected again from the leader's in-person dry run of onboarding
-and MF-01 on 2026-10-30 (MF-01a added, MF-01 steps 6, 9 and 11). Every step names the
+and MF-01 on 2026-10-30 (MF-01a added, MF-01 steps 6, 9 and 11, setup §1.2). Every step names the
 source it was traced to, as `file:line`.
 A step marked **(unverified)** could not be traced to code or to a handoff that ran it.
 
@@ -59,6 +59,44 @@ Repository root `.env` (read by the backend, the seed and the gateway: `backend/
 ### 1.2 Commands, Saturday evening and again Sunday before the meeting
 
 Run from the repository root.
+
+> [!CAUTION]
+> **Never run `seed:demo`, `prisma migrate reset` or any other reset from a checkout whose `.env`
+> points `DATABASE_URL` at the shared Neon dev database.** The seed writes demo rows into whatever
+> database `DATABASE_URL` names, and a reset destroys every row in it; the shared dev database is the
+> whole team's (D-010, D-062). Use a local Postgres for the demo, the Docker one below or a local
+> install. Check first: the host in `DATABASE_URL` and `DATABASE_DIRECT_URL` must be `localhost` (a Neon
+> host ends in `neon.tech`) (`.env.example:4-19`).
+
+Install once on the demo laptop, at the root (npm workspaces; there is no per-package lockfile):
+
+```bash
+npm ci
+```
+
+**On npm 11, install scripts are skipped** (found on the demo laptop in the dry run of 2026-10-30), so
+four dependencies are left unbuilt: `bcrypt` (backend password hashing, `backend/package.json:42`),
+`prisma` and `@prisma/client` (`backend/package.json:41, 74`), `better-sqlite3` (the gateway queue,
+`gateway/package.json:16`) and `esbuild` (the frontend build). Approve their scripts and rebuild them;
+**(unverified: the exact npm 11 command was not run here, this container has npm 10)**:
+
+```bash
+npm approve-scripts bcrypt better-sqlite3 esbuild prisma
+```
+
+```bash
+npm rebuild bcrypt better-sqlite3 esbuild prisma
+```
+
+```bash
+npm --prefix backend run prisma:generate
+```
+
+If `approve-scripts` is not a command in the installed npm, run `npm help approve-scripts` or check
+`npm help config` for the install-script setting of that release, and use its equivalent. Without the
+rebuild `bcrypt` and `better-sqlite3` have no native binding, so the backend and the gateway fail when
+they load them **(unverified)**; without `prisma:generate` the seed fails with "@prisma/client did not
+initialize yet" (`docs/sessions/2026-10-30-2200-demo-smoke-2.md`, Environment).
 
 ```bash
 docker compose up -d
