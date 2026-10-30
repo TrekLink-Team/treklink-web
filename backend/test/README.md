@@ -22,7 +22,9 @@ notes under the system temporary directory, a SePay webhook key). The jobs are c
 times. `contracts-http.db-spec.ts` goes through HTTP: `compileRentalFlow({ http: true })` starts the whole
 application with the scheduler replaced, and `send` calls it as a flow account. `auth-http.db-spec.ts`
 starts the application the same way on its own. Some of these suites read every due row of the database (the term rollover, the alert
-dispatcher), so run the whole suite on a fresh database, as CI does.
+dispatcher), so run the whole suite on a fresh database, as CI does. `mf03.db-spec.ts` drains the due
+alert backlog before it checks its own rows, so it also passes on a second run against the same
+database (checked 2026-10-30: three runs, 21 of 21 suites each).
 
 The incident database tests create fixture states and initial history directly. Subsequent lifecycle
 actions run through the real repositories, parameter service and transaction/event wrapper. They cover
