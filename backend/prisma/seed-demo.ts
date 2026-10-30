@@ -11,6 +11,8 @@
 //     and a paid first (TERM) invoice, so MF-05 (term end, return, balance invoice, close) has a
 //     contract to walk end to end without the MF-03 demo SOS on RC-2026-0001's devices blocking its
 //     close on OPEN_INCIDENTS (D-078, 2026-11-01 demo)
+//   - one UNROUTED incident on TL-0001, a device in no custody, so TrekLink Staff can walk the
+//     authority report of UC-35 (report, then case closed) from /t/incidents (D-078, 2026-11-01 demo)
 //
 // Idempotent: every row is found by its natural key and created only when absent, and the history rows of
 // a parent (transitions, intake checks, provisioning) are written only when the parent is created. A second
@@ -35,6 +37,9 @@ import {
   InvoiceLineType,
   MemberRole,
   OrganizationStatus,
+  IncidentConfidence,
+  IncidentSource,
+  IncidentState,
   PaymentMethod,
   PlanType,
   Prisma,
@@ -80,6 +85,9 @@ const CONTRACT_VARIANT = 'treklink-v3';
 // MF-05 second demo contract (D-078, Sunday 2026-11-01 demo): kept in its own block, separate from
 // DEVICES, CONTRACT_CODE and HOLDER_LABELS above, so other chains editing this file rebase cleanly.
 const CONTRACT_CODE_2 = 'RC-2026-0002';
+// The device of the seeded UNROUTED incident (authority report demo): AVAILABLE, in no custody.
+const AUTHORITY_DEMO_DEVICE = 'TL-0001';
+
 const MF05_DEVICES: { assetTag: string; nodeNum: bigint }[] = [
   { assetTag: 'TL-0017', nodeNum: 0xde000011n },
   { assetTag: 'TL-0018', nodeNum: 0xde000012n },
@@ -761,6 +769,63 @@ export async function seedDemo(
         created.push(`payment ${paymentReference}`);
       }
       // --- end MF-05 second demo contract -----------------------------------------------------------
+
+      // --- MF-03 step 7 authority report demo (D-078, 2026-11-01 demo) ----------------------------
+      // One UNROUTED incident on TL-0001, which no contract holds, as an SOS from it would route
+      // (incidents REQ-EVT-03): transition 1 CREATED to DETECTED, transition 2 ROUTED to UNROUTED,
+      // version 1 as after one IncidentLifecycle.apply. No field event backs it, so `openedByEventId`
+      // is null. Created only while TL-0001 has no incident at all, so a run after the demo closed it
+      // adds nothing. The code takes the next number of the year, as IncidentsRepository.nextCode does.
+      const reportDevice = devices.get(AUTHORITY_DEMO_DEVICE)!.id;
+      if (!(await tx.incident.findFirst({ where: { deviceId: reportDevice } }))) {
+        const prefix = `INC-${now.getUTCFullYear()}-`;
+        const latest = await tx.incident.findFirst({
+          where: { code: { startsWith: prefix } },
+          orderBy: { code: 'desc' },
+          select: { code: true },
+        });
+        const code = `${prefix}${String(latest ? Number(latest.code.slice(prefix.length)) + 1 : 1).padStart(6, '0')}`;
+        const openedAt = new Date(now.getTime() - 10 * 60 * 1000);
+        const incident = await tx.incident.create({
+          data: {
+            code,
+            deviceId: reportDevice,
+            state: IncidentState.UNROUTED,
+            stateChangedAt: openedAt,
+            source: IncidentSource.DEVICE_SOS,
+            confidence: IncidentConfidence.CONFIRMED,
+            firstEventAt: openedAt,
+            lastEventAt: openedAt,
+            lastLatitude: 11.9404,
+            lastLongitude: 108.4583,
+            lastPositionAt: openedAt,
+            version: 1,
+            createdAt: openedAt,
+          },
+        });
+        await tx.incidentTransition.createMany({
+          data: [
+            {
+              incidentId: incident.id,
+              seq: 1,
+              fromState: null,
+              toState: IncidentState.DETECTED,
+              reason: 'CREATED',
+              createdAt: openedAt,
+            },
+            {
+              incidentId: incident.id,
+              seq: 2,
+              fromState: IncidentState.DETECTED,
+              toState: IncidentState.UNROUTED,
+              reason: 'ROUTED',
+              createdAt: openedAt,
+            },
+          ],
+        });
+        created.push(`incident ${code}`);
+      }
+      // --- end MF-03 step 7 authority report demo -------------------------------------------------
 
       // --- Organization API key (organizations 2.7, monitoring 3.2) ------------------------------
       // One key for ORG-0001 from SEED_ORG_API_KEY, found by its hash, so a second run adds nothing and
