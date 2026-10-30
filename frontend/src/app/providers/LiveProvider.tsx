@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { QueryClient, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useSession } from '../../entities/session/model';
 import {
   refreshLiveAuth,
@@ -8,50 +8,69 @@ import {
   subscribeLive,
 } from '../../shared/socket/socketClient';
 
+// The stream sends one entry per device and marks no batch, so a bulk check-in or a replay arrives as
+// a burst of entries. The list refreshes of one burst are gathered over this window and sent once.
+const LIVE_BATCH_MS = 100;
+
+type CachedContract = { id?: string; devices?: { deviceId: string }[] } | undefined;
+type CachedInvoice = { contract?: { id: string } } | undefined;
+
+// The contracts whose cached detail holds one of the released devices, or null when a release names no
+// device or a device no cached contract holds: the `device.released` payload carries no contract id
+// (ws-live-contract), so the invoice of an unknown contract cannot be told apart.
+const contractsHolding = (queryClient: QueryClient, deviceIds: Set<string | undefined>) => {
+  const holding = new Set<string>();
+  const contracts = queryClient.getQueriesData<CachedContract>({ queryKey: ['contract'] });
+  for (const deviceId of deviceIds) {
+    if (!deviceId) return null;
+    let found = false;
+    for (const [, data] of contracts) {
+      if (data?.id && data.devices?.some((row) => row.deviceId === deviceId)) {
+        holding.add(data.id);
+        found = true;
+      }
+    }
+    if (!found) return null;
+  }
+  return holding;
+};
+
 // Keeps one live socket while someone is signed in, and turns stream entries into query invalidations
 // (specs/frontend/design.md §3). Position and telemetry entries are applied in place by the map, not
 // refetched, so they invalidate nothing here.
-
-// The contracts whose cached detail holds the device: a release payload names no contract.
-const contractsHolding = (queryClient: QueryClient, deviceId: string | undefined): string[] =>
-  queryClient
-    .getQueriesData<{ id?: string; devices?: { deviceId: string }[] }>({ queryKey: ['contract'] })
-    .flatMap(([, data]) =>
-      data?.id && deviceId && data.devices?.some((row) => row.deviceId === deviceId)
-        ? [data.id]
-        : [],
-    );
 export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const queryClient = useQueryClient();
   const signedIn = useSession((state) => state.user !== null);
 
   useEffect(() => {
     if (!signedIn) return;
-    startLive(() => useSession.getState().tokens?.accessToken ?? null);
-    // A check-in past the grace adds a late fee line (rentals 4.1), which the invoice lists and the
-    // dashboard's amount due read (screens 5.6 and 6.1). Releases of one bulk check-in arrive
-    // together, so they are gathered and refreshed once: the lists, and the invoice details of the
-    // contracts that held the released devices (review of #157).
-    let invoiceFlush: number | undefined;
-    const releasedContracts = new Set<string>();
-    const refreshInvoicesAfterRelease = (deviceId: string | undefined) => {
-      for (const id of contractsHolding(queryClient, deviceId)) releasedContracts.add(id);
-      if (invoiceFlush !== undefined) return;
-      invoiceFlush = window.setTimeout(() => {
-        invoiceFlush = undefined;
-        const contracts = new Set(releasedContracts);
-        releasedContracts.clear();
-        void queryClient.invalidateQueries({ queryKey: ['invoices'] });
-        if (contracts.size === 0) return;
+    // The list keys and released devices of the current burst, flushed once after LIVE_BATCH_MS.
+    const lists = new Set<string>();
+    const released = new Set<string | undefined>();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const flush = () => {
+      timer = undefined;
+      for (const key of lists) void queryClient.invalidateQueries({ queryKey: [key] });
+      if (released.size > 0) {
+        // Only the invoice of a contract holding a released device can gain a late fee line.
+        const holding = contractsHolding(queryClient, released);
         void queryClient.invalidateQueries({
           queryKey: ['invoice'],
           predicate: (query) => {
-            const data = query.state.data as { contract?: { id: string } } | undefined;
-            return data?.contract !== undefined && contracts.has(data.contract.id);
+            const contractId = (query.state.data as CachedInvoice)?.contract?.id;
+            return holding === null || !contractId || holding.has(contractId);
           },
         });
-      }, 0);
+      }
+      lists.clear();
+      released.clear();
     };
+    const later = (keys: string[]) => {
+      for (const key of keys) lists.add(key);
+      timer ??= setTimeout(flush, LIVE_BATCH_MS);
+    };
+
+    startLive(() => useSession.getState().tokens?.accessToken ?? null);
     const stopTokens = useSession.subscribe((state, previous) => {
       const token = state.tokens?.accessToken;
       if (token && token !== previous.tokens?.accessToken) refreshLiveAuth(token);
@@ -79,8 +98,6 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
       if (message.kind === 'entry') {
         const type = message.entry.type;
-        // Read before the contract details refetch, while their cached devices still hold the unit.
-        if (type === 'device.released') refreshInvoicesAfterRelease(message.entry.deviceId);
         if (type === 'device.handedOver') {
           // The payload names the contract. Matching on it also refreshes a contract whose cached
           // devices do not hold this device yet, as after a replacement handover (rentals 4.3).
@@ -103,15 +120,19 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
             },
           });
         }
-        if (type === 'device.handedOver' || type === 'device.released') {
-          for (const key of ['contracts', 'contract-balance', 'contract-transitions']) {
-            void queryClient.invalidateQueries({ queryKey: [key] });
-          }
+        if (type === 'device.handedOver') {
+          later(['contracts', 'contract-balance', 'contract-transitions']);
+        }
+        if (type === 'device.released') {
+          // A check-in past the grace adds a late fee line (rentals 4.1), which the invoice lists, the
+          // invoice of that contract and the dashboard's amount due read (screens 5.6 and 6.1).
+          released.add(message.entry.deviceId);
+          later(['contracts', 'contract-balance', 'contract-transitions', 'invoices']);
         }
       }
     });
     return () => {
-      if (invoiceFlush !== undefined) window.clearTimeout(invoiceFlush);
+      if (timer !== undefined) clearTimeout(timer);
       stopTokens();
       stopMessages();
       stopLive();
