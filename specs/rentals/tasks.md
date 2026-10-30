@@ -97,7 +97,7 @@
 
 ## Phase 4: Return, replacement and close
 
-- [ ] 4.1 Check-in (owner LongLP)
+- [x] 4.1 Check-in (owner LongLP)
   - **Files**: `backend/src/modules/rentals/return.service.ts`
   - **Do**: accepted only in the states of REQ-STA-01; mark the row `checkedInAt`, `DevicesService.markReturned`, `ChargesService.chargeLate` past the grace, emit `device.checkedIn`; a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` contract moves to `RETURNED` once every device is back or lost (MSG07)
   - **Test**: check-in refused on a running monthly `ACTIVE` contract; late line count per device
@@ -105,6 +105,7 @@
   - _Requirements: REQ-EVT-10, REQ-STA-01, FR-MON-08, FR-BILL-03_
   - _Story: US-UC43_
   - **2026-10-30**: a DAY ACTIVE or monthly ENDING check-in before the daily batch fills `returnDueAt` reads the open term's end in the same transaction; if that end has passed, late pricing uses it. Missing terms fail before the check-in writes, and an early return stays free of late fees. This prevents scheduler downtime or a changed batch hour from silently skipping a late fee
+  - **Done** (2026-10-30, LongLP): both test lines hold. The refusal on a running monthly `ACTIVE` contract is unit-tested (`return.service.spec.ts`, REQ-STA-01), and the late line count per device runs on Postgres in `test/rentals-acceptance.db-spec.ts` (AC-04: five units back 3 days after `returnDueAt`, one `LATE_FEE` line of 3 days each, the contract to `RETURNED`)
 - [ ] 4.2 Inspection orchestration (owner LongLP)
   - **Do**: `inspect(id, deviceId, dto, actor)`: `DevicesService.recordInspection` and, for `DAMAGED`, `ChargesService.chargeDamage` in the same transaction, unless the contract is `CLOSED`; reset-before-inspection is enforced by devices (409 `RESET_REQUIRED`)
   - **Test**: a damaged inspection creates the damage line in the same transaction
@@ -118,12 +119,13 @@
   - **Partly done** (2026-10-28): `ReplacementService.replace` serves api-design 15 (`contract.operate`) in one transaction: the unit must be out on the contract (409 `DEVICE_NOT_ON_CONTRACT` naming it) and the contract `ACTIVE` or `ENDING`; `DevicesService.takeForReplacement` locks the chosen unit and requires the variant (409 `VARIANT_MISMATCH`) and `AVAILABLE` (409 `DEVICE_NOT_AVAILABLE`); a suspended organization is 409 `ORGANIZATION_NOT_ACTIVE` with the replacement message; the key version must be the organization's current one (409 `KEY_VERSION_MISMATCH`, as in api-design 09). A unit at the counter is checked in and goes to `RETURNED` for reset and inspection; a unit away needs an open loss case (409 `LOSS_CASE_REQUIRED`), read directly because the loss-case service of devices does not exist yet. The note renders with the handover renderer under its own title and is stored with its SHA-256 on a new row with `replacesId`; `device.checkedIn`, `device.handedOver` and an audit record go out after commit. Unit-tested (12). Walked on local PGlite on RC-2026-0001: each refusal, TL-0009 replaced by TL-0011, then reset and inspected. 2026-10-29 (review of #107): a replaced row is no longer live (`liveRows`, `rowsOut` and `returnCounts` leave out rows that a replacement points at) but keeps its custody history, so the live rows stay at the quantity; the close checks read every device the contract held (`custodyDevices`), and a unit replaced while missing blocks the close with 409 `BALANCE_OUTSTANDING` until its loss settles and sets `lostAt` (`unsettledReplacedLosses`). api-design 15 now lists `KEY_VERSION_MISMATCH` and `LOSS_CASE_REQUIRED` through the catalog; handbook gate: §2.6 re-read from the PDF, the regenerated flowchart rendered with Mermaid 11 and checked by LongLP's agent (two new decision diamonds, each with its 409 and End), cross-checked against `replacement.service.ts` and `ErrorCode`
   - _Requirements: REQ-EVT-12, REQ-UBI-03, FR-CON-15, BR-05, BR-41_
   - _Story: US-UC61_
-- [ ] 4.4 Close (owner LongLP)
+- [x] 4.4 Close (owner LongLP)
   - **Do**: `close(id, dto, actor)` on `RETURNED`: `BalanceService.outstanding` and pending damage approvals (409 `BALANCE_OUTSTANDING`), every `CONTRACT_CLOSE_CHECKS.blockingReason` (409 `OPEN_INCIDENTS`, MSG29); erase labels; `CLOSED`
   - **Test**: AC-06 and AC-07
   - **Partly done** (2026-10-28): `ReturnService.close` (api-design 17, `POST /api/contracts/:id/close`) checks the version (409 `STALE_VERSION`), `RETURNED`, `BalanceService.outstanding` (409 `BALANCE_OUTSTANDING`) and every `CONTRACT_CLOSE_CHECKS` provider (409 `OPEN_INCIDENTS`, MSG29), erases the holder labels and moves to `CLOSED`. Unit-tested. Walked on local PGlite on 2026-10-28 through the API, RC-2026-0001 from notice to CLOSED. 2026-10-29 (review of #104): a damage charge still `PENDING_APPROVAL` on the contract's devices since the handover also blocks the close with 409 `BALANCE_OUTSTANDING` (`ChargesService.pendingDamage`, read by device and time because `DamageCharge` has no contract column, treklink-docs#114), and `incidents` now provides `CONTRACT_CLOSE_CHECKS` through the global `IncidentsPortsModule`: an incident not `CLOSED` on the contract or its devices blocks with 409 `OPEN_INCIDENTS` (MSG29); the check reads in the close transaction, which the port now requires. Check-in refuses tags that trim to nothing (400 `VALIDATION_FAILED`). Unit-tested
   - _Requirements: REQ-ERR-05, AC-06, FR-CON-13, BR-27_
   - _Story: US-UC51_
+  - **Done** (2026-10-30, LongLP): AC-06 and AC-07 run on Postgres in `test/rentals-acceptance.db-spec.ts`: with everything paid, an incident still open on one device answers 409 `OPEN_INCIDENTS` and the contract stays `RETURNED`; once it is closed, the contract closes and every holder label of its rows is null
 - [x] 4.5 Services for other modules (owner LongLP)
   - **Do**: `custodyAt(deviceId, at, marginSeconds)` with the `nearBoundary` flag, `currentHolder`, `visibleDevices(ctx)`, `rentalPeriods`, `contractsOfDevice`, `statusOf`, `utilization(range)` per design §6
   - **Test**: `custodyAt` at an interval start, end, inside a replacement chain and outside every interval
