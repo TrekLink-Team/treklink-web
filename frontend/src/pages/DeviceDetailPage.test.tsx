@@ -190,8 +190,48 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     fireEvent.change(dialog.getByLabelText(/Method/), { target: { value: 'Recycled by vendor' } });
     fireEvent.click(disposeButton);
     await waitFor(() =>
-      expect(disposeDevice).toHaveBeenCalledWith('d-1', 'Recycled by vendor', 7),
+      expect(disposeDevice).toHaveBeenCalledWith(
+        'd-1',
+        { keyRemoved: true, nodeDbCleared: true, ownerCleared: true },
+        'Recycled by vendor',
+        7,
+      ),
     );
+  });
+
+  it('shows the server refusal when the retire is stale', async () => {
+    currentRoles = ['ADMIN'];
+    currentDevice = device({ status: 'MAINTENANCE', version: 4 });
+    retireDevice.mockRejectedValue(
+      new ApiError(409, 'STALE_VERSION', 'This was changed by someone else. Reload and try again.'),
+    );
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    fireEvent.click(screen.getByRole('button', { name: 'Retire' }));
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Cracked casing' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Retire' }));
+    expect(
+      await dialog.findByText('This was changed by someone else. Reload and try again.'),
+    ).toBeTruthy();
+  });
+
+  it('shows WIPE_INCOMPLETE from the server on the dispose dialog', async () => {
+    currentRoles = ['ADMIN'];
+    currentDevice = device({ status: 'RETIRED', version: 7 });
+    disposeDevice.mockRejectedValue(
+      new ApiError(400, 'WIPE_INCOMPLETE', 'Complete every wipe step first.'),
+    );
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    fireEvent.click(screen.getByRole('button', { name: 'Dispose' }));
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.click(dialog.getByLabelText('Key removed'));
+    fireEvent.click(dialog.getByLabelText('Node database cleared'));
+    fireEvent.click(dialog.getByLabelText('Owner cleared'));
+    fireEvent.change(dialog.getByLabelText(/Method/), { target: { value: 'Recycled by vendor' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Dispose' }));
+    expect(await dialog.findByText('Complete every wipe step first.')).toBeTruthy();
   });
 
   it('never offers intake, reset, retire or dispose outside their states', async () => {

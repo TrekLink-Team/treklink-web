@@ -244,7 +244,16 @@ export const DeviceDetailPage: React.FC = () => {
     setDisposePending(true);
     setDisposeFailure(null);
     try {
-      await disposeDevice(device.id, disposeMethod.trim(), device.version);
+      await disposeDevice(
+        device.id,
+        {
+          keyRemoved: disposeChecked.key,
+          nodeDbCleared: disposeChecked.node,
+          ownerCleared: disposeChecked.owner,
+        },
+        disposeMethod.trim(),
+        device.version,
+      );
       setDisposing(false);
       await refresh();
     } catch (failure) {

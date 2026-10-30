@@ -179,15 +179,19 @@ export const recordReset = (id: string) =>
 export const retireDevice = (id: string, reason: string, expectedVersion: number) =>
   post<Device>(`/devices/${id}/retire`, { reason, expectedVersion });
 
-// devices api-design 23: the three wipe steps are always true (the button stays disabled otherwise).
-export const disposeDevice = (id: string, method: string, expectedVersion: number) =>
-  post<Device>(`/devices/${id}/dispose`, {
-    keyRemoved: true,
-    nodeDbCleared: true,
-    ownerCleared: true,
-    method,
-    expectedVersion,
-  });
+export interface WipeSteps {
+  keyRemoved: boolean;
+  nodeDbCleared: boolean;
+  ownerCleared: boolean;
+}
+
+// devices api-design 23: the wipe steps as ticked; the server refuses a false one (400 WIPE_INCOMPLETE).
+export const disposeDevice = (
+  id: string,
+  steps: WipeSteps,
+  method: string,
+  expectedVersion: number,
+) => post<Device>(`/devices/${id}/dispose`, { ...steps, method, expectedVersion });
 
 export interface MaintenanceFilters {
   status?: MaintenanceStatus[];
