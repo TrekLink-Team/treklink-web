@@ -62,22 +62,70 @@ describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {
     );
   };
 
-  it.each(['device.label', 'device.handedOver', 'device.released'])(
-    'refreshes an open contract after %s from another session',
+  // Two open contract details: c-1 holds device d-1, c-2 holds device d-2.
+  const mountTwo = () => {
+    const reads = { 'c-1': 0, 'c-2': 0 };
+    const Contract = ({ id, deviceId }: { id: 'c-1' | 'c-2'; deviceId: string }) => {
+      const query = useQuery({
+        queryKey: ['contract', id],
+        queryFn: () => {
+          reads[id] += 1;
+          return Promise.resolve({ id, read: reads[id], devices: [{ deviceId }] });
+        },
+        staleTime: Infinity,
+      });
+      return <span>{query.data ? `${id} read ${query.data.read}` : ''}</span>;
+    };
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <LiveProvider>
+          <Contract id="c-1" deviceId="d-1" />
+          <Contract id="c-2" deviceId="d-2" />
+        </LiveProvider>
+      </QueryClientProvider>,
+    );
+    return reads;
+  };
+  const push = (type: string, deviceId: string, payload: Record<string, unknown> = {}) =>
+    act(() =>
+      live.listener?.({
+        kind: 'entry',
+        entry: { seq: 1, type, deviceId, payload, createdAt: '2026-10-30T07:00:00Z' },
+      }),
+    );
+
+  it.each(['device.label', 'device.released'])(
+    'refreshes only the open contract holding the device after %s from another session',
     async (type) => {
-      const read = vi.fn().mockResolvedValueOnce('Before change').mockResolvedValue('After change');
-      mount(read);
-      await screen.findByText('Before change');
-      act(() =>
-        live.listener?.({
-          kind: 'entry',
-          entry: { seq: 1, type, payload: {}, createdAt: '2026-10-30T07:00:00Z' },
-        }),
-      );
-      await screen.findByText('After change');
-      expect(read).toHaveBeenCalledTimes(2);
+      const reads = mountTwo();
+      await screen.findByText('c-1 read 1');
+      await screen.findByText('c-2 read 1');
+      push(type, 'd-1');
+      await screen.findByText('c-1 read 2');
+      expect(reads['c-2']).toBe(1);
     },
   );
+
+  it('refreshes the contract named by device.handedOver even when it does not hold the device yet (rentals 4.3)', async () => {
+    const reads = mountTwo();
+    await screen.findByText('c-1 read 1');
+    await screen.findByText('c-2 read 1');
+    // A replacement unit d-9 is handed over on c-1; neither cached detail lists it.
+    push('device.handedOver', 'd-9', { contractId: 'c-1', at: '2026-10-30T07:00:00Z' });
+    await screen.findByText('c-1 read 2');
+    expect(reads['c-2']).toBe(1);
+  });
+
+  it('refreshes an open contract after device.handedOver with no contract id', async () => {
+    const read = vi.fn().mockResolvedValueOnce('Before change').mockResolvedValue('After change');
+    mount(read);
+    await screen.findByText('Before change');
+    push('device.handedOver', 'd-1');
+    await screen.findByText('After change');
+    expect(read).toHaveBeenCalledTimes(2);
+  });
 
   it('recovers a contract when replay expired, without refetching it for each position', async () => {
     const read = vi.fn().mockResolvedValueOnce('Before change').mockResolvedValue('After change');

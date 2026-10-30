@@ -38,7 +38,15 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
       if (message.kind === 'entry') {
         const type = message.entry.type;
-        if (type === 'device.label' || type === 'device.handedOver' || type === 'device.released') {
+        if (type === 'device.handedOver') {
+          // The payload names the contract. Matching on it also refreshes a contract whose cached
+          // devices do not hold this device yet, as after a replacement handover (rentals 4.3).
+          const contractId = message.entry.payload.contractId;
+          void queryClient.invalidateQueries({
+            queryKey: typeof contractId === 'string' ? ['contract', contractId] : ['contract'],
+          });
+        }
+        if (type === 'device.label' || type === 'device.released') {
           // Label and release payloads carry no contract id: refresh only the contract details that
           // hold this device, not every cached contract (review of #144).
           const deviceId = message.entry.deviceId;
