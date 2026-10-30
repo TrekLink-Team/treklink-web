@@ -49,6 +49,12 @@ export class AuthorityReportsRepository {
     return tx.authorityReport.update({ where: { id }, data: { caseClosedAt, caseClosedById } });
   }
 
+  // Reports on the incident whose case is still open. The caller holds the incident row lock, so a
+  // closure of another report on it committed before this count runs, or waits for this transaction.
+  countOpenOnIncident(incidentId: string, tx: Prisma.TransactionClient): Promise<number> {
+    return tx.authorityReport.count({ where: { incidentId, caseClosedAt: null } });
+  }
+
   // Newest report first; the id breaks ties so pages never overlap.
   page(
     where: Prisma.AuthorityReportWhereInput,

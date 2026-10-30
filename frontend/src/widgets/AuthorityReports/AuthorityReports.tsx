@@ -468,7 +468,7 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
       title={`Record case ${report.reference} with ${report.agency} closed?`}
       description={
         report.incidentId
-          ? 'A linked incident still reported to the authority moves to Closed. An incident an organization has acknowledged keeps its response.'
+          ? 'A linked incident still reported to the authority moves to Closed once no other report on it is open. An incident an organization has acknowledged keeps its response.'
           : 'This records when the authority closed its case. The contract is not settled by it.'
       }
       onClose={onClose}
