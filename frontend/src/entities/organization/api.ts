@@ -69,11 +69,23 @@ export interface VerificationInput {
   expectedVersion: number;
 }
 
+// A row of organizations api-design 11, the append-only status history.
+export interface OrganizationTransition {
+  fromStatus: OrganizationStatus;
+  toStatus: OrganizationStatus;
+  // The actor's name, or SYSTEM for a suspension by default.
+  actor: string;
+  reason: string | null;
+  createdAt: string;
+}
+
 export const organizationKeys = {
   all: ['organizations'] as const,
   list: (status: OrganizationStatus | undefined) => ['organizations', status ?? 'ALL'] as const,
   detail: (id: string) => ['organization', id] as const,
   members: (id: string) => ['org-members', id] as const,
+  // Under `all`, so every status action refreshes the history too.
+  transitions: (id: string) => ['organizations', 'transitions', id] as const,
 };
 
 const post = <T>(endpoint: string, body: object): Promise<T> =>
@@ -95,6 +107,24 @@ export const approveOrganization = (id: string, expectedVersion: number) =>
 
 export const rejectOrganization = (id: string, reason: string, expectedVersion: number) =>
   post<OrganizationReview>(`/organizations/${id}/reject`, { reason, expectedVersion });
+
+// organizations api-design 08 to 10, Admin only: suspend and close take a reason shown to the Manager.
+export const suspendOrganization = (id: string, reason: string, expectedVersion: number) =>
+  post<OrganizationReview>(`/organizations/${id}/suspend`, { reason, expectedVersion });
+
+export const reactivateOrganization = (id: string, expectedVersion: number) =>
+  post<OrganizationReview>(`/organizations/${id}/reactivate`, { expectedVersion });
+
+export const closeOrganization = (id: string, reason: string, expectedVersion: number) =>
+  post<OrganizationReview>(`/organizations/${id}/close`, { reason, expectedVersion });
+
+// organizations api-design 11.
+export const useOrganizationTransitions = (id: string | undefined) =>
+  useQuery({
+    queryKey: organizationKeys.transitions(id ?? ''),
+    queryFn: () => apiClient<OrganizationTransition[]>(`/organizations/${id}/transitions`),
+    enabled: Boolean(id),
+  });
 
 // organizations api-design 02, the Staff and Admin queue.
 export const useOrganizations = (status: OrganizationStatus | undefined) =>
