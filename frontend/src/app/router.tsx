@@ -32,6 +32,7 @@ import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SignInPage } from '../pages/SignInPage';
+import { SyncStatusPage } from '../pages/SyncStatusPage';
 import { WelcomePage } from '../pages/WelcomePage';
 import { hasAnyRole, type Role } from '../shared/lib/permissions';
 import { useAuth } from './providers/useAuth';
@@ -125,6 +126,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/maintenance/approvals" element={<MaintenanceApprovalPage />} />
         <Route path="/t/compliance-cases" element={<ComplianceCasesPage />} />
         <Route path="/t/compliance-cases/:id" element={<ComplianceCasePage />} />
+        <Route path="/t/admin/sync" element={<SyncStatusPage />} />
       </Route>
       <Route element={<RequireRole roles={ADMIN} />}>
         <Route path="/t/admin/prices" element={<PricesPage />} />

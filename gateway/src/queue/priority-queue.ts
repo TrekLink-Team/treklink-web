@@ -63,6 +63,29 @@ export class SQLitePriorityQueue {
     stmt.run(id);
   }
 
+  // Records a failed publish of a row, so the health report can show how often the oldest entry was tried.
+  public markAttempt(id: number): void {
+    this.db.prepare('UPDATE event_queue SET retry_count = retry_count + 1 WHERE id = ?').run(id);
+  }
+
+  /** Queued entries per tier, index 0 = P0 .. 3 = P3 (the health report's `depth`). */
+  public depthByTier(): number[] {
+    const rows = this.db
+      .prepare('SELECT priority, count(*) as count FROM event_queue GROUP BY priority')
+      .all() as { priority: number; count: number }[];
+    const depth = [0, 0, 0, 0];
+    for (const row of rows) if (row.priority >= 0 && row.priority < depth.length) depth[row.priority] = row.count;
+    return depth;
+  }
+
+  /** The retry count of the oldest queued entry, or null when the queue is empty. */
+  public oldestAttempts(): number | null {
+    const row = this.db
+      .prepare('SELECT retry_count as retryCount FROM event_queue ORDER BY id ASC LIMIT 1')
+      .get() as { retryCount: number } | undefined;
+    return row ? row.retryCount : null;
+  }
+
   public count(): number {
     const row = this.db.prepare('SELECT count(*) as count FROM event_queue').get() as {
       count: number;

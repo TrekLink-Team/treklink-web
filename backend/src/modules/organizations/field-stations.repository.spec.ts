@@ -133,4 +133,37 @@ describe('FieldStationsRepository (organizations 2.8)', () => {
     await repository.updateHealth('fs-1', health);
     expect(station.update).toHaveBeenCalledTimes(2);
   });
+
+  it('writes the last flush only when the report carries one (MF-02 sync status)', async () => {
+    const flushed = new Date('2026-10-30T02:59:30.000Z');
+    const base = {
+      queueDepth: [0, 0, 2, 9] as const,
+      oldestRetryCount: 0,
+      version: '0.1.0',
+      at: AT,
+    };
+    const dataOf = (call: number) =>
+      (station.update.mock.calls[call] as [{ data: Record<string, unknown> }])[0].data;
+    await repository.updateHealth('fs-1', { ...base, lastFlushAt: flushed }, client);
+    await repository.updateHealth('fs-1', { ...base, lastFlushAt: null }, client);
+    await repository.updateHealth('fs-1', base, client);
+    expect(dataOf(0)).toMatchObject({ lastSyncAt: AT, lastFlushAt: flushed });
+    expect(dataOf(1).lastFlushAt).toBeNull();
+    expect(dataOf(2)).not.toHaveProperty('lastFlushAt');
+  });
+
+  it('lists the stations that are not revoked with their organization, by code then name', async () => {
+    await repository.activeWithHealth(client);
+    const [query] = station.findMany.mock.calls[0] as [
+      { where: unknown; orderBy: unknown; select: Record<string, unknown> },
+    ];
+    expect(query.where).toEqual({ revokedAt: null });
+    expect(query.orderBy).toEqual([{ organization: { code: 'asc' } }, { name: 'asc' }]);
+    expect(query.select).toMatchObject({
+      mqttUsername: true,
+      organization: { select: { id: true, code: true, legalName: true } },
+      lastFlushAt: true,
+      queueDepth: true,
+    });
+  });
 });

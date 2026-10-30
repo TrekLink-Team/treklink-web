@@ -36,6 +36,23 @@ export interface StationHealth {
   oldestRetryCount: number;
   version: string;
   at: Date;
+  // MF-02 sync status (gateway-sync api-design 07): the station's last PUBACKed publish,
+  // clock-corrected (D-040). Left unchanged when absent; null when the station never flushed.
+  lastFlushAt?: Date | null;
+}
+
+// MF-02 sync status (gateway-sync api-design 07): a station that is not revoked, with its
+// organization's label and its health projection.
+export interface FieldStationHealthRow {
+  id: string;
+  name: string;
+  mqttUsername: string;
+  organization: { id: string; code: string; legalName: string };
+  lastSyncAt: Date | null;
+  lastFlushAt: Date | null;
+  queueDepth: number[];
+  oldestRetryCount: number | null;
+  version: string | null;
 }
 
 // Field Station credentials (task 2.8). Every list and revoke is scoped to one organization.
@@ -131,6 +148,26 @@ export class FieldStationsRepository {
         queueDepth: [...health.queueDepth],
         oldestRetryCount: health.oldestRetryCount,
         version: health.version,
+        ...(health.lastFlushAt !== undefined ? { lastFlushAt: health.lastFlushAt } : {}),
+      },
+    });
+  }
+
+  // Every station that is not revoked, with its organization's label, by organization code then name.
+  activeWithHealth(client: Client = this.prisma): Promise<FieldStationHealthRow[]> {
+    return client.fieldStation.findMany({
+      where: { revokedAt: null },
+      orderBy: [{ organization: { code: 'asc' } }, { name: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        mqttUsername: true,
+        organization: { select: { id: true, code: true, legalName: true } },
+        lastSyncAt: true,
+        lastFlushAt: true,
+        queueDepth: true,
+        oldestRetryCount: true,
+        version: true,
       },
     });
   }

@@ -13,6 +13,7 @@
 //     close on OPEN_INCIDENTS (D-078, 2026-11-01 demo)
 //   - one UNROUTED incident on TL-0001, a device in no custody, so TrekLink Staff can walk the
 //     authority report of UC-35 (report, then case closed) from /t/incidents (D-078, 2026-11-01 demo)
+//   - one Field Station of ORG-0001, `fs-org-0001-1`, for the MF-02 sync status page
 //
 // Idempotent: every row is found by its natural key and created only when absent, and the history rows of
 // a parent (transitions, intake checks, provisioning) are written only when the parent is created. A second
@@ -46,7 +47,7 @@ import {
   PrismaClient,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 // Pure helpers reused from billing so the MF-05 invoice below (D-078) matches production money and
 // numbering exactly. A prisma/ script importing src/ already has precedent in demo-term-end.ts.
@@ -74,6 +75,8 @@ export const API_KEY_FORMAT = /^tlk_[A-Za-z0-9_-]{43}$/;
 const DEMO_API_KEY_NAME = 'Demo integration';
 
 const ORGANIZATION_CODE = 'ORG-0001';
+// MF-02 sync status chain: the demo Field Station's MQTT username, `fs-<org code lower-case>-<n>`.
+const FIELD_STATION_USERNAME = 'fs-org-0001-1';
 const CONTRACT_CODE = 'RC-2026-0001';
 // Chain 4 (D-078): holder label of each rented unit on RC-2026-0001, written when absent.
 const HOLDER_LABELS: readonly (readonly [string, string, string])[] = [
@@ -847,6 +850,30 @@ export async function seedDemo(
         }
       }
       // --- end organization API key ----------------------------------------------------------------
+
+      // --- MF-02 sync status chain (D-078) ----------------------------------------------------------
+      // One Field Station of ORG-0001, so the gateway simulator's health report
+      // (GATEWAY_FS_USERNAME=fs-org-0001-1) lands on the Staff sync status page. The secret is random
+      // and discarded: credential issue and the broker hooks are organizations 2.8 and gateway-sync
+      // 3.1, and the local broker is open. Written only while the username is absent.
+      if (
+        !(await tx.fieldStation.findUnique({ where: { mqttUsername: FIELD_STATION_USERNAME } }))
+      ) {
+        await tx.fieldStation.create({
+          data: {
+            organizationId: organization.id,
+            name: 'Ta Nang basecamp laptop',
+            mqttUsername: FIELD_STATION_USERNAME,
+            secretHash: await bcrypt.hash(
+              `fs_${randomBytes(32).toString('base64url')}`,
+              bcryptCost,
+            ),
+            createdById: manager,
+          },
+        });
+        created.push(`field station ${FIELD_STATION_USERNAME}`);
+      }
+      // --- end MF-02 sync status chain ----------------------------------------------------------------
 
       return created;
     },

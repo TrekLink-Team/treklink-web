@@ -394,5 +394,11 @@ describe('FieldStationsService (organizations 2.8, api-design 23 to 25, UC-06)',
       await service.recordStationHealth('fs-1', health);
       expect(stations.updateHealth).toHaveBeenCalledWith('fs-1', health);
     });
+
+    it('lists the active stations with their health for the sync status read', async () => {
+      stations.activeWithHealth = jest.fn().mockResolvedValue([{ id: 'fs-1' }]);
+      await expect(service.activeWithHealth()).resolves.toEqual([{ id: 'fs-1' }]);
+      expect(stations.activeWithHealth).toHaveBeenCalledWith();
+    });
   });
 });

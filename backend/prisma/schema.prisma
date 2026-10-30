@@ -495,6 +495,7 @@ model FieldStation {
   queueDepth       Int[] // index 0 = P0 .. 3 = P3
   oldestRetryCount Int?
   version          String? // last reported executable version (FR-EVT-18, D-039)
+  lastFlushAt      DateTime?    @db.Timestamptz(3) // the station's last PUBACKed publish, clock-corrected (D-040)
   createdAt        DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
 

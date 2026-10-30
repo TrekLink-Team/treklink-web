@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SQLitePriorityQueue } from './priority-queue';
+import { PriorityTier, SQLitePriorityQueue } from './priority-queue';
 
 describe('SQLitePriorityQueue', () => {
   let root: string;
@@ -25,6 +25,23 @@ describe('SQLitePriorityQueue', () => {
   it('opens an in-memory database without touching the file system', () => {
     const queue = new SQLitePriorityQueue(':memory:');
     expect(existsSync(':memory:')).toBe(false);
+    queue.close();
+  });
+
+  it('reports the depth per tier and the oldest entry\'s attempts for the health report', () => {
+    const queue = new SQLitePriorityQueue(':memory:');
+    expect(queue.depthByTier()).toEqual([0, 0, 0, 0]);
+    expect(queue.oldestAttempts()).toBeNull();
+    queue.enqueue('a', PriorityTier.P3_TELEMETRY, { sender: '!de000009' });
+    queue.enqueue('b', PriorityTier.P0_SOS, { sender: '!de000009' });
+    queue.enqueue('c', PriorityTier.P2_GPS, { sender: '!de000009' });
+    queue.enqueue('d', PriorityTier.P3_TELEMETRY, { sender: '!de00000a' });
+    expect(queue.depthByTier()).toEqual([1, 0, 1, 2]);
+    const oldest = queue.peek(10).find((item) => item.eventId === 'a')!;
+    queue.markAttempt(oldest.id);
+    queue.markAttempt(oldest.id);
+    expect(queue.oldestAttempts()).toBe(2);
+    expect(queue.peek(1)[0].eventId).toBe('b');
     queue.close();
   });
 });

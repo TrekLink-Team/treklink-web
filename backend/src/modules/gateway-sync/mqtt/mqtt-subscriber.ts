@@ -12,6 +12,7 @@ import { ValidatedEnvironment } from '../../platform/config/environment-variable
 import { MQTT_HEALTH_PROBE } from '../../platform/ports';
 import { NodeJsonAdapter } from '../adapters/node-json.adapter';
 import { IngestionService } from '../ingestion.service';
+import { StationHealthHandler } from '../station-health.handler';
 import { MqttConnectionState } from './mqtt-connection-state';
 import { backoffMs, isTransientDatabaseError } from './retry';
 
@@ -21,8 +22,9 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 // after `handleMessage` calls back, and handles one message at a time, so a message is acknowledged only
 // after ingestion committed and a crash mid-transaction gets it redelivered (design §2).
 //
-// Iteration 1 subscribes to the node topic only. The Field Station topics `<root>/fs/+/2/json/+/+` and
-// `<root>/fs/+/health` join with the station adapter (tasks 2.1 and 2.5, Sprint 4, D-058 rule 2).
+// It subscribes to the node topic and to the Field Station health topic `<root>/fs/+/health` (task 2.5,
+// health part). The Field Station event topic `<root>/fs/+/2/json/+/+` joins with the station adapter
+// (task 2.1, Sprint 4, D-058 rule 2).
 @Injectable()
 export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(MqttSubscriber.name);
@@ -34,7 +36,15 @@ export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShut
     private readonly adapter: NodeJsonAdapter,
     private readonly ingestion: IngestionService,
     @Optional() @Inject(MQTT_HEALTH_PROBE) private readonly state?: MqttConnectionState | null,
+    @Optional() private readonly stationHealth?: StationHealthHandler,
   ) {}
+
+  private get subscriptions(): string[] {
+    return [
+      this.adapter.subscription,
+      ...(this.stationHealth ? [this.stationHealth.subscription] : []),
+    ];
+  }
 
   onApplicationBootstrap(): void {
     if (!this.config.get('MQTT_INGESTION_ENABLED', { infer: true })) {
@@ -57,8 +67,8 @@ export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShut
     };
     client.on('connect', () => {
       this.state?.set(true);
-      this.logger.log(`Connected to ${url}; subscribing to ${this.adapter.subscription}`);
-      client.subscribe(this.adapter.subscription, { qos: 1 }, (error) => {
+      this.logger.log(`Connected to ${url}; subscribing to ${this.subscriptions.join(', ')}`);
+      client.subscribe(this.subscriptions, { qos: 1 }, (error) => {
         if (error) this.logger.error(`Subscribe failed: ${error.message}`);
       });
     });
@@ -76,7 +86,13 @@ export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShut
 
   // Exposed for the unit test; the broker calls it through handleMessage.
   async handle(topic: string, body: Buffer): Promise<void> {
-    const result = this.adapter.adapt(topic, body, new Date());
+    const receivedAt = new Date();
+    if (this.stationHealth?.matches(topic)) {
+      const health = this.stationHealth;
+      await this.withRetry(() => health.handle(topic, body, receivedAt));
+      return;
+    }
+    const result = this.adapter.adapt(topic, body, receivedAt);
     if (result.kind === 'ignored') return;
     await this.withRetry(() =>
       result.kind === 'malformed'

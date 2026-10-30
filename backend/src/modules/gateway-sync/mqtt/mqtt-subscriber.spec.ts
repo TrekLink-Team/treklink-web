@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { ValidatedEnvironment } from '../../platform/config/environment-variables';
 import { NodeJsonAdapter } from '../adapters/node-json.adapter';
 import { IngestionService } from '../ingestion.service';
+import { StationHealthHandler } from '../station-health.handler';
 import { fixture } from '../testing/fixtures';
 import { MqttSubscriber } from './mqtt-subscriber';
 import { backoffMs } from './retry';
@@ -69,5 +70,37 @@ describe('MqttSubscriber.handle', () => {
 
   it('backs off exponentially up to 30 s', () => {
     expect([0, 1, 2, 5, 10].map(backoffMs)).toEqual([1000, 2000, 4000, 30000, 30000]);
+  });
+});
+
+describe('MqttSubscriber with the Field Station health handler', () => {
+  it('routes a health topic to the handler and everything else to ingestion', async () => {
+    const ingestion = {
+      ingest: jest.fn().mockResolvedValue('ACCEPTED'),
+      rejectMalformed: jest.fn(),
+    };
+    const health = {
+      subscription: 'treklink/fs/+/health',
+      matches: (topic: string) => topic.endsWith('/health'),
+      handle: jest.fn().mockResolvedValue(true),
+    };
+    const subscriber = new MqttSubscriber(
+      config,
+      new NodeJsonAdapter(config),
+      ingestion as unknown as IngestionService,
+      null,
+      health as unknown as StationHealthHandler,
+    );
+    const body = Buffer.from('{}');
+    await subscriber.handle('treklink/fs/fs-org-0001-1/health', body);
+    expect(health.handle).toHaveBeenCalledWith(
+      'treklink/fs/fs-org-0001-1/health',
+      body,
+      expect.any(Date),
+    );
+    const [position] = fixture('position');
+    await subscriber.handle(position.topic, position.body);
+    expect(health.handle).toHaveBeenCalledTimes(1);
+    expect(ingestion.ingest).toHaveBeenCalledTimes(1);
   });
 });
