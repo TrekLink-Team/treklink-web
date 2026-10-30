@@ -8,7 +8,9 @@ import { useSession, type SessionUser } from '../entities/session/model';
 import { AuthProvider } from './providers/AuthProvider';
 import { AppRoutes } from './router';
 
-vi.mock('../pages/DashboardPage', () => ({ DashboardPage: () => <p>interim dashboard</p> }));
+vi.mock('../pages/LiveMapPage', () => ({
+  LiveMapPage: ({ scope }: { scope: string }) => <p>live map {scope}</p>,
+}));
 vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
 vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
@@ -88,7 +90,7 @@ describe('route guards (AC-01)', () => {
 
   it('lets an Org Manager reach the map and the contracts', () => {
     visit('/o/map', account(['ORG_MANAGER'], 'ORGANIZATION'));
-    expect(screen.getByText('interim dashboard')).toBeTruthy();
+    expect(screen.getByText('live map o')).toBeTruthy();
     cleanup();
     visit('/o/contracts', account(['ORG_MANAGER'], 'ORGANIZATION'));
     expect(screen.getByText('contracts page')).toBeTruthy();
@@ -114,7 +116,16 @@ describe('route guards (AC-01)', () => {
 
   it('lets an Admin reach /t/map', () => {
     visit('/t/map', account(['ADMIN'], 'TREKLINK'));
-    expect(screen.getByText('interim dashboard')).toBeTruthy();
+    expect(screen.getByText('live map t')).toBeTruthy();
+  });
+
+  it('sends `/` to the landing route, or a visitor to sign-in', () => {
+    visit('/', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('live map t')).toBeTruthy();
+    cleanup();
+    act(() => useSession.getState().signOut());
+    visit('/', null);
+    expect(screen.getByText(/^sign-in/)).toBeTruthy();
   });
 
   it('gives an Org Operator the incident queue and detail, and shows MSG26 to Staff', () => {

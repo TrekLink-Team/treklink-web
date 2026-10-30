@@ -20,6 +20,8 @@ export interface MapMarker {
   subtitle?: string;
   /** Drives marker colour; keep in step with device/incident status vocabularies. */
   status?: 'ok' | 'warning' | 'stale' | 'incident';
+  /** Extra popup lines under the subtitle, such as battery and last-seen time. */
+  details?: string[];
 }
 
 // Marker chrome of the TrekLink System (shared/ui/map/markers.ts): shape and colour per state.
@@ -62,14 +64,19 @@ const popupContent = (marker: MapMarker): HTMLElement => {
   title.className = 'font-semibold text-sm';
   title.textContent = marker.title;
   element.append(title);
-  if (marker.subtitle) {
-    const subtitle = document.createElement('p');
-    subtitle.className = 'text-xs text-ink-muted';
-    subtitle.textContent = marker.subtitle;
-    element.append(subtitle);
+  for (const line of [marker.subtitle, ...(marker.details ?? [])]) {
+    if (!line) continue;
+    const text = document.createElement('p');
+    text.className = 'text-xs text-ink-muted';
+    text.textContent = line;
+    element.append(text);
   }
   return element;
 };
+
+// What a marker shows besides its position; a change redraws its icon and popup.
+const lookOf = (marker: MapMarker): string =>
+  JSON.stringify([marker.title, marker.subtitle, marker.status, marker.details]);
 
 const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ overlay }) => (
   <div
@@ -87,10 +94,15 @@ const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ o
   </div>
 );
 
-const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ config, markers }) => {
+const LeafletMap: React.FC<{
+  config: MapConfig;
+  markers: MapMarker[];
+  selectedId?: string | null;
+}> = ({ config, markers, selectedId }) => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
+  const looks = useRef<Map<string, string>>(new Map());
 
   // The map is created in a callback ref: creation needs the DOM node, and reporting a tile failure
   // sets state, which an effect body should not do synchronously.
@@ -164,8 +176,10 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
   useEffect(() => {
     if (!map) return;
     const tracked = markerRefs.current;
+    const tracedLooks = looks.current;
     return () => {
       tracked.clear();
+      tracedLooks.clear();
       map.remove();
     };
   }, [map]);
@@ -177,24 +191,41 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
 
     for (const m of markers) {
       seen.add(m.id);
+      const look = lookOf(m);
       const existing = markerRefs.current.get(m.id);
       if (existing) {
         existing.setLatLng(m.position);
+        if (looks.current.get(m.id) !== look) {
+          existing.setIcon(markerIcon(m));
+          existing.setPopupContent(popupContent(m));
+          looks.current.set(m.id, look);
+        }
         continue;
       }
       const marker = L.marker(m.position, { icon: markerIcon(m), title: textOf(m), alt: textOf(m) })
         .bindPopup(popupContent(m), { offset: [0, -4] })
         .addTo(map);
       markerRefs.current.set(m.id, marker);
+      looks.current.set(m.id, look);
     }
 
     for (const [id, marker] of markerRefs.current) {
       if (!seen.has(id)) {
         marker.remove();
         markerRefs.current.delete(id);
+        looks.current.delete(id);
       }
     }
   }, [map, markers]);
+
+  // A device chosen in a list beside the map: centre on its marker and open its popup.
+  useEffect(() => {
+    if (!map || !selectedId) return;
+    const marker = markerRefs.current.get(selectedId);
+    if (!marker) return;
+    map.panTo(marker.getLatLng());
+    marker.openPopup();
+  }, [map, selectedId]);
 
   return (
     <>
@@ -213,10 +244,12 @@ const LeafletMap: React.FC<{ config: MapConfig; markers: MapMarker[] }> = ({ con
  */
 export const LiveMapWidget: React.FC<{
   markers?: MapMarker[];
+  /** The marker to centre on and open, chosen outside the map (screen 9.1 side panel). */
+  selectedId?: string | null;
   /** Size of the map box. The default keeps the interim dashboard's height; a full-bleed map page
    * passes `h-full` inside MapWorkspace. */
   className?: string;
-}> = ({ markers = [], className }) => {
+}> = ({ markers = [], selectedId = null, className }) => {
   const config = useQuery({
     queryKey: MAP_CONFIG_KEY,
     queryFn: getMapConfig,
@@ -228,7 +261,12 @@ export const LiveMapWidget: React.FC<{
   return (
     <div className={cn('relative h-[500px] w-full overflow-hidden rounded-panel border border-line bg-sunken shadow-raise', className)}>
       {config.data && (
-        <LeafletMap key={config.data.tileUrl} config={config.data} markers={markers} />
+        <LeafletMap
+          key={config.data.tileUrl}
+          config={config.data}
+          markers={markers}
+          selectedId={selectedId}
+        />
       )}
       {config.isPending && (
         <p className="absolute inset-0 flex items-center justify-center text-body text-ink-muted">

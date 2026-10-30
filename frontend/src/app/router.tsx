@@ -14,6 +14,7 @@ import { IncidentDetailPage } from '../pages/IncidentDetailPage';
 import { IncidentsPage } from '../pages/IncidentsPage';
 import { StaffIncidentsPage } from '../pages/StaffIncidentsPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
+import { LiveMapPage } from '../pages/LiveMapPage';
 import { PaymentPage } from '../pages/PaymentPage';
 import { PricesPage } from '../pages/PricesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
@@ -69,8 +70,8 @@ const ADMIN: Role[] = ['ADMIN'];
 const STAFF: Role[] = ['STAFF'];
 
 // Routes of specs/frontend/design.md §2. Only built pages are registered; the rest of the table is
-// added with the task that builds each page. The map routes show the interim dashboard until
-// `LiveMapPage` (task 9.1). Contracts and billing are screens 5.1 to 5.4 and 6.1 to 6.4.
+// added with the task that builds each page. The map routes are `LiveMapPage` (task 9.1).
+// Contracts and billing are screens 5.1 to 5.4 and 6.1 to 6.4.
 export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/" element={<DashboardPage />} />
@@ -83,7 +84,7 @@ export const AppRoutes: React.FC = () => (
     </Route>
     <Route element={<RequireAuth />}>
       <Route element={<RequireRole roles={ORG_OPERATOR} />}>
-        <Route path="/o/map" element={<DashboardPage />} />
+        <Route path="/o/map" element={<LiveMapPage scope="o" />} />
         <Route path="/o/incidents" element={<IncidentsPage />} />
         <Route path="/o/incidents/:id" element={<IncidentDetailPage />} />
         <Route path="/o/contracts" element={<ContractsPage />} />
@@ -98,7 +99,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/api-keys" element={<ApiKeysPage />} />
       </Route>
       <Route element={<RequireRole roles={STAFF} />}>
-        <Route path="/t/map" element={<DashboardPage />} />
+        <Route path="/t/map" element={<LiveMapPage scope="t" />} />
         <Route path="/t/incidents" element={<StaffIncidentsPage />} />
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
         <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
