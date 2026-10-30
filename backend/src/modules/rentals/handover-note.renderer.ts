@@ -118,8 +118,14 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 // Only the last four digits of a document number are printed, whatever the counter typed.
-export const maskIdentity = (recorded: string): string =>
-  recorded.replace(/\d{5,}/g, (digits) => '*'.repeat(digits.length - 4) + digits.slice(-4));
+// Every digit but the last four is masked, across spaces and dashes, so "079 203 001 234" and
+// "079-203-001-234" print as safely as "079203001234"; four digits or fewer are left as written.
+export const maskIdentity = (recorded: string): string => {
+  const total = (recorded.match(/\d/g) ?? []).length;
+  if (total <= 4) return recorded;
+  let seen = 0;
+  return recorded.replace(/\d/g, (digit) => (++seen <= total - 4 ? '*' : digit));
+};
 
 const battery = (device: NoteDevice) =>
   device.batteryPct === null || device.batteryPct === undefined

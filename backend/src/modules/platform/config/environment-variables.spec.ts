@@ -48,6 +48,12 @@ describe('validate (environment)', () => {
     });
   });
 
+  it('refuses the handover note placeholders in production', () => {
+    const problems = problemsOf({ ...REQUIRED, NODE_ENV: 'production' });
+    expect(problems).toContainEqual(expect.stringMatching(/^COMPANY_TAX_CODE: set the registered/));
+    expect(problems).toContainEqual(expect.stringMatching(/^COMPANY_HOTLINE: set the real/));
+  });
+
   it('reads the handover note issuer and rejects a malformed tax code or hotline', () => {
     const env = validate({
       ...REQUIRED,
