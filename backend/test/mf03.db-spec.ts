@@ -5,6 +5,8 @@ import { AccountType, ContractStatus, IngressPath, PlanType, Prisma } from '@pri
 import { Caller } from '../src/common/decorators/access.decorator';
 import { ErrorCode } from '../src/common/errors';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { AccountsService } from '../src/modules/auth';
+import { AccountsRepository } from '../src/modules/auth/accounts.repository';
 import { DevicesRepository } from '../src/modules/devices/devices.repository';
 import { DevicesService } from '../src/modules/devices/devices.service';
 import { CanonicalEnvelope } from '../src/modules/gateway-sync/canonical-envelope';
@@ -56,8 +58,16 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
   const ingress = new IncidentIngress(
     incidentsRepository,
     lifecycle,
-    // Ingress routes to NOTIFY_PRIMARY, which never reads Staff (D-079 reads them for ESCALATED).
-    new RoutingService(roster, {} as never),
+    new RoutingService(
+      roster,
+      new AccountsService(
+        new AccountsRepository(prisma),
+        {} as never,
+        {} as never,
+        events,
+        {} as never,
+      ),
+    ),
     parameters,
     events,
   );
