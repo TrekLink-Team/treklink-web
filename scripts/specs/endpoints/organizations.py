@@ -80,28 +80,39 @@ ENDPOINTS = [
 
     ep("GET", "/api/organizations/:id", "Organization detail", "TrekLink Staff, TrekLink Admin; members: own",
        "Returns one organization with its verification record and counts of members, running contracts "
-       "and open incidents.", "UC-02, UC-03, FR-AUTH-11",
+       "and open incidents. Members are the ones not deactivated; a running contract is ACTIVE, ENDING, "
+       "RETURN_DUE or OVERDUE; an open incident is any that is not CLOSED. `verification` is null until "
+       "the counter has verified the organization.", "UC-02, UC-03, FR-AUTH-11",
        path=[ORG_PATH],
        response={**ORG, "verification": {"method": "IN_PERSON", "documentsSeen": ["Business registration", "Manager ID card"],
                                          "masterContractRef": "MC-2026-0007", "verifiedBy": "Tran Thi B"},
                  "counts": {"members": 4, "runningContracts": 1, "openIncidents": 0}},
-       entity="Organization", steps=["Read the organization and counts"],
-       controller="OrganizationsController", service="OrganizationsService", call="get(id, caller)",
-       seq=["Svc->>DB: SELECT organization WHERE id AND scope"]),
+       entity="Organization",
+       steps=["Read the organization and the verifying account", "Count the members",
+              "Ask rentals and incidents for their counts through the port ORGANIZATION_COUNTS"],
+       controller="OrganizationsController", service="OrganizationProfileService", call="detail(id, caller)",
+       participants=[["Rentals", "rentals"], ["Incidents", "incidents"]],
+       seq=["Svc->>DB: SELECT organization WHERE id", "Svc->>DB: COUNT organization_members",
+            "Svc->>Rentals: count running contracts", "Svc->>Incidents: count open incidents"]),
 
     ep("PATCH", "/api/organizations/:id", "Edit contact details", "Org Manager: own; TrekLink Admin",
-       "Updates the address and contact details. Legal name and tax code change only through TrekLink "
-       "Admin, because the master contract names them.",
+       "Updates the address and contact details. The legal name changes only through TrekLink Admin, "
+       "because the master contract names it; the tax code is not editable. At least one field is "
+       "required. A CLOSED or REJECTED organization is final and is not edited.",
        "UC-04, FR-AUTH-11",
        path=[ORG_PATH],
        body=[["address", "Address", "string", "no", "`...`"], ["contactEmail", "Email", "string", "no", "`ops@acme-trek.vn`"],
              ["contactPhone", "Phone", "string", "no", "`0281234567`"],
              ["legalName", "Admin only", "string", "no", "`ACME Trek JSC`"], VERSION],
        sample={"contactPhone": "0287654321", "expectedVersion": 3}, response={**ORG, "contactPhone": "0287654321", "version": 4},
-       message="Saved.", entity="Organization", errors=[STALE],
-       steps=["Check field-level permission", "Compare-and-set on version", "Emit audit.record organization.update"],
-       controller="OrganizationsController", service="OrganizationsService", call="update(id, dto, caller)",
-       seq=["Svc->>DB: UPDATE organizations WHERE id AND version"]),
+       message="Saved.", entity="Organization",
+       errors=[(403, "FORBIDDEN", "A Manager sends legalName", "Only TrekLink Admin can change the legal name."),
+               state_409("organization", "CLOSED"), STALE],
+       steps=["Require at least one field", "Check field-level permission", "Lock the organization, refuse a CLOSED or REJECTED one",
+              "Compare-and-set on version", "Emit audit.record organization.updated"],
+       controller="OrganizationsController", service="OrganizationProfileService", call="update(id, dto, caller)",
+       seq=["Svc->>DB: SELECT organizations FOR UPDATE", "Svc->>DB: UPDATE organizations WHERE id AND version",
+            "Svc-)Svc: emit audit.record"]),
 
     ep("POST", "/api/organizations/:id/verification", "Record verification", "TrekLink Staff",
        "Records the in-person or phone verification: documents seen and the signed master contract "

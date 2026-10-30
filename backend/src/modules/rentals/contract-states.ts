@@ -24,3 +24,10 @@ export const isAllowedTransition = (from: ContractStatus, to: ContractStatus): b
 // States after which a contract holds nothing: an organization with no contract outside these may
 // close (design §6, ORGANIZATION_EXIT_CHECKS).
 export const FINISHED_STATES: readonly ContractStatus[] = [S.REJECTED, S.CANCELLED, S.CLOSED];
+// The devices are out: a contract that has started and has not been returned or defaulted.
+export const RUNNING_STATES: readonly ContractStatus[] = [
+  S.ACTIVE,
+  S.ENDING,
+  S.RETURN_DUE,
+  S.OVERDUE,
+];

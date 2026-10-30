@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns one organization with its verification record and counts of members, running contracts and open incidents.
+Returns one organization with its verification record and counts of members, running contracts and open incidents. Members are the ones not deactivated; a running contract is ACTIVE, ENDING, RETURN_DUE or OVERDUE; an open incident is any that is not CLOSED. `verification` is null until the counter has verified the organization.
 
 ## API Specification
 
@@ -140,10 +140,14 @@ flowchart TB
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Read the organization and counts"]
+    P0["Read the organization and the verifying account"]
     D1 -->|no| P0
+    P1["Count the members"]
+    P0 --> P1
+    P2["Ask rentals and incidents for their counts through the port ORGANIZATION_COUNTS"]
+    P1 --> P2
     OK["Return 200"]
-    P0 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -154,11 +158,16 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as OrganizationsController
-    participant Svc as OrganizationsService
+    participant Svc as OrganizationProfileService
     participant DB as Postgres
+    participant Rentals as rentals
+    participant Incidents as incidents
     C->>Ctl: GET /api/organizations/:id
-    Ctl->>Svc: get(id, caller)
-    Svc->>DB: SELECT organization WHERE id AND scope
+    Ctl->>Svc: detail(id, caller)
+    Svc->>DB: SELECT organization WHERE id
+    Svc->>DB: COUNT organization_members
+    Svc->>Rentals: count running contracts
+    Svc->>Incidents: count open incidents
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

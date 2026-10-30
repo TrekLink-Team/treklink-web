@@ -20,6 +20,7 @@ import { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationOnboardingController } from './organization-onboarding.controller';
 import { OrganizationOnboardingService } from './organization-onboarding.service';
 import { OrganizationStatusController } from './organization-status.controller';
+import { OrganizationProfileService } from './organization-profile.service';
 import { OrganizationStatusService } from './organization-status.service';
 import { OrganizationsController } from './organizations.controller';
 import { OrganizationsPortsModule } from './organizations-ports.module';
@@ -58,6 +59,7 @@ import { ShiftsService } from './shifts.service';
     OrganizationOnboardingService,
     OrganizationLifecycle,
     OrganizationStatusService,
+    OrganizationProfileService,
     RosterRepository,
     RosterService,
     ApiKeysRepository,

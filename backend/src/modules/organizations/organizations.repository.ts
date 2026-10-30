@@ -31,6 +31,14 @@ export class OrganizationsRepository {
     });
   }
 
+  // The row of api-design 03 and 04: the review row and the account that verified it.
+  findDetail(id: string, client: Client = this.prisma) {
+    return client.organization.findUnique({
+      where: { id },
+      select: { ...REVIEW_SELECT, verifiedById: true },
+    });
+  }
+
   async channelKeyVersion(id: string, client: Client = this.prisma): Promise<number | null> {
     const row = await client.organization.findUnique({
       where: { id },
@@ -245,4 +253,7 @@ export const REVIEW_SELECT = {
   createdAt: true,
 } satisfies Prisma.OrganizationSelect;
 
+export type OrganizationDetailRow = Prisma.OrganizationGetPayload<{
+  select: typeof REVIEW_SELECT & { verifiedById: true };
+}>;
 export type OrganizationReviewRow = Prisma.OrganizationGetPayload<{ select: typeof REVIEW_SELECT }>;

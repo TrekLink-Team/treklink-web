@@ -81,6 +81,14 @@ export class IncidentsRepository {
     return tx.incident.update({ where: { id }, data: { statusDueAt } });
   }
 
+  // Incidents of an organization that are not CLOSED (organizations api-design 03 `openIncidents`).
+  countOpenOfOrganization(
+    organizationId: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<number> {
+    return client.incident.count({ where: { organizationId, state: { not: 'CLOSED' } } });
+  }
+
   // Incidents not yet CLOSED on a contract or on any of its devices (FR-CON-13, rentals close).
   countOpenFor(
     contractId: string,
