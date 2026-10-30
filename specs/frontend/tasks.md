@@ -67,9 +67,10 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: organizations api-design 02, 03, 05 to 11; verification form with method, documents, master contract reference and the NDA and software licence checkboxes (both required); approve or reject (MSG16, MSG21); suspend, reactivate, close
   - **Partly done** (2026-10-27, LongLP): `/t/organizations` for Staff and Admin with the Pending, Active, Rejected and All tabs, the queue table and a side panel: details, the verification form (both terms required) and, for the Admin, Approve (held until verified, MSG21) and Reject with its reason dialog (MSG16). 2026-10-28: rebuilt on the design-system components of #95 (Tabs, StatusBadge with `ORGANIZATION_STATUS`, Card panel, RadioGroup, Checkbox, Dialog, Alert), component-tested (Approve held until verified, both contract terms required), walked in the browser as the Admin (ORG-0002 verified and approved on local PGlite), and `ui-design/3-2-*.md` filled in. Open: suspend, reactivate and close (api-design 08 to 11)
   - _Story: US-UC02, US-UC03, US-UC07_
-- [ ] 3.3 Members and roster (owner TanNB)
+- [x] 3.3 Members and roster (owner TanNB)
   - **Do**: organizations api-design 12 to 19; invite, change role, deactivate (MSG for `LAST_MANAGER`); `RosterCalendar` widget with overlap errors and `NO_PRIMARY` warnings (MSG22)
   - **Partly done** (2026-10-29, TanNB): `ui-design/3-3-members-and-roster.md` filled in, with its wireframe `3-3-members-and-roster.svg`. Open: the pages, their tests and the review
+  - **Done** (2026-10-30, D-078 takeover, KhoaDD's agent): `MembersPage` at `/o/members` and `RosterPage` at `/o/roster`, built against `ui-design/3-3-members-and-roster.md`. Hooks in `src/entities/organization/members.ts` and `roster.ts`, the week view in `src/widgets/RosterCalendar/`, component tests in `MembersPage.test.tsx` and `RosterPage.test.tsx`. Routes registered in `app/router.tsx`; both entries flipped to `built: true` in `shared/config/navigation.ts`. Resend invitation uses auth api-design 05 (D-059 rule 6). Open: TanNB's review, the Actions menu of the 360 px member cards (the buttons show inline)
   - _Story: US-UC04, US-UC05_
 - [x] 3.4 API keys (owner TanNB)
   - **Do**: organizations api-design 20 to 22; the secret is shown once with a copy button and never again
