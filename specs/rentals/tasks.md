@@ -27,12 +27,13 @@
   - **Test**: every pair of the eleven states, allowed or 409
   - _Requirements: REQ-UBI-01, FR-CON-13_
   - **Done**: in TK-187, as `apply(id, from, to, reason, actor, tx)` with `actor` null for SYSTEM (treklink-docs#103, 2)
-- [ ] 1.3 Ports (owner LongLP)
-  - **Files**: `backend/src/modules/rentals/ports/contract-close-checks.port.ts`, `providers/exit-checks.provider.ts`, `providers/custody-resolver.provider.ts`, `providers/loss-case-listener.provider.ts`
+- [x] 1.3 Ports (owner LongLP)
+  - **Files**: `backend/src/modules/rentals/ports/contract-close-checks.port.ts`, `providers/organization-exit-check.provider.ts`, `providers/custody-resolver.provider.ts`, `providers/loss-case-listener.provider.ts`
   - **Do**: declare the multi-provider `CONTRACT_CLOSE_CHECKS`; provide `ORGANIZATION_EXIT_CHECKS.canClose` (open contracts block closing), `CUSTODY_RESOLVER` (delegates to `custodyAt`) and `LOSS_CASE_LISTENERS.onSettled` (sets the row's `lostAt` to the case's confirmation time; `onConfirmed` does nothing)
   - **Test**: closing an organization with an `ACTIVE` contract is refused; `onSettled` sets `lostAt` inside the caller's transaction
   - _Requirements: design §6, REQ-EVT-12, FR-DEV-13_
   - **Partly done** in TK-187: `CONTRACT_CLOSE_CHECKS` is declared, and `ContractsService.canClose`, `custodyAt` and `onLossSettled` are built and tested; they are registered under `ORGANIZATION_EXIT_CHECKS`, `CUSTODY_RESOLVER` and `LOSS_CASE_LISTENERS` once `organizations` and `devices` declare those tokens (treklink-docs#103, 1)
+  - **Progress** (2026-10-30, TK-187): `devices` now declares both of its tokens, so `rentals` provides them. `RentalsCustodyResolver` (`providers/custody-resolver.provider.ts`) answers `CUSTODY_RESOLVER` from `RentalsPortsModule`, global like `CONTRACT_DIRECTORY`, with the rule of `custodyAt` (the pure `custodyOf`, margin 0) over `ContractsRepository.findCustody`, because the ports module holds no `ContractsService`. `RentalsLossCaseListener` (`providers/loss-case-listener.provider.ts`, in `RentalsModule`) registers itself in the `LOSS_CASE_LISTENERS` array `DevicesModule` exports, as `BillingLossCaseListener` does; `onSettled` calls `onLossSettled(contractDeviceId, confirmedAt, tx)` for a case with a custody contract, whatever the decision, and `onConfirmed` does nothing. Unit-tested (provider specs and `rentals.module.spec.ts`: the token resolves and the listener joins the array). No loss case reaches either yet: the loss-case flow is devices task 2.7. `ORGANIZATION_EXIT_CHECKS` landed with TK-120 (TanNB, organizations 2.4): `RentalsOrganizationExitCheck` (`providers/organization-exit-check.provider.ts`) answers `canClose` with 409 `OPEN_CONTRACTS` from `ContractsService.canClose` in the closing transaction, tested in its spec and `test/organization-lifecycle.db-spec.ts`. The three ports are provided, so the task is done
 
 ## Phase 2: Request to handover (MF-01)
 

@@ -12,8 +12,8 @@ import { ChargesService } from '../charges.service';
 // billing's side of the devices port LOSS_CASE_LISTENERS (task 2.6, REQ-EVT-07, D-045): a case
 // confirmed in RENTER custody is charged the device's remaining value at the confirmation date; a
 // case settled as reduced or waived gets its ADJUSTMENT line. TREKLINK custody charges nothing.
-// Registers itself under LOSS_CASE_LISTENERS at boot (devices task 1.4 wiring), alongside the rentals
-// listener once rentals 1.3 builds it.
+// Registers itself under LOSS_CASE_LISTENERS at boot (devices task 1.4 wiring), alongside
+// RentalsLossCaseListener (rentals task 1.3).
 @Injectable()
 export class BillingLossCaseListener implements LossCaseListener, OnModuleInit {
   constructor(
