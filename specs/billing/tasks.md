@@ -28,11 +28,12 @@
   - _Requirements: REQ-UBI-01, BR-29_
   - **Done**: also `termFeeVnd`, `holdingFeeVnd` and `dayPlanFeeVnd`; the day-plan division runs last, so a whole fee stays exact
 - [x] 1.3 Provide `ORGANIZATION_EXIT_CHECKS.canReactivate` (owner LongLP)
-  - **Do**: any unpaid line or pending damage charge of the organization returns `BALANCE_OUTSTANDING`
+  - **Do**: any due and unpaid line (due at or before the reactivation time, leader ruling 2026-10-30) or pending damage charge of the organization returns `BALANCE_OUTSTANDING`
   - **Test**: reactivation refused with one unpaid line
   - _Requirements: design §4, FR-ORG-07_
   - **Done** (2026-10-30): `BillingOrganizationExitCheck` (`providers/organization-exit-check.provider.ts`) came with TK-120 (TanNB) and refused a reactivation on unpaid lines only (`BalanceService.outstandingOfOrganization`, credits netted per contract). LongLP added the pending damage charges the `Do` line names: `BalanceService.pendingDamageOfOrganization` counts the `PENDING_APPROVAL` charges of every contract the organization was invoiced for (`InvoicesRepository.contractIdsOfOrganization`, then `DamageChargesRepository.countPendingOfContracts`), billing tables only, because a charge stores its contract and not its organization (D-081). Either one answers 409 `BALANCE_OUTSTANDING`. Unit-tested (the provider, the balance service and both repositories)
   - **Review of #154** (2026-10-30, LongLP): on Postgres (`test/billing-acceptance.db-spec.ts`, AC-04), with every invoice paid, the pending damage charge alone makes `OrganizationStatusService.reactivate` answer 409 `BALANCE_OUTSTANDING` through the real exit checks; decided and paid, the organization comes back `ACTIVE`. A unit test shows the damage read is skipped once something is owed
+  - **Done** (2026-10-30, KhoaDD under D-078, leader ruling 2026-10-30): reactivation counts only lines due and unpaid. `outstandingOfOrganization` became `dueUnpaidOfOrganization(orgId, at)`, which keeps the per-contract credit netting and sums only what is due at or before `at`; the port passes the reactivation time. A future installment (RC-2026-0004's second, due 2026-11-30) no longer blocks. Unit-tested, and `test/organization-lifecycle.db-spec.ts` reactivates with a future installment and refuses with an overdue unpaid line
 
 ## Phase 2: Core Service Logic
 

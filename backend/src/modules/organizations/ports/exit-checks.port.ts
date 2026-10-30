@@ -17,9 +17,11 @@ export interface ExitBlockingReason {
 
 export interface OrganizationExitCheck {
   // `tx` is the transaction of the change, so a check reads what it has locked and never waits on it.
+  // `at` is the time of the reactivation: what is due is judged at that time (leader ruling 2026-10-30).
   canReactivate(
     organizationId: string,
     tx: Prisma.TransactionClient,
+    at: Date,
   ): Promise<ExitBlockingReason | null>;
   canClose(
     organizationId: string,

@@ -49,7 +49,7 @@ stateDiagram-v2
     PENDING --> ACTIVE : verified and approved
     PENDING --> REJECTED : rejected
     ACTIVE --> SUSPENDED : contract defaulted, or Admin
-    SUSPENDED --> ACTIVE : reactivated, nothing outstanding
+    SUSPENDED --> ACTIVE : reactivated, nothing due and unpaid
     ACTIVE --> CLOSED : closed, no open contract
     REJECTED --> [*]
     CLOSED --> [*]
@@ -64,7 +64,7 @@ state, matching SRS Figure 28.
 | `PENDING` | `ACTIVE` | Admin | `verifiedAt` set |
 | `PENDING` | `REJECTED` | Admin | reason |
 | `ACTIVE` | `SUSPENDED` | Admin, or `SYSTEM` from `rentals` on default | reason |
-| `SUSPENDED` | `ACTIVE` | Admin | every `ORGANIZATION_EXIT_CHECKS.canReactivate(orgId)` true |
+| `SUSPENDED` | `ACTIVE` | Admin | every `ORGANIZATION_EXIT_CHECKS.canReactivate(orgId, tx, at)` reports nothing; billing counts only lines due and unpaid at `at` (leader ruling 2026-10-30) |
 | `ACTIVE` | `CLOSED` | Admin | every `ORGANIZATION_EXIT_CHECKS.canClose(orgId)` true |
 
 Each transition is a compare-and-set on `version` plus one `OrganizationTransition` row in one
@@ -142,7 +142,7 @@ cannot reach, so rotation takes effect device by device at the counter.
 | `ComplianceCaseService.openOrLink(orgId, lossCaseId, actor, tx)` | devices | FR-DEV-13, D-046 |
 | provider of `ACCOUNT_CONTEXT_PROVIDER`, `API_KEY_RESOLVER` | auth | `platform` design §2.1 |
 
-Declares `ORGANIZATION_EXIT_CHECKS` (multi): `{ canReactivate(orgId): Promise<Reason | null>; canClose(orgId): Promise<Reason | null> }`.
+Declares `ORGANIZATION_EXIT_CHECKS` (multi): `{ canReactivate(orgId, tx, at): Promise<Reason | null>; canClose(orgId, tx): Promise<Reason | null> }`; `at` is the reactivation time.
 
 Events emitted: `member.deactivated`, `apiKey.revoked`, `fieldStation.revoked`, `organization.statusChanged`, `audit.record`.
 

@@ -116,7 +116,7 @@ export class OrganizationStatusService {
           guard: async (current) => {
             if (current.status !== OrganizationStatus.SUSPENDED) throw invalidState(current.status);
             for (const check of this.checks) {
-              const reason = await check.canReactivate(id, tx);
+              const reason = await check.canReactivate(id, tx, at);
               if (reason) throw blocked(reason);
             }
           },

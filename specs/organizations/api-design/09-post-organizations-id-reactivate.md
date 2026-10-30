@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstanding (FR-ORG-07). Billing answers through the `ORGANIZATION_EXIT_CHECKS` port, read in the same transaction.
+Returns a `SUSPENDED` organization to `ACTIVE`, only when nothing is due and unpaid (FR-ORG-07): an invoice line due at or before the reactivation time and unpaid, or a damage charge waiting for an Admin, blocks it; a line not yet due does not (leader ruling 2026-10-30). Billing answers through the `ORGANIZATION_EXIT_CHECKS` port, read in the same transaction.
 
 ## API Specification
 
@@ -155,7 +155,7 @@ Returns a `SUSPENDED` organization to `ACTIVE`, only when no balance is outstand
         </tr>
         <tr>
             <td>409</td>
-            <td>An invoice line is still unpaid (<code>BALANCE_OUTSTANDING</code>)</td>
+            <td>An invoice line is due and unpaid, or a damage charge waits for an Admin (<code>BALANCE_OUTSTANDING</code>)</td>
 <td>
 
 ```json
@@ -212,7 +212,7 @@ flowchart TB
     E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"An invoice line is still unpaid?"}
+    D4{"An invoice line is due and unpaid, or a damage charge waits for an Admin?"}
     D3 -->|no| D4
     E4["Return 409 BALANCE_OUTSTANDING"]
     D4 -->|yes| E4

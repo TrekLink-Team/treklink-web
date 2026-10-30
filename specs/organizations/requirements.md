@@ -49,7 +49,7 @@
 - **REQ-EVT-02**: WHEN Staff record a verification, the system SHALL store the method, documents seen, master contract reference and verifying Staff member, SHALL require `ndaSigned` and `softwareLicenceSigned`, and SHALL notify Admins. [FR-ORG-02, BR-43, NFR-LEG-03]
 - **REQ-EVT-03**: WHEN an Admin approves a verified `PENDING` organization, the system SHALL move it to `ACTIVE` and email the Manager (MSG05); WHEN an Admin rejects it, the system SHALL move it to `REJECTED` with the reason (MSG16). [FR-ORG-03]
 - **REQ-EVT-04**: WHEN an Admin suspends an `ACTIVE` organization, or `rentals` reports a defaulted contract, the system SHALL move it to `SUSPENDED` with the reason and notify the Manager. [FR-ORG-07, BR-26]
-- **REQ-EVT-05**: WHEN an Admin reactivates a `SUSPENDED` organization and every `ORGANIZATION_EXIT_CHECKS` provider reports nothing outstanding, the system SHALL move it to `ACTIVE`. [FR-ORG-07]
+- **REQ-EVT-05**: WHEN an Admin reactivates a `SUSPENDED` organization and every `ORGANIZATION_EXIT_CHECKS` provider reports nothing due and unpaid (no invoice line due at or before the reactivation time and unpaid, net of credits, and no damage charge waiting for an Admin), the system SHALL move it to `ACTIVE`. A line not yet due, such as a later installment, does not block it (leader ruling 2026-10-30). [FR-ORG-07]
 - **REQ-EVT-06**: WHEN an Admin closes an `ACTIVE` organization with no open contract, the system SHALL deactivate its members, revoke its API keys and Field Station credentials, and move it to `CLOSED`.
 - **REQ-EVT-07**: WHEN a Manager invites a member, the system SHALL create the organization account through `auth` with the chosen role and email an invitation; WHEN a Manager changes a role or deactivates a member, the system SHALL apply it through `auth` and emit `member.deactivated` for a deactivation. [FR-ORG-04]
 - **REQ-EVT-08**: WHEN a member is deactivated, the system SHALL clear that member from every shift that has not ended. [D-034, FR-ORG-05]
@@ -70,7 +70,7 @@
 - **REQ-ERR-01**: IF a registration's tax code or Manager email is already registered, THEN the system SHALL return 409 `CONFLICT_UNIQUE` (MSG10).
 - **REQ-ERR-02**: IF an Admin approves an organization with no verification, THEN the system SHALL return 409 `NOT_VERIFIED` (MSG21).
 - **REQ-ERR-03**: IF a change would leave no active Manager, THEN the system SHALL return 409 `LAST_MANAGER`.
-- **REQ-ERR-04**: IF a reactivation finds an outstanding balance, or a closing an open contract, THEN the system SHALL return 409 `BALANCE_OUTSTANDING` or `OPEN_CONTRACTS`.
+- **REQ-ERR-04**: IF a reactivation finds a due and unpaid balance (leader ruling 2026-10-30: only lines due at or before the reactivation time count), or a closing an open contract, THEN the system SHALL return 409 `BALANCE_OUTSTANDING` or `OPEN_CONTRACTS`.
 - **REQ-ERR-05**: IF a member of organization A addresses organization B's resources, THEN the system SHALL return 404 `NOT_FOUND`. [FR-AUTH-11]
 - **REQ-ERR-06**: IF the active API keys or Field Station credentials would exceed `organizations.maxApiKeys` or `organizations.maxFieldStations`, THEN the system SHALL return 409 `KEY_LIMIT` or `STATION_LIMIT`.
 - **REQ-ERR-07**: IF a verification lacks the NDA or the software licence, THEN the system SHALL return 400 `CONTRACT_TERMS_MISSING`. [BR-43]

@@ -205,8 +205,8 @@ describe('OrganizationStatusService (organizations 2.4, api-design 08 to 11, UC-
 
       await service.reactivate('org-1', 3, ADMIN, AT);
 
-      expect(billing.canReactivate).toHaveBeenCalledWith('org-1', TX);
-      expect(rentals.canReactivate).toHaveBeenCalledWith('org-1', TX);
+      expect(billing.canReactivate).toHaveBeenCalledWith('org-1', TX, AT);
+      expect(rentals.canReactivate).toHaveBeenCalledWith('org-1', TX, AT);
       expect(organizations.update).toHaveBeenCalledWith(
         'org-1',
         3,

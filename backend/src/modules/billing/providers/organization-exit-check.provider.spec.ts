@@ -4,13 +4,14 @@ import { BalanceService } from '../balance.service';
 import { BillingOrganizationExitCheck } from './organization-exit-check.provider';
 
 const TX = { tx: true } as unknown as Prisma.TransactionClient;
+const AT = new Date('2026-10-30T03:00:00.000Z');
 
 describe('BillingOrganizationExitCheck (organizations port ORGANIZATION_EXIT_CHECKS)', () => {
-  let balances: { outstandingOfOrganization: jest.Mock; pendingDamageOfOrganization: jest.Mock };
+  let balances: { dueUnpaidOfOrganization: jest.Mock; pendingDamageOfOrganization: jest.Mock };
 
   beforeEach(() => {
     balances = {
-      outstandingOfOrganization: jest.fn().mockResolvedValue(0n),
+      dueUnpaidOfOrganization: jest.fn().mockResolvedValue(0n),
       pendingDamageOfOrganization: jest.fn().mockResolvedValue(0),
     };
   });
@@ -27,24 +28,24 @@ describe('BillingOrganizationExitCheck (organizations port ORGANIZATION_EXIT_CHE
 
   it('lets an organization with nothing outstanding be reactivated, reading in the transaction', async () => {
     const check = new BillingOrganizationExitCheck(balances as unknown as BalanceService);
-    await expect(check.canReactivate('org-1', TX)).resolves.toBeNull();
-    expect(balances.outstandingOfOrganization).toHaveBeenCalledWith('org-1', TX);
+    await expect(check.canReactivate('org-1', TX, AT)).resolves.toBeNull();
+    expect(balances.dueUnpaidOfOrganization).toHaveBeenCalledWith('org-1', AT, TX);
     expect(balances.pendingDamageOfOrganization).toHaveBeenCalledWith('org-1', TX);
   });
 
   it('blocks a reactivation while a damage charge waits for an Admin, with nothing invoiced owed (task 1.3)', async () => {
     balances.pendingDamageOfOrganization.mockResolvedValue(1);
     const check = new BillingOrganizationExitCheck(balances as unknown as BalanceService);
-    await expect(check.canReactivate('org-1', TX)).resolves.toEqual({
+    await expect(check.canReactivate('org-1', TX, AT)).resolves.toEqual({
       code: 'BALANCE_OUTSTANDING',
       message: 'This cannot be done while it has open balances.',
     });
   });
 
-  it('blocks a reactivation with BALANCE_OUTSTANDING while anything is owed', async () => {
-    balances.outstandingOfOrganization.mockResolvedValue(1n);
+  it('blocks a reactivation with BALANCE_OUTSTANDING while a line is due and unpaid', async () => {
+    balances.dueUnpaidOfOrganization.mockResolvedValue(1n);
     const check = new BillingOrganizationExitCheck(balances as unknown as BalanceService);
-    await expect(check.canReactivate('org-1', TX)).resolves.toEqual({
+    await expect(check.canReactivate('org-1', TX, AT)).resolves.toEqual({
       code: 'BALANCE_OUTSTANDING',
       message: 'This cannot be done while it has open balances.',
     });
