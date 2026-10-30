@@ -42,7 +42,7 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
   const repository = new IncidentsRepository(prisma);
   const organizations = { memberNames: () => Promise.resolve(new Map<string, string>()) };
   const alerts = new AlertDeliveriesRepository();
-  const reports = new AuthorityReportsRepository();
+  const reports = new AuthorityReportsRepository(prisma);
   const emitter = new EventEmitter2();
   const events = new TransactionalEvents(prisma, emitter);
   const parameters = new ParameterService(
