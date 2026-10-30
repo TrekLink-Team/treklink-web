@@ -28,12 +28,14 @@ const shiftRow = (
   primaryMember: member(primary),
   backupMember: member(backup),
 });
-const card = (userId: string, isActive = true) => ({
+// An invited account is created active and has no password until its holder sets one.
+const card = (userId: string, passwordSet = true, isActive = true) => ({
   id: userId,
   email: `${userId}@example.com`,
   fullName: `Name ${userId}`,
   phoneNumber: null,
   isActive,
+  passwordSet,
 });
 
 const codeOf = async (promise: Promise<unknown>): Promise<string> => {
@@ -308,6 +310,12 @@ describe('ShiftsService (organizations 2.6, api-design 16 to 19)', () => {
       );
 
       accounts.contactCard.mockResolvedValueOnce([card('u-m-1'), card('u-m-2', false)]);
+      expect(await codeOf(service.create('org-1', INPUT, MANAGER, NOW))).toBe(
+        ErrorCode.MEMBER_NOT_ELIGIBLE,
+      );
+
+      // A deactivated account that still has its password is not eligible either.
+      accounts.contactCard.mockResolvedValueOnce([card('u-m-1'), card('u-m-2', true, false)]);
       expect(await codeOf(service.create('org-1', INPUT, MANAGER, NOW))).toBe(
         ErrorCode.MEMBER_NOT_ELIGIBLE,
       );
