@@ -26,7 +26,9 @@ export function configureApp(app: NestExpressApplication): void {
   // Request id before the body parser, so a 413 carries X-Request-Id too (REQ-UBI-08).
   app.use(requestIdMiddleware);
   const bodyLimit = config.get('HTTP_BODY_LIMIT', { infer: true });
-  // Parse the signature endpoint first; the general parser skips an already-consumed body.
+  // Parse the signature endpoint first; the general parser skips an already-consumed body. Body
+  // parsing runs before the JWT guard, so an unauthenticated caller can still send up to this limit
+  // before the 401; the route stays small enough that this is accepted (review of #144).
   app.useBodyParser('json', {
     limit: config.get('RENTALS_HANDOVER_BODY_LIMIT', { infer: true }),
     type: (request) =>

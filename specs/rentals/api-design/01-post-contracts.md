@@ -241,16 +241,18 @@ flowchart TB
     E5 --> X5((End))
     P0["Require the organization ACTIVE"]
     D5 -->|no| P0
-    P1["Validate plan, variant, quantity and date"]
+    P1["Validate quantity, day-plan length and start date"]
     P0 --> P1
-    P2["Snapshot price, premium and holding ratio from billing"]
+    P2["Require an active hardware variant"]
     P1 --> P2
-    P3["Insert the contract REQUESTED"]
+    P3["Snapshot price, premium and holding ratio from billing"]
     P2 --> P3
-    P4["Notify TrekLink Staff"]
+    P4["Insert the contract REQUESTED"]
     P3 --> P4
+    P5["Notify TrekLink Staff"]
+    P4 --> P5
     OK["Return 201"]
-    P4 --> OK
+    P5 --> OK
     OK --> Z((End))
 ```
 
