@@ -10,6 +10,7 @@ import { SAR_DISCLAIMER } from '../shared/ui';
 import { PlansPage } from './PlansPage';
 
 const fetchPlans = vi.fn();
+let requestedOptions: unknown;
 let signedIn: { id: string; roles: string[]; accountType: string; organization: null } | null =
   null;
 
@@ -18,7 +19,10 @@ vi.mock('../entities/billing/api', async (importOriginal) => {
   const { useQuery } = await import('@tanstack/react-query');
   return {
     ...original,
-    usePlans: () => useQuery({ queryKey: ['plans'], queryFn: () => fetchPlans(), retry: false }),
+    usePlans: (options: unknown) => {
+      requestedOptions = options;
+      return useQuery({ queryKey: ['plans'], queryFn: () => fetchPlans(), retry: false });
+    },
   };
 });
 
@@ -54,6 +58,7 @@ const renderPage = () =>
 afterEach(() => {
   cleanup();
   fetchPlans.mockReset();
+  requestedOptions = undefined;
   signedIn = null;
 });
 
@@ -77,6 +82,12 @@ describe('PlansPage (screen 2.3)', () => {
     expect(screen.getByText('From 5 devices per contract.')).toBeTruthy();
     expect(screen.getByText(/Day plans of 3, 4 or 7 days, at 1.5 times/)).toBeTruthy();
     expect(screen.getByText(/holding fee of 50 % of the first monthly term/)).toBeTruthy();
+  });
+
+  it('keeps the prices fresh for five minutes and does not refetch on window focus', () => {
+    fetchPlans.mockReturnValue(new Promise(() => undefined));
+    renderPage();
+    expect(requestedOptions).toEqual({ staleTime: 300_000, refetchOnWindowFocus: false });
   });
 
   it('hides the sandbox label when the server says the prices are live', async () => {

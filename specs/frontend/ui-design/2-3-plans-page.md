@@ -82,7 +82,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] States: loading, empty, error, success; error codes that cannot occur are stated
 - [x] Forms: none
 - [x] Mobile: single-column layout drawn
-- [x] Accessibility: skip link, tab order, text alternatives, no colour-only meaning
+- [ ] Accessibility: skip link (open: neither `AuthLayout` nor `AppShell` has one yet), tab order, text alternatives, no colour-only meaning
 - [x] Live data: none, stated
 - [x] Traceability: UC-15, UC-56, FR-BILL-01, FR-BILL-02, REQ-UBI-09, US-UC15
 - [x] §8 items 1, 3, 8 (VND without decimals), 10 (disclaimer and sandbox visible) applied
