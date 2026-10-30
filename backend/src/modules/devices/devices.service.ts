@@ -127,7 +127,9 @@ export class DevicesService {
   // Reserves `quantity` AVAILABLE units of the variant for a contract approval, inside the caller's
   // transaction (rentals task 2.2, FR-CON-03, BR-03). Fewer units than asked is 409
   // INSUFFICIENT_DEVICES with MSG11 and reserves nothing, because the caller's transaction rolls back
-  // (REQ-ERR-01 of rentals). The device transition rows join with the lifecycle of task 1.2.
+  // (REQ-ERR-01 of rentals). The device transition rows join with the lifecycle of task 1.2. When the
+  // caller names the units, one that is not an AVAILABLE unit of the variant (another status, another
+  // variant, unknown, or held by a concurrent approval) is 409 DEVICE_NOT_AVAILABLE naming it.
   async reserve(
     variant: { id: string; code: string },
     quantity: number,
@@ -136,6 +138,21 @@ export class DevicesService {
     deviceIds?: readonly string[],
   ): Promise<DeviceTag[]> {
     const taken = await this.devices.reserveAvailable(variant.id, quantity, at, tx, deviceIds);
+    if (deviceIds && taken.length < quantity) {
+      const takenIds = new Set(taken.map((device) => device.id));
+      const refused = deviceIds.filter((id) => !takenIds.has(id));
+      const tags = await this.assetTags(refused, tx);
+      const names = refused.map((id) => tags.get(id) ?? id).join(', ');
+      const what =
+        refused.length === 1
+          ? `is not an available ${variant.code} device`
+          : `are not available ${variant.code} devices`;
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.DEVICE_NOT_AVAILABLE,
+        `${names} ${what}. Choose available units of the variant.`,
+      );
+    }
     if (taken.length < quantity) {
       throw new DomainException(
         HttpStatus.CONFLICT,
