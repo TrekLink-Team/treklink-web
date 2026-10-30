@@ -53,6 +53,9 @@ export enum ErrorCode {
   // organizations (specs/organizations/design.md)
   ORGANIZATION_NOT_ACTIVE = 'ORGANIZATION_NOT_ACTIVE',
   KEY_LIMIT = 'KEY_LIMIT',
+  // Field Stations (api-design 24, 26, D-037, D-039).
+  STATION_LIMIT = 'STATION_LIMIT',
+  RELEASE_UNAVAILABLE = 'RELEASE_UNAVAILABLE',
   // The last active Manager cannot be demoted or deactivated (api-design 14, 15, FR-ORG-04).
   LAST_MANAGER = 'LAST_MANAGER',
   // Roster (api-design 17 to 19, FR-ORG-05).

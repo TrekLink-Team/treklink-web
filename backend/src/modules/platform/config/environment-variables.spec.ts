@@ -140,6 +140,26 @@ describe('validate (environment)', () => {
     }
   });
 
+  it('leaves the Field Station release directory and broker address unset, and checks the broker address (organizations 2.8)', () => {
+    const env = validate({ ...REQUIRED });
+    expect(env.FIELD_STATION_RELEASE_DIR).toBeUndefined();
+    expect(env.FIELD_STATION_BROKER_URL).toBeUndefined();
+
+    expect(
+      validate({
+        ...REQUIRED,
+        FIELD_STATION_RELEASE_DIR: '/srv/field-station',
+        FIELD_STATION_BROKER_URL: 'mqtts://mqtt.treklink.vn:8883',
+      }),
+    ).toMatchObject({
+      FIELD_STATION_RELEASE_DIR: '/srv/field-station',
+      FIELD_STATION_BROKER_URL: 'mqtts://mqtt.treklink.vn:8883',
+    });
+    expect(
+      problemsOf({ ...REQUIRED, FIELD_STATION_BROKER_URL: 'http://mqtt.treklink.vn' }),
+    ).toEqual([expect.stringContaining('FIELD_STATION_BROKER_URL')]);
+  });
+
   it('rejects a default page size above the maximum', () => {
     expect(problemsOf({ ...REQUIRED, DEFAULT_PAGE_SIZE: '200', MAX_PAGE_SIZE: '100' })).toEqual([
       expect.stringMatching(/^DEFAULT_PAGE_SIZE:/),
