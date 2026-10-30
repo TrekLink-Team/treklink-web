@@ -9,6 +9,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDay, formatVnd, todayDay } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
+import { ConfirmDialog } from '../shared/ui/Dialog';
 import { invalid } from '../shared/ui/errors';
 import { useToast } from '../shared/ui/toastStore';
 import {
@@ -23,7 +24,6 @@ import {
 
 const STEPS = ['Plan and devices', 'Start date', 'Review and send'] as const;
 const QUOTE_DEBOUNCE_MS = 400;
-const DISCARD_PROMPT = 'Discard this request?';
 // MSG14, shown on the contract page after sending.
 const MSG14 = 'Request sent. TrekLink will confirm availability and your handover appointment.';
 
@@ -58,6 +58,7 @@ export const ContractRequestPage: React.FC = () => {
   const showToast = useToast((state) => state.show);
   const plans = usePlans();
   const [step, setStep] = useState(0);
+  const [discarding, setDiscarding] = useState(false);
   const [planType, setPlanType] = useState<PlanType>('MONTHLY');
   const [dayPlanDays, setDayPlanDays] = useState<number | ''>('');
   const [variantId, setVariantId] = useState('');
@@ -104,8 +105,10 @@ export const ContractRequestPage: React.FC = () => {
     setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
 
   const dirty = variantId !== '' || quantity !== '' || startDate !== '' || dayPlanDays !== '';
+  // Leaving with something entered asks first, in the shared confirmation dialog.
   const cancel = () => {
-    if (!dirty || window.confirm(DISCARD_PROMPT)) navigate('/o/contracts');
+    if (dirty) setDiscarding(true);
+    else navigate('/o/contracts');
   };
 
   const next = () => {
@@ -428,7 +431,9 @@ export const ContractRequestPage: React.FC = () => {
                 to="/o/contracts"
                 className={SECONDARY_BUTTON}
                 onClick={(event) => {
-                  if (dirty && !window.confirm(DISCARD_PROMPT)) event.preventDefault();
+                  if (!dirty) return;
+                  event.preventDefault();
+                  setDiscarding(true);
                 }}
               >
                 Back to contracts
@@ -452,6 +457,18 @@ export const ContractRequestPage: React.FC = () => {
         </div>
         {quotePanel}
       </div>
+      {discarding && (
+        <ConfirmDialog
+          titleId="discard-title"
+          title="Discard this request?"
+          description="What you entered is not saved."
+          confirmLabel="Discard"
+          cancelLabel="Keep editing"
+          destructive
+          onConfirm={() => navigate('/o/contracts')}
+          onCancel={() => setDiscarding(false)}
+        />
+      )}
     </section>
   );
 };

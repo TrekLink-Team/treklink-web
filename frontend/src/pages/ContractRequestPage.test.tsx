@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../app/providers/useAuth';
 import type { SessionUser } from '../entities/session/model';
@@ -49,8 +49,11 @@ const renderWith = (status: string) => {
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <MemoryRouter>
-          <ContractRequestPage />
+        <MemoryRouter initialEntries={['/o/contracts/new']}>
+          <Routes>
+            <Route path="/o/contracts/new" element={<ContractRequestPage />} />
+            <Route path="/o/contracts" element={<p>contracts list</p>} />
+          </Routes>
         </MemoryRouter>
       </QueryClientProvider>
     </AuthContext.Provider>,
@@ -71,5 +74,31 @@ describe('ContractRequestPage organization status (screen 5.1)', () => {
   it('warns while the API still reports the organization as not active', async () => {
     renderWith('SUSPENDED');
     expect(await screen.findByText('This cannot be done while it is SUSPENDED.')).toBeTruthy();
+  });
+});
+
+describe('ContractRequestPage discard prompt', () => {
+  it('leaves at once when nothing was entered', async () => {
+    renderWith('ACTIVE');
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText('contracts list')).toBeTruthy();
+  });
+
+  it('asks in a dialog once something was entered, and stays on Keep editing', async () => {
+    const confirm = vi.spyOn(window, 'confirm');
+    renderWith('ACTIVE');
+    fireEvent.change(await screen.findByLabelText(/Quantity/), { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByRole('dialog', { name: 'Discard this request?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText('contracts list')).toBeNull();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Back to contracts' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(await screen.findByText('contracts list')).toBeTruthy();
+    expect(confirm).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 });
