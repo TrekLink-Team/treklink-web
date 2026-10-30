@@ -14,6 +14,8 @@
 //   - one UNROUTED incident on TL-0001, a device in no custody, so TrekLink Staff can walk the
 //     authority report of UC-35 (report, then case closed) from /t/incidents (D-078, 2026-11-01 demo)
 //   - one Field Station of ORG-0001, `fs-org-0001-1`, for the MF-02 sync status page
+//   - one DEFAULTED monthly contract, RC-2026-0003, on one RENTED device, TL-0019, so the contract
+//     authority report of incidents api-design 10 can be walked from /t/incidents (D-078)
 //
 // Idempotent: every row is found by its natural key and created only when absent, and the history rows of
 // a parent (transitions, intake checks, provisioning) are written only when the parent is created. A second
@@ -33,6 +35,7 @@
 // Run: npm run seed:demo   (after `prisma migrate deploy`)
 
 import {
+  ContractStatus,
   DeviceStatus,
   InvoiceKind,
   InvoiceLineType,
@@ -90,6 +93,10 @@ const CONTRACT_VARIANT = 'treklink-v3';
 const CONTRACT_CODE_2 = 'RC-2026-0002';
 // The device of the seeded UNROUTED incident (authority report demo): AVAILABLE, in no custody.
 const AUTHORITY_DEMO_DEVICE = 'TL-0001';
+
+// The DEFAULTED contract of the contract authority report demo (incidents api-design 10, D-078).
+const DEFAULTED_CONTRACT_CODE = 'RC-2026-0003';
+const DEFAULTED_DEVICE = { assetTag: 'TL-0019', nodeNum: 0xde000013n };
 
 const MF05_DEVICES: { assetTag: string; nodeNum: bigint }[] = [
   { assetTag: 'TL-0017', nodeNum: 0xde000011n },
@@ -829,6 +836,156 @@ export async function seedDemo(
         created.push(`incident ${code}`);
       }
       // --- end MF-03 step 7 authority report demo -------------------------------------------------
+
+      // --- Contract authority report demo (incidents api-design 10, D-078) -----------------------
+      // One monthly contract that ran its course to DEFAULTED, as the rentals 3.2 jobs would have
+      // moved it: handed over two months ago, its only term ended a month ago with notice given,
+      // RETURN_DUE at the term end, OVERDUE a week later, DEFAULTED yesterday. Its one device, TL-0019,
+      // stays RENTED in the renter's custody. Everything is written only when the contract is absent,
+      // and TL-0019 only when it is absent, so a second run adds nothing.
+      if (!(await tx.rentalContract.findUnique({ where: { code: DEFAULTED_CONTRACT_CODE } }))) {
+        const defaultedVariant = VARIANTS.find((v) => v.code === CONTRACT_VARIANT)!;
+        const handedOverAt = addMonths(now, -2);
+        const termEndsAt = addMonths(now, -1);
+        const overdueAt = addDays(termEndsAt, 7);
+        const defaultedAt = addDays(now, -1);
+        let device = await tx.device.findUnique({ where: { assetTag: DEFAULTED_DEVICE.assetTag } });
+        const deviceCreated = !device;
+        if (!device) {
+          device = await tx.device.create({
+            data: {
+              assetTag: DEFAULTED_DEVICE.assetTag,
+              nodeNum: DEFAULTED_DEVICE.nodeNum,
+              hardwareVariantId: variants.get(CONTRACT_VARIANT)!.id,
+              firmwareVersion: defaultedVariant.firmwareBaseline,
+              acquiredAt: addMonths(now, -4),
+              status: DeviceStatus.RENTED,
+              statusChangedAt: handedOverAt,
+              registeredById: staff,
+              serviceDueAt: utcDate(addDays(now, SERVICE_INTERVAL_DAYS)),
+              keyVersion: 1,
+              keyOrganizationId: organization.id,
+              provisionedAt: handedOverAt,
+            },
+          });
+          await tx.intakeCheck.create({
+            data: {
+              deviceId: device.id,
+              gpsFixOk: true,
+              radioOk: true,
+              batteryOk: true,
+              motionOk: defaultedVariant.hasMotionSensor ? true : null,
+              passed: true,
+              checkedById: staff,
+            },
+          });
+          created.push(`device ${DEFAULTED_DEVICE.assetTag}`);
+        }
+        const contract3 = await tx.rentalContract.create({
+          data: {
+            code: DEFAULTED_CONTRACT_CODE,
+            organizationId: organization.id,
+            planType: PlanType.MONTHLY,
+            hardwareVariantId: variants.get(CONTRACT_VARIANT)!.id,
+            quantity: 1,
+            requestedStartDate: utcDate(handedOverAt),
+            monthlyUnitPriceVnd: defaultedVariant.monthlyPriceVnd,
+            holdingFeeRatio: new Prisma.Decimal(
+              String(await parameterValue(tx, 'billing.holdingFeeRatio')),
+            ),
+            status: ContractStatus.DEFAULTED,
+            statusChangedAt: defaultedAt,
+            requestedById: manager,
+            decidedById: staff,
+            decidedAt: handedOverAt,
+            handedOverAt,
+            handedOverById: staff,
+            endsAt: termEndsAt,
+            noticeGivenAt: addDays(termEndsAt, -14),
+            noticeGivenById: manager,
+            returnDueAt: termEndsAt,
+            overdueAt,
+            defaultedAt,
+            terms: {
+              create: {
+                seq: 1,
+                startsAt: handedOverAt,
+                endsAt: termEndsAt,
+                status: 'CLOSED',
+                closedAt: termEndsAt,
+              },
+            },
+          },
+        });
+        const S = ContractStatus;
+        const steps: [ContractStatus | null, ContractStatus, Date, string][] = [
+          [null, S.REQUESTED, handedOverAt, manager],
+          [S.REQUESTED, S.APPROVED, handedOverAt, staff],
+          [S.APPROVED, S.ACTIVE, handedOverAt, staff],
+          [S.ACTIVE, S.ENDING, addDays(termEndsAt, -14), manager],
+          [S.ENDING, S.RETURN_DUE, termEndsAt, staff],
+          [S.RETURN_DUE, S.OVERDUE, overdueAt, staff],
+          [S.OVERDUE, S.DEFAULTED, defaultedAt, staff],
+        ];
+        await tx.contractTransition.createMany({
+          data: steps.map(([fromStatus, toStatus, createdAt, actorId]) => ({
+            contractId: contract3.id,
+            fromStatus,
+            toStatus,
+            actorId,
+            createdAt,
+          })),
+        });
+        await tx.contractDevice.create({
+          data: {
+            contractId: contract3.id,
+            deviceId: device.id,
+            reservedAt: handedOverAt,
+            handedOverAt,
+            holderName: 'Dang Van Long',
+            holderPhone: '0912000019',
+          },
+        });
+        if (deviceCreated) {
+          await tx.deviceProvisioning.create({
+            data: {
+              deviceId: device.id,
+              organizationId: organization.id,
+              keyVersion: 1,
+              provisionedById: staff,
+            },
+          });
+          const ref = { refType: 'CONTRACT', refId: contract3.id, actorId: staff };
+          await tx.deviceTransition.createMany({
+            data: [
+              { deviceId: device.id, toStatus: 'IN_INTAKE', actorId: staff, reason: 'REGISTERED' },
+              {
+                deviceId: device.id,
+                fromStatus: 'IN_INTAKE',
+                toStatus: 'AVAILABLE',
+                actorId: staff,
+                reason: 'INTAKE_PASSED',
+              },
+              {
+                deviceId: device.id,
+                fromStatus: 'AVAILABLE',
+                toStatus: 'RESERVED',
+                reason: 'RESERVED',
+                ...ref,
+              },
+              {
+                deviceId: device.id,
+                fromStatus: 'RESERVED',
+                toStatus: 'RENTED',
+                reason: 'HANDED_OVER',
+                ...ref,
+              },
+            ],
+          });
+        }
+        created.push(`contract ${DEFAULTED_CONTRACT_CODE}`);
+      }
+      // --- end contract authority report demo -------------------------------------------------------
 
       // --- Organization API key (organizations 2.7, monitoring 3.2) ------------------------------
       // One key for ORG-0001 from SEED_ORG_API_KEY, found by its hash, so a second run adds nothing and
