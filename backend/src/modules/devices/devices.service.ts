@@ -65,6 +65,12 @@ const titleCase = (code: string) => code.charAt(0) + code.slice(1).toLowerCase()
 
 // One reading of a field event, as `gateway-sync` reports it (task 2.5). `at` is the event's occurrence
 // time; a position is passed only when it is plotted, so an implausible one never moves the projection.
+// What the return counter shows of one returned contract row (devices api-design 10, rentals 16).
+export interface ReturnCheck {
+  resetAt: Date | null;
+  inspection: { result: InspectionResult; at: Date } | null;
+}
+
 export interface DeviceReading {
   at: Date;
   position?: { latitude: number; longitude: number };
@@ -233,6 +239,7 @@ export class DevicesService {
 
   // devices api-design 10 (task 2.4 part, built by LongLP for MF-05): a RETURNED unit is reset with all
   // three steps (400 RESET_INCOMPLETE otherwise), which clears the organization key it carried (D-021).
+  // One reset per return: a unit already reset since it became RETURNED is 409 ALREADY_RESET.
   async reset(
     deviceId: string,
     steps: { keyRemoved: boolean; nodeDbCleared: boolean; ownerCleared: boolean },
@@ -248,6 +255,14 @@ export class DevicesService {
         HttpStatus.BAD_REQUEST,
         ErrorCode.RESET_INCOMPLETE,
         'Complete every reset step first.',
+      );
+    }
+    const resetAt = await this.devices.lastResetAt(deviceId, tx);
+    if (resetAt && resetAt >= unit.statusChangedAt) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.ALREADY_RESET,
+        'This device is already reset for this return.',
       );
     }
     return this.devices.insertReset(deviceId, steps, actorId, at, tx);
@@ -680,6 +695,39 @@ export class DevicesService {
   // AVAILABLE units of a variant now.
   countAvailable(variantId: string): Promise<number> {
     return this.devices.countAvailable(variantId);
+  }
+
+  // The reset and inspection of each returned contract row, for the return counter (rentals api-design
+  // 03 devices[]): the first reset at or after the row's check-in, and the last inspection recorded
+  // against the row. Rows not checked in are left out.
+  async returnChecks(
+    rows: readonly { contractDeviceId: string; deviceId: string; checkedInAt: Date | null }[],
+  ): Promise<Map<string, ReturnCheck>> {
+    const back = rows.filter(
+      (row): row is typeof row & { checkedInAt: Date } => row.checkedInAt !== null,
+    );
+    if (back.length === 0) return new Map();
+    const [resets, inspections] = await Promise.all([
+      this.devices.resetsOf([...new Set(back.map((row) => row.deviceId))]),
+      this.devices.inspectionsOfContractDevices(back.map((row) => row.contractDeviceId)),
+    ]);
+    return new Map(
+      back.map((row) => {
+        const reset = resets.find(
+          (entry) => entry.deviceId === row.deviceId && entry.createdAt >= row.checkedInAt,
+        );
+        const inspection = inspections
+          .filter((entry) => entry.contractDeviceId === row.contractDeviceId)
+          .at(-1);
+        return [
+          row.contractDeviceId,
+          {
+            resetAt: reset?.createdAt ?? null,
+            inspection: inspection ? { result: inspection.result, at: inspection.createdAt } : null,
+          },
+        ];
+      }),
+    );
   }
 
   // Asset tags by device id, for contract reads; in the caller's transaction when it passes one.

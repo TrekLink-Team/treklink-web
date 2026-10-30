@@ -325,6 +325,26 @@ export class DevicesRepository {
     return row?.createdAt ?? null;
   }
 
+  // Every reset of these units, oldest first, for the return counter (contract detail devices[]).
+  resetsOf(deviceIds: readonly string[]): Promise<{ deviceId: string; createdAt: Date }[]> {
+    return this.prisma.deviceReset.findMany({
+      where: { deviceId: { in: [...deviceIds] } },
+      orderBy: { createdAt: 'asc' },
+      select: { deviceId: true, createdAt: true },
+    });
+  }
+
+  // The inspections recorded against these contract rows, oldest first.
+  inspectionsOfContractDevices(
+    contractDeviceIds: readonly string[],
+  ): Promise<{ contractDeviceId: string | null; result: InspectionResult; createdAt: Date }[]> {
+    return this.prisma.inspection.findMany({
+      where: { contractDeviceId: { in: [...contractDeviceIds] } },
+      orderBy: { createdAt: 'asc' },
+      select: { contractDeviceId: true, result: true, createdAt: true },
+    });
+  }
+
   // Records the three reset steps and clears the organization key the unit carried (D-021).
   async insertReset(
     deviceId: string,

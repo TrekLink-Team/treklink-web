@@ -123,6 +123,66 @@ const openDamagedInspection = async () => {
 };
 
 describe('ReturnCounter (screen 5.5)', () => {
+  it('keeps a logged reset after a reload: the read carries resetAt, so Staff go on to Inspect', () => {
+    renderCounter(
+      contract({
+        devices: [
+          device('TL-0017', {
+            checkedInAt: '2026-10-30T03:00:00Z',
+            resetAt: '2026-10-30T03:05:00Z',
+            inspection: null,
+          }),
+          device('TL-0018', { checkedInAt: '2026-10-30T03:00:00Z', resetAt: null }),
+        ],
+      } as Partial<ContractDetail>),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+
+    expect(screen.getByText(/^Reset logged /)).toBeTruthy();
+    expect(screen.getByText('Not reset')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Inspect' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Record reset' })).toHaveLength(1);
+  });
+
+  it('shows the recorded inspection of a unit after a reload and offers no action on it', () => {
+    renderCounter(
+      contract({
+        devices: [
+          device('TL-0017', {
+            checkedInAt: '2026-10-30T03:00:00Z',
+            resetAt: '2026-10-30T03:05:00Z',
+            inspection: { result: 'FAILED', at: '2026-10-30T03:06:00Z' },
+          }),
+        ],
+      } as Partial<ContractDetail>),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+
+    expect(screen.getByText('Failed, maintenance')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Inspect' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Record reset' })).toBeNull();
+  });
+
+  it('treats 409 ALREADY_RESET as a logged reset and moves the unit on to Inspect', async () => {
+    resetDevice.mockRejectedValue(
+      new ApiError(409, 'ALREADY_RESET', 'This device is already reset for this return.'),
+    );
+    renderCounter(
+      contract({
+        devices: [device('TL-0009', { checkedInAt: '2026-10-30T03:00:00Z' })],
+      } as Partial<ContractDetail>),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Record reset' }));
+    ['Channel key removed', 'Node database cleared', 'Owner name cleared'].forEach((step) =>
+      fireEvent.click(screen.getByLabelText(step)),
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Record reset' }).at(-1)!);
+
+    expect(await screen.findByRole('button', { name: 'Inspect' })).toBeTruthy();
+    expect(screen.queryByText('This device is already reset for this return.')).toBeNull();
+  });
+
   it('collects scanned tags, refuses one of another contract and shows MSG07 after check-in', async () => {
     checkInDevices.mockResolvedValue({
       checkedIn: ['TL-0009'],

@@ -15,7 +15,7 @@ const ROW = {
   id: 'c-1',
   organizationId: 'org-1',
   hardwareVariantId: 'v-3',
-  devices: [{ deviceId: 'd-1' }],
+  devices: [{ id: 'cd-1', deviceId: 'd-1', checkedInAt: null }],
   terms: [],
 };
 
@@ -28,8 +28,10 @@ describe('ContractReadsService', () => {
   let contracts: Record<string, jest.Mock>;
   let directory: { namesOf: jest.Mock };
   let service: ContractReadsService;
+  let returnChecks: jest.Mock;
 
   beforeEach(() => {
+    returnChecks = jest.fn().mockResolvedValue(new Map());
     contracts = {
       page: jest.fn().mockResolvedValue([[ROW], 1]),
       detail: jest.fn().mockResolvedValue(ROW),
@@ -52,6 +54,7 @@ describe('ContractReadsService', () => {
       {
         variants: jest.fn().mockResolvedValue([{ id: 'v-3', code: 'treklink-v3' }]),
         assetTags: jest.fn().mockResolvedValue(new Map([['d-1', 'TL-0001']])),
+        returnChecks,
       } as unknown as DevicesService,
       {
         balanceSummary: jest.fn().mockResolvedValue({ dueNowVnd: 0n }),
@@ -94,6 +97,23 @@ describe('ContractReadsService', () => {
     await expect(service.detail('c-1', STAFF)).resolves.toMatchObject({
       assetTags: new Map([['d-1', 'TL-0001']]),
     });
+  });
+
+  it('asks DevicesService for the reset and inspection of each contract row', async () => {
+    const checkedInAt = new Date('2026-10-30T03:00:00.000Z');
+    const check = { resetAt: new Date('2026-10-30T03:05:00.000Z'), inspection: null };
+    contracts.detail.mockResolvedValue({
+      ...ROW,
+      devices: [{ id: 'cd-1', deviceId: 'd-1', checkedInAt }],
+    });
+    returnChecks.mockResolvedValue(new Map([['cd-1', check]]));
+
+    const detail = await service.detail('c-1', STAFF);
+
+    expect(returnChecks).toHaveBeenCalledWith([
+      { contractDeviceId: 'cd-1', deviceId: 'd-1', checkedInAt },
+    ]);
+    expect(detail.returnChecks.get('cd-1')).toEqual(check);
   });
 
   it('names the actor of each transition', async () => {

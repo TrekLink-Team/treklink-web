@@ -5,6 +5,7 @@ export {
   type DeviceDetail,
   type DeviceReading,
   type FleetDevice,
+  type ReturnCheck,
   type TrailEntry,
 } from './devices.service';
 export type {

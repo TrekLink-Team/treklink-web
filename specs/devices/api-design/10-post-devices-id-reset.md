@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name cleared. All three must be true. Required before the inspection, which `rentals` records on the return (FR-DEV-07, BR-28).
+Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name cleared. All three must be true. Required before the inspection, which `rentals` records on the return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused (demo smoke defect 4, 2026-10-30).
 
 ## API Specification
 
@@ -183,6 +183,23 @@ Records the reset of a `RETURNED` device: channel key removed, node database cle
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>A reset is recorded since the unit became RETURNED (<code>ALREADY_RESET</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "ALREADY_RESET"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This device is already reset for this return."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -213,8 +230,13 @@ flowchart TB
     E4["Return 409 INVALID_STATE_TRANSITION"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"A reset is recorded since the unit became RETURNED?"}
+    D4 -->|no| D5
+    E5["Return 409 ALREADY_RESET"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Require RETURNED"]
-    D4 -->|no| P0
+    D5 -->|no| P0
     P1["Insert device_resets"]
     P0 --> P1
     P2["Clear keyVersion and keyOrganizationId"]

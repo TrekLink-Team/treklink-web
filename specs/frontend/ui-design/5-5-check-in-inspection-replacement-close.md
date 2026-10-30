@@ -33,8 +33,8 @@ Scope from the task: rentals api-design 14 to 17; check-in by scan (MSG07); insp
 | Control | Shown when | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
 | Check in (tags scanned so far, primary on the check-in tab) | `ENDING`, `RETURN_DUE`, `OVERDUE`, `DEFAULTED`, or `ACTIVE` on a day plan (REQ-STA-01) | rentals 14 `POST /api/contracts/:id/check-ins` | none | MSG07; the late fee, if any, shows under it |
-| Record reset (device row) | device back, no reset logged | devices 10 `POST /api/devices/:id/reset` | none: the three boxes are the confirmation | the row shows "Reset logged" |
-| Inspect (device row) | reset logged, not inspected | rentals 16 `POST /api/contracts/:id/devices/:deviceId/inspection` | none | toast MSG03; the row shows the result and the device's new state |
+| Record reset (device row) | device back, no reset logged | devices 10 `POST /api/devices/:id/reset` | none: the three boxes are the confirmation | the row shows "Reset logged" with the time; the state comes from `devices[].resetAt` of rentals 03, so it survives a reload, and 409 `ALREADY_RESET` (reset by another counter) is treated as logged |
+| Inspect (device row) | reset logged, not inspected | rentals 16 `POST /api/contracts/:id/devices/:deviceId/inspection` | none | toast MSG03; the row shows the result and the device's new state; after a reload the result comes from `devices[].inspection` of rentals 03 |
 | Lost? (device row, still out) | device out | navigation to the loss case report of screen 4.4 | as in screen 4.4 | as in screen 4.4 |
 | Replace device (replacement tab, primary) | `ACTIVE` or `ENDING`, a faulty unit or one with an open loss case | rentals 15 `POST /api/contracts/:id/devices/:deviceId/replacement` | the Manager's signature is the confirmation | toast MSG03; the new asset tag joins the device list |
 | Close contract (close tab, primary) | `RETURNED` | rentals 17 `POST /api/contracts/:id/close` | dialog: "Close contract {code}? Holder labels are erased." (rentals 17, FR-CON-14) | toast MSG03; the contract shows `CLOSED` |

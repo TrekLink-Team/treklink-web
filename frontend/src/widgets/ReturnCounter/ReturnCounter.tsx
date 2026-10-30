@@ -76,6 +76,11 @@ const ResetDialog: React.FC<{
       await resetDevice(device.deviceId);
       onDone();
     } catch (failure) {
+      // Another counter already logged this return's reset: the unit is reset, so carry on.
+      if (failure instanceof ApiError && failure.errorCode === 'ALREADY_RESET') {
+        onDone();
+        return;
+      }
       setPending(false);
       setError(errorOf(failure));
     }
@@ -273,7 +278,8 @@ const InspectDialog: React.FC<{
 // Screen 5.5 on /t/counter/:contractId for a contract past its handover (rentals api-design 14, 16,
 // 17; devices api-design 10; MF-05): check-in by scanned tags (MSG07), reset and inspection of each
 // returned unit with its damage charge, and close once nothing is owed (MSG29). Replacement (4.3)
-// joins with its task. Reset and inspection states shown here are those of this visit.
+// joins with its task. The reset and inspection of each unit come from the contract read (resetAt,
+// inspection), so a reload keeps them; the damage charge of an inspection shows on this visit only.
 export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract }) => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
@@ -301,6 +307,10 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
     (device) => device.handedOverAt && !device.checkedInAt && !device.lostAt,
   );
   const back = contract.devices.filter((device) => device.checkedInAt);
+  const isReset = (device: ContractDevice) =>
+    Boolean(rows[device.deviceId]?.reset || device.resetAt);
+  const isInspected = (device: ContractDevice) =>
+    Boolean(rows[device.deviceId]?.outcome || device.inspection);
 
   const refresh = () =>
     Promise.all([
@@ -390,7 +400,9 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
             </span>
           );
         }
-        return state?.reset ? 'Reset logged' : 'Not reset';
+        if (device.inspection) return <StatusBadge entry={OUTCOME[device.inspection.result]} />;
+        if (!isReset(device)) return 'Not reset';
+        return device.resetAt ? `Reset logged ${formatDateTime(device.resetAt)}` : 'Reset logged';
       },
     },
   ];
@@ -488,9 +500,8 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
               description: 'Check devices in first; each then needs a reset and an inspection.',
             }}
             rowActions={(device) => {
-              const state = rows[device.deviceId];
-              if (state?.outcome) return null;
-              return state?.reset ? (
+              if (isInspected(device)) return null;
+              return isReset(device) ? (
                 <Button size="sm" variant="primary" onClick={() => setInspecting(device)}>
                   Inspect
                 </Button>
@@ -559,6 +570,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
           onDone={() => {
             setRows((current) => ({ ...current, [resetting.deviceId]: { reset: true } }));
             setResetting(null);
+            void refresh();
             showToast('Saved.');
           }}
         />

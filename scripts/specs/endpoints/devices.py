@@ -167,7 +167,8 @@ ENDPOINTS = [
     ep("POST", "/api/devices/:id/reset", "Record the reset on return", "TrekLink Staff",
        "Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name "
        "cleared. All three must be true. Required before the inspection, which `rentals` records on the "
-       "return (FR-DEV-07, BR-28).",
+       "return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused "
+       "(demo smoke defect 4, 2026-10-30).",
        "UC-44, FR-DEV-07, BR-28",
        path=[DEV_PATH],
        body=[["keyRemoved", "Channel key removed", "bool", "yes", "`true`"],
@@ -177,7 +178,9 @@ ENDPOINTS = [
        response={**DEVICE, "status": "RETURNED", "keyVersion": None, "keyOrganizationId": None}, status=201,
        message="Reset recorded", entity="Device",
        errors=[(400, "RESET_INCOMPLETE", "One of the three steps is false", "Complete every reset step first."),
-               state_409("device", "RENTED")],
+               state_409("device", "RENTED"),
+               (409, "ALREADY_RESET", "A reset is recorded since the unit became RETURNED",
+                "This device is already reset for this return.")],
        steps=["Require RETURNED", "Insert device_resets", "Clear keyVersion and keyOrganizationId"],
        controller="DevicesController", service="DeviceLifecycleService", call="reset(id, dto, actor)",
        seq=["Svc->>DB: INSERT device_resets; UPDATE devices"]),

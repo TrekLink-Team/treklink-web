@@ -11,7 +11,7 @@ import {
 } from '../../common/dto/paging';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, BalanceSummary } from '../billing';
-import { DevicesService } from '../devices';
+import { DevicesService, type ReturnCheck } from '../devices';
 import { OrganizationLabel, OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { ACCOUNT_DIRECTORY, AccountDirectory } from '../platform/ports/account-directory.port';
@@ -38,6 +38,8 @@ export interface ContractLabels {
 export interface ContractDetail extends ContractLabels {
   row: ContractDetailRow;
   assetTags: Map<string, string>;
+  // The reset and inspection of each returned row, by contract device id.
+  returnChecks: Map<string, ReturnCheck>;
   balance: BalanceSummary;
 }
 
@@ -96,12 +98,19 @@ export class ContractReadsService {
 
   async detail(id: string, caller: Caller, at: Date = new Date()): Promise<ContractDetail> {
     const row = await this.visible(id, caller);
-    const [label, assetTags, balance] = await Promise.all([
+    const [label, assetTags, returnChecks, balance] = await Promise.all([
       this.labeller([row]),
       this.devices.assetTags(row.devices.map((device) => device.deviceId)),
+      this.devices.returnChecks(
+        row.devices.map((device) => ({
+          contractDeviceId: device.id,
+          deviceId: device.deviceId,
+          checkedInAt: device.checkedInAt,
+        })),
+      ),
       this.balances.balanceSummary(id, at),
     ]);
-    return { row, ...label(row), assetTags, balance };
+    return { row, ...label(row), assetTags, returnChecks, balance };
   }
 
   async transitions(id: string, caller: Caller): Promise<TransitionView[]> {
