@@ -341,10 +341,10 @@ export class AccountsService {
     return userIds.length === 0 ? Promise.resolve([]) : this.accounts.contactCards(userIds);
   }
 
-  // Ids of the active TrekLink Staff accounts, read by `incidents` when an incident reaches ESCALATED
-  // (D-079, platform design Figure 3 `incidents --> auth`). Joins the caller's transaction.
-  activeStaffIds(tx?: Prisma.TransactionClient): Promise<string[]> {
-    return this.accounts.activeStaffIds(tx);
+  // Ids of the active TrekLink Staff and Admin accounts, read by `incidents` when an incident reaches
+  // ESCALATED (D-079, platform design Figure 3 `incidents --> auth`). Joins the caller's transaction.
+  activeStaffAndAdminIds(tx?: Prisma.TransactionClient): Promise<string[]> {
+    return this.accounts.activeStaffAndAdminIds(tx);
   }
 
   // An organization account, or 404 for an unknown id or a TrekLink account.

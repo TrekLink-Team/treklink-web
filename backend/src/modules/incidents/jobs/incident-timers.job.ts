@@ -75,7 +75,8 @@ const lostRace = (error: unknown): boolean =>
 // with the expected state, as SYSTEM. The lifecycle's guards re-check the deadline under the row lock,
 // so a raced acknowledgement, status update or reopen wins and the job skips that incident. Deadlines
 // live in the database, so after a restart each fires once from its stored time. ESCALATED alerts the
-// organization's Managers and the active TrekLink Staff (D-079) through RoutingService.recipientsOf.
+// organization's Managers and the active TrekLink Staff and Admin accounts (design §3, D-079) through
+// RoutingService.recipientsOf.
 @Injectable()
 export class IncidentTimersJob {
   private readonly logger = new Logger(IncidentTimersJob.name);

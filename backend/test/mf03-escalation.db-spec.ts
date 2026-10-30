@@ -44,7 +44,7 @@ describe('MF-03 escalation timers against Postgres', () => {
     parameters,
     events,
   );
-  // Only activeStaffIds is used, so the code, password and config collaborators are left out.
+  // Only activeStaffAndAdminIds is used, so the code, password and config collaborators are left out.
   const accounts = new AccountsService(
     new AccountsRepository(prisma),
     {} as never,
@@ -65,6 +65,7 @@ describe('MF-03 escalation timers against Postgres', () => {
   let staffId: string;
   let secondStaffId: string;
   let inactiveStaffId: string;
+  let adminId: string;
   let serial = 0;
 
   const user = async (name: string, accountType: AccountType) =>
@@ -135,12 +136,17 @@ describe('MF-03 escalation timers against Postgres', () => {
     staffId = await user('staff', AccountType.TREKLINK);
     secondStaffId = await user('second-staff', AccountType.TREKLINK);
     inactiveStaffId = await user('inactive-staff', AccountType.TREKLINK);
+    adminId = await user('admin', AccountType.TREKLINK);
     const staffRole = await prisma.role.findUniqueOrThrow({ where: { key: 'STAFF' } });
+    const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: 'ADMIN' } });
     await prisma.userRole.createMany({
-      data: [staffId, secondStaffId, inactiveStaffId].map((userId) => ({
-        userId,
-        roleId: staffRole.id,
-      })),
+      data: [
+        ...[staffId, secondStaffId, inactiveStaffId].map((userId) => ({
+          userId,
+          roleId: staffRole.id,
+        })),
+        { userId: adminId, roleId: adminRole.id },
+      ],
     });
     await prisma.user.update({ where: { id: inactiveStaffId }, data: { isActive: false } });
     operatorId = await user('operator', AccountType.ORGANIZATION);
@@ -217,13 +223,14 @@ describe('MF-03 escalation timers against Postgres', () => {
       ['NOTIFY_BACKUP', 'NOTIFY_MANAGER', 'EMPTY_TIER', null],
       ['NOTIFY_MANAGER', 'ESCALATED', 'TIER_TIMEOUT', null],
     ]);
-    // ESCALATED alerts the organization's Managers and every active TrekLink Staff account (MSG34,
-    // D-079). The database may hold Staff of other runs, so only this run's accounts are compared.
+    // ESCALATED alerts the organization's Managers and every active TrekLink Staff and Admin account
+    // (MSG34, design §3, D-079). The database may hold accounts of other runs, so only this run's are
+    // compared.
     const escalation = await prisma.incidentTransition.findFirstOrThrow({
       where: { incidentId: incident.id, toState: 'ESCALATED' },
     });
     const rows = await prisma.alertDelivery.findMany({ where: { transitionId: escalation.id } });
-    const mine = [managerId, staffId, secondStaffId, inactiveStaffId, null];
+    const mine = [managerId, staffId, secondStaffId, inactiveStaffId, adminId, null];
     expect(
       rows
         .filter((row) => mine.includes(row.recipientId))
@@ -240,6 +247,9 @@ describe('MF-03 escalation timers against Postgres', () => {
         `${secondStaffId}:TREKLINK:EMAIL`,
         `${secondStaffId}:TREKLINK:WEB`,
         `${secondStaffId}:TREKLINK:WEBSOCKET`,
+        `${adminId}:TREKLINK:EMAIL`,
+        `${adminId}:TREKLINK:WEB`,
+        `${adminId}:TREKLINK:WEBSOCKET`,
         'org:TREKLINK:API_EVENT',
       ].sort(),
     );
