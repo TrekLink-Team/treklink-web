@@ -83,7 +83,7 @@ export const ORGANIZATION_NAV: NavGroup[] = [
       { route: '/o/members', label: 'Members', icon: Users, roles: MANAGER, built: true },
       { route: '/o/roster', label: 'Roster', icon: CalendarDays, roles: OPERATOR, built: true },
       { route: '/o/api-keys', label: 'API keys', icon: KeyRound, roles: MANAGER, built: true },
-      { route: '/o/field-stations', label: 'Field stations', icon: MapPin, roles: OPERATOR, built: false },
+      { route: '/o/field-stations', label: 'Field stations', icon: MapPin, roles: OPERATOR, built: true },
     ],
   },
 ];
@@ -117,7 +117,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     label: 'Organizations and compliance',
     entries: [
       { route: '/t/organizations', label: 'Organizations', icon: Building2, roles: STAFF, built: true },
-      { route: '/t/compliance-cases', label: 'Compliance cases', icon: ShieldCheck, roles: STAFF, built: false },
+      { route: '/t/compliance-cases', label: 'Compliance cases', icon: ShieldCheck, roles: STAFF, built: true },
     ],
   },
   {

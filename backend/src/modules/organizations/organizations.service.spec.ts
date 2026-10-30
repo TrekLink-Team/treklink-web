@@ -1,4 +1,5 @@
 import { OrganizationStatus, Prisma } from '@prisma/client';
+import { Caller } from '../../common/decorators/access.decorator';
 import { ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AccountsService } from '../auth';
@@ -217,5 +218,67 @@ describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)
     await expect(service.emailContact('org-1', 'Subject', 'Text')).resolves.toBe(false);
     await service.emailContact('org-1', 'Subject', 'Text', tx);
     expect(organizations.contactEmail).toHaveBeenLastCalledWith('org-1', tx);
+  });
+});
+
+describe('OrganizationsService.suspendFromCompliance (task 2.10, api-design 30)', () => {
+  const AT = new Date('2026-10-30T03:00:00.000Z');
+  const ADMIN: Caller = { id: 'u-admin', roles: ['ADMIN'], organizationId: null };
+  let organizations: Record<string, jest.Mock>;
+  let service: OrganizationsService;
+
+  beforeEach(() => {
+    organizations = {
+      lockById: jest.fn().mockResolvedValue({ status: OrganizationStatus.ACTIVE, version: 4 }),
+      update: jest.fn().mockResolvedValue({ id: 'org-1' }),
+      addTransition: jest.fn().mockResolvedValue({}),
+    };
+    service = new OrganizationsService(
+      organizations as unknown as OrganizationsRepository,
+      {} as MembersRepository,
+      {} as AccountsService,
+      { send: jest.fn() },
+    );
+  });
+
+  it('suspends an ACTIVE organization, naming the Admin and the compliance reason', async () => {
+    await service.suspendFromCompliance('org-1', 'Compliance case CMP-0002: Stolen', ADMIN, AT, tx);
+    expect(organizations.update).toHaveBeenCalledWith(
+      'org-1',
+      4,
+      {
+        status: OrganizationStatus.SUSPENDED,
+        statusChangedAt: AT,
+        suspensionReason: 'Compliance case CMP-0002: Stolen',
+      },
+      tx,
+    );
+    expect(organizations.addTransition).toHaveBeenCalledWith(
+      {
+        organizationId: 'org-1',
+        fromStatus: OrganizationStatus.ACTIVE,
+        toStatus: OrganizationStatus.SUSPENDED,
+        actorId: 'u-admin',
+        reason: 'Compliance case CMP-0002: Stolen',
+      },
+      tx,
+    );
+  });
+
+  it('answers 404 for an unknown organization', async () => {
+    organizations.lockById.mockResolvedValueOnce(null);
+    await expect(
+      service.suspendFromCompliance('org-9', 'x', ADMIN, AT, tx),
+    ).rejects.toMatchObject({ errorCode: 'NOT_FOUND' });
+    expect(organizations.update).not.toHaveBeenCalled();
+  });
+
+  it('answers 409 INVALID_STATE_TRANSITION for an organization that is not ACTIVE', async () => {
+    organizations.lockById.mockResolvedValueOnce({ status: OrganizationStatus.SUSPENDED, version: 2 });
+    await expect(
+      service.suspendFromCompliance('org-1', 'x', ADMIN, AT, tx),
+    ).rejects.toMatchObject({ errorCode: 'INVALID_STATE_TRANSITION' });
+    expect(organizations.update).not.toHaveBeenCalled();
+    expect(organizations.addTransition).not.toHaveBeenCalled();
   });
 });

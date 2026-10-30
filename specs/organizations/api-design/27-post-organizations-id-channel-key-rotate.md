@@ -28,7 +28,7 @@ Records that TrekLink rotated the organization's channel key with the counter's 
 ```json
 {
   "reason": "Device TL-0042 lost in renter custody",
-  "expectedVersion": 4
+  "expectedVersion": 3
 }
 ```
 

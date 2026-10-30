@@ -64,6 +64,8 @@ export enum ErrorCode {
   SHIFT_OVERLAP = 'SHIFT_OVERLAP',
   SHIFT_STARTED = 'SHIFT_STARTED',
   MEMBER_NOT_ELIGIBLE = 'MEMBER_NOT_ELIGIBLE',
+  // Channel key rotation and compliance cases (screen 3.6: api-design 27 to 32).
+  POLICE_REFERENCE_REQUIRED = 'POLICE_REFERENCE_REQUIRED',
 
   // monitoring (specs/monitoring/design.md §6)
   CURSOR_EXPIRED = 'CURSOR_EXPIRED',
