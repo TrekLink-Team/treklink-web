@@ -133,6 +133,19 @@ describe('DamageChargeService.decide (UC-48, api-design 17, BR-24)', () => {
     );
   });
 
+  it('records a waiver on a contract with no invoice yet, with no organization (review of #144)', async () => {
+    const { service, charges, events, invoices } = build();
+    invoices.organizationOfContract.mockResolvedValue(null);
+    await expect(
+      service.decide('dc-1', { decision: 'WAIVED', note: 'Goodwill' }, ADMIN, AT),
+    ).resolves.toMatchObject({ status: DamageChargeStatus.WAIVED });
+    expect(charges.addDecidedDamage).not.toHaveBeenCalled();
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      AUDIT_RECORD,
+      expect.objectContaining({ action: 'damageCharge.decided', organizationId: null }),
+    );
+  });
+
   it('waives without an invoice line', async () => {
     const { service, damageCharges, charges, events, invoices } = build();
     await service.decide('dc-1', { decision: 'WAIVED', note: 'Goodwill' }, ADMIN, AT);

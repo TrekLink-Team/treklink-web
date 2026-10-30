@@ -122,9 +122,13 @@ export class DamageChargeService {
       );
 
       // A waiver has no invoice line, but its audit row still belongs to the contract's organization.
+      // Only a charged amount needs an invoice to find it; a waiver on a contract without one is
+      // recorded with no organization rather than refused (review of #144).
       const organizationId = await this.invoices.organizationOfContract(charge.contractId, tx);
-      if (!organizationId) throw new Error(`Contract ${charge.contractId} has no invoice.`);
-      if (finalVnd > 0n) {
+      if (!organizationId && finalVnd > 0n) {
+        throw new Error(`Contract ${charge.contractId} has no invoice.`);
+      }
+      if (organizationId && finalVnd > 0n) {
         const tags = await this.devices.assetTags([charge.deviceId], tx);
         await this.charges.addDecidedDamage(
           { id: charge.contractId, organizationId },
