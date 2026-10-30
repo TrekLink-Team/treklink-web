@@ -15,7 +15,8 @@ const isMapEntry = (entry: LiveEntry) => entry.type !== 'incident.alert';
  * The live map of screen 9.1: GET /api/map/snapshot, then the stream entries after its cursor.
  * It listens from mount, before the snapshot answers, so an entry committed while the snapshot is
  * read is kept and applied once the snapshot's cursor is known (entries at or below it are dropped).
- * `device.handedOver` reloads the snapshot, which is how a newly rented device appears.
+ * `device.handedOver` reloads the snapshot, which is how a newly rented device appears; so does an
+ * `incident.changed` with no device id, which is how a new SOS shows on its marker.
  */
 export const useLiveMap = (organizationId: string | null) => {
   const queryClient = useQueryClient();
@@ -30,7 +31,13 @@ export const useLiveMap = (organizationId: string | null) => {
         if (message.kind !== 'entry' || !isMapEntry(message.entry)) return;
         const entry = message.entry;
         setEntries((kept) => [...kept.slice(-(KEPT_ENTRIES - 1)), entry]);
-        if (entry.type === 'device.handedOver')
+        // The stream's `incident.changed` carries no device id yet (monitoring stream.listener),
+        // so the map cannot place a new SOS on its marker from the entry alone: reload the
+        // snapshot, which carries each device's open incident (dry run 2026-10-30, defect 13).
+        if (
+          entry.type === 'device.handedOver' ||
+          (entry.type === 'incident.changed' && !entry.deviceId)
+        )
           void queryClient.invalidateQueries({ queryKey: ['map', 'snapshot'] });
       }),
     [queryClient],
