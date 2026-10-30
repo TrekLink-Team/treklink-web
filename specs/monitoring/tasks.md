@@ -77,6 +77,7 @@
   - **Files**: `reports.service.ts`, `system-health.service.ts`
   - **Do**: api-design 08: utilization, revenue per variant, overdue and lost units, time-to-acknowledge and time-to-resolve as medians and 95th percentiles over a date range, JSON or CSV in the envelope; api-design 06: `HealthService`, `gatewaySync.stats`, station health with `outdated`, buffering devices, `alertDeliveryStats`
   - **Test**: CSV header row and one row per variant; a station on an old version shows `outdated`
+  - **Note** (2026-10-30, review of treklink-web#174): the revenue rows come from `BalanceService.revenue({from, to})` of `billing`, which answers `hardwareVariantId` and `variantCode`; the api-design 08 column `variant` is `variantCode`, and `variantCode` can be null (a contract the directory does not name, or a variant with no code), which the report has to render. The method reads every line due in the range and does not cap it, so this caller checks `monitoring.reportMaxRangeDays` first
   - _Requirements: FR-BILL-10, FR-MON-10, FR-EVT-13_
   - _Story: US-UC42, US-UC59_
 

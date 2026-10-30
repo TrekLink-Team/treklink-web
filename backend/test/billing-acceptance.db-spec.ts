@@ -122,8 +122,8 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
       where: { id: variantId },
     });
     const balances = flow.get(BalanceService);
-    const rowOf = async (from: string, to: string) =>
-      (await balances.revenue({ from: at(from), to: at(to) })).find(
+    const rowOf = async (from: string, to: string | Date) =>
+      (await balances.revenue({ from: at(from), to: typeof to === 'string' ? at(to) : to })).find(
         (row) => row.hardwareVariantId === variantId,
       );
 
@@ -141,10 +141,11 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
       paidVnd: 450_000n,
       outstandingVnd: 225_000n,
     });
-    // The end is exclusive: a range ending at the term end leaves the term balances out.
-    await expect(
-      rowOf('2026-11-01T00:00:00.000Z', '2026-12-02T02:00:00.000Z'),
-    ).resolves.toMatchObject({
+    // The end is exclusive: a range ending at the stored term end leaves the term balances out.
+    const { endsAt } = await flow.prisma.contractTerm.findFirstOrThrow({
+      where: { contractId: paid.id, seq: 1 },
+    });
+    await expect(rowOf('2026-11-01T00:00:00.000Z', endsAt)).resolves.toMatchObject({
       invoicedVnd: 675_000n,
     });
   });
