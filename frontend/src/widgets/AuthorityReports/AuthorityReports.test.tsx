@@ -132,6 +132,8 @@ describe('ReportDialog (api-design 08 and 10)', () => {
     renderWith(<ReportDialog entry={{ kind: 'incident', id: 'inc-1' }} onClose={onClose} />);
     expect(await screen.findByText('Incident INC-2026-000007, Unrouted')).toBeTruthy();
     expect(screen.getByText('This records a report you have already made.')).toBeTruthy();
+    expect(screen.getByLabelText(/^Agency/).getAttribute('maxlength')).toBe('200');
+    expect(screen.getByLabelText(/^Authority reference/).getAttribute('maxlength')).toBe('200');
     fireEvent.click(screen.getByRole('button', { name: 'Record report' }));
     expect(await screen.findAllByText('Please fill in this field.')).toHaveLength(3);
     expect(posts()).toHaveLength(0);
@@ -289,5 +291,23 @@ describe('CloseCaseDialog (api-design 09)', () => {
     expect(await screen.findByText('This cannot be done while it is CLOSED.')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
     expect(posts()).toHaveLength(1);
+  });
+
+  it('shows a refused closure time under Closed at and keeps the dialog open', async () => {
+    const onClose = vi.fn();
+    api.mockImplementationOnce(() =>
+      Promise.reject(
+        new ApiError(400, 'VALIDATION_FAILED', 'closedAt must not be before reportedAt.'),
+      ),
+    );
+    renderWith(<CloseCaseDialog report={report()} onClose={onClose} />);
+    expect(screen.getByText(/not before the report time/)).toBeTruthy();
+    fill(/^Closed at/, '2026-10-01T08:00');
+    fireEvent.click(screen.getByRole('button', { name: 'Record case closed' }));
+    expect(await screen.findByText('closedAt must not be before reportedAt.')).toBeTruthy();
+    expect(screen.getByLabelText(/^Closed at/).getAttribute('aria-invalid')).toBe('true');
+    expect(onClose).not.toHaveBeenCalled();
+    fill(/^Closed at/, '2026-11-02T08:00');
+    expect(screen.queryByText('closedAt must not be before reportedAt.')).toBeNull();
   });
 });
