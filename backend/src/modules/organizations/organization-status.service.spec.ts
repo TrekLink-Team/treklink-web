@@ -1,5 +1,6 @@
+import { createMongoAbility } from '@casl/ability';
 import { OrganizationStatus, Prisma } from '@prisma/client';
-import { Caller } from '../../common/decorators/access.decorator';
+import { Caller, PolicyAbility } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AccountsService, MEMBER_DEACTIVATED } from '../auth';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
@@ -23,6 +24,23 @@ const STAFF: Caller = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 const MANAGER: Caller = { id: 'u-mgr', roles: ['ORG_MANAGER'], organizationId: 'org-1' };
 const OPERATOR: Caller = { id: 'u-op', roles: ['ORG_OPERATOR'], organizationId: 'org-1' };
 const OTHER_MANAGER: Caller = { id: 'u-mgr-9', roles: ['ORG_MANAGER'], organizationId: 'org-9' };
+
+// The seeded rules the history read looks at: Staff and Admin read any organization, a member its own,
+// and only the Manager holds `organization.history.read.own` (migration 20261030210000).
+const OWN = (caller: Caller) => ({ id: caller.organizationId });
+const abilityOf = (caller: Caller, history = caller.roles.includes('ORG_MANAGER')) =>
+  createMongoAbility(
+    caller.organizationId === null
+      ? [{ action: 'read', subject: 'Organization' }]
+      : [
+          { action: 'read', subject: 'Organization', conditions: OWN(caller) },
+          ...(history
+            ? [{ action: 'readHistory', subject: 'Organization', conditions: OWN(caller) }]
+            : []),
+        ],
+  ) as unknown as PolicyAbility;
+const transitionsOf = (service: OrganizationStatusService, id: string, caller: Caller) =>
+  service.transitions(id, caller, abilityOf(caller));
 
 const row = (status: OrganizationStatus, version = 3) => ({
   id: 'org-1',
@@ -416,7 +434,7 @@ describe('OrganizationStatusService (organizations 2.4, api-design 08 to 11, UC-
     });
 
     it('lists the history with who made each change, SYSTEM for none', async () => {
-      const result = await service.transitions('org-1', STAFF);
+      const result = await transitionsOf(service, 'org-1', STAFF);
 
       expect(accounts.contactCard).toHaveBeenCalledWith(['u-mgr', 'u-admin', 'u-gone']);
       expect(result).toEqual([
@@ -452,19 +470,21 @@ describe('OrganizationStatusService (organizations 2.4, api-design 08 to 11, UC-
     });
 
     it("lets a Manager read its own organization's history, and answers 404 for another or a missing one", async () => {
-      await expect(service.transitions('org-1', MANAGER)).resolves.toHaveLength(4);
-      expect(await codeOf(service.transitions('org-9', MANAGER))).toBe(ErrorCode.NOT_FOUND);
+      await expect(transitionsOf(service, 'org-1', MANAGER)).resolves.toHaveLength(4);
+      expect(await codeOf(transitionsOf(service, 'org-9', MANAGER))).toBe(ErrorCode.NOT_FOUND);
       organizations.findStatus.mockResolvedValueOnce(null);
-      expect(await codeOf(service.transitions('org-1', ADMIN))).toBe(ErrorCode.NOT_FOUND);
+      expect(await codeOf(transitionsOf(service, 'org-1', ADMIN))).toBe(ErrorCode.NOT_FOUND);
     });
 
     it('answers Staff and Admin for any organization', async () => {
-      await expect(service.transitions('org-1', STAFF)).resolves.toHaveLength(4);
-      await expect(service.transitions('org-1', ADMIN)).resolves.toHaveLength(4);
+      await expect(transitionsOf(service, 'org-1', STAFF)).resolves.toHaveLength(4);
+      await expect(transitionsOf(service, 'org-1', ADMIN)).resolves.toHaveLength(4);
     });
 
     it("refuses an Org Operator its own organization's history with 403, before anything is read", async () => {
-      const refusal = await service.transitions('org-1', OPERATOR).catch((error: unknown) => error);
+      const refusal = await transitionsOf(service, 'org-1', OPERATOR).catch(
+        (error: unknown) => error,
+      );
 
       expect(refusal).toBeInstanceOf(DomainException);
       expect((refusal as DomainException).getStatus()).toBe(403);
@@ -473,8 +493,21 @@ describe('OrganizationStatusService (organizations 2.4, api-design 08 to 11, UC-
       expect(organizations.transitionsOf).not.toHaveBeenCalled();
     });
 
+    it('follows the permission, not the role name: an Admin can withdraw it or grant it', async () => {
+      const withdrawn = await service
+        .transitions('org-1', MANAGER, abilityOf(MANAGER, false))
+        .catch((error: unknown) => error);
+      expect((withdrawn as DomainException).errorCode).toBe(ErrorCode.FORBIDDEN);
+
+      await expect(
+        service.transitions('org-1', OPERATOR, abilityOf(OPERATOR, true)),
+      ).resolves.toHaveLength(4);
+    });
+
     it("answers another organization's Manager 404, as the module does for a foreign id", async () => {
-      expect(await codeOf(service.transitions('org-1', OTHER_MANAGER))).toBe(ErrorCode.NOT_FOUND);
+      expect(await codeOf(transitionsOf(service, 'org-1', OTHER_MANAGER))).toBe(
+        ErrorCode.NOT_FOUND,
+      );
       expect(organizations.transitionsOf).not.toHaveBeenCalled();
     });
   });

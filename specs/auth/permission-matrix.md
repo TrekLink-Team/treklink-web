@@ -14,6 +14,7 @@
 | `organization.read` | read | Organization |  | TREKLINK | X | X |  |  |
 | `organization.read.own` | read | Organization | `{"id": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `organization.update.own` | update | Organization | `{"id": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `organization.history.read.own` | readHistory | Organization | `{"id": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `organization.update` | update | Organization |  | TREKLINK | X |  |  |  |
 | `organization.verify` | verify | Organization |  | TREKLINK | X | X |  |  |
 | `organization.decide` | decide | Organization |  | TREKLINK | X |  |  |  |

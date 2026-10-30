@@ -73,7 +73,8 @@ describe('OrganizationStatusController (api-design 08 to 11)', () => {
     ).resolves.toBe(RESULT);
     expect(service.close).toHaveBeenCalledWith('org-1', 'Customer request', 3, ADMIN);
 
-    await expect(controller.transitions('org-1', ADMIN)).resolves.toEqual([]);
-    expect(service.transitions).toHaveBeenCalledWith('org-1', ADMIN);
+    const ability = { can: () => true };
+    await expect(controller.transitions('org-1', ADMIN, ability)).resolves.toEqual([]);
+    expect(service.transitions).toHaveBeenCalledWith('org-1', ADMIN, ability);
   });
 });

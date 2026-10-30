@@ -131,6 +131,9 @@ PERMISSIONS = [
     ("organization.read", "read", "Organization", None, ["STAFF"]),
     ("organization.read.own", "read", "Organization", OWN_ORG, ["ORG_OPERATOR"]),
     ("organization.update.own", "update", "Organization", OWN_ORG, ["ORG_MANAGER"]),
+    # api-design 11: the Manager reads its own status history, suspension reasons included; an Org
+    # Operator does not (leader ruling on treklink-web#135). Migration 20261030210000.
+    ("organization.history.read.own", "readHistory", "Organization", OWN_ORG, ["ORG_MANAGER"]),
     ("organization.update", "update", "Organization", None, ["ADMIN"]),
     ("organization.verify", "verify", "Organization", None, ["STAFF"]),
     ("organization.decide", "decide", "Organization", None, ["ADMIN"]),

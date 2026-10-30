@@ -1,6 +1,7 @@
+import { subject } from '@casl/ability';
 import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
 import { OrganizationStatus, Prisma } from '@prisma/client';
-import { Caller } from '../../common/decorators/access.decorator';
+import { Caller, type PolicyAbility } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AccountsService, MEMBER_DEACTIVATED } from '../auth';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -29,8 +30,6 @@ export interface TransitionView {
 
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Organization not found.');
-
-const ORG_MANAGER = 'ORG_MANAGER';
 
 const managerOnly = () =>
   new DomainException(
@@ -170,11 +169,18 @@ export class OrganizationStatusService {
 
   // api-design 11: the append-only history, for Staff and Admin and for the Manager of the organization.
   // An Org Operator shares `organization.read.own` but may not read suspension reasons (leader ruling
-  // on treklink-web#135), so a member caller without ORG_MANAGER is 403 before anything is read.
-  async transitions(organizationId: string, caller: Caller): Promise<TransitionView[]> {
+  // on treklink-web#135): a member caller needs `organization.history.read.own`, 403 without it before
+  // anything is read, and 404 for another organization's id.
+  async transitions(
+    organizationId: string,
+    caller: Caller,
+    ability: PolicyAbility,
+  ): Promise<TransitionView[]> {
     if (caller.organizationId !== null) {
-      if (!caller.roles.includes(ORG_MANAGER)) throw managerOnly();
-      if (caller.organizationId !== organizationId) throw notFound();
+      if (!ability.can('readHistory', 'Organization')) throw managerOnly();
+      if (!ability.can('readHistory', subject('Organization', { id: organizationId }))) {
+        throw notFound();
+      }
     }
     if ((await this.organizations.findStatus(organizationId)) === null) throw notFound();
     const rows = await this.organizations.transitionsOf(organizationId);
