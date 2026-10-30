@@ -5,7 +5,9 @@ import { PlatformModule } from '../platform/platform.module';
 import { RentalsModule } from '../rentals';
 import { AlertDeliveriesRepository } from './alert-deliveries.repository';
 import { AlertDispatcherJob } from './alerts/alert-dispatcher.job';
+import { AuthorityReportsController } from './authority-reports.controller';
 import { AuthorityReportsRepository } from './authority-reports.repository';
+import { AuthorityReportsService } from './authority-reports.service';
 import { IncidentIngress } from './incident-ingress';
 import { IncidentLifecycle } from './incident-lifecycle';
 import { IncidentsPortsModule } from './incidents-ports.module';
@@ -25,7 +27,7 @@ import { RoutingService } from './routing.service';
     RentalsModule,
     DevicesModule,
   ],
-  controllers: [IncidentsController],
+  controllers: [IncidentsController, AuthorityReportsController],
   providers: [
     IncidentsRepository,
     AlertDeliveriesRepository,
@@ -33,6 +35,7 @@ import { RoutingService } from './routing.service';
     IncidentLifecycle,
     IncidentsService,
     IncidentsQueryService,
+    AuthorityReportsService,
     RoutingService,
     IncidentIngress,
     AlertDispatcherJob,

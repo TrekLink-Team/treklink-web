@@ -39,6 +39,8 @@ export enum ErrorCode {
   // incidents (specs/incidents/design.md §7)
   ALREADY_OWNED = 'ALREADY_OWNED',
   NOT_OWNER = 'NOT_OWNER',
+  // A second closure of the same authority case (api-design 09).
+  CASE_ALREADY_CLOSED = 'CASE_ALREADY_CLOSED',
 
   // billing (specs/billing/design.md §6)
   BELOW_MOQ = 'BELOW_MOQ',

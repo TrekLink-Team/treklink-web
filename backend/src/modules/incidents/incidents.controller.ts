@@ -39,9 +39,11 @@ import {
   IncidentView,
   TransitionView,
 } from './incidents-query.service';
+import { AuthorityReportsService } from './authority-reports.service';
 import { IncidentsService, StatusUpdateResult } from './incidents.service';
 
 const NOTE_MAX = 2000;
+const TEXT_MAX = 200;
 
 export class IncidentListQueryDto extends PagedQueryDto {
   @IsOptional()
@@ -110,15 +112,38 @@ export class FalseAlarmDto extends VersionDto {
   reason!: string;
 }
 
-// Task 6.1, api-design 01 to 07, 12 and 14. Reads need `read Incident` (`incident.read` for Staff,
+export class AuthorityReportDto extends VersionDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(TEXT_MAX)
+  agency!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(TEXT_MAX)
+  reference!: string;
+
+  @Type(() => Date)
+  @IsDate()
+  reportedAt!: Date;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(NOTE_MAX)
+  note?: string;
+}
+
+// Task 6.1, api-design 01 to 08, 12 and 14. Reads need `read Incident` (`incident.read` for Staff,
 // `incident.read.own` for members); the alert log needs `read AlertDelivery` (Staff, or an Org
-// Manager's own); member actions need `respond Incident` (`incident.respond.own`). The services
-// check the organization and answer 404 for another one's incident.
+// Manager's own); member actions need `respond Incident` (`incident.respond.own`); the authority
+// report needs `manage AuthorityReport` (Staff and Admin). The services check the organization and
+// answer 404 for another one's incident.
 @Controller('incidents')
 export class IncidentsController {
   constructor(
     private readonly incidents: IncidentsService,
     private readonly queries: IncidentsQueryService,
+    private readonly authority: AuthorityReportsService,
   ) {}
 
   @Get()
@@ -222,6 +247,17 @@ export class IncidentsController {
     @CurrentCaller() caller: Caller,
   ): Promise<IncidentView> {
     return this.view(await this.incidents.falseAlarm(id, body, caller));
+  }
+
+  @Post(':id/authority-reports')
+  @CheckPolicies((ability) => ability.can('manage', 'AuthorityReport'))
+  @ResponseMessage('Report recorded')
+  async reportToAuthority(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: AuthorityReportDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<IncidentView> {
+    return this.view(await this.authority.reportIncident(id, body, caller));
   }
 
   private async view(incident: Parameters<IncidentsQueryService['views']>[0][number]) {

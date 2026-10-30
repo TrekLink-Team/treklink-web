@@ -99,7 +99,7 @@ describe('incident persistence (task 1.1)', () => {
   it('writes either report subject through the caller transaction and propagates failures', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'report-1' });
     const tx = { authorityReport: { create } } as unknown as Prisma.TransactionClient;
-    const repository = new AuthorityReportsRepository();
+    const repository = new AuthorityReportsRepository({} as PrismaService);
     const fields = {
       agency: 'Test authority',
       reference: 'TEST-001',
@@ -114,5 +114,44 @@ describe('incident persistence (task 1.1)', () => {
     const error = new Error('foreign key failed');
     create.mockRejectedValue(error);
     await expect(repository.insert({ ...fields, incidentId: 'missing' }, tx)).rejects.toBe(error);
+  });
+
+  it('locks, closes and pages authority reports (api-design 09 and 11)', async () => {
+    const row = { id: 'report-1' };
+    const queryRaw = jest.fn().mockResolvedValueOnce([row]).mockResolvedValueOnce([]);
+    const update = jest.fn().mockResolvedValue(row);
+    const tx = {
+      $queryRaw: queryRaw,
+      authorityReport: { update },
+    } as unknown as Prisma.TransactionClient;
+    const findMany = jest.fn().mockResolvedValue([row]);
+    const count = jest.fn().mockResolvedValue(7);
+    const repository = new AuthorityReportsRepository({
+      authorityReport: { findMany, count },
+    } as unknown as PrismaService);
+
+    await expect(repository.lockById('report-1', tx)).resolves.toBe(row);
+    await expect(repository.lockById('missing', tx)).resolves.toBeNull();
+    const [sql] = queryRaw.mock.calls[0] as [TemplateStringsArray];
+    expect(sql.join('?')).toContain('FOR UPDATE');
+
+    const closedAt = new Date('2026-10-21T08:00:00Z');
+    await repository.closeCase('report-1', closedAt, 'staff-1', tx);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'report-1' },
+      data: { caseClosedAt: closedAt, caseClosedById: 'staff-1' },
+    });
+
+    const where = { caseClosedAt: null };
+    await expect(repository.page(where, 20, 10)).resolves.toEqual([[row], 7]);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where,
+        orderBy: [{ reportedAt: 'desc' }, { id: 'desc' }],
+        skip: 20,
+        take: 10,
+      }),
+    );
+    expect(count).toHaveBeenCalledWith({ where });
   });
 });
