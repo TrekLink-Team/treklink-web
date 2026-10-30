@@ -603,7 +603,6 @@ export const OrganizationReviewPage: React.FC = () => {
       {selected && isAdmin && selected.status === 'PENDING' && (
         <PageActionBar
           label={`Decision on ${selected.code}`}
-          className="mt-5"
           start={<span className="text-body-sm font-semibold text-ink">{selected.code}</span>}
         >
           <Button variant="danger" onClick={() => setRejecting(true)}>
@@ -623,7 +622,6 @@ export const OrganizationReviewPage: React.FC = () => {
       {selected && isAdmin && (selected.status === 'ACTIVE' || selected.status === 'SUSPENDED') && (
         <PageActionBar
           label={`Status of ${selected.code}`}
-          className="mt-5"
           start={<span className="text-body-sm font-semibold text-ink">{selected.code}</span>}
         >
           {selected.status === 'ACTIVE' ? (

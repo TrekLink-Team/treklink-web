@@ -156,6 +156,17 @@ describe('PageActionBar (leader rule of 2026-10-30)', () => {
     expect(onNext).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps mt-auto when a page passes its own margin, so the bar stays at the bottom', () => {
+    render(
+      <PageActionBar label="Steps" className="mt-5">
+        <button type="button">Next</button>
+      </PageActionBar>,
+    );
+    const classes = screen.getByRole('group', { name: 'Steps' }).className.split(' ');
+    expect(classes).toContain('mt-auto');
+    expect(classes).not.toContain('mt-5');
+  });
+
   it('submits a form elsewhere on the page through the form attribute', () => {
     const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
     render(

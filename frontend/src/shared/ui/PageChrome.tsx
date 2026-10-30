@@ -216,9 +216,11 @@ export const PageActionBar: React.FC<{
       aria-label={label}
       data-page-actions=""
       className={cn(
-        'tl-glass-strong sticky bottom-0 z-raised -mx-1 mt-auto flex flex-wrap items-center justify-between gap-3 rounded-panel px-2 pt-2 shadow-glass md:-mx-2 md:px-3',
+        'tl-glass-strong sticky bottom-0 z-raised -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-panel px-2 pt-2 shadow-glass md:-mx-2 md:px-3',
         'pb-[calc(0.5rem+env(safe-area-inset-bottom))]',
         className,
+        // Last, so a caller's margin never removes it: the bar sits at the bottom of short content.
+        'mt-auto',
       )}
     >
       <div className="flex flex-wrap items-center gap-2">{start}</div>

@@ -429,7 +429,6 @@ export const ContractRequestPage: React.FC = () => {
       </div>
       <PageActionBar
         label="Request steps"
-        className="mt-5"
         start={
           step > 0 ? (
             <button type="button" className={SECONDARY_BUTTON} onClick={() => setStep(step - 1)}>

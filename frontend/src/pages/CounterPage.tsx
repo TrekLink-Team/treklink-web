@@ -982,7 +982,6 @@ export const CounterPage: React.FC = () => {
 
       <PageActionBar
         label="Handover steps"
-        className="mt-5"
         start={
           <button
             type="button"
