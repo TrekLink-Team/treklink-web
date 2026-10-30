@@ -54,6 +54,7 @@ Moves a `PENDING` organization to `REJECTED` with a reason, and emails the Manag
     "verifiedAt": "2026-10-20T03:15:00.000Z",
     "decidedAt": "2026-10-20T03:15:00.000Z",
     "channelKeyVersion": 1,
+    "channelKeyExposedAt": null,
     "version": 3
   },
   "isSuccess": true,

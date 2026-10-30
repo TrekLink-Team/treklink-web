@@ -3,6 +3,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSession, type SessionUser } from '../../entities/session/model';
 import { ApiError } from '../../shared/api/apiClient';
 import { useToast } from '../../shared/ui';
 import { ChannelKeySection } from './ChannelKeySection';
@@ -13,10 +14,9 @@ vi.mock('../../shared/api/apiClient', async (importOriginal) => ({
   apiClient: (...args: unknown[]) => api(...args),
 }));
 
-let roles = ['STAFF'];
-vi.mock('../../app/providers/useAuth', () => ({
-  useAuth: () => ({ user: { roles } }),
-}));
+// The signed-in account through the real session store, as AuthProvider reads it.
+const signInAs = (roles: string[]) =>
+  useSession.setState({ user: { roles } as SessionUser });
 
 const ORG = { id: 'org-1', code: 'ORG-0007', status: 'ACTIVE' };
 const DETAIL = '/organizations/org-1';
@@ -51,7 +51,7 @@ const renderWidget = (organization: { id: string; code: string; status: string }
 
 beforeEach(() => {
   api.mockReset();
-  roles = ['STAFF'];
+  signInAs(['STAFF']);
   useToast.getState().dismiss();
 });
 afterEach(cleanup);
@@ -65,6 +65,14 @@ describe('ChannelKeySection (screen 3.6)', () => {
     expect(screen.queryByText(/Channel key exposed since/)).toBeNull();
   });
 
+  it('offers Record key rotation to Admin, by FR-AUTH-10 inheritance (leader ruling 2026-10-30)', async () => {
+    signInAs(['ADMIN']);
+    serve(() => summary());
+    renderWidget();
+    await screen.findByText('3');
+    expect(screen.getByRole('button', { name: 'Record key rotation' })).toBeTruthy();
+  });
+
   it('shows the exposure notice when channelKeyExposedAt is present', async () => {
     serve(() => summary({ channelKeyExposedAt: '2026-10-29T03:00:00.000Z' }));
     renderWidget();
@@ -72,7 +80,7 @@ describe('ChannelKeySection (screen 3.6)', () => {
   });
 
   it('hides Record key rotation for a non-Staff role, but still shows the version', async () => {
-    roles = ['ORG_MANAGER'];
+    signInAs(['ORG_MANAGER']);
     serve(() => summary());
     renderWidget();
     await screen.findByText('3');

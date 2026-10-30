@@ -114,4 +114,19 @@ describe('compliance cases against Postgres (organizations 2.10)', () => {
     await expect(close(null)).rejects.toThrow(/compliance_cases_police_reference_to_close/);
     await expect(close('PR-2026-0042')).resolves.toBe(true);
   });
+
+  // Migration 20261030160000_compliance_and_rotation: both permissions to STAFF and ADMIN (FR-AUTH-10
+  // inheritance, and the 2026-10-30 ruling that Admin may record a key rotation).
+  it('grants complianceCase.manage and organization.rotateKey to ADMIN and STAFF', async () => {
+    const grants = await prisma.rolePermission.findMany({
+      where: { permission: { key: { in: ['complianceCase.manage', 'organization.rotateKey'] } } },
+      select: { role: { select: { key: true } }, permission: { select: { key: true } } },
+    });
+    expect(grants.map((g) => `${g.role.key} ${g.permission.key}`).sort()).toEqual([
+      'ADMIN complianceCase.manage',
+      'ADMIN organization.rotateKey',
+      'STAFF complianceCase.manage',
+      'STAFF organization.rotateKey',
+    ]);
+  });
 });

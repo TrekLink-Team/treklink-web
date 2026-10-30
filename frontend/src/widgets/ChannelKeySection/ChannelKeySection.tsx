@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../../app/providers/useAuth';
 import { organizationKeys, useOrganization } from '../../entities/organization/api';
 import { rotateChannelKey } from '../../entities/organization/complianceCases';
+import { useSession } from '../../entities/session/model';
 import { ApiError } from '../../shared/api/apiClient';
 import { formatDateTime } from '../../shared/lib/format';
 import { hasAnyRole } from '../../shared/lib/permissions';
@@ -106,7 +106,7 @@ const RotateDialog: React.FC<{
 // The channel key of an ACTIVE or SUSPENDED organization in the /t/organizations panel (screen 3.6,
 // organizations api-design 03 and 27; UC-60). TrekLink Staff record a rotation; Admin inherits Staff.
 export const ChannelKeySection: React.FC<Props> = ({ organization }) => {
-  const { user } = useAuth();
+  const user = useSession((state) => state.user);
   const canRotate = hasAnyRole(user?.roles ?? [], ['STAFF']);
   const shown = organization.status === 'ACTIVE' || organization.status === 'SUSPENDED';
   const detail = useOrganization(shown ? organization.id : undefined);
