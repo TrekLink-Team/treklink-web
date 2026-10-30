@@ -286,6 +286,8 @@ export const MembersPage: React.FC = () => {
   const [changing, setChanging] = useState<Member | null>(null);
   const [deactivating, setDeactivating] = useState<Member | null>(null);
   const [resending, setResending] = useState<string | null>(null);
+  // The phone card whose Actions menu is open (screen 3.3, 360 px layout).
+  const [openCard, setOpenCard] = useState<string | null>(null);
   const [deactivatedOne, setDeactivatedOne] = useState(0);
 
   // After a deactivation the row loses its buttons, so focus moves to the page heading (screen 3.3).
@@ -391,7 +393,22 @@ export const MembersPage: React.FC = () => {
               <Badge>{row.role}</Badge>
             </div>
             <StatusOf member={row} />
-            {rowActions(row)}
+            {!row.deactivatedAt && (
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="min-h-11"
+                  aria-expanded={openCard === row.id}
+                  aria-controls={`member-actions-${row.id}`}
+                  aria-label={`Actions for ${nameOf(row)}`}
+                  onClick={() => setOpenCard(openCard === row.id ? null : row.id)}
+                >
+                  Actions
+                </Button>
+                {openCard === row.id && <div id={`member-actions-${row.id}`}>{rowActions(row)}</div>}
+              </div>
+            )}
           </div>
         )}
       />
