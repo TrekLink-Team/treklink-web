@@ -18,10 +18,11 @@ import {
   HandoverPreviewQueryDto,
   ProvisioningDto,
   SwapDto,
+  UndoProvisioningDto,
 } from './dto/contract-decision.dto';
 import { HandoverService } from './handover.service';
 
-// The counter handover (rentals tasks 2.3 and 2.4, api-design 07 to 11). TrekLink Staff operate the
+// The counter handover (rentals tasks 2.3, 2.4 and 2.6, api-design 07 to 11 and 19). TrekLink Staff operate the
 // counter (`contract.operate`); the signed note is read by the Org Manager of the contract
 // (`handoverNote.read.own`) and by Staff and Admin (`handoverNote.read`).
 @Controller('contracts')
@@ -62,6 +63,34 @@ export class HandoverController {
       keyVersion: device.keyVersion,
       keyOrganizationId: device.keyOrganizationId,
       provisionedAt: device.provisionedAt,
+    };
+  }
+
+  // The undo answers the cleared unit and the contract version, which the counter sends next.
+  @Post(':id/devices/:deviceId/provisioning/undo')
+  @HttpCode(HttpStatus.OK)
+  @CheckPolicies((ability) => ability.can('operate', 'RentalContract'))
+  @ResponseMessage('Provisioning undone')
+  async undoProvisioning(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @Body() dto: UndoProvisioningDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    const { device, contractVersion } = await this.handover.undoProvisioning(
+      id,
+      deviceId,
+      dto.expectedVersion,
+      caller,
+    );
+    return {
+      deviceId: device.id,
+      assetTag: device.assetTag,
+      status: device.status,
+      keyVersion: device.keyVersion,
+      keyOrganizationId: device.keyOrganizationId,
+      provisionedAt: device.provisionedAt,
+      contractVersion,
     };
   }
 

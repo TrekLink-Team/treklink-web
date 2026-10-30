@@ -216,6 +216,21 @@ export class DevicesRepository {
     });
   }
 
+  // Undoes a provisioning record before the handover (rentals api-design 19): the unit carries no
+  // organization key version again. The DeviceProvisioning row is append-only and stays.
+  clearProvisioning(deviceId: string, tx: Prisma.TransactionClient): Promise<ProvisionedDevice> {
+    return tx.device.update({
+      where: { id: deviceId },
+      data: {
+        keyVersion: null,
+        keyOrganizationId: null,
+        provisionedAt: null,
+        version: { increment: 1 },
+      },
+      select: PROVISIONED_SELECT,
+    });
+  }
+
   provisioning(ids: readonly string[], client: Client = this.prisma): Promise<ProvisionedDevice[]> {
     return client.device.findMany({ where: { id: { in: [...ids] } }, select: PROVISIONED_SELECT });
   }
