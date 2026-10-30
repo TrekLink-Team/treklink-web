@@ -235,4 +235,61 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
       (await prisma.authorityReport.findUniqueOrThrow({ where: { id: report.id } })).caseClosedAt,
     ).toEqual(closedAt);
   });
+
+  // PR #137 review: an incident reported twice (again after a reopen) holds two open reports. Closing
+  // the first keeps the incident REPORTED; closing the second, the last open one, moves it to CLOSED.
+  it('closes the incident only when the last open report on it closes', async () => {
+    const at = new Date(Date.now() - 120_000);
+    const device = await prisma.device.findUniqueOrThrow({ where: { id: deviceId } });
+    const second = await prisma.device.create({
+      data: {
+        assetTag: `AC04B-${runId.slice(0, 8)}`,
+        nodeNum: BigInt(nodeNum) + 1n,
+        hardwareVariantId: device.hardwareVariantId,
+        firmwareVersion: 'test-only',
+        acquiredAt: new Date(Date.now() - 86_400_000),
+        registeredById: staff.id,
+        status: 'AVAILABLE',
+      },
+    });
+    const incident = await prisma.incident.create({
+      data: {
+        code: `INC-T-${runId.slice(0, 8)}`,
+        deviceId: second.id,
+        state: 'REPORTED',
+        stateChangedAt: at,
+        source: 'DEVICE_SOS',
+        confidence: 'CONFIRMED',
+        firstEventAt: at,
+        lastEventAt: at,
+        version: 3,
+      },
+    });
+    const open = (reference: string) =>
+      prisma.authorityReport.create({
+        data: {
+          incidentId: incident.id,
+          agency: 'Lam Dong provincial rescue (114)',
+          reference,
+          reportedAt: at,
+          reportedById: staff.id,
+        },
+      });
+    const first = await open(`LD-A-${runId.slice(0, 6)}`);
+    const last = await open(`LD-B-${runId.slice(0, 6)}`);
+
+    await expect(
+      reports.closeCase(first.id, { closedAt: new Date(Date.now() - 2000) }, staff),
+    ).resolves.toMatchObject({ incidentState: 'REPORTED' });
+    expect((await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).state).toBe(
+      'REPORTED',
+    );
+
+    await expect(
+      reports.closeCase(last.id, { closedAt: new Date(Date.now() - 1000) }, staff),
+    ).resolves.toMatchObject({ incidentState: 'CLOSED' });
+    expect((await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).state).toBe(
+      'CLOSED',
+    );
+  });
 });

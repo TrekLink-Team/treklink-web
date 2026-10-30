@@ -187,10 +187,10 @@ sequenceDiagram
     participant Ctl as AuthorityReportsController
     participant Svc as AuthorityReportsService
     participant DB as Postgres
-    participant Rent as RentalsService
+    participant Contracts as ContractsService
     C->>Ctl: POST /api/authority-reports
     Ctl->>Svc: reportContract(dto, actor)
-    Svc->>Rent: statusOf(contractId)
+    Svc->>Contracts: statusOf(contractId)
     Svc->>DB: INSERT authority_reports
     Svc-->>Ctl: result
     Ctl-->>C: 201 envelope
