@@ -136,6 +136,71 @@ describe('billing (e2e)', () => {
       expectError(response, 400, 'VALIDATION_FAILED');
     });
 
+    it.each(['/api/price-schedules?hardwareVariantId=v3', '/api/price-schedules?pageNumber=0'])(
+      'api-design 03 refuses the query %s',
+      async (path) => {
+        expectError(await e2e.send('admin-1', 'get', path), 400, 'VALIDATION_FAILED');
+      },
+    );
+
+    it.each([
+      ['a variant that is not a uuid', { hardwareVariantId: 'v3' }],
+      ['a price of 0', { monthlyPriceVnd: 0 }],
+      ['an effective time that is not a date', { effectiveFrom: 'next month' }],
+    ])('api-design 04 refuses %s', async (_, change) => {
+      const response = await e2e.send('admin-1', 'post', '/api/price-schedules', {
+        hardwareVariantId: VARIANT,
+        monthlyPriceVnd: 450_000,
+        effectiveFrom: '2026-12-01T00:00:00Z',
+        ...change,
+      });
+      expectError(response, 400, 'VALIDATION_FAILED');
+    });
+
+    it('api-design 05 refuses a variant filter that is not a uuid', async () => {
+      expectError(
+        await e2e.send('admin-1', 'get', '/api/damage-rates?hardwareVariantId=v3'),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it.each([
+      ['a code that is not UPPER_SNAKE_CASE', { code: 'antenna-broken' }],
+      ['a code over 40 characters', { code: 'A'.repeat(41) }],
+      ['a label of spaces', { label: '   ' }],
+      ['an amount of 0', { amountVnd: 0 }],
+      ['a variant that is not a uuid', { hardwareVariantId: 'v3' }],
+    ])('api-design 06 refuses %s', async (_, change) => {
+      const response = await e2e.send('admin-1', 'post', '/api/damage-rates', {
+        code: 'ANTENNA_BROKEN',
+        label: 'Antenna broken',
+        amountVnd: 300_000,
+        ...change,
+      });
+      expectError(response, 400, 'VALIDATION_FAILED');
+    });
+
+    it.each([
+      ['a label of spaces', { label: '   ' }],
+      ['an amount of 0', { amountVnd: 0 }],
+      ['an active flag that is not a boolean', { isActive: 'no' }],
+    ])('api-design 07 refuses %s', async (_, body) => {
+      expectError(
+        await e2e.send('admin-1', 'patch', `/api/damage-rates/${VARIANT}`, body),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it('api-design 07 refuses a rate id that is not a uuid', async () => {
+      expectError(
+        await e2e.send('admin-1', 'patch', '/api/damage-rates/ANTENNA_BROKEN', { amountVnd: 1 }),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
     it('api-design 16 refuses an unknown damage charge status', async () => {
       expectError(
         await e2e.send('staff-1', 'get', '/api/damage-charges?status=OPEN'),

@@ -6,7 +6,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 
-// Callers for the rentals and billing e2e suites (rentals 6.2, billing 5.2): three accounts through
+// Callers for the rentals and billing e2e suites (rentals 6.2, billing 5.2): four accounts through
 // the real HTTP pipeline, the global guards and the ValidationPipe, with Prisma stubbed. The permission
 // rows are the seeded ones of these roles (prisma/migrations/20261004120100_seed). Each suite adds the
 // stubbed tables its routes read; a route that reaches an unstubbed table fails loudly.
@@ -26,6 +26,7 @@ const account = (id: string, accountType: string, role: string) => ({
 
 const ACCOUNTS: Record<string, ReturnType<typeof account>> = {
   'staff-1': account('staff-1', 'TREKLINK', 'STAFF'),
+  'admin-1': account('admin-1', 'TREKLINK', 'ADMIN'),
   'manager-a': account('manager-a', 'ORGANIZATION', 'ORG_MANAGER'),
   'operator-a': account('operator-a', 'ORGANIZATION', 'ORG_OPERATOR'),
 };
@@ -59,6 +60,12 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('plan.quote', 'quote', 'Plan'),
     rule('damageCharge.read', 'read', 'DamageCharge'),
   ],
+  // The Admin rows the price and damage-rate routes need (billing api-design 03 to 07).
+  ADMIN: [
+    rule('priceSchedule.manage', 'manage', 'PriceSchedule'),
+    rule('damageRate.read', 'read', 'DamageRate'),
+    rule('damageRate.manage', 'manage', 'DamageRate'),
+  ],
   ORG_MANAGER: [
     rule('contract.read.own', 'read', 'RentalContract', OWN),
     rule('contract.request.own', 'request', 'RentalContract', OWN),
@@ -76,13 +83,13 @@ const PERMISSIONS: Record<string, unknown[]> = {
   ],
 };
 
-export type Caller = 'staff-1' | 'manager-a' | 'operator-a';
+export type Caller = 'staff-1' | 'admin-1' | 'manager-a' | 'operator-a';
 
 export interface E2eApp {
   app: NestExpressApplication;
   send(
     caller: Caller | null,
-    method: 'get' | 'post' | 'put',
+    method: 'get' | 'post' | 'put' | 'patch',
     path: string,
     body?: object,
   ): Promise<request.Response>;
