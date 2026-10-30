@@ -187,6 +187,14 @@ describe('/reset (auth api-design 06)', () => {
   });
 });
 
+describe('/sign-in links', () => {
+  it('offers Set password for an invited account, as the invitation email says', () => {
+    show('/sign-in');
+    fireEvent.click(screen.getByRole('link', { name: 'Set password' }));
+    expect(screen.getByRole('button', { name: 'Set password and sign in' })).toBeTruthy();
+  });
+});
+
 describe('/welcome (auth api-design 07)', () => {
   const fill = (confirm = 'first-password') => {
     type('Email', 'staff@treklink.vn');
