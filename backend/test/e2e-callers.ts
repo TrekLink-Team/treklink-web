@@ -60,12 +60,33 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('plan.quote', 'quote', 'Plan'),
     rule('damageCharge.read', 'read', 'DamageCharge'),
     rule('device.operate', 'operate', 'Device'),
+    // organizations (api-design 01 to 32)
+    rule('organization.read', 'read', 'Organization'),
+    rule('organization.verify', 'verify', 'Organization'),
+    rule('organization.rotateKey', 'rotateKey', 'Organization'),
+    rule('member.read', 'read', 'Member'),
+    rule('apiKey.read', 'read', 'ApiKey'),
+    rule('fieldStation.read', 'read', 'FieldStation'),
+    rule('fieldStation.revoke', 'revoke', 'FieldStation'),
+    rule('complianceCase.manage', 'manage', 'ComplianceCase'),
   ],
   // The Admin rows the price and damage-rate routes need (billing api-design 03 to 07).
   ADMIN: [
     rule('priceSchedule.manage', 'manage', 'PriceSchedule'),
     rule('damageRate.read', 'read', 'DamageRate'),
     rule('damageRate.manage', 'manage', 'DamageRate'),
+    // organizations (api-design 01 to 32)
+    rule('organization.read', 'read', 'Organization'),
+    rule('organization.update', 'update', 'Organization'),
+    rule('organization.verify', 'verify', 'Organization'),
+    rule('organization.decide', 'decide', 'Organization'),
+    rule('organization.suspend', 'suspend', 'Organization'),
+    rule('organization.rotateKey', 'rotateKey', 'Organization'),
+    rule('member.read', 'read', 'Member'),
+    rule('apiKey.read', 'read', 'ApiKey'),
+    rule('fieldStation.read', 'read', 'FieldStation'),
+    rule('fieldStation.revoke', 'revoke', 'FieldStation'),
+    rule('complianceCase.manage', 'manage', 'ComplianceCase'),
   ],
   ORG_MANAGER: [
     rule('contract.read.own', 'read', 'RentalContract', OWN),
@@ -77,10 +98,28 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('payment.read.own', 'read', 'Payment', OWN),
     rule('payment.payOnline.own', 'payOnline', 'Invoice', OWN),
     rule('plan.quote.org', 'quote', 'Plan'),
+    // organizations (api-design 01 to 32)
+    rule('organization.read.own', 'read', 'Organization', { id: '${user.organizationId}' }),
+    rule('organization.update.own', 'update', 'Organization', { id: '${user.organizationId}' }),
+    rule('organization.history.read.own', 'readHistory', 'Organization', {
+      id: '${user.organizationId}',
+    }),
+    rule('member.read.own', 'read', 'Member', OWN),
+    rule('member.manage.own', 'manage', 'Member', OWN),
+    rule('apiKey.manage.own', 'manage', 'ApiKey', OWN),
+    rule('fieldStation.read.own', 'read', 'FieldStation', OWN),
+    rule('fieldStation.manage.own', 'manage', 'FieldStation', OWN),
+    rule('roster.read.own', 'read', 'RosterShift', OWN),
+    rule('roster.manage.own', 'manage', 'RosterShift', OWN),
   ],
   ORG_OPERATOR: [
     rule('contract.read.own', 'read', 'RentalContract', OWN),
     rule('contract.label.own', 'label', 'RentalContract', OWN),
+    // organizations (api-design 01 to 32)
+    rule('organization.read.own', 'read', 'Organization', { id: '${user.organizationId}' }),
+    rule('member.read.own', 'read', 'Member', OWN),
+    rule('fieldStation.read.own', 'read', 'FieldStation', OWN),
+    rule('roster.read.own', 'read', 'RosterShift', OWN),
   ],
 };
 
@@ -90,7 +129,7 @@ export interface E2eApp {
   app: NestExpressApplication;
   send(
     caller: Caller | null,
-    method: 'get' | 'post' | 'put' | 'patch',
+    method: 'get' | 'post' | 'put' | 'patch' | 'delete',
     path: string,
     body?: object,
   ): Promise<request.Response>;
