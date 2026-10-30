@@ -43,7 +43,7 @@ export interface StationHealth {
 
 // MF-02 sync status (gateway-sync api-design 07): a station that is not revoked, with its
 // organization's label and its health projection.
-export interface FieldStationHealthRow {
+export interface FieldStationSyncRow {
   id: string;
   name: string;
   mqttUsername: string;
@@ -154,7 +154,7 @@ export class FieldStationsRepository {
   }
 
   // Every station that is not revoked, with its organization's label, by organization code then name.
-  activeWithHealth(client: Client = this.prisma): Promise<FieldStationHealthRow[]> {
+  activeWithHealth(client: Client = this.prisma): Promise<FieldStationSyncRow[]> {
     return client.fieldStation.findMany({
       where: { revokedAt: null },
       orderBy: [{ organization: { code: 'asc' } }, { name: 'asc' }],

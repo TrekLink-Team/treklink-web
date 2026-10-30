@@ -16,7 +16,7 @@ import {
   isOutdatedAgainst,
 } from './field-station-release.service';
 import {
-  FieldStationHealthRow,
+  FieldStationSyncRow,
   FieldStationRow,
   FieldStationsRepository,
   StationCredential,
@@ -228,7 +228,7 @@ export class FieldStationsService {
 
   // For `gateway-sync` (api-design 07, MF-02 sync status): every station that is not revoked, with its
   // organization's label and health, for the TrekLink sync status read.
-  activeWithHealth(): Promise<FieldStationHealthRow[]> {
+  activeWithHealth(): Promise<FieldStationSyncRow[]> {
     return this.stations.activeWithHealth();
   }
 
