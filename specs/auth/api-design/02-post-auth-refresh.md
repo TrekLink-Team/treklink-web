@@ -71,40 +71,6 @@ Issues a new access token and rotates the refresh token. Reusing an already rota
         </tr>
         <tr>
             <td>401</td>
-            <td>Missing, malformed or expired access token or API key (<code>UNAUTHENTICATED</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "UNAUTHENTICATED"
-  },
-  "isSuccess": false,
-  "statusCode": 401,
-  "message": "Authentication required."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>403</td>
-            <td>The caller's role, policy or organization does not allow this action (<code>FORBIDDEN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "FORBIDDEN"
-  },
-  "isSuccess": false,
-  "statusCode": 403,
-  "message": "You do not have access to this."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>401</td>
             <td>Unknown, expired or revoked refresh token, or inactive account (<code>REFRESH_INVALID</code>)</td>
 <td>
 
@@ -145,7 +111,7 @@ Issues a new access token and rotates the refresh token. Reusing an already rota
 ```mermaid
 flowchart TB
     S((Start))
-    A0["Check token, policy and organization scope"]
+    A0["Accept request"]
     S --> A0
     D1{"The body or query fails validation?"}
     A0 --> D1

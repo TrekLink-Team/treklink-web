@@ -14,7 +14,7 @@ Receives SePay's transaction notification. Authenticated by the `Authorization: 
 | API | URL |
 | --- | --- |
 | POST | /api/payments/sepay/webhook |
-| Permission | Public |
+| Permission | Public (SePay API key header) |
 | Traces | UC-19, FR-BILL-07, FR-BILL-08, BR-31, NFR-SEC-07, E01-6 |
 | Notes | Verified against https://docs.sepay.vn/tich-hop-webhooks.html (2026-10-04): SePay sends `Authorization: Apikey <key>`, posts id, gateway, transactionDate, accountNumber, subAccount, code, content, transferType, description, transferAmount, accumulated, referenceCode; it expects HTTP 200 or 201 with the body `{"success": true}` within 30 s and otherwise retries up to 7 times over 5 hours. D-038 makes the success acknowledgement a bare body through @RawResponse(). The route guard verifies the key before the global validation pipe: an invalid key gives 401 WEBHOOK_UNAUTHENTICATED even when the DTO fields are missing or invalid. |
 
