@@ -9,7 +9,12 @@ const CONFIG = {
 const CALLER = { id: 'staff-1', roles: ['STAFF'], organizationId: null };
 
 describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
-  let devices: { fleetPage: jest.Mock; reset: jest.Mock; availability: jest.Mock; detail: jest.Mock };
+  let devices: {
+    fleetPage: jest.Mock;
+    reset: jest.Mock;
+    availability: jest.Mock;
+    detail: jest.Mock;
+  };
   let intake: { record: jest.Mock; register: jest.Mock };
   let events: { transaction: jest.Mock };
   let controller: DevicesController;
@@ -27,7 +32,7 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       devices as unknown as DevicesService,
       intake as unknown as IntakeService,
       events as never,
-      CONFIG as never,
+      CONFIG,
     );
   });
 
