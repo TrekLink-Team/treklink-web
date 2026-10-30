@@ -170,7 +170,7 @@
 <text x="1088" y="928" fill="#475569" font-family="Arial, sans-serif" font-size="12" font-weight="400">Optional.</text>
 <rect x="1088" y="960" width="464" height="84" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
 <text x="1102" y="984" fill="#991b1b" font-family="Arial, sans-serif" font-size="13" font-weight="400">The organization must keep at least one Manager.</text>
-<text x="1102" y="1004" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="400">LAST_MANAGER, 409: the server message, no SRS code</text>
+<text x="1102" y="1004" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="400">LAST_MANAGER, 409: the server message; MSG29 is open point 1</text>
 <rect x="1236" y="1150" width="150" height="44" rx="8" fill="white" stroke="#172b26"/>
 <text x="1311.0" y="1178" fill="#172b26" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">Cancel</text>
 <rect x="1394" y="1150" width="158" height="44" rx="8" fill="#b91c1c" stroke="#b91c1c"/>
