@@ -38,6 +38,7 @@
 | `device.retire` | retire | Device |  | TREKLINK | X |  |  |  |
 | `device.availability` | readAvailability | Device |  | TREKLINK | X | X |  |  |
 | `device.availability.org` | readAvailability | Device |  | ORGANIZATION |  |  | X |  |
+| `maintenance.decide` | decide | MaintenanceRecord |  | TREKLINK | X |  |  |  |
 | `stockTake.manage` | manage | StockTake |  | TREKLINK | X | X |  |  |
 | `contract.read` | read | RentalContract |  | TREKLINK | X | X |  |  |
 | `contract.read.own` | read | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |

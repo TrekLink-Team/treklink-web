@@ -60,7 +60,7 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     parameters,
     events,
   );
-  const devices = new DevicesService(new DevicesRepository(prisma));
+  const devices = new DevicesService(new DevicesRepository(prisma), {} as never, {} as never);
   const contracts = new ContractsService(
     new ContractsRepository(prisma),
     {} as never,

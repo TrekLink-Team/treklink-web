@@ -25,7 +25,11 @@ describe('DevicesService', () => {
       projectIfNewer: jest.fn().mockResolvedValue(true),
       findValuation: jest.fn(),
     };
-    service = new DevicesService(repository as unknown as DevicesRepository);
+    service = new DevicesService(
+      repository as unknown as DevicesRepository,
+      {} as never,
+      {} as never,
+    );
   });
 
   it('projects a position reading and returns the device id', async () => {

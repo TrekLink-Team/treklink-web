@@ -296,6 +296,132 @@ export class DevicesRepository {
     });
   }
 
+  // Device detail (devices api-design 07, task 3.1): the fleet row plus what the detail page and the
+  // intake and maintenance rules read from the variant.
+  findDetail(id: string, client: Client = this.prisma): Promise<DeviceDetailRow | null> {
+    return client.device.findUnique({ where: { id }, select: DETAIL_SELECT });
+  }
+
+  lastIntakeCheck(deviceId: string, client: Client = this.prisma) {
+    return client.intakeCheck.findFirst({
+      where: { deviceId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, passed: true, createdAt: true },
+    });
+  }
+
+  lastReset(deviceId: string, client: Client = this.prisma) {
+    return client.deviceReset.findFirst({
+      where: { deviceId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true },
+    });
+  }
+
+  // Moves one unit from one of `from` to `to` when it is still at `version`, for the manual endpoints
+  // that carry expectedVersion. Returns whether it moved.
+  async moveIfCurrent(
+    id: string,
+    version: number,
+    from: readonly DeviceStatus[],
+    to: DeviceStatus,
+    at: Date,
+    tx: Prisma.TransactionClient,
+    extra: Prisma.DeviceUncheckedUpdateManyInput = {},
+  ): Promise<boolean> {
+    const { count } = await tx.device.updateMany({
+      where: { id, version, status: { in: [...from] } },
+      data: { ...extra, status: to, statusChangedAt: at, version: { increment: 1 } },
+    });
+    return count === 1;
+  }
+
+  // Firmware and next service date after maintenance (FR-DEV-17, FR-DEV-21); the status is unchanged.
+  async updateService(
+    id: string,
+    data: { firmwareVersion?: string; serviceDueAt?: Date },
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    if (data.firmwareVersion === undefined && data.serviceDueAt === undefined) return;
+    await tx.device.update({ where: { id }, data: { ...data, version: { increment: 1 } } });
+  }
+
+  insertIntakeCheck(
+    data: {
+      deviceId: string;
+      gpsFixOk: boolean;
+      radioOk: boolean;
+      batteryOk: boolean;
+      motionOk: boolean | null;
+      passed: boolean;
+      note: string | null;
+      checkedById: string;
+      createdAt: Date;
+    },
+    tx: Prisma.TransactionClient,
+  ) {
+    return tx.intakeCheck.create({ data, select: { id: true, passed: true, createdAt: true } });
+  }
+
+  // One row of the device's state history (design §2); actor null is SYSTEM.
+  async insertTransition(
+    data: {
+      deviceId: string;
+      fromStatus: DeviceStatus | null;
+      toStatus: DeviceStatus;
+      actorId: string | null;
+      reason: string;
+      refType?: string;
+      refId?: string;
+      createdAt: Date;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.deviceTransition.create({ data });
+  }
+
+  // The lifecycle rows of one device, for `trail()` (monitoring api-design 07).
+  async lifecycle(deviceId: string, client: Client = this.prisma) {
+    const [transitions, intakeChecks, provisionings, resets, inspections] = await Promise.all([
+      client.deviceTransition.findMany({
+        where: { deviceId },
+        select: {
+          id: true,
+          fromStatus: true,
+          toStatus: true,
+          actorId: true,
+          reason: true,
+          refType: true,
+          refId: true,
+          createdAt: true,
+        },
+      }),
+      client.intakeCheck.findMany({
+        where: { deviceId },
+        select: { id: true, passed: true, checkedById: true, createdAt: true },
+      }),
+      client.deviceProvisioning.findMany({
+        where: { deviceId },
+        select: {
+          id: true,
+          organizationId: true,
+          keyVersion: true,
+          provisionedById: true,
+          createdAt: true,
+        },
+      }),
+      client.deviceReset.findMany({
+        where: { deviceId },
+        select: { id: true, resetById: true, createdAt: true },
+      }),
+      client.inspection.findMany({
+        where: { deviceId },
+        select: { id: true, result: true, damageCodes: true, inspectorId: true, createdAt: true },
+      }),
+    ]);
+    return { transitions, intakeChecks, provisionings, resets, inspections };
+  }
+
   insertInspection(
     data: {
       deviceId: string;
@@ -327,12 +453,29 @@ export const LIST_SELECT = {
   keyOrganizationId: true,
   batteryPct: true,
   lastSeenAt: true,
+  lastLatitude: true,
+  lastLongitude: true,
   serviceDueAt: true,
   version: true,
   hardwareVariant: { select: { id: true, code: true } },
 } satisfies Prisma.DeviceSelect;
 
 export type DeviceListRow = Prisma.DeviceGetPayload<{ select: typeof LIST_SELECT }>;
+
+export const DETAIL_SELECT = {
+  ...LIST_SELECT,
+  hardwareVariant: {
+    select: {
+      id: true,
+      code: true,
+      hasMotionSensor: true,
+      firmwareBaseline: true,
+      serviceIntervalDays: true,
+    },
+  },
+} satisfies Prisma.DeviceSelect;
+
+export type DeviceDetailRow = Prisma.DeviceGetPayload<{ select: typeof DETAIL_SELECT }>;
 
 export interface DeviceFilter {
   statuses?: DeviceStatus[];

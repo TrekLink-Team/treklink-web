@@ -26,7 +26,11 @@ describe('DevicesService for the replacement on a running contract', () => {
       hasOpenLossCase: jest.fn().mockResolvedValue(true),
       page: jest.fn().mockResolvedValue([[], 0]),
     };
-    service = new DevicesService(repository as unknown as DevicesRepository);
+    service = new DevicesService(
+      repository as unknown as DevicesRepository,
+      {} as never,
+      {} as never,
+    );
   });
 
   it('locks an AVAILABLE unit of the variant and moves it to RESERVED', async () => {

@@ -18,6 +18,8 @@ describe('device availability', () => {
       hardwareVariant: { findMany },
       device: { groupBy },
     } as unknown as PrismaService),
+    {} as never,
+    {} as never,
   );
 
   beforeEach(() => {

@@ -8,6 +8,7 @@ export {
 export {
   ContractsService,
   type Custody,
+  type DeviceContractRow,
   type HolderLabel,
   type VisibleDevice,
 } from './contracts.service';

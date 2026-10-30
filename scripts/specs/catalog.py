@@ -156,6 +156,7 @@ PERMISSIONS = [
     ("device.retire", "retire", "Device", None, ["ADMIN"]),
     ("device.availability", "readAvailability", "Device", None, ["STAFF"]),
     ("device.availability.org", "readAvailability", "Device", None, ["ORG_MANAGER"]),
+    ("maintenance.decide", "decide", "MaintenanceRecord", None, ["ADMIN"]),  # devices api-design 13, BR-44
     ("stockTake.manage", "manage", "StockTake", None, ["STAFF"]),
     # rentals
     ("contract.read", "read", "RentalContract", None, ["STAFF"]),

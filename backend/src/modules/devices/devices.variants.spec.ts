@@ -9,7 +9,7 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
     const repository = new DevicesRepository({
       hardwareVariant: { findMany },
     } as unknown as PrismaService);
-    const service = new DevicesService(repository);
+    const service = new DevicesService(repository, {} as never, {} as never);
 
     await expect(service.variants()).resolves.toEqual([{ id: 'v-3' }]);
     expect(findMany).toHaveBeenLastCalledWith({
