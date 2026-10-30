@@ -15,6 +15,8 @@ let contractPages = 1;
 let detailFails = false;
 let overdueError: Error | null = null;
 let overdueLoading = false;
+let openIncidents: object[] = [];
+let incidentsError: Error | null = null;
 const filtersSeen: object[] = [];
 
 vi.mock('../app/providers/useAuth', () => ({
@@ -63,6 +65,16 @@ vi.mock('../entities/contract/api', async (importOriginal) => ({
             },
           ],
         }),
+}));
+
+vi.mock('../entities/incident/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../entities/incident/api')>()),
+  useIncidents: (filters: object) => {
+    filtersSeen.push(filters);
+    return incidentsError
+      ? { data: undefined, isLoading: false, error: incidentsError, refetch: vi.fn() }
+      : { data: { items: openIncidents, totalPages: 1 }, isLoading: false, error: null };
+  },
 }));
 
 vi.mock('../entities/billing/api', async (importOriginal) => ({
@@ -127,6 +139,8 @@ afterEach(() => {
   detailFails = false;
   overdueError = null;
   overdueLoading = false;
+  openIncidents = [];
+  incidentsError = null;
   filtersSeen.length = 0;
 });
 
@@ -231,7 +245,37 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     renderPage();
     expect(screen.getByText('Your organization has no contracts yet.')).toBeTruthy();
     expect(screen.getByText('Nothing to pay right now.')).toBeTruthy();
-    expect(screen.getByText('Incidents are not available yet.')).toBeTruthy();
+    expect(screen.getByText('No open incidents.')).toBeTruthy();
+  });
+
+  it('lists five open incidents with tag, holder, state and start, each linking to screen 8.1', () => {
+    openIncidents = Array.from({ length: 6 }, (_, n) => ({
+      id: `inc-${n}`,
+      code: `INC-2026-00000${n + 1}`,
+      device: {
+        id: `d-${n}`,
+        assetTag: `TL-000${n + 1}`,
+        holder: n === 0 ? { name: 'Nguyen Van A', phone: null } : null,
+      },
+      state: n === 0 ? 'NOTIFY_PRIMARY' : 'ACKNOWLEDGED',
+      firstEventAt: '2026-10-30T02:00:00Z',
+    }));
+    renderPage();
+    expect(filtersSeen).toContainEqual({ open: true });
+    const first = screen.getByText('INC-2026-000001');
+    expect(first.closest('a')?.getAttribute('href')).toBe('/o/incidents/inc-0');
+    expect(screen.getByText(/TL-0001, Nguyen Van A, since/)).toBeTruthy();
+    expect(screen.queryByText('INC-2026-000006')).toBeNull();
+    expect(screen.getByText('All incidents').closest('a')?.getAttribute('href')).toBe(
+      '/o/incidents',
+    );
+  });
+
+  it('shows a failed incident read with Try again, not as no incidents', () => {
+    incidentsError = new Error('timeout');
+    renderPage();
+    expect(screen.queryByText('No open incidents.')).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1);
   });
 
   it('shows MSG28 when the organization is not ACTIVE', () => {

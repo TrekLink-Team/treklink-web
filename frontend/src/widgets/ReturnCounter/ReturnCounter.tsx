@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { useBalance } from '../../entities/billing/api';
+import { damageCodesFor, useBalance, useDamageRates } from '../../entities/billing/api';
 import {
   checkInDevices,
   closeContract,
@@ -28,6 +28,7 @@ import {
   Field,
   Input,
   RadioGroup,
+  Skeleton,
   StatusBadge,
   TabPanel,
   Tabs,
@@ -117,15 +118,19 @@ const ResetDialog: React.FC<{
   );
 };
 
-// The inspection of one reset unit (rentals api-design 16); DAMAGED needs at least one damage code.
+// The inspection of one reset unit (rentals api-design 16); DAMAGED needs at least one damage code,
+// chosen from the damage price list of the contract's variant (billing api-design 05).
 const InspectDialog: React.FC<{
   contractId: string;
+  hardwareVariantId: string;
   device: ContractDevice;
   onDone: (outcome: InspectionOutcome) => void;
   onClose: () => void;
-}> = ({ contractId, device, onDone, onClose }) => {
+}> = ({ contractId, hardwareVariantId, device, onDone, onClose }) => {
   const [result, setResult] = useState<InspectionResult | undefined>(undefined);
-  const [codes, setCodes] = useState('');
+  const [codes, setCodes] = useState<string[]>([]);
+  const rates = useDamageRates(hardwareVariantId);
+  const choices = damageCodesFor(rates.data ?? [], hardwareVariantId);
   const [note, setNote] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,12 +141,9 @@ const InspectDialog: React.FC<{
       setError('Choose the result.');
       return;
     }
-    const damageCodes = codes
-      .split(',')
-      .map((code) => code.trim().toUpperCase())
-      .filter((code) => code !== '');
+    const damageCodes = codes;
     if (result === 'DAMAGED' && damageCodes.length === 0) {
-      setCodesError('Enter at least one damage code.');
+      setCodesError('Choose at least one damage code.');
       return;
     }
     setPending(true);
@@ -156,7 +158,9 @@ const InspectDialog: React.FC<{
     } catch (failure) {
       setPending(false);
       if (failure instanceof ApiError && failure.errorCode === 'UNKNOWN_DAMAGE_CODE') {
+        // A code deactivated since the list loaded: the server's message, and the list reloads.
         setCodesError(failure.message);
+        void rates.refetch();
       } else setError(errorOf(failure));
     }
   };
@@ -191,24 +195,65 @@ const InspectDialog: React.FC<{
             { value: 'FAILED', label: 'Failed' },
           ]}
         />
-        {result === 'DAMAGED' && (
-          <Field
-            id="damage-codes"
-            label="Damage codes"
-            hint="Codes of the damage price list, separated by commas, for example ANTENNA_BROKEN."
-            error={codesError ?? undefined}
-            required
-          >
-            <Input
-              id="damage-codes"
-              value={codes}
-              onChange={(event) => {
-                setCodes(event.target.value);
-                setCodesError(null);
-              }}
-            />
-          </Field>
-        )}
+        {result === 'DAMAGED' &&
+          (rates.isLoading ? (
+            <Skeleton className="h-24" />
+          ) : rates.error ? (
+            <Alert
+              tone="error"
+              action={
+                <Button size="sm" onClick={() => void rates.refetch()}>
+                  Try again
+                </Button>
+              }
+            >
+              {messageOf(rates.error)}
+            </Alert>
+          ) : choices.length === 0 ? (
+            <Alert tone="warning">
+              No damage code is priced for this variant. An Admin adds one on the Prices page.
+            </Alert>
+          ) : (
+            <fieldset
+              aria-describedby={codesError ? 'damage-codes-error' : undefined}
+              className="flex flex-col gap-1"
+            >
+              <legend className="mb-1 text-body-sm font-semibold text-ink">
+                Damage codes
+                <span aria-hidden="true" className="ml-0.5 text-status-critical-fg">
+                  *
+                </span>
+                <span className="sr-only"> (required)</span>
+              </legend>
+              {choices.map((rate) => (
+                <Checkbox
+                  key={rate.code}
+                  id={`damage-${rate.code}`}
+                  label={`${rate.label} (${rate.code})`}
+                  description={formatVnd(rate.amountVnd)}
+                  checked={codes.includes(rate.code)}
+                  onChange={(event) => {
+                    const { checked } = event.target;
+                    setCodes((current) =>
+                      checked
+                        ? [...current, rate.code]
+                        : current.filter((code) => code !== rate.code),
+                    );
+                    setCodesError(null);
+                  }}
+                />
+              ))}
+              {codesError && (
+                <p
+                  id="damage-codes-error"
+                  role="alert"
+                  className="text-body-sm font-medium text-status-critical-fg"
+                >
+                  {codesError}
+                </p>
+              )}
+            </fieldset>
+          ))}
         <Field id="inspection-note" label="Note">
           <Textarea
             id="inspection-note"
@@ -519,6 +564,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
       {inspecting && (
         <InspectDialog
           contractId={contract.id}
+          hardwareVariantId={contract.hardwareVariant.id}
           device={inspecting}
           onClose={() => setInspecting(null)}
           onDone={(outcome) => {

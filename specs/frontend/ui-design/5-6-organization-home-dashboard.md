@@ -56,11 +56,11 @@ None.
 
 - 360 px layout: tiles in a two-column grid, then the invoices, the incidents and the next dates as stacked cards; every link target at least 44 px high.
 - Tab order: header action, tiles in reading order, then each widget. Tiles are links with a text label and the number; status is never colour alone (chapter 06 §8.3). VND with thousands separators (§8.8).
-- WebSocket events and invalidated query keys: `incident.changed` invalidates `['incidents', 'o', { open: true }]`; `device.label` and `device.released` invalidate `['contract', id]`. Query keys reuse those of screens 5.2, 6.1 and 8.1, so the dashboard and the pages share their cache.
+- WebSocket events and invalidated query keys: `incident.changed` invalidates `['incidents', { open: true }]` (the `['incidents']` prefix); `device.label` and `device.released` invalidate `['contract', id]`. Query keys reuse those of screens 5.2, 6.1 and 8.1, so the dashboard and the pages share their cache.
 
 ## Open points for review
 
-1. **Incidents endpoint**: incidents api-design 01 has no controller yet (HoangTK's lane). Until it exists the incident widget shows "Incidents are not available yet." instead of an error. Built that way on 2026-10-28.
+1. **Incidents endpoint**: resolved on 2026-10-30. Incidents api-design 01 is served (`GET /api/incidents`, `incident.read.own` for the Org Manager), and the widget reads it with `open=true`: five rows, the server's message with Try again on a failure, "No open incidents." when there is none.
 2. **No aggregate endpoint**: the page composes existing list endpoints rather than adding a dashboard endpoint. If the reads prove slow on Neon, an `organizations` or `monitoring` summary endpoint is the follow-up, through a spec.
 3. **Wireframe**: an SVG wireframe in the style of the other screens follows if the layout above is approved.
 

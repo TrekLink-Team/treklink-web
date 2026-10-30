@@ -4,6 +4,7 @@ import { FileText, Radio, Receipt, Siren } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import { useInvoices, type Invoice } from '../entities/billing/api';
+import { useIncidents } from '../entities/incident/api';
 import {
   contractKeys,
   fetchContract,
@@ -11,7 +12,7 @@ import {
   type Contract,
   type ContractStatus,
 } from '../entities/contract/api';
-import { formatDate, formatVnd } from '../shared/lib/format';
+import { formatDate, formatDateTime, formatVnd } from '../shared/lib/format';
 import {
   Alert,
   Button,
@@ -20,6 +21,7 @@ import {
   CONTRACT_STATUS,
   DataTable,
   EmptyState,
+  INCIDENT_STATE,
   INVOICE_STATUS,
   PageHeader,
   Skeleton,
@@ -91,6 +93,9 @@ export const OrgDashboardPage: React.FC = () => {
   const organization = user?.organization;
   const contracts = useContracts('o', { pageSize: MAX_PAGE_SIZE });
   const invoices = useInvoices('o', { pageSize: MAX_PAGE_SIZE });
+  // The open incidents of the organization (incidents api-design 01, `open=true`), with the key
+  // screen 8.1 uses, so `incident.changed` refreshes both.
+  const incidents = useIncidents({ open: true });
   const overdue = useInvoices('o', { overdue: true, pageSize: MAX_PAGE_SIZE });
   // More than one page means the sums below cover the first page only; the page says so.
   const contractsCut = (contracts.data?.totalPages ?? 1) > 1;
@@ -354,11 +359,39 @@ export const OrgDashboardPage: React.FC = () => {
             )}
           </Card>
           <Card>
-            <CardHeader title="Open incidents" />
-            <EmptyState
-              title="Incidents are not available yet."
-              description="The incident list joins this page once its endpoint is served."
+            <CardHeader
+              title="Open incidents"
+              action={
+                <Link to="/o/incidents" className={LINK}>
+                  All incidents
+                </Link>
+              }
             />
+            {incidents.isLoading ? (
+              <Skeleton className="h-20" />
+            ) : incidents.error ? (
+              <SourceError error={incidents.error} onRetry={() => void incidents.refetch()} />
+            ) : (incidents.data?.items ?? []).length === 0 ? (
+              <p className="text-body text-ink-muted">No open incidents.</p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-line">
+                {(incidents.data?.items ?? []).slice(0, 5).map((incident) => (
+                  <li key={incident.id} className="flex flex-col gap-1 py-2">
+                    <span className="flex items-center justify-between gap-3">
+                      <Link to={`/o/incidents/${incident.id}`} className={LINK}>
+                        {incident.code}
+                      </Link>
+                      <StatusBadge entry={INCIDENT_STATE[incident.state]} />
+                    </span>
+                    <span className="text-body-sm text-ink-muted">
+                      {incident.device.assetTag ?? 'Unknown device'}
+                      {incident.device.holder ? `, ${incident.device.holder.name}` : ''}, since{' '}
+                      {formatDateTime(incident.firstEventAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Card>
         </div>
       </div>
