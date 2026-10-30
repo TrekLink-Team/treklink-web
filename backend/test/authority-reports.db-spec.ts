@@ -81,6 +81,7 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
     lifecycle,
     events,
     config,
+    contracts,
   );
   const runId = randomUUID();
   const nodeNum = Number.parseInt(randomUUID().slice(0, 7), 16);

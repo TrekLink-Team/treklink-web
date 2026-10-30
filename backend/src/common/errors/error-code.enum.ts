@@ -41,6 +41,8 @@ export enum ErrorCode {
   NOT_OWNER = 'NOT_OWNER',
   // A second closure of the same authority case (api-design 09).
   CASE_ALREADY_CLOSED = 'CASE_ALREADY_CLOSED',
+  // An authority report on a contract that is not DEFAULTED (api-design 10).
+  CONTRACT_NOT_DEFAULTED = 'CONTRACT_NOT_DEFAULTED',
 
   // billing (specs/billing/design.md §6)
   BELOW_MOQ = 'BELOW_MOQ',

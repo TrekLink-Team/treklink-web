@@ -219,6 +219,12 @@ export class ContractsService {
     return labels;
   }
 
+  // A contract's status, or null when there is none, for the incidents authority report on a
+  // DEFAULTED contract (incidents api-design 10). A plain read, no row lock.
+  async statusOf(contractId: string): Promise<ContractStatus | null> {
+    return (await this.contracts.statusOf(contractId))?.status ?? null;
+  }
+
   // --- monitoring reads (monitoring design §4), `visibleDevices(caller)` ---------------------------
   // The devices in custody now of the caller's organization, or of every organization for a caller
   // with none (TrekLink Staff and Admin). A Caller fits; the organization API passes its key's

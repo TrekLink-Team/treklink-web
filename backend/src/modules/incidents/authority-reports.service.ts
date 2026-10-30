@@ -13,6 +13,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { ContractsService } from '../rentals';
 import { AuthorityReportRow, AuthorityReportsRepository } from './authority-reports.repository';
 import { IncidentActor, IncidentLifecycle, IncidentRecipients } from './incident-lifecycle';
 import { IncidentsRepository } from './incidents.repository';
@@ -23,6 +24,14 @@ export interface ReportIncidentInput {
   reportedAt: Date;
   note?: string;
   expectedVersion: number;
+}
+
+export interface ReportContractInput {
+  contractId: string;
+  agency: string;
+  reference: string;
+  reportedAt: Date;
+  note?: string;
 }
 
 export interface CloseCaseInput {
@@ -76,8 +85,8 @@ const notInFuture = (value: Date, field: string): void => {
 // UC-35 and the authority case closure of UC-37 (incidents task 4.3, api-design 08, 09 and 11).
 // TrekLink logs and reports; it never coordinates a rescue (BR-17, D-033 item 6). State rules,
 // versions, history and the outbox stay in IncidentLifecycle; this service supplies the locked
-// source state and writes the report in the same transaction. api-design 10 (a DEFAULTED contract)
-// is not built here: its story is US-UC50.
+// source state and writes the report in the same transaction. api-design 10 records a report on a
+// DEFAULTED contract (D-078 ruling, 2026-10-30: built with task 4.3).
 @Injectable()
 export class AuthorityReportsService {
   constructor(
@@ -86,6 +95,7 @@ export class AuthorityReportsService {
     private readonly lifecycle: IncidentLifecycle,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
+    private readonly contracts: ContractsService,
   ) {}
 
   async reportIncident(id: string, input: ReportIncidentInput, caller: Caller): Promise<Incident> {
@@ -132,6 +142,53 @@ export class AuthorityReportsService {
         reportedAt: input.reportedAt,
       });
       return updated;
+    });
+  }
+
+  // api-design 10 (BR-17, BR-26): evidence for a DEFAULTED contract; the contract state does not
+  // change. The status comes from rentals as a plain read. A missing contract is 404, another status
+  // 409 CONTRACT_NOT_DEFAULTED naming it. api-design 10 sets no bound on reportedAt (screen 8.3 H-05).
+  async reportContract(input: ReportContractInput, caller: Caller): Promise<AuthorityReportView> {
+    const actor = this.staff(caller);
+    const agency = required(input.agency, 'agency');
+    const reference = required(input.reference, 'reference');
+    const note = input.note?.trim() || undefined;
+    const status = await this.contracts.statusOf(input.contractId);
+    if (status === null)
+      throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Contract not found.');
+    if (status !== 'DEFAULTED')
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.CONTRACT_NOT_DEFAULTED,
+        `This cannot be done while it is ${status}.`,
+      );
+    return this.events.transaction(async (tx) => {
+      const report = await this.reports.insert(
+        {
+          contractId: input.contractId,
+          agency,
+          reference,
+          reportedAt: input.reportedAt,
+          reportedById: actor.id,
+          note,
+        },
+        tx,
+      );
+      this.audit(actor, null, 'authority_report.create', report.id, {
+        contractId: input.contractId,
+        agency,
+        reference,
+        reportedAt: input.reportedAt,
+      });
+      return {
+        id: report.id,
+        incidentId: report.incidentId,
+        contractId: report.contractId,
+        agency: report.agency,
+        reference: report.reference,
+        reportedAt: report.reportedAt,
+        caseClosedAt: report.caseClosedAt,
+      };
     });
   }
 
