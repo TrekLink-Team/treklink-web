@@ -1,18 +1,32 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, Optional } from '@nestjs/common';
 import { LossCustody, LossDecision, Prisma } from '@prisma/client';
-import { DevicesService, LossCaseListener, LossCaseView } from '../../devices';
+import {
+  DevicesService,
+  LOSS_CASE_LISTENERS,
+  LossCaseListener,
+  LossCaseView,
+  registerLossCaseListener,
+} from '../../devices';
 import { ChargesService } from '../charges.service';
 
 // billing's side of the devices port LOSS_CASE_LISTENERS (task 2.6, REQ-EVT-07, D-045): a case
 // confirmed in RENTER custody is charged the device's remaining value at the confirmation date; a
 // case settled as reduced or waived gets its ADJUSTMENT line. TREKLINK custody charges nothing.
-// Registered under the token once devices 1.4 wires the multi-provider, with the rentals listener.
+// Registers itself under LOSS_CASE_LISTENERS at boot (devices task 1.4 wiring), alongside the rentals
+// listener once rentals 1.3 builds it.
 @Injectable()
-export class BillingLossCaseListener implements LossCaseListener {
+export class BillingLossCaseListener implements LossCaseListener, OnModuleInit {
   constructor(
     private readonly charges: ChargesService,
     private readonly devices: DevicesService,
+    @Optional()
+    @Inject(LOSS_CASE_LISTENERS)
+    private readonly listeners?: LossCaseListener[],
   ) {}
+
+  onModuleInit(): void {
+    if (this.listeners) registerLossCaseListener(this.listeners, this);
+  }
 
   async onConfirmed(lossCase: LossCaseView, tx: Prisma.TransactionClient): Promise<void> {
     const contract = lossCase.custodyContract;

@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeviceStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
@@ -14,8 +24,10 @@ import {
 } from '../../common/dto/paging';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { DeviceView } from './device-view';
 import { DeviceDetail, DevicesService, FleetDevice } from './devices.service';
 import { IntakeCheckDto } from './dto/intake-check.dto';
+import { RegisterDeviceDto } from './dto/register-device.dto';
 import { IntakeService } from './intake.service';
 
 // devices api-design 06; `status` repeats (`?status=AVAILABLE&status=RESERVED`).
@@ -92,6 +104,16 @@ export class DevicesController {
       page.take,
     );
     return toPagedResult(rows, total, page);
+  }
+
+  // devices api-design 05 (task 2.2, registration part): Staff register a unit with its asset tag and
+  // node number (`device.register`); it starts IN_INTAKE.
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @CheckPolicies((ability) => ability.can('create', 'Device'))
+  @ResponseMessage('Device registered')
+  register(@Body() dto: RegisterDeviceDto, @CurrentCaller() caller: Caller): Promise<DeviceView> {
+    return this.events.transaction((tx) => this.intake.register(dto, caller.id, new Date(), tx));
   }
 
   @Post(':id/reset')

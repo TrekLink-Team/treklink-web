@@ -5,6 +5,14 @@ import { LossCustody, LossDecision, Prisma } from '@prisma/client';
 // remaining value when a RENTER-custody case is confirmed and adjusts it when the case is settled
 // reduced or waived; `rentals` sets the row's `lostAt` when it is settled. Both run inside the
 // loss-case transaction. Several modules provide it, so `devices` injects it as an optional array.
+//
+// Nest has no multi-provider, so `DevicesModule` provides one array under the token (task 1.4) and
+// each contributor adds itself when its module starts:
+//
+//   constructor(@Inject(LOSS_CASE_LISTENERS) private readonly listeners: LossCaseListener[]) {}
+//   onModuleInit() { registerLossCaseListener(this.listeners, this); }
+//
+// `LossCaseNotifier` calls them in registration order; the loss-case flow (task 2.7) is its caller.
 export const LOSS_CASE_LISTENERS = Symbol('LOSS_CASE_LISTENERS');
 
 // A loss case as its listeners see it. `custodyContract` is the interval CUSTODY_RESOLVER found at
@@ -31,3 +39,11 @@ export interface LossCaseListener {
     tx: Prisma.TransactionClient,
   ): Promise<void>;
 }
+
+// Adds a listener once; a second registration of the same instance is ignored.
+export const registerLossCaseListener = (
+  listeners: LossCaseListener[],
+  listener: LossCaseListener,
+): void => {
+  if (!listeners.includes(listener)) listeners.push(listener);
+};

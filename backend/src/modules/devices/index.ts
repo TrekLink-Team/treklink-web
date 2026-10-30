@@ -19,4 +19,5 @@ export {
   LOSS_CASE_LISTENERS,
   type LossCaseListener,
   type LossCaseView,
+  registerLossCaseListener,
 } from './ports/loss-case-listener.port';
