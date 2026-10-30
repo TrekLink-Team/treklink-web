@@ -80,7 +80,7 @@ Sets or revises who does the work and its estimated cost on an `OPEN` record, fo
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Estimate recorded; Admin approval required"
+  "message": "Estimate recorded"
 }
 ```
 

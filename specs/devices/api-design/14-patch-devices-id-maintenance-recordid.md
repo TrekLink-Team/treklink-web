@@ -104,7 +104,7 @@ Completes a record with the work done, the actual cost, any vendor warranty date
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "Maintenance completed"
+  "message": "Maintenance updated"
 }
 ```
 
