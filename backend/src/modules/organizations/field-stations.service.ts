@@ -163,7 +163,8 @@ export class FieldStationsService {
   }
 
   // The Manager of the organization, TrekLink Staff and Admin revoke; Staff and Admin give a reason
-  // (api-design 25). Revoking a revoked station answers it as it is and emits nothing again.
+  // (api-design 25). Revoking a revoked station answers it as it is and emits nothing again, before
+  // the reason is checked, so a repeat revoke without a reason stays a 200, not a 400.
   async revoke(
     organizationId: string,
     stationId: string,
@@ -171,18 +172,18 @@ export class FieldStationsService {
     caller: Caller,
   ): Promise<StationView> {
     this.assertScope(organizationId, caller);
-    if (caller.organizationId === null && !reason) {
-      throw new DomainException(
-        HttpStatus.BAD_REQUEST,
-        ErrorCode.VALIDATION_FAILED,
-        'reason is required.',
-      );
-    }
     const release = await this.release.currentOrNull();
     return this.events.transaction(async (tx) => {
       const current = await this.stations.find(organizationId, stationId, tx);
       if (!current) throw stationNotFound();
       if (current.revokedAt) return toView(current, release);
+      if (caller.organizationId === null && !reason) {
+        throw new DomainException(
+          HttpStatus.BAD_REQUEST,
+          ErrorCode.VALIDATION_FAILED,
+          'reason is required.',
+        );
+      }
       const saved = await this.stations.revoke(
         organizationId,
         stationId,

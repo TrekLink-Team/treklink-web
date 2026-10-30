@@ -339,6 +339,15 @@ describe('FieldStationsService (organizations 2.8, api-design 23 to 25, UC-06)',
       expect(emitted).toEqual([]);
     });
 
+    it('stays idempotent for TrekLink Staff repeating a revoke without a reason', async () => {
+      stations.find.mockResolvedValue(REVOKED);
+      await expect(service.revoke('org-1', 'fs-1', undefined, STAFF)).resolves.toMatchObject({
+        revokedAt: AT,
+      });
+      expect(stations.revoke).not.toHaveBeenCalled();
+      expect(emitted).toEqual([]);
+    });
+
     it('answers the current state when another revoke won the race', async () => {
       stations.find.mockResolvedValueOnce(LIVE).mockResolvedValueOnce(REVOKED);
       stations.revoke.mockResolvedValue(null);
