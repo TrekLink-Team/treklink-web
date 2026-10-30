@@ -354,6 +354,11 @@ export class ContractsService {
     }));
   }
 
+  // ORGANIZATION_COUNTS `runningContracts` (RentalsOrganizationCount).
+  countRunning(organizationId: string): Promise<number> {
+    return this.contracts.countRunningContracts(organizationId);
+  }
+
   // ORGANIZATION_EXIT_CHECKS.canClose: an organization with a contract that is not REJECTED,
   // CANCELLED or CLOSED may not close. `tx` is the closing transaction (RentalsOrganizationExitCheck).
   async canClose(organizationId: string, tx?: Prisma.TransactionClient): Promise<boolean> {

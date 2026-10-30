@@ -1,8 +1,10 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional } from 'class-validator';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
+import { UpdateOrganizationDto } from './dto/profile.dto';
+import { OrganizationProfileService } from './organization-profile.service';
 import { MemberView, OrganizationsService } from './organizations.service';
 
 export class MembersQueryDto {
@@ -20,13 +22,29 @@ export class MembersQueryDto {
 // any (`organization.read`, `member.read`).
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly organizations: OrganizationsService) {}
+  constructor(
+    private readonly organizations: OrganizationsService,
+    private readonly profile: OrganizationProfileService,
+  ) {}
 
   @Get(':id')
   @CheckPolicies((ability) => ability.can('read', 'Organization'))
   @ResponseMessage('OK')
   detail(@Param('id', ParseUUIDPipe) id: string, @CurrentCaller() caller: Caller) {
-    return this.organizations.summary(id, caller);
+    return this.profile.detail(id, caller);
+  }
+
+  // api-design 04: a Manager edits the contact details of its own organization, an Admin any, and
+  // only an Admin the legal name.
+  @Patch(':id')
+  @CheckPolicies((ability) => ability.can('update', 'Organization'))
+  @ResponseMessage('Saved.')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateOrganizationDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    return this.profile.update(id, body, caller);
   }
 
   @Get(':id/members')

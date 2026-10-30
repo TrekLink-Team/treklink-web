@@ -2,7 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { FINISHED_STATES } from './contract-states';
+import { FINISHED_STATES, RUNNING_STATES } from './contract-states';
 
 type Client = Prisma.TransactionClient | PrismaService;
 
@@ -354,6 +354,13 @@ export class ContractsRepository {
         lostAt: true,
         contract: { select: { hardwareVariantId: true } },
       },
+    });
+  }
+
+  // Contracts whose devices are out with the organization (api-design 03 `runningContracts`).
+  countRunningContracts(organizationId: string, client: Client = this.prisma): Promise<number> {
+    return client.rentalContract.count({
+      where: { organizationId, status: { in: [...RUNNING_STATES] } },
     });
   }
 

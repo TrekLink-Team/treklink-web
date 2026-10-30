@@ -17,6 +17,11 @@ export {
   type ExitBlockingReason,
   type OrganizationExitCheck,
 } from './ports/exit-checks.port';
+export {
+  ORGANIZATION_COUNTS,
+  type OrganizationCountName,
+  type OrganizationCountProvider,
+} from './ports/counts.port';
 export { API_KEY_REVOKED, type ApiKeyRevokedEvent } from './api-key-events';
 export { FIELD_STATION_REVOKED, type FieldStationRevokedEvent } from './field-station-events';
 export { FieldStationsService } from './field-stations.service';

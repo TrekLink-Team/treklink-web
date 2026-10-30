@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Updates the address and contact details. Legal name and tax code change only through TrekLink Admin, because the master contract names them.
+Updates the address and contact details. The legal name changes only through TrekLink Admin, because the master contract names it; the tax code is not editable. At least one field is required. A CLOSED or REJECTED organization is final and is not edited.
 
 ## API Specification
 
@@ -142,6 +142,40 @@ Updates the address and contact details. Legal name and tax code change only thr
 </td>
         </tr>
         <tr>
+            <td>403</td>
+            <td>A Manager sends legalName (<code>FORBIDDEN</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "FORBIDDEN"
+  },
+  "isSuccess": false,
+  "statusCode": 403,
+  "message": "Only TrekLink Admin can change the legal name."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>The organization is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is CLOSED."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
 <td>
@@ -178,19 +212,28 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"Another user changed the record first (expectedVersion differs)?"}
+    D3{"The organization is not in a state that allows this?"}
     D2 -->|no| D3
-    E3["Return 409 STALE_VERSION"]
+    E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    P0["Check field-level permission"]
-    D3 -->|no| P0
-    P1["Compare-and-set on version"]
+    D4{"Another user changed the record first (expectedVersion differs)?"}
+    D3 -->|no| D4
+    E4["Return 409 STALE_VERSION"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
+    P0["Require at least one field"]
+    D4 -->|no| P0
+    P1["Check field-level permission"]
     P0 --> P1
-    P2["Emit audit.record organization.update"]
+    P2["Lock the organization, refuse a CLOSED or REJECTED one"]
     P1 --> P2
+    P3["Compare-and-set on version"]
+    P2 --> P3
+    P4["Emit audit.record organization.updated"]
+    P3 --> P4
     OK["Return 200"]
-    P2 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -201,11 +244,13 @@ sequenceDiagram
     autonumber
     actor C as Client
     participant Ctl as OrganizationsController
-    participant Svc as OrganizationsService
+    participant Svc as OrganizationProfileService
     participant DB as Postgres
     C->>Ctl: PATCH /api/organizations/:id
     Ctl->>Svc: update(id, dto, caller)
+    Svc->>DB: SELECT organizations FOR UPDATE
     Svc->>DB: UPDATE organizations WHERE id AND version
+    Svc-)Svc: emit audit.record
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

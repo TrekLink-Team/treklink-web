@@ -60,6 +60,11 @@ export class MembersRepository {
     );
   }
 
+  // Members of an organization who are not deactivated (api-design 03 counts).
+  countActive(organizationId: string, client: Client = this.prisma): Promise<number> {
+    return client.organizationMember.count({ where: { organizationId, deactivatedAt: null } });
+  }
+
   // The members of an organization, Managers first (organizations api-design 12).
   membersOf(
     organizationId: string,

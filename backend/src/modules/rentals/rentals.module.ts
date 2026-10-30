@@ -13,6 +13,7 @@ import { ContractsService } from './contracts.service';
 import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
 import { RentalsLossCaseListener } from './providers/loss-case-listener.provider';
+import { RentalsOrganizationCount } from './providers/organization-count.provider';
 import { RentalsOrganizationExitCheck } from './providers/organization-exit-check.provider';
 import { RentalsPortsModule } from './rentals-ports.module';
 import { ReturnController } from './return.controller';
@@ -46,6 +47,7 @@ import { TermRolloverJob } from './term-rollover.job';
     ReservationRemindersJob,
     TermRolloverJob,
     RentalsOrganizationExitCheck,
+    RentalsOrganizationCount,
   ],
   exports: [ContractLifecycleService, ContractsService],
 })
