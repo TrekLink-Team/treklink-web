@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists records by status and reason, for the week's service list (FR-DEV-18) and the Admins' approval queue (FR-DEV-20). `dueBefore` adds the devices due for service that are still `RESERVED` or `RENTED`.
+Lists records by status and reason, for the week's service list (FR-DEV-18) and the Admins' approval queue (FR-DEV-20). `dueBefore` keeps the records whose expected completion date is on or before it; it lists records only, so the devices due for service that are still `RESERVED` or `RENTED` come from devices api-design 06. The page also carries `approvalThresholdVnd`, the parameter `devices.maintenanceApprovalThresholdVnd` read at request time, for the hint beside the estimate (FR-DEV-20, D-015).
 
 ## API Specification
 
@@ -23,7 +23,7 @@ Lists records by status and reason, for the week's service list (FR-DEV-18) and 
 | --- | --- | --- | --- | --- |
 | status | OPEN, PENDING_APPROVAL, COMPLETED or UNREPAIRABLE, repeatable | enum | no | `PENDING_APPROVAL` |
 | reason | Reason, repeatable | enum | no | `SCHEDULED` |
-| dueBefore | Also list devices on contracts due before this date | date | no | `2026-10-26` |
+| dueBefore | Records expected to complete on or before this date | date | no | `2026-10-26` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 
@@ -73,7 +73,8 @@ No body.
     "pageNumber": 1,
     "pageSize": 20,
     "totalCount": 6,
-    "totalPages": 1
+    "totalPages": 1,
+    "approvalThresholdVnd": 1000000
   },
   "isSuccess": true,
   "statusCode": 200,
@@ -154,9 +155,9 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Read records"]
+    P0["Read records, on expectedAt when dueBefore is given"]
     D1 -->|no| P0
-    P1["Add due devices on contracts when dueBefore is given"]
+    P1["Read devices.maintenanceApprovalThresholdVnd"]
     P0 --> P1
     OK["Return 200"]
     P1 --> OK
@@ -173,8 +174,8 @@ sequenceDiagram
     participant Svc as MaintenanceService
     participant DB as Postgres
     C->>Ctl: GET /api/maintenance-records
-    Ctl->>Svc: list(query)
-    Svc->>DB: SELECT maintenance_records, devices
+    Ctl->>Svc: page(filter) and approvalThresholdVnd()
+    Svc->>DB: SELECT maintenance_records, parameters
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```
