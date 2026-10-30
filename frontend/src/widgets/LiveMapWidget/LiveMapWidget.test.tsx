@@ -106,6 +106,15 @@ describe('LiveMapWidget', () => {
     expect(container.querySelector('.leaflet-sovereignty-pane')).toBeTruthy();
   });
 
+  it('credits Leaflet by name only, with no flag icon in the attribution prefix', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const { container } = renderWidget();
+    await waitFor(() => expect(container.querySelector('.leaflet-control-attribution')).toBeTruthy());
+    const attribution = container.querySelector('.leaflet-control-attribution') as HTMLElement;
+    expect(attribution.querySelector('svg')).toBeNull();
+    expect(attribution.querySelector('a[href="https://leafletjs.com"]')?.textContent).toBe('Leaflet');
+  });
+
   it('draws an opaque mask under each label, below the label pane and the markers (D-085)', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     const { container } = renderWidget();
