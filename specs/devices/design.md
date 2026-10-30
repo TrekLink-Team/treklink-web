@@ -74,11 +74,11 @@ stateDiagram-v2
 | `IN_INTAKE`, `MAINTENANCE` | `AVAILABLE` | intake passed | Staff | no open maintenance record |
 | `IN_INTAKE`, `AVAILABLE` | `MAINTENANCE` | intake failed, or maintenance opened | Staff | reason, expected date |
 | `AVAILABLE` | `MAINTENANCE` | `devices.serviceScan` | SYSTEM | service due within 7 days plus lead days, or firmware differs from the baseline; no open record |
-| `AVAILABLE` | `RESERVED` | `reserve()`, `reserveExplicit()` | rentals | locked with `SKIP LOCKED` |
-| `RESERVED` | `AVAILABLE` | `release()` | rentals | contract cancelled, or swap |
-| `RESERVED` | `MAINTENANCE` | `failHandoverCheck()` | rentals | swap at the counter (E01-5); opens a `HANDOVER_CHECK_FAILED` maintenance record with the swap reason |
-| `RESERVED` | `RENTED` | `markRented()` | rentals | handover or replacement, provisioned at the organization's current key version |
-| `RENTED` | `RETURNED` | `markReturned()` | rentals | check-in, or the faulty unit of a replacement |
+| `AVAILABLE` | `RESERVED` | `reserve()` at approval or swap, `takeForReplacement()` | rentals | locked with `SKIP LOCKED`; transition reason `RESERVED` |
+| `RESERVED` | `AVAILABLE` | `release()` | rentals | contract cancelled; transition reason `RELEASED` |
+| `RESERVED` | `MAINTENANCE` | `failHandoverCheck()` | rentals | swap at the counter (E01-5); opens a `HANDOVER_CHECK_FAILED` maintenance record with the swap reason; transition reason `HANDOVER_CHECK_FAILED` |
+| `RESERVED` | `RENTED` | `markRented()` | rentals | handover or replacement, provisioned at the organization's current key version; transition reason `HANDED_OVER` |
+| `RENTED` | `RETURNED` | `markReturned()` | rentals | check-in, or the faulty unit of a replacement; transition reason `CHECKED_IN`, or `REPLACED` for the faulty unit |
 | any in-service state | `LOST` | report loss | Org Manager (own rented device), Staff | no open loss case (BR-37) |
 | `LOST` | `RETURNED` | recover | Staff | loss case `REPORTED`, `SEARCHING` or `SETTLED` |
 | `LOST` | `RETIRED` | settle loss case | Admin | case `CONFIRMED`, Admin not the triager |
@@ -87,6 +87,11 @@ stateDiagram-v2
 | `RETIRED` | `DISPOSED` | dispose | Admin | wipe recorded (BR-42) |
 
 Manual endpoints never reach the system-only rows; those are exported service methods taking `tx`.
+
+Every move a rentals method drives writes one `device_transitions` row per unit that moved, in the caller's
+transaction (`DevicesRepository.moveWithTransitions`, or `insertTransitions` after the `SKIP LOCKED` pick of
+`reserve()`): `refType` `CONTRACT`, `refId` the contract id, `note` the contract code, `actorId` the Staff or
+Manager account (2026-10-30, demo smoke defect 2). A unit not in the source status neither moves nor gets a row.
 
 ---
 

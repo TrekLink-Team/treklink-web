@@ -77,6 +77,7 @@ export class ReplacementService {
 
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
+      const move = { contractId: id, contractCode: contract.code, actorId: actor.id };
       const old = (await this.contracts.rowsOut(id, tx)).find((row) => row.deviceId === deviceId);
       if (!old) {
         const tags = await this.devices.assetTags([deviceId], tx);
@@ -96,6 +97,7 @@ export class ReplacementService {
         contract.hardwareVariantId,
         at,
         tx,
+        move,
       );
       try {
         await this.organizations.assertActive(contract.organizationId, tx);
@@ -123,7 +125,7 @@ export class ReplacementService {
       // returned unit; a unit that is away needs its loss case open, which settles the old row later.
       if (input.faultyPresent) {
         await this.contracts.markCheckedIn([old.id], at, actor.id, tx);
-        await this.devices.markReturned([deviceId], at, tx);
+        await this.devices.markReturned([deviceId], at, tx, { ...move, reason: 'REPLACED' });
       } else if (!(await this.devices.hasOpenLossCase(deviceId, tx))) {
         throw conflict(
           ErrorCode.LOSS_CASE_REQUIRED,
@@ -141,7 +143,7 @@ export class ReplacementService {
         at,
         tx,
       );
-      await this.devices.markRented([replacement.id], at, tx);
+      await this.devices.markRented([replacement.id], at, tx, move);
 
       const tags = await this.devices.assetTags([deviceId], tx);
       const labels = await this.organizations.labelsOf([contract.organizationId], tx);

@@ -139,12 +139,14 @@ export class HandoverService {
         variants.find((variant) => variant.id === contract.hardwareVariantId)?.code ??
         contract.hardwareVariantId;
       await this.contracts.releaseRow(row.id, at, tx);
-      await this.devices.failHandoverCheck(deviceId, reason, actor.id, at, tx);
+      const move = { contractId: id, contractCode: contract.code, actorId: actor.id };
+      await this.devices.failHandoverCheck(deviceId, reason, actor.id, at, tx, move);
       const [replacement] = await this.devices.reserve(
         { id: contract.hardwareVariantId, code },
         1,
         at,
         tx,
+        move,
       );
       await this.contracts.insertContractDevices(
         [{ contractId: id, deviceId: replacement.id }],
@@ -296,6 +298,7 @@ export class HandoverService {
         rows.map((row) => row.deviceId),
         at,
         tx,
+        { contractId: id, contractCode: contract.code, actorId: actor.id },
       );
       const active = await this.lifecycle.apply(
         id,

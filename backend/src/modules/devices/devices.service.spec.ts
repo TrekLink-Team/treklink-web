@@ -85,23 +85,33 @@ describe('DevicesService', () => {
   });
 
   it('moves a unit that failed the counter check to MAINTENANCE with a HANDOVER_CHECK_FAILED record', async () => {
-    const moveStatus = jest.fn().mockResolvedValue(1);
+    const moveWithTransitions = jest.fn().mockResolvedValue(['dev-1']);
     const openForSystem = jest.fn().mockResolvedValue({});
     const tx = {} as never;
     service = new DevicesService(
-      { moveStatus } as unknown as DevicesRepository,
+      { moveWithTransitions } as unknown as DevicesRepository,
       { openForSystem } as never,
       {} as never,
     );
 
-    await service.failHandoverCheck('dev-1', 'No GPS fix', 'u-staff', at, tx);
+    await service.failHandoverCheck('dev-1', 'No GPS fix', 'u-staff', at, tx, {
+      contractId: 'c-1',
+      contractCode: 'RC-2026-0002',
+    });
 
-    expect(moveStatus).toHaveBeenCalledWith(
+    expect(moveWithTransitions).toHaveBeenCalledWith(
       ['dev-1'],
       DeviceStatus.RESERVED,
       DeviceStatus.MAINTENANCE,
       at,
       tx,
+      {
+        actorId: 'u-staff',
+        reason: 'HANDOVER_CHECK_FAILED',
+        note: 'RC-2026-0002',
+        refType: 'CONTRACT',
+        refId: 'c-1',
+      },
     );
     expect(openForSystem).toHaveBeenCalledWith(
       {

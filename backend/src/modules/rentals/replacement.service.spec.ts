@@ -104,14 +104,18 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
     const replaced = await service.replace('c-1', 'd-1', INPUT, STAFF, AT);
 
     expect(contracts.markCheckedIn).toHaveBeenCalledWith(['cd-1'], AT, 'u-staff', TX);
-    expect(devices.markReturned).toHaveBeenCalledWith(['d-1'], AT, TX);
-    expect(devices.takeForReplacement).toHaveBeenCalledWith('d-9', 'v-3', AT, TX);
+    const move = { contractId: 'c-1', contractCode: 'RC-2026-0001', actorId: STAFF.id };
+    expect(devices.markReturned).toHaveBeenCalledWith(['d-1'], AT, TX, {
+      ...move,
+      reason: 'REPLACED',
+    });
+    expect(devices.takeForReplacement).toHaveBeenCalledWith('d-9', 'v-3', AT, TX, move);
     expect(devices.recordProvisioning).toHaveBeenCalledWith(
       { deviceId: 'd-9', organizationId: 'org-1', keyVersion: 2, actorId: 'u-staff' },
       AT,
       TX,
     );
-    expect(devices.markRented).toHaveBeenCalledWith(['d-9'], AT, TX);
+    expect(devices.markRented).toHaveBeenCalledWith(['d-9'], AT, TX, move);
     expect(storeNote).toHaveBeenCalledWith('c-1-replacement-d-9.pdf', expect.any(Buffer));
     expect(contracts.insertReplacementRow).toHaveBeenCalledWith(
       expect.objectContaining({

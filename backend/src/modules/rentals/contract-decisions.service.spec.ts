@@ -108,6 +108,7 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
         2,
         AT,
         TX,
+        { contractId: 'c-1', contractCode: 'RC-2026-0001', actorId: STAFF.id },
         undefined,
       );
       expect(contracts.insertContractDevices).toHaveBeenCalledWith(
@@ -157,10 +158,14 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
 
     it('reserves only the Staff choice when explicit device IDs are supplied', async () => {
       await service.approve('c-1', { ...input, deviceIds: ['d-1', 'd-2'] }, STAFF, AT);
-      expect(devices.reserve).toHaveBeenCalledWith({ id: 'v-3', code: 'treklink-v3' }, 2, AT, TX, [
-        'd-1',
-        'd-2',
-      ]);
+      expect(devices.reserve).toHaveBeenCalledWith(
+        { id: 'v-3', code: 'treklink-v3' },
+        2,
+        AT,
+        TX,
+        { contractId: 'c-1', contractCode: 'RC-2026-0001', actorId: STAFF.id },
+        ['d-1', 'd-2'],
+      );
     });
 
     it.each([{ deviceIds: [] }, { deviceIds: ['d-1'] }, { deviceIds: ['d-1', 'd-1'] }])(
@@ -241,7 +246,11 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
         MANAGER,
         AT,
       );
-      expect(devices.release).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX);
+      expect(devices.release).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX, {
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        actorId: MANAGER.id,
+      });
       expect(charges.settleCancellation).toHaveBeenCalledWith(
         { id: 'c-1', organizationId: 'org-1' },
         'u-mgr',

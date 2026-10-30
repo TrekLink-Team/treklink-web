@@ -124,7 +124,11 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         lateFeeVnd: 160_000,
       });
       expect(contracts.markCheckedIn).toHaveBeenCalledWith(['cd-1', 'cd-2'], AT, 'u-staff', TX);
-      expect(devices.markReturned).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX);
+      expect(devices.markReturned).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX, {
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        actorId: STAFF.id,
+      });
       expect(charges.chargeLate).toHaveBeenCalledTimes(2);
       expect(lifecycle.apply).toHaveBeenCalledWith(
         'c-1',
