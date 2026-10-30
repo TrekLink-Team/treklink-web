@@ -46,9 +46,9 @@ afterEach(() => {
 });
 
 describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {
-  const mount = (read: () => Promise<string>) => {
+  const mount = (read: () => Promise<string>, queryKey: unknown[] = ['contract', 'c-1']) => {
     const Contract = () => {
-      const query = useQuery({ queryKey: ['contract', 'c-1'], queryFn: read, staleTime: Infinity });
+      const query = useQuery({ queryKey, queryFn: read, staleTime: Infinity });
       return <span>{query.data}</span>;
     };
     return render(
@@ -140,5 +140,38 @@ describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {
     expect(read).toHaveBeenCalledTimes(1);
     act(() => live.listener?.({ kind: 'replay.expired' }));
     await screen.findByText('After change');
+  });
+
+  // Screen 5.6: the amount due follows a check-in, whose late fee lands on an invoice.
+  const invoices = ['invoices', 'o', { pageSize: 100 }];
+  const entry = (type: string) =>
+    live.listener?.({
+      kind: 'entry',
+      entry: { seq: 1, type, payload: {}, createdAt: '2026-10-30T07:00:00Z' },
+    });
+
+  it('refreshes the invoice lists after device.released, and after an expired replay', async () => {
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce('Before change')
+      .mockResolvedValueOnce('After release')
+      .mockResolvedValue('After replay');
+    mount(read, invoices);
+    await screen.findByText('Before change');
+    act(() => entry('device.released'));
+    await screen.findByText('After release');
+    act(() => live.listener?.({ kind: 'replay.expired' }));
+    await screen.findByText('After replay');
+  });
+
+  it('leaves the invoice lists alone for a label or a handover', async () => {
+    const read = vi.fn().mockResolvedValue('Invoices');
+    mount(read, invoices);
+    await screen.findByText('Invoices');
+    await act(async () => {
+      entry('device.label');
+      entry('device.handedOver');
+    });
+    expect(read).toHaveBeenCalledTimes(1);
   });
 });
