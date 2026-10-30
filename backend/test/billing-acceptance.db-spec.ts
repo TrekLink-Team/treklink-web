@@ -14,6 +14,7 @@ import { PaymentsService } from '../src/modules/billing/payments.service';
 import { BillingLossCaseListener } from '../src/modules/billing/providers/loss-case-listener.provider';
 import { SepayService } from '../src/modules/billing/sepay.service';
 import { DevicesService } from '../src/modules/devices';
+import { OrganizationStatusService } from '../src/modules/organizations/organization-status.service';
 import { ContractDecisionsService } from '../src/modules/rentals/contract-decisions.service';
 import { ReturnService } from '../src/modules/rentals/return.service';
 import { TermRolloverJob } from '../src/modules/rentals/term-rollover.job';
@@ -54,6 +55,13 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
     sepay = flow.get(SepayService);
     damage = flow.get(DamageChargeService);
     returns = flow.get(ReturnService);
+    const expected = {
+      'billing.damageApprovalThresholdVnd': 500_000,
+      'rentals.returnGraceHours': 24,
+      'rentals.termRolloverHourLocal': 9,
+      'billing.sepayPaymentTtlMinutes': 30,
+    };
+    expect(await flow.seededParameters(Object.keys(expected))).toEqual(expected);
   });
 
   afterAll(async () => {
@@ -242,6 +250,17 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
       }),
     ).toBe(0);
 
+    // billing 1.3 (review of #154): with every invoice paid, the pending charge alone refuses the
+    // organization's reactivation through the real ORGANIZATION_EXIT_CHECKS of AppModule.
+    await flow.payAll(contract.id, back);
+    const organizations = flow.get(OrganizationStatusService);
+    const orgVersion = async () =>
+      (await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } })).version;
+    await organizations.suspend(org.id, 'Damage under review', await orgVersion(), inspector, back);
+    expect(
+      await flow.codeOf(organizations.reactivate(org.id, await orgVersion(), inspector, back)),
+    ).toBe(ErrorCode.BALANCE_OUTSTANDING);
+
     expect(
       await flow.codeOf(
         damage.decide(charge.id, { decision: 'APPROVED', note: 'Own inspection' }, inspector, back),
@@ -258,6 +277,13 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
       where: { invoice: { contractId: contract.id }, type: InvoiceLineType.DAMAGE },
     });
     expect(line.amountVnd).toBe(700_000n);
+
+    // Decided and paid, nothing is outstanding and the organization comes back.
+    await flow.payAll(contract.id, back);
+    await organizations.reactivate(org.id, await orgVersion(), inspector, back);
+    expect(
+      (await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } })).status,
+    ).toBe('ACTIVE');
   });
 
   it('AC-05: a loss on a 14-month-old unit is charged 1,800,000 VND from the remaining-value schedule', async () => {

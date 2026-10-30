@@ -23,7 +23,7 @@ Scope from the task: organizations api-design 02, 03, 05 to 11; verification for
 | Panel: name, status, code, tax code, address, contact | organizations 02 `items[].legalName`, `status`, `code`, `taxCode`, `address`, `contactEmail`, `contactPhone` |
 | Panel: verification time, method and master contract | organizations 02 `items[].verifiedAt`, `verificationMethod`, `masterContractRef` |
 | Panel: rejection reason | organizations 02 `items[].rejectionReason` |
-| Panel: Status history (not for `PENDING`), one line per change: from and to status, time, actor and reason | organizations 11 `fromStatus`, `toStatus`, `createdAt`, `actor` (a name, or `SYSTEM`), `reason` |
+| Panel: Status history (not for `PENDING`), one line per change: from and to status, time, actor and reason | organizations 11 `fromStatus`, `toStatus`, `createdAt`, `actor` (a name, or `SYSTEM`), `reason`. api-design 11 returns no row id, so a row is keyed by its time and target status (review of #156) |
 
 The panel reads the selected row of the list; organizations 03 (the detail) is not called yet.
 

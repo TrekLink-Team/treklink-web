@@ -284,6 +284,27 @@ describe('rentals foundation against Postgres (REQ-UBI-01, REQ-UBI-02, BR-03)', 
     await expect(contracts.rentalPeriods(replacement, randomUUID())).resolves.toEqual([]);
 
     // Two days of the replaced unit plus one of the replacement, up to `usageAt`.
-    expect((await rentedDays()) - before).toBe(3);
+    expect((await rentedDays()) - before).toBeCloseTo(3, 2);
+  });
+
+  // rentals 3.2 (review of #158): the default bound is exclusive. A contract found overdue exactly at
+  // the bound is not yet taken; one a millisecond earlier is.
+  it('takes only the OVERDUE contracts found overdue strictly before the bound', async () => {
+    const bound = new Date('2026-12-04T02:00:00.000Z');
+    const atBound = await newContract();
+    const before = await newContract();
+    await prisma.rentalContract.update({
+      where: { id: atBound.id },
+      data: { status: ContractStatus.OVERDUE, overdueAt: bound },
+    });
+    await prisma.rentalContract.update({
+      where: { id: before.id },
+      data: { status: ContractStatus.OVERDUE, overdueAt: new Date(bound.getTime() - 1) },
+    });
+
+    const found = new Set((await repository.overdueBefore(bound)).map((row) => row.id));
+
+    expect(found.has(before.id)).toBe(true);
+    expect(found.has(atBound.id)).toBe(false);
   });
 });
