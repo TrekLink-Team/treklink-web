@@ -97,6 +97,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       markRowsHandedOver: jest.fn().mockResolvedValue(undefined),
       recordHandover: jest.fn().mockResolvedValue(undefined),
       noteOf: jest.fn(),
+      bumpVersion: jest.fn().mockResolvedValue(true),
     };
     devices = {
       variants: jest.fn().mockResolvedValue([{ id: 'v-3', code: 'treklink-v3' }]),
@@ -126,6 +127,9 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       ),
       markRented: jest.fn().mockResolvedValue(undefined),
       recordProvisioning: jest.fn().mockResolvedValue(unit('d-1')),
+      clearProvisioning: jest
+        .fn()
+        .mockResolvedValue(unit('d-1', { keyVersion: null, keyOrganizationId: null })),
     };
     organizations = {
       channelKeyVersion: jest.fn().mockResolvedValue(2),
@@ -233,6 +237,99 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         errorCode: ErrorCode.INVALID_STATE_TRANSITION,
       });
       expect(devices.recordProvisioning).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('undoProvisioning (api-design 19, REQ-EVT-16, REQ-ERR-10)', () => {
+    const PROVISIONED_AT = new Date('2026-11-02T02:50:00.000Z');
+
+    beforeEach(() => {
+      devices.provisioning.mockResolvedValue([
+        unit('d-1', { status: 'RESERVED', provisionedAt: PROVISIONED_AT }),
+      ]);
+    });
+
+    it('clears the record, bumps the contract version and audits after commit', async () => {
+      await expect(service.undoProvisioning('c-1', 'd-1', 3, STAFF)).resolves.toMatchObject({
+        device: { id: 'd-1', keyVersion: null, keyOrganizationId: null },
+        contractVersion: 4,
+      });
+      expect(contracts.bumpVersion).toHaveBeenCalledWith('c-1', 3, TX);
+      expect(devices.clearProvisioning).toHaveBeenCalledWith('d-1', TX);
+      expect(devices.provisioning).toHaveBeenCalledWith(['d-1'], TX);
+      expect(emitAfterCommit).toHaveBeenCalledWith('audit.record', {
+        actorId: 'u-staff',
+        actorRoles: ['STAFF'],
+        organizationId: 'org-1',
+        action: 'contract.provisioningUndone',
+        subjectType: 'RentalContract',
+        subjectId: 'c-1',
+        before: { deviceId: 'd-1', keyVersion: 2, provisionedAt: PROVISIONED_AT.toISOString() },
+        after: { deviceId: 'd-1', keyVersion: null },
+      });
+    });
+
+    it('refuses a stale version first, then a contract not APPROVED', async () => {
+      await expect(service.undoProvisioning('c-1', 'd-1', 2, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.STALE_VERSION,
+      });
+      contracts.lockById.mockResolvedValueOnce(contract({ status: ContractStatus.ACTIVE }));
+      await expect(service.undoProvisioning('c-1', 'd-1', 3, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      expect(contracts.findDeviceRow).not.toHaveBeenCalled();
+      expect(contracts.bumpVersion).not.toHaveBeenCalled();
+      expect(devices.clearProvisioning).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('refuses a unit not on the contract, handed over or not RESERVED', async () => {
+      contracts.findDeviceRow.mockResolvedValueOnce(null);
+      await expect(service.undoProvisioning('c-1', 'd-7', 3, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.DEVICE_NOT_ON_CONTRACT,
+      });
+      contracts.findDeviceRow.mockResolvedValueOnce({
+        id: 'cd-1',
+        deviceId: 'd-1',
+        handedOverAt: AT,
+      });
+      await expect(service.undoProvisioning('c-1', 'd-1', 3, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      devices.provisioning.mockResolvedValueOnce([unit('d-1', { status: 'MAINTENANCE' })]);
+      await expect(service.undoProvisioning('c-1', 'd-1', 3, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+        message: 'This cannot be done while it is MAINTENANCE.',
+      });
+      expect(devices.clearProvisioning).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it("refuses a unit that carries no key version of the contract's organization", async () => {
+      devices.provisioning.mockResolvedValueOnce([
+        unit('d-1', { status: 'RESERVED', keyVersion: null, keyOrganizationId: null }),
+      ]);
+      await expect(service.undoProvisioning('c-1', 'd-1', 3, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.DEVICE_NOT_PROVISIONED,
+        message: 'TL-d-1 has no provisioning to undo.',
+      });
+      devices.provisioning.mockResolvedValueOnce([
+        unit('d-1', { status: 'RESERVED', keyOrganizationId: 'org-2' }),
+      ]);
+      await expect(service.undoProvisioning('c-1', 'd-1', 3, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.DEVICE_NOT_PROVISIONED,
+      });
+      expect(devices.clearProvisioning).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('changes nothing when the version moved under the lock', async () => {
+      contracts.bumpVersion.mockResolvedValueOnce(false);
+      await expect(service.undoProvisioning('c-1', 'd-1', 3, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.STALE_VERSION,
+      });
+      expect(devices.clearProvisioning).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
     });
   });
 

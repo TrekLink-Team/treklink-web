@@ -250,6 +250,12 @@ export class DevicesService {
     return this.devices.recordProvisioning(provisioning, at, tx);
   }
 
+  // A provisioning recorded on the wrong unit, undone at the counter before the handover (rentals
+  // api-design 19). Rentals has checked the contract, the row and the unit's state.
+  clearProvisioning(deviceId: string, tx: Prisma.TransactionClient): Promise<ProvisionedDevice> {
+    return this.devices.clearProvisioning(deviceId, tx);
+  }
+
   // Key version, organization and battery of the units, for the handover checks.
   provisioning(
     ids: readonly string[],
