@@ -73,7 +73,7 @@ describe('DevicesService retire and dispose', () => {
   describe('retire', () => {
     const dto = { reason: '  Unrepairable water damage ', expectedVersion: 4 };
 
-    it('moves a MAINTENANCE device to RETIRED with a transition row', async () => {
+    it('moves a MAINTENANCE device to RETIRED with reason RETIRED and the text as note', async () => {
       unitAt(DeviceStatus.MAINTENANCE);
       repository.findDetail.mockResolvedValue(detailRow(DeviceStatus.RETIRED, 5));
 
@@ -96,7 +96,8 @@ describe('DevicesService retire and dispose', () => {
           fromStatus: DeviceStatus.MAINTENANCE,
           toStatus: DeviceStatus.RETIRED,
           actorId: 'admin-1',
-          reason: 'Unrepairable water damage',
+          reason: 'RETIRED',
+          note: 'Unrepairable water damage',
           createdAt: at,
         },
         tx,
@@ -271,6 +272,37 @@ describe('DevicesService retire and dispose', () => {
         HttpStatus.NOT_FOUND,
         ErrorCode.NOT_FOUND,
       );
+    });
+  });
+
+  describe('trail (monitoring api-design 07)', () => {
+    it('shows the retire reason code with the free-text note', async () => {
+      unitAt(DeviceStatus.RETIRED);
+      const lifecycle = jest.fn().mockResolvedValue({
+        transitions: [
+          {
+            id: 't-1',
+            fromStatus: DeviceStatus.MAINTENANCE,
+            toStatus: DeviceStatus.RETIRED,
+            actorId: 'admin-1',
+            reason: 'RETIRED',
+            note: 'Unrepairable water damage',
+            refType: null,
+            refId: null,
+            createdAt: at,
+          },
+        ],
+        intakeChecks: [],
+        provisionings: [],
+        resets: [],
+        inspections: [],
+      });
+      Object.assign(repository, { lifecycle });
+      Object.assign(maintenance, { ofDevice: jest.fn().mockResolvedValue([]) });
+
+      const [entry] = await service.trail('dev-1');
+
+      expect(entry.summary).toBe('MAINTENANCE to RETIRED (Retired): Unrepairable water damage');
     });
   });
 });

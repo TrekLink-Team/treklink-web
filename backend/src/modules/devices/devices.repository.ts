@@ -427,6 +427,8 @@ export class DevicesRepository {
       toStatus: DeviceStatus;
       actorId: string | null;
       reason: string;
+      // Free text beside the reason code, for example the Admin's retire reason.
+      note?: string;
       refType?: string;
       refId?: string;
       createdAt: Date;
@@ -447,6 +449,7 @@ export class DevicesRepository {
           toStatus: true,
           actorId: true,
           reason: true,
+          note: true,
           refType: true,
           refId: true,
           createdAt: true,
