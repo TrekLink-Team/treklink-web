@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { createMongoAbility } from '@casl/ability';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AccountType, MemberRole, OrganizationStatus } from '@prisma/client';
-import { Caller } from '../src/common/decorators/access.decorator';
+import { Caller, PolicyAbility } from '../src/common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../src/common/errors';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountsService, MEMBER_DEACTIVATED } from '../src/modules/auth';
@@ -71,6 +72,10 @@ describe('Organization lifecycle against Postgres (REQ-UBI-01, REQ-EVT-04, REQ-E
     events,
     checks,
   );
+  // Staff and Admin read any organization's history; the ability is consulted only for a member.
+  const staffAbility = createMongoAbility([
+    { action: 'read', subject: 'Organization' },
+  ]) as unknown as PolicyAbility;
   const runId = randomUUID();
   let serial = 0;
 
@@ -278,7 +283,7 @@ describe('Organization lifecycle against Postgres (REQ-UBI-01, REQ-EVT-04, REQ-E
     });
     expect((await read(org.id)).suspensionReason).toBeNull();
 
-    const history = await service.transitions(org.id, root);
+    const history = await service.transitions(org.id, root, staffAbility);
     expect(history.map((row) => `${row.fromStatus}>${row.toStatus}`)).toEqual([
       'ACTIVE>SUSPENDED',
       'SUSPENDED>ACTIVE',
@@ -329,7 +334,7 @@ describe('Organization lifecycle against Postgres (REQ-UBI-01, REQ-EVT-04, REQ-E
       status: OrganizationStatus.SUSPENDED,
       suspensionReason: 'Contract RC-2026-0042 defaulted',
     });
-    const history = await service.transitions(org.id, root);
+    const history = await service.transitions(org.id, root, staffAbility);
     expect(history).toEqual([
       expect.objectContaining({ actor: 'SYSTEM', reason: 'Contract RC-2026-0042 defaulted' }),
     ]);

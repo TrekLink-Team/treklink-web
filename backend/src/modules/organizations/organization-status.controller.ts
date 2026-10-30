@@ -8,14 +8,20 @@ import {
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
-import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
+import {
+  Caller,
+  CheckPolicies,
+  CurrentAbility,
+  CurrentCaller,
+  type PolicyAbility,
+} from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { ExpectedVersionDto, OrganizationReasonDto } from './dto/lifecycle.dto';
 import { OrganizationStatusService } from './organization-status.service';
 
 // Suspension, reactivation, closing and the status history (api-design 08 to 11). The Admin holds
 // `organization.suspend` and `organization.decide`; Staff and Admin read any history
-// (`organization.read`) and a Manager its own (`organization.read.own`, scope checked in the service).
+// (`organization.read`) and a Manager its own (`organization.history.read.own`, checked in the service).
 @Controller('organizations')
 export class OrganizationStatusController {
   constructor(private readonly status: OrganizationStatusService) {}
@@ -59,7 +65,11 @@ export class OrganizationStatusController {
   @Get(':id/transitions')
   @CheckPolicies((ability) => ability.can('read', 'Organization'))
   @ResponseMessage('OK')
-  transitions(@Param('id', ParseUUIDPipe) id: string, @CurrentCaller() caller: Caller) {
-    return this.status.transitions(id, caller);
+  transitions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentCaller() caller: Caller,
+    @CurrentAbility() ability: PolicyAbility,
+  ) {
+    return this.status.transitions(id, caller, ability);
   }
 }

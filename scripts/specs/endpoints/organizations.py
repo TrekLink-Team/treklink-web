@@ -261,8 +261,9 @@ ENDPOINTS = [
        "TrekLink Staff, TrekLink Admin; Org Manager: own",
        "Returns the append-only state history of the organization. `actor` is the name of the account "
        "that made the change, or `SYSTEM` when none did (a contract that defaulted). An Org Operator holds "
-       "`organization.read.own` but may not read suspension reasons, so the service answers 403 (ruling on "
-       "treklink-web#135).", "UC-07, D-035",
+       "`organization.read.own` but may not read suspension reasons (ruling on treklink-web#135): a member "
+       "caller needs `organization.history.read.own`, held by the Org Manager, and is answered 403 without "
+       "it.", "UC-07, D-035",
        path=[ORG_PATH], response=[{"fromStatus": "PENDING", "toStatus": "ACTIVE", "actor": "Le Van C",
                                    "reason": None, "createdAt": NOW},
                                   {"fromStatus": "ACTIVE", "toStatus": "SUSPENDED", "actor": "SYSTEM",
@@ -284,7 +285,7 @@ ENDPOINTS = [
        sequence=["actor U as Org Manager or TrekLink Staff", "participant Ctl as OrganizationStatusController",
            "participant Svc as OrganizationStatusService", "participant R as OrganizationsRepository",
            "participant A as AccountsService",
-           "U->>Ctl: GET /api/organizations/:id/transitions", "Ctl->>Svc: transitions(id, caller)",
+           "U->>Ctl: GET /api/organizations/:id/transitions", "Ctl->>Svc: transitions(id, caller, ability)",
            "Svc->>R: findStatus(id)", "R-->>Svc: status", "Svc->>R: transitionsOf(id)", "R-->>Svc: rows",
            "Svc->>A: contactCard(actorIds)", "A-->>Svc: names", "Svc-->>Ctl: rows with actor names or SYSTEM",
            "Ctl-->>U: 200 envelope"]),
