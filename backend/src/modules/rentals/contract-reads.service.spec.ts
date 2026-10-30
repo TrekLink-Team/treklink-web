@@ -29,9 +29,11 @@ describe('ContractReadsService', () => {
   let directory: { namesOf: jest.Mock };
   let service: ContractReadsService;
   let returnChecks: jest.Mock;
+  let provisioning: jest.Mock;
 
   beforeEach(() => {
     returnChecks = jest.fn().mockResolvedValue(new Map());
+    provisioning = jest.fn().mockResolvedValue([]);
     contracts = {
       page: jest.fn().mockResolvedValue([[ROW], 1]),
       detail: jest.fn().mockResolvedValue(ROW),
@@ -55,6 +57,7 @@ describe('ContractReadsService', () => {
         variants: jest.fn().mockResolvedValue([{ id: 'v-3', code: 'treklink-v3' }]),
         assetTags: jest.fn().mockResolvedValue(new Map([['d-1', 'TL-0001']])),
         returnChecks,
+        provisioning,
       } as unknown as DevicesService,
       {
         balanceSummary: jest.fn().mockResolvedValue({ dueNowVnd: 0n }),
@@ -114,6 +117,27 @@ describe('ContractReadsService', () => {
       { contractDeviceId: 'cd-1', deviceId: 'd-1', checkedInAt },
     ]);
     expect(detail.returnChecks.get('cd-1')).toEqual(check);
+  });
+
+  it('keeps the key version a unit carries for this organization, not another one (frontend 5.4)', async () => {
+    contracts.detail.mockResolvedValue({
+      ...ROW,
+      devices: [
+        { id: 'cd-1', deviceId: 'd-1', checkedInAt: null },
+        { id: 'cd-2', deviceId: 'd-2', checkedInAt: null },
+        { id: 'cd-3', deviceId: 'd-3', checkedInAt: null },
+      ],
+    });
+    provisioning.mockResolvedValue([
+      { id: 'd-1', keyOrganizationId: ROW.organizationId, keyVersion: 2 },
+      { id: 'd-2', keyOrganizationId: 'org-other', keyVersion: 5 },
+      { id: 'd-3', keyOrganizationId: null, keyVersion: null },
+    ]);
+
+    const detail = await service.detail('c-1', STAFF);
+
+    expect(provisioning).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
+    expect([...detail.provisionedKeyVersions]).toEqual([['d-1', 2]]);
   });
 
   it('names the actor of each transition', async () => {

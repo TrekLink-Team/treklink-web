@@ -183,6 +183,7 @@ describe('ContractsController (rentals api-design 01)', () => {
           ['cd-1', { resetAt, inspection: { result: 'PASSED', at: resetAt } }],
           ['cd-2', { resetAt: null, inspection: null }],
         ]),
+        provisionedKeyVersions: new Map([['d-1', 2]]),
         balance: { dueNowVnd: 0n, dueLaterVnd: 0n },
       }),
     };
@@ -201,8 +202,14 @@ describe('ContractsController (rentals api-design 01)', () => {
         assetTag: 'TL-0017',
         resetAt,
         inspection: { result: 'PASSED', at: resetAt },
+        provisionedKeyVersion: 2,
       }),
-      expect.objectContaining({ deviceId: 'd-2', resetAt: null, inspection: null }),
+      expect.objectContaining({
+        deviceId: 'd-2',
+        resetAt: null,
+        inspection: null,
+        provisionedKeyVersion: null,
+      }),
     ]);
   });
 

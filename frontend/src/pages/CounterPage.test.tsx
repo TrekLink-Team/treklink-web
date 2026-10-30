@@ -149,6 +149,19 @@ afterEach(() => {
 });
 
 describe('CounterPage (screen 5.4)', () => {
+  it('keeps the provisioning recorded before a reload, from the contract read (frontend 5.4)', async () => {
+    const before = contract.devices;
+    contract.devices = before.map((device) => ({ ...device, provisionedKeyVersion: 1 }));
+    try {
+      renderPage();
+      await waitFor(() => expect(screen.getAllByText('Provisioned v1')).toHaveLength(2));
+      expect(screen.queryByText('Not provisioned yet')).toBeNull();
+      expect(recordProvisioning).not.toHaveBeenCalled();
+    } finally {
+      contract.devices = before;
+    }
+  });
+
   it('keeps step 1 until every unit is provisioned, read and has a GPS fix', async () => {
     renderPage();
     next();
