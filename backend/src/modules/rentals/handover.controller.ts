@@ -68,8 +68,12 @@ export class HandoverController {
   @Get(':id/handover-note/preview')
   @CheckPolicies((ability) => ability.can('operate', 'RentalContract'))
   @ResponseMessage('OK')
-  async preview(@Param('id', ParseUUIDPipe) id: string, @Query() query: HandoverPreviewQueryDto) {
-    const pdf = await this.handover.preview(id, query.checks ?? []);
+  async preview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: HandoverPreviewQueryDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    const pdf = await this.handover.preview(id, caller, new Date(), query.checks ?? []);
     return { pdfBase64: pdf.toString('base64'), sha256: null };
   }
 

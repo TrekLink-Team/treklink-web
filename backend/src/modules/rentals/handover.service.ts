@@ -6,7 +6,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { BalanceService } from '../billing';
+import {
+  BalanceService,
+  dayPlanFeeVnd,
+  holdingFeeVnd,
+  PaymentsService,
+  PricingService,
+  termFeeVnd,
+} from '../billing';
 import { DevicesService, DeviceTag, ProvisionedDevice } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
@@ -15,8 +22,19 @@ import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ACCOUNT_DIRECTORY, AccountDirectory } from '../platform/ports/account-directory.port';
 import { ContractLifecycleService } from './contract-lifecycle.service';
-import { ContractRow, ContractsRepository, CODE_ZONE_OFFSET_MS } from './contracts.repository';
-import { HandoverNoteInput, renderHandoverNote } from './handover-note.renderer';
+import { firstTerm } from './contract-terms';
+import {
+  ContractDetailRow,
+  ContractRow,
+  ContractsRepository,
+  CODE_ZONE_OFFSET_MS,
+} from './contracts.repository';
+import {
+  HandoverNoteInput,
+  NoteDevice,
+  NotePartyA,
+  renderHandoverNote,
+} from './handover-note.renderer';
 
 export const DEVICE_HANDED_OVER = 'device.handedOver';
 
@@ -74,6 +92,37 @@ export const sha256 = (data: Buffer): string => createHash('sha256').update(data
 const planLabel = (contract: ContractRow) =>
   contract.planType === PlanType.DAY ? `Day plan, ${contract.dayPlanDays} days` : 'Monthly';
 
+// The note number is the contract code with the note's prefix: HN for the handover, RN plus the
+// replacement's asset tag for a replacement (design §4.1). One handover per contract keeps it unique.
+export const noteNumber = (contractCode: string, replacementTag?: string): string => {
+  const serial = contractCode.replace(/^RC-/, '');
+  return replacementTag ? `RN-${serial}-${replacementTag}` : `HN-${serial}`;
+};
+
+// The condition column of the note from the counter check (design §4.1); a unit not checked yet
+// says so.
+const conditionOf = (check: DeviceCheck | undefined, minBattery: number): string => {
+  if (!check) return 'To be checked at the counter';
+  if (!check.gpsFixOk) return 'Failed the GPS check';
+  return check.batteryPct < minBattery
+    ? `Working order; battery below ${minBattery} %, accepted`
+    : 'Good working order';
+};
+
+// What the note needs beyond the contract and its units: who signs and how each unit was found.
+export interface NoteOptions {
+  kind?: 'HANDOVER' | 'REPLACEMENT';
+  partyA: NotePartyA;
+  // The units to list; the contract's live rows when absent.
+  deviceIds?: string[];
+  manager?: { fullName: string; identityDocument: string };
+  signaturePng?: Buffer;
+  checks?: ReadonlyMap<string, DeviceCheck>;
+  // A unit's condition when it has no counter check (a replacement, for example).
+  uncheckedCondition?: string;
+  replaces?: { assetTag: string; how: string };
+}
+
 // The counter handover (rentals tasks 2.3 and 2.4, UC-14, UC-20, UC-21, design §4): provisioning
 // records, swaps of failing units, the preview note, and the signed handover that moves the devices
 // to RENTED and the contract to ACTIVE in one transaction (MSG06).
@@ -85,6 +134,8 @@ export class HandoverService {
     private readonly devices: DevicesService,
     private readonly organizations: OrganizationsService,
     private readonly balances: BalanceService,
+    private readonly payments: PaymentsService,
+    private readonly pricing: PricingService,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
@@ -170,18 +221,24 @@ export class HandoverService {
     });
   }
 
-  // The unsigned note Staff show the Manager before signing (api-design 08), with the battery and
-  // GPS readings the counter has taken so far; a check for a unit not on the contract is ignored.
-  async preview(id: string, checks: DeviceCheck[] = [], at: Date = new Date()): Promise<Buffer> {
+  // The unsigned note Staff show the Manager before signing (api-design 08), with the caller as
+  // Party A. Counter readings, when a caller has them, fill the battery, GPS and condition columns.
+  async preview(
+    id: string,
+    caller: Caller,
+    at: Date = new Date(),
+    checks: readonly DeviceCheck[] = [],
+  ): Promise<Buffer> {
     const contract = await this.contracts.detail(id);
     if (!contract) throw notFound();
     if (contract.status !== ContractStatus.APPROVED) throw notApproved(contract.status);
     return renderHandoverNote(
       await this.noteInput(
         contract,
-        null,
-        new Map(checks.map((check) => [check.deviceId, check])),
-        await this.devices.variants(false),
+        {
+          partyA: await this.partyA(caller),
+          checks: new Map(checks.map((check) => [check.deviceId, check])),
+        },
         at,
       ),
     );
@@ -200,8 +257,8 @@ export class HandoverService {
     at: Date = new Date(),
   ): Promise<ContractRow> {
     const minBattery = await this.parameters.get('devices.handoverMinBatteryPct');
-    const variants = await this.devices.variants(false);
     const signer = await this.signerName(input.signedByUserId);
+    const partyA = await this.partyA(actor);
     const signature = Buffer.from(
       input.signaturePng.replace(/^data:image\/png;base64,/, ''),
       'base64',
@@ -289,11 +346,11 @@ export class HandoverService {
         await this.noteInput(
           detail,
           {
-            signer: { fullName: signer, identityChecked: input.identityChecked },
+            partyA,
+            manager: { fullName: signer, identityDocument: input.identityChecked },
             signaturePng: signature,
+            checks: checkOf,
           },
-          checkOf,
-          variants,
           at,
           tx,
         ),
@@ -379,45 +436,129 @@ export class HandoverService {
     return names.get(userId) ?? 'Org Manager';
   }
 
-  private async noteInput(
-    contract: NonNullable<Awaited<ReturnType<ContractsRepository['detail']>>>,
-    signed: { signer: { fullName: string; identityChecked: string }; signaturePng: Buffer } | null,
-    checks: Map<string, DeviceCheck>,
-    variants: { id: string; code: string }[],
+  // Party A of a note: the Staff or Admin account at the counter, by name from the account directory.
+  // Read outside any transaction, as the directory has no transaction client.
+  async partyA(caller: Caller): Promise<NotePartyA> {
+    const names = this.directory
+      ? await this.directory.namesOf([caller.id])
+      : new Map<string, string>();
+    return {
+      name: names.get(caller.id) ?? null,
+      role: caller.roles.includes('ADMIN') ? 'TrekLink Admin' : 'TrekLink Staff',
+    };
+  }
+
+  // Everything a handover or replacement note prints (design §4.1), from configuration, the business
+  // parameters and the exported reads of organizations, devices and billing. Every read joins the
+  // caller's transaction when there is one: a read on another connection would not see the rows that
+  // transaction has written, and waits on it on a single-session Postgres such as PGlite.
+  async noteInput(
+    contract: ContractDetailRow,
+    options: NoteOptions,
     at: Date,
     tx?: Prisma.TransactionClient,
   ): Promise<HandoverNoteInput> {
-    // Every read joins the handover transaction when there is one: a read on another connection
-    // would not see the rows this transaction has written, and waits on it on a single-session
-    // Postgres such as PGlite.
-    const ids = contract.devices.map((device) => device.deviceId);
-    const tags = await this.devices.assetTags(ids, tx);
-    const labels = await this.organizations.labelsOf([contract.organizationId], tx);
+    const ids = options.deviceIds ?? contract.devices.map((device) => device.deviceId);
+    // One read at a time: a transaction client runs its queries on one connection anyway.
+    const variants = await this.devices.variants(false, tx);
+    const party = await this.organizations.handoverParty(contract.organizationId, tx);
+    const units = await this.devices.handoverUnits(ids, at, tx);
+    const payments = await this.payments.receivedOfContract(contract.id, tx);
     const firstPaymentConfirmed = await this.balances.firstPaymentConfirmed(contract.id, tx);
-    const organization = labels.get(contract.organizationId);
+    const damageRates = await this.pricing.rateTableFor(contract.hardwareVariantId, tx);
+    const minBattery = await this.parameters.get('devices.handoverMinBatteryPct', tx);
+    const lateFee = await this.parameters.get('billing.lateFeePerDevicePerDayVnd', tx);
+    const returnGraceHours = await this.parameters.get('rentals.returnGraceHours', tx);
+    const defaultAfterDays = await this.parameters.get('rentals.defaultAfterDays', tx);
+    const lossSearchDays = await this.parameters.get('devices.lossSearchDays', tx);
+    const variantCode =
+      variants.find((variant) => variant.id === contract.hardwareVariantId)?.code ??
+      contract.hardwareVariantId;
+    const term = contract.terms[0] ?? firstTerm(contract);
+    const isDay = contract.planType === PlanType.DAY;
+    const price = contract.monthlyUnitPriceVnd;
+    const dayPlanFee = isDay
+      ? dayPlanFeeVnd(price, contract.dayPremium ?? 0, contract.dayPlanDays ?? 0, contract.quantity)
+      : 0n;
+    const replacementTag = options.kind === 'REPLACEMENT' ? units.get(ids[0])?.assetTag : undefined;
+
+    const devices: NoteDevice[] = ids.map((deviceId) => {
+      const unit = units.get(deviceId);
+      const check = options.checks?.get(deviceId);
+      return {
+        assetTag: unit?.assetTag ?? deviceId,
+        variantCode: unit?.variantCode ?? variantCode,
+        nodeId: unit?.nodeId ?? null,
+        keyVersion: unit?.keyVersion ?? null,
+        batteryPct: check?.batteryPct ?? null,
+        gpsFixOk: check?.gpsFixOk ?? null,
+        condition:
+          !check && options.uncheckedCondition
+            ? options.uncheckedCondition
+            : conditionOf(check, minBattery),
+        remainingValueVnd: unit?.remainingValueVnd ?? null,
+      };
+    });
+
     return {
-      contractCode: contract.code,
-      organization: {
-        code: organization?.code ?? contract.organizationId,
-        legalName: organization?.legalName ?? '',
-      },
-      planLabel: planLabel(contract),
-      variantCode:
-        variants.find((variant) => variant.id === contract.hardwareVariantId)?.code ??
-        contract.hardwareVariantId,
-      requestedStartDate: contract.requestedStartDate.toISOString().slice(0, 10),
-      devices: ids.map((deviceId) => {
-        const check = checks.get(deviceId);
-        return {
-          assetTag: tags.get(deviceId) ?? deviceId,
-          batteryPct: check?.batteryPct ?? null,
-          gpsFixOk: check?.gpsFixOk ?? null,
-        };
-      }),
-      firstPaymentConfirmed,
-      signer: signed?.signer,
-      signaturePng: signed?.signaturePng,
+      kind: options.kind ?? 'HANDOVER',
+      noteNumber: noteNumber(contract.code, replacementTag),
       at,
+      place: this.config.get('HANDOVER_PLACE', { infer: true }),
+      issuer: {
+        legalName: this.config.get('COMPANY_LEGAL_NAME', { infer: true }),
+        address: this.config.get('COMPANY_ADDRESS', { infer: true }),
+        taxCode: this.config.get('COMPANY_TAX_CODE', { infer: true }),
+        hotline: this.config.get('COMPANY_HOTLINE', { infer: true }),
+      },
+      partyA: options.partyA,
+      partyB: {
+        legalName: party?.legalName ?? contract.organizationId,
+        code: party?.code ?? contract.organizationId,
+        taxCode: party?.taxCode ?? null,
+        address: party?.address ?? null,
+        manager: options.manager ?? null,
+      },
+      contract: {
+        code: contract.code,
+        planLabel: planLabel(contract),
+        variantCode,
+        quantity: contract.quantity,
+        termStart: term.startsAt,
+        termEnd: term.endsAt,
+        returnDue: contract.returnDueAt ?? (isDay ? term.endsAt : null),
+        monthlyUnitPriceVnd: price,
+        fee: isDay
+          ? { label: 'Day-plan fee', amountVnd: dayPlanFee }
+          : { label: 'Term fee, per month', amountVnd: termFeeVnd(price, contract.quantity) },
+        firstPayment: isDay
+          ? { label: 'Day-plan fee', amountVnd: dayPlanFee }
+          : {
+              label: 'Holding fee',
+              amountVnd: holdingFeeVnd(price, contract.quantity, contract.holdingFeeRatio),
+            },
+        masterContractRef: party?.masterContractRef ?? null,
+        ndaSigned: party?.ndaSigned ?? false,
+        softwareLicenceSigned: party?.softwareLicenceSigned ?? false,
+      },
+      devices,
+      payments: payments.map((payment) => ({
+        invoiceNumber: payment.invoiceNumber,
+        amountVnd: payment.amountVnd,
+        method: payment.method,
+        reference: payment.reference,
+        receivedAt: payment.confirmedAt,
+      })),
+      firstPaymentConfirmed,
+      terms: {
+        lateFeePerDevicePerDayVnd: lateFee,
+        returnGraceHours,
+        defaultAfterDays,
+        lossSearchDays,
+        damageRates,
+      },
+      signaturePng: options.signaturePng,
+      replaces: options.replaces,
     };
   }
 

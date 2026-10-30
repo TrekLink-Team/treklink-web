@@ -16,6 +16,7 @@ describe('DevicesService', () => {
     findByNodeNum: jest.Mock;
     projectIfNewer: jest.Mock;
     findValuation: jest.Mock;
+    handoverUnits: jest.Mock;
   };
   let service: DevicesService;
 
@@ -24,12 +25,46 @@ describe('DevicesService', () => {
       findByNodeNum: jest.fn().mockResolvedValue(device),
       projectIfNewer: jest.fn().mockResolvedValue(true),
       findValuation: jest.fn(),
+      handoverUnits: jest.fn(),
     };
     service = new DevicesService(
       repository as unknown as DevicesRepository,
       {} as never,
       {} as never,
     );
+  });
+
+  it('reads the handover note units with node id and remaining value at the note time', async () => {
+    repository.handoverUnits.mockResolvedValue([
+      {
+        id: 'dev-1',
+        assetTag: 'TL-0001',
+        nodeNum: 0xde000001n,
+        keyVersion: 2,
+        firmwareVersion: '2.5.0',
+        acquiredAt: new Date('2025-09-01T00:00:00Z'),
+        hardwareVariant: {
+          code: 'treklink-v3',
+          remainingValueSchedule: [
+            { fromMonths: 0, valueVnd: 2_500_000 },
+            { fromMonths: 12, valueVnd: 1_800_000 },
+          ],
+        },
+      },
+    ]);
+    const tx = {} as never;
+    const units = await service.handoverUnits(['dev-1'], new Date('2026-11-02T03:00:00Z'), tx);
+    expect(units.get('dev-1')).toEqual({
+      id: 'dev-1',
+      assetTag: 'TL-0001',
+      nodeId: '!de000001',
+      keyVersion: 2,
+      firmwareVersion: '2.5.0',
+      variantCode: 'treklink-v3',
+      remainingValueVnd: 1_800_000,
+    });
+    expect(repository.handoverUnits).toHaveBeenCalledWith(['dev-1'], tx);
+    await expect(service.handoverUnits([], new Date())).resolves.toEqual(new Map());
   });
 
   it('projects a position reading and returns the device id', async () => {

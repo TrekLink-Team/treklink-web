@@ -74,6 +74,12 @@ export interface NewPriceInput {
   effectiveFrom: Date;
 }
 
+export interface RateTableRow {
+  code: string;
+  label: string;
+  amountVnd: bigint;
+}
+
 export interface NewDamageRateInput {
   code: string;
   label: string;
@@ -345,6 +351,21 @@ export class PricingService {
     const own = rates.find((rate) => rate.hardwareVariantId === variantId);
     const generic = rates.find((rate) => rate.hardwareVariantId === null);
     return (own ?? generic)?.amountVnd ?? null;
+  }
+
+  // The damage rate table of a variant as `damageRateFor` applies it: one row per active code, the
+  // variant's own rate over the generic one, by code (the handover note, rentals design §4.1).
+  async rateTableFor(variantId: string, tx?: Prisma.TransactionClient): Promise<RateTableRow[]> {
+    const byCode = new Map<string, DamageRateRow>();
+    for (const rate of await this.pricing.activeRatesOfVariant(variantId, tx)) {
+      const kept = byCode.get(rate.code);
+      if (!kept || (kept.hardwareVariantId === null && rate.hardwareVariantId !== null)) {
+        byCode.set(rate.code, rate);
+      }
+    }
+    return [...byCode.values()]
+      .sort((a, b) => a.code.localeCompare(b.code))
+      .map((rate) => ({ code: rate.code, label: rate.label, amountVnd: rate.amountVnd }));
   }
 
   private async dayPlanLengths(): Promise<number[]> {

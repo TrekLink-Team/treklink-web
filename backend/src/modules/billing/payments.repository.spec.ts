@@ -13,9 +13,25 @@ describe('PaymentsRepository (billing tasks 1.1 and 3.1)', () => {
       payment: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'p-1' }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
     repository = new PaymentsRepository(prisma as unknown as PrismaService);
+  });
+
+  it('reads the confirmed payments of a contract with their invoice number, oldest first', async () => {
+    await repository.confirmedOfContract('c-1');
+    expect(prisma.payment.findMany).toHaveBeenCalledWith({
+      where: { contractId: 'c-1', status: PaymentStatus.CONFIRMED },
+      orderBy: [{ confirmedAt: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        reference: true,
+        amountVnd: true,
+        method: true,
+        confirmedAt: true,
+        invoice: { select: { number: true } },
+      },
+    });
   });
 
   it('tells whether a reference is already recorded', async () => {

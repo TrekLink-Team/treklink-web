@@ -42,7 +42,35 @@ describe('validate (environment)', () => {
       BCRYPT_COST: 12,
       MAIL_TRANSPORT: 'console',
       MAIL_FROM: 'TrekLink <no-reply@treklink.local>',
+      COMPANY_LEGAL_NAME: 'TrekLink Technology Company Limited',
+      COMPANY_TAX_CODE: '0000000000',
+      COMPANY_HOTLINE: '1900 0000',
     });
+  });
+
+  it('reads the handover note issuer and rejects a malformed tax code or hotline', () => {
+    const env = validate({
+      ...REQUIRED,
+      COMPANY_LEGAL_NAME: 'Công ty TNHH TrekLink',
+      COMPANY_TAX_CODE: '0312345678-001',
+      COMPANY_HOTLINE: '+84 28 1234 5678',
+      HANDOVER_PLACE: 'Counter 1',
+    });
+    expect(env).toMatchObject({
+      COMPANY_LEGAL_NAME: 'Công ty TNHH TrekLink',
+      COMPANY_TAX_CODE: '0312345678-001',
+      COMPANY_HOTLINE: '+84 28 1234 5678',
+      HANDOVER_PLACE: 'Counter 1',
+    });
+    const problems = problemsOf({
+      ...REQUIRED,
+      COMPANY_TAX_CODE: '12345',
+      COMPANY_HOTLINE: 'call us',
+      COMPANY_ADDRESS: '',
+    });
+    expect(problems).toContainEqual(expect.stringMatching(/^COMPANY_TAX_CODE:/));
+    expect(problems).toContainEqual(expect.stringMatching(/^COMPANY_HOTLINE:/));
+    expect(problems).toContainEqual(expect.stringMatching(/^COMPANY_ADDRESS:/));
   });
 
   it('validates the independent handover signature body limit', () => {

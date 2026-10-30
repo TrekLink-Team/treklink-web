@@ -1,8 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { ContractStatus, PlanType } from '@prisma/client';
+import { ContractStatus } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { BalanceService } from '../billing';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
@@ -50,7 +49,6 @@ export class ReplacementService {
     private readonly contracts: ContractsRepository,
     private readonly devices: DevicesService,
     private readonly organizations: OrganizationsService,
-    private readonly balances: BalanceService,
     private readonly handover: HandoverService,
     private readonly events: TransactionalEvents,
   ) {}
@@ -73,7 +71,7 @@ export class ReplacementService {
         'signatureImage must be a PNG image.',
       );
     }
-    const variants = await this.devices.variants(false);
+    const partyA = await this.handover.partyA(actor);
 
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
@@ -146,32 +144,30 @@ export class ReplacementService {
       await this.devices.markRented([replacement.id], at, tx, move);
 
       const tags = await this.devices.assetTags([deviceId], tx);
-      const labels = await this.organizations.labelsOf([contract.organizationId], tx);
-      const organization = labels.get(contract.organizationId);
-      const pdf = await renderHandoverNote({
-        title: 'TrekLink device replacement note',
-        contractCode: contract.code,
-        organization: {
-          code: organization?.code ?? contract.organizationId,
-          legalName: organization?.legalName ?? '',
-        },
-        planLabel:
-          contract.planType === PlanType.DAY ? `Day plan, ${contract.dayPlanDays} days` : 'Monthly',
-        variantCode:
-          variants.find((variant) => variant.id === contract.hardwareVariantId)?.code ??
-          contract.hardwareVariantId,
-        requestedStartDate: contract.requestedStartDate.toISOString().slice(0, 10),
-        devices: [{ assetTag: replacement.assetTag, batteryPct: null, gpsFixOk: null }],
-        firstPaymentConfirmed: await this.balances.firstPaymentConfirmed(id, tx),
-        signaturePng: signature,
-        replaces: {
-          assetTag: tags.get(deviceId) ?? deviceId,
-          how: input.faultyPresent
-            ? 'checked in at the counter'
-            : 'missing, with its loss case open',
-        },
-        at,
-      });
+      const detail = await this.contracts.detail(id, tx);
+      if (!detail) {
+        throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Contract not found.');
+      }
+      const pdf = await renderHandoverNote(
+        await this.handover.noteInput(
+          detail,
+          {
+            kind: 'REPLACEMENT',
+            partyA,
+            deviceIds: [replacement.id],
+            signaturePng: signature,
+            uncheckedCondition: 'Issued as a replacement, provisioned at the counter',
+            replaces: {
+              assetTag: tags.get(deviceId) ?? deviceId,
+              how: input.faultyPresent
+                ? 'checked in at the counter'
+                : 'missing, with its loss case open',
+            },
+          },
+          at,
+          tx,
+        ),
+      );
       const noteSha256 = sha256(pdf);
       const path = await this.handover.storeNote(`${id}-replacement-${replacement.id}.pdf`, pdf);
       const row = await this.contracts.insertReplacementRow(

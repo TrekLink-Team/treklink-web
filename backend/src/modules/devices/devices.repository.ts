@@ -172,6 +172,23 @@ export class DevicesRepository {
     });
   }
 
+  // The facts the handover note prints per unit (rentals design §4.1), with what its remaining value
+  // is computed from.
+  handoverUnits(ids: readonly string[], client: Client = this.prisma) {
+    return client.device.findMany({
+      where: { id: { in: [...ids] } },
+      select: {
+        id: true,
+        assetTag: true,
+        nodeNum: true,
+        keyVersion: true,
+        firmwareVersion: true,
+        acquiredAt: true,
+        hardwareVariant: { select: { code: true, remainingValueSchedule: true } },
+      },
+    });
+  }
+
   // Records that the organization's channel key at `keyVersion` was written to the device (D-021):
   // the device keeps only the version and the organization, and a DeviceProvisioning row the history.
   async recordProvisioning(

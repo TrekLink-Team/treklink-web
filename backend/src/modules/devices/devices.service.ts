@@ -35,6 +35,19 @@ const staleVersion = () =>
     'This was changed by someone else. Reload and try again.',
   );
 import { RemainingValueStep, remainingValue } from './remaining-value';
+import { toNodeId } from './node-id';
+
+// One unit as the handover note prints it (rentals design §4.1): its radio identity, the key version
+// on it, and the remaining value a confirmed loss would charge at `at` (FR-BILL-05).
+export interface HandoverUnit {
+  id: string;
+  assetTag: string;
+  nodeId: string;
+  keyVersion: number | null;
+  firmwareVersion: string;
+  variantCode: string;
+  remainingValueVnd: number;
+}
 
 // The organization whose channel key is on a unit (D-021): the renter while it is out, until the reset.
 export interface KeyOrganization {
@@ -805,6 +818,35 @@ export class DevicesService {
           },
         ];
       }),
+    );
+  }
+
+  // The units of a handover note by device id (rentals design §4.1), in the caller's transaction when
+  // it passes one; an unknown id is absent.
+  async handoverUnits(
+    ids: readonly string[],
+    at: Date,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Map<string, HandoverUnit>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.devices.handoverUnits(ids, tx);
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        {
+          id: row.id,
+          assetTag: row.assetTag,
+          nodeId: toNodeId(row.nodeNum),
+          keyVersion: row.keyVersion,
+          firmwareVersion: row.firmwareVersion,
+          variantCode: row.hardwareVariant.code,
+          remainingValueVnd: remainingValue(
+            row.hardwareVariant.remainingValueSchedule as unknown as RemainingValueStep[],
+            row.acquiredAt,
+            at,
+          ),
+        },
+      ]),
     );
   }
 

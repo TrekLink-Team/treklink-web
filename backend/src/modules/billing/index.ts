@@ -22,6 +22,7 @@ export {
   PaymentsService,
   type CounterPaymentInput,
   type PaymentConfirmedEvent,
+  type ReceivedPayment,
 } from './payments.service';
 export {
   PricingService,
@@ -29,6 +30,7 @@ export {
   type PriceSnapshot,
   type Quote,
   type QuoteInput,
+  type RateTableRow,
 } from './pricing.service';
 export {
   CONTRACT_DIRECTORY,

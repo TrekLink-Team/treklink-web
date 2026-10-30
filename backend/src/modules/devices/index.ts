@@ -6,6 +6,7 @@ export {
   type ContractMove,
   type DeviceReading,
   type FleetDevice,
+  type HandoverUnit,
   type ReturnCheck,
   type TrailEntry,
 } from './devices.service';

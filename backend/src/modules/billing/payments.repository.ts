@@ -96,6 +96,22 @@ export class PaymentsRepository {
     });
   }
 
+  // The confirmed payments of a contract with their invoice number, oldest first (the handover note,
+  // rentals design §4.1).
+  confirmedOfContract(contractId: string, client: Client = this.prisma) {
+    return client.payment.findMany({
+      where: { contractId, status: PaymentStatus.CONFIRMED },
+      orderBy: [{ confirmedAt: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        reference: true,
+        amountVnd: true,
+        method: true,
+        confirmedAt: true,
+        invoice: { select: { number: true } },
+      },
+    });
+  }
+
   findById(id: string, client: Client = this.prisma): Promise<PaymentRow | null> {
     return client.payment.findUnique({ where: { id }, select: PAYMENT_SELECT });
   }

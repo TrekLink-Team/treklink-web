@@ -121,6 +121,18 @@ export class PricingRepository {
     });
   }
 
+  // Every active rate that applies to a variant: its own and the generic ones.
+  activeRatesOfVariant(variantId: string, client: Client = this.prisma): Promise<DamageRateRow[]> {
+    return client.damageRate.findMany({
+      where: {
+        isActive: true,
+        OR: [{ hardwareVariantId: null }, { hardwareVariantId: variantId }],
+      },
+      orderBy: [{ code: 'asc' }],
+      select: DAMAGE_RATE_SELECT,
+    });
+  }
+
   // The active rates of a code that apply to a variant: its own and the generic one.
   activeRates(
     code: string,

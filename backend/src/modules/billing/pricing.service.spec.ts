@@ -76,6 +76,7 @@ describe('PricingService (billing task 2.1)', () => {
       currentPriceIds: jest.fn().mockResolvedValue(new Set(['ps-1'])),
       damageRates: jest.fn().mockResolvedValue([]),
       activeRates: jest.fn().mockResolvedValue([]),
+      activeRatesOfVariant: jest.fn().mockResolvedValue([]),
       insertDamageRate: jest.fn().mockResolvedValue(rate('dr-1', null, 300_000n)),
       findDamageRate: jest.fn().mockResolvedValue(rate('dr-1', null, 300_000n)),
       updateDamageRate: jest.fn().mockResolvedValue(rate('dr-1', null, 350_000n)),
@@ -375,6 +376,19 @@ describe('PricingService (billing task 2.1)', () => {
       pricing.activeRates.mockResolvedValue(rows);
       await expect(service.damageRateFor('ANTENNA_BROKEN', 'v-3', tx)).resolves.toBe(expected);
       expect(pricing.activeRates).toHaveBeenCalledWith('ANTENNA_BROKEN', 'v-3', tx);
+    });
+
+    it('builds the rate table of a variant: one row per code, its own rate over the generic one', async () => {
+      pricing.activeRatesOfVariant.mockResolvedValue([
+        { ...rate('g-1', null, 300_000n), code: 'CASING_CRACKED', label: 'Casing cracked' },
+        rate('g-2', null, 200_000n),
+        rate('own', 'v-3', 500_000n),
+      ]);
+      await expect(service.rateTableFor('v-3', tx)).resolves.toEqual([
+        { code: 'ANTENNA_BROKEN', label: 'Antenna broken', amountVnd: 500_000n },
+        { code: 'CASING_CRACKED', label: 'Casing cracked', amountVnd: 300_000n },
+      ]);
+      expect(pricing.activeRatesOfVariant).toHaveBeenCalledWith('v-3', tx);
     });
   });
 });

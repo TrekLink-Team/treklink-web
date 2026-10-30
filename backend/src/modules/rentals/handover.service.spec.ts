@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Caller } from '../../common/decorators/access.decorator';
 import { ErrorCode } from '../../common/errors';
-import { BalanceService } from '../billing';
+import { BalanceService, PaymentsService, PricingService } from '../billing';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
@@ -13,9 +13,7 @@ import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractRow, ContractsRepository } from './contracts.repository';
-import * as renderer from './handover-note.renderer';
-import { renderHandoverNote } from './handover-note.renderer';
-import { DEVICE_HANDED_OVER, HandoverInput, HandoverService } from './handover.service';
+import { DEVICE_HANDED_OVER, HandoverInput, HandoverService, noteNumber } from './handover.service';
 
 const AT = new Date('2026-11-02T03:00:00.000Z');
 const TX = {} as Prisma.TransactionClient;
@@ -75,6 +73,10 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
   let devices: Record<string, jest.Mock>;
   let organizations: Record<string, jest.Mock>;
   let balances: { firstPaymentConfirmed: jest.Mock };
+  let payments: { receivedOfContract: jest.Mock };
+  let pricing: { rateTableFor: jest.Mock };
+  let parameters: { get: jest.Mock };
+  let directory: { namesOf: jest.Mock };
   let lifecycle: { apply: jest.Mock };
   let emitAfterCommit: jest.Mock;
   let service: HandoverService;
@@ -87,9 +89,11 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       releaseRow: jest.fn().mockResolvedValue(undefined),
       insertContractDevices: jest.fn().mockResolvedValue(undefined),
       liveRows: jest.fn().mockResolvedValue([{ deviceId: 'd-1' }, { deviceId: 'd-2' }]),
-      detail: jest
-        .fn()
-        .mockResolvedValue({ ...contract(), devices: [{ deviceId: 'd-1' }, { deviceId: 'd-2' }] }),
+      detail: jest.fn().mockResolvedValue({
+        ...contract(),
+        terms: [],
+        devices: [{ deviceId: 'd-1' }, { deviceId: 'd-2' }],
+      }),
       markRowsHandedOver: jest.fn().mockResolvedValue(undefined),
       recordHandover: jest.fn().mockResolvedValue(undefined),
       noteOf: jest.fn(),
@@ -102,17 +106,84 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         Promise.resolve(new Map(ids.map((id) => [id, `TL-${id}`]))),
       ),
       provisioning: jest.fn().mockResolvedValue([unit('d-1'), unit('d-2')]),
+      handoverUnits: jest.fn((ids: string[]) =>
+        Promise.resolve(
+          new Map(
+            ids.map((id) => [
+              id,
+              {
+                id,
+                assetTag: `TL-${id}`,
+                nodeId: '!de000001',
+                keyVersion: 2,
+                firmwareVersion: '2.5.0',
+                variantCode: 'treklink-v3',
+                remainingValueVnd: 2_500_000,
+              },
+            ]),
+          ),
+        ),
+      ),
       markRented: jest.fn().mockResolvedValue(undefined),
       recordProvisioning: jest.fn().mockResolvedValue(unit('d-1')),
     };
     organizations = {
       channelKeyVersion: jest.fn().mockResolvedValue(2),
       isActiveManager: jest.fn().mockResolvedValue(true),
-      labelsOf: jest
-        .fn()
-        .mockResolvedValue(new Map([['org-1', { code: 'ORG-0001', legalName: 'Acme Trek' }]])),
+      handoverParty: jest.fn().mockResolvedValue({
+        id: 'org-1',
+        code: 'ORG-0001',
+        legalName: 'Acme Trek',
+        taxCode: '0109876543',
+        address: '12 Le Loi, Da Lat',
+        masterContractRef: 'MC-2026-017',
+        ndaSigned: true,
+        softwareLicenceSigned: true,
+      }),
     };
     balances = { firstPaymentConfirmed: jest.fn().mockResolvedValue(true) };
+    payments = {
+      receivedOfContract: jest.fn().mockResolvedValue([
+        {
+          invoiceNumber: 'INV-2026-000001',
+          amountVnd: 225_000n,
+          method: 'CASH',
+          reference: 'RCPT-1',
+          confirmedAt: AT,
+        },
+      ]),
+    };
+    pricing = {
+      rateTableFor: jest
+        .fn()
+        .mockResolvedValue([
+          { code: 'CASING_CRACKED', label: 'Casing cracked', amountVnd: 300_000n },
+        ]),
+    };
+    const values: Record<string, number> = {
+      'devices.handoverMinBatteryPct': 20,
+      'billing.lateFeePerDevicePerDayVnd': 50_000,
+      'rentals.returnGraceHours': 24,
+      'rentals.defaultAfterDays': 14,
+      'devices.lossSearchDays': 7,
+    };
+    parameters = { get: jest.fn((key: string) => Promise.resolve(values[key])) };
+    directory = {
+      namesOf: jest.fn(
+        () =>
+          new Map([
+            ['u-mgr', 'Lâm Phi Long'],
+            ['u-staff', 'Trần Thị Bích'],
+          ]),
+      ),
+    };
+    const config: Record<string, string> = {
+      COMPANY_LEGAL_NAME: 'TrekLink Co., Ltd.',
+      COMPANY_ADDRESS: 'Ho Chi Minh City',
+      COMPANY_TAX_CODE: '0312345678',
+      COMPANY_HOTLINE: '1900 1234',
+      HANDOVER_PLACE: 'Counter 1',
+    };
     lifecycle = {
       apply: jest.fn().mockResolvedValue(contract({ status: ContractStatus.ACTIVE, version: 4 })),
     };
@@ -123,12 +194,17 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       devices as unknown as DevicesService,
       organizations as unknown as OrganizationsService,
       balances as unknown as BalanceService,
-      { get: jest.fn().mockResolvedValue(20) } as unknown as ParameterService,
+      payments as unknown as PaymentsService,
+      pricing as unknown as PricingService,
+      parameters as unknown as ParameterService,
       {
         transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
         emitAfterCommit,
       } as unknown as TransactionalEvents,
-      { get: () => dir } as unknown as ConfigService<ValidatedEnvironment, true>,
+      {
+        get: (key: string) => (key === 'HANDOVER_NOTE_STORAGE_DIR' ? dir : config[key]),
+      } as unknown as ConfigService<ValidatedEnvironment, true>,
+      directory,
     );
   });
 
@@ -219,9 +295,12 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         TX,
       );
       // The note's reads join the handover transaction (no read on another connection mid-tx).
-      expect(devices.assetTags).toHaveBeenCalledWith(['d-1', 'd-2'], TX);
-      expect(organizations.labelsOf).toHaveBeenCalledWith(['org-1'], TX);
+      expect(devices.handoverUnits).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX);
+      expect(organizations.handoverParty).toHaveBeenCalledWith('org-1', TX);
       expect(balances.firstPaymentConfirmed).toHaveBeenCalledWith('c-1', TX);
+      expect(payments.receivedOfContract).toHaveBeenCalledWith('c-1', TX);
+      expect(pricing.rateTableFor).toHaveBeenCalledWith('v-3', TX);
+      expect(parameters.get).toHaveBeenCalledWith('billing.lateFeePerDevicePerDayVnd', TX);
       expect(emitAfterCommit).toHaveBeenCalledTimes(2);
       expect(emitAfterCommit).toHaveBeenCalledWith(
         DEVICE_HANDED_OVER,
@@ -293,38 +372,136 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
     });
   });
 
-  describe('preview (api-design 08)', () => {
-    it("prints the counter's battery and GPS readings, and not checked for a unit without one", async () => {
-      const render = jest.spyOn(renderer, 'renderHandoverNote');
-      try {
-        const pdf = await service.preview(
-          'c-1',
-          [
-            { deviceId: 'd-1', batteryPct: 96, gpsFixOk: true },
-            { deviceId: 'd-9', batteryPct: 50, gpsFixOk: false },
-          ],
-          AT,
-        );
-        expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
-        expect(render.mock.calls[0][0]).toMatchObject({
-          devices: [
-            { assetTag: 'TL-d-1', batteryPct: 96, gpsFixOk: true },
-            { assetTag: 'TL-d-2', batteryPct: null, gpsFixOk: null },
-          ],
-          signer: undefined,
-          signaturePng: undefined,
-        });
-      } finally {
-        render.mockRestore();
-      }
+  describe('noteInput (design §4.1)', () => {
+    const detail = (overrides: Partial<ContractRow> = {}) => ({
+      ...contract(overrides),
+      reservationExpiresAt: null,
+      handoverAppointmentAt: null,
+      terms: [
+        {
+          id: 't-1',
+          seq: 1,
+          startsAt: new Date('2026-11-02T02:00:00.000Z'),
+          endsAt: new Date('2026-12-02T02:00:00.000Z'),
+          status: 'OPEN' as const,
+        },
+      ],
+      devices: [{ deviceId: 'd-1' }, { deviceId: 'd-2' }] as never,
+    });
+
+    it('fills every section from configuration, parameters and the exported reads', async () => {
+      const note = await service.noteInput(
+        detail(),
+        {
+          partyA: await service.partyA(STAFF),
+          manager: { fullName: 'Lâm Phi Long', identityDocument: 'CCCD ending 1234' },
+          checks: new Map([
+            ['d-1', { deviceId: 'd-1', batteryPct: 90, gpsFixOk: true }],
+            ['d-2', { deviceId: 'd-2', batteryPct: 10, gpsFixOk: true }],
+          ]),
+        },
+        AT,
+        TX,
+      );
+      expect(note).toMatchObject({
+        kind: 'HANDOVER',
+        noteNumber: 'HN-2026-0001',
+        place: 'Counter 1',
+        issuer: {
+          legalName: 'TrekLink Co., Ltd.',
+          address: 'Ho Chi Minh City',
+          taxCode: '0312345678',
+          hotline: '1900 1234',
+        },
+        partyA: { name: 'Trần Thị Bích', role: 'TrekLink Staff' },
+        partyB: {
+          legalName: 'Acme Trek',
+          code: 'ORG-0001',
+          taxCode: '0109876543',
+          address: '12 Le Loi, Da Lat',
+          manager: { fullName: 'Lâm Phi Long', identityDocument: 'CCCD ending 1234' },
+        },
+        contract: {
+          code: 'RC-2026-0001',
+          planLabel: 'Monthly',
+          variantCode: 'treklink-v3',
+          quantity: 2,
+          returnDue: null,
+          monthlyUnitPriceVnd: 450_000n,
+          fee: { label: 'Term fee, per month', amountVnd: 900_000n },
+          firstPayment: { label: 'Holding fee', amountVnd: 450_000n },
+          masterContractRef: 'MC-2026-017',
+          ndaSigned: true,
+          softwareLicenceSigned: true,
+        },
+        payments: [{ invoiceNumber: 'INV-2026-000001', reference: 'RCPT-1', receivedAt: AT }],
+        firstPaymentConfirmed: true,
+        terms: {
+          lateFeePerDevicePerDayVnd: 50_000,
+          returnGraceHours: 24,
+          defaultAfterDays: 14,
+          lossSearchDays: 7,
+          damageRates: [{ code: 'CASING_CRACKED', label: 'Casing cracked', amountVnd: 300_000n }],
+        },
+      });
+      expect(note.devices).toEqual([
+        expect.objectContaining({
+          assetTag: 'TL-d-1',
+          nodeId: '!de000001',
+          keyVersion: 2,
+          batteryPct: 90,
+          condition: 'Good working order',
+        }),
+        expect.objectContaining({
+          assetTag: 'TL-d-2',
+          batteryPct: 10,
+          condition: 'Working order; battery below 20 %, accepted',
+        }),
+      ]);
+    });
+
+    it('prices a day plan, dates its return at the term end, and leaves unchecked units open', async () => {
+      const note = await service.noteInput(
+        detail({
+          planType: PlanType.DAY,
+          dayPlanDays: 3,
+          dayPremium: new Prisma.Decimal('1.5'),
+        }),
+        { partyA: { name: null, role: 'TrekLink Staff' } },
+        AT,
+      );
+      expect(note.contract.planLabel).toBe('Day plan, 3 days');
+      expect(note.contract.fee).toEqual({ label: 'Day-plan fee', amountVnd: 135_000n });
+      expect(note.contract.firstPayment).toEqual({ label: 'Day-plan fee', amountVnd: 135_000n });
+      expect(note.contract.returnDue).toEqual(new Date('2026-12-02T02:00:00.000Z'));
+      expect(note.devices[0]).toMatchObject({
+        batteryPct: null,
+        gpsFixOk: null,
+        condition: 'To be checked at the counter',
+      });
+      expect(note.partyB.manager).toBeNull();
+    });
+
+    it('numbers the handover and the replacement notes from the contract code', () => {
+      expect(noteNumber('RC-2026-0001')).toBe('HN-2026-0001');
+      expect(noteNumber('RC-2026-0001', 'TL-0012')).toBe('RN-2026-0001-TL-0012');
+    });
+
+    it('renders the preview with the caller as Party A and the counter readings it is given', async () => {
+      contracts.detail.mockResolvedValueOnce(detail());
+      const pdf = await service.preview('c-1', STAFF, AT, [
+        { deviceId: 'd-1', batteryPct: 77, gpsFixOk: true },
+      ]);
+      expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(directory.namesOf).toHaveBeenCalledWith(['u-staff']);
     });
 
     it('is 409 INVALID_STATE_TRANSITION once the contract is past APPROVED', async () => {
-      contracts.detail.mockResolvedValue({
-        ...contract({ status: ContractStatus.ACTIVE }),
+      contracts.detail.mockResolvedValueOnce({
+        ...detail({ status: ContractStatus.ACTIVE }),
         devices: [],
       });
-      await expect(service.preview('c-1', [], AT)).rejects.toMatchObject({
+      await expect(service.preview('c-1', STAFF, AT)).rejects.toMatchObject({
         errorCode: ErrorCode.INVALID_STATE_TRANSITION,
       });
     });
@@ -363,28 +540,5 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         errorCode: ErrorCode.NOTE_NOT_SIGNED,
       });
     });
-  });
-});
-
-describe('renderHandoverNote', () => {
-  it('renders a PDF for the preview and for the signed note', async () => {
-    const base = {
-      contractCode: 'RC-2026-0001',
-      organization: { code: 'ORG-0001', legalName: 'Acme Trek' },
-      planLabel: 'Monthly',
-      variantCode: 'treklink-v3',
-      requestedStartDate: '2026-11-02',
-      devices: [{ assetTag: 'TL-0001', batteryPct: null, gpsFixOk: null }],
-      firstPaymentConfirmed: true,
-      at: AT,
-    };
-    const preview = await renderHandoverNote(base);
-    const signed = await renderHandoverNote({
-      ...base,
-      signer: { fullName: 'Nguyen Van A', identityChecked: 'CCCD ending 1234' },
-      signaturePng: Buffer.from(PNG.split(',')[1], 'base64'),
-    });
-    expect(preview.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(signed.subarray(0, 5).toString()).toBe('%PDF-');
   });
 });

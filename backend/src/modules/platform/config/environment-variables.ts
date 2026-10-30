@@ -26,6 +26,8 @@ const POSTGRES_URL = /^postgres(ql)?:\/\/\S+$/;
 const MQTT_URL = /^(mqtts?|wss?|tcp|ssl):\/\/\S+$/;
 const DURATION = /^\d+[smhd]$/;
 const BODY_LIMIT = /^\d+(b|kb|mb)$/i;
+const TAX_CODE = /^\d{10}(-\d{3})?$/;
+const PHONE = /^\+?[0-9][0-9 .()-]{3,19}$/;
 
 const toBoolean = ({ value }: { value: unknown }): unknown => {
   if (typeof value !== 'string') return value;
@@ -192,6 +194,27 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   HANDOVER_NOTE_STORAGE_DIR = 'storage/handover-notes';
+
+  // Owned by `rentals` (specs/rentals/design.md §4.1): the letterhead and Party A of the handover
+  // note, and the place of handover. The defaults are development placeholders; a deployment sets
+  // the registered values. A Vietnamese tax code is 10 digits, or 13 with a branch suffix.
+  @IsString()
+  @IsNotEmpty()
+  COMPANY_LEGAL_NAME = 'TrekLink Technology Company Limited';
+
+  @IsString()
+  @IsNotEmpty()
+  COMPANY_ADDRESS = 'Ho Chi Minh City, Vietnam';
+
+  @Matches(TAX_CODE, { message: 'COMPANY_TAX_CODE must be 10 digits, or 10 digits, a dash and 3' })
+  COMPANY_TAX_CODE = '0000000000';
+
+  @Matches(PHONE, { message: 'COMPANY_HOTLINE must be a phone number such as 1900 1234' })
+  COMPANY_HOTLINE = '1900 0000';
+
+  @IsString()
+  @IsNotEmpty()
+  HANDOVER_PLACE = 'TrekLink counter, Ho Chi Minh City';
 
   // SEPAY_* are owned by `billing` (specs/billing/tasks.md 3.2, design §3). The VietQR image URL
   // and the bank code are configuration; the receiving account is the parameter

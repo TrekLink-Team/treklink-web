@@ -139,6 +139,16 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
       findStatus: jest.fn().mockResolvedValue(OrganizationStatus.ACTIVE),
       findSummary: jest.fn().mockResolvedValue({ id: 'org-1', channelKeyVersion: 2 }),
       channelKeyVersion: jest.fn().mockResolvedValue(2),
+      party: jest.fn().mockResolvedValue({
+        id: 'org-1',
+        code: 'ORG-0001',
+        legalName: 'Acme Trek',
+        taxCode: '0109876543',
+        address: '12 Le Loi, Da Lat',
+        masterContractRef: 'MC-2026-017',
+        ndaSigned: true,
+        softwareLicenceSigned: true,
+      }),
     };
     members = {
       membersOf: jest.fn().mockResolvedValue([
@@ -208,6 +218,16 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
       errorCode: ErrorCode.NOT_FOUND,
     });
     await expect(service.summary('org-1', MEMBER)).resolves.toMatchObject({ channelKeyVersion: 2 });
+  });
+
+  it('reads Party B of the handover note in the caller transaction', async () => {
+    const tx = {} as never;
+    await expect(service.handoverParty('org-1', tx)).resolves.toMatchObject({
+      legalName: 'Acme Trek',
+      taxCode: '0109876543',
+      masterContractRef: 'MC-2026-017',
+    });
+    expect(organizations.party).toHaveBeenCalledWith('org-1', tx);
   });
 
   it('tells a live Manager from an Operator or a former member', async () => {

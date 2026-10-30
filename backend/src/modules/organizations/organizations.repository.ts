@@ -46,6 +46,12 @@ export class OrganizationsRepository {
     });
   }
 
+  // Party B of the handover note (rentals design §4.1): the identity and the master contract record
+  // the organization review keeps.
+  party(id: string, client: Client = this.prisma): Promise<OrganizationParty | null> {
+    return client.organization.findUnique({ where: { id }, select: PARTY_SELECT });
+  }
+
   // Onboarding (tasks 2.1 to 2.3, built by LongLP for Review 2): the list, registration, verification
   // and the Admin decision. The row the review queue shows.
   page(
@@ -200,6 +206,19 @@ export interface OrganizationLabel {
   code: string;
   legalName: string;
 }
+
+export const PARTY_SELECT = {
+  id: true,
+  code: true,
+  legalName: true,
+  taxCode: true,
+  address: true,
+  masterContractRef: true,
+  ndaSigned: true,
+  softwareLicenceSigned: true,
+} satisfies Prisma.OrganizationSelect;
+
+export type OrganizationParty = Prisma.OrganizationGetPayload<{ select: typeof PARTY_SELECT }>;
 
 export const REVIEW_SELECT = {
   id: true,
