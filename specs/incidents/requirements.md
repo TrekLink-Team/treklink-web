@@ -60,6 +60,7 @@
 - **REQ-EVT-11**: WHEN the owner of an `ACKNOWLEDGED` or `RESPONDING` incident is deactivated, the system SHALL move it to `NOTIFY_BACKUP` and alert that tier. [D-034]
 - **REQ-EVT-12**: WHEN the staleness sweep reports a device silent past `monitoring.deviceStaleSeconds` during an incident outside `CLOSED`, the system SHALL flag the incident stale with the last position, keep its state, and notify the owner or current tier; WHEN the device is heard again, the flag SHALL clear. [FR-INC-13]
 - **REQ-EVT-13**: WHEN an outbox row is due, the dispatcher SHALL deliver it by its channel (web inbox, WebSocket to the recipient, email, API stream event), retry failures with exponential backoff from `incidents.alertRetryBaseSeconds` up to `incidents.alertMaxAttempts`, then mark it `FAILED` and log it. [FR-INC-12, E03-7]
+- **REQ-EVT-14**: WHEN the owner corrects a status update, the system SHALL append a new status update that names the corrected one, SHALL leave the corrected one unchanged, and SHALL mark it corrected on the detail read; an update SHALL be corrected at most once, and only by an update of the same incident. [FR-INC-07, dry run defect 15]
 
 ### State-Driven
 

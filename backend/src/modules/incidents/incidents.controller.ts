@@ -96,6 +96,11 @@ export class StatusUpdateDto {
   @IsNotEmpty()
   @MaxLength(NOTE_MAX)
   note!: string;
+
+  // The earlier update this one corrects (dry run defect 15).
+  @IsOptional()
+  @IsUUID()
+  correctsId?: string;
 }
 
 export class ResolveDto extends VersionDto {

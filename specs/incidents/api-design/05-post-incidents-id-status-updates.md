@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale timer; no state change. Without one inside the stale limit the incident escalates (FR-INC-07, E03-5).
+Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale timer; no state change. Without one inside the stale limit the incident escalates (FR-INC-07, E03-5). Status updates are append-only: to correct one, the owner posts a new update with `correctsId` naming it. The corrected row is never edited; the detail read marks it with `correctedById` (dry run defect 15). An update is corrected at most once, and a correction is itself a status update that resets the stale timer.
 
 ## API Specification
 
@@ -27,23 +27,26 @@ Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale
 
 ```json
 {
-  "note": "Reached the holder, minor ankle injury"
+  "note": "Reached the holder, minor knee injury",
+  "correctsId": "su-3"
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | note | Status | string | yes | `Reached the holder, minor ankle injury` |
+| correctsId | The earlier update of this incident that this one corrects | uuid | no | `su-3` |
 
 ## Response sample
 
 ```json
 {
   "result": {
-    "id": "su-3",
-    "note": "Reached the holder, minor ankle injury",
+    "id": "su-4",
+    "note": "Reached the holder, minor knee injury",
     "createdAt": "2026-10-20T03:15:00.000Z",
-    "statusDueAt": "2026-10-20T04:45:00Z"
+    "statusDueAt": "2026-10-20T04:45:00Z",
+    "correctsId": "su-3"
   },
   "isSuccess": true,
   "statusCode": 201,
@@ -127,6 +130,23 @@ Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>correctsId names no status update of this incident (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "correctsId must name a status update of this incident."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>403</td>
             <td>Only the member who owns the response may do this (<code>NOT_OWNER</code>)</td>
 <td>
@@ -160,6 +180,23 @@ Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>The update named by correctsId is already corrected (<code>CONFLICT_UNIQUE</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "CONFLICT_UNIQUE"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This status update is already corrected."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -180,19 +217,31 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The incident is not in a state that allows this?"}
+    D3{"correctsId names no status update of this incident?"}
     D2 -->|no| D3
-    E3["Return 409 INVALID_STATE_TRANSITION"]
+    E3["Return 400 VALIDATION_FAILED"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"The incident is not in a state that allows this?"}
+    D3 -->|no| D4
+    E4["Return 409 INVALID_STATE_TRANSITION"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
+    D5{"The update named by correctsId is already corrected?"}
+    D4 -->|no| D5
+    E5["Return 409 CONFLICT_UNIQUE"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Require ACKNOWLEDGED or RESPONDING and the caller as owner"]
-    D3 -->|no| P0
-    P1["Insert the update, reset statusDueAt"]
+    D5 -->|no| P0
+    P1["If correctsId is set: require an update of this incident that no row corrects yet"]
     P0 --> P1
-    P2["Emit incident.changed to the organization stream"]
+    P2["Insert the update, reset statusDueAt"]
     P1 --> P2
+    P3["Emit incident.changed to the organization stream"]
+    P2 --> P3
     OK["Return 201"]
-    P2 --> OK
+    P3 --> OK
     OK --> Z((End))
 ```
 
@@ -216,6 +265,10 @@ sequenceDiagram
         Ctl-->>P: 403 envelope
         P-->>U: MSG26
     else accepted
+        opt correctsId is set
+            Svc->>R: findStatusUpdateForCorrection(correctsId, tx)
+            R-->>Svc: update of this incident, not yet corrected
+        end
         Svc->>R: insertStatusUpdate(row, tx)
         Svc->>R: resetStatusDue(id, statusDueAt, tx)
         Svc->>R: COMMIT, then incident.changed and audit.record
@@ -225,4 +278,4 @@ sequenceDiagram
     end
 ```
 
-Not drawn in the sequence: 400 VALIDATION_FAILED for a blank note, 403 FORBIDDEN, 404 NOT_FOUND and 409 INVALID_STATE_TRANSITION, which the Validation table and the activity diagram carry.
+Not drawn in the sequence: 400 VALIDATION_FAILED for a blank note or a foreign correctsId, 403 FORBIDDEN, 404 NOT_FOUND, 409 INVALID_STATE_TRANSITION and 409 CONFLICT_UNIQUE for an update already corrected, which the Validation table and the activity diagram carry.

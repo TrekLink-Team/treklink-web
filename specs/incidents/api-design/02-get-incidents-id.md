@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the incident with its device and holder label, owner, pending deadline, latest status updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported on resolving, `null` until the incident is resolved.
+Returns the incident with its device and holder label, owner, pending deadline, latest status updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported on resolving, `null` until the incident is resolved. Each status update carries `correctsId`, the update it corrects, and `correctedById`, the update that corrects it; both are null on an uncorrected original. Status updates stay append-only, so a corrected update is still returned (dry run defect 15).
 
 ## API Specification
 
@@ -64,13 +64,26 @@ No body.
     "outcomeNote": null,
     "statusUpdates": [
       {
+        "id": "su-4",
+        "note": "Reached the holder, minor knee injury",
+        "author": {
+          "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
+          "fullName": "Pham Van D"
+        },
+        "createdAt": "2026-10-20T03:15:00.000Z",
+        "correctsId": "su-3",
+        "correctedById": null
+      },
+      {
         "id": "su-3",
         "note": "Reached the holder, minor ankle injury",
         "author": {
           "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
           "fullName": "Pham Van D"
         },
-        "createdAt": "2026-10-20T03:15:00.000Z"
+        "createdAt": "2026-10-20T03:15:00.000Z",
+        "correctsId": null,
+        "correctedById": "su-4"
       }
     ],
     "authorityReports": [

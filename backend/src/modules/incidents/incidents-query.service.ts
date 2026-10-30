@@ -68,7 +68,16 @@ export interface IncidentView {
 export interface IncidentDetailView extends IncidentView {
   // What the Operator reported on resolving; null until the incident is resolved (api-design 02).
   outcomeNote: string | null;
-  statusUpdates: { id: string; note: string; author: PersonRef; createdAt: Date }[];
+  // `correctsId` names the update this row corrects; `correctedById` names the row that corrects
+  // this one. Both are null on an uncorrected original (dry run defect 15).
+  statusUpdates: {
+    id: string;
+    note: string;
+    author: PersonRef;
+    createdAt: Date;
+    correctsId: string | null;
+    correctedById: string | null;
+  }[];
   authorityReports: {
     id: string;
     agency: string;
@@ -198,12 +207,16 @@ export class IncidentsQueryService {
     return {
       ...view,
       outcomeNote: incident.outcomeNote,
-      statusUpdates: updates.map(({ id: updateId, note, authorId, createdAt }) => ({
-        id: updateId,
-        note,
-        author: { id: authorId, fullName: names.get(authorId) ?? null },
-        createdAt,
-      })),
+      statusUpdates: updates.map(
+        ({ id: updateId, note, authorId, createdAt, correctsId, correctedBy }) => ({
+          id: updateId,
+          note,
+          author: { id: authorId, fullName: names.get(authorId) ?? null },
+          createdAt,
+          correctsId,
+          correctedById: correctedBy?.id ?? null,
+        }),
+      ),
       authorityReports: reports,
     };
   }

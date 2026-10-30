@@ -66,6 +66,15 @@ export class IncidentsRepository {
     return tx.incidentStatusUpdate.create({ data });
   }
 
+  // The update a correction names, with its correction if one exists (dry run defect 15). Read
+  // under the incident row lock, so two corrections of one update cannot both pass the check.
+  findStatusUpdateForCorrection(id: string, tx: Prisma.TransactionClient) {
+    return tx.incidentStatusUpdate.findUnique({
+      where: { id },
+      select: { id: true, incidentId: true, correctedBy: { select: { id: true } } },
+    });
+  }
+
   // A status note is not a transition: the deadline moves, the version stays (task 4.1, Q2), so the
   // owner's expectedVersion for resolve remains valid. Called with the incident row locked.
   async resetStatusDue(id: string, statusDueAt: Date, tx: Prisma.TransactionClient) {
@@ -170,7 +179,14 @@ export class IncidentsRepository {
     return this.prisma.incidentStatusUpdate.findMany({
       where: { incidentId },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, note: true, authorId: true, createdAt: true },
+      select: {
+        id: true,
+        note: true,
+        authorId: true,
+        createdAt: true,
+        correctsId: true,
+        correctedBy: { select: { id: true } },
+      },
     });
   }
 
