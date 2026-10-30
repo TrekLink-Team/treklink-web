@@ -92,7 +92,8 @@ describe('LiveMapService.config', () => {
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
       const [latI, lonI] = polygon[i];
       const [latJ, lonJ] = polygon[j];
-      if (latI > lat !== latJ > lat && lon < ((lonJ - lonI) * (lat - latI)) / (latJ - latI) + lonI) hit = !hit;
+      const crosses = latI > lat !== latJ > lat;
+      if (crosses && lon < ((lonJ - lonI) * (lat - latI)) / (latJ - latI) + lonI) hit = !hit;
     }
     return hit;
   };
