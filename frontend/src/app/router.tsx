@@ -8,13 +8,16 @@ import { ContractDetailPage } from '../pages/ContractDetailPage';
 import { ContractRequestPage } from '../pages/ContractRequestPage';
 import { ContractsPage } from '../pages/ContractsPage';
 import { CounterPage } from '../pages/CounterPage';
+import { DeviceDetailPage } from '../pages/DeviceDetailPage';
 import { DashboardPage } from '../pages/DashboardPage';
+import { FleetPage } from '../pages/FleetPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { IncidentDetailPage } from '../pages/IncidentDetailPage';
 import { IncidentsPage } from '../pages/IncidentsPage';
 import { StaffIncidentsPage } from '../pages/StaffIncidentsPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { LiveMapPage } from '../pages/LiveMapPage';
+import { MaintenanceApprovalPage, MaintenancePage } from '../pages/MaintenancePage';
 import { PaymentPage } from '../pages/PaymentPage';
 import { PricesPage } from '../pages/PricesPage';
 import { DamageChargesPage } from '../pages/DamageChargesPage';
@@ -108,6 +111,10 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/damage-charges" element={<DamageChargesPage />} />
         <Route path="/t/organizations" element={<OrganizationReviewPage />} />
         <Route path="/t/counter/:contractId" element={<CounterPage />} />
+        <Route path="/t/fleet" element={<FleetPage />} />
+        <Route path="/t/devices/:id" element={<DeviceDetailPage />} />
+        <Route path="/t/maintenance" element={<MaintenancePage />} />
+        <Route path="/t/maintenance/approvals" element={<MaintenanceApprovalPage />} />
       </Route>
       <Route element={<RequireRole roles={ADMIN} />}>
         <Route path="/t/admin/prices" element={<PricesPage />} />

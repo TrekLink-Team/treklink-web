@@ -56,6 +56,7 @@ Sets `RETIRED` from `MAINTENANCE` without deleting the device or its history; re
     "statusChangedAt": "2026-10-20T03:15:00.000Z",
     "keyVersion": null,
     "keyOrganizationId": null,
+    "keyOrganization": null,
     "batteryPct": 96,
     "lastSeenAt": "2026-10-20T03:15:00.000Z",
     "lastPosition": {

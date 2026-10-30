@@ -56,6 +56,7 @@ Registers a physical unit with its printed asset tag and its radio `nodeNum`, bo
     "statusChangedAt": "2026-10-20T03:15:00.000Z",
     "keyVersion": null,
     "keyOrganizationId": null,
+    "keyOrganization": null,
     "batteryPct": null,
     "lastSeenAt": null,
     "lastPosition": null,

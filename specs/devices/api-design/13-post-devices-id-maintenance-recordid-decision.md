@@ -58,12 +58,23 @@ Approves an amount or rejects the estimate with a reason. Either way the record 
     "workBy": "VENDOR",
     "vendorName": "Hoang Long Electronics",
     "estimatedCostVnd": 1800000,
+    "estimatedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "approvedCostVnd": 1800000,
+    "decision": null,
+    "decisionReason": null,
     "actualCostVnd": null,
     "warrantyUntil": null,
+    "checklist": [
+      "Battery health",
+      "Antenna and connector",
+      "Enclosure seal",
+      "Button and buzzer"
+    ],
     "checklistResults": null,
     "firmwareVersion": null,
+    "resolution": null,
     "openedAt": "2026-10-20T03:15:00.000Z",
+    "closedAt": null,
     "version": 3
   },
   "isSuccess": true,

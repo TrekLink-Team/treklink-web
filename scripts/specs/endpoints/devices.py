@@ -11,15 +11,19 @@ VARIANT = {"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, S
 DEVICE = {"id": DEVICE_ID, "assetTag": "TL-0042", "nodeNum": 2763113171, "nodeId": "!a4b1c2d3",
           "hardwareVariant": {"id": VARIANT_ID, "code": "treklink-v3"}, "firmwareVersion": "2.7.19-treklink.3",
           "acquiredAt": "2026-06-15T00:00:00Z", "status": "AVAILABLE", "statusChangedAt": NOW,
-          "keyVersion": None, "keyOrganizationId": None, "batteryPct": 96, "lastSeenAt": NOW,
-          "lastPosition": {"lat": 11.5544, "lon": 108.5381}, "serviceDueAt": "2026-12-12", "version": 5}
+          "keyVersion": None, "keyOrganizationId": None, "keyOrganization": None, "batteryPct": 96,
+          "lastSeenAt": NOW, "lastPosition": {"lat": 11.5544, "lon": 108.5381}, "serviceDueAt": "2026-12-12",
+          "version": 5}
 DEV_PATH = ["id", "Device id", "uuid", f"`{DEVICE_ID}`"]
 VERSION = ["expectedVersion", "Device version the caller saw", "int", "yes", "`5`"]
 
 MREC = {"id": "mr-1", "device": {"id": DEVICE_ID, "assetTag": "TL-0042"}, "reason": "SCHEDULED", "status": "OPEN",
         "description": "Six-month service", "expectedAt": "2026-10-20", "workBy": "VENDOR", "vendorName": "Hoang Long Electronics",
-        "estimatedCostVnd": 650000, "approvedCostVnd": None, "actualCostVnd": None, "warrantyUntil": None,
-        "checklistResults": None, "firmwareVersion": None, "openedAt": NOW, "version": 1}
+        "estimatedCostVnd": 650000, "estimatedById": USER_ID, "approvedCostVnd": None, "decision": None,
+        "decisionReason": None, "actualCostVnd": None, "warrantyUntil": None,
+        "checklist": ["Battery health", "Antenna and connector", "Enclosure seal", "Button and buzzer"],
+        "checklistResults": None, "firmwareVersion": None, "resolution": None, "openedAt": NOW,
+        "closedAt": None, "version": 1}
 MR_PATH = ["recordId", "Maintenance record id", "uuid", "`mr-1`"]
 MR_VERSION = ["expectedVersion", "Record version the caller saw", "int", "yes", "`1`"]
 
