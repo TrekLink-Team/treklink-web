@@ -1,7 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   deadlineOf,
+  incidentKeys,
   SOURCE_LABEL,
   useFleetIncidents,
   useIncident,
@@ -10,6 +12,11 @@ import {
 import { isReportable } from '../entities/incident/authorityReports';
 import { StateBadges } from '../entities/incident/ui';
 import { AuthorityReportsPanel, ReportDialog } from '../widgets/AuthorityReports/AuthorityReports';
+import { StaffFalseAlarmDialog } from '../widgets/IncidentActions/StaffFalseAlarmDialog';
+import { useSession } from '../entities/session/model';
+import { hasAnyRole } from '../shared/lib/permissions';
+import { ApiError } from '../shared/api/apiClient';
+import { useToast } from '../shared/ui/toastStore';
 import { formatDateTime } from '../shared/lib/format';
 import { Empty, ErrorState, Fact, Loading, PageTitle, Pager } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
@@ -33,15 +40,26 @@ const holderOf = (incident: Incident) => incident.device.holder?.name ?? 'No hol
 type Tab = 'queue' | 'reports';
 
 // The selected incident (api-design 02). Staff never acknowledge or act as an organization's
-// response owner (screen 8.2 Roles); their one action is the authority report of screen 8.3, on an
-// UNROUTED or ESCALATED incident.
-const StaffIncidentDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack }) => {
+// response owner (screen 8.2 Roles). They may report to authorities or declare UNROUTED false.
+const StaffIncidentDetail: React.FC<{
+  id: string;
+  onBack: () => void;
+  onSaved: (code: string) => void;
+  onUnavailable: () => void;
+}> = ({ id, onBack, onSaved, onUnavailable }) => {
   const { data: incident, isLoading, error, refetch, isFetching } = useIncident(id);
   const [reporting, setReporting] = useState(false);
+  const [falseAlarm, setFalseAlarm] = useState(false);
+  const user = useSession((state) => state.user);
+  useEffect(() => {
+    if (error instanceof ApiError && (error.statusCode === 403 || error.statusCode === 404))
+      onUnavailable();
+  }, [error, onUnavailable]);
   if (isLoading) return <Loading />;
-  if (error || !incident) return <ErrorState error={error} onRetry={() => void refetch()} />;
+  if (!incident) return <ErrorState error={error} onRetry={() => void refetch()} />;
   return (
     <section className={`${CARD} flex flex-col gap-4`} aria-labelledby="staff-incident-title">
+      {error && <ErrorState error={error} onRetry={() => void refetch()} />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="staff-incident-title" tabIndex={-1} className="text-title-sm text-ink">
           {incident.code}
@@ -91,6 +109,22 @@ const StaffIncidentDetail: React.FC<{ id: string; onBack: () => void }> = ({ id,
         <ReportDialog
           entry={{ kind: 'incident', id: incident.id }}
           onClose={() => setReporting(false)}
+        />
+      )}
+      {incident.state === 'UNROUTED' && user && hasAnyRole(user.roles, ['STAFF']) && (
+        <Button variant="danger" onClick={() => setFalseAlarm(true)}>
+          Declare false alarm
+        </Button>
+      )}
+      {falseAlarm && (
+        <StaffFalseAlarmDialog
+          incident={incident}
+          onClose={() => setFalseAlarm(false)}
+          onUnavailable={onUnavailable}
+          onSaved={(code) => {
+            setFalseAlarm(false);
+            onSaved(code);
+          }}
         />
       )}
       <section aria-labelledby="staff-authority-reports">
@@ -143,13 +177,15 @@ const StaffIncidentDetail: React.FC<{ id: string; onBack: () => void }> = ({ id,
 
 // /t/incidents, StaffIncidentsPage of screen 8.2: the unrouted and escalated queue with inline
 // detail (api-design 01 and 02). Rows keep the server order (D-059 rule 7). Escalation is
-// automatic; there are no manual Staff controls on this screen. The Authority reports tab is
+// automatic; Staff do not manually create or escalate incidents here. The Authority reports tab is
 // screen 8.3 (api-design 08 to 11).
 export const StaffIncidentsPage: React.FC = () => {
+  const client = useQueryClient();
   const [tab, setTab] = useState<Tab>('queue');
   const [scope, setScope] = useState(SCOPES[0]);
   const [pageNumber, setPageNumber] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
   const triggers = useRef(new Map<string, HTMLButtonElement | null>());
   const { data, isLoading, error, refetch, isFetching } = useFleetIncidents(
     scope.states,
@@ -174,6 +210,11 @@ export const StaffIncidentsPage: React.FC = () => {
         }
       />
       <p className={`${WARNING} mb-4`}>{STAFF_DISCLAIMER}</p>
+      {saved && (
+        <p role="status" className="mb-4 text-body text-ink">
+          Saved. {saved} marked as false alarm.
+        </p>
+      )}
 
       <Tabs<Tab>
         label="Incident views"
@@ -274,7 +315,32 @@ export const StaffIncidentsPage: React.FC = () => {
                 </>
               )}
             </div>
-            {selected && <StaffIncidentDetail key={selected} id={selected} onBack={back} />}
+            {selected && (
+              <StaffIncidentDetail
+                key={selected}
+                id={selected}
+                onBack={back}
+                onUnavailable={() => {
+                  setSelected(null);
+                  setSaved(null);
+                  client.removeQueries({ queryKey: incidentKeys.detail(selected) });
+                  void client.invalidateQueries({ queryKey: incidentKeys.all });
+                  useToast.getState().show('You do not have access to this.');
+                  requestAnimationFrame(() => document.getElementById('staff-incidents-title')?.focus());
+                }}
+                onSaved={(code) => {
+                  setSaved(code);
+                  if (scope.id !== 'all') setSelected(null);
+                  requestAnimationFrame(() =>
+                    document
+                      .getElementById(
+                        scope.id === 'all' ? 'staff-incident-title' : 'staff-incidents-title',
+                      )
+                      ?.focus(),
+                  );
+                }}
+              />
+            )}
           </div>
         </TabPanel>
       )}

@@ -96,12 +96,40 @@ export class IncidentsService {
     }
   }
 
-  // UC-34 by a member of the routed organization (api-design 07). Staff from UNROUTED waits for 4.2.
+  // UC-34 (api-design 07): members stay scoped to their organization; TrekLink actors may only
+  // end an UNROUTED episode. The lifecycle owns the version, history and reopen window.
   async falseAlarm(id: string, input: FalseAlarmInput, caller: Caller): Promise<Incident> {
+    const note = required(input.reason, 'reason');
+    if (caller.roles.some((role) => role === 'STAFF' || role === 'ADMIN')) {
+      return this.events.transaction(async (tx) => {
+        const current = await this.repository.lockById(id, tx);
+        if (!current) throw notFound();
+        if (current.state !== 'UNROUTED')
+          throw new DomainException(
+            HttpStatus.CONFLICT,
+            ErrorCode.INVALID_STATE_TRANSITION,
+            `This cannot be done while it is ${current.state}.`,
+          );
+        return this.lifecycle.apply(
+          id,
+          current.state,
+          'FALSE_ALARM',
+          { kind: 'STAFF', id: caller.id, roles: caller.roles },
+          {
+            code: 'FALSE_ALARM',
+            expectedVersion: input.expectedVersion,
+            note,
+            at: new Date(),
+            recipients: NO_RECIPIENTS,
+          },
+          tx,
+        );
+      });
+    }
     return this.transition(id, 'FALSE_ALARM', caller, {
       code: 'FALSE_ALARM',
       expectedVersion: input.expectedVersion,
-      note: required(input.reason, 'reason'),
+      note,
     });
   }
 
