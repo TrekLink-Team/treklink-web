@@ -126,7 +126,12 @@ export class DamageChargeService {
       // recorded with no organization rather than refused (review of #144).
       const organizationId = await this.invoices.organizationOfContract(charge.contractId, tx);
       if (!organizationId && finalVnd > 0n) {
-        throw new Error(`Contract ${charge.contractId} has no invoice.`);
+        // A charged amount needs the closing invoice of a contract that has been invoiced (review of #148).
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.INVALID_STATE_TRANSITION,
+          'This charge cannot be billed before the contract has an invoice.',
+        );
       }
       if (organizationId && finalVnd > 0n) {
         const tags = await this.devices.assetTags([charge.deviceId], tx);

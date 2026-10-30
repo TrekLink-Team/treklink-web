@@ -299,18 +299,20 @@ flowchart TB
     E7 --> X7((End))
     P0["Lock the contract"]
     D7 -->|no| P0
-    P1["SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity"]
+    P1["Check the version, the REQUESTED state and any chosen deviceIds"]
     P0 --> P1
-    P2["Insert contract_devices, move devices to RESERVED"]
+    P2["SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity"]
     P1 --> P2
-    P3["Move the contract to APPROVED"]
+    P3["Insert contract_devices, move devices to RESERVED"]
     P2 --> P3
     P4["Create term 1 from the requested start date and issue its invoice through billing"]
     P3 --> P4
-    P5["Notify the Manager with the appointment"]
+    P5["Move the contract to APPROVED"]
     P4 --> P5
+    P6["Notify the Manager with the appointment"]
+    P5 --> P6
     OK["Return 200"]
-    P5 --> OK
+    P6 --> OK
     OK --> Z((End))
 ```
 

@@ -34,7 +34,14 @@ export class ContractNotificationsListener {
         `TrekLink contract ${code}: new rental request`,
         `A new rental request ${code} is waiting for review. Open the TrekLink contract requests queue to review availability and arrange the handover.`,
       );
-      return delivery.accepted > 0 && delivery.failed === 0;
+      if (delivery.accepted > 0 && delivery.failed > 0) {
+        // Partly delivered: say so rather than "not delivered" (review of #143).
+        this.logger.warn(
+          `Contract notification ${event.contractId} reached ${delivery.accepted} of ${delivery.accepted + delivery.failed} Staff recipients; no automatic retry is queued.`,
+        );
+        return true;
+      }
+      return delivery.accepted > 0;
     });
   }
 

@@ -133,6 +133,14 @@ describe('DamageChargeService.decide (UC-48, api-design 17, BR-24)', () => {
     );
   });
 
+  it('refuses a charged amount on a contract with no invoice yet with 409 (review of #148)', async () => {
+    const { service, invoices } = build();
+    invoices.organizationOfContract.mockResolvedValue(null);
+    await expect(
+      service.decide('dc-1', { decision: 'APPROVED', note: 'Confirmed' }, ADMIN, AT),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.INVALID_STATE_TRANSITION });
+  });
+
   it('records a waiver on a contract with no invoice yet, with no organization (review of #144)', async () => {
     const { service, charges, events, invoices } = build();
     invoices.organizationOfContract.mockResolvedValue(null);

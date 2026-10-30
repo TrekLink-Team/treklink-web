@@ -39,8 +39,18 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       if (message.kind === 'entry') {
         const type = message.entry.type;
         if (type === 'device.label' || type === 'device.handedOver' || type === 'device.released') {
-          // Label and release payloads carry no contract id; refresh the active contract details.
-          void queryClient.invalidateQueries({ queryKey: ['contract'] });
+          // Label and release payloads carry no contract id: refresh only the contract details that
+          // hold this device, not every cached contract (review of #144).
+          const deviceId = message.entry.deviceId;
+          void queryClient.invalidateQueries({
+            queryKey: ['contract'],
+            predicate: (query) => {
+              const data = query.state.data as { devices?: { deviceId: string }[] } | undefined;
+              return (
+                !deviceId || !data?.devices || data.devices.some((row) => row.deviceId === deviceId)
+              );
+            },
+          });
         }
         if (type === 'device.handedOver' || type === 'device.released') {
           for (const key of ['contracts', 'contract-balance', 'contract-transitions']) {
