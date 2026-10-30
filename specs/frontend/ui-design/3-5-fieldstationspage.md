@@ -36,8 +36,8 @@ Station table:
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Name and username | organizations 23 `result.items[].name`, `result[].mqttUsername` |
-| Version, with the badge Current or Outdated | organizations 23 `result.items[].version` and `result[].outdated`; a revoked row shows the version without a badge |
+| Name and username | organizations 23 `result.items[].name`, `items[].mqttUsername` |
+| Version, with the badge Current or Outdated | organizations 23 `result.items[].version` and `items[].outdated`; a revoked row shows the version without a badge |
 | Last sync, or "Never" when null | organizations 23 `result.items[].lastSyncAt`, in the viewer's timezone |
 | Queue p0 / p1 / p2 / p3, or "No data yet" when null | organizations 23 `result.items[].queueDepth.p0` to `p3`; null until the station first reports |
 | Oldest retry | organizations 23 `result.items[].oldestRetryCount` |

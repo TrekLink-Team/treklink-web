@@ -4,7 +4,7 @@
 <rect x="0" y="0" width="1600" height="2280" rx="0" fill="#f1f5f9" stroke="#f1f5f9"/>
 <text x="28" y="38" fill="#172b26" font-family="Arial, sans-serif" font-size="26" font-weight="700">3.6  ComplianceCasePage and channel key rotation</text>
 <text x="28" y="66" fill="#475569" font-family="Arial, sans-serif" font-size="14" font-weight="400">Routes /t/compliance-cases, /t/compliance-cases/:id and the channel key panel of /t/organizations | TrekLink Staff and Admin | Desktop views above, dialogs and 360 px mobile below</text>
-<text x="28" y="2262" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">TanNB | SD | 29 Oct 2026 | Illustrative API sample data (api-design 27 to 31); alternate states are separate views.</text>
+<text x="28" y="2262" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">TanNB | SD | 29 Oct 2026 | Illustrative API sample data (api-design 27 to 32); alternate states are separate views.</text>
 <text x="28" y="86" fill="#475569" font-family="Arial, sans-serif" font-size="13" font-weight="700">A. Compliance cases, /t/compliance-cases</text>
 <rect x="28" y="92" width="1544" height="430" rx="8" fill="white" stroke="#cbd5e1"/>
 <rect x="28" y="92" width="1544" height="56" rx="0" fill="#143c30" stroke="#143c30"/>

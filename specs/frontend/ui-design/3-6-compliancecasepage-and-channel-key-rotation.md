@@ -135,7 +135,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Routes and roles match `specs/frontend/design.md` §2; what Staff and Admin see is stated
 - [x] Every shown field names its api-design file and property; the fields with no source are listed in Open points
 - [x] Every action names its endpoint, its confirmation and its message
-- [x] States cover loading, empty, every error code of api-design 27 to 31, forbidden (MSG26) and success
+- [x] States cover loading, empty, every error code of api-design 27 to 32, forbidden (MSG26) and success
 - [x] Forms have at most 5 fields in one step, with type, required flag and rule
 - [x] The 360 px layout is drawn (Figure 1, D3)
 - [x] Tab order, focus after each action and accessible names are stated
