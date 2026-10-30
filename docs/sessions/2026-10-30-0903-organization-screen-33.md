@@ -38,7 +38,7 @@ Handoff for `feat/organization-screen-33`, branched from `origin/dev` at `2d9971
 - The member list (organizations 12) returns a plain array and the roster (16) returns `{ shifts, warnings }`, not `{ items, limit }`; the pages follow the controllers on dev.
 - The wireframe dates are illustrative: 20 Oct 2026 is a Tuesday. The tests use Mon 19 Oct.
 
-## Open decision: resend invitation
+## Decision: resend invitation (ruled 2026-10-30, KhoaDD: option 1)
 
 No organizations endpoint resends an invitation. The page calls `POST /api/auth/password/forgot` with the member's email: an account that never set a password is sent a new SET_PASSWORD code (`password-flows.service.ts` `forgot`, D-059 rule 6). Inside the resend cooldown nothing is sent and the answer is the same.
 
@@ -49,7 +49,6 @@ No organizations endpoint resends an invitation. The page calls `POST /api/auth/
 ## Not done
 
 - TanNB's review of the pages.
-- The leader's ruling on the open decision above.
 
 ## Demo (seeded `manager@treklink.local`, password from `SEED_MANAGER_PASSWORD`)
 
