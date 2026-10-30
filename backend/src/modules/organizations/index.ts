@@ -4,3 +4,4 @@ export { OrganizationsService } from './organizations.service';
 export type { OrganizationLabel } from './organizations.repository';
 export { RosterService } from './roster.service';
 export type { RosterTiers } from './roster.service';
+export { API_KEY_REVOKED, type ApiKeyRevokedEvent } from './api-key-events';

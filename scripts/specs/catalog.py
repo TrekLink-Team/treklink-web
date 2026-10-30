@@ -141,6 +141,7 @@ PERMISSIONS = [
     ("roster.read.own", "read", "RosterShift", OWN, ["ORG_OPERATOR"]),
     ("roster.manage.own", "manage", "RosterShift", OWN, ["ORG_MANAGER"]),
     ("apiKey.manage.own", "manage", "ApiKey", OWN, ["ORG_MANAGER"]),
+    ("apiKey.read", "read", "ApiKey", None, ["STAFF"]),  # ruling 2026-10-30; migration 20261030120000_api_key_read
     ("fieldStation.read.own", "read", "FieldStation", OWN, ["ORG_OPERATOR"]),
     ("fieldStation.manage.own", "manage", "FieldStation", OWN, ["ORG_MANAGER"]),
     ("fieldStation.read", "read", "FieldStation", None, ["STAFF"]),

@@ -92,5 +92,10 @@ describe('ReplayService', () => {
       await service.batchAfter(null, 10);
       expect(repository.after).toHaveBeenCalledWith(null, 10, REPLAY_BATCH_SIZE);
     });
+
+    it('reads at most the given limit (GET /api/telemetry/stream)', async () => {
+      await service.batchAfter('org-a', 10, 201);
+      expect(repository.after).toHaveBeenCalledWith('org-a', 10, 201);
+    });
   });
 });

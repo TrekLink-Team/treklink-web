@@ -24,6 +24,15 @@ export interface IncidentListQuery extends PagedQueryDto {
   from?: Date;
 }
 
+// The open incident a monitoring read shows on a device (monitoring api-design 02 and 04). The
+// routed organization lets a caller drop an incident another organization owns.
+export interface OpenIncidentRef {
+  id: string;
+  code: string;
+  state: IncidentState;
+  organizationId: string | null;
+}
+
 export interface PersonRef {
   id: string;
   fullName: string | null;
@@ -128,6 +137,25 @@ export class IncidentsQueryService {
     private readonly organizations: OrganizationsService,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
+
+  // --- monitoring reads (design §5), `openByDevices(ids)` -------------------------------------------
+  // The incident not yet CLOSED on each device, keyed by device id, the newest when a device has more
+  // than one. Scoping is the caller's: monitoring keeps only its organization's routed incidents.
+  async openByDevices(ids: readonly string[]): Promise<Map<string, OpenIncidentRef>> {
+    const open = new Map<string, OpenIncidentRef>();
+    if (ids.length === 0) return open;
+    for (const row of await this.repository.openOfDevices(ids)) {
+      if (open.has(row.deviceId)) continue;
+      open.set(row.deviceId, {
+        id: row.id,
+        code: row.code,
+        state: row.state,
+        organizationId: row.organizationId,
+      });
+    }
+    return open;
+  }
+  // --- end monitoring reads ---------------------------------------------------------------------------
 
   async list(
     query: IncidentListQuery,

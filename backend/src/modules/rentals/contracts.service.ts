@@ -23,6 +23,16 @@ export interface HolderLabel {
   phone: string | null;
 }
 
+// A device the scope may see on the live views now: in custody on one of its contracts.
+export interface VisibleDevice {
+  deviceId: string;
+  contractId: string;
+  contractCode: string;
+  organizationId: string;
+  // The holder label set at handover; null before one is set or after it was erased (FR-CON-14).
+  holder: { name: string } | null;
+}
+
 const near = (at: Date, edge: Date | null, marginMs: number) =>
   edge !== null && Math.abs(at.getTime() - edge.getTime()) <= marginMs;
 
@@ -194,6 +204,22 @@ export class ContractsService {
     }
     return labels;
   }
+
+  // --- monitoring reads (monitoring design §4), `visibleDevices(caller)` ---------------------------
+  // The devices in custody now of the caller's organization, or of every organization for a caller
+  // with none (TrekLink Staff and Admin). A Caller fits; the organization API passes its key's
+  // organization. A device appears once, on the contract holding it now.
+  async visibleDevices(caller: { organizationId: string | null }): Promise<VisibleDevice[]> {
+    const rows = await this.contracts.findInCustody(caller.organizationId);
+    return rows.map((row) => ({
+      deviceId: row.deviceId,
+      contractId: row.contractId,
+      contractCode: row.contract.code,
+      organizationId: row.contract.organizationId,
+      holder: row.holderName === null ? null : { name: row.holderName },
+    }));
+  }
+  // --- end monitoring reads ---------------------------------------------------------------------------
 
   // ORGANIZATION_EXIT_CHECKS.canClose: an organization with a contract that is not REJECTED,
   // CANCELLED or CLOSED may not close.

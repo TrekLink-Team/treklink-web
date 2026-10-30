@@ -40,3 +40,29 @@ describe('ContractsService.holderLabels', () => {
     });
   });
 });
+
+describe('ContractsRepository.findInCustody (monitoring design §4)', () => {
+  it('reads open custody rows of one organization, or of all for a null scope', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const repository = new ContractsRepository({
+      contractDevice: { findMany },
+    } as unknown as PrismaService);
+    await repository.findInCustody('org-1');
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          handedOverAt: { not: null },
+          checkedInAt: null,
+          lostAt: null,
+          contract: { organizationId: 'org-1' },
+        },
+      }),
+    );
+    await repository.findInCustody(null);
+    expect(findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { handedOverAt: { not: null }, checkedInAt: null, lostAt: null },
+      }),
+    );
+  });
+});

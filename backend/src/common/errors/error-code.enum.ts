@@ -51,6 +51,10 @@ export enum ErrorCode {
 
   // organizations (specs/organizations/design.md)
   ORGANIZATION_NOT_ACTIVE = 'ORGANIZATION_NOT_ACTIVE',
+  KEY_LIMIT = 'KEY_LIMIT',
+
+  // monitoring (specs/monitoring/design.md §6)
+  CURSOR_EXPIRED = 'CURSOR_EXPIRED',
 
   // rentals (specs/rentals/design.md)
   DAY_PLAN_LENGTH = 'DAY_PLAN_LENGTH',

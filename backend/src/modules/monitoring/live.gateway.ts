@@ -29,17 +29,10 @@ import {
   type SessionUser,
 } from '../auth';
 import { INCIDENT_ALERT, type IncidentAlertEvent } from '../incidents';
+import { API_KEY_REVOKED, type ApiKeyRevokedEvent } from '../organizations';
 import { ReplayService } from './replay.service';
 import { FLEET_ROOM, REPLAYING_ROOM, orgRoom, replayScopeOf, userRoom } from './rooms';
 import { StreamService, WireEntry } from './stream.service';
-
-// Emitted by `organizations` when an organization API key is revoked (platform design 2.3).
-export const API_KEY_REVOKED = 'apiKey.revoked';
-
-export interface ApiKeyRevokedEvent {
-  organizationId: string;
-  apiKeyId: string;
-}
 
 // Who the server decided this socket is. Rooms come from here and nowhere else.
 interface LiveIdentity {

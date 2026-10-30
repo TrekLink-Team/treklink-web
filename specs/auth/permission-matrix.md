@@ -24,6 +24,7 @@
 | `roster.read.own` | read | RosterShift | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `roster.manage.own` | manage | RosterShift | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `apiKey.manage.own` | manage | ApiKey | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `apiKey.read` | read | ApiKey |  | TREKLINK | X | X |  |  |
 | `fieldStation.read.own` | read | FieldStation | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `fieldStation.manage.own` | manage | FieldStation | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `fieldStation.read` | read | FieldStation |  | TREKLINK | X | X |  |  |
