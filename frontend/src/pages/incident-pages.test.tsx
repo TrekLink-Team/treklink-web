@@ -28,6 +28,7 @@ const TRAIL = [
     toState: 'DETECTED',
     actor: 'SYSTEM',
     reason: 'CREATED',
+    note: null,
     createdAt: '2026-10-29T03:15:00Z',
   },
   {
@@ -36,6 +37,7 @@ const TRAIL = [
     toState: 'NOTIFY_PRIMARY',
     actor: 'SYSTEM',
     reason: 'ROUTED',
+    note: null,
     createdAt: '2026-10-29T03:15:00Z',
   },
   {
@@ -44,6 +46,7 @@ const TRAIL = [
     toState: 'ACKNOWLEDGED',
     actor: 'Pham Van D',
     reason: 'SOME_NEW_CODE',
+    note: 'Two rangers are on the north trail\nRadio check every 15 minutes',
     createdAt: '2026-10-29T03:16:00Z',
   },
 ];
@@ -97,6 +100,7 @@ const view = (overrides: Record<string, unknown> = {}) => ({
   statusDueAt: null,
   reopenCount: 0,
   version: 1,
+  outcomeNote: null,
   statusUpdates: [],
   authorityReports: [],
   ...overrides,
@@ -437,6 +441,35 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(within(rows[1]).getByText(/^Routed, by the system, /)).toBeTruthy();
     expect(within(rows[2]).getByText(/^SOME_NEW_CODE, by Pham Van D, /)).toBeTruthy();
     expect(gets('/incidents/inc-1/transitions')).toBe(1);
+  });
+
+  it('prints the saved note under its history row and keeps its line breaks', async () => {
+    detail();
+    renderAt('/o/incidents/inc-1');
+    const trail = await screen.findByRole('region', { name: 'History' });
+    await within(trail).findByText('Created as Detected');
+    const rows = within(trail).getAllByRole('listitem');
+    // A step with no note prints no extra paragraph: the heading line and the reason line only.
+    expect(rows[0].querySelectorAll('p')).toHaveLength(2);
+    const note = rows[2].querySelectorAll('p')[2];
+    expect(note.textContent).toBe('Two rangers are on the north trail\nRadio check every 15 minutes');
+    expect(note.className).toContain('whitespace-pre-wrap');
+  });
+
+  it('shows the outcome in the facts card once the incident is resolved', async () => {
+    detail({ state: 'RESOLVED', outcomeNote: 'Holder walked down\nNo evacuation needed' });
+    renderAt('/o/incidents/inc-1');
+    const label = await screen.findByText('Outcome', { selector: 'dt' });
+    const outcome = label.parentElement?.querySelector('dd');
+    expect(outcome?.textContent).toBe('Holder walked down\nNo evacuation needed');
+    expect(outcome?.querySelector('span')?.className).toContain('whitespace-pre-wrap');
+  });
+
+  it('shows no outcome fact while the incident is unresolved', async () => {
+    detail();
+    renderAt('/o/incidents/inc-1');
+    await screen.findByText('Device');
+    expect(screen.queryByText('Outcome', { selector: 'dt' })).toBeNull();
   });
 
   it('never requests or shows the alert log to an Org Operator', async () => {

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the incident with its device and holder label, owner, pending deadline, latest status updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an incident with none returns empty arrays (D-059 rule 7).
+Returns the incident with its device and holder label, owner, pending deadline, latest status updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported on resolving, `null` until the incident is resolved.
 
 ## API Specification
 
@@ -61,6 +61,7 @@ No body.
     "statusDueAt": null,
     "reopenCount": 0,
     "version": 1,
+    "outcomeNote": null,
     "statusUpdates": [
       {
         "id": "su-3",

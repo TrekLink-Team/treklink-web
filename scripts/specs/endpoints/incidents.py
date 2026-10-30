@@ -69,9 +69,11 @@ ENDPOINTS = [
     ep("GET", "/api/incidents/:id", "Incident detail", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Returns the incident with its device and holder label, owner, pending deadline, latest status "
        "updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an "
-       "incident with none returns empty arrays (D-059 rule 7).", "UC-32, UC-33, FR-AUTH-11",
+       "incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported "
+       "on resolving, `null` until the incident is resolved.", "UC-32, UC-33, FR-AUTH-11",
        path=[I_PATH],
-       response={**INC, "statusUpdates": [{"id": "su-3", "note": "Reached the holder, minor ankle injury",
+       response={**INC, "outcomeNote": None,
+                 "statusUpdates": [{"id": "su-3", "note": "Reached the holder, minor ankle injury",
                                            "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW}],
                  "authorityReports": [{"id": REPORT_ID, "agency": "Lam Dong provincial rescue (114)",
                                        "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}]},
@@ -266,10 +268,15 @@ ENDPOINTS = [
 
     ep("GET", "/api/incidents/:id/transitions", "Incident audit trail",
        "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
-       "The append-only transition trail: sequence, from, to, actor or SYSTEM, reason and UTC time (FR-INC-04, BR-18).",
+       "The append-only transition trail: sequence, from, to, actor or SYSTEM, reason, note and UTC time "
+       "(FR-INC-04, BR-18). `note` is the free text saved with the step (what is being done on "
+       "`RESPONDING`, the outcome on `RESOLVED`, the reason on `FALSE_ALARM`) and is `null` for a step that "
+       "carries none, such as a system step.",
        "UC-58, FR-INC-04, BR-18", path=[I_PATH],
-       response=[{"seq": 1, "fromState": None, "toState": "DETECTED", "actor": "SYSTEM", "reason": "CREATED", "createdAt": NOW},
-                 {"seq": 2, "fromState": "DETECTED", "toState": "NOTIFY_PRIMARY", "actor": "SYSTEM", "reason": "ROUTED", "createdAt": NOW}],
+       response=[{"seq": 1, "fromState": None, "toState": "DETECTED", "actor": "SYSTEM", "reason": "CREATED", "note": None, "createdAt": NOW},
+                 {"seq": 2, "fromState": "DETECTED", "toState": "NOTIFY_PRIMARY", "actor": "SYSTEM", "reason": "ROUTED", "note": None, "createdAt": NOW},
+                 {"seq": 3, "fromState": "ACKNOWLEDGED", "toState": "RESPONDING", "actor": "Pham Van D", "reason": "RESPONDING",
+                  "note": "Two rangers are walking up the north trail", "createdAt": NOW}],
        entity="Incident", steps=["Read incident_transitions by seq"], controller="IncidentsController",
        service="IncidentsQueryService", call="transitions(id, caller)", seq=["Svc->>DB: SELECT incident_transitions"]),
 

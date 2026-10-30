@@ -56,6 +56,7 @@ const ROW = {
   statusDueAt: new Date('2026-10-29T03:46:00Z'),
   reopenCount: 0,
   version: 2,
+  outcomeNote: null,
 } as unknown as Incident;
 
 describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
@@ -88,6 +89,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
           toState: 'DETECTED',
           actorId: null,
           reason: 'CREATED',
+          note: null,
           createdAt: ROW.firstEventAt,
         },
         {
@@ -104,6 +106,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
           toState: 'RESPONDING',
           actorId: 'u-gone',
           reason: 'RESPONDING',
+          note: 'Two rangers are walking up the north trail',
           createdAt: ROW.stateChangedAt,
         },
       ]),
@@ -210,6 +213,17 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       },
     ]);
     expect(detail.authorityReports).toEqual([]);
+    expect(detail.outcomeNote).toBeNull();
+  });
+
+  it('returns the outcome the Operator reported once the incident is resolved (api-design 02)', async () => {
+    repository.findById.mockResolvedValue({
+      ...ROW,
+      state: 'RESOLVED',
+      outcomeNote: 'Holder walked down with the rangers',
+    });
+    const detail = await service.detail('inc-1', MEMBER, readOwn(MEMBER));
+    expect(detail.outcomeNote).toBe('Holder walked down with the rangers');
   });
 
   it.each([
@@ -238,10 +252,15 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
         toState: 'DETECTED',
         actor: 'SYSTEM',
         reason: 'CREATED',
+        note: null,
         createdAt: ROW.firstEventAt,
       },
-      expect.objectContaining({ seq: 2, actor: 'Pham Van D' }),
-      expect.objectContaining({ seq: 3, actor: 'u-gone' }),
+      expect.objectContaining({ seq: 2, actor: 'Pham Van D', note: null }),
+      expect.objectContaining({
+        seq: 3,
+        actor: 'u-gone',
+        note: 'Two rangers are walking up the north trail',
+      }),
     ]);
   });
 

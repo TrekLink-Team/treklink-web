@@ -135,7 +135,11 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
   it('reads the transition trail in sequence order (api-design 12)', async () => {
     await repository.transitions('inc-1');
     expect(prisma.incidentTransition.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { incidentId: 'inc-1' }, orderBy: { seq: 'asc' } }),
+      expect.objectContaining({
+        where: { incidentId: 'inc-1' },
+        orderBy: { seq: 'asc' },
+        select: expect.objectContaining({ reason: true, note: true }),
+      }),
     );
   });
 

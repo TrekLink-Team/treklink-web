@@ -193,6 +193,7 @@ export class IncidentsRepository {
         toState: true,
         actorId: true,
         reason: true,
+        note: true,
         createdAt: true,
       },
     });
