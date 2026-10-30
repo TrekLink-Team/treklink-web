@@ -154,6 +154,9 @@ export class EnvironmentVariables {
   @Matches(BODY_LIMIT, { message: 'HTTP_BODY_LIMIT must look like 512kb or 1mb' })
   HTTP_BODY_LIMIT = '1mb';
 
+  @Matches(BODY_LIMIT, { message: 'RENTALS_HANDOVER_BODY_LIMIT must look like 512kb or 2mb' })
+  RENTALS_HANDOVER_BODY_LIMIT = '2mb';
+
   // Default depends on NODE_ENV: true outside production. Resolved in validate().
   @IsOptional()
   @Transform(toBoolean)

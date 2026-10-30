@@ -26,6 +26,14 @@ export function configureApp(app: NestExpressApplication): void {
   // Request id before the body parser, so a 413 carries X-Request-Id too (REQ-UBI-08).
   app.use(requestIdMiddleware);
   const bodyLimit = config.get('HTTP_BODY_LIMIT', { infer: true });
+  // Parse the signature endpoint first; the general parser skips an already-consumed body.
+  app.useBodyParser('json', {
+    limit: config.get('RENTALS_HANDOVER_BODY_LIMIT', { infer: true }),
+    type: (request) =>
+      request.method === 'POST' &&
+      /^\/api\/contracts\/[^/?]+\/handover\/?(?:\?|$)/.test(request.url ?? '') &&
+      request.headers['content-type']?.split(';')[0].trim().toLowerCase() === 'application/json',
+  });
   app.useBodyParser('json', { limit: bodyLimit });
   app.useBodyParser('urlencoded', { limit: bodyLimit, extended: true });
 

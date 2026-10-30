@@ -76,7 +76,7 @@ label is optional personal data and is erased when the contract closes (BR-33); 
 
 - 360 px layout: list rows become cards (code, status label, plan, next date); the detail stacks the header, the balance box, the device cards with their row actions, the actions as full-width buttons at least 44 px high, then the history. Dialogs open full screen.
 - Tab order and focus after each action: filters, list, pager; on the detail: header actions in the order of the table, then device rows. A dialog traps focus and returns it to its button. Status is a text label in the lifecycle palette (chapter 06 §8.3). Dates show the viewer's timezone with the zone on hover; VND with thousands separators (§8.8).
-- WebSocket events and invalidated query keys: `device.label` and `device.released` invalidate `['contract', id]`. Query keys `['contracts', scope, filters]`, `['contract', id]`, `['contract-balance', id]`, `['contract-transitions', id]`; every mutation invalidates the first three.
+- WebSocket events: `device.label`, `device.handedOver` and `device.released` invalidate active `['contract', id]` queries by prefix, since label and release entries carry no contract id. Handover and release also invalidate the contract lists, balances and transitions; an expired replay refreshes all four groups. Position and telemetry do not refetch contract views. Query keys `['contracts', scope, filters]`, `['contract', id]`, `['contract-balance', id]`, `['contract-transitions', id]`; every mutation invalidates the first three.
 
 ## Checklist
 

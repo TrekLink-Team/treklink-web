@@ -32,6 +32,7 @@ describe('validate (environment)', () => {
       MQTT_CLIENT_ID_BACKEND: 'treklink-backend-service',
       CORS_ORIGINS: 'http://localhost:5173',
       HTTP_BODY_LIMIT: '1mb',
+      RENTALS_HANDOVER_BODY_LIMIT: '2mb',
       SWAGGER_ENABLED: true,
       PARAMETER_CACHE_TTL_SECONDS: 30,
       HEALTH_DB_TIMEOUT_MS: 2000,
@@ -42,6 +43,15 @@ describe('validate (environment)', () => {
       MAIL_TRANSPORT: 'console',
       MAIL_FROM: 'TrekLink <no-reply@treklink.local>',
     });
+  });
+
+  it('validates the independent handover signature body limit', () => {
+    expect(
+      validate({ ...REQUIRED, RENTALS_HANDOVER_BODY_LIMIT: '512kb' }).RENTALS_HANDOVER_BODY_LIMIT,
+    ).toBe('512kb');
+    expect(problemsOf({ ...REQUIRED, RENTALS_HANDOVER_BODY_LIMIT: 'unlimited' })).toContainEqual(
+      expect.stringMatching(/^RENTALS_HANDOVER_BODY_LIMIT:/),
+    );
   });
 
   it('reads the auth variables and rejects a bcrypt cost or mail transport out of range', () => {
