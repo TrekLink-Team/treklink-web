@@ -25,6 +25,8 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
         const incidentId = message.entry.payload.incidentId;
         void queryClient.invalidateQueries({ queryKey: ['incident', incidentId] });
         void queryClient.invalidateQueries({ queryKey: ['incidents'] });
+        // Screen 8.3: the report list follows the incident; reports have no event of their own.
+        void queryClient.invalidateQueries({ queryKey: ['authority-reports'] });
       }
     });
     return () => {
