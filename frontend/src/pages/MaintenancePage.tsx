@@ -129,8 +129,23 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
   if (!device) return null;
 
   return (
-    <Dialog titleId="open-title" title={`Open maintenance for ${device.assetTag}`} onClose={onCancel} size="md">
-      <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
+    <Dialog
+      titleId="open-title"
+      title={`Open maintenance for ${device.assetTag}`}
+      onClose={onCancel}
+      size="md"
+      footer={
+        <>
+          <Button type="button" onClick={onCancel} disabled={pending}>
+            Cancel
+          </Button>
+          <Button type="submit" form="open-maintenance-form" variant="primary" loading={pending}>
+            Open maintenance
+          </Button>
+        </>
+      }
+    >
+      <form id="open-maintenance-form" onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         <Field id="open-description" label="Description" required error={errors.description}>
           <Textarea id="open-description" value={description} onChange={(event) => setDescription(event.target.value)} />
         </Field>
@@ -165,14 +180,6 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
           />
         </Field>
         {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" onClick={onCancel} disabled={pending}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" loading={pending}>
-            Open maintenance
-          </Button>
-        </div>
       </form>
     </Dialog>
   );
@@ -364,8 +371,23 @@ const CompleteDialog: React.FC<{
   }
 
   return (
-    <Dialog titleId="complete-title" title={`Complete maintenance for ${record.device.assetTag}`} onClose={onCancel} size="md">
-      <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
+    <Dialog
+      titleId="complete-title"
+      title={`Complete maintenance for ${record.device.assetTag}`}
+      onClose={onCancel}
+      size="md"
+      footer={
+        <>
+          <Button type="button" onClick={onCancel} disabled={pending}>
+            Cancel
+          </Button>
+          <Button type="submit" form="complete-maintenance-form" variant="primary" loading={pending}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <form id="complete-maintenance-form" onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         <RadioGroup
           name="complete-status"
           legend="Status"
@@ -438,14 +460,6 @@ const CompleteDialog: React.FC<{
           </>
         )}
         {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" onClick={onCancel} disabled={pending}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" loading={pending}>
-            Save
-          </Button>
-        </div>
       </form>
     </Dialog>
   );

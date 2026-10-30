@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
@@ -199,6 +199,23 @@ describe('CounterPage (screen 5.4)', () => {
     next();
     expect(screen.getByRole('heading', { name: '2. Payment' })).toBeTruthy();
     expect(screen.getByText('The first payment is not recorded yet.')).toBeTruthy();
+  });
+
+  it('keeps the title and steps in the sticky header and Back and Next in the action bar', async () => {
+    renderPage();
+    const title = await screen.findByRole('heading', { level: 1, name: /Counter handover/ });
+    const header = title.closest('[data-compact]')!;
+    expect(within(header as HTMLElement).getByRole('list', { name: 'Steps' })).toBeTruthy();
+    const bar = screen.getByRole('group', { name: 'Handover steps' });
+    expect(within(bar).getByRole('button', { name: 'Back' })).toBeTruthy();
+    expect(within(bar).getByRole('button', { name: 'Next' })).toBeTruthy();
+    await readyDevices();
+    next();
+    next();
+    next();
+    const submit = within(bar).getByRole('button', { name: 'Complete handover' });
+    expect(submit.getAttribute('form')).toBe('handover-sign-form');
+    expect(within(bar).queryByRole('button', { name: 'Next' })).toBeNull();
   });
 
   it('answers an asset tag of another contract with MSG12', () => {
