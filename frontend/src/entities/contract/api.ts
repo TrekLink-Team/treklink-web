@@ -57,6 +57,9 @@ export interface ContractDevice {
   checkedInAt: string | null;
   lostAt: string | null;
   holder: { name: string; phone: string | null; emergencyContact: string | null } | null;
+  // The reset and inspection of this row's return (rentals api-design 03); absent outside the detail.
+  resetAt?: string | null;
+  inspection?: { result: InspectionResult; at: string } | null;
 }
 
 export interface ContractDetail extends Contract {

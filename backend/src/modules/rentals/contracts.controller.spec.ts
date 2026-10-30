@@ -151,6 +151,61 @@ describe('ContractsController (rentals api-design 01)', () => {
     expect(callerOrganization(undefined, contextWith(undefined))).toBeNull();
   });
 
+  it('answers each device row of the detail with its reset and inspection, null when none', async () => {
+    const checkedInAt = new Date('2026-10-30T03:00:00.000Z');
+    const resetAt = new Date('2026-10-30T03:05:00.000Z');
+    const row = (id: string, deviceId: string) => ({
+      id,
+      deviceId,
+      handedOverAt: AT,
+      checkedInAt,
+      lostAt: null,
+      holderName: null,
+      holderPhone: null,
+      holderEmergencyContact: null,
+    });
+    const reads = {
+      detail: jest.fn().mockResolvedValue({
+        row: {
+          ...CONTRACT,
+          reservationExpiresAt: null,
+          handoverAppointmentAt: null,
+          terms: [],
+          devices: [row('cd-1', 'd-1'), row('cd-2', 'd-2')],
+        },
+        organization: ORG,
+        variantCode: 'treklink-v3',
+        assetTags: new Map([
+          ['d-1', 'TL-0017'],
+          ['d-2', 'TL-0018'],
+        ]),
+        returnChecks: new Map([
+          ['cd-1', { resetAt, inspection: { result: 'PASSED', at: resetAt } }],
+          ['cd-2', { resetAt: null, inspection: null }],
+        ]),
+        balance: { dueNowVnd: 0n, dueLaterVnd: 0n },
+      }),
+    };
+    const reader = new ContractsController(
+      {} as ContractsService,
+      {} as DevicesService,
+      reads as unknown as ContractReadsService,
+      {} as ContractDecisionsService,
+    );
+
+    const detail = await reader.detail('c-1', MANAGER);
+
+    expect(detail.devices).toEqual([
+      expect.objectContaining({
+        deviceId: 'd-1',
+        assetTag: 'TL-0017',
+        resetAt,
+        inspection: { result: 'PASSED', at: resetAt },
+      }),
+      expect.objectContaining({ deviceId: 'd-2', resetAt: null, inspection: null }),
+    ]);
+  });
+
   const policiesOf = (method: string): PolicyHandler[] =>
     Reflect.getMetadata(
       CHECK_POLICIES_KEY,

@@ -195,7 +195,10 @@ export class ContractsController {
   @CheckPolicies((ability) => ability.can('read', 'RentalContract'))
   @ResponseMessage('OK')
   async detail(@Param('id', ParseUUIDPipe) id: string, @CurrentCaller() caller: Caller) {
-    const { row, assetTags, balance, ...labels } = await this.reads.detail(id, caller);
+    const { row, assetTags, returnChecks, balance, ...labels } = await this.reads.detail(
+      id,
+      caller,
+    );
     return {
       ...labelledView(row, labels, termOf(row.terms)),
       reservationExpiresAt: row.reservationExpiresAt,
@@ -206,9 +209,15 @@ export class ContractsController {
         endsAt: term.endsAt,
         status: term.status,
       })),
-      devices: row.devices.map((device) =>
-        toDeviceRowView(device, assetTags.get(device.deviceId) ?? null),
-      ),
+      // resetAt and inspection belong to this row's return, so a reload of the counter keeps them.
+      devices: row.devices.map((device) => {
+        const check = returnChecks.get(device.id);
+        return {
+          ...toDeviceRowView(device, assetTags.get(device.deviceId) ?? null),
+          resetAt: check?.resetAt ?? null,
+          inspection: check?.inspection ?? null,
+        };
+      }),
       balance: { dueNowVnd: Number(balance.dueNowVnd), dueLaterVnd: Number(balance.dueLaterVnd) },
     };
   }

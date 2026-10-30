@@ -82,7 +82,9 @@ No body.
           "name": "Le Thi E",
           "phone": "0912345678",
           "emergencyContact": "Le Van F, 0987654321"
-        }
+        },
+        "resetAt": null,
+        "inspection": null
       }
     ],
     "balance": {
@@ -95,6 +97,11 @@ No body.
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| devices[].resetAt | First reset of the unit at or after this row's check-in (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload | datetime | `2026-10-30T03:05:00.000Z` |
+| devices[].inspection | Last inspection recorded against this row (api-design 16): `result` PASSED, DAMAGED or FAILED, and `at`; null when none | object | `null` |
 
 ## Validation
 
@@ -173,8 +180,10 @@ flowchart TB
     D1 -->|no| P0
     P1["Ask billing for the balance summary"]
     P0 --> P1
+    P2["Ask DevicesService.returnChecks for the reset and inspection of each returned row"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -188,9 +197,11 @@ sequenceDiagram
     participant Svc as ContractsService
     participant DB as Postgres
     participant Bill as BillingService
+    participant Dev as DevicesService
     C->>Ctl: GET /api/contracts/:id
     Ctl->>Svc: get(id, caller)
     Svc->>DB: SELECT contract, terms, contract_devices
+    Svc->>Dev: returnChecks(rows)
     Svc->>Bill: balanceSummary(id)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope

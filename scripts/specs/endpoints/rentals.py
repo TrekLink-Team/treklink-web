@@ -63,11 +63,19 @@ ENDPOINTS = [
        path=[C_PATH], response={**CONTRACT, "handoverAppointmentAt": "2026-10-25T02:00:00Z",
                                 "terms": [{"seq": 1, "startsAt": "2026-10-25T02:00:00Z",
                                                        "endsAt": "2026-11-25T02:00:00Z", "status": "OPEN"}],
-                                "devices": [CDEV], "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
-       entity="Contract", steps=["Read within scope", "Ask billing for the balance summary"],
+                                "devices": [{**CDEV, "resetAt": None, "inspection": None}],
+                                "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
+       fields=[["devices[].resetAt", "First reset of the unit at or after this row's check-in (devices api-design 10), "
+                "null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
+                "`2026-10-30T03:05:00.000Z`"],
+               ["devices[].inspection", "Last inspection recorded against this row (api-design 16): `result` "
+                "PASSED, DAMAGED or FAILED, and `at`; null when none", "object", "`null`"]],
+       entity="Contract", steps=["Read within scope", "Ask billing for the balance summary",
+                                 "Ask DevicesService.returnChecks for the reset and inspection of each returned row"],
        controller="ContractsController", service="ContractsService", call="get(id, caller)",
-       participants=[["Bill", "BillingService"]],
-       seq=["Svc->>DB: SELECT contract, terms, contract_devices", "Svc->>Bill: balanceSummary(id)"]),
+       participants=[["Bill", "BillingService"], ["Dev", "DevicesService"]],
+       seq=["Svc->>DB: SELECT contract, terms, contract_devices", "Svc->>Dev: returnChecks(rows)",
+            "Svc->>Bill: balanceSummary(id)"]),
 
     ep("POST", "/api/contracts/:id/approve", "Approve a contract", "TrekLink Staff, TrekLink Admin",
        "Reserves exactly the requested number of `AVAILABLE` devices of the variant in one transaction "
