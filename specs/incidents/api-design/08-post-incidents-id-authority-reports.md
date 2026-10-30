@@ -239,17 +239,58 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Client
+    actor U as TrekLink Staff
+    participant P as StaffIncidentsPage
     participant Ctl as IncidentsController
     participant Svc as AuthorityReportsService
-    participant DB as Postgres
-    C->>Ctl: POST /api/incidents/:id/authority-reports
-    Ctl->>Svc: reportIncident(id, dto, actor)
-    Svc->>DB: BEGIN, SELECT incident FOR UPDATE
-    Svc->>Svc: transition table lookup, guards
-    Svc->>DB: UPDATE incident SET state, version+1 WHERE version = expected
-    Svc->>DB: INSERT incident_transitions, alert_deliveries (outbox), COMMIT
-    Svc-)Svc: dispatcher delivers outbox
-    Svc-->>Ctl: result
-    Ctl-->>C: 201 envelope
+    participant L as IncidentLifecycle
+    participant R as IncidentsRepository
+    participant Ar as AuthorityReportsRepository
+    U->>P: record agency, reference, time
+    activate P
+    P->>Ctl: POST /api/incidents/:id/authority-reports
+    activate Ctl
+    Ctl->>Svc: reportIncident(id, input, caller)
+    activate Svc
+    alt caller has an organization, or agency, reference or reportedAt invalid
+        Svc-->>Ctl: 403 FORBIDDEN or 400 VALIDATION_FAILED
+        Ctl-->>P: 403 or 400 envelope
+        P-->>U: MSG26, or the field error
+    else valid Staff request
+        Note over Svc,R: BEGIN
+        Svc->>R: lockById(id, tx)
+        alt incident not found
+            Svc-->>Ctl: 404 NOT_FOUND
+            Ctl-->>P: 404 envelope
+            P-->>U: MSG26
+        else not ESCALATED or UNROUTED
+            Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
+            Ctl-->>P: 409 envelope
+            P-->>U: MSG28, incident reloaded
+        else ESCALATED or UNROUTED
+            Svc->>L: apply(id, current, REPORTED, STAFF, AUTHORITY_REPORTED with expectedVersion, tx)
+            activate L
+            L->>R: lockById(id, tx)
+            alt expectedVersion differs
+                L-->>Svc: 409 STALE_VERSION
+                Svc-->>Ctl: 409 STALE_VERSION
+                Ctl-->>P: 409 envelope
+                P-->>U: MSG36, Reload keeps the values
+            else version matches
+                L->>R: compareAndSet(current, patch, tx)
+                L->>R: insertTransition(row, tx)
+                L-->>Svc: incident REPORTED
+                Svc->>Ar: insert(report, tx)
+                Note over Svc,Ar: COMMIT, then audit.record and incident.changed
+                Svc-->>Ctl: incident REPORTED
+                Note over Ctl: IncidentsQueryService.views adds device and owner
+                Ctl-->>P: 201 envelope
+                P-->>U: MSG03, REPORTED
+            end
+            deactivate L
+        end
+    end
+    deactivate Svc
+    deactivate Ctl
+    deactivate P
 ```

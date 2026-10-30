@@ -236,7 +236,7 @@ flowchart TB
     E4 --> X4((End))
     P0["Require ACKNOWLEDGED and the caller as owner"]
     D4 -->|no| P0
-    P1["Transition, append the status update, reset statusDueAt"]
+    P1["Transition with the note on it, reset statusDueAt"]
     P0 --> P1
     OK["Return 200"]
     P1 --> OK
@@ -248,17 +248,64 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Client
+    actor U as Org Operator or Org Manager
+    participant P as IncidentDetailPage
     participant Ctl as IncidentsController
-    participant Svc as IncidentLifecycleService
-    participant DB as Postgres
-    C->>Ctl: POST /api/incidents/:id/responding
-    Ctl->>Svc: markResponding(id, dto, caller)
-    Svc->>DB: BEGIN, SELECT incident FOR UPDATE
-    Svc->>Svc: transition table lookup, guards
-    Svc->>DB: UPDATE incident SET state, version+1 WHERE version = expected
-    Svc->>DB: INSERT incident_transitions, alert_deliveries (outbox), COMMIT
-    Svc-)Svc: dispatcher delivers outbox
-    Svc-->>Ctl: result
-    Ctl-->>C: 200 envelope
+    participant Svc as IncidentsService
+    participant L as IncidentLifecycle
+    participant R as IncidentsRepository
+    participant Ob as AlertDeliveriesRepository
+    U->>P: report a response under way
+    activate P
+    P->>Ctl: POST /api/incidents/:id/responding
+    activate Ctl
+    Ctl->>Svc: responding(id, input, caller)
+    activate Svc
+    alt blank note, or caller has no organization
+        Svc-->>Ctl: 400 VALIDATION_FAILED or 403 FORBIDDEN
+        Ctl-->>P: 400 or 403 envelope
+        P-->>U: field error, or MSG26
+    else member request
+        Note over Svc,R: BEGIN
+        Svc->>R: lockById(id, tx)
+        alt no such incident, or another organization's
+            Svc-->>Ctl: 404 NOT_FOUND
+            Ctl-->>P: 404 envelope
+            P-->>U: MSG26
+        else incident found
+            Svc->>L: apply(id, current, RESPONDING, member, RESPONDING with expectedVersion, tx)
+            activate L
+            L->>R: lockById(id, tx)
+            alt expectedVersion differs
+                L-->>Svc: 409 STALE_VERSION
+                Svc-->>Ctl: 409 STALE_VERSION
+                Ctl-->>P: 409 envelope
+                P-->>U: MSG36, reload
+            else state is not ACKNOWLEDGED
+                L-->>Svc: 409 INVALID_STATE_TRANSITION
+                Svc-->>Ctl: 409 INVALID_STATE_TRANSITION
+                Ctl-->>P: 409 envelope
+                P-->>U: MSG28
+            else caller is not the owner
+                L-->>Svc: 403 NOT_OWNER
+                Svc-->>Ctl: 403 NOT_OWNER
+                Ctl-->>P: 403 envelope
+                P-->>U: MSG26
+            else accepted
+                L->>R: compareAndSet(current, patch, tx)
+                L->>R: insertTransition(row, tx)
+                L->>Ob: enqueue(API event, tx)
+                L-->>Svc: incident RESPONDING
+                Note over Svc,R: COMMIT, then incident.changed and audit.record
+                Svc-->>Ctl: incident
+                Note over Ctl: IncidentsQueryService.views adds device and owner
+                Ctl-->>P: 200 envelope
+                P-->>U: RESPONDING, next update due
+            end
+            deactivate L
+        end
+    end
+    deactivate Svc
+    deactivate Ctl
+    deactivate P
 ```

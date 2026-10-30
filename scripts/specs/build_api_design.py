@@ -89,6 +89,10 @@ def activity(ep, errs):
 
 
 def sequence(ep):
+    # An endpoint may carry its whole sequence (participants, activations, alt branches) when the generic
+    # Client, controller, service, Postgres outline would not match the code; autonumber stays.
+    if ep.get("sequence"):
+        return "\n".join(["sequenceDiagram", "    autonumber"] + ["    " + line for line in ep["sequence"]])
     actor = ep.get("actor", "Client")
     ctrl = ep.get("controller", "Controller")
     svc = ep.get("service", "Service")
