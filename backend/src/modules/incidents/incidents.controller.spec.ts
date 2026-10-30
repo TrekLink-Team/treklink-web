@@ -94,6 +94,7 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
     ['statusUpdate', 'respond', 'Incident'],
     ['resolve', 'respond', 'Incident'],
     ['falseAlarm', 'respond', 'Incident'],
+    ['falseAlarm', 'respondUnrouted', 'Incident'],
     ['reportToAuthority', 'manage', 'AuthorityReport'],
   ] as const)('%s needs %s %s', (method, action, subject) => {
     // The route handler as Nest reads its metadata, taken without binding it.

@@ -78,6 +78,98 @@ describe('IncidentsService task 4.1', () => {
     expect((error as DomainException).getStatus()).toBe(status);
   };
 
+  describe('Staff false alarm (TK-147)', () => {
+    it.each(['STAFF', 'ADMIN'])(
+      'lets %s declare UNROUTED false with a Staff actor',
+      async (role) => {
+        current = row('UNROUTED', { organizationId: null });
+        await service.falseAlarm(
+          'incident',
+          { expectedVersion: 4, reason: ' Confirmed safe ' },
+          { ...STAFF, roles: [role] },
+        );
+        expect(applyCall(0)).toEqual([
+          'incident',
+          'UNROUTED',
+          'FALSE_ALARM',
+          { kind: 'STAFF', id: STAFF.id, roles: [role] },
+          {
+            code: 'FALSE_ALARM',
+            expectedVersion: 4,
+            note: 'Confirmed safe',
+            at: applyCall(0)[4].at,
+            recipients: EMPTY,
+          },
+          tx,
+        ]);
+      },
+    );
+
+    it.each(Object.values(IncidentState).filter((state) => state !== 'UNROUTED'))(
+      'refuses Staff from %s',
+      async (state) => {
+        current = row(state);
+        await expectError(
+          service.falseAlarm('incident', { expectedVersion: 4, reason: 'safe' }, STAFF),
+          409,
+          ErrorCode.INVALID_STATE_TRANSITION,
+        );
+        expect(lifecycle.apply).not.toHaveBeenCalled();
+      },
+    );
+
+    it('returns 404 for a missing incident', async () => {
+      current = null;
+      await expectError(
+        service.falseAlarm('missing', { expectedVersion: 4, reason: 'safe' }, STAFF),
+        404,
+        ErrorCode.NOT_FOUND,
+      );
+    });
+
+    it('propagates a stale version without another write', async () => {
+      current = row('UNROUTED', { organizationId: null });
+      const stale = new DomainException(HttpStatus.CONFLICT, ErrorCode.STALE_VERSION, 'Reload');
+      lifecycle.apply.mockRejectedValue(stale);
+      await expect(
+        service.falseAlarm('incident', { expectedVersion: 3, reason: 'safe' }, STAFF),
+      ).rejects.toBe(stale);
+    });
+
+    it.each([STAFF, OPERATOR])('rejects a blank reason for $id', async (caller) => {
+      await expectError(
+        service.falseAlarm('incident', { expectedVersion: 4, reason: ' ' }, caller),
+        400,
+        ErrorCode.VALIDATION_FAILED,
+      );
+      expect(events.transaction).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {
+        caller: OPERATOR,
+        current: row('UNROUTED', { organizationId: null }),
+        code: ErrorCode.NOT_FOUND,
+      },
+      {
+        caller: OPERATOR,
+        current: row('NOTIFY_PRIMARY', { organizationId: 'org-b' }),
+        code: ErrorCode.NOT_FOUND,
+      },
+      {
+        caller: { ...STAFF, roles: ['GUEST'] },
+        current: row('UNROUTED'),
+        code: ErrorCode.FORBIDDEN,
+      },
+    ])('keeps member isolation and rejects a non-Staff TrekLink account', async (example) => {
+      current = example.current;
+      await expect(
+        service.falseAlarm('incident', { expectedVersion: 4, reason: 'safe' }, example.caller),
+      ).rejects.toMatchObject({ errorCode: example.code });
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+  });
+
   describe('acknowledge', () => {
     it.each([
       'NOTIFY_PRIMARY',

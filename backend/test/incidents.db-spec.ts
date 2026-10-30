@@ -197,6 +197,107 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
     expect(await prisma.incident.count({ where: { deviceId: id } })).toBe(1);
   });
 
+  describe('TK-147 Staff false alarm', () => {
+    const service = new IncidentsService(
+      repository,
+      lifecycle,
+      parameters,
+      events,
+      organizations as unknown as OrganizationsService,
+    );
+    const staff = (role = 'STAFF'): Caller => ({
+      id: staffId,
+      roles: [role],
+      organizationId: null,
+    });
+
+    it.each(['STAFF', 'ADMIN'])(
+      'persists %s action, history and reopen deadline atomically',
+      async (role) => {
+        const incident = await fixture('UNROUTED', { organizationId: null, contractId: null });
+        const changed = await service.falseAlarm(
+          incident.id,
+          { expectedVersion: 0, reason: ' Confirmed safe ' },
+          staff(role),
+        );
+        expect(changed).toMatchObject({
+          state: 'FALSE_ALARM',
+          version: 1,
+          falseAlarmReason: 'Confirmed safe',
+        });
+        expect(changed.reopenWindowEndsAt).not.toBeNull();
+        expect(
+          await prisma.incidentTransition.findMany({
+            where: { incidentId: incident.id },
+            orderBy: { seq: 'asc' },
+          }),
+        ).toMatchObject([
+          { seq: 1, toState: 'UNROUTED' },
+          {
+            seq: 2,
+            fromState: 'UNROUTED',
+            toState: 'FALSE_ALARM',
+            actorId: staffId,
+            note: 'Confirmed safe',
+            reason: 'FALSE_ALARM',
+          },
+        ]);
+      },
+    );
+
+    it('serializes concurrent declarations, with one history row and one winner', async () => {
+      const incident = await fixture('UNROUTED', { organizationId: null });
+      const results = await Promise.allSettled(
+        [1, 2].map(() =>
+          service.falseAlarm(incident.id, { expectedVersion: 0, reason: 'Safe' }, staff()),
+        ),
+      );
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(results.find((result) => result.status === 'rejected')).toMatchObject({
+        reason: { errorCode: ErrorCode.INVALID_STATE_TRANSITION },
+      });
+      expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(2);
+    });
+
+    it('rejects stale versions and cross-organization members without changing history', async () => {
+      const incident = await fixture('UNROUTED', { organizationId: null });
+      await expect(
+        service.falseAlarm(incident.id, { expectedVersion: 3, reason: 'Safe' }, staff()),
+      ).rejects.toMatchObject({ errorCode: ErrorCode.STALE_VERSION });
+      await expect(
+        service.falseAlarm(
+          incident.id,
+          { expectedVersion: 0, reason: 'Safe' },
+          { id: operatorId, roles: ['ORG_OPERATOR'], organizationId },
+        ),
+      ).rejects.toMatchObject({ errorCode: ErrorCode.NOT_FOUND });
+      expect(await prisma.incident.findUnique({ where: { id: incident.id } })).toMatchObject({
+        state: 'UNROUTED',
+        version: 0,
+      });
+      expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(1);
+    });
+
+    it('rolls back state and history when transition persistence fails', async () => {
+      const incident = await fixture('UNROUTED', { organizationId: null });
+      const fail = jest
+        .spyOn(repository, 'insertTransition')
+        .mockRejectedValueOnce(new Error('history unavailable'));
+      try {
+        await expect(
+          service.falseAlarm(incident.id, { expectedVersion: 0, reason: 'Safe' }, staff()),
+        ).rejects.toThrow('history unavailable');
+      } finally {
+        fail.mockRestore();
+      }
+      expect(await prisma.incident.findUnique({ where: { id: incident.id } })).toMatchObject({
+        state: 'UNROUTED',
+        version: 0,
+      });
+      expect(await prisma.incidentTransition.count({ where: { incidentId: incident.id } })).toBe(1);
+    });
+  });
+
   it('allocates unique six-digit codes for concurrent different devices', async () => {
     const devices = await Promise.all(Array.from({ length: 10 }, () => device()));
     const results = await Promise.all(

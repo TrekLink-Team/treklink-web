@@ -56,6 +56,8 @@ const account = (id: string, accountType: string, role: string) => ({
 
 const ACCOUNTS: Record<string, ReturnType<typeof account>> = {
   'staff-1': account('staff-1', 'TREKLINK', 'STAFF'),
+  'admin-1': account('admin-1', 'TREKLINK', 'ADMIN'),
+  'reader-1': account('reader-1', 'TREKLINK', 'READER'),
   'operator-a': account('operator-a', 'ORGANIZATION', 'ORG_OPERATOR'),
   'manager-a': account('manager-a', 'ORGANIZATION', 'ORG_MANAGER'),
 };
@@ -91,7 +93,18 @@ const OPERATOR_PERMISSIONS = [
   permission('incident.respond.own', 'respond', true),
 ];
 const PERMISSIONS: Record<string, unknown[]> = {
+  ADMIN: [
+    {
+      ...permission('incident.respondUnrouted', 'respondUnrouted', false),
+      conditions: { state: 'UNROUTED' },
+    },
+  ],
+  READER: [permission('incident.read', 'read', false)],
   STAFF: [
+    {
+      ...permission('incident.respondUnrouted', 'respondUnrouted', false),
+      conditions: { state: 'UNROUTED' },
+    },
     permission('incident.read', 'read', false),
     permission('alertDelivery.read', 'read', false, 'AlertDelivery'),
   ],
@@ -302,11 +315,28 @@ describe('incidents API (e2e, api-design 01 to 07, 12 and 14)', () => {
       expect(incidents[method]).not.toHaveBeenCalled();
     });
 
-    it('refuses TrekLink Staff, who hold no respond permission, with 403', async () => {
+    it('limits Staff to the false-alarm permission', async () => {
       const response = await post('staff-1', `/api/incidents/${ID}/${path}`, body);
-      expect(response.status).toBe(403);
-      expect(incidents[method]).not.toHaveBeenCalled();
+      if (path === 'false-alarm') {
+        expect(response.status).toBe(200);
+        expect(incidents.falseAlarm).toHaveBeenCalled();
+      } else {
+        expect(response.status).toBe(403);
+        expect(incidents[method]).not.toHaveBeenCalled();
+      }
     });
+  });
+
+  it('allows Admin API 07 and refuses a read-only account', async () => {
+    const body = { expectedVersion: 1, reason: 'Confirmed safe' };
+    expect((await post('admin-1', `/api/incidents/${ID}/false-alarm`, body)).status).toBe(200);
+    incidents.falseAlarm.mockClear();
+    expect((await post('reader-1', `/api/incidents/${ID}/false-alarm`, body)).status).toBe(403);
+    expect(incidents.falseAlarm).not.toHaveBeenCalled();
+    await request(app.getHttpServer())
+      .post(`/api/incidents/${ID}/false-alarm`)
+      .send(body)
+      .expect(401);
   });
 
   it.each([
