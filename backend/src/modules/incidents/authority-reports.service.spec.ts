@@ -33,7 +33,13 @@ const report = (patch: Partial<AuthorityReport> = {}): AuthorityReport =>
 describe('AuthorityReportsService (incidents task 4.3, api-design 08, 09 and 11)', () => {
   const tx = { marker: 'tx' } as unknown as Prisma.TransactionClient;
   let incidents: { lockById: jest.Mock };
-  let reports: { insert: jest.Mock; lockById: jest.Mock; closeCase: jest.Mock; page: jest.Mock };
+  let reports: {
+    insert: jest.Mock;
+    lockById: jest.Mock;
+    closeCase: jest.Mock;
+    countOpenOnIncident: jest.Mock;
+    page: jest.Mock;
+  };
   let lifecycle: { apply: jest.Mock };
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let service: AuthorityReportsService;
@@ -48,6 +54,7 @@ describe('AuthorityReportsService (incidents task 4.3, api-design 08, 09 and 11)
         .mockImplementation((id: string, caseClosedAt: Date) =>
           Promise.resolve(report({ id, caseClosedAt })),
         ),
+      countOpenOnIncident: jest.fn().mockResolvedValue(0),
       page: jest.fn().mockResolvedValue([[], 0]),
     };
     lifecycle = {
@@ -244,6 +251,31 @@ describe('AuthorityReportsService (incidents task 4.3, api-design 08, 09 and 11)
         subjectId: 'ar-1',
         after: { caseClosedAt: CLOSED_AT, note: 'Found safe', incidentState: 'CLOSED' },
       });
+    });
+
+    it('keeps a REPORTED incident open while another report on it is still open', async () => {
+      incidents.lockById.mockResolvedValue(incident('REPORTED'));
+      reports.countOpenOnIncident.mockResolvedValue(1);
+      await expect(service.closeCase('ar-1', { closedAt: CLOSED_AT }, STAFF)).resolves.toEqual({
+        id: 'ar-1',
+        caseClosedAt: CLOSED_AT,
+        incidentState: 'REPORTED',
+      });
+      expect(reports.countOpenOnIncident).toHaveBeenCalledWith('inc-1', tx);
+      // Counted after this report is closed and the incident is locked.
+      expect(reports.closeCase.mock.invocationCallOrder[0]).toBeLessThan(
+        reports.countOpenOnIncident.mock.invocationCallOrder[0],
+      );
+      expect(incidents.lockById.mock.invocationCallOrder[0]).toBeLessThan(
+        reports.countOpenOnIncident.mock.invocationCallOrder[0],
+      );
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+      expect(events.emitAfterCommit).toHaveBeenCalledWith(
+        AUDIT_RECORD,
+        expect.objectContaining({
+          after: expect.objectContaining({ incidentState: 'REPORTED' }) as unknown,
+        }),
+      );
     });
 
     it('records the time only when a member acknowledged the incident after the report', async () => {

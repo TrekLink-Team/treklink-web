@@ -192,7 +192,8 @@ export class AuthorityReportsService {
     });
   }
 
-  // Sets caseClosedAt once. A REPORTED incident moves to CLOSED; an incident a member acknowledged
+  // Sets caseClosedAt once. A REPORTED incident moves to CLOSED when no other report on it is still
+  // open (PR #137 review: an incident reported again after a reopen keeps the later case open); an incident a member acknowledged
   // after the report (UC-35 alternative) keeps its state, and a contract report only records the time.
   async closeCase(
     reportId: string,
@@ -222,7 +223,11 @@ export class AuthorityReportsService {
         if (!incident) throw new Error(`Authority report ${reportId} has no incident.`);
         organizationId = incident.organizationId;
         incidentState = incident.state;
-        if (incident.state === 'REPORTED')
+        // Counted after the incident lock: two closures on one incident serialise there.
+        if (
+          incident.state === 'REPORTED' &&
+          (await this.reports.countOpenOnIncident(incident.id, tx)) === 0
+        )
           incidentState = (
             await this.lifecycle.apply(
               incident.id,
