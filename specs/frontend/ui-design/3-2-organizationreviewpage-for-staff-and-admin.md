@@ -5,7 +5,7 @@
 | Owner | LongLP (reassigned from TanNB 2026-10-27, issue #98) |
 | Task | `specs/frontend/tasks.md` 3.2 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
-| Status | Partly built: the queue, verification, approve and reject are ready for review; suspend, reactivate and close are open |
+| Status | Built: the queue, verification, approve and reject, and (2026-10-30) suspend, reactivate, close and the status history |
 | Routes | `/t/organizations`, the queue with the selected organization in a side panel (beside the table from 1280 px, under it below) (`specs/frontend/design.md` §2). The sidebar entry sits under Organizations and compliance. `/t/organizations/:id` is not built. |
 | Roles | TrekLink Staff: the queue and the counter verification. TrekLink Admin: the same, plus Approve and Reject. Organization accounts: MSG26 (TrekLink route). |
 | Use case, FRs, story | UC-02, UC-03; FR-ORG-02, FR-ORG-03; US-UC02, US-UC03, US-UC07 |
@@ -18,11 +18,12 @@ Scope from the task: organizations api-design 02, 03, 05 to 11; verification for
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Tabs Pending, Active, Rejected, All | organizations 02 with `status=PENDING`, `ACTIVE`, `REJECTED`, and without a status |
+| Tabs Pending, Active, Suspended, Rejected, All | organizations 02 with `status=PENDING`, `ACTIVE`, `SUSPENDED`, `REJECTED`, and without a status |
 | Queue: code, organization, registered, verified, status | organizations 02 `items[].code`, `legalName`, `createdAt`, `verifiedAt`, `status` |
 | Panel: name, status, code, tax code, address, contact | organizations 02 `items[].legalName`, `status`, `code`, `taxCode`, `address`, `contactEmail`, `contactPhone` |
 | Panel: verification time, method and master contract | organizations 02 `items[].verifiedAt`, `verificationMethod`, `masterContractRef` |
 | Panel: rejection reason | organizations 02 `items[].rejectionReason` |
+| Panel: Status history (not for `PENDING`), one line per change: from and to status, time, actor and reason | organizations 11 `fromStatus`, `toStatus`, `createdAt`, `actor` (a name, or `SYSTEM`), `reason` |
 
 The panel reads the selected row of the list; organizations 03 (the detail) is not called yet.
 
@@ -33,7 +34,9 @@ The panel reads the selected row of the list; organizations 03 (the detail) is n
 | Record verification, Update verification (Staff, Admin; `PENDING` only) | organizations 05 `POST /api/organizations/:id/verification` with `expectedVersion` | none | toast "Saved." and the queue refetches |
 | Approve (Admin; `PENDING`; held until verified) | organizations 06 `POST /api/organizations/:id/approve` | none | toast "{code} approved. The Manager can now request devices." |
 | Reject (Admin; `PENDING`) | organizations 07 `POST /api/organizations/:id/reject` with the reason | the reject Dialog naming the organization, reason required | toast with MSG16 and the reason |
-| Suspend, Reactivate, Close | organizations 08 to 11 | open | open |
+| Suspend (Admin; `ACTIVE`) | organizations 08 `POST /api/organizations/:id/suspend` with the reason and `expectedVersion` | Dialog naming the organization and what suspension keeps running, reason required | toast "{code} suspended." and the queue and history refetch |
+| Close organization (Admin; `ACTIVE`) | organizations 10 `POST /api/organizations/:id/close` with the reason and `expectedVersion` | Dialog naming the organization and that members, API keys and stations are revoked, reason required | toast "{code} closed." |
+| Reactivate (Admin; `SUSPENDED`) | organizations 09 `POST /api/organizations/:id/reactivate` with `expectedVersion` | none | toast "{code} reactivated." |
 
 ## States
 
@@ -47,6 +50,8 @@ The panel reads the selected row of the list; organizations 03 (the detail) is n
 | Error `CONTRACT_TERMS_MISSING` | checked first on the page: "The master contract must include the signed NDA and the software licence." |
 | Error `STALE_VERSION` | the server's message as an error Alert; the queue refetches |
 | Error `INVALID_STATE_TRANSITION` | the server's message as an error Alert |
+| Error `OPEN_CONTRACTS` (close) | the server's message under the reason; the dialog stays open |
+| Error `BALANCE_OUTSTANDING` (reactivate) | the server's message as an error Alert under Status |
 | Not found or forbidden | MSG26 |
 
 ## Form fields (if any)
@@ -73,4 +78,4 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Built on the `shared/ui` components (PageHeader, Tabs, StatusBadge with `ORGANIZATION_STATUS`, Card, RadioGroup, Checkbox, Field, Input, Textarea, Dialog, Alert, Button), token classes only
 - [x] Filters inside the table, as on every list table
 - [x] Component-tested: Approve held until verified, both contract terms required, Approve offered once verified (`OnboardingPages.test.tsx`)
-- [ ] Suspend, reactivate and close (organizations 08 to 11)
+- [x] Suspend, reactivate and close (organizations 08 to 11), component-tested in `OnboardingPages.test.tsx`

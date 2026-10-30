@@ -3,9 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
 import {
   approveOrganization,
+  closeOrganization,
   organizationKeys,
+  reactivateOrganization,
   rejectOrganization,
+  suspendOrganization,
   useOrganizations,
+  useOrganizationTransitions,
   verifyOrganization,
   type OrganizationReview,
   type OrganizationStatus,
@@ -39,11 +43,12 @@ import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
 import { TABLE, TD, TH } from '../shared/ui/styles';
 import { ChannelKeySection } from '../widgets/ChannelKeySection/ChannelKeySection';
 
-type Tab = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ALL';
+type Tab = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' | 'ALL';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'PENDING', label: 'Pending' },
   { key: 'ACTIVE', label: 'Active' },
+  { key: 'SUSPENDED', label: 'Suspended' },
   { key: 'REJECTED', label: 'Rejected' },
   { key: 'ALL', label: 'All' },
 ];
@@ -211,9 +216,131 @@ const RejectDialog: React.FC<{
   );
 };
 
-// /t/organizations, screen 3.2 (organizations api-design 02, 05 to 07; UC-02, UC-03): Staff and
-// Admin work the verification queue, and an Admin approves a verified organization (MSG05, MSG21)
-// or rejects it (MSG16).
+type StatusAction = 'suspend' | 'close';
+
+const STATUS_ACTION: Record<
+  StatusAction,
+  { title: string; detail: string; confirm: string; done: string }
+> = {
+  suspend: {
+    title: 'Suspend',
+    detail:
+      'It cannot request contracts while suspended. Rented devices stay monitored and SOS alerts still reach its members.',
+    confirm: 'Suspend organization',
+    done: 'suspended',
+  },
+  close: {
+    title: 'Close',
+    detail:
+      'Its members are deactivated and its API keys and Field Station credentials revoked. This cannot be undone.',
+    confirm: 'Close organization',
+    done: 'closed',
+  },
+};
+
+// The suspend and close dialogs of api-design 08 and 10: the reason is kept on the transition and
+// shown to the Manager. A refusal (OPEN_CONTRACTS, STALE_VERSION) stays in the dialog.
+const StatusDialog: React.FC<{
+  action: StatusAction;
+  organization: OrganizationReview;
+  onDone: () => void;
+  onStale: () => void;
+  onClose: () => void;
+}> = ({ action, organization, onDone, onStale, onClose }) => {
+  const copy = STATUS_ACTION[action];
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const submit = async () => {
+    if (reason.trim() === '') {
+      setError('Reason is required.');
+      return;
+    }
+    setPending(true);
+    try {
+      const call = action === 'suspend' ? suspendOrganization : closeOrganization;
+      await call(organization.id, reason.trim(), organization.version);
+      onDone();
+    } catch (failure) {
+      setPending(false);
+      setError(messageOf(failure));
+      if (failure instanceof ApiError && failure.errorCode === 'STALE_VERSION') onStale();
+    }
+  };
+
+  return (
+    <Dialog
+      titleId="org-status-title"
+      title={`${copy.title} ${organization.code}?`}
+      description={`${organization.legalName}. ${copy.detail}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={pending}>
+            Cancel
+          </Button>
+          <Button variant="danger" loading={pending} onClick={() => void submit()}>
+            {copy.confirm}
+          </Button>
+        </>
+      }
+    >
+      <Field
+        id="org-status-reason"
+        label="Reason shown to the Manager"
+        error={error ?? undefined}
+        required
+      >
+        <Textarea
+          id="org-status-reason"
+          rows={3}
+          maxLength={500}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          {...invalid('org-status-reason', error ?? undefined)}
+        />
+      </Field>
+    </Dialog>
+  );
+};
+
+// The status history of api-design 11, newest last as the server lists it.
+const StatusHistory: React.FC<{ organizationId: string }> = ({ organizationId }) => {
+  const history = useOrganizationTransitions(organizationId);
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-4">
+      <h3 className="text-title-sm text-ink">Status history</h3>
+      {history.isLoading && <Skeleton className="h-10" />}
+      {history.error && (
+        <ErrorState error={history.error} onRetry={() => void history.refetch()} />
+      )}
+      {history.data && history.data.length === 0 && (
+        <p className="text-body-sm text-ink-muted">No status change yet.</p>
+      )}
+      {history.data && history.data.length > 0 && (
+        <ol className="flex flex-col gap-2">
+          {history.data.map((row) => (
+            <li key={`${row.createdAt}-${row.toStatus}`} className="text-body-sm">
+              <span className="font-semibold text-ink">
+                {ORGANIZATION_STATUS[row.fromStatus]?.label ?? row.fromStatus} to{' '}
+                {ORGANIZATION_STATUS[row.toStatus]?.label ?? row.toStatus}
+              </span>
+              <span className="block text-ink-muted">
+                {formatDateTime(row.createdAt)}, {row.actor}
+                {row.reason ? `: ${row.reason}` : ''}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+};
+
+// /t/organizations, screen 3.2 (organizations api-design 02, 05 to 11; UC-02, UC-03, UC-07): Staff
+// and Admin work the verification queue, and an Admin approves a verified organization (MSG05,
+// MSG21) or rejects it (MSG16), suspends, reactivates or closes it.
 export const OrganizationReviewPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
@@ -222,6 +349,9 @@ export const OrganizationReviewPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('PENDING');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [statusAction, setStatusAction] = useState<StatusAction | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [reactivating, setReactivating] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
   const organizations = useOrganizations(
@@ -245,6 +375,23 @@ export const OrganizationReviewPage: React.FC = () => {
   const select = (id: string) => {
     setSelectedId(id);
     setDecisionError(null);
+    setStatusError(null);
+  };
+
+  // api-design 09: no reason; BALANCE_OUTSTANDING (billing's exit check) shows under Status.
+  const reactivate = async (organization: OrganizationReview) => {
+    setReactivating(true);
+    setStatusError(null);
+    try {
+      await reactivateOrganization(organization.id, organization.version);
+      await refresh();
+      showToast(`${organization.code} reactivated.`);
+    } catch (failure) {
+      setStatusError(messageOf(failure));
+      if (failure instanceof ApiError && failure.errorCode === 'STALE_VERSION') void refresh();
+    } finally {
+      setReactivating(false);
+    }
   };
 
   const approve = async (organization: OrganizationReview) => {
@@ -440,6 +587,45 @@ export const OrganizationReviewPage: React.FC = () => {
                   )}
                 </>
               )}
+
+              {isAdmin && (selected.status === 'ACTIVE' || selected.status === 'SUSPENDED') && (
+                <div className="flex flex-col gap-3 border-t border-line pt-4">
+                  <h3 className="text-title-sm text-ink">Status</h3>
+                  {statusError && <Alert tone="error">{statusError}</Alert>}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    {selected.status === 'ACTIVE' ? (
+                      <>
+                        <Button
+                          variant="secondary"
+                          className="flex-1"
+                          onClick={() => setStatusAction('suspend')}
+                        >
+                          Suspend
+                        </Button>
+                        <Button
+                          variant="danger"
+                          className="flex-1"
+                          onClick={() => setStatusAction('close')}
+                        >
+                          Close organization
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        className="flex-1"
+                        loading={reactivating}
+                        loadingLabel="Reactivating"
+                        onClick={() => void reactivate(selected)}
+                      >
+                        Reactivate
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selected.status !== 'PENDING' && <StatusHistory organizationId={selected.id} />}
             </Card>
           ) : (
             organizations.data &&
@@ -452,6 +638,21 @@ export const OrganizationReviewPage: React.FC = () => {
           )}
         </div>
       </TabPanel>
+
+      {statusAction && selected && (
+        <StatusDialog
+          action={statusAction}
+          organization={selected}
+          onClose={() => setStatusAction(null)}
+          onStale={() => void refresh()}
+          onDone={() => {
+            setStatusAction(null);
+            setStatusError(null);
+            void refresh();
+            showToast(`${selected.code} ${STATUS_ACTION[statusAction].done}.`);
+          }}
+        />
+      )}
 
       {rejecting && selected && (
         <RejectDialog
