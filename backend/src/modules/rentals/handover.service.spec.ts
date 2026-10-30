@@ -165,7 +165,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       reserved: { id: 'd-9', assetTag: 'TL-d-9', status: 'RESERVED' },
     });
     expect(contracts.releaseRow).toHaveBeenCalledWith('cd-1', AT, TX);
-    expect(devices.failHandoverCheck).toHaveBeenCalledWith('d-1', AT, TX);
+    expect(devices.failHandoverCheck).toHaveBeenCalledWith('d-1', 'No GPS fix', STAFF.id, AT, TX);
     expect(devices.reserve).toHaveBeenCalledWith({ id: 'v-3', code: 'treklink-v3' }, 1, AT, TX);
     expect(devices.assetTags).toHaveBeenCalledWith(['d-1'], TX);
     expect(contracts.insertContractDevices).toHaveBeenCalledWith(

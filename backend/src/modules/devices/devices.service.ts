@@ -186,13 +186,31 @@ export class DevicesService {
     return ids.length === 0 ? Promise.resolve([]) : this.devices.provisioning(ids, tx);
   }
 
-  // A reserved unit that fails the counter check goes to MAINTENANCE (E01-5). The maintenance record
-  // itself joins with task 2.8.
-  async failHandoverCheck(deviceId: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
+  // A reserved unit that fails the counter check goes to MAINTENANCE (E01-5) with a
+  // HANDOVER_CHECK_FAILED record holding the swap reason, so it appears on the maintenance screen and
+  // returns to the fleet through the record and an intake check like any other repaired unit.
+  async failHandoverCheck(
+    deviceId: string,
+    reason: string,
+    actorId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
     await this.devices.moveStatus(
       [deviceId],
       DeviceStatus.RESERVED,
       DeviceStatus.MAINTENANCE,
+      at,
+      tx,
+    );
+    await this.maintenance.openForSystem(
+      {
+        deviceId,
+        reason: 'HANDOVER_CHECK_FAILED',
+        description: `Handover check failed: ${reason}`,
+        expectedAt: businessDay(at),
+      },
+      actorId,
       at,
       tx,
     );

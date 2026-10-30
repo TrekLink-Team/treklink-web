@@ -95,7 +95,7 @@
   - **Test**: with a fake clock, AC-09 to AC-12; the four maintenance constraints on Postgres
   - _Requirements: REQ-EVT-09, REQ-EVT-18, REQ-EVT-19, REQ-EVT-20, REQ-EVT-21, REQ-EVT-22, REQ-STA-03, REQ-STA-04, REQ-ERR-08, REQ-ERR-09, REQ-ERR-10, AC-09, AC-11, AC-12, FR-DEV-08, FR-DEV-17 to FR-DEV-21, BR-44, BR-45_
   - _Story: US-UC52, US-UC64, US-UC65_
-  - **Progress** (2026-10-30, D-078 chain 3): `maintenance.repository.ts`, `maintenance.service.ts` and `maintenance.controller.ts` serve api-design 11 to 15: open (`device.operate`), estimate, complete or `UNREPAIRABLE`, list (`device.read`), and the Admin decision with the new permission `maintenance.decide` (forward migration `20261030120000_permission_maintenance_decide`). Smoke-tested through the API on the seed. Open: `ServiceScanJob`, the Admin notification on `PENDING_APPROVAL`, unit and Postgres tests
+  - **Progress** (2026-10-30, D-078 chain 3): `maintenance.repository.ts`, `maintenance.service.ts` and `maintenance.controller.ts` serve api-design 11 to 15: open (`device.operate`), estimate, complete or `UNREPAIRABLE`, list (`device.read`), and the Admin decision with the new permission `maintenance.decide` (forward migration `20261030120000_permission_maintenance_decide`). Smoke-tested through the API on the seed. Open: `ServiceScanJob`, the Admin notification on `PENDING_APPROVAL`, unit and Postgres tests. **Partly done** (2026-10-30, KhoaDD under D-078): a counter swap (`failHandoverCheck()`) now opens a `HANDOVER_CHECK_FAILED` record with the swap reason; before, the unit went to `MAINTENANCE` with no record and never appeared on screen 4.3
 
 ## Phase 3: Query / Retrieval
 

@@ -83,4 +83,36 @@ describe('DevicesService', () => {
     repository.findValuation.mockResolvedValue(null);
     await expect(service.valueAt('nope', at)).rejects.toBeInstanceOf(DomainException);
   });
+
+  it('moves a unit that failed the counter check to MAINTENANCE with a HANDOVER_CHECK_FAILED record', async () => {
+    const moveStatus = jest.fn().mockResolvedValue(1);
+    const openForSystem = jest.fn().mockResolvedValue({});
+    const tx = {} as never;
+    service = new DevicesService(
+      { moveStatus } as unknown as DevicesRepository,
+      { openForSystem } as never,
+      {} as never,
+    );
+
+    await service.failHandoverCheck('dev-1', 'No GPS fix', 'u-staff', at, tx);
+
+    expect(moveStatus).toHaveBeenCalledWith(
+      ['dev-1'],
+      DeviceStatus.RESERVED,
+      DeviceStatus.MAINTENANCE,
+      at,
+      tx,
+    );
+    expect(openForSystem).toHaveBeenCalledWith(
+      {
+        deviceId: 'dev-1',
+        reason: 'HANDOVER_CHECK_FAILED',
+        description: 'Handover check failed: No GPS fix',
+        expectedAt: new Date('2026-10-23T00:00:00Z'),
+      },
+      'u-staff',
+      at,
+      tx,
+    );
+  });
 });
