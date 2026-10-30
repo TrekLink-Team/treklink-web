@@ -19,8 +19,8 @@
 //
 // Out of scope: RC-2026-0001 still carries no invoice, payment or signed handover note. Billing exists
 // now (RC-2026-0002 below is seeded with a paid invoice); backfilling RC-2026-0001 is left open and
-// noted in the PR that added RC-2026-0002. The signed handover note stays out of scope for both
-// contracts, because that flow does not exist yet.
+// noted in the PR that added RC-2026-0002. The seed does not populate a signed handover note for either
+// contract; the handover flow writes one at the counter.
 //
 // Passwords come from SEED_ADMIN_PASSWORD, SEED_STAFF_PASSWORD, SEED_MANAGER_PASSWORD and
 // SEED_OPERATOR_PASSWORD, never from the repository. All names, codes and numbers are fictitious.
@@ -667,7 +667,7 @@ export async function seedDemo(
       // term. RC-2026-0001 carries no invoice yet (see the file header); that gap is not touched here.
       const term2 = await tx.contractTerm.findFirstOrThrow({
         where: { contractId: contract2.id, seq: 1 },
-        select: { id: true, startsAt: true, endsAt: true },
+        select: { id: true, seq: true, startsAt: true, endsAt: true },
       });
       if (!(await tx.invoice.findUnique({ where: { termId: term2.id } }))) {
         const feeVnd = termFeeVnd(mf05VariantStatic.monthlyPriceVnd, MF05_DEVICES.length);
@@ -711,7 +711,7 @@ export async function seedDemo(
                 {
                   seq: 1,
                   type: InvoiceLineType.HOLDING_FEE,
-                  description: `Term 1 holding fee, ${devicesLabel}`,
+                  description: `Term ${term2.seq} holding fee, ${devicesLabel}`,
                   dueAt: term2.startsAt,
                   createdById: null,
                   amountVnd: holdingVnd,
@@ -720,7 +720,7 @@ export async function seedDemo(
                 {
                   seq: 2,
                   type: InvoiceLineType.TERM_BALANCE,
-                  description: `Term 1 balance, ${devicesLabel}`,
+                  description: `Term ${term2.seq} balance, ${devicesLabel}`,
                   dueAt: term2.endsAt,
                   createdById: null,
                   amountVnd: balanceVnd,
