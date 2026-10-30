@@ -60,6 +60,15 @@
   - **Files**: `station-health.handler.ts`
   - **Do**: refuse a revoked station; accept a device only when the station's organization holds it now or under an interval ended less than `gatewaySync.lateUploadGraceHours` ago (`NOT_RENTED_TO_STATION_ORG`); health messages call `FieldStationsService.recordStationHealth` with depth per tier, oldest retry count, last sync time and version, then emit `fieldStation.synced`; listen to `fieldStation.revoked` and drop that username's messages at once
   - **Test**: AC-04; a health report with an older version makes the station `outdated` (organizations AC-08)
+  - **Progress** (2026-10-30, D-078 MF-02 demo chain): the health part only. `StationHealthHandler`
+    subscribes `treklink/fs/+/health` alongside the node topic, parses the `treklink.fs_health` payload
+    (schema and version checked), drops an unparseable report, an unknown username or a revoked station
+    with no audit row (a health report is not an ingestion attempt), and calls
+    `FieldStationsService.recordStationHealth` with the depth per tier, oldest attempts, version and the
+    clock-corrected last flush (`FieldStation.lastFlushAt`, same offset as `fs_captured_at`, D-040).
+    Open: the `fieldStation.synced` emit, the `fieldStation.revoked` listener, and the whole Field
+    Station event path (device acceptance, `NOT_RENTED_TO_STATION_ORG`) of this task, which belongs to
+    the station adapter of task 2.1
   - _Requirements: REQ-EVT-05, REQ-EVT-08, AC-04, FR-EVT-13, FR-EVT-14, FR-EVT-18_
   - _Story: US-UC42_
 - [ ] 2.6 Device queue reports (owner KhoaDD)
@@ -80,6 +89,11 @@
 - [ ] 4.1 `POST /api/gateway-sync` operation endpoint (owner KhoaDD)
   - **Do**: api-design 03 to 06, operations `listEvents`, `listAudit`, `replayAudit` (a quarantined `UNKNOWN_DEVICE` row re-runs ingestion on its raw message and writes a new audit row; anything else 409 `NOT_REPLAYABLE`), `listQueueReports` (D-027)
   - **Test**: replay after registering the device ingests it once
+  - **Progress** (2026-10-30, D-078 MF-02 demo chain): `GatewaySyncController` dispatches `listEvents`
+    (api-design 03) and `syncStatus`, a new op added by this chain for the demo's sync status page
+    (api-design 07, `FieldEventQueryService`, `SyncStatusService`). `syncStatus` needs `read FieldEvent`
+    (the route's gate) and `read FieldStation` (checked in the handler); no new permission, both
+    already STAFF-held. Open: `listAudit`, `replayAudit`, `listQueueReports`
   - _Requirements: REQ-EVT-09_
 - [ ] 4.2 E2E and replay harness (owner KhoaDD)
   - **Files**: `backend/test/gateway-sync.e2e-spec.ts`, `backend/test/harness/replay.ts`

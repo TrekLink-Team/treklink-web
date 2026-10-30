@@ -110,6 +110,35 @@ ENDPOINTS = [
                        "p0Refused": 0, "rebootDetected": False}, 31),
        steps=["Dispatch on op", "Read device_queue_reports"], controller="GatewaySyncController",
        service="QueueReportService", call="list(dto)", seq=["Svc->>DB: SELECT device_queue_reports"]),
+
+    ep("POST", "/api/gateway-sync", "Field data sync status", "TrekLink Staff, TrekLink Admin", op="syncStatus",
+       overview="MF-02 end to end for TrekLink Staff and Admin: the backend's MQTT subscriber connection, "
+       "every Field Station that is not revoked with its connection state, queue depth per priority (D-057 "
+       "rule 9), last sync, last flush and version, and the window's ingestion outcomes from the sync audit "
+       "(FR-EVT-13, FR-EVT-18). Needs `read FieldEvent` and `read FieldStation`.",
+       traces="UC-26, UC-42, FR-EVT-01, FR-EVT-13, FR-EVT-18",
+       body=[["op", "Literal `syncStatus`", "string", "yes", "`syncStatus`"],
+             ["windowMinutes", "Ingestion look-back, default 60, at most 1440", "int", "no", "`60`"]],
+       sample={"op": "syncStatus", "windowMinutes": 60},
+       response={
+           "broker": {"subscriber": "up"},
+           "staleAfterSeconds": 180,
+           "fieldStations": [{
+               "id": STATION_ID, "name": "Ta Nang basecamp laptop", "mqttUsername": "fs-org-0001-1",
+               "organization": {"id": ORG_ID, "code": "ORG-0001", "name": "TrekLink Demo Tours Co., Ltd."},
+               "connection": "CONNECTED", "lastSyncAt": NOW, "lastFlushAt": NOW,
+               "queueDepth": {"p0": 0, "p1": 0, "p2": 2, "p3": 9}, "oldestRetryCount": 0, "version": "0.1.0",
+           }],
+           "ingestion": {
+               "windowMinutes": 60, "accepted": 26, "acceptedUnattributed": 1, "duplicates": 10,
+               "malformed": 0, "unknownDevice": 2, "lastReceivedAt": NOW,
+           },
+       },
+       steps=["Dispatch on op", "Read the MQTT health probe, the active Field Stations and the window's "
+              "sync audit outcomes"],
+       controller="GatewaySyncController", service="SyncStatusService", call="status(dto)",
+       participants=[["Stations", "FieldStationsService"]],
+       seq=["Svc->>Stations: activeWithHealth()", "Svc->>DB: GROUP BY outcome FROM sync_audit_log"]),
 ]
 
 NOTES = ("The MQTT ingress (Stage A, B and C) and the Field Station local page are not HTTP endpoints of "

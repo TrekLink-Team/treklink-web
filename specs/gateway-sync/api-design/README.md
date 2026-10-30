@@ -10,6 +10,7 @@
 | 04 | POST | `/api/gateway-sync` op `listAudit` | TrekLink Admin | [04-post-gateway-sync-op-list-audit.md](04-post-gateway-sync-op-list-audit.md) |
 | 05 | POST | `/api/gateway-sync` op `replayAudit` | TrekLink Admin | [05-post-gateway-sync-op-replay-audit.md](05-post-gateway-sync-op-replay-audit.md) |
 | 06 | POST | `/api/gateway-sync` op `listQueueReports` | TrekLink Staff, TrekLink Admin | [06-post-gateway-sync-op-list-queue-reports.md](06-post-gateway-sync-op-list-queue-reports.md) |
+| 07 | POST | `/api/gateway-sync` op `syncStatus` | TrekLink Staff, TrekLink Admin | [07-post-gateway-sync-op-sync-status.md](07-post-gateway-sync-op-sync-status.md) |
 
 The MQTT ingress (Stage A, B and C) and the Field Station local page are not HTTP endpoints of the backend; they are documented in the hand-written contracts below. `POST /api/gateway-sync` is the D-027 operation endpoint; the broker hooks are separate routes because mosquitto-go-auth calls fixed URIs.
 
