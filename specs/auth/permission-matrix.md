@@ -36,6 +36,7 @@
 | `device.register` | create | Device |  | TREKLINK | X | X |  |  |
 | `device.operate` | operate | Device |  | TREKLINK | X | X |  |  |
 | `device.retire` | retire | Device |  | TREKLINK | X |  |  |  |
+| `device.dispose` | dispose | Device |  | TREKLINK | X |  |  |  |
 | `device.availability` | readAvailability | Device |  | TREKLINK | X | X |  |  |
 | `device.availability.org` | readAvailability | Device |  | ORGANIZATION |  |  | X |  |
 | `maintenance.decide` | decide | MaintenanceRecord |  | TREKLINK | X |  |  |  |

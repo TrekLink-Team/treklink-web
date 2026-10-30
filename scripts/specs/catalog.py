@@ -154,6 +154,7 @@ PERMISSIONS = [
     ("device.register", "create", "Device", None, ["STAFF"]),
     ("device.operate", "operate", "Device", None, ["STAFF"]),
     ("device.retire", "retire", "Device", None, ["ADMIN"]),
+    ("device.dispose", "dispose", "Device", None, ["ADMIN"]),  # devices api-design 23, BR-42
     ("device.availability", "readAvailability", "Device", None, ["STAFF"]),
     ("device.availability.org", "readAvailability", "Device", None, ["ORG_MANAGER"]),
     ("maintenance.decide", "decide", "MaintenanceRecord", None, ["ADMIN"]),  # devices api-design 13, BR-44

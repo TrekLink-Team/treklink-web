@@ -337,6 +337,21 @@ export class DevicesRepository {
     });
   }
 
+  // Records the verified wipe before a RETIRED device moves to DISPOSED (devices api-design 23,
+  // BR-42). One row per device (schema unique index); the device's own transition is a separate
+  // insertTransition call, same as insertReset.
+  async insertDisposal(
+    deviceId: string,
+    steps: { keyRemoved: boolean; nodeDbCleared: boolean; ownerCleared: boolean; method: string },
+    verifiedById: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.deviceDisposal.create({
+      data: { deviceId, ...steps, verifiedById, disposedAt: at },
+    });
+  }
+
   // Device detail (devices api-design 07, task 3.1): the fleet row plus what the detail page and the
   // intake and maintenance rules read from the variant.
   findDetail(id: string, client: Client = this.prisma): Promise<DeviceDetailRow | null> {
