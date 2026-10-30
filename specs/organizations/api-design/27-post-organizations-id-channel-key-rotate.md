@@ -14,7 +14,7 @@ Records that TrekLink rotated the organization's channel key with the counter's 
 | API | URL |
 | --- | --- |
 | POST | /api/organizations/:id/channel-key/rotate |
-| Permission | TrekLink Staff |
+| Permission | TrekLink Staff, TrekLink Admin |
 | Traces | UC-60, FR-DEV-13, D-045 |
 
 ### Path parameters
