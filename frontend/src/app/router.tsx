@@ -29,6 +29,7 @@ import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
 import { OrgDashboardPage } from '../pages/OrgDashboardPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
+import { PlansPage } from '../pages/PlansPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SignInPage } from '../pages/SignInPage';
@@ -84,7 +85,8 @@ const STAFF: Role[] = ['STAFF'];
 // Contracts and billing are screens 5.1 to 5.4 and 6.1 to 6.4.
 export const AppRoutes: React.FC = () => (
   <Routes>
-    <Route path="/" element={<DashboardPage />} />
+    <Route path="/" element={<PlansPage />} />
+    <Route path="/plans" element={<PlansPage />} />
     <Route element={<SignedOutOnly />}>
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/forgot" element={<ForgotPasswordPage />} />

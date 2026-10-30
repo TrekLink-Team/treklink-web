@@ -18,6 +18,7 @@ export * from './status';
 export * from './Stepper';
 export * from './Tabs';
 export * from './Toolbar';
+export * from './legal';
 export * from './map/MapChrome';
 export { cn } from './cn';
 export { Toast } from './toast';
