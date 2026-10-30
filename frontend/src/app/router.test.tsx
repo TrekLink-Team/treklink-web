@@ -11,6 +11,7 @@ import { AppRoutes } from './router';
 vi.mock('../pages/LiveMapPage', () => ({
   LiveMapPage: ({ scope }: { scope: string }) => <p>live map {scope}</p>,
 }));
+vi.mock('../pages/PlansPage', () => ({ PlansPage: () => <p>plans page</p> }));
 vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
 vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
@@ -119,13 +120,15 @@ describe('route guards (AC-01)', () => {
     expect(screen.getByText('live map t')).toBeTruthy();
   });
 
-  it('sends `/` to the landing route, or a visitor to sign-in', () => {
-    visit('/', account(['STAFF'], 'TREKLINK'));
-    expect(screen.getByText('live map t')).toBeTruthy();
-    cleanup();
-    act(() => useSession.getState().signOut());
+  it('shows the public plans page on `/` and `/plans`, to a visitor and to a signed-in user', () => {
     visit('/', null);
-    expect(screen.getByText(/^sign-in/)).toBeTruthy();
+    expect(screen.getByText('plans page')).toBeTruthy();
+    cleanup();
+    visit('/plans', null);
+    expect(screen.getByText('plans page')).toBeTruthy();
+    cleanup();
+    visit('/', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('plans page')).toBeTruthy();
   });
 
   it('gives an Org Operator the incident queue and detail, and shows MSG26 to Staff', () => {

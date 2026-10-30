@@ -13,7 +13,6 @@ import { ComplianceCasePage } from '../pages/ComplianceCasePage';
 import { ComplianceCasesPage } from '../pages/ComplianceCasesPage';
 import { CounterPage } from '../pages/CounterPage';
 import { DeviceDetailPage } from '../pages/DeviceDetailPage';
-import { DashboardPage } from '../pages/DashboardPage';
 import { FleetPage } from '../pages/FleetPage';
 import { FieldStationsPage } from '../pages/FieldStationsPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
