@@ -1,6 +1,6 @@
 import { LossDecision, Prisma } from '@prisma/client';
 import { LossCaseNotifier } from './loss-case-notifier';
-import { registerLossCaseListener } from './ports/loss-case-listener.port';
+import { LossCaseListener, registerLossCaseListener } from './ports/loss-case-listener.port';
 
 const VIEW = {
   id: 'lc-1',
@@ -19,28 +19,32 @@ const TX = {} as Prisma.TransactionClient;
 describe('LOSS_CASE_LISTENERS (devices task 1.4, provided to billing 2.6 and rentals)', () => {
   it('registers a listener once and calls onConfirmed and onSettled in order', async () => {
     const calls: string[] = [];
-    const listeners: never[] = [];
+    const listeners: LossCaseListener[] = [];
     const billing = {
-      onConfirmed: jest.fn(async () => {
+      onConfirmed: jest.fn(() => {
         calls.push('billing');
+        return Promise.resolve();
       }),
-      onSettled: jest.fn(async () => {
+      onSettled: jest.fn(() => {
         calls.push('billing-settled');
+        return Promise.resolve();
       }),
     };
     const rentals = {
-      onConfirmed: jest.fn(async () => {
+      onConfirmed: jest.fn(() => {
         calls.push('rentals');
+        return Promise.resolve();
       }),
-      onSettled: jest.fn(async () => {
+      onSettled: jest.fn(() => {
         calls.push('rentals-settled');
+        return Promise.resolve();
       }),
     };
-    registerLossCaseListener(listeners as never, billing as never);
-    registerLossCaseListener(listeners as never, rentals as never);
-    registerLossCaseListener(listeners as never, billing as never); // ignored, already present
+    registerLossCaseListener(listeners, billing);
+    registerLossCaseListener(listeners, rentals);
+    registerLossCaseListener(listeners, billing); // ignored, already present
 
-    const notifier = new LossCaseNotifier(listeners as never);
+    const notifier = new LossCaseNotifier(listeners);
     await notifier.confirmed(VIEW, TX);
     expect(calls).toEqual(['billing', 'rentals']);
     expect(billing.onConfirmed).toHaveBeenCalledTimes(1);

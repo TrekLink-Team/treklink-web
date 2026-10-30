@@ -91,11 +91,12 @@ export enum ErrorCode {
   BALANCE_OUTSTANDING = 'BALANCE_OUTSTANDING',
   OPEN_INCIDENTS = 'OPEN_INCIDENTS',
 
-  // devices (specs/devices/design.md §4): intake and maintenance (tasks 2.2, 2.8).
+  // devices (specs/devices/design.md §4): intake and maintenance (tasks 2.2, 2.8). SEPARATION_OF_DUTY
+  // (maintenance api-design 13, BR-44) is declared above for billing's damage-charge decision; both
+  // reuse the same code (REQ-ERR-08).
   MOTION_RESULT_REQUIRED = 'MOTION_RESULT_REQUIRED',
   MAINTENANCE_OPEN = 'MAINTENANCE_OPEN',
   VENDOR_REQUIRED = 'VENDOR_REQUIRED',
   CHECKLIST_INCOMPLETE = 'CHECKLIST_INCOMPLETE',
   FIRMWARE_VERSION_REQUIRED = 'FIRMWARE_VERSION_REQUIRED',
-  SEPARATION_OF_DUTY = 'SEPARATION_OF_DUTY',
 }

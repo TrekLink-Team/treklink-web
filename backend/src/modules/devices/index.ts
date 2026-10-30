@@ -21,3 +21,4 @@ export {
   type LossCaseView,
   registerLossCaseListener,
 } from './ports/loss-case-listener.port';
+export { CUSTODY_RESOLVER, type CustodyResolver } from './ports/custody-resolver.port';
