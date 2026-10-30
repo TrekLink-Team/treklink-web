@@ -369,7 +369,7 @@ ENDPOINTS = [
        "UC-05, FR-ORG-05, BR-16, MSG22",
        path=[ORG_PATH],
        query=[["from", "Inclusive start", "datetime", "yes", "`2026-10-20T00:00:00Z`"],
-              ["to", "Exclusive end, at most 31 days after from", "datetime", "yes", "`2026-10-27T00:00:00Z`"]],
+              ["to", "Exclusive end, at most `organizations.rosterMaxRangeDays` (default 31) days after from", "datetime", "yes", "`2026-10-27T00:00:00Z`"]],
        response={"shifts": [SHIFT], "warnings": [{"from": "2026-10-20T12:00:00Z", "to": "2026-10-21T00:00:00Z",
                                                   "kind": "NO_PRIMARY"}]},
        entity="Organization", steps=["Read shifts in range", "Compute gaps and windows without a primary"],

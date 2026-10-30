@@ -44,6 +44,7 @@ describe('Roster shifts against Postgres (REQ-UBI-04, FR-ORG-05, AC-04)', () => 
     new OrganizationsRepository(prisma),
     accounts,
     events,
+    { get: () => Promise.resolve(31) } as unknown as ParameterService,
   );
   const runId = randomUUID();
   const hour = 3_600_000;
