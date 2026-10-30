@@ -225,12 +225,17 @@ export interface MaintenanceFilters {
   pageNumber?: number;
 }
 
+// devices api-design 15: the page carries the approval threshold for the hint beside the estimate.
+export interface MaintenanceRecordPage extends Page<MaintenanceRecord> {
+  approvalThresholdVnd: number;
+}
+
 export const fetchMaintenanceRecords = (filters: MaintenanceFilters) => {
   const query = new URLSearchParams({ pageSize: '20', pageNumber: String(filters.pageNumber ?? 1) });
   (filters.status ?? []).forEach((status) => query.append('status', status));
   (filters.reason ?? []).forEach((reason) => query.append('reason', reason));
   if (filters.dueBefore) query.set('dueBefore', filters.dueBefore);
-  return apiClient<Page<MaintenanceRecord>>(`/maintenance-records?${query.toString()}`);
+  return apiClient<MaintenanceRecordPage>(`/maintenance-records?${query.toString()}`);
 };
 
 export const useMaintenanceRecords = (filters: MaintenanceFilters, enabled = true) =>

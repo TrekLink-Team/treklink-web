@@ -22,7 +22,7 @@ import { Button } from '../shared/ui/Button';
 import { Dialog } from '../shared/ui/Dialog';
 import { Checkbox, Field, Input, Switch, Textarea } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
-import { DEVICE_STATUS } from '../shared/ui/status';
+import { DEVICE_STATUS, MAINTENANCE_STATUS } from '../shared/ui/status';
 import { StatusBadge } from '../shared/ui/Badge';
 import { useToast } from '../shared/ui/toastStore';
 import { ALERT, CARD, LINK } from '../shared/ui/styles';
@@ -307,7 +307,7 @@ export const DeviceDetailPage: React.FC = () => {
               <Fact label="Open maintenance">
                 {device.openMaintenance ? (
                   <Link to="/t/maintenance" className={LINK}>
-                    {device.openMaintenance.status}, {device.openMaintenance.description}
+                    {MAINTENANCE_STATUS[device.openMaintenance.status].label}, {device.openMaintenance.description}
                   </Link>
                 ) : (
                   'None'

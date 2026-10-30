@@ -45,7 +45,10 @@ const record = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+let thresholdVnd: number | undefined = 1_000_000;
+
 const page = (items: unknown[]) => ({
+  approvalThresholdVnd: thresholdVnd,
   items,
   pageNumber: 1,
   pageSize: 20,
@@ -109,6 +112,7 @@ beforeEach(() => {
   records = [record()];
   approvals = [];
   devicesOut = [];
+  thresholdVnd = 1_000_000;
   recordFilters.length = 0;
 });
 
@@ -386,5 +390,20 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     fireEvent.change(picker.getByLabelText(/Device/), { target: { value: 'd-9' } });
     fireEvent.click(picker.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByRole('dialog', { name: 'Open maintenance for TL-0009' })).toBeTruthy();
+  });
+
+  it('names the approval threshold amount beside the estimate', async () => {
+    renderPage();
+    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText(/Above 1[.,]000[.,]000.*an Admin must approve before completion\./)).toBeTruthy();
+  });
+
+  it('names the rule without an amount when the threshold is not known', async () => {
+    thresholdVnd = undefined;
+    renderPage();
+    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText('VND. Above the approval threshold, an Admin must approve before completion.')).toBeTruthy();
   });
 });

@@ -100,6 +100,17 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.getByText('treklink-v3')).toBeTruthy();
   });
 
+  it('names the open maintenance record by its readable status', async () => {
+    currentDevice = device({
+      status: 'MAINTENANCE',
+      openMaintenance: { id: 'm-1', status: 'OPEN', description: 'Antenna loose' },
+    });
+    renderPage();
+    const link = await screen.findByRole('link', { name: 'Open, Antenna loose' });
+    expect(link.getAttribute('href')).toBe('/t/maintenance');
+    expect(screen.queryByText(/OPEN, Antenna loose/)).toBeNull();
+  });
+
   it('records an intake check with the motion field for a motion variant', async () => {
     recordIntakeCheck.mockResolvedValue({ check: { passed: true }, device: device() });
     renderPage();
