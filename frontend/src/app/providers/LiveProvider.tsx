@@ -25,7 +25,14 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const stopMessages = subscribeLive((message) => {
       if (message.kind === 'replay.expired') {
         void queryClient.invalidateQueries({ queryKey: ['map', 'snapshot'] });
-        for (const key of ['contract', 'contracts', 'contract-balance', 'contract-transitions']) {
+        for (const key of [
+          'contract',
+          'contracts',
+          'contract-balance',
+          'contract-transitions',
+          'invoices',
+          'invoice',
+        ]) {
           void queryClient.invalidateQueries({ queryKey: [key] });
         }
       }
@@ -64,6 +71,12 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           for (const key of ['contracts', 'contract-balance', 'contract-transitions']) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
+        }
+        if (type === 'device.released') {
+          // A check-in past the grace adds a late fee line (rentals 4.1), which the invoice lists and
+          // the dashboard's amount due read (screens 5.6 and 6.1).
+          void queryClient.invalidateQueries({ queryKey: ['invoices'] });
+          void queryClient.invalidateQueries({ queryKey: ['invoice'] });
         }
       }
     });
