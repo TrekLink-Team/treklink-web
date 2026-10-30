@@ -47,24 +47,30 @@ const record = (overrides: Record<string, unknown> = {}) => ({
 
 let thresholdVnd: number | undefined = 1_000_000;
 
-const page = (items: unknown[]) => ({
+// totalPages above 1 when a test sets `pages`, as a list longer than one page of 20 would answer.
+let pages: number | undefined;
+
+const page = (items: unknown[], pageNumber = 1) => ({
   approvalThresholdVnd: thresholdVnd,
   items,
-  pageNumber: 1,
+  pageNumber,
   pageSize: 20,
-  totalCount: items.length,
-  totalPages: items.length > 0 ? 1 : 0,
+  totalCount: pages ? pages * 20 : items.length,
+  totalPages: pages ?? (items.length > 0 ? 1 : 0),
 });
 
 let records: unknown[] = [record()];
 let approvals: unknown[] = [];
+let weekRecords: unknown[] = [];
 let devicesOut: unknown[] = [];
-const recordFilters: { status?: string[]; reason?: string[]; dueBefore?: string }[] = [];
+const recordFilters: { status?: string[]; reason?: string[]; dueBefore?: string; pageNumber?: number }[] =
+  [];
+const deviceFilters: { status?: string[]; q?: string }[] = [];
 
 vi.mock('../entities/device/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/device/api')>()),
   useDevice: () => ({ data: { id: 'd-9', assetTag: 'TL-0009', version: 5 } }),
-  useDevices: (filters: { status?: string[] }) => ({
+  useDevices: (filters: { status?: string[]; q?: string }) => (deviceFilters.push(filters), {
     data: page(
       filters.status?.includes('AVAILABLE')
         ? [{ id: 'd-9', assetTag: 'TL-0009', status: 'AVAILABLE' }]
@@ -74,15 +80,18 @@ vi.mock('../entities/device/api', async (importOriginal) => ({
     error: null,
     refetch: vi.fn(),
   }),
-  useMaintenanceRecords: (filters: { status?: string[]; dueBefore?: string }, enabled = true) => {
+  useMaintenanceRecords: (
+    filters: { status?: string[]; dueBefore?: string; pageNumber?: number },
+    enabled = true,
+  ) => {
     recordFilters.push(filters);
     if (!enabled) return { data: page([]), isLoading: false, error: null, refetch: vi.fn() };
     const items = filters.status?.includes('PENDING_APPROVAL')
       ? approvals
       : filters.dueBefore
-        ? [] // the week's list is exercised separately; kept empty to avoid ambiguous matches
+        ? weekRecords // empty unless a test sets it, to avoid ambiguous matches
         : records;
-    return { data: page(items), isLoading: false, error: null, refetch: vi.fn() };
+    return { data: page(items, filters.pageNumber), isLoading: false, error: null, refetch: vi.fn() };
   },
   estimateMaintenance: (...args: unknown[]) => estimateMaintenance(...args),
   completeMaintenance: (...args: unknown[]) => completeMaintenance(...args),
@@ -111,9 +120,12 @@ beforeEach(() => {
   currentUserId = 'staff-1';
   records = [record()];
   approvals = [];
+  weekRecords = [];
   devicesOut = [];
   thresholdVnd = 1_000_000;
   recordFilters.length = 0;
+  deviceFilters.length = 0;
+  pages = undefined;
 });
 
 const table = async () => within(await screen.findByRole('table', { name: 'Maintenance records' }));
@@ -390,6 +402,39 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     fireEvent.change(picker.getByLabelText(/Device/), { target: { value: 'd-9' } });
     fireEvent.click(picker.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByRole('dialog', { name: 'Open maintenance for TL-0009' })).toBeTruthy();
+  });
+
+  it("pages the week's service and the approvals instead of hiding past the first 20", async () => {
+    currentRoles = ['ADMIN'];
+    currentUserId = 'admin-2';
+    approvals = [record({ id: 'm-2', status: 'PENDING_APPROVAL' })];
+    weekRecords = [record({ id: 'm-3' })];
+    pages = 2;
+    renderPage();
+    await table();
+    fireEvent.click(screen.getByRole('tab', { name: /This week's service/ }));
+    fireEvent.click(within(screen.getByRole('tabpanel', { name: /This week's service/ })).getByRole('button', { name: 'Next page' }));
+    await waitFor(() =>
+      expect(recordFilters).toContainEqual(expect.objectContaining({ dueBefore: expect.any(String), pageNumber: 2 })),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
+    fireEvent.click(within(screen.getByRole('tabpanel', { name: /Approvals/ })).getByRole('button', { name: 'Next page' }));
+    await waitFor(() =>
+      expect(recordFilters).toContainEqual(expect.objectContaining({ status: ['PENDING_APPROVAL'], pageNumber: 2 })),
+    );
+  });
+
+  it('searches the available devices in the picker and names the 100-device cap', async () => {
+    pages = 6;
+    renderPage();
+    await table();
+    fireEvent.click(screen.getByRole('button', { name: 'Open maintenance' }));
+    const picker = within(screen.getByRole('dialog', { name: 'Open maintenance' }));
+    expect(picker.getByText('Showing the first 100 of 120; search to narrow.')).toBeTruthy();
+    fireEvent.change(picker.getByLabelText(/Search/), { target: { value: 'TL-0009' } });
+    await waitFor(() =>
+      expect(deviceFilters).toContainEqual(expect.objectContaining({ status: ['AVAILABLE'], q: 'TL-0009' })),
+    );
   });
 
   it('names the approval threshold amount beside the estimate', async () => {

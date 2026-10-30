@@ -20,6 +20,7 @@ import {
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
+import { useDebounced } from '../shared/lib/useDebounced';
 import { ErrorState, Fact } from '../shared/ui/bits';
 import { Alert } from '../shared/ui/Alert';
 import { StatusBadge } from '../shared/ui/Badge';
@@ -549,13 +550,19 @@ const workByOf = (record: MaintenanceRecord): string => {
   return 'Not decided';
 };
 
+const PICK_PAGE_SIZE = 100;
+const PICK_SEARCH_DEBOUNCE_MS = 300;
+
 // Choose the AVAILABLE device to open maintenance on, when the page was not opened from a device
 // (screen 4.3: Open maintenance is shown for an AVAILABLE device with no open record).
 const PickDeviceDialog: React.FC<{ onPick: (deviceId: string) => void; onCancel: () => void }> = ({
   onPick,
   onCancel,
 }) => {
-  const available = useDevices({ status: ['AVAILABLE'], pageSize: 100 });
+  const [q, setQ] = useState('');
+  const settledQ = useDebounced(q.trim(), PICK_SEARCH_DEBOUNCE_MS);
+  // One page of up to PICK_PAGE_SIZE AVAILABLE devices; the search narrows it by asset tag or node id.
+  const available = useDevices({ status: ['AVAILABLE'], q: settledQ || undefined, pageSize: PICK_PAGE_SIZE });
   const [deviceId, setDeviceId] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -584,16 +591,38 @@ const PickDeviceDialog: React.FC<{ onPick: (deviceId: string) => void; onCancel:
       {available.error ? (
         <ErrorState error={available.error} onRetry={() => void available.refetch()} />
       ) : (
-        <Field id="pick-device" label="Device" required error={error}>
-          <Select id="pick-device" value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
-            <option value="">{available.isLoading ? 'Loading…' : 'Select a device'}</option>
-            {(available.data?.items ?? []).map((device) => (
-              <option key={device.id} value={device.id}>
-                {device.assetTag}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="flex flex-col gap-3">
+          <Field id="pick-search" label="Search" hint="Asset tag or node id.">
+            <Input
+              id="pick-search"
+              value={q}
+              onChange={(event) => {
+                setQ(event.target.value);
+                setDeviceId('');
+              }}
+            />
+          </Field>
+          <Field
+            id="pick-device"
+            label="Device"
+            required
+            error={error}
+            hint={
+              available.data && available.data.totalPages > 1
+                ? `Showing the first ${PICK_PAGE_SIZE} of ${available.data.totalCount}; search to narrow.`
+                : undefined
+            }
+          >
+            <Select id="pick-device" value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
+              <option value="">{available.isLoading ? 'Loading…' : 'Select a device'}</option>
+              {(available.data?.items ?? []).map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.assetTag}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
       )}
     </Dialog>
   );
@@ -676,6 +705,21 @@ const RecordDrawer: React.FC<{
   </Drawer>
 );
 
+// A pager under a records table, only when there is more than one page.
+const pagerOf = (
+  page: { pageNumber: number; totalPages: number; totalCount: number; pageSize: number } | undefined,
+  onPage: (pageNumber: number) => void,
+) =>
+  page && page.totalPages > 1 ? (
+    <Pagination
+      pageNumber={page.pageNumber}
+      totalPages={page.totalPages}
+      totalItems={page.totalCount}
+      pageSize={page.pageSize}
+      onPage={onPage}
+    />
+  ) : undefined;
+
 const RecordsTable: React.FC<{
   caption: string;
   records: MaintenanceRecord[] | undefined;
@@ -749,6 +793,8 @@ export const MaintenancePage: React.FC = () => {
   const [status, setStatus] = useState<MaintenanceStatus | ''>('');
   const [reason, setReason] = useState<MaintenanceReason | ''>('');
   const [pageNumber, setPageNumber] = useState(1);
+  const [weekPage, setWeekPage] = useState(1);
+  const [approvalsPage, setApprovalsPage] = useState(1);
   const [picking, setPicking] = useState(false);
   const [opening, setOpening] = useState<string | null>(
     (location.state as { deviceId?: string } | null)?.deviceId ?? null,
@@ -769,6 +815,7 @@ export const MaintenancePage: React.FC = () => {
     status: ['OPEN'],
     reason: ['SCHEDULED', 'FIRMWARE_UPDATE'],
     dueBefore: end,
+    pageNumber: weekPage,
   });
   // Devices due for service but still out (REQ-STA-03): listed, never opened. devices api-design 06
   // has no due-date filter, so the first page of 100 reserved or rented units is narrowed here.
@@ -776,7 +823,7 @@ export const MaintenancePage: React.FC = () => {
   const dueButOut = (out.data?.items ?? []).filter(
     (device) => device.serviceDueAt !== null && device.serviceDueAt <= end,
   );
-  const approvals = useMaintenanceRecords({ status: ['PENDING_APPROVAL'] }, isAdmin);
+  const approvals = useMaintenanceRecords({ status: ['PENDING_APPROVAL'], pageNumber: approvalsPage }, isAdmin);
 
   const invalidate = async (deviceId?: string) => {
     await Promise.all([
@@ -910,17 +957,7 @@ export const MaintenancePage: React.FC = () => {
               </div>
             ) : null
           }
-          footer={
-            records.data && records.data.totalPages > 1 ? (
-              <Pagination
-                pageNumber={records.data.pageNumber}
-                totalPages={records.data.totalPages}
-                totalItems={records.data.totalCount}
-                pageSize={records.data.pageSize}
-                onPage={setPageNumber}
-              />
-            ) : undefined
-          }
+          footer={pagerOf(records.data, setPageNumber)}
         />
       </TabPanel>
 
@@ -938,6 +975,7 @@ export const MaintenancePage: React.FC = () => {
               Complete
             </Button>
           )}
+          footer={pagerOf(week.data, setWeekPage)}
         />
         {dueButOut.length > 0 && (
           <div>
@@ -982,6 +1020,7 @@ export const MaintenancePage: React.FC = () => {
                 </Button>
               )
             }
+            footer={pagerOf(approvals.data, setApprovalsPage)}
           />
         </TabPanel>
       )}
