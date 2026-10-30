@@ -75,6 +75,19 @@ export const incidentKeys = {
 export const fetchIncidents = (filters: IncidentFilters) =>
   apiClient<Page<Incident>>(`/incidents${queryString({ pageSize: 20, ...filters })}`);
 
+// The Staff queue (screen 8.2): repeatable `state` (api-design 01); no states reads every incident.
+export const fetchFleetIncidents = (states: readonly IncidentState[], pageNumber: number) => {
+  const query = new URLSearchParams({ pageSize: '20', pageNumber: String(pageNumber) });
+  states.forEach((state) => query.append('state', state));
+  return apiClient<Page<Incident>>(`/incidents?${query.toString()}`);
+};
+
+export const useFleetIncidents = (states: readonly IncidentState[], pageNumber: number) =>
+  useQuery({
+    queryKey: [...incidentKeys.all, 'fleet', states, pageNumber] as const,
+    queryFn: () => fetchFleetIncidents(states, pageNumber),
+  });
+
 export const fetchIncident = (id: string) => apiClient<IncidentDetail>(`/incidents/${id}`);
 
 export const useIncidents = (filters: IncidentFilters) =>

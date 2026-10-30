@@ -11,6 +11,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { IncidentDetailPage } from '../pages/IncidentDetailPage';
 import { IncidentsPage } from '../pages/IncidentsPage';
+import { StaffIncidentsPage } from '../pages/StaffIncidentsPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { PricesPage } from '../pages/PricesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
@@ -94,6 +95,7 @@ export const AppRoutes: React.FC = () => (
       </Route>
       <Route element={<RequireRole roles={STAFF} />}>
         <Route path="/t/map" element={<DashboardPage />} />
+        <Route path="/t/incidents" element={<StaffIncidentsPage />} />
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
         <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
         <Route path="/t/billing" element={<BillingPage />} />

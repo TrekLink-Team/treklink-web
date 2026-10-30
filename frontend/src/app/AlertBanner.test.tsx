@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
 import type { LiveMessage } from '../shared/socket/socketClient';
 import { AlertBanner } from './AlertBanner';
 
 const listeners = new Set<(message: LiveMessage) => void>();
-const push = (message: LiveMessage) => act(() => listeners.forEach((listener) => listener(message)));
+const push = (message: LiveMessage) =>
+  act(() => listeners.forEach((listener) => listener(message)));
 
 vi.mock('../shared/socket/socketClient', () => ({
   isLivePaused: () => false,
@@ -57,6 +59,27 @@ describe('AlertBanner', () => {
     expect(screen.getByRole('button', { name: 'Acknowledge' }).className).toContain('min-h-11');
   });
 
+  it('leaves out a null holder label rather than printing it', () => {
+    render(<AlertBanner />);
+    push(entry('incident.alert', { ...alertPayload, deviceLabel: 'TL-0010', holderName: null }));
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /^SOS: TL-0010, [^()]+\. Acknowledge now\./,
+    );
+  });
+
+  it('offers TrekLink Staff the queue instead of Acknowledge (screen 8.2)', () => {
+    render(
+      <MemoryRouter>
+        <AlertBanner staff />
+      </MemoryRouter>,
+    );
+    push(entry('incident.alert', alertPayload));
+    expect(screen.getByRole('link', { name: 'Open queue' }).getAttribute('href')).toBe(
+      '/t/incidents',
+    );
+    expect(screen.queryByRole('button', { name: 'Acknowledge' })).toBeNull();
+  });
+
   it('acknowledges, confirms with MSG03 and removes the banner', async () => {
     acknowledgeIncident.mockResolvedValue(undefined);
     render(<AlertBanner />);
@@ -68,16 +91,22 @@ describe('AlertBanner', () => {
   });
 
   it('shows the server message (MSG27) and removes the banner when another member took it', async () => {
-    acknowledgeIncident.mockRejectedValue(new ApiError(409, 'ALREADY_OWNED', 'Tran B took this incident at 03:16.'));
+    acknowledgeIncident.mockRejectedValue(
+      new ApiError(409, 'ALREADY_OWNED', 'Tran B took this incident at 03:16.'),
+    );
     render(<AlertBanner />);
     push(entry('incident.alert', alertPayload));
     fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
-    await waitFor(() => expect(screen.getByText('Tran B took this incident at 03:16.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('Tran B took this incident at 03:16.')).toBeTruthy(),
+    );
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('keeps the banner and shows the message after any other failure', async () => {
-    acknowledgeIncident.mockRejectedValue(new ApiError(500, 'INTERNAL_ERROR', 'Internal server error'));
+    acknowledgeIncident.mockRejectedValue(
+      new ApiError(500, 'INTERNAL_ERROR', 'Internal server error'),
+    );
     render(<AlertBanner />);
     push(entry('incident.alert', alertPayload));
     fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
@@ -86,13 +115,19 @@ describe('AlertBanner', () => {
   });
 
   it('keeps the banner on STALE_VERSION so the next tap reads a fresh version (MSG36)', async () => {
-    acknowledgeIncident.mockRejectedValue(new ApiError(409, 'STALE_VERSION', 'Another user changed this incident first.'));
+    acknowledgeIncident.mockRejectedValue(
+      new ApiError(409, 'STALE_VERSION', 'Another user changed this incident first.'),
+    );
     render(<AlertBanner />);
     push(entry('incident.alert', alertPayload));
     fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
-    await waitFor(() => expect(screen.getByText('Another user changed this incident first.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('Another user changed this incident first.')).toBeTruthy(),
+    );
     expect(screen.getByRole('alert')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Acknowledge' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole('button', { name: 'Acknowledge' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 
   it('removes the banner when the incident moves to a state nobody can acknowledge', () => {
