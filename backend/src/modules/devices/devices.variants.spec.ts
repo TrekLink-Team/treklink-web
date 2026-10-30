@@ -21,4 +21,24 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
     await service.variants(false);
     expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: {} }));
   });
+
+  it('adds deviceCount, the devices ever registered on each variant (api-design 01)', async () => {
+    const findMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'v-3', code: 'treklink-v3', _count: { devices: 18 } }]);
+    const repository = new DevicesRepository({
+      hardwareVariant: { findMany },
+    } as unknown as PrismaService);
+    const service = new DevicesService(repository, {} as never, {} as never);
+
+    await expect(service.variantCatalog(true)).resolves.toEqual([
+      { id: 'v-3', code: 'treklink-v3', deviceCount: 18 },
+    ]);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isActive: true },
+        select: expect.objectContaining({ _count: { select: { devices: true } } }) as unknown,
+      }),
+    );
+  });
 });

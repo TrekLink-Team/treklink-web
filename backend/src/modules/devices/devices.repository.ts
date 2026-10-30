@@ -228,12 +228,13 @@ export class DevicesRepository {
   }
 
   // devices api-design 01 (task 4.1 part): the variants with their sensors, firmware baseline,
-  // remaining-value schedule and service plan, by code.
-  variantCatalog(activeOnly: boolean, client: Client = this.prisma): Promise<VariantRow[]> {
+  // remaining-value schedule and service plan, by code, with the number of devices ever registered
+  // on each (screen 4.1 "Registered units").
+  variantCatalog(activeOnly: boolean, client: Client = this.prisma): Promise<VariantCatalogRow[]> {
     return client.hardwareVariant.findMany({
       where: activeOnly ? { isActive: true } : {},
       orderBy: { code: 'asc' },
-      select: VARIANT_SELECT,
+      select: VARIANT_CATALOG_SELECT,
     });
   }
 
@@ -587,6 +588,15 @@ export const VARIANT_SELECT = {
 } satisfies Prisma.HardwareVariantSelect;
 
 export type VariantRow = Prisma.HardwareVariantGetPayload<{ select: typeof VARIANT_SELECT }>;
+
+const VARIANT_CATALOG_SELECT = {
+  ...VARIANT_SELECT,
+  _count: { select: { devices: true } },
+} satisfies Prisma.HardwareVariantSelect;
+
+export type VariantCatalogRow = Prisma.HardwareVariantGetPayload<{
+  select: typeof VARIANT_CATALOG_SELECT;
+}>;
 
 export interface VariantSummary {
   id: string;
