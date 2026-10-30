@@ -2,7 +2,12 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { MemberRole, OrganizationStatus, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { AccountsService, MEMBER_DEACTIVATED, type OrganizationRole } from '../auth';
+import {
+  AccountsService,
+  type ContactCard,
+  MEMBER_DEACTIVATED,
+  type OrganizationRole,
+} from '../auth';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { MemberRow, MembersRepository } from './members.repository';
@@ -208,8 +213,9 @@ export class MembersService {
   ): Promise<void> {
     const managerIds = await this.members.liveManagerUserIds(organizationId, tx);
     const cards = await this.accounts.contactCard(managerIds);
-    const targetIsActive = cards.some((card) => card.id === target.userId && card.isActive);
-    const othersActive = cards.filter((card) => card.id !== target.userId && card.isActive);
+    const canSignIn = (card: ContactCard) => card.isActive && card.passwordSet;
+    const targetIsActive = cards.some((card) => card.id === target.userId && canSignIn(card));
+    const othersActive = cards.filter((card) => card.id !== target.userId && canSignIn(card));
     if (targetIsActive && othersActive.length === 0) {
       throw new DomainException(
         HttpStatus.CONFLICT,
@@ -223,7 +229,7 @@ export class MembersService {
     const [card] = await this.accounts.contactCard([member.userId]);
     return toView(
       member,
-      card ? { email: card.email, fullName: card.fullName, isActive: card.isActive } : null,
+      card ? { email: card.email, fullName: card.fullName, passwordSet: card.passwordSet } : null,
     );
   }
 
@@ -249,14 +255,14 @@ export class MembersService {
 
 const toView = (
   member: MemberRow,
-  account: { email: string; fullName: string; isActive: boolean } | null,
+  account: { email: string; fullName: string; passwordSet: boolean } | null,
 ): MemberView => ({
   id: member.id,
   userId: member.userId,
   email: account?.email ?? null,
   fullName: account?.fullName ?? null,
   role: member.role,
-  // An inactive account of a member who is not deactivated has not set its password yet.
-  invitationPending: account ? !account.isActive && member.deactivatedAt === null : false,
+  // An invited account is created active; it waits for its password until the code is used.
+  invitationPending: account ? !account.passwordSet && member.deactivatedAt === null : false,
   deactivatedAt: member.deactivatedAt,
 });

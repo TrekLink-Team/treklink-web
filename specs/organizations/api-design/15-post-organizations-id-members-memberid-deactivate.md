@@ -147,6 +147,23 @@ Deactivates a member: refresh tokens revoked, roster slots from now on cleared, 
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>The organization is PENDING, REJECTED or CLOSED; members are managed while ACTIVE or SUSPENDED (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is CLOSED."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -172,8 +189,13 @@ flowchart TB
     E3["Return 409 LAST_MANAGER"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"The organization is PENDING, REJECTED or CLOSED; members are managed while ACTIVE or SUSPENDED?"}
+    D3 -->|no| D4
+    E4["Return 409 INVALID_STATE_TRANSITION"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
     P0["Set deactivatedAt, deactivate the account"]
-    D3 -->|no| P0
+    D4 -->|no| P0
     P1["Clear future roster slots"]
     P0 --> P1
     P2["Emit member.deactivated (incidents re-route owned incidents)"]

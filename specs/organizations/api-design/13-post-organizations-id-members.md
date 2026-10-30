@@ -154,7 +154,7 @@ Invites a person by email as Manager or Operator. The account belongs to this or
         </tr>
         <tr>
             <td>409</td>
-            <td>The organization is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
+            <td>The organization is PENDING, REJECTED or CLOSED; members are managed while ACTIVE or SUSPENDED (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
 ```json
@@ -194,12 +194,12 @@ flowchart TB
     E3["Return 409 CONFLICT_UNIQUE"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The organization is not in a state that allows this?"}
+    D4{"The organization is PENDING, REJECTED or CLOSED; members are managed while ACTIVE or SUSPENDED?"}
     D3 -->|no| D4
     E4["Return 409 INVALID_STATE_TRANSITION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Require the organization not CLOSED or REJECTED"]
+    P0["Require the organization ACTIVE or SUSPENDED"]
     D4 -->|no| P0
     P1["Insert the user and membership"]
     P0 --> P1

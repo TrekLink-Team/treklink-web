@@ -87,8 +87,21 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
     };
     const accounts = {
       contactCard: jest.fn().mockResolvedValue([
-        { id: 'u-mgr', email: 'mgr@acme.vn', fullName: 'Nguyen Van A', isActive: true },
-        { id: 'u-op', email: 'op@acme.vn', fullName: 'Le Thi B', isActive: false },
+        {
+          id: 'u-mgr',
+          email: 'mgr@acme.vn',
+          fullName: 'Nguyen Van A',
+          isActive: true,
+          passwordSet: true,
+        },
+        // An invited account is active from creation and waits only for its password.
+        {
+          id: 'u-op',
+          email: 'op@acme.vn',
+          fullName: 'Le Thi B',
+          isActive: true,
+          passwordSet: false,
+        },
       ]),
     };
     service = new OrganizationsService(

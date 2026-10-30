@@ -174,7 +174,11 @@ export const CONTACT_CARD_SELECT = {
   isActive: true,
 } satisfies Prisma.UserSelect;
 
-export type ContactCard = Prisma.UserGetPayload<{ select: typeof CONTACT_CARD_SELECT }>;
+// `passwordSet` tells an invitation still waiting for its password apart from an account in use; the
+// hash itself never leaves `auth`.
+export type ContactCard = Prisma.UserGetPayload<{ select: typeof CONTACT_CARD_SELECT }> & {
+  passwordSet: boolean;
+};
 
 // Emails are stored lower-case and compared case-insensitively (REQ-UBI-01).
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
@@ -594,11 +598,15 @@ export class AccountsRepository {
 
   // Name, email and phone of these accounts for alert delivery (auth task 5.2); `isActive` lets the
   // caller skip an account that can no longer receive alerts. Soft-deleted accounts are left out.
-  contactCards(ids: readonly string[], client: Client = this.prisma): Promise<ContactCard[]> {
-    return client.user.findMany({
+  async contactCards(ids: readonly string[], client: Client = this.prisma): Promise<ContactCard[]> {
+    const rows = await client.user.findMany({
       where: { id: { in: [...ids] }, deletedAt: null },
       orderBy: { fullName: 'asc' },
-      select: CONTACT_CARD_SELECT,
+      select: { ...CONTACT_CARD_SELECT, passwordHash: true },
     });
+    return rows.map(({ passwordHash, ...card }) => ({
+      ...card,
+      passwordSet: passwordHash !== null,
+    }));
   }
 }

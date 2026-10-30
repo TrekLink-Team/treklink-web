@@ -58,6 +58,8 @@ export interface OrganizationAccount {
   email: string;
   fullName: string;
   isActive: boolean;
+  // False while the invitation's set-password code is unused: the account cannot sign in yet.
+  passwordSet: boolean;
   roles: string[];
 }
 
@@ -76,6 +78,7 @@ const toOrganizationAccount = (account: Account): OrganizationAccount => ({
   email: account.email,
   fullName: account.fullName,
   isActive: account.isActive,
+  passwordSet: account.passwordHash !== null,
   roles: account.roles,
 });
 

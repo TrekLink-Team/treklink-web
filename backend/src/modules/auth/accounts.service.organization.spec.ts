@@ -90,6 +90,7 @@ describe('AccountsService, services for other modules (auth task 5.2, design §5
         email: 'operator@acme-trek.vn',
         fullName: 'Le Van C',
         isActive: true,
+        passwordSet: false,
         roles: ['ORG_OPERATOR'],
       });
       expect(created).not.toHaveProperty('passwordHash');

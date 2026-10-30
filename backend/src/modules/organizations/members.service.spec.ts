@@ -19,12 +19,14 @@ const memberRow = (id: string, role: MemberRole, deactivatedAt: Date | null = nu
   role,
   deactivatedAt,
 });
-const card = (id: string, isActive: boolean) => ({
+// `canSignIn` false is an invitation still waiting for its password: active, no password set.
+const card = (id: string, canSignIn: boolean) => ({
   id,
   email: `${id}@example.com`,
   fullName: `Name ${id}`,
   phoneNumber: null,
-  isActive,
+  isActive: true,
+  passwordSet: canSignIn,
 });
 
 const codeOf = async (promise: Promise<unknown>): Promise<string> => {
@@ -69,7 +71,8 @@ describe('MembersService (organizations 2.5, api-design 13 to 15)', () => {
         id: 'u-new',
         email: input.email,
         fullName: 'New Member',
-        isActive: false,
+        isActive: true,
+        passwordSet: false,
         roles: [],
       })),
       setOrganizationRole: jest.fn().mockResolvedValue({
@@ -77,6 +80,7 @@ describe('MembersService (organizations 2.5, api-design 13 to 15)', () => {
         email: 'm-2@example.com',
         fullName: 'Name m-2',
         isActive: true,
+        passwordSet: true,
         roles: [],
       }),
       deactivateOrganizationAccount: jest.fn().mockResolvedValue({
@@ -84,6 +88,7 @@ describe('MembersService (organizations 2.5, api-design 13 to 15)', () => {
         email: 'm-2@example.com',
         fullName: 'Name m-2',
         isActive: false,
+        passwordSet: true,
         roles: [],
       }),
       contactCard: jest.fn().mockResolvedValue([]),
