@@ -62,7 +62,7 @@ const errorOf = (failure: unknown) =>
 // The reset of one returned unit (devices api-design 10): the three steps are the confirmation.
 const ResetDialog: React.FC<{
   device: ContractDevice;
-  onDone: () => void;
+  onDone: (alreadyReset: boolean) => void;
   onClose: () => void;
 }> = ({ device, onDone, onClose }) => {
   const [steps, setSteps] = useState({ key: false, nodes: false, owner: false });
@@ -74,11 +74,12 @@ const ResetDialog: React.FC<{
     setPending(true);
     try {
       await resetDevice(device.deviceId);
-      onDone();
+      onDone(false);
     } catch (failure) {
-      // Another counter already logged this return's reset: the unit is reset, so carry on.
+      // Another counter already logged this return's reset: the unit is reset, so carry on and say
+      // that this counter recorded nothing.
       if (failure instanceof ApiError && failure.errorCode === 'ALREADY_RESET') {
-        onDone();
+        onDone(true);
         return;
       }
       setPending(false);
@@ -567,11 +568,12 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
         <ResetDialog
           device={resetting}
           onClose={() => setResetting(null)}
-          onDone={() => {
+          onDone={(alreadyReset) => {
             setRows((current) => ({ ...current, [resetting.deviceId]: { reset: true } }));
             setResetting(null);
+            // The refresh brings the reset time someone else recorded into the row.
             void refresh();
-            showToast('Saved.');
+            showToast(alreadyReset ? 'Already reset. It was recorded by someone else.' : 'Saved.');
           }}
         />
       )}
