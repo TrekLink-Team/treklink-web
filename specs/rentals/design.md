@@ -241,25 +241,25 @@ classDiagram
     ContractsService ..> PricingService : calls
 ```
 
-***Figure 4***: rentals classes used in MF-01, UC-15. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 4***: rentals classes used in MF-01, UC-15. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class rentals-uc-17 -->
 ```mermaid
 classDiagram
     direction TB
     class ContractsController {
-        +approve(string, ApproveContractDto, Caller) inferred
+        +approve(string, ApproveContractDto, Caller) ContractView
         +reject(string, ContractReasonDto, Caller) ContractView
     }
     class ContractDecisionsService {
         +approve(string, ApprovalInput, Caller, Date) Approved
-        +reject(string, object, Caller, Date) ContractRow
+        +reject(string, ReasonInput, Caller, Date) ContractRow
     }
     class ContractLifecycleService {
         +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
     }
     class DevicesService {
-        +reserve(object, number, Date, Tx) DeviceTag[]
+        +reserve(ReservationRequest, number, Date, Tx) DeviceTag[]
     }
     class InvoicesService {
         +issueDayPlanInvoice(BillableDayPlan, Tx, Date) InvoiceRow
@@ -267,7 +267,7 @@ classDiagram
     }
     class ContractsRepository {
         +insertContractDevices(NewContractDevice[], Tx) void
-        +insertTerm(NewTerm, Tx) inferred
+        +insertTerm(NewTerm, Tx) TermRow
         +lockById(string, Tx) ContractRow
         +recordDecision(string, Decision, Tx) void
     }
@@ -278,14 +278,14 @@ classDiagram
     ContractsController ..> ContractDecisionsService : calls
 ```
 
-***Figure 5***: rentals classes used in MF-01, UC-17. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 5***: rentals classes used in MF-01, UC-17. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class rentals-uc-20-part-1-of-2 -->
 ```mermaid
 classDiagram
     direction TB
     class HandoverController {
-        +provision(string, string, ProvisioningDto, Caller) inferred
+        +provision(string, string, ProvisioningDto, Caller) ProvisionedDeviceView
     }
     class HandoverService {
         +provision(string, string, number, Caller, Date) ProvisionedDevice
@@ -294,21 +294,21 @@ classDiagram
         +channelKeyVersion(string, Tx) number
     }
     class DevicesService {
-        +recordProvisioning(object, Date, Tx) ProvisionedDevice
+        +recordProvisioning(Provisioning, Date, Tx) ProvisionedDevice
     }
     HandoverController ..> HandoverService : calls
     HandoverService ..> DevicesService : calls
     HandoverService ..> OrganizationsService : calls
 ```
 
-***Figure 6***: rentals classes used in MF-01, UC-20 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 6***: rentals classes used in MF-01, UC-20 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class rentals-uc-20-part-2-of-2 -->
 ```mermaid
 classDiagram
     direction TB
     class HandoverController {
-        +complete(string, HandoverDto, Caller) inferred
+        +complete(string, HandoverDto, Caller) ContractView
     }
     class HandoverService {
         +complete(string, HandoverInput, Caller, Date) ContractRow
@@ -324,7 +324,7 @@ classDiagram
         +provisioning(string[], Tx) ProvisionedDevice[]
     }
     class ContractsRepository {
-        +markRowsHandedOver(string, Date, Tx) inferred
+        +markRowsHandedOver(string, Date, Tx) void
     }
     HandoverController ..> HandoverService : calls
     HandoverService ..> BalanceService : calls
@@ -333,37 +333,37 @@ classDiagram
     HandoverService ..> DevicesService : calls
 ```
 
-***Figure 7***: rentals classes used in MF-01, UC-20 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 7***: rentals classes used in MF-01, UC-20 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class rentals-uc-16 -->
 ```mermaid
 classDiagram
     direction TB
     class DevicesController {
-        +availability(AvailabilityQueryDto) inferred
+        +availability(AvailabilityQueryDto) VariantAvailability[]
     }
     class DevicesService {
-        +availability(string) inferred
+        +availability(string) VariantAvailability[]
     }
     class DevicesRepository {
-        +availability(string ?, Client) object
+        +availability(string ?, Client) VariantAvailability[]
     }
     DevicesController ..> DevicesService : calls
     DevicesService ..> DevicesRepository : calls
 ```
 
-***Figure 8***: rentals classes used in MF-01, UC-16. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 8***: rentals classes used in MF-01, UC-16. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class rentals-uc-18 -->
 ```mermaid
 classDiagram
     direction TB
     class ContractsController {
-        +cancel(string, ContractReasonDto, Caller) inferred
+        +cancel(string, ContractReasonDto, Caller) CancelledView
     }
     class ContractDecisionsService {
-        +cancel(string, object, Caller, Date) Cancelled
-        +reject(string, object, Caller, Date) ContractRow
+        +cancel(string, ReasonInput, Caller, Date) Cancelled
+        +reject(string, ReasonInput, Caller, Date) ContractRow
     }
     class ContractLifecycleService {
         +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
@@ -390,7 +390,7 @@ classDiagram
     ContractsController ..> ContractDecisionsService : calls
 ```
 
-***Figure 9***: rentals classes used in MF-01, UC-18. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 9***: rentals classes used in MF-01, UC-18. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-01 class rentals-uc-25 -->
 ```mermaid
@@ -400,7 +400,7 @@ classDiagram
         +holder(string, string, HolderDto, Caller) DeviceRowView
     }
     class ContractDecisionsService {
-        +reject(string, object, Caller, Date) ContractRow
+        +reject(string, ReasonInput, Caller, Date) ContractRow
         +setHolder(string, string, Holder ?, Caller, Date) DeviceRow
     }
     class ContractsRepository {
@@ -412,17 +412,17 @@ classDiagram
     ContractsController ..> ContractDecisionsService : calls
 ```
 
-***Figure 10***: rentals classes used in MF-01, UC-25. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 10***: rentals classes used in MF-01, UC-25. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class rentals -->
 ```mermaid
 classDiagram
     direction TB
     class ReturnController {
-        +checkIn(string, CheckInDto, Caller) inferred
+        +checkIn(string, CheckInDto, Caller) CheckInResult
     }
     class ReturnService {
-        +checkIn(string, string[], Caller, Date) inferred
+        +checkIn(string, string[], Caller, Date) CheckInResult
     }
     class DevicesService {
         +markReturned(string[], Date, Tx) void
@@ -436,8 +436,8 @@ classDiagram
     class ContractsRepository {
         +lockById(string, Tx) ContractRow
         +markCheckedIn(string[], Date, string, Tx) void
-        +returnCounts(string, Tx) object
-        +rowsOut(string, Tx) inferred
+        +returnCounts(string, Tx) ReturnCounts
+        +rowsOut(string, Tx) ContractDeviceRow[]
     }
     ReturnController ..> ReturnService : calls
     ReturnService ..> ChargesService : calls
@@ -446,17 +446,17 @@ classDiagram
     ReturnService ..> DevicesService : calls
 ```
 
-***Figure 11***: rentals classes used in MF-05, UC-43. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 11***: rentals classes used in MF-05, UC-43. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class rentals-uc-51 -->
 ```mermaid
 classDiagram
     direction TB
     class ReturnController {
-        +close(string, CloseDto, Caller) inferred
+        +close(string, CloseDto, Caller) ContractView
     }
     class ReturnService {
-        +close(string, number, Caller) inferred
+        +close(string, number, Caller) ContractRow
     }
     class ContractLifecycleService {
         +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
@@ -475,8 +475,8 @@ classDiagram
         +custodyDevices(string, Tx) string[]
         +eraseLabels(string, Tx) void
         +lockById(string, Tx) ContractRow
-        +returnCounts(string, Tx) object
-        +rowsOut(string, Tx) inferred
+        +returnCounts(string, Tx) ReturnCounts
+        +rowsOut(string, Tx) ContractDeviceRow[]
         +unsettledReplacedLosses(string, Tx) number
     }
     ReturnController ..> ReturnService : calls
@@ -487,14 +487,14 @@ classDiagram
     ReturnService ..> ContractsRepository : calls
 ```
 
-***Figure 12***: rentals classes used in MF-05, UC-51. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 12***: rentals classes used in MF-05, UC-51. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class rentals-uc-61 -->
 ```mermaid
 classDiagram
     direction TB
     class ReturnController {
-        +replace(string, string, ReplacementDto, Caller) inferred
+        +replace(string, string, ReplacementDto, Caller) ReplacementView
     }
     class ReplacementService {
         +replace(string, string, ReplacementInput, Caller, Date) Replaced
@@ -506,15 +506,15 @@ classDiagram
         +hasOpenLossCase(string, Tx) boolean
         +markRented(string[], Date, Tx) void
         +markReturned(string[], Date, Tx) void
-        +recordProvisioning(object, Date, Tx) ProvisionedDevice
+        +recordProvisioning(Provisioning, Date, Tx) ProvisionedDevice
         +takeForReplacement(string, string, Date, Tx) DeviceTag
     }
     class ContractsRepository {
-        +insertReplacementRow(NewReplacementRow, Tx) object
+        +insertReplacementRow(NewReplacementRow, Tx) RowId
         +lockById(string, Tx) ContractRow
         +markCheckedIn(string[], Date, string, Tx) void
-        +returnCounts(string, Tx) object
-        +rowsOut(string, Tx) inferred
+        +returnCounts(string, Tx) ReturnCounts
+        +rowsOut(string, Tx) ContractDeviceRow[]
     }
     ReplacementService ..> ContractsRepository : calls
     ReplacementService ..> DevicesService : calls
@@ -522,14 +522,14 @@ classDiagram
     ReturnController ..> ReplacementService : calls
 ```
 
-***Figure 13***: rentals classes used in MF-05, UC-61. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 13***: rentals classes used in MF-05, UC-61. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class rentals-uc-23 -->
 ```mermaid
 classDiagram
     direction TB
     class ContractsController {
-        +notice(string, NoticeDto, Caller) inferred
+        +notice(string, NoticeDto, Caller) NoticeView
     }
     class ContractDecisionsService {
         +giveNotice(string, number, Caller, Date) Notice
@@ -542,10 +542,10 @@ classDiagram
     }
     class ContractsRepository {
         +lockById(string, Tx) ContractRow
-        +openTerm(string, Tx) inferred
-        +recordNotice(string, object, Tx) void
-        +returnCounts(string, Tx) object
-        +rowsOut(string, Tx) inferred
+        +openTerm(string, Tx) TermRow ?
+        +recordNotice(string, NoticeRecord, Tx) void
+        +returnCounts(string, Tx) ReturnCounts
+        +rowsOut(string, Tx) ContractDeviceRow[]
     }
     ContractDecisionsService ..> BalanceService : calls
     ContractDecisionsService ..> ContractLifecycleService : calls
@@ -553,7 +553,7 @@ classDiagram
     ContractsController ..> ContractDecisionsService : calls
 ```
 
-***Figure 14***: rentals classes used in MF-05, UC-23. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 14***: rentals classes used in MF-05, UC-23. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class rentals-uc-24 -->
 ```mermaid
@@ -564,12 +564,12 @@ classDiagram
     }
     class ContractsRepository {
         +closeTerm(string, Tx) boolean
-        +dueTerms(Date, Client) inferred
-        +insertTerm(NewTerm, Tx) inferred
+        +dueTerms(Date, Client) TermRow[]
+        +insertTerm(NewTerm, Tx) TermRow
         +lockById(string, Tx) ContractRow
-        +returnCounts(string, Tx) object
-        +rowsOut(string, Tx) inferred
-        +setReturnDueAt(string, Date, Tx) inferred
+        +returnCounts(string, Tx) ReturnCounts
+        +rowsOut(string, Tx) ContractDeviceRow[]
+        +setReturnDueAt(string, Date, Tx) void
     }
     class ContractLifecycleService {
         +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
@@ -582,7 +582,7 @@ classDiagram
     TermRolloverJob ..> InvoicesService : calls
 ```
 
-***Figure 15***: rentals classes used in MF-05, UC-24. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 15***: rentals classes used in MF-05, UC-24. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 <!-- sdd: MF-05 class rentals-uc-50 -->
 ```mermaid
@@ -596,11 +596,11 @@ classDiagram
     }
     class ContractsRepository {
         +lockById(string, Tx) ContractRow
-        +overdueBefore(Date, Client) inferred
-        +returnCounts(string, Tx) object
-        +returnDueBefore(Date, Client) inferred
-        +rowsOut(string, Tx) inferred
-        +stampOverdue(string, object, Tx) inferred
+        +overdueBefore(Date, Client) ContractRow[]
+        +returnCounts(string, Tx) ReturnCounts
+        +returnDueBefore(Date, Client) ContractRow[]
+        +rowsOut(string, Tx) ContractDeviceRow[]
+        +stampOverdue(string, OverdueStamp, Tx) void
     }
     class ContractLifecycleService {
         +apply(string, ContractStatus, ContractStatus, string ?, Caller ?, Tx) ContractRow
@@ -614,7 +614,7 @@ classDiagram
     OverdueAndDefaultJob ..> ParameterService : calls
 ```
 
-***Figure 16***: rentals classes used in MF-05, UC-50. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+***Figure 16***: rentals classes used in MF-05, UC-50. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
 
 
 <!-- sdd: MF-01 seq UC-15 -->
@@ -841,18 +841,17 @@ sequenceDiagram
             activate Ch
             deactivate Ch
         end
-        opt every device back or lost
-            S->>L: apply(id, current, RETURNED, CHECKED_IN, actor, tx)
-            activate L
-            deactivate L
-        end
+        S->>L: apply(id, current, RETURNED, CHECKED_IN, actor, tx)
+        activate L
+        deactivate L
         S-->>C: CheckInDto
         C-->>P: 200 envelope
     end
 ```
 
 ***Figure 21***: UC-43 Check In Device. `markCheckedIn` closes the custody interval (D-040); late events
-from the organization's Field Station are still attributed to it.
+from the organization's Field Station are still attributed to it. The transition to `RETURNED` runs only
+once every device of the contract is back or lost; until then the contract keeps its state.
 
 <!-- sdd: MF-05 seq UC-51 -->
 ```mermaid
@@ -943,23 +942,19 @@ sequenceDiagram
     S->>D: takeForReplacement(newDeviceId, variantId, at, tx)
     activate D
     deactivate D
-    opt faulty unit is missing
-        S->>D: hasOpenLossCase(deviceId, tx)
-        activate D
-        deactivate D
-    end
+    S->>D: hasOpenLossCase(deviceId, tx)
+    activate D
+    deactivate D
     alt failure: missing faulty unit has no open loss case
         S-->>C: 409 LOSS_CASE_REQUIRED, rollback
         C-->>P: error envelope
     else success: faulty unit present or its loss case is open
-        opt faulty unit is at the counter
-            S->>R: markCheckedIn([oldRowId], at, actorId, tx)
-            activate R
-            deactivate R
-            S->>D: markReturned([deviceId], at, tx)
-            activate D
-            deactivate D
-        end
+        S->>R: markCheckedIn([oldRowId], at, actorId, tx)
+        activate R
+        deactivate R
+        S->>D: markReturned([deviceId], at, tx)
+        activate D
+        deactivate D
         S->>D: recordProvisioning(provisioning, at, tx)
         activate D
         deactivate D
@@ -978,7 +973,7 @@ sequenceDiagram
     end
 ```
 
-***Figure 23***: UC-61 Replace Device on Contract. The new row opens its custody interval with replacesId; plan, variant and quantity remain unchanged (BR-41). A missing faulty device needs an open loss case (409 LOSS_CASE_REQUIRED). The service also checks the running contract, replacement availability and organization key before completing the exchange; those additional refusals are outside these two lanes.
+***Figure 23***: UC-61 Replace Device on Contract. The new row opens its custody interval with replacesId; plan, variant and quantity remain unchanged (BR-41). A missing faulty device needs an open loss case (409 LOSS_CASE_REQUIRED); `hasOpenLossCase` is read only when the faulty unit is missing, and `markCheckedIn` with `markReturned` run only when it is at the counter. The service also checks the running contract, replacement availability and organization key before completing the exchange; those additional refusals are outside these two lanes.
 
 <!-- sdd: MF-01 seq UC-16 -->
 ```mermaid
@@ -1159,47 +1154,33 @@ sequenceDiagram
     autonumber
     participant J as :TermRolloverJob
     participant R as :ContractsRepository
-    participant L as :ContractLifecycleService
     participant I as :InvoicesService
     J->>R: dueTerms(now)
     activate R
     deactivate R
     R-->>J: open terms that have ended, on ACTIVE or ENDING contracts
-    loop each due term, one transaction each
+    loop each due term of a monthly contract still ACTIVE, one transaction each
         J->>R: lockById(contractId, tx)
         activate R
         deactivate R
         J->>R: closeTerm(termId, tx)
         activate R
         deactivate R
-        alt renews: monthly plan still ACTIVE
-            J->>R: insertTerm(seq + 1, starts at the old end, one month long, tx)
-            activate R
-            deactivate R
-            J->>I: issueTermInvoice(contract, next term, tx)
-            activate I
-            deactivate I
-        else ends: notice given, or a day plan
-            J->>R: setReturnDueAt(id, term end, tx)
-            activate R
-            deactivate R
-            J->>L: apply(id, status, RETURN_DUE, TERM_ENDED, system, tx)
-            activate L
-            deactivate L
-            J->>R: returnCounts(id, tx)
-            activate R
-            deactivate R
-            opt every device already back
-                J->>L: apply(id, RETURN_DUE, RETURNED, ALL_DEVICES_BACK, system, tx)
-                activate L
-                deactivate L
-            end
-        end
+        J->>R: insertTerm(seq + 1, starts at the old end, one month long, tx)
+        activate R
+        deactivate R
+        J->>I: issueTermInvoice(contract, next term, tx)
+        activate I
+        deactivate I
     end
 ```
 
 ***Figure 28***: UC-24 Roll Over Monthly Term. The job runs every hour; a term is due from its end until
-it is closed, so a run after downtime catches up with the same query.
+it is closed, so a run after downtime catches up with the same query. A due term of an `ENDING` contract
+(notice given) or a day plan does not renew: the job closes the term, sets `returnDueAt` to the term end
+and applies `RETURN_DUE` with reason `TERM_ENDED` through `ContractLifecycleService.apply`; when
+`returnCounts` shows every device already back, it applies `RETURNED` with `ALL_DEVICES_BACK` in the same
+transaction.
 
 <!-- sdd: MF-05 seq UC-50 -->
 ```mermaid
@@ -1219,21 +1200,19 @@ sequenceDiagram
     J->>R: returnDueBefore(now minus grace)
     activate R
     deactivate R
-    loop each contract past grace, one transaction
+    loop each contract past grace, still RETURN_DUE with devices out, one transaction
         J->>R: lockById(id, tx)
         activate R
         deactivate R
         J->>R: rowsOut(id, tx)
         activate R
         deactivate R
-        opt still RETURN_DUE with devices out
-            J->>L: apply(id, RETURN_DUE, OVERDUE, GRACE_ELAPSED, null, tx)
-            activate L
-            deactivate L
-            J->>R: stampOverdue(id, overdueStamp, tx)
-            activate R
-            deactivate R
-        end
+        J->>L: apply(id, RETURN_DUE, OVERDUE, GRACE_ELAPSED, null, tx)
+        activate L
+        deactivate L
+        J->>R: stampOverdue(id, overdueStamp, tx)
+        activate R
+        deactivate R
     end
     J->>R: overdueBefore(now minus default threshold)
     activate R
@@ -1258,4 +1237,4 @@ sequenceDiagram
     end
 ```
 
-***Figure 29***: UC-50 Default Overdue Contract. A defaulted contract suspends its organization. The named failure is a candidate whose locked state is no longer OVERDUE, so the job skips it without writes; compare-and-set transitions keep reruns idempotent. Reactivation waits until the organization has nothing outstanding (Report 3 organization lifecycle).
+***Figure 29***: UC-50 Default Overdue Contract. A defaulted contract suspends its organization. The named failure is a candidate whose locked state is no longer OVERDUE, so the job skips it without writes; compare-and-set transitions keep reruns idempotent. In the first loop, a contract that the lock shows no longer `RETURN_DUE`, or with every device back (`rowsOut`), is skipped the same way. Reactivation waits until the organization has nothing outstanding (Report 3 organization lifecycle).
