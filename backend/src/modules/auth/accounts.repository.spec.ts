@@ -573,12 +573,35 @@ describe('AccountsRepository, TrekLink accounts and roles (auth tasks 5.1, 5.3)'
   });
 
   it('reads contact cards without soft-deleted accounts, and grants a role with no actor (auth task 5.2)', async () => {
-    await repository.contactCards(['member-1', 'member-2']);
+    prisma.user.findMany.mockResolvedValueOnce([
+      {
+        id: 'member-1',
+        fullName: 'A',
+        email: 'a@x',
+        phoneNumber: null,
+        isActive: true,
+        passwordHash: 'h',
+      },
+      {
+        id: 'member-2',
+        fullName: 'B',
+        email: 'b@x',
+        phoneNumber: null,
+        isActive: true,
+        passwordHash: null,
+      },
+    ]);
+    const cards = await repository.contactCards(['member-1', 'member-2']);
     expect(prisma.user.findMany).toHaveBeenLastCalledWith({
       where: { id: { in: ['member-1', 'member-2'] }, deletedAt: null },
       orderBy: { fullName: 'asc' },
-      select: CONTACT_CARD_SELECT,
+      select: { ...CONTACT_CARD_SELECT, passwordHash: true },
     });
+    // The hash never leaves `auth`; a pending invitation reads as passwordSet false.
+    expect(cards.map((card) => [card.id, card.passwordSet, 'passwordHash' in card])).toEqual([
+      ['member-1', true, false],
+      ['member-2', false, false],
+    ]);
 
     await repository.replaceRole('member-1', 'ORG_MANAGER', null);
     expect(prisma.userRole.create).toHaveBeenLastCalledWith({

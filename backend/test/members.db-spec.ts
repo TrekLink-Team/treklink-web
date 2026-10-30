@@ -74,7 +74,11 @@ describe('Members of an organization against Postgres (REQ-UBI-02, REQ-EVT-07, R
         accountType: AccountType.ORGANIZATION,
         roleKeys: [role === MemberRole.MANAGER ? 'ORG_MANAGER' : 'ORG_OPERATOR'],
       });
-      await prisma.user.update({ where: { id: user.id }, data: { isActive: true } });
+      // A member in use has set a password; an invitation waits with passwordHash null.
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isActive: true, passwordHash: 'set-in-fixture' },
+      });
       const member = await prisma.organizationMember.create({
         data: { userId: user.id, organizationId: organization.id, role },
       });
@@ -156,7 +160,9 @@ describe('Members of an organization against Postgres (REQ-UBI-02, REQ-EVT-07, R
 
     expect(view).toMatchObject({ email, role: MemberRole.OPERATOR, invitationPending: true });
     const invited = await prisma.user.findUniqueOrThrow({ where: { id: view.userId } });
-    expect(invited.isActive).toBe(false);
+    // Created active, with no password until the set-password code is used.
+    expect(invited.isActive).toBe(true);
+    expect(invited.passwordHash).toBeNull();
     expect(await prisma.oneTimeCode.count({ where: { userId: view.userId } })).toBe(1);
 
     const members0 = await prisma.organizationMember.count({
