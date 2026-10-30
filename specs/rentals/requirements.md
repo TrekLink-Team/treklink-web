@@ -103,7 +103,7 @@ The `rentals` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-01**: Two Staff approve two contracts for the last 5 v3 devices at once; one succeeds, the other gets 409 and reserves nothing. (TC-03)
 - **AC-02**: A handover without the confirmed holding fee returns 409 `FIRST_PAYMENT_MISSING` and the contract stays `APPROVED`. (TC-09)
 - **AC-03**: A monthly contract with no notice rolls into term 2 with the term-1 balance and the term-2 holding fee due together. (TC-08, E05-5)
-- **AC-04**: Devices back 3 days after the grace: contract `OVERDUE` and a late line of 3 days per late device. (TC-23)
+- **AC-04**: Devices back 3 days after `returnDueAt`, past the grace: contract `OVERDUE` and a late line of 3 days per late device. Late days are counted from `returnDueAt` (billing REQ-EVT-04, design Figure 16); the grace only decides whether a late fee applies (leader ruling 2026-10-30, #158). (TC-23)
 - **AC-05**: `OVERDUE` for `rentals.defaultAfterDays`: `DEFAULTED` and the organization `SUSPENDED`. (TC-26)
 - **AC-06**: Closing with an open incident on one device returns 409 `OPEN_INCIDENTS`. (TC-27)
 - **AC-07**: After closing, every holder label is null. (TC-33)
