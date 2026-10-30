@@ -162,6 +162,20 @@ describe('live map reducer (screen 9.1)', () => {
     );
   });
 
+  it('places an incident on the device the entry names and only moves the cursor without one', () => {
+    const state = fromSnapshot(snapshot());
+    const payload = { incidentId: 'i-2', state: 'NOTIFY_PRIMARY' };
+    expect(
+      applyEntry(state, entry(11, 'incident.changed', payload)).devices['d-1'].openIncident,
+    ).toEqual({ id: 'i-2', code: null, state: 'NOTIFY_PRIMARY' });
+    const unnamed = applyEntry(state, {
+      ...entry(11, 'incident.changed', payload),
+      deviceId: null,
+    } as unknown as LiveEntry);
+    expect(unnamed.cursor).toBe(11);
+    expect(unnamed.devices).toBe(state.devices);
+  });
+
   it('only moves the cursor for unknown devices and other entry types', () => {
     const state = fromSnapshot(snapshot());
     const unknown = applyEntry(

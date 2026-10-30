@@ -19,6 +19,7 @@ const DUE_BEFORE = new Date('2026-10-26T01:00:00Z');
 const row = (state: IncidentState, patch: Partial<Incident> = {}): Incident =>
   ({
     id: 'incident',
+    deviceId: 'device',
     organizationId: 'org-a',
     state,
     version: 4,
@@ -390,6 +391,7 @@ describe('IncidentsService task 4.1', () => {
         expect(lifecycle.apply).not.toHaveBeenCalled();
         expect(events.emitAfterCommit).toHaveBeenCalledWith('incident.changed', {
           incidentId: 'incident',
+          deviceId: 'device',
           organizationId: 'org-a',
           state,
           tier: null,
