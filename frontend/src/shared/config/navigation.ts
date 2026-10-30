@@ -82,7 +82,7 @@ export const ORGANIZATION_NAV: NavGroup[] = [
     entries: [
       { route: '/o/members', label: 'Members', icon: Users, roles: MANAGER, built: false },
       { route: '/o/roster', label: 'Roster', icon: CalendarDays, roles: OPERATOR, built: false },
-      { route: '/o/api-keys', label: 'API keys', icon: KeyRound, roles: MANAGER, built: false },
+      { route: '/o/api-keys', label: 'API keys', icon: KeyRound, roles: MANAGER, built: true },
       { route: '/o/field-stations', label: 'Field stations', icon: MapPin, roles: OPERATOR, built: false },
     ],
   },
