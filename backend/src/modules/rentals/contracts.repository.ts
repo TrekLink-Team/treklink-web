@@ -659,15 +659,15 @@ export class ContractsRepository {
 
   // rentals 3.2 (REQ-EVT-14): expired APPROVED contracts while either audience has no accepted
   // reminder. Each audience is flagged by its own transition reason (design §5).
-  reservationsToRemind(at: Date, client: Client = this.prisma) {
+  // Expired reservations that still lack the Manager reminder, or the Staff one when `withStaff`; a
+  // deployment without Staff notifications never selects a contract for the Staff part alone.
+  reservationsToRemind(at: Date, withStaff = true, client: Client = this.prisma) {
+    const pending = [RESERVATION_REMINDED, ...(withStaff ? [RESERVATION_STAFF_REMINDED] : [])];
     return client.rentalContract.findMany({
       where: {
         status: ContractStatus.APPROVED,
         reservationExpiresAt: { lte: at },
-        OR: [
-          { transitions: { none: { reason: RESERVATION_REMINDED } } },
-          { transitions: { none: { reason: RESERVATION_STAFF_REMINDED } } },
-        ],
+        OR: pending.map((reason) => ({ transitions: { none: { reason } } })),
       },
       select: { id: true, code: true, organizationId: true, reservationExpiresAt: true },
       orderBy: { reservationExpiresAt: 'asc' },

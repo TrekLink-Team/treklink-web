@@ -38,7 +38,7 @@ describe('AuthStaffNotifications', () => {
       const send = jest.spyOn(mail, 'send').mockResolvedValue(undefined);
       await expect(
         module.get<AuthStaffNotifications>(STAFF_NOTIFICATIONS).send('Test', 'Review'),
-      ).resolves.toBe(true);
+      ).resolves.toEqual({ accepted: 1, failed: 0 });
       expect(send).toHaveBeenCalledTimes(1);
     } finally {
       await module.close();
@@ -56,11 +56,14 @@ describe('AuthStaffNotifications', () => {
     const provider = new AuthStaffNotifications(accounts as unknown as AccountsRepository, {
       send,
     });
-    await expect(provider.send('Request', 'Review it')).resolves.toBe(false);
+    await expect(provider.send('Request', 'Review it')).resolves.toEqual({
+      accepted: 1,
+      failed: 1,
+    });
     expect(send).toHaveBeenCalledTimes(2);
   });
 
-  it('returns false with no active recipients, rather than flagging a delivered reminder', async () => {
+  it('reports nothing accepted with no active recipients, rather than flagging a delivered reminder', async () => {
     const accounts = { staffEmailRecipients: jest.fn().mockResolvedValue([]) };
     const send = jest.fn();
     await expect(
@@ -68,7 +71,7 @@ describe('AuthStaffNotifications', () => {
         'Request',
         'Review it',
       ),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ accepted: 0, failed: 0 });
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -84,7 +87,7 @@ describe('AuthStaffNotifications', () => {
     const send = jest.fn().mockResolvedValue(undefined);
     await expect(
       new AuthStaffNotifications(accounts, { send }).send('Request', 'Review it', tx),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ accepted: 1, failed: 0 });
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {

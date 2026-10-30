@@ -172,7 +172,8 @@ describe('ReservationRemindersJob (rentals 3.2, REQ-EVT-14)', () => {
 
   it('emails the Manager under the contract lock, then flags the reminder', async () => {
     await expect(job.run(AT)).resolves.toBe(1);
-    expect(contracts.reservationsToRemind).toHaveBeenCalledWith(AT);
+    // No Staff notifications here, so the query leaves out the Staff part.
+    expect(contracts.reservationsToRemind).toHaveBeenCalledWith(AT, false);
     expect(contracts.hasReminder).toHaveBeenCalledWith('c-1', TX);
     expect(organizations.emailContact).toHaveBeenCalledWith(
       'org-1',
