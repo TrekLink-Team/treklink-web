@@ -197,7 +197,7 @@ sequenceDiagram
     participant DB as Postgres
     C->>Ctl: GET /api/telemetry/devices/:id/history
     Ctl->>Svc: history(id, query, caller, ability)
-    Note over Svc: scopeOf(caller, ability) gives the caller's organization, or null for Staff and Admin
+    Note over Svc,Rent: scopeOf(caller, ability) gives the caller's organization, or null for Staff and Admin
     Svc->>Prm: get('monitoring.historyMaxRangeDays')
     Prm-->>Svc: maxDays, a longer range answers 400
     alt an organization caller

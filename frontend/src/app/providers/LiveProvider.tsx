@@ -114,8 +114,8 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           });
         }
         if (type === 'device.label' || type === 'device.released') {
-          // Label and release payloads carry no contract id: refresh only the contract details that
-          // hold this device, not every cached contract (review of #144).
+          // Label payloads carry no contract id (release payloads now do): refresh only the
+          // contract details that hold this device, not every cached contract (review of #144).
           const deviceId = message.entry.deviceId;
           void queryClient.invalidateQueries({
             queryKey: ['contract'],
