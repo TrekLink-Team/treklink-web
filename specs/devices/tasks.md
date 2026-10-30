@@ -115,3 +115,28 @@
 ## Phase 6: Verification & DoD
 
 - [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner KhoaDD)
+
+## Phase 7: Counter docking over Web Serial (D-080, draft, waits for the leader's approval of design §8)
+
+- [ ] 7.1 Contract changes in the catalog (owner KhoaDD)
+  - **Files**: `scripts/specs/endpoints/rentals.py`, regenerated `specs/rentals/api-design/03`, `09`
+  - **Do**: design §8.5: `devices[].nodeNum` on rentals 03; required `nodeNum` and 409 `NODE_MISMATCH` on rentals 09; the key endpoint only if design §8.6 decision 1 is A or C
+  - _Requirements: REQ-EVT-25, REQ-ERR-12_
+- [ ] 7.2 Serial client re-authored from the vetting record (owner KhoaDD)
+  - **Files**: `frontend/src/shared/lib/meshtastic/framing.ts`, `codec.ts`, `serialLink.ts`, tests beside them
+  - **Do**: design §8.1 and §8.2; no new dependency (`vetting/meshtastic-web-serial.md` §4)
+  - **Test**: codec against captured frames; split and oversized frames; fake `SerialPort` with timeout and disconnect
+  - _Requirements: REQ-UBI-05, REQ-ERR-13_
+- [ ] 7.3 `DockingService` and `useDocking` (owner KhoaDD)
+  - **Files**: `frontend/src/features/dock-device/`
+  - **Do**: `readUnit()`, `provision(expected)` with the mismatch guard, the two writes and the read-back; key held for one call
+  - **Test**: mismatch writes nothing; read-back mismatch records nothing; no key in storage or console after a run
+  - _Requirements: REQ-EVT-24, REQ-ERR-12, REQ-ERR-13, AC-14, AC-16_
+- [ ] 7.4 Intake and handover screens (owner KhoaDD)
+  - **Files**: Register panel of screen 4.2 (frontend 4.2), `frontend/src/pages/CounterPage.tsx` step 1 and the replacement tab of screen 5.5
+  - **Do**: Read from unit, Dock and provision, the Chromium banner and the states of the two ui-design files
+  - _Requirements: REQ-EVT-23, REQ-ERR-11, AC-13, AC-15_
+- [ ] 7.5 Backend `nodeNum` check (owner KhoaDD)
+  - **Files**: `backend/src/modules/rentals/handover.service.ts`, the rentals 03 mapper, tests
+  - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning`; 409 `NODE_MISMATCH`
+  - _Requirements: REQ-EVT-25, REQ-ERR-12_
