@@ -78,6 +78,7 @@ export const InvoiceDetailPage: React.FC = () => {
         contractPath={(contractId) => `/o/contracts/${contractId}`}
         canRecordCounter={false}
         canPayOnline
+        asPageTitle
       />
     </section>
   );
