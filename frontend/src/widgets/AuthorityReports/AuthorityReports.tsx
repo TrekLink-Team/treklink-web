@@ -40,6 +40,8 @@ const CELL = `${TD} block border-t-0 py-2 first:pt-4 last:pb-4 sm:table-cell sm:
 const CARD_LABEL = 'mb-0.5 block text-label uppercase text-ink-muted sm:hidden';
 const MSG28 = (state: string) => `This cannot be done while it is ${state}.`;
 const REQUIRED = 'Please fill in this field.';
+// The agency and reference bound of api-design 08 (TK-148 DTO); api-design 10 uses the same.
+const TEXT_MAX = 200;
 // Screen 8.3 visible copy.
 export const REPORT_DISCLAIMER =
   'TrekLink records reports to authorities. It does not coordinate rescue operations.';
@@ -349,6 +351,7 @@ export const ReportDialog: React.FC<{
           >
             <Input
               id="report-agency"
+              maxLength={TEXT_MAX}
               value={form.agency}
               invalid={missing.agency}
               onChange={(event) => set('agency')(event.target.value)}
@@ -362,6 +365,7 @@ export const ReportDialog: React.FC<{
           >
             <Input
               id="report-reference"
+              maxLength={TEXT_MAX}
               value={form.reference}
               invalid={missing.reference}
               onChange={(event) => set('reference')(event.target.value)}
@@ -416,6 +420,7 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
   const [closedAt, setClosedAt] = useState('');
   const [note, setNote] = useState('');
   const [missing, setMissing] = useState(false);
+  const [timeError, setTimeError] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -444,7 +449,11 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
       showToast(MSG03);
       onClose();
     } catch (error) {
-      setFailure(messageOf(error));
+      // The server refuses a closure in the future or before the report time (TK-148) with 400;
+      // the only field it can concern is Closed at, so the message sits under it.
+      if (error instanceof ApiError && error.errorCode === 'VALIDATION_FAILED')
+        setTimeError(error.message);
+      else setFailure(messageOf(error));
       // A closure recorded elsewhere, or a report no longer visible, refreshes the list.
       if (error instanceof ApiError && (error.statusCode === 404 || error.statusCode === 409))
         void refresh();
@@ -484,17 +493,18 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
           id="close-case-at"
           label="Closed at"
           required
-          hint={`Your time zone, ${viewerTimeZone()}.`}
-          error={missing ? REQUIRED : undefined}
+          hint={`Your time zone, ${viewerTimeZone()}. Not in the future, and not before the report time, ${formatDateTime(report.reportedAt)}.`}
+          error={missing ? REQUIRED : (timeError ?? undefined)}
         >
           <Input
             id="close-case-at"
             type="datetime-local"
             value={closedAt}
-            invalid={missing}
+            invalid={missing || timeError !== null}
             onChange={(event) => {
               setClosedAt(event.target.value);
               setMissing(false);
+              setTimeError(null);
             }}
           />
         </Field>
