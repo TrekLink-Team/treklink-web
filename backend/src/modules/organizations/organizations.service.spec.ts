@@ -53,6 +53,62 @@ describe('OrganizationsService.assertActive (FR-CON-02, for rentals 2.1)', () =>
   });
 });
 
+describe('OrganizationsService.lockActive (rentals api-design 01 against a closing)', () => {
+  let organizations: { lockStatus: jest.Mock; findStatus: jest.Mock };
+  let service: OrganizationsService;
+
+  beforeEach(() => {
+    organizations = {
+      lockStatus: jest.fn().mockResolvedValue(OrganizationStatus.ACTIVE),
+      findStatus: jest.fn(),
+    };
+    service = new OrganizationsService(
+      organizations as unknown as OrganizationsRepository,
+      {} as MembersRepository,
+      {} as AccountsService,
+      {} as OrganizationLifecycle,
+    );
+  });
+
+  it('passes an ACTIVE organization, reading under the lock in the caller transaction', async () => {
+    await expect(service.lockActive('org-1', tx)).resolves.toBeUndefined();
+    expect(organizations.lockStatus).toHaveBeenCalledWith('org-1', tx);
+    expect(organizations.findStatus).not.toHaveBeenCalled();
+  });
+
+  it('refuses an organization a committed closing left CLOSED with 409 ORGANIZATION_NOT_ACTIVE', async () => {
+    organizations.lockStatus.mockResolvedValue(OrganizationStatus.CLOSED);
+    await expect(service.lockActive('org-1', tx)).rejects.toMatchObject({
+      errorCode: ErrorCode.ORGANIZATION_NOT_ACTIVE,
+      message: 'Your organization cannot request devices while it is CLOSED.',
+    });
+  });
+
+  it('answers 404 for an unknown organization', async () => {
+    organizations.lockStatus.mockResolvedValue(null);
+    await expect(service.lockActive('org-9', tx)).rejects.toMatchObject({
+      errorCode: ErrorCode.NOT_FOUND,
+    });
+  });
+});
+
+describe('OrganizationsRepository.lockStatus', () => {
+  it('reads the status FOR SHARE in the transaction, null for an unknown id', async () => {
+    const $queryRaw = jest
+      .fn()
+      .mockResolvedValueOnce([{ status: OrganizationStatus.ACTIVE }])
+      .mockResolvedValueOnce([]);
+    const client = { $queryRaw } as unknown as Prisma.TransactionClient;
+    const repository = new OrganizationsRepository({} as PrismaService);
+
+    await expect(repository.lockStatus('org-1', client)).resolves.toBe(OrganizationStatus.ACTIVE);
+    await expect(repository.lockStatus('org-9', client)).resolves.toBeNull();
+    const [sql, id] = $queryRaw.mock.calls[0] as [TemplateStringsArray, string];
+    expect(sql.join('?')).toMatch(/SELECT status FROM organizations WHERE id = \? FOR SHARE/);
+    expect(id).toBe('org-1');
+  });
+});
+
 describe('OrganizationsRepository.findStatus', () => {
   it('reads the status, null for an unknown id, on the shared client or a transaction', async () => {
     const findUnique = jest

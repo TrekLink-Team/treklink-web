@@ -41,7 +41,7 @@ const DAY: ContractRequest = {
 
 describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () => {
   let contracts: { insertRequested: jest.Mock };
-  let organizations: { assertActive: jest.Mock };
+  let organizations: { lockActive: jest.Mock };
   let pricing: { snapshot: jest.Mock };
   let devices: { variants: jest.Mock };
   let parameters: { get: jest.Mock };
@@ -57,7 +57,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
         status: ContractStatus.REQUESTED,
       }),
     };
-    organizations = { assertActive: jest.fn().mockResolvedValue(undefined) };
+    organizations = { lockActive: jest.fn().mockResolvedValue(undefined) };
     pricing = { snapshot: jest.fn().mockResolvedValue(SNAPSHOT) };
     devices = {
       variants: jest.fn().mockResolvedValue([{ id: 'v-3', isActive: true }]),
@@ -95,7 +95,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
       quote: { firstPaymentVnd: 2_250_000n, termFeeVnd: 4_500_000n },
     });
 
-    expect(organizations.assertActive).toHaveBeenCalledWith('org-1', tx);
+    expect(organizations.lockActive).toHaveBeenCalledWith('org-1', tx);
     expect(devices.variants).toHaveBeenCalledWith(true, tx);
     expect(pricing.snapshot).toHaveBeenCalledWith('v-3', tx, AT);
     expect(contracts.insertRequested).toHaveBeenCalledWith(
@@ -171,12 +171,28 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
   });
 
   it('lets the organization check refuse first (409 ORGANIZATION_NOT_ACTIVE)', async () => {
-    organizations.assertActive.mockRejectedValue(
+    organizations.lockActive.mockRejectedValue(
       Object.assign(new DomainException(409, ErrorCode.ORGANIZATION_NOT_ACTIVE, 'suspended')),
     );
     const error = await refusal(MONTHLY);
     expect(error.errorCode).toBe(ErrorCode.ORGANIZATION_NOT_ACTIVE);
     expect(pricing.snapshot).not.toHaveBeenCalled();
+  });
+
+  it('refuses a request that waited on a closing which committed first (409, CLOSED)', async () => {
+    // The closing held the organization row; once it commits, the FOR SHARE read sees CLOSED.
+    organizations.lockActive.mockRejectedValue(
+      new DomainException(
+        409,
+        ErrorCode.ORGANIZATION_NOT_ACTIVE,
+        'Your organization cannot request devices while it is CLOSED.',
+      ),
+    );
+    const error = await refusal(MONTHLY);
+    expect(error.errorCode).toBe(ErrorCode.ORGANIZATION_NOT_ACTIVE);
+    expect(error.message).toBe('Your organization cannot request devices while it is CLOSED.');
+    expect(organizations.lockActive).toHaveBeenCalledWith('org-1', tx);
+    expect(emitter.emit).not.toHaveBeenCalled();
   });
 
   it('refuses below the minimum order quantity (400 BELOW_MOQ, MSG13)', async () => {

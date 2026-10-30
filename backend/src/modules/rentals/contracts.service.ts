@@ -101,7 +101,9 @@ export class ContractsService {
   // `rentals.dayPlanLengths` (400 DAY_PLAN_LENGTH) and the start date not before today in UTC+7;
   // then the price, day premium and holding-fee ratio are snapshotted from billing (FR-CFG-02) and
   // the contract is inserted REQUESTED. An inactive or unknown variant is 404, as is a variant
-  // without a price in effect. The variant read joins the request transaction.
+  // without a price in effect. The variant read joins the request transaction. The organization row
+  // is held FOR SHARE to the end of it, so a closing (organizations api-design 10) that locks the row
+  // FOR UPDATE either counts this contract or commits first and refuses it as CLOSED.
   async request(
     input: ContractRequest,
     caller: Caller,
@@ -117,7 +119,7 @@ export class ContractsService {
     }
 
     return this.events.transaction(async (tx) => {
-      await this.organizations.assertActive(organizationId, tx);
+      await this.organizations.lockActive(organizationId, tx);
 
       const minOrderQuantity = await this.parameters.get('rentals.minOrderQuantity', tx);
       if (input.quantity < minOrderQuantity) {
