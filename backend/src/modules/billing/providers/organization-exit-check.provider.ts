@@ -9,7 +9,8 @@ import { BalanceService } from '../balance.service';
 
 // billing's provider of the organizations port ORGANIZATION_EXIT_CHECKS (organizations design §2 and
 // §5, billing design §6, REQ-ERR-04): a suspended organization is reactivated only when nothing is
-// outstanding across its contracts (409 BALANCE_OUTSTANDING). It reads in the transaction
+// outstanding across its contracts and no damage charge of theirs waits for an Admin (billing task
+// 1.3, 409 BALANCE_OUTSTANDING). It reads in the transaction
 // `organizations` passes. Closing is `rentals`' check, so this one has no view on it. It adds itself
 // to the array of the port when the module starts; without the port (a module test) it registers
 // nowhere.
@@ -26,7 +27,10 @@ export class BillingOrganizationExitCheck implements OrganizationExitCheck {
     organizationId: string,
     tx: Prisma.TransactionClient,
   ): Promise<ExitBlockingReason | null> {
-    return (await this.balances.outstandingOfOrganization(organizationId, tx)) > 0n
+    const owed = await this.balances.outstandingOfOrganization(organizationId, tx);
+    const pending =
+      owed > 0n ? 0 : await this.balances.pendingDamageOfOrganization(organizationId, tx);
+    return owed > 0n || pending > 0
       ? { code: 'BALANCE_OUTSTANDING', message: 'This cannot be done while it has open balances.' }
       : null;
   }

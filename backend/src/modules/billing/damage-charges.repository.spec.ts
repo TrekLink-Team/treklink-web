@@ -37,6 +37,19 @@ describe('DamageChargesRepository (billing task 2.5, D-081)', () => {
     });
   });
 
+  it('counts the charges of a set of contracts still pending approval, and reads nothing for none', async () => {
+    const count = jest.fn().mockResolvedValue(3);
+    const tx = { damageCharge: { count } } as unknown as Prisma.TransactionClient;
+    const repository = new DamageChargesRepository({} as PrismaService);
+
+    await expect(repository.countPendingOfContracts(['c-1', 'c-2'], tx)).resolves.toBe(3);
+    expect(count).toHaveBeenCalledWith({
+      where: { contractId: { in: ['c-1', 'c-2'] }, status: DamageChargeStatus.PENDING_APPROVAL },
+    });
+    await expect(repository.countPendingOfContracts([], tx)).resolves.toBe(0);
+    expect(count).toHaveBeenCalledTimes(1);
+  });
+
   it('locks the row before reading it, then records the decision', async () => {
     const order: string[] = [];
     const update = jest.fn().mockResolvedValue({ id: 'dc-1' });
