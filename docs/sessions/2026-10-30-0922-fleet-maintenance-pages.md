@@ -32,7 +32,7 @@ closes the gaps against screens 4.2 and 4.3.
 
 ## Checks (this session)
 
-Frontend only; no backend file changed. `npm run lint` clean, `npm run typecheck` clean,
+First pass, frontend only. `npm run lint` clean, `npm run typecheck` clean,
 `FleetPage.test.tsx` 8, `MaintenancePage.test.tsx` 16, full suite 33 files, 443 tests passed.
 Not walked in a browser: no database or seeded backend was run here.
 
@@ -43,34 +43,46 @@ Not walked in a browser: no database or seeded backend was run here.
 ## Shared files touched
 
 `frontend/src/shared/ui/status.ts` (two palettes added), `frontend/src/entities/device/api.ts`
-(additive). No router, navigation, module, error-code, catalog, migration or seed change.
+(additive), and after the rulings `maintenance.controller.ts`, `maintenance.service.ts`,
+`scripts/specs/endpoints/devices.py`, devices api-design 15 and `DeviceDetailPage.tsx`. No router,
+navigation, module, error-code, catalog, migration or seed change.
 
-## Open decisions
+## Leader rulings (2026-10-30) and what followed
 
-1. **Approval threshold beside the estimate** (screen 4.3 Data row). `GET /parameters` needs
-   `manage Parameter`, so Staff cannot read `devices.maintenanceApprovalThresholdVnd`. Options:
-   (a) keep the hint naming the rule without the amount (current); (b) add the threshold to the
-   maintenance list response (devices api-design 15, generated from `scripts/specs/endpoints/devices.py`);
-   (c) add a Staff-readable parameter read. Recommendation: (a) for the demo, (b) after it.
-2. **`dueBefore` on devices api-design 15.** The api-design says it adds the devices due for
-   service that are still `RESERVED` or `RENTED`; `maintenance.controller.ts:111` maps it to an
-   `expectedAt` filter on records. This is #124 code, so it is not changed here. The page lists the
-   due units from devices 06 instead (first 100, narrowed in the page). Options: (a) correct the
-   api-design overview to match the controller (current behaviour is what the week's list needs);
-   (b) add a `serviceDueBefore` filter to devices 06 and drop the client narrowing. Recommendation:
-   (a) now, (b) when the fleet passes 100 units out.
+1. **Approval threshold: add it now.** `MaintenanceService.approvalThresholdVnd()` reads
+   `devices.maintenanceApprovalThresholdVnd` through `ParameterService` at request time; `GET
+   /maintenance-records` returns the page plus `approvalThresholdVnd` (`MaintenanceRecordPage` in
+   `maintenance.controller.ts`). No new endpoint, no migration, no permission change. The estimate
+   hint reads "VND. Above 1,000,000 VND, an Admin must approve before completion." with the seeded
+   value, and names the rule alone until the list has loaded.
+2. **`dueBefore`: the spec follows the code.** `scripts/specs/endpoints/devices.py` now says
+   `dueBefore` keeps records whose expected completion is on or before it, and lists records only;
+   devices api-design 15 regenerated (only that file changed). The page keeps reading the due units
+   still out from devices api-design 06.
+3. **`DeviceDetailPage` open record link** shows the readable status ("Open, Antenna loose").
 
-## Noted on #124, not fixed
+Screen 4.3 Data row for the threshold now names devices 15 `approvalThresholdVnd`.
 
-- `DeviceDetailPage.tsx:310` shows the open record's raw status (`OPEN`) in the link text.
+## Checks after the rulings (this session)
+
+- Backend: `npm run typecheck` clean; `npm run lint` 0 errors, 1 warning in
+  `test/incidents.e2e-spec.ts` (not touched), module-boundary check passed (361 files, 9
+  modules); `npx jest` 154 suites, 1688 tests passed, including the new
+  `maintenance.controller.spec.ts` (3) and a service case for the threshold read. Database specs
+  not run: no Postgres server here, and none covers this endpoint.
+- Frontend: `npm run lint` and `npm run typecheck` clean; full suite 33 files, 446 tests passed
+  (`MaintenancePage.test.tsx` 18, `DeviceDetailPage.test.tsx` 12).
+- `scripts/specs/check_mermaid.py` did not run: it needs `scripts/srs/node_modules/.bin/mmdc`,
+  absent here. The changed sequence line is `Svc->>DB: SELECT maintenance_records, parameters`.
 
 ## Demo steps (after the #124 demo steps 1 to 5, contract RC-2026-0002)
 
 As `staff@treklink.local`:
 
 1. Devices: press the **Maintenance** chip; TL-0018 is listed (count beside the chip).
-2. Open **TL-0018**; the open maintenance line links to `/t/maintenance`.
-3. Records: TL-0018, Inspection failed, Open. **Complete**: Completed, a resolution, actual cost
+2. Open **TL-0018**; the open maintenance line ("Open, ...") links to `/t/maintenance`.
+3. Records: TL-0018, Inspection failed, Open. **Estimate** shows the hint with 1,000,000 VND;
+   Cancel. **Complete**: Completed, a resolution, actual cost
    `0` (any amount up to 1,000,000 VND, the seeded threshold, avoids the approval step), **Save**.
 4. The notice says TL-0018 stays in maintenance until it passes an intake check; **Open TL-0018**.
 5. **Record intake check**, every result passed; the status shows **Available**.
