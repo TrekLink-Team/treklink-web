@@ -117,6 +117,30 @@ arithmetic.
    renders the PDF with the signature, stores it under `HANDOVER_NOTE_STORAGE_DIR` with its SHA-256, and
    commits the `RENTED` devices and `ACTIVE` together.
 
+### 4.1 The handover note
+
+The note is a formal handover record a supervisor or a customer accepts (dry run defect 8,
+2026-10-30). `handover-note.renderer.ts` lays it out with pdfkit on A4, black on white, in the bundled
+DejaVu Sans so Vietnamese names render; it computes nothing. `HandoverService.noteInput` assembles its
+input, and the replacement note of task 4.3 uses the same method with `kind: 'REPLACEMENT'` and the new
+unit only. Every read joins the caller's transaction when there is one.
+
+| Section | Content | Source |
+|---|---|---|
+| Letterhead | issuer legal name, address, tax code, hotline; note number, date and time (UTC+7), place | env `COMPANY_LEGAL_NAME`, `COMPANY_ADDRESS`, `COMPANY_TAX_CODE`, `COMPANY_HOTLINE`, `HANDOVER_PLACE`; note number `HN-<contract serial>` (`HN-2026-0001` for `RC-2026-0001`), a replacement `RN-<serial>-<asset tag>` |
+| 1. Parties | Party A: issuer, the Staff or Admin account at the counter and its role. Party B: legal name, code, tax code, address, the signing Manager, the identity document seen with every digit but the last four masked | `AccountDirectory.namesOf`; `OrganizationsService.handoverParty` |
+| 2. Contract reference | code, plan, variant and quantity, first term, return due (a day plan's term end; for a monthly plan before notice, "at the end of the term in which notice is given"), monthly unit price, term or day-plan fee, holding fee, master contract number, NDA and Field Station licence | the contract snapshot and terms; `termFeeVnd`, `holdingFeeVnd`, `dayPlanFeeVnd` of `billing`; `OrganizationsService.handoverParty` |
+| 3. Devices | asset tag, variant, node ID, channel key version, battery, GPS fix, condition | `DevicesService.handoverUnits`; the counter checks; condition from the check and `devices.handoverMinBatteryPct` |
+| 4. Payment received before handover | invoice number, amount, method, receipt or reference, time; whether the first payment is paid in full | `PaymentsService.receivedOfContract`; `BalanceService.firstPaymentConfirmed` |
+| 5. Custody, damage and loss | custody, return, damage and loss clauses and the rate table: late fee per unit per started day, each active damage rate of the variant, the loss charge as the units' remaining value at the note time | `rentals.returnGraceHours`, `rentals.defaultAfterDays`, `billing.lateFeePerDevicePerDayVnd`, `devices.lossSearchDays`; `PricingService.rateTableFor`; `DevicesService.handoverUnits` |
+| 6. Signatures | acceptance sentence; Party A and Party B blocks side by side with name, role and time; the drawn signature in Party B's block | the counter input |
+| Footer, every page | issuer, note number, "Page x of y" | |
+
+A value the reads do not have prints "Not recorded". The preview prints "PREVIEW FOR REVIEW BEFORE
+SIGNING. NOT A SIGNED RECORD." and "Not signed" in both blocks. `HandoverService.preview` takes
+optional counter readings, so a counter page that sends battery and GPS readings fills section 3
+before signing. Input fields are added, never repurposed.
+
 ---
 
 ## 5. Scheduler jobs

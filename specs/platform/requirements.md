@@ -118,6 +118,7 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `SEPAY_WEBHOOK_API_KEY` | none, optional until the SePay sandbox account exists; without it the webhook answers 401 to every call (owned by `billing`, validated here) | env | no |
 | `SEPAY_QR_BASE_URL` | `https://vietqr.app/img` (owned by `billing`) | env | no |
 | `SEPAY_BANK_CODE` | `SANDBOX` (owned by `billing`) | env | no |
+| `COMPANY_LEGAL_NAME`, `COMPANY_ADDRESS`, `COMPANY_TAX_CODE`, `COMPANY_HOTLINE`, `HANDOVER_PLACE` | development placeholders; the issuer and place printed on the handover note, a tax code of 10 digits or 10 plus a 3-digit branch suffix (owned by `rentals`, design §4.1) | env | no |
 | `CORS_ORIGINS` | `http://localhost:5173` | env | no |
 | `HTTP_BODY_LIMIT` | `1mb` | env | no |
 | `SWAGGER_ENABLED` | `true` outside production | env | no |

@@ -25,6 +25,15 @@ export interface CounterPaymentInput {
   reference: string;
 }
 
+// One confirmed payment as the handover note lists it (rentals design §4.1).
+export interface ReceivedPayment {
+  invoiceNumber: string;
+  amountVnd: bigint;
+  method: PaymentMethod;
+  reference: string;
+  confirmedAt: Date | null;
+}
+
 const duplicate = (reference: string) =>
   new DomainException(
     HttpStatus.CONFLICT,
@@ -44,6 +53,23 @@ export class PaymentsService {
     private readonly payments: PaymentsRepository,
     private readonly events: TransactionalEvents,
   ) {}
+
+  // The payments of a contract confirmed so far, oldest first, with the invoice each one paid: the
+  // payment section of the handover note (rentals design §4.1). In the caller's transaction when it
+  // passes one.
+  async receivedOfContract(
+    contractId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ReceivedPayment[]> {
+    const rows = await this.payments.confirmedOfContract(contractId, tx);
+    return rows.map((row) => ({
+      invoiceNumber: row.invoice.number,
+      amountVnd: row.amountVnd,
+      method: row.method,
+      reference: row.reference,
+      confirmedAt: row.confirmedAt,
+    }));
+  }
 
   // A cash or bank-transfer payment received at the counter (UC-22, api-design 13): confirmed at
   // once and applied to the invoice's unpaid lines oldest due first, under a lock on the invoice so

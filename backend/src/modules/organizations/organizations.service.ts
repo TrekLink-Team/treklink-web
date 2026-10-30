@@ -8,6 +8,7 @@ import { OrganizationLifecycle } from './organization-lifecycle';
 import {
   FieldStationHealthRow,
   OrganizationLabel,
+  OrganizationParty,
   OrganizationsRepository,
 } from './organizations.repository';
 
@@ -230,6 +231,16 @@ export class OrganizationsService {
     if (ids.length === 0) return new Map();
     const rows = await this.organizations.labels([...new Set(ids)], tx);
     return new Map(rows.map((row) => [row.id, row]));
+  }
+
+  // Party B of the handover note (rentals design §4.1): legal name, code, tax code, address and the
+  // master contract with its NDA and licence flags, as the review recorded them; null for an unknown
+  // id. In the caller's transaction when it passes one.
+  handoverParty(
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<OrganizationParty | null> {
+    return this.organizations.party(organizationId, tx);
   }
 
   // --- live map read (monitoring api-design 02, FR-EVT-13) ---

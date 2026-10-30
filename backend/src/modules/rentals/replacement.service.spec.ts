@@ -2,11 +2,11 @@ import { HttpStatus } from '@nestjs/common';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { BalanceService } from '../billing';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ContractRow, ContractsRepository } from './contracts.repository';
+import type { HandoverNoteInput } from './handover-note.renderer';
 import { DEVICE_HANDED_OVER, HandoverService } from './handover.service';
 import { ReplacementService } from './replacement.service';
 import { DEVICE_CHECKED_IN } from './return.service';
@@ -47,11 +47,54 @@ const INPUT = {
   faultyPresent: true,
 };
 
+// The smallest complete note: the service under test only passes it to the renderer.
+const NOTE: HandoverNoteInput = {
+  kind: 'REPLACEMENT',
+  noteNumber: 'RN-2026-0001-TL-0009',
+  at: AT,
+  place: 'Counter 1',
+  issuer: { legalName: 'TrekLink', address: 'HCMC', taxCode: '0312345678', hotline: '1900 1234' },
+  partyA: { name: 'Staff One', role: 'TrekLink Staff' },
+  partyB: {
+    legalName: 'TrekLink Demo Tours',
+    code: 'ORG-0001',
+    taxCode: null,
+    address: null,
+    manager: null,
+  },
+  contract: {
+    code: 'RC-2026-0001',
+    planLabel: 'Monthly',
+    variantCode: 'treklink-v3',
+    quantity: 2,
+    termStart: null,
+    termEnd: null,
+    returnDue: null,
+    monthlyUnitPriceVnd: 450_000n,
+    fee: { label: 'Term fee, per month', amountVnd: 900_000n },
+    firstPayment: { label: 'Holding fee', amountVnd: 450_000n },
+    masterContractRef: null,
+    ndaSigned: false,
+    softwareLicenceSigned: false,
+  },
+  devices: [{ assetTag: 'TL-0009', variantCode: 'treklink-v3' }],
+  payments: [],
+  firstPaymentConfirmed: true,
+  terms: {
+    lateFeePerDevicePerDayVnd: 50_000,
+    returnGraceHours: 24,
+    defaultAfterDays: 14,
+    lossSearchDays: 7,
+    damageRates: [],
+  },
+};
+
 describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
   let contracts: Record<string, jest.Mock>;
   let devices: Record<string, jest.Mock>;
   let organizations: Record<string, jest.Mock>;
   let storeNote: jest.Mock;
+  let noteInput: jest.Mock;
   let emitted: [string, Record<string, unknown>][];
   let service: ReplacementService;
 
@@ -64,6 +107,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
       ]),
       markCheckedIn: jest.fn().mockResolvedValue(undefined),
       insertReplacementRow: jest.fn().mockResolvedValue({ id: 'cd-3' }),
+      detail: jest.fn().mockResolvedValue({ ...contract(), terms: [], devices: [] }),
     };
     devices = {
       variants: jest.fn().mockResolvedValue([{ id: 'v-3', code: 'treklink-v3' }]),
@@ -84,6 +128,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
         ),
     };
     storeNote = jest.fn().mockImplementation((name: string) => Promise.resolve(name));
+    noteInput = jest.fn().mockResolvedValue(NOTE);
     emitted = [];
     const events = {
       transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
@@ -94,8 +139,11 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
       contracts as unknown as ContractsRepository,
       devices as unknown as DevicesService,
       organizations as unknown as OrganizationsService,
-      { firstPaymentConfirmed: jest.fn().mockResolvedValue(true) } as unknown as BalanceService,
-      { storeNote } as unknown as HandoverService,
+      {
+        storeNote,
+        noteInput,
+        partyA: jest.fn().mockResolvedValue({ name: 'Staff One', role: 'TrekLink Staff' }),
+      } as unknown as HandoverService,
       events as unknown as TransactionalEvents,
     );
   });
@@ -117,6 +165,18 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
     );
     expect(devices.markRented).toHaveBeenCalledWith(['d-9'], AT, TX, move);
     expect(storeNote).toHaveBeenCalledWith('c-1-replacement-d-9.pdf', expect.any(Buffer));
+    // The replacement note lists the new unit only, names the unit it replaces, in the transaction.
+    expect(noteInput).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'RC-2026-0001' }),
+      expect.objectContaining({
+        kind: 'REPLACEMENT',
+        deviceIds: ['d-9'],
+        partyA: { name: 'Staff One', role: 'TrekLink Staff' },
+        replaces: { assetTag: 'TL-0001', how: 'checked in at the counter' },
+      }),
+      AT,
+      TX,
+    );
     expect(contracts.insertReplacementRow).toHaveBeenCalledWith(
       expect.objectContaining({
         contractId: 'c-1',

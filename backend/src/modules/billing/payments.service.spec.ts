@@ -50,6 +50,15 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
     payments = {
       referenceExists: jest.fn().mockResolvedValue(false),
       insertCounterPayment: jest.fn().mockResolvedValue({ id: 'p-1' }),
+      confirmedOfContract: jest.fn().mockResolvedValue([
+        {
+          reference: 'RCPT-2026-0193',
+          amountVnd: 2_250_000n,
+          method: PaymentMethod.CASH,
+          confirmedAt: AT,
+          invoice: { number: 'INV-2026-000123' },
+        },
+      ]),
     };
     events = {
       transaction: jest.fn((work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX)),
@@ -60,6 +69,19 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
       payments as unknown as PaymentsRepository,
       events as unknown as TransactionalEvents,
     );
+  });
+
+  it('lists the confirmed payments of a contract with their invoice number (handover note)', async () => {
+    await expect(service.receivedOfContract('c-1', TX)).resolves.toEqual([
+      {
+        invoiceNumber: 'INV-2026-000123',
+        amountVnd: 2_250_000n,
+        method: PaymentMethod.CASH,
+        reference: 'RCPT-2026-0193',
+        confirmedAt: AT,
+      },
+    ]);
+    expect(payments.confirmedOfContract).toHaveBeenCalledWith('c-1', TX);
   });
 
   it('records a confirmed payment, applies it to the invoice, and emits after commit', async () => {
