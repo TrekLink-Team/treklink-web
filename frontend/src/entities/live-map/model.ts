@@ -95,6 +95,8 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
       delete devices[id];
       return { cursor: seq, devices, order: state.order.filter((other) => other !== id) };
     }
+    // The entry names the incident's device (`deviceId`). One stored before the field was added names
+    // none and only moves the cursor here; `useLiveMap` reloads the snapshot for it.
     case 'incident.changed': {
       const incidentId = asString(payload.incidentId);
       const incidentState = asString(payload.state) as IncidentState | null;

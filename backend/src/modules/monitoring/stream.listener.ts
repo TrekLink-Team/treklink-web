@@ -24,6 +24,8 @@ export const INCIDENT_CHANGED = 'incident.changed';
 // In-process routing ids, not the WebSocket DTO (incidents emits only these today).
 export interface IncidentChangedEvent {
   incidentId: string;
+  /** The incident's device, so the live map updates its marker from the entry alone. */
+  deviceId?: string | null;
   organizationId: string | null;
   state: string;
   tier: string | null;
@@ -81,6 +83,9 @@ export class StreamListener {
     await this.stream.publish({
       organizationId: event.organizationId,
       type: 'incident.changed',
+      // Additive: an entry stored before the field carries none, and the client then reloads the
+      // snapshot (frontend useLiveMap).
+      deviceId: event.deviceId ?? null,
       payload: {
         incidentId: event.incidentId,
         state: event.state,

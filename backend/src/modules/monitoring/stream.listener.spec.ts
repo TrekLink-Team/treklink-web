@@ -273,9 +273,10 @@ describe('StreamListener', () => {
   });
 
   describe('incident.changed', () => {
-    it('publishes the incident to its routed organization', async () => {
+    it('publishes the incident with its device to its routed organization', async () => {
       await listener.onIncidentChanged({
         incidentId: 'inc-1',
+        deviceId: 'dev-1',
         organizationId: 'org-a',
         state: 'ACKNOWLEDGED',
         tier: 'PRIMARY',
@@ -285,9 +286,27 @@ describe('StreamListener', () => {
         {
           organizationId: 'org-a',
           type: 'incident.changed',
+          deviceId: 'dev-1',
           payload: { incidentId: 'inc-1', state: 'ACKNOWLEDGED', tier: 'PRIMARY', ownerId: 'u-1' },
         },
       ]);
+    });
+
+    it('publishes an event that names no device with a null device id', async () => {
+      await listener.onIncidentChanged({
+        incidentId: 'inc-3',
+        organizationId: 'org-a',
+        state: 'ACKNOWLEDGED',
+        tier: null,
+        ownerId: null,
+      });
+      expect(published[0]).toMatchObject({ deviceId: null });
+      expect(published[0].payload).toEqual({
+        incidentId: 'inc-3',
+        state: 'ACKNOWLEDGED',
+        tier: null,
+        ownerId: null,
+      });
     });
 
     it('sends an unrouted incident to the fleet only', async () => {
