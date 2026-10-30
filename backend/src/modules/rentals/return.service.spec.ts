@@ -52,6 +52,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         { id: 'cd-1', deviceId: 'd-1' },
         { id: 'cd-2', deviceId: 'd-2' },
       ]),
+      openTerm: jest.fn().mockResolvedValue({ endsAt: new Date('2026-12-01T02:00:00Z') }),
       markCheckedIn: jest.fn().mockResolvedValue(undefined),
       returnCounts: jest.fn().mockResolvedValue({ total: 2, returned: 2 }),
       findDeviceRow: jest
@@ -161,6 +162,36 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         contractStatus: ContractStatus.ACTIVE,
       });
       expect(charges.chargeLate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { status: ContractStatus.ACTIVE, planType: PlanType.DAY },
+      { status: ContractStatus.ENDING, planType: PlanType.MONTHLY },
+    ])(
+      'charges lateness before the scheduler catches up for $planType $status',
+      async ({ status, planType }) => {
+        contracts.lockById.mockResolvedValue(contract({ status, planType, returnDueAt: null }));
+        contracts.openTerm.mockResolvedValue({ endsAt: DUE });
+        await service.checkIn('c-1', ['TL-0001'], STAFF, AT);
+        expect(charges.chargeLate).toHaveBeenCalledWith(
+          { id: 'c-1', organizationId: 'org-1', returnDueAt: DUE },
+          { id: 'd-1', assetTag: 'TL-0001' },
+          AT,
+          'u-staff',
+          TX,
+        );
+      },
+    );
+
+    it('does not silently check in a running plan whose term is missing', async () => {
+      contracts.lockById.mockResolvedValue(
+        contract({ status: ContractStatus.ACTIVE, planType: PlanType.DAY, returnDueAt: null }),
+      );
+      contracts.openTerm.mockResolvedValue(null);
+      await expect(service.checkIn('c-1', ['TL-0001'], STAFF, AT)).rejects.toThrow(
+        'has no open term',
+      );
+      expect(contracts.markCheckedIn).not.toHaveBeenCalled();
     });
 
     it('refuses tags that trim to nothing and moves nothing (review of #104)', async () => {

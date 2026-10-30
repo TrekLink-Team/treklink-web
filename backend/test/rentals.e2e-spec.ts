@@ -110,6 +110,14 @@ describe('rentals (e2e)', () => {
       expectError(response, 400, 'VALIDATION_FAILED');
     });
 
+    it('api-design 02 refuses a malformed organization UUID', async () => {
+      expectError(
+        await e2e.send('staff-1', 'get', '/api/contracts?organizationId=ORG-0001'),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
     it('api-design 02 refuses an unknown status filter', async () => {
       expectError(
         await e2e.send('staff-1', 'get', '/api/contracts?status=LOST'),
@@ -122,6 +130,14 @@ describe('rentals (e2e)', () => {
       ['a handover time that is not a date', { handoverAt: 'tomorrow', expectedVersion: 0 }],
       ['a negative version', { handoverAt: '2026-11-01T02:00:00Z', expectedVersion: -1 }],
       ['a missing version', { handoverAt: '2026-11-01T02:00:00Z' }],
+      [
+        'an invalid device UUID',
+        { handoverAt: '2026-11-01T02:00:00Z', expectedVersion: 0, deviceIds: ['TL-0001'] },
+      ],
+      [
+        'duplicate devices',
+        { handoverAt: '2026-11-01T02:00:00Z', expectedVersion: 0, deviceIds: [D, D] },
+      ],
     ])('api-design 04 refuses %s', async (_, body) => {
       expectError(
         await e2e.send('staff-1', 'post', `/api/contracts/${C}/approve`, body),

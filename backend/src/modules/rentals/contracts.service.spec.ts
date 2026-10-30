@@ -35,6 +35,7 @@ describe('ContractsService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
   });
 
@@ -106,6 +107,7 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
     };
     const service = new ContractsService(
       contracts as unknown as ContractsRepository,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,

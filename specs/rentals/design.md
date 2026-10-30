@@ -416,8 +416,9 @@ classDiagram
 
 <!-- sdd: MF-05 class rentals -->
 ```mermaid
+%%{init: {"htmlLabels": false}}%%
 classDiagram
-    direction TB
+    direction LR
     class ReturnController {
         +checkIn(string, CheckInDto, Caller) CheckInResult
     }
@@ -436,6 +437,7 @@ classDiagram
     class ContractsRepository {
         +lockById(string, Tx) ContractRow
         +markCheckedIn(string[], Date, string, Tx) void
+        +openTerm(string, Tx) TermRow ?
         +returnCounts(string, Tx) ReturnCounts
         +rowsOut(string, Tx) ContractDeviceRow[]
     }
@@ -450,8 +452,9 @@ classDiagram
 
 <!-- sdd: MF-05 class rentals-uc-51 -->
 ```mermaid
+%%{init: {"htmlLabels": false}}%%
 classDiagram
-    direction TB
+    direction LR
     class ReturnController {
         +close(string, CloseDto, Caller) ContractView
     }
@@ -465,7 +468,7 @@ classDiagram
         +outstanding(string, Client) bigint
     }
     class ChargesService {
-        +pendingDamage(string[], Date, Tx) number
+        +pendingDamage(string, Tx) number
     }
     class ContractCloseCheck {
         <<interface>>
@@ -830,21 +833,27 @@ sequenceDiagram
         S-->>C: 409 DEVICE_NOT_ON_CONTRACT, MSG12
         C-->>P: error envelope
     else success: tag on this contract
-        loop each device
-            S->>R: markCheckedIn(rowIds, at, actorId, tx)
-            activate R
-            deactivate R
-            S->>D: markReturned(deviceIds, at, tx)
-            activate D
-            deactivate D
+        S->>R: openTerm(id, tx)
+        activate R
+        deactivate R
+        S->>R: markCheckedIn(rowIds, at, actorId, tx)
+        activate R
+        deactivate R
+        S->>D: markReturned(deviceIds, at, tx)
+        activate D
+        deactivate D
+        loop each returned device when an effective due date exists
             S->>Ch: chargeLate(contract, device, checkedInAt, actorId, tx)
             activate Ch
             deactivate Ch
         end
+        S->>R: returnCounts(id, tx)
+        activate R
+        deactivate R
         S->>L: apply(id, current, RETURNED, CHECKED_IN, actor, tx)
         activate L
         deactivate L
-        S-->>C: CheckInDto
+        S-->>C: CheckInResult
         C-->>P: 200 envelope
     end
 ```
@@ -852,6 +861,10 @@ sequenceDiagram
 ***Figure 21***: UC-43 Check In Device. `markCheckedIn` closes the custody interval (D-040); late events
 from the organization's Field Station are still attributed to it. The transition to `RETURNED` runs only
 once every device of the contract is back or lost; until then the contract keeps its state.
+An ACTIVE day plan or ENDING contract without `returnDueAt` reads the open term before check-in writes;
+when its end is earlier than the actual return, that end is the effective late-fee deadline. A missing
+open term aborts before mutation. Returning before the term end adds no late fee. This preserves fees
+when check-in happens before the daily rollover batch; each bulk check-in operation runs once.
 
 <!-- sdd: MF-05 seq UC-51 -->
 ```mermaid
@@ -888,7 +901,7 @@ sequenceDiagram
     S->>R: unsettledReplacedLosses(id, tx)
     activate R
     deactivate R
-    S->>Ch: pendingDamage(deviceIds, since, tx)
+    S->>Ch: pendingDamage(id, tx)
     activate Ch
     deactivate Ch
     S->>K: blockingReason(id, deviceIds, tx)

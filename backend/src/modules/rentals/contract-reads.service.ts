@@ -24,6 +24,7 @@ import {
 } from './contracts.repository';
 
 export interface ContractQuery extends PagedQueryDto {
+  organizationId?: string;
   status?: ContractStatus;
   planType?: PlanType;
 }
@@ -78,7 +79,7 @@ export class ContractReadsService {
     );
     const [rows, total] = await this.contracts.page(
       {
-        organizationId: caller.organizationId ?? undefined,
+        organizationId: caller.organizationId ?? query.organizationId,
         status: query.status,
         planType: query.planType,
       },

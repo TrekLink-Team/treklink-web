@@ -71,6 +71,21 @@ describe('ContractReadsService', () => {
     expect(page.items[0]).toMatchObject({ organization: ORG, variantCode: 'treklink-v3' });
   });
 
+  it('lets Staff filter organizations while keeping an organization caller inside its token scope', async () => {
+    await service.page({ organizationId: 'org-2' }, STAFF);
+    expect(contracts.page).toHaveBeenLastCalledWith(
+      expect.objectContaining({ organizationId: 'org-2' }),
+      0,
+      20,
+    );
+    await service.page({ organizationId: 'org-2' }, MANAGER);
+    expect(contracts.page).toHaveBeenLastCalledWith(
+      expect.objectContaining({ organizationId: 'org-1' }),
+      0,
+      20,
+    );
+  });
+
   it("answers 404 for another organization's contract and serves Staff any contract", async () => {
     contracts.detail.mockResolvedValue({ ...ROW, organizationId: 'org-2' });
     await expect(service.detail('c-1', MANAGER)).rejects.toMatchObject({

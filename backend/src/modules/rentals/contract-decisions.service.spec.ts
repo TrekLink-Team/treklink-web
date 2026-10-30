@@ -103,7 +103,13 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
     it('reserves the units, creates term 1, issues the term invoice and moves to APPROVED', async () => {
       const approved = await service.approve('c-1', input, STAFF, AT);
 
-      expect(devices.reserve).toHaveBeenCalledWith({ id: 'v-3', code: 'treklink-v3' }, 2, AT, TX);
+      expect(devices.reserve).toHaveBeenCalledWith(
+        { id: 'v-3', code: 'treklink-v3' },
+        2,
+        AT,
+        TX,
+        undefined,
+      );
       expect(contracts.insertContractDevices).toHaveBeenCalledWith(
         [
           { contractId: 'c-1', deviceId: 'd-1' },
@@ -148,6 +154,25 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
       expect(approved.handoverAppointmentAt).toEqual(new Date('2026-11-01T02:00:00.000Z'));
       expect(approved.devices.map((device) => device.assetTag)).toEqual(['TL-0001', 'TL-0002']);
     });
+
+    it('reserves only the Staff choice when explicit device IDs are supplied', async () => {
+      await service.approve('c-1', { ...input, deviceIds: ['d-1', 'd-2'] }, STAFF, AT);
+      expect(devices.reserve).toHaveBeenCalledWith({ id: 'v-3', code: 'treklink-v3' }, 2, AT, TX, [
+        'd-1',
+        'd-2',
+      ]);
+    });
+
+    it.each([{ deviceIds: [] }, { deviceIds: ['d-1'] }, { deviceIds: ['d-1', 'd-1'] }])(
+      'refuses an incomplete or duplicate explicit choice: $deviceIds',
+      async ({ deviceIds }) => {
+        await expect(
+          service.approve('c-1', { ...input, deviceIds }, STAFF, AT),
+        ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+        expect(devices.reserve).not.toHaveBeenCalled();
+        expect(contracts.insertTerm).not.toHaveBeenCalled();
+      },
+    );
 
     it('issues a day-plan invoice for a day plan', async () => {
       contracts.lockById.mockResolvedValue(
