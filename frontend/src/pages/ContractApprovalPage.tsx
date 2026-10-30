@@ -52,6 +52,9 @@ interface Failure {
   message: string;
   stale?: boolean;
   shortfall?: boolean;
+  // Shown under the appointment field: the panel sends no other field the server validates
+  // (rentals api-design 04, an appointment in the past is 400 VALIDATION_FAILED).
+  appointment?: boolean;
 }
 
 const failureOf = (error: unknown): Failure => {
@@ -60,6 +63,7 @@ const failureOf = (error: unknown): Failure => {
     message: error.message,
     stale: error.errorCode === 'STALE_VERSION',
     shortfall: error.errorCode === 'INSUFFICIENT_DEVICES',
+    appointment: error.errorCode === 'VALIDATION_FAILED',
   };
 };
 
@@ -146,9 +150,11 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   // Approve and Reject.
   const [rejected, setRejected] = useState(false);
 
+  const appointmentError = failure?.appointment ? failure.message : undefined;
+
   const approve = async () => {
     if (appointment === '') {
-      setFailure({ message: 'Handover appointment is required.' });
+      setFailure({ message: 'Handover appointment is required.', appointment: true });
       return;
     }
     setPending(true);
@@ -232,7 +238,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
                     ? `Only ${available} ${variant} available now.`
                     : `${available} ${variant} available now; approval reserves ${contract.quantity}.`}
             </Alert>
-            {failure && (
+            {failure && !failure.appointment && (
               <div role="alert" className={ALERT}>
                 {failure.message}
                 {failure.stale && (
@@ -250,13 +256,18 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
               id="appointment"
               label="Handover appointment"
               hint="Devices are reserved by the server, the longest unused first."
+              error={appointmentError}
             >
               <input
                 id="appointment"
                 type="datetime-local"
                 className={INPUT}
                 value={appointment}
-                onChange={(event) => setAppointment(event.target.value)}
+                onChange={(event) => {
+                  setAppointment(event.target.value);
+                  if (failure?.appointment) setFailure(null);
+                }}
+                {...invalid('appointment', appointmentError)}
               />
             </Field>
             <div className="flex flex-col gap-3 sm:flex-row">

@@ -203,6 +203,23 @@ Reserves exactly the requested number of `AVAILABLE` devices of the variant in o
         </tr>
         <tr>
             <td>400</td>
+            <td>handoverAt is before the current minute (REQ-ERR-09) (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "The handover appointment is in the past. Choose a time from now on."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
             <td>deviceIds is not exactly the contract quantity of distinct ids (<code>VALIDATION_FAILED</code>)</td>
 <td>
 
@@ -282,24 +299,29 @@ flowchart TB
     E4["Return 409 INVALID_STATE_TRANSITION"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"deviceIds is not exactly the contract quantity of distinct ids?"}
+    D5{"handoverAt is before the current minute (REQ-ERR-09)?"}
     D4 -->|no| D5
     E5["Return 400 VALIDATION_FAILED"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    D6{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
+    D6{"deviceIds is not exactly the contract quantity of distinct ids?"}
     D5 -->|no| D6
-    E6["Return 409 DEVICE_NOT_AVAILABLE"]
+    E6["Return 400 VALIDATION_FAILED"]
     D6 -->|yes| E6
     E6 --> X6((End))
-    D7{"Fewer AVAILABLE devices of the variant than requested?"}
+    D7{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
     D6 -->|no| D7
-    E7["Return 409 INSUFFICIENT_DEVICES"]
+    E7["Return 409 DEVICE_NOT_AVAILABLE"]
     D7 -->|yes| E7
     E7 --> X7((End))
+    D8{"Fewer AVAILABLE devices of the variant than requested?"}
+    D7 -->|no| D8
+    E8["Return 409 INSUFFICIENT_DEVICES"]
+    D8 -->|yes| E8
+    E8 --> X8((End))
     P0["Lock the contract"]
-    D7 -->|no| P0
-    P1["Check the version, then the REQUESTED state, then any chosen deviceIds"]
+    D8 -->|no| P0
+    P1["Check the version, then the REQUESTED state, then that handoverAt is not in the past, then any chosen deviceIds"]
     P0 --> P1
     P2["SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity"]
     P1 --> P2

@@ -179,6 +179,33 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
       },
     );
 
+    it('refuses an appointment before the current minute with 400, reserving nothing (REQ-ERR-09)', async () => {
+      await expect(
+        service.approve(
+          'c-1',
+          { ...input, handoverAt: new Date('2026-10-26T02:59:00.000Z') },
+          STAFF,
+          new Date('2026-10-26T03:00:20.000Z'),
+        ),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        message: 'The handover appointment is in the past. Choose a time from now on.',
+      });
+      expect(devices.reserve).not.toHaveBeenCalled();
+      expect(contracts.insertTerm).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('accepts an appointment in the current minute, the precision of the form', async () => {
+      await service.approve(
+        'c-1',
+        { ...input, handoverAt: new Date('2026-10-26T03:00:00.000Z') },
+        STAFF,
+        new Date('2026-10-26T03:00:20.000Z'),
+      );
+      expect(devices.reserve).toHaveBeenCalled();
+    });
+
     it('issues a day-plan invoice for a day plan', async () => {
       contracts.lockById.mockResolvedValue(
         contract({

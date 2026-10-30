@@ -56,7 +56,7 @@ Devices are chosen by the server, the oldest-checked first. rentals 04 also acce
 
 | Step | Field | Type | Required | Rule |
 |---|---|---|---|---|
-| Approve | Handover appointment | date and time | yes | at the counter; prefilled with `requestedStartDate` at opening hours; sent as UTC (rentals 04 `handoverAt`) |
+| Approve | Handover appointment | date and time | yes | at the counter; prefilled with `requestedStartDate` at opening hours; sent as UTC (rentals 04 `handoverAt`); a time before the current minute is refused with 400 `VALIDATION_FAILED` (rentals REQ-ERR-09), shown under this field and cleared when the time changes |
 | Reject | Reason | text area | yes | not empty; shown to the Manager (rentals 05 `reason`) |
 
 Approve and Reject send the contract `version` as `expectedVersion` (rentals 04, 05).

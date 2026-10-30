@@ -78,6 +78,7 @@
 - **REQ-ERR-06**: IF notice is given on a day plan, THEN the system SHALL return 409 `DAY_PLAN_NO_NOTICE`.
 - **REQ-ERR-08**: IF a handover is attempted before the requested start date, THEN the system SHALL return 409 `BEFORE_START_DATE`.
 - **REQ-ERR-07**: IF a scanned tag is not on the contract, THEN the system SHALL return 409 `DEVICE_NOT_ON_CONTRACT` (MSG12).
+- **REQ-ERR-09**: IF Staff approve with a handover appointment before the current minute, THEN the system SHALL return 400 `VALIDATION_FAILED` and reserve nothing. [FR-CON-03]
 
 ---
 

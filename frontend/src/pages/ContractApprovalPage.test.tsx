@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../shared/api/apiClient';
 import { ContractApprovalPage } from './ContractApprovalPage';
 
 const approveContract = vi.fn();
@@ -56,7 +57,10 @@ const renderPage = () =>
   );
 
 describe('ContractApprovalPage', () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    approveContract.mockReset();
+  });
 
   it('names the variant by its display name in the queue and the request panel', async () => {
     renderPage();
@@ -68,5 +72,39 @@ describe('ContractApprovalPage', () => {
       within(panel).getByText('10 TrekLink v3 available now; approval reserves 5.'),
     ).toBeTruthy();
     expect(within(panel).queryByText(/treklink-v3/)).toBeNull();
+  });
+
+  it('shows a refused appointment in the past under the field, and clears it on a new time', async () => {
+    const message = 'The handover appointment is in the past. Choose a time from now on.';
+    approveContract.mockRejectedValue(new ApiError(400, 'VALIDATION_FAILED', message));
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: /RC-2026-0004/ })[0]);
+    const field = screen.getByLabelText('Handover appointment');
+    fireEvent.change(field, { target: { value: '2026-10-30T09:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    const error = await screen.findByText(message);
+    expect(error.id).toBe('appointment-error');
+    expect(field.getAttribute('aria-invalid')).toBe('true');
+    expect(field.getAttribute('aria-describedby')).toBe('appointment-error');
+    expect(approveContract).toHaveBeenCalledWith(
+      'c-1',
+      new Date('2026-10-30T09:00').toISOString(),
+      1,
+    );
+
+    fireEvent.change(field, { target: { value: '2099-01-02T10:00' } });
+    expect(screen.queryByText(message)).toBeNull();
+  });
+
+  it('keeps other refusals in the panel alert', async () => {
+    approveContract.mockRejectedValue(
+      new ApiError(409, 'INSUFFICIENT_DEVICES', 'Only 4 treklink-v3 devices are available.'),
+    );
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: /RC-2026-0004/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    const alert = await screen.findByText('Only 4 treklink-v3 devices are available.');
+    expect(alert.id).not.toBe('appointment-error');
   });
 });

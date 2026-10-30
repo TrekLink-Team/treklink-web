@@ -101,13 +101,16 @@ ENDPOINTS = [
        # In the order ContractDecisionsService.approve checks them: version and state before the
        # reservation, and DevicesService.reserve refuses a chosen unit before counting.
        errors=[STALE, state_409("contract", "APPROVED"),
+               (400, "VALIDATION_FAILED", "handoverAt is before the current minute (REQ-ERR-09)",
+                "The handover appointment is in the past. Choose a time from now on."),
                (400, "VALIDATION_FAILED", "deviceIds is not exactly the contract quantity of distinct ids",
                 "Choose exactly 10 distinct devices."),
                (409, "DEVICE_NOT_AVAILABLE", "A chosen device is not an AVAILABLE unit of the contract's variant",
                 "TL-0042 is not an available treklink-v3 device. Choose available units of the variant."),
                (409, "INSUFFICIENT_DEVICES", "Fewer AVAILABLE devices of the variant than requested",
                 "Only 7 treklink-v3 devices are available. Lower the quantity or choose another variant.")],
-       steps=["Lock the contract", "Check the version, then the REQUESTED state, then any chosen deviceIds",
+       steps=["Lock the contract",
+              "Check the version, then the REQUESTED state, then that handoverAt is not in the past, then any chosen deviceIds",
               "SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity",
               "Move the devices to RESERVED, insert contract_devices",
               "Create term 1 from the requested start date and issue its invoice through billing",
