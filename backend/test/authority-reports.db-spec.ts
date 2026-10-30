@@ -55,7 +55,7 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
   const ingress = new IncidentIngress(
     incidentsRepository,
     lifecycle,
-    new RoutingService(new RosterService(new RosterRepository(prisma))),
+    new RoutingService(new RosterService(new RosterRepository(prisma)), {} as never),
     parameters,
     events,
   );
@@ -68,7 +68,7 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
   );
   const ingestion = new IngestionService(
     new IngestionRepository(prisma),
-    new DevicesService(new DevicesRepository(prisma)),
+    new DevicesService(new DevicesRepository(prisma), {} as never, {} as never),
     contracts,
     ingress,
     new Normalizer(),
