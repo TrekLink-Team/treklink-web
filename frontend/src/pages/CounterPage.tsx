@@ -11,6 +11,7 @@ import {
   STATUS_LABELS,
   STATUS_TONES,
   swapDevice,
+  undoProvisioning,
   useContract,
   type ContractDetail,
   type ContractDevice,
@@ -21,7 +22,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
-import { Dialog } from '../shared/ui/Dialog';
+import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
 import { COMPACT_HIDDEN, PageActionBar, StickyPageHeader } from '../shared/ui/PageChrome';
 import { useToast } from '../shared/ui/toastStore';
 import {
@@ -130,6 +131,57 @@ const SwapDialog: React.FC<{
   );
 };
 
+// Undo a provisioning recorded on the wrong unit, before the handover (rentals api-design 19, dry run
+// defect 5). A refusal stays in the dialog; STALE_VERSION goes to the page's Reload banner.
+const UndoProvisioningDialog: React.FC<{
+  contract: ContractDetail;
+  device: ContractDevice;
+  version: number;
+  onDone: (contractVersion: number) => void;
+  onGone: () => void;
+  onStale: () => void;
+  onClose: () => void;
+}> = ({ contract, device, version, onDone, onGone, onStale, onClose }) => {
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [pending, setPending] = useState(false);
+
+  const confirm = async () => {
+    setPending(true);
+    setError(undefined);
+    try {
+      const undone = await undoProvisioning(contract.id, device.deviceId, version);
+      onDone(undone.contractVersion);
+    } catch (failure) {
+      setPending(false);
+      if (failure instanceof ApiError && failure.errorCode === 'STALE_VERSION') {
+        onStale();
+        return;
+      }
+      if (failure instanceof ApiError && failure.errorCode === 'DEVICE_NOT_PROVISIONED') onGone();
+      setError(
+        failure instanceof ApiError && failure.errorCode === 'DEVICE_NOT_ON_CONTRACT'
+          ? `${tagOf(device)} does not belong to contract ${contract.code}.`
+          : messageOf(failure),
+      );
+    }
+  };
+
+  return (
+    <ConfirmDialog
+      titleId="undo-provisioning-title"
+      title={`Undo the provisioning of ${tagOf(device)}?`}
+      description={`Use this when provisioning was recorded on the wrong unit. ${tagOf(device)} goes back to "Not provisioned yet" and its battery and GPS readings are cleared. Record it again before handover.`}
+      confirmLabel="Undo provisioning"
+      cancelLabel="Keep it"
+      destructive
+      pending={pending}
+      error={error}
+      onConfirm={() => void confirm()}
+      onCancel={onClose}
+    />
+  );
+};
+
 // /t/counter/:contractId, the counter handover of screen 5.4 (rentals api-design 07 to 10,
 // organizations 03 and 12, billing 08 and 09) in four steps. The signature, the identity text and the
 // preview live in memory only and are dropped after the handover.
@@ -152,7 +204,11 @@ export const CounterPage: React.FC = () => {
   const [today] = useState(() => new Date(Date.now() + ZONE_OFFSET_MS).toISOString().slice(0, 10));
   const [step, setStep] = useState(0);
   const [checks, setChecks] = useState<Record<string, Check>>({});
-  const [provisioned, setProvisioned] = useState<Record<string, number>>({});
+  // This visit's records: a key version, or null for a record undone here (rentals api-design 19).
+  const [provisioned, setProvisioned] = useState<Record<string, number | null>>({});
+  // The contract version an undo answered, until the contract read catches up.
+  const [undoneVersion, setUndoneVersion] = useState<number | null>(null);
+  const [undoing, setUndoing] = useState<ContractDevice | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -285,8 +341,24 @@ export const CounterPage: React.FC = () => {
   };
 
   // What this visit recorded, else what the server holds, so a reload keeps step 1 (frontend 5.4).
+  // An undo in this visit wins over a contract read that may still carry the old record.
   const versionOf = (device: ContractDevice): number | undefined =>
-    provisioned[device.deviceId] ?? device.provisionedKeyVersion ?? undefined;
+    device.deviceId in provisioned
+      ? (provisioned[device.deviceId] ?? undefined)
+      : (device.provisionedKeyVersion ?? undefined);
+
+  const contractVersion = Math.max(data.version, undoneVersion ?? data.version);
+
+  // The undone unit loses its record and its readings, which live only on this page (REQ-EVT-16).
+  const forgetProvisioning = (deviceId: string) => {
+    setProvisioned((current) => ({ ...current, [deviceId]: null }));
+    setChecks((current) => {
+      const next = { ...current };
+      delete next[deviceId];
+      return next;
+    });
+    setRowError(deviceId, null);
+  };
 
   // The selection, without units a swap has taken off the contract.
   const selectedIds = selected.filter((id) => devices.some((device) => device.deviceId === id));
@@ -413,7 +485,7 @@ export const CounterPage: React.FC = () => {
           gpsFixOk: checkOf(device.deviceId).gpsFixOk,
         })),
         acknowledgeLowBattery,
-        expectedVersion: data.version,
+        expectedVersion: contractVersion,
       });
       setSignature(null);
       setIdentity('');
@@ -754,10 +826,21 @@ export const CounterPage: React.FC = () => {
                       </label>
                       <div>
                         <p className="font-mono font-semibold text-ink">{tagOf(device)}</p>
-                        <p className="text-sm text-ink-muted">
+                        <p className="flex flex-wrap items-baseline gap-x-3 text-sm text-ink-muted">
                           {versionOf(device)
                             ? `Provisioned v${versionOf(device)}`
                             : 'Not provisioned yet'}
+                          {versionOf(device) !== undefined && (
+                            <button
+                              type="button"
+                              className={`${LINK} font-semibold`}
+                              aria-label={`Undo provisioning of ${tagOf(device)}`}
+                              disabled={busyRow !== null || bulkRunning}
+                              onClick={() => setUndoing(device)}
+                            >
+                              Undo
+                            </button>
+                          )}
                         </p>
                       </div>
                       <button
@@ -1009,6 +1092,29 @@ export const CounterPage: React.FC = () => {
         )}
       </PageActionBar>
 
+      {undoing && (
+        <UndoProvisioningDialog
+          contract={data}
+          device={undoing}
+          version={contractVersion}
+          onClose={() => setUndoing(null)}
+          onDone={(next) => {
+            setUndoing(null);
+            setUndoneVersion(next);
+            forgetProvisioning(undoing.deviceId);
+            void refreshContract();
+            showToast(`Provisioning of ${tagOf(undoing)} undone. Record it again before handover.`);
+          }}
+          onGone={() => {
+            forgetProvisioning(undoing.deviceId);
+            void refreshContract();
+          }}
+          onStale={() => {
+            setUndoing(null);
+            setStale(true);
+          }}
+        />
+      )}
       {swapping && (
         <SwapDialog
           contract={data}
