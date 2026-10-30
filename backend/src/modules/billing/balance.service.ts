@@ -45,6 +45,9 @@ const remainingAfterCredits = (lines: readonly LineRow[]): Remaining[] => {
 // Sorts after every code and id, so rows without one come last in the revenue report.
 const LAST = '\uffff';
 
+// Code unit order, the same on every server whatever its locale (review of #174).
+const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
 const sum = (items: readonly Remaining[]): bigint =>
   items.reduce((total, item) => total + item.vnd, 0n);
 
@@ -106,8 +109,8 @@ export class BalanceService {
       })
       .sort(
         (a, b) =>
-          (a.variantCode ?? LAST).localeCompare(b.variantCode ?? LAST) ||
-          (a.hardwareVariantId ?? LAST).localeCompare(b.hardwareVariantId ?? LAST),
+          compare(a.variantCode ?? LAST, b.variantCode ?? LAST) ||
+          compare(a.hardwareVariantId ?? LAST, b.hardwareVariantId ?? LAST),
       );
   }
 

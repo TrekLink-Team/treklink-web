@@ -246,7 +246,10 @@ export class InvoicesRepository {
   }
 
   // Every line due in [from, to) with its contract, for revenue per variant (task 2.4, ruling of
-  // 2026-10-30: a line belongs to the period of its due time).
+  // 2026-10-30: a line belongs to the period of its due time). A cancellation settles as a negative
+  // ADJUSTMENT line due at the cancellation (`ChargesService.settleCancellation`), so it is counted
+  // and lowers the period's invoiced amount. The range is not capped here: the caller bounds it
+  // (monitoring task 3.4, `monitoring.reportMaxRangeDays`).
   linesDueBetween(from: Date, to: Date, client: Client = this.prisma) {
     return client.invoiceLine.findMany({
       where: { dueAt: { gte: from, lt: to } },
