@@ -204,163 +204,278 @@ signs in, and a forgotten password is reset with a one-time code.
 <!-- sdd: MF-01 class auth -->
 ```mermaid
 classDiagram
+    direction TB
     class AuthController {
-        +login(dto, ip, ua) SignInResult
-        +refresh(dto, ip, ua) Tokens
-        +logout(caller, dto, ip, ua)
-        +forgot(dto, ip, ua)
-        +reset(dto, ip, ua)
-        +setPassword(dto, ip, ua) SignInResult
-    }
-    class AccountsController {
-        +create(dto, caller) AccountView
-        +deactivate(id, dto, caller) AccountView
-        +triggerReset(id, caller)
+        +login(LoginDto, string ?, string ?) SignInResult
     }
     class AuthService {
-        +login(credentials, client) SignInResult
-        +refresh(refreshToken, client) Tokens
-        +logout(userId, refreshToken, client)
-    }
-    class PasswordFlowsService {
-        +forgot(email, client)
-        +reset(input, client)
-        +setPassword(input, client) SignInResult
-        +triggerReset(caller, accountId, client)
-        +sendCode(account, purpose, code)
-    }
-    class AccountsService {
-        +create(actor, input, client) AccountView
-        +deactivate(actor, id, reason, client) AccountView
-    }
-    class TokenService {
-        +issue(user, client, tx) Tokens
-        +refresh(refreshToken, client) Tokens
-    }
-    class OneTimeCodeService {
-        +issue(userId, purpose, now, tx) string
-        +verify(userId, purpose, code, now) string
-        +inCooldown(userId, now) bool
+        +login(Credentials, ClientInfo) SignInResult
+        -rejectLogin(Account ?, string, ClientInfo, Date) never
     }
     class PasswordService {
-        +verify(password, hash) bool
-        +hash(password) string
-        +assertPolicy(password)
+        +verify(string, string ?) boolean
     }
     class AccountSessionService {
-        +eligible(account) SessionUser
+        +eligible(Account) SessionUser ?
+    }
+    class TokenService {
+        +issue(SessionUser, ClientInfo, Tx, string) object
     }
     class AccountsRepository {
-        +findByEmail(email) Account
-        +create(data, tx) Account
-        +recordLoginSuccess(userId, at, tx)
-        +recordLoginFailure(userId, failures, lockedUntil, tx)
-        +insertAuthEvent(event, tx)
-        +consumeCode(codeId, at, tx) bool
-        +setPasswordHash(userId, hash, tx)
-        +revokeAllUserTokens(userId, at, tx)
+        +countLoginFailuresSince(string, Date, Client) number
+        +findByEmail(string, Client) Account ?
+        +insertAuthEvent(AuthEventInput, Client) void
+        +recordLoginFailure(string, number, Date ?, Client) void
+        +recordLoginSuccess(string, Date, Client) void
     }
-    class MailPort {
-        +send(message)
+    class ParameterService {
+        +get(K, Tx) ParameterValue~K~
     }
-    class ParameterService
-    AuthController --> AuthService
-    AuthController --> PasswordFlowsService
-    AccountsController --> AccountsService
-    AccountsController --> PasswordFlowsService
-    AuthService --> AccountsRepository
-    AuthService --> PasswordService
-    AuthService --> AccountSessionService
-    AuthService --> TokenService
-    AuthService --> ParameterService : lockout limits
-    PasswordFlowsService --> AccountsRepository
-    PasswordFlowsService --> OneTimeCodeService
-    PasswordFlowsService --> PasswordService
-    PasswordFlowsService --> TokenService
-    PasswordFlowsService --> MailPort : code email
-    AccountsService --> AccountsRepository
-    AccountsService --> OneTimeCodeService
-    AccountsService --> PasswordFlowsService : sendCode
-    OneTimeCodeService --> AccountsRepository
-    TokenService --> AccountsRepository
+    AuthController ..> AuthService : calls
+    AuthService ..> AccountSessionService : calls
+    AuthService ..> AccountsRepository : calls
+    AuthService ..> ParameterService : calls
+    AuthService ..> PasswordService : calls
+    AuthService ..> TokenService : calls
 ```
 
-***Figure 3***: auth classes. `MailPort` is an injected port: the console transport in development and SMTP
-in production (D-063); `ParameterService` belongs to `platform`.
+***Figure 3***: auth classes used in MF-01, UC-08. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class auth-uc-09-part-1-of-2 -->
+```mermaid
+classDiagram
+    direction TB
+    class AuthController {
+        +forgotPassword(ForgotPasswordDto, string ?, string ?) null
+    }
+    class PasswordFlowsService {
+        +forgot(string, ClientInfo) void
+    }
+    class OneTimeCodeService {
+        +issue(string, OtpPurpose, Date, Tx) IssuedCode
+    }
+    class AccountsRepository {
+        +countLoginFailuresSince(string, Date, Client) number
+        +findByEmail(string, Client) Account ?
+        +insertAuthEvent(AuthEventInput, Client) void
+        +recordLoginFailure(string, number, Date ?, Client) void
+    }
+    class MailPort {
+        +send(MailMessage) void
+    }
+    AuthController ..> PasswordFlowsService : calls
+    PasswordFlowsService ..> AccountsRepository : calls
+    PasswordFlowsService ..> MailPort : calls
+    PasswordFlowsService ..> OneTimeCodeService : calls
+```
+
+***Figure 4***: auth classes used in MF-01, UC-09 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class auth-uc-09-part-2-of-2 -->
+```mermaid
+classDiagram
+    direction TB
+    class AuthController {
+        +resetPassword(ResetPasswordDto, string ?, string ?) null
+    }
+    class PasswordFlowsService {
+        +reset(CodeAndPassword, ClientInfo) void
+    }
+    class OneTimeCodeService {
+        +verify(string, OtpPurpose, string, Date) string
+    }
+    class PasswordService {
+        +assertPolicy(string) void
+        +hash(string) string
+    }
+    class AccountsRepository {
+        +consumeCode(string, Date, Client) boolean
+        +countLoginFailuresSince(string, Date, Client) number
+        +findByEmail(string, Client) Account ?
+        +insertAuthEvent(AuthEventInput, Client) void
+        +recordLoginFailure(string, number, Date ?, Client) void
+        +revokeAllUserTokens(string, Date, Client) void
+        +setPasswordHash(string, string, Client) void
+    }
+    AuthController ..> PasswordFlowsService : calls
+    PasswordFlowsService ..> AccountsRepository : calls
+    PasswordFlowsService ..> OneTimeCodeService : calls
+    PasswordFlowsService ..> PasswordService : calls
+```
+
+***Figure 5***: auth classes used in MF-01, UC-09 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class auth-uc-10-part-1-of-2 -->
+```mermaid
+classDiagram
+    direction TB
+    class AccountsController {
+        +create(CreateAccountDto, Caller, string ?, string ?) AccountView
+    }
+    class AccountsService {
+        +create(Caller, NewTreklinkAccount, ClientInfo) AccountView
+    }
+    class OneTimeCodeService {
+        +issue(string, OtpPurpose, Date, Tx) IssuedCode
+    }
+    class PasswordFlowsService {
+        +sendCode(Pick~Account, 'id' or 'email'~, OtpPurpose, IssuedCode) void
+    }
+    class AccountsRepository {
+        +countLoginFailuresSince(string, Date, Client) number
+        +create(NewAccount, Client) Account
+        +findTreklinkAccount(string, Client) AccountView ?
+        +recordLoginFailure(string, number, Date ?, Client) void
+    }
+    class MailPort {
+        +send(MailMessage) void
+    }
+    AccountsController ..> AccountsService : calls
+    AccountsService ..> AccountsRepository : calls
+    AccountsService ..> OneTimeCodeService : calls
+    AccountsService ..> PasswordFlowsService : calls
+    PasswordFlowsService ..> MailPort : calls
+```
+
+***Figure 6***: auth classes used in MF-01, UC-10 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
+<!-- sdd: MF-01 class auth-uc-10-part-2-of-2 -->
+```mermaid
+classDiagram
+    direction TB
+    class AuthController {
+        +setPassword(SetPasswordDto, string ?, string ?) SignInResult
+    }
+    class PasswordFlowsService {
+        +setPassword(CodeAndPassword, ClientInfo) SignInResult
+    }
+    class OneTimeCodeService {
+        +verify(string, OtpPurpose, string, Date) string
+    }
+    class PasswordService {
+        +hash(string) string
+    }
+    class TokenService {
+        +issue(SessionUser, ClientInfo, Tx, string) object
+    }
+    class AccountsRepository {
+        +consumeCode(string, Date, Client) boolean
+        +countLoginFailuresSince(string, Date, Client) number
+        +findByEmail(string, Client) Account ?
+        +insertAuthEvent(AuthEventInput, Client) void
+        +recordLoginFailure(string, number, Date ?, Client) void
+        +recordLoginSuccess(string, Date, Client) void
+        +setPasswordHash(string, string, Client) void
+    }
+    AuthController ..> PasswordFlowsService : calls
+    PasswordFlowsService ..> AccountsRepository : calls
+    PasswordFlowsService ..> OneTimeCodeService : calls
+    PasswordFlowsService ..> PasswordService : calls
+    PasswordFlowsService ..> TokenService : calls
+```
+
+***Figure 7***: auth classes used in MF-01, UC-10 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, `object` abbreviates a structural type, and `inferred` denotes a TypeScript-inferred result. The source remains authoritative for defaults, optional arguments and full type shapes.
+
 
 <!-- sdd: MF-01 seq UC-08 -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as Account holder
-    participant P as SignInPage
-    participant C as AuthController
-    participant S as AuthService
-    participant Pw as PasswordService
-    participant Se as AccountSessionService
-    participant Pm as ParameterService
-    participant T as TokenService
-    participant R as AccountsRepository
+    participant P as :SignInPage
+    participant C as :AuthController
+    participant S as :AuthService
+    participant Pw as :PasswordService
+    participant Se as :AccountSessionService
+    participant T as :TokenService
+    participant R as :AccountsRepository
     U->>P: enter email and password
+    activate P
+    deactivate P
     P->>C: POST /api/auth/login
+    activate C
+    deactivate C
     C->>S: login(dto, client)
+    activate S
+    deactivate S
     S->>R: findByEmail(email)
-    alt refused: account locked until a later time
+    activate R
+    deactivate R
+    alt failure: account is already locked
+        S->>R: insertAuthEvent(LOGIN_FAILED)
+        activate R
+        deactivate R
         S-->>C: 423 ACCOUNT_LOCKED
-        C-->>P: 423 envelope with the minutes left
-    else not locked
+        C-->>P: error envelope with minutes left
+    else success: active account, valid password, no lock
         S->>Pw: verify(password, hash)
+        activate Pw
+        deactivate Pw
         S->>Se: eligible(account)
-        alt refused: unknown email, wrong password or inactive account
-            S->>Pm: auth.loginMaxFailures, auth.loginFailureWindowMinutes, auth.lockoutMinutes
-            S->>R: insertAuthEvent(LOGIN_FAILED, tx)
-            S->>R: countLoginFailuresSince(userId, since, tx)
-            S->>R: recordLoginFailure(userId, failures, lockedUntil, tx)
-            S-->>C: 401 INVALID_CREDENTIALS, or 423 ACCOUNT_LOCKED at the limit
-            C-->>P: error envelope
-        else accepted: password matches an active account
-            S->>R: recordLoginSuccess(userId, now, tx)
-            S->>R: insertAuthEvent(LOGIN_SUCCEEDED, tx)
-            S->>T: issue(user, client, tx)
-            T-->>S: access token, refresh token (new family)
-            S-->>C: SignInResult
-            C-->>P: 200 envelope
-            P->>U: landing route of the role
-        end
+        activate Se
+        deactivate Se
+        S->>R: recordLoginSuccess(userId, now, tx)
+        activate R
+        deactivate R
+        S->>R: insertAuthEvent(LOGIN_SUCCEEDED, tx)
+        activate R
+        deactivate R
+        S->>T: issue(user, client, tx)
+        activate T
+        deactivate T
+        T-->>S: token pair
+        S-->>C: SignInResult
+        C-->>P: 200 envelope
+        P->>U: landing route of the role
     end
 ```
 
-***Figure 4***: UC-08 Authenticate. An unknown email answers the same 401 as a wrong password, so the
-response never reveals which emails exist (REQ-ERR-01, MSG09).
+***Figure 8***: UC-08 Authenticate. The named failure is an already locked account, which logs LOGIN_FAILED before returning 423 ACCOUNT_LOCKED. Outside this two-lane view, an unknown email still performs the password verification, logs LOGIN_FAILED, then returns 401 without reading lockout parameters or counting failures. For a known account with invalid credentials, AuthService.rejectLogin reads auth.loginMaxFailures, auth.loginFailureWindowMinutes and auth.lockoutMinutes, inserts LOGIN_FAILED, counts the window and records the failure; at the limit it also inserts ACCOUNT_LOCKED and returns 423. Other credential refusals return 401 INVALID_CREDENTIALS (REQ-ERR-01, MSG09).
 
 <!-- sdd: MF-01 seq UC-09 part 1 of 2: request a code -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as Account holder
-    participant P as ForgotPasswordPage
-    participant C as AuthController
-    participant F as PasswordFlowsService
-    participant O as OneTimeCodeService
-    participant R as AccountsRepository
-    participant M as MailPort
+    participant P as :ForgotPasswordPage
+    participant C as :AuthController
+    participant F as :PasswordFlowsService
+    participant O as :OneTimeCodeService
+    participant R as :AccountsRepository
+    participant M as :MailPort
     U->>P: enter email
+    activate P
+    deactivate P
     P->>C: POST /api/auth/password/forgot
+    activate C
+    deactivate C
     C->>F: forgot(email, client)
+    activate F
+    deactivate F
     F->>R: findByEmail(email)
-    alt refused quietly: unknown or inactive account, or a code sent within the cooldown
+    activate R
+    deactivate R
+    alt failure, answered quietly: unknown or inactive account, or a code sent within the cooldown
         F->>R: insertAuthEvent(PASSWORD_RESET_REQUESTED)
-    else accepted: active account outside the cooldown
+        activate R
+        deactivate R
+    else success: active account outside the cooldown
         F->>O: issue(userId, PASSWORD_RESET, now, tx)
+        activate O
+        deactivate O
         O-->>F: six-digit code, stored as a hash
         F->>R: insertAuthEvent(PASSWORD_RESET_REQUESTED, tx)
+        activate R
+        deactivate R
         F-)M: send(code email), not awaited
+        activate M
+        deactivate M
     end
     C-->>P: 200 envelope, the same message in both branches
     P->>U: check your email, then open the reset page
 ```
 
-***Figure 5***: UC-09 Reset Password, part 1 of 2. Both branches answer alike and the mail is not
+***Figure 9***: UC-09 Reset Password, part 1 of 2. Both branches answer alike and the mail is not
 awaited, so the timing does not reveal whether the email exists (FR-AUTH-05).
 
 <!-- sdd: MF-01 seq UC-09 part 2 of 2: set the new password -->
@@ -368,71 +483,103 @@ awaited, so the timing does not reveal whether the email exists (FR-AUTH-05).
 sequenceDiagram
     autonumber
     actor U as Account holder
-    participant P as ResetPasswordPage
-    participant C as AuthController
-    participant F as PasswordFlowsService
-    participant O as OneTimeCodeService
-    participant Pw as PasswordService
-    participant R as AccountsRepository
+    participant P as :ResetPasswordPage
+    participant C as :AuthController
+    participant F as :PasswordFlowsService
+    participant O as :OneTimeCodeService
+    participant Pw as :PasswordService
+    participant R as :AccountsRepository
     U->>P: enter email, code and new password
+    activate P
+    deactivate P
     P->>C: POST /api/auth/password/reset
+    activate C
+    deactivate C
     C->>F: reset(input, client)
+    activate F
+    deactivate F
     F->>R: findByEmail(email)
+    activate R
+    deactivate R
     F->>O: verify(userId, PASSWORD_RESET, code, now)
-    alt refused: wrong or expired code
+    activate O
+    deactivate O
+    alt failure: wrong or expired code
         F-->>C: 400 CODE_INVALID
         C-->>P: error envelope
-    else code valid
+    else success: code valid
         F->>Pw: assertPolicy(password)
-        alt refused: password breaks the policy
-            F-->>C: 400 PASSWORD_POLICY
-            C-->>P: error envelope
-        else accepted
+        activate Pw
+        deactivate Pw
         F->>Pw: hash(password)
+        activate Pw
+        deactivate Pw
         F->>R: consumeCode(codeId, now, tx)
+        activate R
+        deactivate R
         F->>R: setPasswordHash(userId, hash, tx)
+        activate R
+        deactivate R
         F->>R: revokeAllUserTokens(userId, now, tx)
+        activate R
+        deactivate R
         F->>R: insertAuthEvent(PASSWORD_RESET_COMPLETED, tx)
+        activate R
+        deactivate R
         C-->>P: 200 envelope
         P->>U: sign-in page with the reset notice
-        end
     end
 ```
 
-***Figure 6***: UC-09 Reset Password, part 2 of 2. Every session of the account ends with the reset
-(REQ-EVT-05).
+***Figure 10***: UC-09 Reset Password, part 2 of 2. Every session of the account ends with the reset (REQ-EVT-05). The named failure is a wrong or expired code. A new password that fails assertPolicy is separately refused with 400 PASSWORD_POLICY and changes nothing; that refusal is outside this two-lane view.
 
 <!-- sdd: MF-01 seq UC-10 part 1 of 2: create an account -->
 ```mermaid
 sequenceDiagram
     autonumber
     actor A as TrekLink Admin
-    participant P as AccountsPage
-    participant C as AccountsController
-    participant S as AccountsService
-    participant O as OneTimeCodeService
-    participant F as PasswordFlowsService
-    participant R as AccountsRepository
-    participant M as MailPort
+    participant P as :AccountsPage
+    participant C as :AccountsController
+    participant S as :AccountsService
+    participant O as :OneTimeCodeService
+    participant F as :PasswordFlowsService
+    participant R as :AccountsRepository
+    participant M as :MailPort
     A->>P: fill name, email and role
+    activate P
+    deactivate P
     P->>C: POST /api/accounts
+    activate C
+    deactivate C
     C->>S: create(caller, dto, client)
+    activate S
+    deactivate S
     S->>R: create(account without a password, role, tx)
-    alt refused: email already registered
+    activate R
+    deactivate R
+    alt failure: email already registered
         R-->>S: unique violation
         S-->>C: 409 CONFLICT_UNIQUE
         C-->>P: error envelope
-    else accepted: new email
+    else success: new email
         S->>O: issue(userId, SET_PASSWORD, now, tx)
+        activate O
+        deactivate O
         S->>R: findTreklinkAccount(userId, tx)
+        activate R
+        deactivate R
         S-)F: sendCode(account, SET_PASSWORD, code), after commit
+        activate F
+        deactivate F
         F-)M: send(invitation email)
+        activate M
+        deactivate M
         S-->>C: AccountView
         C-->>P: 201 envelope
     end
 ```
 
-***Figure 7***: UC-10 Manage Platform Accounts, part 1 of 2. An account has no password until its
+***Figure 11***: UC-10 Manage Platform Accounts, part 1 of 2. An account has no password until its
 invitation code is used (REQ-EVT-06, BR-35). Deactivation follows the same layering and refuses the last
 active Admin (409 `LAST_ADMIN`).
 
@@ -441,34 +588,58 @@ active Admin (409 `LAST_ADMIN`).
 sequenceDiagram
     autonumber
     actor U as Invited account holder
-    participant P as WelcomePage
-    participant C as AuthController
-    participant F as PasswordFlowsService
-    participant O as OneTimeCodeService
-    participant Pw as PasswordService
-    participant T as TokenService
-    participant R as AccountsRepository
+    participant P as :WelcomePage
+    participant C as :AuthController
+    participant F as :PasswordFlowsService
+    participant O as :OneTimeCodeService
+    participant Pw as :PasswordService
+    participant T as :TokenService
+    participant R as :AccountsRepository
     U->>P: enter email, invitation code and password
+    activate P
+    deactivate P
     P->>C: POST /api/auth/password/set
+    activate C
+    deactivate C
     C->>F: setPassword(input, client)
+    activate F
+    deactivate F
     F->>R: findByEmail(email)
+    activate R
+    deactivate R
     F->>O: verify(userId, SET_PASSWORD, code, now)
-    alt refused: wrong or expired code, or a password against the policy
+    activate O
+    deactivate O
+    alt failure: wrong or expired code, or a password against the policy
         F-->>C: 400 CODE_INVALID or 400 PASSWORD_POLICY
         C-->>P: error envelope
-    else accepted
+    else success: valid code and password
         F->>Pw: hash(password)
+        activate Pw
+        deactivate Pw
         F->>R: consumeCode(codeId, now, tx)
+        activate R
+        deactivate R
         F->>R: setPasswordHash(userId, hash, tx)
+        activate R
+        deactivate R
         F->>R: insertAuthEvent(PASSWORD_SET, tx)
+        activate R
+        deactivate R
         F->>R: recordLoginSuccess(userId, now, tx)
+        activate R
+        deactivate R
         F->>R: insertAuthEvent(LOGIN_SUCCEEDED, tx)
+        activate R
+        deactivate R
         F->>T: issue(user, client, tx)
+        activate T
+        deactivate T
         F-->>C: SignInResult
         C-->>P: 200 envelope
         P->>U: landing route of the role
     end
 ```
 
-***Figure 8***: UC-10 Manage Platform Accounts, part 2 of 2. The same page serves an Org Manager created
+***Figure 12***: UC-10 Manage Platform Accounts, part 2 of 2. The same page serves an Org Manager created
 by organization registration (UC-01), so MF-01 continues from here with a signed-in Manager.
