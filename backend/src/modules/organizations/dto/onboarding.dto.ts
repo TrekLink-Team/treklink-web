@@ -15,7 +15,7 @@ import {
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
 
-const PHONE = /^\+?[0-9 ]{8,15}$/;
+export const PHONE = /^\+?[0-9 ]{8,15}$/;
 
 // organizations api-design 01.
 export class RegisterOrganizationDto {

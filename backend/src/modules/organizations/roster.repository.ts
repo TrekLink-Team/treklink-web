@@ -37,6 +37,21 @@ export class RosterRepository {
     };
   }
 
+  // A deactivated member leaves every shift that has not ended, a shift in progress included
+  // (REQ-EVT-08, D-034): the slot becomes empty, so alerting in that window starts at the next tier.
+  // Returns how many slots were cleared.
+  async clearMember(memberId: string, from: Date, client: Client): Promise<number> {
+    const primary = await client.rosterShift.updateMany({
+      where: { primaryMemberId: memberId, endsAt: { gt: from } },
+      data: { primaryMemberId: null },
+    });
+    const backup = await client.rosterShift.updateMany({
+      where: { backupMemberId: memberId, endsAt: { gt: from } },
+      data: { backupMemberId: null },
+    });
+    return primary.count + backup.count;
+  }
+
   // Account ids of the organization's live Managers.
   async managerUserIds(organizationId: string, client: Client = this.prisma): Promise<string[]> {
     const rows = await client.organizationMember.findMany({
