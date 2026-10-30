@@ -64,8 +64,12 @@ export class OverdueAndDefaultJob {
       });
     }
 
+    // `overdueAt` is the run time of the batch that found the contract overdue, at or after that
+    // batch's cutoff and before the next one. Comparing it with the cutoff `defaultAfterDays` back
+    // would wait a day more; the bound one day later, exclusive, takes exactly the contracts
+    // found overdue `defaultAfterDays` batches ago or earlier (REQ-EVT-13, AC-05).
     for (const { id } of await this.contracts.overdueBefore(
-      new Date(cutoff.getTime() - defaultAfterDays * DAY_MS),
+      new Date(cutoff.getTime() - (defaultAfterDays - 1) * DAY_MS),
     )) {
       await this.events.transaction(async (tx) => {
         const contract = await this.contracts.lockById(id, tx);

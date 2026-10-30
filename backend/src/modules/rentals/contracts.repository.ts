@@ -669,10 +669,10 @@ export class ContractsRepository {
     });
   }
 
-  // rentals 3.2: OVERDUE contracts that became overdue at or before `overdueBy`.
+  // rentals 3.2: OVERDUE contracts that became overdue strictly before `overdueBy`.
   overdueBefore(overdueBy: Date, client: Client = this.prisma) {
     return client.rentalContract.findMany({
-      where: { status: ContractStatus.OVERDUE, overdueAt: { lte: overdueBy } },
+      where: { status: ContractStatus.OVERDUE, overdueAt: { lt: overdueBy } },
       select: { id: true },
       orderBy: { overdueAt: 'asc' },
     });
