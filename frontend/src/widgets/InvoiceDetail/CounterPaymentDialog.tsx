@@ -9,6 +9,16 @@ import { Dialog } from '../../shared/ui/Dialog';
 import { useToast } from '../../shared/ui/toastStore';
 import { ALERT, INPUT, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../shared/ui/styles';
 
+// The unpaid part of the lines due by now, never more than the invoice's whole unpaid amount (a
+// credit line lowers the total, not a single line).
+export const dueNowOf = (invoice: InvoiceDetail, due: number, now: Date = new Date()): number =>
+  Math.min(
+    due,
+    invoice.lines
+      .filter((line) => new Date(line.dueAt).getTime() <= now.getTime())
+      .reduce((sum, line) => sum + Math.max(line.amountVnd - line.paidVnd, 0), 0),
+  );
+
 interface Errors {
   amountVnd?: string;
   reference?: string;
@@ -23,9 +33,14 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
 }) => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
+  // Everything unpaid may be received (paying ahead is allowed), but the prefill and the label are
+  // what is due by now: a later installment is shown apart, so accepting the prefill never prepays
+  // next month unseen (dry run 2026-10-30; the same rule as the reactivation ruling).
   const due = Math.max(invoice.totalVnd - invoice.paidVnd, 0);
+  const dueNow = dueNowOf(invoice, due);
+  const dueLater = due - dueNow;
   const [method, setMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH');
-  const [amount, setAmount] = useState(String(due));
+  const [amount, setAmount] = useState(String(dueNow > 0 ? dueNow : due));
   const [reference, setReference] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [pending, setPending] = useState(false);
@@ -71,7 +86,7 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
   };
 
   const close = () => {
-    const filled = reference !== '' || amount !== String(due);
+    const filled = reference !== '' || amount !== String(dueNow > 0 ? dueNow : due);
     if (!filled || window.confirm('Discard this payment?')) onClose();
   };
 
@@ -80,8 +95,13 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         <p className="text-sm text-slate-700">
           {invoice.number}, contract {invoice.contract.code ?? invoice.contract.id}
-          {invoice.organization.code ? `, ${invoice.organization.code}` : ''}. Still due:{' '}
-          <strong>{formatVnd(due)}</strong>
+          {invoice.organization.code ? `, ${invoice.organization.code}` : ''}. Due now:{' '}
+          <strong>{formatVnd(dueNow)}</strong>
+          {dueLater > 0 && (
+            <>
+              . Due later: <strong>{formatVnd(dueLater)}</strong>
+            </>
+          )}
         </p>
         {errors.form && (
           <div role="alert" className={ALERT}>
