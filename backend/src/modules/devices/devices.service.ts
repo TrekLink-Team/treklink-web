@@ -256,7 +256,8 @@ export class DevicesService {
         fromStatus: DeviceStatus.MAINTENANCE,
         toStatus: DeviceStatus.RETIRED,
         actorId,
-        reason: dto.reason.trim(),
+        reason: 'RETIRED',
+        note: dto.reason.trim(),
         createdAt: at,
       },
       tx,
@@ -504,7 +505,9 @@ export class DevicesService {
       ...rows.transitions.map((row) => ({
         at: row.createdAt,
         kind: 'STATE' as const,
-        summary: `${row.fromStatus ?? 'Registered'} to ${row.toStatus} (${titleCase(row.reason)})`,
+        summary:
+          `${row.fromStatus ?? 'Registered'} to ${row.toStatus} (${titleCase(row.reason)})` +
+          (row.note ? `: ${row.note}` : ''),
         actorId: row.actorId,
         refType: row.refType,
         refId: row.refId,
