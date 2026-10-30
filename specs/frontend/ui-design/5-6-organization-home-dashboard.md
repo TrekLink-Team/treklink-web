@@ -13,7 +13,7 @@
 | Wireframe | none yet; the layout is described under Data and Mobile below |
 
 Scope from the task: contract summary from rentals api-design 02, balance due from billing api-design 10,
-open incidents from incidents api-design 01 (`open=true`), devices out; widgets `ContractSummary`,
+open incidents from incidents api-design 01 (the repeatable `state` filter), devices out; widgets `ContractSummary`,
 `InvoiceTable`, `IncidentQueue` of `design.md` §1.
 
 ## Data
@@ -24,7 +24,7 @@ open incidents from incidents api-design 01 (`open=true`), devices out; widgets 
 | Devices out | rentals 03 `devices[]` of each ACTIVE, ENDING, RETURN_DUE, OVERDUE or DEFAULTED contract (a defaulted contract's devices are still out), counting rows with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; at most five contracts are read, the tile says "and more" beyond that |
 | Still due | billing 08 `items[]`, `totalVnd` minus `paidVnd` summed per contract, CLOSING invoices included, so a cancelled contract whose voiding adjustment settled it counts nothing (ruling on treklink-web#87 point 4); the tile shows the sum of what contracts still owe and the count of invoices with an overdue line (billing 08 `overdue=true`) of contracts that owe. The split into due now and later stays on the invoice page |
 | Invoices needing payment | billing 08: the unpaid invoices of contracts that still owe, overdue first, five rows, in a `DataTable`; Pay opens the invoice |
-| Open incidents | the `IncidentQueue` widget with incidents 01 `open=true`: `code`, `device.assetTag`, `device.holder.name`, `state`, `firstEventAt`, five rows, leaving out RESOLVED and FALSE_ALARM (still `open` until CLOSED because they may reopen, but nobody needs to act; dry run 2026-10-30); each row opens `/o/incidents/:id` (screen 8.1) |
+| Open incidents | the `IncidentQueue` widget with incidents 01 filtered by `state` to every state but RESOLVED, FALSE_ALARM and CLOSED (the server filters before paging, so settled incidents never hide one that needs action; dry run 2026-10-30, Codex review 2026-10-31): `code`, `device.assetTag`, `device.holder.name`, `state`, `firstEventAt`, five rows; each row opens `/o/incidents/:id` (screen 8.1) |
 | Next dates | rentals 02 `items[].currentTerm.endsAt` and `returnDueAt` of running contracts, the three nearest |
 
 ## Actions
@@ -56,7 +56,7 @@ None.
 
 - 360 px layout: tiles in a two-column grid, then the invoices, the incidents and the next dates as stacked cards; every link target at least 44 px high.
 - Tab order: header action, tiles in reading order, then each widget. Tiles are links with a text label and the number; status is never colour alone (chapter 06 §8.3). VND with thousands separators (§8.8).
-- WebSocket events and invalidated query keys: `incident.changed` invalidates `['incidents', { open: true }]` (the `['incidents']` prefix); `device.label`, `device.handedOver` and `device.released` invalidate `['contract', id]`; `device.handedOver` and `device.released` also invalidate `['contracts']`, and `device.released` the invoice lists `['invoices']` and the invoice detail `['invoice', id]` (a check-in past the grace adds a late fee). The detail is narrowed to the invoices of the contract the release names (`contractId`, monitoring ws-live-contract). An entry stored before that field was added is narrowed to the contracts whose cached `['contract', id]` holds the released device, and when none does every invoice detail is invalidated. The list keys of a burst of entries, such as a bulk check-in, are invalidated once (100 ms window). An expired replay invalidates all of them (`app/providers/LiveProvider.tsx`). A contract status change or a confirmed payment has no stream entry in the monitoring stream contract, so those tiles refresh on the next visit or focus. Query keys reuse those of screens 5.2, 6.1 and 8.1, so the dashboard and the pages share their cache.
+- WebSocket events and invalidated query keys: `incident.changed` invalidates the queue's `['incidents', 'fleet', states, 1]` (the `['incidents']` prefix); `device.label`, `device.handedOver` and `device.released` invalidate `['contract', id]`; `device.handedOver` and `device.released` also invalidate `['contracts']`, and `device.released` the invoice lists `['invoices']` and the invoice detail `['invoice', id]` (a check-in past the grace adds a late fee). The detail is narrowed to the invoices of the contract the release names (`contractId`, monitoring ws-live-contract). An entry stored before that field was added is narrowed to the contracts whose cached `['contract', id]` holds the released device, and when none does every invoice detail is invalidated. The list keys of a burst of entries, such as a bulk check-in, are invalidated once (100 ms window). An expired replay invalidates all of them (`app/providers/LiveProvider.tsx`). A contract status change or a confirmed payment has no stream entry in the monitoring stream contract, so those tiles refresh on the next visit or focus. Query keys reuse those of screens 5.2, 6.1 and 8.1, so the dashboard and the pages share their cache.
 
 ## Open points for review
 

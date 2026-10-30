@@ -386,6 +386,7 @@ export const ReportDialog: React.FC<{
             <Input
               id="report-at"
               type="datetime-local"
+              step={1}
               value={form.reportedAt}
               invalid={missing.reportedAt}
               onChange={(event) => set('reportedAt')(event.target.value)}
@@ -505,6 +506,7 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
           <Input
             id="close-case-at"
             type="datetime-local"
+              step={1}
             value={closedAt}
             invalid={missing || timeError !== null}
             onChange={(event) => {
