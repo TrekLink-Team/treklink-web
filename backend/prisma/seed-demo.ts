@@ -18,6 +18,8 @@
 //
 // Passwords come from SEED_ADMIN_PASSWORD, SEED_STAFF_PASSWORD, SEED_MANAGER_PASSWORD and
 // SEED_OPERATOR_PASSWORD, never from the repository. All names, codes and numbers are fictitious.
+// SEED_ORG_API_KEY, when set, adds one organization API key for ORG-0001 with that secret (organizations
+// 2.7, the organization API demo); only its SHA-256 hash is stored.
 //
 // Run: npm run seed:demo   (after `prisma migrate deploy`)
 
@@ -30,6 +32,7 @@ import {
   PrismaClient,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
 type Tx = Prisma.TransactionClient;
@@ -44,7 +47,13 @@ export interface SeedPasswords {
 export interface SeedOptions {
   now: Date;
   bcryptCost: number;
+  // An organization API key for ORG-0001, `tlk_` and 43 base64url characters; none when absent.
+  apiKey?: string;
 }
+
+// The shape organizations 2.7 generates: `tlk_` and 32 random bytes in base64url.
+export const API_KEY_FORMAT = /^tlk_[A-Za-z0-9_-]{43}$/;
+const DEMO_API_KEY_NAME = 'Demo integration';
 
 const ORGANIZATION_CODE = 'ORG-0001';
 const CONTRACT_CODE = 'RC-2026-0001';
@@ -163,9 +172,12 @@ async function parameterValue(tx: Tx, key: string): Promise<unknown> {
 export async function seedDemo(
   prisma: PrismaClient,
   passwords: SeedPasswords,
-  { now, bcryptCost }: SeedOptions,
+  { now, bcryptCost, apiKey }: SeedOptions,
 ): Promise<string[]> {
   const created: string[] = [];
+  if (apiKey !== undefined && !API_KEY_FORMAT.test(apiKey)) {
+    throw new Error('SEED_ORG_API_KEY must be tlk_ followed by 43 base64url characters');
+  }
 
   return prisma.$transaction(
     async (tx) => {
@@ -456,6 +468,27 @@ export async function seedDemo(
         if (count > 0) created.push(`holder label ${assetTag}`);
       }
 
+      // --- Organization API key (organizations 2.7, monitoring 3.2) ------------------------------
+      // One key for ORG-0001 from SEED_ORG_API_KEY, found by its hash, so a second run adds nothing and
+      // a changed secret adds a second key. The secret itself is never stored.
+      if (apiKey !== undefined) {
+        const keyHash = createHash('sha256').update(apiKey).digest('hex');
+        if (!(await tx.apiKey.findUnique({ where: { keyHash } }))) {
+          await tx.apiKey.create({
+            data: {
+              organizationId: organization.id,
+              name: DEMO_API_KEY_NAME,
+              prefix: apiKey.slice(0, 8),
+              keyHash,
+              createdById: manager,
+              createdAt: now,
+            },
+          });
+          created.push(`api key ${apiKey.slice(0, 8)}`);
+        }
+      }
+      // --- end organization API key ----------------------------------------------------------------
+
       return created;
     },
     { timeout: 60_000 },
@@ -479,7 +512,8 @@ async function main() {
   const bcryptCost = Number(process.env.BCRYPT_COST ?? 12);
   const prisma = new PrismaClient();
   try {
-    const created = await seedDemo(prisma, passwords, { now: new Date(), bcryptCost });
+    const apiKey = process.env.SEED_ORG_API_KEY || undefined;
+    const created = await seedDemo(prisma, passwords, { now: new Date(), bcryptCost, apiKey });
     for (const label of created) console.log(`created ${label}`);
     console.log(`Demo seed: ${created.length} row group(s) created.`);
     if (expectUnchanged && created.length > 0) {

@@ -33,7 +33,7 @@
 - [ ] 2.2 Replay and key revocation (owner LongNN)
   - **Do**: on connect or reconnect with a cursor, replay every entry after it for the client's rooms, then `replay.done`, then live; a cursor older than `monitoring.streamRetentionHours` gets `replay.expired` (REST 410); on `apiKey.revoked` close that key's sockets
   - **Test**: AC-02 (two minutes disconnected, every entry once and in order)
-  - **Status**: the socket side is built: replay in batches for the client's scope, `replay.done` with its cursor, `replay.expired` for a cursor outside the retention window, live entries held back during a replay, and key revocation by `apiKey.revoked`. The REST 410 belongs to `GET /api/telemetry/stream` (task 3.2). `organizations` does not emit `apiKey.revoked` yet, so revocation is tested by calling the handler. The box stays unticked until 3.2 and that emitter land.
+  - **Status**: the socket side is built: replay in batches for the client's scope, `replay.done` with its cursor, `replay.expired` for a cursor outside the retention window, live entries held back during a replay, and key revocation by `apiKey.revoked`. The REST 410 belongs to `GET /api/telemetry/stream` (task 3.2). `organizations` emits `apiKey.revoked` since 2026-10-30 (chain 2) and the REST 410 is in task 3.2; the box stays unticked until a socket test closes a real revoked key.
   - _Requirements: REQ-EVT-02, REQ-EVT-08, AC-02, FR-MON-05, FR-ORG-06_
 - [ ] 2.3 `incident.alert` publishing (owner HoangTK)
   - **Do**: a synchronous listener publishes the alert to `user:<recipientId>`; returning means sent (incidents design §3)
@@ -61,6 +61,7 @@
   - **Files**: `org-api.controller.ts`
   - **Do**: api-design 04 and 05 behind `ApiKeyGuard`; `monitoring.apiRateLimitPerMinute` per key, 429 `RATE_LIMITED` beyond; only the key's organization
   - **Test**: organizations AC-05 end to end; the 61st request in a minute gets 429
+  - **Status** (2026-10-30, KhoaDD, D-078 chain 2): `OrgApiController` serves api-design 04 and 05 with `@AuthOneOf('apiKey')`, the key's organization only, 410 `CURSOR_EXPIRED` through `ReplayService.isExpired`, and an in-process fixed one-minute window per key (`ApiRateLimiter`). Devices compose `rentals.visibleDevices`, `devices.projections` and `incidents.openByDevices`. The 61st-request test is a unit test with the parameter at 60; AC-05 end to end is open, so the box stays open
   - _Requirements: REQ-EVT-05, FR-MON-05, FR-MON-06, BR-20_
   - _Story: US-UC39_
 - [ ] 3.3 Telemetry and device history (owner LongNN)

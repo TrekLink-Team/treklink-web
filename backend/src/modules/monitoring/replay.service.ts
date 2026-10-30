@@ -10,7 +10,8 @@ const HOUR_MS = 3_600_000;
 
 // What a reconnecting client missed (task 2.2, REQ-EVT-02, FR-MON-05). The gateway decides who the
 // client is and which organization it may see; this decides whether its cursor is still replayable and
-// reads the entries after it, oldest first.
+// reads the entries after it, oldest first. `GET /api/telemetry/stream` (task 3.2) uses the same two
+// reads for its REST pages.
 @Injectable()
 export class ReplayService {
   constructor(
@@ -27,10 +28,14 @@ export class ReplayService {
     return after < (await this.repository.maxSeq());
   }
 
-  // Entries after `after` that the scope may see, as the wire form, in `seq` order. A null scope is the
-  // fleet and sees every entry; an id is that organization's own entries.
-  async batchAfter(organizationId: string | null, after: number): Promise<WireEntry[]> {
-    const entries = await this.repository.after(organizationId, after, REPLAY_BATCH_SIZE);
+  // Entries after `after` that the scope may see, as the wire form, in `seq` order, at most `limit`. A
+  // null scope is the fleet and sees every entry; an id is that organization's own entries.
+  async batchAfter(
+    organizationId: string | null,
+    after: number,
+    limit: number = REPLAY_BATCH_SIZE,
+  ): Promise<WireEntry[]> {
+    const entries = await this.repository.after(organizationId, after, limit);
     return entries.map(toWire);
   }
 }

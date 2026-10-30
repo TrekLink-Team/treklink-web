@@ -287,6 +287,27 @@ export class ContractsRepository {
     });
   }
 
+  // --- monitoring reads: `visibleDevices` (monitoring design §4) -----------------------------------
+  // Devices in custody now: handed over and neither checked in nor lost, of one organization or of
+  // every organization for a null scope.
+  findInCustody(organizationId: string | null, client: Client = this.prisma) {
+    return client.contractDevice.findMany({
+      where: {
+        handedOverAt: { not: null },
+        checkedInAt: null,
+        lostAt: null,
+        ...(organizationId === null ? {} : { contract: { organizationId } }),
+      },
+      orderBy: { handedOverAt: 'asc' },
+      select: {
+        deviceId: true,
+        contractId: true,
+        holderName: true,
+        contract: { select: { code: true, organizationId: true } },
+      },
+    });
+  }
+
   countUnfinishedContracts(organizationId: string, client: Client = this.prisma): Promise<number> {
     return client.rentalContract.count({
       where: { organizationId, status: { notIn: [...FINISHED_STATES] } },

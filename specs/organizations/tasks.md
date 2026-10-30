@@ -30,6 +30,7 @@
   - **Test**: resolver ignores revoked keys; `lastUsedAt` not rewritten within a minute; `forUser` returns null for a TrekLink account and a deactivated member
   - **Note**: KhoaDD lands the `ACCOUNT_CONTEXT_PROVIDER` half first, in the smallest `OrganizationsModule` that can host it, so organization accounts sign in for Iteration 1; task 1.1 completes the module
   - **Note**: LongLP added `organizationsOf(userIds)` and `memberUserIds(organizationId)` to the provider for the authentication log (auth task 6.1, api-design 17, 2026-10-29), over `MembersRepository.organizationsOfUsers` and `membersOf(id, true)`; both count a deactivated member
+  - **Status** (2026-10-30, KhoaDD, D-078 chain 2): `API_KEY_RESOLVER` is provided by `OrganizationApiKeyResolver` in `OrganizationsPortsModule` (resolve by hash, revoked keys ignored, `lastUsedAt` touched at most once a minute), tested in `api-key-resolver.provider.spec.ts` and `test/api-keys.db-spec.ts`. `ORGANIZATION_EXIT_CHECKS` is open, so the box stays open
   - _Requirements: design §5, REQ-EVT-09_
 
 ## Phase 2: Core Service Logic
@@ -78,6 +79,7 @@
   - **Files**: `backend/src/modules/organizations/api-keys.service.ts`
   - **Do**: create `tlk_` plus 43 base64url characters from 32 random bytes, store SHA-256 and the 8-character prefix, return the secret once; limit `organizations.maxApiKeys` (409 `KEY_LIMIT`); revoke emits `apiKey.revoked`
   - **Test**: AC-05; the secret never appears in a list response or the audit entry
+  - **Status** (2026-10-30, KhoaDD, D-078 chain 2): `ApiKeysService` and `ApiKeysController` serve api-design 20 to 22 (list `{ items, limit }`, create with 409 `KEY_LIMIT` under an organization row lock, revoke emitting `apiKey.revoked`); `apiKey.read` for TrekLink Staff and Admin by migration `20261030120000_api_key_read`. AC-05 over HTTP end to end is not yet tested (task 4.2), so the box stays open
   - _Requirements: REQ-UBI-03, REQ-EVT-09, REQ-ERR-06, AC-05, FR-ORG-06, BR-20_
   - _Story: US-UC06_
 - [ ] 2.8 Field Station credentials and release (owner TanNB)

@@ -204,6 +204,15 @@ export class IncidentsRepository {
     });
   }
 
+  // Incidents not yet CLOSED on the devices, newest first (monitoring reads, design §5).
+  openOfDevices(deviceIds: readonly string[]) {
+    return this.prisma.incident.findMany({
+      where: { deviceId: { in: [...deviceIds] }, state: { not: 'CLOSED' } },
+      orderBy: { firstEventAt: 'desc' },
+      select: { id: true, code: true, state: true, deviceId: true, organizationId: true },
+    });
+  }
+
   async lockOpenByDevice(deviceId: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
     const rows = await tx.$queryRaw<Incident[]>`
       SELECT * FROM "incidents"

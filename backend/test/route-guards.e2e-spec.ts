@@ -1,4 +1,4 @@
-import { Controller, Get, Global, Module, Param, Post, RequestMethod } from '@nestjs/common';
+import { Controller, Get, Param, Post, RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -146,9 +146,9 @@ describe('route guards, every route of the application (auth task 4.4, REQ-UBI-0
   });
 });
 
-// AC-05 through the real HTTP pipeline. The organization API routes are not built yet, so a
-// test-only controller stands in for `GET /api/telemetry/devices` and
-// `POST /api/incidents/:id/acknowledge`, and a stub stands in for the `organizations` resolver.
+// AC-05 through the real HTTP pipeline. A test-only controller stands in for a key-readable route and
+// a mutating one, so the guards are tested apart from the organization API's data, and a stub
+// overrides the `organizations` resolver (OrganizationApiKeyResolver), which needs the database.
 
 const KEY = 'tlk_e2e_0123456789abcdef';
 const canReadLiveMap: PolicyHandler = (ability) => ability.can('read', 'LiveMap');
@@ -177,22 +177,12 @@ class OrganizationApiProbe {
   }
 }
 
-@Global()
-@Module({
-  providers: [
-    {
-      provide: API_KEY_RESOLVER,
-      useValue: {
-        resolve: (keyHash: string) =>
-          Promise.resolve(
-            keyHash === hashApiKey(KEY) ? { apiKeyId: 'key-1', organizationId: 'org-1' } : null,
-          ),
-      },
-    },
-  ],
-  exports: [API_KEY_RESOLVER],
-})
-class ResolverStubModule {}
+const resolverStub = {
+  resolve: (keyHash: string) =>
+    Promise.resolve(
+      keyHash === hashApiKey(KEY) ? { apiKeyId: 'key-1', organizationId: 'org-1' } : null,
+    ),
+};
 
 const ownRule = (key: string, action: string, subject: string) => ({
   key,
@@ -220,11 +210,13 @@ describe('an organization API key through the HTTP pipeline (auth task 4.3, AC-0
       },
     };
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule, ResolverStubModule],
+      imports: [AppModule],
       controllers: [OrganizationApiProbe],
     })
       .overrideProvider(PrismaService)
       .useValue(prisma)
+      .overrideProvider(API_KEY_RESOLVER)
+      .useValue(resolverStub)
       .compile();
     app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);

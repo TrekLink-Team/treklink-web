@@ -85,3 +85,50 @@ describe('ContractsService', () => {
     expect(contracts.setLostAt).toHaveBeenCalledWith('cd-1', CHECK_IN, tx);
   });
 });
+
+describe('ContractsService.visibleDevices (monitoring design §4)', () => {
+  it('maps the devices in custody of the caller organization, or of all for none', async () => {
+    const contracts = {
+      findInCustody: jest.fn().mockResolvedValue([
+        {
+          deviceId: 'd-1',
+          contractId: 'c-1',
+          holderName: 'Le Thi E',
+          contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
+        },
+        {
+          deviceId: 'd-2',
+          contractId: 'c-1',
+          holderName: null,
+          contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
+        },
+      ]),
+    };
+    const service = new ContractsService(
+      contracts as unknown as ContractsRepository,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    await expect(service.visibleDevices({ organizationId: 'org-1' })).resolves.toEqual([
+      {
+        deviceId: 'd-1',
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        organizationId: 'org-1',
+        holder: { name: 'Le Thi E' },
+      },
+      {
+        deviceId: 'd-2',
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        organizationId: 'org-1',
+        holder: null,
+      },
+    ]);
+    expect(contracts.findInCustody).toHaveBeenCalledWith('org-1');
+    await service.visibleDevices({ organizationId: null });
+    expect(contracts.findInCustody).toHaveBeenLastCalledWith(null);
+  });
+});

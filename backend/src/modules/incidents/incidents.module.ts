@@ -15,8 +15,8 @@ import { IncidentsRepository } from './incidents.repository';
 import { IncidentsService } from './incidents.service';
 import { RoutingService } from './routing.service';
 
-// Repositories remain private. IncidentIngress is exported for gateway-sync's SOS hand-off (task 2.3);
-// the monitoring reads join with the rest of task 5.1.
+// Repositories remain private. IncidentIngress is exported for gateway-sync's SOS hand-off (task 2.3),
+// IncidentsQueryService for monitoring's `openByDevices`; the other monitoring reads join with task 5.1.
 @Module({
   imports: [
     PlatformModule,
@@ -37,6 +37,6 @@ import { RoutingService } from './routing.service';
     IncidentIngress,
     AlertDispatcherJob,
   ],
-  exports: [IncidentIngress],
+  exports: [IncidentIngress, IncidentsQueryService],
 })
 export class IncidentsModule {}
