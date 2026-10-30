@@ -27,9 +27,11 @@ import {
   Dialog,
   Field,
   Input,
+  PageActionBar,
   RadioGroup,
   Skeleton,
   StatusBadge,
+  StickyPageHeader,
   TabPanel,
   Tabs,
   Textarea,
@@ -281,7 +283,14 @@ const InspectDialog: React.FC<{
 // returned unit with its damage charge, and close once nothing is owed (MSG29). Replacement (4.3)
 // joins with its task. The reset and inspection of each unit come from the contract read (resetAt,
 // inspection), so a reload keeps them; the damage charge of an inspection shows on this visit only.
-export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract }) => {
+/**
+ * Screen 5.5. `header` is the page's title block; it sticks with the step tabs at the top, and the
+ * current step's primary action sits in the page action bar (leader rule of 2026-10-30).
+ */
+export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.ReactNode }> = ({
+  contract,
+  header,
+}) => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const balance = useBalance(contract.id, true);
@@ -409,21 +418,24 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
   ];
 
   return (
-    <div className="flex flex-col gap-5">
-      <Tabs<Tab>
-        label="Counter steps"
-        idPrefix="return"
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: 'checkin', label: 'Check-in', count: out.length },
-          ...(contract.status === 'ACTIVE' || contract.status === 'ENDING'
-            ? [{ key: 'replace' as const, label: 'Replace a device' }]
-            : []),
-          { key: 'inspection', label: 'Reset and inspection', count: back.length },
-          { key: 'close', label: 'Close' },
-        ]}
-      />
+    <div className="flex flex-1 flex-col gap-5">
+      <StickyPageHeader>
+        {header}
+        <Tabs<Tab>
+          label="Counter steps"
+          idPrefix="return"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { key: 'checkin', label: 'Check-in', count: out.length },
+            ...(contract.status === 'ACTIVE' || contract.status === 'ENDING'
+              ? [{ key: 'replace' as const, label: 'Replace a device' }]
+              : []),
+            { key: 'inspection', label: 'Reset and inspection', count: back.length },
+            { key: 'close', label: 'Close' },
+          ]}
+        />
+      </StickyPageHeader>
 
       {tab === 'checkin' && (
         <TabPanel idPrefix="return" tabKey="checkin">
@@ -460,17 +472,6 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
                 <p aria-live="polite" className="text-body-sm text-ink-muted">
                   {tags.length === 0 ? 'No tag scanned yet.' : `Scanned: ${tags.join(', ')}`}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="primary"
-                    disabled={tags.length === 0}
-                    loading={checking}
-                    onClick={() => void submitCheckIn()}
-                  >
-                    Check in {tags.length > 0 ? `${tags.length} devices` : ''}
-                  </Button>
-                  {tags.length > 0 && <Button onClick={() => setTags([])}>Clear the list</Button>}
-                </div>
               </div>
             )}
             {checkIn && (
@@ -544,9 +545,6 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
               </Alert>
             ) : (
               <div className="flex flex-wrap items-center gap-3">
-                <Button variant="primary" onClick={() => setClosing(true)}>
-                  Close contract
-                </Button>
                 <Link
                   to={`/t/billing?contractId=${contract.id}`}
                   className="text-body-sm font-semibold text-brand hover:underline"
@@ -562,6 +560,29 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail }> = ({ contract
             )}
           </Card>
         </TabPanel>
+      )}
+
+      {tab === 'checkin' && canCheckIn && (
+        <PageActionBar
+          label="Check-in actions"
+          start={tags.length > 0 && <Button onClick={() => setTags([])}>Clear the list</Button>}
+        >
+          <Button
+            variant="primary"
+            disabled={tags.length === 0}
+            loading={checking}
+            onClick={() => void submitCheckIn()}
+          >
+            Check in {tags.length > 0 ? `${tags.length} devices` : ''}
+          </Button>
+        </PageActionBar>
+      )}
+      {tab === 'close' && contract.status === 'RETURNED' && (
+        <PageActionBar label="Close actions">
+          <Button variant="primary" onClick={() => setClosing(true)}>
+            Close contract
+          </Button>
+        </PageActionBar>
       )}
 
       {resetting && (

@@ -27,9 +27,11 @@ import {
   Field,
   Input,
   ORGANIZATION_STATUS,
+  PageActionBar,
   PageHeader,
   RadioGroup,
   Skeleton,
+  StickyPageHeader,
   StatusBadge,
   TabPanel,
   Tabs,
@@ -410,19 +412,21 @@ export const OrganizationReviewPage: React.FC = () => {
   };
 
   return (
-    <section aria-labelledby="orgs-title">
-      <PageHeader id="orgs-title" title="Organizations" />
-      <Tabs
-        label="Status"
-        idPrefix="orgs"
-        items={TABS}
-        value={tab}
-        onChange={(key) => {
-          setTab(key);
-          setSelectedId(null);
-        }}
-        className="mb-4"
-      />
+    <section aria-labelledby="orgs-title" className="flex flex-1 flex-col">
+      <StickyPageHeader>
+        <PageHeader id="orgs-title" title="Organizations" />
+        <Tabs
+          label="Status"
+          idPrefix="orgs"
+          items={TABS}
+          value={tab}
+          onChange={(key) => {
+            setTab(key);
+            setSelectedId(null);
+          }}
+          className="mb-4"
+        />
+      </StickyPageHeader>
 
       <TabPanel idPrefix="orgs" tabKey={tab}>
         <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
@@ -519,7 +523,10 @@ export const OrganizationReviewPage: React.FC = () => {
           </div>
 
           {selected ? (
-            <Card as="article" className="flex flex-col gap-4 xl:sticky xl:top-4">
+            <Card
+              as="article"
+              className="flex flex-col gap-4 xl:sticky xl:top-[calc(var(--tl-page-header-h,0px)+1rem)]"
+            >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-title-sm text-ink">{selected.legalName}</h2>
                 <StatusBadge entry={ORGANIZATION_STATUS[selected.status]} />
@@ -555,7 +562,7 @@ export const OrganizationReviewPage: React.FC = () => {
                       showToast('Saved.');
                     }}
                   />
-                  {isAdmin && (
+                  {isAdmin && (!selected.verifiedAt || decisionError) && (
                     <div className="flex flex-col gap-3 border-t border-line pt-4">
                       <h3 className="text-title-sm text-ink">Decision</h3>
                       {!selected.verifiedAt && (
@@ -564,66 +571,19 @@ export const OrganizationReviewPage: React.FC = () => {
                         </Alert>
                       )}
                       {decisionError && <Alert tone="error">{decisionError}</Alert>}
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button
-                          variant="primary"
-                          className="flex-1"
-                          loading={deciding}
-                          loadingLabel="Approving"
-                          disabled={!selected.verifiedAt}
-                          onClick={() => void approve(selected)}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="danger"
-                          className="flex-1"
-                          onClick={() => setRejecting(true)}
-                        >
-                          Reject
-                        </Button>
-                      </div>
                     </div>
                   )}
                 </>
               )}
 
-              {isAdmin && (selected.status === 'ACTIVE' || selected.status === 'SUSPENDED') && (
-                <div className="flex flex-col gap-3 border-t border-line pt-4">
-                  <h3 className="text-title-sm text-ink">Status</h3>
-                  {statusError && <Alert tone="error">{statusError}</Alert>}
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    {selected.status === 'ACTIVE' ? (
-                      <>
-                        <Button
-                          variant="secondary"
-                          className="flex-1"
-                          onClick={() => setStatusAction('suspend')}
-                        >
-                          Suspend
-                        </Button>
-                        <Button
-                          variant="danger"
-                          className="flex-1"
-                          onClick={() => setStatusAction('close')}
-                        >
-                          Close organization
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        className="flex-1"
-                        loading={reactivating}
-                        loadingLabel="Reactivating"
-                        onClick={() => void reactivate(selected)}
-                      >
-                        Reactivate
-                      </Button>
-                    )}
+              {isAdmin &&
+                (selected.status === 'ACTIVE' || selected.status === 'SUSPENDED') &&
+                statusError && (
+                  <div className="flex flex-col gap-3 border-t border-line pt-4">
+                    <h3 className="text-title-sm text-ink">Status</h3>
+                    <Alert tone="error">{statusError}</Alert>
                   </div>
-                </div>
-              )}
+                )}
 
               {selected.status !== 'PENDING' && <StatusHistory organizationId={selected.id} />}
             </Card>
@@ -638,6 +598,55 @@ export const OrganizationReviewPage: React.FC = () => {
           )}
         </div>
       </TabPanel>
+
+      {/* The selected organization's decision or status actions stay in view (rule of 2026-10-30). */}
+      {selected && isAdmin && selected.status === 'PENDING' && (
+        <PageActionBar
+          label={`Decision on ${selected.code}`}
+          className="mt-5"
+          start={<span className="text-body-sm font-semibold text-ink">{selected.code}</span>}
+        >
+          <Button variant="danger" onClick={() => setRejecting(true)}>
+            Reject
+          </Button>
+          <Button
+            variant="primary"
+            loading={deciding}
+            loadingLabel="Approving"
+            disabled={!selected.verifiedAt}
+            onClick={() => void approve(selected)}
+          >
+            Approve
+          </Button>
+        </PageActionBar>
+      )}
+      {selected && isAdmin && (selected.status === 'ACTIVE' || selected.status === 'SUSPENDED') && (
+        <PageActionBar
+          label={`Status of ${selected.code}`}
+          className="mt-5"
+          start={<span className="text-body-sm font-semibold text-ink">{selected.code}</span>}
+        >
+          {selected.status === 'ACTIVE' ? (
+            <>
+              <Button variant="danger" onClick={() => setStatusAction('close')}>
+                Close organization
+              </Button>
+              <Button variant="secondary" onClick={() => setStatusAction('suspend')}>
+                Suspend
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="primary"
+              loading={reactivating}
+              loadingLabel="Reactivating"
+              onClick={() => void reactivate(selected)}
+            >
+              Reactivate
+            </Button>
+          )}
+        </PageActionBar>
+      )}
 
       {statusAction && selected && (
         <StatusDialog

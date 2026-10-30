@@ -9,6 +9,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDay, formatVnd, todayDay } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
+import { PageActionBar, StickyPageHeader } from '../shared/ui/PageChrome';
 import { ConfirmDialog } from '../shared/ui/Dialog';
 import { invalid } from '../shared/ui/errors';
 import { useToast } from '../shared/ui/toastStore';
@@ -167,7 +168,7 @@ export const ContractRequestPage: React.FC = () => {
     <aside
       aria-live="polite"
       aria-label="Quote"
-      className={`${CARD} h-fit border-chrome-strong md:sticky md:top-4`}
+      className={`${CARD} h-fit border-chrome-strong md:sticky md:top-[calc(var(--tl-page-header-h,0px)+1rem)]`}
     >
       <h2 className="text-lg font-bold text-ink">Quote</h2>
       <p className="text-xs text-ink-muted">Updates as you choose.</p>
@@ -230,41 +231,44 @@ export const ContractRequestPage: React.FC = () => {
   );
 
   return (
-    <section aria-labelledby="request-title">
-      <PageTitle
-        title="Request a contract"
-        action={
-          <button type="button" onClick={cancel} className={LINK}>
-            Cancel
-          </button>
-        }
-      />
+    <section aria-labelledby="request-title" className="flex flex-1 flex-col">
+      <StickyPageHeader>
+        <PageTitle
+          title="Request a contract"
+          action={
+            <button type="button" onClick={cancel} className={LINK}>
+              Cancel
+            </button>
+          }
+        />
+        <ol className="mb-5 flex flex-wrap items-center gap-2 text-sm" aria-label="Steps">
+          {STEPS.map((label, index) => (
+            <li
+              key={label}
+              aria-current={index === step ? 'step' : undefined}
+              className={`flex items-center gap-2 rounded-full px-3 py-1 font-semibold group-data-[compact=true]/chrome:py-0.5 ${
+                index === step ? '' : 'group-data-[compact=true]/chrome:max-sm:hidden'
+              } ${
+                index === step
+                  ? 'bg-accent text-on-accent'
+                  : index < step
+                    ? 'bg-status-done-tint text-status-done-fg'
+                    : 'bg-sunken text-ink-muted'
+              }`}
+            >
+              <span aria-hidden="true">{index < step ? '✓' : index + 1}</span>
+              {label}
+              {index < step && <span className="sr-only">(done)</span>}
+            </li>
+          ))}
+        </ol>
+      </StickyPageHeader>
 
       {notActive && (
         <div role="alert" className={`${WARNING} mb-4`}>
           This cannot be done while it is {organizationStatus}.
         </div>
       )}
-
-      <ol className="mb-5 flex flex-wrap items-center gap-2 text-sm" aria-label="Steps">
-        {STEPS.map((label, index) => (
-          <li
-            key={label}
-            aria-current={index === step ? 'step' : undefined}
-            className={`flex items-center gap-2 rounded-full px-3 py-1 font-semibold ${
-              index === step
-                ? 'bg-accent text-on-accent'
-                : index < step
-                  ? 'bg-status-done-tint text-status-done-fg'
-                  : 'bg-sunken text-ink-muted'
-            }`}
-          >
-            <span aria-hidden="true">{index < step ? '✓' : index + 1}</span>
-            {label}
-            {index < step && <span className="sr-only">(done)</span>}
-          </li>
-        ))}
-      </ol>
 
       <div className="grid gap-5 md:grid-cols-[1fr_320px]">
         <div className={`${CARD} flex min-w-0 flex-col gap-4`}>
@@ -420,43 +424,47 @@ export const ContractRequestPage: React.FC = () => {
               </p>
             </dl>
           )}
-
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-            {step > 0 ? (
-              <button type="button" className={SECONDARY_BUTTON} onClick={() => setStep(step - 1)}>
-                Back
-              </button>
-            ) : (
-              <Link
-                to="/o/contracts"
-                className={SECONDARY_BUTTON}
-                onClick={(event) => {
-                  if (!dirty) return;
-                  event.preventDefault();
-                  setDiscarding(true);
-                }}
-              >
-                Back to contracts
-              </Link>
-            )}
-            {step < 2 ? (
-              <button type="button" className={PRIMARY_BUTTON} onClick={next}>
-                Next
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={PRIMARY_BUTTON}
-                disabled={pending || notActive}
-                onClick={() => void send()}
-              >
-                {pending ? 'Sending…' : 'Send request'}
-              </button>
-            )}
-          </div>
         </div>
         {quotePanel}
       </div>
+      <PageActionBar
+        label="Request steps"
+        className="mt-5"
+        start={
+          step > 0 ? (
+            <button type="button" className={SECONDARY_BUTTON} onClick={() => setStep(step - 1)}>
+              Back
+            </button>
+          ) : (
+            <Link
+              to="/o/contracts"
+              className={SECONDARY_BUTTON}
+              onClick={(event) => {
+                if (!dirty) return;
+                event.preventDefault();
+                setDiscarding(true);
+              }}
+            >
+              Back to contracts
+            </Link>
+          )
+        }
+      >
+        {step < 2 ? (
+          <button type="button" className={PRIMARY_BUTTON} onClick={next}>
+            Next
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={PRIMARY_BUTTON}
+            disabled={pending || notActive}
+            onClick={() => void send()}
+          >
+            {pending ? 'Sending…' : 'Send request'}
+          </button>
+        )}
+      </PageActionBar>
       {discarding && (
         <ConfirmDialog
           titleId="discard-title"

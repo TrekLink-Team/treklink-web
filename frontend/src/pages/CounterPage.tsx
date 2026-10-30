@@ -22,6 +22,7 @@ import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { Dialog } from '../shared/ui/Dialog';
+import { COMPACT_HIDDEN, PageActionBar, StickyPageHeader } from '../shared/ui/PageChrome';
 import { useToast } from '../shared/ui/toastStore';
 import {
   ALERT,
@@ -500,47 +501,76 @@ export const CounterPage: React.FC = () => {
   if (data.status !== 'APPROVED') {
     // Past the handover the same route is screen 5.5: check-in, reset and inspection, close.
     return (
-      <section aria-labelledby="counter-title">
-        <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm`}>
-          Back to the contract
-        </Link>
-        <PageTitle
-          id="counter-title"
-          title={`Counter: ${data.code}`}
-          action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
+      <section aria-labelledby="counter-title" className="flex flex-1 flex-col">
+        <ReturnCounter
+          contract={data}
+          header={
+            <>
+              <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm ${COMPACT_HIDDEN}`}>
+                Back to the contract
+              </Link>
+              <PageTitle
+                id="counter-title"
+                title={`Counter: ${data.code}`}
+                action={
+                  <Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>
+                }
+              />
+              <p className={`-mt-3 mb-5 text-ink-muted ${COMPACT_HIDDEN}`}>
+                {data.organization
+                  ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
+                  : ''}
+                {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}
+                {data.returnDueAt ? `, return due ${formatDay(data.returnDueAt.slice(0, 10))}` : ''}
+              </p>
+            </>
+          }
         />
-        <p className="-mt-3 mb-5 text-ink-muted">
-          {data.organization
-            ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
-            : ''}
-          {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}
-          {data.returnDueAt ? `, return due ${formatDay(data.returnDueAt.slice(0, 10))}` : ''}
-        </p>
-        <ReturnCounter contract={data} />
       </section>
     );
   }
 
   return (
-    <section aria-labelledby="counter-title">
-      <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm`}>
-        Back to the contract
-      </Link>
-      <PageTitle
-        id="counter-title"
-        title={`Counter handover: ${data.code}`}
-        action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
-      />
-      <p className="-mt-3 mb-5 text-ink-muted">
-        {data.organization
-          ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
-          : ''}
-        {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}, from{' '}
-        {formatDay(data.requestedStartDate)}
-        {data.handoverAppointmentAt
-          ? `. Handover appointment ${formatDateTime(data.handoverAppointmentAt)}`
-          : ''}
-      </p>
+    <section aria-labelledby="counter-title" className="flex flex-1 flex-col">
+      <StickyPageHeader>
+        <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm ${COMPACT_HIDDEN}`}>
+          Back to the contract
+        </Link>
+        <PageTitle
+          id="counter-title"
+          title={`Counter handover: ${data.code}`}
+          action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
+        />
+        <p className={`-mt-3 mb-5 text-ink-muted ${COMPACT_HIDDEN}`}>
+          {data.organization
+            ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
+            : ''}
+          {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}, from{' '}
+          {formatDay(data.requestedStartDate)}
+          {data.handoverAppointmentAt
+            ? `. Handover appointment ${formatDateTime(data.handoverAppointmentAt)}`
+            : ''}
+        </p>
+        <ol className="mb-5 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" aria-label="Steps">
+          {STEPS.map((label, index) => (
+            <li
+              key={label}
+              aria-current={index === step ? 'step' : undefined}
+              className={`rounded-lg border px-3 py-2 font-semibold group-data-[compact=true]/chrome:py-1 ${
+                index === step ? '' : 'group-data-[compact=true]/chrome:max-sm:hidden'
+              } ${
+                index === step
+                  ? 'border-accent bg-chrome text-ink'
+                  : index < step
+                    ? 'border-status-done-line bg-status-done-tint text-status-done-fg'
+                    : 'border-line bg-surface text-ink-muted'
+              }`}
+            >
+              {index + 1}. {label}
+            </li>
+          ))}
+        </ol>
+      </StickyPageHeader>
 
       {beforeStart && (
         <div role="status" className={`${WARNING} mb-5`}>
@@ -562,24 +592,6 @@ export const CounterPage: React.FC = () => {
           </button>
         </div>
       )}
-
-      <ol className="mb-5 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" aria-label="Steps">
-        {STEPS.map((label, index) => (
-          <li
-            key={label}
-            aria-current={index === step ? 'step' : undefined}
-            className={`rounded-lg border px-3 py-2 font-semibold ${
-              index === step
-                ? 'border-accent bg-chrome text-ink'
-                : index < step
-                  ? 'border-status-done-line bg-status-done-tint text-status-done-fg'
-                  : 'border-line bg-surface text-ink-muted'
-            }`}
-          >
-            {index + 1}. {label}
-          </li>
-        ))}
-      </ol>
 
       <div className={CARD}>
         <h2 ref={heading} tabIndex={-1} className="mb-4 text-lg font-bold text-ink">
@@ -893,6 +905,7 @@ export const CounterPage: React.FC = () => {
 
         {step === 3 && (
           <form
+            id="handover-sign-form"
             noValidate
             className="flex flex-col gap-4"
             onSubmit={(event) => {
@@ -963,32 +976,39 @@ export const CounterPage: React.FC = () => {
                 {pageError}
               </div>
             )}
-            <button
-              type="submit"
-              disabled={pending || beforeStart || stale}
-              className={PRIMARY_BUTTON}
-            >
-              {pending ? 'Completing…' : 'Complete handover'}
-            </button>
           </form>
         )}
       </div>
 
-      <div className="mt-5 flex justify-between gap-3">
-        <button
-          type="button"
-          className={SECONDARY_BUTTON}
-          disabled={step === 0}
-          onClick={() => setStep((current) => Math.max(current - 1, 0))}
-        >
-          Back
-        </button>
-        {step < STEPS.length - 1 && (
+      <PageActionBar
+        label="Handover steps"
+        className="mt-5"
+        start={
+          <button
+            type="button"
+            className={SECONDARY_BUTTON}
+            disabled={step === 0}
+            onClick={() => setStep((current) => Math.max(current - 1, 0))}
+          >
+            Back
+          </button>
+        }
+      >
+        {step < STEPS.length - 1 ? (
           <button type="button" className={PRIMARY_BUTTON} onClick={next}>
             Next
           </button>
+        ) : (
+          <button
+            type="submit"
+            form="handover-sign-form"
+            disabled={pending || beforeStart || stale}
+            className={PRIMARY_BUTTON}
+          >
+            {pending ? 'Completing…' : 'Complete handover'}
+          </button>
         )}
-      </div>
+      </PageActionBar>
 
       {swapping && (
         <SwapDialog
