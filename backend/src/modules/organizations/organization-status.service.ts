@@ -31,11 +31,12 @@ export interface TransitionView {
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Organization not found.');
 
+// The caller lacks organization.history.read.own (an Org Operator by the seeded grants).
 const managerOnly = () =>
   new DomainException(
     HttpStatus.FORBIDDEN,
     ErrorCode.FORBIDDEN,
-    'Only the Manager of the organization may read its status history.',
+    'You do not have permission to read the status history of this organization.',
   );
 
 const blocked = (reason: ExitBlockingReason) =>

@@ -277,9 +277,9 @@ ENDPOINTS = [
                ["[].reason", "Reason given, if any", "string", "`Contract RC-2026-0042 defaulted`"],
                ["[].createdAt", "When the change was written, UTC", "datetime", f"`{NOW}`"]],
        entity="Organization",
-       errors=[(403, "FORBIDDEN", "The caller is an Org Operator; only the Manager reads the history of its organization",
-                "Only the Manager of the organization may read its status history.")],
-       steps=["Org member: require ORG_MANAGER and the own organization", "Read organization_transitions",
+       errors=[(403, "FORBIDDEN", "The caller lacks organization.history.read.own (an Org Operator by the seeded grants)",
+                "You do not have permission to read the status history of this organization.")],
+       steps=["Org member: require organization.history.read.own and the own organization", "Read organization_transitions",
               "Resolve actor names through AccountsService"],
        controller="OrganizationStatusController", service="OrganizationStatusService", call="transitions(id, caller)",
        sequence_note="Not drawn in the sequence: 403 FORBIDDEN for an Org Operator and 404 NOT_FOUND for another "
