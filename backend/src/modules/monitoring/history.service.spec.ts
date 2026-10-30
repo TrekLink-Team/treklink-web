@@ -248,6 +248,31 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
       );
     });
 
+    it('ends a truncated range with a # truncated comment row', () => {
+      const csv = service.csv({
+        deviceId: DEVICE,
+        clippedTo: [],
+        truncated: true,
+        points: [
+          {
+            at: '2026-10-20T03:15:00.000Z',
+            kind: 'POSITION',
+            lat: 11.56,
+            lon: 108.54,
+            altitude: null,
+            batteryPct: 81,
+          },
+        ],
+      });
+      expect(csv).toBe(
+        [
+          'at,kind,lat,lon,altitude,batteryPct',
+          '2026-10-20T03:15:00.000Z,POSITION,11.56,108.54,,81',
+          '# truncated',
+        ].join('\n'),
+      );
+    });
+
     it('is only the header for no points', () => {
       expect(service.csv({ deviceId: DEVICE, clippedTo: [], points: [], truncated: false })).toBe(
         'at,kind,lat,lon,altitude,batteryPct',

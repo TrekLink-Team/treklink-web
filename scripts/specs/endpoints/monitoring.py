@@ -60,7 +60,7 @@ ENDPOINTS = [
        "points as CSV text in `result`, with the header `at,kind,lat,lon,altitude,batteryPct`. At most "
        "`HISTORY_MAX_POINTS` (50,000, `field-event-query.service.ts`) points are answered, oldest first; a range "
        "holding more sets `truncated` and the caller narrows the range (the CSV carries the same first 50,000 "
-       "points and no flag). The read trusts the attribution ingestion wrote on each event and does not re-check "
+       "points and ends with the comment row `# truncated`). The read trusts the attribution ingestion wrote on each event and does not re-check "
        "the custody intervals.",
        "UC-40, FR-AUTH-11, FR-MON-07, BR-19",
        path=[["id", "Device id", "uuid", f"`{DEVICE_ID}`"]],

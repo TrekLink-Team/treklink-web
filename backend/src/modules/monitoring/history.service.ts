@@ -53,6 +53,8 @@ export interface HistoryDto {
 }
 
 const CSV_HEADER = 'at,kind,lat,lon,altitude,batteryPct';
+// The last row of a CSV whose range held more than HISTORY_MAX_POINTS points (api-design 03).
+const CSV_TRUNCATED = '# truncated';
 
 const overlaps = (period: RentalPeriod, from: Date, to: Date) =>
   period.from < to && (period.to === null || period.to > from);
@@ -105,14 +107,15 @@ export class HistoryService {
   }
 
   // `format=csv`: the points as CSV text, which the envelope carries in `result` (api-design 08 does the
-  // same for the reports). An empty cell is a value the device did not send.
+  // same for the reports). An empty cell is a value the device did not send. A truncated range ends with
+  // a `# truncated` comment row, so a saved file still says it is incomplete.
   csv(history: HistoryDto): string {
     const rows = history.points.map((point) =>
       [point.at, point.kind, point.lat, point.lon, point.altitude, point.batteryPct]
         .map((value) => value ?? '')
         .join(','),
     );
-    return [CSV_HEADER, ...rows].join('\n');
+    return [CSV_HEADER, ...rows, ...(history.truncated ? [CSV_TRUNCATED] : [])].join('\n');
   }
 
   // The organization the history covers, null for the whole fleet.
