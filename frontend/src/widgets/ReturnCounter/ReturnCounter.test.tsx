@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ContractDetail } from '../../entities/contract/api';
+import { contractKeys, type ContractDetail } from '../../entities/contract/api';
 import { ApiError } from '../../shared/api/apiClient';
+import { useToast } from '../../shared/ui';
 import { ReturnCounter } from './ReturnCounter';
 
 const checkInDevices = vi.fn();
@@ -84,9 +85,9 @@ const contract = (overrides: Partial<ContractDetail> = {}) =>
     ...overrides,
   }) as ContractDetail;
 
-const renderCounter = (value: ContractDetail) =>
+const renderCounter = (value: ContractDetail, client = new QueryClient()) =>
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <MemoryRouter>
         <ReturnCounter contract={value} />
       </MemoryRouter>
@@ -95,6 +96,7 @@ const renderCounter = (value: ContractDetail) =>
 
 afterEach(() => {
   cleanup();
+  useToast.getState().dismiss();
   checkInDevices.mockReset();
   closeContract.mockReset();
   resetDevice.mockReset();
@@ -167,6 +169,30 @@ describe('ReturnCounter (screen 5.5)', () => {
     resetDevice.mockRejectedValue(
       new ApiError(409, 'ALREADY_RESET', 'This device is already reset for this return.'),
     );
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    renderCounter(
+      contract({
+        devices: [device('TL-0009', { checkedInAt: '2026-10-30T03:00:00Z' })],
+      } as Partial<ContractDetail>),
+      client,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Record reset' }));
+    ['Channel key removed', 'Node database cleared', 'Owner name cleared'].forEach((step) =>
+      fireEvent.click(screen.getByLabelText(step)),
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Record reset' }).at(-1)!);
+
+    expect(await screen.findByRole('button', { name: 'Inspect' })).toBeTruthy();
+    expect(screen.queryByText('This device is already reset for this return.')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(useToast.getState().message).toBe('Already reset. It was recorded by someone else.');
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: contractKeys.detail('c-1') });
+  });
+
+  it('says Saved. after a reset this counter recorded', async () => {
+    resetDevice.mockResolvedValue(undefined);
     renderCounter(
       contract({
         devices: [device('TL-0009', { checkedInAt: '2026-10-30T03:00:00Z' })],
@@ -178,9 +204,8 @@ describe('ReturnCounter (screen 5.5)', () => {
       fireEvent.click(screen.getByLabelText(step)),
     );
     fireEvent.click(screen.getAllByRole('button', { name: 'Record reset' }).at(-1)!);
-
     expect(await screen.findByRole('button', { name: 'Inspect' })).toBeTruthy();
-    expect(screen.queryByText('This device is already reset for this return.')).toBeNull();
+    expect(useToast.getState().message).toBe('Saved.');
   });
 
   it('collects scanned tags, refuses one of another contract and shows MSG07 after check-in', async () => {
