@@ -92,9 +92,11 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [ ] 4.2 Fleet table, register, intake, `DeviceDetailPage` (owner KhoaDD)
   - **Do**: devices api-design 05 to 10, 16, 23 and monitoring api-design 07; register, intake check (motion field only for motion variants), reset, retire, dispose with the three wipe steps
   - _Story: US-UC11, US-UC12, US-UC44, US-UC53, US-UC62_
+  - **Progress** (2026-10-30, D-078 chain 3): `FleetPage` (register) and `DeviceDetailPage` (firmware edit, intake check, reset, retire, dispose dialogs, lifecycle history) built against devices api-design 05 to 09 and monitoring api-design 07, all served. The retire and dispose dialogs call `POST /devices/:id/retire` and `POST /devices/:id/dispose` (`entities/device/api.ts`), but devices api-design 16 and 23 are not yet served: `devices.controller.ts` has no `retire` or `dispose` route (devices task 2.4 already tracks `retire` as open; `dispose` is devices task 2.7). Component-tested against a mocked API client, so the gap does not surface in `DeviceDetailPage.test.tsx`; it is a real 404 on a real backend until those routes land. Open: `retire` and `dispose` controller endpoints.
 - [ ] 4.3 `MaintenancePage` and `MaintenanceApprovalPage` (owner KhoaDD)
   - **Do**: devices api-design 11 to 15; the week's service list; estimate; completion with resolution, cost, checklist results and firmware version; Admin decision (hidden for the estimator, 403 shown if forced)
   - _Story: US-UC52, US-UC64, US-UC65_
+  - **Progress** (2026-10-30, D-078 chain 3): `MaintenancePage` serves both `/t/maintenance` (records, this week's service, open preselected from the device detail) and `/t/maintenance/approvals` (Admin decision, hidden on a record the viewer estimated, MSG26 for Staff) against devices api-design 11 to 15, all served by `maintenance.controller.ts`. Open: nothing for this task's declared scope.
 - [ ] 4.4 `LossCasePage` (owner KhoaDD)
   - **Do**: devices api-design 17 to 22; Staff triage with suspected theft or fraud, recover, confirm; Admin decision (charged, reduced, waived, written off) with reason; Org Manager list at `/o/loss-cases` and the report action on the contract's device row
   - _Story: US-UC49, US-UC60_
