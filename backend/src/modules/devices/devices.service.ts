@@ -26,6 +26,13 @@ const wrongState = (status: DeviceStatus) =>
     ErrorCode.INVALID_STATE_TRANSITION,
     `This cannot be done while it is ${status}.`,
   );
+
+const staleVersion = () =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.STALE_VERSION,
+    'This was changed by someone else. Reload and try again.',
+  );
 import { RemainingValueStep, remainingValue } from './remaining-value';
 
 // The organization whose channel key is on a unit (D-021): the renter while it is out, until the reset.
@@ -208,6 +215,114 @@ export class DevicesService {
       );
     }
     return this.devices.insertReset(deviceId, steps, actorId, at, tx);
+  }
+
+  // devices api-design 16 (task 2.4, FR-DEV-09): an Admin retires a MAINTENANCE device. Design §2's
+  // guard "not on a live contract row" is exactly this status check: every live-contract state is
+  // RESERVED or RENTED, never MAINTENANCE, so no separate rentals lookup is needed.
+  async retire(
+    deviceId: string,
+    dto: { reason: string; expectedVersion: number },
+    actorId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<FleetDevice> {
+    const unit = await this.devices.findUnit(deviceId, tx);
+    if (!unit) throw notFound();
+    if (unit.status !== DeviceStatus.MAINTENANCE) throw wrongState(unit.status);
+    if (unit.version !== dto.expectedVersion) throw staleVersion();
+    const moved = await this.devices.moveIfCurrent(
+      deviceId,
+      dto.expectedVersion,
+      [DeviceStatus.MAINTENANCE],
+      DeviceStatus.RETIRED,
+      at,
+      tx,
+      { retiredAt: at },
+    );
+    if (!moved) throw staleVersion();
+    await this.devices.insertTransition(
+      {
+        deviceId,
+        fromStatus: DeviceStatus.MAINTENANCE,
+        toStatus: DeviceStatus.RETIRED,
+        actorId,
+        reason: dto.reason.trim(),
+        createdAt: at,
+      },
+      tx,
+    );
+    return this.deviceViewOf(deviceId, tx);
+  }
+
+  // devices api-design 23 (task 2.7, FR-DEV-16, BR-42): an Admin records the verified wipe of a
+  // RETIRED device (channel key, node database, owner name) and moves it to DISPOSED. The three wipe
+  // steps mirror the counter reset (api-design 10): all three true, or 400 WIPE_INCOMPLETE.
+  async dispose(
+    deviceId: string,
+    dto: {
+      keyRemoved: boolean;
+      nodeDbCleared: boolean;
+      ownerCleared: boolean;
+      method: string;
+      expectedVersion: number;
+    },
+    actorId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<FleetDevice> {
+    const unit = await this.devices.findUnit(deviceId, tx);
+    if (!unit) throw notFound();
+    if (!dto.keyRemoved || !dto.nodeDbCleared || !dto.ownerCleared) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.WIPE_INCOMPLETE,
+        'Complete every wipe step first.',
+      );
+    }
+    if (unit.status !== DeviceStatus.RETIRED) throw wrongState(unit.status);
+    if (unit.version !== dto.expectedVersion) throw staleVersion();
+    await this.devices.insertDisposal(
+      deviceId,
+      {
+        keyRemoved: dto.keyRemoved,
+        nodeDbCleared: dto.nodeDbCleared,
+        ownerCleared: dto.ownerCleared,
+        method: dto.method.trim(),
+      },
+      actorId,
+      at,
+      tx,
+    );
+    const moved = await this.devices.moveIfCurrent(
+      deviceId,
+      dto.expectedVersion,
+      [DeviceStatus.RETIRED],
+      DeviceStatus.DISPOSED,
+      at,
+      tx,
+    );
+    if (!moved) throw staleVersion();
+    await this.devices.insertTransition(
+      {
+        deviceId,
+        fromStatus: DeviceStatus.RETIRED,
+        toStatus: DeviceStatus.DISPOSED,
+        actorId,
+        reason: 'DISPOSED',
+        createdAt: at,
+      },
+      tx,
+    );
+    return this.deviceViewOf(deviceId, tx);
+  }
+
+  // The full DEVICE shape (catalog), after a lifecycle write inside the same transaction.
+  private async deviceViewOf(deviceId: string, tx: Prisma.TransactionClient): Promise<FleetDevice> {
+    const row = await this.devices.findDetail(deviceId, tx);
+    if (!row) throw notFound();
+    const [device] = await this.withKeyOrganizations([toDeviceView(row)]);
+    return device;
   }
 
   // The inspection of a returned unit (task 2.4 part, rentals 4.2): it needs a reset after the unit's

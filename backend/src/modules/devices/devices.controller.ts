@@ -26,8 +26,10 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { DeviceView } from './device-view';
 import { DeviceDetail, DevicesService, FleetDevice } from './devices.service';
+import { DisposeDeviceDto } from './dto/dispose-device.dto';
 import { IntakeCheckDto } from './dto/intake-check.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
+import { RetireDeviceDto } from './dto/retire-device.dto';
 import { IntakeService } from './intake.service';
 
 // devices api-design 06; `status` repeats (`?status=AVAILABLE&status=RESERVED`).
@@ -154,5 +156,34 @@ export class DevicesController {
     @CurrentCaller() caller: Caller,
   ) {
     return this.events.transaction((tx) => this.intake.record(id, dto, caller.id, new Date(), tx));
+  }
+
+  // devices api-design 16 (task 2.4): an Admin retires a MAINTENANCE device (`device.retire`).
+  @Post(':id/retire')
+  @HttpCode(HttpStatus.OK)
+  @CheckPolicies((ability) => ability.can('retire', 'Device'))
+  @ResponseMessage('Device retired')
+  retire(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RetireDeviceDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<FleetDevice> {
+    return this.events.transaction((tx) => this.devices.retire(id, dto, caller.id, new Date(), tx));
+  }
+
+  // devices api-design 23 (task 2.7): an Admin records the verified wipe of a RETIRED device and
+  // moves it to DISPOSED (`device.dispose`).
+  @Post(':id/dispose')
+  @HttpCode(HttpStatus.CREATED)
+  @CheckPolicies((ability) => ability.can('dispose', 'Device'))
+  @ResponseMessage('Device disposed')
+  dispose(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DisposeDeviceDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<FleetDevice> {
+    return this.events.transaction((tx) =>
+      this.devices.dispose(id, dto, caller.id, new Date(), tx),
+    );
   }
 }
