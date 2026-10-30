@@ -16,8 +16,11 @@ const stamp = (at: Date) =>
 // and the flag, emails the Manager at the organization's contact address, and writes the flag (a
 // SYSTEM transition row) only once the transport accepted the email, so a failed send is retried on
 // the next run and concurrent runs see the accepted flag (review of #108). Staff have a separate
-// attempt and flag: a Staff failure leaves the Manager's accepted attempt committed. SMTP acceptance
-// and a database commit cannot be atomic; a crash between them can repeat a delivered email.
+// attempt and flag: a Staff failure leaves the Manager's accepted attempt committed. The Staff flag is
+// written once any Staff recipient accepted, so one failing address never makes the hourly run
+// re-email the recipients who already have it; the failed ones are logged and not retried. Without
+// Staff notifications the job selects no contract for the Staff part. SMTP acceptance and a database
+// commit cannot be atomic; a crash between them can repeat a delivered email.
 @Injectable()
 export class ReservationRemindersJob {
   private readonly logger = new Logger(ReservationRemindersJob.name);
@@ -32,7 +35,10 @@ export class ReservationRemindersJob {
   @ScheduledJob('rentals.reservationReminders', '0 25 * * * *')
   async run(at: Date = new Date()): Promise<number> {
     let reminded = 0;
-    for (const contract of await this.contracts.reservationsToRemind(at)) {
+    for (const contract of await this.contracts.reservationsToRemind(
+      at,
+      this.staff !== undefined,
+    )) {
       const expired = contract.reservationExpiresAt ? stamp(contract.reservationExpiresAt) : '';
       const outcome = await this.events.transaction(async (tx) => {
         const current = await this.contracts.lockById(contract.id, tx);
@@ -59,26 +65,31 @@ export class ReservationRemindersJob {
           `Reservation of contract ${contract.code} expired ${expired}; the devices are still reserved`,
         );
       }
-      if (this.staff) {
-        const delivered = await this.events.transaction(async (tx) => {
+      const staff = this.staff;
+      if (staff) {
+        const delivery = await this.events.transaction(async (tx) => {
           const current = await this.contracts.lockById(contract.id, tx);
           if (
             current.status !== 'APPROVED' ||
             (await this.contracts.hasReminder(contract.id, tx, RESERVATION_STAFF_REMINDED))
           )
-            return true;
-          const accepted = await this.staff!.send(
+            return null;
+          const sent = await staff.send(
             `TrekLink contract ${contract.code}: reservation expired`,
             `The devices reserved for contract ${contract.code} have waited since ${expired}. Contact the organization to arrange the handover or cancellation; the devices remain reserved.`,
             tx,
           );
-          if (accepted)
+          if (sent.accepted > 0)
             await this.contracts.flagReminded(contract.id, at, tx, RESERVATION_STAFF_REMINDED);
-          return accepted;
+          return sent;
         });
-        if (!delivered)
+        if (delivery && delivery.accepted === 0)
           this.logger.warn(
             `Staff reminder for ${contract.code} not delivered; retry on the next run.`,
+          );
+        else if (delivery && delivery.failed > 0)
+          this.logger.warn(
+            `Staff reminder for ${contract.code} failed for ${delivery.failed} recipient(s); it is not repeated to those who accepted it.`,
           );
       }
     }

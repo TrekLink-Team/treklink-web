@@ -12,7 +12,7 @@ const event = { contractId: 'c-1', organizationId: 'org-1' };
 const build = () => {
   const contracts = { detail: jest.fn().mockResolvedValue({ code: 'RC-2026-0001' }) };
   const organizations = { emailContact: jest.fn().mockResolvedValue(true) };
-  const staff = { send: jest.fn().mockResolvedValue(true) };
+  const staff = { send: jest.fn().mockResolvedValue({ accepted: 1, failed: 0 }) };
   const listener = new ContractNotificationsListener(
     contracts as unknown as ContractsRepository,
     organizations as unknown as OrganizationsService,

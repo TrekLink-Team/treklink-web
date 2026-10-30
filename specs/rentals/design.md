@@ -144,9 +144,12 @@ is logged, does not undo the committed operation and has no persistent retry que
 Reservation reminders retain persistent retry markers: `RESERVATION_REMINDED` for the Manager and
 `RESERVATION_STAFF_REMINDED` for Staff. Each audience has its own transaction, contract lock and
 transport-acceptance flag, so a Staff failure does not discard the accepted Manager marker. The
-next run selects an expired APPROVED contract while either marker is missing. SMTP acceptance and
-the database commit are not atomic; a crash between them, or a partial Staff delivery, may repeat
-an email. The job's numeric result remains the count of accepted Manager reminders.
+next run selects an expired APPROVED contract while either marker is missing, and while the
+Manager marker is missing only when no `STAFF_NOTIFICATIONS` provider is bound. The Staff marker is
+written once any Staff recipient accepted (`StaffDelivery.accepted > 0`), so one failing address
+never makes the hourly run re-email the recipients who already have it; the failed addresses are
+logged and not retried (2026-10-30, KhoaDD under D-078). SMTP acceptance and the database commit
+are not atomic; a crash between them may repeat an email. The job's numeric result remains the count of accepted Manager reminders.
 
 ---
 

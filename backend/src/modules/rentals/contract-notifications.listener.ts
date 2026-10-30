@@ -28,14 +28,14 @@ export class ContractNotificationsListener {
 
   @OnEvent(CONTRACT_REQUESTED)
   async requested(event: ContractRequestedEvent): Promise<void> {
-    await this.deliver(
-      event.contractId,
-      async (code) =>
-        this.staff?.send(
-          `TrekLink contract ${code}: new rental request`,
-          `A new rental request ${code} is waiting for review. Open the TrekLink contract requests queue to review availability and arrange the handover.`,
-        ) ?? false,
-    );
+    await this.deliver(event.contractId, async (code) => {
+      if (!this.staff) return false;
+      const delivery = await this.staff.send(
+        `TrekLink contract ${code}: new rental request`,
+        `A new rental request ${code} is waiting for review. Open the TrekLink contract requests queue to review availability and arrange the handover.`,
+      );
+      return delivery.accepted > 0 && delivery.failed === 0;
+    });
   }
 
   @OnEvent(CONTRACT_STATUS_CHANGED)
