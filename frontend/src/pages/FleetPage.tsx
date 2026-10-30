@@ -21,8 +21,11 @@ import { PageHeader } from '../shared/ui/PageHeader';
 import { Toolbar, ToolbarSearch } from '../shared/ui/Toolbar';
 import { cn } from '../shared/ui/cn';
 import { formatDateTime } from '../shared/lib/format';
+import { useDebounced } from '../shared/lib/useDebounced';
 import { useToast } from '../shared/ui/toastStore';
 import { ALERT, LINK } from '../shared/ui/styles';
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 const STATUSES: DeviceStatus[] = [
   'IN_INTAKE',
@@ -201,7 +204,9 @@ export const FleetPage: React.FC = () => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const { data: variants } = useVariants();
-  const narrowing = { hardwareVariantId: hardwareVariantId || undefined, q: q.trim() || undefined };
+  // The list and the nine status counts read the search once typing pauses, not on every key.
+  const settledQ = useDebounced(q.trim(), SEARCH_DEBOUNCE_MS);
+  const narrowing = { hardwareVariantId: hardwareVariantId || undefined, q: settledQ || undefined };
   const { data, isLoading, error, refetch } = useDevices({
     ...narrowing,
     status: statuses.length > 0 ? statuses : undefined,
