@@ -118,6 +118,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [ ] 5.2 `ContractDetailPage` and contract lists (owner LongLP)
   - **Do**: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing api-design 10; cancel, notice (MSG18), holder labels, handover note download
   - _Story: US-UC18, US-UC23, US-UC25, US-UC55_
+  - **2026-10-30**: `LiveProvider` refreshes active contract details for device label, handover and release entries from other sessions, and contract lists, balances and transitions for handover or release. An expired replay refreshes these reads too; position updates do not refetch them. Contract and payment status pushes are still outside the existing stream contract
   - **Partly done** (2026-10-27): `/o/contracts` (status and plan filters, cards below 768 px) and the detail at `/o/contracts/:id` and `/t/contracts/:id` with prices, terms, devices, balance (billing 10), history (rentals 18) and Cancel with its reason dialog, STALE_VERSION reload and MSG15. Give notice (12, MSG18) and the holder label dialog with Clear label (13, MSG03) followed on 2026-10-27. The handover note download (11) followed with 5.4 on 2026-10-27, for the Org Manager and Staff, with a warning when the stored note no longer matches its hash or is missing; Staff open the counter from an approved contract. Open: Lost on a device row (screen 4.4)
 - [x] 5.3 `ContractApprovalPage` (owner LongLP)
   - **Do**: rentals api-design 04 and 05; availability from devices api-design 24; MSG11 on shortfall

@@ -103,6 +103,7 @@ describe('DamageChargeService.decide (UC-48, api-design 17, BR-24)', () => {
       AUDIT_RECORD,
       expect.objectContaining({
         action: 'damageCharge.decided',
+        organizationId: 'org-1',
         subjectId: 'dc-1',
         after: {
           status: DamageChargeStatus.APPROVED,
@@ -133,7 +134,7 @@ describe('DamageChargeService.decide (UC-48, api-design 17, BR-24)', () => {
   });
 
   it('waives without an invoice line', async () => {
-    const { service, damageCharges, charges } = build();
+    const { service, damageCharges, charges, events, invoices } = build();
     await service.decide('dc-1', { decision: 'WAIVED', note: 'Goodwill' }, ADMIN, AT);
     expect(damageCharges.recordDecision).toHaveBeenCalledWith(
       'dc-1',
@@ -141,6 +142,13 @@ describe('DamageChargeService.decide (UC-48, api-design 17, BR-24)', () => {
       TX,
     );
     expect(charges.addDecidedDamage).not.toHaveBeenCalled();
+    expect(invoices.organizationOfContract).toHaveBeenCalledWith('c-1', TX);
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      AUDIT_RECORD,
+      expect.objectContaining({
+        organizationId: 'org-1',
+      }),
+    );
   });
 
   it('REQ-ERR-03: refuses the Admin who recorded the inspection', async () => {

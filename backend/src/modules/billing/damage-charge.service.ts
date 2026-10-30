@@ -121,11 +121,10 @@ export class DamageChargeService {
         tx,
       );
 
+      // A waiver has no invoice line, but its audit row still belongs to the contract's organization.
+      const organizationId = await this.invoices.organizationOfContract(charge.contractId, tx);
+      if (!organizationId) throw new Error(`Contract ${charge.contractId} has no invoice.`);
       if (finalVnd > 0n) {
-        // The organization comes from the contract's invoices, which billing owns; a charge exists
-        // only after a handover, so the contract has its first invoice.
-        const organizationId = await this.invoices.organizationOfContract(charge.contractId, tx);
-        if (!organizationId) throw new Error(`Contract ${charge.contractId} has no invoice.`);
         const tags = await this.devices.assetTags([charge.deviceId], tx);
         await this.charges.addDecidedDamage(
           { id: charge.contractId, organizationId },
@@ -141,7 +140,7 @@ export class DamageChargeService {
       this.events.emitAfterCommit(AUDIT_RECORD, {
         actorId: actor.id,
         actorRoles: actor.roles,
-        organizationId: null,
+        organizationId,
         action: 'damageCharge.decided',
         subjectType: 'DamageCharge',
         subjectId: id,

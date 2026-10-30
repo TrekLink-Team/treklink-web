@@ -1,4 +1,5 @@
 import * as PDFDocument from 'pdfkit';
+import { join } from 'node:path';
 
 // What the handover note states (rentals task 2.4, FR-CON-06, D-037). The preview has no signature,
 // signer or identity yet; the stored note has all three.
@@ -24,8 +25,7 @@ const stamp = (at: Date) =>
   at.toLocaleString('en-GB', { timeZone: ZONE, dateStyle: 'medium', timeStyle: 'short' }) +
   ' (UTC+7)';
 
-// Renders the note with pdfkit's built-in Helvetica, so names are written as given; a name with
-// Vietnamese diacritics needs an embedded font, which joins with the note's final layout.
+// Embed the bundled Unicode font so organization and signer names keep their Vietnamese diacritics.
 export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 56, info: { Title: input.contractCode } });
@@ -33,6 +33,7 @@ export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
+    doc.font(join(__dirname, 'assets', 'DejaVuSans.ttf'));
 
     doc.fontSize(18).text(input.title ?? 'TrekLink device handover note', { align: 'left' });
     doc
