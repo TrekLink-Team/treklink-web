@@ -272,7 +272,7 @@ on the row (FR-EVT-16, FR-EVT-17); the history read filters on that `organizatio
 re-check the occurrence time against the rental periods. `clippedTo` only reports the periods.
 A correction to custody after ingestion therefore does not move events already stored. The read
 answers at most `HISTORY_MAX_POINTS` (50,000) points, oldest first, with `truncated` set when the
-range holds more; `field_events("deviceId", "occurredAt")` serves the range (migration
+range holds more (a CSV then ends with the comment row `# truncated`); `field_events("deviceId", "occurredAt")` serves the range (migration
 `20261030200000_field_event_device_occurred_at`).
 
 <!-- sdd: MF-04 seq UC-41 -->
