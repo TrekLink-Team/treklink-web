@@ -85,4 +85,20 @@ describe('ContractNotificationsListener', () => {
       warn.mockRestore();
     }
   });
+
+  it('logs a partly delivered Staff email as partial, not as undelivered (review of #143)', async () => {
+    const { listener, staff } = build();
+    staff.send.mockResolvedValue({ accepted: 1, failed: 1 });
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      await listener.requested(event);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(
+        'Contract notification c-1 reached 1 of 2 Staff recipients; no automatic retry is queued.',
+      );
+      expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('was not delivered'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
