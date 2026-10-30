@@ -76,6 +76,10 @@ describe('MembersPage (screen 3.3)', () => {
     expect(within(table).getByText('operator@acme-trek.vn')).toBeTruthy();
     expect(within(table).getByText('Invitation pending')).toBeTruthy();
     expect(within(table).getAllByText('Active')).toHaveLength(2);
+    // Role badges read the ROLE_OPTIONS labels, not the enum values.
+    expect(within(table).getAllByText('Manager')).toHaveLength(1);
+    expect(within(table).getAllByText('Operator')).toHaveLength(2);
+    expect(within(table).queryByText('OPERATOR')).toBeNull();
     expect(screen.getByText('3 members')).toBeTruthy();
     // Only the pending invitation can be resent.
     expect(within(table).getAllByRole('button', { name: /^Resend invitation to / })).toHaveLength(1);
@@ -230,7 +234,7 @@ describe('MembersPage (screen 3.3)', () => {
     renderPage();
     await screen.findByText('2 members');
     fireEvent.click(inTable().getByRole('button', { name: 'Resend invitation to Le Thi F' }));
-    await waitFor(() => expect(useToast.getState().message).toBe('Invitation sent again to f.le@acme-trek.vn'));
+    await waitFor(() => expect(useToast.getState().message).toBe('If an invitation is due, a new code was sent to f.le@acme-trek.vn.'));
   });
 
   it('shows NOT_FOUND as the server message and refetches', async () => {
