@@ -39,6 +39,8 @@ is unique, so an update is corrected at most once, and a correction can itself b
 The detail read (api-design 02) returns `correctsId` and `correctedById` on every update so the page can
 mark the corrected one; a correction must name an update of the same incident (400 `VALIDATION_FAILED`) not
 yet corrected (409 `CONFLICT_UNIQUE`), checked under the incident row lock (dry run defect 15, REQ-EVT-14).
+A correction is a status update, so it needs the owner and an `ACKNOWLEDGED` or `RESPONDING` incident
+(409 `INVALID_STATE_TRANSITION` once `RESOLVED` or `CLOSED`).
 
 ---
 

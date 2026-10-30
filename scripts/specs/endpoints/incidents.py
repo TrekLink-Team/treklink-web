@@ -134,7 +134,9 @@ ENDPOINTS = [
        "change. Without one inside the stale limit the incident escalates (FR-INC-07, E03-5). Status updates "
        "are append-only: to correct one, the owner posts a new update with `correctsId` naming it. The corrected "
        "row is never edited; the detail read marks it with `correctedById` (dry run defect 15). An update is "
-       "corrected at most once, and a correction is itself a status update that resets the stale timer.",
+       "corrected at most once, and a correction is itself a status update that resets the stale timer. A "
+       "correction follows the same owner and state rules, so it is refused with 409 once the incident is "
+       "`RESOLVED` or `CLOSED`.",
        "UC-33, FR-INC-07, E03-5",
        path=[I_PATH], body=[["note", "Status", "string", "yes", "`Reached the holder, minor ankle injury`"],
                             ["correctsId", "The earlier update of this incident that this one corrects",

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale timer; no state change. Without one inside the stale limit the incident escalates (FR-INC-07, E03-5). Status updates are append-only: to correct one, the owner posts a new update with `correctsId` naming it. The corrected row is never edited; the detail read marks it with `correctedById` (dry run defect 15). An update is corrected at most once, and a correction is itself a status update that resets the stale timer.
+Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale timer; no state change. Without one inside the stale limit the incident escalates (FR-INC-07, E03-5). Status updates are append-only: to correct one, the owner posts a new update with `correctsId` naming it. The corrected row is never edited; the detail read marks it with `correctedById` (dry run defect 15). An update is corrected at most once, and a correction is itself a status update that resets the stale timer. A correction follows the same owner and state rules, so it is refused with 409 once the incident is `RESOLVED` or `CLOSED`.
 
 ## API Specification
 
