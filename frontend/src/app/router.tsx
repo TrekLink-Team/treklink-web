@@ -2,6 +2,8 @@ import React, { Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { landingRoute, useSession } from '../entities/session/model';
 import { ApiKeysPage } from '../pages/ApiKeysPage';
+import { MembersPage } from '../pages/MembersPage';
+import { RosterPage } from '../pages/RosterPage';
 import { BillingPage } from '../pages/BillingPage';
 import { ContractApprovalPage } from '../pages/ContractApprovalPage';
 import { ContractDetailPage } from '../pages/ContractDetailPage';
@@ -93,6 +95,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/incidents/:id" element={<IncidentDetailPage />} />
         <Route path="/o/contracts" element={<ContractsPage />} />
         <Route path="/o/contracts/:id" element={<ContractDetailPage scope="o" />} />
+        <Route path="/o/roster" element={<RosterPage />} />
       </Route>
       <Route element={<RequireRole roles={ORG_MANAGER} />}>
         <Route path="/o" element={<OrgDashboardPage />} />
@@ -101,6 +104,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/o/pay/:paymentId" element={<PaymentPage />} />
         <Route path="/o/api-keys" element={<ApiKeysPage />} />
+        <Route path="/o/members" element={<MembersPage />} />
       </Route>
       <Route element={<RequireRole roles={STAFF} />}>
         <Route path="/t/map" element={<LiveMapPage scope="t" />} />
