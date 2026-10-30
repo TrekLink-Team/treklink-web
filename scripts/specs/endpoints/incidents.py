@@ -167,7 +167,7 @@ ENDPOINTS = [
                (409, "CONTRACT_NOT_DEFAULTED", "The contract is not DEFAULTED", "This cannot be done while it is OVERDUE.")],
        steps=["Ask rentals for the contract state", "Insert authority_reports"],
        controller="AuthorityReportsController", service="AuthorityReportsService", call="reportContract(dto, actor)",
-       participants=[["Rent", "RentalsService"]], seq=["Svc->>Rent: statusOf(contractId)", "Svc->>DB: INSERT authority_reports"]),
+       participants=[["Contracts", "ContractsService"]], seq=["Svc->>Contracts: statusOf(contractId)", "Svc->>DB: INSERT authority_reports"]),
 
     ep("GET", "/api/authority-reports", "List authority reports", "TrekLink Staff, TrekLink Admin",
        "Lists authority reports, open cases first, then `reportedAt` newest first. There is no sort "

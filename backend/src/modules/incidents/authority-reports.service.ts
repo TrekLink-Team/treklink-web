@@ -153,6 +153,11 @@ export class AuthorityReportsService {
     const agency = required(input.agency, 'agency');
     const reference = required(input.reference, 'reference');
     const note = input.note?.trim() || undefined;
+    // The status is read before, and outside, the insert's transaction: the contract row belongs to
+    // rentals, which offers a plain read and no lock across modules. This is acceptable because
+    // DEFAULTED leads only to RETURNED (contract-states.ts), so a contract that is returned between this
+    // read and the insert was still in default when the report was filed, and the report records the
+    // default; it changes nothing on the contract either way.
     const status = await this.contracts.statusOf(input.contractId);
     if (status === null)
       throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Contract not found.');
