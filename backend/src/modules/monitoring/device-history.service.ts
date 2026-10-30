@@ -43,6 +43,8 @@ export class DeviceHistoryService {
       const organization = labels.get(row.organizationId)?.code ?? row.organizationId;
       const on = `${row.contractCode} (${organization})`;
       const ref = { kind: 'CONTRACT' as const, refType: 'CONTRACT', refId: row.contractId };
+      // Built in lifecycle order and reversed, so moves sharing one timestamp (a seeded handover
+      // reserves and hands over at once) still read newest first after the stable sort below.
       return [
         { ...ref, at: row.reservedAt, summary: `Reserved for ${on}`, actorId: null },
         ...(row.releasedAt
@@ -64,7 +66,7 @@ export class DeviceHistoryService {
         ...(row.lostAt
           ? [{ ...ref, at: row.lostAt, summary: `Lost on ${on}`, actorId: null }]
           : []),
-      ];
+      ].reverse();
     });
     // devices writes a CONTRACT-referenced state row for every move rentals drives; the contract
     // entries above already tell those moves with the organization, so the merged view keeps one.
