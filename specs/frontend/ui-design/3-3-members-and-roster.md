@@ -51,6 +51,7 @@ Roster page (`/o/roster`):
 | Invite member (primary action of `/o/members`) | organizations 13 `POST /api/organizations/:id/members` | dialog form, no extra confirmation | "Invitation sent" (server message; no SRS code) |
 | Change role | organizations 14 `PATCH /api/organizations/:id/members/:memberId` | dialog with a Manager or Operator choice and Save | MSG03 "Saved." |
 | Deactivate | organizations 15 `POST /api/organizations/:id/members/:memberId/deactivate` | ConfirmDialog naming the member ("Deactivate Pham Van D?") and the effects: sign-in sessions revoked, roster slots from now on cleared, owned incidents go back to `NOTIFY_BACKUP` | "Member deactivated" (server message; no SRS code) |
+| Resend invitation (a row with `invitationPending`) | auth 05 `POST /api/auth/password/forgot` with the member's email: an account that never set a password is sent a new SET_PASSWORD code (D-059 rule 6); inside the resend cooldown nothing is sent and the answer is the same | none | "Invitation sent again to {email}" |
 | Show deactivated | organizations 12 with `includeDeactivated=true` | none | none |
 | Previous, Next week | organizations 16 with the new `from` and `to` | none | none |
 | Add shift (primary action of `/o/roster`) | organizations 17 `POST /api/organizations/:id/roster` | dialog form | MSG03 "Saved." |
