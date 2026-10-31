@@ -132,9 +132,16 @@ per channel; a recipient listed twice gets one set. Leader ruling of 2026-10-30,
 asked on PR #120: Admin stays a recipient, as this row always said, and D-079's "Staff" reads as Staff and
 Admin. `ESCALATED` reads them since TK-144; `UNROUTED` waits for task 2.2.
 
-The dispatcher job reads `alert_deliveries WHERE status = PENDING AND nextAttemptAt <= now()` with
+The dispatcher reads `alert_deliveries WHERE status = PENDING AND nextAttemptAt <= now()` with
 `FOR UPDATE SKIP LOCKED`, sends, and sets `SENT`, or bumps `attempts` and `nextAttemptAt` with backoff
-`base × 2^attempts`, or `FAILED` at the limit. WebSocket delivery emits the in-process event `incident.alert`,
+`base × 2^attempts`, or `FAILED` at the limit. It has two lanes, each its own scheduled job:
+`incidents.deliverAlerts` for WEB and WEBSOCKET, and `incidents.deliverEmailAlerts` for EMAIL, so an
+email send never delays a WebSocket alert. When a transition that queued alert rows commits,
+`IncidentLifecycle` emits `incident.alertsQueued` after commit and the dispatcher starts both lanes at
+once; this, not the cron, is what meets the 2 s bound of NFR-PERF-04. Each lane keeps claiming while a
+batch comes back full (100 rows for WEB and WEBSOCKET, 10 for EMAIL). A lane runs at most once at a time
+per process: a wake or tick during a run starts nothing and schedules one more pass after it. The 2 s
+cron of each job stays as the retry backstop. WebSocket delivery emits the in-process event `incident.alert`,
 whose synchronous listener in `monitoring` publishes to the recipient's room `user:<id>`
 (`ws-live-contract.md`); `incidents` never imports `monitoring`. It counts as sent when the listener
 returns, whether or not a socket is connected, because the web inbox holds the same alert.
@@ -143,9 +150,15 @@ EMAIL resolves the outbox row's recipient account through `AccountsService.conta
 one message through the existing `MAIL_PORT` (D-063). The recipient's email is resolved at dispatch,
 not stored as a second recipient list. A missing account or email uses the normal retry/failure path.
 `SENT` means the configured transport accepted the message, not that a person read it. Console
-transport is development/CI only; SMTP uses the existing environment configuration. Sending and
-settlement remain in the outbox transaction, which locks alert rows, not incident rows. Delivery is
-at least once: if SMTP accepts and settlement rolls back, a later attempt can repeat the email.
+transport is development/CI only; SMTP uses the existing environment configuration. An EMAIL row is
+claimed in a short transaction that also leases it, moving `nextAttemptAt` forward by twice the send
+timeout, and commits before any send. Each send runs outside any transaction, bounded by a 10 s
+timeout (a named constant until a parameter is agreed), then the row settles in its own short
+transaction: `SENT`, or `attempts + 1` with backoff, or `FAILED` at the limit. No transaction is open
+while SMTP works, and the lease keeps another run or replica from sending the row meanwhile; a process
+that dies mid-send leaves the row due again when the lease ends. Delivery stays at least once: if SMTP
+accepts a message and its settlement then fails, or the send outlives its timeout and still lands, a
+later attempt sends the email again.
 
 On the wire, `incident.alert` is a `stream` event with `seq: 0`. It is not stored in the stream table,
 whose entries are scoped by organization rather than by person, so it has no replay sequence. The
@@ -199,14 +212,15 @@ packet never overwrites a newer position (PR #114 review). Positions move neithe
 | provider of `CONTRACT_CLOSE_CHECKS` | rentals |
 | provider of `ORGANIZATION_COUNTS` `openIncidents` (`IncidentsOrganizationCount` in the global `IncidentsPortsModule`: incidents not CLOSED) | organizations (api-design 03) |
 
-Listens to `member.deactivated` (REQ-EVT-11). Emits `incident.changed`, `audit.record`.
+Listens to `member.deactivated` (REQ-EVT-11) and its own `incident.alertsQueued` (§3). Emits `incident.changed`,
+`audit.record`, `incident.alertsQueued`, `incident.alert`.
 
 ---
 
 ## 6. Scheduler jobs
 
 `incidents.tierTimeouts`, `incidents.staleResponses`, `incidents.closeAfterReopenWindow`,
-`incidents.deliverAlerts`: `platform` design §4.6. Each selects by its deadline column and state, then
+`incidents.deliverAlerts`, `incidents.deliverEmailAlerts`: `platform` design §4.6. Each selects by its deadline column and state, then
 calls `apply()` with the expected state, so a job racing a human action loses cleanly. The three timers
 apply one transition per incident in its own transaction, up to 100 per run; a failure on one incident
 is logged and that incident is due again on the next run. A `RESOLVED` or `FALSE_ALARM` row with no
@@ -332,6 +346,8 @@ classDiagram
     }
     class AlertDispatcherJob {
         +deliverAlerts() number
+        +deliverEmailAlerts() number
+        +wake() void
     }
     class IncidentsRepository {
         +lockById(id, tx) Incident
@@ -447,28 +463,33 @@ sequenceDiagram
     R-->>-L: transition
     L->>+Ob: enqueue(rows for the tier, tx)
     Ob-->>-L: rows persisted
-    Note over L,Ob: committed with the caller's transaction, then incident.changed and audit.record
+    Note over L,Ob: committed with the caller's transaction, then incident.changed, audit.record and incident.alertsQueued
     deactivate L
+    L-)Dp: incident.alertsQueued after commit wakes both lanes
     activate Dp
-    Dp->>+Ob: claimDue(WEB, WEBSOCKET and EMAIL, now, limit, tx)
-    Ob-->>-Dp: due rows, FOR UPDATE SKIP LOCKED
-    loop each due row
-        alt WEBSOCKET row
-            Dp-)W: emit incident.alert for a WEBSOCKET row, monitoring publishes to user room
-        else EMAIL row
+    par WEB and WEBSOCKET lane, one short transaction per batch
+        Dp->>+Ob: claimDue(WEB and WEBSOCKET, now, 100, tx)
+        Ob-->>-Dp: due rows, FOR UPDATE SKIP LOCKED
+        loop each due row
+            alt WEBSOCKET row
+                Dp-)W: emit incident.alert, monitoring publishes to the user room
+            else WEB row
+                Note over Dp,Ob: the queue page reads the row
+            end
+        end
+        Dp->>Ob: markSent(ids sent) or markFailedAttempt(id, error, retryAt or FAILED), COMMIT
+    and EMAIL lane, no transaction open while SMTP works
+        Dp->>+Ob: claimDue(EMAIL, now, 10, tx) and lease(ids, now + lease, tx)
+        Ob-->>-Dp: due rows, COMMIT
+        loop each due row, concurrently
             Dp->>+A: contactCard([recipientId])
             A-->>-Dp: recipient email
-            Dp->>+M: send(to, subject, text)
-            M-->>-Dp: accepted or rejected
-        else WEB row
-            Note over Dp,Ob: the queue page reads the row
-        end
-        opt recipient lookup or send failed
-            Dp->>Ob: markFailedAttempt(id, error, retryAt with backoff, or FAILED, tx)
+            Dp->>+M: send(to, subject, text), bounded by the send timeout
+            M-->>-Dp: accepted, rejected or timed out
+            Dp->>Ob: in its own transaction, markSent([id]) or markFailedAttempt(id, error, retryAt or FAILED)
         end
     end
-    Dp->>Ob: markSent(ids of the rows sent, now, tx)
-    Dp->>Ob: COMMIT
+    Note over Dp: a lane claims again while a batch comes back full
     deactivate Dp
 ```
 
