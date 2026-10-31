@@ -300,6 +300,7 @@ describe('OrganizationsService for rentals 3.2 (suspendForDefault, emailContact)
           organizationId: 'org-1',
           from: OrganizationStatus.ACTIVE,
           to: OrganizationStatus.SUSPENDED,
+          reason: 'Contract RC-2026-0001 defaulted',
         },
       ],
       [
