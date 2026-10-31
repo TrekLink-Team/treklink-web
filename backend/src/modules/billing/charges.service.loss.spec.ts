@@ -24,6 +24,7 @@ const lossCase = (overrides: Partial<LossCaseView> = {}): LossCaseView => ({
   chargeVnd: null,
   decisionReason: null,
   decidedById: null,
+  settledAt: null,
   ...overrides,
 });
 
@@ -124,10 +125,10 @@ describe('ChargesService loss charges (billing task 2.6, REQ-EVT-07, AC-05)', ()
   it('adds nothing when no LOSS line exists or nothing is taken back', async () => {
     invoices.lossLine.mockResolvedValueOnce(null);
     await expect(
-      service.adjustLoss(CONTRACT, DEVICE, 'WAIVED', 0, 'x', null, TX),
+      service.adjustLoss(CONTRACT, DEVICE, 'WAIVED', 0, 'x', null, TX, SETTLED),
     ).resolves.toBeNull();
     await expect(
-      service.adjustLoss(CONTRACT, DEVICE, 'REDUCED', 2_000_000, 'x', null, TX),
+      service.adjustLoss(CONTRACT, DEVICE, 'REDUCED', 2_000_000, 'x', null, TX, SETTLED),
     ).resolves.toBeNull();
     expect(invoices.insert).not.toHaveBeenCalled();
   });
@@ -207,8 +208,10 @@ describe('BillingLossCaseListener (the billing side of LOSS_CASE_LISTENERS)', ()
       chargeVnd: 1_000_000,
       decisionReason: 'Half the strap',
       decidedById: 'u-admin',
+      settledAt: SETTLED,
     });
     await listener.onSettled(decided, LossDecision.REDUCED, TX);
+    // The ADJUSTMENT line is dated at the settlement time, not the wall clock.
     expect(charges.adjustLoss).toHaveBeenCalledWith(
       CONTRACT,
       DEVICE,
@@ -217,9 +220,17 @@ describe('BillingLossCaseListener (the billing side of LOSS_CASE_LISTENERS)', ()
       'Half the strap',
       'u-admin',
       TX,
+      SETTLED,
     );
     await listener.onSettled(decided, LossDecision.CHARGED, TX);
     await listener.onSettled(decided, LossDecision.WRITTEN_OFF, TX);
     expect(charges.adjustLoss).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to adjust a case that carries no settlement time', async () => {
+    await expect(
+      listener.onSettled(lossCase({ chargeVnd: 0 }), LossDecision.WAIVED, TX),
+    ).rejects.toThrow('LOSS-0001 has no settlement time');
+    expect(charges.adjustLoss).not.toHaveBeenCalled();
   });
 });

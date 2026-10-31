@@ -269,14 +269,30 @@ describe('LossCaseService', () => {
       );
     });
 
-    it('maps the one-open-case index violation of a concurrent report to LOSS_CASE_OPEN', async () => {
-      cases.insert.mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: 'x' }),
-      );
-      await expectDomain(
-        service.report('dev-1', { description: 'x' }, STAFF, at),
-        HttpStatus.CONFLICT,
-        ErrorCode.LOSS_CASE_OPEN,
+    const uniqueViolation = (target: unknown) =>
+      new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'x',
+        meta: { target },
+      });
+
+    it.each([['loss_cases_one_open_per_device'], [['deviceId']]])(
+      'maps the one-open-case index violation (target %j) of a concurrent report to LOSS_CASE_OPEN',
+      async (target) => {
+        cases.insert.mockRejectedValue(uniqueViolation(target));
+        await expectDomain(
+          service.report('dev-1', { description: 'x' }, STAFF, at),
+          HttpStatus.CONFLICT,
+          ErrorCode.LOSS_CASE_OPEN,
+        );
+      },
+    );
+
+    it('rethrows any other unique violation, such as a duplicate code', async () => {
+      const duplicateCode = uniqueViolation(['code']);
+      cases.insert.mockRejectedValue(duplicateCode);
+      await expect(service.report('dev-1', { description: 'x' }, STAFF, at)).rejects.toBe(
+        duplicateCode,
       );
     });
 

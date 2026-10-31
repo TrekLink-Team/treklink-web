@@ -143,9 +143,12 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
       afterWindow,
     );
     expect(settled).toMatchObject({ state: 'SETTLED', decision: 'REDUCED', chargeVnd: 900_000 });
-    expect(
-      (await lines(contract.id, InvoiceLineType.ADJUSTMENT)).map((l) => l.amountVnd),
-    ).toContain(-1_600_000n);
+    const adjustments = await lines(contract.id, InvoiceLineType.ADJUSTMENT);
+    expect(adjustments.map((l) => l.amountVnd)).toContain(-1_600_000n);
+    // The ADJUSTMENT line is due at the settlement time, not the wall clock.
+    expect(adjustments.find((l) => l.amountVnd === -1_600_000n)?.dueAt.getTime()).toBe(
+      afterWindow.getTime(),
+    );
     const row = await flow.prisma.contractDevice.findFirstOrThrow({
       where: { contractId: contract.id, deviceId },
     });

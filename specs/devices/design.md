@@ -195,7 +195,7 @@ export interface LossCaseListener {
 ```
 
 `billing` charges the remaining value in `onConfirmed` for `RENTER` custody (`chargeLoss`) and writes the
-`ADJUSTMENT` line of a reduction or waiver in `onSettled` (`adjustLoss`); `rentals` sets the contract row's
+`ADJUSTMENT` line of a reduction or waiver in `onSettled` (`adjustLoss`, dated at the view's `settledAt`); `rentals` sets the contract row's
 `lostAt` to the confirmation time in `onSettled` (rentals REQ-EVT-12). Both run inside the loss-case
 transaction.
 

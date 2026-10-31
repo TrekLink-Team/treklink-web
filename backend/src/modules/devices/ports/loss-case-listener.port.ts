@@ -29,6 +29,8 @@ export interface LossCaseView {
   chargeVnd: number | null;
   decisionReason: string | null;
   decidedById: string | null;
+  // The settlement time; null before the case is settled. Billing dates the ADJUSTMENT line with it.
+  settledAt: Date | null;
 }
 
 export interface LossCaseListener {
