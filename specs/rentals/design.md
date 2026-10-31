@@ -79,7 +79,7 @@ transaction. No edge outside D-035 is needed.
 | `ENDING` | `RETURN_DUE` | term end | `SYSTEM` |
 | `RETURN_DUE` | `OVERDUE` | grace elapsed | `SYSTEM` |
 | `OVERDUE` | `DEFAULTED` | default threshold | `SYSTEM` (suspends the organization) |
-| `RETURN_DUE`, `OVERDUE`, `DEFAULTED` | `RETURNED` | last device checked in or lost | Staff |
+| `RETURN_DUE`, `OVERDUE`, `DEFAULTED` | `RETURNED` | last device checked in or lost | Staff at check-in; the Admin settling the last loss case (`RentalsLossCaseListener`, reason `LOST`, REQ-EVT-12) |
 | `RETURNED` | `CLOSED` | close | Staff |
 
 `returnDueAt` is the day-plan end, or the current term's end for an `ENDING` contract.

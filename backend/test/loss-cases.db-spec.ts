@@ -1,4 +1,5 @@
 import {
+  ContractStatus,
   DeviceStatus,
   InvoiceLineType,
   LossCaseState,
@@ -153,6 +154,52 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
         where: { deviceId, refType: 'LOSS_CASE', refId: settled.id },
       }),
     ).toBe(2);
+  });
+
+  it('rentals REQ-EVT-12: a RETURN_DUE contract whose last unit out is settled lost moves to RETURNED', async () => {
+    const { org, contract, deviceId } = await rentedUnit();
+    const reported = await lossCases.report(
+      deviceId,
+      { description: 'Fell into the river' },
+      org.manager,
+      REPORTED_AT,
+    );
+    const triaged = await lossCases.triage(
+      reported.id,
+      { suspectedTheft: false, expectedVersion: reported.version },
+      flow.staff,
+      TRIAGED_AT,
+    );
+    const confirmed = await lossCases.confirm(
+      triaged.id,
+      { expectedVersion: triaged.version },
+      flow.staff,
+      TRIAGED_AT,
+    );
+    // The term ended meanwhile (fixture): the contract waits for the unit that will never come back.
+    await flow.prisma.rentalContract.update({
+      where: { id: contract.id },
+      data: {
+        status: ContractStatus.RETURN_DUE,
+        returnDueAt: TRIAGED_AT,
+        version: { increment: 1 },
+      },
+    });
+
+    await lossCases.decide(
+      confirmed.id,
+      { decision: LossDecision.CHARGED, expectedVersion: confirmed.version },
+      await flow.admin(),
+      TRIAGED_AT,
+    );
+
+    expect(await flow.status(contract.id)).toBe(ContractStatus.RETURNED);
+    expect(
+      await flow.prisma.contractTransition.findFirst({
+        where: { contractId: contract.id, toStatus: ContractStatus.RETURNED },
+        select: { fromStatus: true, reason: true },
+      }),
+    ).toEqual({ fromStatus: ContractStatus.RETURN_DUE, reason: 'LOST' });
   });
 
   it('AC-05: an AVAILABLE unit lost in TrekLink custody is written off with no charge', async () => {
