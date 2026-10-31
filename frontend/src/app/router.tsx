@@ -4,6 +4,7 @@ import { landingRoute, useSession } from '../entities/session/model';
 import { ApiKeysPage } from '../pages/ApiKeysPage';
 import { MembersPage } from '../pages/MembersPage';
 import { RosterPage } from '../pages/RosterPage';
+import { AccountsPage } from '../pages/AccountsPage';
 import { AuditLogPage } from '../pages/AuditLogPage';
 import { AuthEventsPage } from '../pages/AuthEventsPage';
 import { BillingPage } from '../pages/BillingPage';
@@ -133,6 +134,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/admin/sync" element={<SyncStatusPage />} />
       </Route>
       <Route element={<RequireRole roles={ADMIN} />}>
+        <Route path="/t/admin/accounts" element={<AccountsPage />} />
         <Route path="/t/admin/prices" element={<PricesPage />} />
         <Route path="/t/admin/parameters" element={<ParametersPage />} />
         <Route path="/t/admin/audit" element={<Navigate to="/t/admin/audit/changes" replace />} />

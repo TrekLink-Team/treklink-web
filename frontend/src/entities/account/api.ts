@@ -44,3 +44,41 @@ export const useAccounts = (
     enabled: options?.enabled,
     retry: false,
   });
+
+export type AccountRole = 'STAFF' | 'ADMIN';
+
+export interface CreateAccountInput {
+  email: string;
+  fullName: string;
+  role: AccountRole;
+}
+
+// Only the fields that changed are sent (auth api-design 11).
+export interface UpdateAccountInput {
+  fullName?: string;
+  phoneNumber?: string;
+  role?: AccountRole;
+}
+
+const send = <T>(endpoint: string, method: 'POST' | 'PATCH', body?: object): Promise<T> =>
+  apiClient<T>(endpoint, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
+
+// auth api-design 10: 409 CONFLICT_UNIQUE for a registered email; the server sends the invitation.
+export const createAccount = (input: CreateAccountInput) =>
+  send<AccountItem>('/accounts', 'POST', input);
+
+// auth api-design 11: 409 SELF_DEMOTION when an Admin removes their own Admin role.
+export const updateAccount = (id: string, input: UpdateAccountInput) =>
+  send<AccountItem>(`/accounts/${id}`, 'PATCH', input);
+
+// auth api-design 12: 409 LAST_ADMIN; the reason is required and sessions end at once.
+export const deactivateAccount = (id: string, reason: string) =>
+  send<AccountItem>(`/accounts/${id}/deactivate`, 'POST', { reason });
+
+// auth api-design 13.
+export const reactivateAccount = (id: string) =>
+  send<AccountItem>(`/accounts/${id}/reactivate`, 'POST');
+
+// auth api-design 14: 409 INVALID_STATE_TRANSITION for a deactivated account, 429 OTP_COOLDOWN.
+export const sendAccountReset = (id: string) =>
+  send<null>(`/accounts/${id}/password-reset`, 'POST');
