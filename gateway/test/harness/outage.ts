@@ -34,6 +34,11 @@ export interface HarnessOptions {
   brokerUrl?: string;
   /** Rows the queue keeps (GATEWAY_QUEUE_MAX_ROWS). */
   maxRows: number;
+  /**
+   * Cuts this many ms after a simulator tick instead of at a random point inside one, so the cut lands
+   * while the tick's first publish waits for its PUBACK (the mqtt.js resend case of NFR-REL-04).
+   */
+  cutAfterTickMs?: number;
   minTrials: number;
   log: (line: string) => void;
 }
@@ -99,6 +104,7 @@ async function runTrial(
     startLat: gatewayConfig.simulation.startLat,
     startLon: gatewayConfig.simulation.startLon,
   });
+  let onTick: (() => void) | null = null;
   const generator = setInterval(() => {
     for (const packet of simulator.next()) {
       const tier = tierOf(packet);
@@ -106,14 +112,22 @@ async function runTrial(
       queue.enqueue(`${packet.sender}:${packet.from}:${packet.id}`, tier, packet);
       station.flushQueue();
     }
+    onTick?.();
   }, options.intervalMs);
 
   try {
     station.connect();
     await waitFor(() => station.connected, 10_000, 'the station to connect');
     // An outage starts at an arbitrary moment: a random offset inside one tick keeps the cut from
-    // always landing just after the simulator's tick.
-    await sleep(options.warmupS * 1000 + Math.random() * options.intervalMs);
+    // always landing just after the simulator's tick. `--cut-after-tick-ms` puts it there on purpose.
+    if (options.cutAfterTickMs === undefined) {
+      await sleep(options.warmupS * 1000 + Math.random() * options.intervalMs);
+    } else {
+      await sleep(options.warmupS * 1000);
+      await new Promise<void>((resolve) => (onTick = resolve));
+      onTick = null;
+      await sleep(options.cutAfterTickMs);
+    }
 
     const cutAt = Date.now();
     uplink.cut();
@@ -238,6 +252,7 @@ function parseOptions(argv: string[]): HarnessOptions & { json?: string } {
       'drain-timeout': { type: 'string', default: '120' },
       'max-rows': { type: 'string', default: String(gatewayConfig.queue.maxRows) },
       'min-trials': { type: 'string', default: '20' },
+      'cut-after-tick-ms': { type: 'string' },
       broker: { type: 'string' },
       json: { type: 'string' },
     },
@@ -263,6 +278,7 @@ function parseOptions(argv: string[]): HarnessOptions & { json?: string } {
     drainTimeoutS: number('drain-timeout', 1),
     maxRows: number('max-rows', 1),
     minTrials: number('min-trials', 1),
+    cutAfterTickMs: values['cut-after-tick-ms'] === undefined ? undefined : number('cut-after-tick-ms', 0),
     brokerUrl: values.broker,
     json: values.json,
     // Stderr, so the gateway's own JSON log lines on stdout can be dropped with >/dev/null.
