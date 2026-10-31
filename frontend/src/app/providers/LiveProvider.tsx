@@ -135,7 +135,7 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           // invoice of that contract and the dashboard's amount due read (screens 5.6 and 6.1).
           const contractId = message.entry.payload.contractId;
           if (typeof contractId === 'string') releasedContracts.add(contractId);
-          else released.add(message.entry.deviceId);
+          else released.add(message.entry.deviceId ?? undefined);
           later(['contracts', 'contract-balance', 'contract-transitions', 'invoices']);
         }
       }

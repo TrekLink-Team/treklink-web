@@ -96,7 +96,8 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
       return { cursor: seq, devices, order: state.order.filter((other) => other !== id) };
     }
     // The entry names the incident's device (`deviceId`). One stored before the field was added names
-    // none and only moves the cursor here; `useLiveMap` reloads the snapshot for it.
+    // none and only moves the cursor here. `useLiveMap` reloads the snapshot for it, and for an
+    // incident the marker does not hold yet, whose `code` only the snapshot has (`needsSnapshot`).
     case 'incident.changed': {
       const incidentId = asString(payload.incidentId);
       const incidentState = asString(payload.state) as IncidentState | null;
@@ -116,6 +117,23 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
     default:
       return { ...state, cursor: seq };
   }
+};
+
+/**
+ * Whether a stream entry needs the snapshot read again. `device.handedOver` brings a device the map
+ * does not list. An `incident.changed` with no device id (stored before the field was added) cannot
+ * be placed on a marker. One for an incident its marker does not hold yet, a new SOS, is placed from
+ * the entry, but its `code` joins the payload only with monitoring 2.1's enrichment, so the snapshot
+ * is read again for it and the panel shows "Open incident INC-..." (demo MF-04 step 1).
+ */
+export const needsSnapshot = (state: LiveMapState | null, entry: LiveEntry): boolean => {
+  if (entry.type === 'device.handedOver') return true;
+  if (entry.type !== 'incident.changed') return false;
+  if (!entry.deviceId || state === null) return true;
+  const incidentId = asString(entry.payload.incidentId);
+  if (incidentId === null || entry.payload.state === 'CLOSED') return false;
+  if (asString(entry.payload.code) !== null) return false;
+  return state.devices[entry.deviceId]?.openIncident?.id !== incidentId;
 };
 
 /** Rebuilds the state from a snapshot and the entries received around it, in `seq` order. */

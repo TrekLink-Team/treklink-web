@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LiveEntry } from '../../shared/socket/socketClient';
 import type { MapSnapshot, SnapshotDevice } from './api';
-import { applyEntry, fromSnapshot, isStale, rebuild } from './model';
+import { applyEntry, fromSnapshot, isStale, needsSnapshot, rebuild } from './model';
 
 const device = (overrides: Partial<SnapshotDevice> = {}): SnapshotDevice => ({
   id: 'd-1',
@@ -174,6 +174,31 @@ describe('live map reducer (screen 9.1)', () => {
     } as unknown as LiveEntry);
     expect(unnamed.cursor).toBe(11);
     expect(unnamed.devices).toBe(state.devices);
+  });
+
+  it('reads the snapshot again for an incident its marker does not hold yet, for its code', () => {
+    const held = { id: 'i-1', code: 'INC-2026-000001', state: 'NOTIFY_PRIMARY' as const };
+    const state = fromSnapshot(snapshot([device({ openIncident: held })]));
+    const changed = (payload: Record<string, unknown>, deviceId: string | null = 'd-1') =>
+      ({ ...entry(11, 'incident.changed', payload), deviceId }) as LiveEntry;
+    // A new SOS on the marker: the payload has no code before monitoring 2.1.
+    expect(needsSnapshot(state, changed({ incidentId: 'i-2', state: 'NOTIFY_PRIMARY' }))).toBe(
+      true,
+    );
+    // An entry stored before the stream named the device, or one before the snapshot answered.
+    expect(needsSnapshot(state, changed({ incidentId: 'i-1', state: 'ESCALATED' }, null))).toBe(
+      true,
+    );
+    expect(needsSnapshot(null, changed({ incidentId: 'i-1', state: 'ESCALATED' }))).toBe(true);
+    // The marker already holds the incident and its code, or the incident closed.
+    expect(needsSnapshot(state, changed({ incidentId: 'i-1', state: 'ESCALATED' }))).toBe(false);
+    expect(needsSnapshot(state, changed({ incidentId: 'i-2', state: 'CLOSED' }))).toBe(false);
+    // A payload that already carries the code.
+    expect(
+      needsSnapshot(state, changed({ incidentId: 'i-2', state: 'NOTIFY_PRIMARY', code: 'INC-2' })),
+    ).toBe(false);
+    expect(needsSnapshot(state, entry(11, 'device.handedOver', {}))).toBe(true);
+    expect(needsSnapshot(state, entry(11, 'device.position', {}))).toBe(false);
   });
 
   it('only moves the cursor for unknown devices and other entry types', () => {
