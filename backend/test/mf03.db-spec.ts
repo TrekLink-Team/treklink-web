@@ -96,6 +96,14 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     parameters,
     events,
     emitter,
+    new AccountsService(
+      new AccountsRepository(prisma),
+      {} as never,
+      {} as never,
+      events,
+      {} as never,
+    ),
+    { send: () => Promise.resolve() },
   );
   const runId = randomUUID();
   const names = new Map<string, string>();
@@ -328,13 +336,13 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
       (await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } })).eventCount,
     ).toBe(1);
 
-    // 3. The dispatcher sends the web inbox and WebSocket rows; email and the API event wait.
+    // 3. The dispatcher sends the web inbox, WebSocket and email rows; the API event waits.
     // Other suites leave due rows in this disposable database. One dispatcher batch need not
     // reach this incident; drain the finite due backlog rather than depending on suite order.
     let remaining = await prisma.alertDelivery.count({
       where: {
         status: 'PENDING',
-        channel: { in: ['WEB', 'WEBSOCKET'] },
+        channel: { in: ['WEB', 'WEBSOCKET', 'EMAIL'] },
         nextAttemptAt: { lte: new Date() },
       },
     });
@@ -360,7 +368,7 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     expect(Object.fromEntries(statuses.map((row) => [row.channel, row.status]))).toEqual({
       WEB: 'SENT',
       WEBSOCKET: 'SENT',
-      EMAIL: 'PENDING',
+      EMAIL: 'SENT',
       API_EVENT: 'PENDING',
     });
 
