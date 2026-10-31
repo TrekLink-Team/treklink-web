@@ -2,7 +2,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
 import { useToast } from '../shared/ui';
@@ -74,16 +74,48 @@ const serve = (
 
 const inTable = () => within(screen.getByRole('table', { name: 'Accounts' }));
 
-const renderPage = () =>
+// Shows the URL query the page keeps (screen 7.1 keeps its filters and page there).
+const QueryProbe: React.FC = () => <output aria-label="Query">{useLocation().search}</output>;
+
+const renderPage = (entry = '/t/admin/accounts') =>
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <AccountsPage />
+        <QueryProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+const query = () => screen.getByLabelText('Query').textContent;
+
+// A server that filters and pages like auth api-design 09, for lists longer than one page.
+const servePaged = (items: ReturnType<typeof account>[]) =>
+  api.mockImplementation((endpoint: string, options?: RequestInit) => {
+    if (options?.method) return Promise.resolve(undefined);
+    const params = new URLSearchParams(endpoint.split('?')[1] ?? '');
+    const isActive = params.get('isActive');
+    const needle = params.get('q')?.toLowerCase();
+    const matching = items.filter(
+      (item) =>
+        (isActive === null || String(item.isActive) === isActive) &&
+        (!needle || item.fullName.toLowerCase().includes(needle)),
+    );
+    const pageNumber = Number(params.get('pageNumber') ?? 1);
+    const pageSize = Number(params.get('pageSize') ?? 20);
+    return Promise.resolve({
+      items: matching.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
+      pageNumber,
+      pageSize,
+      totalCount: matching.length,
+      totalPages: Math.max(1, Math.ceil(matching.length / pageSize)),
+    });
+  });
+const reads = () =>
+  api.mock.calls
+    .filter((call) => !(call[1] as RequestInit | undefined)?.method)
+    .map((call) => String(call[0]));
 
 const writes = () => api.mock.calls.filter((call) => (call[1] as RequestInit | undefined)?.method);
 
@@ -140,11 +172,13 @@ describe('AccountsPage (screen 7.1)', () => {
     );
   });
 
-  it('disables Deactivate on the last active Admin and says why', async () => {
+  it('disables Deactivate on the last active Admin and says why under the name', async () => {
     serve([account(), staff, off]);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
     await waitFor(() => expect(inTable().getByText('Last active Admin')).toBeTruthy());
+    // Under the name, in the account cell, not in the actions column.
+    expect(inTable().getByText('Last active Admin').closest('#account-name-a-1')).toBeTruthy();
     expect(
       (inTable().getByRole('button', { name: 'Deactivate Nguyen Admin' }) as HTMLButtonElement)
         .disabled,
@@ -357,5 +391,113 @@ describe('AccountsPage (screen 7.1)', () => {
     renderPage();
     expect((await screen.findByRole('alert')).textContent).toBe('You do not have access to this.');
     expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('keeps the last-Admin guard with the Active filter over more than 20 active accounts', async () => {
+    // 45 active accounts, one Admin among them: the table reads 20 rows, the guard 100.
+    const many = Array.from({ length: 44 }, (_, index) =>
+      account({
+        id: `s-${index}`,
+        email: `staff${index}@treklink.vn`,
+        fullName: `Staff ${index}`,
+        roles: ['STAFF'],
+      }),
+    );
+    servePaged([account(), ...many]);
+    renderPage();
+    await screen.findByRole('table', { name: 'Accounts' });
+    await waitFor(() => expect(inTable().getByText('Last active Admin')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'true' } });
+    await waitFor(() =>
+      expect(reads()).toContain('/accounts?isActive=true&pageNumber=1&pageSize=20'),
+    );
+    await waitFor(() => expect(inTable().getAllByRole('row')).toHaveLength(21));
+    expect(inTable().getByText('Last active Admin')).toBeTruthy();
+    expect(
+      (inTable().getByRole('button', { name: 'Deactivate Nguyen Admin' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it('reads search, status and page from the URL', async () => {
+    serve([staff]);
+    renderPage('/t/admin/accounts?q=tran&isActive=true&page=2');
+    await screen.findByRole('table', { name: 'Accounts' });
+    expect(reads()).toContain('/accounts?q=tran&isActive=true&pageNumber=2&pageSize=20');
+    expect((screen.getByLabelText('Search accounts') as HTMLInputElement).value).toBe('tran');
+    expect((screen.getByLabelText('Status') as HTMLSelectElement).value).toBe('true');
+  });
+
+  it('writes the search, status and page to the URL, a new filter starting on page 1', async () => {
+    const many = Array.from({ length: 30 }, (_, index) =>
+      account({ id: `s-${index}`, fullName: `Staff ${index}`, roles: ['STAFF'] }),
+    );
+    servePaged([account(), ...many]);
+    renderPage();
+    await screen.findByRole('table', { name: 'Accounts' });
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() => expect(query()).toBe('?page=2'));
+
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'true' } });
+    await waitFor(() => expect(query()).toBe('?isActive=true'));
+
+    fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'staff 1' } });
+    await waitFor(() => expect(query()).toBe('?isActive=true&q=staff+1'));
+  });
+
+  it('clears the filters and the page with Clear filters', async () => {
+    serve([]);
+    renderPage('/t/admin/accounts?q=nobody&isActive=false&page=3');
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Clear filters' }))[0]);
+    await waitFor(() => expect(query()).toBe(''));
+    await waitFor(() => expect(reads()).toContain('/accounts?pageNumber=1&pageSize=20'));
+    expect((screen.getByLabelText('Search accounts') as HTMLInputElement).value).toBe('');
+  });
+
+  it('labels the reset button Send reset code and names the account to a screen reader', async () => {
+    serve([account(), staff]);
+    renderPage();
+    await screen.findByRole('table', { name: 'Accounts' });
+    const button = inTable().getByRole('button', { name: 'Send reset code to Tran Thi B' });
+    expect(button.textContent).toBe('Send reset code');
+  });
+
+  it('says in the phone hint that a phone cannot be removed', async () => {
+    serve([account(), staff]);
+    renderPage();
+    await screen.findByRole('table', { name: 'Accounts' });
+    fireEvent.click(inTable().getByRole('button', { name: 'Edit Tran Thi B' }));
+    expect(
+      screen.getByText(
+        'A phone number can be changed but not removed: an empty field keeps the current one.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('clears the filters after a create and moves focus to the new row name cell', async () => {
+    const created = account({
+      id: 'a-5',
+      email: 'new@treklink.vn',
+      fullName: 'New Person',
+      roles: ['STAFF'],
+      lastLoginAt: null,
+    });
+    let list = [account(), staff];
+    api.mockImplementation((endpoint: string, options?: RequestInit) => {
+      if (options?.method) {
+        list = [created, ...list];
+        return Promise.resolve(created);
+      }
+      return Promise.resolve(page(endpoint.includes('q=') ? [] : list));
+    });
+    renderPage('/t/admin/accounts?q=zzz&page=2');
+    fireEvent.click(await screen.findByRole('button', { name: 'New account' }));
+    fireEvent.change(screen.getByLabelText(/Email/), { target: { value: 'new@treklink.vn' } });
+    fireEvent.change(screen.getByLabelText(/Full name/), { target: { value: 'New Person' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+    await waitFor(() => expect(document.activeElement?.id).toBe('account-name-a-5'));
+    expect(query()).toBe('');
+    expect(document.activeElement?.textContent).toContain('New Person');
   });
 });
