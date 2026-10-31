@@ -5,6 +5,7 @@ import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.e
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { AlertDeliveriesRepository, NewAlertDelivery } from './alert-deliveries.repository';
+import { INCIDENT_ALERTS_QUEUED, IncidentAlertsQueuedEvent } from './alerts/alert-events';
 import { IncidentsRepository } from './incidents.repository';
 
 export type IncidentActor =
@@ -190,7 +191,13 @@ export class IncidentLifecycle {
       },
       tx,
     );
-    await this.alerts.enqueue(this.deliveries(updated, transition.id, reason.recipients), tx);
+    const deliveries = this.deliveries(updated, transition.id, reason.recipients);
+    await this.alerts.enqueue(deliveries, tx);
+    // Wakes the dispatcher once the rows are committed; its 2 s cron stays the backstop.
+    if (deliveries.length > 0)
+      this.events.emitAfterCommit(INCIDENT_ALERTS_QUEUED, {
+        incidentId: id,
+      } satisfies IncidentAlertsQueuedEvent);
     // In-process routing IDs, not the WebSocket DTO. Monitoring 1.1 must enrich this event
     // with code, ownerName, lastPosition and stale per monitoring/api-design/ws-live-contract.md.
     this.events.emitAfterCommit('incident.changed', {

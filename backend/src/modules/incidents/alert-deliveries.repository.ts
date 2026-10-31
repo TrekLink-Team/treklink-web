@@ -49,6 +49,16 @@ export class AlertDeliveriesRepository {
     `;
   }
 
+  // Moves claimed rows' due time to `until`, so once the claim commits no other run picks them up
+  // until the lease ends. Settlement replaces it: SENT, a backoff time, or FAILED.
+  async lease(ids: readonly string[], until: Date, tx: Prisma.TransactionClient): Promise<void> {
+    if (ids.length === 0) return;
+    await tx.alertDelivery.updateMany({
+      where: { id: { in: [...ids] } },
+      data: { nextAttemptAt: until },
+    });
+  }
+
   async markSent(ids: readonly string[], at: Date, tx: Prisma.TransactionClient): Promise<void> {
     if (ids.length === 0) return;
     await tx.alertDelivery.updateMany({
