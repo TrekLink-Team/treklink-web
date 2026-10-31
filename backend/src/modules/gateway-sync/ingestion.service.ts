@@ -6,6 +6,7 @@ import { IncidentIngress } from '../incidents';
 import { ContractsService } from '../rentals';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
+import { attribute } from './attribution';
 import { CanonicalEnvelope } from './canonical-envelope';
 import {
   FIELD_POSITION,
@@ -103,12 +104,18 @@ export class IngestionService {
       lateUploadGraceHours,
     });
 
-    // Attribution (task 2.4, D-040): the custody interval holding the device at the occurrence time,
-    // clear of the margin around its handover and end; anything else stays UNATTRIBUTED and reaches
-    // the fleet stream only (BR-36). Read before the transaction: custody changes only at a
-    // handover, check-in or loss, never because of a field event.
+    // Attribution (task 2.4, D-040, `attribution.ts`): the custody interval holding the device at the
+    // occurrence time, clear of the margin around its handover and end; anything else stays
+    // UNATTRIBUTED and reaches the fleet stream only (BR-36). Read before the transaction: custody
+    // changes only at a handover, check-in or loss, never because of a field event.
     const custody = await this.contracts.custodyAt(device.id, time.occurredAt, marginSeconds);
-    const attributed = custody !== null && !custody.nearBoundary ? custody : null;
+    const attribution = attribute({
+      custody,
+      occurredAt: time.occurredAt,
+      marginSeconds,
+      station: null,
+    });
+    const attributed = attribution.attributed ? attribution : null;
 
     return this.events.transaction(async (tx) => {
       let outcome: SyncOutcome = attributed

@@ -21,6 +21,9 @@ export interface Custody {
   contractId: string;
   organizationId: string;
   contractStatus: ContractStatus;
+  // The interval's ends: the handover, and the check-in or loss, null while it is open (D-040).
+  handedOverAt: Date;
+  endedAt: Date | null;
   // `at` lies within `marginSeconds` of the handover or of the interval's end (D-040).
   nearBoundary: boolean;
 }
@@ -90,6 +93,8 @@ export const custodyOf = (
     contractId: row.contract.id,
     organizationId: row.contract.organizationId,
     contractStatus: row.contract.status,
+    handedOverAt: row.handedOverAt,
+    endedAt: end,
     nearBoundary: near(at, row.handedOverAt, marginMs) || near(at, end, marginMs),
   };
 };
