@@ -10,7 +10,8 @@
     "start:dev": "ts-node src/index.ts",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "jest",
-    "typecheck": "tsc --noEmit && tsc -p test/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc -p test/tsconfig.json",
+    "harness:outage": "ts-node -P test/tsconfig.json --transpile-only test/harness/outage.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
@@ -39,11 +40,15 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
+    "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/test"
+    ]
   }
 }
