@@ -274,11 +274,12 @@ export class IncidentsService {
   // flagged or cleared under its row lock inside the sweep's transaction; nothing else of it changes,
   // its version included. The incident keeps its own last position and fix time (`lastPositionAt`),
   // which the device's episode wrote; `lastSeenAt` is the device's last reading and goes to the audit
-  // record. Returns the changed incident, or null when there is none or the flag already says so.
+  // record, null when the sweep clears the flag of a device reset to never heard. Returns the changed
+  // incident, or null when there is none or the flag already says so.
   async markDeviceStale(
     deviceId: string,
     stale: boolean,
-    lastSeenAt: Date,
+    lastSeenAt: Date | null,
     tx: Prisma.TransactionClient,
   ): Promise<Incident | null> {
     const current = await this.repository.lockOpenByDevice(deviceId, tx);
@@ -300,7 +301,7 @@ export class IncidentsService {
       subjectType: 'Incident',
       subjectId: current.id,
       before: { stale: current.stale },
-      after: { stale, lastSeenAt: lastSeenAt.toISOString() },
+      after: { stale, lastSeenAt: lastSeenAt?.toISOString() ?? null },
     } satisfies AuditRecordEvent);
     return updated;
   }

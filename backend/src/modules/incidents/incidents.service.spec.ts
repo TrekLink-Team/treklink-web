@@ -610,6 +610,19 @@ describe('IncidentsService.markDeviceStale (task 4.4, REQ-EVT-12)', () => {
     );
   });
 
+  it('clears the flag of a device reset to never heard, auditing no last-seen time', async () => {
+    open = row('NOTIFY_BACKUP', { stale: true });
+    await service.markDeviceStale('device', false, null, tx);
+    expect(repository.setStale).toHaveBeenCalledWith('incident', false, tx);
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      'audit.record',
+      expect.objectContaining({
+        before: { stale: true },
+        after: { stale: false, lastSeenAt: null },
+      }),
+    );
+  });
+
   it('does nothing when the flag already says so', async () => {
     open = row('RESPONDING', { stale: true });
     await expect(service.markDeviceStale('device', true, LAST_SEEN, tx)).resolves.toBeNull();

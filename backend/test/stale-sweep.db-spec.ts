@@ -41,6 +41,12 @@ describe('staleness sweep marks against Postgres (monitoring task 2.4)', () => {
   const organizationId = `org-${runId}`;
   const received: unknown[] = [];
   let lastSeenAt: Date | null = ago(400);
+  const flagCalls: unknown[][] = [];
+  let flagFails = false;
+  const markDeviceStale = (...args: unknown[]) => {
+    flagCalls.push(args.slice(0, 3));
+    return flagFails ? Promise.reject(new Error('lock timeout')) : Promise.resolve(null);
+  };
 
   const job = (marks: StaleMarksRepository = repository) =>
     new StaleSweepJob(
@@ -52,7 +58,7 @@ describe('staleness sweep marks against Postgres (monitoring task 2.4)', () => {
         projections: () => Promise.resolve([{ id: deviceId, lastSeenAt }]),
       } as unknown as DevicesService,
       { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
-      { markDeviceStale: () => Promise.resolve(null) } as unknown as IncidentsService,
+      { markDeviceStale } as unknown as IncidentsService,
       {
         get: (key: string) =>
           Promise.resolve(key === 'monitoring.fieldStationStaleSeconds' ? 180 : 300),
@@ -133,5 +139,21 @@ describe('staleness sweep marks against Postgres (monitoring task 2.4)', () => {
     expect(results.map((result) => result.stale).sort()).toEqual([0, 1]);
     expect(received.filter((payload) => (payload as { stale: boolean }).stale)).toHaveLength(2);
     await expect(rows()).resolves.toHaveLength(1);
+  });
+
+  it('drops the mark of a reset device together with the incident flag, or neither', async () => {
+    lastSeenAt = null;
+    flagCalls.length = 0;
+    flagFails = true;
+    await job().sweep(NOW);
+    // Clearing the flag failed after the delete: the delete rolls back and the next run retries both.
+    await expect(rows()).resolves.toHaveLength(1);
+    flagFails = false;
+    await job().sweep(NOW);
+    await expect(rows()).resolves.toEqual([]);
+    expect(flagCalls).toEqual([
+      [deviceId, false, null],
+      [deviceId, false, null],
+    ]);
   });
 });
