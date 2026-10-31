@@ -77,6 +77,13 @@ export class ProvisioningDto {
   keyVersion!: number;
 }
 
+// rentals api-design 19.
+export class UndoProvisioningDto {
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
+}
+
 export class DeviceCheckDto {
   @IsUUID()
   deviceId!: string;

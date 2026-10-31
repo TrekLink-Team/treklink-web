@@ -117,6 +117,26 @@ arithmetic.
    renders the PDF with the signature, stores it under `HANDOVER_NOTE_STORAGE_DIR` with its SHA-256, and
    commits the `RENTED` devices and `ACTIVE` together.
 
+**Undoing a provisioning record** (api-design 19, REQ-EVT-16, REQ-ERR-10; dry run 2026-10-30, defect 5).
+A provisioning recorded on the wrong unit is undone at the counter before the handover. The permission is
+the one of api-design 09 (`contract.operate`, TrekLink Staff). `HandoverService.undoProvisioning` locks
+the contract, checks the `expectedVersion` (409 `STALE_VERSION`) and the `APPROVED` state, finds the
+unit's live row (409 `DEVICE_NOT_ON_CONTRACT`) and requires the unit `RESERVED` with no `handedOverAt`
+(409 `INVALID_STATE_TRANSITION`), then requires a key version of the contract's organization on it
+(409 `DEVICE_NOT_PROVISIONED`). In the same transaction it increases the contract `version` (compare and
+set, no transition row: the status does not change) and calls `DevicesService.clearProvisioning`, which
+sets `keyVersion`, `keyOrganizationId` and `provisionedAt` to null and increases the device `version`.
+The append-only `DeviceProvisioning` row stays, so the device trail still lists the provisioning; the
+undo is the audit entry `contract.provisioningUndone` (before: device, key version, provisioning time;
+after: key version null), emitted after commit. No domain event: nothing outside the counter reads a
+reserved unit's key version. The battery and GPS readings of the unit live only on the counter page
+(api-design 08 `checks`, 10 `deviceChecks`) and the page drops them with the undo. The version is the
+contract's because the counter page already holds it for api-design 10; increasing it makes a signing
+screen opened before the undo reload instead of signing a unit it shows as provisioned. Provisioning
+(api-design 09) takes no version, so an undo racing a new provisioning of the same unit is ordered by
+the contract row lock and the later one wins. Undoing the record does not remove a key already written
+to the device; Staff write it again and record it, or swap the unit.
+
 ### 4.1 The handover note
 
 The note is a formal handover record a supervisor or a customer accepts (dry run defect 8,

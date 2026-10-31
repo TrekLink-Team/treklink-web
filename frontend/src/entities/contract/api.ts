@@ -176,6 +176,17 @@ export interface Provisioned {
   provisionedAt: string;
 }
 
+// rentals api-design 19: the unit with its record cleared, and the contract version to send next.
+export interface ProvisioningUndone {
+  deviceId: string;
+  assetTag: string;
+  status: string;
+  keyVersion: null;
+  keyOrganizationId: null;
+  provisionedAt: null;
+  contractVersion: number;
+}
+
 export interface DeviceCheck {
   deviceId: string;
   batteryPct: number;
@@ -203,6 +214,12 @@ export const swapDevice = (id: string, deviceId: string, reason: string) =>
 
 export const recordProvisioning = (id: string, deviceId: string, keyVersion: number) =>
   post<Provisioned>(`/contracts/${id}/devices/${deviceId}/provisioning`, { keyVersion });
+
+// Undoes a provisioning recorded on the wrong unit, before the handover (api-design 19).
+export const undoProvisioning = (id: string, deviceId: string, expectedVersion: number) =>
+  post<ProvisioningUndone>(`/contracts/${id}/devices/${deviceId}/provisioning/undo`, {
+    expectedVersion,
+  });
 
 // The readings the counter holds go with the preview, so the note prints each unit's battery and GPS
 // fix (api-design 08 `checks`); nothing is stored until the handover.

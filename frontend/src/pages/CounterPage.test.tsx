@@ -8,6 +8,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { CounterPage } from './CounterPage';
 
 const recordProvisioning = vi.fn();
+const undoProvisioning = vi.fn();
 const completeHandover = vi.fn();
 const fetchHandoverPreview = vi.fn();
 const refetchInvoice = vi.fn(() => Promise.resolve());
@@ -47,6 +48,7 @@ vi.mock('../entities/contract/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/contract/api')>()),
   useContract: () => ({ isLoading: false, data: contract }),
   recordProvisioning: (...args: unknown[]) => recordProvisioning(...args),
+  undoProvisioning: (...args: unknown[]) => undoProvisioning(...args),
   completeHandover: (...args: unknown[]) => completeHandover(...args),
   swapDevice: vi.fn(),
   fetchHandoverPreview: (...args: unknown[]) => fetchHandoverPreview(...args),
@@ -171,6 +173,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   recordProvisioning.mockReset();
+  undoProvisioning.mockReset();
   completeHandover.mockReset();
   fetchHandoverPreview.mockReset();
 });
@@ -392,5 +395,118 @@ describe('CounterPage bulk device actions (dry run defect 4)', () => {
         screen.getAllByLabelText('GPS fix').map((box) => (box as HTMLInputElement).checked),
       ).toEqual([true, true, true, true, false]);
     });
+  });
+});
+
+describe('CounterPage undo of a provisioning (dry run defect 5, rentals api-design 19)', () => {
+  const dialog = () => screen.getByRole('dialog', { name: 'Undo the provisioning of TL-0003?' });
+
+  it('offers Undo only on a provisioned row', async () => {
+    renderPage();
+    expect(screen.queryByRole('button', { name: /Undo provisioning of/ })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Record provisioning' })[0]);
+    await waitFor(() => expect(screen.getByText('Provisioned v1')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Undo provisioning of TL-0003' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Undo provisioning of TL-0004' })).toBeNull();
+  });
+
+  it('asks first, then clears the record and the readings and sends the next version on', async () => {
+    undoProvisioning.mockResolvedValue({ deviceId: 'd-1', keyVersion: null, contractVersion: 4 });
+    completeHandover.mockResolvedValue({ code: 'RC-2026-0002', devicesHandedOver: 2 });
+    await withDevices(
+      contract.devices.map((device) => ({ ...device, provisionedKeyVersion: 1 })),
+      async () => {
+        renderPage();
+        const battery = () => screen.getAllByLabelText('Battery %')[0] as HTMLInputElement;
+        fireEvent.change(battery(), { target: { value: '90' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Undo provisioning of TL-0003' }));
+        expect(within(dialog()).getByText(/goes back to "Not provisioned yet"/)).toBeTruthy();
+        fireEvent.click(within(dialog()).getByRole('button', { name: 'Keep it' }));
+        expect(screen.queryByRole('dialog')).toBeNull();
+        expect(undoProvisioning).not.toHaveBeenCalled();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Undo provisioning of TL-0003' }));
+        fireEvent.click(within(dialog()).getByRole('button', { name: 'Undo provisioning' }));
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+        expect(undoProvisioning).toHaveBeenCalledWith('c-1', 'd-1', 3);
+        // The contract read still says v1; the undo of this visit wins.
+        expect(screen.getByText('Not provisioned yet')).toBeTruthy();
+        expect(screen.getAllByText('Provisioned v1')).toHaveLength(1);
+        expect(battery().value).toBe('');
+
+        // Recorded again, the unit is ready; the handover sends the version the undo answered.
+        fireEvent.click(screen.getAllByRole('button', { name: 'Record provisioning' })[0]);
+        await waitFor(() => expect(screen.getAllByText('Provisioned v1')).toHaveLength(2));
+        screen
+          .getAllByLabelText('Battery %')
+          .forEach((input) => fireEvent.change(input, { target: { value: '90' } }));
+        screen.getAllByLabelText('GPS fix').forEach((box) => fireEvent.click(box));
+        next();
+        next();
+        next();
+        fireEvent.change(screen.getByLabelText('Signing Manager'), {
+          target: { value: 'u-mgr' },
+        });
+        fireEvent.change(screen.getByLabelText('Identity document checked'), {
+          target: { value: 'CCCD ending 1234' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Sign here' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Complete handover' }));
+        await waitFor(() => expect(completeHandover).toHaveBeenCalled());
+        expect(completeHandover.mock.calls[0][1]).toMatchObject({ expectedVersion: 4 });
+      },
+    );
+  });
+
+  it('keeps a refusal in the dialog, and sends STALE_VERSION to the Reload banner', async () => {
+    undoProvisioning
+      .mockRejectedValueOnce(
+        new ApiError(409, 'INVALID_STATE_TRANSITION', 'This cannot be done while it is ACTIVE.'),
+      )
+      .mockRejectedValueOnce(
+        new ApiError(
+          409,
+          'STALE_VERSION',
+          'This was changed by someone else. Reload and try again.',
+        ),
+      );
+    await withDevices(
+      contract.devices.map((device) => ({ ...device, provisionedKeyVersion: 1 })),
+      async () => {
+        renderPage();
+        fireEvent.click(screen.getByRole('button', { name: 'Undo provisioning of TL-0003' }));
+        fireEvent.click(within(dialog()).getByRole('button', { name: 'Undo provisioning' }));
+        await waitFor(() =>
+          expect(
+            within(dialog()).getByText('This cannot be done while it is ACTIVE.'),
+          ).toBeTruthy(),
+        );
+        expect(screen.getAllByText('Provisioned v1')).toHaveLength(2);
+
+        fireEvent.click(within(dialog()).getByRole('button', { name: 'Undo provisioning' }));
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+        expect(
+          screen.getByText('Someone else changed this. Reload to see the latest.'),
+        ).toBeTruthy();
+      },
+    );
+  });
+
+  it('shows the unit as not provisioned when the server has no record to undo', async () => {
+    undoProvisioning.mockRejectedValueOnce(
+      new ApiError(409, 'DEVICE_NOT_PROVISIONED', 'TL-0003 has no provisioning to undo.'),
+    );
+    await withDevices(
+      contract.devices.map((device) => ({ ...device, provisionedKeyVersion: 1 })),
+      async () => {
+        renderPage();
+        fireEvent.click(screen.getByRole('button', { name: 'Undo provisioning of TL-0003' }));
+        fireEvent.click(within(dialog()).getByRole('button', { name: 'Undo provisioning' }));
+        await waitFor(() =>
+          expect(within(dialog()).getByText('TL-0003 has no provisioning to undo.')).toBeTruthy(),
+        );
+        expect(screen.getByText('Not provisioned yet')).toBeTruthy();
+      },
+    );
   });
 });

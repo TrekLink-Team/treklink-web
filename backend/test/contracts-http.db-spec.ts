@@ -220,6 +220,60 @@ describe('contract and billing 409 rows over HTTP against Postgres', () => {
         'INVALID_STATE_TRANSITION',
       );
     });
+
+    it('19: undoes a record, then STALE_VERSION, DEVICE_NOT_PROVISIONED, DEVICE_NOT_ON_CONTRACT, INVALID_STATE_TRANSITION', async () => {
+      const { contract, org, reserved } = await approved();
+      const undo = (contractId: string, deviceId: string, expectedVersion: number) =>
+        flow.send(flow.staff, 'post', path(contractId, `/devices/${deviceId}/provisioning/undo`), {
+          expectedVersion,
+        });
+      await flow.send(
+        flow.staff,
+        'post',
+        path(contract.id, `/devices/${reserved[0]}/provisioning`),
+        {
+          keyVersion: 1,
+        },
+      );
+      const version = await flow.version(contract.id);
+
+      const done = await undo(contract.id, reserved[0], version);
+      expect({ status: done.status, body: done.body as unknown }).toMatchObject({
+        status: 200,
+        body: {
+          isSuccess: true,
+          message: 'Provisioning undone',
+          result: {
+            deviceId: reserved[0],
+            status: 'RESERVED',
+            keyVersion: null,
+            contractVersion: version + 1,
+          },
+        },
+      });
+      expect(await flow.version(contract.id)).toBe(version + 1);
+      const unit = await flow.prisma.device.findUniqueOrThrow({ where: { id: reserved[0] } });
+      expect(unit).toMatchObject({
+        keyVersion: null,
+        keyOrganizationId: null,
+        provisionedAt: null,
+      });
+      // The history row is append-only and stays.
+      expect(
+        await flow.prisma.deviceProvisioning.count({
+          where: { deviceId: reserved[0], organizationId: org.id },
+        }),
+      ).toBe(1);
+
+      expectConflict(await undo(contract.id, reserved[0], version), 'STALE_VERSION');
+      expectConflict(await undo(contract.id, reserved[0], version + 1), 'DEVICE_NOT_PROVISIONED');
+      expectConflict(await undo(contract.id, unknownDevice, version + 1), 'DEVICE_NOT_ON_CONTRACT');
+      const active = await flow.rented(5);
+      expectConflict(
+        await undo(active.contract.id, active.deviceIds[0], await flow.version(active.contract.id)),
+        'INVALID_STATE_TRANSITION',
+      );
+    });
   });
 
   describe('10 handover, at the real time', () => {

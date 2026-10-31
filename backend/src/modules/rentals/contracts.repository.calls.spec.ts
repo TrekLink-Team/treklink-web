@@ -230,4 +230,19 @@ describe('ContractsRepository delegate calls', () => {
       { holderName: null, holderPhone: null, holderEmergencyContact: null },
     ]);
   });
+
+  it('bumps the version only when the caller saw the current one (api-design 19)', async () => {
+    const updateMany = jest
+      .fn()
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+    const tx = { rentalContract: { updateMany } } as unknown as Prisma.TransactionClient;
+    const repository = new ContractsRepository({} as PrismaService);
+    await expect(repository.bumpVersion('c-1', 3, tx)).resolves.toBe(true);
+    await expect(repository.bumpVersion('c-1', 3, tx)).resolves.toBe(false);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'c-1', version: 3 },
+      data: { version: { increment: 1 } },
+    });
+  });
 });
