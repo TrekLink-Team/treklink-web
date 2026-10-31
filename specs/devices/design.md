@@ -123,7 +123,10 @@ when the case settles. `RENTER` custody marks the organization's channel key exp
 `ChannelKeyService.markKeyExposed` of `organizations`, and confirmation charges the remaining value through the `LOSS_CASE_LISTENERS` port, which `billing` provides with `chargeLoss`;
 `TREKLINK` custody is written off. The `devices.lossSearch` job confirms `SEARCHING` cases whose
 `searchEndsAt` has passed, with the usual compare-and-set on state and version. A device recovered after
-settlement goes to `RETURNED` while its case stays `SETTLED`; any refund is a billing adjustment (E05-10).
+settlement goes to `RETURNED` while its case stays `SETTLED`; any refund is a billing adjustment (E05-10). A device
+recovered before settlement goes to `RETURNED` with no `lostAt`, so a `RENTER` case leaves its custody
+interval open and the contract counts the unit out until the counter checks it in; that check-in closes
+the row, and the device, already `RETURNED`, does not move again (2026-11-01).
 
 ## 2.2 Maintenance record and the weekly service scan (D-047)
 

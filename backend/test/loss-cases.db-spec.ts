@@ -347,6 +347,70 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
     expect(again.code).not.toBe(reported.code);
   });
 
+  // Design §2.1: a recovery before settlement sets no `lostAt`, so the renter's custody interval stays
+  // open and the contract still counts the unit out until the counter checks it in. The check-in then
+  // closes the row, and the device, already RETURNED by the recovery, does not move again.
+  it('a renter-custody case recovered before settlement leaves the contract row open until check-in', async () => {
+    const { org, contract, deviceId } = await rentedUnit();
+    const reported = await lossCases.report(
+      deviceId,
+      { description: 'Left at the camp' },
+      org.manager,
+      REPORTED_AT,
+    );
+    const triaged = await lossCases.triage(
+      reported.id,
+      { suspectedTheft: false, expectedVersion: reported.version },
+      flow.staff,
+      TRIAGED_AT,
+    );
+    expect(triaged.custody).toBe(LossCustody.RENTER);
+
+    const recoveredAt = at('2026-11-06T02:00:00.000Z');
+    const recovered = await lossCases.recover(
+      triaged.id,
+      { note: 'Brought back by the guide', expectedVersion: triaged.version },
+      flow.staff,
+      recoveredAt,
+    );
+    expect(recovered.state).toBe(LossCaseState.RECOVERED);
+    expect((await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).status).toBe(
+      DeviceStatus.RETURNED,
+    );
+    const open = await flow.prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: contract.id, deviceId },
+    });
+    expect(open).toMatchObject({ checkedInAt: null, lostAt: null });
+    expect(await flow.status(contract.id)).toBe(ContractStatus.ACTIVE);
+    expect(
+      await flow.prisma.invoiceLine.count({ where: { deviceId, type: InvoiceLineType.LOSS } }),
+    ).toBe(0);
+
+    // The term ends (fixture) and the counter checks the unit in on its contract.
+    const back = at('2026-11-07T02:00:00.000Z');
+    await flow.prisma.rentalContract.update({
+      where: { id: contract.id },
+      data: { status: ContractStatus.RETURN_DUE, returnDueAt: back, version: { increment: 1 } },
+    });
+    const tag = (await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).assetTag;
+    const checkedIn = await flow.get(ReturnService).checkIn(contract.id, [tag], flow.staff, back);
+    expect(checkedIn).toMatchObject({ checkedIn: [tag], contractStatus: ContractStatus.RETURNED });
+
+    const closed = await flow.prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: contract.id, deviceId },
+    });
+    expect(closed.checkedInAt?.getTime()).toBe(back.getTime());
+    expect(closed.lostAt).toBeNull();
+    const device = await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } });
+    expect(device.status).toBe(DeviceStatus.RETURNED);
+    expect(device.statusChangedAt.getTime()).toBe(recoveredAt.getTime());
+    expect(
+      await flow.prisma.deviceTransition.count({
+        where: { deviceId, toStatus: DeviceStatus.RETURNED, createdAt: back },
+      }),
+    ).toBe(0);
+  });
+
   it('serves the routes with the new permissions (migration 20261031120100)', async () => {
     const variantId = await flow.variant(SCHEDULE);
     const [deviceId] = await flow.availableDevices(variantId, 1);
