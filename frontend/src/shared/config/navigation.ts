@@ -77,7 +77,7 @@ export const ORGANIZATION_NAV: NavGroup[] = [
     entries: [
       { route: '/o/contracts', label: 'Contracts', icon: FileText, roles: OPERATOR, built: true, tabBar: 4 },
       { route: '/o/invoices', label: 'Invoices', icon: Receipt, roles: MANAGER, built: true },
-      { route: '/o/loss-cases', label: 'Loss cases', icon: ShieldAlert, roles: MANAGER, built: false },
+      { route: '/o/loss-cases', label: 'Loss cases', icon: ShieldAlert, roles: MANAGER, built: true },
     ],
   },
   {
@@ -114,7 +114,7 @@ export const TREKLINK_NAV: NavGroup[] = [
       { route: '/t/admin/sync', label: 'Field data sync', icon: Radio, roles: STAFF, built: true },
       { route: '/t/stock-take', label: 'Stock-take', icon: ClipboardList, roles: STAFF, built: false },
       { route: '/t/maintenance', label: 'Maintenance', icon: Wrench, roles: STAFF, built: true },
-      { route: '/t/loss-cases', label: 'Loss cases', icon: ShieldAlert, roles: STAFF, built: false },
+      { route: '/t/loss-cases', label: 'Loss cases', icon: ShieldAlert, roles: STAFF, built: true },
     ],
   },
   {

@@ -62,7 +62,9 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     const nav = screen.getByRole('navigation', { name: 'Modules' });
     expect(within(nav).getByRole('link', { name: 'Invoices' })).toBeTruthy();
     expect(within(nav).getByRole('link', { name: 'Members' })).toBeTruthy();
-    expect(within(nav).queryByRole('link', { name: 'Loss cases' })).toBeNull();
+    // Loss cases is built (screen 4.4, 2026-10-31); a TrekLink module never shows for an organization.
+    expect(within(nav).getByRole('link', { name: 'Loss cases' })).toBeTruthy();
+    expect(within(nav).queryByRole('link', { name: 'Maintenance' })).toBeNull();
   });
 
   it('gives every page a breadcrumb from the navigation table', () => {

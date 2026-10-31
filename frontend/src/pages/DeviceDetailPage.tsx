@@ -25,11 +25,14 @@ import { Checkbox, Field, Input, Switch, Textarea } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
 import { DEVICE_STATUS, MAINTENANCE_STATUS } from '../shared/ui/status';
 import { StatusBadge } from '../shared/ui/Badge';
+import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { useToast } from '../shared/ui/toastStore';
 import { ALERT, CARD, LINK } from '../shared/ui/styles';
 
 const MSG03 = 'Saved.';
 const MSG29 = 'Finish the open maintenance record first.';
+// The six working states a device is reported lost from (devices REQ-EVT-13, screen 4.4).
+const IN_SERVICE = ['IN_INTAKE', 'AVAILABLE', 'RESERVED', 'RENTED', 'RETURNED', 'MAINTENANCE'];
 
 const failureOf = (error: unknown, status: string): string => {
   if (error instanceof ApiError) {
@@ -160,8 +163,8 @@ const IntakeDialog: React.FC<{ device: Device; onDone: () => void; onCancel: () 
 };
 
 // /t/devices/:id, DeviceDetailPage of screen 4.2 (devices api-design 05 to 10, 16, 23 and monitoring
-// api-design 07). TrekLink Staff may register, edit firmware, intake check and reset; Admin also
-// retires and disposes (D-057 rule 7).
+// api-design 07). TrekLink Staff may register, edit firmware, intake check, reset and report a unit in
+// service lost (devices api-design 17, screen 4.4); Admin also retires and disposes (D-057 rule 7).
 export const DeviceDetailPage: React.FC = () => {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -185,6 +188,7 @@ export const DeviceDetailPage: React.FC = () => {
   const [disposeMethod, setDisposeMethod] = useState('');
   const [disposeFailure, setDisposeFailure] = useState<string | null>(null);
   const [disposePending, setDisposePending] = useState(false);
+  const [reportingLoss, setReportingLoss] = useState(false);
 
   const refresh = async () => {
     showToast(MSG03);
@@ -360,6 +364,11 @@ export const DeviceDetailPage: React.FC = () => {
             >
               Position history
             </Link>
+            {IN_SERVICE.includes(device.status) && (
+              <Button variant="danger" onClick={() => setReportingLoss(true)}>
+                Report lost
+              </Button>
+            )}
           </div>
         </div>
 
@@ -385,6 +394,20 @@ export const DeviceDetailPage: React.FC = () => {
           </section>
         </div>
       </div>
+
+      {reportingLoss && (
+        <ReportLossDialog
+          deviceId={device.id}
+          assetTag={device.assetTag}
+          scope="t"
+          onClose={() => setReportingLoss(false)}
+          onReported={(reported) => {
+            setReportingLoss(false);
+            void refresh();
+            navigate(`/t/loss-cases/${reported.id}`);
+          }}
+        />
+      )}
 
       {editingFirmware && (
         <FirmwareDialog

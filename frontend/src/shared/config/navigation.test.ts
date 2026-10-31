@@ -20,6 +20,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/o/incidents',
       '/o/contracts',
       '/o/invoices',
+      '/o/loss-cases',
       '/o/members',
       '/o/roster',
       '/o/api-keys',
@@ -27,9 +28,9 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
     ]);
   });
 
-  it('gives TrekLink Staff the fleet map, contracts, devices, sync status, maintenance, organizations, compliance cases, billing and damage charges, and Admin those plus the built administration pages', () => {
-    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges']);
-    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges', '/t/admin/accounts', '/t/admin/parameters', '/t/admin/prices', '/t/admin/audit/changes', '/t/admin/audit/sign-ins']);
+  it('gives TrekLink Staff the fleet map, contracts, devices, sync status, maintenance, loss cases, organizations, compliance cases, billing and damage charges, and Admin those plus the built administration pages', () => {
+    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/loss-cases', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges']);
+    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/loss-cases', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges', '/t/admin/accounts', '/t/admin/parameters', '/t/admin/prices', '/t/admin/audit/changes', '/t/admin/audit/sign-ins']);
   });
 
   it('shows Demo control to the Admin only while the demo controls are on (D-088)', () => {

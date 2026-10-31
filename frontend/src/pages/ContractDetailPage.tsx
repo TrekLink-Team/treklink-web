@@ -41,6 +41,7 @@ import {
 import { matchesText } from '../shared/lib/filter';
 import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
 import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
+import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 
 const CANCELLABLE = ['REQUESTED', 'APPROVED'];
@@ -216,6 +217,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   const [cancelling, setCancelling] = useState(false);
   const [noticing, setNoticing] = useState(false);
   const [labelling, setLabelling] = useState<ContractDevice | null>(null);
+  const [reporting, setReporting] = useState<ContractDevice | null>(null);
   const isMember = hasAnyRole(roles, ['ORG_OPERATOR']);
   const [tag, setTag] = useState('');
   const [holder, setHolder] = useState('');
@@ -232,6 +234,9 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   );
   // Holder labels belong to the renting organization's members, on a contract not yet closed.
   const canLabel = scope === 'o' && isMember && data.status !== 'CLOSED';
+  // The Org Manager reports a unit that is out as lost (devices api-design 17, screen 4.4).
+  const canReport = scope === 'o' && isManager && data.status !== 'CLOSED';
+  const hasActions = canLabel || canReport;
   const back = scope === 'o' ? '/o/contracts' : '/t/contracts';
   const invoices =
     scope === 'o' ? `/o/invoices?contractId=${data.id}` : `/t/billing?contractId=${data.id}`;
@@ -343,7 +348,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                     <th className="py-2">Holder</th>
                     <th className="py-2">Handed over</th>
                     <th className="py-2">Back</th>
-                    {canLabel && <th className="py-2 sr-only">Actions</th>}
+                    {hasActions && <th className="py-2 sr-only">Actions</th>}
                   </tr>
                   <FilterRow
                     columns={[
@@ -351,7 +356,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                       { label: 'holder', kind: 'text', value: holder, onChange: setHolder },
                       null,
                       null,
-                      ...(canLabel ? [null] : []),
+                      ...(hasActions ? [null] : []),
                     ]}
                     onClear={() => {
                       setTag('');
@@ -362,7 +367,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                 <tbody>
                   {devices.length === 0 && (
                     <NoMatchRow
-                      colSpan={canLabel ? 5 : 4}
+                      colSpan={hasActions ? 5 : 4}
                       onClear={() => {
                         setTag('');
                         setHolder('');
@@ -390,16 +395,29 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                       <td className="py-2">
                         {device.lostAt ? 'Lost' : <When iso={device.checkedInAt} />}
                       </td>
-                      {canLabel && (
+                      {hasActions && (
                         <td className="py-2 text-right">
                           {device.handedOverAt && !device.checkedInAt && !device.lostAt && (
-                            <button
-                              type="button"
-                              className={`${LINK} text-sm`}
-                              onClick={() => setLabelling(device)}
-                            >
-                              {device.holder ? 'Edit label' : 'Label'}
-                            </button>
+                            <span className="inline-flex flex-wrap justify-end gap-3">
+                              {canLabel && (
+                                <button
+                                  type="button"
+                                  className={`${LINK} text-sm`}
+                                  onClick={() => setLabelling(device)}
+                                >
+                                  {device.holder ? 'Edit label' : 'Label'}
+                                </button>
+                              )}
+                              {canReport && (
+                                <button
+                                  type="button"
+                                  className={`${LINK} text-sm`}
+                                  onClick={() => setReporting(device)}
+                                >
+                                  Report lost
+                                </button>
+                              )}
+                            </span>
                           )}
                         </td>
                       )}
@@ -488,6 +506,15 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
       {noticing && <NoticeDialog contract={data} onClose={() => setNoticing(false)} />}
       {labelling && (
         <HolderDialog contract={data} device={labelling} onClose={() => setLabelling(null)} />
+      )}
+      {reporting && (
+        <ReportLossDialog
+          deviceId={reporting.deviceId}
+          assetTag={reporting.assetTag ?? reporting.deviceId}
+          scope="o"
+          onClose={() => setReporting(null)}
+          onReported={() => undefined}
+        />
       )}
     </section>
   );
