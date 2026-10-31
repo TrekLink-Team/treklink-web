@@ -137,9 +137,13 @@ export class SQLitePriorityQueue {
         `Queue bound ${this.maxRows} reached: shed P${row.priority} row ${row.id} (event ${row.eventId}).`,
       );
     }
+    // The over-bound line describes the queue after the shed. The shed may have taken the new row itself
+    // (a P3 inserted into a queue of P0 rows), and then the line must not claim it was kept.
     if (result.overBound) {
+      const kept = result.shed.some((row) => row.eventId === eventId) ? 'shed' : 'kept';
       this.logger.error(
-        `Queue bound ${this.maxRows} exceeded: only P0 and P1 rows are queued, none is shed; kept event ${eventId}.`,
+        `Queue bound ${this.maxRows} exceeded: ${this.count()} rows queued, all P0 or P1, which are never shed; ` +
+          `new event ${eventId} ${kept}.`,
       );
     }
     return result;
