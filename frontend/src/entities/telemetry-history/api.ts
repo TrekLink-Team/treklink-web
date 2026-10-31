@@ -30,18 +30,21 @@ export interface HistoryRange {
   kinds: readonly HistoryKind[];
 }
 
-// `monitoring.historyMaxRangeDays` by default. No read hands it to a member, so the form checks this
-// and the server's 400 is the backstop when an Admin changes the parameter.
-export const HISTORY_MAX_DAYS = 7;
+// The default of the parameter `monitoring.historyMaxRangeDays` (configuration matrix: 7, from 1 to 31).
+// The backend checks the range against the live parameter (monitoring api-design 03, REQ-ERR-02), but
+// no read gives the parameter to the roles of this page: GET /api/parameters needs `parameter.manage`
+// (Admin only) and the history response carries no limit. So the form checks this default, and the
+// server's 400 is the backstop when an Admin changes the parameter.
+export const DEFAULT_HISTORY_MAX_RANGE_DAYS = 7;
 
 const DAY_MS = 86_400_000;
 
 // MSG35: the period is reversed or longer than the limit. Returns the message, or null when it is fine.
 export const periodError = (from: string, to: string): string | null => {
   const span = new Date(to).getTime() - new Date(from).getTime();
-  return Number.isFinite(span) && span > 0 && span <= HISTORY_MAX_DAYS * DAY_MS
+  return Number.isFinite(span) && span > 0 && span <= DEFAULT_HISTORY_MAX_RANGE_DAYS * DAY_MS
     ? null
-    : `Choose an end after the start, at most ${HISTORY_MAX_DAYS} days later.`;
+    : `Choose an end after the start, at most ${DEFAULT_HISTORY_MAX_RANGE_DAYS} days later.`;
 };
 
 export const historyKeys = {
