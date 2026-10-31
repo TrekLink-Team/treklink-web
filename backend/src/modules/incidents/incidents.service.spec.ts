@@ -540,3 +540,87 @@ describe('IncidentsService task 4.1', () => {
     });
   });
 });
+
+describe('IncidentsService.markDeviceStale (task 4.4, REQ-EVT-12)', () => {
+  const tx = { marker: 'tx' } as unknown as Prisma.TransactionClient;
+  const LAST_SEEN = new Date('2026-11-01T02:55:00.000Z');
+  let open: Incident | null;
+  let repository: { lockOpenByDevice: jest.Mock; setStale: jest.Mock };
+  let events: { emitAfterCommit: jest.Mock };
+  let service: IncidentsService;
+
+  beforeEach(() => {
+    open = row('NOTIFY_BACKUP', { ownerId: null, stale: false });
+    repository = {
+      lockOpenByDevice: jest.fn(() => Promise.resolve(open)),
+      setStale: jest.fn((id: string, stale: boolean) => Promise.resolve({ ...open, id, stale })),
+    };
+    events = { emitAfterCommit: jest.fn() };
+    service = new IncidentsService(
+      repository as unknown as IncidentsRepository,
+      {} as IncidentLifecycle,
+      {} as ParameterService,
+      events as unknown as TransactionalEvents,
+      {} as OrganizationsService,
+    );
+  });
+
+  it("flags the device's open incident under its lock in the caller's transaction", async () => {
+    await expect(service.markDeviceStale('device', true, LAST_SEEN, tx)).resolves.toMatchObject({
+      id: 'incident',
+      stale: true,
+    });
+    expect(repository.lockOpenByDevice).toHaveBeenCalledWith('device', tx);
+    expect(repository.setStale).toHaveBeenCalledWith('incident', true, tx);
+  });
+
+  it('announces the unchanged state with incident.changed, so lists and the map refresh', async () => {
+    await service.markDeviceStale('device', true, LAST_SEEN, tx);
+    expect(events.emitAfterCommit).toHaveBeenCalledWith('incident.changed', {
+      incidentId: 'incident',
+      deviceId: 'device',
+      organizationId: 'org-a',
+      state: 'NOTIFY_BACKUP',
+      tier: 'BACKUP',
+      ownerId: null,
+    });
+  });
+
+  it('audits the flag as a system change with the last-seen time', async () => {
+    await service.markDeviceStale('device', true, LAST_SEEN, tx);
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      'audit.record',
+      expect.objectContaining({
+        actorId: null,
+        action: 'incident.stale',
+        subjectId: 'incident',
+        before: { stale: false },
+        after: { stale: true, lastSeenAt: LAST_SEEN.toISOString() },
+      }),
+    );
+  });
+
+  it('clears the flag when the device is heard again', async () => {
+    open = row('ACKNOWLEDGED', { stale: true });
+    await service.markDeviceStale('device', false, LAST_SEEN, tx);
+    expect(repository.setStale).toHaveBeenCalledWith('incident', false, tx);
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      'incident.changed',
+      expect.objectContaining({ state: 'ACKNOWLEDGED', tier: null, ownerId: 'owner' }),
+    );
+  });
+
+  it('does nothing when the flag already says so', async () => {
+    open = row('RESPONDING', { stale: true });
+    await expect(service.markDeviceStale('device', true, LAST_SEEN, tx)).resolves.toBeNull();
+    expect(repository.setStale).not.toHaveBeenCalled();
+    expect(events.emitAfterCommit).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for a device with no incident outside CLOSED', async () => {
+    open = null;
+    await expect(service.markDeviceStale('device', true, LAST_SEEN, tx)).resolves.toBeNull();
+    expect(repository.setStale).not.toHaveBeenCalled();
+    expect(events.emitAfterCommit).not.toHaveBeenCalled();
+  });
+});

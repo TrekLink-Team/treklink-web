@@ -292,11 +292,12 @@ sequenceDiagram
     participant I as IncidentsService
     participant L as StreamListener
     participant W as LiveGateway
-    J->>D: devices whose lastSeenAt crossed the stale threshold
-    loop each change, stale or recovered
-        J->>I: markDeviceStale(deviceId, stale, lastPosition)
-        J-)L: device.stale
-        L->>W: publish to the holder's room and fleet
+    J->>D: projections of the devices in custody and the marked ones
+    loop each change, stale or recovered, in one transaction
+        J->>J: write or delete the StaleMark
+        J->>I: markDeviceStale(deviceId, stale, lastSeenAt, tx)
+        J-)L: monitoring.deviceStale, after commit
+        L->>W: device.stale to the holder's room and fleet
     end
 ```
 

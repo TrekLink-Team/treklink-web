@@ -11,6 +11,7 @@ import {
   IncidentLifecycle,
   IncidentRecipients,
   IncidentTransitionReason,
+  tierOf,
 } from './incident-lifecycle';
 import { clockTime } from './display-time';
 import { IncidentsRepository } from './incidents.repository';
@@ -266,6 +267,42 @@ export class IncidentsService {
       ErrorCode.ALREADY_OWNED,
       `${name} took this incident${time}.`,
     );
+  }
+
+  // The monitoring staleness sweep reports the device silent past `monitoring.deviceStaleSeconds`, or
+  // heard again (REQ-EVT-12, FR-INC-13, task 4.4). The device's incident outside CLOSED, if any, is
+  // flagged or cleared under its row lock inside the sweep's transaction; nothing else of it changes,
+  // its version included. The incident keeps its own last position and fix time (`lastPositionAt`),
+  // which the device's episode wrote; `lastSeenAt` is the device's last reading and goes to the audit
+  // record. Returns the changed incident, or null when there is none or the flag already says so.
+  async markDeviceStale(
+    deviceId: string,
+    stale: boolean,
+    lastSeenAt: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<Incident | null> {
+    const current = await this.repository.lockOpenByDevice(deviceId, tx);
+    if (!current || current.stale === stale) return null;
+    const updated = await this.repository.setStale(current.id, stale, tx);
+    this.events.emitAfterCommit('incident.changed', {
+      incidentId: current.id,
+      deviceId: current.deviceId,
+      organizationId: current.organizationId,
+      state: current.state,
+      tier: tierOf(current.state),
+      ownerId: current.ownerId,
+    });
+    this.events.emitAfterCommit(AUDIT_RECORD, {
+      actorId: null,
+      actorRoles: [],
+      organizationId: current.organizationId,
+      action: 'incident.stale',
+      subjectType: 'Incident',
+      subjectId: current.id,
+      before: { stale: current.stale },
+      after: { stale, lastSeenAt: lastSeenAt.toISOString() },
+    } satisfies AuditRecordEvent);
+    return updated;
   }
 
   private async lock(

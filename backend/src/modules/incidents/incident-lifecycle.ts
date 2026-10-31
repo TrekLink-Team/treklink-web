@@ -115,7 +115,8 @@ const NEXT_TIER = {
 } as const;
 type TimedTier = keyof typeof NEXT_TIER;
 const isTier = (state: IncidentState): state is TimedTier => state in NEXT_TIER;
-const tierOf = (state: IncidentState): string | null => (isTier(state) ? state.slice(7) : null);
+export const tierOf = (state: IncidentState): string | null =>
+  isTier(state) ? state.slice(7) : null;
 const tierMembers = (state: TimedTier, recipients: IncidentRecipients): readonly string[] =>
   state === 'NOTIFY_PRIMARY'
     ? recipients.primary

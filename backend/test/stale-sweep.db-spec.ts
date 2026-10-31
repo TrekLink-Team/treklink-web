@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { StaleSubject } from '@prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import type { DevicesService } from '../src/modules/devices';
+import type { IncidentsService } from '../src/modules/incidents';
 import type { OrganizationsService } from '../src/modules/organizations';
 import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
 import type { ParameterService } from '../src/modules/platform/parameters/parameter.service';
@@ -27,7 +28,14 @@ describe('staleness sweep marks against Postgres (monitoring task 2.4)', () => {
   const prisma = new PrismaService({ datasourceUrl: databaseUrl });
   const emitter = new EventEmitter2();
   const events = new TransactionalEvents(prisma, emitter);
-  const repository = new StaleMarksRepository(prisma);
+  // The marks of this run only: the sweep drops a mark whose device it cannot read, and another
+  // suite's rows are not this suite's to touch.
+  class RunMarks extends StaleMarksRepository {
+    async list(subjectType: StaleSubject) {
+      return (await super.list(subjectType)).filter((row) => row.subjectId.includes(runId));
+    }
+  }
+  const repository = new RunMarks(prisma);
   const runId = randomUUID();
   const deviceId = `device-${runId}`;
   const organizationId = `org-${runId}`;
@@ -44,6 +52,7 @@ describe('staleness sweep marks against Postgres (monitoring task 2.4)', () => {
         projections: () => Promise.resolve([{ id: deviceId, lastSeenAt }]),
       } as unknown as DevicesService,
       { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
+      { markDeviceStale: () => Promise.resolve(null) } as unknown as IncidentsService,
       {
         get: (key: string) =>
           Promise.resolve(key === 'monitoring.fieldStationStaleSeconds' ? 180 : 300),
@@ -97,7 +106,7 @@ describe('staleness sweep marks against Postgres (monitoring task 2.4)', () => {
   it('keeps the mark and emits nothing when the transition rolls back', async () => {
     lastSeenAt = ago(1);
     // The delete succeeds, then the transaction fails: Postgres rolls the delete back.
-    const failing = new StaleMarksRepository(prisma);
+    const failing = new RunMarks(prisma);
     const clear = failing.clear.bind(failing);
     failing.clear = async (...args: Parameters<StaleMarksRepository['clear']>) => {
       await clear(...args);
