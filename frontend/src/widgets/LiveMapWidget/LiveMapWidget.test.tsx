@@ -210,6 +210,23 @@ describe('LiveMapWidget', () => {
     );
   });
 
+  it('opens the popup of each marker chosen in turn, not only the first (screen 9.2 row clicks)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const first = device('selected-0', [11.5, 108.5]);
+    const second = device('selected-1', [11.6, 108.6]);
+    const { rerender } = renderWidget([first]);
+    await waitFor(() => expect(screen.getByRole('img', { name: /selected-0/ })).toBeTruthy());
+    rerender(tree([first], 'selected-0'));
+    await waitFor(() =>
+      expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain('selected-0'),
+    );
+    // The page swaps the one selected marker for the next row's, each with its own id.
+    rerender(tree([second], 'selected-1'));
+    await waitFor(() =>
+      expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain('selected-1'),
+    );
+  });
+
   it('shows MSG33 with the overlay labels listed when a whole batch of tiles fails (REQ-EVT-04)', async () => {
     giveContainersASize();
     vi.mocked(getMapConfig).mockResolvedValue(config);

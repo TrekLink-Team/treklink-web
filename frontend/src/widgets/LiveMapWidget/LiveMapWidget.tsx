@@ -111,7 +111,10 @@ const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ o
   </div>
 );
 
-// A device's track (screen 9.2): the line through its plotted positions, in the accent colour.
+// A device's track (screen 9.2): the line through its plotted positions. A fixed blue on purpose, like
+// MASK_STYLE: the tiles are not themed, and the accent token turns pale lime in the dark theme, which
+// would vanish on light tiles. This blue holds its contrast on every basemap in both themes, and it is
+// no status colour, so a track never reads as an alert.
 const TRACK_STYLE: L.PolylineOptions = { color: '#1d4ed8', weight: 3, opacity: 0.85 };
 
 const LeafletMap: React.FC<{

@@ -160,11 +160,56 @@ describe('DeviceTelemetryPage (screen 9.2)', () => {
     await waitFor(() => expect(screen.getByTestId('search').textContent).toContain('kind=TELEMETRY'));
   });
 
-  it('centres the map on a row that is clicked', () => {
+  it('gives every clicked row its own marker id, so the map pans on each click', () => {
     renderPage();
     fireEvent.click(screen.getAllByRole('row')[1]);
-    expect(mapProps.selectedId).toBe('selected');
-    expect(mapProps.markers?.some((marker) => marker.id === 'selected')).toBe(true);
+    expect(mapProps.selectedId).toBe('selected-0');
+    expect(mapProps.markers?.some((marker) => marker.id === 'selected-0')).toBe(true);
+    fireEvent.click(screen.getAllByRole('row')[3]);
+    expect(mapProps.selectedId).toBe('selected-2');
+    expect(mapProps.markers?.some((marker) => marker.id === 'selected-2')).toBe(true);
+    expect(mapProps.markers?.some((marker) => marker.id === 'selected-0')).toBe(false);
+  });
+
+  describe('Back', () => {
+    const renderFrom = (entries: string[], initialIndex: number) =>
+      render(
+        <MemoryRouter initialEntries={entries} initialIndex={initialIndex}>
+          <Routes>
+            <Route
+              path="/o/devices/:id/telemetry"
+              element={<DeviceTelemetryPage scope="o" />}
+            />
+            <Route path="*" element={<PathProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    const PathProbe: React.FC = () => <p data-testid="path">{useLocation().pathname}</p>;
+
+    it('goes to the map when the page is the first entry, for example a typed URL', () => {
+      renderFrom(['/o/devices/d-1/telemetry'], 0);
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      expect(screen.getByTestId('path').textContent).toBe('/o/map');
+    });
+
+    it('goes to the page that opened it otherwise', () => {
+      renderFrom(['/o/contracts/c-1', '/o/devices/d-1/telemetry'], 1);
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      expect(screen.getByTestId('path').textContent).toBe('/o/contracts/c-1');
+    });
+
+    it('goes to the Staff map for Staff', () => {
+      render(
+        <MemoryRouter initialEntries={['/t/devices/d-1/telemetry']}>
+          <Routes>
+            <Route path="/t/devices/:id/telemetry" element={<DeviceTelemetryPage scope="t" />} />
+            <Route path="*" element={<PathProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      expect(screen.getByTestId('path').textContent).toBe('/t/map');
+    });
   });
 
   it('pages the table by 50 rows', () => {
