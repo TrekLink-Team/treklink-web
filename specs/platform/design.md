@@ -482,7 +482,8 @@ are logged, and a failed run never stops the next one.
 | `incidents.tierTimeouts` | incidents | 5 s | `NOTIFY_*` past `tierDeadlineAt` moves to the next tier or `ESCALATED` (FR-INC-05) |
 | `incidents.staleResponses` | incidents | 30 s | `ACKNOWLEDGED` or `RESPONDING` past `statusDueAt` moves to `ESCALATED` (FR-INC-07) |
 | `incidents.closeAfterReopenWindow` | incidents | 60 s | `RESOLVED` or `FALSE_ALARM` past the window moves to `CLOSED` (FR-INC-11) |
-| `incidents.deliverAlerts` | incidents | 2 s | outbox rows due for delivery (FR-INC-12) |
+| `incidents.deliverAlerts` | incidents | 2 s, and woken by `incident.alertsQueued` after commit | WEB and WEBSOCKET outbox rows due for delivery (FR-INC-12, NFR-PERF-04) |
+| `incidents.deliverEmailAlerts` | incidents | 2 s, and woken by `incident.alertsQueued` after commit | EMAIL outbox rows due for delivery, each sent outside any transaction (FR-INC-12) |
 | `monitoring.staleSweep` | monitoring | `monitoring.staleSweepSeconds` | stale devices and Field Stations (FR-MON-03); flags incidents stale through `IncidentsService` (FR-INC-13) |
 | `monitoring.pruneStream` | monitoring | hourly | delete stream entries past retention |
 | `rentals.termRollover` | rentals | daily at `rentals.termRolloverHourLocal`, and hourly catch-up | close ended terms, open the next with its invoice, end day plans, move ended `ENDING` contracts to `RETURN_DUE` (FR-CON-08, FR-CON-10) |

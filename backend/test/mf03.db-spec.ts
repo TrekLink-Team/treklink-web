@@ -338,11 +338,12 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
 
     // 3. The dispatcher sends the web inbox, WebSocket and email rows; the API event waits.
     // Other suites leave due rows in this disposable database. One dispatcher batch need not
-    // reach this incident; drain the finite due backlog rather than depending on suite order.
+    // reach this incident; drain the finite due WEB and WEBSOCKET backlog rather than depending on
+    // suite order.
     let remaining = await prisma.alertDelivery.count({
       where: {
         status: 'PENDING',
-        channel: { in: ['WEB', 'WEBSOCKET', 'EMAIL'] },
+        channel: { in: ['WEB', 'WEBSOCKET'] },
         nextAttemptAt: { lte: new Date() },
       },
     });
@@ -354,6 +355,8 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
       remaining -= batch;
     }
     expect(sent).toBeGreaterThanOrEqual(2);
+    // The email lane keeps claiming until a batch comes back short, so one run drains its backlog.
+    await dispatcher.deliverEmailAlerts();
     expect(delivered).toContainEqual({
       recipientId: operatorId,
       alert: expect.objectContaining({

@@ -244,7 +244,7 @@ describe('MF-03 escalation timers against Postgres', () => {
     const original = await dueEmail(incident.id);
     for (let attempt = 1; attempt <= 3; attempt++) {
       const started = Date.now();
-      await dispatcher.deliverAlerts();
+      await dispatcher.deliverEmailAlerts();
       const failed = await emailOf(incident.id);
       expect(failed).toMatchObject({
         status: 'PENDING',
@@ -269,7 +269,7 @@ describe('MF-03 escalation timers against Postgres', () => {
     await prisma.incident.update({ where: { id: incident.id }, data: { tierDeadlineAt: past() } });
     await job.tierTimeouts();
     expect((await read(incident.id)).state).toBe('ESCALATED');
-    await dispatcher.deliverAlerts();
+    await dispatcher.deliverEmailAlerts();
     expect(await emailOf(incident.id)).toMatchObject({
       id: original.id,
       status: 'SENT',
@@ -284,7 +284,7 @@ describe('MF-03 escalation timers against Postgres', () => {
     const sentCalls = send.mock.calls.filter(
       ([message]) => message.to === `timers-operator-${runId}@example.invalid`,
     ).length;
-    await dispatcher.deliverAlerts();
+    await dispatcher.deliverEmailAlerts();
     expect(
       send.mock.calls.filter(
         ([message]) => message.to === `timers-operator-${runId}@example.invalid`,
@@ -301,7 +301,7 @@ describe('MF-03 escalation timers against Postgres', () => {
     const incident = await routedIncident();
     const dispatcher = emailDispatcher(() => Promise.reject(new Error('SMTP unavailable')), 1);
     await dueEmail(incident.id);
-    await dispatcher.deliverAlerts();
+    await dispatcher.deliverEmailAlerts();
     expect(await emailOf(incident.id)).toMatchObject({
       status: 'FAILED',
       attempts: 1,
@@ -336,7 +336,7 @@ describe('MF-03 escalation timers against Postgres', () => {
       entered();
       await pending;
     });
-    const first = emailDispatcher(send).deliverAlerts();
+    const first = emailDispatcher(send).deliverEmailAlerts();
     try {
       await sending;
       await prisma.incident.update({
@@ -346,7 +346,7 @@ describe('MF-03 escalation timers against Postgres', () => {
       await job.tierTimeouts();
       expect((await read(incident.id)).state).toBe('NOTIFY_MANAGER');
       const secondSend = jest.fn(() => Promise.resolve());
-      await emailDispatcher(secondSend).deliverAlerts();
+      await emailDispatcher(secondSend).deliverEmailAlerts();
       expect(secondSend.mock.calls).not.toEqual(
         expect.arrayContaining([
           [expect.objectContaining({ to: `timers-operator-${runId}@example.invalid` })],
@@ -358,6 +358,24 @@ describe('MF-03 escalation timers against Postgres', () => {
     }
     expect(await emailOf(incident.id)).toMatchObject({ status: 'SENT', attempts: 1 });
   });
+
+  // Review of #214: a 6 s send inside the claim transaction outlived Prisma's 5 s default, so
+  // nothing settled and the next run sent the email again.
+  it('settles a send slower than the 5 s transaction default once, and the next run skips it', async () => {
+    const incident = await routedIncident();
+    await dueEmail(incident.id);
+    const operator = `timers-operator-${runId}@example.invalid`;
+    const send = jest.fn(({ to }: { to: string }) =>
+      to === operator
+        ? new Promise<void>((resolve) => setTimeout(resolve, 6000))
+        : Promise.resolve(),
+    );
+    const dispatcher = emailDispatcher(send);
+    await dispatcher.deliverEmailAlerts();
+    expect(await emailOf(incident.id)).toMatchObject({ status: 'SENT', attempts: 1 });
+    await dispatcher.deliverEmailAlerts();
+    expect(send.mock.calls.filter(([message]) => message.to === operator)).toHaveLength(1);
+  }, 20000);
 
   it('walks primary, the empty backup, Manager, then ESCALATED with nobody acknowledging (AC-02)', async () => {
     const incident = await routedIncident();

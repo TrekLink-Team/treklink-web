@@ -9,6 +9,7 @@ import {
   IncidentTransitionReason,
 } from './incident-lifecycle';
 import { AlertDeliveriesRepository } from './alert-deliveries.repository';
+import { INCIDENT_ALERTS_QUEUED } from './alerts/alert-events';
 import { IncidentsRepository } from './incidents.repository';
 
 const AT = new Date('2026-10-24T12:00:00Z');
@@ -222,6 +223,9 @@ describe('IncidentLifecycle task 1.2', () => {
     expect(alerts.enqueue.mock.invocationCallOrder[0]).toBeLessThan(
       events.emitAfterCommit.mock.invocationCallOrder[0],
     );
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(INCIDENT_ALERTS_QUEUED, {
+      incidentId: result.id,
+    });
   });
 
   it.each([
@@ -237,7 +241,10 @@ describe('IncidentLifecycle task 1.2', () => {
     expect(result.state).toBe(state);
     expect(result.ownerId).toBeNull();
     expect(repository.insertTransition).toHaveBeenCalledTimes(transitions);
-    expect(events.emitAfterCommit).toHaveBeenCalledTimes(transitions * 2);
+    const domainEvents = events.emitAfterCommit.mock.calls.filter(
+      ([name]) => name !== INCIDENT_ALERTS_QUEUED,
+    );
+    expect(domainEvents).toHaveLength(transitions * 2);
     if (state === 'ESCALATED') expect(result.tierDeadlineAt).toBeNull();
   });
 
@@ -298,6 +305,10 @@ describe('IncidentLifecycle task 1.2', () => {
     current = row('DETECTED', { organizationId: null });
     await apply('UNROUTED', 'ROUTED', SYSTEM, { recipients: { ...RECIPIENTS, staff: [] } });
     expect(alerts.enqueue).toHaveBeenCalledWith([], tx);
+    expect(events.emitAfterCommit).not.toHaveBeenCalledWith(
+      INCIDENT_ALERTS_QUEUED,
+      expect.anything(),
+    );
   });
 
   it.each([null, 'org-b'])(
