@@ -14,6 +14,9 @@ vi.mock('../pages/LiveMapPage', () => ({
 vi.mock('../pages/PlansPage', () => ({ PlansPage: () => <p>plans page</p> }));
 vi.mock('../pages/ParametersPage', () => ({ ParametersPage: () => <p>parameters page</p> }));
 vi.mock('../pages/AuditLogPage', () => ({ AuditLogPage: () => <p>audit log page</p> }));
+vi.mock('../pages/DeviceTelemetryPage', () => ({
+  DeviceTelemetryPage: ({ scope }: { scope: string }) => <p>telemetry {scope}</p>,
+}));
 vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
 vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
@@ -145,6 +148,32 @@ describe('route guards (AC-01)', () => {
     act(() => useSession.getState().signOut());
     visit('/t/admin/audit/changes', null);
     expect(screen.getByText(/^sign-in \?next=%2Ft%2Fadmin%2Faudit%2Fchanges$/)).toBeTruthy();
+  });
+
+  it('gives the telemetry history to an Operator, a Manager, Staff and an Admin on their own prefix', () => {
+    visit('/o/devices/d-1/telemetry', account(['ORG_OPERATOR'], 'ORGANIZATION'));
+    expect(screen.getByText('telemetry o')).toBeTruthy();
+    cleanup();
+    visit('/o/devices/d-1/telemetry', account(['ORG_MANAGER'], 'ORGANIZATION'));
+    expect(screen.getByText('telemetry o')).toBeTruthy();
+    cleanup();
+    visit('/t/devices/d-1/telemetry', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('telemetry t')).toBeTruthy();
+    cleanup();
+    visit('/t/devices/d-1/telemetry', account(['ADMIN'], 'TREKLINK'));
+    expect(screen.getByText('telemetry t')).toBeTruthy();
+  });
+
+  it('shows MSG26 to a role on the other prefix and sends a visitor to sign-in', () => {
+    visit('/t/devices/d-1/telemetry', account(['ORG_MANAGER'], 'ORGANIZATION'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+    cleanup();
+    visit('/o/devices/d-1/telemetry', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+    cleanup();
+    act(() => useSession.getState().signOut());
+    visit('/o/devices/d-1/telemetry', null);
+    expect(screen.getByText(/^sign-in \?next=%2Fo%2Fdevices%2Fd-1%2Ftelemetry$/)).toBeTruthy();
   });
 
   it('lets an Admin reach /t/map', () => {
