@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { useInvoice, useInvoices } from '../entities/billing/api';
+import { useInvoice, useInvoices, useVariantName } from '../entities/billing/api';
 import {
   completeHandover,
   contractKeys,
@@ -148,6 +148,7 @@ export const CounterPage: React.FC = () => {
       .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
       .at(0)?.id ?? null;
   const firstInvoice = useInvoice(firstInvoiceId);
+  const variantName = useVariantName();
 
   const [today] = useState(() => new Date(Date.now() + ZONE_OFFSET_MS).toISOString().slice(0, 10));
   const [step, setStep] = useState(0);
@@ -520,7 +521,7 @@ export const CounterPage: React.FC = () => {
                 {data.organization
                   ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
                   : ''}
-                {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}
+                {planLabel(data)}, {data.quantity} x {variantName(data.hardwareVariant)}
                 {data.returnDueAt ? `, return due ${formatDay(data.returnDueAt.slice(0, 10))}` : ''}
               </p>
             </>
@@ -545,7 +546,7 @@ export const CounterPage: React.FC = () => {
           {data.organization
             ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
             : ''}
-          {planLabel(data)}, {data.quantity} x {data.hardwareVariant.code ?? 'variant'}, from{' '}
+          {planLabel(data)}, {data.quantity} x {variantName(data.hardwareVariant)}, from{' '}
           {formatDay(data.requestedStartDate)}
           {data.handoverAppointmentAt
             ? `. Handover appointment ${formatDateTime(data.handoverAppointmentAt)}`

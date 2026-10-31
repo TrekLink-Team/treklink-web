@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { billingKeys } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
 import { CounterPage } from './CounterPage';
 
@@ -199,6 +200,26 @@ describe('CounterPage (screen 5.4)', () => {
     next();
     expect(screen.getByRole('heading', { name: '2. Payment' })).toBeTruthy();
     expect(screen.getByText('The first payment is not recorded yet.')).toBeTruthy();
+  });
+
+  it('names the variant in the subtitle by its display name, the code until the plans load', async () => {
+    const client = new QueryClient();
+    const view = render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/t/counter/c-1']}>
+          <Routes>
+            <Route path="/t/counter/:contractId" element={<CounterPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText(/2 x treklink-v3/)).toBeTruthy();
+    client.setQueryData(billingKeys.plans, {
+      variants: [{ id: 'v-3', code: 'treklink-v3', name: 'TrekLink v3 (GPS, SOS button)' }],
+    });
+    expect(await screen.findByText(/2 x TrekLink v3 \(GPS, SOS button\)/)).toBeTruthy();
+    expect(screen.queryByText(/x treklink-v3/)).toBeNull();
+    view.unmount();
   });
 
   it('keeps the title and steps in the sticky header and Back and Next in the action bar', async () => {
