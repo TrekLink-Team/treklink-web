@@ -10,6 +10,12 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { MembersRepository } from './members.repository';
+import {
+  ORGANIZATION_REGISTERED,
+  ORGANIZATION_VERIFIED,
+  OrganizationRegisteredEvent,
+  OrganizationVerifiedEvent,
+} from './organization-events';
 import { invalidState, OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationReviewRow, OrganizationsRepository } from './organizations.repository';
 
@@ -50,9 +56,8 @@ const isUniqueViolation = (error: unknown) =>
 // Organization onboarding, MF-01's first half (organizations tasks 2.1 to 2.3, api-design 01, 02, 05
 // to 07, UC-01 to UC-03), built by LongLP for Review 2 in TanNB's lane: self-registration creates a
 // PENDING organization with its Manager account, Staff record the counter verification with the
-// signed contract terms, and an Admin approves a verified organization or rejects it. Open (recorded
-// in tasks.md): the Staff and Admin notifications, the MSG05 and MSG16 emails, and the full
-// lifecycle table of task 1.2.
+// signed contract terms, and an Admin approves a verified organization or rejects it. The notices go
+// out after commit through OnboardingNotifier (registration, the first verification, MSG05 and MSG16).
 @Injectable()
 export class OrganizationOnboardingService {
   constructor(
@@ -137,6 +142,11 @@ export class OrganizationOnboardingService {
           },
           tx,
         );
+        this.events.emitAfterCommit(ORGANIZATION_REGISTERED, {
+          organizationId: organization.id,
+          code: organization.code,
+          legalName: organization.legalName,
+        } satisfies OrganizationRegisteredEvent);
         return organization;
       });
     } catch (error) {
@@ -161,6 +171,7 @@ export class OrganizationOnboardingService {
       const current = await this.organizations.lockById(id, tx);
       if (!current) throw notFound();
       if (current.status !== OrganizationStatus.PENDING) throw notPending(current.status);
+      const firstVerification = current.verifiedAt === null;
       const saved = await this.organizations.update(
         id,
         input.expectedVersion,
@@ -176,6 +187,14 @@ export class OrganizationOnboardingService {
         tx,
       );
       if (!saved) throw stale();
+      // A second verification overwrites the first and does not tell the approvers again.
+      if (firstVerification) {
+        this.events.emitAfterCommit(ORGANIZATION_VERIFIED, {
+          organizationId: saved.id,
+          code: saved.code,
+          legalName: saved.legalName,
+        } satisfies OrganizationVerifiedEvent);
+      }
       this.audit(staff, saved.id, 'organization.verified', null, {
         method: input.method,
         masterContractRef: input.masterContractRef,
