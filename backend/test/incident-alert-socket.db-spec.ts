@@ -292,7 +292,31 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
     const live = await create(true);
     await until(() => alerts(reconnected, live.incident.id).length === 1);
     const [received] = alerts(reconnected, live.incident.id);
-    expect(received.at - live.committedAt).toBeLessThanOrEqual(2000);
+    // A live alert to a connected socket, created after the replay ended (NFR-PERF-04). On a miss,
+    // the failure names the outbox row, so a CI log shows how long the row waited to be claimed.
+    // The row does not record whether the after-commit wake or the 2 s cron claimed it; `sentAt` is
+    // the start of the pass that sent it, so a gap near 2000 ms points at the cron backstop.
+    const elapsed = received.at - live.committedAt;
+    if (elapsed > 2000) {
+      const row = await flow.prisma.alertDelivery.findFirst({
+        where: {
+          incidentId: live.incident.id,
+          recipientId: orgA.manager.id,
+          channel: 'WEBSOCKET',
+        },
+        select: { status: true, attempts: true, createdAt: true, sentAt: true, lastError: true },
+      });
+      const wall = (at: number) => new Date(performance.timeOrigin + at).toISOString();
+      throw new Error(
+        `Live alert after reconnect took ${elapsed.toFixed(1)} ms, bound 2000 ms. ` +
+          `Committed ${wall(live.committedAt)}, received ${wall(received.at)}. ` +
+          `WEBSOCKET row: status ${row?.status}, attempts ${row?.attempts}, ` +
+          `createdAt ${row?.createdAt.toISOString()}, sentAt ${row?.sentAt?.toISOString() ?? 'null'}, ` +
+          `sentAt minus commit ${row?.sentAt ? (row.sentAt.getTime() - (performance.timeOrigin + live.committedAt)).toFixed(1) : 'n/a'} ms, ` +
+          `lastError ${row?.lastError ?? 'null'}.`,
+      );
+    }
+    expect(elapsed).toBeLessThanOrEqual(2000);
     const duplicate: IncidentAlertEvent = {
       recipientId: orgA.manager.id,
       alert: received.entry.payload as unknown as IncidentAlertEvent['alert'],
