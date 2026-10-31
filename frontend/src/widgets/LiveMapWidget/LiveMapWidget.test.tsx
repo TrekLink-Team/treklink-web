@@ -210,21 +210,29 @@ describe('LiveMapWidget', () => {
     );
   });
 
-  it('opens the popup of each marker chosen in turn, not only the first (screen 9.2 row clicks)', async () => {
+  it('pans once per chosen id, and not again for a marker that moves under the same id (screen 9.2)', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
-    const first = device('selected-0', [11.5, 108.5]);
-    const second = device('selected-1', [11.6, 108.6]);
-    const { rerender } = renderWidget([first]);
-    await waitFor(() => expect(screen.getByRole('img', { name: /selected-0/ })).toBeTruthy());
-    rerender(tree([first], 'selected-0'));
-    await waitFor(() =>
-      expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain('selected-0'),
-    );
-    // The page swaps the one selected marker for the next row's, each with its own id.
-    rerender(tree([second], 'selected-1'));
-    await waitFor(() =>
-      expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain('selected-1'),
-    );
+    const panTo = vi.spyOn(L.Map.prototype, 'panTo');
+    try {
+      const { rerender } = renderWidget([device('selected-0', [11.5, 108.5])]);
+      await waitFor(() => expect(screen.getByRole('img', { name: /selected-0/ })).toBeTruthy());
+
+      rerender(tree([device('selected-0', [11.5, 108.5])], 'selected-0'));
+      await waitFor(() => expect(panTo).toHaveBeenCalledTimes(1));
+      expect(panTo.mock.calls[0][0]).toEqual([11.5, 108.5]);
+
+      // The page swaps the selected marker for the next row's, each with its own id: a second pan.
+      rerender(tree([device('selected-1', [11.6, 108.6])], 'selected-1'));
+      await waitFor(() => expect(panTo).toHaveBeenCalledTimes(2));
+      expect(panTo.mock.calls[1][0]).toEqual([11.6, 108.6]);
+
+      // The same id at a new position does not pan: why one shared id panned only on the first click.
+      rerender(tree([device('selected-1', [11.7, 108.7])], 'selected-1'));
+      await waitFor(() => expect(screen.getByRole('img', { name: /selected-1/ })).toBeTruthy());
+      expect(panTo).toHaveBeenCalledTimes(2);
+    } finally {
+      panTo.mockRestore();
+    }
   });
 
   it('shows MSG33 with the overlay labels listed when a whole batch of tiles fails (REQ-EVT-04)', async () => {
