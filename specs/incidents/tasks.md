@@ -95,6 +95,7 @@
 - [ ] 4.4 Stale flag (owner HoangTK)
   - **Do**: `markDeviceStale(deviceId, stale, lastPosition)` from the monitoring sweep flags or clears the incident, state unchanged, and alerts the owner or current tier
   - **Test**: the flag clears when the device is heard again
+  - **Partly done** (2026-11-01, KhoaDD under D-078, task W9): `IncidentsService.markDeviceStale(deviceId, stale, lastSeenAt, tx)`, exported to monitoring, sets or clears `stale` on the device's incident outside `CLOSED` under its row lock, in the staleness sweep's transaction; state, owner, deadlines and `version` stay (design §5). A change emits `incident.changed` and an `incident.stale` audit record after commit, so the queue and detail badge "Device silent" (screen 8.1) refreshes live; the frontend already rendered it. Tests: `incidents.service.spec.ts`, `test/incident-stale-flag.db-spec.ts` (flag kept with state and version, cleared once on recovery, a `CLOSED` incident untouched, rollback). Open: the alert to the owner or current tier (design §3 "stale flag" row). Every `alert_deliveries` row needs a `transitionId` and the dispatcher sends MSG31 for every row, so the alert waits for a leader ruling on its record and its text; the box stays open
   - _Requirements: REQ-EVT-12, FR-INC-13_
 
 ## Phase 5: Query / Retrieval
