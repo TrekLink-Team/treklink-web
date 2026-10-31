@@ -228,6 +228,9 @@ classDiagram
         +revoke(orgId, stationId, dto, actor) StationDto
         +release(orgId) ReleaseDto
     }
+    class ChannelKeyController {
+        +rotate(id, dto, staff) RotatedKeyDto
+    }
     class OrganizationsService {
         +register(dto) Organization
         +verify(id, dto, actor) Organization
@@ -262,9 +265,11 @@ classDiagram
     }
     class AccountsService
     OrganizationsController --> OrganizationsService
+    ChannelKeyController --> ChannelKeyService
     FieldStationsController --> FieldStationsService
     FieldStationsController --> FieldStationReleaseService
     OrganizationsService --> OrganizationsRepository
+    ChannelKeyService --> OrganizationsRepository
     OrganizationsService --> AccountsService : auth module
     RosterService --> OrganizationsRepository
     FieldStationsService --> FieldStationsRepository
