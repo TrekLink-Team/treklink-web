@@ -225,6 +225,14 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
       ]);
     });
 
+    it('overwrites a second verification without telling the approvers again', async () => {
+      organizations.lockById.mockResolvedValue({ ...PENDING, verifiedAt: AT });
+
+      await service.verify('org-1', VERIFICATION, STAFF, AT);
+
+      expect(emitted.map(([name]) => name)).toEqual([AUDIT_RECORD]);
+    });
+
     it.each([
       ['the NDA', { ndaSigned: false }],
       ['the software licence', { softwareLicenceSigned: false }],

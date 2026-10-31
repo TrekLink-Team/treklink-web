@@ -149,7 +149,7 @@ Declares `ORGANIZATION_EXIT_CHECKS` (multi): `{ canReactivate(orgId, tx, at): Pr
 
 Declares `ORGANIZATION_COUNTS` (multi): `{ name: 'runningContracts' | 'openIncidents'; count(orgId): Promise<number> }`, for the counts of api-design 03. Provided by `rentals` (`runningContracts`: ACTIVE, ENDING, RETURN_DUE or OVERDUE) and `incidents` (`openIncidents`: not CLOSED); a count with no provider is reported as 0.
 
-Events emitted: `member.deactivated`, `apiKey.revoked`, `fieldStation.revoked`, `organization.statusChanged`, `audit.record`.
+Events emitted: `member.deactivated`, `apiKey.revoked`, `fieldStation.revoked`, `organization.statusChanged` (with the reason), `organization.registered`, `organization.verified`, `audit.record`. `OnboardingNotifier` listens to `organization.registered`, `organization.verified` and `organization.statusChanged`: it tells Staff and Admin of a registration and of the first verification through `STAFF_NOTIFICATIONS`, and emails the Manager MSG05 or MSG16 when a `PENDING` organization is approved or rejected.
 
 ---
 
@@ -322,7 +322,7 @@ sequenceDiagram
     C->>S: verify(id, dto, actor)
     S->>R: setVerification(id, dto, actor)
     R->>R: UPDATE verifiedAt WHERE status PENDING
-    S->>S: notify Admins, audit.record
+    S->>S: notify Staff and Admin, audit.record
     S-->>C: OrganizationDto
     C-->>P: 200 envelope
 ```
