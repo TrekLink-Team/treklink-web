@@ -78,6 +78,8 @@ MQTT has no response. Each message yields one `SyncAuditLog` row and, when accep
 | JSON unparsable or a required field missing | `MALFORMED_ENVELOPE`, raw message stored | nothing else; consumption continues (FR-EVT-05, E02-4) |
 | `from` matches no device | `UNKNOWN_DEVICE`, raw message stored | quarantined; replayable after registration (`op replayAudit`) |
 | Stage C, and the station's organization neither holds the device nor returned it less than `gatewaySync.lateUploadGraceHours` ago | `NOT_RENTED_TO_STATION_ORG` | dropped (FR-EVT-14) |
+| Stage C, and the username in the topic names no station or a revoked one | `NOT_RENTED_TO_STATION_ORG`, the detail naming the reason (interim since 2026-11-01, pending the leader's ruling on an outcome of its own) | dropped (REQ-EVT-05) |
+| Stage C, and `fs_captured_at` or `fs_sent_at` is not a positive whole number | `MALFORMED_ENVELOPE` | nothing else; consumption continues |
 | `eventId` already stored | `DUPLICATE_REJECTED` | no incident, no emit (FR-EVT-01, E02-2) |
 | The type strategy throws | `NORMALIZATION_FAILED` with the error | isolated to this packet |
 | Coordinates outside WGS-84 or outside `monitoring.positionBounds` | `INVALID_POSITION` | event kept, position null (FR-MON-04) |

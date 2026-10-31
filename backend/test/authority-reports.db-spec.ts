@@ -86,6 +86,7 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
     new Normalizer(),
     parameters,
     events,
+    {} as never, // FieldStationsService: this suite ingests node uplinks only
   );
   const reports = new AuthorityReportsService(
     incidentsRepository,

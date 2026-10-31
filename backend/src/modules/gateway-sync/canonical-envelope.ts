@@ -17,13 +17,21 @@ export interface StockPacket {
   hops_away?: number;
 }
 
+// The two fields a Field Station adds to the stock JSON (mqtt-ingress-contract.md, Message), both
+// the station clock in epoch milliseconds: when the packet came off the serial port, and this publish.
+export interface StationTimes {
+  capturedAtMs: number; // fs_captured_at
+  sentAtMs: number; // fs_sent_at
+}
+
 // What every adapter produces (design §2, D-007): the packet plus where and when it arrived.
 export interface CanonicalEnvelope {
   ingress: IngressPath;
   uplinkKey: string; // the publishing node id, or the Field Station username (Stage C)
   receivedAt: Date;
   packet: StockPacket;
-  message: Record<string, unknown>; // the stock JSON verbatim, persisted on the field event
+  message: Record<string, unknown>; // the JSON as published, persisted on the field event
+  station?: StationTimes; // Stage C only
 }
 
 export type AdaptResult =

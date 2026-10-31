@@ -1,4 +1,4 @@
-import type { Custody } from '../rentals';
+import type { Custody, RentalPeriod } from '../rentals';
 
 // Why an event stays UNATTRIBUTED (REQ-ERR-06), in the order the rule is checked.
 export type UnattributedReason =
@@ -54,4 +54,21 @@ export const attribute = ({
     contractId: custody.contractId,
     contractDeviceId: custody.contractDeviceId,
   };
+};
+
+// REQ-EVT-05 (E02-7, AC-04, AC-08): a Field Station may deliver a device's events only while its
+// organization holds the device, or for `gatewaySync.lateUploadGraceHours` after one of that
+// organization's custody intervals ended, so a station can still flush what it queued before the
+// check-in. `periods` are the organization's custody intervals of the device (`rentalPeriods`).
+export const stationMayDeliver = (
+  periods: readonly RentalPeriod[],
+  receivedAt: Date,
+  lateUploadGraceHours: number,
+): boolean => {
+  const earliestEnd = receivedAt.getTime() - lateUploadGraceHours * 3_600_000;
+  return periods.some((period) =>
+    period.to === null
+      ? period.from.getTime() <= receivedAt.getTime()
+      : period.to.getTime() > earliestEnd,
+  );
 };

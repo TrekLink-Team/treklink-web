@@ -3,10 +3,11 @@ import { Injectable } from '@nestjs/common';
 import { AttributionState, EventKind, IngressPath, Prisma, SyncOutcome } from '@prisma/client';
 import { DevicesService } from '../devices';
 import { IncidentIngress } from '../incidents';
+import { FieldStationsService } from '../organizations';
 import { ContractsService } from '../rentals';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
-import { attribute } from './attribution';
+import { attribute, stationMayDeliver } from './attribution';
 import { CanonicalEnvelope } from './canonical-envelope';
 import {
   FIELD_POSITION,
@@ -31,6 +32,13 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 // Attribution (task 2.4) asks `rentals` for the custody interval at the occurrence time. An SOS is
 // handed to `IncidentIngress.onSos` in the same transaction, and a plotted position to `onPosition`;
 // the stored event is linked to the incident it opened or joined (incidents 2.3, MF-03).
+//
+// A Field Station envelope (Stage C) names its station by username, resolved through
+// `organizations` (`FieldStationsService.byUsername`). The station must be known and not revoked, and
+// its organization must hold the device or have returned it within the late-upload grace
+// (REQ-EVT-05); otherwise the attempt ends `NOT_RENTED_TO_STATION_ORG`. Its occurrence time is the
+// corrected station capture time, and it is attributed only to an interval of the station's
+// organization (REQ-EVT-15, REQ-ERR-06).
 @Injectable()
 export class IngestionService {
   constructor(
@@ -41,6 +49,7 @@ export class IngestionService {
     private readonly normalizer: Normalizer,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
+    private readonly stations: FieldStationsService,
   ) {}
 
   // Records a message that failed envelope validation (REQ-ERR-01).
@@ -61,7 +70,7 @@ export class IngestionService {
   }
 
   async ingest(envelope: CanonicalEnvelope): Promise<SyncOutcome> {
-    const { packet, ingress, uplinkKey, receivedAt, message } = envelope;
+    const { packet, ingress, uplinkKey, receivedAt, message, station: stationTimes } = envelope;
     const eventId = eventIdOf(packet.from, packet.id);
     const nodeNum = BigInt(packet.from);
     const rawMessage = message as Prisma.InputJsonValue;
@@ -75,6 +84,37 @@ export class IngestionService {
         rawMessage,
       });
       return SyncOutcome.UNKNOWN_DEVICE;
+    }
+
+    const [bounds, maxSpeedKmh, deviceTimeMaxAheadSeconds, lateUploadGraceHours, marginSeconds] =
+      await Promise.all([
+        this.parameters.get('monitoring.positionBounds'),
+        this.parameters.get('monitoring.maxPlausibleSpeedKmh'),
+        this.parameters.get('gatewaySync.deviceTimeMaxAheadSeconds'),
+        this.parameters.get('gatewaySync.lateUploadGraceHours'),
+        this.parameters.get('gatewaySync.attributionMarginSeconds'),
+      ]);
+
+    // Stage C (REQ-EVT-05, task 2.5): the station behind the username, and whether its organization
+    // may deliver this device, before the packet is decoded (contract, Activity Diagram).
+    let station: { id: string; organizationId: string } | null = null;
+    if (ingress === IngressPath.FIELD_STATION) {
+      const resolved = await this.resolveStation(
+        uplinkKey,
+        device.id,
+        receivedAt,
+        lateUploadGraceHours,
+      );
+      if (typeof resolved === 'string') {
+        await this.repository.insertAudit({
+          ...audit,
+          deviceId: device.id,
+          outcome: SyncOutcome.NOT_RENTED_TO_STATION_ORG,
+          detail: resolved,
+        });
+        return SyncOutcome.NOT_RENTED_TO_STATION_ORG;
+      }
+      station = resolved;
     }
 
     let reading: NormalizedReading;
@@ -91,18 +131,12 @@ export class IngestionService {
       return SyncOutcome.NORMALIZATION_FAILED;
     }
 
-    const [bounds, maxSpeedKmh, deviceTimeMaxAheadSeconds, lateUploadGraceHours, marginSeconds] =
-      await Promise.all([
-        this.parameters.get('monitoring.positionBounds'),
-        this.parameters.get('monitoring.maxPlausibleSpeedKmh'),
-        this.parameters.get('gatewaySync.deviceTimeMaxAheadSeconds'),
-        this.parameters.get('gatewaySync.lateUploadGraceHours'),
-        this.parameters.get('gatewaySync.attributionMarginSeconds'),
-      ]);
-    const time = occurrenceTime(packet.timestamp, receivedAt, {
-      deviceTimeMaxAheadSeconds,
-      lateUploadGraceHours,
-    });
+    const time = occurrenceTime(
+      packet.timestamp,
+      receivedAt,
+      { deviceTimeMaxAheadSeconds, lateUploadGraceHours },
+      station ? stationTimes : undefined,
+    );
 
     // Attribution (task 2.4, D-040, `attribution.ts`): the custody interval holding the device at the
     // occurrence time, clear of the margin around its handover and end; anything else stays
@@ -113,7 +147,7 @@ export class IngestionService {
       custody,
       occurredAt: time.occurredAt,
       marginSeconds,
-      station: null,
+      station,
     });
     const attributed = attribution.attributed ? attribution : null;
 
@@ -150,6 +184,8 @@ export class IngestionService {
           contractDeviceId: attributed?.contractDeviceId ?? null,
           uplinkKey,
           ingress,
+          fieldStationId: station?.id ?? null,
+          capturedAt: station && stationTimes ? new Date(stationTimes.capturedAtMs) : null,
           kind: reading.kind,
           priority: reading.priority,
           observedAt: time.observedAt,
@@ -234,5 +270,24 @@ export class IngestionService {
       }
       return outcome;
     });
+  }
+
+  // The station of a Field Station envelope when it may deliver the device's events, else the audit
+  // detail of the refusal. A revoked or unknown username is refused like a station whose
+  // organization does not hold the device (interim, pending the leader's ruling on its own outcome).
+  private async resolveStation(
+    username: string,
+    deviceId: string,
+    receivedAt: Date,
+    lateUploadGraceHours: number,
+  ): Promise<{ id: string; organizationId: string } | string> {
+    const station = await this.stations.byUsername(username);
+    if (!station) return `unknown Field Station ${username}`;
+    if (station.revokedAt) return `Field Station ${username} is revoked`;
+    const periods = await this.contracts.rentalPeriods(deviceId, station.organizationId);
+    if (!stationMayDeliver(periods, receivedAt, lateUploadGraceHours)) {
+      return `the organization of Field Station ${username} neither holds the device nor returned it within the late-upload grace`;
+    }
+    return { id: station.id, organizationId: station.organizationId };
   }
 }

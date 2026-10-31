@@ -30,4 +30,30 @@ describe('occurrenceTime', () => {
       observedAt: new Date('2026-10-15T00:00:00Z'),
     });
   });
+  describe('STATION_CORRECTED (Field Station, D-040)', () => {
+    it('corrects a station clock 3 h fast by the offset of the same publish', () => {
+      // Captured 06:00 and sent 13:00 on a station clock 3 h fast; received 10:00 UTC.
+      const station = {
+        capturedAtMs: Date.parse('2026-10-23T06:00:00Z'),
+        sentAtMs: Date.parse('2026-10-23T13:00:00Z'),
+      };
+      expect(occurrenceTime(seconds('2026-10-23T03:00:00Z'), receivedAt, limits, station)).toEqual({
+        occurredAt: new Date('2026-10-23T03:00:00Z'),
+        timeSource: 'STATION_CORRECTED',
+        observedAt: new Date('2026-10-23T03:00:00Z'),
+      });
+    });
+
+    it('takes the station time over a device rx_time of 0, which stays unknown', () => {
+      const station = {
+        capturedAtMs: Date.parse('2026-10-23T09:00:00Z'),
+        sentAtMs: Date.parse('2026-10-23T10:00:00Z'),
+      };
+      expect(occurrenceTime(0, receivedAt, limits, station)).toEqual({
+        occurredAt: new Date('2026-10-23T09:00:00Z'),
+        timeSource: 'STATION_CORRECTED',
+        observedAt: null,
+      });
+    });
+  });
 });
