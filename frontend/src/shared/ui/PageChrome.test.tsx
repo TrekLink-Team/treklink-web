@@ -186,6 +186,72 @@ describe('PageActionBar (leader rule of 2026-10-30)', () => {
   });
 });
 
+describe('PageActionBar keeps focus clear of its edge', () => {
+  const rect = (top: number, bottom: number) =>
+    ({ top, bottom, left: 0, right: 100, width: 100, height: bottom - top }) as DOMRect;
+  // jsdom has no scrollIntoView.
+  const scrollIntoView = vi.fn();
+  beforeEach(() => {
+    scrollIntoView.mockReset();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+  });
+  afterEach(() => {
+    delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  it('scrolls a covered page control into view but leaves a modal dialog alone', () => {
+    render(
+      <>
+        <input aria-label="Notes" />
+        <PageActionBar label="Steps">
+          <button type="button">Next</button>
+        </PageActionBar>
+        <Dialog titleId="confirm" title="Confirm" onClose={() => undefined}>
+          <button type="button">Confirm return</button>
+        </Dialog>
+      </>,
+    );
+    // The bar covers 500 to 560; both controls end below its top edge.
+    vi.spyOn(screen.getByRole('group', { name: 'Steps' }), 'getBoundingClientRect').mockReturnValue(
+      rect(500, 560),
+    );
+    const inDialog = screen.getByRole('button', { name: 'Confirm return' });
+    const onPage = screen.getByRole('textbox', { name: 'Notes' });
+    vi.spyOn(inDialog, 'getBoundingClientRect').mockReturnValue(rect(520, 550));
+    vi.spyOn(onPage, 'getBoundingClientRect').mockReturnValue(rect(520, 550));
+
+    fireEvent.focusIn(inDialog);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    fireEvent.focusIn(onPage);
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView.mock.contexts[0]).toBe(onPage);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+  });
+
+  it('does not skip too broadly: a control in the same modal as the bar is still cleared', () => {
+    render(
+      <div role="dialog" aria-modal="true" aria-label="Wizard">
+        <input aria-label="Serial" />
+        <PageActionBar label="Wizard steps">
+          <button type="button">Next</button>
+        </PageActionBar>
+      </div>,
+    );
+    vi.spyOn(
+      screen.getByRole('group', { name: 'Wizard steps' }),
+      'getBoundingClientRect',
+    ).mockReturnValue(rect(500, 560));
+    const field = screen.getByRole('textbox', { name: 'Serial' });
+    vi.spyOn(field, 'getBoundingClientRect').mockReturnValue(rect(520, 550));
+    fireEvent.focusIn(field);
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('Dialog with a footer (leader rule of 2026-10-30)', () => {
   it('keeps the footer outside the scrolling body', () => {
     render(
