@@ -78,7 +78,9 @@ export class OnboardingNotifier {
         this.logger.warn(`Email to the Manager of organization ${organizationId} was not sent.`);
       }
     } catch (error) {
-      this.logger.warn(`Email to the Manager of ${organizationId} failed: ${String(error)}`);
+      this.logger.warn(
+        `Email to the Manager of organization ${organizationId} failed: ${String(error)}`,
+      );
     }
   }
 }
