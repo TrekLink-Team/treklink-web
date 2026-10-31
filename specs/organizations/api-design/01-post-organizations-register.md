@@ -123,7 +123,7 @@ flowchart TB
     P0 --> P1
     P2["Email a SET_PASSWORD code to the Manager"]
     P1 --> P2
-    P3["Notify TrekLink Staff of a new registration"]
+    P3["Notify TrekLink Staff and Admin of a new registration"]
     P2 --> P3
     OK["Return 201"]
     P3 --> OK

@@ -63,7 +63,7 @@ ENDPOINTS = [
        errors=[(409, "CONFLICT_UNIQUE", "The tax code or the Manager email is already registered",
                 "0312345678 is already registered.")],
        steps=["Insert the organization PENDING and its first transition", "Insert the Manager user and membership",
-              "Email a SET_PASSWORD code to the Manager", "Notify TrekLink Staff of a new registration"],
+              "Email a SET_PASSWORD code to the Manager", "Notify TrekLink Staff and Admin of a new registration"],
        controller="OrganizationsController", service="OrganizationsService", call="register(dto)",
        participants=[["Mail", "Email service"]],
        seq=["Svc->>DB: BEGIN, INSERT organizations, organization_transitions, users, organization_members, one_time_codes, COMMIT",
@@ -133,7 +133,7 @@ ENDPOINTS = [
                                        "The master contract must include the NDA and the software licence."),
                                       state_409("organization", "ACTIVE"), STALE],
        steps=["Require status PENDING", "Require ndaSigned and softwareLicenceSigned", "Store the verification fields and the verifying Staff",
-              "Notify Admins", "Emit audit.record organization.verify"],
+              "On the first verification only, notify TrekLink Staff and Admin that the organization awaits approval", "Emit audit.record organization.verify"],
        controller="OrganizationsController", service="OrganizationsService", call="verify(id, dto, actor)",
        seq=["Svc->>DB: UPDATE organizations", "Svc-)Svc: emit organization.verified"]),
 
