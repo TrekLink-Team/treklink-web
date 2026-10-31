@@ -179,8 +179,9 @@ design Figure 3), so the loss-case flow of D-045 reaches them through ports, nev
 ```typescript
 export const CUSTODY_RESOLVER = Symbol('CUSTODY_RESOLVER'); // provided by rentals
 export interface CustodyResolver {
-  custodyAt(deviceId: string, at: Date): Promise<{ contractId: string; organizationId: string;
-                                                   contractDeviceId: string } | null>;
+  // Reads in the caller's transaction, so a check-in committed before the read is seen (2026-11-01).
+  custodyAt(deviceId: string, at: Date, tx: Prisma.TransactionClient):
+    Promise<{ contractId: string; organizationId: string; contractDeviceId: string } | null>;
 }
 
 export const LOSS_CASE_LISTENERS = Symbol('LOSS_CASE_LISTENERS'); // multi: billing, rentals

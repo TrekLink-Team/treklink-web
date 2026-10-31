@@ -178,6 +178,8 @@ describe('LossCaseService', () => {
     it('moves a RENTED device to LOST and opens a REPORTED case with the last seen time (REQ-EVT-13)', async () => {
       const dto = await service.report('dev-1', { description: '  Lost near camp ' }, MANAGER, at);
 
+      // The custody read runs in the report transaction, so a check-in committed first is seen.
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', at, tx);
       expect(devices.moveIfCurrent).toHaveBeenCalledWith(
         'dev-1',
         7,
@@ -315,7 +317,7 @@ describe('LossCaseService', () => {
         at,
       );
 
-      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.lastSeenAt);
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.lastSeenAt, tx);
       expect(channelKeys.markKeyExposed).toHaveBeenCalledWith('org-1', at, STAFF, tx);
       expect(orgActions.openOrLinkComplianceCase).not.toHaveBeenCalled();
       expect(cases.transition).toHaveBeenCalledWith(
@@ -343,7 +345,7 @@ describe('LossCaseService', () => {
 
       await service.triage('lc-1', { suspectedTheft: true, expectedVersion: 0 }, STAFF, at);
 
-      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.reportedAt);
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.reportedAt, tx);
       expect(channelKeys.markKeyExposed).not.toHaveBeenCalled();
       expect(orgActions.openOrLinkComplianceCase).not.toHaveBeenCalled();
       expect(cases.transition).toHaveBeenCalledWith(
@@ -373,8 +375,8 @@ describe('LossCaseService', () => {
 
       await service.triage('lc-1', { suspectedTheft: false, expectedVersion: 0 }, STAFF, at);
 
-      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.reportedAt);
-      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.lastSeenAt);
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.reportedAt, tx);
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.lastSeenAt, tx);
       expect(channelKeys.markKeyExposed).not.toHaveBeenCalled();
       expect(cases.transition).toHaveBeenCalledWith(
         'lc-1',

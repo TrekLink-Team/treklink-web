@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CustodyResolver } from '../../devices';
 import { ContractsRepository } from '../contracts.repository';
 import { custodyOf } from '../contracts.service';
@@ -10,8 +11,9 @@ import { custodyOf } from '../contracts.service';
 export class RentalsCustodyResolver implements CustodyResolver {
   constructor(private readonly contracts: ContractsRepository) {}
 
-  async custodyAt(deviceId: string, at: Date) {
-    const custody = custodyOf(await this.contracts.findCustody(deviceId, at));
+  // Reads inside the caller's transaction (`tx`), so the answer matches what that transaction writes.
+  async custodyAt(deviceId: string, at: Date, tx: Prisma.TransactionClient) {
+    const custody = custodyOf(await this.contracts.findCustody(deviceId, at, tx));
     if (!custody) return null;
     return {
       contractId: custody.contractId,
