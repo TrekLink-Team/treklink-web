@@ -145,7 +145,7 @@ export const TREKLINK_NAV: NavGroup[] = [
       { route: '/t/admin/prices', label: 'Prices and damage rates', icon: Tags, roles: ADMIN, built: true },
       { route: '/t/admin/variants', label: 'Hardware variants', icon: Store, roles: ADMIN, built: false },
       { route: '/t/admin/health', label: 'System health', icon: Gauge, roles: ADMIN, built: false },
-      { route: '/t/admin/audit/changes', label: 'Audit log', icon: ScrollText, roles: ADMIN, built: false },
+      { route: '/t/admin/audit/changes', label: 'Audit log', icon: ScrollText, roles: ADMIN, built: true },
       { route: '/t/admin/audit/sign-ins', label: 'Sign-in events', icon: Activity, roles: ADMIN, built: false },
     ],
   },

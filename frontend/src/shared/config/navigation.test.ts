@@ -29,7 +29,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
 
   it('gives TrekLink Staff the fleet map, contracts, devices, sync status, maintenance, organizations, compliance cases, billing and damage charges, and Admin those plus the built administration pages', () => {
     expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges']);
-    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges', '/t/admin/parameters', '/t/admin/prices']);
+    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges', '/t/admin/parameters', '/t/admin/prices', '/t/admin/audit/changes']);
   });
 
   it('keeps Administration for Admin only once its pages are built', () => {
