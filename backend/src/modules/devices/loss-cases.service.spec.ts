@@ -751,5 +751,29 @@ describe('LossCaseService', () => {
       );
       await expect(service.get('lc-1', STAFF)).resolves.toMatchObject({ id: 'lc-1' });
     });
+
+    it('omits the theft fields from an Org Manager read and keeps them for Staff (ruling 2026-10-31)', async () => {
+      const theft = caseRow({ suspectedTheft: true, policeReference: 'CA-PD-2026-118' });
+      cases.find.mockResolvedValue(theft);
+      cases.page.mockResolvedValue([[theft], 1]);
+
+      const own = await service.get('lc-1', MANAGER);
+      expect(own).not.toHaveProperty('suspectedTheft');
+      expect(own).not.toHaveProperty('policeReference');
+      const [listed] = (await service.list({}, MANAGER)).items;
+      expect(listed).not.toHaveProperty('suspectedTheft');
+      expect(listed).not.toHaveProperty('policeReference');
+      const reported = await service.report('dev-1', { description: 'x' }, MANAGER, at);
+      expect(reported).not.toHaveProperty('suspectedTheft');
+
+      expect(await service.get('lc-1', STAFF)).toMatchObject({
+        suspectedTheft: true,
+        policeReference: 'CA-PD-2026-118',
+      });
+      expect((await service.list({}, STAFF)).items[0]).toMatchObject({
+        suspectedTheft: true,
+        policeReference: 'CA-PD-2026-118',
+      });
+    });
   });
 });

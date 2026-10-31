@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists loss cases by state; an Org Manager sees the cases of its organization's rented devices only.
+Lists loss cases by state; an Org Manager sees the cases of its organization's rented devices only, and its answer omits `suspectedTheft` and `policeReference` (leader ruling 2026-10-31).
 
 ## API Specification
 
