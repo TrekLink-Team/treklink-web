@@ -237,7 +237,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - _Story: US-UC59_
 - [ ] 9.5 Field data sync page (owner LongNN)
   - **Do**: gateway-sync api-design 03, 04 and 07; screen file `ui-design/9-5-field-data-sync-page.md`
-  - **Partly done** (2026-11-01, KhoaDD under D-078): `SyncStatusPage` at `/t/admin/sync` (built by the MF-02 demo chain, 2026-10-30) now also shows the Malformed, Normalization failed and Unattributed cards (api-design 07 `malformed`, `normalizationFailed`, `acceptedUnattributed`) and a Sync audit section (api-design 04 `listAudit`) with an outcome filter, server paging by 20 and the cut raw payload of a malformed record; hooks in `entities/gateway-sync/api.ts`; component-tested. Open: the wireframe image, the replay action of a quarantined `UNKNOWN_DEVICE` row (api-design 05), and a walk in a browser against a running backend
+  - **Partly done** (2026-11-01, KhoaDD under D-078): `SyncStatusPage` at `/t/admin/sync` (built by the MF-02 demo chain, 2026-10-30) now also shows the Malformed, Normalization failed and Unattributed cards (api-design 07 `malformed`, `normalizationFailed`, `acceptedUnattributed`) and a Sync audit section (api-design 04 `listAudit`) with an outcome filter, server paging by 20 and the cut raw payload of a malformed record; hooks in `entities/gateway-sync/api.ts`; component-tested. Walked in headless Chromium at 1280 px as Staff on a fresh `seed:demo` (2026-11-01, `docs/sessions/2026-11-01-0600-sync-page-walk.md`): every card, both tables, the outcome filter, Refresh and Page 2 work, no console error. Open: the wireframe image and the replay action of a quarantined `UNKNOWN_DEVICE` row (api-design 05)
   - _Story: US-UC42_
 
 ## Phase 10: Verification

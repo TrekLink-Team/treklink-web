@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const errors = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.goto('http://localhost:5173/sign-in');
+  await page.fill('#sign-in-email', 'staff@treklink.local');
+  await page.fill('#sign-in-password', process.env.SEED_STAFF_PASSWORD);
+  await page.click('button[type="submit"]');
+  await page.waitForURL((u) => !u.pathname.startsWith('/sign-in'));
+  await page.getByRole('link', { name: 'Field data sync' }).first().click();
+  await page.getByRole('heading', { name: 'Recent field events' }).waitFor();
+  await page.getByRole('cell', { name: 'Attributed' }).first().waitFor();
+  await page.evaluate(() => [...document.querySelectorAll('h2')].find((h) => h.textContent === 'Recent field events').scrollIntoView({ block: 'start' }));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: process.argv[2] });
+  console.log('errors', errors.length);
+  await browser.close();
+})();
