@@ -54,6 +54,8 @@ export class BillingLossCaseListener implements LossCaseListener, OnModuleInit {
     if (!contract || (decision !== LossDecision.REDUCED && decision !== LossDecision.WAIVED)) {
       return;
     }
+    // devices sets settledAt in the same transition that calls onSettled, so the line is dated at it.
+    if (!lossCase.settledAt) throw new Error(`Loss case ${lossCase.code} has no settlement time.`);
     await this.charges.adjustLoss(
       { id: contract.contractId, organizationId: contract.organizationId },
       { id: lossCase.deviceId, assetTag: lossCase.assetTag },
@@ -62,6 +64,7 @@ export class BillingLossCaseListener implements LossCaseListener, OnModuleInit {
       lossCase.decisionReason ?? 'decided by TrekLink',
       lossCase.decidedById,
       tx,
+      lossCase.settledAt,
     );
   }
 }

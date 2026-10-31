@@ -102,8 +102,19 @@ const lossCaseOpen = () =>
 const invalid = (message: string) =>
   new DomainException(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED, message);
 
-const isUniqueViolation = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+// The violation of `loss_cases_one_open_per_device` alone (BR-37). Prisma names a partial index it
+// cannot map to the schema by its name, or by its columns; any other unique violation, such as a
+// duplicate `code`, is not a concurrent report and stays unmapped.
+const isOneOpenViolation = (error: unknown) => {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    return false;
+  }
+  const target = error.meta?.target;
+  return (
+    target === 'loss_cases_one_open_per_device' ||
+    (Array.isArray(target) && target.length === 1 && target[0] === 'deviceId')
+  );
+};
 
 // The custody interval a RENTER case charges and closes; null for TREKLINK custody or before triage.
 const custodyContractOf = (row: LossCaseRow): LossCaseView['custodyContract'] =>
@@ -129,6 +140,7 @@ export const toListenerView = (row: LossCaseRow): LossCaseView => ({
   chargeVnd: row.chargeVnd,
   decisionReason: row.decisionReason,
   decidedById: row.decidedById,
+  settledAt: row.settledAt,
 });
 
 // Loss cases (task 2.7, design §2.1, D-045; UC-49, UC-60): report, triage by custody, recover,
@@ -236,7 +248,7 @@ export class LossCaseService {
         );
       } catch (error) {
         // loss_cases_one_open_per_device: a concurrent report won the race (BR-37).
-        if (isUniqueViolation(error)) throw lossCaseOpen();
+        if (isOneOpenViolation(error)) throw lossCaseOpen();
         throw error;
       }
       await this.devices.insertTransition(

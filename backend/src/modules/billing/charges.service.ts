@@ -224,7 +224,8 @@ export class ChargesService {
 
   // A loss settled as reduced or waived (FR-BILL-11, BR-39): an ADJUSTMENT line of the difference
   // between the LOSS line and the decided amount, with the reason and its author; the LOSS line itself
-  // never changes. Null when nothing was charged for the device or nothing is taken back.
+  // never changes. Null when nothing was charged for the device or nothing is taken back. `at` is the
+  // settlement time, the line's `dueAt`.
   async adjustLoss(
     contract: ChargedContract,
     device: ChargedDevice,
@@ -233,7 +234,7 @@ export class ChargesService {
     reason: string,
     actorId: string | null,
     tx: Prisma.TransactionClient,
-    at: Date = new Date(),
+    at: Date,
   ): Promise<InvoiceRow | null> {
     const loss = await this.invoices.lossLine(contract.id, device.id, tx);
     if (!loss) return null;
