@@ -4,6 +4,7 @@ import {
   InvoiceKind,
   InvoiceLineType,
   LossCustody,
+  LossDecision,
   PaymentMethod,
   PaymentStatus,
   PlanType,
@@ -15,8 +16,10 @@ import { PaymentsService } from '../src/modules/billing/payments.service';
 import { BillingLossCaseListener } from '../src/modules/billing/providers/loss-case-listener.provider';
 import { SepayService } from '../src/modules/billing/sepay.service';
 import { DevicesService } from '../src/modules/devices';
+import { LossCaseService } from '../src/modules/devices/loss-cases.service';
 import { OrganizationStatusService } from '../src/modules/organizations/organization-status.service';
 import { ContractDecisionsService } from '../src/modules/rentals/contract-decisions.service';
+import { RentalsLossCaseListener } from '../src/modules/rentals/providers/loss-case-listener.provider';
 import { ReturnService } from '../src/modules/rentals/return.service';
 import { TermRolloverJob } from '../src/modules/rentals/term-rollover.job';
 import { at, compileRentalFlow, RentalFlow, TERM_START } from './db-rental-flow';
@@ -380,5 +383,70 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
       deviceId: device.id,
       invoice: { kind: InvoiceKind.CLOSING },
     });
+  });
+
+  it('billing 2.6 through the loss case: a waiver keeps the LOSS line and adds an ADJUSTMENT of the same amount', async () => {
+    const org = await flow.organization();
+    const variantId = await flow.variant([
+      { fromMonths: 0, valueVnd: 3_000_000 },
+      { fromMonths: 12, valueVnd: 1_800_000 },
+    ]);
+    const [deviceId] = await flow.availableDevices(variantId, 1, at('2025-09-15T00:00:00.000Z'));
+    const contract = await flow.requested(org.id, org.manager.id, variantId, 1);
+    await flow.approve(contract.id);
+    await flow.payAll(contract.id);
+    await flow.handOver(contract.id, org.manager.id, [deviceId]);
+    // The flow compiles AppModule without init, so the listeners join LOSS_CASE_LISTENERS here, as
+    // their onModuleInit does at boot (idempotent).
+    flow.get(BillingLossCaseListener).onModuleInit();
+    flow.get(RentalsLossCaseListener).onModuleInit();
+    const lossCases = flow.get(LossCaseService);
+    const reportedAt = at('2026-11-18T03:00:00.000Z');
+    const confirmedAt = at('2026-11-20T03:00:00.000Z');
+
+    const reported = await lossCases.report(
+      deviceId,
+      { description: 'Lost at the summit' },
+      org.manager,
+      reportedAt,
+    );
+    const triaged = await lossCases.triage(
+      reported.id,
+      { suspectedTheft: false, expectedVersion: reported.version },
+      flow.staff,
+      reportedAt,
+    );
+    const confirmed = await lossCases.confirm(
+      triaged.id,
+      { expectedVersion: triaged.version },
+      flow.staff,
+      confirmedAt,
+    );
+    expect(confirmed.chargeVnd).toBe(1_800_000);
+    await lossCases.decide(
+      confirmed.id,
+      {
+        decision: LossDecision.WAIVED,
+        reason: 'Rescue operation',
+        expectedVersion: confirmed.version,
+      },
+      await flow.admin(),
+      confirmedAt,
+    );
+
+    const lines = await flow.prisma.invoiceLine.findMany({
+      where: {
+        invoice: { contractId: contract.id },
+        deviceId,
+        type: { in: [InvoiceLineType.LOSS, InvoiceLineType.ADJUSTMENT] },
+      },
+      select: { type: true, amountVnd: true, description: true },
+      orderBy: { seq: 'asc' },
+    });
+    expect(lines.map(({ type, amountVnd }) => ({ type, amountVnd }))).toEqual([
+      { type: InvoiceLineType.LOSS, amountVnd: 1_800_000n },
+      { type: InvoiceLineType.ADJUSTMENT, amountVnd: -1_800_000n },
+    ]);
+    expect(lines[1].description).toContain('Rescue operation');
   });
 });
