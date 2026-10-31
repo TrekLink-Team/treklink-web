@@ -2,7 +2,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
 import { DeviceDetailPage } from './DeviceDetailPage';
@@ -70,12 +70,23 @@ vi.mock('../entities/device/api', async (importOriginal) => ({
   editFirmware: (...args: unknown[]) => editFirmware(...args),
 }));
 
+// The history route of screen 9.2, standing in for the page: it shows where the link led.
+const HistoryProbe: React.FC = () => {
+  const { pathname, state } = useLocation();
+  return (
+    <p>
+      history {pathname} {(state as { assetTag?: string } | null)?.assetTag}
+    </p>
+  );
+};
+
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={['/t/devices/d-1']}>
         <Routes>
           <Route path="/t/devices/:id" element={<DeviceDetailPage />} />
+          <Route path="/t/devices/:id/telemetry" element={<HistoryProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -99,6 +110,16 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.getByText('!a4b1c2d3 (2763113171)')).toBeTruthy();
     expect(screen.getByText('treklink-v3')).toBeTruthy();
   });
+
+  it.each(['IN_INTAKE', 'AVAILABLE', 'RENTED', 'RETIRED', 'DISPOSED'] as const)(
+    'links a %s device to its position history, carrying the asset tag',
+    async (status) => {
+      currentDevice = device({ status });
+      renderPage();
+      fireEvent.click(await screen.findByRole('link', { name: 'Position history' }));
+      expect(await screen.findByText('history /t/devices/d-1/telemetry TL-0042')).toBeTruthy();
+    },
+  );
 
   it('names the open maintenance record by its readable status', async () => {
     currentDevice = device({
