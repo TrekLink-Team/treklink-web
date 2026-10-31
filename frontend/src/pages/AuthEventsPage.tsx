@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { fromLocalInput, toLocalInput } from '../entities/audit/model';
 import {
@@ -35,7 +35,7 @@ import {
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
-import { AuditTabs } from './AuditTabs';
+import { AuditTabs } from '../widgets/AuditTabs/AuditTabs';
 
 const withSeconds = (iso: string): string =>
   new Date(iso).toLocaleString('en-GB', {
@@ -46,6 +46,18 @@ const withSeconds = (iso: string): string =>
     minute: '2-digit',
     second: '2-digit',
   });
+
+// The instant in UTC for a hover: `createdAt` is already an ISO 8601 UTC string.
+const utcText = (iso: string): string =>
+  `${new Date(iso).toLocaleString('en-GB', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })} UTC`;
 
 const pageOf = (params: URLSearchParams): number => {
   const page = Number(params.get('page'));
@@ -63,10 +75,11 @@ const EventBadge: React.FC<{ type: AuthEventItem['type'] }> = ({ type }) => (
 // link or a click on a row starts the bar again from the URL.
 const FilterBar: React.FC<{
   applied: AuthEventFilters;
+  accountLabel?: string;
   organizations: OrganizationReview[];
   onApply: (filters: AuthEventFilters) => void;
   onClear: () => void;
-}> = ({ applied, organizations, onApply, onClear }) => {
+}> = ({ applied, accountLabel, organizations, onApply, onClear }) => {
   const [userId, setUserId] = useState(applied.userId ?? '');
   const [organizationId, setOrganizationId] = useState(applied.organizationId ?? '');
   const [type, setType] = useState<string>(applied.type ?? '');
@@ -100,6 +113,7 @@ const FilterBar: React.FC<{
           <AccountPicker
             id="auth-account"
             value={userId}
+            label={accountLabel}
             onChange={setUserId}
             invalid={Boolean(errors.userId)}
             {...invalid('auth-account', errors.userId)}
@@ -170,6 +184,14 @@ export const AuthEventsPage: React.FC = () => {
   const pageNumber = pageOf(params);
   const events = useAuthEvents(filters, pageNumber);
   const organizations = useOrganizations(undefined);
+  // Narrow screens keep the filters behind a disclosure (screen 7.3, 360 px layout).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // After Apply, focus moves to the result count, which a polite live region announces.
+  const countRef = useRef<HTMLParagraphElement>(null);
+  const [applied, setApplied] = useState(0);
+  useEffect(() => {
+    if (applied > 0) countRef.current?.focus();
+  }, [applied]);
 
   const organizationList = useMemo(
     () =>
@@ -177,7 +199,14 @@ export const AuthEventsPage: React.FC = () => {
     [organizations.data],
   );
 
-  const apply = (next: AuthEventFilters) => setParams(paramsOf(next));
+  const apply = (next: AuthEventFilters) => {
+    setParams(paramsOf(next));
+    setApplied((now) => now + 1);
+  };
+  // An account chosen from a link is named by the email of one of its rows when the page has one.
+  const accountLabel = filters.userId
+    ? (events.data?.items.find((row) => row.userId === filters.userId)?.email ?? undefined)
+    : undefined;
   const goToPage = (page: number) => {
     const next = new URLSearchParams(params);
     if (page > 1) next.set('page', String(page));
@@ -189,7 +218,7 @@ export const AuthEventsPage: React.FC = () => {
     {
       key: 'time',
       header: 'Time',
-      cell: (row) => <span title={`${row.createdAt} UTC`}>{withSeconds(row.createdAt)}</span>,
+      cell: (row) => <span title={utcText(row.createdAt)}>{withSeconds(row.createdAt)}</span>,
     },
     { key: 'type', header: 'Event', cell: (row) => <EventBadge type={row.type} /> },
     { key: 'email', header: 'Email', cell: (row) => row.email ?? '–' },
@@ -236,7 +265,7 @@ export const AuthEventsPage: React.FC = () => {
 
   const data = events.data;
   return (
-    <AuditTabs current="sign-ins">
+    <AuditTabs>
       <section aria-labelledby="auth-events-title" className="flex flex-col gap-4">
         <PageHeader
           id="auth-events-title"
@@ -244,14 +273,28 @@ export const AuthEventsPage: React.FC = () => {
           description="Every sign-in, refresh, reset and lock, newest first. No password is ever stored here."
         />
         <Card aria-labelledby="auth-events-filters">
-          <CardHeader title="Filters" id="auth-events-filters" />
-          <FilterBar
-            key={params.toString()}
-            applied={filters}
-            organizations={organizationList}
-            onApply={apply}
-            onClear={() => setParams(new URLSearchParams())}
-          />
+          <div className="hidden sm:block">
+            <CardHeader title="Filters" id="auth-events-filters" />
+          </div>
+          <Button
+            variant="secondary"
+            className="mb-4 w-full sm:hidden"
+            aria-expanded={filtersOpen}
+            aria-controls="auth-events-filter-bar"
+            onClick={() => setFiltersOpen((now) => !now)}
+          >
+            Filters
+          </Button>
+          <div id="auth-events-filter-bar" className={filtersOpen ? 'block' : 'hidden sm:block'}>
+            <FilterBar
+              key={params.toString()}
+              applied={filters}
+              accountLabel={accountLabel}
+              organizations={organizationList}
+              onApply={apply}
+              onClear={() => setParams(new URLSearchParams())}
+            />
+          </div>
         </Card>
 
         {failure && (
@@ -269,9 +312,24 @@ export const AuthEventsPage: React.FC = () => {
           </Alert>
         )}
 
-        <p aria-live="polite" className="text-body-sm text-ink-muted">
-          {data ? `${data.totalCount} events` : ''}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p
+            ref={countRef}
+            tabIndex={-1}
+            aria-live="polite"
+            className="text-body-sm text-ink-muted outline-none focus-visible:outline-2 focus-visible:outline-focus"
+          >
+            {data ? `${data.totalCount} ${data.totalCount === 1 ? 'event' : 'events'}` : ''}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={events.isFetching}
+            onClick={() => void events.refetch()}
+          >
+            Refresh
+          </Button>
+        </div>
 
         <DataTable
           caption="Sign-in events"

@@ -33,7 +33,7 @@ import {
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
-import { AuditTabs } from './AuditTabs';
+import { AuditTabs } from '../widgets/AuditTabs/AuditTabs';
 
 const withSeconds = (iso: string): string =>
   new Date(iso).toLocaleString('en-GB', {
@@ -301,7 +301,7 @@ export const AuditLogPage: React.FC = () => {
 
   const data = logs.data;
   return (
-    <AuditTabs current="changes">
+    <AuditTabs>
       <section aria-labelledby="audit-title" className="flex flex-col gap-4">
         <PageHeader
           id="audit-title"
