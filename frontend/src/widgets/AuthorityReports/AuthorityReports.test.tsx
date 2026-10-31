@@ -258,8 +258,9 @@ describe('ReportDialog (api-design 08 and 10)', () => {
     api.mockResolvedValue(incident());
     renderWith(<ReportDialog entry={{ kind: 'incident', id: 'inc-1' }} onClose={onClose} />);
     await screen.findByText('Incident INC-2026-000007, Unrouted');
+    // A datetime-local value drops the seconds when they are zero, so a run on the minute reads HH:MM.
     expect((screen.getByLabelText(/^Reported at/) as HTMLInputElement).value).toMatch(
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/,
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalled();
@@ -281,7 +282,7 @@ describe('CloseCaseDialog (api-design 09)', () => {
     ).toBeTruthy();
     // Closed at starts at now; cleared, it is required.
     expect((screen.getByLabelText(/^Closed at/) as HTMLInputElement).value).toMatch(
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/,
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/,
     );
     fill(/^Closed at/, '');
     fireEvent.click(screen.getByRole('button', { name: 'Record case closed' }));
