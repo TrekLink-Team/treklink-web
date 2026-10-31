@@ -54,8 +54,9 @@ export interface LossCaseDto {
   contractDeviceId: string | null;
   organization: { id: string; code: string } | null;
   keyExposed: boolean;
-  suspectedTheft: boolean;
-  policeReference: string | null;
+  // TrekLink callers only: omitted for an organization caller (leader ruling 2026-10-31, screen 4.4).
+  suspectedTheft?: boolean;
+  policeReference?: string | null;
   searchEndsAt: Date | null;
   triagedById: string | null;
   decision: LossDecision | null;
@@ -178,14 +179,14 @@ export class LossCaseService {
       page.skip,
       page.take,
     );
-    return toPagedResult(await this.views(rows), total, page);
+    return toPagedResult(await this.views(rows, caller), total, page);
   }
 
   // api-design 27: another organization's case answers 404 (auth REQ-ERR-06).
   async get(id: string, caller: Caller): Promise<LossCaseDto> {
     const row = await this.cases.find(id);
     if (!row || !this.visibleTo(row, caller)) throw notFound('Loss case');
-    return (await this.views([row]))[0];
+    return (await this.views([row], caller))[0];
   }
 
   // api-design 17 (REQ-EVT-13, REQ-ERR-05, BR-37): an Org Manager reports a device its organization
@@ -270,7 +271,7 @@ export class LossCaseService {
       } satisfies LossCaseReportedEvent);
       return created;
     });
-    return (await this.views([row]))[0];
+    return (await this.views([row], caller))[0];
   }
 
   // api-design 19 (REQ-EVT-14, FR-DEV-13, D-040, D-046): custody from the interval that contains the
@@ -354,7 +355,7 @@ export class LossCaseService {
       } satisfies LossCaseTriagedEvent);
       return updated;
     });
-    return (await this.views([row]))[0];
+    return (await this.views([row], actor))[0];
   }
 
   // api-design 21 (REQ-EVT-15): Staff confirm a SEARCHING case.
@@ -372,7 +373,7 @@ export class LossCaseService {
       if (!confirmed) throw staleVersion();
       return confirmed;
     });
-    return (await this.views([row]))[0];
+    return (await this.views([row], actor))[0];
   }
 
   // The `devices.lossSearch` job: confirms one SEARCHING case whose window has passed, as SYSTEM.
@@ -510,7 +511,7 @@ export class LossCaseService {
       );
       return updated;
     });
-    return (await this.views([row]))[0];
+    return (await this.views([row], actor))[0];
   }
 
   // api-design 20 (REQ-EVT-11, FR-DEV-14, BR-38, E05-10): the device is back. The case moves to
@@ -578,7 +579,7 @@ export class LossCaseService {
       );
       return updated;
     });
-    return (await this.views([row]))[0];
+    return (await this.views([row], actor))[0];
   }
 
   private async load(id: string, tx: Prisma.TransactionClient): Promise<LossCaseRow> {
@@ -591,7 +592,10 @@ export class LossCaseService {
     return caller.organizationId === null || row.organizationId === caller.organizationId;
   }
 
-  private async views(rows: LossCaseRow[]): Promise<LossCaseDto[]> {
+  // `viewer` decides the theft fields: an organization caller never receives `suspectedTheft` or
+  // `policeReference` (leader ruling 2026-10-31); TrekLink callers get both.
+  private async views(rows: LossCaseRow[], viewer: Caller): Promise<LossCaseDto[]> {
+    const trekLink = viewer.organizationId === null;
     const labels = await this.organizations.labelsOf(
       rows.flatMap((row) => (row.organizationId ? [row.organizationId] : [])),
     );
@@ -614,8 +618,9 @@ export class LossCaseService {
         contractDeviceId: row.contractDeviceId,
         organization: label ? { id: label.id, code: label.code } : null,
         keyExposed: row.keyExposed,
-        suspectedTheft: row.suspectedTheft,
-        policeReference: row.policeReference,
+        ...(trekLink
+          ? { suspectedTheft: row.suspectedTheft, policeReference: row.policeReference }
+          : {}),
         searchEndsAt: row.searchEndsAt,
         triagedById: row.triagedById,
         decision: row.decision,

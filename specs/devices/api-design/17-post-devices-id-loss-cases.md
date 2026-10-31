@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Reports a device in service as lost: the device moves to `LOST` from whichever of the six working states it was in, and one loss case opens in `REPORTED` with the device's last seen time and position from telemetry. The contract keeps running. TrekLink Staff are notified (FR-DEV-12, D-045).
+Reports a device in service as lost: the device moves to `LOST` from whichever of the six working states it was in, and one loss case opens in `REPORTED` with the device's last seen time and position from telemetry. The contract keeps running. TrekLink Staff are notified (FR-DEV-12, D-045). An Org Manager's answer omits `suspectedTheft` and `policeReference` (leader ruling 2026-10-31).
 
 ## API Specification
 

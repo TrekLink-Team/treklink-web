@@ -319,7 +319,8 @@ ENDPOINTS = [
        "Org Manager: a device rented by the organization; TrekLink Staff: any device in service",
        "Reports a device in service as lost: the device moves to `LOST` from whichever of the six working "
        "states it was in, and one loss case opens in `REPORTED` with the device's last seen time and position "
-       "from telemetry. The contract keeps running. TrekLink Staff are notified (FR-DEV-12, D-045).",
+       "from telemetry. The contract keeps running. TrekLink Staff are notified (FR-DEV-12, D-045). An Org "
+       "Manager's answer omits `suspectedTheft` and `policeReference` (leader ruling 2026-10-31).",
        "UC-49, FR-DEV-12, BR-37, E05-8, E05-9",
        path=[DEV_PATH], body=[["description", "Where and when it was last seen, and what happened", "string", "yes", "`Last seen at Phan Dung camp`"]],
        sample={"description": "Last seen at Phan Dung camp on 2026-10-19 evening"},
@@ -335,7 +336,8 @@ ENDPOINTS = [
        seq=["Svc->>DB: UPDATE devices LOST; INSERT loss_cases REPORTED", "Svc-)Svc: notify TrekLink Staff"]),
 
     ep("GET", "/api/loss-cases", "List loss cases", "TrekLink Staff, TrekLink Admin; Org Manager: own organization",
-       "Lists loss cases by state; an Org Manager sees the cases of its organization's rented devices only.",
+       "Lists loss cases by state; an Org Manager sees the cases of its organization's rented devices only, "
+       "and its answer omits `suspectedTheft` and `policeReference` (leader ruling 2026-10-31).",
        "UC-49, UC-60", query=PAGE_QUERY + [["state", "Filter by state", "string", "no", "`SEARCHING`"]],
        response=paged(LOSS), steps=["Read loss_cases scoped to the caller"],
        controller="LossCasesController", service="LossCaseService", call="list(query, caller)",
@@ -456,7 +458,9 @@ ENDPOINTS = [
        call="list(query)", seq=["Svc->>DB: SELECT stock_takes"]),
 
     ep("GET", "/api/loss-cases/:id", "Get a loss case", "TrekLink Staff, TrekLink Admin; Org Manager: own organization",
-       "One loss case for the case page (screen 4.4). Another organization's case answers 404 (auth REQ-ERR-06).",
+       "One loss case for the case page (screen 4.4). Another organization's case answers 404 (auth REQ-ERR-06). "
+       "An Org Manager's answer omits `suspectedTheft` and `policeReference`, here and in the report answer "
+       "of api-design 17 (leader ruling 2026-10-31).",
        "UC-49, UC-60", path=[LC_PATH], response=LOSS, entity="Loss case",
        steps=["Read the case scoped to the caller"],
        controller="LossCasesController", service="LossCaseService", call="get(id, caller)",

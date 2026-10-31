@@ -24,8 +24,9 @@ export interface LossCase {
   contractDeviceId: string | null;
   organization: { id: string; code: string } | null;
   keyExposed: boolean;
-  suspectedTheft: boolean;
-  policeReference: string | null;
+  // TrekLink callers only: the API omits both for an organization caller (ruling 2026-10-31).
+  suspectedTheft?: boolean;
+  policeReference?: string | null;
   searchEndsAt: string | null;
   triagedById: string | null;
   decision: LossDecision | null;

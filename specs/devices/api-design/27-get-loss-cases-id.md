@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-One loss case for the case page (screen 4.4). Another organization's case answers 404 (auth REQ-ERR-06).
+One loss case for the case page (screen 4.4). Another organization's case answers 404 (auth REQ-ERR-06). An Org Manager's answer omits `suspectedTheft` and `policeReference`, here and in the report answer of api-design 17 (leader ruling 2026-10-31).
 
 ## API Specification
 
