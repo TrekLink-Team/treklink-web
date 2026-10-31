@@ -1,5 +1,6 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AlertChannel, Prisma } from '@prisma/client';
+import { AccountsService } from '../../auth';
 import { DevicesService } from '../../devices';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
 import { ParameterService } from '../../platform/parameters/parameter.service';
@@ -42,6 +43,8 @@ describe('AlertDispatcherJob.deliverAlerts (incidents 2.1)', () => {
   let contracts: { holderLabels: jest.Mock };
   let emitter: { emit: jest.Mock };
   let job: AlertDispatcherJob;
+  let accounts: { contactCard: jest.Mock };
+  let mail: { send: jest.Mock };
 
   beforeEach(() => {
     alerts = {
@@ -56,6 +59,8 @@ describe('AlertDispatcherJob.deliverAlerts (incidents 2.1)', () => {
         .mockResolvedValue(new Map([['c-1:dev-1', { name: 'Le Thi E', phone: null }]])),
     };
     emitter = { emit: jest.fn().mockReturnValue(true) };
+    accounts = { contactCard: jest.fn().mockResolvedValue([{ email: 'primary@example.invalid' }]) };
+    mail = { send: jest.fn().mockResolvedValue(undefined) };
     const parameters = {
       get: jest.fn((key: string) => Promise.resolve(key === 'incidents.alertMaxAttempts' ? 3 : 5)),
     };
@@ -69,13 +74,15 @@ describe('AlertDispatcherJob.deliverAlerts (incidents 2.1)', () => {
       parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
       emitter as unknown as EventEmitter2,
+      accounts as unknown as AccountsService,
+      mail,
     );
   });
 
-  it('claims only the WEB and WEBSOCKET channels and does nothing when none are due', async () => {
+  it('claims WEB, WEBSOCKET and EMAIL, leaving API_EVENT pending', async () => {
     await expect(job.deliverAlerts()).resolves.toBe(0);
     expect(alerts.claimDue).toHaveBeenCalledWith(
-      [AlertChannel.WEB, AlertChannel.WEBSOCKET],
+      [AlertChannel.WEB, AlertChannel.WEBSOCKET, AlertChannel.EMAIL],
       expect.any(Date),
       100,
       tx,
@@ -141,6 +148,103 @@ describe('AlertDispatcherJob.deliverAlerts (incidents 2.1)', () => {
     expect((alerts.markFailedAttempt.mock.calls[0] as unknown[])[1]).toBe(
       'WEBSOCKET alert without a recipient',
     );
+  });
+
+  it('emails only the account named by each outbox row, with no other recipient', async () => {
+    accounts.contactCard.mockImplementation((ids: string[]) =>
+      Promise.resolve([{ email: `${ids[0]}@example.invalid` }]),
+    );
+    alerts.claimDue.mockResolvedValue([
+      due({ channel: AlertChannel.EMAIL }),
+      due({ id: 'a-2', channel: AlertChannel.EMAIL, recipientId: 'u-other' }),
+    ]);
+    await expect(job.deliverAlerts()).resolves.toBe(2);
+    expect(accounts.contactCard.mock.calls).toEqual([[['u-p']], [['u-other']]]);
+    expect(mail.send.mock.calls.map(([message]: [{ to: string }]) => message.to)).toEqual([
+      'u-p@example.invalid',
+      'u-other@example.invalid',
+    ]);
+    expect(mail.send).toHaveBeenCalledWith({
+      to: 'u-p@example.invalid',
+      subject: 'TrekLink alert: INC-2026-000001',
+      text: 'SOS: TL-0042 (Le Thi E), 10:15. Acknowledge now.\nIncident: INC-2026-000001',
+    });
+    expect(alerts.markSent).toHaveBeenCalledWith(['a-1', 'a-2'], expect.any(Date), tx);
+    expect(emitter.emit).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 1])(
+    'backs off EMAIL attempt %i without blocking other channels',
+    async (attempts) => {
+      mail.send.mockRejectedValue(new Error('SMTP unavailable'));
+      alerts.claimDue.mockResolvedValue([
+        due({ channel: AlertChannel.EMAIL, attempts }),
+        due({ id: 'web', channel: AlertChannel.WEB }),
+        due({ id: 'socket' }),
+      ]);
+      await expect(job.deliverAlerts()).resolves.toBe(2);
+      const claimedAt = (alerts.claimDue.mock.calls[0] as [unknown, Date])[1];
+      expect(alerts.markFailedAttempt).toHaveBeenCalledWith(
+        'a-1',
+        'SMTP unavailable',
+        new Date(claimedAt.getTime() + 5000 * 2 ** (attempts + 1)),
+        tx,
+      );
+      expect(alerts.markSent).toHaveBeenCalledWith(['web', 'socket'], expect.any(Date), tx);
+      expect(emitter.emit).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('settles EMAIL as terminal failure at the configured attempt limit', async () => {
+    mail.send.mockRejectedValue('SMTP unavailable');
+    alerts.claimDue.mockResolvedValue([due({ channel: AlertChannel.EMAIL, attempts: 2 })]);
+    await expect(job.deliverAlerts()).resolves.toBe(0);
+    expect(alerts.markFailedAttempt).toHaveBeenCalledWith('a-1', 'SMTP unavailable', null, tx);
+  });
+
+  it.each([
+    {
+      recipientId: null,
+      cards: [{ email: 'primary@example.invalid' }],
+      error: 'EMAIL alert without a recipient',
+    },
+    { recipientId: 'deleted', cards: [], error: 'EMAIL alert recipient unavailable' },
+    {
+      recipientId: 'missing-email',
+      cards: [{ email: '' }],
+      error: 'EMAIL alert recipient unavailable',
+    },
+  ])('retries an undeliverable EMAIL: $error', async ({ recipientId, cards, error }) => {
+    accounts.contactCard.mockResolvedValue(cards);
+    alerts.claimDue.mockResolvedValue([due({ channel: AlertChannel.EMAIL, recipientId })]);
+    await job.deliverAlerts();
+    expect(mail.send).not.toHaveBeenCalled();
+    expect(alerts.markFailedAttempt).toHaveBeenCalledWith('a-1', error, expect.any(Date), tx);
+  });
+
+  it('retries a failed account read without blocking the web inbox', async () => {
+    accounts.contactCard.mockRejectedValue(new Error('directory unavailable'));
+    alerts.claimDue.mockResolvedValue([
+      due({ channel: AlertChannel.EMAIL }),
+      due({ id: 'web', channel: AlertChannel.WEB }),
+    ]);
+    await expect(job.deliverAlerts()).resolves.toBe(1);
+    expect(alerts.markFailedAttempt).toHaveBeenCalledWith(
+      'a-1',
+      'directory unavailable',
+      expect.any(Date),
+      tx,
+    );
+    expect(mail.send).not.toHaveBeenCalled();
+  });
+
+  it('repeats an accepted email if outbox settlement rolls back (at least once)', async () => {
+    alerts.claimDue.mockResolvedValue([due({ channel: AlertChannel.EMAIL })]);
+    alerts.markSent.mockRejectedValueOnce(new Error('settlement rolled back'));
+    await expect(job.deliverAlerts()).rejects.toThrow('settlement rolled back');
+    await expect(job.deliverAlerts()).resolves.toBe(1);
+    expect(mail.send).toHaveBeenCalledTimes(2);
+    expect(alerts.markFailedAttempt).not.toHaveBeenCalled();
   });
 });
 
