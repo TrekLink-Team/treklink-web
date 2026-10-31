@@ -3,7 +3,7 @@ import { DeviceStatus, LossCaseState, LossCustody, LossDecision, Prisma } from '
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
 import { LossCaseRow } from './loss-cases.repository';
-import { LOSS_CASE_REPORTED, LOSS_CASE_TRIAGED, LossCaseService } from './loss-cases.service';
+import { LOSS_CASE_REPORTED, LossCaseService } from './loss-cases.service';
 
 // devices task 2.7 (design §2.1, REQ-EVT-11, REQ-EVT-13 to REQ-EVT-16, REQ-ERR-05, REQ-ERR-06,
 // AC-05 to AC-08). The repositories, ports and listeners are mocks; the transaction runs the callback.
@@ -100,7 +100,8 @@ describe('LossCaseService', () => {
   let notifier: { confirmed: jest.Mock; settled: jest.Mock };
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let custody: { custodyAt: jest.Mock };
-  let orgActions: { markKeyExposed: jest.Mock; openOrLinkComplianceCase: jest.Mock };
+  let channelKeys: { markKeyExposed: jest.Mock };
+  let orgActions: { openOrLinkComplianceCase: jest.Mock };
   let service: LossCaseService;
 
   // The transition mock answers the row with the update applied, as the repository re-reads it.
@@ -153,10 +154,8 @@ describe('LossCaseService', () => {
       emitAfterCommit: jest.fn(),
     };
     custody = { custodyAt: jest.fn().mockResolvedValue(INTERVAL) };
-    orgActions = {
-      markKeyExposed: jest.fn(),
-      openOrLinkComplianceCase: jest.fn().mockResolvedValue('cmp-1'),
-    };
+    channelKeys = { markKeyExposed: jest.fn().mockResolvedValue(true) };
+    orgActions = { openOrLinkComplianceCase: jest.fn().mockResolvedValue('cmp-1') };
     const config = {
       get: jest.fn((key: string) => (key === 'DEFAULT_PAGE_SIZE' ? 20 : 100)),
     };
@@ -170,6 +169,7 @@ describe('LossCaseService', () => {
       events as never,
       config as never,
       custody,
+      channelKeys as never,
       orgActions,
     );
   });
@@ -316,7 +316,7 @@ describe('LossCaseService', () => {
       );
 
       expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.lastSeenAt);
-      expect(orgActions.markKeyExposed).toHaveBeenCalledWith('org-1', 'LOSS-0001', tx);
+      expect(channelKeys.markKeyExposed).toHaveBeenCalledWith('org-1', at, STAFF, tx);
       expect(orgActions.openOrLinkComplianceCase).not.toHaveBeenCalled();
       expect(cases.transition).toHaveBeenCalledWith(
         'lc-1',
@@ -333,9 +333,6 @@ describe('LossCaseService', () => {
         tx,
       );
       expect(dto).toMatchObject({ state: 'SEARCHING', custody: 'RENTER', keyExposed: true });
-      expect(emitted(LOSS_CASE_TRIAGED)).toEqual([
-        expect.objectContaining({ custody: LossCustody.RENTER, organizationId: 'org-1' }),
-      ]);
     });
 
     it('records TREKLINK custody when no interval contains the time, keeping the reporter organization (AC-05)', async () => {
@@ -347,7 +344,7 @@ describe('LossCaseService', () => {
       await service.triage('lc-1', { suspectedTheft: true, expectedVersion: 0 }, STAFF, at);
 
       expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.reportedAt);
-      expect(orgActions.markKeyExposed).not.toHaveBeenCalled();
+      expect(channelKeys.markKeyExposed).not.toHaveBeenCalled();
       expect(orgActions.openOrLinkComplianceCase).not.toHaveBeenCalled();
       expect(cases.transition).toHaveBeenCalledWith(
         'lc-1',

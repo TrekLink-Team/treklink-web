@@ -91,6 +91,10 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
       keyExposed: true,
     });
     expect(triaged.searchEndsAt?.getTime()).toBe(TRIAGED_AT.getTime() + searchDays * DAY_MS);
+    // REQ-EVT-14: ChannelKeyService.markKeyExposed ran in the triage transaction.
+    expect(
+      (await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } })).channelKeyExposedAt?.getTime(),
+    ).toBe(TRIAGED_AT.getTime());
 
     // Staff confirm while the job finds the window passed: exactly one confirmation and one LOSS line.
     const afterWindow = new Date(TRIAGED_AT.getTime() + searchDays * DAY_MS + 3_600_000);

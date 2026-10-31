@@ -45,8 +45,8 @@ import { VariantsController } from './variants.controller';
     LossCaseService,
     LossSearchJob,
     LossCaseNotificationsListener,
-    // task 2.7: markKeyExposed (treklink-web#209) and openOrLinkComplianceCase are not on dev yet;
-    // bind the organizations provider here once both are exported (design §3).
+    // task 2.7: openOrLinkComplianceCase is not built in organizations yet; bind its provider here
+    // once it is exported (design §3). markKeyExposed is a direct ChannelKeyService call.
     { provide: LOSS_ORGANIZATION_ACTIONS, useClass: NoOpLossOrganizationActions },
   ],
   exports: [DevicesService, LOSS_CASE_LISTENERS, MaintenanceService],
