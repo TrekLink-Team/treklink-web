@@ -49,13 +49,21 @@ export class ChannelKeyService {
       );
     }
     if (current.channelKeyExposedAt !== null) return false;
-    // The row is locked, so the version read above is still the current one.
-    await this.organizations.update(
+    // The row is locked, so the version read above is still the current one; a null here means the
+    // write did not happen, and then nothing is emitted.
+    const saved = await this.organizations.update(
       organizationId,
       current.version,
       { channelKeyExposedAt: at },
       tx,
     );
+    if (!saved) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.STALE_VERSION,
+        'This was changed by someone else. Reload and try again.',
+      );
+    }
     this.events.emitAfterCommit(ORGANIZATION_KEY_EXPOSED, {
       organizationId,
       at,

@@ -353,11 +353,11 @@ ENDPOINTS = [
        response=LOSS, message="Loss case triaged", entity="Loss case",
        errors=[state_409("loss case", "SETTLED"), STALE],
        steps=["Require REPORTED", "rentals.custodyAt(deviceId, lastSeenAt)", "Set custody and contractDeviceId",
-              "Renter custody: organizations.markKeyExposed(orgId)", "Suspected theft: organizations.openOrLinkComplianceCase",
+              "Renter custody: ChannelKeyService.markKeyExposed(orgId, at, actor, tx)", "Suspected theft: organizations.openOrLinkComplianceCase",
               "Move to SEARCHING, set searchEndsAt"],
        controller="LossCasesController", service="LossCaseService", call="triage(id, dto, actor)",
-       participants=[["Rt", "RentalsService"], ["Org", "OrganizationsService"]],
-       seq=["Svc->>Rt: custodyAt(deviceId, lastSeenAt)", "Svc->>Org: markKeyExposed(orgId)", "Svc->>DB: UPDATE loss_cases SEARCHING"]),
+       participants=[["Rt", "RentalsService"], ["Org", "ChannelKeyService"]],
+       seq=["Svc->>Rt: custodyAt(deviceId, lastSeenAt)", "Svc->>Org: markKeyExposed(orgId, at, actor, tx)", "Svc->>DB: UPDATE loss_cases SEARCHING"]),
 
     ep("POST", "/api/loss-cases/:id/recover", "Record a recovered device", "TrekLink Staff",
        "The lost device is back at the counter: the case moves to `RECOVERED` and the device to `RETURNED`, "
