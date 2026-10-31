@@ -24,7 +24,7 @@ export const INCIDENT_CHANGED = 'incident.changed';
 // In-process routing ids, not the WebSocket DTO (incidents emits only these today).
 export interface IncidentChangedEvent {
   incidentId: string;
-  /** The incident's device, so the live map updates its marker from the entry alone. */
+  /** The incident's device, so the live map updates its marker from the entry. */
   deviceId?: string | null;
   organizationId: string | null;
   state: string;
