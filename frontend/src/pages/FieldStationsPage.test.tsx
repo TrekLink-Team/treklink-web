@@ -230,7 +230,7 @@ describe('FieldStationsPage (screen 3.5)', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(useToast.getState().message).toBe('Field Station credential revoked');
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Field Stations' }));
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Field stations' }));
     expect(await screen.findByText('0 of 5 active stations, 1 revoked')).toBeTruthy();
   });
 

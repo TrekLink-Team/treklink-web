@@ -167,7 +167,7 @@ export const BillingPage: React.FC = () => {
 
   return (
     <section aria-labelledby="billing-title">
-      <PageTitle id="billing-title" title="Billing" />
+      <PageTitle id="billing-title" title="Invoices and payments" />
       <div role="tablist" aria-label="Billing" className="mb-4 flex gap-2">
         {(['invoices', 'payments'] as const).map((name) => (
           <button

@@ -368,7 +368,7 @@ export const ContractApprovalPage: React.FC = () => {
 
   return (
     <section aria-labelledby="queue-title">
-      <PageTitle id="queue-title" title="Contract requests" />
+      <PageTitle id="queue-title" title="Contracts" />
       <div role="tablist" aria-label="Queues" className="mb-4 flex gap-2">
         {TABS.map((item, index) => (
           <button
