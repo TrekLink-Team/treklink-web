@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { DeviceStatus, InspectionResult, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { OrganizationsService } from '../organizations';
@@ -17,6 +17,7 @@ import {
   VariantSummary,
 } from './devices.repository';
 import { MaintenanceService } from './maintenance.service';
+import { CUSTODY_RESOLVER, CustodyResolver } from './ports/custody-resolver.port';
 
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Device not found.');
@@ -26,6 +27,15 @@ const wrongState = (status: DeviceStatus) =>
     HttpStatus.CONFLICT,
     ErrorCode.INVALID_STATE_TRANSITION,
     `This cannot be done while it is ${status}.`,
+  );
+
+// A unit whose contract row is still open, such as one recovered from a loss case before its renter's
+// check-in (design §2.1, leader ruling 2026-11-01): the counter checks it in first. The state code fits.
+export const notCheckedIn = () =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.INVALID_STATE_TRANSITION,
+    'Check this device in on its contract first.',
   );
 
 const staleVersion = () =>
@@ -157,6 +167,7 @@ export class DevicesService {
     private readonly devices: DevicesRepository,
     private readonly maintenance: MaintenanceService,
     private readonly organizations: OrganizationsService,
+    @Inject(CUSTODY_RESOLVER) private readonly custody: CustodyResolver,
   ) {}
 
   // One device by its asset tag with its version, or null (demo module, D-088).
@@ -374,7 +385,8 @@ export class DevicesService {
 
   // devices api-design 10 (task 2.4 part, built by LongLP for MF-05): a RETURNED unit is reset with all
   // three steps (400 RESET_INCOMPLETE otherwise), which clears the organization key it carried (D-021).
-  // One reset per return: a unit already reset since it became RETURNED is 409 ALREADY_RESET.
+  // One reset per return: a unit already reset since it became RETURNED is 409 ALREADY_RESET. A unit
+  // whose contract row is still open is refused until it is checked in (design §2.1).
   async reset(
     deviceId: string,
     steps: { keyRemoved: boolean; nodeDbCleared: boolean; ownerCleared: boolean },
@@ -387,6 +399,7 @@ export class DevicesService {
     const unit = await this.devices.lockUnit(deviceId, tx);
     if (!unit) throw notFound();
     if (unit.status !== DeviceStatus.RETURNED) throw wrongState(unit.status);
+    if (await this.custody.custodyAt(deviceId, at, tx)) throw notCheckedIn();
     if (!steps.keyRemoved || !steps.nodeDbCleared || !steps.ownerCleared) {
       throw new DomainException(
         HttpStatus.BAD_REQUEST,
@@ -544,6 +557,8 @@ export class DevicesService {
     const unit = await this.devices.findUnit(deviceId, tx);
     if (!unit) throw notFound();
     if (unit.status !== DeviceStatus.RETURNED) throw wrongState(unit.status);
+    // Inspection is the step that makes the unit AVAILABLE: refused while its contract row is open.
+    if (await this.custody.custodyAt(deviceId, at, tx)) throw notCheckedIn();
     const resetAt = await this.devices.lastResetAt(deviceId, tx);
     if (!resetAt || resetAt < input.checkedInAt) {
       throw new DomainException(

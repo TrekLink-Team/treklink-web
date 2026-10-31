@@ -46,6 +46,7 @@ describe('clearProvisioning', () => {
       repository as unknown as DevicesRepository,
       {} as never,
       {} as never,
+      { custodyAt: () => Promise.resolve(null) },
     );
 
     await expect(service.clearProvisioning('dev-1', tx)).resolves.toEqual(cleared);

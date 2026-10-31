@@ -5,6 +5,8 @@ import { DomainException, ErrorCode } from '../src/common/errors';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { DevicesRepository } from '../src/modules/devices/devices.repository';
 import { DevicesService } from '../src/modules/devices/devices.service';
+import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
+import { RentalsCustodyResolver } from '../src/modules/rentals/providers/custody-resolver.provider';
 
 // Capture explicit connection settings before Prisma can load a local .env at construction.
 const databaseUrl = process.env.DATABASE_URL;
@@ -20,8 +22,14 @@ if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
 describe('DevicesService.reset and returnChecks on Postgres', () => {
   const prisma = new PrismaService({ datasourceUrl: databaseUrl });
   const repository = new DevicesRepository(prisma);
-  // reset and returnChecks read neither maintenance nor organizations.
-  const service = new DevicesService(repository, {} as never, {} as never);
+  // reset and returnChecks read neither maintenance nor organizations; custody is the real rentals
+  // provider, so a unit with no open contract row resets as before.
+  const service = new DevicesService(
+    repository,
+    {} as never,
+    {} as never,
+    new RentalsCustodyResolver(new ContractsRepository(prisma)),
+  );
   const steps = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true };
   const runId = randomUUID();
   let staffId: string;

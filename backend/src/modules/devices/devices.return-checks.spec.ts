@@ -30,8 +30,14 @@ describe('DevicesService reset and return checks', () => {
     resetsOf: jest.Mock;
     returnsOf: jest.Mock;
     inspectionsOfContractDevices: jest.Mock;
+    findUnit: jest.Mock;
+    insertInspection: jest.Mock;
   };
+  let custody: { custodyAt: jest.Mock };
   let service: DevicesService;
+
+  // The interval of a renter still holding the unit on its contract (no check-in, no lostAt).
+  const OPEN_ROW = { contractId: 'c-1', organizationId: 'org-1', contractDeviceId: 'cd-1' };
 
   beforeEach(() => {
     repository = {
@@ -46,11 +52,15 @@ describe('DevicesService reset and return checks', () => {
       resetsOf: jest.fn().mockResolvedValue([]),
       returnsOf: jest.fn().mockResolvedValue([]),
       inspectionsOfContractDevices: jest.fn().mockResolvedValue([]),
+      findUnit: jest.fn().mockResolvedValue({ id: 'dev-1', status: DeviceStatus.RETURNED }),
+      insertInspection: jest.fn(),
     };
+    custody = { custodyAt: jest.fn().mockResolvedValue(null) };
     service = new DevicesService(
       repository as unknown as DevicesRepository,
       {} as never,
       {} as never,
+      custody,
     );
   });
 
@@ -90,6 +100,18 @@ describe('DevicesService reset and return checks', () => {
       expect(repository.insertReset).not.toHaveBeenCalled();
     });
 
+    it('refuses a unit whose contract row is still open until it is checked in (design §2.1)', async () => {
+      custody.custodyAt.mockResolvedValue(OPEN_ROW);
+
+      await expectDomain(
+        service.reset('dev-1', steps, 'staff-1', at, tx),
+        HttpStatus.CONFLICT,
+        ErrorCode.INVALID_STATE_TRANSITION,
+      );
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', at, tx);
+      expect(repository.insertReset).not.toHaveBeenCalled();
+    });
+
     it('still refuses an incomplete reset before looking at earlier resets', async () => {
       await expectDomain(
         service.reset('dev-1', { ...steps, ownerCleared: false }, 'staff-1', at, tx),
@@ -97,6 +119,33 @@ describe('DevicesService reset and return checks', () => {
         ErrorCode.RESET_INCOMPLETE,
       );
       expect(repository.lastResetAt).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recordInspection', () => {
+    it('refuses to inspect a unit whose contract row is still open, so it never reaches AVAILABLE', async () => {
+      custody.custodyAt.mockResolvedValue(OPEN_ROW);
+
+      await expectDomain(
+        service.recordInspection(
+          'dev-1',
+          {
+            result: InspectionResult.PASSED,
+            damageCodes: [],
+            note: null,
+            contractDeviceId: 'cd-1',
+            checkedInAt: at,
+          },
+          'staff-1',
+          at,
+          tx,
+        ),
+        HttpStatus.CONFLICT,
+        ErrorCode.INVALID_STATE_TRANSITION,
+      );
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', at, tx);
+      expect(repository.lastResetAt).not.toHaveBeenCalled();
+      expect(repository.insertInspection).not.toHaveBeenCalled();
     });
   });
 

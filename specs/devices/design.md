@@ -126,7 +126,9 @@ when the case settles. `RENTER` custody marks the organization's channel key exp
 settlement goes to `RETURNED` while its case stays `SETTLED`; any refund is a billing adjustment (E05-10). A device
 recovered before settlement goes to `RETURNED` with no `lostAt`, so a `RENTER` case leaves its custody
 interval open and the contract counts the unit out until the counter checks it in; that check-in closes
-the row, and the device, already `RETURNED`, does not move again (2026-11-01).
+the row, and the device, already `RETURNED`, does not move again (2026-11-01). Until then the unit
+cannot reach `AVAILABLE`: its reset, its inspection and a passing intake answer 409
+`INVALID_STATE_TRANSITION` while `CUSTODY_RESOLVER.custodyAt` finds the open row (leader ruling 2026-11-01).
 
 ## 2.2 Maintenance record and the weekly service scan (D-047)
 

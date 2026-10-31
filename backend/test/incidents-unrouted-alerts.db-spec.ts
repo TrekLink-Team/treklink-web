@@ -55,7 +55,9 @@ describe('UNROUTED Staff/Admin alerts against Postgres', () => {
   const lifecycle = new IncidentLifecycle(repository, alerts, parameters, events);
   const routing = new RoutingService(new RosterService(new RosterRepository(prisma)), accounts);
   const ingress = new IncidentIngress(repository, lifecycle, routing, parameters, events);
-  const devices = new DevicesService(new DevicesRepository(prisma), {} as never, {} as never);
+  const devices = new DevicesService(new DevicesRepository(prisma), {} as never, {} as never, {
+    custodyAt: () => Promise.resolve(null),
+  });
   const contracts = new ContractsService(
     new ContractsRepository(prisma),
     {} as never,

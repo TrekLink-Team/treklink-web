@@ -1,12 +1,14 @@
 import {
   ContractStatus,
   DeviceStatus,
+  InspectionResult,
   InvoiceLineType,
   LossCaseState,
   LossCustody,
   LossDecision,
 } from '@prisma/client';
 import { ErrorCode } from '../src/common/errors';
+import { DevicesService } from '../src/modules/devices/devices.service';
 import { LossSearchJob } from '../src/modules/devices/jobs/loss-search.job';
 import { LossCaseService } from '../src/modules/devices/loss-cases.service';
 import { ReturnService } from '../src/modules/rentals/return.service';
@@ -412,6 +414,60 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
         where: { deviceId, toStatus: DeviceStatus.RETURNED, createdAt: back },
       }),
     ).toBe(0);
+  });
+
+  // Leader ruling 2026-11-01 (design §2.1): a recovered unit whose contract row is still open is not
+  // reset, inspected or passed to AVAILABLE until the counter checks it in; then the return loop runs.
+  it('refuses the reset and inspection of a recovered unit until it is checked in, then makes it AVAILABLE', async () => {
+    const { org, contract, deviceId } = await rentedUnit();
+    const reported = await lossCases.report(
+      deviceId,
+      { description: 'Left at the hut' },
+      org.manager,
+      REPORTED_AT,
+    );
+    const triaged = await lossCases.triage(
+      reported.id,
+      { suspectedTheft: false, expectedVersion: reported.version },
+      flow.staff,
+      TRIAGED_AT,
+    );
+    await lossCases.recover(
+      triaged.id,
+      { note: 'Handed in at the counter', expectedVersion: triaged.version },
+      flow.staff,
+      at('2026-11-06T02:00:00.000Z'),
+    );
+    const devices = flow.get(DevicesService);
+    const returns = flow.get(ReturnService);
+    const steps = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true };
+    const reset = (when: Date) =>
+      flow.prisma.$transaction((tx) => devices.reset(deviceId, steps, flow.staff.id, when, tx));
+    const passed = { result: InspectionResult.PASSED, damageCodes: [], note: null };
+
+    const before = at('2026-11-06T03:00:00.000Z');
+    expect(await flow.codeOf(reset(before))).toBe(ErrorCode.INVALID_STATE_TRANSITION);
+    expect(
+      await flow.codeOf(returns.inspect(contract.id, deviceId, passed, flow.staff, before)),
+    ).toBe(ErrorCode.INVALID_STATE_TRANSITION);
+    expect(await flow.prisma.deviceReset.count({ where: { deviceId } })).toBe(0);
+    expect((await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).status).toBe(
+      DeviceStatus.RETURNED,
+    );
+
+    // The counter checks the unit in on its contract; the return loop then runs as for any return.
+    const back = at('2026-11-07T02:00:00.000Z');
+    await flow.prisma.rentalContract.update({
+      where: { id: contract.id },
+      data: { status: ContractStatus.RETURN_DUE, returnDueAt: back, version: { increment: 1 } },
+    });
+    const tag = (await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).assetTag;
+    await returns.checkIn(contract.id, [tag], flow.staff, back);
+
+    const after = at('2026-11-07T03:00:00.000Z');
+    await reset(after);
+    const inspected = await returns.inspect(contract.id, deviceId, passed, flow.staff, after);
+    expect(inspected.device.status).toBe(DeviceStatus.AVAILABLE);
   });
 
   it('serves the routes with the new permissions (migration 20261031120100)', async () => {

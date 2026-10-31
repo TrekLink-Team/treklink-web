@@ -67,6 +67,7 @@ describe('DevicesService retire and dispose', () => {
       {
         labelsOf: jest.fn().mockResolvedValue(new Map()),
       } as never,
+      { custodyAt: () => Promise.resolve(null) },
     );
   });
 
