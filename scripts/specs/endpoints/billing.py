@@ -245,7 +245,9 @@ ENDPOINTS = [
        "Approves, reduces or waives a charge above `billing.damageApprovalThresholdVnd`. The approver must "
        "not be the inspector (BR-24, E05-6, MSG30), checked against the inspector the charge stores (D-081). "
        "An approved or reduced amount becomes a DAMAGE line on the contract's closing invoice, found by the "
-       "charge's contract; a waiver adds no line.", "UC-48, FR-BILL-04, BR-24, E05-6, MSG30",
+       "charge's contract; a waiver adds no line. An approved or reduced amount on a contract with no "
+       "invoice yet is refused and the decision rolls back; a waiver there is recorded, and its audit row "
+       "carries no organization.", "UC-48, FR-BILL-04, BR-24, E05-6, MSG30",
        path=[["id", "Damage charge id", "uuid", "`dc-1`"]],
        body=[["decision", "`APPROVED`, `REDUCED` or `WAIVED`", "enum", "yes", "`REDUCED`"],
              ["finalVnd", "Required for REDUCED, below the amount", "int", "cond.", "`400000`"],
@@ -254,8 +256,11 @@ ENDPOINTS = [
        response={"id": "dc-1", "status": "REDUCED", "amountVnd": 700000, "finalVnd": 400000, "decidedAt": NOW},
        message="Decision recorded", entity="Damage charge",
        errors=[(403, "SEPARATION_OF_DUTY", "The caller recorded the inspection", "A different Admin must approve this charge."),
-               state_409("damage charge", "APPROVED")],
+               state_409("damage charge", "APPROVED"),
+               (409, "INVALID_STATE_TRANSITION", "An approved or reduced amount on a contract with no invoice yet",
+                "This charge cannot be billed before the contract has an invoice.")],
        steps=["Lock the charge", "Require PENDING_APPROVAL", "Refuse the inspector", "Record the decision",
+              "Find the contract's organization from its invoices; refuse a charged amount when there is none",
               "Add the DAMAGE line to the closing invoice, unless waived"],
        controller="DamageChargesController", service="DamageChargeService", call="decide(id, input, actor)",
        seq=["Svc->>DB: SELECT damage_charges FOR UPDATE", "Svc->>DB: UPDATE damage_charges",
