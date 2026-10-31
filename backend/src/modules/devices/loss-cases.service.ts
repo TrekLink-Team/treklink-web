@@ -4,7 +4,7 @@ import { DeviceStatus, LossCaseState, LossCustody, LossDecision, Prisma } from '
 import { Caller } from '../../common/decorators/access.decorator';
 import { PagedResult, pagingBoundsFrom, resolvePage, toPagedResult } from '../../common/dto/paging';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { OrganizationsService } from '../organizations';
+import { ChannelKeyService, OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -21,7 +21,6 @@ import {
 } from './ports/loss-organization-actions.port';
 
 export const LOSS_CASE_REPORTED = 'lossCase.reported';
-export const LOSS_CASE_TRIAGED = 'lossCase.triaged';
 
 export interface LossCaseReportedEvent {
   lossCaseId: string;
@@ -29,14 +28,6 @@ export interface LossCaseReportedEvent {
   assetTag: string;
   // True when an Org Manager reported it, false for TrekLink Staff.
   byOrganization: boolean;
-}
-
-export interface LossCaseTriagedEvent {
-  lossCaseId: string;
-  code: string;
-  assetTag: string;
-  custody: LossCustody;
-  organizationId: string | null;
 }
 
 // devices api-design 17 to 22 and 27: the loss case as the API returns it.
@@ -156,6 +147,7 @@ export class LossCaseService {
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
     @Inject(CUSTODY_RESOLVER) private readonly custody: CustodyResolver,
+    private readonly channelKeys: ChannelKeyService,
     @Inject(LOSS_ORGANIZATION_ACTIONS) private readonly orgActions: LossOrganizationActions,
   ) {}
 
@@ -276,8 +268,9 @@ export class LossCaseService {
 
   // api-design 19 (REQ-EVT-14, FR-DEV-13, D-040, D-046): custody from the interval that contains the
   // last seen time (the report time when the device was never heard), RENTER or TREKLINK; a RENTER
-  // case exposes the organization's channel key, and a suspected theft or fraud of a renter opens or
-  // links a compliance case, both through LOSS_ORGANIZATION_ACTIONS. The search window starts.
+  // case marks the organization's channel key exposed (`ChannelKeyService.markKeyExposed`), and a
+  // suspected theft or fraud of a renter opens or links a compliance case through
+  // LOSS_ORGANIZATION_ACTIONS. The search window starts.
   async triage(
     id: string,
     dto: { suspectedTheft: boolean; policeReference?: string | null; expectedVersion: number },
@@ -295,7 +288,8 @@ export class LossCaseService {
       );
       const custody = interval ? LossCustody.RENTER : LossCustody.TREKLINK;
       const policeReference = dto.policeReference?.trim() || null;
-      if (interval) await this.orgActions.markKeyExposed(interval.organizationId, current.code, tx);
+      // REQ-EVT-14: in the triage transaction; organizations tells the Managers after commit.
+      if (interval) await this.channelKeys.markKeyExposed(interval.organizationId, at, actor, tx);
       const complianceCaseId =
         interval && dto.suspectedTheft
           ? await this.orgActions.openOrLinkComplianceCase(
@@ -346,13 +340,6 @@ export class LossCaseService {
           suspectedTheft: updated.suspectedTheft,
         },
       );
-      this.events.emitAfterCommit(LOSS_CASE_TRIAGED, {
-        lossCaseId: updated.id,
-        code: updated.code,
-        assetTag: updated.device.assetTag,
-        custody,
-        organizationId: interval?.organizationId ?? null,
-      } satisfies LossCaseTriagedEvent);
       return updated;
     });
     return (await this.views([row], actor))[0];

@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-// The organization actions of a loss-case triage (REQ-EVT-14, design §3, D-045, D-046): a RENTER
-// custody case exposes the organization's channel key, and a suspected theft or fraud opens or links a
-// compliance case. `organizations.markKeyExposed` is in an open pull request (treklink-web#209) and
-// `openOrLinkComplianceCase` is not built, so the loss-case flow reaches both through this port and
-// `DevicesModule` binds the no-op default below. The case itself still records `keyExposed` and
-// `suspectedTheft`. Once organizations exports the two methods, bind its provider in
-// `devices.module.ts` instead of `NoOpLossOrganizationActions`.
+// The compliance action of a loss-case triage (REQ-EVT-14, design §3, D-045, D-046): a suspected theft
+// or fraud in renter custody opens or links a compliance case. `openOrLinkComplianceCase` is not built in
+// organizations yet, so the loss-case flow reaches it through this port and `DevicesModule` binds the
+// no-op default below; the case itself still records `suspectedTheft`. Once organizations exports the
+// method, bind its provider in `devices.module.ts` instead of `NoOpLossOrganizationActions`. The channel
+// key exposure is a direct call to `ChannelKeyService.markKeyExposed` (organizations 2.9, TK-120).
 export const LOSS_ORGANIZATION_ACTIONS = Symbol('LOSS_ORGANIZATION_ACTIONS');
 
 export interface ComplianceForLoss {
@@ -20,11 +19,6 @@ export interface ComplianceForLoss {
 }
 
 export interface LossOrganizationActions {
-  markKeyExposed(
-    organizationId: string,
-    lossCaseCode: string,
-    tx: Prisma.TransactionClient,
-  ): Promise<void>;
   // The compliance case opened or linked, or null when none was.
   openOrLinkComplianceCase(
     input: ComplianceForLoss,
@@ -32,13 +26,9 @@ export interface LossOrganizationActions {
   ): Promise<string | null>;
 }
 
-// The default until organizations provides the two actions: nothing happens outside the loss case.
+// The default until organizations provides the action: nothing happens outside the loss case.
 @Injectable()
 export class NoOpLossOrganizationActions implements LossOrganizationActions {
-  markKeyExposed(): Promise<void> {
-    return Promise.resolve();
-  }
-
   openOrLinkComplianceCase(): Promise<string | null> {
     return Promise.resolve(null);
   }

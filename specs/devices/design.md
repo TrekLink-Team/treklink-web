@@ -190,16 +190,16 @@ export interface LossCaseListener {
 `lostAt` to the confirmation time in `onSettled` (rentals REQ-EVT-12). Both run inside the loss-case
 transaction.
 
-**Organization actions of a triage (added 2026-10-31, task 2.7).** `organizations.markKeyExposed` is in an
-open pull request and `openOrLinkComplianceCase` is not built, so triage reaches both through the port
-`LOSS_ORGANIZATION_ACTIONS` (`ports/loss-organization-actions.port.ts`). `DevicesModule` binds a no-op
-default; the case still records `keyExposed` and `suspectedTheft`. Binding the real provider is a one-line
-change in `devices.module.ts` once organizations exports the two methods.
+**Organization actions of a triage (added 2026-10-31, task 2.7).** For `RENTER` custody triage calls
+`ChannelKeyService.markKeyExposed(orgId, at, actor, tx)` directly, in the triage transaction
+(REQ-EVT-14); organizations tells the Managers after commit. `openOrLinkComplianceCase` is not built in
+organizations yet, so a suspected theft or fraud reaches it through the port `LOSS_ORGANIZATION_ACTIONS`
+(`ports/loss-organization-actions.port.ts`), which `DevicesModule` binds to a no-op default; the case
+still records `suspectedTheft`. Binding the real provider is a one-line change in `devices.module.ts`.
 
 ```typescript
 export const LOSS_ORGANIZATION_ACTIONS = Symbol('LOSS_ORGANIZATION_ACTIONS');
 export interface LossOrganizationActions {
-  markKeyExposed(organizationId: string, lossCaseCode: string, tx: Prisma.TransactionClient): Promise<void>;
   openOrLinkComplianceCase(input: { organizationId: string; lossCaseId: string; lossCaseCode: string;
     evidence: string; policeReference: string | null; actorId: string },
     tx: Prisma.TransactionClient): Promise<string | null>; // the compliance case id, or null
