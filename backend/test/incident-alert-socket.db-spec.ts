@@ -9,6 +9,7 @@ import { performance } from 'node:perf_hooks';
 import { io, Socket } from 'socket.io-client';
 import { AccountType, Incident } from '@prisma/client';
 import { Caller } from '../src/common/decorators/access.decorator';
+import { AccountsService } from '../src/modules/auth';
 import { INCIDENT_ALERT, IncidentAlertEvent } from '../src/modules/incidents';
 import { AlertDispatcherJob } from '../src/modules/incidents/alerts/alert-dispatcher.job';
 import { IncidentLifecycle } from '../src/modules/incidents/incident-lifecycle';
@@ -29,8 +30,16 @@ interface Client {
   entries: { entry: Entry; at: number }[];
 }
 
-// Real JWT/account authentication, PostgreSQL commit, the production 2-second cron, and loopback
-// Socket.IO clients. No fake clock and no direct dispatch call in the latency measurement.
+// Real JWT/account authentication, PostgreSQL commit, the production after-commit wake and its
+// 2-second cron backstop, and loopback Socket.IO clients. No fake clock and no direct dispatch call
+// in the latency measurement.
+// Review of #215: the latency depends on how many WEB and WEBSOCKET rows a burst queues, which
+// grows with the active Staff and Admin accounts other suites leave behind. The suite tops them up
+// to this floor, so two UNROUTED incidents always queue more rows than one claim batch of 100 and
+// the full-batch loop is part of what the bound covers.
+const RECIPIENT_FLOOR = 30;
+const CLAIM_BATCH = 100;
+
 describe('TK-143 committed incident alerts over authenticated sockets', () => {
   let flow: RentalFlow;
   let app: INestApplication;
@@ -130,6 +139,13 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
     });
     plain = { id: await flow.user(AccountType.TREKLINK), roles: [], organizationId: null };
     variantId = await flow.variant();
+    const accounts = flow.get(AccountsService);
+    for (
+      let count = (await accounts.activeStaffAndAdminIds()).length;
+      count < RECIPIENT_FLOOR;
+      count++
+    )
+      await flow.user(AccountType.TREKLINK, 'STAFF');
     // Bring the disposable database to a quiet baseline; other suites leave their own due rows.
     const dispatcher = flow.get(AlertDispatcherJob);
     for (let batch = 0; batch < 100; batch++) {
@@ -163,7 +179,26 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
       as(plain),
     ]);
     otherOrg.socket.emit('join', `user:${flow.staff.id}`);
+    // Count the load before the burst: no due backlog, and a known number of Staff and Admin.
+    const liveChannels = { in: ['WEB' as const, 'WEBSOCKET' as const] };
+    expect(
+      await flow.prisma.alertDelivery.count({
+        where: { status: 'PENDING', channel: liveChannels, nextAttemptAt: { lte: new Date() } },
+      }),
+    ).toBe(0);
+    const staffAndAdmins = (await flow.get(AccountsService).activeStaffAndAdminIds()).length;
+    expect(staffAndAdmins).toBeGreaterThanOrEqual(RECIPIENT_FLOOR);
     const burst = await Promise.all([create(false), create(false), create(true)]);
+    const unrouted = burst.filter(({ incident }) => !incident.organizationId);
+    expect(
+      await flow.prisma.alertDelivery.count({
+        where: {
+          incidentId: { in: unrouted.map(({ incident }) => incident.id) },
+          channel: liveChannels,
+        },
+      }),
+    ).toBe(2 * 2 * staffAndAdmins);
+    expect(2 * 2 * staffAndAdmins).toBeGreaterThan(CLAIM_BATCH);
     const latency: number[] = [];
     for (const { incident, committedAt } of burst) {
       const recipients = incident.organizationId ? [manager] : [staff, administrator];
@@ -198,9 +233,23 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
         expect(alerts(administrator, incident.id)).toHaveLength(0);
       }
     }
-    console.info(
-      `TK-143 loopback commit-to-alert milliseconds: ${latency.map((ms) => ms.toFixed(1)).join(', ')}`,
+    expect(latency).toHaveLength(5);
+  });
+
+  it('delivers through the after-commit wake alone, with both dispatcher crons stopped', async () => {
+    const registry = flow.get(SchedulerRegistry);
+    const crons = ['incidents.deliverAlerts', 'incidents.deliverEmailAlerts'].map((name) =>
+      registry.getCronJob(name),
     );
+    const staff = await as(flow.staff);
+    for (const cron of crons) void cron.stop();
+    try {
+      const { incident, committedAt } = await create(false);
+      await until(() => alerts(staff, incident.id).length > 0, 2000);
+      expect(alerts(staff, incident.id)[0].at - committedAt).toBeLessThanOrEqual(2000);
+    } finally {
+      for (const cron of crons) void cron.start();
+    }
   });
 
   it('rejects absent and forged credentials before incident information can be received', async () => {
@@ -290,14 +339,23 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
             { code: 'ROUTED', at, recipients: route.recipients },
             tx,
           );
-        // The real dispatcher uses another connection and cannot see this transaction's outbox.
+        const queued = await tx.alertDelivery.findMany({ where: { incidentId: incident.id } });
+        expect(queued.length).toBeGreaterThan(0);
+        // The real dispatcher uses another connection and cannot see this transaction's outbox:
+        // after a run, every row this transaction queued is still unclaimed and unsent.
         await flow.get(AlertDispatcherJob).deliverAlerts();
-        expect(alerts(recipient, incidentId)).toHaveLength(0);
+        expect(
+          await tx.alertDelivery.findMany({
+            where: { incidentId: incident.id },
+            select: { status: true, attempts: true, sentAt: true },
+          }),
+        ).toEqual(queued.map(() => ({ status: 'PENDING', attempts: 0, sentAt: null })));
         throw new Error('rollback probe');
       }),
     ).rejects.toThrow('rollback probe');
     await new Promise((resolve) => setTimeout(resolve, 2100));
     expect(await flow.prisma.incident.findUnique({ where: { id: incidentId } })).toBeNull();
+    expect(await flow.prisma.alertDelivery.count({ where: { incidentId } })).toBe(0);
     expect(alerts(recipient, incidentId)).toHaveLength(0);
   });
 });
