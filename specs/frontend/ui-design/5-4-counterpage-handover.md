@@ -91,7 +91,8 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 Four steps (`design.md` §5, NFR-USE-01). Step 1 holds one row per reserved device with a selection
 box and two inputs each, the scan field, and the bulk bar (Select all, Record provisioning for
 selected, the bulk battery and GPS fix with Set readings for selected), so five units need one
-selection, one provisioning click and one readings click (dry run defect 4, 2026-10-30). The
+selection, one provisioning click and one readings click (dry run defect 4, 2026-10-30), with the
+readings set first: a completed provisioning run clears the selection (fourth demo smoke, 2026-11-01). The
 single-row actions stay. A provisioned row carries Undo, which asks first and then clears the record and the
 unit's readings (rentals 19, dry run defect 5, 2026-10-30). The other steps have at most three fields. The request sends the contract
 `version` as `expectedVersion`. Nothing is stored in the browser after submit: no `localStorage`,
