@@ -36,10 +36,10 @@
   - **Test**: AC-02 (two minutes disconnected, every entry once and in order)
   - **Status**: the socket side is built: replay in batches for the client's scope, `replay.done` with its cursor, `replay.expired` for a cursor outside the retention window, live entries held back during a replay, and key revocation by `apiKey.revoked`. The REST 410 belongs to `GET /api/telemetry/stream` (task 3.2). `organizations` emits `apiKey.revoked` since 2026-10-30 (chain 2) and the REST 410 is in task 3.2; the box stays unticked until a socket test closes a real revoked key.
   - _Requirements: REQ-EVT-02, REQ-EVT-08, AC-02, FR-MON-05, FR-ORG-06_
-- [ ] 2.3 `incident.alert` publishing (owner HoangTK)
+- [x] 2.3 `incident.alert` publishing (owner HoangTK)
   - **Do**: a synchronous listener publishes the alert to `user:<recipientId>`; returning means sent (incidents design §3)
   - **Test**: an alert reaches the recipient's socket within 2 s of the transition commit
-  - **Note**: `LiveGateway.onIncidentAlert` is built in the MF-03 PR (2026-10-29), sending a `stream` event with `seq: 0` to `user:<id>` (incidents design §3). The 2 s socket timing test is open, so the box stays open
+  - **Note**: `LiveGateway.onIncidentAlert` sends a `stream` event with `seq: 0` to `user:<id>` (incidents design §3). `backend/test/incident-alert-socket.db-spec.ts` verifies real authenticated clients against PostgreSQL and the production two-second scheduler: five deliveries from three committed incidents reach their recipients within 2 s under representative local conditions. It also verifies recipient isolation, rejected authentication, scoped reconnection, at-least-once duplicates and rollback isolation. This is local verification, not a production load guarantee; see `docs/sessions/2026-10-31-1300-hoangtk-tk143-socket-verification.md`.
   - _Requirements: REQ-EVT-07, FR-INC-12, NFR-PERF-04_
 - [ ] 2.4 Staleness sweep and pruning (owner LongNN)
   - **Files**: `jobs/stale-sweep.job.ts`, `jobs/prune-stream.job.ts`
