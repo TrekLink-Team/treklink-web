@@ -232,7 +232,7 @@ describe('PageActionBar keeps focus clear of its edge', () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
   });
 
-  it('still clears a control in the same dialog as the bar', () => {
+  it('does not skip too broadly: a control in the same modal as the bar is still cleared', () => {
     render(
       <div role="dialog" aria-modal="true" aria-label="Wizard">
         <input aria-label="Serial" />
