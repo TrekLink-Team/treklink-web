@@ -281,9 +281,9 @@ Before the meeting (optional, to show escalation): as Admin (window D), sidebar 
 the field before anything is sent (for example "incidents.managerAckTimeoutSeconds must be between 30 and
 1800."), and **History** on the row shows
 "120 to 30, Demo Admin, Reason: demo" (treklink-web#216, `frontend/src/pages/ParametersPage.tsx:145-238`;
-walked on a fresh seed in its review). Do not click a row's **Changes** link unless the audit log page
-(treklink-web#217) is on the demo build; without it the link opens "You do not have access to this." The
-API remains the fallback: in Swagger (`/api/docs`), sign in with `POST /api/auth/login`, authorize, then
+walked on a fresh seed in its review). A row's **Changes** link opens the audit log filtered to that
+parameter (`/t/admin/audit/changes?action=parameter.&subjectId=<key>`, treklink-web#217), showing the
+`parameter.update` entry just saved. The API remains the fallback: in Swagger (`/api/docs`), sign in with `POST /api/auth/login`, authorize, then
 `PATCH /api/parameters/{key}` with `{ "value": 30, "expectedVersion": <current>, "reason": "demo" }`.
 Sources: `backend/src/modules/platform/parameters/parameters.controller.ts:26-38`,
 `parameter-update.dto.ts`, defaults and bounds `migration.sql:41-45`,
@@ -400,7 +400,7 @@ Say these before anyone asks. Each is a one-line answer.
 | Field Station offline view | The local page at `127.0.0.1:4321` is not built (gateway-sync 5.2) | "The offline page on the base laptop is planned in task 5.2; the queue it will show is already working." (`specs/gateway-sync/tasks.md:118-122`) |
 | Web Serial docking | Not built; Staff type the node number when registering a device (D-080, separate chain) | "Registration takes the node number by hand today; reading it from a docked device over Web Serial is decision D-080, not built yet." (`backend/src/modules/devices/intake.service.ts:38`, `specs/devices/tasks.md:54`) |
 | v2 USB console | Not found anywhere in this repository **(unverified: scope and owner unknown)** | "Configuring a v2 unit over its USB console is outside this release." Check the wording with the leader before Sunday. |
-| Pages not built | Hardware variants, System health, Reports, Accounts, Audit log, Stock-take, Loss cases (`built: false`) | "Those screens are designed and scheduled; the parameter change you saw is the Admin Parameters page, which records each change with its reason." (`frontend/src/shared/config/navigation.ts:77, 112-114, 136, 142-149`) |
+| Pages not built | Hardware variants, System health, Reports, Accounts, Sign-in events, Stock-take, Loss cases (`built: false`) | "Those screens are designed and scheduled; the parameter change you saw is the Admin Parameters page, and every change is in the audit log with its actor and reason." (`frontend/src/shared/config/navigation.ts:77, 112-114, 136, 142-149`) |
 | Device data | Positions, telemetry and SOS come from fixtures and the simulator synthesized from the firmware source, on placeholder node numbers | "The packets follow the firmware's wire format; captures from real v2 to v4 units replace them in gateway-sync 1.2." (`backend/test/fixtures/mqtt/README.md`, `specs/gateway-sync/tasks.md:26-27`, `seed-demo.ts:171-173`) |
 
 ---
