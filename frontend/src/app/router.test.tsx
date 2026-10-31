@@ -12,6 +12,7 @@ vi.mock('../pages/LiveMapPage', () => ({
   LiveMapPage: ({ scope }: { scope: string }) => <p>live map {scope}</p>,
 }));
 vi.mock('../pages/PlansPage', () => ({ PlansPage: () => <p>plans page</p> }));
+vi.mock('../pages/ParametersPage', () => ({ ParametersPage: () => <p>parameters page</p> }));
 vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
 vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
@@ -113,6 +114,21 @@ describe('route guards (AC-01)', () => {
   it('sends a signed-in user on /sign-in to the same-origin next path', () => {
     visit('/sign-in?next=%2Fo%2Finvoices', account(['ORG_MANAGER'], 'ORGANIZATION'));
     expect(screen.getByText('invoices page')).toBeTruthy();
+  });
+
+  it('gives the parameters page to an Admin only', () => {
+    visit('/t/admin/parameters', account(['ADMIN'], 'TREKLINK'));
+    expect(screen.getByText('parameters page')).toBeTruthy();
+    cleanup();
+    visit('/t/admin/parameters', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+    cleanup();
+    visit('/t/admin/parameters', account(['ORG_MANAGER'], 'ORGANIZATION'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+    cleanup();
+    act(() => useSession.getState().signOut());
+    visit('/t/admin/parameters', null);
+    expect(screen.getByText(/^sign-in \?next=%2Ft%2Fadmin%2Fparameters$/)).toBeTruthy();
   });
 
   it('lets an Admin reach /t/map', () => {
