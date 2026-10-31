@@ -241,7 +241,7 @@ flowchart TB
     P0 --> P1
     P2["Store the verification fields and the verifying Staff"]
     P1 --> P2
-    P3["Notify Admins"]
+    P3["On the first verification only, notify TrekLink Staff and Admin that the organization awaits approval"]
     P2 --> P3
     P4["Emit audit.record organization.verify"]
     P3 --> P4
