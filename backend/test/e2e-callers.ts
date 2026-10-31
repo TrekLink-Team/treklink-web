@@ -69,6 +69,8 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('fieldStation.read', 'read', 'FieldStation'),
     rule('fieldStation.revoke', 'revoke', 'FieldStation'),
     rule('complianceCase.manage', 'manage', 'ComplianceCase'),
+    // gateway-sync (api-design 03, 04 and 07)
+    rule('fieldEvent.read', 'read', 'FieldEvent'),
   ],
   // The Admin rows the price and damage-rate routes need (billing api-design 03 to 07).
   ADMIN: [
@@ -87,6 +89,8 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('fieldStation.read', 'read', 'FieldStation'),
     rule('fieldStation.revoke', 'revoke', 'FieldStation'),
     rule('complianceCase.manage', 'manage', 'ComplianceCase'),
+    // gateway-sync (api-design 03, 04 and 07)
+    rule('fieldEvent.read', 'read', 'FieldEvent'),
   ],
   ORG_MANAGER: [
     rule('contract.read.own', 'read', 'RentalContract', OWN),
