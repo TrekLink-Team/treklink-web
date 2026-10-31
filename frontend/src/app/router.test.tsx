@@ -17,6 +17,7 @@ vi.mock('../pages/AuditLogPage', () => ({ AuditLogPage: () => <p>audit log page<
 vi.mock('../pages/DeviceTelemetryPage', () => ({
   DeviceTelemetryPage: ({ scope }: { scope: string }) => <p>telemetry {scope}</p>,
 }));
+vi.mock('../pages/AuthEventsPage', () => ({ AuthEventsPage: () => <p>sign-in events page</p> }));
 vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
 vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
@@ -143,6 +144,12 @@ describe('route guards (AC-01)', () => {
     expect(screen.getByText('audit log page')).toBeTruthy();
     cleanup();
     visit('/t/admin/audit/changes', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+    cleanup();
+    visit('/t/admin/audit/sign-ins', account(['ADMIN'], 'TREKLINK'));
+    expect(screen.getByText('sign-in events page')).toBeTruthy();
+    cleanup();
+    visit('/t/admin/audit/sign-ins', account(['STAFF'], 'TREKLINK'));
     expect(screen.getByText('You do not have access to this.')).toBeTruthy();
     cleanup();
     act(() => useSession.getState().signOut());
