@@ -4,8 +4,8 @@ import { STAFF_NOTIFICATIONS, StaffNotifications } from '../platform/ports';
 import { LOSS_CASE_REPORTED, LossCaseReportedEvent } from './loss-cases.service';
 
 // After-commit notice of a loss case (task 2.7): TrekLink Staff on a report (REQ-EVT-13). The Managers
-// hear of an exposed key from organizations (KeyExposedNotifier, after markKeyExposed). A failed email is
-// logged and never rolls the case back; there is no retry queue.
+// hear of an exposed key through the KeyExposedNotifier of the organizations module, after
+// markKeyExposed. A failed email is logged and never rolls the case back; there is no retry queue.
 @Injectable()
 export class LossCaseNotificationsListener {
   private readonly logger = new Logger(LossCaseNotificationsListener.name);
