@@ -47,10 +47,10 @@ Change log tab:
 
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
-| Module filter (parameters) | platform 02 `GET /api/parameters?ownerModule&pageNumber&pageSize` | none | none |
+| Module filter (parameters) | platform 02 `GET /api/parameters?ownerModule&pageNumber&pageSize`; built as one read of the whole registry (`pageSize` 100, about sixty parameters) filtered in the client and kept in `?module=` | none | none |
 | Edit value (click the value cell: inline input with Save and Cancel) | platform 03 `PATCH /api/parameters/:key` with `value`, `expectedVersion`, optional `reason` | The inline row shows "Change {key} from {old} to {new}?" with the optional reason field; Save confirms | MSG03 toast, server message "Parameter updated"; effect noted as "Readers see it within the cache TTL" |
 | History (opens the right drawer) | platform 04 `GET /api/parameters/:key/history` | none | none |
-| Changes (row link) | navigation to `/t/admin/audit/changes?action=parameter.&subjectId=<key>`, the change log filtered to this parameter; the exact `subjectId` value the audit entry stores for a parameter is to confirm with the audit emitter (platform design emits `audit.record parameter.update`) | none | none |
+| Changes (row link) | navigation to `/t/admin/audit/changes?action=parameter.&subjectId=<key>`, the change log filtered to this parameter; confirmed against `ParameterService.update` (2026-10-31): the audit entry stores `action` `parameter.update`, `subjectType` `BusinessParameter` and `subjectId` equal to the parameter key, so this link is exact | none | none |
 | Change-log filters: actor, organization, subject type, subject id, action prefix, from, to (organization options from organizations 02 `GET /api/organizations`, `items[].id`, `legalName`) | platform 05 `GET /api/audit-logs?actorId&organizationId&subjectType&subjectId&action&from&to&pageNumber&pageSize` | none | none |
 | Row: expand before and after | none (data already loaded) | none | none |
 

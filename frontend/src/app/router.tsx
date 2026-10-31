@@ -23,6 +23,7 @@ import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { LiveMapPage } from '../pages/LiveMapPage';
 import { MaintenanceApprovalPage, MaintenancePage } from '../pages/MaintenancePage';
 import { PaymentPage } from '../pages/PaymentPage';
+import { ParametersPage } from '../pages/ParametersPage';
 import { PricesPage } from '../pages/PricesPage';
 import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
@@ -131,6 +132,7 @@ export const AppRoutes: React.FC = () => (
       </Route>
       <Route element={<RequireRole roles={ADMIN} />}>
         <Route path="/t/admin/prices" element={<PricesPage />} />
+        <Route path="/t/admin/parameters" element={<ParametersPage />} />
       </Route>
     </Route>
     {DesignSystemPage && (
