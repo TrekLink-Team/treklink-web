@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { AccountsService } from '../auth';
 import { KeyExposedNotifier } from './key-exposed.notifier';
 import { MembersRepository } from './members.repository';
@@ -74,9 +75,25 @@ describe('KeyExposedNotifier (REQ-EVT-13, AC-11)', () => {
     expect(mail.send).not.toHaveBeenCalled();
   });
 
-  it('sends nothing without a mail transport', async () => {
+  it('sends nothing without a mail transport, and logs that nobody was told', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
     await expect(build(false).onKeyExposed(EVENT)).resolves.toBeUndefined();
+
     expect(mail.send).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('No mail transport'));
+    warn.mockRestore();
+  });
+
+  it('logs when the contact address fallback sends nothing', async () => {
+    accounts.contactCard.mockResolvedValue([]);
+    organizations.emailContact.mockResolvedValue(false);
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+    await notifier.onKeyExposed(EVENT);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Nobody was emailed'));
+    warn.mockRestore();
   });
 
   it('carries on with the next Manager when one send fails, and never throws', async () => {

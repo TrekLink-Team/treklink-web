@@ -224,7 +224,7 @@ flowchart TB
     P0 --> P1
     P2["Set custody and contractDeviceId"]
     P1 --> P2
-    P3["Renter custody: organizations.markKeyExposed(orgId)"]
+    P3["Renter custody: ChannelKeyService.markKeyExposed(orgId, at, actor, tx)"]
     P2 --> P3
     P4["Suspected theft: organizations.openOrLinkComplianceCase"]
     P3 --> P4
@@ -245,11 +245,11 @@ sequenceDiagram
     participant Svc as LossCaseService
     participant DB as Postgres
     participant Rt as RentalsService
-    participant Org as OrganizationsService
+    participant Org as ChannelKeyService
     C->>Ctl: POST /api/loss-cases/:id/triage
     Ctl->>Svc: triage(id, dto, actor)
     Svc->>Rt: custodyAt(deviceId, lastSeenAt)
-    Svc->>Org: markKeyExposed(orgId)
+    Svc->>Org: markKeyExposed(orgId, at, actor, tx)
     Svc->>DB: UPDATE loss_cases SEARCHING
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
