@@ -24,6 +24,8 @@ export {
 } from './ports/counts.port';
 export { API_KEY_REVOKED, type ApiKeyRevokedEvent } from './api-key-events';
 export { FIELD_STATION_REVOKED, type FieldStationRevokedEvent } from './field-station-events';
+export { ChannelKeyService } from './channel-key.service';
+export { ORGANIZATION_KEY_EXPOSED, type OrganizationKeyExposedEvent } from './organization-events';
 export { FieldStationsService } from './field-stations.service';
 export type { StationView } from './field-stations.service';
 export type {
