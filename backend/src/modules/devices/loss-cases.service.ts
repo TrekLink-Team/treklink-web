@@ -197,7 +197,7 @@ export class LossCaseService {
     const row = await this.events.transaction(async (tx) => {
       const unit = await this.devices.findDetail(deviceId, tx);
       if (!unit) throw notFound('Device');
-      const holder = await this.custody.custodyAt(deviceId, at);
+      const holder = await this.custody.custodyAt(deviceId, at, tx);
       if (caller.organizationId !== null && holder?.organizationId !== caller.organizationId) {
         throw notFound('Device');
       }
@@ -284,7 +284,7 @@ export class LossCaseService {
       if (current.state !== LossCaseState.REPORTED) throw wrongState(current.state);
       if (current.version !== dto.expectedVersion) throw staleVersion();
 
-      const interval = await this.custodyOf(current);
+      const interval = await this.custodyOf(current, tx);
       const custody = interval ? LossCustody.RENTER : LossCustody.TREKLINK;
       const policeReference = dto.policeReference?.trim() || null;
       // REQ-EVT-14: in the triage transaction; organizations tells the Managers after commit.
@@ -572,11 +572,14 @@ export class LossCaseService {
   // the last seen time, checked against the report time. When that rental was already returned at the
   // report time (a unit lost after check-in, last heard while still out), the custody at the report
   // time counts instead: another rental's interval, or none, which is TREKLINK custody. A unit never
-  // heard is read at the report time alone.
-  private async custodyOf(current: LossCaseRow): Promise<CustodyInterval | null> {
-    const atReport = await this.custody.custodyAt(current.deviceId, current.reportedAt);
+  // heard is read at the report time alone. Both reads run in the triage transaction `tx`.
+  private async custodyOf(
+    current: LossCaseRow,
+    tx: Prisma.TransactionClient,
+  ): Promise<CustodyInterval | null> {
+    const atReport = await this.custody.custodyAt(current.deviceId, current.reportedAt, tx);
     if (current.lastSeenAt === null) return atReport;
-    const atLastSeen = await this.custody.custodyAt(current.deviceId, current.lastSeenAt);
+    const atLastSeen = await this.custody.custodyAt(current.deviceId, current.lastSeenAt, tx);
     if (atLastSeen === null) return null;
     return atReport?.contractDeviceId === atLastSeen.contractDeviceId ? atLastSeen : atReport;
   }

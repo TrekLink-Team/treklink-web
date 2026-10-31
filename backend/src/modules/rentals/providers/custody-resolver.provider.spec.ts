@@ -4,6 +4,7 @@ import { RentalsCustodyResolver } from './custody-resolver.provider';
 
 const HANDOVER = new Date('2026-10-20T02:00:00.000Z');
 const LAST_SEEN = new Date('2026-10-21T02:00:00.000Z');
+const tx = { tx: true } as never;
 
 const custody = (overrides: Partial<CustodyRow> = {}): CustodyRow => ({
   id: 'cd-1',
@@ -23,20 +24,20 @@ describe('RentalsCustodyResolver (CUSTODY_RESOLVER, rentals task 1.3, D-045)', (
     resolver = new RentalsCustodyResolver({ findCustody } as unknown as ContractsRepository);
   });
 
-  it('answers the interval holding the device at the time, whatever the contract state', async () => {
-    await expect(resolver.custodyAt('dev-1', LAST_SEEN)).resolves.toEqual({
+  it('answers the interval holding the device at the time, read in the caller transaction', async () => {
+    await expect(resolver.custodyAt('dev-1', LAST_SEEN, tx)).resolves.toEqual({
       contractId: 'c-1',
       organizationId: 'org-1',
       contractDeviceId: 'cd-1',
     });
-    expect(findCustody).toHaveBeenCalledWith('dev-1', LAST_SEEN);
+    expect(findCustody).toHaveBeenCalledWith('dev-1', LAST_SEEN, tx);
   });
 
   it('answers none when no interval contains the time, or the row was never handed over', async () => {
     findCustody.mockResolvedValueOnce(null);
-    await expect(resolver.custodyAt('dev-1', LAST_SEEN)).resolves.toBeNull();
+    await expect(resolver.custodyAt('dev-1', LAST_SEEN, tx)).resolves.toBeNull();
 
     findCustody.mockResolvedValueOnce(custody({ handedOverAt: null }));
-    await expect(resolver.custodyAt('dev-1', LAST_SEEN)).resolves.toBeNull();
+    await expect(resolver.custodyAt('dev-1', LAST_SEEN, tx)).resolves.toBeNull();
   });
 });
