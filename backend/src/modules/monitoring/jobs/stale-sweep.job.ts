@@ -116,9 +116,7 @@ export class StaleSweepJob {
     // A mark whose device no longer exists has nobody to tell.
     for (const mark of marks)
       if (!seen.has(mark.subjectId))
-        await this.guard(StaleSubject.DEVICE, mark.subjectId, () =>
-          this.drop(StaleSubject.DEVICE, mark),
-        );
+        await this.guard(StaleSubject.DEVICE, mark.subjectId, () => this.releaseDevice(mark, null));
     return changes;
   }
 
@@ -132,16 +130,19 @@ export class StaleSweepJob {
     at: Date,
   ): Promise<Change | null> {
     if (lastSeenAt === null) {
-      // Never heard, or reset: never stale, and a mark has no later reading to recover with.
-      if (mark) await this.drop(StaleSubject.DEVICE, mark);
-      return null;
-    }
-    if (mark && organizationId !== undefined && mark.organizationId !== organizationId) {
-      // Handed to another organization while stale: the previous one hears nothing more.
-      await this.drop(StaleSubject.DEVICE, mark);
-      mark = undefined;
+      // Never heard, or reset: never stale, and a mark has no later reading to recover with. The
+      // incident flag goes with the mark.
+      return mark ? this.releaseDevice(mark, null) : null;
     }
     const stale = lastSeenAt.getTime() < staleBefore;
+    if (mark && organizationId !== undefined && mark.organizationId !== organizationId) {
+      // Handed to another organization while stale: the previous one hears nothing more. A device
+      // still silent keeps its incident flag and is marked again below for the new holder; one heard
+      // since loses the flag with the mark.
+      if (stale) await this.drop(StaleSubject.DEVICE, mark);
+      else await this.releaseDevice(mark, lastSeenAt);
+      mark = undefined;
+    }
     if (mark) {
       if (stale) return this.keepFlag(deviceId, lastSeenAt);
       const heardAgain = lastSeenAt.getTime() > mark.lastSeenAt.getTime();
@@ -274,6 +275,17 @@ export class StaleSweepJob {
         lastSyncAt: lastSyncAt.toISOString(),
       } satisfies StationStaleChangedEvent);
       return stale ? 'stale' : 'recovered';
+    });
+  }
+
+  // Removes a device mark without an entry, like `drop`, and clears the incident flag in the same
+  // transaction (REQ-EVT-12), so "Device silent" does not outlive the mark. Only the run that deletes
+  // the mark clears the flag.
+  private releaseDevice(mark: StaleMarkRow, lastSeenAt: Date | null): Promise<null> {
+    return this.events.transaction(async (tx) => {
+      if (await this.marks.clear(StaleSubject.DEVICE, mark.subjectId, tx, mark.organizationId))
+        await this.incidents.markDeviceStale(mark.subjectId, false, lastSeenAt, tx);
+      return null;
     });
   }
 

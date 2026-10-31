@@ -364,6 +364,58 @@ describe('StaleSweepJob', () => {
       expect(emitted).toEqual([]);
     });
 
+    it('clears it with the mark of a device reset to never heard', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      rent('d1', ORG_A, null);
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 0, recovered: 0 });
+      expect(incidents.markDeviceStale).toHaveBeenLastCalledWith('d1', false, null, TX);
+      expect(marks.clear).toHaveBeenLastCalledWith(StaleSubject.DEVICE, 'd1', TX, ORG_A);
+      expect(deviceEvents()).toHaveLength(1);
+    });
+
+    it('clears it with the mark of a device that no longer exists', async () => {
+      marks.rows.set('DEVICE:gone', {
+        subjectType: StaleSubject.DEVICE,
+        subjectId: 'gone',
+        organizationId: ORG_A,
+        lastSeenAt: ago(900),
+        markedAt: ago(600),
+      });
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).toHaveBeenCalledWith('gone', false, null, TX);
+    });
+
+    it('clears it for a device handed over after it was heard again', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      rent('d1', ORG_B, ago(2));
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 0, recovered: 0 });
+      expect(incidents.markDeviceStale).toHaveBeenLastCalledWith('d1', false, ago(2), TX);
+      expect(marks.rows.size).toBe(0);
+      expect(deviceEvents()).toHaveLength(1);
+    });
+
+    it('keeps it for a device handed over while still stale, never clearing it in between', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      rent('d1', ORG_B, ago(400));
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale.mock.calls).toEqual([
+        ['d1', true, ago(400), TX],
+        ['d1', true, ago(400), TX],
+      ]);
+    });
+
+    it('leaves the flag to the run that deleted the mark', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      rent('d1', ORG_A, null);
+      marks.clear.mockResolvedValueOnce(false);
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).toHaveBeenCalledTimes(1);
+    });
+
     it('leaves incidents alone for a Field Station', async () => {
       stations = [{ id: 's1', organizationId: ORG_A, name: 'Station 1', lastSyncAt: ago(900) }];
       await job.sweep(NOW);
