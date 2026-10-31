@@ -19,6 +19,7 @@ erDiagram
     INCIDENT_TRANSITION ||--o{ ALERT_DELIVERY : "causes"
     INCIDENT |o--o{ AUTHORITY_REPORT : "reported"
     INCIDENT ||--o{ FIELD_EVENT : "episode"
+    INCIDENT_STATUS_UPDATE |o--o| INCIDENT_STATUS_UPDATE : "corrects"
     INCIDENT {
         uuid id PK
         enum state
@@ -28,10 +29,19 @@ erDiagram
         datetime reopenWindowEndsAt
         int version
     }
+    INCIDENT_STATUS_UPDATE {
+        uuid id PK
+        uuid incidentId FK
+        uuid authorId FK
+        text note
+        datetime createdAt
+        uuid correctsId FK, UK
+    }
 ```
 
 ***Figure 1***: incidents slice. Routing (`contractId`, `organizationId`) is fixed at creation and redone
-only on reopen.
+only on reopen. The `corrects` self relation is `correctsId` (REQ-EVT-14): a status update corrects at most
+one earlier update and is corrected at most once.
 
 `incident_status_updates` is append-only (a trigger refuses UPDATE and DELETE). A wrong status update is
 corrected by a new row whose nullable `correctsId` names it; the corrected row is never edited. `correctsId`
@@ -333,6 +343,7 @@ classDiagram
         +compareAndSet(current, patch, tx) Incident
         +insertTransition(row, tx) IncidentTransition
         +insertStatusUpdate(row, tx) IncidentStatusUpdate
+        +findStatusUpdateForCorrection(id, tx) #123; id, incidentId, correctedBy #125; | null
         +resetStatusDue(id, statusDueAt, tx)
         +dueTimers(states, column, now, limit) DueIncident[]
         +latestAcknowledgement(id) IncidentTransition
@@ -538,11 +549,16 @@ sequenceDiagram
     participant S as IncidentsService
     participant L as IncidentLifecycle
     participant R as IncidentsRepository
-    Op->>P: post a status update
+    Op->>P: post a status update, or correct an earlier one
     P->>C: POST /api/incidents/{id}/status-updates
     C->>S: addStatus(id, input, caller)
     S->>R: lockById(id, tx)
     R-->>S: incident
+    opt correctsId is set
+        S->>R: findStatusUpdateForCorrection(correctsId, tx)
+        R-->>S: { id, incidentId, correctedBy } or null
+        S->>S: correctable(target): this incident, not corrected
+    end
     S->>R: insertStatusUpdate(row, tx)
     S->>R: resetStatusDue(id, statusDueAt, tx)
     S->>R: COMMIT, then incident.changed and audit.record
@@ -573,9 +589,12 @@ sequenceDiagram
     end
 ```
 
-***Figure 9***: UC-33 Report Incident Status, ending in `RESOLVED`. Not drawn here: 400 for a blank note,
-403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_VERSION and 409 INVALID_STATE_TRANSITION, which api-design 05 and 06
-carry.
+***Figure 9***: UC-33 Report Incident Status, ending in `RESOLVED`. A correction is a status update whose
+`correctsId` names the earlier one; the earlier row is never edited (REQ-EVT-14). The repository returns
+the selection or null, and `IncidentsService.correctable` checks it. Not drawn here: 400 for a blank note
+or a `correctsId` that names no status update or one of another incident, 403 FORBIDDEN, 404 NOT_FOUND,
+409 STALE_VERSION, 409 INVALID_STATE_TRANSITION and 409 CONFLICT_UNIQUE for an update already corrected,
+which api-design 05 and 06 carry.
 
 <!-- sdd: MF-03 seq UC-35 -->
 ```mermaid
