@@ -278,7 +278,12 @@ export const EditAccountDialog: React.FC<
             {...invalid('edit-name', errors.fullName)}
           />
         </Field>
-        <Field id="edit-phone" label="Phone" error={errors.phoneNumber}>
+        <Field
+          id="edit-phone"
+          label="Phone"
+          hint="A phone number can be changed but not removed: an empty field keeps the current one."
+          error={errors.phoneNumber}
+        >
           <Input
             id="edit-phone"
             type="tel"

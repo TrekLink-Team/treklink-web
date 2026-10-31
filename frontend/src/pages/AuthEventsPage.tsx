@@ -19,6 +19,7 @@ import {
 import { useOrganizations, type OrganizationReview } from '../entities/organization/api';
 import { AccountPicker } from '../features/account-picker/AccountPicker';
 import { ApiError } from '../shared/api/apiClient';
+import { formatUtc } from '../shared/lib/format';
 import {
   Alert,
   Badge,
@@ -46,18 +47,6 @@ const withSeconds = (iso: string): string =>
     minute: '2-digit',
     second: '2-digit',
   });
-
-// The instant in UTC for a hover: `createdAt` is already an ISO 8601 UTC string.
-const utcText = (iso: string): string =>
-  `${new Date(iso).toLocaleString('en-GB', {
-    timeZone: 'UTC',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })} UTC`;
 
 const pageOf = (params: URLSearchParams): number => {
   const page = Number(params.get('page'));
@@ -218,7 +207,7 @@ export const AuthEventsPage: React.FC = () => {
     {
       key: 'time',
       header: 'Time',
-      cell: (row) => <span title={utcText(row.createdAt)}>{withSeconds(row.createdAt)}</span>,
+      cell: (row) => <span title={formatUtc(row.createdAt)}>{withSeconds(row.createdAt)}</span>,
     },
     { key: 'type', header: 'Event', cell: (row) => <EventBadge type={row.type} /> },
     { key: 'email', header: 'Email', cell: (row) => row.email ?? '–' },

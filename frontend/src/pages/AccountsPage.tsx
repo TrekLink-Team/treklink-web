@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import {
@@ -37,6 +38,31 @@ type Action = { kind: 'edit' | 'deactivate' | 'reactivate' | 'reset'; account: A
 
 const SEARCH_DELAY_MS = 300;
 
+type StatusFilter = '' | 'true' | 'false';
+
+// The filters and the page live in the URL, `?q=&isActive=&page=`, as on screens 7.3 and 7.4, so a
+// reload or a shared link opens the same list.
+const statusOf = (params: URLSearchParams): StatusFilter => {
+  const value = params.get('isActive');
+  return value === 'true' || value === 'false' ? value : '';
+};
+const pageOf = (params: URLSearchParams): number => {
+  const page = Number(params.get('page'));
+  return Number.isInteger(page) && page >= 1 ? page : 1;
+};
+const nameCellId = (id: string) => `account-name-${id}`;
+
+// A change of the URL query, where `undefined` removes the key.
+type Changes = Record<string, string | undefined>;
+const withChanges = (current: URLSearchParams, changes: Changes): URLSearchParams => {
+  const next = new URLSearchParams(current);
+  for (const [key, value] of Object.entries(changes)) {
+    if (value) next.set(key, value);
+    else next.delete(key);
+  }
+  return next;
+};
+
 const StatusOf: React.FC<{ account: AccountItem }> = ({ account }) =>
   account.isActive ? <Badge tone="done">ACTIVE</Badge> : <Badge tone="ended">DEACTIVATED</Badge>;
 
@@ -60,31 +86,62 @@ export const AccountsPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
-  const [search, setSearch] = useState('');
-  const [q, setQ] = useState('');
-  const [status, setStatus] = useState<'' | 'true' | 'false'>('');
-  const [pageNumber, setPageNumber] = useState(1);
+  const [params, setParams] = useSearchParams();
+  const q = params.get('q')?.trim() ?? '';
+  const status = statusOf(params);
+  const pageNumber = pageOf(params);
+  // The search box text; the URL takes it once typing pauses.
+  const [search, setSearch] = useState(q);
   const [creating, setCreating] = useState(false);
+  // The account just created, whose name cell takes focus once its row is on screen (screen 7.1).
+  const createdId = useRef<string | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   // The phone card whose Actions menu is open (screen 7.1, 360 px layout).
   const [openCard, setOpenCard] = useState<string | null>(null);
 
+  // One change of the URL query: `undefined` removes a key. A new filter starts again on page 1.
+  const update = (changes: Changes, options?: { replace?: boolean }) =>
+    setParams((current) => withChanges(current, changes), options);
+
+  // A search typed into the box reaches the URL after a pause, replacing the entry, so Back does not
+  // step through every keystroke. Nothing is written while the box already matches the URL.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setQ(search.trim());
-      setPageNumber(1);
-    }, SEARCH_DELAY_MS);
+    const typed = search.trim();
+    if (typed === q) return;
+    const timer = setTimeout(
+      () =>
+        setParams((current) => withChanges(current, { q: typed || undefined, page: undefined }), {
+          replace: true,
+        }),
+      SEARCH_DELAY_MS,
+    );
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, q, setParams]);
+
+  // Back, Forward or a link can change `q` under the box; the box then shows it (state adjusted during
+  // render, as React advises for state derived from a changed value).
+  const [shownQ, setShownQ] = useState(q);
+  if (shownQ !== q) {
+    setShownQ(q);
+    if (search.trim() !== q) setSearch(q);
+  }
 
   const filters = useMemo<AccountFilters>(
     () => ({ q: q || undefined, isActive: status === '' ? undefined : status === 'true' }),
     [q, status],
   );
-  const accounts = useAccounts(filters, pageNumber);
+  const accounts = useAccounts(filters, pageNumber, { pageSize: ACCOUNT_PAGE_SIZE });
   // Every active account, to know whether one Admin is the last (the server still decides).
   const active = useAccounts({ isActive: true }, 1, { pageSize: 100 });
   const lastAdmin = lastActiveAdminId(active.data);
+
+  // After a create, focus moves to the new row's name cell as soon as the reloaded list shows it.
+  useEffect(() => {
+    const id = createdId.current;
+    if (!id || !accounts.data?.items.some((row) => row.id === id)) return;
+    document.getElementById(nameCellId(id))?.focus();
+    createdId.current = null;
+  }, [accounts.data]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: accountKeys.all });
   const close = () => setAction(null);
@@ -111,12 +168,12 @@ export const AccountsPage: React.FC = () => {
   const rowActions = (account: AccountItem) => {
     const name = account.fullName;
     const isLastAdmin = account.id === lastAdmin;
-    const button = (label: string, kind: Action['kind'], disabled = false) => (
+    const button = (label: string, kind: Action['kind'], disabled = false, spoken = `${label} ${name}`) => (
       <Button
         variant="ghost"
         size="sm"
         className="min-h-11"
-        aria-label={`${label} ${name}`}
+        aria-label={spoken}
         disabled={disabled}
         onClick={() => setAction({ kind, account })}
       >
@@ -128,9 +185,8 @@ export const AccountsPage: React.FC = () => {
         {account.isActive ? (
           <>
             {button('Edit', 'edit')}
-            {button('Send reset code to', 'reset')}
+            {button('Send reset code', 'reset', false, `Send reset code to ${name}`)}
             {button('Deactivate', 'deactivate', isLastAdmin)}
-            {isLastAdmin && <span className="text-body-sm text-ink-muted">Last active Admin</span>}
           </>
         ) : (
           button('Reactivate', 'reactivate')
@@ -139,14 +195,18 @@ export const AccountsPage: React.FC = () => {
     );
   };
 
+  // Screen 7.1: the "Last active Admin" line sits under the name, beside the disabled Deactivate.
   const nameCell = (account: AccountItem) => (
-    <span className="flex flex-col py-1.5">
+    <span id={nameCellId(account.id)} tabIndex={-1} className="flex flex-col py-1.5">
       <span className="font-semibold">
         {account.fullName}
         {account.id === user?.id && <span className="font-normal text-ink-muted"> (you)</span>}
       </span>
       <span className="text-body-sm text-ink-muted">{account.email}</span>
       <span className="text-body-sm text-ink-muted">{account.phoneNumber ?? 'None'}</span>
+      {account.id === lastAdmin && (
+        <span className="text-body-sm font-semibold text-ink-muted">Last active Admin</span>
+      )}
     </span>
   );
 
@@ -203,10 +263,9 @@ export const AccountsPage: React.FC = () => {
           <Select
             aria-label="Status"
             value={status}
-            onChange={(event) => {
-              setStatus(event.target.value as '' | 'true' | 'false');
-              setPageNumber(1);
-            }}
+            onChange={(event) =>
+              update({ isActive: event.target.value || undefined, page: undefined })
+            }
           >
             <option value="">All accounts</option>
             <option value="true">Active</option>
@@ -234,7 +293,7 @@ export const AccountsPage: React.FC = () => {
               variant="secondary"
               onClick={() => {
                 setSearch('');
-                setStatus('');
+                setParams(new URLSearchParams());
               }}
             >
               Clear filters
@@ -275,7 +334,7 @@ export const AccountsPage: React.FC = () => {
               totalPages={data.totalPages}
               totalItems={data.totalCount}
               pageSize={ACCOUNT_PAGE_SIZE}
-              onPage={setPageNumber}
+              onPage={(page) => update({ page: page > 1 ? String(page) : undefined })}
             />
           ) : undefined
         }
@@ -284,9 +343,13 @@ export const AccountsPage: React.FC = () => {
       {creating && (
         <NewAccountDialog
           onClose={() => setCreating(false)}
-          onCreated={() => {
+          onCreated={(created) => {
             setCreating(false);
             showToast('Account created, invitation sent');
+            // The list is newest first, so with no filter the new account heads page 1.
+            setSearch('');
+            setParams(new URLSearchParams());
+            createdId.current = created.id;
             void refresh();
           }}
         />
