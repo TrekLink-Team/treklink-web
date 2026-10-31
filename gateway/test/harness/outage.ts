@@ -63,7 +63,12 @@ async function runTrial(
     maxRows: options.maxRows,
     logger: { warn: () => undefined, error: (line) => options.log(`  queue: ${line}`) },
   });
-  const station = new GatewayMqttClient(uplink.url, queue, { reconnectPeriodMs: options.reconnectMs });
+  const station = new GatewayMqttClient(
+    uplink.url,
+    queue,
+    { username: '', secret: '' },
+    { reconnectPeriodMs: options.reconnectMs },
+  );
   const events = new Map<string, EventRecord>();
   let arrivals = 0;
   let duplicates = 0;
