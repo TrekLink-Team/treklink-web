@@ -19,10 +19,12 @@ import { validationExceptionFactory } from '../../common/pipes/validation-except
 import {
   GATEWAY_SYNC_OPS,
   GatewaySyncOp,
+  ListAuditDto,
   ListEventsDto,
   SyncStatusDto,
 } from './dto/gateway-sync-ops.dto';
 import { FieldEventQueryService, FieldEventView } from './field-event-query.service';
+import { SyncAuditService, SyncAuditView } from './sync-audit.service';
 import { SyncStatusService, SyncStatusView } from './sync-status.service';
 
 // The same options as the global pipe (app.setup.ts); the body is validated per operation, because the
@@ -40,15 +42,17 @@ const isOp = (value: unknown): value is GatewaySyncOp =>
 const forbidden = () =>
   new DomainException(HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN, 'You do not have access to this.');
 
-// `POST /api/gateway-sync`, the D-027 operation endpoint (task 4.1). Both operations built so far are
-// reads for TrekLink Staff and Admin: `listEvents` needs `read FieldEvent` (`fieldEvent.read`, api-design
-// 03); `syncStatus` needs that and `read FieldStation` (`fieldStation.read`, api-design 07). An
-// organization role holds neither, and an API key is refused by the route policy.
+// `POST /api/gateway-sync`, the D-027 operation endpoint (task 4.1). The three operations built so far
+// are reads for TrekLink Staff and Admin: `listEvents` and `listAudit` need `read FieldEvent`
+// (`fieldEvent.read`, api-design 03 and 04); `syncStatus` needs that and `read FieldStation`
+// (`fieldStation.read`, api-design 07). An organization role holds neither, and an API key is refused
+// by the route policy.
 @Controller('gateway-sync')
 export class GatewaySyncController {
   constructor(
     private readonly events: FieldEventQueryService,
     private readonly status: SyncStatusService,
+    private readonly audit: SyncAuditService,
   ) {}
 
   @Post()
@@ -58,7 +62,7 @@ export class GatewaySyncController {
   async dispatch(
     @Body() body: unknown,
     @CurrentAbility() ability: PolicyAbility,
-  ): Promise<PagedResult<FieldEventView> | SyncStatusView> {
+  ): Promise<PagedResult<FieldEventView> | PagedResult<SyncAuditView> | SyncStatusView> {
     const op =
       typeof body === 'object' && body !== null ? (body as { op?: unknown }).op : undefined;
     if (!isOp(op)) {
@@ -70,6 +74,9 @@ export class GatewaySyncController {
     }
     if (op === 'listEvents') {
       return this.events.listEvents(await this.parse(ListEventsDto, body));
+    }
+    if (op === 'listAudit') {
+      return this.audit.listAudit(await this.parse(ListAuditDto, body));
     }
     if (!ability.can('read', 'FieldStation')) throw forbidden();
     return this.status.status(await this.parse(SyncStatusDto, body));

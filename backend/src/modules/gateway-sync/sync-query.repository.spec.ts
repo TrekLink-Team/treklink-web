@@ -1,11 +1,11 @@
 import { SyncOutcome } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { FIELD_EVENT_ROW, SyncQueryRepository } from './sync-query.repository';
+import { FIELD_EVENT_ROW, SYNC_AUDIT_ROW, SyncQueryRepository } from './sync-query.repository';
 
 describe('SyncQueryRepository', () => {
   const prisma = {
     fieldEvent: { findMany: jest.fn(), count: jest.fn(), findFirst: jest.fn() },
-    syncAuditLog: { groupBy: jest.fn() },
+    syncAuditLog: { groupBy: jest.fn(), findMany: jest.fn(), count: jest.fn() },
   };
   const repository = new SyncQueryRepository(prisma as unknown as PrismaService);
 
@@ -26,6 +26,21 @@ describe('SyncQueryRepository', () => {
       select: FIELD_EVENT_ROW,
     });
     expect(prisma.fieldEvent.count).toHaveBeenCalledWith({ where: { deviceId: 'd-1' } });
+  });
+
+  it('pages sync audit rows newest first, id breaking a tie, and counts the filter', async () => {
+    prisma.syncAuditLog.findMany.mockResolvedValue([{ id: 'sa-1' }]);
+    prisma.syncAuditLog.count.mockResolvedValue(7);
+    const where = { outcome: { in: [SyncOutcome.MALFORMED_ENVELOPE] } };
+    await expect(repository.pageAudit(where, 0, 20)).resolves.toEqual([[{ id: 'sa-1' }], 7]);
+    expect(prisma.syncAuditLog.findMany).toHaveBeenCalledWith({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 0,
+      take: 20,
+      select: SYNC_AUDIT_ROW,
+    });
+    expect(prisma.syncAuditLog.count).toHaveBeenCalledWith({ where });
   });
 
   it('counts audit outcomes since a time', async () => {

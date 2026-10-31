@@ -7,14 +7,14 @@
 ---
 ## Overview
 
-Searches the append-only synchronization audit: one row per ingestion attempt with its outcome (FR-EVT-11). This is the evidence base for the delivery, duplicate and ordering experiments.
+Searches the append-only synchronization audit: one row per ingestion attempt with its outcome (FR-EVT-11), newest first (`createdAt`, then `id`). This is the evidence base for the delivery, duplicate and ordering experiments, and the audit list of the Field data sync page. Needs `read FieldEvent` (`fieldEvent.read`), as `listEvents` does (2026-11-01, KhoaDD under D-078; it read TrekLink Admin before). `rawExcerpt` is the stored raw payload of a `MALFORMED_ENVELOPE` row, its text or its JSON serialized, cut to the first 500 characters with `rawTruncated` true when longer; it is null for every other outcome. `assetTag` is the device's, null when the row names no device.
 
 ## API Specification
 
 | API | URL |
 | --- | --- |
 | POST | /api/gateway-sync |
-| Permission | TrekLink Admin |
+| Permission | TrekLink Staff, TrekLink Admin |
 | Operation | `op: "listAudit"` (D-027) |
 | Traces | UC-42, FR-EVT-05, FR-EVT-11, NFR-REL-03 |
 
@@ -36,11 +36,11 @@ Searches the append-only synchronization audit: one row per ingestion attempt wi
 | op | Literal `listAudit` | string | yes | `listAudit` |
 | outcome | SyncOutcome values | enum[] | no | `["DUPLICATE_REJECTED"]` |
 | deviceId | Device | uuid | no | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
-| uplinkKey | Node id or station username | string | no | `fs-org-0007-1` |
-| from | Lower bound | datetime | no | `...` |
-| to | Upper bound | datetime | no | `...` |
+| uplinkKey | Node id or station username, at most 64 characters | string | no | `fs-org-0007-1` |
+| from | Lower bound of `createdAt`, inclusive | datetime | no | `...` |
+| to | Upper bound of `createdAt`, inclusive | datetime | no | `...` |
 | pageNumber | 1-based | int | no | `1` |
-| pageSize | Default 100 | int | no | `100` |
+| pageSize | Default 100, at most 500 | int | no | `100` |
 
 ## Response sample
 
@@ -53,10 +53,13 @@ Searches the append-only synchronization audit: one row per ingestion attempt wi
         "eventId": "5d41...",
         "nodeNum": 2763113171,
         "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+        "assetTag": "TL-0009",
         "uplinkKey": "fs-org-0007-1",
         "ingress": "FIELD_STATION",
         "outcome": "DUPLICATE_REJECTED",
         "detail": null,
+        "rawExcerpt": null,
+        "rawTruncated": false,
         "createdAt": "2026-10-20T03:15:00.000Z"
       }
     ],
@@ -148,8 +151,10 @@ flowchart TB
     D1 -->|no| P0
     P1["Read sync_audit_log"]
     P0 --> P1
+    P2["Cut the raw payload of a malformed row"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -164,7 +169,7 @@ sequenceDiagram
     participant DB as Postgres
     C->>Ctl: POST /api/gateway-sync
     Ctl->>Svc: listAudit(dto)
-    Svc->>DB: SELECT sync_audit_log
+    Svc->>DB: SELECT sync_audit_log ORDER BY createdAt DESC
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

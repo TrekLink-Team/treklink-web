@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-MF-02 end to end for TrekLink Staff and Admin: the backend's MQTT subscriber connection, every Field Station that is not revoked with its connection state, queue depth per priority (D-057 rule 9), last sync, last flush and version, and the window's ingestion outcomes from the sync audit (FR-EVT-13, FR-EVT-18). Needs `read FieldEvent` and `read FieldStation`.
+MF-02 end to end for TrekLink Staff and Admin: the backend's MQTT subscriber connection, every Field Station that is not revoked with its connection state, queue depth per priority (D-057 rule 9), last sync, last flush and version, and the window's ingestion outcomes from the sync audit (FR-EVT-13, FR-EVT-18): `accepted` (`ACCEPTED`), `acceptedUnattributed` (`ACCEPTED_UNATTRIBUTED`, REQ-ERR-06), `duplicates` (`DUPLICATE_REJECTED`), `malformed` (`MALFORMED_ENVELOPE`, REQ-ERR-01), `normalizationFailed` (`NORMALIZATION_FAILED`, REQ-ERR-05) and `unknownDevice` (`UNKNOWN_DEVICE`), each 0 when the window holds none. Needs `read FieldEvent` and `read FieldStation`.
 
 ## API Specification
 
@@ -70,6 +70,7 @@ MF-02 end to end for TrekLink Staff and Admin: the backend's MQTT subscriber con
       "acceptedUnattributed": 1,
       "duplicates": 10,
       "malformed": 0,
+      "normalizationFailed": 0,
       "unknownDevice": 2,
       "lastReceivedAt": "2026-10-20T03:15:00.000Z"
     }

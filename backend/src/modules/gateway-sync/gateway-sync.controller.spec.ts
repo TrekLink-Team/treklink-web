@@ -1,8 +1,9 @@
 import { HttpStatus } from '@nestjs/common';
 import { ErrorCode } from '../../common/errors';
-import { ListEventsDto } from './dto/gateway-sync-ops.dto';
+import { ListAuditDto, ListEventsDto } from './dto/gateway-sync-ops.dto';
 import { FieldEventQueryService } from './field-event-query.service';
 import { GatewaySyncController } from './gateway-sync.controller';
+import { SyncAuditService } from './sync-audit.service';
 import { SyncStatusService } from './sync-status.service';
 
 const ability = (...held: string[]) => ({
@@ -14,14 +15,17 @@ const staff = ability('read FieldEvent', 'read FieldStation');
 describe('GatewaySyncController (POST /api/gateway-sync, D-027)', () => {
   let events: { listEvents: jest.Mock };
   let status: { status: jest.Mock };
+  let audit: { listAudit: jest.Mock };
   let controller: GatewaySyncController;
 
   beforeEach(() => {
     events = { listEvents: jest.fn().mockResolvedValue({ items: [] }) };
     status = { status: jest.fn().mockResolvedValue({ broker: { subscriber: 'up' } }) };
+    audit = { listAudit: jest.fn().mockResolvedValue({ items: [] }) };
     controller = new GatewaySyncController(
       events as unknown as FieldEventQueryService,
       status as unknown as SyncStatusService,
+      audit as unknown as SyncAuditService,
     );
   });
 
@@ -39,6 +43,30 @@ describe('GatewaySyncController (POST /api/gateway-sync, D-027)', () => {
     const [dto] = events.listEvents.mock.calls[0] as [ListEventsDto];
     expect(dto).toMatchObject({ op: 'listEvents', kind: ['SOS'], order: 'desc', pageSize: 20 });
     expect(dto.from).toEqual(new Date('2026-11-01T00:00:00Z'));
+  });
+
+  it('dispatches listAudit with a typed, validated body, a single outcome read as a list', async () => {
+    await controller.dispatch(
+      {
+        op: 'listAudit',
+        outcome: 'MALFORMED_ENVELOPE',
+        uplinkKey: '!de000009',
+        to: '2026-11-01T03:00:00Z',
+        pageNumber: '2',
+        pageSize: '20',
+      },
+      ability('read FieldEvent'),
+    );
+    const [dto] = audit.listAudit.mock.calls[0] as [ListAuditDto];
+    expect(dto).toMatchObject({
+      op: 'listAudit',
+      outcome: ['MALFORMED_ENVELOPE'],
+      uplinkKey: '!de000009',
+      pageNumber: 2,
+      pageSize: 20,
+    });
+    expect(dto.to).toEqual(new Date('2026-11-01T03:00:00Z'));
+    expect(status.status).not.toHaveBeenCalled();
   });
 
   it('dispatches syncStatus for a caller who may read Field Stations', async () => {
@@ -60,8 +88,15 @@ describe('GatewaySyncController (POST /api/gateway-sync, D-027)', () => {
   });
 
   const badRequests: [string, unknown, string][] = [
-    ['no body', undefined, 'op must be one of the following values: listEvents, syncStatus'],
-    ['an unknown op', { op: 'listAudit' }, 'op must be one of the following values'],
+    [
+      'no body',
+      undefined,
+      'op must be one of the following values: listEvents, listAudit, syncStatus',
+    ],
+    ['an unknown op', { op: 'replayAudit' }, 'op must be one of the following values'],
+    ['a bad outcome', { op: 'listAudit', outcome: ['LOST'] }, 'outcome'],
+    ['a bad audit device', { op: 'listAudit', deviceId: 'x' }, 'deviceId must be a UUID'],
+    ['a bad audit page', { op: 'listAudit', pageNumber: 0 }, 'pageNumber must not be less than 1'],
     [
       'a field another op owns',
       { op: 'syncStatus', deviceId: 'x' },
