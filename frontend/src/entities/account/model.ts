@@ -16,6 +16,9 @@ export const roleLabel = (role: AccountRole): string => (role === 'ADMIN' ? 'Adm
 
 // The only active Admin, from the active accounts of the platform, or undefined when there are several
 // or the list is not complete. The server (LAST_ADMIN) stays the backstop.
+// Limit: the accounts page reads one page of 100 active accounts. Above 100 the list is not complete,
+// so this answers undefined, the page no longer disables Deactivate on the last Admin, and only the
+// server's LAST_ADMIN refusal remains.
 export const lastActiveAdminId = (
   active: { items: AccountItem[]; totalPages: number } | undefined,
 ): string | undefined => {
