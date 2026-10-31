@@ -46,13 +46,13 @@ Every live entry is emitted as the event `stream` with this body:
 |---|---|---|
 | `device.position` | `{ lat, lon, at }` and `late: true` for a late entry; never an unplotted position (FR-MON-04). `altitude` is not carried by `field.position` yet | gateway-sync after commit, throttled by `monitoring.positionEmitMinIntervalMs` per device |
 | `device.telemetry` | `{ batteryPct, at }` and `late: true` for a late entry | gateway-sync |
-| `device.stale` | `{ stale: true, lastSeenAt }` or `{ stale: false }` | staleness sweep (FR-MON-03, BR-21) |
+| `device.stale` | `{ stale: true, lastSeenAt }` or `{ stale: false, lastSeenAt }`, one entry per transition and none while the state is unchanged; the recovery carries the reading that ended the silence. The entry goes to the holder's organization; the recovery of a device checked in while stale goes to `fleet` only | staleness sweep (FR-MON-03, BR-21) |
 | `device.label` | `{ holder: { name } \| null }` | rentals (FR-CON-14) |
 | `device.handedOver` | `{ contractId, at }`; the organization's map learns of the device, its first position follows | rentals on handover |
 | `device.released` | `{ contractId, checkedInAt }`; the client removes the device and refreshes that contract's invoices; nothing more is sent for it to that organization (FR-MON-08). An entry stored before the field was added carries no `contractId`, and the client then narrows by the contracts it has cached | rentals on check-in |
 | `incident.changed` | `{ incidentId, state, tier, ownerId }` today; `code`, `ownerName`, `lastPosition` and `stale` join when `incidents` exports a read for them (task 2.1 status). The entry's `deviceId` is the incident's device, so the live map updates that marker from the entry. Until `code` joins the payload, the client also reloads `GET /api/map/snapshot` for an incident the marker does not hold yet, for its code. An entry stored before the field was added carries `deviceId: null`, and the client then reloads the snapshot | incidents after commit (FR-INC-12) |
 | `incident.alert` | `{ incidentId, code, deviceLabel, holderName, at, message }`; MSG31 for the recipient's tier | incidents outbox, WEBSOCKET channel, sent only to the recipient's personal room `user:<id>` |
-| `station.stale` | `{ fieldStationId, stale, lastSyncAt }` | staleness sweep (E04-2) |
+| `station.stale` | `{ fieldStationId, stale, lastSyncAt }`, one entry per transition; `deviceId` is null | staleness sweep (E04-2) |
 
 `incident.alert` is the only event addressed to a person rather than a room. Every other type goes to
 `fleet` and to `org:<id>` of the entry's organization: for a position or telemetry, the organization the

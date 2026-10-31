@@ -231,6 +231,8 @@ Delivery never gates the business write. Alert delivery is not an event: it is t
 | `field.telemetry` | gateway-sync | monitoring | deviceId, organizationId, batteryPct, at |
 | `fieldStation.synced` | gateway-sync | monitoring | fieldStationId, organizationId, queueDepth |
 | `incident.changed` | incidents | monitoring | incidentId, organizationId, state, tier, ownerId |
+| `monitoring.deviceStale` | monitoring (staleness sweep) | monitoring (stream entry `device.stale`) | deviceId, organizationId, stale, lastSeenAt |
+| `monitoring.stationStale` | monitoring (staleness sweep) | monitoring (stream entry `station.stale`) | fieldStationId, organizationId, stale, lastSyncAt |
 | `incident.alert` | incidents (outbox dispatcher, WEBSOCKET channel) | monitoring (synchronous listener; publishes to `user:<id>`) | deliveryId, recipientId, incidentId, message |
 
 
