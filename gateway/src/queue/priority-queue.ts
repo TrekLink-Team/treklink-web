@@ -149,7 +149,20 @@ export class SQLitePriorityQueue {
     return result;
   }
 
-  /** Rows the bound shed since this process started, index 0 = P0 .. 3 = P3. */
+  /**
+   * Rows the bound shed since this process started, index 0 = P0 .. 3 = P3.
+   *
+   * The count, like the shed log line, is of rows the bound deleted from SQLite; it is an upper bound on
+   * the events lost, not an exact loss count. The queue does not know which rows a flush has published
+   * and is waiting on, so the oldest P3, often the one in flight, can be shed with its PUBACK pending.
+   * The shed counts and logs it, and the client's later `remove()` on the PUBACK finds no row. Then:
+   * - the connection holds and the broker acknowledges it: the event reaches the backend although it is
+   *   counted shed;
+   * - the connection drops first: `GatewayMqttClient` discards the client's copy on close, so it is not
+   *   resent and the event is lost as counted, unless the broker had already taken it and only the
+   *   PUBACK was lost, in which case it was delivered once.
+   * `flush-outage.spec.ts` tests both cases.
+   */
   public shedByTier(): number[] {
     return [...this.shedCount];
   }

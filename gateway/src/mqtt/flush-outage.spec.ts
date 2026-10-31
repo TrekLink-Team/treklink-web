@@ -201,6 +201,67 @@ describe('Field Station flush across an outage (gateway-sync task 5.1)', () => {
     expect(new Set(backend.received.map((message) => idOf(message.payload)))).toEqual(new Set(tierOf.keys()));
     expect(arrived).toEqual([P0_SOS, P0_SOS, P1_LOCATION, P2_GPS, P3_TELEMETRY, P3_TELEMETRY, P3_TELEMETRY]);
   }, 30_000);
+
+  // A row whose PUBACK is pending can be shed by the bound (priority-queue.ts, `shedByTier()`). The shed
+  // log and the count report it shed in both cases below; only in the second is the event really lost.
+  describe('a shed of a row whose PUBACK is pending', () => {
+    const setup = async () => {
+      let hold = true;
+      const held: (() => void)[] = [];
+      const broker = new TestBroker(0, (_client, message, callback) => {
+        if (!message.topic.startsWith('treklink/2/json/') || !hold) return callback(null);
+        held.push(() => callback(null));
+      });
+      await broker.start();
+      cleanups.push(() => broker.stop());
+      const uplink = new UplinkProxy('127.0.0.1', broker.port);
+      await uplink.start();
+      cleanups.push(() => uplink.stop());
+      const backend = await subscribe(broker.url, UPLINK);
+      cleanups.push(() => backend.client.endAsync());
+
+      const logger = { warn: jest.fn(), error: jest.fn() };
+      const queue = new SQLitePriorityQueue(join(root, 'queue.db'), { maxRows: 2, logger });
+      cleanups.push(() => queue.close());
+      queue.enqueue('ev-0', P3_TELEMETRY, packet(0, P3_TELEMETRY));
+      const station = new GatewayMqttClient(uplink.url, queue, { username: '', secret: '' }, { reconnectPeriodMs: 50 });
+      station.connect();
+      cleanups.push(() => station.disconnect());
+      await waitFor(() => held.length === 1, 5_000, 'ev-0 in flight');
+
+      // Two P0 rows take the queue past its bound of 2: the bound sheds ev-0, still in flight.
+      queue.enqueue('ev-10', P0_SOS, packet(10, P0_SOS));
+      const result = queue.enqueue('ev-12', P0_SOS, packet(12, P0_SOS));
+      expect(result.shed).toEqual([expect.objectContaining({ eventId: 'ev-0', priority: P3_TELEMETRY })]);
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('shed P3 row 1 (event ev-0)'));
+      expect(queue.shedByTier()).toEqual([0, 0, 0, 1]);
+      const delivered = () => new Set(backend.received.map((message) => idOf(message.payload)));
+      return { queue, station, uplink, held, delivered, release: () => (hold = false) };
+    };
+
+    it('connection holds: the PUBACK arrives, the event reaches the backend and still counts as shed', async () => {
+      const { queue, held, delivered, release } = await setup();
+      release();
+      held.forEach((acknowledge) => acknowledge());
+      await waitFor(() => queue.count() === 0, 5_000, 'the P0 rows to flush');
+      await waitFor(() => delivered().size === 3, 5_000, 'three deliveries');
+      expect(delivered()).toEqual(new Set([0, 10, 12]));
+      expect(queue.shedByTier()).toEqual([0, 0, 0, 1]);
+    }, 30_000);
+
+    it('connection drops first: the client drops its copy, the event is lost as counted', async () => {
+      const { queue, station, uplink, delivered, release } = await setup();
+      uplink.cut();
+      await waitFor(() => !station.connected, 5_000, 'the station to see the link down');
+      release();
+      uplink.restore();
+      await waitFor(() => queue.count() === 0, 10_000, 'the P0 rows to flush');
+      await waitFor(() => delivered().size >= 2, 5_000, 'two deliveries');
+      await new Promise((resolve) => setTimeout(resolve, 300)); // a resent ev-0 would arrive by now
+      expect(delivered()).toEqual(new Set([10, 12]));
+      expect(queue.shedByTier()).toEqual([0, 0, 0, 1]);
+    }, 30_000);
+  });
 });
 
 function startStation(dbPath: string, url: string): ChildProcess {
