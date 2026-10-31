@@ -13,6 +13,7 @@ import { FieldStationReleaseService } from './field-station-release.service';
 import { FieldStationsController } from './field-stations.controller';
 import { FieldStationsRepository } from './field-stations.repository';
 import { FieldStationsService } from './field-stations.service';
+import { KeyExposedNotifier } from './key-exposed.notifier';
 import { MembersController } from './members.controller';
 import { MembersRepository } from './members.repository';
 import { MembersService } from './members.service';
@@ -68,10 +69,17 @@ import { ShiftsService } from './shifts.service';
     FieldStationsService,
     FieldStationReleaseService,
     ChannelKeyService,
+    KeyExposedNotifier,
     ComplianceCasesRepository,
     ComplianceCasesService,
     ShiftsService,
   ],
-  exports: [OrganizationsService, RosterService, FieldStationsService, FieldStationReleaseService],
+  exports: [
+    OrganizationsService,
+    RosterService,
+    FieldStationsService,
+    FieldStationReleaseService,
+    ChannelKeyService,
+  ],
 })
 export class OrganizationsModule {}

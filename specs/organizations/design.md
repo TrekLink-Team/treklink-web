@@ -124,7 +124,10 @@ or links to the organization's open case of the same type.
 
 `channelKeyExposedAt` is set by `markKeyExposed` when a device in the organization's custody is lost
 (D-045) and cleared when Staff record a key rotation. The platform cannot change a key on a device it
-cannot reach, so rotation takes effect device by device at the counter.
+cannot reach, so rotation takes effect device by device at the counter. `markKeyExposed` runs in the
+caller's transaction and is idempotent: while the flag is set it keeps the first time and does not tell
+the Managers again. After the commit the live Managers with an active account are emailed, or the
+contact address given at registration when none can be reached.
 
 ---
 
@@ -138,7 +141,7 @@ cannot reach, so rotation takes effect device by device at the counter.
 | `RosterService.tiersAt(orgId, instant)` | incidents | routing and tiers |
 | `FieldStationsService.byUsername(username)` | gateway-sync | broker hook, Stage C ingestion |
 | `FieldStationsService.recordStationHealth(id, health)` | gateway-sync | FR-EVT-13 |
-| `OrganizationsService.markKeyExposed(orgId)` | devices | FR-DEV-13, D-045 |
+| `ChannelKeyService.markKeyExposed(orgId, at, actor, tx)` | devices | FR-DEV-13, D-045 |
 | `ComplianceCaseService.openOrLink(orgId, lossCaseId, actor, tx)` | devices | FR-DEV-13, D-046 |
 | provider of `ACCOUNT_CONTEXT_PROVIDER`, `API_KEY_RESOLVER` | auth | `platform` design §2.1 |
 
@@ -225,14 +228,19 @@ classDiagram
         +revoke(orgId, stationId, dto, actor) StationDto
         +release(orgId) ReleaseDto
     }
+    class ChannelKeyController {
+        +rotate(id, dto, staff) RotatedKeyDto
+    }
     class OrganizationsService {
         +register(dto) Organization
         +verify(id, dto, actor) Organization
         +approve(id, dto, actor) Organization
         +assertActive(orgId)
         +suspendForDefault(orgId, contractCode, tx)
-        +markKeyExposed(orgId)
-        +rotateKey(id, dto, actor)
+    }
+    class ChannelKeyService {
+        +markKeyExposed(orgId, at, actor, tx)
+        +rotate(id, reason, expectedVersion, staff)
     }
     class RosterService {
         +tiersAt(orgId, instant) Tiers
@@ -257,9 +265,11 @@ classDiagram
     }
     class AccountsService
     OrganizationsController --> OrganizationsService
+    ChannelKeyController --> ChannelKeyService
     FieldStationsController --> FieldStationsService
     FieldStationsController --> FieldStationReleaseService
     OrganizationsService --> OrganizationsRepository
+    ChannelKeyService --> OrganizationsRepository
     OrganizationsService --> AccountsService : auth module
     RosterService --> OrganizationsRepository
     FieldStationsService --> FieldStationsRepository
