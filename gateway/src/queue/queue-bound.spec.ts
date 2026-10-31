@@ -66,8 +66,26 @@ describe('SQLitePriorityQueue bound (QUEUE_MAX_ROWS)', () => {
     expect(ids(queue)).toEqual(['p0-a', 'p0-b', 'p1-a']);
     expect(queue.count()).toBe(3);
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('exceeded'));
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('p0-b'));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('3 rows queued, all P0 or P1'));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('new event p0-b kept'));
     expect(logger.warn).not.toHaveBeenCalled();
+    queue.close();
+  });
+
+  it('bases the over-bound line on the queue after the shed: a shed new P3 is not reported as kept', () => {
+    const queue = open(1);
+    fill(queue, [['p0-a', P0_SOS], ['p0-b', P0_SOS]]);
+    logger.error.mockClear();
+    const result = queue.enqueue('p3-new', P3_TELEMETRY, {});
+    expect(result.shed).toEqual([expect.objectContaining({ eventId: 'p3-new', priority: P3_TELEMETRY })]);
+    expect(result.overBound).toBe(true);
+    expect(ids(queue)).toEqual(['p0-a', 'p0-b']);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('shed P3 row 3 (event p3-new)'));
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    const line = logger.error.mock.calls[0][0] as string;
+    expect(line).toContain('2 rows queued, all P0 or P1');
+    expect(line).toContain('new event p3-new shed');
+    expect(line).not.toContain('kept');
     queue.close();
   });
 
