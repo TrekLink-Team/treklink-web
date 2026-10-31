@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Decides custody from the custody interval that contains the last seen time (D-040): the renter's, or TrekLink's when none does. For renter custody the organization's channel key is marked exposed and its Manager notified. A suspected theft or fraud opens or links a compliance case. The case moves to `SEARCHING` and the search window `devices.lossSearchDays` starts (FR-DEV-13).
+Decides custody from the custody interval that contains the last seen time (D-040): the renter's, or TrekLink's when none does. When that rental was already returned at the report time, the custody at the report time counts instead (leader ruling 2026-10-31). For renter custody the organization's channel key is marked exposed and its Manager notified. A suspected theft or fraud opens or links a compliance case. The case moves to `SEARCHING` and the search window `devices.lossSearchDays` starts (FR-DEV-13).
 
 ## API Specification
 

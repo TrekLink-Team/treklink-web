@@ -9,6 +9,7 @@ import {
 import { ErrorCode } from '../src/common/errors';
 import { LossSearchJob } from '../src/modules/devices/jobs/loss-search.job';
 import { LossCaseService } from '../src/modules/devices/loss-cases.service';
+import { ReturnService } from '../src/modules/rentals/return.service';
 import { at, compileRentalFlow, DAY_MS, RentalFlow } from './db-rental-flow';
 
 // devices task 2.7 against Postgres: the loss case from report to settlement through the real
@@ -206,6 +207,72 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
         select: { fromStatus: true, reason: true },
       }),
     ).toEqual({ fromStatus: ContractStatus.RETURN_DUE, reason: 'LOST' });
+  });
+
+  it('a unit lost after check-in, last heard while still out, is TrekLink custody and settles (ruling 2026-10-31)', async () => {
+    const { contract, deviceId } = await rentedUnit();
+    const heard = at('2026-11-04T02:00:00.000Z');
+    const back = at('2026-11-06T02:00:00.000Z');
+    const reportedAt = at('2026-11-07T02:00:00.000Z');
+    // Last heard on the trail; the term ended (fixture) and the unit came back at the counter.
+    await flow.prisma.device.update({ where: { id: deviceId }, data: { lastSeenAt: heard } });
+    await flow.prisma.rentalContract.update({
+      where: { id: contract.id },
+      data: { status: ContractStatus.RETURN_DUE, returnDueAt: back, version: { increment: 1 } },
+    });
+    const tag = (await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).assetTag;
+    await flow.get(ReturnService).checkIn(contract.id, [tag], flow.staff, back);
+
+    // Lost in the store before its reset: reported from RETURNED.
+    const reported = await lossCases.report(
+      deviceId,
+      { description: 'Not on the shelf' },
+      flow.staff,
+      reportedAt,
+    );
+    expect(reported.stateFromDevice).toBe(DeviceStatus.RETURNED);
+    const triaged = await lossCases.triage(
+      reported.id,
+      { suspectedTheft: false, expectedVersion: reported.version },
+      flow.staff,
+      reportedAt,
+    );
+    expect(triaged).toMatchObject({
+      custody: LossCustody.TREKLINK,
+      keyExposed: false,
+      contractDeviceId: null,
+    });
+    const confirmed = await lossCases.confirm(
+      triaged.id,
+      { expectedVersion: triaged.version },
+      flow.staff,
+      reportedAt,
+    );
+    expect(confirmed.chargeVnd).toBeNull();
+
+    // Settles: before the ruling the rentals listener refused the closed interval with 409.
+    const settled = await lossCases.decide(
+      confirmed.id,
+      {
+        decision: LossDecision.WRITTEN_OFF,
+        reason: 'Lost in the store',
+        expectedVersion: confirmed.version,
+      },
+      await flow.admin(),
+      reportedAt,
+    );
+    expect(settled.state).toBe(LossCaseState.SETTLED);
+    expect((await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).status).toBe(
+      DeviceStatus.RETIRED,
+    );
+    const row = await flow.prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: contract.id, deviceId },
+    });
+    expect(row.checkedInAt?.getTime()).toBe(back.getTime());
+    expect(row.lostAt).toBeNull();
+    expect(
+      await flow.prisma.invoiceLine.count({ where: { deviceId, type: InvoiceLineType.LOSS } }),
+    ).toBe(0);
   });
 
   it('AC-05: an AVAILABLE unit lost in TrekLink custody is written off with no charge', async () => {

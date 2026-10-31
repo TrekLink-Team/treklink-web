@@ -73,6 +73,8 @@ const RECOVERABLE: readonly LossCaseState[] = [
 
 const DAY_MS = 86_400_000;
 
+type CustodyInterval = NonNullable<Awaited<ReturnType<CustodyResolver['custodyAt']>>>;
+
 const notFound = (what: 'Device' | 'Loss case') =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, `${what} not found.`);
 
@@ -282,10 +284,7 @@ export class LossCaseService {
       if (current.state !== LossCaseState.REPORTED) throw wrongState(current.state);
       if (current.version !== dto.expectedVersion) throw staleVersion();
 
-      const interval = await this.custody.custodyAt(
-        current.deviceId,
-        current.lastSeenAt ?? current.reportedAt,
-      );
+      const interval = await this.custodyOf(current);
       const custody = interval ? LossCustody.RENTER : LossCustody.TREKLINK;
       const policeReference = dto.policeReference?.trim() || null;
       // REQ-EVT-14: in the triage transaction; organizations tells the Managers after commit.
@@ -567,6 +566,19 @@ export class LossCaseService {
       return updated;
     });
     return (await this.views([row], actor))[0];
+  }
+
+  // The custody a triage records (REQ-EVT-14, D-040, leader ruling 2026-10-31): the interval that holds
+  // the last seen time, checked against the report time. When that rental was already returned at the
+  // report time (a unit lost after check-in, last heard while still out), the custody at the report
+  // time counts instead: another rental's interval, or none, which is TREKLINK custody. A unit never
+  // heard is read at the report time alone.
+  private async custodyOf(current: LossCaseRow): Promise<CustodyInterval | null> {
+    const atReport = await this.custody.custodyAt(current.deviceId, current.reportedAt);
+    if (current.lastSeenAt === null) return atReport;
+    const atLastSeen = await this.custody.custodyAt(current.deviceId, current.lastSeenAt);
+    if (atLastSeen === null) return null;
+    return atReport?.contractDeviceId === atLastSeen.contractDeviceId ? atLastSeen : atReport;
   }
 
   private async load(id: string, tx: Prisma.TransactionClient): Promise<LossCaseRow> {
