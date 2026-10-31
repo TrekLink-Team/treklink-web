@@ -163,6 +163,27 @@ describe('LiveMapWidget', () => {
     );
   });
 
+  it('draws a track through its points, and not for fewer than two (screen 9.2)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const withTrack = (track: [number, number][]) => (
+      <QueryClientProvider client={client}>
+        <LiveMapWidget track={track} />
+      </QueryClientProvider>
+    );
+    const { container, rerender } = render(
+      withTrack([
+        [11.5, 108.5],
+        [11.6, 108.6],
+        [11.7, 108.5],
+      ]),
+    );
+    await waitFor(() => expect(container.querySelector('.leaflet-overlay-pane path')).toBeTruthy());
+    expect(container.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(1);
+    rerender(withTrack([[11.5, 108.5]]));
+    expect(container.querySelector('.leaflet-overlay-pane path')).toBeNull();
+  });
+
   it('redraws a marker whose state changes and opens the popup of a selected marker', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     const { rerender } = renderWidget([device('TL-0001', [11.5, 108.5])]);
