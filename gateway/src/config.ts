@@ -73,9 +73,14 @@ export const gatewayConfig = {
   /**
    * The Field Station identity and its health report (gateway-sync design §3, FR-EVT-13). The report goes
    * to `<root>/fs/<username>/health`; with no username the station sends none.
+   *
+   * The username and the secret are also the station's broker credential (gateway-sync design §4), the
+   * values the organization's Field Station credential dialog shows once as Username and Secret. The MQTT
+   * client sends them only when both are set. The secret is never logged.
    */
   station: {
     username: str('GATEWAY_FS_USERNAME', ''),
+    secret: str('GATEWAY_FS_SECRET', ''),
     /** The topic root, `MQTT_ROOT` on the backend. */
     mqttRoot: str('GATEWAY_MQTT_ROOT', 'treklink'),
     /** Milliseconds between health reports while connected; the design's cadence is 60 s. */
