@@ -164,7 +164,9 @@ ENDPOINTS = [
        "Read-only chronological history of a device: state changes, intake checks, provisioning, resets, "
        "inspections, maintenance, contracts and incidents, each with actor and UTC time (FR-DEV-11). Served by "
        "`monitoring`, the read model that may import every module, so `devices` imports neither `rentals` nor "
-       "`incidents`.", "UC-53, UC-58, FR-DEV-11",
+       "`incidents`. Newest first. Entries of one time read in lifecycle order: a reservation or a check-in "
+       "before the unit's own rows of that time, a handover, a release or a loss after them, and state rows "
+       "in the order of their moves.", "UC-53, UC-58, FR-DEV-11",
        path=[["id", "Device id", "uuid", f"`{DEVICE_ID}`"]],
        query=[["pageNumber", "1-based page", "int", "no", "`1`"], ["pageSize", "Items per page", "int", "no", "`20`"]],
        response=paged({"at": NOW, "kind": "STATE", "summary": "RETURNED to AVAILABLE", "actor": "Tran Thi B",

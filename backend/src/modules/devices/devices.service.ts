@@ -75,6 +75,35 @@ export type DeviceDetail = FleetDevice & {
   lastReset: { createdAt: Date } | null;
 };
 
+// State rows oldest first, rows of one time in the order of their moves: a row whose `fromStatus`
+// is the `toStatus` of another row of that time follows it. A seeded handover reserves and hands over
+// in one instant, and the id order of such rows says nothing about which move came first.
+export function inMoveOrder<
+  T extends { fromStatus: DeviceStatus | null; toStatus: DeviceStatus; createdAt: Date },
+>(rows: readonly T[]): T[] {
+  const sorted = [...rows].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const ordered: T[] = [];
+  for (let start = 0; start < sorted.length;) {
+    let end = start + 1;
+    while (
+      end < sorted.length &&
+      sorted[end].createdAt.getTime() === sorted[start].createdAt.getTime()
+    ) {
+      end += 1;
+    }
+    const pending = sorted.slice(start, end);
+    while (pending.length > 0) {
+      // The first row no other pending row leads into; on a cycle, the first row.
+      const next = pending.findIndex(
+        (row) => !pending.some((other) => other !== row && other.toStatus === row.fromStatus),
+      );
+      ordered.push(...pending.splice(Math.max(next, 0), 1));
+    }
+    start = end;
+  }
+  return ordered;
+}
+
 // One entry of a device's lifecycle history (monitoring api-design 07); `actorId` null is SYSTEM.
 export interface TrailEntry {
   at: Date;
@@ -649,7 +678,7 @@ export class DevicesService {
       this.maintenance.ofDevice(deviceId),
     ]);
     const entries: TrailEntry[] = [
-      ...rows.transitions.map((row) => ({
+      ...inMoveOrder(rows.transitions).map((row) => ({
         at: row.createdAt,
         kind: 'STATE' as const,
         summary:
@@ -716,6 +745,7 @@ export class DevicesService {
           : []),
       ]),
     ];
+    // Stable: rows of one time keep the order above, state rows first and in the order of their moves.
     return entries.sort((a, b) => a.at.getTime() - b.at.getTime());
   }
 

@@ -304,5 +304,54 @@ describe('DevicesService retire and dispose', () => {
 
       expect(entry.summary).toBe('MAINTENANCE to RETIRED (Retired): Unrepairable water damage');
     });
+
+    it('puts state rows of one time in the order of their moves, whatever order they arrive in', async () => {
+      unitAt(DeviceStatus.RENTED);
+      const both = new Date('2026-10-30T02:00:00.000Z');
+      const row = (
+        id: string,
+        fromStatus: DeviceStatus | null,
+        toStatus: DeviceStatus,
+        createdAt: Date,
+      ) => ({
+        id,
+        fromStatus,
+        toStatus,
+        actorId: null,
+        reason: toStatus,
+        note: null,
+        refType: null,
+        refId: null,
+        createdAt,
+      });
+      const lifecycle = jest.fn().mockResolvedValue({
+        transitions: [
+          row('a', DeviceStatus.RESERVED, DeviceStatus.RENTED, both),
+          row('b', DeviceStatus.AVAILABLE, DeviceStatus.RESERVED, both),
+          row(
+            'c',
+            DeviceStatus.IN_INTAKE,
+            DeviceStatus.AVAILABLE,
+            new Date('2026-08-01T02:02:00.000Z'),
+          ),
+          row('d', null, DeviceStatus.IN_INTAKE, new Date('2026-08-01T02:00:00.000Z')),
+        ],
+        intakeChecks: [],
+        provisionings: [],
+        resets: [],
+        inspections: [],
+      });
+      Object.assign(repository, { lifecycle });
+      Object.assign(maintenance, { ofDevice: jest.fn().mockResolvedValue([]) });
+
+      const entries = await service.trail('dev-1');
+
+      expect(entries.map((entry) => entry.summary)).toEqual([
+        'Registered to IN_INTAKE (In intake)',
+        'IN_INTAKE to AVAILABLE (Available)',
+        'AVAILABLE to RESERVED (Reserved)',
+        'RESERVED to RENTED (Rented)',
+      ]);
+    });
   });
 });

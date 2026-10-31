@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Read-only chronological history of a device: state changes, intake checks, provisioning, resets, inspections, maintenance, contracts and incidents, each with actor and UTC time (FR-DEV-11). Served by `monitoring`, the read model that may import every module, so `devices` imports neither `rentals` nor `incidents`.
+Read-only chronological history of a device: state changes, intake checks, provisioning, resets, inspections, maintenance, contracts and incidents, each with actor and UTC time (FR-DEV-11). Served by `monitoring`, the read model that may import every module, so `devices` imports neither `rentals` nor `incidents`. Newest first. Entries of one time read in lifecycle order: a reservation or a check-in before the unit's own rows of that time, a handover, a release or a loss after them, and state rows in the order of their moves.
 
 ## API Specification
 
