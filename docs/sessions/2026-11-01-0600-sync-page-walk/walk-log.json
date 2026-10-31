@@ -1,0 +1,190 @@
+[
+  {
+    "step": "signed-in",
+    "url": "http://localhost:5173/t/map"
+  },
+  {
+    "step": "cards",
+    "cards": {
+      "MQTT subscriber": "MQTT SUBSCRIBER | UP",
+      "Accepted": "ACCEPTED | 68 | Last 60 min",
+      "Duplicates rejected": "DUPLICATES REJECTED | 0",
+      "Malformed": "MALFORMED | 1 | Not decodable, audited raw",
+      "Normalization failed": "NORMALIZATION FAILED | 0",
+      "Unattributed": "UNATTRIBUTED | 220 | Stored with no organization, not in Accepted",
+      "Unknown device": "UNKNOWN DEVICE | 0"
+    }
+  },
+  {
+    "step": "tables",
+    "tables": [
+      {
+        "caption": null,
+        "headers": [
+          "STATION",
+          "ORGANIZATION",
+          "CONNECTION",
+          "LAST SYNC",
+          "LAST FLUSH",
+          "QUEUE DEPTH (P0 TO P3)"
+        ],
+        "rows": [
+          [
+            "Ta Nang basecamp laptop",
+            "TrekLink Demo Tours Co., Ltd.",
+            "● / Connected",
+            "31 Oct 2026, 22:59",
+            "31 Oct 2026, 22:59",
+            "0, 0, 0, 0"
+          ]
+        ],
+        "rowCount": 1
+      },
+      {
+        "caption": null,
+        "headers": [
+          "RECEIVED",
+          "DEVICE",
+          "KIND",
+          "INGRESS",
+          "ATTRIBUTION"
+        ],
+        "rows": [
+          [
+            "31 Oct 2026, 22:59",
+            "TL-0010",
+            "TELEMETRY",
+            "Node uplink",
+            "Attributed"
+          ],
+          [
+            "31 Oct 2026, 22:59",
+            "TL-0009",
+            "TELEMETRY",
+            "Node uplink",
+            "Attributed"
+          ],
+          [
+            "31 Oct 2026, 22:59",
+            "TL-0010",
+            "POSITION",
+            "Node uplink",
+            "Attributed"
+          ],
+          [
+            "31 Oct 2026, 22:59",
+            "TL-0009",
+            "POSITION",
+            "Node uplink",
+            "Attributed"
+          ]
+        ],
+        "rowCount": 20
+      },
+      {
+        "caption": "Sync audit records, newest first",
+        "headers": [
+          "TIME",
+          "OUTCOME",
+          "DEVICE",
+          "UPLINK",
+          "INGRESS",
+          "DETAIL"
+        ],
+        "rows": [
+          [
+            "31 Oct 2026, 22:59",
+            "✓ / Accepted",
+            "TL-0010",
+            "!de00000a",
+            "Node uplink",
+            "No detail"
+          ],
+          [
+            "31 Oct 2026, 22:59",
+            "✓ / Accepted",
+            "TL-0009",
+            "!de000009",
+            "Node uplink",
+            "No detail"
+          ],
+          [
+            "31 Oct 2026, 22:59",
+            "✓ / Accepted",
+            "TL-0010",
+            "!de00000a",
+            "Node uplink",
+            "No detail"
+          ],
+          [
+            "31 Oct 2026, 22:59",
+            "✓ / Accepted",
+            "TL-0009",
+            "!de000009",
+            "Node uplink",
+            "No detail"
+          ]
+        ],
+        "rowCount": 20
+      }
+    ]
+  },
+  {
+    "step": "audit-pager",
+    "pager": "1 to 20 of 289\n1\n2\n…\n15"
+  },
+  {
+    "step": "window-refresh",
+    "before": "ACCEPTED | 68 | Last 60 min",
+    "after15": "ACCEPTED | 72 | Last 15 min",
+    "afterRefresh": "ACCEPTED | 77 | Last 15 min",
+    "statusCode": 200,
+    "auditCode": 200,
+    "statusBody": "{\"op\":\"syncStatus\",\"windowMinutes\":15}"
+  },
+  {
+    "step": "filter-malformed",
+    "rows": [
+      "31 Oct 2026, 22:54\t / ! / Malformed / \tNot decoded\t!de000009\tNode uplink\t / message is not JSON / not json {😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    ],
+    "excerptCodePoints": 500,
+    "excerptUtf16": 990,
+    "loneSurrogate": false,
+    "cutNotice": true
+  },
+  {
+    "step": "page-2",
+    "status": 200,
+    "body": "{\"op\":\"listAudit\",\"pageNumber\":2,\"pageSize\":20}",
+    "pagerP2": "21 to 40 of 301 1 2 3 … 16",
+    "rowsP2": 20,
+    "firstPage1": "31 Oct 2026, 22:59\t / ✓ / Accepted / \tTL-0010\t!de00000a\tNode uplink\t / No detail",
+    "firstPage2": "31 Oct 2026, 22:59\t / ✓ / Accepted / \tTL-0010\t!de00000a\tNode uplink\t / No detail"
+  },
+  {
+    "step": "console",
+    "consoleErrors": []
+  },
+  {
+    "step": "failed-requests",
+    "beforeSyncPageSettled": [
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1915/3282 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1915/3283 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1916/3282 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1916/3283 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1914/3282 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1914/3283 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1915/3281 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1915/3284 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1916/3281 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1916/3284 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1917/3282 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1917/3283 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1914/3281 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1914/3284 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1917/3281 net::ERR_ABORTED",
+      "[on /t/admin/sync] GET https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/12/1917/3284 net::ERR_ABORTED"
+    ],
+    "afterSyncPageSettled": []
+  }
+]
