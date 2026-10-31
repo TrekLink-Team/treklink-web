@@ -15,6 +15,12 @@ import {
   type DeviceHandedOverEvent,
   type DeviceLabelChangedEvent,
 } from '../rentals';
+import {
+  DEVICE_STALE_CHANGED,
+  STATION_STALE_CHANGED,
+  type DeviceStaleChangedEvent,
+  type StationStaleChangedEvent,
+} from './stale-events';
 import { StreamRepository } from './stream.repository';
 import { StreamService } from './stream.service';
 
@@ -132,6 +138,32 @@ export class StreamListener {
       deviceId: event.deviceId,
       // The contract lets a client refresh only that contract's invoice, as device.handedOver does.
       payload: { contractId: event.contractId, checkedInAt: checkedInAt.toISOString() },
+    });
+  }
+
+  // A transition of the staleness sweep (task 2.4, REQ-EVT-03), emitted after its commit. Both carry the
+  // last-seen time: the stale entry for the popup, the recovery so the map's own clock agrees with it.
+  @OnEvent(DEVICE_STALE_CHANGED)
+  async onDeviceStale(event: DeviceStaleChangedEvent): Promise<void> {
+    await this.stream.publish({
+      organizationId: event.organizationId,
+      type: 'device.stale',
+      deviceId: event.deviceId,
+      payload: { stale: event.stale, lastSeenAt: event.lastSeenAt },
+    });
+  }
+
+  @OnEvent(STATION_STALE_CHANGED)
+  async onStationStale(event: StationStaleChangedEvent): Promise<void> {
+    await this.stream.publish({
+      organizationId: event.organizationId,
+      type: 'station.stale',
+      deviceId: null,
+      payload: {
+        fieldStationId: event.fieldStationId,
+        stale: event.stale,
+        lastSyncAt: event.lastSyncAt,
+      },
     });
   }
 

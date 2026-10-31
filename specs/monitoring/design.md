@@ -18,6 +18,13 @@ one row per pair, replaced on each check-in. It is a table of its own because a 
 late for `gatewaySync.lateUploadGraceHours` (168), longer than the stream is kept (72), so the boundary
 that marks an upload late must outlive the pruned stream (REQ-EVT-04, AC-06).
 
+`StaleMark(subjectType, subjectId, organizationId?, lastSeenAt, markedAt)`: what the staleness sweep last
+reported stale, one row per device (`DEVICE`) or Field Station (`FIELD_STATION`), written with the stale
+entry and deleted with the recovered entry in the same transaction. It is stored so that the sweep emits a
+transition once and a restart repeats none (REQ-EVT-03, AC-03). `organizationId` is the organization the
+stale entry went to; `lastSeenAt` is the last-seen time it carried, so a later one means the subject was
+heard again.
+
 Everything else this module shows is read through other modules' services; it owns no other table.
 
 ---
@@ -44,7 +51,7 @@ organization, read from `DeviceRelease`, is marked `late` and is not plotted as 
 
 | Job | Rule |
 |---|---|
-| `monitoring.staleSweep` | every `monitoring.staleSweepSeconds`: devices whose `lastSeenAt` crossed the threshold since the last run, Field Stations likewise; emit transitions only (stale and recovered), tell `incidents.markDeviceStale` |
+| `monitoring.staleSweep` | every `monitoring.staleSweepSeconds` (a 5 s cron that skips a tick earlier than the parameter asks): a device in custody whose `lastSeenAt` is older than `monitoring.deviceStaleSeconds`, and a Field Station whose `lastSyncAt` is older than `monitoring.fieldStationStaleSeconds`, turn stale; a marked one heard again recovers. Transitions only, stored in `StaleMark`, each in its own transaction with its event emitted after commit; tell `incidents.markDeviceStale`. The rule matches the snapshot read: never stale before the first reading. A device handed to another organization while stale is reconsidered for the new holder and the old one hears nothing more; a marked device checked in and then heard again recovers to `fleet` only |
 | `monitoring.pruneStream` | hourly: delete entries older than the retention |
 
 ---

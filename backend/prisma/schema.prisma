@@ -1651,3 +1651,26 @@ model DeviceRelease {
   @@id([organizationId, deviceId])
   @@map("device_releases")
 }
+
+enum StaleSubject {
+  DEVICE
+  FIELD_STATION
+}
+
+// What the staleness sweep last reported stale (task 2.4, design §1 and §3): one row per device or Field
+// Station it reported stale, deleted when it reports the recovery. Stored, so the sweep emits a
+// transition once and a restart repeats none. `organizationId` is the organization the stale entry went
+// to (the device's holder, the station's owner), so a device handed to another organization while stale
+// is reconsidered for the new one and the old one hears nothing more (REQ-EVT-04). `lastSeenAt` is the
+// last-seen time the stale entry carried; a later one means the subject was heard again. Plain ids, as
+// on DeviceRelease.
+model StaleMark {
+  subjectType    StaleSubject
+  subjectId      String
+  organizationId String?
+  lastSeenAt     DateTime     @db.Timestamptz(3)
+  markedAt       DateTime     @db.Timestamptz(3)
+
+  @@id([subjectType, subjectId])
+  @@map("stale_marks")
+}

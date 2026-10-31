@@ -320,4 +320,55 @@ describe('StreamListener', () => {
       expect(published[0]).toMatchObject({ organizationId: null });
     });
   });
+
+  describe('staleness sweep (task 2.4)', () => {
+    it('publishes a stale device to its holder with the last-seen time (AC-03)', async () => {
+      await listener.onDeviceStale({
+        deviceId: 'd-1',
+        organizationId: 'org-a',
+        stale: true,
+        lastSeenAt: AT,
+      });
+      expect(published).toEqual([
+        {
+          organizationId: 'org-a',
+          type: 'device.stale',
+          deviceId: 'd-1',
+          payload: { stale: true, lastSeenAt: AT },
+        },
+      ]);
+    });
+
+    it('publishes the recovery of a device out of custody to the fleet only', async () => {
+      await listener.onDeviceStale({
+        deviceId: 'd-1',
+        organizationId: null,
+        stale: false,
+        lastSeenAt: AT,
+      });
+      expect(published[0]).toEqual({
+        organizationId: null,
+        type: 'device.stale',
+        deviceId: 'd-1',
+        payload: { stale: false, lastSeenAt: AT },
+      });
+    });
+
+    it('publishes a Field Station transition to its organization with no device', async () => {
+      await listener.onStationStale({
+        fieldStationId: 's-1',
+        organizationId: 'org-a',
+        stale: true,
+        lastSyncAt: AT,
+      });
+      expect(published).toEqual([
+        {
+          organizationId: 'org-a',
+          type: 'station.stale',
+          deviceId: null,
+          payload: { fieldStationId: 's-1', stale: true, lastSyncAt: AT },
+        },
+      ]);
+    });
+  });
 });
