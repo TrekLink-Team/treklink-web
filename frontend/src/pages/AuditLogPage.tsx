@@ -1,6 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AUDIT_PAGE_SIZE, useAuditLogs, type AuditFilters, type AuditLogItem } from '../entities/audit/api';
+import {
+  AUDIT_PAGE_SIZE,
+  useAuditLogs,
+  type AuditFilters,
+  type AuditLogItem,
+} from '../entities/audit/api';
 import {
   filterErrors,
   filtersOf,
@@ -28,6 +33,7 @@ import {
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
+import { AuditTabs } from './AuditTabs';
 
 const withSeconds = (iso: string): string =>
   new Date(iso).toLocaleString('en-GB', {
@@ -87,7 +93,12 @@ const FilterBar: React.FC<{
   };
 
   return (
-    <form noValidate onSubmit={submit} aria-label="Audit log filters" className="flex flex-col gap-4">
+    <form
+      noValidate
+      onSubmit={submit}
+      aria-label="Audit log filters"
+      className="flex flex-col gap-4"
+    >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field id="audit-actor" label="Actor id" error={errors.actorId}>
           <Input
@@ -184,7 +195,9 @@ export const AuditLogPage: React.FC = () => {
     [organizations.data],
   );
   const nameOf = (id: string | null): string =>
-    id === null ? '–' : (organizationList.find((organization) => organization.id === id)?.legalName ?? id);
+    id === null
+      ? '–'
+      : (organizationList.find((organization) => organization.id === id)?.legalName ?? id);
 
   const apply = (next: AuditFilters) => setParams(paramsOf(next));
   const toggle = (id: string) => {
@@ -222,8 +235,17 @@ export const AuditLogPage: React.FC = () => {
           <span>SYSTEM</span>
         ),
     },
-    { key: 'organization', header: 'Organization', cell: (row) => nameOf(row.organizationId), hideOnMobile: true },
-    { key: 'action', header: 'Action', cell: (row) => <span className="font-mono">{row.action}</span> },
+    {
+      key: 'organization',
+      header: 'Organization',
+      cell: (row) => nameOf(row.organizationId),
+      hideOnMobile: true,
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      cell: (row) => <span className="font-mono">{row.action}</span>,
+    },
     {
       key: 'subject',
       header: 'Subject',
@@ -231,7 +253,9 @@ export const AuditLogPage: React.FC = () => {
         <div className="py-1.5">
           <span>{row.subjectType}</span>
           {row.subjectId && (
-            <span className="block break-all font-mono text-body-sm text-ink-muted">{row.subjectId}</span>
+            <span className="block break-all font-mono text-body-sm text-ink-muted">
+              {row.subjectId}
+            </span>
           )}
         </div>
       ),
@@ -253,9 +277,7 @@ export const AuditLogPage: React.FC = () => {
             >
               {expanded ? 'Hide' : 'Show'}
             </button>
-            {expanded && (
-              <Snapshots row={row} className="mt-2" />
-            )}
+            {expanded && <Snapshots row={row} className="mt-2" />}
           </div>
         );
       },
@@ -279,80 +301,82 @@ export const AuditLogPage: React.FC = () => {
 
   const data = logs.data;
   return (
-    <section aria-labelledby="audit-title" className="flex flex-col gap-4">
-      <PageHeader
-        id="audit-title"
-        title="Audit log"
-        description="Who changed what, newest first. Secrets are replaced before they are stored."
-      />
-      <Card aria-labelledby="audit-filters">
-        <CardHeader title="Filters" id="audit-filters" />
-        <FilterBar
-          key={params.toString()}
-          applied={filters}
-          organizations={organizationList}
-          onApply={apply}
-          onClear={() => setParams(new URLSearchParams())}
+    <AuditTabs current="changes">
+      <section aria-labelledby="audit-title" className="flex flex-col gap-4">
+        <PageHeader
+          id="audit-title"
+          title="Audit log"
+          description="Who changed what, newest first. Secrets are replaced before they are stored."
         />
-      </Card>
+        <Card aria-labelledby="audit-filters">
+          <CardHeader title="Filters" id="audit-filters" />
+          <FilterBar
+            key={params.toString()}
+            applied={filters}
+            organizations={organizationList}
+            onApply={apply}
+            onClear={() => setParams(new URLSearchParams())}
+          />
+        </Card>
 
-      {failure && (
-        <Alert
-          tone="error"
-          action={
-            failure instanceof ApiError && failure.statusCode === 400 ? undefined : (
-              <Button variant="secondary" size="sm" onClick={() => void logs.refetch()}>
-                Retry
-              </Button>
-            )
-          }
-        >
-          {messageOf(failure)}
-        </Alert>
-      )}
-
-      <DataTable
-        caption="Audit log"
-        columns={columns}
-        rows={data?.items}
-        rowId={(row) => row.id}
-        loading={logs.isPending}
-        empty={{
-          title: 'No results match your filters.',
-          action: hasFilters(filters) ? (
-            <Button variant="secondary" onClick={() => setParams(new URLSearchParams())}>
-              Clear filters
-            </Button>
-          ) : undefined,
-        }}
-        renderCard={(row) => (
-          <div className="flex flex-col gap-1 text-body">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono">{row.action}</span>
-              <span className="text-body-sm text-ink-muted">{withSeconds(row.createdAt)}</span>
-            </div>
-            <span className="text-body-sm text-ink-muted">
-              {row.actor?.fullName ?? 'SYSTEM'}, {row.subjectType}
-              {row.subjectId ? ` ${row.subjectId}` : ''}
-            </span>
-            <details>
-              <summary className={`${LINK} cursor-pointer`}>Details</summary>
-              <Snapshots row={row} className="mt-2" />
-            </details>
-          </div>
+        {failure && (
+          <Alert
+            tone="error"
+            action={
+              failure instanceof ApiError && failure.statusCode === 400 ? undefined : (
+                <Button variant="secondary" size="sm" onClick={() => void logs.refetch()}>
+                  Retry
+                </Button>
+              )
+            }
+          >
+            {messageOf(failure)}
+          </Alert>
         )}
-        footer={
-          data && data.totalPages > 1 ? (
-            <Pagination
-              pageNumber={data.pageNumber}
-              totalPages={data.totalPages}
-              totalItems={data.totalCount}
-              pageSize={AUDIT_PAGE_SIZE}
-              onPage={goToPage}
-            />
-          ) : undefined
-        }
-      />
-    </section>
+
+        <DataTable
+          caption="Audit log"
+          columns={columns}
+          rows={data?.items}
+          rowId={(row) => row.id}
+          loading={logs.isPending}
+          empty={{
+            title: 'No results match your filters.',
+            action: hasFilters(filters) ? (
+              <Button variant="secondary" onClick={() => setParams(new URLSearchParams())}>
+                Clear filters
+              </Button>
+            ) : undefined,
+          }}
+          renderCard={(row) => (
+            <div className="flex flex-col gap-1 text-body">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono">{row.action}</span>
+                <span className="text-body-sm text-ink-muted">{withSeconds(row.createdAt)}</span>
+              </div>
+              <span className="text-body-sm text-ink-muted">
+                {row.actor?.fullName ?? 'SYSTEM'}, {row.subjectType}
+                {row.subjectId ? ` ${row.subjectId}` : ''}
+              </span>
+              <details>
+                <summary className={`${LINK} cursor-pointer`}>Details</summary>
+                <Snapshots row={row} className="mt-2" />
+              </details>
+            </div>
+          )}
+          footer={
+            data && data.totalPages > 1 ? (
+              <Pagination
+                pageNumber={data.pageNumber}
+                totalPages={data.totalPages}
+                totalItems={data.totalCount}
+                pageSize={AUDIT_PAGE_SIZE}
+                onPage={goToPage}
+              />
+            ) : undefined
+          }
+        />
+      </section>
+    </AuditTabs>
   );
 };

@@ -188,8 +188,9 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [ ] 7.2 Roles and permissions (owner LongNN)
   - **Do**: auth api-design 15 and 16
   - _Story: US-UC10_
-- [ ] 7.3 Authentication events (owner LongNN)
+- [x] 7.3 Authentication events (owner LongNN)
   - **Do**: auth api-design 17 with filters
+  - **Done** (2026-10-31, US-UC58): `AuthEventsPage` at `/t/admin/audit/sign-ins` (Admin only, nav entry built) over auth api-design 17: the log newest first, 20 to a page, with time (UTC on hover), the event type as a text badge (red for `TOKEN_REUSE_DETECTED` and `ACCOUNT_LOCKED`), email, organization ("None" when the attempt matched no account), IP and a "Filter by this account" action. The five filters (account, organization, event type, from, to) are kept in the URL; the account is a typeahead (`AccountPicker`, auth api-design 09) and the organization a select over the organizations read; an end before the start is blocked with MSG35 under To; the count is announced in a polite live region; MSG26 alone for a 403; the server message as a banner for a 400. `AuditLogPage` and the new page share the Change log / Sign-ins tab strip (`AuditTabs`). Component-tested; lint, typecheck and the frontend suite pass. Open: a walk through the page in a browser against a running backend; the account filter shows no name for an account chosen from a link (the typeahead starts empty and the id stays in the URL)
   - _Story: US-UC58_
 - [ ] 7.4 Parameters and audit log (owner LongNN)
   - **Do**: platform api-design 02 to 05; parameters grouped by module with inline edit within bounds and a history drawer; audit log with the organization filter

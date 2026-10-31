@@ -5,6 +5,7 @@ import { ApiKeysPage } from '../pages/ApiKeysPage';
 import { MembersPage } from '../pages/MembersPage';
 import { RosterPage } from '../pages/RosterPage';
 import { AuditLogPage } from '../pages/AuditLogPage';
+import { AuthEventsPage } from '../pages/AuthEventsPage';
 import { BillingPage } from '../pages/BillingPage';
 import { ContractApprovalPage } from '../pages/ContractApprovalPage';
 import { ContractDetailPage } from '../pages/ContractDetailPage';
@@ -139,6 +140,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/admin/parameters" element={<ParametersPage />} />
         <Route path="/t/admin/audit" element={<Navigate to="/t/admin/audit/changes" replace />} />
         <Route path="/t/admin/audit/changes" element={<AuditLogPage />} />
+        <Route path="/t/admin/audit/sign-ins" element={<AuthEventsPage />} />
       </Route>
     </Route>
     {DesignSystemPage && (
