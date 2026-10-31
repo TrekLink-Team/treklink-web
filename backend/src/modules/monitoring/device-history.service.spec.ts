@@ -94,4 +94,68 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
       'Reserved for RC-2026-0002 (ORG-0001)',
     ]);
   });
+
+  it('places the unit rows of one time between its reservation and its handover', async () => {
+    const both = at('2026-10-30T02:00:00Z');
+    const service = new DeviceHistoryService(
+      {
+        trail: jest.fn().mockResolvedValue([
+          {
+            at: at('2026-08-01T02:00:00Z'),
+            kind: 'STATE',
+            summary: 'Registered to IN_INTAKE (Registered)',
+            actorId: null,
+            refType: null,
+            refId: null,
+          },
+          {
+            at: both,
+            kind: 'PROVISIONING',
+            summary: 'Provisioned with key version 1',
+            actorId: null,
+            refType: 'ORGANIZATION',
+            refId: 'org-1',
+          },
+          {
+            at: both,
+            kind: 'STATE',
+            summary: 'AVAILABLE to RESERVED (Reserved)',
+            actorId: null,
+            refType: 'CONTRACT',
+            refId: 'c-1',
+          },
+        ]),
+      } as never,
+      {
+        contractsOfDevice: jest.fn().mockResolvedValue([
+          {
+            contractId: 'c-1',
+            contractCode: 'RC-2026-0001',
+            organizationId: 'org-1',
+            reservedAt: both,
+            releasedAt: null,
+            handedOverAt: both,
+            checkedInAt: null,
+            checkedInById: null,
+            lostAt: null,
+          },
+        ]),
+      } as never,
+      {
+        labelsOf: jest.fn().mockResolvedValue(new Map([['org-1', { code: 'ORG-0001' }]])),
+      } as never,
+      { contactCard: jest.fn().mockResolvedValue([]) } as never,
+    );
+
+    const [items, total] = await service.history('dev-1', 0, 20);
+
+    expect(total).toBe(4);
+    expect(items.map((item) => item.summary)).toEqual([
+      'Handed over on RC-2026-0001 (ORG-0001)',
+      'Provisioned with key version 1',
+      'Reserved for RC-2026-0001 (ORG-0001)',
+      'Registered to IN_INTAKE (Registered)',
+    ]);
+    expect(items[0]).not.toHaveProperty('tie');
+  });
 });

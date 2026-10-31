@@ -204,6 +204,59 @@ const addMonths = (d: Date, months: number) => {
 const utcDate = (d: Date) =>
   new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 
+// --- Device lifecycle times (2026-11-01, D-078: seeded device history order) ----------------------
+// Every device row the seed writes carries an explicit time in lifecycle order, so the device history
+// page (monitoring api-design 07) reads registered, intake check, intake passed, reserved, provisioned,
+// handed over. Without one, a row took the database's transaction time, which is later than the `now`
+// the contract dates use, and the page listed the registration above the handover. Registration is
+// the unit's `acquiredAt`; the intake check follows a minute later and the move to AVAILABLE a minute
+// after that. The reservation and the handover take the contract row's own `reservedAt` and
+// `handedOverAt`, and provisioning the device's `provisionedAt`. Only newly created rows get these
+// times; rows of an earlier run are append-only and stay as they are.
+const MINUTE_MS = 60 * 1000;
+const intakeCheckedAt = (acquiredAt: Date) => new Date(acquiredAt.getTime() + MINUTE_MS);
+const registrationRows = (deviceId: string, actorId: string, acquiredAt: Date) => [
+  {
+    deviceId,
+    toStatus: DeviceStatus.IN_INTAKE,
+    actorId,
+    reason: 'REGISTERED',
+    createdAt: acquiredAt,
+  },
+  {
+    deviceId,
+    fromStatus: DeviceStatus.IN_INTAKE,
+    toStatus: DeviceStatus.AVAILABLE,
+    actorId,
+    reason: 'INTAKE_PASSED',
+    createdAt: new Date(acquiredAt.getTime() + 2 * MINUTE_MS),
+  },
+];
+const handoverRows = (
+  deviceId: string,
+  ref: { refType: string; refId: string; actorId: string },
+  reservedAt: Date,
+  handedOverAt: Date,
+) => [
+  {
+    deviceId,
+    fromStatus: DeviceStatus.AVAILABLE,
+    toStatus: DeviceStatus.RESERVED,
+    reason: 'RESERVED',
+    ...ref,
+    createdAt: reservedAt,
+  },
+  {
+    deviceId,
+    fromStatus: DeviceStatus.RESERVED,
+    toStatus: DeviceStatus.RENTED,
+    reason: 'HANDED_OVER',
+    ...ref,
+    createdAt: handedOverAt,
+  },
+];
+// --- end device lifecycle times -------------------------------------------------------------------
+
 // Mirrors billing InvoicesService's `line()` rounding rule: the quantity stays whole only when the
 // amount divides evenly by it, so quantity x unit always equals the amount (billing task 1.2).
 const invoiceLineShape = (
@@ -385,13 +438,14 @@ export async function seedDemo(
           devices.set(d.assetTag, { id: existing.id, created: false });
           continue;
         }
+        const acquiredAt = addMonths(now, -3);
         const device = await tx.device.create({
           data: {
             assetTag: d.assetTag,
             nodeNum: d.nodeNum,
             hardwareVariantId: variants.get(d.variant)!.id,
             firmwareVersion: variant.firmwareBaseline,
-            acquiredAt: addMonths(now, -3),
+            acquiredAt,
             status: d.rented ? DeviceStatus.RENTED : DeviceStatus.AVAILABLE,
             statusChangedAt: now,
             registeredById: staff,
@@ -412,19 +466,11 @@ export async function seedDemo(
             motionOk: variant.hasMotionSensor ? true : null,
             passed: true,
             checkedById: staff,
+            createdAt: intakeCheckedAt(acquiredAt),
           },
         });
         await tx.deviceTransition.createMany({
-          data: [
-            { deviceId: device.id, toStatus: 'IN_INTAKE', actorId: staff, reason: 'REGISTERED' },
-            {
-              deviceId: device.id,
-              fromStatus: 'IN_INTAKE',
-              toStatus: 'AVAILABLE',
-              actorId: staff,
-              reason: 'INTAKE_PASSED',
-            },
-          ],
+          data: registrationRows(device.id, staff, acquiredAt),
         });
         devices.set(d.assetTag, { id: device.id, created: true });
         created.push(`device ${d.assetTag}`);
@@ -488,26 +534,12 @@ export async function seedDemo(
               organizationId: organization.id,
               keyVersion: 1,
               provisionedById: staff,
+              createdAt: now,
             },
           });
           const ref = { refType: 'CONTRACT', refId: contract.id, actorId: staff };
           await tx.deviceTransition.createMany({
-            data: [
-              {
-                deviceId: device.id,
-                fromStatus: 'AVAILABLE',
-                toStatus: 'RESERVED',
-                reason: 'RESERVED',
-                ...ref,
-              },
-              {
-                deviceId: device.id,
-                fromStatus: 'RESERVED',
-                toStatus: 'RENTED',
-                reason: 'HANDED_OVER',
-                ...ref,
-              },
-            ],
+            data: handoverRows(device.id, ref, now, now),
           });
         }
         created.push(`contract device ${d.assetTag}`);
@@ -536,13 +568,14 @@ export async function seedDemo(
           mf05Devices.set(d.assetTag, { id: existing.id, created: false });
           continue;
         }
+        const acquiredAt = addMonths(now, -3);
         const device = await tx.device.create({
           data: {
             assetTag: d.assetTag,
             nodeNum: d.nodeNum,
             hardwareVariantId: variants.get(CONTRACT_VARIANT)!.id,
             firmwareVersion: mf05VariantStatic.firmwareBaseline,
-            acquiredAt: addMonths(now, -3),
+            acquiredAt,
             status: DeviceStatus.RENTED,
             statusChangedAt: now,
             registeredById: staff,
@@ -561,19 +594,11 @@ export async function seedDemo(
             motionOk: mf05VariantStatic.hasMotionSensor ? true : null,
             passed: true,
             checkedById: staff,
+            createdAt: intakeCheckedAt(acquiredAt),
           },
         });
         await tx.deviceTransition.createMany({
-          data: [
-            { deviceId: device.id, toStatus: 'IN_INTAKE', actorId: staff, reason: 'REGISTERED' },
-            {
-              deviceId: device.id,
-              fromStatus: 'IN_INTAKE',
-              toStatus: 'AVAILABLE',
-              actorId: staff,
-              reason: 'INTAKE_PASSED',
-            },
-          ],
+          data: registrationRows(device.id, staff, acquiredAt),
         });
         mf05Devices.set(d.assetTag, { id: device.id, created: true });
         created.push(`device ${d.assetTag}`);
@@ -641,26 +666,12 @@ export async function seedDemo(
               organizationId: organization.id,
               keyVersion: 1,
               provisionedById: staff,
+              createdAt: now,
             },
           });
           const ref = { refType: 'CONTRACT', refId: contract2.id, actorId: staff };
           await tx.deviceTransition.createMany({
-            data: [
-              {
-                deviceId: device.id,
-                fromStatus: 'AVAILABLE',
-                toStatus: 'RESERVED',
-                reason: 'RESERVED',
-                ...ref,
-              },
-              {
-                deviceId: device.id,
-                fromStatus: 'RESERVED',
-                toStatus: 'RENTED',
-                reason: 'HANDED_OVER',
-                ...ref,
-              },
-            ],
+            data: handoverRows(device.id, ref, now, now),
           });
         }
         created.push(`contract device ${d.assetTag}`);
@@ -879,6 +890,7 @@ export async function seedDemo(
               motionOk: defaultedVariant.hasMotionSensor ? true : null,
               passed: true,
               checkedById: staff,
+              createdAt: intakeCheckedAt(device.acquiredAt),
             },
           });
           created.push(`device ${DEFAULTED_DEVICE.assetTag}`);
@@ -955,33 +967,14 @@ export async function seedDemo(
               organizationId: organization.id,
               keyVersion: 1,
               provisionedById: staff,
+              createdAt: handedOverAt,
             },
           });
           const ref = { refType: 'CONTRACT', refId: contract3.id, actorId: staff };
           await tx.deviceTransition.createMany({
             data: [
-              { deviceId: device.id, toStatus: 'IN_INTAKE', actorId: staff, reason: 'REGISTERED' },
-              {
-                deviceId: device.id,
-                fromStatus: 'IN_INTAKE',
-                toStatus: 'AVAILABLE',
-                actorId: staff,
-                reason: 'INTAKE_PASSED',
-              },
-              {
-                deviceId: device.id,
-                fromStatus: 'AVAILABLE',
-                toStatus: 'RESERVED',
-                reason: 'RESERVED',
-                ...ref,
-              },
-              {
-                deviceId: device.id,
-                fromStatus: 'RESERVED',
-                toStatus: 'RENTED',
-                reason: 'HANDED_OVER',
-                ...ref,
-              },
+              ...registrationRows(device.id, staff, device.acquiredAt),
+              ...handoverRows(device.id, ref, handedOverAt, handedOverAt),
             ],
           });
         }

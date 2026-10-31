@@ -550,11 +550,15 @@ export class DevicesRepository {
     await tx.deviceTransition.create({ data });
   }
 
-  // The lifecycle rows of one device, for `trail()` (monitoring api-design 07).
+  // The lifecycle rows of one device, for `trail()` (monitoring api-design 07), each list oldest
+  // first. The id breaks a tie between rows of one time, so a repeated read returns the same order;
+  // `trail()` then puts state rows of one time in the order of their moves.
   async lifecycle(deviceId: string, client: Client = this.prisma) {
+    const orderBy = [{ createdAt: 'asc' as const }, { id: 'asc' as const }];
     const [transitions, intakeChecks, provisionings, resets, inspections] = await Promise.all([
       client.deviceTransition.findMany({
         where: { deviceId },
+        orderBy,
         select: {
           id: true,
           fromStatus: true,
@@ -569,10 +573,12 @@ export class DevicesRepository {
       }),
       client.intakeCheck.findMany({
         where: { deviceId },
+        orderBy,
         select: { id: true, passed: true, checkedById: true, createdAt: true },
       }),
       client.deviceProvisioning.findMany({
         where: { deviceId },
+        orderBy,
         select: {
           id: true,
           organizationId: true,
@@ -583,10 +589,12 @@ export class DevicesRepository {
       }),
       client.deviceReset.findMany({
         where: { deviceId },
+        orderBy,
         select: { id: true, resetById: true, createdAt: true },
       }),
       client.inspection.findMany({
         where: { deviceId },
+        orderBy,
         select: { id: true, result: true, damageCodes: true, inspectorId: true, createdAt: true },
       }),
     ]);
