@@ -6,7 +6,7 @@
 | Task | `specs/frontend/tasks.md` 7.1 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
-| Routes | `/t/admin/accounts` (`specs/frontend/design.md` §2) |
+| Routes | `/t/admin/accounts` (`specs/frontend/design.md` §2); search, status and page are kept in the query, `?q=&isActive=&page=`, as on screens 7.3 and 7.4 |
 | Roles | TrekLink Admin: full page. TrekLink Staff: no access (MSG26); Staff reach only the "Send reset code" action through other screens (auth api-design 14). Organization roles: no access (MSG26). |
 | Use case, FRs, story | UC-10; FR-AUTH-05, FR-AUTH-06, FR-AUTH-07, FR-AUTH-09, FR-AUTH-10; US-UC10 |
 | Requirements | `specs/auth/requirements.md` REQ-UBI-03, REQ-UBI-09, REQ-EVT-06, REQ-EVT-07 |
@@ -67,7 +67,7 @@ New account is one step of 3 fields, and edit adds an optional phone (chapter 06
 |---|---|---|---|---|
 | 1 | Email | email text | yes (create only; read-only on edit) | Valid email; stored lower-case (REQ-UBI-01); duplicate gives MSG10 |
 | 1 | Full name | text | yes on create, optional on edit | Non-empty, trimmed; MSG02 when empty |
-| 1 | Phone | text | no (edit only) | auth 11 `phoneNumber`; MSG02 when malformed |
+| 1 | Phone | text | no (edit only) | auth 11 `phoneNumber`; MSG02 when malformed. auth 11 documents `phoneNumber` as a string and offers no way to clear it, so an empty field sends nothing and the hint says so |
 | 1 | Role | select: `STAFF`, `ADMIN` | yes on create, optional on edit | Enum from auth 10 and 11. Disabled on the signed-in Admin's own row. |
 | Deactivate dialog | Reason | text | yes | Non-empty (auth 12 `reason`); MSG02 when empty |
 
@@ -78,7 +78,7 @@ field (text, digits and a leading plus, as the DTO validates it). No field ever 
 ## Mobile, accessibility, live data
 
 - 360 px layout: not an operator screen (NFR-UI-01 does not require it). The table collapses to cards: name and role badge on the first line, email and status below, the row actions behind one "Actions" button. Filters stack above the cards.
-- Tab order and focus after each action: header (New account) then filters, then table rows left to right, then pager. Opening a dialog moves focus to its first field (or the confirm button for Reactivate and Send reset code); closing it returns focus to the control that opened it. After a successful create, focus moves to the new row's name cell.
+- Tab order and focus after each action: header (New account) then filters, then table rows left to right, then pager. Opening a dialog moves focus to its first field (or the confirm button for Reactivate and Send reset code); closing it returns focus to the control that opened it. After a successful create, the filters and page clear, so the new account heads page 1 (auth 09 lists newest first), and focus moves to the new row's name cell.
 - WebSocket events and invalidated query keys: none on `/live` concern accounts. Every successful mutation invalidates `['accounts']` (all filter variants).
 
 ## Checklist
