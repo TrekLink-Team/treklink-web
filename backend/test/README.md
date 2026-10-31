@@ -25,6 +25,10 @@ starts the application the same way on its own. Some of these suites read every 
 dispatcher), so run the whole suite on a fresh database, as CI does. `mf03.db-spec.ts` drains the due
 alert backlog before it checks its own rows, so it also passes on a second run against the same
 database (checked 2026-10-30: three runs, 21 of 21 suites each).
+`seed-demo-history.db-spec.ts` runs the demo seed itself, so it works in a schema of its own
+(`seed_demo_history_<id>`, migrated in the spec and dropped after it): the seed's fixed contract codes
+would collide with the codes the rentals suites allocate. It refuses a `*.neon.tech` URL. Checked
+2026-11-01: 25 of 25 suites on a fresh local Postgres 16.
 
 The incident database tests create fixture states and initial history directly. Subsequent lifecycle
 actions run through the real repositories, parameter service and transaction/event wrapper. They cover
