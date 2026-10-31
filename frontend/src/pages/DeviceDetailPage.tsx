@@ -19,6 +19,7 @@ import { formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
+import { buttonClasses } from '../shared/ui/buttonStyles';
 import { Dialog } from '../shared/ui/Dialog';
 import { Checkbox, Field, Input, Switch, Textarea } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
@@ -350,6 +351,15 @@ export const DeviceDetailPage: React.FC = () => {
               </p>
             )}
             {canDispose && <Button variant="danger" onClick={() => setDisposing(true)}>Dispose</Button>}
+            {/* Screen 4.2: position history in any state, on its own route (screen 9.2); the asset tag
+                travels along for the history heading. */}
+            <Link
+              to={`/t/devices/${device.id}/telemetry`}
+              state={{ assetTag: device.assetTag }}
+              className={buttonClasses('secondary')}
+            >
+              Position history
+            </Link>
           </div>
         </div>
 
