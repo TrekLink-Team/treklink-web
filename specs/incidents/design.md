@@ -149,6 +149,14 @@ whose synchronous listener in `monitoring` publishes to the recipient's room `us
 (`ws-live-contract.md`); `incidents` never imports `monitoring`. It counts as sent when the listener
 returns, whether or not a socket is connected, because the web inbox holds the same alert.
 
+EMAIL resolves the outbox row's recipient account through `AccountsService.contactCard` and sends
+one message through the existing `MAIL_PORT` (D-063). The recipient's email is resolved at dispatch,
+not stored as a second recipient list. A missing account or email uses the normal retry/failure path.
+`SENT` means the configured transport accepted the message, not that a person read it. Console
+transport is development/CI only; SMTP uses the existing environment configuration. Sending and
+settlement remain in the outbox transaction, which locks alert rows, not incident rows. Delivery is
+at least once: if SMTP accepts and settlement rolls back, a later attempt can repeat the email.
+
 On the wire, `incident.alert` is a `stream` event with `seq: 0`. It is not stored in the stream table,
 whose entries are scoped by organization rather than by person, so it has no replay sequence. The
 client delivers it without reading or moving its replay cursor; a missed alert stays visible in the
@@ -441,27 +449,42 @@ sequenceDiagram
     participant Ob as AlertDeliveriesRepository
     participant Dp as AlertDispatcherJob
     participant W as LiveGateway
-    L->>R: compareAndSet(current, patch, tx)
-    R-->>L: updated incident
-    L->>R: insertTransition(row, tx)
-    L->>Ob: enqueue(rows for the tier, tx)
+    participant A as AccountsService
+    participant M as MailPort
+    activate L
+    L->>+R: compareAndSet(current, patch, tx)
+    R-->>-L: updated incident
+    L->>+R: insertTransition(row, tx)
+    R-->>-L: transition
+    L->>+Ob: enqueue(rows for the tier, tx)
+    Ob-->>-L: rows persisted
     Note over L,Ob: committed with the caller's transaction, then incident.changed and audit.record
-    Dp->>Ob: claimDue(WEB and WEBSOCKET, now, limit, tx)
-    Ob-->>Dp: due rows, FOR UPDATE SKIP LOCKED
+    deactivate L
+    activate Dp
+    Dp->>+Ob: claimDue(WEB, WEBSOCKET and EMAIL, now, limit, tx)
+    Ob-->>-Dp: due rows, FOR UPDATE SKIP LOCKED
     loop each due row
-        alt sent
+        alt WEBSOCKET row
             Dp-)W: emit incident.alert for a WEBSOCKET row, monitoring publishes to user room
-            Note over Dp,W: a WEB row needs no message, the queue page reads the row
-        else the send threw
+        else EMAIL row
+            Dp->>+A: contactCard([recipientId])
+            A-->>-Dp: recipient email
+            Dp->>+M: send(to, subject, text)
+            M-->>-Dp: accepted or rejected
+        else WEB row
+            Note over Dp,Ob: the queue page reads the row
+        end
+        opt recipient lookup or send failed
             Dp->>Ob: markFailedAttempt(id, error, retryAt with backoff, or FAILED, tx)
         end
     end
     Dp->>Ob: markSent(ids of the rows sent, now, tx)
     Dp->>Ob: COMMIT
+    deactivate Dp
 ```
 
-***Figure 6***: UC-29 Create Incident, part 2 of 2: UC-30 Send Alert through the outbox (E03-7). EMAIL and
-API_EVENT rows stay PENDING until their senders exist. Not drawn here: the retry backoff and the FAILED
+***Figure 6***: UC-29 Create Incident, part 2 of 2: UC-30 Send Alert through the outbox (E03-7).
+API_EVENT rows stay PENDING until their sender exists. Not drawn here: the retry backoff and the FAILED
 limit, which REQ-EVT-13 and §3 carry.
 
 <!-- sdd: MF-03 seq UC-31 -->

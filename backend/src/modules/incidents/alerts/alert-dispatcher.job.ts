@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AlertChannel } from '@prisma/client';
+import { AccountsService, MAIL_PORT, MailPort } from '../../auth';
 import { DevicesService } from '../../devices';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
 import { ParameterService } from '../../platform/parameters/parameter.service';
@@ -24,9 +25,12 @@ export interface IncidentAlertEvent {
   };
 }
 
-// Channels with a sender in this build (MF-03 session, ruling 3). EMAIL and API_EVENT rows stay
-// PENDING until their senders land.
-const CHANNELS: readonly AlertChannel[] = [AlertChannel.WEB, AlertChannel.WEBSOCKET];
+// API_EVENT stays PENDING until its sender lands. EMAIL reuses auth's configured MailPort.
+const CHANNELS: readonly AlertChannel[] = [
+  AlertChannel.WEB,
+  AlertChannel.WEBSOCKET,
+  AlertChannel.EMAIL,
+];
 const BATCH = 100;
 
 // MSG31: SOS: {device} ({holder}), {time}. Acknowledge now.
@@ -41,6 +45,7 @@ export const msg31 = (device: string, holder: string | null, at: Date): string =
 // Delivery is at least once: the alert is emitted before `markSent` commits, so if that commit
 // fails the row is claimed again and the recipient sees the alert twice. The client keys the banner
 // by incident id, so a repeat replaces the shown alert rather than adding one (AlertBanner).
+// EMAIL is also at least once: SMTP acceptance cannot be rolled back if settlement fails.
 @Injectable()
 export class AlertDispatcherJob {
   private readonly logger = new Logger(AlertDispatcherJob.name);
@@ -52,6 +57,8 @@ export class AlertDispatcherJob {
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
     private readonly emitter: EventEmitter2,
+    private readonly accounts: AccountsService,
+    @Inject(MAIL_PORT) private readonly mail: MailPort,
   ) {}
 
   @ScheduledJob('incidents.deliverAlerts', '*/2 * * * * *')
@@ -74,6 +81,16 @@ export class AlertDispatcherJob {
               recipientId: row.recipientId,
               alert: payloads.get(row.incidentId)!,
             } satisfies IncidentAlertEvent);
+          } else if (row.channel === AlertChannel.EMAIL) {
+            if (!row.recipientId) throw new Error('EMAIL alert without a recipient');
+            const [recipient] = await this.accounts.contactCard([row.recipientId]);
+            if (!recipient?.email) throw new Error('EMAIL alert recipient unavailable');
+            const alert = payloads.get(row.incidentId)!;
+            await this.mail.send({
+              to: recipient.email,
+              subject: `TrekLink alert: ${alert.code}`,
+              text: `${alert.message}\nIncident: ${alert.code}`,
+            });
           }
           sent.push(row.id);
         } catch (error) {

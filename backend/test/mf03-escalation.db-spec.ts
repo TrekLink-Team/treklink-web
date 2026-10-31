@@ -7,6 +7,7 @@ import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountsService } from '../src/modules/auth';
 import { AccountsRepository } from '../src/modules/auth/accounts.repository';
 import { AlertDeliveriesRepository } from '../src/modules/incidents/alert-deliveries.repository';
+import { AlertDispatcherJob } from '../src/modules/incidents/alerts/alert-dispatcher.job';
 import { IncidentLifecycle } from '../src/modules/incidents/incident-lifecycle';
 import { IncidentsRepository } from '../src/modules/incidents/incidents.repository';
 import { IncidentsService } from '../src/modules/incidents/incidents.service';
@@ -132,6 +133,35 @@ describe('MF-03 escalation timers against Postgres', () => {
       })
     ).map((row) => [row.fromState, row.toState, row.reason, row.actorId]);
 
+  const emailDispatcher = (send: (message: { to: string }) => Promise<void>, maxAttempts = 4) =>
+    new AlertDispatcherJob(
+      new AlertDeliveriesRepository(),
+      { assetTags: () => Promise.resolve(new Map()) } as never,
+      { holderLabels: () => Promise.resolve(new Map()) } as never,
+      {
+        get: (key: string) =>
+          Promise.resolve(key === 'incidents.alertMaxAttempts' ? maxAttempts : 5),
+      } as never,
+      events,
+      new EventEmitter2(),
+      accounts,
+      { send },
+    );
+
+  const emailOf = (incidentId: string) =>
+    prisma.alertDelivery.findFirstOrThrow({
+      where: { incidentId, recipientId: operatorId, channel: 'EMAIL' },
+    });
+  const dueEmail = async (incidentId: string) => {
+    const row = await emailOf(incidentId);
+    // Prioritize this run's row without changing another suite's data.
+    await prisma.alertDelivery.update({
+      where: { id: row.id },
+      data: { nextAttemptAt: new Date(0) },
+    });
+    return row;
+  };
+
   beforeAll(async () => {
     await prisma.$connect();
     staffId = await user('staff', AccountType.TREKLINK);
@@ -201,6 +231,133 @@ describe('MF-03 escalation timers against Postgres', () => {
   });
 
   afterAll(async () => prisma.$disconnect());
+
+  it('AC-07: three failed emails back off while escalation continues, then delivery succeeds once', async () => {
+    const incident = await routedIncident();
+    let failures = 0;
+    const send = jest.fn(({ to }: { to: string }) => {
+      if (to === `timers-operator-${runId}@example.invalid` && failures++ < 3)
+        return Promise.reject(new Error('SMTP unavailable'));
+      return Promise.resolve();
+    });
+    const dispatcher = emailDispatcher(send);
+    const original = await dueEmail(incident.id);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const started = Date.now();
+      await dispatcher.deliverAlerts();
+      const failed = await emailOf(incident.id);
+      expect(failed).toMatchObject({
+        status: 'PENDING',
+        attempts: attempt,
+        lastError: 'SMTP unavailable',
+        sentAt: null,
+      });
+      expect(failed.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(started + 5000 * 2 ** attempt);
+      expect((await read(incident.id)).state).toBe(
+        attempt === 1 ? 'NOTIFY_PRIMARY' : 'NOTIFY_MANAGER',
+      );
+      if (attempt === 1) {
+        await prisma.incident.update({
+          where: { id: incident.id },
+          data: { tierDeadlineAt: past() },
+        });
+        await job.tierTimeouts();
+        expect((await read(incident.id)).state).toBe('NOTIFY_MANAGER');
+      }
+      await dueEmail(incident.id);
+    }
+    await prisma.incident.update({ where: { id: incident.id }, data: { tierDeadlineAt: past() } });
+    await job.tierTimeouts();
+    expect((await read(incident.id)).state).toBe('ESCALATED');
+    await dispatcher.deliverAlerts();
+    expect(await emailOf(incident.id)).toMatchObject({
+      id: original.id,
+      status: 'SENT',
+      attempts: 4,
+    });
+    expect((await emailOf(incident.id)).sentAt).toBeInstanceOf(Date);
+    expect(
+      await prisma.alertDelivery.count({
+        where: { transitionId: original.transitionId, recipientId: operatorId, channel: 'EMAIL' },
+      }),
+    ).toBe(1);
+    const sentCalls = send.mock.calls.filter(
+      ([message]) => message.to === `timers-operator-${runId}@example.invalid`,
+    ).length;
+    await dispatcher.deliverAlerts();
+    expect(
+      send.mock.calls.filter(
+        ([message]) => message.to === `timers-operator-${runId}@example.invalid`,
+      ),
+    ).toHaveLength(sentCalls);
+    expect(
+      await prisma.alertDelivery.count({
+        where: { incidentId: incident.id, channel: 'API_EVENT', status: 'SENT' },
+      }),
+    ).toBe(0);
+  });
+
+  it('settles a terminal email failure and exposes its attempts/error in the delivery log', async () => {
+    const incident = await routedIncident();
+    const dispatcher = emailDispatcher(() => Promise.reject(new Error('SMTP unavailable')), 1);
+    await dueEmail(incident.id);
+    await dispatcher.deliverAlerts();
+    expect(await emailOf(incident.id)).toMatchObject({
+      status: 'FAILED',
+      attempts: 1,
+      lastError: 'SMTP unavailable',
+      sentAt: null,
+    });
+    expect(await repository.alertDeliveries(incident.id)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          channel: 'EMAIL',
+          status: 'FAILED',
+          attempts: 1,
+          lastError: 'SMTP unavailable',
+        }),
+      ]),
+    );
+    expect((await read(incident.id)).state).toBe('NOTIFY_PRIMARY');
+  });
+
+  it('does not lock the incident while SMTP is pending, and concurrent dispatch skips the claimed email', async () => {
+    const incident = await routedIncident();
+    await dueEmail(incident.id);
+    let release!: () => void;
+    let entered!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const sending = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const send = jest.fn(async () => {
+      entered();
+      await pending;
+    });
+    const first = emailDispatcher(send).deliverAlerts();
+    try {
+      await sending;
+      await prisma.incident.update({
+        where: { id: incident.id },
+        data: { tierDeadlineAt: past() },
+      });
+      await job.tierTimeouts();
+      expect((await read(incident.id)).state).toBe('NOTIFY_MANAGER');
+      const secondSend = jest.fn(() => Promise.resolve());
+      await emailDispatcher(secondSend).deliverAlerts();
+      expect(secondSend.mock.calls).not.toEqual(
+        expect.arrayContaining([
+          [expect.objectContaining({ to: `timers-operator-${runId}@example.invalid` })],
+        ]),
+      );
+    } finally {
+      release();
+      await first;
+    }
+    expect(await emailOf(incident.id)).toMatchObject({ status: 'SENT', attempts: 1 });
+  });
 
   it('walks primary, the empty backup, Manager, then ESCALATED with nobody acknowledging (AC-02)', async () => {
     const incident = await routedIncident();
