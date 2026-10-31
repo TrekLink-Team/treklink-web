@@ -22,9 +22,12 @@ export interface AccountFilters {
 
 export const ACCOUNT_PAGE_SIZE = 20;
 
+// The page size is part of the key: the accounts page reads the active accounts twice, 20 rows for the
+// table and 100 for the last-Admin guard, and the two must not share one cache entry.
 export const accountKeys = {
   all: ['accounts'] as const,
-  list: (filters: AccountFilters, pageNumber: number) => ['accounts', filters, pageNumber] as const,
+  list: (filters: AccountFilters, pageNumber: number, pageSize: number = ACCOUNT_PAGE_SIZE) =>
+    ['accounts', filters, pageNumber, pageSize] as const,
 };
 
 export const fetchAccounts = (
@@ -39,7 +42,7 @@ export const useAccounts = (
   options?: { enabled?: boolean; pageSize?: number },
 ) =>
   useQuery({
-    queryKey: accountKeys.list(filters, pageNumber),
+    queryKey: accountKeys.list(filters, pageNumber, options?.pageSize),
     queryFn: () => fetchAccounts(filters, pageNumber, options?.pageSize),
     enabled: options?.enabled,
     retry: false,
