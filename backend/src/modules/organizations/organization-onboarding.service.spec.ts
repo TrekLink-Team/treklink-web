@@ -7,7 +7,11 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { MembersRepository } from './members.repository';
-import { ORGANIZATION_STATUS_CHANGED } from './organization-events';
+import {
+  ORGANIZATION_REGISTERED,
+  ORGANIZATION_STATUS_CHANGED,
+  ORGANIZATION_VERIFIED,
+} from './organization-events';
 import { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationOnboardingService, Verification } from './organization-onboarding.service';
 import { OrganizationsRepository } from './organizations.repository';
@@ -62,6 +66,8 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
         .fn()
         .mockImplementation((id: string, version: number, data: Record<string, unknown>) => ({
           id,
+          code: 'ORG-0001',
+          legalName: 'ACME Trek',
           version: version + 1,
           ...data,
         })),
@@ -146,6 +152,12 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
         TX,
       );
       expect(organization).toMatchObject({ id: 'org-1', code: 'ORG-0002' });
+      expect(emitted).toEqual([
+        [
+          ORGANIZATION_REGISTERED,
+          { organizationId: 'org-1', code: 'ORG-0002', legalName: REGISTRATION.legalName },
+        ],
+      ]);
     });
 
     it('refuses a tax code already registered with 409 CONFLICT_UNIQUE (MSG10) and creates nothing', async () => {
@@ -197,6 +209,10 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
       );
       expect(saved).toMatchObject({ id: 'org-1', version: 1 });
       expect(emitted).toEqual([
+        [
+          ORGANIZATION_VERIFIED,
+          { organizationId: 'org-1', code: 'ORG-0001', legalName: 'ACME Trek' },
+        ],
         [
           AUDIT_RECORD,
           expect.objectContaining({
@@ -282,6 +298,7 @@ describe('OrganizationOnboardingService (organizations 2.1 to 2.3)', () => {
           organizationId: 'org-1',
           from: OrganizationStatus.PENDING,
           to: OrganizationStatus.ACTIVE,
+          reason: null,
         },
       ]);
     });

@@ -109,6 +109,7 @@ describe('OrganizationLifecycle.transition (organizations 1.2, REQ-UBI-01, FR-OR
           organizationId: 'org-1',
           from: OrganizationStatus.ACTIVE,
           to: OrganizationStatus.SUSPENDED,
+          reason: 'Unpaid balance',
         },
       ],
       [
