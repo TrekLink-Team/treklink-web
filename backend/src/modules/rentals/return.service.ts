@@ -33,8 +33,9 @@ const RETURNING: readonly ContractStatus[] = [
   ContractStatus.DEFAULTED,
 ];
 
-// The states a contract leaves for RETURNED once every device is back or lost (design §2).
-const DUE: readonly ContractStatus[] = [
+// The states a contract leaves for RETURNED once every device is back or lost (design §2); also read
+// by RentalsLossCaseListener when a settled loss case closes the last interval (REQ-EVT-12).
+export const DUE: readonly ContractStatus[] = [
   ContractStatus.RETURN_DUE,
   ContractStatus.OVERDUE,
   ContractStatus.DEFAULTED,
