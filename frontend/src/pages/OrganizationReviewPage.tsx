@@ -536,7 +536,9 @@ export const OrganizationReviewPage: React.FC = () => {
                 <Fact label="Tax code">{selected.taxCode}</Fact>
                 <Fact label="Address">{selected.address}</Fact>
                 <Fact label="Contact">
-                  {selected.contactEmail}, {selected.contactPhone}
+                  <span className="[overflow-wrap:anywhere]">
+                    {selected.contactEmail}, {selected.contactPhone}
+                  </span>
                 </Fact>
                 {selected.verifiedAt && (
                   <Fact label="Verified">
