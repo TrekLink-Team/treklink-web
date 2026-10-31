@@ -25,8 +25,8 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
   const { data, isLoading, error, refetch } = useInvoices('t', filters);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_440px]">
-      <div>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="min-w-0 overflow-x-auto">
         <InvoiceFilterBar filters={filters} onChange={setFilters} />
         {isLoading && <Loading />}
         {error && <ErrorState error={error} onRetry={() => void refetch()} />}
