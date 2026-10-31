@@ -43,6 +43,17 @@ afterEach(() => {
 });
 
 describe('AlertBanner', () => {
+  it('replaces a duplicate incident alert, so acknowledging it leaves no duplicate banner', async () => {
+    acknowledgeIncident.mockResolvedValue(undefined);
+    render(<AlertBanner />);
+    push(entry('incident.alert', alertPayload));
+    push(entry('incident.alert', { ...alertPayload, deviceLabel: 'Updated label' }));
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert').textContent).toContain('Updated label');
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(acknowledgeIncident).toHaveBeenCalledTimes(1);
+  });
   it('shows MSG32 while the socket is paused and clears it on resume (REQ-EVT-03)', () => {
     render(<AlertBanner />);
     push({ kind: 'paused', paused: true });
