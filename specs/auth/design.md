@@ -393,6 +393,7 @@ sequenceDiagram
     participant S as :AuthService
     participant Pw as :PasswordService
     participant Se as :AccountSessionService
+    participant Pm as :ParameterService
     participant T as :TokenService
     participant R as :AccountsRepository
     U->>P: enter email and password
@@ -407,16 +408,26 @@ sequenceDiagram
     S->>R: findByEmail(email)
     activate R
     deactivate R
-    alt failure: account is already locked
-        S->>R: insertAuthEvent(LOGIN_FAILED)
+    S->>Pw: verify(password, hash)
+    activate Pw
+    deactivate Pw
+    alt failure: wrong email or password
+        S->>Pm: get(key) for loginMaxFailures, loginFailureWindowMinutes, lockoutMinutes
+        activate Pm
+        deactivate Pm
+        S->>R: insertAuthEvent(LOGIN_FAILED, tx)
         activate R
         deactivate R
-        S-->>C: 423 ACCOUNT_LOCKED
-        C-->>P: error envelope with minutes left
+        S->>R: countLoginFailuresSince(userId, since, tx)
+        activate R
+        deactivate R
+        S->>R: recordLoginFailure(userId, failures, null, tx)
+        activate R
+        deactivate R
+        S-->>C: 401 INVALID_CREDENTIALS
+        C-->>P: error envelope
+        P->>U: MSG09 incorrect email or password
     else success: active account, valid password, no lock
-        S->>Pw: verify(password, hash)
-        activate Pw
-        deactivate Pw
         S->>Se: eligible(account)
         activate Se
         deactivate Se
@@ -436,7 +447,7 @@ sequenceDiagram
     end
 ```
 
-***Figure 8***: UC-08 Authenticate. The named failure is an already locked account, which logs LOGIN_FAILED before returning 423 ACCOUNT_LOCKED. Outside this two-lane view, an unknown email still performs the password verification, logs LOGIN_FAILED, then returns 401 without reading lockout parameters or counting failures. For a known account with invalid credentials, AuthService.rejectLogin reads auth.loginMaxFailures, auth.loginFailureWindowMinutes and auth.lockoutMinutes, inserts LOGIN_FAILED, counts the window and records the failure; at the limit it also inserts ACCOUNT_LOCKED and returns 423. Other credential refusals return 401 INVALID_CREDENTIALS (REQ-ERR-01, MSG09).
+***Figure 8***: UC-08 Authenticate. The named failure is wrong credentials (SRS UC-08, MSG09): for a known account, AuthService.rejectLogin reads auth.loginMaxFailures, auth.loginFailureWindowMinutes and auth.lockoutMinutes, inserts LOGIN_FAILED, counts the failures in the window and records them in one transaction, then returns 401 INVALID_CREDENTIALS (REQ-ERR-01). Outside this two-lane view: at the limit the same transaction also sets lockedUntil, inserts ACCOUNT_LOCKED and returns 423 ACCOUNT_LOCKED; an account already locked is refused before its password is checked, logs LOGIN_FAILED and returns 423 with the minutes left (REQ-STA-01); an unknown email still performs the password verification, logs LOGIN_FAILED and returns 401 without reading lockout parameters or counting failures; an account that eligible() refuses is rejected as a wrong password.
 
 <!-- sdd: MF-01 seq UC-09 part 1 of 2: request a code -->
 ```mermaid
