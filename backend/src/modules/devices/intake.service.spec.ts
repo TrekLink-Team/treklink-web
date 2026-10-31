@@ -46,6 +46,7 @@ const codeOf = async (promise: Promise<unknown>) => {
 describe('IntakeService (devices task 2.2)', () => {
   let devices: Record<string, jest.Mock>;
   let maintenance: { hasOpenRecord: jest.Mock; openForSystem: jest.Mock };
+  let custody: { custodyAt: jest.Mock };
   let service: IntakeService;
 
   beforeEach(() => {
@@ -66,9 +67,11 @@ describe('IntakeService (devices task 2.2)', () => {
       hasOpenRecord: jest.fn().mockResolvedValue(false),
       openForSystem: jest.fn().mockResolvedValue({ id: 'm-1' }),
     };
+    custody = { custodyAt: jest.fn().mockResolvedValue(null) };
     service = new IntakeService(
       devices as unknown as DevicesRepository,
       maintenance as unknown as MaintenanceService,
+      custody,
     );
   });
 
@@ -96,6 +99,32 @@ describe('IntakeService (devices task 2.2)', () => {
       );
       expect(maintenance.openForSystem).not.toHaveBeenCalled();
       expect(result.check.passed).toBe(true);
+    });
+
+    it('refuses a pass while the contract row of the unit is still open, and lets a failure through (design §2.1)', async () => {
+      devices.findDetail.mockResolvedValue(device({ status: DeviceStatus.MAINTENANCE }));
+      custody.custodyAt.mockResolvedValue({
+        contractId: 'c-1',
+        organizationId: 'org-1',
+        contractDeviceId: 'cd-1',
+      });
+
+      await expect(codeOf(service.record('d-42', pass, 'staff-1', AT, TX))).resolves.toBe(
+        ErrorCode.INVALID_STATE_TRANSITION,
+      );
+      expect(custody.custodyAt).toHaveBeenCalledWith('d-42', AT, TX);
+      expect(devices.moveIfCurrent).not.toHaveBeenCalled();
+
+      await service.record('d-42', { ...pass, radioOk: false }, 'staff-1', AT, TX);
+      expect(devices.moveIfCurrent).toHaveBeenCalledWith(
+        'd-42',
+        0,
+        [DeviceStatus.IN_INTAKE, DeviceStatus.MAINTENANCE],
+        DeviceStatus.MAINTENANCE,
+        AT,
+        TX,
+        {},
+      );
     });
 
     it('keeps the service date of a unit that already has one (AC-03)', async () => {

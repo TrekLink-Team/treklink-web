@@ -31,6 +31,7 @@ describe('DevicesService', () => {
       repository as unknown as DevicesRepository,
       {} as never,
       {} as never,
+      { custodyAt: () => Promise.resolve(null) },
     );
   });
 
@@ -142,6 +143,7 @@ describe('DevicesService', () => {
       { moveWithTransitions } as unknown as DevicesRepository,
       { openForSystem } as never,
       {} as never,
+      { custodyAt: () => Promise.resolve(null) },
     );
 
     await service.failHandoverCheck('dev-1', 'No GPS fix', 'u-staff', at, tx, {

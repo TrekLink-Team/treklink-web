@@ -32,6 +32,7 @@ describe('DevicesService for the replacement on a running contract', () => {
       repository as unknown as DevicesRepository,
       {} as never,
       {} as never,
+      { custodyAt: () => Promise.resolve(null) },
     );
   });
 

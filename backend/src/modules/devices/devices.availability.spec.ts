@@ -20,6 +20,7 @@ describe('device availability', () => {
     } as unknown as PrismaService),
     {} as never,
     {} as never,
+    { custodyAt: () => Promise.resolve(null) },
   );
 
   beforeEach(() => {

@@ -47,6 +47,7 @@ describe('DevicesService.reserve and release', () => {
       new DevicesRepository({} as PrismaService),
       {} as never,
       {} as never,
+      { custodyAt: () => Promise.resolve(null) },
     );
   });
 

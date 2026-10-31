@@ -20,7 +20,9 @@ describe('DevicesRepository.moveWithTransitions on Postgres', () => {
   const prisma = new PrismaService({ datasourceUrl: databaseUrl });
   const repository = new DevicesRepository(prisma);
   // reserve reads neither maintenance nor organizations.
-  const service = new DevicesService(repository, {} as never, {} as never);
+  const service = new DevicesService(repository, {} as never, {} as never, {
+    custodyAt: () => Promise.resolve(null),
+  });
   const at = new Date('2026-10-30T03:00:00.000Z');
   const runId = randomUUID();
   let staffId: string;

@@ -1,12 +1,14 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { DeviceStatus, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { addDays, businessDay, DeviceView, parseDay, toDeviceView } from './device-view';
 import { DevicesRepository } from './devices.repository';
+import { notCheckedIn } from './devices.service';
 import { IntakeCheckDto } from './dto/intake-check.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { MaintenanceService } from './maintenance.service';
 import { fromNodeId, isNodeNum, toNodeId } from './node-id';
+import { CUSTODY_RESOLVER, CustodyResolver } from './ports/custody-resolver.port';
 
 const INTAKE_FROM: readonly DeviceStatus[] = [DeviceStatus.IN_INTAKE, DeviceStatus.MAINTENANCE];
 
@@ -41,6 +43,7 @@ export class IntakeService {
   constructor(
     private readonly devices: DevicesRepository,
     private readonly maintenance: MaintenanceService,
+    @Inject(CUSTODY_RESOLVER) private readonly custody: CustodyResolver,
   ) {}
 
   // devices api-design 05 (task 2.2, FR-DEV-02, BR-10): the asset tag and node number are unique across
@@ -139,6 +142,8 @@ export class IntakeService {
     }
     const motionOk = hasMotion ? (dto.motionOk ?? null) : null;
     const passed = dto.gpsFixOk && dto.radioOk && dto.batteryOk && motionOk !== false;
+    // A pass makes the unit AVAILABLE: refused while its contract row is open (design §2.1).
+    if (passed && (await this.custody.custodyAt(deviceId, at, tx))) throw notCheckedIn();
 
     const check = await this.devices.insertIntakeCheck(
       {

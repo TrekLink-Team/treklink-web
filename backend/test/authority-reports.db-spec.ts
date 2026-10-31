@@ -80,7 +80,9 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
   );
   const ingestion = new IngestionService(
     new IngestionRepository(prisma),
-    new DevicesService(new DevicesRepository(prisma), {} as never, {} as never),
+    new DevicesService(new DevicesRepository(prisma), {} as never, {} as never, {
+      custodyAt: () => Promise.resolve(null),
+    }),
     contracts,
     ingress,
     new Normalizer(),

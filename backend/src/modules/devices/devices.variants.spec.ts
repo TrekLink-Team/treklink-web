@@ -10,7 +10,9 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
     const repository = new DevicesRepository({
       hardwareVariant: { findMany },
     } as unknown as PrismaService);
-    const service = new DevicesService(repository, {} as never, {} as never);
+    const service = new DevicesService(repository, {} as never, {} as never, {
+      custodyAt: () => Promise.resolve(null),
+    });
 
     await expect(service.variants()).resolves.toEqual([{ id: 'v-3' }]);
     expect(findMany).toHaveBeenLastCalledWith({
@@ -30,7 +32,9 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
     const repository = new DevicesRepository({
       hardwareVariant: { findMany },
     } as unknown as PrismaService);
-    const service = new DevicesService(repository, {} as never, {} as never);
+    const service = new DevicesService(repository, {} as never, {} as never, {
+      custodyAt: () => Promise.resolve(null),
+    });
 
     await expect(service.variantCatalog(true)).resolves.toEqual([
       { id: 'v-3', code: 'treklink-v3', deviceCount: 18 },
@@ -51,7 +55,9 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
     } as unknown as PrismaService);
     const tx = { hardwareVariant: { findMany: inside } } as unknown as Prisma.TransactionClient;
     await expect(
-      new DevicesService(repository, {} as never, {} as never).variants(true, tx),
+      new DevicesService(repository, {} as never, {} as never, {
+        custodyAt: () => Promise.resolve(null),
+      }).variants(true, tx),
     ).resolves.toEqual([{ id: 'v-3', isActive: true }]);
     expect(outside).not.toHaveBeenCalled();
   });
