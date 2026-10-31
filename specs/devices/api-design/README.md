@@ -30,6 +30,7 @@
 | 24 | GET | `/api/devices/availability` | TrekLink Staff, TrekLink Admin; Org Manager (counts only) | [24-get-devices-availability.md](24-get-devices-availability.md) |
 | 25 | POST | `/api/stock-takes` | TrekLink Staff, TrekLink Admin | [25-post-stock-takes.md](25-post-stock-takes.md) |
 | 26 | GET | `/api/stock-takes` | TrekLink Staff, TrekLink Admin | [26-get-stock-takes.md](26-get-stock-takes.md) |
+| 27 | GET | `/api/loss-cases/:id` | TrekLink Staff, TrekLink Admin; Org Manager: own organization | [27-get-loss-cases-id.md](27-get-loss-cases-id.md) |
 
 Route order: `GET /api/devices/availability` is declared before `GET /api/devices/:id` in `DevicesController`, so the literal segment is never read as an id.
 

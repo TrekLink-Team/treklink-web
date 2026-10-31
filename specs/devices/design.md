@@ -80,7 +80,7 @@ stateDiagram-v2
 | `RESERVED` | `RENTED` | `markRented()` | rentals | handover or replacement, provisioned at the organization's current key version; transition reason `HANDED_OVER` |
 | `RENTED` | `RETURNED` | `markReturned()` | rentals | check-in, or the faulty unit of a replacement; transition reason `CHECKED_IN`, or `REPLACED` for the faulty unit |
 | any in-service state | `LOST` | report loss | Org Manager (own rented device), Staff | no open loss case (BR-37) |
-| `LOST` | `RETURNED` | recover | Staff | loss case `REPORTED`, `SEARCHING` or `SETTLED` |
+| `LOST`, or `RETIRED` with a `SETTLED` loss case | `RETURNED` | recover | Staff | loss case `REPORTED`, `SEARCHING` or `SETTLED`; a settled case moved the device to `RETIRED`, so recovery after settlement starts there (REQ-EVT-11, 2026-10-31) |
 | `LOST` | `RETIRED` | settle loss case | Admin | case `CONFIRMED`, Admin not the triager |
 | `RETURNED` | `AVAILABLE`, `MAINTENANCE` | `recordInspection()` | rentals | reset logged after the last check-in; a passed unit due for service or firmware goes to `MAINTENANCE` (FR-DEV-19) |
 | `MAINTENANCE` | `RETIRED` | retire | Admin | not on a live contract row |
@@ -190,6 +190,28 @@ export interface LossCaseListener {
 `lostAt` to the confirmation time in `onSettled` (rentals REQ-EVT-12). Both run inside the loss-case
 transaction.
 
+**Organization actions of a triage (added 2026-10-31, task 2.7).** `organizations.markKeyExposed` is in an
+open pull request and `openOrLinkComplianceCase` is not built, so triage reaches both through the port
+`LOSS_ORGANIZATION_ACTIONS` (`ports/loss-organization-actions.port.ts`). `DevicesModule` binds a no-op
+default; the case still records `keyExposed` and `suspectedTheft`. Binding the real provider is a one-line
+change in `devices.module.ts` once organizations exports the two methods.
+
+```typescript
+export const LOSS_ORGANIZATION_ACTIONS = Symbol('LOSS_ORGANIZATION_ACTIONS');
+export interface LossOrganizationActions {
+  markKeyExposed(organizationId: string, lossCaseCode: string, tx: Prisma.TransactionClient): Promise<void>;
+  openOrLinkComplianceCase(input: { organizationId: string; lossCaseId: string; lossCaseCode: string;
+    evidence: string; policeReference: string | null; actorId: string },
+    tx: Prisma.TransactionClient): Promise<string | null>; // the compliance case id, or null
+}
+```
+
+A loss case stores the custody interval's `contractId` and `organizationId` beside `contractDeviceId`
+(migration `20261031120000_loss_case_custody_contract`), because `devices` cannot read the rentals
+tables and `LossCaseView.custodyContract` needs all three. They are set at report from
+`custodyAt(deviceId, now)` and replaced at triage by `custodyAt(deviceId, lastSeenAt ?? reportedAt)`, or
+cleared for `TREKLINK` custody; the Org Manager's list reads `organizationId`.
+
 ---
 
 ## 4. Error catalogue
@@ -207,6 +229,8 @@ transaction.
 | `KEY_VERSION_MISMATCH` | 409 |
 | `DEVICE_NOT_PROVISIONED` | 409 |
 | `SEPARATION_OF_DUTY` | 403 |
+| `LOSS_CASE_OPEN` | 409 |
+| `WIPE_INCOMPLETE` | 400 |
 | `CHECKLIST_INCOMPLETE` | 400 |
 | `CHECKLIST_REQUIRED` | 400 |
 | `FIRMWARE_VERSION_REQUIRED` | 400 |

@@ -112,6 +112,8 @@ export enum ErrorCode {
   FIRMWARE_VERSION_REQUIRED = 'FIRMWARE_VERSION_REQUIRED',
   // Disposal (devices api-design 23, BR-42).
   WIPE_INCOMPLETE = 'WIPE_INCOMPLETE',
+  // Loss cases (devices api-design 17, REQ-ERR-05, BR-37): one open case per device.
+  LOSS_CASE_OPEN = 'LOSS_CASE_OPEN',
 
   // demo (specs/demo/design.md §7, D-088): the local demo control panel.
   DEMO_DISABLED = 'DEMO_DISABLED',

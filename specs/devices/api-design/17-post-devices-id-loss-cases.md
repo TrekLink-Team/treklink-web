@@ -65,6 +65,7 @@ Reports a device in service as lost: the device moves to `LOST` from whichever o
     "suspectedTheft": false,
     "policeReference": null,
     "searchEndsAt": null,
+    "triagedById": null,
     "decision": null,
     "chargeVnd": null,
     "version": 1

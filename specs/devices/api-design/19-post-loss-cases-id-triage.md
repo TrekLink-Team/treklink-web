@@ -69,6 +69,7 @@ Decides custody from the custody interval that contains the last seen time (D-04
     "suspectedTheft": false,
     "policeReference": null,
     "searchEndsAt": "2026-10-27T03:15:00.000Z",
+    "triagedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "decision": null,
     "chargeVnd": null,
     "version": 1

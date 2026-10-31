@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The lost device is back at the counter: the case moves to `RECOVERED` and the device to `RETURNED`, to be reset and inspected like any return (FR-DEV-14, BR-38). After settlement the charge stands unless an Admin records an adjustment in billing (E05-10).
+The lost device is back at the counter: the case moves to `RECOVERED` and the device to `RETURNED`, to be reset and inspected like any return (FR-DEV-14, BR-38). After settlement the case stays `SETTLED`, the device moves from `RETIRED` to `RETURNED`, and the charge stands unless an Admin records an adjustment in billing (E05-10). A unit still out on a contract is then checked in at the return counter, which closes its contract row.
 
 ## API Specification
 
@@ -67,6 +67,7 @@ The lost device is back at the counter: the case moves to `RECOVERED` and the de
     "suspectedTheft": false,
     "policeReference": null,
     "searchEndsAt": "2026-10-27T03:15:00.000Z",
+    "triagedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "decision": null,
     "chargeVnd": null,
     "version": 1
@@ -220,7 +221,7 @@ flowchart TB
     D4 -->|no| P0
     P1["Move the case to RECOVERED (a settled case keeps SETTLED)"]
     P0 --> P1
-    P2["Move the device to RETURNED"]
+    P2["Move the device to RETURNED, from LOST or, after settlement, from RETIRED"]
     P1 --> P2
     OK["Return 200"]
     P2 --> OK

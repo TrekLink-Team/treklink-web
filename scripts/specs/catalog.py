@@ -166,6 +166,14 @@ PERMISSIONS = [
     ("device.availability.org", "readAvailability", "Device", None, ["ORG_MANAGER"]),
     ("maintenance.decide", "decide", "MaintenanceRecord", None, ["ADMIN"]),  # devices api-design 13, BR-44
     ("stockTake.manage", "manage", "StockTake", None, ["STAFF"]),
+    # devices api-design 17 to 22 and 27 (task 2.7, UC-49, UC-60); migration 20261031120100_permission_loss_case.
+    # `operate` is triage, recover and confirm; `decide` is the Admin settlement (BR-39 is checked per case).
+    ("lossCase.read", "read", "LossCase", None, ["STAFF"]),
+    ("lossCase.read.own", "read", "LossCase", OWN, ["ORG_MANAGER"]),
+    ("lossCase.report", "report", "LossCase", None, ["STAFF"]),
+    ("lossCase.report.own", "report", "LossCase", OWN, ["ORG_MANAGER"]),
+    ("lossCase.operate", "operate", "LossCase", None, ["STAFF"]),
+    ("lossCase.decide", "decide", "LossCase", None, ["ADMIN"]),
     # rentals
     ("contract.read", "read", "RentalContract", None, ["STAFF"]),
     ("contract.read.own", "read", "RentalContract", OWN, ["ORG_OPERATOR"]),

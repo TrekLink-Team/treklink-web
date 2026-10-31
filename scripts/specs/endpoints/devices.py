@@ -32,7 +32,7 @@ LOSS = {"id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", "code": "LOSS-0003", "devi
         "lastSeenAt": NOW, "lastPosition": {"lat": 11.5544, "lon": 108.5381}, "custody": "RENTER",
         "contractDeviceId": "cd-77", "organization": {"id": ORG_ID, "code": "ORG-0007"}, "keyExposed": True,
         "suspectedTheft": False, "policeReference": None, "searchEndsAt": "2026-10-27T03:15:00.000Z",
-        "decision": None, "chargeVnd": None, "version": 1}
+        "triagedById": USER_ID, "decision": None, "chargeVnd": None, "version": 1}
 LOSS_ID = LOSS["id"]
 LC_PATH = ["id", "Loss case id", "uuid", f"`{LOSS_ID}`"]
 
@@ -323,7 +323,8 @@ ENDPOINTS = [
        "UC-49, FR-DEV-12, BR-37, E05-8, E05-9",
        path=[DEV_PATH], body=[["description", "Where and when it was last seen, and what happened", "string", "yes", "`Last seen at Phan Dung camp`"]],
        sample={"description": "Last seen at Phan Dung camp on 2026-10-19 evening"},
-       response={**LOSS, "state": "REPORTED", "custody": None, "keyExposed": False, "searchEndsAt": None}, status=201,
+       response={**LOSS, "state": "REPORTED", "custody": None, "keyExposed": False, "searchEndsAt": None,
+                 "triagedById": None}, status=201,
        message="Loss reported. TrekLink will contact you.", entity="Device",
        errors=[(409, "LOSS_CASE_OPEN", "The device already has an open loss case", "This device is already reported lost."),
                state_409("device", "RETIRED")],
@@ -361,15 +362,17 @@ ENDPOINTS = [
 
     ep("POST", "/api/loss-cases/:id/recover", "Record a recovered device", "TrekLink Staff",
        "The lost device is back at the counter: the case moves to `RECOVERED` and the device to `RETURNED`, "
-       "to be reset and inspected like any return (FR-DEV-14, BR-38). After settlement the charge stands "
-       "unless an Admin records an adjustment in billing (E05-10).", "UC-60, FR-DEV-14, BR-38, E05-10",
+       "to be reset and inspected like any return (FR-DEV-14, BR-38). After settlement the case stays "
+       "`SETTLED`, the device moves from `RETIRED` to `RETURNED`, and the charge stands unless an Admin "
+       "records an adjustment in billing (E05-10). A unit still out on a contract is then checked in at "
+       "the return counter, which closes its contract row.", "UC-60, FR-DEV-14, BR-38, E05-10",
        path=[LC_PATH], body=[["note", "Where and how it was recovered", "string", "yes", "`Handed in by a ranger`"],
                              ["expectedVersion", "Case version the caller saw", "int", "yes", "`1`"]],
        sample={"note": "Handed in by a ranger at Phan Dung", "expectedVersion": 1},
        response={**LOSS, "state": "RECOVERED"}, message="Device recovered", entity="Loss case",
        errors=[state_409("loss case", "RECOVERED"), STALE],
        steps=["Require REPORTED, SEARCHING or SETTLED", "Move the case to RECOVERED (a settled case keeps SETTLED)",
-              "Move the device to RETURNED"],
+              "Move the device to RETURNED, from LOST or, after settlement, from RETIRED"],
        controller="LossCasesController", service="LossCaseService", call="recover(id, dto, actor)",
        seq=["Svc->>DB: UPDATE loss_cases; UPDATE devices RETURNED"]),
 
@@ -388,7 +391,9 @@ ENDPOINTS = [
     ep("POST", "/api/loss-cases/:id/decision", "Settle a loss case", "TrekLink Admin",
        "Settles a confirmed case: keep the charge, reduce or waive it with a reason, or record a TrekLink write-"
        "off. The Admin is never the Staff member who triaged the case (FR-BILL-11, BR-39). The device moves to "
-       "`RETIRED`.", "UC-60, FR-BILL-11, FR-DEV-15, BR-39",
+       "`RETIRED`. A `RENTER` custody case is charged, reduced or waived; a `TREKLINK` custody case is written "
+       "off (AC-05); any other pairing, a reduction not below the confirmed charge, or a missing reason is 400.",
+       "UC-60, FR-BILL-11, FR-DEV-15, BR-39",
        path=[LC_PATH], body=[["decision", "CHARGED, REDUCED, WAIVED or WRITTEN_OFF", "string", "yes", "`REDUCED`"],
                              ["chargeVnd", "Final charge, for REDUCED", "int", "no", "`900000`"],
                              ["reason", "Why; required unless CHARGED", "string", "no", "`Renter filed a police report promptly`"],
@@ -449,6 +454,13 @@ ENDPOINTS = [
        response=paged({"id": "st-1", "takenBy": "Tran Thi B", "createdAt": NOW, "unconfirmedCount": 2}),
        steps=["Read stock_takes"], controller="StockTakesController", service="StockTakeService",
        call="list(query)", seq=["Svc->>DB: SELECT stock_takes"]),
+
+    ep("GET", "/api/loss-cases/:id", "Get a loss case", "TrekLink Staff, TrekLink Admin; Org Manager: own organization",
+       "One loss case for the case page (screen 4.4). Another organization's case answers 404 (auth REQ-ERR-06).",
+       "UC-49, UC-60", path=[LC_PATH], response=LOSS, entity="Loss case",
+       steps=["Read the case scoped to the caller"],
+       controller="LossCasesController", service="LossCaseService", call="get(id, caller)",
+       seq=["Svc->>DB: SELECT loss_cases"]),
 ]
 
 NOTES = ("Route order: `GET /api/devices/availability` is declared before `GET /api/devices/:id` in "
