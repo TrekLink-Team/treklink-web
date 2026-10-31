@@ -55,6 +55,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/t/map` | Fleet map | TrekLink Staff |
 | `/t/billing`, `/t/damage-charges` | Invoices, counter payments, damage approvals | TrekLink Staff, Admin (decisions) |
 | `/t/reports` | Reports | TrekLink Staff |
+| `/t/admin/sync` | Field data sync (MF-02): subscriber state, the window's ingestion outcomes, Field Stations, recent field events and the sync audit (screen 9.5) | TrekLink Staff |
 | `/t/admin/accounts`, `/t/admin/roles`, `/t/admin/parameters`, `/t/admin/prices`, `/t/admin/variants`, `/t/admin/health` | Administration | TrekLink Admin |
 | `/t/admin/audit/changes`, `/t/admin/audit/sign-ins` | Audit: the change log (`auditLog.read`) and the sign-in log (`authEvent.read`), one tab per route, each tab hidden without its permission; `/t/admin/audit` redirects to `changes`; filters in the query (D-057 rule 3) | TrekLink Admin |
 
