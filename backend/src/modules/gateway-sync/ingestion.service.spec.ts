@@ -7,6 +7,8 @@ import { ContractsService } from '../rentals';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
+import { FieldStationsService } from '../organizations';
+import { FieldStationJsonAdapter } from './adapters/field-station-json.adapter';
 import { NodeJsonAdapter } from './adapters/node-json.adapter';
 import { CanonicalEnvelope } from './canonical-envelope';
 import { IngestionRepository } from './ingestion.repository';
@@ -27,6 +29,18 @@ const adapter = new NodeJsonAdapter({
   get: () => 'treklink',
 } as unknown as ConfigService<ValidatedEnvironment, true>);
 
+const stationAdapter = new FieldStationJsonAdapter({
+  get: () => 'treklink',
+} as unknown as ConfigService<ValidatedEnvironment, true>);
+// The E02-7 fixture flushed at 2026-10-24 02:00 UTC: corrected capture 2026-10-23 03:00 UTC.
+const stationReceivedAt = new Date('2026-10-24T02:00:00Z');
+const stationEnvelope = (): CanonicalEnvelope => {
+  const [{ topic, body }] = fixture('station-sos-e02-7');
+  const result = stationAdapter.adapt(topic, body, stationReceivedAt);
+  if (result.kind !== 'envelope') throw new Error('station-sos-e02-7 is not an envelope fixture');
+  return result.envelope;
+};
+
 const envelopeOf = (name: string, index = 0): CanonicalEnvelope => {
   const { topic, body } = fixture(name)[index];
   const result = adapter.adapt(topic, body, receivedAt);
@@ -44,7 +58,8 @@ describe('IngestionService', () => {
     linkIncident: jest.Mock;
   };
   let devices: { byNodeNum: jest.Mock; projectReading: jest.Mock };
-  let contracts: { custodyAt: jest.Mock };
+  let contracts: { custodyAt: jest.Mock; rentalPeriods: jest.Mock };
+  let stations: { byUsername: jest.Mock };
   let incidents: {
     onSos: jest.Mock<Promise<{ id: string }>, [SosEvent, unknown]>;
     onPosition: jest.Mock<Promise<{ id: string } | null>, [PositionEvent, unknown]>;
@@ -63,7 +78,11 @@ describe('IngestionService', () => {
       byNodeNum: jest.fn().mockResolvedValue(device),
       projectReading: jest.fn().mockResolvedValue(device.id),
     };
-    contracts = { custodyAt: jest.fn().mockResolvedValue(null) };
+    contracts = {
+      custodyAt: jest.fn().mockResolvedValue(null),
+      rentalPeriods: jest.fn().mockResolvedValue([]),
+    };
+    stations = { byUsername: jest.fn().mockResolvedValue(null) };
     emitted = [];
     const events = {
       transaction: async <T>(work: (client: Prisma.TransactionClient) => Promise<T>) => {
@@ -93,6 +112,7 @@ describe('IngestionService', () => {
       new Normalizer(),
       parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
+      stations as unknown as FieldStationsService,
     );
   });
 
@@ -154,6 +174,134 @@ describe('IngestionService', () => {
         organizationId: null,
         contractDeviceId: null,
       });
+    });
+  });
+
+  describe('Field Station events (REQ-EVT-05, REQ-EVT-15, E02-7)', () => {
+    const stationA = {
+      id: 'fs-a',
+      organizationId: 'org-a',
+      mqttUsername: 'fs-org-a-1',
+      secretHash: 'hash',
+      revokedAt: null,
+    };
+    // A's interval ended at the check-in 2026-10-23 20:00, six hours before the flush.
+    const intervalA = {
+      contractDeviceId: 'cd-a',
+      contractId: 'c-a',
+      organizationId: 'org-a',
+      contractStatus: 'CLOSED',
+      handedOverAt: new Date('2026-10-20T02:00:00Z'),
+      endedAt: new Date('2026-10-23T20:00:00Z'),
+      nearBoundary: false,
+    };
+    const periodA = {
+      contractId: 'c-a',
+      from: new Date('2026-10-20T02:00:00Z'),
+      to: new Date('2026-10-23T20:00:00Z'),
+    };
+
+    beforeEach(() => {
+      stations.byUsername.mockResolvedValue(stationA);
+      contracts.rentalPeriods.mockResolvedValue([periodA]);
+    });
+
+    it('attributes an SOS captured in custody of the station organization to that interval', async () => {
+      contracts.custodyAt.mockResolvedValue(intervalA);
+      await expect(service.ingest(stationEnvelope())).resolves.toBe('ACCEPTED');
+
+      expect(stations.byUsername).toHaveBeenCalledWith('fs-org-a-1');
+      expect(contracts.rentalPeriods).toHaveBeenCalledWith('dev-9', 'org-a');
+      expect(contracts.custodyAt).toHaveBeenCalledWith(
+        'dev-9',
+        new Date('2026-10-23T03:00:00Z'),
+        300,
+      );
+      expect(storedEvent()).toMatchObject({
+        ingress: 'FIELD_STATION',
+        uplinkKey: 'fs-org-a-1',
+        fieldStationId: 'fs-a',
+        capturedAt: new Date('2026-10-23T06:00:00Z'),
+        occurredAt: new Date('2026-10-23T03:00:00Z'),
+        timeSource: 'STATION_CORRECTED',
+        attribution: 'ATTRIBUTED',
+        organizationId: 'org-a',
+        contractDeviceId: 'cd-a',
+      });
+      expect(incidents.onSos).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: 'org-a', contractId: 'c-a' }),
+        tx,
+      );
+      expect(audits()).toEqual(['ACCEPTED']);
+    });
+
+    it('leaves an event in another organization interval UNATTRIBUTED (REQ-ERR-06)', async () => {
+      contracts.custodyAt.mockResolvedValue({
+        ...intervalA,
+        contractDeviceId: 'cd-b',
+        contractId: 'c-b',
+        organizationId: 'org-b',
+        endedAt: null,
+      });
+      await expect(service.ingest(stationEnvelope())).resolves.toBe('ACCEPTED_UNATTRIBUTED');
+      expect(storedEvent()).toMatchObject({
+        attribution: 'UNATTRIBUTED',
+        organizationId: null,
+        contractDeviceId: null,
+        fieldStationId: 'fs-a',
+      });
+      expect(incidents.onSos).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: null, contractId: null }),
+        tx,
+      );
+      expect(audits()).toEqual(['ACCEPTED_UNATTRIBUTED']);
+    });
+
+    it('accepts a device its organization holds now', async () => {
+      contracts.rentalPeriods.mockResolvedValue([{ ...periodA, to: null }]);
+      contracts.custodyAt.mockResolvedValue({ ...intervalA, endedAt: null });
+      await expect(service.ingest(stationEnvelope())).resolves.toBe('ACCEPTED');
+    });
+
+    it.each([
+      [
+        'returned past the late-upload grace (AC-08)',
+        [{ ...periodA, to: new Date('2026-10-16T01:59:00Z') }],
+      ],
+      ['never held by the station organization (AC-04)', []],
+    ])('audits NOT_RENTED_TO_STATION_ORG for a device %s', async (_label, periods) => {
+      contracts.rentalPeriods.mockResolvedValue(periods);
+      await expect(service.ingest(stationEnvelope())).resolves.toBe('NOT_RENTED_TO_STATION_ORG');
+      expect(repository.insertEventOnce).not.toHaveBeenCalled();
+      expect(contracts.custodyAt).not.toHaveBeenCalled();
+      expect(incidents.onSos).not.toHaveBeenCalled();
+      expect(repository.insertAudit.mock.calls[0][0]).toMatchObject({
+        ingress: 'FIELD_STATION',
+        uplinkKey: 'fs-org-a-1',
+        deviceId: 'dev-9',
+        outcome: 'NOT_RENTED_TO_STATION_ORG',
+      });
+    });
+
+    it.each([
+      ['unknown', null, 'unknown Field Station fs-org-a-1'],
+      [
+        'revoked',
+        { ...stationA, revokedAt: new Date('2026-10-23T00:00:00Z') },
+        'Field Station fs-org-a-1 is revoked',
+      ],
+    ])('refuses an %s station before reading custody', async (_label, row, detail) => {
+      stations.byUsername.mockResolvedValue(row);
+      await expect(service.ingest(stationEnvelope())).resolves.toBe('NOT_RENTED_TO_STATION_ORG');
+      expect(contracts.rentalPeriods).not.toHaveBeenCalled();
+      expect(repository.insertEventOnce).not.toHaveBeenCalled();
+      expect(repository.insertAudit.mock.calls[0][0]).toMatchObject({ detail });
+    });
+
+    it('never resolves a station for a node uplink', async () => {
+      await service.ingest(envelopeOf('position'));
+      expect(stations.byUsername).not.toHaveBeenCalled();
+      expect(storedEvent()).toMatchObject({ fieldStationId: null, capturedAt: null });
     });
   });
 

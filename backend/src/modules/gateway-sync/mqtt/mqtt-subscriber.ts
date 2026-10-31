@@ -23,8 +23,9 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 // after ingestion committed and a crash mid-transaction gets it redelivered (design §2).
 //
 // It subscribes to the node topic and to the Field Station health topic `<root>/fs/+/health` (task 2.5,
-// health part). The Field Station event topic `<root>/fs/+/2/json/+/+` joins with the station adapter
-// (task 2.1, Sprint 4, D-058 rule 2).
+// health part). The Field Station event topic `<root>/fs/+/2/json/+/+` has its adapter
+// (`FieldStationJsonAdapter`) and its ingestion path, but is not subscribed yet: that waits for the
+// leader's ruling on the outcome of a revoked or unknown station (task 2.1, D-058 rule 2).
 @Injectable()
 export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(MqttSubscriber.name);

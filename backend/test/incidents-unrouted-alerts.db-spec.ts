@@ -72,6 +72,7 @@ describe('UNROUTED Staff/Admin alerts against Postgres', () => {
     new Normalizer(),
     parameters,
     events,
+    {} as never, // FieldStationsService: this suite ingests node uplinks only
   );
   const incidents = new IncidentsService(repository, lifecycle, parameters, events, {
     memberNames: () => Promise.resolve(new Map<string, string>()),

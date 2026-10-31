@@ -1,0 +1,26 @@
+{
+  "description": "E02-7 (AC-06): the Field Station fs-org-a-1 of organization A flushes an SOS of TL-0010 it queued during A's custody, after the unit was checked in and handed over to B. The station clock runs 3 h fast: captured 2026-10-23 06:00 and sent 2026-10-24 05:00 station time, so the corrected capture is 2026-10-23 03:00 UTC for a receipt at 2026-10-24 02:00 UTC",
+  "messages": [
+    {
+      "topic": "treklink/fs/fs-org-a-1/2/json/LongFast/!de0000a1",
+      "message": {
+        "id": 2201000077,
+        "timestamp": 1792724400,
+        "to": 4294967295,
+        "from": 3724541962,
+        "channel": 0,
+        "type": "text",
+        "sender": "!de0000a1",
+        "payload": {
+          "text": "SOS - [11.561000], [108.552000]"
+        },
+        "rssi": -101,
+        "snr": 4.5,
+        "hops_away": 1,
+        "hop_start": 3,
+        "fs_captured_at": 1792735200000,
+        "fs_sent_at": 1792818000000
+      }
+    }
+  ]
+}

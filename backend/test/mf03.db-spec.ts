@@ -88,6 +88,7 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
     new Normalizer(),
     parameters,
     events,
+    {} as never, // FieldStationsService: this suite ingests node uplinks only
   );
   const dispatcher = new AlertDispatcherJob(
     alerts,
