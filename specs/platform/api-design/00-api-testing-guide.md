@@ -12,7 +12,7 @@ npm --prefix backend run prisma:migrate
 npm --prefix backend run start:dev
 ```
 
-Swagger UI: `http://localhost:3000/api/docs`. Every operation there documents the D-002 envelope.
+Swagger UI: `http://localhost:3000/api/docs`, served while `SWAGGER_ENABLED` is true (default on outside `NODE_ENV=production`, off in production; REQ-OPT-01). Every operation there documents the D-002 envelope.
 
 ## 2. Get a token
 
