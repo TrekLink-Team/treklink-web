@@ -64,7 +64,7 @@
 
 - **REQ-STA-01**: WHILE the Field Station has an event to send, it SHALL have persisted it in SQLite before any network attempt. [FR-EVT-02]
 - **REQ-STA-02**: WHILE the uplink is down, the Field Station SHALL keep queuing, and SHALL keep serving its local page. [FR-EVT-12, NFR-UI-04]
-- **REQ-STA-03**: WHILE the queue is at its bound, the Field Station SHALL shed P3 first and never P0, logging each shed event. [FR-EVT-06, E02-5]
+- **REQ-STA-03**: WHILE the queue is at its bound, the Field Station SHALL shed the oldest P3 first, then the oldest P2, and never P0 or P1, logging each shed event. [FR-EVT-06, E02-5]
 
 ### Unwanted Behaviour
 
