@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContractDetailPage } from './ContractDetailPage';
 
 let contract: Record<string, unknown>;
 let variants: { id: string; code: string; name: string }[] | undefined;
+let roles: string[] = ['STAFF'];
 
 const baseContract = {
   id: 'c-1',
@@ -37,7 +38,7 @@ const baseContract = {
 };
 
 vi.mock('../app/providers/useAuth', () => ({
-  useAuth: () => ({ user: { roles: ['STAFF'] } }),
+  useAuth: () => ({ user: { roles } }),
 }));
 
 vi.mock('../entities/contract/api', async (importOriginal) => ({
@@ -60,12 +61,12 @@ vi.mock('../shared/api/apiClient', async (importOriginal) => ({
       : new Promise(() => undefined),
 }));
 
-const renderPage = () =>
+const renderPage = (scope: 'o' | 't' = 't') =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/t/contracts/c-1']}>
+      <MemoryRouter initialEntries={[`/${scope}/contracts/c-1`]}>
         <Routes>
-          <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
+          <Route path={`/${scope}/contracts/:id`} element={<ContractDetailPage scope={scope} />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -74,6 +75,7 @@ const renderPage = () =>
 describe('ContractDetailPage', () => {
   beforeEach(() => {
     contract = { ...baseContract };
+    roles = ['STAFF'];
     variants = [{ id: 'v-3', code: 'treklink-v3', name: 'TrekLink v3' }];
   });
 
@@ -125,4 +127,33 @@ describe('ContractDetailPage', () => {
       expect(screen.queryByText('Reservation expires')).toBeNull();
     },
   );
+
+  it('offers the Org Manager Report lost on a device that is out, and opens the dialog (screen 4.4)', () => {
+    roles = ['ORG_MANAGER'];
+    const row = { holder: null, checkedInAt: null, lostAt: null, handedOverAt: '2026-10-30T09:00:00Z' };
+    contract = {
+      ...baseContract,
+      status: 'ACTIVE',
+      devices: [
+        { ...row, deviceId: 'dev-1', assetTag: 'TL-0042' },
+        { ...row, deviceId: 'dev-2', assetTag: 'TL-0043', checkedInAt: '2026-10-31T09:00:00Z' },
+      ],
+    };
+    renderPage('o');
+    const report = screen.getAllByRole('button', { name: 'Report lost' });
+    expect(report).toHaveLength(1);
+    fireEvent.click(report[0]);
+    expect(screen.getByRole('dialog', { name: 'Report TL-0042 lost' })).toBeTruthy();
+  });
+
+  it('never offers Report lost to an Org Operator', () => {
+    roles = ['ORG_OPERATOR'];
+    contract = {
+      ...baseContract,
+      status: 'ACTIVE',
+      devices: [{ deviceId: 'dev-1', assetTag: 'TL-0042', holder: null, checkedInAt: null, lostAt: null, handedOverAt: '2026-10-30T09:00:00Z' }],
+    };
+    renderPage('o');
+    expect(screen.queryByRole('button', { name: 'Report lost' })).toBeNull();
+  });
 });

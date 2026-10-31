@@ -25,6 +25,8 @@ import { IncidentsPage } from '../pages/IncidentsPage';
 import { StaffIncidentsPage } from '../pages/StaffIncidentsPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { LiveMapPage } from '../pages/LiveMapPage';
+import { LossCasePage } from '../pages/LossCasePage';
+import { LossCasesPage } from '../pages/LossCasesPage';
 import { MaintenanceApprovalPage, MaintenancePage } from '../pages/MaintenancePage';
 import { PaymentPage } from '../pages/PaymentPage';
 import { ParametersPage } from '../pages/ParametersPage';
@@ -118,6 +120,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/pay/:paymentId" element={<PaymentPage />} />
         <Route path="/o/api-keys" element={<ApiKeysPage />} />
         <Route path="/o/members" element={<MembersPage />} />
+        <Route path="/o/loss-cases" element={<LossCasesPage scope="o" />} />
       </Route>
       <Route element={<RequireRole roles={STAFF} />}>
         <Route path="/t/map" element={<LiveMapPage scope="t" />} />
@@ -133,6 +136,8 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/devices/:id" element={<DeviceDetailPage />} />
         <Route path="/t/maintenance" element={<MaintenancePage />} />
         <Route path="/t/maintenance/approvals" element={<MaintenanceApprovalPage />} />
+        <Route path="/t/loss-cases" element={<LossCasesPage scope="t" />} />
+        <Route path="/t/loss-cases/:id" element={<LossCasePage />} />
         <Route path="/t/compliance-cases" element={<ComplianceCasesPage />} />
         <Route path="/t/compliance-cases/:id" element={<ComplianceCasePage />} />
         <Route path="/t/admin/sync" element={<SyncStatusPage />} />

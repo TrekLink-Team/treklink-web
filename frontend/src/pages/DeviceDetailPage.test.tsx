@@ -180,6 +180,19 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     await waitFor(() => expect(recordReset).toHaveBeenCalledWith('d-1'));
   });
 
+  it('offers Report lost on a device in service only (screen 4.4)', async () => {
+    currentDevice = device({ status: 'RENTED' });
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    fireEvent.click(screen.getByRole('button', { name: 'Report lost' }));
+    expect(screen.getByRole('dialog', { name: 'Report TL-0042 lost' })).toBeTruthy();
+    cleanup();
+    currentDevice = device({ status: 'LOST' });
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    expect(screen.queryByRole('button', { name: 'Report lost' })).toBeNull();
+  });
+
   it('shows retire and dispose only for an Admin, in the right states', async () => {
     currentRoles = ['ADMIN'];
     currentDevice = device({ status: 'MAINTENANCE' });
