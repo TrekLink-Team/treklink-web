@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Approves, reduces or waives a charge above `billing.damageApprovalThresholdVnd`. The approver must not be the inspector (BR-24, E05-6, MSG30), checked against the inspector the charge stores (D-081). An approved or reduced amount becomes a DAMAGE line on the contract's closing invoice, found by the charge's contract; a waiver adds no line.
+Approves, reduces or waives a charge above `billing.damageApprovalThresholdVnd`. The approver must not be the inspector (BR-24, E05-6, MSG30), checked against the inspector the charge stores (D-081). An approved or reduced amount becomes a DAMAGE line on the contract's closing invoice, found by the charge's contract; a waiver adds no line. An approved or reduced amount on a contract with no invoice yet is refused and the decision rolls back; a waiver there is recorded, and its audit row carries no organization.
 
 ## API Specification
 
@@ -165,6 +165,23 @@ Approves, reduces or waives a charge above `billing.damageApprovalThresholdVnd`.
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>An approved or reduced amount on a contract with no invoice yet (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This charge cannot be billed before the contract has an invoice."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -190,18 +207,25 @@ flowchart TB
     E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"An approved or reduced amount on a contract with no invoice yet?"}
+    D3 -->|no| D4
+    E4["Return 409 INVALID_STATE_TRANSITION"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
     P0["Lock the charge"]
-    D3 -->|no| P0
+    D4 -->|no| P0
     P1["Require PENDING_APPROVAL"]
     P0 --> P1
     P2["Refuse the inspector"]
     P1 --> P2
     P3["Record the decision"]
     P2 --> P3
-    P4["Add the DAMAGE line to the closing invoice, unless waived"]
+    P4["Find the contract's organization from its invoices; refuse a charged amount when there is none"]
     P3 --> P4
+    P5["Add the DAMAGE line to the closing invoice, unless waived"]
+    P4 --> P5
     OK["Return 200"]
-    P4 --> OK
+    P5 --> OK
     OK --> Z((End))
 ```
 
