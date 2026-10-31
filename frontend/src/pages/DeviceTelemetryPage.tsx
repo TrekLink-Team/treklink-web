@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   HISTORY_KINDS,
-  HISTORY_MAX_DAYS,
+  DEFAULT_HISTORY_MAX_RANGE_DAYS,
   fetchHistoryCsv,
   periodError,
   useHistory,
@@ -332,8 +332,8 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
             <Button type="button" variant="secondary" onClick={() => quick(1)}>
               Last 24 hours
             </Button>
-            <Button type="button" variant="secondary" onClick={() => quick(HISTORY_MAX_DAYS)}>
-              Last {HISTORY_MAX_DAYS} days
+            <Button type="button" variant="secondary" onClick={() => quick(DEFAULT_HISTORY_MAX_RANGE_DAYS)}>
+              Last {DEFAULT_HISTORY_MAX_RANGE_DAYS} days
             </Button>
           </div>
         </form>
