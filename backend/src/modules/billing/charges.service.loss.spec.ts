@@ -180,6 +180,19 @@ describe('BillingLossCaseListener (the billing side of LOSS_CASE_LISTENERS)', ()
     );
   });
 
+  it('charges the amount the case raised at confirmation without reading the value again', async () => {
+    await listener.onConfirmed(lossCase({ chargeVnd: 2_500_000 }), TX);
+    expect(devices.valueAt).not.toHaveBeenCalled();
+    expect(charges.chargeLoss).toHaveBeenCalledWith(
+      CONTRACT,
+      DEVICE,
+      2_500_000,
+      'LOSS-0001',
+      CONFIRMED,
+      TX,
+    );
+  });
+
   it('charges nothing for TREKLINK custody', async () => {
     await listener.onConfirmed(
       lossCase({ custody: LossCustody.TREKLINK, custodyContract: null }),

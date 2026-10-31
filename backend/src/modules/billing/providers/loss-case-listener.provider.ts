@@ -31,7 +31,10 @@ export class BillingLossCaseListener implements LossCaseListener, OnModuleInit {
   async onConfirmed(lossCase: LossCaseView, tx: Prisma.TransactionClient): Promise<void> {
     const contract = lossCase.custodyContract;
     if (lossCase.custody !== LossCustody.RENTER || !contract || !lossCase.confirmedAt) return;
-    const value = await this.devices.valueAt(lossCase.deviceId, lossCase.confirmedAt);
+    // The charge devices raised at confirmation from the same `valueAt` (devices task 2.7), so the
+    // LOSS line always equals the case's `chargeVnd`; read here only when the case carries none.
+    const value =
+      lossCase.chargeVnd ?? (await this.devices.valueAt(lossCase.deviceId, lossCase.confirmedAt));
     await this.charges.chargeLoss(
       { id: contract.contractId, organizationId: contract.organizationId },
       { id: lossCase.deviceId, assetTag: lossCase.assetTag },
