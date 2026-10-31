@@ -114,7 +114,12 @@ stateDiagram-v2
 ***Figure 2a***: Loss case lifecycle; SRS Figure 24.
 
 Custody is decided at triage from `CUSTODY_RESOLVER.custodyAt(deviceId, lastSeenAt)`, the same custody intervals that
-attribute field events (D-040). `RENTER` custody marks the organization's channel key exposed through
+attribute field events (D-040), checked against `custodyAt(deviceId, reportedAt)`: when the two answer
+different intervals, the rental of the last seen time was returned before the report, so the interval
+at the report time counts, or `TREKLINK` custody when there is none (a unit lost in the store after
+check-in, leader ruling 2026-10-31). A unit never heard is read at `reportedAt` alone. A `RENTER` case
+therefore always names an interval still open at the report time, which `rentals` closes with `lostAt`
+when the case settles. `RENTER` custody marks the organization's channel key exposed through
 `ChannelKeyService.markKeyExposed` of `organizations`, and confirmation charges the remaining value through the `LOSS_CASE_LISTENERS` port, which `billing` provides with `chargeLoss`;
 `TREKLINK` custody is written off. The `devices.lossSearch` job confirms `SEARCHING` cases whose
 `searchEndsAt` has passed, with the usual compare-and-set on state and version. A device recovered after

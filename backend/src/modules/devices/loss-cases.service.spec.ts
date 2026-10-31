@@ -362,6 +362,59 @@ describe('LossCaseService', () => {
       );
     });
 
+    it('records TREKLINK custody when the rental of the last seen time was returned before the report (ruling 2026-10-31)', async () => {
+      const current = caseRow({ stateFromDevice: DeviceStatus.RETURNED });
+      cases.find.mockResolvedValue(current);
+      transitionsTo(current);
+      // Last heard while still out on cd-1; at the report time the unit was back, in no interval.
+      custody.custodyAt.mockImplementation((_id: string, when: Date) =>
+        Promise.resolve(when.getTime() === current.reportedAt.getTime() ? null : INTERVAL),
+      );
+
+      await service.triage('lc-1', { suspectedTheft: false, expectedVersion: 0 }, STAFF, at);
+
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.reportedAt);
+      expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.lastSeenAt);
+      expect(channelKeys.markKeyExposed).not.toHaveBeenCalled();
+      expect(cases.transition).toHaveBeenCalledWith(
+        'lc-1',
+        LossCaseState.REPORTED,
+        0,
+        expect.objectContaining({
+          custody: LossCustody.TREKLINK,
+          contractId: null,
+          contractDeviceId: null,
+          keyExposed: false,
+        }),
+        tx,
+      );
+    });
+
+    it('records the renter holding the unit at the report time when an earlier rental held the last seen time', async () => {
+      const current = caseRow();
+      cases.find.mockResolvedValue(current);
+      transitionsTo(current);
+      const later = { contractId: 'c-2', organizationId: 'org-2', contractDeviceId: 'cd-2' };
+      custody.custodyAt.mockImplementation((_id: string, when: Date) =>
+        Promise.resolve(when.getTime() === current.reportedAt.getTime() ? later : INTERVAL),
+      );
+
+      await service.triage('lc-1', { suspectedTheft: false, expectedVersion: 0 }, STAFF, at);
+
+      expect(channelKeys.markKeyExposed).toHaveBeenCalledWith('org-2', at, STAFF, tx);
+      expect(cases.transition).toHaveBeenCalledWith(
+        'lc-1',
+        LossCaseState.REPORTED,
+        0,
+        expect.objectContaining({
+          custody: LossCustody.RENTER,
+          contractId: 'c-2',
+          contractDeviceId: 'cd-2',
+        }),
+        tx,
+      );
+    });
+
     it('opens or links a compliance case for a suspected theft in renter custody (D-046)', async () => {
       cases.find.mockResolvedValue(caseRow());
       transitionsTo(caseRow());
