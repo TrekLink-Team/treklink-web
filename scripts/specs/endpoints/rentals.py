@@ -409,6 +409,10 @@ ENDPOINTS = [
        message="Provisioning undone", entity="Contract",
        # In the order HandoverService.undoProvisioning checks them, after the contract lock.
        errors=[STALE, state_409("contract", "ACTIVE"), NOT_ON,
+               (409, "INVALID_STATE_TRANSITION", "The unit's row on the contract is already handed over",
+                "This cannot be done while it is RENTED."),
+               (409, "INVALID_STATE_TRANSITION", "The unit is not RESERVED",
+                "This cannot be done while it is AVAILABLE."),
                (409, "DEVICE_NOT_PROVISIONED", "The unit carries no provisioning for the contract's organization",
                 "TL-0042 has no provisioning to undo.")],
        steps=["Lock the contract", "Check the version, then the APPROVED state",

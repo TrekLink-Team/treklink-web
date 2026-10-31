@@ -183,6 +183,40 @@ Undoes the provisioning record of api-design 09 on a unit of an `APPROVED` contr
         </tr>
         <tr>
             <td>409</td>
+            <td>The unit's row on the contract is already handed over (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is RENTED."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>The unit is not RESERVED (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is AVAILABLE."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>The unit carries no provisioning for the contract's organization (<code>DEVICE_NOT_PROVISIONED</code>)</td>
 <td>
 
@@ -233,13 +267,23 @@ flowchart TB
     E5["Return 409 DEVICE_NOT_ON_CONTRACT"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    D6{"The unit carries no provisioning for the contract's organization?"}
+    D6{"The unit's row on the contract is already handed over?"}
     D5 -->|no| D6
-    E6["Return 409 DEVICE_NOT_PROVISIONED"]
+    E6["Return 409 INVALID_STATE_TRANSITION"]
     D6 -->|yes| E6
     E6 --> X6((End))
+    D7{"The unit is not RESERVED?"}
+    D6 -->|no| D7
+    E7["Return 409 INVALID_STATE_TRANSITION"]
+    D7 -->|yes| E7
+    E7 --> X7((End))
+    D8{"The unit carries no provisioning for the contract's organization?"}
+    D7 -->|no| D8
+    E8["Return 409 DEVICE_NOT_PROVISIONED"]
+    D8 -->|yes| E8
+    E8 --> X8((End))
     P0["Lock the contract"]
-    D6 -->|no| P0
+    D8 -->|no| P0
     P1["Check the version, then the APPROVED state"]
     P0 --> P1
     P2["Require the device on the contract, RESERVED and not handed over"]
