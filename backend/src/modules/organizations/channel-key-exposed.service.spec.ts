@@ -1,4 +1,6 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ChannelKeyService } from './channel-key.service';
 import { ORGANIZATION_KEY_EXPOSED } from './organization-events';
@@ -91,5 +93,44 @@ describe('ChannelKeyService.markKeyExposed (REQ-EVT-13, AC-11, D-045)', () => {
 
     expect(organizations.update).not.toHaveBeenCalled();
     expect(emitted).toEqual([]);
+  });
+
+  it('refuses a write that did not happen with 409 and emits nothing', async () => {
+    organizations.update.mockResolvedValue(null);
+
+    await expect(service.markKeyExposed(ORG_ID, AT, STAFF, TX)).rejects.toMatchObject({
+      errorCode: 'STALE_VERSION',
+    });
+
+    expect(emitted).toEqual([]);
+  });
+
+  it('emits nothing when the caller transaction rolls back, and both events once it commits', async () => {
+    const emitter = { emit: jest.fn() };
+    const prisma = {
+      $transaction: async (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
+    };
+    const real = new TransactionalEvents(
+      prisma as unknown as PrismaService,
+      emitter as unknown as EventEmitter2,
+    );
+    const withReal = new ChannelKeyService(
+      organizations as unknown as OrganizationsRepository,
+      real,
+    );
+
+    await expect(
+      real.transaction(async (tx) => {
+        await withReal.markKeyExposed(ORG_ID, AT, STAFF, tx);
+        throw new Error('the caller failed after the flag was set');
+      }),
+    ).rejects.toThrow('the caller failed');
+    expect(emitter.emit).not.toHaveBeenCalled();
+
+    await real.transaction((tx) => withReal.markKeyExposed(ORG_ID, AT, STAFF, tx));
+    expect(emitter.emit.mock.calls.map(([name]: [string]) => name)).toEqual([
+      ORGANIZATION_KEY_EXPOSED,
+      'audit.record',
+    ]);
   });
 });

@@ -234,8 +234,10 @@ classDiagram
         +approve(id, dto, actor) Organization
         +assertActive(orgId)
         +suspendForDefault(orgId, contractCode, tx)
-        +markKeyExposed(orgId)
-        +rotateKey(id, dto, actor)
+    }
+    class ChannelKeyService {
+        +markKeyExposed(orgId, at, actor, tx)
+        +rotate(id, reason, expectedVersion, staff)
     }
     class RosterService {
         +tiersAt(orgId, instant) Tiers
