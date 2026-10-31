@@ -14,6 +14,7 @@ import { ComplianceCasePage } from '../pages/ComplianceCasePage';
 import { ComplianceCasesPage } from '../pages/ComplianceCasesPage';
 import { CounterPage } from '../pages/CounterPage';
 import { DeviceDetailPage } from '../pages/DeviceDetailPage';
+import { DeviceTelemetryPage } from '../pages/DeviceTelemetryPage';
 import { FleetPage } from '../pages/FleetPage';
 import { FieldStationsPage } from '../pages/FieldStationsPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
@@ -102,6 +103,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/incidents/:id" element={<IncidentDetailPage />} />
         <Route path="/o/contracts" element={<ContractsPage />} />
         <Route path="/o/contracts/:id" element={<ContractDetailPage scope="o" />} />
+        <Route path="/o/devices/:id/telemetry" element={<DeviceTelemetryPage scope="o" />} />
         <Route path="/o/roster" element={<RosterPage />} />
         <Route path="/o/field-stations" element={<FieldStationsPage />} />
       </Route>
@@ -119,6 +121,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/incidents" element={<StaffIncidentsPage />} />
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
         <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
+        <Route path="/t/devices/:id/telemetry" element={<DeviceTelemetryPage scope="t" />} />
         <Route path="/t/billing" element={<BillingPage />} />
         <Route path="/t/damage-charges" element={<DamageChargesPage />} />
         <Route path="/t/organizations" element={<OrganizationReviewPage />} />

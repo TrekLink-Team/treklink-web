@@ -371,7 +371,18 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                   )}
                   {devices.map((device) => (
                     <tr key={device.deviceId} className="border-t border-line">
-                      <td className="py-2 font-mono">{device.assetTag ?? device.deviceId}</td>
+                      <td className="py-2">
+                        <span className="font-mono">{device.assetTag ?? device.deviceId}</span>
+                        {device.handedOverAt && (
+                          <Link
+                            to={`/${scope}/devices/${device.deviceId}/telemetry`}
+                            state={{ assetTag: device.assetTag }}
+                            className={`${LINK} ml-3 text-sm`}
+                          >
+                            History
+                          </Link>
+                        )}
+                      </td>
                       <td className="py-2">{device.holder?.name ?? 'No label'}</td>
                       <td className="py-2">
                         <When iso={device.handedOverAt} />
