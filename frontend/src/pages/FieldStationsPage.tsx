@@ -397,7 +397,7 @@ export const FieldStationsPage: React.FC = () => {
 
   return (
     <section aria-labelledby={TITLE_ID}>
-      <PageHeader id={TITLE_ID} title="Field Stations" meta={countLine} primaryAction={createButton || undefined} />
+      <PageHeader id={TITLE_ID} title="Field stations" meta={countLine} primaryAction={createButton || undefined} />
 
       {organizationId && <ReleaseCard organizationId={organizationId} />}
 
