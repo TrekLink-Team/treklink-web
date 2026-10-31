@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Searches the append-only synchronization audit: one row per ingestion attempt with its outcome (FR-EVT-11), newest first (`createdAt`, then `id`). This is the evidence base for the delivery, duplicate and ordering experiments, and the audit list of the Field data sync page. Needs `read FieldEvent` (`fieldEvent.read`), as `listEvents` does (2026-11-01, KhoaDD under D-078; it read TrekLink Admin before). `rawExcerpt` is the stored raw payload of a `MALFORMED_ENVELOPE` row, its text or its JSON serialized, cut to the first 500 characters with `rawTruncated` true when longer; it is null for every other outcome. `assetTag` is the device's, null when the row names no device.
+Searches the append-only synchronization audit: one row per ingestion attempt with its outcome (FR-EVT-11), newest first (`createdAt`, then `id`). This is the evidence base for the delivery, duplicate and ordering experiments, and the audit list of the Field data sync page. Needs `read FieldEvent` (`fieldEvent.read`), as `listEvents` does (2026-11-01, KhoaDD under D-078; it read TrekLink Admin before). `rawExcerpt` is the stored raw payload of a `MALFORMED_ENVELOPE` row, its text or its JSON serialized, cut to the first 500 Unicode code points with `rawTruncated` true when longer; it is null for every other outcome. `assetTag` is the device's, null when the row names no device.
 
 ## API Specification
 
