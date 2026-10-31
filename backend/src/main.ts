@@ -2,11 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidatedEnvironment } from './modules/platform/config/environment-variables';
 import { configureApp, parseCorsOrigins } from './app.setup';
 import { LiveIoAdapter } from './modules/monitoring';
+import { SWAGGER_PATH, setupSwagger } from './swagger.setup';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,20 +18,16 @@ async function bootstrap() {
     new LiveIoAdapter(app, parseCorsOrigins(env.get('CORS_ORIGINS', { infer: true }))),
   );
 
-  // Swagger OpenAPI setup
-  const config = new DocumentBuilder()
-    .setTitle('TrekLink Operations Platform API')
-    .setDescription('Backend REST API for TrekLink fleet, rentals, incidents, and telemetry')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  const swaggerEnabled = setupSwagger(app, env.get('SWAGGER_ENABLED', { infer: true }));
 
   const port = process.env.PORT_BACKEND || 3000;
   await app.listen(port);
   logger.log(`TrekLink Backend running on http://localhost:${port}/api`);
-  logger.log(`Swagger documentation available at http://localhost:${port}/api/docs`);
+  if (swaggerEnabled) {
+    logger.log(`Swagger documentation available at http://localhost:${port}/${SWAGGER_PATH}`);
+  } else {
+    logger.log('Swagger documentation is off (SWAGGER_ENABLED=false)');
+  }
 }
 
 void bootstrap().catch((err: unknown) => {

@@ -122,6 +122,7 @@
   - _Requirements: AC-01 to AC-09_
   - _Depends on: auth 4.2_
 - [ ] 4.3 Swagger envelope wrapper on every operation when `SWAGGER_ENABLED` (owner KhoaDD)
+  - **Partly done** (2026-11-01, KhoaDD under D-078): the flag gate. `backend/src/swagger.setup.ts` mounts `/api/docs` only when the validated `SWAGGER_ENABLED` is true (default on outside production, off in production), tested in `swagger.setup.spec.ts`. Open: the envelope wrapper on every operation
   - _Requirements: REQ-OPT-01_
 - [ ] 4.4 Request throttling, Sprint 4 (owner KhoaDD)
   - **Files**: `backend/src/modules/platform/platform.module.ts`, `backend/src/common/decorators/access.decorator.ts`

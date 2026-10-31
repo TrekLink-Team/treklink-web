@@ -84,7 +84,7 @@ its service; Ctrl+C stops all three):
 npm run dev
 ```
 Or start individual packages:
-- Backend: `npm run dev:backend` (Runs on `http://localhost:3000`, API docs at `/api/docs`)
+- Backend: `npm run dev:backend` (Runs on `http://localhost:3000`, API docs at `/api/docs` while `SWAGGER_ENABLED` is true, the default outside `NODE_ENV=production`)
 - Gateway: `npm run dev:gateway` (no HTTP port; it logs to the terminal and queues events in SQLite while the broker is down)
 - Frontend: `npm run dev:frontend` (Runs on `http://localhost:5173`)
 

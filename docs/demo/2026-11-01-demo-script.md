@@ -136,7 +136,8 @@ npm run dev
 
 This starts the backend, the gateway (simulation mode) and the frontend together, prefixed
 `[backend]`, `[gateway]`, `[frontend]` (`scripts/dev.mjs:1-11`). Swagger is at
-`http://localhost:3000/api/docs` (`backend/src/main.ts:29-34`).
+`http://localhost:3000/api/docs` while `SWAGGER_ENABLED` is true, the default outside
+`NODE_ENV=production` (`backend/src/swagger.setup.ts`, `backend/src/main.ts`).
 
 ### 1.3 What the seed gives you
 
