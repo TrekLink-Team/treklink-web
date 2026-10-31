@@ -48,6 +48,8 @@ describe('ContractsService', () => {
         contractId: 'c-1',
         organizationId: 'org-1',
         contractStatus: ContractStatus.ACTIVE,
+        handedOverAt: HANDOVER,
+        endedAt: null,
         nearBoundary: false,
       });
       expect(contracts.findCustody).toHaveBeenCalledWith('dev-1', at);

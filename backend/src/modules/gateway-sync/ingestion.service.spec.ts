@@ -106,6 +106,8 @@ describe('IngestionService', () => {
       contractId: 'c-1',
       organizationId: 'org-1',
       contractStatus: 'ACTIVE',
+      handedOverAt: new Date('2026-10-20T02:00:00Z'),
+      endedAt: null,
       nearBoundary: false,
     };
 
@@ -140,7 +142,12 @@ describe('IngestionService', () => {
     });
 
     it('leaves an event near a handover or check-in UNATTRIBUTED (margin)', async () => {
-      contracts.custodyAt.mockResolvedValue({ ...custody, nearBoundary: true });
+      // The position fixture occurred at 03:00:00; the handover was 60 s before it, inside 300 s.
+      contracts.custodyAt.mockResolvedValue({
+        ...custody,
+        handedOverAt: new Date('2026-10-23T02:59:00Z'),
+        nearBoundary: true,
+      });
       await expect(service.ingest(envelopeOf('position'))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
       expect(storedEvent()).toMatchObject({
         attribution: 'UNATTRIBUTED',

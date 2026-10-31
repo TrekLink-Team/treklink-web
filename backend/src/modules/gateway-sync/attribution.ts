@@ -1,0 +1,57 @@
+import type { Custody } from '../rentals';
+
+// Why an event stays UNATTRIBUTED (REQ-ERR-06), in the order the rule is checked.
+export type UnattributedReason =
+  'NO_INTERVAL' | 'STATION_ORGANIZATION_DIFFERS' | 'NEAR_HANDOVER' | 'NEAR_END';
+
+export type Attribution =
+  | {
+      attributed: true;
+      organizationId: string;
+      contractId: string;
+      contractDeviceId: string;
+    }
+  | { attributed: false; reason: UnattributedReason };
+
+export interface AttributionInput {
+  // The custody interval `ContractsService.custodyAt` found at the occurrence time, or null.
+  custody: Custody | null;
+  occurredAt: Date;
+  // `gatewaySync.attributionMarginSeconds`.
+  marginSeconds: number;
+  // The Field Station that delivered the event; null for a node uplink (Stage A and B).
+  station: { organizationId: string } | null;
+}
+
+const within = (at: Date, edge: Date | null, marginMs: number) =>
+  edge !== null && Math.abs(at.getTime() - edge.getTime()) <= marginMs;
+
+// Task 2.4 (REQ-UBI-03, REQ-EVT-15, REQ-ERR-06, D-040): an event is ATTRIBUTED to the custody
+// interval containing its occurrence time only when that time is clear of the margin around the
+// interval's handover and end and, for a Field Station event, the interval belongs to the station's
+// organization. Anything else is UNATTRIBUTED with no organization and reaches Staff and Admin only
+// (BR-36). Pure: the caller reads the interval and the parameter.
+export const attribute = ({
+  custody,
+  occurredAt,
+  marginSeconds,
+  station,
+}: AttributionInput): Attribution => {
+  if (!custody) return { attributed: false, reason: 'NO_INTERVAL' };
+  if (station && station.organizationId !== custody.organizationId) {
+    return { attributed: false, reason: 'STATION_ORGANIZATION_DIFFERS' };
+  }
+  const marginMs = marginSeconds * 1000;
+  if (within(occurredAt, custody.handedOverAt, marginMs)) {
+    return { attributed: false, reason: 'NEAR_HANDOVER' };
+  }
+  if (within(occurredAt, custody.endedAt, marginMs)) {
+    return { attributed: false, reason: 'NEAR_END' };
+  }
+  return {
+    attributed: true,
+    organizationId: custody.organizationId,
+    contractId: custody.contractId,
+    contractDeviceId: custody.contractDeviceId,
+  };
+};
