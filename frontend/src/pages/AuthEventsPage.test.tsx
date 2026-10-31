@@ -88,7 +88,7 @@ describe('AuthEventsPage (screen 7.3, sign-in events)', () => {
     expect(table().getByText('manager@acme-trek.vn')).toBeTruthy();
     expect(table().getByText('Acme Trek')).toBeTruthy();
     expect(table().getByText('203.0.113.7')).toBeTruthy();
-    expect(screen.getByText('1 events').getAttribute('aria-live')).toBe('polite');
+    expect(screen.getByText('1 event').getAttribute('aria-live')).toBe('polite');
     expect(lastCall()).toEqual({ filters: {}, page: 1 });
   });
 
@@ -206,13 +206,102 @@ describe('AuthEventsPage (screen 7.3, sign-in events)', () => {
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
-  it('draws the tab strip with Sign-ins selected', () => {
+  it('draws the audit links with Sign-ins as the current page', () => {
     renderPage();
-    expect(screen.getByRole('tab', { name: 'Sign-ins' }).getAttribute('aria-selected')).toBe(
-      'true',
+    expect(screen.getByRole('link', { name: 'Sign-ins' }).getAttribute('aria-current')).toBe(
+      'page',
     );
-    expect(screen.getByRole('tab', { name: 'Change log' }).getAttribute('aria-selected')).toBe(
-      'false',
+    expect(
+      screen.getByRole('link', { name: 'Change log' }).getAttribute('aria-current'),
+    ).toBeNull();
+    expect(screen.getByRole('link', { name: 'Change log' }).getAttribute('href')).toBe(
+      '/t/admin/audit/changes',
     );
+  });
+
+  it('says event for one row and events for several', () => {
+    renderPage();
+    expect(screen.getByText('1 event')).toBeTruthy();
+    cleanup();
+    state = {
+      data: { items: [event(), event({ id: 'e-2' })], pageNumber: 1, totalPages: 1, totalCount: 2 },
+      isPending: false,
+      error: null,
+    };
+    renderPage();
+    expect(screen.getByText('2 events')).toBeTruthy();
+  });
+
+  it('shows the time in UTC on hover without a doubled zone', () => {
+    renderPage();
+    const time = table().getByText(/Oct 2026/);
+    expect(time.getAttribute('title')).toBe('20 Oct 2026, 03:15:00 UTC');
+  });
+
+  it('refetches from Refresh', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves focus to the result count after Apply', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(document.activeElement).toBe(screen.getByText('1 event'));
+  });
+
+  it('keeps the filters behind a Filters button that toggles them', () => {
+    renderPage();
+    const toggle = screen.getByRole('button', { name: 'Filters' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById('auth-events-filter-bar')!.className).toContain('hidden');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(document.getElementById('auth-events-filter-bar')!.className).not.toContain('hidden ');
+  });
+
+  it('names an account chosen from a link by the email of its row', () => {
+    renderPage(`?userId=${USER}`);
+    expect((screen.getByLabelText('Account') as HTMLInputElement).value).toBe(
+      'manager@acme-trek.vn',
+    );
+  });
+
+  describe('paging', () => {
+    const several = (pageNumber: number) => ({
+      data: {
+        items: [event()],
+        pageNumber,
+        totalPages: 3,
+        totalCount: 41,
+      },
+      isPending: false,
+      error: null,
+    });
+
+    it('reads the page from the URL and treats a bad value as page 1', () => {
+      state = several(2);
+      renderPage('?page=2');
+      expect(lastCall().page).toBe(2);
+      cleanup();
+      renderPage('?page=abc');
+      expect(lastCall().page).toBe(1);
+    });
+
+    it('writes the page to the URL and keeps the filters', () => {
+      state = several(1);
+      renderPage('?type=LOGOUT');
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      expect(screen.getByTestId('search').textContent).toBe('?type=LOGOUT&page=2');
+    });
+
+    it('goes back to page 1 when the filters are applied', () => {
+      state = several(2);
+      renderPage('?type=LOGOUT&page=2');
+      fireEvent.change(screen.getByLabelText('Event type'), { target: { value: 'LOGIN_FAILED' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(screen.getByTestId('search').textContent).toBe('?type=LOGIN_FAILED');
+      expect(lastCall().page).toBe(1);
+    });
   });
 });
