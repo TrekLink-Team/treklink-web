@@ -10,6 +10,12 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { MembersRepository } from './members.repository';
+import {
+  ORGANIZATION_REGISTERED,
+  ORGANIZATION_VERIFIED,
+  OrganizationRegisteredEvent,
+  OrganizationVerifiedEvent,
+} from './organization-events';
 import { invalidState, OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationReviewRow, OrganizationsRepository } from './organizations.repository';
 
@@ -137,6 +143,11 @@ export class OrganizationOnboardingService {
           },
           tx,
         );
+        this.events.emitAfterCommit(ORGANIZATION_REGISTERED, {
+          organizationId: organization.id,
+          code: organization.code,
+          legalName: organization.legalName,
+        } satisfies OrganizationRegisteredEvent);
         return organization;
       });
     } catch (error) {
@@ -176,6 +187,11 @@ export class OrganizationOnboardingService {
         tx,
       );
       if (!saved) throw stale();
+      this.events.emitAfterCommit(ORGANIZATION_VERIFIED, {
+        organizationId: saved.id,
+        code: saved.code,
+        legalName: saved.legalName,
+      } satisfies OrganizationVerifiedEvent);
       this.audit(staff, saved.id, 'organization.verified', null, {
         method: input.method,
         masterContractRef: input.masterContractRef,

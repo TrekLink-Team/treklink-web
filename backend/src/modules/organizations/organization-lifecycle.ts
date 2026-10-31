@@ -100,6 +100,7 @@ export class OrganizationLifecycle {
       organizationId,
       from: current.status,
       to,
+      reason: input.reason,
     } satisfies OrganizationStatusChangedEvent);
     this.events.emitAfterCommit(AUDIT_RECORD, {
       actorId: input.actor?.id ?? null,
