@@ -139,8 +139,8 @@
 
 - [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner TanNB)
   - **Run** (2026-10-31, TanNB, on `dev` 4fafb53): `tsc --noEmit` and `eslint` (0 errors, 1 old warning), `check-module-boundaries.js` (443 files, acyclic), unit suites 198 passed (2175 tests), e2e suites 18 passed (404 tests), and `build_api_design.py organizations` regenerates the 32 files with no content diff. `test:db` runs in CI only (no Postgres on this machine). Not met yet, so this task stays open:
-    - 2.9 `markKeyExposed` with the Manager notification and `channelKeyVersion(orgId)` for rentals; 2.10 `openOrLink` and loss case links (needs a `devices` port)
+    - 2.9 `markKeyExposed` with the Manager notification (`channelKeyVersion(orgId)` for rentals exists, in `OrganizationsService`); 2.10 `openOrLink` and loss case links (needs a `devices` port)
     - 2.1 Staff notification and the rollback after the account insert on Postgres; 2.2 Admin notification; 2.3 MSG05 and MSG16 emails
-    - api-design 17 and 19 omit 409 `INVALID_STATE_TRANSITION`, 18 omits `MEMBER_NOT_ELIGIBLE` and the 400 rows the code answers, and 24 samples `version "1.2.0"` where the code answers null for a new station (raised to the leader)
-    - the filter and paging rows of api-design 02 are not re-checked; the Operator 403 on `GET /transitions` is read only through `organization-lifecycle.db-spec.ts`
+    - api-design 17 to 19 omit 409 `INVALID_STATE_TRANSITION`, 18 omits `MEMBER_NOT_ELIGIBLE` and the 400 rows the code answers, and 24 samples `version "1.2.0"` where the code answers null for a new station (raised to the leader)
+    - the filter and paging rows of api-design 02 are not re-checked; the Operator 403 on `GET /transitions` is unit-tested in `organization-status.service.spec.ts` and the grant is checked in `organization-lifecycle.db-spec.ts`, but no test sends it over HTTP
     - `OrganizationsService.summary` and `OrganizationsRepository.findSummary` have no caller left
