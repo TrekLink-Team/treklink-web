@@ -96,6 +96,7 @@
     (api-design 07, `FieldEventQueryService`, `SyncStatusService`). `syncStatus` needs `read FieldEvent`
     (the route's gate) and `read FieldStation` (checked in the handler); no new permission, both
     already STAFF-held. Open: `listAudit`, `replayAudit`, `listQueueReports`
+  - **Partly done** (2026-11-01, KhoaDD under D-078): `listAudit` (api-design 04) dispatched to the new `SyncAuditService`: the sync audit newest first (`createdAt`, then `id`), filters by outcome, device, uplink key and time, pages of 100 by default and at most 500, the asset tag per row, and the raw payload of a `MALFORMED_ENVELOPE` row only, cut to 500 characters (`rawExcerpt`, `rawTruncated`). It needs `read FieldEvent`, so TrekLink Staff reads it as well as Admin (api-design 04 read Admin before; `syncAudit.read`, Admin only, stays in the catalog for no route yet). `syncStatus` (api-design 07) also answers `normalizationFailed` (REQ-ERR-05). Unit-tested; `test/sync-audit.db-spec.ts` passed on a local Postgres 16 (3 tests). The Field data sync page shows both (frontend task 9.5). Open: `replayAudit`, `listQueueReports`
   - _Requirements: REQ-EVT-09_
 - [ ] 4.2 E2E and replay harness (owner KhoaDD)
   - **Files**: `backend/test/gateway-sync.e2e-spec.ts`, `backend/test/harness/replay.ts`
