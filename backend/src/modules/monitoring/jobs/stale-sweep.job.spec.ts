@@ -293,16 +293,59 @@ describe('StaleSweepJob', () => {
       expect(incidents.markDeviceStale).toHaveBeenCalledWith('d1', true, ago(400), TX);
     });
 
-    it('clears it in the transaction of the recovery, and calls nothing while unchanged', async () => {
+    it('clears it in the transaction of the recovery', async () => {
       rent('d1', ORG_A, ago(400));
       await job.sweep(NOW);
-      await job.sweep(NOW);
       rent('d1', ORG_A, ago(2));
+      await job.sweep(NOW);
       await job.sweep(NOW);
       expect(incidents.markDeviceStale.mock.calls).toEqual([
         ['d1', true, ago(400), TX],
         ['d1', false, ago(2), TX],
       ]);
+    });
+
+    it('flags an incident opened after the mark at the next sweep, without a map entry', async () => {
+      // A Field Station relays a queued SOS older than the threshold: the device stays stale.
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      rent('d1', ORG_A, ago(350));
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 0, recovered: 0 });
+      expect(incidents.markDeviceStale.mock.calls).toEqual([
+        ['d1', true, ago(400), TX],
+        ['d1', true, ago(350), TX],
+      ]);
+      expect(deviceEvents()).toHaveLength(1);
+      expect(marks.rows.get('DEVICE:d1')?.lastSeenAt).toEqual(ago(400));
+    });
+
+    it('asks again on every sweep while the device stays stale, the service ignoring a set flag', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      await job.sweep(NOW);
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).toHaveBeenCalledTimes(3);
+      expect(incidents.markDeviceStale).toHaveBeenLastCalledWith('d1', true, ago(400), TX);
+      expect(deviceEvents()).toHaveLength(1);
+    });
+
+    it('keeps the flag of a device checked in while still stale', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      visible = [];
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).toHaveBeenLastCalledWith('d1', true, ago(400), TX);
+      expect(marks.rows.size).toBe(1);
+    });
+
+    it('retries the flag of a marked device on the next sweep when it fails', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      incidents.markDeviceStale.mockRejectedValueOnce(new Error('lock timeout'));
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 0, recovered: 0 });
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).toHaveBeenCalledTimes(3);
+      expect(marks.rows.size).toBe(1);
     });
 
     it('clears it for a device checked in while stale and then heard again', async () => {
