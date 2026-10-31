@@ -2,7 +2,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MapSnapshot, SnapshotDevice } from '../entities/live-map/api';
 import { ApiError } from '../shared/api/apiClient';
@@ -78,6 +78,31 @@ const show = (scope: 'o' | 't') =>
     >
       <MemoryRouter>
         <LiveMapPage scope={scope} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+// The history route of screen 9.2, standing in for the page: it shows where the link led.
+const HistoryProbe: React.FC = () => {
+  const { id } = useParams();
+  const { pathname, state } = useLocation();
+  return (
+    <p>
+      history {pathname} {id} {(state as { assetTag?: string } | null)?.assetTag}
+    </p>
+  );
+};
+
+const showWithHistory = (scope: 'o' | 't') =>
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <MemoryRouter initialEntries={[`/${scope}/map`]}>
+        <Routes>
+          <Route path={`/${scope}/map`} element={<LiveMapPage scope={scope} />} />
+          <Route path={`/${scope}/devices/:id/telemetry`} element={<HistoryProbe />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -224,6 +249,18 @@ describe('LiveMapPage (screen 9.1)', () => {
     fireEvent.change(screen.getByLabelText('Search devices'), { target: { value: 'nobody' } });
     expect(panel().getByText('No results match your filters.')).toBeTruthy();
   });
+
+  it.each(['o', 't'] as const)(
+    'opens the telemetry history of %s scope from the marker popup, carrying the asset tag',
+    async (scope) => {
+      showWithHistory(scope);
+      fireEvent.click((await marker('TL-0009, Le Thi E')).parentElement as HTMLElement);
+      fireEvent.click(await screen.findByRole('link', { name: 'Position history' }));
+      expect(
+        await screen.findByText(`history /${scope}/devices/d-9/telemetry d-9 TL-0009`),
+      ).toBeTruthy();
+    },
+  );
 
   it('shows the reconnecting banner while the stream is paused', async () => {
     show('o');

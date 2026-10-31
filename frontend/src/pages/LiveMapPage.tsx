@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { SnapshotDevice } from '../entities/live-map/api';
 import { isStale } from '../entities/live-map/model';
 import { useLiveMap } from '../entities/live-map/useLiveMap';
@@ -65,7 +65,7 @@ const statusLine = ({ device, stale }: Row): string => {
   return device.position ? `Last seen ${seen}` : `No position yet, last seen ${seen}`;
 };
 
-const markerOf = (row: Row): MapMarker | null => {
+const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
   const { device, stale } = row;
   if (!device.position) return null;
   const incident = incidentText(device);
@@ -81,6 +81,13 @@ const markerOf = (row: Row): MapMarker | null => {
       device.batteryPct === null ? 'Battery unknown' : `Battery ${device.batteryPct}%`,
       statusLine(row),
     ],
+    // Screen 9.1: the popup opens the device's telemetry history (screen 9.2) in the same scope; the
+    // asset tag travels along for the history heading.
+    link: {
+      label: 'Position history',
+      to: `/${scope}/devices/${device.id}/telemetry`,
+      state: { assetTag: device.assetTag },
+    },
   };
 };
 
@@ -166,6 +173,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const now = useNow(CLOCK_TICK_MS);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const staleAfterSeconds = config.data?.staleAfterSeconds;
   const rows: Row[] = useMemo(
@@ -183,8 +191,11 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
     [state, now, staleAfterSeconds],
   );
   const markers = useMemo(
-    () => rows.map(markerOf).filter((marker): marker is MapMarker => marker !== null),
-    [rows],
+    () =>
+      rows
+        .map((row) => markerOf(row, scope))
+        .filter((marker): marker is MapMarker => marker !== null),
+    [rows, scope],
   );
   const needle = search.trim().toLowerCase();
   const listed = needle
@@ -237,6 +248,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
           <LiveMapWidget
             markers={markers}
             selectedId={selectedId}
+            onLink={(link) => navigate(link.to, { state: link.state })}
             className="h-full min-h-[60vh] rounded-none border-0 lg:min-h-0"
           />
           <MapLegend className="absolute bottom-3 left-3 z-[500]" />

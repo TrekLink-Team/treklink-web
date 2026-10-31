@@ -163,6 +163,66 @@ describe('LiveMapWidget', () => {
     );
   });
 
+  it('puts a marker link in its popup and hands a plain click to onLink (screen 9.1)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const onLink = vi.fn();
+    const link = { label: 'Position history', to: '/o/devices/TL-0001/telemetry', state: { assetTag: 'TL-0001' } };
+    render(
+      <QueryClientProvider client={client}>
+        <LiveMapWidget markers={[{ ...device('TL-0001', [11.5, 108.5]), link }]} onLink={onLink} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(
+      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).parentElement as HTMLElement,
+    );
+    const anchor = await screen.findByRole('link', { name: 'Position history' });
+    expect(anchor.getAttribute('href')).toBe('/o/devices/TL-0001/telemetry');
+    expect(document.querySelector('.leaflet-popup-content')?.textContent).toBe(
+      'TL-0001Battery 80%Position history',
+    );
+
+    expect(fireEvent.click(anchor)).toBe(false);
+    expect(onLink).toHaveBeenCalledWith(link);
+
+    // A modified click is the browser's, so the link can open in a new tab.
+    const prevented = vi.fn();
+    const stop = (event: MouseEvent) => {
+      prevented(event.defaultPrevented);
+      event.preventDefault();
+    };
+    document.addEventListener('click', stop);
+    try {
+      fireEvent.click(anchor, { ctrlKey: true });
+      expect(prevented).toHaveBeenCalledWith(false);
+      expect(onLink).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener('click', stop);
+    }
+  });
+
+  it('leaves a popup link to the browser when no onLink is given', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([
+      { ...device('TL-0001', [11.5, 108.5]), link: { label: 'Position history', to: '/t/devices/x/telemetry' } },
+    ]);
+    fireEvent.click(
+      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).parentElement as HTMLElement,
+    );
+    // jsdom cannot follow a link, so the test notes whether the widget prevented it, then stops it.
+    const prevented = vi.fn();
+    const stop = (event: MouseEvent) => {
+      prevented(event.defaultPrevented);
+      event.preventDefault();
+    };
+    document.addEventListener('click', stop);
+    try {
+      fireEvent.click(await screen.findByRole('link', { name: 'Position history' }));
+      expect(prevented).toHaveBeenCalledWith(false);
+    } finally {
+      document.removeEventListener('click', stop);
+    }
+  });
+
   it('draws a track through its points, and not for fewer than two (screen 9.2)', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     giveContainersASize();

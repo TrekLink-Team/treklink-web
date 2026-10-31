@@ -9,9 +9,18 @@ import {
   type MapConfig,
 } from '../../shared/config/map';
 import { cn } from '../../shared/ui/cn';
+import { LINK } from '../../shared/ui/styles';
 import { createMarkerGlider } from '../../shared/ui/map/glide';
 import { markerIcon as systemMarkerIcon } from '../../shared/ui/map/markers';
 import type { MarkerState } from '../../shared/ui/status';
+
+// A link at the foot of a marker popup, such as "Position history" (screen 9.1). `state` travels with
+// the navigation when the page hands the widget an `onLink`.
+export interface MapLink {
+  label: string;
+  to: string;
+  state?: unknown;
+}
 
 export interface MapMarker {
   id: string;
@@ -23,6 +32,8 @@ export interface MapMarker {
   status?: 'ok' | 'warning' | 'stale' | 'incident';
   /** Extra popup lines under the subtitle, such as battery and last-seen time. */
   details?: string[];
+  /** A link under the popup lines; a marker without one shows the popup as before. */
+  link?: MapLink;
 }
 
 // Marker chrome of the TrekLink System (shared/ui/map/markers.ts): shape and colour per state.
@@ -75,7 +86,10 @@ const markerIcon = (marker: MapMarker): L.DivIcon =>
     showChip: false,
   });
 
-const popupContent = (marker: MapMarker): HTMLElement => {
+// Opens a popup link: true when the page took the navigation, false to let the browser follow the href.
+type OpenLink = (link: MapLink) => boolean;
+
+const popupContent = (marker: MapMarker, openLink: OpenLink): HTMLElement => {
   const element = document.createElement('div');
   const title = document.createElement('p');
   title.className = 'font-semibold text-sm';
@@ -88,12 +102,34 @@ const popupContent = (marker: MapMarker): HTMLElement => {
     text.textContent = line;
     element.append(text);
   }
+  if (marker.link) {
+    const { link } = marker;
+    const anchor = document.createElement('a');
+    anchor.href = link.to;
+    anchor.textContent = link.label;
+    anchor.className = `mt-1 inline-block text-xs ${LINK}`;
+    // A plain click stays in the single-page app; a modified click opens a tab as any link does.
+    anchor.addEventListener('click', (event) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (openLink(link)) event.preventDefault();
+    });
+    const line = document.createElement('p');
+    line.append(anchor);
+    element.append(line);
+  }
   return element;
 };
 
 // What a marker shows besides its position; a change redraws its icon and popup.
 const lookOf = (marker: MapMarker): string =>
-  JSON.stringify([marker.title, marker.subtitle, marker.status, marker.details]);
+  JSON.stringify([
+    marker.title,
+    marker.subtitle,
+    marker.status,
+    marker.details,
+    marker.link?.label,
+    marker.link?.to,
+  ]);
 
 const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ overlay }) => (
   <div
@@ -122,7 +158,8 @@ const LeafletMap: React.FC<{
   markers: MapMarker[];
   selectedId?: string | null;
   track?: [number, number][];
-}> = ({ config, markers, selectedId, track }) => {
+  onLink?: (link: MapLink) => void;
+}> = ({ config, markers, selectedId, track, onLink }) => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
@@ -130,6 +167,16 @@ const LeafletMap: React.FC<{
   // The latest reading per marker; mid-glide the marker itself is still on its way there.
   const targets = useRef<Map<string, [number, number]>>(new Map());
   const glider = useMemo(() => (map ? createMarkerGlider(map) : null), [map]);
+  // A popup is built once per look, so its link reads the latest handler through a ref.
+  const onLinkRef = useRef(onLink);
+  useEffect(() => {
+    onLinkRef.current = onLink;
+  }, [onLink]);
+  const openLink = useCallback<OpenLink>((link) => {
+    if (!onLinkRef.current) return false;
+    onLinkRef.current(link);
+    return true;
+  }, []);
 
   // The map is created in a callback ref: creation needs the DOM node, and reporting a tile failure
   // sets state, which an effect body should not do synchronously.
@@ -241,13 +288,13 @@ const LeafletMap: React.FC<{
         glider.moveTo(existing, m.position);
         if (looks.current.get(m.id) !== look) {
           existing.setIcon(markerIcon(m));
-          existing.setPopupContent(popupContent(m));
+          existing.setPopupContent(popupContent(m, openLink));
           looks.current.set(m.id, look);
         }
         continue;
       }
       const marker = L.marker(m.position, { icon: markerIcon(m), title: textOf(m), alt: textOf(m) })
-        .bindPopup(popupContent(m), { offset: [0, -4] })
+        .bindPopup(popupContent(m, openLink), { offset: [0, -4] })
         .addTo(map);
       markerRefs.current.set(m.id, marker);
       looks.current.set(m.id, look);
@@ -262,7 +309,7 @@ const LeafletMap: React.FC<{
         targets.current.delete(id);
       }
     }
-  }, [map, glider, markers]);
+  }, [map, glider, markers, openLink]);
 
   // The track of a history screen: a line through the positions, with the map fitted to it. Nothing is
   // drawn for fewer than two points, and the line goes when the track does.
@@ -306,10 +353,12 @@ export const LiveMapWidget: React.FC<{
   selectedId?: string | null;
   /** A line through [latitude, longitude] points, drawn under the markers and fitted to the view. */
   track?: [number, number][];
+  /** Follows a popup link inside the app (React Router); without it the browser follows the href. */
+  onLink?: (link: MapLink) => void;
   /** Size of the map box. The default keeps the interim dashboard's height; a full-bleed map page
    * passes `h-full` inside MapWorkspace. */
   className?: string;
-}> = ({ markers = [], selectedId = null, track, className }) => {
+}> = ({ markers = [], selectedId = null, track, onLink, className }) => {
   const config = useQuery({
     queryKey: MAP_CONFIG_KEY,
     queryFn: getMapConfig,
@@ -327,6 +376,7 @@ export const LiveMapWidget: React.FC<{
           markers={markers}
           selectedId={selectedId}
           track={track}
+          onLink={onLink}
         />
       )}
       {config.isPending && (
