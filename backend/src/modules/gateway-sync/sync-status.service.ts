@@ -42,6 +42,7 @@ export interface SyncStatusView {
     acceptedUnattributed: number;
     duplicates: number;
     malformed: number;
+    normalizationFailed: number;
     unknownDevice: number;
     lastReceivedAt: Date | null;
   };
@@ -112,6 +113,7 @@ export class SyncStatusService {
         acceptedUnattributed: count(SyncOutcome.ACCEPTED_UNATTRIBUTED),
         duplicates: count(SyncOutcome.DUPLICATE_REJECTED),
         malformed: count(SyncOutcome.MALFORMED_ENVELOPE),
+        normalizationFailed: count(SyncOutcome.NORMALIZATION_FAILED),
         unknownDevice: count(SyncOutcome.UNKNOWN_DEVICE),
         lastReceivedAt,
       },

@@ -133,6 +133,12 @@ fresh connection; the backend additionally drops every message from a revoked us
 
 Listens to `fieldStation.revoked`. Emits `field.position`, `field.telemetry`, `fieldStation.synced`.
 
+Operator reads of `POST /api/gateway-sync` (D-027), TrekLink Staff and Admin through `read FieldEvent`:
+`FieldEventQueryService.listEvents` (api-design 03), `SyncAuditService.listAudit` (api-design 04, the
+audit rows newest first, with the raw payload of a `MALFORMED_ENVELOPE` row cut to 500 characters) and
+`SyncStatusService.status` (api-design 07, which also needs `read FieldStation`), whose ingestion counts
+are the window's audit rows grouped by `SyncOutcome`. All three read through `SyncQueryRepository`.
+
 ---
 
 ## 6. Error catalogue

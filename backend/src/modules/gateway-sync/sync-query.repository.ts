@@ -27,8 +27,23 @@ export const FIELD_EVENT_ROW = {
 
 export type FieldEventRow = Prisma.FieldEventGetPayload<{ select: typeof FIELD_EVENT_ROW }>;
 
-// The reads of `gateway-sync` (api-design 03 and 07): the field-event ledger in `seq` order and the
-// sync audit counts per outcome. Never writes.
+export const SYNC_AUDIT_ROW = {
+  id: true,
+  eventId: true,
+  nodeNum: true,
+  deviceId: true,
+  uplinkKey: true,
+  ingress: true,
+  outcome: true,
+  detail: true,
+  rawMessage: true,
+  createdAt: true,
+} as const satisfies Prisma.SyncAuditLogSelect;
+
+export type SyncAuditRow = Prisma.SyncAuditLogGetPayload<{ select: typeof SYNC_AUDIT_ROW }>;
+
+// The reads of `gateway-sync` (api-design 03, 04 and 07): the field-event ledger in `seq` order, the
+// sync audit rows newest first and the sync audit counts per outcome. Never writes.
 @Injectable()
 export class SyncQueryRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -67,6 +82,24 @@ export class SyncQueryRepository {
         batteryPct: true,
       },
     });
+  }
+
+  // Sync audit rows newest first, `id` breaking a tie of `createdAt` so paging is stable.
+  pageAudit(
+    where: Prisma.SyncAuditLogWhereInput,
+    skip: number,
+    take: number,
+  ): Promise<[SyncAuditRow[], number]> {
+    return Promise.all([
+      this.prisma.syncAuditLog.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip,
+        take,
+        select: SYNC_AUDIT_ROW,
+      }),
+      this.prisma.syncAuditLog.count({ where }),
+    ]);
   }
 
   async outcomesSince(since: Date): Promise<Map<SyncOutcome, number>> {

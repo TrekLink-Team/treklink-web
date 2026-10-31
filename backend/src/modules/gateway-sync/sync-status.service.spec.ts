@@ -54,6 +54,8 @@ describe('SyncStatusService.status (api-design 07)', () => {
           [SyncOutcome.ACCEPTED_UNATTRIBUTED, 1],
           [SyncOutcome.DUPLICATE_REJECTED, 10],
           [SyncOutcome.UNKNOWN_DEVICE, 2],
+          [SyncOutcome.MALFORMED_ENVELOPE, 3],
+          [SyncOutcome.NORMALIZATION_FAILED, 4],
         ]),
       ),
       lastReceivedAt: jest.fn().mockResolvedValue(ago(5)),
@@ -96,9 +98,23 @@ describe('SyncStatusService.status (api-design 07)', () => {
       accepted: 26,
       acceptedUnattributed: 1,
       duplicates: 10,
-      malformed: 0,
+      malformed: 3,
+      normalizationFailed: 4,
       unknownDevice: 2,
       lastReceivedAt: ago(5),
+    });
+  });
+
+  it('reads zero for an outcome the window does not hold', async () => {
+    repository.outcomesSince.mockResolvedValue(new Map([[SyncOutcome.ACCEPTED, 1]]));
+    const { ingestion } = await service(null).status({ op: 'syncStatus' }, now);
+    expect(ingestion).toMatchObject({
+      accepted: 1,
+      acceptedUnattributed: 0,
+      duplicates: 0,
+      malformed: 0,
+      normalizationFailed: 0,
+      unknownDevice: 0,
     });
   });
 

@@ -7,7 +7,7 @@
 | 01 | POST | `/api/internal/mqtt/user` | Internal (broker) | [01-post-internal-mqtt-user.md](01-post-internal-mqtt-user.md) |
 | 02 | POST | `/api/internal/mqtt/acl` | Internal (broker) | [02-post-internal-mqtt-acl.md](02-post-internal-mqtt-acl.md) |
 | 03 | POST | `/api/gateway-sync` op `listEvents` | TrekLink Staff, TrekLink Admin | [03-post-gateway-sync-op-list-events.md](03-post-gateway-sync-op-list-events.md) |
-| 04 | POST | `/api/gateway-sync` op `listAudit` | TrekLink Admin | [04-post-gateway-sync-op-list-audit.md](04-post-gateway-sync-op-list-audit.md) |
+| 04 | POST | `/api/gateway-sync` op `listAudit` | TrekLink Staff, TrekLink Admin | [04-post-gateway-sync-op-list-audit.md](04-post-gateway-sync-op-list-audit.md) |
 | 05 | POST | `/api/gateway-sync` op `replayAudit` | TrekLink Admin | [05-post-gateway-sync-op-replay-audit.md](05-post-gateway-sync-op-replay-audit.md) |
 | 06 | POST | `/api/gateway-sync` op `listQueueReports` | TrekLink Staff, TrekLink Admin | [06-post-gateway-sync-op-list-queue-reports.md](06-post-gateway-sync-op-list-queue-reports.md) |
 | 07 | POST | `/api/gateway-sync` op `syncStatus` | TrekLink Staff, TrekLink Admin | [07-post-gateway-sync-op-sync-status.md](07-post-gateway-sync-op-sync-status.md) |

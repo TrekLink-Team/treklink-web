@@ -67,21 +67,28 @@ ENDPOINTS = [
        controller="GatewaySyncController", service="FieldEventQueryService", call="listEvents(dto)",
        seq=["Svc->>DB: SELECT field_events ORDER BY seq"]),
 
-    ep("POST", "/api/gateway-sync", "Search the sync audit", "TrekLink Admin", op="listAudit",
+    ep("POST", "/api/gateway-sync", "Search the sync audit", "TrekLink Staff, TrekLink Admin", op="listAudit",
        overview="Searches the append-only synchronization audit: one row per ingestion attempt with its "
-       "outcome (FR-EVT-11). This is the evidence base for the delivery, duplicate and ordering experiments.",
+       "outcome (FR-EVT-11), newest first (`createdAt`, then `id`). This is the evidence base for the delivery, "
+       "duplicate and ordering experiments, and the audit list of the Field data sync page. Needs `read "
+       "FieldEvent` (`fieldEvent.read`), as `listEvents` does (2026-11-01, KhoaDD under D-078; it read TrekLink "
+       "Admin before). `rawExcerpt` is the stored raw payload of a `MALFORMED_ENVELOPE` row, its text or its "
+       "JSON serialized, cut to the first 500 characters with `rawTruncated` true when longer; it is null for "
+       "every other outcome. `assetTag` is the device's, null when the row names no device.",
        traces="UC-42, FR-EVT-05, FR-EVT-11, NFR-REL-03",
        body=[["op", "Literal `listAudit`", "string", "yes", "`listAudit`"],
              ["outcome", "SyncOutcome values", "enum[]", "no", "`[\"DUPLICATE_REJECTED\"]`"],
-             ["deviceId", "Device", "uuid", "no", f"`{DEVICE_ID}`"], ["uplinkKey", "Node id or station username", "string", "no", "`fs-org-0007-1`"],
-             ["from", "Lower bound", "datetime", "no", "`...`"], ["to", "Upper bound", "datetime", "no", "`...`"],
-             ["pageNumber", "1-based", "int", "no", "`1`"], ["pageSize", "Default 100", "int", "no", "`100`"]],
+             ["deviceId", "Device", "uuid", "no", f"`{DEVICE_ID}`"], ["uplinkKey", "Node id or station username, at most 64 characters", "string", "no", "`fs-org-0007-1`"],
+             ["from", "Lower bound of `createdAt`, inclusive", "datetime", "no", "`...`"], ["to", "Upper bound of `createdAt`, inclusive", "datetime", "no", "`...`"],
+             ["pageNumber", "1-based", "int", "no", "`1`"], ["pageSize", "Default 100, at most 500", "int", "no", "`100`"]],
        sample={"op": "listAudit", "outcome": ["DUPLICATE_REJECTED", "MALFORMED_ENVELOPE"], "pageNumber": 1},
        response=paged({"id": "sa-1", "eventId": "5d41...", "nodeNum": 2763113171, "deviceId": DEVICE_ID,
-                       "uplinkKey": "fs-org-0007-1", "ingress": "FIELD_STATION", "outcome": "DUPLICATE_REJECTED",
-                       "detail": None, "createdAt": NOW}, 9),
-       steps=["Dispatch on op", "Read sync_audit_log"], controller="GatewaySyncController",
-       service="SyncAuditService", call="listAudit(dto)", seq=["Svc->>DB: SELECT sync_audit_log"]),
+                       "assetTag": "TL-0009", "uplinkKey": "fs-org-0007-1", "ingress": "FIELD_STATION",
+                       "outcome": "DUPLICATE_REJECTED", "detail": None, "rawExcerpt": None,
+                       "rawTruncated": False, "createdAt": NOW}, 9),
+       steps=["Dispatch on op", "Read sync_audit_log", "Cut the raw payload of a malformed row"],
+       controller="GatewaySyncController",
+       service="SyncAuditService", call="listAudit(dto)", seq=["Svc->>DB: SELECT sync_audit_log ORDER BY createdAt DESC"]),
 
     ep("POST", "/api/gateway-sync", "Replay a quarantined message", "TrekLink Admin", op="replayAudit",
        overview="Re-runs ingestion on the stored raw message of an `UNKNOWN_DEVICE` audit row, after Staff "
@@ -115,7 +122,10 @@ ENDPOINTS = [
        overview="MF-02 end to end for TrekLink Staff and Admin: the backend's MQTT subscriber connection, "
        "every Field Station that is not revoked with its connection state, queue depth per priority (D-057 "
        "rule 9), last sync, last flush and version, and the window's ingestion outcomes from the sync audit "
-       "(FR-EVT-13, FR-EVT-18). Needs `read FieldEvent` and `read FieldStation`.",
+       "(FR-EVT-13, FR-EVT-18): `accepted` (`ACCEPTED`), `acceptedUnattributed` (`ACCEPTED_UNATTRIBUTED`, "
+       "REQ-ERR-06), `duplicates` (`DUPLICATE_REJECTED`), `malformed` (`MALFORMED_ENVELOPE`, REQ-ERR-01), "
+       "`normalizationFailed` (`NORMALIZATION_FAILED`, REQ-ERR-05) and `unknownDevice` (`UNKNOWN_DEVICE`), "
+       "each 0 when the window holds none. Needs `read FieldEvent` and `read FieldStation`.",
        traces="UC-26, UC-42, FR-EVT-01, FR-EVT-13, FR-EVT-18",
        body=[["op", "Literal `syncStatus`", "string", "yes", "`syncStatus`"],
              ["windowMinutes", "Ingestion look-back, default 60, at most 1440", "int", "no", "`60`"]],
@@ -131,7 +141,7 @@ ENDPOINTS = [
            }],
            "ingestion": {
                "windowMinutes": 60, "accepted": 26, "acceptedUnattributed": 1, "duplicates": 10,
-               "malformed": 0, "unknownDevice": 2, "lastReceivedAt": NOW,
+               "malformed": 0, "normalizationFailed": 0, "unknownDevice": 2, "lastReceivedAt": NOW,
            },
        },
        steps=["Dispatch on op", "Read the MQTT health probe, the active Field Stations and the window's "
