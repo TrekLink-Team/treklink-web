@@ -56,13 +56,21 @@ export class GatewayMqttClient {
     private brokerUrl: string = gatewayConfig.mqtt.brokerUrl,
     private queue: SQLitePriorityQueue,
     private credential: StationCredential = gatewayConfig.station,
+    // The outage tests and harness shorten the reconnect period; the gateway itself always uses the
+    // configured GATEWAY_MQTT_RECONNECT_PERIOD_MS.
+    private readonly options: { reconnectPeriodMs?: number } = {},
   ) {}
+
+  /** True while the broker connection is up. */
+  public get connected(): boolean {
+    return this.isConnected;
+  }
 
   public connect(): void {
     const options = connectOptions(
       this.credential,
       `${gatewayConfig.mqtt.clientIdPrefix}-${Math.random().toString(16).substring(2, 8)}`,
-      gatewayConfig.mqtt.reconnectPeriodMs,
+      this.options.reconnectPeriodMs ?? gatewayConfig.mqtt.reconnectPeriodMs,
     );
     const as = options.username === undefined ? 'without credentials' : `as ${options.username}`;
     logger.info(`Connecting to MQTT broker at ${redactBrokerUrl(this.brokerUrl)} ${as}...`);
