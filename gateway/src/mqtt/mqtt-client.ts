@@ -91,8 +91,9 @@ export class GatewayMqttClient {
 
     this.client.on('close', () => {
       this.isConnected = false;
-      this.flushing = false;
       this.stopHealthTimer();
+      this.dropUnacknowledged();
+      this.flushing = false;
       logger.warn('MQTT connection closed. Storing upcoming events offline in SQLite.');
     });
 
@@ -111,6 +112,24 @@ export class GatewayMqttClient {
     } catch {
       return null;
     }
+  }
+
+  // NFR-REL-04, REQ-ERR-03. mqtt.js keeps a copy of every QoS 1 or 2 publish the broker has not yet
+  // acknowledged and, on reconnect, resends those copies before it reports the connection up, so before
+  // the flush below runs. A P2 or P3 batch in flight at the cut would then reach the broker ahead of the
+  // P0 rows queued during the outage. On every close the station removes those copies instead
+  // (`removeOutgoingMessage`, which answers each publish callback with an error): the rows were never
+  // removed from SQLite, because a row leaves only on its PUBACK, so they go out again in tier order with
+  // the next flush, their attempt counted. A health report in flight is dropped the same way; the next
+  // connect sends a fresh one. A publish the broker received but whose PUBACK the cut lost is sent again
+  // and reaches the backend twice, which the backend's eventId dedup absorbs (REQ-ERR-02).
+  private dropUnacknowledged(): void {
+    const client = this.client;
+    if (!client) return;
+    const inFlight = Object.keys(client.outgoing).map(Number);
+    if (inFlight.length === 0) return;
+    logger.warn(`Dropping ${inFlight.length} unacknowledged publishes; their rows stay queued for the next flush.`);
+    for (const messageId of inFlight) client.removeOutgoingMessage(messageId);
   }
 
   // Publishes one batch in tier order and waits for every acknowledgement, then takes the next batch

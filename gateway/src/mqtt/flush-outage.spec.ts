@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { subscribe, TestBroker, waitFor } from '../../test/support/broker';
+import { UplinkProxy } from '../../test/support/uplink';
 import { PriorityTier, SQLitePriorityQueue } from '../queue/priority-queue';
 import { GatewayMqttClient } from './mqtt-client';
 
@@ -142,6 +143,64 @@ describe('Field Station flush across an outage (gateway-sync task 5.1)', () => {
     );
     after.close();
   }, 60_000);
+
+  // NFR-REL-04, REQ-ERR-03: the link drops while a batch of P3 rows waits for its PUBACKs, and P0 rows
+  // queue during the outage. mqtt.js keeps its own copy of every unacknowledged QoS 1 publish and, left
+  // alone, resends those copies on reconnect before the queue's flush runs, so the P3 rows reach the
+  // backend ahead of the outage's P0. The station drops those copies on disconnect: the rows stay queued
+  // and go out again in tier order, P0 first.
+  it('link cut mid-batch: the unacknowledged rows go out again in tier order, after the outage P0', async () => {
+    let hold = true;
+    const held: string[] = [];
+    const broker = new TestBroker(0, (_client, message, callback) => {
+      if (!message.topic.startsWith('treklink/2/json/')) return callback(null);
+      if (hold) {
+        held.push(message.payload.toString()); // no callback: no PUBACK, and nothing reaches a subscriber
+        return;
+      }
+      callback(null);
+    });
+    await broker.start();
+    cleanups.push(() => broker.stop());
+    const uplink = new UplinkProxy('127.0.0.1', broker.port);
+    await uplink.start();
+    cleanups.push(() => uplink.stop());
+    const backend = await subscribe(broker.url, UPLINK);
+    cleanups.push(() => backend.client.endAsync());
+
+    const queue = new SQLitePriorityQueue(join(root, 'queue.db'), { logger: silent });
+    cleanups.push(() => queue.close());
+    const tierOf = new Map<number, PriorityTier>();
+    const add = (n: number, tier: PriorityTier) => {
+      tierOf.set(n, tier);
+      queue.enqueue(`ev-${n}`, tier, packet(n, tier));
+    };
+    [0, 1, 2].forEach((n) => add(n, P3_TELEMETRY));
+    add(3, P2_GPS);
+
+    const station = new GatewayMqttClient(uplink.url, queue, { username: '', secret: '' }, { reconnectPeriodMs: 50 });
+    station.connect();
+    cleanups.push(() => station.disconnect());
+    await waitFor(() => held.length === 4, 5_000, 'the first batch in flight');
+
+    uplink.cut();
+    await waitFor(() => !station.connected, 5_000, 'the station to see the link down');
+    // Nothing the broker did not acknowledge has left the queue.
+    expect(queue.count()).toBe(4);
+    [10, 11].forEach((n) => add(n, P0_SOS));
+    add(12, P1_LOCATION);
+    await new Promise((resolve) => setTimeout(resolve, 200)); // refused reconnects while the link is down
+
+    hold = false;
+    uplink.restore();
+    await waitFor(() => queue.count() === 0, 10_000, 'the queue to drain');
+    await waitFor(() => backend.received.length >= 7, 5_000, 'every event at the backend');
+    await new Promise((resolve) => setTimeout(resolve, 200)); // a late duplicate would arrive by now
+
+    const arrived = backend.received.map((message) => tierOf.get(idOf(message.payload)));
+    expect(new Set(backend.received.map((message) => idOf(message.payload)))).toEqual(new Set(tierOf.keys()));
+    expect(arrived).toEqual([P0_SOS, P0_SOS, P1_LOCATION, P2_GPS, P3_TELEMETRY, P3_TELEMETRY, P3_TELEMETRY]);
+  }, 30_000);
 });
 
 function startStation(dbPath: string, url: string): ChildProcess {
