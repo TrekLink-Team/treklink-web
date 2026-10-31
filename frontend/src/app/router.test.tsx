@@ -13,6 +13,7 @@ vi.mock('../pages/LiveMapPage', () => ({
 }));
 vi.mock('../pages/PlansPage', () => ({ PlansPage: () => <p>plans page</p> }));
 vi.mock('../pages/ParametersPage', () => ({ ParametersPage: () => <p>parameters page</p> }));
+vi.mock('../pages/AuditLogPage', () => ({ AuditLogPage: () => <p>audit log page</p> }));
 vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
 vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
@@ -129,6 +130,21 @@ describe('route guards (AC-01)', () => {
     act(() => useSession.getState().signOut());
     visit('/t/admin/parameters', null);
     expect(screen.getByText(/^sign-in \?next=%2Ft%2Fadmin%2Fparameters$/)).toBeTruthy();
+  });
+
+  it('gives the audit log to an Admin only and sends /t/admin/audit to it', () => {
+    visit('/t/admin/audit/changes', account(['ADMIN'], 'TREKLINK'));
+    expect(screen.getByText('audit log page')).toBeTruthy();
+    cleanup();
+    visit('/t/admin/audit', account(['ADMIN'], 'TREKLINK'));
+    expect(screen.getByText('audit log page')).toBeTruthy();
+    cleanup();
+    visit('/t/admin/audit/changes', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+    cleanup();
+    act(() => useSession.getState().signOut());
+    visit('/t/admin/audit/changes', null);
+    expect(screen.getByText(/^sign-in \?next=%2Ft%2Fadmin%2Faudit%2Fchanges$/)).toBeTruthy();
   });
 
   it('lets an Admin reach /t/map', () => {
