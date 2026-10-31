@@ -163,6 +163,27 @@ describe('LiveMapWidget', () => {
     );
   });
 
+  it('draws a track through its points, and not for fewer than two (screen 9.2)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const withTrack = (track: [number, number][]) => (
+      <QueryClientProvider client={client}>
+        <LiveMapWidget track={track} />
+      </QueryClientProvider>
+    );
+    const { container, rerender } = render(
+      withTrack([
+        [11.5, 108.5],
+        [11.6, 108.6],
+        [11.7, 108.5],
+      ]),
+    );
+    await waitFor(() => expect(container.querySelector('.leaflet-overlay-pane path')).toBeTruthy());
+    expect(container.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(1);
+    rerender(withTrack([[11.5, 108.5]]));
+    expect(container.querySelector('.leaflet-overlay-pane path')).toBeNull();
+  });
+
   it('redraws a marker whose state changes and opens the popup of a selected marker', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     const { rerender } = renderWidget([device('TL-0001', [11.5, 108.5])]);
@@ -187,6 +208,31 @@ describe('LiveMapWidget', () => {
         'TL-0001SOS, state Notifying primaryContract RC-2026-0001',
       ),
     );
+  });
+
+  it('pans once per chosen id, and not again for a marker that moves under the same id (screen 9.2)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const panTo = vi.spyOn(L.Map.prototype, 'panTo');
+    try {
+      const { rerender } = renderWidget([device('selected-0', [11.5, 108.5])]);
+      await waitFor(() => expect(screen.getByRole('img', { name: /selected-0/ })).toBeTruthy());
+
+      rerender(tree([device('selected-0', [11.5, 108.5])], 'selected-0'));
+      await waitFor(() => expect(panTo).toHaveBeenCalledTimes(1));
+      expect(panTo.mock.calls[0][0]).toEqual([11.5, 108.5]);
+
+      // The page swaps the selected marker for the next row's, each with its own id: a second pan.
+      rerender(tree([device('selected-1', [11.6, 108.6])], 'selected-1'));
+      await waitFor(() => expect(panTo).toHaveBeenCalledTimes(2));
+      expect(panTo.mock.calls[1][0]).toEqual([11.6, 108.6]);
+
+      // The same id at a new position does not pan: why one shared id panned only on the first click.
+      rerender(tree([device('selected-1', [11.7, 108.7])], 'selected-1'));
+      await waitFor(() => expect(screen.getByRole('img', { name: /selected-1/ })).toBeTruthy());
+      expect(panTo).toHaveBeenCalledTimes(2);
+    } finally {
+      panTo.mockRestore();
+    }
   });
 
   it('shows MSG33 with the overlay labels listed when a whole batch of tiles fails (REQ-EVT-04)', async () => {

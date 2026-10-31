@@ -92,6 +92,26 @@ describe('ContractDetailPage', () => {
     expect(screen.getByText('5 x treklink-v3')).toBeTruthy();
   });
 
+  it('links a handed-over device to its telemetry history, and a reserved one to nothing', () => {
+    const row = (deviceId: string, assetTag: string, handedOverAt: string | null) => ({
+      deviceId,
+      assetTag,
+      holder: null,
+      handedOverAt,
+      checkedInAt: null,
+      lostAt: null,
+    });
+    contract = {
+      ...baseContract,
+      status: 'ACTIVE',
+      devices: [row('d-1', 'TL-0009', '2026-10-30T09:30:00Z'), row('d-2', 'TL-0010', null)],
+    };
+    renderPage();
+    const links = screen.getAllByRole('link', { name: 'History' });
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute('href')).toBe('/t/devices/d-1/telemetry');
+  });
+
   it('shows the reservation expiry while the contract is APPROVED', () => {
     renderPage();
     expect(screen.getByText('Reservation expires')).toBeTruthy();

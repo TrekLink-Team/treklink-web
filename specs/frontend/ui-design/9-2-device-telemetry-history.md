@@ -55,6 +55,7 @@ The screen is read-only. Its main control is the range picker; Download CSV is s
 | Error `UNAUTHENTICATED` (401) | One silent refresh, then `/sign-in` |
 | Error `NOT_FOUND` (404) | Another organization's device, or an unknown id: MSG26 full-page notice, with no hint which of the two it was (REQ-ERR-01) |
 | Not found or forbidden (403) | MSG26 full-page notice |
+| Truncated (`truncated` true) | The range holds more than 50,000 points and only the oldest 50,000 came back: a warning banner above the results, "This range holds more than 50,000 points, so only the first 50,000 are shown. Choose a shorter range to see the rest."; a downloaded CSV ends with the row `# truncated` |
 | Map provider unreachable | Panel MSG33 replaces the map; the table and chart still render |
 | Success | Track, chart and table agree on the same points; the range is kept in the URL query (ISO dates only) |
 

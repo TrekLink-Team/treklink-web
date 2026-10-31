@@ -111,11 +111,18 @@ const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ o
   </div>
 );
 
+// A device's track (screen 9.2): the line through its plotted positions. A fixed blue on purpose, like
+// MASK_STYLE: the tiles are not themed, and the accent token turns pale lime in the dark theme, which
+// would vanish on light tiles. This blue holds its contrast on every basemap in both themes, and it is
+// no status colour, so a track never reads as an alert.
+const TRACK_STYLE: L.PolylineOptions = { color: '#1d4ed8', weight: 3, opacity: 0.85 };
+
 const LeafletMap: React.FC<{
   config: MapConfig;
   markers: MapMarker[];
   selectedId?: string | null;
-}> = ({ config, markers, selectedId }) => {
+  track?: [number, number][];
+}> = ({ config, markers, selectedId, track }) => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
@@ -257,6 +264,17 @@ const LeafletMap: React.FC<{
     }
   }, [map, glider, markers]);
 
+  // The track of a history screen: a line through the positions, with the map fitted to it. Nothing is
+  // drawn for fewer than two points, and the line goes when the track does.
+  useEffect(() => {
+    if (!map || !track || track.length < 2) return;
+    const line = L.polyline(track, TRACK_STYLE).addTo(map);
+    map.fitBounds(line.getBounds(), { padding: [24, 24] });
+    return () => {
+      line.remove();
+    };
+  }, [map, track]);
+
   // A device chosen in a list beside the map: centre on its latest reading, where a gliding marker is
   // heading, and open its popup.
   useEffect(() => {
@@ -286,10 +304,12 @@ export const LiveMapWidget: React.FC<{
   markers?: MapMarker[];
   /** The marker to centre on and open, chosen outside the map (screen 9.1 side panel). */
   selectedId?: string | null;
+  /** A line through [latitude, longitude] points, drawn under the markers and fitted to the view. */
+  track?: [number, number][];
   /** Size of the map box. The default keeps the interim dashboard's height; a full-bleed map page
    * passes `h-full` inside MapWorkspace. */
   className?: string;
-}> = ({ markers = [], selectedId = null, className }) => {
+}> = ({ markers = [], selectedId = null, track, className }) => {
   const config = useQuery({
     queryKey: MAP_CONFIG_KEY,
     queryFn: getMapConfig,
@@ -306,6 +326,7 @@ export const LiveMapWidget: React.FC<{
           config={config.data}
           markers={markers}
           selectedId={selectedId}
+          track={track}
         />
       )}
       {config.isPending && (
