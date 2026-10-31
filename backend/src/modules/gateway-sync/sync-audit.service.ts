@@ -8,7 +8,8 @@ import { SyncAuditRow, SyncQueryRepository } from './sync-query.repository';
 // The page bounds api-design 04 declares for listAudit.
 export const AUDIT_PAGE_BOUNDS = { defaultPageSize: 100, maxPageSize: 500 };
 
-// The longest excerpt of a malformed message's raw payload that listAudit answers (api-design 04).
+// The longest excerpt of a malformed message's raw payload that listAudit answers, in Unicode code
+// points (api-design 04).
 // A wire bound of the read, like the page bounds, so a broken publish cannot fill a page.
 export const RAW_EXCERPT_MAX_CHARS = 500;
 
@@ -35,15 +36,30 @@ const rawText = (raw: Prisma.JsonValue | null): string | null => {
   return typeof raw === 'string' ? raw : JSON.stringify(raw);
 };
 
+// The UTF-16 offset after the first `max` code points of `text`, or null when it holds no more than
+// `max`. Counting code points keeps a cut from splitting a surrogate pair (an emoji, a rare CJK
+// character) into a lone half, which `slice` on the UTF-16 length would do.
+const codePointCut = (text: string, max: number): number | null => {
+  if (text.length <= max) return null;
+  let count = 0;
+  let offset = 0;
+  for (const char of text) {
+    if (count === max) return offset;
+    count += 1;
+    offset += char.length;
+  }
+  return null;
+};
+
 export const excerptOf = (
   row: Pick<SyncAuditRow, 'outcome' | 'rawMessage'>,
 ): Pick<SyncAuditView, 'rawExcerpt' | 'rawTruncated'> => {
   const text = row.outcome === SyncOutcome.MALFORMED_ENVELOPE ? rawText(row.rawMessage) : null;
   if (text === null) return { rawExcerpt: null, rawTruncated: false };
-  const truncated = text.length > RAW_EXCERPT_MAX_CHARS;
+  const cut = codePointCut(text, RAW_EXCERPT_MAX_CHARS);
   return {
-    rawExcerpt: truncated ? text.slice(0, RAW_EXCERPT_MAX_CHARS) : text,
-    rawTruncated: truncated,
+    rawExcerpt: cut === null ? text : text.slice(0, cut),
+    rawTruncated: cut !== null,
   };
 };
 

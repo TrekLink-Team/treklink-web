@@ -49,6 +49,25 @@ describe('excerptOf', () => {
     });
   });
 
+  it('cuts by code points, so a character outside the BMP is never split', () => {
+    // 'a' then 600 emoji: 1 + 1200 UTF-16 units, 601 code points.
+    const text = `a${'\u{1F600}'.repeat(600)}`;
+    const result = excerptOf({ outcome: SyncOutcome.MALFORMED_ENVELOPE, rawMessage: text });
+
+    expect(result.rawTruncated).toBe(true);
+    expect([...(result.rawExcerpt ?? '')]).toHaveLength(RAW_EXCERPT_MAX_CHARS);
+    expect(result.rawExcerpt).toBe(`a${'\u{1F600}'.repeat(RAW_EXCERPT_MAX_CHARS - 1)}`);
+    expect(result.rawExcerpt).not.toMatch(/[\uD800-\uDBFF]$/);
+  });
+
+  it('keeps whole a text of the bound in code points but longer in UTF-16 units', () => {
+    const text = '\u{1F600}'.repeat(RAW_EXCERPT_MAX_CHARS);
+    expect(excerptOf({ outcome: SyncOutcome.MALFORMED_ENVELOPE, rawMessage: text })).toEqual({
+      rawExcerpt: text,
+      rawTruncated: false,
+    });
+  });
+
   it('answers no raw payload for any other outcome, nor for a malformed row without one', () => {
     for (const outcome of Object.values(SyncOutcome).filter(
       (value) => value !== SyncOutcome.MALFORMED_ENVELOPE,

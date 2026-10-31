@@ -73,7 +73,7 @@ ENDPOINTS = [
        "duplicate and ordering experiments, and the audit list of the Field data sync page. Needs `read "
        "FieldEvent` (`fieldEvent.read`), as `listEvents` does (2026-11-01, KhoaDD under D-078; it read TrekLink "
        "Admin before). `rawExcerpt` is the stored raw payload of a `MALFORMED_ENVELOPE` row, its text or its "
-       "JSON serialized, cut to the first 500 characters with `rawTruncated` true when longer; it is null for "
+       "JSON serialized, cut to the first 500 Unicode code points with `rawTruncated` true when longer; it is null for "
        "every other outcome. `assetTag` is the device's, null when the row names no device.",
        traces="UC-42, FR-EVT-05, FR-EVT-11, NFR-REL-03",
        body=[["op", "Literal `listAudit`", "string", "yes", "`listAudit`"],
