@@ -6,6 +6,43 @@ import { buildHealthReport, gatewayVersion, healthTopic } from './health-report'
 
 const logger = pino({ name: 'GatewayMQTT' });
 
+/** The station credential the client may present to the broker (gateway-sync design §4). */
+export interface StationCredential {
+  username: string;
+  secret: string;
+}
+
+/**
+ * The mqtt.js options of one connection. The Field Station username and secret go in only when both
+ * are set; with either missing the client connects anonymously, as the open demo broker expects. The
+ * protocol, `mqtt://` or `mqtts://`, comes from the broker URL itself.
+ */
+export function connectOptions(
+  credential: StationCredential,
+  clientId: string,
+  reconnectPeriod: number,
+): mqtt.IClientOptions {
+  const options: mqtt.IClientOptions = { clientId, reconnectPeriod };
+  if (credential.username !== '' && credential.secret !== '') {
+    options.username = credential.username;
+    options.password = credential.secret;
+  }
+  return options;
+}
+
+/** The broker URL without any user information, so a password in the URL never reaches the log. */
+export function redactBrokerUrl(brokerUrl: string): string {
+  try {
+    const url = new URL(brokerUrl);
+    if (url.username === '' && url.password === '') return brokerUrl;
+    url.username = '';
+    url.password = '';
+    return url.toString();
+  } catch {
+    return '<unparseable broker URL>';
+  }
+}
+
 export class GatewayMqttClient {
   private client: mqtt.MqttClient | null = null;
   private isConnected = false;
@@ -18,14 +55,22 @@ export class GatewayMqttClient {
   constructor(
     private brokerUrl: string = gatewayConfig.mqtt.brokerUrl,
     private queue: SQLitePriorityQueue,
+    private credential: StationCredential = gatewayConfig.station,
   ) {}
 
   public connect(): void {
-    logger.info(`Connecting to MQTT broker at ${this.brokerUrl}...`);
-    this.client = mqtt.connect(this.brokerUrl, {
-      clientId: `${gatewayConfig.mqtt.clientIdPrefix}-${Math.random().toString(16).substring(2, 8)}`,
-      reconnectPeriod: gatewayConfig.mqtt.reconnectPeriodMs,
-    });
+    const options = connectOptions(
+      this.credential,
+      `${gatewayConfig.mqtt.clientIdPrefix}-${Math.random().toString(16).substring(2, 8)}`,
+      gatewayConfig.mqtt.reconnectPeriodMs,
+    );
+    const as = options.username === undefined ? 'without credentials' : `as ${options.username}`;
+    logger.info(`Connecting to MQTT broker at ${redactBrokerUrl(this.brokerUrl)} ${as}...`);
+    const halfSet = (this.credential.username === '') !== (this.credential.secret === '');
+    if (halfSet) {
+      logger.warn('Only one of GATEWAY_FS_USERNAME and GATEWAY_FS_SECRET is set: connecting without credentials.');
+    }
+    this.client = mqtt.connect(this.brokerUrl, options);
 
     this.client.on('connect', () => {
       this.isConnected = true;

@@ -82,6 +82,7 @@
   - **Files**: `broker-hooks.controller.ts`, `docker-compose.yml`, `infra/mosquitto/mosquitto.conf`
   - **Do**: api-design 01 and 02 behind `MQTT_AUTH_HOOK_SECRET` (401 `BROKER_SECRET`); credentials and topics of design §4 (403 `CREDENTIAL_REJECTED`, `TOPIC_DENIED`); go-auth HTTP backend, status mode, `auth_opt_cache true`, auth and ACL cache at most 60 s, `auth_opt_cache_refresh false`
   - **Test**: AC-06 of organizations: a revoked station is refused at its next connection
+  - **Progress** (2026-11-01, KhoaDD under D-078): the client side only. The Field Station gateway sends `GATEWAY_FS_USERNAME` and `GATEWAY_FS_SECRET` as the MQTT username and password when both are set and connects without credentials otherwise (`gateway/src/mqtt/mqtt-client.ts` `connectOptions`, tested in `mqtt-client.spec.ts`; design §3 Broker credential). Open: the hooks, the mosquitto configuration and the AC-06 test
   - _Requirements: REQ-EVT-07, FR-EVT-14, D-037_
 
 ## Phase 4: API Presentation Layer
