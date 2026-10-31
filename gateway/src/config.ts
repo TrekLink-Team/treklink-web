@@ -25,6 +25,16 @@ function num(name: string, fallback: number): number {
   return parsed;
 }
 
+// A whole number inside [min, max]; anything else stops the gateway at start rather than running with a
+// bound nobody chose.
+function int(name: string, fallback: number, min: number, max: number): number {
+  const value = num(name, fallback);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new Error(`Environment variable ${name} must be a whole number from ${min} to ${max}: ${value}`);
+  }
+  return value;
+}
+
 function str(name: string, fallback: string): string {
   const raw = process.env[name];
   return raw === undefined || raw === '' ? fallback : raw;
@@ -46,12 +56,12 @@ export const gatewayConfig = {
     /** Rows published per flush cycle on reconnect. Larger drains faster, risks broker backpressure. */
     flushBatchSize: num('GATEWAY_QUEUE_FLUSH_BATCH_SIZE', 20),
     /**
-     * Maximum rows retained during an outage. On overflow the lowest-priority tier is shed first
-     * and P0 is never shed (exception scenario E02-5). 0 disables shedding.
+     * `QUEUE_MAX_ROWS` of gateway-sync design §3 (REQ-STA-03, E02-5): the most rows the queue keeps.
+     * An insert past it sheds the oldest P3 row, then the oldest P2; P0 and P1 are never shed. The
+     * default keeps the 100 000 the scaffold already documented; 100 000 simulator packets measured
+     * 46.7 MB of SQLite (2026-10-31).
      */
-    maxSize: num('GATEWAY_QUEUE_MAX_SIZE', 100_000),
-    /** Lowest tier eligible for shedding. Must stay above P0_SOS. */
-    shedFromTier: num('GATEWAY_QUEUE_SHED_FROM_TIER', PriorityTier.P3_TELEMETRY),
+    maxRows: int('GATEWAY_QUEUE_MAX_ROWS', 100_000, 1, 10_000_000),
   },
 
   mqtt: {

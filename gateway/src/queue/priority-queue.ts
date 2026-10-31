@@ -1,9 +1,41 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import pino from 'pino';
 import { gatewayConfig, PriorityTier } from '../config';
 
 export { PriorityTier };
+
+/** The tiers the bound may shed, in the order it sheds them (REQ-STA-03): P3, then P2. */
+export const SHEDDABLE_TIERS: readonly PriorityTier[] = [PriorityTier.P3_TELEMETRY, PriorityTier.P2_GPS];
+
+/** One row the bound removed. */
+export interface ShedRow {
+  id: number;
+  eventId: string;
+  priority: PriorityTier;
+}
+
+export interface EnqueueResult {
+  /** False when the event id was already queued (INSERT OR IGNORE). */
+  inserted: boolean;
+  /** Rows the bound removed in the same transaction, oldest first. */
+  shed: ShedRow[];
+  /** True when the queue stays over the bound because only P0 and P1 rows are left to shed. */
+  overBound: boolean;
+}
+
+/** The subset of pino the queue logs through, so a test can watch it. */
+export interface QueueLogger {
+  warn(message: string): void;
+  error(message: string): void;
+}
+
+export interface QueueOptions {
+  /** `QUEUE_MAX_ROWS`; defaults to GATEWAY_QUEUE_MAX_ROWS. */
+  maxRows?: number;
+  logger?: QueueLogger;
+}
 
 export interface QueuedEvent {
   id: number;
@@ -16,8 +48,18 @@ export interface QueuedEvent {
 
 export class SQLitePriorityQueue {
   private db: Database.Database;
+  private readonly maxRows: number;
+  private readonly logger: QueueLogger;
+  /** Rows shed since this process started, index 0 = P0 .. 3 = P3; only P2 and P3 can be non-zero. */
+  private readonly shedCount = [0, 0, 0, 0];
+  private enqueueTx!: (eventId: string, priority: PriorityTier, payload: string) => EnqueueResult;
 
-  constructor(dbPath: string = gatewayConfig.queue.dbPath) {
+  constructor(dbPath: string = gatewayConfig.queue.dbPath, options: QueueOptions = {}) {
+    this.maxRows = options.maxRows ?? gatewayConfig.queue.maxRows;
+    if (!Number.isInteger(this.maxRows) || this.maxRows < 1) {
+      throw new Error(`The queue bound must be a whole number of at least 1: ${this.maxRows}`);
+    }
+    this.logger = options.logger ?? pino({ name: 'GatewayQueue' });
     // A fresh clone has no folder for GATEWAY_SQLITE_DB_PATH (./data/ by default); SQLite creates the
     // file but not its folder. An in-memory database has no folder to create.
     if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
@@ -36,16 +78,76 @@ export class SQLitePriorityQueue {
         retry_count INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS idx_priority_created ON event_queue (priority ASC, created_at ASC);
+      -- Within one priority this index is in rowid order, so the oldest row of a tier (the shed) and the
+      -- flush order (priority, id) are index lookups rather than scans of the tier.
+      CREATE INDEX IF NOT EXISTS idx_priority_id ON event_queue (priority ASC);
     `);
+    this.prepareEnqueue();
   }
 
-  public enqueue(eventId: string, priority: PriorityTier, payload: object | string): void {
-    const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
-    const stmt = this.db.prepare(`
+  // The insert and every shed it causes commit together (better-sqlite3 transaction), so a crash leaves
+  // either the old queue or the new one, never a new row with the bound broken or a shed without its row.
+  private prepareEnqueue(): void {
+    const insert = this.db.prepare(`
       INSERT OR IGNORE INTO event_queue (event_id, priority, payload, created_at)
       VALUES (?, ?, ?, datetime('now'))
     `);
-    stmt.run(eventId, priority, payloadStr);
+    const count = this.db.prepare('SELECT count(*) as count FROM event_queue');
+    const oldestOf = this.db.prepare(
+      'SELECT id, event_id as eventId, priority FROM event_queue WHERE priority = ? ORDER BY id ASC LIMIT 1',
+    );
+    const remove = this.db.prepare('DELETE FROM event_queue WHERE id = ?');
+
+    this.enqueueTx = this.db.transaction((eventId: string, priority: PriorityTier, payload: string) => {
+      const result: EnqueueResult = { inserted: false, shed: [], overBound: false };
+      result.inserted = insert.run(eventId, priority, payload).changes === 1;
+      if (!result.inserted) return result;
+      let rows = (count.get() as { count: number }).count;
+      // Normally one row; more only when the bound was lowered between two runs.
+      while (rows > this.maxRows) {
+        let victim: ShedRow | undefined;
+        for (const tier of SHEDDABLE_TIERS) {
+          victim = oldestOf.get(tier) as ShedRow | undefined;
+          if (victim) break;
+        }
+        if (!victim) {
+          result.overBound = true;
+          break;
+        }
+        remove.run(victim.id);
+        result.shed.push(victim);
+        rows -= 1;
+      }
+      return result;
+    });
+  }
+
+  /**
+   * Persists one event before any network attempt (REQ-STA-01). When the insert takes the queue past
+   * `QUEUE_MAX_ROWS` the oldest P3 row goes, then the oldest P2; a P0 or P1 row is never shed, so with
+   * only those left the new row stays and the queue runs over its bound (REQ-STA-03, E02-5).
+   */
+  public enqueue(eventId: string, priority: PriorityTier, payload: object | string): EnqueueResult {
+    const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const result = this.enqueueTx(eventId, priority, payloadStr);
+    // Logged after the commit, so a log line never names a shed that rolled back.
+    for (const row of result.shed) {
+      this.shedCount[row.priority] += 1;
+      this.logger.warn(
+        `Queue bound ${this.maxRows} reached: shed P${row.priority} row ${row.id} (event ${row.eventId}).`,
+      );
+    }
+    if (result.overBound) {
+      this.logger.error(
+        `Queue bound ${this.maxRows} exceeded: only P0 and P1 rows are queued, none is shed; kept event ${eventId}.`,
+      );
+    }
+    return result;
+  }
+
+  /** Rows the bound shed since this process started, index 0 = P0 .. 3 = P3. */
+  public shedByTier(): number[] {
+    return [...this.shedCount];
   }
 
   public peek(limit: number = gatewayConfig.queue.peekLimit): QueuedEvent[] {

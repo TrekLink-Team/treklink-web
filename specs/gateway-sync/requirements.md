@@ -98,7 +98,12 @@ position rules owned by `monitoring`. Environment: `MQTT_BROKER_URL`, `MQTT_USER
 (subscribe-only), `MQTT_ROOT` (default `treklink`), `MQTT_CLIENT_ID_BACKEND` (default
 `treklink-backend-service`, stable because the session is persistent), `MQTT_INGESTION_ENABLED` (default
 `true`; `false` runs the backend without a broker), `MQTT_AUTH_HOOK_SECRET`. Field Station: its local
-configuration file (`field-station-local-page.md`).
+configuration file (`field-station-local-page.md`), and these environment variables of `gateway/`
+(`gateway/src/config.ts`, `.env.example`):
+
+| Variable | Default | Bounds | Meaning | Requirement |
+|---|---|---|---|---|
+| `GATEWAY_QUEUE_MAX_ROWS` | `100000` | whole number, 1 to 10000000 | `QUEUE_MAX_ROWS` of design §3: an insert past it sheds the oldest P3 row, then the oldest P2, in the insert's transaction; P0 and P1 are never shed. A value outside the bounds stops the gateway at start | REQ-STA-03, E02-5 |
 
 ---
 
