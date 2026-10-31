@@ -115,7 +115,7 @@ stateDiagram-v2
 
 Custody is decided at triage from `CUSTODY_RESOLVER.custodyAt(deviceId, lastSeenAt)`, the same custody intervals that
 attribute field events (D-040). `RENTER` custody marks the organization's channel key exposed through
-`organizations.markKeyExposed`, and confirmation charges the remaining value through the `LOSS_CASE_LISTENERS` port, which `billing` provides with `chargeLoss`;
+`ChannelKeyService.markKeyExposed` of `organizations`, and confirmation charges the remaining value through the `LOSS_CASE_LISTENERS` port, which `billing` provides with `chargeLoss`;
 `TREKLINK` custody is written off. The `devices.lossSearch` job confirms `SEARCHING` cases whose
 `searchEndsAt` has passed, with the usual compare-and-set on state and version. A device recovered after
 settlement goes to `RETURNED` while its case stays `SETTLED`; any refund is a billing adjustment (E05-10).
@@ -381,14 +381,14 @@ classDiagram
     class DevicesService
     class CustodyResolver
     class LossCaseListener
-    class OrganizationsService
+    class ChannelKeyService
     class ComplianceCaseService
     LossCasesController --> LossCaseService
     LossSearchJob --> LossCaseService
     LossCaseService --> LossCasesRepository
     LossCaseService --> DevicesService : LOST, RETURNED, RETIRED
     LossCaseService ..> CustodyResolver : custodyAt (port, rentals provides)
-    LossCaseService --> OrganizationsService : markKeyExposed
+    LossCaseService --> ChannelKeyService : markKeyExposed
     LossCaseService --> ComplianceCaseService : openOrLink
     LossCaseService ..> LossCaseListener : onConfirmed, onSettled (port, billing and rentals provide)
 ```
@@ -431,14 +431,14 @@ sequenceDiagram
     participant C as LossCasesController
     participant S as LossCaseService
     participant Rt as CustodyResolver
-    participant O as OrganizationsService
+    participant O as ChannelKeyService
     participant R as LossCasesRepository
     St->>P: triage, suspected theft no
     P->>C: POST /api/loss-cases/{id}/triage
     C->>S: triage(id, dto, actor)
     S->>Rt: custodyAt(deviceId, lastSeenAt)
     alt a custody interval contains the time
-        S->>O: markKeyExposed(orgId)
+        S->>O: markKeyExposed(orgId, at, actor, tx)
         S->>S: custody RENTER
     else none
         S->>S: custody TREKLINK

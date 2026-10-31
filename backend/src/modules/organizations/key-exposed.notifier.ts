@@ -7,7 +7,7 @@ import { OrganizationsService } from './organizations.service';
 
 const SUBJECT = 'Your organization channel key is exposed';
 const TEXT =
-  'A device in your organization custody was lost, so the channel key of your organization is ' +
+  "A device in your organization's custody was lost, so the channel key of your organization is " +
   'treated as exposed. TrekLink Staff will rotate it at the counter, and your devices take the ' +
   'new key when they are re-provisioned there.';
 
@@ -35,10 +35,15 @@ export class KeyExposedNotifier {
         .filter((card) => card.isActive && card.email)
         .map((card) => card.email);
       if (addresses.length === 0) {
-        await this.organizations.emailContact(organizationId, SUBJECT, TEXT);
+        if (!(await this.organizations.emailContact(organizationId, SUBJECT, TEXT))) {
+          this.logger.warn(`Nobody was emailed that the key of ${organizationId} is exposed.`);
+        }
         return;
       }
-      if (!this.mail) return;
+      if (!this.mail) {
+        this.logger.warn(`No mail transport: Managers of ${organizationId} were not told.`);
+        return;
+      }
       for (const to of addresses) {
         await this.mail.send({ to, subject: SUBJECT, text: TEXT }).catch((error: unknown) => {
           this.logger.warn(
