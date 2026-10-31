@@ -124,6 +124,7 @@
   - **Files**: `organizations.controller.ts`, `members.controller.ts`, `roster.controller.ts`, `credentials.controller.ts`, `compliance-cases.controller.ts`
   - **Do**: api-design 01 to 32 with each file's permission and `@ResponseMessage`; the registration endpoint is public; `/api/organizations/:id/field-stations/release` declared before `/:stationId` routes
   - **Note**: LongLP opened `organizations.controller.ts` for the counter handover (2026-10-27): 03 `GET /api/organizations/:id` answering only its head (`id`, `code`, `legalName`, `status`, `statusChangedAt`, `channelKeyVersion`, `version`; `organization.read`, `organization.read.own`), and 12 `GET /api/organizations/:id/members` (`member.read`, `member.read.own`). Another organization answers 404. The rest of 03 (the verification record and the counts) joins with 1.1 and 2.4
+  - **Status** (2026-10-31, TanNB): all 32 routes of api-design 01 to 32 are served, by the controllers `organization-onboarding`, `organizations`, `organization-status`, `members`, `roster`, `api-keys`, `field-stations`, `channel-key` and `compliance-cases` (the `Files` names above are the plan; the code splits them by story). The release route is declared before the `:stationId` routes. Each has its permission and `@ResponseMessage`; registration is public
 - [ ] 4.2 E2E (owner TanNB)
   - **Files**: `backend/test/organizations.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`
   - **Do**: every Validation row of api-design 01 to 32; AC-01 to AC-11 except AC-06 (gateway-sync 4.2); cross-organization 404 for every route with `:id`
@@ -137,3 +138,9 @@
 ## Phase 6: Verification & DoD
 
 - [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner TanNB)
+  - **Run** (2026-10-31, TanNB, on `dev` 4fafb53): `tsc --noEmit` and `eslint` (0 errors, 1 old warning), `check-module-boundaries.js` (443 files, acyclic), unit suites 198 passed (2175 tests), e2e suites 18 passed (404 tests), and `build_api_design.py organizations` regenerates the 32 files with no content diff. `test:db` runs in CI only (no Postgres on this machine). Not met yet, so this task stays open:
+    - 2.9 `markKeyExposed` with the Manager notification and `channelKeyVersion(orgId)` for rentals; 2.10 `openOrLink` and loss case links (needs a `devices` port)
+    - 2.1 Staff notification and the rollback after the account insert on Postgres; 2.2 Admin notification; 2.3 MSG05 and MSG16 emails
+    - api-design 17 and 19 omit 409 `INVALID_STATE_TRANSITION`, 18 omits `MEMBER_NOT_ELIGIBLE` and the 400 rows the code answers, and 24 samples `version "1.2.0"` where the code answers null for a new station (raised to the leader)
+    - the filter and paging rows of api-design 02 are not re-checked; the Operator 403 on `GET /transitions` is read only through `organization-lifecycle.db-spec.ts`
+    - `OrganizationsService.summary` and `OrganizationsRepository.findSummary` have no caller left
