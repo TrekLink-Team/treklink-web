@@ -35,7 +35,8 @@ const isNumber = (value: unknown): value is number =>
 // than `monitoring.fieldStationStaleSeconds` turn stale, and one heard again recovers. Only transitions
 // are reported: each is stored in `stale_marks`, together with the incident flag of the device
 // (`IncidentsService.markDeviceStale`, REQ-EVT-12), and its event is emitted after that commit, so the
-// unchanged state repeats nothing, also after a restart. JobRunnerService runs the job under an advisory
+// unchanged state repeats nothing, also after a restart. A marked device still stale asks the incident
+// flag again on every run, which flags an incident opened after the mark and is otherwise a no-op. JobRunnerService runs the job under an advisory
 // lock, so one sweep runs at a time across replicas; the insert and the delete of a mark are guarded
 // as well. One subject that fails is logged and retried on the next run; the others go on.
 //
@@ -142,8 +143,9 @@ export class StaleSweepJob {
     }
     const stale = lastSeenAt.getTime() < staleBefore;
     if (mark) {
+      if (stale) return this.keepFlag(deviceId, lastSeenAt);
       const heardAgain = lastSeenAt.getTime() > mark.lastSeenAt.getTime();
-      if (stale || !heardAgain) return null;
+      if (!heardAgain) return null;
       return this.recoverDevice(deviceId, organizationId ?? null, mark, lastSeenAt);
     }
     if (!stale || organizationId === undefined) return null;
@@ -175,6 +177,17 @@ export class StaleSweepJob {
       } satisfies DeviceStaleChangedEvent);
       return 'stale';
     });
+  }
+
+  // A device marked and still silent: an incident opened since the mark is flagged too (REQ-EVT-12).
+  // A Field Station relays a queued SOS with its occurrence time as `lastSeenAt`, so the incident can
+  // open after the device was already marked stale. `markDeviceStale` changes nothing when the flag is
+  // already set, or when the device has no incident outside CLOSED. Not a transition: no event.
+  private async keepFlag(deviceId: string, lastSeenAt: Date): Promise<null> {
+    await this.events.transaction((tx) =>
+      this.incidents.markDeviceStale(deviceId, true, lastSeenAt, tx),
+    );
+    return null;
   }
 
   private recoverDevice(
