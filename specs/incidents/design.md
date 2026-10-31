@@ -217,10 +217,18 @@ packet never overwrites a newer position (PR #114 review). Positions move neithe
 | Export | Used by |
 |---|---|
 | `IncidentIngress.onSos(event, tx)`, `onPosition(event, tx)` | gateway-sync |
-| `IncidentsService.markDeviceStale(deviceId, stale, lastPosition)` | monitoring |
+| `IncidentsService.markDeviceStale(deviceId, stale, lastSeenAt, tx)` | monitoring (staleness sweep, in the sweep's transaction) |
 | `IncidentsService.openByDevices(ids)`, `incidentsOfDevice(id)`, `responseTimes(range)`, `alertDeliveryStats()` | monitoring |
 | provider of `CONTRACT_CLOSE_CHECKS` | rentals |
 | provider of `ORGANIZATION_COUNTS` `openIncidents` (`IncidentsOrganizationCount` in the global `IncidentsPortsModule`: incidents not CLOSED) | organizations (api-design 03) |
+
+**Stale flag** (REQ-EVT-12, FR-INC-13). `markDeviceStale` locks the device's incident outside `CLOSED`
+(`lockOpenByDevice`) and sets or clears `stale`. It is not a transition: state, owner, deadlines and
+`version` stay, so a member's pending action keeps its `expectedVersion`, and no transition row is written.
+The incident keeps its own last position and fix time `lastPositionAt` from the episode (§4); `lastSeenAt`,
+the device's last reading, goes to the `incident.stale` audit record. A change emits `incident.changed` with
+the unchanged state, so the queue, the detail and the live map refetch. A call that changes nothing emits
+nothing.
 
 Listens to `member.deactivated` (REQ-EVT-11) and its own `incident.alertsQueued` (§3). Emits `incident.changed`,
 `audit.record`, `incident.alertsQueued`, `incident.alert`.

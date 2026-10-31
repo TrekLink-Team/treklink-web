@@ -81,6 +81,12 @@ export class IncidentsRepository {
     return tx.incident.update({ where: { id }, data: { statusDueAt } });
   }
 
+  // The device-silent flag (FR-INC-13, task 4.4) is not a transition: state, owner, deadlines and
+  // version stay, so a member's pending action keeps its expectedVersion. Called with the row locked.
+  async setStale(id: string, stale: boolean, tx: Prisma.TransactionClient): Promise<Incident> {
+    return tx.incident.update({ where: { id }, data: { stale } });
+  }
+
   // Incidents of an organization that are not CLOSED (organizations api-design 03 `openIncidents`).
   countOpenOfOrganization(
     organizationId: string,

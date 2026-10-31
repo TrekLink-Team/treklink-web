@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StaleSubject } from '@prisma/client';
 import { DevicesService } from '../../devices';
+import { IncidentsService } from '../../incidents';
 import { OrganizationsService } from '../../organizations';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
 import { ParameterService } from '../../platform/parameters/parameter.service';
@@ -32,7 +33,8 @@ const isNumber = (value: unknown): value is number =>
 // monitoring.staleSweep (task 2.4, design §3, REQ-EVT-03): every `monitoring.staleSweepSeconds`, a
 // rented device silent longer than `monitoring.deviceStaleSeconds` and a Field Station silent longer
 // than `monitoring.fieldStationStaleSeconds` turn stale, and one heard again recovers. Only transitions
-// are reported: each is stored in `stale_marks` and its event is emitted after that commit, so the
+// are reported: each is stored in `stale_marks`, together with the incident flag of the device
+// (`IncidentsService.markDeviceStale`, REQ-EVT-12), and its event is emitted after that commit, so the
 // unchanged state repeats nothing, also after a restart. JobRunnerService runs the job under an advisory
 // lock, so one sweep runs at a time across replicas; the insert and the delete of a mark are guarded
 // as well. One subject that fails is logged and retried on the next run; the others go on.
@@ -52,6 +54,7 @@ export class StaleSweepJob {
     private readonly contracts: ContractsService,
     private readonly devices: DevicesService,
     private readonly organizations: OrganizationsService,
+    private readonly incidents: IncidentsService,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
   ) {}
@@ -162,6 +165,8 @@ export class StaleSweepJob {
         markedAt: at,
       };
       if (!(await this.marks.mark(row, tx))) return null;
+      // The device's incident outside CLOSED is flagged in the same transaction (REQ-EVT-12).
+      await this.incidents.markDeviceStale(deviceId, true, lastSeenAt, tx);
       this.events.emitAfterCommit(DEVICE_STALE_CHANGED, {
         deviceId,
         organizationId,
@@ -181,6 +186,7 @@ export class StaleSweepJob {
     return this.events.transaction(async (tx) => {
       if (!(await this.marks.clear(StaleSubject.DEVICE, deviceId, tx, mark.organizationId)))
         return null;
+      await this.incidents.markDeviceStale(deviceId, false, lastSeenAt, tx);
       this.events.emitAfterCommit(DEVICE_STALE_CHANGED, {
         deviceId,
         organizationId,

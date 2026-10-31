@@ -46,6 +46,6 @@ import { RoutingService } from './routing.service';
     IncidentTimersJob,
     OwnerDeactivationListener,
   ],
-  exports: [IncidentIngress, IncidentsQueryService],
+  exports: [IncidentIngress, IncidentsQueryService, IncidentsService],
 })
 export class IncidentsModule {}

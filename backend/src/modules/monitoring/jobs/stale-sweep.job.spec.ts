@@ -1,5 +1,6 @@
 import { StaleSubject } from '@prisma/client';
 import type { DevicesService } from '../../devices';
+import type { IncidentsService } from '../../incidents';
 import type { OrganizationsService } from '../../organizations';
 import type { TransactionalEvents } from '../../platform/events/emit-after-commit';
 import type { ParameterService } from '../../platform/parameters/parameter.service';
@@ -52,6 +53,7 @@ describe('StaleSweepJob', () => {
   let emitted: { name: string; payload: unknown }[];
   let committed: boolean;
   let devices: { projections: jest.Mock };
+  let incidents: { markDeviceStale: jest.Mock };
   let job: StaleSweepJob;
 
   beforeEach(() => {
@@ -71,6 +73,7 @@ describe('StaleSweepJob', () => {
         Promise.resolve(projections.filter((row) => ids.includes(row.id))),
       ),
     };
+    incidents = { markDeviceStale: jest.fn().mockResolvedValue(null) };
     // Events queued inside a transaction go out only when it commits, as TransactionalEvents does.
     let pending: { name: string; payload: unknown }[] | null = null;
     const events = {
@@ -99,6 +102,7 @@ describe('StaleSweepJob', () => {
       {
         fieldStationHealth: jest.fn(() => Promise.resolve(stations)),
       } as unknown as OrganizationsService,
+      incidents as unknown as IncidentsService,
       {
         get: jest.fn((key: string) => Promise.resolve(params[key])),
       } as unknown as ParameterService,
@@ -279,6 +283,48 @@ describe('StaleSweepJob', () => {
       await expect(job.sweep(NOW)).resolves.toEqual({ stale: 1, recovered: 0 });
       await expect(job.sweep(NOW)).resolves.toEqual({ stale: 1, recovered: 0 });
       expect(marks.rows.size).toBe(2);
+    });
+  });
+
+  describe('incident stale flag (incidents REQ-EVT-12)', () => {
+    it('flags the incident in the transaction of the stale transition', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).toHaveBeenCalledWith('d1', true, ago(400), TX);
+    });
+
+    it('clears it in the transaction of the recovery, and calls nothing while unchanged', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      await job.sweep(NOW);
+      rent('d1', ORG_A, ago(2));
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale.mock.calls).toEqual([
+        ['d1', true, ago(400), TX],
+        ['d1', false, ago(2), TX],
+      ]);
+    });
+
+    it('clears it for a device checked in while stale and then heard again', async () => {
+      rent('d1', ORG_A, ago(400));
+      await job.sweep(NOW);
+      visible = [];
+      projections = [{ id: 'd1', lastSeenAt: ago(1) }];
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).toHaveBeenLastCalledWith('d1', false, ago(1), TX);
+    });
+
+    it('emits no stale entry when the flag fails, so the next run retries it', async () => {
+      rent('d1', ORG_A, ago(400));
+      incidents.markDeviceStale.mockRejectedValueOnce(new Error('lock timeout'));
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 0, recovered: 0 });
+      expect(emitted).toEqual([]);
+    });
+
+    it('leaves incidents alone for a Field Station', async () => {
+      stations = [{ id: 's1', organizationId: ORG_A, name: 'Station 1', lastSyncAt: ago(900) }];
+      await job.sweep(NOW);
+      expect(incidents.markDeviceStale).not.toHaveBeenCalled();
     });
   });
 
