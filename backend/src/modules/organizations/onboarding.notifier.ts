@@ -12,10 +12,12 @@ import {
 import { OrganizationsService } from './organizations.service';
 
 // The notices of onboarding (REQ-EVT-01 to REQ-EVT-03), sent after the commit that caused them. Staff
-// are told of a registration, Staff and Admin of a verification that awaits approval (the port
-// STAFF_NOTIFICATIONS reaches every active Staff and Admin account), and the Manager of an approval
-// (MSG05) or a rejection (MSG16). A failed send is logged and never thrown: the change is already
-// saved and there is no retry queue, as for the contract notices of `rentals`.
+// and Admin are told of a registration and of a verification that leaves the organization awaiting
+// approval, through the port STAFF_NOTIFICATIONS, which reaches every active Staff and Admin account.
+// `verify` in OrganizationOnboardingService emits `organization.verified` on the first verification
+// only, so a later verification of the same organization sends no second notice. The Manager is
+// told of an approval (MSG05) or a rejection (MSG16). A failed send is logged and never thrown: the
+// change is already saved and there is no retry queue, as for the contract notices of `rentals`.
 @Injectable()
 export class OnboardingNotifier {
   private readonly logger = new Logger(OnboardingNotifier.name);
