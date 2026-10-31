@@ -343,7 +343,7 @@ classDiagram
         +compareAndSet(current, patch, tx) Incident
         +insertTransition(row, tx) IncidentTransition
         +insertStatusUpdate(row, tx) IncidentStatusUpdate
-        +findStatusUpdateForCorrection(id, tx) IncidentStatusUpdate
+        +findStatusUpdateForCorrection(id, tx) #123; id, incidentId, correctedBy #125; | null
         +resetStatusDue(id, statusDueAt, tx)
         +dueTimers(states, column, now, limit) DueIncident[]
         +latestAcknowledgement(id) IncidentTransition
@@ -556,9 +556,10 @@ sequenceDiagram
     R-->>S: incident
     opt correctsId is set
         S->>R: findStatusUpdateForCorrection(correctsId, tx)
-        R-->>S: update of this incident, not yet corrected
+        R-->>S: { id, incidentId, correctedBy } or null
+        S->>S: correctable(target): this incident, not corrected
     end
-    S->>R: insertStatusUpdate(row with correctsId, tx)
+    S->>R: insertStatusUpdate(row, tx)
     S->>R: resetStatusDue(id, statusDueAt, tx)
     S->>R: COMMIT, then incident.changed and audit.record
     S-->>C: status update and statusDueAt
@@ -589,10 +590,11 @@ sequenceDiagram
 ```
 
 ***Figure 9***: UC-33 Report Incident Status, ending in `RESOLVED`. A correction is a status update whose
-`correctsId` names the earlier one; the earlier row is never edited (REQ-EVT-14). Not drawn here: 400 for a
-blank note or a `correctsId` of another incident, 403 FORBIDDEN, 404 NOT_FOUND, 409 STALE_VERSION,
-409 INVALID_STATE_TRANSITION and 409 CONFLICT_UNIQUE for an update already corrected, which api-design 05
-and 06 carry.
+`correctsId` names the earlier one; the earlier row is never edited (REQ-EVT-14). The repository returns
+the selection or null, and `IncidentsService.correctable` checks it. Not drawn here: 400 for a blank note
+or a `correctsId` that names no status update or one of another incident, 403 FORBIDDEN, 404 NOT_FOUND,
+409 STALE_VERSION, 409 INVALID_STATE_TRANSITION and 409 CONFLICT_UNIQUE for an update already corrected,
+which api-design 05 and 06 carry.
 
 <!-- sdd: MF-03 seq UC-35 -->
 ```mermaid
