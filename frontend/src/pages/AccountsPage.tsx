@@ -11,7 +11,7 @@ import {
 } from '../entities/account/api';
 import { invitationPending, isAdmin, lastActiveAdminId, roleOf } from '../entities/account/model';
 import { ApiError } from '../shared/api/apiClient';
-import { formatDateTime } from '../shared/lib/format';
+import { formatDateTime, formatUtc } from '../shared/lib/format';
 import {
   Badge,
   Button,
@@ -42,7 +42,7 @@ const StatusOf: React.FC<{ account: AccountItem }> = ({ account }) =>
 
 const LastSignIn: React.FC<{ account: AccountItem }> = ({ account }) =>
   account.lastLoginAt ? (
-    <span title={`${account.lastLoginAt} UTC`}>{formatDateTime(account.lastLoginAt)}</span>
+    <span title={formatUtc(account.lastLoginAt)}>{formatDateTime(account.lastLoginAt)}</span>
   ) : (
     <span className="flex flex-col">
       <span>Never</span>
@@ -160,7 +160,7 @@ export const AccountsPage: React.FC = () => {
     {
       key: 'createdAt',
       header: 'Created',
-      cell: (row) => <span title={`${row.createdAt} UTC`}>{formatDateTime(row.createdAt)}</span>,
+      cell: (row) => <span title={formatUtc(row.createdAt)}>{formatDateTime(row.createdAt)}</span>,
       hideOnMobile: true,
     },
   ];
