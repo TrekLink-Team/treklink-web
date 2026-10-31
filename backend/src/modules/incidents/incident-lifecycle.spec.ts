@@ -205,6 +205,7 @@ describe('IncidentLifecycle task 1.2', () => {
     );
     expect(events.emitAfterCommit).toHaveBeenCalledWith('incident.changed', {
       incidentId: result.id,
+      deviceId: 'device',
       organizationId: 'org-a',
       state: 'NOTIFY_PRIMARY',
       tier: 'PRIMARY',

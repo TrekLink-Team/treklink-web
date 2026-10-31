@@ -30,6 +30,7 @@ const position = (overrides: Partial<PositionEvent> = {}): PositionEvent => ({
 const incident = (state: IncidentState, overrides: Partial<Incident> = {}): Incident =>
   ({
     id: 'inc-1',
+    deviceId: 'dev-1',
     state,
     version: 3,
     organizationId: 'org-a',
@@ -288,6 +289,7 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
       expect(repository.movePosition).toHaveBeenCalledWith(open, position(), tx);
       expect(events.emitAfterCommit).toHaveBeenCalledWith('incident.changed', {
         incidentId: 'inc-1',
+        deviceId: 'dev-1',
         organizationId: 'org-a',
         state: 'ACKNOWLEDGED',
         tier: null,

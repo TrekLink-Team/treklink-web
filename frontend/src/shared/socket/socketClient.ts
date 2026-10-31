@@ -10,7 +10,8 @@ export interface LiveEntry {
   /** Only on `replay.done`: the cursor to resume from. */
   cursor?: number;
   type: string;
-  deviceId?: string;
+  /** Null when the entry names no device, as an `incident.changed` stored before monitoring added it. */
+  deviceId?: string | null;
   payload: Record<string, unknown>;
   createdAt: string;
 }

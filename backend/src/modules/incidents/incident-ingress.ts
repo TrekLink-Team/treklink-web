@@ -102,6 +102,7 @@ export class IncidentIngress {
     if (moved)
       this.events.emitAfterCommit('incident.changed', {
         incidentId: moved.id,
+        deviceId: moved.deviceId,
         organizationId: moved.organizationId,
         state: moved.state,
         tier: null,

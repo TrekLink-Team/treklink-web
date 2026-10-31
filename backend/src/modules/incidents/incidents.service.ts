@@ -188,6 +188,7 @@ export class IncidentsService {
       await this.repository.resetStatusDue(id, statusDueAt, tx);
       this.events.emitAfterCommit('incident.changed', {
         incidentId: id,
+        deviceId: current.deviceId,
         organizationId: current.organizationId,
         state: current.state,
         tier: null,
