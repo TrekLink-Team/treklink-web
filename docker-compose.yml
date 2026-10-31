@@ -25,10 +25,12 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
-    # Default open listener for local development
-    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    # Open listeners for local development, with persistence so the backend's session survives a
+    # broker restart (infra/mosquitto/mosquitto.conf)
+    command: ["mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]
 
 volumes:
   postgres_data:
