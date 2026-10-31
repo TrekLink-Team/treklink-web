@@ -80,7 +80,7 @@
 - **REQ-ERR-08**: IF a handover is attempted before the requested start date, THEN the system SHALL return 409 `BEFORE_START_DATE`.
 - **REQ-ERR-07**: IF a scanned tag is not on the contract, THEN the system SHALL return 409 `DEVICE_NOT_ON_CONTRACT` (MSG12).
 - **REQ-ERR-09**: IF Staff approve with a handover appointment before the current minute, THEN the system SHALL return 400 `VALIDATION_FAILED` and reserve nothing. [FR-CON-03]
-- **REQ-ERR-10**: IF an undo of provisioning carries a stale `version`, names a contract not `APPROVED` or a unit not `RESERVED` or already handed over, names a unit not on the contract, or names a unit that carries no key version of the contract's organization, THEN the system SHALL return 409 `STALE_VERSION`, `INVALID_STATE_TRANSITION`, `DEVICE_NOT_ON_CONTRACT` (MSG12) or `DEVICE_NOT_PROVISIONED`, in that order of checks, and change nothing. [FR-DEV-05]
+- **REQ-ERR-10**: IF an undo of provisioning carries a stale `version`, names a contract not `APPROVED`, names a unit not on the contract, names a unit not `RESERVED` or already handed over, or names a unit that carries no key version of the contract's organization, THEN the system SHALL return 409 `STALE_VERSION`, `INVALID_STATE_TRANSITION`, `DEVICE_NOT_ON_CONTRACT` (MSG12), `INVALID_STATE_TRANSITION` or `DEVICE_NOT_PROVISIONED` respectively, checked in that order, and change nothing. [FR-DEV-05]
 
 ---
 
