@@ -62,7 +62,7 @@ const textOf = (marker: MapMarker): string =>
 const overlayIcon = (label: string): L.DivIcon => {
   const element = document.createElement('div');
   element.className =
-    'w-max -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-surface/90 px-2 py-0.5 text-xs font-semibold text-status-critical-fg shadow';
+    'w-max -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-surface px-2 py-0.5 text-xs font-semibold text-status-critical-fg shadow';
   element.textContent = label;
   return L.divIcon({ html: element, className: '', iconSize: [0, 0] });
 };
