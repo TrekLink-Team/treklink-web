@@ -108,6 +108,13 @@ describe('AccountsPage (screen 7.1)', () => {
     expect(inTable().getByText('ADMIN')).toBeTruthy();
   });
 
+  it('names the zone once in the sign-in hover', async () => {
+    serve([account()]);
+    renderPage();
+    await screen.findByRole('table', { name: 'Accounts' });
+    expect(inTable().getAllByTitle('20 Oct 2026, 03:15:00 UTC').length).toBeGreaterThan(0);
+  });
+
   it('sends the search and the status filter to the list', async () => {
     serve([account(), staff]);
     renderPage();

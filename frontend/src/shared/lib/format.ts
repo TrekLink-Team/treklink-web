@@ -24,6 +24,18 @@ export const formatDateTime = (iso: string): string =>
     minute: '2-digit',
   });
 
+// An instant in UTC with its zone named once, for a hover over a time shown in the viewer's timezone.
+export const formatUtc = (iso: string): string =>
+  `${new Date(iso).toLocaleString('en-GB', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })} UTC`;
+
 // Free text from the server with instants in it, such as "Handover appointment
 // 2026-10-28T02:00:00.000Z" in a contract's history, with each instant shown as formatDateTime.
 export const formatInstantsIn = (text: string): string =>
