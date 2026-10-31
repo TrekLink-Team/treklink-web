@@ -4,7 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { AlertChannel, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { AccountsService, AuthModule } from '../auth';
+import { AccountsService, AuthModule, MAIL_PORT } from '../auth';
 import { DevicesModule, DevicesService } from '../devices';
 import { OrganizationsModule, OrganizationsService, RosterService } from '../organizations';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -51,8 +51,11 @@ class TestOrganizationsModule {}
 class TestRentalsModule {}
 
 @Module({
-  providers: [{ provide: AccountsService, useValue: {} }],
-  exports: [AccountsService],
+  providers: [
+    { provide: AccountsService, useValue: {} },
+    { provide: MAIL_PORT, useValue: { send: jest.fn() } },
+  ],
+  exports: [AccountsService, MAIL_PORT],
 })
 class TestAuthModule {}
 
