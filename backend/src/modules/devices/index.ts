@@ -28,3 +28,8 @@ export {
   registerLossCaseListener,
 } from './ports/loss-case-listener.port';
 export { CUSTODY_RESOLVER, type CustodyResolver } from './ports/custody-resolver.port';
+export {
+  LOSS_ORGANIZATION_ACTIONS,
+  type ComplianceForLoss,
+  type LossOrganizationActions,
+} from './ports/loss-organization-actions.port';

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Settles a confirmed case: keep the charge, reduce or waive it with a reason, or record a TrekLink write-off. The Admin is never the Staff member who triaged the case (FR-BILL-11, BR-39). The device moves to `RETIRED`.
+Settles a confirmed case: keep the charge, reduce or waive it with a reason, or record a TrekLink write-off. The Admin is never the Staff member who triaged the case (FR-BILL-11, BR-39). The device moves to `RETIRED`. A `RENTER` custody case is charged, reduced or waived; a `TREKLINK` custody case is written off (AC-05); any other pairing, a reduction not below the confirmed charge, or a missing reason is 400.
 
 ## API Specification
 
@@ -71,6 +71,7 @@ Settles a confirmed case: keep the charge, reduce or waive it with a reason, or 
     "suspectedTheft": false,
     "policeReference": null,
     "searchEndsAt": "2026-10-27T03:15:00.000Z",
+    "triagedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "decision": "REDUCED",
     "chargeVnd": 900000,
     "version": 1

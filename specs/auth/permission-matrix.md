@@ -44,6 +44,12 @@
 | `device.availability.org` | readAvailability | Device |  | ORGANIZATION |  |  | X |  |
 | `maintenance.decide` | decide | MaintenanceRecord |  | TREKLINK | X |  |  |  |
 | `stockTake.manage` | manage | StockTake |  | TREKLINK | X | X |  |  |
+| `lossCase.read` | read | LossCase |  | TREKLINK | X | X |  |  |
+| `lossCase.read.own` | read | LossCase | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `lossCase.report` | report | LossCase |  | TREKLINK | X | X |  |  |
+| `lossCase.report.own` | report | LossCase | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `lossCase.operate` | operate | LossCase |  | TREKLINK | X | X |  |  |
+| `lossCase.decide` | decide | LossCase |  | TREKLINK | X |  |  |  |
 | `contract.read` | read | RentalContract |  | TREKLINK | X | X |  |  |
 | `contract.read.own` | read | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `contract.request.own` | request | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |

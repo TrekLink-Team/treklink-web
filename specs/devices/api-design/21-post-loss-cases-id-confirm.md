@@ -65,6 +65,7 @@ Confirms the loss before the search window ends; the `devices.lossSearch` job do
     "suspectedTheft": false,
     "policeReference": null,
     "searchEndsAt": "2026-10-27T03:15:00.000Z",
+    "triagedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "decision": null,
     "chargeVnd": 1800000,
     "version": 1

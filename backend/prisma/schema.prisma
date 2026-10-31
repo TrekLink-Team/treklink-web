@@ -397,6 +397,7 @@ model Organization {
   fieldEvents         FieldEvent[]
   streamEvents        StreamEvent[]
   complianceCases     ComplianceCase[]
+  lossCases           LossCase[]
 
   @@index([status])
   @@index([verifiedById])
@@ -806,6 +807,13 @@ model LossCase {
   custody          LossCustody?
   contractDeviceId String? // the custody interval, for RENTER custody
   contractDevice   ContractDevice? @relation(fields: [contractDeviceId], references: [id])
+  // The custody interval's contract and organization as CUSTODY_RESOLVER answered them (task 2.7):
+  // `devices` cannot read the rentals tables, and billing needs the contract to charge. Set at report
+  // from the custody at that time, replaced at triage by the custody at the last seen time.
+  contractId       String?
+  contract         RentalContract? @relation(fields: [contractId], references: [id])
+  organizationId   String?
+  organization     Organization?   @relation(fields: [organizationId], references: [id])
   keyExposed       Boolean         @default(false)
   suspectedTheft   Boolean         @default(false) // opens or links a compliance case (D-046)
   complianceCaseId String?
@@ -831,6 +839,8 @@ model LossCase {
   @@index([deviceId, state])
   @@index([state, searchEndsAt])
   @@index([contractDeviceId])
+  @@index([contractId])
+  @@index([organizationId, state])
   @@index([complianceCaseId])
   @@index([reportedById])
   @@index([triagedById])
@@ -1015,6 +1025,7 @@ model RentalContract {
   damageCharges    DamageCharge[]
   payments         Payment[]
   incidents        Incident[]
+  lossCases        LossCase[]
   authorityReports AuthorityReport[]
 
   @@index([organizationId, status])
