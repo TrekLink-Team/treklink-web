@@ -20,6 +20,7 @@ import { OrganizationLifecycle } from './organization-lifecycle';
 import { OrganizationOnboardingController } from './organization-onboarding.controller';
 import { OrganizationOnboardingService } from './organization-onboarding.service';
 import { OrganizationStatusController } from './organization-status.controller';
+import { KeyExposedNotifier } from './key-exposed.notifier';
 import { OrganizationProfileService } from './organization-profile.service';
 import { OrganizationStatusService } from './organization-status.service';
 import { OrganizationsController } from './organizations.controller';
@@ -68,10 +69,17 @@ import { ShiftsService } from './shifts.service';
     FieldStationsService,
     FieldStationReleaseService,
     ChannelKeyService,
+    KeyExposedNotifier,
     ComplianceCasesRepository,
     ComplianceCasesService,
     ShiftsService,
   ],
-  exports: [OrganizationsService, RosterService, FieldStationsService, FieldStationReleaseService],
+  exports: [
+    OrganizationsService,
+    RosterService,
+    FieldStationsService,
+    FieldStationReleaseService,
+    ChannelKeyService,
+  ],
 })
 export class OrganizationsModule {}
