@@ -182,7 +182,8 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
     const chosen = rows.find((row) => row.key === selectedKey);
     if (chosen && chosen.lat !== null && chosen.lon !== null) {
       list.push({
-        id: 'selected',
+        // One id per row: the map pans when the selected id changes, so a shared id would pan only once.
+        id: `selected-${chosen.key}`,
         position: [chosen.lat, chosen.lon],
         title: formatDateTime(chosen.at),
         subtitle: chosen.kind,
@@ -234,6 +235,10 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
     }
   };
 
+  // Back returns to the page that opened this one. The first entry of the session history is a typed
+  // URL or a new tab, where going back would leave the app, so it goes to the map instead.
+  const back = () => (location.key === 'default' ? navigate(`/${scope}/map`) : navigate(-1));
+
   const failure = history.error;
   // Another organization's device, an unknown id and a refused role read the same (MSG26, REQ-ERR-01).
   if (failure instanceof ApiError && (failure.statusCode === 403 || failure.statusCode === 404)) {
@@ -263,7 +268,7 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
         description={`Device ${tag}`}
         actions={
           <>
-            <Button variant="ghost" onClick={() => navigate(-1)}>
+            <Button variant="ghost" onClick={back}>
               Back
             </Button>
             <Button
@@ -373,7 +378,7 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
             <LiveMapWidget
               className="h-60 md:h-80"
               markers={markers}
-              selectedId={selectedKey ? 'selected' : null}
+              selectedId={selectedKey ? `selected-${selectedKey}` : null}
               track={track}
             />
           </div>
