@@ -122,6 +122,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     label: 'Organizations and compliance',
     entries: [
       { route: '/t/organizations', label: 'Organizations', icon: Building2, roles: STAFF, built: true },
+      { route: '/t/field-stations', label: 'Field stations', icon: MapPin, roles: STAFF, built: true },
       { route: '/t/compliance-cases', label: 'Compliance cases', icon: ShieldCheck, roles: STAFF, built: true },
     ],
   },

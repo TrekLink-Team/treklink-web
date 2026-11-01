@@ -22,6 +22,7 @@ export * from './Toolbar';
 export * from './legal';
 export * from './Menu';
 export * from './StateChange';
+export * from './BulkAction';
 export * from './map/MapChrome';
 export { cn } from './cn';
 export { Toast } from './toast';
