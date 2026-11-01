@@ -11,11 +11,15 @@ import {
   planLabel,
   STATUS_LABELS,
   STATUS_TONES,
+  useCloseCheck,
   useContract,
   useTransitions,
   type ContractDetail,
   type ContractDevice,
 } from '../entities/contract/api';
+import { NEXT_STEP_LABELS, nextStepPath } from '../entities/device/api';
+import { CloseBlockers } from '../features/close-contract/CloseBlockers';
+import { CloseContractDialog } from '../features/close-contract/CloseContractDialog';
 import { ApiError } from '../shared/api/apiClient';
 import {
   formatDate,
@@ -42,6 +46,7 @@ import { matchesText } from '../shared/lib/filter';
 import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
 import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
+import { DEVICE_STATUS, StatusBadge } from '../shared/ui';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 
 const CANCELLABLE = ['REQUESTED', 'APPROVED'];
@@ -200,6 +205,28 @@ const HandoverNoteButton: React.FC<{ contract: ContractDetail }> = ({ contract }
   );
 };
 
+// The state of a returned unit now and its next step back to AVAILABLE (rentals api-design 03
+// afterReturn, devices REQ-EVT-23), with a link to where the step is recorded.
+const AfterReturn: React.FC<{ device: ContractDevice }> = ({ device }) => {
+  const after = device.afterReturn;
+  if (!after) return null;
+  const step = after.nextStep;
+  const path = step ? nextStepPath(step, device.deviceId) : null;
+  return (
+    <span className="flex flex-col gap-1">
+      <StatusBadge entry={DEVICE_STATUS[after.status]} />
+      {step &&
+        (path ? (
+          <Link to={path} className={`${LINK} text-sm`}>
+            Next: {NEXT_STEP_LABELS[step.action]}
+          </Link>
+        ) : (
+          <span className="text-sm text-ink-muted">Next: {NEXT_STEP_LABELS[step.action]}</span>
+        ))}
+    </span>
+  );
+};
+
 // /o/contracts/:id and /t/contracts/:id, the contract detail of screen 5.2 (rentals api-design 03,
 // 06, 11, 12, 13, 18; billing api-design 10). The Org Operator reads it without balance, history,
 // notice or cancel, and may label holders.
@@ -218,6 +245,19 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   const [noticing, setNoticing] = useState(false);
   const [labelling, setLabelling] = useState<ContractDevice | null>(null);
   const [reporting, setReporting] = useState<ContractDevice | null>(null);
+  const [staffReporting, setStaffReporting] = useState<{ deviceId: string; assetTag: string } | null>(
+    null,
+  );
+  const [closing, setClosing] = useState(false);
+  // Staff see the Close action whenever the close check passes, and what blocks it otherwise
+  // (rentals api-design 20, D-092 rule 3).
+  const closeCheck = useCloseCheck(
+    id,
+    scope === 't' &&
+      isStaff &&
+      Boolean(contract.data?.handedOverAt) &&
+      contract.data?.status !== 'CLOSED',
+  );
   const isMember = hasAnyRole(roles, ['ORG_OPERATOR']);
   const [tag, setTag] = useState('');
   const [holder, setHolder] = useState('');
@@ -237,6 +277,9 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   // The Org Manager reports a unit that is out as lost (devices api-design 17, screen 4.4).
   const canReport = scope === 'o' && isManager && data.status !== 'CLOSED';
   const hasActions = canLabel || canReport;
+  // The unit's state after the return and its next step back to AVAILABLE (D-092 rule 4), TrekLink
+  // detail only: the read carries afterReturn for TrekLink callers alone.
+  const showState = scope === 't' && data.devices.some((device) => device.afterReturn);
   const back = scope === 'o' ? '/o/contracts' : '/t/contracts';
   const invoices =
     scope === 'o' ? `/o/invoices?contractId=${data.id}` : `/t/billing?contractId=${data.id}`;
@@ -354,6 +397,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                     <th className="py-2">Holder</th>
                     <th className="py-2">Handed over</th>
                     <th className="py-2">Back</th>
+                    {showState && <th className="py-2">State now</th>}
                     {hasActions && <th className="py-2 sr-only">Actions</th>}
                   </tr>
                   <FilterRow
@@ -362,6 +406,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                       { label: 'holder', kind: 'text', value: holder, onChange: setHolder },
                       null,
                       null,
+                      ...(showState ? [null] : []),
                       ...(hasActions ? [null] : []),
                     ]}
                     onClear={() => {
@@ -373,7 +418,7 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                 <tbody>
                   {devices.length === 0 && (
                     <NoMatchRow
-                      colSpan={hasActions ? 5 : 4}
+                      colSpan={4 + (hasActions ? 1 : 0) + (showState ? 1 : 0)}
                       onClear={() => {
                         setTag('');
                         setHolder('');
@@ -401,6 +446,11 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                       <td className="py-2">
                         {device.lostAt ? 'Lost' : <When iso={device.checkedInAt} />}
                       </td>
+                      {showState && (
+                        <td className="py-2">
+                          <AfterReturn device={device} />
+                        </td>
+                      )}
                       {hasActions && (
                         <td className="py-2 text-right">
                           {device.handedOverAt && !device.checkedInAt && !device.lostAt && (
@@ -499,6 +549,32 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
               Open the counter
             </Link>
           )}
+          {scope === 't' && isStaff && data.handedOverAt && data.status !== 'CLOSED' && (
+            <div className={CARD} aria-live="polite">
+              <h2 className="mb-3 text-lg font-bold text-ink">Close</h2>
+              {closeCheck.isLoading && <Loading />}
+              {closeCheck.error && (
+                <ErrorState error={closeCheck.error} onRetry={() => void closeCheck.refetch()} />
+              )}
+              {closeCheck.data?.canClose ? (
+                <>
+                  <p className="mb-3 text-sm text-ink-muted">Nothing blocks the close.</p>
+                  <button type="button" className={PRIMARY_BUTTON} onClick={() => setClosing(true)}>
+                    Close contract
+                  </button>
+                </>
+              ) : (
+                closeCheck.data && (
+                  <CloseBlockers
+                    check={closeCheck.data}
+                    onReportLost={(blocker) =>
+                      setStaffReporting({ deviceId: blocker.deviceId, assetTag: blocker.assetTag })
+                    }
+                  />
+                )
+              )}
+            </div>
+          )}
           {canSeeMoney && data.handedOverAt && <HandoverNoteButton contract={data} />}
           {isStaff && data.status === 'REQUESTED' && (
             <Link to="/t/contracts" className={PRIMARY_BUTTON}>
@@ -512,6 +588,23 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
       {noticing && <NoticeDialog contract={data} onClose={() => setNoticing(false)} />}
       {labelling && (
         <HolderDialog contract={data} device={labelling} onClose={() => setLabelling(null)} />
+      )}
+      {closing && closeCheck.data && (
+        <CloseContractDialog
+          contractId={data.id}
+          code={data.code}
+          version={closeCheck.data.version}
+          onClose={() => setClosing(false)}
+        />
+      )}
+      {staffReporting && (
+        <ReportLossDialog
+          deviceId={staffReporting.deviceId}
+          assetTag={staffReporting.assetTag}
+          scope="t"
+          onClose={() => setStaffReporting(null)}
+          onReported={() => setStaffReporting(null)}
+        />
       )}
       {reporting && (
         <ReportLossDialog

@@ -4,16 +4,21 @@ import { Link } from 'react-router-dom';
 import { damageCodesFor, useBalance, useDamageRates } from '../../entities/billing/api';
 import {
   checkInDevices,
-  closeContract,
   contractKeys,
   inspectDevice,
   resetDevice,
+  useCloseCheck,
   type CheckInResult,
+  type CloseBlocker,
   type ContractDetail,
   type ContractDevice,
   type InspectionOutcome,
   type InspectionResult,
 } from '../../entities/contract/api';
+import { NEXT_STEP_LABELS, nextStepPath } from '../../entities/device/api';
+import { CloseBlockers } from '../../features/close-contract/CloseBlockers';
+import { CloseContractDialog } from '../../features/close-contract/CloseContractDialog';
+import { ReportLossDialog } from '../../features/report-loss/ReportLossDialog';
 import { ApiError } from '../../shared/api/apiClient';
 import { formatDateTime, formatVnd } from '../../shared/lib/format';
 import {
@@ -22,8 +27,8 @@ import {
   Card,
   CardHeader,
   Checkbox,
-  ConfirmDialog,
   DataTable,
+  DEVICE_STATUS,
   Dialog,
   Field,
   Input,
@@ -40,6 +45,7 @@ import {
   type StatusEntry,
 } from '../../shared/ui';
 import { messageOf } from '../../shared/ui/errors';
+import { LINK } from '../../shared/ui/styles';
 import { ReplacementPanel } from './ReplacementPanel';
 
 type Tab = 'checkin' | 'replace' | 'inspection' | 'close';
@@ -279,10 +285,12 @@ const InspectDialog: React.FC<{
 };
 
 // Screen 5.5 on /t/counter/:contractId for a contract past its handover (rentals api-design 14, 16,
-// 17; devices api-design 10; MF-05): check-in by scanned tags (MSG07), reset and inspection of each
-// returned unit with its damage charge, and close once nothing is owed (MSG29). Replacement (4.3)
-// joins with its task. The reset and inspection of each unit come from the contract read (resetAt,
-// inspection), so a reload keeps them; the damage charge of an inspection shows on this visit only.
+// 17, 20; devices api-design 10 and 17; MF-05): check-in by scanned tags (MSG07), Report lost for a
+// unit that did not come back (a return never needs a replacement, D-092 rule 3), reset and
+// inspection of each returned unit with its damage charge and its next step back to AVAILABLE
+// (D-092 rule 4), and close whenever the close check passes, with every blocker listed otherwise.
+// The reset and inspection of each unit come from the contract read (resetAt, inspection), so a
+// reload keeps them; the damage charge of an inspection shows on this visit only.
 /**
  * Screen 5.5. `header` is the page's title block; it sticks with the step tabs at the top, and the
  * current step's primary action sits in the page action bar (leader rule of 2026-10-30).
@@ -306,9 +314,14 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
   const [resetting, setResetting] = useState<ContractDevice | null>(null);
   const [inspecting, setInspecting] = useState<ContractDevice | null>(null);
   const [closing, setClosing] = useState(false);
-  const [closePending, setClosePending] = useState(false);
-  const [closeError, setCloseError] = useState<string | null>(null);
+  const [reporting, setReporting] = useState<{ deviceId: string; assetTag: string } | null>(
+    null,
+  );
   const scanRef = useRef<HTMLInputElement>(null);
+  // The close check (api-design 20) decides the Close action, not the cached contract status: it is
+  // refetched on window focus and after every action here, so a loss settled or an invoice paid in
+  // another window shows the action (the missing close button of the 2026-11-01 demo).
+  const closeCheck = useCloseCheck(contract.id, contract.status !== 'CLOSED');
 
   const canCheckIn =
     RETURNING.includes(contract.status) ||
@@ -321,6 +334,12 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
     Boolean(rows[device.deviceId]?.reset || device.resetAt);
   const isInspected = (device: ContractDevice) =>
     Boolean(rows[device.deviceId]?.outcome || device.inspection);
+  const lossCaseOf = (deviceId: string) =>
+    closeCheck.data?.blockers.find(
+      (blocker): blocker is Extract<CloseBlocker, { code: 'DEVICE_OUT' }> =>
+        blocker.code === 'DEVICE_OUT' && blocker.deviceId === deviceId,
+    )?.lossCase ?? null;
+  const canClose = closeCheck.data?.canClose === true;
 
   const refresh = () =>
     Promise.all([
@@ -361,26 +380,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
     }
   };
 
-  const submitClose = async () => {
-    setClosePending(true);
-    setCloseError(null);
-    try {
-      await closeContract(contract.id, contract.version);
-      setClosing(false);
-      await refresh();
-      showToast('Saved.');
-    } catch (failure) {
-      setClosePending(false);
-      if (failure instanceof ApiError && failure.errorCode === 'BALANCE_OUTSTANDING') {
-        setCloseError('This cannot be done while it has open balances. Settle the invoices first.');
-      } else if (failure instanceof ApiError && failure.errorCode === 'OPEN_INCIDENTS') {
-        setCloseError('This cannot be done while it has open incidents.');
-      } else setCloseError(errorOf(failure));
-      if (failure instanceof ApiError && failure.errorCode === 'STALE_VERSION') void refresh();
-    }
-  };
-
-  const columns: Column<ContractDevice, 'tag' | 'back' | 'state'>[] = [
+  const columns: Column<ContractDevice, 'tag' | 'back' | 'state' | 'next'>[] = [
     {
       key: 'tag',
       header: 'Asset tag',
@@ -413,6 +413,41 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
         if (device.inspection) return <StatusBadge entry={OUTCOME[device.inspection.result]} />;
         if (!isReset(device)) return 'Not reset';
         return device.resetAt ? `Reset logged ${formatDateTime(device.resetAt)}` : 'Reset logged';
+      },
+    },
+    {
+      // The unit's state now and its next step back to AVAILABLE (rentals api-design 03 afterReturn,
+      // D-092 rule 4): the reset and the inspection are this tab's row actions; maintenance and the
+      // intake check are recorded elsewhere, so the row links there.
+      key: 'next',
+      header: 'State now',
+      cell: (device) => {
+        const after = device.afterReturn;
+        if (!after) return null;
+        const step = after.nextStep;
+        const path = step && step.action !== 'RESET' && step.action !== 'INSPECT'
+          ? nextStepPath(step, device.deviceId)
+          : null;
+        return (
+          <span className="flex flex-col gap-1">
+            <StatusBadge entry={DEVICE_STATUS[after.status]} />
+            {step && (
+              <span className="text-body-sm text-ink-muted">
+                Next: {NEXT_STEP_LABELS[step.action]}
+                {path && (
+                  <>
+                    {' '}
+                    <Link to={path} className={LINK}>
+                      {step.action === 'COMPLETE_MAINTENANCE'
+                        ? 'Open maintenance'
+                        : `Open ${device.assetTag ?? 'the device'}`}
+                    </Link>
+                  </>
+                )}
+              </span>
+            )}
+          </span>
+        );
       },
     },
   ];
@@ -472,6 +507,42 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
                 <p aria-live="polite" className="text-body-sm text-ink-muted">
                   {tags.length === 0 ? 'No tag scanned yet.' : `Scanned: ${tags.join(', ')}`}
                 </p>
+              </div>
+            )}
+            {out.length > 0 && (
+              <div className="mt-4 flex flex-col gap-2">
+                <h3 className="text-body-sm font-semibold text-ink">Still out</h3>
+                <p className="text-body-sm text-ink-muted">
+                  A unit that did not come back needs no replacement: report it lost. The contract
+                  closes once each lost unit is settled and the balance is paid.
+                </p>
+                <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
+                  {out.map((device) => {
+                    const lossCase = lossCaseOf(device.deviceId);
+                    const tag = device.assetTag ?? device.deviceId;
+                    return (
+                      <li
+                        key={device.deviceId}
+                        className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+                      >
+                        <span className="font-mono font-semibold">{tag}</span>
+                        {lossCase ? (
+                          <Link to={`/t/loss-cases/${lossCase.id}`} className={`${LINK} text-body-sm`}>
+                            Loss case {lossCase.code} open
+                          </Link>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => setReporting({ deviceId: device.deviceId, assetTag: tag })}
+                          >
+                            Report lost
+                          </Button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
             {checkIn && (
@@ -539,24 +610,30 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
             )}
             {contract.status === 'CLOSED' ? (
               <Alert tone="success">This contract is closed.</Alert>
-            ) : contract.status !== 'RETURNED' ? (
-              <Alert tone="info">
-                A contract closes once every device is back or lost and it is RETURNED.
+            ) : closeCheck.isLoading ? (
+              <Skeleton className="h-16" />
+            ) : closeCheck.error ? (
+              <Alert
+                tone="error"
+                action={
+                  <Button size="sm" onClick={() => void closeCheck.refetch()}>
+                    Try again
+                  </Button>
+                }
+              >
+                {messageOf(closeCheck.error)}
               </Alert>
+            ) : canClose ? (
+              <Alert tone="success">Nothing blocks the close. Close the contract below.</Alert>
             ) : (
-              <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  to={`/t/billing?contractId=${contract.id}`}
-                  className="text-body-sm font-semibold text-brand hover:underline"
-                >
-                  Open the invoices
-                </Link>
-              </div>
-            )}
-            {closeError && !closing && (
-              <Alert tone="error" className="mt-4">
-                {closeError}
-              </Alert>
+              closeCheck.data && (
+                <CloseBlockers
+                  check={closeCheck.data}
+                  onReportLost={(blocker) =>
+                    setReporting({ deviceId: blocker.deviceId, assetTag: blocker.assetTag })
+                  }
+                />
+              )
             )}
           </Card>
         </TabPanel>
@@ -577,7 +654,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
           </Button>
         </PageActionBar>
       )}
-      {tab === 'close' && contract.status === 'RETURNED' && (
+      {tab === 'close' && canClose && (
         <PageActionBar label="Close actions">
           <Button variant="primary" onClick={() => setClosing(true)}>
             Close contract
@@ -615,18 +692,24 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
           }}
         />
       )}
-      {closing && (
-        <ConfirmDialog
-          titleId="close-title"
-          title={`Close contract ${contract.code}?`}
-          description="Holder labels are erased. A closed contract cannot be reopened."
-          confirmLabel="Close contract"
-          pending={closePending}
-          error={closeError ?? undefined}
-          onConfirm={() => void submitClose()}
-          onCancel={() => {
-            setClosing(false);
-            setCloseError(null);
+      {closing && closeCheck.data && (
+        <CloseContractDialog
+          contractId={contract.id}
+          code={contract.code}
+          version={closeCheck.data.version}
+          onClose={() => setClosing(false)}
+        />
+      )}
+      {reporting && (
+        <ReportLossDialog
+          deviceId={reporting.deviceId}
+          assetTag={reporting.assetTag}
+          scope="t"
+          onClose={() => setReporting(null)}
+          onReported={(reported) => {
+            setReporting(null);
+            void refresh();
+            showToast(`Loss case ${reported.code} opened for ${reporting.assetTag}.`);
           }}
         />
       )}

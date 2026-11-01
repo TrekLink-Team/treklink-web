@@ -44,7 +44,40 @@ export interface DeviceDetail extends Device {
   openMaintenance: MaintenanceRecord | null;
   lastIntakeCheck: { passed: boolean; createdAt: string } | null;
   lastReset: { createdAt: string } | null;
+  // devices api-design 07 (REQ-EVT-23, D-092 rule 4); absent on a backend before it.
+  nextStep?: NextStep | null;
 }
+
+// The next step of a unit back to AVAILABLE (devices REQ-EVT-23). A passed inspection makes the unit
+// AVAILABLE at once; the intake check follows only maintenance (leader ruling 2026-11-01).
+export type NextAction = 'RESET' | 'INSPECT' | 'COMPLETE_MAINTENANCE' | 'INTAKE';
+
+export interface NextStep {
+  action: NextAction;
+  // The contract whose counter records the reset and the inspection; null for the other steps.
+  contractId: string | null;
+}
+
+export const NEXT_STEP_LABELS: Record<NextAction, string> = {
+  RESET: 'Record reset',
+  INSPECT: 'Inspect',
+  COMPLETE_MAINTENANCE: 'Complete maintenance',
+  INTAKE: 'Intake check',
+};
+
+// Where a TrekLink user records the step: the counter of the contract for the reset and the
+// inspection, the maintenance page, or the device page for the intake check.
+export const nextStepPath = (step: NextStep, deviceId: string): string | null => {
+  switch (step.action) {
+    case 'RESET':
+    case 'INSPECT':
+      return step.contractId ? `/t/counter/${step.contractId}` : null;
+    case 'COMPLETE_MAINTENANCE':
+      return '/t/maintenance';
+    case 'INTAKE':
+      return `/t/devices/${deviceId}`;
+  }
+};
 
 export interface DeviceHistoryItem {
   at: string;

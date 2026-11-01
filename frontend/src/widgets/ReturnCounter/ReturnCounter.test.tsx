@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { contractKeys, type ContractDetail } from '../../entities/contract/api';
+import { contractKeys, type CloseCheck, type ContractDetail } from '../../entities/contract/api';
 import { ApiError } from '../../shared/api/apiClient';
 import { useToast } from '../../shared/ui';
 import { ReturnCounter } from './ReturnCounter';
@@ -15,6 +15,9 @@ const resetDevice = vi.fn();
 const inspectDevice = vi.fn();
 const ratesSeen: (string | undefined)[] = [];
 const refetchRates = vi.fn();
+const reportLoss = vi.fn();
+// What rentals api-design 20 answers now; a test sets it.
+let closeCheck: CloseCheck | undefined;
 
 // Generic rows of two codes, one replaced by the variant's own rate, one inactive, one of another
 // variant (billing api-design 05 with `hardwareVariantId`).
@@ -52,6 +55,17 @@ vi.mock('../../entities/contract/api', async (importOriginal) => ({
   closeContract: (...args: unknown[]) => closeContract(...args),
   resetDevice: (...args: unknown[]) => resetDevice(...args),
   inspectDevice: (...args: unknown[]) => inspectDevice(...args),
+  useCloseCheck: () => ({
+    data: closeCheck,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}));
+
+vi.mock('../../entities/loss-case/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../entities/loss-case/api')>()),
+  reportLoss: (...args: unknown[]) => reportLoss(...args),
 }));
 
 vi.mock('../../entities/billing/api', async (importOriginal) => ({
@@ -104,6 +118,17 @@ afterEach(() => {
   ratesSeen.length = 0;
   offeredRates = RATES;
   refetchRates.mockReset();
+  reportLoss.mockReset();
+  closeCheck = undefined;
+});
+
+const check = (overrides: Partial<CloseCheck> = {}): CloseCheck => ({
+  contractId: 'c-1',
+  status: 'RETURN_DUE',
+  version: 6,
+  canClose: false,
+  blockers: [],
+  ...overrides,
 });
 
 // Checks in TL-0009, records its reset and opens Inspect with Damaged chosen.
@@ -242,6 +267,7 @@ describe('ReturnCounter (screen 5.5)', () => {
     closeContract.mockRejectedValue(
       new ApiError(409, 'BALANCE_OUTSTANDING', 'This cannot be done while it has open balances.'),
     );
+    closeCheck = check({ status: 'RETURNED', version: 7, canClose: true });
     renderCounter(contract({ status: 'RETURNED' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close contract' }));
     expect(screen.getByText('Close contract RC-2026-0001?')).toBeTruthy();
@@ -252,7 +278,138 @@ describe('ReturnCounter (screen 5.5)', () => {
         screen.getAllByText(/open balances. Settle the invoices first./).length,
       ).toBeGreaterThan(0),
     );
-    expect(closeContract).toHaveBeenCalledWith('c-1', 6);
+    // The version is the one the close check read.
+    expect(closeContract).toHaveBeenCalledWith('c-1', 7);
+  });
+
+  // D-092 rule 3: the demo's contract of 5 units with 4 back, 1 damaged and 1 missing.
+  it('lists every blocker with its link and offers no Close action while one is left', () => {
+    closeCheck = check({
+      blockers: [
+        {
+          code: 'NOT_RETURNED',
+          message: 'The contract becomes Returned once every unit is checked in or settled lost.',
+          waitsFor: '2026-11-01T01:59:00Z',
+        },
+        {
+          code: 'DEVICE_OUT',
+          message: 'TL-0010 is not back. Check it in, or report it lost.',
+          deviceId: 'd-TL-0010',
+          assetTag: 'TL-0010',
+          lossCase: null,
+        },
+        {
+          code: 'BALANCE_OUTSTANDING',
+          message: "1,525,000 VND is unpaid on the contract's invoices.",
+          amountVnd: 1_525_000,
+        },
+        {
+          code: 'DAMAGE_PENDING',
+          message: 'The damage charge of 1,200,000 VND on TL-0009 waits for an Admin.',
+          chargeId: 'dc-1',
+          deviceId: 'd-TL-0009',
+          assetTag: 'TL-0009',
+          amountVnd: 1_200_000,
+        },
+        {
+          code: 'OPEN_INCIDENTS',
+          message: 'This cannot be done while it has open incidents.',
+          incidents: [{ id: 'inc-1', code: 'INC-2026-000002' }],
+        },
+      ],
+    });
+    renderCounter(contract());
+    fireEvent.click(screen.getByRole('tab', { name: 'Close' }));
+
+    expect(screen.getByText('What still blocks the close')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Report TL-0010 lost' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open the invoices' }).getAttribute('href')).toBe(
+      '/t/billing?contractId=c-1',
+    );
+    expect(screen.getByRole('link', { name: 'Open damage charges' }).getAttribute('href')).toBe(
+      '/t/damage-charges',
+    );
+    expect(screen.getByText('INC-2026-000002')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Close contract' })).toBeNull();
+    // No replacement unit is asked for anywhere on a due contract.
+    expect(screen.queryByRole('tab', { name: 'Replace a device' })).toBeNull();
+  });
+
+  it('shows Close once the close check passes, even when the cached contract still reads Return due', () => {
+    // The loss was settled and the invoice paid in another window: the close check is refetched on
+    // focus, the contract read is not (the missing close button of the 2026-11-01 demo).
+    closeCheck = check({ status: 'RETURNED', canClose: true, version: 9 });
+    renderCounter(contract({ status: 'RETURN_DUE' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Close' }));
+    expect(screen.getByText('Nothing blocks the close. Close the contract below.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Close contract' })).toBeTruthy();
+  });
+
+  it('reports a missing unit lost from the check-in tab and links an open loss case instead', async () => {
+    reportLoss.mockResolvedValue({ id: 'lc-1', code: 'LOSS-0001', state: 'REPORTED' });
+    closeCheck = check({
+      blockers: [
+        {
+          code: 'DEVICE_OUT',
+          message: 'TL-0009 is not back; its loss case LOSS-0002 is not settled yet.',
+          deviceId: 'd-TL-0009',
+          assetTag: 'TL-0009',
+          lossCase: { id: 'lc-2', code: 'LOSS-0002', state: 'SEARCHING' },
+        },
+      ],
+    });
+    renderCounter(contract());
+
+    expect(screen.getByText(/A unit that did not come back needs no replacement/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Loss case LOSS-0002 open' }).getAttribute('href')).toBe(
+      '/t/loss-cases/lc-2',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Report lost' }));
+    fireEvent.change(screen.getByLabelText(/Description/), {
+      target: { value: 'Not handed back at the counter' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Report lost' }).at(-1)!);
+
+    await waitFor(() =>
+      expect(reportLoss).toHaveBeenCalledWith('d-TL-0010', 'Not handed back at the counter'),
+    );
+    await waitFor(() =>
+      expect(useToast.getState().message).toBe('Loss case LOSS-0001 opened for TL-0010.'),
+    );
+  });
+
+  it('shows the state after the return and links the next step kept outside the counter (D-092 rule 4)', () => {
+    renderCounter(
+      contract({
+        devices: [
+          device('TL-0009', {
+            checkedInAt: '2026-10-30T03:00:00Z',
+            resetAt: '2026-10-30T03:05:00Z',
+            inspection: { result: 'DAMAGED', at: '2026-10-30T03:10:00Z' },
+            afterReturn: {
+              status: 'MAINTENANCE',
+              nextStep: { action: 'COMPLETE_MAINTENANCE', contractId: null },
+            },
+          }),
+          device('TL-0010', {
+            checkedInAt: '2026-10-30T03:00:00Z',
+            resetAt: '2026-10-30T03:05:00Z',
+            inspection: { result: 'DAMAGED', at: '2026-10-30T03:10:00Z' },
+            afterReturn: { status: 'MAINTENANCE', nextStep: { action: 'INTAKE', contractId: null } },
+          }),
+        ],
+      } as Partial<ContractDetail>),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+
+    expect(screen.getByText(/Next: Complete maintenance/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open maintenance' }).getAttribute('href')).toBe(
+      '/t/maintenance',
+    );
+    expect(screen.getByText(/Next: Intake check/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open TL-0010' }).getAttribute('href')).toBe(
+      '/t/devices/d-TL-0010',
+    );
   });
   it('offers the damage codes of the variant as checkboxes and sends the chosen ones (5.5)', async () => {
     resetDevice.mockResolvedValue(undefined);

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
-import { CONTRACT_STATUS, TONE_CLASSES } from '../../shared/ui/status';
+import { CONTRACT_STATUS, TONE_CLASSES, type DeviceStatus } from '../../shared/ui/status';
+import type { NextStep } from '../device/api';
 import { formatDate, formatDay } from '../../shared/lib/format';
 
 // Rental contracts as rentals api-design 01 to 06 and 18 return them.
@@ -71,6 +72,38 @@ export interface ContractDevice {
   inspection?: { result: InspectionResult; at: string } | null;
   // The channel key version the unit carries for this organization (api-design 03); null when none.
   provisionedKeyVersion?: number | null;
+  // TrekLink callers, checked-in rows: the unit's state now and its next step back to AVAILABLE,
+  // the step only on the row of its latest return (api-design 03, REQ-EVT-18, D-092 rule 4).
+  afterReturn?: { status: DeviceStatus; nextStep: NextStep | null } | null;
+}
+
+// rentals api-design 20 (REQ-EVT-17, D-092 rule 3): what still blocks the close, for Staff.
+export type CloseBlocker =
+  | { code: 'NOT_RETURNED'; message: string; waitsFor: string | null }
+  | {
+      code: 'DEVICE_OUT';
+      message: string;
+      deviceId: string;
+      assetTag: string;
+      lossCase: { id: string; code: string; state: string } | null;
+    }
+  | { code: 'BALANCE_OUTSTANDING'; message: string; amountVnd: number }
+  | {
+      code: 'DAMAGE_PENDING';
+      message: string;
+      chargeId: string;
+      deviceId: string;
+      assetTag: string;
+      amountVnd: number;
+    }
+  | { code: 'OPEN_INCIDENTS'; message: string; incidents: { id: string; code: string }[] };
+
+export interface CloseCheck {
+  contractId: string;
+  status: ContractStatus;
+  version: number;
+  canClose: boolean;
+  blockers: CloseBlocker[];
 }
 
 export interface ContractDetail extends Contract {
@@ -129,6 +162,8 @@ export const contractKeys = {
   all: ['contracts'] as const,
   list: (scope: 'o' | 't', filters: ContractFilters) => ['contracts', scope, filters] as const,
   detail: (id: string) => ['contract', id] as const,
+  // Under the detail key, so every invalidation of the detail refetches it too.
+  closeCheck: (id: string) => ['contract', id, 'close-check'] as const,
   balance: (id: string) => ['contract-balance', id] as const,
   transitions: (id: string) => ['contract-transitions', id] as const,
 };
@@ -306,6 +341,19 @@ export const findAvailableUnit = async (
   );
   return page.items.find((unit) => unit.assetTag.toUpperCase() === assetTag) ?? null;
 };
+
+export const fetchCloseCheck = (id: string) =>
+  apiClient<CloseCheck>(`/contracts/${id}/close-check`);
+
+// Refetched when the window regains focus: a loss settled or an invoice paid in another window must
+// show the Close action here (the missing close button of the 2026-11-01 demo).
+export const useCloseCheck = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: contractKeys.closeCheck(id),
+    queryFn: () => fetchCloseCheck(id),
+    enabled,
+    refetchOnWindowFocus: true,
+  });
 
 export const closeContract = (id: string, expectedVersion: number) =>
   post<Contract & { closedAt: string }>(`/contracts/${id}/close`, { expectedVersion });
