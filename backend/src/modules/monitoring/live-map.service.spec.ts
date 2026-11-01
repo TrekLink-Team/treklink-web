@@ -129,6 +129,14 @@ describe('LiveMapService.config', () => {
     expect(config.basemaps.map((b) => b.id)).toEqual(['opentopomap', 'example-vn']);
   });
 
+  it('passes localOnly through only when it is true', async () => {
+    const stadia = { ...OSM, id: 'stadia-terrain', localOnly: true };
+    values['monitoring.mapBasemaps'] = [{ ...TOPO, localOnly: false }, stadia];
+    const config = await service.config();
+    expect(config.basemaps[0]).not.toHaveProperty('localOnly');
+    expect(config.basemaps[1]).toMatchObject({ id: 'stadia-terrain', localOnly: true });
+  });
+
   it.each([
     ['monitoring.mapProvider', 42],
     ['monitoring.mapProvider', 'cyclosm'],
@@ -138,6 +146,7 @@ describe('LiveMapService.config', () => {
     ['monitoring.mapBasemaps', [{ ...TOPO, tileUrl: '' }]],
     ['monitoring.mapBasemaps', [{ ...TOPO, maxNativeZoom: 19 }]],
     ['monitoring.mapBasemaps', [{ ...TOPO, maxZoom: 18.5 }]],
+    ['monitoring.mapBasemaps', [{ ...TOPO, localOnly: 'yes' }]],
     ['monitoring.mapDefaultViewport', { lat: 'north', lon: 108, zoom: 12 }],
     ['monitoring.mapDefaultViewport', [11.56, 108.54, 12]],
     ['monitoring.mapDefaultViewport', null],

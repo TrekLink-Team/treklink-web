@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import {
   MAP_CONFIG_KEY,
   getMapConfig,
+  usableBasemaps,
   type Basemap,
   type MapConfig,
 } from '../../shared/config/map';
@@ -189,10 +190,11 @@ const LeafletMap: React.FC<{
       // symbol with no place on a TrekLink map (dry run 2026-10-30, MF-02 step 3).
       instance.attributionControl.setPrefix(LEAFLET_CREDIT);
 
-      // One tile layer per basemap, in the server's order, opening on the default (D-072). Only the
-      // active layer is on the map, so only it reports loads and failures.
+      // One tile layer per basemap, in the server's order, opening on the default (D-072); a localOnly
+      // basemap is left out off loopback. Only the active layer is on the map, so only it reports loads
+      // and failures.
       const basemaps: Basemap[] = config.basemaps.length
-        ? config.basemaps
+        ? usableBasemaps(config.basemaps)
         : [
             {
               id: config.provider,

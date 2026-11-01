@@ -77,7 +77,10 @@ Leaflet with the tile URL and attribution from `GET /api/map/config`, the overla
 response (each label on its opaque `mask`, in a pane above the tiles and below the markers, so no basemap
 label for the archipelagos shows, D-085), markers by state (normal, low battery, stale, incident), a reconnecting banner, and a map error
 state that leaves the lists working. Tiles go from the browser to the chosen basemap's tile server with the browser's own
-User-Agent and Referer; nothing prefetches tiles (D-031 tile policy).
+User-Agent and Referer; nothing prefetches tiles (D-031 tile policy). A basemap entry may carry
+`localOnly: true` for a provider that serves keyless tiles to a loopback host only (Stadia answered 401 on
+the Vercel production, 2026-11-01); the server validates it as a boolean and the client hides that entry
+on any other host.
 
 ---
 
