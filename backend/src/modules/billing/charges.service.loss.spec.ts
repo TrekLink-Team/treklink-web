@@ -24,6 +24,7 @@ const lossCase = (overrides: Partial<LossCaseView> = {}): LossCaseView => ({
   chargeVnd: null,
   decisionReason: null,
   decidedById: null,
+  decidedByRoles: [],
   settledAt: null,
   ...overrides,
 });

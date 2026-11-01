@@ -369,6 +369,7 @@ describe('billing acceptance against Postgres (AC-01 to AC-05)', () => {
           chargeVnd: null,
           decisionReason: null,
           decidedById: null,
+          decidedByRoles: [],
           settledAt: null,
         },
         tx,

@@ -29,6 +29,8 @@ export interface LossCaseView {
   chargeVnd: number | null;
   decisionReason: string | null;
   decidedById: string | null;
+  // The roles of the deciding Admin, for the listeners' audit records; empty before the decision.
+  decidedByRoles: string[];
   // The settlement time; null before the case is settled. Billing dates the ADJUSTMENT line with it.
   settledAt: Date | null;
 }

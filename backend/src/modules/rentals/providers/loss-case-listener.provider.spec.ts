@@ -17,6 +17,7 @@ const lossCase = (overrides: Partial<LossCaseView> = {}): LossCaseView => ({
   chargeVnd: 1_000_000,
   decisionReason: null,
   decidedById: 'admin-1',
+  decidedByRoles: ['ADMIN'],
   settledAt: null,
   ...overrides,
 });
@@ -80,7 +81,7 @@ describe('RentalsLossCaseListener (the rentals side of LOSS_CASE_LISTENERS, task
         status,
         ContractStatus.RETURNED,
         'LOST',
-        { id: 'admin-1', roles: [], organizationId: null },
+        { id: 'admin-1', roles: ['ADMIN'], organizationId: null },
         TX,
       );
     },

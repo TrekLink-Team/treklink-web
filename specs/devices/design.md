@@ -202,7 +202,9 @@ export interface LossCaseListener {
 `billing` charges the remaining value in `onConfirmed` for `RENTER` custody (`chargeLoss`) and writes the
 `ADJUSTMENT` line of a reduction or waiver in `onSettled` (`adjustLoss`, dated at the view's `settledAt`); `rentals` sets the contract row's
 `lostAt` to the confirmation time in `onSettled` (rentals REQ-EVT-12). Both run inside the loss-case
-transaction.
+transaction. `LossCaseView` carries the deciding Admin's `decidedById` and `decidedByRoles`, so the
+`RETURNED` transition rentals writes when the last unit out settles audits the actor with its roles
+(review of #228, 2026-11-01).
 
 **Organization actions of a triage (added 2026-10-31, task 2.7).** For `RENTER` custody triage calls
 `ChannelKeyService.markKeyExposed(orgId, at, actor, tx)` directly, in the triage transaction

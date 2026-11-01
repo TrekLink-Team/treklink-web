@@ -13,6 +13,7 @@ const VIEW = {
   chargeVnd: null,
   decisionReason: null,
   decidedById: null,
+  decidedByRoles: [] as string[],
   settledAt: null,
 } as const;
 const TX = {} as Prisma.TransactionClient;

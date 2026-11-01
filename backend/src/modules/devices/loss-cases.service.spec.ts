@@ -682,6 +682,7 @@ describe('LossCaseService', () => {
           chargeVnd: 900_000,
           decisionReason: 'Police report',
           decidedById: 'admin-1',
+          decidedByRoles: ['ADMIN'],
         }),
         LossDecision.REDUCED,
         tx,
