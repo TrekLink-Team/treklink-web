@@ -24,7 +24,7 @@
 
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
-| **Stage** on a card | demo 03 `POST /api/demo/scenarios/:id/stage` | `Dialog` "This deletes every row in the local database and stages {title}. Every window must sign in again." with **Stage** and **Cancel** | Toast "{title} staged."; the window is signed in again as the seeded Admin from `session` |
+| **Stage** on a card | demo 03 `POST /api/demo/scenarios/:id/stage` | `Dialog` "This deletes every row in the local database and stages {title}. Every other window must sign in again. If the stage fails, the database is left empty: stage again." with **Stage** and **Cancel** | Toast "{title} staged."; the window is signed in again as the seeded Admin from `session` |
 | Role buttons Admin, Staff, Manager, Operator (page and account menu) | demo 04 `POST /api/demo/switch-role` | none | The session is replaced and the window opens the role's landing page |
 
 ## States
