@@ -73,6 +73,7 @@ One step of 5 filter fields.
 
 - 360 px layout: not an operator screen. Filters collapse into a "Filters" disclosure above the list; each row becomes a card: badge and time on the first line, email and IP below.
 - Tab order and focus after each action: tab bar (Change log, Sign-ins), filter fields, Apply, table, pager. After Apply, focus moves to the result count line ("{n} events"), announced by a polite live region so a screen reader hears the new count.
+- Row button "Filter by this account": the accessible name is the visible label followed by the account, `Filter by this account: {email}` (the user id when the row has no email), so the name contains the visible text (WCAG 2.5.3, axe `label-content-name-mismatch`).
 - WebSocket events and invalidated query keys: none; the log is not streamed. The query key is `['auth-events', filters]`; the Refresh control refetches it.
 
 ## Checklist

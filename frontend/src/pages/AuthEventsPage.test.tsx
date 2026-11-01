@@ -105,7 +105,7 @@ describe('AuthEventsPage (screen 7.3, sign-in events)', () => {
     };
     renderPage();
     expect(table().getByText('None')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Filter by the account/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Filter by this account/ })).toBeNull();
   });
 
   it('badges a security signal with its text and leaves other events plain', () => {
@@ -158,9 +158,12 @@ describe('AuthEventsPage (screen 7.3, sign-in events)', () => {
 
   it('filters by the account of a row', () => {
     renderPage();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Filter by the account of manager@acme-trek.vn' }),
-    );
+    const button = screen.getByRole('button', {
+      name: 'Filter by this account: manager@acme-trek.vn',
+    });
+    // WCAG 2.5.3: the accessible name starts with the visible label.
+    expect(button.textContent).toBe('Filter by this account');
+    fireEvent.click(button);
     expect(screen.getByTestId('search').textContent).toBe(`?userId=${USER}`);
   });
 
