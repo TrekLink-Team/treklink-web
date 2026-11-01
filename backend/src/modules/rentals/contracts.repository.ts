@@ -586,6 +586,22 @@ export class ContractsRepository {
     });
   }
 
+  // The signed note bytes, for HANDOVER_NOTE_STORE=database (design §4.1, D-090 amendment). Written in
+  // the handover's transaction, so a note exists exactly when its contract records it.
+  async saveNote(name: string, pdf: Buffer, client: Client = this.prisma): Promise<void> {
+    const bytes = new Uint8Array(pdf);
+    await client.handoverNote.upsert({
+      where: { name },
+      create: { name, pdf: bytes },
+      update: { pdf: bytes },
+    });
+  }
+
+  async readNote(name: string, client: Client = this.prisma): Promise<Buffer | null> {
+    const row = await client.handoverNote.findUnique({ where: { name }, select: { pdf: true } });
+    return row ? Buffer.from(row.pdf) : null;
+  }
+
   // Codes for the billing reads (the CONTRACT_DIRECTORY port).
   codes(ids: readonly string[], client: Client = this.prisma) {
     return client.rentalContract.findMany({

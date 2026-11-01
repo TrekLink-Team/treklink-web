@@ -48,7 +48,8 @@ not reach it; instead `FIELD_SIMULATOR_ENABLED=true` feeds simulated positions f
 through the normal ingestion path, one batch a minute while requests arrive, and testers are told the
 field data is simulated), no socket (the frontend build sets `VITE_LIVE_MODE=poll`, so screens refetch their live views every 15 seconds and the header says "Auto refresh"), scheduled
 jobs run from a tick after requests (`JOBS_TICK_ON_REQUEST=true` in Production, at most once a
-minute per instance, so a quiet production runs nothing until the next visit), handover notes are written to `/tmp`, and email goes to the
+minute per instance, so a quiet production runs nothing until the next visit), signed handover notes are kept in the database (`HANDOVER_NOTE_STORE=database`, because a function's `/tmp`
+does not outlive one request; notes signed before 2026-11-01 15:30 were not backfilled), and email goes to the
 function log (`MAIL_TRANSPORT=console`) until an SMTP account is configured.
 
 The backend function runs in `sin1` (Singapore, `regions` in `vercel.json`), next to the Neon branch in

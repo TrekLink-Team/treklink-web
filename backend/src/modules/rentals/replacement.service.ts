@@ -169,7 +169,11 @@ export class ReplacementService {
         ),
       );
       const noteSha256 = sha256(pdf);
-      const path = await this.handover.storeNote(`${id}-replacement-${replacement.id}.pdf`, pdf);
+      const path = await this.handover.storeNote(
+        `${id}-replacement-${replacement.id}.pdf`,
+        pdf,
+        tx,
+      );
       const row = await this.contracts.insertReplacementRow(
         {
           contractId: id,

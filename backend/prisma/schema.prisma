@@ -1044,6 +1044,17 @@ model ContractTerm {
   @@map("contract_terms") // CHECK endsAt > startsAt
 }
 
+// The exact signed bytes of a handover or replacement note, keyed by the stored note name the contract
+// or device row records (rentals design §4.1, D-090 amendment): written only with
+// HANDOVER_NOTE_STORE=database, for a host whose local disk does not outlive one request.
+model HandoverNote {
+  name      String   @id // "<contractId>.pdf", "<contractId>-replacement-<deviceId>.pdf"
+  pdf       Bytes
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@map("handover_notes")
+}
+
 // A device committed to a contract (BR-03: at most one live row per device).
 model ContractDevice {
   id                     String         @id @default(uuid())

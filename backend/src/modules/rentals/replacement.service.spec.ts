@@ -164,7 +164,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
       TX,
     );
     expect(devices.markRented).toHaveBeenCalledWith(['d-9'], AT, TX, move);
-    expect(storeNote).toHaveBeenCalledWith('c-1-replacement-d-9.pdf', expect.any(Buffer));
+    expect(storeNote).toHaveBeenCalledWith('c-1-replacement-d-9.pdf', expect.any(Buffer), TX);
     // The replacement note lists the new unit only, names the unit it replaces, in the transaction.
     expect(noteInput).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'RC-2026-0001' }),

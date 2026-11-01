@@ -418,7 +418,7 @@ export class HandoverService {
           tx,
         ),
       );
-      const path = await this.store(id, pdf);
+      const path = await this.store(id, pdf, tx);
 
       await this.contracts.markRowsHandedOver(id, at, tx);
       await this.devices.markRented(
@@ -469,16 +469,13 @@ export class HandoverService {
     if (!row.handoverNotePath || !row.handoverNoteSha256) {
       throw conflict(ErrorCode.NOTE_NOT_SIGNED, 'The handover is not complete yet.');
     }
-    try {
-      const pdf = await readFile(this.absolute(row.handoverNotePath));
-      return {
-        pdfBase64: pdf.toString('base64'),
-        sha256: row.handoverNoteSha256,
-        integrity: sha256(pdf) === row.handoverNoteSha256 ? 'OK' : 'MISMATCH',
-      };
-    } catch {
-      return { pdfBase64: null, sha256: row.handoverNoteSha256, integrity: 'MISSING' };
-    }
+    const pdf = await this.readNote(row.handoverNotePath);
+    if (!pdf) return { pdfBase64: null, sha256: row.handoverNoteSha256, integrity: 'MISSING' };
+    return {
+      pdfBase64: pdf.toString('base64'),
+      sha256: row.handoverNoteSha256,
+      integrity: sha256(pdf) === row.handoverNoteSha256 ? 'OK' : 'MISMATCH',
+    };
   }
 
   private async rowOf(contract: ContractRow, deviceId: string, tx: Prisma.TransactionClient) {
@@ -625,19 +622,40 @@ export class HandoverService {
     };
   }
 
-  // Writes the signed note under HANDOVER_NOTE_STORAGE_DIR and returns the path stored on the
-  // contract, relative to that directory.
-  private store(contractId: string, pdf: Buffer): Promise<string> {
-    return this.storeNote(`${contractId}.pdf`, pdf);
+  // Stores the signed note and returns the name recorded on the contract.
+  private store(contractId: string, pdf: Buffer, tx: Prisma.TransactionClient): Promise<string> {
+    return this.storeNote(`${contractId}.pdf`, pdf, tx);
   }
 
-  // Writes a signed note under HANDOVER_NOTE_STORAGE_DIR by name; the replacement note of rentals
-  // 4.3 uses it too.
-  async storeNote(name: string, pdf: Buffer): Promise<string> {
+  // Stores a signed note by name; the replacement note of rentals 4.3 uses it too. HANDOVER_NOTE_STORE
+  // picks where (design §4.1, D-090 amendment): `file` (the default, every local host) writes under
+  // HANDOVER_NOTE_STORAGE_DIR; `database` keeps the exact bytes in `handover_notes`, inside the caller's
+  // transaction, for a host whose disk does not outlive one request (the Vercel production).
+  async storeNote(name: string, pdf: Buffer, tx?: Prisma.TransactionClient): Promise<string> {
+    if (this.noteStore() === 'database') {
+      await this.contracts.saveNote(name, pdf, tx);
+      return name;
+    }
     const dir = this.absolute('');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, name), pdf);
     return name;
+  }
+
+  // The stored bytes of a note by name, or null when the store has none.
+  private async readNote(name: string): Promise<Buffer | null> {
+    if (this.noteStore() === 'database') return this.contracts.readNote(name);
+    try {
+      return await readFile(this.absolute(name));
+    } catch {
+      return null;
+    }
+  }
+
+  private noteStore(): 'file' | 'database' {
+    return this.config.get('HANDOVER_NOTE_STORE', { infer: true }) === 'database'
+      ? 'database'
+      : 'file';
   }
 
   private absolute(name: string): string {
