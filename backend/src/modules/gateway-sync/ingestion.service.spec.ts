@@ -128,7 +128,6 @@ describe('IngestionService', () => {
       contractStatus: 'ACTIVE',
       handedOverAt: new Date('2026-10-20T02:00:00Z'),
       endedAt: null,
-      nearBoundary: false,
     };
 
     it('attributes an event inside a custody interval to its organization and interval', async () => {
@@ -137,7 +136,6 @@ describe('IngestionService', () => {
       expect(contracts.custodyAt).toHaveBeenCalledWith(
         'dev-9',
         new Date('2026-10-23T03:00:00.000Z'),
-        300,
       );
       expect(storedEvent()).toMatchObject({
         attribution: 'ATTRIBUTED',
@@ -175,7 +173,6 @@ describe('IngestionService', () => {
       contracts.custodyAt.mockResolvedValue({
         ...custody,
         handedOverAt: new Date('2026-10-23T02:59:00Z'),
-        nearBoundary: true,
       });
       await expect(service.ingest(envelopeOf('position'))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
       expect(storedEvent()).toMatchObject({
@@ -219,7 +216,6 @@ describe('IngestionService', () => {
       contractStatus: 'CLOSED',
       handedOverAt: new Date('2026-10-20T02:00:00Z'),
       endedAt: new Date('2026-10-23T20:00:00Z'),
-      nearBoundary: false,
     };
     const periodA = {
       contractId: 'c-a',
@@ -238,11 +234,7 @@ describe('IngestionService', () => {
 
       expect(stations.byUsername).toHaveBeenCalledWith('fs-org-a-1');
       expect(contracts.rentalPeriods).toHaveBeenCalledWith('dev-9', 'org-a');
-      expect(contracts.custodyAt).toHaveBeenCalledWith(
-        'dev-9',
-        new Date('2026-10-23T03:00:00Z'),
-        300,
-      );
+      expect(contracts.custodyAt).toHaveBeenCalledWith('dev-9', new Date('2026-10-23T03:00:00Z'));
       expect(storedEvent()).toMatchObject({
         ingress: 'FIELD_STATION',
         uplinkKey: 'fs-org-a-1',

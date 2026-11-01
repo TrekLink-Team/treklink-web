@@ -211,11 +211,16 @@ describe('rentals foundation against Postgres (REQ-UBI-01, REQ-UBI-02, BR-03)', 
     });
 
     await expect(
-      contracts.custodyAt(deviceId, new Date('2026-10-21T02:00:00.000Z'), 60),
-    ).resolves.toMatchObject({ contractId: contract.id, organizationId, nearBoundary: false });
-    await expect(contracts.custodyAt(deviceId, checkedInAt, 60)).resolves.toBeNull();
+      contracts.custodyAt(deviceId, new Date('2026-10-21T02:00:00.000Z')),
+    ).resolves.toMatchObject({
+      contractId: contract.id,
+      organizationId,
+      handedOverAt,
+      endedAt: checkedInAt,
+    });
+    await expect(contracts.custodyAt(deviceId, checkedInAt)).resolves.toBeNull();
     await expect(
-      contracts.custodyAt(deviceId, new Date('2026-10-19T02:00:00.000Z'), 60),
+      contracts.custodyAt(deviceId, new Date('2026-10-19T02:00:00.000Z')),
     ).resolves.toBeNull();
 
     await expect(contracts.canClose(organizationId)).resolves.toBe(false);
@@ -261,19 +266,21 @@ describe('rentals foundation against Postgres (REQ-UBI-01, REQ-UBI-02, BR-03)', 
     });
     const hour = (base: Date, hours: number) => new Date(base.getTime() + hours * 3_600_000);
 
-    // The interval start counts and is near its boundary; the end belongs to the next unit.
-    await expect(contracts.custodyAt(replaced, handedOverAt, 60)).resolves.toMatchObject({
+    // The interval start counts; the end belongs to the next unit.
+    await expect(contracts.custodyAt(replaced, handedOverAt)).resolves.toMatchObject({
       contractDeviceId: old.id,
-      nearBoundary: true,
+      handedOverAt,
+      endedAt: swappedAt,
     });
-    await expect(contracts.custodyAt(replaced, hour(swappedAt, 1), 60)).resolves.toBeNull();
-    await expect(contracts.custodyAt(replacement, swappedAt, 60)).resolves.toMatchObject({
+    await expect(contracts.custodyAt(replaced, hour(swappedAt, 1))).resolves.toBeNull();
+    await expect(contracts.custodyAt(replacement, swappedAt)).resolves.toMatchObject({
       contractDeviceId: next.id,
       contractId: contract.id,
-      nearBoundary: true,
+      handedOverAt: swappedAt,
+      endedAt: null,
     });
-    await expect(contracts.custodyAt(replacement, hour(swappedAt, -1), 60)).resolves.toBeNull();
-    await expect(contracts.custodyAt(replaced, hour(handedOverAt, -1), 60)).resolves.toBeNull();
+    await expect(contracts.custodyAt(replacement, hour(swappedAt, -1))).resolves.toBeNull();
+    await expect(contracts.custodyAt(replaced, hour(handedOverAt, -1))).resolves.toBeNull();
 
     await expect(contracts.rentalPeriods(replaced, organizationId)).resolves.toEqual([
       { contractId: contract.id, from: handedOverAt, to: swappedAt },

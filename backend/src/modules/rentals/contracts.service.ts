@@ -21,11 +21,10 @@ export interface Custody {
   contractId: string;
   organizationId: string;
   contractStatus: ContractStatus;
-  // The interval's ends: the handover, and the check-in or loss, null while it is open (D-040).
+  // The interval's ends: the handover, and the check-in or loss, null while it is open (D-040). The
+  // attribution margin around them is gateway-sync's rule (`attribution.ts`).
   handedOverAt: Date;
   endedAt: Date | null;
-  // `at` lies within `marginSeconds` of the handover or of the interval's end (D-040).
-  nearBoundary: boolean;
 }
 
 // One custody row of a device on a contract (monitoring api-design 07).
@@ -74,28 +73,18 @@ export interface VisibleDevice {
   holder: { name: string } | null;
 }
 
-const near = (at: Date, edge: Date | null, marginMs: number) =>
-  edge !== null && Math.abs(at.getTime() - edge.getTime()) <= marginMs;
-
 // The custody of the interval `findCustody` returned for `at`: none for no row or a row never
 // handed over. Shared by `custodyAt` and the CUSTODY_RESOLVER provider, which has no
 // ContractsService in the ports module.
-export const custodyOf = (
-  row: CustodyRow | null,
-  at: Date,
-  marginSeconds: number,
-): Custody | null => {
+export const custodyOf = (row: CustodyRow | null): Custody | null => {
   if (!row?.handedOverAt) return null;
-  const end = row.checkedInAt ?? row.lostAt;
-  const marginMs = marginSeconds * 1000;
   return {
     contractDeviceId: row.id,
     contractId: row.contract.id,
     organizationId: row.contract.organizationId,
     contractStatus: row.contract.status,
     handedOverAt: row.handedOverAt,
-    endedAt: end,
-    nearBoundary: near(at, row.handedOverAt, marginMs) || near(at, end, marginMs),
+    endedAt: row.checkedInAt ?? row.lostAt,
   };
 };
 
@@ -254,8 +243,8 @@ export class ContractsService {
   }
 
   // The custody interval containing `at`, whatever state the contract is in now; null when none does.
-  async custodyAt(deviceId: string, at: Date, marginSeconds: number): Promise<Custody | null> {
-    return custodyOf(await this.contracts.findCustody(deviceId, at), at, marginSeconds);
+  async custodyAt(deviceId: string, at: Date): Promise<Custody | null> {
+    return custodyOf(await this.contracts.findCustody(deviceId, at));
   }
 
   // The holder label of a device on a contract, keyed `contractId:deviceId`, for the incident alert,
