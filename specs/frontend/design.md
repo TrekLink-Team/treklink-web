@@ -81,7 +81,8 @@ change-password dialog; damage rates are a section of `/t/admin/prices`.
   `sessionStorage` (`treklink.session.refresh`) on sign-in and on every rotation, and removes it on sign-out
   and on a refused refresh; closing the tab drops it. The access token stays in memory. On load
   `restoreSession` runs once: the shared single-flight refresh, then `GET /api/auth/me`, then sign-in; the
-  app renders no routes until it settles. A network failure keeps the stored token for the next load.
+  app shows a visible "Restoring your session" status, and no routes, until it settles. A failed `me` after
+  a good refresh signs out; a network failure on the refresh keeps the stored token for the next load.
 
 ---
 
