@@ -77,7 +77,9 @@ describe('Station attribution (AC-06 to AC-08) against Postgres', () => {
     parameters,
     events,
   );
-  const devices = new DevicesService(new DevicesRepository(prisma), {} as never, {} as never);
+  const devices = new DevicesService(new DevicesRepository(prisma), {} as never, {} as never, {
+    custodyAt: () => Promise.resolve(null),
+  });
   const contracts = new ContractsService(
     new ContractsRepository(prisma),
     {} as never,
