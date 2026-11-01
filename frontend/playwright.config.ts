@@ -35,7 +35,9 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
-    trace: 'on-first-retry',
+    // A trace records every request body, the sign-in passwords and tokens included. Off on CI; local
+    // traces stay on this machine and are never uploaded (e2e/README.md).
+    trace: process.env.CI ? 'off' : 'on-first-retry',
     actionTimeout: 15_000,
   },
   projects: [
@@ -45,7 +47,7 @@ export default defineConfig({
       use: { ...chromium, viewport: { width: 1280, height: 900 } },
     },
     {
-      // The Operator screens of MF-03 and MF-04 on a phone (NFR-USE-03, NFR-USE-05).
+      // The Operator screens of MF-03 and MF-04 on a phone (REQ-UBI-03, NFR-UI-01).
       name: 'operator-360',
       testMatch: /operator-360\.spec\.ts/,
       use: { ...chromium, viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true },

@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -89,9 +90,50 @@ export const apiGet = async <T>(request: APIRequestContext, token: string, path:
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const run = promisify(execFile);
 
+// Backend scripts that write the database. They run only against a loopback host (demo script §1.2
+// CAUTION, D-010): a `*.neon.tech` or any other hosted database is refused before the script starts.
+const WRITES_DATABASE = new Set(['demo:term-end']);
+const LOOPBACK = /^(localhost|127(\.\d{1,3}){3}|::1|\[::1\])$/i;
+
+// The URL the script would use: the run's environment first, as the child inherits it, then
+// backend/.env, which the generated Prisma client falls back to.
+const databaseUrls = (): string[] => {
+  const fromEnv = [process.env.DATABASE_URL, process.env.DATABASE_DIRECT_URL].filter(
+    (url): url is string => Boolean(url),
+  );
+  if (fromEnv.length > 0) return fromEnv;
+  const file = resolve(repositoryRoot, 'backend', '.env');
+  if (!existsSync(file)) return [];
+  return [...readFileSync(file, 'utf8').matchAll(/^\s*(DATABASE_URL|DATABASE_DIRECT_URL)\s*=\s*"?([^"\n]+)"?/gm)].map(
+    (match) => match[2].trim(),
+  );
+};
+
+export const assertLocalDatabase = (script: string): void => {
+  const urls = databaseUrls();
+  if (urls.length === 0) {
+    throw new Error(`Refusing to run ${script}: DATABASE_URL is not set, so its host cannot be checked.`);
+  }
+  for (const url of urls) {
+    let host: string;
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      throw new Error(`Refusing to run ${script}: the database URL does not parse, so its host cannot be checked.`);
+    }
+    if (!LOOPBACK.test(host)) {
+      throw new Error(
+        `Refusing to run ${script} against database host "${host}": it writes rows, and the journeys run ` +
+          'only on a local Postgres (localhost, 127.0.0.1 or ::1), never on Neon or another hosted database.',
+      );
+    }
+  }
+};
+
 // Runs a backend npm script from the repository root, as the demo script's terminal steps do
 // (`npm --prefix backend run replay:mqtt -- sos --now --new-ids`, `demo:term-end`).
 export const runBackendScript = async (script: string, args: string[]): Promise<string> => {
+  if (WRITES_DATABASE.has(script)) assertLocalDatabase(script);
   const { stdout, stderr } = await run('npm', ['--prefix', 'backend', 'run', script, '--', ...args], {
     cwd: repositoryRoot,
     env: process.env,
@@ -146,3 +188,13 @@ export const publishSos = async (nodeId: string): Promise<void> => {
     timeout: 30_000,
   });
 };
+
+// A status badge (shared/ui StatusBadge): the element whose whole text is the label. A history line
+// such as "IN_INTAKE to AVAILABLE" or "..., case closed" does not match.
+export const statusBadge = (scope: Page | Locator, label: string): Locator =>
+  scope.getByText(label, { exact: true });
+
+// The status badge beside a detail page's title (shared/ui PageTitle `action`: the contract and device
+// pages). Scoped to the title block, so a History line whose text is also "Requested" does not count.
+export const titleStatus = (page: Page, label: string): Locator =>
+  statusBadge(page.getByRole('main').getByRole('heading', { level: 1 }).locator('xpath=..'), label);
