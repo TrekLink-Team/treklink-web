@@ -146,7 +146,7 @@ Admin. `ESCALATED` reads them since TK-144; `UNROUTED` waits for task 2.2.
 not a transition, so its rows are of kind `STALE`: `alert_deliveries.kind` is `TRANSITION` (the default,
 with a `transitionId`) or `STALE` (no `transitionId`, and `lastSeenAt`, the device's last reading), kept
 apart by the CHECK constraint `alert_deliveries_kind_shape` (migration
-`20261101120000_incidents_stale_alert`). `StaleAlerts.queue` writes one WEB and one WEBSOCKET row per
+`20261101190000_incidents_stale_alert`). `StaleAlerts.queue` writes one WEB and one WEBSOCKET row per
 recipient in the transaction that sets the flag, with tier `OWNER`, the tier name, or `TREKLINK`, and wakes
 the dispatcher with `incident.alertsQueued` after commit. Recipients come from routing at the time of the
 flag: the tier through `recipientsOf`, the TrekLink accounts through `treklinkRecipients`. An ended

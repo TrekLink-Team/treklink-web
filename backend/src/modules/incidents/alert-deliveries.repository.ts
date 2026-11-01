@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AlertChannel, AlertKind, Prisma } from '@prisma/client';
 
 // A TRANSITION row (the default kind) names its transition; a STALE row has none and carries the
-// device's last reading in `lastSeenAt` (migration `20261101120000_incidents_stale_alert`).
+// device's last reading in `lastSeenAt` (migration `20261101190000_incidents_stale_alert`).
 export type NewAlertDelivery = Pick<
   Prisma.AlertDeliveryUncheckedCreateInput,
   'incidentId' | 'kind' | 'transitionId' | 'lastSeenAt' | 'tier' | 'recipientId' | 'channel'
