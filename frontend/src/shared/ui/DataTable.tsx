@@ -418,7 +418,6 @@ export function DataTable<Row, K extends string = string>({
                     <input
                       type="checkbox"
                       aria-label="Select all rows on this page"
-                      aria-checked={someSelected ? 'mixed' : undefined}
                       checked={allSelected}
                       ref={(node) => {
                         if (node) node.indeterminate = someSelected;
@@ -569,7 +568,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   const from = totalItems !== undefined && pageSize ? (pageNumber - 1) * pageSize + 1 : undefined;
   const to = from !== undefined && totalItems !== undefined && pageSize ? Math.min(totalItems, pageNumber * pageSize) : undefined;
   const button =
-    'inline-flex h-9 min-w-9 items-center justify-center rounded-control px-2 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-55';
+    'inline-flex h-11 min-w-11 items-center justify-center rounded-control px-2 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-55';
   return (
     <nav aria-label="Pages" className={cn('flex flex-wrap items-center gap-3 border-t border-line px-4 py-2.5 text-body-sm text-ink-muted', className)}>
       {onPageSize && pageSize && (
@@ -578,7 +577,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <select
             value={pageSize}
             onChange={(event) => onPageSize(Number(event.target.value))}
-            className="h-9 rounded-control border border-line-strong bg-surface px-2 text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="h-11 rounded-control border border-line-strong bg-surface px-2 text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {pageSizes.map((size) => (
               <option key={size} value={size}>

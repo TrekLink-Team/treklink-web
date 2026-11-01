@@ -9,7 +9,8 @@ import { FOCUS } from './styles';
 // Keyboard: Enter, Space or Down Arrow on the button opens the menu on the first item, Up Arrow on
 // the last. Inside, Up and Down Arrow move (wrapping), Home and End jump, a printable character
 // moves to the next item starting with it, Enter and Space choose, Escape closes and returns focus
-// to the button, Tab closes and lets focus move on. One item holds tabindex 0 (roving tabindex).
+// to the button, Tab closes from the button so focus moves on to the control after it (the list is
+// portaled to the end of the body). One item holds tabindex 0 (roving tabindex).
 //
 // A disabled item stays focusable with aria-disabled, so a keyboard or screen-reader user can still
 // reach it and hear why it is disabled: its reason shows under the label while the item is focused
@@ -102,6 +103,8 @@ export const Menu: React.FC<MenuProps> = ({
   const close = useCallback((returnFocus: boolean) => {
     setOpen(false);
     setHovered(null);
+    // Measured again on the next open, so focus never waits on a stale position.
+    setPosition(null);
     if (returnFocus) buttonRef.current?.focus();
   }, []);
 
@@ -110,9 +113,12 @@ export const Menu: React.FC<MenuProps> = ({
     place();
   }, [open, place]);
 
+  // The list stays `visibility: hidden` until it is placed, and a hidden element cannot take focus:
+  // focus the active item only once the position is set (review of treklink-web#278).
+  const placed = position !== null;
   useEffect(() => {
-    if (open) itemRefs.current[active]?.focus();
-  }, [open, active]);
+    if (open && placed) itemRefs.current[active]?.focus();
+  }, [open, placed, active]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -147,6 +153,9 @@ export const Menu: React.FC<MenuProps> = ({
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       openAt(items.length - 1);
+    } else if (event.key === 'Escape' && open) {
+      event.preventDefault();
+      close(true);
     }
   };
 
@@ -175,6 +184,9 @@ export const Menu: React.FC<MenuProps> = ({
         close(true);
         return;
       case 'Tab':
+        // No preventDefault: focus goes back to the button first, so the browser's Tab moves on from
+        // the button instead of from the end of the body, where the list is portaled.
+        buttonRef.current?.focus();
         close(false);
         return;
       case 'Enter':

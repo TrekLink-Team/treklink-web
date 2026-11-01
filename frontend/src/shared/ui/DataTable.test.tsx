@@ -77,14 +77,14 @@ describe('DataTable selection', () => {
     expect(input.closest('label')?.className).toContain('h-10 w-10');
   });
 
-  it('makes the header box tri-state with aria-checked="mixed"', () => {
+  it('makes the header box tri-state through indeterminate, without aria-checked', () => {
     render(<Harness />);
     const header = box('Select all rows on this page');
     expect(header.checked).toBe(false);
     expect(header.getAttribute('aria-checked')).toBeNull();
     fireEvent.click(box('Select TL-0002'));
     expect(header.indeterminate).toBe(true);
-    expect(header.getAttribute('aria-checked')).toBe('mixed');
+    expect(header.getAttribute('aria-checked')).toBeNull();
     fireEvent.click(header);
     expect(header.checked).toBe(true);
     expect(header.getAttribute('aria-checked')).toBeNull();
