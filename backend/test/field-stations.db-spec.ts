@@ -112,6 +112,14 @@ describe('Field Station credentials against Postgres (REQ-UBI-03, REQ-EVT-09, RE
     expect(await bcrypt.compare(created.mqttSecret, credential?.secretHash ?? '')).toBe(true);
     expect(credential?.secretHash).not.toContain(created.mqttSecret);
     expect(await service.byUsername('fs-nobody-0')).toBeNull();
+    // Ingestion and the health report read the station without its hash.
+    await expect(service.stationByUsername(created.mqttUsername)).resolves.toEqual({
+      id: created.id,
+      organizationId: org.id,
+      mqttUsername: created.mqttUsername,
+      revokedAt: null,
+    });
+    expect(await service.stationByUsername('fs-nobody-0')).toBeNull();
     const listed = JSON.stringify(await service.list(org.id, caller));
     expect(listed).not.toContain(created.mqttSecret);
     expect(listed).not.toContain('secretHash');

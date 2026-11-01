@@ -32,6 +32,7 @@ export type {
   FieldStationSyncRow,
   StationCredential,
   StationHealth,
+  StationIdentity,
 } from './field-stations.repository';
 export { FieldStationReleaseService } from './field-station-release.service';
 export type { FieldStationRelease } from './field-station-release.service';

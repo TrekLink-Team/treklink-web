@@ -34,7 +34,7 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 // the stored event is linked to the incident it opened or joined (incidents 2.3, MF-03).
 //
 // A Field Station envelope (Stage C) names its station by username, resolved through
-// `organizations` (`FieldStationsService.byUsername`). The station must be known and not revoked, and
+// `organizations` (`FieldStationsService.stationByUsername`, no secret hash). The station must be known and not revoked, and
 // its organization must hold the device or have returned it within the late-upload grace
 // (REQ-EVT-05); otherwise the attempt ends `NOT_RENTED_TO_STATION_ORG`. Its occurrence time is the
 // corrected station capture time, and it is attributed only to an interval of the station's
@@ -286,7 +286,7 @@ export class IngestionService {
     receivedAt: Date,
     lateUploadGraceHours: number,
   ): Promise<{ id: string; organizationId: string } | string> {
-    const station = await this.stations.byUsername(username);
+    const station = await this.stations.stationByUsername(username);
     if (!station) return `unknown Field Station ${username}`;
     if (station.revokedAt) return `Field Station ${username} is revoked`;
     const periods = await this.contracts.rentalPeriods(deviceId, station.organizationId);

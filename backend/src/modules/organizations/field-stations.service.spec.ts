@@ -80,6 +80,7 @@ describe('FieldStationsService (organizations 2.8, api-design 23 to 25, UC-06)',
       find: jest.fn().mockResolvedValue(null),
       revoke: jest.fn(),
       findByUsername: jest.fn(),
+      findIdentityByUsername: jest.fn(),
       updateHealth: jest.fn().mockResolvedValue(undefined),
     };
     organizations = {
@@ -384,6 +385,16 @@ describe('FieldStationsService (organizations 2.8, api-design 23 to 25, UC-06)',
       stations.findByUsername.mockResolvedValue(credential);
       await expect(service.byUsername('fs-org-0007-1')).resolves.toBe(credential);
       expect(stations.findByUsername).toHaveBeenCalledWith('fs-org-0007-1');
+
+      const identity = {
+        id: 'fs-1',
+        organizationId: 'org-1',
+        mqttUsername: 'fs-org-0007-1',
+        revokedAt: null,
+      };
+      stations.findIdentityByUsername.mockResolvedValue(identity);
+      await expect(service.stationByUsername('fs-org-0007-1')).resolves.toBe(identity);
+      expect(stations.findIdentityByUsername).toHaveBeenCalledWith('fs-org-0007-1');
 
       const health = {
         queueDepth: [0, 1, 2, 3] as const,
