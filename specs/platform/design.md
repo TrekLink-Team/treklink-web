@@ -117,6 +117,7 @@ flowchart TB
     INC["incidents"]
     GWS["gateway-sync"]
     MON["monitoring"]
+    DEMO["demo"]
     AUTH --> PLT
     ORG --> AUTH
     DEVS --> AUTH
@@ -141,6 +142,12 @@ flowchart TB
     MON --> RENT
     MON --> INC
     MON --> GWS
+    DEMO --> AUTH
+    DEMO --> ORG
+    DEMO --> DEVS
+    DEMO --> BILL
+    DEMO --> RENT
+    DEMO --> GWS
     ORG -.->|"provides ACCOUNT_CONTEXT_PROVIDER, API_KEY_RESOLVER"| AUTH
     BILL -.->|"provides ORGANIZATION_EXIT_CHECKS"| ORG
     RENT -.->|"provides ORGANIZATION_EXIT_CHECKS"| ORG
@@ -151,7 +158,8 @@ flowchart TB
     AUTH -.->|"provides ACCOUNT_DIRECTORY, STAFF_NOTIFICATIONS"| PLT
 ```
 
-***Figure 3***: Module dependencies. Every module also imports `platform`; those edges are omitted.
+***Figure 3***: Module dependencies. Every module also imports `platform`; those edges are omitted. `demo`
+(D-088, `specs/demo/`) is loaded only when `DEMO_CONTROLS_ENABLED` is true and nothing depends on it.
 
 | Port | Declared by | Provided by | Why |
 |---|---|---|---|
