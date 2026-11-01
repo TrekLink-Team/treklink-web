@@ -3,7 +3,7 @@ import { Alert } from './Alert';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
 import { messageOf } from './errors';
-import { Field, Textarea } from './Field';
+import { Checkbox, Field, Textarea } from './Field';
 import { REASON_REQUIRED } from './StateChange';
 import { useToast } from './toastStore';
 
@@ -55,6 +55,8 @@ export interface BulkActionDialogProps {
   /** One reason for every row, kept in each row's audit record. */
   needsReason?: boolean;
   reasonHint?: string;
+  /** Steps the user confirms were done on every row, each a required checkbox (a reset's wipe steps). */
+  confirmations?: readonly string[];
   items: readonly BulkItem[];
   run: (item: BulkItem, reason: string | undefined) => Promise<unknown>;
   /** After the run, before the summary shows: refetch the list here. */
@@ -70,6 +72,7 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
   destructive,
   needsReason,
   reasonHint,
+  confirmations = [],
   items,
   run,
   onFinished,
@@ -83,6 +86,8 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
   const showToast = useToast((state) => state.show);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | undefined>();
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
+  const [stepsError, setStepsError] = useState<string | null>(null);
   const [done, setDone] = useState<number | null>(null);
   const [outcomes, setOutcomes] = useState<BulkOutcome[] | null>(null);
   const running = done !== null && outcomes === null;
@@ -95,6 +100,11 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
       return;
     }
     setReasonError(undefined);
+    if (confirmations.some((step) => !ticked.has(step))) {
+      setStepsError('Tick every step for every selected row first.');
+      return;
+    }
+    setStepsError(null);
     setDone(0);
     const result = await runInSequence(items, (item) => run(item, trimmed || undefined), setDone);
     onFinished?.(result);
@@ -179,6 +189,31 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
             <li key={item.id}>{item.label}</li>
           ))}
         </ul>
+        {confirmations.length > 0 && (
+          <fieldset className="flex flex-col">
+            <legend className="text-body-sm font-semibold text-ink">Done on every selected row</legend>
+            {confirmations.map((step) => (
+              <Checkbox
+                key={step}
+                label={step}
+                checked={ticked.has(step)}
+                onChange={(event) =>
+                  setTicked((current) => {
+                    const next = new Set(current);
+                    if (event.target.checked) next.add(step);
+                    else next.delete(step);
+                    return next;
+                  })
+                }
+              />
+            ))}
+            {stepsError && (
+              <Alert tone="error" className="mt-2">
+                {stepsError}
+              </Alert>
+            )}
+          </fieldset>
+        )}
         {needsReason && (
           <Field id={reasonId} label="Reason" required hint={reasonHint ?? 'Kept in the audit log of every row.'} error={reasonError}>
             <Textarea

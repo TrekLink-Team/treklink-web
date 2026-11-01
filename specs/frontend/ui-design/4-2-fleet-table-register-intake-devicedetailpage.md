@@ -108,3 +108,33 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: focus trap and return in dialogs, text status labels
 - [x] Live data: none on this page; query keys listed
 - [x] Traceability: UC-11, UC-12, UC-44, UC-53, UC-62, US-UC11, US-UC12, US-UC44, US-UC53, US-UC62
+
+## Row actions and bulk actions (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2 and §3. Where this section and the tables
+above disagree, this section wins.
+
+| State | Row actions, Staff | Row actions, Admin (adds) |
+|---|---|---|
+| `IN_INTAKE` | Record intake check (the intake dialog of the device page) | |
+| `MAINTENANCE` | Record intake check; the server answers 409 `MAINTENANCE_OPEN` while a record is open, since the list does not carry the open record | Retire device: `StateChangeDialog`, alert dialog, required reason, `expectedVersion` (api-design 16) |
+| `RETURNED` | Record reset (the three steps; api-design 10) | |
+| `RETIRED` | none | Dispose device (the wipe dialog; api-design 23) |
+| any other | none: those moves belong to a contract, a maintenance record or a loss case | |
+
+Fewer than three actions show inline, three or more in the row menu. The intake, reset and dispose
+dialogs are shared with the device page (`widgets/DeviceActions/DeviceDialogs.tsx`); the dispose
+dialog is an alert dialog.
+
+Selection: one checkbox per row named "Select {asset tag}", kept across pages and filters. Bulk bar:
+
+| Bulk action | Rows it runs on | Confirmation |
+|---|---|---|
+| Record reset for N devices | the `RETURNED` rows of the selection | "Record reset for N devices?" with the three steps as required checkboxes for every row |
+| Retire N devices (Admin) | the `MAINTENANCE` rows of the selection, each with its own `expectedVersion` | alert dialog "Retire N devices?" with one required reason |
+
+Each bulk action calls the single-row endpoint once per row, in sequence (`BulkActionDialog`). All
+succeeded: a toast "N of N done.". Any failure: a summary dialog "k of N done" listing each failed row
+with the server's message (for example MSG29 for an open record) and the rows that succeeded. No bulk
+endpoint exists or is needed. "Select all N results" is not offered: a client-side sequence needs the
+rows themselves. The devices API does not sort (api-design 06), so no column sorts.
