@@ -9,6 +9,9 @@ import { useToast } from '../shared/ui/toastStore';
 import { ContractApprovalPage } from './ContractApprovalPage';
 
 const approveContract = vi.fn();
+const cancelContract = vi.fn();
+const rejectContract = vi.fn();
+let queue: unknown[] | null = null;
 
 const requested = {
   id: 'c-1',
@@ -32,13 +35,15 @@ vi.mock('../entities/contract/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/contract/api')>()),
   useContracts: () => ({
     isLoading: false,
-    data: { items: [requested], pageNumber: 1, pageSize: 20, totalCount: 1, totalPages: 1 },
+    data: { items: queue ?? [requested], pageNumber: 1, pageSize: 20, totalCount: 1, totalPages: 1 },
   }),
   useAvailability: () => ({
     isLoading: false,
     data: [{ hardwareVariantId: 'v-3', code: 'treklink-v3', available: 10 }],
   }),
   approveContract: (...args: unknown[]) => approveContract(...args),
+  cancelContract: (...args: unknown[]) => cancelContract(...args),
+  rejectContract: (...args: unknown[]) => rejectContract(...args),
 }));
 
 // The public plans read (billing api-design 01) answers the variant names.
@@ -150,5 +155,50 @@ describe('ContractApprovalPage', () => {
       await screen.findByText('Reserved: TL-0003, TL-0004, TL-0005, TL-0006, TL-0011'),
     ).toBeTruthy();
     expect(useToast.getState().message).toBe('RC-2026-0004 approved. 5 devices reserved.');
+  });
+});
+
+describe('ContractApprovalPage row actions (W29)', () => {
+  afterEach(() => {
+    cleanup();
+    queue = null;
+    cancelContract.mockReset();
+    rejectContract.mockReset();
+  });
+
+  const table = () => within(screen.getByRole('table', { name: 'Contracts' }));
+  const itemsOf = (code: string) => {
+    fireEvent.click(table().getByRole('button', { name: `Actions for ${code}` }));
+    const labels = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    return labels;
+  };
+
+  it('offers each status only its moves', () => {
+    queue = [
+      requested,
+      { ...requested, id: 'c-2', code: 'RC-2026-0005', status: 'APPROVED' },
+      { ...requested, id: 'c-3', code: 'RC-2026-0006', status: 'ACTIVE' },
+      { ...requested, id: 'c-4', code: 'RC-2026-0007', status: 'CLOSED' },
+    ];
+    renderPage();
+    expect(itemsOf('RC-2026-0004')).toEqual(['Review and approve', 'Reject contract', 'Cancel contract']);
+    // Two actions show inline.
+    expect(table().getByRole('button', { name: /^Open counter\s+RC-2026-0005/ })).toBeTruthy();
+    expect(table().getByRole('button', { name: /^Cancel contract\s+RC-2026-0005/ })).toBeTruthy();
+    expect(table().getByRole('button', { name: /^Open counter\s+RC-2026-0006/ })).toBeTruthy();
+    expect(table().queryByRole('button', { name: /^Cancel contract\s+RC-2026-0006/ })).toBeNull();
+    expect(table().queryByRole('button', { name: /^(Open counter|Cancel contract|Actions for)\s*RC-2026-0007/ })).toBeNull();
+  });
+
+  it('cancels from the row with the reason and the loaded version', async () => {
+    cancelContract.mockResolvedValue({});
+    queue = [{ ...requested, id: 'c-2', code: 'RC-2026-0005', status: 'APPROVED', version: 3 }];
+    renderPage();
+    fireEvent.click(table().getByRole('button', { name: /^Cancel contract\s+RC-2026-0005/ }));
+    const dialog = within(screen.getByRole('alertdialog', { name: 'Cancel contract RC-2026-0005?' }));
+    fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Tour cancelled' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Cancel contract' }));
+    await vi.waitFor(() => expect(cancelContract).toHaveBeenCalledWith('c-2', 'Tour cancelled', 3));
   });
 });

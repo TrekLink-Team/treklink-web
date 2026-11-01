@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   approveContract,
+  cancelContract,
   contractKeys,
   planLabel,
   rejectContract,
@@ -17,13 +18,24 @@ import {
 import { useVariantName } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
-import { Badge, Empty, ErrorState, Field, Loading, PageTitle, Pager } from '../shared/ui/bits';
+import { Badge, ErrorState, Field, PageTitle } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
-import { Alert } from '../shared/ui';
+import {
+  Alert,
+  Button,
+  DataTable,
+  Pagination,
+  Select,
+  StateChangeDialog,
+  Toolbar,
+  ToolbarSearch,
+  type Column,
+  type RowAction,
+  type StateTransition,
+} from '../shared/ui';
 import { Dialog } from '../shared/ui/Dialog';
 import { useToast } from '../shared/ui/toastStore';
 import { matchesText } from '../shared/lib/filter';
-import { FilterBar, FilterRow, NoMatchRow, type FilterField } from '../shared/ui/TableFilters';
 import {
   ALERT,
   CARD,
@@ -33,9 +45,6 @@ import {
   PRIMARY_BUTTON,
   SECONDARY_BUTTON,
   TAB,
-  TABLE,
-  TD,
-  TH,
 } from '../shared/ui/styles';
 
 const TABS: { label: string; status?: ContractStatus }[] = [
@@ -319,10 +328,42 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   );
 };
 
+// The row actions of screen 5.3 (W29). A request is approved in the side panel, which fixes the
+// handover appointment (rentals api-design 04), so Review opens it; Reject (05) and Cancel (06) need a
+// reason only. Staff and Admin cancel through `contract.operate`. A contract past approval opens at
+// its counter.
+type RowMove = 'REJECTED' | 'CANCELLED';
+
+const MOVES: Record<RowMove, StateTransition<RowMove>> = {
+  REJECTED: {
+    target: 'REJECTED',
+    label: 'Reject contract',
+    destructive: true,
+    needsReason: true,
+    reasonHint: 'The Manager sees this reason.',
+    description: 'The request is refused and any device it holds is released.',
+    successMessage: 'Contract rejected.',
+  },
+  CANCELLED: {
+    target: 'CANCELLED',
+    label: 'Cancel contract',
+    destructive: true,
+    needsReason: true,
+    reasonHint: 'The Manager sees this reason.',
+    description: 'The contract ends before handover and its devices go back to AVAILABLE. A holding fee already paid is retained.',
+    cancelLabel: 'Keep contract',
+    successMessage: 'Contract cancelled.',
+  },
+};
+
+const AT_COUNTER: readonly ContractStatus[] = ['APPROVED', 'ACTIVE', 'ENDING', 'RETURN_DUE', 'OVERDUE', 'DEFAULTED', 'RETURNED'];
+
 // /t/contracts, screen 5.3: the approval queue with the selected request in a side panel
 // (rentals api-design 02, 04, 05). Devices are chosen by the server.
 export const ContractApprovalPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [moving, setMoving] = useState<{ contract: Contract; move: RowMove } | null>(null);
   const [tab, setTab] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
   // The selected request stays in the panel after a decision, so the reserved tags stay visible
@@ -331,47 +372,52 @@ export const ContractApprovalPage: React.FC = () => {
   const status = TABS[tab].status;
   const { data, isLoading, error, refetch } = useContracts('t', { status, pageNumber });
   const variantName = useVariantName();
-  const [find, setFind] = useState({ code: '', organization: '', plan: '', variant: '' });
-  const set = (key: keyof typeof find) => (value: string) =>
-    setFind((current) => ({ ...current, [key]: value }));
-  const clear = () => setFind({ code: '', organization: '', plan: '', variant: '' });
-  const filtered = Object.values(find).some((value) => value !== '');
-  const rows =
-    data?.items.filter(
-      (contract) =>
-        matchesText(find.code, contract.code) &&
-        matchesText(
-          find.organization,
-          contract.organization?.code,
-          contract.organization?.legalName,
-        ) &&
-        (find.plan === '' || contract.planType === find.plan) &&
-        matchesText(
-          find.variant,
-          variantName(contract.hardwareVariant),
-          contract.hardwareVariant.code,
-        ),
-    ) ?? [];
-  const fields: Record<keyof typeof find, FilterField> = {
-    code: { label: 'contract', kind: 'text', value: find.code, onChange: set('code') },
-    organization: {
-      label: 'organization',
-      kind: 'text',
-      value: find.organization,
-      onChange: set('organization'),
+  const [find, setFind] = useState({ text: '', plan: '' });
+  const clear = () => setFind({ text: '', plan: '' });
+  const filtered = find.text !== '' || find.plan !== '';
+  const rows = data?.items.filter(
+    (contract) =>
+      matchesText(
+        find.text,
+        contract.code,
+        contract.organization?.code,
+        contract.organization?.legalName,
+        variantName(contract.hardwareVariant),
+        contract.hardwareVariant.code,
+      ) && (find.plan === '' || contract.planType === find.plan),
+  );
+
+  const rowActions = (contract: Contract): RowAction[] => [
+    ...(contract.status === 'REQUESTED'
+      ? [
+          { key: 'review', label: 'Review and approve', onSelect: () => setSelected(contract) },
+          { key: 'reject', label: 'Reject contract', destructive: true, onSelect: () => setMoving({ contract, move: 'REJECTED' }) },
+        ]
+      : []),
+    ...(AT_COUNTER.includes(contract.status)
+      ? [{ key: 'counter', label: 'Open counter', onSelect: () => navigate(`/t/counter/${contract.id}`) }]
+      : []),
+    ...(contract.status === 'REQUESTED' || contract.status === 'APPROVED'
+      ? [{ key: 'cancel', label: 'Cancel contract', destructive: true, onSelect: () => setMoving({ contract, move: 'CANCELLED' }) }]
+      : []),
+  ];
+
+  const columns: Column<Contract>[] = [
+    { key: 'code', header: 'Contract', cell: (contract) => <span className="whitespace-nowrap">{contract.code}</span> },
+    { key: 'organization', header: 'Organization', cell: (contract) => contract.organization?.code },
+    { key: 'plan', header: 'Plan', cell: (contract) => <span className="whitespace-nowrap">{planLabel(contract)}</span> },
+    {
+      key: 'variant',
+      header: 'Variant x qty',
+      cell: (contract) => (
+        <span className="whitespace-nowrap">
+          {variantName(contract.hardwareVariant)} x {contract.quantity}
+        </span>
+      ),
     },
-    plan: {
-      label: 'plan',
-      kind: 'select',
-      value: find.plan,
-      onChange: set('plan'),
-      options: [
-        { value: 'MONTHLY', label: 'Monthly' },
-        { value: 'DAY', label: 'Day plan' },
-      ],
-    },
-    variant: { label: 'variant', kind: 'text', value: find.variant, onChange: set('variant') },
-  };
+    { key: 'start', header: 'Start', cell: (contract) => <span className="whitespace-nowrap">{formatDay(contract.requestedStartDate)}</span>, hideOnMobile: true },
+    { key: 'status', header: 'Status', cell: (contract) => <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge> },
+  ];
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: contractKeys.all });
@@ -403,127 +449,73 @@ export const ContractApprovalPage: React.FC = () => {
 
       <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
         <div className="min-w-0">
-          {isLoading && <Loading />}
-          {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-          {data && data.items.length === 0 && (
-            <Empty>
-              {status === 'REQUESTED'
-                ? 'No contract requests are waiting.'
-                : 'No contracts in this queue.'}
-            </Empty>
-          )}
-          {data && data.items.length > 0 && (
-            <>
-              <FilterBar
-                className="mb-3 md:hidden"
-                fields={[fields.code, fields.organization, fields.plan, fields.variant]}
-                onClear={clear}
-              />
-              <ul className="flex flex-col gap-2 md:hidden">
-                {filtered && rows.length === 0 && (
-                  <li className="text-ink-muted">No rows match these filters.</li>
+          <Toolbar
+            label="Contract filters"
+            start={
+              <>
+                <ToolbarSearch
+                  id="queue-search"
+                  label="Search by contract, organization or variant"
+                  placeholder="Contract, organization or variant"
+                  value={find.text}
+                  onChange={(text) => setFind((current) => ({ ...current, text }))}
+                />
+                <span className="w-40">
+                  <Select aria-label="Plan" value={find.plan} onChange={(event) => setFind((current) => ({ ...current, plan: event.target.value }))}>
+                    <option value="">Every plan</option>
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="DAY">Day plan</option>
+                  </Select>
+                </span>
+                {filtered && (
+                  <Button variant="ghost" onClick={clear}>
+                    Clear filters
+                  </Button>
                 )}
-                {rows.map((contract) => (
-                  <li key={contract.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelected(contract)}
-                      aria-pressed={contract.id === selected?.id}
-                      className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border bg-surface p-4 text-left shadow-sm ${
-                        contract.id === selected?.id
-                          ? 'border-accent ring-2 ring-focus/40'
-                          : 'border-line'
-                      }`}
-                    >
-                      <span>
-                        <span className="font-semibold text-ink">{contract.code}</span>
-                        <span className="ml-2 text-sm text-ink-muted">
-                          {contract.organization?.code}
-                        </span>
-                        <span className="block text-sm text-ink-muted">
-                          {planLabel(contract)}, {variantName(contract.hardwareVariant)} x{' '}
-                          {contract.quantity}, starts {formatDay(contract.requestedStartDate)}
-                        </span>
-                      </span>
-                      <Badge tone={STATUS_TONES[contract.status]}>
-                        {STATUS_LABELS[contract.status]}
-                      </Badge>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {/* Scrolls inside its column, so the side panel never covers the last columns. */}
-              <div className="hidden overflow-x-auto md:block">
-                <table className={TABLE}>
-                  <thead className="bg-sunken">
-                    <tr>
-                      <th className={TH}>Contract</th>
-                      <th className={TH}>Organization</th>
-                      <th className={TH}>Plan</th>
-                      <th className={TH}>Variant x qty</th>
-                      <th className={TH}>Start</th>
-                      <th className={TH}>Status</th>
-                    </tr>
-                    <FilterRow
-                      columns={[
-                        fields.code,
-                        fields.organization,
-                        fields.plan,
-                        fields.variant,
-                        null,
-                        null,
-                      ]}
-                      onClear={clear}
-                    />
-                  </thead>
-                  <tbody>
-                    {rows.length === 0 && <NoMatchRow colSpan={6} onClear={clear} />}
-                    {rows.map((contract) => {
-                      const active = contract.id === selected?.id;
-                      return (
-                        <tr
-                          key={contract.id}
-                          onClick={() => setSelected(contract)}
-                          className={`cursor-pointer border-t border-line transition ${
-                            active ? 'bg-chrome/50' : 'hover:bg-chrome/40'
-                          }`}
-                        >
-                          <td className={TD}>
-                            <button
-                              type="button"
-                              aria-pressed={active}
-                              onClick={() => setSelected(contract)}
-                              className={`${LINK} whitespace-nowrap text-left`}
-                            >
-                              {contract.code}
-                            </button>
-                          </td>
-                          <td className={TD}>{contract.organization?.code}</td>
-                          <td className={`${TD} whitespace-nowrap`}>{planLabel(contract)}</td>
-                          <td className={`${TD} whitespace-nowrap`}>
-                            {variantName(contract.hardwareVariant)} x {contract.quantity}
-                          </td>
-                          <td className={`${TD} whitespace-nowrap`}>
-                            {formatDay(contract.requestedStartDate)}
-                          </td>
-                          <td className={TD}>
-                            <Badge tone={STATUS_TONES[contract.status]}>
-                              {STATUS_LABELS[contract.status]}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <Pager
-                pageNumber={data.pageNumber}
-                totalPages={data.totalPages}
-                onPage={setPageNumber}
-              />
-            </>
-          )}
+              </>
+            }
+          />
+          <DataTable<Contract>
+            caption="Contracts"
+            columns={columns}
+            rows={rows}
+            rowId={(contract) => contract.id}
+            rowLabel={(contract) => contract.code}
+            loading={isLoading}
+            error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
+            empty={
+              filtered
+                ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
+                : { title: status === 'REQUESTED' ? 'No contract requests are waiting.' : 'No contracts in this queue.' }
+            }
+            activeRowId={selected?.id}
+            onRowActivate={setSelected}
+            rowActions={rowActions}
+            renderCard={(contract) => (
+              <button type="button" onClick={() => setSelected(contract)} aria-pressed={contract.id === selected?.id} className="flex w-full flex-wrap items-center justify-between gap-2 text-left">
+                <span>
+                  <span className="font-semibold text-ink">{contract.code}</span>
+                  <span className="ml-2 text-sm text-ink-muted">{contract.organization?.code}</span>
+                  <span className="block text-sm text-ink-muted">
+                    {planLabel(contract)}, {variantName(contract.hardwareVariant)} x {contract.quantity}, starts{' '}
+                    {formatDay(contract.requestedStartDate)}
+                  </span>
+                </span>
+                <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>
+              </button>
+            )}
+            footer={
+              data && data.totalPages > 1 ? (
+                <Pagination
+                  pageNumber={data.pageNumber}
+                  totalPages={data.totalPages}
+                  totalItems={data.totalCount}
+                  pageSize={data.pageSize}
+                  onPage={setPageNumber}
+                />
+              ) : undefined
+            }
+          />
         </div>
         <div className="xl:sticky xl:top-4">
           {selected ? (
@@ -535,6 +527,24 @@ export const ContractApprovalPage: React.FC = () => {
           )}
         </div>
       </div>
+      {moving && (
+        <StateChangeDialog<RowMove>
+          subject={moving.contract.code}
+          transition={MOVES[moving.move]}
+          version={moving.contract.version}
+          onSubmit={({ reason, expectedVersion }) =>
+            moving.move === 'REJECTED'
+              ? rejectContract(moving.contract.id, reason ?? '', expectedVersion)
+              : cancelContract(moving.contract.id, reason ?? '', expectedVersion)
+          }
+          onReload={refresh}
+          onDone={() => {
+            if (selected?.id === moving.contract.id) setSelected(null);
+            refresh();
+          }}
+          onClose={() => setMoving(null)}
+        />
+      )}
     </section>
   );
 };

@@ -80,3 +80,19 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: tablist, focus to the next row, status banner
 - [x] Live data: none; query keys listed
 - [x] Traceability: UC-16, UC-17, US-UC16, US-UC17
+
+## Shared table and row actions (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2 and §3. Where this section and the
+tables above disagree, this section wins.
+
+- The queue is the shared `DataTable`; the code button opens the request panel (Enter works). The
+  column filter row moved to the toolbar: one search over contract, organization and variant, and a
+  Plan select.
+- Row actions by status: `REQUESTED`, Review and approve (opens the panel, since approval fixes the
+  handover appointment), Reject contract and Cancel contract, in the row menu; `APPROVED`, Open
+  counter and Cancel contract; `ACTIVE`, `ENDING`, `RETURN_DUE`, `OVERDUE`, `DEFAULTED` and
+  `RETURNED`, Open counter; any other, none. Reject and Cancel are `StateChangeDialog` alert dialogs
+  with the required reason the Manager sees and the row's `expectedVersion` (rentals api-design 05
+  and 06; Staff and Admin cancel through `contract.operate`).
+- No bulk: each approval needs its own appointment. The API does not sort; Pagination shows the range.
