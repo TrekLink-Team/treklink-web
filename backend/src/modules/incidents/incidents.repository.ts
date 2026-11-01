@@ -235,6 +235,7 @@ export class IncidentsRepository {
       where: { incidentId },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
+        kind: true,
         tier: true,
         recipientId: true,
         channel: true,

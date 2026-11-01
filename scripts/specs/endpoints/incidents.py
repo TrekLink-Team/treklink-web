@@ -316,11 +316,12 @@ ENDPOINTS = [
        seq=["Svc->>Gw: eventsOfIncident(id)"]),
 
     ep("GET", "/api/incidents/:id/alerts", "Alert delivery log", "Org Manager: own; TrekLink Staff, TrekLink Admin",
-       "Every alert the incident produced: tier, recipient, channel, attempts and outcome (FR-INC-12, E03-7).",
+       "Every alert the incident produced: kind (`TRANSITION` for an SOS alert, `STALE` for the device-silent alert MSG40), tier, recipient, channel, attempts and outcome (FR-INC-12, E03-7, REQ-EVT-12).",
        "UC-30, FR-INC-12, E03-7", path=[I_PATH],
-       response=[{"tier": "PRIMARY", "recipient": "Pham Van D", "channel": "WEBSOCKET", "status": "SENT", "attempts": 1, "sentAt": NOW},
-                 {"tier": "PRIMARY", "recipient": "Pham Van D", "channel": "EMAIL", "status": "PENDING", "attempts": 2,
-                  "lastError": "SMTP 451"}],
+       response=[{"kind": "TRANSITION", "tier": "PRIMARY", "recipient": "Pham Van D", "channel": "WEBSOCKET", "status": "SENT", "attempts": 1, "sentAt": NOW},
+                 {"kind": "TRANSITION", "tier": "PRIMARY", "recipient": "Pham Van D", "channel": "EMAIL", "status": "PENDING", "attempts": 2,
+                  "lastError": "SMTP 451"},
+                 {"kind": "STALE", "tier": "OWNER", "recipient": "Pham Van D", "channel": "WEB", "status": "SENT", "attempts": 1, "sentAt": NOW}],
        entity="Incident", steps=["Read alert_deliveries"], controller="IncidentsController",
        service="IncidentsQueryService", call="alerts(id, caller)", seq=["Svc->>DB: SELECT alert_deliveries"]),
 ]

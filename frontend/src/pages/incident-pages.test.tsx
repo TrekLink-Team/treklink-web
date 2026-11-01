@@ -52,6 +52,7 @@ const TRAIL = [
 ];
 const ALERTS = [
   {
+    kind: 'TRANSITION',
     tier: 'PRIMARY',
     recipient: 'Pham Van D',
     channel: 'WEBSOCKET',
@@ -61,6 +62,7 @@ const ALERTS = [
     lastError: null,
   },
   {
+    kind: 'TRANSITION',
     tier: 'PRIMARY',
     recipient: null,
     channel: 'API_EVENT',
@@ -70,6 +72,7 @@ const ALERTS = [
     lastError: null,
   },
   {
+    kind: 'TRANSITION',
     tier: 'MANAGER',
     recipient: 'Tran Van B',
     channel: 'EMAIL',
@@ -514,7 +517,9 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     // A step with no note prints no extra paragraph: the heading line and the reason line only.
     expect(rows[0].querySelectorAll('p')).toHaveLength(2);
     const note = rows[2].querySelectorAll('p')[2];
-    expect(note.textContent).toBe('Two rangers are on the north trail\nRadio check every 15 minutes');
+    expect(note.textContent).toBe(
+      'Two rangers are on the north trail\nRadio check every 15 minutes',
+    );
     expect(note.className).toContain('whitespace-pre-wrap');
   });
 
@@ -558,6 +563,15 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(within(log).getByText(/does not undo the incident's state change/)).toBeTruthy();
     fireEvent.click(within(log).getByRole('button', { name: 'Refresh' }));
     await waitFor(() => expect(gets('/incidents/inc-1/alerts')).toBe(2));
+  });
+
+  it('names a device-silent delivery in the alert log (MSG40)', async () => {
+    detail({}, { alerts: () => Promise.resolve([{ ...ALERTS[0], kind: 'STALE', tier: 'OWNER' }]) });
+    renderAt('/o/incidents/inc-1', MANAGER);
+    const log = await screen.findByRole('region', { name: 'Alert deliveries' });
+    expect(
+      await within(log).findByText(/^Device silent, OWNER, Pham Van D, Live alert/),
+    ).toBeTruthy();
   });
 
   it('shows the empty trail and the empty alert log', async () => {

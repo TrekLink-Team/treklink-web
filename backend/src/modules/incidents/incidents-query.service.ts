@@ -1,6 +1,13 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AlertChannel, AlertStatus, Incident, IncidentState, Prisma } from '@prisma/client';
+import {
+  AlertChannel,
+  AlertKind,
+  AlertStatus,
+  Incident,
+  IncidentState,
+  Prisma,
+} from '@prisma/client';
 import { subject } from '@casl/ability';
 import { Caller, PolicyAbility } from '../../common/decorators/access.decorator';
 import {
@@ -101,8 +108,10 @@ export interface TransitionView {
 }
 
 // One row of the alert delivery log (api-design 14). `recipient` is null for an organization
-// API event, which has no person.
+// API event, which has no person. `kind` tells an SOS transition alert (`TRANSITION`) from the
+// device-silent alert (`STALE`, MSG40, REQ-EVT-12).
 export interface AlertDeliveryView {
+  kind: AlertKind;
   tier: string;
   recipient: string | null;
   channel: AlertChannel;

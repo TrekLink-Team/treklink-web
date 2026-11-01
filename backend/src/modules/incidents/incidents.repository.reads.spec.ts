@@ -149,6 +149,9 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       }),
     );
+    // The kind tells an SOS alert from the device-silent one (api-design 14).
+    const [query] = prisma.alertDelivery.findMany.mock.calls[0] as [{ select: { kind?: boolean } }];
+    expect(query.select.kind).toBe(true);
   });
 
   it('reads the latest ACKNOWLEDGED transition for MSG27', async () => {
