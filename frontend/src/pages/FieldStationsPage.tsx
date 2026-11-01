@@ -11,12 +11,12 @@ import {
   type CreatedFieldStation,
   type FieldStation,
 } from '../entities/organization/fieldStations';
+import { queueText, StatusCell, VersionCell } from '../entities/organization/fieldStationUi';
 import { ApiError } from '../shared/api/apiClient';
-import { formatDate, formatDateTime } from '../shared/lib/format';
+import { formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import {
   Alert,
-  Badge,
   Button,
   buttonClasses,
   Card,
@@ -43,26 +43,6 @@ const errorText = (failure: unknown): string =>
 const megabytes = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} MB`;
 
 const operatingSystem = (os: string) => (os.startsWith('windows') ? 'Windows' : os.startsWith('mac') ? 'macOS' : os.startsWith('linux') ? 'Linux' : os);
-
-const queueText = (station: FieldStation) =>
-  station.queueDepth
-    ? `${station.queueDepth.p0} / ${station.queueDepth.p1} / ${station.queueDepth.p2} / ${station.queueDepth.p3}`
-    : 'No data yet';
-
-const VersionCell: React.FC<{ station: FieldStation }> = ({ station }) => (
-  <span className="flex flex-wrap items-center gap-2">
-    <span className="font-mono">{station.version ?? 'Not reported'}</span>
-    {!station.revokedAt &&
-      (station.outdated ? <Badge tone="attention">Outdated</Badge> : <Badge tone="done">Current</Badge>)}
-  </span>
-);
-
-const StatusCell: React.FC<{ station: FieldStation }> = ({ station }) =>
-  station.revokedAt ? (
-    <Badge tone="ended">Revoked {formatDate(station.revokedAt)}</Badge>
-  ) : (
-    <Badge tone="active">Active</Badge>
-  );
 
 // The release card (api-design 26). Its own query: a 503 RELEASE_UNAVAILABLE leaves the table usable.
 // RELEASE_UNAVAILABLE means no release is published on this server (no FIELD_STATION_RELEASE_DIR), a

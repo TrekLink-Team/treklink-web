@@ -6,8 +6,8 @@
 | Task | `specs/frontend/tasks.md` 3.5 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
-| Routes | `/o/field-stations` (`specs/frontend/design.md` §2) |
-| Roles | Org Manager: the page with Create Field Station and Revoke. Org Operator: the same page read only, with the release and its download, without Create and Revoke. TrekLink Staff and Admin: no route here; they read station health on the system health page (task 9.3) and revoke through a compliance case action (task 3.6, `design.md` §4.1). |
+| Routes | `/o/field-stations` (`specs/frontend/design.md` §2); `/t/field-stations` for TrekLink Staff and Admin |
+| Roles | Org Manager: the page with Create Field Station and Revoke. Org Operator: the same page read only, with the release and its download, without Create and Revoke. TrekLink Staff and Admin: the TrekLink view `/t/field-stations` below (W29, 2026-11-01), since both hold `fieldStation.read` and `fieldStation.revoke`; a compliance case action (task 3.6) stays a second path. |
 | Use case, FRs, story | UC-06, UC-42; FR-EVT-13, FR-EVT-14, FR-EVT-18; US-UC06, US-UC42 |
 | Requirements | `specs/organizations/requirements.md` REQ-UBI-03, REQ-EVT-09, REQ-EVT-11, REQ-ERR-06, AC-06, AC-08 |
 | Wireframe | Figure 1 below, `3-5-fieldstationspage.svg` |
@@ -116,3 +116,16 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: no event, the query keys and the refetch rule are stated
 - [x] Traceability: UC-06, UC-42, FR-EVT-13, FR-EVT-14, FR-EVT-18, US-UC06, US-UC42
 - [x] One primary action per screen; status is text as well as colour (§8 items 1 and 3)
+
+## TrekLink view (`/t/field-stations`)
+
+Added 2026-11-01 by KhoaDD under D-078 (W29), after the audit found Revoke unreachable for TrekLink
+Staff and Admin although both hold `fieldStation.revoke`.
+
+| | |
+|---|---|
+| Rows | Every station of every `ACTIVE` or `SUSPENDED` organization: organizations api-design 02 (page of 100) for the organizations, then api-design 23 per organization, joined in the client. The API has no cross-organization list; a pending, rejected or closed organization has no station that can connect. |
+| Columns | Organization (code and legal name), Station (name and username), Version with its badge, Last sync, Queue, Status; the same cells as the organization's page |
+| Filter | Organization: All organizations (default) or one, which reads that organization's list only |
+| Row action | Revoke, on a row with `revokedAt` null: `StateChangeDialog` titled "Revoke Field Station {name}?", an alert dialog with the required reason (api-design 25 requires it of TrekLink callers), then the server message as a toast and the organization's list refetched |
+| No bulk | A revoke is rare and each needs its own reason; no selection |
