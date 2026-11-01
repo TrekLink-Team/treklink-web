@@ -55,6 +55,13 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Not done**: applying the standard to the pages (W29); the error summary component; `AccountMenu` onto `Menu`
   - _Requirements: REQ-UBI-04, NFR-USE-03_
 
+- [ ] 1.7 Apply the UI standard: admin state changes, bulk selection, the missing admin pages (W29, KhoaDD under D-078, 2026-11-01)
+  - **Files**: `shared/ui/{BulkAction.tsx,bulkSequence.ts}`; `widgets/DeviceActions/*`; pages Fleet, DeviceDetail, Accounts, DamageCharges, Maintenance, OrganizationReview, ContractApproval, Contracts, ContractDetail, StaffIncidents, Incidents, Billing, Invoices, SyncStatus, FieldStations and the new StaffFieldStations (`/t/field-stations`); widgets InvoiceTable, InvoiceDetailView, AuthorityReports; backend `devices.controller.ts` `PATCH /api/devices/:id`
+  - **Do**: row actions from `StateChangeMenu` or `RowAction` lists with only the allowed transitions per role (UI standard §3); bulk bar and `BulkActionDialog` on Fleet, Accounts, Damage charges and Maintenance approvals; the hand-built tables onto `DataTable` with Pagination and sorting where the API sorts (gateway-sync events only); the device firmware edit; a TrekLink field stations view with Revoke
+  - **Partly done** (2026-11-01, KhoaDD under D-078): everything in the Do line is built, with each screen's rules recorded in its ui-design file (3-2, 3-5, 4-2, 4-3, 5-2, 5-3, 6-1, 6-4, 7-1, 8-1, 8-2, 8-3, 9-5). Open: the device page's own retire dialog still hand-built (the row uses `StateChangeDialog`); `window.confirm` on discard in the contract reject and cancel dialogs, the holder dialog and the counter payment dialog; pagination on API Keys, Members, Field Stations and Parameters is not added because those APIs answer whole lists (Parameters one page of 100); the organization dashboard tables; the error summary component and `AccountMenu` onto `Menu` (task 1.6 open points)
+  - **Test**: `BulkAction.test.tsx` (5), Fleet (+4), Accounts (+2), DamageCharges (+3), Maintenance (+2), OnboardingPages (+4), ContractApproval (+2), Contracts (3, new), StaffFieldStations (3, new), StaffIncidents (+1), SyncStatus (+1), InvoiceTable (2, new); `a11y.spec.ts` on the demo seed with `/t/field-stations` added: 48 passed
+  - _Requirements: REQ-UBI-04, NFR-USE-03_
+
 ## Phase 2: Public and auth pages
 
 - [x] 2.1 Sign-in, forgot, reset, welcome (set password) (owner LongLP)

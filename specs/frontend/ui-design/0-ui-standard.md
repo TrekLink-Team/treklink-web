@@ -3,8 +3,8 @@
 > Written 2026-11-01 by KhoaDD under D-078, after the leader judged the UI below industry standard at
 > the 2026-11-01 demo (list tables without checkboxes or bulk actions, state changes hard to reach,
 > inconsistent practice). Binding for every screen of this folder and every component of
-> `frontend/src/shared/ui`. The shared pieces it names are built (task 1.6 of `../tasks.md`); applying
-> them to the pages is the next task (W29). Where a screen file disagrees with this standard, this
+> `frontend/src/shared/ui`. The shared pieces it names are built (task 1.6 of `../tasks.md`) and were
+> applied to the admin and list pages by W29 (task 1.7, open points listed there). Where a screen file disagrees with this standard, this
 > standard wins and the screen file is corrected when next edited.
 >
 > Each rule names its source. "TrekLink" marks a project choice stricter than the source.
@@ -87,6 +87,7 @@ first form that needs it in W29.
 | A list | `DataTable` with `rowLabel`, `bulkActions`, `rowActions`, `rowHref` or `onRowActivate`, `Pagination` | A page-local table with its own checkboxes |
 | A lifecycle change | `StateChangeMenu` with the screen's allowed transitions | Buttons per state, `window.confirm` |
 | A confirmation | `ConfirmDialog` (`irreversible` for alertdialog) or `StateChangeDialog` | "OK" and "Cancel" only |
+| A bulk action | `BulkActionDialog`: the count in the title ("Retire 3 devices?"), one reason or required steps for every row, the single-row endpoint run in sequence (`runInSequence`), then a toast when all succeeded or a summary dialog listing each failed row with the server's message (W29) | A bulk endpoint the API does not have; a silent partial failure |
 | Feedback after an action | `useToast().show(message, { tone, action })` | An alert for a success |
 
 The hand-rolled menu of `AccountMenu.tsx` mixes the profile block into the menu and moves to `Menu`
