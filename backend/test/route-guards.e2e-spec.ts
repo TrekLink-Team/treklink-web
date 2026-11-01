@@ -40,6 +40,10 @@ const PUBLIC_ROUTES = new Set([
   'GET /plans',
   'POST /organizations/register',
   'POST /payments/sepay/webhook',
+  // The mosquitto-go-auth hooks (gateway-sync api-design 01 and 02): no user token, gated by
+  // MQTT_AUTH_HOOK_SECRET in BrokerHookSecretGuard instead, and 404 while it is unset.
+  'POST /internal/mqtt/user',
+  'POST /internal/mqtt/acl',
   // The sandbox test accounts (specs/demo api-design 05), routed only while DEMO_TEST_ACCOUNTS_ENABLED
   // loads DemoAccountsModule (D-089).
   ...(demoTestAccountsEnabled(process.env) ? ['GET /demo/accounts'] : []),

@@ -69,6 +69,11 @@ export enum ErrorCode {
   // Channel key rotation and compliance cases (screen 3.6: api-design 27 to 32).
   POLICE_REFERENCE_REQUIRED = 'POLICE_REFERENCE_REQUIRED',
 
+  // gateway-sync (specs/gateway-sync/design.md §6): the broker hooks of api-design 01 and 02.
+  BROKER_SECRET = 'BROKER_SECRET',
+  CREDENTIAL_REJECTED = 'CREDENTIAL_REJECTED',
+  TOPIC_DENIED = 'TOPIC_DENIED',
+
   // monitoring (specs/monitoring/design.md §6)
   CURSOR_EXPIRED = 'CURSOR_EXPIRED',
 

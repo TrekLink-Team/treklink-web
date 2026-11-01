@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { OrganizationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -29,10 +29,12 @@ export interface StationIdentity {
   revokedAt: Date | null;
 }
 
-// What `gateway-sync` needs to accept or refuse a connection (the broker check, task 3.1).
+// What `gateway-sync` needs to accept or refuse a connection (the broker check, task 3.1): a station
+// whose organization is `CLOSED` is refused (gateway-sync api-design 01).
 export interface StationCredential {
   id: string;
   organizationId: string;
+  organizationStatus: OrganizationStatus;
   mqttUsername: string;
   secretHash: string;
   revokedAt: Date | null;
@@ -159,11 +161,11 @@ export class FieldStationsRepository {
     });
   }
 
-  findByUsername(
+  async findByUsername(
     mqttUsername: string,
     client: Client = this.prisma,
   ): Promise<StationCredential | null> {
-    return client.fieldStation.findUnique({
+    const row = await client.fieldStation.findUnique({
       where: { mqttUsername },
       select: {
         id: true,
@@ -171,8 +173,12 @@ export class FieldStationsRepository {
         mqttUsername: true,
         secretHash: true,
         revokedAt: true,
+        organization: { select: { status: true } },
       },
     });
+    if (!row) return null;
+    const { organization, ...credential } = row;
+    return { ...credential, organizationStatus: organization.status };
   }
 
   async updateHealth(
