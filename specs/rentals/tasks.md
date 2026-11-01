@@ -90,6 +90,13 @@
   - _Story: US-UC14_
   - **Done** (2026-10-30, KhoaDD under D-078, dry run defect 5): built as above, no new permission or error code. Unit-tested (`handover.service.spec.ts`, `handover.controller.spec.ts`, `contracts.repository.calls.spec.ts`, devices `devices.provisioning.spec.ts`); `test/rentals.e2e-spec.ts` refuses it to an Org Manager (403) and without a valid version (400); `test/contracts-http.db-spec.ts` row 19 on a local Postgres 16: the undo answers 200 with `contractVersion`, clears the unit, keeps the history row, then `STALE_VERSION`, `DEVICE_NOT_PROVISIONED`, `DEVICE_NOT_ON_CONTRACT` and `INVALID_STATE_TRANSITION` on an `ACTIVE` contract. The counter's Undo is frontend task 5.4
 
+- [ ] 2.7 Availability and a hold at request (owner KhoaDD, under D-078)
+  - **Files**: `contracts.service.ts` (`request`), `contract-decisions.service.ts` (`approve`, `reject`, `expireHold`), `first-invoice.ts`, `request-hold-expiry.job.ts`, `contracts.repository.ts`, `contracts.controller.ts`, `rentals.module.ts`; migration `20261101200000_rentals_request_hold` (`holdExpiresAt`, `rentals.requestHoldHours`)
+  - **Do**: design §2.1. The request reserves through `DevicesService.reserve` (409 `INSUFFICIENT_DEVICES`, nothing created), inserts the rows, creates term 1, issues the first invoice through `billing` and sets `holdExpiresAt`; approval keeps held units (REQ-ERR-11 on a different `deviceIds` set) and reserves as before for a contract that holds none; rejection releases and voids, answering `paidVnd`; `rentals.requestHoldExpiry` cancels an unpaid expired hold as `SYSTEM` (`HOLD_EXPIRED`). api-design 01, 03, 04 and 05 and devices api-design 24 updated
+  - **Test**: unit tests of the request, approval, rejection and the job; on Postgres, AC-08 (two requests for the last units) and AC-09 (expiry, paid and unpaid)
+  - _Requirements: REQ-EVT-01, REQ-EVT-02, REQ-EVT-03, REQ-EVT-17, REQ-ERR-01, REQ-ERR-11, AC-08, AC-09, D-092 rule 1_
+  - _Story: US-UC15, US-UC16_
+
 ## Phase 3: Terms and end of contract (MF-05)
 
 - [x] 3.1 Notice and term rollover (owner LongLP)

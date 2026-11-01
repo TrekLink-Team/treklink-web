@@ -63,6 +63,7 @@ No body.
     "returnDueAt": null,
     "version": 4,
     "handoverAppointmentAt": "2026-10-25T02:00:00Z",
+    "holdExpiresAt": null,
     "terms": [
       {
         "seq": 1,
@@ -101,6 +102,7 @@ No body.
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
+| holdExpiresAt | When the hold of a request expires unpaid (D-092); kept after the decision as history; null for a contract requested before D-092 | datetime | `null` |
 | devices[].resetAt | First reset of the unit at or after this row's check-in and before the unit's next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload | datetime | `2026-10-30T03:05:00.000Z` |
 | devices[].inspection | Last inspection recorded against this row (api-design 16): `result` PASSED, DAMAGED or FAILED, and `at`; null when none | object | `null` |
 | devices[].provisionedKeyVersion | The channel key version the unit carries for this contract's organization (api-design 09), null when it holds none of it; the counter keeps provisioning after a reload | int | `1` |

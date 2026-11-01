@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Requests a plan: monthly, or a day plan of a configured length; one hardware variant; a quantity at or above the minimum order quantity; a start date. Prices are snapshotted now, so a later price change does not affect this contract (FR-CFG-02). The organization must be `ACTIVE`.
+Requests a plan: monthly, or a day plan of a configured length; one hardware variant; a quantity at or above the minimum order quantity; a start date. Prices are snapshotted now, so a later price change does not affect this contract (FR-CFG-02). The organization must be `ACTIVE`. Since D-092 rule 1 the request holds its devices at once: in the same transaction it reserves the quantity of `AVAILABLE` units (the approval's row-lock query), creates term 1 and issues the first invoice, whose first line (the holding fee, or the day-plan fee) is the deposit. The hold lasts `rentals.requestHoldHours`; an unpaid hold then expires and the contract is cancelled (rentals REQ-EVT-17). Too few units is 409 `INSUFFICIENT_DEVICES` and nothing is created, so two organizations racing for the last units are served first come, first served (REQ-UBI-02). The form shows the count of devices api-design 24 first.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
 | --- | --- |
 | POST | /api/contracts |
 | Permission | Org Manager: own |
-| Traces | UC-15, FR-CON-01, FR-CON-02, FR-CON-07, FR-BILL-01, FR-BILL-02, BR-01, BR-02, E01-2, E01-3, MSG13, MSG14 |
+| Traces | UC-15, FR-CON-01, FR-CON-02, FR-CON-07, FR-BILL-01, FR-BILL-02, BR-01, BR-02, BR-03, E01-1, E01-2, E01-3, MSG11, MSG13, MSG14, D-092 |
 
 ## Request sample
 
@@ -62,7 +62,11 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
     "status": "REQUESTED",
     "statusChangedAt": "2026-10-20T03:15:00.000Z",
     "handedOverAt": null,
-    "currentTerm": null,
+    "currentTerm": {
+      "seq": 1,
+      "startsAt": "2026-10-25T02:00:00Z",
+      "endsAt": "2026-11-25T02:00:00Z"
+    },
     "endsAt": null,
     "noticeGivenAt": null,
     "returnDueAt": null,
@@ -70,13 +74,21 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
     "quote": {
       "firstPaymentVnd": 2250000,
       "termFeeVnd": 4500000
-    }
+    },
+    "holdExpiresAt": "2026-10-23T03:00:00Z",
+    "heldDevices": 10
   },
   "isSuccess": true,
   "statusCode": 201,
-  "message": "Request sent. TrekLink will confirm availability and your handover appointment."
+  "message": "Request sent. Your devices are held; TrekLink will confirm your handover appointment."
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| quote.firstPaymentVnd | The deposit: the holding fee of a monthly plan, or the whole day-plan fee; the first line of the invoice issued now | int | `2250000` |
+| holdExpiresAt | When an unpaid hold is released and the request cancelled (request time + rentals.requestHoldHours) | datetime | `2026-10-23T03:00:00Z` |
+| heldDevices | Units held for this request, always the quantity | int | `10` |
 
 ## Validation
 
@@ -221,6 +233,23 @@ Requests a plan: monthly, or a day plan of a configured length; one hardware var
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>Fewer AVAILABLE devices of the variant than requested; nothing is created (MSG11) (<code>INSUFFICIENT_DEVICES</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INSUFFICIENT_DEVICES"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "Only 7 treklink-v3 devices are available. Lower the quantity or choose another variant."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -261,20 +290,29 @@ flowchart TB
     E6["Return 404 NOT_FOUND"]
     D6 -->|yes| E6
     E6 --> X6((End))
+    D7{"Fewer AVAILABLE devices of the variant than requested; nothing is created (MSG11)?"}
+    D6 -->|no| D7
+    E7["Return 409 INSUFFICIENT_DEVICES"]
+    D7 -->|yes| E7
+    E7 --> X7((End))
     P0["Lock the organization row FOR SHARE in the request transaction and require it ACTIVE"]
-    D6 -->|no| P0
+    D7 -->|no| P0
     P1["Validate quantity, day-plan length and start date"]
     P0 --> P1
     P2["Require an active hardware variant"]
     P1 --> P2
     P3["Snapshot price, premium and holding ratio from billing"]
     P2 --> P3
-    P4["Insert the contract REQUESTED"]
+    P4["Insert the contract REQUESTED with holdExpiresAt"]
     P3 --> P4
-    P5["Notify TrekLink Staff"]
+    P5["SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity, move them to RESERVED, insert contract_devices"]
     P4 --> P5
+    P6["Create term 1 from the requested start date and issue its invoice through billing"]
+    P5 --> P6
+    P7["Notify TrekLink Staff"]
+    P6 --> P7
     OK["Return 201"]
-    P5 --> OK
+    P7 --> OK
     OK --> Z((End))
 ```
 
@@ -288,12 +326,17 @@ sequenceDiagram
     participant Svc as ContractsService
     participant DB as Postgres
     participant Org as OrganizationsService
-    participant Bill as PricingService (billing)
+    participant Bill as PricingService, InvoicesService (billing)
+    participant Dev as DevicesService
     C->>Ctl: POST /api/contracts
     Ctl->>Svc: request(dto, caller)
     Svc->>Org: lockActive(orgId, tx), SELECT organizations FOR SHARE
     Svc->>Bill: snapshot(variantId, tx, at)
     Svc->>DB: INSERT rental_contracts, contract_transitions
+    Svc->>Dev: reserve(variant, quantity, at, tx)
+    Dev->>DB: SELECT ... FOR UPDATE SKIP LOCKED
+    Svc->>DB: INSERT contract_devices, contract_terms
+    Svc->>Bill: issueTermInvoice or issueDayPlanInvoice(contract, term, tx)
     Svc-->>Ctl: result
     Ctl-->>C: 201 envelope
 ```

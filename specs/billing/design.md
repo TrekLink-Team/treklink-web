@@ -137,7 +137,7 @@ what remains due, and any excess stays on that payment and is logged for Staff.
 | Export | Used by |
 |---|---|
 | `PricingService.snapshot(variantId, tx?)`, 404 when no price is in effect | rentals |
-| `InvoicesService.issueTermInvoice(contract, term, tx)`, `issueDayPlanInvoice(contract, tx)` | rentals |
+| `InvoicesService.issueTermInvoice(contract, term, tx)`, `issueDayPlanInvoice(contract, tx)` | rentals: the first invoice inside the request transaction since D-092 rule 1 (inside the approval for a contract requested before it), later terms at rollover. The first line, the holding fee or the day-plan fee, is the deposit the request's hold waits for; its due date is unchanged (the term start), because the hold expiry, not the line, decides how long the units wait (rentals design §2.1). Staff record it at the counter (REQ-EVT-10) or the Manager pays it through SePay before approval |
 | `ChargesService.chargeLate(contract, device, checkedInAt, actorId, tx)`, `chargeDamage(contract, inspection, actorId, tx)`; `actorId` is null for SYSTEM | rentals |
 | `ChargesService.chargeLoss(contract, device, lostAt, tx)` and `adjustLoss(contract, device, decision, amountVnd, reason, actor, tx, settledAt)` (an `ADJUSTMENT` line for a reduced or waived loss, due at the settlement time, never an edit of the `LOSS` line, FR-BILL-11, BR-39), called from this module's provider of the `devices` port `LOSS_CASE_LISTENERS` (`onConfirmed` for `RENTER` custody, `onSettled`) | devices, through the port (D-045) |
 | `ChargesService.settleCancellation(contract, tx)` | rentals |

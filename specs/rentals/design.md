@@ -44,10 +44,10 @@ erDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> REQUESTED : Manager requests
-    REQUESTED --> APPROVED : Staff approve, devices reserved
-    REQUESTED --> REJECTED : Staff reject
-    REQUESTED --> CANCELLED : cancelled
+    [*] --> REQUESTED : Manager requests, devices held
+    REQUESTED --> APPROVED : Staff approve, held devices kept
+    REQUESTED --> REJECTED : Staff reject, devices released
+    REQUESTED --> CANCELLED : cancelled, or unpaid hold expired
     APPROVED --> CANCELLED : cancelled before handover
     APPROVED --> ACTIVE : first payment and handover signed
     ACTIVE --> ENDING : monthly notice given
@@ -73,6 +73,7 @@ transaction. No edge outside D-035 is needed.
 |---|---|---|---|
 | `REQUESTED` | `APPROVED`, `REJECTED` | approve, reject | Staff |
 | `REQUESTED`, `APPROVED` | `CANCELLED` | cancel | Manager, Staff |
+| `REQUESTED` | `CANCELLED` | unpaid hold past `holdExpiresAt` (reason `HOLD_EXPIRED`) | `SYSTEM` |
 | `APPROVED` | `ACTIVE` | handover | Staff |
 | `ACTIVE` | `ENDING` | notice (monthly) | Manager |
 | `ACTIVE` | `RETURN_DUE` | day plan end | `SYSTEM` |
@@ -84,14 +85,41 @@ transaction. No edge outside D-035 is needed.
 
 `returnDueAt` is the day-plan end, or the current term's end for an `ENDING` contract.
 
+### 2.1 The hold at request (D-092 rule 1)
+
+A request holds its devices from the moment it is created, so an organization learns at once whether
+the stock covers it and two organizations never leave Staff to arbitrate the last units.
+
+| Moment | Devices | Money | Contract |
+|---|---|---|---|
+| Request | `ContractsService.request` reserves the quantity through `DevicesService.reserve` (the approval's code, `FOR UPDATE SKIP LOCKED`) and inserts one live `ContractDevice` row each, in the request transaction; short stock is 409 `INSUFFICIENT_DEVICES` and the whole transaction rolls back, so no contract, code, row, term or invoice remains | term 1 and its invoice are created now (§3); the first line, the holding fee or the day-plan fee, is the deposit | `REQUESTED`, `holdExpiresAt` = request time + `rentals.requestHoldHours` |
+| Approval | the held units are kept; `deviceIds`, when sent, must equal the held set (REQ-ERR-11) | nothing new | `APPROVED`, `reservationExpiresAt` from the appointment as before |
+| Rejection | released to `AVAILABLE` | `ChargesService.settleCancellation` voids the unpaid first-invoice lines; a paid deposit is reported as `paidVnd` and refunded outside TrekLink | `REJECTED` |
+| Cancellation | released, as before | unpaid lines voided, a paid holding fee retained, as before | `CANCELLED` |
+| Hold expiry, deposit unpaid | released | unpaid lines voided | `CANCELLED` by `SYSTEM`, reason and `cancelReason` `HOLD_EXPIRED` |
+| Hold expiry, deposit paid | kept | nothing | stays `REQUESTED` until Staff approve or reject |
+
+The race of two requests for the last units is settled the way two approvals are (§8, Figure 3): the
+row locks skip units another transaction holds, the loser counts too few and rolls back, and the
+partial unique index on live rows (REQ-UBI-02) refuses a second live row if anything slipped through.
+The organization row is locked `FOR SHARE` before the devices, as before, so lock order is unchanged.
+
+**Contracts requested before D-092.** A `REQUESTED` contract created before migration
+`20261101200000_rentals_request_hold` holds no device, has no term and no invoice, and has a null
+`holdExpiresAt`. Approval detects it by the absence of live rows and reserves, creates term 1 and
+issues the invoice as it did before; the expiry job never selects it.
+
+The availability the request form shows is devices api-design 24 (`device.availability.org`, counts
+only, leader ruling 2026-11-01 to reuse it). Held units are `RESERVED`, so they are not counted.
+
 ---
 
 ## 3. Terms and money
 
 Terms are anchored to the **requested start date** at 09:00 UTC+7, not to the handover moment, so an
 invoice's due dates are known when it is issued and never move (REQ-UBI-02 of `billing`). A **monthly**
-contract's term *n* runs from the start date plus *n−1* calendar months to plus *n* months. At approval
-term 1 is created and `billing.issueTermInvoice(contract, term, tx)` issues one invoice with two dated
+contract's term *n* runs from the start date plus *n−1* calendar months to plus *n* months. At the
+request (D-092 rule 1; at approval for a contract requested before it, §2.1) term 1 is created and `billing.issueTermInvoice(contract, term, tx)` issues one invoice with two dated
 lines (D-037): the holding fee (ratio × monthly unit price × quantity) due at the term start, and the
 balance due at the term end. The handover may happen on the start date or later; a later handover does not
 move the term, so Staff reschedule by rejecting and re-requesting before approval if the date slips. A
@@ -99,7 +127,7 @@ handover before the start date is refused. At each term end the rollover job, in
 the term and either opens the next with its invoice (no notice) or moves the contract to `RETURN_DUE`
 (after notice).
 
-A **day plan** has one term from the start date for its length, created at approval; its invoice has one `DAY_PLAN_FEE` line due at the start date, paid at the latest at the counter.
+A **day plan** has one term from the start date for its length, created at the request (§2.1); its invoice has one `DAY_PLAN_FEE` line due at the start date, paid at the latest at the counter.
 
 Every charge is computed by `billing` from the contract's snapshot; this module never does money
 arithmetic.
@@ -177,6 +205,7 @@ before signing. Input fields are added, never repurposed.
 | `rentals.termRollover` | terms with `endsAt <= cutoff` and status `OPEN`; day plans past their end; a contract reaching `RETURN_DUE` with every device back or lost continues to `RETURNED` | each term closed by compare-and-set; a re-run finds nothing |
 | `rentals.overdueAndDefault` | `RETURN_DUE` past grace at `cutoff` to `OVERDUE`; `OVERDUE` past threshold at `cutoff` to `DEFAULTED` and `organizations.suspendForDefault` | state compare-and-set |
 | `rentals.reservationReminders` | `APPROVED` past `reservationExpiresAt`, either audience not yet reminded | separate Manager and Staff acceptance flags in transition reasons |
+| `rentals.requestHoldExpiry` (every 10 minutes, `0 */10 * * * *`) | `REQUESTED` with `holdExpiresAt <= now` and the first payment not paid in full: release, void, `CANCELLED` (§2.1, REQ-EVT-17) | one transaction per contract under its row lock, rechecking the status, the expiry and the payment; a re-run finds it `CANCELLED` |
 
 The daily batch cutoff is the most recent occurrence of `rentals.termRolloverHourLocal` in fixed
 UTC+7. Before today's configured hour, it is yesterday's boundary; at that hour it becomes today's
@@ -251,6 +280,11 @@ Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOv
 
 ## 8. Sequence: approval under contention
 
+The same sequence settles two requests for the last units since D-092 (§2.1): `ContractsService.request`
+calls the same `DevicesService.reserve`, and the loser's transaction rolls back before any contract row
+is committed.
+
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -282,7 +316,7 @@ waiting and then over-allocating.
 
 ## 9. Testing strategy
 
-Lifecycle matrix; the approval race on Postgres; term rollover across month ends (31 to 30 days) and
+Lifecycle matrix; the approval race on Postgres; the request race and the hold expiry on Postgres (D-092, `test/rentals-request-hold.db-spec.ts`); term rollover across month ends (31 to 30 days) and
 across a scheduler outage; overdue and default timing with a fake clock; close guards through stubbed
 ports; holder labels erased on close.
 

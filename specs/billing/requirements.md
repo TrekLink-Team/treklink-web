@@ -42,8 +42,8 @@
 ### Event-Driven
 
 - **REQ-EVT-01**: WHEN `rentals` asks for a price snapshot, the system SHALL return the variant's current monthly price, `billing.dayPremium` and `billing.holdingFeeRatio`. [FR-CFG-02]
-- **REQ-EVT-02**: WHEN `rentals` issues a monthly term, the system SHALL create one `TERM` invoice with a `HOLDING_FEE` line (ratio × monthly unit price × quantity) due at the term start and a `TERM_BALANCE` line (the remainder) due at the term end. [FR-BILL-01, BR-06, D-037]
-- **REQ-EVT-03**: WHEN `rentals` issues a day plan, the system SHALL create one `DAY_PLAN` invoice with one line of monthly unit price ÷ 30 × premium × days × quantity, due at the start date and paid at the latest at the counter. [FR-BILL-02, BR-07]
+- **REQ-EVT-02**: WHEN `rentals` issues a monthly term (term 1 at the request since D-092 rule 1, later terms at rollover), the system SHALL create one `TERM` invoice with a `HOLDING_FEE` line (ratio × monthly unit price × quantity) due at the term start and a `TERM_BALANCE` line (the remainder) due at the term end. [FR-BILL-01, BR-06, D-037]
+- **REQ-EVT-03**: WHEN `rentals` issues a day plan (at the request since D-092 rule 1), the system SHALL create one `DAY_PLAN` invoice with one line of monthly unit price ÷ 30 × premium × days × quantity, due at the start date and paid at the latest at the counter. [FR-BILL-02, BR-07]
 - **REQ-EVT-04**: WHEN `rentals` checks a device in after `returnDueAt` plus `rentals.returnGraceHours`, the system SHALL add a `LATE_FEE` line of `billing.lateFeePerDevicePerDayVnd` per started day after the due time, for that device, to the closing invoice. [FR-BILL-03, BR-23]
 - **REQ-EVT-05**: WHEN `rentals` records a `DAMAGED` inspection, the system SHALL price each damage code from the schedule (variant row first, generic row otherwise) as one `DamageCharge`; IF the total exceeds `billing.damageApprovalThresholdVnd`, THEN it SHALL be `PENDING_APPROVAL`, otherwise `APPROVED`. [FR-BILL-04, BR-24]
 - **REQ-EVT-06**: WHEN an Admin who did not record the inspection approves, reduces or waives a pending charge, the system SHALL record the decision and its final amount; an approved or reduced amount SHALL become a `DAMAGE` line on the closing invoice. [FR-BILL-04, BR-24, MSG30]
@@ -51,7 +51,7 @@
 - **REQ-EVT-08**: WHEN an Org Manager pays online, the system SHALL create a `PENDING` SePay payment with a fresh reference and an expiry of `billing.sepayPaymentTtlMinutes`, and return the VietQR for the sandbox account. [FR-BILL-07]
 - **REQ-EVT-09**: WHEN SePay's webhook arrives with the configured API key and a content holding an issued reference, the system SHALL, in one transaction, confirm the payment, apply its amount to the invoice's unpaid lines oldest due first, update the invoice status, and answer `{ "success": true }` (D-038); a webhook with no issued reference SHALL be logged for Staff and answered the same way. [FR-BILL-07, NFR-SEC-07]
 - **REQ-EVT-10**: WHEN Staff record a cash or bank-transfer payment at the counter with a receipt reference, the system SHALL record it `CONFIRMED` and apply it the same way (MSG20). [UC-22, FR-BILL-08]
-- **REQ-EVT-11**: WHEN `rentals` cancels a contract before handover, the system SHALL void the unpaid lines of its first invoice with a zero-sum `ADJUSTMENT`, keeping any holding fee paid. [FR-CON-04, E01-7]
+- **REQ-EVT-11**: WHEN `rentals` cancels a contract before handover, rejects a request, or cancels a request whose hold expired unpaid, the system SHALL void the unpaid lines of its first invoice with a zero-sum `ADJUSTMENT`, keeping any holding fee paid; a deposit paid on a rejected request is refunded outside TrekLink (leader ruling 2026-11-01). [FR-CON-04, E01-7, D-092 rule 1]
 
 ### State-Driven
 

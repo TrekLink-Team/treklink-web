@@ -20,17 +20,29 @@ ENDPOINTS = [
     ep("POST", "/api/contracts", "Request a rental contract", "Org Manager: own",
        "Requests a plan: monthly, or a day plan of a configured length; one hardware variant; a quantity "
        "at or above the minimum order quantity; a start date. Prices are snapshotted now, so a later price "
-       "change does not affect this contract (FR-CFG-02). The organization must be `ACTIVE`.",
-       "UC-15, FR-CON-01, FR-CON-02, FR-CON-07, FR-BILL-01, FR-BILL-02, BR-01, BR-02, E01-2, E01-3, MSG13, MSG14",
+       "change does not affect this contract (FR-CFG-02). The organization must be `ACTIVE`. Since D-092 rule 1 "
+       "the request holds its devices at once: in the same transaction it reserves the quantity of `AVAILABLE` "
+       "units (the approval's row-lock query), creates term 1 and issues the first invoice, whose first line "
+       "(the holding fee, or the day-plan fee) is the deposit. The hold lasts `rentals.requestHoldHours`; an "
+       "unpaid hold then expires and the contract is cancelled (rentals REQ-EVT-17). Too few units is 409 "
+       "`INSUFFICIENT_DEVICES` and nothing is created, so two organizations racing for the last units are "
+       "served first come, first served (REQ-UBI-02). The form shows the count of devices api-design 24 first.",
+       "UC-15, FR-CON-01, FR-CON-02, FR-CON-07, FR-BILL-01, FR-BILL-02, BR-01, BR-02, BR-03, E01-1, E01-2, E01-3, MSG11, MSG13, MSG14, D-092",
        body=[["planType", "`MONTHLY` or `DAY`", "enum", "yes", "`MONTHLY`"],
              ["dayPlanDays", "One of rentals.dayPlanLengths; DAY only", "int", "cond.", "`4`"],
              ["hardwareVariantId", "Active variant", "uuid", "yes", f"`{VARIANT_ID}`"],
              ["quantity", "At least rentals.minOrderQuantity", "int", "yes", "`10`"],
              ["requestedStartDate", "Handover day, not in the past", "date", "yes", "`2026-10-25`"]],
        sample={"planType": "MONTHLY", "hardwareVariantId": VARIANT_ID, "quantity": 10, "requestedStartDate": "2026-10-25"},
-       response={**CONTRACT, "status": "REQUESTED", "handedOverAt": None, "currentTerm": None, "version": 0,
-                 "quote": {"firstPaymentVnd": 2250000, "termFeeVnd": 4500000}},
-       status=201, message="Request sent. TrekLink will confirm availability and your handover appointment.",
+       response={**CONTRACT, "status": "REQUESTED", "handedOverAt": None, "version": 0,
+                 "quote": {"firstPaymentVnd": 2250000, "termFeeVnd": 4500000},
+                 "holdExpiresAt": "2026-10-23T03:00:00Z", "heldDevices": 10},
+       fields=[["quote.firstPaymentVnd", "The deposit: the holding fee of a monthly plan, or the whole day-plan fee; "
+                "the first line of the invoice issued now", "int", "`2250000`"],
+               ["holdExpiresAt", "When an unpaid hold is released and the request cancelled "
+                "(request time + rentals.requestHoldHours)", "datetime", "`2026-10-23T03:00:00Z`"],
+               ["heldDevices", "Units held for this request, always the quantity", "int", "`10`"]],
+       status=201, message="Request sent. Your devices are held; TrekLink will confirm your handover appointment.",
        # In the order ContractsService.request checks them: the organization first, inside the transaction.
        errors=[(409, "ORGANIZATION_NOT_ACTIVE", "The organization is PENDING, REJECTED, SUSPENDED or CLOSED",
                 "Your organization cannot request devices while it is SUSPENDED."),
@@ -39,16 +51,24 @@ ENDPOINTS = [
                (400, "VALIDATION_FAILED", "requestedStartDate is before today",
                 "requestedStartDate must not be in the past."),
                (404, "NOT_FOUND", "The hardware variant is unknown or inactive",
-                "Active hardware variant not found.")],
+                "Active hardware variant not found."),
+               (409, "INSUFFICIENT_DEVICES", "Fewer AVAILABLE devices of the variant than requested; nothing is created (MSG11)",
+                "Only 7 treklink-v3 devices are available. Lower the quantity or choose another variant.")],
        steps=["Lock the organization row FOR SHARE in the request transaction and require it ACTIVE",
               "Validate quantity, day-plan length and start date",
               "Require an active hardware variant", "Snapshot price, premium and holding ratio from billing",
-              "Insert the contract REQUESTED",
+              "Insert the contract REQUESTED with holdExpiresAt",
+              "SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity, move them to RESERVED, insert contract_devices",
+              "Create term 1 from the requested start date and issue its invoice through billing",
               "Notify TrekLink Staff"],
        controller="ContractsController", service="ContractsService", call="request(dto, caller)",
-       participants=[["Org", "OrganizationsService"], ["Bill", "PricingService (billing)"]],
+       participants=[["Org", "OrganizationsService"], ["Bill", "PricingService, InvoicesService (billing)"],
+                     ["Dev", "DevicesService"]],
        seq=["Svc->>Org: lockActive(orgId, tx), SELECT organizations FOR SHARE", "Svc->>Bill: snapshot(variantId, tx, at)",
-            "Svc->>DB: INSERT rental_contracts, contract_transitions"]),
+            "Svc->>DB: INSERT rental_contracts, contract_transitions",
+            "Svc->>Dev: reserve(variant, quantity, at, tx)", "Dev->>DB: SELECT ... FOR UPDATE SKIP LOCKED",
+            "Svc->>DB: INSERT contract_devices, contract_terms",
+            "Svc->>Bill: issueTermInvoice or issueDayPlanInvoice(contract, term, tx)"]),
 
     ep("GET", "/api/contracts", "List contracts", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover queue is `APPROVED`.",
@@ -63,13 +83,15 @@ ENDPOINTS = [
     ep("GET", "/api/contracts/:id", "Contract detail", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Returns the contract with its terms, committed devices (with holder labels) and balance summary.",
        "UC-55, FR-AUTH-11, FR-CON-07",
-       path=[C_PATH], response={**CONTRACT, "handoverAppointmentAt": "2026-10-25T02:00:00Z",
+       path=[C_PATH], response={**CONTRACT, "handoverAppointmentAt": "2026-10-25T02:00:00Z", "holdExpiresAt": None,
                                 "terms": [{"seq": 1, "startsAt": "2026-10-25T02:00:00Z",
                                                        "endsAt": "2026-11-25T02:00:00Z", "status": "OPEN"}],
                                 "devices": [{**CDEV, "resetAt": None, "inspection": None,
                                              "provisionedKeyVersion": None}],
                                 "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
-       fields=[["devices[].resetAt", "First reset of the unit at or after this row's check-in and before the unit's "
+       fields=[["holdExpiresAt", "When the hold of a request expires unpaid (D-092); kept after the decision as history; "
+                "null for a contract requested before D-092", "datetime", "`null`"],
+               ["devices[].resetAt", "First reset of the unit at or after this row's check-in and before the unit's "
                 "next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
                 "`2026-10-30T03:05:00.000Z`"],
                ["devices[].inspection", "Last inspection recorded against this row (api-design 16): `result` "
@@ -85,10 +107,13 @@ ENDPOINTS = [
             "Svc->>Bill: balanceSummary(id)"]),
 
     ep("POST", "/api/contracts/:id/approve", "Approve a contract", "TrekLink Staff, TrekLink Admin",
-       "Reserves exactly the requested number of `AVAILABLE` devices of the variant in one transaction "
-       "holding row locks, moves them to `RESERVED` and the contract to `APPROVED`, and sets the "
-       "reservation expiry. Fewer available devices refuse the approval: never over-allocated "
-       "(FR-CON-03, BR-03, E01-1). Staff may name the devices; otherwise the oldest-checked ones are taken.",
+       "Confirms the handover appointment and moves the contract to `APPROVED` with the reservation expiry. "
+       "Since D-092 rule 1 the request already holds its devices, its term 1 and its first invoice, and "
+       "approval keeps them; `deviceIds`, when sent, must name exactly the held units (rentals REQ-ERR-11). "
+       "A contract requested before D-092 holds none: approval then reserves exactly the requested number "
+       "of `AVAILABLE` devices of the variant in one transaction holding row locks, creates term 1 and "
+       "issues its invoice, as before; fewer available devices refuse it, never over-allocated "
+       "(FR-CON-03, BR-03, E01-1). Staff may name those devices; otherwise the oldest-checked ones are taken.",
        "UC-16, UC-17, FR-CON-03, FR-CON-11, FR-DEV-01, BR-03, BR-04, E01-1, MSG11",
        path=[C_PATH],
        body=[["deviceIds", "Optional explicit choice, length = quantity", "uuid[]", "no", "`[...]`"],
@@ -105,13 +130,16 @@ ENDPOINTS = [
                 "The handover appointment is in the past. Choose a time from now on."),
                (400, "VALIDATION_FAILED", "deviceIds is not exactly the contract quantity of distinct ids",
                 "Choose exactly 10 distinct devices."),
+               (400, "VALIDATION_FAILED", "The request holds its devices and deviceIds names another set (REQ-ERR-11)",
+                "This request already holds TL-0041, TL-0042. Swap a unit at the counter instead."),
                (409, "DEVICE_NOT_AVAILABLE", "A chosen device is not an AVAILABLE unit of the contract's variant",
                 "TL-0042 is not an available treklink-v3 device. Choose available units of the variant."),
                (409, "INSUFFICIENT_DEVICES", "Fewer AVAILABLE devices of the variant than requested",
                 "Only 7 treklink-v3 devices are available. Lower the quantity or choose another variant.")],
        steps=["Lock the contract",
               "Check the version, then the REQUESTED state, then that handoverAt is not in the past, then any chosen deviceIds",
-              "SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity",
+              "Held devices: keep them, with term 1 and the invoice of the request",
+              "No held devices (requested before D-092): SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity",
               "Move the devices to RESERVED, insert contract_devices",
               "Create term 1 from the requested start date and issue its invoice through billing",
               "Move the contract to APPROVED",
@@ -123,13 +151,21 @@ ENDPOINTS = [
             "Svc->>Bill: issueFirstInvoice(contract, tx)", "Svc->>DB: UPDATE contract, INSERT transition, COMMIT"]),
 
     ep("POST", "/api/contracts/:id/reject", "Reject a contract request", "TrekLink Staff, TrekLink Admin",
-       "Rejects a `REQUESTED` contract with a reason shown to the Manager (MSG16).", "UC-17, D-035, MSG16",
+       "Rejects a `REQUESTED` contract with a reason shown to the Manager (MSG16). Since D-092 the request "
+       "holds devices and a first invoice: in the same transaction they are released to `AVAILABLE` and the "
+       "unpaid first-invoice lines are voided through billing. A deposit already paid is answered as "
+       "`paidVnd` and refunded outside TrekLink (leader ruling 2026-11-01).", "UC-17, D-035, MSG16, D-092",
        path=[C_PATH], body=[["reason", "Reason", "string", "yes", "`Variant out of stock until November`"], VERSION],
        sample={"reason": "treklink-v4 is out of stock until November.", "expectedVersion": 0},
-       response={**CONTRACT, "status": "REJECTED"}, message="Contract rejected", entity="Contract",
-       errors=[state_409("contract", "APPROVED"), STALE], steps=["Require REQUESTED", "Move to REJECTED", "Notify the Manager"],
+       response={**CONTRACT, "status": "REJECTED", "paidVnd": 0}, message="Contract rejected", entity="Contract",
+       fields=[["paidVnd", "Deposit already paid on the request, to refund outside TrekLink; 0 when none", "int", "`0`"]],
+       errors=[state_409("contract", "APPROVED"), STALE],
+       steps=["Require REQUESTED", "Move to REJECTED", "Release held contract_devices, move devices to AVAILABLE",
+              "Void unpaid first-invoice lines through billing", "Notify the Manager"],
        controller="ContractsController", service="ContractLifecycleService", call="reject(id, dto, actor)",
-       seq=["Svc->>DB: UPDATE contract, INSERT transition"]),
+       participants=[["Dev", "DevicesService"], ["Bill", "BillingService"]],
+       seq=["Svc->>DB: UPDATE contract, INSERT transition", "Svc->>Dev: release(deviceIds, tx)",
+            "Svc->>Bill: settleCancellation(contract, tx)"]),
 
     ep("POST", "/api/contracts/:id/cancel", "Cancel before handover", "Org Manager: own; TrekLink Staff, TrekLink Admin",
        "Cancels a `REQUESTED` or `APPROVED` contract before handover and releases its devices to "

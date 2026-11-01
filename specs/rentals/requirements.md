@@ -3,7 +3,7 @@
 **User Story**: As an **Org Manager**, I want to request devices by monthly or day plan, collect them at the TrekLink counter, give notice when I am done and return them, so that my organization rents exactly what it needs; and as **TrekLink Staff**, I want every handover and return recorded so that no device is ever double-allocated or lost track of.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-01 (request to handover), MF-05 (term end to close)
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-045 (loss cases, replacement on a running contract; supersedes D-038 rule 3). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-045 (loss cases, replacement on a running contract; supersedes D-038 rule 3); D-092 rule 1 (availability and a hold at request, supervisor feedback of 2026-11-01). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
 
 ---
 
@@ -47,9 +47,9 @@
 
 ### Event-Driven
 
-- **REQ-EVT-01**: WHEN an Org Manager of an `ACTIVE` organization requests a plan with a quantity of at least `rentals.minOrderQuantity`, a configured day-plan length when the plan is `DAY`, an active variant and a start date not in the past, the system SHALL create the contract `REQUESTED` and notify Staff (MSG14). [FR-CON-01, FR-CON-02]
-- **REQ-EVT-02**: WHEN Staff approve a `REQUESTED` contract, the system SHALL, in one transaction, reserve exactly the requested number of `AVAILABLE` devices of the variant, create term 1 anchored to the requested start date and issue its invoice through `billing`, set `reservationExpiresAt`, and move the contract to `APPROVED`. [FR-CON-03, FR-CON-11]
-- **REQ-EVT-03**: WHEN Staff or the Manager cancel a `REQUESTED` or `APPROVED` contract, the system SHALL release its devices to `AVAILABLE`, have `billing` void the unpaid first-invoice lines while any holding fee paid is retained, and move it to `CANCELLED` (MSG15). [FR-CON-04, E01-7]
+- **REQ-EVT-01**: WHEN an Org Manager of an `ACTIVE` organization requests a plan with a quantity of at least `rentals.minOrderQuantity`, a configured day-plan length when the plan is `DAY`, an active variant and a start date not in the past, the system SHALL, in one transaction, create the contract `REQUESTED`, hold exactly the requested number of `AVAILABLE` devices of the variant (moved to `RESERVED`, one live `ContractDevice` row each), create term 1 anchored to the requested start date, issue its invoice through `billing` (the holding fee, or the day-plan fee, is the deposit), and set `holdExpiresAt` to the request time plus `rentals.requestHoldHours`; after commit it SHALL notify Staff (MSG14). [FR-CON-01, FR-CON-02, D-092 rule 1]
+- **REQ-EVT-02**: WHEN Staff approve a `REQUESTED` contract, the system SHALL, in one transaction, keep the devices the request holds, or, for a contract requested before D-092 that holds none, reserve exactly the requested number of `AVAILABLE` devices of the variant, create term 1 and issue its invoice; set `reservationExpiresAt` from the handover appointment; and move the contract to `APPROVED`. [FR-CON-03, FR-CON-11, D-092 rule 1]
+- **REQ-EVT-03**: WHEN Staff or the Manager cancel a `REQUESTED` or `APPROVED` contract, the system SHALL release its devices to `AVAILABLE`, have `billing` void the unpaid first-invoice lines while any holding fee paid is retained, and move it to `CANCELLED` (MSG15). WHEN Staff reject a `REQUESTED` contract, the system SHALL release the devices it holds and have `billing` void the unpaid first-invoice lines in the same transaction; a deposit already paid is reported as `paidVnd` and refunded outside TrekLink (leader ruling 2026-11-01). [FR-CON-04, E01-7, D-092 rule 1]
 - **REQ-EVT-04**: WHEN Staff record provisioning of a reserved device at the organization's current key version, the system SHALL record it through `devices`. [FR-DEV-05]
 - **REQ-EVT-05**: WHEN Staff complete a handover with the first payment confirmed, the Manager's identity checked, every device provisioned at the current key version and passing its counter check, and the Manager's drawn signature, the system SHALL stamp the signature into the note, store the PDF and its SHA-256, and move the devices to `RENTED` and the contract to `ACTIVE` in one transaction (MSG06). [FR-CON-05, FR-CON-06, BR-09, D-037]
 - **REQ-EVT-06**: WHEN a reserved device fails its counter check, Staff SHALL be able to swap it: it goes to `MAINTENANCE` and another `AVAILABLE` device of the variant is reserved in the same transaction, or the handover is held. [E01-5]
@@ -63,6 +63,7 @@
 - **REQ-EVT-14**: WHEN an approved contract passes `reservationExpiresAt`, the system SHALL remind Staff and the Manager once. [FR-CON-04]
 - **REQ-EVT-15**: WHEN a member sets a holder label on a handed-over device, the system SHALL store it and emit `device.labelChanged`; WHEN the contract closes, the system SHALL erase every label. [FR-CON-14, BR-33]
 - **REQ-EVT-16**: WHEN Staff undo the provisioning record of a `RESERVED` device on an `APPROVED` contract before the handover, with the contract `version` they saw, the system SHALL, in one transaction, clear the unit's key version, key organization and provisioning time through `devices`, keep its `DeviceProvisioning` row, and increase the contract `version`; after commit it SHALL record the audit entry `contract.provisioningUndone`. The counter drops that unit's battery and GPS readings, which live only on the page. [FR-DEV-05, UC-14, dry run 2026-10-30 defect 5]
+- **REQ-EVT-17**: WHEN a `REQUESTED` contract passes `holdExpiresAt` with its first payment (the holding fee, or the day-plan fee) not paid in full, the `rentals.requestHoldExpiry` job SHALL, in one transaction, release its devices to `AVAILABLE`, have `billing` void the unpaid first-invoice lines, and move it to `CANCELLED` as `SYSTEM` with the reason `HOLD_EXPIRED`. A paid deposit keeps the hold until Staff decide. [D-092 rule 1, leader ruling 2026-11-01]
 
 ### State-Driven
 
@@ -71,7 +72,7 @@
 
 ### Unwanted Behaviour
 
-- **REQ-ERR-01**: IF fewer `AVAILABLE` devices exist than requested at approval, THEN the system SHALL refuse with 409 `INSUFFICIENT_DEVICES` (MSG11) and reserve nothing. [E01-1]
+- **REQ-ERR-01**: IF fewer `AVAILABLE` devices exist than requested at request time, or at the approval of a contract that holds none, THEN the system SHALL refuse with 409 `INSUFFICIENT_DEVICES` (MSG11) and create and reserve nothing. [E01-1, D-092 rule 1]
 - **REQ-ERR-02**: IF the quantity is below the minimum or the day length is not configured, THEN the system SHALL return 400 `BELOW_MOQ` (MSG13) or `DAY_PLAN_LENGTH`. [E01-2]
 - **REQ-ERR-03**: IF the organization is not `ACTIVE` at request, THEN the system SHALL return 409 `ORGANIZATION_NOT_ACTIVE`. [E01-3]
 - **REQ-ERR-04**: IF the handover lacks the first payment, provisioning, a passing check, a battery acknowledgement or a Manager signer, THEN the system SHALL refuse with the matching code (MSG19, MSG23, MSG24) and change nothing. [E01-4]
@@ -81,6 +82,7 @@
 - **REQ-ERR-07**: IF a scanned tag is not on the contract, THEN the system SHALL return 409 `DEVICE_NOT_ON_CONTRACT` (MSG12).
 - **REQ-ERR-09**: IF Staff approve with a handover appointment before the current minute, THEN the system SHALL return 400 `VALIDATION_FAILED` and reserve nothing. [FR-CON-03]
 - **REQ-ERR-10**: IF an undo of provisioning carries a stale `version`, names a contract not `APPROVED`, names a unit not on the contract, names a unit not `RESERVED` or already handed over, or names a unit that carries no key version of the contract's organization, THEN the system SHALL return 409 `STALE_VERSION`, `INVALID_STATE_TRANSITION`, `DEVICE_NOT_ON_CONTRACT` (MSG12), `INVALID_STATE_TRANSITION` or `DEVICE_NOT_PROVISIONED` respectively, checked in that order, and change nothing. [FR-DEV-05]
+- **REQ-ERR-11**: IF Staff name `deviceIds` when approving a contract that already holds its devices, and the set differs from the held set, THEN the system SHALL return 400 `VALIDATION_FAILED` and change nothing; a failing held unit is swapped at the counter (REQ-EVT-06). [D-092 rule 1]
 
 ---
 
@@ -89,6 +91,7 @@
 | Property | Target | Source |
 |---|---|---|
 | Concurrent approvals | never over-allocated across 50 parallel approvals of one variant | E01-1, TC-03 |
+| Concurrent requests | never over-allocated across parallel requests of one variant; the loser creates nothing | E01-1, D-092 rule 1 |
 | Handover body | `RENTALS_HANDOVER_BODY_LIMIT`, default `2mb`, for the signature image | REQ-ERR-07 of `platform` |
 | Scheduler restart | term rollover and overdue jobs catch up from stored dates after downtime | NFR-AVL-02 |
 
@@ -113,6 +116,8 @@ on the Vercel production, design §4.1, D-090 amendment), and the issuer of the 
 - **AC-05**: `OVERDUE` for `rentals.defaultAfterDays`: `DEFAULTED` and the organization `SUSPENDED`. (TC-26)
 - **AC-06**: Closing with an open incident on one device returns 409 `OPEN_INCIDENTS`. (TC-27)
 - **AC-07**: After closing, every holder label is null. (TC-33)
+- **AC-08**: Two Managers of two organizations request the last 5 v3 devices at once; one request is created holding the 5 units, the other gets 409 `INSUFFICIENT_DEVICES` and leaves no contract, row, invoice or reserved unit behind. (D-092 rule 1)
+- **AC-09**: A request whose deposit is unpaid at `holdExpiresAt` is `CANCELLED` with reason `HOLD_EXPIRED` by the next `rentals.requestHoldExpiry` run, its 5 units `AVAILABLE` again and its unpaid first-invoice lines voided; a paid one stays `REQUESTED` holding its units. (D-092 rule 1)
 
 ---
 
