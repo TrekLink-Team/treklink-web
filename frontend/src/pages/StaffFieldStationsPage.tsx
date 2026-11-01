@@ -13,6 +13,7 @@ import { StatusCell, VersionCell } from '../entities/organization/fieldStationUi
 import { apiClient } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import {
+  Alert,
   DataTable,
   PageHeader,
   Select,
@@ -77,6 +78,17 @@ export const StaffFieldStationsPage: React.FC = () => {
     })),
   );
 
+  // organizations api-design 02 answers one page of 100: say so when there are more, rather than
+  // leaving the stations of the others out without notice (review of treklink-web#284).
+  const unread = organizations.data ? organizations.data.totalCount - organizations.data.items.length : 0;
+  // Retry reads again whatever failed: the organizations, and each station list that failed.
+  const retry = () => {
+    void organizations.refetch();
+    lists.forEach((list) => {
+      if (list.error) void list.refetch();
+    });
+  };
+
   const refresh = (id: string) => queryClient.invalidateQueries({ queryKey: fieldStationKeys.list(id) });
 
   const columns: Column<StationRow>[] = [
@@ -131,6 +143,11 @@ export const StaffFieldStationsPage: React.FC = () => {
           </label>
         }
       />
+      {unread > 0 && (
+        <Alert tone="warning" className="mb-3">
+          {`Showing the stations of the first ${organizations.data?.items.length ?? 0} organizations; ${unread} more are not read here. Find an organization on its own page.`}
+        </Alert>
+      )}
       <DataTable
         caption="Field Stations of every organization"
         columns={columns}
@@ -138,7 +155,7 @@ export const StaffFieldStationsPage: React.FC = () => {
         rowId={(row) => row.id}
         rowLabel={(row) => `${row.name} of ${row.organization.code}`}
         loading={loading}
-        error={failure ? <ErrorState error={failure} onRetry={() => void organizations.refetch()} /> : undefined}
+        error={failure ? <ErrorState error={failure} onRetry={retry} /> : undefined}
         empty={{
           title: 'No Field Stations',
           description: organizationId

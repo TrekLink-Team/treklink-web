@@ -32,6 +32,7 @@ import {
   type Column,
   type RowAction,
 } from '../shared/ui';
+import { lockedWhileSelecting } from '../shared/ui/lockedWhileSelecting';
 import { ErrorState } from '../shared/ui/bits';
 import { messageOf } from '../shared/ui/errors';
 import {
@@ -363,7 +364,7 @@ export const AccountsPage: React.FC = () => {
                 align="start"
                 trigger={<span>Actions</span>}
                 triggerClassName="h-11 border border-line-strong bg-surface px-4"
-                items={rowActions(row)}
+                items={lockedWhileSelecting(rowActions(row), selected.size > 0)}
               />
             </div>
           </div>
