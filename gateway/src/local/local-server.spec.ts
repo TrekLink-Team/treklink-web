@@ -276,6 +276,16 @@ describe('Field Station local API (gateway-sync task 5.2)', () => {
     ).toBe(200);
   });
 
+  it('answers 400 to a malformed request path and keeps serving (review of #239)', async () => {
+    const server = await start(stubSources());
+    for (const path of ['//', '///']) {
+      const reply = await call(server.port, path);
+      expect(reply.status).toBe(400);
+      expect(json(reply)).toMatchObject({ isSuccess: false, statusCode: 400 });
+    }
+    expect((await call(server.port, '/local/nodes')).status).toBe(200);
+  });
+
   it('answers 500 in the envelope when a source throws', async () => {
     const sources = stubSources();
     sources.queue.depthByTier = () => {
