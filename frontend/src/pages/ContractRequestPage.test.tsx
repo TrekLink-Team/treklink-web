@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../app/providers/useAuth';
+import { ApiError } from '../shared/api/apiClient';
 import type { SessionUser } from '../entities/session/model';
 import { ContractRequestPage } from './ContractRequestPage';
 
@@ -42,7 +43,13 @@ const PLANS = {
 
 const renderWith = (status: string) => {
   api.mockImplementation((endpoint: string) =>
-    Promise.resolve(endpoint === '/plans' ? PLANS : { id: 'org-1', status }),
+    Promise.resolve(
+      endpoint === '/plans'
+        ? PLANS
+        : endpoint === '/devices/availability'
+          ? []
+          : { id: 'org-1', status },
+    ),
   );
   return render(
     <AuthContext.Provider value={{ user: MANAGER, signOut: vi.fn() }}>
@@ -100,5 +107,143 @@ describe('ContractRequestPage discard prompt', () => {
     expect(await screen.findByText('contracts list')).toBeTruthy();
     expect(confirm).not.toHaveBeenCalled();
     confirm.mockRestore();
+  });
+});
+
+// D-092 rule 1 (screen 5.1 amended 2026-11-01): the count of devices api-design 24 beside Quantity,
+// MSG11 above it, and the hold expiry with the deposit after sending.
+describe('ContractRequestPage availability and the hold at request', () => {
+  const REQUESTED = {
+    id: 'c-9',
+    code: 'RC-2026-0009',
+    planType: 'MONTHLY',
+    quantity: 5,
+    status: 'REQUESTED',
+    holdExpiresAt: '2026-11-02T03:00:00.000Z',
+    heldDevices: 5,
+    quote: { firstPaymentVnd: 625000, termFeeVnd: 1250000 },
+  };
+  let available = 7;
+  let onRequest: () => unknown = () => REQUESTED;
+
+  const renderActive = () => {
+    api.mockImplementation((endpoint: string) => {
+      if (endpoint === '/plans') return Promise.resolve(PLANS);
+      if (endpoint === '/devices/availability') {
+        return Promise.resolve([{ hardwareVariantId: 'v-3', code: 'treklink-v3', available }]);
+      }
+      if (endpoint === '/quotes') {
+        return Promise.resolve({
+          planType: 'MONTHLY',
+          firstPaymentVnd: 625000,
+          termFeeVnd: 1250000,
+          formula: '250000 x 5 x 0.5',
+        });
+      }
+      if (endpoint === '/contracts') {
+        try {
+          return Promise.resolve(onRequest());
+        } catch (error) {
+          return Promise.reject(error);
+        }
+      }
+      return Promise.resolve({ id: 'org-1', status: 'ACTIVE' });
+    });
+    return render(
+      <AuthContext.Provider value={{ user: MANAGER, signOut: vi.fn() }}>
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <MemoryRouter initialEntries={['/o/contracts/new']}>
+            <Routes>
+              <Route path="/o/contracts/new" element={<ContractRequestPage />} />
+              <Route path="/o/contracts/:id" element={<p>contract page</p>} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </AuthContext.Provider>,
+    );
+  };
+
+  const choose = async (quantity: string) => {
+    const variant = await screen.findByLabelText('Hardware variant');
+    await screen.findByRole('option', { name: /7 available now/ });
+    fireEvent.change(variant, { target: { value: 'v-3' } });
+    fireEvent.change(screen.getByLabelText(/Quantity/), { target: { value: quantity } });
+  };
+
+  beforeEach(() => {
+    available = 7;
+    onRequest = () => REQUESTED;
+  });
+
+  it('shows the count per variant and beside Quantity, and refreshes it on request', async () => {
+    renderActive();
+    await choose('5');
+    expect(await screen.findByText('7 available now')).toBeTruthy();
+    const calls = () =>
+      api.mock.calls.filter(([endpoint]) => endpoint === '/devices/availability').length;
+    const before = calls();
+    available = 4;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText('4 available now')).toBeTruthy();
+    expect(calls()).toBeGreaterThan(before);
+  });
+
+  it('refuses a quantity above the count with MSG11 and stays on step 1', async () => {
+    renderActive();
+    await choose('8');
+    await screen.findByText('7 available now');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(
+      await screen.findByText(
+        'Only 7 V3 devices are available. Lower the quantity or choose another variant.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Plan and devices' })).toBeTruthy();
+  });
+
+  const sendRequest = async () => {
+    renderActive();
+    await choose('5');
+    await screen.findByText('7 available now');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.change(await screen.findByLabelText('Start date (handover day)'), {
+      target: { value: '2099-01-05' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Send request' }));
+  };
+
+  it('after sending, shows the units held, the hold expiry and the deposit due', async () => {
+    await sendRequest();
+    expect(await screen.findByRole('heading', { name: 'Request RC-2026-0009 sent' })).toBeTruthy();
+    const panel = screen.getByRole('status');
+    expect(panel.textContent).toContain('5 V3 devices are held for you until');
+    expect(panel.textContent).toContain('2026');
+    expect(panel.textContent).toContain('Deposit due before then: 625,000 VND, the holding fee.');
+    expect(screen.getByRole('link', { name: 'Open the contract' }).getAttribute('href')).toBe(
+      '/o/contracts/c-9',
+    );
+    expect(screen.getByRole('link', { name: 'Pay the deposit' }).getAttribute('href')).toBe(
+      '/o/invoices?contractId=c-9',
+    );
+  });
+
+  it('puts a 409 INSUFFICIENT_DEVICES under Quantity on step 1 when another organization was first', async () => {
+    onRequest = () => {
+      throw new ApiError(
+        409,
+        'INSUFFICIENT_DEVICES',
+        'Only 2 treklink-v3 devices are available. Lower the quantity or choose another variant.',
+      );
+    };
+    await sendRequest();
+    expect(
+      await screen.findByText(
+        'Only 2 treklink-v3 devices are available. Lower the quantity or choose another variant.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Plan and devices' })).toBeTruthy();
   });
 });

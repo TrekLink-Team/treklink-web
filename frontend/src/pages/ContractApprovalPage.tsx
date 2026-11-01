@@ -139,9 +139,12 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   const [pending, setPending] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [approved, setApproved] = useState<Approved | null>(null);
+  // Since D-092 a request holds its units from the moment it is sent, and approval keeps them; only a
+  // request sent before D-092 (no holdExpiresAt) is reserved at approval and needs the count.
+  const held = Boolean(contract.holdExpiresAt);
   const availability = useAvailability(
     contract.hardwareVariant.id,
-    contract.status === 'REQUESTED',
+    contract.status === 'REQUESTED' && !held,
   );
   const available = availability.data?.find(
     (row) => row.hardwareVariantId === contract.hardwareVariant.id,
@@ -222,23 +225,29 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
       ) : (
         contract.status === 'REQUESTED' && (
           <>
-            <Alert
-              tone={
-                available === undefined
-                  ? 'info'
-                  : available < contract.quantity
-                    ? 'warning'
-                    : 'success'
-              }
-            >
-              {availability.isLoading
-                ? 'Checking availability…'
-                : available === undefined
-                  ? 'Availability is unknown; approval checks it.'
-                  : available < contract.quantity
-                    ? `Only ${available} ${variant} available now.`
-                    : `${available} ${variant} available now; approval reserves ${contract.quantity}.`}
-            </Alert>
+            {held && contract.holdExpiresAt ? (
+              <Alert tone="success">
+                {`This request holds its ${contract.quantity} ${variant} devices; approval keeps them. An unpaid hold ends ${formatDateTime(contract.holdExpiresAt)}.`}
+              </Alert>
+            ) : (
+              <Alert
+                tone={
+                  available === undefined
+                    ? 'info'
+                    : available < contract.quantity
+                      ? 'warning'
+                      : 'success'
+                }
+              >
+                {availability.isLoading
+                  ? 'Checking availability…'
+                  : available === undefined
+                    ? 'Availability is unknown; approval checks it.'
+                    : available < contract.quantity
+                      ? `Only ${available} ${variant} available now.`
+                      : `${available} ${variant} available now; approval reserves ${contract.quantity}.`}
+              </Alert>
+            )}
             {failure && !failure.appointment && (
               <div role="alert" className={ALERT}>
                 {failure.message}
@@ -337,7 +346,11 @@ export const ContractApprovalPage: React.FC = () => {
           contract.organization?.legalName,
         ) &&
         (find.plan === '' || contract.planType === find.plan) &&
-        matchesText(find.variant, variantName(contract.hardwareVariant), contract.hardwareVariant.code),
+        matchesText(
+          find.variant,
+          variantName(contract.hardwareVariant),
+          contract.hardwareVariant.code,
+        ),
     ) ?? [];
   const fields: Record<keyof typeof find, FilterField> = {
     code: { label: 'contract', kind: 'text', value: find.code, onChange: set('code') },

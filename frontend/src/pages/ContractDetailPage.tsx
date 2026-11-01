@@ -283,6 +283,12 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                   <When iso={data.handoverAppointmentAt} />
                 </Fact>
               )}
+              {/* D-092: a request holds its units at once; an unpaid hold ends here and the request is cancelled (rentals REQ-EVT-17). */}
+              {data.status === 'REQUESTED' && data.holdExpiresAt && (
+                <Fact label="Devices held until">
+                  <When iso={data.holdExpiresAt} />
+                </Fact>
+              )}
               {/* The reservation holds the units from approval to the handover (rentals REQ-EVT-02, REQ-EVT-14). */}
               {data.status === 'APPROVED' && data.reservationExpiresAt && (
                 <Fact label="Reservation expires">
