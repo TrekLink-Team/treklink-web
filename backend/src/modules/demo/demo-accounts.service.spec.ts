@@ -12,7 +12,6 @@ import { DemoAccountsService } from './demo-accounts.service';
 import { demoControlsEnabled, demoTestAccountsEnabled } from './demo-flag';
 import { DemoGuardService } from './demo-guard.service';
 import { DemoModule } from './demo.module';
-import { loadSeedModule } from './demo-seed.runner';
 
 const NEON =
   'postgresql://owner:secret@ep-quiet-sky-a1b2c3-pooler.ap-southeast-1.aws.neon.tech/treklink?sslmode=require';
@@ -24,8 +23,7 @@ const ENV = {
   SEED_OPERATOR_PASSWORD: 'Operator-Pass-4',
 };
 
-// The real seed file: its SEEDED_ACCOUNTS and readPasswords.
-const service = () => new DemoAccountsService(loadSeedModule);
+const service = () => new DemoAccountsService();
 
 const refusal = async (work: () => unknown) => {
   try {
@@ -170,7 +168,7 @@ describe('DemoAccountsController', () => {
 
   it('hands the service result to the envelope', () => {
     const list = jest.fn().mockReturnValue({ accounts: [] });
-    const controller = new DemoAccountsController({ list } as unknown as DemoAccountsService);
+    const controller = new DemoAccountsController({ list });
     expect(controller.accounts()).toEqual({ accounts: [] });
     expect(list).toHaveBeenCalledTimes(1);
   });

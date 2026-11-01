@@ -136,7 +136,7 @@ flowchart TB
     E2 --> X2((End))
     P0["Read the SEED_*_PASSWORD variables"]
     D2 -->|no| P0
-    P1["Map the seed's SEEDED_ACCOUNTS"]
+    P1["Map SEEDED_TEST_ACCOUNTS, the compiled copy of the seed list"]
     P0 --> P1
     OK["Return 200"]
     P1 --> OK
@@ -154,8 +154,8 @@ sequenceDiagram
     participant DB as Postgres
     C->>Ctl: GET /api/demo/accounts
     Ctl->>Svc: list()
-    Svc->>Svc: readSeedPasswords(seed, env)
-    Svc->>Svc: seed.SEEDED_ACCOUNTS
+    Svc->>Svc: readTestAccountPasswords(env)
+    Svc->>Svc: SEEDED_TEST_ACCOUNTS
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

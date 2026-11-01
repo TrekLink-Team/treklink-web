@@ -116,6 +116,6 @@ ENDPOINTS.append(ep(
              "Cannot GET /api/demo/accounts"),
             (409, "DEMO_SEED_NOT_CONFIGURED", "A `SEED_*_PASSWORD` variable is missing",
              "Set SEED_ADMIN_PASSWORD before listing the test accounts.")],
-    steps=["Read the SEED_*_PASSWORD variables", "Map the seed's SEEDED_ACCOUNTS"],
+    steps=["Read the SEED_*_PASSWORD variables", "Map SEEDED_TEST_ACCOUNTS, the compiled copy of the seed list"],
     controller="DemoAccountsController", service="DemoAccountsService", call="list()",
-    seq=["Svc->>Svc: readSeedPasswords(seed, env)", "Svc->>Svc: seed.SEEDED_ACCOUNTS"]))
+    seq=["Svc->>Svc: readTestAccountPasswords(env)", "Svc->>Svc: SEEDED_TEST_ACCOUNTS"]))
