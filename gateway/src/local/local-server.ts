@@ -246,7 +246,15 @@ export class LocalServer {
       json(fail(403, `Open the page as http://localhost:${this.boundPort}`));
       return;
     }
-    const url = new URL(req.url ?? '/', `http://${LOCAL_HOST}:${this.boundPort}`);
+    // A malformed request target (`//`, for one) makes `new URL` throw; answer 400 instead of letting the
+    // exception reach the event loop, where nothing catches it and the station would stop.
+    let url: URL;
+    try {
+      url = new URL(req.url ?? '/', `http://${LOCAL_HOST}:${this.boundPort}`);
+    } catch {
+      json(fail(400, 'The request path is not valid'));
+      return;
+    }
     const method = req.method ?? 'GET';
 
     const file = this.page.get(url.pathname);
