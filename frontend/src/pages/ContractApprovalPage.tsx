@@ -151,6 +151,8 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
   // Since D-092 a request holds its units from the moment it is sent, and approval keeps them; only a
   // request sent before D-092 (no holdExpiresAt) is reserved at approval and needs the count.
   const held = Boolean(contract.holdExpiresAt);
+  // Read once when the panel opens (a render stays pure); the panel remounts per contract.
+  const [openedAt] = useState(() => Date.now());
   const availability = useAvailability(
     contract.hardwareVariant.id,
     contract.status === 'REQUESTED' && !held,
@@ -237,7 +239,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
             {held && contract.holdExpiresAt ? (
               // Past its end, an unpaid hold is refused at approval (REQ-ERR-12) and cancelled by the
               // expiry job; a paid one is kept.
-              new Date(contract.holdExpiresAt).getTime() > Date.now() ? (
+              new Date(contract.holdExpiresAt).getTime() > openedAt ? (
                 <Alert tone="success">
                   {`This request holds its ${contract.quantity} ${variant} devices; approval keeps them. An unpaid hold ends ${formatDateTime(contract.holdExpiresAt)}.`}
                 </Alert>
