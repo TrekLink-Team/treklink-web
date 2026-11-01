@@ -218,7 +218,7 @@ queue through its web inbox row.
 5. Otherwise (open, but older than the window): append too. One open incident per device means a new
    episode on an open incident is the same emergency still running.
 
-`onPosition(event, tx)` appends positions of an open incident (`gatewaySync.retroTagGraceSeconds`
+`onPosition(event, tx, history)` appends positions of an open incident (`gatewaySync.retroTagGraceSeconds`
 before the SOS included) and counts cadence for `SUSPECTED` creation. A position joins only an
 episode still running (not `RESOLVED` or `FALSE_ALARM`). An SOS text carries no position on the wire
 (FGT), so the incident's last position comes from these packets: it is set when none is known, and
@@ -226,13 +226,40 @@ moved unless its fix time is older than the stored fix time `lastPositionAt`, so
 packet never overwrites a newer position (PR #114 review). Positions move neither `eventCount` nor
 `lastEventAt`, the SOS correlation anchor.
 
+**Cadence** (REQ-EVT-02, AC-05; 2026-11-01, KhoaDD under D-078). With no incident outside `CLOSED`
+there is no incident row to lock in step 1, so the device's cadence checks take a transaction-scoped
+advisory lock on the device (`IncidentsRepository.lockDeviceCadence`) and look for an open incident
+again; one opened meanwhile is joined as above. Otherwise the position counts:
+
+- The positions counted are the device's stored plotted positions (kind `POSITION`, plotted, with a
+  valid fix), the one handed over included. `field_events` belongs to `gateway-sync`, so the caller
+  answers the read through the `history` argument (`PositionHistory.plottedPositionTimes`, implemented
+  by `IngestionRepository`); `incidents` never reads that table and gains no module edge.
+- Times are occurrence times, not arrival times: a Field Station backlog flushed at once is not a
+  burst, and a burst uploaded late is still one (FR-EVT-15).
+- `incidents.cadenceCount` positions inside `incidents.cadenceWindowSeconds`, both edges included, in
+  a window that contains the position handed over. Whichever position of a burst arrives last
+  completes it, so a burst is found even when its positions arrive out of order.
+- Only positions that occurred after the device's last incident closed (`closedAt`) count, so one
+  burst opens one incident: while it is open its positions join it, and once it is `CLOSED` they
+  never open a second.
+
+A burst creates the incident `SUSPECTED` from `CADENCE_INFERRED` through step 2: `DETECTED` with
+transition 1, then routed by the position's own attribution exactly as an SOS (REQ-EVT-03, §2), so
+it alerts the tiers of §3 or goes `UNROUTED`. `openedByEventId` is the position that completed the
+burst, `firstEventAt` the burst's first position (so later positions of the burst join within the
+retro-tag grace), `lastEventAt` and the last position that completing position. An insert that loses
+to a concurrent SOS joins the winner. A later SOS text joins it through step 4 and upgrades it to
+`CONFIRMED` in place; that changes no state, so `incident.changed` is emitted after commit for the
+queue and the detail.
+
 ---
 
 ## 5. Services and ports
 
 | Export | Used by |
 |---|---|
-| `IncidentIngress.onSos(event, tx)`, `onPosition(event, tx)` | gateway-sync |
+| `IncidentIngress.onSos(event, tx)`, `onPosition(event, tx, history)` | gateway-sync (`history`: its stored positions, for the cadence count) |
 | `IncidentsService.markDeviceStale(deviceId, stale, lastSeenAt, tx)` | monitoring (staleness sweep, in the sweep's transaction) |
 | `IncidentsService.openByDevices(ids)`, `incidentsOfDevice(id)`, `responseTimes(range)`, `alertDeliveryStats()` | monitoring |
 | provider of `CONTRACT_CLOSE_CHECKS` | rentals |
@@ -368,7 +395,7 @@ classDiagram
     }
     class IncidentIngress {
         +onSos(event, tx) Incident
-        +onPosition(event, tx) Incident
+        +onPosition(event, tx, history) Incident
     }
     class RoutingService {
         +route(attribution, at, tx) Route
