@@ -1,8 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
-import { expectToast, publishSos, signIn } from './support/session';
+import { expectToast, publishSos, signIn, statusBadge } from './support/session';
 
-// The Operator screens of MF-03 and MF-04 at 360 x 740 (project `operator-360`, NFR-USE-03): no
+// The Operator screens of MF-03 and MF-04 at 360 x 740 (project `operator-360`, REQ-UBI-03, NFR-UI-01): no
 // horizontal scroll, and each screen's primary action is on screen without scrolling sideways.
 //
 // The incident screens need an open SOS of their own, so this spec publishes one SOS from TL-0009
@@ -84,7 +84,7 @@ test('360 px: SOS banner, Incidents and the incident page (MF-03 steps 2 to 6)',
   await main.getByRole('textbox', { name: /^What is being done/ }).fill('Ranger on the way');
   await expectOnScreen(main.getByRole('button', { name: 'Save response' }), 'Save response');
   await main.getByRole('button', { name: 'Save response' }).click();
-  await expect(main.getByText('Responding').first()).toBeVisible();
+  await expect(statusBadge(main, 'Responding')).toBeVisible();
 
   const outcome = main.getByRole('button', { name: 'Report outcome' });
   await expectOnScreen(outcome, 'Report outcome');
@@ -92,6 +92,6 @@ test('360 px: SOS banner, Incidents and the incident page (MF-03 steps 2 to 6)',
   await main.getByRole('textbox', { name: /^Outcome/ }).fill('Hiker safe, 360 px check');
   await expectOnScreen(main.getByRole('button', { name: 'Resolve incident' }), 'Resolve incident');
   await main.getByRole('button', { name: 'Resolve incident' }).click();
-  await expect(main.getByText('Resolved').first()).toBeVisible();
+  await expect(statusBadge(main, 'Resolved')).toBeVisible();
   await expectNoHorizontalScroll(page, 'Incident page, resolved');
 });

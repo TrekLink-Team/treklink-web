@@ -1,5 +1,17 @@
+import type { APIRequestContext } from '@playwright/test';
 import { expect, test } from './support/fixtures';
-import { appears, definitionOf, expectToast, openFromSidebar, runBackendScript, signIn, vnd } from './support/session';
+import {
+  apiGet,
+  apiToken,
+  appears,
+  definitionOf,
+  expectToast,
+  openFromSidebar,
+  runBackendScript,
+  signIn,
+  titleStatus,
+  vnd,
+} from './support/session';
 
 // MF-05, demo script §6: term end to close on the seeded RC-2026-0002 (TL-0017, TL-0018): notice,
 // term end, check-in, reset and inspection, the closing invoice, close. Optional steps 9 and 10 finish
@@ -13,6 +25,14 @@ import { appears, definitionOf, expectToast, openFromSidebar, runBackendScript, 
 test.describe.configure({ mode: 'serial' });
 
 const CONTRACT = 'RC-2026-0002';
+
+// The contract's status read from the API, for the steps that skip on a seed where an earlier run
+// already moved RC-2026-0002 on (demo:term-end then answers "RC-2026-0002 has no open term.").
+const contractStatus = async (request: APIRequestContext): Promise<string | undefined> => {
+  const token = await apiToken(request, 'staff');
+  const page = await apiGet<{ items: { code: string; status: string }[] }>(request, token, '/contracts?pageSize=100');
+  return page.items.find((contract) => contract.code === CONTRACT)?.status;
+};
 
 const openContractAsStaff = async (page: import('@playwright/test').Page) => {
   await openFromSidebar(page, 'Contracts');
@@ -29,21 +49,27 @@ test('MF-05 step 1: the Manager gives notice', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Balance' })).toBeVisible();
   const give = page.getByRole('button', { name: 'Give notice' });
   test.skip(!(await appears(give, 3_000)), `${CONTRACT} is no longer ACTIVE; MF-05 needs a fresh seed`);
+  await expect(titleStatus(page, 'Active')).toBeVisible();
+  await expect(titleStatus(page, 'Ending')).toHaveCount(0);
   await give.click();
   const dialog = page.getByRole('dialog', { name: `Give notice on ${CONTRACT}?` });
   await dialog.getByRole('button', { name: 'Give notice' }).click();
   await expectToast(page, /^Notice recorded\. The contract ends on .+; 0 VND is due then\.$/);
-  await expect(page.getByText('Ending').first()).toBeVisible();
+  await expect(titleStatus(page, 'Ending')).toBeVisible();
   await expect(page.getByText('Notice given').first()).toBeVisible();
 });
 
-test('MF-05 step 2: the term ends (demo:term-end)', async () => {
+test('MF-05 step 2: the term ends (demo:term-end)', async ({ request }) => {
+  const status = await contractStatus(request);
+  test.skip(status !== 'ENDING', `${CONTRACT} is ${status ?? 'missing'}, not ENDING; MF-05 needs a fresh seed`);
   const output = await runBackendScript('demo:term-end', [CONTRACT]);
   expect(output).toContain(`${CONTRACT}: MONTHLY, ENDING`);
   expect(output).toMatch(/Term rollover: \d+ renewed, 1 to RETURN_DUE, \d+ to RETURNED\./);
 });
 
-test('MF-05 steps 3 to 8: Staff check in, inspect, take the closing payment and close', async ({ page }) => {
+test('MF-05 steps 3 to 8: Staff check in, inspect, take the closing payment and close', async ({ page, request }) => {
+  const status = await contractStatus(request);
+  test.skip(status !== 'RETURN_DUE', `${CONTRACT} is ${status ?? 'missing'}, not RETURN_DUE; MF-05 needs a fresh seed`);
   await signIn(page, 'staff');
 
   // Step 3
@@ -129,9 +155,15 @@ test('MF-05 steps 3 to 8: Staff check in, inspect, take the closing payment and 
 test('MF-05 step 9 (optional): TL-0018 completes maintenance and passes an intake check', async ({ page }) => {
   await signIn(page, 'staff');
   await openFromSidebar(page, 'Maintenance');
-  const row = page.getByRole('row').filter({ hasText: 'TL-0018' }).filter({ visible: true }).first();
-  test.skip(!(await appears(row)), 'no open maintenance on TL-0018 (step 6 did not run on this seed)');
-  await row.getByRole('button', { name: 'Complete' }).click();
+  // An open record offers Complete; a completed one from an earlier run on this seed does not.
+  const complete = page
+    .getByRole('row')
+    .filter({ hasText: 'TL-0018' })
+    .filter({ visible: true })
+    .getByRole('button', { name: 'Complete' })
+    .first();
+  test.skip(!(await appears(complete)), 'no open maintenance on TL-0018 (step 6 did not run on this seed)');
+  await complete.click();
   const dialog = page.getByRole('dialog', { name: 'Complete maintenance for TL-0018' });
   await dialog.getByLabel('Completed').check();
   await dialog.getByRole('textbox', { name: /^Resolution/ }).fill('Casing replaced');
@@ -140,10 +172,14 @@ test('MF-05 step 9 (optional): TL-0018 completes maintenance and passes an intak
   await expect(page.getByText('TL-0018 stays in maintenance until it passes an intake check on its page.')).toBeVisible();
 
   await page.getByRole('link', { name: 'Open TL-0018' }).click();
+  await expect(page).toHaveURL(/\/t\/devices\/[^/]+$/);
+  // The device history already lists "IN_INTAKE to AVAILABLE": only the status badge counts.
+  await expect(titleStatus(page, 'Maintenance')).toBeVisible();
+  await expect(titleStatus(page, 'Available')).toHaveCount(0);
   await page.getByRole('button', { name: 'Record intake check' }).click();
   const intake = page.getByRole('dialog', { name: 'Record intake check' });
   await intake.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('main').getByText('Available').first()).toBeVisible();
+  await expect(titleStatus(page, 'Available')).toBeVisible();
 });
 
 test('MF-05 step 10 (optional): TL-0008 is marked unrepairable, retired and disposed', async ({ page, browser }) => {
@@ -182,7 +218,7 @@ test('MF-05 step 10 (optional): TL-0008 is marked unrepairable, retired and disp
   const retire = admin.getByRole('dialog', { name: 'Retire device TL-0008?' });
   await retire.getByRole('textbox', { name: /^Reason/ }).fill('Unrepairable radio');
   await retire.getByRole('button', { name: 'Retire' }).click();
-  await expect(admin.getByRole('main').getByText('Retired').first()).toBeVisible();
+  await expect(titleStatus(admin, 'Retired')).toBeVisible();
   await admin.getByRole('button', { name: 'Dispose' }).click();
   const dispose = admin.getByRole('dialog', { name: 'Dispose of TL-0008?' });
   await dispose.getByLabel('Key removed').check();
@@ -190,6 +226,6 @@ test('MF-05 step 10 (optional): TL-0008 is marked unrepairable, retired and disp
   await dispose.getByLabel('Owner cleared').check();
   await dispose.getByRole('textbox', { name: /^Method/ }).fill('Certified e-waste recycler');
   await dispose.getByRole('button', { name: 'Dispose' }).click();
-  await expect(admin.getByRole('main').getByText('Disposed').first()).toBeVisible();
+  await expect(titleStatus(admin, 'Disposed')).toBeVisible();
   await adminContext.close();
 });

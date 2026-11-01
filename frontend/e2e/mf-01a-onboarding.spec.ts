@@ -54,9 +54,10 @@ test('MF-01a steps 1 and 2: register the organization', async ({ page }) => {
   await expect(
     page.getByText('Registration received. Visit the TrekLink counter or call us to verify your organization.'),
   ).toBeVisible();
-  const code = page.locator('span.font-mono').filter({ hasText: /^ORG-\d{4}$/ });
-  await expect(code).toBeVisible();
-  orgCode = (await code.innerText()).trim();
+  const codeLine = page.getByRole('paragraph').filter({ hasText: /^Your organization code is ORG-\d{4}\./ });
+  await expect(codeLine).toBeVisible();
+  orgCode = /ORG-\d{4}/.exec(await codeLine.innerText())?.[0] ?? '';
+  expect(orgCode).toMatch(/^ORG-\d{4}$/);
   await expect(page.getByText('The Manager receives an email to set a password.', { exact: false })).toBeVisible();
 });
 

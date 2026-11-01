@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
-import { expectToast, openFromSidebar, signIn, vnd } from './support/session';
+import { expectToast, openFromSidebar, signIn, titleStatus, vnd } from './support/session';
 
 // MF-01, demo script §2b: the Manager requests a contract, Staff approve it and run the counter
 // handover (devices, payment, preview note, signature), then the Manager creates a Field Station
@@ -80,7 +80,7 @@ test('MF-01 steps 1 to 4: the Manager requests five v3 units', async ({ page }) 
   const code = page.getByText(/^RC-\d{4}-\d{4}$/).first();
   await expect(code).toBeVisible();
   contractCode = (await code.innerText()).trim();
-  await expect(page.getByText('Requested').first()).toBeVisible();
+  await expect(titleStatus(page, 'Requested')).toBeVisible();
 });
 
 test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({ page }) => {
@@ -108,8 +108,10 @@ test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({
   reservedTag = /TL-\d{4}/.exec(await reserved.innerText())?.[0] ?? '';
   await expect(page.getByText(/Reservation expires/)).toBeVisible();
 
-  // Step 7
+  // Step 7: the approved contract is not Active yet (the step 12 check below depends on it).
   await page.getByRole('link', { name: 'Open the contract' }).click();
+  await expect(titleStatus(page, 'Approved')).toBeVisible();
+  await expect(titleStatus(page, 'Active')).toHaveCount(0);
   await page.getByRole('link', { name: 'Open the counter' }).click();
   await expect(page.getByRole('heading', { name: `Counter handover: ${contractCode}` })).toBeVisible();
 
@@ -178,7 +180,7 @@ test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({
 
   // Step 12: the contract page and the signed note.
   await page.getByRole('link', { name: 'Open the contract and the handover note' }).click();
-  await expect(page.getByText('Active').first()).toBeVisible();
+  await expect(titleStatus(page, 'Active')).toBeVisible();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download handover note' }).click();
   expect((await download).suggestedFilename()).toBe(`${contractCode}-handover-note.pdf`);

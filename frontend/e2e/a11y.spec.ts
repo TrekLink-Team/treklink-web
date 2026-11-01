@@ -5,8 +5,9 @@ import { apiGet, apiToken, goInApp, signIn, type SeededRole } from './support/se
 
 // axe-core on every route of frontend/src/app/router.tsx that a seeded role reaches (frontend task
 // 10.1, NFR-USE-05): WCAG 2.0 and 2.1, levels A and AA. A violation of impact `serious` or `critical`
-// fails its route unless ALLOWLIST below names the rule and the route with a reason. Every violation
-// found, allowlisted or not, is attached to the route's result as `axe-violations` and printed.
+// fails its route unless an ALLOWLIST entry below names the rule, the route and the element's selector
+// with a reason; an entry that matches nothing fails its route too. Every violating node, allowlisted
+// or not, is attached to the route's result as `axe-violations` and printed.
 //
 // The session is held in memory only, so each role signs in once and moves between routes without a
 // reload (goInApp). A detail route opens a record read from the API; when the seed holds none (a
@@ -20,26 +21,55 @@ const MISSING_ID = '00000000-0000-4000-8000-000000000000';
 interface AllowEntry {
   rule: string;
   route: string;
+  // A CSS selector the violating element must match. Only nodes it matches are allowed; an entry that
+  // matches no violating node on its route fails the route, so a fixed defect cannot leave a stale entry.
+  selector: string;
   reason: string;
+  // For a defect only some records show: the entry is required (and reported stale when it matches
+  // nothing) only while this returns true for the page.
+  requiredWhen?: (page: Page) => Promise<boolean>;
 }
 
-// Known violations, each with the rule, the route pattern as router.tsx writes it, and why it is not
-// fixed in this branch (test work only). Remove an entry when its defect is fixed.
+// The Outcome fact of a resolved incident (IncidentDetailPage.tsx:297): a Fact's div inside one more div.
+const outcomeShown = async (page: Page) => (await page.locator('dt', { hasText: /^Outcome$/ }).count()) > 0;
+
+// Known violations, each with the rule, the route pattern as router.tsx writes it, the element, and why
+// it is not fixed in this branch (test work only). Remove an entry when its defect is fixed.
+const DEVICE_ROW = 'aside[aria-label="Devices"] li > button[aria-label]';
 const ALLOWLIST: AllowEntry[] = [
   {
     rule: 'label-content-name-mismatch',
     route: '/o/map',
-    reason: 'device row aria-label omits the visible battery percentage (LiveMapPage.tsx:132), WCAG 2.5.3',
+    selector: DEVICE_ROW,
+    reason:
+      'the device row aria-label (LiveMapPage.tsx:132) omits the visible battery percentage and the Stale badge, WCAG 2.5.3',
   },
   {
     rule: 'label-content-name-mismatch',
     route: '/t/map',
-    reason: 'same device row as /o/map (LiveMapPage.tsx:132)',
+    selector: DEVICE_ROW,
+    reason: 'the same device row as /o/map (LiveMapPage.tsx:132)',
   },
   {
     rule: 'label-content-name-mismatch',
     route: '/t/admin/audit/sign-ins',
-    reason: 'account filter link is named "Filter by the account of ..." around a visible email (AuthEventsPage.tsx:228)',
+    selector: 'button[aria-label^="Filter by the account of "]',
+    reason:
+      'the account filter button (AuthEventsPage.tsx:228) shows "Filter by this account", which its accessible name "Filter by the account of <email>" does not contain',
+  },
+  {
+    rule: 'definition-list',
+    route: '/o/incidents/:id',
+    selector: 'dl:has(> div > div > dt)',
+    reason: 'the Outcome fact is wrapped in an extra div inside the dl (IncidentDetailPage.tsx:297), shown once an incident is resolved',
+    requiredWhen: outcomeShown,
+  },
+  {
+    rule: 'dlitem',
+    route: '/o/incidents/:id',
+    selector: 'dl > div > div > dt, dl > div > div > dd',
+    reason: 'the dt and dd of that Outcome fact are not direct children of a dl group (IncidentDetailPage.tsx:297)',
+    requiredWhen: outcomeShown,
   },
 ];
 
@@ -74,7 +104,13 @@ const ROUTES: Record<SeededRole | 'anonymous', RouteCase[]> = {
   operator: [
     { pattern: '/o/map' },
     { pattern: '/o/incidents' },
-    { pattern: '/o/incidents/:id', resolve: firstId('/incidents?pageSize=20') },
+    // A resolved incident when there is one, so its Outcome fact is checked too; else any.
+    {
+      pattern: '/o/incidents/:id',
+      resolve: async (request, token) =>
+        (await firstId('/incidents?pageSize=20', (i) => i.state === 'RESOLVED')(request, token)) ??
+        firstId('/incidents?pageSize=20')(request, token),
+    },
     { pattern: '/o/contracts' },
     { pattern: '/o/contracts/:id', resolve: firstId('/contracts?pageSize=20') },
     { pattern: '/o/devices/:id/telemetry', resolve: async (request) => deviceId('TL-0009')(request, await apiToken(request, 'staff')) },
@@ -109,7 +145,7 @@ const ROUTES: Record<SeededRole | 'anonymous', RouteCase[]> = {
     { pattern: '/t/admin/sync' },
   ],
   admin: [
-    // Routed under Staff, but the page itself answers Admin only (MaintenancePage.tsx:1121).
+    // Staff see MSG26 here by design (ui-design 4-3); the page is checked as the Admin.
     { pattern: '/t/maintenance/approvals' },
     { pattern: '/t/admin/accounts' },
     { pattern: '/t/admin/prices' },
@@ -182,21 +218,48 @@ for (const [role, routes] of Object.entries(ROUTES) as [SeededRole | 'anonymous'
         }
 
         const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
-        const found = results.violations.map((violation) => ({
-          rule: violation.id,
-          impact: violation.impact ?? 'unknown',
-          nodes: violation.nodes.length,
-          help: violation.help,
-          targets: violation.nodes.slice(0, 3).map((node) => node.target.join(' ')),
-          allowed: ALLOWLIST.find((entry) => entry.rule === violation.id && entry.route === route.pattern)?.reason,
-        }));
+        const entries = ALLOWLIST.filter((entry) => entry.route === route.pattern);
+        const used = new Set<AllowEntry>();
+        // The allowlist entry whose rule and selector cover one violating node, if any.
+        const entryFor = async (rule: string, target: unknown[]) => {
+          if (target.length !== 1 || typeof target[0] !== 'string') return undefined;
+          for (const entry of entries.filter((candidate) => candidate.rule === rule)) {
+            const matches = await page.evaluate(
+              ([nodeSelector, allowed]) => document.querySelector(nodeSelector)?.matches(allowed) ?? false,
+              [target[0], entry.selector] as const,
+            );
+            if (matches) return entry;
+          }
+          return undefined;
+        };
+
+        const found = [];
+        for (const violation of results.violations) {
+          for (const node of violation.nodes) {
+            const entry = await entryFor(violation.id, node.target as unknown[]);
+            if (entry) used.add(entry);
+            found.push({
+              rule: violation.id,
+              impact: violation.impact ?? 'unknown',
+              help: violation.help,
+              target: node.target.join(' '),
+              allowed: entry?.reason,
+            });
+          }
+        }
         await testInfo.attach('axe-violations', { body: JSON.stringify(found, null, 2), contentType: 'application/json' });
         for (const v of found) {
-          console.log(`[axe] ${role} ${route.pattern} ${v.rule} ${v.impact} nodes=${v.nodes}${v.allowed ? ' (allowlisted)' : ''} ${v.targets.join(' | ')}`);
-          if (v.allowed) testInfo.annotations.push({ type: 'axe-allowlisted', description: `${v.rule}: ${v.allowed}` });
+          console.log(`[axe] ${role} ${route.pattern} ${v.rule} ${v.impact}${v.allowed ? ' (allowlisted)' : ''} ${v.target}`);
+        }
+        for (const entry of used) {
+          testInfo.annotations.push({ type: 'axe-allowlisted', description: `${entry.rule} on ${entry.selector}: ${entry.reason}` });
         }
         const blocking = found.filter((v) => BLOCKING.has(v.impact) && !v.allowed);
         expect(blocking, `serious or critical axe violations on ${route.pattern}`).toEqual([]);
+        const required = [];
+        for (const entry of entries) if (!entry.requiredWhen || (await entry.requiredWhen(page))) required.push(entry);
+        const stale = required.filter((entry) => !used.has(entry)).map((entry) => `${entry.rule} on ${entry.selector}`);
+        expect(stale, `allowlist entries of ${route.pattern} that match no violation (remove them)`).toEqual([]);
       });
     }
   });
