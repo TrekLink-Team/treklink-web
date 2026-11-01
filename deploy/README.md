@@ -7,7 +7,7 @@ candidate's `health` URL in order, and opens the first candidate's `url` that an
 `timeoutMs`. If none answers, the page stays and shows its unavailable message.
 
 Moving the system, for example to the AWS staging of D-055, means editing this file in a pull request to
-`main`: put the hosted candidate first and keep the demo laptop last. The landing page code does not
+`main`: put the hosted candidate first and keep the demo laptop last. Today the file lists only the demo laptop (D-091). The landing page code does not
 change. GitHub serves the file with a five-minute cache, so a change takes up to five minutes to reach
 visitors.
 
@@ -19,7 +19,13 @@ visitors.
 | `candidates[].health` | The backend's `GET /api/health`, readable from any origin (specs/platform REQ-EVT-04) |
 | `candidates[].timeoutMs` | How long to wait. A loopback candidate needs about 10 s, because Chrome holds a request from a public page to `localhost` on a local network access prompt until the visitor answers it |
 
-## The Vercel production (D-089)
+## The Vercel production (D-089, retired by D-091)
+
+Retired on 2026-11-01 after the supervisor demo (D-091): the deployment is offline, the landing page no
+longer lists it, and work continues on the local stack. The text below records how it was built, for the
+day a hosted environment returns; the Vercel-only switches (`VITE_LIVE_MODE=poll`, `JOBS_TICK_ON_REQUEST`,
+`FIELD_SIMULATOR_ENABLED`, `HANDOVER_NOTE_STORE=database`) default off on every other host.
+
 
 `vercel.json` at the repository root deploys two services in one Vercel project, `treklink-web`, at
 `https://treklink-web.vercel.app`:
@@ -43,10 +49,18 @@ prefix is `api`); everything else goes to the frontend. The frontend calls the A
 production build and only when both database URLs name `treklink_prod`, the database on the Neon
 branch `vercel-prod`. The shared Neon `dev` database is never migrated or seeded from a build.
 
-Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so MF-02 field data
-and the gateway do not reach it), no persistent socket push (screens refresh on reload), scheduled
-jobs run only while an instance is warm, handover notes are written to `/tmp`, and email goes to the
+Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so the gateway does
+not reach it; instead `FIELD_SIMULATOR_ENABLED=true` feeds simulated positions for TL-0009 and TL-0010
+through the normal ingestion path, one batch a minute while requests arrive, and testers are told the
+field data is simulated), no socket (the frontend build sets `VITE_LIVE_MODE=poll`, so screens refetch their live views every 15 seconds and the header says "Auto refresh"), scheduled
+jobs run from a tick after requests (`JOBS_TICK_ON_REQUEST=true` in Production, at most once a
+minute per instance, so a quiet production runs nothing until the next visit), signed handover notes are kept in the database (`HANDOVER_NOTE_STORE=database`, because a function's `/tmp`
+does not outlive one request; notes signed before 2026-11-01 15:30 were not backfilled), and email goes to the
 function log (`MAIL_TRANSPORT=console`) until an SMTP account is configured.
+
+The backend function runs in `sin1` (Singapore, `regions` in `vercel.json`), next to the Neon branch in
+`ap-southeast-1`. In the default `iad1` every query crossed the Pacific, and `GET /api/map/snapshot` took
+about 10 seconds.
 
 Project settings in the Vercel dashboard: framework preset Services, root directory empty (the repository root), Node.js 22.x to match CI. The project's environment variables are set in the Vercel dashboard; secrets (database URLs, JWT
 secrets, seed passwords) are entered by the leader. The list of names lives with the leader, not here.
