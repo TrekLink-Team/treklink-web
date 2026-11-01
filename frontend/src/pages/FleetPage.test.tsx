@@ -8,6 +8,11 @@ import { ApiError } from '../shared/api/apiClient';
 import { FleetPage } from './FleetPage';
 
 const registerDevice = vi.fn();
+const retireDevice = vi.fn();
+const recordReset = vi.fn();
+
+let roles = ['STAFF'];
+vi.mock('../app/providers/useAuth', () => ({ useAuth: () => ({ user: { roles } }) }));
 
 const VARIANT = {
   id: 'v-3',
@@ -64,6 +69,8 @@ vi.mock('../entities/device/api', async (importOriginal) => ({
   },
   useDeviceStatusCounts: () => ({ AVAILABLE: 12, MAINTENANCE: 3 }),
   registerDevice: (...args: unknown[]) => registerDevice(...args),
+  retireDevice: (...args: unknown[]) => retireDevice(...args),
+  recordReset: (...args: unknown[]) => recordReset(...args),
 }));
 
 const renderPage = (path = '/t/fleet') =>
@@ -183,5 +190,87 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     const cards = within(await screen.findByRole('list', { name: 'Devices' }));
     expect(cards.getByText('TL-0042')).toBeTruthy();
     expect(cards.getByText(/Battery 96%/)).toBeTruthy();
+  });
+});
+
+describe('FleetPage row actions and bulk (W29, UI standard §2 and §3)', () => {
+  beforeEach(() => {
+    roles = ['STAFF'];
+    retireDevice.mockReset();
+    recordReset.mockReset();
+  });
+  afterEach(cleanup);
+
+  const fleet = () => [
+    device({ id: 'd-1', assetTag: 'TL-0001', status: 'MAINTENANCE', version: 3 }),
+    device({ id: 'd-2', assetTag: 'TL-0002', status: 'MAINTENANCE', version: 4 }),
+    device({ id: 'd-3', assetTag: 'TL-0003', status: 'RETURNED' }),
+    device({ id: 'd-4', assetTag: 'TL-0004', status: 'RENTED' }),
+    device({ id: 'd-5', assetTag: 'TL-0005', status: 'RETIRED' }),
+  ];
+
+  it('offers only the transitions the state and the role allow', () => {
+    devices = fleet();
+    renderPage();
+    // Staff: intake on MAINTENANCE, reset on RETURNED, nothing on RENTED or RETIRED.
+    expect(screen.getByRole('button', { name: /Record intake check\s+TL-0001/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Retire device\s+TL-0001/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Record reset\s+TL-0003/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /TL-0004$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Dispose device\s+TL-0005/ })).toBeNull();
+    cleanup();
+
+    roles = ['ADMIN'];
+    renderPage();
+    expect(screen.getByRole('button', { name: /Retire device\s+TL-0001/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Dispose device\s+TL-0005/ })).toBeTruthy();
+  });
+
+  it('retires one device with a reason and its loaded version', async () => {
+    roles = ['ADMIN'];
+    devices = fleet();
+    retireDevice.mockResolvedValue(device({ status: 'RETIRED' }));
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Retire device\s+TL-0002/ }));
+    const dialog = within(screen.getByRole('alertdialog', { name: 'Retire device TL-0002?' }));
+    fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Water damage' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Retire device' }));
+    await waitFor(() => expect(retireDevice).toHaveBeenCalledWith('d-2', 'Water damage', 4));
+  });
+
+  it('retires the selected MAINTENANCE devices in sequence and summarises each row', async () => {
+    roles = ['ADMIN'];
+    devices = fleet();
+    retireDevice
+      .mockResolvedValueOnce(device({ status: 'RETIRED' }))
+      .mockRejectedValueOnce(new ApiError(409, 'MAINTENANCE_OPEN', 'Finish the open maintenance record first.'));
+    renderPage();
+    const table = within(screen.getByRole('table', { name: 'Devices' }));
+    fireEvent.click(table.getByLabelText('Select TL-0001'));
+    fireEvent.click(table.getByLabelText('Select TL-0002'));
+    fireEvent.click(table.getByLabelText('Select TL-0004'));
+    // The RENTED unit is selected but not retirable: the bar counts the two that are.
+    fireEvent.click(screen.getByRole('button', { name: 'Retire 2 devices' }));
+    const confirm = within(screen.getByRole('alertdialog', { name: 'Retire 2 devices?' }));
+    fireEvent.change(confirm.getByLabelText(/Reason/), { target: { value: 'End of life' } });
+    fireEvent.click(confirm.getByRole('button', { name: 'Retire 2 devices' }));
+    const summary = await screen.findByRole('dialog', { name: '1 of 2 done' });
+    expect(within(summary).getByText('TL-0002').closest('li')?.textContent).toContain('Finish the open maintenance record first.');
+    expect(retireDevice.mock.calls).toEqual([
+      ['d-1', 'End of life', 3],
+      ['d-2', 'End of life', 4],
+    ]);
+  });
+
+  it('confirms the bulk reset steps before resetting the RETURNED devices', async () => {
+    devices = fleet();
+    recordReset.mockResolvedValue(device({ status: 'RETURNED' }));
+    renderPage();
+    fireEvent.click(within(screen.getByRole('table', { name: 'Devices' })).getByLabelText('Select TL-0003'));
+    fireEvent.click(screen.getByRole('button', { name: 'Record reset for 1 device' }));
+    const confirm = within(screen.getByRole('dialog', { name: 'Record reset for 1 device?' }));
+    for (const step of ['Key removed', 'Node database cleared', 'Owner cleared']) fireEvent.click(confirm.getByLabelText(step));
+    fireEvent.click(confirm.getByRole('button', { name: 'Record reset for 1 device' }));
+    await waitFor(() => expect(recordReset).toHaveBeenCalledWith('d-3'));
   });
 });

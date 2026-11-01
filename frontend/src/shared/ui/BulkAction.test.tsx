@@ -90,3 +90,26 @@ describe('BulkActionDialog', () => {
     expect(useToast.getState().message).toBe('3 of 3 done.');
   });
 });
+
+describe('BulkActionDialog confirmations', () => {
+  it('runs only once every step is ticked', async () => {
+    const run = vi.fn().mockResolvedValue(undefined);
+    render(
+      <BulkActionDialog
+        title="Record reset for 3 devices?"
+        confirmLabel="Record reset for 3 devices"
+        confirmations={['Key removed', 'Owner cleared']}
+        items={ITEMS}
+        run={run}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Key removed'));
+    fireEvent.click(screen.getByRole('button', { name: 'Record reset for 3 devices' }));
+    expect(await screen.findByText('Tick every step for every selected row first.')).toBeTruthy();
+    expect(run).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('Owner cleared'));
+    fireEvent.click(screen.getByRole('button', { name: 'Record reset for 3 devices' }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(3));
+  });
+});

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../app/providers/useAuth';
 import {
+  recordReset,
   registerDevice,
+  retireDevice,
   useDevices,
   useDeviceStatusCounts,
   useVariants,
@@ -23,6 +26,11 @@ import { cn } from '../shared/ui/cn';
 import { formatDateTime } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { useToast } from '../shared/ui/toastStore';
+import { hasAnyRole } from '../shared/lib/permissions';
+import { BulkActionDialog, type BulkItem } from '../shared/ui/BulkAction';
+import { StateChangeDialog, type StateTransition } from '../shared/ui/StateChange';
+import type { RowAction } from '../shared/ui/DataTable';
+import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { ALERT, LINK } from '../shared/ui/styles';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -186,6 +194,52 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
 const statusesOf = (params: URLSearchParams): DeviceStatus[] =>
   params.getAll('status').filter((value): value is DeviceStatus => STATUSES.includes(value as DeviceStatus));
 
+
+// The row actions of screen 4.2 follow the device state machine (devices design §2) and the viewer:
+// Staff and Admin record the intake check (IN_INTAKE, or MAINTENANCE once its record is closed; the
+// server answers MAINTENANCE_OPEN otherwise, since the list does not carry the open record) and the
+// reset of a RETURNED unit; an Admin retires a MAINTENANCE unit (`device.retire`, a reason) and
+// disposes of a RETIRED one (`device.dispose`, the wipe). Every other move belongs to a contract, a
+// maintenance record or a loss case and is made on their pages.
+type FleetAction = 'intake' | 'reset' | 'retire' | 'dispose';
+
+const fleetActionsOf = (device: Device, isAdmin: boolean): FleetAction[] => {
+  switch (device.status) {
+    case 'IN_INTAKE':
+      return ['intake'];
+    case 'MAINTENANCE':
+      return isAdmin ? ['intake', 'retire'] : ['intake'];
+    case 'RETURNED':
+      return ['reset'];
+    case 'RETIRED':
+      return isAdmin ? ['dispose'] : [];
+    default:
+      return [];
+  }
+};
+
+const ACTION_LABEL: Record<FleetAction, string> = {
+  intake: 'Record intake check',
+  reset: 'Record reset',
+  retire: 'Retire device',
+  dispose: 'Dispose device',
+};
+
+const RETIRE: StateTransition<'RETIRED'> = {
+  target: 'RETIRED',
+  label: 'Retire device',
+  destructive: true,
+  needsReason: true,
+  description: 'A retired device leaves the rentable fleet for good. Its history is kept.',
+  successMessage: 'Device retired',
+};
+
+const RESET_STEPS = ['Key removed', 'Node database cleared', 'Owner cleared'];
+
+const devicesText = (count: number) => `${count} ${count === 1 ? 'device' : 'devices'}`;
+
+type BulkKind = 'reset' | 'retire';
+
 const battery = (device: Device) => (device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown');
 const lastSeen = (device: Device) => (device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never');
 
@@ -200,6 +254,12 @@ export const FleetPage: React.FC = () => {
   const [q, setQ] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
   const [registering, setRegistering] = useState(false);
+  const [acting, setActing] = useState<{ action: FleetAction; device: Device } | null>(null);
+  // The selection survives paging and filtering (UI standard §2): the rows chosen on any page.
+  const [selected, setSelected] = useState<Map<string, Device>>(new Map());
+  const [bulk, setBulk] = useState<BulkKind | null>(null);
+  const { user } = useAuth();
+  const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
@@ -232,6 +292,37 @@ export const FleetPage: React.FC = () => {
     setQ('');
     setPageNumber(1);
   };
+
+  const refreshDevices = () => queryClient.invalidateQueries({ queryKey: ['devices'] });
+
+  const actionDone = () => {
+    setActing(null);
+    showToast(MSG03);
+    void refreshDevices();
+  };
+
+  const select = (ids: Set<string>) =>
+    setSelected((current) => {
+      const next = new Map<string, Device>();
+      ids.forEach((id) => {
+        const device = current.get(id) ?? data?.items.find((item) => item.id === id);
+        if (device) next.set(id, device);
+      });
+      return next;
+    });
+
+  const selectedDevices = [...selected.values()];
+  const resettable = selectedDevices.filter((device) => device.status === 'RETURNED');
+  const retirable = isAdmin ? selectedDevices.filter((device) => device.status === 'MAINTENANCE') : [];
+  const itemsOf = (devices: Device[]): BulkItem[] => devices.map((device) => ({ id: device.id, label: device.assetTag }));
+
+  const rowActions = (device: Device): RowAction[] =>
+    fleetActionsOf(device, isAdmin).map((action) => ({
+      key: action,
+      label: ACTION_LABEL[action],
+      destructive: action === 'retire' || action === 'dispose',
+      onSelect: () => setActing({ action, device }),
+    }));
 
   const registered = async (device: Device) => {
     setRegistering(false);
@@ -339,6 +430,30 @@ export const FleetPage: React.FC = () => {
         columns={columns}
         rows={data?.items}
         rowId={(device) => device.id}
+        rowLabel={(device) => device.assetTag}
+        noun={{ one: 'device', other: 'devices' }}
+        selectedIds={new Set(selected.keys())}
+        onSelectionChange={select}
+        bulkActions={() => (
+          <>
+            {resettable.length > 0 && (
+              <Button size="sm" onClick={() => setBulk('reset')}>
+                Record reset for {devicesText(resettable.length)}
+              </Button>
+            )}
+            {retirable.length > 0 && (
+              <Button size="sm" variant="danger" onClick={() => setBulk('retire')}>
+                Retire {devicesText(retirable.length)}
+              </Button>
+            )}
+            {resettable.length === 0 && retirable.length === 0 && (
+              <span className="text-body-sm text-ink-muted">
+                No bulk action fits these devices. A reset needs RETURNED{isAdmin ? ', retirement MAINTENANCE' : ''}.
+              </span>
+            )}
+          </>
+        )}
+        rowActions={rowActions}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
         empty={
@@ -371,6 +486,57 @@ export const FleetPage: React.FC = () => {
           ) : undefined
         }
       />
+      {acting?.action === 'intake' && (
+        <IntakeDialog device={acting.device} onDone={actionDone} onCancel={() => setActing(null)} />
+      )}
+      {acting?.action === 'reset' && (
+        <ResetDialog device={acting.device} onDone={actionDone} onCancel={() => setActing(null)} />
+      )}
+      {acting?.action === 'dispose' && (
+        <DisposeDialog device={acting.device} onDone={actionDone} onCancel={() => setActing(null)} />
+      )}
+      {acting?.action === 'retire' && (
+        <StateChangeDialog<'RETIRED'>
+          subject={acting.device.assetTag}
+          transition={RETIRE}
+          version={acting.device.version}
+          onSubmit={({ reason, expectedVersion }) => retireDevice(acting.device.id, reason ?? '', expectedVersion)}
+          onReload={() => void refreshDevices()}
+          onDone={() => void refreshDevices()}
+          onClose={() => setActing(null)}
+        />
+      )}
+      {bulk === 'reset' && (
+        <BulkActionDialog
+          title={`Record reset for ${devicesText(resettable.length)}?`}
+          confirmLabel={`Record reset for ${devicesText(resettable.length)}`}
+          description="Each unit's reset is recorded with the three steps below (devices api-design 10). Only the RETURNED devices of the selection are reset."
+          confirmations={RESET_STEPS}
+          items={itemsOf(resettable)}
+          run={(item) => recordReset(item.id)}
+          onFinished={() => {
+            setSelected(new Map());
+            void refreshDevices();
+          }}
+          onClose={() => setBulk(null)}
+        />
+      )}
+      {bulk === 'retire' && (
+        <BulkActionDialog
+          title={`Retire ${devicesText(retirable.length)}?`}
+          confirmLabel={`Retire ${devicesText(retirable.length)}`}
+          description="Retired devices leave the rentable fleet for good. A device with an open maintenance record is refused until that record is closed."
+          destructive
+          needsReason
+          items={itemsOf(retirable)}
+          run={(item, reason) => retireDevice(item.id, reason ?? '', selected.get(item.id)?.version ?? 0)}
+          onFinished={() => {
+            setSelected(new Map());
+            void refreshDevices();
+          }}
+          onClose={() => setBulk(null)}
+        />
+      )}
       {registering && (
         <RegisterDialog onDone={(device) => void registered(device)} onCancel={() => setRegistering(false)} />
       )}

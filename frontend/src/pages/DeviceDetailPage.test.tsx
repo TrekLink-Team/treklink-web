@@ -256,7 +256,8 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     renderPage();
     await screen.findByRole('heading', { name: 'TL-0042' });
     fireEvent.click(screen.getByRole('button', { name: 'Dispose' }));
-    const dialog = within(screen.getByRole('dialog'));
+    // Disposal cannot be undone: an alert dialog (UI standard §3).
+    const dialog = within(screen.getByRole('alertdialog', { name: 'Dispose of TL-0042?' }));
     const disposeButton = dialog.getByRole('button', { name: 'Dispose' });
     expect((disposeButton as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(dialog.getByLabelText('Key removed'));
@@ -333,7 +334,8 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     renderPage();
     await screen.findByRole('heading', { name: 'TL-0042' });
     fireEvent.click(screen.getByRole('button', { name: 'Dispose' }));
-    const dialog = within(screen.getByRole('dialog'));
+    // Disposal cannot be undone: an alert dialog (UI standard §3).
+    const dialog = within(screen.getByRole('alertdialog', { name: 'Dispose of TL-0042?' }));
     fireEvent.click(dialog.getByLabelText('Key removed'));
     fireEvent.click(dialog.getByLabelText('Node database cleared'));
     fireEvent.click(dialog.getByLabelText('Owner cleared'));
