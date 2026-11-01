@@ -127,6 +127,10 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
       if (message.kind === 'entry') {
         const type = message.entry.type;
+        if (type === 'station.stale') {
+          // A Field Station went stale or recovered: the health page's count follows at once (screen 9.3).
+          void queryClient.invalidateQueries({ queryKey: ['system-health'] });
+        }
         if (type === 'device.handedOver') {
           // The payload names the contract. Matching on it also refreshes a contract whose cached
           // devices do not hold this device yet, as after a replacement handover (rentals 4.3).
