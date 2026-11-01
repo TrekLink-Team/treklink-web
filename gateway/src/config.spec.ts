@@ -34,3 +34,54 @@ describe('gateway configuration: GATEWAY_QUEUE_MAX_ROWS', () => {
     expect(() => load(value)).toThrow('GATEWAY_QUEUE_MAX_ROWS');
   });
 });
+
+// The local page settings (gateway-sync task 5.2) are validated the same way.
+describe('gateway configuration: the local page', () => {
+  const names = ['GATEWAY_LOCAL_PORT', 'GATEWAY_LOCAL_STALE_SECONDS', 'GATEWAY_LOCAL_EVENT_LOG_SIZE'] as const;
+  const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+
+  afterEach(() => {
+    for (const name of names) {
+      if (original[name] === undefined) delete process.env[name];
+      else process.env[name] = original[name];
+    }
+  });
+
+  const load = (values: Partial<Record<(typeof names)[number], string>>) => {
+    for (const name of names) {
+      if (values[name] === undefined) delete process.env[name];
+      else process.env[name] = values[name];
+    }
+    let local: { port: number; staleSeconds: number; eventLogSize: number } | undefined;
+    jest.isolateModules(() => {
+      jest.doMock('dotenv', () => ({ config: () => ({}) }));
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      local = (require('./config') as typeof import('./config')).gatewayConfig.local;
+    });
+    return local!;
+  };
+
+  it('defaults to port 4321, 300 s stale and 200 events', () => {
+    expect(load({})).toEqual({ port: 4321, staleSeconds: 300, eventLogSize: 200 });
+  });
+
+  it('reads the values from the environment', () => {
+    expect(load({ GATEWAY_LOCAL_PORT: '8080', GATEWAY_LOCAL_STALE_SECONDS: '60', GATEWAY_LOCAL_EVENT_LOG_SIZE: '20' })).toEqual({
+      port: 8080,
+      staleSeconds: 60,
+      eventLogSize: 20,
+    });
+  });
+
+  it.each(['0', '65536', '43.21', 'http'])('refuses GATEWAY_LOCAL_PORT=%s', (value) => {
+    expect(() => load({ GATEWAY_LOCAL_PORT: value })).toThrow('GATEWAY_LOCAL_PORT');
+  });
+
+  it.each(['29', '7201'])('refuses GATEWAY_LOCAL_STALE_SECONDS=%s', (value) => {
+    expect(() => load({ GATEWAY_LOCAL_STALE_SECONDS: value })).toThrow('GATEWAY_LOCAL_STALE_SECONDS');
+  });
+
+  it.each(['9', '10001'])('refuses GATEWAY_LOCAL_EVENT_LOG_SIZE=%s', (value) => {
+    expect(() => load({ GATEWAY_LOCAL_EVENT_LOG_SIZE: value })).toThrow('GATEWAY_LOCAL_EVENT_LOG_SIZE');
+  });
+});

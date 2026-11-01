@@ -11,8 +11,27 @@ export interface SerialParserConfig {
   simulationMode: boolean;
 }
 
+/** A frame as the reader handed it to the queue; the local page's state holder watches these. */
+export interface HeardFrame {
+  eventId: string;
+  priority: PriorityTier;
+  payload: object;
+  /** Station clock, epoch ms, when the frame came off the port. */
+  heardAt: number;
+}
+
+/** The serial side as the local page shows it (field-station-local-page.md, `/local/uplink`). */
+export interface SerialStatus {
+  port: string;
+  simulation: boolean;
+  /** True while frames are being read: the simulator is ticking. The hardware reader is still a stub. */
+  reading: boolean;
+  lastFrameAt: number | null;
+}
+
 export class SerialFrameReader {
   private timer: NodeJS.Timeout | null = null;
+  private lastFrameAt: number | null = null;
 
   constructor(
     private config: SerialParserConfig,
@@ -20,7 +39,19 @@ export class SerialFrameReader {
     // Called after every enqueue, so a connected uplink publishes at once instead of waiting for
     // the next reconnect.
     private onEnqueued: () => void = () => undefined,
+    // Called with every frame after its enqueue and before `onEnqueued`, so the local page's state sees
+    // what the queue saw. An observer that throws is logged and never stops the queue or the flush.
+    private onFrame: (frame: HeardFrame) => void = () => undefined,
   ) {}
+
+  public status(): SerialStatus {
+    return {
+      port: this.config.port,
+      simulation: this.config.simulationMode,
+      reading: this.timer !== null,
+      lastFrameAt: this.lastFrameAt,
+    };
+  }
 
   public start(): void {
     if (this.config.simulationMode) {
@@ -66,6 +97,12 @@ export class SerialFrameReader {
     const eventId = `${deviceId}:${sessionId}:${sequenceNumber}`;
     this.queue.enqueue(eventId, priority, payload);
     logger.info(`Enqueued event ${eventId} with priority tier ${priority}`);
+    this.lastFrameAt = Date.now();
+    try {
+      this.onFrame({ eventId, priority, payload, heardAt: this.lastFrameAt });
+    } catch (err) {
+      logger.error(`Local page state not updated for ${eventId}: ${(err as Error).message}`);
+    }
     this.onEnqueued();
   }
 }

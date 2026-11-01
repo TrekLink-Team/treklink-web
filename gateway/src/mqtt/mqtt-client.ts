@@ -50,6 +50,10 @@ export class GatewayMqttClient {
   private healthTimer: NodeJS.Timeout | null = null;
   /** Station clock, epoch ms, of the last publish the broker acknowledged. */
   private lastFlushAt: number | null = null;
+  /** The last connection error and the station clock, epoch ms, when it happened; for the local page. */
+  private lastErrorSeen: { message: string; at: number } | null = null;
+  /** Station clock, epoch ms, of the last change between connected and not connected. */
+  private stateSince: number | null = null;
   private readonly version = gatewayVersion();
 
   constructor(
@@ -64,6 +68,26 @@ export class GatewayMqttClient {
   /** True while the broker connection is up. */
   public get connected(): boolean {
     return this.isConnected;
+  }
+
+  /**
+   * The uplink as the local page shows it (field-station-local-page.md, `/local/uplink`), read from
+   * memory only. The broker URL has its user information removed.
+   */
+  public uplinkStatus(): {
+    connected: boolean;
+    since: number | null;
+    brokerUrl: string;
+    lastError: { message: string; at: number } | null;
+    lastFlushAt: number | null;
+  } {
+    return {
+      connected: this.isConnected,
+      since: this.stateSince,
+      brokerUrl: redactBrokerUrl(this.brokerUrl),
+      lastError: this.lastErrorSeen,
+      lastFlushAt: this.lastFlushAt,
+    };
   }
 
   public connect(): void {
@@ -82,6 +106,7 @@ export class GatewayMqttClient {
 
     this.client.on('connect', () => {
       this.isConnected = true;
+      this.stateSince = Date.now();
       logger.info('Connected to MQTT broker. Triggering queue flush...');
       // The first report shows the backlog the outage left, before the flush drains it.
       this.publishHealth();
@@ -90,6 +115,7 @@ export class GatewayMqttClient {
     });
 
     this.client.on('close', () => {
+      if (this.isConnected || this.stateSince === null) this.stateSince = Date.now();
       this.isConnected = false;
       this.stopHealthTimer();
       this.dropUnacknowledged();
@@ -98,6 +124,7 @@ export class GatewayMqttClient {
     });
 
     this.client.on('error', (err) => {
+      this.lastErrorSeen = { message: err.message, at: Date.now() };
       logger.error(`MQTT connection error: ${err.message}`);
     });
   }

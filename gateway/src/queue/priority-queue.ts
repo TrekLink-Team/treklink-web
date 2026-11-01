@@ -205,6 +205,19 @@ export class SQLitePriorityQueue {
     return row ? row.retryCount : null;
   }
 
+  /**
+   * The oldest queued entry's capture time (station clock, epoch ms) and retry count, or null when the
+   * queue is empty; the local page shows its age (field-station-local-page.md, `/local/queue`).
+   * `created_at` is SQLite `datetime('now')`, UTC to the second.
+   */
+  public oldestEntry(): { capturedAt: number; retryCount: number } | null {
+    const row = this.db
+      .prepare('SELECT created_at as createdAt, retry_count as retryCount FROM event_queue ORDER BY id ASC LIMIT 1')
+      .get() as { createdAt: string; retryCount: number } | undefined;
+    if (!row) return null;
+    return { capturedAt: Date.parse(`${row.createdAt.replace(' ', 'T')}Z`), retryCount: row.retryCount };
+  }
+
   public count(): number {
     const row = this.db.prepare('SELECT count(*) as count FROM event_queue').get() as {
       count: number;
