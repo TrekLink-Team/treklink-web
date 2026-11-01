@@ -289,4 +289,41 @@ describe('SyncStatusPage (/t/admin/sync, MF-02)', () => {
       windowMinutes: 15,
     });
   });
+
+  it('sorts the field event ledger on the time received through the API order (api-design 03)', async () => {
+    api.mockImplementation(
+      route({
+        events: eventsPage([
+          {
+            seq: 1,
+            eventId: 'e-9',
+            deviceId: 'd-1',
+            assetTag: 'TL-0009',
+            organizationId: 'org-1',
+            attribution: 'ATTRIBUTED',
+            ingress: 'MQTT_NODE',
+            uplinkKey: 'node',
+            kind: 'POSITION',
+            priority: 'P2_GPS',
+            receivedAt: '2026-11-01T03:15:00.000Z',
+            latitude: null,
+            longitude: null,
+            batteryPct: null,
+            plotted: false,
+            incidentId: null,
+          },
+        ]),
+      }),
+    );
+    renderPage();
+    const sortButton = await screen.findByRole('button', { name: /^Received/ });
+    expect(sortButton.closest('th')?.getAttribute('aria-sort')).toBe('descending');
+    api.mockClear();
+    fireEvent.click(sortButton);
+    await waitFor(() => {
+      const bodies = api.mock.calls.map(([, options]) => bodyOf(options as { body?: string }));
+      expect(bodies).toContainEqual(expect.objectContaining({ op: 'listEvents', order: 'asc', pageNumber: 1 }));
+    });
+    expect(screen.getByRole('button', { name: /^Received/ }).closest('th')?.getAttribute('aria-sort')).toBe('ascending');
+  });
 });

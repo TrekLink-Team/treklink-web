@@ -88,3 +88,11 @@ the audit outcome (empty for every outcome, or one `SyncOutcome`).
 - [x] Live data: polling and query keys stated
 - [x] Traceability: UC-26, UC-42, FR-EVT-05, FR-EVT-11, FR-EVT-17, US-UC42
 - [ ] Wireframe image
+
+## Shared tables and sorting (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2. The Field Stations table and the recent
+field events ledger are the shared `DataTable`. The ledger's Received column sorts through
+gateway-sync api-design 03 `order` (`desc` by default, `asc` on the second press), the only order
+that API takes, so no other column sorts; the ledger now pages through the same answer with
+Pagination and keeps the current rows on screen while a new order or page loads.

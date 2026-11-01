@@ -7,6 +7,8 @@ import {
   SyncOutcome,
   syncAuditKeys,
   SyncStation,
+  type EventOrder,
+  type FieldEventRow,
   useRecentEvents,
   useSyncAudit,
   useSyncStatus,
@@ -14,13 +16,12 @@ import {
   WINDOW_OPTIONS,
 } from '../entities/gateway-sync/api';
 import { formatDateTime } from '../shared/lib/format';
-import { Badge, Empty, ErrorState, Loading, PageTitle } from '../shared/ui/bits';
+import { Badge, ErrorState, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
-import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
+import { DataTable, Pagination, type Column, type SortState } from '../shared/ui/DataTable';
 import { Field, Select } from '../shared/ui/Field';
 import { StatCard } from '../shared/ui/StatCard';
 import type { StatusTone } from '../shared/ui/status';
-import { CARD, TABLE, TD, TH } from '../shared/ui/styles';
 import { Toolbar } from '../shared/ui/Toolbar';
 
 const CONNECTION_LABEL: Record<SyncStation['connection'], string> = {
@@ -194,8 +195,36 @@ const SyncAuditSection: React.FC = () => {
 export const SyncStatusPage: React.FC = () => {
   const [windowMinutes, setWindowMinutes] = useState<WindowMinutes>(60);
   const { data, isLoading, error, refetch, isFetching } = useSyncStatus(windowMinutes);
-  const events = useRecentEvents();
+  // The ledger sorts on the time received only, the one order api-design 03 takes.
+  const [eventSort, setEventSort] = useState<SortState<'receivedAt'>>({ key: 'receivedAt', direction: 'desc' });
+  const [eventPage, setEventPage] = useState(1);
+  const events = useRecentEvents(eventSort.direction satisfies EventOrder, eventPage);
   const queryClient = useQueryClient();
+
+  const stationColumns: Column<SyncStation>[] = [
+    { key: 'name', header: 'Station', cell: (station) => station.name },
+    { key: 'organization', header: 'Organization', cell: (station) => station.organization.name },
+    {
+      key: 'connection',
+      header: 'Connection',
+      cell: (station) => <Badge tone={CONNECTION_TONE[station.connection]}>{CONNECTION_LABEL[station.connection]}</Badge>,
+    },
+    { key: 'lastSync', header: 'Last sync', cell: (station) => relative(station.lastSyncAt) },
+    { key: 'lastFlush', header: 'Last flush', cell: (station) => relative(station.lastFlushAt), hideOnMobile: true },
+    {
+      key: 'queue',
+      header: 'Queue depth (P0 to P3)',
+      cell: (station) => `${station.queueDepth.p0}, ${station.queueDepth.p1}, ${station.queueDepth.p2}, ${station.queueDepth.p3}`,
+    },
+  ];
+
+  const eventColumns: Column<FieldEventRow, 'receivedAt' | 'device' | 'kind' | 'ingress' | 'attribution'>[] = [
+    { key: 'receivedAt', header: 'Received', sortable: true, cell: (event) => formatDateTime(event.receivedAt) },
+    { key: 'device', header: 'Device', cell: (event) => event.assetTag ?? event.deviceId },
+    { key: 'kind', header: 'Kind', cell: (event) => event.kind },
+    { key: 'ingress', header: 'Ingress', cell: (event) => (event.ingress === 'FIELD_STATION' ? 'Field Station' : 'Node uplink') },
+    { key: 'attribution', header: 'Attribution', cell: (event) => (event.attribution === 'ATTRIBUTED' ? 'Attributed' : 'Unattributed') },
+  ];
 
   return (
     <section aria-labelledby="sync-status-title">
@@ -269,82 +298,44 @@ export const SyncStatusPage: React.FC = () => {
           </div>
 
           <h2 className="mb-2 text-title-sm text-ink">Field Stations</h2>
-          {data.fieldStations.length === 0 ? (
-            <Empty>
-              <p>No Field Stations are registered yet.</p>
-            </Empty>
-          ) : (
-            <div className="mb-6 overflow-x-auto">
-              <table className={TABLE}>
-                <thead>
-                  <tr>
-                    <th className={TH}>Station</th>
-                    <th className={TH}>Organization</th>
-                    <th className={TH}>Connection</th>
-                    <th className={TH}>Last sync</th>
-                    <th className={TH}>Last flush</th>
-                    <th className={TH}>Queue depth (P0 to P3)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.fieldStations.map((station) => (
-                    <tr key={station.id}>
-                      <td className={TD}>{station.name}</td>
-                      <td className={TD}>{station.organization.name}</td>
-                      <td className={TD}>
-                        <Badge tone={CONNECTION_TONE[station.connection]}>
-                          {CONNECTION_LABEL[station.connection]}
-                        </Badge>
-                      </td>
-                      <td className={TD}>{relative(station.lastSyncAt)}</td>
-                      <td className={TD}>{relative(station.lastFlushAt)}</td>
-                      <td className={TD}>
-                        {station.queueDepth.p0}, {station.queueDepth.p1}, {station.queueDepth.p2},{' '}
-                        {station.queueDepth.p3}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable<SyncStation>
+            className="mb-6"
+            caption="Field Stations"
+            columns={stationColumns}
+            rows={data.fieldStations}
+            rowId={(station) => station.id}
+            empty={{ title: 'No Field Stations are registered yet.' }}
+          />
         </>
       )}
 
       <h2 className="mb-2 text-title-sm text-ink">Recent field events</h2>
-      {events.isLoading && <Loading label="Loading recent events…" />}
-      {events.error && <ErrorState error={events.error} onRetry={() => void events.refetch()} />}
-      {events.data && events.data.items.length === 0 && (
-        <Empty>
-          <p>No field events have been ingested yet.</p>
-        </Empty>
-      )}
-      {events.data && events.data.items.length > 0 && (
-        <div className={`${CARD} overflow-x-auto p-0`}>
-          <table className={TABLE}>
-            <thead>
-              <tr>
-                <th className={TH}>Received</th>
-                <th className={TH}>Device</th>
-                <th className={TH}>Kind</th>
-                <th className={TH}>Ingress</th>
-                <th className={TH}>Attribution</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.data.items.map((event) => (
-                <tr key={event.eventId}>
-                  <td className={TD}>{formatDateTime(event.receivedAt)}</td>
-                  <td className={TD}>{event.assetTag ?? event.deviceId}</td>
-                  <td className={TD}>{event.kind}</td>
-                  <td className={TD}>{event.ingress === 'FIELD_STATION' ? 'Field Station' : 'Node uplink'}</td>
-                  <td className={TD}>{event.attribution === 'ATTRIBUTED' ? 'Attributed' : 'Unattributed'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable<FieldEventRow, 'receivedAt' | 'device' | 'kind' | 'ingress' | 'attribution'>
+        className="mb-6"
+        caption="Recent field events"
+        columns={eventColumns}
+        rows={events.data?.items}
+        rowId={(event) => event.eventId}
+        loading={events.isLoading}
+        error={events.error ? <ErrorState error={events.error} onRetry={() => void events.refetch()} /> : undefined}
+        empty={{ title: 'No field events have been ingested yet.' }}
+        sort={eventSort}
+        onSortChange={(next) => {
+          setEventSort({ key: 'receivedAt', direction: next.direction });
+          setEventPage(1);
+        }}
+        footer={
+          events.data && events.data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={events.data.pageNumber}
+              totalPages={events.data.totalPages}
+              totalItems={events.data.totalCount}
+              pageSize={events.data.pageSize}
+              onPage={setEventPage}
+            />
+          ) : undefined
+        }
+      />
 
       <SyncAuditSection />
     </section>

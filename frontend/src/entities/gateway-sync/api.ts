@@ -78,18 +78,22 @@ export interface FieldEventPage {
   totalPages: number;
 }
 
-// The most recent ingested readings (gateway-sync api-design 03), newest first, for the sync status
-// page's log; not paged there beyond the first page.
-export const fetchRecentEvents = (pageSize = 20) =>
+// The ingested readings (gateway-sync api-design 03) for the sync status page's log, ordered by the
+// time received: newest first by default, oldest first when the Received column is sorted ascending.
+export type EventOrder = 'asc' | 'desc';
+
+export const fetchRecentEvents = (pageSize = 20, order: EventOrder = 'desc', pageNumber = 1) =>
   apiClient<FieldEventPage>('/gateway-sync', {
     method: 'POST',
-    body: JSON.stringify({ op: 'listEvents', order: 'desc', pageSize }),
+    body: JSON.stringify({ op: 'listEvents', order, pageSize, pageNumber }),
   });
 
-export const useRecentEvents = () =>
+export const useRecentEvents = (order: EventOrder = 'desc', pageNumber = 1) =>
   useQuery({
-    queryKey: ['sync-status', 'recent-events'],
-    queryFn: () => fetchRecentEvents(),
+    queryKey: ['sync-status', 'recent-events', order, pageNumber],
+    queryFn: () => fetchRecentEvents(20, order, pageNumber),
+    // The table keeps the rows on screen while a new order or page loads.
+    placeholderData: keepPreviousData,
     refetchInterval: 30_000,
   });
 
