@@ -148,8 +148,10 @@ Implementation notes (2026-11-01, KhoaDD under D-078, task 3.1):
   `treklink` in the table is `MQTT_ROOT`. The backend subscriber may read (`acc` 1) and subscribe (`acc` 4)
   under `<root>/`; nodes and stations may only write (`acc` 2); go-auth's `acc` 3 is denied to every kind.
   A Field Station is refused when unknown, revoked, of a `CLOSED` organization (`StationCredential.organizationStatus`)
-  or with a wrong secret. A fleet node is refused for now: the table names its username but no stored
-  secret to check its password against (task 3.1, open).
+  or with a wrong secret. A fleet node presents `MQTT_NODE_PASSWORD`, one secret shared by every node and
+  compared in constant time; with it unset, fleet nodes are refused (leader decision, 2026-11-01).
+  Known limit: any holder of the shared secret can log in under any node username, accepted for Stage A
+  and B until per-device secrets come with the hosted broker (D-055).
 - go-auth's HTTP backend sets only `Content-Type` and `User-Agent` and has no option for another header
   (`backends/http.go`, read 2026-11-01; the plugin's repository is archived). The opt-in broker of
   `docker-compose.broker-auth.yml` therefore calls `broker-hook-proxy`, an nginx on the compose network that
