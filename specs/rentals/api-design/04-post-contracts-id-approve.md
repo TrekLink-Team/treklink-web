@@ -236,6 +236,23 @@ Confirms the handover appointment and moves the contract to `APPROVED` with the 
 </td>
         </tr>
         <tr>
+            <td>409</td>
+            <td>The request holds its devices, its holdExpiresAt has passed and the first payment is not paid in full (REQ-ERR-12) (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This request held its devices until the deposit was paid, and the hold has expired unpaid. It is cancelled shortly; the organization can request again."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>400</td>
             <td>The request holds its devices and deviceIds names another set (REQ-ERR-11) (<code>VALIDATION_FAILED</code>)</td>
 <td>
@@ -326,26 +343,31 @@ flowchart TB
     E6["Return 400 VALIDATION_FAILED"]
     D6 -->|yes| E6
     E6 --> X6((End))
-    D7{"The request holds its devices and deviceIds names another set (REQ-ERR-11)?"}
+    D7{"The request holds its devices, its holdExpiresAt has passed and the first payment is not paid in full (REQ-ERR-12)?"}
     D6 -->|no| D7
-    E7["Return 400 VALIDATION_FAILED"]
+    E7["Return 409 INVALID_STATE_TRANSITION"]
     D7 -->|yes| E7
     E7 --> X7((End))
-    D8{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
+    D8{"The request holds its devices and deviceIds names another set (REQ-ERR-11)?"}
     D7 -->|no| D8
-    E8["Return 409 DEVICE_NOT_AVAILABLE"]
+    E8["Return 400 VALIDATION_FAILED"]
     D8 -->|yes| E8
     E8 --> X8((End))
-    D9{"Fewer AVAILABLE devices of the variant than requested?"}
+    D9{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
     D8 -->|no| D9
-    E9["Return 409 INSUFFICIENT_DEVICES"]
+    E9["Return 409 DEVICE_NOT_AVAILABLE"]
     D9 -->|yes| E9
     E9 --> X9((End))
+    D10{"Fewer AVAILABLE devices of the variant than requested?"}
+    D9 -->|no| D10
+    E10["Return 409 INSUFFICIENT_DEVICES"]
+    D10 -->|yes| E10
+    E10 --> X10((End))
     P0["Lock the contract"]
-    D9 -->|no| P0
+    D10 -->|no| P0
     P1["Check the version, then the REQUESTED state, then that handoverAt is not in the past, then any chosen deviceIds"]
     P0 --> P1
-    P2["Held devices: keep them, with term 1 and the invoice of the request"]
+    P2["Held devices: refuse an unpaid hold past holdExpiresAt (REQ-ERR-12), else keep them, with term 1 and the invoice of the request"]
     P1 --> P2
     P3["No held devices (requested before D-092): SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity"]
     P2 --> P3

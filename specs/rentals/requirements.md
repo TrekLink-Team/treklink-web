@@ -85,6 +85,7 @@
 - **REQ-ERR-09**: IF Staff approve with a handover appointment before the current minute, THEN the system SHALL return 400 `VALIDATION_FAILED` and reserve nothing. [FR-CON-03]
 - **REQ-ERR-10**: IF an undo of provisioning carries a stale `version`, names a contract not `APPROVED`, names a unit not on the contract, names a unit not `RESERVED` or already handed over, or names a unit that carries no key version of the contract's organization, THEN the system SHALL return 409 `STALE_VERSION`, `INVALID_STATE_TRANSITION`, `DEVICE_NOT_ON_CONTRACT` (MSG12), `INVALID_STATE_TRANSITION` or `DEVICE_NOT_PROVISIONED` respectively, checked in that order, and change nothing. [FR-DEV-05]
 - **REQ-ERR-11**: IF Staff name `deviceIds` when approving a contract that already holds its devices, and the set differs from the held set, THEN the system SHALL return 400 `VALIDATION_FAILED` and change nothing; a failing held unit is swapped at the counter (REQ-EVT-06). [D-092 rule 1]
+- **REQ-ERR-12**: IF Staff approve a `REQUESTED` contract that holds its devices after its `holdExpiresAt` with the first payment not paid in full, THEN the system SHALL refuse with 409 `INVALID_STATE_TRANSITION` and change nothing, whether or not the `rentals.requestHoldExpiry` job has cancelled it yet. [D-092 rule 1, review of treklink-web#275]
 
 ---
 

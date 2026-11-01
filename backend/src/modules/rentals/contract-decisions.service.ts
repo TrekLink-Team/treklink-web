@@ -148,6 +148,21 @@ export class ContractDecisionsService {
       let devices: DeviceTag[];
       let term: { seq: number; startsAt: Date; endsAt: Date } | null = null;
       if (heldIds.length > 0) {
+        // REQ-ERR-12: an unpaid hold that has already passed `holdExpiresAt` is not approved, even when
+        // the expiry job (every ten minutes) has not cancelled it yet, so the outcome never depends on
+        // the job's timing. A paid deposit keeps the hold until Staff decide (REQ-EVT-17).
+        const expiresAt = await this.contracts.holdExpiresAt(id, tx);
+        if (
+          expiresAt !== null &&
+          expiresAt.getTime() <= at.getTime() &&
+          !(await this.balances.firstPaymentConfirmed(id, tx))
+        ) {
+          throw new DomainException(
+            HttpStatus.CONFLICT,
+            ErrorCode.INVALID_STATE_TRANSITION,
+            'This request held its devices until the deposit was paid, and the hold has expired unpaid. It is cancelled shortly; the organization can request again.',
+          );
+        }
         const tags = await this.devices.assetTags(heldIds, tx);
         if (input.deviceIds && !sameSet(heldIds, input.deviceIds)) {
           const names = heldIds.map((deviceId) => tags.get(deviceId) ?? deviceId).join(', ');

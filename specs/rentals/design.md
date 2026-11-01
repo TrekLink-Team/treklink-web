@@ -93,7 +93,7 @@ the stock covers it and two organizations never leave Staff to arbitrate the las
 | Moment | Devices | Money | Contract |
 |---|---|---|---|
 | Request | `ContractsService.request` reserves the quantity through `DevicesService.reserve` (the approval's code, `FOR UPDATE SKIP LOCKED`) and inserts one live `ContractDevice` row each, in the request transaction; short stock is 409 `INSUFFICIENT_DEVICES` and the whole transaction rolls back, so no contract, code, row, term or invoice remains | term 1 and its invoice are created now (§3); the first line, the holding fee or the day-plan fee, is the deposit | `REQUESTED`, `holdExpiresAt` = request time + `rentals.requestHoldHours` |
-| Approval | the held units are kept; `deviceIds`, when sent, must equal the held set (REQ-ERR-11) | nothing new | `APPROVED`, `reservationExpiresAt` from the appointment as before |
+| Approval | the held units are kept; `deviceIds`, when sent, must equal the held set (REQ-ERR-11); an unpaid hold past `holdExpiresAt` is refused even before the expiry job runs (REQ-ERR-12) | nothing new | `APPROVED`, `reservationExpiresAt` from the appointment as before |
 | Rejection | released to `AVAILABLE` | `ChargesService.settleCancellation` voids the unpaid first-invoice lines; a paid deposit is reported as `paidVnd` and refunded outside TrekLink | `REJECTED` |
 | Cancellation | released, as before | unpaid lines voided, a paid holding fee retained, as before | `CANCELLED` |
 | Hold expiry, deposit unpaid | released | unpaid lines voided | `CANCELLED` by `SYSTEM`, reason and `cancelReason` `HOLD_EXPIRED` |
