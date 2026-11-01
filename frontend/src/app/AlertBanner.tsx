@@ -36,9 +36,7 @@ const same = (a: Alert, b: Pick<Alert, 'incidentId' | 'kind'>) =>
 
 // Newest first, an SOS always ahead of a device-silent alert, so Acknowledge is never hidden behind one.
 const ordered = (alerts: Alert[]): Alert[] =>
-  alerts
-    .filter((a) => a.kind === 'TRANSITION')
-    .concat(alerts.filter((a) => a.kind === 'STALE'));
+  alerts.filter((a) => a.kind === 'TRANSITION').concat(alerts.filter((a) => a.kind === 'STALE'));
 
 const alertFrom = (payload: Record<string, unknown>): Alert => {
   const kind: AlertKind = payload.kind === 'STALE' ? 'STALE' : 'TRANSITION';
@@ -133,9 +131,7 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
         const { type, payload } = message.entry;
         if (type === 'incident.alert') {
           const alert = alertFrom(payload);
-          setAlerts((current) =>
-            ordered([alert, ...current.filter((a) => !same(a, alert))]),
-          );
+          setAlerts((current) => ordered([alert, ...current.filter((a) => !same(a, alert))]));
         }
         if (type === 'incident.changed') {
           const state = String(payload.state);
