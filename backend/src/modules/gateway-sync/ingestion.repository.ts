@@ -55,4 +55,27 @@ export class IngestionRepository {
       ? { latitude: row.latitude, longitude: row.longitude, occurredAt: row.occurredAt }
       : null;
   }
+
+  // The occurrence times of the device's stored plotted positions in [from, to], oldest first, for
+  // the cadence rule of incidents (`PositionHistory`, incidents design §4). The same positions that
+  // ingestion hands to `onPosition`: kind POSITION, plotted, with a valid fix.
+  async plottedPositionTimes(
+    deviceId: string,
+    from: Date,
+    to: Date,
+    client: Client = this.prisma,
+  ): Promise<Date[]> {
+    const rows = await client.fieldEvent.findMany({
+      where: {
+        deviceId,
+        kind: 'POSITION',
+        plotted: true,
+        latitude: { not: null },
+        occurredAt: { gte: from, lte: to },
+      },
+      orderBy: { occurredAt: 'asc' },
+      select: { occurredAt: true },
+    });
+    return rows.map((row) => row.occurredAt);
+  }
 }

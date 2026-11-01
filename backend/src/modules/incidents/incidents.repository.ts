@@ -14,6 +14,7 @@ export type NewIncident = Pick<
   | 'organizationId'
   | 'lastLatitude'
   | 'lastLongitude'
+  | 'lastPositionAt'
 >;
 
 export interface IncidentInsertResult {
@@ -281,6 +282,22 @@ export class IncidentsRepository {
       FOR UPDATE
     `;
     return rows[0] ?? null;
+  }
+
+  // The device lock of the cadence rule when the device has no incident to lock (design §4): a
+  // transaction-scoped advisory lock, released at commit or rollback, on a key of its own.
+  async lockDeviceCadence(deviceId: string, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`incidents:cadence:${deviceId}`}))`;
+  }
+
+  // When the device's latest incident closed, or null: positions up to then belong to closed
+  // episodes and never open a cadence incident (REQ-EVT-02, one incident per burst).
+  async lastClosedAt(deviceId: string, tx: Prisma.TransactionClient): Promise<Date | null> {
+    const latest = await tx.incident.aggregate({
+      where: { deviceId, state: 'CLOSED' },
+      _max: { closedAt: true },
+    });
+    return latest._max.closedAt;
   }
 
   async insert(
