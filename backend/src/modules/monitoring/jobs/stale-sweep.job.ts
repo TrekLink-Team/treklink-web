@@ -92,6 +92,7 @@ export class StaleSweepJob {
       this.marks.list(StaleSubject.DEVICE),
     ]);
     const holder = new Map(visible.map((device) => [device.deviceId, device.organizationId]));
+    const handedOver = new Map(visible.map((device) => [device.deviceId, device.handedOverAt]));
     const markOf = new Map(marks.map((mark) => [mark.subjectId, mark]));
     const ids = [...new Set([...holder.keys(), ...markOf.keys()])];
     const projections = ids.length > 0 ? await this.devices.projections(ids) : [];
@@ -109,6 +110,7 @@ export class StaleSweepJob {
             markOf.get(device.id),
             staleBefore,
             at,
+            handedOver.get(device.id),
           ),
         ),
       );
@@ -128,6 +130,7 @@ export class StaleSweepJob {
     mark: StaleMarkRow | undefined,
     staleBefore: number,
     at: Date,
+    handedOverAt?: Date,
   ): Promise<Change | null> {
     if (lastSeenAt === null) {
       // Never heard, or reset: never stale, and a mark has no later reading to recover with. The
@@ -150,7 +153,17 @@ export class StaleSweepJob {
       return this.recoverDevice(deviceId, organizationId ?? null, mark, lastSeenAt);
     }
     if (!stale || organizationId === undefined) return null;
-    return this.markDevice(deviceId, organizationId, lastSeenAt, at);
+    // A unit not heard since its handover is marked for the holder, so its incident flag follows the
+    // rule above, but its entry goes to `fleet` only: the reading predates the custody interval (D-040)
+    // and the holder's map shows the unit as not heard since handover (REQ-UBI-04, D-092 rule 2).
+    const notHeard = handedOverAt !== undefined && lastSeenAt.getTime() < handedOverAt.getTime();
+    return this.markDevice(
+      deviceId,
+      organizationId,
+      lastSeenAt,
+      at,
+      notHeard ? null : organizationId,
+    );
   }
 
   private markDevice(
@@ -158,6 +171,7 @@ export class StaleSweepJob {
     organizationId: string,
     lastSeenAt: Date,
     at: Date,
+    entryOrganizationId: string | null,
   ): Promise<Change | null> {
     return this.events.transaction(async (tx) => {
       const row = {
@@ -172,7 +186,7 @@ export class StaleSweepJob {
       await this.incidents.markDeviceStale(deviceId, true, lastSeenAt, tx);
       this.events.emitAfterCommit(DEVICE_STALE_CHANGED, {
         deviceId,
-        organizationId,
+        organizationId: entryOrganizationId,
         stale: true,
         lastSeenAt: lastSeenAt.toISOString(),
       } satisfies DeviceStaleChangedEvent);

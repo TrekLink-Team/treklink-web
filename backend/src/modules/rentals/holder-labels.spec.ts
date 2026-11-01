@@ -60,6 +60,9 @@ describe('ContractsRepository.findInCustody (monitoring design §4)', () => {
         },
       }),
     );
+    // The custody interval's start travels with the row (monitoring REQ-UBI-04, D-092 rule 2).
+    const [query] = findMany.mock.calls[0] as [{ select: Record<string, unknown> }];
+    expect(query.select).toMatchObject({ handedOverAt: true });
     await repository.findInCustody(null);
     expect(findMany).toHaveBeenLastCalledWith(
       expect.objectContaining({

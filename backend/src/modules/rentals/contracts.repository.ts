@@ -317,6 +317,7 @@ export class ContractsRepository {
       select: {
         deviceId: true,
         contractId: true,
+        handedOverAt: true,
         holderName: true,
         contract: { select: { code: true, organizationId: true } },
       },

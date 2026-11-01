@@ -46,7 +46,7 @@ class FakeMarks {
 
 describe('StaleSweepJob', () => {
   let marks: FakeMarks;
-  let visible: { deviceId: string; organizationId: string }[];
+  let visible: { deviceId: string; organizationId: string; handedOverAt?: Date }[];
   let projections: { id: string; lastSeenAt: Date | null }[];
   let stations: { id: string; organizationId: string; name: string; lastSyncAt: Date | null }[];
   let params: Record<string, unknown>;
@@ -145,6 +145,33 @@ describe('StaleSweepJob', () => {
         },
         TX,
       );
+    });
+
+    // D-092 rule 2, D-040: the last reading predates the handover, so the holder's map shows the unit
+    // as not heard since handover and the entry goes to `fleet` only; the mark and the incident flag
+    // keep the holder.
+    it('sends the stale entry of a unit not heard since its handover to the fleet only', async () => {
+      rent('d1', ORG_A, ago(900));
+      visible = [{ deviceId: 'd1', organizationId: ORG_A, handedOverAt: ago(600) }];
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 1, recovered: 0 });
+      expect(deviceEvents().map((event) => event.payload)).toEqual([
+        { deviceId: 'd1', organizationId: null, stale: true, lastSeenAt: ago(900).toISOString() },
+      ]);
+      expect(marks.mark).toHaveBeenCalledWith(
+        expect.objectContaining({ subjectId: 'd1', organizationId: ORG_A }),
+        TX,
+      );
+      expect(incidents.markDeviceStale).toHaveBeenCalledWith('d1', true, ago(900), TX);
+      // Heard during the custody interval: the recovery reaches the holder.
+      rent('d1', ORG_A, ago(2));
+      visible = [{ deviceId: 'd1', organizationId: ORG_A, handedOverAt: ago(600) }];
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 0, recovered: 1 });
+      expect(deviceEvents()[1].payload).toEqual({
+        deviceId: 'd1',
+        organizationId: ORG_A,
+        stale: false,
+        lastSeenAt: ago(2).toISOString(),
+      });
     });
 
     it('repeats nothing while the device stays silent', async () => {
