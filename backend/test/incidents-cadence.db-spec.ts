@@ -65,7 +65,9 @@ describe('Cadence-inferred incident (incidents REQ-EVT-02), against Postgres', (
     parameters,
     events,
   );
-  const devices = new DevicesService(new DevicesRepository(prisma), {} as never, {} as never);
+  const devices = new DevicesService(new DevicesRepository(prisma), {} as never, {} as never, {
+    custodyAt: () => Promise.resolve(null),
+  });
   const contracts = new ContractsService(
     new ContractsRepository(prisma),
     {} as never,
