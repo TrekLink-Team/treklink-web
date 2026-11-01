@@ -92,3 +92,21 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: focus on open, close and after a decision; text labels
 - [x] Live data: none; query keys listed
 - [x] Traceability: UC-52, UC-64, UC-65, US-UC52, US-UC64, US-UC65
+
+## Row actions and bulk decisions (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2. Where this section and the tables above
+disagree, this section wins.
+
+- Row actions are `RowAction` lists named after the asset tag ("Estimate TL-0009"): Records tab,
+  Estimate and Complete on an `OPEN` row; This week's service, Complete; Approvals, Decide. Decide on
+  a record the viewer estimated stays reachable, disabled, with the reason "A different Admin must
+  decide this: you recorded the estimate." (BR-44).
+- Approvals tab, Admin: one checkbox per row, "Select {asset tag}", kept across pages. The bulk bar
+  leaves out the records the viewer estimated and offers "Approve N costs" and "Reject N costs".
+  Approve sends, per record, the amount it waits on (the actual cost once completed, otherwise the
+  estimate; a record with neither is left out) with that record's `expectedVersion`; Reject is an
+  alert dialog with one required reason. Each runs devices api-design 13 once per record in sequence,
+  with the per-row summary on any failure (STALE_VERSION, SEPARATION_OF_DUTY). An amount other than
+  the one waiting stays a row decision.
+- The API does not sort; the pagers keep the range and total.

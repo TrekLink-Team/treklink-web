@@ -25,7 +25,8 @@ import { ErrorState, Fact } from '../shared/ui/bits';
 import { Alert } from '../shared/ui/Alert';
 import { StatusBadge } from '../shared/ui/Badge';
 import { Button } from '../shared/ui/Button';
-import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
+import { DataTable, Pagination, type Column, type RowAction } from '../shared/ui/DataTable';
+import { BulkActionDialog, type BulkItem } from '../shared/ui/BulkAction';
 import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
 import { Drawer } from '../shared/ui/Drawer';
 import { PageHeader } from '../shared/ui/PageHeader';
@@ -564,6 +565,13 @@ const workByOf = (record: MaintenanceRecord): string => {
   return 'Not decided';
 };
 
+const SELF_ESTIMATED = 'A different Admin must decide this: you recorded the estimate.';
+
+const costsText = (count: number) => `${count} ${count === 1 ? 'cost' : 'costs'}`;
+
+const amountToApprove = (record: MaintenanceRecord): number | null =>
+  record.actualCostVnd ?? record.estimatedCostVnd;
+
 const PICK_PAGE_SIZE = 100;
 const PICK_SEARCH_DEBOUNCE_MS = 300;
 
@@ -743,9 +751,14 @@ const RecordsTable: React.FC<{
   onRetry: () => void;
   empty: string;
   onOpen: (record: MaintenanceRecord) => void;
-  rowActions?: (record: MaintenanceRecord) => React.ReactNode;
+  rowActions?: (record: MaintenanceRecord) => RowAction[];
   footer?: React.ReactNode;
-}> = ({ caption, records, loading, error, onRetry, empty, onOpen, rowActions, footer }) => {
+  selection?: {
+    ids: ReadonlySet<string>;
+    onChange: (ids: Set<string>) => void;
+    actions: () => React.ReactNode;
+  };
+}> = ({ caption, records, loading, error, onRetry, empty, onOpen, rowActions, footer, selection }) => {
   const columns: Column<MaintenanceRecord>[] = [
     {
       key: 'device',
@@ -768,6 +781,11 @@ const RecordsTable: React.FC<{
       columns={columns}
       rows={records}
       rowId={(record) => record.id}
+      rowLabel={(record) => record.device.assetTag}
+      noun={{ one: 'record', other: 'records' }}
+      selectedIds={selection?.ids}
+      onSelectionChange={selection?.onChange}
+      bulkActions={selection ? () => selection.actions() : undefined}
       loading={loading}
       error={error ? <ErrorState error={error} onRetry={onRetry} /> : undefined}
       empty={{ title: empty }}
@@ -783,7 +801,30 @@ const RecordsTable: React.FC<{
           <p className="text-body-sm text-ink-muted">
             {MAINTENANCE_REASON[record.reason]}, expected {record.expectedAt}
           </p>
-          {rowActions && <div className="mt-1 flex flex-wrap gap-2">{rowActions(record)}</div>}
+          {rowActions && (
+            <div className="mt-1 flex flex-wrap gap-2">
+              {rowActions(record).map((action) => (
+                <Button
+                  key={action.key}
+                  size="sm"
+                  aria-disabled={action.disabled || undefined}
+                  title={action.disabled ? action.disabledReason : undefined}
+                  onClick={() => {
+                    if (!action.disabled) action.onSelect();
+                  }}
+                >
+                  {action.label}
+                </Button>
+              ))}
+              {rowActions(record)
+                .filter((action) => action.disabled && action.disabledReason)
+                .map((action) => (
+                  <span key={`${action.key}-reason`} className="w-full text-body-sm text-ink-muted">
+                    {action.disabledReason}
+                  </span>
+                ))}
+            </div>
+          )}
         </div>
       )}
       footer={footer}
@@ -819,6 +860,9 @@ export const MaintenancePage: React.FC = () => {
   const [completing, setCompleting] = useState<MaintenanceRecord | null>(null);
   const [deciding, setDeciding] = useState<MaintenanceRecord | null>(null);
   const [completed, setCompleted] = useState<MaintenanceRecord | null>(null);
+  // The approvals selection (W29), kept across pages.
+  const [chosenApprovals, setChosenApprovals] = useState<Map<string, MaintenanceRecord>>(new Map());
+  const [bulkDecision, setBulkDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const end = weekEnd();
 
   const records = useMaintenanceRecords({
@@ -839,6 +883,28 @@ export const MaintenancePage: React.FC = () => {
     (device) => device.serviceDueAt !== null && device.serviceDueAt <= end,
   );
   const approvals = useMaintenanceRecords({ status: ['PENDING_APPROVAL'], pageNumber: approvalsPage }, isAdmin);
+
+  const selectApprovals = (ids: Set<string>) =>
+    setChosenApprovals((current) => {
+      const next = new Map<string, MaintenanceRecord>();
+      ids.forEach((id) => {
+        const row = current.get(id) ?? approvals.data?.items.find((item) => item.id === id);
+        if (row) next.set(id, row);
+      });
+      return next;
+    });
+  // BR-44: never a record the viewer estimated. A bulk approval approves the amount the record waits
+  // on, the actual cost once completed, else the estimate; a record with neither is left out.
+  const rejectable = [...chosenApprovals.values()].filter((record) => record.estimatedById !== user?.id);
+  const approvable = rejectable.filter((record) => amountToApprove(record) !== null);
+  const approvalItems = (rows: MaintenanceRecord[]): BulkItem[] =>
+    rows.map((record) => ({
+      id: record.id,
+      label:
+        amountToApprove(record) !== null
+          ? `${record.device.assetTag} (${formatVnd(amountToApprove(record) ?? 0)})`
+          : record.device.assetTag,
+    }));
 
   const invalidate = async (deviceId?: string) => {
     await Promise.all([
@@ -961,16 +1027,12 @@ export const MaintenancePage: React.FC = () => {
           empty={filtered ? MSG01 : 'No maintenance records yet.'}
           onOpen={setViewing}
           rowActions={(record) =>
-            record.status === 'OPEN' ? (
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => setEstimating(record)}>
-                  Estimate
-                </Button>
-                <Button size="sm" variant="primary" onClick={() => setCompleting(record)}>
-                  Complete
-                </Button>
-              </div>
-            ) : null
+            record.status === 'OPEN'
+              ? [
+                  { key: 'estimate', label: 'Estimate', onSelect: () => setEstimating(record) },
+                  { key: 'complete', label: 'Complete', onSelect: () => setCompleting(record) },
+                ]
+              : []
           }
           footer={pagerOf(records.data, setPageNumber)}
         />
@@ -985,11 +1047,7 @@ export const MaintenancePage: React.FC = () => {
           onRetry={() => void week.refetch()}
           empty="Nothing is due this week."
           onOpen={setViewing}
-          rowActions={(record) => (
-            <Button size="sm" variant="primary" onClick={() => setCompleting(record)}>
-              Complete
-            </Button>
-          )}
+          rowActions={(record) => [{ key: 'complete', label: 'Complete', onSelect: () => setCompleting(record) }]}
           footer={pagerOf(week.data, setWeekPage)}
         />
         {dueButOut.length > 0 && (
@@ -1026,15 +1084,34 @@ export const MaintenancePage: React.FC = () => {
             onRetry={() => void approvals.refetch()}
             empty="No costs are waiting for a decision."
             onOpen={setViewing}
-            rowActions={(record) =>
-              record.estimatedById === user?.id ? (
-                <span className="text-body-sm text-ink-muted">A different Admin must decide this.</span>
-              ) : (
-                <Button size="sm" variant="primary" onClick={() => setDeciding(record)}>
-                  Decide
-                </Button>
-              )
-            }
+            rowActions={(record) => [
+              {
+                key: 'decide',
+                label: 'Decide',
+                disabled: record.estimatedById === user?.id,
+                disabledReason: record.estimatedById === user?.id ? SELF_ESTIMATED : undefined,
+                onSelect: () => setDeciding(record),
+              },
+            ]}
+            selection={{
+              ids: new Set(chosenApprovals.keys()),
+              onChange: selectApprovals,
+              actions: () =>
+                approvable.length > 0 || rejectable.length > 0 ? (
+                  <>
+                    {approvable.length > 0 && (
+                      <Button size="sm" variant="primary" onClick={() => setBulkDecision('APPROVED')}>
+                        Approve {costsText(approvable.length)}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="danger" onClick={() => setBulkDecision('REJECTED')}>
+                      Reject {costsText(rejectable.length)}
+                    </Button>
+                  </>
+                ) : (
+                  <span className="text-body-sm text-ink-muted">{SELF_ESTIMATED}</span>
+                ),
+            }}
             footer={pagerOf(approvals.data, setApprovalsPage)}
           />
         </TabPanel>
@@ -1094,6 +1171,36 @@ export const MaintenancePage: React.FC = () => {
           })()}
           onCancel={() => setCompleting(null)}
           onReload={reload(() => setCompleting(null))}
+        />
+      )}
+      {bulkDecision && (
+        <BulkActionDialog
+          title={`${bulkDecision === 'APPROVED' ? 'Approve' : 'Reject'} ${costsText((bulkDecision === 'APPROVED' ? approvable : rejectable).length)}?`}
+          confirmLabel={`${bulkDecision === 'APPROVED' ? 'Approve' : 'Reject'} ${costsText((bulkDecision === 'APPROVED' ? approvable : rejectable).length)}`}
+          description={
+            bulkDecision === 'APPROVED'
+              ? 'Each record is approved at the amount shown and returns to OPEN, so the work can be completed.'
+              : 'Each record returns to OPEN for Staff to re-estimate or close it unrepairable.'
+          }
+          destructive={bulkDecision === 'REJECTED'}
+          needsReason={bulkDecision === 'REJECTED'}
+          items={approvalItems(bulkDecision === 'APPROVED' ? approvable : rejectable)}
+          run={(item, bulkReason) => {
+            const record = chosenApprovals.get(item.id);
+            if (!record) return Promise.reject(new Error('Record not found.'));
+            return decideMaintenance(record.device.id, record.id, {
+              decision: bulkDecision,
+              ...(bulkDecision === 'APPROVED'
+                ? { approvedCostVnd: amountToApprove(record) ?? 0 }
+                : { reason: bulkReason ?? '' }),
+              expectedVersion: record.version,
+            });
+          }}
+          onFinished={() => {
+            setChosenApprovals(new Map());
+            void invalidate();
+          }}
+          onClose={() => setBulkDecision(null)}
         />
       )}
       {deciding && (
