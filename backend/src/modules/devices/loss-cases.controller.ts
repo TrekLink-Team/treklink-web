@@ -23,7 +23,7 @@ import {
 import { LossCaseDto, LossCaseService } from './loss-cases.service';
 
 // devices api-design 17 to 22 and 27 (task 2.7, UC-49, UC-60). Permissions (catalog,
-// migration 20261031120100_permission_loss_case): `lossCase.report` for Staff and
+// migration 20261101180100_permission_loss_case): `lossCase.report` for Staff and
 // `lossCase.report.own` for the Org Manager on the report; `lossCase.read` and `lossCase.read.own` on
 // the reads, scoped to the caller's organization by the service; `lossCase.operate` for triage,
 // recovery and confirmation; `lossCase.decide` for the Admin settlement. The global JwtAuthGuard and
