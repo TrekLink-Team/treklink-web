@@ -30,6 +30,7 @@
 ## Phase 4: Sandbox test accounts (D-088 amendment of 2026-11-01, D-089)
 
 - [x] 4.1 REQ-EVT-05 and AC-05, design §8, api-design 05 from `scripts/specs/endpoints/demo.py`, screen 7.5 box section
-- [x] 4.2 `DEMO_TEST_ACCOUNTS_ENABLED` (D-089, default `false`) in `environment-variables.ts`, platform requirements §4 and `.env.example`; `DemoAccountsModule` with `DemoAccountsController` (`GET /api/demo/accounts`, `@Public()`, `Cache-Control: no-store`) and `DemoAccountsService`; `readSeedPasswords`; `SEEDED_ACCOUNTS` export of `seed-demo.ts`; unit tests: the four accounts, production on a Neon host answers while the stage refuses, both flags off 404 everywhere, no password in a log call
+- [x] 4.2 `DEMO_TEST_ACCOUNTS_ENABLED` (D-089, default `false`) in `environment-variables.ts`, platform requirements §4 and `.env.example`; `DemoAccountsModule` with `DemoAccountsController` (`GET /api/demo/accounts`, `@Public()`, `Cache-Control: no-store`) and `DemoAccountsService`; `SEEDED_ACCOUNTS` export of `seed-demo.ts`; unit tests: the four accounts, production on a Neon host answers while the stage refuses, both flags off 404 everywhere, no password in a log call
 - [x] 4.3 `entities/demo` `useDemoAccounts`, widget `TestAccountsBox` on `/` and `/sign-in`, Use fills the sign-in form or carries the account in route state; tests
-- [ ] 4.4 Verify the list on the Vercel production: the compiled function must load `prisma/seed-demo.ts` (design §8, open question to the leader)
+- [x] 4.4 Compiled copy `demo-test-accounts.ts` read by the accounts service, no seed file, `ts-node` or `prisma/` at run time (design §8, leader decision 2026-11-01); drift test against the seed and an unloadable-seed test
+- [ ] 4.5 Check the list on the Vercel production after its first deploy with `DEMO_TEST_ACCOUNTS_ENABLED=true`

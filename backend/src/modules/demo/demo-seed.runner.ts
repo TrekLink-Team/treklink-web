@@ -13,7 +13,8 @@ export interface DemoSeedPasswords {
 }
 
 // One account the demo seed creates, as `SEEDED_ACCOUNTS` lists it; `organization` is the organization
-// code of a member account, null for a TrekLink account.
+// code of a member account, null for a TrekLink account. Read only by the drift test of
+// demo-test-accounts.ts; the test accounts read itself never loads the seed (D-089).
 export interface DemoSeedAccount {
   key: keyof DemoSeedPasswords;
   email: string;
@@ -59,25 +60,6 @@ export const loadSeedModule: DemoSeedLoader = () => {
   }
 };
 
-// The seed's readPasswords, or 409 DEMO_SEED_NOT_CONFIGURED naming the missing variables; `action` ends
-// the message. Shared by the stage (DemoSeedRunner) and the test accounts read (DemoAccountsService).
-export const readSeedPasswords = (
-  seed: DemoSeedModule,
-  env: NodeJS.ProcessEnv,
-  action: string,
-): DemoSeedPasswords => {
-  try {
-    return seed.readPasswords(env);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message.replace(/^missing /, '') : '';
-    throw new DomainException(
-      HttpStatus.CONFLICT,
-      ErrorCode.DEMO_SEED_NOT_CONFIGURED,
-      `Set ${detail || 'the SEED_*_PASSWORD variables'} before ${action}.`,
-    );
-  }
-};
-
 // Runs the demo seed in-process with the SEED_* variables the CLI reads (ConfigModule has loaded the
 // same .env files into process.env).
 @Injectable()
@@ -90,7 +72,16 @@ export class DemoSeedRunner {
   // The four passwords, or 409 DEMO_SEED_NOT_CONFIGURED naming the missing variables. Called before the
   // reset, so a missing password changes nothing.
   passwords(env: NodeJS.ProcessEnv = process.env): DemoSeedPasswords {
-    return readSeedPasswords(this.load(), env, 'staging');
+    try {
+      return this.load().readPasswords(env);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message.replace(/^missing /, '') : '';
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.DEMO_SEED_NOT_CONFIGURED,
+        `Set ${detail || 'the SEED_*_PASSWORD variables'} before staging.`,
+      );
+    }
   }
 
   run(passwords: DemoSeedPasswords, now: Date, env: NodeJS.ProcessEnv = process.env) {

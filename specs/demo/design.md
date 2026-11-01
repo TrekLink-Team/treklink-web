@@ -29,7 +29,7 @@ flowchart LR
 | `DemoGuardService` | The three checks of §2, and the one-at-a-time lock |
 | `DemoAccountsModule`, `DemoAccountsController`, `DemoAccountsService` | The public test accounts read of api-design 05, under its own flag (§8) |
 | `DemoResetRepository` | The truncation of §3, raw SQL on table names read from `pg_tables` |
-| `DemoSeedRunner` | Loads `prisma/seed-demo.ts` at run time and calls its exported `seedDemo`, `readPasswords` and `SEEDED_ACCOUNTS` (§4, §8) |
+| `DemoSeedRunner` | Loads `prisma/seed-demo.ts` at run time and calls its exported `seedDemo` and `readPasswords` (§4) |
 | `DemoScenariosService` | The scenario list, staging, records and first steps (§5) |
 
 ## 2. Guards
@@ -114,11 +114,16 @@ branch), so it has its own flag and none of the guards of §2.
 `ConditionalModule.registerWhen(DemoAccountsModule, demoTestAccountsEnabled)`, independently of
 `DemoModule`. It imports no other module, touches no database and holds only `DemoAccountsController`
 (`GET /api/demo/accounts`, api-design 05, `@Public()`, `Cache-Control: no-store`) and
-`DemoAccountsService`. The service loads the seed through the same `DEMO_SEED_LOADER` as the runner,
-reads the passwords with `readSeedPasswords` (409 `DEMO_SEED_NOT_CONFIGURED` on a missing variable) and
-maps `SEEDED_ACCOUNTS`, an export of `seed-demo.ts` in its own block, to `{ role, roleLabel, email,
-password, fullName, organization }`. The passwords are read from the environment on every request and
-appear in no log line. The labels match the account menu, with the TrekLink prefix on the two staff roles.
+`DemoAccountsService`. The Vercel function ships only the build of `src/`, with no `ts-node` and no
+`prisma/` folder, so the service never loads the seed file (decision of the leader, 2026-11-01). It reads
+`SEEDED_TEST_ACCOUNTS` and `readTestAccountPasswords` of `demo-test-accounts.ts`, a compiled copy of the
+seed's `SEEDED_ACCOUNTS` export (in its own block of `seed-demo.ts`) and of the variables its
+`readPasswords` reads, and maps each account to `{ role, roleLabel, email, password, fullName,
+organization }`; a missing variable answers 409 `DEMO_SEED_NOT_CONFIGURED`. `demo-test-accounts.spec.ts`
+fails when the copy differs from the seed's list or variables, and checks that the accounts module loads
+with the seed runner and the seed file made unloadable. The passwords are read from the environment on
+every request and appear in no log line. The labels match the account menu, with the TrekLink prefix on
+the two staff roles.
 
 The control panel keeps every check of §2: `DemoModule` still loads only with `DEMO_CONTROLS_ENABLED`, and
 its stage and role switch still refuse production and a database off the machine, so the reset is never
@@ -126,8 +131,3 @@ reachable on a Neon host whatever the accounts flag says.
 
 The frontend `TestAccountsBox` widget (screen 7.5 §"Sandbox test accounts box") renders nothing on any
 error, so a deployment with the flag off shows nothing.
-
-**Open, asked of the leader on 2026-11-01**: the seed file is loaded at run time, by `ts-node` when the
-process has no `.ts` loader (§4). `ts-node` is a dev dependency, and a compiled Vercel function may ship
-neither it nor `prisma/seed-demo.ts`. Until the Vercel production is verified, the list there is
-(unverified).
