@@ -67,9 +67,24 @@ beforeEach(async () => {
   live = await import('./socketClient');
 });
 
-afterEach(() => live.stopLive());
+afterEach(() => {
+  live.stopLive();
+  vi.unstubAllEnvs();
+});
 
 describe('socketClient', () => {
+  it('opens no socket and never pauses in poll mode (Vercel, D-089)', () => {
+    vi.stubEnv('VITE_LIVE_MODE', 'poll');
+    const before = fake;
+    const messages: string[] = [];
+    live.subscribeLive((message) => messages.push(message.kind));
+    live.startLive(() => 'access-1');
+    expect(live.livePolls()).toBe(true);
+    expect(fake).toBe(before);
+    expect(live.isLivePaused()).toBe(false);
+    expect(messages).toEqual([]);
+  });
+
   it('connects to /live with the token and no cursor on first connect', () => {
     live.startLive(() => 'access-1');
     expect(fake.url).toMatch(/\/live$/);

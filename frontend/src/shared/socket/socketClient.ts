@@ -4,6 +4,12 @@ import { apiClient } from '../api/apiClient';
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
 const CURSOR_KEY = 'treklink.live.cursor';
 
+// Live mode, set at build time (frontend design §3). `poll` is for a host that cannot keep a socket:
+// Vercel Functions hold no WebSocket and spread Socket.IO polling over instances (D-089). No socket is
+// opened, MSG32 never shows, and LiveProvider refetches the stream-driven views every LIVE_POLL_MS.
+export const LIVE_POLL_MS = 15_000;
+export const livePolls = (): boolean => import.meta.env.VITE_LIVE_MODE === 'poll';
+
 // One entry of the stream (monitoring ws-live-contract). A push and a REST replay carry this shape.
 export interface LiveEntry {
   seq: number;
@@ -73,7 +79,7 @@ export const isLivePaused = (): boolean => paused;
 // reconnect carries the latest token and the last cursor.
 export const startLive = (tokenSource: () => string | null): void => {
   getAccessToken = tokenSource;
-  if (socket) return;
+  if (socket || livePolls()) return;
 
   socket = io(`${WS_URL}/live`, {
     auth: (send) => send({ token: getAccessToken(), after: readCursor() }),

@@ -8,6 +8,11 @@ const VIEW: Record<ConnectionState, { label: string; box: string; dot: string }>
     box: 'border-status-active-line bg-status-active-tint text-status-active-fg',
     dot: 'bg-status-active-fg shadow-[0_0_0_3px_rgb(var(--tl-status-active-fg)/0.25)]',
   },
+  polling: {
+    label: 'Auto refresh',
+    box: 'border-status-active-line bg-status-active-tint text-status-active-fg',
+    dot: 'bg-status-active-fg',
+  },
   reconnecting: {
     label: 'Reconnecting',
     box: 'border-status-attention-line bg-status-attention-tint text-status-attention-fg',

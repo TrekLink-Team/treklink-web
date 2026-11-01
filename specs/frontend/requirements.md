@@ -35,7 +35,7 @@
 
 - **REQ-EVT-01**: WHEN an `incident.alert` arrives, the client SHALL show the red pulsing banner MSG31 with a one-tap acknowledge, on every page, until acknowledged or taken by someone else (MSG27). [FR-INC-06]
 - **REQ-EVT-02**: WHEN an access token expires, the client SHALL refresh it once and retry; WHEN refresh fails, it SHALL return to sign-in.
-- **REQ-EVT-03**: WHEN the socket disconnects, the client SHALL show MSG32, reconnect with its last cursor, and clear the banner on `replay.done`. [FR-MON-05]
+- **REQ-EVT-03**: WHEN the socket disconnects, the client SHALL show MSG32, reconnect with its last cursor, and clear the banner on `replay.done`. WHERE the build sets `VITE_LIVE_MODE=poll` (a host that cannot keep a socket, D-089), the client SHALL open no socket, SHALL NOT show MSG32, SHALL refetch the views the stream would refresh every 15 seconds, and the header SHALL say "Auto refresh" instead of "Live". [FR-MON-05]
 - **REQ-EVT-04**: WHEN the map provider fails, the client SHALL show MSG33 and keep the lists live. [FR-MON-09]
 
 ### Unwanted Behaviour
