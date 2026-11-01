@@ -1614,6 +1614,9 @@ model SyncAuditLog {
   createdAt  DateTime    @default(now()) @db.Timestamptz(3)
 
   @@index([outcome, createdAt])
+  // The audit list pages by createdAt then id, newest first (SyncQueryRepository.pageAudit); a backward
+  // scan of this index serves that ORDER BY (review of #235).
+  @@index([createdAt, id])
   @@index([eventId])
   @@index([deviceId])
   @@map("sync_audit_log") // append-only trigger
