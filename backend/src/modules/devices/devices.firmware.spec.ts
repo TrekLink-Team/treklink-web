@@ -88,6 +88,28 @@ describe('DevicesService.updateFirmware (devices api-design 08)', () => {
     expect(body).toContain(ErrorCode.NOT_FOUND);
   });
 
+  it('answers 409 INVALID_STATE_TRANSITION for a DISPOSED unit and writes nothing', async () => {
+    repository.findDetail.mockResolvedValue({
+      ...detailRow('2.7.19-treklink.3', 5),
+      status: DeviceStatus.DISPOSED,
+    });
+    const [status, body] = await codeOf(
+      service.updateFirmware('dev-1', { firmwareVersion: 'x', expectedVersion: 5 }, tx),
+    );
+    expect(status).toBe(HttpStatus.CONFLICT);
+    expect(body).toContain(ErrorCode.INVALID_STATE_TRANSITION);
+    expect(repository.setFirmwareIfCurrent).not.toHaveBeenCalled();
+  });
+
+  it('accepts a firmware edit on a RETIRED unit before its disposal', async () => {
+    repository.findDetail.mockResolvedValue({
+      ...detailRow('2.7.19-treklink.3', 5),
+      status: DeviceStatus.RETIRED,
+    });
+    await service.updateFirmware('dev-1', { firmwareVersion: 'y', expectedVersion: 5 }, tx);
+    expect(repository.setFirmwareIfCurrent).toHaveBeenCalledWith('dev-1', 5, 'y', tx);
+  });
+
   it('answers 409 STALE_VERSION when the loaded version differs, before writing', async () => {
     repository.findDetail.mockResolvedValue(detailRow('2.7.19-treklink.3', 6));
     const [status, body] = await codeOf(

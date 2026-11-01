@@ -141,11 +141,14 @@ ENDPOINTS = [
 
     ep("PATCH", "/api/devices/:id", "Edit device data", "TrekLink Staff",
        "Corrects the firmware version after a reflash. Identity fields never change; state changes go "
-       "through their own endpoints (FR-DEV-01).", "UC-11, FR-DEV-01",
+       "through their own endpoints (FR-DEV-01). A `DISPOSED` unit is wiped and out of the fleet, so its "
+       "record is final.", "UC-11, FR-DEV-01",
        path=[DEV_PATH], body=[["firmwareVersion", "Firmware on the unit", "string", "yes", "`2.7.19-treklink.4`"], VERSION],
        sample={"firmwareVersion": "2.7.19-treklink.4", "expectedVersion": 5},
        response={**DEVICE, "firmwareVersion": "2.7.19-treklink.4", "version": 6}, message="Saved.", entity="Device",
-       errors=[STALE], steps=["Compare-and-set", "Emit audit.record device.update"],
+       errors=[(409, "INVALID_STATE_TRANSITION", "The device is DISPOSED",
+                "This cannot be done while it is DISPOSED."), STALE],
+       steps=["Refuse a DISPOSED unit", "Compare-and-set", "Emit audit.record device.update"],
        controller="DevicesController", service="DevicesService", call="update(id, dto, actor)",
        seq=["Svc->>DB: UPDATE devices WHERE version"]),
 
