@@ -23,6 +23,7 @@ export * from './legal';
 export * from './Menu';
 export * from './StateChange';
 export * from './BulkAction';
+export * from './bulkSequence';
 export * from './map/MapChrome';
 export { cn } from './cn';
 export { Toast } from './toast';

@@ -9,9 +9,10 @@ import {
   useFieldStationRelease,
   useFieldStations,
   type CreatedFieldStation,
+  queueText,
   type FieldStation,
 } from '../entities/organization/fieldStations';
-import { queueText, StatusCell, VersionCell } from '../entities/organization/fieldStationUi';
+import { StatusCell, VersionCell } from '../entities/organization/fieldStationUi';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';

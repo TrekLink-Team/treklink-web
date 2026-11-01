@@ -5,10 +5,11 @@ import {
   FIELD_STATION_REFRESH_MS,
   fieldStationKeys,
   revokeFieldStation,
+  queueText,
   type FieldStation,
   type FieldStationList,
 } from '../entities/organization/fieldStations';
-import { queueText, StatusCell, VersionCell } from '../entities/organization/fieldStationUi';
+import { StatusCell, VersionCell } from '../entities/organization/fieldStationUi';
 import { apiClient } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import {
