@@ -21,6 +21,31 @@ not built.
   actionable, so an owner of an `ACKNOWLEDGED` incident would lose a stale banner at the next change.
 - Recipients come from the caller (`reason.recipients`, routing), not from the lifecycle.
 
-## Open
+## Item 4: the REQ-EVT-12 alert (branch `fix/stale-flag-alert`)
 
-The REQ-EVT-12 alert (incidents tasks 4.4): options asked to the leader in the session chat.
+Leader ruling of 2026-11-01: option 1, outbox rows (REQ-UBI-04, REQ-EVT-13). Stacked on
+`fix/stale-flag-follow-up` and held until after the demo, because it touches the alert dispatcher on the
+MF-03 path. MSG40 "Device silent: {device} ({holder}), last heard {time}."; recipients the owner when
+set, else the current tier's members through routing, else, for `ESCALATED`, `UNROUTED` and `REPORTED`,
+every active TrekLink Staff and Admin account; one alert when the flag is set, none when it clears; the
+banner shows it without Acknowledge.
+
+| Part | Where |
+|---|---|
+| `alert_deliveries.kind` (`TRANSITION`, `STALE`), nullable `transitionId`, `lastSeenAt`, CHECK `alert_deliveries_kind_shape` | migration `20261101120000_incidents_stale_alert`, `schema.prisma` |
+| `StaleAlerts.queue` and `RoutingService.treklinkRecipients` | `incidents/alerts/stale-alerts.ts`, `routing.service.ts`, called from `IncidentsService.markDeviceStale` |
+| MSG40 and `kind` on `incident.alert`, one body per row | `alerts/alert-dispatcher.job.ts`, ws-live-contract |
+| Banner: Dismiss in place of Acknowledge, SOS kept ahead | `frontend/src/app/AlertBanner.tsx` |
+
+Decisions taken here, for review:
+
+- The text needs the last reading, which the dispatcher cannot read back once the device is heard
+  again, so the row stores it in `lastSeenAt` (a column beyond the ruling's "kind column").
+- A `STALE` banner leaves on Dismiss or when the incident reaches `RESOLVED`, `FALSE_ALARM` or
+  `CLOSED`. `incident.changed` carries no `stale` field, so a flag clear does not remove it.
+- An owned `RESOLVED` incident in its reopen window alerts its owner, as the ruling's order reads; an
+  ownerless `FALSE_ALARM` alerts nobody.
+- The repository has no message catalog file (the SRS §5.3 catalog lives outside it), so MSG40 is
+  recorded in incidents and frontend requirements, incidents design §3 and the dispatcher's `msg40`.
+- `AlertDeliveryView` (api-design 14, the delivery log) does not show `kind`; a STALE row appears as one
+  more WEB or WEBSOCKET row of its tier.

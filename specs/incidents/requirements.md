@@ -3,7 +3,7 @@
 **User Story**: As an **Org Operator on duty**, I want every SOS from my organization's devices to reach me at once as one incident I can take ownership of, and to escalate on its own if I cannot answer; as **TrekLink Staff**, I want every unanswered or unroutable SOS to land with us, so that we can report it to the authorities with a full record.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: Highest | **Milestone**: MF-03
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-29 to UC-37, FR-INC-01 to FR-INC-13 (FR-INC-09 withdrawn by D-038), BR-13 to BR-18, BR-32, E03-1 to E03-7, E03-9, NFR-REL-03, NFR-REL-07, NFR-PERF-04, NFR-AVL-02, MSG27, MSG28, MSG31, MSG34; D-034 (lifecycle and rules) as amended by D-038; D-033 item 6 (TrekLink never coordinates a rescue). Rewritten 2026-10-04 (D-036).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-29 to UC-37, FR-INC-01 to FR-INC-13 (FR-INC-09 withdrawn by D-038), BR-13 to BR-18, BR-32, E03-1 to E03-7, E03-9, NFR-REL-03, NFR-REL-07, NFR-PERF-04, NFR-AVL-02, MSG27, MSG28, MSG31, MSG34, MSG40 (added 2026-11-01 by leader ruling, not yet in the SRS §5.3 catalog); D-034 (lifecycle and rules) as amended by D-038; D-033 item 6 (TrekLink never coordinates a rescue). Rewritten 2026-10-04 (D-036).
 
 ---
 
@@ -42,7 +42,7 @@
 - **REQ-UBI-01**: The system SHALL change incident state only through the D-034 transition table (design §2); each transition SHALL be one transaction with a compare-and-set on `state` and `version` and one append-only `IncidentTransition` row with sequence, from, to, actor or `SYSTEM`, reason and UTC time. [FR-INC-04, BR-15, BR-18]
 - **REQ-UBI-02**: The system SHALL keep at most one incident per device outside `CLOSED`, enforced by the database. [FR-INC-01, BR-13]
 - **REQ-UBI-03**: Every incident outside `CLOSED`, `REPORTED`, `UNROUTED` and `ESCALATED` SHALL have either a named owner with a status deadline or a pending tier deadline; `UNROUTED`, `ESCALATED` and `REPORTED` are owned by TrekLink Staff as a role. [NFR-REL-07]
-- **REQ-UBI-04**: The system SHALL write each alert to the outbox in the same transaction as the transition that caused it and SHALL deliver it after commit; a delivery failure SHALL never block or roll back a transition. [FR-INC-12, D-034 rule 3]
+- **REQ-UBI-04**: The system SHALL write each alert to the outbox in the same transaction as the transition that caused it, or as the stale flag change of REQ-EVT-12, and SHALL deliver it after commit; a delivery failure SHALL never block or roll back a transition. [FR-INC-12, D-034 rule 3]
 - **REQ-UBI-05**: No packet from a device SHALL change an incident's state other than opening or reopening it; a false alarm is declared only by a person. [D-038]
 
 ### Event-Driven
@@ -58,7 +58,7 @@
 - **REQ-EVT-09**: WHEN TrekLink Staff record an authority report with agency, reference and time on an `ESCALATED` or `UNROUTED` incident, the system SHALL move it to `REPORTED`; WHEN they record the case closed, the system SHALL move it to `CLOSED`. [FR-INC-10, BR-17]
 - **REQ-EVT-10**: WHEN a new SOS episode from the same device arrives within the reopen window of a `RESOLVED` or `FALSE_ALARM` incident, the system SHALL move it to `NOTIFY_PRIMARY` (re-routed as at creation), increase its reopen count and clear the owner; WHEN the window ends, the system SHALL move it to `CLOSED`. [FR-INC-11, E03-6]
 - **REQ-EVT-11**: WHEN the owner of an `ACKNOWLEDGED` or `RESPONDING` incident is deactivated, the system SHALL move it to `NOTIFY_BACKUP` and alert that tier. [D-034]
-- **REQ-EVT-12**: WHEN the staleness sweep reports a device silent past `monitoring.deviceStaleSeconds` during an incident outside `CLOSED`, the system SHALL flag the incident stale with the last position, keep its state, and notify the owner or current tier; WHEN the device is heard again, the flag SHALL clear. [FR-INC-13]
+- **REQ-EVT-12**: WHEN the staleness sweep reports a device silent past `monitoring.deviceStaleSeconds` during an incident outside `CLOSED`, the system SHALL flag the incident stale with the last position, keep its state, and notify the owner or current tier once (MSG40; for an ownerless `ESCALATED`, `UNROUTED` or `REPORTED` incident, every active TrekLink Staff and Admin account); WHEN the device is heard again, the flag SHALL clear without a notification. [FR-INC-13]
 - **REQ-EVT-13**: WHEN an outbox row is due, the dispatcher SHALL deliver it by its channel (web inbox, WebSocket to the recipient, email, API stream event), retry failures with exponential backoff from `incidents.alertRetryBaseSeconds` up to `incidents.alertMaxAttempts`, then mark it `FAILED` and log it. [FR-INC-12, E03-7]
 - **REQ-EVT-14**: WHEN the owner corrects a status update, the system SHALL append a new status update that names the corrected one, SHALL leave the corrected one unchanged, and SHALL mark it corrected on the detail read; an update SHALL be corrected at most once, and only by an update of the same incident. [FR-INC-07, dry run defect 15]
 
