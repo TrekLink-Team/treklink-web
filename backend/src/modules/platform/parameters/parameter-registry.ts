@@ -24,6 +24,7 @@ export const PARAMETER_TYPES = {
   'rentals.minOrderQuantity': 'INT',
   'rentals.dayPlanLengths': 'JSON',
   'rentals.reservationExpiryHours': 'INT',
+  'rentals.requestHoldHours': 'INT',
   'rentals.returnGraceHours': 'INT',
   'rentals.defaultAfterDays': 'INT',
   'rentals.termRolloverHourLocal': 'INT',

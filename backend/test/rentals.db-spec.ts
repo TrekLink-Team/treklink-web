@@ -30,6 +30,7 @@ describe('rentals foundation against Postgres (REQ-UBI-01, REQ-UBI-02, BR-03)', 
     {} as never,
     events,
     {} as never,
+    {} as never,
   );
   const at = new Date('2026-10-25T02:00:00.000Z');
   const runId = randomUUID();

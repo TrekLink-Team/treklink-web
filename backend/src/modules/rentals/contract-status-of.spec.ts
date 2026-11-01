@@ -19,6 +19,7 @@ describe('ContractsService.statusOf', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     await expect(service.statusOf('c-1')).resolves.toBe('DEFAULTED');
     await expect(service.statusOf('c-9')).resolves.toBeNull();

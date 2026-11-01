@@ -87,6 +87,7 @@ describe('Station attribution (AC-06 to AC-08) against Postgres', () => {
     {} as never,
     events,
     devices,
+    {} as never,
   );
   const stations = new FieldStationsService(
     new FieldStationsRepository(prisma),

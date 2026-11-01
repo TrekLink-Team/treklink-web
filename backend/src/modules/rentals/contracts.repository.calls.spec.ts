@@ -28,6 +28,24 @@ const AT = new Date('2026-10-29T03:00:00Z');
 // The repository's simple reads and writes: each one's query shape, through the default client and
 // through a caller's transaction.
 describe('ContractsRepository delegate calls', () => {
+  it('selects REQUESTED contracts whose hold expired, oldest first, and reads one hold (D-092)', async () => {
+    const { calls, client } = recorder();
+    const repository = new ContractsRepository(client);
+    await repository.expiredHolds(AT);
+    await expect(repository.holdExpiresAt('c-1', client)).resolves.toBeNull();
+    expect(calls).toEqual([
+      [
+        'rentalContract.findMany',
+        {
+          where: { status: ContractStatus.REQUESTED, holdExpiresAt: { lte: AT } },
+          select: { id: true, code: true },
+          orderBy: { holdExpiresAt: 'asc' },
+        },
+      ],
+      ['rentalContract.findUnique', { where: { id: 'c-1' }, select: { holdExpiresAt: true } }],
+    ]);
+  });
+
   it('pages with every filter, or none, through the default client', async () => {
     const { calls, client } = recorder();
     const repository = new ContractsRepository(client);

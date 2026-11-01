@@ -5,7 +5,7 @@ import { BalanceService, ChargesService, InvoicesService } from '../billing';
 import { DevicesService } from '../devices';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
-import { ContractDecisionsService } from './contract-decisions.service';
+import { ContractDecisionsService, HOLD_EXPIRED } from './contract-decisions.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractRow, ContractsRepository } from './contracts.repository';
 
@@ -42,7 +42,7 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
   let devices: Record<string, jest.Mock>;
   let invoices: Record<string, jest.Mock>;
   let charges: { settleCancellation: jest.Mock };
-  let balances: { balanceSummary: jest.Mock };
+  let balances: { balanceSummary: jest.Mock; firstPaymentConfirmed: jest.Mock };
   let service: ContractDecisionsService;
 
   beforeEach(() => {
@@ -57,6 +57,10 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
       recordDecision: jest.fn().mockResolvedValue(undefined),
       recordCancellation: jest.fn().mockResolvedValue(undefined),
       releaseReservedRows: jest.fn().mockResolvedValue(['d-1', 'd-2']),
+      // No held rows: a contract requested before D-092, whose approval reserves (design §2.1).
+      liveRows: jest.fn().mockResolvedValue([]),
+      openTerm: jest.fn().mockResolvedValue(null),
+      holdExpiresAt: jest.fn().mockResolvedValue(new Date('2026-10-26T02:00:00.000Z')),
     };
     lifecycle = {
       apply: jest
@@ -72,6 +76,12 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
         { id: 'd-2', assetTag: 'TL-0002' },
       ]),
       release: jest.fn().mockResolvedValue(undefined),
+      assetTags: jest.fn().mockResolvedValue(
+        new Map([
+          ['d-7', 'TL-0007'],
+          ['d-8', 'TL-0008'],
+        ]),
+      ),
     };
     invoices = {
       issueTermInvoice: jest.fn().mockResolvedValue({}),
@@ -80,6 +90,7 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
     charges = { settleCancellation: jest.fn().mockResolvedValue(null) };
     balances = {
       balanceSummary: jest.fn().mockResolvedValue({ paidVnd: 450_000n }),
+      firstPaymentConfirmed: jest.fn().mockResolvedValue(false),
     };
     const events = {
       transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
@@ -247,6 +258,64 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
     });
   });
 
+  describe('approve a request that holds its devices (D-092 rule 1)', () => {
+    const input = { handoverAt: new Date('2026-11-01T02:00:00.000Z'), expectedVersion: 0 };
+    const term = {
+      id: 't-1',
+      seq: 1,
+      startsAt: new Date('2026-11-01T02:00:00.000Z'),
+      endsAt: new Date('2026-12-01T02:00:00.000Z'),
+      status: 'OPEN',
+    };
+
+    beforeEach(() => {
+      contracts.liveRows.mockResolvedValue([
+        { id: 'r-7', deviceId: 'd-7', handedOverAt: null },
+        { id: 'r-8', deviceId: 'd-8', handedOverAt: null },
+      ]);
+      contracts.openTerm.mockResolvedValue(term);
+    });
+
+    it('keeps the held units, term 1 and the invoice of the request, and moves to APPROVED', async () => {
+      const approved = await service.approve('c-1', input, STAFF, AT);
+
+      expect(devices.reserve).not.toHaveBeenCalled();
+      expect(contracts.insertContractDevices).not.toHaveBeenCalled();
+      expect(contracts.insertTerm).not.toHaveBeenCalled();
+      expect(invoices.issueTermInvoice).not.toHaveBeenCalled();
+      expect(approved.devices).toEqual([
+        { id: 'd-7', assetTag: 'TL-0007' },
+        { id: 'd-8', assetTag: 'TL-0008' },
+      ]);
+      expect(approved.term).toEqual({ seq: 1, startsAt: term.startsAt, endsAt: term.endsAt });
+      expect(lifecycle.apply).toHaveBeenCalledWith(
+        'c-1',
+        ContractStatus.REQUESTED,
+        ContractStatus.APPROVED,
+        'Handover appointment 2026-11-01T02:00:00.000Z',
+        STAFF,
+        TX,
+      );
+    });
+
+    it('accepts deviceIds naming exactly the held set, in any order', async () => {
+      await service.approve('c-1', { ...input, deviceIds: ['d-8', 'd-7'] }, STAFF, AT);
+      expect(devices.reserve).not.toHaveBeenCalled();
+      expect(lifecycle.apply).toHaveBeenCalled();
+    });
+
+    it('refuses deviceIds naming another set with 400, changing nothing (REQ-ERR-11)', async () => {
+      await expect(
+        service.approve('c-1', { ...input, deviceIds: ['d-7', 'd-9'] }, STAFF, AT),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_FAILED,
+        message: 'This request already holds TL-0007, TL-0008. Swap a unit at the counter instead.',
+      });
+      expect(devices.reserve).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+  });
+
   it('rejects with the reason the Manager sees (MSG16)', async () => {
     await service.reject('c-1', { reason: 'Out of stock', expectedVersion: 0 }, STAFF, AT);
     expect(lifecycle.apply).toHaveBeenCalledWith(
@@ -262,6 +331,74 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
       { decidedById: 'u-staff', decidedAt: AT, rejectionReason: 'Out of stock' },
       TX,
     );
+  });
+
+  it('releases the held units on rejection, voids the unpaid lines and answers the paid deposit (D-092)', async () => {
+    const rejected = await service.reject(
+      'c-1',
+      { reason: 'Out of stock', expectedVersion: 0 },
+      STAFF,
+      AT,
+    );
+    expect(contracts.releaseReservedRows).toHaveBeenCalledWith('c-1', AT, TX);
+    expect(devices.release).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX, {
+      contractId: 'c-1',
+      contractCode: 'RC-2026-0001',
+      actorId: STAFF.id,
+    });
+    expect(charges.settleCancellation).toHaveBeenCalledWith(
+      { id: 'c-1', organizationId: 'org-1' },
+      'u-staff',
+      TX,
+      AT,
+    );
+    expect(rejected.paidVnd).toBe(450_000n);
+    expect(rejected.contract.status).toBe(ContractStatus.REJECTED);
+  });
+
+  describe('expireHold (REQ-EVT-17)', () => {
+    it('cancels an unpaid expired hold as SYSTEM, releasing the units and voiding the lines', async () => {
+      await expect(service.expireHold('c-1', AT)).resolves.toBe(true);
+      expect(balances.firstPaymentConfirmed).toHaveBeenCalledWith('c-1', TX);
+      expect(lifecycle.apply).toHaveBeenCalledWith(
+        'c-1',
+        ContractStatus.REQUESTED,
+        ContractStatus.CANCELLED,
+        HOLD_EXPIRED,
+        null,
+        TX,
+      );
+      expect(devices.release).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX, {
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        actorId: null,
+      });
+      expect(charges.settleCancellation).toHaveBeenCalledWith(
+        { id: 'c-1', organizationId: 'org-1' },
+        null,
+        TX,
+        AT,
+      );
+      expect(contracts.recordCancellation).toHaveBeenCalledWith('c-1', HOLD_EXPIRED, AT, TX);
+    });
+
+    it('keeps a hold whose deposit is paid', async () => {
+      balances.firstPaymentConfirmed.mockResolvedValue(true);
+      await expect(service.expireHold('c-1', AT)).resolves.toBe(false);
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+      expect(devices.release).not.toHaveBeenCalled();
+    });
+
+    it('changes nothing before the expiry, for a contract without a hold, or one no longer REQUESTED', async () => {
+      contracts.holdExpiresAt.mockResolvedValueOnce(new Date('2026-10-26T03:00:00.001Z'));
+      await expect(service.expireHold('c-1', AT)).resolves.toBe(false);
+      contracts.holdExpiresAt.mockResolvedValueOnce(null);
+      await expect(service.expireHold('c-1', AT)).resolves.toBe(false);
+      contracts.lockById.mockResolvedValueOnce(contract({ status: ContractStatus.APPROVED }));
+      await expect(service.expireHold('c-1', AT)).resolves.toBe(false);
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+      expect(charges.settleCancellation).not.toHaveBeenCalled();
+    });
   });
 
   describe('cancel (FR-CON-04, MSG15)', () => {

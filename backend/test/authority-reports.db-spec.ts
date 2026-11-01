@@ -77,6 +77,7 @@ describe('AC-04, an unrouted SOS reported to the authorities, against Postgres',
     {} as never,
     events,
     {} as never,
+    {} as never,
   );
   const ingestion = new IngestionService(
     new IngestionRepository(prisma),

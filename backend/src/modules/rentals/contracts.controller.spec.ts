@@ -50,6 +50,14 @@ describe('ContractsController (rentals api-design 01)', () => {
       request: jest.fn().mockResolvedValue({
         contract: CONTRACT,
         quote: { firstPaymentVnd: 2_250_000n, termFeeVnd: 4_500_000n },
+        heldDevices: 10,
+        term: {
+          id: 't-1',
+          seq: 1,
+          startsAt: new Date('2026-11-01T02:00:00.000Z'),
+          endsAt: new Date('2026-12-01T02:00:00.000Z'),
+        },
+        holdExpiresAt: new Date('2026-10-27T03:00:00.000Z'),
       }),
     };
     devices = {
@@ -90,12 +98,19 @@ describe('ContractsController (rentals api-design 01)', () => {
       status: ContractStatus.REQUESTED,
       statusChangedAt: AT,
       handedOverAt: null,
-      currentTerm: null,
+      // D-092 rule 1: the request opens term 1, holds the units and answers the hold expiry.
+      currentTerm: {
+        seq: 1,
+        startsAt: new Date('2026-11-01T02:00:00.000Z'),
+        endsAt: new Date('2026-12-01T02:00:00.000Z'),
+      },
       endsAt: null,
       noticeGivenAt: null,
       returnDueAt: null,
       version: 1,
       quote: { firstPaymentVnd: 2_250_000, termFeeVnd: 4_500_000 },
+      holdExpiresAt: new Date('2026-10-27T03:00:00.000Z'),
+      heldDevices: 10,
     });
     expect(contracts.request).toHaveBeenCalledWith(
       {
@@ -170,6 +185,7 @@ describe('ContractsController (rentals api-design 01)', () => {
           ...CONTRACT,
           reservationExpiresAt: null,
           handoverAppointmentAt: null,
+          holdExpiresAt: new Date('2026-10-27T03:00:00.000Z'),
           terms: [],
           devices: [row('cd-1', 'd-1'), row('cd-2', 'd-2')],
         },
@@ -196,6 +212,7 @@ describe('ContractsController (rentals api-design 01)', () => {
 
     const detail = await reader.detail('c-1', MANAGER);
 
+    expect(detail.holdExpiresAt).toEqual(new Date('2026-10-27T03:00:00.000Z'));
     expect(detail.devices).toEqual([
       expect.objectContaining({
         deviceId: 'd-1',
@@ -211,6 +228,34 @@ describe('ContractsController (rentals api-design 01)', () => {
         provisionedKeyVersion: null,
       }),
     ]);
+  });
+
+  it('answers a rejection with the deposit paid so far, as a number (D-092)', async () => {
+    const rejected = { ...CONTRACT, status: ContractStatus.REJECTED, version: 2 };
+    const decisions = {
+      reject: jest.fn().mockResolvedValue({ contract: rejected, paidVnd: 2_250_000n }),
+    };
+    const reads = {
+      labeller: jest
+        .fn()
+        .mockResolvedValue(() => ({ organization: ORG, variantCode: 'treklink-v3' })),
+    };
+    const staff = new ContractsController(
+      {} as ContractsService,
+      {} as DevicesService,
+      reads as unknown as ContractReadsService,
+      decisions as unknown as ContractDecisionsService,
+    );
+    const caller = { id: 'staff-1', roles: ['STAFF'], organizationId: null };
+
+    const view = await staff.reject('c-1', { reason: 'Out of stock', expectedVersion: 1 }, caller);
+
+    expect(decisions.reject).toHaveBeenCalledWith(
+      'c-1',
+      { reason: 'Out of stock', expectedVersion: 1 },
+      caller,
+    );
+    expect(view).toMatchObject({ status: ContractStatus.REJECTED, paidVnd: 2_250_000 });
   });
 
   const policiesOf = (method: string): PolicyHandler[] =>

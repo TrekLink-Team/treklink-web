@@ -54,6 +54,7 @@
   - **Do**: `ChargesService.settleCancellation(contract, tx)` voids the unpaid first-invoice lines with a zero-sum `ADJUSTMENT`, keeping a paid holding fee
   - **Test**: cancel before and after the holding fee is paid
   - _Requirements: REQ-EVT-11, FR-CON-04_
+  - **2026-11-01** (KhoaDD under D-078, D-092 rule 1): `rentals` also calls it on a rejection and on an unpaid hold expiry (`actorId` null), no billing code change; the first invoice of 2.2 is now issued in the request transaction (rentals design §2.1)
   - **Done** (Jira card pending): as `settleCancellation(contract, actorId, tx)`, `actorId` null for SYSTEM, so the `ADJUSTMENT` carries its author (REQ-UBI-02); one line of minus the unpaid total on the contract's `CLOSING` invoice, created under a per-contract advisory lock when missing; nothing when no invoice was issued yet or nothing is unpaid
 - [x] 2.4 Balance service (owner LongLP)
   - **Files**: `backend/src/modules/billing/balance.service.ts`

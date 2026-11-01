@@ -2,7 +2,13 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { dayPlanFeeVnd, holdingFeeVnd, PricingService, termFeeVnd } from '../billing';
+import {
+  dayPlanFeeVnd,
+  holdingFeeVnd,
+  InvoicesService,
+  PricingService,
+  termFeeVnd,
+} from '../billing';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
@@ -15,6 +21,9 @@ import {
   CustodyRow,
 } from './contracts.repository';
 import { CONTRACT_REQUESTED, ContractRequestedEvent } from './contract-notification.events';
+import { FirstTerm, openFirstTerm } from './first-invoice';
+
+const HOUR_MS = 3_600_000;
 
 export interface Custody {
   contractDeviceId: string;
@@ -105,6 +114,10 @@ export type RequestQuote =
 export interface RequestedContract {
   contract: ContractRow;
   quote: RequestQuote;
+  // D-092 rule 1: the units held, term 1 with its invoice, and when an unpaid hold expires.
+  heldDevices: number;
+  term: FirstTerm;
+  holdExpiresAt: Date;
 }
 
 const badRequest = (code: ErrorCode, message: string) =>
@@ -130,6 +143,7 @@ export class ContractsService {
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
     private readonly devices: DevicesService,
+    private readonly invoices: InvoicesService,
   ) {}
 
   // An Org Manager requests a plan (rentals task 2.1, UC-15, REQ-EVT-01, api-design 01). In one
@@ -141,6 +155,11 @@ export class ContractsService {
   // without a price in effect. The variant read joins the request transaction. The organization row
   // is held FOR SHARE to the end of it, so a closing (organizations api-design 10) that locks the row
   // FOR UPDATE either counts this contract or commits first and refuses it as CLOSED.
+  // Since D-092 rule 1 the same transaction holds the devices (design §2.1): DevicesService.reserve,
+  // the approval's row-lock query, takes exactly the quantity of AVAILABLE units (409
+  // INSUFFICIENT_DEVICES, MSG11, and the rollback leaves nothing behind, so a race for the last units
+  // is first come, first served), one live row each, then term 1 and the first invoice, whose first
+  // line is the deposit. `holdExpiresAt` is `rentals.requestHoldHours` after the request.
   async request(
     input: ContractRequest,
     caller: Caller,
@@ -180,7 +199,8 @@ export class ContractsService {
       }
 
       const variants = await this.devices.variants(true, tx);
-      if (!variants.some((variant) => variant.id === input.hardwareVariantId && variant.isActive)) {
+      const variant = variants.find((item) => item.id === input.hardwareVariantId && item.isActive);
+      if (!variant) {
         throw new DomainException(
           HttpStatus.NOT_FOUND,
           ErrorCode.NOT_FOUND,
@@ -188,6 +208,8 @@ export class ContractsService {
         );
       }
       const snapshot = await this.pricing.snapshot(input.hardwareVariantId, tx, at);
+      const holdHours = await this.parameters.get('rentals.requestHoldHours', tx);
+      const holdExpiresAt = new Date(at.getTime() + holdHours * HOUR_MS);
       const contract = await this.contracts.insertRequested(
         {
           organizationId,
@@ -200,9 +222,29 @@ export class ContractsService {
           dayPremium: isDayPlan ? snapshot.dayPremium : null,
           holdingFeeRatio: snapshot.holdingFeeRatio,
           requestedById: caller.id,
+          holdExpiresAt,
         },
         at,
         tx,
+      );
+      const held = await this.devices.reserve(
+        { id: variant.id, code: variant.code },
+        input.quantity,
+        at,
+        tx,
+        { contractId: contract.id, contractCode: contract.code, actorId: caller.id },
+      );
+      await this.contracts.insertContractDevices(
+        held.map((device) => ({ contractId: contract.id, deviceId: device.id })),
+        tx,
+      );
+      const term = await openFirstTerm(
+        this.contracts,
+        this.invoices,
+        contract,
+        variant.code,
+        tx,
+        at,
       );
       this.events.emitAfterCommit(AUDIT_RECORD, {
         actorId: caller.id,
@@ -216,6 +258,8 @@ export class ContractsService {
           planType: input.planType,
           quantity: input.quantity,
           monthlyUnitPriceVnd: snapshot.monthlyUnitPriceVnd.toString(),
+          heldDevices: held.length,
+          holdExpiresAt: holdExpiresAt.toISOString(),
         },
       } satisfies AuditRecordEvent);
       this.events.emitAfterCommit(CONTRACT_REQUESTED, {
@@ -238,7 +282,7 @@ export class ContractsService {
             firstPaymentVnd: holdingFeeVnd(price, input.quantity, snapshot.holdingFeeRatio),
             termFeeVnd: termFeeVnd(price, input.quantity),
           };
-      return { contract, quote };
+      return { contract, quote, heldDevices: held.length, term, holdExpiresAt };
     });
   }
 

@@ -48,6 +48,7 @@ export const LIST_SELECT = {
   ...CONTRACT_SELECT,
   reservationExpiresAt: true,
   handoverAppointmentAt: true,
+  holdExpiresAt: true,
   terms: { select: TERM_SELECT, orderBy: { seq: 'desc' }, take: 1 },
 } satisfies Prisma.RentalContractSelect;
 
@@ -69,6 +70,7 @@ export const DETAIL_SELECT = {
   ...CONTRACT_SELECT,
   reservationExpiresAt: true,
   handoverAppointmentAt: true,
+  holdExpiresAt: true,
   terms: { select: TERM_SELECT, orderBy: { seq: 'asc' } },
   devices: {
     where: { releasedAt: null },
@@ -131,6 +133,9 @@ export interface NewContract {
   dayPremium: Prisma.Decimal | null;
   holdingFeeRatio: Prisma.Decimal;
   requestedById: string;
+  // D-092 rule 1: the request holds its devices until then unless the deposit is paid; absent for a
+  // row inserted without a request (tests, seeds).
+  holdExpiresAt?: Date;
 }
 
 // Live contract rows: not released before handover or by a swap, and not replaced (rentals 4.3).
@@ -746,6 +751,26 @@ export class ContractsRepository {
   // reminder. Each audience is flagged by its own transition reason (design §5).
   // Expired reservations that still lack the Manager reminder, or the Staff one when `withStaff`; a
   // deployment without Staff notifications never selects a contract for the Staff part alone.
+  // REQUESTED contracts whose hold expired at `at`, oldest expiry first (rentals.requestHoldExpiry,
+  // REQ-EVT-17). A contract requested before D-092 has a null holdExpiresAt and is never selected;
+  // the job rechecks the payment under the contract lock.
+  expiredHolds(at: Date, client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: { status: ContractStatus.REQUESTED, holdExpiresAt: { lte: at } },
+      select: { id: true, code: true },
+      orderBy: { holdExpiresAt: 'asc' },
+    });
+  }
+
+  // The hold expiry of one contract, read under the caller's lock.
+  async holdExpiresAt(id: string, tx: Prisma.TransactionClient): Promise<Date | null> {
+    const row = await tx.rentalContract.findUnique({
+      where: { id },
+      select: { holdExpiresAt: true },
+    });
+    return row?.holdExpiresAt ?? null;
+  }
+
   reservationsToRemind(at: Date, withStaff = true, client: Client = this.prisma) {
     const pending = [RESERVATION_REMINDED, ...(withStaff ? [RESERVATION_STAFF_REMINDED] : [])];
     return client.rentalContract.findMany({
