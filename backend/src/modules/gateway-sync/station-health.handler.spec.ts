@@ -78,12 +78,12 @@ describe('corrected (D-040 clock offset)', () => {
 });
 
 describe('StationHealthHandler (task 2.5, health part)', () => {
-  let stations: { byUsername: jest.Mock; recordStationHealth: jest.Mock };
+  let stations: { stationByUsername: jest.Mock; recordStationHealth: jest.Mock };
   let handler: StationHealthHandler;
 
   beforeEach(() => {
     stations = {
-      byUsername: jest
+      stationByUsername: jest
         .fn()
         .mockResolvedValue({ id: 'fs-1', organizationId: 'org-1', revokedAt: null }),
       recordStationHealth: jest.fn().mockResolvedValue(undefined),
@@ -100,7 +100,7 @@ describe('StationHealthHandler (task 2.5, health part)', () => {
 
   it('records the health projection with the receipt time and the corrected flush time', async () => {
     await expect(handler.handle(TOPIC, report(), receivedAt)).resolves.toBe(true);
-    expect(stations.byUsername).toHaveBeenCalledWith('fs-org-0001-1');
+    expect(stations.stationByUsername).toHaveBeenCalledWith('fs-org-0001-1');
     expect(stations.recordStationHealth).toHaveBeenCalledWith('fs-1', {
       at: receivedAt,
       queueDepth: [1, 0, 12, 12],
@@ -130,7 +130,7 @@ describe('StationHealthHandler (task 2.5, health part)', () => {
 
   it('drops a report that does not match the contract', async () => {
     await expect(handler.handle(TOPIC, Buffer.from('nope'), receivedAt)).resolves.toBe(false);
-    expect(stations.byUsername).not.toHaveBeenCalled();
+    expect(stations.stationByUsername).not.toHaveBeenCalled();
   });
 
   it('drops a topic that is not a health topic', async () => {
@@ -141,7 +141,7 @@ describe('StationHealthHandler (task 2.5, health part)', () => {
     ['an unknown username', null],
     ['a revoked station', { id: 'fs-1', organizationId: 'org-1', revokedAt: receivedAt }],
   ])('drops the report of %s', async (_case, station) => {
-    stations.byUsername.mockResolvedValue(station);
+    stations.stationByUsername.mockResolvedValue(station);
     await expect(handler.handle(TOPIC, report(), receivedAt)).resolves.toBe(false);
     expect(stations.recordStationHealth).not.toHaveBeenCalled();
   });

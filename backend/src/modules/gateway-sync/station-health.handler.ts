@@ -86,7 +86,7 @@ export class StationHealthHandler {
       );
       return false;
     }
-    const station = await this.stations.byUsername(username);
+    const station = await this.stations.stationByUsername(username);
     if (!station || station.revokedAt) {
       this.logger.warn(
         `Health report of ${username} dropped: no active Field Station has that username`,

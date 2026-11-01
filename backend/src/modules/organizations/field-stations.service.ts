@@ -21,6 +21,7 @@ import {
   FieldStationsRepository,
   StationCredential,
   StationHealth,
+  StationIdentity,
 } from './field-stations.repository';
 import { OrganizationsRepository } from './organizations.repository';
 
@@ -83,7 +84,8 @@ const toView = (row: FieldStationRow, release: FieldStationRelease | null): Stat
 // reaches only its own organization and any other answers 404 (REQ-ERR-05); TrekLink Staff and Admin
 // read any organization and revoke any station. The secret is stored as a bcrypt hash and returned
 // once by `create`; it is in no list, response or audit entry after that (REQ-UBI-03). `gateway-sync`
-// calls `byUsername` for the broker check and `recordStationHealth` for the minute report.
+// calls `stationByUsername` for ingestion and the minute report, `byUsername` for the broker check
+// (task 3.1) and `recordStationHealth` for the minute report.
 @Injectable()
 export class FieldStationsService {
   private readonly cost: number;
@@ -215,8 +217,14 @@ export class FieldStationsService {
     });
   }
 
-  // For `gateway-sync`: the station behind a broker username with its secret hash and revocation, or
-  // null for an unknown username. The hash is for the bcrypt compare and goes nowhere else.
+  // For `gateway-sync` ingestion and the health report: the station behind a broker username with
+  // its organization and revocation, no secret hash, or null for an unknown username.
+  stationByUsername(mqttUsername: string): Promise<StationIdentity | null> {
+    return this.stations.findIdentityByUsername(mqttUsername);
+  }
+
+  // For the `gateway-sync` broker check (task 3.1): the same station with its secret hash. The hash
+  // is for the bcrypt compare and goes nowhere else.
   byUsername(mqttUsername: string): Promise<StationCredential | null> {
     return this.stations.findByUsername(mqttUsername);
   }

@@ -139,7 +139,8 @@ contact address given at registration when none can be reached.
 | `OrganizationsService.suspendForDefault(orgId, contractCode, tx)` | rentals | FR-ORG-07 |
 | `OrganizationsService.channelKeyVersion(orgId)` | rentals | provisioning |
 | `RosterService.tiersAt(orgId, instant)` | incidents | routing and tiers |
-| `FieldStationsService.byUsername(username)` | gateway-sync | broker hook, Stage C ingestion |
+| `FieldStationsService.byUsername(username)`, with the secret hash | gateway-sync | broker hook |
+| `FieldStationsService.stationByUsername(username)`, without the secret hash | gateway-sync | Stage C ingestion, station health report |
 | `FieldStationsService.recordStationHealth(id, health)` | gateway-sync | FR-EVT-13 |
 | `ChannelKeyService.markKeyExposed(orgId, at, actor, tx)` | devices | FR-DEV-13, D-045 |
 | `ComplianceCaseService.openOrLink(orgId, lossCaseId, actor, tx)` | devices | FR-DEV-13, D-046 |
@@ -247,7 +248,8 @@ classDiagram
     }
     class FieldStationsService {
         +create(orgId, dto, actor) StationSecret
-        +byUsername(username) FieldStation
+        +byUsername(username) StationCredential
+        +stationByUsername(username) StationIdentity
         +recordStationHealth(id, health)
     }
     class FieldStationReleaseService {

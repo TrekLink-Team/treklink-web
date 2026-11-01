@@ -59,7 +59,7 @@ describe('IngestionService', () => {
   };
   let devices: { byNodeNum: jest.Mock; projectReading: jest.Mock };
   let contracts: { custodyAt: jest.Mock; rentalPeriods: jest.Mock };
-  let stations: { byUsername: jest.Mock };
+  let stations: { stationByUsername: jest.Mock };
   let incidents: {
     onSos: jest.Mock<Promise<{ id: string }>, [SosEvent, unknown]>;
     onPosition: jest.Mock<Promise<{ id: string } | null>, [PositionEvent, unknown]>;
@@ -82,7 +82,7 @@ describe('IngestionService', () => {
       custodyAt: jest.fn().mockResolvedValue(null),
       rentalPeriods: jest.fn().mockResolvedValue([]),
     };
-    stations = { byUsername: jest.fn().mockResolvedValue(null) };
+    stations = { stationByUsername: jest.fn().mockResolvedValue(null) };
     emitted = [];
     const events = {
       transaction: async <T>(work: (client: Prisma.TransactionClient) => Promise<T>) => {
@@ -205,7 +205,6 @@ describe('IngestionService', () => {
       id: 'fs-a',
       organizationId: 'org-a',
       mqttUsername: 'fs-org-a-1',
-      secretHash: 'hash',
       revokedAt: null,
     };
     // A's interval ended at the check-in 2026-10-23 20:00, six hours before the flush.
@@ -224,7 +223,7 @@ describe('IngestionService', () => {
     };
 
     beforeEach(() => {
-      stations.byUsername.mockResolvedValue(stationA);
+      stations.stationByUsername.mockResolvedValue(stationA);
       contracts.rentalPeriods.mockResolvedValue([periodA]);
     });
 
@@ -232,7 +231,7 @@ describe('IngestionService', () => {
       contracts.custodyAt.mockResolvedValue(intervalA);
       await expect(service.ingest(stationEnvelope())).resolves.toBe('ACCEPTED');
 
-      expect(stations.byUsername).toHaveBeenCalledWith('fs-org-a-1');
+      expect(stations.stationByUsername).toHaveBeenCalledWith('fs-org-a-1');
       expect(contracts.rentalPeriods).toHaveBeenCalledWith('dev-9', 'org-a');
       expect(contracts.custodyAt).toHaveBeenCalledWith('dev-9', new Date('2026-10-23T03:00:00Z'));
       expect(storedEvent()).toMatchObject({
@@ -312,7 +311,7 @@ describe('IngestionService', () => {
         'Field Station fs-org-a-1 is revoked',
       ],
     ])('refuses an %s station before reading custody', async (_label, row, detail) => {
-      stations.byUsername.mockResolvedValue(row);
+      stations.stationByUsername.mockResolvedValue(row);
       await expect(service.ingest(stationEnvelope())).resolves.toBe('NOT_RENTED_TO_STATION_ORG');
       expect(contracts.rentalPeriods).not.toHaveBeenCalled();
       expect(repository.insertEventOnce).not.toHaveBeenCalled();
@@ -321,7 +320,7 @@ describe('IngestionService', () => {
 
     it('never resolves a station for a node uplink', async () => {
       await service.ingest(envelopeOf('position'));
-      expect(stations.byUsername).not.toHaveBeenCalled();
+      expect(stations.stationByUsername).not.toHaveBeenCalled();
       expect(storedEvent()).toMatchObject({ fieldStationId: null, capturedAt: null });
     });
   });

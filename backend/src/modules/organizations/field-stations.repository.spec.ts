@@ -113,6 +113,18 @@ describe('FieldStationsRepository (organizations 2.8)', () => {
     });
   });
 
+  it('gives ingestion and the health report the station behind a username, without its hash', async () => {
+    station.findUnique.mockResolvedValue({ id: 'fs-1', revokedAt: null });
+    await expect(repository.findIdentityByUsername('fs-org-0007-1')).resolves.toEqual({
+      id: 'fs-1',
+      revokedAt: null,
+    });
+    expect(station.findUnique).toHaveBeenCalledWith({
+      where: { mqttUsername: 'fs-org-0007-1' },
+      select: { id: true, organizationId: true, mqttUsername: true, revokedAt: true },
+    });
+  });
+
   it('writes the health report of a station', async () => {
     const health = {
       queueDepth: [0, 1, 2, 3] as const,

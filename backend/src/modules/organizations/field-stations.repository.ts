@@ -5,7 +5,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 type Client = Prisma.TransactionClient | PrismaService;
 
 // What a list, a create and a revoke show of a station (api-design 23, 24, 25). The secret hash never
-// leaves this module except through `findByUsername` for the broker check.
+// leaves this module except through `findByUsername` for the broker check (task 3.1).
 export const STATION_VIEW = {
   id: true,
   name: true,
@@ -20,7 +20,16 @@ export const STATION_VIEW = {
 
 export type FieldStationRow = Prisma.FieldStationGetPayload<{ select: typeof STATION_VIEW }>;
 
-// What `gateway-sync` needs to accept or refuse a connection (broker auth, ingestion).
+// The station behind a broker username without its secret: what ingestion and the health report
+// need to accept or refuse a message.
+export interface StationIdentity {
+  id: string;
+  organizationId: string;
+  mqttUsername: string;
+  revokedAt: Date | null;
+}
+
+// What `gateway-sync` needs to accept or refuse a connection (the broker check, task 3.1).
 export interface StationCredential {
   id: string;
   organizationId: string;
@@ -138,6 +147,16 @@ export class FieldStationsRepository {
       data: { revokedAt: at, revokedById: by },
     });
     return live;
+  }
+
+  findIdentityByUsername(
+    mqttUsername: string,
+    client: Client = this.prisma,
+  ): Promise<StationIdentity | null> {
+    return client.fieldStation.findUnique({
+      where: { mqttUsername },
+      select: { id: true, organizationId: true, mqttUsername: true, revokedAt: true },
+    });
   }
 
   findByUsername(
