@@ -470,7 +470,7 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
     expect(inspected.device.status).toBe(DeviceStatus.AVAILABLE);
   });
 
-  it('serves the routes with the new permissions (migration 20261031120100)', async () => {
+  it('serves the routes with the new permissions (migration 20261101180100)', async () => {
     const variantId = await flow.variant(SCHEDULE);
     const [deviceId] = await flow.availableDevices(variantId, 1);
     const org = await flow.organization();

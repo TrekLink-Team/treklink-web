@@ -218,7 +218,7 @@ export interface LossOrganizationActions {
 ```
 
 A loss case stores the custody interval's `contractId` and `organizationId` beside `contractDeviceId`
-(migration `20261031120000_loss_case_custody_contract`), because `devices` cannot read the rentals
+(migration `20261101180000_loss_case_custody_contract`), because `devices` cannot read the rentals
 tables and `LossCaseView.custodyContract` needs all three. They are set at report from
 `custodyAt(deviceId, now)` and replaced at triage by `custodyAt(deviceId, lastSeenAt ?? reportedAt)`, or
 cleared for `TREKLINK` custody; the Org Manager's list reads `organizationId`.
