@@ -6,6 +6,10 @@ node_modules/
 # Testing and Coverage
 coverage/
 *.lcov
+# Playwright output (frontend/e2e)
+test-results/
+playwright-report/
+blob-report/
 
 # Production & Build outputs
 dist/
