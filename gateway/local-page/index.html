@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+  TrekLink Field Station local page (gateway-sync task 5.2, field-station-local-page.md).
+  Served by the Field Station itself on localhost port 4321 (GATEWAY_LOCAL_PORT), bound to 127.0.0.1.
+  Plain HTML, CSS and JavaScript: no build step and no external asset, so it works with no internet
+  (NFR-UI-04). The server's Content-Security-Policy allows nothing but this origin.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrekLink Field Station</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/page.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <div class="bar__title">
+        <span class="bar__brand">TrekLink</span>
+        <h1>Field Station</h1>
+      </div>
+      <div class="bar__status">
+        <span id="uplink-badge" class="badge badge--unknown" role="status">Uplink: checking</span>
+        <span id="refreshed" class="muted">Not loaded yet</span>
+      </div>
+    </header>
+
+    <div id="page-error" class="notice notice--critical" role="alert" hidden>
+      The page cannot reach the Field Station program on this laptop. Check that it is still running.
+    </div>
+
+    <section id="sos-banner" class="notice notice--critical" role="alert" hidden>
+      <strong>SOS heard</strong>
+      <span id="sos-text"></span>
+      <span class="muted">Shown here for the people on site; the cloud incident is handled on the platform.</span>
+    </section>
+
+    <main class="grid">
+      <section class="panel" aria-labelledby="queue-title">
+        <h2 id="queue-title">Queue</h2>
+        <div class="tiers">
+          <div class="tier tier--p0"><span class="tier__label">P0 SOS</span><span id="depth-P0" class="tier__value">-</span></div>
+          <div class="tier"><span class="tier__label">P1 location</span><span id="depth-P1" class="tier__value">-</span></div>
+          <div class="tier"><span class="tier__label">P2 position</span><span id="depth-P2" class="tier__value">-</span></div>
+          <div class="tier"><span class="tier__label">P3 telemetry</span><span id="depth-P3" class="tier__value">-</span></div>
+        </div>
+        <dl class="facts">
+          <dt>Waiting to send</dt><dd id="queue-total">-</dd>
+          <dt>Oldest entry</dt><dd id="queue-oldest">-</dd>
+          <dt>Last successful send</dt><dd id="queue-flush">-</dd>
+          <dt>Dropped at the bound</dt><dd id="queue-shed">-</dd>
+        </dl>
+      </section>
+
+      <section class="panel" aria-labelledby="uplink-title">
+        <h2 id="uplink-title">Uplink</h2>
+        <dl class="facts">
+          <dt>Broker</dt><dd id="broker-state">-</dd>
+          <dt>Since</dt><dd id="broker-since">-</dd>
+          <dt>Address</dt><dd id="broker-url" class="mono">-</dd>
+          <dt>Last error</dt><dd id="broker-error">-</dd>
+          <dt>Serial port</dt><dd id="serial-state">-</dd>
+          <dt>Last packet</dt><dd id="serial-last">-</dd>
+        </dl>
+      </section>
+
+      <section class="panel panel--wide" aria-labelledby="nodes-title">
+        <h2 id="nodes-title">Nodes heard <span id="nodes-count" class="muted"></span></h2>
+        <p id="nodes-empty" class="muted">No node heard since the station started.</p>
+        <ul id="nodes" class="nodes"></ul>
+      </section>
+
+      <section class="panel panel--wide" aria-labelledby="log-title">
+        <h2 id="log-title">Recent events</h2>
+        <p id="log-empty" class="muted">No event yet.</p>
+        <ol id="log" class="log"></ol>
+      </section>
+    </main>
+
+    <template id="node-template">
+      <li class="node">
+        <div class="node__head">
+          <span class="node__id mono"></span>
+          <span class="node__flags"></span>
+        </div>
+        <dl class="facts facts--compact">
+          <dt>Position</dt><dd class="node__position"></dd>
+          <dt>Battery</dt><dd class="node__battery"></dd>
+          <dt>Last heard</dt><dd class="node__heard"></dd>
+        </dl>
+      </li>
+    </template>
+
+    <script src="/page.js"></script>
+  </body>
+</html>
