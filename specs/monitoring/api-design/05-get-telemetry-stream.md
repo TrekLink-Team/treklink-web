@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the organization's stream entries after a cursor (positions, telemetry, staleness and incident changes), oldest first, at most `limit`. A client polls with its last cursor, or uses the WebSocket for push ([ws-live-contract.md](ws-live-contract.md)). A cursor older than the retention window answers 410 and the client re-reads the snapshot (FR-MON-05, FR-MON-06).
+Returns the organization's stream entries after a cursor (positions, telemetry, staleness and incident changes), oldest first, at most `limit`. A client polls with its last cursor, or uses the WebSocket for push ([ws-live-contract.md](ws-live-contract.md)). A cursor older than the retention window answers 410 and the client re-reads the snapshot (FR-MON-05, FR-MON-06). Only entries written with the key's organization are read, and that organization is fixed at write time: a field event's is the custody interval holding its occurrence time (D-040), and a stale or recovery entry whose last reading predates the handover goes to the fleet only. No entry of a unit from before the organization's custody is replayed, except one from the organization's own earlier custody interval of that unit, which D-040 attributes to it.
 
 ## API Specification
 

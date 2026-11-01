@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-For the organization's own system: every device it currently rents with its last position, battery, staleness and holder label (UC-39). Authenticated by `X-Api-Key`, read-only, rate limited (`monitoring.apiRateLimitPerMinute`, E04-5).
+For the organization's own system: every unit of its open contracts, from handover until check-in or a confirmed loss, reporting or not, with its state, last position, battery, holder label and open incident (UC-39, D-092 rule 2). `state` and the readings follow the organization's map snapshot ([02-get-map-snapshot.md](02-get-map-snapshot.md)) for the same unit at the same time: `LIVE` (heard since the handover and within `monitoring.deviceStaleSeconds`), `OFFLINE` (heard since the handover, silent longer) or `NOT_HEARD` (nothing heard since the handover); `stale` is true for `OFFLINE` only. `position`, `batteryPct` and `lastSeenAt` lie inside the organization's custody interval or are null, so a `NOT_HEARD` unit has all three null and nothing from before the handover is sent (D-040). `position.at` is the time of the reading that carried the position. `openIncident` is shown only when the incident is routed to the key's organization. Authenticated by `X-Api-Key`, read-only, rate limited (`monitoring.apiRateLimitPerMinute`, E04-5).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ For the organization's own system: every device it currently rents with its last
 | --- | --- |
 | GET | /api/telemetry/devices |
 | Permission | Organization API key |
-| Traces | UC-39, FR-AUTH-11, FR-MON-06, FR-ORG-06, BR-20 |
+| Traces | UC-39, FR-AUTH-11, FR-MON-06, FR-ORG-06, BR-20, D-040 |
 
 ### Query parameters
 
@@ -50,7 +50,21 @@ No body.
         "lastSeenAt": "2026-10-20T03:15:00.000Z",
         "stale": false,
         "openIncident": null,
-        "contractCode": "RC-2026-0042"
+        "contractCode": "RC-2026-0042",
+        "state": "LIVE"
+      },
+      {
+        "id": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14",
+        "assetTag": "TL-0043",
+        "hardwareVariant": "treklink-v3",
+        "holder": null,
+        "position": null,
+        "batteryPct": null,
+        "lastSeenAt": null,
+        "stale": false,
+        "openIncident": null,
+        "contractCode": "RC-2026-0042",
+        "state": "NOT_HEARD"
       }
     ]
   },
@@ -159,10 +173,14 @@ flowchart TB
     D2 -->|no| P0
     P1["Apply the rate limit"]
     P0 --> P1
-    P2["Read the organization's devices"]
+    P2["Read the units in custody with their handover times"]
     P1 --> P2
+    P3["Read projections of those units"]
+    P2 --> P3
+    P4["Derive each state and clip the readings to the custody interval"]
+    P3 --> P4
     OK["Return 200"]
-    P2 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -176,10 +194,17 @@ sequenceDiagram
     participant Svc as OrgApiService
     participant DB as Postgres
     participant Org as OrganizationsService
+    participant Rent as RentalsService
+    participant Dev as DevicesService
+    participant Inc as IncidentsService
     C->>Ctl: GET /api/telemetry/devices
-    Ctl->>Svc: devices(apiKey)
+    Ctl->>Svc: devicesOf(organizationId)
     Svc->>Org: resolveApiKey(key)
-    Svc->>DB: SELECT projections
+    Svc->>DB: SELECT max(seq) FROM stream_events
+    Svc->>Rent: visibleDevices(organizationId)
+    Svc->>Dev: projections(ids)
+    Svc->>Inc: openByDevices(ids)
+    Svc->>DB: SELECT business_parameters (deviceStaleSeconds)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```
