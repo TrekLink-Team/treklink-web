@@ -3,7 +3,7 @@
 **User Story**: As an **Org Operator**, I want a live map of my organization's rented devices and incidents that keeps working through reconnects, and as an **organization's own system**, I want the same stream through an API key; as **TrekLink Staff and Admin**, I want the whole fleet, device histories, reports and the system's health.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-04
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-38 to UC-42, UC-53 (history), UC-59, FR-MON-01 to FR-MON-10, FR-AUTH-11, FR-DEV-11, FR-BILL-10, FR-CFG-03, FR-EVT-13, FR-INC-13, BR-19, BR-21, BR-22, BR-30, NFR-LEG-01, NFR-LEG-04, E04-1 to E04-7, MSG32, MSG33; D-031 (Leaflet, OpenStreetMap, sovereignty overlay); D-092 rule 2 (every contracted unit on the organization's map, amended 2026-11-01). Rewritten 2026-10-04 (D-036). This module is the read model: the only one allowed to import every other (`platform` design §2.1).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-38 to UC-42, UC-53 (history), UC-59, FR-MON-01 to FR-MON-10, FR-AUTH-11, FR-DEV-11, FR-BILL-10, FR-CFG-03, FR-EVT-13, FR-INC-13, BR-19, BR-21, BR-22, BR-30, NFR-LEG-01, NFR-LEG-04, E04-1 to E04-7, MSG32, MSG33; D-031 (Leaflet, OpenStreetMap, sovereignty overlay); D-092 rule 2 (every contracted unit on the organization's map, amended 2026-11-01; the same states and custody clipping on the organization API, leader ruling of 2026-11-01). Rewritten 2026-10-04 (D-036). This module is the read model: the only one allowed to import every other (`platform` design §2.1).
 
 ---
 
@@ -22,7 +22,7 @@
 | This spec | SRS |
 |---|---|
 | Live map | UC-38, FR-MON-01 to FR-MON-05, FR-MON-09, FR-CFG-03, BR-30, D-092 rule 2 |
-| Organization API | UC-39, FR-MON-05, FR-MON-06, BR-20 |
+| Organization API | UC-39, FR-MON-05, FR-MON-06, BR-20, D-040, D-092 rule 2 |
 | History | UC-40, FR-MON-07 |
 | Staleness | UC-41, FR-MON-03, FR-INC-13, BR-21 |
 | Health, reports, device history | UC-42, UC-59, UC-53, FR-MON-10, FR-EVT-13, FR-BILL-10, FR-DEV-11 |
@@ -37,7 +37,7 @@
 - **REQ-UBI-01**: The system SHALL write every live update to the append-only stream with its organization: for a field event, the organization it is attributed to; for an incident, the routed organization; for a `device.*` event, the current holder. It SHALL deliver each entry only to that organization's members and keys and to TrekLink staff, enforced on the server; an entry with no organization, including every `UNATTRIBUTED` event, goes to the fleet room only. [FR-MON-02, FR-MON-06, FR-AUTH-11, BR-19, BR-36]
 - **REQ-UBI-02**: The system SHALL serve the basemaps (tile URL, attribution and zoom limits of each), the default basemap, the viewport and the sovereignty overlay from configuration, and the client SHALL render the overlay over Hoàng Sa and Trường Sa on every map and every basemap, on an opaque mask that hides the basemap's own labels for both archipelagos. [FR-MON-01, FR-CFG-03, BR-30, NFR-LEG-01, D-072, D-085]
 - **REQ-UBI-03**: The system SHALL never plot a position marked not plotted. [FR-MON-04, BR-22]
-- **REQ-UBI-04**: The map snapshot SHALL list every unit of the scope's open contracts from its handover until its check-in or confirmed loss, reporting or not, each with a `state`: `LIVE` when it was heard during its custody interval and within `monitoring.deviceStaleSeconds`, `OFFLINE` when it was heard during its custody interval and has been silent longer, and `NOT_HEARD` when nothing was heard from it since the handover. For an organization's view, the last position and the last-seen time SHALL lie inside the organization's custody interval or be null, so no position, reading time or battery reading from before the handover is sent (D-040); a `NOT_HEARD` unit carries the TrekLink counter location of `monitoring.counterLocation`, the last place it was known to be. TrekLink staff keep the device's last position and last-seen time whatever the interval, with the same states. [FR-MON-02, FR-MON-03, BR-21, D-040, D-092 rule 2]
+- **REQ-UBI-04**: The map snapshot SHALL list every unit of the scope's open contracts from its handover until its check-in or confirmed loss, reporting or not, each with a `state`: `LIVE` when it was heard during its custody interval and within `monitoring.deviceStaleSeconds`, `OFFLINE` when it was heard during its custody interval and has been silent longer, and `NOT_HEARD` when nothing was heard from it since the handover. For an organization's view, the last position and the last-seen time SHALL lie inside the organization's custody interval or be null, so no position, reading time or battery reading from before the handover is sent (D-040); a `NOT_HEARD` unit carries the TrekLink counter location of `monitoring.counterLocation`, the last place it was known to be. TrekLink staff keep the device's last position and last-seen time whatever the interval, with the same states. The organization API's device list (api-design 04) SHALL give each unit the same `state` and the same clipped position, last-seen time and battery as the organization's map snapshot at the same time, and no stream entry delivered to an organization SHALL carry a reading time from before its custody interval. [FR-MON-02, FR-MON-03, FR-MON-06, BR-21, D-040, D-092 rule 2]
 
 ### Event-Driven
 
@@ -87,7 +87,7 @@ The `monitoring` section of the [Configuration Matrix](../platform/configuration
 - **AC-05**: After check-in, the organization's map and API stop showing the device. (E04-7)
 - **AC-06**: A position from A's custody that synchronizes after the device was handed to B reaches A's stream and history flagged late, and never B's room or API. (E02-7, TC-36)
 - **AC-07**: The map shows the Vietnamese labels over Hoàng Sa and Trường Sa. (TC-30)
-- **AC-08**: An organization holds a contract of 5 units where 2 report, 1 reported and went silent past the threshold and 2 never reported since the handover: its snapshot lists all 5, 2 `LIVE`, 1 `OFFLINE` with its last position and last-seen time, and 2 `NOT_HEARD` at the counter location with no position, even when those 2 reported before the handover. (D-092 rule 2)
+- **AC-08**: An organization holds a contract of 5 units where 2 report, 1 reported and went silent past the threshold and 2 never reported since the handover: its snapshot lists all 5, 2 `LIVE`, 1 `OFFLINE` with its last position and last-seen time, and 2 `NOT_HEARD` at the counter location with no position, even when those 2 reported before the handover. Its organization API (api-design 04) answers the same `state`, `position`, `lastSeenAt` and `batteryPct` for each of the 5. (D-092 rule 2, D-040)
 
 ---
 

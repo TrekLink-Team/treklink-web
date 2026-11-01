@@ -127,21 +127,44 @@ ENDPOINTS = [
            "Ctl-->>C: 200 envelope"]),
 
     ep("GET", "/api/telemetry/devices", "Organization API: devices and last state", "Organization API key",
-       "For the organization's own system: every device it currently rents with its last position, battery, "
-       "staleness and holder label (UC-39). Authenticated by `X-Api-Key`, read-only, rate limited "
-       "(`monitoring.apiRateLimitPerMinute`, E04-5).", "UC-39, FR-AUTH-11, FR-MON-06, FR-ORG-06, BR-20",
-       query=API_KEY_HDR, response={"cursor": 88213, "devices": [SNAP_DEVICE]},
+       "For the organization's own system: every unit of its open contracts, from handover until check-in or a "
+       "confirmed loss, reporting or not, with its state, last position, battery, holder label and open incident "
+       "(UC-39, D-092 rule 2). `state` and the readings follow the organization's map snapshot "
+       "([02-get-map-snapshot.md](02-get-map-snapshot.md)) for the same unit at the same time: `LIVE` (heard since "
+       "the handover and within `monitoring.deviceStaleSeconds`), `OFFLINE` (heard since the handover, silent "
+       "longer) or `NOT_HEARD` (nothing heard since the handover); `stale` is true for `OFFLINE` only. `position`, "
+       "`batteryPct` and `lastSeenAt` lie inside the organization's custody interval or are null, so a `NOT_HEARD` "
+       "unit has all three null and nothing from before the handover is sent (D-040). `position.at` is the time of "
+       "the reading that carried the position. `openIncident` is shown only when the incident is routed to the "
+       "key's organization. Authenticated by `X-Api-Key`, read-only, rate limited "
+       "(`monitoring.apiRateLimitPerMinute`, E04-5).", "UC-39, FR-AUTH-11, FR-MON-06, FR-ORG-06, BR-20, D-040",
+       query=API_KEY_HDR,
+       response={"cursor": 88213,
+                 "devices": [{**SNAP_DEVICE, "state": "LIVE"},
+                             {**SNAP_DEVICE, "id": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14", "assetTag": "TL-0043",
+                              "holder": None, "position": None, "batteryPct": None, "lastSeenAt": None,
+                              "state": "NOT_HEARD"}]},
        errors=[(429, "RATE_LIMITED", "More requests than the key's limit", "Too many requests. Retry after 12 seconds.")],
-       steps=["Hash and look up the key, record lastUsedAt", "Apply the rate limit", "Read the organization's devices"],
-       controller="OrgApiController", service="OrgApiService", call="devices(apiKey)",
-       actor="Organization system", participants=[["Org", "OrganizationsService"]],
-       seq=["Svc->>Org: resolveApiKey(key)", "Svc->>DB: SELECT projections"]),
+       steps=["Hash and look up the key, record lastUsedAt", "Apply the rate limit",
+              "Read the units in custody with their handover times", "Read projections of those units",
+              "Derive each state and clip the readings to the custody interval"],
+       controller="OrgApiController", service="OrgApiService", call="devicesOf(organizationId)",
+       actor="Organization system", participants=[["Org", "OrganizationsService"], ["Rent", "RentalsService"],
+                                                  ["Dev", "DevicesService"], ["Inc", "IncidentsService"]],
+       seq=["Svc->>Org: resolveApiKey(key)", "Svc->>DB: SELECT max(seq) FROM stream_events",
+            "Svc->>Rent: visibleDevices(organizationId)", "Svc->>Dev: projections(ids)",
+            "Svc->>Inc: openByDevices(ids)", "Svc->>DB: SELECT business_parameters (deviceStaleSeconds)"]),
 
     ep("GET", "/api/telemetry/stream", "Organization API: replay the stream", "Organization API key",
        "Returns the organization's stream entries after a cursor (positions, telemetry, staleness and "
        "incident changes), oldest first, at most `limit`. A client polls with its last cursor, or uses the "
        "WebSocket for push ([ws-live-contract.md](ws-live-contract.md)). A cursor older than the retention "
-       "window answers 410 and the client re-reads the snapshot (FR-MON-05, FR-MON-06).",
+       "window answers 410 and the client re-reads the snapshot (FR-MON-05, FR-MON-06). Only entries written "
+       "with the key's organization are read, and that organization is fixed at write time: a field event's is "
+       "the custody interval holding its occurrence time (D-040), and a stale or recovery entry whose last "
+       "reading predates the handover goes to the fleet only. No entry of a unit from before the "
+       "organization's custody is replayed, except one from the organization's own earlier custody interval of "
+       "that unit, which D-040 attributes to it.",
        "UC-39, FR-MON-05, FR-MON-06, E04-3",
        query=API_KEY_HDR + [["after", "Last cursor seen", "int", "yes", "`88213`"], ["limit", "At most 500", "int", "no", "`200`"]],
        response={"entries": [{"seq": 88214, "type": "device.position", "deviceId": DEVICE_ID,

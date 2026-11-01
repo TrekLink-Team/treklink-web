@@ -61,13 +61,17 @@ organization, read from `DeviceRelease`, is marked `late` and is not plotted as 
 | Endpoint | Composed from |
 |---|---|
 | `GET /api/map/snapshot` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, `organizations` stations, `monitoring.counterLocation`, the max `seq` |
+| `GET /api/telemetry/devices` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, the max `seq` |
 | `GET /api/telemetry/devices/:id/history` | `rentals.rentalPeriods`, `gatewaySync.events` |
 | `GET /api/devices/:id/history` | `devices.trail`, `rentals.contractsOfDevice`, `incidents.incidentsOfDevice` |
 | `GET /api/reports/:kind` | `rentals.utilization`, `billing.revenue`, `rentals` overdue and lost lists, `incidents.responseTimes` |
 | `GET /api/system-health` | `HealthService`, `gatewaySync.stats`, `organizations` station health, `incidents.alertDeliveryStats` |
 
 The snapshot's unit state (REQ-UBI-04, D-092 rule 2) is derived per unit from its custody interval, which
-starts at the `handedOverAt` of its open `ContractDevice` row (the interval is open, so it has no end):
+starts at the `handedOverAt` of its open `ContractDevice` row (the interval is open, so it has no end). The
+rule is one pure function, `custodyView` in `custody-view.ts`, called by `LiveMapService.snapshot` and by
+`OrgApiService.devicesOf` (api-design 04, always the organization view), so both answer the same for the
+same unit at the same time:
 
 | State | Rule | Organization view | TrekLink staff view |
 |---|---|---|---|
@@ -79,7 +83,15 @@ starts at the `handedOverAt` of its open `ContractDevice` row (the interval is o
 reading without a position moves `lastSeenAt` only, so `lastSeenAt` alone cannot place a position inside
 the interval. A position stored before the column existed has no time and is not shown to an organization.
 The staleness sweep keeps marking a unit not heard since its handover (its incident flag rule is unchanged),
-but sends that stale entry to `fleet` only (ws-live-contract).
+but sends that stale entry, and its recovery while `lastSeenAt` still predates the handover, to `fleet`
+only (ws-live-contract).
+
+`GET /api/telemetry/stream` (api-design 05) needs no clip of its own: it reads `stream_events` by the
+key's organization (`StreamRepository.after`), and every entry's organization is fixed when it is written.
+A field event carries the organization whose custody interval holds its occurrence time, clear of the
+attribution margin, or none (`gateway-sync` `attribute`, D-040); a stale or recovery entry whose
+`lastSeenAt` predates the handover goes to `fleet` (above). An entry from an earlier custody interval of
+the same organization stays its own (D-040 attributes by occurrence time).
 
 Reports return JSON or CSV text in the envelope; time-to-acknowledge and time-to-resolve are medians and
 95th percentiles over the range.
