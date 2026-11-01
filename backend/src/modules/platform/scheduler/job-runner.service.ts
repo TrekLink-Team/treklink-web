@@ -1,8 +1,10 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob, CronTime } from 'cron';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { ValidatedEnvironment } from '../config/environment-variables';
 import { SCHEDULED_JOB_KEY, ScheduledJobOptions } from './scheduled-job.decorator';
 
 export type JobOutcome = 'succeeded' | 'failed' | 'skipped';
@@ -32,7 +34,15 @@ export class JobRunnerService implements OnApplicationBootstrap {
     private readonly scanner: MetadataScanner,
     private readonly reflector: Reflector,
     private readonly registry: SchedulerRegistry,
+    @Optional() private readonly config?: ConfigService<ValidatedEnvironment, true>,
   ) {}
+
+  // With JOBS_TICK_ON_REQUEST the request-driven tick is the only runner: an in-process timer fired on a
+  // thawed Vercel instance and frozen with its response would hold the job's advisory-lock transaction
+  // open and make every tick skip that job (2026-11-01). Every other host keeps the timers.
+  private get timersEnabled(): boolean {
+    return this.config?.get('JOBS_TICK_ON_REQUEST', { infer: true }) !== true;
+  }
 
   onApplicationBootstrap(): void {
     for (const wrapper of this.discovery.getProviders()) {
@@ -61,8 +71,10 @@ export class JobRunnerService implements OnApplicationBootstrap {
       start: false,
     });
     this.registry.addCronJob(name, job);
-    job.start();
-    this.logger.log(`Scheduled job ${name} registered on "${cron}"`);
+    if (this.timersEnabled) job.start();
+    this.logger.log(
+      `Scheduled job ${name} registered on "${cron}"${this.timersEnabled ? '' : ', run by the request tick only'}`,
+    );
   }
 
   // Never rejects: one failed job must not stop the scheduler or another job.
