@@ -78,7 +78,10 @@ change-password dialog; damage rates are a section of `/t/admin/prices`.
   transitions, invoices) every 15 seconds; only mounted queries refetch. The red MSG31 banner, which the
   socket fills from `incident.alert`, reads on the same cadence the open incidents that wait for the
   viewer: for an organization member, its organization's `NOTIFY_*` incidents nobody has acknowledged,
-  with Acknowledge; for TrekLink Staff, the unrouted and escalated ones, with Open queue.
+  with Acknowledge; for TrekLink Staff, the unrouted and escalated ones, with Open queue. Known limit: the
+  incident read does not name the current tier's recipients, and the alert deliveries read is Manager and
+  Staff only with display names, so in poll mode every member of the organization sees the banner, not only
+  the people the current tier notifies.
 - The auth context holds the `me` response; `apiClient` refreshes once on 401.
 - A session survives a reload (D-090 rule 3): the session store mirrors the refresh token to the tab's
   `sessionStorage` (`treklink.session.refresh`) on sign-in and on every rotation, and removes it on sign-out
