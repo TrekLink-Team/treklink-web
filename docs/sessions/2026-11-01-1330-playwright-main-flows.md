@@ -24,7 +24,7 @@ Final run at 06:41 UTC on a seed made at 06:35 UTC: **71 passed, 0 failed, 0 ski
 | # | Finding | State |
 |---|---|---|
 | 1 | axe `label-content-name-mismatch` (WCAG 2.5.3, serious): the live map device row's `aria-label` (`LiveMapPage.tsx:132`) leaves out the visible battery percentage and the Stale badge; on `/o/map` and `/t/map` | Allowlisted in `a11y.spec.ts` on its selector, not fixed |
-| 2 | Same rule on `/t/admin/audit/sign-ins`: the account filter button (`AuthEventsPage.tsx:228`) shows "Filter by this account", which its accessible name "Filter by the account of <email>" does not contain | Allowlisted on its selector, not fixed |
+| 2 | Same rule on `/t/admin/audit/sign-ins`: the account filter button (`AuthEventsPage.tsx:228`) shows "Filter by this account", which its accessible name "Filter by the account of <email>" does not contain | Fixed by #267 (merged 2026-11-01); allowlist entry removed |
 | 3 | No other axe violation of any impact on the 47 routes | |
 
 No journey found a defect in the flows; no test is marked `test.fixme`.
