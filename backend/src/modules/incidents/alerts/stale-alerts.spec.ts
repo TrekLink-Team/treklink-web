@@ -48,7 +48,7 @@ describe('StaleAlerts (REQ-EVT-12, MSG40)', () => {
     service.targets(incident(state, overrides), AT, tx);
 
   describe('recipients', () => {
-    it.each<IncidentState>(['ACKNOWLEDGED', 'RESPONDING', 'ESCALATED', 'RESOLVED'])(
+    it.each<IncidentState>(['ACKNOWLEDGED', 'RESPONDING', 'ESCALATED'])(
       'alerts the owner alone when %s has one',
       async (state) => {
         await expect(targets(state, { ownerId: 'u-owner' })).resolves.toEqual({
@@ -90,6 +90,27 @@ describe('StaleAlerts (REQ-EVT-12, MSG40)', () => {
         await expect(targets(state)).resolves.toEqual({ tier: 'NONE', recipientIds: [] });
       },
     );
+
+    // A RESOLVED incident always has an owner, and a FALSE_ALARM declared from ACKNOWLEDGED or
+    // RESPONDING keeps one; the device going silent after it ended is no alert.
+    it.each<IncidentState>(['RESOLVED', 'FALSE_ALARM'])(
+      'alerts nobody for %s even with an owner',
+      async (state) => {
+        await expect(targets(state, { ownerId: 'u-owner' })).resolves.toEqual({
+          tier: 'NONE',
+          recipientIds: [],
+        });
+        expect(routing.recipientsOf).not.toHaveBeenCalled();
+        expect(routing.treklinkRecipients).not.toHaveBeenCalled();
+      },
+    );
+
+    it('queues nothing for a RESOLVED incident with an owner', async () => {
+      await expect(
+        service.queue(incident('RESOLVED', { ownerId: 'u-owner' }), LAST_SEEN, AT, tx),
+      ).resolves.toBe(0);
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
   });
 
   describe('queue', () => {

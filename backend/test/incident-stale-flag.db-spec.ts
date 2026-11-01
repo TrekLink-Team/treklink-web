@@ -241,6 +241,18 @@ describe('incident stale flag against Postgres', () => {
     ]);
   });
 
+  it.each(['RESOLVED', 'FALSE_ALARM'] as const)(
+    'flags a %s incident with an owner and alerts nobody',
+    async (state) => {
+      const { deviceId, incidentId } = await incidentOn(state, staffId);
+      reading.set(deviceId, new Date(Date.now() - 400_000));
+      await sweep().sweep();
+      expect((await incident(incidentId)).stale).toBe(true);
+      expect(await alertRows(incidentId)).toEqual([]);
+      expect(woken).not.toContain(incidentId);
+    },
+  );
+
   it('refuses an alert row whose kind and transition do not match', async () => {
     const { incidentId } = await incidentOn('UNROUTED');
     const row = { incidentId, tier: 'TREKLINK', recipientId: staffId, channel: 'WEB' as const };
