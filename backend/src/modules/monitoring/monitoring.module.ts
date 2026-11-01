@@ -22,6 +22,8 @@ import { StaleMarksRepository } from './stale-marks.repository';
 import { StreamListener } from './stream.listener';
 import { StreamRepository } from './stream.repository';
 import { StreamService } from './stream.service';
+import { SystemHealthController } from './system-health.controller';
+import { SystemHealthService } from './system-health.service';
 import { TelemetryHistoryController } from './telemetry-history.controller';
 
 // The read model of the platform (specs/monitoring/design.md). Task 1.1: the stream store and the
@@ -46,6 +48,7 @@ import { TelemetryHistoryController } from './telemetry-history.controller';
     OrgApiController,
     DeviceHistoryController,
     TelemetryHistoryController,
+    SystemHealthController,
   ],
   providers: [
     StreamRepository,
@@ -58,6 +61,7 @@ import { TelemetryHistoryController } from './telemetry-history.controller';
     StaleMarksRepository,
     StaleSweepJob,
     OrgApiService,
+    SystemHealthService,
     ApiRateLimiter,
     DeviceHistoryService,
     HistoryService,

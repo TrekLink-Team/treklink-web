@@ -40,6 +40,11 @@ export interface OpenIncidentRef {
   organizationId: string | null;
 }
 
+export interface AlertDeliveryStats {
+  pending: number;
+  failed: number;
+}
+
 export interface PersonRef {
   id: string;
   fullName: string | null;
@@ -177,6 +182,15 @@ export class IncidentsQueryService {
       });
     }
     return open;
+  }
+  // The alert outbox on the system health page (design §5, api-design 06): rows still waiting to be sent
+  // and rows whose retries ran out. SENT rows are not counted.
+  async alertDeliveryStats(): Promise<AlertDeliveryStats> {
+    const counts = await this.repository.alertDeliveryCounts();
+    return {
+      pending: counts.get(AlertStatus.PENDING) ?? 0,
+      failed: counts.get(AlertStatus.FAILED) ?? 0,
+    };
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
 

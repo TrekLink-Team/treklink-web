@@ -111,6 +111,21 @@ export class SyncQueryRepository {
     return new Map(groups.map((group) => [group.outcome, group._count._all]));
   }
 
+  // Devices whose newest queue report holds messages: total depth above zero (REQ-EVT-13). One row per
+  // device, the latest by `receivedAt`, so a device that drained since its last report is not counted.
+  async devicesBuffering(): Promise<number> {
+    const rows = await this.prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*) AS "count"
+      FROM (
+        SELECT DISTINCT ON ("deviceId") "depth"
+        FROM "device_queue_reports"
+        ORDER BY "deviceId", "receivedAt" DESC
+      ) latest
+      WHERE (SELECT COALESCE(SUM(d), 0) FROM unnest(latest."depth") AS d) > 0
+    `;
+    return Number(rows[0]?.count ?? 0);
+  }
+
   async lastReceivedAt(): Promise<Date | null> {
     const row = await this.prisma.fieldEvent.findFirst({
       orderBy: { seq: 'desc' },

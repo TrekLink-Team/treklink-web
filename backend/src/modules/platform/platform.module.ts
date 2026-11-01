@@ -31,6 +31,6 @@ import { JobTickInterceptor } from './scheduler/job-tick.interceptor';
     AuditLogRepository,
     AuditLogService,
   ],
-  exports: [TransactionalEvents, ParameterService],
+  exports: [TransactionalEvents, ParameterService, HealthService],
 })
 export class PlatformModule {}
