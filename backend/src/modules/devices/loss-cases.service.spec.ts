@@ -433,6 +433,85 @@ describe('LossCaseService', () => {
       );
     });
 
+    // The custody rule of REQ-EVT-14 (D-040, leader ruling 2026-11-01): the last seen interval counts only
+    // when it is the same rental as the interval at the report time, else the report time counts.
+    describe('custody at the last seen time against the report time (ruling 2026-11-01)', () => {
+      const CURRENT = { contractId: 'c-2', organizationId: 'org-2', contractDeviceId: 'cd-2' };
+
+      // Answers `atLastSeen` for the last seen time and `atReport` for the report time.
+      const triageWith = async (
+        atLastSeen: typeof INTERVAL | null,
+        atReport: typeof INTERVAL | null,
+      ) => {
+        const current = caseRow();
+        cases.find.mockResolvedValue(current);
+        transitionsTo(current);
+        custody.custodyAt.mockImplementation((_id: string, when: Date) =>
+          Promise.resolve(when.getTime() === current.reportedAt.getTime() ? atReport : atLastSeen),
+        );
+        await service.triage('lc-1', { suspectedTheft: false, expectedVersion: 0 }, STAFF, at);
+        expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.lastSeenAt, tx);
+        expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', current.reportedAt, tx);
+      };
+
+      const recorded = (fields: Record<string, unknown>) =>
+        expect(cases.transition).toHaveBeenCalledWith(
+          'lc-1',
+          LossCaseState.REPORTED,
+          0,
+          expect.objectContaining(fields),
+          tx,
+        );
+
+      it('records the renter when the unit was heard only at provisioning and then handed over', async () => {
+        await triageWith(null, CURRENT);
+
+        recorded({
+          custody: LossCustody.RENTER,
+          contractId: 'c-2',
+          contractDeviceId: 'cd-2',
+          keyExposed: true,
+        });
+        expect(channelKeys.markKeyExposed).toHaveBeenCalledWith('org-2', at, STAFF, tx);
+      });
+
+      it('records the current renter when the unit was heard in an earlier rental', async () => {
+        await triageWith(INTERVAL, CURRENT);
+
+        recorded({
+          custody: LossCustody.RENTER,
+          contractId: 'c-2',
+          contractDeviceId: 'cd-2',
+          keyExposed: true,
+        });
+        expect(channelKeys.markKeyExposed).toHaveBeenCalledWith('org-2', at, STAFF, tx);
+      });
+
+      it('records the current renter when the unit was heard during the current rental', async () => {
+        await triageWith(CURRENT, CURRENT);
+
+        recorded({
+          custody: LossCustody.RENTER,
+          contractId: 'c-2',
+          contractDeviceId: 'cd-2',
+          keyExposed: true,
+        });
+        expect(channelKeys.markKeyExposed).toHaveBeenCalledWith('org-2', at, STAFF, tx);
+      });
+
+      it('records TREKLINK custody when the unit was lost between rentals', async () => {
+        await triageWith(INTERVAL, null);
+
+        recorded({
+          custody: LossCustody.TREKLINK,
+          contractId: null,
+          contractDeviceId: null,
+          keyExposed: false,
+        });
+        expect(channelKeys.markKeyExposed).not.toHaveBeenCalled();
+      });
+    });
+
     it('opens or links a compliance case for a suspected theft in renter custody (D-046)', async () => {
       cases.find.mockResolvedValue(caseRow());
       transitionsTo(caseRow());

@@ -280,8 +280,8 @@ export class LossCaseService {
     return (await this.views([row], caller))[0];
   }
 
-  // api-design 19 (REQ-EVT-14, FR-DEV-13, D-040, D-046): custody from the interval that contains the
-  // last seen time (the report time when the device was never heard), RENTER or TREKLINK; a RENTER
+  // api-design 19 (REQ-EVT-14, FR-DEV-13, D-040, D-046): custody from `custodyOf` below, RENTER or
+  // TREKLINK; a RENTER
   // case marks the organization's channel key exposed (`ChannelKeyService.markKeyExposed`), and a
   // suspected theft or fraud of a renter opens or links a compliance case through
   // LOSS_ORGANIZATION_ACTIONS. The search window starts.
@@ -580,11 +580,12 @@ export class LossCaseService {
     return (await this.views([row], actor))[0];
   }
 
-  // The custody a triage records (REQ-EVT-14, D-040, leader ruling 2026-10-31): the interval that holds
-  // the last seen time, checked against the report time. When that rental was already returned at the
-  // report time (a unit lost after check-in, last heard while still out), the custody at the report
-  // time counts instead: another rental's interval, or none, which is TREKLINK custody. A unit never
-  // heard is read at the report time alone. Both reads run in the triage transaction `tx`.
+  // The custody a triage records (REQ-EVT-14, D-040, leader rulings 2026-10-31 and 2026-11-01): the
+  // interval that holds the last seen time counts only when it is the same rental as the interval at
+  // the report time; otherwise the custody at the report time counts. That is TREKLINK custody (null)
+  // only when no rental holds the unit at the report time, so a unit last heard outside any rental (only
+  // at provisioning, say) and with a renter at the report time is that renter's. A unit never heard is
+  // read at the report time alone. Both reads run in the triage transaction `tx`.
   private async custodyOf(
     current: LossCaseRow,
     tx: Prisma.TransactionClient,
@@ -592,8 +593,7 @@ export class LossCaseService {
     const atReport = await this.custody.custodyAt(current.deviceId, current.reportedAt, tx);
     if (current.lastSeenAt === null) return atReport;
     const atLastSeen = await this.custody.custodyAt(current.deviceId, current.lastSeenAt, tx);
-    if (atLastSeen === null) return null;
-    return atReport?.contractDeviceId === atLastSeen.contractDeviceId ? atLastSeen : atReport;
+    return atReport?.contractDeviceId === atLastSeen?.contractDeviceId ? atLastSeen : atReport;
   }
 
   private async load(id: string, tx: Prisma.TransactionClient): Promise<LossCaseRow> {

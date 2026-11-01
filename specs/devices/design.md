@@ -114,10 +114,13 @@ stateDiagram-v2
 ***Figure 2a***: Loss case lifecycle; SRS Figure 24.
 
 Custody is decided at triage from `CUSTODY_RESOLVER.custodyAt(deviceId, lastSeenAt)`, the same custody intervals that
-attribute field events (D-040), checked against `custodyAt(deviceId, reportedAt)`: when the two answer
-different intervals, the rental of the last seen time was returned before the report, so the interval
-at the report time counts, or `TREKLINK` custody when there is none (a unit lost in the store after
-check-in, leader ruling 2026-10-31). A unit never heard is read at `reportedAt` alone. A `RENTER` case
+attribute field events (D-040), checked against `custodyAt(deviceId, reportedAt)`. The interval of the
+last seen time counts only when it is the same rental as the interval at the report time; otherwise the
+custody at the report time counts, and that is `TREKLINK` only when no rental holds the unit at the
+report time (leader rulings 2026-10-31 and 2026-11-01). So a unit lost in the store after check-in, last
+heard while still out, is `TREKLINK`; a unit last heard in an earlier rental, or outside any rental
+(only at provisioning), and out with a renter at the report time is that renter's. A unit never heard
+is read at `reportedAt` alone. A `RENTER` case
 therefore always names an interval still open at the report time, which `rentals` closes with `lostAt`
 when the case settles. `RENTER` custody marks the organization's channel key exposed through
 `ChannelKeyService.markKeyExposed` of `organizations`, and confirmation charges the remaining value through the `LOSS_CASE_LISTENERS` port, which `billing` provides with `chargeLoss`;
@@ -220,7 +223,7 @@ export interface LossOrganizationActions {
 A loss case stores the custody interval's `contractId` and `organizationId` beside `contractDeviceId`
 (migration `20261101180000_loss_case_custody_contract`), because `devices` cannot read the rentals
 tables and `LossCaseView.custodyContract` needs all three. They are set at report from
-`custodyAt(deviceId, now)` and replaced at triage by `custodyAt(deviceId, lastSeenAt ?? reportedAt)`, or
+`custodyAt(deviceId, now)` and replaced at triage by the triage custody of §2.1, or
 cleared for `TREKLINK` custody; the Org Manager's list reads `organizationId`.
 
 ---
