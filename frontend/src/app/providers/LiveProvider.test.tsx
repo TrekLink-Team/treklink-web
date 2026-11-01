@@ -9,8 +9,11 @@ import { LiveProvider } from './LiveProvider';
 
 const live = vi.hoisted(() => ({
   listener: undefined as undefined | ((message: LiveMessage) => void),
+  polls: false,
 }));
 vi.mock('../../shared/socket/socketClient', () => ({
+  LIVE_POLL_MS: 15_000,
+  livePolls: () => live.polls,
   startLive: vi.fn(),
   stopLive: vi.fn(),
   refreshLiveAuth: vi.fn(),
@@ -43,6 +46,45 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   useSession.getState().signOut();
+  live.polls = false;
+  vi.useRealTimers();
+});
+
+describe('LiveProvider poll mode (D-089)', () => {
+  const mountPolled = (queryKey: unknown[]) => {
+    const read = vi.fn().mockResolvedValue('data');
+    const View = () => {
+      useQuery({ queryKey, queryFn: read, staleTime: Infinity });
+      return null;
+    };
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <LiveProvider>
+          <View />
+        </LiveProvider>
+      </QueryClientProvider>,
+    );
+    return read;
+  };
+
+  it('refetches the stream-driven views every 15 seconds', async () => {
+    live.polls = true;
+    vi.useFakeTimers();
+    const snapshot = mountPolled(['map', 'snapshot', 'o']);
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(snapshot).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTimeAsync(15_000));
+    expect(snapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it('refetches nothing on a timer in socket mode', async () => {
+    vi.useFakeTimers();
+    const config = mountPolled(['map', 'config']);
+    await act(async () => vi.advanceTimersByTimeAsync(31_000));
+    expect(config).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {

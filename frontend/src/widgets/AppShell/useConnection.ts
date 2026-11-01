@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useSession } from '../../entities/session/model';
-import { isLivePaused, subscribeLive } from '../../shared/socket/socketClient';
+import { isLivePaused, livePolls, subscribeLive } from '../../shared/socket/socketClient';
 
-export type ConnectionState = 'connected' | 'reconnecting' | 'offline';
+export type ConnectionState = 'connected' | 'polling' | 'reconnecting' | 'offline';
 
 // The live connection as the header shows it: offline when the browser has no network or nobody is
-// signed in (no socket), reconnecting while the socket is paused (MSG32), otherwise connected.
+// signed in (no socket), polling in poll mode (no socket, views refetched on a timer), reconnecting
+// while the socket is paused (MSG32), otherwise connected.
 export const useConnection = (): ConnectionState => {
   const signedIn = useSession((state) => state.user !== null);
   const [paused, setPaused] = useState(isLivePaused());
@@ -31,5 +32,6 @@ export const useConnection = (): ConnectionState => {
   }, []);
 
   if (!online || !signedIn) return 'offline';
+  if (livePolls()) return 'polling';
   return paused ? 'reconnecting' : 'connected';
 };

@@ -12,7 +12,7 @@
       "root": "frontend/",
       "framework": "vite",
       "installCommand": "bash ../scripts/vercel-install.sh",
-      "buildCommand": "NODE_ENV=production npm run build",
+      "buildCommand": "VITE_LIVE_MODE=poll NODE_ENV=production npm run build",
       "outputDirectory": "dist",
       "rewrites": [
         {

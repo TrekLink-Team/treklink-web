@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useSession } from '../../entities/session/model';
 import {
+  LIVE_POLL_MS,
+  livePolls,
   refreshLiveAuth,
   startLive,
   stopLive,
@@ -11,6 +13,21 @@ import {
 // The stream sends one entry per device and marks no batch, so a bulk check-in or a replay arrives as
 // a burst of entries. The list refreshes of one burst are gathered over this window and sent once.
 const LIVE_BATCH_MS = 100;
+
+// What the stream entries below would refresh, refetched on a timer in poll mode instead (frontend
+// design §3). Only mounted queries refetch.
+const POLLED_KEYS = [
+  ['map', 'snapshot'],
+  ['incidents'],
+  ['incident'],
+  ['authority-reports'],
+  ['contracts'],
+  ['contract'],
+  ['contract-balance'],
+  ['contract-transitions'],
+  ['invoices'],
+  ['invoice'],
+];
 
 type CachedContract = { id?: string; devices?: { deviceId: string }[] } | undefined;
 type CachedInvoice = { contract?: { id: string } } | undefined;
@@ -40,7 +57,7 @@ const contractsReleased = (
 };
 
 // Keeps one live socket while someone is signed in, and turns stream entries into query invalidations
-// (specs/frontend/design.md §3). Position and telemetry entries are applied in place by the map, not
+// (specs/frontend/design.md §3); in poll mode it refetches those views on a timer instead. Position and telemetry entries are applied in place by the map, not
 // refetched, so they invalidate nothing here.
 export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const queryClient = useQueryClient();
@@ -78,6 +95,11 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     };
 
     startLive(() => useSession.getState().tokens?.accessToken ?? null);
+    const poll = livePolls()
+      ? setInterval(() => {
+          for (const queryKey of POLLED_KEYS) void queryClient.invalidateQueries({ queryKey });
+        }, LIVE_POLL_MS)
+      : undefined;
     const stopTokens = useSession.subscribe((state, previous) => {
       const token = state.tokens?.accessToken;
       if (token && token !== previous.tokens?.accessToken) refreshLiveAuth(token);
@@ -142,6 +164,7 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     });
     return () => {
       if (timer !== undefined) clearTimeout(timer);
+      if (poll !== undefined) clearInterval(poll);
       stopTokens();
       stopMessages();
       stopLive();

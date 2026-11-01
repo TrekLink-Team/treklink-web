@@ -72,6 +72,10 @@ change-password dialog; damage rates are a section of `/t/admin/prices`.
 - Server state in TanStack Query; query keys per entity and organization; invalidation on the matching
   stream entry (`incident.changed` invalidates `['incident', id]` and the queue).
 - `socketClient` keeps one socket, the last cursor in `sessionStorage`, and an event bus for widgets.
+- Poll mode (`VITE_LIVE_MODE=poll`, set by the Vercel frontend build, D-089): Vercel Functions hold no
+  WebSocket and Socket.IO polling lands on different instances, so no socket is opened. `LiveProvider`
+  invalidates the stream-driven keys (map snapshot, incidents, authority reports, contracts, balances,
+  transitions, invoices) every 15 seconds; only mounted queries refetch.
 - The auth context holds the `me` response; `apiClient` refreshes once on 401.
 
 ---

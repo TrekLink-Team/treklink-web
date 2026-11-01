@@ -44,7 +44,7 @@ production build and only when both database URLs name `treklink_prod`, the data
 branch `vercel-prod`. The shared Neon `dev` database is never migrated or seeded from a build.
 
 Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so MF-02 field data
-and the gateway do not reach it), no persistent socket push (screens refresh on reload), scheduled
+and the gateway do not reach it), no socket (the frontend build sets `VITE_LIVE_MODE=poll`, so screens refetch their live views every 15 seconds and the header says "Auto refresh"), scheduled
 jobs run only while an instance is warm, handover notes are written to `/tmp`, and email goes to the
 function log (`MAIL_TRANSPORT=console`) until an SMTP account is configured.
 
