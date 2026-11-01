@@ -27,6 +27,8 @@ Scope from the task: rentals api-design 14 to 17; check-in by scan (MSG07); insp
 | Organization's current key version for the replacement | organizations 03 `channelKeyVersion` |
 | Replacement result and note hash | rentals 15 `replacementDeviceId`, `noteSha256` |
 | Close pre-check: due now, pending damage charges | billing 10 `dueNowVnd`, `pendingDamageCharges`, `settled` |
+| Close check: whether the contract can close and each blocker with its link (D-092 rule 3) | rentals 20 `canClose`, `blockers[].code`, `message`, `waitsFor`, `deviceId`, `assetTag`, `lossCase`, `amountVnd`, `chargeId`, `incidents` |
+| Returned unit: state now and next step back to `AVAILABLE` (D-092 rule 4) | rentals 03 `devices[].afterReturn.status`, `nextStep.action` |
 
 ## Actions
 
@@ -35,9 +37,10 @@ Scope from the task: rentals api-design 14 to 17; check-in by scan (MSG07); insp
 | Check in (tags scanned so far, primary on the check-in tab) | `ENDING`, `RETURN_DUE`, `OVERDUE`, `DEFAULTED`, or `ACTIVE` on a day plan (REQ-STA-01) | rentals 14 `POST /api/contracts/:id/check-ins` | none | MSG07; the late fee, if any, shows under it |
 | Record reset (device row) | device back, no reset logged | devices 10 `POST /api/devices/:id/reset` | none: the three boxes are the confirmation | the row shows "Reset logged" with the time; the state comes from `devices[].resetAt` of rentals 03, so it survives a reload, and 409 `ALREADY_RESET` (reset by another counter) is treated as logged: the toast says "Already reset. It was recorded by someone else." in place of "Saved." and the row is refreshed from rentals 03 |
 | Inspect (device row) | reset logged, not inspected | rentals 16 `POST /api/contracts/:id/devices/:deviceId/inspection` | none | toast MSG03; the row shows the result and the device's new state; after a reload the result comes from `devices[].inspection` of rentals 03 |
-| Lost? (device row, still out) | device out | navigation to the loss case report of screen 4.4 | as in screen 4.4 | as in screen 4.4 |
-| Replace device (replacement tab, primary) | `ACTIVE` or `ENDING`, a faulty unit or one with an open loss case | rentals 15 `POST /api/contracts/:id/devices/:deviceId/replacement` | the Manager's signature is the confirmation | toast MSG03; the new asset tag joins the device list |
-| Close contract (close tab, primary) | `RETURNED` | rentals 17 `POST /api/contracts/:id/close` | dialog: "Close contract {code}? Holder labels are erased." (rentals 17, FR-CON-14) | toast MSG03; the contract shows `CLOSED` |
+| Report lost (check-in tab, row of each unit still out) | device out, no open loss case, the contract accepts check-ins | devices 17 `POST /api/devices/:id/loss-cases`, the report dialog of screen 4.4 in place | the dialog (description required) | the row shows "Loss case {code} open" with a link to `/t/loss-cases/:id`; the close check refetches. A return never needs a replacement unit (D-092 rule 3): the check-in tab says a unit that did not come back is reported lost |
+| Replace device (replacement tab, primary) | `ACTIVE` or `ENDING`, a faulty unit or one with an open loss case; a separate action for a running contract, never a step of the return (D-092 rule 3) | rentals 15 `POST /api/contracts/:id/devices/:deviceId/replacement` | the Manager's signature is the confirmation | toast MSG03; the new asset tag joins the device list |
+| Next step (reset and inspection tab, row of a returned unit) | rentals 03 `afterReturn.nextStep` | Record reset and Inspect stay the row actions; after the inspection the row shows the state ("Available", "Maintenance") and, for `COMPLETE_MAINTENANCE` or `INTAKE`, a link "Open {assetTag}" to `/t/devices/:id`, where the intake check is recorded (screen 4.2) | none | none |
+| Close contract (close tab, primary, in the action bar) | rentals 20 `canClose` | rentals 17 `POST /api/contracts/:id/close` | dialog: "Close contract {code}? Holder labels are erased." (rentals 17, FR-CON-14) | toast MSG03; the contract shows `CLOSED` |
 
 ## States
 
@@ -54,6 +57,7 @@ Scope from the task: rentals api-design 14 to 17; check-in by scan (MSG07); insp
 | Error `VARIANT_MISMATCH` (409, rentals 15) | The server's `message` ("Choose a unit of the same variant.") under the replacement field |
 | Error `DEVICE_NOT_AVAILABLE` (409, rentals 15) | MSG17 under the replacement field; the choices reload |
 | Error `ORGANIZATION_NOT_ACTIVE` (409, rentals 15) | MSG28 with the organization's state |
+| Close blocked (rentals 20 `canClose` false, contract not `CLOSED`) | The close tab lists every blocker as "What still blocks the close", each with its link: `NOT_RETURNED` with the date it waits for; `DEVICE_OUT` with Report lost, or Open loss case {code} when one is open; `BALANCE_OUTSTANDING` with the amount and Open the invoices; `DAMAGE_PENDING` with the amount and Open damage charges (`/t/damage-charges`); `OPEN_INCIDENTS` with each incident code and Open incidents (`/t/incidents`). The check is refetched on window focus and after every action of this screen, so a loss settled or an invoice paid in another window shows here (the missing close button of the 2026-11-01 demo) |
 | Error `BALANCE_OUTSTANDING` (409, rentals 17) | MSG29 with dependency "balances", with a link to the contract's invoices (screen 6.1) and pending damage charges (screen 6.4) |
 | Error `OPEN_INCIDENTS` (409, rentals 17) | MSG29 with dependency "incidents" (E05-7) |
 | Error `INVALID_STATE_TRANSITION` (409, rentals 14 to 17) | MSG28 with the current state; the page refetches |
@@ -82,7 +86,7 @@ replacement signature is cleared from memory after submit, as for the handover (
 
 - 360 px layout: the counter runs on a desktop or tablet; on a narrow screen the tabs become a select, the device table becomes one card per device with its row actions, and dialogs open full screen.
 - Tab order and focus after each action: the scan field keeps focus after each scan and announces the tag added; after Check in, focus moves to the MSG07 result. Row actions follow the asset tag in each row. The inspect and replacement dialogs trap focus and return it to their row. The result and damage controls are labelled groups; the signature pad has a text alternative.
-- WebSocket events and invalidated query keys: no live events on TrekLink counter screens. Query keys `['contract', id]`, `['contract-balance', id]`, `['damage-rates', variantId]`, `['devices', { status: 'AVAILABLE', variantId }]`; every mutation invalidates `['contract', id]` and `['contract-balance', id]`.
+- WebSocket events and invalidated query keys: no live events on TrekLink counter screens. Query keys `['contract', id]`, `['contract-balance', id]`, `['contract', id, 'close-check']` (refetched on window focus), `['damage-rates', variantId]`, `['devices', { status: 'AVAILABLE', variantId }]`; every mutation invalidates `['contract', id]` and `['contract-balance', id]`.
 
 ## Checklist
 

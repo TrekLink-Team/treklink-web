@@ -95,6 +95,19 @@ Org Manager account that acted (a Manager's cancel records the Manager), or null
 (2026-10-30, demo smoke defect 2). The monitoring device history (api-design 07) tells these moves through its
 contract entries and leaves the `CONTRACT` rows out, so each move appears once. A unit not in the source status neither moves nor gets a row.
 
+**Next step back to `AVAILABLE` (REQ-EVT-23, D-092 rule 4).** `nextStepOf(status, resetSinceReturn,
+openMaintenance)` in `next-step.ts` is the one rule, read by `DevicesService.detail` (api-design 07) and by
+`DevicesService.nextSteps(deviceIds)`, the exported batch read `rentals` calls for the checked-in rows of a
+contract: `RETURNED` without a reset since `statusChangedAt` is `RESET`, with one is `INSPECT`; `MAINTENANCE`
+with an open record is `COMPLETE_MAINTENANCE`, without one `INTAKE`; `IN_INTAKE` is `INTAKE`; every other state
+has none. `RESET` and `INSPECT` carry the contract of the last `RENTED` to `RETURNED` transition with `refType`
+`CONTRACT`, because the inspection endpoint is the contract's (rentals api-design 16); a unit recovered outside a
+contract carries none. A passed inspection still goes straight to `AVAILABLE` (leader ruling 2026-11-01): the
+intake check follows only a maintenance record.
+
+`DevicesService.openLossCases(deviceIds, tx)` gives `rentals` the open loss case (`REPORTED`, `SEARCHING` or
+`CONFIRMED`) of each unit, for the close check of rentals api-design 20 (D-092 rule 3).
+
 ---
 
 ## 2.1 Loss case (D-045)

@@ -51,6 +51,11 @@ answers 409 for anything else.
 The inspection after the reset belongs to the counter check-in (screen 5.5); this page links there when a
 `RETURNED` device has its reset logged.
 
+A "Next step" panel shows devices 07 `nextStep` (D-092 rule 4, devices REQ-EVT-23): Reset and Inspect link to
+the counter of `nextStep.contractId` (or name the counter in text when it is null); Complete maintenance links
+to `/t/maintenance`; Intake check points at Record intake check on this page. A unit with no next step shows
+none. A passed inspection makes the unit `AVAILABLE` at once; the intake check follows only maintenance.
+
 ## States
 
 | State | What the user sees |

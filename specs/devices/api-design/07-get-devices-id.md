@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns one device with its open maintenance, last intake check and last reset.
+Returns one device with its open maintenance, last intake check, last reset and its next step back to `AVAILABLE` (REQ-EVT-23, D-092 rule 4).
 
 ## API Specification
 
@@ -60,13 +60,18 @@ No body.
       "passed": true,
       "createdAt": "2026-10-20T03:15:00.000Z"
     },
-    "lastReset": null
+    "lastReset": null,
+    "nextStep": null
   },
   "isSuccess": true,
   "statusCode": 200,
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| nextStep | The next step back to `AVAILABLE`: `action` RESET or INSPECT for a `RETURNED` unit (recorded at the counter of `contractId`, the contract of its last check-in, null for a unit recovered outside a contract), COMPLETE_MAINTENANCE for a `MAINTENANCE` unit with an open record, INTAKE for a `MAINTENANCE` unit with none or an `IN_INTAKE` unit; null otherwise. A `PASSED` inspection makes the unit `AVAILABLE` with no further step (REQ-EVT-07) | object | `{"action": "INSPECT", "contractId": "..."}` |
 
 ## Validation
 
@@ -143,8 +148,10 @@ flowchart TB
     E1 --> X1((End))
     P0["Read the device"]
     D1 -->|no| P0
+    P1["Derive the next step from the state, the last reset and the open record"]
+    P0 --> P1
     OK["Return 200"]
-    P0 --> OK
+    P1 --> OK
     OK --> Z((End))
 ```
 

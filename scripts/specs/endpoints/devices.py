@@ -123,12 +123,19 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT devices"]),
 
     ep("GET", "/api/devices/:id", "Device detail", "TrekLink Staff, TrekLink Admin",
-       "Returns one device with its open maintenance, last intake check and last reset.",
+       "Returns one device with its open maintenance, last intake check, last reset and its next step back "
+       "to `AVAILABLE` (REQ-EVT-23, D-092 rule 4).",
        "UC-11, UC-53, FR-AUTH-11",
        path=[DEV_PATH],
        response={**DEVICE, "openMaintenance": None, "lastIntakeCheck": {"passed": True, "createdAt": NOW},
-                 "lastReset": None},
-       entity="Device", steps=["Read the device"],
+                 "lastReset": None, "nextStep": None},
+       fields=[["nextStep", "The next step back to `AVAILABLE`: `action` RESET or INSPECT for a `RETURNED` unit "
+                "(recorded at the counter of `contractId`, the contract of its last check-in, null for a unit "
+                "recovered outside a contract), COMPLETE_MAINTENANCE for a `MAINTENANCE` unit with an open record, "
+                "INTAKE for a `MAINTENANCE` unit with none or an `IN_INTAKE` unit; null otherwise. A `PASSED` "
+                "inspection makes the unit `AVAILABLE` with no further step (REQ-EVT-07)", "object",
+                "`{\"action\": \"INSPECT\", \"contractId\": \"...\"}`"]],
+       entity="Device", steps=["Read the device", "Derive the next step from the state, the last reset and the open record"],
        controller="DevicesController", service="DevicesService", call="get(id, caller)",
        seq=["Svc->>DB: SELECT device"]),
 
