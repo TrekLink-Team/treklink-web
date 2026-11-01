@@ -31,6 +31,7 @@ import { MaintenanceApprovalPage, MaintenancePage } from '../pages/MaintenancePa
 import { PaymentPage } from '../pages/PaymentPage';
 import { ParametersPage } from '../pages/ParametersPage';
 import { DemoControlPage } from '../pages/DemoControlPage';
+import { RolesPage } from '../pages/RolesPage';
 import { PricesPage } from '../pages/PricesPage';
 import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
@@ -144,6 +145,7 @@ export const AppRoutes: React.FC = () => (
       </Route>
       <Route element={<RequireRole roles={ADMIN} />}>
         <Route path="/t/admin/accounts" element={<AccountsPage />} />
+        <Route path="/t/admin/roles" element={<RolesPage />} />
         <Route path="/t/admin/prices" element={<PricesPage />} />
         <Route path="/t/admin/parameters" element={<ParametersPage />} />
         <Route path="/t/admin/audit" element={<Navigate to="/t/admin/audit/changes" replace />} />

@@ -143,7 +143,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     label: 'Administration',
     entries: [
       { route: '/t/admin/accounts', label: 'Accounts', icon: UserCog, roles: ADMIN, built: true },
-      { route: '/t/admin/roles', label: 'Roles and permissions', icon: ListChecks, roles: ADMIN, built: false },
+      { route: '/t/admin/roles', label: 'Roles and permissions', icon: ListChecks, roles: ADMIN, built: true },
       { route: '/t/admin/parameters', label: 'Parameters', icon: SlidersHorizontal, roles: ADMIN, built: true },
       { route: '/t/admin/prices', label: 'Prices and damage rates', icon: Tags, roles: ADMIN, built: true },
       { route: '/t/admin/variants', label: 'Hardware variants', icon: Store, roles: ADMIN, built: false },

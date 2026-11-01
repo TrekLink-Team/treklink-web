@@ -14,6 +14,7 @@ vi.mock('../pages/LiveMapPage', () => ({
 vi.mock('../pages/PlansPage', () => ({ PlansPage: () => <p>plans page</p> }));
 vi.mock('../pages/ParametersPage', () => ({ ParametersPage: () => <p>parameters page</p> }));
 vi.mock('../pages/AccountsPage', () => ({ AccountsPage: () => <p>accounts page</p> }));
+vi.mock('../pages/RolesPage', () => ({ RolesPage: () => <p>roles page</p> }));
 vi.mock('../pages/AuditLogPage', () => ({ AuditLogPage: () => <p>audit log page</p> }));
 vi.mock('../pages/DeviceTelemetryPage', () => ({
   DeviceTelemetryPage: ({ scope }: { scope: string }) => <p>telemetry {scope}</p>,
@@ -135,6 +136,14 @@ describe('route guards (AC-01)', () => {
     act(() => useSession.getState().signOut());
     visit('/t/admin/parameters', null);
     expect(screen.getByText(/^sign-in \?next=%2Ft%2Fadmin%2Fparameters$/)).toBeTruthy();
+  });
+
+  it('gives the roles page to an Admin only', () => {
+    visit('/t/admin/roles', account(['ADMIN'], 'TREKLINK'));
+    expect(screen.getByText('roles page')).toBeTruthy();
+    cleanup();
+    visit('/t/admin/roles', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
   });
 
   it('gives the accounts page to an Admin only', () => {
