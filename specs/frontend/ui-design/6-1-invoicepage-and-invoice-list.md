@@ -78,3 +78,14 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: focus on open, text status labels, VND and timezone formatting
 - [x] Live data: none; query keys listed
 - [x] Traceability: UC-55, US-UC55
+
+## Shared tables (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2. The invoice list (`InvoiceTable`, used by
+`/o/invoices` and the Invoices tab of `/t/billing`), the Payments tab of `/t/billing` and the invoice
+lines of the detail are the shared `DataTable`. The column filter rows moved to a toolbar above each
+table: the invoice list keeps the server filters (status, Overdue only) and one search over number,
+organization and contract on the loaded page; the payments keep status (server), reference and
+method; the lines keep their search and status. Each list pages with Pagination and the range. The
+billing APIs do not sort, so no column sorts. No row actions or bulk: a payment is recorded on its
+invoice.
