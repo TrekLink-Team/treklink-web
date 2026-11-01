@@ -8,6 +8,7 @@ export {
   type FleetDevice,
   type HandoverUnit,
   type ReturnCheck,
+  type ReturnState,
   type TrailEntry,
 } from './devices.service';
 export type {
@@ -18,6 +19,7 @@ export type {
   VariantSummary,
 } from './devices.repository';
 export { fromNodeId, toNodeId } from './node-id';
+export type { NextAction, NextStep } from './next-step';
 // demo module (D-088): the asset-maintenance scenario opens a record as Staff would.
 export { MaintenanceService } from './maintenance.service';
 export type { OpenMaintenanceDto } from './dto/maintenance.dto';

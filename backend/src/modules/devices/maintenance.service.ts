@@ -347,6 +347,11 @@ export class MaintenanceService {
     return row ? toRecordView(row) : null;
   }
 
+  // The units among these with an open record, for their next step (REQ-EVT-23).
+  openDeviceIds(deviceIds: readonly string[], tx?: Prisma.TransactionClient): Promise<Set<string>> {
+    return this.records.openDeviceIds(deviceIds, tx);
+  }
+
   hasOpenRecord(deviceId: string, tx?: Prisma.TransactionClient): Promise<boolean> {
     return this.records.findOpen(deviceId, tx).then((row) => row !== null);
   }

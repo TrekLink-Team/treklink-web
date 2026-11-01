@@ -224,6 +224,15 @@ export class ContractsRepository {
     return contract;
   }
 
+  // One contract without a lock, for a read that changes nothing (the close check, api-design 20).
+  async findById(id: string, tx: Prisma.TransactionClient): Promise<ContractRow> {
+    const contract = await tx.rentalContract.findUnique({ where: { id }, select: CONTRACT_SELECT });
+    if (!contract) {
+      throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Contract not found.');
+    }
+    return contract;
+  }
+
   // The partial unique index refuses a second live row for one device (BR-03, REQ-UBI-02).
   async insertContractDevices(
     rows: readonly NewContractDevice[],
@@ -658,6 +667,22 @@ export class ContractsRepository {
       select: { deviceId: true },
     });
     return [...new Set(rows.map((row) => row.deviceId))];
+  }
+
+  // Every row handed over and neither checked in nor lost, replaced rows included: the units the close
+  // check lists as not back (api-design 20, D-092 rule 3).
+  rowsNotBack(contractId: string, tx: Prisma.TransactionClient) {
+    return tx.contractDevice.findMany({
+      where: {
+        contractId,
+        releasedAt: null,
+        handedOverAt: { not: null },
+        checkedInAt: null,
+        lostAt: null,
+      },
+      orderBy: { reservedAt: 'asc' },
+      select: { id: true, deviceId: true },
+    });
   }
 
   // Units replaced while missing whose loss is not settled yet (no check-in, no lostAt): the contract

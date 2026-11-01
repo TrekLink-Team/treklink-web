@@ -96,17 +96,19 @@ export class IncidentsRepository {
     return client.incident.count({ where: { organizationId, state: { not: 'CLOSED' } } });
   }
 
-  // Incidents not yet CLOSED on a contract or on any of its devices (FR-CON-13, rentals close).
-  countOpenFor(
+  // The incidents outside CLOSED on a contract or its devices, oldest first (rentals api-design 20).
+  openFor(
     contractId: string,
     deviceIds: readonly string[],
     client: Prisma.TransactionClient,
-  ): Promise<number> {
-    return client.incident.count({
+  ): Promise<{ id: string; code: string }[]> {
+    return client.incident.findMany({
       where: {
         state: { not: 'CLOSED' },
         OR: [{ contractId }, { deviceId: { in: [...deviceIds] } }],
       },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, code: true },
     });
   }
 

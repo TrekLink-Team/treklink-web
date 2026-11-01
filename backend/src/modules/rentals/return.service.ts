@@ -41,6 +41,37 @@ export const DUE: readonly ContractStatus[] = [
   ContractStatus.DEFAULTED,
 ];
 
+// One blocker of the close (api-design 20, REQ-EVT-17, D-092 rule 3), with what the page links to.
+export type CloseBlocker =
+  | { code: 'NOT_RETURNED'; message: string; waitsFor: Date | null }
+  | {
+      code: 'DEVICE_OUT';
+      message: string;
+      deviceId: string;
+      assetTag: string;
+      lossCase: { id: string; code: string; state: string } | null;
+    }
+  | { code: 'BALANCE_OUTSTANDING'; message: string; amountVnd: number }
+  | {
+      code: 'DAMAGE_PENDING';
+      message: string;
+      chargeId: string;
+      deviceId: string;
+      assetTag: string;
+      amountVnd: number;
+    }
+  | { code: 'OPEN_INCIDENTS'; message: string; incidents: { id: string; code: string }[] };
+
+export interface CloseCheck {
+  contractId: string;
+  status: ContractStatus;
+  version: number;
+  canClose: boolean;
+  blockers: CloseBlocker[];
+}
+
+const vnd = (amount: bigint) => `${amount.toLocaleString('en-US')} VND`;
+
 const conflict = (code: ErrorCode, message: string) =>
   new DomainException(HttpStatus.CONFLICT, code, message);
 
@@ -230,6 +261,93 @@ export class ReturnService {
             }
           : null,
       };
+    });
+  }
+
+  // api-design 20 (REQ-EVT-17, D-092 rule 3): whether the contract can close now and every blocker
+  // the close would refuse on, each with what resolves it. Read in one transaction without the contract
+  // lock; the close reads again under its lock. A CLOSED contract has nothing left to resolve.
+  async closeCheck(id: string): Promise<CloseCheck> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.findById(id, tx);
+      const result = (blockers: CloseBlocker[]): CloseCheck => ({
+        contractId: id,
+        status: contract.status,
+        version: contract.version,
+        canClose: contract.status === ContractStatus.RETURNED && blockers.length === 0,
+        blockers,
+      });
+      if (contract.status === ContractStatus.CLOSED) return result([]);
+
+      const blockers: CloseBlocker[] = [];
+      const notBack = await this.contracts.rowsNotBack(id, tx);
+      if (contract.status !== ContractStatus.RETURNED) {
+        const term = await this.contracts.openTerm(id, tx);
+        const waitsFor = DUE.includes(contract.status)
+          ? contract.returnDueAt
+          : (term?.endsAt ?? contract.endsAt ?? null);
+        blockers.push({
+          code: 'NOT_RETURNED',
+          waitsFor,
+          message: DUE.includes(contract.status)
+            ? 'The contract becomes Returned once every unit is checked in or settled lost.'
+            : 'The contract becomes Returned when its term ends and every unit is checked in or settled lost.',
+        });
+      }
+
+      const custody = await this.contracts.custodyDevices(id, tx);
+      const pending = await this.charges.pendingDamageOf(id, tx);
+      const tags = await this.devices.assetTags(
+        [...new Set([...notBack.map((row) => row.deviceId), ...pending.map((c) => c.deviceId)])],
+        tx,
+      );
+      const tagOf = (deviceId: string) => tags.get(deviceId) ?? deviceId;
+      const losses = await this.devices.openLossCases(
+        notBack.map((row) => row.deviceId),
+        tx,
+      );
+      for (const row of notBack) {
+        const lossCase = losses.get(row.deviceId) ?? null;
+        blockers.push({
+          code: 'DEVICE_OUT',
+          deviceId: row.deviceId,
+          assetTag: tagOf(row.deviceId),
+          lossCase,
+          message: lossCase
+            ? `${tagOf(row.deviceId)} is not back; its loss case ${lossCase.code} is not settled yet.`
+            : `${tagOf(row.deviceId)} is not back. Check it in, or report it lost.`,
+        });
+      }
+
+      const owed = await this.balances.outstanding(id, tx);
+      if (owed > 0n) {
+        blockers.push({
+          code: 'BALANCE_OUTSTANDING',
+          amountVnd: Number(owed),
+          message: `${vnd(owed)} is unpaid on the contract's invoices.`,
+        });
+      }
+      for (const charge of pending) {
+        blockers.push({
+          code: 'DAMAGE_PENDING',
+          chargeId: charge.id,
+          deviceId: charge.deviceId,
+          assetTag: tagOf(charge.deviceId),
+          amountVnd: Number(charge.amountVnd),
+          message: `The damage charge of ${vnd(charge.amountVnd)} on ${tagOf(charge.deviceId)} waits for an Admin.`,
+        });
+      }
+      for (const check of this.closeChecks) {
+        const reason = await check.blockingReason(id, custody, tx);
+        if (reason) {
+          blockers.push({
+            code: 'OPEN_INCIDENTS',
+            message: reason.message || 'This cannot be done while it has open incidents.',
+            incidents: reason.refs ?? [],
+          });
+        }
+      }
+      return result(blockers);
     });
   }
 

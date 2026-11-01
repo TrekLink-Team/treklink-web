@@ -100,6 +100,19 @@ export class MaintenanceRepository {
     });
   }
 
+  // The units among these with an open record (devices REQ-EVT-23).
+  async openDeviceIds(
+    deviceIds: readonly string[],
+    client: Client = this.prisma,
+  ): Promise<Set<string>> {
+    if (deviceIds.length === 0) return new Set();
+    const rows = await client.maintenanceRecord.findMany({
+      where: { deviceId: { in: [...deviceIds] }, status: { in: OPEN_STATUSES } },
+      select: { deviceId: true },
+    });
+    return new Set(rows.map((row) => row.deviceId));
+  }
+
   // Applies `data` when the record is still at `version` and in one of `from`; false otherwise.
   async updateIfCurrent(
     id: string,

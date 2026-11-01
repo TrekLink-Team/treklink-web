@@ -8,7 +8,12 @@ import {
 import { DevicesService } from '../devices';
 import { ContractDecisionsService } from './contract-decisions.service';
 import { ContractReadsService } from './contract-reads.service';
-import { callerOrganization, ContractsController, toContractView } from './contracts.controller';
+import {
+  afterReturnOf,
+  callerOrganization,
+  ContractsController,
+  toContractView,
+} from './contracts.controller';
 import { ContractRow } from './contracts.repository';
 import { ContractsService } from './contracts.service';
 
@@ -201,6 +206,7 @@ describe('ContractsController (rentals api-design 01)', () => {
         ]),
         provisionedKeyVersions: new Map([['d-1', 2]]),
         balance: { dueNowVnd: 0n, dueLaterVnd: 0n },
+        returnStates: new Map(),
       }),
     };
     const reader = new ContractsController(
@@ -256,6 +262,37 @@ describe('ContractsController (rentals api-design 01)', () => {
       caller,
     );
     expect(view).toMatchObject({ status: ContractStatus.REJECTED, paidVnd: 2_250_000 });
+  });
+
+  describe('afterReturnOf (rentals api-design 03 devices[].afterReturn, D-092 rule 4)', () => {
+    const back = { checkedInAt: AT };
+    const inspect = { action: 'INSPECT' as const, contractId: 'c-1' };
+
+    it('gives the state and next step on the row of the unit latest return', () => {
+      expect(
+        afterReturnOf('c-1', back, {
+          status: 'RETURNED',
+          nextStep: inspect,
+          lastReturnContractId: 'c-1',
+        }),
+      ).toEqual({ status: 'RETURNED', nextStep: inspect });
+    });
+
+    it('keeps the state but drops the next step when a later contract returned the unit', () => {
+      expect(
+        afterReturnOf('c-1', back, {
+          status: 'RETURNED',
+          nextStep: { action: 'RESET', contractId: 'c-2' },
+          lastReturnContractId: 'c-2',
+        }),
+      ).toEqual({ status: 'RETURNED', nextStep: null });
+    });
+
+    it('is null for a row not checked in and for a caller without state reads', () => {
+      const state = { status: 'RETURNED' as const, nextStep: inspect, lastReturnContractId: 'c-1' };
+      expect(afterReturnOf('c-1', { checkedInAt: null }, state)).toBeNull();
+      expect(afterReturnOf('c-1', back, undefined)).toBeNull();
+    });
   });
 
   const policiesOf = (method: string): PolicyHandler[] =>

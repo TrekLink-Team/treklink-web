@@ -11,7 +11,7 @@ import {
 } from '../../common/dto/paging';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, BalanceSummary } from '../billing';
-import { DevicesService, type ReturnCheck } from '../devices';
+import { DevicesService, type ReturnCheck, type ReturnState } from '../devices';
 import { OrganizationLabel, OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { ACCOUNT_DIRECTORY, AccountDirectory } from '../platform/ports/account-directory.port';
@@ -44,6 +44,9 @@ export interface ContractDetail extends ContractLabels {
   // when the unit holds no key of it. The counter keeps provisioning across a reload with it.
   provisionedKeyVersions: Map<string, number>;
   balance: BalanceSummary;
+  // TrekLink callers only (REQ-EVT-18, D-092 rule 4): each checked-in unit's state now and next step,
+  // by device id; empty for an organization caller.
+  returnStates: Map<string, ReturnState>;
 }
 
 export interface TransitionView {
@@ -101,7 +104,8 @@ export class ContractReadsService {
 
   async detail(id: string, caller: Caller, at: Date = new Date()): Promise<ContractDetail> {
     const row = await this.visible(id, caller);
-    const [label, assetTags, returnChecks, balance, units] = await Promise.all([
+    const back = row.devices.filter((device) => device.checkedInAt !== null);
+    const [label, assetTags, returnChecks, balance, units, returnStates] = await Promise.all([
       this.labeller([row]),
       this.devices.assetTags(row.devices.map((device) => device.deviceId)),
       this.devices.returnChecks(
@@ -113,6 +117,9 @@ export class ContractReadsService {
       ),
       this.balances.balanceSummary(id, at),
       this.devices.provisioning(row.devices.map((device) => device.deviceId)),
+      caller.organizationId === null
+        ? this.devices.nextSteps(back.map((device) => device.deviceId))
+        : Promise.resolve(new Map<string, ReturnState>()),
     ]);
     const provisionedKeyVersions = new Map(
       units.flatMap((unit) =>
@@ -121,7 +128,15 @@ export class ContractReadsService {
           : [],
       ),
     );
-    return { row, ...label(row), assetTags, returnChecks, balance, provisionedKeyVersions };
+    return {
+      row,
+      ...label(row),
+      assetTags,
+      returnChecks,
+      balance,
+      provisionedKeyVersions,
+      returnStates,
+    };
   }
 
   async transitions(id: string, caller: Caller): Promise<TransitionView[]> {

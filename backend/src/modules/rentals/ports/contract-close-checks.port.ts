@@ -9,6 +9,8 @@ export const CONTRACT_CLOSE_CHECKS = Symbol('CONTRACT_CLOSE_CHECKS');
 export interface CloseBlockingReason {
   code: string;
   message: string;
+  // The records that block, so the close check (rentals api-design 20) links each one; optional.
+  refs?: { id: string; code: string }[];
 }
 
 export interface ContractCloseCheck {

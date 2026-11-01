@@ -232,6 +232,24 @@ describe('ChargesService.pendingDamage (rentals close guard, api-design 17, D-08
     await expect(service.pendingDamage('c-1', TX)).resolves.toBe(2);
     expect(pendingOfContract).toHaveBeenCalledWith('c-1', TX);
   });
+
+  it('lists each waiting charge with its device and amount for the close check (rentals api-design 20)', async () => {
+    const pendingOfContract = jest
+      .fn()
+      .mockResolvedValue([
+        { id: 'dc-1', deviceId: 'd-1', amountVnd: 1_200_000n, status: 'PENDING_APPROVAL' },
+      ]);
+    const service = new ChargesService(
+      {} as InvoicesRepository,
+      { pendingOfContract } as unknown as DamageChargesRepository,
+      {} as PricingService,
+      {} as ParameterService,
+    );
+    await expect(service.pendingDamageOf('c-1', TX)).resolves.toEqual([
+      { id: 'dc-1', deviceId: 'd-1', amountVnd: 1_200_000n },
+    ]);
+    expect(pendingOfContract).toHaveBeenCalledWith('c-1', TX);
+  });
 });
 
 describe('ChargesService.addDecidedDamage (UC-48, api-design 17)', () => {

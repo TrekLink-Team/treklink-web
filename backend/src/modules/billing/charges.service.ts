@@ -264,6 +264,19 @@ export class ChargesService {
     return (await this.damageCharges.pendingOfContract(contractId, tx)).length;
   }
 
+  // The damage charges of a contract still waiting for an Admin, for the rentals close check (rentals
+  // api-design 20, D-092 rule 3): the amount is the priced one, the line follows the decision.
+  async pendingDamageOf(
+    contractId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ id: string; deviceId: string; amountVnd: bigint }[]> {
+    return (await this.damageCharges.pendingOfContract(contractId, tx)).map((charge) => ({
+      id: charge.id,
+      deviceId: charge.deviceId,
+      amountVnd: charge.amountVnd,
+    }));
+  }
+
   // The Admin decision on a charge above the threshold (UC-48, api-design 17, FR-BILL-04, BR-24): an
   // approved or reduced amount becomes a DAMAGE line on the contract's closing invoice; a waiver adds
   // nothing. The caller holds the charge lock and has checked the state and the approver.
