@@ -11,8 +11,24 @@ import {
   ACC_WRITE,
   BrokerAuthService,
   kindOf,
+  sameSecret,
   topicAllowed,
 } from './broker-hooks.service';
+
+// The real bcrypt behind a spy, so a test can count the compares a check makes.
+jest.mock('bcrypt', () => {
+  const actual = jest.requireActual<typeof import('bcrypt')>('bcrypt');
+  const compare = (password: string, hash: string): Promise<boolean> =>
+    actual.compare(password, hash);
+  const hash = (value: string, cost: number): Promise<string> => actual.hash(value, cost);
+  return {
+    ...actual,
+    compare: jest.fn<Promise<boolean>, [string, string]>().mockImplementation(compare),
+    hash: jest.fn<Promise<string>, [string, number]>().mockImplementation(hash),
+  };
+});
+const compareSpy = bcrypt.compare as unknown as jest.Mock;
+const hashSpy = bcrypt.hash as unknown as jest.Mock;
 
 const HOOK_SECRET = 'unit-hook-secret-0123456789';
 const STATION = 'fs-org-0007-1';
@@ -28,6 +44,7 @@ const BASE_ENV = {
   MQTT_PASSWORD: 'backend-password',
   MQTT_NODE_PASSWORD: 'shared-fleet-node-password',
   MQTT_ROOT: 'treklink',
+  BCRYPT_COST: 4,
 };
 
 const expectDomain = (run: () => unknown, status: HttpStatus, code: ErrorCode) => {
@@ -177,6 +194,44 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
         HttpStatus.FORBIDDEN,
         ErrorCode.CREDENTIAL_REJECTED,
       );
+    });
+
+    it.each([
+      ['an unknown username', () => null],
+      ['a revoked credential', () => credential({ revokedAt: new Date() })],
+      [
+        'a CLOSED organization',
+        () => credential({ organizationStatus: OrganizationStatus.CLOSED }),
+      ],
+      ['a wrong secret', () => credential()],
+    ])(
+      'makes exactly one bcrypt compare for a station with %s, so timing does not tell it apart',
+      async (_label, row) => {
+        stations.byUsername.mockResolvedValue(row());
+        compareSpy.mockClear();
+        await expectRejection(
+          service().checkUser({ username: STATION, password: 'guess', clientid: 'fs' }),
+          HttpStatus.FORBIDDEN,
+          ErrorCode.CREDENTIAL_REJECTED,
+        );
+        expect(compareSpy).toHaveBeenCalledTimes(1);
+        expect(compareSpy).toHaveBeenCalledWith('guess', expect.stringMatching(/^\$2[aby]\$04\$/));
+      },
+    );
+
+    it('hashes the dummy once per service, at BCRYPT_COST, and never the given password', async () => {
+      stations.byUsername.mockResolvedValue(null);
+      hashSpy.mockClear();
+      const checker = service();
+      for (let i = 0; i < 3; i += 1) {
+        await expectRejection(
+          checker.checkUser({ username: STATION, password: 'guess', clientid: 'fs' }),
+          HttpStatus.FORBIDDEN,
+          ErrorCode.CREDENTIAL_REJECTED,
+        );
+      }
+      expect(hashSpy).toHaveBeenCalledTimes(1);
+      expect(hashSpy).toHaveBeenCalledWith(expect.not.stringMatching(/^guess$/), 4);
     });
 
     it('allows a fleet node with the shared MQTT_NODE_PASSWORD, without reading organizations', async () => {
@@ -334,6 +389,18 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
       const env = { ...BASE_ENV, MQTT_ROOT: 'trial' };
       expect(acl(STATION, `trial/fs/${STATION}/health`, ACC_WRITE, env)).toEqual({ allowed: true });
       denied(STATION, `treklink/fs/${STATION}/health`, ACC_WRITE, env);
+    });
+  });
+
+  describe('sameSecret', () => {
+    it('matches equal values and refuses a different value, a prefix, a longer value and an empty one', () => {
+      expect(sameSecret('shared-fleet-node-password', 'shared-fleet-node-password')).toBe(true);
+      expect(sameSecret('shared-fleet-node-passworX', 'shared-fleet-node-password')).toBe(false);
+      expect(sameSecret('shared', 'shared-fleet-node-password')).toBe(false);
+      expect(sameSecret('shared-fleet-node-password-and-more', 'shared-fleet-node-password')).toBe(
+        false,
+      );
+      expect(sameSecret('', 'shared-fleet-node-password')).toBe(false);
     });
   });
 
