@@ -31,8 +31,9 @@ visitors.
 
 `scripts/vercel-install.sh` installs both workspaces once per deployment (the marker in `node_modules`
 holds the deployment id, because Vercel restores `node_modules` from the previous build cache) and
-copies the packages npm nests in `backend/node_modules` to the root `node_modules`, the only tree the
-function bundle resolves from.
+moves the packages npm nests in `backend/node_modules` to the root `node_modules`. The NestJS builder
+makes `backend/dist` the function root and keeps each traced file at its path from the repository
+root, so a package left in `backend/node_modules` ships where `main.js` cannot resolve it.
 
 Requests to `/api/...` and `/socket.io/...` go to the backend with their path unchanged (the global
 prefix is `api`); everything else goes to the frontend. The frontend calls the API on the same origin

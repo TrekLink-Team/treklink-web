@@ -9,9 +9,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # npm keeps a few backend dependencies in backend/node_modules (today @nestjs/event-emitter and
-# @nestjs/schedule), but the Vercel function bundle resolves modules from the root node_modules only,
-# so the function failed with "Cannot find module '@nestjs/event-emitter'". Copy every package that
-# exists only under backend/node_modules to the root; a package the root already has is left alone.
+# @nestjs/schedule). The Vercel NestJS builder makes backend/dist the function root and places each
+# traced file at its path from the repository root, so a nested package ships as
+# /var/task/backend/node_modules/..., which /var/task/main.js cannot resolve, and the function failed
+# with "Cannot find module '@nestjs/event-emitter'". Move every package that exists only under
+# backend/node_modules to the root; it must leave backend/node_modules, or the trace still resolves the
+# nested copy. A package the root already has is left alone.
 hoist_backend_modules() {
   [ -d backend/node_modules ] || return 0
   local entry name
@@ -21,7 +24,7 @@ hoist_backend_modules() {
     case "$name" in .bin | .bin/* | @*) [ -f "$entry/package.json" ] || continue ;; esac
     if [ ! -e "node_modules/$name" ]; then
       mkdir -p "node_modules/$(dirname "$name")"
-      cp -a "$entry" "node_modules/$name"
+      mv "$entry" "node_modules/$name"
       echo "vercel-install: hoisted $name"
     fi
   done
