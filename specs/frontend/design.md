@@ -82,6 +82,9 @@ change-password dialog; damage rates are a section of `/t/admin/prices`.
   incident read does not name the current tier's recipients, and the alert deliveries read is Manager and
   Staff only with display names, so in poll mode every member of the organization sees the banner, not only
   the people the current tier notifies.
+  The device-silent alert (MSG40, REQ-EVT-05) is a socket message only and has no poll-mode source:
+  the incident read carries the `stale` flag but not the device's last reading time MSG40 names, nor the
+  alert's recipients, so in poll mode the banner shows SOS incidents only.
 - The auth context holds the `me` response; `apiClient` refreshes once on 401.
 - A session survives a reload (D-090 rule 3): the session store mirrors the refresh token to the tab's
   `sessionStorage` (`treklink.session.refresh`) on sign-in and on every rotation, and removes it on sign-out
