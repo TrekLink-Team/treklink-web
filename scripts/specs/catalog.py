@@ -101,6 +101,7 @@ PARAMETERS = {
         ("monitoring.mapProvider", "esri-topo", "JSON", None, None, "Default basemap, an id in monitoring.mapBasemaps (D-031, D-072)", "FR-CFG-03"),
         ("monitoring.mapBasemaps", BASEMAPS, "JSON", None, None, "Basemaps the user can switch between: id, name, tile URL, attribution, maxZoom, maxNativeZoom, optional localOnly (D-072)", "FR-CFG-03, NFR-LEG-04"),
         ("monitoring.mapDefaultViewport", {"lat": 11.56, "lon": 108.54, "zoom": 12}, "JSON", None, None, "Initial map view", "FR-CFG-03"),
+        ("monitoring.counterLocation", {"name": "TrekLink counter", "lat": 11.56, "lon": 108.54}, "JSON", None, "degrees", "Where the map pins a unit not heard since its handover: the TrekLink counter that handed it over; seeded at the default viewport centre until an Admin sets the counter's position (D-092 rule 2)", "FR-MON-02, FR-CFG-03"),
         ("monitoring.historyMaxRangeDays", 7, "INT", {"min": 1, "max": 31}, "days", "Longest period one telemetry history request may cover", "FR-MON-07"),
         ("monitoring.reportMaxRangeDays", 366, "INT", {"min": 1, "max": 732}, "days", "Longest period one report may cover (D-057)", "FR-BILL-10"),
     ],

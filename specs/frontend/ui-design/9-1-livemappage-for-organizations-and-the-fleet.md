@@ -12,7 +12,7 @@
 | Requirements | `specs/monitoring/requirements.md` REQ-UBI-01 to REQ-UBI-03, REQ-EVT-01 to REQ-EVT-04, REQ-STA-01, REQ-STA-02; NFR-UI-01, NFR-LEG-01 |
 | Wireframe | ![LiveMapPage](9-1-livemappage-for-organizations-and-the-fleet.svg) (desktop and 360 px frames) |
 
-Scope from the task: monitoring api-design 01 and 02 then stream entries in `seq` order, ignoring entries at or below the snapshot cursor; stale markers with last-seen time; pulsing incident markers; late entries kept off the live map
+Scope from the task: monitoring api-design 01 and 02 then stream entries in `seq` order, ignoring entries at or below the snapshot cursor; every rented unit in its state from the handover on (D-092 rule 2, amended 2026-11-01); offline markers with last-seen time; pulsing incident markers; late entries kept off the live map
 
 ## Data
 
@@ -30,7 +30,9 @@ Scope from the task: monitoring api-design 01 and 02 then stream entries in `seq
 | Marker popup: variant | monitoring 02 `devices[].hardwareVariant` |
 | Marker popup: battery | monitoring 02 `devices[].batteryPct`; `device.telemetry` payload `batteryPct` |
 | Marker popup: last seen (viewer timezone) | monitoring 02 `devices[].lastSeenAt`; `device.stale` payload `lastSeenAt` |
-| Stale state ("Stale, last seen 03:15") | monitoring 02 `devices[].stale`; `device.stale` payload `stale` |
+| Unit state: live, offline ("Offline, last seen 03:15") or not heard since handover (MSG41) | monitoring 02 `devices[].state`, `handedOverAt`; `device.stale` payload `stale`, `lastSeenAt`; a `device.position` or `device.telemetry` entry makes the unit live (D-092 rule 2) |
+| Pin of a unit not heard since handover | monitoring 02 `devices[].counterLocation.lat`, `lon`, `name` |
+| Summary line, MSG42 "{n} live, {n} offline, {n} not heard since handover", and the open SOS count | counted in the client from the unit states |
 | Open incident on a marker (pulsing ring) and link to the incident | monitoring 02 `devices[].openIncident`; `incident.changed` payload `incidentId`, `code`, `state`, `tier`, `ownerName`, `lastPosition`, `stale` |
 | Field Station list (side panel): name, last sync, stale | monitoring 02 `fieldStations[].name`, `lastSyncAt`, `stale`; `station.stale` payload |
 | Device list (side panel, same rows as markers) | monitoring 02 `devices[]` |
@@ -41,7 +43,9 @@ Rules for what is drawn, from the contract and the requirements:
 - A position with `late: true` is never drawn as a live marker (ws-live-contract; REQ-EVT-04). It may appear in the device history (screen 9.2).
 - A device never gets a marker for a position marked not plotted (REQ-UBI-03); the server never sends one.
 - A `device.released` entry removes the device from the map at once.
-- A device with no position yet is listed in the side panel with "No position yet" and has no marker.
+- Every unit of the snapshot is listed and drawn (D-092 rule 2). A unit not heard since its handover is a grey pin at `counterLocation` labelled MSG41 "Not heard since handover". A live or offline unit with no position from its custody interval is listed with "No position yet" and has no marker.
+- The list puts live units first, then offline, then not heard since handover, each group in snapshot order.
+- A `device.stale` entry whose `lastSeenAt` is older than the unit's `handedOverAt` leaves the unit not heard (the fleet map receives such entries, the organization does not).
 - An incident marker has a text alternative ("SOS at TL-0042, {state}") and a state label; pulsing is an extra cue, never the only one (§8 item 3).
 
 ## Actions
@@ -75,7 +79,8 @@ button; the map is the primary surface.
 | Error `KEY_REVOKED` | Not applicable to the web user (API keys do not open this page) |
 | Error `VALIDATION_FAILED` (400, snapshot) | Banner with the server message; the organization filter resets to "All" |
 | Not found or forbidden (403) | MSG26 full-page notice. Another organization's device is never sent (REQ-ERR-01 answers 404 on direct requests). |
-| Stale device | Marker drawn grey with the text "Stale" and "last seen {time}" in the popup and the list; the colour is paired with text (§8 item 3) |
+| Offline unit | Dashed circle in the `marker-offline` token colour with "Offline, last seen {time}" in the popup and the list, and an Offline badge; the colour is paired with shape and text (§8 item 3) |
+| Unit not heard since handover | Grey pin with the chip MSG41 at the counter location; the list row says MSG41, and on `/t/map`, where the device's earlier reading is kept, "last seen {time}, before handover" |
 | Stale Field Station | Row in the side panel with "Stale, last sync {time}" |
 | Success | Markers and list in sync; the cursor advances with every applied entry |
 
@@ -87,7 +92,7 @@ filter in the client.
 ## Mobile, accessibility, live data
 
 - 360 px layout (required by NFR-UI-01): see the second frame of the wireframe. The map fills the screen under a 48 px header. The side panel becomes a bottom sheet with three snap positions (peek with the device count and the number of open incidents, half, full). A marker tap opens its popup as a bottom card with the holder, battery, last seen and the Open incident button at least 44 px high. The MSG32 banner and the incident banner sit above the map and are never covered by the sheet. The organization filter lives in the sheet header.
-- Tab order and focus after each action: skip link, banner, organization filter, side-panel search, side-panel list, then the map controls (zoom, recentre), then markers. Each marker is a focusable element with an `aria-label` ("TL-0042, holder Le Thi E, battery 81 percent, last seen 03:15" and "SOS, state ACKNOWLEDGED" when an incident is open). Enter on a list row or marker opens the popup and moves focus into it; Escape closes it and returns focus to the marker. Arrow keys pan the map.
+- Tab order and focus after each action: skip link, banner, organization filter, side-panel search, side-panel list, then the map controls (zoom, recentre), then markers. Each list row's accessible name is its visible text (asset tag, badge, battery, holder, status line; WCAG 2.5.3). Each marker is a focusable element with an `aria-label` ("TL-0042, holder Le Thi E, battery 81 percent, last seen 03:15" and "SOS, state ACKNOWLEDGED" when an incident is open). Enter on a list row or marker opens the popup and moves focus into it; Escape closes it and returns focus to the marker. Arrow keys pan the map.
 - WebSocket events and invalidated query keys: the page does not use polling. Entries of the event `stream` are applied in `seq` order to the in-memory map state, ignoring any entry at or below the snapshot cursor (`ack` is optional and diagnostic only):
   - `device.position` updates the marker (skipped when `late: true`), which glides to the new reading over about 1 s and moves at once on a first placement, a move over 2 km or out of view, or under `prefers-reduced-motion: reduce`; the open popup moves with it and a side-panel selection pans to the new reading; `device.telemetry` updates the battery; `device.stale` toggles the stale state; `device.label` updates the holder; `device.released` removes the device.
   - `incident.changed` updates the pulsing ring and invalidates `['incident', incidentId]` and `['incident-queue']`; `incident.alert` is handled by the global banner (MSG31), not by this page.
@@ -101,7 +106,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Route and roles match `design.md` §2 (Admin inherits the Staff route, D-057 rule 7)
 - [x] Data: every field names its source; stream payload properties are cited from `ws-live-contract.md`
 - [x] Actions: load sequence, filter, popup links; no mutating call
-- [x] States: loading, empty, reconnecting, `replay.expired`, MSG33, 401, 400, 403, stale, success
+- [x] States: loading, empty, reconnecting, `replay.expired`, MSG33, 401, 400, 403, offline, not heard since handover, success
 - [x] Forms: none
 - [x] Mobile: 360 px layout drawn (NFR-UI-01)
 - [x] Accessibility: tab order, focus on popup open and close, text alternative on every marker

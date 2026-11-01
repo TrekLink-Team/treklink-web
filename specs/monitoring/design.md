@@ -60,11 +60,26 @@ organization, read from `DeviceRelease`, is marked `late` and is not plotted as 
 
 | Endpoint | Composed from |
 |---|---|
-| `GET /api/map/snapshot` | `rentals.visibleDevices`, `devices.projections`, `incidents.openByDevices`, `organizations` stations, the max `seq` |
+| `GET /api/map/snapshot` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, `organizations` stations, `monitoring.counterLocation`, the max `seq` |
 | `GET /api/telemetry/devices/:id/history` | `rentals.rentalPeriods`, `gatewaySync.events` |
 | `GET /api/devices/:id/history` | `devices.trail`, `rentals.contractsOfDevice`, `incidents.incidentsOfDevice` |
 | `GET /api/reports/:kind` | `rentals.utilization`, `billing.revenue`, `rentals` overdue and lost lists, `incidents.responseTimes` |
 | `GET /api/system-health` | `HealthService`, `gatewaySync.stats`, `organizations` station health, `incidents.alertDeliveryStats` |
+
+The snapshot's unit state (REQ-UBI-04, D-092 rule 2) is derived per unit from its custody interval, which
+starts at the `handedOverAt` of its open `ContractDevice` row (the interval is open, so it has no end):
+
+| State | Rule | Organization view | TrekLink staff view |
+|---|---|---|---|
+| `NOT_HEARD` | `lastSeenAt` null or before `handedOverAt` | `position`, `lastSeenAt` and `batteryPct` null, `counterLocation` set | `position` and `lastSeenAt` as stored, `counterLocation` set |
+| `OFFLINE` | heard since `handedOverAt`, `lastSeenAt` older than `monitoring.deviceStaleSeconds` | `lastSeenAt`; `position` only when `lastPositionAt` is at or after `handedOverAt` | as stored |
+| `LIVE` | heard since `handedOverAt`, within the threshold | as `OFFLINE` | as stored |
+
+`lastPositionAt` is the time of the reading that set the projection's position (devices design §1): a
+reading without a position moves `lastSeenAt` only, so `lastSeenAt` alone cannot place a position inside
+the interval. A position stored before the column existed has no time and is not shown to an organization.
+The staleness sweep keeps marking a unit not heard since its handover (its incident flag rule is unchanged),
+but sends that stale entry to `fleet` only (ws-live-contract).
 
 Reports return JSON or CSV text in the envelope; time-to-acknowledge and time-to-resolve are medians and
 95th percentiles over the range.
@@ -75,7 +90,7 @@ Reports return JSON or CSV text in the envelope; time-to-acknowledge and time-to
 
 Leaflet with the tile URL and attribution from `GET /api/map/config`, the overlay layer from the same
 response (each label on its opaque `mask`, in a pane above the tiles and below the markers, so no basemap
-label for the archipelagos shows, D-085), markers by state (normal, low battery, stale, incident), a reconnecting banner, and a map error
+label for the archipelagos shows, D-085), markers by state (live, low battery, offline, not heard since handover at the counter location, incident), a reconnecting banner, and a map error
 state that leaves the lists working. Tiles go from the browser to the chosen basemap's tile server with the browser's own
 User-Agent and Referer; nothing prefetches tiles (D-031 tile policy). A basemap entry may carry
 `localOnly: true` for a provider that serves keyless tiles to a loopback host only (Stadia answered 401 on

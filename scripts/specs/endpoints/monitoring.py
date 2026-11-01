@@ -39,22 +39,38 @@ ENDPOINTS = [
        call="config()", seq=["Svc->>DB: SELECT business_parameters (cached)"]),
 
     ep("GET", "/api/map/snapshot", "Live map snapshot", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
-       "The initial state the live map draws before it subscribes: every device the caller may see with its "
-       "last plotted position, battery, staleness, holder label and open incident, plus the organization's "
-       "Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11). A device is "
-       "listed from handover until check-in or a confirmed loss. `position` is null until the device reports a "
-       "plotted position, and its `at` is the device's last-seen time. `openIncident` is `{ id, code, state }` of the "
-       "incident not yet CLOSED, shown to a member only when it is routed to the member's organization. "
-       "`organizationId` lets the fleet map filter stream entries by organization in the client.",
+       "The initial state the live map draws before it subscribes: every unit of the scope's open contracts with "
+       "its state, last plotted position, battery, holder label and open incident, plus the organization's "
+       "Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11, D-092 rule 2). A "
+       "unit is listed from handover until check-in or a confirmed loss, reporting or not. `state` is `LIVE` (heard "
+       "since `handedOverAt` and within `monitoring.deviceStaleSeconds`), `OFFLINE` (heard since `handedOverAt`, "
+       "silent longer) or `NOT_HEARD` (nothing heard since `handedOverAt`); `stale` is true for `OFFLINE` only. For an "
+       "organization, `position` and `lastSeenAt` lie inside its custody interval or are null, so nothing from "
+       "before the handover is sent (D-040), and a `NOT_HEARD` unit has no `batteryPct` either; TrekLink staff get the device's last position and last-seen time "
+       "whatever the interval. `position.at` is the time of the reading that carried the position. "
+       "`counterLocation` is `{ name, lat, lon }` of `monitoring.counterLocation` for a `NOT_HEARD` unit, where the "
+       "map pins it, and null otherwise. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, "
+       "shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map "
+       "filter stream entries by organization in the client.",
        "UC-38, UC-41, FR-AUTH-11, FR-MON-02, FR-MON-03, BR-19, BR-21",
        query=[["organizationId", "TrekLink staff: one organization; omit for the fleet", "uuid", "no", f"`{ORG_ID}`"]],
-       response={"cursor": 88213, "devices": [{**SNAP_DEVICE, "organizationId": ORG_ID}],
+       response={"cursor": 88213,
+                 "devices": [{**SNAP_DEVICE, "state": "LIVE", "handedOverAt": "2026-10-19T01:30:00.000Z",
+                              "counterLocation": None, "organizationId": ORG_ID},
+                             {**SNAP_DEVICE, "id": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14", "assetTag": "TL-0043",
+                              "holder": None, "position": None, "batteryPct": None, "lastSeenAt": None,
+                              "state": "NOT_HEARD", "handedOverAt": "2026-10-19T01:30:00.000Z",
+                              "counterLocation": {"name": "TrekLink counter", "lat": 11.56, "lon": 108.54},
+                              "organizationId": ORG_ID}],
                  "fieldStations": [{"id": STATION_ID, "name": "Ta Nang basecamp laptop", "lastSyncAt": NOW, "stale": False}]},
-       steps=["Resolve the caller's scope", "Read projections of visible devices", "Read the current stream cursor"],
+       steps=["Resolve the caller's scope", "Read the units in custody with their handover times",
+              "Read projections of those units", "Derive each state and clip positions to the custody interval",
+              "Read the current stream cursor"],
        controller="MapController", service="LiveMapService", call="snapshot(query, caller)",
        participants=[["Rent", "RentalsService"], ["Dev", "DevicesService"], ["Inc", "IncidentsService"]],
-       seq=["Svc->>Rent: visibleDevices(caller)", "Svc->>Dev: projections(ids)", "Svc->>Inc: openByDevices(ids)",
-            "Svc->>DB: SELECT max(seq) FROM stream_events"]),
+       seq=["Svc->>DB: SELECT max(seq) FROM stream_events", "Svc->>Rent: visibleDevices(caller)",
+            "Svc->>DB: SELECT business_parameters (deviceStaleSeconds, counterLocation)",
+            "Svc->>Dev: projections(ids)", "Svc->>Inc: openByDevices(ids)"]),
 
     ep("GET", "/api/telemetry/devices/:id/history", "Device position and telemetry history",
        "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",

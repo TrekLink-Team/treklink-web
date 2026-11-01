@@ -37,6 +37,13 @@ closes; `StockTake` stands alone.
 Remaining value (FR-BILL-05) is read from the variant's `remainingValueSchedule` by whole months since
 `acquiredAt`: `valueAt(device, date)`.
 
+The projection (`lastSeenAt`, `batteryPct`, `lastLatitude`, `lastLongitude`, `lastPositionAt`) is written by
+`gateway-sync` through `projectReading` and never moves backwards (REQ-EVT-08). `lastPositionAt` is the time of
+the reading that set the position, because a reading without a position moves `lastSeenAt` only; monitoring
+uses it to show an organization only a position from inside its custody interval (monitoring REQ-UBI-04,
+D-092 rule 2, migration `20261101200100_devices_last_position_at`). It is null for a position stored before
+the column existed.
+
 ---
 
 ## 2. Device lifecycle (D-035, amended by D-045 and D-047)
