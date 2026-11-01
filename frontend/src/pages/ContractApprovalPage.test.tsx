@@ -24,6 +24,8 @@ const requested = {
   holdingFeeRatio: 0.5,
   status: 'REQUESTED',
   version: 1,
+  // Null for a request sent before D-092, which approval reserves; set by a test for a held one.
+  holdExpiresAt: null as string | null,
 };
 
 vi.mock('../entities/contract/api', async (importOriginal) => ({
@@ -73,6 +75,23 @@ describe('ContractApprovalPage', () => {
       within(panel).getByText('10 TrekLink v3 available now; approval reserves 5.'),
     ).toBeTruthy();
     expect(within(panel).queryByText(/treklink-v3/)).toBeNull();
+  });
+
+  it('says a request sent since D-092 already holds its devices, which approval keeps', async () => {
+    requested.holdExpiresAt = '2099-01-01T03:00:00.000Z';
+    try {
+      renderPage();
+      fireEvent.click((await screen.findAllByRole('button', { name: /RC-2026-0004/ }))[0]);
+      const panel = screen.getByRole('complementary');
+      expect(
+        within(panel).getByText(
+          /^This request holds its 5 TrekLink v3 devices; approval keeps them\. An unpaid hold ends .*2099/,
+        ),
+      ).toBeTruthy();
+      expect(within(panel).queryByText(/available now/)).toBeNull();
+    } finally {
+      requested.holdExpiresAt = null;
+    }
   });
 
   it('shows a refused appointment in the past under the field, and clears it on a new time', async () => {

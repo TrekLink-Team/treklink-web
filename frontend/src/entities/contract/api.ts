@@ -48,6 +48,15 @@ export interface Contract {
   reservationExpiresAt?: string | null;
   // The counter appointment set at approval (rentals api-design 03 and 04).
   handoverAppointmentAt?: string | null;
+  // When an unpaid request hold expires (rentals api-design 01 to 03, D-092); null before D-092.
+  holdExpiresAt?: string | null;
+}
+
+// rentals api-design 01 since D-092 rule 1: the request holds its units and names the deposit.
+export interface RequestedContract extends Contract {
+  quote: { firstPaymentVnd: number; termFeeVnd?: number; totalVnd?: number };
+  holdExpiresAt: string;
+  heldDevices: number;
 }
 
 export interface ContractDevice {
@@ -133,7 +142,8 @@ export const fetchTransitions = (id: string) =>
   apiClient<ContractTransition[]>(`/contracts/${id}/transitions`);
 
 // rentals api-design 01.
-export const requestContract = (request: ContractRequest) => post<Contract>('/contracts', request);
+export const requestContract = (request: ContractRequest) =>
+  post<RequestedContract>('/contracts', request);
 
 // rentals api-design 04, 05, 06.
 export const approveContract = (id: string, handoverAt: string, expectedVersion: number) =>
@@ -320,13 +330,26 @@ export interface Availability {
   available: number;
 }
 
-// devices api-design 24: AVAILABLE units per variant, advisory (approval decides, FR-CON-03).
+// devices api-design 24: AVAILABLE units per variant. Since D-092 the request decides and holds the
+// units; the count may change between the read and the request.
 export const useAvailability = (hardwareVariantId: string, enabled: boolean) =>
   useQuery({
     queryKey: ['availability', hardwareVariantId] as const,
     queryFn: () =>
       apiClient<Availability[]>(`/devices/availability${queryString({ hardwareVariantId })}`),
     enabled,
+  });
+
+export const AVAILABILITY_REFRESH_MS = 30_000;
+
+// devices api-design 24 for every active variant, for the request form (screen 5.1, D-092 rule 1):
+// refreshed every 30 s and on window focus, so the count a Manager reads stays close to the stock.
+export const useAllAvailability = () =>
+  useQuery({
+    queryKey: ['availability', 'all'] as const,
+    queryFn: () => apiClient<Availability[]>('/devices/availability'),
+    refetchInterval: AVAILABILITY_REFRESH_MS,
+    refetchOnWindowFocus: true,
   });
 
 export const useContracts = (scope: 'o' | 't', filters: ContractFilters) =>

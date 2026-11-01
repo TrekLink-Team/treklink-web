@@ -3,10 +3,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import { billingKeys, fetchQuote, usePlans, type QuoteRequest } from '../entities/billing/api';
-import { contractKeys, requestContract, type PlanType } from '../entities/contract/api';
+import {
+  contractKeys,
+  requestContract,
+  useAllAvailability,
+  type PlanType,
+  type RequestedContract,
+} from '../entities/contract/api';
 import { useOrganization } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
-import { formatDay, formatVnd, todayDay } from '../shared/lib/format';
+import { formatDateTime, formatDay, formatVnd, todayDay } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { PageActionBar, StickyPageHeader } from '../shared/ui/PageChrome';
@@ -25,8 +31,13 @@ import {
 
 const STEPS = ['Plan and devices', 'Start date', 'Review and send'] as const;
 const QUOTE_DEBOUNCE_MS = 400;
-// MSG14, shown on the contract page after sending.
-const MSG14 = 'Request sent. TrekLink will confirm availability and your handover appointment.';
+// MSG14, shown after sending (wording amended for D-092 rule 1: the request holds its devices).
+const MSG14 =
+  'Request sent. Your devices are held; TrekLink will confirm your handover appointment.';
+
+// MSG11, the wording of rentals api-design 01 INSUFFICIENT_DEVICES, for a quantity above the count.
+const msg11 = (available: number, variantName: string) =>
+  `Only ${available} ${variantName} devices are available. Lower the quantity or choose another variant.`;
 
 interface Errors {
   quantity?: string;
@@ -40,6 +51,7 @@ interface Errors {
 const errorsOf = (failure: unknown): Errors => {
   if (!(failure instanceof ApiError)) return { form: 'Something went wrong. Please try again.' };
   if (failure.errorCode === 'BELOW_MOQ') return { quantity: failure.message };
+  if (failure.errorCode === 'INSUFFICIENT_DEVICES') return { quantity: failure.message };
   if (failure.errorCode === 'DAY_PLAN_LENGTH') return { dayPlanDays: failure.message };
   if (failure.errorCode === 'VALIDATION_FAILED') {
     const field = (
@@ -51,7 +63,9 @@ const errorsOf = (failure: unknown): Errors => {
 };
 
 // /o/contracts/new, screen 5.1: three steps of at most four fields, with the quote of billing
-// api-design 02 beside them. Nothing is charged until Staff approve and the first invoice is paid.
+// api-design 02 beside them. Since D-092 rule 1 the form shows the units available now (devices
+// api-design 24) and refuses a quantity above them (MSG11); the request holds the units, and the page
+// then shows when the hold expires and the deposit due before it.
 export const ContractRequestPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -67,7 +81,10 @@ export const ContractRequestPage: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [pending, setPending] = useState(false);
+  const [sent, setSent] = useState<RequestedContract | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const sentHeading = useRef<HTMLHeadingElement>(null);
+  const availability = useAllAvailability();
 
   // Read from the API (organizations api-design 03), never the sign-in session: a Manager who signed in
   // while PENDING sees the approval without signing in again. Unknown until the head loads.
@@ -76,6 +93,11 @@ export const ContractRequestPage: React.FC = () => {
   const catalogue = plans.data;
   const minOrder = catalogue?.minOrderQuantity ?? 1;
   const quantityNumber = Number(quantity);
+  // Null while the count is loading or failed: the request itself decides then (REQ-ERR-01).
+  const availableNow =
+    availability.data?.find((row) => row.hardwareVariantId === variantId)?.available ?? null;
+  const variantName = catalogue?.variants.find((item) => item.id === variantId)?.name ?? '';
+  const overAvailable = availableNow !== null && quantityNumber > availableNow;
   const stepOneValid =
     variantId !== '' &&
     Number.isInteger(quantityNumber) &&
@@ -101,6 +123,10 @@ export const ContractRequestPage: React.FC = () => {
     heading.current?.focus();
   }, [step]);
 
+  useEffect(() => {
+    if (sent) sentHeading.current?.focus();
+  }, [sent]);
+
   // A field's error clears as soon as the field changes; Next checks it again.
   const clearError = (field: keyof Errors) =>
     setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
@@ -118,6 +144,8 @@ export const ContractRequestPage: React.FC = () => {
       if (variantId === '') found.hardwareVariantId = 'Hardware variant is required.';
       if (!Number.isInteger(quantityNumber) || quantityNumber < minOrder) {
         found.quantity = `The minimum order is ${minOrder} devices.`;
+      } else if (overAvailable) {
+        found.quantity = msg11(availableNow, variantName);
       }
       if (planType === 'DAY' && dayPlanDays === '')
         found.dayPlanDays = 'Day plan length is required.';
@@ -135,6 +163,11 @@ export const ContractRequestPage: React.FC = () => {
   };
 
   const send = async () => {
+    if (overAvailable) {
+      setErrors({ quantity: msg11(availableNow, variantName) });
+      setStep(0);
+      return;
+    }
     setPending(true);
     setErrors({});
     try {
@@ -146,11 +179,17 @@ export const ContractRequestPage: React.FC = () => {
         ...(planType === 'DAY' ? { dayPlanDays: Number(dayPlanDays) } : {}),
       });
       await queryClient.invalidateQueries({ queryKey: contractKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['availability'] });
       showToast(MSG14);
-      navigate(`/o/contracts/${contract.id}`);
+      setSent(contract);
+      setPending(false);
     } catch (failure) {
       const found = errorsOf(failure);
       setErrors(found);
+      // Another organization took the units first: read the count again.
+      if (failure instanceof ApiError && failure.errorCode === 'INSUFFICIENT_DEVICES') {
+        void availability.refetch();
+      }
       if (found.quantity || found.dayPlanDays || found.hardwareVariantId) setStep(0);
       else if (found.requestedStartDate) setStep(1);
       setPending(false);
@@ -163,6 +202,45 @@ export const ContractRequestPage: React.FC = () => {
     return <Empty>No devices can be rented right now. Contact TrekLink.</Empty>;
   }
   const variant = catalogue.variants.find((item) => item.id === variantId);
+  const countOf = (id: string) =>
+    availability.data?.find((row) => row.hardwareVariantId === id)?.available;
+
+  if (sent) {
+    return (
+      <section aria-labelledby="sent-title" className="flex flex-1 flex-col">
+        <PageTitle title="Request a contract" />
+        <div role="status" className={`${CARD} flex max-w-2xl flex-col gap-3`}>
+          <h2
+            id="sent-title"
+            ref={sentHeading}
+            tabIndex={-1}
+            className="text-lg font-bold text-ink"
+          >
+            Request {sent.code} sent
+          </h2>
+          <p>
+            {sent.heldDevices} {variant?.name ?? 'devices'} devices are held for you until{' '}
+            <strong>{formatDateTime(sent.holdExpiresAt)}</strong>.
+          </p>
+          <p>
+            Deposit due before then: <strong>{formatVnd(sent.quote.firstPaymentVnd)}</strong>
+            {sent.planType === 'DAY' ? ', the whole day-plan fee' : ', the holding fee'}. Pay it at
+            the TrekLink counter or online. If it is not paid by then, the request is cancelled and
+            the devices are released.
+          </p>
+          <p className="text-ink-muted">TrekLink will confirm your handover appointment.</p>
+          <div className="flex flex-wrap gap-3">
+            <Link to={`/o/contracts/${sent.id}`} className={PRIMARY_BUTTON}>
+              Open the contract
+            </Link>
+            <Link to={`/o/invoices?contractId=${sent.id}`} className={SECONDARY_BUTTON}>
+              Pay the deposit
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const quotePanel = (
     <aside
@@ -222,8 +300,8 @@ export const ContractRequestPage: React.FC = () => {
             Formula: <span className="font-mono">{quote.data.formula}</span>
           </div>
           <p className="text-xs text-ink-muted">
-            Prices are fixed when you send the request. Nothing is charged until TrekLink approves
-            it.
+            Prices are fixed when you send the request. The request holds the devices; the first
+            payment is the deposit that keeps them.
           </p>
         </dl>
       )}
@@ -272,12 +350,7 @@ export const ContractRequestPage: React.FC = () => {
 
       <div className="grid gap-5 md:grid-cols-[1fr_320px]">
         <div className={`${CARD} flex min-w-0 flex-col gap-4`}>
-          <h2
-            id="request-title"
-            ref={heading}
-            tabIndex={-1}
-            className="text-lg font-bold text-ink"
-          >
+          <h2 id="request-title" ref={heading} tabIndex={-1} className="text-lg font-bold text-ink">
             {STEPS[step]}
           </h2>
           {errors.form && (
@@ -348,11 +421,15 @@ export const ContractRequestPage: React.FC = () => {
                   {...invalid('variant', errors.hardwareVariantId)}
                 >
                   <option value="">Choose a variant</option>
-                  {catalogue.variants.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}, {formatVnd(item.monthlyPriceVnd)} per device per month
-                    </option>
-                  ))}
+                  {catalogue.variants.map((item) => {
+                    const count = countOf(item.id);
+                    return (
+                      <option key={item.id} value={item.id}>
+                        {item.name}, {formatVnd(item.monthlyPriceVnd)} per device per month
+                        {count === undefined ? '' : `, ${count} available now`}
+                      </option>
+                    );
+                  })}
                 </select>
               </Field>
 
@@ -376,6 +453,25 @@ export const ContractRequestPage: React.FC = () => {
                   {...invalid('quantity', errors.quantity)}
                 />
               </Field>
+              {variantId !== '' && (
+                <div className="-mt-2 flex flex-wrap items-center gap-3 text-sm">
+                  <p aria-live="polite" className="text-ink-muted">
+                    {availability.isError
+                      ? 'Availability could not be read; the request will check it.'
+                      : availableNow === null
+                        ? 'Checking availability…'
+                        : `${availableNow} available now`}
+                  </p>
+                  <button
+                    type="button"
+                    className={LINK}
+                    disabled={availability.isFetching}
+                    onClick={() => void availability.refetch()}
+                  >
+                    {availability.isFetching ? 'Refreshing…' : 'Refresh'}
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -457,7 +553,7 @@ export const ContractRequestPage: React.FC = () => {
           <button
             type="button"
             className={PRIMARY_BUTTON}
-            disabled={pending || notActive}
+            disabled={pending || notActive || overAvailable}
             onClick={() => void send()}
           >
             {pending ? 'Sending…' : 'Send request'}
