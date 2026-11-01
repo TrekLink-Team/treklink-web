@@ -664,6 +664,7 @@ model Device {
   lastLatitude      Float?
   lastLongitude     Float?
   lastPositionAt    DateTime?       @db.Timestamptz(3) // reading time of lastLatitude/lastLongitude; null when unknown (D-092 rule 2)
+  lastBatteryAt     DateTime?       @db.Timestamptz(3) // reading time of batteryPct; null when unknown (D-040)
   registeredById    String
   registeredBy      User            @relation("Device_registeredById", fields: [registeredById], references: [id])
   retiredAt         DateTime?       @db.Timestamptz(3)

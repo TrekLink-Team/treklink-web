@@ -24,6 +24,7 @@ const projection = (id: string, assetTag: string, overrides: Record<string, unkn
   lastLatitude: 11.56,
   lastLongitude: 108.54,
   lastPositionAt: FRESH,
+  lastBatteryAt: FRESH,
   ...overrides,
 });
 
@@ -76,11 +77,12 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
       projections: jest.fn().mockResolvedValue([
         projection('d-1', 'TL-0008'),
         // Offline in custody: heard after the handover, silent past the threshold.
-        projection('d-2', 'TL-0009', { lastSeenAt: OLD, lastPositionAt: OLD, batteryPct: 64 }),
+        projection('d-2', 'TL-0009', { lastSeenAt: OLD, lastPositionAt: OLD, lastBatteryAt: OLD, batteryPct: 64 }),
         // Heard before the handover only, at intake or in the previous custody.
         projection('d-3', 'TL-0010', {
           lastSeenAt: BEFORE_HANDOVER,
           lastPositionAt: BEFORE_HANDOVER,
+          lastBatteryAt: BEFORE_HANDOVER,
           lastLatitude: 10.8,
           lastLongitude: 106.7,
           batteryPct: 99,

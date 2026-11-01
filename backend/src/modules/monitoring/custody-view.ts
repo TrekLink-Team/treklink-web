@@ -17,7 +17,7 @@ export interface CustodyView {
 
 export type CustodyReadings = Pick<
   DeviceProjection,
-  'lastSeenAt' | 'lastLatitude' | 'lastLongitude' | 'lastPositionAt' | 'batteryPct'
+  'lastSeenAt' | 'lastLatitude' | 'lastLongitude' | 'lastPositionAt' | 'batteryPct' | 'lastBatteryAt'
 >;
 
 // The one custody rule of the map snapshot (api-design 02) and the organization API (api-design 04), so
@@ -32,7 +32,7 @@ export const custodyView = (
   staleBefore: number,
   clipped: boolean,
 ): CustodyView => {
-  const { lastSeenAt, lastLatitude, lastLongitude, lastPositionAt, batteryPct } = device;
+  const { lastSeenAt, lastLatitude, lastLongitude, lastPositionAt, batteryPct, lastBatteryAt } = device;
   const heard = lastSeenAt !== null && lastSeenAt.getTime() >= handedOverAt.getTime();
   const state: UnitState = !heard
     ? 'NOT_HEARD'
@@ -53,6 +53,11 @@ export const custodyView = (
     stale: state === 'OFFLINE',
     position: plotted ? { lat: lastLatitude, lon: lastLongitude, at: fixAt.toISOString() } : null,
     lastSeenAt: hidden ? null : (lastSeenAt?.toISOString() ?? null),
-    batteryPct: hidden ? null : batteryPct,
+    // An organization sees a battery only when the reading that carried it lies in its custody: a reading
+    // since the handover without a battery value leaves the previous custody's battery stored.
+    batteryPct:
+      hidden || (clipped && (lastBatteryAt === null || lastBatteryAt.getTime() < handedOverAt.getTime()))
+        ? null
+        : batteryPct,
   };
 };

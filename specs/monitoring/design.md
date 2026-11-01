@@ -76,12 +76,14 @@ same unit at the same time:
 | State | Rule | Organization view | TrekLink staff view |
 |---|---|---|---|
 | `NOT_HEARD` | `lastSeenAt` null or before `handedOverAt` | `position`, `lastSeenAt` and `batteryPct` null, `counterLocation` set | `position` and `lastSeenAt` as stored, `counterLocation` set |
-| `OFFLINE` | heard since `handedOverAt`, `lastSeenAt` older than `monitoring.deviceStaleSeconds` | `lastSeenAt`; `position` only when `lastPositionAt` is at or after `handedOverAt` | as stored |
+| `OFFLINE` | heard since `handedOverAt`, `lastSeenAt` older than `monitoring.deviceStaleSeconds` | `lastSeenAt`; `position` only when `lastPositionAt` is at or after `handedOverAt`; `batteryPct` only when `lastBatteryAt` is at or after `handedOverAt` | as stored |
 | `LIVE` | heard since `handedOverAt`, within the threshold | as `OFFLINE` | as stored |
 
 `lastPositionAt` is the time of the reading that set the projection's position (devices design §1): a
 reading without a position moves `lastSeenAt` only, so `lastSeenAt` alone cannot place a position inside
-the interval. A position stored before the column existed has no time and is not shown to an organization.
+the interval. A position stored before the column existed has no time and is not shown to an organization. The battery
+follows the same rule through `lastBatteryAt` (2026-11-02): a battery read before the handover, or of unknown
+time, is not shown to an organization even when the unit has been heard since.
 The staleness sweep keeps marking a unit not heard since its handover (its incident flag rule is unchanged),
 but sends that stale entry, and its recovery while `lastSeenAt` still predates the handover, to `fleet`
 only (ws-live-contract).
