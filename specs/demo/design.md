@@ -34,8 +34,9 @@ flowchart LR
 ## 2. Guards
 
 Every `POST` runs, in this order: `NODE_ENV` is not `production` (403 `DEMO_DISABLED`); the host of
-`DATABASE_URL` is `localhost`, an IPv4 address in `127.0.0.0/8` or `::1` (403 `DEMO_DATABASE_NOT_LOCAL`);
-no other `POST` is running in this process (409 `DEMO_BUSY`). The lock is an in-process flag, enough for
+both `DATABASE_URL` and `DATABASE_DIRECT_URL` is `localhost`, an IPv4 address in `127.0.0.0/8` or `::1`,
+and neither query string carries `host`, `hostaddr`, `service` or `servicefile`, in any case and after
+URL decoding (403 `DEMO_DATABASE_NOT_LOCAL`); no other `POST` is running in this process (409 `DEMO_BUSY`). The lock is an in-process flag, enough for
 the single backend of a demo laptop. The reads answer the same facts as data (`enabled`,
 `databaseLocal`) so the screen can disable its buttons.
 

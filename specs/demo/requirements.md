@@ -38,7 +38,7 @@
 ### Unwanted behaviour
 
 - **REQ-ERR-01**: IF `NODE_ENV` is `production`, THEN a stage or a role switch SHALL answer 403 `DEMO_DISABLED`.
-- **REQ-ERR-02**: IF the host of `DATABASE_URL` is not a loopback address (`localhost`, `127.0.0.0/8`, `::1`), THEN a stage or a role switch SHALL answer 403 `DEMO_DATABASE_NOT_LOCAL` with "Demo controls run only against a local database." and SHALL change nothing. A Neon host (`*.neon.tech`) is the case this protects (D-062).
+- **REQ-ERR-02**: IF the host of `DATABASE_URL` or of `DATABASE_DIRECT_URL` is not a loopback address (`localhost`, `127.0.0.0/8`, `::1`), OR the query string of either carries a parameter that changes the connection target (`host`, `hostaddr`, `service`, `servicefile`, matched in any case and after URL decoding, because Prisma's Postgres driver connects to a `host` query parameter; review of treklink-web#245), THEN a stage or a role switch SHALL answer 403 `DEMO_DATABASE_NOT_LOCAL` with "Demo controls run only against a local database." and SHALL change nothing. A Neon host (`*.neon.tech`) is the case this protects (D-062).
 - **REQ-ERR-03**: IF a stage or a role switch is running, THEN a second one SHALL answer 409 `DEMO_BUSY`.
 - **REQ-ERR-04**: IF the scenario is unknown, THEN 404 `NOT_FOUND`; IF it is not available, THEN 409 `DEMO_SCENARIO_UNAVAILABLE` with its reason; both before any row is touched.
 - **REQ-ERR-05**: IF a `SEED_*_PASSWORD` variable is missing, THEN a stage SHALL answer 409 `DEMO_SEED_NOT_CONFIGURED` naming the variables, before any row is touched.
@@ -47,6 +47,6 @@
 ## 3. Acceptance Criteria
 
 - **AC-01**: With `DEMO_CONTROLS_ENABLED=false`, `GET /api/demo/status` is 404.
-- **AC-02**: With `DATABASE_URL` on `ep-x.ap-southeast-1.aws.neon.tech`, a stage is 403 `DEMO_DATABASE_NOT_LOCAL` and no SQL runs.
+- **AC-02**: With `DATABASE_URL` on `ep-x.ap-southeast-1.aws.neon.tech`, or `postgresql://u:p@localhost:5432/neondb?host=ep-x.neon.tech` (also `HOST=` and `%68ost=`), or the same in `DATABASE_DIRECT_URL`, a stage is 403 `DEMO_DATABASE_NOT_LOCAL` and no SQL runs.
 - **AC-03**: Staging `clean`, then `contract-ready-for-handover`, then `term-ended` on a local Postgres leaves, respectively: RC-2026-0001 to RC-2026-0003 and no ORG-0002; RC-2026-0004 APPROVED with five reserved v3 units and its holding fee paid; RC-2026-0002 RETURN_DUE.
 - **AC-04**: After a stage the presenter's window is signed in as the seeded Admin without a sign-in page.

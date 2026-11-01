@@ -6,8 +6,14 @@ const NEON =
   'postgresql://owner:secret@ep-quiet-sky-a1b2c3-pooler.ap-southeast-1.aws.neon.tech/treklink?sslmode=require';
 const LOCAL = 'postgresql://postgres:postgrespassword@localhost:5432/treklink?schema=public';
 
-const guardWith = (env: Record<string, unknown>) =>
-  new DemoGuardService({ get: (key: string) => env[key] } as unknown as ConfigService<never, true>);
+// DATABASE_DIRECT_URL is local unless a case sets it.
+const guardWith = (env: Record<string, unknown>) => {
+  const all: Record<string, unknown> = { DATABASE_DIRECT_URL: LOCAL, ...env };
+  return new DemoGuardService({ get: (key: string) => all[key] } as unknown as ConfigService<
+    never,
+    true
+  >);
+};
 
 const codeOf = async (promise: Promise<unknown>) => {
   try {
@@ -38,8 +44,41 @@ describe('isLoopbackDatabaseUrl', () => {
     'postgresql://u:p@localhost.neon.tech/db',
     'postgresql://u:p@10.0.0.5/db',
     'not a url',
+    'postgresql://u:p@localhost,ep-x.neon.tech:5432/db',
+    'postgresql://u:p@/db?host=/var/run/postgresql',
   ])('refuses %s', (url) => {
     expect(isLoopbackDatabaseUrl(url)).toBe(false);
+  });
+});
+
+// Review of treklink-web#245: Prisma connects to a `host` query parameter, so the URL authority alone
+// proves nothing.
+describe('isLoopbackDatabaseUrl with a connection-target query parameter', () => {
+  it.each([
+    'postgresql://u:p@localhost:5432/neondb?host=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?schema=public&host=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?HOST=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?Host=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?%68ost=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?%48%4F%53%54=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?%2568ost=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?+host=ep-x.neon.tech',
+    'postgresql://u:p@localhost:5432/neondb?host=127.0.0.1',
+    'postgresql://u:p@127.0.0.1:5432/neondb?hostaddr=3.1.2.3',
+    'postgresql://u:p@127.0.0.1:5432/neondb?HostAddr=3.1.2.3',
+    'postgresql://u:p@localhost/db?service=neon',
+    'postgresql://u:p@localhost/db?servicefile=/tmp/pg_service.conf',
+    'postgresql://u:p@[::1]:5432/db?sslmode=require&host=ep-x.neon.tech',
+  ])('refuses %s', (url) => {
+    expect(isLoopbackDatabaseUrl(url)).toBe(false);
+  });
+
+  it('keeps accepting the parameters that do not move the connection', () => {
+    expect(
+      isLoopbackDatabaseUrl(
+        'postgresql://u:p@localhost:5432/db?schema=demo&sslmode=disable&connection_limit=5&hosting=x',
+      ),
+    ).toBe(true);
   });
 });
 
@@ -65,6 +104,18 @@ describe('DemoGuardService', () => {
     ]);
     expect(work).not.toHaveBeenCalled();
     expect(guard.facts()).toEqual({ enabled: true, databaseLocal: false });
+  });
+
+  it.each([
+    ['DATABASE_URL', 'postgresql://u:p@localhost:5432/neondb?host=ep-x.neon.tech'],
+    ['DATABASE_DIRECT_URL', NEON],
+    ['DATABASE_DIRECT_URL', 'postgresql://u:p@localhost:5432/neondb?HOST=ep-x.neon.tech'],
+  ])('refuses when %s leaves the machine (%s)', async (name, url) => {
+    const work = jest.fn();
+    const guard = guardWith({ NODE_ENV: 'development', DATABASE_URL: LOCAL, [name]: url });
+    expect((await codeOf(guard.run(work)))?.slice(0, 2)).toEqual([403, 'DEMO_DATABASE_NOT_LOCAL']);
+    expect(work).not.toHaveBeenCalled();
+    expect(guard.facts().databaseLocal).toBe(false);
   });
 
   it('refuses a second action while one runs with 409 DEMO_BUSY, and frees the lock after', async () => {
