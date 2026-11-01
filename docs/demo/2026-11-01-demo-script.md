@@ -179,6 +179,11 @@ ever used, revoked stations included (`backend/src/modules/organizations/field-s
 `field-stations.repository.ts:76-85`); the seed already holds `fs-org-0001-1`. The seeded station is the
 one the gateway reports as in MF-02; the new one shows how an organization gets its credential.
 
+**Sandbox test accounts box.** With `DEMO_TEST_ACCOUNTS_ENABLED=true` on the backend, `/` and `/sign-in`
+show the four seeded accounts with their `SEED_*_PASSWORD` values; **Use** fills the sign-in form, so a
+window signs in as any role without typing (`specs/demo/requirements.md` REQ-EVT-05, D-089). With the
+flag off the box is absent.
+
 ### 1.4 Browser windows
 
 Sign-in lands each account on its own page (`frontend/src/entities/session/model.ts:64-73`).
