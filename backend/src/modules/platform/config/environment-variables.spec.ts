@@ -224,6 +224,18 @@ describe('validate (environment)', () => {
     ]);
   });
 
+  it('leaves the fleet node password unset when absent or blank, and refuses a short one (gateway-sync 3.1)', () => {
+    expect(validate({ ...REQUIRED }).MQTT_NODE_PASSWORD).toBeUndefined();
+    expect(validate({ ...REQUIRED, MQTT_NODE_PASSWORD: ' ' }).MQTT_NODE_PASSWORD).toBeUndefined();
+    expect(
+      validate({ ...REQUIRED, MQTT_NODE_PASSWORD: 'a-long-enough-node-password' })
+        .MQTT_NODE_PASSWORD,
+    ).toBe('a-long-enough-node-password');
+    expect(problemsOf({ ...REQUIRED, MQTT_NODE_PASSWORD: 'short' })).toEqual([
+      expect.stringContaining('MQTT_NODE_PASSWORD'),
+    ]);
+  });
+
   it('rejects a default page size above the maximum', () => {
     expect(problemsOf({ ...REQUIRED, DEFAULT_PAGE_SIZE: '200', MAX_PAGE_SIZE: '100' })).toEqual([
       expect.stringMatching(/^DEFAULT_PAGE_SIZE:/),

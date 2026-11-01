@@ -26,6 +26,7 @@ const BASE_ENV = {
   MQTT_AUTH_HOOK_SECRET: HOOK_SECRET,
   MQTT_USERNAME: 'treklink-backend',
   MQTT_PASSWORD: 'backend-password',
+  MQTT_NODE_PASSWORD: 'shared-fleet-node-password',
   MQTT_ROOT: 'treklink',
 };
 
@@ -178,14 +179,42 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
       );
     });
 
-    it('refuses a fleet node, whose credential design §4 does not specify yet', async () => {
+    it('allows a fleet node with the shared MQTT_NODE_PASSWORD, without reading organizations', async () => {
+      await expect(
+        service().checkUser({
+          username: NODE,
+          password: 'shared-fleet-node-password',
+          clientid: 'node',
+        }),
+      ).resolves.toEqual({ allowed: true, kind: 'FLEET_NODE' });
+      expect(stations.byUsername).not.toHaveBeenCalled();
+    });
+
+    it('refuses a fleet node with a wrong password', async () => {
       await expectRejection(
-        service().checkUser({ username: NODE, password: 'anything', clientid: 'node' }),
+        service().checkUser({
+          username: NODE,
+          password: 'shared-fleet-node-passwor',
+          clientid: 'n',
+        }),
         HttpStatus.FORBIDDEN,
         ErrorCode.CREDENTIAL_REJECTED,
       );
-      expect(stations.byUsername).not.toHaveBeenCalled();
     });
+
+    it.each([undefined, ''])(
+      'refuses every fleet node while MQTT_NODE_PASSWORD is %p, even with an empty password',
+      async (unset) => {
+        const env = { ...BASE_ENV, MQTT_NODE_PASSWORD: unset };
+        for (const password of ['', 'shared-fleet-node-password']) {
+          await expectRejection(
+            service(env).checkUser({ username: NODE, password, clientid: 'node' }),
+            HttpStatus.FORBIDDEN,
+            ErrorCode.CREDENTIAL_REJECTED,
+          );
+        }
+      },
+    );
 
     it('refuses a username of no credential kind without reading organizations', async () => {
       await expectRejection(
@@ -211,6 +240,11 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
         HttpStatus.FORBIDDEN,
         ErrorCode.CREDENTIAL_REJECTED,
       );
+      await expectRejection(
+        service().checkUser({ username: NODE, password: 'node-typed-xyz', clientid: 'n' }),
+        HttpStatus.FORBIDDEN,
+        ErrorCode.CREDENTIAL_REJECTED,
+      );
       const text = logged();
       expect(text).toContain(STATION);
       for (const secret of [
@@ -219,6 +253,8 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
         secretHash,
         STATION_SECRET,
         'backend-password',
+        'node-typed-xyz',
+        'shared-fleet-node-password',
         HOOK_SECRET,
       ]) {
         expect(text).not.toContain(secret);

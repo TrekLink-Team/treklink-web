@@ -132,6 +132,14 @@ export class EnvironmentVariables {
   @IsString()
   MQTT_PASSWORD?: string;
 
+  // The password every Stage A and B fleet node (`node-<nodeId>`) presents to the broker with
+  // credentials (gateway-sync design §4); unset, fleet nodes are refused there. Never logged.
+  @Transform(blankToUndefined)
+  @IsOptional()
+  @IsString()
+  @MinLength(16, { message: 'MQTT_NODE_PASSWORD must be at least 16 characters when set' })
+  MQTT_NODE_PASSWORD?: string;
+
   // The shared secret the mosquitto-go-auth hooks present (gateway-sync design §4, api-design 01 and
   // 02). Unset, the hook routes answer 404 and the default open broker needs none. At least 16
   // characters when set; never logged.
