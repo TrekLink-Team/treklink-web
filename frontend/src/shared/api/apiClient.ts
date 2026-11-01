@@ -108,6 +108,10 @@ const refreshTokens = (): Promise<string | null> => {
   return refreshing;
 };
 
+// The silent refresh on load (D-090 rule 3) uses the same single flight as a 401, so it never rotates a
+// token another caller is already rotating.
+export const refreshSession = (): Promise<string | null> => refreshTokens();
+
 export async function apiClient<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const sentToken = handlers?.getTokens()?.accessToken ?? null;
   const response = await send(endpoint, options, sentToken);

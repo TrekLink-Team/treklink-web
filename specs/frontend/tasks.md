@@ -30,6 +30,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: unwrap the D-002 envelope once; throw `ApiError { statusCode, errorCode, message }`; on 401 refresh once (auth api-design 02) and retry, else go to sign-in; run one refresh at a time and share its result between concurrent callers, because a second rotation of the same token revokes the session (D-060 rule 8)
   - **Test**: unit tests for success, failure envelope, refresh-and-retry, refresh failure
   - _Requirements: REQ-UBI-02, REQ-EVT-02, NFR-UI-02_
+  - **2026-11-01 (D-090 rule 3)**: the refresh token is mirrored to `sessionStorage` and `restoreSession` signs a reload back in through the same single-flight refresh (`app/providers/restoreSession.ts`); tests for the restore, the StrictMode double call, a refused refresh, a network failure and sign-out.
 - [x] 1.3 Leaflet map with the overlay (owner LongNN)
   - **Files**: the existing `shared/config/map.ts` and `widgets/LiveMapWidget/LiveMapWidget.tsx`
   - **Do**: replace MapLibre with Leaflet; remove `maplibre-gl`; tiles and attribution from `GET /api/map/config`; an overlay `LayerGroup` with the two archipelago labels, always on top, not removable; markers with text alternatives; MSG33 when tiles fail, lists stay live
