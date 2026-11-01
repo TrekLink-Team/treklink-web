@@ -31,6 +31,11 @@ describe('devices (e2e)', () => {
         findFirst: () => Promise.resolve({ createdAt: new Date('2026-10-30T03:05:00Z') }),
         create: created,
       },
+      // The custody read of the reset (CUSTODY_RESOLVER, design §2.1): the unit was checked in, so no
+      // contract row is open now.
+      contractDevice: {
+        findFirst: () => Promise.resolve(null),
+      },
     };
     e2e = await bootE2e({
       $transaction: (work: (client: typeof tx) => Promise<unknown>) => work(tx),
