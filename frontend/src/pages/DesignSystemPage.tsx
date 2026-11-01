@@ -6,12 +6,14 @@ import {
   Filter,
   MoreHorizontal,
   Pencil,
+  Wrench,
   Plus,
   RefreshCw,
   Siren,
   Trash2,
   Users,
 } from 'lucide-react';
+import { ApiError } from '../shared/api/apiClient';
 import { ALL_NAV } from '../shared/config/navigation';
 import { formatVnd } from '../shared/lib/format';
 import { useTheme, type ThemePreference } from '../shared/lib/theme';
@@ -38,6 +40,7 @@ import {
   INVOICE_STATUS,
   MapLegend,
   MapPanel,
+  Menu,
   PageHeader,
   Pagination,
   RadioGroup,
@@ -45,6 +48,7 @@ import {
   Skeleton,
   SkeletonText,
   StatCard,
+  StateChangeMenu,
   StatusBadge,
   Stepper,
   Switch,
@@ -57,7 +61,9 @@ import {
   useToast,
   type Column,
   type ContractStatus,
+  type RowAction,
   type SortState,
+  type StateTransition,
   type StatusEntry,
   type StatusTone,
 } from '../shared/ui';
@@ -84,6 +90,25 @@ const SAMPLE: SampleContract[] = [
   { id: 'c5', code: 'CT-2026-0118', route: 'Kỳ Quan San', devices: 16, depositVnd: 8_000_000, status: 'CLOSED' },
   { id: 'c6', code: 'CT-2026-0109', route: 'Putaleng summit', devices: 14, depositVnd: 7_000_000, status: 'CANCELLED' },
 ];
+
+type DemoDeviceState = 'AVAILABLE' | 'MAINTENANCE' | 'RETIRED';
+
+// Sample transitions of the state change showcase; a page takes its own from the module spec.
+const DEVICE_TRANSITIONS: Record<DemoDeviceState, StateTransition<DemoDeviceState>[]> = {
+  AVAILABLE: [
+    { target: 'MAINTENANCE', label: 'Send to maintenance', successMessage: 'TL-0042 sent to maintenance.' },
+    {
+      target: 'RETIRED',
+      label: 'Retire device',
+      destructive: true,
+      needsReason: true,
+      description: 'The device leaves the fleet for good and cannot be rented again. This cannot be undone.',
+      successMessage: 'TL-0042 retired.',
+    },
+  ],
+  MAINTENANCE: [{ target: 'AVAILABLE', label: 'Return to service', successMessage: 'TL-0042 is available again.' }],
+  RETIRED: [],
+};
 
 const Section: React.FC<{ id: string; title: string; description?: string; children: React.ReactNode }> = ({
   id,
@@ -129,6 +154,10 @@ export const DesignSystemPage: React.FC = () => {
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [allResults, setAllResults] = useState(false);
+  const [deviceState, setDeviceState] = useState<DemoDeviceState>('AVAILABLE');
+  const [deviceVersion, setDeviceVersion] = useState(3);
+  const [conflictNext, setConflictNext] = useState(false);
   const [active, setActive] = useState<string>('c1');
   const [sort, setSort] = useState<SortState<'code' | 'devices'>>({ key: 'code', direction: 'desc' });
   const [page, setPage] = useState(1);
@@ -191,7 +220,21 @@ export const DesignSystemPage: React.FC = () => {
     { key: 'status', header: 'Status', width: '10rem', cell: (row) => <StatusBadge entry={CONTRACT_STATUS[row.status]} /> },
   ];
 
-  const one = selected.size === 1;
+  const rowActions = (row: SampleContract): RowAction[] => [
+    { key: 'open', label: 'Open', icon: <FileText />, onSelect: () => { setActive(row.id); openInfo(); } },
+    { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: () => undefined },
+    { key: 'copy', label: 'Duplicate', icon: <Copy />, onSelect: () => undefined },
+    {
+      key: 'cancel',
+      label: 'Cancel contract',
+      destructive: true,
+      disabled: row.status === 'CLOSED' || row.status === 'CANCELLED',
+      disabledReason: 'A closed or cancelled contract cannot be cancelled.',
+      onSelect: () => setDialog('confirm'),
+    },
+  ];
+
+  const transitions = DEVICE_TRANSITIONS[deviceState];
 
   return (
     <section aria-labelledby="ds-title">
@@ -354,7 +397,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </Section>
 
-      <Section id="ds-data" title="Data table (Pattern A)" description="Toolbar above, sortable columns, server paging, sticky header, truncation with the full value on hover or focus, row actions at the end. Click a row for the Info pane.">
+      <Section id="ds-data" title="Data table (Pattern A)" description="Toolbar above, sortable columns, server paging, sticky header, truncation with the full value on hover or focus. Select rows (Shift-click for a range) for the bulk bar; with every row of the page selected it offers all 42 results. Four row actions make a menu, and row actions are disabled while the bulk bar shows. The contract code opens the Info pane by keyboard; a click anywhere on the row does the same.">
         <Tabs
           label="Contract views"
           idPrefix="ds-tabs"
@@ -370,24 +413,6 @@ export const DesignSystemPage: React.FC = () => {
         <TabPanel idPrefix="ds-tabs" tabKey={tab}>
           <Toolbar
             label="Contract tools"
-            selection={{
-              count: selected.size,
-              onClear: () => setSelected(new Set()),
-              actions: (
-                <>
-                  <Button size="sm" disabled={!one} title={one ? 'Edit' : 'Select one contract to edit'} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>
-                    Edit
-                  </Button>
-                  <Button size="sm" disabled={!one} icon={<Copy aria-hidden="true" className="h-4 w-4" />}>
-                    Duplicate
-                  </Button>
-                  <Button size="sm" icon={<Download aria-hidden="true" className="h-4 w-4" />}>Export</Button>
-                  <Button size="sm" variant="danger" onClick={() => setDialog('confirm')}>
-                    Cancel contract
-                  </Button>
-                </>
-              ),
-            }}
             start={
               <>
                 <ToolbarSearch id="ds-search" label="Search contracts" placeholder="Search by code or route" value={query} onChange={setQuery} />
@@ -411,14 +436,32 @@ export const DesignSystemPage: React.FC = () => {
             rowId={(row) => row.id}
             sort={sort}
             onSortChange={(next) => setSort(next as SortState<'code' | 'devices'>)}
+            rowLabel={(row) => row.code}
+            noun={{ one: 'contract', other: 'contracts' }}
             selectedIds={selected}
             onSelectionChange={setSelected}
+            totalCount={42}
+            allResultsSelected={allResults}
+            onSelectAllResults={setAllResults}
+            bulkActions={({ ids, allResults: all }) => {
+              const count = all ? 42 : ids.size;
+              return (
+                <>
+                  <Button size="sm" icon={<Download aria-hidden="true" className="h-4 w-4" />}>
+                    Export {count} {count === 1 ? 'contract' : 'contracts'}
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => setDialog('confirm')}>
+                    Cancel {count} {count === 1 ? 'contract' : 'contracts'}
+                  </Button>
+                </>
+              );
+            }}
             activeRowId={active}
             onRowActivate={(row) => {
               setActive(row.id);
               openInfo();
             }}
-            rowActions={(row) => <IconButton label={`More actions for ${row.code}`} icon={<MoreHorizontal />} size="sm" />}
+            rowActions={rowActions}
             empty={{ title: 'No contract matches', description: 'Clear the search or the filters to see every contract.', action: <Button onClick={() => setQuery('')}>Clear search</Button> }}
             renderCard={(row) => (
               <button type="button" className="flex w-full flex-col gap-1 text-left" onClick={() => { setActive(row.id); openInfo(); }}>
@@ -445,14 +488,20 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </Section>
 
-      <Section id="ds-feedback" title="Feedback" description="Inline alerts, the toast, skeletons and empty states.">
+      <Section id="ds-feedback" title="Feedback" description="Inline alerts, the toast in four tones (success, info and warning announced politely, error assertively; an error or an action stays until dismissed), skeletons and empty states.">
         <div className="flex flex-col gap-3">
           <Alert tone="info" title="Maintenance window">Handsets sync firmware between 22:00 and 23:00.</Alert>
           <Alert tone="success" title="Payment recorded">Invoice INV-2026-0088 is paid.</Alert>
           <Alert tone="warning" title="Return due tomorrow" action={<Button size="sm">See devices</Button>}>18 devices of CT-2026-0131 are due at Sin Suối Hồ station.</Alert>
           <Alert tone="error" title="Could not save" onDismiss={() => undefined}>The server refused the change. Try again.</Alert>
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={() => showToast('Saved.')}>Show toast</Button>
+            <Button onClick={() => showToast('Saved.')}>Success toast</Button>
+            <Button onClick={() => showToast('Firmware sync starts at 22:00.', { tone: 'info' })}>Info toast</Button>
+            <Button onClick={() => showToast('Return due tomorrow for 18 devices.', { tone: 'warning' })}>Warning toast</Button>
+            <Button onClick={() => showToast('The payment could not be recorded.', { tone: 'error' })}>Error toast, stays</Button>
+            <Button onClick={() => showToast('Device TL-0042 retired.', { action: { label: 'Open device', onClick: () => undefined } })}>
+              Toast with an action, stays
+            </Button>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-3 rounded-control border border-line p-4">
@@ -463,6 +512,60 @@ export const DesignSystemPage: React.FC = () => {
               <EmptyState icon={<Users />} title="No members yet" description="Invite the operators who watch the map." action={<Button variant="primary">Invite member</Button>} />
             </div>
           </div>
+        </div>
+      </Section>
+
+      <Section id="ds-menu" title="Menu" description="Menu button pattern: Enter, Space or the arrows open it, the arrows, Home, End and a letter move, Escape closes and returns focus. A disabled item stays reachable and reads its reason.">
+        <div className="flex flex-wrap items-center gap-3">
+          <Menu
+            label="Export"
+            triggerClassName="h-11 border border-line-strong bg-surface px-4 text-body"
+            items={[
+              { key: 'csv', label: 'Export as CSV', icon: <Download />, onSelect: () => showToast('CSV export started.', { tone: 'info' }) },
+              { key: 'pdf', label: 'Export as PDF', icon: <FileText />, onSelect: () => showToast('PDF export started.', { tone: 'info' }) },
+              { key: 'xlsx', label: 'Export as Excel', disabled: true, disabledReason: 'Excel export is not available yet.', onSelect: () => undefined },
+            ]}
+          />
+          <Menu
+            label="More actions for TL-0042"
+            title="More actions"
+            trigger={<MoreHorizontal aria-hidden="true" className="h-5 w-5" />}
+            items={[
+              { key: 'edit', label: 'Edit device', icon: <Pencil />, onSelect: () => undefined },
+              { key: 'service', label: 'Open maintenance', icon: <Wrench />, onSelect: () => undefined },
+              { key: 'retire', label: 'Retire device', icon: <Trash2 />, destructive: true, onSelect: () => undefined },
+            ]}
+          />
+          <Menu label="Disabled menu" disabled items={[{ key: 'x', label: 'Nothing', onSelect: () => undefined }]} />
+        </div>
+      </Section>
+
+      <Section id="ds-state" title="State change" description="Only the allowed next states, a dialog named after the action, a required reason for audited changes, expectedVersion on the request, a toast after success, and a persistent conflict notice that keeps the reason.">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-mono text-body-sm font-semibold">TL-0042</span>
+          <StatusBadge entry={DEVICE_STATUS[deviceState]} />
+          <span className="text-body-sm text-ink-muted">version {deviceVersion}</span>
+          <StateChangeMenu<DemoDeviceState>
+            subject="TL-0042"
+            transitions={transitions}
+            version={deviceVersion}
+            onReload={() => {
+              setDeviceVersion((value) => value + 1);
+              setConflictNext(false);
+            }}
+            onSubmit={async ({ target, expectedVersion }) => {
+              await new Promise((resolve) => window.setTimeout(resolve, 400));
+              if (conflictNext || expectedVersion !== deviceVersion) {
+                throw new ApiError(409, 'STALE_VERSION', 'Version mismatch');
+              }
+              setDeviceState(target);
+              setDeviceVersion((value) => value + 1);
+            }}
+          />
+          <Switch label="Next request answers STALE_VERSION" checked={conflictNext} onChange={setConflictNext} />
+          <Button size="sm" variant="ghost" onClick={() => { setDeviceState('AVAILABLE'); setDeviceVersion(3); }}>
+            Reset sample
+          </Button>
         </div>
       </Section>
 
