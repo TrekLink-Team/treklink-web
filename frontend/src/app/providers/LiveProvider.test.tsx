@@ -299,3 +299,58 @@ describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {
     expect(read).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('LiveProvider station.stale (screen 9.3)', () => {
+  const mountHealth = () => {
+    const read = vi.fn().mockResolvedValueOnce('Before').mockResolvedValue('After');
+    const Health = () => {
+      const query = useQuery({
+        queryKey: ['system-health', 60],
+        queryFn: read,
+        staleTime: Infinity,
+      });
+      return <span>{query.data ?? ''}</span>;
+    };
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <LiveProvider>
+          <Health />
+        </LiveProvider>
+      </QueryClientProvider>,
+    );
+    return read;
+  };
+  const push = (type: string) =>
+    act(() =>
+      live.listener?.({
+        kind: 'entry',
+        entry: {
+          seq: 2,
+          type,
+          deviceId: null,
+          payload: { fieldStationId: 'fs-1', stale: true },
+          createdAt: '2026-11-01T07:00:00Z',
+        },
+      }),
+    );
+
+  it('refetches the system health when a Field Station goes stale', async () => {
+    const read = mountHealth();
+    await screen.findByText('Before');
+    push('station.stale');
+    await screen.findByText('After');
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves the system health alone for an entry that is not a station transition', async () => {
+    const read = mountHealth();
+    await screen.findByText('Before');
+    push('device.position');
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+});
