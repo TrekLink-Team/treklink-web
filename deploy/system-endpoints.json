@@ -2,10 +2,10 @@
   "version": 1,
   "candidates": [
     {
-      "name": "vercel-frontend-with-laptop-backend",
+      "name": "vercel-production",
       "url": "https://treklink-web.vercel.app/",
-      "health": "http://localhost:3000/api/health",
-      "timeoutMs": 10000
+      "health": "https://treklink-web.vercel.app/api/health",
+      "timeoutMs": 8000
     },
     {
       "name": "demo-laptop",
