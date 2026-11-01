@@ -37,7 +37,9 @@ install() {
   if [ -f "$marker" ] && [ "$(cat "$marker")" = "$build_id" ]; then
     echo "vercel-install: already installed for $build_id"
   else
-    npm ci --workspace=backend --workspace=frontend
+    # --include=dev: with NODE_ENV=production npm skips devDependencies, and both builds need them
+    # (@nestjs/cli, prisma, typescript, ts-node, vite). Harmless while NODE_ENV is development.
+    npm ci --include=dev --workspace=backend --workspace=frontend
     echo "$build_id" >"$marker"
   fi
   # Idempotent, so it runs on every call: a cached tree from an older script may lack the copies.

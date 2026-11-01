@@ -29,7 +29,8 @@ visitors.
 | `frontend` | `frontend/` | `scripts/vercel-install.sh`, `npm run build`, serves `dist/` with a rewrite to `index.html` |
 | `backend` | `backend/` | `scripts/vercel-install.sh`, then `scripts/vercel-build.sh`; NestJS runs as one Vercel Function from `src/main.ts` |
 
-`scripts/vercel-install.sh` installs both workspaces once per deployment (the marker in `node_modules`
+`scripts/vercel-install.sh` installs both workspaces once per deployment, devDependencies included so a
+future `NODE_ENV=production` does not drop the build tools, (the marker in `node_modules`
 holds the deployment id, because Vercel restores `node_modules` from the previous build cache) and
 moves the packages npm nests in `backend/node_modules` to the root `node_modules`. The NestJS builder
 makes `backend/dist` the function root and keeps each traced file at its path from the repository
