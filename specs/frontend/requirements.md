@@ -37,7 +37,7 @@
 - **REQ-EVT-02**: WHEN an access token expires, the client SHALL refresh it once and retry; WHEN refresh fails, it SHALL return to sign-in. WHEN the page loads with a refresh token in the tab's `sessionStorage`, the client SHALL run one silent refresh and restore the session before routing (D-090 rule 3).
 - **REQ-EVT-03**: WHEN the socket disconnects, the client SHALL show MSG32, reconnect with its last cursor, and clear the banner on `replay.done`. WHERE the build sets `VITE_LIVE_MODE=poll` (a host that cannot keep a socket, D-089), the client SHALL open no socket, SHALL NOT show MSG32, SHALL refetch the views the stream would refresh every 15 seconds, SHALL show MSG31 for the open incidents that wait for the viewer (an organization's unacknowledged `NOTIFY_*` incidents to its members, unrouted and escalated ones to Staff), and the header SHALL say "Auto refresh" instead of "Live". [FR-MON-05]
 - **REQ-EVT-04**: WHEN the map provider fails, the client SHALL show MSG33 and keep the lists live. [FR-MON-09]
-- **REQ-EVT-05**: WHEN an `incident.alert` of kind `STALE` arrives, the client SHALL show MSG40 "Device silent: {device} ({holder}), last heard {time}." in the same banner without Acknowledge, behind any SOS alert, until dismissed or the incident reaches `RESOLVED`, `FALSE_ALARM` or `CLOSED`. [FR-INC-13]
+- **REQ-EVT-05**: WHEN an `incident.alert` of kind `STALE` arrives, the client SHALL show MSG40 "Device silent: {device} ({holder}), last heard {time}." in the same banner without Acknowledge, behind any SOS alert, with Dismiss for every role (TrekLink Staff and Admin keep Open queue beside it), until dismissed or the incident reaches `RESOLVED`, `FALSE_ALARM` or `CLOSED`. [FR-INC-13]
 
 ### Unwanted Behaviour
 

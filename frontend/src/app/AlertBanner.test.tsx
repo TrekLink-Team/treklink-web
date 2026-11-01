@@ -246,13 +246,25 @@ describe('AlertBanner', () => {
       expect(screen.queryByRole('alert')).toBeNull();
     });
 
-    it('offers TrekLink Staff the queue', () => {
+    it('offers TrekLink Staff the queue and Dismiss, and Dismiss removes it', () => {
       render(
         <MemoryRouter>
           <AlertBanner staff />
         </MemoryRouter>,
       );
       push(entry('incident.alert', silent));
+      expect(screen.getByRole('link', { name: 'Open queue' })).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('gives Staff no Dismiss on an SOS, only the queue', () => {
+      render(
+        <MemoryRouter>
+          <AlertBanner staff />
+        </MemoryRouter>,
+      );
+      push(entry('incident.alert', alertPayload));
       expect(screen.getByRole('link', { name: 'Open queue' })).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
     });
