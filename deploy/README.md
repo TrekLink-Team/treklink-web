@@ -26,8 +26,13 @@ visitors.
 
 | Service | Root | What Vercel does |
 |---|---|---|
-| `frontend` | `frontend/` | `npm ci --ignore-scripts` at the root, `npm run build`, serves `dist/` with a rewrite to `index.html` |
-| `backend` | `backend/` | `npm ci` at the root, then `scripts/vercel-build.sh`; NestJS runs as one Vercel Function from `src/main.ts` |
+| `frontend` | `frontend/` | `scripts/vercel-install.sh`, `npm run build`, serves `dist/` with a rewrite to `index.html` |
+| `backend` | `backend/` | `scripts/vercel-install.sh`, then `scripts/vercel-build.sh`; NestJS runs as one Vercel Function from `src/main.ts` |
+
+`scripts/vercel-install.sh` installs both workspaces once per deployment (the marker in `node_modules`
+holds the deployment id, because Vercel restores `node_modules` from the previous build cache) and
+copies the packages npm nests in `backend/node_modules` to the root `node_modules`, the only tree the
+function bundle resolves from.
 
 Requests to `/api/...` and `/socket.io/...` go to the backend with their path unchanged (the global
 prefix is `api`); everything else goes to the frontend. The frontend calls the API on the same origin
