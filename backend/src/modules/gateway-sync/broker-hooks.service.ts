@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrganizationStatus } from '@prisma/client';
@@ -38,11 +38,11 @@ const LEVEL = '[^/+#]+';
 
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const sameSecret = (given: string, expected: string): boolean => {
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-};
+// Compares the SHA-256 digests of both values, so the time taken reveals neither the content nor
+// the length of the expected secret (review of #259).
+const digest = (value: string): Buffer => createHash('sha256').update(value, 'utf8').digest();
+export const sameSecret = (given: string, expected: string): boolean =>
+  timingSafeEqual(digest(given), digest(expected));
 
 const credentialRejected = () =>
   new DomainException(HttpStatus.FORBIDDEN, ErrorCode.CREDENTIAL_REJECTED, 'Denied.');
@@ -101,6 +101,8 @@ export class BrokerAuthService {
   private readonly backendPassword: string | undefined;
   private readonly nodePassword: string | undefined;
   private readonly root: string;
+  private readonly bcryptCost: number;
+  private dummyHash?: Promise<string>;
 
   constructor(
     private readonly stations: FieldStationsService,
@@ -111,6 +113,7 @@ export class BrokerAuthService {
     this.backendPassword = config.get('MQTT_PASSWORD', { infer: true }) || undefined;
     this.nodePassword = config.get('MQTT_NODE_PASSWORD', { infer: true }) || undefined;
     this.root = config.get('MQTT_ROOT', { infer: true });
+    this.bcryptCost = config.get('BCRYPT_COST', { infer: true }) ?? 12;
   }
 
   // Unset MQTT_AUTH_HOOK_SECRET: the hooks do not exist (404), and the default open broker of
@@ -139,14 +142,19 @@ export class BrokerAuthService {
     }
     if (kind === 'FIELD_STATION') {
       const station = await this.stations.byUsername(check.username);
+      // Exactly one bcrypt compare on every path, against a dummy hash of the same cost when no
+      // station holds the username, so the answer time does not tell whether it exists (review of
+      // #259). An unknown, revoked or closed-organization station is refused whatever it returns.
+      const matches = await bcrypt.compare(
+        check.password,
+        station?.secretHash ?? (await this.dummy()),
+      );
       if (!station) return this.reject(check.username, 'unknown Field Station');
       if (station.revokedAt) return this.reject(check.username, 'revoked Field Station');
       if (station.organizationStatus === OrganizationStatus.CLOSED) {
         return this.reject(check.username, 'organization closed');
       }
-      if (!(await bcrypt.compare(check.password, station.secretHash))) {
-        return this.reject(check.username, 'wrong Field Station secret');
-      }
+      if (!matches) return this.reject(check.username, 'wrong Field Station secret');
       return { allowed: true, kind };
     }
     if (kind === 'FLEET_NODE') {
@@ -170,6 +178,13 @@ export class BrokerAuthService {
       `Broker topic denied: username ${JSON.stringify(check.username)}, acc ${check.acc}, topic ${JSON.stringify(check.topic)}`,
     );
     throw topicDenied();
+  }
+
+  // A bcrypt hash of a random value at BCRYPT_COST, the cost new station secrets are hashed with;
+  // computed once, on the first unknown username.
+  private dummy(): Promise<string> {
+    this.dummyHash ??= bcrypt.hash(randomBytes(16).toString('hex'), this.bcryptCost);
+    return this.dummyHash;
   }
 
   private reject(username: string, reason: string): never {
