@@ -7,6 +7,7 @@ export {
   type HistoryKind,
   type HistoryPoint,
 } from './field-event-query.service';
+export { UplinkIngress, type UplinkOutcome } from './uplink-ingress';
 export {
   FIELD_POSITION,
   FIELD_TELEMETRY,

@@ -18,6 +18,7 @@ flowchart LR
     DEMO --> BILL["billing: InvoicesService, PaymentsService"]
     DEMO --> RENT["rentals: ContractsService, ContractDecisionsService, TermRolloverJob"]
     DEMO --> GWS["gateway-sync: UplinkIngress"]
+    DEMO --> INC["incidents: IncidentsQueryService"]
 ```
 
 ***Figure 1***: The demo module's dependencies. Each box names the exported service it calls.
@@ -41,7 +42,7 @@ the single backend of a demo laptop. The reads answer the same facts as data (`e
 ## 3. Reset and the reference tables
 
 One transaction: null and drop each foreign key from a kept table to a truncated one, `TRUNCATE` every
-other table of `public` with `RESTART IDENTITY CASCADE`, re-create the dropped keys from
+other table of the connection's schema (`public` unless `DATABASE_URL` names another) with `RESTART IDENTITY CASCADE`, re-create the dropped keys from
 `pg_get_constraintdef`. Kept tables, each filled only by migrations:
 
 | Table | Filled by |

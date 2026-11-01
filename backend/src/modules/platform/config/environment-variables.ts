@@ -81,6 +81,12 @@ export class EnvironmentVariables {
   @IsBoolean()
   MQTT_INGESTION_ENABLED = true;
 
+  // Owned by `demo` (specs/demo/requirements.md REQ-UBI-01, D-088): true loads the demo control panel,
+  // which resets the local database. Off by default; the module also refuses a non-loopback database.
+  @Transform(toBoolean)
+  @IsBoolean()
+  DEMO_CONTROLS_ENABLED = false;
+
   @IsString()
   @Matches(/^[A-Za-z0-9_-]+$/, { message: 'MQTT_ROOT must be one topic level such as treklink' })
   MQTT_ROOT = 'treklink';

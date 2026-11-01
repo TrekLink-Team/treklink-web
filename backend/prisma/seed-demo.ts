@@ -1146,7 +1146,10 @@ export async function seedDemo(
   );
 }
 
-function readPasswords(env: NodeJS.ProcessEnv): SeedPasswords {
+// --- Demo control panel (D-088, specs/demo/design.md §4) ---------------------------------------
+// Exported so the demo module, which loads this file at run time, checks the passwords before it resets
+// the database and then calls seedDemo with them. The CLI below is unchanged.
+export function readPasswords(env: NodeJS.ProcessEnv): SeedPasswords {
   const names = ACCOUNTS.map((a) => [a.key, `SEED_${a.key.toUpperCase()}_PASSWORD`] as const);
   const missing = names.filter(([, name]) => !env[name]).map(([, name]) => name);
   if (missing.length > 0) throw new Error(`missing ${missing.join(', ')}`);
@@ -1154,6 +1157,8 @@ function readPasswords(env: NodeJS.ProcessEnv): SeedPasswords {
     names.map(([key, name]) => [key, env[name]!]),
   ) as unknown as SeedPasswords;
 }
+
+// --- end demo control panel ---------------------------------------------------------------------
 
 async function main() {
   // The same files and order as ConfigModule in app.module.ts; a variable already set is kept.

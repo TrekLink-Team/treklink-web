@@ -14,7 +14,13 @@ export {
   type VariantUtilization,
   type VisibleDevice,
 } from './contracts.service';
-export { DEVICE_LABEL_CHANGED, type DeviceLabelChangedEvent } from './contract-decisions.service';
+export {
+  ContractDecisionsService,
+  DEVICE_LABEL_CHANGED,
+  type DeviceLabelChangedEvent,
+} from './contract-decisions.service';
+export { TermRolloverJob, type RolloverOutcome } from './term-rollover.job';
+export { rolloverTermEnd } from './rental-daily-cutoff';
 export { ALLOWED_TRANSITIONS, isAllowedTransition } from './contract-states';
 export {
   CONTRACT_CLOSE_CHECKS,

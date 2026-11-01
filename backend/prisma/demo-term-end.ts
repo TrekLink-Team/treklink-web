@@ -15,16 +15,15 @@
 
 import { NestFactory } from '@nestjs/core';
 import { PrismaClient } from '@prisma/client';
-import { latestRentalDailyCutoff } from '../src/modules/rentals/rental-daily-cutoff';
+import { tomorrowBusinessDay } from '../src/modules/demo/demo-clock';
+import { rolloverTermEnd } from '../src/modules/rentals/rental-daily-cutoff';
 
-const MINUTE_MS = 60 * 1000;
-const DAY_MS = 24 * 60 * MINUTE_MS;
-const BUSINESS_ZONE_OFFSET_MS = 7 * 60 * MINUTE_MS;
+// The term-end and service-due times live in src so the demo module's `term-ended` and
+// `asset-maintenance` scenarios (D-088) use the same rule; re-exported for this CLI and its tests.
+export { rolloverTermEnd };
+export { tomorrowBusinessDay };
 
-// The job closes only terms due by the latest daily cutoff (`rentals.termRolloverHourLocal`), so the
-// term ends one minute before it, which is never in the future and at most a day ago.
-export const rolloverTermEnd = (now: Date, hourLocal: number): Date =>
-  new Date(latestRentalDailyCutoff(now, hourLocal).getTime() - MINUTE_MS);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface DemoArgs {
   contractCode: string;
@@ -46,14 +45,6 @@ export const parseArgs = (argv: readonly string[]): DemoArgs => {
     throw new Error('Usage: demo:term-end -- <contract code> [--service-due <asset tag>]');
   }
   return { contractCode: positional[0], serviceDueTag };
-};
-
-// Tomorrow in UTC+7, as the midnight-UTC value of a date column: inside any lead time of a day or more.
-export const tomorrowBusinessDay = (now: Date): Date => {
-  const local = new Date(now.getTime() + BUSINESS_ZONE_OFFSET_MS);
-  return new Date(
-    Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) + DAY_MS,
-  );
 };
 
 async function main() {

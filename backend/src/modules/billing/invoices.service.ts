@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InvoiceKind, InvoiceLineType, Prisma } from '@prisma/client';
-import { InvoiceRow, InvoicesRepository, NewInvoiceLine } from './invoices.repository';
+import {
+  InvoiceRow,
+  InvoicesRepository,
+  InvoiceWithLines,
+  NewInvoiceLine,
+} from './invoices.repository';
 import { dayPlanFeeVnd, holdingFeeVnd, termFeeVnd } from './money';
 
 // What `rentals` hands billing when it issues an invoice: the contract's price snapshot
@@ -60,6 +65,11 @@ const line = (
 @Injectable()
 export class InvoicesService {
   constructor(private readonly invoices: InvoicesRepository) {}
+
+  // The contract's first TERM or DAY_PLAN invoice with its lines, or null (demo module, D-088).
+  firstChargeableInvoice(contractId: string): Promise<InvoiceWithLines | null> {
+    return this.invoices.firstChargeableInvoice(contractId);
+  }
 
   // One TERM invoice: the holding fee due at the term start and the balance due at the term end.
   issueTermInvoice(

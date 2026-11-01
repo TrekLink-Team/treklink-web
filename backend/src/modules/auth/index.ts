@@ -33,7 +33,9 @@ export {
   AccessTokenAuthenticator,
   type AuthenticatedSession,
 } from './access-token-authenticator.service';
-export { hashApiKey } from './token.service';
+export { hashApiKey, type ClientInfo } from './token.service';
+export { DemoSessionService } from './demo-session.service';
+export type { SignInResult } from './auth.service';
 export { MAIL_PORT, type MailMessage, type MailPort } from './mail/mail.port';
 export {
   ACCOUNT_CONTEXT_PROVIDER,

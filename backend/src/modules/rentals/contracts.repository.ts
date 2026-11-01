@@ -480,6 +480,20 @@ export class ContractsRepository {
     return rows.map((row) => row.deviceId);
   }
 
+  // One contract by its code (demo module, D-088).
+  findByCode(code: string, client: Client = this.prisma): Promise<ContractRow | null> {
+    return client.rentalContract.findUnique({ where: { code }, select: CONTRACT_SELECT });
+  }
+
+  // Moves an open term's dates (the demo time shift, D-088); the status is unchanged.
+  async setTermDates(
+    termId: string,
+    dates: { startsAt: Date; endsAt: Date },
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.contractTerm.update({ where: { id: termId }, data: dates });
+  }
+
   // The open term of a contract, the latest by seq; null before approval.
   openTerm(contractId: string, tx: Prisma.TransactionClient) {
     return tx.contractTerm.findFirst({

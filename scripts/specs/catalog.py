@@ -205,6 +205,11 @@ PERMISSIONS = [
     ("liveMap.read.own", "read", "LiveMap", OWN, ["ORG_OPERATOR"]),
     ("telemetryHistory.read", "read", "TelemetryHistory", None, ["STAFF"]),
     ("telemetryHistory.read.own", "read", "TelemetryHistory", OWN, ["ORG_OPERATOR"]),
+    # demo (D-088, specs/demo/design.md §6): the local demo control panel. The role switch is one key per
+    # account type (D-057); migration 20261101120000_demo_controls carries the same rows.
+    ("demo.stage", "stage", "Demo", None, ["ADMIN"]),
+    ("demo.switchRole", "switchRole", "Demo", None, ["STAFF"]),
+    ("demo.switchRole.org", "switchRole", "Demo", None, ["ORG_OPERATOR"]),
 ]
 
 INHERITS = {"ADMIN": "STAFF", "ORG_MANAGER": "ORG_OPERATOR"}

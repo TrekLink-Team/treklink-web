@@ -15,6 +15,7 @@ import { AccountsRepository } from './accounts.repository';
 import { AuthPortsModule } from './auth-ports.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { DemoSessionService } from './demo-session.service';
 import { AbilityFactory } from './casl/ability.factory';
 import { PermissionCache } from './casl/permission-cache';
 import { ApiKeyGuard } from './guards/api-key.guard';
@@ -60,6 +61,7 @@ import { TokenService } from './token.service';
     PasswordService,
     TokenService,
     AuthService,
+    DemoSessionService,
     OneTimeCodeService,
     PasswordFlowsService,
     AccountsService,
@@ -82,6 +84,7 @@ import { TokenService } from './token.service';
     AbilityFactory,
     AccessTokenAuthenticator,
     AccountsService,
+    DemoSessionService,
     AuthPortsModule,
   ],
 })
