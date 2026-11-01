@@ -29,6 +29,9 @@ export interface DeviceProjection extends DeviceIdentity {
   // The reading time of lastLatitude and lastLongitude; null for a position stored before the column
   // existed (migration 20261101210100), whose time is unknown.
   lastPositionAt: Date | null;
+  // The reading time of batteryPct; null for a battery stored before the column existed (migration
+  // 20261102040000), whose time is unknown.
+  lastBatteryAt: Date | null;
 }
 
 export interface ProjectionUpdate {
@@ -86,7 +89,9 @@ export class DevicesRepository {
               lastPositionAt: update.at,
             }
           : {}),
-        ...(update.batteryPct !== undefined ? { batteryPct: update.batteryPct } : {}),
+        ...(update.batteryPct !== undefined
+          ? { batteryPct: update.batteryPct, lastBatteryAt: update.at }
+          : {}),
       },
     });
     return count === 1;
@@ -105,6 +110,7 @@ export class DevicesRepository {
         lastLatitude: true,
         lastLongitude: true,
         lastPositionAt: true,
+        lastBatteryAt: true,
         hardwareVariant: { select: { code: true } },
       },
       orderBy: { assetTag: 'asc' },

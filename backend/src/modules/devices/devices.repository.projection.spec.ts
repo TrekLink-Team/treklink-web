@@ -25,6 +25,7 @@ describe('DevicesRepository.projectIfNewer', () => {
         lastLongitude: 108.5,
         lastPositionAt: at,
         batteryPct: 80,
+        lastBatteryAt: at,
       },
     });
   });
@@ -33,7 +34,16 @@ describe('DevicesRepository.projectIfNewer', () => {
     updateMany.mockResolvedValue({ count: 0 });
     await expect(repository.projectIfNewer('d-1', { at, batteryPct: 70 })).resolves.toBe(false);
     expect(updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { lastSeenAt: at, batteryPct: 70 } }),
+      expect.objectContaining({ data: { lastSeenAt: at, batteryPct: 70, lastBatteryAt: at } }),
+    );
+  });
+
+  it('leaves the battery and its time alone on a reading without one', async () => {
+    await repository.projectIfNewer('d-1', { at, latitude: 11.5, longitude: 108.5 });
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { lastSeenAt: at, lastLatitude: 11.5, lastLongitude: 108.5, lastPositionAt: at },
+      }),
     );
   });
 });

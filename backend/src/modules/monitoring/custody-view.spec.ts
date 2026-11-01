@@ -12,6 +12,7 @@ const readings = (overrides: Partial<CustodyReadings> = {}): CustodyReadings => 
   lastLongitude: 108.54,
   lastPositionAt: ago(20),
   batteryPct: 81,
+  lastBatteryAt: ago(20),
   ...overrides,
 });
 
@@ -19,6 +20,18 @@ const org = (device: CustodyReadings) => custodyView(device, HANDED_OVER, STALE_
 const staff = (device: CustodyReadings) => custodyView(device, HANDED_OVER, STALE_BEFORE, false);
 
 describe('custodyView (REQ-UBI-04, D-040, D-092 rule 2)', () => {
+  it('hides from an organization a battery read before the handover, even when heard since', () => {
+    // Telemetry since the handover carried no battery value; the stored one is the previous custody's.
+    const device = readings({ lastBatteryAt: ago(7200), batteryPct: 95 });
+    expect(org(device)).toMatchObject({ state: 'LIVE', batteryPct: null });
+    expect(staff(device).batteryPct).toBe(95);
+  });
+
+  it('hides from an organization a battery of unknown time (stored before lastBatteryAt existed)', () => {
+    expect(org(readings({ lastBatteryAt: null })).batteryPct).toBeNull();
+    expect(staff(readings({ lastBatteryAt: null })).batteryPct).toBe(81);
+  });
+
   it('is LIVE with every reading when heard in custody within the threshold', () => {
     expect(org(readings())).toEqual({
       state: 'LIVE',
