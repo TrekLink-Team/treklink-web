@@ -210,6 +210,20 @@ describe('validate (environment)', () => {
     ).toEqual([expect.stringContaining('FIELD_STATION_BROKER_URL')]);
   });
 
+  it('leaves the broker hook secret unset when absent or blank, and refuses a short one (gateway-sync 3.1)', () => {
+    expect(validate({ ...REQUIRED }).MQTT_AUTH_HOOK_SECRET).toBeUndefined();
+    expect(
+      validate({ ...REQUIRED, MQTT_AUTH_HOOK_SECRET: '' }).MQTT_AUTH_HOOK_SECRET,
+    ).toBeUndefined();
+    expect(
+      validate({ ...REQUIRED, MQTT_AUTH_HOOK_SECRET: 'a-long-enough-hook-secret' })
+        .MQTT_AUTH_HOOK_SECRET,
+    ).toBe('a-long-enough-hook-secret');
+    expect(problemsOf({ ...REQUIRED, MQTT_AUTH_HOOK_SECRET: 'short' })).toEqual([
+      expect.stringContaining('MQTT_AUTH_HOOK_SECRET'),
+    ]);
+  });
+
   it('rejects a default page size above the maximum', () => {
     expect(problemsOf({ ...REQUIRED, DEFAULT_PAGE_SIZE: '200', MAX_PAGE_SIZE: '100' })).toEqual([
       expect.stringMatching(/^DEFAULT_PAGE_SIZE:/),

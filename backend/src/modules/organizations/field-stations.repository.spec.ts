@@ -96,10 +96,16 @@ describe('FieldStationsRepository (organizations 2.8)', () => {
     await expect(repository.revoke('org-1', 'fs-1', 'u-1', AT)).resolves.toBeNull();
   });
 
-  it('gives gateway-sync the credential behind a username, with its hash', async () => {
+  it('gives gateway-sync the credential behind a username, with its hash and organization status', async () => {
+    station.findUnique.mockResolvedValueOnce({
+      id: 'fs-1',
+      secretHash: 'h',
+      organization: { status: 'CLOSED' },
+    });
     await expect(repository.findByUsername('fs-org-0007-1')).resolves.toEqual({
       id: 'fs-1',
       secretHash: 'h',
+      organizationStatus: 'CLOSED',
     });
     expect(station.findUnique).toHaveBeenCalledWith({
       where: { mqttUsername: 'fs-org-0007-1' },
@@ -109,8 +115,14 @@ describe('FieldStationsRepository (organizations 2.8)', () => {
         mqttUsername: true,
         secretHash: true,
         revokedAt: true,
+        organization: { select: { status: true } },
       },
     });
+  });
+
+  it('answers null for an unknown username', async () => {
+    station.findUnique.mockResolvedValueOnce(null);
+    await expect(repository.findByUsername('fs-nobody-0')).resolves.toBeNull();
   });
 
   it('gives ingestion and the health report the station behind a username, without its hash', async () => {

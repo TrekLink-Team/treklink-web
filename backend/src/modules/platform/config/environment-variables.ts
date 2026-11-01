@@ -9,6 +9,7 @@ import {
   Matches,
   Max,
   Min,
+  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -38,6 +39,10 @@ const toBoolean = ({ value }: { value: unknown }): unknown => {
   if (normalized === 'false') return false;
   return value;
 };
+
+// An empty value (`NAME=` in a .env file) counts as unset.
+const blankToUndefined = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 const toInteger = ({ value }: { value: unknown }): unknown => {
   if (typeof value !== 'string' || value.trim() === '') return value;
@@ -126,6 +131,15 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   MQTT_PASSWORD?: string;
+
+  // The shared secret the mosquitto-go-auth hooks present (gateway-sync design §4, api-design 01 and
+  // 02). Unset, the hook routes answer 404 and the default open broker needs none. At least 16
+  // characters when set; never logged.
+  @Transform(blankToUndefined)
+  @IsOptional()
+  @IsString()
+  @MinLength(16, { message: 'MQTT_AUTH_HOOK_SECRET must be at least 16 characters when set' })
+  MQTT_AUTH_HOOK_SECRET?: string;
 
   // Owned by `organizations` (specs/organizations/requirements.md §4, D-039). The directory holding the
   // Field Station `release.json` and its executables; unset, the release endpoint answers 503.
