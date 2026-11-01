@@ -123,7 +123,7 @@ A Node.js program in `treklink-web/gateway/`, packaged as one executable per OS 
 | Bound | `QUEUE_MAX_ROWS` (environment `GATEWAY_QUEUE_MAX_ROWS`, requirements §4); on overflow delete the oldest P3, then P2, in the insert's transaction, each shed logged with its tier and local id; never P0 or P1, so with only those left the queue runs over its bound and logs it |
 | Broker credential | `GATEWAY_FS_USERNAME` and `GATEWAY_FS_SECRET`, the Username and Secret of the station's credential (§4, organizations api-design 24), sent as the MQTT username and password only when both are set; with either empty the client connects without credentials. `MQTT_BROKER_URL` takes `mqtt://` or `mqtts://`; a new credential carries `FIELD_STATION_BROKER_URL`, else `MQTT_BROKER_URL` (`field-stations.service.ts:101-103`), and the example in `.env.example` is `mqtts://mqtt.treklink.vn:8883`. The secret is never logged, and user information in the broker URL is removed before the URL is logged |
 | Health | every 60 s while connected, publish depth per tier, the oldest `attempts` and the executable's version to `treklink/fs/<username>/health` (FR-EVT-18) |
-| Local page | `127.0.0.1:4321`, the routes of `field-station-local-page.md` |
+| Local page | `127.0.0.1:4321` (`GATEWAY_LOCAL_PORT`), the routes of `field-station-local-page.md`; `gateway/src/local/`, the page in `gateway/local-page/`. Every route reads memory or the local SQLite file, never the network, so the page answers with the uplink down (REQ-STA-02) |
 
 ---
 
