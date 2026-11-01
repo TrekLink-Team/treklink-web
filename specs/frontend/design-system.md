@@ -297,10 +297,12 @@ at the bottom; only the content scrolls.
 | `PageHeader`, `Breadcrumb` | Title, trail, primary action top right | Pass `breadcrumb` only outside the nav table | Two primary actions |
 | `Tabs`, `TabPanel` | View switches inside a page | Counts in tabs; arrow keys work | Use tabs for navigation between modules |
 | `Toolbar`, `ToolbarSearch`, `FilterChip` | Function bar above the body | Search and filters left, view tools right; `selection` for bulk actions | Move it between pages |
-| `DataTable`, `Truncated`, `Pagination` | Pattern A lists | Server sort and paging; `rowActions` at the end; `renderCard` for phones; empty state with a next step | Client-sort a server page |
-| `Dialog`, `ConfirmDialog` | Modal tasks and confirmations | Name the object: "Retire device TL-0042?"; Cancel first | Stack dialogs |
+| `DataTable`, `BulkBar`, `Truncated`, `Pagination` | Pattern A lists (ui standard §2) | `rowLabel` for readable checkbox names; `bulkActions` for the bulk bar; `rowActions` as a `RowAction[]` (inline below three, a menu from three); `rowHref` or `onRowActivate` for keyboard activation; `totalCount` with `onSelectAllResults`; server sort and paging; `renderCard` for phones; empty state with a next step | Client-sort a server page; name a checkbox by id |
+| `Menu` | Every menu (menu button pattern) | `items` with `disabledReason` on a disabled item; an icon trigger with a `label` | A hand-rolled `role="menu"` |
+| `StateChangeMenu`, `StateChangeDialog` | Lifecycle changes (ui standard §3) | Pass only the allowed transitions, `version` and `onReload`; `destructive` for an alert dialog, `needsReason` for an audited change | Buttons per state; "OK" |
+| `Dialog`, `ConfirmDialog` | Modal tasks and confirmations | Name the object: "Retire device TL-0042?"; Cancel first; `irreversible` (ConfirmDialog) or `role="alertdialog"` (Dialog) for a change that cannot be undone; `initialFocus` for the least destructive control | Stack dialogs |
 | `Drawer` | Navigation, Info sheet, bottom sheet | Escape and scrim close | Hold a long form |
-| `Toast` (`useToast().show`) | Short success messages | One at a time | Errors that need action (use `Alert`) |
+| `Toast` (`useToast().show(message, { tone, action })`) | Feedback after an action: `success`, `info`, `warning` (role status), `error` (role alert) | One at a time; an error or an action stays until dismissed | A form error that belongs next to its field (use `Field` or `Alert`) |
 | `Alert` | Inline info, success, warning, error | One fixing action | Page-wide incident alerts (AlertBanner owns those) |
 | `Stepper` | Multi-step forms | At most 4 steps of 6 fields | More steps |
 | `StickyPageHeader`, `PageActionBar` | Long and multi-step pages (§5.2) | Title, breadcrumb and stepper in the header; Back left, primary right in the bar | Own sticky or fixed positioning on a page |
@@ -310,7 +312,9 @@ at the bottom; only the content scrolls.
 
 The first pages keep importing `styles.ts` (`PRIMARY_BUTTON`, `INPUT`, `CARD`, `TABLE`, `TH`, `TD`,
 `TAB`, ...) and `bits.tsx` (`Badge`, `PageTitle`, `Loading`, `Empty`, `ErrorState`, `Pager`,
-`Field`, `Fact`). Both keep their names and props and now render the system.
+`Field`, `Fact`). Both keep their names and props and now render the system; since 2026-11-01
+`bits.tsx` re-exports `Badge` and `Field` and renders `Pager` as `Pagination`, so no second
+implementation remains.
 
 ## 7. Legacy compatibility layer
 
