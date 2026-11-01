@@ -45,7 +45,8 @@ branch `vercel-prod`. The shared Neon `dev` database is never migrated or seeded
 
 Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so MF-02 field data
 and the gateway do not reach it), no socket (the frontend build sets `VITE_LIVE_MODE=poll`, so screens refetch their live views every 15 seconds and the header says "Auto refresh"), scheduled
-jobs run only while an instance is warm, handover notes are written to `/tmp`, and email goes to the
+jobs run from a tick after requests (`JOBS_TICK_ON_REQUEST=true` in Production, at most once a
+minute per instance, so a quiet production runs nothing until the next visit), handover notes are written to `/tmp`, and email goes to the
 function log (`MAIL_TRANSPORT=console`) until an SMTP account is configured.
 
 The backend function runs in `sin1` (Singapore, `regions` in `vercel.json`), next to the Neon branch in

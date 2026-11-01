@@ -506,6 +506,18 @@ are logged, and a failed run never stops the next one.
 | `devices.lossSearch` | devices | hourly | `SEARCHING` loss cases past `searchEndsAt` move to `CONFIRMED` (FR-DEV-15) |
 | `devices.serviceScan` | devices | weekly, Monday at `devices.serviceScanHourLocal` | open `SCHEDULED` or `FIRMWARE_UPDATE` records for `AVAILABLE` devices due within 7 days plus `devices.maintenanceLeadDays`, and send Staff the list (FR-DEV-18, D-047) |
 
+**Request-driven tick (D-090 rule 1).** On a host whose instances sleep between requests (Vercel Functions,
+D-089) the timers above fire only while an instance happens to be awake. With `JOBS_TICK_ON_REQUEST=true`
+the global `JobTickInterceptor` starts `JobRunnerService.tick()` when a request completes, at most once per
+instance per minute (`JOB_TICK_INTERVAL_MS`), and hands it to Vercel's `waitUntil` (`@vercel/functions`) so
+the function stays alive until it settles; off Vercel `waitUntil` does nothing and the tick runs on. A tick
+runs, one after another, every job whose cron had a fire time since its last tick run, or that has none,
+through `run()` and its advisory lock, then records the run in `job_runs` (`name`, `lastRunAt`); a run
+skipped because another instance holds the lock is not recorded. The timers stay registered everywhere;
+with the flag off (the default) nothing reads or writes `job_runs`. A daily Vercel Cron call is left out:
+the Hobby plan allows one a day, it needs a `CRON_SECRET` only the leader can set, and tester traffic
+already drives the tick.
+
 ### 4.7 Health and the optional MQTT probe
 
 `HealthService` backs `GET /api/health` (`api-design/01-get-health.md`). It races `SELECT 1` against

@@ -94,6 +94,13 @@ export class EnvironmentVariables {
   @IsBoolean()
   DEMO_TEST_ACCOUNTS_ENABLED = false;
 
+  // Owned by `platform` (design §4.6, D-090 rule 1): true makes each request start a job tick after its
+  // response, at most once per instance per minute. Set only on Vercel, whose instances sleep between
+  // requests; every other host keeps the in-process timers alone.
+  @Transform(toBoolean)
+  @IsBoolean()
+  JOBS_TICK_ON_REQUEST = false;
+
   @IsString()
   @Matches(/^[A-Za-z0-9_-]+$/, { message: 'MQTT_ROOT must be one topic level such as treklink' })
   MQTT_ROOT = 'treklink';
