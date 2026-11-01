@@ -122,6 +122,7 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `CORS_ORIGINS` | `http://localhost:5173` | env | no |
 | `HTTP_BODY_LIMIT` | `1mb` | env | no |
 | `SWAGGER_ENABLED` | `true` outside production | env | no |
+| `DEMO_CONTROLS_ENABLED` | `false`; `true` loads the `demo` module (D-088, `specs/demo/`), for a local demo database only | env | no |
 | `PARAMETER_CACHE_TTL_SECONDS` | 30 | env | no |
 | `HEALTH_DB_TIMEOUT_MS` | 2000; the health endpoint's `SELECT 1` bound (TK-90) | env | no |
 | `DEFAULT_PAGE_SIZE` / `MAX_PAGE_SIZE` | 20 / 100 | env | no |

@@ -58,6 +58,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/t/admin/sync` | Field data sync (MF-02): subscriber state, the window's ingestion outcomes, Field Stations, recent field events and the sync audit (screen 9.5) | TrekLink Staff |
 | `/t/admin/accounts`, `/t/admin/roles`, `/t/admin/parameters`, `/t/admin/prices`, `/t/admin/variants`, `/t/admin/health` | Administration | TrekLink Admin |
 | `/t/admin/audit/changes`, `/t/admin/audit/sign-ins` | Audit: the change log (`auditLog.read`) and the sign-in log (`authEvent.read`), one tab per route, each tab hidden without its permission; `/t/admin/audit` redirects to `changes`; filters in the query (D-057 rule 3) | TrekLink Admin |
+| `/t/admin/demo` | Demo control (D-088, screen 7.5): stage a scenario on the local database and switch the signed-in role; the nav entry shows only while `GET /api/demo/status` answers `enabled: true`. The role switcher is also an account-menu item for every signed-in user while demo mode is on | TrekLink Admin |
 
 **Landing after sign-in** (D-059 rule 1): a same-origin `?next=` path wins; otherwise the Org Manager lands
 on `/o`, the Org Operator on `/o/map`, TrekLink Staff and Admin
