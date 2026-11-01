@@ -27,6 +27,8 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 | Prices fixed at request | rentals 03 `monthlyUnitPriceVnd`, `dayPremium`, `holdingFeeRatio` |
 | Terms | rentals 03 `terms[].seq`, `startsAt`, `endsAt`, `status` |
 | Devices: asset tag, holder, handed over, back, lost | rentals 03 `devices[].assetTag`, `holder.name`, `phone`, `emergencyContact`, `handedOverAt`, `checkedInAt`, `lostAt` |
+| Devices, TrekLink detail: state after the return and next step (D-092 rule 4) | rentals 03 `devices[].afterReturn.status`, `nextStep.action`, `nextStep.contractId` |
+| Close panel, TrekLink detail: can close, blockers (D-092 rule 3) | rentals 20 `canClose`, `blockers[]` |
 | Balance: due now, due later, paid, damage charges awaiting approval | billing 10 `dueNowVnd`, `dueLaterVnd`, `paidVnd`, `pendingDamageCharges`, `settled` |
 | History: date, from, to, actor, reason | rentals 18 `[].createdAt`, `fromStatus`, `toStatus`, `actor`, `reason` |
 | Handover note integrity | rentals 11 `integrity`, `sha256` |
@@ -45,6 +47,9 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 | Lost (device row) | Org Manager, device out | opens the report form of screen 4.4 (devices 17 `POST /api/devices/:id/loss-cases`) | as in screen 4.4 | as in screen 4.4 |
 | Invoices (balance box link) | Org Manager or Staff | navigation to `/o/invoices` or `/t/billing` filtered by the contract (screen 6.1) | none | none |
 | Go to counter (TrekLink detail) | Staff, `APPROVED` or devices due back | navigation to `/t/counter/:contractId` (screens 5.4, 5.5) | none | none |
+| Close contract (TrekLink detail, primary, in the close panel) | Staff, rentals 20 `canClose` | rentals 17 `POST /api/contracts/:id/close` | dialog: "Close contract {code}? Holder labels are erased. A closed contract cannot be reopened." | toast MSG03; the contract shows `CLOSED` |
+| Close blockers (TrekLink detail, close panel) | Staff, contract handed over and not `CLOSED`, `canClose` false | the links of screen 5.5's close blockers; Report lost opens the report dialog of screen 4.4 for Staff too | none | none |
+| Next step (TrekLink device row) | Staff, `afterReturn.nextStep` set | Reset or Inspect: link to `/t/counter/:contractId`; Complete maintenance or Intake check: link to `/t/devices/:id` | none | none |
 
 ## States
 

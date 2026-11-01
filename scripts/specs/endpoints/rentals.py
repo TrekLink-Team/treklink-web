@@ -87,7 +87,7 @@ ENDPOINTS = [
                                 "terms": [{"seq": 1, "startsAt": "2026-10-25T02:00:00Z",
                                                        "endsAt": "2026-11-25T02:00:00Z", "status": "OPEN"}],
                                 "devices": [{**CDEV, "resetAt": None, "inspection": None,
-                                             "provisionedKeyVersion": None}],
+                                             "provisionedKeyVersion": None, "afterReturn": None}],
                                 "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
        fields=[["holdExpiresAt", "When the hold of a request expires unpaid (D-092); kept after the decision as history; "
                 "null for a contract requested before D-092", "datetime", "`null`"],
@@ -98,9 +98,16 @@ ENDPOINTS = [
                 "PASSED, DAMAGED or FAILED, and `at`; null when none", "object", "`null`"],
                ["devices[].provisionedKeyVersion", "The channel key version the unit carries for this "
                 "contract's organization (api-design 09), null when it holds none of it; the counter keeps "
-                "provisioning after a reload", "int", "`1`"]],
+                "provisioning after a reload", "int", "`1`"],
+               ["devices[].afterReturn", "TrekLink callers only, for a checked-in row: the device's current `status` "
+                "and `nextStep`, its next step back to `AVAILABLE` (devices REQ-EVT-23): `action` RESET, INSPECT, "
+                "COMPLETE_MAINTENANCE or INTAKE with the `contractId` of the counter that records a reset or "
+                "inspection, or null when none is left or a later return of the unit owns it (REQ-EVT-18, D-092 "
+                "rule 4); null for a row not checked in and for organization callers", "object",
+                "`{\"status\": \"RETURNED\", \"nextStep\": {\"action\": \"INSPECT\", \"contractId\": \"...\"}}`"]],
        entity="Contract", steps=["Read within scope", "Ask billing for the balance summary",
-                                 "Ask DevicesService.returnChecks for the reset and inspection of each returned row"],
+                                 "Ask DevicesService.returnChecks for the reset and inspection of each returned row",
+                                 "For a TrekLink caller, ask DevicesService.nextSteps for the state after the return"],
        controller="ContractsController", service="ContractsService", call="get(id, caller)",
        participants=[["Bill", "BillingService"], ["Dev", "DevicesService"]],
        seq=["Svc->>DB: SELECT contract, terms, contract_devices", "Svc->>Dev: returnChecks(rows)",
@@ -464,6 +471,43 @@ ENDPOINTS = [
             "Svc->>DB: UPDATE rental_contracts SET version = version + 1",
             "Svc->>Dev: clearProvisioning(deviceId, tx)", "Svc->>DB: COMMIT",
             "Svc-)Audit: audit.record contract.provisioningUndone"]),
+    # Appended, so the numbers of 01 to 19 stay as cited elsewhere.
+    ep("GET", "/api/contracts/:id/close-check", "What still blocks the close of a contract",
+       "TrekLink Staff, TrekLink Admin",
+       "Answers whether the contract can close now (api-design 17) and lists every blocker with what resolves "
+       "it, so the counter and the contract page show the Close action exactly when the close would pass and "
+       "otherwise say what still stops it (REQ-EVT-17, D-092 rule 3). Blocker codes: `NOT_RETURNED` (the "
+       "contract waits for its term end or for units still out; `waitsFor` is the term end or return due), "
+       "`DEVICE_OUT` (a unit handed over, not checked in and not settled lost, replaced units included; "
+       "`lossCase` is its open loss case, null when none is reported), `BALANCE_OUTSTANDING` (`amountVnd` "
+       "unpaid on the contract's invoices), `DAMAGE_PENDING` (a damage charge waiting for an Admin, "
+       "`chargeId`, `deviceId`, `amountVnd`) and `OPEN_INCIDENTS` (incidents outside `CLOSED` on the "
+       "contract or its devices, `incidents[]` with `id` and `code`). A `CLOSED` contract answers `canClose` "
+       "false with no blocker. Read only: nothing is locked or changed.",
+       "UC-51, FR-CON-13, BR-27, E05-4, E05-7, MSG29",
+       path=[C_PATH],
+       response={"contractId": CONTRACT_ID, "status": "RETURN_DUE", "version": 7, "canClose": False,
+                 "blockers": [
+                     {"code": "NOT_RETURNED", "message": "The contract becomes Returned once every unit is back or settled lost.",
+                      "waitsFor": "2026-11-25T02:00:00Z"},
+                     {"code": "DEVICE_OUT", "message": "TL-0042 is not back and not settled lost.",
+                      "deviceId": DEVICE_ID, "assetTag": "TL-0042",
+                      "lossCase": {"id": "lc-1", "code": "LOSS-0003", "state": "CONFIRMED"}},
+                     {"code": "BALANCE_OUTSTANDING", "message": "1,525,000 VND is unpaid.", "amountVnd": 1525000},
+                     {"code": "DAMAGE_PENDING", "message": "A damage charge on TL-0043 waits for an Admin.",
+                      "chargeId": "dc-1", "deviceId": "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9", "assetTag": "TL-0043",
+                      "amountVnd": 1200000},
+                     {"code": "OPEN_INCIDENTS", "message": "This cannot be done while it has open incidents.",
+                      "incidents": [{"id": "inc-1", "code": "INC-2026-000002"}]}]},
+       entity="Contract",
+       steps=["Read the contract", "List rows handed over, not checked in, not lost, with their open loss case",
+              "Ask billing for the unpaid amount and the pending damage charges",
+              "Ask every CONTRACT_CLOSE_CHECKS provider", "canClose when RETURNED and nothing blocks"],
+       controller="ReturnController", service="ReturnService", call="closeCheck(id)",
+       participants=[["Dev", "DevicesService"], ["Bill", "BillingService"], ["Inc", "IncidentsCloseCheck"]],
+       seq=["Svc->>DB: SELECT contract, contract_devices", "Svc->>Dev: openLossCases(deviceIds, tx)",
+            "Svc->>Bill: outstanding(id, tx), pendingDamageOf(id, tx)",
+            "Svc->>Inc: blockingReason(id, deviceIds, tx)"]),
 ]
 
 NOTES = ("Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end "

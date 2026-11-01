@@ -23,6 +23,7 @@
 | 17 | POST | `/api/contracts/:id/close` | TrekLink Staff, TrekLink Admin | [17-post-contracts-id-close.md](17-post-contracts-id-close.md) |
 | 18 | GET | `/api/contracts/:id/transitions` | Org Manager: own; TrekLink Staff, TrekLink Admin | [18-get-contracts-id-transitions.md](18-get-contracts-id-transitions.md) |
 | 19 | POST | `/api/contracts/:id/devices/:deviceId/provisioning/undo` | TrekLink Staff | [19-post-contracts-id-devices-deviceid-provisioning-undo.md](19-post-contracts-id-devices-deviceid-provisioning-undo.md) |
+| 20 | GET | `/api/contracts/:id/close-check` | TrekLink Staff, TrekLink Admin | [20-get-contracts-id-close-check.md](20-get-contracts-id-close-check.md) |
 
 Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end (UC-24, FR-CON-08, FR-CON-10), `RETURN_DUE` to `OVERDUE` to `DEFAULTED` (UC-50, FR-CON-12), and the reservation-expiry reminder (FR-CON-04).
 
