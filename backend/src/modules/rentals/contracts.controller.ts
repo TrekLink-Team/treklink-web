@@ -158,7 +158,7 @@ const termOf = (terms: readonly TermView[]): TermView | null => {
   return term ? { seq: term.seq, startsAt: term.startsAt, endsAt: term.endsAt } : null;
 };
 
-// rentals api-design 03 `devices[].afterReturn` (REQ-EVT-18): null for a row not checked in or with no
+// rentals api-design 03 `devices[].afterReturn` (REQ-EVT-19): null for a row not checked in or with no
 // state read (an organization caller); the next step only on the row of the unit's latest return.
 export const afterReturnOf = (
   contractId: string,
@@ -251,7 +251,7 @@ export class ContractsController {
           // The key version written at the counter, so a reload keeps step 1 (frontend 5.4).
           provisionedKeyVersion: provisionedKeyVersions.get(device.deviceId) ?? null,
           // TrekLink callers: the unit's state after this return and its next step back to AVAILABLE,
-          // shown only on the row of its latest return (REQ-EVT-18, D-092 rule 4).
+          // shown only on the row of its latest return (REQ-EVT-19, D-092 rule 4).
           afterReturn: afterReturnOf(row.id, device, returnStates.get(device.deviceId)),
         };
       }),

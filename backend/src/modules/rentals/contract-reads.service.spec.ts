@@ -122,7 +122,7 @@ describe('ContractReadsService', () => {
     expect(detail.returnChecks.get('cd-1')).toEqual(check);
   });
 
-  it('reads the state after the return of checked-in rows for TrekLink callers only (REQ-EVT-18)', async () => {
+  it('reads the state after the return of checked-in rows for TrekLink callers only (REQ-EVT-19)', async () => {
     const checkedInAt = new Date('2026-10-30T03:00:00.000Z');
     contracts.detail.mockResolvedValue({
       ...ROW,

@@ -323,7 +323,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
     });
   });
 
-  // api-design 20 (REQ-EVT-17, D-092 rule 3): the 2026-11-01 demo had 4 of 5 units back, one damaged and
+  // api-design 20 (REQ-EVT-18, D-092 rule 3): the 2026-11-01 demo had 4 of 5 units back, one damaged and
   // one missing, and no way to see what kept the contract open.
   describe('closeCheck (api-design 20)', () => {
     beforeEach(() => {

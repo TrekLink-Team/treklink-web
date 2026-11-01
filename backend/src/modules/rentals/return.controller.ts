@@ -131,7 +131,7 @@ export class ReturnController {
     );
   }
 
-  // rentals api-design 20 (REQ-EVT-17, D-092 rule 3): what still blocks the close, for Staff at the
+  // rentals api-design 20 (REQ-EVT-18, D-092 rule 3): what still blocks the close, for Staff at the
   // counter and on the contract page. Read only.
   @Get(':id/close-check')
   @CheckPolicies((ability) => ability.can('operate', 'RentalContract'))

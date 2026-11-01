@@ -5,7 +5,7 @@ import { formatDateTime, formatVnd } from '../../shared/lib/format';
 import { Button } from '../../shared/ui';
 import { LINK } from '../../shared/ui/styles';
 
-// The blockers of rentals api-design 20 (REQ-EVT-17, D-092 rule 3) as a list Staff can act on: each
+// The blockers of rentals api-design 20 (REQ-EVT-18, D-092 rule 3) as a list Staff can act on: each
 // says what still stops the close and links to where it is resolved. A unit not back offers Report lost
 // through `onReportLost`, or its open loss case.
 const ResolveLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (
