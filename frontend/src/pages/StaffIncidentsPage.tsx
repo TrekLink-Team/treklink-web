@@ -18,11 +18,12 @@ import { hasAnyRole } from '../shared/lib/permissions';
 import { ApiError } from '../shared/api/apiClient';
 import { useToast } from '../shared/ui/toastStore';
 import { formatDateTime } from '../shared/lib/format';
-import { Empty, ErrorState, Fact, Loading, PageTitle, Pager } from '../shared/ui/bits';
+import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
+import { DataTable, Pagination, type Column, type RowAction } from '../shared/ui/DataTable';
 import { Button } from '../shared/ui/Button';
 import { TabPanel, Tabs } from '../shared/ui/Tabs';
 import type { IncidentState } from '../shared/ui/status';
-import { CARD, LINK, TABLE, TD, TH, WARNING } from '../shared/ui/styles';
+import { CARD, LINK, WARNING } from '../shared/ui/styles';
 
 // Screen 8.2 disclaimer.
 const STAFF_DISCLAIMER =
@@ -46,10 +47,12 @@ const StaffIncidentDetail: React.FC<{
   onBack: () => void;
   onSaved: (code: string) => void;
   onUnavailable: () => void;
-}> = ({ id, onBack, onSaved, onUnavailable }) => {
+  /** Opened from the row's Declare false alarm (W29): the dialog opens with the detail. */
+  startWithFalseAlarm?: boolean;
+}> = ({ id, onBack, onSaved, onUnavailable, startWithFalseAlarm = false }) => {
   const { data: incident, isLoading, error, refetch, isFetching } = useIncident(id);
   const [reporting, setReporting] = useState(false);
-  const [falseAlarm, setFalseAlarm] = useState(false);
+  const [falseAlarm, setFalseAlarm] = useState(startWithFalseAlarm);
   const user = useSession((state) => state.user);
   useEffect(() => {
     if (error instanceof ApiError && (error.statusCode === 403 || error.statusCode === 404))
@@ -116,7 +119,7 @@ const StaffIncidentDetail: React.FC<{
           Declare false alarm
         </Button>
       )}
-      {falseAlarm && (
+      {falseAlarm && incident.state === 'UNROUTED' && (
         <StaffFalseAlarmDialog
           incident={incident}
           onClose={() => setFalseAlarm(false)}
@@ -186,17 +189,50 @@ export const StaffIncidentsPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const triggers = useRef(new Map<string, HTMLButtonElement | null>());
+  const [startWithFalseAlarm, setStartWithFalseAlarm] = useState(false);
+  const [reportingId, setReportingId] = useState<string | null>(null);
+  const user = useSession((state) => state.user);
+  const isStaff = Boolean(user && hasAnyRole(user.roles, ['STAFF']));
+  // The code button of each row, so Back returns focus to the row that opened the detail.
+  const lastTrigger = useRef<HTMLElement | null>(null);
   const { data, isLoading, error, refetch, isFetching } = useFleetIncidents(
     scope.states,
     pageNumber,
   );
 
-  const back = () => {
-    const id = selected;
-    setSelected(null);
-    if (id) triggers.current.get(id)?.focus();
+  const open = (incident: Incident, falseAlarm = false) => {
+    lastTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setStartWithFalseAlarm(falseAlarm);
+    setSelected(incident.id);
   };
+
+  const back = () => {
+    setSelected(null);
+    lastTrigger.current?.focus();
+  };
+
+  // Row actions of screen 8.2 (W29): Staff declare an UNROUTED incident a false alarm (api-design 07,
+  // in the detail, which holds the reviewed version) and report a reportable one to the authorities
+  // (api-design 08). Staff never acknowledge or resolve.
+  const rowActions = (incident: Incident): RowAction[] => [
+    ...(isReportable(incident)
+      ? [{ key: 'report', label: 'Report to authorities', onSelect: () => setReportingId(incident.id) }]
+      : []),
+    ...(incident.state === 'UNROUTED' && isStaff
+      ? [{ key: 'false-alarm', label: 'Declare false alarm', destructive: true, onSelect: () => open(incident, true) }]
+      : []),
+  ];
+
+  const columns: Column<Incident>[] = [
+    { key: 'code', header: 'Code', cell: (incident) => incident.code },
+    {
+      key: 'device',
+      header: 'Device and holder',
+      cell: (incident) => `${incident.device.assetTag ?? 'Unknown device'}, ${holderOf(incident)}`,
+    },
+    { key: 'state', header: 'State', cell: (incident) => <StateBadges incident={incident} /> },
+    { key: 'latest', header: 'Latest event', cell: (incident) => formatDateTime(incident.lastEventAt) },
+  ];
 
   return (
     <section aria-labelledby="staff-incidents-title">
@@ -259,66 +295,41 @@ export const StaffIncidentsPage: React.FC = () => {
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={selected ? 'hidden lg:block' : ''}>
-              {isLoading && <Loading />}
-              {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-              {data && data.items.length === 0 && (
-                <Empty>
-                  <p>
-                    {scope.id === 'all'
+              <DataTable<Incident>
+                caption="Incidents"
+                columns={columns}
+                rows={data?.items}
+                rowId={(incident) => incident.id}
+                rowLabel={(incident) => incident.code}
+                loading={isLoading}
+                error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
+                empty={{
+                  title:
+                    scope.id === 'all'
                       ? 'No results match your filters.'
-                      : 'No unrouted or escalated incidents need attention.'}
-                  </p>
-                </Empty>
-              )}
-              {data && data.items.length > 0 && (
-                <>
-                  <table className={TABLE}>
-                    <thead>
-                      <tr>
-                        <th className={TH}>Code</th>
-                        <th className={TH}>Device and holder</th>
-                        <th className={TH}>State</th>
-                        <th className={TH}>Latest event</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.items.map((incident) => (
-                        <tr key={incident.id} aria-selected={incident.id === selected}>
-                          <td className={TD}>
-                            <button
-                              type="button"
-                              ref={(node) => {
-                                triggers.current.set(incident.id, node);
-                              }}
-                              className={LINK}
-                              onClick={() => setSelected(incident.id)}
-                            >
-                              {incident.code}
-                            </button>
-                          </td>
-                          <td className={TD}>
-                            {incident.device.assetTag ?? 'Unknown device'}, {holderOf(incident)}
-                          </td>
-                          <td className={TD}>
-                            <StateBadges incident={incident} />
-                          </td>
-                          <td className={TD}>{formatDateTime(incident.lastEventAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <Pager
-                    pageNumber={data.pageNumber}
-                    totalPages={data.totalPages}
-                    onPage={setPageNumber}
-                  />
-                </>
-              )}
+                      : 'No unrouted or escalated incidents need attention.',
+                }}
+                activeRowId={selected ?? undefined}
+                onRowActivate={(incident) => open(incident)}
+                rowActions={rowActions}
+                footer={
+                  data && data.totalPages > 1 ? (
+                    <Pagination
+                      pageNumber={data.pageNumber}
+                      totalPages={data.totalPages}
+                      totalItems={data.totalCount}
+                      pageSize={data.pageSize}
+                      onPage={setPageNumber}
+                    />
+                  ) : undefined
+                }
+              />
             </div>
             {selected && (
               <StaffIncidentDetail
-                key={selected}
+                key={`${selected}-${startWithFalseAlarm}`}
                 id={selected}
+                startWithFalseAlarm={startWithFalseAlarm}
                 onBack={back}
                 onUnavailable={() => {
                   setSelected(null);
@@ -343,6 +354,9 @@ export const StaffIncidentsPage: React.FC = () => {
             )}
           </div>
         </TabPanel>
+      )}
+      {reportingId && (
+        <ReportDialog entry={{ kind: 'incident', id: reportingId }} onClose={() => setReportingId(null)} />
       )}
     </section>
   );

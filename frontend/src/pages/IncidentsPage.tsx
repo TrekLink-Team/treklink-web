@@ -9,11 +9,12 @@ import {
 } from '../entities/incident/api';
 import { StateBadges } from '../entities/incident/ui';
 import { formatDateTime } from '../shared/lib/format';
-import { Empty, ErrorState, Loading, PageTitle, Pager } from '../shared/ui/bits';
+import { ErrorState, PageTitle } from '../shared/ui/bits';
+import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
 import { Button } from '../shared/ui/Button';
 import { Checkbox, Select } from '../shared/ui/Field';
 import { INCIDENT_STATE, type IncidentState } from '../shared/ui/status';
-import { LINK, TABLE, TD, TH, WARNING } from '../shared/ui/styles';
+import { LINK, WARNING } from '../shared/ui/styles';
 
 const STATES = Object.keys(INCIDENT_STATE) as IncidentState[];
 const DEFAULTS: IncidentFilters = { open: true, pageNumber: 1 };
@@ -27,6 +28,14 @@ export const IncidentsPage: React.FC = () => {
   const [filters, setFilters] = useState<IncidentFilters>(DEFAULTS);
   const { data, isLoading, error, refetch, isFetching } = useIncidents(filters);
   const filtered = filters.state !== undefined || filters.open !== true;
+  const columns: Column<Incident>[] = [
+    { key: 'code', header: 'Code', cell: (incident) => incident.code },
+    { key: 'device', header: 'Device and holder', cell: deviceText },
+    { key: 'state', header: 'State', cell: (incident) => <StateBadges incident={incident} /> },
+    { key: 'owner', header: 'Owner', cell: (incident) => incident.owner?.fullName ?? 'Unclaimed' },
+    { key: 'deadline', header: 'Deadline', cell: deadlineOf },
+    { key: 'latest', header: 'Latest event', cell: (incident) => formatDateTime(incident.lastEventAt), hideOnMobile: true },
+  ];
 
   return (
     <section aria-labelledby="incidents-title">
@@ -72,67 +81,43 @@ export const IncidentsPage: React.FC = () => {
         {filtered && <Button onClick={() => setFilters(DEFAULTS)}>Reset</Button>}
       </div>
 
-      {isLoading && <Loading />}
-      {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-      {data && data.items.length === 0 && (
-        <Empty>
-          <p>{filtered ? 'No results match your filters.' : 'No open incidents.'}</p>
-        </Empty>
-      )}
-
-      {data && data.items.length > 0 && (
-        <>
-          <ul className="flex flex-col gap-3 md:hidden">
-            {data.items.map((incident) => (
-              <li key={incident.id} className="rounded-panel border border-line bg-surface p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <Link to={`/o/incidents/${incident.id}`} className={LINK}>
-                    {incident.code}
-                  </Link>
-                  <StateBadges incident={incident} />
-                </div>
-                <p className="mt-1 text-body-sm text-ink">{deviceText(incident)}</p>
-                <p className="text-body-sm text-ink-muted">{deadlineOf(incident)}</p>
-              </li>
-            ))}
-          </ul>
-          <table className={`${TABLE} hidden md:table`}>
-            <thead>
-              <tr>
-                <th className={TH}>Code</th>
-                <th className={TH}>Device and holder</th>
-                <th className={TH}>State</th>
-                <th className={TH}>Owner</th>
-                <th className={TH}>Deadline</th>
-                <th className={TH}>Latest event</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((incident) => (
-                <tr key={incident.id}>
-                  <td className={TD}>
-                    <Link to={`/o/incidents/${incident.id}`} className={LINK}>
-                      {incident.code}
-                    </Link>
-                  </td>
-                  <td className={TD}>{deviceText(incident)}</td>
-                  <td className={TD}>
-                    <StateBadges incident={incident} />
-                  </td>
-                  <td className={TD}>{incident.owner?.fullName ?? 'Unclaimed'}</td>
-                  <td className={TD}>{deadlineOf(incident)}</td>
-                  <td className={TD}>{formatDateTime(incident.lastEventAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pager
-            pageNumber={data.pageNumber}
-            totalPages={data.totalPages}
-            onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
-          />
-        </>
-      )}
+      <DataTable<Incident>
+        caption="Incidents"
+        columns={columns}
+        rows={data?.items}
+        rowId={(incident) => incident.id}
+        rowLabel={(incident) => incident.code}
+        rowHref={(incident) => `/o/incidents/${incident.id}`}
+        loading={isLoading}
+        error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
+        empty={{
+          title: filtered ? 'No results match your filters.' : 'No open incidents.',
+          action: filtered ? <Button onClick={() => setFilters(DEFAULTS)}>Reset</Button> : undefined,
+        }}
+        renderCard={(incident) => (
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <Link to={`/o/incidents/${incident.id}`} className={LINK}>
+                {incident.code}
+              </Link>
+              <StateBadges incident={incident} />
+            </div>
+            <p className="mt-1 text-body-sm text-ink">{deviceText(incident)}</p>
+            <p className="text-body-sm text-ink-muted">{deadlineOf(incident)}</p>
+          </div>
+        )}
+        footer={
+          data && data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={data.pageNumber}
+              totalPages={data.totalPages}
+              totalItems={data.totalCount}
+              pageSize={data.pageSize}
+              onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
+            />
+          ) : undefined
+        }
+      />
     </section>
   );
 };

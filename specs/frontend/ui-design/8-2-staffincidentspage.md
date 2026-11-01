@@ -116,3 +116,13 @@ D-059 rule 7 resolves H-01 with the documented server order, without a sort para
 - [x] System stories introduce no manual create/escalate controls.
 - [x] Chapter 06 section 8 placement, primary action, labelled state, feedback, recovery, input preservation, time, alerts, disclaimer and reuse are addressed.
 - [x] D-059 rule 7 supplies the approved server order; pagination preserves it without a sort control.
+
+## Shared table and row actions (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2. The queue is the shared `DataTable`; the
+code button opens the inline detail (Enter works) and Back returns focus to the control that opened
+it. Row actions: Report to authorities on a reportable incident (the report dialog of screen 8.3,
+api-design 08), and, for TrekLink Staff, Declare false alarm on an `UNROUTED` incident, which opens
+the detail with the false alarm dialog (api-design 07; the dialog holds the version the person
+reviewed). Staff never acknowledge or resolve. Pagination shows the range; the server orders the
+rows (D-059 rule 7), so no column sorts. No bulk: each false alarm needs its own reviewed reason.
