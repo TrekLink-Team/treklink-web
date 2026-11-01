@@ -48,6 +48,13 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Follow-up** (2026-10-31, KhoaDD under D-078, review of #190): the focus clearing skips a control inside a modal dialog (`[aria-modal="true"]`) that does not hold the sticky element, so a dialog control overlapping the bar's rect on a phone no longer triggers `scrollIntoView`; tested in `PageChrome.test.tsx` (2 more)
   - _Requirements: NFR-USE-01_
 
+- [x] 1.6 UI standard and shared primitives (W28, KhoaDD under D-078, 2026-11-01)
+  - **Files**: `specs/frontend/ui-design/0-ui-standard.md`; `shared/ui/{Menu,StateChange,DataTable,toast,toastStore,Dialog,useFocusTrap,bits,Toolbar,TableFilters}.tsx`; `pages/DesignSystemPage.tsx`
+  - **Do**: write the standard (WCAG 2.2 AA, data tables, state changes, forms, dark mode, each rule with its source); build `Menu`, `DataTable` selection with `BulkBar`, row actions, sort and keyboard activation, `StateChangeMenu` and `StateChangeDialog`, four toast tones; re-export the `bits.tsx` duplicates; one focus ring; 44 px filter chip remove and ErrorState retry; show each on the design system page
+  - **Test**: `Menu.test.tsx` (8), `DataTable.test.tsx` (12), `StateChange.test.tsx` (8), `toast.test.tsx` (10); axe-core on `/dev/design-system` with the bulk bar, an open menu, the alert dialog and an error toast, both themes, 0 violations
+  - **Not done**: applying the standard to the pages (W29); the error summary component; `AccountMenu` onto `Menu`
+  - _Requirements: REQ-UBI-04, NFR-USE-03_
+
 ## Phase 2: Public and auth pages
 
 - [x] 2.1 Sign-in, forgot, reset, welcome (set password) (owner LongLP)
