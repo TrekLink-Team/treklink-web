@@ -126,6 +126,13 @@ cached data (query cache cleared on sign-out and sign-in).
 
 ## 7. Layout rules
 
+**UI standard** (2026-11-01). Every screen follows [`ui-design/0-ui-standard.md`](ui-design/0-ui-standard.md):
+WCAG 2.2 AA in both themes, the data table rules (row checkboxes named from a readable row label,
+tri-state header, Shift-click range, bulk bar, row actions inline below three and in a menu from three,
+sortable header buttons, keyboard row activation), state changes through `StateChangeMenu` and
+`StateChangeDialog`, the form rules and the dark mode rules. Where a screen file disagrees, the standard
+wins.
+
 **Sticky page chrome** (leader rule of 2026-10-30, dry run defect 6). On every long page the title, the
 breadcrumb and the stepper (or the view tabs that act as steps) stay at the top of the content area and
 turn compact once the content has scrolled a little; the action bar with Back, Next and the primary

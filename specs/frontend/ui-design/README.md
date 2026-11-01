@@ -7,6 +7,10 @@ which never overwrites an existing file. Written in the SD phase of the
 story by the screen's owner (D-053) and checked against the Screen Design Checklist,
 `treklink-docs/_docs/01-conventions/06-frontend-conventions.md` §7, and the UI and UX practices, §8.
 
+**Read first**: [`0-ui-standard.md`](0-ui-standard.md), the UI standard (WCAG 2.2 AA, data tables,
+state changes, forms, dark mode) every screen file and every component of `frontend/src/shared/ui`
+follows (2026-11-01).
+
 ## Lanes
 
 | Screens | Owner |

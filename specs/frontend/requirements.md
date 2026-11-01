@@ -24,7 +24,7 @@
 - **REQ-UBI-01**: The client SHALL show a route only when the signed-in role holds its permission (design §2), and SHALL treat this as convenience only: the server decides (NFR-SEC-03).
 - **REQ-UBI-02**: The client SHALL unwrap the D-002 envelope in one place and SHALL show the server's `message` for a failure, never a raw error, stack or internal id. [NFR-UI-02]
 - **REQ-UBI-03**: The client SHALL be usable on a 360 px wide mobile browser for the operator's incident and map screens. [NFR-UI-01]
-- **REQ-UBI-04**: The client SHALL meet WCAG 2.1 AA: logical tab order, visible focus, keyboard operation of every control, text alternatives on map markers. [NFR-USE-03]
+- **REQ-UBI-04**: The client SHALL meet WCAG 2.2 AA (raised from 2.1 AA on 2026-11-01 at the leader's request; rules in `ui-design/0-ui-standard.md`): logical tab order, visible focus, keyboard operation of every control, text alternatives on map markers. [NFR-USE-03]
 - **REQ-UBI-05**: The client SHALL show times in the viewer's timezone, UTC+7 by default. [NFR-USE-05]
 - **REQ-UBI-06**: Every map SHALL use Leaflet with the configured basemaps and their attribution, open on the default basemap, let the user switch between basemaps, and draw the Vietnamese sovereignty overlay over Hoàng Sa and Trường Sa on every basemap. The overlay SHALL NOT appear in the layer control. A basemap marked `localOnly` SHALL be left out when the page is not served from a loopback host, unless no other basemap remains. [FR-MON-01, BR-30, D-031, D-072]
 - **REQ-UBI-07**: Every multi-step flow SHALL take at most 4 steps of at most 6 fields; acknowledging an incident SHALL be one step with at most 2 fields. [NFR-USE-01, NFR-USE-02]
