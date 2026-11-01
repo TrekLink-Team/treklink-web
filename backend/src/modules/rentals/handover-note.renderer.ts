@@ -633,6 +633,10 @@ const footers = (doc: PDFKit.PDFDocument, input: HandoverNoteInput) => {
 export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({
+      // No standard font: PDFKit would load Helvetica's metrics through its `#standard-fonts`
+      // package import, which the Vercel function bundle does not ship (treklink-web#261). The
+      // note uses only the bundled DejaVu Sans, set right below.
+      font: null as unknown as string,
       size: 'A4',
       margin: PAGE_MARGIN,
       bufferPages: true,
