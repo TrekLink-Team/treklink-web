@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Reserves exactly the requested number of `AVAILABLE` devices of the variant in one transaction holding row locks, moves them to `RESERVED` and the contract to `APPROVED`, and sets the reservation expiry. Fewer available devices refuse the approval: never over-allocated (FR-CON-03, BR-03, E01-1). Staff may name the devices; otherwise the oldest-checked ones are taken.
+Confirms the handover appointment and moves the contract to `APPROVED` with the reservation expiry. Since D-092 rule 1 the request already holds its devices, its term 1 and its first invoice, and approval keeps them; `deviceIds`, when sent, must name exactly the held units (rentals REQ-ERR-11). A contract requested before D-092 holds none: approval then reserves exactly the requested number of `AVAILABLE` devices of the variant in one transaction holding row locks, creates term 1 and issues its invoice, as before; fewer available devices refuse it, never over-allocated (FR-CON-03, BR-03, E01-1). Staff may name those devices; otherwise the oldest-checked ones are taken.
 
 ## API Specification
 
@@ -236,6 +236,23 @@ Reserves exactly the requested number of `AVAILABLE` devices of the variant in o
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>The request holds its devices and deviceIds names another set (REQ-ERR-11) (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "This request already holds TL-0041, TL-0042. Swap a unit at the counter instead."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>A chosen device is not an AVAILABLE unit of the contract's variant (<code>DEVICE_NOT_AVAILABLE</code>)</td>
 <td>
@@ -309,32 +326,39 @@ flowchart TB
     E6["Return 400 VALIDATION_FAILED"]
     D6 -->|yes| E6
     E6 --> X6((End))
-    D7{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
+    D7{"The request holds its devices and deviceIds names another set (REQ-ERR-11)?"}
     D6 -->|no| D7
-    E7["Return 409 DEVICE_NOT_AVAILABLE"]
+    E7["Return 400 VALIDATION_FAILED"]
     D7 -->|yes| E7
     E7 --> X7((End))
-    D8{"Fewer AVAILABLE devices of the variant than requested?"}
+    D8{"A chosen device is not an AVAILABLE unit of the contract's variant?"}
     D7 -->|no| D8
-    E8["Return 409 INSUFFICIENT_DEVICES"]
+    E8["Return 409 DEVICE_NOT_AVAILABLE"]
     D8 -->|yes| E8
     E8 --> X8((End))
+    D9{"Fewer AVAILABLE devices of the variant than requested?"}
+    D8 -->|no| D9
+    E9["Return 409 INSUFFICIENT_DEVICES"]
+    D9 -->|yes| E9
+    E9 --> X9((End))
     P0["Lock the contract"]
-    D8 -->|no| P0
+    D9 -->|no| P0
     P1["Check the version, then the REQUESTED state, then that handoverAt is not in the past, then any chosen deviceIds"]
     P0 --> P1
-    P2["SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity"]
+    P2["Held devices: keep them, with term 1 and the invoice of the request"]
     P1 --> P2
-    P3["Move the devices to RESERVED, insert contract_devices"]
+    P3["No held devices (requested before D-092): SELECT AVAILABLE devices of the variant FOR UPDATE SKIP LOCKED LIMIT quantity"]
     P2 --> P3
-    P4["Create term 1 from the requested start date and issue its invoice through billing"]
+    P4["Move the devices to RESERVED, insert contract_devices"]
     P3 --> P4
-    P5["Move the contract to APPROVED"]
+    P5["Create term 1 from the requested start date and issue its invoice through billing"]
     P4 --> P5
-    P6["Notify the Manager with the appointment"]
+    P6["Move the contract to APPROVED"]
     P5 --> P6
+    P7["Notify the Manager with the appointment"]
+    P6 --> P7
     OK["Return 200"]
-    P6 --> OK
+    P7 --> OK
     OK --> Z((End))
 ```
 

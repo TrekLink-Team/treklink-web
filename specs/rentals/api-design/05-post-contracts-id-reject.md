@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Rejects a `REQUESTED` contract with a reason shown to the Manager (MSG16).
+Rejects a `REQUESTED` contract with a reason shown to the Manager (MSG16). Since D-092 the request holds devices and a first invoice: in the same transaction they are released to `AVAILABLE` and the unpaid first-invoice lines are voided through billing. A deposit already paid is answered as `paidVnd` and refunded outside TrekLink (leader ruling 2026-11-01).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Rejects a `REQUESTED` contract with a reason shown to the Manager (MSG16).
 | --- | --- |
 | POST | /api/contracts/:id/reject |
 | Permission | TrekLink Staff, TrekLink Admin |
-| Traces | UC-17, D-035, MSG16 |
+| Traces | UC-17, D-035, MSG16, D-092 |
 
 ### Path parameters
 
@@ -71,13 +71,18 @@ Rejects a `REQUESTED` contract with a reason shown to the Manager (MSG16).
     "endsAt": null,
     "noticeGivenAt": null,
     "returnDueAt": null,
-    "version": 4
+    "version": 4,
+    "paidVnd": 0
   },
   "isSuccess": true,
   "statusCode": 200,
   "message": "Contract rejected"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| paidVnd | Deposit already paid on the request, to refund outside TrekLink; 0 when none | int | `0` |
 
 ## Validation
 
@@ -222,10 +227,14 @@ flowchart TB
     D4 -->|no| P0
     P1["Move to REJECTED"]
     P0 --> P1
-    P2["Notify the Manager"]
+    P2["Release held contract_devices, move devices to AVAILABLE"]
     P1 --> P2
+    P3["Void unpaid first-invoice lines through billing"]
+    P2 --> P3
+    P4["Notify the Manager"]
+    P3 --> P4
     OK["Return 200"]
-    P2 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -238,9 +247,13 @@ sequenceDiagram
     participant Ctl as ContractsController
     participant Svc as ContractLifecycleService
     participant DB as Postgres
+    participant Dev as DevicesService
+    participant Bill as BillingService
     C->>Ctl: POST /api/contracts/:id/reject
     Ctl->>Svc: reject(id, dto, actor)
     Svc->>DB: UPDATE contract, INSERT transition
+    Svc->>Dev: release(deviceIds, tx)
+    Svc->>Bill: settleCancellation(contract, tx)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

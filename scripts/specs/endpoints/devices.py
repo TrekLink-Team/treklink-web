@@ -431,9 +431,12 @@ ENDPOINTS = [
 
     ep("GET", "/api/devices/availability", "Availability by variant",
        "TrekLink Staff, TrekLink Admin; Org Manager (counts only)",
-       "Counts `AVAILABLE` devices per variant, so a Manager sees whether a request can be met and Staff "
-       "verify availability before approval (UC-16). Advisory: the count is enforced only at approval.",
-       "UC-15, UC-16, FR-CON-03, MSG11",
+       "Counts `AVAILABLE` devices per variant, so a Manager sees on the request form how many units can be "
+       "held now and Staff verify availability before approving a request made before D-092 (UC-15, UC-16). "
+       "Since D-092 rule 1 a request holds its units at once and refuses a quantity above the count with 409 "
+       "`INSUFFICIENT_DEVICES` (rentals api-design 01); held units are `RESERVED` and not counted. The count "
+       "can change between the read and the request; the request decides. Counts only, never a unit.",
+       "UC-15, UC-16, FR-CON-03, MSG11, D-092",
        query=[["hardwareVariantId", "Variant", "uuid", "no", f"`{VARIANT_ID}`"]],
        response=[{"hardwareVariantId": VARIANT_ID, "code": "treklink-v3", "available": 14}],
        steps=["Count AVAILABLE per variant"], controller="DevicesController", service="DevicesService",
