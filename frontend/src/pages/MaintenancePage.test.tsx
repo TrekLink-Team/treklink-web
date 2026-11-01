@@ -135,7 +135,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('lists records with their reason, status and cost', async () => {
     renderPage();
     const rows = await table();
-    expect(rows.getByText('TL-0009')).toBeTruthy();
+    expect(rows.getByRole('button', { name: 'TL-0009' })).toBeTruthy();
     expect(rows.getByText('Scheduled service')).toBeTruthy();
     expect(rows.getByText('Open')).toBeTruthy();
     expect(rows.getByText(/650,000|650\.000/)).toBeTruthy();
@@ -152,7 +152,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('estimates an OPEN record, sending the amount and work-by', async () => {
     estimateMaintenance.mockResolvedValue(record({ status: 'OPEN' }));
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Estimate/ }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Estimated cost/), { target: { value: '700000' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save estimate' }));
@@ -168,7 +168,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
 
   it('refuses to complete a SCHEDULED record with a missing checklist item', async () => {
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Complete/ }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Battery replaced' } });
     fireEvent.change(dialog.getByLabelText(/Actual cost/), { target: { value: '500000' } });
@@ -180,7 +180,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('completes a SCHEDULED record once every checklist item is answered', async () => {
     completeMaintenance.mockResolvedValue(record({ status: 'COMPLETED' }));
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Complete/ }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Battery replaced' } });
     fireEvent.change(dialog.getByLabelText(/Actual cost/), { target: { value: '500000' } });
@@ -209,8 +209,12 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     renderPage();
     await screen.findByRole('tab', { name: /Approvals/ });
     fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
-    expect((await screen.findAllByText('A different Admin must decide this.')).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: 'Decide' })).toBeNull();
+    // Reachable, disabled, with its reason (UI standard §2, BR-44).
+    expect((await screen.findAllByText('A different Admin must decide this: you recorded the estimate.')).length).toBeGreaterThan(0);
+    const decide = within(screen.getByRole('table', { name: 'Costs waiting for a decision' })).getByRole('button', { name: /^Decide/ });
+    expect(decide.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(decide);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('decides a pending cost for a different Admin', async () => {
@@ -224,7 +228,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
     fireEvent.click(
       within(await screen.findByRole('table', { name: 'Costs waiting for a decision' })).getByRole('button', {
-        name: 'Decide',
+        name: /^Decide/,
       }),
     );
     const dialog = within(screen.getByRole('dialog'));
@@ -252,7 +256,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
     fireEvent.click(
       within(await screen.findByRole('table', { name: 'Costs waiting for a decision' })).getByRole('button', {
-        name: 'Decide',
+        name: /^Decide/,
       }),
     );
     const dialog = within(screen.getByRole('dialog'));
@@ -324,7 +328,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     records = [record({ reason: 'INSPECTION_FAILED', checklist: [] })];
     completeMaintenance.mockResolvedValue(record({ reason: 'INSPECTION_FAILED', status: 'COMPLETED' }));
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Complete/ }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Antenna reseated' } });
     fireEvent.change(dialog.getByLabelText(/Actual cost/), { target: { value: '0' } });
@@ -344,7 +348,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('asks before marking a record unrepairable', async () => {
     completeMaintenance.mockResolvedValue(record({ status: 'UNREPAIRABLE' }));
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Complete' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Complete/ }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.click(dialog.getByLabelText('Unrepairable'));
     fireEvent.change(dialog.getByLabelText(/Resolution/), { target: { value: 'Board cracked' } });
@@ -365,7 +369,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('shows MSG36 with Reload on STALE_VERSION, and Reload closes the dialog', async () => {
     estimateMaintenance.mockRejectedValueOnce(new ApiError(409, 'STALE_VERSION', 'stale'));
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Estimate/ }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.change(dialog.getByLabelText(/Estimated cost/), { target: { value: '700000' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save estimate' }));
@@ -451,7 +455,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
 
   it('names the approval threshold amount beside the estimate', async () => {
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Estimate/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.getByText(/Above 1[.,]000[.,]000.*an Admin must approve before completion\./)).toBeTruthy();
   });
@@ -459,8 +463,67 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('names the rule without an amount when the threshold is not known', async () => {
     thresholdVnd = undefined;
     renderPage();
-    fireEvent.click((await table()).getByRole('button', { name: 'Estimate' }));
+    fireEvent.click((await table()).getByRole('button', { name: /^Estimate/ }));
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.getByText('VND. Above the approval threshold, an Admin must approve before completion.')).toBeTruthy();
+  });
+});
+
+describe('MaintenanceApprovalPage bulk decisions (W29)', () => {
+  afterEach(cleanup);
+
+  const openApprovals = async () => {
+    await screen.findByRole('tab', { name: /Approvals/ });
+    fireEvent.click(screen.getByRole('tab', { name: /Approvals/ }));
+    return within(await screen.findByRole('table', { name: 'Costs waiting for a decision' }));
+  };
+
+  it('approves the selected costs in sequence at their amount and version, never one the viewer estimated', async () => {
+    currentRoles = ['ADMIN'];
+    currentUserId = 'admin-2';
+    records = [];
+    approvals = [
+      record({ id: 'm-1', device: { id: 'd-1', assetTag: 'TL-0001' }, status: 'PENDING_APPROVAL', version: 2 }),
+      record({ id: 'm-2', device: { id: 'd-2', assetTag: 'TL-0002' }, status: 'PENDING_APPROVAL', estimatedById: 'admin-2' }),
+      record({ id: 'm-3', device: { id: 'd-3', assetTag: 'TL-0003' }, status: 'PENDING_APPROVAL', actualCostVnd: 1_900_000, version: 4 }),
+    ];
+    decideMaintenance.mockReset();
+    decideMaintenance
+      .mockResolvedValueOnce(record({ status: 'OPEN' }))
+      .mockRejectedValueOnce(new ApiError(409, 'STALE_VERSION', 'This was changed by someone else. Reload and try again.'));
+    renderPage();
+    const table = await openApprovals();
+    fireEvent.click(table.getByLabelText('Select TL-0001'));
+    fireEvent.click(table.getByLabelText('Select TL-0002'));
+    fireEvent.click(table.getByLabelText('Select TL-0003'));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve 2 costs' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Approve 2 costs?' })).getByRole('button', { name: 'Approve 2 costs' }));
+    const summary = await screen.findByRole('dialog', { name: '1 of 2 done' });
+    expect(within(summary).getByText(/TL-0003/).closest('li')?.textContent).toContain('Reload and try again');
+    expect(decideMaintenance.mock.calls).toEqual([
+      ['d-1', 'm-1', { decision: 'APPROVED', approvedCostVnd: 650000, expectedVersion: 2 }],
+      ['d-3', 'm-3', { decision: 'APPROVED', approvedCostVnd: 1_900_000, expectedVersion: 4 }],
+    ]);
+  });
+
+  it('asks for one reason before rejecting in bulk, in an alert dialog with the count', async () => {
+    currentRoles = ['ADMIN'];
+    currentUserId = 'admin-2';
+    records = [];
+    approvals = [record({ id: 'm-1', status: 'PENDING_APPROVAL' })];
+    decideMaintenance.mockReset();
+    decideMaintenance.mockResolvedValue(record({ status: 'OPEN' }));
+    renderPage();
+    const table = await openApprovals();
+    fireEvent.click(table.getByLabelText('Select TL-0009'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reject 1 cost' }));
+    const confirm = within(screen.getByRole('alertdialog', { name: 'Reject 1 cost?' }));
+    fireEvent.click(confirm.getByRole('button', { name: 'Reject 1 cost' }));
+    expect(await confirm.findByText('Enter a reason for this change.')).toBeTruthy();
+    fireEvent.change(confirm.getByLabelText(/Reason/), { target: { value: 'Quote too high' } });
+    fireEvent.click(confirm.getByRole('button', { name: 'Reject 1 cost' }));
+    await waitFor(() =>
+      expect(decideMaintenance).toHaveBeenCalledWith('d-9', 'm-1', { decision: 'REJECTED', reason: 'Quote too high', expectedVersion: 1 }),
+    );
   });
 });
