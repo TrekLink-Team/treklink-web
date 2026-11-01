@@ -6,6 +6,9 @@ import { useAuth } from '../app/providers/useAuth';
 import {
   ACCOUNT_PAGE_SIZE,
   accountKeys,
+  deactivateAccount,
+  reactivateAccount,
+  sendAccountReset,
   useAccounts,
   type AccountFilters,
   type AccountItem,
@@ -15,15 +18,19 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatUtc } from '../shared/lib/format';
 import {
   Badge,
+  BulkActionDialog,
   Button,
   DataTable,
+  Menu,
   PageHeader,
   Pagination,
   Select,
   Toolbar,
   ToolbarSearch,
   useToast,
+  type BulkItem,
   type Column,
+  type RowAction,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
 import { messageOf } from '../shared/ui/errors';
@@ -35,6 +42,13 @@ import {
 } from '../widgets/AccountDialogs/AccountDialogs';
 
 type Action = { kind: 'edit' | 'deactivate' | 'reactivate' | 'reset'; account: AccountItem };
+
+// Bulk actions of screen 7.1 (W29): each runs auth api-design 12, 13 or 14 once per selected account.
+type BulkKind = 'deactivate' | 'reactivate' | 'reset';
+
+const LAST_ADMIN_REASON = 'The last active Admin cannot be deactivated.';
+
+const accountsText = (count: number) => `${count} ${count === 1 ? 'account' : 'accounts'}`;
 
 const SEARCH_DELAY_MS = 300;
 
@@ -97,7 +111,9 @@ export const AccountsPage: React.FC = () => {
   const createdId = useRef<string | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   // The phone card whose Actions menu is open (screen 7.1, 360 px layout).
-  const [openCard, setOpenCard] = useState<string | null>(null);
+  // The selection, kept across pages and filters (UI standard §2).
+  const [selected, setSelected] = useState<Map<string, AccountItem>>(new Map());
+  const [bulk, setBulk] = useState<BulkKind | null>(null);
 
   // One change of the URL query: `undefined` removes a key. A new filter starts again on page 1.
   const update = (changes: Changes, options?: { replace?: boolean }) =>
@@ -165,34 +181,41 @@ export const AccountsPage: React.FC = () => {
     );
   }
 
-  const rowActions = (account: AccountItem) => {
-    const name = account.fullName;
-    const isLastAdmin = account.id === lastAdmin;
-    const button = (label: string, kind: Action['kind'], disabled = false, spoken = `${label} ${name}`) => (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="min-h-11"
-        aria-label={spoken}
-        disabled={disabled}
-        onClick={() => setAction({ kind, account })}
-      >
-        {label}
-      </Button>
-    );
-    return (
-      <div className="flex flex-wrap items-center gap-1">
-        {account.isActive ? (
-          <>
-            {button('Edit', 'edit')}
-            {button('Send reset code', 'reset', false, `Send reset code to ${name}`)}
-            {button('Deactivate', 'deactivate', isLastAdmin)}
-          </>
-        ) : (
-          button('Reactivate', 'reactivate')
-        )}
-      </div>
-    );
+  // Active: Edit, Send reset code and Deactivate, in the row menu; the last active Admin's
+  // Deactivate stays reachable, disabled, with its reason. Deactivated: Reactivate.
+  const rowActions = (account: AccountItem): RowAction[] =>
+    account.isActive
+      ? [
+          { key: 'edit', label: 'Edit', onSelect: () => setAction({ kind: 'edit', account }) },
+          { key: 'reset', label: 'Send reset code', onSelect: () => setAction({ kind: 'reset', account }) },
+          {
+            key: 'deactivate',
+            label: 'Deactivate',
+            destructive: true,
+            disabled: account.id === lastAdmin,
+            disabledReason: account.id === lastAdmin ? LAST_ADMIN_REASON : undefined,
+            onSelect: () => setAction({ kind: 'deactivate', account }),
+          },
+        ]
+      : [{ key: 'reactivate', label: 'Reactivate', onSelect: () => setAction({ kind: 'reactivate', account }) }];
+
+  const select = (ids: Set<string>) =>
+    setSelected((current) => {
+      const next = new Map<string, AccountItem>();
+      ids.forEach((id) => {
+        const row = current.get(id) ?? accounts.data?.items.find((item) => item.id === id);
+        if (row) next.set(id, row);
+      });
+      return next;
+    });
+  const chosen = [...selected.values()];
+  const deactivatable = chosen.filter((row) => row.isActive && row.id !== lastAdmin && row.id !== user?.id);
+  const reactivatable = chosen.filter((row) => !row.isActive);
+  const resettable = chosen.filter((row) => row.isActive);
+  const itemsOf = (rows: AccountItem[]): BulkItem[] => rows.map((row) => ({ id: row.id, label: row.fullName }));
+  const bulkDone = () => {
+    setSelected(new Map());
+    void refresh();
   };
 
   // Screen 7.1: the "Last active Admin" line sits under the name, beside the disabled Deactivate.
@@ -279,6 +302,29 @@ export const AccountsPage: React.FC = () => {
         columns={columns}
         rows={data?.items}
         rowId={(row) => row.id}
+        rowLabel={(row) => row.fullName}
+        noun={{ one: 'account', other: 'accounts' }}
+        selectedIds={new Set(selected.keys())}
+        onSelectionChange={select}
+        bulkActions={() => (
+          <>
+            {resettable.length > 0 && (
+              <Button size="sm" onClick={() => setBulk('reset')}>
+                Send reset code to {accountsText(resettable.length)}
+              </Button>
+            )}
+            {reactivatable.length > 0 && (
+              <Button size="sm" onClick={() => setBulk('reactivate')}>
+                Reactivate {accountsText(reactivatable.length)}
+              </Button>
+            )}
+            {deactivatable.length > 0 && (
+              <Button size="sm" variant="danger" onClick={() => setBulk('deactivate')}>
+                Deactivate {accountsText(deactivatable.length)}
+              </Button>
+            )}
+          </>
+        )}
         loading={accounts.isPending}
         error={
           failure ? (
@@ -312,18 +358,13 @@ export const AccountsPage: React.FC = () => {
               <LastSignIn account={row} />
             </div>
             <div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="min-h-11"
-                aria-expanded={openCard === row.id}
-                aria-controls={`account-actions-${row.id}`}
-                aria-label={`Actions for ${row.fullName}`}
-                onClick={() => setOpenCard(openCard === row.id ? null : row.id)}
-              >
-                Actions
-              </Button>
-              {openCard === row.id && <div id={`account-actions-${row.id}`}>{rowActions(row)}</div>}
+              <Menu
+                label={`Actions for ${row.fullName}`}
+                align="start"
+                trigger={<span>Actions</span>}
+                triggerClassName="h-11 border border-line-strong bg-surface px-4"
+                items={rowActions(row)}
+              />
             </div>
           </div>
         )}
@@ -340,6 +381,41 @@ export const AccountsPage: React.FC = () => {
         }
       />
 
+      {bulk === 'deactivate' && (
+        <BulkActionDialog
+          title={`Deactivate ${accountsText(deactivatable.length)}?`}
+          confirmLabel={`Deactivate ${accountsText(deactivatable.length)}`}
+          description="They cannot sign in and their sessions end at once. Your own account and the last active Admin are left out."
+          destructive
+          needsReason
+          items={itemsOf(deactivatable)}
+          run={(item, reason) => deactivateAccount(item.id, reason ?? '')}
+          onFinished={bulkDone}
+          onClose={() => setBulk(null)}
+        />
+      )}
+      {bulk === 'reactivate' && (
+        <BulkActionDialog
+          title={`Reactivate ${accountsText(reactivatable.length)}?`}
+          confirmLabel={`Reactivate ${accountsText(reactivatable.length)}`}
+          description="They can sign in again with their current password."
+          items={itemsOf(reactivatable)}
+          run={(item) => reactivateAccount(item.id)}
+          onFinished={bulkDone}
+          onClose={() => setBulk(null)}
+        />
+      )}
+      {bulk === 'reset' && (
+        <BulkActionDialog
+          title={`Send a reset code to ${accountsText(resettable.length)}?`}
+          confirmLabel={`Send reset code to ${accountsText(resettable.length)}`}
+          description="Each account email receives a code to set a new password. An account asked again too soon is refused (OTP cooldown)."
+          items={itemsOf(resettable)}
+          run={(item) => sendAccountReset(item.id)}
+          onFinished={bulkDone}
+          onClose={() => setBulk(null)}
+        />
+      )}
       {creating && (
         <NewAccountDialog
           onClose={() => setCreating(false)}

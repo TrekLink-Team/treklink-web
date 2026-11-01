@@ -74,6 +74,14 @@ const serve = (
 
 const inTable = () => within(screen.getByRole('table', { name: 'Accounts' }));
 
+// Three row actions sit in the row menu (UI standard §2): open it and return the item.
+const menuItem = (name: string, label: string) => {
+  fireEvent.click(inTable().getByRole('button', { name: `Actions for ${name}` }));
+  return screen.getByRole('menuitem', { name: label });
+};
+const closeMenu = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+const isDisabled = (item: HTMLElement) => item.getAttribute('aria-disabled') === 'true';
+
 // Shows the URL query the page keeps (screen 7.1 keeps its filters and page there).
 const QueryProbe: React.FC = () => <output aria-label="Query">{useLocation().search}</output>;
 
@@ -179,14 +187,10 @@ describe('AccountsPage (screen 7.1)', () => {
     await waitFor(() => expect(inTable().getByText('Last active Admin')).toBeTruthy());
     // Under the name, in the account cell, not in the actions column.
     expect(inTable().getByText('Last active Admin').closest('#account-name-a-1')).toBeTruthy();
-    expect(
-      (inTable().getByRole('button', { name: 'Deactivate Nguyen Admin' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    expect(
-      (inTable().getByRole('button', { name: 'Deactivate Tran Thi B' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false);
+    expect(isDisabled(menuItem('Nguyen Admin', 'Deactivate'))).toBe(true);
+    closeMenu();
+    expect(isDisabled(menuItem('Tran Thi B', 'Deactivate'))).toBe(false);
+    closeMenu();
   });
 
   it('keeps Deactivate enabled when a second active Admin exists', async () => {
@@ -248,7 +252,7 @@ describe('AccountsPage (screen 7.1)', () => {
     serve([account(), staff]);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Edit Nguyen Admin' }));
+    fireEvent.click(menuItem('Nguyen Admin', 'Edit'));
     expect((screen.getByLabelText('Role') as HTMLSelectElement).disabled).toBe(true);
     expect(screen.getByText('You cannot change your own role.')).toBeTruthy();
   });
@@ -257,7 +261,7 @@ describe('AccountsPage (screen 7.1)', () => {
     serve([account(), staff], () => staff);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Edit Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Edit'));
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'ADMIN' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Change Tran Thi B from Staff to Admin?')).toBeTruthy();
@@ -274,7 +278,7 @@ describe('AccountsPage (screen 7.1)', () => {
     serve([account(), staff], () => staff);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Edit Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Edit'));
     expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText(/Full name/), { target: { value: 'Tran Thi Bich' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -293,7 +297,7 @@ describe('AccountsPage (screen 7.1)', () => {
     );
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Edit Other Admin' }));
+    fireEvent.click(menuItem('Other Admin', 'Edit'));
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'STAFF' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Change role' }));
@@ -305,7 +309,7 @@ describe('AccountsPage (screen 7.1)', () => {
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
     await waitFor(() => expect(inTable().getByText('Last active Admin')).toBeTruthy());
-    fireEvent.click(inTable().getByRole('button', { name: 'Deactivate Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Deactivate'));
     expect(screen.getByText('Deactivate Tran Thi B?')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
     expect(await screen.findByText('Reason is required.')).toBeTruthy();
@@ -324,7 +328,7 @@ describe('AccountsPage (screen 7.1)', () => {
     });
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Deactivate Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Deactivate'));
     fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'x' } });
     fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
     expect(await screen.findByText('At least one Admin must stay active.')).toBeTruthy();
@@ -346,7 +350,7 @@ describe('AccountsPage (screen 7.1)', () => {
     serve([account(), staff], () => null);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Send reset code to Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Send reset code'));
     expect(screen.getByText('Send a reset code to staff1@treklink.vn?')).toBeTruthy();
     expect(screen.getByText('You will not see the password.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Send reset code' }));
@@ -366,7 +370,7 @@ describe('AccountsPage (screen 7.1)', () => {
     });
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Send reset code to Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Send reset code'));
     fireEvent.click(screen.getByRole('button', { name: 'Send reset code' }));
     expect(
       await screen.findByText('Please wait a minute before requesting another code.'),
@@ -379,7 +383,7 @@ describe('AccountsPage (screen 7.1)', () => {
     });
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Send reset code to Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Send reset code'));
     const reads = api.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Send reset code' }));
     await waitFor(() => expect(useToast.getState().message).toBe('Account not found.'));
@@ -414,10 +418,8 @@ describe('AccountsPage (screen 7.1)', () => {
     );
     await waitFor(() => expect(inTable().getAllByRole('row')).toHaveLength(21));
     expect(inTable().getByText('Last active Admin')).toBeTruthy();
-    expect(
-      (inTable().getByRole('button', { name: 'Deactivate Nguyen Admin' }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(isDisabled(menuItem('Nguyen Admin', 'Deactivate'))).toBe(true);
+    closeMenu();
   });
 
   it('reads search, status and page from the URL', async () => {
@@ -459,7 +461,7 @@ describe('AccountsPage (screen 7.1)', () => {
     serve([account(), staff]);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    const button = inTable().getByRole('button', { name: 'Send reset code to Tran Thi B' });
+    const button = menuItem('Tran Thi B', 'Send reset code');
     expect(button.textContent).toBe('Send reset code');
   });
 
@@ -467,7 +469,7 @@ describe('AccountsPage (screen 7.1)', () => {
     serve([account(), staff]);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    fireEvent.click(inTable().getByRole('button', { name: 'Edit Tran Thi B' }));
+    fireEvent.click(menuItem('Tran Thi B', 'Edit'));
     expect(
       screen.getByText(
         'A phone number can be changed but not removed: an empty field keeps the current one.',
@@ -499,5 +501,42 @@ describe('AccountsPage (screen 7.1)', () => {
     await waitFor(() => expect(document.activeElement?.id).toBe('account-name-a-5'));
     expect(query()).toBe('');
     expect(document.activeElement?.textContent).toContain('New Person');
+  });
+});
+
+describe('AccountsPage bulk actions (W29, UI standard §2)', () => {
+  afterEach(cleanup);
+  const tableBox = (label: string) => fireEvent.click(inTable().getByLabelText(`Select ${label}`));
+
+  it('deactivates the selected accounts in sequence, leaving out yourself and the last Admin', async () => {
+    const other = account({ id: 'a-5', email: 'c@treklink.vn', fullName: 'Le Van C', roles: ['STAFF'] });
+    serve([account(), staff, other, off], (endpoint) => {
+      if (endpoint === '/accounts/a-5/deactivate') throw new ApiError(409, 'INVALID_STATE_TRANSITION', 'This cannot be done while it is INACTIVE.');
+      return account();
+    });
+    renderPage();
+    await screen.findByRole('table', { name: 'Accounts' });
+    await waitFor(() => expect(inTable().getByText('Last active Admin')).toBeTruthy());
+    tableBox('Nguyen Admin');
+    tableBox('Tran Thi B');
+    tableBox('Le Van C');
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate 2 accounts' }));
+    const confirm = within(screen.getByRole('alertdialog', { name: 'Deactivate 2 accounts?' }));
+    fireEvent.change(confirm.getByLabelText(/Reason/), { target: { value: 'Left the company' } });
+    fireEvent.click(confirm.getByRole('button', { name: 'Deactivate 2 accounts' }));
+    const summary = await screen.findByRole('dialog', { name: '1 of 2 done' });
+    expect(within(summary).getByText('Le Van C').closest('li')?.textContent).toContain('This cannot be done while it is INACTIVE.');
+    const posts = api.mock.calls.filter((call) => (call[1] as RequestInit | undefined)?.method === 'POST').map((call) => call[0]);
+    expect(posts).toEqual(['/accounts/a-2/deactivate', '/accounts/a-5/deactivate']);
+  });
+
+  it('offers only the bulk actions the selected rows allow', async () => {
+    serve([account(), staff, off]);
+    renderPage();
+    await screen.findByRole('table', { name: 'Accounts' });
+    tableBox('Pham Van D');
+    expect(screen.getByRole('button', { name: 'Reactivate 1 account' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Deactivate \d/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Send reset code to \d/ })).toBeNull();
   });
 });
