@@ -23,6 +23,12 @@ vi.mock('../features/password/api', async (importOriginal) => ({
 }));
 vi.mock('./LiveMapPage', () => ({ LiveMapPage: () => <p>landing page</p> }));
 
+// The sign-in page asks for the sandbox test accounts (demo api-design 05); here demo mode is off.
+vi.mock('../entities/demo/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../entities/demo/api')>()),
+  useDemoAccounts: () => ({ data: undefined }),
+}));
+
 const STAFF: SessionUser = {
   id: 'staff-1',
   email: 'staff@treklink.vn',
@@ -47,15 +53,17 @@ const Where: React.FC = () => <p data-testid="where">{useLocation().pathname}</p
 
 const show = (path: string, state?: unknown) =>
   render(
-    <MemoryRouter initialEntries={[{ pathname: path, state }]}>
-      <Routes>
-        <Route path="/sign-in" element={<SignInPage />} />
-        <Route path="/forgot" element={<ForgotPasswordPage />} />
-        <Route path="/reset" element={<ResetPasswordPage />} />
-        <Route path="/welcome" element={<WelcomePage />} />
-        <Route path="*" element={<Where />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[{ pathname: path, state }]}>
+        <Routes>
+          <Route path="/sign-in" element={<SignInPage />} />
+          <Route path="/forgot" element={<ForgotPasswordPage />} />
+          <Route path="/reset" element={<ResetPasswordPage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 const type = (label: string | RegExp, value: string) =>
