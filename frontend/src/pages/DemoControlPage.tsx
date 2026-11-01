@@ -199,7 +199,7 @@ export const DemoControlPage: React.FC = () => {
         <Dialog
           titleId="demo-stage-confirm"
           title={`Stage ${confirming.title}?`}
-          description={`This deletes every row in the local database and stages ${confirming.title}. Every window must sign in again.`}
+          description={`This deletes every row in the local database and stages ${confirming.title}. Every other window must sign in again. If the stage fails, the database is left empty: stage again.`}
           onClose={() => setConfirming(null)}
           footer={
             <>

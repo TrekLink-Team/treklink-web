@@ -112,7 +112,7 @@ describe('DemoControlPage (screen 7.5, D-088)', () => {
     fireEvent.click(within(screen.getByRole('article', { name: 'Term ended, return due' })).getByRole('button', { name: 'Stage' }));
     const dialog = screen.getByRole('dialog');
     expect(dialog.textContent).toContain(
-      'This deletes every row in the local database and stages Term ended, return due. Every window must sign in again.',
+      'This deletes every row in the local database and stages Term ended, return due. Every other window must sign in again. If the stage fails, the database is left empty: stage again.',
     );
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).toBeNull();

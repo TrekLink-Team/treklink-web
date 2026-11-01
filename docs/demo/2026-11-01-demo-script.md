@@ -461,6 +461,15 @@ other window signs in again. The account menu then offers **Switch role** to Adm
 Operator in every window. The panel refuses a Neon host (`DEMO_DATABASE_NOT_LOCAL`). The first stage still
 needs the Admin account, so run `seed:demo` once on a fresh database (§1.2) (`specs/demo/`).
 
+- **A stage that fails** (for example a seed error) leaves the local database empty, because the
+  truncation commits before the seed runs: click **Stage** again; a successful stage repairs it.
+- **A second Stage from another window while one runs** answers 401 once the first stage has truncated
+  the users, because that window's account is gone (`DEMO_BUSY` only in the moment before the
+  truncation). Wait for the first stage to finish, then sign that window in again.
+- **After any stage every other window signs in again**: the seeded users are created anew with new ids,
+  so every token issued before the stage is refused. Only the panel's own window is signed in again for
+  you, as the Admin.
+
 Full reset of the **local** database (destroys every row in it; stop `npm run dev` first). The
 backend has no Prisma seed hook, so the demo seed is run separately (`backend/package.json`):
 
