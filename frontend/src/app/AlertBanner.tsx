@@ -18,12 +18,30 @@ const MSG03 = 'Saved.';
 // States in which an organization member can still acknowledge (incidents api-design 03).
 const ACTIONABLE = /^(NOTIFY_|ESCALATED$|REPORTED$)/;
 
+// TRANSITION: an SOS to acknowledge (MSG31). STALE: the device went silent (MSG40, incidents
+// REQ-EVT-12), shown without Acknowledge. An alert sent before `kind` joined the payload is an SOS.
+type AlertKind = 'TRANSITION' | 'STALE';
+
 interface Alert {
   incidentId: string;
+  kind: AlertKind;
   text: string;
 }
 
+// A device-silent alert stays until dismissed or until its incident has ended.
+const ENDED = new Set(['RESOLVED', 'FALSE_ALARM', 'CLOSED']);
+
+const same = (a: Alert, b: Pick<Alert, 'incidentId' | 'kind'>) =>
+  a.incidentId === b.incidentId && a.kind === b.kind;
+
+// Newest first, an SOS always ahead of a device-silent alert, so Acknowledge is never hidden behind one.
+const ordered = (alerts: Alert[]): Alert[] =>
+  alerts
+    .filter((a) => a.kind === 'TRANSITION')
+    .concat(alerts.filter((a) => a.kind === 'STALE'));
+
 const alertFrom = (payload: Record<string, unknown>): Alert => {
+  const kind: AlertKind = payload.kind === 'STALE' ? 'STALE' : 'TRANSITION';
   // A null holder label is left out rather than printed (MSG31, as the server's msg31 does).
   const holder =
     typeof payload.holderName === 'string' && payload.holderName ? payload.holderName : null;
@@ -35,7 +53,7 @@ const alertFrom = (payload: Record<string, unknown>): Alert => {
     typeof payload.message === 'string'
       ? payload.message
       : `SOS: ${String(payload.deviceLabel)}${holder ? ` (${holder})` : ''}, ${time}. Acknowledge now.`;
-  return { incidentId: String(payload.incidentId), text };
+  return { incidentId: String(payload.incidentId), kind, text };
 };
 
 // Poll mode (frontend design §3, D-089): no socket delivers `incident.alert`, so the banner reads, on
@@ -62,6 +80,7 @@ const polledAlerts = (items: readonly Incident[], staff: boolean): Alert[] =>
       });
       return {
         incidentId: incident.id,
+        kind: 'TRANSITION' as const,
         text: `${SOURCE_TEXT[incident.source]}: ${incident.device.assetTag ?? 'Unknown device'}${
           holder ? ` (${holder})` : ''
         }, ${time}. Acknowledge now.`,
@@ -114,13 +133,19 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
         const { type, payload } = message.entry;
         if (type === 'incident.alert') {
           const alert = alertFrom(payload);
-          setAlerts((current) => [
-            alert,
-            ...current.filter((a) => a.incidentId !== alert.incidentId),
-          ]);
+          setAlerts((current) =>
+            ordered([alert, ...current.filter((a) => !same(a, alert))]),
+          );
         }
-        if (type === 'incident.changed' && !ACTIONABLE.test(String(payload.state))) {
-          setAlerts((current) => current.filter((a) => a.incidentId !== payload.incidentId));
+        if (type === 'incident.changed') {
+          const state = String(payload.state);
+          setAlerts((current) =>
+            current.filter(
+              (a) =>
+                a.incidentId !== payload.incidentId ||
+                (a.kind === 'TRANSITION' ? ACTIONABLE.test(state) : !ENDED.has(state)),
+            ),
+          );
         }
       }),
     [],
@@ -128,9 +153,10 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
 
   const shown = livePolls() ? polled.filter((alert) => !handled.has(alert.incidentId)) : alerts;
   const current = shown[0];
-  const done = (incidentId: string) => {
-    setAlerts((list) => list.filter((a) => a.incidentId !== incidentId));
-    setHandled((set) => new Set(set).add(incidentId));
+  // Only the SOS of that incident is done: a device-silent alert for it stays until dismissed.
+  const done = (alert: Alert) => {
+    setAlerts((list) => list.filter((a) => !same(a, alert)));
+    setHandled((set) => new Set(set).add(alert.incidentId));
   };
 
   const acknowledge = async (alert: Alert) => {
@@ -139,12 +165,12 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
     try {
       await acknowledgeIncident(alert.incidentId);
       setNotice(MSG03);
-      done(alert.incidentId);
+      done(alert);
     } catch (error) {
       if (error instanceof ApiError && error.errorCode === 'ALREADY_OWNED') {
         // MSG27: someone else took it, so the banner is done.
         setNotice(error.message);
-        done(alert.incidentId);
+        done(alert);
       } else {
         setFailure(error instanceof ApiError ? error.message : 'Could not acknowledge. Try again.');
       }
@@ -172,7 +198,9 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
                 aria-hidden="true"
                 className="relative flex h-6 w-6 shrink-0 items-center justify-center"
               >
-                <span className="absolute inset-0 rounded-full bg-status-critical-on/25 motion-safe:animate-ping" />
+                {current.kind === 'TRANSITION' && (
+                  <span className="absolute inset-0 rounded-full bg-status-critical-on/25 motion-safe:animate-ping" />
+                )}
                 <Siren className="relative h-4 w-4" />
               </span>
               <span>
@@ -188,6 +216,14 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
               <Link to="/t/incidents" className={`${ACTION} inline-flex items-center`}>
                 Open queue
               </Link>
+            ) : current.kind === 'STALE' ? (
+              <button
+                type="button"
+                onClick={() => setAlerts((list) => list.filter((a) => !same(a, current)))}
+                className={ACTION}
+              >
+                Dismiss
+              </button>
             ) : (
               <button
                 type="button"
