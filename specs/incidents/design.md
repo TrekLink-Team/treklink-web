@@ -133,7 +133,7 @@ acknowledgement and names the owner and time (MSG27).
 | `NOTIFY_MANAGER` | every active Manager | WebSocket, web inbox, email |
 | `ESCALATED`, `UNROUTED` | every active TrekLink Staff and Admin account, plus the organization's Managers for `ESCALATED` | WebSocket, web inbox, email (MSG34) |
 | any change | the organization's stream | API event |
-| stale flag | owner, or the current tier | WebSocket, web inbox |
+| stale flag set (MSG40) | the owner when set; otherwise the current tier's members (`NOTIFY_*`); otherwise, for `ESCALATED`, `UNROUTED` and `REPORTED`, every active TrekLink Staff and Admin account | WebSocket, web inbox |
 
 The TrekLink recipients are the active, not deleted accounts holding the `STAFF` or `ADMIN` role, read
 through `AccountsService.activeStaffAndAdminIds` on the `incidents --> auth` edge of platform design Figure 3
@@ -141,6 +141,20 @@ through `AccountsService.activeStaffAndAdminIds` on the `incidents --> auth` edg
 per channel; a recipient listed twice gets one set. Leader ruling of 2026-10-30, answering the confirmation
 asked on PR #120: Admin stays a recipient, as this row always said, and D-079's "Staff" reads as Staff and
 Admin. `ESCALATED` reads them since TK-144; `UNROUTED` waits for task 2.2.
+
+**Device-silent alert** (REQ-EVT-12, MSG40, leader ruling of 2026-11-01). Setting the stale flag (§5) is
+not a transition, so its rows are of kind `STALE`: `alert_deliveries.kind` is `TRANSITION` (the default,
+with a `transitionId`) or `STALE` (no `transitionId`, and `lastSeenAt`, the device's last reading), kept
+apart by the CHECK constraint `alert_deliveries_kind_shape` (migration
+`20261101120000_incidents_stale_alert`). `StaleAlerts.queue` writes one WEB and one WEBSOCKET row per
+recipient in the transaction that sets the flag, with tier `OWNER`, the tier name, or `TREKLINK`, and wakes
+the dispatcher with `incident.alertsQueued` after commit. Recipients come from routing at the time of the
+flag: the tier through `recipientsOf`, the TrekLink accounts through `treklinkRecipients`. Any other
+ownerless state (`FALSE_ALARM`, `RESOLVED` without an owner) alerts nobody. One alert goes out per set;
+clearing the flag queues nothing, and a device still silent on the next sweep queues nothing more, as the
+flag is already set. The dispatcher writes MSG40 "Device silent: {device} ({holder}), last heard {time}."
+for a `STALE` row, with `at` the last reading, and MSG31 for a `TRANSITION` row; `incident.alert` carries
+`kind`, and the banner shows a `STALE` alert with Dismiss in place of Acknowledge, behind any SOS alert.
 
 The dispatcher reads `alert_deliveries WHERE status = PENDING AND nextAttemptAt <= now()` with
 `FOR UPDATE SKIP LOCKED`, sends, and sets `SENT`, or bumps `attempts` and `nextAttemptAt` with backoff
@@ -227,8 +241,9 @@ packet never overwrites a newer position (PR #114 review). Positions move neithe
 `version` stay, so a member's pending action keeps its `expectedVersion`, and no transition row is written.
 The incident keeps its own last position and fix time `lastPositionAt` from the episode (§4); `lastSeenAt`,
 the device's last reading, goes to the `incident.stale` audit record. A change emits `incident.changed` with
-the unchanged state, so the queue, the detail and the live map refetch. A call that changes nothing emits
-nothing. The sweep also clears the flag when it removes a mark without a recovery (a device reset to never
+the unchanged state, so the queue, the detail and the live map refetch. Setting the flag also queues the
+device-silent alert (§3, MSG40) in the same transaction; clearing it alerts nobody. A call that changes
+nothing emits and queues nothing. The sweep also clears the flag when it removes a mark without a recovery (a device reset to never
 heard, one that no longer exists, or one handed over after it was heard again); `lastSeenAt` is then null
 for a device with no reading. It sets the flag again on every run while a marked device stays silent, which
 flags an incident opened after the mark.

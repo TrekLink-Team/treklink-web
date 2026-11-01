@@ -19,6 +19,7 @@ import { ValidatedEnvironment } from '../src/modules/platform/config/environment
 import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
 import { ParameterRepository } from '../src/modules/platform/parameters/parameter.repository';
 import { ParameterService } from '../src/modules/platform/parameters/parameter.service';
+import type { StaleAlerts } from '../src/modules/incidents/alerts/stale-alerts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
@@ -65,9 +66,17 @@ describe('incident owner deactivation against Postgres', () => {
   );
   const routing = new RoutingService(new RosterService(new RosterRepository(prisma)), accounts);
   const listener = new OwnerDeactivationListener(repository, lifecycle, routing, events);
-  const incidents = new IncidentsService(repository, lifecycle, parameters, events, {
-    memberNames: () => Promise.resolve(new Map<string, string>()),
-  } as unknown as OrganizationsService);
+  const incidents = new IncidentsService(
+    repository,
+    lifecycle,
+    parameters,
+    events,
+    {
+      memberNames: () => Promise.resolve(new Map<string, string>()),
+    } as unknown as OrganizationsService,
+    // This suite never sets the device-silent flag.
+    {} as StaleAlerts,
+  );
   const runId = randomUUID();
   let staffId: string;
   let adminId: string;

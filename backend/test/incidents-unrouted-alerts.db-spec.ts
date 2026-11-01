@@ -26,6 +26,7 @@ import { ParameterRepository } from '../src/modules/platform/parameters/paramete
 import { ParameterService } from '../src/modules/platform/parameters/parameter.service';
 import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
 import { ContractsService } from '../src/modules/rentals/contracts.service';
+import type { StaleAlerts } from '../src/modules/incidents/alerts/stale-alerts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
@@ -76,9 +77,17 @@ describe('UNROUTED Staff/Admin alerts against Postgres', () => {
     events,
     {} as never, // FieldStationsService: this suite ingests node uplinks only
   );
-  const incidents = new IncidentsService(repository, lifecycle, parameters, events, {
-    memberNames: () => Promise.resolve(new Map<string, string>()),
-  } as unknown as OrganizationsService);
+  const incidents = new IncidentsService(
+    repository,
+    lifecycle,
+    parameters,
+    events,
+    {
+      memberNames: () => Promise.resolve(new Map<string, string>()),
+    } as unknown as OrganizationsService,
+    // This suite never sets the device-silent flag.
+    {} as StaleAlerts,
+  );
   const changed = jest.fn();
   const audited = jest.fn();
   const runId = randomUUID();

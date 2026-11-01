@@ -6,6 +6,7 @@ import { PlatformModule } from '../platform/platform.module';
 import { RentalsModule } from '../rentals';
 import { AlertDeliveriesRepository } from './alert-deliveries.repository';
 import { AlertDispatcherJob } from './alerts/alert-dispatcher.job';
+import { StaleAlerts } from './alerts/stale-alerts';
 import { AuthorityReportsController } from './authority-reports.controller';
 import { AuthorityReportsRepository } from './authority-reports.repository';
 import { AuthorityReportsService } from './authority-reports.service';
@@ -43,6 +44,7 @@ import { RoutingService } from './routing.service';
     RoutingService,
     IncidentIngress,
     AlertDispatcherJob,
+    StaleAlerts,
     IncidentTimersJob,
     OwnerDeactivationListener,
   ],
