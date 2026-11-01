@@ -38,6 +38,7 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
   const parameters: Record<string, unknown> = {
     'monitoring.deviceStaleSeconds': 300,
