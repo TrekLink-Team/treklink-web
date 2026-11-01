@@ -88,7 +88,8 @@ export const topicAllowed = (
 
 // The mosquitto-go-auth HTTP hooks (task 3.1, api-design 01 and 02, design §4, REQ-EVT-07). go-auth
 // runs in status mode, so 200 allows and the 401 and 403 envelopes deny. A Field Station is checked
-// against its stored bcrypt hash through `organizations` (D-037); a revoked station or one of a
+// against its stored bcrypt hash through `organizations` (D-037); a fleet node against the shared
+// MQTT_NODE_PASSWORD (design §4, refused while it is unset); a revoked station or one of a
 // `CLOSED` organization is refused at its next connection (organizations AC-06), bounded by the
 // plugin's cache of at most 60 s. No password, secret or hash is ever logged; a refusal logs the
 // username and the reason only.
@@ -98,6 +99,7 @@ export class BrokerAuthService {
   private readonly hookSecret: string | undefined;
   private readonly backendUsername: string | undefined;
   private readonly backendPassword: string | undefined;
+  private readonly nodePassword: string | undefined;
   private readonly root: string;
 
   constructor(
@@ -107,6 +109,7 @@ export class BrokerAuthService {
     this.hookSecret = config.get('MQTT_AUTH_HOOK_SECRET', { infer: true }) || undefined;
     this.backendUsername = config.get('MQTT_USERNAME', { infer: true }) || undefined;
     this.backendPassword = config.get('MQTT_PASSWORD', { infer: true }) || undefined;
+    this.nodePassword = config.get('MQTT_NODE_PASSWORD', { infer: true }) || undefined;
     this.root = config.get('MQTT_ROOT', { infer: true });
   }
 
@@ -147,9 +150,13 @@ export class BrokerAuthService {
       return { allowed: true, kind };
     }
     if (kind === 'FLEET_NODE') {
-      // Design §4 names the username of a fleet node but no stored secret to check its password
-      // against, so a fleet node is refused until that credential is specified (task 3.1).
-      return this.reject(check.username, 'fleet node credential not specified');
+      // One secret shared by every fleet node (design §4, leader decision of 2026-11-01): any holder
+      // may log in under any node username; the ACL still limits each username to its own topics.
+      if (!this.nodePassword) return this.reject(check.username, 'MQTT_NODE_PASSWORD unset');
+      if (!sameSecret(check.password, this.nodePassword)) {
+        return this.reject(check.username, 'wrong fleet node password');
+      }
+      return { allowed: true, kind };
     }
     return this.reject(check.username, 'unknown username');
   }

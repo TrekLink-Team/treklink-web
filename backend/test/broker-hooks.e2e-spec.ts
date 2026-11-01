@@ -14,7 +14,7 @@ const STATION_SECRET = 'fs_e2e_station_secret';
 
 type Boot = (tables: Record<string, unknown>) => Promise<E2eApp>;
 
-const SAVED = ['MQTT_AUTH_HOOK_SECRET', 'MQTT_USERNAME', 'MQTT_PASSWORD'].map(
+const SAVED = ['MQTT_AUTH_HOOK_SECRET', 'MQTT_USERNAME', 'MQTT_PASSWORD', 'MQTT_NODE_PASSWORD'].map(
   (name) => [name, process.env[name]] as const,
 );
 afterAll(() => {
@@ -30,6 +30,7 @@ const bootWith = (secret: string | undefined, tables: Record<string, unknown>): 
   else process.env.MQTT_AUTH_HOOK_SECRET = secret;
   process.env.MQTT_USERNAME = 'treklink-backend';
   process.env.MQTT_PASSWORD = 'e2e-backend-password';
+  process.env.MQTT_NODE_PASSWORD = 'e2e-fleet-node-password';
   jest.isolateModules(() => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     boot = (require('./e2e-callers') as { bootE2e: Boot }).bootE2e;
@@ -104,6 +105,25 @@ describe('broker hooks behind MQTT_AUTH_HOOK_SECRET (e2e)', () => {
       isSuccess: false,
       statusCode: 403,
     });
+  });
+
+  it('allows a fleet node with the shared MQTT_NODE_PASSWORD and refuses a wrong one', async () => {
+    const allowed = await post('/api/internal/mqtt/user', {
+      username: 'node-!a4b1c2d3',
+      password: 'e2e-fleet-node-password',
+      clientid: 'node-a4b1c2d3',
+    });
+    expect(allowed.status).toBe(200);
+    expect(body(allowed).result).toEqual({ allowed: true, kind: 'FLEET_NODE' });
+
+    const refused = await post('/api/internal/mqtt/user', {
+      username: 'node-!a4b1c2d3',
+      password: 'not-the-node-password',
+      clientid: 'node-a4b1c2d3',
+    });
+    expect(refused.status).toBe(403);
+    expect(body(refused)).toMatchObject({ result: { errorCode: 'CREDENTIAL_REJECTED' } });
+    expect(findUnique).not.toHaveBeenCalled();
   });
 
   it('allows the backend subscriber with MQTT_PASSWORD', async () => {
