@@ -134,7 +134,9 @@ export class JobRunnerService implements OnApplicationBootstrap {
     return this.tick(new Date(now)).then(
       (outcomes) => {
         const ran = Object.entries(outcomes).filter(([, outcome]) => outcome !== 'notDue');
-        this.logger.log(`Job tick ran ${ran.map(([name, o]) => `${name}=${o}`).join(', ') || 'nothing'}`);
+        this.logger.log(
+          `Job tick ran ${ran.map(([name, o]) => `${name}=${o}`).join(', ') || 'nothing'}`,
+        );
       },
       (error: unknown) =>
         this.logger.error(
