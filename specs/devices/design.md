@@ -129,7 +129,7 @@ when the case settles. `RENTER` custody marks the organization's channel key exp
 settlement goes to `RETURNED` while its case stays `SETTLED`; any refund is a billing adjustment (E05-10). A device
 recovered before settlement goes to `RETURNED` with no `lostAt`, so a `RENTER` case leaves its custody
 interval open and the contract counts the unit out until the counter checks it in; that check-in closes
-the row, and the device, already `RETURNED`, does not move again (2026-11-01). Until then the unit
+the row, and the device, already `RETURNED`, does not move again (2026-11-01). A unit recovered while its monthly contract is `ACTIVE` stays `RETURNED`, counted out on that contract, until the term ends, because check-in accepts a monthly contract only from `ENDING` on (`RETURNING` in `rentals/return.service.ts`, REQ-STA-01). Until then the unit
 cannot reach `AVAILABLE`: its reset, its inspection and a passing intake answer 409
 `INVALID_STATE_TRANSITION` while `CUSTODY_RESOLVER.custodyAt` finds the open row (leader ruling 2026-11-01).
 
