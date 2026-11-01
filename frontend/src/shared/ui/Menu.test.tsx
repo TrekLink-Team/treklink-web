@@ -113,12 +113,30 @@ describe('Menu (menu button pattern)', () => {
         <button type="button">Elsewhere</button>
       </>,
     );
-    open();
+    const button = open();
     fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
     expect(screen.queryByRole('menu')).toBeNull();
+    // Focus is back on the button before the browser's Tab moves on, so Tab continues after it.
+    expect(document.activeElement).toBe(button);
     open();
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Elsewhere' }));
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('focuses the first item on every open, the first included, and closes on Escape from the button', () => {
+    render(<Menu label="Actions for TL-0042" items={items()} />);
+    const button = open();
+    expect(document.activeElement?.textContent).toBe('Edit device');
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    open();
+    expect(document.activeElement?.textContent).toBe('Edit device');
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    // A menu open while focus is still on its button closes on Escape there too.
+    fireEvent.click(button);
+    button.focus();
+    fireEvent.keyDown(button, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(button);
   });
 
   it('starts the accessible name with the visible trigger text (WCAG 2.5.3)', () => {
