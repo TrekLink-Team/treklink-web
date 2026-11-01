@@ -105,3 +105,7 @@ with the code as the row link, the filters (code, plan, status) in the toolbar a
 bottom. The Org Manager has one row action, Cancel contract, on a `REQUESTED` or `APPROVED` row: a
 `StateChangeDialog` alert dialog with the required reason and the row's `expectedVersion` (rentals
 api-design 06, MSG15). An Org Operator has none.
+
+The device rows of the contract detail are the shared `DataTable` too (W29): the asset tag and
+holder searches sit in a toolbar above it, and Label (or Edit label) and Report lost are row actions
+of a unit that is out, named after its asset tag ("Report lost TL-0042").

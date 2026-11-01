@@ -27,18 +27,16 @@ import { ApiError } from '../../shared/api/apiClient';
 import { formatDateTime, viewerTimeZone } from '../../shared/lib/format';
 import { Badge } from '../../shared/ui/Badge';
 import { Empty, ErrorState, Loading, Pager } from '../../shared/ui/bits';
+import { DataTable, Pagination, type Column } from '../../shared/ui/DataTable';
 import { Button } from '../../shared/ui/Button';
 import { Dialog } from '../../shared/ui/Dialog';
 import { Checkbox, Field, Input, Select, Textarea } from '../../shared/ui/Field';
 import { messageOf } from '../../shared/ui/errors';
 import { CONTRACT_STATUS, INCIDENT_STATE } from '../../shared/ui/status';
 import { useToast } from '../../shared/ui/toastStore';
-import { ALERT, LINK, TABLE, TD, TH, WARNING } from '../../shared/ui/styles';
+import { ALERT, LINK, WARNING } from '../../shared/ui/styles';
 
 const MSG03 = 'Saved.';
-// A table cell that is a labelled line of a card below the sm breakpoint.
-const CELL = `${TD} block border-t-0 py-2 first:pt-4 last:pb-4 sm:table-cell sm:border-t sm:py-3`;
-const CARD_LABEL = 'mb-0.5 block text-label uppercase text-ink-muted sm:hidden';
 const MSG28 = (state: string) => `This cannot be done while it is ${state}.`;
 const REQUIRED = 'Please fill in this field.';
 // The agency and reference bound of api-design 08 (TK-148 DTO); api-design 10 uses the same.
@@ -537,6 +535,38 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
   );
 };
 
+// The report rows (W29): the shared DataTable, which scrolls inside its box on a phone; Record case
+// closed is the row action of an open case.
+const reportColumns = (onViewIncident: (id: string) => void): Column<AuthorityReport>[] => [
+  {
+    key: 'subject',
+    header: 'Subject',
+    cell: (report) =>
+      report.incidentId ? (
+        <button type="button" className={`${LINK} text-left`} onClick={() => onViewIncident(report.incidentId!)}>
+          View incident
+        </button>
+      ) : (
+        <Link to={`/t/contracts/${report.contractId}`} className={LINK}>
+          View contract
+        </Link>
+      ),
+  },
+  { key: 'agency', header: 'Agency', cell: (report) => <span className="break-words">{report.agency}</span> },
+  { key: 'reference', header: 'Reference', cell: (report) => <span className="break-all">{report.reference}</span> },
+  { key: 'reported', header: 'Reported', cell: (report) => formatDateTime(report.reportedAt) },
+  {
+    key: 'case',
+    header: 'Case',
+    cell: (report) =>
+      report.caseClosedAt ? (
+        <Badge tone="ended">Closed {formatDateTime(report.caseClosedAt)}</Badge>
+      ) : (
+        <Badge tone="attention">Open</Badge>
+      ),
+  },
+];
+
 // The Authority reports tab of /t/incidents (screen 8.3, api-design 11): open cases only by default,
 // server order kept (D-059 rule 7), no sort or extra filters.
 export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => void }> = ({
@@ -573,87 +603,30 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
         </Button>
       </div>
 
-      {isLoading && <Loading />}
-      {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-      {data && data.items.length === 0 && (
-        <Empty>
-          <p>{openOnly ? 'No open authority cases.' : 'No authority reports recorded.'}</p>
-        </Empty>
-      )}
-      {data && data.items.length > 0 && (
-        <>
-          {/* One table; below the sm breakpoint each row is a labelled card (screen 8.3, 360 px). */}
-          <table
-            className={`${TABLE} block border-0 bg-transparent shadow-none sm:table sm:border sm:bg-surface sm:shadow-raise`}
-          >
-            <thead className="hidden sm:table-header-group">
-              <tr>
-                <th className={TH}>Subject</th>
-                <th className={TH}>Agency</th>
-                <th className={TH}>Reference</th>
-                <th className={TH}>Reported</th>
-                <th className={TH}>Case</th>
-                <th className={TH}>Action</th>
-              </tr>
-            </thead>
-            <tbody className="flex flex-col gap-3 sm:table-row-group">
-              {data.items.map((report) => (
-                <tr
-                  key={report.id}
-                  className="flex flex-col rounded-panel border border-line bg-surface shadow-raise sm:table-row sm:rounded-none sm:border-0 sm:shadow-none"
-                >
-                  <td className={CELL}>
-                    <span className={CARD_LABEL}>
-                      {report.incidentId ? 'Incident report' : 'Contract report'}
-                    </span>
-                    {report.incidentId ? (
-                      <button
-                        type="button"
-                        className={`${LINK} text-left`}
-                        onClick={() => onViewIncident(report.incidentId!)}
-                      >
-                        View incident
-                      </button>
-                    ) : (
-                      <Link to={`/t/contracts/${report.contractId}`} className={LINK}>
-                        View contract
-                      </Link>
-                    )}
-                  </td>
-                  <td className={`${CELL} break-words`}>
-                    <span className={CARD_LABEL}>Agency</span>
-                    {report.agency}
-                  </td>
-                  <td className={`${CELL} break-all`}>
-                    <span className={CARD_LABEL}>Reference</span>
-                    {report.reference}
-                  </td>
-                  <td className={CELL}>
-                    <span className={CARD_LABEL}>Reported</span>
-                    {formatDateTime(report.reportedAt)}
-                  </td>
-                  <td className={CELL}>
-                    <span className={CARD_LABEL}>Case</span>
-                    {report.caseClosedAt ? (
-                      <Badge tone="ended">Closed {formatDateTime(report.caseClosedAt)}</Badge>
-                    ) : (
-                      <Badge tone="attention">Open</Badge>
-                    )}
-                  </td>
-                  <td className={CELL}>
-                    {!report.caseClosedAt && (
-                      <Button className="w-full sm:w-auto" onClick={() => setClosing(report)}>
-                        Record case closed
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pager pageNumber={data.pageNumber} totalPages={data.totalPages} onPage={setPageNumber} />
-        </>
-      )}
+      <DataTable<AuthorityReport>
+        caption="Authority reports"
+        columns={reportColumns(onViewIncident)}
+        rows={data?.items}
+        rowId={(report) => report.id}
+        rowLabel={(report) => `${report.agency} ${report.reference}`}
+        loading={isLoading}
+        error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
+        empty={{ title: openOnly ? 'No open authority cases.' : 'No authority reports recorded.' }}
+        rowActions={(report) =>
+          report.caseClosedAt ? [] : [{ key: 'close', label: 'Record case closed', onSelect: () => setClosing(report) }]
+        }
+        footer={
+          data && data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={data.pageNumber}
+              totalPages={data.totalPages}
+              totalItems={data.totalCount}
+              pageSize={data.pageSize}
+              onPage={setPageNumber}
+            />
+          ) : undefined
+        }
+      />
 
       {recording && <ReportDialog onClose={() => setRecording(false)} />}
       {closing && <CloseCaseDialog report={closing} onClose={() => setClosing(null)} />}

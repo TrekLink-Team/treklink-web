@@ -111,7 +111,7 @@ describe('AuthorityReportsPanel (screen 8.3, api-design 11)', () => {
     api.mockResolvedValueOnce(page([report({ caseClosedAt: '2026-11-02T08:00:00Z' })]));
     fireEvent.click(screen.getByLabelText('Open cases only'));
     expect(await screen.findByText(/^Closed /)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Record case closed' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Record case closed/ })).toBeNull();
   });
 
   it('opens the linked incident through the callback', async () => {
@@ -285,11 +285,11 @@ describe('CloseCaseDialog (api-design 09)', () => {
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/,
     );
     fill(/^Closed at/, '');
-    fireEvent.click(screen.getByRole('button', { name: 'Record case closed' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Record case closed/ }));
     expect(await screen.findByText('Please fill in this field.')).toBeTruthy();
     fill(/^Closed at/, '2026-11-02T08:00');
     fill(/^Closure note/, 'Found safe');
-    fireEvent.click(screen.getByRole('button', { name: 'Record case closed' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Record case closed/ }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(posts()[0]).toEqual([
       '/authority-reports/ar-1/close-case',
@@ -306,7 +306,7 @@ describe('CloseCaseDialog (api-design 09)', () => {
     );
     renderWith(<CloseCaseDialog report={report()} onClose={onClose} />);
     fill(/^Closed at/, '2026-11-02T08:00');
-    fireEvent.click(screen.getByRole('button', { name: 'Record case closed' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Record case closed/ }));
     expect(await screen.findByText('This cannot be done while it is CLOSED.')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
     expect(posts()).toHaveLength(1);
@@ -322,7 +322,7 @@ describe('CloseCaseDialog (api-design 09)', () => {
     renderWith(<CloseCaseDialog report={report()} onClose={onClose} />);
     expect(screen.getByText(/not before the report time/)).toBeTruthy();
     fill(/^Closed at/, '2026-10-01T08:00');
-    fireEvent.click(screen.getByRole('button', { name: 'Record case closed' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Record case closed/ }));
     expect(await screen.findByText('closedAt must not be before reportedAt.')).toBeTruthy();
     expect(screen.getByLabelText(/^Closed at/).getAttribute('aria-invalid')).toBe('true');
     expect(onClose).not.toHaveBeenCalled();

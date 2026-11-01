@@ -148,8 +148,10 @@ describe('ContractDetailPage', () => {
       ],
     };
     renderPage('o');
-    const report = screen.getAllByRole('button', { name: 'Report lost' });
+    // Row actions are named after the unit (UI standard §2.5.3): "Report lost TL-0042".
+    const report = screen.getAllByRole('button', { name: /^Report lost/ });
     expect(report).toHaveLength(1);
+    expect(report[0].textContent).toContain('TL-0042');
     fireEvent.click(report[0]);
     expect(screen.getByRole('dialog', { name: 'Report TL-0042 lost' })).toBeTruthy();
   });
@@ -255,6 +257,6 @@ describe('ContractDetailPage', () => {
       devices: [{ deviceId: 'dev-1', assetTag: 'TL-0042', holder: null, checkedInAt: null, lostAt: null, handedOverAt: '2026-10-30T09:00:00Z' }],
     };
     renderPage('o');
-    expect(screen.queryByRole('button', { name: 'Report lost' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Report lost/ })).toBeNull();
   });
 });
