@@ -26,6 +26,7 @@ import {
   UserCog,
   Users,
   Wrench,
+  RotateCcw,
 } from 'lucide-react';
 import { hasAnyRole, type Role } from '../lib/permissions';
 
@@ -45,6 +46,8 @@ export interface NavEntry {
   fullBleed?: boolean;
   /** Shown in the phone tab bar, in this order, at most four (the fifth slot is More). */
   tabBar?: number;
+  /** Shown only while the backend's demo controls are on (D-088, screen 7.5). */
+  demoOnly?: boolean;
 }
 
 export interface NavGroup {
@@ -147,6 +150,7 @@ export const TREKLINK_NAV: NavGroup[] = [
       { route: '/t/admin/health', label: 'System health', icon: Gauge, roles: ADMIN, built: false },
       { route: '/t/admin/audit/changes', label: 'Audit log', icon: ScrollText, roles: ADMIN, built: true },
       { route: '/t/admin/audit/sign-ins', label: 'Sign-in events', icon: Activity, roles: ADMIN, built: true },
+      { route: '/t/admin/demo', label: 'Demo control', icon: RotateCcw, roles: ADMIN, built: true, demoOnly: true },
     ],
   },
 ];
@@ -158,13 +162,16 @@ export const ALL_NAV: NavGroup[] = [...ORGANIZATION_NAV, ...TREKLINK_NAV];
 export const visibleNav = (
   accountType: 'TREKLINK' | 'ORGANIZATION',
   roles: readonly string[],
-  options: { includeUnbuilt?: boolean } = {},
+  options: { includeUnbuilt?: boolean; demoEnabled?: boolean } = {},
 ): NavGroup[] =>
   (accountType === 'TREKLINK' ? TREKLINK_NAV : ORGANIZATION_NAV)
     .map((group) => ({
       ...group,
       entries: group.entries.filter(
-        (entry) => (entry.built || options.includeUnbuilt) && hasAnyRole(roles, entry.roles),
+        (entry) =>
+          (entry.built || options.includeUnbuilt) &&
+          (!entry.demoOnly || options.demoEnabled === true || options.includeUnbuilt === true) &&
+          hasAnyRole(roles, entry.roles),
       ),
     }))
     .filter((group) => group.entries.length > 0);

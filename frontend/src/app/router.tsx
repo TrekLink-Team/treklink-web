@@ -28,6 +28,7 @@ import { LiveMapPage } from '../pages/LiveMapPage';
 import { MaintenanceApprovalPage, MaintenancePage } from '../pages/MaintenancePage';
 import { PaymentPage } from '../pages/PaymentPage';
 import { ParametersPage } from '../pages/ParametersPage';
+import { DemoControlPage } from '../pages/DemoControlPage';
 import { PricesPage } from '../pages/PricesPage';
 import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
@@ -143,6 +144,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/admin/audit" element={<Navigate to="/t/admin/audit/changes" replace />} />
         <Route path="/t/admin/audit/changes" element={<AuditLogPage />} />
         <Route path="/t/admin/audit/sign-ins" element={<AuthEventsPage />} />
+        <Route path="/t/admin/demo" element={<DemoControlPage />} />
       </Route>
     </Route>
     {DesignSystemPage && (

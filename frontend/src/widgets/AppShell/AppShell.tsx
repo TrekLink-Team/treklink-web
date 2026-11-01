@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useDemoStatus } from '../../entities/demo/api';
 import type { SessionUser } from '../../entities/session/model';
 import { isFullBleed, visibleNav } from '../../shared/config/navigation';
 import { cn } from '../../shared/ui/cn';
@@ -38,7 +39,12 @@ interface AppShellProps {
  */
 export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children }) => {
   const { pathname } = useLocation();
-  const groups = useMemo(() => visibleNav(user.accountType, user.roles), [user.accountType, user.roles]);
+  // The Demo control entry shows only while the backend's demo controls are on (D-088).
+  const demoEnabled = useDemoStatus().data?.enabled === true;
+  const groups = useMemo(
+    () => visibleNav(user.accountType, user.roles, { demoEnabled }),
+    [user.accountType, user.roles, demoEnabled],
+  );
   const fullBleed = isFullBleed(pathname);
   const workspace = workspaceOf(user);
 

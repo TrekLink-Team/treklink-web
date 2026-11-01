@@ -25,4 +25,4 @@
 
 ## Phase 3: Frontend
 
-- [ ] 3.1 `entities/demo` hooks; page `/t/admin/demo`; nav entry shown only while `enabled`; role switcher in the account menu; tests
+- [x] 3.1 `entities/demo` hooks; page `/t/admin/demo`; nav entry shown only while `enabled`; role switcher in the account menu; tests
