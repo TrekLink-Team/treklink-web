@@ -3,7 +3,7 @@ import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { PricingService } from '../billing';
+import { InvoicesService, PricingService } from '../billing';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
@@ -24,7 +24,9 @@ const SNAPSHOT = {
 const PARAMETERS: Record<string, unknown> = {
   'rentals.minOrderQuantity': 5,
   'rentals.dayPlanLengths': [3, 4, 7],
+  'rentals.requestHoldHours': 24,
 };
+const HELD = Array.from({ length: 10 }, (_, i) => ({ id: `d-${i}`, assetTag: `TL-00${10 + i}` }));
 const MONTHLY: ContractRequest = {
   planType: PlanType.MONTHLY,
   hardwareVariantId: 'v-3',
@@ -40,10 +42,15 @@ const DAY: ContractRequest = {
 };
 
 describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () => {
-  let contracts: { insertRequested: jest.Mock };
+  let contracts: {
+    insertRequested: jest.Mock;
+    insertContractDevices: jest.Mock;
+    insertTerm: jest.Mock;
+  };
   let organizations: { lockActive: jest.Mock };
   let pricing: { snapshot: jest.Mock };
-  let devices: { variants: jest.Mock };
+  let devices: { variants: jest.Mock; reserve: jest.Mock };
+  let invoices: { issueTermInvoice: jest.Mock; issueDayPlanInvoice: jest.Mock };
   let parameters: { get: jest.Mock };
   let emitter: { emit: jest.Mock };
   let prisma: { $transaction: jest.Mock };
@@ -51,16 +58,33 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
 
   beforeEach(() => {
     contracts = {
-      insertRequested: jest.fn().mockResolvedValue({
-        id: 'c-1',
-        code: 'RC-2026-0001',
-        status: ContractStatus.REQUESTED,
-      }),
+      insertRequested: jest.fn().mockImplementation((data: object) =>
+        Promise.resolve({
+          ...data,
+          id: 'c-1',
+          code: 'RC-2026-0001',
+          status: ContractStatus.REQUESTED,
+          version: 0,
+        }),
+      ),
+      insertContractDevices: jest.fn().mockResolvedValue(undefined),
+      insertTerm: jest
+        .fn()
+        .mockImplementation((term: object) =>
+          Promise.resolve({ id: 't-1', status: 'OPEN', ...term }),
+        ),
+    };
+    invoices = {
+      issueTermInvoice: jest.fn().mockResolvedValue({}),
+      issueDayPlanInvoice: jest.fn().mockResolvedValue({}),
     };
     organizations = { lockActive: jest.fn().mockResolvedValue(undefined) };
     pricing = { snapshot: jest.fn().mockResolvedValue(SNAPSHOT) };
     devices = {
-      variants: jest.fn().mockResolvedValue([{ id: 'v-3', isActive: true }]),
+      variants: jest.fn().mockResolvedValue([{ id: 'v-3', code: 'treklink-v3', isActive: true }]),
+      reserve: jest.fn((_variant: unknown, quantity: number) =>
+        Promise.resolve(HELD.slice(0, quantity)),
+      ),
     };
     parameters = { get: jest.fn((key: string) => Promise.resolve(PARAMETERS[key])) };
     emitter = { emit: jest.fn() };
@@ -79,6 +103,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
         emitter as unknown as EventEmitter2,
       ),
       devices as unknown as DevicesService,
+      invoices as unknown as InvoicesService,
     );
   });
 
@@ -90,7 +115,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
   };
 
   it('inserts a monthly contract REQUESTED with the snapshot and returns its quote', async () => {
-    await expect(service.request(MONTHLY, MANAGER, AT)).resolves.toEqual({
+    await expect(service.request(MONTHLY, MANAGER, AT)).resolves.toMatchObject({
       contract: { id: 'c-1', code: 'RC-2026-0001', status: ContractStatus.REQUESTED },
       quote: { firstPaymentVnd: 2_250_000n, termFeeVnd: 4_500_000n },
     });
@@ -110,6 +135,7 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
         dayPremium: null,
         holdingFeeRatio: SNAPSHOT.holdingFeeRatio,
         requestedById: 'manager-1',
+        holdExpiresAt: new Date('2026-10-27T02:00:00.000Z'),
       },
       AT,
       tx,
@@ -126,7 +152,85 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
         planType: PlanType.MONTHLY,
         quantity: 10,
         monthlyUnitPriceVnd: '450000',
+        heldDevices: 10,
+        holdExpiresAt: '2026-10-27T02:00:00.000Z',
       },
+    });
+  });
+
+  describe('the hold at request (D-092 rule 1, design §2.1)', () => {
+    it('holds the quantity, opens term 1 and issues the first invoice in the request transaction', async () => {
+      const requested = await service.request(MONTHLY, MANAGER, AT);
+
+      expect(devices.reserve).toHaveBeenCalledWith({ id: 'v-3', code: 'treklink-v3' }, 10, AT, tx, {
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        actorId: 'manager-1',
+      });
+      expect(contracts.insertContractDevices).toHaveBeenCalledWith(
+        HELD.map((device) => ({ contractId: 'c-1', deviceId: device.id })),
+        tx,
+      );
+      // Term 1 from 09:00 UTC+7 on the start date, one calendar month.
+      expect(contracts.insertTerm).toHaveBeenCalledWith(
+        {
+          contractId: 'c-1',
+          seq: 1,
+          startsAt: new Date('2026-10-26T02:00:00.000Z'),
+          endsAt: new Date('2026-11-26T02:00:00.000Z'),
+        },
+        tx,
+      );
+      expect(invoices.issueTermInvoice).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'c-1', quantity: 10, variantCode: 'treklink-v3' }),
+        expect.objectContaining({ id: 't-1', seq: 1 }),
+        tx,
+        AT,
+      );
+      expect(requested).toMatchObject({
+        heldDevices: 10,
+        holdExpiresAt: new Date('2026-10-27T02:00:00.000Z'),
+        term: { id: 't-1', seq: 1 },
+      });
+    });
+
+    it('issues the day-plan invoice for a day plan', async () => {
+      await service.request(DAY, MANAGER, AT);
+      expect(invoices.issueDayPlanInvoice).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'c-1', dayPlanDays: 4, quantity: 8, termId: 't-1' }),
+        tx,
+        AT,
+      );
+      expect(invoices.issueTermInvoice).not.toHaveBeenCalled();
+    });
+
+    it('lets a shortfall refuse with 409 INSUFFICIENT_DEVICES before any row, term or event (MSG11)', async () => {
+      devices.reserve.mockRejectedValue(
+        new DomainException(
+          409,
+          ErrorCode.INSUFFICIENT_DEVICES,
+          'Only 7 treklink-v3 devices are available. Lower the quantity or choose another variant.',
+        ),
+      );
+      await expect(service.request(MONTHLY, MANAGER, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.INSUFFICIENT_DEVICES,
+      });
+      expect(contracts.insertContractDevices).not.toHaveBeenCalled();
+      expect(contracts.insertTerm).not.toHaveBeenCalled();
+      expect(invoices.issueTermInvoice).not.toHaveBeenCalled();
+      // Events go out only after commit; the rolled-back request emits nothing.
+      expect(emitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('reads the hold length from rentals.requestHoldHours (D-015)', async () => {
+      PARAMETERS['rentals.requestHoldHours'] = 2;
+      try {
+        await expect(service.request(MONTHLY, MANAGER, AT)).resolves.toMatchObject({
+          holdExpiresAt: new Date('2026-10-26T04:00:00.000Z'),
+        });
+      } finally {
+        PARAMETERS['rentals.requestHoldHours'] = 24;
+      }
     });
   });
 

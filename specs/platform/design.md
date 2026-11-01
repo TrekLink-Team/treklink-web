@@ -503,6 +503,7 @@ are logged, and a failed run never stops the next one.
 | `rentals.termRollover` | rentals | daily at `rentals.termRolloverHourLocal`, and hourly catch-up | close ended terms, open the next with its invoice, end day plans, move ended `ENDING` contracts to `RETURN_DUE` (FR-CON-08, FR-CON-10) |
 | `rentals.overdueAndDefault` | rentals | hourly | `RETURN_DUE` past grace to `OVERDUE`; `OVERDUE` past the threshold to `DEFAULTED`, suspending the organization (FR-CON-12) |
 | `rentals.reservationReminders` | rentals | hourly | approved contracts past the reservation expiry (FR-CON-04) |
+| `rentals.requestHoldExpiry` | rentals | every 10 minutes | `REQUESTED` contracts past `holdExpiresAt` with the deposit unpaid: release the units, void the unpaid lines, `CANCELLED` (rentals REQ-EVT-17, D-092 rule 1) |
 | `billing.expirePayments` | billing | 60 s | `PENDING` SePay payments past expiry become `EXPIRED` |
 | `devices.lossSearch` | devices | hourly | `SEARCHING` loss cases past `searchEndsAt` move to `CONFIRMED` (FR-DEV-15) |
 | `devices.serviceScan` | devices | weekly, Monday at `devices.serviceScanHourLocal` | open `SCHEDULED` or `FIRMWARE_UPDATE` records for `AVAILABLE` devices due within 7 days plus `devices.maintenanceLeadDays`, and send Staff the list (FR-DEV-18, D-047) |

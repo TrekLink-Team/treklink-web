@@ -66,6 +66,7 @@ describe('UNROUTED Staff/Admin alerts against Postgres', () => {
     {} as never,
     events,
     devices,
+    {} as never,
   );
   const ingestion = new IngestionService(
     new IngestionRepository(prisma),

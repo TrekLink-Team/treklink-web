@@ -477,6 +477,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       ...contract(overrides),
       reservationExpiresAt: null,
       handoverAppointmentAt: null,
+      holdExpiresAt: null,
       terms: [
         {
           id: 't-1',

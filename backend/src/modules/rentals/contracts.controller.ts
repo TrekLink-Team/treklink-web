@@ -141,10 +141,17 @@ export const toContractView = (
   organization: OrganizationRef | null,
   variantCode: string | null,
   quote: RequestQuote,
+  currentTerm: TermView | null = null,
 ): ContractView => ({
-  ...contractBase(contract, organization, variantCode, null),
+  ...contractBase(contract, organization, variantCode, currentTerm),
   quote: toNumbers(quote),
 });
+
+// api-design 01 since D-092 rule 1: the request answers the units it holds and when the hold expires.
+export interface RequestView extends ContractView {
+  holdExpiresAt: Date;
+  heldDevices: number;
+}
 
 const termOf = (terms: readonly TermView[]): TermView | null => {
   const term = terms.at(-1);
@@ -177,7 +184,11 @@ export class ContractsController {
     @CurrentCaller() caller: Caller,
   ): Promise<
     PagedResult<
-      ContractView & { reservationExpiresAt: Date | null; handoverAppointmentAt: Date | null }
+      ContractView & {
+        reservationExpiresAt: Date | null;
+        handoverAppointmentAt: Date | null;
+        holdExpiresAt: Date | null;
+      }
     >
   > {
     const page = await this.reads.page(query, caller);
@@ -187,6 +198,7 @@ export class ContractsController {
         ...labelledView(row, labels, termOf(row.terms)),
         reservationExpiresAt: row.reservationExpiresAt,
         handoverAppointmentAt: row.handoverAppointmentAt,
+        holdExpiresAt: row.holdExpiresAt,
       })),
     };
   }
@@ -201,6 +213,7 @@ export class ContractsController {
       ...labelledView(row, labels, termOf(row.terms)),
       reservationExpiresAt: row.reservationExpiresAt,
       handoverAppointmentAt: row.handoverAppointmentAt,
+      holdExpiresAt: row.holdExpiresAt,
       terms: row.terms.map((term) => ({
         seq: term.seq,
         startsAt: term.startsAt,
@@ -274,10 +287,10 @@ export class ContractsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ContractReasonDto,
     @CurrentCaller() caller: Caller,
-  ): Promise<ContractView> {
-    const contract = await this.decisions.reject(id, dto, caller);
+  ): Promise<ContractView & { paidVnd: number }> {
+    const { contract, paidVnd } = await this.decisions.reject(id, dto, caller);
     const label = await this.reads.labeller([contract]);
-    return labelledView(contract, label(contract), null);
+    return { ...labelledView(contract, label(contract), null), paidVnd: Number(paidVnd) };
   }
 
   // Org Manager (own, `contract.cancel.own`) or TrekLink Staff (`contract.operate`).
@@ -301,14 +314,14 @@ export class ContractsController {
   @Post()
   @CheckPolicies((ability) => ability.can('request', 'RentalContract'))
   @ResponseMessage(
-    'Request sent. TrekLink will confirm availability and your handover appointment.',
+    'Request sent. Your devices are held; TrekLink will confirm your handover appointment.',
   )
   async request(
     @Body() dto: ContractRequestDto,
     @CurrentCaller() caller: Caller,
     @CurrentOrganization() organization: OrganizationRef | null,
-  ): Promise<ContractView> {
-    const { contract, quote } = await this.contracts.request(
+  ): Promise<RequestView> {
+    const { contract, quote, heldDevices, term, holdExpiresAt } = await this.contracts.request(
       {
         planType: dto.planType,
         dayPlanDays: dto.dayPlanDays,
@@ -320,7 +333,15 @@ export class ContractsController {
     );
     const variants = await this.devices.variants(false);
     const variant = variants.find((item) => item.id === contract.hardwareVariantId);
-    return toContractView(contract, organization, variant?.code ?? null, quote);
+    return {
+      ...toContractView(contract, organization, variant?.code ?? null, quote, {
+        seq: term.seq,
+        startsAt: term.startsAt,
+        endsAt: term.endsAt,
+      }),
+      holdExpiresAt,
+      heldDevices,
+    };
   }
 
   // Org Manager (own). The envelope message is static; the page shows MSG18 with the date and

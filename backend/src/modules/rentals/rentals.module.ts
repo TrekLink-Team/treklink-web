@@ -19,6 +19,7 @@ import { RentalsPortsModule } from './rentals-ports.module';
 import { ReturnController } from './return.controller';
 import { OverdueAndDefaultJob } from './overdue-and-default.job';
 import { ReplacementService } from './replacement.service';
+import { RequestHoldExpiryJob } from './request-hold-expiry.job';
 import { ReservationRemindersJob } from './reservation-reminders.job';
 import { ReturnService } from './return.service';
 import { TermRolloverJob } from './term-rollover.job';
@@ -45,6 +46,7 @@ import { TermRolloverJob } from './term-rollover.job';
     ReplacementService,
     OverdueAndDefaultJob,
     ReservationRemindersJob,
+    RequestHoldExpiryJob,
     TermRolloverJob,
     RentalsOrganizationExitCheck,
     RentalsOrganizationCount,

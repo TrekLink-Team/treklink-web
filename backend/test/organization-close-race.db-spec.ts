@@ -9,7 +9,7 @@ import { AccountsService } from '../src/modules/auth';
 import { AccountsRepository } from '../src/modules/auth/accounts.repository';
 import { OneTimeCodeService } from '../src/modules/auth/one-time-code.service';
 import { PasswordFlowsService } from '../src/modules/auth/password-flows.service';
-import { PricingService } from '../src/modules/billing';
+import { InvoicesService, PricingService } from '../src/modules/billing';
 import { DevicesService } from '../src/modules/devices';
 import { ApiKeysRepository } from '../src/modules/organizations/api-keys.repository';
 import { FieldStationsRepository } from '../src/modules/organizations/field-stations.repository';
@@ -78,12 +78,18 @@ describe('Contract request against an organization closing, on Postgres', () => 
         requestGate.reached();
         await requestGate.opened;
       }
+      if (key === 'rentals.requestHoldHours') return 24;
       return key === 'rentals.minOrderQuantity' ? 1 : [3, 4, 7];
     },
   } as unknown as ParameterService;
   const devices = {
-    variants: () => Promise.resolve([{ id: variantId, isActive: true }]),
+    variants: () => Promise.resolve([{ id: variantId, code: 'close-race', isActive: true }]),
+    // The hold at request (D-092): this race is about the organization row, so no unit is held.
+    reserve: () => Promise.resolve([]),
   } as unknown as DevicesService;
+  const invoices = {
+    issueTermInvoice: () => Promise.resolve({}),
+  } as unknown as InvoicesService;
   const pricing = {
     snapshot: () =>
       Promise.resolve({
@@ -99,6 +105,7 @@ describe('Contract request against an organization closing, on Postgres', () => 
     parameters,
     events,
     devices,
+    invoices,
   );
 
   const checks: OrganizationExitCheck[] = [];

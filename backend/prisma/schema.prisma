@@ -993,6 +993,7 @@ model RentalContract {
   rejectionReason       String?
   reservationExpiresAt  DateTime?       @db.Timestamptz(3) // FR-CON-04
   handoverAppointmentAt DateTime?       @db.Timestamptz(3) // the counter appointment set at approval
+  holdExpiresAt         DateTime?       @db.Timestamptz(3) // D-092 rule 1: an unpaid request hold ends here; null before D-092
   cancelledAt           DateTime?       @db.Timestamptz(3)
   cancelReason          String?
   // handover (FR-CON-05, FR-CON-06, D-037)

@@ -7,8 +7,8 @@ import { DevicesService, DeviceTag } from '../devices';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
-import { firstTerm } from './contract-terms';
 import { ContractRow, ContractsRepository, DeviceRow, Holder } from './contracts.repository';
+import { openFirstTerm } from './first-invoice';
 
 const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
@@ -50,6 +50,18 @@ export interface Cancelled {
   retainedVnd: bigint;
 }
 
+export interface Rejected {
+  contract: ContractRow;
+  // A deposit paid on the request, refunded outside TrekLink (leader ruling 2026-11-01).
+  paidVnd: bigint;
+}
+
+// The cancellation reason of an unpaid request hold past `holdExpiresAt` (REQ-EVT-17).
+export const HOLD_EXPIRED = 'HOLD_EXPIRED';
+
+const sameSet = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && b.every((id) => a.includes(id));
+
 const notFound = () =>
   new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Contract not found.');
 
@@ -80,9 +92,11 @@ export class ContractDecisionsService {
     private readonly events: TransactionalEvents,
   ) {}
 
-  // Reserves exactly the requested number of AVAILABLE units (409 INSUFFICIENT_DEVICES, nothing
-  // reserved), creates term 1 anchored to the start date, issues its invoice and moves the contract
-  // to APPROVED (REQ-EVT-02). An appointment before the current minute is refused (REQ-ERR-09). The
+  // Keeps the units the request holds (D-092 rule 1, design §2.1), or, for a contract requested
+  // before D-092 that holds none, reserves exactly the requested number of AVAILABLE units (409
+  // INSUFFICIENT_DEVICES, nothing reserved), creates term 1 anchored to the start date and issues its
+  // invoice; then moves the contract to APPROVED (REQ-EVT-02). `deviceIds` naming another set than
+  // the held one is 400 (REQ-ERR-11). An appointment before the current minute is refused (REQ-ERR-09). The
   // reservation expires `rentals.reservationExpiryHours` after the
   // handover appointment, which is stored on the contract (`handoverAppointmentAt`, ruling on #87
   // point 1) and also named in the transition reason for the history.
@@ -130,25 +144,37 @@ export class ContractDecisionsService {
           `Choose exactly ${contract.quantity} distinct devices.`,
         );
       }
-      const devices = await this.devices.reserve(
-        { id: contract.hardwareVariantId, code: variantCode },
-        contract.quantity,
-        at,
-        tx,
-        { contractId: id, contractCode: contract.code, actorId: actor.id },
-        input.deviceIds,
-      );
-      await this.contracts.insertContractDevices(
-        devices.map((device) => ({ contractId: id, deviceId: device.id })),
-        tx,
-      );
-
-      const { startsAt, endsAt } = firstTerm(contract);
-      const term = await this.contracts.insertTerm(
-        { contractId: id, seq: 1, startsAt, endsAt },
-        tx,
-      );
-      await this.issueFirstInvoice(contract, term, variantCode, tx, at);
+      const heldIds = (await this.contracts.liveRows(id, tx)).map((row) => row.deviceId);
+      let devices: DeviceTag[];
+      let term: { seq: number; startsAt: Date; endsAt: Date } | null = null;
+      if (heldIds.length > 0) {
+        const tags = await this.devices.assetTags(heldIds, tx);
+        if (input.deviceIds && !sameSet(heldIds, input.deviceIds)) {
+          const names = heldIds.map((deviceId) => tags.get(deviceId) ?? deviceId).join(', ');
+          throw new DomainException(
+            HttpStatus.BAD_REQUEST,
+            ErrorCode.VALIDATION_FAILED,
+            `This request already holds ${names}. Swap a unit at the counter instead.`,
+          );
+        }
+        devices = heldIds.map((deviceId) => ({ id: deviceId, assetTag: tags.get(deviceId) ?? '' }));
+        term = await this.contracts.openTerm(id, tx);
+      } else {
+        devices = await this.devices.reserve(
+          { id: contract.hardwareVariantId, code: variantCode },
+          contract.quantity,
+          at,
+          tx,
+          { contractId: id, contractCode: contract.code, actorId: actor.id },
+          input.deviceIds,
+        );
+        await this.contracts.insertContractDevices(
+          devices.map((device) => ({ contractId: id, deviceId: device.id })),
+          tx,
+        );
+      }
+      // A contract requested before D-092 has no term yet; a held one has term 1 from its request.
+      term ??= await openFirstTerm(this.contracts, this.invoices, contract, variantCode, tx, at);
 
       const reservationExpiresAt = new Date(input.handoverAt.getTime() + hours * HOUR_MS);
       const approved = await this.lifecycle.apply(
@@ -179,13 +205,16 @@ export class ContractDecisionsService {
     });
   }
 
-  // REQUESTED to REJECTED with the reason the Manager sees (MSG16).
+  // REQUESTED to REJECTED with the reason the Manager sees (MSG16). Since D-092 the request holds
+  // devices and a first invoice: they are released and the unpaid lines voided in the same
+  // transaction (REQ-EVT-03); a deposit already paid is answered as `paidVnd`, refunded outside
+  // TrekLink (leader ruling 2026-11-01).
   async reject(
     id: string,
     input: { reason: string; expectedVersion: number },
     actor: Caller,
     at: Date = new Date(),
-  ): Promise<ContractRow> {
+  ): Promise<Rejected> {
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
       assertVersion(contract, input.expectedVersion);
@@ -202,7 +231,33 @@ export class ContractDecisionsService {
         { decidedById: actor.id, decidedAt: at, rejectionReason: input.reason },
         tx,
       );
-      return { ...rejected, statusChangedAt: at };
+      const paidVnd = await this.releaseAndVoid(contract, actor.id, tx, at);
+      return { contract: { ...rejected, statusChangedAt: at }, paidVnd };
+    });
+  }
+
+  // rentals.requestHoldExpiry (REQ-EVT-17, design §2.1): under the contract lock, a REQUESTED contract
+  // past `holdExpiresAt` whose first payment is not paid in full has its devices released, its unpaid
+  // first-invoice lines voided and moves to CANCELLED as SYSTEM with the reason HOLD_EXPIRED. Returns
+  // false, changing nothing, when the contract moved on, the hold has not expired or is paid.
+  async expireHold(id: string, at: Date = new Date()): Promise<boolean> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(id, tx);
+      if (contract.status !== ContractStatus.REQUESTED) return false;
+      const expiresAt = await this.contracts.holdExpiresAt(id, tx);
+      if (!expiresAt || expiresAt.getTime() > at.getTime()) return false;
+      if (await this.balances.firstPaymentConfirmed(id, tx)) return false;
+      await this.lifecycle.apply(
+        id,
+        ContractStatus.REQUESTED,
+        ContractStatus.CANCELLED,
+        HOLD_EXPIRED,
+        null,
+        tx,
+      );
+      await this.releaseAndVoid(contract, null, tx, at);
+      await this.contracts.recordCancellation(id, HOLD_EXPIRED, at, tx);
+      return true;
     });
   }
 
@@ -229,20 +284,8 @@ export class ContractDecisionsService {
         actor,
         tx,
       );
-      const released = await this.contracts.releaseReservedRows(id, at, tx);
-      await this.devices.release(released, at, tx, {
-        contractId: id,
-        contractCode: contract.code,
-        actorId: actor.id,
-      });
-      await this.charges.settleCancellation(
-        { id, organizationId: contract.organizationId },
-        actor.id,
-        tx,
-        at,
-      );
+      const paidVnd = await this.releaseAndVoid(contract, actor.id, tx, at);
       await this.contracts.recordCancellation(id, input.reason, at, tx);
-      const { paidVnd } = await this.balances.balanceSummary(id, at, tx);
       return { contract: { ...cancelled, statusChangedAt: at }, retainedVnd: paidVnd };
     });
   }
@@ -342,38 +385,28 @@ export class ContractDecisionsService {
     });
   }
 
-  private issueFirstInvoice(
+  // Before handover: the rows not handed over are released with their units back to AVAILABLE, billing
+  // voids the unpaid first-invoice lines (nothing when no invoice was issued), and the amount paid so
+  // far is returned. Shared by cancel, reject and the hold expiry (FR-CON-04, D-092 rule 1).
+  private async releaseAndVoid(
     contract: ContractRow,
-    term: { id: string; seq: number; startsAt: Date; endsAt: Date },
-    variantCode: string,
+    actorId: string | null,
     tx: Prisma.TransactionClient,
     at: Date,
-  ) {
-    const billable = {
-      id: contract.id,
-      organizationId: contract.organizationId,
-      quantity: contract.quantity,
-      monthlyUnitPriceVnd: contract.monthlyUnitPriceVnd,
-      variantCode,
-    };
-    if (contract.planType === PlanType.DAY) {
-      return this.invoices.issueDayPlanInvoice(
-        {
-          ...billable,
-          dayPremium: contract.dayPremium ?? new Prisma.Decimal(1),
-          dayPlanDays: contract.dayPlanDays ?? 0,
-          termId: term.id,
-          startsAt: term.startsAt,
-        },
-        tx,
-        at,
-      );
-    }
-    return this.invoices.issueTermInvoice(
-      { ...billable, holdingFeeRatio: contract.holdingFeeRatio },
-      term,
+  ): Promise<bigint> {
+    const released = await this.contracts.releaseReservedRows(contract.id, at, tx);
+    await this.devices.release(released, at, tx, {
+      contractId: contract.id,
+      contractCode: contract.code,
+      actorId,
+    });
+    await this.charges.settleCancellation(
+      { id: contract.id, organizationId: contract.organizationId },
+      actorId,
       tx,
       at,
     );
+    const { paidVnd } = await this.balances.balanceSummary(contract.id, at, tx);
+    return paidVnd;
   }
 }

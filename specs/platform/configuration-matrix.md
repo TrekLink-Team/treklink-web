@@ -41,6 +41,7 @@
 | `rentals.minOrderQuantity` | `5` | INT | 1 to 100 | devices | Minimum order quantity per contract | FR-CON-01, BR-02 |
 | `rentals.dayPlanLengths` | `[3, 4, 7]` | JSON |  | days | Day-plan lengths offered | FR-CON-01, BR-07 |
 | `rentals.reservationExpiryHours` | `48` | INT | 1 to 336 | hours | Approved but not handed over after this long: Staff and Manager are reminded | FR-CON-04 |
+| `rentals.requestHoldHours` | `24` | INT | 1 to 168 | hours | A request holds its devices this long; an unpaid hold then expires and the request is cancelled | FR-CON-01, FR-CON-04 |
 | `rentals.returnGraceHours` | `24` | INT | 0 to 168 | hours | Grace after the return due time before OVERDUE and late fees | FR-CON-12, FR-BILL-03 |
 | `rentals.defaultAfterDays` | `7` | INT | 1 to 60 | days | OVERDUE this long becomes DEFAULTED | FR-CON-12, BR-26 |
 | `rentals.termRolloverHourLocal` | `9` | INT | 0 to 23 | hour (UTC+7) | Hour at which daily term and day-plan jobs run | FR-CON-08 |

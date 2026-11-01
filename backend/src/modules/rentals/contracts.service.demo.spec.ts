@@ -20,6 +20,7 @@ describe('ContractsService demo commands', () => {
       {} as never,
       events as never,
       {} as never,
+      {} as never,
     );
     return { service, contracts };
   };

@@ -35,6 +35,7 @@ describe('ContractsService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
   });
 
@@ -117,6 +118,7 @@ describe('ContractsService.visibleDevices (monitoring design ยง4)', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     await expect(service.visibleDevices({ organizationId: 'org-1' })).resolves.toEqual([
       {
@@ -154,6 +156,7 @@ describe('ContractsService rental periods and utilization (rentals 4.5, design ย
     };
     service = new ContractsService(
       contracts as unknown as ContractsRepository,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
