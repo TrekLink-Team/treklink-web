@@ -75,6 +75,7 @@ describe('Cadence-inferred incident (incidents REQ-EVT-02), against Postgres', (
     {} as never,
     events,
     devices,
+    {} as never,
   );
   const ingestion = new IngestionService(
     new IngestionRepository(prisma),
