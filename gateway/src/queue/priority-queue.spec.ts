@@ -44,4 +44,18 @@ describe('SQLitePriorityQueue', () => {
     expect(queue.peek(1)[0].eventId).toBe('b');
     queue.close();
   });
+  it('reads the oldest entry\'s capture time and retry count for the local page', () => {
+    const queue = new SQLitePriorityQueue(':memory:');
+    expect(queue.oldestEntry()).toBeNull();
+    const before = Math.floor(Date.now() / 1000) * 1000;
+    queue.enqueue('a', PriorityTier.P3_TELEMETRY, { n: 1 });
+    queue.enqueue('b', PriorityTier.P0_SOS, { n: 2 });
+    const [oldest] = queue.peek(10).filter((row) => row.eventId === 'a');
+    queue.markAttempt(oldest.id);
+    const entry = queue.oldestEntry();
+    expect(entry?.retryCount).toBe(1);
+    expect(entry?.capturedAt).toBeGreaterThanOrEqual(before);
+    expect(entry?.capturedAt).toBeLessThanOrEqual(Date.now());
+    queue.close();
+  });
 });

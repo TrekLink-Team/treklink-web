@@ -97,6 +97,23 @@ export const gatewayConfig = {
     healthIntervalMs: num('GATEWAY_HEALTH_INTERVAL_MS', 60_000),
   },
 
+  /**
+   * The Field Station local page and local API (gateway-sync design §3, field-station-local-page.md,
+   * REQ-STA-02). The server binds to 127.0.0.1 only; the host is not configurable, so the page is never
+   * reachable from another machine.
+   */
+  local: {
+    /** TCP port of the local page on 127.0.0.1. */
+    port: int('GATEWAY_LOCAL_PORT', 4321, 1, 65_535),
+    /**
+     * A node silent this long is shown stale on the local page. The default and bounds follow the cloud's
+     * `monitoring.deviceStaleSeconds` (300, 30 to 7200), so the two pages agree out of the box.
+     */
+    staleSeconds: int('GATEWAY_LOCAL_STALE_SECONDS', 300, 30, 7_200),
+    /** Decoded events kept in memory for the page's log, newest last. */
+    eventLogSize: int('GATEWAY_LOCAL_EVENT_LOG_SIZE', 200, 10, 10_000),
+  },
+
   serial: {
     port: str('GATEWAY_SERIAL_PORT', '/dev/ttyUSB0'),
     baudRate: num('GATEWAY_SERIAL_BAUD', 115_200),
