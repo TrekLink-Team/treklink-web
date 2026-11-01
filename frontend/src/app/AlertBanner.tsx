@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Siren, WifiOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { fetchFleetIncidents, fetchIncidents, type Incident } from '../entities/incident/api';
 import { acknowledgeIncident } from '../features/acknowledge-incident/api';
 import { ApiError } from '../shared/api/apiClient';
-import { isLivePaused, subscribeLive } from '../shared/socket/socketClient';
+import {
+  LIVE_POLL_MS,
+  isLivePaused,
+  livePolls,
+  subscribeLive,
+} from '../shared/socket/socketClient';
 
 // MSG32, shown from disconnect to `replay.done` (REQ-EVT-03).
 const MSG32 = 'Reconnecting. Live data is paused.';
@@ -32,6 +38,36 @@ const alertFrom = (payload: Record<string, unknown>): Alert => {
   return { incidentId: String(payload.incidentId), text };
 };
 
+// Poll mode (frontend design §3, D-089): no socket delivers `incident.alert`, so the banner reads, on
+// each poll, the open incidents that wait for the viewer: for an organization member, its
+// organization's incidents in a NOTIFY_ state that nobody has acknowledged; for TrekLink Staff, the
+// unrouted and escalated ones of the Staff queue.
+const SOURCE_TEXT: Record<Incident['source'], string> = {
+  DEVICE_SOS: 'SOS',
+  DEVICE_FALL: 'Fall detected',
+  CADENCE_INFERRED: 'Possible emergency',
+};
+const polledAlerts = (items: readonly Incident[], staff: boolean): Alert[] =>
+  items
+    .filter((incident) =>
+      staff
+        ? incident.state === 'UNROUTED' || incident.state === 'ESCALATED'
+        : /^NOTIFY_/.test(incident.state) && !incident.owner,
+    )
+    .map((incident) => {
+      const holder = incident.device.holder?.name;
+      const time = new Date(incident.firstEventAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      return {
+        incidentId: incident.id,
+        text: `${SOURCE_TEXT[incident.source]}: ${incident.device.assetTag ?? 'Unknown device'}${
+          holder ? ` (${holder})` : ''
+        }, ${time}. Acknowledge now.`,
+      };
+    });
+
 const ACTION =
   'min-h-11 shrink-0 rounded-control bg-status-critical-on px-5 font-extrabold text-status-critical-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-status-critical-on disabled:opacity-60';
 
@@ -44,6 +80,31 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // Poll mode: the incidents read on the last poll, and those this viewer has just handled, so an
+  // acknowledged one does not flash back before the next poll.
+  const [polled, setPolled] = useState<Alert[]>([]);
+  const [handled, setHandled] = useState<ReadonlySet<string>>(new Set());
+
+  useEffect(() => {
+    if (!livePolls()) return;
+    let stopped = false;
+    const load = async () => {
+      try {
+        const page = staff
+          ? await fetchFleetIncidents(['UNROUTED', 'ESCALATED'], 1)
+          : await fetchIncidents({ open: true });
+        if (!stopped) setPolled(polledAlerts(page.items, staff));
+      } catch {
+        // The next poll tries again; a failed read never clears a banner already shown.
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), LIVE_POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [staff]);
 
   useEffect(
     () =>
@@ -65,7 +126,12 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
     [],
   );
 
-  const current = alerts[0];
+  const shown = livePolls() ? polled.filter((alert) => !handled.has(alert.incidentId)) : alerts;
+  const current = shown[0];
+  const done = (incidentId: string) => {
+    setAlerts((list) => list.filter((a) => a.incidentId !== incidentId));
+    setHandled((set) => new Set(set).add(incidentId));
+  };
 
   const acknowledge = async (alert: Alert) => {
     setPending(true);
@@ -73,12 +139,12 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
     try {
       await acknowledgeIncident(alert.incidentId);
       setNotice(MSG03);
-      setAlerts((list) => list.filter((a) => a.incidentId !== alert.incidentId));
+      done(alert.incidentId);
     } catch (error) {
       if (error instanceof ApiError && error.errorCode === 'ALREADY_OWNED') {
         // MSG27: someone else took it, so the banner is done.
         setNotice(error.message);
-        setAlerts((list) => list.filter((a) => a.incidentId !== alert.incidentId));
+        done(alert.incidentId);
       } else {
         setFailure(error instanceof ApiError ? error.message : 'Could not acknowledge. Try again.');
       }
@@ -111,9 +177,9 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
               </span>
               <span>
                 {current.text}
-                {alerts.length > 1 && (
+                {shown.length > 1 && (
                   <span className="ml-2 text-body-sm font-semibold">
-                    (+{alerts.length - 1} more)
+                    (+{shown.length - 1} more)
                   </span>
                 )}
               </span>

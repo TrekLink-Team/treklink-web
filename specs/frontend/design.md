@@ -75,7 +75,10 @@ change-password dialog; damage rates are a section of `/t/admin/prices`.
 - Poll mode (`VITE_LIVE_MODE=poll`, set by the Vercel frontend build, D-089): Vercel Functions hold no
   WebSocket and Socket.IO polling lands on different instances, so no socket is opened. `LiveProvider`
   invalidates the stream-driven keys (map snapshot, incidents, authority reports, contracts, balances,
-  transitions, invoices) every 15 seconds; only mounted queries refetch.
+  transitions, invoices) every 15 seconds; only mounted queries refetch. The red MSG31 banner, which the
+  socket fills from `incident.alert`, reads on the same cadence the open incidents that wait for the
+  viewer: for an organization member, its organization's `NOTIFY_*` incidents nobody has acknowledged,
+  with Acknowledge; for TrekLink Staff, the unrouted and escalated ones, with Open queue.
 - The auth context holds the `me` response; `apiClient` refreshes once on 401.
 - A session survives a reload (D-090 rule 3): the session store mirrors the refresh token to the tab's
   `sessionStorage` (`treklink.session.refresh`) on sign-in and on every rotation, and removes it on sign-out
