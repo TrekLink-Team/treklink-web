@@ -113,11 +113,13 @@ const NEXT_TIER = {
   NOTIFY_BACKUP: IncidentState.NOTIFY_MANAGER,
   NOTIFY_MANAGER: IncidentState.ESCALATED,
 } as const;
-type TimedTier = keyof typeof NEXT_TIER;
-const isTier = (state: IncidentState): state is TimedTier => state in NEXT_TIER;
+export type TimedTier = keyof typeof NEXT_TIER;
+// The timed notify tiers, their name and their members, shared with the device-silent alert
+// (`alerts/stale-alerts.ts`).
+export const isTier = (state: IncidentState): state is TimedTier => state in NEXT_TIER;
 export const tierOf = (state: IncidentState): string | null =>
   isTier(state) ? state.slice(7) : null;
-const tierMembers = (state: TimedTier, recipients: IncidentRecipients): readonly string[] =>
+export const tierMembers = (state: TimedTier, recipients: IncidentRecipients): readonly string[] =>
   state === 'NOTIFY_PRIMARY'
     ? recipients.primary
     : state === 'NOTIFY_BACKUP'
