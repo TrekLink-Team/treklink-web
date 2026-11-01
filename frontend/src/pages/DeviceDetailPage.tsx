@@ -23,7 +23,7 @@ import { buttonClasses } from '../shared/ui/buttonStyles';
 import { Dialog } from '../shared/ui/Dialog';
 import { Checkbox, Field, Input, Switch, Textarea } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
-import { DEVICE_STATUS, MAINTENANCE_STATUS } from '../shared/ui/status';
+import { DEVICE_STATUS, MAINTENANCE_STATUS, type DeviceStatus } from '../shared/ui/status';
 import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { useToast } from '../shared/ui/toastStore';
@@ -31,8 +31,17 @@ import { ALERT, CARD, LINK } from '../shared/ui/styles';
 
 const MSG03 = 'Saved.';
 const MSG29 = 'Finish the open maintenance record first.';
-// The six working states a device is reported lost from (devices REQ-EVT-13, screen 4.4).
-const IN_SERVICE = ['IN_INTAKE', 'AVAILABLE', 'RESERVED', 'RENTED', 'RETURNED', 'MAINTENANCE'];
+// The six working states a device is reported lost from (devices REQ-EVT-13, screen 4.4). A copy of
+// `IN_SERVICE` in backend/src/modules/devices/loss-cases.service.ts, which decides; the frontend has no
+// shared constant for it, so a change there is made here too.
+const IN_SERVICE: readonly DeviceStatus[] = [
+  'IN_INTAKE',
+  'AVAILABLE',
+  'RESERVED',
+  'RENTED',
+  'RETURNED',
+  'MAINTENANCE',
+];
 
 const failureOf = (error: unknown, status: string): string => {
   if (error instanceof ApiError) {
