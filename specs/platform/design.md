@@ -499,6 +499,7 @@ are logged, and a failed run never stops the next one.
 | `incidents.deliverEmailAlerts` | incidents | 2 s, and woken by `incident.alertsQueued` after commit | EMAIL outbox rows due for delivery, each sent outside any transaction (FR-INC-12) |
 | `monitoring.staleSweep` | monitoring | `monitoring.staleSweepSeconds` | stale devices and Field Stations (FR-MON-03); flags incidents stale through `IncidentsService` (FR-INC-13) |
 | `monitoring.pruneStream` | monitoring | hourly | delete stream entries past retention |
+| `gatewaySync.fieldSimulator` | gateway-sync | 10 s, batches per `gatewaySync.simulatorIntervalSeconds` | synthetic positions for the demo seed's simulated nodes, only with `FIELD_SIMULATOR_ENABLED` (gateway-sync design §2, D-090) |
 | `rentals.termRollover` | rentals | daily at `rentals.termRolloverHourLocal`, and hourly catch-up | close ended terms, open the next with its invoice, end day plans, move ended `ENDING` contracts to `RETURN_DUE` (FR-CON-08, FR-CON-10) |
 | `rentals.overdueAndDefault` | rentals | hourly | `RETURN_DUE` past grace to `OVERDUE`; `OVERDUE` past the threshold to `DEFAULTED`, suspending the organization (FR-CON-12) |
 | `rentals.reservationReminders` | rentals | hourly | approved contracts past the reservation expiry (FR-CON-04) |

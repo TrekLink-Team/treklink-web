@@ -88,6 +88,22 @@ Implementation notes (2026-10-23):
 - The device projection skips only an older reading; a reading of the same second applies (devices
   REQ-EVT-08), because a node reports position and telemetry together.
 
+### Field data simulator (D-090 rule 2)
+
+The Vercel production has no MQTT subscriber, so with `FIELD_SIMULATOR_ENABLED=true` (default `false`, set
+only there) `AppModule` loads `FieldSimulatorModule`, whose `gatewaySync.fieldSimulator` job (cron every
+10 s, run on Vercel by the request-driven tick of platform design §4.6) ingests synthetic packets through
+`UplinkIngress`: the node topic `<MQTT_ROOT>/2/json/LongFast/<nodeId>`, `NodeJsonAdapter` and
+`IngestionService`, the path a broker message takes. The nodes are `!de000009` and `!de00000a`, TL-0009
+and TL-0010 of the demo seed and the gateway simulator's defaults; the packets have the gateway
+`FrameSimulator`'s stock shape (`mqtt-ingress-contract.md`). `simulatedBatch` is stateless: per interval of
+`gatewaySync.simulatorIntervalSeconds` (default 60) each node sends a position on a slow loop of about
+330 m around the simulator's Ta Nang start point and a telemetry reading, timed at the interval's start,
+with packet ids derived from node, kind and time. A second run or a second instance in the same interval
+builds the same packets, which deduplicate on `(from, id)` (D-006). With
+`gatewaySync.simulatorSosIntervalMinutes` above 0 (default 0) the first node sends an SOS text once per
+window. Testers are told the data is simulated (`deploy/README.md`, the sandbox banner).
+
 ---
 
 ## 3. Field Station (Stage C) executable

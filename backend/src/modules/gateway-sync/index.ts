@@ -8,6 +8,7 @@ export {
   type HistoryPoint,
 } from './field-event-query.service';
 export { UplinkIngress, type UplinkOutcome } from './uplink-ingress';
+export { FieldSimulatorModule, fieldSimulatorEnabled } from './simulator/field-simulator.module';
 export {
   FIELD_POSITION,
   FIELD_TELEMETRY,

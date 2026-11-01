@@ -72,6 +72,8 @@ PARAMETERS = {
         ("gatewaySync.lateUploadGraceHours", 168, "INT", {"min": 1, "max": 720}, "hours", "A Field Station may still upload a device's events this long after its organization returned it", "FR-EVT-14, D-040"),
         ("gatewaySync.attributionMarginSeconds", 300, "DURATION_SECONDS", {"min": 0, "max": 3600}, "seconds", "An occurrence time this close to a handover or check-in is `UNATTRIBUTED`", "FR-EVT-17, D-040"),
         ("gatewaySync.deviceTimeMaxAheadSeconds", 60, "DURATION_SECONDS", {"min": 0, "max": 3600}, "seconds", "A device `rx_time` later than receipt by more than this is implausible", "FR-EVT-15, D-040"),
+        ("gatewaySync.simulatorIntervalSeconds", 60, "DURATION_SECONDS", {"min": 10, "max": 3600}, "seconds", "Field data simulator: one position and telemetry batch per simulated node per interval (FIELD_SIMULATOR_ENABLED only)", "D-090"),
+        ("gatewaySync.simulatorSosIntervalMinutes", 0, "INT", {"min": 0, "max": 1440}, "minutes", "Field data simulator: the first node sends an SOS once per this many minutes; 0 never", "D-090"),
     ],
     "incidents": [
         ("incidents.correlationWindowSeconds", 300, "DURATION_SECONDS", {"min": 30, "max": 3600}, "seconds", "An SOS within this time of the episode's last event joins it", "FR-INC-01, BR-13"),

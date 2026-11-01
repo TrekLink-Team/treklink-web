@@ -43,8 +43,10 @@ prefix is `api`); everything else goes to the frontend. The frontend calls the A
 production build and only when both database URLs name `treklink_prod`, the database on the Neon
 branch `vercel-prod`. The shared Neon `dev` database is never migrated or seeded from a build.
 
-Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so MF-02 field data
-and the gateway do not reach it), no socket (the frontend build sets `VITE_LIVE_MODE=poll`, so screens refetch their live views every 15 seconds and the header says "Auto refresh"), scheduled
+Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so the gateway does
+not reach it; instead `FIELD_SIMULATOR_ENABLED=true` feeds simulated positions for TL-0009 and TL-0010
+through the normal ingestion path, one batch a minute while requests arrive, and testers are told the
+field data is simulated), no socket (the frontend build sets `VITE_LIVE_MODE=poll`, so screens refetch their live views every 15 seconds and the header says "Auto refresh"), scheduled
 jobs run from a tick after requests (`JOBS_TICK_ON_REQUEST=true` in Production, at most once a
 minute per instance, so a quiet production runs nothing until the next visit), handover notes are written to `/tmp`, and email goes to the
 function log (`MAIL_TRANSPORT=console`) until an SMTP account is configured.

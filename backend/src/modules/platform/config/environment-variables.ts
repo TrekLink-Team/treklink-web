@@ -101,6 +101,12 @@ export class EnvironmentVariables {
   @IsBoolean()
   JOBS_TICK_ON_REQUEST = false;
 
+  // Owned by `gateway-sync` (design §2, D-090 rule 2): true loads the field data simulator, which ingests
+  // synthetic positions for the demo seed's simulated nodes. Set only on the Vercel production.
+  @Transform(toBoolean)
+  @IsBoolean()
+  FIELD_SIMULATOR_ENABLED = false;
+
   @IsString()
   @Matches(/^[A-Za-z0-9_-]+$/, { message: 'MQTT_ROOT must be one topic level such as treklink' })
   MQTT_ROOT = 'treklink';
