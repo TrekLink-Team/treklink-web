@@ -11,13 +11,33 @@ const listeners = new Set<(message: LiveMessage) => void>();
 const push = (message: LiveMessage) =>
   act(() => listeners.forEach((listener) => listener(message)));
 
+const poll = vi.hoisted(() => ({ on: false }));
 vi.mock('../shared/socket/socketClient', () => ({
+  LIVE_POLL_MS: 15_000,
+  livePolls: () => poll.on,
   isLivePaused: () => false,
   subscribeLive: (listener: (message: LiveMessage) => void) => {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
 }));
+
+const fetchIncidents = vi.fn();
+const fetchFleetIncidents = vi.fn();
+vi.mock('../entities/incident/api', () => ({
+  fetchIncidents: (filters: unknown) => fetchIncidents(filters),
+  fetchFleetIncidents: (states: unknown, page: unknown) => fetchFleetIncidents(states, page),
+}));
+
+const incident = (state: string, owner: unknown = null) => ({
+  id: `inc-${state}`,
+  code: 'INC-2026-000002',
+  device: { id: 'd-9', assetTag: 'TL-0009', holder: { name: 'Le Thi E', phone: null } },
+  state,
+  source: 'DEVICE_SOS',
+  firstEventAt: '2026-11-01T08:47:00.000Z',
+  owner,
+});
 
 const acknowledgeIncident = vi.fn();
 vi.mock('../features/acknowledge-incident/api', () => ({
@@ -39,7 +59,46 @@ const alertPayload = {
 afterEach(() => {
   cleanup();
   acknowledgeIncident.mockReset();
+  fetchIncidents.mockReset();
+  fetchFleetIncidents.mockReset();
   listeners.clear();
+  poll.on = false;
+});
+
+describe('AlertBanner in poll mode (D-089, no socket)', () => {
+  it('shows MSG31 for an unacknowledged NOTIFY_ incident of the organization and acknowledges it', async () => {
+    poll.on = true;
+    fetchIncidents.mockResolvedValue({
+      items: [incident('NOTIFY_BACKUP'), incident('ACKNOWLEDGED', { id: 'u-1', fullName: 'Op' })],
+    });
+    acknowledgeIncident.mockResolvedValue(undefined);
+    render(<AlertBanner />);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('SOS: TL-0009 (Le Thi E)');
+    expect(alert.textContent).not.toContain('more');
+    expect(fetchIncidents).toHaveBeenCalledWith({ open: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(acknowledgeIncident).toHaveBeenCalledWith('inc-NOTIFY_BACKUP');
+  });
+
+  it('shows Staff the unrouted and escalated incidents with a link to the queue', async () => {
+    poll.on = true;
+    fetchFleetIncidents.mockResolvedValue({ items: [incident('UNROUTED')] });
+    render(
+      <MemoryRouter>
+        <AlertBanner staff />
+      </MemoryRouter>,
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain('TL-0009');
+    expect(fetchFleetIncidents).toHaveBeenCalledWith(['UNROUTED', 'ESCALATED'], 1);
+    expect(screen.getByRole('link', { name: 'Open queue' })).toBeTruthy();
+  });
+
+  it('reads nothing while the socket is the transport', () => {
+    render(<AlertBanner />);
+    expect(fetchIncidents).not.toHaveBeenCalled();
+  });
 });
 
 describe('AlertBanner', () => {
