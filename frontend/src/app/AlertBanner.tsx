@@ -179,6 +179,18 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
     }
   };
 
+  // A device-silent alert is dismissed by anyone who sees it, Staff included: an ESCALATED, UNROUTED
+  // or REPORTED incident may stay open long after the device went silent.
+  const dismissButton = (alert: Alert) => (
+    <button
+      type="button"
+      onClick={() => setAlerts((list) => list.filter((a) => !same(a, alert)))}
+      className={ACTION}
+    >
+      Dismiss
+    </button>
+  );
+
   return (
     <div className="sticky top-0 z-banner">
       {paused && (
@@ -213,17 +225,14 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
               </span>
             </p>
             {staff ? (
-              <Link to="/t/incidents" className={`${ACTION} inline-flex items-center`}>
-                Open queue
-              </Link>
+              <div className="flex shrink-0 gap-2">
+                {current.kind === 'STALE' && dismissButton(current)}
+                <Link to="/t/incidents" className={`${ACTION} inline-flex items-center`}>
+                  Open queue
+                </Link>
+              </div>
             ) : current.kind === 'STALE' ? (
-              <button
-                type="button"
-                onClick={() => setAlerts((list) => list.filter((a) => !same(a, current)))}
-                className={ACTION}
-              >
-                Dismiss
-              </button>
+              dismissButton(current)
             ) : (
               <button
                 type="button"
