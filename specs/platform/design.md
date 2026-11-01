@@ -509,10 +509,13 @@ are logged, and a failed run never stops the next one.
 
 **Request-driven tick (D-090 rule 1).** On a host whose instances sleep between requests (Vercel Functions,
 D-089) the timers above fire only while an instance happens to be awake. With `JOBS_TICK_ON_REQUEST=true`
-the global `JobTickInterceptor` starts `JobRunnerService.tick()` when a request completes, at most once per
-instance per minute (`JOB_TICK_INTERVAL_MS`), and hands it to Vercel's `waitUntil` (`@vercel/functions`) so
-the function stays alive until it settles; off Vercel `waitUntil` does nothing and the tick runs on. A tick
-runs, one after another, every job whose cron had a fire time since its last tick run, or that has none,
+the global `JobTickInterceptor` starts `JobRunnerService.tick()` when a request's handler has answered, at
+most once per instance per minute (`JOB_TICK_INTERVAL_MS`). The production showed that a function in server
+mode is frozen as soon as its response is sent, `waitUntil` notwithstanding (ticks were cut off mid-job on
+2026-11-01), so that one request holds its response until the tick settles or `TICK_HOLD_MS` (5 s) passes;
+`/api/health` is never held, because the landing page probes it with a short timeout. `waitUntil`
+(`@vercel/functions`) is still called for a runtime that honours it. A tick runs, one after another and
+longest-waiting first, every job whose cron had a fire time since its last tick run, or that has none,
 through `run()` and its advisory lock, then records the run in `job_runs` (`name`, `lastRunAt`); a run
 skipped because another instance holds the lock is not recorded. The timers stay registered everywhere;
 with the flag off (the default) nothing reads or writes `job_runs`. A daily Vercel Cron call is left out:

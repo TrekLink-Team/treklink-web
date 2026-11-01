@@ -21,12 +21,55 @@ const interceptor = (enabled: boolean, tick: Promise<void> | null) => {
   return { tickIfDue, interceptor: new JobTickInterceptor(jobs, config) };
 };
 const handler: CallHandler = { handle: () => of('body') };
-const context = {} as ExecutionContext;
+const at = (url: string) =>
+  ({ switchToHttp: () => ({ getRequest: () => ({ url }) }) }) as unknown as ExecutionContext;
+const context = at('/api/plans');
 
 beforeEach(() => waitUntil.mockReset());
 
 describe('JobTickInterceptor (D-090 rule 1)', () => {
-  it('hands a due tick to waitUntil after the response', async () => {
+  it('holds the response until a due tick settles, and hands it to waitUntil', async () => {
+    let settle: () => void = () => undefined;
+    const tick = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    const { interceptor: subject } = interceptor(true, tick);
+    let answered = false;
+    const response = lastValueFrom(subject.intercept(context, handler)).then((body) => {
+      answered = true;
+      return body;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(answered).toBe(false);
+    expect(waitUntil).toHaveBeenCalledWith(tick);
+    settle();
+    await expect(response).resolves.toBe('body');
+  });
+
+  it('answers after TICK_HOLD_MS while a slow tick runs on', async () => {
+    jest.useFakeTimers();
+    try {
+      const { interceptor: subject } = interceptor(true, new Promise<void>(() => undefined));
+      const response = lastValueFrom(subject.intercept(context, handler));
+      await jest.advanceTimersByTimeAsync(5_000);
+      await expect(response).resolves.toBe('body');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('never holds /api/health, which the landing page probes with a short timeout', async () => {
+    const { tickIfDue, interceptor: subject } = interceptor(
+      true,
+      new Promise<void>(() => undefined),
+    );
+    await expect(lastValueFrom(subject.intercept(at('/api/health'), handler))).resolves.toBe(
+      'body',
+    );
+    expect(tickIfDue).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a due tick to waitUntil', async () => {
     const tick = Promise.resolve();
     const { tickIfDue, interceptor: subject } = interceptor(true, tick);
     await expect(lastValueFrom(subject.intercept(context, handler))).resolves.toBe('body');

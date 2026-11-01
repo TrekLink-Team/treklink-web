@@ -136,6 +136,20 @@ describe('JobRunnerService', () => {
       expect(lastRuns.has('sample.sweep')).toBe(false);
     });
 
+    it('runs the longest-waiting job first', async () => {
+      const order: string[] = [];
+      // Yearly, so the live timers never fire in the test; both last runs predate the last fire time.
+      runner.register({ name: 'sample.recent', cron: '0 0 0 1 1 *' }, () => order.push('recent'));
+      runner.register({ name: 'sample.stale', cron: '0 0 0 1 1 *' }, () => order.push('stale'));
+      lastRuns.set('sample.recent', at('2025-06-01T00:00:00Z'));
+      lastRuns.set('sample.stale', at('2025-02-01T00:00:00Z'));
+      lastRuns.set('sample.sweep', at('2026-11-01T04:59:30Z'));
+      await runner.tick(at('2026-11-01T05:00:00Z'));
+      expect(order).toEqual(['stale', 'recent']);
+      registry.deleteCronJob('sample.recent');
+      registry.deleteCronJob('sample.stale');
+    });
+
     it('starts at most one tick per minute on an instance', async () => {
       const first = runner.tickIfDue(1_000_000);
       expect(first).not.toBeNull();
