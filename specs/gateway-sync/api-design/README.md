@@ -4,8 +4,8 @@
 
 | # | Method | Route | Permission | Spec File |
 | --- | --- | --- | --- | --- |
-| 01 | POST | `/api/internal/mqtt/user` | Internal (broker) | [01-post-internal-mqtt-user.md](01-post-internal-mqtt-user.md) |
-| 02 | POST | `/api/internal/mqtt/acl` | Internal (broker) | [02-post-internal-mqtt-acl.md](02-post-internal-mqtt-acl.md) |
+| 01 | POST | `/api/internal/mqtt/user` | Public (broker hook secret) | [01-post-internal-mqtt-user.md](01-post-internal-mqtt-user.md) |
+| 02 | POST | `/api/internal/mqtt/acl` | Public (broker hook secret) | [02-post-internal-mqtt-acl.md](02-post-internal-mqtt-acl.md) |
 | 03 | POST | `/api/gateway-sync` op `listEvents` | TrekLink Staff, TrekLink Admin | [03-post-gateway-sync-op-list-events.md](03-post-gateway-sync-op-list-events.md) |
 | 04 | POST | `/api/gateway-sync` op `listAudit` | TrekLink Staff, TrekLink Admin | [04-post-gateway-sync-op-list-audit.md](04-post-gateway-sync-op-list-audit.md) |
 | 05 | POST | `/api/gateway-sync` op `replayAudit` | TrekLink Admin | [05-post-gateway-sync-op-replay-audit.md](05-post-gateway-sync-op-replay-audit.md) |
