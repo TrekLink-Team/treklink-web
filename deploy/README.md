@@ -48,5 +48,9 @@ and the gateway do not reach it), no persistent socket push (screens refresh on 
 jobs run only while an instance is warm, handover notes are written to `/tmp`, and email goes to the
 function log (`MAIL_TRANSPORT=console`) until an SMTP account is configured.
 
+The backend function runs in `sin1` (Singapore, `regions` in `vercel.json`), next to the Neon branch in
+`ap-southeast-1`. In the default `iad1` every query crossed the Pacific, and `GET /api/map/snapshot` took
+about 10 seconds.
+
 Project settings in the Vercel dashboard: framework preset Services, root directory empty (the repository root), Node.js 22.x to match CI. The project's environment variables are set in the Vercel dashboard; secrets (database URLs, JWT
 secrets, seed passwords) are entered by the leader. The list of names lives with the leader, not here.
