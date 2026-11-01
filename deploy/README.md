@@ -19,5 +19,10 @@ visitors.
 | `candidates[].health` | The backend's `GET /api/health`, readable from any origin (specs/platform REQ-EVT-04) |
 | `candidates[].timeoutMs` | How long to wait. A loopback candidate needs about 10 s, because Chrome holds a request from a public page to `localhost` on a local network access prompt until the visitor answers it |
 
-The demo laptop candidate works only on the laptop running `npm run dev`; anyone else gets the
-unavailable message, which is correct while the system is not hosted.
+Today (2026-11-01) the frontend is built by Vercel from `dev` at `https://treklink-web.vercel.app/`
+(`frontend/vercel.json` holds its single-page rewrite), while the backend, the database and the MQTT
+broker still run on the demo laptop: the Vercel frontend calls `http://localhost:3000` by default
+(`VITE_API_BASE_URL`, `VITE_WS_URL`). Both candidates therefore probe the laptop's health route, and
+the Vercel one goes first. On the laptop, `CORS_ORIGINS` must list `https://treklink-web.vercel.app`
+next to `http://localhost:5173`, and Chrome asks once for local network access. Anyone else gets the
+unavailable message, which is correct while the backend is not hosted.
