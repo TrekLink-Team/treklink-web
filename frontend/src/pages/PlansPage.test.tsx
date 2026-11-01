@@ -29,6 +29,12 @@ vi.mock('../entities/billing/api', async (importOriginal) => {
 
 vi.mock('../app/providers/useAuth', () => ({ useAuth: () => ({ user: signedIn }) }));
 
+// The sandbox test accounts box has its own tests (widgets/TestAccountsBox); here demo mode is off.
+vi.mock('../entities/demo/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../entities/demo/api')>()),
+  useDemoAccounts: () => ({ data: undefined }),
+}));
+
 const plans = (overrides: Partial<Plans> = {}): Plans => ({
   minOrderQuantity: 5,
   holdingFeeRatio: 0.5,

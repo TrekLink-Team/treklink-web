@@ -64,9 +64,20 @@ export const DEMO_ROLES: { role: DemoRole; label: string }[] = [
   { role: 'ORG_OPERATOR', label: 'Operator' },
 ];
 
+// One sandbox test account (specs/demo api-design 05, D-089): fictitious demo data, password included.
+export interface DemoTestAccount {
+  role: DemoRole;
+  roleLabel: string;
+  email: string;
+  password: string;
+  fullName: string;
+  organization: string | null;
+}
+
 export const demoKeys = {
   status: ['demo', 'status'] as const,
   scenarios: ['demo', 'scenarios'] as const,
+  accounts: ['demo', 'accounts'] as const,
 };
 
 // Demo mode off: the route is a 404, read as "no demo controls" rather than an error.
@@ -96,6 +107,20 @@ export const useDemoScenarios = (enabled: boolean) =>
     queryFn: fetchDemoScenarios,
     enabled,
     retry: false,
+  });
+
+// Public, and routed only while DEMO_TEST_ACCOUNTS_ENABLED is true: any failure, a 404 included, means
+// "no box" to the caller, so the query never retries.
+export const fetchDemoAccounts = async (): Promise<DemoTestAccount[]> =>
+  (await apiClient<{ accounts: DemoTestAccount[] }>('/demo/accounts')).accounts;
+
+export const useDemoAccounts = () =>
+  useQuery({
+    queryKey: demoKeys.accounts,
+    queryFn: fetchDemoAccounts,
+    retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
 export const stageScenario = (id: string) =>

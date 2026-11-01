@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import { usePlans, type Plans } from '../entities/billing/api';
 import { landingRoute } from '../entities/session/model';
@@ -18,6 +18,7 @@ import {
   buttonClasses,
 } from '../shared/ui';
 import { LINK, WARNING } from '../shared/ui/styles';
+import { TestAccountsBox } from '../widgets/TestAccountsBox/TestAccountsBox';
 
 // Static copy of the rental flow MF-01 and MF-02 (main flows, SRS): no endpoint.
 const STEPS = [
@@ -69,6 +70,7 @@ export const PlansPage: React.FC = () => {
   const plans = usePlans({ staleTime: 300_000, refetchOnWindowFocus: false });
   const firstCard = useRef<HTMLHeadingElement>(null);
   const retried = useRef(false);
+  const navigate = useNavigate();
 
   // After Retry succeeds, focus moves to the first variant card heading (screen 2.3, accessibility).
   // Keyed on dataUpdatedAt: a refetch that returns equal prices keeps the same `data` reference.
@@ -110,6 +112,11 @@ export const PlansPage: React.FC = () => {
         primaryAction={user ? undefined : register}
       />
       <Disclaimer />
+      {/* Sandbox test accounts (screen 7.5 box, D-089): nothing unless the backend lists them. Use carries
+          the email in route state; the sign-in page fills the password from its own copy of the list. */}
+      <TestAccountsBox
+        onUse={(account) => navigate('/sign-in', { state: { demoEmail: account.email } })}
+      />
 
       <section aria-labelledby="plans-prices" className="flex flex-col gap-4">
         <h2 id="plans-prices" className="text-title text-ink">
