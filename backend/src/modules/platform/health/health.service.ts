@@ -20,9 +20,16 @@ export interface HealthReport {
 }
 
 // backend/package.json, from src/modules/platform/health (ts-jest) or dist/modules/platform/health.
-const readBackendVersion = (): string => {
-  const raw = readFileSync(join(__dirname, '..', '..', '..', '..', 'package.json'), 'utf8');
-  return (JSON.parse(raw) as { version: string }).version;
+// The Vercel function ships backend/dist as its root without package.json (D-089), so a missing file
+// falls back to the npm script's version or "unknown" instead of failing the whole boot.
+export const readBackendVersion = (
+  file = join(__dirname, '..', '..', '..', '..', 'package.json'),
+): string => {
+  try {
+    return (JSON.parse(readFileSync(file, 'utf8')) as { version: string }).version;
+  } catch {
+    return process.env.npm_package_version ?? 'unknown';
+  }
 };
 
 // GET /api/health (specs/platform/api-design/01-get-health.md, REQ-EVT-04, D-032).
