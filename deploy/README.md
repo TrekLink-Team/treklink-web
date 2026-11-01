@@ -19,10 +19,34 @@ visitors.
 | `candidates[].health` | The backend's `GET /api/health`, readable from any origin (specs/platform REQ-EVT-04) |
 | `candidates[].timeoutMs` | How long to wait. A loopback candidate needs about 10 s, because Chrome holds a request from a public page to `localhost` on a local network access prompt until the visitor answers it |
 
-Today (2026-11-01) the frontend is built by Vercel from `dev` at `https://treklink-web.vercel.app/`
-(`frontend/vercel.json` holds its single-page rewrite), while the backend, the database and the MQTT
-broker still run on the demo laptop: the Vercel frontend calls `http://localhost:3000` by default
-(`VITE_API_BASE_URL`, `VITE_WS_URL`). Both candidates therefore probe the laptop's health route, and
-the Vercel one goes first. On the laptop, `CORS_ORIGINS` must list `https://treklink-web.vercel.app`
-next to `http://localhost:5173`, and Chrome asks once for local network access. Anyone else gets the
-unavailable message, which is correct while the backend is not hosted.
+## The Vercel production (D-089)
+
+`vercel.json` at the repository root deploys two services in one Vercel project, `treklink-web`, at
+`https://treklink-web.vercel.app`:
+
+| Service | Root | What Vercel does |
+|---|---|---|
+| `frontend` | `frontend/` | `scripts/vercel-install.sh`, `npm run build`, serves `dist/` with a rewrite to `index.html` |
+| `backend` | `backend/` | `scripts/vercel-install.sh`, then `scripts/vercel-build.sh`; NestJS runs as one Vercel Function from `src/main.ts` |
+
+`scripts/vercel-install.sh` installs both workspaces once per deployment (the marker in `node_modules`
+holds the deployment id, because Vercel restores `node_modules` from the previous build cache) and
+moves the packages npm nests in `backend/node_modules` to the root `node_modules`. The NestJS builder
+makes `backend/dist` the function root and keeps each traced file at its path from the repository
+root, so a package left in `backend/node_modules` ships where `main.js` cannot resolve it.
+
+Requests to `/api/...` and `/socket.io/...` go to the backend with their path unchanged (the global
+prefix is `api`); everything else goes to the frontend. The frontend calls the API on the same origin
+(`VITE_API_BASE_URL=/api`).
+
+`scripts/vercel-build.sh` runs `prisma migrate deploy` and the idempotent `seed:demo` only on a
+production build and only when both database URLs name `treklink_prod`, the database on the Neon
+branch `vercel-prod`. The shared Neon `dev` database is never migrated or seeded from a build.
+
+Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so MF-02 field data
+and the gateway do not reach it), no persistent socket push (screens refresh on reload), scheduled
+jobs run only while an instance is warm, handover notes are written to `/tmp`, and email goes to the
+function log (`MAIL_TRANSPORT=console`) until an SMTP account is configured.
+
+Project settings in the Vercel dashboard: framework preset Services, root directory empty (the repository root), Node.js 22.x to match CI. The project's environment variables are set in the Vercel dashboard; secrets (database URLs, JWT
+secrets, seed passwords) are entered by the leader. The list of names lives with the leader, not here.
