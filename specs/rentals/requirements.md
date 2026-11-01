@@ -97,7 +97,8 @@
 ## 4. Configuration
 
 The `rentals` section of the [Configuration Matrix](../platform/configuration-matrix.md). Environment:
-`RENTALS_HANDOVER_BODY_LIMIT`, `HANDOVER_NOTE_STORAGE_DIR`, and the issuer of the handover note
+`RENTALS_HANDOVER_BODY_LIMIT`, `HANDOVER_NOTE_STORAGE_DIR`, `HANDOVER_NOTE_STORE` (`file` by default, `database`
+on the Vercel production, design §4.1, D-090 amendment), and the issuer of the handover note
 (design §4.1): `COMPANY_LEGAL_NAME`, `COMPANY_ADDRESS`, `COMPANY_TAX_CODE`, `COMPANY_HOTLINE`,
 `HANDOVER_PLACE`.
 

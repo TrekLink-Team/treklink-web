@@ -20,6 +20,8 @@ export const NODE_ENVIRONMENTS = ['development', 'test', 'production'] as const;
 export type NodeEnvironment = (typeof NODE_ENVIRONMENTS)[number];
 
 export const MAIL_TRANSPORTS = ['smtp', 'console'] as const;
+export const HANDOVER_NOTE_STORES = ['file', 'database'] as const;
+export type HandoverNoteStore = (typeof HANDOVER_NOTE_STORES)[number];
 export type MailTransportName = (typeof MAIL_TRANSPORTS)[number];
 
 const POSTGRES_URL = /^postgres(ql)?:\/\/\S+$/;
@@ -220,6 +222,12 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   HANDOVER_NOTE_STORAGE_DIR = 'storage/handover-notes';
+
+  // Owned by `rentals` (design §4.1, D-090 amendment): where signed notes are kept. `file` writes under
+  // HANDOVER_NOTE_STORAGE_DIR; `database` keeps the exact bytes in `handover_notes`. `database` is set
+  // only on the Vercel production, whose function disk does not outlive one request.
+  @IsIn(HANDOVER_NOTE_STORES)
+  HANDOVER_NOTE_STORE: HandoverNoteStore = 'file';
 
   // Owned by `rentals` (specs/rentals/design.md §4.1): the letterhead and Party A of the handover
   // note, and the place of handover. The defaults are development placeholders; a deployment sets

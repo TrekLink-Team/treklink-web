@@ -142,7 +142,13 @@ to the device; Staff write it again and record it, or swap the unit.
 The note is a formal handover record a supervisor or a customer accepts (dry run defect 8,
 2026-10-30). `handover-note.renderer.ts` lays it out with pdfkit on A4, black on white, in the bundled
 DejaVu Sans so Vietnamese names render; it computes nothing. The font is the document's default from the
-constructor, so pdfkit never loads its standard fonts, which the Vercel function does not ship (#261). `HandoverService.noteInput` assembles its
+constructor, so pdfkit never loads its standard fonts, which the Vercel function does not ship (#261).
+The signed note, and the replacement note of task 4.3, are stored by name through `HandoverService.storeNote`,
+by `HANDOVER_NOTE_STORE` (D-090 amendment): `file`, the default on every local host, writes under
+`HANDOVER_NOTE_STORAGE_DIR`; `database`, set only on the Vercel production, keeps the exact signed bytes in
+`handover_notes` (`name`, `pdf` bytea) inside the handover's transaction, because a function's disk does
+not outlive one request. The download reads the same store, so the SHA-256 check is unchanged; a name the
+store does not hold is `MISSING`. Notes signed on the production before the change were not backfilled. `HandoverService.noteInput` assembles its
 input, and the replacement note of task 4.3 uses the same method with `kind: 'REPLACEMENT'` and the new
 unit only. Every read joins the caller's transaction when there is one.
 

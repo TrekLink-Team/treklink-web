@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Caller } from '../../common/decorators/access.decorator';
@@ -78,6 +78,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
   let parameters: { get: jest.Mock };
   let directory: { namesOf: jest.Mock };
   let lifecycle: { apply: jest.Mock };
+  let config: Record<string, string>;
   let emitAfterCommit: jest.Mock;
   let service: HandoverService;
 
@@ -97,6 +98,8 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       markRowsHandedOver: jest.fn().mockResolvedValue(undefined),
       recordHandover: jest.fn().mockResolvedValue(undefined),
       noteOf: jest.fn(),
+      saveNote: jest.fn().mockResolvedValue(undefined),
+      readNote: jest.fn().mockResolvedValue(null),
       bumpVersion: jest.fn().mockResolvedValue(true),
     };
     devices = {
@@ -181,7 +184,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
           ]),
       ),
     };
-    const config: Record<string, string> = {
+    config = {
       COMPANY_LEGAL_NAME: 'TrekLink Co., Ltd.',
       COMPANY_ADDRESS: 'Ho Chi Minh City',
       COMPANY_TAX_CODE: '0312345678',
@@ -604,6 +607,23 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
     });
   });
 
+  describe('storeNote (design §4.1, D-090 amendment)', () => {
+    it('writes the file under HANDOVER_NOTE_STORAGE_DIR by default', async () => {
+      const pdf = Buffer.from('%PDF-1.3 file store');
+      await expect(service.storeNote('c-9.pdf', pdf, TX)).resolves.toBe('c-9.pdf');
+      await expect(readFile(join(dir, 'c-9.pdf'))).resolves.toEqual(pdf);
+      expect(contracts.saveNote).not.toHaveBeenCalled();
+    });
+
+    it('keeps the exact bytes in the database, in the caller transaction, with HANDOVER_NOTE_STORE=database', async () => {
+      config.HANDOVER_NOTE_STORE = 'database';
+      const pdf = Buffer.from('%PDF-1.3 database store');
+      await expect(service.storeNote('c-9.pdf', pdf, TX)).resolves.toBe('c-9.pdf');
+      expect(contracts.saveNote).toHaveBeenCalledWith('c-9.pdf', pdf, TX);
+      await expect(readFile(join(dir, 'c-9.pdf'))).rejects.toThrow();
+    });
+  });
+
   describe('note (api-design 11)', () => {
     it('returns the stored note with its integrity, and 404 for another organization', async () => {
       const pdf = Buffer.from('%PDF-1.3 note');
@@ -624,6 +644,40 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       await expect(service.note('c-1', STAFF)).resolves.toMatchObject({ integrity: 'MISMATCH' });
       await expect(service.note('c-1', OTHER)).rejects.toMatchObject({
         errorCode: ErrorCode.NOT_FOUND,
+      });
+    });
+
+    it('reads the note from the database store with HANDOVER_NOTE_STORE=database (D-090)', async () => {
+      config.HANDOVER_NOTE_STORE = 'database';
+      const pdf = Buffer.from('%PDF-1.3 stored in the database');
+      const { createHash } = await import('node:crypto');
+      const digest = createHash('sha256').update(pdf).digest('hex');
+      contracts.noteOf.mockResolvedValue({
+        organizationId: 'org-1',
+        handoverNotePath: 'c-1.pdf',
+        handoverNoteSha256: digest,
+      });
+      contracts.readNote.mockResolvedValueOnce(pdf);
+      await expect(service.note('c-1', MEMBER)).resolves.toEqual({
+        pdfBase64: pdf.toString('base64'),
+        sha256: digest,
+        integrity: 'OK',
+      });
+      expect(contracts.readNote).toHaveBeenCalledWith('c-1.pdf');
+      contracts.readNote.mockResolvedValueOnce(null);
+      await expect(service.note('c-1', MEMBER)).resolves.toMatchObject({ integrity: 'MISSING' });
+    });
+
+    it('reports a note missing from the file store as MISSING', async () => {
+      contracts.noteOf.mockResolvedValue({
+        organizationId: 'org-1',
+        handoverNotePath: 'gone.pdf',
+        handoverNoteSha256: 'abc',
+      });
+      await expect(service.note('c-1', STAFF)).resolves.toEqual({
+        pdfBase64: null,
+        sha256: 'abc',
+        integrity: 'MISSING',
       });
     });
 
