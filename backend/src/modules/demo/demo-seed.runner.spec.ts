@@ -1,12 +1,17 @@
 import { DomainException } from '../../common/errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { DemoSeedModule, DemoSeedRunner, loadSeedModule } from './demo-seed.runner';
+import {
+  DemoSeedModule,
+  DemoSeedRunner,
+  loadSeedModule,
+  readSeedPasswords,
+} from './demo-seed.runner';
 
 describe('DemoSeedRunner', () => {
   const prisma = {} as PrismaService;
   const seedDemo = jest.fn().mockResolvedValue(['user admin@treklink.local']);
   const readPasswords = jest.fn();
-  const module: DemoSeedModule = { seedDemo, readPasswords };
+  const module: DemoSeedModule = { seedDemo, readPasswords, SEEDED_ACCOUNTS: [] };
 
   it('refuses with 409 DEMO_SEED_NOT_CONFIGURED naming the missing variables', () => {
     readPasswords.mockImplementation(() => {
@@ -36,7 +41,27 @@ describe('DemoSeedRunner', () => {
     });
   });
 
-  it('loads prisma/seed-demo.ts and its two exports', () => {
+  it('names the action in the refusal message', () => {
+    readPasswords.mockImplementation(() => {
+      throw new Error('missing SEED_ADMIN_PASSWORD');
+    });
+    expect(() => readSeedPasswords(module, {}, 'listing the test accounts')).toThrow(
+      'Set SEED_ADMIN_PASSWORD before listing the test accounts.',
+    );
+  });
+
+  it('exports the seeded accounts in creation order, with no password', () => {
+    const accounts = loadSeedModule().SEEDED_ACCOUNTS;
+    expect(accounts.map((a) => [a.role, a.email, a.organization])).toEqual([
+      ['ADMIN', 'admin@treklink.local', null],
+      ['STAFF', 'staff@treklink.local', null],
+      ['ORG_MANAGER', 'manager@treklink.local', 'ORG-0001'],
+      ['ORG_OPERATOR', 'operator@treklink.local', 'ORG-0001'],
+    ]);
+    for (const account of accounts) expect(Object.keys(account)).not.toContain('password');
+  });
+
+  it('loads prisma/seed-demo.ts and its exports', () => {
     const loaded = loadSeedModule();
     expect(typeof loaded.seedDemo).toBe('function');
     expect(

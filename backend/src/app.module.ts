@@ -5,7 +5,12 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth';
 import { BillingModule } from './modules/billing';
-import { DemoModule, demoControlsEnabled } from './modules/demo';
+import {
+  DemoAccountsModule,
+  DemoModule,
+  demoControlsEnabled,
+  demoTestAccountsEnabled,
+} from './modules/demo';
 import { DevicesModule } from './modules/devices';
 import { GatewaySyncModule } from './modules/gateway-sync';
 import { IncidentsModule } from './modules/incidents';
@@ -39,6 +44,9 @@ import { RentalsModule } from './modules/rentals';
     // The local demo control panel (D-088), only when DEMO_CONTROLS_ENABLED is true: every /api/demo
     // route is a 404 otherwise.
     ConditionalModule.registerWhen(DemoModule, demoControlsEnabled),
+    // The read-only sandbox test accounts list (D-089), only when DEMO_TEST_ACCOUNTS_ENABLED is true,
+    // in any NODE_ENV and on any database: GET /api/demo/accounts is a 404 otherwise.
+    ConditionalModule.registerWhen(DemoAccountsModule, demoTestAccountsEnabled),
   ],
 })
 export class AppModule {}

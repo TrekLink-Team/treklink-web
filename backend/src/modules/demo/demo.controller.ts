@@ -17,6 +17,7 @@ const client = (ip: string | undefined, userAgent: string | undefined) => ({
 
 // The demo control panel (specs/demo api-design 01 to 04, D-088). Loaded only when DEMO_CONTROLS_ENABLED
 // is true; the POST routes pass DemoGuardService first. Token and policy are checked by the global guards.
+// The public test accounts read (api-design 05) is DemoAccountsController, under its own flag (D-089).
 @Controller('demo')
 export class DemoController {
   constructor(private readonly scenarios: DemoScenariosService) {}
