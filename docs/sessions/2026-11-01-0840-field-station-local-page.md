@@ -28,9 +28,11 @@ flush order, PUBACK rule) is not changed.
 
 ## Open
 
-- `PUT /local/config` (configuration from the page, stored locally): not built; asked the leader.
+- `PUT /local/config` (configuration from the page, stored locally): not built; the leader decided on
+  2026-11-01 to keep it at 501 until after the demo.
 - The local clear of `sosActive`: the contract says an operator clears it locally but names no route; it
-  stays set while the station runs.
+  stays set while the station runs. The leader decided on 2026-11-01 to leave it so; a follow-up after
+  the demo.
 - The task's test names a network interface taken down; the tests take the uplink down by refusing or
   stopping the broker and assert no request leaves the loopback.
 - `PORT_GATEWAY=3001` in `.env.example` is read by nothing in the gateway (unchanged).
