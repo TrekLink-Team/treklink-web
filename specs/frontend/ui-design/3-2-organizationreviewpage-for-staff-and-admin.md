@@ -79,3 +79,22 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Filters inside the table, as on every list table
 - [x] Component-tested: Approve held until verified, both contract terms required, Approve offered once verified (`OnboardingPages.test.tsx`)
 - [x] Suspend, reactivate and close (organizations 08 to 11), component-tested in `OnboardingPages.test.tsx`
+
+## Shared table and row menu (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2 and §3. Where this section and the
+tables above disagree, this section wins.
+
+- The list is the shared `DataTable`; a row opens its detail pane through the code button (Enter
+  works) or a click on the row. The column filter row moved to the toolbar: one search over code,
+  legal name and tax code, and a Verified select.
+- Admin: a `StateChangeMenu` "Change status of {code}" per row, listing only the lifecycle's next
+  statuses (organizations design §2): `PENDING`, Approve organization (only once verified, MSG21) and
+  Reject organization; `ACTIVE`, Suspend organization and Close organization; `SUSPENDED`, Reactivate
+  organization; `REJECTED` and `CLOSED`, no menu. Reject, suspend and close are alert dialogs with the
+  required reason shown to the Manager; every call sends the row's `expectedVersion`. The detail pane's
+  action bar stays as a second path.
+- Counter verification: shown to whoever holds `organization.verify`, that is TrekLink Staff and,
+  through inheritance, Admin. The audit of 2026-11-01 read the form as Admin-only; the code already
+  rendered it for Staff (only the Decision block is Admin-only), and a test now holds it.
+- No bulk: each decision needs its own verification or reason. The API does not sort.
