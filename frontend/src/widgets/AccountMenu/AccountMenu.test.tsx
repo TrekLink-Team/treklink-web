@@ -297,6 +297,65 @@ describe('change-password dialog (auth 08)', () => {
   });
 });
 
+describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
+  beforeEach(() => {
+    api.mockReset();
+    act(() => useSession.getState().signOut());
+  });
+  afterEach(() => cleanup());
+
+  const ADMIN_SESSION = {
+    ...TOKENS,
+    accessToken: 'admin-token',
+    user: { ...STAFF, id: 'admin-1', email: 'admin@treklink.local', roles: ['ADMIN'] },
+  };
+
+  it('offers no role switch while demo mode is off (the status route is a 404)', async () => {
+    serve(MANAGER, {
+      '/demo/status': () => Promise.reject(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status')),
+    });
+    show(MANAGER);
+    fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
+    await screen.findByRole('menuitem', { name: 'Sign out' });
+    expect(screen.queryByRole('group', { name: 'Switch role' })).toBeNull();
+  });
+
+  it('lets a Manager switch back to the Admin while demo mode is on', async () => {
+    serve(MANAGER, {
+      '/demo/status': () => Promise.resolve({ enabled: true, databaseLocal: true, lastStaged: null }),
+      '/demo/switch-role': () => Promise.resolve(ADMIN_SESSION),
+    });
+    show(MANAGER);
+    fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
+    const admin = await screen.findByRole('menuitem', { name: 'Admin' });
+    expect(screen.getByRole('menuitem', { name: 'Manager' }).getAttribute('aria-current')).toBe('true');
+    fireEvent.click(admin);
+    await waitFor(() => expect(useSession.getState().user?.email).toBe('admin@treklink.local'));
+    expect(api).toHaveBeenCalledWith('/demo/switch-role', {
+      method: 'POST',
+      body: JSON.stringify({ role: 'ADMIN' }),
+    });
+    expect(useSession.getState().tokens?.accessToken).toBe('admin-token');
+  });
+
+  it('shows a refused switch in the menu', async () => {
+    serve(MANAGER, {
+      '/demo/status': () => Promise.resolve({ enabled: true, databaseLocal: false, lastStaged: null }),
+      '/demo/switch-role': () =>
+        Promise.reject(
+          new ApiError(403, 'DEMO_DATABASE_NOT_LOCAL', 'Demo controls run only against a local database.'),
+        ),
+    });
+    show(MANAGER);
+    fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Staff' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Demo controls run only against a local database.',
+    );
+    expect(useSession.getState().user?.id).toBe('manager-1');
+  });
+});
+
 describe('labels', () => {
   it('names every role and passes an unknown key through', () => {
     expect(roleLabel(['ADMIN', 'ORG_OPERATOR', 'AUDITOR'])).toBe('Admin, Org Operator, AUDITOR');

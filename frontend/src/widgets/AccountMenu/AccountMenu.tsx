@@ -1,10 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  DEMO_ROLES,
+  demoMessageOf,
+  switchDemoRole,
+  useDemoStatus,
+  type DemoRole,
+} from '../../entities/demo/api';
 import { useSession, type SessionUser } from '../../entities/session/model';
+import { useAdoptDemoSession } from '../../features/demo-role-switch/useDemoSession';
 import { logout, useMe } from '../../features/account-menu/api';
 import { PASSWORD_CHANGED_NOTICE } from '../../features/password/api';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { initialsOf, roleLabel } from './labels';
+import { messageOf } from '../../shared/ui/errors';
 
 const organizationLine = (organization: NonNullable<SessionUser['organization']>) =>
   `${organization.legalName} (${organization.code}), ${organization.status}`;
@@ -21,6 +30,12 @@ export const AccountMenu: React.FC = () => {
   const menu = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(false);
+  // Demo mode (D-088, screen 7.5): every signed-in user can switch to a seeded role from the menu, so
+  // a window signed in as the Manager can switch back to the Admin.
+  const demoOn = useDemoStatus(tokens !== null).data?.enabled === true;
+  const adoptDemoSession = useAdoptDemoSession();
+  const [switching, setSwitching] = useState<DemoRole | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
@@ -65,6 +80,20 @@ export const AccountMenu: React.FC = () => {
     }
     endSession(true);
     navigate('/sign-in', { replace: true, state: notice ? { notice } : undefined });
+  };
+
+  const switchRole = async (role: DemoRole) => {
+    setSwitching(role);
+    setSwitchError(null);
+    try {
+      const session = await switchDemoRole(role);
+      setOpen(false);
+      adoptDemoSession(session);
+    } catch (failure) {
+      setSwitchError(demoMessageOf(failure, messageOf));
+    } finally {
+      setSwitching(null);
+    }
   };
 
   const moveFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -131,6 +160,29 @@ export const AccountMenu: React.FC = () => {
           >
             Change password
           </button>
+          {demoOn && (
+            <div role="group" aria-label="Switch role" className="mt-2 border-t border-line pt-2">
+              <p className="px-3 text-caption font-semibold text-ink-muted">Switch role (demo)</p>
+              {DEMO_ROLES.map(({ role, label }) => (
+                <button
+                  key={role}
+                  type="button"
+                  role="menuitem"
+                  disabled={switching !== null}
+                  aria-current={me.roles.includes(role) || undefined}
+                  onClick={() => void switchRole(role)}
+                  className="flex h-11 w-full items-center rounded-control px-3 text-left text-body font-semibold hover:bg-chrome/60 disabled:opacity-60"
+                >
+                  {switching === role ? `Switching to ${label}...` : label}
+                </button>
+              ))}
+              {switchError && (
+                <p role="alert" className="px-3 text-body-sm text-status-critical-fg">
+                  {switchError}
+                </p>
+              )}
+            </div>
+          )}
           <button
             type="button"
             role="menuitem"

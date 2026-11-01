@@ -32,6 +32,12 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
     expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/organizations', '/t/compliance-cases', '/t/billing', '/t/damage-charges', '/t/admin/accounts', '/t/admin/parameters', '/t/admin/prices', '/t/admin/audit/changes', '/t/admin/audit/sign-ins']);
   });
 
+  it('shows Demo control to the Admin only while the demo controls are on (D-088)', () => {
+    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).not.toContain('/t/admin/demo');
+    expect(routes(visibleNav('TREKLINK', ['ADMIN'], { demoEnabled: true })).at(-1)).toBe('/t/admin/demo');
+    expect(routes(visibleNav('TREKLINK', ['STAFF'], { demoEnabled: true }))).not.toContain('/t/admin/demo');
+  });
+
   it('keeps Administration for Admin only once its pages are built', () => {
     const staff = visibleNav('TREKLINK', ['STAFF'], { includeUnbuilt: true }).map((group) => group.id);
     const admin = visibleNav('TREKLINK', ['ADMIN'], { includeUnbuilt: true }).map((group) => group.id);
