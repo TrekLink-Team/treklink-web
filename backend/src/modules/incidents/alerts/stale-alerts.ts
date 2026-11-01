@@ -18,13 +18,16 @@ const TIER_OF_STATE: Partial<Record<IncidentState, 'primary' | 'backup' | 'manag
   NOTIFY_MANAGER: 'managers',
 };
 const TREKLINK_STATES: readonly IncidentState[] = ['ESCALATED', 'UNROUTED', 'REPORTED'];
+// An ended incident keeps its flag but alerts nobody, owner or not: a device switched off after a
+// rescue is no news, and the banner would keep the alert after the incident ended.
+const ENDED_STATES: readonly IncidentState[] = ['RESOLVED', 'FALSE_ALARM'];
 
 // The device-silent alert of REQ-EVT-12 (design §3, MSG40; leader ruling of 2026-11-01). It is queued
 // once, in the transaction that sets the incident's stale flag, as STALE outbox rows with no
-// transition; clearing the flag queues nothing. Recipients, in order: the owner when the incident
-// has one; otherwise the members of its current tier (`NOTIFY_*`), read through routing at `at`;
+// transition; clearing the flag queues nothing. Recipients, in order: nobody for a RESOLVED or
+// FALSE_ALARM incident; the owner when the incident has one; otherwise the members of its current tier (`NOTIFY_*`), read through routing at `at`;
 // otherwise, for ESCALATED, UNROUTED and REPORTED, every active TrekLink Staff and Admin account.
-// Any other state (an ownerless FALSE_ALARM, for one) alerts nobody.
+// Any other state (DETECTED, for one) alerts nobody.
 @Injectable()
 export class StaleAlerts {
   constructor(
@@ -67,6 +70,7 @@ export class StaleAlerts {
     at: Date,
     tx: Prisma.TransactionClient,
   ): Promise<StaleAlertTargets> {
+    if (ENDED_STATES.includes(incident.state)) return { tier: 'NONE', recipientIds: [] };
     if (incident.ownerId) return { tier: 'OWNER', recipientIds: [incident.ownerId] };
     const tier = TIER_OF_STATE[incident.state];
     if (tier) {

@@ -149,8 +149,10 @@ apart by the CHECK constraint `alert_deliveries_kind_shape` (migration
 `20261101120000_incidents_stale_alert`). `StaleAlerts.queue` writes one WEB and one WEBSOCKET row per
 recipient in the transaction that sets the flag, with tier `OWNER`, the tier name, or `TREKLINK`, and wakes
 the dispatcher with `incident.alertsQueued` after commit. Recipients come from routing at the time of the
-flag: the tier through `recipientsOf`, the TrekLink accounts through `treklinkRecipients`. Any other
-ownerless state (`FALSE_ALARM`, `RESOLVED` without an owner) alerts nobody. One alert goes out per set;
+flag: the tier through `recipientsOf`, the TrekLink accounts through `treklinkRecipients`. An ended
+incident (`RESOLVED`, `FALSE_ALARM`) alerts nobody, owner or not, checked before the owner: the flag is
+still set, and the device going silent after a rescue is no news. Any other ownerless state (`DETECTED`)
+alerts nobody. One alert goes out per set;
 clearing the flag queues nothing, and a device still silent on the next sweep queues nothing more, as the
 flag is already set. The dispatcher writes MSG40 "Device silent: {device} ({holder}), last heard {time}."
 for a `STALE` row, with `at` the last reading, and MSG31 for a `TRANSITION` row; `incident.alert` carries
