@@ -97,3 +97,9 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api
 
 export const downloadHref = (downloadUrl: string): string =>
   /^https?:\/\//.test(downloadUrl) ? downloadUrl : new URL(downloadUrl, API_BASE).toString();
+
+// The queue cell of a station row (screen 3.5): p0 to p3, or the words for a station not reported yet.
+export const queueText = (station: FieldStation) =>
+  station.queueDepth
+    ? `${station.queueDepth.p0} / ${station.queueDepth.p1} / ${station.queueDepth.p2} / ${station.queueDepth.p3}`
+    : 'No data yet';

@@ -3,7 +3,8 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/apiClient';
-import { BulkActionDialog, runInSequence } from './BulkAction';
+import { BulkActionDialog } from './BulkAction';
+import { runInSequence } from './bulkSequence';
 import { REASON_REQUIRED } from './StateChange';
 import { useToast } from './toastStore';
 

@@ -2,47 +2,16 @@ import React, { useId, useRef, useState } from 'react';
 import { Alert } from './Alert';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
-import { messageOf } from './errors';
 import { Checkbox, Field, Textarea } from './Field';
 import { REASON_REQUIRED } from './StateChange';
 import { useToast } from './toastStore';
+import { runInSequence, type BulkItem, type BulkOutcome } from './bulkSequence';
 
 // A bulk action of the data table rules (specs/frontend/ui-design/0-ui-standard.md §2): the single-row
 // endpoint run once per selected row, one after another, never a bulk endpoint the API does not have.
 // One dialog holds the three steps: the confirmation titled with the count, the progress, then the
 // summary of every row (succeeded, or failed with the server's reason). A row that fails never stops
 // the rows after it.
-
-export interface BulkItem {
-  id: string;
-  /** Readable name: an asset tag, an email, a charge's device and contract. */
-  label: string;
-}
-
-export interface BulkOutcome extends BulkItem {
-  ok: boolean;
-  /** The server's message for a failed row. */
-  reason?: string;
-}
-
-/** Runs `run` for each item in order and reports every outcome; a failure does not stop the rest. */
-export async function runInSequence(
-  items: readonly BulkItem[],
-  run: (item: BulkItem) => Promise<unknown>,
-  onProgress?: (done: number) => void,
-): Promise<BulkOutcome[]> {
-  const outcomes: BulkOutcome[] = [];
-  for (const item of items) {
-    try {
-      await run(item);
-      outcomes.push({ ...item, ok: true });
-    } catch (error) {
-      outcomes.push({ ...item, ok: false, reason: messageOf(error) });
-    }
-    onProgress?.(outcomes.length);
-  }
-  return outcomes;
-}
 
 export interface BulkActionDialogProps {
   /** Verb plus count and noun, as a question: "Retire 3 devices?". */

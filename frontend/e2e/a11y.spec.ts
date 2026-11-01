@@ -115,6 +115,7 @@ const ROUTES: Record<SeededRole | 'anonymous', RouteCase[]> = {
     { pattern: '/t/billing' },
     { pattern: '/t/damage-charges' },
     { pattern: '/t/organizations' },
+    { pattern: '/t/field-stations' },
     { pattern: '/t/counter/:contractId', resolve: firstId('/contracts?pageSize=50', (c) => c.code === 'RC-2026-0001') },
     { pattern: '/t/fleet' },
     { pattern: '/t/devices/:id', resolve: deviceId('TL-0009') },
