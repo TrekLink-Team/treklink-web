@@ -1,5 +1,11 @@
 import { decodeStock } from '../adapters/stock-json';
-import { SIMULATED_NODES, positionAt, simulatedBatch } from './simulated-batch';
+import {
+  CYCLE_SECONDS,
+  SIMULATED_NODES,
+  metresFromTrail,
+  positionAt,
+  simulatedBatch,
+} from './simulated-batch';
 
 const at = (iso: string) => new Date(iso);
 
@@ -31,14 +37,54 @@ describe('simulatedBatch (design §2 (field data simulator), D-090 rule 2)', () 
     }
   });
 
-  it('walks at most walking pace between two batches', () => {
-    const t = Date.parse('2026-11-01T06:00:00Z') / 1000;
+  const metres = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) =>
+    Math.hypot(
+      (b.lat - a.lat) * 111_320,
+      (b.lon - a.lon) * 111_320 * Math.cos((a.lat * Math.PI) / 180),
+    );
+  const t0 = Date.parse('2026-11-01T06:00:00Z') / 1000;
+
+  it('keeps both nodes on the OSM trail, within the 3 m jitter, over a whole out-and-back cycle', () => {
     for (const index of SIMULATED_NODES.keys()) {
-      const a = positionAt(index, t);
-      const b = positionAt(index, t + 60);
-      const metres = Math.hypot((b.lat - a.lat) * 111_000, (b.lon - a.lon) * 109_000);
-      expect(metres / 60).toBeLessThan(2);
+      for (let s = 0; s < CYCLE_SECONDS; s += 30) {
+        expect(metresFromTrail(positionAt(index, t0 + s))).toBeLessThan(4.5);
+      }
     }
+  });
+
+  it('never moves faster than monitoring.maxPlausibleSpeedKmh (30) between consecutive intervals', () => {
+    for (const index of SIMULATED_NODES.keys()) {
+      let fastest = 0;
+      for (let s = 0; s < CYCLE_SECONDS; s += 60) {
+        fastest = Math.max(
+          fastest,
+          metres(positionAt(index, t0 + s), positionAt(index, t0 + s + 60)) / 60,
+        );
+      }
+      expect(fastest * 3.6).toBeLessThan(30);
+      // Walking pace: the fastest segment is 1.4 m/s plus the jitter's drift.
+      expect(fastest).toBeLessThan(1.6);
+    }
+  });
+
+  it('turns at the trail ends without a jump and stands still at the rests', () => {
+    const turn = CYCLE_SECONDS / 2;
+    for (const at of [turn, CYCLE_SECONDS]) {
+      // Seconds just before and after the turn, minus the jitter's own drift, are metres apart.
+      expect(metres(positionAt(0, at - 1), positionAt(0, at + 1))).toBeLessThan(4);
+    }
+    let still = 0;
+    for (let s = 0; s < CYCLE_SECONDS; s += 60) {
+      if (metres(positionAt(0, s), positionAt(0, s + 60)) < 8) still += 1;
+    }
+    // Two four-minute rests each way: at least eight one-minute intervals with only jitter.
+    expect(still).toBeGreaterThanOrEqual(8);
+  });
+
+  it('puts TL-0010 further along the same trail, not on a mirrored copy', () => {
+    const lead = positionAt(1, t0);
+    expect(metresFromTrail(lead)).toBeLessThan(4.5);
+    expect(metres(lead, positionAt(0, t0 + 900))).toBeLessThan(10);
   });
 
   it('sends no SOS by default, and one per SOS window when it is set', () => {

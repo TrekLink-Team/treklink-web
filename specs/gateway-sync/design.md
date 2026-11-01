@@ -97,8 +97,11 @@ only there) `AppModule` loads `FieldSimulatorModule`, whose `gatewaySync.fieldSi
 `IngestionService`, the path a broker message takes. The nodes are `!de000009` and `!de00000a`, TL-0009
 and TL-0010 of the demo seed and the gateway simulator's defaults; the packets have the gateway
 `FrameSimulator`'s stock shape (`mqtt-ingress-contract.md`). `simulatedBatch` is stateless: per interval of
-`gatewaySync.simulatorIntervalSeconds` (default 60) each node sends a position on a slow loop of about
-330 m around the simulator's Ta Nang start point and a telemetry reading, timed at the interval's start,
+`gatewaySync.simulatorIntervalSeconds` (default 60) each node sends a position and a telemetry reading. The position walks a real trail, OpenStreetMap way
+1164619760 (an unnamed `highway=path` south-east of Ta Nang toward Phan Dung, read on 2026-11-01 and
+simplified to 63 points, 7.2 km), out and back with no jump at the ends: 0.8 to 1.4 m/s by segment, two
+four-minute rests each way, and a smooth deterministic wobble of up to 3 m. TL-0010 walks the same trail
+15 minutes ahead of TL-0009. Positions are timed at the interval's start,
 with packet ids derived from node, kind and time. A second run or a second instance in the same interval
 builds the same packets, which deduplicate on `(from, id)` (D-006). With
 `gatewaySync.simulatorSosIntervalMinutes` above 0 (default 0) the first node sends an SOS text once per
