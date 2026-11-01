@@ -2,12 +2,6 @@
   "version": 1,
   "candidates": [
     {
-      "name": "vercel-production",
-      "url": "https://treklink-web.vercel.app/",
-      "health": "https://treklink-web.vercel.app/api/health",
-      "timeoutMs": 8000
-    },
-    {
       "name": "demo-laptop",
       "url": "http://localhost:5173/",
       "health": "http://localhost:3000/api/health",
