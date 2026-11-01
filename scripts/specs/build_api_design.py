@@ -76,9 +76,18 @@ def activity(ep, errs):
                   f'    AuthError["Return 401 {code}"]', "    AuthCheck -->|yes| AuthError",
                   "    AuthError --> AuthEnd((End))"]
         prev, edge = "AuthCheck", "|no|"
+    # `guards_first`: (question, status, code) checks a guard makes before the body is validated, drawn
+    # in that order ahead of the 400 branch; their errors are not drawn again below.
+    first = ep.get("guards_first", [])
+    for i, (question, status, code) in enumerate(first):
+        label = question.replace('"', "'")
+        lines += [f'    G{i}{{"{label}?"}}', f"    {prev} -->{edge} G{i}",
+                  f'    GE{i}["Return {status} {code}"]', f"    G{i} -->|yes| GE{i}", f"    GE{i} --> GX{i}((End))"]
+        prev, edge = f"G{i}", "|no|"
+    drawn = {(status, code) for _, status, code in first}
     n = 0
     for status, code, desc, _ in errs:
-        if status in (401, 403):
+        if status in (401, 403) or (status, code) in drawn:
             continue
         n += 1
         label = desc.replace('"', "'")

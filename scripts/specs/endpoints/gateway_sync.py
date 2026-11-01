@@ -5,13 +5,17 @@ EVENT = {"seq": 88213, "eventId": "5d41402abc4b2a76b9719d911017c592...", "device
          "priority": "P2_GPS", "observedAt": "2026-10-20T03:14:58Z", "receivedAt": NOW, "latitude": 11.5601,
          "longitude": 108.5402, "altitude": 1320, "batteryPct": 81, "rssi": -97, "snr": 6.25, "hopsAway": 1,
          "plotted": True, "incidentId": None}
-INTERNAL = ("Broker only: the request must come from the broker's network and carry "
-            "`X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`, compared in constant time. go-auth's HTTP "
+INTERNAL = ("Broker only, enforced by the secret alone: the request must carry `X-Broker-Secret` equal to "
+            "`MQTT_AUTH_HOOK_SECRET`, compared in constant time over SHA-256 digests; the source address is "
+            "not checked. go-auth's HTTP "
             "backend sends no custom header, so the opt-in broker of `docker-compose.broker-auth.yml` calls "
             "through `broker-hook-proxy`, which adds it (design §4). Public to the JWT guard: the broker "
             "carries no user token")
 # With MQTT_AUTH_HOOK_SECRET unset the hooks do not exist; the default open broker never calls them.
 UNSET = (404, "NOT_FOUND", "The hook secret variable is unset", "Not found.")
+# BrokerHookSecretGuard runs before body validation: unset variable first, then the secret.
+SECRET_FIRST = [("MQTT_AUTH_HOOK_SECRET unset", 404, "NOT_FOUND"),
+                ("X-Broker-Secret missing or wrong", 401, "BROKER_SECRET")]
 
 ENDPOINTS = [
     ep("POST", "/api/internal/mqtt/user", "Broker credential check", "Public (broker hook secret)",
@@ -28,8 +32,9 @@ ENDPOINTS = [
        errors=[(401, "BROKER_SECRET", "The hook secret is missing or wrong", "Authentication required."), UNSET,
                (403, "CREDENTIAL_REJECTED", "Unknown username, wrong secret, revoked credential or closed organization",
                 "Denied.")],
-       steps=["Check X-Broker-Secret", "Resolve the username: backend, fleet node or Field Station",
-              "bcrypt.compare the secret against secretHash", "Return 200 or 403"],
+       guards_first=SECRET_FIRST,
+       steps=["Resolve the username: backend, fleet node or Field Station",
+              "bcrypt.compare the password against secretHash, or a dummy hash when the station is unknown", "Return 200 or 403"],
        actor="Mosquitto", controller="BrokerAuthController", service="BrokerAuthService", call="checkUser(dto)",
        participants=[["Org", "OrganizationsService"]],
        seq=["Svc->>Org: fieldStationByUsername(username)", "Svc->>Svc: bcrypt.compare"]),
@@ -49,7 +54,8 @@ ENDPOINTS = [
        response={"allowed": True}, message="OK", notes=INTERNAL,
        errors=[(401, "BROKER_SECRET", "The hook secret is missing or wrong", "Authentication required."), UNSET,
                (403, "TOPIC_DENIED", "The topic or access is outside the credential's pattern", "Denied.")],
-       steps=["Check X-Broker-Secret", "Match the topic and access against the credential kind's pattern"],
+       guards_first=SECRET_FIRST,
+       steps=["Match the topic and access against the credential kind's pattern"],
        actor="Mosquitto", controller="BrokerAuthController", service="BrokerAuthService", call="checkAcl(dto)",
        seq=["Svc->>Svc: pattern match (cached per username for 60 s)"]),
 

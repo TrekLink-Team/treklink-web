@@ -16,7 +16,7 @@ Called by the mosquitto-go-auth HTTP backend (`auth_opt_http_getuser_uri`, JSON 
 | POST | /api/internal/mqtt/user |
 | Permission | Public (broker hook secret) |
 | Traces | FR-EVT-14, D-037, BR-20, NFR-SEC-02 |
-| Notes | Broker only: the request must come from the broker's network and carry `X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`, compared in constant time. go-auth's HTTP backend sends no custom header, so the opt-in broker of `docker-compose.broker-auth.yml` calls through `broker-hook-proxy`, which adds it (design §4). Public to the JWT guard: the broker carries no user token |
+| Notes | Broker only, enforced by the secret alone: the request must carry `X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`, compared in constant time over SHA-256 digests; the source address is not checked. go-auth's HTTP backend sends no custom header, so the opt-in broker of `docker-compose.broker-auth.yml` calls through `broker-hook-proxy`, which adds it (design §4). Public to the JWT guard: the broker carries no user token |
 
 ## Request sample
 
@@ -133,26 +133,29 @@ flowchart TB
     S((Start))
     A0["Accept request"]
     S --> A0
+    G0{"MQTT_AUTH_HOOK_SECRET unset?"}
+    A0 --> G0
+    GE0["Return 404 NOT_FOUND"]
+    G0 -->|yes| GE0
+    GE0 --> GX0((End))
+    G1{"X-Broker-Secret missing or wrong?"}
+    G0 -->|no| G1
+    GE1["Return 401 BROKER_SECRET"]
+    G1 -->|yes| GE1
+    GE1 --> GX1((End))
     D1{"The body or query fails validation?"}
-    A0 --> D1
+    G1 -->|no| D1
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"The hook secret variable is unset?"}
-    D1 -->|no| D2
-    E2["Return 404 NOT_FOUND"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    P0["Check X-Broker-Secret"]
-    D2 -->|no| P0
-    P1["Resolve the username: backend, fleet node or Field Station"]
+    P0["Resolve the username: backend, fleet node or Field Station"]
+    D1 -->|no| P0
+    P1["bcrypt.compare the password against secretHash, or a dummy hash when the station is unknown"]
     P0 --> P1
-    P2["bcrypt.compare the secret against secretHash"]
+    P2["Return 200 or 403"]
     P1 --> P2
-    P3["Return 200 or 403"]
-    P2 --> P3
     OK["Return 200"]
-    P3 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
