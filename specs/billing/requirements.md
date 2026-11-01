@@ -13,7 +13,8 @@
   snapshots for `rentals`; invoices and lines; late, damage and loss charges; damage-charge approval;
   SePay sandbox payment requests and the confirming webhook; counter payments; balances.
 - **Out-of-Scope**: when a charge arises (decided by `rentals`); report aggregation (`monitoring`); real
-  money (BR-34); refunds (none in the plan rules: the holding fee is not refundable).
+  money (BR-34); refunds other than the service credit of REQ-EVT-12 to REQ-EVT-15 (the holding fee stays
+  non-refundable when the organization cancels, D-092 rule 5).
 - **Depends on**: `platform`, `organizations`, `devices` (remaining value). Called by `rentals`. Provides
   `ORGANIZATION_EXIT_CHECKS.canReactivate`.
 
@@ -52,6 +53,10 @@
 - **REQ-EVT-09**: WHEN SePay's webhook arrives with the configured API key and a content holding an issued reference, the system SHALL, in one transaction, confirm the payment, apply its amount to the invoice's unpaid lines oldest due first, update the invoice status, and answer `{ "success": true }` (D-038); a webhook with no issued reference SHALL be logged for Staff and answered the same way. [FR-BILL-07, NFR-SEC-07]
 - **REQ-EVT-10**: WHEN Staff record a cash or bank-transfer payment at the counter with a receipt reference, the system SHALL record it `CONFIRMED` and apply it the same way (MSG20). [UC-22, FR-BILL-08]
 - **REQ-EVT-11**: WHEN `rentals` cancels a contract before handover, rejects a request, or cancels a request whose hold expired unpaid, the system SHALL void the unpaid lines of its first invoice with a zero-sum `ADJUSTMENT`, keeping any holding fee paid; a deposit paid on a rejected request is refunded outside TrekLink (leader ruling 2026-11-01). [FR-CON-04, E01-7, D-092 rule 1]
+- **REQ-EVT-12**: WHEN TrekLink Staff request a service credit for a unit of a running contract that failed through no fault of the organization, naming the cause, the outage start and the inspection or maintenance record that shows the fault, the system SHALL record the credit `REQUESTED` with its computed amount (design §9) and its author, and notify the organization's Managers after commit. [D-092 rule 5]
+- **REQ-EVT-13**: WHEN an Admin who did not request the credit approves, reduces (with a reason) or rejects (with a reason) a `REQUESTED` credit with the `version` they saw, the system SHALL record the decision and its author and, after commit, record the audit entry and notify the organization's Managers. [D-092 rule 5, BR-24]
+- **REQ-EVT-14**: WHEN a credit is approved or reduced, the system SHALL add one negative `SERVICE_CREDIT` line of the decided amount to the contract's next invoice that `rentals` issues (the next term invoice, or the closing invoice), never to an issued one (REQ-UBI-02), and mark the credit `APPLIED` with that line. [D-092 rule 5]
+- **REQ-EVT-15**: WHEN a decided credit has no later invoice to go on because the contract is `CLOSED`, the system SHALL mark it `REFUND_DUE`; WHEN Staff record the refund paid outside TrekLink with a unique reference, the system SHALL mark it `REFUNDED` with the reference and the time (BR-34: sandbox only, no real money moves through TrekLink). [D-092 rule 5]
 
 ### State-Driven
 
@@ -65,6 +70,9 @@
 - **REQ-ERR-03**: IF the inspector tries to decide their own damage charge, THEN the system SHALL return 403 `SEPARATION_OF_DUTY`. [BR-24, E05-6]
 - **REQ-ERR-04**: IF a counter payment exceeds the amount still due, THEN the system SHALL return 400 `OVERPAYMENT`.
 - **REQ-ERR-05**: IF a counter reference is already recorded, THEN the system SHALL return 409 `DUPLICATE_REFERENCE` and record nothing. [E01-6]
+- **REQ-ERR-06**: IF Staff request a credit for a unit not on the contract, for an outage start outside the unit's custody interval or in the future, or without a fault record of that unit, THEN the system SHALL return 400 `VALIDATION_FAILED` or 409 `DEVICE_NOT_ON_CONTRACT` (MSG12) and record nothing. [D-092 rule 5]
+- **REQ-ERR-07**: IF the requester decides their own credit, THEN the system SHALL return 403 `SEPARATION_OF_DUTY`; IF a reduction is not below the computed amount or a reduction or rejection has no reason, THEN 400 `VALIDATION_FAILED`; IF the credit is not `REQUESTED` or the `version` is stale, THEN 409 `INVALID_STATE_TRANSITION` or `STALE_VERSION`. [D-092 rule 5, BR-24]
+- **REQ-ERR-08**: IF a second credit is requested for the same unit with an outage that overlaps a credit not `REJECTED`, THEN the system SHALL return 409 `DUPLICATE_CREDIT` and record nothing. [D-092 rule 5]
 
 ---
 
@@ -92,9 +100,13 @@ damage rates are their own tables, edited by an Admin. Environment: `SEPAY_WEBHO
 - **AC-03**: The same webhook posted 10 times records one payment. (TC-31)
 - **AC-04**: A 700,000 VND damage total with threshold 500,000 waits for approval; the inspector's own decision gets 403. (TC-24)
 - **AC-05**: A loss on a 14-month-old v3 is charged 1,800,000 VND from the schedule. (TC-25)
+- **AC-06**: A v3 unit at 450,000 VND monthly on a 30-day term fails on day 10 with a swollen battery; its replacement is handed over on day 13. The credit is ⌈450,000 × 3 ÷ 30⌉ = 45,000 VND; once an Admin approves it, the next term invoice carries a `SERVICE_CREDIT` line of −45,000 VND. (D-092 rule 5)
+- **AC-07**: The Staff member who requested a credit tries to approve it: 403 `SEPARATION_OF_DUTY`. Another Admin reduces it to 30,000 VND with a reason: the line is −30,000 VND. (D-092 rule 5)
+- **AC-08**: A credit decided after the contract closed is `REFUND_DUE`; Staff record the bank-transfer reference and it becomes `REFUNDED`; the same reference again gets 409 `DUPLICATE_REFERENCE`. (D-092 rule 5)
 
 ---
 
 ## 6. Open Questions
 
-None.
+- Service credits (D-092 rule 5, specified 2026-11-02, not built): the leader confirms the cause list, the
+  pro-rata formula and the Admin-only decision of design §9 before the build task opens.

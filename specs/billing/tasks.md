@@ -137,3 +137,10 @@
 - [x] 7.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner LongLP)
   - **Progress** (2026-10-30, LongLP): `scripts/specs/build_api_design.py` reproduces every committed api-design file again. The billing README had been hand-edited to "Public (SePay API key header)" for api-design 12 while the catalog said "Public", and the generator treated only the exact word as public; the catalog now carries the qualified text and the generator takes any permission starting with "Public" as public, which also drops the access-token 401 and policy 403 rows from auth api-design 02 (the refresh route is `@Public()`). Suite, lint, boundary check and typecheck were green on 2026-10-30. Open: rentals 6.2 and billing 5.2 still open, so the DoD box waits
   - **Done** (2026-10-30, LongLP): green on 2026-10-30: backend unit 190 suites and 2067 tests, e2e 15 and 256, `test:db` 22 and 140 on a fresh local Postgres 16; `npm run lint` with 0 errors and the module boundary check passed; `tsc --noEmit` clean. Every billing api-design file regenerates unchanged and its 400 and 409 rows run against the code (5.2). Billing 3.2 stays open for staging only
+
+## Phase 8: Service credits (D-092 rule 5)
+
+- [ ] 8.1 Service credits per design §9: model and forward migration, catalog permissions and the matrix, `DUPLICATE_CREDIT`, request, decision with separation of duty, application on the next invoice, refund record after the close, notices, audit; api-design from `scripts/specs/endpoints/billing.py`; db-specs for AC-06 to AC-08 (owner KhoaDD under D-078)
+  - **Specified** (2026-11-02, KhoaDD under D-078): requirements REQ-EVT-12 to REQ-EVT-15, REQ-ERR-06 to REQ-ERR-08, AC-06 to AC-08, design §2 and §9. Not built: the leader confirms §9 first (requirements §6)
+  - _Requirements: REQ-EVT-12, REQ-EVT-13, REQ-EVT-14, REQ-EVT-15, REQ-ERR-06, REQ-ERR-07, REQ-ERR-08, AC-06, AC-07, AC-08, D-092 rule 5_
+- [ ] 8.2 Screens for service credits per design §9.6, in `specs/frontend/ui-design` first (owner KhoaDD under D-078)
