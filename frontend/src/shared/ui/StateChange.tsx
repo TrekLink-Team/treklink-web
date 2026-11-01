@@ -18,17 +18,13 @@ export const MSG03 = 'Saved.';
 export const MSG36 = 'Someone else changed this. Reload to see the latest.';
 export const REASON_REQUIRED = 'Enter a reason for this change.';
 
-export interface StateTransition<S extends string = string> {
+interface TransitionBase<S extends string> {
   /** The state the record moves to. */
   target: S;
   /** Verb plus noun: "Retire device". Names the menu item, the dialog title and the confirm button. */
   label: string;
-  /** Cannot be undone or takes something away: an alert dialog, Cancel focused first, a danger button. */
-  destructive?: boolean;
   /** The change is audited with a reason the user must give. */
   needsReason?: boolean;
-  /** The consequences, shown in the dialog body. */
-  description?: string;
   /** Hint under the reason label. */
   reasonHint?: string;
   /** The toast after success. Defaults to MSG03. */
@@ -36,6 +32,25 @@ export interface StateTransition<S extends string = string> {
   /** Label of the button that closes the dialog without changing anything. Defaults to Cancel. */
   cancelLabel?: string;
 }
+
+/**
+ * One next state. A destructive change (cannot be undone or takes something away: an alert dialog,
+ * Cancel focused first, a danger button) must say what it does: an `alertdialog` is described by its
+ * body (review of treklink-web#278).
+ */
+export type StateTransition<S extends string = string> = TransitionBase<S> &
+  (
+    | {
+        destructive: true;
+        /** The consequences, shown in the dialog body and read as the alert dialog's description. */
+        description: string;
+      }
+    | {
+        destructive?: false;
+        /** The consequences, shown in the dialog body. */
+        description?: string;
+      }
+  );
 
 export interface StateChangeInput<S extends string = string> {
   target: S;
