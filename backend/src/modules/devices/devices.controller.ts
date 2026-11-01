@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import {
   resolvePage,
   toPagedResult,
 } from '../../common/dto/paging';
+import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { DeviceView } from './device-view';
@@ -30,6 +32,7 @@ import { DisposeDeviceDto } from './dto/dispose-device.dto';
 import { IntakeCheckDto } from './dto/intake-check.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { RetireDeviceDto } from './dto/retire-device.dto';
+import { UpdateDeviceDto } from './dto/update-device.dto';
 import { IntakeService } from './intake.service';
 
 // devices api-design 06; `status` repeats (`?status=AVAILABLE&status=RESERVED`).
@@ -143,6 +146,33 @@ export class DevicesController {
   @ResponseMessage('OK')
   detail(@Param('id', ParseUUIDPipe) id: string): Promise<DeviceDetail> {
     return this.devices.detail(id);
+  }
+
+  // devices api-design 08 (FR-DEV-01): Staff correct the firmware version after a reflash
+  // (`device.operate`, the permission of every other Staff write on a unit). Compare-and-set on
+  // `expectedVersion`; the audit record `device.update` goes out after commit.
+  @Patch(':id')
+  @CheckPolicies((ability) => ability.can('operate', 'Device'))
+  @ResponseMessage('Saved.')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDeviceDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<FleetDevice> {
+    return this.events.transaction(async (tx) => {
+      const { before, device } = await this.devices.updateFirmware(id, dto, tx);
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: caller.id,
+        actorRoles: caller.roles,
+        organizationId: null,
+        action: 'device.update',
+        subjectType: 'Device',
+        subjectId: id,
+        before: { firmwareVersion: before },
+        after: { firmwareVersion: device.firmwareVersion },
+      } satisfies AuditRecordEvent);
+      return device;
+    });
   }
 
   // devices api-design 09 (task 2.2, intake part): Staff record the intake check of a new unit or of

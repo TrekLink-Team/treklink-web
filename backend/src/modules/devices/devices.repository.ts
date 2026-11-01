@@ -567,6 +567,20 @@ export class DevicesRepository {
     return count === 1;
   }
 
+  // devices api-design 08: a compare-and-set of the firmware version on the loaded version.
+  async setFirmwareIfCurrent(
+    id: string,
+    version: number,
+    firmwareVersion: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const { count } = await tx.device.updateMany({
+      where: { id, version },
+      data: { firmwareVersion, version: { increment: 1 } },
+    });
+    return count === 1;
+  }
+
   // Firmware and next service date after maintenance (FR-DEV-17, FR-DEV-21); the status is unchanged.
   async updateService(
     id: string,
