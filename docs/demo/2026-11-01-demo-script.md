@@ -451,6 +451,16 @@ mosquitto_pub -h localhost -p 1883 -q 1 -t 'treklink/2/json/LongFast/!de000002' 
   -m "{\"id\":$(date +%s),\"timestamp\":$(date +%s),\"to\":4294967295,\"from\":3724541954,\"channel\":0,\"type\":\"text\",\"sender\":\"!de000002\",\"payload\":{\"text\":\"SOS - HELP\"}}"
 ```
 
+**Demo control panel (D-088, from `feat/demo-control-panel`).** With `DEMO_CONTROLS_ENABLED=true` in `.env`
+and a `localhost` `DATABASE_URL`, an Admin opens **Demo control** (`/t/admin/demo`, Administration) and
+stages a flow's starting state with one button, with no terminal: `clean`, `org-pending-approval`,
+`contract-ready-for-handover` (replaces MF-01 steps 1 to 7), `sos-open` (replaces the MF-03 replay),
+`term-ended` (replaces MF-05 steps 1 and 2) and `asset-maintenance`. A stage deletes every row except the
+migration-filled tables, runs the demo seed and signs the panel's window in again as the Admin; every
+other window signs in again. The account menu then offers **Switch role** to Admin, Staff, Manager or
+Operator in every window. The panel refuses a Neon host (`DEMO_DATABASE_NOT_LOCAL`). The first stage still
+needs the Admin account, so run `seed:demo` once on a fresh database (§1.2) (`specs/demo/`).
+
 Full reset of the **local** database (destroys every row in it; stop `npm run dev` first). The
 backend has no Prisma seed hook, so the demo seed is run separately (`backend/package.json`):
 

@@ -37,7 +37,7 @@
 | Error `DEMO_DATABASE_NOT_LOCAL`, `DEMO_DISABLED` (403) | Alert with the server message |
 | Error `DEMO_BUSY`, `DEMO_SCENARIO_UNAVAILABLE`, `DEMO_SEED_NOT_CONFIGURED` (409) | Alert with the server message |
 | Error 404 on status | Demo mode is off: no nav entry, no menu item; the page shows MSG26 |
-| Success | Result panel under the cards |
+| Success | Result panel above the role switcher and the cards, its heading focused |
 
 ## Mobile, accessibility, live data
 

@@ -105,6 +105,44 @@ export const DemoControlPage: React.FC = () => {
         </Alert>
       )}
 
+      {result && (
+        <Card aria-labelledby="demo-result">
+          <h2
+            id="demo-result"
+            ref={resultHeading}
+            tabIndex={-1}
+            className="text-title text-ink focus:outline-none"
+          >
+            Staged: {titleOf(result.scenarioId)}
+          </h2>
+          <p className="mt-1 text-body-sm text-ink-muted">
+            Every other window must sign in again.
+          </p>
+          {result.records.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1">
+              {result.records.map((record) => (
+                <li key={`${record.label}-${record.path}`} className="text-body">
+                  {record.label}:{' '}
+                  <Link to={record.path} className="font-semibold text-brand underline">
+                    {record.code}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {result.firstSteps.length > 0 && (
+            <>
+              <h3 className="mt-4 text-body font-bold text-ink">First steps</h3>
+              <ol className="mt-1 list-decimal pl-6 text-body text-ink">
+                {result.firstSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </>
+          )}
+        </Card>
+      )}
+
       <Card aria-labelledby="demo-roles">
         <CardHeader
           title="Switch role"
@@ -156,44 +194,6 @@ export const DemoControlPage: React.FC = () => {
           ))}
         </div>
       </section>
-
-      {result && (
-        <Card aria-labelledby="demo-result">
-          <h2
-            id="demo-result"
-            ref={resultHeading}
-            tabIndex={-1}
-            className="text-title text-ink focus:outline-none"
-          >
-            Staged: {titleOf(result.scenarioId)}
-          </h2>
-          <p className="mt-1 text-body-sm text-ink-muted">
-            Every other window must sign in again.
-          </p>
-          {result.records.length > 0 && (
-            <ul className="mt-3 flex flex-col gap-1">
-              {result.records.map((record) => (
-                <li key={`${record.label}-${record.path}`} className="text-body">
-                  {record.label}:{' '}
-                  <Link to={record.path} className="font-semibold text-brand underline">
-                    {record.code}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          {result.firstSteps.length > 0 && (
-            <>
-              <h3 className="mt-4 text-body font-bold text-ink">First steps</h3>
-              <ol className="mt-1 list-decimal pl-6 text-body text-ink">
-                {result.firstSteps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-            </>
-          )}
-        </Card>
-      )}
 
       {confirming && (
         <Dialog
