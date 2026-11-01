@@ -6,12 +6,17 @@ import {
   type InvoiceFilters,
   type PaymentFilters,
 } from '../entities/billing/api';
+
+type PaymentRow = NonNullable<ReturnType<typeof usePayments>['data']>['items'][number];
 import { formatDateTime, formatVnd } from '../shared/lib/format';
-import { Empty, ErrorState, Loading, PageTitle, Pager } from '../shared/ui/bits';
+import { ErrorState, PageTitle } from '../shared/ui/bits';
 import { Badge } from '../shared/ui/Badge';
+import { Button } from '../shared/ui/Button';
+import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
+import { Select } from '../shared/ui/Field';
+import { Toolbar, ToolbarSearch } from '../shared/ui/Toolbar';
 import { TAB } from '../shared/ui/styles';
 import { matchesText } from '../shared/lib/filter';
-import { FilterRow, NoMatchRow, type FilterField } from '../shared/ui/TableFilters';
 import { InvoiceDetailView } from '../widgets/InvoiceDetail/InvoiceDetailView';
 import { InvoiceTable } from '../widgets/InvoiceDetail/InvoiceTable';
 import { InvoiceFilterBar } from './InvoicesPage';
@@ -28,25 +33,28 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
       <div className="min-w-0 overflow-x-auto">
         <InvoiceFilterBar filters={filters} onChange={setFilters} />
-        {isLoading && <Loading />}
-        {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-        {data && (
-          <>
-            <InvoiceTable
-              invoices={data.items}
-              showOrganization
-              filters={filters}
-              onFilters={setFilters}
-              selectedId={selectedId}
-              onOpen={(invoice) => setSelectedId(invoice.id)}
-            />
-            <Pager
-              pageNumber={data.pageNumber}
-              totalPages={data.totalPages}
-              onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
-            />
-          </>
-        )}
+        <InvoiceTable
+          invoices={data?.items}
+          showOrganization
+          filters={filters}
+          onFilters={setFilters}
+          selectedId={selectedId}
+          onOpen={(invoice) => setSelectedId(invoice.id)}
+          loading={isLoading}
+          error={error}
+          onRetry={() => void refetch()}
+          footer={
+            data && data.totalPages > 1 ? (
+              <Pagination
+                pageNumber={data.pageNumber}
+                totalPages={data.totalPages}
+                totalItems={data.totalCount}
+                pageSize={data.pageSize}
+                onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
+              />
+            ) : undefined
+          }
+        />
       </div>
       {selectedId ? (
         <InvoiceDetailView
@@ -73,88 +81,96 @@ const PaymentsTab: React.FC = () => {
     setMethod('');
     setFilters({ pageNumber: 1 });
   };
-  const rows =
-    data?.items.filter(
-      (payment) =>
-        matchesText(reference, payment.reference) && (method === '' || payment.method === method),
-    ) ?? [];
-  const columns: (FilterField | null)[] = [
-    { label: 'reference', kind: 'text', value: reference, onChange: setReference },
+  const rows = data?.items.filter(
+    (payment) => matchesText(reference, payment.reference) && (method === '' || payment.method === method),
+  );
+  const columns: Column<PaymentRow>[] = [
+    { key: 'reference', header: 'Reference', cell: (payment) => <span className="font-mono">{payment.reference}</span> },
     {
-      label: 'method',
-      kind: 'select',
-      value: method,
-      onChange: setMethod,
-      options: Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label })),
+      key: 'method',
+      header: 'Method',
+      cell: (payment) => (
+        <>
+          {METHOD_LABELS[payment.method]}
+          {payment.isSandbox && (
+            <Badge tone="attention" className="ml-2">
+              SANDBOX
+            </Badge>
+          )}
+        </>
+      ),
     },
-    null,
-    {
-      label: 'status',
-      kind: 'select',
-      value: filters.status ?? '',
-      options: PAYMENT_STATUSES.map((status) => ({
-        value: status,
-        label: status.charAt(0) + status.slice(1).toLowerCase(),
-      })),
-      onChange: (value) =>
-        setFilters({
-          ...filters,
-          status: (value || undefined) as PaymentFilters['status'],
-          pageNumber: 1,
-        }),
-    },
-    null,
+    { key: 'amount', header: 'Amount', align: 'end', cell: (payment) => formatVnd(payment.amountVnd) },
+    { key: 'status', header: 'Status', cell: (payment) => payment.status.charAt(0) + payment.status.slice(1).toLowerCase() },
+    { key: 'confirmed', header: 'Confirmed', cell: (payment) => (payment.confirmedAt ? formatDateTime(payment.confirmedAt) : 'Not yet') },
   ];
 
   return (
     <div>
-      {isLoading && <Loading />}
-      {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-      {data && data.items.length === 0 && !filtered && <Empty>No payments recorded.</Empty>}
-      {data && (data.items.length > 0 || filtered) && (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full overflow-hidden rounded-xl border border-line bg-surface text-sm shadow-sm">
-              <thead className="bg-sunken text-left text-xs uppercase tracking-wide text-ink-muted">
-                <tr>
-                  <th className="px-3 py-3">Reference</th>
-                  <th className="px-3 py-3">Method</th>
-                  <th className="px-3 py-3 text-right">Amount</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3">Confirmed</th>
-                </tr>
-                <FilterRow columns={columns} onClear={clear} />
-              </thead>
-              <tbody>
-                {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
-                {rows.map((payment) => (
-                  <tr key={payment.id} className="border-t border-line">
-                    <td className="px-3 py-3 font-mono">{payment.reference}</td>
-                    <td className="px-3 py-3">
-                      {METHOD_LABELS[payment.method]}
-                      {payment.isSandbox && (
-                        <Badge tone="attention" className="ml-2">
-                          SANDBOX
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right">{formatVnd(payment.amountVnd)}</td>
-                    <td className="px-3 py-3">{payment.status.toLowerCase()}</td>
-                    <td className="px-3 py-3">
-                      {payment.confirmedAt ? formatDateTime(payment.confirmedAt) : 'Not yet'}
-                    </td>
-                  </tr>
+      <Toolbar
+        label="Payment filters"
+        start={
+          <>
+            <ToolbarSearch id="payment-reference" label="Search by reference" value={reference} onChange={setReference} />
+            <span className="w-44">
+              <Select aria-label="Method" value={method} onChange={(event) => setMethod(event.target.value)}>
+                <option value="">Every method</option>
+                {Object.entries(METHOD_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <Pager
-            pageNumber={data.pageNumber}
-            totalPages={data.totalPages}
-            onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
-          />
-        </>
-      )}
+              </Select>
+            </span>
+            <span className="w-40">
+              <Select
+                aria-label="Status"
+                value={filters.status ?? ''}
+                onChange={(event) =>
+                  setFilters({ ...filters, status: (event.target.value || undefined) as PaymentFilters['status'], pageNumber: 1 })
+                }
+              >
+                <option value="">Every status</option>
+                {PAYMENT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status.charAt(0) + status.slice(1).toLowerCase()}
+                  </option>
+                ))}
+              </Select>
+            </span>
+            {filtered && (
+              <Button variant="ghost" onClick={clear}>
+                Clear filters
+              </Button>
+            )}
+          </>
+        }
+      />
+      <DataTable<PaymentRow>
+        caption="Payments"
+        columns={columns}
+        rows={rows}
+        rowId={(payment) => payment.id}
+        rowLabel={(payment) => payment.reference}
+        loading={isLoading}
+        error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
+        empty={
+          filtered
+            ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
+            : { title: 'No payments recorded.' }
+        }
+        footer={
+          data && data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={data.pageNumber}
+              totalPages={data.totalPages}
+              totalItems={data.totalCount}
+              pageSize={data.pageSize}
+              onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
+            />
+          ) : undefined
+        }
+      />
     </div>
   );
 };

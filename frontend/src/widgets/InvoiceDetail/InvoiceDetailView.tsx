@@ -8,14 +8,14 @@ import {
   lineStatus,
   useBalance,
   useInvoice,
+  type InvoiceLine,
 } from '../../entities/billing/api';
 import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
-import { Alert, Button } from '../../shared/ui';
+import { Alert, Button, DataTable, Select, Toolbar, ToolbarSearch, type Column } from '../../shared/ui';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
 import { TONE_CLASSES } from '../../shared/ui/status';
-import { CARD, LINK, TD, TH } from '../../shared/ui/styles';
+import { CARD, LINK } from '../../shared/ui/styles';
 import { matchesText } from '../../shared/lib/filter';
-import { FilterRow, NoMatchRow } from '../../shared/ui/TableFilters';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
 
 // Line status tones (TrekLink System Colors, shared/ui/status.ts).
@@ -83,6 +83,29 @@ export const InvoiceDetailView: React.FC<{
       (lineFilter === '' || lineStatus(line) === lineFilter),
   );
 
+  const lineColumns: Column<InvoiceLine>[] = [
+    { key: 'seq', header: '#', cell: (line) => <span className="text-ink-muted">{line.seq}</span>, width: '3rem' },
+    {
+      key: 'line',
+      header: 'Line',
+      cell: (line) => (
+        <span className="flex flex-col py-1">
+          <span className="font-semibold text-ink">{line.description}</span>
+          <span className="text-xs text-ink-muted">
+            {line.quantity} x {formatVnd(line.unitVnd)}
+          </span>
+        </span>
+      ),
+    },
+    { key: 'due', header: 'Due', cell: (line) => <span className="whitespace-nowrap">{formatDate(line.dueAt)}</span> },
+    { key: 'amount', header: 'Amount', align: 'end', cell: (line) => <span className="font-semibold">{formatVnd(line.amountVnd)}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (line) => <Badge tone={LINE_TONES[lineStatus(line)] ?? LINE_TONES['Due later']}>{lineStatus(line)}</Badge>,
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
       <div className={CARD}>
@@ -135,70 +158,43 @@ export const InvoiceDetailView: React.FC<{
 
       <div className={CARD}>
         <h3 className="mb-3 font-bold text-ink">Lines</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-sm">
-            <thead>
-              <tr className="border-b border-line">
-                <th className={TH}>#</th>
-                <th className={TH}>Line</th>
-                <th className={TH}>Due</th>
-                <th className={`${TH} text-right`}>Amount</th>
-                <th className={TH}>Status</th>
-              </tr>
-              <FilterRow
-                columns={[
-                  null,
-                  { label: 'line', kind: 'text', value: lineText, onChange: setLineText },
-                  null,
-                  null,
-                  {
-                    label: 'line status',
-                    kind: 'select',
-                    value: lineFilter,
-                    onChange: setLineFilter,
-                    options: Object.keys(LINE_TONES).map((value) => ({ value, label: value })),
-                  },
-                ]}
-                onClear={() => {
+        <Toolbar
+          label="Invoice line filters"
+          start={
+            <>
+              <ToolbarSearch id={`invoice-line-search-${data.id}`} label="Search lines" value={lineText} onChange={setLineText} />
+              <span className="w-40">
+                <Select aria-label="Line status" value={lineFilter} onChange={(event) => setLineFilter(event.target.value)}>
+                  <option value="">Every status</option>
+                  {Object.keys(LINE_TONES).map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </Select>
+              </span>
+            </>
+          }
+        />
+        <DataTable<InvoiceLine>
+          caption={`Lines of ${data.number}`}
+          columns={lineColumns}
+          rows={lines}
+          rowId={(line) => String(line.seq)}
+          empty={{
+            title: 'No lines match these filters.',
+            action: (
+              <Button
+                onClick={() => {
                   setLineText('');
                   setLineFilter('');
                 }}
-              />
-            </thead>
-            <tbody>
-              {lines.length === 0 && (
-                <NoMatchRow
-                  colSpan={5}
-                  onClear={() => {
-                    setLineText('');
-                    setLineFilter('');
-                  }}
-                />
-              )}
-              {lines.map((line) => {
-                const status = lineStatus(line);
-                return (
-                  <tr key={line.seq} className="border-b border-line last:border-0">
-                    <td className={`${TD} text-ink-muted`}>{line.seq}</td>
-                    <td className={TD}>
-                      <span className="font-semibold text-ink">{line.description}</span>
-                      <span className="block text-xs text-ink-muted">
-                        {line.quantity} x {formatVnd(line.unitVnd)}
-                      </span>
-                    </td>
-                    <td className={`${TD} whitespace-nowrap`}>{formatDate(line.dueAt)}</td>
-                    <td className={`${TD} whitespace-nowrap text-right font-semibold`}>
-                      {formatVnd(line.amountVnd)}
-                    </td>
-                    <td className={TD}>
-                      <Badge tone={LINE_TONES[status] ?? LINE_TONES['Due later']}>{status}</Badge>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              >
+                Clear filters
+              </Button>
+            ),
+          }}
+        />
         <p className="mt-3 text-xs text-ink-muted">
           Lines never change; corrections are ADJUSTMENT lines.
         </p>

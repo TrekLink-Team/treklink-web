@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useInvoices, type InvoiceFilters } from '../entities/billing/api';
-import { Empty, ErrorState, Loading, PageTitle, Pager } from '../shared/ui/bits';
+import { PageTitle } from '../shared/ui/bits';
+import { Pagination } from '../shared/ui/DataTable';
 import { LINK } from '../shared/ui/styles';
 import { InvoiceDetailView } from '../widgets/InvoiceDetail/InvoiceDetailView';
 import { InvoiceTable } from '../widgets/InvoiceDetail/InvoiceTable';
 
 // The one filter of screen 6.1 that lives outside the table: the contract a contract page linked
-// from, with a way back to every contract. Status and overdue sit in the table's filter row.
+// from, with a way back to every contract. Status and overdue sit in the table's toolbar.
 export const InvoiceFilterBar: React.FC<{
   filters: InvoiceFilters;
   onChange: (filters: InvoiceFilters) => void;
@@ -34,33 +35,33 @@ export const InvoicesPage: React.FC = () => {
     contractId: params.get('contractId') ?? undefined,
   });
   const { data, isLoading, error, refetch } = useInvoices('o', filters);
-  const filtered = filters.status !== undefined || filters.overdue !== undefined;
 
   return (
     <section aria-labelledby="invoices-title">
       <PageTitle id="invoices-title" title="Invoices" />
       <InvoiceFilterBar filters={filters} onChange={setFilters} />
-      {isLoading && <Loading />}
-      {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-      {data && data.items.length === 0 && !filtered && (
-        <Empty>No invoices yet. Invoices appear when TrekLink approves a contract.</Empty>
-      )}
-      {data && (data.items.length > 0 || filtered) && (
-        <>
-          <InvoiceTable
-            invoices={data.items}
-            showOrganization={false}
-            filters={filters}
-            onFilters={setFilters}
-            onOpen={(invoice) => navigate(`/o/invoices/${invoice.id}`)}
-          />
-          <Pager
-            pageNumber={data.pageNumber}
-            totalPages={data.totalPages}
-            onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
-          />
-        </>
-      )}
+      <InvoiceTable
+        invoices={data?.items}
+        showOrganization={false}
+        filters={filters}
+        onFilters={setFilters}
+        onOpen={(invoice) => navigate(`/o/invoices/${invoice.id}`)}
+        loading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
+        emptyTitle="No invoices yet. Invoices appear when TrekLink approves a contract."
+        footer={
+          data && data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={data.pageNumber}
+              totalPages={data.totalPages}
+              totalItems={data.totalCount}
+              pageSize={data.pageSize}
+              onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
+            />
+          ) : undefined
+        }
+      />
     </section>
   );
 };
