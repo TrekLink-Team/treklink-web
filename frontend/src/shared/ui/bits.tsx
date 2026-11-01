@@ -1,26 +1,18 @@
 import React from 'react';
-import { Badge as SystemBadge } from './Badge';
-import { Button } from './Button';
+import { Pagination } from './DataTable';
 import { messageOf } from './errors';
-import { Field as SystemField } from './Field';
 import { Skeleton } from './Skeleton';
-import { ALERT } from './styles';
+import { ALERT, FOCUS } from './styles';
 
-// Small building blocks of the first contract and billing pages: a status label, the pager, and
-// the loading, empty and error states every page task lists (specs/frontend/tasks.md). They keep
-// their names and props so those pages build unchanged, and now render the TrekLink System
-// components. New code imports the components directly (Badge, Field, Pagination, EmptyState).
+// Small building blocks of the first contract and billing pages: the page title, the loading, empty
+// and error states every page task lists (specs/frontend/tasks.md), and a definition row. Badge and
+// Field are the shared components re-exported, and Pager is Pagination, so the imports of those
+// pages keep working without a second implementation (ui standard, 2026-11-01). New code imports
+// the components directly (Badge, Field, Pagination, EmptyState).
 
-/** A label whose colour comes from an entity's *_TONES map (a class string) or a status tone. */
-export const Badge: React.FC<{ tone: string; className?: string; children: React.ReactNode }> = ({
-  tone,
-  className,
-  children,
-}) => (
-  <SystemBadge tone={tone} className={className}>
-    {children}
-  </SystemBadge>
-);
+// Badge takes a status tone or a class string from an entity's *_TONES map.
+export { Badge } from './Badge';
+export { Field } from './Field';
 
 export const PageTitle: React.FC<{ title: string; action?: React.ReactNode; id?: string }> = ({
   title,
@@ -57,40 +49,31 @@ export const ErrorState: React.FC<{ error: unknown; onRetry?: () => void }> = ({
   <div role="alert" className={`${ALERT} flex flex-wrap items-center justify-between gap-3`}>
     <span>{messageOf(error)}</span>
     {onRetry && (
-      <button type="button" onClick={onRetry} className="min-h-9 font-semibold underline underline-offset-4">
+      <button
+        type="button"
+        onClick={onRetry}
+        className={`inline-flex min-h-11 items-center rounded-control px-2 font-semibold underline underline-offset-4 ${FOCUS}`}
+      >
         Try again
       </button>
     )}
   </div>
 );
 
+/** The pager of the first list pages: Pagination, shown only when there is more than one page. */
 export const Pager: React.FC<{
   pageNumber: number;
   totalPages: number;
   onPage: (page: number) => void;
 }> = ({ pageNumber, totalPages, onPage }) =>
   totalPages > 1 ? (
-    <nav aria-label="Pages" className="mt-4 flex items-center justify-end gap-3 text-body-sm text-ink-muted">
-      <Button disabled={pageNumber <= 1} onClick={() => onPage(pageNumber - 1)}>
-        Previous
-      </Button>
-      <span className="text-ink">
-        Page {pageNumber} of {totalPages}
-      </span>
-      <Button disabled={pageNumber >= totalPages} onClick={() => onPage(pageNumber + 1)}>
-        Next
-      </Button>
-    </nav>
+    <Pagination
+      pageNumber={pageNumber}
+      totalPages={totalPages}
+      onPage={onPage}
+      className="mt-4 rounded-panel border border-line bg-surface"
+    />
   ) : null;
-
-export const Field: React.FC<{
-  id: string;
-  label: string;
-  error?: string;
-  hint?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}> = (props) => <SystemField {...props} />;
 
 // A definition row of a detail page.
 export const Fact: React.FC<{ label: string; children: React.ReactNode }> = ({

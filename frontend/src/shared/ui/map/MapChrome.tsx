@@ -52,7 +52,7 @@ export const MapPanel: React.FC<{
           aria-controls={bodyId}
           aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
           onClick={() => setOpen((value) => !value)}
-          className="ml-auto flex h-10 w-10 items-center justify-center rounded-control text-ink hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+          className="ml-auto flex h-10 w-10 items-center justify-center rounded-control text-ink hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           {open ? <ChevronUp aria-hidden="true" className="h-4 w-4" /> : <ChevronDown aria-hidden="true" className="h-4 w-4" />}
         </button>

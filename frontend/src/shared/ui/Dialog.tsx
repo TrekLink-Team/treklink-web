@@ -15,6 +15,10 @@ interface Props {
   size?: 'sm' | 'md' | 'lg';
   /** Shows a close button in the corner. Escape closes either way. */
   showClose?: boolean;
+  /** `alertdialog` for an irreversible change (WAI-ARIA alert dialog pattern). */
+  role?: 'dialog' | 'alertdialog';
+  /** The control that gets focus on open; by default the first focusable one. */
+  initialFocus?: React.RefObject<HTMLElement | null>;
 }
 
 const WIDTH = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-2xl' } as const;
@@ -35,13 +39,15 @@ export const Dialog: React.FC<Props> = ({
   footer,
   size = 'md',
   showClose = false,
+  role = 'dialog',
+  initialFocus,
 }) => {
-  const { box, onKeyDown } = useFocusTrap(onClose);
+  const { box, onKeyDown } = useFocusTrap(onClose, initialFocus);
   return (
     <div className="fixed inset-x-0 bottom-0 top-[var(--tl-banner-h,0px)] z-dialog flex items-center justify-center bg-scrim/[var(--tl-scrim-alpha)] sm:p-4">
       <div
         ref={box}
-        role="dialog"
+        role={role}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? `${titleId}-desc` : undefined}
@@ -67,7 +73,7 @@ export const Dialog: React.FC<Props> = ({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-control text-ink hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+            className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-control text-ink hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             <X aria-hidden="true" className="h-5 w-5" />
           </button>
@@ -97,9 +103,14 @@ interface ConfirmProps {
   pending?: boolean;
   /** An error from the server, kept in the dialog so the user can retry. */
   error?: string;
+  /** Cannot be undone: renders as an `alertdialog` (ui standard §3). */
+  irreversible?: boolean;
 }
 
-/** Asks before a destructive or state-changing action. Cancel gets focus first on destructive ones. */
+/**
+ * Asks before a destructive or state-changing action. Cancel, the least destructive control, gets
+ * focus first, and focus returns to the trigger on close.
+ */
 export const ConfirmDialog: React.FC<ConfirmProps> = ({
   titleId,
   title,
@@ -111,12 +122,14 @@ export const ConfirmDialog: React.FC<ConfirmProps> = ({
   destructive = false,
   pending = false,
   error,
+  irreversible = false,
 }) => (
   <Dialog
     titleId={titleId}
     title={title}
     description={description}
     onClose={onCancel}
+    role={irreversible ? 'alertdialog' : 'dialog'}
     size="sm"
     footer={
       <>
