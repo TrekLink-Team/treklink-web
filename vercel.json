@@ -4,13 +4,13 @@
     "backend": {
       "root": "backend/",
       "framework": "nestjs",
-      "installCommand": "cd .. && npm ci --workspace=backend",
+      "installCommand": "bash ../scripts/vercel-install.sh",
       "buildCommand": "bash scripts/vercel-build.sh"
     },
     "frontend": {
       "root": "frontend/",
       "framework": "vite",
-      "installCommand": "cd .. && npm ci --workspace=frontend --ignore-scripts",
+      "installCommand": "bash ../scripts/vercel-install.sh",
       "buildCommand": "NODE_ENV=production npm run build",
       "outputDirectory": "dist",
       "rewrites": [
