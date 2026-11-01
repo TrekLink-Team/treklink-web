@@ -32,7 +32,7 @@ banner shows it without Acknowledge.
 
 | Part | Where |
 |---|---|
-| `alert_deliveries.kind` (`TRANSITION`, `STALE`), nullable `transitionId`, `lastSeenAt`, CHECK `alert_deliveries_kind_shape` | migration `20261101120000_incidents_stale_alert`, `schema.prisma` |
+| `alert_deliveries.kind` (`TRANSITION`, `STALE`), nullable `transitionId`, `lastSeenAt`, CHECK `alert_deliveries_kind_shape` | migration `20261101190000_incidents_stale_alert`, `schema.prisma` |
 | `StaleAlerts.queue` and `RoutingService.treklinkRecipients` | `incidents/alerts/stale-alerts.ts`, `routing.service.ts`, called from `IncidentsService.markDeviceStale` |
 | MSG40 and `kind` on `incident.alert`, one body per row | `alerts/alert-dispatcher.job.ts`, ws-live-contract |
 | Banner: Dismiss in place of Acknowledge, SOS kept ahead | `frontend/src/app/AlertBanner.tsx` |
