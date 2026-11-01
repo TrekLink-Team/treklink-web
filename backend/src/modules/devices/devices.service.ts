@@ -548,6 +548,9 @@ export class DevicesService {
   ): Promise<{ before: string; device: FleetDevice }> {
     const row = await this.devices.findDetail(deviceId, tx);
     if (!row) throw notFound();
+    // A DISPOSED unit was wiped and left the fleet: its record is final (review of treklink-web#284). A
+    // RETIRED unit may still be reflashed before its disposal.
+    if (row.status === DeviceStatus.DISPOSED) throw wrongState(row.status);
     if (row.version !== dto.expectedVersion) throw staleVersion();
     const firmwareVersion = dto.firmwareVersion.trim();
     const written = await this.devices.setFirmwareIfCurrent(

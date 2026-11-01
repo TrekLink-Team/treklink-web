@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Corrects the firmware version after a reflash. Identity fields never change; state changes go through their own endpoints (FR-DEV-01).
+Corrects the firmware version after a reflash. Identity fields never change; state changes go through their own endpoints (FR-DEV-01). A `DISPOSED` unit is wiped and out of the fleet, so its record is final.
 
 ## API Specification
 
@@ -149,6 +149,23 @@ Corrects the firmware version after a reflash. Identity fields never change; sta
         </tr>
         <tr>
             <td>409</td>
+            <td>The device is DISPOSED (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is DISPOSED."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
 <td>
 
@@ -184,17 +201,24 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"Another user changed the record first (expectedVersion differs)?"}
+    D3{"The device is DISPOSED?"}
     D2 -->|no| D3
-    E3["Return 409 STALE_VERSION"]
+    E3["Return 409 INVALID_STATE_TRANSITION"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    P0["Compare-and-set"]
-    D3 -->|no| P0
-    P1["Emit audit.record device.update"]
+    D4{"Another user changed the record first (expectedVersion differs)?"}
+    D3 -->|no| D4
+    E4["Return 409 STALE_VERSION"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
+    P0["Refuse a DISPOSED unit"]
+    D4 -->|no| P0
+    P1["Compare-and-set"]
     P0 --> P1
+    P2["Emit audit.record device.update"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
