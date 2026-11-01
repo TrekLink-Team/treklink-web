@@ -1,0 +1,30 @@
+# Opt-in broker with credentials (gateway-sync task 3.1, infra/mosquitto/README.md):
+#   docker compose -f docker-compose.yml -f docker-compose.broker-auth.yml up -d mosquitto
+# Replaces the open mosquitto of docker-compose.yml with mosquitto 2.0.18 and the go-auth plugin
+# (infra/mosquitto/mosquitto.auth.conf), asking the backend's hooks through broker-hook-proxy.
+# Needs MQTT_AUTH_HOOK_SECRET in the shell or in .env, the same value the backend runs with.
+services:
+  mosquitto:
+    image: iegomez/mosquitto-go-auth:3.0.0-mosquitto_2.0.18
+    volumes:
+      - ./infra/mosquitto/mosquitto.auth.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_auth_data:/mosquitto/data
+    command: ["/usr/sbin/mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]
+    depends_on:
+      - broker-hook-proxy
+
+  broker-hook-proxy:
+    image: nginx:1.27-alpine
+    container_name: treklink-broker-hook-proxy
+    restart: unless-stopped
+    environment:
+      MQTT_AUTH_HOOK_SECRET: ${MQTT_AUTH_HOOK_SECRET:?set MQTT_AUTH_HOOK_SECRET to the backend's value}
+      # The backend as seen from the container; the default is a backend on the host's port 3000.
+      BROKER_HOOK_BACKEND: ${BROKER_HOOK_BACKEND:-http://host.docker.internal:3000}
+    volumes:
+      - ./infra/mosquitto/broker-hook-proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  mosquitto_auth_data:
