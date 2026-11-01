@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StaffIncidentsPage } from './StaffIncidentsPage';
@@ -192,7 +192,7 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
   it('reads the unrouted and escalated queue by default, with the Staff disclaimer', async () => {
     api.mockResolvedValue(page([incident()]));
     renderPage();
-    expect(await screen.findByText('INC-2026-000007')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'INC-2026-000007' })).toBeTruthy();
     expect(String(api.mock.calls[0][0])).toBe(
       '/incidents?pageSize=20&pageNumber=1&state=UNROUTED&state=ESCALATED',
     );
@@ -318,5 +318,24 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
     expect(screen.getByRole('tab', { name: 'Incident queue' }).getAttribute('aria-selected')).toBe(
       'true',
     );
+  });
+});
+
+describe('StaffIncidentsPage row actions (W29)', () => {
+  const rowButton = (name: RegExp) => within(screen.getByRole('table', { name: 'Incidents' })).queryByRole('button', { name });
+
+  it('offers false alarm on an UNROUTED row only, and opens its dialog with the detail', async () => {
+    api.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/incidents/inc-1'
+          ? incident({ state: 'UNROUTED' })
+          : page([incident({ state: 'UNROUTED' }), incident({ id: 'inc-2', code: 'INC-2026-000008', state: 'ESCALATED' })]),
+      ),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: 'INC-2026-000007' });
+    expect(rowButton(/^Declare false alarm\s+INC-2026-000008/)).toBeNull();
+    fireEvent.click(rowButton(/^Declare false alarm\s+INC-2026-000007/)!);
+    expect(await screen.findByLabelText(/Reason/)).toBeTruthy();
   });
 });

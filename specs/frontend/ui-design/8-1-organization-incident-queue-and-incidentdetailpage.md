@@ -136,3 +136,10 @@ D-059 rule 7 resolves H-01, H-02 and H-04; merged spec PR #46 is reflected above
 - [x] Use cases, FRs, requirements and stories are traced.
 - [x] Chapter 06 section 8 primary action, placement, labelled state, feedback, recovery, input preservation, time, alert priority, disclaimer and reuse are addressed.
 - [x] D-059 rule 7 governs section 8 item 4: preserve documented server order with pagination and no sort parameter/control.
+
+## Shared table (W29, 2026-11-01)
+
+Added by KhoaDD under D-078. `/o/incidents` is the shared `DataTable` with the code as the row link
+(Enter works), a card per incident below 768 px and Pagination with the range. The server orders the
+rows (D-059 rule 7), so no column sorts. The queue has no row action: acknowledge, respond and
+resolve stay on the detail page, where the owner rule and the deadline are shown.
