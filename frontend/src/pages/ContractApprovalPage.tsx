@@ -34,6 +34,7 @@ import {
   type StateTransition,
 } from '../shared/ui';
 import { Dialog } from '../shared/ui/Dialog';
+import { useConfirmStep } from '../shared/ui/useConfirmStep';
 import { useToast } from '../shared/ui/toastStore';
 import { matchesText } from '../shared/lib/filter';
 import {
@@ -85,6 +86,7 @@ const RejectDialog: React.FC<{
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const discard = useConfirmStep();
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -104,34 +106,46 @@ const RejectDialog: React.FC<{
   };
 
   return (
-    <Dialog
-      titleId="reject-title"
-      title={`Reject ${contract.code}?`}
-      onClose={() => {
-        if (reason === '' || window.confirm('Discard the rejection?')) onClose();
-      }}
-    >
-      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Field id="reject-reason" label="Reason" error={error} hint="The Manager sees this reason.">
-          <textarea
-            id="reject-reason"
-            rows={3}
-            className="rounded-lg border border-line-strong p-3"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            {...invalid('reject-reason', error)}
-          />
-        </Field>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={pending} className={`${DANGER_BUTTON} flex-1`}>
-            {pending ? 'Rejecting…' : 'Reject'}
-          </button>
-          <button type="button" onClick={onClose} className={`${SECONDARY_BUTTON} flex-1`}>
-            Back
-          </button>
-        </div>
-      </form>
-    </Dialog>
+    <>
+      <Dialog
+        titleId="reject-title"
+        title={`Reject ${contract.code}?`}
+        onClose={() => {
+          if (reason === '') onClose();
+          else
+            discard.ask(
+              {
+                title: 'Discard the rejection?',
+                description: 'The reason you typed is lost; the request stays as it is.',
+                confirmLabel: 'Discard',
+              },
+              onClose,
+            );
+        }}
+      >
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+          <Field id="reject-reason" label="Reason" error={error} hint="The Manager sees this reason.">
+            <textarea
+              id="reject-reason"
+              rows={3}
+              className="rounded-lg border border-line-strong p-3"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              {...invalid('reject-reason', error)}
+            />
+          </Field>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button type="submit" disabled={pending} className={`${DANGER_BUTTON} flex-1`}>
+              {pending ? 'Rejecting…' : 'Reject'}
+            </button>
+            <button type="button" onClick={onClose} className={`${SECONDARY_BUTTON} flex-1`}>
+              Back
+            </button>
+          </div>
+        </form>
+      </Dialog>
+      {discard.dialog}
+    </>
   );
 };
 

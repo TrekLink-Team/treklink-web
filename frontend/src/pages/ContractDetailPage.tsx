@@ -33,6 +33,7 @@ import { hasAnyRole } from '../shared/lib/permissions';
 import { Badge, ErrorState, Fact, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { Dialog } from '../shared/ui/Dialog';
+import { useConfirmStep } from '../shared/ui/useConfirmStep';
 import { useToast } from '../shared/ui/toastStore';
 import {
   ALERT,
@@ -90,6 +91,7 @@ const CancelDialog: React.FC<{ contract: ContractDetail; onClose: () => void }> 
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
+  const discard = useConfirmStep();
 
   const refresh = () =>
     Promise.all([
@@ -122,50 +124,62 @@ const CancelDialog: React.FC<{ contract: ContractDetail; onClose: () => void }> 
   };
 
   const close = () => {
-    if (reason === '' || window.confirm('Discard the cancellation?')) onClose();
+    if (reason === '') onClose();
+    else
+      discard.ask(
+        {
+          title: 'Discard the cancellation?',
+          description: 'The reason you typed is lost; the contract stays as it is.',
+          confirmLabel: 'Discard',
+        },
+        onClose,
+      );
   };
 
   return (
-    <Dialog titleId="cancel-title" title={`Cancel ${contract.code}?`} onClose={close}>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <p className="text-sm text-ink-muted">
-          The reserved devices are released. A holding fee already paid is retained.
-        </p>
-        {stale && (
-          <div role="alert" className={`${ALERT} flex items-center justify-between gap-3`}>
-            <span>Someone else changed this. Reload to see the latest.</span>
-            <button
-              type="button"
-              className="font-semibold underline"
-              onClick={() => {
-                void refresh();
-                onClose();
-              }}
-            >
-              Reload
+    <>
+      <Dialog titleId="cancel-title" title={`Cancel ${contract.code}?`} onClose={close}>
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+          <p className="text-sm text-ink-muted">
+            The reserved devices are released. A holding fee already paid is retained.
+          </p>
+          {stale && (
+            <div role="alert" className={`${ALERT} flex items-center justify-between gap-3`}>
+              <span>Someone else changed this. Reload to see the latest.</span>
+              <button
+                type="button"
+                className="font-semibold underline"
+                onClick={() => {
+                  void refresh();
+                  onClose();
+                }}
+              >
+                Reload
+              </button>
+            </div>
+          )}
+          <Field id="cancel-reason" label="Reason" error={error ?? undefined}>
+            <textarea
+              id="cancel-reason"
+              rows={3}
+              className="rounded-lg border border-line-strong p-3"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              {...invalid('cancel-reason', error ?? undefined)}
+            />
+          </Field>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button type="submit" disabled={pending} className={`${DANGER_BUTTON} flex-1`}>
+              {pending ? 'Cancelling…' : 'Cancel contract'}
+            </button>
+            <button type="button" onClick={close} className={`${SECONDARY_BUTTON} flex-1`}>
+              Keep contract
             </button>
           </div>
-        )}
-        <Field id="cancel-reason" label="Reason" error={error ?? undefined}>
-          <textarea
-            id="cancel-reason"
-            rows={3}
-            className="rounded-lg border border-line-strong p-3"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            {...invalid('cancel-reason', error ?? undefined)}
-          />
-        </Field>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={pending} className={`${DANGER_BUTTON} flex-1`}>
-            {pending ? 'Cancelling…' : 'Cancel contract'}
-          </button>
-          <button type="button" onClick={close} className={`${SECONDARY_BUTTON} flex-1`}>
-            Keep contract
-          </button>
-        </div>
-      </form>
-    </Dialog>
+        </form>
+      </Dialog>
+      {discard.dialog}
+    </>
   );
 };
 

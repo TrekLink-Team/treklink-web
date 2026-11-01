@@ -6,6 +6,7 @@ import { formatVnd } from '../../shared/lib/format';
 import { Field } from '../../shared/ui/bits';
 import { invalid } from '../../shared/ui/errors';
 import { Dialog } from '../../shared/ui/Dialog';
+import { useConfirmStep } from '../../shared/ui/useConfirmStep';
 import { useToast } from '../../shared/ui/toastStore';
 import { ALERT, INPUT, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../shared/ui/styles';
 
@@ -44,6 +45,7 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
   const [reference, setReference] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [pending, setPending] = useState(false);
+  const discard = useConfirmStep();
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -87,76 +89,88 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
 
   const close = () => {
     const filled = reference !== '' || amount !== String(dueNow > 0 ? dueNow : due);
-    if (!filled || window.confirm('Discard this payment?')) onClose();
+    if (!filled) onClose();
+    else
+      discard.ask(
+        {
+          title: 'Discard this payment?',
+          description: 'Nothing is recorded; the amount stays due.',
+          confirmLabel: 'Discard',
+        },
+        onClose,
+      );
   };
 
   return (
-    <Dialog titleId="counter-title" title="Record counter payment" onClose={close}>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <p className="text-sm text-ink-muted">
-          {invoice.number}, contract {invoice.contract.code ?? invoice.contract.id}
-          {invoice.organization.code ? `, ${invoice.organization.code}` : ''}. Due now:{' '}
-          <strong>{formatVnd(dueNow)}</strong>
-          {dueLater > 0 && (
-            <>
-              . Due later: <strong>{formatVnd(dueLater)}</strong>
-            </>
+    <>
+      <Dialog titleId="counter-title" title="Record counter payment" onClose={close}>
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+          <p className="text-sm text-ink-muted">
+            {invoice.number}, contract {invoice.contract.code ?? invoice.contract.id}
+            {invoice.organization.code ? `, ${invoice.organization.code}` : ''}. Due now:{' '}
+            <strong>{formatVnd(dueNow)}</strong>
+            {dueLater > 0 && (
+              <>
+                . Due later: <strong>{formatVnd(dueLater)}</strong>
+              </>
+            )}
+          </p>
+          {errors.form && (
+            <div role="alert" className={ALERT}>
+              {errors.form}
+            </div>
           )}
-        </p>
-        {errors.form && (
-          <div role="alert" className={ALERT}>
-            {errors.form}
-          </div>
-        )}
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-semibold text-ink">Method</legend>
-          <div className="flex gap-4">
-            {(['CASH', 'BANK_TRANSFER'] as const).map((value) => (
-              <label key={value} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="method"
-                  value={value}
-                  checked={method === value}
-                  onChange={() => setMethod(value)}
-                />
-                {value === 'CASH' ? 'Cash' : 'Bank transfer'}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <Field id="counter-amount" label="Amount received (VND)" error={errors.amountVnd}>
-          <input
-            id="counter-amount"
-            inputMode="numeric"
-            className={`${INPUT} text-right`}
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            {...invalid('counter-amount', errors.amountVnd)}
-          />
-        </Field>
-        <Field
-          id="counter-reference"
-          label="Receipt number or bank reference"
-          error={errors.reference}
-        >
-          <input
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="text-sm font-semibold text-ink">Method</legend>
+            <div className="flex gap-4">
+              {(['CASH', 'BANK_TRANSFER'] as const).map((value) => (
+                <label key={value} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="method"
+                    value={value}
+                    checked={method === value}
+                    onChange={() => setMethod(value)}
+                  />
+                  {value === 'CASH' ? 'Cash' : 'Bank transfer'}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <Field id="counter-amount" label="Amount received (VND)" error={errors.amountVnd}>
+            <input
+              id="counter-amount"
+              inputMode="numeric"
+              className={`${INPUT} text-right`}
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              {...invalid('counter-amount', errors.amountVnd)}
+            />
+          </Field>
+          <Field
             id="counter-reference"
-            className={INPUT}
-            value={reference}
-            onChange={(event) => setReference(event.target.value)}
-            {...invalid('counter-reference', errors.reference)}
-          />
-        </Field>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={pending} className={`${PRIMARY_BUTTON} flex-1`}>
-            {pending ? 'Recording…' : 'Record'}
-          </button>
-          <button type="button" onClick={close} className={`${SECONDARY_BUTTON} flex-1`}>
-            Cancel
-          </button>
-        </div>
-      </form>
-    </Dialog>
+            label="Receipt number or bank reference"
+            error={errors.reference}
+          >
+            <input
+              id="counter-reference"
+              className={INPUT}
+              value={reference}
+              onChange={(event) => setReference(event.target.value)}
+              {...invalid('counter-reference', errors.reference)}
+            />
+          </Field>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button type="submit" disabled={pending} className={`${PRIMARY_BUTTON} flex-1`}>
+              {pending ? 'Recording…' : 'Record'}
+            </button>
+            <button type="button" onClick={close} className={`${SECONDARY_BUTTON} flex-1`}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Dialog>
+      {discard.dialog}
+    </>
   );
 };
