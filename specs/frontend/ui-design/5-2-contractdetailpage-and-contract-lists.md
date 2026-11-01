@@ -97,3 +97,11 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: focus trap and return, text status labels, timezone and VND formatting
 - [x] Live data: `device.label`, `device.released`; query keys listed
 - [x] Traceability: UC-18, UC-23, UC-25, UC-55; US-UC18, US-UC23, US-UC25, US-UC55
+
+## Organization contract list: shared table and Cancel (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2. `/o/contracts` is the shared `DataTable`
+with the code as the row link, the filters (code, plan, status) in the toolbar and Pagination at the
+bottom. The Org Manager has one row action, Cancel contract, on a `REQUESTED` or `APPROVED` row: a
+`StateChangeDialog` alert dialog with the required reason and the row's `expectedVersion` (rentals
+api-design 06, MSG15). An Org Operator has none.
