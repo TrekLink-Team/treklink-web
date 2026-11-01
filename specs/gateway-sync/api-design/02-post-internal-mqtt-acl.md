@@ -16,7 +16,7 @@ Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station
 | POST | /api/internal/mqtt/acl |
 | Permission | Public (broker hook secret) |
 | Traces | FR-EVT-14, D-037 |
-| Notes | Broker only: the request must come from the broker's network and carry `X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`, compared in constant time. go-auth's HTTP backend sends no custom header, so the opt-in broker of `docker-compose.broker-auth.yml` calls through `broker-hook-proxy`, which adds it (design §4). Public to the JWT guard: the broker carries no user token |
+| Notes | Broker only, enforced by the secret alone: the request must carry `X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`, compared in constant time over SHA-256 digests; the source address is not checked. go-auth's HTTP backend sends no custom header, so the opt-in broker of `docker-compose.broker-auth.yml` calls through `broker-hook-proxy`, which adds it (design §4). Public to the JWT guard: the broker carries no user token |
 
 ## Request sample
 
@@ -134,22 +134,25 @@ flowchart TB
     S((Start))
     A0["Accept request"]
     S --> A0
+    G0{"MQTT_AUTH_HOOK_SECRET unset?"}
+    A0 --> G0
+    GE0["Return 404 NOT_FOUND"]
+    G0 -->|yes| GE0
+    GE0 --> GX0((End))
+    G1{"X-Broker-Secret missing or wrong?"}
+    G0 -->|no| G1
+    GE1["Return 401 BROKER_SECRET"]
+    G1 -->|yes| GE1
+    GE1 --> GX1((End))
     D1{"The body or query fails validation?"}
-    A0 --> D1
+    G1 -->|no| D1
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"The hook secret variable is unset?"}
-    D1 -->|no| D2
-    E2["Return 404 NOT_FOUND"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    P0["Check X-Broker-Secret"]
-    D2 -->|no| P0
-    P1["Match the topic and access against the credential kind's pattern"]
-    P0 --> P1
+    P0["Match the topic and access against the credential kind's pattern"]
+    D1 -->|no| P0
     OK["Return 200"]
-    P1 --> OK
+    P0 --> OK
     OK --> Z((End))
 ```
 
