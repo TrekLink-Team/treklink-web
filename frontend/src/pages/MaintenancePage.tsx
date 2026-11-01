@@ -26,6 +26,7 @@ import { Alert } from '../shared/ui/Alert';
 import { StatusBadge } from '../shared/ui/Badge';
 import { Button } from '../shared/ui/Button';
 import { DataTable, Pagination, type Column, type RowAction } from '../shared/ui/DataTable';
+import { lockedWhileSelecting } from '../shared/ui/lockedWhileSelecting';
 import { BulkActionDialog } from '../shared/ui/BulkAction';
 import type { BulkItem } from '../shared/ui/bulkSequence';
 import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
@@ -804,7 +805,7 @@ const RecordsTable: React.FC<{
           </p>
           {rowActions && (
             <div className="mt-1 flex flex-wrap gap-2">
-              {rowActions(record).map((action) => (
+              {lockedWhileSelecting(rowActions(record), (selection?.ids.size ?? 0) > 0).map((action) => (
                 <Button
                   key={action.key}
                   size="sm"
@@ -817,7 +818,7 @@ const RecordsTable: React.FC<{
                   {action.label}
                 </Button>
               ))}
-              {rowActions(record)
+              {lockedWhileSelecting(rowActions(record), (selection?.ids.size ?? 0) > 0)
                 .filter((action) => action.disabled && action.disabledReason)
                 .map((action) => (
                   <span key={`${action.key}-reason`} className="w-full text-body-sm text-ink-muted">

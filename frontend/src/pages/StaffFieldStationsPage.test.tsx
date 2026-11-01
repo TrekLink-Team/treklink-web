@@ -76,6 +76,18 @@ describe('StaffFieldStationsPage (screen 3.5, TrekLink view)', () => {
     expect(screen.queryByRole('button', { name: /Revoke\s+Old laptop/ })).toBeNull();
   });
 
+  it('says when more organizations exist than the one page it reads', async () => {
+    api.mockImplementation((endpoint: string) => {
+      if (endpoint.startsWith('/organizations?'))
+        return Promise.resolve({ items: [org('org-a', 'ORG-0001', 'ACTIVE')], totalCount: 101 });
+      if (endpoint === '/organizations/org-a/field-stations')
+        return Promise.resolve({ items: [station('fs-1', 'Office laptop')], limit: 5 });
+      return Promise.reject(new Error(`unexpected ${endpoint}`));
+    });
+    renderPage();
+    expect(await screen.findByText(/Showing the stations of the first 1 organizations; 100 more are not read here/)).toBeTruthy();
+  });
+
   it('narrows to one organization through the filter', async () => {
     serve();
     renderPage();

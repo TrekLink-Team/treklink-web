@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, MoreHorizon
 import { Button } from './Button';
 import { cn } from './cn';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
+import { lockedWhileSelecting } from './lockedWhileSelecting';
 import { Menu, type MenuItem } from './Menu';
 import { Skeleton } from './Skeleton';
 import { FOCUS } from './styles';
@@ -98,7 +99,6 @@ export interface DataTableProps<Row, K extends string = string> {
 
 const CELL = 'px-3 py-0 align-middle first:pl-4 last:pr-4';
 const ROW_NOUN: RowNoun = { one: 'row', other: 'rows' };
-const BULK_REASON = 'Clear the selection to use row actions.';
 const INTERACTIVE = 'a, button, input, select, textarea, label, [role="menuitem"]';
 
 const countText = (count: number, noun: RowNoun) => `${count} ${count === 1 ? noun.one : noun.other}`;
@@ -280,7 +280,7 @@ export function DataTable<Row, K extends string = string>({
           {given}
         </fieldset>
       );
-    const actions = bulkActive ? given.map((action) => ({ ...action, disabled: true, disabledReason: BULK_REASON })) : given;
+    const actions = lockedWhileSelecting(given, bulkActive);
     if (actions.length >= 3)
       return (
         <Menu

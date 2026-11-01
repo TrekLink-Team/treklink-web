@@ -154,7 +154,8 @@ export function StateChangeDialog<S extends string = string>({
               ) : undefined
             }
           >
-            {MSG36} Your reason is kept.
+            {MSG36}
+            {transition.needsReason ? ' Your reason is kept.' : ''}
           </Alert>
         )}
         {failure && (

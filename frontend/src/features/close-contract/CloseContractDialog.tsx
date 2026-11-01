@@ -33,7 +33,7 @@ export const CloseContractDialog: React.FC<{
     try {
       await closeContract(contractId, version);
       await refresh();
-      showToast('Saved.');
+      showToast(`${code} closed.`);
       onClosed?.();
       onClose();
     } catch (failure) {

@@ -7,6 +7,7 @@ export * from './fieldIds';
 export * from './useFocusTrap';
 export * from './Card';
 export * from './DataTable';
+export * from './lockedWhileSelecting';
 export * from './Dialog';
 export * from './Drawer';
 export * from './EmptyState';
