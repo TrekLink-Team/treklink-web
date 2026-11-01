@@ -21,12 +21,19 @@ route of `src/app/router.tsx`, and the Operator screens at 360 x 740. Vitest doe
   journeys change data and the seed only adds rows.
 - A fresh demo seed (`npm --prefix backend run seed:demo` on an empty database) at least 5 minutes old
   before MF-03 (`gatewaySync.attributionMarginSeconds`). The journeys share one seed and run in file
-  order, one worker. A second run on the same database skips the steps whose seeded record is used up
-  (MF-03 steps 7 to 10, MF-05) and says so; reset for a full run (script §8, or the `clean` stage of
-  the demo control panel).
+  order, one worker. A second run on the same database skips, with a reason, the steps whose seeded
+  record is used up: MF-03 steps 1 to 6 (TL-0010 already had an incident) and 7 to 10 (the UNROUTED
+  TL-0001 incident is closed), and every MF-05 step (RC-2026-0002 is no longer ACTIVE, ENDING or
+  RETURN_DUE; TL-0018 has no open maintenance; TL-0008 is not AVAILABLE). Checked 2026-11-01: 64
+  passed and 7 skipped. Reset for a full run (script §8, or the `clean` stage of the demo control
+  panel).
 - `npm run dev` from the repository root: backend, gateway in simulation mode, and the Vite dev server.
   MF-02, MF-03 and the 360 px spec need the MQTT broker of `MQTT_BROKER_URL` and the gateway.
 - Chromium for Playwright, once per machine: `npx --prefix frontend playwright install chromium`.
+- Node 22.12 or later: `@axe-core/playwright` requires it (the repository's engines field allows 22.0).
+- `demo:term-end` (MF-05 step 2) runs only when the host of `DATABASE_URL` (and `DATABASE_DIRECT_URL`)
+  is `localhost`, `127.0.0.1` or `::1`; any other host, a `*.neon.tech` one included, is refused with a
+  message before the script starts (`support/session.ts`).
 
 ## Variables
 
@@ -85,3 +92,10 @@ Type check and lint of these files: `npm --prefix frontend run typecheck:e2e` an
   `E2E_BACKEND_LOG`.
 - **Handover note**: the preview frame shows a PDF, which the browser's viewer draws outside the DOM; the
   journey checks that a PDF is framed and that the signed note downloads under its file name.
+
+## Traces
+
+A Playwright trace records every request with its body, so it holds the seeded passwords and the
+access tokens. Traces are off on CI (`CI` set) and kept only for a failed test's first retry locally.
+**Never upload a trace or an HTML report built with traces**: not to an issue, a PR, a chat or a CI
+artifact.
