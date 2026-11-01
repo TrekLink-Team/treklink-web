@@ -191,3 +191,33 @@ describe('IncidentsRepository.dueTimers (task 3.1)', () => {
     });
   });
 });
+
+describe('IncidentsRepository cadence reads (REQ-EVT-02)', () => {
+  const repository = new IncidentsRepository({} as PrismaService);
+
+  it('takes a transaction-scoped advisory lock keyed on the device', async () => {
+    const $executeRaw = jest.fn().mockResolvedValue(1);
+    await repository.lockDeviceCadence('dev-1', {
+      $executeRaw,
+    } as unknown as Prisma.TransactionClient);
+    const [strings, key] = $executeRaw.mock.calls[0] as [TemplateStringsArray, string];
+    expect(strings.join('?')).toContain('pg_advisory_xact_lock(hashtext(?))');
+    expect(key).toBe('incidents:cadence:dev-1');
+  });
+
+  it.each([
+    ['the latest closing time', new Date('2026-10-29T03:00:00Z')],
+    ['null for a device with no closed incident', null],
+  ])('answers %s', async (_label, closedAt) => {
+    const aggregate = jest.fn().mockResolvedValue({ _max: { closedAt } });
+    await expect(
+      repository.lastClosedAt('dev-1', {
+        incident: { aggregate },
+      } as unknown as Prisma.TransactionClient),
+    ).resolves.toEqual(closedAt);
+    expect(aggregate).toHaveBeenCalledWith({
+      where: { deviceId: 'dev-1', state: 'CLOSED' },
+      _max: { closedAt: true },
+    });
+  });
+});

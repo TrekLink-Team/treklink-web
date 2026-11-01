@@ -30,7 +30,8 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 // The one writer of field events (tasks 2.2 and 2.3, design §2). Every attempt leaves one audit row.
 //
 // Attribution (task 2.4) asks `rentals` for the custody interval at the occurrence time. An SOS is
-// handed to `IncidentIngress.onSos` in the same transaction, and a plotted position to `onPosition`;
+// handed to `IncidentIngress.onSos` in the same transaction, and a plotted position to `onPosition`,
+// with this repository answering the cadence count over the stored positions (incidents REQ-EVT-02);
 // the stored event is linked to the incident it opened or joined (incidents 2.3, MF-03).
 //
 // A Field Station envelope (Stage C) names its station by username, resolved through
@@ -238,12 +239,16 @@ export class IngestionService {
       } else if (position && plotted) {
         const joined = await this.incidents.onPosition(
           {
+            eventId,
             deviceId: device.id,
             occurredAt: time.occurredAt,
             latitude: position.latitude,
             longitude: position.longitude,
+            organizationId: attributed?.organizationId ?? null,
+            contractId: attributed?.contractId ?? null,
           },
           tx,
+          this.repository,
         );
         if (joined) await this.repository.linkIncident(eventId, joined.id, tx);
       }

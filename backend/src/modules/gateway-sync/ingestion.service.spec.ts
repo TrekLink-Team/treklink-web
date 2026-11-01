@@ -62,7 +62,7 @@ describe('IngestionService', () => {
   let stations: { stationByUsername: jest.Mock };
   let incidents: {
     onSos: jest.Mock<Promise<{ id: string }>, [SosEvent, unknown]>;
-    onPosition: jest.Mock<Promise<{ id: string } | null>, [PositionEvent, unknown]>;
+    onPosition: jest.Mock<Promise<{ id: string } | null>, [PositionEvent, unknown, unknown]>;
   };
   let emitted: { name: string; payload: unknown }[];
   let service: IngestionService;
@@ -101,7 +101,7 @@ describe('IngestionService', () => {
         .fn<Promise<{ id: string }>, [SosEvent, unknown]>()
         .mockResolvedValue({ id: 'incident-1' }),
       onPosition: jest
-        .fn<Promise<{ id: string } | null>, [PositionEvent, unknown]>()
+        .fn<Promise<{ id: string } | null>, [PositionEvent, unknown, unknown]>()
         .mockResolvedValue(null),
     };
     service = new IngestionService(
@@ -166,6 +166,16 @@ describe('IngestionService', () => {
         tx,
       );
       expect(repository.linkIncident).toHaveBeenCalledTimes(1);
+    });
+
+    it('hands an attributed position to incidents with its contract and organization (REQ-EVT-02)', async () => {
+      contracts.custodyAt.mockResolvedValue(custody);
+      await expect(service.ingest(envelopeOf('position'))).resolves.toBe('ACCEPTED');
+      expect(incidents.onPosition).toHaveBeenCalledWith(
+        expect.objectContaining({ organizationId: 'org-1', contractId: 'c-1' }),
+        tx,
+        repository,
+      );
     });
 
     it('leaves an event near a handover or check-in UNATTRIBUTED (margin)', async () => {
@@ -360,14 +370,19 @@ describe('IngestionService', () => {
       tx,
     );
     expect(audits()).toEqual(['ACCEPTED_UNATTRIBUTED']);
+    // The repository answers the cadence count over the stored positions (incidents REQ-EVT-02).
     expect(incidents.onPosition).toHaveBeenCalledWith(
       {
+        eventId: (storedEvent() as { eventId: string }).eventId,
         deviceId: 'dev-9',
         occurredAt: new Date('2026-10-23T03:00:00Z'),
         latitude: 11.5544,
         longitude: 108.5381,
+        organizationId: null,
+        contractId: null,
       },
       tx,
+      repository,
     );
     expect(repository.linkIncident).not.toHaveBeenCalled();
     expect(emitted).toEqual([
