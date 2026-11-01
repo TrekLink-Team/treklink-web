@@ -1,10 +1,9 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../../common/errors';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ValidatedEnvironment } from '../config/environment-variables';
+import { BACKEND_VERSION } from './backend-version';
 import { MQTT_HEALTH_PROBE, MqttHealthProbe } from './mqtt-health-probe';
 
 export type ComponentState = 'up' | 'down' | 'unknown';
@@ -19,24 +18,10 @@ export interface HealthReport {
   version: string;
 }
 
-// backend/package.json, from src/modules/platform/health (ts-jest) or dist/modules/platform/health.
-// The Vercel function ships backend/dist as its root without package.json (D-089), so a missing file
-// falls back to the npm script's version or "unknown" instead of failing the whole boot.
-export const readBackendVersion = (
-  file = join(__dirname, '..', '..', '..', '..', 'package.json'),
-): string => {
-  try {
-    return (JSON.parse(readFileSync(file, 'utf8')) as { version: string }).version;
-  } catch {
-    return process.env.npm_package_version ?? 'unknown';
-  }
-};
-
 // GET /api/health (specs/platform/api-design/01-get-health.md, REQ-EVT-04, D-032).
 @Injectable()
 export class HealthService {
   private readonly logger = new Logger(HealthService.name);
-  private readonly version = readBackendVersion();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -51,7 +36,7 @@ export class HealthService {
       status: mqtt === 'down' ? 'degraded' : 'ok',
       uptimeSeconds: Math.floor(process.uptime()),
       components: { database: 'up', mqtt },
-      version: this.version,
+      version: BACKEND_VERSION,
     };
   }
 

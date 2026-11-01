@@ -1,19 +1,13 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../../common/errors';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ValidatedEnvironment } from '../config/environment-variables';
-import { HealthService, readBackendVersion } from './health.service';
+import { BACKEND_VERSION } from './backend-version';
+import { HealthService } from './health.service';
 import { MqttHealthProbe } from './mqtt-health-probe';
 
 const TIMEOUT_MS = 2000;
-const backendVersion = (
-  JSON.parse(readFileSync(join(__dirname, '..', '..', '..', '..', 'package.json'), 'utf8')) as {
-    version: string;
-  }
-).version;
 
 const serviceWith = (queryRaw: jest.Mock, probe?: MqttHealthProbe): HealthService => {
   const prisma = { $queryRaw: queryRaw } as unknown as PrismaService;
@@ -57,7 +51,7 @@ describe('HealthService', () => {
       status: 'ok',
       uptimeSeconds: expect.any(Number) as number,
       components: { database: 'up', mqtt: 'unknown' },
-      version: backendVersion,
+      version: BACKEND_VERSION,
     });
     expect(Number.isInteger(report.uptimeSeconds)).toBe(true);
   });
@@ -122,21 +116,5 @@ describe('HealthService', () => {
       serviceWith(jest.fn().mockRejectedValue(new Error('down')), { isConnected }).check(),
     );
     expect(isConnected).not.toHaveBeenCalled();
-  });
-});
-
-describe('readBackendVersion', () => {
-  it('reads backend/package.json', () => {
-    expect(readBackendVersion()).toBe(backendVersion);
-  });
-
-  it('falls back instead of throwing when package.json is not shipped', () => {
-    const saved = process.env.npm_package_version;
-    delete process.env.npm_package_version;
-    try {
-      expect(readBackendVersion('/nonexistent/package.json')).toBe('unknown');
-    } finally {
-      if (saved !== undefined) process.env.npm_package_version = saved;
-    }
   });
 });
