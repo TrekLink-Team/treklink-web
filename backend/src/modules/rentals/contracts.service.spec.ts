@@ -100,12 +100,14 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
         {
           deviceId: 'd-1',
           contractId: 'c-1',
+          handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
           holderName: 'Le Thi E',
           contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
         },
         {
           deviceId: 'd-2',
           contractId: 'c-1',
+          handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
           holderName: null,
           contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
         },
@@ -126,6 +128,7 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
         contractId: 'c-1',
         contractCode: 'RC-2026-0001',
         organizationId: 'org-1',
+        handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
         holder: { name: 'Le Thi E' },
       },
       {
@@ -133,6 +136,7 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
         contractId: 'c-1',
         contractCode: 'RC-2026-0001',
         organizationId: 'org-1',
+        handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
         holder: null,
       },
     ]);

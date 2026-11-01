@@ -3,7 +3,7 @@ import { subject } from '@casl/ability';
 import { IncidentState } from '@prisma/client';
 import { Caller, type PolicyAbility } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { DevicesService } from '../devices';
+import { DevicesService, type DeviceProjection } from '../devices';
 import { IncidentsQueryService, type OpenIncidentRef } from '../incidents';
 import { OrganizationsService } from '../organizations';
 import { ParameterService } from '../platform/parameters/parameter.service';
@@ -38,8 +38,23 @@ export interface MapConfigDto {
   staleAfterSeconds: number;
 }
 
-// One device of GET /api/map/snapshot (api-design 02). `position.at` is the device's last-seen time:
-// the projection keeps no separate fix time yet, and a position never arrives without a reading.
+// The state of a unit on the map (REQ-UBI-04, D-092 rule 2), from its custody interval: heard since the
+// handover and within `monitoring.deviceStaleSeconds`, heard since the handover and silent longer, or not
+// heard since the handover.
+export type SnapshotDeviceState = 'LIVE' | 'OFFLINE' | 'NOT_HEARD';
+
+// The TrekLink counter where a unit not heard since its handover was last known to be
+// (`monitoring.counterLocation`).
+export interface CounterLocationDto {
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+// One device of GET /api/map/snapshot (api-design 02). `position.at` is the time of the reading that
+// carried the position (`lastPositionAt`), or the last-seen time for TrekLink staff when a position was
+// stored before that column existed. For an organization, `position` and `lastSeenAt` lie inside its
+// custody interval or are null (D-040). `stale` is true for `OFFLINE` only.
 export interface SnapshotDeviceDto {
   id: string;
   assetTag: string;
@@ -49,6 +64,9 @@ export interface SnapshotDeviceDto {
   batteryPct: number | null;
   lastSeenAt: string | null;
   stale: boolean;
+  state: SnapshotDeviceState;
+  handedOverAt: string;
+  counterLocation: CounterLocationDto | null;
   openIncident: { id: string; code: string; state: IncidentState } | null;
   contractCode: string;
   organizationId: string;
@@ -70,6 +88,37 @@ export interface MapSnapshotDto {
 
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
+
+// What the map may show of one unit (REQ-UBI-04, monitoring design §4). `clipped` is an organization's
+// own view: nothing from before the handover (D-040). TrekLink staff keep the stored values.
+export const unitView = (
+  device: Pick<
+    DeviceProjection,
+    'lastSeenAt' | 'lastLatitude' | 'lastLongitude' | 'lastPositionAt'
+  >,
+  handedOverAt: Date,
+  staleBefore: number,
+  clipped: boolean,
+): Pick<SnapshotDeviceDto, 'state' | 'position' | 'lastSeenAt'> => {
+  const { lastSeenAt, lastLatitude, lastLongitude, lastPositionAt } = device;
+  const heard = lastSeenAt !== null && lastSeenAt.getTime() >= handedOverAt.getTime();
+  const state: SnapshotDeviceState = !heard
+    ? 'NOT_HEARD'
+    : lastSeenAt.getTime() < staleBefore
+      ? 'OFFLINE'
+      : 'LIVE';
+  const fixAt = clipped ? lastPositionAt : (lastPositionAt ?? lastSeenAt);
+  const plotted =
+    lastLatitude !== null &&
+    lastLongitude !== null &&
+    fixAt !== null &&
+    (!clipped || fixAt.getTime() >= handedOverAt.getTime());
+  return {
+    state,
+    position: plotted ? { lat: lastLatitude, lon: lastLongitude, at: fixAt.toISOString() } : null,
+    lastSeenAt: clipped && !heard ? null : (lastSeenAt?.toISOString() ?? null),
+  };
+};
 
 // An organization id no row carries. Only the unconditioned `liveMap.read` rule (TrekLink Staff and
 // Admin) matches it; `liveMap.read.own` matches the caller's own organization only.
@@ -106,16 +155,20 @@ export class LiveMapService {
     now: Date = new Date(),
   ): Promise<MapSnapshotDto> {
     const organizationId = this.scopeOf(query, caller, ability);
+    // An organization's own view: TrekLink staff asking for one organization keep the staff view.
+    const clipped = caller.organizationId !== null;
     const cursor = await this.stream.maxSeq();
-    const [visible, staleSeconds, stations, stationStaleSeconds] = await Promise.all([
+    const [visible, staleSeconds, stations, stationStaleSeconds, counter] = await Promise.all([
       this.contracts.visibleDevices({ organizationId }),
       this.parameters.get('monitoring.deviceStaleSeconds'),
       this.organizations.fieldStationHealth(organizationId),
       this.parameters.get('monitoring.fieldStationStaleSeconds'),
+      this.parameters.get('monitoring.counterLocation'),
     ]);
     if (!isNumber(staleSeconds)) this.refuse('monitoring.deviceStaleSeconds', 'a number');
     if (!isNumber(stationStaleSeconds))
       this.refuse('monitoring.fieldStationStaleSeconds', 'a number');
+    const counterLocation = this.counterLocation(counter);
     const ids = visible.map((device) => device.deviceId);
     const [projections, incidents] = await Promise.all([
       this.devices.projections(ids),
@@ -127,25 +180,20 @@ export class LiveMapService {
     const devices = projections.flatMap((device): SnapshotDeviceDto[] => {
       const rented = rental.get(device.id);
       if (!rented) return [];
-      const lastSeenAt = device.lastSeenAt?.toISOString() ?? null;
-      const plotted =
-        device.lastLatitude !== null && device.lastLongitude !== null && lastSeenAt !== null;
+      const view = unitView(device, rented.handedOverAt, staleBefore, clipped);
       return [
         {
           id: device.id,
           assetTag: device.assetTag,
           hardwareVariant: device.variantCode,
           holder: rented.holder,
-          position: plotted
-            ? {
-                lat: device.lastLatitude as number,
-                lon: device.lastLongitude as number,
-                at: lastSeenAt,
-              }
-            : null,
-          batteryPct: device.batteryPct,
-          lastSeenAt,
-          stale: device.lastSeenAt !== null && device.lastSeenAt.getTime() < staleBefore,
+          position: view.position,
+          batteryPct: view.state === 'NOT_HEARD' && clipped ? null : device.batteryPct,
+          lastSeenAt: view.lastSeenAt,
+          stale: view.state === 'OFFLINE',
+          state: view.state,
+          handedOverAt: rented.handedOverAt.toISOString(),
+          counterLocation: view.state === 'NOT_HEARD' ? counterLocation : null,
           openIncident: this.incidentOf(incidents.get(device.id), organizationId),
           contractCode: rented.contractCode,
           organizationId: rented.organizationId,
@@ -160,6 +208,17 @@ export class LiveMapService {
       stale: station.lastSyncAt !== null && station.lastSyncAt.getTime() < stationStaleBefore,
     }));
     return { cursor, devices, fieldStations };
+  }
+
+  // `monitoring.counterLocation`: a non-empty name and numeric lat and lon. A malformed value fails the
+  // request and names the parameter, as the map parameters do.
+  private counterLocation(value: unknown): CounterLocationDto {
+    const v = (
+      typeof value === 'object' && value !== null && !Array.isArray(value) ? value : {}
+    ) as Record<string, unknown>;
+    if (typeof v.name !== 'string' || v.name === '' || !isNumber(v.lat) || !isNumber(v.lon))
+      this.refuse('monitoring.counterLocation', 'an object with a name and numeric lat and lon');
+    return { name: v.name, lat: v.lat, lon: v.lon };
   }
 
   // An incident routed to another organization is never shown on an organization's map (incidents

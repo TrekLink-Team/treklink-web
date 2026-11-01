@@ -78,6 +78,9 @@ export interface VisibleDevice {
   contractId: string;
   contractCode: string;
   organizationId: string;
+  // The start of the custody interval (D-040): the live map shows an organization nothing from before it
+  // (monitoring REQ-UBI-04, D-092 rule 2).
+  handedOverAt: Date;
   // The holder label set at handover; null before one is set or after it was erased (FR-CON-14).
   holder: { name: string } | null;
 }
@@ -325,6 +328,8 @@ export class ContractsService {
       contractId: row.contractId,
       contractCode: row.contract.code,
       organizationId: row.contract.organizationId,
+      // The query keeps handed-over rows only.
+      handedOverAt: row.handedOverAt as Date,
       holder: row.holderName === null ? null : { name: row.holderName },
     }));
   }

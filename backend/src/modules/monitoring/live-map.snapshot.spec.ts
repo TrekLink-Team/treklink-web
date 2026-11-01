@@ -11,6 +11,8 @@ import type { StreamRepository } from './stream.repository';
 
 const NOW = new Date('2026-10-30T03:00:00.000Z');
 const ago = (seconds: number) => new Date(NOW.getTime() - seconds * 1000);
+const HANDED_OVER = ago(3600);
+const COUNTER = { name: 'TrekLink counter', lat: 11.9, lon: 108.4 };
 
 const VISIBLE = [
   {
@@ -18,6 +20,7 @@ const VISIBLE = [
     contractId: 'c-1',
     contractCode: 'RC-2026-0001',
     organizationId: 'org-1',
+    handedOverAt: HANDED_OVER,
     holder: { name: 'Le Thi E' },
   },
   {
@@ -25,6 +28,7 @@ const VISIBLE = [
     contractId: 'c-1',
     contractCode: 'RC-2026-0001',
     organizationId: 'org-1',
+    handedOverAt: HANDED_OVER,
     holder: null,
   },
   {
@@ -32,6 +36,7 @@ const VISIBLE = [
     contractId: 'c-1',
     contractCode: 'RC-2026-0001',
     organizationId: 'org-1',
+    handedOverAt: HANDED_OVER,
     holder: null,
   },
 ];
@@ -47,6 +52,7 @@ const PROJECTIONS = [
     batteryPct: 81,
     lastLatitude: 11.56,
     lastLongitude: 108.54,
+    lastPositionAt: ago(30),
   },
   {
     id: 'd-2',
@@ -58,6 +64,7 @@ const PROJECTIONS = [
     batteryPct: 40,
     lastLatitude: null,
     lastLongitude: null,
+    lastPositionAt: null,
   },
   {
     id: 'd-3',
@@ -69,6 +76,7 @@ const PROJECTIONS = [
     batteryPct: null,
     lastLatitude: null,
     lastLongitude: null,
+    lastPositionAt: null,
   },
   // A projection the rentals read did not list is never shown.
   {
@@ -81,6 +89,7 @@ const PROJECTIONS = [
     batteryPct: 90,
     lastLatitude: 1,
     lastLongitude: 1,
+    lastPositionAt: ago(1),
   },
 ];
 
@@ -111,11 +120,13 @@ describe('LiveMapService.snapshot', () => {
   let fieldStationHealth: jest.Mock;
   let stale: unknown;
   let stationStale: unknown;
+  let counter: unknown;
   let service: LiveMapService;
 
   beforeEach(() => {
     stale = 300;
     stationStale = 180;
+    counter = COUNTER;
     fieldStationHealth = jest.fn().mockResolvedValue(STATIONS);
     visibleDevices = jest.fn().mockResolvedValue(VISIBLE);
     projections = jest.fn().mockResolvedValue(PROJECTIONS);
@@ -135,7 +146,13 @@ describe('LiveMapService.snapshot', () => {
     service = new LiveMapService(
       {
         get: jest.fn((key: string) =>
-          Promise.resolve(key === 'monitoring.fieldStationStaleSeconds' ? stationStale : stale),
+          Promise.resolve(
+            key === 'monitoring.fieldStationStaleSeconds'
+              ? stationStale
+              : key === 'monitoring.counterLocation'
+                ? counter
+                : stale,
+          ),
         ),
       } as unknown as ParameterService,
       { visibleDevices } as unknown as ContractsService,
@@ -175,6 +192,9 @@ describe('LiveMapService.snapshot', () => {
           batteryPct: 81,
           lastSeenAt: ago(30).toISOString(),
           stale: false,
+          state: 'LIVE',
+          handedOverAt: HANDED_OVER.toISOString(),
+          counterLocation: null,
           openIncident: { id: 'i-1', code: 'INC-2026-000001', state: 'NOTIFY_PRIMARY' },
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
@@ -188,6 +208,9 @@ describe('LiveMapService.snapshot', () => {
           batteryPct: 40,
           lastSeenAt: ago(600).toISOString(),
           stale: true,
+          state: 'OFFLINE',
+          handedOverAt: HANDED_OVER.toISOString(),
+          counterLocation: null,
           openIncident: null,
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
@@ -201,6 +224,9 @@ describe('LiveMapService.snapshot', () => {
           batteryPct: null,
           lastSeenAt: null,
           stale: false,
+          state: 'NOT_HEARD',
+          handedOverAt: HANDED_OVER.toISOString(),
+          counterLocation: COUNTER,
           openIncident: null,
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
@@ -275,5 +301,102 @@ describe('LiveMapService.snapshot', () => {
     await expect(service.snapshot({}, callerOf(null), staff, NOW)).rejects.toThrow(
       'Map parameter monitoring.fieldStationStaleSeconds is malformed.',
     );
+  });
+
+  // D-092 rule 2: a unit heard only before its handover is not heard since handover; an organization
+  // gets nothing from before its custody interval (D-040), TrekLink staff keep the stored values.
+  describe('custody interval (REQ-UBI-04)', () => {
+    const beforeHandover = ago(7200);
+    beforeEach(() => {
+      projections.mockResolvedValue([
+        // Heard and fixed before the handover only.
+        {
+          ...PROJECTIONS[0],
+          lastSeenAt: beforeHandover,
+          lastPositionAt: beforeHandover,
+          batteryPct: 95,
+        },
+        // Heard since the handover by telemetry only: the stored fix is the previous custody's.
+        {
+          ...PROJECTIONS[1],
+          lastLatitude: 12.1,
+          lastLongitude: 108.9,
+          lastPositionAt: beforeHandover,
+        },
+        // A fix stored before lastPositionAt existed: its time is unknown.
+        { ...PROJECTIONS[2], lastSeenAt: ago(10), lastLatitude: 12.2, lastLongitude: 108.8 },
+      ]);
+    });
+
+    it('shows an organization no position, reading time or battery from before the handover', async () => {
+      const { devices } = await service.snapshot({}, callerOf('org-1'), member('org-1'), NOW);
+      expect(devices.map((d) => [d.id, d.state, d.position, d.lastSeenAt])).toEqual([
+        ['d-1', 'NOT_HEARD', null, null],
+        ['d-2', 'OFFLINE', null, ago(600).toISOString()],
+        ['d-3', 'LIVE', null, ago(10).toISOString()],
+      ]);
+      expect(devices[0]).toMatchObject({
+        batteryPct: null,
+        stale: false,
+        counterLocation: COUNTER,
+      });
+      expect(devices[1].counterLocation).toBeNull();
+    });
+
+    it('keeps the stored values for TrekLink staff, with the same states', async () => {
+      const { devices } = await service.snapshot(
+        { organizationId: 'org-1' },
+        callerOf(null),
+        staff,
+        NOW,
+      );
+      expect(devices.map((d) => [d.id, d.state, d.position, d.lastSeenAt])).toEqual([
+        [
+          'd-1',
+          'NOT_HEARD',
+          { lat: 11.56, lon: 108.54, at: beforeHandover.toISOString() },
+          beforeHandover.toISOString(),
+        ],
+        [
+          'd-2',
+          'OFFLINE',
+          { lat: 12.1, lon: 108.9, at: beforeHandover.toISOString() },
+          ago(600).toISOString(),
+        ],
+        [
+          'd-3',
+          'LIVE',
+          { lat: 12.2, lon: 108.8, at: ago(10).toISOString() },
+          ago(10).toISOString(),
+        ],
+      ]);
+      expect(devices[0]).toMatchObject({ batteryPct: 95, counterLocation: COUNTER });
+    });
+
+    it('counts a reading at the handover instant as heard since the handover', async () => {
+      projections.mockResolvedValue([
+        { ...PROJECTIONS[0], lastSeenAt: HANDED_OVER, lastPositionAt: HANDED_OVER },
+      ]);
+      const { devices } = await service.snapshot({}, callerOf('org-1'), member('org-1'), NOW);
+      expect(devices[0]).toMatchObject({
+        state: 'OFFLINE',
+        position: { lat: 11.56, lon: 108.54, at: HANDED_OVER.toISOString() },
+      });
+    });
+  });
+
+  it('fails when the counter location is malformed', async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    for (const bad of [
+      null,
+      [],
+      { name: '', lat: 1, lon: 1 },
+      { name: 'Counter', lat: '11', lon: 1 },
+    ]) {
+      counter = bad;
+      await expect(service.snapshot({}, callerOf(null), staff, NOW)).rejects.toThrow(
+        'Map parameter monitoring.counterLocation is malformed.',
+      );
+    }
   });
 });
