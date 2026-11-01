@@ -121,3 +121,10 @@ D-059 rule 7 resolves H-01: open reports first, then newest `reportedAt`, with n
 - [x] Chapter 06 section 8 placement, primary action, labelled state, feedback, recovery, input preservation, time, alert priority and reuse are addressed.
 - [x] D-059 rule 7 supplies the approved report order, without a sort parameter/control.
 - [x] H-06 follows API 09: record authority closure, and close the incident only if still `REPORTED`.
+
+## Shared table (W29, 2026-11-01)
+
+Added by KhoaDD under D-078. The reports list is the shared `DataTable`, which scrolls inside its box
+below the sm breakpoint instead of the earlier labelled cards; Record case closed is the row action
+of an open case ("Record case closed {agency} {reference}"); Pagination shows the range. Server
+order kept (D-059 rule 7), so no column sorts.

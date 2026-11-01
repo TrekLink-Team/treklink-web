@@ -43,10 +43,17 @@ import {
   SECONDARY_BUTTON,
 } from '../shared/ui/styles';
 import { matchesText } from '../shared/lib/filter';
-import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
 import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
-import { DEVICE_STATUS, StatusBadge } from '../shared/ui';
+import {
+  DataTable,
+  DEVICE_STATUS,
+  StatusBadge,
+  Toolbar,
+  ToolbarSearch,
+  type Column,
+  type RowAction,
+} from '../shared/ui';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 
 const CANCELLABLE = ['REQUESTED', 'APPROVED'];
@@ -272,6 +279,32 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
       matchesText(tag, device.assetTag, device.deviceId) &&
       matchesText(holder, device.holder?.name ?? 'No label'),
   );
+  // The device rows (W29): the shared DataTable; Label and Report lost are row actions on a unit that
+  // is out, named after its asset tag.
+  const deviceColumns: Column<ContractDevice>[] = [
+    {
+      key: 'tag',
+      header: 'Asset tag',
+      cell: (device) => (
+        <span className="whitespace-nowrap">
+          <span className="font-mono">{device.assetTag ?? device.deviceId}</span>
+          {device.handedOverAt && (
+            <Link
+              to={`/${scope}/devices/${device.deviceId}/telemetry`}
+              state={{ assetTag: device.assetTag }}
+              className={`${LINK} ml-3 text-sm`}
+            >
+              History
+            </Link>
+          )}
+        </span>
+      ),
+    },
+    { key: 'holder', header: 'Holder', cell: (device) => device.holder?.name ?? 'No label' },
+    { key: 'out', header: 'Handed over', cell: (device) => <When iso={device.handedOverAt} /> },
+    { key: 'back', header: 'Back', cell: (device) => (device.lostAt ? 'Lost' : <When iso={device.checkedInAt} />) },
+  ];
+
   // Holder labels belong to the renting organization's members, on a contract not yet closed.
   const canLabel = scope === 'o' && isMember && data.status !== 'CLOSED';
   // The Org Manager reports a unit that is out as lost (devices api-design 17, screen 4.4).
@@ -280,6 +313,18 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   // The unit's state after the return and its next step back to AVAILABLE (D-092 rule 4), TrekLink
   // detail only: the read carries afterReturn for TrekLink callers alone.
   const showState = scope === 't' && data.devices.some((device) => device.afterReturn);
+  if (showState) deviceColumns.push({ key: 'state', header: 'State now', cell: (device) => <AfterReturn device={device} /> });
+  const deviceActions = (device: ContractDevice): RowAction[] =>
+    device.handedOverAt && !device.checkedInAt && !device.lostAt
+      ? [
+          ...(canLabel
+            ? [{ key: 'label', label: device.holder ? 'Edit label' : 'Label', onSelect: () => setLabelling(device) }]
+            : []),
+          ...(canReport
+            ? [{ key: 'report', label: 'Report lost', destructive: true, onSelect: () => setReporting(device) }]
+            : []),
+        ]
+      : [];
   const back = scope === 'o' ? '/o/contracts' : '/t/contracts';
   const invoices =
     scope === 'o' ? `/o/invoices?contractId=${data.id}` : `/t/billing?contractId=${data.id}`;
@@ -390,97 +435,40 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                 Devices are reserved when TrekLink approves the request.
               </p>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="text-left text-ink-muted">
-                  <tr>
-                    <th className="py-2">Asset tag</th>
-                    <th className="py-2">Holder</th>
-                    <th className="py-2">Handed over</th>
-                    <th className="py-2">Back</th>
-                    {showState && <th className="py-2">State now</th>}
-                    {hasActions && <th className="py-2 sr-only">Actions</th>}
-                  </tr>
-                  <FilterRow
-                    columns={[
-                      { label: 'asset tag', kind: 'text', value: tag, onChange: setTag },
-                      { label: 'holder', kind: 'text', value: holder, onChange: setHolder },
-                      null,
-                      null,
-                      ...(showState ? [null] : []),
-                      ...(hasActions ? [null] : []),
-                    ]}
-                    onClear={() => {
-                      setTag('');
-                      setHolder('');
-                    }}
-                  />
-                </thead>
-                <tbody>
-                  {devices.length === 0 && (
-                    <NoMatchRow
-                      colSpan={4 + (hasActions ? 1 : 0) + (showState ? 1 : 0)}
-                      onClear={() => {
-                        setTag('');
-                        setHolder('');
-                      }}
-                    />
-                  )}
-                  {devices.map((device) => (
-                    <tr key={device.deviceId} className="border-t border-line">
-                      <td className="py-2">
-                        <span className="font-mono">{device.assetTag ?? device.deviceId}</span>
-                        {device.handedOverAt && (
-                          <Link
-                            to={`/${scope}/devices/${device.deviceId}/telemetry`}
-                            state={{ assetTag: device.assetTag }}
-                            className={`${LINK} ml-3 text-sm`}
-                          >
-                            History
-                          </Link>
-                        )}
-                      </td>
-                      <td className="py-2">{device.holder?.name ?? 'No label'}</td>
-                      <td className="py-2">
-                        <When iso={device.handedOverAt} />
-                      </td>
-                      <td className="py-2">
-                        {device.lostAt ? 'Lost' : <When iso={device.checkedInAt} />}
-                      </td>
-                      {showState && (
-                        <td className="py-2">
-                          <AfterReturn device={device} />
-                        </td>
-                      )}
-                      {hasActions && (
-                        <td className="py-2 text-right">
-                          {device.handedOverAt && !device.checkedInAt && !device.lostAt && (
-                            <span className="inline-flex flex-wrap justify-end gap-3">
-                              {canLabel && (
-                                <button
-                                  type="button"
-                                  className={`${LINK} text-sm`}
-                                  onClick={() => setLabelling(device)}
-                                >
-                                  {device.holder ? 'Edit label' : 'Label'}
-                                </button>
-                              )}
-                              {canReport && (
-                                <button
-                                  type="button"
-                                  className={`${LINK} text-sm`}
-                                  onClick={() => setReporting(device)}
-                                >
-                                  Report lost
-                                </button>
-                              )}
-                            </span>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                <Toolbar
+                  label="Device filters"
+                  start={
+                    <>
+                      <ToolbarSearch id="contract-device-tag" label="Search by asset tag" value={tag} onChange={setTag} />
+                      <ToolbarSearch id="contract-device-holder" label="Search by holder" value={holder} onChange={setHolder} />
+                    </>
+                  }
+                />
+                <DataTable<ContractDevice>
+                  caption={`Devices of ${data.code}`}
+                  columns={deviceColumns}
+                  rows={devices}
+                  rowId={(device) => device.deviceId}
+                  rowLabel={(device) => device.assetTag ?? device.deviceId}
+                  empty={{
+                    title: 'No devices match these filters.',
+                    action: (
+                      <button
+                        type="button"
+                        className={`${LINK} text-sm`}
+                        onClick={() => {
+                          setTag('');
+                          setHolder('');
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    ),
+                  }}
+                  rowActions={hasActions ? deviceActions : undefined}
+                />
+              </>
             )}
           </div>
 
