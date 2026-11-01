@@ -22,27 +22,32 @@ import {
   Button,
   Card,
   Checkbox,
+  DataTable,
   Dialog,
-  EmptyState,
   Field,
   Input,
   ORGANIZATION_STATUS,
   PageActionBar,
   PageHeader,
   RadioGroup,
+  Select,
   Skeleton,
+  StateChangeMenu,
   StickyPageHeader,
   StatusBadge,
   TabPanel,
   Tabs,
   Textarea,
+  Toolbar,
+  ToolbarSearch,
   useToast,
+  type Column,
+  type StateChangeInput,
+  type StateTransition,
 } from '../shared/ui';
 import { ErrorState, Fact } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { matchesText } from '../shared/lib/filter';
-import { FilterRow, NoMatchRow } from '../shared/ui/TableFilters';
-import { TABLE, TD, TH } from '../shared/ui/styles';
 import { ChannelKeySection } from '../widgets/ChannelKeySection/ChannelKeySection';
 
 type Tab = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' | 'ALL';
@@ -340,6 +345,51 @@ const StatusHistory: React.FC<{ organizationId: string }> = ({ organizationId })
   );
 };
 
+// The row menu of screen 3.2 (W29): only the next statuses of the organization lifecycle (D-035,
+// organizations design §2) an Admin may choose. Approve waits for the counter verification (MSG21).
+// Reject, suspend and close keep their reason on the transition, shown to the Manager.
+type Target = 'APPROVE' | 'REJECT' | 'SUSPEND' | 'REACTIVATE' | 'CLOSE';
+
+const REASON_HINT = 'Shown to the Manager and kept on the status history.';
+
+const organizationTransitions = (organization: OrganizationReview, isAdmin: boolean): StateTransition<Target>[] => {
+  if (!isAdmin) return [];
+  switch (organization.status) {
+    case 'PENDING':
+      return [
+        ...(organization.verifiedAt
+          ? [{ target: 'APPROVE' as const, label: 'Approve organization', description: 'The Manager can request devices from now on.', successMessage: `${organization.code} approved. The Manager can now request devices.` }]
+          : []),
+        { target: 'REJECT', label: 'Reject organization', destructive: true, needsReason: true, reasonHint: REASON_HINT, description: 'The registration is refused. This cannot be undone.', successMessage: `${organization.code} rejected.` },
+      ];
+    case 'ACTIVE':
+      return [
+        { target: 'SUSPEND', label: 'Suspend organization', destructive: true, needsReason: true, reasonHint: REASON_HINT, description: STATUS_ACTION.suspend.detail, successMessage: `${organization.code} suspended.` },
+        { target: 'CLOSE', label: 'Close organization', destructive: true, needsReason: true, reasonHint: REASON_HINT, description: STATUS_ACTION.close.detail, successMessage: `${organization.code} closed.` },
+      ];
+    case 'SUSPENDED':
+      return [{ target: 'REACTIVATE', label: 'Reactivate organization', description: 'It can request contracts again.', successMessage: `${organization.code} reactivated.` }];
+    default:
+      return [];
+  }
+};
+
+const submitTransition = (organization: OrganizationReview, input: StateChangeInput<Target>) => {
+  const reason = input.reason ?? '';
+  switch (input.target) {
+    case 'APPROVE':
+      return approveOrganization(organization.id, input.expectedVersion);
+    case 'REJECT':
+      return rejectOrganization(organization.id, reason, input.expectedVersion);
+    case 'SUSPEND':
+      return suspendOrganization(organization.id, reason, input.expectedVersion);
+    case 'CLOSE':
+      return closeOrganization(organization.id, reason, input.expectedVersion);
+    case 'REACTIVATE':
+      return reactivateOrganization(organization.id, input.expectedVersion);
+  }
+};
+
 // /t/organizations, screen 3.2 (organizations api-design 02, 05 to 11; UC-02, UC-03, UC-07): Staff
 // and Admin work the verification queue, and an Admin approves a verified organization (MSG05,
 // MSG21) or rejects it (MSG16), suspends, reactivates or closes it.
@@ -360,19 +410,24 @@ export const OrganizationReviewPage: React.FC = () => {
     tab === 'ALL' ? undefined : (tab satisfies OrganizationStatus),
   );
   const selected = organizations.data?.items.find((item) => item.id === selectedId) ?? null;
-  const [find, setFind] = useState({ code: '', name: '', verified: '' });
-  const set = (key: keyof typeof find) => (value: string) =>
-    setFind((current) => ({ ...current, [key]: value }));
-  const clear = () => setFind({ code: '', name: '', verified: '' });
-  const rows =
-    organizations.data?.items.filter(
-      (item) =>
-        matchesText(find.code, item.code) &&
-        matchesText(find.name, item.legalName, item.taxCode) &&
-        (find.verified === '' || (find.verified === 'YES') === Boolean(item.verifiedAt)),
-    ) ?? [];
+  const [find, setFind] = useState({ text: '', verified: '' });
+  const clear = () => setFind({ text: '', verified: '' });
+  const filtered = find.text !== '' || find.verified !== '';
+  const rows = organizations.data?.items.filter(
+    (item) =>
+      matchesText(find.text, item.code, item.legalName, item.taxCode) &&
+      (find.verified === '' || (find.verified === 'YES') === Boolean(item.verifiedAt)),
+  );
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+
+  const columns: Column<OrganizationReview>[] = [
+    { key: 'code', header: 'Code', cell: (item) => <span className="font-mono">{item.code}</span> },
+    { key: 'name', header: 'Organization', cell: (item) => item.legalName },
+    { key: 'registered', header: 'Registered', cell: (item) => formatDateTime(item.createdAt), hideOnMobile: true },
+    { key: 'verified', header: 'Verified', cell: (item) => (item.verifiedAt ? 'Yes' : 'Not yet') },
+    { key: 'status', header: 'Status', cell: (item) => <StatusBadge entry={ORGANIZATION_STATUS[item.status]} /> },
+  ];
 
   const select = (id: string) => {
     setSelectedId(id);
@@ -430,96 +485,71 @@ export const OrganizationReviewPage: React.FC = () => {
 
       <TabPanel idPrefix="orgs" tabKey={tab}>
         <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
-          <div className="min-w-0 overflow-x-auto">
-            {organizations.isLoading && (
-              <div role="status" className="flex flex-col gap-2">
-                <span className="sr-only">Loading organizations</span>
-                {[0, 1, 2].map((row) => (
-                  <Skeleton key={row} className="h-12" />
-                ))}
-              </div>
-            )}
-            {organizations.error && (
-              <ErrorState
-                error={organizations.error}
-                onRetry={() => void organizations.refetch()}
-              />
-            )}
-            {organizations.data && organizations.data.items.length === 0 && (
-              <Card>
-                <EmptyState title="No organizations here." />
-              </Card>
-            )}
-            {organizations.data && organizations.data.items.length > 0 && (
-              <table className={TABLE}>
-                <caption className="sr-only">Organizations</caption>
-                <thead>
-                  <tr>
-                    <th className={TH}>Code</th>
-                    <th className={TH}>Organization</th>
-                    <th className={TH}>Registered</th>
-                    <th className={TH}>Verified</th>
-                    <th className={TH}>Status</th>
-                  </tr>
-                  <FilterRow
-                    columns={[
-                      { label: 'code', kind: 'text', value: find.code, onChange: set('code') },
-                      {
-                        label: 'organization',
-                        kind: 'text',
-                        value: find.name,
-                        onChange: set('name'),
-                        placeholder: 'Name or tax code',
-                      },
-                      null,
-                      {
-                        label: 'verified',
-                        kind: 'select',
-                        value: find.verified,
-                        onChange: set('verified'),
-                        options: [
-                          { value: 'YES', label: 'Verified' },
-                          { value: 'NO', label: 'Not yet' },
-                        ],
-                      },
-                      null,
-                    ]}
-                    onClear={clear}
+          <div className="min-w-0">
+            <Toolbar
+              label="Organization filters"
+              start={
+                <>
+                  <ToolbarSearch
+                    id="orgs-search"
+                    label="Search by code, name or tax code"
+                    placeholder="Code, name or tax code"
+                    value={find.text}
+                    onChange={(text) => setFind((current) => ({ ...current, text }))}
                   />
-                </thead>
-                <tbody>
-                  {rows.length === 0 && <NoMatchRow colSpan={5} onClear={clear} />}
-                  {rows.map((item) => (
-                    <tr
-                      key={item.id}
-                      className={`cursor-pointer transition-colors duration-tl ${
-                        item.id === selectedId ? 'bg-chrome/50' : 'hover:bg-chrome/40'
-                      }`}
-                      onClick={() => select(item.id)}
+                  <span className="w-44">
+                    <Select
+                      aria-label="Verified"
+                      value={find.verified}
+                      onChange={(event) => setFind((current) => ({ ...current, verified: event.target.value }))}
                     >
-                      <td className={`${TD} font-mono`}>
-                        <button
-                          type="button"
-                          aria-pressed={item.id === selectedId}
-                          className="font-semibold text-brand hover:underline"
-                          onClick={() => select(item.id)}
-                        >
-                          {item.code}
-                        </button>
-                      </td>
-                      <td className={TD}>{item.legalName}</td>
-                      <td className={`${TD} whitespace-nowrap`}>
-                        {formatDateTime(item.createdAt)}
-                      </td>
-                      <td className={TD}>{item.verifiedAt ? 'Yes' : 'Not yet'}</td>
-                      <td className={TD}>
-                        <StatusBadge entry={ORGANIZATION_STATUS[item.status]} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                      <option value="">Verified or not</option>
+                      <option value="YES">Verified</option>
+                      <option value="NO">Not yet</option>
+                    </Select>
+                  </span>
+                  {filtered && (
+                    <Button variant="ghost" onClick={clear}>
+                      Clear filters
+                    </Button>
+                  )}
+                </>
+              }
+            />
+            <DataTable<OrganizationReview>
+              caption="Organizations"
+              columns={columns}
+              rows={rows}
+              rowId={(item) => item.id}
+              rowLabel={(item) => item.code}
+              loading={organizations.isLoading}
+              error={
+                organizations.error ? (
+                  <ErrorState error={organizations.error} onRetry={() => void organizations.refetch()} />
+                ) : undefined
+              }
+              empty={
+                filtered
+                  ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
+                  : { title: 'No organizations here.' }
+              }
+              activeRowId={selectedId ?? undefined}
+              onRowActivate={(item) => select(item.id)}
+              rowActions={
+                isAdmin
+                  ? (item) => (
+                      <StateChangeMenu<Target>
+                        subject={item.code}
+                        transitions={organizationTransitions(item, isAdmin)}
+                        version={item.version}
+                        onSubmit={(input) => submitTransition(item, input)}
+                        onReload={() => void refresh()}
+                        onDone={() => void refresh()}
+                      />
+                    )
+                  : undefined
+              }
+            />
           </div>
 
           {selected ? (

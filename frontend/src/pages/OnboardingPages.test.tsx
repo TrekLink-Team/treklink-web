@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OrganizationReview, OrganizationTransition } from '../entities/organization/api';
@@ -14,6 +14,8 @@ const verifyOrganization = vi.fn();
 const suspendOrganization = vi.fn();
 const reactivateOrganization = vi.fn();
 const closeOrganization = vi.fn();
+const rejectOrganization = vi.fn();
+const approveOrganization = vi.fn();
 let items: OrganizationReview[] = [];
 let transitions: OrganizationTransition[] = [];
 let roles = ['ADMIN'];
@@ -25,6 +27,8 @@ vi.mock('../entities/organization/api', async (importOriginal) => ({
   suspendOrganization: (...args: unknown[]) => suspendOrganization(...args),
   reactivateOrganization: (...args: unknown[]) => reactivateOrganization(...args),
   closeOrganization: (...args: unknown[]) => closeOrganization(...args),
+  rejectOrganization: (...args: unknown[]) => rejectOrganization(...args),
+  approveOrganization: (...args: unknown[]) => approveOrganization(...args),
   useOrganizations: () => ({ data: { items, totalCount: items.length }, isLoading: false }),
   useOrganizationTransitions: () => ({ data: transitions, isLoading: false }),
 }));
@@ -329,5 +333,59 @@ describe('OrganizationReviewPage status actions (screen 3.2, organizations api-d
     expect(screen.getByText('Pending to Active')).toBeTruthy();
     expect(screen.getByText(/SYSTEM: Contract RC-2026-0042 defaulted/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Reactivate' })).toBeNull();
+  });
+});
+
+describe('OrganizationReviewPage row menu (W29, UI standard §3)', () => {
+  const menuOf = (code: string) => screen.getByRole('button', { name: `Change status of ${code}` });
+  const itemsOf = (code: string) => {
+    fireEvent.click(menuOf(code));
+    const labels = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    return labels;
+  };
+
+  it('lists only the next statuses the lifecycle allows, Approve only once verified', () => {
+    items = [
+      organization({ id: 'o-1', code: 'ORG-0001' }),
+      organization({ id: 'o-2', code: 'ORG-0002', verifiedAt: '2026-10-28T04:00:00Z' }),
+      organization({ id: 'o-3', code: 'ORG-0003', status: 'ACTIVE' }),
+      organization({ id: 'o-4', code: 'ORG-0004', status: 'SUSPENDED' }),
+      organization({ id: 'o-5', code: 'ORG-0005', status: 'CLOSED' }),
+    ];
+    renderPage(<OrganizationReviewPage />);
+    expect(itemsOf('ORG-0001')).toEqual(['Reject organization']);
+    expect(itemsOf('ORG-0002')).toEqual(['Approve organization', 'Reject organization']);
+    expect(itemsOf('ORG-0003')).toEqual(['Suspend organization', 'Close organization']);
+    expect(itemsOf('ORG-0004')).toEqual(['Reactivate organization']);
+    expect(screen.queryByRole('button', { name: 'Change status of ORG-0005' })).toBeNull();
+  });
+
+  it('gives Staff no row menu', () => {
+    roles = ['STAFF'];
+    items = [organization({ status: 'ACTIVE' })];
+    renderPage(<OrganizationReviewPage />);
+    expect(screen.queryByRole('button', { name: /^Change status of/ })).toBeNull();
+  });
+
+  it('rejects from the row with the reason and the loaded version', async () => {
+    rejectOrganization.mockResolvedValue({});
+    items = [organization({ version: 2 })];
+    renderPage(<OrganizationReviewPage />);
+    fireEvent.click(menuOf('ORG-0002'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Reject organization' }));
+    const dialog = within(screen.getByRole('alertdialog', { name: 'Reject organization ORG-0002?' }));
+    fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Tax code does not match' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Reject organization' }));
+    await waitFor(() => expect(rejectOrganization).toHaveBeenCalledWith('org-2', 'Tax code does not match', 2));
+  });
+
+  it('shows the counter verification to Staff, who hold organization.verify', () => {
+    roles = ['STAFF'];
+    items = [organization()];
+    renderPage(<OrganizationReviewPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'ORG-0002' }));
+    expect(screen.getByRole('button', { name: 'Record verification' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 });
