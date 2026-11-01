@@ -12,7 +12,12 @@ import {
   useDevice,
   useDeviceHistory,
   useVariants,
+  NEXT_STEP_LABELS,
+  nextStepPath,
   type Device,
+  type DeviceDetail,
+  type NextAction,
+  type NextStep,
 } from '../entities/device/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
@@ -30,6 +35,43 @@ import { useToast } from '../shared/ui/toastStore';
 import { ALERT, CARD, LINK } from '../shared/ui/styles';
 
 const MSG03 = 'Saved.';
+// The unit's next step back to AVAILABLE (devices api-design 07 nextStep, REQ-EVT-23, D-092 rule 4):
+// the reset and the inspection are recorded at the counter of the contract it came back on, the
+// maintenance on its page, and the intake check here.
+const NEXT_STEP_TEXT: Record<NextAction, string> = {
+  RESET: 'Record the reset at the counter of the contract it came back on, then inspect it there.',
+  INSPECT: 'Inspect it at the counter of the contract it came back on. A pass makes it available.',
+  COMPLETE_MAINTENANCE: 'Complete its open maintenance record, then record an intake check here.',
+  INTAKE: 'Record an intake check on this page. A pass makes it available.',
+};
+
+const NextStepPanel: React.FC<{ device: DeviceDetail; step: NextStep }> = ({ device, step }) => {
+  const path = step.action === 'INTAKE' ? null : nextStepPath(step, device.id);
+  return (
+    <div className={CARD} aria-labelledby="next-step-title" role="region">
+      <h2 id="next-step-title" className="mb-1 text-lg font-bold text-ink">
+        Next step: {NEXT_STEP_LABELS[step.action]}
+      </h2>
+      <p className="text-sm text-ink-muted">{NEXT_STEP_TEXT[step.action]}</p>
+      {path && (
+        <Link to={path} className={`${LINK} mt-2 inline-block text-sm`}>
+          {step.action === 'COMPLETE_MAINTENANCE' ? 'Open maintenance' : 'Open the counter'}
+        </Link>
+      )}
+      {!path && step.action === 'RESET' && (
+        <p className="mt-2 text-sm text-ink-muted">
+          It came back outside a contract: record the reset on this page.
+        </p>
+      )}
+      {!path && step.action === 'INSPECT' && (
+        <p className="mt-2 text-sm text-ink-muted">
+          It came back outside a contract, and no counter records its inspection yet.
+        </p>
+      )}
+    </div>
+  );
+};
+
 const MSG29 = 'Finish the open maintenance record first.';
 // The six working states a device is reported lost from (devices REQ-EVT-13, screen 4.4). A copy of
 // `IN_SERVICE` in backend/src/modules/devices/loss-cases.service.ts, which decides; the frontend has no
@@ -334,6 +376,8 @@ export const DeviceDetailPage: React.FC = () => {
               </Fact>
             </dl>
           </div>
+
+          {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
 
           <div className="flex flex-wrap gap-3">
             {device.status !== 'DISPOSED' && (

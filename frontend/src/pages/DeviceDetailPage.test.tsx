@@ -121,6 +121,36 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     },
   );
 
+  // D-092 rule 4 (devices REQ-EVT-23): the path back to AVAILABLE as the next step on the page.
+  it('shows the next step of a returned unit with a link to the counter of its contract', async () => {
+    currentDevice = device({
+      status: 'RETURNED',
+      nextStep: { action: 'INSPECT', contractId: 'c-4' },
+    });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Next step: Inspect' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open the counter' }).getAttribute('href')).toBe(
+      '/t/counter/c-4',
+    );
+  });
+
+  it('points a unit out of maintenance at the intake check on this page, and shows nothing once available', async () => {
+    currentDevice = device({
+      status: 'MAINTENANCE',
+      nextStep: { action: 'INTAKE', contractId: null },
+    });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Next step: Intake check' })).toBeTruthy();
+    expect(screen.getByText('Record an intake check on this page. A pass makes it available.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Record intake check' })).toBeTruthy();
+    cleanup();
+
+    currentDevice = device({ status: 'AVAILABLE', nextStep: null });
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    expect(screen.queryByRole('heading', { name: /Next step/ })).toBeNull();
+  });
+
   it('names the open maintenance record by its readable status', async () => {
     currentDevice = device({
       status: 'MAINTENANCE',

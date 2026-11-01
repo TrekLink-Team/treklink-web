@@ -92,7 +92,7 @@ export const ReplacementPanel: React.FC<{
     <Card>
       <CardHeader
         title="Replace a device"
-        description="Plan, variant and quantity stay the same; the replacement gets its own signed note."
+        description="For a running contract only: plan, variant and quantity stay the same, and the replacement gets its own signed note. A return never needs a replacement; report a missing unit lost on the Check-in tab."
       />
       {done && (
         <Alert tone="success" className="mb-4">
