@@ -15,9 +15,13 @@ export class IncidentsCloseCheck implements ContractCloseCheck {
     deviceIds: readonly string[],
     tx: Prisma.TransactionClient,
   ): Promise<CloseBlockingReason | null> {
-    const open = await this.incidents.countOpenFor(contractId, deviceIds, tx);
-    return open > 0
-      ? { code: 'OPEN_INCIDENTS', message: 'This cannot be done while it has open incidents.' }
+    const open = await this.incidents.openFor(contractId, deviceIds, tx);
+    return open.length > 0
+      ? {
+          code: 'OPEN_INCIDENTS',
+          message: 'This cannot be done while it has open incidents.',
+          refs: open,
+        }
       : null;
   }
 }

@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { DeviceStatus, InspectionResult, Prisma } from '@prisma/client';
+import { DeviceStatus, InspectionResult, LossCaseState, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { OrganizationsService } from '../organizations';
 import { businessDay, DeviceView, RecordView, toDeviceView } from './device-view';
@@ -17,6 +17,7 @@ import {
   VariantSummary,
 } from './devices.repository';
 import { MaintenanceService } from './maintenance.service';
+import { NextStep, nextStepOf } from './next-step';
 import { CUSTODY_RESOLVER, CustodyResolver } from './ports/custody-resolver.port';
 
 const notFound = () =>
@@ -83,7 +84,17 @@ export type DeviceDetail = FleetDevice & {
   openMaintenance: RecordView | null;
   lastIntakeCheck: { passed: boolean; createdAt: Date } | null;
   lastReset: { createdAt: Date } | null;
+  nextStep: NextStep | null;
 };
+
+// A unit's state now and its next step back to AVAILABLE (REQ-EVT-23), for rentals.
+export interface ReturnState {
+  status: DeviceStatus;
+  nextStep: NextStep | null;
+  // The contract of the unit's last move into RETURNED when it was a check-in, so a contract shows the
+  // next step only on the row of the unit's latest return.
+  lastReturnContractId: string | null;
+}
 
 // State rows oldest first, rows of one time in the order of their moves: a row whose `fromStatus`
 // is the `toStatus` of another row of that time follows it. A seeded handover reserves and hands over
@@ -669,11 +680,12 @@ export class DevicesService {
   async detail(deviceId: string): Promise<DeviceDetail> {
     const row = await this.devices.findDetail(deviceId);
     if (!row) throw notFound();
-    const [openMaintenance, lastIntakeCheck, lastReset, [device]] = await Promise.all([
+    const [openMaintenance, lastIntakeCheck, lastReset, [device], states] = await Promise.all([
       this.maintenance.openRecordOf(deviceId),
       this.devices.lastIntakeCheck(deviceId),
       this.devices.lastReset(deviceId),
       this.withKeyOrganizations([toDeviceView(row)]),
+      this.nextSteps([deviceId]),
     ]);
     return {
       ...device,
@@ -682,7 +694,60 @@ export class DevicesService {
         ? { passed: lastIntakeCheck.passed, createdAt: lastIntakeCheck.createdAt }
         : null,
       lastReset: lastReset ? { createdAt: lastReset.createdAt } : null,
+      nextStep: states.get(deviceId)?.nextStep ?? null,
     };
+  }
+
+  // devices REQ-EVT-23 (D-092 rule 4): each unit's state now and its next step back to AVAILABLE, for
+  // the device page and for the checked-in rows of a contract (rentals api-design 03). A reset counts
+  // when it is at or after the unit became RETURNED; the reset and inspection name the contract of the
+  // unit's last move into RETURNED when that move was a check-in (refType CONTRACT).
+  async nextSteps(
+    deviceIds: readonly string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<Map<string, ReturnState>> {
+    const ids = [...new Set(deviceIds)];
+    if (ids.length === 0) return new Map();
+    const [{ units, resets, returns }, open] = await Promise.all([
+      this.devices.returnStates(ids, tx),
+      this.maintenance.openDeviceIds(ids, tx),
+    ]);
+    return new Map(
+      units.map((unit) => {
+        const reset = resets.find((entry) => entry.deviceId === unit.id);
+        const lastReturn = returns.find((entry) => entry.deviceId === unit.id);
+        const returnContractId =
+          lastReturn?.refType === 'CONTRACT' ? (lastReturn.refId ?? null) : null;
+        return [
+          unit.id,
+          {
+            status: unit.status,
+            lastReturnContractId: returnContractId,
+            nextStep: nextStepOf({
+              status: unit.status,
+              resetSinceReturn: Boolean(reset && reset.createdAt >= unit.statusChangedAt),
+              openMaintenance: open.has(unit.id),
+              returnContractId,
+            }),
+          },
+        ];
+      }),
+    );
+  }
+
+  // The open loss case of each unit by device id, for the rentals close check (api-design 20).
+  async openLossCases(
+    deviceIds: readonly string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<Map<string, { id: string; code: string; state: LossCaseState }>> {
+    const rows = await this.devices.openLossCases(deviceIds, tx);
+    const byDevice = new Map<string, { id: string; code: string; state: LossCaseState }>();
+    for (const row of rows) {
+      if (!byDevice.has(row.deviceId)) {
+        byDevice.set(row.deviceId, { id: row.id, code: row.code, state: row.state });
+      }
+    }
+    return byDevice;
   }
 
   // devices api-design 06 with the last position and the key organization of each unit.

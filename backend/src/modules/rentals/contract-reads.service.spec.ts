@@ -30,8 +30,10 @@ describe('ContractReadsService', () => {
   let service: ContractReadsService;
   let returnChecks: jest.Mock;
   let provisioning: jest.Mock;
+  let nextSteps: jest.Mock;
 
   beforeEach(() => {
+    nextSteps = jest.fn().mockResolvedValue(new Map());
     returnChecks = jest.fn().mockResolvedValue(new Map());
     provisioning = jest.fn().mockResolvedValue([]);
     contracts = {
@@ -58,6 +60,7 @@ describe('ContractReadsService', () => {
         assetTags: jest.fn().mockResolvedValue(new Map([['d-1', 'TL-0001']])),
         returnChecks,
         provisioning,
+        nextSteps,
       } as unknown as DevicesService,
       {
         balanceSummary: jest.fn().mockResolvedValue({ dueNowVnd: 0n }),
@@ -117,6 +120,28 @@ describe('ContractReadsService', () => {
       { contractDeviceId: 'cd-1', deviceId: 'd-1', checkedInAt },
     ]);
     expect(detail.returnChecks.get('cd-1')).toEqual(check);
+  });
+
+  it('reads the state after the return of checked-in rows for TrekLink callers only (REQ-EVT-18)', async () => {
+    const checkedInAt = new Date('2026-10-30T03:00:00.000Z');
+    contracts.detail.mockResolvedValue({
+      ...ROW,
+      devices: [
+        { id: 'cd-1', deviceId: 'd-1', checkedInAt },
+        { id: 'cd-2', deviceId: 'd-2', checkedInAt: null },
+      ],
+    });
+    const state = { status: 'RETURNED', nextStep: null, lastReturnContractId: 'c-1' };
+    nextSteps.mockResolvedValue(new Map([['d-1', state]]));
+
+    const staff = await service.detail('c-1', STAFF);
+    expect(nextSteps).toHaveBeenCalledWith(['d-1']);
+    expect(staff.returnStates.get('d-1')).toEqual(state);
+
+    nextSteps.mockClear();
+    const manager = await service.detail('c-1', MANAGER);
+    expect(nextSteps).not.toHaveBeenCalled();
+    expect(manager.returnStates.size).toBe(0);
   });
 
   it('keeps the key version a unit carries for this organization, not another one (frontend 5.4)', async () => {

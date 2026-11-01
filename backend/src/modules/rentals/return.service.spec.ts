@@ -322,4 +322,127 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       });
     });
   });
+
+  // api-design 20 (REQ-EVT-17, D-092 rule 3): the 2026-11-01 demo had 4 of 5 units back, one damaged and
+  // one missing, and no way to see what kept the contract open.
+  describe('closeCheck (api-design 20)', () => {
+    beforeEach(() => {
+      contracts.findById = jest.fn().mockResolvedValue(contract());
+      contracts.rowsNotBack = jest.fn().mockResolvedValue([]);
+      contracts.custodyDevices.mockResolvedValue(['d-1', 'd-2']);
+      charges.pendingDamageOf = jest.fn().mockResolvedValue([]);
+      devices.openLossCases = jest.fn().mockResolvedValue(new Map());
+    });
+
+    it('lets a settled RETURNED contract close, reading without the close lock', async () => {
+      contracts.findById.mockResolvedValue(contract({ status: ContractStatus.RETURNED }));
+
+      await expect(service.closeCheck('c-1')).resolves.toEqual({
+        contractId: 'c-1',
+        status: ContractStatus.RETURNED,
+        version: 6,
+        canClose: true,
+        blockers: [],
+      });
+      expect(contracts.lockById).not.toHaveBeenCalled();
+      expect(closeCheck.blockingReason).toHaveBeenCalledWith('c-1', ['d-1', 'd-2'], TX);
+    });
+
+    it('lists every blocker of a due contract with a missing unit, a debt, a pending charge and an incident', async () => {
+      contracts.rowsNotBack.mockResolvedValue([
+        { id: 'cd-1', deviceId: 'd-1' },
+        { id: 'cd-2', deviceId: 'd-2' },
+      ]);
+      devices.openLossCases.mockResolvedValue(
+        new Map([['d-2', { id: 'lc-1', code: 'LOSS-0001', state: 'CONFIRMED' }]]),
+      );
+      balances.outstanding.mockResolvedValue(1_525_000n);
+      charges.pendingDamageOf.mockResolvedValue([
+        { id: 'dc-1', deviceId: 'd-1', amountVnd: 1_200_000n },
+      ]);
+      closeCheck.blockingReason.mockResolvedValue({
+        code: 'OPEN_INCIDENTS',
+        message: 'This cannot be done while it has open incidents.',
+        refs: [{ id: 'inc-1', code: 'INC-2026-000002' }],
+      });
+
+      const check = await service.closeCheck('c-1');
+
+      expect(check.canClose).toBe(false);
+      expect(check.blockers).toEqual([
+        {
+          code: 'NOT_RETURNED',
+          waitsFor: DUE,
+          message: 'The contract becomes Returned once every unit is checked in or settled lost.',
+        },
+        {
+          code: 'DEVICE_OUT',
+          deviceId: 'd-1',
+          assetTag: 'TL-0001',
+          lossCase: null,
+          message: 'TL-0001 is not back. Check it in, or report it lost.',
+        },
+        {
+          code: 'DEVICE_OUT',
+          deviceId: 'd-2',
+          assetTag: 'TL-0002',
+          lossCase: { id: 'lc-1', code: 'LOSS-0001', state: 'CONFIRMED' },
+          message: 'TL-0002 is not back; its loss case LOSS-0001 is not settled yet.',
+        },
+        {
+          code: 'BALANCE_OUTSTANDING',
+          amountVnd: 1_525_000,
+          message: "1,525,000 VND is unpaid on the contract's invoices.",
+        },
+        {
+          code: 'DAMAGE_PENDING',
+          chargeId: 'dc-1',
+          deviceId: 'd-1',
+          assetTag: 'TL-0001',
+          amountVnd: 1_200_000,
+          message: 'The damage charge of 1,200,000 VND on TL-0001 waits for an Admin.',
+        },
+        {
+          code: 'OPEN_INCIDENTS',
+          message: 'This cannot be done while it has open incidents.',
+          incidents: [{ id: 'inc-1', code: 'INC-2026-000002' }],
+        },
+      ]);
+      expect(devices.openLossCases).toHaveBeenCalledWith(['d-1', 'd-2'], TX);
+    });
+
+    it('names the term end an ENDING contract waits for, even with every unit back', async () => {
+      const endsAt = new Date('2026-12-01T02:00:00Z');
+      contracts.findById.mockResolvedValue(
+        contract({ status: ContractStatus.ENDING, returnDueAt: null }),
+      );
+
+      const check = await service.closeCheck('c-1');
+
+      expect(check.canClose).toBe(false);
+      expect(check.blockers).toEqual([
+        {
+          code: 'NOT_RETURNED',
+          waitsFor: endsAt,
+          message:
+            'The contract becomes Returned when its term ends and every unit is checked in or settled lost.',
+        },
+      ]);
+    });
+
+    it('keeps a RETURNED contract shut while anything blocks it, and has nothing to resolve once CLOSED', async () => {
+      contracts.findById.mockResolvedValue(contract({ status: ContractStatus.RETURNED }));
+      balances.outstanding.mockResolvedValue(400_000n);
+      await expect(service.closeCheck('c-1')).resolves.toMatchObject({
+        canClose: false,
+        blockers: [expect.objectContaining({ code: 'BALANCE_OUTSTANDING', amountVnd: 400_000 })],
+      });
+
+      contracts.findById.mockResolvedValue(contract({ status: ContractStatus.CLOSED }));
+      await expect(service.closeCheck('c-1')).resolves.toMatchObject({
+        canClose: false,
+        blockers: [],
+      });
+    });
+  });
 });

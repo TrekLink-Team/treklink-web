@@ -111,6 +111,7 @@
   - **Do**: devices with state, variant and search filters; device detail with transitions; maintenance records with state and due filters; loss cases (Org Manager sees own only); stock-take runs; availability counts (Org Manager gets counts only)
   - **Test**: paging; an Org Manager reading another organization's loss case gets 404
   - _Requirements: FR-DEV-11, FR-AUTH-11_
+  - **Partly done** (2026-11-01, KhoaDD under D-078, D-092 rule 4): the device detail (api-design 07) carries `nextStep`, the unit's next step back to `AVAILABLE` (REQ-EVT-23) from `nextStepOf` in `next-step.ts`; `DevicesService.nextSteps(deviceIds)` gives `rentals` the same for the checked-in rows of a contract, and `openLossCases(deviceIds, tx)` the open loss case of each unit for the close check of rentals api-design 20. A passed inspection still makes the unit `AVAILABLE` with no intake (leader ruling 2026-11-01). Tests: `next-step.spec.ts`; on Postgres `test/return-close.db-spec.ts`
 
 ## Phase 4: API Presentation Layer
 

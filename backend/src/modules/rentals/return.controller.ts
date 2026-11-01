@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import { InspectionResult } from '@prisma/client';
 import {
   ArrayMinSize,
@@ -120,6 +129,15 @@ export class ReturnController {
       { result: dto.result, damageCodes: dto.damageCodes ?? [], note: dto.note?.trim() || null },
       caller,
     );
+  }
+
+  // rentals api-design 20 (REQ-EVT-17, D-092 rule 3): what still blocks the close, for Staff at the
+  // counter and on the contract page. Read only.
+  @Get(':id/close-check')
+  @CheckPolicies((ability) => ability.can('operate', 'RentalContract'))
+  @ResponseMessage('OK')
+  closeCheck(@Param('id', ParseUUIDPipe) id: string) {
+    return this.returns.closeCheck(id);
   }
 
   @Post(':id/close')

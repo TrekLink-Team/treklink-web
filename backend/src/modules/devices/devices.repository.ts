@@ -404,6 +404,45 @@ export class DevicesRepository {
     return open > 0;
   }
 
+  // The open loss case of each unit, for the rentals close check (rentals api-design 20).
+  openLossCases(
+    deviceIds: readonly string[],
+    client: Client = this.prisma,
+  ): Promise<{ id: string; code: string; state: LossCaseState; deviceId: string }[]> {
+    if (deviceIds.length === 0) return Promise.resolve([]);
+    return client.lossCase.findMany({
+      where: {
+        deviceId: { in: [...deviceIds] },
+        state: { in: [LossCaseState.REPORTED, LossCaseState.SEARCHING, LossCaseState.CONFIRMED] },
+      },
+      orderBy: { reportedAt: 'desc' },
+      select: { id: true, code: true, state: true, deviceId: true },
+    });
+  }
+
+  // State, last reset and last return of each unit, for its next step (REQ-EVT-23): the newest reset
+  // and the newest move into RETURNED come first per unit.
+  async returnStates(deviceIds: readonly string[], client: Client = this.prisma) {
+    const ids = [...deviceIds];
+    const [units, resets, returns] = await Promise.all([
+      client.device.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, status: true, statusChangedAt: true },
+      }),
+      client.deviceReset.findMany({
+        where: { deviceId: { in: ids } },
+        orderBy: { createdAt: 'desc' },
+        select: { deviceId: true, createdAt: true },
+      }),
+      client.deviceTransition.findMany({
+        where: { deviceId: { in: ids }, toStatus: DeviceStatus.RETURNED },
+        orderBy: { createdAt: 'desc' },
+        select: { deviceId: true, refType: true, refId: true, createdAt: true },
+      }),
+    ]);
+    return { units, resets, returns };
+  }
+
   // Return, reset and inspection (task 2.4 part, built by LongLP for MF-05).
   findUnit(id: string, client: Client = this.prisma): Promise<UnitRow | null> {
     return client.device.findUnique({ where: { id }, select: UNIT_SELECT });
