@@ -95,3 +95,20 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: no stream event applies, stated
 - [x] Traceability: UC-10, FR-AUTH-05 to FR-AUTH-10, US-UC10
 - [x] §8 items 1 to 8 applied (one primary action, destructive named, server `message` shown, input preserved)
+
+## Row menu and bulk actions (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2. Where this section and the tables above
+disagree, this section wins.
+
+- Row actions: an active account has three (Edit, Send reset code, Deactivate), so they sit in one
+  row menu "Actions for {full name}"; the last active Admin's Deactivate stays in the menu, disabled,
+  with the reason "The last active Admin cannot be deactivated." as its description. A deactivated
+  account has one inline action, Reactivate. The phone card opens the same menu.
+- Selection: one checkbox per row, "Select {full name}", kept across pages and filters.
+- Bulk bar, each action counted over the rows it fits: "Send reset code to N accounts" (active rows,
+  auth api-design 14), "Reactivate N accounts" (deactivated rows, 13), "Deactivate N accounts"
+  (active rows other than your own and the last active Admin, 12; an alert dialog with one required
+  reason). Each runs the single-row endpoint once per row in sequence; a failure shows the per-row
+  summary dialog with the server's message, and a full success the toast "N of N done.".
+- The accounts API does not sort, so no column sorts.
