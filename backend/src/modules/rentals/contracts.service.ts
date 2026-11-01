@@ -358,6 +358,7 @@ export class ContractsService {
     return this.contracts.findByCode(code);
   }
 
+  // For the demo module only (D-088): no business flow calls it; it moves dates outside the normal rules.
   // The demo time shift of MF-05 (D-088, specs/demo/design.md §5): the open term now ends at `endsAt`,
   // and starts a day earlier when it would otherwise end before it starts, so the next term rollover
   // closes it. Refused with 409 INVALID_STATE_TRANSITION when the contract has no open term.
