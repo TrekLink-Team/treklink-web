@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { LiveEntry } from '../../shared/socket/socketClient';
 import type { MapSnapshot, SnapshotDevice } from './api';
-import { applyEntry, fromSnapshot, isStale, needsSnapshot, rebuild } from './model';
+import {
+  applyEntry,
+  byUnitState,
+  fromSnapshot,
+  isStale,
+  needsSnapshot,
+  rebuild,
+  unitStateOf,
+} from './model';
 
 const device = (overrides: Partial<SnapshotDevice> = {}): SnapshotDevice => ({
   id: 'd-1',
@@ -12,6 +20,9 @@ const device = (overrides: Partial<SnapshotDevice> = {}): SnapshotDevice => ({
   batteryPct: 80,
   lastSeenAt: '2026-10-30T03:00:00.000Z',
   stale: false,
+  state: 'LIVE',
+  handedOverAt: '2026-10-29T00:00:00.000Z',
+  counterLocation: null,
   openIncident: null,
   contractCode: 'RC-2026-0001',
   organizationId: 'org-1',
@@ -237,5 +248,72 @@ describe('live map reducer (screen 9.1)', () => {
     expect(isStale(device(), now, 900)).toBe(false);
     expect(isStale(device({ stale: true }), now, 900)).toBe(true);
     expect(isStale(device({ lastSeenAt: null }), now, 1)).toBe(false);
+  });
+
+  // D-092 rule 2 (monitoring REQ-UBI-04, frontend REQ-UBI-10).
+  describe('unit states', () => {
+    const COUNTER = { name: 'TrekLink counter', lat: 11.9, lon: 108.4 };
+    const unheard = (overrides: Partial<SnapshotDevice> = {}) =>
+      device({
+        position: null,
+        lastSeenAt: null,
+        state: 'NOT_HEARD',
+        counterLocation: COUNTER,
+        ...overrides,
+      });
+
+    it('makes a unit not heard since handover live on its first position or telemetry', () => {
+      const position = applyEntry(
+        fromSnapshot(snapshot([unheard()])),
+        entry(11, 'device.position', { lat: 11.6, lon: 108.6, at: at(5) }),
+      );
+      expect(position.devices['d-1']).toMatchObject({ state: 'LIVE', counterLocation: null });
+      const telemetry = applyEntry(
+        fromSnapshot(snapshot([unheard()])),
+        entry(11, 'device.telemetry', { batteryPct: 70, at: at(5) }),
+      );
+      expect(telemetry.devices['d-1']).toMatchObject({ state: 'LIVE', batteryPct: 70 });
+    });
+
+    it('keeps a unit not heard on a stale entry from before its handover', () => {
+      const state = fromSnapshot(snapshot([unheard({ lastSeenAt: '2026-10-28T00:00:00.000Z' })]));
+      const next = applyEntry(
+        state,
+        entry(11, 'device.stale', { stale: true, lastSeenAt: '2026-10-28T00:00:00.000Z' }),
+      );
+      expect(next.cursor).toBe(11);
+      expect(next.devices['d-1']).toBe(state.devices['d-1']);
+    });
+
+    it('turns a heard unit offline on a stale entry and live on its recovery', () => {
+      const offline = applyEntry(
+        fromSnapshot(snapshot()),
+        entry(11, 'device.stale', { stale: true, lastSeenAt: '2026-10-30T03:00:00.000Z' }),
+      );
+      expect(offline.devices['d-1']).toMatchObject({ state: 'OFFLINE', stale: true });
+      const live = applyEntry(offline, entry(12, 'device.stale', { stale: false, lastSeenAt: at(9) }));
+      expect(live.devices['d-1']).toMatchObject({ state: 'LIVE', stale: false, lastSeenAt: at(9) });
+    });
+
+    it('derives the drawn state from the clock, and never ages a unit not heard into offline', () => {
+      const now = Date.parse('2026-10-30T03:10:00.000Z');
+      expect(unitStateOf(device(), now, 900)).toBe('LIVE');
+      expect(unitStateOf(device(), now, 300)).toBe('OFFLINE');
+      expect(unitStateOf(device({ stale: true }), now, undefined)).toBe('OFFLINE');
+      expect(unitStateOf(unheard({ lastSeenAt: '2026-10-01T00:00:00.000Z' }), now, 1)).toBe(
+        'NOT_HEARD',
+      );
+    });
+
+    it('sorts live units first, then offline, then not heard, keeping order within each', () => {
+      const rows = [
+        { id: 'a', state: 'NOT_HEARD' as const },
+        { id: 'b', state: 'LIVE' as const },
+        { id: 'c', state: 'OFFLINE' as const },
+        { id: 'd', state: 'LIVE' as const },
+        { id: 'e', state: 'NOT_HEARD' as const },
+      ];
+      expect(byUnitState(rows).map((row) => row.id)).toEqual(['b', 'd', 'c', 'a', 'e']);
+    });
   });
 });

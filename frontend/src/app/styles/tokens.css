@@ -31,6 +31,9 @@
   --tl-glow: 84 216 177; /* #54d8b1 */
   --tl-glow-2: 129 207 252; /* #81cffc */
   --tl-scrim: 8 22 19; /* #081613 */
+  /* Map markers sit on light basemap tiles in both themes, so these keep one value (D-092 rule 2). */
+  --tl-marker-offline: 122 63 176; /* #7a3fb0 */
+  --tl-marker-unheard: 107 115 120; /* #6b7378 */
   --tl-status-critical-tint: 254 231 228; /* #fee7e4 */
   --tl-status-critical-fg: 204 21 29; /* #cc151d */
   --tl-status-critical-line: 248 76 69; /* #f84c45 */
@@ -138,6 +141,9 @@
   --tl-glow: 35 105 13; /* #23690d */
   --tl-glow-2: 0 83 124; /* #00537c */
   --tl-scrim: 0 0 0; /* #000000 */
+  /* Map markers sit on light basemap tiles in both themes, so these keep one value (D-092 rule 2). */
+  --tl-marker-offline: 122 63 176; /* #7a3fb0 */
+  --tl-marker-unheard: 107 115 120; /* #6b7378 */
   --tl-status-critical-tint: 72 27 23; /* #481b17 */
   --tl-status-critical-fg: 255 101 90; /* #ff655a */
   --tl-status-critical-line: 255 127 115; /* #ff7f73 */

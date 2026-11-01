@@ -65,7 +65,8 @@ export default {
         marker: {
           fresh: '#2f63e0',
           attention: '#b86e00',
-          stale: '#6b7378',
+          stale: v('marker-offline'),
+          unheard: v('marker-unheard'),
           sos: '#d0151d',
         },
 

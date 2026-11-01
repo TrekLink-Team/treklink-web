@@ -3,6 +3,17 @@ import { apiClient } from '../../shared/api/apiClient';
 import { queryString } from '../../shared/api/query';
 import type { IncidentState } from '../../shared/ui/status';
 
+// The state of a unit on the map (monitoring REQ-UBI-04, D-092 rule 2): heard since its handover and
+// recently, heard since its handover and silent past the threshold, or not heard since its handover.
+export type UnitState = 'LIVE' | 'OFFLINE' | 'NOT_HEARD';
+
+// Where a unit not heard since its handover is pinned: the TrekLink counter that handed it over.
+export interface CounterLocation {
+  name: string;
+  lat: number;
+  lon: number;
+}
+
 // One device of GET /api/map/snapshot (monitoring api-design 02).
 export interface SnapshotDevice {
   id: string;
@@ -13,6 +24,11 @@ export interface SnapshotDevice {
   batteryPct: number | null;
   lastSeenAt: string | null;
   stale: boolean;
+  state: UnitState;
+  /** The start of the custody interval; nothing from before it is shown to an organization. */
+  handedOverAt: string;
+  /** Set for a `NOT_HEARD` unit only. */
+  counterLocation: CounterLocation | null;
   openIncident: { id: string; code: string | null; state: IncidentState } | null;
   contractCode: string;
   organizationId: string;

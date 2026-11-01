@@ -35,21 +35,7 @@ const outcomeShown = async (page: Page) => (await page.locator('dt', { hasText: 
 
 // Known violations, each with the rule, the route pattern as router.tsx writes it, the element, and why
 // it is not fixed in this branch (test work only). Remove an entry when its defect is fixed.
-const DEVICE_ROW = 'aside[aria-label="Devices"] li > button[aria-label]';
 const ALLOWLIST: AllowEntry[] = [
-  {
-    rule: 'label-content-name-mismatch',
-    route: '/o/map',
-    selector: DEVICE_ROW,
-    reason:
-      'the device row aria-label (LiveMapPage.tsx:132) omits the visible battery percentage and the Stale badge, WCAG 2.5.3',
-  },
-  {
-    rule: 'label-content-name-mismatch',
-    route: '/t/map',
-    selector: DEVICE_ROW,
-    reason: 'the same device row as /o/map (LiveMapPage.tsx:132)',
-  },
   {
     rule: 'definition-list',
     route: '/o/incidents/:id',

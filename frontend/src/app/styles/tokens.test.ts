@@ -20,13 +20,17 @@ const parse = (block: string): Theme => {
 };
 
 const [lightBlock, darkBlock] = css.split(":root[data-theme='dark']");
-const THEMES: Record<'light' | 'dark', Theme> = { light: parse(lightBlock), dark: parse(darkBlock) };
+const THEMES: Record<'light' | 'dark', Theme> = {
+  light: parse(lightBlock),
+  dark: parse(darkBlock),
+};
 
 const channel = (value: number): number => {
   const c = value / 255;
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 };
-const luminance = ([r, g, b]: Rgb): number => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+const luminance = ([r, g, b]: Rgb): number =>
+  0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 const ratio = (a: Rgb, b: Rgb): number => {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
@@ -41,7 +45,11 @@ const STATUSES = ['critical', 'attention', 'active', 'waiting', 'done', 'ended']
 const glassBackdrops = (t: Theme, mode: 'light' | 'dark'): Rgb[] => {
   const glowAlpha = mode === 'light' ? 0.5 : 0.75;
   const sheen = mode === 'light' ? 0.55 : 0.06;
-  const behind = [t.ground, mix(t.glow, t.ground, glowAlpha), mix(t['glow-2'], t.ground, glowAlpha)];
+  const behind = [
+    t.ground,
+    mix(t.glow, t.ground, glowAlpha),
+    mix(t['glow-2'], t.ground, glowAlpha),
+  ];
   return behind.flatMap((under) => {
     const glass = mix(t.surface, under, 0.72);
     return [glass, mix(WHITE, glass, sheen)];
@@ -59,6 +67,14 @@ describe.each(['light', 'dark'] as const)('%s theme', (mode) => {
   it('defines every token in both themes', () => {
     expect(Object.keys(THEMES.light).sort()).toEqual(Object.keys(THEMES.dark).sort());
   });
+
+  // Map markers sit on light tiles in both themes with a white border: a status mark needs 3:1.
+  it.each(['marker-offline', 'marker-unheard'])(
+    'keeps %s at 3:1 against its white border',
+    (name) => {
+      expect(ratio(get(name), WHITE)).toBeGreaterThanOrEqual(3);
+    },
+  );
 
   const text: [string, string][] = [];
   for (const bg of ['ground', 'surface', 'surface-raised', 'sunken', 'chrome']) {
@@ -160,11 +176,14 @@ describe('status tones stay apart from the brand', () => {
     return (h * 60 + 360) % 360;
   };
 
-  it.each(['light', 'dark'] as const)('no %s status colour sits in the brand green band', (mode) => {
-    const t = THEMES[mode];
-    for (const s of STATUSES.filter((name) => name !== 'ended')) {
-      const h = hue(t[`status-${s}-fg`]);
-      expect(h < 80 || h > 175, `${s} hue ${h.toFixed(0)}`).toBe(true);
-    }
-  });
+  it.each(['light', 'dark'] as const)(
+    'no %s status colour sits in the brand green band',
+    (mode) => {
+      const t = THEMES[mode];
+      for (const s of STATUSES.filter((name) => name !== 'ended')) {
+        const h = hue(t[`status-${s}-fg`]);
+        expect(h < 80 || h > 175, `${s} hue ${h.toFixed(0)}`).toBe(true);
+      }
+    },
+  );
 });
