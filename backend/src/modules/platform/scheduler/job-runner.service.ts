@@ -107,7 +107,11 @@ export class JobRunnerService implements OnApplicationBootstrap {
     const records = await this.prisma.jobRun.findMany();
     const lastRun = new Map(records.map((record) => [record.name, record.lastRunAt]));
     const outcomes: Record<string, TickOutcome> = {};
-    for (const [name, { cron, handler }] of this.jobs) {
+    // Longest-waiting first (never run, then the oldest run): a tick cut short when its instance is
+    // frozen leaves the rest for the next tick instead of starving the same late jobs every time.
+    const waited = (name: string) => lastRun.get(name)?.getTime() ?? Number.NEGATIVE_INFINITY;
+    const order = [...this.jobs].sort(([a], [b]) => waited(a) - waited(b));
+    for (const [name, { cron, handler }] of order) {
       const previous = lastRun.get(name);
       if (previous && new CronTime(cron).getNextDateFrom(previous).toJSDate() > now) {
         outcomes[name] = 'notDue';
