@@ -38,5 +38,5 @@ export type {
   StationHealth,
   StationIdentity,
 } from './field-stations.repository';
-export { FieldStationReleaseService } from './field-station-release.service';
+export { FieldStationReleaseService, isOutdatedAgainst } from './field-station-release.service';
 export type { FieldStationRelease } from './field-station-release.service';

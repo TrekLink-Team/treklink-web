@@ -18,6 +18,7 @@ import { Normalizer } from './normalizer/normalizer';
 import { StationHealthHandler } from './station-health.handler';
 import { SyncAuditService } from './sync-audit.service';
 import { SyncQueryRepository } from './sync-query.repository';
+import { SyncStatsService } from './sync-stats.service';
 import { SyncStatusService } from './sync-status.service';
 import { UplinkIngress } from './uplink-ingress';
 
@@ -46,11 +47,12 @@ import { UplinkIngress } from './uplink-ingress';
     SyncQueryRepository,
     FieldEventQueryService,
     SyncStatusService,
+    SyncStatsService,
     SyncAuditService,
     UplinkIngress,
     BrokerAuthService,
     BrokerHookSecretGuard,
   ],
-  exports: [FieldEventQueryService, UplinkIngress],
+  exports: [FieldEventQueryService, SyncStatsService, UplinkIngress],
 })
 export class GatewaySyncModule {}

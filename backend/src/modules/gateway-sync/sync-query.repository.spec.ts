@@ -6,6 +6,7 @@ describe('SyncQueryRepository', () => {
   const prisma = {
     fieldEvent: { findMany: jest.fn(), count: jest.fn(), findFirst: jest.fn() },
     syncAuditLog: { groupBy: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+    $queryRaw: jest.fn(),
   };
   const repository = new SyncQueryRepository(prisma as unknown as PrismaService);
 
@@ -64,5 +65,21 @@ describe('SyncQueryRepository', () => {
       .mockResolvedValueOnce(null);
     await expect(repository.lastReceivedAt()).resolves.toEqual(at);
     await expect(repository.lastReceivedAt()).resolves.toBeNull();
+  });
+
+  it('counts devices whose newest queue report holds messages, one row per device', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ count: 3n }]);
+    await expect(repository.devicesBuffering()).resolves.toBe(3);
+    const [strings] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+    const sql = strings.join('');
+    expect(sql).toContain('DISTINCT ON ("deviceId")');
+    expect(sql).toContain('"device_queue_reports"');
+    expect(sql).toContain('ORDER BY "deviceId", "receivedAt" DESC');
+    expect(sql).toContain('unnest');
+  });
+
+  it('counts none when no device has reported', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+    await expect(repository.devicesBuffering()).resolves.toBe(0);
   });
 });

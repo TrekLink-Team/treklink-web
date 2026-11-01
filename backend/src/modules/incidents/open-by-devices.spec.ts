@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { AlertStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
@@ -52,5 +53,54 @@ describe('IncidentsQueryService.openByDevices', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { deviceId: { in: ['d-1'] }, state: { not: 'CLOSED' } } }),
     );
+  });
+});
+
+// `alertDeliveryStats()` for the system health read (monitoring api-design 06).
+describe('IncidentsQueryService.alertDeliveryStats', () => {
+  const build = (repository: Partial<IncidentsRepository>) =>
+    new IncidentsQueryService(
+      repository as IncidentsRepository,
+      {} as DevicesService,
+      {} as ContractsService,
+      {} as OrganizationsService,
+      {} as ConfigService<ValidatedEnvironment, true>,
+    );
+
+  it('counts the rows waiting and the rows whose retries ran out, and leaves SENT out', async () => {
+    const alertDeliveryCounts = jest.fn().mockResolvedValue(
+      new Map([
+        [AlertStatus.PENDING, 2],
+        [AlertStatus.SENT, 40],
+        [AlertStatus.FAILED, 1],
+      ]),
+    );
+    await expect(build({ alertDeliveryCounts }).alertDeliveryStats()).resolves.toEqual({
+      pending: 2,
+      failed: 1,
+    });
+  });
+
+  it('answers zero for a status with no rows', async () => {
+    const alertDeliveryCounts = jest.fn().mockResolvedValue(new Map());
+    await expect(build({ alertDeliveryCounts }).alertDeliveryStats()).resolves.toEqual({
+      pending: 0,
+      failed: 0,
+    });
+  });
+
+  it('groups the outbox by status in the repository', async () => {
+    const groupBy = jest.fn().mockResolvedValue([
+      { status: AlertStatus.PENDING, _count: { _all: 5 } },
+      { status: AlertStatus.FAILED, _count: { _all: 1 } },
+    ]);
+    const counts = await new IncidentsRepository({
+      alertDelivery: { groupBy },
+    } as unknown as PrismaService).alertDeliveryCounts();
+    expect(groupBy).toHaveBeenCalledWith({ by: ['status'], _count: { _all: true } });
+    expect([...counts.entries()]).toEqual([
+      [AlertStatus.PENDING, 5],
+      [AlertStatus.FAILED, 1],
+    ]);
   });
 });

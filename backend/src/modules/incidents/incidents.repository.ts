@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Incident, IncidentState, Prisma } from '@prisma/client';
+import { AlertStatus, Incident, IncidentState, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type NewIncident = Pick<
@@ -260,6 +260,15 @@ export class IncidentsRepository {
   }
 
   // Incidents not yet CLOSED on the devices, newest first (monitoring reads, design §5).
+  // The alert outbox by status, for the system health read (monitoring api-design 06).
+  async alertDeliveryCounts(): Promise<Map<AlertStatus, number>> {
+    const groups = await this.prisma.alertDelivery.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+    return new Map(groups.map((group) => [group.status, group._count._all]));
+  }
+
   openOfDevices(deviceIds: readonly string[]) {
     return this.prisma.incident.findMany({
       where: { deviceId: { in: [...deviceIds] }, state: { not: 'CLOSED' } },
