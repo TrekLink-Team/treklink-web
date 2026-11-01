@@ -2,7 +2,9 @@
 # Install step of both Vercel services (D-089), run from the repository root. The backend and the
 # frontend build in the same checkout, and `npm ci` deletes node_modules before it installs, so two
 # independent installs would wipe each other's packages mid-build. This installs both workspaces once,
-# under a lock, and a second call in the same checkout finds the marker and does nothing.
+# under a lock, and a second call in the same build finds the marker and does nothing. The marker holds
+# the deployment id: Vercel restores node_modules from the previous deployment's build cache, marker
+# included, and a bare marker made every later build skip the install and the hoist below.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,14 +27,18 @@ hoist_backend_modules() {
   done
 }
 
+build_id="${VERCEL_DEPLOYMENT_ID:-${VERCEL_URL:-local}}"
+marker=node_modules/.tk-vercel-installed
+
 install() {
-  if [ -f node_modules/.tk-vercel-installed ]; then
-    echo "vercel-install: already installed in this checkout"
-    return
+  if [ -f "$marker" ] && [ "$(cat "$marker")" = "$build_id" ]; then
+    echo "vercel-install: already installed for $build_id"
+  else
+    npm ci --workspace=backend --workspace=frontend
+    echo "$build_id" >"$marker"
   fi
-  npm ci --workspace=backend --workspace=frontend
+  # Idempotent, so it runs on every call: a cached tree from an older script may lack the copies.
   hoist_backend_modules
-  touch node_modules/.tk-vercel-installed
 }
 
 if command -v flock >/dev/null 2>&1; then
