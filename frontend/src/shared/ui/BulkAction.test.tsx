@@ -79,6 +79,8 @@ describe('BulkActionDialog', () => {
     expect(screen.getByText('TL-0002').closest('li')?.textContent).toContain('Reload and try again');
     expect(run).toHaveBeenCalledWith(ITEMS[0], 'Water damage');
     expect(onFinished).toHaveBeenCalledTimes(1);
+    // The summary is a dialog of its own: its focus trap starts on Close.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
   });
 
   it('closes with a success toast when every row succeeds', async () => {
@@ -89,6 +91,58 @@ describe('BulkActionDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Approve 3 charges' }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(useToast.getState().message).toBe('3 of 3 done.');
+  });
+});
+
+describe('BulkActionDialog focus after close', () => {
+  // A page that clears its selection when the run ends, which unmounts the bulk bar button.
+  const Page: React.FC<{ run: () => Promise<unknown> }> = ({ run }) => {
+    const [selected, setSelected] = React.useState(true);
+    const [open, setOpen] = React.useState(false);
+    return (
+      <main>
+        <h1 tabIndex={-1}>Fleet</h1>
+        <input type="checkbox" aria-label="Select all rows on this page" />
+        {selected && (
+          <button type="button" onClick={() => setOpen(true)}>
+            Retire 3 devices
+          </button>
+        )}
+        {open && (
+          <BulkActionDialog
+            title="Approve 3 charges?"
+            confirmLabel="Approve 3 charges"
+            items={ITEMS}
+            run={run}
+            onFinished={() => setSelected(false)}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </main>
+    );
+  };
+
+  it('moves focus to the select-all box when the opening button is gone', async () => {
+    render(<Page run={() => Promise.resolve()} />);
+    const opener = screen.getByRole('button', { name: 'Retire 3 devices' });
+    opener.focus();
+    fireEvent.click(opener);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve 3 charges' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('checkbox', { name: 'Select all rows on this page' })),
+    );
+  });
+
+  it('moves focus out of the summary to a stable control on Close', async () => {
+    render(<Page run={() => Promise.reject(stale())} />);
+    const opener = screen.getByRole('button', { name: 'Retire 3 devices' });
+    opener.focus();
+    fireEvent.click(opener);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve 3 charges' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('checkbox', { name: 'Select all rows on this page' })),
+    );
   });
 });
 

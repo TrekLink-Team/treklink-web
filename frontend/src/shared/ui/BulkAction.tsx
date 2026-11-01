@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useCallback, useId, useRef, useState } from 'react';
 import { Alert } from './Alert';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
@@ -12,6 +12,25 @@ import { runInSequence, type BulkItem, type BulkOutcome } from './bulkSequence';
 // One dialog holds the three steps: the confirmation titled with the count, the progress, then the
 // summary of every row (succeeded, or failed with the server's reason). A row that fails never stops
 // the rows after it.
+//
+// Focus (review of treklink-web#284): the summary is its own dialog, so its focus trap starts again on
+// Close. A page usually clears its selection in `onFinished`, which unmounts the bulk bar button that
+// opened the dialog; on close, focus then moves to a stable control: the table's select-all box, else
+// the page heading.
+
+const FALLBACK_FOCUS = 'input[aria-label="Select all rows on this page"], main h1[tabindex="-1"], main h1';
+
+const restoreFocus = (opener: Element | null) => {
+  window.setTimeout(() => {
+    const lost = document.activeElement === null || document.activeElement === document.body;
+    if (!lost) return;
+    if (opener instanceof HTMLElement && opener.isConnected) {
+      opener.focus();
+      return;
+    }
+    document.querySelector<HTMLElement>(FALLBACK_FOCUS)?.focus();
+  }, 0);
+};
 
 export interface BulkActionDialogProps {
   /** Verb plus count and noun, as a question: "Retire 3 devices?". */
@@ -45,9 +64,16 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
   items,
   run,
   onFinished,
-  onClose,
+  onClose: close,
 }) => {
   const baseId = useId();
+  // The control that opened the dialog, read once on mount.
+  const opener = useRef<Element | null>(typeof document === 'undefined' ? null : document.activeElement);
+  const onClose = useCallback(() => {
+    close();
+    restoreFocus(opener.current);
+  }, [close]);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = `${baseId}-title`;
   const reasonId = `${baseId}-reason`;
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -91,13 +117,15 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
     const failed = outcomes.filter((outcome) => !outcome.ok);
     return (
       <Dialog
+        key="summary"
         titleId={titleId}
         title={`${succeeded.length} of ${outcomes.length} done`}
         description={`${failed.length} could not be changed. The others are saved.`}
         onClose={onClose}
+        initialFocus={closeRef}
         size="md"
         footer={
-          <Button variant="primary" onClick={onClose}>
+          <Button ref={closeRef} variant="primary" onClick={onClose}>
             Close
           </Button>
         }
@@ -129,6 +157,7 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
 
   return (
     <Dialog
+      key="confirm"
       titleId={titleId}
       title={title}
       description={description}
