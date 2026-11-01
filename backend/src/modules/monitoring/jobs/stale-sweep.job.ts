@@ -146,17 +146,25 @@ export class StaleSweepJob {
       else await this.releaseDevice(mark, lastSeenAt);
       mark = undefined;
     }
+    // A unit not heard since its handover: its stale and recovery entries go to `fleet` only, because
+    // their `lastSeenAt` predates the custody interval (D-040) and the holder's map and API show the
+    // unit as not heard since handover (REQ-UBI-04, D-092 rule 2). The mark and the incident flag still
+    // follow the holder.
+    const notHeard = handedOverAt !== undefined && lastSeenAt.getTime() < handedOverAt.getTime();
     if (mark) {
       if (stale) return this.keepFlag(deviceId, lastSeenAt);
       const heardAgain = lastSeenAt.getTime() > mark.lastSeenAt.getTime();
       if (!heardAgain) return null;
-      return this.recoverDevice(deviceId, organizationId ?? null, mark, lastSeenAt);
+      // A late upload can move `lastSeenAt` to a reading just before the handover that is still
+      // within the threshold.
+      return this.recoverDevice(
+        deviceId,
+        notHeard ? null : (organizationId ?? null),
+        mark,
+        lastSeenAt,
+      );
     }
     if (!stale || organizationId === undefined) return null;
-    // A unit not heard since its handover is marked for the holder, so its incident flag follows the
-    // rule above, but its entry goes to `fleet` only: the reading predates the custody interval (D-040)
-    // and the holder's map shows the unit as not heard since handover (REQ-UBI-04, D-092 rule 2).
-    const notHeard = handedOverAt !== undefined && lastSeenAt.getTime() < handedOverAt.getTime();
     return this.markDevice(
       deviceId,
       organizationId,

@@ -10,6 +10,8 @@ import { StreamRepository } from './stream.repository';
 const NOW = new Date('2026-10-30T03:00:00.000Z');
 const FRESH = new Date('2026-10-30T02:58:00.000Z');
 const OLD = new Date('2026-10-30T02:00:00.000Z');
+const HANDED_OVER = new Date('2026-10-30T01:00:00.000Z');
+const BEFORE_HANDOVER = new Date('2026-10-29T08:00:00.000Z');
 
 const projection = (id: string, assetTag: string, overrides: Record<string, unknown> = {}) => ({
   id,
@@ -21,6 +23,7 @@ const projection = (id: string, assetTag: string, overrides: Record<string, unkn
   batteryPct: 81,
   lastLatitude: 11.56,
   lastLongitude: 108.54,
+  lastPositionAt: FRESH,
   ...overrides,
 });
 
@@ -49,6 +52,7 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
           holder: { name: 'Le Thi E' },
+          handedOverAt: HANDED_OVER,
         },
         {
           deviceId: 'd-2',
@@ -56,6 +60,7 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
           holder: null,
+          handedOverAt: HANDED_OVER,
         },
         {
           deviceId: 'd-3',
@@ -63,17 +68,22 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
           holder: null,
+          handedOverAt: HANDED_OVER,
         },
       ]),
     };
     devices = {
       projections: jest.fn().mockResolvedValue([
         projection('d-1', 'TL-0008'),
-        projection('d-2', 'TL-0009', { lastSeenAt: OLD, lastLatitude: null }),
+        // Offline in custody: heard after the handover, silent past the threshold.
+        projection('d-2', 'TL-0009', { lastSeenAt: OLD, lastPositionAt: OLD, batteryPct: 64 }),
+        // Heard before the handover only, at intake or in the previous custody.
         projection('d-3', 'TL-0010', {
-          lastSeenAt: null,
-          lastLatitude: null,
-          lastLongitude: null,
+          lastSeenAt: BEFORE_HANDOVER,
+          lastPositionAt: BEFORE_HANDOVER,
+          lastLatitude: 10.8,
+          lastLongitude: 106.7,
+          batteryPct: 99,
         }),
       ]),
     };
@@ -124,19 +134,52 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
         assetTag: 'TL-0008',
         hardwareVariant: 'treklink-v3',
         holder: { name: 'Le Thi E' },
-        position: { lat: 11.56, lon: 108.54, at: FRESH },
+        position: { lat: 11.56, lon: 108.54, at: FRESH.toISOString() },
         batteryPct: 81,
-        lastSeenAt: FRESH,
+        lastSeenAt: FRESH.toISOString(),
         stale: false,
+        state: 'LIVE',
         openIncident: { id: 'i-1', code: 'INC-2026-000001', state: 'NOTIFY_PRIMARY' },
         contractCode: 'RC-2026-0001',
       });
     });
 
-    it('marks silent devices stale, omits a missing fix and hides another organization incident', async () => {
-      const [, old, never] = (await service.devicesOf('org-1', NOW)).devices;
-      expect(old).toMatchObject({ stale: true, position: null, openIncident: null });
-      expect(never).toMatchObject({ stale: true, position: null, lastSeenAt: null });
+    it('marks a unit silent in custody OFFLINE and stale and hides another organization incident', async () => {
+      const [, offline] = (await service.devicesOf('org-1', NOW)).devices;
+      expect(offline).toMatchObject({
+        state: 'OFFLINE',
+        stale: true,
+        position: { lat: 11.56, lon: 108.54, at: OLD.toISOString() },
+        lastSeenAt: OLD.toISOString(),
+        batteryPct: 64,
+        openIncident: null,
+      });
+    });
+
+    // D-040: nothing from before the handover reaches the organization's system.
+    it('sends a unit heard before the handover only as NOT_HEARD with no reading', async () => {
+      const [, , before] = (await service.devicesOf('org-1', NOW)).devices;
+      expect(before).toMatchObject({
+        assetTag: 'TL-0010',
+        state: 'NOT_HEARD',
+        stale: false,
+        position: null,
+        lastSeenAt: null,
+        batteryPct: null,
+      });
+      expect(JSON.stringify(before)).not.toContain(BEFORE_HANDOVER.toISOString());
+    });
+
+    it('drops a fix taken before the handover from a unit heard since', async () => {
+      devices.projections.mockResolvedValue([
+        projection('d-1', 'TL-0008', { lastPositionAt: BEFORE_HANDOVER }),
+      ]);
+      const [unit] = (await service.devicesOf('org-1', NOW)).devices;
+      expect(unit).toMatchObject({
+        state: 'LIVE',
+        position: null,
+        lastSeenAt: FRESH.toISOString(),
+      });
     });
 
     it('uses the clock when no time is given', async () => {

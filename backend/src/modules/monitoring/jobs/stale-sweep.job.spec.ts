@@ -174,6 +174,24 @@ describe('StaleSweepJob', () => {
       });
     });
 
+    // D-040: a late upload moves `lastSeenAt` to a reading just before the handover, still within the
+    // threshold. The recovery would carry a reading time from before the custody interval, so it goes
+    // to `fleet` only and the holder's map and API keep the unit as not heard since handover.
+    it('sends the recovery of a unit still not heard since its handover to the fleet only', async () => {
+      rent('d1', ORG_A, ago(900));
+      visible = [{ deviceId: 'd1', organizationId: ORG_A, handedOverAt: ago(100) }];
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 1, recovered: 0 });
+      rent('d1', ORG_A, ago(150));
+      visible = [{ deviceId: 'd1', organizationId: ORG_A, handedOverAt: ago(100) }];
+      await expect(job.sweep(NOW)).resolves.toEqual({ stale: 0, recovered: 1 });
+      expect(deviceEvents().map((event) => event.payload)).toEqual([
+        { deviceId: 'd1', organizationId: null, stale: true, lastSeenAt: ago(900).toISOString() },
+        { deviceId: 'd1', organizationId: null, stale: false, lastSeenAt: ago(150).toISOString() },
+      ]);
+      expect(marks.clear).toHaveBeenCalledWith(StaleSubject.DEVICE, 'd1', TX, ORG_A);
+      expect(incidents.markDeviceStale).toHaveBeenLastCalledWith('d1', false, ago(150), TX);
+    });
+
     it('repeats nothing while the device stays silent', async () => {
       rent('d1', ORG_A, ago(301));
       await job.sweep(NOW);
