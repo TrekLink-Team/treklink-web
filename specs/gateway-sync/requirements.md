@@ -105,6 +105,9 @@ configuration file (`field-station-local-page.md`), and these environment variab
 | Variable | Default | Bounds | Meaning | Requirement |
 |---|---|---|---|---|
 | `GATEWAY_QUEUE_MAX_ROWS` | `100000` | whole number, 1 to 10000000 | `QUEUE_MAX_ROWS` of design §3: an insert past it sheds the oldest P3 row, then the oldest P2, in the insert's transaction; P0 and P1 are never shed. A value outside the bounds stops the gateway at start | REQ-STA-03, E02-5 |
+| `GATEWAY_LOCAL_PORT` | `4321` | whole number, 1 to 65535 | Port of the local page and local API on `127.0.0.1` (design §3); the host is fixed. A value outside the bounds stops the gateway at start | REQ-STA-02 |
+| `GATEWAY_LOCAL_STALE_SECONDS` | `300` | whole number, 30 to 7200 | A node silent this long is shown stale on the local page; default and bounds of `monitoring.deviceStaleSeconds` | REQ-STA-02 |
+| `GATEWAY_LOCAL_EVENT_LOG_SIZE` | `200` | whole number, 10 to 10000 | Decoded events the local page's log keeps in memory (`/local/events`) | REQ-STA-02 |
 
 ---
 

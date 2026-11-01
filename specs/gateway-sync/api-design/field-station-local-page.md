@@ -20,12 +20,16 @@ in the page and stored in the local configuration file, never sent anywhere but 
 
 | Method | Route | Returns |
 |---|---|---|
-| GET | `/` | The single-page UI |
-| GET | `/local/nodes` | Every node heard: `nodeId`, last position and time, battery, `sosActive` (an SOS or fall SOS heard with no later traffic suggesting otherwise is shown until an operator clears it locally), `stale` |
-| GET | `/local/queue` | Queue depth per tier P0 to P3, the oldest entry's age and retry count, last successful flush |
-| GET | `/local/uplink` | Broker connection state, last error, serial port state |
-| PUT | `/local/config` | Sets broker URL, username, secret and serial port; the secret is stored and never returned |
-| GET | `/local/events?after=<localSeq>` | Recent decoded events for the page's log, newest last |
+| GET | `/` | The single-page UI, with `/page.css` and `/page.js` beside it: plain files in `gateway/local-page/`, no build step, every response under a same-origin-only Content-Security-Policy |
+| GET | `/local/nodes` | Every node heard, SOS first: `nodeId`, `lastHeardAt`, `position` (`latitude`, `longitude`, `altitude`, `heardAt`), `battery` (`level`, `voltage`, `heardAt`), `sosActive`, `sosKind` (`SOS` or `FALL_SOS`), `lastSosAt`, `stale` (silent past `GATEWAY_LOCAL_STALE_SECONDS`). `sosActive` is set by an SOS or fall SOS heard and is shown until an operator clears it locally; as built on 2026-11-01 no traffic and no route clears it, so it stays set while the station runs |
+| GET | `/local/queue` | `depth` per tier P0 to P3 and `total`, the `oldest` entry's `capturedAt`, `ageSeconds` and `retryCount`, `lastFlushAt` (last successful flush), `shed` per tier since the station started |
+| GET | `/local/uplink` | `broker` (`connected`, `since`, `url` without user information, `lastError`), `serial` (`port`, `simulation`, `reading`, `lastFrameAt`) |
+| PUT | `/local/config` | Sets broker URL, username, secret and serial port; the secret is stored and never returned. Not served yet: answers 501 (2026-11-01); the station reads its configuration from `.env` at start |
+| GET | `/local/events?after=<localSeq>` | Recent decoded events for the page's log, newest last, and `lastSeq`. Until the Stage C table exists, `localSeq` is the log's own sequence since the station started, not a queue row; the log keeps `GATEWAY_LOCAL_EVENT_LOG_SIZE` events |
+
+A request whose `Host` is not `localhost:<port>` or `127.0.0.1:<port>` is refused with 403, so a web page
+open elsewhere on the laptop cannot read the station through DNS rebinding. An unknown route answers 404 and
+a wrong method 405, in the envelope.
 
 `sosActive` on the local page is a display aid for the people on site. It never changes an incident: the
 cloud incident is changed only by a person through the platform (D-038).
