@@ -5,7 +5,6 @@ import { ContractsService } from './contracts.service';
 const tx = { tx: true } as unknown as Prisma.TransactionClient;
 const HANDOVER = new Date('2026-10-20T02:00:00.000Z');
 const CHECK_IN = new Date('2026-10-23T02:00:00.000Z');
-const MARGIN_S = 60;
 
 const custody = (overrides: Partial<CustodyRow> = {}): CustodyRow => ({
   id: 'cd-1',
@@ -43,35 +42,35 @@ describe('ContractsService', () => {
     it('returns the interval holding the device, with its contract and organization', async () => {
       const at = plus(HANDOVER, 3600);
 
-      await expect(service.custodyAt('dev-1', at, MARGIN_S)).resolves.toEqual({
+      await expect(service.custodyAt('dev-1', at)).resolves.toEqual({
         contractDeviceId: 'cd-1',
         contractId: 'c-1',
         organizationId: 'org-1',
         contractStatus: ContractStatus.ACTIVE,
         handedOverAt: HANDOVER,
         endedAt: null,
-        nearBoundary: false,
       });
       expect(contracts.findCustody).toHaveBeenCalledWith('dev-1', at);
     });
 
+    // The attribution margin around both ends is gateway-sync's rule (`attribution.ts`).
     it.each([
-      ['just after the handover', custody(), plus(HANDOVER, 30)],
-      ['just before the check-in', custody({ checkedInAt: CHECK_IN }), plus(CHECK_IN, -30)],
-      ['just before the loss', custody({ lostAt: CHECK_IN }), plus(CHECK_IN, -60)],
-    ])('flags a time %s as near a boundary', async (_label, row, at) => {
+      ['the check-in', custody({ checkedInAt: CHECK_IN })],
+      ['the loss', custody({ lostAt: CHECK_IN })],
+    ])('ends a closed interval at %s', async (_label, row) => {
       contracts.findCustody.mockResolvedValue(row);
-      await expect(service.custodyAt('dev-1', at, MARGIN_S)).resolves.toMatchObject({
-        nearBoundary: true,
+      await expect(service.custodyAt('dev-1', plus(CHECK_IN, -30))).resolves.toMatchObject({
+        handedOverAt: HANDOVER,
+        endedAt: CHECK_IN,
       });
     });
 
     it('answers none when no interval contains the time, or the row was never handed over', async () => {
       contracts.findCustody.mockResolvedValueOnce(null);
-      await expect(service.custodyAt('dev-1', HANDOVER, MARGIN_S)).resolves.toBeNull();
+      await expect(service.custodyAt('dev-1', HANDOVER)).resolves.toBeNull();
 
       contracts.findCustody.mockResolvedValueOnce(custody({ handedOverAt: null }));
-      await expect(service.custodyAt('dev-1', HANDOVER, MARGIN_S)).resolves.toBeNull();
+      await expect(service.custodyAt('dev-1', HANDOVER)).resolves.toBeNull();
     });
   });
 

@@ -14,7 +14,6 @@ const custody = (overrides: Partial<Custody> = {}): Custody => ({
   contractStatus: ContractStatus.ACTIVE,
   handedOverAt: HANDOVER,
   endedAt: CHECK_IN,
-  nearBoundary: false,
   ...overrides,
 });
 

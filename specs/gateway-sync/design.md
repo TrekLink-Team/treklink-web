@@ -271,12 +271,13 @@ sequenceDiagram
         S->>S: audit UNKNOWN_DEVICE, stop
     else accepted: known device
         S->>S: occurredAt = fs_captured_at + receivedAt - fs_sent_at
-        S->>Rt: custodyAt(deviceId, occurredAt, margin)
+        S->>Rt: custodyAt(deviceId, occurredAt)
+        Rt-->>S: none, or the interval with its organization, handedOverAt and endedAt
+        S->>S: attribute(): margin and station organization (attribution.ts)
         alt station's organization, clear of the margin
-            Rt-->>S: contractDeviceId, organizationId
+            S->>S: attribution ATTRIBUTED
         else no interval, other organization or near a boundary
-            Rt-->>S: none or nearBoundary
-            S->>S: attribution UNATTRIBUTED
+            S->>S: attribution UNATTRIBUTED, reason in the audit detail
         end
     end
 ```

@@ -142,7 +142,7 @@ export class IngestionService {
     // occurrence time, clear of the margin around its handover and end; anything else stays
     // UNATTRIBUTED and reaches the fleet stream only (BR-36). Read before the transaction: custody
     // changes only at a handover, check-in or loss, never because of a field event.
-    const custody = await this.contracts.custodyAt(device.id, time.occurredAt, marginSeconds);
+    const custody = await this.contracts.custodyAt(device.id, time.occurredAt);
     const attribution = attribute({
       custody,
       occurredAt: time.occurredAt,
