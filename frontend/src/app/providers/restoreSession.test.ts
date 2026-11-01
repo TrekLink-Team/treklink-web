@@ -92,6 +92,19 @@ describe('restoreSession (D-090 rule 3)', () => {
     expect(sessionStorage.getItem(KEY)).toBe('old-refresh');
   });
 
+  it('signs out and clears the stored token when me fails after a good refresh', async () => {
+    sessionStorage.setItem(KEY, 'old-refresh');
+    fetchMock.mockImplementation((url) =>
+      Promise.resolve(
+        url.endsWith('/auth/refresh') ? envelope(200, rotated) : envelope(500, { errorCode: 'X' }),
+      ),
+    );
+    const { useSession, restoreSession } = await load();
+    await restoreSession();
+    expect(useSession.getState()).toMatchObject({ restoring: false, user: null, tokens: null });
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+  });
+
   it('does nothing without a stored token', async () => {
     const { useSession, restoreSession } = await load();
     expect(useSession.getState().restoring).toBe(false);

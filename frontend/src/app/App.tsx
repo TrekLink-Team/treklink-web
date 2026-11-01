@@ -1,4 +1,5 @@
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 import { BrowserRouter, useLocation } from 'react-router-dom';
 import { landingRoute, useSession } from '../entities/session/model';
 import { Toast } from '../shared/ui/toast';
@@ -42,11 +43,19 @@ const Frame: React.FC = () => {
 // cannot send a returning user to sign-in before the refresh answers.
 export const App: React.FC = () => {
   const restoring = useSession((state) => state.restoring);
+  // A cold backend can take a few seconds to answer the refresh, so the wait is visible.
   if (restoring) {
     return (
-      <p role="status" className="sr-only">
-        Restoring your session
-      </p>
+      <div
+        className="flex min-h-screen items-center justify-center"
+        role="status"
+        aria-live="polite"
+      >
+        <p className="flex items-center gap-2 text-body text-ink-muted">
+          <Loader2 aria-hidden="true" className="h-5 w-5 motion-safe:animate-spin" />
+          Restoring your session
+        </p>
+      </div>
     );
   }
   return (
