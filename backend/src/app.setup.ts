@@ -17,6 +17,13 @@ export const parseCorsOrigins = (raw: string): string[] =>
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
+type CorsRequest = { headers: { origin?: string }; url?: string; originalUrl?: string };
+
+const HEALTH_PATH = '/api/health';
+
+const isHealthRoute = (req: CorsRequest): boolean =>
+  (req.originalUrl ?? req.url ?? '').split('?')[0] === HEALTH_PATH;
+
 // Global HTTP wiring shared by main.ts and the e2e tests, so tests exercise the real envelope.
 export function configureApp(app: NestExpressApplication): void {
   const config = app.get<ConfigService<ValidatedEnvironment, true>>(ConfigService);
@@ -41,9 +48,19 @@ export function configureApp(app: NestExpressApplication): void {
 
   app.setGlobalPrefix('api');
 
-  app.enableCors({
-    origin: parseCorsOrigins(config.get('CORS_ORIGINS', { infer: true })),
-    credentials: true,
+  // The health route is public and carries no credentials, so any origin may read it: the landing
+  // page probes it from GitHub Pages and Vercel before opening the system (D-088). Every other
+  // route, and a listed origin on the health route, keeps the credentialed CORS_ORIGINS rule.
+  const corsOrigins = parseCorsOrigins(config.get('CORS_ORIGINS', { infer: true }));
+  app.enableCors((req: CorsRequest, callback) => {
+    const origin = req.headers.origin;
+    const listed = typeof origin === 'string' && corsOrigins.includes(origin);
+    callback(
+      null,
+      isHealthRoute(req) && !listed
+        ? { origin: '*', credentials: false }
+        : { origin: corsOrigins, credentials: true },
+    );
   });
 
   app.useGlobalPipes(
