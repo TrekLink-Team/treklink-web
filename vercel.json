@@ -1,0 +1,44 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "backend": {
+      "root": "backend/",
+      "framework": "nestjs",
+      "installCommand": "cd .. && npm ci",
+      "buildCommand": "bash scripts/vercel-build.sh"
+    },
+    "frontend": {
+      "root": "frontend/",
+      "framework": "vite",
+      "installCommand": "cd .. && npm ci --ignore-scripts",
+      "buildCommand": "NODE_ENV=production npm run build",
+      "outputDirectory": "dist",
+      "rewrites": [
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/socket.io/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    }
+  ]
+}
