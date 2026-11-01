@@ -164,6 +164,7 @@ export class DevicesService {
     return this.devices.findByAssetTag(assetTag);
   }
 
+  // For the demo module only (D-088): no business flow calls it; it moves dates outside the normal rules.
   // Makes a unit due for service on `serviceDueAt` (demo module's asset-maintenance scenario, D-088), so a
   // passed inspection or the fleet list shows it due within devices.maintenanceLeadDays (REQ-EVT-07).
   scheduleService(deviceId: string, serviceDueAt: Date): Promise<void> {
