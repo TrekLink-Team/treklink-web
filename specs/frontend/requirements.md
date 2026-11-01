@@ -3,7 +3,7 @@
 **User Story**: As **any user of TrekLink**, I want one responsive web application that shows me only what my role and organization allow, works on a phone for on-duty operators, and tells me plainly what happened when something fails.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: every Main Flow
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) Table 78 (screen authorization), NFR-UI-01 to NFR-UI-04, NFR-USE-01 to NFR-USE-05, NFR-SEC-03, NFR-LEG-05, §5.3 messages MSG01 to MSG39, FR-MON-01, FR-MON-05, FR-MON-09, BR-30; D-031 (Leaflet, OpenStreetMap, overlay); `06-frontend-conventions.md` (FSD, Tailwind, TanStack Query). Rewritten 2026-10-04 (D-036): the customer portal and every booking and trip screen are retired. Screens Flow and Screen Descriptions of the SRS are due at W8; this suite fixes routes and behaviour, not visual design.
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) Table 78 (screen authorization), NFR-UI-01 to NFR-UI-04, NFR-USE-01 to NFR-USE-05, NFR-SEC-03, NFR-LEG-05, §5.3 messages MSG01 to MSG39, MSG40 (added 2026-11-01 by leader ruling, incidents REQ-EVT-12), FR-MON-01, FR-MON-05, FR-MON-09, BR-30; D-031 (Leaflet, OpenStreetMap, overlay); `06-frontend-conventions.md` (FSD, Tailwind, TanStack Query). Rewritten 2026-10-04 (D-036): the customer portal and every booking and trip screen are retired. Screens Flow and Screen Descriptions of the SRS are due at W8; this suite fixes routes and behaviour, not visual design.
 
 ---
 
@@ -37,6 +37,7 @@
 - **REQ-EVT-02**: WHEN an access token expires, the client SHALL refresh it once and retry; WHEN refresh fails, it SHALL return to sign-in. WHEN the page loads with a refresh token in the tab's `sessionStorage`, the client SHALL run one silent refresh and restore the session before routing (D-090 rule 3).
 - **REQ-EVT-03**: WHEN the socket disconnects, the client SHALL show MSG32, reconnect with its last cursor, and clear the banner on `replay.done`. WHERE the build sets `VITE_LIVE_MODE=poll` (a host that cannot keep a socket, D-089), the client SHALL open no socket, SHALL NOT show MSG32, SHALL refetch the views the stream would refresh every 15 seconds, SHALL show MSG31 for the open incidents that wait for the viewer (an organization's unacknowledged `NOTIFY_*` incidents to its members, unrouted and escalated ones to Staff), and the header SHALL say "Auto refresh" instead of "Live". [FR-MON-05]
 - **REQ-EVT-04**: WHEN the map provider fails, the client SHALL show MSG33 and keep the lists live. [FR-MON-09]
+- **REQ-EVT-05**: WHEN an `incident.alert` of kind `STALE` arrives, the client SHALL show MSG40 "Device silent: {device} ({holder}), last heard {time}." in the same banner without Acknowledge, behind any SOS alert, until dismissed or the incident reaches `RESOLVED`, `FALSE_ALARM` or `CLOSED`. [FR-INC-13]
 
 ### Unwanted Behaviour
 
