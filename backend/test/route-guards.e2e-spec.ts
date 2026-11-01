@@ -15,6 +15,7 @@ import {
 } from '../src/common/decorators/access.decorator';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { API_KEY_RESOLVER, AuthOneOf, hashApiKey } from '../src/modules/auth';
+import { demoControlsEnabled, demoTestAccountsEnabled } from '../src/modules/demo';
 import { AUTH_ONE_OF_KEY } from '../src/modules/auth/decorators/auth-one-of.decorator';
 
 // Route guards across the whole application (auth tasks 4.3 and 4.4, REQ-UBI-04, D-061).
@@ -39,6 +40,9 @@ const PUBLIC_ROUTES = new Set([
   'GET /plans',
   'POST /organizations/register',
   'POST /payments/sepay/webhook',
+  // The sandbox test accounts (specs/demo api-design 05), routed only while DEMO_TEST_ACCOUNTS_ENABLED
+  // loads DemoAccountsModule (D-089).
+  ...(demoTestAccountsEnabled(process.env) ? ['GET /demo/accounts'] : []),
 ]);
 
 // The routes that need a token and no permission (D-061 rule 2): sign-out, the caller's own
@@ -48,6 +52,8 @@ const AUTHENTICATED_ROUTES = new Set([
   'GET /auth/me',
   'POST /auth/password/change',
   'GET /map/config',
+  // The demo controls status (specs/demo api-design 01), routed only while the demo module is loaded.
+  ...(demoControlsEnabled(process.env) ? ['GET /demo/status'] : []),
 ]);
 
 interface RouteInfo {

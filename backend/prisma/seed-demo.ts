@@ -1160,6 +1160,20 @@ export function readPasswords(env: NodeJS.ProcessEnv): SeedPasswords {
 
 // --- end demo control panel ---------------------------------------------------------------------
 
+// --- Sandbox test accounts (D-088 amendment of 2026-11-01, specs/demo REQ-EVT-05) ---------------
+// The accounts above in creation order (Admin, Staff, Manager, Operator), for the public test accounts
+// read of the demo module. No password here: the module reads them through readPasswords at request
+// time. The two organization accounts belong to ORG-0001; the TrekLink accounts belong to none.
+export const SEEDED_ACCOUNTS = ACCOUNTS.map(({ key, email, fullName, role }) => ({
+  key,
+  email,
+  fullName,
+  role,
+  organization: role === 'ORG_MANAGER' || role === 'ORG_OPERATOR' ? ORGANIZATION_CODE : null,
+}));
+
+// --- end sandbox test accounts ------------------------------------------------------------------
+
 async function main() {
   // The same files and order as ConfigModule in app.module.ts; a variable already set is kept.
   for (const file of ['.env', '../.env']) if (existsSync(file)) process.loadEnvFile(file);

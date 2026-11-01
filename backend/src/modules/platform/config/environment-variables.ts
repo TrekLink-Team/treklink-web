@@ -87,6 +87,13 @@ export class EnvironmentVariables {
   @IsBoolean()
   DEMO_CONTROLS_ENABLED = false;
 
+  // Owned by `demo` (specs/demo/requirements.md REQ-EVT-05, D-088 amendment of 2026-11-01, D-089): true
+  // loads the read-only sandbox test accounts list (GET /api/demo/accounts), in any NODE_ENV and on any
+  // database. Independent of DEMO_CONTROLS_ENABLED; off by default.
+  @Transform(toBoolean)
+  @IsBoolean()
+  DEMO_TEST_ACCOUNTS_ENABLED = false;
+
   @IsString()
   @Matches(/^[A-Za-z0-9_-]+$/, { message: 'MQTT_ROOT must be one topic level such as treklink' })
   MQTT_ROOT = 'treklink';
