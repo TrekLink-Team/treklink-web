@@ -63,6 +63,7 @@ contract is not `CLOSED`, never changed (REQ-UBI-02).
 | Late | `lateFeePerDevicePerDayVnd` × ⌈(checkedInAt − returnDueAt) ÷ 1 day⌉, only if past the grace | at check-in |
 | Damage | Σ rate(code) for the device's variant, generic rate as fallback | when decided, or at once below the threshold |
 | Loss | `devices.valueAt(device, confirmedAt)`, renter custody only; a reduction or waiver is an `ADJUSTMENT` line | at loss-case confirmation |
+| Service credit | −⌈P × outageDays ÷ termDays⌉ for one unit, at most the unit's share of the term (P); day plan: −⌈P ÷ 30 × premium × outageDays⌉, at most the unit's day-plan fee (§9) | on the next invoice `rentals` issues, or refunded outside TrekLink after the close |
 
 `P` is the contract's `monthlyUnitPriceVnd` snapshot; `ratio` and `premium` are the snapshot too.
 
@@ -787,3 +788,86 @@ sequenceDiagram
 ```
 
 ***Figure 17***: UC-47 Apply Damage Fee, included in return inspection. damageRateFor runs for every code, preferring a variant-specific rate over its generic rate. The named failure is 400 UNKNOWN_DAMAGE_CODE, which rolls back the whole inspection. Above billing.damageApprovalThresholdVnd, the alternative success inserts PENDING_APPROVAL and no invoice line; at or below it the charge is APPROVED. If no CLOSING invoice exists, InvoicesRepository.insert creates it instead of appendLines (FR-BILL-04, BR-24).
+
+---
+
+## 9. Service credits (D-092 rule 5; specified 2026-11-02, not built)
+
+The supervisor's fifth point at the 2026-11-01 demo: a unit that fails mid-term through no fault of the
+organization (a swollen battery, a dead antenna) should cost the organization nothing for the days it could
+not be used, or a small market loses a repeat client. The holding fee stays non-refundable when the
+organization cancels; this section covers hardware faults only. Nothing here is built until the leader
+confirms it (requirements §6).
+
+### 9.1 What a credit is
+
+A `SERVICE_CREDIT` row: `id`, `contractId`, `contractDeviceId` (the unit's row on the contract), `cause`,
+`faultRef` (the inspection or maintenance record that shows the fault), `outageFrom`, `outageTo`,
+`computedVnd`, `decidedVnd`, `status`, `requestedById`, `decidedById`, `decisionReason`, `invoiceLineId`,
+`refundReference`, `refundedAt`, `version`, timestamps.
+
+| Cause | Meaning |
+|---|---|
+| `BATTERY_FAULT` | the battery swells, will not charge or will not hold a charge |
+| `RADIO_FAULT` | the antenna or the LoRa radio fails |
+| `GPS_FAULT` | the unit gets no fix in the open |
+| `BOARD_FAULT` | the board, the screen or a button fails |
+| `FIRMWARE_FAULT` | a firmware defect stops the unit working |
+
+Damage the organization caused stays a damage charge (§2), a lost unit a loss case; neither is a credit.
+
+### 9.2 Amount
+
+`outageFrom` is when the organization reported the fault (an incident or a counter visit), not before the
+unit's handover on this contract. `outageTo` is the first of: the handover of its replacement (rentals,
+D-045), the unit's return to the organization working, its check-in, or the end of the current term. Days
+are whole local days, rounded up; `termDays` is the length of the term the outage starts in.
+
+- Monthly plan: ⌈P × outageDays ÷ termDays⌉, at most P (the unit's share of one term).
+- Day plan: ⌈P ÷ 30 × premium × outageDays⌉, at most the unit's day-plan fee.
+
+An outage that runs into the next term is two credits, one per term, so each stays within its term's fee.
+Rounding up favours the organization, as every charge rounds up against it (REQ-UBI-01).
+
+### 9.3 Lifecycle
+
+| From | Event | To |
+|---|---|---|
+| (none) | Staff request (REQ-EVT-12) | `REQUESTED` |
+| `REQUESTED` | another Admin approves or reduces (REQ-EVT-13) | `APPROVED` |
+| `REQUESTED` | another Admin rejects with a reason | `REJECTED` |
+| `APPROVED` | `rentals` issues the contract's next invoice (REQ-EVT-14) | `APPLIED` |
+| `APPROVED` | the contract is `CLOSED` with no later invoice (REQ-EVT-15) | `REFUND_DUE` |
+| `REFUND_DUE` | Staff record the refund reference | `REFUNDED` |
+
+A credit is applied once, as one negative line; the line is never changed afterwards (REQ-UBI-02). A
+credit larger than the invoice it lands on leaves the invoice at zero due and carries the rest to the next
+invoice, or to `REFUND_DUE` after the close. The balance and the close check (rentals api-design 20) count
+an `APPROVED` credit as already owed to the organization.
+
+### 9.4 Who may do what
+
+| Action | Permission (new, `scripts/specs/catalog.py`) | Roles |
+|---|---|---|
+| Request a credit | `serviceCredit.request` | STAFF, ADMIN |
+| Decide a credit | `serviceCredit.decide` | ADMIN, never the requester (403 `SEPARATION_OF_DUTY`) |
+| Record a refund | `serviceCredit.refund` | STAFF, ADMIN |
+| Read credits | `serviceCredit.read`, `serviceCredit.read.own` | STAFF, ADMIN; the organization's Managers for their own |
+
+New error code `DUPLICATE_CREDIT` (409). Audit entries `serviceCredit.requested`, `.decided`,
+`.applied`, `.refunded`, after commit. Notices to the organization's Managers on request and decision.
+
+### 9.5 Endpoints (api-design written with the build, from `scripts/specs/endpoints/billing.py`)
+
+- `POST /api/contracts/:id/service-credits`: request (cause, `contractDeviceId`, `outageFrom`, `outageTo`
+  when known, `faultRef`).
+- `GET /api/contracts/:id/service-credits`, `GET /api/service-credits` (Staff queue, filter by status).
+- `POST /api/service-credits/:id/decision`: `APPROVE`, `REDUCE` with `decidedVnd` and a reason, or
+  `REJECT` with a reason, and `expectedVersion`.
+- `POST /api/service-credits/:id/refund`: the reference of a refund paid outside TrekLink.
+
+### 9.6 Screens
+
+Staff request a credit from the unit's row on the contract page (next to Report lost) or from its
+maintenance record; Admins decide in a queue beside the damage-charge queue; the organization sees each
+credit and its status on the contract page and the `SERVICE_CREDIT` line on its invoice.
