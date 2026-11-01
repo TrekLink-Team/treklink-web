@@ -18,7 +18,8 @@ import { runInSequence, type BulkItem, type BulkOutcome } from './bulkSequence';
 // opened the dialog; on close, focus then moves to a stable control: the table's select-all box, else
 // the page heading.
 
-const FALLBACK_FOCUS = 'input[aria-label="Select all rows on this page"], main h1[tabindex="-1"], main h1';
+// In order of preference; querySelector with one comma list would pick the first in document order.
+const FALLBACK_FOCUS = ['input[aria-label="Select all rows on this page"]', 'main h1[tabindex="-1"]', 'main h1'];
 
 const restoreFocus = (opener: Element | null) => {
   window.setTimeout(() => {
@@ -28,7 +29,13 @@ const restoreFocus = (opener: Element | null) => {
       opener.focus();
       return;
     }
-    document.querySelector<HTMLElement>(FALLBACK_FOCUS)?.focus();
+    for (const selector of FALLBACK_FOCUS) {
+      const target = document.querySelector<HTMLElement>(selector);
+      if (target) {
+        target.focus();
+        return;
+      }
+    }
   }, 0);
 };
 
