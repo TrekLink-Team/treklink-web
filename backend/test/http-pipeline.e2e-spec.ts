@@ -38,11 +38,29 @@ describe('HTTP pipeline (e2e)', () => {
 
     it('does not allow an origin outside CORS_ORIGINS', async () => {
       const response = await request(app.getHttpServer())
-        .options('/api/health')
+        .options('/api/auth/login')
         .set('Origin', 'https://evil.example')
-        .set('Access-Control-Request-Method', 'GET');
+        .set('Access-Control-Request-Method', 'POST');
 
       expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
+    it('lets any origin read the health route without credentials (D-088)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/health?probe=landing')
+        .set('Origin', 'https://treklink-team.github.io');
+
+      expect(response.headers['access-control-allow-origin']).toBe('*');
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+
+    it('keeps the credentialed rule for a listed origin on the health route', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/health')
+        .set('Origin', 'http://localhost:5173');
+
+      expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
     });
   });
 

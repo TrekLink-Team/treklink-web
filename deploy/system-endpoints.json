@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "candidates": [
+    {
+      "name": "demo-laptop",
+      "url": "http://localhost:5173/",
+      "health": "http://localhost:3000/api/health",
+      "timeoutMs": 10000
+    }
+  ]
+}
