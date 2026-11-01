@@ -37,6 +37,8 @@ export const PARAMETER_TYPES = {
   'gatewaySync.lateUploadGraceHours': 'INT',
   'gatewaySync.attributionMarginSeconds': 'DURATION_SECONDS',
   'gatewaySync.deviceTimeMaxAheadSeconds': 'DURATION_SECONDS',
+  'gatewaySync.simulatorIntervalSeconds': 'DURATION_SECONDS',
+  'gatewaySync.simulatorSosIntervalMinutes': 'INT',
   'incidents.correlationWindowSeconds': 'DURATION_SECONDS',
   'incidents.cadenceCount': 'INT',
   'incidents.cadenceWindowSeconds': 'DURATION_SECONDS',

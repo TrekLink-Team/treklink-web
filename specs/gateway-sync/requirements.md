@@ -97,7 +97,8 @@ The `gateway-sync` section of the [Configuration Matrix](../platform/configurati
 position rules owned by `monitoring`. Environment: `MQTT_BROKER_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`
 (subscribe-only), `MQTT_ROOT` (default `treklink`), `MQTT_CLIENT_ID_BACKEND` (default
 `treklink-backend-service`, stable because the session is persistent), `MQTT_INGESTION_ENABLED` (default
-`true`; `false` runs the backend without a broker), `MQTT_AUTH_HOOK_SECRET`. Field Station: its local
+`true`; `false` runs the backend without a broker), `MQTT_AUTH_HOOK_SECRET`, `FIELD_SIMULATOR_ENABLED` (default
+`false`; `true` loads the field data simulator of design §2, set only on the Vercel production, D-090). Field Station: its local
 configuration file (`field-station-local-page.md`), and these environment variables of `gateway/`
 (`gateway/src/config.ts`, `.env.example`):
 

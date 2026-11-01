@@ -80,6 +80,11 @@
   - **Test**: a reboot sequence never yields negative traffic
   - _Requirements: REQ-EVT-12, REQ-EVT-13, REQ-EVT-14, NFR-IF-01, NFR-REL-05_
 
+- [x] 2.7 Field data simulator (D-090 rule 2) (owner KhoaDD)
+  - **Files**: `simulator/simulated-batch.ts`, `simulator/field-simulator.job.ts`, `simulator/field-simulator.module.ts`; parameters `gatewaySync.simulatorIntervalSeconds` and `gatewaySync.simulatorSosIntervalMinutes` (migration `20261101150000_gateway_sync_simulator_parameters`); `FIELD_SIMULATOR_ENABLED`
+  - **Test**: `simulated-batch.spec.ts` (shape, interval timing, same packets inside an interval, stock decode, walking pace, SOS off by default and once per window), `field-simulator.job.spec.ts` (node topics, the flag)
+  - _Requirements: D-090_
+
 ## Phase 3: Broker
 
 - [ ] 3.1 Broker hooks and mosquitto configuration (owner KhoaDD)

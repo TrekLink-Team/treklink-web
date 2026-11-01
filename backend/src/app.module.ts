@@ -12,7 +12,11 @@ import {
   demoTestAccountsEnabled,
 } from './modules/demo';
 import { DevicesModule } from './modules/devices';
-import { GatewaySyncModule } from './modules/gateway-sync';
+import {
+  FieldSimulatorModule,
+  GatewaySyncModule,
+  fieldSimulatorEnabled,
+} from './modules/gateway-sync';
 import { IncidentsModule } from './modules/incidents';
 import { MonitoringModule } from './modules/monitoring';
 import { OrganizationsModule } from './modules/organizations';
@@ -47,6 +51,9 @@ import { RentalsModule } from './modules/rentals';
     // The read-only sandbox test accounts list (D-089), only when DEMO_TEST_ACCOUNTS_ENABLED is true,
     // in any NODE_ENV and on any database: GET /api/demo/accounts is a 404 otherwise.
     ConditionalModule.registerWhen(DemoAccountsModule, demoTestAccountsEnabled),
+    // The field data simulator (gateway-sync design §2 (field data simulator), D-090), only when FIELD_SIMULATOR_ENABLED is true:
+    // set on the Vercel production alone, which has no MQTT subscriber.
+    ConditionalModule.registerWhen(FieldSimulatorModule, fieldSimulatorEnabled),
   ],
 })
 export class AppModule {}
