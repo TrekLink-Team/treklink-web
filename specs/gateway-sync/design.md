@@ -70,7 +70,9 @@ decode payloads; `IngestionService` alone writes.
 3. `BEGIN`; `INSERT field_events ... ON CONFLICT (eventId) DO NOTHING RETURNING id`. No row means
    `DUPLICATE_REJECTED`: audit and `COMMIT`.
 4. Position rules (bounds, speed); `devices.projectReading`; `incidents.onSos` or `onPosition` with the
-   same `tx`, passing the attribution; set `incidentId` on the event when it joined an episode (the one allowed update).
+   same `tx`, passing the attribution; `onPosition` also gets `IngestionRepository` as its
+   `PositionHistory`, which answers the cadence count over the stored positions (incidents design §4);
+   set `incidentId` on the event when it opened or joined an episode (the one allowed update).
 5. Audit `ACCEPTED`; `COMMIT`; emit.
 
 The MQTT client uses QoS 1 and a persistent session, and acknowledges a message only after `ingest()`
