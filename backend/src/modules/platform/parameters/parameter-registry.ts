@@ -61,6 +61,7 @@ export const PARAMETER_TYPES = {
   'monitoring.mapProvider': 'JSON',
   'monitoring.mapBasemaps': 'JSON',
   'monitoring.mapDefaultViewport': 'JSON',
+  'monitoring.counterLocation': 'JSON',
   'monitoring.historyMaxRangeDays': 'INT',
   'monitoring.reportMaxRangeDays': 'INT',
 } as const satisfies Record<string, ParameterType>;

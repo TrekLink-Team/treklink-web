@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The initial state the live map draws before it subscribes: every device the caller may see with its last plotted position, battery, staleness, holder label and open incident, plus the organization's Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11). A device is listed from handover until check-in or a confirmed loss. `position` is null until the device reports a plotted position, and its `at` is the device's last-seen time. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map filter stream entries by organization in the client.
+The initial state the live map draws before it subscribes: every unit of the scope's open contracts with its state, last plotted position, battery, holder label and open incident, plus the organization's Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11, D-092 rule 2). A unit is listed from handover until check-in or a confirmed loss, reporting or not. `state` is `LIVE` (heard since `handedOverAt` and within `monitoring.deviceStaleSeconds`), `OFFLINE` (heard since `handedOverAt`, silent longer) or `NOT_HEARD` (nothing heard since `handedOverAt`); `stale` is true for `OFFLINE` only. For an organization, `position` and `lastSeenAt` lie inside its custody interval or are null, so nothing from before the handover is sent (D-040), and a `NOT_HEARD` unit has no `batteryPct` either; TrekLink staff get the device's last position and last-seen time whatever the interval. `position.at` is the time of the reading that carried the position. `counterLocation` is `{ name, lat, lon }` of `monitoring.counterLocation` for a `NOT_HEARD` unit, where the map pins it, and null otherwise. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map filter stream entries by organization in the client.
 
 ## API Specification
 
@@ -51,6 +51,29 @@ No body.
         "stale": false,
         "openIncident": null,
         "contractCode": "RC-2026-0042",
+        "state": "LIVE",
+        "handedOverAt": "2026-10-19T01:30:00.000Z",
+        "counterLocation": null,
+        "organizationId": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f"
+      },
+      {
+        "id": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14",
+        "assetTag": "TL-0043",
+        "hardwareVariant": "treklink-v3",
+        "holder": null,
+        "position": null,
+        "batteryPct": null,
+        "lastSeenAt": null,
+        "stale": false,
+        "openIncident": null,
+        "contractCode": "RC-2026-0042",
+        "state": "NOT_HEARD",
+        "handedOverAt": "2026-10-19T01:30:00.000Z",
+        "counterLocation": {
+          "name": "TrekLink counter",
+          "lat": 11.56,
+          "lon": 108.54
+        },
         "organizationId": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f"
       }
     ],
@@ -144,12 +167,16 @@ flowchart TB
     E1 --> X1((End))
     P0["Resolve the caller's scope"]
     D1 -->|no| P0
-    P1["Read projections of visible devices"]
+    P1["Read the units in custody with their handover times"]
     P0 --> P1
-    P2["Read the current stream cursor"]
+    P2["Read projections of those units"]
     P1 --> P2
+    P3["Derive each state and clip positions to the custody interval"]
+    P2 --> P3
+    P4["Read the current stream cursor"]
+    P3 --> P4
     OK["Return 200"]
-    P2 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -167,10 +194,11 @@ sequenceDiagram
     participant Inc as IncidentsService
     C->>Ctl: GET /api/map/snapshot
     Ctl->>Svc: snapshot(query, caller)
+    Svc->>DB: SELECT max(seq) FROM stream_events
     Svc->>Rent: visibleDevices(caller)
+    Svc->>DB: SELECT business_parameters (deviceStaleSeconds, counterLocation)
     Svc->>Dev: projections(ids)
     Svc->>Inc: openByDevices(ids)
-    Svc->>DB: SELECT max(seq) FROM stream_events
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```
