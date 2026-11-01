@@ -101,6 +101,11 @@
 - [x] 2.11 UTC timestamps: Prisma `DateTime` in UTC, serialised with `Z` by `JSON.stringify` (owner KhoaDD)
   - _Requirements: REQ-UBI-05_
 
+- [x] 2.12 Request-driven job tick (D-090 rule 1) (owner KhoaDD)
+  - **Files**: `scheduler/job-runner.service.ts` (`tick`, `tickIfDue`), `scheduler/job-tick.interceptor.ts`, `job_runs` (migration `20261101140000_platform_job_runs`), `JOBS_TICK_ON_REQUEST`
+  - **Test**: `job-runner.service.spec.ts` (a job with no record runs and is recorded, a job not due is skipped and runs once due, a locked run is not recorded, one tick per minute), `job-tick.interceptor.spec.ts` (waitUntil gets the tick, nothing when off or within the minute)
+  - _Requirements: REQ-EVT-07_
+
 ## Phase 3: Query / Retrieval
 
 - [x] 3.1 Parameter list and history; audit-log query (owner KhoaDD)

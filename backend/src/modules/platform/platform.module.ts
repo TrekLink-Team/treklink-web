@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
+import { APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 import { AuditLogController } from './audit/audit-log.controller';
 import { AuditLogRepository } from './audit/audit-log.repository';
 import { AuditLogService } from './audit/audit-log.service';
@@ -12,6 +12,7 @@ import { HealthService } from './health/health.service';
 import { ParameterRepository } from './parameters/parameter.repository';
 import { ParameterService } from './parameters/parameter.service';
 import { JobRunnerService } from './scheduler/job-runner.service';
+import { JobTickInterceptor } from './scheduler/job-tick.interceptor';
 
 // Cross-cutting backend foundation (D-028). Depends on no other module
 // (specs/platform/requirements.md §1, "Depends on").
@@ -25,6 +26,7 @@ import { JobRunnerService } from './scheduler/job-runner.service';
     ParameterRepository,
     ParameterService,
     JobRunnerService,
+    { provide: APP_INTERCEPTOR, useClass: JobTickInterceptor },
     ParameterReadsService,
     AuditLogRepository,
     AuditLogService,

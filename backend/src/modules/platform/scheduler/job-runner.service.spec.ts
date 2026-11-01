@@ -16,11 +16,22 @@ class SampleJobs {
   }
 }
 
-// `$transaction` hands the callback a client whose advisory-lock query answers `locked`.
+// `$transaction` hands the callback a client whose advisory-lock query answers `locked`; `jobRun` keeps
+// the tick records in memory.
+const lastRuns = new Map<string, Date>();
 const prismaWithLock = (locked: () => boolean) => ({
   $transaction: jest.fn((work: (tx: object) => Promise<unknown>) =>
     work({ $queryRaw: jest.fn(() => Promise.resolve([{ locked: locked() }])) }),
   ),
+  jobRun: {
+    findMany: jest.fn(() =>
+      Promise.resolve([...lastRuns].map(([name, lastRunAt]) => ({ name, lastRunAt }))),
+    ),
+    upsert: jest.fn(({ create }: { create: { name: string; lastRunAt: Date } }) => {
+      lastRuns.set(create.name, create.lastRunAt);
+      return Promise.resolve(create);
+    }),
+  },
 });
 
 describe('JobRunnerService', () => {
@@ -33,6 +44,7 @@ describe('JobRunnerService', () => {
 
   beforeEach(async () => {
     locked = true;
+    lastRuns.clear();
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
     errorLog = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -90,5 +102,48 @@ describe('JobRunnerService', () => {
 
     expect(errorLog).toHaveBeenCalledWith(expect.stringContaining('deadline query failed'));
     expect(calls).toBe(2);
+  });
+
+  describe('request-driven tick (D-090 rule 1)', () => {
+    // sample.sweep fires daily at 03:00:00.
+    const at = (iso: string) => new Date(iso);
+
+    it('runs a job with no recorded run and records it', async () => {
+      await expect(runner.tick(at('2026-11-01T05:00:00Z'))).resolves.toEqual({
+        'sample.sweep': 'succeeded',
+      });
+      expect(jobs.runs).toBe(1);
+      expect(lastRuns.get('sample.sweep')).toEqual(at('2026-11-01T05:00:00Z'));
+    });
+
+    it('skips a job whose cron has not fired since its last run, then runs it once it has', async () => {
+      lastRuns.set('sample.sweep', at('2026-11-01T03:30:00'));
+      await expect(runner.tick(at('2026-11-02T02:59:59'))).resolves.toEqual({
+        'sample.sweep': 'notDue',
+      });
+      expect(jobs.runs).toBe(0);
+      await expect(runner.tick(at('2026-11-02T03:00:01'))).resolves.toEqual({
+        'sample.sweep': 'succeeded',
+      });
+      expect(jobs.runs).toBe(1);
+    });
+
+    it('leaves the record alone when another instance holds the lock', async () => {
+      locked = false;
+      await expect(runner.tick(at('2026-11-01T05:00:00Z'))).resolves.toEqual({
+        'sample.sweep': 'skipped',
+      });
+      expect(lastRuns.has('sample.sweep')).toBe(false);
+    });
+
+    it('starts at most one tick per minute on an instance', async () => {
+      const first = runner.tickIfDue(1_000_000);
+      expect(first).not.toBeNull();
+      await first;
+      expect(runner.tickIfDue(1_000_000 + 59_999)).toBeNull();
+      const next = runner.tickIfDue(1_000_000 + 60_000);
+      expect(next).not.toBeNull();
+      await next;
+    });
   });
 });

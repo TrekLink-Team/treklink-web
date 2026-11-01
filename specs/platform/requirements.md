@@ -66,6 +66,7 @@
 - **REQ-EVT-04**: WHEN `GET /api/health` is called, the system SHALL report process liveness, database reachability and MQTT broker reachability, and SHALL return 503 `SERVICE_UNAVAILABLE` if the database is unreachable or does not answer within `HEALTH_DB_TIMEOUT_MS`. MQTT reachability SHALL come from the optional `MQTT_HEALTH_PROBE` and SHALL be reported as `unknown`, without changing `status`, while no probe is registered. Any origin SHALL be able to read it without credentials (`Access-Control-Allow-Origin: *`), so the landing page can probe it from its public hosts; a listed `CORS_ORIGINS` origin keeps the credentialed answer, and every other route keeps the list. [D-032, D-088]
 - **REQ-EVT-05**: WHEN a scheduled job fires, the system SHALL run it on a single instance at a time, record its start, outcome and duration, and SHALL NOT let one failed job stop the scheduler.
 - **REQ-EVT-06**: WHEN the backend restarts, every job SHALL resume from the deadlines stored in the database, so that no pending timeout is lost or doubled. [NFR-AVL-02]
+- **REQ-EVT-07**: WHERE `JOBS_TICK_ON_REQUEST` is true, WHEN a request completes and no tick started on that instance in the last minute, the system SHALL run every scheduled job whose cron had a fire time since its last recorded tick run, under the same per-job lock as REQ-EVT-05. [D-090]
 
 ### State-Driven
 
@@ -124,6 +125,7 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `SWAGGER_ENABLED` | `true` outside production | env | no |
 | `DEMO_CONTROLS_ENABLED` | `false`; `true` loads the `demo` module (D-088, `specs/demo/`), for a local demo database only | env | no |
 | `DEMO_TEST_ACCOUNTS_ENABLED` | `false`; `true` loads the read-only sandbox test accounts list `GET /api/demo/accounts` (D-089, `specs/demo/` REQ-EVT-05), in any `NODE_ENV` and on any database | env | no |
+| `JOBS_TICK_ON_REQUEST` | `false`; `true` makes each request start a job tick after its response, at most once per instance per minute (design §4.6, D-090 rule 1); set only on the Vercel production | env | no |
 | `PARAMETER_CACHE_TTL_SECONDS` | 30 | env | no |
 | `HEALTH_DB_TIMEOUT_MS` | 2000; the health endpoint's `SELECT 1` bound (TK-90) | env | no |
 | `DEFAULT_PAGE_SIZE` / `MAX_PAGE_SIZE` | 20 / 100 | env | no |

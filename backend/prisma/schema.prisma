@@ -103,6 +103,15 @@ model AuditLog {
   @@map("audit_log") // append-only trigger (REQ-UBI-07)
 }
 
+// The last request-driven tick run of each scheduled job (platform design §4.6, D-090 rule 1). Written
+// only by JobRunnerService.tick, so a host that keeps the in-process timers never writes it.
+model JobRun {
+  name      String   @id // "monitoring.staleSweep"
+  lastRunAt DateTime @db.Timestamptz(3)
+
+  @@map("job_runs")
+}
+
 // @module auth ─────────────────────────────────────────────────────────────────────────────
 // specs/auth/design.md §1
 

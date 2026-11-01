@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import { CronJob } from 'cron';
+import { CronJob, CronTime } from 'cron';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { SCHEDULED_JOB_KEY, ScheduledJobOptions } from './scheduled-job.decorator';
 
@@ -9,6 +9,11 @@ export type JobOutcome = 'succeeded' | 'failed' | 'skipped';
 
 // Upper bound for one run; the lock's transaction stays open while the job works.
 export const JOB_MAX_DURATION_MS = 10 * 60 * 1000;
+
+// A request-driven tick starts at most this often per instance (D-090 rule 1).
+export const JOB_TICK_INTERVAL_MS = 60 * 1000;
+
+export type TickOutcome = JobOutcome | 'notDue';
 
 // Hosts every @ScheduledJob (specs/platform/design.md §4.6, REQ-EVT-05). A run takes
 // pg_try_advisory_xact_lock(hashtext(name)) in its own interactive transaction, so a second
@@ -18,6 +23,8 @@ export const JOB_MAX_DURATION_MS = 10 * 60 * 1000;
 @Injectable()
 export class JobRunnerService implements OnApplicationBootstrap {
   private readonly logger = new Logger(JobRunnerService.name);
+  private readonly jobs = new Map<string, { cron: string; handler: () => unknown }>();
+  private lastTickAt = Number.NEGATIVE_INFINITY;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -47,6 +54,7 @@ export class JobRunnerService implements OnApplicationBootstrap {
   }
 
   register({ name, cron }: ScheduledJobOptions, handler: () => unknown): void {
+    this.jobs.set(name, { cron, handler });
     const job = CronJob.from({
       cronTime: cron,
       onTick: () => void this.run(name, handler),
@@ -88,5 +96,50 @@ export class JobRunnerService implements OnApplicationBootstrap {
     if (outcome === 'skipped') this.logger.debug(`Job ${name} skipped: lock held elsewhere`);
     else this.logger.log(`Job ${name} succeeded in ${Date.now() - startedAt} ms`);
     return outcome;
+  }
+
+  // The request-driven tick of design §4.6 (D-090 rule 1), for a host whose instances sleep between
+  // requests, where the in-process timers above fire only while one happens to be awake. Runs, one after
+  // another, every job whose cron had a fire time since its last recorded tick run (`job_runs`), or that
+  // has none, through run() and its advisory lock, so two instances never run one job at once. A run that
+  // took the lock is recorded, failed or not; a skipped one is left for the instance that holds the lock.
+  async tick(now: Date = new Date()): Promise<Record<string, TickOutcome>> {
+    const records = await this.prisma.jobRun.findMany();
+    const lastRun = new Map(records.map((record) => [record.name, record.lastRunAt]));
+    const outcomes: Record<string, TickOutcome> = {};
+    for (const [name, { cron, handler }] of this.jobs) {
+      const previous = lastRun.get(name);
+      if (previous && new CronTime(cron).getNextDateFrom(previous).toJSDate() > now) {
+        outcomes[name] = 'notDue';
+        continue;
+      }
+      const outcome = await this.run(name, handler);
+      outcomes[name] = outcome;
+      if (outcome !== 'skipped') {
+        await this.prisma.jobRun.upsert({
+          where: { name },
+          create: { name, lastRunAt: now },
+          update: { lastRunAt: now },
+        });
+      }
+    }
+    return outcomes;
+  }
+
+  // At most one tick per JOB_TICK_INTERVAL_MS on this instance; null when one ran too recently. The
+  // returned promise never rejects.
+  tickIfDue(now: number = Date.now()): Promise<void> | null {
+    if (now - this.lastTickAt < JOB_TICK_INTERVAL_MS) return null;
+    this.lastTickAt = now;
+    return this.tick(new Date(now)).then(
+      (outcomes) => {
+        const ran = Object.entries(outcomes).filter(([, outcome]) => outcome !== 'notDue');
+        this.logger.log(`Job tick ran ${ran.map(([name, o]) => `${name}=${o}`).join(', ') || 'nothing'}`);
+      },
+      (error: unknown) =>
+        this.logger.error(
+          `Job tick failed: ${error instanceof Error ? error.stack : String(error)}`,
+        ),
+    );
   }
 }
