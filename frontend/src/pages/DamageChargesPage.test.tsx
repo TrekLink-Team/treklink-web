@@ -75,16 +75,20 @@ describe('DamageChargesPage (screen 6.4, UC-48)', () => {
     charges = [charge('dc-1', 'staff-1'), charge('dc-2', 'admin-1')];
     renderPage();
     expect(filtersSeen).toContainEqual({ status: 'PENDING_APPROVAL', pageNumber: 1 });
-    expect(within(rowOf('TL-0001')).getByRole('button', { name: 'Decide' })).toBeTruthy();
-    expect(within(rowOf('TL-0002')).queryByRole('button', { name: 'Decide' })).toBeNull();
-    expect(within(rowOf('TL-0002')).getByText('Another Admin must decide')).toBeTruthy();
+    expect(within(rowOf('TL-0001')).getByRole('button', { name: /^Decide/ }).getAttribute('aria-disabled')).toBeNull();
+    // Reachable, disabled, with the reason as its description (UI standard §2).
+    const own = within(rowOf('TL-0002')).getByRole('button', { name: /^Decide/ });
+    expect(own.getAttribute('aria-disabled')).toBe('true');
+    expect(within(rowOf('TL-0002')).getByText('Another Admin must decide: you inspected this device.')).toBeTruthy();
+    fireEvent.click(own);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('shows Staff the queue read-only', () => {
     roles = ['STAFF'];
     charges = [charge('dc-1', 'staff-9')];
     renderPage();
-    expect(screen.queryByRole('button', { name: 'Decide' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Decide/ })).toBeNull();
     expect(screen.getByText(/Only a TrekLink Admin who did not inspect/)).toBeTruthy();
   });
 
@@ -92,7 +96,7 @@ describe('DamageChargesPage (screen 6.4, UC-48)', () => {
     charges = [charge('dc-1', 'staff-1')];
     decideDamageCharge.mockResolvedValue({ id: 'dc-1', status: 'REDUCED' });
     renderPage();
-    fireEvent.click(within(rowOf('TL-0001')).getByRole('button', { name: 'Decide' }));
+    fireEvent.click(within(rowOf('TL-0001')).getByRole('button', { name: /^Decide/ }));
     fireEvent.click(screen.getByLabelText('Reduce'));
     fireEvent.change(screen.getByLabelText(/Final amount/), { target: { value: '700000' } });
     fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Old crack' } });
@@ -115,7 +119,7 @@ describe('DamageChargesPage (screen 6.4, UC-48)', () => {
     charges = [charge('dc-1', 'staff-1')];
     decideDamageCharge.mockResolvedValue({ id: 'dc-1', status: 'WAIVED' });
     renderPage();
-    fireEvent.click(within(rowOf('TL-0001')).getByRole('button', { name: 'Decide' }));
+    fireEvent.click(within(rowOf('TL-0001')).getByRole('button', { name: /^Decide/ }));
     fireEvent.click(screen.getByLabelText('Waive'));
     fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Goodwill' } });
     fireEvent.click(screen.getByRole('button', { name: 'Record decision' }));
@@ -133,5 +137,39 @@ describe('DamageChargesPage (screen 6.4, UC-48)', () => {
   it('says when nothing waits for a decision', () => {
     renderPage();
     expect(screen.getByText('No damage charges are waiting for a decision.')).toBeTruthy();
+  });
+
+  it('approves the selected pending charges one by one with one reason, never one the Admin inspected', async () => {
+    charges = [charge('dc-1', 'staff-1'), charge('dc-2', 'admin-1'), charge('dc-3', 'staff-1', { assetTag: 'TL-0003' })];
+    decideDamageCharge.mockResolvedValue({ id: 'x', status: 'APPROVED' });
+    renderPage();
+    const table = within(screen.getByRole('table', { name: 'Damage charges' }));
+    fireEvent.click(table.getByLabelText('Select TL-0001 CASING_CRACKED'));
+    fireEvent.click(table.getByLabelText('Select TL-0002 CASING_CRACKED'));
+    fireEvent.click(table.getByLabelText('Select TL-0003 CASING_CRACKED'));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve 2 charges' }));
+    const confirm = within(screen.getByRole('dialog', { name: 'Approve 2 charges?' }));
+    fireEvent.change(confirm.getByLabelText(/Reason/), { target: { value: 'Matches the inspection' } });
+    fireEvent.click(confirm.getByRole('button', { name: 'Approve 2 charges' }));
+    await waitFor(() => expect(decideDamageCharge).toHaveBeenCalledTimes(2));
+    expect(decideDamageCharge.mock.calls).toEqual([
+      ['dc-1', { decision: 'APPROVED', note: 'Matches the inspection' }],
+      ['dc-3', { decision: 'APPROVED', note: 'Matches the inspection' }],
+    ]);
+  });
+
+  it('asks before a bulk waiver in an alert dialog with the count', () => {
+    charges = [charge('dc-1', 'staff-1')];
+    renderPage();
+    fireEvent.click(within(screen.getByRole('table', { name: 'Damage charges' })).getByLabelText('Select TL-0001 CASING_CRACKED'));
+    fireEvent.click(screen.getByRole('button', { name: 'Waive 1 charge' }));
+    expect(screen.getByRole('alertdialog', { name: 'Waive 1 charge?' })).toBeTruthy();
+  });
+
+  it('gives Staff no selection', () => {
+    roles = ['STAFF'];
+    charges = [charge('dc-1', 'staff-9')];
+    renderPage();
+    expect(screen.queryByLabelText(/^Select /)).toBeNull();
   });
 });

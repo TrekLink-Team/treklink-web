@@ -90,3 +90,18 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: focus trap and return, focus to the next pending row, text labels
 - [x] Live data: none; query keys listed
 - [x] Traceability: UC-48, UC-56; US-UC48, US-UC56
+
+## Damage charges: row action and bulk decisions (W29, 2026-11-01)
+
+Added by KhoaDD under D-078 to apply `0-ui-standard.md` §2. Where this section and the tables above
+disagree, this section wins.
+
+- Row action, Admin, on a `PENDING_APPROVAL` row: Decide (the decision dialog above). On a charge
+  the Admin inspected it stays reachable, disabled, with the reason "Another Admin must decide: you
+  inspected this device." (BR-24); before it was hidden behind a text.
+- Selection, Admin only: one checkbox per row, "Select {asset tag} {damage codes}". The bulk bar
+  counts only the pending charges the Admin did not inspect: "Approve N charges" and "Waive N charges"
+  (an alert dialog). Both take one required reason, kept as each charge's decision note, and run
+  billing api-design 17 once per charge in sequence, with the per-row summary on any failure. A
+  reduction needs its own amount, so it stays a row decision.
+- Pagination shows the range and total. The API does not sort.

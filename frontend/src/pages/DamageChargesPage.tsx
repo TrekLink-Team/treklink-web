@@ -15,6 +15,7 @@ import { hasAnyRole } from '../shared/lib/permissions';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import {
   Alert,
+  BulkActionDialog,
   Button,
   Card,
   ConfirmDialog,
@@ -31,6 +32,7 @@ import {
   Textarea,
   Toolbar,
   useToast,
+  type BulkItem,
   type Column,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
@@ -175,6 +177,14 @@ const DecisionDialog: React.FC<{ charge: DamageCharge; onClose: () => void }> = 
   );
 };
 
+const SELF_INSPECTED = 'Another Admin must decide: you inspected this device.';
+
+// Bulk decisions of screen 6.4 (W29): Approve keeps each amount, Waive keeps nothing; a reduction is
+// per charge, so it stays in the row's Decide dialog. Each runs billing api-design 17 once per row.
+type BulkDecision = 'APPROVED' | 'WAIVED';
+
+const chargesText = (count: number) => `${count} ${count === 1 ? 'charge' : 'charges'}`;
+
 // /t/damage-charges, screen 6.4 (billing api-design 16 and 17, UC-48): the damage charges, with the
 // approval queue first. TrekLink Staff read it; an Admin decides a pending charge they did not
 // inspect, and the control is hidden on their own (BR-24, MSG30 only for a forced request).
@@ -185,6 +195,31 @@ export const DamageChargesPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [deciding, setDeciding] = useState<DamageCharge | null>(null);
   const charges = useDamageCharges({ status: status || undefined, pageNumber });
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<Map<string, DamageCharge>>(new Map());
+  const [bulk, setBulk] = useState<BulkDecision | null>(null);
+  // An Admin may decide a pending charge on a device they did not inspect (BR-24).
+  const decidable = (charge: DamageCharge) =>
+    isAdmin && charge.status === 'PENDING_APPROVAL' && charge.inspector?.id !== user?.id;
+  const select = (ids: Set<string>) =>
+    setSelected((current) => {
+      const next = new Map<string, DamageCharge>();
+      ids.forEach((id) => {
+        const row = current.get(id) ?? charges.data?.items.find((item) => item.id === id);
+        if (row) next.set(id, row);
+      });
+      return next;
+    });
+  const chosen = [...selected.values()].filter(decidable);
+  const items: BulkItem[] = chosen.map((charge) => ({
+    id: charge.id,
+    label: `${charge.assetTag ?? charge.deviceId} (${formatVnd(charge.amountVnd)})`,
+  }));
+  const bulkDone = () => {
+    setSelected(new Map());
+    void queryClient.invalidateQueries({ queryKey: damageChargeKeys.all });
+    chosen.forEach((charge) => void queryClient.invalidateQueries({ queryKey: billingKeys.balance(charge.contractId) }));
+  };
 
   const columns: Column<DamageCharge>[] = [
     { key: 'device', header: 'Device', cell: (charge) => charge.assetTag ?? charge.deviceId },
@@ -253,6 +288,25 @@ export const DamageChargesPage: React.FC = () => {
           columns={columns}
           rows={charges.data?.items}
           rowId={(charge) => charge.id}
+          rowLabel={(charge) => `${charge.assetTag ?? charge.deviceId} ${charge.damageCodes.join(', ')}`}
+          noun={{ one: 'charge', other: 'charges' }}
+          {...(isAdmin ? { selectedIds: new Set(selected.keys()), onSelectionChange: select } : {})}
+          bulkActions={() =>
+            chosen.length > 0 ? (
+              <>
+                <Button size="sm" variant="primary" onClick={() => setBulk('APPROVED')}>
+                  Approve {chargesText(chosen.length)}
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => setBulk('WAIVED')}>
+                  Waive {chargesText(chosen.length)}
+                </Button>
+              </>
+            ) : (
+              <span className="text-body-sm text-ink-muted">
+                None of these is a pending charge you may decide.
+              </span>
+            )
+          }
           loading={charges.isLoading}
           error={
             charges.error ? (
@@ -264,28 +318,50 @@ export const DamageChargesPage: React.FC = () => {
               ? { title: 'No damage charges are waiting for a decision.' }
               : { title: 'No damage charges match these filters.' }
           }
-          rowActions={(charge) => {
-            if (!isAdmin || charge.status !== 'PENDING_APPROVAL') return null;
-            if (charge.inspector?.id === user?.id) {
-              return <span className="text-body-sm text-ink-muted">Another Admin must decide</span>;
-            }
-            return (
-              <Button size="sm" variant="primary" onClick={() => setDeciding(charge)}>
-                Decide
-              </Button>
-            );
-          }}
+          rowActions={(charge) =>
+            isAdmin && charge.status === 'PENDING_APPROVAL'
+              ? [
+                  {
+                    key: 'decide',
+                    label: 'Decide',
+                    disabled: !decidable(charge),
+                    disabledReason: decidable(charge) ? undefined : SELF_INSPECTED,
+                    onSelect: () => setDeciding(charge),
+                  },
+                ]
+              : []
+          }
           footer={
             charges.data && charges.data.totalPages > 1 ? (
               <Pagination
                 pageNumber={charges.data.pageNumber}
                 totalPages={charges.data.totalPages}
+                totalItems={charges.data.totalCount}
+                pageSize={charges.data.pageSize}
                 onPage={setPageNumber}
               />
             ) : undefined
           }
         />
       </Card>
+      {bulk && (
+        <BulkActionDialog
+          title={`${bulk === 'APPROVED' ? 'Approve' : 'Waive'} ${chargesText(items.length)}?`}
+          confirmLabel={`${bulk === 'APPROVED' ? 'Approve' : 'Waive'} ${chargesText(items.length)}`}
+          description={
+            bulk === 'APPROVED'
+              ? 'Each charge is kept at its amount and goes on its contract.'
+              : 'The organizations will not be charged for this damage.'
+          }
+          destructive={bulk === 'WAIVED'}
+          needsReason
+          reasonHint="Kept as the decision note of every charge."
+          items={items}
+          run={(item, reason) => decideDamageCharge(item.id, { decision: bulk, note: reason ?? '' })}
+          onFinished={bulkDone}
+          onClose={() => setBulk(null)}
+        />
+      )}
       {deciding && <DecisionDialog charge={deciding} onClose={() => setDeciding(null)} />}
     </section>
   );
