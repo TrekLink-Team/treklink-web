@@ -141,7 +141,8 @@ to the device; Staff write it again and record it, or swap the unit.
 
 The note is a formal handover record a supervisor or a customer accepts (dry run defect 8,
 2026-10-30). `handover-note.renderer.ts` lays it out with pdfkit on A4, black on white, in the bundled
-DejaVu Sans so Vietnamese names render; it computes nothing. `HandoverService.noteInput` assembles its
+DejaVu Sans so Vietnamese names render; it computes nothing. The font is the document's default from the
+constructor, so pdfkit never loads its standard fonts, which the Vercel function does not ship (#261). `HandoverService.noteInput` assembles its
 input, and the replacement note of task 4.3 uses the same method with `kind: 'REPLACEMENT'` and the new
 unit only. Every read joins the caller's transaction when there is one.
 

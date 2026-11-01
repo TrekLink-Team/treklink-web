@@ -278,6 +278,12 @@ describe('renderHandoverNote (rentals task 2.4, design §4.1)', () => {
     expect(contents).toContain('/ToUnicode');
   });
 
+  it('never loads a standard font, which the Vercel function does not ship (#261)', async () => {
+    const contents = (await renderHandoverNote(fullNote())).toString('latin1');
+    expect(contents).not.toContain('/Helvetica');
+    expect(contents).toContain('DejaVuSans');
+  });
+
   it('reads the font file once and reuses it for later notes', async () => {
     const read = jest.spyOn(fs, 'readFileSync');
     let render!: (input: HandoverNoteInput) => Promise<Buffer>;

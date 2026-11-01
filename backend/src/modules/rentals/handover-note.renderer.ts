@@ -636,6 +636,11 @@ export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
       size: 'A4',
       margin: PAGE_MARGIN,
       bufferPages: true,
+      // The bundled font is the default from the start, so pdfkit never loads its standard Helvetica.
+      // Those files are reached by a dynamic require that the Vercel function trace does not follow,
+      // and the preview and the handover failed with "Cannot find module .../standard-fonts/
+      // Helvetica.cjs" (treklink-web#261). The typings say string; pdfkit takes a Buffer too.
+      font: unicodeFont() as unknown as string,
       info: {
         Title: `${input.kind === 'REPLACEMENT' ? 'Device replacement record' : 'Device handover record'} ${input.noteNumber}`,
         Author: input.issuer.legalName,
@@ -646,7 +651,6 @@ export const renderHandoverNote = (input: HandoverNoteInput): Promise<Buffer> =>
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
-    doc.font(unicodeFont());
 
     const layout = new NoteLayout(doc);
     letterhead(doc, layout, input);
