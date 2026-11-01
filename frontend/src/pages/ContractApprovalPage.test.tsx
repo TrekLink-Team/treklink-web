@@ -99,6 +99,19 @@ describe('ContractApprovalPage', () => {
     }
   });
 
+  it('says when the hold of a request has ended (REQ-ERR-12)', async () => {
+    requested.holdExpiresAt = '2020-01-01T03:00:00.000Z';
+    try {
+      renderPage();
+      fireEvent.click((await screen.findAllByRole('button', { name: /RC-2026-0004/ }))[0]);
+      const panel = screen.getByRole('complementary');
+      expect(within(panel).getByText(/^The hold of this request ended .*2020/)).toBeTruthy();
+      expect(within(panel).queryByText(/An unpaid hold ends/)).toBeNull();
+    } finally {
+      requested.holdExpiresAt = null;
+    }
+  });
+
   it('shows a refused appointment in the past under the field, and clears it on a new time', async () => {
     const message = 'The handover appointment is in the past. Choose a time from now on.';
     approveContract.mockRejectedValue(new ApiError(400, 'VALIDATION_FAILED', message));

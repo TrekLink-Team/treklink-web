@@ -235,9 +235,17 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
         contract.status === 'REQUESTED' && (
           <>
             {held && contract.holdExpiresAt ? (
-              <Alert tone="success">
-                {`This request holds its ${contract.quantity} ${variant} devices; approval keeps them. An unpaid hold ends ${formatDateTime(contract.holdExpiresAt)}.`}
-              </Alert>
+              // Past its end, an unpaid hold is refused at approval (REQ-ERR-12) and cancelled by the
+              // expiry job; a paid one is kept.
+              new Date(contract.holdExpiresAt).getTime() > Date.now() ? (
+                <Alert tone="success">
+                  {`This request holds its ${contract.quantity} ${variant} devices; approval keeps them. An unpaid hold ends ${formatDateTime(contract.holdExpiresAt)}.`}
+                </Alert>
+              ) : (
+                <Alert tone="warning">
+                  {`The hold of this request ended ${formatDateTime(contract.holdExpiresAt)}. If the deposit is unpaid, approval is refused and the request is cancelled shortly; a paid deposit keeps the ${contract.quantity} ${variant} devices.`}
+                </Alert>
+              )
             ) : (
               <Alert
                 tone={

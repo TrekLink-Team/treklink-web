@@ -274,6 +274,28 @@ describe('ContractDecisionsService (rentals task 2.2)', () => {
         { id: 'r-8', deviceId: 'd-8', handedOverAt: null },
       ]);
       contracts.openTerm.mockResolvedValue(term);
+      // The hold runs until an hour after AT unless a test moves it.
+      contracts.holdExpiresAt.mockResolvedValue(new Date('2026-10-26T04:00:00.000Z'));
+    });
+
+    it('refuses an unpaid hold already past holdExpiresAt and changes nothing (REQ-ERR-12)', async () => {
+      contracts.holdExpiresAt.mockResolvedValue(new Date('2026-10-26T03:00:00.000Z'));
+      balances.firstPaymentConfirmed.mockResolvedValue(false);
+
+      await expect(service.approve('c-1', input, STAFF, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+      expect(devices.reserve).not.toHaveBeenCalled();
+    });
+
+    it('approves a hold past holdExpiresAt whose deposit is paid', async () => {
+      contracts.holdExpiresAt.mockResolvedValue(new Date('2026-10-26T02:00:00.000Z'));
+      balances.firstPaymentConfirmed.mockResolvedValue(true);
+
+      await service.approve('c-1', input, STAFF, AT);
+
+      expect(lifecycle.apply).toHaveBeenCalled();
     });
 
     it('keeps the held units, term 1 and the invoice of the request, and moves to APPROVED', async () => {
