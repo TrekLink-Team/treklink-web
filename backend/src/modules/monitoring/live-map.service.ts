@@ -13,7 +13,9 @@ import { SOVEREIGNTY_OVERLAY, SovereigntyLabel } from './sovereignty-overlay';
 import { StreamRepository } from './stream.repository';
 
 // One basemap the user can switch to (D-072). Above maxNativeZoom the client enlarges the deepest tiles
-// instead of requesting tiles the provider does not draw.
+// instead of requesting tiles the provider does not draw. `localOnly` marks a provider that serves
+// keyless tiles to a loopback host only (Stadia answers 401 elsewhere); the client hides it on any other
+// host. It is sent only when true.
 export interface BasemapDto {
   id: string;
   name: string;
@@ -21,6 +23,7 @@ export interface BasemapDto {
   attribution: string;
   maxZoom: number;
   maxNativeZoom: number;
+  localOnly?: true;
 }
 
 // The body of GET /api/map/config (api-design 01). `provider`, `tileUrl` and `attribution` describe the
@@ -225,8 +228,8 @@ export class LiveMapService {
     };
   }
 
-  // A non-empty list of entries with unique ids, non-empty text fields and whole zoom levels where
-  // 1 <= maxNativeZoom <= maxZoom <= 22.
+  // A non-empty list of entries with unique ids, non-empty text fields, whole zoom levels where
+  // 1 <= maxNativeZoom <= maxZoom <= 22, and an optional boolean localOnly.
   private basemaps(value: unknown): BasemapDto[] {
     const expected =
       'a non-empty list of basemaps with unique ids, text fields and zoom levels 1 to 22';
@@ -248,6 +251,7 @@ export class LiveMapService {
         !zoom('maxZoom') ||
         !zoom('maxNativeZoom') ||
         (e.maxNativeZoom as number) > (e.maxZoom as number) ||
+        (e.localOnly !== undefined && typeof e.localOnly !== 'boolean') ||
         seen.has(e.id as string)
       ) {
         this.refuse('monitoring.mapBasemaps', expected);
@@ -260,6 +264,7 @@ export class LiveMapService {
         attribution: e.attribution as string,
         maxZoom: e.maxZoom as number,
         maxNativeZoom: e.maxNativeZoom as number,
+        ...(e.localOnly === true ? { localOnly: true as const } : {}),
       };
     });
   }

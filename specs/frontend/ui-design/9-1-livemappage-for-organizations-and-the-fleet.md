@@ -19,6 +19,7 @@ Scope from the task: monitoring api-design 01 and 02 then stream entries in `seq
 | Shown | Source (api-design file, property) |
 |---|---|
 | Base tiles and attribution (always visible on the map) | monitoring 01 `tileUrl`, `attribution`, `provider` |
+| Basemap switcher: one entry per basemap, in the server's order; an entry with `localOnly` is left out when the page is not on a loopback host (`localhost`, `*.localhost`, `127.0.0.0/8`, `[::1]`), unless no other entry remains | monitoring 01 `basemaps[].name`, `localOnly` |
 | Initial centre and zoom | monitoring 01 `defaultViewport.lat`, `lon`, `zoom` |
 | Sovereignty overlay labels over the two archipelagos (always on top, no toggle), each on an opaque mask that hides the basemap's own labels there (D-085) | monitoring 01 `sovereigntyOverlay[].label`, `lat`, `lon`, `mask` |
 | Stale threshold used for the "stale" text | monitoring 01 `staleAfterSeconds` |

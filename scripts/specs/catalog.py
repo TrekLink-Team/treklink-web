@@ -7,7 +7,9 @@ specs/auth/permission-matrix.md. Module specs link to those pages instead of cop
 # key, default, type, bounds, unit, description, requirement
 # The basemaps of the live map (D-072). Every entry is keyless; maxNativeZoom is the deepest zoom the
 # provider draws over the default viewport (checked 2026-10-27), and Leaflet enlarges those tiles up to
-# maxZoom instead of requesting tiles that do not exist.
+# maxZoom instead of requesting tiles that do not exist. localOnly marks a provider that serves keyless
+# tiles to a loopback host only: Stadia answered 401 on the Vercel production (2026-11-01), so the client
+# hides that entry on any other host.
 BASEMAPS = [
     {"id": "opentopomap", "name": "Topographic (OpenTopoMap)",
      "tileUrl": "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
@@ -16,7 +18,7 @@ BASEMAPS = [
     {"id": "stadia-terrain", "name": "Terrain (Stadia)",
      "tileUrl": "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png",
      "attribution": "© Stadia Maps © Stamen Design © OpenMapTiles © OpenStreetMap contributors",
-     "maxZoom": 18, "maxNativeZoom": 18},
+     "maxZoom": 18, "maxNativeZoom": 18, "localOnly": True},
     {"id": "esri-topo", "name": "Topographic (Esri)",
      "tileUrl": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
      "attribution": "Tiles © Esri and the GIS user community",
@@ -93,7 +95,7 @@ PARAMETERS = {
         ("monitoring.streamRetentionHours", 72, "INT", {"min": 1, "max": 720}, "hours", "Stream entries older than this are pruned; older cursors get 410", "FR-MON-05"),
         ("monitoring.apiRateLimitPerMinute", 120, "INT", {"min": 10, "max": 6000}, "requests", "Organization API requests per key per minute", "FR-MON-06"),
         ("monitoring.mapProvider", "esri-topo", "JSON", None, None, "Default basemap, an id in monitoring.mapBasemaps (D-031, D-072)", "FR-CFG-03"),
-        ("monitoring.mapBasemaps", BASEMAPS, "JSON", None, None, "Basemaps the user can switch between: id, name, tile URL, attribution, maxZoom, maxNativeZoom (D-072)", "FR-CFG-03, NFR-LEG-04"),
+        ("monitoring.mapBasemaps", BASEMAPS, "JSON", None, None, "Basemaps the user can switch between: id, name, tile URL, attribution, maxZoom, maxNativeZoom, optional localOnly (D-072)", "FR-CFG-03, NFR-LEG-04"),
         ("monitoring.mapDefaultViewport", {"lat": 11.56, "lon": 108.54, "zoom": 12}, "JSON", None, None, "Initial map view", "FR-CFG-03"),
         ("monitoring.historyMaxRangeDays", 7, "INT", {"min": 1, "max": 31}, "days", "Longest period one telemetry history request may cover", "FR-MON-07"),
         ("monitoring.reportMaxRangeDays", 366, "INT", {"min": 1, "max": 732}, "days", "Longest period one report may cover (D-057)", "FR-BILL-10"),
