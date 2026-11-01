@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { join } from 'node:path';
 import type { SerialStatus } from '../serial/serial-reader';
 import type { StationState } from './station-state';
 
@@ -52,6 +54,33 @@ export interface LocalSources {
 export const CONTENT_SECURITY_POLICY =
   "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; " +
   "font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+/** One static file of the page, read once at start so a request never touches the disk. */
+interface StaticFile {
+  body: Buffer;
+  type: string;
+}
+
+/**
+ * The page's folder, `gateway/local-page/`, two folders up from both `src/local` and `dist/local`. The
+ * page is plain HTML, CSS and JavaScript with no build step and no external asset (NFR-UI-04).
+ */
+export const PAGE_DIR = join(__dirname, '..', '..', 'local-page');
+
+/** The page's routes and files; nothing else in the folder is served. */
+export const PAGE_FILES: Record<string, { file: string; type: string }> = {
+  '/': { file: 'index.html', type: 'text/html; charset=utf-8' },
+  '/page.css': { file: 'page.css', type: 'text/css; charset=utf-8' },
+  '/page.js': { file: 'page.js', type: 'text/javascript; charset=utf-8' },
+};
+
+export function loadPage(dir: string = PAGE_DIR): Map<string, StaticFile> {
+  const files = new Map<string, StaticFile>();
+  for (const [route, { file, type }] of Object.entries(PAGE_FILES)) {
+    files.set(route, { body: readFileSync(join(dir, file)), type });
+  }
+  return files;
+}
 
 const iso = (ms: number | null): string | null => (ms === null ? null : new Date(ms).toISOString());
 
@@ -158,7 +187,14 @@ export class LocalServer {
   private server: Server | null = null;
   private boundPort = 0;
 
-  constructor(private readonly sources: LocalSources) {}
+  private readonly page: Map<string, StaticFile>;
+
+  constructor(
+    private readonly sources: LocalSources,
+    pageDir: string = PAGE_DIR,
+  ) {
+    this.page = loadPage(pageDir);
+  }
 
   /** The port actually bound, which differs from the one asked for only when that was 0 (tests). */
   public get port(): number {
@@ -212,6 +248,20 @@ export class LocalServer {
     }
     const url = new URL(req.url ?? '/', `http://${LOCAL_HOST}:${this.boundPort}`);
     const method = req.method ?? 'GET';
+
+    const file = this.page.get(url.pathname);
+    if (file) {
+      if (method !== 'GET' && method !== 'HEAD') {
+        return json(fail(405, `${method} is not allowed here`));
+      }
+      res.writeHead(200, {
+        ...common,
+        'Content-Type': file.type,
+        'Content-Length': file.body.length,
+      });
+      res.end(method === 'HEAD' ? undefined : file.body);
+      return;
+    }
 
     if (url.pathname === '/local/config') {
       // The contract's configuration form is not built yet: the station reads its configuration from the
