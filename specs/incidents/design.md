@@ -242,7 +242,11 @@ again; one opened meanwhile is joined as above. Otherwise the position counts:
   completes it, so a burst is found even when its positions arrive out of order.
 - Only positions that occurred after the device's last incident closed (`closedAt`) count, so one
   burst opens one incident: while it is open its positions join it, and once it is `CLOSED` they
-  never open a second.
+  never open a second. A device that keeps reporting at a short interval after the close does open a
+  new `SUSPECTED` incident once a fresh burst completes; that is the rule, not a defect, and the gateway
+  simulator therefore defaults to a 30 s tick (review of #242).
+- A cadence incident starts with `eventCount` 1, the opening position, although no SOS was received; the
+  first SOS that joins it makes it 2.
 
 A burst creates the incident `SUSPECTED` from `CADENCE_INFERRED` through step 2: `DETECTED` with
 transition 1, then routed by the position's own attribution exactly as an SOS (REQ-EVT-03, §2), so

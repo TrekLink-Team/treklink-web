@@ -110,8 +110,13 @@ export const gatewayConfig = {
       .split(',')
       .map((node) => node.trim())
       .filter((node) => node !== ''),
-    /** Milliseconds between ticks; each tick sends a position and a telemetry reading per node. */
-    intervalMs: num('GATEWAY_SIM_INTERVAL_MS', 5_000),
+    /**
+     * Milliseconds between ticks; each tick sends a position and a telemetry reading per node. 30 s by
+     * default: at 12 s or less the cadence rule (incidents.cadenceCount positions in
+     * incidents.cadenceWindowSeconds, 6 in 60 s seeded) reads routine reporting as an SOS beacon and opens
+     * SUSPECTED incidents (review of #242).
+     */
+    intervalMs: num('GATEWAY_SIM_INTERVAL_MS', 30_000),
     /** Every n-th tick the first node sends an SOS; 0 never. */
     sosEvery: num('GATEWAY_SIM_SOS_EVERY', 12),
     /** Where the walk starts (Ta Nang, the fixtures' area). */

@@ -58,8 +58,8 @@ export class FrameSimulator {
         lat: this.config.startLat,
         lon: this.config.startLon,
       };
-      // A step of up to about 1e-4 degrees (11 m) per axis per tick: walking pace at the default
-      // 5 s interval, well under monitoring.maxPlausibleSpeedKmh.
+      // A step of up to about 1e-4 degrees (11 m) per axis per tick: slower than walking pace at the default
+      // 30 s interval, well under monitoring.maxPlausibleSpeedKmh.
       const step = () => randomInt(1, 5) * 0.000025 * (randomInt(0, 2) ? 1 : -1);
       const moved = { lat: at.lat + step(), lon: at.lon + step() };
       this.positions.set(sender, moved);
