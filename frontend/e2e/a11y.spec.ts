@@ -51,13 +51,6 @@ const ALLOWLIST: AllowEntry[] = [
     reason: 'the same device row as /o/map (LiveMapPage.tsx:132)',
   },
   {
-    rule: 'label-content-name-mismatch',
-    route: '/t/admin/audit/sign-ins',
-    selector: 'button[aria-label^="Filter by the account of "]',
-    reason:
-      'the account filter button (AuthEventsPage.tsx:228) shows "Filter by this account", which its accessible name "Filter by the account of <email>" does not contain',
-  },
-  {
     rule: 'definition-list',
     route: '/o/incidents/:id',
     selector: 'dl:has(> div > div > dt)',
