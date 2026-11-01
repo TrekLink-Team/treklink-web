@@ -23,9 +23,35 @@ export interface SessionTokens {
   refreshTokenExpiresIn: number;
 }
 
+// The refresh token is kept in the tab's sessionStorage so a reload keeps the session (D-090 rule 3,
+// amending D-060 rule 3): written on sign-in and on every rotation, removed on sign-out and on a refused
+// refresh, and gone when the tab closes. The access token stays in memory. Storage can be unavailable
+// (private mode, a sandboxed frame); the session then lasts until the reload, as before.
+const REFRESH_KEY = 'treklink.session.refresh';
+
+export const storedRefreshToken = (): string | null => {
+  try {
+    return sessionStorage.getItem(REFRESH_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const storeRefreshToken = (token: string | null): void => {
+  try {
+    if (token) sessionStorage.setItem(REFRESH_KEY, token);
+    else sessionStorage.removeItem(REFRESH_KEY);
+  } catch {
+    // Without storage the session simply does not survive a reload.
+  }
+};
+
 interface SessionState {
   tokens: SessionTokens | null;
   user: SessionUser | null;
+  // True from start-up until the stored refresh token has been tried (app/providers/restoreSession.ts),
+  // so the route guards do not send a returning user to sign-in first.
+  restoring: boolean;
   // True after Sign out in the account menu, which navigates to sign-in itself; false when the
   // session expired, so the route guard keeps `?next=` for the page the user was on.
   signedOutByUser: boolean;
@@ -34,15 +60,25 @@ interface SessionState {
   signOut: (byUser?: boolean) => void;
 }
 
-// Held in memory only. The auth context and silent refresh of `frontend` tasks 1.1 and 1.2 build on
-// this store; nothing is written to localStorage.
+// Held in memory, with the refresh token mirrored to sessionStorage (above). The auth context and silent
+// refresh of `frontend` tasks 1.1 and 1.2 build on this store; nothing is written to localStorage.
 export const useSession = create<SessionState>((set) => ({
   tokens: null,
   user: null,
+  restoring: storedRefreshToken() !== null,
   signedOutByUser: false,
-  signIn: (tokens, user) => set({ tokens, user, signedOutByUser: false }),
-  setTokens: (tokens) => set({ tokens }),
-  signOut: (byUser = false) => set({ tokens: null, user: null, signedOutByUser: byUser }),
+  signIn: (tokens, user) => {
+    storeRefreshToken(tokens.refreshToken);
+    set({ tokens, user, signedOutByUser: false, restoring: false });
+  },
+  setTokens: (tokens) => {
+    storeRefreshToken(tokens.refreshToken);
+    set({ tokens });
+  },
+  signOut: (byUser = false) => {
+    storeRefreshToken(null);
+    set({ tokens: null, user: null, signedOutByUser: byUser, restoring: false });
+  },
 }));
 
 // `next` as a path on this origin, or null. The browser's own URL parser resolves it, so the check

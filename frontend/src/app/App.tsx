@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, useLocation } from 'react-router-dom';
-import { landingRoute } from '../entities/session/model';
+import { landingRoute, useSession } from '../entities/session/model';
 import { Toast } from '../shared/ui/toast';
 import { AppShell } from '../widgets/AppShell/AppShell';
 import { AuthLayout } from '../widgets/AppShell/AuthLayout';
@@ -38,13 +38,25 @@ const Frame: React.FC = () => {
   );
 };
 
-export const App: React.FC = () => (
-  <BrowserRouter>
-    <AuthProvider>
-      <LiveProvider>
-        <Frame />
-        <Toast />
-      </LiveProvider>
-    </AuthProvider>
-  </BrowserRouter>
-);
+// While a reload's stored session is being restored (D-090 rule 3), nothing routes yet, so the guards
+// cannot send a returning user to sign-in before the refresh answers.
+export const App: React.FC = () => {
+  const restoring = useSession((state) => state.restoring);
+  if (restoring) {
+    return (
+      <p role="status" className="sr-only">
+        Restoring your session
+      </p>
+    );
+  }
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <LiveProvider>
+          <Frame />
+          <Toast />
+        </LiveProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};

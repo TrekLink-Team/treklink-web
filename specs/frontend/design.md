@@ -77,6 +77,11 @@ change-password dialog; damage rates are a section of `/t/admin/prices`.
   invalidates the stream-driven keys (map snapshot, incidents, authority reports, contracts, balances,
   transitions, invoices) every 15 seconds; only mounted queries refetch.
 - The auth context holds the `me` response; `apiClient` refreshes once on 401.
+- A session survives a reload (D-090 rule 3): the session store mirrors the refresh token to the tab's
+  `sessionStorage` (`treklink.session.refresh`) on sign-in and on every rotation, and removes it on sign-out
+  and on a refused refresh; closing the tab drops it. The access token stays in memory. On load
+  `restoreSession` runs once: the shared single-flight refresh, then `GET /api/auth/me`, then sign-in; the
+  app renders no routes until it settles. A network failure keeps the stored token for the next load.
 
 ---
 

@@ -87,7 +87,9 @@ transport failure; after partial success, retrying may repeat mail to a recipien
 
 Refresh rotation is strict (D-060 rule 8): when two requests rotate one refresh token at once, the second
 loses the compare-and-set on `revokedAt` and is treated as reuse (REQ-ERR-02). The client runs one refresh at
-a time (`frontend` 1.2). Refresh returns the token pair only (api-design 02, D-060 rule 7).
+a time (`frontend` 1.2). Refresh returns the token pair only (api-design 02, D-060 rule 7). The web client
+keeps the refresh token in the tab's `sessionStorage` and the access token in memory, and runs one silent
+refresh on load, so a reload keeps the session (D-090 rule 3, amending D-060 rule 3).
 
 Lockout counting (REQ-STA-01, D-060 rule 9): a failed sign-in records `LOGIN_FAILED`, then counts the
 account's `LOGIN_FAILED` events newer than the latest of three instants: now minus
