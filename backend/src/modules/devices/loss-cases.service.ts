@@ -129,7 +129,8 @@ const custodyContractOf = (row: LossCaseRow): LossCaseView['custodyContract'] =>
       }
     : null;
 
-export const toListenerView = (row: LossCaseRow): LossCaseView => ({
+// `decider` is the settling Admin, whose roles the listeners record; the case row stores the id only.
+export const toListenerView = (row: LossCaseRow, decider?: Caller): LossCaseView => ({
   id: row.id,
   code: row.code,
   deviceId: row.deviceId,
@@ -140,6 +141,7 @@ export const toListenerView = (row: LossCaseRow): LossCaseView => ({
   chargeVnd: row.chargeVnd,
   decisionReason: row.decisionReason,
   decidedById: row.decidedById,
+  decidedByRoles: decider?.roles ?? [],
   settledAt: row.settledAt,
 });
 
@@ -467,7 +469,7 @@ export class LossCaseService {
         tx,
       );
       if (!updated) throw staleVersion();
-      await this.notifier.settled(toListenerView(updated), dto.decision, tx);
+      await this.notifier.settled(toListenerView(updated, actor), dto.decision, tx);
 
       const unit = await this.devices.findUnit(current.deviceId, tx);
       if (!unit || unit.status !== DeviceStatus.LOST) throw wrongState(unit?.status ?? 'unknown');

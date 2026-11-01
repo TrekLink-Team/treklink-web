@@ -49,9 +49,9 @@ export class RentalsLossCaseListener implements LossCaseListener, OnModuleInit {
     if (!DUE.includes(current.status)) return;
     const { total, returned } = await this.repository.returnCounts(contract.contractId, tx);
     if (returned !== total) return;
-    // The deciding Admin; the listener does not see the roles, so the audit names the account only.
+    // The deciding Admin with the roles devices passes in the view, so the audit names both.
     const actor = lossCase.decidedById
-      ? { id: lossCase.decidedById, roles: [], organizationId: null }
+      ? { id: lossCase.decidedById, roles: lossCase.decidedByRoles, organizationId: null }
       : null;
     await this.lifecycle.apply(
       contract.contractId,

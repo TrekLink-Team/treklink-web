@@ -311,6 +311,7 @@ describe('rentals acceptance against Postgres (AC-01 to AC-07)', () => {
       chargeVnd: null,
       decisionReason: null,
       decidedById: null,
+      decidedByRoles: [],
       settledAt: null,
     };
     const listener = flow.get(RentalsLossCaseListener);
