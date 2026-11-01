@@ -73,7 +73,7 @@
 - **REQ-ERR-03**: IF the uplink drops mid-flush, THEN the Field Station SHALL mark flushed only what the broker acknowledged and resume from the queue head. [FR-EVT-04, E02-1]
 - **REQ-ERR-04**: IF the Field Station restarts, THEN every queued event SHALL survive with its original `from` and `id`. [FR-EVT-07, E02-3]
 - **REQ-ERR-05**: IF a type strategy throws, THEN the system SHALL audit `NORMALIZATION_FAILED` for that packet only. [UC-26]
-- **REQ-ERR-06**: IF no custody interval contains the occurrence time, a Field Station's organization differs from the interval's, or the occurrence time lies within `gatewaySync.attributionMarginSeconds` of the interval's handover or end, THEN the system SHALL store the event `UNATTRIBUTED` with no organization, SHALL audit it `ACCEPTED_UNATTRIBUTED`, and SHALL hand it on so that only TrekLink Staff and Admin see it. [FR-EVT-17, BR-36, E02-8]
+- **REQ-ERR-06**: IF no custody interval contains the occurrence time, a Field Station's organization differs from the interval's, or the occurrence time lies within `gatewaySync.attributionMarginSeconds` of the interval's handover or end, THEN the system SHALL store the event `UNATTRIBUTED` with no organization, SHALL audit it `ACCEPTED_UNATTRIBUTED` with the reason in the audit detail (`NO_INTERVAL`, `STATION_ORGANIZATION_DIFFERS`, `NEAR_HANDOVER` or `NEAR_END`), and SHALL hand it on so that only TrekLink Staff and Admin see it. [FR-EVT-17, BR-36, E02-8]
 
 ---
 

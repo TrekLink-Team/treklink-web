@@ -145,9 +145,18 @@ describe('IngestionService', () => {
         contractDeviceId: 'cd-9',
       });
       expect(audits()).toEqual(['ACCEPTED']);
+      expect(repository.insertAudit.mock.calls[0][0].detail).toBeUndefined();
       expect(emitted[0]).toMatchObject({
         name: 'field.position',
         payload: { organizationId: 'org-1' },
+      });
+    });
+
+    it('names NO_INTERVAL in the audit detail of an event outside every interval', async () => {
+      await expect(service.ingest(envelopeOf('position'))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
+      expect(repository.insertAudit.mock.calls[0][0]).toMatchObject({
+        outcome: 'ACCEPTED_UNATTRIBUTED',
+        detail: 'NO_INTERVAL: no custody interval holds the device at the occurrence time',
       });
     });
 
@@ -174,6 +183,23 @@ describe('IngestionService', () => {
         organizationId: null,
         contractDeviceId: null,
       });
+      expect(repository.insertAudit.mock.calls[0][0].detail).toMatch(/^NEAR_HANDOVER: /);
+    });
+
+    it('names NEAR_END in the audit detail of an event just before a check-in', async () => {
+      contracts.custodyAt.mockResolvedValue({
+        ...custody,
+        endedAt: new Date('2026-10-23T03:01:00Z'),
+      });
+      await expect(service.ingest(envelopeOf('position'))).resolves.toBe('ACCEPTED_UNATTRIBUTED');
+      expect(repository.insertAudit.mock.calls[0][0].detail).toMatch(/^NEAR_END: /);
+    });
+
+    it('keeps the reason off a row whose outcome is not ACCEPTED_UNATTRIBUTED', async () => {
+      // A duplicate is audited DUPLICATE_REJECTED with no attribution detail.
+      repository.insertEventOnce.mockResolvedValue(false);
+      await expect(service.ingest(envelopeOf('position'))).resolves.toBe('DUPLICATE_REJECTED');
+      expect(repository.insertAudit.mock.calls[0][0].detail).toBeUndefined();
     });
   });
 
@@ -255,6 +281,9 @@ describe('IngestionService', () => {
         tx,
       );
       expect(audits()).toEqual(['ACCEPTED_UNATTRIBUTED']);
+      expect(repository.insertAudit.mock.calls[0][0].detail).toMatch(
+        /^STATION_ORGANIZATION_DIFFERS: /,
+      );
     });
 
     it('accepts a device its organization holds now', async () => {

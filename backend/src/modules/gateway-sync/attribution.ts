@@ -13,6 +13,18 @@ export type Attribution =
     }
   | { attributed: false; reason: UnattributedReason };
 
+// The detail of the ACCEPTED_UNATTRIBUTED audit row, the reason code first, so Staff can tell the
+// cases apart in the sync audit (api-design 04).
+export const UNATTRIBUTED_DETAIL: Record<UnattributedReason, string> = {
+  NO_INTERVAL: 'NO_INTERVAL: no custody interval holds the device at the occurrence time',
+  STATION_ORGANIZATION_DIFFERS:
+    "STATION_ORGANIZATION_DIFFERS: the custody interval at the occurrence time is not the Field Station organization's",
+  NEAR_HANDOVER:
+    "NEAR_HANDOVER: the occurrence time is within the attribution margin of the interval's handover",
+  NEAR_END:
+    "NEAR_END: the occurrence time is within the attribution margin of the interval's check-in or loss",
+};
+
 export interface AttributionInput {
   // The custody interval `ContractsService.custodyAt` found at the occurrence time, or null.
   custody: Custody | null;
