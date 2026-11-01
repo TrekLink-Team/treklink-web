@@ -160,7 +160,9 @@ flowchart TB
 ```
 
 ***Figure 3***: Module dependencies. Every module also imports `platform`; those edges are omitted. `demo`
-(D-088, `specs/demo/`) is loaded only when `DEMO_CONTROLS_ENABLED` is true and nothing depends on it.
+(D-088, `specs/demo/`) is loaded only when `DEMO_CONTROLS_ENABLED` is true and nothing depends on it; its
+`DemoAccountsModule` (the sandbox test accounts, D-089) is loaded only when `DEMO_TEST_ACCOUNTS_ENABLED` is
+true and imports no other module.
 
 | Port | Declared by | Provided by | Why |
 |---|---|---|---|

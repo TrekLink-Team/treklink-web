@@ -1,6 +1,6 @@
 # Implementation Tasks: demo
 
-> Fulfills `design.md`; endpoints are `api-design/01` to `04`, the screen is
+> Fulfills `design.md`; endpoints are `api-design/01` to `05`, the screen is
 > `specs/frontend/ui-design/7-5-demo-control-panel.md`. D-088, built 2026-11-01 by KhoaDD under D-078.
 
 | | |
@@ -26,3 +26,10 @@
 ## Phase 3: Frontend
 
 - [x] 3.1 `entities/demo` hooks; page `/t/admin/demo`; nav entry shown only while `enabled`; role switcher in the account menu; tests
+
+## Phase 4: Sandbox test accounts (D-088 amendment of 2026-11-01, D-089)
+
+- [x] 4.1 REQ-EVT-05 and AC-05, design §8, api-design 05 from `scripts/specs/endpoints/demo.py`, screen 7.5 box section
+- [x] 4.2 `DEMO_TEST_ACCOUNTS_ENABLED` (D-089, default `false`) in `environment-variables.ts`, platform requirements §4 and `.env.example`; `DemoAccountsModule` with `DemoAccountsController` (`GET /api/demo/accounts`, `@Public()`, `Cache-Control: no-store`) and `DemoAccountsService`; `readSeedPasswords`; `SEEDED_ACCOUNTS` export of `seed-demo.ts`; unit tests: the four accounts, production on a Neon host answers while the stage refuses, both flags off 404 everywhere, no password in a log call
+- [x] 4.3 `entities/demo` `useDemoAccounts`, widget `TestAccountsBox` on `/` and `/sign-in`, Use fills the sign-in form or carries the account in route state; tests
+- [ ] 4.4 Verify the list on the Vercel production: the compiled function must load `prisma/seed-demo.ts` (design §8, open question to the leader)

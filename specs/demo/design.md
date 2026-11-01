@@ -27,8 +27,9 @@ flowchart LR
 |---|---|
 | `DemoController` | The four routes of api-design 01 to 04 |
 | `DemoGuardService` | The three checks of §2, and the one-at-a-time lock |
+| `DemoAccountsModule`, `DemoAccountsController`, `DemoAccountsService` | The public test accounts read of api-design 05, under its own flag (§8) |
 | `DemoResetRepository` | The truncation of §3, raw SQL on table names read from `pg_tables` |
-| `DemoSeedRunner` | Loads `prisma/seed-demo.ts` at run time and calls its exported `seedDemo` (§4) |
+| `DemoSeedRunner` | Loads `prisma/seed-demo.ts` at run time and calls its exported `seedDemo`, `readPasswords` and `SEEDED_ACCOUNTS` (§4, §8) |
 | `DemoScenariosService` | The scenario list, staging, records and first steps (§5) |
 
 ## 2. Guards
@@ -102,3 +103,31 @@ account type (D-057).
 | `DEMO_BUSY` | 409 | another stage or switch is running |
 | `DEMO_SCENARIO_UNAVAILABLE` | 409 | scenario listed with `available: false` |
 | `DEMO_SEED_NOT_CONFIGURED` | 409 | a `SEED_*_PASSWORD` is missing |
+
+## 8. Sandbox test accounts
+
+D-088 amendment of 2026-11-01: testers open the deployed frontend and sign in as any role without asking
+for a password. D-089: the list also shows on the Vercel production (`NODE_ENV=production`, a Neon
+branch), so it has its own flag and none of the guards of §2.
+
+`DemoAccountsModule` is a second Nest module in the `demo` folder. `AppModule` registers it through
+`ConditionalModule.registerWhen(DemoAccountsModule, demoTestAccountsEnabled)`, independently of
+`DemoModule`. It imports no other module, touches no database and holds only `DemoAccountsController`
+(`GET /api/demo/accounts`, api-design 05, `@Public()`, `Cache-Control: no-store`) and
+`DemoAccountsService`. The service loads the seed through the same `DEMO_SEED_LOADER` as the runner,
+reads the passwords with `readSeedPasswords` (409 `DEMO_SEED_NOT_CONFIGURED` on a missing variable) and
+maps `SEEDED_ACCOUNTS`, an export of `seed-demo.ts` in its own block, to `{ role, roleLabel, email,
+password, fullName, organization }`. The passwords are read from the environment on every request and
+appear in no log line. The labels match the account menu, with the TrekLink prefix on the two staff roles.
+
+The control panel keeps every check of §2: `DemoModule` still loads only with `DEMO_CONTROLS_ENABLED`, and
+its stage and role switch still refuse production and a database off the machine, so the reset is never
+reachable on a Neon host whatever the accounts flag says.
+
+The frontend `TestAccountsBox` widget (screen 7.5 §"Sandbox test accounts box") renders nothing on any
+error, so a deployment with the flag off shows nothing.
+
+**Open, asked of the leader on 2026-11-01**: the seed file is loaded at run time, by `ts-node` when the
+process has no `.ts` loader (§4). `ts-node` is a dev dependency, and a compiled Vercel function may ship
+neither it nor `prisma/seed-demo.ts`. Until the Vercel production is verified, the list there is
+(unverified).

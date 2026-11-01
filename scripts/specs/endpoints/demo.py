@@ -1,8 +1,10 @@
 from ._common import USER_ID, CONTRACT_ID, NOW, ep
 
-NOTES = ("The module is loaded only when `DEMO_CONTROLS_ENABLED` is `true`; otherwise every route below "
-         "answers 404 (specs/demo/requirements.md REQ-UBI-01). The `POST` routes refuse a production "
-         "process and a database that is not on a loopback host before anything else (design §2).")
+NOTES = ("The module is loaded only when `DEMO_CONTROLS_ENABLED` is `true`; otherwise routes 01 to 04 "
+         "answer 404 (specs/demo/requirements.md REQ-UBI-01). The `POST` routes refuse a production "
+         "process and a database that is not on a loopback host before anything else (design §2). Route 05, "
+         "the public test accounts list, is the exception: it has its own flag, `DEMO_TEST_ACCOUNTS_ENABLED`, "
+         "and no other guard (D-089).")
 
 GUARDS = [(403, "DEMO_DISABLED", "`NODE_ENV` is `production`", "Demo controls are disabled in production."),
           (403, "DEMO_DATABASE_NOT_LOCAL", "The host of `DATABASE_URL` is not a loopback address",
@@ -87,3 +89,33 @@ ENDPOINTS.append(ep(
            "Record DEMO_SWITCH and issue a token pair"],
     controller="DemoController", service="DemoSessionService", call="switchTo(email, client)",
     seq=["Svc->>DB: SELECT users by email", "Svc->>DB: INSERT auth_events, refresh_tokens"]))
+
+ENDPOINTS.append(ep(
+    "GET", "/api/demo/accounts", "List the sandbox test accounts", "Public (`DEMO_TEST_ACCOUNTS_ENABLED`)",
+    "Lists every account the demo seed creates, with its password, so a tester signs in as any role without "
+    "asking anyone. The root page and the sign-in page show it in the \"Sandbox test accounts\" box. The "
+    "passwords are read from the `SEED_*_PASSWORD` variables on every request, never stored and never "
+    "logged; the response carries `Cache-Control: no-store`. The route belongs to `DemoAccountsModule`, "
+    "loaded only when `DEMO_TEST_ACCOUNTS_ENABLED` is `true`, independently of the control panel. It is "
+    "read-only and touches no database, so it answers in any `NODE_ENV` and on any database, the Vercel "
+    "production included (D-089); the guards of the control panel routes stay as they are.",
+    "D-088 amendment of 2026-11-01, D-089, REQ-UBI-01, REQ-EVT-05, REQ-ERR-05",
+    response={"accounts": [
+        {"role": "ADMIN", "roleLabel": "TrekLink Admin", "email": "admin@treklink.local",
+         "password": "<SEED_ADMIN_PASSWORD>", "fullName": "Demo Admin", "organization": None},
+        {"role": "STAFF", "roleLabel": "TrekLink Staff", "email": "staff@treklink.local",
+         "password": "<SEED_STAFF_PASSWORD>", "fullName": "Demo Staff", "organization": None},
+        {"role": "ORG_MANAGER", "roleLabel": "Org Manager", "email": "manager@treklink.local",
+         "password": "<SEED_MANAGER_PASSWORD>", "fullName": "Demo Manager", "organization": "ORG-0001"},
+        {"role": "ORG_OPERATOR", "roleLabel": "Org Operator", "email": "operator@treklink.local",
+         "password": "<SEED_OPERATOR_PASSWORD>", "fullName": "Demo Operator", "organization": "ORG-0001"}]},
+    fields=[["accounts", "Every seeded account, in the order Admin, Staff, Manager, Operator", "array", "see sample"],
+            ["accounts[].password", "The value of the account's `SEED_*_PASSWORD` variable at request time", "string", "`<SEED_ADMIN_PASSWORD>`"],
+            ["accounts[].organization", "Organization code of a member account, null for a TrekLink account", "string", "`ORG-0001`"]],
+    errors=[(404, "NOT_FOUND", "`DEMO_TEST_ACCOUNTS_ENABLED` is not `true`: the route does not exist",
+             "Cannot GET /api/demo/accounts"),
+            (409, "DEMO_SEED_NOT_CONFIGURED", "A `SEED_*_PASSWORD` variable is missing",
+             "Set SEED_ADMIN_PASSWORD before listing the test accounts.")],
+    steps=["Read the SEED_*_PASSWORD variables", "Map the seed's SEEDED_ACCOUNTS"],
+    controller="DemoAccountsController", service="DemoAccountsService", call="list()",
+    seq=["Svc->>Svc: readSeedPasswords(seed, env)", "Svc->>Svc: seed.SEEDED_ACCOUNTS"]))

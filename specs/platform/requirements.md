@@ -123,6 +123,7 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `HTTP_BODY_LIMIT` | `1mb` | env | no |
 | `SWAGGER_ENABLED` | `true` outside production | env | no |
 | `DEMO_CONTROLS_ENABLED` | `false`; `true` loads the `demo` module (D-088, `specs/demo/`), for a local demo database only | env | no |
+| `DEMO_TEST_ACCOUNTS_ENABLED` | `false`; `true` loads the read-only sandbox test accounts list `GET /api/demo/accounts` (D-089, `specs/demo/` REQ-EVT-05), in any `NODE_ENV` and on any database | env | no |
 | `PARAMETER_CACHE_TTL_SECONDS` | 30 | env | no |
 | `HEALTH_DB_TIMEOUT_MS` | 2000; the health endpoint's `SELECT 1` bound (TK-90) | env | no |
 | `DEFAULT_PAGE_SIZE` / `MAX_PAGE_SIZE` | 20 / 100 | env | no |

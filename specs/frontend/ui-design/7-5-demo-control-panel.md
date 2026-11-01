@@ -52,3 +52,32 @@
 - [x] Actions: endpoint, confirmation and message for each control
 - [x] States: one row per error code of demo 01 to 04
 - [x] Theme tokens only; readable in both themes
+
+## Sandbox test accounts box
+
+Widget `TestAccountsBox` (`frontend/src/widgets/TestAccountsBox/`), D-088 amendment of 2026-11-01 and
+D-089. Shown on the public root page `/` (PlansPage, after the page header and before the prices) and on
+`/sign-in` beside the form. It reads demo api-design 05 (`GET /api/demo/accounts`, public, loaded only
+when `DEMO_TEST_ACCOUNTS_ENABLED` is `true`) through `useDemoAccounts` in `entities/demo`, query key
+`['demo', 'accounts']`, no retry.
+
+| State | Shows |
+|---|---|
+| Loading, any error, 404 (flag off) or an empty list | Nothing: no card, no space |
+| Accounts | A `Card` titled "Sandbox test accounts", the note "Fictitious demo data. Anyone with this page can sign in as any role." and one row per account |
+
+Each row: the role label and the full name with the organization code (or "TrekLink"), a **Use** button
+on the right, then the email and the password in a monospace font side by side (stacked below 640 px),
+each with an icon button "Copy email for {role}" and "Copy password for {role}" (toast "Copied." or, when
+the browser blocks the clipboard, "The browser blocked the clipboard. Select the text and copy it
+yourself.").
+
+- On `/sign-in`, **Use** fills the email and password fields and moves focus to the Sign in button.
+- On `/`, **Use** navigates to `/sign-in` with route state `{ demoEmail }`; the sign-in page fills both
+  fields from its own copy of the list once it has loaded. The password never enters the URL or the route
+  state.
+
+Every control is a `shared/ui` `Button` or `IconButton`, reachable by Tab in reading order; theme tokens
+only, readable in both themes. `/sign-in` uses the wide public frame (`app/App.tsx`), so the box sits
+beside the form from 1024 px and under it below; the form keeps its own width, so with no box the page
+looks as before.
