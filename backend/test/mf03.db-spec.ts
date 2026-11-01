@@ -33,6 +33,7 @@ import { ParameterRepository } from '../src/modules/platform/parameters/paramete
 import { ParameterService } from '../src/modules/platform/parameters/parameter.service';
 import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
 import { ContractsService } from '../src/modules/rentals/contracts.service';
+import type { StaleAlerts } from '../src/modules/incidents/alerts/stale-alerts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
@@ -110,10 +111,20 @@ describe('MF-03, SOS to a resolved incident, against Postgres', () => {
   );
   const runId = randomUUID();
   const names = new Map<string, string>();
-  const incidents = new IncidentsService(incidentsRepository, lifecycle, parameters, events, {
-    memberNames: (ids: readonly string[]) =>
-      Promise.resolve(new Map(ids.flatMap((id) => (names.has(id) ? [[id, names.get(id)!]] : [])))),
-  } as unknown as OrganizationsService);
+  const incidents = new IncidentsService(
+    incidentsRepository,
+    lifecycle,
+    parameters,
+    events,
+    {
+      memberNames: (ids: readonly string[]) =>
+        Promise.resolve(
+          new Map(ids.flatMap((id) => (names.has(id) ? [[id, names.get(id)!]] : []))),
+        ),
+    } as unknown as OrganizationsService,
+    // This suite never sets the device-silent flag.
+    {} as StaleAlerts,
+  );
   const nodeNum = Number.parseInt(randomUUID().slice(0, 7), 16);
   let packetId = Number.parseInt(randomUUID().slice(0, 7), 16);
   let organizationId: string;

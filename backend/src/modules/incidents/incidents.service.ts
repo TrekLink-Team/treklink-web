@@ -13,6 +13,7 @@ import {
   IncidentTransitionReason,
   tierOf,
 } from './incident-lifecycle';
+import { StaleAlerts } from './alerts/stale-alerts';
 import { clockTime } from './display-time';
 import { IncidentsRepository } from './incidents.repository';
 
@@ -84,6 +85,7 @@ export class IncidentsService {
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
     private readonly organizations: OrganizationsService,
+    private readonly staleAlerts: StaleAlerts,
   ) {}
 
   async acknowledge(id: string, input: AcknowledgeInput, caller: Caller): Promise<Incident> {
@@ -274,8 +276,10 @@ export class IncidentsService {
   // flagged or cleared under its row lock inside the sweep's transaction; nothing else of it changes,
   // its version included. The incident keeps its own last position and fix time (`lastPositionAt`),
   // which the device's episode wrote; `lastSeenAt` is the device's last reading and goes to the audit
-  // record, null when the sweep clears the flag of a device reset to never heard. Returns the changed
-  // incident, or null when there is none or the flag already says so.
+  // record, null when the sweep clears the flag of a device reset to never heard. Setting the flag
+  // queues the device-silent alert (MSG40) in the same transaction (`StaleAlerts`, design §3);
+  // clearing it alerts nobody. Returns the changed incident, or null when there is none or the flag
+  // already says so.
   async markDeviceStale(
     deviceId: string,
     stale: boolean,
@@ -285,6 +289,7 @@ export class IncidentsService {
     const current = await this.repository.lockOpenByDevice(deviceId, tx);
     if (!current || current.stale === stale) return null;
     const updated = await this.repository.setStale(current.id, stale, tx);
+    if (stale && lastSeenAt) await this.staleAlerts.queue(current, lastSeenAt, new Date(), tx);
     this.events.emitAfterCommit('incident.changed', {
       incidentId: current.id,
       deviceId: current.deviceId,

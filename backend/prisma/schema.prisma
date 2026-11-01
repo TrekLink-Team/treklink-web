@@ -1355,6 +1355,13 @@ enum AlertChannel {
   API_EVENT
 }
 
+// TRANSITION: written with a transition (MSG31, MSG34). STALE: the device-silent flag was set
+// (REQ-EVT-12, MSG40); it has no transition.
+enum AlertKind {
+  TRANSITION
+  STALE
+}
+
 enum AlertStatus {
   PENDING
   SENT
@@ -1441,13 +1448,13 @@ model IncidentTransition {
 
 // Status reports during a response (UC-33). Append-only.
 model IncidentStatusUpdate {
-  id         String   @id @default(uuid())
-  incidentId String
-  incident   Incident @relation(fields: [incidentId], references: [id])
-  authorId   String
-  author     User     @relation(fields: [authorId], references: [id])
-  note       String
-  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  id          String                @id @default(uuid())
+  incidentId  String
+  incident    Incident              @relation(fields: [incidentId], references: [id])
+  authorId    String
+  author      User                  @relation(fields: [authorId], references: [id])
+  note        String
+  createdAt   DateTime              @default(now()) @db.Timestamptz(3)
   // A correction is a new row naming the update it corrects; the corrected row is never edited
   // (dry run defect 15). Unique, so an update is corrected at most once; a correction can itself
   // be corrected by a later row.
@@ -1460,23 +1467,27 @@ model IncidentStatusUpdate {
   @@map("incident_status_updates") // append-only trigger
 }
 
-// Outbox row written in the transition's transaction, delivered after commit (D-034 rule 3).
+// Outbox row written in the transition's transaction, delivered after commit (D-034 rule 3). A STALE
+// row is written in the transaction that sets the device-silent flag instead, with no transition and
+// the device's last reading in `lastSeenAt`; a CHECK constraint keeps the two kinds apart.
 model AlertDelivery {
-  id            String             @id @default(uuid())
+  id            String              @id @default(uuid())
   incidentId    String
-  incident      Incident           @relation(fields: [incidentId], references: [id])
-  transitionId  String
-  transition    IncidentTransition @relation(fields: [transitionId], references: [id])
+  incident      Incident            @relation(fields: [incidentId], references: [id])
+  kind          AlertKind           @default(TRANSITION)
+  transitionId  String?
+  transition    IncidentTransition? @relation(fields: [transitionId], references: [id], onDelete: Restrict)
+  lastSeenAt    DateTime?           @db.Timestamptz(3)
   tier          String // PRIMARY, BACKUP, MANAGER, TREKLINK, OWNER
   recipientId   String? // null for an API_EVENT to the organization's stream
-  recipient     User?              @relation(fields: [recipientId], references: [id])
+  recipient     User?               @relation(fields: [recipientId], references: [id])
   channel       AlertChannel
-  status        AlertStatus        @default(PENDING)
-  attempts      Int                @default(0)
-  nextAttemptAt DateTime           @default(now()) @db.Timestamptz(3)
+  status        AlertStatus         @default(PENDING)
+  attempts      Int                 @default(0)
+  nextAttemptAt DateTime            @default(now()) @db.Timestamptz(3)
   lastError     String?
-  sentAt        DateTime?          @db.Timestamptz(3)
-  createdAt     DateTime           @default(now()) @db.Timestamptz(3)
+  sentAt        DateTime?           @db.Timestamptz(3)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
 
   @@index([status, nextAttemptAt])
   @@index([incidentId])

@@ -5,9 +5,12 @@ import { AccountType, IncidentState, StaleSubject } from '@prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import type { DevicesService } from '../src/modules/devices';
 import { AlertDeliveriesRepository } from '../src/modules/incidents/alert-deliveries.repository';
+import { INCIDENT_ALERTS_QUEUED } from '../src/modules/incidents/alerts/alert-events';
+import { StaleAlerts } from '../src/modules/incidents/alerts/stale-alerts';
 import { IncidentLifecycle } from '../src/modules/incidents/incident-lifecycle';
 import { IncidentsRepository } from '../src/modules/incidents/incidents.repository';
 import { IncidentsService } from '../src/modules/incidents/incidents.service';
+import type { RoutingService } from '../src/modules/incidents/routing.service';
 import { StaleSweepJob } from '../src/modules/monitoring/jobs/stale-sweep.job';
 import { StaleMarksRepository } from '../src/modules/monitoring/stale-marks.repository';
 import type { OrganizationsService } from '../src/modules/organizations';
@@ -36,18 +39,27 @@ describe('incident stale flag against Postgres', () => {
     new ConfigService<ValidatedEnvironment, true>({ PARAMETER_CACHE_TTL_SECONDS: 0 }),
   );
   const repository = new IncidentsRepository(prisma);
+  const deliveries = new AlertDeliveriesRepository();
+  // Routing reads the roster and the TrekLink accounts; here both answer this run's staff account.
+  let staffId: string;
+  const routing = {
+    recipientsOf: () =>
+      Promise.resolve({ primary: [staffId], backup: [], managers: [], staff: [staffId] }),
+    treklinkRecipients: () => Promise.resolve([staffId]),
+  } as unknown as RoutingService;
   const incidents = new IncidentsService(
     repository,
-    new IncidentLifecycle(repository, new AlertDeliveriesRepository(), parameters, events),
+    new IncidentLifecycle(repository, deliveries, parameters, events),
     parameters,
     events,
     {} as OrganizationsService,
+    new StaleAlerts(routing, deliveries, events),
   );
   const runId = randomUUID();
   const organizationId = `org-${runId}`;
   const changed: { incidentId: string; state: string }[] = [];
   const reading = new Map<string, Date>();
-  let staffId: string;
+  const woken: string[] = [];
   let variantId: string;
   let serial = 0;
 
@@ -77,7 +89,7 @@ describe('incident stale flag against Postgres', () => {
     );
 
   // A device with an incident in the given state; the episode's own position and fix time are set.
-  const incidentOn = async (state: IncidentState) => {
+  const incidentOn = async (state: IncidentState, ownerId: string | null = null) => {
     serial += 1;
     const device = await prisma.device.create({
       data: {
@@ -103,6 +115,7 @@ describe('incident stale flag against Postgres', () => {
         lastLatitude: 11.56,
         lastLongitude: 108.54,
         lastPositionAt: at,
+        ownerId,
         version: 3,
       },
     });
@@ -110,10 +123,15 @@ describe('incident stale flag against Postgres', () => {
   };
 
   const incident = (id: string) => prisma.incident.findUniqueOrThrow({ where: { id } });
+  const alertRows = (incidentId: string) =>
+    prisma.alertDelivery.findMany({ where: { incidentId }, orderBy: { channel: 'asc' } });
 
   beforeAll(async () => {
     emitter.on('incident.changed', (payload: { incidentId: string; state: string }) =>
       changed.push(payload),
+    );
+    emitter.on(INCIDENT_ALERTS_QUEUED, (payload: { incidentId: string }) =>
+      woken.push(payload.incidentId),
     );
     staffId = (
       await prisma.user.create({
@@ -183,6 +201,57 @@ describe('incident stale flag against Postgres', () => {
     expect(changed.filter((event) => event.incidentId === incidentId)).toHaveLength(2);
   });
 
+  it('queues the device-silent alert once with the flag, as STALE rows with no transition', async () => {
+    const { deviceId, incidentId } = await incidentOn('ESCALATED');
+    const lastSeenAt = new Date(Date.now() - 400_000);
+    reading.set(deviceId, lastSeenAt);
+    await sweep().sweep();
+    const rows = await alertRows(incidentId);
+    expect(rows).toEqual(
+      ['WEB', 'WEBSOCKET'].map((channel): unknown =>
+        expect.objectContaining({
+          kind: 'STALE',
+          transitionId: null,
+          lastSeenAt,
+          tier: 'TREKLINK',
+          recipientId: staffId,
+          channel,
+          status: 'PENDING',
+        }),
+      ),
+    );
+    expect(woken).toContain(incidentId);
+    // Still silent: the sweep asks again, the flag is already set, nothing more is queued.
+    await sweep().sweep();
+    expect(await alertRows(incidentId)).toHaveLength(2);
+    // Heard again: the flag clears and nobody is alerted.
+    reading.set(deviceId, new Date());
+    await sweep().sweep();
+    expect((await incident(incidentId)).stale).toBe(false);
+    expect(await alertRows(incidentId)).toHaveLength(2);
+  });
+
+  it('alerts the owner when the incident has one', async () => {
+    const { deviceId, incidentId } = await incidentOn('ACKNOWLEDGED', staffId);
+    reading.set(deviceId, new Date(Date.now() - 400_000));
+    await sweep().sweep();
+    expect((await alertRows(incidentId)).map((row) => [row.tier, row.recipientId])).toEqual([
+      ['OWNER', staffId],
+      ['OWNER', staffId],
+    ]);
+  });
+
+  it('refuses an alert row whose kind and transition do not match', async () => {
+    const { incidentId } = await incidentOn('UNROUTED');
+    const row = { incidentId, tier: 'TREKLINK', recipientId: staffId, channel: 'WEB' as const };
+    await expect(prisma.alertDelivery.create({ data: row })).rejects.toThrow(
+      /alert_deliveries_kind_shape/,
+    );
+    await expect(prisma.alertDelivery.create({ data: { ...row, kind: 'STALE' } })).rejects.toThrow(
+      /alert_deliveries_kind_shape/,
+    );
+  });
+
   it('leaves a CLOSED incident alone', async () => {
     const { deviceId, incidentId } = await incidentOn('CLOSED');
     reading.set(deviceId, new Date(Date.now() - 400_000));
@@ -192,9 +261,9 @@ describe('incident stale flag against Postgres', () => {
   });
 
   it('rolls the flag back with a transition that fails after it', async () => {
-    const { deviceId, incidentId } = await incidentOn('RESPONDING');
+    const { deviceId, incidentId } = await incidentOn('ESCALATED');
     reading.set(deviceId, new Date(Date.now() - 400_000));
-    // The mark is written and the flag set, then the transaction fails: neither stays.
+    // The mark is written, the flag set and the alert queued, then the transaction fails: none stays.
     const failing = new RunMarks(prisma);
     const failingIncidents = Object.create(incidents) as IncidentsService;
     failingIncidents.markDeviceStale = async (...args) => {
@@ -216,6 +285,7 @@ describe('incident stale flag against Postgres', () => {
     );
     await expect(job.sweep()).resolves.toEqual({ stale: 0, recovered: 0 });
     expect((await incident(incidentId)).stale).toBe(false);
+    await expect(alertRows(incidentId)).resolves.toEqual([]);
     await expect(
       prisma.staleMark.count({ where: { subjectType: StaleSubject.DEVICE, subjectId: deviceId } }),
     ).resolves.toBe(0);

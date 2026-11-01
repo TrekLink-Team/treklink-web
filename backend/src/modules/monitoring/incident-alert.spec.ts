@@ -26,6 +26,7 @@ describe('LiveGateway.onIncidentAlert (monitoring 2.3)', () => {
     (gateway as unknown as { namespace: { to: jest.Mock } }).namespace = { to };
     const alert = {
       incidentId: 'inc-1',
+      kind: 'TRANSITION' as const,
       code: 'INC-2026-000001',
       deviceLabel: 'TL-0042',
       holderName: null,

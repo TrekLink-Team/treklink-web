@@ -50,6 +50,12 @@ export class RoutingService {
     return { ...tiers, staff: await this.accounts.activeStaffAndAdminIds(tx) };
   }
 
+  // The active TrekLink Staff and Admin accounts alone, for an alert of an incident in their hands
+  // (the device-silent alert of ESCALATED, UNROUTED and REPORTED, design §3).
+  treklinkRecipients(tx: Prisma.TransactionClient): Promise<readonly string[]> {
+    return this.accounts.activeStaffAndAdminIds(tx);
+  }
+
   private async unrouted(tx: Prisma.TransactionClient): Promise<Route> {
     return {
       to: 'UNROUTED',
@@ -57,7 +63,7 @@ export class RoutingService {
         primary: [],
         backup: [],
         managers: [],
-        staff: await this.accounts.activeStaffAndAdminIds(tx),
+        staff: await this.treklinkRecipients(tx),
       },
     };
   }

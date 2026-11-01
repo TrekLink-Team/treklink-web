@@ -9,6 +9,7 @@ import { IncidentLifecycle } from './incident-lifecycle';
 import { IncidentsRepository } from './incidents.repository';
 import { IncidentsService } from './incidents.service';
 import { OrganizationsService } from '../organizations';
+import type { StaleAlerts } from './alerts/stale-alerts';
 
 const OPERATOR: Caller = { id: 'owner', roles: ['ORG_OPERATOR'], organizationId: 'org-a' };
 const STAFF: Caller = { id: 'staff', roles: ['STAFF'], organizationId: null };
@@ -71,6 +72,7 @@ describe('IncidentsService task 4.1', () => {
       parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
       organizations as unknown as OrganizationsService,
+      {} as StaleAlerts,
     );
   });
 
@@ -547,10 +549,12 @@ describe('IncidentsService.markDeviceStale (task 4.4, REQ-EVT-12)', () => {
   let open: Incident | null;
   let repository: { lockOpenByDevice: jest.Mock; setStale: jest.Mock };
   let events: { emitAfterCommit: jest.Mock };
+  let staleAlerts: { queue: jest.Mock };
   let service: IncidentsService;
 
   beforeEach(() => {
     open = row('NOTIFY_BACKUP', { ownerId: null, stale: false });
+    staleAlerts = { queue: jest.fn().mockResolvedValue(2) };
     repository = {
       lockOpenByDevice: jest.fn(() => Promise.resolve(open)),
       setStale: jest.fn((id: string, stale: boolean) => Promise.resolve({ ...open, id, stale })),
@@ -562,6 +566,7 @@ describe('IncidentsService.markDeviceStale (task 4.4, REQ-EVT-12)', () => {
       {} as ParameterService,
       events as unknown as TransactionalEvents,
       {} as OrganizationsService,
+      staleAlerts as unknown as StaleAlerts,
     );
   });
 
@@ -623,10 +628,27 @@ describe('IncidentsService.markDeviceStale (task 4.4, REQ-EVT-12)', () => {
     );
   });
 
+  it('queues the device-silent alert (MSG40) in the same transaction when it sets the flag', async () => {
+    await service.markDeviceStale('device', true, LAST_SEEN, tx);
+    expect(staleAlerts.queue).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'incident', state: 'NOTIFY_BACKUP' }),
+      LAST_SEEN,
+      expect.any(Date),
+      tx,
+    );
+  });
+
+  it('alerts nobody when it clears the flag', async () => {
+    open = row('ACKNOWLEDGED', { stale: true });
+    await service.markDeviceStale('device', false, LAST_SEEN, tx);
+    expect(staleAlerts.queue).not.toHaveBeenCalled();
+  });
+
   it('does nothing when the flag already says so', async () => {
     open = row('RESPONDING', { stale: true });
     await expect(service.markDeviceStale('device', true, LAST_SEEN, tx)).resolves.toBeNull();
     expect(repository.setStale).not.toHaveBeenCalled();
+    expect(staleAlerts.queue).not.toHaveBeenCalled();
     expect(events.emitAfterCommit).not.toHaveBeenCalled();
   });
 

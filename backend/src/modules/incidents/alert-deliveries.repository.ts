@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { AlertChannel, Prisma } from '@prisma/client';
+import { AlertChannel, AlertKind, Prisma } from '@prisma/client';
 
+// A TRANSITION row (the default kind) names its transition; a STALE row has none and carries the
+// device's last reading in `lastSeenAt` (migration `20261101120000_incidents_stale_alert`).
 export type NewAlertDelivery = Pick<
   Prisma.AlertDeliveryUncheckedCreateInput,
-  'incidentId' | 'transitionId' | 'tier' | 'recipientId' | 'channel'
+  'incidentId' | 'kind' | 'transitionId' | 'lastSeenAt' | 'tier' | 'recipientId' | 'channel'
 >;
 
 // A claimed outbox row with what the senders need from its incident.
@@ -12,6 +14,9 @@ export interface DueAlert {
   incidentId: string;
   recipientId: string | null;
   channel: AlertChannel;
+  kind: AlertKind;
+  // The device's last reading, for a STALE row only.
+  lastSeenAt: Date | null;
   tier: string;
   attempts: number;
   code: string;
@@ -37,7 +42,8 @@ export class AlertDeliveriesRepository {
     tx: Prisma.TransactionClient,
   ): Promise<DueAlert[]> {
     return tx.$queryRaw<DueAlert[]>`
-      SELECT a."id", a."incidentId", a."recipientId", a."channel", a."tier", a."attempts",
+      SELECT a."id", a."incidentId", a."recipientId", a."channel", a."kind", a."lastSeenAt",
+             a."tier", a."attempts",
              i."code", i."deviceId", i."contractId", a."createdAt"
       FROM "alert_deliveries" a
       JOIN "incidents" i ON i."id" = a."incidentId"

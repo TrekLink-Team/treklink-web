@@ -28,6 +28,7 @@ import { ParameterService } from '../src/modules/platform/parameters/parameter.s
 import { ParameterRepository } from '../src/modules/platform/parameters/parameter.repository';
 import { ValidatedEnvironment } from '../src/modules/platform/config/environment-variables';
 import { ErrorCode } from '../src/common/errors';
+import type { StaleAlerts } from '../src/modules/incidents/alerts/stale-alerts';
 
 // Capture explicit connection settings before Prisma can load a local .env at construction.
 const databaseUrl = process.env.DATABASE_URL;
@@ -204,6 +205,7 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
       parameters,
       events,
       organizations as unknown as OrganizationsService,
+      {} as StaleAlerts,
     );
     const staff = (role = 'STAFF'): Caller => ({
       id: staffId,
@@ -791,6 +793,7 @@ describe('incident foundation against Postgres (REQ-UBI-02, BR-13)', () => {
       parameters,
       events,
       organizations as unknown as OrganizationsService,
+      {} as StaleAlerts,
     );
     const caller = (id = operatorId): Caller => ({
       id,

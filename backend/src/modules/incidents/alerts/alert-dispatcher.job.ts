@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { AlertChannel, Prisma } from '@prisma/client';
+import { AlertChannel, AlertKind, Prisma } from '@prisma/client';
 import { AccountsService, MAIL_PORT, MailPort } from '../../auth';
 import { DevicesService } from '../../devices';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
@@ -18,6 +18,9 @@ export interface IncidentAlertEvent {
   recipientId: string;
   alert: {
     incidentId: string;
+    // TRANSITION: an SOS alert to acknowledge (MSG31). STALE: the device went silent (MSG40), with
+    // `at` its last reading; the client shows it without Acknowledge.
+    kind: AlertKind;
     code: string;
     deviceLabel: string;
     holderName: string | null;
@@ -78,6 +81,10 @@ class SerialRunner {
 // MSG31: SOS: {device} ({holder}), {time}. Acknowledge now.
 export const msg31 = (device: string, holder: string | null, at: Date): string =>
   `SOS: ${device}${holder ? ` (${holder})` : ''}, ${clockTime(at)}. Acknowledge now.`;
+
+// MSG40: Device silent: {device} ({holder}), last heard {time}.
+export const msg40 = (device: string, holder: string | null, lastSeenAt: Date): string =>
+  `Device silent: ${device}${holder ? ` (${holder})` : ''}, last heard ${clockTime(lastSeenAt)}.`;
 
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -173,7 +180,7 @@ export class AlertDispatcherJob {
             if (!row.recipientId) throw new Error('WEBSOCKET alert without a recipient');
             this.emitter.emit(INCIDENT_ALERT, {
               recipientId: row.recipientId,
-              alert: payloads.get(row.incidentId)!,
+              alert: payloads.get(row.id)!,
             } satisfies IncidentAlertEvent);
           }
           sent.push(row.id);
@@ -201,9 +208,7 @@ export class AlertDispatcherJob {
     const [baseSeconds, maxAttempts] = await this.retryPolicy();
     const payloads = await this.payloads(due);
     const outcomes = await Promise.allSettled(
-      due.map((row) =>
-        this.sendEmail(row, payloads.get(row.incidentId)!, baseSeconds, maxAttempts),
-      ),
+      due.map((row) => this.sendEmail(row, payloads.get(row.id)!, baseSeconds, maxAttempts)),
     );
     const unsettled = outcomes.find((outcome) => outcome.status === 'rejected');
     if (unsettled) throw unsettled.reason;
@@ -268,29 +273,34 @@ export class AlertDispatcherJob {
     await this.alerts.markFailedAttempt(row.id, message, retryAt, tx);
   }
 
-  // One alert body per incident: asset tag, holder label and MSG31 at the alert's creation time.
+  // One alert body per row, keyed by row id: asset tag and holder label read once per incident, then
+  // MSG31 at the alert's creation time for a TRANSITION row, or MSG40 at the device's last reading for
+  // a STALE row.
   private async payloads(due: DueAlert[]): Promise<Map<string, IncidentAlertEvent['alert']>> {
-    const incidents = new Map(due.map((row) => [row.incidentId, row]));
-    const rows = [...incidents.values()];
+    const incidents = [...new Map(due.map((row) => [row.incidentId, row])).values()];
     const [tags, holders] = await Promise.all([
-      this.devices.assetTags(rows.map((row) => row.deviceId)),
+      this.devices.assetTags(incidents.map((row) => row.deviceId)),
       this.contracts.holderLabels(
-        rows
+        incidents
           .filter((row) => row.contractId !== null)
           .map((row) => ({ contractId: row.contractId!, deviceId: row.deviceId })),
       ),
     ]);
     const bodies = new Map<string, IncidentAlertEvent['alert']>();
-    for (const row of rows) {
+    for (const row of due) {
       const deviceLabel = tags.get(row.deviceId) ?? row.code;
       const holderName = holders.get(`${row.contractId}:${row.deviceId}`)?.name ?? null;
-      bodies.set(row.incidentId, {
+      const stale = row.kind === AlertKind.STALE;
+      // The CHECK constraint gives every STALE row its reading; the fallback only keeps types honest.
+      const at = stale ? (row.lastSeenAt ?? row.createdAt) : row.createdAt;
+      bodies.set(row.id, {
         incidentId: row.incidentId,
+        kind: row.kind,
         code: row.code,
         deviceLabel,
         holderName,
-        at: row.createdAt.toISOString(),
-        message: msg31(deviceLabel, holderName, row.createdAt),
+        at: at.toISOString(),
+        message: stale ? msg40(deviceLabel, holderName, at) : msg31(deviceLabel, holderName, at),
       });
     }
     return bodies;

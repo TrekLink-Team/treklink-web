@@ -1,5 +1,5 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AlertChannel, Prisma } from '@prisma/client';
+import { AlertChannel, AlertKind, Prisma } from '@prisma/client';
 import { AccountsService } from '../../auth';
 import { DevicesService } from '../../devices';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
@@ -12,17 +12,22 @@ import {
   EMAIL_LEASE_MS,
   EMAIL_SEND_TIMEOUT_MS,
   INCIDENT_ALERT,
+  IncidentAlertEvent,
   msg31,
+  msg40,
 } from './alert-dispatcher.job';
 
 const tx = { tx: true } as unknown as Prisma.TransactionClient;
 const CREATED = new Date('2026-10-29T03:15:00Z');
+const LAST_SEEN = new Date('2026-10-29T03:02:00Z');
 
 const due = (overrides: Partial<DueAlert> = {}): DueAlert => ({
   id: 'a-1',
   incidentId: 'inc-1',
   recipientId: 'u-p',
   channel: AlertChannel.WEBSOCKET,
+  kind: AlertKind.TRANSITION,
+  lastSeenAt: null,
   tier: 'PRIMARY',
   attempts: 0,
   code: 'INC-2026-000001',
@@ -41,6 +46,18 @@ describe('msg31', () => {
 
   it('leaves the holder out when the device has no label', () => {
     expect(msg31('TL-0042', null, CREATED)).toBe('SOS: TL-0042, 10:15. Acknowledge now.');
+  });
+});
+
+describe('msg40', () => {
+  it('formats MSG40 with the device, the holder and the ICT time of the last reading', () => {
+    expect(msg40('TL-0042', 'Le Thi E', LAST_SEEN)).toBe(
+      'Device silent: TL-0042 (Le Thi E), last heard 10:02.',
+    );
+  });
+
+  it('leaves the holder out when the device has no label', () => {
+    expect(msg40('TL-0042', null, LAST_SEEN)).toBe('Device silent: TL-0042, last heard 10:02.');
   });
 });
 
@@ -128,6 +145,7 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
         recipientId: 'u-p',
         alert: {
           incidentId: 'inc-1',
+          kind: AlertKind.TRANSITION,
           code: 'INC-2026-000001',
           deviceLabel: 'TL-0042',
           holderName: 'Le Thi E',
@@ -139,6 +157,37 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
       expect(contracts.holderLabels).toHaveBeenCalledWith([
         { contractId: 'c-1', deviceId: 'dev-1' },
       ]);
+    });
+
+    it('sends a STALE row as MSG40 at the last reading, beside an SOS row of the same incident', async () => {
+      alerts.claimDue.mockResolvedValueOnce([
+        due(),
+        due({ id: 'a-2', recipientId: 'u-o', kind: AlertKind.STALE, lastSeenAt: LAST_SEEN }),
+      ]);
+      await expect(job.deliverAlerts()).resolves.toBe(2);
+      expect(emitter.emit.mock.calls).toEqual([
+        [INCIDENT_ALERT, expect.objectContaining({ recipientId: 'u-p' })],
+        [
+          INCIDENT_ALERT,
+          {
+            recipientId: 'u-o',
+            alert: {
+              incidentId: 'inc-1',
+              kind: AlertKind.STALE,
+              code: 'INC-2026-000001',
+              deviceLabel: 'TL-0042',
+              holderName: 'Le Thi E',
+              at: LAST_SEEN.toISOString(),
+              message: 'Device silent: TL-0042 (Le Thi E), last heard 10:02.',
+            },
+          },
+        ],
+      ]);
+      const first = (emitter.emit.mock.calls[0] as [string, IncidentAlertEvent])[1];
+      expect(first.alert.kind).toBe(AlertKind.TRANSITION);
+      expect(first.alert.message).toMatch(/^SOS: /);
+      // Labels are read once per incident, whatever the number of rows.
+      expect(devices.assetTags).toHaveBeenCalledWith(['dev-1']);
     });
 
     it('falls back to the incident code and no holder for an unrouted incident', async () => {
