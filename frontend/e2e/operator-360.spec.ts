@@ -36,14 +36,15 @@ const tab = (page: Page, label: string) =>
 test('360 px: Live map (MF-04 steps 1 and 2, MF-02 step 3)', async ({ page }) => {
   await signIn(page, 'operator');
   await expect(page).toHaveURL(/\/o\/map$/);
-  await expect(page.getByText(/^\d+ devices?, \d+ SOS open, \d+ stale/)).toBeVisible();
+  await expect(page.getByText(/^\d+ devices?, \d+ SOS open$/)).toBeVisible();
+  await expect(page.getByText(/^\d+ live, \d+ offline, \d+ not heard since handover$/)).toBeVisible();
   await expectNoHorizontalScroll(page, 'Live map');
   const search = page.getByPlaceholder('Search asset tag, holder or contract');
   await expectOnScreen(search, 'device search');
   await search.fill('TL-0010');
   // The device list, not the map marker, which carries the same name once TL-0010 had an SOS.
   const list = page.getByLabel('Devices', { exact: true });
-  await expectOnScreen(list.getByRole('button', { name: /^TL-0010, Pham Van F, / }), 'TL-0010 row');
+  await expectOnScreen(list.getByRole('button', { name: /^TL-0010 .*Pham Van F / }), 'TL-0010 row');
   await expectOnScreen(tab(page, 'Incidents'), 'Incidents tab');
   await expectNoHorizontalScroll(page, 'Live map, searched');
 });

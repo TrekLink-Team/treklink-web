@@ -1,6 +1,6 @@
 import type { LiveEntry } from '../../shared/socket/socketClient';
 import type { IncidentState } from '../../shared/ui/status';
-import type { MapSnapshot, SnapshotDevice } from './api';
+import type { MapSnapshot, SnapshotDevice, UnitState } from './api';
 
 // The live map's in-memory state (screen 9.1): the snapshot, then every stream entry after its cursor
 // applied in `seq` order (monitoring ws-live-contract). Pure functions, so the page and the tests
@@ -62,6 +62,8 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
               position: { lat, lon, at },
               lastSeenAt: latest(device.lastSeenAt, at),
               stale: false,
+              state: 'LIVE',
+              counterLocation: null,
             },
       );
     }
@@ -73,14 +75,25 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
         batteryPct: asNumber(payload.batteryPct) ?? device.batteryPct,
         lastSeenAt: latest(device.lastSeenAt, at),
         stale: false,
+        state: 'LIVE',
+        counterLocation: null,
       }));
     }
+    // A stale entry whose reading predates the unit's handover (the fleet map receives those) leaves
+    // the unit not heard since handover (D-092 rule 2); any other entry sets offline or live.
     case 'device.stale':
-      return withDevice(state, seq, id, (device) => ({
-        ...device,
-        stale: payload.stale === true,
-        lastSeenAt: latest(device.lastSeenAt, asString(payload.lastSeenAt)),
-      }));
+      return withDevice(state, seq, id, (device) => {
+        const lastSeenAt = asString(payload.lastSeenAt);
+        if (lastSeenAt !== null && lastSeenAt < device.handedOverAt) return device;
+        const stale = payload.stale === true;
+        return {
+          ...device,
+          stale,
+          state: stale ? 'OFFLINE' : 'LIVE',
+          counterLocation: null,
+          lastSeenAt: latest(device.lastSeenAt, lastSeenAt),
+        };
+      });
     case 'device.label': {
       const holder = payload.holder as { name?: unknown } | null | undefined;
       const name = asString(holder?.name);
@@ -148,3 +161,27 @@ export const rebuild = (snapshot: MapSnapshot, entries: readonly LiveEntry[]): L
 export const isStale = (device: SnapshotDevice, now: number, staleAfterSeconds: number): boolean =>
   device.stale ||
   (device.lastSeenAt !== null && now - Date.parse(device.lastSeenAt) > staleAfterSeconds * 1000);
+
+/**
+ * The state a unit is drawn in now: not heard since handover until something is heard during its
+ * custody interval, then offline while stale (`isStale`) and live otherwise (monitoring REQ-UBI-04).
+ */
+export const unitStateOf = (
+  device: SnapshotDevice,
+  now: number,
+  staleAfterSeconds: number | undefined,
+): UnitState => {
+  if (device.state === 'NOT_HEARD') return 'NOT_HEARD';
+  const stale =
+    staleAfterSeconds === undefined ? device.stale : isStale(device, now, staleAfterSeconds);
+  return stale ? 'OFFLINE' : 'LIVE';
+};
+
+const RANK: Record<UnitState, number> = { LIVE: 0, OFFLINE: 1, NOT_HEARD: 2 };
+
+/** Live units first, then offline, then not heard since handover; each group keeps its order. */
+export const byUnitState = <T extends { state: UnitState }>(rows: readonly T[]): T[] =>
+  rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => RANK[a.row.state] - RANK[b.row.state] || a.index - b.index)
+    .map(({ row }) => row);

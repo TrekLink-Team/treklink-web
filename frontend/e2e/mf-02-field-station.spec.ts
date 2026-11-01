@@ -16,7 +16,7 @@ test('MF-02 step 3: the Operator sees TL-0009 and TL-0010 reporting on the live 
   await expect(page).toHaveURL(/\/o\/map$/);
   const list = page.getByRole('region', { name: 'Devices' }).or(page.getByLabel('Devices'));
   for (const tag of ['TL-0009', 'TL-0010']) {
-    const row = list.getByRole('button', { name: new RegExp(`^${tag}, `) });
+    const row = list.getByRole('button', { name: new RegExp(`^${tag} `) });
     await expect(row).toBeVisible();
     // A battery percentage from the simulator (100 % at the gateway's start, one less every 5 min).
     await expect(row).toContainText(/\d+%/);

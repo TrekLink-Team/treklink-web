@@ -50,6 +50,9 @@ const device = (overrides: Partial<SnapshotDevice> = {}): SnapshotDevice => ({
   batteryPct: 80,
   lastSeenAt: recent(),
   stale: false,
+  state: 'LIVE',
+  handedOverAt: new Date(Date.now() - 3_600_000).toISOString(),
+  counterLocation: null,
   openIncident: null,
   contractCode: 'RC-2026-0001',
   organizationId: 'org-1',
@@ -125,7 +128,8 @@ describe('LiveMapPage (screen 9.1)', () => {
   it('draws the snapshot as markers and list rows on the organization map', async () => {
     show('o');
     expect(await marker('TL-0009, Le Thi E')).toBeTruthy();
-    expect(panel().getByText('1 device, 0 SOS open, 0 stale')).toBeTruthy();
+    expect(panel().getByText('1 device, 0 SOS open')).toBeTruthy();
+    expect(panel().getByText('1 live, 0 offline, 0 not heard since handover')).toBeTruthy();
     expect(panel().getByText('Le Thi E')).toBeTruthy();
     expect(api).toHaveBeenCalledWith('/map/snapshot');
     expect(screen.queryByLabelText('Organization')).toBeNull();
@@ -165,7 +169,7 @@ describe('LiveMapPage (screen 9.1)', () => {
       payload: { incidentId: 'i-1', state: 'NOTIFY_PRIMARY' },
     });
     expect(await marker('TL-0009, Tran B, SOS, state Notifying primary')).toBeTruthy();
-    expect(panel().getByText('1 device, 1 SOS open, 0 stale')).toBeTruthy();
+    expect(panel().getByText('1 device, 1 SOS open')).toBeTruthy();
     expect(panel().getByRole('link', { name: 'Open incident' }).getAttribute('href')).toBe(
       '/o/incidents/i-1',
     );
@@ -219,18 +223,123 @@ describe('LiveMapPage (screen 9.1)', () => {
     expect(await marker('TL-0010, No holder')).toBeTruthy();
   });
 
-  it('shows a silent device as stale and a device without a position in the list only', async () => {
+  it('shows a silent device as offline and a heard device without a position in the list only', async () => {
     const old = new Date(Date.now() - 3_600_000).toISOString();
     snapshot.devices = [
       device({ lastSeenAt: old, position: { lat: 11.5, lon: 108.5, at: old } }),
-      device({ id: 'd-2', assetTag: 'TL-0002', position: null, lastSeenAt: null, holder: null }),
+      device({ id: 'd-2', assetTag: 'TL-0002', position: null, holder: null }),
     ];
     show('o');
     expect(await marker('TL-0009, Le Thi E')).toBeTruthy();
-    expect(panel().getByText('2 devices, 0 SOS open, 1 stale')).toBeTruthy();
-    expect(panel().getByText(/^Stale, last seen/)).toBeTruthy();
-    expect(panel().getByText('No position yet')).toBeTruthy();
+    expect(panel().getByText('2 devices, 0 SOS open')).toBeTruthy();
+    expect(panel().getByText('1 live, 1 offline, 0 not heard since handover')).toBeTruthy();
+    expect(panel().getByText(/^Offline, last seen/)).toBeTruthy();
+    expect(panel().getByText('Offline')).toBeTruthy();
+    expect(panel().getByText(/^No position yet, last seen/)).toBeTruthy();
     expect(screen.queryByRole('img', { name: /TL-0002/ })).toBeNull();
+  });
+
+  // D-092 rule 2: every rented unit from the handover on, in its state, live first.
+  describe('every unit of the contract (REQ-UBI-10)', () => {
+    const COUNTER = { name: 'TrekLink counter', lat: 11.9, lon: 108.4 };
+    const old = () => new Date(Date.now() - 3_600_000).toISOString();
+    const notHeard = (id: string, assetTag: string) =>
+      device({
+        id,
+        assetTag,
+        holder: null,
+        position: null,
+        lastSeenAt: null,
+        batteryPct: null,
+        state: 'NOT_HEARD',
+        counterLocation: COUNTER,
+      });
+    beforeEach(() => {
+      snapshot.devices = [
+        notHeard('d-4', 'TL-0004'),
+        device({
+          id: 'd-3',
+          assetTag: 'TL-0003',
+          holder: { name: 'Pham C' },
+          lastSeenAt: old(),
+          position: { lat: 11.6, lon: 108.6, at: old() },
+          state: 'OFFLINE',
+          stale: true,
+        }),
+        device(),
+        notHeard('d-5', 'TL-0005'),
+        device({ id: 'd-1', assetTag: 'TL-0001', holder: { name: 'Tran B' } }),
+      ];
+    });
+
+    it('lists all units live first, counts them and pins the unheard ones at the counter', async () => {
+      show('o');
+      expect(await marker('TL-0004, No holder')).toBeTruthy();
+      expect(await marker('TL-0005, No holder')).toBeTruthy();
+      expect(await marker('TL-0003, Pham C')).toBeTruthy();
+      expect(panel().getByText('5 devices, 0 SOS open')).toBeTruthy();
+      expect(panel().getByText('2 live, 1 offline, 2 not heard since handover')).toBeTruthy();
+      const order = panel()
+        .getAllByRole('button')
+        .map((button) => button.textContent?.match(/TL-\d+/)?.[0]);
+      expect(order).toEqual(['TL-0009', 'TL-0001', 'TL-0003', 'TL-0004', 'TL-0005']);
+      expect(panel().getAllByText('Not heard since handover')).toHaveLength(2);
+      // The unheard pin carries its label on the map, and its popup names the counter.
+      expect(document.querySelectorAll('.leaflet-marker-icon .tl-marker--unheard')).toHaveLength(2);
+      expect(
+        screen.getAllByText('Not heard since handover', { selector: '.tl-marker-label' }),
+      ).toHaveLength(2);
+      fireEvent.click(panel().getByRole('button', { name: /TL-0004/ }));
+      await waitFor(() =>
+        expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain(
+          'Pinned at TrekLink counter, the handover location',
+        ),
+      );
+      // The legend names every marker drawn.
+      const legend = within(screen.getByRole('region', { name: 'Map legend' }));
+      for (const label of ['Live', 'Offline', 'Not heard since handover', 'SOS'])
+        expect(legend.getByText(label)).toBeTruthy();
+    });
+
+    it('names each row by its visible text (WCAG 2.5.3)', async () => {
+      show('o');
+      await marker('TL-0003, Pham C');
+      for (const button of panel().getAllByRole('button')) {
+        expect(button.getAttribute('aria-label')).toBeNull();
+      }
+      // The computed name leaves out the badge's aria-hidden glyph and keeps every visible word.
+      expect(
+        panel().getByRole('button', { name: /^TL-0003 Offline 80% Pham C Offline, last seen / }),
+      ).toBeTruthy();
+      expect(
+        panel().getByRole('button', {
+          name: 'TL-0004 Not heard No holder Not heard since handover',
+        }),
+      ).toBeTruthy();
+    });
+
+    it('keeps a unit not heard on a stale entry from before its handover, and makes it live when heard', async () => {
+      show('t');
+      await marker('TL-0004, No holder');
+      const before = new Date(Date.now() - 2 * 86_400_000).toISOString();
+      feed({
+        seq: 101,
+        type: 'device.stale',
+        deviceId: 'd-4',
+        payload: { stale: true, lastSeenAt: before },
+      });
+      expect(panel().getByText('2 live, 1 offline, 2 not heard since handover')).toBeTruthy();
+      feed({
+        seq: 102,
+        type: 'device.position',
+        deviceId: 'd-4',
+        payload: { lat: 11.7, lon: 108.7, at: new Date().toISOString() },
+      });
+      expect(
+        await panel().findByText('3 live, 1 offline, 1 not heard since handover'),
+      ).toBeTruthy();
+      expect(document.querySelectorAll('.leaflet-marker-icon .tl-marker--unheard')).toHaveLength(1);
+    });
   });
 
   it('searches the list and centres the map on a chosen row', async () => {

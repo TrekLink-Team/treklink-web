@@ -30,7 +30,7 @@ export interface MapMarker {
   title: string;
   subtitle?: string;
   /** Drives marker colour; keep in step with device/incident status vocabularies. */
-  status?: 'ok' | 'warning' | 'stale' | 'incident';
+  status?: 'ok' | 'warning' | 'stale' | 'unheard' | 'incident';
   /** Extra popup lines under the subtitle, such as battery and last-seen time. */
   details?: string[];
   /** A link under the popup lines; a marker without one shows the popup as before. */
@@ -42,10 +42,12 @@ const MARKER_STATE: Record<NonNullable<MapMarker['status']>, MarkerState> = {
   ok: 'fresh',
   warning: 'attention',
   stale: 'stale',
+  unheard: 'unheard',
   incident: 'sos',
 };
 
-const LEAFLET_CREDIT = '<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>';
+const LEAFLET_CREDIT =
+  '<a href="https://leafletjs.com" target="_blank" rel="noreferrer">Leaflet</a>';
 
 // MSG33: the tile area is replaced; lists elsewhere on the page stay live (FR-MON-09).
 const MSG33 = 'The map is unavailable. Device and incident lists are still live.';
@@ -84,7 +86,8 @@ const markerIcon = (marker: MapMarker): L.DivIcon =>
     state: MARKER_STATE[marker.status ?? 'ok'],
     label: marker.title,
     name: textOf(marker),
-    showChip: false,
+    // A unit not heard since handover carries its label on the map (MSG41, D-092 rule 2).
+    showChip: marker.status === 'unheard',
   });
 
 // Opens a popup link: true when the page took the navigation, false to let the browser follow the href.
@@ -111,7 +114,8 @@ const popupContent = (marker: MapMarker, openLink: OpenLink): HTMLElement => {
     anchor.className = `mt-1 inline-block text-xs ${LINK}`;
     // A plain click stays in the single-page app; a modified click opens a tab as any link does.
     anchor.addEventListener('click', (event) => {
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+        return;
       if (openLink(link)) event.preventDefault();
     });
     const line = document.createElement('p');
@@ -242,7 +246,9 @@ const LeafletMap: React.FC<{
       const maskRenderer = L.svg({ pane: MASK_PANE });
       for (const place of config.sovereigntyOverlay) {
         if (place.mask.length < 3) continue;
-        L.polygon(place.mask, { ...MASK_STYLE, pane: MASK_PANE, renderer: maskRenderer }).addTo(instance);
+        L.polygon(place.mask, { ...MASK_STYLE, pane: MASK_PANE, renderer: maskRenderer }).addTo(
+          instance,
+        );
       }
       const pane = instance.createPane(OVERLAY_PANE);
       pane.style.zIndex = OVERLAY_Z_INDEX;
@@ -370,7 +376,12 @@ export const LiveMapWidget: React.FC<{
   });
 
   return (
-    <div className={cn('relative h-[500px] w-full overflow-hidden rounded-panel border border-line bg-sunken shadow-raise', className)}>
+    <div
+      className={cn(
+        'relative h-[500px] w-full overflow-hidden rounded-panel border border-line bg-sunken shadow-raise',
+        className,
+      )}
+    >
       {config.data && (
         <LeafletMap
           key={config.data.tileUrl}

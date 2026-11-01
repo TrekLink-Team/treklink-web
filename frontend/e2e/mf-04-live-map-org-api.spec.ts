@@ -5,23 +5,25 @@ import { apiBase, openFromSidebar, signIn } from './support/session';
 // fleet map with its organization filter, the organization API, and the device history pages. The
 // simulated gateway of MF-02 keeps reporting TL-0009 and TL-0010.
 
-const HEADER = /^\d+ devices?, \d+ SOS open, \d+ stale/;
+const HEADER = /^\d+ devices?, \d+ SOS open$/;
 
 test('MF-04 steps 1 to 3: the Operator live map, search and the sovereignty overlay', async ({ page }) => {
   await signIn(page, 'operator');
   await expect(page).toHaveURL(/\/o\/map$/);
   await expect(page.getByText(HEADER)).toBeVisible();
+  // D-092 rule 2: every rented unit is counted by state (MSG42).
+  await expect(page.getByText(/^\d+ live, \d+ offline, \d+ not heard since handover$/)).toBeVisible();
 
   // Step 1: the units in ORG-0001's custody. TL-0017 and TL-0018 leave the map once MF-05 returns them.
   const list = page.getByLabel('Devices', { exact: true });
   for (const tag of ['TL-0009', 'TL-0010', 'TL-0019']) {
-    await expect(list.getByRole('button', { name: new RegExp(`^${tag}, `) })).toBeVisible();
+    await expect(list.getByRole('button', { name: new RegExp(`^${tag} `) })).toBeVisible();
   }
 
   // Step 2
   await page.getByPlaceholder('Search asset tag, holder or contract').fill('TL-0010');
   await expect(list.getByRole('button')).toHaveCount(1);
-  await expect(list.getByRole('button', { name: /^TL-0010, Pham Van F, / })).toBeVisible();
+  await expect(list.getByRole('button', { name: /^TL-0010 .*Pham Van F / })).toBeVisible();
 
   // Step 3: the overlay labels are map markers the server lists (REQ-UBI-02, D-031); they are drawn at
   // every zoom. Zoom out as the presenter does, then read the credit and the three basemaps.
@@ -51,7 +53,7 @@ test('MF-04 step 4: Staff filter the fleet map by organization', async ({ page }
   await expect(filter.locator('option:checked')).toHaveText('All organizations');
   const org = filter.locator('option', { hasText: 'ORG-0001' });
   await filter.selectOption((await org.getAttribute('value')) ?? '');
-  await expect(page.getByLabel('Devices', { exact: true }).getByRole('button', { name: /^TL-0009, / })).toBeVisible();
+  await expect(page.getByLabel('Devices', { exact: true }).getByRole('button', { name: /^TL-0009 / })).toBeVisible();
 });
 
 test('MF-04 step 5: the organization API answers with the X-Api-Key', async ({ request }) => {

@@ -181,9 +181,16 @@
   .tl-marker--attention {
     background: #b86e00;
   }
+  /* Offline: heard during the contract, silent past the threshold (D-092 rule 2). */
   .tl-marker--stale {
-    background: #6b7378;
+    background: rgb(var(--tl-marker-offline));
     border-style: dashed;
+  }
+  /* Not heard since handover: a pin at the counter, its point at the bottom (D-092 rule 2). */
+  .tl-marker--unheard {
+    background: rgb(var(--tl-marker-unheard));
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
   }
   .tl-marker--sos {
     width: 20px;

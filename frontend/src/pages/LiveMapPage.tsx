@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import type { SnapshotDevice } from '../entities/live-map/api';
-import { isStale } from '../entities/live-map/model';
+import type { SnapshotDevice, UnitState } from '../entities/live-map/api';
+import { byUnitState, unitStateOf } from '../entities/live-map/model';
 import { useLiveMap } from '../entities/live-map/useLiveMap';
 import { useOrganizations } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
@@ -29,6 +29,10 @@ const MSG26 = 'You do not have access to this.';
 const MSG32 = 'Reconnecting. Live data is paused.';
 const MSG01 = 'No results match your filters.';
 const EMPTY_ORG = 'No devices are out on rent. Devices appear here from handover to check-in.';
+// D-092 rule 2 (frontend REQ-UBI-10): the label of a unit not heard since its handover, and the summary.
+const MSG41 = 'Not heard since handover';
+const MSG42 = (live: number, offline: number, notHeard: number) =>
+  `${live} live, ${offline} offline, ${notHeard} not heard since handover`;
 
 // How often staleness is re-evaluated against the clock between stream entries.
 const CLOCK_TICK_MS = 15_000;
@@ -55,31 +59,55 @@ const incidentText = (device: SnapshotDevice) =>
 
 interface Row {
   device: SnapshotDevice;
-  stale: boolean;
+  state: UnitState;
 }
 
-const statusLine = ({ device, stale }: Row): string => {
+const statusLine = ({ device, state }: Row): string => {
+  if (state === 'NOT_HEARD') {
+    // Only the fleet map keeps a reading from before the handover (monitoring REQ-UBI-04).
+    return device.lastSeenAt
+      ? `${MSG41}, last seen ${formatDateTime(device.lastSeenAt)}, before handover`
+      : MSG41;
+  }
   if (!device.lastSeenAt) return 'No position yet';
   const seen = formatDateTime(device.lastSeenAt);
-  if (stale) return `Stale, last seen ${seen}`;
+  if (state === 'OFFLINE') return `Offline, last seen ${seen}`;
   return device.position ? `Last seen ${seen}` : `No position yet, last seen ${seen}`;
 };
 
+// A unit not heard since handover is pinned at the counter that handed it over, the last place it was
+// known to be; a live or offline unit at its last position from the custody interval.
+const pointOf = ({ device, state }: Row): [number, number] | null => {
+  if (state === 'NOT_HEARD')
+    return device.counterLocation ? [device.counterLocation.lat, device.counterLocation.lon] : null;
+  return device.position ? [device.position.lat, device.position.lon] : null;
+};
+
 const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
-  const { device, stale } = row;
-  if (!device.position) return null;
+  const { device, state } = row;
+  const position = pointOf(row);
+  if (!position) return null;
   const incident = incidentText(device);
   return {
     id: device.id,
-    position: [device.position.lat, device.position.lon],
+    position,
     title: device.assetTag,
     subtitle: [holderOf(device), incident].filter(Boolean).join(', '),
-    status: sosOf(device) ? 'incident' : stale ? 'stale' : 'ok',
+    status: sosOf(device)
+      ? 'incident'
+      : state === 'NOT_HEARD'
+        ? 'unheard'
+        : state === 'OFFLINE'
+          ? 'stale'
+          : 'ok',
     details: [
       `Contract ${device.contractCode}`,
       `Variant ${device.hardwareVariant}`,
       device.batteryPct === null ? 'Battery unknown' : `Battery ${device.batteryPct}%`,
       statusLine(row),
+      ...(state === 'NOT_HEARD' && device.counterLocation
+        ? [`Pinned at ${device.counterLocation.name}, the handover location`]
+        : []),
     ],
     // Screen 9.1: the popup opens the device's telemetry history (screen 9.2) in the same scope; the
     // asset tag travels along for the history heading.
@@ -121,24 +149,27 @@ const DeviceRow: React.FC<{
   selected: boolean;
   onSelect: () => void;
 }> = ({ row, scope, selected, onSelect }) => {
-  const { device, stale } = row;
+  const { device, state } = row;
+  // The button's accessible name is its visible text (WCAG 2.5.3): asset tag, badge, battery, holder
+  // and status line, read in that order. The spaces between the parts are not drawn in the flex and
+  // block layout; they keep the parts apart in the name.
   return (
     <li className={cn('border-b border-line px-4 py-3', selected && 'bg-chrome/60')}>
       <button
         type="button"
         onClick={onSelect}
-        disabled={!device.position}
+        disabled={!pointOf(row)}
         className="block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus disabled:cursor-default"
-        aria-label={`${device.assetTag}, ${holderOf(device)}, ${statusLine(row)}`}
       >
         <span className="flex items-center gap-2">
-          <span className="font-semibold text-ink">{device.assetTag}</span>
-          {stale && <Badge tone="ended">Stale</Badge>}
+          <span className="font-semibold text-ink">{device.assetTag}</span>{' '}
+          {state === 'OFFLINE' && <Badge tone="waiting">Offline</Badge>}
+          {state === 'NOT_HEARD' && <Badge tone="ended">Not heard</Badge>}{' '}
           {device.batteryPct !== null && (
             <span className="ml-auto text-body-sm text-ink-muted">{device.batteryPct}%</span>
           )}
-        </span>
-        <span className="block text-body-sm text-ink-muted">{holderOf(device)}</span>
+        </span>{' '}
+        <span className="block text-body-sm text-ink-muted">{holderOf(device)}</span>{' '}
         <span className="block text-body-sm text-ink-muted">{statusLine(row)}</span>
       </button>
       {device.openIncident && (
@@ -176,18 +207,15 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const navigate = useNavigate();
 
   const staleAfterSeconds = config.data?.staleAfterSeconds;
+  // Live units first, then offline, then not heard since handover (REQ-UBI-10).
   const rows: Row[] = useMemo(
     () =>
-      (state?.order ?? [])
-        .map((id) => state?.devices[id])
-        .filter((device): device is SnapshotDevice => device !== undefined)
-        .map((device) => ({
-          device,
-          stale:
-            staleAfterSeconds === undefined
-              ? device.stale
-              : isStale(device, now, staleAfterSeconds),
-        })),
+      byUnitState(
+        (state?.order ?? [])
+          .map((id) => state?.devices[id])
+          .filter((device): device is SnapshotDevice => device !== undefined)
+          .map((device) => ({ device, state: unitStateOf(device, now, staleAfterSeconds) })),
+      ),
     [state, now, staleAfterSeconds],
   );
   const markers = useMemo(
@@ -206,7 +234,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
       )
     : rows;
   const sosCount = rows.filter(({ device }) => sosOf(device)).length;
-  const staleCount = rows.filter((row) => row.stale).length;
+  const count = (unit: UnitState) => rows.filter((row) => row.state === unit).length;
 
   const error = snapshot.error;
   // A refused filter (400) offers the way back to the whole fleet; anything else offers a reload.
@@ -251,7 +279,10 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
             onLink={(link) => navigate(link.to, { state: link.state })}
             className="h-full min-h-[60vh] rounded-none border-0 lg:min-h-0"
           />
-          <MapLegend className="absolute bottom-3 left-3 z-[500]" />
+          <MapLegend
+            className="absolute bottom-3 left-3 z-[500]"
+            states={['fresh', 'stale', 'unheard', 'sos']}
+          />
         </div>
         <aside
           aria-label="Devices"
@@ -259,10 +290,12 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
         >
           <div className="space-y-3 border-b border-line p-4">
             <h2 className="font-display text-body-lg font-extrabold text-ink">{title}</h2>
-            <p className="text-body-sm text-ink-muted" aria-live="polite">
-              {rows.length} {rows.length === 1 ? 'device' : 'devices'}, {sosCount} SOS open,{' '}
-              {staleCount} stale
-            </p>
+            <div className="text-body-sm text-ink-muted" aria-live="polite">
+              <p>
+                {rows.length} {rows.length === 1 ? 'device' : 'devices'}, {sosCount} SOS open
+              </p>
+              <p>{MSG42(count('LIVE'), count('OFFLINE'), count('NOT_HEARD'))}</p>
+            </div>
             {scope === 't' && (
               <OrganizationFilter value={organizationId} onChange={setOrganizationId} />
             )}
