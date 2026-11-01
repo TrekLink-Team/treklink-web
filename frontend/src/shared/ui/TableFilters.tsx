@@ -1,4 +1,5 @@
 import React from 'react';
+import { FOCUS } from './styles';
 
 // The in-table filter pattern: every list table carries a filter row inside its header, one control
 // under each filterable column, and the same controls as a bar above the cards below 768 px. A text
@@ -14,9 +15,7 @@ export interface FilterField {
   placeholder?: string;
 }
 
-const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1';
-
+// The shared focus ring of styles.ts (outline 2 px, offset 2 px), the same as every other control.
 const CONTROL = `h-9 w-full min-w-0 rounded-md border border-line-strong bg-surface px-2 text-sm font-normal normal-case tracking-normal text-ink ${FOCUS}`;
 
 const CLEAR = `h-9 whitespace-nowrap rounded-md px-2 text-sm font-semibold normal-case tracking-normal text-brand hover:bg-chrome/60 ${FOCUS}`;
@@ -103,7 +102,7 @@ export const NoMatchRow: React.FC<{ colSpan: number; onClear: () => void }> = ({
   <tr className="border-t border-line">
     <td colSpan={colSpan} className="px-4 py-6 text-center text-ink-muted">
       No rows match these filters.{' '}
-      <button type="button" className="font-semibold text-brand underline" onClick={onClear}>
+      <button type="button" className={`inline-flex min-h-11 items-center rounded-sm px-1 font-semibold text-brand underline ${FOCUS}`} onClick={onClear}>
         Clear filters
       </button>
     </td>

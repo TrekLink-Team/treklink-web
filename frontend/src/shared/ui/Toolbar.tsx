@@ -25,7 +25,7 @@ export const Toolbar: React.FC<{
           type="button"
           aria-label="Clear selection"
           onClick={selection.onClear}
-          className="flex h-9 w-9 items-center justify-center rounded-control text-ink hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+          className="flex h-9 w-9 items-center justify-center rounded-control text-ink hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
@@ -67,17 +67,20 @@ export const ToolbarSearch: React.FC<{
   </div>
 );
 
-/** An applied filter, removable. */
+/**
+ * An applied filter, removable. The remove button looks 28 px but its hit area reaches 44 px
+ * through an inset pseudo-element (WCAG 2.5.8; TrekLink default for touch targets).
+ */
 export const FilterChip: React.FC<{ label: string; onRemove: () => void }> = ({ label, onRemove }) => (
-  <span className="inline-flex h-8 items-center gap-1 rounded-control bg-chrome pl-2.5 pr-1 text-body-sm font-semibold text-ink">
+  <span className="inline-flex h-9 items-center gap-1 rounded-control bg-chrome pl-2.5 pr-1 text-body-sm font-semibold text-ink">
     {label}
     <button
       type="button"
       aria-label={`Remove filter ${label}`}
       onClick={onRemove}
-      className="flex h-6 w-6 items-center justify-center rounded-sm text-ink-muted hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+      className="relative flex h-7 w-7 items-center justify-center rounded-sm text-ink-muted before:absolute before:-inset-2 before:content-[''] hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
     >
-      <X aria-hidden="true" className="h-3.5 w-3.5" />
+      <X aria-hidden="true" className="h-4 w-4" />
     </button>
   </span>
 );

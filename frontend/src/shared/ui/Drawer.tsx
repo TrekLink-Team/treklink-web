@@ -57,7 +57,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             type="button"
             aria-label={`Close ${title}`}
             onClick={onClose}
-            className="ml-auto flex h-11 w-11 items-center justify-center rounded-control hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+            className="ml-auto flex h-11 w-11 items-center justify-center rounded-control hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             <X aria-hidden="true" className="h-5 w-5" />
           </button>

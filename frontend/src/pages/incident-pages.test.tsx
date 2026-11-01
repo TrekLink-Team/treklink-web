@@ -190,7 +190,7 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     await waitFor(() => expect(lastGet()).not.toContain('state='));
     fireEvent.click(screen.getByLabelText('Open incidents only'));
     await waitFor(() => expect(lastGet()).not.toContain('open='));
-    fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Next page' }));
     await waitFor(() => expect(lastGet()).toContain('pageNumber=2'));
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
     await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1'));
