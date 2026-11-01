@@ -6,10 +6,15 @@ EVENT = {"seq": 88213, "eventId": "5d41402abc4b2a76b9719d911017c592...", "device
          "longitude": 108.5402, "altitude": 1320, "batteryPct": 81, "rssi": -97, "snr": 6.25, "hopsAway": 1,
          "plotted": True, "incidentId": None}
 INTERNAL = ("Broker only: the request must come from the broker's network and carry "
-            "`X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`")
+            "`X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`, compared in constant time. go-auth's HTTP "
+            "backend sends no custom header, so the opt-in broker of `docker-compose.broker-auth.yml` calls "
+            "through `broker-hook-proxy`, which adds it (design §4). Public to the JWT guard: the broker "
+            "carries no user token")
+# With MQTT_AUTH_HOOK_SECRET unset the hooks do not exist; the default open broker never calls them.
+UNSET = (404, "NOT_FOUND", "The hook secret variable is unset", "Not found.")
 
 ENDPOINTS = [
-    ep("POST", "/api/internal/mqtt/user", "Broker credential check", "Internal (broker)",
+    ep("POST", "/api/internal/mqtt/user", "Broker credential check", "Public (broker hook secret)",
        "Called by the mosquitto-go-auth HTTP backend (`auth_opt_http_getuser_uri`, JSON params, status "
        "response mode) when a client connects. Allows the backend's subscriber, Stage A and B fleet nodes, and "
        "Field Station credentials that are not revoked and whose organization is not `CLOSED`; a "
@@ -20,7 +25,7 @@ ENDPOINTS = [
              ["clientid", "MQTT client id", "string", "yes", "`fieldstation-7f3a`"]],
        sample={"username": "fs-org-0007-1", "password": "fs_s3cr3t...", "clientid": "fieldstation-7f3a"},
        response={"allowed": True, "kind": "FIELD_STATION"}, message="OK", notes=INTERNAL,
-       errors=[(401, "BROKER_SECRET", "The hook secret is missing or wrong", "Authentication required."),
+       errors=[(401, "BROKER_SECRET", "The hook secret is missing or wrong", "Authentication required."), UNSET,
                (403, "CREDENTIAL_REJECTED", "Unknown username, wrong secret, revoked credential or closed organization",
                 "Denied.")],
        steps=["Check X-Broker-Secret", "Resolve the username: backend, fleet node or Field Station",
@@ -29,7 +34,7 @@ ENDPOINTS = [
        participants=[["Org", "OrganizationsService"]],
        seq=["Svc->>Org: fieldStationByUsername(username)", "Svc->>Svc: bcrypt.compare"]),
 
-    ep("POST", "/api/internal/mqtt/acl", "Broker topic check", "Internal (broker)",
+    ep("POST", "/api/internal/mqtt/acl", "Broker topic check", "Public (broker hook secret)",
        "Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station may publish only "
        "under `treklink/fs/<its username>/#` and never subscribe; a fleet node only under its own Stage A "
        "topics; the backend subscriber may subscribe to `treklink/#` and publish nothing. Which devices a "
@@ -42,7 +47,7 @@ ENDPOINTS = [
        sample={"username": "fs-org-0007-1", "clientid": "fieldstation-7f3a",
                "topic": "treklink/fs/fs-org-0007-1/2/json/LongFast/!a4b1c2d3", "acc": 2},
        response={"allowed": True}, message="OK", notes=INTERNAL,
-       errors=[(401, "BROKER_SECRET", "The hook secret is missing or wrong", "Authentication required."),
+       errors=[(401, "BROKER_SECRET", "The hook secret is missing or wrong", "Authentication required."), UNSET,
                (403, "TOPIC_DENIED", "The topic or access is outside the credential's pattern", "Denied.")],
        steps=["Check X-Broker-Secret", "Match the topic and access against the credential kind's pattern"],
        actor="Mosquitto", controller="BrokerAuthController", service="BrokerAuthService", call="checkAcl(dto)",

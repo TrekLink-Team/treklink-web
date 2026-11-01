@@ -14,9 +14,9 @@ Called by the mosquitto-go-auth HTTP backend (`auth_opt_http_getuser_uri`, JSON 
 | API | URL |
 | --- | --- |
 | POST | /api/internal/mqtt/user |
-| Permission | Internal (broker) |
+| Permission | Public (broker hook secret) |
 | Traces | FR-EVT-14, D-037, BR-20, NFR-SEC-02 |
-| Notes | Broker only: the request must come from the broker's network and carry `X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET` |
+| Notes | Broker only: the request must come from the broker's network and carry `X-Broker-Secret` equal to `MQTT_AUTH_HOOK_SECRET`, compared in constant time. go-auth's HTTP backend sends no custom header, so the opt-in broker of `docker-compose.broker-auth.yml` calls through `broker-hook-proxy`, which adds it (design §4). Public to the JWT guard: the broker carries no user token |
 
 ## Request sample
 
@@ -74,40 +74,6 @@ Called by the mosquitto-go-auth HTTP backend (`auth_opt_http_getuser_uri`, JSON 
         </tr>
         <tr>
             <td>401</td>
-            <td>Missing, malformed or expired access token or API key (<code>UNAUTHENTICATED</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "UNAUTHENTICATED"
-  },
-  "isSuccess": false,
-  "statusCode": 401,
-  "message": "Authentication required."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>403</td>
-            <td>The caller's role, policy or organization does not allow this action (<code>FORBIDDEN</code>)</td>
-<td>
-
-```json
-{
-  "result": {
-    "errorCode": "FORBIDDEN"
-  },
-  "isSuccess": false,
-  "statusCode": 403,
-  "message": "You do not have access to this."
-}
-```
-</td>
-        </tr>
-        <tr>
-            <td>401</td>
             <td>The hook secret is missing or wrong (<code>BROKER_SECRET</code>)</td>
 <td>
 
@@ -119,6 +85,23 @@ Called by the mosquitto-go-auth HTTP backend (`auth_opt_http_getuser_uri`, JSON 
   "isSuccess": false,
   "statusCode": 401,
   "message": "Authentication required."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>404</td>
+            <td>The hook secret variable is unset (<code>NOT_FOUND</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "NOT_FOUND"
+  },
+  "isSuccess": false,
+  "statusCode": 404,
+  "message": "Not found."
 }
 ```
 </td>
@@ -148,15 +131,20 @@ Called by the mosquitto-go-auth HTTP backend (`auth_opt_http_getuser_uri`, JSON 
 ```mermaid
 flowchart TB
     S((Start))
-    A0["Check token, policy and organization scope"]
+    A0["Accept request"]
     S --> A0
     D1{"The body or query fails validation?"}
     A0 --> D1
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
+    D2{"The hook secret variable is unset?"}
+    D1 -->|no| D2
+    E2["Return 404 NOT_FOUND"]
+    D2 -->|yes| E2
+    E2 --> X2((End))
     P0["Check X-Broker-Secret"]
-    D1 -->|no| P0
+    D2 -->|no| P0
     P1["Resolve the username: backend, fleet node or Field Station"]
     P0 --> P1
     P2["bcrypt.compare the secret against secretHash"]

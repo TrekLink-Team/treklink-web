@@ -140,6 +140,27 @@ fresh connection; the backend additionally drops every message from a revoked us
 | Fleet node (Stage A, B) | `node-<nodeId>` | `treklink/2/json/+/<nodeId>`, `treklink/2/e/+/<nodeId>` | none |
 | Field Station | `fs-<org>-<n>` | `treklink/fs/<username>/#` | none |
 
+Implementation notes (2026-11-01, KhoaDD under D-078, task 3.1):
+
+- `BrokerAuthController` (`broker-hooks.controller.ts`) and `BrokerAuthService` serve api-design 01 and 02.
+  `MQTT_AUTH_HOOK_SECRET` unset: both routes answer 404 and the open broker of `docker-compose.yml` never
+  calls them. Set: `X-Broker-Secret` is compared in constant time before the body is validated.
+  `treklink` in the table is `MQTT_ROOT`. The backend subscriber may read (`acc` 1) and subscribe (`acc` 4)
+  under `<root>/`; nodes and stations may only write (`acc` 2); go-auth's `acc` 3 is denied to every kind.
+  A Field Station is refused when unknown, revoked, of a `CLOSED` organization (`StationCredential.organizationStatus`)
+  or with a wrong secret. A fleet node is refused for now: the table names its username but no stored
+  secret to check its password against (task 3.1, open).
+- go-auth's HTTP backend sets only `Content-Type` and `User-Agent` and has no option for another header
+  (`backends/http.go`, read 2026-11-01; the plugin's repository is archived). The opt-in broker of
+  `docker-compose.broker-auth.yml` therefore calls `broker-hook-proxy`, an nginx on the compose network that
+  adds `X-Broker-Secret` from the environment and forwards the two hook paths to the backend, so the secret
+  is in no committed file and in no URL. Broker: `iegomez/mosquitto-go-auth:3.0.0-mosquitto_2.0.18`
+  with `infra/mosquitto/mosquitto.auth.conf` (`auth_opt_disable_superuser true`, cache 60 s). Walked on
+  2026-11-01: the backend subscriber connected with `MQTT_USERNAME`; a station connected and published under
+  its own topic; a wrong secret and an anonymous client were refused at CONNECT; a publish under another
+  station's topic got PUBACK reason 135; after a revoke the station still connected 1 s later (cache) and
+  was refused 62 s later (organizations AC-06).
+
 ---
 
 ## 5. Services and ports
