@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
@@ -93,6 +93,23 @@ describe('AlertBanner in poll mode (D-089, no socket)', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('TL-0009');
     expect(fetchFleetIncidents).toHaveBeenCalledWith(['UNROUTED', 'ESCALATED'], 1);
     expect(screen.getByRole('link', { name: 'Open queue' })).toBeTruthy();
+  });
+
+  it('shows no device-silent banner, which needs the socket (REQ-EVT-05)', async () => {
+    poll.on = true;
+    fetchIncidents.mockResolvedValue({
+      items: [{ ...incident('ACKNOWLEDGED', { id: 'u-1', fullName: 'Op' }), stale: true }],
+    });
+    render(<AlertBanner />);
+    await waitFor(() => expect(fetchIncidents).toHaveBeenCalled());
+    push(
+      entry('incident.alert', {
+        incidentId: 'inc-ACKNOWLEDGED',
+        kind: 'STALE',
+        message: 'Device silent: TL-0009 (Le Thi E), last heard 10:02.',
+      }),
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('reads nothing while the socket is the transport', () => {
@@ -235,6 +252,21 @@ describe('AlertBanner', () => {
       expect(screen.getByRole('alert').textContent).toContain('SOS: TL-0042');
       expect(screen.getByRole('alert').textContent).toContain('(+1 more)');
       expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeTruthy();
+    });
+
+    it('stays after the SOS of the same incident is acknowledged', async () => {
+      acknowledgeIncident.mockResolvedValue(undefined);
+      render(<AlertBanner />);
+      push(entry('incident.alert', alertPayload));
+      push(entry('incident.alert', silent));
+      fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
+      await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Device silent'));
+      expect(screen.getByRole('alert').textContent).not.toContain('more');
+      expect(
+        within(screen.getByRole('alert')).getByRole('button', { name: 'Dismiss' }),
+      ).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Acknowledge' })).toBeNull();
+      expect(screen.getByText('Saved.')).toBeTruthy();
     });
 
     it('stays for the owner of an acknowledged incident, and goes when the incident ends', () => {
