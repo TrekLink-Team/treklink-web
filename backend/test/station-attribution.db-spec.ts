@@ -453,6 +453,7 @@ describe('Station attribution (AC-06 to AC-08) against Postgres', () => {
         outcome: 'NOT_RENTED_TO_STATION_ORG',
         ingress: 'FIELD_STATION',
         uplinkKey: stationA.username,
+        detail: `the organization of Field Station ${stationA.username} neither holds the device nor returned it within the late-upload grace`,
       }),
     ]);
   });
