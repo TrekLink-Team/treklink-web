@@ -21,11 +21,21 @@ the same file and listed in the
 
 ## Switching to the broker with credentials
 
-1. Give the backend a hook secret of at least 16 characters, and the backend subscriber a credential,
-   in `backend/.env` (or the shell that starts it):
+1. Give the backend a hook secret, and the backend subscriber a credential, in `backend/.env` (or the
+   shell that starts it). The hook secret must be hexadecimal, at least 16 characters: the proxy
+   template writes it inside a double-quoted nginx string, where a quote, a dollar sign or a backslash
+   would break or change the header. Generate one with either command:
 
    ```bash
-   MQTT_AUTH_HOOK_SECRET="<a long random value>"
+   openssl rand -hex 32
+   ```
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   ```bash
+   MQTT_AUTH_HOOK_SECRET="<the hex value>"
    MQTT_USERNAME="treklink-backend"
    MQTT_PASSWORD="<another long random value>"
    # optional, for Stage A and B fleet nodes:
@@ -71,8 +81,11 @@ hosted broker (D-055).
 
 ## What the broker with credentials does not yet allow
 
-- The Stage B bridge of `gateway/` when it publishes node topics without credentials, as the demo does.
-  Keep the default broker for that flow.
+- The Stage B bridge of `gateway/`. Without credentials it is refused at CONNECT; with its station's
+  credential only its health report on `treklink/fs/<username>/health` is allowed, and its uplinks on the
+  node topics `treklink/2/json/<channel>/<nodeId>` are refused, because a Field Station may publish only
+  under `treklink/fs/<username>/#` (design §4, gateway-sync task 3.1, open). Keep the default broker for
+  that flow.
 
 ## Checking it by hand
 
