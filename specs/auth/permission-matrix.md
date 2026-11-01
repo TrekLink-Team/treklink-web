@@ -82,3 +82,6 @@
 | `liveMap.read.own` | read | LiveMap | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `telemetryHistory.read` | read | TelemetryHistory |  | TREKLINK | X | X |  |  |
 | `telemetryHistory.read.own` | read | TelemetryHistory | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
+| `demo.stage` | stage | Demo |  | TREKLINK | X |  |  |  |
+| `demo.switchRole` | switchRole | Demo |  | TREKLINK | X | X |  |  |
+| `demo.switchRole.org` | switchRole | Demo |  | ORGANIZATION |  |  | X | X |

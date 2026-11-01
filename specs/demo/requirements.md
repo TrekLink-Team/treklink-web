@@ -18,7 +18,7 @@
   - Any use against a shared or production database; the module refuses both
   - New business rules: a scenario only calls services that already exist, or a small exported read or command added to the owning module
   - Loss cases (scenario 7 is listed as unavailable until treklink-web#228)
-- **Depends on**: `platform`, `auth`, `organizations`, `devices`, `billing`, `rentals`, `gateway-sync` (design Figure 1).
+- **Depends on**: `platform`, `auth`, `organizations`, `devices`, `billing`, `rentals`, `incidents`, `gateway-sync` (design Figure 1).
 
 ## 2. EARS Functional Criteria
 

@@ -16,6 +16,7 @@ export {
   type BillableMonthlyContract,
   type BillableTerm,
 } from './invoices.service';
+export type { InvoiceWithLines, LineRow as InvoiceLineRow } from './invoices.repository';
 export { ceilVnd, dayPlanFeeVnd, holdingFeeVnd, termFeeVnd } from './money';
 export {
   PAYMENT_CONFIRMED,

@@ -32,6 +32,6 @@ import { VariantsController } from './variants.controller';
     { provide: LOSS_CASE_LISTENERS, useFactory: (): LossCaseListener[] => [] },
     LossCaseNotifier,
   ],
-  exports: [DevicesService, LOSS_CASE_LISTENERS],
+  exports: [DevicesService, LOSS_CASE_LISTENERS, MaintenanceService],
 })
 export class DevicesModule {}

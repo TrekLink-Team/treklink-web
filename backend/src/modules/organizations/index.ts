@@ -7,6 +7,10 @@ export type {
   OrganizationParty,
 } from './organizations.repository';
 export { RosterService } from './roster.service';
+export {
+  OrganizationOnboardingService,
+  type Registration,
+} from './organization-onboarding.service';
 export type { RosterTiers } from './roster.service';
 export {
   ORGANIZATION_STATUS_CHANGED,

@@ -18,6 +18,9 @@ export type {
   VariantSummary,
 } from './devices.repository';
 export { fromNodeId, toNodeId } from './node-id';
+// demo module (D-088): the asset-maintenance scenario opens a record as Staff would.
+export { MaintenanceService } from './maintenance.service';
+export type { OpenMaintenanceDto } from './dto/maintenance.dto';
 export {
   LOSS_CASE_LISTENERS,
   type LossCaseListener,

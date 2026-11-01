@@ -159,6 +159,17 @@ export class DevicesService {
     private readonly organizations: OrganizationsService,
   ) {}
 
+  // One device by its asset tag with its version, or null (demo module, D-088).
+  byAssetTag(assetTag: string) {
+    return this.devices.findByAssetTag(assetTag);
+  }
+
+  // Makes a unit due for service on `serviceDueAt` (demo module's asset-maintenance scenario, D-088), so a
+  // passed inspection or the fleet list shows it due within devices.maintenanceLeadDays (REQ-EVT-07).
+  scheduleService(deviceId: string, serviceDueAt: Date): Promise<void> {
+    return this.devices.setServiceDue(deviceId, serviceDueAt);
+  }
+
   byNodeNum(nodeNum: bigint, tx?: Prisma.TransactionClient): Promise<DeviceIdentity | null> {
     return this.devices.findByNodeNum(nodeNum, tx);
   }

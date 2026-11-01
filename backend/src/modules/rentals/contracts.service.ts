@@ -353,6 +353,30 @@ export class ContractsService {
     return this.contracts.countRunningContracts(organizationId);
   }
 
+  // A contract by its code, or null (demo module, D-088).
+  byCode(code: string): Promise<ContractRow | null> {
+    return this.contracts.findByCode(code);
+  }
+
+  // The demo time shift of MF-05 (D-088, specs/demo/design.md §5): the open term now ends at `endsAt`,
+  // and starts a day earlier when it would otherwise end before it starts, so the next term rollover
+  // closes it. Refused with 409 INVALID_STATE_TRANSITION when the contract has no open term.
+  async endOpenTermAt(contractId: string, endsAt: Date): Promise<{ seq: number; endsAt: Date }> {
+    return this.events.transaction(async (tx) => {
+      const term = await this.contracts.openTerm(contractId, tx);
+      if (!term) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.INVALID_STATE_TRANSITION,
+          'This contract has no open term.',
+        );
+      }
+      const startsAt = term.startsAt < endsAt ? term.startsAt : new Date(endsAt.getTime() - DAY_MS);
+      await this.contracts.setTermDates(term.id, { startsAt, endsAt }, tx);
+      return { seq: term.seq, endsAt };
+    });
+  }
+
   // ORGANIZATION_EXIT_CHECKS.canClose: an organization with a contract that is not REJECTED,
   // CANCELLED or CLOSED may not close. `tx` is the closing transaction (RentalsOrganizationExitCheck).
   async canClose(organizationId: string, tx?: Prisma.TransactionClient): Promise<boolean> {

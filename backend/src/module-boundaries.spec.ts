@@ -10,7 +10,8 @@ import {
   readOwnership,
 } from '../scripts/check-module-boundaries';
 
-// The nine modules of D-033 (specs/platform design §2.1).
+// The nine modules of D-033 (specs/platform design §2.1), and `demo`, the local demo control panel
+// loaded only when DEMO_CONTROLS_ENABLED is true (D-088).
 const MODULES = [
   'platform',
   'auth',
@@ -21,6 +22,7 @@ const MODULES = [
   'incidents',
   'gateway-sync',
   'monitoring',
+  'demo',
 ];
 
 const SCHEMA = `
@@ -248,10 +250,11 @@ describe('the real schema, design and source tree', () => {
 
   it('gives every model an owning module', () => {
     const modules = new Set([...real.values()].map((o) => o.module));
-    expect(modules).toEqual(new Set(MODULES));
+    // `demo` owns no model: it resets tables by name and seeds through the demo seed (D-088).
+    expect(modules).toEqual(new Set(MODULES.filter((m) => m !== 'demo')));
   });
 
-  it('draws the nine modules in Figure 3', () => {
+  it('draws the ten modules in Figure 3', () => {
     expect(new Set(graph.keys())).toEqual(new Set(MODULES));
   });
 

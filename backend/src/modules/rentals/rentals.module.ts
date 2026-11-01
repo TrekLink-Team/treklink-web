@@ -49,6 +49,12 @@ import { TermRolloverJob } from './term-rollover.job';
     RentalsOrganizationExitCheck,
     RentalsOrganizationCount,
   ],
-  exports: [ContractLifecycleService, ContractsService],
+  exports: [
+    ContractLifecycleService,
+    ContractsService,
+    // demo module (D-088): the MF-01 approval and the MF-05 notice and term rollover.
+    ContractDecisionsService,
+    TermRolloverJob,
+  ],
 })
 export class RentalsModule {}

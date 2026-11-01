@@ -12,3 +12,9 @@ export const latestRentalDailyCutoff = (at: Date, hourLocal: number): Date => {
   const today = localDay * DAY_MS + hourLocal * HOUR_MS - VIETNAM_OFFSET_MS;
   return new Date(today > at.getTime() ? today - DAY_MS : today);
 };
+
+// The term end that makes the next rollover close a term at once: one minute before the latest daily
+// cutoff, never in the future and at most a day ago. Used by the demo time shift of MF-05
+// (`prisma/demo-term-end.ts` and the demo module's `term-ended` scenario, D-088).
+export const rolloverTermEnd = (now: Date, hourLocal: number): Date =>
+  new Date(latestRentalDailyCutoff(now, hourLocal).getTime() - 60_000);

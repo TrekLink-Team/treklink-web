@@ -16,6 +16,7 @@ import { StationHealthHandler } from './station-health.handler';
 import { SyncAuditService } from './sync-audit.service';
 import { SyncQueryRepository } from './sync-query.repository';
 import { SyncStatusService } from './sync-status.service';
+import { UplinkIngress } from './uplink-ingress';
 
 // Field event ingestion over MQTT (specs/gateway-sync/design.md): the node JSON path into field_events,
 // attributed to the custody interval of `rentals`, the device projection, and post-commit
@@ -42,7 +43,8 @@ import { SyncStatusService } from './sync-status.service';
     FieldEventQueryService,
     SyncStatusService,
     SyncAuditService,
+    UplinkIngress,
   ],
-  exports: [FieldEventQueryService],
+  exports: [FieldEventQueryService, UplinkIngress],
 })
 export class GatewaySyncModule {}

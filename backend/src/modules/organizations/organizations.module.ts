@@ -78,6 +78,8 @@ import { ShiftsService } from './shifts.service';
   ],
   exports: [
     OrganizationsService,
+    // demo module (D-088): the org-pending-approval scenario registers ORG-0002.
+    OrganizationOnboardingService,
     RosterService,
     FieldStationsService,
     FieldStationReleaseService,

@@ -147,6 +147,7 @@ flowchart TB
     DEMO --> DEVS
     DEMO --> BILL
     DEMO --> RENT
+    DEMO --> INC
     DEMO --> GWS
     ORG -.->|"provides ACCOUNT_CONTEXT_PROVIDER, API_KEY_RESOLVER"| AUTH
     BILL -.->|"provides ORGANIZATION_EXIT_CHECKS"| ORG

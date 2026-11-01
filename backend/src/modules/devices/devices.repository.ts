@@ -43,6 +43,22 @@ const IDENTITY = { id: true, assetTag: true, nodeNum: true, status: true } as co
 export class DevicesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // One device by its asset tag (demo module, D-088).
+  findByAssetTag(assetTag: string, client: Client = this.prisma) {
+    return client.device.findUnique({
+      where: { assetTag },
+      select: { ...IDENTITY, version: true },
+    });
+  }
+
+  // The next service date, outside any other change (demo module, D-088); the status is unchanged.
+  async setServiceDue(id: string, serviceDueAt: Date, client: Client = this.prisma): Promise<void> {
+    await client.device.update({
+      where: { id },
+      data: { serviceDueAt, version: { increment: 1 } },
+    });
+  }
+
   findByNodeNum(nodeNum: bigint, client: Client = this.prisma): Promise<DeviceIdentity | null> {
     return client.device.findUnique({ where: { nodeNum }, select: IDENTITY });
   }

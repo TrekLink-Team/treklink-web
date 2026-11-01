@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConditionalModule, ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth';
 import { BillingModule } from './modules/billing';
+import { DemoModule, demoControlsEnabled } from './modules/demo';
 import { DevicesModule } from './modules/devices';
 import { GatewaySyncModule } from './modules/gateway-sync';
 import { IncidentsModule } from './modules/incidents';
@@ -35,6 +36,9 @@ import { RentalsModule } from './modules/rentals';
     IncidentsModule,
     MonitoringModule,
     RentalsModule,
+    // The local demo control panel (D-088), only when DEMO_CONTROLS_ENABLED is true: every /api/demo
+    // route is a 404 otherwise.
+    ConditionalModule.registerWhen(DemoModule, demoControlsEnabled),
   ],
 })
 export class AppModule {}

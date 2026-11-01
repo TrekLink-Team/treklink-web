@@ -128,6 +128,8 @@ enum AuthEventType {
   ACCOUNT_LOCKED
   ACCOUNT_DEACTIVATED
   ACCOUNT_REACTIVATED
+  // A demo role switch (D-088, specs/demo/design.md §6): a token pair issued without a password.
+  DEMO_SWITCH
 }
 
 // Any account. Email is the login key (SRS Table 74). Soft-deleted (FR-AUTH-09).
