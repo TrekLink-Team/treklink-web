@@ -7,7 +7,7 @@ import { FieldStationsService } from '../organizations';
 import { ContractsService } from '../rentals';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
-import { attribute, stationMayDeliver } from './attribution';
+import { attribute, stationMayDeliver, UNATTRIBUTED_DETAIL } from './attribution';
 import { CanonicalEnvelope } from './canonical-envelope';
 import {
   FIELD_POSITION,
@@ -247,7 +247,12 @@ export class IngestionService {
         );
         if (joined) await this.repository.linkIncident(eventId, joined.id, tx);
       }
-      await this.repository.insertAudit({ ...audit, deviceId: device.id, outcome }, tx);
+      // The reason an accepted event stays UNATTRIBUTED goes in the detail (REQ-ERR-06).
+      const detail =
+        outcome === SyncOutcome.ACCEPTED_UNATTRIBUTED && !attribution.attributed
+          ? UNATTRIBUTED_DETAIL[attribution.reason]
+          : undefined;
+      await this.repository.insertAudit({ ...audit, deviceId: device.id, outcome, detail }, tx);
 
       const at = time.occurredAt.toISOString();
       if (position) {

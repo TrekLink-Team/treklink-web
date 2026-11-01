@@ -380,6 +380,7 @@ describe('Station attribution (AC-06 to AC-08) against Postgres', () => {
     });
     const audit = await prisma.syncAuditLog.findFirstOrThrow({ where: { eventId: event.eventId } });
     expect(audit.outcome).toBe('ACCEPTED_UNATTRIBUTED');
+    expect(audit.detail).toMatch(/^STATION_ORGANIZATION_DIFFERS: /);
     const incident = await prisma.incident.findFirstOrThrow({ where: { deviceId: unit.id } });
     expect(incident).toMatchObject({ organizationId: null, state: 'UNROUTED' });
     const recipients = await recipientsOf(incident.id);
@@ -408,6 +409,11 @@ describe('Station attribution (AC-06 to AC-08) against Postgres', () => {
 
     const stored = await prisma.fieldEvent.findMany({ where: { deviceId: unit.id } });
     expect(stored).toHaveLength(2);
+    const audits = await prisma.syncAuditLog.findMany({ where: { deviceId: unit.id } });
+    expect(audits.map((row) => row.detail)).toEqual([
+      expect.stringMatching(/^NEAR_HANDOVER: /),
+      expect.stringMatching(/^NEAR_HANDOVER: /),
+    ]);
     for (const event of stored) {
       expect(event).toMatchObject({
         ingress: 'MQTT_NODE',
