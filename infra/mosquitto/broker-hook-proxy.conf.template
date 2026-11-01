@@ -2,6 +2,8 @@
 # so this proxy adds X-Broker-Secret to its calls and forwards them to the backend. The nginx image
 # fills ${MQTT_AUTH_HOOK_SECRET} and ${BROKER_HOOK_BACKEND} from the environment at start. It is
 # reachable only on the compose network, serves the two hook paths only, and logs no headers.
+# MQTT_AUTH_HOOK_SECRET must be hexadecimal (`openssl rand -hex 32`): it is written inside a
+# double-quoted nginx string, where a quote, a dollar sign or a backslash would break the header.
 server {
     listen 8080;
 
