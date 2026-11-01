@@ -83,7 +83,7 @@ describe('StateChangeMenu and StateChangeDialog', () => {
     render(
       <StateChangeMenu
         subject="TL-0042"
-        transitions={[{ target: 'RETIRED', label: 'Retire device', destructive: true }]}
+        transitions={[{ target: 'RETIRED', label: 'Retire device', destructive: true, description: 'The device leaves the fleet for good.' }]}
         version={1}
         onSubmit={vi.fn()}
       />,
