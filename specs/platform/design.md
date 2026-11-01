@@ -517,8 +517,10 @@ mode is frozen as soon as its response is sent, `waitUntil` notwithstanding (tic
 (`@vercel/functions`) is still called for a runtime that honours it. A tick runs, one after another and
 longest-waiting first, every job whose cron had a fire time since its last tick run, or that has none,
 through `run()` and its advisory lock, then records the run in `job_runs` (`name`, `lastRunAt`); a run
-skipped because another instance holds the lock is not recorded. The timers stay registered everywhere;
-with the flag off (the default) nothing reads or writes `job_runs`. A daily Vercel Cron call is left out:
+skipped because another instance holds the lock is not recorded. With the flag on, the jobs are registered
+but their timers are not started: a timer fired on a thawed instance and frozen with its response held the
+job's advisory-lock transaction open, so every tick skipped that job (2026-11-01). With the flag off (the
+default) the timers run as before and nothing reads or writes `job_runs`. A daily Vercel Cron call is left out:
 the Hobby plan allows one a day, it needs a `CRON_SECRET` only the leader can set, and tester traffic
 already drives the tick.
 

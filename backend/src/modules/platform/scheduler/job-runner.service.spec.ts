@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DiscoveryModule } from '@nestjs/core';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
@@ -159,5 +160,24 @@ describe('JobRunnerService', () => {
       expect(next).not.toBeNull();
       await next;
     });
+  });
+
+  it('starts no timer when the request tick is the runner (JOBS_TICK_ON_REQUEST)', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ScheduleModule.forRoot(), DiscoveryModule],
+      providers: [
+        JobRunnerService,
+        SampleJobs,
+        { provide: PrismaService, useValue: prismaWithLock(() => true) },
+        { provide: ConfigService, useValue: { get: () => true } },
+      ],
+    }).compile();
+    await moduleRef.init();
+    try {
+      const job = moduleRef.get(SchedulerRegistry).getCronJob('sample.sweep');
+      expect(job.isActive).toBe(false);
+    } finally {
+      await moduleRef.close();
+    }
   });
 });
