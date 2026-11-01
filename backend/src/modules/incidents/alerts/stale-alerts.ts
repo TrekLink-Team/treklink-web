@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AlertChannel, AlertKind, Incident, IncidentState, Prisma } from '@prisma/client';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
 import { AlertDeliveriesRepository, NewAlertDelivery } from '../alert-deliveries.repository';
+import { isTier, tierMembers, tierOf } from '../incident-lifecycle';
 import { RoutingService } from '../routing.service';
 import { INCIDENT_ALERTS_QUEUED, IncidentAlertsQueuedEvent } from './alert-events';
 
@@ -12,11 +13,6 @@ export interface StaleAlertTargets {
 
 // The stale-flag row of design §3 goes to the web inbox and the WebSocket only, never email.
 const CHANNELS = [AlertChannel.WEB, AlertChannel.WEBSOCKET] as const;
-const TIER_OF_STATE: Partial<Record<IncidentState, 'primary' | 'backup' | 'managers'>> = {
-  NOTIFY_PRIMARY: 'primary',
-  NOTIFY_BACKUP: 'backup',
-  NOTIFY_MANAGER: 'managers',
-};
 const TREKLINK_STATES: readonly IncidentState[] = ['ESCALATED', 'UNROUTED', 'REPORTED'];
 // An ended incident keeps its flag but alerts nobody, owner or not: a device switched off after a
 // rescue is no news, and the banner would keep the alert after the incident ended.
@@ -72,10 +68,12 @@ export class StaleAlerts {
   ): Promise<StaleAlertTargets> {
     if (ENDED_STATES.includes(incident.state)) return { tier: 'NONE', recipientIds: [] };
     if (incident.ownerId) return { tier: 'OWNER', recipientIds: [incident.ownerId] };
-    const tier = TIER_OF_STATE[incident.state];
-    if (tier) {
+    if (isTier(incident.state)) {
       const recipients = await this.routing.recipientsOf(incident.organizationId, at, tx);
-      return { tier: incident.state.slice(7), recipientIds: recipients[tier] };
+      return {
+        tier: tierOf(incident.state)!,
+        recipientIds: tierMembers(incident.state, recipients),
+      };
     }
     if (TREKLINK_STATES.includes(incident.state))
       return { tier: 'TREKLINK', recipientIds: await this.routing.treklinkRecipients(tx) };
