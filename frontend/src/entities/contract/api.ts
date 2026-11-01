@@ -73,11 +73,11 @@ export interface ContractDevice {
   // The channel key version the unit carries for this organization (api-design 03); null when none.
   provisionedKeyVersion?: number | null;
   // TrekLink callers, checked-in rows: the unit's state now and its next step back to AVAILABLE,
-  // the step only on the row of its latest return (api-design 03, REQ-EVT-18, D-092 rule 4).
+  // the step only on the row of its latest return (api-design 03, REQ-EVT-19, D-092 rule 4).
   afterReturn?: { status: DeviceStatus; nextStep: NextStep | null } | null;
 }
 
-// rentals api-design 20 (REQ-EVT-17, D-092 rule 3): what still blocks the close, for Staff.
+// rentals api-design 20 (REQ-EVT-18, D-092 rule 3): what still blocks the close, for Staff.
 export type CloseBlocker =
   | { code: 'NOT_RETURNED'; message: string; waitsFor: string | null }
   | {

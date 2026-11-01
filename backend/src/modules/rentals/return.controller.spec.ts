@@ -9,7 +9,7 @@ import { ReplacementService } from './replacement.service';
 import { ReturnController } from './return.controller';
 import { ReturnService } from './return.service';
 
-// rentals api-design 20 (REQ-EVT-17, D-092 rule 3): the close check is a Staff read of the counter.
+// rentals api-design 20 (REQ-EVT-18, D-092 rule 3): the close check is a Staff read of the counter.
 describe('ReturnController close check', () => {
   const handlerOf = (method: string) =>
     Object.getOwnPropertyDescriptor(ReturnController.prototype, method)?.value as object;

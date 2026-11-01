@@ -1041,7 +1041,7 @@ sequenceDiagram
 
 ***Figure 22***: UC-51 Close Rental Contract.
 
-**Close check (REQ-EVT-17, D-092 rule 3, api-design 20).** `ReturnService.closeCheck(id)` reads, in one
+**Close check (REQ-EVT-18, D-092 rule 3, api-design 20).** `ReturnService.closeCheck(id)` reads, in one
 transaction without the contract lock, the same blockers the close refuses on and lists all of them, so
 the counter and the contract page show Staff what still stops the close and where to resolve it:
 `NOT_RETURNED` (the contract is not `RETURNED`; the term end or return due it waits for), one
@@ -1053,7 +1053,7 @@ for a `RETURNED` contract with no blocker, so the Close action is shown exactly 
 Figure 22 would pass. A contract in `CLOSED` answers `canClose: false` with no blocker. The close keeps
 the calls of Figure 22 and their order.
 
-**Next steps after the return (REQ-EVT-18, D-092 rule 4).** The contract detail (api-design 03) gives each
+**Next steps after the return (REQ-EVT-19, D-092 rule 4).** The contract detail (api-design 03) gives each
 checked-in row `afterReturn`: the device's current `status` and, when this row is the unit's latest
 return, the `nextStep` of `DevicesService.nextSteps` (devices REQ-EVT-23). Reset and inspection are
 recorded at the counter; maintenance on screen 4.3; the intake check on the device page.

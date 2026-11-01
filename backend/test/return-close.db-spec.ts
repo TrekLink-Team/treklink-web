@@ -18,7 +18,7 @@ import { TermRolloverJob } from '../src/modules/rentals/term-rollover.job';
 import { at, compileRentalFlow, RentalFlow } from './db-rental-flow';
 
 // MF-05 as the supervisor ran it at the 2026-11-01 demo, against Postgres through the real services of
-// AppModule (rentals REQ-EVT-17 and REQ-EVT-18, devices REQ-EVT-23, D-092 rules 3 and 4): a contract of
+// AppModule (rentals REQ-EVT-18 and REQ-EVT-19, devices REQ-EVT-23, D-092 rules 3 and 4): a contract of
 // five units, four checked in, one of them inspected DAMAGED, one missing. The missing unit is reported
 // lost and settled, the balance is paid, and the contract closes with no replacement unit; the units
 // back reach AVAILABLE, the damaged one after its maintenance and intake check. Run only through
@@ -160,7 +160,7 @@ describe('return with a damaged and a missing unit, close and the path back to A
       status: DamageChargeStatus.APPROVED,
     });
 
-    // The contract page shows each unit's state after the return and its next step (REQ-EVT-18).
+    // The contract page shows each unit's state after the return and its next step (REQ-EVT-19).
     const detail = await flow.send(flow.staff, 'get', `/api/contracts/${contract.id}`);
     const rows = (
       detail.body as {

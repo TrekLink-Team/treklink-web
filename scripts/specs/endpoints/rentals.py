@@ -102,7 +102,7 @@ ENDPOINTS = [
                ["devices[].afterReturn", "TrekLink callers only, for a checked-in row: the device's current `status` "
                 "and `nextStep`, its next step back to `AVAILABLE` (devices REQ-EVT-23): `action` RESET, INSPECT, "
                 "COMPLETE_MAINTENANCE or INTAKE with the `contractId` of the counter that records a reset or "
-                "inspection, or null when none is left or a later return of the unit owns it (REQ-EVT-18, D-092 "
+                "inspection, or null when none is left or a later return of the unit owns it (REQ-EVT-19, D-092 "
                 "rule 4); null for a row not checked in and for organization callers", "object",
                 "`{\"status\": \"RETURNED\", \"nextStep\": {\"action\": \"INSPECT\", \"contractId\": \"...\"}}`"]],
        entity="Contract", steps=["Read within scope", "Ask billing for the balance summary",
@@ -476,7 +476,7 @@ ENDPOINTS = [
        "TrekLink Staff, TrekLink Admin",
        "Answers whether the contract can close now (api-design 17) and lists every blocker with what resolves "
        "it, so the counter and the contract page show the Close action exactly when the close would pass and "
-       "otherwise say what still stops it (REQ-EVT-17, D-092 rule 3). Blocker codes: `NOT_RETURNED` (the "
+       "otherwise say what still stops it (REQ-EVT-18, D-092 rule 3). Blocker codes: `NOT_RETURNED` (the "
        "contract waits for its term end or for units still out; `waitsFor` is the term end or return due), "
        "`DEVICE_OUT` (a unit handed over, not checked in and not settled lost, replaced units included; "
        "`lossCase` is its open loss case, null when none is reported), `BALANCE_OUTSTANDING` (`amountVnd` "

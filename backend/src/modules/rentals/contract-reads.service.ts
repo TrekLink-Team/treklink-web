@@ -44,7 +44,7 @@ export interface ContractDetail extends ContractLabels {
   // when the unit holds no key of it. The counter keeps provisioning across a reload with it.
   provisionedKeyVersions: Map<string, number>;
   balance: BalanceSummary;
-  // TrekLink callers only (REQ-EVT-18, D-092 rule 4): each checked-in unit's state now and next step,
+  // TrekLink callers only (REQ-EVT-19, D-092 rule 4): each checked-in unit's state now and next step,
   // by device id; empty for an organization caller.
   returnStates: Map<string, ReturnState>;
 }

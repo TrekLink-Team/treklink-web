@@ -41,7 +41,7 @@ export const DUE: readonly ContractStatus[] = [
   ContractStatus.DEFAULTED,
 ];
 
-// One blocker of the close (api-design 20, REQ-EVT-17, D-092 rule 3), with what the page links to.
+// One blocker of the close (api-design 20, REQ-EVT-18, D-092 rule 3), with what the page links to.
 export type CloseBlocker =
   | { code: 'NOT_RETURNED'; message: string; waitsFor: Date | null }
   | {
@@ -264,7 +264,7 @@ export class ReturnService {
     });
   }
 
-  // api-design 20 (REQ-EVT-17, D-092 rule 3): whether the contract can close now and every blocker
+  // api-design 20 (REQ-EVT-18, D-092 rule 3): whether the contract can close now and every blocker
   // the close would refuse on, each with what resolves it. Read in one transaction without the contract
   // lock; the close reads again under its lock. A CLOSED contract has nothing left to resolve.
   async closeCheck(id: string): Promise<CloseCheck> {
