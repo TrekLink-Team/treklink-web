@@ -206,4 +206,55 @@ describe('AlertBanner', () => {
     push(entry('incident.changed', { incidentId: 'inc-1', state: 'ACKNOWLEDGED' }));
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  describe('device-silent alert (MSG40, incidents REQ-EVT-12)', () => {
+    const silent = {
+      ...alertPayload,
+      kind: 'STALE',
+      message: 'Device silent: TL-0042 (Le Thi E), last heard 10:02.',
+    };
+
+    it('shows MSG40 with Dismiss and no Acknowledge, and Dismiss removes it', () => {
+      render(<AlertBanner />);
+      push(entry('incident.alert', silent));
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Device silent: TL-0042 (Le Thi E), last heard 10:02.',
+      );
+      expect(screen.queryByRole('button', { name: 'Acknowledge' })).toBeNull();
+      const dismiss = screen.getByRole('button', { name: 'Dismiss' });
+      expect(dismiss.className).toContain('min-h-11');
+      fireEvent.click(dismiss);
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(acknowledgeIncident).not.toHaveBeenCalled();
+    });
+
+    it('keeps an SOS of the same incident ahead of it, so Acknowledge stays one tap away', () => {
+      render(<AlertBanner />);
+      push(entry('incident.alert', alertPayload));
+      push(entry('incident.alert', silent));
+      expect(screen.getByRole('alert').textContent).toContain('SOS: TL-0042');
+      expect(screen.getByRole('alert').textContent).toContain('(+1 more)');
+      expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeTruthy();
+    });
+
+    it('stays for the owner of an acknowledged incident, and goes when the incident ends', () => {
+      render(<AlertBanner />);
+      push(entry('incident.alert', silent));
+      push(entry('incident.changed', { incidentId: 'inc-1', state: 'ACKNOWLEDGED' }));
+      expect(screen.getByRole('alert').textContent).toContain('Device silent');
+      push(entry('incident.changed', { incidentId: 'inc-1', state: 'RESOLVED' }));
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('offers TrekLink Staff the queue', () => {
+      render(
+        <MemoryRouter>
+          <AlertBanner staff />
+        </MemoryRouter>,
+      );
+      push(entry('incident.alert', silent));
+      expect(screen.getByRole('link', { name: 'Open queue' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
+    });
+  });
 });
