@@ -539,6 +539,27 @@ export class DevicesService {
     return this.deviceViewOf(deviceId, tx);
   }
 
+  // devices api-design 08 (FR-DEV-01): Staff correct the firmware version after a reflash. The state
+  // and identity never change here. Returns the version before the edit for the audit record.
+  async updateFirmware(
+    deviceId: string,
+    dto: { firmwareVersion: string; expectedVersion: number },
+    tx: Prisma.TransactionClient,
+  ): Promise<{ before: string; device: FleetDevice }> {
+    const row = await this.devices.findDetail(deviceId, tx);
+    if (!row) throw notFound();
+    if (row.version !== dto.expectedVersion) throw staleVersion();
+    const firmwareVersion = dto.firmwareVersion.trim();
+    const written = await this.devices.setFirmwareIfCurrent(
+      deviceId,
+      dto.expectedVersion,
+      firmwareVersion,
+      tx,
+    );
+    if (!written) throw staleVersion();
+    return { before: row.firmwareVersion, device: await this.deviceViewOf(deviceId, tx) };
+  }
+
   // The full DEVICE shape (catalog), after a lifecycle write inside the same transaction.
   private async deviceViewOf(deviceId: string, tx: Prisma.TransactionClient): Promise<FleetDevice> {
     const row = await this.devices.findDetail(deviceId, tx);

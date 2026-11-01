@@ -62,4 +62,36 @@ describe('devices (e2e)', () => {
     });
     expect(created).not.toHaveBeenCalled();
   });
+
+  // devices api-design 08: the firmware edit over HTTP. The stubbed unit is at version 5.
+  it('answers a firmware edit on an older version with the 409 STALE_VERSION envelope', async () => {
+    const response = await e2e.send('staff-1', 'patch', `/api/devices/${D}`, {
+      firmwareVersion: '2.7.19-treklink.4',
+      expectedVersion: 4,
+    });
+
+    expect(response.status).toBe(409);
+    expect(envelope(response)).toMatchObject({
+      isSuccess: false,
+      statusCode: 409,
+      result: { errorCode: 'STALE_VERSION' },
+    });
+  });
+
+  it('refuses the firmware edit to an Org Manager (403) and an identity field (400)', async () => {
+    const manager = await e2e.send('manager-a', 'patch', `/api/devices/${D}`, {
+      firmwareVersion: '2.7.19-treklink.4',
+      expectedVersion: 5,
+    });
+    expect(manager.status).toBe(403);
+    expect(envelope(manager)).toMatchObject({ result: { errorCode: 'FORBIDDEN' } });
+
+    const identity = await e2e.send('staff-1', 'patch', `/api/devices/${D}`, {
+      firmwareVersion: '2.7.19-treklink.4',
+      assetTag: 'TL-9999',
+      expectedVersion: 5,
+    });
+    expect(identity.status).toBe(400);
+    expect(envelope(identity)).toMatchObject({ result: { errorCode: 'VALIDATION_FAILED' } });
+  });
 });

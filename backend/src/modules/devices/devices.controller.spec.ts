@@ -13,6 +13,7 @@ import { DevicesController } from './devices.controller';
 import { DevicesService } from './devices.service';
 import { DisposeDeviceDto } from './dto/dispose-device.dto';
 import { RetireDeviceDto } from './dto/retire-device.dto';
+import { UpdateDeviceDto } from './dto/update-device.dto';
 import { IntakeService } from './intake.service';
 
 const CONFIG = {
@@ -39,9 +40,10 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     dispose: jest.Mock;
     availability: jest.Mock;
     detail: jest.Mock;
+    updateFirmware: jest.Mock;
   };
   let intake: { record: jest.Mock; register: jest.Mock };
-  let events: { transaction: jest.Mock };
+  let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let controller: DevicesController;
 
   beforeEach(() => {
@@ -52,9 +54,16 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       dispose: jest.fn().mockResolvedValue({ id: 'd-1', status: 'DISPOSED' }),
       availability: jest.fn().mockResolvedValue([]),
       detail: jest.fn().mockResolvedValue({ id: 'd-1' }),
+      updateFirmware: jest.fn().mockResolvedValue({
+        before: '2.7.19-treklink.3',
+        device: { id: 'd-1', firmwareVersion: '2.7.19-treklink.4', version: 6 },
+      }),
     };
     intake = { record: jest.fn(), register: jest.fn().mockResolvedValue({ id: 'd-new' }) };
-    events = { transaction: jest.fn((cb: (tx: object) => unknown) => cb({})) };
+    events = {
+      transaction: jest.fn((cb: (tx: object) => unknown) => cb({})),
+      emitAfterCommit: jest.fn(),
+    };
     controller = new DevicesController(
       devices as unknown as DevicesService,
       intake as unknown as IntakeService,
@@ -191,5 +200,47 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     expect(dispose.method).toBe('Recycled by vendor');
     const blankDispose = plainToInstance(DisposeDeviceDto, { ...wipe, method: '   ' });
     expect((await validate(blankDispose)).map((error) => error.property)).toEqual(['method']);
+  });
+
+  it('edits the firmware in a transaction and audits device.update after commit (api-design 08)', async () => {
+    const dto = { firmwareVersion: '2.7.19-treklink.4', expectedVersion: 5 };
+    await expect(controller.update('d-1', dto, CALLER)).resolves.toEqual({
+      id: 'd-1',
+      firmwareVersion: '2.7.19-treklink.4',
+      version: 6,
+    });
+    expect(devices.updateFirmware).toHaveBeenCalledWith('d-1', dto, {});
+    expect(events.emitAfterCommit).toHaveBeenCalledWith('audit.record', {
+      actorId: 'staff-1',
+      actorRoles: ['STAFF'],
+      organizationId: null,
+      action: 'device.update',
+      subjectType: 'Device',
+      subjectId: 'd-1',
+      before: { firmwareVersion: '2.7.19-treklink.3' },
+      after: { firmwareVersion: '2.7.19-treklink.4' },
+    });
+  });
+
+  it('checks the firmware edit against operate on Device, answering "Saved."', () => {
+    const staff = createMongoAbility([{ action: 'operate', subject: 'Device' }]);
+    const readOnly = createMongoAbility([{ action: 'read', subject: 'Device' }]);
+    expect(allows('update', staff)).toBe(true);
+    expect(allows('update', readOnly)).toBe(false);
+    expect(metadataOf(RESPONSE_MESSAGE_KEY, 'update')).toBe('Saved.');
+  });
+
+  it('validates the firmware edit body and trims the version', async () => {
+    const ok = plainToInstance(UpdateDeviceDto, {
+      firmwareVersion: ' 2.7.19 ',
+      expectedVersion: 0,
+    });
+    expect(await validate(ok)).toEqual([]);
+    expect(ok.firmwareVersion).toBe('2.7.19');
+    const bad = plainToInstance(UpdateDeviceDto, { firmwareVersion: '  ', expectedVersion: -1 });
+    expect((await validate(bad)).map((error) => error.property)).toEqual([
+      'firmwareVersion',
+      'expectedVersion',
+    ]);
   });
 });
