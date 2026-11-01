@@ -4,21 +4,24 @@ import { DevicesService } from '../devices';
 import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractsService } from '../rentals';
+import { custodyView, type UnitState } from './custody-view';
 import { ReplayService } from './replay.service';
 import { StreamRepository } from './stream.repository';
 import { WireEntry } from './stream.service';
 
-// One device of api-design 04.
+// One device of api-design 04. `state`, `position`, `batteryPct`, `lastSeenAt` and `stale` follow the
+// map snapshot's custody rule for an organization (`custodyView`, REQ-UBI-04, D-040): nothing from
+// before the handover, and `position.at` is the time of the reading that carried the position.
 export interface OrgApiDevice {
   id: string;
   assetTag: string;
   hardwareVariant: string;
   holder: { name: string } | null;
-  // The last stored fix; `at` is the device's last reading, the projection keeps no separate fix time.
-  position: { lat: number; lon: number; at: Date } | null;
+  position: { lat: number; lon: number; at: string } | null;
   batteryPct: number | null;
-  lastSeenAt: Date | null;
+  lastSeenAt: string | null;
   stale: boolean;
+  state: UnitState;
   openIncident: { id: string; code: string; state: string } | null;
   contractCode: string;
 }
@@ -49,7 +52,8 @@ export class OrgApiService {
   ) {}
 
   // The devices the organization holds now with their last state, and the cursor to stream from. The
-  // cursor is read first, so an entry written while the devices are read is streamed, not lost.
+  // cursor is read first, so an entry written while the devices are read is streamed, not lost. Every
+  // reading is clipped to the organization's custody interval as on its live map (D-040, D-092 rule 2).
   async devicesOf(organizationId: string, now: Date = new Date()): Promise<OrgApiDevices> {
     const cursor = await this.stream.maxSeq();
     const visible = await this.contracts.visibleDevices({ organizationId });
@@ -65,7 +69,7 @@ export class OrgApiService {
       cursor,
       devices: projections.map((device) => {
         const held = custody.get(device.id)!;
-        const hasFix = device.lastLatitude !== null && device.lastLongitude !== null;
+        const view = custodyView(device, held.handedOverAt, staleBefore, true);
         // Only an incident routed to this organization is shown, never another holder's.
         const incident = open.get(device.id);
         return {
@@ -73,13 +77,11 @@ export class OrgApiService {
           assetTag: device.assetTag,
           hardwareVariant: device.variantCode,
           holder: held.holder,
-          position:
-            hasFix && device.lastSeenAt
-              ? { lat: device.lastLatitude!, lon: device.lastLongitude!, at: device.lastSeenAt }
-              : null,
-          batteryPct: device.batteryPct,
-          lastSeenAt: device.lastSeenAt,
-          stale: device.lastSeenAt === null || device.lastSeenAt.getTime() < staleBefore,
+          position: view.position,
+          batteryPct: view.batteryPct,
+          lastSeenAt: view.lastSeenAt,
+          stale: view.stale,
+          state: view.state,
           openIncident:
             incident && incident.organizationId === organizationId
               ? { id: incident.id, code: incident.code, state: incident.state }

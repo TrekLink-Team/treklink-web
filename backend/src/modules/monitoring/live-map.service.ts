@@ -3,12 +3,13 @@ import { subject } from '@casl/ability';
 import { IncidentState } from '@prisma/client';
 import { Caller, type PolicyAbility } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { DevicesService, type DeviceProjection } from '../devices';
+import { DevicesService } from '../devices';
 import { IncidentsQueryService, type OpenIncidentRef } from '../incidents';
 import { OrganizationsService } from '../organizations';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ParameterKey } from '../platform/parameters/parameter-registry';
 import { ContractsService } from '../rentals';
+import { custodyView, type UnitState } from './custody-view';
 import { SOVEREIGNTY_OVERLAY, SovereigntyLabel } from './sovereignty-overlay';
 import { StreamRepository } from './stream.repository';
 
@@ -38,10 +39,8 @@ export interface MapConfigDto {
   staleAfterSeconds: number;
 }
 
-// The state of a unit on the map (REQ-UBI-04, D-092 rule 2), from its custody interval: heard since the
-// handover and within `monitoring.deviceStaleSeconds`, heard since the handover and silent longer, or not
-// heard since the handover.
-export type SnapshotDeviceState = 'LIVE' | 'OFFLINE' | 'NOT_HEARD';
+// The state of a unit on the map (REQ-UBI-04, D-092 rule 2), the custody rule of `custodyView`.
+export type SnapshotDeviceState = UnitState;
 
 // The TrekLink counter where a unit not heard since its handover was last known to be
 // (`monitoring.counterLocation`).
@@ -88,37 +87,6 @@ export interface MapSnapshotDto {
 
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
-
-// What the map may show of one unit (REQ-UBI-04, monitoring design §4). `clipped` is an organization's
-// own view: nothing from before the handover (D-040). TrekLink staff keep the stored values.
-export const unitView = (
-  device: Pick<
-    DeviceProjection,
-    'lastSeenAt' | 'lastLatitude' | 'lastLongitude' | 'lastPositionAt'
-  >,
-  handedOverAt: Date,
-  staleBefore: number,
-  clipped: boolean,
-): Pick<SnapshotDeviceDto, 'state' | 'position' | 'lastSeenAt'> => {
-  const { lastSeenAt, lastLatitude, lastLongitude, lastPositionAt } = device;
-  const heard = lastSeenAt !== null && lastSeenAt.getTime() >= handedOverAt.getTime();
-  const state: SnapshotDeviceState = !heard
-    ? 'NOT_HEARD'
-    : lastSeenAt.getTime() < staleBefore
-      ? 'OFFLINE'
-      : 'LIVE';
-  const fixAt = clipped ? lastPositionAt : (lastPositionAt ?? lastSeenAt);
-  const plotted =
-    lastLatitude !== null &&
-    lastLongitude !== null &&
-    fixAt !== null &&
-    (!clipped || fixAt.getTime() >= handedOverAt.getTime());
-  return {
-    state,
-    position: plotted ? { lat: lastLatitude, lon: lastLongitude, at: fixAt.toISOString() } : null,
-    lastSeenAt: clipped && !heard ? null : (lastSeenAt?.toISOString() ?? null),
-  };
-};
 
 // An organization id no row carries. Only the unconditioned `liveMap.read` rule (TrekLink Staff and
 // Admin) matches it; `liveMap.read.own` matches the caller's own organization only.
@@ -180,7 +148,7 @@ export class LiveMapService {
     const devices = projections.flatMap((device): SnapshotDeviceDto[] => {
       const rented = rental.get(device.id);
       if (!rented) return [];
-      const view = unitView(device, rented.handedOverAt, staleBefore, clipped);
+      const view = custodyView(device, rented.handedOverAt, staleBefore, clipped);
       return [
         {
           id: device.id,
@@ -188,9 +156,9 @@ export class LiveMapService {
           hardwareVariant: device.variantCode,
           holder: rented.holder,
           position: view.position,
-          batteryPct: view.state === 'NOT_HEARD' && clipped ? null : device.batteryPct,
+          batteryPct: view.batteryPct,
           lastSeenAt: view.lastSeenAt,
-          stale: view.state === 'OFFLINE',
+          stale: view.stale,
           state: view.state,
           handedOverAt: rented.handedOverAt.toISOString(),
           counterLocation: view.state === 'NOT_HEARD' ? counterLocation : null,
