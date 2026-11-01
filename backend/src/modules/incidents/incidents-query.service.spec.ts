@@ -117,6 +117,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       ]),
       alertDeliveries: jest.fn().mockResolvedValue([
         {
+          kind: 'TRANSITION',
           tier: 'PRIMARY',
           recipientId: 'u-1',
           channel: 'WEBSOCKET',
@@ -126,6 +127,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
           lastError: null,
         },
         {
+          kind: 'TRANSITION',
           tier: 'PRIMARY',
           recipientId: null,
           channel: 'API_EVENT',
@@ -135,6 +137,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
           lastError: null,
         },
         {
+          kind: 'STALE',
           tier: 'MANAGER',
           recipientId: 'u-gone',
           channel: 'EMAIL',
@@ -309,6 +312,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     expect(organizations.memberNames).toHaveBeenCalledWith(['u-1', 'u-gone']);
     expect(log).toEqual([
       {
+        kind: 'TRANSITION',
         tier: 'PRIMARY',
         recipient: 'Pham Van D',
         channel: 'WEBSOCKET',
@@ -318,7 +322,12 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
         lastError: null,
       },
       expect.objectContaining({ channel: 'API_EVENT', recipient: null }),
-      expect.objectContaining({ recipient: 'u-gone', status: 'FAILED', lastError: 'SMTP 451' }),
+      expect.objectContaining({
+        kind: 'STALE',
+        recipient: 'u-gone',
+        status: 'FAILED',
+        lastError: 'SMTP 451',
+      }),
     ]);
   });
 

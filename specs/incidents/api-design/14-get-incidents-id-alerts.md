@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Every alert the incident produced: tier, recipient, channel, attempts and outcome (FR-INC-12, E03-7).
+Every alert the incident produced: kind (`TRANSITION` for an SOS alert, `STALE` for the device-silent alert MSG40), tier, recipient, channel, attempts and outcome (FR-INC-12, E03-7, REQ-EVT-12).
 
 ## API Specification
 
@@ -33,6 +33,7 @@ No body.
 {
   "result": [
     {
+      "kind": "TRANSITION",
       "tier": "PRIMARY",
       "recipient": "Pham Van D",
       "channel": "WEBSOCKET",
@@ -41,12 +42,22 @@ No body.
       "sentAt": "2026-10-20T03:15:00.000Z"
     },
     {
+      "kind": "TRANSITION",
       "tier": "PRIMARY",
       "recipient": "Pham Van D",
       "channel": "EMAIL",
       "status": "PENDING",
       "attempts": 2,
       "lastError": "SMTP 451"
+    },
+    {
+      "kind": "STALE",
+      "tier": "OWNER",
+      "recipient": "Pham Van D",
+      "channel": "WEB",
+      "status": "SENT",
+      "attempts": 1,
+      "sentAt": "2026-10-20T03:15:00.000Z"
     }
   ],
   "isSuccess": true,

@@ -72,8 +72,10 @@ export interface IncidentTransition {
   createdAt: string;
 }
 
-// api-design 14: one alert delivery. `recipient` is null for an organization API event.
+// api-design 14: one alert delivery. `recipient` is null for an organization API event. `kind` is
+// `TRANSITION` for an SOS alert and `STALE` for the device-silent alert (MSG40).
 export interface AlertDelivery {
+  kind: 'TRANSITION' | 'STALE';
   tier: string;
   recipient: string | null;
   channel: 'WEB' | 'WEBSOCKET' | 'EMAIL' | 'API_EVENT';

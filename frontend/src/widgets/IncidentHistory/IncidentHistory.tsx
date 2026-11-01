@@ -122,6 +122,7 @@ export const AlertLog: React.FC<PanelProps> = ({ incidentId, onLostAccess }) => 
               <li key={index} className="flex flex-col gap-1">
                 <p className="flex flex-wrap items-center gap-2 text-body text-ink">
                   <span>
+                    {row.kind === 'STALE' ? 'Device silent, ' : ''}
                     {row.tier}, {row.recipient ?? 'Organization API stream'},{' '}
                     {CHANNEL_LABEL[row.channel]}
                   </span>
