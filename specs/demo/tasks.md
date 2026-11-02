@@ -34,3 +34,15 @@
 - [x] 4.3 `entities/demo` `useDemoAccounts`, widget `TestAccountsBox` on `/` and `/sign-in`, Use fills the sign-in form or carries the account in route state; tests
 - [x] 4.4 Compiled copy `demo-test-accounts.ts` read by the accounts service, no seed file, `ts-node` or `prisma/` at run time (design §8, leader decision 2026-11-01); drift test against the seed and an unloadable-seed test
 - [ ] 4.5 Check the list on the Vercel production after its first deploy with `DEMO_TEST_ACCOUNTS_ENABLED=true`
+
+## Phase 5: Field simulation (D-093 amendment, D-094, 2026-11-02; requirements §2.4, design §9)
+
+- [ ] 5.1 Spec: requirements §2.4 and AC-06 to AC-08, design §9 (this change); api-design 06 to 10 generated from `scripts/specs/endpoints/demo.py`; screen 7.5 section "Field simulation" in `specs/frontend/ui-design/7-5-demo-control-panel.md`; gateway-sync and incidents design notes for the `simulated` mark
+- [ ] 5.2 Migration `simulation`: `simulated_nodes`, `field_events.simulated`, `incidents.simulated`, permission `demo.simulate` for TrekLink Admin; `DEMO_SIMULATION_ENABLED` (default `false`) in `environment-variables.ts`, platform requirements §4, `.env.example`
+- [ ] 5.3 gateway-sync: `trails.ts` (three or more OSM trails with provenance), the pure position, battery and beacon functions of design §9 with unit tests per pattern, `FieldSimulationService` (start, update, stop, event, list), the simulator job reading the table while the flag is on, `UplinkIngress` option `simulated`
+- [ ] 5.4 incidents and monitoring: store and return `simulated` (incident from its opening event; device from its latest field event); unit tests
+- [ ] 5.5 demo: `DemoSimulationModule`, controller of api-design 06 to 10, the database check (loopback or `treklink_prod`), policy and audit; unit tests: Neon host refused, `treklink_prod` accepted with `NODE_ENV=production`, flag off 404
+- [ ] 5.6 db-spec on Postgres: start, two runs store each packet once, `SOS` opens one simulated incident, `SILENT` turns stale, `SOS_CANCEL` stops beacons
+- [ ] 5.7 Frontend: section "Field simulation" on `/t/admin/demo`, "Simulated" badges on the live maps, device lists and incident header; tests; WCAG 2.2 AA per the UI standard
+- [ ] 5.8 AC-08 on the Vercel staging after the pin moves (D-094): a person runs AC-06 and AC-07 from the browser alone
+
