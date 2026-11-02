@@ -502,11 +502,13 @@ export class DevicesRepository {
   // The inspections recorded against these contract rows, oldest first.
   inspectionsOfContractDevices(
     contractDeviceIds: readonly string[],
-  ): Promise<{ contractDeviceId: string | null; result: InspectionResult; createdAt: Date }[]> {
+  ): Promise<
+    { id: string; contractDeviceId: string | null; result: InspectionResult; createdAt: Date }[]
+  > {
     return this.prisma.inspection.findMany({
       where: { contractDeviceId: { in: [...contractDeviceIds] } },
       orderBy: { createdAt: 'asc' },
-      select: { contractDeviceId: true, result: true, createdAt: true },
+      select: { id: true, contractDeviceId: true, result: true, createdAt: true },
     });
   }
 

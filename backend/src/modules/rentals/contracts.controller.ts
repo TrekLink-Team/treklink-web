@@ -246,6 +246,8 @@ export class ContractsController {
         const check = returnChecks.get(device.id);
         return {
           ...toDeviceRowView(device, assetTags.get(device.deviceId) ?? null),
+          // The row a service credit is requested against (billing api-design 18, screen 6.5).
+          contractDeviceId: device.id,
           resetAt: check?.resetAt ?? null,
           inspection: check?.inspection ?? null,
           // The key version written at the counter, so a reload keeps step 1 (frontend 5.4).
