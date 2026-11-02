@@ -15,3 +15,7 @@ export const demoControlsEnabled = (env: NodeJS.ProcessEnv): boolean =>
 // of the control panel flag and of NODE_ENV and the database host.
 export const demoTestAccountsEnabled = (env: NodeJS.ProcessEnv): boolean =>
   isTrue(env[DEMO_TEST_ACCOUNTS_FLAG]);
+
+// The condition of DemoSimulationModule (REQ-SIM-01, D-093 amendment): the field simulation routes,
+// independent of the control panel flag. The reader lives in gateway-sync, whose simulator reads it too.
+export { DEMO_SIMULATION_FLAG, demoSimulationEnabled } from '../gateway-sync';
