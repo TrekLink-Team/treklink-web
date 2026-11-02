@@ -65,6 +65,7 @@ Records a credit for a unit that failed through no fault of the organization, on
     "decidedVnd": null,
     "appliedVnd": 0,
     "status": "REQUESTED",
+    "requestedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "decisionReason": null,
     "decidedAt": null,
     "refundReference": null,

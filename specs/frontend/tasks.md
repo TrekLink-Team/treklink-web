@@ -202,6 +202,12 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - _Story: US-UC48, US-UC56_
 
   - **Done 2026-10-30 (UC-48)**: `/t/damage-charges` (`DamageChargesPage`) lists billing api-design 16, opening on `PENDING_APPROVAL`, with a status filter; Staff read it. An Admin decides a pending charge through the decision dialog (Approve, Reduce with a final amount below the charge, Waive after a confirmation naming the amount and the device) with a required reason (billing 17); on a charge the Admin inspected the row shows "Another Admin must decide" instead (BR-24, MSG30 only for a forced request). A decision refetches the queue and the contract balance. The navigation entry is built. Component-tested (5)
+- [x] 6.5 Service credits: `ServiceCreditsPage`, the request from the contract page, the contract's credits (owner LongLP)
+  - **Do**: billing api-design 18 to 22; request from a checked-in unit with a FAILED inspection on `/t/contracts/:id`; the Admin decision queue and the Staff refunds on `/t/service-credits`; the credits on both contract pages; the `SERVICE_CREDIT` line on the invoice and the `SERVICE_CREDIT_PENDING` close blocker (billing design §9.6, billing task 8.2, assigned by the leader 2026-11-02)
+  - _Requirements: billing REQ-EVT-12 to REQ-EVT-15, REQ-ERR-06 to REQ-ERR-08_
+  - _Story: none in the backlog yet (D-092 rule 5, the leader adds it through `build_backlog.py`)_
+  - **Done** (2026-11-02, LongLP): `/t/service-credits` (`ServiceCreditsPage`) lists billing api-design 20, opening on `REQUESTED`; an Admin decides a credit they did not request (Approve, Reduce below the computed amount with a reason, Reject with a reason after a confirmation), Decide disabled with its reason on their own request; Staff and Admins record the refund of a `REFUND_DUE` credit (`DUPLICATE_REFERENCE` under Reference). `/t/contracts/:id`: Request service credit on a row back with a FAILED inspection (rentals api-design 03 now returns `contractDeviceId` and `inspection.id`), and the Service credits card on both contract pages. A negative invoice line reads Credit; the close blocker `SERVICE_CREDIT_PENDING` links to the queue. Navigation entry built. Component-tested (8); walked locally on 2026-11-02: Staff requested 15,000 VND for TL-0009 of RC-2026-0001, the close panel listed the blocker, the Admin approved it and the credit waits for the next term invoice
+
 ## Phase 7: Administration
 
 - [x] 7.1 TrekLink accounts (owner LongNN)

@@ -86,7 +86,7 @@ ENDPOINTS = [
        path=[C_PATH], response={**CONTRACT, "handoverAppointmentAt": "2026-10-25T02:00:00Z", "holdExpiresAt": None,
                                 "terms": [{"seq": 1, "startsAt": "2026-10-25T02:00:00Z",
                                                        "endsAt": "2026-11-25T02:00:00Z", "status": "OPEN"}],
-                                "devices": [{**CDEV, "resetAt": None, "inspection": None,
+                                "devices": [{**CDEV, "contractDeviceId": "cd-1", "resetAt": None, "inspection": None,
                                              "provisionedKeyVersion": None, "afterReturn": None}],
                                 "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
        fields=[["holdExpiresAt", "When the hold of a request expires unpaid (D-092); kept after the decision as history; "
@@ -94,8 +94,11 @@ ENDPOINTS = [
                ["devices[].resetAt", "First reset of the unit at or after this row's check-in and before the unit's "
                 "next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
                 "`2026-10-30T03:05:00.000Z`"],
-               ["devices[].inspection", "Last inspection recorded against this row (api-design 16): `result` "
-                "PASSED, DAMAGED or FAILED, and `at`; null when none", "object", "`null`"],
+               ["devices[].contractDeviceId", "This row on the contract; a service credit is requested against it "
+                "(billing api-design 18)", "uuid", "`cd-1`"],
+               ["devices[].inspection", "Last inspection recorded against this row (api-design 16): `id`, `result` "
+                "PASSED, DAMAGED or FAILED, and `at`; null when none. A FAILED one backs a service credit request "
+                "(billing api-design 18)", "object", "`null`"],
                ["devices[].provisionedKeyVersion", "The channel key version the unit carries for this "
                 "contract's organization (api-design 09), null when it holds none of it; the counter keeps "
                 "provisioning after a reload", "int", "`1`"],

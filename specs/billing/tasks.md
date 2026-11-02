@@ -148,4 +148,5 @@
   - **Specified** (2026-11-02, KhoaDD under D-078): requirements REQ-EVT-12 to REQ-EVT-15, REQ-ERR-06 to REQ-ERR-08, AC-06 to AC-08, design §2 and §9. Not built: the leader confirms §9 first (requirements §6)
   - **Confirmed** (2026-11-02, LongLP): the six rulings on treklink-web#288 are written into REQ-UBI-02, REQ-EVT-12, REQ-EVT-14, REQ-STA-02, REQ-ERR-06, design §9 and rentals REQ-EVT-18; the spec gate is passed
   - _Requirements: REQ-EVT-12, REQ-EVT-13, REQ-EVT-14, REQ-EVT-15, REQ-ERR-06, REQ-ERR-07, REQ-ERR-08, AC-06, AC-07, AC-08, D-092 rule 5_
-- [ ] 8.2 Screens for service credits per design §9.6, in `specs/frontend/ui-design` first (owner LongLP, assigned by the leader 2026-11-02)
+- [x] 8.2 Screens for service credits per design §9.6, in `specs/frontend/ui-design` first (owner LongLP, assigned by the leader 2026-11-02)
+  - **Done** (2026-11-02, LongLP): screen 6.5 (`specs/frontend/ui-design/6-5-service-credits-servicecreditspage-the-request-from.md`, frontend task 6.5). The request from the maintenance record and an incident picker for the outage source are left out; billing api-design 18 already takes `outageSourceIncidentId`. The credit view gains `requestedById` (billing api-design 19 to 22)
