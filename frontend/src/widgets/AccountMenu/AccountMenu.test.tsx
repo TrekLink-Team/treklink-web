@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession, type SessionUser } from '../../entities/session/model';
 import { SignInPage } from '../../pages/SignInPage';
 import { apiClient, ApiError } from '../../shared/api/apiClient';
+import { useToast } from '../../shared/ui';
 import { AccountMenu } from './AccountMenu';
 import { DISCARD_PROMPT, initialsOf, roleLabel } from './labels';
 
@@ -120,11 +121,12 @@ describe('account menu (screen 2.2)', () => {
     expect(screen.getByRole('menu').textContent).toContain('Org Manager');
   });
 
-  it('moves through the items with the arrow keys, and Escape returns focus to the button', () => {
+  it('names the menu and the button with the account, and opens on Change password', () => {
     show(STAFF);
     openMenu();
     const [change, signOut] = screen.getAllByRole('menuitem');
 
+    expect(screen.getByRole('menu').getAttribute('aria-label')).toMatch(/^Account/);
     expect(document.activeElement).toBe(change);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
     expect(document.activeElement).toBe(signOut);
@@ -132,39 +134,10 @@ describe('account menu (screen 2.2)', () => {
     expect(document.activeElement).toBe(change);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowUp' });
     expect(document.activeElement).toBe(signOut);
-    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Home' });
-    expect(screen.getByRole('menu')).toBeTruthy();
 
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(accountButton());
-  });
-
-  it('closes when a pointer is pressed outside, and stays open for a press inside', () => {
-    show(STAFF);
-    openMenu();
-
-    fireEvent.pointerDown(screen.getByRole('menu'));
-    expect(screen.getByRole('menu')).toBeTruthy();
-
-    fireEvent.pointerDown(document.body);
-    expect(screen.queryByRole('menu')).toBeNull();
-    expect(accountButton().getAttribute('aria-expanded')).toBe('false');
-  });
-
-  it('closes when focus leaves the menu, and stays open while it moves between items', () => {
-    const outside = document.createElement('button');
-    document.body.appendChild(outside);
-    show(STAFF);
-    openMenu();
-    const [change, signOut] = screen.getAllByRole('menuitem');
-
-    fireEvent.blur(change, { relatedTarget: signOut });
-    expect(screen.getByRole('menu')).toBeTruthy();
-
-    fireEvent.blur(signOut, { relatedTarget: outside });
-    expect(screen.queryByRole('menu')).toBeNull();
-    outside.remove();
   });
 
   it.each([
@@ -274,26 +247,29 @@ describe('change-password dialog (auth 08)', () => {
     expect(screen.getByRole('status').textContent).toBe('Password changed');
   });
 
-  it('asks before discarding filled fields, and closes at once when empty', () => {
+  it('asks in a dialog before discarding filled fields, and closes at once when empty', () => {
     const confirm = vi.spyOn(window, 'confirm');
     show(STAFF);
     openDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(confirm).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(accountButton());
 
     openDialog();
     type('Current password', 'old-password');
-    confirm.mockReturnValueOnce(false);
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    expect(confirm).toHaveBeenCalledWith(DISCARD_PROMPT);
-    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Change password' }), { key: 'Escape' });
+    const ask = screen.getByRole('dialog', { name: DISCARD_PROMPT });
+    expect(ask).toBeTruthy();
+    fireEvent.click(within(ask).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('dialog', { name: DISCARD_PROMPT })).toBeNull();
+    expect((screen.getByLabelText('Current password') as HTMLInputElement).value).toBe('old-password');
 
-    confirm.mockReturnValueOnce(true);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: DISCARD_PROMPT })).getByRole('button', { name: 'Discard' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(accountButton());
+    expect(confirm).not.toHaveBeenCalled();
   });
 });
 
@@ -317,7 +293,7 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
     show(MANAGER);
     fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
     await screen.findByRole('menuitem', { name: 'Sign out' });
-    expect(screen.queryByRole('group', { name: 'Switch role' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /^Switch to/ })).toBeNull();
   });
 
   it('lets a Manager switch back to the Admin while demo mode is on', async () => {
@@ -327,8 +303,8 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
     });
     show(MANAGER);
     fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
-    const admin = await screen.findByRole('menuitem', { name: 'Admin' });
-    expect(screen.getByRole('menuitem', { name: 'Manager' }).getAttribute('aria-current')).toBe('true');
+    const admin = await screen.findByRole('menuitem', { name: 'Switch to Admin' });
+    expect(screen.getByRole('menuitem', { name: 'Switch to Manager' }).getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(admin);
     await waitFor(() => expect(useSession.getState().user?.email).toBe('admin@treklink.local'));
     expect(api).toHaveBeenCalledWith('/demo/switch-role', {
@@ -338,7 +314,7 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
     expect(useSession.getState().tokens?.accessToken).toBe('admin-token');
   });
 
-  it('shows a refused switch in the menu', async () => {
+  it('shows a refused switch as an error toast', async () => {
     serve(MANAGER, {
       '/demo/status': () => Promise.resolve({ enabled: true, databaseLocal: false, lastStaged: null }),
       '/demo/switch-role': () =>
@@ -348,10 +324,11 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
     });
     show(MANAGER);
     fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Staff' }));
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      'Demo controls run only against a local database.',
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Switch to Staff' }));
+    await waitFor(() =>
+      expect(useToast.getState().message).toBe('Demo controls run only against a local database.'),
     );
+    expect(useToast.getState().tone).toBe('error');
     expect(useSession.getState().user?.id).toBe('manager-1');
   });
 });

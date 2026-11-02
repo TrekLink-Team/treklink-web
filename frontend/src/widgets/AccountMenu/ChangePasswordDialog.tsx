@@ -1,12 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { changePassword } from '../../features/account-menu/api';
 import { Notice, PasswordField } from '../../features/password/fields';
 import {
   errorsFrom,
   type FormErrors,
   PASSWORDS_DIFFER,
-  PRIMARY,
 } from '../../features/password/form';
+import { Button, Dialog } from '../../shared/ui';
+import { useConfirmStep } from '../../shared/ui/useConfirmStep';
 import { DISCARD_PROMPT } from './labels';
 
 interface Props {
@@ -14,45 +15,31 @@ interface Props {
   onChanged: () => void;
 }
 
-const FOCUSABLE = 'input, button:not([disabled])';
+const FORM_ID = 'change-password-form';
 
-// Screen 2.2: the change-password dialog (auth api-design 08). It traps focus, starts on Current
-// password, and asks before closing over filled fields (chapter 06 §8.7). A failed submit keeps
-// every field.
+// Screen 2.2: the change-password dialog (auth api-design 08), a `Dialog`. It starts on Current
+// password and asks in a `ConfirmDialog` before closing over filled fields (chapter 06 §8.7). A failed
+// submit keeps every field.
 export const ChangePasswordDialog: React.FC<Props> = ({ onClose, onChanged }) => {
-  const dialog = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
   const [pending, setPending] = useState(false);
-
-  useEffect(() => {
-    document.getElementById('change-current')?.focus();
-  }, []);
+  const discard = useConfirmStep();
 
   const close = () => {
-    const filled = current !== '' || password !== '' || confirm !== '';
-    if (!filled || window.confirm(DISCARD_PROMPT)) onClose();
-  };
-
-  const keepFocusInside = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      close();
-      return;
-    }
-    if (event.key !== 'Tab' || !dialog.current) return;
-    const items = Array.from(dialog.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    const touched = current !== '' || password !== '' || confirm !== '';
+    if (!touched) onClose();
+    else
+      discard.ask(
+        {
+          title: DISCARD_PROMPT,
+          description: 'The password stays as it is.',
+          confirmLabel: 'Discard',
+        },
+        onClose,
+      );
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -75,19 +62,31 @@ export const ChangePasswordDialog: React.FC<Props> = ({ onClose, onChanged }) =>
   const filled = current !== '' && password !== '' && confirm !== '';
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-[var(--tl-banner-h,0px)] z-dialog flex items-center justify-center bg-scrim/[var(--tl-scrim-alpha)] sm:p-4">
-      <div
-        ref={dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="change-title"
-        onKeyDown={keepFocusInside}
-        className="h-full w-full overflow-y-auto bg-surface p-6 text-ink shadow-overlay sm:h-auto sm:max-w-sm sm:rounded-sheet sm:border sm:border-line"
+    <>
+      <Dialog
+        titleId="change-title"
+        title="Change password"
+        size="sm"
+        onClose={close}
+        footer={
+          <>
+            <Button variant="ghost" onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form={FORM_ID}
+              variant="primary"
+              loading={pending}
+              loadingLabel="Changing…"
+              disabled={!filled}
+            >
+              Change
+            </Button>
+          </>
+        }
       >
-        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <h2 id="change-title" className="text-title text-ink">
-            Change password
-          </h2>
+        <form id={FORM_ID} onSubmit={submit} noValidate className="flex flex-col gap-4">
           {errors.form && <Notice tone="error">{errors.form}</Notice>}
 
           <PasswordField
@@ -115,21 +114,9 @@ export const ChangePasswordDialog: React.FC<Props> = ({ onClose, onChanged }) =>
             onChange={setConfirm}
             error={errors.confirm}
           />
-
-          <div className="flex gap-3">
-            <button type="submit" disabled={pending || !filled} className={`${PRIMARY} flex-1`}>
-              {pending ? 'Changing…' : 'Change'}
-            </button>
-            <button
-              type="button"
-              onClick={close}
-              className="h-12 flex-1 rounded-lg border border-line-strong font-semibold text-ink"
-            >
-              Cancel
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+      </Dialog>
+      {discard.dialog}
+    </>
   );
 };

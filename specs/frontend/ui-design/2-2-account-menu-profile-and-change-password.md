@@ -33,7 +33,7 @@ changed by an Admin (screen 7.1), an organization member's by the Org Manager (s
 | Account button (header, top right) | none; opens the menu with the cached `['me']` | none | none |
 | Change password (menu) | none; opens the dialog | none | none |
 | Change (dialog, primary) | auth 08 `POST /api/auth/password/change` | none | the server ends every session, this one included (D-063 rule 1), so the client signs out as Sign out does and opens `/sign-in` with the info banner "Password changed" (the auth 08 `message`), as `/reset` does |
-| Cancel (dialog) | none | asks first if a field is filled (chapter 06 §8.7) | none |
+| Cancel (dialog) | none | asks first in a `ConfirmDialog` ("Discard the password change?", Keep editing or Discard) if a field is filled (chapter 06 §8.7) | none |
 | Sign out (menu) | auth 03 `POST /api/auth/logout` with the refresh token | none | `/sign-in`; the query cache and the auth context are cleared (task 1.1) |
 
 ## States
@@ -62,7 +62,7 @@ One step of three fields. A failed submit keeps every field (chapter 06 §8.7).
 
 ## Mobile, accessibility, live data
 
-- 360 px layout: the header shows only the initials button; the menu opens as a full-width sheet with each item at least 44 px high; the dialog opens full screen.
+- 360 px layout: the header shows only the initials button; the menu is the shared `Menu` list, at most the viewport width minus 1 rem, with each item at least 44 px high; the dialog opens full screen.
 - Tab order and focus after each action: the account button is a menu button (`aria-haspopup="menu"`, `aria-expanded`); arrow keys move through the items and Escape closes the menu and returns focus to the button. A pointer pressed outside the menu and the button, or focus moving outside them, closes the menu and leaves focus where the user put it. The dialog traps focus, starts on Current password and returns focus to the account button when it closes. An error is announced and linked to its field (`aria-describedby`). Fields carry `autocomplete` `current-password` and `new-password`.
 - WebSocket events and invalidated query keys: no live events. Query key `['me']`, read once after sign-in; Sign out clears the whole cache.
 
