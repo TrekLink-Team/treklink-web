@@ -25,6 +25,15 @@ describe('UplinkIngress', () => {
     expect(ingestion.ingest).toHaveBeenCalledWith(envelope);
   });
 
+  it('marks the envelope simulated only when the field simulation asks (demo design §9)', async () => {
+    const envelope = { eventId: 'e1' };
+    const { ingress, ingestion } = build({ kind: 'envelope', envelope });
+    await ingress.ingest('t', Buffer.from('{}'), at, { simulated: true });
+    expect(ingestion.ingest).toHaveBeenCalledWith({ eventId: 'e1', simulated: true });
+    await ingress.ingest('t', Buffer.from('{}'), at, { simulated: false });
+    expect(ingestion.ingest).toHaveBeenLastCalledWith(envelope);
+  });
+
   it('records a malformed message and ignores an unrelated topic', async () => {
     const malformed = build({
       kind: 'malformed',

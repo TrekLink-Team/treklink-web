@@ -1,3 +1,5 @@
+import { TA_NANG_PHAN_DUNG_POINTS } from './trails';
+
 // The field data simulator of design §2 (field data simulator) (D-090 rule 2): one batch of synthetic stock Meshtastic packets
 // for the demo seed's simulated nodes, the same shape the gateway's FrameSimulator publishes
 // (gateway/src/serial/simulator.ts, mqtt-ingress-contract.md). Pure and stateless: the batch depends only
@@ -7,74 +9,8 @@
 // TL-0009 and TL-0010 of backend/prisma/seed-demo.ts, the gateway simulator's default nodes.
 export const SIMULATED_NODES = ['!de000009', '!de00000a'] as const;
 
-// The trail both nodes walk: OpenStreetMap way 1164619760 (highway=path, source=bing, unnamed), the path
-// south-east of Ta Nang toward Phan Dung, read through the Overpass API on 2026-11-01 and simplified
-// (Douglas-Peucker, 10 m) from 189 to 63 points, 7.2 km. © OpenStreetMap contributors, ODbL.
-const TRAIL: readonly (readonly [number, number])[] = [
-  [11.510808, 108.562536],
-  [11.509894, 108.561541],
-  [11.508443, 108.561058],
-  [11.507124, 108.561012],
-  [11.506748, 108.561474],
-  [11.506335, 108.561592],
-  [11.505778, 108.562016],
-  [11.505486, 108.562675],
-  [11.504713, 108.563131],
-  [11.503644, 108.564231],
-  [11.501707, 108.565497],
-  [11.500771, 108.565712],
-  [11.49962, 108.566723],
-  [11.498537, 108.568171],
-  [11.497924, 108.568587],
-  [11.497591, 108.568646],
-  [11.497002, 108.569228],
-  [11.496936, 108.569536],
-  [11.495667, 108.571663],
-  [11.494991, 108.572259],
-  [11.49481, 108.573179],
-  [11.494431, 108.573833],
-  [11.492938, 108.574842],
-  [11.491827, 108.575209],
-  [11.491903, 108.575515],
-  [11.492273, 108.575848],
-  [11.492266, 108.576516],
-  [11.49169, 108.577175],
-  [11.491506, 108.577956],
-  [11.491091, 108.578492],
-  [11.48862, 108.579168],
-  [11.487437, 108.580327],
-  [11.486675, 108.580483],
-  [11.486054, 108.58111],
-  [11.485403, 108.582623],
-  [11.484546, 108.582939],
-  [11.483342, 108.582661],
-  [11.482085, 108.582146],
-  [11.481101, 108.582872],
-  [11.480479, 108.582875],
-  [11.479549, 108.584058],
-  [11.479178, 108.585758],
-  [11.478335, 108.587408],
-  [11.478416, 108.587694],
-  [11.477718, 108.588658],
-  [11.476888, 108.588847],
-  [11.47643, 108.588604],
-  [11.476176, 108.588673],
-  [11.475777, 108.588379],
-  [11.475251, 108.588828],
-  [11.473819, 108.589326],
-  [11.471847, 108.591185],
-  [11.470144, 108.591839],
-  [11.468911, 108.591992],
-  [11.468356, 108.592436],
-  [11.467856, 108.59263],
-  [11.466787, 108.592848],
-  [11.466119, 108.592563],
-  [11.465541, 108.592751],
-  [11.464842, 108.592451],
-  [11.464242, 108.592756],
-  [11.463985, 108.593143],
-  [11.463927, 108.593824],
-];
+// The trail both nodes walk: `ta-nang-phan-dung` of trails.ts, OpenStreetMap way 1164619760.
+const TRAIL = TA_NANG_PHAN_DUNG_POINTS;
 
 const METRES_PER_DEGREE_LAT = 111_320;
 const metresPerDegreeLon = (lat: number) => METRES_PER_DEGREE_LAT * Math.cos((lat * Math.PI) / 180);
@@ -177,7 +113,7 @@ export interface SimulatedPacket {
 }
 
 // FNV-1a over the text, folded to a positive 31-bit id that is never 0.
-const packetId = (text: string): number => {
+export const packetId = (text: string): number => {
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);
@@ -191,7 +127,7 @@ const nodeNum = (sender: string) => Number.parseInt(sender.slice(1), 16);
 // One percent per ten minutes over a ten-hour cycle: never under 40%.
 const battery = (seconds: number) => 100 - Math.floor((seconds % 36_000) / 600);
 
-const packet = (
+export const simulatedPacket = (
   sender: string,
   seconds: number,
   type: SimulatedPacket['type'],
@@ -228,7 +164,7 @@ export const simulatedBatch = (
   SIMULATED_NODES.forEach((sender, index) => {
     const at = positionAt(index, seconds);
     packets.push(
-      packet(
+      simulatedPacket(
         sender,
         seconds,
         'position',
@@ -240,7 +176,7 @@ export const simulatedBatch = (
         },
         'position',
       ),
-      packet(
+      simulatedPacket(
         sender,
         seconds,
         'telemetry',
@@ -262,7 +198,7 @@ export const simulatedBatch = (
       const sender = SIMULATED_NODES[0];
       const at = positionAt(0, seconds);
       packets.push(
-        packet(
+        simulatedPacket(
           sender,
           seconds,
           'text',

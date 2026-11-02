@@ -72,6 +72,7 @@ export class IngestionService {
 
   async ingest(envelope: CanonicalEnvelope): Promise<SyncOutcome> {
     const { packet, ingress, uplinkKey, receivedAt, message, station: stationTimes } = envelope;
+    const simulated = envelope.simulated === true;
     const eventId = eventIdOf(packet.from, packet.id);
     const nodeNum = BigInt(packet.from);
     const rawMessage = message as Prisma.InputJsonValue;
@@ -161,7 +162,9 @@ export class IngestionService {
       if (position && !isValidPosition(position, toBounds(bounds))) {
         position = undefined;
         outcome = SyncOutcome.INVALID_POSITION;
-      } else if (position) {
+      } else if (position && !simulated) {
+        // A simulated position skips the speed rule: a start or a trail change places the node on
+        // another trail on purpose (specs/demo/design.md §9, "Speed rule").
         const last = await this.repository.lastPlottedPosition(device.id, tx);
         if (
           last &&
@@ -201,6 +204,7 @@ export class IngestionService {
           snr: packet.snr ?? null,
           hopsAway: packet.hops_away ?? null,
           plotted,
+          simulated,
           payload: rawMessage,
         },
         tx,
