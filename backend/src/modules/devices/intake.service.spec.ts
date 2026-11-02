@@ -101,6 +101,33 @@ describe('IntakeService (devices task 2.2)', () => {
       expect(result.check.passed).toBe(true);
     });
 
+    // Report 5 TC-T-DEV-12: a repaired unit (MAINTENANCE, its record closed) goes back to AVAILABLE through
+    // a passed intake check (REQ-EVT-02, REQ-EVT-09).
+    it('moves a passed MAINTENANCE unit with no open record to AVAILABLE', async () => {
+      devices.findDetail.mockResolvedValue(device({ status: DeviceStatus.MAINTENANCE }));
+      const result = await service.record('d-42', pass, 'staff-1', AT, TX);
+      expect(maintenance.hasOpenRecord).toHaveBeenCalledWith('d-42', TX);
+      expect(devices.moveIfCurrent).toHaveBeenCalledWith(
+        'd-42',
+        0,
+        [DeviceStatus.IN_INTAKE, DeviceStatus.MAINTENANCE],
+        DeviceStatus.AVAILABLE,
+        AT,
+        TX,
+        expect.anything(),
+      );
+      expect(devices.insertTransition).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromStatus: DeviceStatus.MAINTENANCE,
+          toStatus: DeviceStatus.AVAILABLE,
+          reason: 'INTAKE_PASSED',
+        }),
+        TX,
+      );
+      expect(maintenance.openForSystem).not.toHaveBeenCalled();
+      expect(result.check.passed).toBe(true);
+    });
+
     it('refuses a pass while the contract row of the unit is still open, and lets a failure through (design §2.1)', async () => {
       devices.findDetail.mockResolvedValue(device({ status: DeviceStatus.MAINTENANCE }));
       custody.custodyAt.mockResolvedValue({
