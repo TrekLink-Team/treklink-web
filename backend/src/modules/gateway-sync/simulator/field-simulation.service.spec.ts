@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, SimulatedNode } from '@prisma/client';
 import { DomainException } from '../../../common/errors';
@@ -54,7 +55,10 @@ const domainCode = async (promise: Promise<unknown>) => {
   return null;
 };
 
-const build = () => {
+const LOCAL_DATABASE = 'postgresql://u:p@localhost:5432/treklink';
+const NEON_DEV = 'postgresql://u:p@ep-x.ap-southeast-1.aws.neon.tech/neondb?sslmode=require';
+
+const build = (databaseUrl: string = LOCAL_DATABASE) => {
   const emitted: { name: string; payload: unknown }[] = [];
   const nodes = {
     insert: jest.fn((data: Prisma.SimulatedNodeUncheckedCreateInput) =>
@@ -102,7 +106,10 @@ const build = () => {
     organizations as unknown as OrganizationsService,
     parameters as unknown as ParameterService,
     events as unknown as TransactionalEvents,
-    { get: () => 'treklink' } as unknown as ConfigService<ValidatedEnvironment, true>,
+    {
+      get: (key: string) =>
+        key === 'DATABASE_URL' || key === 'DATABASE_DIRECT_URL' ? databaseUrl : 'treklink',
+    } as unknown as ConfigService<ValidatedEnvironment, true>,
   );
   return { service, nodes, uplinks, devices, emitted };
 };
@@ -304,5 +311,30 @@ describe('FieldSimulationService (specs/demo/design.md §9)', () => {
       sosSince,
       new Date('2026-11-06T02:00:30Z'),
     );
+  });
+
+  // Review of treklink-web#307: the job runs the routes' database check too (design §9, REQ-SIM-02).
+  it('sends nothing and logs once when the database is neither loopback nor the staging', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const { service, nodes, uplinks } = build(NEON_DEV);
+      nodes.running.mockResolvedValue([row({ id: 'walker' })]);
+      expect(await service.run(new Date('2026-11-06T02:00:30Z'))).toBe(0);
+      expect(await service.run(new Date('2026-11-06T02:00:40Z'))).toBe(0);
+      expect(nodes.running).not.toHaveBeenCalled();
+      expect(uplinks.ingest).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('runs on the Vercel staging database, treklink_prod', async () => {
+    const { service, nodes, uplinks } = build(
+      'postgresql://u:p@ep-y.ap-southeast-1.aws.neon.tech/treklink_prod?sslmode=require',
+    );
+    nodes.running.mockResolvedValue([row({ id: 'walker' })]);
+    expect(await service.run(new Date('2026-11-06T02:00:30Z'))).toBe(2);
+    expect(uplinks.ingest).toHaveBeenCalledTimes(2);
   });
 });

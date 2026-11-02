@@ -5,6 +5,7 @@ import { DomainException, ErrorCode } from '../../../common/errors';
 import { DevicesService } from '../../devices';
 import { OrganizationsService } from '../../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../../platform/audit/audit-record.event';
+import { simulationDatabaseAllowed } from '../../platform/config/database-url';
 import { ValidatedEnvironment } from '../../platform/config/environment-variables';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
 import { ParameterService } from '../../platform/parameters/parameter.service';
@@ -165,6 +166,8 @@ const wholeSecond = (at: Date) => new Date(Math.floor(at.getTime() / 1000) * 100
 export class FieldSimulationService {
   private readonly logger = new Logger(FieldSimulationService.name);
   private readonly root: string;
+  // The refusal of `run` is logged once per process, not every 10 s.
+  private refusalLogged = false;
 
   constructor(
     private readonly nodes: SimulatedNodesRepository,
@@ -174,7 +177,7 @@ export class FieldSimulationService {
     private readonly organizations: OrganizationsService,
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
-    config: ConfigService<ValidatedEnvironment, true>,
+    private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {
     this.root = config.get('MQTT_ROOT', { infer: true });
   }
@@ -408,8 +411,18 @@ export class FieldSimulationService {
 
   // One run of the field data simulator while DEMO_SIMULATION_ENABLED is true (REQ-SIM-01, REQ-SIM-03):
   // the packets of every running node for the interval that holds `now`, and the beacons due. Returns
-  // the number of packets handed to ingestion.
+  // the number of packets handed to ingestion. The database check of the routes runs here too (design
+  // §9, REQ-SIM-02): on a database that is neither loopback nor the staging, the run sends nothing.
   async run(now: Date = new Date()): Promise<number> {
+    if (!simulationDatabaseAllowed(this.config)) {
+      if (!this.refusalLogged) {
+        this.logger.warn(
+          'The field simulation runs only on a local database or the Vercel staging; no packet is sent.',
+        );
+        this.refusalLogged = true;
+      }
+      return 0;
+    }
     const interval = Number(await this.parameters.get('gatewaySync.simulatorIntervalSeconds'));
     let sent = 0;
     for (const node of await this.nodes.running()) {
