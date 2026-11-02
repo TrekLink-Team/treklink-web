@@ -187,19 +187,20 @@ export const RolesPage: React.FC = () => {
         .filter(({ error }) => error instanceof ApiError && error.errorCode === 'NOT_FOUND')
         .map(({ role }) => role.id),
     ]);
-    setDrafts((current) =>
-      Object.fromEntries(Object.entries(current).filter(([id]) => !dropped.has(id))),
-    );
-    setConfirming(false);
-    setPending(false);
-
     if (saved.length > 0) {
-      void queryClient.invalidateQueries({ queryKey: roleKeys.roles });
+      // The grid reads the cached roles under the draft: clearing the draft before the refetch lands would
+      // show the old set again for a moment, so the draft stays until the saved roles are read back.
+      await queryClient.invalidateQueries({ queryKey: roleKeys.roles });
       // A role change applies on the next request (REQ-UBI-08), so the signed-in Admin reads themselves again.
       if (saved.some((role) => user?.roles.includes(role.key))) {
         void queryClient.invalidateQueries({ queryKey: ME_KEY });
       }
     }
+    setDrafts((current) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => !dropped.has(id))),
+    );
+    setConfirming(false);
+    setPending(false);
     const rows: Failure[] = [];
     let notFound = false;
     for (const { role, error } of failed) {
