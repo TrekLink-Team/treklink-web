@@ -158,13 +158,13 @@ The proposal is `design.md` section 9. Nothing here starts before the leader rul
 - [ ] 9.2 Effective-set resolver and the cache by organization (owner TanNB)
   - **Files**: `casl/permission-cache.ts`, `casl/ability.factory.ts`, `casl/effective-permissions.ts`
   - **Do**: `rulesFor(roleKeys, organizationId)`; entries by `(organizationId, roleKey)`; `policy.changed` with an optional `organizationId` that drops one organization and leaves `policyVersion` alone; the algorithm of 9.3
-  - **Test**: table of cases (baseline, grant, revoke, grant outside the ceiling ignored, Operator revoke reaching the Manager, Manager protected permission always present); AC-09
+  - **Test**: table of cases (baseline, grant, revoke, grant outside the ceiling ignored, Operator revoke not reaching the Manager, Manager protected permission always present); cache entry expiry after `auth.permissionCacheTtlSeconds`; AC-09, AC-10
   - _Requirements: REQ-UBI-10, REQ-EVT-11, AC-09_
 - [ ] 9.3 `OrganizationRolePolicyService` and repository (owner TanNB)
   - **Files**: `organization-role-policy.service.ts`, `organization-role-policy.repository.ts`
   - **Do**: `view(organizationId)`; `replace(caller, roleKey, dto)` with the status gate through `ACCOUNT_CONTEXT_PROVIDER`, the key checks, `FOR UPDATE` on the policy row, compare and set `version`, `policy.changed` and `audit.record` after commit; `PUT /api/roles/:id/permissions` refuses to remove a Manager-protected permission from `ORG_MANAGER`
-  - **Test**: AC-07, AC-08; two concurrent saves, one gets `STALE_VERSION` (db-spec)
-  - _Requirements: REQ-EVT-10, REQ-STA-04, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12, AC-07, AC-08_
+  - **Test**: AC-07, AC-08, AC-10; two concurrent saves, one gets `STALE_VERSION` (db-spec)
+  - _Requirements: REQ-EVT-10, REQ-STA-04, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12, AC-07, AC-08, AC-10_
 - [ ] 9.4 `OrganizationRolesController` (owner TanNB)
   - **Files**: `organization-roles.controller.ts`
   - **Do**: api-design 19 and 20 with `@CheckPolicies` on the subject `OrganizationRole`; the organization from the token only

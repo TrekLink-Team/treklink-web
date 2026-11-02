@@ -57,13 +57,13 @@ tbody th{font-weight:500;background:#fff;min-width:300px}
             </tr>
             <tr>
               <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">incident.respond.own</span><span class="note">Acknowledge and update an incident</span></th>
-              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">From ORG_OPERATOR</span></td>
               <td class="c"><span class="off"></span><span class="note">Own organization only, Customised</span></td>
             </tr>
             <tr><th scope="rowgroup" colspan="3" class="grp">Live map</th></tr>
             <tr>
               <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">liveMap.read.own</span><span class="note">Read the live map of the own organization</span></th>
-              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">From ORG_OPERATOR</span></td>
               <td class="c"><span class="off chg"></span><span class="note" style="color:#b45309">Changed</span></td>
             </tr>
             <tr><th scope="rowgroup" colspan="3" class="grp">Member</th></tr>

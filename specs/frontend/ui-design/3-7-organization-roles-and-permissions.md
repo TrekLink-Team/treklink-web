@@ -27,7 +27,7 @@ One matrix: the permissions of the ceiling are the rows, grouped by `subject`; t
 | Rows: every permission inside the ceiling, key, description, grouped by `subject`, alphabetical | auth 19 `catalog[].key`, `description`, `subject` |
 | Cell ticked when the effective set of the role, or its draft, holds the key | auth 19 `roles[].effectiveKeys` |
 | Scope text "Own organization only" when `scope` is `own` | auth 19 `catalog[].scope` |
-| Inherited cell: on `ORG_MANAGER` a permission that the Operator's effective set holds, ticked, read-only, "From ORG_OPERATOR"; it follows the Operator's draft | the rule of 7.2 (`cellOf`), over `effectiveKeys` |
+| Inherited cell: on `ORG_MANAGER` a permission that the TrekLink baseline of `ORG_OPERATOR` holds, ticked, read-only, "From ORG_OPERATOR"; it does not change with the Operator's draft (auth REQ-UBI-10, AC-10) | auth 19 `roles[]` of `ORG_OPERATOR`, `baselineKeys` |
 | Locked cell: a `protected` permission on `ORG_MANAGER` is ticked, read-only, "Required for Manager" | auth 19 `catalog[].protected` |
 | Not available: a `protected` permission on `ORG_OPERATOR` has no box (it cannot be granted below the Manager, auth REQ-UBI-11) | auth 19 `catalog[].protected` |
 | Customised mark: a cell whose saved value differs from the baseline carries the word "Customised" | auth 19 `roles[].baselineKeys` against `effectiveKeys` |
