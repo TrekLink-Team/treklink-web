@@ -111,7 +111,7 @@ test('MF-03 steps 7 to 10: Staff report the UNROUTED TL-0001 incident and close 
   await expect(statusBadge(detail, 'Closed')).toHaveCount(0);
 
   // Step 8
-  await main.getByRole('button', { name: 'Report to authorities' }).click();
+  await detail.getByRole('button', { name: 'Report to authorities' }).click();
   const report = page.getByRole('dialog');
   await report.getByLabel('Agency').fill(agency);
   await report.getByLabel('Authority reference').fill(incidentReference);
