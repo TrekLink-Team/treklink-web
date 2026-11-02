@@ -1,6 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800"><title>Roles and permissions</title><foreignObject x="0" y="0" width="1280" height="800"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:800px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
-
 a{color:#0d6e5f}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+th,td{border-bottom:1px solid #eef0f3;padding:8px 10px;text-align:left;vertical-align:middle}
+thead th{background:#fff;position:sticky;top:0;border-bottom:1px solid #c4cad3;font-size:13px}
+tbody th{font-weight:500;background:#fff;min-width:300px}
+.grp{background:#f5f6f8;font-size:12px;font-weight:600;color:#5a6370;text-transform:uppercase;letter-spacing:0.6px}
+.c{text-align:center}
+.on{display:inline-block;width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700}
+.off{display:inline-block;width:16px;height:16px;border-radius:4px;border:1.5px solid #8a919c;background:#fff}
+.ro{display:inline-block;width:18px;height:18px;border-radius:4px;background:#9aa3af;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700}
+.chg{outline:2px solid #b45309;outline-offset:3px}
+.note{display:block;font-size:11px;color:#5a6370;margin-top:3px}
+.na{color:#8a919c}
 </style><div style="width:1280px;height:800px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
   <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
     <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">Admin</span></div>
@@ -15,48 +26,74 @@ a{color:#0d6e5f}
       <div style="padding:10px 12px;color:#3a424d">Sign-in log</div>
       <div style="padding:10px 12px;color:#3a424d">System health</div>
     </div>
-    <div style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:20px;min-width:0">
+    <div style="flex:1;padding:24px 32px;display:flex;flex-direction:column;gap:16px;min-width:0">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <h1 style="margin:0;font-size:24px;font-weight:700">Roles and permissions</h1>
+        <div>
+          <h1 style="margin:0;font-size:24px;font-weight:700">Roles and permissions</h1>
+          <div style="font-size:13px;color:#5a6370;margin-top:4px">What each role may do. A change applies to its holders on their next request.</div>
+        </div>
         <div style="display:flex;gap:10px;align-items:center">
-          <span style="font-size:13px;color:#5a6370">2 changes not saved</span>
-          <a href="#discard" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Discard</a>
+          <span style="font-size:13px;color:#5a6370">2 changes in 2 roles</span>
+          <a href="#discard" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Discard draft</a>
           <a href="#save" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">Save permissions</a>
         </div>
       </div>
-      <div style="display:flex;gap:20px;flex:1;min-height:0">
-        <div style="width:260px;flex:none;display:flex;flex-direction:column;gap:8px">
-          <div style="background:#fff;border:1px solid #dde1e7;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px">ADMIN</div><div style="font-size:12px;color:#5a6370;margin-top:2px">TrekLink &#183; 32 permissions &#183; system role</div></div>
-          <div style="background:#fff;border:1px solid #dde1e7;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px">STAFF</div><div style="font-size:12px;color:#5a6370;margin-top:2px">TrekLink &#183; 24 permissions &#183; system role</div></div>
-          <div style="background:#fff;border:1px solid #dde1e7;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px">ORG_MANAGER</div><div style="font-size:12px;color:#5a6370;margin-top:2px">Organization &#183; 18 permissions &#183; system role</div></div>
-          <div style="background:#e3f1ee;border:1px solid #0d6e5f;border-radius:10px;padding:14px 16px"><div style="font-weight:600;font-size:14px;color:#08493f">ORG_OPERATOR</div><div style="font-size:12px;color:#2f5f56;margin-top:2px">Organization &#183; 9 permissions &#183; system role</div></div>
-        </div>
-        <div style="flex:1;background:#fff;border:1px solid #dde1e7;border-radius:12px;padding:24px 28px;display:flex;flex-direction:column;gap:18px;min-width:0">
-          <div>
-            <div style="font-size:18px;font-weight:700">ORG_OPERATOR</div>
-            <div style="font-size:13px;color:#5a6370;margin-top:4px">Only permissions for an organization role are listed. A change applies on the holders' next request. ORG_MANAGER also holds everything ORG_OPERATOR holds.</div>
-          </div>
-          <div>
-            <div style="font-size:12px;font-weight:600;color:#5a6370;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px">Live map</div>
-            <div style="display:flex;flex-direction:column;gap:2px">
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">liveMap.read.own</div><div style="font-size:13px;color:#5a6370">Read the live map of the own organization</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">telemetryHistory.read.own</div><div style="font-size:13px;color:#5a6370">Read the position and telemetry history of a rented device</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:12px;font-weight:600;color:#5a6370;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px">Incident</div>
-            <div style="display:flex;flex-direction:column;gap:2px">
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">incident.read.own</div><div style="font-size:13px;color:#5a6370">Read the incidents of the own organization</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700">&#10003;</div><div style="flex:1"><div style="font-size:14px;font-weight:500">incident.respond.own</div><div style="font-size:13px;color:#5a6370">Acknowledge and update an incident</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #eef0f3"><div style="width:18px;height:18px;border-radius:4px;border:1.5px solid #8a919c;background:#fff"></div><div style="flex:1"><div style="font-size:14px;font-weight:500">[permission key]</div><div style="font-size:13px;color:#5a6370">[A permission this role does not hold yet]</div></div><span style="font-size:12px;color:#3a424d;background:#eef0f3;border-radius:999px;padding:3px 10px">Own organization only</span></div>
-            </div>
-          </div>
-          <div style="border-top:1px dashed #c4cad3;padding-top:16px;display:flex;gap:16px;align-items:center;font-size:13px;color:#5a6370">
-            <div style="width:18px;height:18px;border-radius:4px;background:#9aa3af;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700;flex:none">&#10003;</div>
-            <div><b style="color:#12161c">On ADMIN, role.manage is locked.</b> A protected permission stays checked and shows "Required for Admin". Saving without it would return: The Admin role must keep role management.</div>
-          </div>
-        </div>
+      <div style="flex:1;min-height:0;overflow:hidden;background:#fff;border:1px solid #dde1e7;border-radius:12px">
+        <table>
+          <caption style="text-align:left;padding:12px 10px;font-size:13px;color:#5a6370">Permissions by role. Press Space to change a cell.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Permission</th>
+              <th scope="col" class="c">ADMIN<span class="note">TrekLink &#183; 32 &#183; system</span></th>
+              <th scope="col" class="c">STAFF<span class="note">TrekLink &#183; 24 &#183; system</span></th>
+              <th scope="col" class="c">ORG_MANAGER<span class="note">Organization &#183; 18 &#183; system</span></th>
+              <th scope="col" class="c">ORG_OPERATOR<span class="note">Organization &#183; 9 &#183; system</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="rowgroup" colspan="5" class="grp">Account</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">account.manage</span><span class="note">Create and edit TrekLink accounts</span></th>
+              <td class="c"><span class="on">&#10003;</span></td>
+              <td class="c"><span class="on chg">&#10003;</span><span class="note" style="color:#b45309">Changed</span></td>
+              <td class="c na">Not available</td>
+              <td class="c na">Not available</td>
+            </tr>
+            <tr><th scope="rowgroup" colspan="5" class="grp">Incident</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">incident.read.own</span><span class="note">Read the incidents of the own organization</span></th>
+              <td class="c na">Not available</td>
+              <td class="c na">Not available</td>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">From ORG_OPERATOR</span></td>
+              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">incident.respond.own</span><span class="note">Acknowledge and update an incident</span></th>
+              <td class="c na">Not available</td>
+              <td class="c na">Not available</td>
+              <td class="c"><span class="off"></span><span class="note">Own organization only</span></td>
+              <td class="c"><span class="off chg"></span><span class="note" style="color:#b45309">Changed</span></td>
+            </tr>
+            <tr><th scope="rowgroup" colspan="5" class="grp">Live map</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">liveMap.read.own</span><span class="note">Read the live map of the own organization</span></th>
+              <td class="c na">Not available</td>
+              <td class="c na">Not available</td>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">From ORG_OPERATOR</span></td>
+              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+            </tr>
+            <tr><th scope="rowgroup" colspan="5" class="grp">Role</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">role.manage</span><span class="note">Edit what a role may do</span></th>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">Required for Admin</span></td>
+              <td class="c"><span class="off"></span></td>
+              <td class="c na">Not available</td>
+              <td class="c na">Not available</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <div style="font-size:12px;color:#5a6370">Grey tick: read-only (inherited or required). Orange outline and the word Changed: differs from the saved set.</div>
     </div>
   </div>
 </div></div></foreignObject></svg>

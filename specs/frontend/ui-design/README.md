@@ -54,7 +54,7 @@ Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-
 | 6.3 | [Counter payments](6-3-counter-payments.md) | LongLP | US-UC22 | 2026-10-23 |
 | 6.4 | [Prices, damage rates, `DamageChargesPage`](6-4-prices-damage-rates-damagechargespage.md) | LongLP | US-UC48, US-UC56 | 2026-10-23 |
 | 7.1 | [TrekLink accounts](7-1-treklink-accounts.md) | LongNN | US-UC10 | 2026-10-23 |
-| 7.2 | [Roles and permissions](7-2-roles-and-permissions.md) | LongNN | US-UC10 | 2026-10-23 |
+| 7.2 | [Roles and permissions](7-2-roles-and-permissions.md) | LongNN, TanNB | US-UC10 | 2026-10-23 |
 | 7.3 | [Authentication events](7-3-authentication-events.md) | LongNN | US-UC58 | 2026-10-23 |
 | 7.4 | [Parameters and audit log](7-4-parameters-and-audit-log.md) | LongNN | US-UC57, US-UC58 | 2026-10-23 |
 | 8.1 | [Organization incident queue and `IncidentDetailPage`](8-1-organization-incident-queue-and-incidentdetailpage.md) | HoangTK | US-UC32, US-UC33, US-UC34 | 2026-10-23 |
