@@ -12,6 +12,8 @@ INC = {"id": INCIDENT_ID, "code": "INC-2026-000045", "device": {"id": DEVICE_ID,
 # Authority report ids of the examples: an incident report (02, 09, 11) and a contract report (10).
 REPORT_ID = "0b6c9f2e-4d1a-4c3b-9e8f-7a6b5c4d3e2f"
 CONTRACT_REPORT_ID = "4e3d2c1b-0a9f-4e8d-8c7b-6a5f4e3d2c1b"
+STATUS_UPDATE_ID = "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc31"
+CORRECTION_ID = "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc32"
 I_PATH = ["id", "Incident id; members may use only their own organization's", "uuid", f"`{INCIDENT_ID}`"]
 VERSION = ["expectedVersion", "Incident version the caller saw", "int", "yes", "`1`"]
 TAKEN = (409, "ALREADY_OWNED", "Another member acknowledged first (compare-and-set lost)",
@@ -77,12 +79,12 @@ ENDPOINTS = [
        "UC-32, UC-33, FR-AUTH-11",
        path=[I_PATH],
        response={**INC, "outcomeNote": None,
-                 "statusUpdates": [{"id": "su-4", "note": "Reached the holder, minor knee injury",
+                 "statusUpdates": [{"id": CORRECTION_ID, "note": "Reached the holder, minor knee injury",
                                     "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW,
-                                    "correctsId": "su-3", "correctedById": None},
-                                   {"id": "su-3", "note": "Reached the holder, minor ankle injury",
+                                    "correctsId": STATUS_UPDATE_ID, "correctedById": None},
+                                   {"id": STATUS_UPDATE_ID, "note": "Reached the holder, minor ankle injury",
                                     "author": {"id": USER_ID, "fullName": "Pham Van D"}, "createdAt": NOW,
-                                    "correctsId": None, "correctedById": "su-4"}],
+                                    "correctsId": None, "correctedById": CORRECTION_ID}],
                  "authorityReports": [{"id": REPORT_ID, "agency": "Lam Dong provincial rescue (114)",
                                        "reference": "LD-114-2026-1020-07", "reportedAt": NOW, "caseClosedAt": None}]},
        entity="Incident",
@@ -141,10 +143,10 @@ ENDPOINTS = [
        "UC-33, FR-INC-07, E03-5",
        path=[I_PATH], body=[["note", "Status", "string", "yes", "`Reached the holder, minor ankle injury`"],
                             ["correctsId", "The earlier update of this incident that this one corrects",
-                             "uuid", "no", "`su-3`"]],
-       sample={"note": "Reached the holder, minor knee injury", "correctsId": "su-3"},
-       response={"id": "su-4", "note": "Reached the holder, minor knee injury", "createdAt": NOW,
-                 "statusDueAt": "2026-10-20T04:45:00Z", "correctsId": "su-3"}, status=201, message="Status recorded",
+                             "uuid", "no", f"`{STATUS_UPDATE_ID}`"]],
+       sample={"note": "Reached the holder, minor knee injury", "correctsId": STATUS_UPDATE_ID},
+       response={"id": CORRECTION_ID, "note": "Reached the holder, minor knee injury", "createdAt": NOW,
+                 "statusDueAt": "2026-10-20T04:45:00Z", "correctsId": STATUS_UPDATE_ID}, status=201, message="Status recorded",
        entity="Incident",
        errors=[(400, "VALIDATION_FAILED", "correctsId names no status update of this incident",
                 "correctsId must name a status update of this incident."),
