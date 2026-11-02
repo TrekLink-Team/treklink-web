@@ -80,3 +80,15 @@ This audit does not change the contract or reopen the status-update implementati
 The parent task 8.1 remains unchecked. No Jira story is marked Done and no duplicate Daily Report is
 posted. Historical MF-03 MQTT/browser SOS-to-RESOLVED evidence remains in the earlier Week 9 handoff;
 this audit does not claim a new browser/hardware run.
+
+## Post-audit example correction
+
+KhoaDD merged #322 after green CI, then merged this evidence audit in #323. The rebased #323 CI
+run 41471305008 first failed the connected-socket latency check at 2071.6823799999984 ms against
+2000 ms; its second attempt passed. Preserve the failure for reliability follow-up; no bound changed.
+
+KhoaDD's #323 review requested the API 05 example fix separately. #324 replaces `su-3`/`su-4`
+with consistent UUIDs in the source catalog and regenerates API 05 and the linked API 02 response.
+The new generated request passes the unchanged StatusUpdateDto; both response correction links
+agree. All 14 API documents match the generator. The original reproduction above remains historical
+evidence for audit base 829601c. This fix does not certify every API validation row or check parent 8.1.
