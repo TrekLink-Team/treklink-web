@@ -272,21 +272,23 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                 {simulation.nodes.map((node) => {
                   const rowBusy = busy === node.id;
                   const isRunning = node.status === 'RUNNING';
+                  // The row's name: each action's accessible name carries it, so a screen reader user
+                  // hears which node a button acts on (WCAG 2.4.6), and the visible text stays first in it
+                  // (WCAG 2.5.3).
+                  const label = node.assetTag ?? node.nodeId;
                   return (
                     <tr
                       key={node.id}
                       className="border-b border-line align-top"
                       aria-busy={rowBusy || undefined}
                     >
-                      <td className="px-2 py-2">
+                      <th scope="row" className="px-2 py-2 font-normal">
                         <span className="flex flex-wrap items-center gap-1.5">
-                          <span className="font-semibold text-ink">
-                            {node.assetTag ?? node.nodeId}
-                          </span>
+                          <span className="font-semibold text-ink">{label}</span>
                           <Badge>Simulated</Badge>
                           {!isRunning && <Badge tone="ended">Stopped</Badge>}
                         </span>
-                      </td>
+                      </th>
                       <td className="px-2 py-2 text-ink">
                         {node.organization?.code ?? 'TrekLink'}
                       </td>
@@ -295,7 +297,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                         {isRunning ? (
                           <span className="flex items-center gap-1.5">
                             <Select
-                              aria-label={`Pattern for ${node.assetTag ?? node.nodeId}`}
+                              aria-label={`Pattern for ${label}`}
                               value={patterns[node.id] ?? node.pattern}
                               disabled={disabled}
                               onChange={(e) =>
@@ -317,6 +319,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                                 disabled || (patterns[node.id] ?? node.pattern) === node.pattern
                               }
                               onClick={() => void applyPattern(node)}
+                              aria-label={`Apply pattern to ${label}`}
                             >
                               Apply
                             </Button>
@@ -350,6 +353,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                               variant="danger"
                               disabled={disabled}
                               onClick={() => setConfirming({ kind: 'SOS', node })}
+                              aria-label={`SOS on ${label}`}
                             >
                               SOS
                             </Button>
@@ -358,6 +362,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                               variant="danger"
                               disabled={disabled}
                               onClick={() => setConfirming({ kind: 'FALL', node })}
+                              aria-label={`Fall on ${label}`}
                             >
                               Fall
                             </Button>
@@ -366,6 +371,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                                 size="sm"
                                 disabled={disabled}
                                 onClick={() => void raise(node, 'SOS_CANCEL')}
+                                aria-label={`Cancel SOS on ${label}`}
                               >
                                 Cancel SOS
                               </Button>
@@ -374,6 +380,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                               size="sm"
                               disabled={disabled}
                               onClick={() => setConfirming({ kind: 'STOP', node })}
+                              aria-label={`Stop ${label}`}
                             >
                               Stop
                             </Button>

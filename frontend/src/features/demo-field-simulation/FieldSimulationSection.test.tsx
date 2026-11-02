@@ -110,8 +110,26 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
     expect(within(row).getByText('11.497591, 108.568646')).toBeTruthy();
     expect(within(row).getByText('99%')).toBeTruthy();
     expect(within(row).getByText('None')).toBeTruthy();
-    expect(within(row).queryByRole('button', { name: 'Cancel SOS' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Cancel SOS on TL-0010' })).toBeNull();
     expect(screen.getByText('Trails © OpenStreetMap contributors, ODbL.')).toBeTruthy();
+  });
+
+  // Review of treklink-web#307: the device cell heads its row, and every row action names its node.
+  it('heads each row with the device cell and names every row action with the asset tag', () => {
+    show(overview({ nodes: [{ ...NODE, sosKind: 'SOS', sosSince: '2026-11-06T03:42:00.000Z' }] }));
+    const header = screen.getByRole('rowheader', { name: /TL-0010/ });
+    expect(header.tagName).toBe('TH');
+    expect(header.getAttribute('scope')).toBe('row');
+    const row = rowOf('TL-0010');
+    for (const name of [
+      'Apply pattern to TL-0010',
+      'SOS on TL-0010',
+      'Fall on TL-0010',
+      'Cancel SOS on TL-0010',
+      'Stop TL-0010',
+    ])
+      expect(within(row).getByRole('button', { name })).toBeTruthy();
+    expect(within(row).getByRole('combobox', { name: 'Pattern for TL-0010' })).toBeTruthy();
   });
 
   it('shows the empty state with no node', () => {
@@ -141,7 +159,7 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
     updateSimulatedNode.mockResolvedValue({ ...NODE, pattern: 'STRAY', version: 4 });
     show(overview());
     const row = rowOf('TL-0010');
-    const apply = within(row).getByRole('button', { name: 'Apply' }) as HTMLButtonElement;
+    const apply = within(row).getByRole('button', { name: 'Apply pattern to TL-0010' }) as HTMLButtonElement;
     expect(apply.disabled).toBe(true);
     fireEvent.change(within(row).getByLabelText('Pattern for TL-0010'), {
       target: { value: 'STRAY' },
@@ -155,13 +173,13 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
   it('asks in a dialog before an SOS, and Cancel sends nothing', async () => {
     raiseSimulatedEvent.mockResolvedValue({ node: NODE, fieldEventId: 'e' });
     show(overview());
-    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'SOS' }));
+    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'SOS on TL-0010' }));
     const dialog = screen.getByRole('dialog', { name: 'Send an SOS from TL-0010?' });
     expect(within(dialog).getByText(/opens a real incident, marked Simulated/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(raiseSimulatedEvent).not.toHaveBeenCalled();
 
-    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'Fall' }));
+    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'Fall on TL-0010' }));
     fireEvent.click(screen.getByRole('button', { name: 'Send fall SOS' }));
     await waitFor(() => expect(raiseSimulatedEvent).toHaveBeenCalledWith(NODE, 'FALL'));
   });
@@ -171,7 +189,7 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
     show(overview({ nodes: [{ ...NODE, sosKind: 'SOS', sosSince: '2026-11-06T03:42:00.000Z' }] }));
     const row = rowOf('TL-0010');
     expect(within(row).getByText(/^SOS since \d\d:\d\d$/)).toBeTruthy();
-    fireEvent.click(within(row).getByRole('button', { name: 'Cancel SOS' }));
+    fireEvent.click(within(row).getByRole('button', { name: 'Cancel SOS on TL-0010' }));
     await waitFor(() =>
       expect(raiseSimulatedEvent).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'node-1' }),
@@ -183,7 +201,7 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
   it('stops a node after its dialog', async () => {
     stopSimulatedNode.mockResolvedValue({ ...NODE, status: 'STOPPED' });
     show(overview());
-    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'Stop' }));
+    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'Stop TL-0010' }));
     fireEvent.click(screen.getByRole('button', { name: 'Stop node' }));
     await waitFor(() => expect(stopSimulatedNode).toHaveBeenCalledWith(NODE));
   });
@@ -223,7 +241,7 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
       new ApiError(409, 'INVALID_STATE_TRANSITION', 'This cannot be done while it is STOPPED.'),
     );
     show(overview({ nodes: [{ ...NODE, sosKind: 'SOS', sosSince: '2026-11-06T03:42:00.000Z' }] }));
-    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'Cancel SOS' }));
+    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'Cancel SOS on TL-0010' }));
     expect(await screen.findByText('This cannot be done while it is STOPPED.')).toBeTruthy();
   });
 
@@ -237,8 +255,8 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
       'A node goes silent',
       'A node strays',
       'Add node',
-      'SOS',
-      'Stop',
+      'SOS on TL-0010',
+      'Stop TL-0010',
     ])
       expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
   });
