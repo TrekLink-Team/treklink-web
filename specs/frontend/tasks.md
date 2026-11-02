@@ -52,7 +52,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Files**: `specs/frontend/ui-design/0-ui-standard.md`; `shared/ui/{Menu,StateChange,DataTable,toast,toastStore,Dialog,useFocusTrap,bits,Toolbar,TableFilters}.tsx`; `pages/DesignSystemPage.tsx`
   - **Do**: write the standard (WCAG 2.2 AA, data tables, state changes, forms, dark mode, each rule with its source); build `Menu`, `DataTable` selection with `BulkBar`, row actions, sort and keyboard activation, `StateChangeMenu` and `StateChangeDialog`, four toast tones; re-export the `bits.tsx` duplicates; one focus ring; 44 px filter chip remove and ErrorState retry; show each on the design system page
   - **Test**: `Menu.test.tsx` (8), `DataTable.test.tsx` (12), `StateChange.test.tsx` (8), `toast.test.tsx` (10); axe-core on `/dev/design-system` with the bulk bar, an open menu, the alert dialog and an error toast, both themes, 0 violations
-  - **Not done**: applying the standard to the pages (W29); the error summary component; `AccountMenu` onto `Menu`
+  - **Not done**: applying the standard to the pages (W29); the error summary component
   - _Requirements: REQ-UBI-04, NFR-USE-03_
 
 - [ ] 1.7 Apply the UI standard: admin state changes, bulk selection, the missing admin pages (W29, KhoaDD under D-078, 2026-11-01)
@@ -73,6 +73,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: auth api-design 04 and 08
   - **Done**: the header account menu with the read-only profile (`['me']`), the change-password dialog and sign out (auth 03), in TK-186; after a password change the client signs out to `/sign-in`, because the server ends every session (D-063 rule 1)
   - _Story: US-UC08_
+  - **Note** (2026-11-02): `AccountMenu` is the shared `Menu` with the profile in its `header` slot, a refused demo role switch is an error toast, and `ChangePasswordDialog` is a `Dialog` that asks through `useConfirmStep`; the last `window.confirm` is gone.
 - [ ] 2.3 Plans page (owner LongNN)
   - **Do**: billing api-design 01, public; the search-and-rescue disclaimer (also on `RegisterPage`)
   - **Partly done** (2026-10-30): `PlansPage` at `/` and `/plans` (public; the interim dashboard stays on `/o/map` and `/t/map`) over billing api-design 01: variant cards with the sandbox label, the shared terms, the four rental steps, loading, empty and error states with Retry (focus moves to the first card after a successful retry), the disclaimer under the header and above the contact line, and a signed-in user sees "Open your workspace" in place of Sign in and Register. The page asks `usePlans` for a 5-minute stale time with no refetch on window focus; the hook keeps its 60-second default for the other pages. `SAR_DISCLAIMER` now lives in `shared/ui/legal.ts` and is re-exported by `entities/incident/api.ts`, and `RegisterPage` shows it too. Component-tested (8); lint, typecheck and the frontend suite pass. Open: a walk through the page in a browser against a running backend, and a skip link (neither `AuthLayout` nor `AppShell` has one)

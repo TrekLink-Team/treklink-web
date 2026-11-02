@@ -139,6 +139,16 @@ describe('Menu (menu button pattern)', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it('shows a header above the items that is no item and takes no focus', () => {
+    render(<Menu label="Actions for TL-0042" items={items()} header={<p>Signed in as Tran Thi B</p>} />);
+    open();
+    const menu = screen.getByRole('menu');
+    expect(menu.textContent).toContain('Signed in as Tran Thi B');
+    expect(screen.getAllByRole('menuitem')).toHaveLength(3);
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[0]);
+    expect(menu.firstElementChild?.getAttribute('role')).toBe('presentation');
+  });
+
   it('starts the accessible name with the visible trigger text (WCAG 2.5.3)', () => {
     render(<Menu label="Change status of TL-0042" trigger={<span>Change status</span>} items={items()} />);
     const button = screen.getByRole('button', { name: 'Change status of TL-0042' });

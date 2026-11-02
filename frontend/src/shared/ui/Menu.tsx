@@ -39,6 +39,8 @@ export interface MenuProps {
   trigger?: React.ReactNode;
   /** Classes of the trigger button. */
   triggerClassName?: string;
+  /** Read-only content above the items, such as who is signed in. Not a menu item: it takes no focus. */
+  header?: React.ReactNode;
   /** Which edge of the button the list lines up with. */
   align?: 'start' | 'end';
   disabled?: boolean;
@@ -64,6 +66,7 @@ export const Menu: React.FC<MenuProps> = ({
   items,
   trigger,
   triggerClassName,
+  header,
   align = 'end',
   disabled,
   title,
@@ -224,6 +227,11 @@ export const Menu: React.FC<MenuProps> = ({
       }}
       className="z-toast flex w-max max-w-[min(20rem,calc(100vw-1rem))] flex-col rounded-panel border border-line bg-surface-raised p-1 text-ink shadow-overlay"
     >
+      {header && (
+        <div role="presentation" className="mb-1 border-b border-line px-3 pb-2 pt-1">
+          {header}
+        </div>
+      )}
       {items.map((item, index) => {
         const reasonId = item.disabled && item.disabledReason ? `${baseId}-reason-${item.key}` : undefined;
         const showReason = reasonId !== undefined && (index === active || index === hovered);

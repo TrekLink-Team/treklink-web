@@ -90,5 +90,6 @@ first form that needs it in W29.
 | A bulk action | `BulkActionDialog`: the count in the title ("Retire 3 devices?"), one reason or required steps for every row, the single-row endpoint run in sequence (`runInSequence`), then a toast when all succeeded or a summary dialog listing each failed row with the server's message (W29) | A bulk endpoint the API does not have; a silent partial failure |
 | Feedback after an action | `useToast().show(message, { tone, action })` | An alert for a success |
 
-The hand-rolled menu of `AccountMenu.tsx` mixes the profile block into the menu and moves to `Menu`
-with W29.
+`AccountMenu` is a `Menu` since 2026-11-02: the profile block sits in its `header` slot (read-only text above
+the items, no menuitem), and `ChangePasswordDialog` is a `Dialog` that asks in a `ConfirmDialog` before
+discarding filled fields. No `window.confirm` is left in `src`.
