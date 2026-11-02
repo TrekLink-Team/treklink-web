@@ -240,6 +240,45 @@ describe('RolesPage (screen 7.2), the grid', () => {
     expect(writes()).toHaveLength(1);
   });
 
+  it('keeps the saved cells until the roles are read back, so the grid never shows the old set again', async () => {
+    let saved = false;
+    let release: (roles: unknown) => void = () => undefined;
+    api.mockImplementation((endpoint: string, options?: RequestInit) => {
+      if (options?.method) {
+        saved = true;
+        return Promise.resolve({});
+      }
+      if (endpoint !== '/roles') return Promise.resolve(CATALOG);
+      if (!saved) return Promise.resolve(ROLES);
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+    });
+    renderPage();
+    await loaded();
+    const box = () =>
+      screen.getByRole('checkbox', {
+        name: /^incident\.read\.own for ORG_OPERATOR(,|$)/,
+        hidden: true,
+      }) as HTMLInputElement;
+    fireEvent.click(cell('incident.read.own', 'ORG_OPERATOR'));
+    save();
+    await confirm();
+    await waitFor(() => expect(reads('/roles')).toHaveLength(2));
+    // The roles request is still open: the draft holds the new value, and no success is shown yet.
+    expect(box().checked).toBe(true);
+    expect(useToast.getState().message).not.toBe('Permissions updated');
+    release(
+      ROLES.map((item) =>
+        item.id === 'r-op'
+          ? { ...item, permissionKeys: ['liveMap.read.own', 'incident.read.own'] }
+          : item,
+      ),
+    );
+    await waitFor(() => expect(useToast.getState().message).toBe('Permissions updated'));
+    expect(box().checked).toBe(true);
+  });
+
   it('writes only the changed roles, in column order, and lists each in the confirmation', async () => {
     serve();
     renderPage();
