@@ -26,6 +26,11 @@ export {
   type OrganizationCountName,
   type OrganizationCountProvider,
 } from './ports/counts.port';
+export {
+  COMPLIANCE_LOSS_CASES,
+  type ComplianceLossCaseProvider,
+} from './ports/compliance-loss-cases.port';
+export { ComplianceCasesService } from './compliance-cases.service';
 export { API_KEY_REVOKED, type ApiKeyRevokedEvent } from './api-key-events';
 export { FIELD_STATION_REVOKED, type FieldStationRevokedEvent } from './field-station-events';
 export { ChannelKeyService } from './channel-key.service';

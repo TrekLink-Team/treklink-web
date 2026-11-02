@@ -4,6 +4,10 @@ import { ApiKeysRepository } from './api-keys.repository';
 import { MembersRepository } from './members.repository';
 import { OrganizationAccountContextProvider } from './providers/account-context.provider';
 import { OrganizationApiKeyResolver } from './providers/api-key-resolver.provider';
+import {
+  COMPLIANCE_LOSS_CASES,
+  ComplianceLossCaseProvider,
+} from './ports/compliance-loss-cases.port';
 import { ORGANIZATION_COUNTS, OrganizationCountProvider } from './ports/counts.port';
 import { ORGANIZATION_EXIT_CHECKS, OrganizationExitCheck } from './ports/exit-checks.port';
 
@@ -21,12 +25,15 @@ import { ORGANIZATION_EXIT_CHECKS, OrganizationExitCheck } from './ports/exit-ch
     { provide: ORGANIZATION_EXIT_CHECKS, useValue: [] as OrganizationExitCheck[] },
     // The same for the counts of the organization detail (api-design 03).
     { provide: ORGANIZATION_COUNTS, useValue: [] as OrganizationCountProvider[] },
+    // The same for the loss cases `devices` links to a compliance case (api-design 28 to 32).
+    { provide: COMPLIANCE_LOSS_CASES, useValue: [] as ComplianceLossCaseProvider[] },
   ],
   exports: [
     ACCOUNT_CONTEXT_PROVIDER,
     API_KEY_RESOLVER,
     ORGANIZATION_EXIT_CHECKS,
     ORGANIZATION_COUNTS,
+    COMPLIANCE_LOSS_CASES,
   ],
 })
 export class OrganizationsPortsModule {}

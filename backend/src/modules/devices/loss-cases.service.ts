@@ -313,6 +313,7 @@ export class LossCaseService {
                 evidence: current.description,
                 policeReference,
                 actorId: actor.id,
+                actorRoles: actor.roles,
               },
               tx,
             )

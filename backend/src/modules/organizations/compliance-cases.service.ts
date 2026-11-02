@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ComplianceActionKind,
@@ -18,6 +18,10 @@ import { ComplianceCaseRow, ComplianceCasesRepository } from './compliance-cases
 import { FieldStationsService } from './field-stations.service';
 import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationsService } from './organizations.service';
+import {
+  COMPLIANCE_LOSS_CASES,
+  ComplianceLossCaseProvider,
+} from './ports/compliance-loss-cases.port';
 
 export interface ComplianceActionView {
   kind: ComplianceActionKind;
@@ -45,6 +49,17 @@ export interface OpenCase {
   evidence: string;
   linkedContractIds: string[];
   linkedLossCaseIds: string[];
+}
+
+// What `devices` hands over when Staff triage a loss case in renter custody as a suspected theft.
+export interface LossCaseCompliance {
+  organizationId: string;
+  lossCaseId: string;
+  lossCaseCode: string;
+  evidence: string;
+  policeReference: string | null;
+  actorId: string;
+  actorRoles: string[];
 }
 
 export interface CaseAction {
@@ -83,9 +98,10 @@ const validation = (message: string) =>
 // `FieldStationsService.revoke` and `ApiKeysService.revoke` (treklink-web#125) just before it. Each action appends a `ComplianceAction` with its actor
 // (FR-ORG-09).
 //
-// Gap: `linkedLossCases` is always empty. `LossCase` belongs to `devices`, which imports this module,
-// so linking or reading loss cases needs a port `devices` provides; until it exists, opening a case
-// with `linkedLossCaseIds` is refused with 400 rather than dropping them unseen.
+// `LossCase` belongs to `devices`, which imports this module, so the loss cases of a case are read and
+// linked through the port COMPLIANCE_LOSS_CASES that `devices` provides. With no provider (a module
+// test) a case reports none and opening one with `linkedLossCaseIds` is refused with 400 rather than
+// dropping them unseen. `openOrLink` is the other way in: `devices` calls it from a triage.
 @Injectable()
 export class ComplianceCasesService {
   constructor(
@@ -97,6 +113,9 @@ export class ComplianceCasesService {
     private readonly accounts: AccountsService,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
+    @Optional()
+    @Inject(COMPLIANCE_LOSS_CASES)
+    private readonly lossCases: ComplianceLossCaseProvider[] = [],
   ) {}
 
   // api-design 28, newest first.
@@ -125,8 +144,9 @@ export class ComplianceCasesService {
 
   // api-design 29.
   async open(organizationId: string, input: OpenCase, staff: Caller): Promise<ComplianceCaseView> {
-    if (input.linkedLossCaseIds.length > 0) {
-      throw validation('Linking loss cases is not available yet.');
+    const lossCaseIds = [...new Set(input.linkedLossCaseIds)];
+    if (lossCaseIds.length > 0 && !this.lossCases[0]) {
+      throw validation('Linking loss cases is not available.');
     }
     if ((await this.organizationRows.findStatus(organizationId)) === null) {
       throw new DomainException(
@@ -147,13 +167,54 @@ export class ComplianceCasesService {
         },
         tx,
       );
+      if (lossCaseIds.length > 0) {
+        await this.lossCases[0].link(created.id, organizationId, lossCaseIds, tx);
+      }
       this.audit(staff, created, 'complianceCase.open', null, {
         code: created.code,
         type: created.type,
+        linkedLossCaseIds: lossCaseIds,
       });
       return created;
     });
     return (await this.views([row]))[0];
+  }
+
+  // For devices (FR-DEV-13, D-046), in the triage transaction: the loss case of a renter's unit flagged
+  // as a suspected theft joins the organization's OPEN `SUSPECTED_THEFT` case, or opens one when there
+  // is none. A police report reference fills the case's `authorityReference` when it has none, so the
+  // case can close (BR-40). Returns the case id, which the loss case stores.
+  async openOrLink(input: LossCaseCompliance, tx: Prisma.TransactionClient): Promise<string> {
+    const type = ComplianceCaseType.SUSPECTED_THEFT;
+    const actor = { id: input.actorId, roles: input.actorRoles };
+    const existing = await this.cases.findOpenOfType(input.organizationId, type, tx);
+    if (existing) {
+      if (input.policeReference) {
+        await this.cases.setAuthorityReference(existing.id, input.policeReference, tx);
+      }
+      this.audit(actor, existing, 'complianceCase.linkLossCase', null, {
+        lossCaseCode: input.lossCaseCode,
+      });
+      return existing.id;
+    }
+    const created = await this.cases.create(
+      {
+        code: await this.cases.nextCode(tx),
+        organizationId: input.organizationId,
+        type,
+        evidence: `Loss case ${input.lossCaseCode}: ${input.evidence}`,
+        linkedContractIds: [],
+        openedById: input.actorId,
+        authorityReference: input.policeReference,
+      },
+      tx,
+    );
+    this.audit(actor, created, 'complianceCase.open', null, {
+      code: created.code,
+      type: created.type,
+      lossCaseCode: input.lossCaseCode,
+    });
+    return created.id;
   }
 
   // api-design 30. `maySuspend` is the caller's `organization.suspend` (Admin); a suspension without
@@ -275,6 +336,7 @@ export class ComplianceCasesService {
     const actorIds = [...new Set(rows.flatMap((row) => row.actions.map((a) => a.actorId)))];
     const cards = await this.accounts.contactCard(actorIds);
     const names = new Map(cards.map((card) => [card.id, card.fullName]));
+    const codes = (await this.lossCases[0]?.codesOf(rows.map((row) => row.id))) ?? new Map();
     return rows.map((row) => ({
       id: row.id,
       code: row.code,
@@ -283,7 +345,7 @@ export class ComplianceCasesService {
       status: row.status,
       evidence: row.evidence,
       linkedContractIds: row.linkedContractIds,
-      linkedLossCases: [],
+      linkedLossCases: codes.get(row.id) ?? [],
       authorityReference: row.authorityReference,
       outcome: row.outcome,
       openedAt: row.openedAt,
@@ -296,7 +358,7 @@ export class ComplianceCasesService {
   }
 
   private audit(
-    actor: Caller,
+    actor: Pick<Caller, 'id' | 'roles'>,
     row: ComplianceCaseRow,
     action: string,
     before: Record<string, unknown> | null,

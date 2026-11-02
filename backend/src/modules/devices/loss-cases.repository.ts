@@ -55,6 +55,37 @@ export class LossCasesRepository {
     return client.lossCase.findUnique({ where: { id }, select: LOSS_CASE_SELECT });
   }
 
+  // The code and compliance case of the loss cases that point at one of the given compliance cases.
+  codesOfComplianceCases(
+    complianceCaseIds: string[],
+    client: Client = this.prisma,
+  ): Promise<{ code: string; complianceCaseId: string | null }[]> {
+    return client.lossCase.findMany({
+      where: { complianceCaseId: { in: complianceCaseIds } },
+      orderBy: { code: 'asc' },
+      select: { code: true, complianceCaseId: true },
+    });
+  }
+
+  // The fields a compliance link checks, for the loss cases that exist among the ids.
+  findManyForLink(
+    ids: string[],
+    client: Client,
+  ): Promise<{ id: string; organizationId: string | null; complianceCaseId: string | null }[]> {
+    return client.lossCase.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, organizationId: true, complianceCaseId: true },
+    });
+  }
+
+  async linkToComplianceCase(
+    ids: string[],
+    complianceCaseId: string,
+    client: Client,
+  ): Promise<void> {
+    await client.lossCase.updateMany({ where: { id: { in: ids } }, data: { complianceCaseId } });
+  }
+
   // LOSS-0001 upwards, serialized by an advisory lock held to the end of the transaction, the same
   // scheme as the compliance case codes.
   async nextCode(tx: Prisma.TransactionClient): Promise<string> {
