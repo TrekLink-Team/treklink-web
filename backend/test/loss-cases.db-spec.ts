@@ -1,4 +1,6 @@
 import {
+  ComplianceCaseStatus,
+  ComplianceCaseType,
   ContractStatus,
   DeviceStatus,
   InspectionResult,
@@ -9,6 +11,7 @@ import {
 } from '@prisma/client';
 import { ErrorCode } from '../src/common/errors';
 import { DevicesService } from '../src/modules/devices/devices.service';
+import { ComplianceCasesService } from '../src/modules/organizations';
 import { LossSearchJob } from '../src/modules/devices/jobs/loss-search.job';
 import { LossCaseService } from '../src/modules/devices/loss-cases.service';
 import { ReturnService } from '../src/modules/rentals/return.service';
@@ -468,6 +471,55 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
     await reset(after);
     const inspected = await returns.inspect(contract.id, deviceId, passed, flow.staff, after);
     expect(inspected.device.status).toBe(DeviceStatus.AVAILABLE);
+  });
+
+  it('FR-DEV-13 and D-046: a suspected theft in renter custody opens one SUSPECTED_THEFT case, and the next loss of the organization links to it', async () => {
+    const org = await flow.organization();
+    const variantId = await flow.variant(SCHEDULE);
+    const deviceIds = await flow.availableDevices(variantId, 2);
+    const contract = await flow.requested(org.id, org.manager.id, variantId, 2);
+    await flow.approve(contract.id);
+    await flow.payAll(contract.id);
+    await flow.handOver(contract.id, org.manager.id, deviceIds);
+    const triager = await flow.admin();
+
+    const triage = async (deviceId: string, policeReference?: string) => {
+      const reported = await lossCases.report(
+        deviceId,
+        { description: 'Not returned, phone off' },
+        org.manager,
+        REPORTED_AT,
+      );
+      return lossCases.triage(
+        reported.id,
+        { suspectedTheft: true, policeReference, expectedVersion: reported.version },
+        triager,
+        TRIAGED_AT,
+      );
+    };
+    const first = await triage(deviceIds[0]);
+    const second = await triage(deviceIds[1], 'PR-2026-17');
+
+    const rows = await flow.prisma.lossCase.findMany({
+      where: { id: { in: [first.id, second.id] } },
+      orderBy: { code: 'asc' },
+    });
+    const caseId = rows[0].complianceCaseId;
+    expect(caseId).not.toBeNull();
+    expect(rows[1].complianceCaseId).toBe(caseId);
+    const open = await flow.prisma.complianceCase.findMany({
+      where: {
+        organizationId: org.id,
+        type: ComplianceCaseType.SUSPECTED_THEFT,
+        status: ComplianceCaseStatus.OPEN,
+      },
+    });
+    expect(open.map((row) => row.id)).toEqual([caseId]);
+    expect(open[0]).toMatchObject({ openedById: triager.id, authorityReference: 'PR-2026-17' });
+    expect(open[0].evidence).toContain(rows[0].code);
+
+    const view = await flow.get(ComplianceCasesService).get(caseId!);
+    expect(view.linkedLossCases).toEqual(rows.map((row) => row.code));
   });
 
   it('serves the routes with the new permissions (migration 20261101180100)', async () => {
