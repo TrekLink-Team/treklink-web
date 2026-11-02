@@ -36,6 +36,32 @@ describe('DemoSimulationGuard (specs/demo REQ-SIM-02, design §9)', () => {
     expect(isSimulationDatabaseUrl(url)).toBe(expected);
   });
 
+  // Review of treklink-web#307: the staging branch read only the path, so a query parameter could move
+  // the connection to another host or another database while the path still said treklink_prod.
+  const STAGING_HOST = 'postgresql://u:p@ep-y.ap-southeast-1.aws.neon.tech/treklink_prod';
+  it.each([
+    `${STAGING_HOST}?host=ep-dev.neon.tech`,
+    `${STAGING_HOST}?HOST=ep-dev.neon.tech`,
+    `${STAGING_HOST}?%68ost=ep-dev.neon.tech`,
+    `${STAGING_HOST}?%2568ost=ep-dev.neon.tech`,
+    `${STAGING_HOST}?hostaddr=10.0.0.1`,
+    `${STAGING_HOST}?service=dev`,
+    `${STAGING_HOST}?servicefile=/tmp/pg_service.conf`,
+    `${STAGING_HOST}?dbname=neondb`,
+    `${STAGING_HOST}?database=neondb`,
+    `${STAGING_HOST}?sslmode=require&%44BNAME=neondb`,
+  ])('refuses the staging name with a target-changing parameter: %s', (url) => {
+    expect(isSimulationDatabaseUrl(url)).toBe(false);
+  });
+
+  it('accepts plain treklink_prod and a loopback URL', () => {
+    expect(isSimulationDatabaseUrl(STAGING_HOST)).toBe(true);
+    expect(isSimulationDatabaseUrl(`${STAGING_HOST}?sslmode=require&connect_timeout=10`)).toBe(
+      true,
+    );
+    expect(isSimulationDatabaseUrl('postgresql://u:p@localhost:5432/treklink_test')).toBe(true);
+  });
+
   it('accepts the Vercel staging, treklink_prod, with NODE_ENV production', () => {
     const guard = guardOf({
       NODE_ENV: 'production',
