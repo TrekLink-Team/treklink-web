@@ -22,7 +22,7 @@ Lists organizations with filters; the Staff verification queue is `status=PENDIN
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | status | OrganizationStatus | enum | no | `PENDING` |
-| q | Name, code or tax code contains | string | no | `acme` |
+| q | Name, code or tax code contains, at most 100 characters; the tax code match is case sensitive | string | no | `acme` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 
