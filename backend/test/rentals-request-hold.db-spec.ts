@@ -105,7 +105,8 @@ describe('rentals: availability and a hold at request, on Postgres (D-092)', () 
       where: { contractId: requested.contract.id },
       include: { lines: { orderBy: { seq: 'asc' } } },
     });
-    // The deposit: 5 x 450,000 VND x 0.5, due at the term start; the balance at the term end.
+    // The deposit: 5 x 450,000 VND x 0.5, due at the term start, which here comes an hour before the hold
+    // expiry (otherwise the hold expiry, D-092 rule 1); the balance at the term end.
     expect(invoice.lines.map((line) => [line.type, line.amountVnd])).toEqual([
       [InvoiceLineType.HOLDING_FEE, 1_125_000n],
       [InvoiceLineType.TERM_BALANCE, 1_125_000n],

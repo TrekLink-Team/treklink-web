@@ -57,9 +57,9 @@ contract is not `CLOSED`, never changed (REQ-UBI-02).
 
 | Charge | Formula | Due |
 |---|---|---|
-| Holding fee | ⌈ratio × P × q⌉ | term start |
+| Holding fee | ⌈ratio × P × q⌉ | term start, or the request's hold expiry when earlier (term 1 since D-092 rule 1) |
 | Term balance | P × q − holding fee | term end |
-| Day plan | ⌈P ÷ 30 × premium × days × q⌉ | start date (paid by the handover) |
+| Day plan | ⌈P ÷ 30 × premium × days × q⌉ | start date, or the request's hold expiry when earlier (paid by the handover) |
 | Late | `lateFeePerDevicePerDayVnd` × ⌈(checkedInAt − returnDueAt) ÷ 1 day⌉, only if past the grace | at check-in |
 | Damage | Σ rate(code) for the device's variant, generic rate as fallback | when decided, or at once below the threshold |
 | Loss | `devices.valueAt(device, confirmedAt)`, renter custody only; a reduction or waiver is an `ADJUSTMENT` line | at loss-case confirmation |
@@ -142,7 +142,7 @@ what remains due, and any excess stays on that payment and is logged for Staff.
 | Export | Used by |
 |---|---|
 | `PricingService.snapshot(variantId, tx?)`, 404 when no price is in effect | rentals |
-| `InvoicesService.issueTermInvoice(contract, term, tx)`, `issueDayPlanInvoice(contract, tx)` | rentals: the first invoice inside the request transaction since D-092 rule 1 (inside the approval for a contract requested before it), later terms at rollover. The first line, the holding fee or the day-plan fee, is the deposit the request's hold waits for; its due date is unchanged (the term start), because the hold expiry, not the line, decides how long the units wait (rentals design §2.1). Staff record it at the counter (REQ-EVT-10) or the Manager pays it through SePay before approval |
+| `InvoicesService.issueTermInvoice(contract, term, tx)`, `issueDayPlanInvoice(contract, tx)` | rentals: the first invoice inside the request transaction since D-092 rule 1 (inside the approval for a contract requested before it), later terms at rollover. The first line, the holding fee or the day-plan fee, is the deposit the request's hold waits for; it falls due at the earlier of the term start and the hold expiry (`depositDueBy`, passed by the request only), so the invoice, the balance and the request confirmation name the same deadline (F3 of the 2026-11-02 flow audit). An unpaid deposit past that time is voided by the hold-expiry job within ten minutes (REQ-EVT-17). Staff record it at the counter (REQ-EVT-10) or the Manager pays it through SePay before approval |
 | `ChargesService.chargeLate(contract, device, checkedInAt, actorId, tx)`, `chargeDamage(contract, inspection, actorId, tx)`; `actorId` is null for SYSTEM | rentals |
 | `ChargesService.chargeLoss(contract, device, lostAt, tx)` and `adjustLoss(contract, device, decision, amountVnd, reason, actor, tx, settledAt)` (an `ADJUSTMENT` line for a reduced or waived loss, due at the settlement time, never an edit of the `LOSS` line, FR-BILL-11, BR-39), called from this module's provider of the `devices` port `LOSS_CASE_LISTENERS` (`onConfirmed` for `RENTER` custody, `onSettled`) | devices, through the port (D-045) |
 | `ChargesService.settleCancellation(contract, tx)` | rentals |

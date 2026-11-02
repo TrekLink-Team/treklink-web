@@ -50,6 +50,7 @@
   - **Test**: AC-01 and AC-02
   - _Requirements: REQ-EVT-02, REQ-EVT-03, REQ-UBI-02, FR-BILL-01, FR-BILL-02, BR-06, BR-07_
   - **Done** (Jira card pending): the inputs are billing's `BillableMonthlyContract`, `BillableTerm` and `BillableDayPlan`, filled by `rentals` from its snapshot and term, with the variant code for the line description; the day plan carries its `termId` and anchored `startsAt`. The balance line takes the remainder of the rounded-up holding fee; a line keeps the device count only when the amount divides by it
+  - **2026-11-02** (KhoaDD under D-078, D-092 rule 1): the inputs take an optional `depositDueBy`, the request's `holdExpiresAt`; the deposit line (holding fee or day-plan fee) falls due at the earlier of it and the start, so the invoice, the contract balance and the request confirmation name one deadline (F3 of the 2026-11-02 flow audit). Unit tests in `invoices.service.spec.ts` (3 new) and `contracts.service.request.spec.ts`
 - [x] 2.3 Cancellation adjustment (owner LongLP)
   - **Do**: `ChargesService.settleCancellation(contract, tx)` voids the unpaid first-invoice lines with a zero-sum `ADJUSTMENT`, keeping a paid holding fee
   - **Test**: cancel before and after the holding fee is paid

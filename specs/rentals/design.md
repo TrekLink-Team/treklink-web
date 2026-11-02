@@ -120,7 +120,7 @@ Terms are anchored to the **requested start date** at 09:00 UTC+7, not to the ha
 invoice's due dates are known when it is issued and never move (REQ-UBI-02 of `billing`). A **monthly**
 contract's term *n* runs from the start date plus *n−1* calendar months to plus *n* months. At the
 request (D-092 rule 1; at approval for a contract requested before it, §2.1) term 1 is created and `billing.issueTermInvoice(contract, term, tx)` issues one invoice with two dated
-lines (D-037): the holding fee (ratio × monthly unit price × quantity) due at the term start, and the
+lines (D-037): the holding fee (ratio × monthly unit price × quantity) due at the term start, or at `holdExpiresAt` when that is earlier (the deposit the hold waits for), and the
 balance due at the term end. The handover may happen on the start date or later; a later handover does not
 move the term, so Staff reschedule by rejecting and re-requesting before approval if the date slips. A
 handover before the start date is refused. At each term end the rollover job, in one transaction, closes

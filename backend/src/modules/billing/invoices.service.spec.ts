@@ -132,6 +132,37 @@ describe('InvoicesService (billing task 2.2)', () => {
     );
   });
 
+  // D-092 rule 1: a request's deposit falls due by its hold expiry when that comes before the start.
+  it('makes the holding fee due at the hold expiry when it comes before the term start', async () => {
+    const holdExpiry = new Date('2026-10-21T03:15:00.000Z');
+    await service.issueTermInvoice({ ...MONTHLY, depositDueBy: holdExpiry }, TERM, TX, AT);
+
+    const [, lines] = invoices.insert.mock.calls[0] as [unknown, { dueAt: Date }[]];
+    expect(lines.map((line) => line.dueAt)).toEqual([holdExpiry, TERM.endsAt]);
+  });
+
+  it('keeps the term start when the hold expiry is later or absent', async () => {
+    await service.issueTermInvoice(
+      { ...MONTHLY, depositDueBy: new Date('2026-10-30T00:00:00.000Z') },
+      TERM,
+      TX,
+      AT,
+    );
+    await service.issueTermInvoice({ ...MONTHLY, depositDueBy: null }, TERM, TX, AT);
+
+    for (const [, lines] of invoices.insert.mock.calls as [unknown, { dueAt: Date }[]][]) {
+      expect(lines[0].dueAt).toEqual(TERM.startsAt);
+    }
+  });
+
+  it('makes the day-plan fee due at the hold expiry when it comes before the start date', async () => {
+    const holdExpiry = new Date('2026-10-21T03:15:00.000Z');
+    await service.issueDayPlanInvoice({ ...DAY, depositDueBy: holdExpiry }, TX, AT);
+
+    const [, lines] = invoices.insert.mock.calls[0] as [unknown, { dueAt: Date }[]];
+    expect(lines[0].dueAt).toEqual(holdExpiry);
+  });
+
   it('issues at the current time by default', async () => {
     const before = Date.now();
     await service.issueTermInvoice(MONTHLY, TERM, TX);

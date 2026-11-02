@@ -17,7 +17,17 @@ export interface BillableContract {
   quantity: number;
   monthlyUnitPriceVnd: bigint;
   variantCode: string;
+  // The hold expiry of a request (rentals REQ-EVT-01, D-092 rule 1): the deposit, the first line,
+  // falls due at the earlier of it and the term start, so its due date is the deadline the hold
+  // waits for. Absent for a later term and for a contract requested before D-092.
+  depositDueBy?: Date | null;
 }
+
+// The due date of the deposit line: the term start, or the hold expiry when that comes first.
+const depositDueAt = (contract: BillableContract, startsAt: Date): Date =>
+  contract.depositDueBy && contract.depositDueBy.getTime() < startsAt.getTime()
+    ? contract.depositDueBy
+    : startsAt;
 
 export interface BillableMonthlyContract extends BillableContract {
   holdingFeeRatio: Prisma.Decimal;
@@ -71,7 +81,8 @@ export class InvoicesService {
     return this.invoices.firstChargeableInvoice(contractId);
   }
 
-  // One TERM invoice: the holding fee due at the term start and the balance due at the term end.
+  // One TERM invoice: the holding fee due at the term start (or the request's hold expiry when that
+  // comes first) and the balance due at the term end.
   issueTermInvoice(
     contract: BillableMonthlyContract,
     term: BillableTerm,
@@ -99,7 +110,7 @@ export class InvoicesService {
           `Term ${term.seq} holding fee, ${devices}`,
           contract.quantity,
           holding,
-          term.startsAt,
+          depositDueAt(contract, term.startsAt),
         ),
         line(
           InvoiceLineType.TERM_BALANCE,
@@ -113,8 +124,8 @@ export class InvoicesService {
     );
   }
 
-  // One DAY_PLAN invoice with one line for the whole plan, due at the start date and paid at the
-  // latest at the counter.
+  // One DAY_PLAN invoice with one line for the whole plan, due at the start date (or the request's
+  // hold expiry when that comes first) and paid at the latest at the counter.
   issueDayPlanInvoice(
     contract: BillableDayPlan,
     tx: Prisma.TransactionClient,
@@ -140,7 +151,7 @@ export class InvoicesService {
           `Day plan, ${contract.dayPlanDays} days, ${contract.quantity} x ${contract.variantCode}`,
           contract.quantity,
           fee,
-          contract.startsAt,
+          depositDueAt(contract, contract.startsAt),
         ),
       ],
       tx,
