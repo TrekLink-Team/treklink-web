@@ -43,8 +43,8 @@ No body.
     "expiresAt": "2026-10-20T03:45:00Z",
     "confirmedAt": null,
     "vietQr": {
-      "imageUrl": "https://vietqr.app/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
-      "bankAccount": "SANDBOX-0001",
+      "imageUrl": "https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=2250000&des=TL7K2Q9M4D",
+      "bankAccount": "0123456789",
       "content": "TL7K2Q9M4D"
     },
     "receivedLater": []

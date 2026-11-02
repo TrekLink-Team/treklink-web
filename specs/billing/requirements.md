@@ -81,7 +81,9 @@
 
 The `billing` section of the [Configuration Matrix](../platform/configuration-matrix.md); prices and
 damage rates are their own tables, edited by an Admin. Environment: `SEPAY_WEBHOOK_API_KEY`,
-`SEPAY_QR_BASE_URL` (default `https://vietqr.app/img`, per the SePay docs read 2026-10-18), `SEPAY_BANK_CODE`.
+`SEPAY_QR_BASE_URL` (default `https://qr.sepay.vn/img`, the SePay QR guide read 2026-11-02), `SEPAY_BANK_CODE`
+(default `MBBank`; a bank short name of `https://qr.sepay.vn/banks.json`, and `billing.sepayBankAccount` letters and digits
+only, or the QR service answers an error page instead of an image).
 
 ---
 

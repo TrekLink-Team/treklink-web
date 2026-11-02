@@ -113,6 +113,11 @@ the `Authorization: Apikey <key>` header, the payload fields, the required `{"su
 the retry policy (7 retries over 5 hours). The VietQR image URL format is configuration (`SEPAY_QR_BASE_URL`). On 2026-10-18
 https://docs.sepay.vn/tao-qr-code-vietqr-dong.html documents `https://vietqr.app/img?acc=&bank=&amount=&des=`, with optional `template`
 and `download`; it replaces the older `qr.sepay.vn/img` default. Rendering against SePay's sandbox stays in task 3.2.
+On 2026-11-02 SePay's current guide (https://developer.sepay.vn/en/tien-ich-khac/tao-qr-code) documents
+`https://qr.sepay.vn/img` again, with `bank` a short name from `https://qr.sepay.vn/banks.json`. The render check
+of task 3.2 found that both hosts answered a 56-byte error page for the old defaults (`bank=SANDBOX`, an account
+with a hyphen) and a PNG for `bank=MBBank` with an account of letters and digits, so the defaults are the MBBank
+example of SePay's Test mode guide and the host is the documented one.
 
 The reference is `TL` plus 8 Crockford base32 characters, so it survives banks that strip punctuation
 from transfer content. The webhook's `transferAmount` must equal the payment amount; a different amount

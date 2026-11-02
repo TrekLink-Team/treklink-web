@@ -25,7 +25,7 @@ Receives SePay's transaction notification. Authenticated by the `Authorization: 
   "id": 92704,
   "gateway": "Sandbox",
   "transactionDate": "2026-10-20 10:20:31",
-  "accountNumber": "SANDBOX-0001",
+  "accountNumber": "0123456789",
   "subAccount": null,
   "code": null,
   "content": "TL7K2Q9M4D",

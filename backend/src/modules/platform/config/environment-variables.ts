@@ -275,13 +275,15 @@ export class EnvironmentVariables {
   // SEPAY_* are owned by `billing` (specs/billing/tasks.md 3.2, design §3). The VietQR image URL
   // and the bank code are configuration; the receiving account is the parameter
   // `billing.sepayBankAccount`. Without SEPAY_WEBHOOK_API_KEY every webhook call is refused (401).
+  // The QR service takes only a bank short name of https://qr.sepay.vn/banks.json; the default is the
+  // MBBank example of SePay's Test mode guide, to be set to the Test mode bank account.
   @IsString()
   @IsNotEmpty()
-  SEPAY_QR_BASE_URL = 'https://vietqr.app/img';
+  SEPAY_QR_BASE_URL = 'https://qr.sepay.vn/img';
 
   @IsString()
   @IsNotEmpty()
-  SEPAY_BANK_CODE = 'SANDBOX';
+  SEPAY_BANK_CODE = 'MBBank';
 
   @IsOptional()
   @IsString()

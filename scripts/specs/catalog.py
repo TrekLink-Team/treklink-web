@@ -67,7 +67,7 @@ PARAMETERS = {
         ("billing.lateFeePerDevicePerDayVnd", 50000, "INT", {"min": 0, "max": 10000000}, "VND", "Late fee per device per started day after the grace", "FR-BILL-03, BR-23"),
         ("billing.damageApprovalThresholdVnd", 500000, "INT", {"min": 0, "max": 100000000}, "VND", "Damage charges above this need an Admin other than the inspector", "FR-BILL-04, BR-24"),
         ("billing.sepayPaymentTtlMinutes", 30, "INT", {"min": 5, "max": 1440}, "minutes", "A SePay payment request expires after this long", "FR-BILL-07"),
-        ("billing.sepayBankAccount", "SANDBOX-0001", "JSON", None, None, "Receiving account shown in the VietQR (sandbox)", "FR-BILL-07, BR-34"),
+        ("billing.sepayBankAccount", "0123456789", "JSON", None, None, "Receiving account shown in the VietQR (sandbox)", "FR-BILL-07, BR-34"),
     ],
     "gateway-sync": [
         ("gatewaySync.retroTagGraceSeconds", 60, "DURATION_SECONDS", {"min": 0, "max": 600}, "seconds", "Positions this long before an SOS text are tagged into its episode", "FR-INC-01"),
