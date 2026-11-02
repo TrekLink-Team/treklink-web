@@ -51,6 +51,7 @@ No body.
         "stale": false,
         "openIncident": null,
         "contractCode": "RC-2026-0042",
+        "simulated": false,
         "state": "LIVE"
       },
       {
@@ -64,6 +65,7 @@ No body.
         "stale": false,
         "openIncident": null,
         "contractCode": "RC-2026-0042",
+        "simulated": false,
         "state": "NOT_HEARD"
       }
     ]

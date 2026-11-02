@@ -109,6 +109,23 @@ builds the same packets, which deduplicate on `(from, id)` (D-006). With
 `gatewaySync.simulatorSosIntervalMinutes` above 0 (default 0) the first node sends an SOS text once per
 window. Testers are told the data is simulated (`deploy/README.md`, the sandbox banner).
 
+### Field simulation and the `simulated` mark (D-093 amendment, D-094)
+
+`specs/demo/design.md` §9. With `DEMO_SIMULATION_ENABLED=true` the same job reads its nodes from
+`simulated_nodes` (owned here, written by the exported `FieldSimulationService`, which the `demo` routes call)
+instead of the two fixed nodes; `FieldSimulatorModule` is then loaded even when `FIELD_SIMULATOR_ENABLED` is
+off. The trails are compiled data in `simulator/trails.ts` (OpenStreetMap, ODbL); the position, battery and
+beacon functions in `simulator/field-simulation.ts` are pure, so every run and every instance computes the
+same packets for an interval and ingestion stores them once (D-006 ids from node, kind and time).
+
+`UplinkIngress.ingest(topic, body, receivedAt, { simulated: true })` is the only way in for these packets:
+the envelope carries `simulated`, `IngestionService` stores it on the new `field_events.simulated` column
+(default `false`, never set by the MQTT or Field Station paths) and passes it on the `SosEvent` and
+`PositionEvent` hand-offs, so `incidents` marks the incident it opens. A simulated position skips the
+implausible-move rule (demo design §9, "Speed rule"); every other rule (bounds, attribution, deduplication,
+the cadence count) applies unchanged. `FieldEventQueryService.simulatedDevices(ids)` answers which of the
+devices have a simulated latest field event, for the `monitoring` reads.
+
 ---
 
 ## 3. Field Station (Stage C) executable

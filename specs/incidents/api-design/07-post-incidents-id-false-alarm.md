@@ -70,6 +70,7 @@ A member declares a `NOTIFY_*`, `ACKNOWLEDGED` or `RESPONDING` incident false, w
     "tierDeadlineAt": "2026-10-20T03:17:00Z",
     "statusDueAt": null,
     "reopenCount": 0,
+    "simulated": false,
     "version": 2,
     "reopenWindowEndsAt": "2026-10-20T04:20:00Z"
   },

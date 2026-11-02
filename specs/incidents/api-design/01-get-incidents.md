@@ -67,6 +67,7 @@ No body.
         "tierDeadlineAt": "2026-10-20T03:17:00Z",
         "statusDueAt": null,
         "reopenCount": 0,
+        "simulated": false,
         "version": 1
       }
     ],

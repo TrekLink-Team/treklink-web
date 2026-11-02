@@ -72,6 +72,7 @@ One step, no required field (NFR-USE-02). Moves a `NOTIFY_*`, `ESCALATED` or `RE
     "tierDeadlineAt": null,
     "statusDueAt": "2026-10-20T03:45:00Z",
     "reopenCount": 0,
+    "simulated": false,
     "version": 2
   },
   "isSuccess": true,

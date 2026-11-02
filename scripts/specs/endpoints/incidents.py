@@ -7,7 +7,8 @@ INC = {"id": INCIDENT_ID, "code": "INC-2026-000045", "device": {"id": DEVICE_ID,
        "source": "DEVICE_FALL", "confidence": "CONFIRMED", "firstEventAt": "2026-10-20T03:14:52Z",
        "lastEventAt": NOW, "eventCount": 4, "lastPosition": {"lat": 11.5601, "lon": 108.5402}, "stale": False,
        "owner": None, "tierDeadlineAt": "2026-10-20T03:17:00Z", "statusDueAt": None, "reopenCount": 0,
-       "version": 1}
+       # True when a simulated field event opened it (demo design §9, D-093 amendment).
+       "simulated": False, "version": 1}
 # Authority report ids of the examples: an incident report (02, 09, 11) and a contract report (10).
 REPORT_ID = "0b6c9f2e-4d1a-4c3b-9e8f-7a6b5c4d3e2f"
 CONTRACT_REPORT_ID = "4e3d2c1b-0a9f-4e8d-8c7b-6a5f4e3d2c1b"
