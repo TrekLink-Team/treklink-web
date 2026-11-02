@@ -267,7 +267,9 @@ export class ReturnService {
   // api-design 20 (REQ-EVT-18, D-092 rule 3): whether the contract can close now and every blocker
   // the close would refuse on, each with what resolves it. Read in one transaction without the contract
   // lock; the close reads again under its lock. A CLOSED contract has nothing left to resolve.
-  async closeCheck(id: string): Promise<CloseCheck> {
+  // `waitsFor` is the time the contract still waits for, null once it has passed: a due contract past
+  // its return time waits only for its units (issue #297).
+  async closeCheck(id: string, at: Date = new Date()): Promise<CloseCheck> {
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.findById(id, tx);
       const result = (blockers: CloseBlocker[]): CloseCheck => ({
@@ -283,9 +285,10 @@ export class ReturnService {
       const notBack = await this.contracts.rowsNotBack(id, tx);
       if (contract.status !== ContractStatus.RETURNED) {
         const term = await this.contracts.openTerm(id, tx);
-        const waitsFor = DUE.includes(contract.status)
+        const time = DUE.includes(contract.status)
           ? contract.returnDueAt
           : (term?.endsAt ?? contract.endsAt ?? null);
+        const waitsFor = time !== null && time.getTime() > at.getTime() ? time : null;
         blockers.push({
           code: 'NOT_RETURNED',
           waitsFor,
