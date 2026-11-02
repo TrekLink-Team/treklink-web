@@ -69,6 +69,7 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
   let lifecycle: { apply: jest.Mock };
   let routing: { route: jest.Mock };
   let events: { emitAfterCommit: jest.Mock };
+  let parameters: { get: jest.Mock };
   let ingress: IncidentIngress;
 
   beforeEach(() => {
@@ -89,13 +90,12 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     routing = {
       route: jest.fn().mockResolvedValue({ to: 'NOTIFY_PRIMARY', recipients: RECIPIENTS }),
     };
+    parameters = { get: jest.fn((key: string) => Promise.resolve(PARAMETERS[key])) };
     ingress = new IncidentIngress(
       repository as unknown as IncidentsRepository,
       lifecycle as unknown as IncidentLifecycle,
       routing as unknown as RoutingService,
-      {
-        get: jest.fn((key: string) => Promise.resolve(PARAMETERS[key])),
-      } as unknown as ParameterService,
+      parameters as unknown as ParameterService,
       events as unknown as TransactionalEvents,
     );
   });
@@ -380,6 +380,44 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     });
 
     describe('cadence (REQ-EVT-02)', () => {
+      it.each([
+        ['below the configured count', [0, 15], 15, false],
+        ['at both configured window edges', [0, 15, 30], 30, true],
+        ['one millisecond beyond the configured window', [0, 15, 30.001], 30.001, false],
+        ['a late position completing the configured burst', [0, 15, 30], 0, true],
+      ] as const)('uses three positions in 30 seconds: %s', async (_label, seconds, end, opens) => {
+        parameters.get.mockImplementation((key: string) =>
+          Promise.resolve(
+            { ...PARAMETERS, 'incidents.cadenceCount': 3, 'incidents.cadenceWindowSeconds': 30 }[
+              key
+            ],
+          ),
+        );
+        history.plottedPositionTimes.mockResolvedValue(seconds.map(at));
+        const result = await ingress.onPosition(position({ occurredAt: at(end) }), tx, history);
+        expect(parameters.get).toHaveBeenCalledWith('incidents.cadenceCount', tx);
+        expect(parameters.get).toHaveBeenCalledWith('incidents.cadenceWindowSeconds', tx);
+        expect(history.plottedPositionTimes).toHaveBeenCalledWith(
+          'dev-1',
+          at(end - 30),
+          at(end + 30),
+          tx,
+        );
+        if (opens) {
+          expect(result).toMatchObject({ state: 'NOTIFY_PRIMARY' });
+          expect(repository.insert).toHaveBeenCalledTimes(1);
+          expect(repository.insert).toHaveBeenCalledWith(
+            expect.objectContaining({ confidence: 'SUSPECTED', firstEventAt: at(0) }),
+            expect.any(Date),
+            tx,
+          );
+        } else {
+          expect(result).toBeNull();
+          expect(repository.insert).not.toHaveBeenCalled();
+          expect(lifecycle.apply).not.toHaveBeenCalled();
+        }
+      });
+
       // Six positions 12 s apart: 0, 12, 24, 36, 48, 60 s, the last one being handed over.
       const burst = [0, 12, 24, 36, 48, 60].map(at);
       const onPosition = (event = position({ eventId: 'pos-6', occurredAt: at(60) })) =>

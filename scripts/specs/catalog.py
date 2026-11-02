@@ -74,7 +74,7 @@ PARAMETERS = {
         ("gatewaySync.lateUploadGraceHours", 168, "INT", {"min": 1, "max": 720}, "hours", "A Field Station may still upload a device's events this long after its organization returned it", "FR-EVT-14, D-040"),
         ("gatewaySync.attributionMarginSeconds", 300, "DURATION_SECONDS", {"min": 0, "max": 3600}, "seconds", "An occurrence time this close to a handover or check-in is `UNATTRIBUTED`", "FR-EVT-17, D-040"),
         ("gatewaySync.deviceTimeMaxAheadSeconds", 60, "DURATION_SECONDS", {"min": 0, "max": 3600}, "seconds", "A device `rx_time` later than receipt by more than this is implausible", "FR-EVT-15, D-040"),
-        ("gatewaySync.simulatorIntervalSeconds", 60, "DURATION_SECONDS", {"min": 10, "max": 3600}, "seconds", "Field data simulator: one position and telemetry batch per simulated node per interval (FIELD_SIMULATOR_ENABLED only)", "D-090"),
+        ("gatewaySync.simulatorIntervalSeconds", 60, "DURATION_SECONDS", {"min": 10, "max": 3600}, "seconds", "Field data simulator: one position and telemetry batch per simulated node per interval (FIELD_SIMULATOR_ENABLED only). Warning: short intervals can raise SUSPECTED incidents without an SOS; with cadenceCount=6 and cadenceWindowSeconds=60, intervals of 12 seconds or less can trigger detection. Recheck both cadence parameters when changing this interval", "D-090"),
         ("gatewaySync.simulatorSosIntervalMinutes", 0, "INT", {"min": 0, "max": 1440}, "minutes", "Field data simulator: the first node sends an SOS once per this many minutes; 0 never", "D-090"),
     ],
     "incidents": [
