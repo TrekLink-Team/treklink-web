@@ -32,6 +32,8 @@ export interface SnapshotDevice {
   openIncident: { id: string; code: string | null; state: IncidentState } | null;
   contractCode: string;
   organizationId: string;
+  /** The latest field event is simulated (specs/demo design §9); absent from an older backend. */
+  simulated?: boolean;
 }
 
 export interface SnapshotFieldStation {

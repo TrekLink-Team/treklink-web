@@ -33,6 +33,8 @@ export interface Incident {
   tierDeadlineAt: string | null;
   statusDueAt: string | null;
   reopenCount: number;
+  /** Opened by a simulated field event (specs/demo design §9); absent from an older backend. */
+  simulated?: boolean;
   version: number;
 }
 

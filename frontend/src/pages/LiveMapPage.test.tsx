@@ -135,6 +135,13 @@ describe('LiveMapPage (screen 9.1)', () => {
     expect(screen.queryByLabelText('Organization')).toBeNull();
   });
 
+  it('labels a simulated device on its marker and its list row (demo design §9)', async () => {
+    snapshot = { cursor: 100, devices: [device({ simulated: true })], fieldStations: [] };
+    show('o');
+    expect(await marker('TL-0009 (Simulated), Le Thi E')).toBeTruthy();
+    expect(panel().getByText('Simulated')).toBeTruthy();
+  });
+
   it('moves the device with stream entries after the cursor and ignores those at or below it', async () => {
     show('o');
     await marker('TL-0009, Le Thi E');

@@ -21,12 +21,23 @@ const MANAGER: SessionUser = {
   fullName: 'Nguyen Van A',
   accountType: 'ORGANIZATION',
   roles: ['ORG_MANAGER'],
-  organization: { id: 'o', code: 'ORG-0007', legalName: 'ACME Trek Co., Ltd.', status: 'ACTIVE', memberRole: 'MANAGER' },
+  organization: {
+    id: 'o',
+    code: 'ORG-0007',
+    legalName: 'ACME Trek Co., Ltd.',
+    status: 'ACTIVE',
+    memberRole: 'MANAGER',
+  },
 };
 
 const show = (path: string, page: React.ReactNode = <p>page body</p>) => {
   act(() =>
-    useSession.getState().signIn({ accessToken: 'a', accessTokenExpiresIn: 1, refreshToken: 'r', refreshTokenExpiresIn: 1 }, MANAGER),
+    useSession
+      .getState()
+      .signIn(
+        { accessToken: 'a', accessTokenExpiresIn: 1, refreshToken: 'r', refreshTokenExpiresIn: 1 },
+        MANAGER,
+      ),
   );
   return render(
     <QueryClientProvider client={new QueryClient()}>
@@ -93,7 +104,9 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     );
     const crumbs = screen.getAllByRole('navigation', { name: 'Breadcrumb' });
     expect(crumbs).toHaveLength(1);
-    expect(crumbs[0].closest('[data-compact]')).toBe(screen.getByRole('heading', { level: 1 }).closest('[data-compact]'));
+    expect(crumbs[0].closest('[data-compact]')).toBe(
+      screen.getByRole('heading', { level: 1 }).closest('[data-compact]'),
+    );
     expect(crumbs[0].textContent).toContain('Details');
   });
 
@@ -105,16 +118,84 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
   });
 
   it('shows no Info pane on map pages', () => {
-    act(() => useShell.setState({ info: { title: 'CT-1', body: <p>details</p> }, infoSheetOpen: true }));
+    act(() =>
+      useShell.setState({ info: { title: 'CT-1', body: <p>details</p> }, infoSheetOpen: true }),
+    );
     show('/o/map');
     expect(screen.queryByText('details')).toBeNull();
   });
 
   it('opens the Info pane as a sheet below 1280 px only when asked', () => {
-    act(() => useShell.setState({ info: { title: 'CT-1', body: <p>details</p> }, infoSheetOpen: false }));
+    act(() =>
+      useShell.setState({ info: { title: 'CT-1', body: <p>details</p> }, infoSheetOpen: false }),
+    );
     show('/o/contracts');
     expect(screen.queryByText('details')).toBeNull();
     act(() => useShell.setState({ infoSheetOpen: true }));
     expect(screen.getByRole('dialog', { name: 'CT-1' }).textContent).toContain('details');
+  });
+});
+
+// Screen 7.5 and D-094: the Demo control entry shows for an Admin while the field simulation answers,
+// even with the control panel off (the Vercel staging), and never asks a non-Admin.
+describe('AppShell, Demo control entry', () => {
+  const ADMIN: SessionUser = {
+    id: 'a',
+    email: 'admin@treklink.local',
+    fullName: 'Demo Admin',
+    accountType: 'TREKLINK',
+    roles: ['ADMIN'],
+    organization: null,
+  };
+
+  it('shows the entry while only the simulation answers', async () => {
+    const { apiClient, ApiError } = await import('../../shared/api/apiClient');
+    const api = vi.mocked(apiClient);
+    api.mockImplementation((path: string) =>
+      path === '/demo/simulation'
+        ? Promise.resolve({
+            databaseAllowed: true,
+            trails: [],
+            patterns: [],
+            devices: [],
+            nodes: [],
+          })
+        : path === '/demo/status'
+          ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status'))
+          : new Promise(() => undefined),
+    );
+    act(() =>
+      useSession
+        .getState()
+        .signIn(
+          {
+            accessToken: 'a',
+            accessTokenExpiresIn: 1,
+            refreshToken: 'r',
+            refreshTokenExpiresIn: 1,
+          },
+          ADMIN,
+        ),
+    );
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/t/accounts']}>
+          <AppShell user={ADMIN} home="/t/accounts" banner={null}>
+            <p>page body</p>
+          </AppShell>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const nav = screen.getByRole('navigation', { name: 'Modules' });
+    expect(await within(nav).findByRole('link', { name: 'Demo control' })).toBeTruthy();
+    api.mockImplementation(() => new Promise(() => undefined));
+  });
+
+  it('does not ask for the simulation for an organization member', async () => {
+    const { apiClient } = await import('../../shared/api/apiClient');
+    const api = vi.mocked(apiClient);
+    api.mockClear();
+    show('/o/contracts');
+    expect(api.mock.calls.some(([path]) => path === '/demo/simulation')).toBe(false);
   });
 });
