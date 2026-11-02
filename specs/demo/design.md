@@ -150,7 +150,10 @@ receive; no new module edge.
 api-design 06 to 10) and switches the simulator from its two fixed nodes to the table below. Every write
 first checks the database: loopback per §2, or the database name `treklink_prod` in both `DATABASE_URL`
 and `DATABASE_DIRECT_URL` (as `backend/scripts/vercel-build.sh` does); otherwise 403
-`DEMO_DATABASE_NOT_ALLOWED`. `NODE_ENV` is not checked. Policy `demo.simulate`, TrekLink Admin, seeded by the
+`DEMO_DATABASE_NOT_ALLOWED`. On the `treklink_prod` branch the query may carry none of `host`, `hostaddr`,
+`service`, `servicefile`, `dbname` or `database` (any case, after decoding), because each would move the
+connection off the staging. The simulator job's `run` makes the same check and sends nothing (logged once)
+when it fails. `NODE_ENV` is not checked. Policy `demo.simulate`, TrekLink Admin, seeded by the
 migration with the permission.
 
 **Model** (gateway-sync, migration `simulation`, forward only):
@@ -194,7 +197,9 @@ simulated walk is bounded by the constants above and checked by unit tests.
 it on a new incident) and to the device projection. The real MQTT path never sets it.
 
 **Labels.** The map snapshot and device lists of `monitoring` return `simulated` for a device whose latest
-field event is simulated; the incident reads return the incident's `simulated`. The frontend shows a
+field event is simulated, under the custody clipping of the position (D-040): for an organization only an
+event since the handover counts, so a unit not heard in its custody is `simulated: false`; TrekLink staff
+see the stored history unclipped. The incident reads return the incident's `simulated`. The frontend shows a
 "Simulated" badge (`shared/ui` `Badge`, neutral tone, text not colour alone) on those markers, rows and
 the incident header, and on every row of the panel.
 
