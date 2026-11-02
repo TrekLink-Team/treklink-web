@@ -8,7 +8,9 @@ import { BillingModule } from './modules/billing';
 import {
   DemoAccountsModule,
   DemoModule,
+  DemoSimulationModule,
   demoControlsEnabled,
+  demoSimulationEnabled,
   demoTestAccountsEnabled,
 } from './modules/demo';
 import { DevicesModule } from './modules/devices';
@@ -51,8 +53,11 @@ import { RentalsModule } from './modules/rentals';
     // The read-only sandbox test accounts list (D-089), only when DEMO_TEST_ACCOUNTS_ENABLED is true,
     // in any NODE_ENV and on any database: GET /api/demo/accounts is a 404 otherwise.
     ConditionalModule.registerWhen(DemoAccountsModule, demoTestAccountsEnabled),
-    // The field data simulator (gateway-sync design §2 (field data simulator), D-090), only when FIELD_SIMULATOR_ENABLED is true:
-    // set on the Vercel production alone, which has no MQTT subscriber.
+    // The field simulation of the demo panel (D-093 amendment, D-094), only when DEMO_SIMULATION_ENABLED is
+    // true, in any NODE_ENV; its writes refuse a database neither loopback nor treklink_prod.
+    ConditionalModule.registerWhen(DemoSimulationModule, demoSimulationEnabled),
+    // The field data simulator (gateway-sync design §2 (field data simulator), D-090), only when FIELD_SIMULATOR_ENABLED is true
+    // (set on the Vercel production, which has no MQTT subscriber) or DEMO_SIMULATION_ENABLED is true.
     ConditionalModule.registerWhen(FieldSimulatorModule, fieldSimulatorEnabled),
   ],
 })
