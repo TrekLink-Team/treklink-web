@@ -32,6 +32,7 @@ export interface CanonicalEnvelope {
   packet: StockPacket;
   message: Record<string, unknown>; // the JSON as published, persisted on the field event
   station?: StationTimes; // Stage C only
+  simulated?: boolean; // the field simulation only (specs/demo/design.md §9), never a broker message
 }
 
 export type AdaptResult =

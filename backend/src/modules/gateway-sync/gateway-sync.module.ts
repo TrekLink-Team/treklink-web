@@ -15,6 +15,8 @@ import { IngestionRepository } from './ingestion.repository';
 import { IngestionService } from './ingestion.service';
 import { MqttSubscriber } from './mqtt/mqtt-subscriber';
 import { Normalizer } from './normalizer/normalizer';
+import { FieldSimulationService } from './simulator/field-simulation.service';
+import { SimulatedNodesRepository } from './simulator/simulated-nodes.repository';
 import { StationHealthHandler } from './station-health.handler';
 import { SyncAuditService } from './sync-audit.service';
 import { SyncQueryRepository } from './sync-query.repository';
@@ -26,7 +28,8 @@ import { UplinkIngress } from './uplink-ingress';
 // attributed to the custody interval of `rentals`, the device projection, and post-commit
 // field.position and field.telemetry, and the SOS hand-off to incidents; the Field Station health report
 // (task 2.5 part), the Staff reads of `POST /api/gateway-sync` (api-design 03, 04 and 07) and the
-// mosquitto-go-auth hooks (task 3.1, api-design 01 and 02).
+// mosquitto-go-auth hooks (task 3.1, api-design 01 and 02); the field simulation of the demo panel
+// (FieldSimulationService, specs/demo/design.md §9).
 @Module({
   imports: [
     PlatformModule,
@@ -52,7 +55,9 @@ import { UplinkIngress } from './uplink-ingress';
     UplinkIngress,
     BrokerAuthService,
     BrokerHookSecretGuard,
+    SimulatedNodesRepository,
+    FieldSimulationService,
   ],
-  exports: [FieldEventQueryService, SyncStatsService, UplinkIngress],
+  exports: [FieldEventQueryService, SyncStatsService, UplinkIngress, FieldSimulationService],
 })
 export class GatewaySyncModule {}

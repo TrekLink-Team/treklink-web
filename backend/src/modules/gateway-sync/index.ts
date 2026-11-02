@@ -8,7 +8,25 @@ export {
   type HistoryPoint,
 } from './field-event-query.service';
 export { SyncStatsService, type SyncStats } from './sync-stats.service';
-export { UplinkIngress, type UplinkOutcome } from './uplink-ingress';
+export { UplinkIngress, type UplinkOptions, type UplinkOutcome } from './uplink-ingress';
+// The field simulation of the demo panel (specs/demo/design.md §9); the demo routes call it.
+export {
+  FieldSimulationService,
+  type SimulatableDeviceView,
+  type SimulatedNodeView,
+  type SimulationActor,
+  type SimulationEventKind,
+  type SimulationOverview,
+  type StartNodeInput,
+  type TrailView,
+  type UpdateNodeInput,
+} from './simulator/field-simulation.service';
+export {
+  MAX_SPEED_METRES_PER_MINUTE,
+  MIN_SPEED_METRES_PER_MINUTE,
+  SIMULATION_PATTERNS,
+  type SimulationPatternName,
+} from './simulator/field-simulation';
 export {
   DEMO_SIMULATION_FLAG,
   FieldSimulatorModule,

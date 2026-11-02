@@ -496,6 +496,25 @@ describe('IngestionService', () => {
     expect(emitted[0]).toMatchObject({ name: 'field.position', payload: { plotted: false } });
   });
 
+  it('stores a simulated event with its mark and exempts its position from the speed rule (demo design §9)', async () => {
+    repository.lastPlottedPosition.mockResolvedValue({
+      latitude: 11.0,
+      longitude: 108.0,
+      occurredAt: new Date('2026-10-23T02:59:00Z'),
+    });
+    await expect(service.ingest({ ...envelopeOf('position'), simulated: true })).resolves.not.toBe(
+      'IMPLAUSIBLE_POSITION',
+    );
+    expect(storedEvent()).toMatchObject({ plotted: true, simulated: true });
+    expect(repository.lastPlottedPosition).not.toHaveBeenCalled();
+    expect(devices.projectReading).toHaveBeenCalled();
+  });
+
+  it('stores an event from the broker as not simulated', async () => {
+    await service.ingest(envelopeOf('position'));
+    expect(storedEvent()).toMatchObject({ simulated: false });
+  });
+
   it('stores rx_time 0 as unknown with SERVER_RECEIPT time', async () => {
     await service.ingest(envelopeOf('rx-time-zero'));
     expect(storedEvent()).toMatchObject({
