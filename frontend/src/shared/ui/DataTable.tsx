@@ -242,10 +242,11 @@ export function DataTable<Row, K extends string = string>({
   };
 
   // A pointer click anywhere on a row opens it, as a shortcut for the link or button in the
-  // activation column, which is the keyboard path.
+  // activation column, which is the keyboard path. React bubbles clicks from a portal (a dialog
+  // opened from the row's actions) through the row, so a target outside the row's DOM is ignored.
   const onRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
     const target = event.target as HTMLElement;
-    if (target.closest(INTERACTIVE)) return;
+    if (!event.currentTarget.contains(target) || target.closest(INTERACTIVE)) return;
     event.currentTarget.querySelector<HTMLElement>('[data-row-activate]')?.click();
   };
 

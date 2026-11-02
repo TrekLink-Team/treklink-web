@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Button } from './Button';
+import { Dialog } from './Dialog';
 import { DataTable, type Column, type DataTableProps, type RowAction, type SortState } from './DataTable';
 
 afterEach(cleanup);
@@ -216,6 +217,32 @@ describe('DataTable sorting and activation', () => {
     expect(onActivate).toHaveBeenLastCalledWith(PAGE_1[3]);
     fireEvent.click(box('Select TL-0003'));
     expect(onActivate).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores clicks inside a dialog opened from a row, which renders outside the table', () => {
+    const onActivate = vi.fn();
+    const RowDialog: React.FC = () => {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <Button size="sm" onClick={() => setOpen(true)}>
+            Suspend
+          </Button>
+          {open && (
+            <Dialog titleId="row-dialog" title="Suspend TL-0002" description="The unit stops reporting." onClose={() => setOpen(false)}>
+              <p>Reason</p>
+            </Dialog>
+          )}
+        </>
+      );
+    };
+    render(<Harness extra={{ onRowActivate: onActivate, rowActions: () => <RowDialog /> }} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Suspend' })[1]);
+    const dialog = screen.getByRole('dialog', { name: 'Suspend TL-0002' });
+    expect(dialog.closest('table')).toBeNull();
+    fireEvent.click(screen.getByText('The unit stops reporting.'));
+    fireEvent.click(within(dialog).getByText('Reason'));
+    expect(onActivate).not.toHaveBeenCalled();
   });
 
   it('turns the activation column into a link when rowHref is given', () => {
