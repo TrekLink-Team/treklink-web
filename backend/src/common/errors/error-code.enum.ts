@@ -53,6 +53,8 @@ export enum ErrorCode {
   PAYMENT_PENDING = 'PAYMENT_PENDING',
   WEBHOOK_UNAUTHENTICATED = 'WEBHOOK_UNAUTHENTICATED',
   SEPARATION_OF_DUTY = 'SEPARATION_OF_DUTY',
+  // A second service credit for a unit whose outage overlaps one not REJECTED (REQ-ERR-08, design §9).
+  DUPLICATE_CREDIT = 'DUPLICATE_CREDIT',
 
   // organizations (specs/organizations/design.md)
   ORGANIZATION_NOT_ACTIVE = 'ORGANIZATION_NOT_ACTIVE',

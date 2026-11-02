@@ -201,6 +201,12 @@ PERMISSIONS = [
     ("payment.recordCounter", "recordCounter", "Invoice", None, ["STAFF"]),
     ("damageCharge.read", "read", "DamageCharge", None, ["STAFF"]),
     ("damageCharge.decide", "decide", "DamageCharge", None, ["ADMIN"]),
+    # service credits (task 8.1, design §9.4; migration 20261102180000_service_credits)
+    ("serviceCredit.read", "read", "ServiceCredit", None, ["STAFF"]),
+    ("serviceCredit.read.own", "read", "ServiceCredit", OWN, ["ORG_MANAGER"]),
+    ("serviceCredit.request", "request", "ServiceCredit", None, ["STAFF"]),
+    ("serviceCredit.decide", "decide", "ServiceCredit", None, ["ADMIN"]),
+    ("serviceCredit.refund", "refund", "ServiceCredit", None, ["STAFF"]),
     ("report.read", "read", "Report", None, ["STAFF"]),
     # gateway-sync
     ("fieldEvent.read", "read", "FieldEvent", None, ["STAFF"]),
