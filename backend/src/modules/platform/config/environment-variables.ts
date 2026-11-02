@@ -114,6 +114,14 @@ export class EnvironmentVariables {
   @IsBoolean()
   FIELD_SIMULATOR_ENABLED = false;
 
+  // Owned by `demo` and read by the `gateway-sync` simulator (specs/demo/requirements.md REQ-SIM-01, D-093
+  // amendment, D-094): true loads the field simulation routes and makes the field data simulator drive
+  // the simulated nodes of the table instead of its two fixed nodes; it also loads the simulator when
+  // FIELD_SIMULATOR_ENABLED is off. Independent of DEMO_CONTROLS_ENABLED; off by default.
+  @Transform(toBoolean)
+  @IsBoolean()
+  DEMO_SIMULATION_ENABLED = false;
+
   @IsString()
   @Matches(/^[A-Za-z0-9_-]+$/, { message: 'MQTT_ROOT must be one topic level such as treklink' })
   MQTT_ROOT = 'treklink';
