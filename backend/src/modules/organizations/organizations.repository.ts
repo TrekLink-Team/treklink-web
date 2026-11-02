@@ -15,22 +15,6 @@ export class OrganizationsRepository {
     return row?.status ?? null;
   }
 
-  // The head of organizations api-design 03; the verification record and the counts join with task 2.4.
-  findSummary(id: string, client: Client = this.prisma) {
-    return client.organization.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        code: true,
-        legalName: true,
-        status: true,
-        statusChangedAt: true,
-        channelKeyVersion: true,
-        version: true,
-      },
-    });
-  }
-
   // The row of api-design 03 and 04: the review row and the account that verified it.
   findDetail(id: string, client: Client = this.prisma) {
     return client.organization.findUnique({

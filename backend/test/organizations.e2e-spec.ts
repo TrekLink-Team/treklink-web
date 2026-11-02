@@ -80,7 +80,7 @@ const ROUTES: Route[] = [
   {
     method: 'get',
     path: `/api/organizations/${ID}/transitions`,
-    refused: [],
+    refused: ['operator-a'],
   },
   { method: 'get', path: `/api/organizations/${ID}/members`, refused: [] },
   {
@@ -379,6 +379,13 @@ describe('organizations (e2e)', () => {
         { kind: 'ODD', note: 'x' },
       ],
       ['31 without the outcome', 'staff-1', 'post', `/api/compliance-cases/${ID}/close`, {}],
+      [
+        '29 with a linked loss case id that is not a uuid',
+        'staff-1',
+        'post',
+        `/api/organizations/${ID}/compliance-cases`,
+        { type: 'OTHER_BREACH', evidence: 'x', linkedLossCaseIds: ['LOSS-0001'] },
+      ],
     ] as const)('api-design %s', async (_, role, method, path, body) => {
       expectError(await e2e.send(role, method, path, body), 400, 'VALIDATION_FAILED');
     });
