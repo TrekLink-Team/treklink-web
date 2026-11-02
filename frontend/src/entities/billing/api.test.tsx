@@ -3,7 +3,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { usePlans } from './api';
+import { lineStatus, usePlans } from './api';
 
 const apiClient = vi.fn();
 vi.mock('../../shared/api/apiClient', async (importOriginal) => ({
@@ -52,5 +52,25 @@ describe('usePlans (billing api-design 01)', () => {
     });
     await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
     expect(apiClient).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('lineStatus (screen 6.1)', () => {
+  const line = {
+    seq: 3,
+    type: 'SERVICE_CREDIT',
+    description: 'Service credit',
+    quantity: 1,
+    unitVnd: -45_000,
+    dueAt: '2026-12-02T03:00:00Z',
+  };
+
+  it('reads a negative line as a credit, never as paid or owed (billing design §9.3)', () => {
+    expect(
+      lineStatus({ ...line, amountVnd: -45_000, paidVnd: 0 }, new Date('2026-12-10T00:00:00Z')),
+    ).toBe('Credit');
+    expect(lineStatus({ ...line, type: 'TERM_BALANCE', amountVnd: 45_000, paidVnd: 45_000 })).toBe(
+      'Paid',
+    );
   });
 });

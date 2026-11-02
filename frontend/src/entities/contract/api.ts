@@ -69,7 +69,9 @@ export interface ContractDevice {
   holder: { name: string; phone: string | null; emergencyContact: string | null } | null;
   // The reset and inspection of this row's return (rentals api-design 03); absent outside the detail.
   resetAt?: string | null;
-  inspection?: { result: InspectionResult; at: string } | null;
+  inspection?: { id: string; result: InspectionResult; at: string } | null;
+  // This row on the contract, the target of a service credit request (billing api-design 18).
+  contractDeviceId?: string;
   // The channel key version the unit carries for this organization (api-design 03); null when none.
   provisionedKeyVersion?: number | null;
   // TrekLink callers, checked-in rows: the unit's state now and its next step back to AVAILABLE,
@@ -92,6 +94,14 @@ export type CloseBlocker =
       code: 'DAMAGE_PENDING';
       message: string;
       chargeId: string;
+      deviceId: string;
+      assetTag: string;
+      amountVnd: number;
+    }
+  | {
+      code: 'SERVICE_CREDIT_PENDING';
+      message: string;
+      serviceCreditId: string;
       deviceId: string;
       assetTag: string;
       amountVnd: number;

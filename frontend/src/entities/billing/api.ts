@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
-import { INVOICE_STATUS, TONE_CLASSES } from '../../shared/ui/status';
+import { INVOICE_STATUS, TONE_CLASSES, type ServiceCreditStatus } from '../../shared/ui/status';
 import { queryString, type Page, type PlanType } from '../contract/api';
 
 // Plans, quotes, invoices, payments and balances as billing api-design 01, 02, 08 to 10, 13 and 14
@@ -290,6 +290,8 @@ export const INVOICE_TONES: Record<InvoiceStatus, string> = {
 
 // Line status of screen 6.1, derived on the client; the first matching rule wins.
 export const lineStatus = (line: InvoiceLine, now: Date = new Date()): string => {
+  // A negative line (a service credit or an adjustment) lowers the invoice; it is never owed.
+  if (line.amountVnd < 0) return 'Credit';
   if (line.paidVnd >= line.amountVnd) return 'Paid';
   const due = new Date(line.dueAt);
   const sameDay = due.toDateString() === now.toDateString();
@@ -355,3 +357,109 @@ export const decideDamageCharge = (
     finalVnd: number;
     decidedAt: string;
   }>(`/damage-charges/${id}/decision`, { method: 'POST', body: JSON.stringify(input) });
+
+// billing api-design 18 to 22 (design §9, D-092 rule 5): service credits.
+export type ServiceCreditCause =
+  'BATTERY_FAULT' | 'RADIO_FAULT' | 'GPS_FAULT' | 'BOARD_FAULT' | 'FIRMWARE_FAULT';
+
+export const SERVICE_CREDIT_CAUSES: { value: ServiceCreditCause; label: string }[] = [
+  { value: 'BATTERY_FAULT', label: 'Battery' },
+  { value: 'RADIO_FAULT', label: 'Radio or antenna' },
+  { value: 'GPS_FAULT', label: 'GPS' },
+  { value: 'BOARD_FAULT', label: 'Board, screen or button' },
+  { value: 'FIRMWARE_FAULT', label: 'Firmware' },
+];
+
+export const causeLabel = (cause: ServiceCreditCause): string =>
+  SERVICE_CREDIT_CAUSES.find((entry) => entry.value === cause)?.label ?? cause;
+
+export interface ServiceCredit {
+  id: string;
+  contractId: string;
+  contractDeviceId: string;
+  deviceId: string;
+  assetTag: string | null;
+  cause: ServiceCreditCause;
+  faultInspectionId: string;
+  outageFrom: string;
+  outageSourceIncidentId: string | null;
+  outageSourceNote: string | null;
+  outageTo: string;
+  outageDays: number;
+  computedVnd: number;
+  decidedVnd: number | null;
+  appliedVnd: number;
+  status: ServiceCreditStatus;
+  requestedById: string;
+  decisionReason: string | null;
+  decidedAt: string | null;
+  refundReference: string | null;
+  refundedAt: string | null;
+  version: number;
+  createdAt: string;
+}
+
+export interface ServiceCreditFilters {
+  status?: ServiceCreditStatus;
+  contractId?: string;
+  pageNumber?: number;
+}
+
+export const serviceCreditKeys = {
+  all: ['service-credits'] as const,
+  list: (filters: ServiceCreditFilters) => ['service-credits', filters] as const,
+  contract: (contractId: string) => ['service-credits', 'contract', contractId] as const,
+};
+
+export const useServiceCredits = (filters: ServiceCreditFilters) =>
+  useQuery({
+    queryKey: serviceCreditKeys.list(filters),
+    queryFn: () => apiClient<Page<ServiceCredit>>(`/service-credits${queryString({ ...filters })}`),
+  });
+
+export const useContractServiceCredits = (contractId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: serviceCreditKeys.contract(contractId),
+    queryFn: () =>
+      apiClient<Page<ServiceCredit>>(
+        `/contracts/${contractId}/service-credits${queryString({ pageSize: 100 })}`,
+      ),
+    enabled,
+  });
+
+export const requestServiceCredit = (
+  contractId: string,
+  input: {
+    contractDeviceId: string;
+    cause: ServiceCreditCause;
+    faultInspectionId: string;
+    outageFrom: string;
+    outageSourceNote: string;
+  },
+) =>
+  apiClient<ServiceCredit>(`/contracts/${contractId}/service-credits`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+export type ServiceCreditDecision = 'APPROVE' | 'REDUCE' | 'REJECT';
+
+export const decideServiceCredit = (
+  id: string,
+  input: {
+    decision: ServiceCreditDecision;
+    decidedVnd?: number;
+    reason?: string;
+    expectedVersion: number;
+  },
+) =>
+  apiClient<ServiceCredit>(`/service-credits/${id}/decision`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+export const recordServiceCreditRefund = (id: string, reference: string) =>
+  apiClient<ServiceCredit>(`/service-credits/${id}/refund`, {
+    method: 'POST',
+    body: JSON.stringify({ reference }),
+  });

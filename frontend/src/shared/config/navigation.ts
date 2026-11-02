@@ -27,6 +27,7 @@ import {
   Users,
   Wrench,
   RotateCcw,
+  Undo2,
 } from 'lucide-react';
 import { hasAnyRole, type Role } from '../lib/permissions';
 
@@ -132,6 +133,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     entries: [
       { route: '/t/billing', label: 'Invoices and payments', icon: Receipt, roles: STAFF, built: true, tabBar: 4 },
       { route: '/t/damage-charges', label: 'Damage charges', icon: BadgeDollarSign, roles: STAFF, built: true },
+      { route: '/t/service-credits', label: 'Service credits', icon: Undo2, roles: STAFF, built: true },
     ],
   },
   {
