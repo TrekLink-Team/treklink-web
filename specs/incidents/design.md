@@ -195,6 +195,13 @@ queue through its web inbox row.
 
 ## 4. Correlation
 
+**Simulated incidents (D-093 amendment, demo design §9).** `SosEvent` and `PositionEvent` carry
+`simulated` from gateway-sync. An incident opened by a simulated event (SOS, fall or a cadence burst) is
+stored with `incidents.simulated = true`; one opened by a real event never changes the mark when a
+simulated event joins it. Routing, alerts, escalation and the lifecycle are the same for both. The incident
+reads (api-design 01 to 07) return `simulated`, and the screens show a "Simulated" badge.
+
+
 `IncidentIngress.onSos(event, tx)` is called by `gateway-sync` inside the ingestion transaction:
 
 1. Lock the device's incident outside `CLOSED`, if any (`incidents_one_open_per_device`).

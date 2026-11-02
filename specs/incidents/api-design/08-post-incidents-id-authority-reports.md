@@ -76,6 +76,7 @@ Records a report to the authorities on an `ESCALATED` or `UNROUTED` incident (ag
     "tierDeadlineAt": "2026-10-20T03:17:00Z",
     "statusDueAt": null,
     "reopenCount": 0,
+    "simulated": false,
     "version": 6
   },
   "isSuccess": true,

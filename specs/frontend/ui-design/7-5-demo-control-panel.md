@@ -81,3 +81,66 @@ Every control is a `shared/ui` `Button` or `IconButton`, reachable by Tab in rea
 only, readable in both themes. `/sign-in` uses the wide public frame (`app/App.tsx`), so the box sits
 beside the form from 1024 px and under it below; the form keeps its own width, so with no box the page
 looks as before.
+
+## Field simulation
+
+Section "Field simulation" of `/t/admin/demo`, D-093 amendment and D-094 of 2026-11-02,
+`specs/demo/requirements.md` §2.4 and design §9 (task 5.7). It renders while `GET /api/demo/simulation`
+(demo api-design 06) answers, that is while `DEMO_SIMULATION_ENABLED` is `true` and the caller holds
+`demo.simulate` (TrekLink Admin); on a 404 or 403 it renders nothing. It does not depend on
+`DEMO_CONTROLS_ENABLED`: on the Vercel staging the page shows this section alone, with no scenario cards and no
+role switcher, and the nav entry "Demo control" shows while either the status (demo 01) or the simulation
+(demo 06) answers.
+
+### Data
+
+| Shown | Source (api-design file, property) |
+|---|---|
+| Notice "The field simulation runs only on a local database or the Vercel staging." (warning tone), every write disabled | demo 06 `databaseAllowed` false |
+| Nodes table: asset tag with a "Simulated" badge, organization code, trail name, pattern, position (six decimals), battery %, last packet (relative time with the absolute time as its title), SOS state ("SOS since 10:42", "Fall since 10:42" or "None"), status | demo 06 `nodes[]`: `assetTag`, `organization.code`, `trailId` resolved through `trails[]`, `pattern`, `position`, `batteryPct`, `lastPacketAt`, `sosKind`, `sosSince`, `status` |
+| Add node form: device select (asset tag, status, organization; a device with a running node is disabled), trail select (name, region, length in km), pattern select, speed (m/min, default 60) | demo 06 `devices[]`, `trails[]`, `patterns` |
+| Attribution under the table: "Trails © OpenStreetMap contributors, ODbL." with each trail's way ids and read date in a disclosure | demo 06 `trails[].source` |
+
+### Actions
+
+| Control | Endpoint | Confirmation | Success message |
+|---|---|---|---|
+| **Add node** (form) | demo 07 `POST /api/demo/simulation/nodes` | none | Toast "{assetTag} runs on {trail}." |
+| Row **Pattern** select, then **Apply** | demo 08 `PATCH /api/demo/simulation/nodes/:id` with `expectedVersion` | none | Toast "{assetTag} now {pattern}." |
+| Row **SOS** | demo 10 `POST .../events` `{ kind: SOS }` | `Dialog` "Send an SOS from {assetTag}? It opens a real incident, marked Simulated, and alerts the on-duty operator." **Send SOS**, **Cancel** | Toast "SOS sent from {assetTag}." |
+| Row **Fall** | demo 10 `{ kind: FALL }` | The same `Dialog` with "a fall SOS" | Toast "Fall SOS sent from {assetTag}." |
+| Row **Cancel SOS** (shown while `sosKind` is set) | demo 10 `{ kind: SOS_CANCEL }` | none | Toast "Beacons stopped. Resolve the incident as for a real device." |
+| Row **Stop** | demo 09 `POST .../stop` with `expectedVersion` | `Dialog` "Stop {assetTag}? It sends nothing more and turns stale after the staleness threshold." **Stop node**, **Cancel** | Toast "{assetTag} stopped." |
+| Quick button **SOS on a rented node** | 07 (when the first rented device has no running node, `WALK` on the first trail), then 10 `SOS` | The SOS `Dialog` | As for SOS |
+| Quick button **A node goes silent** | 08 `SILENT` on the first running node, or 07 then 08 | none | Toast "{assetTag} is silent; it turns stale after the threshold." |
+| Quick button **A node strays** | 08 `STRAY` on the first running node, or 07 then 08 | none | Toast "{assetTag} leaves the trail." |
+
+The quick buttons pick the first rented device by asset tag; a person can do the same with the row actions.
+
+### States
+
+| State | What the user sees |
+|---|---|
+| Loading | A table skeleton |
+| No nodes | `EmptyState` "No simulated nodes. Add one below." |
+| A write running | The row's buttons and the form's submit are disabled, with `aria-busy` on the row |
+| Error `DEMO_DATABASE_NOT_ALLOWED` (403) | Alert with the server message |
+| Error `DEMO_NODE_RUNNING`, `INVALID_STATE_TRANSITION`, `STALE_VERSION` (409) | Alert with the server message; the list is read again |
+| Error `VALIDATION_FAILED` (400), `NOT_FOUND` (404) on a write | Alert with the server message |
+| 404 or 403 on demo 06 | The section is absent |
+
+### Live data and accessibility
+
+- Query key `['demo', 'simulation']`, refetched every 15 s while the page is open (design §9: on the Vercel
+  staging each request may start a job tick, so the polling keeps the simulator running during a demo), and
+  after each write.
+- The "Simulated" badge is the `shared/ui` `Badge`, neutral tone, with the word, never colour alone.
+- The table scrolls horizontally inside its card below 640 px; the row actions wrap. Every control is a
+  `shared/ui` `Button` or a labelled select reachable by Tab; both dialogs return focus to the row button.
+
+### Simulated badges elsewhere
+
+| Where | Source |
+|---|---|
+| Live maps (`/t/map`, `/o/map`): the marker's popup and the device list row | monitoring api-design 02 `devices[].simulated` |
+| Incident queue rows and the incident detail header | incidents api-design 01 and 02 `simulated` |

@@ -51,6 +51,7 @@ No body.
         "stale": false,
         "openIncident": null,
         "contractCode": "RC-2026-0042",
+        "simulated": false,
         "state": "LIVE",
         "handedOverAt": "2026-10-19T01:30:00.000Z",
         "counterLocation": null,
@@ -67,6 +68,7 @@ No body.
         "stale": false,
         "openIncident": null,
         "contractCode": "RC-2026-0042",
+        "simulated": false,
         "state": "NOT_HEARD",
         "handedOverAt": "2026-10-19T01:30:00.000Z",
         "counterLocation": {

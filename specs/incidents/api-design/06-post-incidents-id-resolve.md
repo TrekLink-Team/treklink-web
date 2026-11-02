@@ -70,6 +70,7 @@ The owner reports the outcome with a note: `RESOLVED`; that time is time-to-reso
     "tierDeadlineAt": "2026-10-20T03:17:00Z",
     "statusDueAt": null,
     "reopenCount": 0,
+    "simulated": false,
     "version": 4,
     "reopenWindowEndsAt": "2026-10-20T05:20:00Z"
   },

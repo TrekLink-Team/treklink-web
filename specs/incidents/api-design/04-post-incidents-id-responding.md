@@ -70,6 +70,7 @@ The owner reports that a response is under way: `ACKNOWLEDGED` to `RESPONDING`, 
     "tierDeadlineAt": "2026-10-20T03:17:00Z",
     "statusDueAt": "2026-10-20T04:15:00Z",
     "reopenCount": 0,
+    "simulated": false,
     "version": 3
   },
   "isSuccess": true,

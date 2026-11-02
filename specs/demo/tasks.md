@@ -37,7 +37,7 @@
 
 ## Phase 5: Field simulation (D-093 amendment, D-094, 2026-11-02; requirements §2.4, design §9)
 
-- [ ] 5.1 Spec: requirements §2.4 and AC-06 to AC-08, design §9 (this change); api-design 06 to 10 generated from `scripts/specs/endpoints/demo.py`; screen 7.5 section "Field simulation" in `specs/frontend/ui-design/7-5-demo-control-panel.md`; gateway-sync and incidents design notes for the `simulated` mark
+- [x] 5.1 Spec: requirements §2.4 and AC-06 to AC-08, design §9 (this change); api-design 06 to 10 generated from `scripts/specs/endpoints/demo.py`; screen 7.5 section "Field simulation" in `specs/frontend/ui-design/7-5-demo-control-panel.md`; gateway-sync and incidents design notes for the `simulated` mark
 - [ ] 5.2 Migration `simulation`: `simulated_nodes`, `field_events.simulated`, `incidents.simulated`, permission `demo.simulate` for TrekLink Admin; `DEMO_SIMULATION_ENABLED` (default `false`) in `environment-variables.ts`, platform requirements §4, `.env.example`
 - [ ] 5.3 gateway-sync: `trails.ts` (three or more OSM trails with provenance), the pure position, battery and beacon functions of design §9 with unit tests per pattern, `FieldSimulationService` (start, update, stop, event, list), the simulator job reading the table while the flag is on, `UplinkIngress` option `simulated`
 - [ ] 5.4 incidents and monitoring: store and return `simulated` (incident from its opening event; device from its latest field event); unit tests

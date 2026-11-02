@@ -31,6 +31,7 @@ flowchart LR
 | `DemoResetRepository` | The truncation of §3, raw SQL on table names read from `pg_tables` |
 | `DemoSeedRunner` | Loads `prisma/seed-demo.ts` at run time and calls its exported `seedDemo` and `readPasswords` (§4) |
 | `DemoScenariosService` | The scenario list, staging, records and first steps (§5) |
+| `DemoSimulationModule`, `DemoSimulationController`, `DemoSimulationGuard` | The field simulation routes of api-design 06 to 10 and the database check of §9, under `DEMO_SIMULATION_ENABLED`; the logic is `FieldSimulationService` of `gateway-sync` |
 
 ## 2. Guards
 
@@ -156,7 +157,7 @@ migration with the permission.
 
 | Table | Columns |
 |---|---|
-| `simulated_nodes` | `id`, `deviceId` (unique while `status = RUNNING`), `nodeNum`, `trailId`, `pattern` (`WALK`, `STOP`, `STRAY`, `SILENT`, `LOW_BATTERY`), `speedMetresPerMinute` (default 60), `anchorAt`, `anchorMetres` (distance along the trail at the anchor), `anchorLat`, `anchorLon`, `anchorBattery`, `direction` (1 or -1), `strayBearing` (null unless `STRAY`), `sosKind` (null, `SOS` or `FALL`), `sosSince`, `status` (`RUNNING`, `STOPPED`), `version`, `createdById`, `createdAt`, `updatedAt` |
+| `simulated_nodes` | `id`, `deviceId` (unique while `status = RUNNING`), `nodeNum`, `trailId`, `pattern` (`WALK`, `STOP`, `STRAY`, `SILENT`, `LOW_BATTERY`), `speedMetresPerMinute` (default 60), `anchorAt`, `anchorMetres` (distance along the trail at the anchor), `anchorLat`, `anchorLon`, `anchorBattery`, `direction` (1 or -1), `strayBearing` (null unless `STRAY`), `sosKind` (null, `SOS` or `FALL`), `sosSince`, `beaconedUntil` (time of the last beacon ingested, null without an SOS), `status` (`RUNNING`, `STOPPED`), `version`, `createdById`, `createdAt`, `updatedAt` |
 | `field_events` | new column `simulated boolean not null default false` |
 | `incidents` | new column `simulated boolean not null default false`, set when the opening event is simulated |
 
@@ -170,9 +171,23 @@ there. `WALK` and `LOW_BATTERY` move along the trail and turn back at either end
 never below 5.
 
 **SOS.** `SOS` or `FALL` sets `sosKind` and `sosSince` and ingests the text packet at once
-(`SOS - [lat], [lon]` or `SOS - FALL DETECTED - [lat], [lon]`, six decimals, firmware ground truth §2),
-then each run adds the beacon positions due since the last run: every 5 s for the first 60 s, every 30 s
-after. `SOS_CANCEL` clears `sosKind`; no packet is sent, because the firmware sends none.
+(`SOS - [lat], [lon]` or `SOS - FALL DETECTED - [lat], [lon]`, six decimals, firmware ground truth §2)
+with the first position beacon, because the SOS text carries no fix of its own (incidents `SosEvent`);
+then each run adds the beacon positions due since `beaconedUntil`: every 5 s for the first 60 s, every
+30 s after, at most the last ten minutes of them after a long pause between runs. While an SOS is active
+the beacons replace the interval's position packet; telemetry continues. A second `SOS` restarts the
+beacons and joins the open incident (incidents §4). `SOS_CANCEL` clears `sosKind`; no packet is sent,
+because the firmware sends none; a `SOS_CANCEL` with no active SOS is 409 `INVALID_STATE_TRANSITION`.
+
+**Constants.** The movement model's numbers (default speed 60 m/min, accepted speed 10 to 300 m/min, the
+300 m stray over ten minutes, the battery rates and floor) are simulation constants of this section, kept
+in `field-simulation.ts`; the beacon cadence is the firmware's. Only the run interval is a business
+parameter (`gatewaySync.simulatorIntervalSeconds`).
+
+**Speed rule.** A simulated position is exempt from the implausible-move rule of gateway-sync
+(`monitoring.maxPlausibleSpeedKmh`): a start or a trail change places the node on another trail on
+purpose, and the rule would then hide the node until the jump looked slow enough. The speed of a
+simulated walk is bounded by the constants above and checked by unit tests.
 
 **Ingestion.** `UplinkIngress` (gateway-sync) gains an option `{ simulated: true }`: the stored
 `FieldEvent` carries it, and the `SosEvent` and position hand-offs carry it on to `incidents` (which stores
@@ -190,14 +205,16 @@ Attribution "© OpenStreetMap contributors, ODbL" on the panel. No trail is fetc
 
 **Runs.** Unchanged: the simulator job runs every 10 s locally and from the request tick on Vercel
 (`JOBS_TICK_ON_REQUEST`), and the panel polls every 15 s while open, which keeps the staging ticking during a
-demo.
+demo. `AppModule` loads `FieldSimulatorModule` when `FIELD_SIMULATOR_ENABLED` or `DEMO_SIMULATION_ENABLED` is
+`true`, so the simulation also runs on a local stack whose MQTT subscriber is on; the job reads the table
+when `DEMO_SIMULATION_ENABLED` is `true` and sends the fixed two-node batch otherwise.
 
 **Routes** (api-design 06 to 10, generated from `scripts/specs/endpoints/demo.py`):
 
 | # | Route | Body | Answer |
 |---|---|---|---|
-| 06 | `GET /api/demo/simulation` | | `{ trails, patterns, devices, nodes }` (REQ-SIM-08) |
-| 07 | `POST /api/demo/simulation/nodes` | `{ deviceId, trailId, pattern, speedMetresPerMinute?, startMetres? }` | the node; 409 `DEMO_NODE_RUNNING` if the device already runs; 400 if the device has no `nodeNum` or the trail is unknown |
+| 06 | `GET /api/demo/simulation` | | `{ databaseAllowed, trails, patterns, devices, nodes }` (REQ-SIM-08); `databaseAllowed` lets the screen disable the writes |
+| 07 | `POST /api/demo/simulation/nodes` | `{ deviceId, trailId, pattern, speedMetresPerMinute?, startMetres? }` | the node; 409 `DEMO_NODE_RUNNING` if the device already runs; 400 `VALIDATION_FAILED` if the trail is unknown; 404 for a missing or `DISPOSED` device (every device has a `nodeNum`, a required column) |
 | 08 | `PATCH /api/demo/simulation/nodes/:id` | `{ expectedVersion, pattern?, trailId?, speedMetresPerMinute? }` | the node with a new anchor; 409 `STALE_VERSION`, 409 `INVALID_STATE_TRANSITION` when stopped |
 | 09 | `POST /api/demo/simulation/nodes/:id/stop` | `{ expectedVersion }` | the node `STOPPED` |
 | 10 | `POST /api/demo/simulation/nodes/:id/events` | `{ kind: SOS, FALL or SOS_CANCEL }` | `{ node, fieldEventId }`, `fieldEventId` null for `SOS_CANCEL`; 409 `INVALID_STATE_TRANSITION` when stopped |
