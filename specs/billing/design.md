@@ -807,7 +807,7 @@ six rulings on treklink-web#288 written in below; the build is billing tasks 8.1
 ### 9.1 What a credit is
 
 A `SERVICE_CREDIT` row: `id`, `contractId`, `contractDeviceId` (the unit's row on the contract), `cause`,
-`faultRef` (the inspection or maintenance record that shows the fault), `outageFrom`, `outageSourceIncidentId` or
+`faultRef` (the `FAILED` inspection of that contract device row that shows the fault), `outageFrom`, `outageSourceIncidentId` or
 `outageSourceNote` (one is required: the incident, or a note with the time of the call or counter visit), `outageTo`,
 `computedVnd`, `decidedVnd`, `status`, `requestedById`, `decidedById`, `decisionReason`, `invoiceLineId`,
 `refundReference`, `refundedAt`, `version`, timestamps.
@@ -827,11 +827,16 @@ inspection nor its outage end exists. The replacement (rentals REQ-EVT-12) or th
 the inspection of the returned unit is the `faultRef`. The deciding Admin sees the source of `outageFrom` next to
 the amount, since the amount depends on that date.
 
+Build rulings (LongLP, 2026-11-02, billing 8.1): `faultRef` is required and must be an inspection of that
+contract device row with result `FAILED` (a functional fault that sends the unit to maintenance); a `DAMAGED`
+inspection is the organization's damage, charged under §2, and never backs a credit. Staff enter `outageFrom` and
+its source only; `outageTo` is computed (§9.2).
+
 ### 9.2 Amount
 
 `outageFrom` is when the organization reported the fault (an incident or a counter visit), not before the
-unit's handover on this contract. `outageTo` is the first of: the handover of its replacement (rentals,
-D-045), the unit's return to the organization working, its check-in, or the end of the current term. Days
+unit's handover on this contract. `outageTo` is computed, never entered: the first of the handover of its
+replacement (rentals, D-045), its check-in, and the end of the term the outage starts in. Days
 are whole local days, rounded up, so the minimum credit is one day; `termDays` is the length of the term the
 outage starts in.
 
@@ -858,7 +863,10 @@ closing invoice, or becomes `REFUND_DUE` for the last term after the close (lead
 
 A credit is applied once, as one negative line; the line is never changed afterwards (REQ-UBI-02). A
 credit larger than the invoice it lands on leaves the invoice at zero due and carries the rest to the next
-invoice, or to `REFUND_DUE` after the close. The balance and the close check (rentals api-design 20) count
+invoice, or to `REFUND_DUE` after the close: the line written is only the part that brings that invoice's
+unpaid amount to zero, the rest stays owed on the credit, and each part is written once (build ruling, LongLP,
+2026-11-02). `APPLIED` means the whole decided amount is on invoices; a credit with a remainder stays
+`APPROVED` until the remainder lands or the close turns it into `REFUND_DUE`. The balance and the close check (rentals api-design 20) count
 an `APPROVED` credit as already owed to the organization; a `REQUESTED` credit blocks the close with "A service
 credit waits for an Admin's decision." (rentals REQ-EVT-18).
 
