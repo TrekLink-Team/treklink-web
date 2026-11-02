@@ -92,7 +92,9 @@ export class ComplianceCasesRepository {
 
   // The OPEN case of one type for an organization that a loss case links to (`openOrLink`), the oldest
   // when more than one is open. An advisory lock per organization and type, held to the end of the
-  // transaction, makes two triages racing for the same organization see each other's case.
+  // transaction, makes two triages racing for the same organization see each other's case. The case
+  // row is then locked as `close()` locks it, so a close that commits first is seen as CLOSED and the
+  // next open case is taken instead.
   async findOpenOfType(
     organizationId: string,
     type: ComplianceCaseType,
@@ -100,11 +102,16 @@ export class ComplianceCasesRepository {
   ): Promise<ComplianceCaseRow | null> {
     await client.$executeRaw`
       SELECT pg_advisory_xact_lock(hashtext(${`compliance_cases.open.${organizationId}.${type}`}))`;
-    return client.complianceCase.findFirst({
-      where: { organizationId, type, status: ComplianceCaseStatus.OPEN },
-      orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
-      select: COMPLIANCE_CASE_ROW,
-    });
+    for (;;) {
+      const found = await client.complianceCase.findFirst({
+        where: { organizationId, type, status: ComplianceCaseStatus.OPEN },
+        orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
+        select: { id: true },
+      });
+      if (!found) return null;
+      const locked = await this.lock(found.id, client);
+      if (locked?.status === ComplianceCaseStatus.OPEN) return locked;
+    }
   }
 
   // Records the police report reference on an OPEN case that has none; false when there was one.

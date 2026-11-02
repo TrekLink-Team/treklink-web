@@ -17,7 +17,9 @@ describe('DevicesComplianceLossCases', () => {
     repository = {
       codesOfComplianceCases: jest.fn().mockResolvedValue([]),
       findManyForLink: jest.fn().mockResolvedValue([]),
-      linkToComplianceCase: jest.fn().mockResolvedValue(undefined),
+      linkToComplianceCase: jest
+        .fn()
+        .mockImplementation((ids: string[]) => Promise.resolve(ids.length)),
     };
     provider = new DevicesComplianceLossCases(repository as unknown as LossCasesRepository);
   });
@@ -72,5 +74,17 @@ describe('DevicesComplianceLossCases', () => {
       errorCode: 'VALIDATION_FAILED',
     });
     expect(repository.linkToComplianceCase).not.toHaveBeenCalled();
+  });
+
+  it('refuses with 400 when another writer linked a loss case between the read and the write', async () => {
+    repository.findManyForLink.mockResolvedValue([
+      { id: 'loss-1', organizationId: 'org-1', complianceCaseId: null },
+      { id: 'loss-2', organizationId: 'org-1', complianceCaseId: null },
+    ]);
+    repository.linkToComplianceCase.mockResolvedValue(1);
+    await expect(provider.link('case-1', 'org-1', ['loss-1', 'loss-2'], TX)).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+      message: 'A loss case is already linked to a compliance case.',
+    });
   });
 });

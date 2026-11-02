@@ -189,11 +189,12 @@ export class ComplianceCasesService {
     const actor = { id: input.actorId, roles: input.actorRoles };
     const existing = await this.cases.findOpenOfType(input.organizationId, type, tx);
     if (existing) {
-      if (input.policeReference) {
-        await this.cases.setAuthorityReference(existing.id, input.policeReference, tx);
-      }
+      const authorityReferenceSet = input.policeReference
+        ? await this.cases.setAuthorityReference(existing.id, input.policeReference, tx)
+        : false;
       this.audit(actor, existing, 'complianceCase.linkLossCase', null, {
         lossCaseCode: input.lossCaseCode,
+        authorityReferenceSet,
       });
       return existing.id;
     }

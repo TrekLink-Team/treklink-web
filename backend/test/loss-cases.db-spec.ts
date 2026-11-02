@@ -522,6 +522,62 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
     expect(view.linkedLossCases).toEqual(rows.map((row) => row.code));
   });
 
+  it('FR-DEV-13 and BR-40: two triages of one organization at the same time share one case, and the second police reference does not overwrite the first', async () => {
+    const org = await flow.organization();
+    const variantId = await flow.variant(SCHEDULE);
+    const deviceIds = await flow.availableDevices(variantId, 3);
+    const contract = await flow.requested(org.id, org.manager.id, variantId, 3);
+    await flow.approve(contract.id);
+    await flow.payAll(contract.id);
+    await flow.handOver(contract.id, org.manager.id, deviceIds);
+    const triager = await flow.admin();
+
+    const reported = [];
+    for (const deviceId of deviceIds) {
+      reported.push(
+        await lossCases.report(deviceId, { description: 'Not returned' }, org.manager, REPORTED_AT),
+      );
+    }
+    const triaged = await Promise.all(
+      reported.slice(0, 2).map((loss, index) =>
+        lossCases.triage(
+          loss.id,
+          {
+            suspectedTheft: true,
+            policeReference: `PR-2026-${index + 1}`,
+            expectedVersion: loss.version,
+          },
+          triager,
+          TRIAGED_AT,
+        ),
+      ),
+    );
+
+    const rows = await flow.prisma.lossCase.findMany({
+      where: { id: { in: triaged.map((loss) => loss.id) } },
+    });
+    const open = await flow.prisma.complianceCase.findMany({
+      where: {
+        organizationId: org.id,
+        type: ComplianceCaseType.SUSPECTED_THEFT,
+        status: ComplianceCaseStatus.OPEN,
+      },
+    });
+    expect(open).toHaveLength(1);
+    expect(rows.map((row) => row.complianceCaseId)).toEqual([open[0].id, open[0].id]);
+    expect(['PR-2026-1', 'PR-2026-2']).toContain(open[0].authorityReference);
+    const winner = open[0].authorityReference;
+
+    await lossCases.triage(
+      reported[2].id,
+      { suspectedTheft: true, policeReference: 'PR-2026-9', expectedVersion: reported[2].version },
+      triager,
+      TRIAGED_AT,
+    );
+    const kept = await flow.prisma.complianceCase.findUniqueOrThrow({ where: { id: open[0].id } });
+    expect(kept.authorityReference).toBe(winner);
+  });
+
   it('serves the routes with the new permissions (migration 20261101180100)', async () => {
     const variantId = await flow.variant(SCHEDULE);
     const [deviceId] = await flow.availableDevices(variantId, 1);
