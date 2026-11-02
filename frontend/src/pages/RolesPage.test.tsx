@@ -179,7 +179,7 @@ describe('RolesPage (screen 7.2), the grid', () => {
     renderPage();
     await loaded();
     const inherited = screen.getByRole('checkbox', {
-      name: 'liveMap.read.own for ORG_MANAGER, inherited from ORG_OPERATOR',
+      name: 'liveMap.read.own for ORG_MANAGER, inherited from ORG_OPERATOR, own organization only',
     }) as HTMLInputElement;
     expect(inherited.checked).toBe(true);
     expect(inherited.disabled).toBe(true);
@@ -211,7 +211,9 @@ describe('RolesPage (screen 7.2), the grid', () => {
     await loaded();
     fireEvent.click(cell('incident.read.own', 'ORG_OPERATOR'));
     expect(
-      screen.getByRole('checkbox', { name: 'incident.read.own for ORG_OPERATOR, changed' }),
+      screen.getByRole('checkbox', {
+        name: 'incident.read.own for ORG_OPERATOR, own organization only, changed',
+      }),
     ).toBeTruthy();
     expect(screen.getByText('Changed')).toBeTruthy();
   });
@@ -368,6 +370,71 @@ describe('RolesPage (screen 7.2), the grid', () => {
     expect(screen.getByRole('status').textContent).toBe('No changes');
   });
 
+  it('moves focus to the page when every role saved and Save is disabled', async () => {
+    serve();
+    renderPage();
+    await loaded();
+    fireEvent.click(cell('incident.read.own', 'ORG_OPERATOR'));
+    save();
+    await confirm();
+    await waitFor(() => expect(useToast.getState().message).toBe('Permissions updated'));
+    const page = screen.getByRole('region', { name: 'Roles and permissions' });
+    await waitFor(() => expect(document.activeElement).toBe(page));
+    expect(
+      (screen.getByRole('button', { name: 'Save permissions' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it('returns focus to Save while a failed role keeps the draft open and another role saved', async () => {
+    serve((endpoint) => {
+      if (endpoint === '/roles/r-staff/permissions') {
+        throw new ApiError(400, 'VALIDATION_FAILED', 'Permissions must be an array of keys.');
+      }
+      return {};
+    });
+    renderPage();
+    await loaded();
+    fireEvent.click(cell('account.manage', 'STAFF'));
+    fireEvent.click(cell('incident.read.own', 'ORG_OPERATOR'));
+    save();
+    await confirm();
+    await screen.findByRole('alert');
+    const button = screen.getByRole('button', { name: 'Save permissions' });
+    await waitFor(() => expect(document.activeElement).toBe(button));
+  });
+
+  it('drops a key the reloaded catalog no longer holds, so the next save is not blocked by it', async () => {
+    let permissionReads = 0;
+    api.mockImplementation((endpoint: string, options?: RequestInit) => {
+      if (options?.method) {
+        return Promise.reject(
+          new ApiError(400, 'UNKNOWN_PERMISSION', 'Unknown permission: incident.read.own.'),
+        );
+      }
+      if (endpoint === '/roles') return Promise.resolve(ROLES);
+      permissionReads += 1;
+      return Promise.resolve(
+        permissionReads === 1
+          ? CATALOG
+          : CATALOG.filter((item) => item.key !== 'incident.read.own'),
+      );
+    });
+    renderPage();
+    await loaded();
+    fireEvent.click(cell('incident.read.own', 'ORG_OPERATOR'));
+    fireEvent.click(cell('liveMap.read.own', 'ORG_OPERATOR'));
+    save();
+    await confirm();
+    await screen.findByRole('alert');
+    await waitFor(() =>
+      expect(screen.queryByText(/This permission no longer exists\./)).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('checkbox', { name: /^incident\.read\.own/ })).toBeNull(),
+    );
+    expect(screen.getByRole('status').textContent).toBe('1 change in 1 role');
+  });
+
   it('shows MSG26 alone for a 403', async () => {
     api.mockRejectedValue(new ApiError(403, 'FORBIDDEN', 'Forbidden'));
     renderPage();
@@ -405,6 +472,16 @@ describe('RolesPage (screen 7.2), under 768 px', () => {
     }) as HTMLInputElement;
     expect(inherited.disabled).toBe(true);
     expect(screen.getByText(/From ORG_OPERATOR\./)).toBeTruthy();
+  });
+
+  it('says nothing about scope for a platform permission and names it for an own one', async () => {
+    narrow();
+    serve();
+    renderPage();
+    await screen.findByLabelText('Role');
+    expect(screen.queryByText(/Any organization/)).toBeNull();
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'r-op' } });
+    expect(screen.getAllByText(/Own organization only\./).length).toBeGreaterThan(0);
   });
 
   it('keeps one draft across roles and saves each changed role', async () => {

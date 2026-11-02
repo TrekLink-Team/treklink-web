@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
 import { ME_KEY } from '../features/account-menu/api';
@@ -19,6 +19,7 @@ import {
   groupBySubject,
   isChanged,
   keysOf,
+  pruned,
   roleTitle,
   scopeText,
   sortRoles,
@@ -89,7 +90,7 @@ const RolePanel: React.FC<{
                 <Checkbox
                   key={permission.key}
                   label={permission.key}
-                  description={`${scopeText(permission)}. ${permission.description}${note}${
+                  description={`${permission.scope === 'own' ? `${scopeText(permission)}. ` : ''}${permission.description}${note}${
                     badKey === permission.key ? ' This permission no longer exists.' : ''
                   }${isChanged(role, permission.key, drafts) ? ' Changed.' : ''}`}
                   checked={cell.kind === 'editable' ? cell.checked : true}
@@ -117,13 +118,23 @@ export const RolesPage: React.FC = () => {
   const catalog = usePermissions();
   const wide = useMediaQuery('(min-width: 768px)', true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Drafts>({});
+  const [stored, setDrafts] = useState<Drafts>({});
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [failures, setFailures] = useState<Failure[]>([]);
   const [badKey, setBadKey] = useState<string | null>(null);
   const [lockout, setLockout] = useState<string | null>(null);
   const saveRef = useRef<HTMLButtonElement>(null);
+  const pageRef = useRef<HTMLElement>(null);
+
+  // A key the reloaded catalog no longer holds is not in the drafts, or every later save would fail on it.
+  const drafts = useMemo(
+    () =>
+      catalog.data
+        ? pruned(stored, new Set(catalog.data.map((permission) => permission.key)))
+        : stored,
+    [stored, catalog.data],
+  );
 
   const list = roles.data ? sortRoles(roles.data) : undefined;
   const changed = list ? changedRoles(list, drafts) : [];
@@ -220,7 +231,11 @@ export const RolesPage: React.FC = () => {
           ? 'Permissions updated'
           : `Permissions updated for ${saved.map((role) => role.key).join(', ')}`,
       );
-      setTimeout(() => saveRef.current?.focus(), 0);
+      // Save is disabled once every role is saved, and a disabled button cannot take focus: the page does.
+      setTimeout(() => {
+        const button = saveRef.current;
+        (button && !button.disabled ? button : pageRef.current)?.focus();
+      }, 0);
     } else if (notFound) {
       showToast('Role not found.');
     }
@@ -252,7 +267,12 @@ export const RolesPage: React.FC = () => {
   const role = list.find((item) => item.id === selectedId) ?? list[0];
 
   return (
-    <section aria-labelledby="roles-title" className="flex flex-col gap-4">
+    <section
+      ref={pageRef}
+      tabIndex={-1}
+      aria-labelledby="roles-title"
+      className="flex flex-col gap-4 outline-none"
+    >
       <PageHeader
         id="roles-title"
         title="Roles and permissions"
@@ -302,7 +322,10 @@ export const RolesPage: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-4">
           <div>
-            <label htmlFor="roles-select" className="mb-1.5 block text-body-sm font-semibold text-ink">
+            <label
+              htmlFor="roles-select"
+              className="mb-1.5 block text-body-sm font-semibold text-ink"
+            >
               Role
             </label>
             <Select
