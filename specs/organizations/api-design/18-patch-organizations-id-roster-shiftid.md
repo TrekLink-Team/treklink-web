@@ -156,7 +156,7 @@ Changes a shift's window or members. A change takes effect for the next alert; a
         </tr>
         <tr>
             <td>400</td>
-            <td>The shift has started and endsAt is before now (<code>VALIDATION_FAILED</code>)</td>
+            <td>endsAt is not after startsAt, endsAt is in the past, or the shift lasts more than 31 days (<code>VALIDATION_FAILED</code>)</td>
 <td>
 
 ```json
@@ -188,6 +188,40 @@ Changes a shift's window or members. A change takes effect for the next alert; a
 ```
 </td>
         </tr>
+        <tr>
+            <td>400</td>
+            <td>A member is deactivated, has not set a password yet, is of another organization, or both slots are the same (<code>MEMBER_NOT_ELIGIBLE</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "MEMBER_NOT_ELIGIBLE"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Choose two different active members of your organization."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>The organization is PENDING, REJECTED or CLOSED; the roster is managed while ACTIVE or SUSPENDED (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is CLOSED."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -213,7 +247,7 @@ flowchart TB
     E3["Return 409 SHIFT_STARTED"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The shift has started and endsAt is before now?"}
+    D4{"endsAt is not after startsAt, endsAt is in the past, or the shift lasts more than 31 days?"}
     D3 -->|no| D4
     E4["Return 400 VALIDATION_FAILED"]
     D4 -->|yes| E4
@@ -223,12 +257,24 @@ flowchart TB
     E5["Return 409 SHIFT_OVERLAP"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    P0["Validate members"]
-    D5 -->|no| P0
-    P1["Update the shift"]
+    D6{"A member is deactivated, has not set a password yet, is of another organization, or both slots are the same?"}
+    D5 -->|no| D6
+    E6["Return 400 MEMBER_NOT_ELIGIBLE"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
+    D7{"The organization is PENDING, REJECTED or CLOSED; the roster is managed while ACTIVE or SUSPENDED?"}
+    D6 -->|no| D7
+    E7["Return 409 INVALID_STATE_TRANSITION"]
+    D7 -->|yes| E7
+    E7 --> X7((End))
+    P0["Require the organization ACTIVE or SUSPENDED"]
+    D7 -->|no| P0
+    P1["Validate members"]
     P0 --> P1
+    P2["Update the shift"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 

@@ -230,16 +230,18 @@ transaction. `LossCaseView` carries the deciding Admin's `decidedById` and `deci
 
 **Organization actions of a triage (added 2026-10-31, task 2.7).** For `RENTER` custody triage calls
 `ChannelKeyService.markKeyExposed(orgId, at, actor, tx)` directly, in the triage transaction
-(REQ-EVT-14); organizations tells the Managers after commit. `openOrLinkComplianceCase` is not built in
-organizations yet, so a suspected theft or fraud reaches it through the port `LOSS_ORGANIZATION_ACTIONS`
-(`ports/loss-organization-actions.port.ts`), which `DevicesModule` binds to a no-op default; the case
-still records `suspectedTheft`. Binding the real provider is a one-line change in `devices.module.ts`.
+(REQ-EVT-14); organizations tells the Managers after commit. A suspected theft in renter custody reaches
+`ComplianceCasesService.openOrLink` (organizations 2.10) through the port `LOSS_ORGANIZATION_ACTIONS`
+(`ports/loss-organization-actions.port.ts`), which `DevicesModule` binds to it; the loss case stores the
+returned case id. In the other direction `DevicesComplianceLossCases` provides the organizations port
+`COMPLIANCE_LOSS_CASES`: the loss case codes of a compliance case and the link of the loss cases Staff
+name when they open one.
 
 ```typescript
 export const LOSS_ORGANIZATION_ACTIONS = Symbol('LOSS_ORGANIZATION_ACTIONS');
 export interface LossOrganizationActions {
   openOrLinkComplianceCase(input: { organizationId: string; lossCaseId: string; lossCaseCode: string;
-    evidence: string; policeReference: string | null; actorId: string },
+    evidence: string; policeReference: string | null; actorId: string; actorRoles: string[] },
     tx: Prisma.TransactionClient): Promise<string | null>; // the compliance case id, or null
 }
 ```

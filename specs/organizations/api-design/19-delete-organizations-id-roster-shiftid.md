@@ -114,6 +114,23 @@ No body.
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>The organization is PENDING, REJECTED or CLOSED; the roster is managed while ACTIVE or SUSPENDED (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is CLOSED."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -134,12 +151,19 @@ flowchart TB
     E2["Return 409 SHIFT_STARTED"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    P0["Require startsAt in the future"]
-    D2 -->|no| P0
-    P1["Delete the row"]
+    D3{"The organization is PENDING, REJECTED or CLOSED; the roster is managed while ACTIVE or SUSPENDED?"}
+    D2 -->|no| D3
+    E3["Return 409 INVALID_STATE_TRANSITION"]
+    D3 -->|yes| E3
+    E3 --> X3((End))
+    P0["Require the organization ACTIVE or SUSPENDED"]
+    D3 -->|no| P0
+    P1["Require startsAt in the future"]
     P0 --> P1
+    P2["Delete the row"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 

@@ -119,8 +119,18 @@ fraud, theft, IP violation, NDA breach or other breach. Actions taken from it re
 operations, suspension (`OrganizationsService.suspend`) and revocation of Field Station credentials and
 API keys, and each is appended as a `ComplianceAction`. A `SUSPECTED_FRAUD` or `SUSPECTED_THEFT` case
 closes only with a police report reference (BR-40), enforced by the service and by the
-`compliance_cases_police_reference_to_close` CHECK. A loss case flagged as suspected theft opens a case,
-or links to the organization's open case of the same type.
+`compliance_cases_police_reference_to_close` CHECK. A loss case that Staff triage as a suspected theft in
+renter custody opens a `SUSPECTED_THEFT` case, or links to the organization's open case of that type, in
+the triage transaction (`openOrLink`, one advisory lock per organization and type, so two triages racing
+for one organization share a case). The case is opened by the triaging actor, takes the loss case's police
+reference as its `authorityReference` when it has none, and the loss case stores the case id.
+
+The loss cases of a case are read and linked through the port `COMPLIANCE_LOSS_CASES` (an array that
+`devices` adds its provider to, like `ORGANIZATION_COUNTS`), because `LossCase` belongs to `devices`:
+`codesOf(caseIds)` gives the codes a case response shows as `linkedLossCases`, and `link(caseId,
+organizationId, lossCaseIds, tx)` links the loss cases Staff name when they open a case (400 for one that
+is unknown, of another organization or already linked). With no provider a case reports none and refuses
+`linkedLossCaseIds`.
 
 `channelKeyExposedAt` is set by `markKeyExposed` when a device in the organization's custody is lost
 (D-045) and cleared when Staff record a key rotation. The platform cannot change a key on a device it
@@ -143,7 +153,7 @@ contact address given at registration when none can be reached.
 | `FieldStationsService.stationByUsername(username)`, without the secret hash | gateway-sync | Stage C ingestion, station health report |
 | `FieldStationsService.recordStationHealth(id, health)` | gateway-sync | FR-EVT-13 |
 | `ChannelKeyService.markKeyExposed(orgId, at, actor, tx)` | devices | FR-DEV-13, D-045 |
-| `ComplianceCaseService.openOrLink(orgId, lossCaseId, actor, tx)` | devices | FR-DEV-13, D-046 |
+| `ComplianceCasesService.openOrLink(input, tx)`, with `input` the organization, the loss case id and code, the evidence, the police reference and the actor with roles | devices | FR-DEV-13, D-046 |
 | provider of `ACCOUNT_CONTEXT_PROVIDER`, `API_KEY_RESOLVER` | auth | `platform` design §2.1 |
 
 Declares `ORGANIZATION_EXIT_CHECKS` (multi): `{ canReactivate(orgId, tx, at): Promise<Reason | null>; canClose(orgId, tx): Promise<Reason | null> }`; `at` is the reactivation time.
@@ -423,7 +433,7 @@ classDiagram
     }
     class ComplianceCaseService {
         +open(orgId, dto, actor) ComplianceCase
-        +openOrLink(orgId, lossCaseId, actor, tx)
+        +openOrLink(input, tx) caseId
         +act(id, dto, actor) ComplianceCase
         +close(id, dto, actor) ComplianceCase
     }
