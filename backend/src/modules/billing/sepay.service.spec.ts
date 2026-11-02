@@ -240,8 +240,7 @@ describe('SePay sandbox (billing task 3.2)', () => {
 
   it('builds the VietQR URL from configuration and the receiving account', async () => {
     await expect(service.vietQr(pending() as never)).resolves.toEqual({
-      imageUrl:
-        'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=1125000&des=TL7K2Q9M4D',
+      imageUrl: 'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=1125000&des=TL7K2Q9M4D',
       bankAccount: '0123456789',
       content: 'TL7K2Q9M4D',
     });
