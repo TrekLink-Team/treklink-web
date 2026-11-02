@@ -806,11 +806,17 @@ six rulings on treklink-web#288 written in below; the build is billing tasks 8.1
 
 ### 9.1 What a credit is
 
-A `SERVICE_CREDIT` row: `id`, `contractId`, `contractDeviceId` (the unit's row on the contract), `cause`,
-`faultRef` (the `FAILED` inspection of that contract device row that shows the fault), `outageFrom`, `outageSourceIncidentId` or
-`outageSourceNote` (one is required: the incident, or a note with the time of the call or counter visit), `outageTo`,
-`computedVnd`, `decidedVnd`, `status`, `requestedById`, `decidedById`, `decisionReason`, `invoiceLineId`,
-`refundReference`, `refundedAt`, `version`, timestamps.
+A `ServiceCredit` row (table `service_credits`): `id`, `contractId`, `organizationId` (copied from the contract,
+for the organization's own reads), `contractDeviceId` (the unit's row on the contract), `deviceId`, `cause`,
+`faultInspectionId` (the `faultRef`: the `FAILED` inspection of that contract device row that shows the fault),
+`outageFrom`, `outageSourceIncidentId` or `outageSourceNote` (one is required, enforced by the CHECK
+`service_credits_outage_source_check`: the incident, or a note with the time of the call or counter visit), `outageTo`,
+`outageDays`, `computedVnd`, `decidedVnd`, `appliedVnd` (the part already on invoices), `status`, `requestedById`,
+`decidedById`, `decisionReason`, `decidedAt`, `refundReference` (unique), `refundedAt`, `version`, `createdAt`. Each
+landed part is an `InvoiceLine` of type `SERVICE_CREDIT` that names the credit in `serviceCreditId`, so a credit split
+across invoices has one line per part. Like an `ADJUSTMENT` line it is negative, so the CHECKs
+`invoice_lines_amount_sign` and `invoice_lines_paid_bounds` admit both types (`backend/prisma/constraints.sql` and the
+migration `20261102180000_service_credits`); the balance and payment code already nets a line by its sign.
 
 | Cause | Meaning |
 |---|---|
@@ -870,6 +876,17 @@ unpaid amount to zero, the rest stays owed on the credit, and each part is writt
 an `APPROVED` credit as already owed to the organization; a `REQUESTED` credit blocks the close with "A service
 credit waits for an Admin's decision." (rentals REQ-EVT-18).
 
+Where it lands in the build (billing 8.1): `InvoicesService.issueTermInvoice` and `ChargesService.addToClosing` call
+`ServiceCreditLedger.land` after they write, so the next term invoice, or the closing invoice when a charge opens or
+extends it, takes the remainders oldest decision first. `ServiceCreditService.decide` lands an approved amount on
+the closing invoice at once when no further term invoice will be issued (a day plan, notice given, or a contract no
+longer `ACTIVE`); when that contract is already `CLOSED`, the part not landed becomes `REFUND_DUE` in the same
+transaction (AC-08). `rentals` reads the contract, its terms and the unit's custody times for `billing` through the
+`CREDIT_BASIS` port (D-032), lists a `REQUESTED` credit as the close-check blocker `SERVICE_CREDIT_PENDING`, refuses
+the close with 409 `INVALID_STATE_TRANSITION` and that message, and calls `ServiceCreditService.onContractClosed`
+inside the close, which turns every `APPROVED` remainder into `REFUND_DUE`. An approved remainder only exists once
+the invoices it could land on are paid, so it never adds to `BalanceService.outstanding`.
+
 ### 9.4 Who may do what
 
 | Action | Permission (new, `scripts/specs/catalog.py`) | Roles |
@@ -880,13 +897,16 @@ credit waits for an Admin's decision." (rentals REQ-EVT-18).
 | Read credits | `serviceCredit.read`, `serviceCredit.read.own` | STAFF, ADMIN; the organization's Managers for their own |
 
 New error code `DUPLICATE_CREDIT` (409). Audit entries `serviceCredit.requested`, `.decided`,
-`.applied`, `.refunded`, after commit. Notices to the organization's Managers on request and decision.
+`.applied` (one per landed part, by the system), `.refunded`, after commit. Notices to the organization's Managers on
+request and decision: `billing` emits `billing.serviceCredit.notice` after commit and `rentals`
+(`ContractNotificationsListener`) emails the organization's contact, since `billing` may not import `organizations`
+and only `rentals` knows the contract code.
 
 ### 9.5 Endpoints (api-design written with the build, from `scripts/specs/endpoints/billing.py`)
 
 - `POST /api/contracts/:id/service-credits`: request (cause, `contractDeviceId`, `outageFrom` with
-  `outageSourceIncidentId` or `outageSourceNote`, `outageTo` when known, `faultRef`); the unit must be checked
-  in or replaced.
+  `outageSourceIncidentId` or `outageSourceNote`, `faultInspectionId`); `outageTo` is computed, never sent. The unit
+  must be checked in or replaced.
 - `GET /api/contracts/:id/service-credits`, `GET /api/service-credits` (Staff queue, filter by status).
 - `POST /api/service-credits/:id/decision`: `APPROVE`, `REDUCE` with `decidedVnd` and a reason, or
   `REJECT` with a reason, and `expectedVersion`.

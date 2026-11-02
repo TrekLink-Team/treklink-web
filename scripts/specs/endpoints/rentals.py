@@ -483,7 +483,8 @@ ENDPOINTS = [
        "`DEVICE_OUT` (a unit handed over, not checked in and not settled lost, replaced units included; "
        "`lossCase` is its open loss case, null when none is reported), `BALANCE_OUTSTANDING` (`amountVnd` "
        "unpaid on the contract's invoices), `DAMAGE_PENDING` (a damage charge waiting for an Admin, "
-       "`chargeId`, `deviceId`, `amountVnd`) and `OPEN_INCIDENTS` (incidents outside `CLOSED` on the "
+       "`chargeId`, `deviceId`, `amountVnd`), `SERVICE_CREDIT_PENDING` (a service credit still `REQUESTED`, "
+       "`serviceCreditId`, `deviceId`, `amountVnd`; billing design §9.3) and `OPEN_INCIDENTS` (incidents outside `CLOSED` on the "
        "contract or its devices, `incidents[]` with `id` and `code`). A `CLOSED` contract answers `canClose` "
        "false with no blocker. Read only: nothing is locked or changed.",
        "UC-51, FR-CON-13, BR-27, E05-4, E05-7, MSG29",
@@ -499,6 +500,9 @@ ENDPOINTS = [
                      {"code": "DAMAGE_PENDING", "message": "A damage charge on TL-0043 waits for an Admin.",
                       "chargeId": "dc-1", "deviceId": "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9", "assetTag": "TL-0043",
                       "amountVnd": 1200000},
+                     {"code": "SERVICE_CREDIT_PENDING",
+                      "message": "The service credit of 45,000 VND on TL-0042 waits for an Admin's decision.",
+                      "serviceCreditId": "sc-1", "deviceId": DEVICE_ID, "assetTag": "TL-0042", "amountVnd": 45000},
                      {"code": "OPEN_INCIDENTS", "message": "This cannot be done while it has open incidents.",
                       "incidents": [{"id": "inc-1", "code": "INC-2026-000002"}]}]},
        entity="Contract",

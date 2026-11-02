@@ -21,8 +21,13 @@
 | 15 | GET | `/api/payments/:id` | Org Manager: own; TrekLink Staff, TrekLink Admin | [15-get-payments-id.md](15-get-payments-id.md) |
 | 16 | GET | `/api/damage-charges` | TrekLink Staff, TrekLink Admin | [16-get-damage-charges.md](16-get-damage-charges.md) |
 | 17 | POST | `/api/damage-charges/:id/decision` | TrekLink Admin, never the inspector | [17-post-damage-charges-id-decision.md](17-post-damage-charges-id-decision.md) |
+| 18 | POST | `/api/contracts/:id/service-credits` | TrekLink Staff, TrekLink Admin | [18-post-contracts-id-service-credits.md](18-post-contracts-id-service-credits.md) |
+| 19 | GET | `/api/contracts/:id/service-credits` | TrekLink Staff, TrekLink Admin; the organization's Managers for their own | [19-get-contracts-id-service-credits.md](19-get-contracts-id-service-credits.md) |
+| 20 | GET | `/api/service-credits` | TrekLink Staff, TrekLink Admin; the organization's Managers for their own | [20-get-service-credits.md](20-get-service-credits.md) |
+| 21 | POST | `/api/service-credits/:id/decision` | TrekLink Admin, never the requester | [21-post-service-credits-id-decision.md](21-post-service-credits-id-decision.md) |
+| 22 | POST | `/api/service-credits/:id/refund` | TrekLink Staff, TrekLink Admin | [22-post-service-credits-id-refund.md](22-post-service-credits-id-refund.md) |
 
-Charges created by other modules have no endpoint of their own: `chargeLate` on check-in (FR-BILL-03), `chargeDamage` from an inspection (FR-BILL-04), `chargeLoss` (FR-BILL-05), and the term invoice issued by the term rollover (FR-BILL-01). See `design.md` §2.
+Charges created by other modules have no endpoint of their own: `chargeLate` on check-in (FR-BILL-03), `chargeDamage` from an inspection (FR-BILL-04), `chargeLoss` (FR-BILL-05), and the term invoice issued by the term rollover (FR-BILL-01), which also lands the approved service credits still owed (design §9.3). See `design.md` §2.
 
 
 Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).
