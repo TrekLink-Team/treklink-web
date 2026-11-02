@@ -84,6 +84,7 @@ No body.
           "phone": "0912345678",
           "emergencyContact": "Le Van F, 0987654321"
         },
+        "contractDeviceId": "cd-1",
         "resetAt": null,
         "inspection": null,
         "provisionedKeyVersion": null,
@@ -105,7 +106,8 @@ No body.
 | --- | --- | --- | --- |
 | holdExpiresAt | When the hold of a request expires unpaid (D-092); kept after the decision as history; null for a contract requested before D-092 | datetime | `null` |
 | devices[].resetAt | First reset of the unit at or after this row's check-in and before the unit's next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload | datetime | `2026-10-30T03:05:00.000Z` |
-| devices[].inspection | Last inspection recorded against this row (api-design 16): `result` PASSED, DAMAGED or FAILED, and `at`; null when none | object | `null` |
+| devices[].contractDeviceId | This row on the contract; a service credit is requested against it (billing api-design 18) | uuid | `cd-1` |
+| devices[].inspection | Last inspection recorded against this row (api-design 16): `id`, `result` PASSED, DAMAGED or FAILED, and `at`; null when none. A FAILED one backs a service credit request (billing api-design 18) | object | `null` |
 | devices[].provisionedKeyVersion | The channel key version the unit carries for this contract's organization (api-design 09), null when it holds none of it; the counter keeps provisioning after a reload | int | `1` |
 | devices[].afterReturn | TrekLink callers only, for a checked-in row: the device's current `status` and `nextStep`, its next step back to `AVAILABLE` (devices REQ-EVT-23): `action` RESET, INSPECT, COMPLETE_MAINTENANCE or INTAKE with the `contractId` of the counter that records a reset or inspection, or null when none is left or a later return of the unit owns it (REQ-EVT-19, D-092 rule 4); null for a row not checked in and for organization callers | object | `{"status": "RETURNED", "nextStep": {"action": "INSPECT", "contractId": "..."}}` |
 

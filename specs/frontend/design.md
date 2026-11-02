@@ -54,6 +54,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/t/incidents` | Unrouted and escalated queue, authority reports | TrekLink Staff |
 | `/t/map` | Fleet map | TrekLink Staff |
 | `/t/billing`, `/t/damage-charges` | Invoices, counter payments, damage approvals | TrekLink Staff, Admin (decisions) |
+| `/t/service-credits` | Service credits: the decision queue and the refunds to record (billing design §9.6, screen 6.5) | TrekLink Staff (refunds), Admin (decisions) |
 | `/t/reports` | Reports | TrekLink Staff |
 | `/t/admin/sync` | Field data sync (MF-02): subscriber state, the window's ingestion outcomes, Field Stations, recent field events and the sync audit (screen 9.5) | TrekLink Staff |
 | `/t/admin/accounts`, `/t/admin/roles`, `/t/admin/parameters`, `/t/admin/prices`, `/t/admin/variants`, `/t/admin/health` | Administration | TrekLink Admin |

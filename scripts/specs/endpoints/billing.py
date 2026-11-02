@@ -20,6 +20,7 @@ SERVICE_CREDIT = {"id": "sc-1", "contractId": CONTRACT_ID, "contractDeviceId": "
                   "outageFrom": "2026-10-10T01:30:00.000Z", "outageSourceIncidentId": INCIDENT_ID,
                   "outageSourceNote": None, "outageTo": "2026-10-13T03:00:00.000Z", "outageDays": 3,
                   "computedVnd": 45000, "decidedVnd": None, "appliedVnd": 0, "status": "REQUESTED",
+                  "requestedById": USER_ID,
                   "decisionReason": None, "decidedAt": None, "refundReference": None, "refundedAt": None,
                   "version": 1, "createdAt": NOW}
 CREDIT_PATH = [["id", "Service credit id", "uuid", "`sc-1`"]]

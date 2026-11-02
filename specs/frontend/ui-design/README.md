@@ -26,7 +26,7 @@ Deadline 2 to 3 days from the assignment; the leader finishes what is not done (
 ## Assignments
 
 <!-- assignments:start -->
-Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-053); the leader may reassign in this table. Per owner: HoangTK 3, KhoaDD 5, LongLP 11, LongNN 9, TanNB 6.
+Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-053); the leader may reassign in this table. Per owner: HoangTK 3, KhoaDD 5, LongLP 12, LongNN 9, TanNB 6.
 
 | Task | Screen file | Owner | Stories | Due |
 |---|---|---|---|---|
@@ -53,6 +53,7 @@ Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-
 | 6.2 | [SePay payment page](6-2-sepay-payment-page.md) | LongLP | US-UC19 | 2026-10-23 |
 | 6.3 | [Counter payments](6-3-counter-payments.md) | LongLP | US-UC22 | 2026-10-23 |
 | 6.4 | [Prices, damage rates, `DamageChargesPage`](6-4-prices-damage-rates-damagechargespage.md) | LongLP | US-UC48, US-UC56 | 2026-10-23 |
+| 6.5 | [Service credits: `ServiceCreditsPage`, the request from the contract page, the contract's credits](6-5-service-credits-servicecreditspage-the-request-from.md) | LongLP | none in the backlog yet (D-092 rule 5) | 2026-11-04 |
 | 7.1 | [TrekLink accounts](7-1-treklink-accounts.md) | LongNN | US-UC10 | 2026-10-23 |
 | 7.2 | [Roles and permissions](7-2-roles-and-permissions.md) | LongNN, TanNB | US-UC10 | 2026-10-23 |
 | 7.3 | [Authentication events](7-3-authentication-events.md) | LongNN | US-UC58 | 2026-10-23 |
