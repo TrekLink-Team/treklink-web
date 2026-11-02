@@ -31,7 +31,7 @@ No body.
       {
         "id": "ta-nang-phan-dung",
         "name": "Ta Nang to Phan Dung",
-        "region": "Lam Dong and Binh Thuan",
+        "region": "Lam Dong",
         "lengthMetres": 7200,
         "pointCount": 63,
         "source": {

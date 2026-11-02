@@ -159,7 +159,7 @@ ENDPOINTS.append(ep(
     "production (D-094).",
     "D-093 amendment, D-094, REQ-SIM-01, REQ-SIM-08",
     response={"databaseAllowed": True,
-              "trails": [{"id": "ta-nang-phan-dung", "name": "Ta Nang to Phan Dung", "region": "Lam Dong and Binh Thuan",
+              "trails": [{"id": "ta-nang-phan-dung", "name": "Ta Nang to Phan Dung", "region": "Lam Dong",
                           "lengthMetres": 7200, "pointCount": 63,
                           "source": {"osmWayIds": [1164619760], "readOn": "2026-11-01",
                                      "simplification": "Douglas-Peucker, 10 m, 189 to 63 points"}}],
