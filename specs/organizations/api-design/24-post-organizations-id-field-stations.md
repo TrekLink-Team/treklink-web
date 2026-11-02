@@ -48,7 +48,7 @@ Creates a named Field Station credential (D-037). The MQTT username and secret a
     "lastSyncAt": null,
     "queueDepth": null,
     "oldestRetryCount": 0,
-    "version": "1.2.0",
+    "version": null,
     "outdated": false,
     "mqttSecret": "fs_s3cr3t...shown-once",
     "brokerUrl": "mqtts://mqtt.treklink.vn:8883"
