@@ -24,6 +24,7 @@ const LINE_TONES: Record<string, string> = {
   Overdue: TONE_CLASSES.critical,
   'Due now': TONE_CLASSES.attention,
   'Due later': TONE_CLASSES.active,
+  Credit: TONE_CLASSES.done,
 };
 
 const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'SePay' } as const;

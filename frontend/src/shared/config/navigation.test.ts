@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_NAV, entryForPath, isFullBleed, tabBarEntries, visibleNav } from './navigation';
 
-const routes = (groups: ReturnType<typeof visibleNav>) => groups.flatMap((group) => group.entries.map((entry) => entry.route));
+const routes = (groups: ReturnType<typeof visibleNav>) =>
+  groups.flatMap((group) => group.entries.map((entry) => entry.route));
 
 describe('navigation table (specs/frontend/design.md §2)', () => {
   it('gives every route one entry', () => {
@@ -10,7 +11,13 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
   });
 
   it('shows an Org Operator only the built routes the operator holds', () => {
-    expect(routes(visibleNav('ORGANIZATION', ['ORG_OPERATOR']))).toEqual(['/o/map', '/o/incidents', '/o/contracts', '/o/roster', '/o/field-stations']);
+    expect(routes(visibleNav('ORGANIZATION', ['ORG_OPERATOR']))).toEqual([
+      '/o/map',
+      '/o/incidents',
+      '/o/contracts',
+      '/o/roster',
+      '/o/field-stations',
+    ]);
   });
 
   it('adds the overview, invoices, members and API keys for the Org Manager through inheritance', () => {
@@ -28,20 +35,63 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
     ]);
   });
 
-  it('gives TrekLink Staff the fleet map, contracts, devices, sync status, maintenance, loss cases, organizations, compliance cases, billing and damage charges, and Admin those plus the built administration pages', () => {
-    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/loss-cases', '/t/organizations', '/t/field-stations', '/t/compliance-cases', '/t/billing', '/t/damage-charges']);
-    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual(['/t/map', '/t/incidents', '/t/contracts', '/t/fleet', '/t/admin/sync', '/t/maintenance', '/t/loss-cases', '/t/organizations', '/t/field-stations', '/t/compliance-cases', '/t/billing', '/t/damage-charges', '/t/admin/accounts', '/t/admin/roles', '/t/admin/parameters', '/t/admin/prices', '/t/admin/health', '/t/admin/audit/changes', '/t/admin/audit/sign-ins']);
+  it('gives TrekLink Staff the fleet map, contracts, devices, sync status, maintenance, loss cases, organizations, compliance cases, billing, damage charges and service credits, and Admin those plus the built administration pages', () => {
+    expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual([
+      '/t/map',
+      '/t/incidents',
+      '/t/contracts',
+      '/t/fleet',
+      '/t/admin/sync',
+      '/t/maintenance',
+      '/t/loss-cases',
+      '/t/organizations',
+      '/t/field-stations',
+      '/t/compliance-cases',
+      '/t/billing',
+      '/t/damage-charges',
+      '/t/service-credits',
+    ]);
+    expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual([
+      '/t/map',
+      '/t/incidents',
+      '/t/contracts',
+      '/t/fleet',
+      '/t/admin/sync',
+      '/t/maintenance',
+      '/t/loss-cases',
+      '/t/organizations',
+      '/t/field-stations',
+      '/t/compliance-cases',
+      '/t/billing',
+      '/t/damage-charges',
+      '/t/service-credits',
+      '/t/admin/accounts',
+      '/t/admin/roles',
+      '/t/admin/parameters',
+      '/t/admin/prices',
+      '/t/admin/health',
+      '/t/admin/audit/changes',
+      '/t/admin/audit/sign-ins',
+    ]);
   });
 
   it('shows Demo control to the Admin only while the demo controls are on (D-088)', () => {
     expect(routes(visibleNav('TREKLINK', ['ADMIN']))).not.toContain('/t/admin/demo');
-    expect(routes(visibleNav('TREKLINK', ['ADMIN'], { demoEnabled: true })).at(-1)).toBe('/t/admin/demo');
-    expect(routes(visibleNav('TREKLINK', ['STAFF'], { demoEnabled: true }))).not.toContain('/t/admin/demo');
+    expect(routes(visibleNav('TREKLINK', ['ADMIN'], { demoEnabled: true })).at(-1)).toBe(
+      '/t/admin/demo',
+    );
+    expect(routes(visibleNav('TREKLINK', ['STAFF'], { demoEnabled: true }))).not.toContain(
+      '/t/admin/demo',
+    );
   });
 
   it('keeps Administration for Admin only once its pages are built', () => {
-    const staff = visibleNav('TREKLINK', ['STAFF'], { includeUnbuilt: true }).map((group) => group.id);
-    const admin = visibleNav('TREKLINK', ['ADMIN'], { includeUnbuilt: true }).map((group) => group.id);
+    const staff = visibleNav('TREKLINK', ['STAFF'], { includeUnbuilt: true }).map(
+      (group) => group.id,
+    );
+    const admin = visibleNav('TREKLINK', ['ADMIN'], { includeUnbuilt: true }).map(
+      (group) => group.id,
+    );
     expect(staff).not.toContain('t-admin');
     expect(admin).toContain('t-admin');
   });
@@ -56,7 +106,10 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
   });
 
   it('puts at most four entries in the phone tab bar', () => {
-    for (const groups of [visibleNav('TREKLINK', ['ADMIN'], { includeUnbuilt: true }), visibleNav('ORGANIZATION', ['ORG_MANAGER'], { includeUnbuilt: true })]) {
+    for (const groups of [
+      visibleNav('TREKLINK', ['ADMIN'], { includeUnbuilt: true }),
+      visibleNav('ORGANIZATION', ['ORG_MANAGER'], { includeUnbuilt: true }),
+    ]) {
       expect(tabBarEntries(groups).length).toBeLessThanOrEqual(4);
     }
   });

@@ -124,6 +124,19 @@ export const DAMAGE_CHARGE_STATUS: Palette<DamageChargeStatus> = {
   WAIVED: { label: 'Waived', tone: 'ended' },
 };
 
+// billing design §9.3: the lifecycle of a service credit.
+export type ServiceCreditStatus =
+  'REQUESTED' | 'APPROVED' | 'REJECTED' | 'APPLIED' | 'REFUND_DUE' | 'REFUNDED';
+
+export const SERVICE_CREDIT_STATUS: Palette<ServiceCreditStatus> = {
+  REQUESTED: { label: 'Waiting for an Admin', tone: 'attention' },
+  APPROVED: { label: 'Approved, not yet on an invoice', tone: 'active' },
+  REJECTED: { label: 'Rejected', tone: 'ended' },
+  APPLIED: { label: 'On the invoice', tone: 'done' },
+  REFUND_DUE: { label: 'Refund due', tone: 'attention' },
+  REFUNDED: { label: 'Refunded', tone: 'done' },
+};
+
 export type MaintenanceRecordStatus = 'OPEN' | 'PENDING_APPROVAL' | 'COMPLETED' | 'UNREPAIRABLE';
 
 export const MAINTENANCE_STATUS: Palette<MaintenanceRecordStatus> = {

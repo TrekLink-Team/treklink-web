@@ -138,7 +138,12 @@ describe('ContractDetailPage', () => {
 
   it('offers the Org Manager Report lost on a device that is out, and opens the dialog (screen 4.4)', () => {
     roles = ['ORG_MANAGER'];
-    const row = { holder: null, checkedInAt: null, lostAt: null, handedOverAt: '2026-10-30T09:00:00Z' };
+    const row = {
+      holder: null,
+      checkedInAt: null,
+      lostAt: null,
+      handedOverAt: '2026-10-30T09:00:00Z',
+    };
     contract = {
       ...baseContract,
       status: 'ACTIVE',
@@ -170,7 +175,13 @@ describe('ContractDetailPage', () => {
 
   it('shows Staff the Close action when the close check passes', () => {
     contract = { ...baseContract, status: 'RETURNED', handedOverAt: '2026-10-30T09:00:00Z' };
-    closeCheck = { contractId: 'c-1', status: 'RETURNED', version: 9, canClose: true, blockers: [] };
+    closeCheck = {
+      contractId: 'c-1',
+      status: 'RETURNED',
+      version: 9,
+      canClose: true,
+      blockers: [],
+    };
     renderPage();
     expect(screen.getByText('Nothing blocks the close.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close contract' }));
@@ -223,7 +234,13 @@ describe('ContractDetailPage', () => {
         }),
       ],
     };
-    closeCheck = { contractId: 'c-1', status: 'RETURNED', version: 9, canClose: true, blockers: [] };
+    closeCheck = {
+      contractId: 'c-1',
+      status: 'RETURNED',
+      version: 9,
+      canClose: true,
+      blockers: [],
+    };
     renderPage();
     expect(screen.getByRole('columnheader', { name: 'State now' })).toBeTruthy();
     expect(screen.getByText('Available')).toBeTruthy();
@@ -243,7 +260,13 @@ describe('ContractDetailPage', () => {
       handedOverAt: '2026-10-30T09:00:00Z',
       devices: [backRow('d-3', 'TL-0003', null)],
     };
-    closeCheck = { contractId: 'c-1', status: 'RETURNED', version: 9, canClose: true, blockers: [] };
+    closeCheck = {
+      contractId: 'c-1',
+      status: 'RETURNED',
+      version: 9,
+      canClose: true,
+      blockers: [],
+    };
     renderPage('o');
     expect(screen.queryByRole('button', { name: 'Close contract' })).toBeNull();
     expect(screen.queryByRole('columnheader', { name: 'State now' })).toBeNull();
@@ -254,9 +277,73 @@ describe('ContractDetailPage', () => {
     contract = {
       ...baseContract,
       status: 'ACTIVE',
-      devices: [{ deviceId: 'dev-1', assetTag: 'TL-0042', holder: null, checkedInAt: null, lostAt: null, handedOverAt: '2026-10-30T09:00:00Z' }],
+      devices: [
+        {
+          deviceId: 'dev-1',
+          assetTag: 'TL-0042',
+          holder: null,
+          checkedInAt: null,
+          lostAt: null,
+          handedOverAt: '2026-10-30T09:00:00Z',
+        },
+      ],
     };
     renderPage('o');
     expect(screen.queryByRole('button', { name: /^Report lost/ })).toBeNull();
+  });
+
+  // Screen 6.5 (billing api-design 18): a unit back with a FAILED inspection gets the request.
+  it('offers Staff a service credit request only on a unit back with a FAILED inspection', () => {
+    contract = {
+      ...baseContract,
+      status: 'RETURNED',
+      handedOverAt: '2026-10-30T09:00:00Z',
+      devices: [
+        {
+          ...backRow('d-3', 'TL-0003', null),
+          contractDeviceId: 'cd-3',
+          inspection: { id: 'in-3', result: 'FAILED', at: '2026-11-01T03:00:00Z' },
+        },
+        {
+          ...backRow('d-4', 'TL-0004', null),
+          contractDeviceId: 'cd-4',
+          inspection: { id: 'in-4', result: 'PASSED', at: '2026-11-01T03:00:00Z' },
+        },
+      ],
+    };
+    closeCheck = {
+      contractId: 'c-1',
+      status: 'RETURNED',
+      version: 9,
+      canClose: true,
+      blockers: [],
+    };
+    renderPage();
+    const requests = screen.getAllByRole('button', { name: /^Request service credit/ });
+    expect(requests).toHaveLength(1);
+    fireEvent.click(requests[0]);
+    expect(
+      screen.getByRole('dialog', { name: 'Request a service credit for TL-0003' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Service credits' })).toBeTruthy();
+  });
+
+  it('never offers the service credit request to the Org Manager', () => {
+    roles = ['ORG_MANAGER'];
+    contract = {
+      ...baseContract,
+      status: 'RETURNED',
+      handedOverAt: '2026-10-30T09:00:00Z',
+      devices: [
+        {
+          ...backRow('d-3', 'TL-0003', null),
+          contractDeviceId: 'cd-3',
+          inspection: { id: 'in-3', result: 'FAILED', at: '2026-11-01T03:00:00Z' },
+        },
+      ],
+    };
+    renderPage('o');
+    expect(screen.queryByRole('button', { name: /^Request service credit/ })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Service credits' })).toBeTruthy();
   });
 });

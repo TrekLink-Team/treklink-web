@@ -41,6 +41,8 @@ const Action: React.FC<{
       );
     case 'DAMAGE_PENDING':
       return <ResolveLink to="/t/damage-charges">Open damage charges</ResolveLink>;
+    case 'SERVICE_CREDIT_PENDING':
+      return <ResolveLink to="/t/service-credits">Open service credits</ResolveLink>;
     case 'OPEN_INCIDENTS':
       return <ResolveLink to="/t/incidents">Open incidents</ResolveLink>;
   }
@@ -56,6 +58,7 @@ const detailOf = (blocker: CloseBlocker): string | null => {
         : null;
     case 'BALANCE_OUTSTANDING':
     case 'DAMAGE_PENDING':
+    case 'SERVICE_CREDIT_PENDING':
       return formatVnd(blocker.amountVnd);
     default:
       return null;
@@ -69,10 +72,7 @@ export const CloseBlockers: React.FC<{
   if (check.blockers.length === 0) return null;
   return (
     <section aria-labelledby={`close-blockers-${check.contractId}`} className="flex flex-col gap-2">
-      <h3
-        id={`close-blockers-${check.contractId}`}
-        className="text-body-sm font-semibold text-ink"
-      >
+      <h3 id={`close-blockers-${check.contractId}`} className="text-body-sm font-semibold text-ink">
         What still blocks the close
       </h3>
       <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
@@ -87,11 +87,7 @@ export const CloseBlockers: React.FC<{
                 <span className="text-body-sm text-ink">{blocker.message}</span>
                 {detail && <span className="text-body-sm text-ink-muted">{detail}</span>}
               </span>
-              <Action
-                blocker={blocker}
-                contractId={check.contractId}
-                onReportLost={onReportLost}
-              />
+              <Action blocker={blocker} contractId={check.contractId} onReportLost={onReportLost} />
             </li>
           );
         })}

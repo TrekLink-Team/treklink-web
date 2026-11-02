@@ -46,6 +46,8 @@ import {
 import { matchesText } from '../shared/lib/filter';
 import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
+import { RequestServiceCreditDialog } from '../features/service-credits/RequestServiceCreditDialog';
+import { ServiceCreditsCard } from '../features/service-credits/ServiceCreditsCard';
 import {
   DataTable,
   DEVICE_STATUS,
@@ -266,9 +268,11 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
   const [noticing, setNoticing] = useState(false);
   const [labelling, setLabelling] = useState<ContractDevice | null>(null);
   const [reporting, setReporting] = useState<ContractDevice | null>(null);
-  const [staffReporting, setStaffReporting] = useState<{ deviceId: string; assetTag: string } | null>(
-    null,
-  );
+  const [crediting, setCrediting] = useState<ContractDevice | null>(null);
+  const [staffReporting, setStaffReporting] = useState<{
+    deviceId: string;
+    assetTag: string;
+  } | null>(null);
   const [closing, setClosing] = useState(false);
   // Staff see the Close action whenever the close check passes, and what blocks it otherwise
   // (rentals api-design 20, D-092 rule 3).
@@ -316,29 +320,60 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
     },
     { key: 'holder', header: 'Holder', cell: (device) => device.holder?.name ?? 'No label' },
     { key: 'out', header: 'Handed over', cell: (device) => <When iso={device.handedOverAt} /> },
-    { key: 'back', header: 'Back', cell: (device) => (device.lostAt ? 'Lost' : <When iso={device.checkedInAt} />) },
+    {
+      key: 'back',
+      header: 'Back',
+      cell: (device) => (device.lostAt ? 'Lost' : <When iso={device.checkedInAt} />),
+    },
   ];
 
   // Holder labels belong to the renting organization's members, on a contract not yet closed.
   const canLabel = scope === 'o' && isMember && data.status !== 'CLOSED';
   // The Org Manager reports a unit that is out as lost (devices api-design 17, screen 4.4).
   const canReport = scope === 'o' && isManager && data.status !== 'CLOSED';
-  const hasActions = canLabel || canReport;
+  // Staff request a service credit for a unit back with a FAILED inspection (screen 6.5, billing
+  // api-design 18); the server computes the outage end and checks the rest.
+  const canCredit = scope === 't' && isStaff;
+  const creditable = (device: ContractDevice) =>
+    canCredit &&
+    Boolean(device.checkedInAt && device.contractDeviceId) &&
+    device.inspection?.result === 'FAILED';
+  const hasActions = canLabel || canReport || data.devices.some(creditable);
   // The unit's state after the return and its next step back to AVAILABLE (D-092 rule 4), TrekLink
   // detail only: the read carries afterReturn for TrekLink callers alone.
   const showState = scope === 't' && data.devices.some((device) => device.afterReturn);
-  if (showState) deviceColumns.push({ key: 'state', header: 'State now', cell: (device) => <AfterReturn device={device} /> });
+  if (showState)
+    deviceColumns.push({
+      key: 'state',
+      header: 'State now',
+      cell: (device) => <AfterReturn device={device} />,
+    });
   const deviceActions = (device: ContractDevice): RowAction[] =>
-    device.handedOverAt && !device.checkedInAt && !device.lostAt
-      ? [
-          ...(canLabel
-            ? [{ key: 'label', label: device.holder ? 'Edit label' : 'Label', onSelect: () => setLabelling(device) }]
-            : []),
-          ...(canReport
-            ? [{ key: 'report', label: 'Report lost', destructive: true, onSelect: () => setReporting(device) }]
-            : []),
-        ]
-      : [];
+    creditable(device)
+      ? [{ key: 'credit', label: 'Request service credit', onSelect: () => setCrediting(device) }]
+      : device.handedOverAt && !device.checkedInAt && !device.lostAt
+        ? [
+            ...(canLabel
+              ? [
+                  {
+                    key: 'label',
+                    label: device.holder ? 'Edit label' : 'Label',
+                    onSelect: () => setLabelling(device),
+                  },
+                ]
+              : []),
+            ...(canReport
+              ? [
+                  {
+                    key: 'report',
+                    label: 'Report lost',
+                    destructive: true,
+                    onSelect: () => setReporting(device),
+                  },
+                ]
+              : []),
+          ]
+        : [];
   const back = scope === 'o' ? '/o/contracts' : '/t/contracts';
   const invoices =
     scope === 'o' ? `/o/invoices?contractId=${data.id}` : `/t/billing?contractId=${data.id}`;
@@ -454,8 +489,18 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
                   label="Device filters"
                   start={
                     <>
-                      <ToolbarSearch id="contract-device-tag" label="Search by asset tag" value={tag} onChange={setTag} />
-                      <ToolbarSearch id="contract-device-holder" label="Search by holder" value={holder} onChange={setHolder} />
+                      <ToolbarSearch
+                        id="contract-device-tag"
+                        label="Search by asset tag"
+                        value={tag}
+                        onChange={setTag}
+                      />
+                      <ToolbarSearch
+                        id="contract-device-holder"
+                        label="Search by holder"
+                        value={holder}
+                        onChange={setHolder}
+                      />
                     </>
                   }
                 />
@@ -485,6 +530,8 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
               </>
             )}
           </div>
+
+          {canSeeMoney && data.handedOverAt && <ServiceCreditsCard contractId={data.id} />}
 
           {canSeeMoney && (
             <div className={CARD}>
@@ -606,6 +653,13 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
           scope="t"
           onClose={() => setStaffReporting(null)}
           onReported={() => setStaffReporting(null)}
+        />
+      )}
+      {crediting && (
+        <RequestServiceCreditDialog
+          contractId={data.id}
+          device={crediting}
+          onClose={() => setCrediting(null)}
         />
       )}
       {reporting && (
