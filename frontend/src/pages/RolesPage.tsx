@@ -11,16 +11,22 @@ import {
   type Role,
 } from '../entities/role/api';
 import {
-  INHERITS,
   catalogFor,
-  diffOf,
-  diffSentence,
+  cellOf,
+  changeSummary,
+  changedRoles,
+  confirmTitle,
   groupBySubject,
-  isDirty,
+  isChanged,
+  keysOf,
   roleTitle,
   scopeText,
+  sortRoles,
+  toggled,
+  type Drafts,
 } from '../entities/role/model';
 import { ApiError } from '../shared/api/apiClient';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import {
   Alert,
   Badge,
@@ -35,93 +41,93 @@ import {
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
 import { messageOf } from '../shared/ui/errors';
-
-// Draft of the selected role: the keys ticked now. Null while the panel shows what is saved.
-interface Draft {
-  roleId: string;
-  keys: Set<string>;
-}
+import { RoleGrid } from '../widgets/RoleGrid/RoleGrid';
 
 const UNKNOWN = /^Unknown permission: (.+)\.$/;
 
-// The role list on a wide screen: roving focus, Up and Down move, the selected role is the tab stop.
-const RoleList: React.FC<{
+interface Failure {
+  role: Role;
+  message: string;
+}
+
+// One role at a time, for a screen under 768 px: the same draft and the same cell states as the grid.
+const RolePanel: React.FC<{
+  role: Role;
   roles: Role[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-}> = ({ roles, selectedId, onSelect }) => {
-  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const move = (event: React.KeyboardEvent, index: number) => {
-    let next = -1;
-    if (event.key === 'ArrowDown') next = (index + 1) % roles.length;
-    else if (event.key === 'ArrowUp') next = (index - 1 + roles.length) % roles.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = roles.length - 1;
-    if (next < 0) return;
-    event.preventDefault();
-    refs.current[roles[next].id]?.focus();
-  };
+  catalog: Permission[];
+  drafts: Drafts;
+  badKey: string | null;
+  onToggle: (role: Role, permission: Permission) => void;
+}> = ({ role, roles, catalog, drafts, badKey, onToggle }) => {
+  const groups = groupBySubject(catalogFor(role, catalog));
+  const keys = keysOf(role, drafts);
   return (
-    <div role="listbox" aria-label="Roles" className="hidden flex-col gap-1 md:flex">
-      {roles.map((role, index) => {
-        const selected = role.id === selectedId;
-        return (
-          <button
-            key={role.id}
-            ref={(node) => {
-              refs.current[role.id] = node;
-            }}
-            type="button"
-            role="option"
-            aria-selected={selected}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onSelect(role.id)}
-            onKeyDown={(event) => move(event, index)}
-            className={`flex min-h-11 flex-col rounded-control border px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus ${
-              selected ? 'border-brand bg-chrome' : 'border-line hover:bg-sunken'
-            }`}
-          >
-            <span className="font-mono text-body font-semibold text-ink">{role.key}</span>
-            <span className="text-body-sm text-ink-muted">
-              {role.accountType === 'TREKLINK' ? 'TrekLink' : 'Organization'},{' '}
-              {role.permissionKeys.length}{' '}
-              {role.permissionKeys.length === 1 ? 'permission' : 'permissions'}
-              {role.isSystem ? ', System role' : ''}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+    <Card aria-labelledby="role-panel-title">
+      <h2 id="role-panel-title" className="text-title text-ink">
+        {role.key}
+      </h2>
+      <p className="mb-4 flex flex-wrap items-center gap-2 text-body-sm text-ink-muted">
+        {roleTitle(role.key)}, {role.accountType === 'TREKLINK' ? 'TrekLink' : 'Organization'}
+        {role.isSystem && <Badge>System role</Badge>}
+      </p>
+      {keys.size === 0 && (
+        <p className="mb-4 text-body text-ink-muted">This role holds no permissions.</p>
+      )}
+      <div className="flex flex-col gap-4">
+        {groups.map(([subject, permissions]) => (
+          <fieldset key={subject} className="m-0 min-w-0 border-0 p-0">
+            <legend className="mb-1 text-body font-semibold text-ink">{subject}</legend>
+            {permissions.map((permission) => {
+              const cell = cellOf(permission, role, roles, drafts);
+              const note =
+                cell.kind === 'locked'
+                  ? ' Required for Admin.'
+                  : cell.kind === 'inherited'
+                    ? ` From ${cell.from}.`
+                    : '';
+              return (
+                <Checkbox
+                  key={permission.key}
+                  label={permission.key}
+                  description={`${scopeText(permission)}. ${permission.description}${note}${
+                    badKey === permission.key ? ' This permission no longer exists.' : ''
+                  }${isChanged(role, permission.key, drafts) ? ' Changed.' : ''}`}
+                  checked={cell.kind === 'editable' ? cell.checked : true}
+                  disabled={cell.kind !== 'editable'}
+                  aria-invalid={badKey === permission.key || undefined}
+                  onChange={() => onToggle(role, permission)}
+                />
+              );
+            })}
+          </fieldset>
+        ))}
+      </div>
+    </Card>
   );
 };
 
-// `/t/admin/roles`, screen 7.2 (auth api-design 15, 16 and 18, UC-10, FR-AUTH-06, FR-AUTH-10): the four
-// roles and the permissions each holds, edited as a draft and saved as the full list. TrekLink Admin only.
+// `/t/admin/roles`, screen 7.2 (auth api-design 15, 16 and 18, UC-10, FR-AUTH-06, FR-AUTH-10): every role
+// and the permissions each holds as one grid, edited as a draft and saved role by role as the full list.
+// TrekLink Admin only.
 export const RolesPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const roles = useRoles();
   const catalog = usePermissions();
+  const wide = useMediaQuery('(min-width: 768px)', true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
-  // The role the user asked for while a draft is open: the discard dialog decides.
-  const [switchTo, setSwitchTo] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Drafts>({});
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
-  const [banner, setBanner] = useState<string | null>(null);
+  const [failures, setFailures] = useState<Failure[]>([]);
   const [badKey, setBadKey] = useState<string | null>(null);
   const [lockout, setLockout] = useState<string | null>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const saveRef = useRef<HTMLButtonElement>(null);
 
-  const list = roles.data;
-  const role = list?.find((item) => item.id === (selectedId ?? list[0]?.id));
-  const roleId = role?.id;
-  const loaded = role?.permissionKeys ?? [];
-  const keys: ReadonlySet<string> = draft && draft.roleId === roleId ? draft.keys : new Set(loaded);
-  const diff = diffOf(loaded, keys);
-  const dirty = isDirty(diff);
+  const list = roles.data ? sortRoles(roles.data) : undefined;
+  const changed = list ? changedRoles(list, drafts) : [];
+  const dirty = changed.length > 0;
 
   // A closed or reloaded tab would lose the draft: the browser asks first.
   useEffect(() => {
@@ -140,30 +146,8 @@ export const RolesPage: React.FC = () => {
     );
   }
 
-  const select = (id: string) => {
-    if (id === roleId) return;
-    if (dirty) {
-      setSwitchTo(id);
-      return;
-    }
-    go(id);
-  };
-  const go = (id: string) => {
-    setSelectedId(id);
-    setDraft(null);
-    setBanner(null);
-    setBadKey(null);
-    setSwitchTo(null);
-    // The panel heading takes focus, so a screen reader hears the role it now shows.
-    setTimeout(() => headingRef.current?.focus(), 0);
-  };
-
-  const toggle = (permission: Permission) => {
-    if (!role) return;
-    const next = new Set(keys);
-    if (next.has(permission.key)) next.delete(permission.key);
-    else next.add(permission.key);
-    setDraft({ roleId: role.id, keys: next });
+  const toggle = (role: Role, permission: Permission) => {
+    setDrafts((current) => toggled(role, permission.key, current));
     setBadKey(null);
   };
 
@@ -172,42 +156,73 @@ export const RolesPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: roleKeys.permissions });
   };
 
+  // One PUT per changed role, in column order; a failure does not stop the next role.
   const save = async () => {
-    if (!role) return;
     setPending(true);
-    setBanner(null);
-    try {
-      await saveRolePermissions(role.id, [...keys].sort());
-      setConfirming(false);
-      setPending(false);
-      setDraft(null);
-      showToast('Permissions updated');
+    setFailures([]);
+    const saved: Role[] = [];
+    const failed: { role: Role; error: unknown }[] = [];
+    for (const { role } of changed) {
+      try {
+        await saveRolePermissions(role.id, [...keysOf(role, drafts)].sort());
+        saved.push(role);
+      } catch (error) {
+        failed.push({ role, error });
+      }
+    }
+    const dropped = new Set([
+      ...saved.map((role) => role.id),
+      ...failed
+        .filter(({ error }) => error instanceof ApiError && error.errorCode === 'NOT_FOUND')
+        .map(({ role }) => role.id),
+    ]);
+    setDrafts((current) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => !dropped.has(id))),
+    );
+    setConfirming(false);
+    setPending(false);
+
+    if (saved.length > 0) {
       void queryClient.invalidateQueries({ queryKey: roleKeys.roles });
       // A role change applies on the next request (REQ-UBI-08), so the signed-in Admin reads themselves again.
-      if (user?.roles.includes(role.key)) void queryClient.invalidateQueries({ queryKey: ME_KEY });
-      setTimeout(() => saveRef.current?.focus(), 0);
-    } catch (caught) {
-      setPending(false);
-      setConfirming(false);
-      if (caught instanceof ApiError && caught.errorCode === 'ADMIN_LOCKOUT') {
-        setLockout(caught.message);
-      } else if (caught instanceof ApiError && caught.errorCode === 'NOT_FOUND') {
-        setDraft(null);
-        showToast('Role not found.');
+      if (saved.some((role) => user?.roles.includes(role.key))) {
+        void queryClient.invalidateQueries({ queryKey: ME_KEY });
+      }
+    }
+    const rows: Failure[] = [];
+    let notFound = false;
+    for (const { role, error } of failed) {
+      if (error instanceof ApiError && error.errorCode === 'ADMIN_LOCKOUT') {
+        setLockout(error.message);
+      } else if (error instanceof ApiError && error.errorCode === 'NOT_FOUND') {
+        notFound = true;
         reload();
-      } else if (caught instanceof ApiError && caught.errorCode === 'UNKNOWN_PERMISSION') {
+      } else if (error instanceof ApiError && error.errorCode === 'UNKNOWN_PERMISSION') {
         // The catalog changed under the client: mark the key, keep the draft, reload what is shown.
-        setBadKey(UNKNOWN.exec(caught.message)?.[1] ?? null);
-        setBanner(caught.message);
+        setBadKey(UNKNOWN.exec(error.message)?.[1] ?? null);
+        rows.push({ role, message: error.message });
         reload();
       } else {
-        setBanner(
-          caught instanceof ApiError &&
-            ['PERMISSION_SCOPE_MISMATCH', 'VALIDATION_FAILED'].includes(caught.errorCode)
-            ? caught.message
-            : messageOf(caught),
-        );
+        rows.push({
+          role,
+          message:
+            error instanceof ApiError &&
+            ['PERMISSION_SCOPE_MISMATCH', 'VALIDATION_FAILED'].includes(error.errorCode)
+              ? error.message
+              : messageOf(error),
+        });
       }
+    }
+    setFailures(rows);
+    if (saved.length > 0) {
+      showToast(
+        failed.length === 0
+          ? 'Permissions updated'
+          : `Permissions updated for ${saved.map((role) => role.key).join(', ')}`,
+      );
+      setTimeout(() => saveRef.current?.focus(), 0);
+    } else if (notFound) {
+      showToast('Role not found.');
     }
   };
 
@@ -219,7 +234,7 @@ export const RolesPage: React.FC = () => {
       </section>
     );
   }
-  if (failure || !list || !catalog.data || !role) {
+  if (failure || !list || !catalog.data || list.length === 0) {
     return (
       <section aria-labelledby="roles-title" className="flex flex-col gap-4">
         <PageHeader id="roles-title" title="Roles and permissions" />
@@ -234,9 +249,7 @@ export const RolesPage: React.FC = () => {
     );
   }
 
-  const groups = groupBySubject(catalogFor(role, catalog.data));
-  const inherited = INHERITS[role.key];
-  const adminLocked = (permission: Permission) => role.key === 'ADMIN' && permission.protected;
+  const role = list.find((item) => item.id === selectedId) ?? list[0];
 
   return (
     <section aria-labelledby="roles-title" className="flex flex-col gap-4">
@@ -246,19 +259,56 @@ export const RolesPage: React.FC = () => {
         description="What each role may do. A change applies to its holders on their next request."
       />
 
-      <div className="grid gap-4 md:grid-cols-[18rem_1fr]">
-        <div>
-          <div className="md:hidden">
-            <label
-              htmlFor="roles-select"
-              className="mb-1.5 block text-body-sm font-semibold text-ink"
-            >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-body-sm text-ink-muted">
+          {changeSummary(changed)}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="ghost" disabled={!dirty || pending} onClick={() => setDrafts({})}>
+            Discard draft
+          </Button>
+          <Button
+            ref={saveRef}
+            variant="primary"
+            loading={pending}
+            disabled={!dirty}
+            onClick={() => setConfirming(true)}
+          >
+            Save permissions
+          </Button>
+        </div>
+      </div>
+
+      {failures.length > 0 && (
+        <Alert tone="error">
+          <ul className="m-0 list-none p-0">
+            {failures.map(({ role: failed, message }) => (
+              <li key={failed.id}>
+                <span className="font-semibold">{failed.key}</span> <span>{message}</span>
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      )}
+
+      {wide ? (
+        <RoleGrid
+          roles={list}
+          catalog={catalog.data}
+          drafts={drafts}
+          badKey={badKey}
+          onToggle={toggle}
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="roles-select" className="mb-1.5 block text-body-sm font-semibold text-ink">
               Role
             </label>
             <Select
               id="roles-select"
               value={role.id}
-              onChange={(event) => select(event.target.value)}
+              onChange={(event) => setSelectedId(event.target.value)}
             >
               {list.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -267,86 +317,21 @@ export const RolesPage: React.FC = () => {
               ))}
             </Select>
           </div>
-          <RoleList roles={list} selectedId={role.id} onSelect={select} />
+          <RolePanel
+            role={role}
+            roles={list}
+            catalog={catalog.data}
+            drafts={drafts}
+            badKey={badKey}
+            onToggle={toggle}
+          />
         </div>
-
-        <Card aria-labelledby="role-panel-title">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2
-                id="role-panel-title"
-                ref={headingRef}
-                tabIndex={-1}
-                className="text-title text-ink outline-none"
-              >
-                {role.key}
-              </h2>
-              <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink-muted">
-                {roleTitle(role.key)},{' '}
-                {role.accountType === 'TREKLINK' ? 'TrekLink' : 'Organization'}
-                {role.isSystem && <Badge>System role</Badge>}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" disabled={!dirty || pending} onClick={() => setDraft(null)}>
-                Discard draft
-              </Button>
-              <Button
-                ref={saveRef}
-                variant="primary"
-                loading={pending}
-                disabled={!dirty}
-                onClick={() => setConfirming(true)}
-              >
-                Save permissions
-              </Button>
-            </div>
-          </div>
-
-          {banner && (
-            <Alert tone="error" className="mb-4">
-              {banner}
-            </Alert>
-          )}
-          {inherited && (
-            <p className="mb-4 text-body-sm text-ink-muted">
-              {role.key} also holds every permission of {inherited}. Those are not listed below.
-            </p>
-          )}
-          {keys.size === 0 && (
-            <p className="mb-4 text-body text-ink-muted">This role holds no permissions.</p>
-          )}
-
-          <div className="flex flex-col gap-4">
-            {groups.map(([subject, permissions]) => (
-              <fieldset key={subject} className="m-0 min-w-0 border-0 p-0">
-                <legend className="mb-1 text-body font-semibold text-ink">{subject}</legend>
-                {permissions.map((permission) => {
-                  const locked = adminLocked(permission);
-                  return (
-                    <Checkbox
-                      key={permission.key}
-                      label={permission.key}
-                      description={`${scopeText(permission)}. ${permission.description}${locked ? ' Required for Admin.' : ''}${
-                        badKey === permission.key ? ' This permission no longer exists.' : ''
-                      }`}
-                      checked={locked || keys.has(permission.key)}
-                      disabled={locked}
-                      aria-invalid={badKey === permission.key || undefined}
-                      onChange={() => toggle(permission)}
-                    />
-                  );
-                })}
-              </fieldset>
-            ))}
-          </div>
-        </Card>
-      </div>
+      )}
 
       {confirming && (
         <Dialog
           titleId="roles-confirm-title"
-          title={diffSentence(role.key, diff)}
+          title={confirmTitle(changed)}
           description="Holders are affected on their next request."
           onClose={() => setConfirming(false)}
           size="sm"
@@ -361,39 +346,23 @@ export const RolesPage: React.FC = () => {
             </>
           }
         >
-          <div className="flex flex-col gap-2 text-body">
-            {diff.removed.length > 0 && (
-              <p>
-                <span className="font-semibold">Remove:</span> {diff.removed.join(', ')}
-              </p>
-            )}
-            {diff.added.length > 0 && (
-              <p>
-                <span className="font-semibold">Add:</span> {diff.added.join(', ')}
-              </p>
-            )}
+          <div className="flex flex-col gap-3 text-body">
+            {changed.map(({ role: item, diff }) => (
+              <div key={item.id} className="flex flex-col gap-1">
+                {changed.length > 1 && <p className="font-mono font-semibold">{item.key}</p>}
+                {diff.removed.length > 0 && (
+                  <p>
+                    <span className="font-semibold">Remove:</span> {diff.removed.join(', ')}
+                  </p>
+                )}
+                {diff.added.length > 0 && (
+                  <p>
+                    <span className="font-semibold">Add:</span> {diff.added.join(', ')}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
-        </Dialog>
-      )}
-
-      {switchTo && (
-        <Dialog
-          titleId="roles-discard-title"
-          title="Discard your changes?"
-          onClose={() => setSwitchTo(null)}
-          size="sm"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setSwitchTo(null)}>
-                Keep editing
-              </Button>
-              <Button variant="danger" onClick={() => go(switchTo)}>
-                Discard changes
-              </Button>
-            </>
-          }
-        >
-          <p className="text-body text-ink-muted">You changed {role.key} and have not saved it.</p>
         </Dialog>
       )}
 
