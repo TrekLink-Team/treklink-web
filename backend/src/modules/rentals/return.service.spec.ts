@@ -10,6 +10,8 @@ import { DEVICE_CHECKED_IN, ReturnService } from './return.service';
 
 const AT = new Date('2026-11-30T03:00:00.000Z');
 const DUE = new Date('2026-11-25T02:00:00.000Z');
+// A fixed time before DUE and the term end, so the close checks below never depend on the real clock.
+const BEFORE_DUE = new Date('2026-11-20T02:00:00.000Z');
 const TX = {} as Prisma.TransactionClient;
 const STAFF: Caller = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 
@@ -366,7 +368,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         refs: [{ id: 'inc-1', code: 'INC-2026-000002' }],
       });
 
-      const check = await service.closeCheck('c-1');
+      const check = await service.closeCheck('c-1', BEFORE_DUE);
 
       expect(check.canClose).toBe(false);
       expect(check.blockers).toEqual([
@@ -417,7 +419,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         contract({ status: ContractStatus.ENDING, returnDueAt: null }),
       );
 
-      const check = await service.closeCheck('c-1');
+      const check = await service.closeCheck('c-1', BEFORE_DUE);
 
       expect(check.canClose).toBe(false);
       expect(check.blockers).toEqual([
@@ -428,6 +430,17 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
             'The contract becomes Returned when its term ends and every unit is checked in or settled lost.',
         },
       ]);
+    });
+
+    // Issue #297: a due contract past its return time waits for its units, not for a time in the past.
+    it('names no time once the return time has passed', async () => {
+      const check = await service.closeCheck('c-1', new Date(DUE.getTime() + 60_000));
+
+      expect(check.blockers[0]).toEqual({
+        code: 'NOT_RETURNED',
+        waitsFor: null,
+        message: 'The contract becomes Returned once every unit is checked in or settled lost.',
+      });
     });
 
     it('keeps a RETURNED contract shut while anything blocks it, and has nothing to resolve once CLOSED', async () => {
