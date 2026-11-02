@@ -32,6 +32,7 @@
 | Compliance cases | UC-63, FR-ORG-08, FR-ORG-09, BR-40, E05-11, D-046 |
 | Channel key exposure | FR-DEV-13, D-045 |
 | Suspension | UC-07, UC-50, FR-ORG-07, BR-26, BR-32 |
+| Role permissions of an organization (proposal) | FR-AUTH-06, FR-AUTH-10, FR-ORG-04, D-095; owned by `auth` (design section 9), this module serves the TrekLink read and gates the save by status |
 
 ---
 
@@ -60,11 +61,13 @@
 
 - **REQ-EVT-12**: WHEN TrekLink Staff or an Admin open a compliance case against an organization, the system SHALL record its type, evidence, linked contracts and loss cases, and the opener; WHEN they record an action, the system SHALL run it through the existing suspension or revocation and append a `ComplianceAction` row; WHEN they close it, the system SHALL record the outcome and the authority reference. [FR-ORG-08, FR-ORG-09, D-046]
 - **REQ-EVT-13**: WHEN `devices` marks an organization's channel key exposed, the system SHALL set `channelKeyExposedAt` and notify its Managers; WHEN Staff record a key rotation (`POST /api/organizations/:id/channel-key/rotate`), the system SHALL increase `channelKeyVersion` and clear `channelKeyExposedAt`. [FR-DEV-13, D-045]
+- **REQ-EVT-14** (proposal, D-095): WHEN TrekLink Staff or an Admin open the role permissions of an organization (`GET /api/organizations/:id/roles`), the system SHALL check that the organization exists and return the view that `auth` builds for it, read-only; an unknown organization is 404 `NOT_FOUND`. [FR-AUTH-06, FR-AUTH-10]
 
 ### State-Driven
 
 - **REQ-STA-01**: WHILE an organization is not `ACTIVE`, the system SHALL report it as unable to request contracts (`assertActive`); WHILE it is `SUSPENDED`, the system SHALL still resolve its roster and keys, so its rented devices stay monitored and its incidents routed. [FR-CON-02, BR-32]
 - **REQ-STA-02**: WHILE a roster window has no primary, the system SHALL return a `NO_PRIMARY` warning for it (MSG22). [FR-ORG-05]
+- **REQ-STA-03** (proposal, D-095): WHILE an organization is `PENDING` or `SUSPENDED`, the system SHALL let `auth` refuse a save of its role permissions with 409 `ORGANIZATION_NOT_ACTIVE` while its Manager can still read them; WHEN an organization is closed, the system SHALL leave its stored role policy untouched. [FR-AUTH-06, REQ-EVT-06]
 
 ### Unwanted Behaviour
 
@@ -110,9 +113,10 @@ Environment: `FIELD_STATION_RELEASE_DIR`, a directory holding `release.json` (`v
 - **AC-09**: A verification with `ndaSigned` false returns 400 and the organization stays unverified. (BR-43)
 - **AC-10**: A suspected-theft case cannot close without a police reference; with one, it closes and its suspension action is listed with actor and time. (E05-11)
 - **AC-11**: Triage of a renter-custody loss sets `channelKeyExposedAt` and notifies the Manager; the next counter re-provisioning at a new key version clears it. (D-045)
+- **AC-12** (proposal): An Admin reads `GET /api/organizations/{id}/roles` of organization B and gets 200 with the roles of B; an Org Operator of A gets 403; an unknown id gets 404; a Manager of A saves a role while A is `SUSPENDED` and gets 409 `ORGANIZATION_NOT_ACTIVE`.
 
 ---
 
 ## 6. Open Questions
 
-None.
+Only the proposal of D-095: the open questions OQ-01 to OQ-05 of `specs/auth/requirements.md` section 6 apply, and the leader rules on them before any code.

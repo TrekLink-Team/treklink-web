@@ -1,7 +1,7 @@
 # Implementation Tasks: auth
 
 > Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6. Fulfills `design.md`;
-> endpoints are `api-design/01` to `17`; permissions are the generated [Permission Matrix](permission-matrix.md).
+> endpoints are `api-design/01` to `18`, and 19 and 20 (proposal, D-095); permissions are the generated [Permission Matrix](permission-matrix.md).
 
 | | |
 |---|---|
@@ -145,3 +145,29 @@
   - **Done** (2026-10-30, LongLP): green on 2026-10-30: backend unit 190 suites and 2067 tests, e2e 15 and 256, `test:db` 22 and 140 on a fresh local Postgres 16; `npm run lint` with 0 errors and the module boundary check passed; `tsc --noEmit` clean, the auth suites included (`auth-http.db-spec.ts` among them)
 - [x] 8.2 `api-design/*.md` and the Permission Matrix regenerated and matching behaviour (owner LongLP)
   - **Done** (2026-10-30, LongLP): `build_api_design.py` regenerates every auth api-design file unchanged (after #160 made a qualified Public permission public). `build_seed.permissions_md()` produces `permission-matrix.md` byte for byte, called on its own because `build_seed.py` would also rewrite the frozen seed migration (D-036); and the 120 grants of `build_seed.grants()` equal the `role_permissions` rows of a database migrated from scratch, so the matrix matches what the guards enforce
+
+## Phase 9: Per-organization role policy (proposal, D-095; build in W10 after the leader's ruling)
+
+The proposal is `design.md` section 9. Nothing here starts before the leader rules on the decision text of 9.7 and on OQ-01 to OQ-05 of `requirements.md`.
+
+- [ ] 9.1 Schema, migration and catalog (owner TanNB)
+  - **Files**: `backend/prisma/schema.prisma`, a new migration, `scripts/specs/catalog.py`, `permission-matrix.md`
+  - **Do**: models `OrganizationRolePolicy` and `OrganizationRolePermission` in the `auth` block; catalog entries `organizationRole.manage.own` (`ORGANIZATION`, `protected`, `ORG_MANAGER`) and `organizationRole.read` (`TREKLINK`, `STAFF`); a new migration for the permission rows, the frozen seed migration stays as it is; regenerate the matrix
+  - **Test**: `build_seed.py` refuses no permission; db-spec inserts a grant and a revoke and reads them back
+  - _Requirements: REQ-UBI-11, REQ-UBI-12_
+- [ ] 9.2 Effective-set resolver and the cache by organization (owner TanNB)
+  - **Files**: `casl/permission-cache.ts`, `casl/ability.factory.ts`, `casl/effective-permissions.ts`
+  - **Do**: `rulesFor(roleKeys, organizationId)`; entries by `(organizationId, roleKey)`; `policy.changed` with an optional `organizationId` that drops one organization and leaves `policyVersion` alone; the algorithm of 9.3
+  - **Test**: table of cases (baseline, grant, revoke, grant outside the ceiling ignored, Operator revoke reaching the Manager, Manager protected permission always present); AC-09
+  - _Requirements: REQ-UBI-10, REQ-EVT-11, AC-09_
+- [ ] 9.3 `OrganizationRolePolicyService` and repository (owner TanNB)
+  - **Files**: `organization-role-policy.service.ts`, `organization-role-policy.repository.ts`
+  - **Do**: `view(organizationId)`; `replace(caller, roleKey, dto)` with the status gate through `ACCOUNT_CONTEXT_PROVIDER`, the key checks, `FOR UPDATE` on the policy row, compare and set `version`, `policy.changed` and `audit.record` after commit; `PUT /api/roles/:id/permissions` refuses to remove a Manager-protected permission from `ORG_MANAGER`
+  - **Test**: AC-07, AC-08; two concurrent saves, one gets `STALE_VERSION` (db-spec)
+  - _Requirements: REQ-EVT-10, REQ-STA-04, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12, AC-07, AC-08_
+- [ ] 9.4 `OrganizationRolesController` (owner TanNB)
+  - **Files**: `organization-roles.controller.ts`
+  - **Do**: api-design 19 and 20 with `@CheckPolicies` on the subject `OrganizationRole`; the organization from the token only
+  - **Test**: every Validation row of api-design 19 and 20 in the e2e suite; the cross-organization rows
+  - _Requirements: REQ-UBI-04, REQ-UBI-06_
+- [ ] 9.5 Frontend (owner TanNB, tracked in `specs/frontend/tasks.md` 3.7 and the 7.2 follow-up for the Manager-protected cell)
