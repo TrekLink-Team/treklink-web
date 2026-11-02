@@ -796,18 +796,19 @@ sequenceDiagram
 
 ---
 
-## 9. Service credits (D-092 rule 5; specified 2026-11-02, not built)
+## 9. Service credits (D-092 rule 5; specified and confirmed 2026-11-02)
 
 The supervisor's fifth point at the 2026-11-01 demo: a unit that fails mid-term through no fault of the
 organization (a swollen battery, a dead antenna) should cost the organization nothing for the days it could
 not be used, or a small market loses a repeat client. The holding fee stays non-refundable when the
-organization cancels; this section covers hardware faults only. Nothing here is built until the leader
-confirms it (requirements §6).
+organization cancels; this section covers hardware faults only. The leader confirmed it on 2026-11-02 with the
+six rulings on treklink-web#288 written in below; the build is billing tasks 8.1 and 8.2.
 
 ### 9.1 What a credit is
 
 A `SERVICE_CREDIT` row: `id`, `contractId`, `contractDeviceId` (the unit's row on the contract), `cause`,
-`faultRef` (the inspection or maintenance record that shows the fault), `outageFrom`, `outageTo`,
+`faultRef` (the inspection or maintenance record that shows the fault), `outageFrom`, `outageSourceIncidentId` or
+`outageSourceNote` (one is required: the incident, or a note with the time of the call or counter visit), `outageTo`,
 `computedVnd`, `decidedVnd`, `status`, `requestedById`, `decidedById`, `decisionReason`, `invoiceLineId`,
 `refundReference`, `refundedAt`, `version`, timestamps.
 
@@ -821,12 +822,18 @@ A `SERVICE_CREDIT` row: `id`, `contractId`, `contractDeviceId` (the unit's row o
 
 Damage the organization caused stays a damage charge (§2), a lost unit a loss case; neither is a credit.
 
+A credit is requested only after the faulty unit is checked in or replaced: before that neither its
+inspection nor its outage end exists. The replacement (rentals REQ-EVT-12) or the check-in gives `outageTo`, and
+the inspection of the returned unit is the `faultRef`. The deciding Admin sees the source of `outageFrom` next to
+the amount, since the amount depends on that date.
+
 ### 9.2 Amount
 
 `outageFrom` is when the organization reported the fault (an incident or a counter visit), not before the
 unit's handover on this contract. `outageTo` is the first of: the handover of its replacement (rentals,
 D-045), the unit's return to the organization working, its check-in, or the end of the current term. Days
-are whole local days, rounded up; `termDays` is the length of the term the outage starts in.
+are whole local days, rounded up, so the minimum credit is one day; `termDays` is the length of the term the
+outage starts in.
 
 - Monthly plan: ⌈P × outageDays ÷ termDays⌉, at most P (the unit's share of one term).
 - Day plan: ⌈P ÷ 30 × premium × outageDays⌉, at most the unit's day-plan fee.
@@ -841,14 +848,19 @@ Rounding up favours the organization, as every charge rounds up against it (REQ-
 | (none) | Staff request (REQ-EVT-12) | `REQUESTED` |
 | `REQUESTED` | another Admin approves or reduces (REQ-EVT-13) | `APPROVED` |
 | `REQUESTED` | another Admin rejects with a reason | `REJECTED` |
-| `APPROVED` | `rentals` issues the contract's next invoice (REQ-EVT-14) | `APPLIED` |
+| `APPROVED` | the line lands on the next term invoice not yet issued, else on the closing invoice (REQ-EVT-14) | `APPLIED` |
 | `APPROVED` | the contract is `CLOSED` with no later invoice (REQ-EVT-15) | `REFUND_DUE` |
 | `REFUND_DUE` | Staff record the refund reference | `REFUNDED` |
+
+The term invoice is issued at the term start and an outage is only known after it, so the credit settles on the
+next invoice instead of reopening a paid one: term N is paid in full and the credit lands on term N+1, or on the
+closing invoice, or becomes `REFUND_DUE` for the last term after the close (leader ruling 2026-11-02).
 
 A credit is applied once, as one negative line; the line is never changed afterwards (REQ-UBI-02). A
 credit larger than the invoice it lands on leaves the invoice at zero due and carries the rest to the next
 invoice, or to `REFUND_DUE` after the close. The balance and the close check (rentals api-design 20) count
-an `APPROVED` credit as already owed to the organization.
+an `APPROVED` credit as already owed to the organization; a `REQUESTED` credit blocks the close with "A service
+credit waits for an Admin's decision." (rentals REQ-EVT-18).
 
 ### 9.4 Who may do what
 
@@ -864,8 +876,9 @@ New error code `DUPLICATE_CREDIT` (409). Audit entries `serviceCredit.requested`
 
 ### 9.5 Endpoints (api-design written with the build, from `scripts/specs/endpoints/billing.py`)
 
-- `POST /api/contracts/:id/service-credits`: request (cause, `contractDeviceId`, `outageFrom`, `outageTo`
-  when known, `faultRef`).
+- `POST /api/contracts/:id/service-credits`: request (cause, `contractDeviceId`, `outageFrom` with
+  `outageSourceIncidentId` or `outageSourceNote`, `outageTo` when known, `faultRef`); the unit must be checked
+  in or replaced.
 - `GET /api/contracts/:id/service-credits`, `GET /api/service-credits` (Staff queue, filter by status).
 - `POST /api/service-credits/:id/decision`: `APPROVE`, `REDUCE` with `decidedVnd` and a reason, or
   `REJECT` with a reason, and `expectedVersion`.

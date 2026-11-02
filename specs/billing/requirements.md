@@ -35,7 +35,7 @@
 ### Ubiquitous
 
 - **REQ-UBI-01**: The system SHALL compute every amount in integer VND, rounding each line up to the whole đồng, from the contract's snapshot and the configured schedules, never from a source literal. [BR-29]
-- **REQ-UBI-02**: The system SHALL never change an issued invoice's lines; a correction SHALL be an `ADJUSTMENT` line on the contract's closing invoice, with its author. [FR-BILL-06]
+- **REQ-UBI-02**: The system SHALL never change an issued term invoice's lines. The contract's closing invoice stays open to new lines until the contract is `CLOSED`: late, damage, loss, adjustment and service credit lines all land on it, and a correction SHALL be an `ADJUSTMENT` line there, with its author. [FR-BILL-06, leader ruling 2026-11-02 on treklink-web#288]
 - **REQ-UBI-03**: The system SHALL record a payment only once per reference and once per gateway transaction id; a repeat SHALL record nothing and SHALL be logged. [FR-BILL-08, BR-31]
 - **REQ-UBI-04**: The system SHALL run online payments in SePay's sandbox only, label them sandbox wherever they appear, and store no card or bank credential. [BR-34, NFR-UI-03]
 - **REQ-UBI-05**: The system SHALL keep the price schedule append-only: a new price is a new row effective from a time not in the past. [FR-CFG-02]
@@ -53,15 +53,15 @@
 - **REQ-EVT-09**: WHEN SePay's webhook arrives with the configured API key and a content holding an issued reference, the system SHALL, in one transaction, confirm the payment, apply its amount to the invoice's unpaid lines oldest due first, update the invoice status, and answer `{ "success": true }` (D-038); a webhook with no issued reference SHALL be logged for Staff and answered the same way. [FR-BILL-07, NFR-SEC-07]
 - **REQ-EVT-10**: WHEN Staff record a cash or bank-transfer payment at the counter with a receipt reference, the system SHALL record it `CONFIRMED` and apply it the same way (MSG20). [UC-22, FR-BILL-08]
 - **REQ-EVT-11**: WHEN `rentals` cancels a contract before handover, rejects a request, or cancels a request whose hold expired unpaid, the system SHALL void the unpaid lines of its first invoice with a zero-sum `ADJUSTMENT`, keeping any holding fee paid; a deposit paid on a rejected request is refunded outside TrekLink (leader ruling 2026-11-01). [FR-CON-04, E01-7, D-092 rule 1]
-- **REQ-EVT-12**: WHEN TrekLink Staff request a service credit for a unit of a running contract that failed through no fault of the organization, naming the cause, the outage start and the inspection or maintenance record that shows the fault, the system SHALL record the credit `REQUESTED` with its computed amount (design §9) and its author, and notify the organization's Managers after commit. [D-092 rule 5]
+- **REQ-EVT-12**: WHEN TrekLink Staff request a service credit for a unit of a running contract that failed through no fault of the organization, after the unit is checked in or replaced, naming the cause, the outage start with its source (an incident id, or a note with the time of the call or counter visit), and the inspection or maintenance record that shows the fault (the inspection of the returned unit), the system SHALL record the credit `REQUESTED` with its computed amount (design §9) and its author, and notify the organization's Managers after commit. [D-092 rule 5]
 - **REQ-EVT-13**: WHEN an Admin who did not request the credit approves, reduces (with a reason) or rejects (with a reason) a `REQUESTED` credit with the `version` they saw, the system SHALL record the decision and its author and, after commit, record the audit entry and notify the organization's Managers. [D-092 rule 5, BR-24]
-- **REQ-EVT-14**: WHEN a credit is approved or reduced, the system SHALL add one negative `SERVICE_CREDIT` line of the decided amount to the contract's next invoice that `rentals` issues (the next term invoice, or the closing invoice), never to an issued one (REQ-UBI-02), and mark the credit `APPLIED` with that line. [D-092 rule 5]
+- **REQ-EVT-14**: WHEN a credit is approved or reduced, the system SHALL add one negative `SERVICE_CREDIT` line of the decided amount to the contract's next term invoice not yet issued, else to its closing invoice (REQ-UBI-02), and mark the credit `APPLIED` with that line. [D-092 rule 5, leader ruling 2026-11-02]
 - **REQ-EVT-15**: WHEN a decided credit has no later invoice to go on because the contract is `CLOSED`, the system SHALL mark it `REFUND_DUE`; WHEN Staff record the refund paid outside TrekLink with a unique reference, the system SHALL mark it `REFUNDED` with the reference and the time (BR-34: sandbox only, no real money moves through TrekLink). [D-092 rule 5]
 
 ### State-Driven
 
 - **REQ-STA-01**: WHILE a SePay payment is `PENDING` past its expiry, the system SHALL treat it as `EXPIRED`, and the amount SHALL stay due. [FR-BILL-09, E05-4]
-- **REQ-STA-02**: WHILE any line of a contract is unpaid or a damage charge is pending, the contract's balance SHALL not be settled, and `rentals` SHALL not close it. [FR-CON-13, BR-27]
+- **REQ-STA-02**: WHILE any line of a contract is unpaid, a damage charge is pending, or a service credit is `REQUESTED`, the contract's balance SHALL not be settled, and `rentals` SHALL not close it; an `APPROVED` credit counts as owed to the organization. [FR-CON-13, BR-27, leader ruling 2026-11-02]
 
 ### Unwanted Behaviour
 
@@ -70,7 +70,7 @@
 - **REQ-ERR-03**: IF the inspector tries to decide their own damage charge, THEN the system SHALL return 403 `SEPARATION_OF_DUTY`. [BR-24, E05-6]
 - **REQ-ERR-04**: IF a counter payment exceeds the amount still due, THEN the system SHALL return 400 `OVERPAYMENT`.
 - **REQ-ERR-05**: IF a counter reference is already recorded, THEN the system SHALL return 409 `DUPLICATE_REFERENCE` and record nothing. [E01-6]
-- **REQ-ERR-06**: IF Staff request a credit for a unit not on the contract, for an outage start outside the unit's custody interval or in the future, or without a fault record of that unit, THEN the system SHALL return 400 `VALIDATION_FAILED` or 409 `DEVICE_NOT_ON_CONTRACT` (MSG12) and record nothing. [D-092 rule 5]
+- **REQ-ERR-06**: IF Staff request a credit for a unit not on the contract, for an outage start outside the unit's custody interval or in the future, without the source of the outage start, or without a fault record of that unit, THEN the system SHALL return 400 `VALIDATION_FAILED` or 409 `DEVICE_NOT_ON_CONTRACT` (MSG12); IF the unit is neither checked in nor replaced, THEN 409 `INVALID_STATE_TRANSITION`; in every case it records nothing. [D-092 rule 5, leader ruling 2026-11-02]
 - **REQ-ERR-07**: IF the requester decides their own credit, THEN the system SHALL return 403 `SEPARATION_OF_DUTY`; IF a reduction is not below the computed amount or a reduction or rejection has no reason, THEN 400 `VALIDATION_FAILED`; IF the credit is not `REQUESTED` or the `version` is stale, THEN 409 `INVALID_STATE_TRANSITION` or `STALE_VERSION`. [D-092 rule 5, BR-24]
 - **REQ-ERR-08**: IF a second credit is requested for the same unit with an outage that overlaps a credit not `REJECTED`, THEN the system SHALL return 409 `DUPLICATE_CREDIT` and record nothing. [D-092 rule 5]
 
@@ -110,5 +110,7 @@ only, or the QR service answers an error page instead of an image).
 
 ## 6. Open Questions
 
-- Service credits (D-092 rule 5, specified 2026-11-02, not built): the leader confirms the cause list, the
-  pro-rata formula and the Admin-only decision of design §9 before the build task opens.
+- None. Service credits (D-092 rule 5): the leader confirmed design §9 on 2026-11-02 with six rulings on
+  treklink-web#288 (where the line goes, the invoiced term, a unit still out, the source of the outage start,
+  a one-day minimum, a requested credit blocking the close); they are in REQ-UBI-02, REQ-EVT-12, REQ-EVT-14,
+  REQ-STA-02, REQ-ERR-06 and design §9. The build is billing tasks 8.1 and 8.2.
