@@ -274,6 +274,7 @@ queue and the detail.
 | `IncidentsService.markDeviceStale(deviceId, stale, lastSeenAt, tx)` | monitoring (staleness sweep, in the sweep's transaction) |
 | `IncidentsService.openByDevices(ids)`, `incidentsOfDevice(id)`, `responseTimes(range)`, `alertDeliveryStats()` | monitoring |
 | provider of `CONTRACT_CLOSE_CHECKS` | rentals |
+| declares `INCIDENT_EVENTS.eventsOfIncident(incidentId, scope)` | provided by gateway-sync through global `IncidentEventsPortsModule`; incidents keeps the route and policy (issue #118, R2-b) |
 | provider of `ORGANIZATION_COUNTS` `openIncidents` (`IncidentsOrganizationCount` in the global `IncidentsPortsModule`: incidents not CLOSED) | organizations (api-design 03) |
 
 **Stale flag** (REQ-EVT-12, FR-INC-13). `markDeviceStale` locks the device's incident outside `CLOSED`

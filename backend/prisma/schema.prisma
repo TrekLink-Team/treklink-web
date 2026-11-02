@@ -1599,7 +1599,7 @@ model FieldEvent {
   priority         PriorityTier
   observedAt       DateTime?        @db.Timestamptz(3) // device rx_time; null when 0 (FR-EVT-08)
   capturedAt       DateTime?        @db.Timestamptz(3) // Stage C: fs_captured_at, station clock, uncorrected
-  occurredAt       DateTime         @db.Timestamptz(3) // attribution only, never ordering (FR-EVT-15)
+  occurredAt       DateTime         @db.Timestamptz(3) // custody attribution (D-040); episode trail order for API 13 (issue #118); sync ledger orders by seq
   timeSource       TimeSource
   receivedAt       DateTime         @default(now()) @db.Timestamptz(3)
   latitude         Float?

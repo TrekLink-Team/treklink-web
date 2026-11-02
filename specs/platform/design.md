@@ -167,6 +167,7 @@ true and imports no other module.
 | Port | Declared by | Provided by | Why |
 |---|---|---|---|
 | `MQTT_HEALTH_PROBE` | platform | gateway-sync | Health reports MQTT state without importing a module (D-032) |
+| `INCIDENT_EVENTS` | incidents | gateway-sync | API 13 reads linked episode evidence through the global `IncidentEventsPortsModule`, with custody attribution scope; R2-b, issue #118. No incidents import of gateway-sync |
 | `ACCOUNT_DIRECTORY` | platform | auth | The parameter history and the audit log show the actor's full name (api-design 04 and 05); `users` belongs to `auth` |
 | `STAFF_NOTIFICATIONS` | platform | auth | Contract operations email active TrekLink Staff and Admin accounts through the existing mail transport, without importing auth or reading its accounts |
 | `ACCOUNT_CONTEXT_PROVIDER` | auth | organizations | Sign-in puts `organizationId` and the member role into the token; membership is an organizations table |

@@ -12,6 +12,40 @@ describe('SyncQueryRepository', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it('retains history occurrence-time ordering and selected point fields', async () => {
+    prisma.fieldEvent.findMany.mockResolvedValue([]);
+    const where = { deviceId: 'device-a' };
+    await expect(repository.historyRows(where, 20)).resolves.toEqual([]);
+    expect(prisma.fieldEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where,
+        take: 20,
+        orderBy: [{ occurredAt: 'asc' }, { seq: 'asc' }],
+      }),
+    );
+  });
+
+  it('keeps simulated-device custody bounds and excludes real latest events', async () => {
+    await expect(repository.simulatedLatest([])).resolves.toEqual([]);
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    prisma.$queryRaw.mockResolvedValue([
+      { deviceId: 'a', simulated: true },
+      { deviceId: 'b', simulated: false },
+    ]);
+    const since = new Date('2026-11-02T00:00:00Z');
+    await expect(
+      repository.simulatedLatest([
+        { deviceId: 'a', since },
+        { deviceId: 'b', since: null },
+      ]),
+    ).resolves.toEqual(['a']);
+    expect(prisma.$queryRaw).toHaveBeenCalledWith(
+      expect.anything(),
+      ['a', 'b'],
+      [since.toISOString(), '-infinity'],
+    );
+  });
+
   it('pages field events by seq with the row selection and counts the filter', async () => {
     prisma.fieldEvent.findMany.mockResolvedValue([{ seq: 1n }]);
     prisma.fieldEvent.count.mockResolvedValue(1);

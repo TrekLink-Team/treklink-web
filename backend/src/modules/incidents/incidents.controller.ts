@@ -41,6 +41,7 @@ import {
 } from './incidents-query.service';
 import { AuthorityReportsService } from './authority-reports.service';
 import { IncidentsService, StatusUpdateResult } from './incidents.service';
+import { EpisodeEvent } from './ports/incident-events.port';
 
 const NOTE_MAX = 2000;
 const TEXT_MAX = 200;
@@ -138,7 +139,7 @@ export class AuthorityReportDto extends VersionDto {
   note?: string;
 }
 
-// Task 6.1, api-design 01 to 08, 12 and 14. Reads need `read Incident` (`incident.read` for Staff,
+// Task 6.1, api-design 01 to 08, 12, 13 and 14. Reads need `read Incident` (`incident.read` for Staff,
 // `incident.read.own` for members); the alert log needs `read AlertDelivery` (Staff, or an Org
 // Manager's own); member actions need `respond Incident` (`incident.respond.own`); the authority
 // report needs `manage AuthorityReport` (Staff and Admin). The services check the organization and
@@ -171,6 +172,17 @@ export class IncidentsController {
     @CurrentAbility() ability: PolicyAbility,
   ): Promise<IncidentDetailView> {
     return this.queries.detail(id, caller, ability);
+  }
+
+  @Get(':id/events')
+  @CheckPolicies((ability) => ability.can('read', 'Incident'))
+  @ResponseMessage('OK')
+  events(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentCaller() caller: Caller,
+    @CurrentAbility() ability: PolicyAbility,
+  ): Promise<EpisodeEvent[]> {
+    return this.queries.events(id, caller, ability);
   }
 
   @Get(':id/transitions')

@@ -55,6 +55,19 @@ export type SyncAuditRow = Prisma.SyncAuditLogGetPayload<{ select: typeof SYNC_A
 export class SyncQueryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // API 13: the linked episode is the window, including positions after the last SOS.
+  // organizationId is the custody attribution fixed at ingestion (D-040), never current custody.
+  episodeEvents(incidentId: string, organizationId?: string) {
+    return this.prisma.fieldEvent.findMany({
+      where: {
+        incidentId,
+        ...(organizationId === undefined ? {} : { organizationId, attribution: 'ATTRIBUTED' }),
+      },
+      orderBy: [{ occurredAt: 'asc' }, { eventId: 'asc' }],
+      select: { eventId: true, kind: true, observedAt: true, latitude: true, longitude: true },
+    });
+  }
+
   pageEvents(
     where: Prisma.FieldEventWhereInput,
     order: Prisma.SortOrder,

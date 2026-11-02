@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { INCIDENT_EVENTS } from './ports/incident-events.port';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
@@ -67,7 +68,15 @@ class TestDevicesModule {}
 
 describe('incident persistence (task 1.1)', () => {
   it('registers the private repositories, lifecycle and ingress over its Figure 3 dependencies', async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [IncidentsModule] })
+    @Global()
+    @Module({
+      providers: [{ provide: INCIDENT_EVENTS, useValue: { eventsOfIncident: jest.fn() } }],
+      exports: [INCIDENT_EVENTS],
+    })
+    class TestEpisodeEventsModule {}
+    const moduleRef = await Test.createTestingModule({
+      imports: [IncidentsModule, TestEpisodeEventsModule],
+    })
       .overrideModule(PlatformModule)
       .useModule(TestPlatformModule)
       .overrideModule(OrganizationsModule)

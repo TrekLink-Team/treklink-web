@@ -308,13 +308,22 @@ ENDPOINTS = [
        service="IncidentsQueryService", call="transitions(id, caller)", seq=["Svc->>DB: SELECT incident_transitions"]),
 
     ep("GET", "/api/incidents/:id/events", "Episode events", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
-       "The field events that opened or joined the episode, oldest first, for the incident map trail.",
+       "The field events that opened or joined the episode, oldest first by occurredAt then eventId, for the incident map trail. "
+       "R2-b (issue #118): incidents owns the route and authorization; gateway-sync provides the incidents-owned INCIDENT_EVENTS port. "
+       "The episode link is the window: no pagination, from/to parameters, cap or truncation at SOS timestamps. "
+       "Members receive only their custody-attributed events (D-040); unconditioned Staff/Admin reads include unattributed evidence. "
+       "observedAt and coordinates remain null when unavailable. An incident with no visible events returns an empty array.",
        "UC-29, FR-INC-01", path=[I_PATH],
        response=[{"eventId": "5d41...", "kind": "FALL_SOS", "observedAt": "2026-10-20T03:14:52Z",
                   "latitude": 11.5601, "longitude": 108.5402}],
-       entity="Incident", steps=["Ask gateway-sync for the episode's events"], controller="IncidentsController",
-       service="IncidentsQueryService", call="events(id, caller)", participants=[["Gw", "GatewaySyncService"]],
-       seq=["Svc->>Gw: eventsOfIncident(id)"]),
+       entity="Incident", steps=["Read linked episode events through INCIDENT_EVENTS with the authorized scope"], controller="IncidentsController",
+       service="IncidentsQueryService", call="events(id, caller, ability)", participants=[["Gw", "INCIDENT_EVENTS gateway-sync provider"], ["R", "SyncQueryRepository"]],
+       seq=["Svc->>DB: Read incident with authorized organization scope",
+            "DB-->>Svc: Incident or 404 before event read",
+            "Svc->>Gw: eventsOfIncident(id, scope)",
+            "Gw->>R: episodeEvents(id, organizationId)",
+            "R->>DB: Read linked events by occurredAt and eventId",
+            "DB-->>R: Episode rows", "R-->>Gw: Episode rows", "Gw-->>Svc: Episode rows"]),
 
     ep("GET", "/api/incidents/:id/alerts", "Alert delivery log", "Org Manager: own; TrekLink Staff, TrekLink Admin",
        "Every alert the incident produced: kind (`TRANSITION` for an SOS alert, `STALE` for the device-silent alert MSG40), tier, recipient, channel, attempts and outcome (FR-INC-12, E03-7, REQ-EVT-12).",

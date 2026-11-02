@@ -17,6 +17,7 @@ describe('IncidentsQueryService.openByDevices', () => {
       {} as ContractsService,
       {} as OrganizationsService,
       {} as ConfigService<ValidatedEnvironment, true>,
+      {} as never,
     );
 
   it('keys the newest open incident by device and keeps its routed organization', async () => {
@@ -65,6 +66,7 @@ describe('IncidentsQueryService.alertDeliveryStats', () => {
       {} as ContractsService,
       {} as OrganizationsService,
       {} as ConfigService<ValidatedEnvironment, true>,
+      {} as never,
     );
 
   it('counts the rows waiting and the rows whose retries ran out, and leaves SENT out', async () => {

@@ -25,7 +25,7 @@ const VIEW = { id: 'inc-1', code: 'INC-2026-000001' };
 
 describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
   let incidents: Record<string, jest.Mock>;
-  let queries: Record<'list' | 'detail' | 'views' | 'transitions' | 'alerts', jest.Mock>;
+  let queries: Record<'list' | 'detail' | 'views' | 'transitions' | 'alerts' | 'events', jest.Mock>;
   let authority: { reportIncident: jest.Mock };
   let controller: IncidentsController;
 
@@ -43,6 +43,7 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
       views: jest.fn().mockResolvedValue([VIEW]),
       transitions: jest.fn().mockResolvedValue([{ seq: 1 }]),
       alerts: jest.fn().mockResolvedValue([{ tier: 'PRIMARY' }]),
+      events: jest.fn().mockResolvedValue([]),
     };
     authority = { reportIncident: jest.fn().mockResolvedValue(ROW) };
     controller = new IncidentsController(
@@ -54,6 +55,8 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
 
   it('passes the list and detail reads through with the caller and its ability', async () => {
     const ability = { can: () => true };
+    await expect(controller.events('inc-1', CALLER, ability)).resolves.toEqual([]);
+    expect(queries.events).toHaveBeenCalledWith('inc-1', CALLER, ability);
     await controller.list({ open: true }, CALLER, ability);
     expect(queries.list).toHaveBeenCalledWith({ open: true }, CALLER, ability);
     await expect(controller.detail('inc-1', CALLER, ability)).resolves.toBe(VIEW);
@@ -90,6 +93,7 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
     ['list', 'read', 'Incident'],
     ['detail', 'read', 'Incident'],
     ['transitions', 'read', 'Incident'],
+    ['events', 'read', 'Incident'],
     ['alerts', 'read', 'AlertDelivery'],
     ['acknowledge', 'respond', 'Incident'],
     ['responding', 'respond', 'Incident'],

@@ -1,4 +1,10 @@
 export { IncidentsModule } from './incidents.module';
+export { INCIDENT_EVENTS } from './ports/incident-events.port';
+export type {
+  EpisodeEvent,
+  IncidentEvents,
+  IncidentEventScope,
+} from './ports/incident-events.port';
 export {
   IncidentIngress,
   type PositionEvent,

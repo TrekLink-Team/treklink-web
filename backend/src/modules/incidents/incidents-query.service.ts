@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AlertChannel,
@@ -23,6 +23,7 @@ import { OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { ContractsService } from '../rentals';
 import { IncidentsRepository } from './incidents.repository';
+import { INCIDENT_EVENTS, EpisodeEvent, IncidentEvents } from './ports/incident-events.port';
 
 export interface IncidentListQuery extends PagedQueryDto {
   state?: IncidentState[];
@@ -156,7 +157,7 @@ const readScope = (
   );
 };
 
-// Task 5.1, the reads of api-design 01, 02, 12 and 14 (FR-AUTH-11). A member sees the routed organization's
+// Task 5.1, the reads of api-design 01, 02, 12, 13 and 14 (FR-AUTH-11). A member sees the routed organization's
 // incidents only; another organization's incident answers 404. TrekLink Staff see every incident.
 @Injectable()
 export class IncidentsQueryService {
@@ -166,6 +167,7 @@ export class IncidentsQueryService {
     private readonly contracts: ContractsService,
     private readonly organizations: OrganizationsService,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
+    @Inject(INCIDENT_EVENTS) private readonly episodeEvents: IncidentEvents,
   ) {}
 
   // --- monitoring reads (design §5), `openByDevices(ids)` -------------------------------------------
@@ -244,6 +246,13 @@ export class IncidentsQueryService {
       ),
       authorityReports: reports,
     };
+  }
+
+  // API 13: authorize the incident before the port reads gateway-sync's event ledger.
+  async events(id: string, caller: Caller, ability: PolicyAbility): Promise<EpisodeEvent[]> {
+    const scope = readScope(ability, caller);
+    await this.readable(id, scope);
+    return this.episodeEvents.eventsOfIncident(id, scope);
   }
 
   // api-design 12, FR-INC-04, BR-18.
