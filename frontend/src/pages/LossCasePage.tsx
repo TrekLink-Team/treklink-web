@@ -301,7 +301,14 @@ const SettleDialog: React.FC<DialogProps> = ({ item, onDone, onFailed, onReload,
             />
           </Field>
         )}
-        <Field id="settle-reason" label="Reason" error={errors.reason} required={decision !== 'CHARGED'}>
+        {/* A reason is required unless the charge is kept (devices api-design 22): the marker shows only
+            once a decision that needs one is chosen (issue #297). */}
+        <Field
+          id="settle-reason"
+          label="Reason"
+          error={errors.reason}
+          required={decision !== undefined && decision !== 'CHARGED'}
+        >
           <Textarea
             id="settle-reason"
             rows={3}
