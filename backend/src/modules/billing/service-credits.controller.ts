@@ -40,6 +40,7 @@ const toServiceCreditView = (credit: ServiceCreditRow & { assetTag?: string | nu
   decidedVnd: vnd(credit.decidedVnd),
   appliedVnd: vnd(credit.appliedVnd),
   status: credit.status,
+  requestedById: credit.requestedById,
   decisionReason: credit.decisionReason,
   decidedAt: credit.decidedAt,
   refundReference: credit.refundReference,

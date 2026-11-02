@@ -140,7 +140,8 @@ const titleCase = (code: string) => code.charAt(0) + code.slice(1).toLowerCase()
 // What the return counter shows of one returned contract row (devices api-design 10, rentals 16).
 export interface ReturnCheck {
   resetAt: Date | null;
-  inspection: { result: InspectionResult; at: Date } | null;
+  // `id` backs a service credit request (billing design §9.1, frontend screen 6.5)
+  inspection: { id: string; result: InspectionResult; at: Date } | null;
 }
 
 // The contract a move driven by rentals belongs to (design §2): its transition row carries refType
@@ -982,7 +983,9 @@ export class DevicesService {
           row.contractDeviceId,
           {
             resetAt: reset?.createdAt ?? null,
-            inspection: inspection ? { result: inspection.result, at: inspection.createdAt } : null,
+            inspection: inspection
+              ? { id: inspection.id, result: inspection.result, at: inspection.createdAt }
+              : null,
           },
         ];
       }),
