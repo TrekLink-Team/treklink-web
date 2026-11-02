@@ -32,7 +32,9 @@ export const RoleGrid: React.FC<Props> = ({ roles, catalog, drafts, badKey, onTo
       aria-label="Permissions by role"
       // A scroll box needs a tab stop so the keyboard can scroll it (WCAG 2.1.1).
       tabIndex={0}
-      className="max-h-[70vh] overflow-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+      // The scroll padding is the sticky header and first column: a focused cell is scrolled clear of
+      // them (WCAG 2.4.11). The header is three lines tall, about 5.5rem.
+      className="max-h-[70vh] scroll-pl-72 scroll-pt-24 overflow-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
     >
       <table className="w-full border-separate border-spacing-0 text-body-sm">
         <caption className="sr-only">Permissions by role</caption>
@@ -52,7 +54,8 @@ export const RoleGrid: React.FC<Props> = ({ roles, catalog, drafts, badKey, onTo
               >
                 <span className="block font-mono text-body font-semibold text-ink">{role.key}</span>
                 <span className="block text-caption font-normal text-ink-muted">
-                  {roleTitle(role.key)}, {role.accountType === 'TREKLINK' ? 'TrekLink' : 'Organization'}
+                  {roleTitle(role.key)},{' '}
+                  {role.accountType === 'TREKLINK' ? 'TrekLink' : 'Organization'}
                   {role.isSystem ? ', System role' : ''}
                 </span>
                 <span className="block text-caption font-normal text-ink-muted">
@@ -126,7 +129,8 @@ const GridCell: React.FC<{
       </td>
     );
   }
-  const changed = cell.kind === 'editable' && isChanged(role, permission.key, drafts);
+  // An inherited cell can hide the role's own draft (unticked on ADMIN, then ticked on STAFF): still marked.
+  const changed = cell.kind !== 'locked' && isChanged(role, permission.key, drafts);
   const note =
     cell.kind === 'locked'
       ? 'Required for Admin'
@@ -135,13 +139,16 @@ const GridCell: React.FC<{
         : permission.scope === 'own'
           ? scopeText(permission)
           : null;
+  // The note is aria-hidden, so everything it says is also in the name (WCAG 1.3.1).
   const name = `${permission.key} for ${role.key}${
     cell.kind === 'locked'
       ? ', required for Admin'
       : cell.kind === 'inherited'
         ? `, inherited from ${cell.from}`
         : ''
-  }${changed ? ', changed' : ''}`;
+  }${permission.scope === 'own' ? `, ${scopeText(permission).toLowerCase()}` : ''}${
+    changed ? ', changed' : ''
+  }`;
   return (
     <td
       className={cn(

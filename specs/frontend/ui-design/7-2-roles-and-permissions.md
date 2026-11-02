@@ -65,7 +65,7 @@ A failure of one role does not stop the next: every changed role is tried, and t
 | Partial result | Roles that saved leave the draft and show their new set; roles that failed keep their draft; the toast names the roles saved ("Permissions updated for ADMIN, STAFF") and the banner lists each failure as "ROLE: message" |
 | Error `UNAUTHENTICATED` (401) | One silent refresh, then `/sign-in` |
 | Not found or forbidden (403) | MSG26 full-page notice |
-| Success | MSG03 toast; the grid shows the saved sets; focus returns to the Save button |
+| Success | MSG03 toast; the grid shows the saved sets; focus returns to the Save button, or to the page when every role saved and Save is disabled |
 
 `STALE_VERSION` does not apply to this endpoint: auth api-design 16 carries no `expectedVersion` and the server
 keeps the last write. Two Admins editing at once overwrite each other for a role. This is recorded as an open
@@ -89,9 +89,15 @@ One step, no text fields. The control is a grid of checkboxes.
 - A real `table` with a `caption` ("Permissions by role"), `th scope="col"` per role, `th scope="row"` per
   permission and `th scope="rowgroup"` per subject.
 - Every checkbox is named "{permission key} for {role key}", plus "inherited from {role}" or "required for
-  Admin" where that applies. The name starts with the visible text (WCAG 2.5.3). Each checkbox is a 44 px
-  target (2.5.8) and takes the shared focus ring (2.4.7). Tab moves through the cells; Space toggles. A
-  focused cell is scrolled clear of the sticky header and first column (2.4.11).
+  Admin", "own organization only" for an own-scope permission, and "changed" where that applies, so the
+  hidden cell note is never the only place a fact lives (1.3.1). The name starts with the visible text
+  (WCAG 2.5.3). Each checkbox is a 44 px target (2.5.8) and takes the shared focus ring (2.4.7). Tab moves
+  through the cells; Space toggles. The scroll box carries scroll padding for the sticky header and first
+  column, so a focused cell is never hidden under them (2.4.11).
+- An inherited cell still shows "Changed" when the role's own draft differs from what is saved, because the
+  inherited tick would otherwise hide that the save removes or adds the role's own grant.
+- A permission key that the reloaded catalog no longer holds leaves the drafts at once, so the next save is
+  not blocked by it.
 - The change summary and the result of a save are announced from a status region that stays mounted (4.1.3).
 - Both themes: semantic tokens only, the changed mark and the locked and inherited text meet 3:1 and 4.5:1 in
   Canopy and in Volt (`0-ui-standard.md` §5).

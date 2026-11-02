@@ -54,7 +54,7 @@ tbody th{font-weight:500;background:#fff;min-width:300px}
             <tr><th scope="rowgroup" colspan="5" class="grp">Account</th></tr>
             <tr>
               <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">account.manage</span><span class="note">Create and edit TrekLink accounts</span></th>
-              <td class="c"><span class="on">&#10003;</span></td>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">From STAFF</span></td>
               <td class="c"><span class="on chg">&#10003;</span><span class="note" style="color:#b45309">Changed</span></td>
               <td class="c na">Not available</td>
               <td class="c na">Not available</td>

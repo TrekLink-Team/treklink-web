@@ -80,6 +80,19 @@ export const toggled = (role: Role, permissionKey: string, drafts: Drafts): Draf
 export const isChanged = (role: Role, permissionKey: string, drafts: Drafts): boolean =>
   role.permissionKeys.includes(permissionKey) !== keysOf(role, drafts).has(permissionKey);
 
+// The drafts without the keys the catalog no longer holds, so a reload after `UNKNOWN_PERMISSION` does not
+// leave a key in the draft that no row shows. The same object when nothing is dropped.
+export const pruned = (drafts: Drafts, known: ReadonlySet<string>): Drafts => {
+  let dropped = false;
+  const next: Record<string, ReadonlySet<string>> = {};
+  for (const [id, keys] of Object.entries(drafts)) {
+    const kept = new Set([...keys].filter((key) => known.has(key)));
+    if (kept.size !== keys.size) dropped = true;
+    next[id] = kept;
+  }
+  return dropped ? next : drafts;
+};
+
 export interface RoleDiff {
   role: Role;
   diff: Diff;

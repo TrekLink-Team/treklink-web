@@ -12,6 +12,7 @@ import {
   isChanged,
   isDirty,
   keysOf,
+  pruned,
   roleTitle,
   scopeText,
   sortRoles,
@@ -90,7 +91,12 @@ describe('the role model (screen 7.2)', () => {
 });
 
 describe('grid model (screen 7.2)', () => {
-  const admin = role({ id: 'r-admin', key: 'ADMIN', accountType: 'TREKLINK', permissionKeys: ['role.manage'] });
+  const admin = role({
+    id: 'r-admin',
+    key: 'ADMIN',
+    accountType: 'TREKLINK',
+    permissionKeys: ['role.manage'],
+  });
   const staff = role({ id: 'r-staff', key: 'STAFF', accountType: 'TREKLINK', permissionKeys: [] });
   const manager = role({ id: 'r-mgr', key: 'ORG_MANAGER', permissionKeys: [] });
   const operator = role({ id: 'r-op', key: 'ORG_OPERATOR', permissionKeys: ['liveMap.read.own'] });
@@ -118,7 +124,11 @@ describe('grid model (screen 7.2)', () => {
   });
 
   it('marks a cell that differs from the saved set, in either direction', () => {
-    const drafts = toggled(operator, 'liveMap.read.own', toggled(operator, 'incident.read.own', {}));
+    const drafts = toggled(
+      operator,
+      'liveMap.read.own',
+      toggled(operator, 'incident.read.own', {}),
+    );
     expect(isChanged(operator, 'incident.read.own', drafts)).toBe(true);
     expect(isChanged(operator, 'liveMap.read.own', drafts)).toBe(true);
     expect(isChanged(operator, 'other.read.own', drafts)).toBe(false);
@@ -136,7 +146,10 @@ describe('grid model (screen 7.2)', () => {
   it('titles the confirmation with the one role, or with the count of roles', () => {
     const one = changedRoles(roles, toggled(operator, 'liveMap.read.own', {}));
     expect(confirmTitle(one)).toBe('Change ORG_OPERATOR: remove 1?');
-    const two = changedRoles(roles, toggled(staff, 'account.manage', toggled(operator, 'liveMap.read.own', {})));
+    const two = changedRoles(
+      roles,
+      toggled(staff, 'account.manage', toggled(operator, 'liveMap.read.own', {})),
+    );
     expect(confirmTitle(two)).toBe('Change 2 roles?');
   });
 
@@ -156,8 +169,23 @@ describe('grid model (screen 7.2)', () => {
       from: 'ORG_OPERATOR',
     });
     const without = toggled(operator, 'liveMap.read.own', {});
-    expect(cellOf(permission(), manager, roles, without)).toEqual({ kind: 'editable', checked: false });
+    expect(cellOf(permission(), manager, roles, without)).toEqual({
+      kind: 'editable',
+      checked: false,
+    });
     const staffHolds = toggled(staff, 'account.manage', {});
-    expect(cellOf(platform, admin, roles, staffHolds)).toEqual({ kind: 'inherited', from: 'STAFF' });
+    expect(cellOf(platform, admin, roles, staffHolds)).toEqual({
+      kind: 'inherited',
+      from: 'STAFF',
+    });
+  });
+
+  it('drops a key the catalog no longer holds from the drafts, and keeps the object when none is dropped', () => {
+    const drafts = toggled(operator, 'liveMap.read.own', toggled(staff, 'gone.manage', {}));
+    const known = new Set(['liveMap.read.own', 'account.manage']);
+    const next = pruned(drafts, known);
+    expect([...keysOf(staff, next)]).toEqual([]);
+    expect(changedRoles(roles, next).map(({ role: item }) => item.key)).toEqual(['ORG_OPERATOR']);
+    expect(pruned(next, known)).toBe(next);
   });
 });
