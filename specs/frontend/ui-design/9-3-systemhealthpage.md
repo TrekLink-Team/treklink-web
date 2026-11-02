@@ -26,7 +26,7 @@ Scope from the task: monitoring api-design 06; stations with depth per priority 
 | Field Stations: total and stale counts, "1 of 6 stale" | monitoring 06 `fieldStations.total`, `fieldStations.stale` |
 | Queue depth per priority, highest across stations ("p0: 0, p1: 0, p2: 14, p3: 230") | monitoring 06 `fieldStations.maxQueueDepth.p0`, `p1`, `p2`, `p3` (D-057 rule 9) |
 | Outdated stations count and the current release ("1 outdated, current release 1.2.0") | monitoring 06 `fieldStations.outdated`, `fieldStations.currentRelease` |
-| Devices buffering (Stage B, holding messages that have not reached a Field Station) | monitoring 06 `devicesBuffering` |
+| Devices buffering (Stage B, holding messages that have not reached a Field Station); "Not reported yet" in place of the figure while it is null, that is while no device has sent a queue report | monitoring 06 `devicesBuffering` |
 | Alert delivery: pending and failed counts | monitoring 06 `alerts.pending`, `alerts.failed` |
 | Station table, one row per Field Station that is not revoked: name | monitoring 06 `fieldStations.items[].name` |
 | Station table: organization (link to `/t/organizations/:id`) | monitoring 06 `fieldStations.items[].organization.name`, `.id` |

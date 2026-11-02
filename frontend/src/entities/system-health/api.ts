@@ -45,7 +45,8 @@ export interface SystemHealth {
     maxQueueDepth: QueueDepth;
     items: HealthStation[];
   };
-  devicesBuffering: number;
+  // Null while no device has sent a queue report.
+  devicesBuffering: number | null;
   alerts: { pending: number; failed: number };
 }
 

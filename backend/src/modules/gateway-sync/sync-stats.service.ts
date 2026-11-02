@@ -9,8 +9,8 @@ export interface SyncStats {
   malformed: number;
   unknownDevice: number;
   lastReceivedAt: Date | null;
-  // Devices whose latest queue report is non-empty (REQ-EVT-13).
-  devicesBuffering: number;
+  // Devices whose latest queue report is non-empty (REQ-EVT-13); null while no device has reported.
+  devicesBuffering: number | null;
 }
 
 // `gatewaySync.stats(window)` for the system health read of `monitoring` (design §5, api-design 06).

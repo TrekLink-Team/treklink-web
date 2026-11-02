@@ -313,7 +313,14 @@ export const SystemHealthPage: React.FC = () => {
             <Card aria-labelledby="health-buffering">
               <CardHeader title="Devices buffering" id="health-buffering" />
               <dl className="m-0">
-                <Figure label="Holding messages" value={data.devicesBuffering} />
+                <Figure
+                  label="Holding messages"
+                  value={
+                    data.devicesBuffering ?? (
+                      <span className="text-body text-ink-muted">Not reported yet</span>
+                    )
+                  }
+                />
               </dl>
               <p className="mt-3 text-body-sm text-ink-muted">
                 Devices holding messages that have not reached a Field Station.

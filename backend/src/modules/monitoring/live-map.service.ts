@@ -11,6 +11,7 @@ import { ParameterService } from '../platform/parameters/parameter.service';
 import { ParameterKey } from '../platform/parameters/parameter-registry';
 import { ContractsService } from '../rentals';
 import { custodyView, type UnitState } from './custody-view';
+import { isNumber } from './parameter-values';
 import { SOVEREIGNTY_OVERLAY, SovereigntyLabel } from './sovereignty-overlay';
 import { StreamRepository } from './stream.repository';
 
@@ -88,9 +89,6 @@ export interface MapSnapshotDto {
   devices: SnapshotDeviceDto[];
   fieldStations: SnapshotFieldStationDto[];
 }
-
-const isNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
 
 // An organization id no row carries. Only the unconditioned `liveMap.read` rule (TrekLink Staff and
 // Admin) matches it; `liveMap.read.own` matches the caller's own organization only.

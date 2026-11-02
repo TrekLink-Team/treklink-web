@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Ingestion rate, duplicate and malformed counts, Field Station connectivity, Stage B devices buffering, failed alert deliveries and the platform health (FR-MON-10, FR-EVT-13). `fieldStations.items[]` lists every station that is not revoked with its health and `outdated` against `currentRelease` (organizations REQ-EVT-11); queue depths are named per priority, P0 to P3 (D-057 rule 9).
+Ingestion rate, duplicate and malformed counts, Field Station connectivity, Stage B devices buffering, failed alert deliveries and the platform health (FR-MON-10, FR-EVT-13). `fieldStations.items[]` lists every station that is not revoked with its health and `outdated` against `currentRelease` (organizations REQ-EVT-11); queue depths are named per priority, P0 to P3 (D-057 rule 9). `devicesBuffering` is null while no device has sent a queue report, so the page says Not reported yet instead of showing 0.
 
 ## API Specification
 

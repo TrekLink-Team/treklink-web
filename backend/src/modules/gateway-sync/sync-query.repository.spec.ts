@@ -102,7 +102,7 @@ describe('SyncQueryRepository', () => {
   });
 
   it('counts devices whose newest queue report holds messages, one row per device', async () => {
-    prisma.$queryRaw.mockResolvedValue([{ count: 3n }]);
+    prisma.$queryRaw.mockResolvedValue([{ reporting: 5n, buffering: 3n }]);
     await expect(repository.devicesBuffering()).resolves.toBe(3);
     const [strings] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray];
     const sql = strings.join('');
@@ -112,8 +112,15 @@ describe('SyncQueryRepository', () => {
     expect(sql).toContain('unnest');
   });
 
-  it('counts none when no device has reported', async () => {
-    prisma.$queryRaw.mockResolvedValue([]);
+  it('counts none when devices reported and none holds messages', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ reporting: 2n, buffering: 0n }]);
     await expect(repository.devicesBuffering()).resolves.toBe(0);
+  });
+
+  it('answers null when no device has reported, which is not the same as none buffering', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ reporting: 0n, buffering: 0n }]);
+    await expect(repository.devicesBuffering()).resolves.toBeNull();
+    prisma.$queryRaw.mockResolvedValue([]);
+    await expect(repository.devicesBuffering()).resolves.toBeNull();
   });
 });
