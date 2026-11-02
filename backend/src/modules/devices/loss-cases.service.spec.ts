@@ -834,6 +834,38 @@ describe('LossCaseService', () => {
       expect(dto.state).toBe('RECOVERED');
     });
 
+    // Report 5 TC-T-LOSS-03: a unit found before anyone triaged its case (REPORTED is recoverable).
+    it('moves a REPORTED case to RECOVERED before triage and the device LOST to RETURNED', async () => {
+      const current = caseRow({ state: LossCaseState.REPORTED, version: 0 });
+      cases.find.mockResolvedValue(current);
+      transitionsTo(current);
+
+      const dto = await service.recover(
+        'lc-1',
+        { note: 'Found at camp', expectedVersion: 0 },
+        STAFF_2,
+        at,
+      );
+
+      expect(cases.transition).toHaveBeenCalledWith(
+        'lc-1',
+        LossCaseState.REPORTED,
+        0,
+        { state: LossCaseState.RECOVERED, recoveredAt: at },
+        tx,
+      );
+      expect(devices.moveIfCurrent).toHaveBeenCalledWith(
+        'dev-1',
+        8,
+        [DeviceStatus.LOST],
+        DeviceStatus.RETURNED,
+        at,
+        tx,
+        {},
+      );
+      expect(dto.state).toBe('RECOVERED');
+    });
+
     it('keeps a SETTLED case SETTLED and brings the device back from RETIRED (E05-10)', async () => {
       const current = renterCase({ state: LossCaseState.SETTLED, version: 3 });
       cases.find.mockResolvedValue(current);
