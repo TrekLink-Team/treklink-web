@@ -138,6 +138,8 @@ export const runBackendScript = async (script: string, args: string[]): Promise<
     cwd: repositoryRoot,
     env: process.env,
     timeout: 90_000,
+    // On Windows npm is npm.cmd, which Node refuses to spawn without a shell. The arguments are fixed.
+    shell: process.platform === 'win32',
   });
   return `${stdout}\n${stderr}`;
 };

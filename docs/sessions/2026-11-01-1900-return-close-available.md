@@ -79,7 +79,7 @@ changed.
 
 ## Not done
 
-- The Playwright `mf-05` journey still drives the earlier path (both units back); it was not rewritten to
-  the damaged-and-missing path.
+- The Playwright `mf-05` journey still drove the earlier path (both units back) when this session ended. It was
+  rewritten to the damaged-and-missing path on 2026-11-02 (`2026-11-02-1955-rewrite-mf-05.md`).
 - A unit recovered outside a contract still has no inspection endpoint (from #228); its Next step panel
   says so.

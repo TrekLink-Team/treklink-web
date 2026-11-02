@@ -76,11 +76,14 @@ test('MF-01 steps 1 to 4: the Manager requests five v3 units', async ({ page }) 
 
   // Step 4
   await page.getByRole('button', { name: 'Send request' }).click();
-  await expectToast(page, 'Request sent. TrekLink will confirm availability and your handover appointment.');
-  const code = page.getByText(/^RC-\d{4}-\d{4}$/).first();
-  await expect(code).toBeVisible();
-  contractCode = (await code.innerText()).trim();
-  await expect(titleStatus(page, 'Requested')).toBeVisible();
+  await expectToast(page, 'Request sent. Your devices are held; TrekLink will confirm your handover appointment.');
+  // The confirmation panel names the contract in its heading: "Request RC-2026-0004 sent".
+  const sent = page.getByRole('heading', { name: /^Request RC-\d{4}-\d{4} sent$/ });
+  await expect(sent).toBeVisible();
+  contractCode = ((await sent.innerText()).match(/RC-\d{4}-\d{4}/) ?? [])[0] ?? '';
+  expect(contractCode).not.toBe('');
+  // The panel replaces the form: no title badge here, the deposit link stands for the Requested state.
+  await expect(page.getByRole('link', { name: 'Pay the deposit' })).toBeVisible();
 });
 
 test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({ page }) => {
@@ -91,7 +94,7 @@ test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({
   await openFromSidebar(page, 'Contracts');
   await page.getByRole('tab', { name: 'Requested' }).click();
   await page.getByRole('button', { name: contractCode, exact: true }).click();
-  await expect(page.getByText(/TrekLink v3 \(GPS, SOS button\) available now; approval reserves 5\./)).toBeVisible();
+  await expect(page.getByText(/This request holds its 5 TrekLink v3 \(GPS, SOS button\) devices; approval keeps them\./)).toBeVisible();
 
   // Step 6: the appointment opens on today 09:00; after 09:00 it moves to the next full hour.
   const { date, hour } = localNow();
