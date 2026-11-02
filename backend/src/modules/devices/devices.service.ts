@@ -571,6 +571,12 @@ export class DevicesService {
     return device;
   }
 
+  // One inspection, or null: the fault record a billing service credit names (billing design §9.1,
+  // task 8.1), read in the caller's transaction.
+  inspectionFor(id: string, tx?: Prisma.TransactionClient) {
+    return this.devices.inspectionById(id, tx);
+  }
+
   // The inspection of a returned unit (task 2.4 part, rentals 4.2): it needs a reset after the unit's
   // last check-in (409 RESET_REQUIRED, BR-28). PASSED makes the unit AVAILABLE again, unless its service
   // falls due within `devices.maintenanceLeadDays` or its firmware is off the baseline: then it goes to

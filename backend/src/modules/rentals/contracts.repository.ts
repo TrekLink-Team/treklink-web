@@ -633,6 +633,40 @@ export class ContractsRepository {
     });
   }
 
+  // What a service credit is computed from (billing's CREDIT_BASIS, billing design §9): the price
+  // snapshot, the terms with whether each is invoiced, and the unit's custody times on this contract.
+  async creditBasis(contractId: string, contractDeviceId: string, client: Client = this.prisma) {
+    const contract = await client.rentalContract.findUnique({
+      where: { id: contractId },
+      select: {
+        id: true,
+        organizationId: true,
+        status: true,
+        planType: true,
+        monthlyUnitPriceVnd: true,
+        dayPremium: true,
+        dayPlanDays: true,
+        noticeGivenAt: true,
+        terms: {
+          orderBy: { seq: 'asc' },
+          select: { seq: true, startsAt: true, endsAt: true, invoice: { select: { id: true } } },
+        },
+      },
+    });
+    const unit = await client.contractDevice.findFirst({
+      where: { id: contractDeviceId, contractId },
+      select: {
+        id: true,
+        deviceId: true,
+        handedOverAt: true,
+        checkedInAt: true,
+        lostAt: true,
+        replacedBy: { select: { handedOverAt: true } },
+      },
+    });
+    return contract && unit ? { contract, unit } : null;
+  }
+
   // The status alone, for the incidents authority report on a contract (incidents api-design 10).
   statusOf(id: string, client: Client = this.prisma) {
     return client.rentalContract.findUnique({ where: { id }, select: { status: true } });

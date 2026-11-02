@@ -44,3 +44,26 @@ export const dayPlanFeeVnd = (
       .mul(quantity)
       .div(DAYS_PER_MONTH),
   );
+
+// A monthly service credit: ⌈P × outageDays ÷ termDays⌉, at most P, the unit's share of one term
+// (design §9.2, D-092 rule 5). The division runs last, as in the day-plan fee.
+export const monthlyCreditVnd = (
+  monthlyUnitPriceVnd: bigint,
+  outageDays: number,
+  termDays: number,
+): bigint => {
+  const credit = ceilVnd(decimal(monthlyUnitPriceVnd).mul(outageDays).div(termDays));
+  return credit < monthlyUnitPriceVnd ? credit : monthlyUnitPriceVnd;
+};
+
+// A day-plan service credit: ⌈P ÷ 30 × premium × outageDays⌉, at most the unit's day-plan fee.
+export const dayPlanCreditVnd = (
+  monthlyUnitPriceVnd: bigint,
+  dayPremium: DecimalInput,
+  outageDays: number,
+  dayPlanDays: number,
+): bigint => {
+  const credit = dayPlanFeeVnd(monthlyUnitPriceVnd, dayPremium, outageDays, 1);
+  const fee = dayPlanFeeVnd(monthlyUnitPriceVnd, dayPremium, dayPlanDays, 1);
+  return credit < fee ? credit : fee;
+};

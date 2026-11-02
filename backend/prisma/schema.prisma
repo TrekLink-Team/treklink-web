@@ -402,6 +402,7 @@ model Organization {
   streamEvents        StreamEvent[]
   complianceCases     ComplianceCase[]
   lossCases           LossCase[]
+  serviceCredits      ServiceCredit[]
 
   @@index([status])
   @@index([verifiedById])
@@ -1364,6 +1365,8 @@ model ServiceCredit {
   id                     String              @id @default(uuid())
   contractId             String
   contract               RentalContract      @relation(fields: [contractId], references: [id])
+  organizationId         String // copied from the contract, for the own-organization reads
+  organization           Organization        @relation(fields: [organizationId], references: [id])
   contractDeviceId       String // the unit's row on the contract
   contractDevice         ContractDevice      @relation(fields: [contractDeviceId], references: [id])
   deviceId               String
@@ -1396,6 +1399,7 @@ model ServiceCredit {
   lines                  InvoiceLine[]
 
   @@index([contractId])
+  @@index([organizationId])
   @@index([contractDeviceId])
   @@index([deviceId])
   @@index([faultInspectionId])

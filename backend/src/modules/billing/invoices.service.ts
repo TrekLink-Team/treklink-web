@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InvoiceKind, InvoiceLineType, Prisma } from '@prisma/client';
 import {
   InvoiceRow,
@@ -7,6 +7,7 @@ import {
   NewInvoiceLine,
 } from './invoices.repository';
 import { dayPlanFeeVnd, holdingFeeVnd, termFeeVnd } from './money';
+import { ServiceCreditLedger } from './service-credit-ledger';
 
 // What `rentals` hands billing when it issues an invoice: the contract's price snapshot
 // (REQ-UBI-04 of rentals) and the variant code for the line description. Billing reads no
@@ -74,7 +75,10 @@ const line = (
 // inside its approval and rollover transactions; issued lines never change (REQ-UBI-02).
 @Injectable()
 export class InvoicesService {
-  constructor(private readonly invoices: InvoicesRepository) {}
+  constructor(
+    private readonly invoices: InvoicesRepository,
+    @Optional() private readonly ledger?: ServiceCreditLedger,
+  ) {}
 
   // The contract's first TERM or DAY_PLAN invoice with its lines, or null (demo module, D-088).
   firstChargeableInvoice(contractId: string): Promise<InvoiceWithLines | null> {
@@ -82,8 +86,9 @@ export class InvoicesService {
   }
 
   // One TERM invoice: the holding fee due at the term start (or the request's hold expiry when that
-  // comes first) and the balance due at the term end.
-  issueTermInvoice(
+  // comes first) and the balance due at the term end. The contract's approved service credits still
+  // owed land on it (design §9.3: the next term invoice not yet issued, REQ-EVT-14).
+  async issueTermInvoice(
     contract: BillableMonthlyContract,
     term: BillableTerm,
     tx: Prisma.TransactionClient,
@@ -96,7 +101,7 @@ export class InvoicesService {
       contract.holdingFeeRatio,
     );
     const devices = `${contract.quantity} x ${contract.variantCode}`;
-    return this.invoices.insert(
+    const invoice = await this.invoices.insert(
       {
         organizationId: contract.organizationId,
         contractId: contract.id,
@@ -122,6 +127,7 @@ export class InvoicesService {
       ],
       tx,
     );
+    return this.ledger ? this.ledger.land(contract.id, invoice, tx, at) : invoice;
   }
 
   // One DAY_PLAN invoice with one line for the whole plan, due at the start date (or the request's

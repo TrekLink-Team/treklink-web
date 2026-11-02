@@ -1,10 +1,11 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { DamageChargeStatus, InvoiceKind, InvoiceLineType, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
 import { InvoiceRow, InvoicesRepository, LineRow, NewInvoiceLine } from './invoices.repository';
 import { PricingService } from './pricing.service';
+import { ServiceCreditLedger } from './service-credit-ledger';
 
 export interface ChargedContract {
   id: string;
@@ -55,6 +56,7 @@ export class ChargesService {
     private readonly damageCharges: DamageChargesRepository,
     private readonly pricing: PricingService,
     private readonly parameters: ParameterService,
+    @Optional() private readonly ledger?: ServiceCreditLedger,
   ) {}
 
   // A contract cancelled before handover (REQ-EVT-11, FR-CON-04, E01-7): the unpaid lines of its
@@ -308,7 +310,8 @@ export class ChargesService {
   }
 
   // Appends the line to the contract's closing invoice, created with it on the first charge (design
-  // §1: one CLOSING invoice per contract, serialized by lockClosingInvoice).
+  // §1: one CLOSING invoice per contract, serialized by lockClosingInvoice). Approved service credits
+  // still owed land on it after the line (design §9.3, REQ-EVT-14).
   private async addToClosing(
     contract: ChargedContract,
     line: NewInvoiceLine,
@@ -316,17 +319,19 @@ export class ChargesService {
     at: Date,
   ): Promise<InvoiceRow> {
     const closing = await this.invoices.lockClosingInvoice(contract.id, tx);
-    if (closing) return this.invoices.appendLines(closing, [line], tx);
-    return this.invoices.insert(
-      {
-        organizationId: contract.organizationId,
-        contractId: contract.id,
-        termId: null,
-        kind: InvoiceKind.CLOSING,
-        issuedAt: at,
-      },
-      [line],
-      tx,
-    );
+    const invoice = closing
+      ? await this.invoices.appendLines(closing, [line], tx)
+      : await this.invoices.insert(
+          {
+            organizationId: contract.organizationId,
+            contractId: contract.id,
+            termId: null,
+            kind: InvoiceKind.CLOSING,
+            issuedAt: at,
+          },
+          [line],
+          tx,
+        );
+    return this.ledger ? this.ledger.land(contract.id, invoice, tx, at) : invoice;
   }
 }

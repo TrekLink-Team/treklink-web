@@ -101,4 +101,27 @@ describe('ContractNotificationsListener', () => {
       warn.mockRestore();
     }
   });
+
+  it.each([
+    ['REQUESTED', 'requested a service credit of 45,000 VND'],
+    ['APPROVED', 'approved a service credit of 45,000 VND'],
+    ['REJECTED', 'rejected the service credit'],
+  ] as const)(
+    'emails the organization when a service credit is %s (billing design §9.4)',
+    async (kind, text) => {
+      const { listener, organizations } = build();
+      await listener.serviceCredit({
+        creditId: 'sc-1',
+        contractId: 'c-1',
+        organizationId: 'org-1',
+        kind,
+        amountVnd: 45_000n,
+      });
+      expect(organizations.emailContact).toHaveBeenCalledWith(
+        'org-1',
+        `TrekLink contract RC-2026-0001: service credit ${kind.toLowerCase()}`,
+        expect.stringContaining(text),
+      );
+    },
+  );
 });

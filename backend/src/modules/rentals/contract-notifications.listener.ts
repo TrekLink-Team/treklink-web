@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ContractStatus } from '@prisma/client';
+import { SERVICE_CREDIT_NOTICE, ServiceCreditNoticeEvent } from '../billing';
 import { OrganizationsService } from '../organizations';
 import { STAFF_NOTIFICATIONS, StaffNotifications } from '../platform/ports';
 import { CONTRACT_STATUS_CHANGED, ContractStatusChangedEvent } from './contract-lifecycle.service';
@@ -59,6 +60,26 @@ export class ContractNotificationsListener {
             : event.to === ContractStatus.DEFAULTED
               ? 'The organization is suspended from new rentals. Contact TrekLink to arrange the return and settle the contract.'
               : 'Contact TrekLink if you need help with this request.'),
+      ),
+    );
+  }
+
+  // Billing design §9.4: the organization's Managers hear of a service credit when Staff request it
+  // and when an Admin decides it. `billing` emits the notice; only `rentals` knows the contract code.
+  @OnEvent(SERVICE_CREDIT_NOTICE)
+  async serviceCredit(event: ServiceCreditNoticeEvent): Promise<void> {
+    const amount = `${event.amountVnd.toLocaleString('en-US')} VND`;
+    const what =
+      event.kind === 'REQUESTED'
+        ? `TrekLink requested a service credit of ${amount} for a unit that failed through no fault of yours. An Admin decides it next.`
+        : event.kind === 'APPROVED'
+          ? `TrekLink approved a service credit of ${amount}. It comes off the next invoice of the contract, or is refunded after the close.`
+          : 'TrekLink rejected the service credit requested on this contract. The reason is on the contract page.';
+    await this.deliver(event.contractId, async (code) =>
+      this.organizations.emailContact(
+        event.organizationId,
+        `TrekLink contract ${code}: service credit ${event.kind.toLowerCase()}`,
+        `${what} Open contract ${code} in TrekLink for the details.`,
       ),
     );
   }

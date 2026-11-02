@@ -21,12 +21,16 @@ import { PricingService } from './pricing.service';
 import { SepayController } from './sepay.controller';
 import { SepayWebhookGuard } from './sepay-webhook.guard';
 import { SepayService } from './sepay.service';
+import { ServiceCreditLedger } from './service-credit-ledger';
+import { ServiceCreditService } from './service-credit.service';
+import { ServiceCreditsController } from './service-credits.controller';
+import { ServiceCreditsRepository } from './service-credits.repository';
 
 // Billing (specs/billing/design.md). Foundation: the invoices, payments and pricing repositories,
 // prices and quotes, term and day-plan invoices, the cancellation adjustment, late and damage charges,
 // balances and counter payments; the plan catalogue, quotes, price and damage schedules, invoice,
 // payment and balance endpoints, SePay sandbox payments and their expiry job, and the damage charge
-// queue and decision (UC-48, D-081). Its exit-check provider (the reactivation check of `organizations`) is BillingOrganizationExitCheck.
+// queue and decision (UC-48, D-081), and service credits (task 8.1, design §9). Its exit-check provider (the reactivation check of `organizations`) is BillingOrganizationExitCheck.
 @Module({
   imports: [PlatformModule, DevicesModule],
   controllers: [
@@ -35,6 +39,7 @@ import { SepayService } from './sepay.service';
     InvoicesController,
     SepayController,
     DamageChargesController,
+    ServiceCreditsController,
   ],
   providers: [
     InvoicesRepository,
@@ -52,7 +57,17 @@ import { SepayService } from './sepay.service';
     SepayService,
     SepayWebhookGuard,
     BillingOrganizationExitCheck,
+    ServiceCreditsRepository,
+    ServiceCreditLedger,
+    ServiceCreditService,
   ],
-  exports: [InvoicesService, ChargesService, BalanceService, PaymentsService, PricingService],
+  exports: [
+    InvoicesService,
+    ChargesService,
+    BalanceService,
+    PaymentsService,
+    PricingService,
+    ServiceCreditService,
+  ],
 })
 export class BillingModule {}
