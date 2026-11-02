@@ -15,6 +15,7 @@ import {
   IncidentAlertEvent,
   msg31,
   msg40,
+  suspectedMessage,
 } from './alert-dispatcher.job';
 
 const tx = { tx: true } as unknown as Prisma.TransactionClient;
@@ -33,6 +34,8 @@ const due = (overrides: Partial<DueAlert> = {}): DueAlert => ({
   code: 'INC-2026-000001',
   deviceId: 'dev-1',
   contractId: 'c-1',
+  confidence: 'CONFIRMED',
+  source: 'DEVICE_SOS',
   createdAt: CREATED,
   ...overrides,
 });
@@ -58,6 +61,17 @@ describe('msg40', () => {
 
   it('leaves the holder out when the device has no label', () => {
     expect(msg40('TL-0042', null, LAST_SEEN)).toBe('Device silent: TL-0042, last heard 10:02.');
+  });
+});
+
+describe('suspectedMessage', () => {
+  it('uses the existing configured display timezone and omits a missing holder', () => {
+    expect(suspectedMessage('TL-0042', 'Le Thi E', CREATED)).toBe(
+      'Suspected incident: TL-0042 (Le Thi E), 10:15. Acknowledge now.',
+    );
+    expect(suspectedMessage('INC-2026-000001', null, CREATED)).toBe(
+      'Suspected incident: INC-2026-000001, 10:15. Acknowledge now.',
+    );
   });
 });
 
@@ -124,6 +138,50 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
     jest.useRealTimers();
   });
 
+  it.each([
+    ['SUSPECTED', 'CADENCE_INFERRED', 'Suspected incident'],
+    ['CONFIRMED', 'CADENCE_INFERRED', 'SOS'],
+    ['SUSPECTED', 'DEVICE_SOS', 'SOS'],
+    ['CONFIRMED', 'DEVICE_SOS', 'SOS'],
+    ['CONFIRMED', 'DEVICE_FALL', 'SOS'],
+  ] as const)('agrees across live and email for %s/%s', async (confidence, source, prefix) => {
+    const row = { confidence, source };
+    alerts.claimDue
+      .mockResolvedValueOnce([due(row), due({ ...row, id: 'web', channel: AlertChannel.WEB })])
+      .mockResolvedValueOnce([due({ ...row, id: 'mail', channel: AlertChannel.EMAIL })]);
+    await expect(job.deliverAlerts()).resolves.toBe(2);
+    await expect(job.deliverEmailAlerts()).resolves.toBe(1);
+    const message = `${prefix}: TL-0042 (Le Thi E), 10:15. Acknowledge now.`;
+    expect(emitter.emit).toHaveBeenCalledTimes(1);
+    const [type, event] = emitter.emit.mock.calls[0] as [string, IncidentAlertEvent];
+    expect(type).toBe(INCIDENT_ALERT);
+    expect(event.recipientId).toBe('u-p');
+    expect(event.alert.message).toBe(message);
+    expect(mail.send).toHaveBeenCalledWith({
+      to: 'primary@example.invalid',
+      subject: 'TrekLink alert: INC-2026-000001',
+      text: `${message}\nIncident: INC-2026-000001`,
+    });
+    expect(alerts.markSent).toHaveBeenCalledWith(['a-1', 'web'], expect.any(Date), tx);
+  });
+
+  it('uses MSG31 on a later transition after the same cadence incident is confirmed', async () => {
+    alerts.claimDue.mockResolvedValueOnce([
+      due({ confidence: 'SUSPECTED', source: 'CADENCE_INFERRED' }),
+    ]);
+    await job.deliverAlerts();
+    const first = (emitter.emit.mock.calls[0] as [string, IncidentAlertEvent])[1].alert;
+    alerts.claimDue.mockResolvedValueOnce([
+      due({ id: 'later', confidence: 'CONFIRMED', source: 'CADENCE_INFERRED', tier: 'BACKUP' }),
+    ]);
+    await job.deliverAlerts();
+    expect(first.message).toMatch(/^Suspected incident:/);
+    expect((emitter.emit.mock.calls[1] as [string, IncidentAlertEvent])[1].alert.message).toMatch(
+      /^SOS:/,
+    );
+    expect(emitter.emit).toHaveBeenCalledTimes(2);
+  });
+
   describe('deliverAlerts: WEB and WEBSOCKET', () => {
     it('claims WEB and WEBSOCKET only, leaving EMAIL to its own lane and API_EVENT pending', async () => {
       await expect(job.deliverAlerts()).resolves.toBe(0);
@@ -162,7 +220,14 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
     it('sends a STALE row as MSG40 at the last reading, beside an SOS row of the same incident', async () => {
       alerts.claimDue.mockResolvedValueOnce([
         due(),
-        due({ id: 'a-2', recipientId: 'u-o', kind: AlertKind.STALE, lastSeenAt: LAST_SEEN }),
+        due({
+          id: 'a-2',
+          recipientId: 'u-o',
+          kind: AlertKind.STALE,
+          lastSeenAt: LAST_SEEN,
+          confidence: 'SUSPECTED',
+          source: 'CADENCE_INFERRED',
+        }),
       ]);
       await expect(job.deliverAlerts()).resolves.toBe(2);
       expect(emitter.emit.mock.calls).toEqual([

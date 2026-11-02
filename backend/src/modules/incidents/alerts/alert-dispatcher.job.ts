@@ -18,7 +18,7 @@ export interface IncidentAlertEvent {
   recipientId: string;
   alert: {
     incidentId: string;
-    // TRANSITION: an SOS alert to acknowledge (MSG31). STALE: the device went silent (MSG40), with
+    // TRANSITION: suspected wording or confirmed SOS (MSG31). STALE: device silent (MSG40), with
     // `at` its last reading; the client shows it without Acknowledge.
     kind: AlertKind;
     code: string;
@@ -81,6 +81,10 @@ class SerialRunner {
 // MSG31: SOS: {device} ({holder}), {time}. Acknowledge now.
 export const msg31 = (device: string, holder: string | null, at: Date): string =>
   `SOS: ${device}${holder ? ` (${holder})` : ''}, ${clockTime(at)}. Acknowledge now.`;
+
+// Accepted suspected-incident-message.md contract, no new SRS message number.
+export const suspectedMessage = (device: string, holder: string | null, at: Date): string =>
+  `Suspected incident: ${device}${holder ? ` (${holder})` : ''}, ${clockTime(at)}. Acknowledge now.`;
 
 // MSG40: Device silent: {device} ({holder}), last heard {time}.
 export const msg40 = (device: string, holder: string | null, lastSeenAt: Date): string =>
@@ -274,8 +278,8 @@ export class AlertDispatcherJob {
   }
 
   // One alert body per row, keyed by row id: asset tag and holder label read once per incident, then
-  // MSG31 at the alert's creation time for a TRANSITION row, or MSG40 at the device's last reading for
-  // a STALE row.
+  // Suspected wording or MSG31 at creation time for TRANSITION; MSG40 at last reading for STALE.
+  // A confidence upgrade emits incident.changed, not a replacement of an already delivered alert.
   private async payloads(due: DueAlert[]): Promise<Map<string, IncidentAlertEvent['alert']>> {
     const incidents = [...new Map(due.map((row) => [row.incidentId, row])).values()];
     const [tags, holders] = await Promise.all([
@@ -291,6 +295,10 @@ export class AlertDispatcherJob {
       const deviceLabel = tags.get(row.deviceId) ?? row.code;
       const holderName = holders.get(`${row.contractId}:${row.deviceId}`)?.name ?? null;
       const stale = row.kind === AlertKind.STALE;
+      const transitionMessage =
+        row.confidence === 'SUSPECTED' && row.source === 'CADENCE_INFERRED'
+          ? suspectedMessage
+          : msg31;
       // The CHECK constraint gives every STALE row its reading; the fallback only keeps types honest.
       const at = stale ? (row.lastSeenAt ?? row.createdAt) : row.createdAt;
       bodies.set(row.id, {
@@ -300,7 +308,9 @@ export class AlertDispatcherJob {
         deviceLabel,
         holderName,
         at: at.toISOString(),
-        message: stale ? msg40(deviceLabel, holderName, at) : msg31(deviceLabel, holderName, at),
+        message: stale
+          ? msg40(deviceLabel, holderName, at)
+          : transitionMessage(deviceLabel, holderName, at),
       });
     }
     return bodies;

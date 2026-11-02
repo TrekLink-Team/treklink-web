@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { AlertChannel, AlertKind, Prisma } from '@prisma/client';
+import {
+  AlertChannel,
+  AlertKind,
+  IncidentConfidence,
+  IncidentSource,
+  Prisma,
+} from '@prisma/client';
 
 // A TRANSITION row (the default kind) names its transition; a STALE row has none and carries the
 // device's last reading in `lastSeenAt` (migration `20261101190000_incidents_stale_alert`).
@@ -22,6 +28,8 @@ export interface DueAlert {
   code: string;
   deviceId: string;
   contractId: string | null;
+  confidence: IncidentConfidence;
+  source: IncidentSource;
   createdAt: Date;
 }
 
@@ -44,7 +52,7 @@ export class AlertDeliveriesRepository {
     return tx.$queryRaw<DueAlert[]>`
       SELECT a."id", a."incidentId", a."recipientId", a."channel", a."kind", a."lastSeenAt",
              a."tier", a."attempts",
-             i."code", i."deviceId", i."contractId", a."createdAt"
+             i."code", i."deviceId", i."contractId", i."confidence", i."source", a."createdAt"
       FROM "alert_deliveries" a
       JOIN "incidents" i ON i."id" = a."incidentId"
       WHERE a."status" = 'PENDING' AND a."nextAttemptAt" <= ${now}

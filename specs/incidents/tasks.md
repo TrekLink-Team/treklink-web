@@ -33,6 +33,7 @@
 ## Phase 2: Creation, routing, alerts
 
 - [ ] 2.1 Outbox and dispatcher (owner HoangTK)
+  - **Suspected wording follow-up** (2026-11-02, HoangTK, accepted PR #313 contract): the claim reads incident confidence/source, and shared payload construction sends suspected wording for `SUSPECTED` / `CADENCE_INFERRED` on live/email channels, MSG31 for confirmed transitions, and unchanged MSG40 for device silence. No replacement alert is queued on confirmation. Existing `incident.changed` invalidation refetches incident/queue confidence; socket and polling banners retain already displayed text on upgrade. Focused tests cover message selection, later MSG31, immutable text, real query refetch and Postgres claim/upgrade evidence. API_EVENT remains open; this parent task stays unchecked.
   - **Files**: `backend/src/modules/incidents/alerts/alert-dispatcher.job.ts`, `channels/*.channel.ts`
   - **Do**: `incidents.deliverAlerts` every 2 s reads `PENDING` rows due now with `FOR UPDATE SKIP LOCKED`; channels web inbox, WebSocket (emits `incident.alert`, sent when the listener returns), email through `MailPort`, organization API stream; failure backs off `incidents.alertRetryBaseSeconds × 2^attempts` up to `incidents.alertMaxAttempts`, then `FAILED` and logged; delivery never blocks a transition
   - **Test**: AC-07 with a failing mail transport; WebSocket alert within 2 s of commit under the test load

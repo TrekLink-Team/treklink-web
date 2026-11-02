@@ -147,6 +147,51 @@ describe('LiveProvider poll mode (D-089)', () => {
   });
 });
 
+describe('LiveProvider incident confidence', () => {
+  it('refetches the incident and queue on upgrade, showing CONFIRMED without changing another incident', async () => {
+    let confidence = 'SUSPECTED';
+    const reads = {
+      detail: vi.fn(async () => confidence),
+      queue: vi.fn(async () => confidence),
+      other: vi.fn(async () => 'unchanged'),
+    };
+    const View = ({ name, queryKey }: { name: keyof typeof reads; queryKey: string[] }) => {
+      const query = useQuery({ queryKey, queryFn: reads[name], staleTime: Infinity });
+      return <span>{`${name}:${query.data}`}</span>;
+    };
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <LiveProvider>
+          <View name="detail" queryKey={['incident', 'inc-1']} />
+          <View name="queue" queryKey={['incidents', 'org-1']} />
+          <View name="other" queryKey={['incident', 'inc-other']} />
+        </LiveProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText('detail:SUSPECTED');
+    await screen.findByText('queue:SUSPECTED');
+    confidence = 'CONFIRMED';
+    act(() =>
+      live.listener?.({
+        kind: 'entry',
+        entry: {
+          seq: 1,
+          type: 'incident.changed',
+          createdAt: new Date().toISOString(),
+          payload: { incidentId: 'inc-1', state: 'NOTIFY_PRIMARY' },
+        },
+      }),
+    );
+    await screen.findByText('detail:CONFIRMED');
+    await screen.findByText('queue:CONFIRMED');
+    expect(reads.detail).toHaveBeenCalledTimes(2);
+    expect(reads.queue).toHaveBeenCalledTimes(2);
+    expect(reads.other).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {
   const mount = (read: () => Promise<string>, queryKey: unknown[] = ['contract', 'c-1']) => {
     const Contract = () => {
