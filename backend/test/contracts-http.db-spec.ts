@@ -71,11 +71,9 @@ describe('contract and billing 409 rows over HTTP against Postgres', () => {
     return state;
   };
 
-  const returned = async () => {
+  const returned = async (checkedInAt = at('2026-12-02T05:00:00.000Z')) => {
     const state = await returnDue();
-    await flow
-      .get(ReturnService)
-      .checkIn(state.contract.id, state.tags, flow.staff, at('2026-12-02T05:00:00.000Z'));
+    await flow.get(ReturnService).checkIn(state.contract.id, state.tags, flow.staff, checkedInAt);
     return state;
   };
 
@@ -452,7 +450,9 @@ describe('contract and billing 409 rows over HTTP against Postgres', () => {
       });
 
     it('16: DEVICE_NOT_ON_CONTRACT, RESET_REQUIRED, INVALID_STATE_TRANSITION once CLOSED', async () => {
-      const { contract, deviceIds } = await returned();
+      // The inspection runs over HTTP on the real clock, which must fall after the check-in: the
+      // handover of the fixture is fixed, so a check-in in the future leaves the unit in custody.
+      const { contract, deviceIds } = await returned(new Date(Date.now() - 60_000));
       expectConflict(await inspect(contract.id, unknownDevice), 'DEVICE_NOT_ON_CONTRACT');
       expectConflict(await inspect(contract.id, deviceIds[0]), 'RESET_REQUIRED');
 
@@ -466,7 +466,7 @@ describe('contract and billing 409 rows over HTTP against Postgres', () => {
             deviceIds[0],
             { keyRemoved: true, nodeDbCleared: true, ownerCleared: true },
             flow.staff.id,
-            at('2026-12-02T07:00:00.000Z'),
+            new Date(),
             tx,
           ),
       );
