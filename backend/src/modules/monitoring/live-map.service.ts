@@ -71,7 +71,7 @@ export interface SnapshotDeviceDto {
   contractCode: string;
   organizationId: string;
   // The device's latest field event is simulated (demo design §9, D-093 amendment): the map shows a
-  // "Simulated" label.
+  // "Simulated" label. For an organization, only an event inside its custody interval counts (D-040).
   simulated: boolean;
 }
 
@@ -146,7 +146,14 @@ export class LiveMapService {
     const [projections, incidents, simulated] = await Promise.all([
       this.devices.projections(ids),
       this.incidents.openByDevices(ids),
-      this.fieldEvents.simulatedDevices(ids),
+      // The same custody clipping as the position: an organization's view counts only the events since
+      // the handover (D-040), so a unit not heard in its custody is not marked simulated.
+      this.fieldEvents.simulatedDevices(
+        visible.map((device) => ({
+          deviceId: device.deviceId,
+          since: clipped ? device.handedOverAt : null,
+        })),
+      ),
     ]);
     const rental = new Map(visible.map((device) => [device.deviceId, device]));
     const staleBefore = now.getTime() - staleSeconds * 1000;

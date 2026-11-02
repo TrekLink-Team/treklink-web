@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PagedResult, resolvePage, toPagedResult } from '../../common/dto/paging';
 import { DevicesService } from '../devices';
 import { ListEventsDto } from './dto/gateway-sync-ops.dto';
-import { FieldEventRow, SyncQueryRepository } from './sync-query.repository';
+import { FieldEventRow, SimulatedDeviceQuery, SyncQueryRepository } from './sync-query.repository';
 
 // The page bounds api-design 03 declares for listEvents.
 export const EVENT_PAGE_BOUNDS = { defaultPageSize: 100, maxPageSize: 500 };
@@ -108,10 +108,19 @@ export class FieldEventQueryService {
     return { points, truncated };
   }
 
-  // The devices among `ids` whose latest field event is simulated, for the `simulated` mark of the map
-  // snapshot and the device lists (demo design §9, D-093 amendment).
-  async simulatedDevices(ids: readonly string[]): Promise<Set<string>> {
-    return new Set(await this.repository.simulatedLatest([...new Set(ids)]));
+  // The devices among `units` whose latest field event is simulated, for the `simulated` mark of the map
+  // snapshot and the device lists (demo design §9, D-093 amendment). With `since`, only the events that
+  // occurred at or after it count, the custody clipping of the position (D-040): a unit not heard since
+  // its handover is not simulated. A device listed twice is asked once, with its first entry.
+  async simulatedDevices(units: readonly SimulatedDeviceQuery[]): Promise<Set<string>> {
+    const byDevice = new Map<string, Date | null>();
+    for (const { deviceId, since } of units)
+      if (!byDevice.has(deviceId)) byDevice.set(deviceId, since);
+    return new Set(
+      await this.repository.simulatedLatest(
+        [...byDevice].map(([deviceId, since]) => ({ deviceId, since })),
+      ),
+    );
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
 }

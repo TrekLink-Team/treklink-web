@@ -3,7 +3,8 @@ from ._common import ORG_ID, DEVICE_ID, INCIDENT_ID, STATION_ID, NOW, ep, paged
 SNAP_DEVICE = {"id": DEVICE_ID, "assetTag": "TL-0042", "hardwareVariant": "treklink-v3",
                "holder": {"name": "Le Thi E"}, "position": {"lat": 11.5601, "lon": 108.5402, "at": NOW},
                "batteryPct": 81, "lastSeenAt": NOW, "stale": False, "openIncident": None, "contractCode": "RC-2026-0042",
-               # True when the device's latest field event is simulated (demo design §9, D-093 amendment).
+               # True when the device's latest field event is simulated, for an organization only an event since
+               # the handover (demo design §9, D-093 amendment, D-040).
                "simulated": False}
 API_KEY_HDR = [["X-Api-Key", "Organization API key (read-only)", "string", "yes", "`tlk_7Hc2...`"]]
 

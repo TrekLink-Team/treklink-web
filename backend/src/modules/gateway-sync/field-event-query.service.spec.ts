@@ -190,15 +190,35 @@ describe('FieldEventQueryService.historyPoints (monitoring api-design 03)', () =
 });
 
 describe('FieldEventQueryService.simulatedDevices (demo design §9)', () => {
+  const since = new Date('2026-11-01T02:00:00.000Z');
+
   it('answers the devices whose latest field event is simulated, asking once per device', async () => {
     const simulatedLatest = jest.fn().mockResolvedValue(['d-2']);
     const service = new FieldEventQueryService(
       { simulatedLatest } as unknown as SyncQueryRepository,
       {} as never,
     );
-    await expect(service.simulatedDevices(['d-1', 'd-2', 'd-1'])).resolves.toEqual(
-      new Set(['d-2']),
+    await expect(
+      service.simulatedDevices([
+        { deviceId: 'd-1', since },
+        { deviceId: 'd-2', since: null },
+        { deviceId: 'd-1', since: null },
+      ]),
+    ).resolves.toEqual(new Set(['d-2']));
+    // The custody start of each device reaches the read (D-040); the duplicate keeps its first entry.
+    expect(simulatedLatest).toHaveBeenCalledWith([
+      { deviceId: 'd-1', since },
+      { deviceId: 'd-2', since: null },
+    ]);
+  });
+
+  it('asks nothing of the repository beyond an empty list for no device', async () => {
+    const simulatedLatest = jest.fn().mockResolvedValue([]);
+    const service = new FieldEventQueryService(
+      { simulatedLatest } as unknown as SyncQueryRepository,
+      {} as never,
     );
-    expect(simulatedLatest).toHaveBeenCalledWith(['d-1', 'd-2']);
+    await expect(service.simulatedDevices([])).resolves.toEqual(new Set());
+    expect(simulatedLatest).toHaveBeenCalledWith([]);
   });
 });

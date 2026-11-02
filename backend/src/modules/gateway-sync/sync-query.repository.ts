@@ -2,6 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, SyncOutcome } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
+// One device of the simulated-mark read: `since` is the start of the reader's custody interval, null
+// for a reader that sees the device's whole history (TrekLink staff, D-040).
+export interface SimulatedDeviceQuery {
+  deviceId: string;
+  since: Date | null;
+}
+
 export const FIELD_EVENT_ROW = {
   seq: true,
   eventId: true,
@@ -126,15 +133,21 @@ export class SyncQueryRepository {
     return Number(rows[0]?.count ?? 0);
   }
 
-  // The devices among `ids` whose latest field event (by receipt, then ingestion order) is simulated
-  // (demo design §9), one row per device through the (deviceId, receivedAt) index.
-  async simulatedLatest(ids: readonly string[]): Promise<string[]> {
-    if (ids.length === 0) return [];
+  // The devices among `units` whose latest field event (by receipt, then ingestion order) is simulated
+  // (demo design §9), one row per device through the (deviceId, receivedAt) index. A unit with `since`
+  // counts only the events that occurred at or after it (the custody clipping of D-040, on `occurredAt`
+  // as the device projection's times are); `-infinity` stands for no bound.
+  async simulatedLatest(units: readonly SimulatedDeviceQuery[]): Promise<string[]> {
+    if (units.length === 0) return [];
+    const ids = units.map((unit) => unit.deviceId);
+    const since = units.map((unit) => unit.since?.toISOString() ?? '-infinity');
     const rows = await this.prisma.$queryRaw<{ deviceId: string; simulated: boolean }[]>`
-      SELECT DISTINCT ON ("deviceId") "deviceId", "simulated"
-      FROM "field_events"
-      WHERE "deviceId" = ANY(${[...ids]}::text[])
-      ORDER BY "deviceId", "receivedAt" DESC, "seq" DESC`;
+      SELECT DISTINCT ON (fe."deviceId") fe."deviceId", fe."simulated"
+      FROM "field_events" fe
+      JOIN unnest(${ids}::text[], ${since}::text[]::timestamptz[]) AS unit("deviceId", "since")
+        ON unit."deviceId" = fe."deviceId"
+      WHERE fe."occurredAt" >= unit."since"
+      ORDER BY fe."deviceId", fe."receivedAt" DESC, fe."seq" DESC`;
     return rows.filter((row) => row.simulated).map((row) => row.deviceId);
   }
 

@@ -1,5 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { AccountType, ContractStatus, PlanType, Prisma } from '@prisma/client';
+import {
+  AccountType,
+  AttributionState,
+  ContractStatus,
+  EventKind,
+  IngressPath,
+  PlanType,
+  Prisma,
+  PriorityTier,
+  TimeSource,
+} from '@prisma/client';
 import type { Caller, PolicyAbility } from '../src/common/decorators/access.decorator';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import type { DevicesService } from '../src/modules/devices';
@@ -7,7 +17,8 @@ import { DevicesRepository } from '../src/modules/devices/devices.repository';
 import type { IncidentsQueryService } from '../src/modules/incidents';
 import { LiveMapService } from '../src/modules/monitoring/live-map.service';
 import type { StreamRepository } from '../src/modules/monitoring/stream.repository';
-import type { FieldEventQueryService } from '../src/modules/gateway-sync';
+import { FieldEventQueryService } from '../src/modules/gateway-sync';
+import { SyncQueryRepository } from '../src/modules/gateway-sync/sync-query.repository';
 import type { OrganizationsService } from '../src/modules/organizations';
 import type { ParameterService } from '../src/modules/platform/parameters/parameter.service';
 import { ContractsService } from '../src/modules/rentals';
@@ -55,10 +66,8 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
     { openByDevices: () => Promise.resolve(new Map()) } as unknown as IncidentsQueryService,
     { maxSeq: () => Promise.resolve(7) } as unknown as StreamRepository,
     { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
-    // Real-device data only: no simulated mark (demo design §9).
-    {
-      simulatedDevices: () => Promise.resolve(new Set<string>()),
-    } as unknown as FieldEventQueryService,
+    // The real read of the simulated mark (demo design §9), clipped to custody (D-040).
+    new FieldEventQueryService(new SyncQueryRepository(prisma), {} as never),
   );
   const runId = randomUUID();
   const tag = (name: string) => `LM-${name}-${runId.slice(0, 8)}`;
@@ -159,11 +168,36 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
     await read('silent', 900, [11.6, 108.6], 60);
     // intake: heard with a fix at intake, before the handover, never since.
     await read('intake', 7200, [10.8, 106.7], 99);
+
+    // Field events for the simulated mark (review of treklink-web#307): live1's latest event in custody is
+    // simulated; intake's only event is a simulated one before the handover; live2 had a simulated event
+    // before the handover and a real one since.
+    const event = (name: string, seconds: number, simulated: boolean) =>
+      prisma.fieldEvent.create({
+        data: {
+          eventId: `live-map-units-${runId}-${randomUUID()}`,
+          deviceId: unit[name],
+          organizationId: seconds < 3600 ? organizationId : null,
+          attribution: seconds < 3600 ? AttributionState.ATTRIBUTED : AttributionState.UNATTRIBUTED,
+          uplinkKey: '!live-map-units',
+          ingress: IngressPath.MQTT_NODE,
+          kind: EventKind.TELEMETRY,
+          priority: PriorityTier.P3_TELEMETRY,
+          occurredAt: ago(seconds),
+          timeSource: TimeSource.DEVICE_RTC,
+          simulated,
+          payload: {},
+        },
+      });
+    await event('live1', 20, true);
+    await event('intake', 7200, true);
+    await event('live2', 7200, true);
+    await event('live2', 30, false);
   });
 
   afterAll(() => prisma.$disconnect());
 
-  const byTag = (devices: { assetTag: string }[]) =>
+  const byTag = <T extends { assetTag: string }>(devices: T[]): Record<string, T> =>
     Object.fromEntries(devices.map((device) => [device.assetTag, device]));
 
   it('lists all 5 units to the organization, each in its state, nothing from before the handover', async () => {
@@ -203,6 +237,11 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
         handedOverAt: HANDED_OVER.toISOString(),
       });
     }
+    // The simulated mark comes from an event inside the custody interval only (D-040).
+    expect(units[tag('live1')].simulated).toBe(true);
+    expect(units[tag('intake')].simulated).toBe(false);
+    expect(units[tag('live2')].simulated).toBe(false);
+    expect(units[tag('quiet')].simulated).toBe(false);
     // No coordinate from before the handover appears anywhere in the organization's answer.
     const text = JSON.stringify(mine);
     expect(text).not.toContain('12.5');
@@ -225,6 +264,10 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
       state: 'LIVE',
       position: { lat: 12.5, lon: 109.1, at: ago(7200).toISOString() },
     });
+    // Staff see the stored history, so the simulated intake reading still carries the mark.
+    expect(units[tag('intake')].simulated).toBe(true);
+    expect(units[tag('live1')].simulated).toBe(true);
+    expect(units[tag('live2')].simulated).toBe(false);
   });
 
   it('drops a unit from the map at check-in', async () => {
