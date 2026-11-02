@@ -2,7 +2,7 @@ import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
 import { ContractStatus, InspectionResult, PlanType } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { BalanceService, ChargesService } from '../billing';
+import { BalanceService, ChargesService, ServiceCreditService } from '../billing';
 import { DevicesService } from '../devices';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ContractLifecycleService } from './contract-lifecycle.service';
@@ -60,6 +60,14 @@ export type CloseBlocker =
       assetTag: string;
       amountVnd: number;
     }
+  | {
+      code: 'SERVICE_CREDIT_PENDING';
+      message: string;
+      serviceCreditId: string;
+      deviceId: string;
+      assetTag: string;
+      amountVnd: number;
+    }
   | { code: 'OPEN_INCIDENTS'; message: string; incidents: { id: string; code: string }[] };
 
 export interface CloseCheck {
@@ -96,6 +104,7 @@ export class ReturnService {
     @Optional()
     @Inject(CONTRACT_CLOSE_CHECKS)
     private readonly closeChecks: ContractCloseCheck[] = [],
+    @Optional() private readonly serviceCredits?: ServiceCreditService,
   ) {}
 
   // api-design 14: every scanned tag must be a device still out on this contract, otherwise 409
@@ -300,8 +309,15 @@ export class ReturnService {
 
       const custody = await this.contracts.custodyDevices(id, tx);
       const pending = await this.charges.pendingDamageOf(id, tx);
+      const credits = (await this.serviceCredits?.requestedOf(id, tx)) ?? [];
       const tags = await this.devices.assetTags(
-        [...new Set([...notBack.map((row) => row.deviceId), ...pending.map((c) => c.deviceId)])],
+        [
+          ...new Set([
+            ...notBack.map((row) => row.deviceId),
+            ...pending.map((c) => c.deviceId),
+            ...credits.map((c) => c.deviceId),
+          ]),
+        ],
         tx,
       );
       const tagOf = (deviceId: string) => tags.get(deviceId) ?? deviceId;
@@ -340,6 +356,18 @@ export class ReturnService {
           message: `The damage charge of ${vnd(charge.amountVnd)} on ${tagOf(charge.deviceId)} waits for an Admin.`,
         });
       }
+      // A requested service credit changes what the contract owes until an Admin decides it (billing
+      // REQ-STA-02, design §9.3).
+      for (const credit of credits) {
+        blockers.push({
+          code: 'SERVICE_CREDIT_PENDING',
+          serviceCreditId: credit.id,
+          deviceId: credit.deviceId,
+          assetTag: tagOf(credit.deviceId),
+          amountVnd: Number(credit.computedVnd),
+          message: `The service credit of ${vnd(credit.computedVnd)} on ${tagOf(credit.deviceId)} waits for an Admin's decision.`,
+        });
+      }
       for (const check of this.closeChecks) {
         const reason = await check.blockingReason(id, custody, tx);
         if (reason) {
@@ -357,7 +385,8 @@ export class ReturnService {
   // api-design 17 (FR-CON-13, BR-27): a RETURNED contract closes when nothing is owed (409
   // BALANCE_OUTSTANDING) and no incident on its devices is open (409 OPEN_INCIDENTS, MSG29); the holder
   // labels are erased (BR-33). A damage charge still waiting for an Admin blocks it too, found by the
-  // contract the charge stores (D-081).
+  // contract the charge stores (D-081). So does a service credit still REQUESTED (billing REQ-STA-02);
+  // the approved credits not yet landed become REFUND_DUE with the close (billing REQ-EVT-15).
   async close(id: string, expectedVersion: number, actor: Caller) {
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
@@ -391,6 +420,12 @@ export class ReturnService {
           'This cannot be done while it has open balances.',
         );
       }
+      if (((await this.serviceCredits?.requestedOf(id, tx)) ?? []).length > 0) {
+        throw conflict(
+          ErrorCode.INVALID_STATE_TRANSITION,
+          "A service credit waits for an Admin's decision.",
+        );
+      }
       for (const check of this.closeChecks) {
         const reason = await check.blockingReason(id, deviceIds, tx);
         if (reason) {
@@ -401,6 +436,7 @@ export class ReturnService {
         }
       }
       await this.contracts.eraseLabels(id, tx);
+      await this.serviceCredits?.onContractClosed(id, tx);
       return this.lifecycle.apply(
         id,
         ContractStatus.RETURNED,

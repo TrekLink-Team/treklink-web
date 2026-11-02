@@ -79,6 +79,8 @@ export interface NewInvoiceLine {
   amountVnd: bigint;
   dueAt: Date;
   createdById: string | null;
+  // The credit a SERVICE_CREDIT line lands (design §9.3); absent on every other line.
+  serviceCreditId?: string;
 }
 
 export const invoiceNumberYear = (at: Date): number =>

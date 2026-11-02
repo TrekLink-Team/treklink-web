@@ -38,3 +38,15 @@ export {
   type ContractDirectory,
   type ContractLabel,
 } from './ports/contract-directory.port';
+export {
+  CREDIT_BASIS,
+  type CreditBasis,
+  type CreditContract,
+  type CreditTerm,
+  type CreditUnit,
+} from './ports/credit-basis.port';
+export {
+  SERVICE_CREDIT_NOTICE,
+  ServiceCreditService,
+  type ServiceCreditNoticeEvent,
+} from './service-credit.service';

@@ -1,5 +1,12 @@
 import { Prisma } from '@prisma/client';
-import { ceilVnd, dayPlanFeeVnd, holdingFeeVnd, termFeeVnd } from './money';
+import {
+  ceilVnd,
+  dayPlanCreditVnd,
+  dayPlanFeeVnd,
+  holdingFeeVnd,
+  monthlyCreditVnd,
+  termFeeVnd,
+} from './money';
 
 describe('money helpers (billing task 1.2, REQ-UBI-01)', () => {
   it('rounds up to the whole đồng and keeps a whole amount', () => {
@@ -33,5 +40,18 @@ describe('money helpers (billing task 1.2, REQ-UBI-01)', () => {
     expect(dayPlanFeeVnd(400_000n, '1.5', 4, 8)).toBe(640_000n);
     expect(dayPlanFeeVnd(400_000n, '1', 3, 1)).toBe(40_000n);
     expect(dayPlanFeeVnd(100_001n, '1', 1, 1)).toBe(3_334n);
+  });
+
+  it('AC-06: a monthly credit is the unit share of the outage days, rounded up and capped at P', () => {
+    // 450,000 x 3 / 30 = 45,000; 450,000 x 1 / 31 = 14,516.1 rounds up to 14,517.
+    expect(monthlyCreditVnd(450_000n, 3, 30)).toBe(45_000n);
+    expect(monthlyCreditVnd(450_000n, 1, 31)).toBe(14_517n);
+    expect(monthlyCreditVnd(450_000n, 40, 30)).toBe(450_000n);
+  });
+
+  it('a day-plan credit is the day fee of one unit for the outage days, capped at its plan fee', () => {
+    // 450,000 / 30 x 1.5 x 2 = 45,000; a 4-day plan caps it at 90,000.
+    expect(dayPlanCreditVnd(450_000n, '1.5', 2, 4)).toBe(45_000n);
+    expect(dayPlanCreditVnd(450_000n, '1.5', 9, 4)).toBe(90_000n);
   });
 });

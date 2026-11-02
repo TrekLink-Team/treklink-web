@@ -17,6 +17,7 @@ ALTER TABLE "invoice_lines" ADD COLUMN     "serviceCreditId" TEXT;
 CREATE TABLE "service_credits" (
     "id" TEXT NOT NULL,
     "contractId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
     "contractDeviceId" TEXT NOT NULL,
     "deviceId" TEXT NOT NULL,
     "cause" "ServiceCreditCause" NOT NULL,
@@ -50,6 +51,9 @@ CREATE UNIQUE INDEX "service_credits_refundReference_key" ON "service_credits"("
 CREATE INDEX "service_credits_contractId_idx" ON "service_credits"("contractId");
 
 -- CreateIndex
+CREATE INDEX "service_credits_organizationId_idx" ON "service_credits"("organizationId");
+
+-- CreateIndex
 CREATE INDEX "service_credits_contractDeviceId_idx" ON "service_credits"("contractDeviceId");
 
 -- CreateIndex
@@ -80,6 +84,9 @@ ALTER TABLE "invoice_lines" ADD CONSTRAINT "invoice_lines_serviceCreditId_fkey" 
 ALTER TABLE "service_credits" ADD CONSTRAINT "service_credits_contractId_fkey" FOREIGN KEY ("contractId") REFERENCES "rental_contracts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "service_credits" ADD CONSTRAINT "service_credits_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "service_credits" ADD CONSTRAINT "service_credits_contractDeviceId_fkey" FOREIGN KEY ("contractDeviceId") REFERENCES "contract_devices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -97,10 +104,19 @@ ALTER TABLE "service_credits" ADD CONSTRAINT "service_credits_requestedById_fkey
 -- AddForeignKey
 ALTER TABLE "service_credits" ADD CONSTRAINT "service_credits_decidedById_fkey" FOREIGN KEY ("decidedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-
 -- One source of the outage start is required (leader ruling 2026-11-02, design §9.1).
 ALTER TABLE "service_credits" ADD CONSTRAINT "service_credits_outage_source_check"
   CHECK ("outageSourceIncidentId" IS NOT NULL OR "outageSourceNote" IS NOT NULL);
+
+-- design §9.3: a SERVICE_CREDIT line is negative like an ADJUSTMENT line (prisma/constraints.sql carries the
+-- same CHECKs for a rebuilt baseline). Compared as text: the enum value added above is not usable as an enum
+-- literal in the transaction that adds it.
+ALTER TABLE "invoice_lines"
+  DROP CONSTRAINT "invoice_lines_amount_sign",
+  DROP CONSTRAINT "invoice_lines_paid_bounds";
+ALTER TABLE "invoice_lines"
+  ADD CONSTRAINT "invoice_lines_amount_sign" CHECK ("type"::text IN ('ADJUSTMENT', 'SERVICE_CREDIT') OR "amountVnd" >= 0),
+  ADD CONSTRAINT "invoice_lines_paid_bounds" CHECK ("paidVnd" >= 0 AND ("type"::text IN ('ADJUSTMENT', 'SERVICE_CREDIT') OR "paidVnd" <= "amountVnd"));
 
 -- design §9.4: Staff request and record refunds, an Admin decides (never the requester, checked per
 -- credit), Staff and Admin read every credit, an Org Manager reads its own organization's. A forward

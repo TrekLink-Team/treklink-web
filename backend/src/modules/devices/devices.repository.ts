@@ -491,6 +491,14 @@ export class DevicesRepository {
     });
   }
 
+  // One inspection, for the fault record of a billing service credit (billing design §9.1).
+  inspectionById(id: string, client: Client = this.prisma) {
+    return client.inspection.findUnique({
+      where: { id },
+      select: { id: true, deviceId: true, contractDeviceId: true, result: true, createdAt: true },
+    });
+  }
+
   // The inspections recorded against these contract rows, oldest first.
   inspectionsOfContractDevices(
     contractDeviceIds: readonly string[],

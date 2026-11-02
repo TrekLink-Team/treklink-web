@@ -1,7 +1,7 @@
 import { ContractStatus, InspectionResult, PlanType, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { ErrorCode } from '../../common/errors';
-import { BalanceService, ChargesService } from '../billing';
+import { BalanceService, ChargesService, ServiceCreditService } from '../billing';
 import { DevicesService } from '../devices';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ContractLifecycleService } from './contract-lifecycle.service';
@@ -456,6 +456,71 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         canClose: false,
         blockers: [],
       });
+    });
+  });
+
+  // Billing design §9.3 (REQ-STA-02, REQ-EVT-15): a requested service credit blocks the close; the
+  // approved remainders become REFUND_DUE with it.
+  describe('service credits (billing 8.1)', () => {
+    let credits: { requestedOf: jest.Mock; onContractClosed: jest.Mock };
+    let withCredits: ReturnService;
+
+    beforeEach(() => {
+      credits = {
+        requestedOf: jest.fn().mockResolvedValue([]),
+        onContractClosed: jest.fn().mockResolvedValue(0),
+      };
+      withCredits = new ReturnService(
+        contracts as unknown as ContractsRepository,
+        lifecycle as unknown as ContractLifecycleService,
+        devices as unknown as DevicesService,
+        charges as unknown as ChargesService,
+        balances as unknown as BalanceService,
+        {
+          transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
+          emitAfterCommit,
+        } as unknown as TransactionalEvents,
+        [closeCheck],
+        credits as unknown as ServiceCreditService,
+      );
+      contracts.lockById.mockResolvedValue(contract({ status: ContractStatus.RETURNED }));
+      contracts.findById = jest
+        .fn()
+        .mockResolvedValue(contract({ status: ContractStatus.RETURNED }));
+      contracts.rowsNotBack = jest.fn().mockResolvedValue([]);
+      charges.pendingDamageOf = jest.fn().mockResolvedValue([]);
+      devices.openLossCases = jest.fn().mockResolvedValue(new Map());
+    });
+
+    it('lists a requested credit as a blocker and refuses the close', async () => {
+      credits.requestedOf.mockResolvedValue([
+        { id: 'sc-1', deviceId: 'd-1', computedVnd: 45_000n },
+      ]);
+      await expect(withCredits.closeCheck('c-1')).resolves.toMatchObject({
+        canClose: false,
+        blockers: [
+          {
+            code: 'SERVICE_CREDIT_PENDING',
+            serviceCreditId: 'sc-1',
+            assetTag: 'TL-0001',
+            amountVnd: 45_000,
+            message: "The service credit of 45,000 VND on TL-0001 waits for an Admin's decision.",
+          },
+        ],
+      });
+      await expect(withCredits.close('c-1', 6, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+        message: "A service credit waits for an Admin's decision.",
+      });
+      expect(credits.onContractClosed).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('turns the approved remainders into REFUND_DUE inside the close', async () => {
+      await expect(withCredits.close('c-1', 6, STAFF)).resolves.toMatchObject({
+        status: ContractStatus.CLOSED,
+      });
+      expect(credits.onContractClosed).toHaveBeenCalledWith('c-1', TX);
     });
   });
 });
