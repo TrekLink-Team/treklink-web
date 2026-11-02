@@ -4,7 +4,12 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '../../entities/session/model';
-import type { LiveMessage } from '../../shared/socket/socketClient';
+import {
+  refreshLiveAuth,
+  startLive,
+  stopLive,
+  type LiveMessage,
+} from '../../shared/socket/socketClient';
 import { LiveProvider } from './LiveProvider';
 
 const live = vi.hoisted(() => ({
@@ -48,6 +53,61 @@ afterEach(() => {
   useSession.getState().signOut();
   live.polls = false;
   vi.useRealTimers();
+});
+
+// Issue #297: after "Switch role (demo)" the header stayed on "Reconnecting live updates", because the
+// server closes a socket whose refreshed token names another account.
+describe('LiveProvider account change', () => {
+  const tokens = (accessToken: string) => ({
+    accessToken,
+    accessTokenExpiresIn: 900,
+    refreshToken: 'r',
+    refreshTokenExpiresIn: 86_400,
+  });
+  const mount = () =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <LiveProvider>{null}</LiveProvider>
+      </QueryClientProvider>,
+    );
+
+  it('opens a new socket for another account instead of refreshing the old one', () => {
+    mount();
+    vi.mocked(startLive).mockClear();
+    vi.mocked(stopLive).mockClear();
+    vi.mocked(refreshLiveAuth).mockClear();
+
+    act(() => {
+      useSession.setState({
+        user: {
+          id: 'u-2',
+          email: 'staff@example.invalid',
+          fullName: 'Staff',
+          roles: ['STAFF'],
+          accountType: 'TREKLINK',
+          organization: null,
+        },
+        tokens: tokens('staff-token'),
+      });
+    });
+
+    expect(stopLive).toHaveBeenCalledTimes(1);
+    expect(startLive).toHaveBeenCalledTimes(1);
+    expect(refreshLiveAuth).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the socket for a new token of the same account', () => {
+    mount();
+    vi.mocked(stopLive).mockClear();
+    vi.mocked(refreshLiveAuth).mockClear();
+
+    act(() => {
+      useSession.setState({ tokens: tokens('new-token') });
+    });
+
+    expect(refreshLiveAuth).toHaveBeenCalledWith('new-token');
+    expect(stopLive).not.toHaveBeenCalled();
+  });
 });
 
 describe('LiveProvider poll mode (D-089)', () => {

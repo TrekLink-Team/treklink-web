@@ -94,13 +94,22 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       timer ??= setTimeout(flush, LIVE_BATCH_MS);
     };
 
-    startLive(() => useSession.getState().tokens?.accessToken ?? null);
+    const tokenSource = () => useSession.getState().tokens?.accessToken ?? null;
+    startLive(tokenSource);
     const poll = livePolls()
       ? setInterval(() => {
           for (const queryKey of POLLED_KEYS) void queryClient.invalidateQueries({ queryKey });
         }, LIVE_POLL_MS)
       : undefined;
     const stopTokens = useSession.subscribe((state, previous) => {
+      // Another account in the same window (the demo role switch, screen 7.5): the server closes a
+      // socket whose refreshed token names another user, so the stream starts again for the new
+      // account, without the old account's cursor (issue #297).
+      if (state.user && previous.user && state.user.id !== previous.user.id) {
+        stopLive();
+        startLive(tokenSource);
+        return;
+      }
       const token = state.tokens?.accessToken;
       if (token && token !== previous.tokens?.accessToken) refreshLiveAuth(token);
     });
