@@ -63,6 +63,7 @@ afterEach(() => {
   fetchFleetIncidents.mockReset();
   listeners.clear();
   poll.on = false;
+  vi.useRealTimers();
 });
 
 describe('AlertBanner in poll mode (D-089, no socket)', () => {
@@ -119,6 +120,55 @@ describe('AlertBanner in poll mode (D-089, no socket)', () => {
 });
 
 describe('AlertBanner', () => {
+  it('keeps a shown suspected alert on confidence upgrade and accepts a later MSG31 alert', () => {
+    render(<AlertBanner />);
+    const suspected = 'Suspected incident: TL-0042 (Le Thi E), 10:15. Acknowledge now.';
+    push(entry('incident.alert', { ...alertPayload, message: suspected }));
+    push(
+      entry('incident.changed', {
+        incidentId: 'inc-1',
+        state: 'NOTIFY_PRIMARY',
+        confidence: 'CONFIRMED',
+      }),
+    );
+    expect(screen.getByRole('alert').textContent).toContain(suspected);
+    expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeTruthy();
+    push(
+      entry('incident.alert', {
+        ...alertPayload,
+        message: 'SOS: TL-0042, 10:16. Acknowledge now.',
+      }),
+    );
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert').textContent).toContain('SOS: TL-0042, 10:16.');
+  });
+
+  it('keeps polled suspected text on upgrade, then uses MSG31 after a later transition', async () => {
+    poll.on = true;
+    vi.useFakeTimers();
+    const item = {
+      ...incident('NOTIFY_PRIMARY'),
+      source: 'CADENCE_INFERRED',
+      confidence: 'SUSPECTED',
+    };
+    fetchIncidents.mockResolvedValue({ items: [item] });
+    render(<AlertBanner />);
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(screen.getByRole('alert').textContent).toContain('Suspected incident: TL-0009');
+    fetchIncidents.mockResolvedValue({ items: [{ ...item, confidence: 'CONFIRMED' }] });
+    await act(async () => vi.advanceTimersByTimeAsync(15_000));
+    expect(screen.getByRole('alert').textContent).toContain('Suspected incident: TL-0009');
+    fetchIncidents.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => vi.advanceTimersByTimeAsync(15_000));
+    expect(screen.getByRole('alert').textContent).toContain('Suspected incident: TL-0009');
+    fetchIncidents.mockResolvedValue({
+      items: [{ ...item, state: 'NOTIFY_BACKUP', confidence: 'CONFIRMED' }],
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(15_000));
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert').textContent).toContain('SOS: TL-0009');
+  });
+
   it('replaces a duplicate incident alert, so acknowledging it leaves no duplicate banner', async () => {
     acknowledgeIncident.mockResolvedValue(undefined);
     render(<AlertBanner />);

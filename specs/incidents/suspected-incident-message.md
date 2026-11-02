@@ -1,8 +1,9 @@
 # Suspected-incident alert message
 
 Specification follow-up to [PR #242](https://github.com/TrekLink-Team/treklink-web/pull/242),
-reviewed 2026-11-01. This contract awaits review and implementation. The current dispatcher still
-sends MSG31 for transition alerts, including a `SUSPECTED` incident. No new SRS MSG number is
+reviewed 2026-11-01. KhoaDD accepted this contract in PR #313 and ruled that an already displayed
+alert is not rewritten on confidence upgrade. The dispatcher selects the suspected wording for
+`SUSPECTED` / `CADENCE_INFERRED` transition alerts; confirmed transition alerts use MSG31. No new SRS MSG number is
 allocated here: the SRS catalog already uses MSG40 for group depth, while the incidents spec uses
 it for device silence. Catalog reconciliation belongs to the leader's SRS revision.
 
@@ -37,8 +38,11 @@ specification adds no new severity, colour, pulse rule, rescue instruction or co
 
 A later SOS upgrades the same incident to `CONFIRMED` in place under REQ-EVT-02. It emits
 `incident.changed`; it does not create another incident, transition or set of alert rows. New
-transition alerts for a confirmed incident use MSG31. The existing contracts do not define rewriting
-an already displayed alert on an upgrade; that behavior is left for review before implementation.
+transition alerts for a confirmed incident use MSG31. An already displayed alert keeps its text on
+the confidence upgrade, as KhoaDD ruled in PR #313. `incident.changed` invalidates the relevant
+incident detail and incident queues, which refetch and show the updated confidence. Poll fallback
+also keeps an existing banner's text while the incident stays in the same state; a later state
+transition may show a new alert. A confidence upgrade queues no replacement delivery.
 
 Positions joining an open episode do not create another alert. After an episode closes, a new
 qualifying burst may open a fresh suspected incident, as documented in design §4. A short simulator

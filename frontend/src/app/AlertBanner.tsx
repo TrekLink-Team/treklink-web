@@ -26,6 +26,8 @@ interface Alert {
   incidentId: string;
   kind: AlertKind;
   text: string;
+  // Poll fallback only: confidence changes within this state keep the already displayed text.
+  state?: Incident['state'];
 }
 
 // A device-silent alert stays until dismissed or until its incident has ended.
@@ -79,7 +81,14 @@ const polledAlerts = (items: readonly Incident[], staff: boolean): Alert[] =>
       return {
         incidentId: incident.id,
         kind: 'TRANSITION' as const,
-        text: `${SOURCE_TEXT[incident.source]}: ${incident.device.assetTag ?? 'Unknown device'}${
+        state: incident.state,
+        text: `${
+          incident.source === 'CADENCE_INFERRED'
+            ? incident.confidence === 'SUSPECTED'
+              ? 'Suspected incident'
+              : 'SOS'
+            : SOURCE_TEXT[incident.source]
+        }: ${incident.device.assetTag ?? incident.code}${
           holder ? ` (${holder})` : ''
         }, ${time}. Acknowledge now.`,
       };
@@ -110,7 +119,13 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
         const page = staff
           ? await fetchFleetIncidents(['UNROUTED', 'ESCALATED'], 1)
           : await fetchIncidents({ open: true });
-        if (!stopped) setPolled(polledAlerts(page.items, staff));
+        if (!stopped)
+          setPolled((current) =>
+            polledAlerts(page.items, staff).map(
+              (alert) =>
+                current.find((old) => same(old, alert) && old.state === alert.state) ?? alert,
+            ),
+          );
       } catch {
         // The next poll tries again; a failed read never clears a banner already shown.
       }

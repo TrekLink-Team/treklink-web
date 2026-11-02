@@ -155,7 +155,11 @@ still set, and the device going silent after a rescue is no news. Any other owne
 alerts nobody. One alert goes out per set;
 clearing the flag queues nothing, and a device still silent on the next sweep queues nothing more, as the
 flag is already set. The dispatcher writes MSG40 "Device silent: {device} ({holder}), last heard {time}."
-for a `STALE` row, with `at` the last reading, and MSG31 for a `TRANSITION` row; `incident.alert` carries
+for a `STALE` row, with `at` the last reading. A `TRANSITION` row uses the accepted
+[`suspected-incident-message.md`](suspected-incident-message.md) wording when its incident is
+`SUSPECTED` from `CADENCE_INFERRED`; otherwise it uses MSG31. A later confirmation refreshes
+incident/queue confidence through `incident.changed`, without rewriting a displayed alert or
+queuing another delivery (PR #313 ruling). Later confirmed transition alerts use MSG31. `incident.alert` carries
 `kind`, and the banner shows a `STALE` alert with Dismiss in place of Acknowledge, behind any SOS alert.
 
 The dispatcher reads `alert_deliveries WHERE status = PENDING AND nextAttemptAt <= now()` with

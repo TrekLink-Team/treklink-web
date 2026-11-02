@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AccountType, ContractStatus, IngressPath, PlanType, Prisma } from '@prisma/client';
+import {
+  AccountType,
+  AlertChannel,
+  ContractStatus,
+  IngressPath,
+  PlanType,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountsService } from '../src/modules/auth';
 import { AccountsRepository } from '../src/modules/auth/accounts.repository';
@@ -294,6 +301,19 @@ describe('Cadence-inferred incident (incidents REQ-EVT-02), against Postgres', (
     expect(opener).toMatchObject({ deviceId, kind: 'POSITION', incidentId: incident.id });
     expect(transitions[0].refEventId).toBe(opener.eventId);
     const alerts = await prisma.alertDelivery.findMany({ where: { incidentId: incident.id } });
+    // Read the real claim join without delivering or changing any pending rows in this database.
+    const claimed = () =>
+      prisma.$transaction(async (tx) =>
+        (
+          await new AlertDeliveriesRepository().claimDue(
+            [AlertChannel.WEBSOCKET],
+            new Date(),
+            10000,
+            tx,
+          )
+        ).find((row) => row.incidentId === incident.id),
+      );
+    expect(await claimed()).toMatchObject({ confidence: 'SUSPECTED', source: 'CADENCE_INFERRED' });
     expect(alerts.map((row) => `${row.recipientId ?? 'org'}:${row.channel}`).sort()).toEqual(
       [
         `${operatorId}:EMAIL`,
@@ -313,7 +333,12 @@ describe('Cadence-inferred incident (incidents REQ-EVT-02), against Postgres', (
     ).toBeGreaterThanOrEqual(3);
 
     // A later SOS text of the episode upgrades it to CONFIRMED in place.
+    const changed = jest.fn();
+    emitter.on('incident.changed', changed);
     await expect(ingestion.ingest(sos(nodeNum))).resolves.toBe('ACCEPTED');
+    emitter.off('incident.changed', changed);
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({ incidentId: incident.id }));
+    expect(await claimed()).toMatchObject({ confidence: 'CONFIRMED', source: 'CADENCE_INFERRED' });
     const upgraded = await prisma.incident.findUniqueOrThrow({ where: { id: incident.id } });
     expect(upgraded).toMatchObject({
       state: 'NOTIFY_PRIMARY',
