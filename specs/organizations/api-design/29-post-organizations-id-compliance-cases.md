@@ -151,7 +151,7 @@ Opens a case against an organization for a suspected fraud, theft, IP violation,
         </tr>
         <tr>
             <td>400</td>
-            <td>A loss case is unknown, belongs to another organization, or is already linked to another compliance case (<code>VALIDATION_FAILED</code>)</td>
+            <td>A loss case is unknown or belongs to another organization (<code>VALIDATION_FAILED</code>)</td>
 <td>
 
 ```json
@@ -162,6 +162,23 @@ Opens a case against an organization for a suspected fraud, theft, IP violation,
   "isSuccess": false,
   "statusCode": 400,
   "message": "A loss case is unknown or belongs to another organization."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>A loss case is already linked to another compliance case (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "A loss case is already linked to a compliance case."
 }
 ```
 </td>
@@ -186,13 +203,18 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"A loss case is unknown, belongs to another organization, or is already linked to another compliance case?"}
+    D3{"A loss case is unknown or belongs to another organization?"}
     D2 -->|no| D3
     E3["Return 400 VALIDATION_FAILED"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"A loss case is already linked to another compliance case?"}
+    D3 -->|no| D4
+    E4["Return 400 VALIDATION_FAILED"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
     P0["Insert compliance_cases OPEN"]
-    D3 -->|no| P0
+    D4 -->|no| P0
     P1["Link the loss cases"]
     P0 --> P1
     P2["Emit audit.record complianceCase.open"]
