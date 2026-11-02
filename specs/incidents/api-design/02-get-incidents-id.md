@@ -65,18 +65,18 @@ No body.
     "outcomeNote": null,
     "statusUpdates": [
       {
-        "id": "su-4",
+        "id": "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc32",
         "note": "Reached the holder, minor knee injury",
         "author": {
           "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
           "fullName": "Pham Van D"
         },
         "createdAt": "2026-10-20T03:15:00.000Z",
-        "correctsId": "su-3",
+        "correctsId": "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc31",
         "correctedById": null
       },
       {
-        "id": "su-3",
+        "id": "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc31",
         "note": "Reached the holder, minor ankle injury",
         "author": {
           "id": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
@@ -84,7 +84,7 @@ No body.
         },
         "createdAt": "2026-10-20T03:15:00.000Z",
         "correctsId": null,
-        "correctedById": "su-4"
+        "correctedById": "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc32"
       }
     ],
     "authorityReports": [

@@ -28,25 +28,25 @@ Appends a status note during `ACKNOWLEDGED` or `RESPONDING` and resets the stale
 ```json
 {
   "note": "Reached the holder, minor knee injury",
-  "correctsId": "su-3"
+  "correctsId": "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc31"
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | note | Status | string | yes | `Reached the holder, minor ankle injury` |
-| correctsId | The earlier update of this incident that this one corrects | uuid | no | `su-3` |
+| correctsId | The earlier update of this incident that this one corrects | uuid | no | `9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc31` |
 
 ## Response sample
 
 ```json
 {
   "result": {
-    "id": "su-4",
+    "id": "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc32",
     "note": "Reached the holder, minor knee injury",
     "createdAt": "2026-10-20T03:15:00.000Z",
     "statusDueAt": "2026-10-20T04:45:00Z",
-    "correctsId": "su-3"
+    "correctsId": "9dcb49fb-3b6a-4f45-9c4a-1a712e8ebc31"
   },
   "isSuccess": true,
   "statusCode": 201,
