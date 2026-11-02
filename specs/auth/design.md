@@ -662,3 +662,170 @@ sequenceDiagram
 
 ***Figure 12***: UC-10 Manage Platform Accounts, part 2 of 2. The same page serves an Org Manager created
 by organization registration (UC-01), so MF-01 continues from here with a signed-in Manager.
+
+---
+
+## 9. Per-organization role policy (proposal, D-095)
+
+> **Status**: Proposal of TanNB, 2026-11-02, for the ruling of the leader (D-095 rule 2). It changes D-057 and touches D-061. Nothing in this section is built, and `scripts/specs/catalog.py`, the seed and the schema stay as they are until the ruling. Requirements: REQ-UBI-10 to REQ-UBI-12, REQ-EVT-10 and REQ-EVT-11, REQ-STA-04, REQ-ERR-10 to REQ-ERR-12. Screen: `specs/frontend/ui-design/3-7-organization-roles-and-permissions.md`.
+
+An Org Manager edits what the two organization roles of their own organization may do. TrekLink keeps control through a ceiling: no organization can give a role more than the `ORG_MANAGER` role holds in the data, which the Admin edits on screen 7.2.
+
+### 9.1 Terms
+
+| Term | Meaning |
+|---|---|
+| Baseline | The rows of `role_permissions` of the role, as the Admin set them on screen 7.2. |
+| Ceiling | The baseline of `ORG_MANAGER`. It bounds both organization roles in every organization. |
+| Policy | The stored difference of one organization for one role: a set of grants and revokes plus a `version`. |
+| Grant | A permission the baseline of the role lacks, the ceiling holds and that is not `protected`. Only `ORG_OPERATOR` can receive one. |
+| Revoke | A permission the baseline of the role holds. |
+| Effective set | What the members of that role in that organization may do. |
+
+### 9.2 Data model
+
+```mermaid
+erDiagram
+    ORGANIZATION ||--o{ ORGANIZATION_ROLE_POLICY : "tunes"
+    ROLE ||--o{ ORGANIZATION_ROLE_POLICY : "is tuned by"
+    ORGANIZATION_ROLE_POLICY ||--o{ ORGANIZATION_ROLE_PERMISSION : "lists"
+    PERMISSION ||--o{ ORGANIZATION_ROLE_PERMISSION : "is changed by"
+    USER |o--o{ ORGANIZATION_ROLE_POLICY : "last saved by"
+    ORGANIZATION_ROLE_POLICY {
+        uuid organizationId PK
+        uuid roleId PK
+        int version
+        uuid updatedById FK
+        datetime updatedAt
+    }
+    ORGANIZATION_ROLE_PERMISSION {
+        uuid organizationId PK
+        uuid roleId PK
+        uuid permissionId PK
+        enum effect
+    }
+```
+
+***Figure 13***: Per-organization role policy, Crow's foot notation. `||` is exactly one, `o{` is zero or many, `|o` is zero or one. A policy exists for an organization and a role once a Manager has saved it; no row means version 0 and no difference. `effect` is `GRANT` or `REVOKE`. `ORGANIZATION` belongs to `organizations`; both new models belong to `auth` and relate to `Organization` the way other modules already do.
+
+| Model | Notes |
+|---|---|
+| `OrganizationRolePolicy` | One row per organization and role, created by the first save. `version` starts at 1 and counts the saves; it is the `expectedVersion` of the next one. `updatedById` is the Manager who saved. |
+| `OrganizationRolePermission` | One row per grant or revoke. Composite primary key `(organizationId, roleId, permissionId)`; a foreign key to the policy of the same organization and role. Deleted and re-inserted with the policy on every save. |
+
+Both tables keep their rows when an organization is closed (REQ-STA-04).
+
+### 9.3 Effective set
+
+For a role `R` of organization `O`, with `B(R)` the baseline, `G` and `V` the grants and revokes stored for `(O, R)`, and `C` the ceiling:
+
+1. `own(R) = (B(R) ∪ G) ∖ V`, then keep only permissions of account type `ORGANIZATION` that are in `C`.
+2. For `ORG_OPERATOR`, the effective set is `own(ORG_OPERATOR)`.
+3. For `ORG_MANAGER`, the effective set is `own(ORG_MANAGER) ∪ effective(ORG_OPERATOR)` (REQ-UBI-05), plus `organizationRole.manage.own` always (REQ-UBI-12).
+
+A revoke on the Operator therefore reaches the Manager only for a permission the Manager does not hold in its own baseline (OQ-01). A stored grant outside a changed ceiling, and a stored revoke of a permission the baseline no longer holds, are ignored without being deleted (REQ-EVT-11).
+
+### 9.4 Cache and ability (touches D-061)
+
+`PermissionCache.rulesFor(roleKeys)` becomes `rulesFor(roleKeys, organizationId)`. A TrekLink role keeps its cache entry by role key. An organization role is cached by `(organizationId, roleKey)` and holds the permission rows of the effective set of 9.3, read once. `AbilityFactory.forContext` already receives `organizationId` in its context; it passes it on. `PoliciesGuard`, `@CheckPolicies` and `scopeWhere` do not change, and the new handlers declare `ability.can('manage', 'OrganizationRole')` and `ability.can('read', 'OrganizationRole')`.
+
+`policy.changed` gains an optional payload `{ organizationId }`. With it, `PermissionCache.invalidate` drops only that organization's entries and does not bump `policyVersion`; without it, as an Admin edit emits today, it drops everything and bumps the version. The access token carries no permissions, so no token changes and no session ends (D-060 is unchanged). The cache is in memory, so the next-request guarantee holds per process, as it does for REQ-EVT-08 today (behaviour across several instances is unverified).
+
+An organization API key keeps the fixed list of permission keys it carries (task 4.3, `forApiKey`) and is not narrowed by a policy (OQ-02).
+
+### 9.5 Endpoints
+
+| API | Module | Permission | Purpose |
+|---|---|---|---|
+| `GET /api/organization/roles` | auth | `organizationRole.manage.own` | The two roles of the caller's organization: baseline keys, effective keys, `version`, and the ceiling as a catalog of descriptions. The organization comes from the token (REQ-UBI-06). |
+| `PUT /api/organization/roles/:roleKey/permissions` | auth | `organizationRole.manage.own` | Replaces the effective set of one role, with `expectedVersion`. The service stores the difference from the baseline. |
+| `GET /api/organizations/:id/roles` | organizations | `organizationRole.read` | The same view for TrekLink Admin and Staff, read-only. It calls the read service of `auth`, as `organizations` already calls its account services. |
+
+The full-list `PUT` keeps the shape of `PUT /api/roles/:id/permissions` (api-design 16), so the screen can send the grid state without computing a difference. Files: auth api-design 19 and 20, organizations api-design 33.
+
+### 9.6 Sequence: a Manager saves a role
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Org Manager
+    participant P as Organization Roles Page
+    participant C as OrganizationRolesController
+    participant S as OrganizationRolePolicyService
+    participant X as AccountContextProvider
+    participant R as OrganizationRolePolicyRepository
+    participant K as PermissionCache
+    participant DB as Postgres
+    M->>P: Save permissions
+    P->>C: PUT /api/organization/roles/{roleKey}/permissions {permissionKeys, expectedVersion}
+    C->>S: replace(caller, roleKey, dto)
+    activate S
+    S->>X: forUser(caller.id)
+    activate X
+    X-->>S: organizationId, organizationStatus
+    deactivate X
+    alt organization is not ACTIVE
+        S-->>C: 409 ORGANIZATION_NOT_ACTIVE
+    else organization is ACTIVE
+        S->>R: baselineOf(roleKey), ceiling()
+        activate R
+        R->>DB: SELECT role_permissions, permissions
+        R-->>S: baseline, ceiling
+        deactivate R
+        S->>S: check keys against catalog, ceiling and organizationRole.manage.own
+        alt a check fails
+            S-->>C: 400 UNKNOWN_PERMISSION or PERMISSION_OUT_OF_CEILING, 409 MANAGER_LOCKOUT
+        else the keys are valid
+            S->>R: replace(organizationId, roleKey, grants, revokes, expectedVersion, tx)
+            activate R
+            R->>DB: SELECT policy FOR UPDATE
+            alt expectedVersion differs
+                R-->>S: version conflict
+                S-->>C: 409 STALE_VERSION
+            else expectedVersion matches
+                R->>DB: DELETE and INSERT organization_role_permissions, UPDATE version
+                R-->>S: saved policy
+                S-)K: policy.changed {organizationId}
+                S-)DB: INSERT audit_log organization.rolePermissions (audit.record, after commit)
+                S-->>C: 200 role, version
+            end
+            deactivate R
+        end
+    end
+    deactivate S
+    C-->>P: envelope
+    P-->>M: toast "Permissions updated" or the banner of the error
+```
+
+***Figure 14***: A Manager saves the permissions of one role. The two outer `alt` blocks separate the refusals that come before any write from the save itself; the inner `alt` separates a stale version from a successful compare and set. The audit record and the cache event follow the commit.
+
+### 9.7 Proposed decision text (for the leader)
+
+**Amends D-057.**
+
+1. Rule 2 stays: a role holds only permissions of its own account type, and the catalog is read-only and comes from the seed.
+2. New: an organization may store grants and revokes for its `ORG_MANAGER` and `ORG_OPERATOR` roles. The effective set is the baseline, adjusted by those rows, kept inside the ceiling, with `ORG_MANAGER` also holding the Operator's set (9.3). The ceiling is the `ORG_MANAGER` baseline.
+3. New: the flag `protected` means that the highest role of an account type cannot lose the permission: `ADMIN` for TrekLink permissions (as today), `ORG_MANAGER` for organization permissions, and a `protected` permission is never granted to a lower role. `PUT /api/roles/:id/permissions` refuses to remove one from `ORG_MANAGER` with 409 `MANAGER_LOCKOUT`, and screen 7.2 shows such a cell as locked ("Required for Manager").
+4. New catalog entries: `organizationRole.manage.own` (account type `ORGANIZATION`, `protected`, granted to `ORG_MANAGER`) and `organizationRole.read` (account type `TREKLINK`, granted to `STAFF`, held by `ADMIN` through REQ-UBI-05). The CASL subject is `OrganizationRole`.
+5. New error codes: `MANAGER_LOCKOUT` (409), `PERMISSION_OUT_OF_CEILING` (400). `STALE_VERSION` (409, MSG36) and `ORGANIZATION_NOT_ACTIVE` (409) already exist.
+
+**Touches D-061.** `AbilityFactory.forContext` and `PermissionCache.rulesFor` take the organization (9.4). The global guard, `@Public()`, `@Authenticated()` and `@CheckPolicies` keep their rules.
+
+**Does not change D-060.** Tokens carry no permissions, an organization-scoped change does not bump `pv`, and no session is revoked. The leader may rule otherwise (OQ-01 to OQ-05 in `requirements.md`).
+
+**Rejected.** A full copy of the role per organization at registration (it drifts from the Admin's changes). A ceiling set per organization (more screens and data for no stated need). Permissions inside the access token (a change would wait for the token to expire, against REQ-EVT-08). Ending the sessions of the affected members (the ability is rebuilt on every request anyway).
+
+### 9.8 Errors added
+
+| Code | HTTP | Where |
+|---|---|---|
+| `MANAGER_LOCKOUT` | 409 | organization role save; global role save that removes a Manager-protected permission |
+| `PERMISSION_OUT_OF_CEILING` | 400 | organization role save |
+| `STALE_VERSION` | 409 | organization role save (MSG36) |
+| `ORGANIZATION_NOT_ACTIVE` | 409 | organization role save |
+
+### 9.9 Testing strategy (build in W10)
+
+- Unit: the effective set of 9.3 as a table of cases (baseline only, grant, revoke, grant outside the ceiling ignored, Operator revoke reaching the Manager, Manager protected permission always present); `PermissionCache` keyed by organization, `invalidate` with and without a payload.
+- E2E: AC-07 to AC-09 with two organizations; every validation row of auth api-design 19 and 20; the cross-organization 404 rule of NFR-SEC-04 for the Admin read.
+- Database: two concurrent saves for one `(organization, role)`, one wins and the other gets `STALE_VERSION` (`FOR UPDATE` on the policy row).

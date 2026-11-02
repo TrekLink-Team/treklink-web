@@ -22,6 +22,8 @@
 | 16 | PUT | `/api/roles/:id/permissions` | TrekLink Admin | [16-put-roles-id-permissions.md](16-put-roles-id-permissions.md) |
 | 17 | GET | `/api/auth-events` | TrekLink Admin | [17-get-auth-events.md](17-get-auth-events.md) |
 | 18 | GET | `/api/permissions` | TrekLink Admin | [18-get-permissions.md](18-get-permissions.md) |
+| 19 | GET | `/api/organization/roles` | Org Manager (`organizationRole.manage.own`) | [19-get-organization-roles.md](19-get-organization-roles.md) |
+| 20 | PUT | `/api/organization/roles/:roleKey/permissions` | Org Manager (`organizationRole.manage.own`) | [20-put-organization-roles-rolekey-permissions.md](20-put-organization-roles-rolekey-permissions.md) |
 
 
 Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).

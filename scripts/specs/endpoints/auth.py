@@ -1,4 +1,4 @@
-from ._common import USER_ID, ORG_ID, NOW, ep, paged, PAGE_QUERY
+from ._common import USER_ID, ORG_ID, NOW, ep, paged, PAGE_QUERY, STALE
 
 ME = {"id": USER_ID, "email": "manager@acme-trek.vn", "fullName": "Nguyen Van A", "accountType": "ORGANIZATION",
       "roles": ["ORG_MANAGER"], "organization": {"id": ORG_ID, "code": "ORG-0007", "legalName": "ACME Trek Co., Ltd.",
@@ -11,6 +11,20 @@ BAD_CODE = (400, "CODE_INVALID", "The code is wrong, expired, used or out of att
             "This code is invalid or has expired. Request a new one.")
 WEAK = (400, "PASSWORD_POLICY", "The new password breaks the policy (auth.passwordMinLength)",
         "password must be at least 8 characters.")
+
+ORG_ROLE_CATALOG = [{"key": "incident.read.own", "action": "read", "subject": "Incident", "scope": "own",
+                     "description": "Read the incidents of the own organization", "protected": False},
+                    {"key": "organizationRole.manage.own", "action": "manage", "subject": "OrganizationRole",
+                     "scope": "own", "description": "Edit what the roles of the own organization may do",
+                     "protected": True}]
+ORG_ROLES = {"roles": [{"key": "ORG_MANAGER", "version": 0,
+                        "baselineKeys": ["incident.read.own", "organizationRole.manage.own"],
+                        "effectiveKeys": ["incident.read.own", "organizationRole.manage.own"]},
+                       {"key": "ORG_OPERATOR", "version": 2, "baselineKeys": ["incident.read.own"],
+                        "effectiveKeys": ["incident.read.own"]}],
+             "catalog": ORG_ROLE_CATALOG}
+PROPOSAL = ("Proposal of D-095, specified in `design.md` section 9; not built until the leader rules on the "
+            "decision text there. ")
 
 ENDPOINTS = [
     ep("POST", "/api/auth/login", "Sign in", "Public",
@@ -274,4 +288,52 @@ ENDPOINTS = [
        steps=["Read permissions ordered by key", "Map conditions to `scope` (`own` when bound to the caller's organization)"],
        controller="PermissionsController", service="RolesService", call="catalog()",
        seq=["Svc->>DB: SELECT permissions ORDER BY key"]),
+
+    ep("GET", "/api/organization/roles", "Roles of the own organization", "Org Manager (`organizationRole.manage.own`)",
+       PROPOSAL + "Returns `ORG_MANAGER` and `ORG_OPERATOR` of the caller's organization with, for each, the "
+       "baseline the Admin set on screen 7.2, the effective keys after the organization's grants and revokes, "
+       "and the `version` of its policy (0 until the first save). `catalog` describes every permission inside "
+       "the ceiling, so the screen needs no call to `GET /api/permissions`. The organization comes from the "
+       "token, never from the request (REQ-UBI-06).",
+       "FR-AUTH-06, FR-AUTH-10, FR-AUTH-11, D-095",
+       response=ORG_ROLES, entity="Role",
+       steps=["Read the baseline of both roles and the ceiling", "Read the organization's policy rows",
+              "Compute the effective keys (design section 9.3)"],
+       controller="OrganizationRolesController", service="OrganizationRolePolicyService", call="view(caller)",
+       seq=["Svc->>DB: SELECT role_permissions, permissions",
+            "Svc->>DB: SELECT organization_role_policies, organization_role_permissions WHERE organizationId"]),
+
+    ep("PUT", "/api/organization/roles/:roleKey/permissions", "Replace the permissions of an organization role",
+       "Org Manager (`organizationRole.manage.own`)",
+       PROPOSAL + "Replaces the effective permission set of `ORG_MANAGER` or `ORG_OPERATOR` of the caller's "
+       "organization. The service stores the difference from the baseline as grants and revokes, in one "
+       "transaction, and compares `expectedVersion` with the stored `version`. The change applies to every "
+       "holder from the next request and ends no session (REQ-EVT-10). Only an `ACTIVE` organization may "
+       "save (REQ-STA-04).",
+       "FR-AUTH-06, FR-AUTH-10, FR-AUTH-11, D-095",
+       path=[["roleKey", "`ORG_MANAGER` or `ORG_OPERATOR`", "string", "`ORG_OPERATOR`"]],
+       body=[["permissionKeys", "Full list of effective permission keys", "string[]", "yes",
+              "`[\"incident.read.own\"]`"],
+             ["expectedVersion", "The `version` read with the role", "int", "yes", "`2`"]],
+       sample={"permissionKeys": ["incident.read.own"], "expectedVersion": 2},
+       response={"key": "ORG_OPERATOR", "version": 3, "effectiveKeys": ["incident.read.own"]},
+       message="Permissions updated", entity="Role",
+       errors=[(400, "UNKNOWN_PERMISSION", "A key is not in the permission catalogue", "Unknown permission: x."),
+               (400, "PERMISSION_OUT_OF_CEILING",
+                "A key is outside the ceiling, is a TrekLink permission, is a grant for ORG_MANAGER, or grants a protected permission",
+                "incident.respond.own cannot be granted to this role."),
+               (409, "MANAGER_LOCKOUT", "The set for ORG_MANAGER lacks organizationRole.manage.own",
+                "Managers must keep the right to manage roles."),
+               (409, "ORGANIZATION_NOT_ACTIVE", "The organization is PENDING or SUSPENDED",
+                "Role permissions cannot be changed while the organization is suspended."),
+               STALE],
+       steps=["Require an ACTIVE organization through the account context", "Validate the keys against the catalog, the ceiling and the Manager lockout",
+              "Lock the policy row, compare expectedVersion", "Replace grants and revokes, set version + 1",
+              "Emit policy.changed with the organizationId and audit.record organization.rolePermissions after commit"],
+       controller="OrganizationRolesController", service="OrganizationRolePolicyService",
+       call="replace(caller, roleKey, dto)",
+       seq=["Svc->>Svc: check keys and the lockout",
+            "Svc->>DB: SELECT organization_role_policies FOR UPDATE",
+            "Svc->>DB: DELETE + INSERT organization_role_permissions, UPDATE version",
+            "Svc-)Svc: emit policy.changed {organizationId}"]),
 ]

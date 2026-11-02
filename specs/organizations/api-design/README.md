@@ -36,6 +36,7 @@
 | 30 | POST | `/api/compliance-cases/:id/actions` | TrekLink Admin (suspend); TrekLink Staff, TrekLink Admin (revoke) | [30-post-compliance-cases-id-actions.md](30-post-compliance-cases-id-actions.md) |
 | 31 | POST | `/api/compliance-cases/:id/close` | TrekLink Staff, TrekLink Admin | [31-post-compliance-cases-id-close.md](31-post-compliance-cases-id-close.md) |
 | 32 | GET | `/api/compliance-cases/:id` | TrekLink Staff, TrekLink Admin | [32-get-compliance-cases-id.md](32-get-compliance-cases-id.md) |
+| 33 | GET | `/api/organizations/:id/roles` | TrekLink Staff, TrekLink Admin (`organizationRole.read`) | [33-get-organizations-id-roles.md](33-get-organizations-id-roles.md) |
 
 
 Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).

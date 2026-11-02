@@ -141,6 +141,20 @@ contact address given at registration when none can be reached.
 
 ---
 
+## 4.2 Role permissions of an organization (D-095 proposal)
+
+The data, the effective-set rule, the endpoints for the Manager and the cache are in `specs/auth/design.md` section 9; nothing of that model lives in this module. This module adds three things, all waiting for the leader's ruling:
+
+| What | How |
+|---|---|
+| TrekLink read | `GET /api/organizations/:id/roles` (api-design 33) checks that the organization exists, then calls `OrganizationRolePolicyService.view(organizationId)` of `auth`. `organizations` already calls `auth` services (section 5), so the dependency direction does not change. |
+| Status gate | `auth` asks `ACCOUNT_CONTEXT_PROVIDER.forUser(userId)` for `organizationStatus` and refuses a save unless it is `ACTIVE` (auth REQ-STA-04). The port needs no new method. |
+| Closing | `OrganizationsService.close` does not touch the policy rows: a closed organization has no signed-in member (auth REQ-STA-03), and the rows stay for the record. |
+
+Screen: `specs/frontend/ui-design/3-7-organization-roles-and-permissions.md`.
+
+---
+
 ## 5. Services and ports
 
 | Export | Used by | Purpose |

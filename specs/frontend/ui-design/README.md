@@ -39,6 +39,7 @@ Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-
 | 3.4 | [API keys](3-4-api-keys.md) | TanNB | US-UC06 | 2026-10-23 |
 | 3.5 | [`FieldStationsPage`](3-5-fieldstationspage.md) | TanNB | US-UC06, US-UC42 | 2026-10-23 |
 | 3.6 | [`ComplianceCasePage` and channel key rotation](3-6-compliancecasepage-and-channel-key-rotation.md) | TanNB | US-UC63 | 2026-10-23 |
+| 3.7 | [Roles and permissions of the organization](3-7-organization-roles-and-permissions.md) (proposal, D-095) | TanNB | US-UC10 | 2026-11-07 |
 | 4.1 | [Hardware variants admin](4-1-hardware-variants-admin.md) | KhoaDD | US-UC13 | 2026-10-23 |
 | 4.2 | [Fleet table, register, intake, `DeviceDetailPage`](4-2-fleet-table-register-intake-devicedetailpage.md) | KhoaDD | US-UC11, US-UC12, US-UC44, US-UC53, US-UC62 | 2026-10-23 |
 | 4.3 | [`MaintenancePage` and `MaintenanceApprovalPage`](4-3-maintenancepage-and-maintenanceapprovalpage.md) | KhoaDD | US-UC52, US-UC64, US-UC65 | 2026-10-23 |

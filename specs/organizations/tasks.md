@@ -2,7 +2,7 @@
 
 > Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6; adds the NDA and licence
 > at verification, compliance cases (D-046), channel key exposure and rotation (D-045) and the Field
-> Station release (D-039). Fulfills `design.md`; endpoints are `api-design/01` to `32`.
+> Station release (D-039). Fulfills `design.md`; endpoints are `api-design/01` to `32`, and 33 (proposal, D-095).
 
 | | |
 |---|---|
@@ -131,10 +131,16 @@
   - **Do**: every Validation row of api-design 01 to 32; AC-01 to AC-11 except AC-06 (gateway-sync 4.2); cross-organization 404 for every route with `:id`
   - **Partly done** (2026-10-30, TanNB): `backend/test/organizations.e2e-spec.ts` runs the 31 routes of api-design 02 to 32 and 01 through the real pipeline with Prisma stubbed (the `e2e-callers.ts` harness, now with the organizations permission rows of the four roles): 401 without a token on every route, 403 for each role the matrix does not grant, the Validation rows (400) the pipe decides (registration, list query, uuid, and 24 rows of the other routes), and 404 for a Manager of another organization on every `:id` route it may call. AC-01 to AC-11, the 409 rows and the races stay in the `*.db-spec.ts` files of this module, which need Postgres (`test:db`). Done later (2026-11-02, TanNB): the Operator 403 on `GET /transitions` is a row of the matrix, and a linked loss case id that is not a uuid is a Validation row of api-design 29. Open: the 404 of Staff and Admin routes is decided in the service against rows the stub does not hold, so it is read through `organization-lifecycle.db-spec.ts`
   - _Requirements: AC-01 to AC-11_
+- [ ] 4.3 `GET /api/organizations/:id/roles` (owner TanNB)
+  - **Status**: proposal of D-095; build in W10 after the leader's ruling
+  - **Files**: `organizations.controller.ts`, `organization-profile.service.ts`
+  - **Do**: api-design 33 with `organizationRole.read`: check that the organization exists, then return `OrganizationRolePolicyService.view(organizationId)` of `auth`; add the cross-organization and unknown-id rows to the e2e suite; `close` leaves the policy rows alone
+  - **Test**: AC-12; an Org Operator gets 403, an unknown id 404
+  - _Requirements: REQ-EVT-14, REQ-STA-03, AC-12, FR-AUTH-06_
 
 ## Phase 5: Frontend Integration
 
-- [ ] 5.1 Registration page, Staff verification queue with the NDA and licence checkboxes, Admin approvals, Manager pages for members, roster, API keys, Field Stations and the release download, Staff compliance cases and key rotation (owner LongNN, tracked in `specs/frontend/tasks.md` 3.1 to 3.6; the registration page and the Staff and Admin review page, 3.1 and 3.2, are LongLP's from 2026-10-27, issue #98)
+- [ ] 5.1 Registration page, Staff verification queue with the NDA and licence checkboxes, Admin approvals, Manager pages for members, roster, API keys, Field Stations and the release download, Staff compliance cases and key rotation (owner LongNN, tracked in `specs/frontend/tasks.md` 3.1 to 3.6, and 3.7 for the role permissions screen of an organization (proposal, D-095, owner TanNB); the registration page and the Staff and Admin review page, 3.1 and 3.2, are LongLP's from 2026-10-27, issue #98)
 
 ## Phase 6: Verification & DoD
 

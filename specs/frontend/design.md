@@ -43,6 +43,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/o/contracts/new` | Request with quote | Org Manager |
 | `/o/invoices`, `/o/invoices/:id`, `/o/pay/:paymentId` | Invoices and SePay payment | Org Manager |
 | `/o/members`, `/o/roster`, `/o/api-keys`, `/o/field-stations` | Organization administration; the Field Stations page shows each station's version, `outdated`, and the current release download (FR-EVT-18) | Org Manager (roster and stations readable by Operators) |
+| `/o/roles` | Roles and permissions of the organization: the grid of 7.2 over `ORG_MANAGER` and `ORG_OPERATOR`; proposal of D-095, built after the leader's ruling | Org Manager |
 | `/o/loss-cases` | Loss cases of the organization's devices; a loss is reported from the contract's device row (D-045) | Org Manager |
 | `/t/organizations`, `/t/organizations/:id` | Verification (NDA and software licence) and approval queues; channel key exposure and rotation | TrekLink Staff, Admin |
 | `/t/contracts`, `/t/contracts/:id`, `/t/counter/:contractId` | Approval queue, counter handover and check-in, inspection, mid-contract replacement (UC-61) | TrekLink Staff |

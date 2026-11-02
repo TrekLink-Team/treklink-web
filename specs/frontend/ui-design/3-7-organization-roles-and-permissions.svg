@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800"><title>Roles and permissions of the organization</title><foreignObject x="0" y="0" width="1280" height="800"><div xmlns="http://www.w3.org/1999/xhtml" style="width:1280px;height:800px;overflow:hidden;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif"><style>
+a{color:#0d6e5f}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+th,td{border-bottom:1px solid #eef0f3;padding:8px 10px;text-align:left;vertical-align:middle}
+thead th{background:#fff;position:sticky;top:0;border-bottom:1px solid #c4cad3;font-size:13px}
+tbody th{font-weight:500;background:#fff;min-width:300px}
+.grp{background:#f5f6f8;font-size:12px;font-weight:600;color:#5a6370;text-transform:uppercase;letter-spacing:0.6px}
+.c{text-align:center}
+.on{display:inline-block;width:18px;height:18px;border-radius:4px;background:#0d6e5f;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700}
+.off{display:inline-block;width:16px;height:16px;border-radius:4px;border:1.5px solid #8a919c;background:#fff}
+.ro{display:inline-block;width:18px;height:18px;border-radius:4px;background:#9aa3af;color:#fff;font-size:13px;line-height:18px;text-align:center;font-weight:700}
+.chg{outline:2px solid #b45309;outline-offset:3px}
+.note{display:block;font-size:11px;color:#5a6370;margin-top:3px}
+.na{color:#8a919c}
+.reset{display:block;margin:6px auto 0;font-size:11px;font-weight:600;color:#0d6e5f;text-decoration:underline}
+</style><div style="width:1280px;height:800px;box-sizing:border-box;background:#f5f6f8;font-family:system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#12161c;display:flex;flex-direction:column">
+  <div style="height:56px;background:#12161c;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none">
+    <div style="font-weight:700;font-size:17px">TrekLink <span style="font-weight:500;color:#9aa3af;margin-left:8px">ACME Trek Co., Ltd.</span></div>
+    <div style="font-size:14px;color:#c9ced6">Nguyen Van A &#183; Manager</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="width:220px;flex:none;background:#fff;border-right:1px solid #dde1e7;padding:20px 12px;display:flex;flex-direction:column;gap:4px;font-size:14px">
+      <div style="padding:10px 12px;color:#3a424d">Members</div>
+      <div style="padding:10px 12px;color:#3a424d">Roster</div>
+      <div style="padding:10px 12px;color:#3a424d">API keys</div>
+      <div style="padding:10px 12px;color:#3a424d">Field Stations</div>
+      <div style="background:#e3f1ee;color:#08493f;font-weight:600;padding:10px 12px;border-radius:8px">Roles and permissions</div>
+    </div>
+    <div style="flex:1;padding:24px 32px;display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h1 style="margin:0;font-size:24px;font-weight:700">Roles and permissions</h1>
+          <div style="font-size:13px;color:#5a6370;margin-top:4px">What the roles of your organization may do, inside the limits TrekLink sets. A change applies to their holders on their next request.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="font-size:13px;color:#5a6370">1 change in 1 role</span>
+          <a href="#discard" style="background:#fff;color:#12161c;border:1px solid #c4cad3;text-decoration:none;font-weight:600;font-size:14px;padding:10px 18px;border-radius:8px">Discard draft</a>
+          <a href="#save" style="background:#0d6e5f;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">Save permissions</a>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;overflow:hidden;background:#fff;border:1px solid #dde1e7;border-radius:12px">
+        <table>
+          <caption style="text-align:left;padding:12px 10px;font-size:13px;color:#5a6370">Permissions by role of your organization. Press Space to change a cell.</caption>
+          <thead>
+            <tr>
+              <th scope="col">Permission</th>
+              <th scope="col" class="c">ORG_MANAGER<span class="note">Organization &#183; 5 &#183; system</span><a href="#reset-manager" class="reset">Reset to TrekLink default</a></th>
+              <th scope="col" class="c">ORG_OPERATOR<span class="note">Organization &#183; 2 &#183; system</span><a href="#reset-operator" class="reset">Reset to TrekLink default</a></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="rowgroup" colspan="3" class="grp">Incident</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">incident.read.own</span><span class="note">Read the incidents of the own organization</span></th>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">From ORG_OPERATOR</span></td>
+              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+            </tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">incident.respond.own</span><span class="note">Acknowledge and update an incident</span></th>
+              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+              <td class="c"><span class="off"></span><span class="note">Own organization only, Customised</span></td>
+            </tr>
+            <tr><th scope="rowgroup" colspan="3" class="grp">Live map</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">liveMap.read.own</span><span class="note">Read the live map of the own organization</span></th>
+              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+              <td class="c"><span class="off chg"></span><span class="note" style="color:#b45309">Changed</span></td>
+            </tr>
+            <tr><th scope="rowgroup" colspan="3" class="grp">Member</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">member.manage.own</span><span class="note">Invite and deactivate members</span></th>
+              <td class="c"><span class="on">&#10003;</span><span class="note">Own organization only</span></td>
+              <td class="c"><span class="off"></span><span class="note">Own organization only</span></td>
+            </tr>
+            <tr><th scope="rowgroup" colspan="3" class="grp">Organization role</th></tr>
+            <tr>
+              <th scope="row"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">organizationRole.manage.own</span><span class="note">Edit what the roles of the own organization may do</span></th>
+              <td class="c"><span class="ro">&#10003;</span><span class="note">Required for Manager</span></td>
+              <td class="c na">Not available</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px;color:#5a6370">Grey tick: read-only (inherited or required). Orange outline and the word Changed: differs from the saved set. Customised: the saved set differs from the TrekLink default.</div>
+    </div>
+  </div>
+</div></div></foreignObject></svg>
