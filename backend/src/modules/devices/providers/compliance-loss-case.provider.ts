@@ -4,6 +4,8 @@ import { DomainException, ErrorCode } from '../../../common/errors';
 import { COMPLIANCE_LOSS_CASES, ComplianceLossCaseProvider } from '../../organizations';
 import { LossCasesRepository } from '../loss-cases.repository';
 
+const ALREADY_LINKED = 'A loss case is already linked to a compliance case.';
+
 // devices' provider of the organizations port COMPLIANCE_LOSS_CASES (api-design 28 to 32, D-046): the
 // loss case codes a compliance case shows, and the link of loss cases to a case opened by Staff. It adds
 // itself to the array of the port when the module starts; without the port (a module test) it registers
@@ -40,10 +42,11 @@ export class DevicesComplianceLossCases implements ComplianceLossCaseProvider {
         throw this.refused('A loss case is unknown or belongs to another organization.');
       }
       if (row.complianceCaseId && row.complianceCaseId !== complianceCaseId) {
-        throw this.refused('A loss case is already linked to a compliance case.');
+        throw this.refused(ALREADY_LINKED);
       }
     }
-    await this.lossCases.linkToComplianceCase(lossCaseIds, complianceCaseId, tx);
+    const linked = await this.lossCases.linkToComplianceCase(lossCaseIds, complianceCaseId, tx);
+    if (linked !== lossCaseIds.length) throw this.refused(ALREADY_LINKED);
   }
 
   private refused(message: string) {

@@ -285,7 +285,7 @@ export class LossCaseService {
   // api-design 19 (REQ-EVT-14, FR-DEV-13, D-040, D-046): custody from `custodyOf` below, RENTER or
   // TREKLINK; a RENTER
   // case marks the organization's channel key exposed (`ChannelKeyService.markKeyExposed`), and a
-  // suspected theft or fraud of a renter opens or links a compliance case through
+  // suspected theft of a renter opens or links a compliance case through
   // LOSS_ORGANIZATION_ACTIONS. The search window starts.
   async triage(
     id: string,

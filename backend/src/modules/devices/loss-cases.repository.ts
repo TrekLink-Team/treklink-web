@@ -78,12 +78,18 @@ export class LossCasesRepository {
     });
   }
 
+  // Guarded on the link itself: a loss case another writer linked to a different case since the read
+  // is skipped, so the caller compares the count with the ids it asked for.
   async linkToComplianceCase(
     ids: string[],
     complianceCaseId: string,
     client: Client,
-  ): Promise<void> {
-    await client.lossCase.updateMany({ where: { id: { in: ids } }, data: { complianceCaseId } });
+  ): Promise<number> {
+    const { count } = await client.lossCase.updateMany({
+      where: { id: { in: ids }, OR: [{ complianceCaseId: null }, { complianceCaseId }] },
+      data: { complianceCaseId },
+    });
+    return count;
   }
 
   // LOSS-0001 upwards, serialized by an advisory lock held to the end of the transaction, the same

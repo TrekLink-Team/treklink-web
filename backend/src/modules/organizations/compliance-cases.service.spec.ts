@@ -233,7 +233,7 @@ describe('ComplianceCasesService', () => {
       expect(cases.setAuthorityReference).not.toHaveBeenCalled();
       expect(emitted[0][1]).toMatchObject({
         action: 'complianceCase.linkLossCase',
-        after: { lossCaseCode: 'LOSS-0004' },
+        after: { lossCaseCode: 'LOSS-0004', authorityReferenceSet: false },
       });
     });
 
@@ -241,6 +241,14 @@ describe('ComplianceCasesService', () => {
       cases.findOpenOfType.mockResolvedValue(THEFT);
       await service.openOrLink({ ...LOSS, policeReference: 'PR-17' }, TX);
       expect(cases.setAuthorityReference).toHaveBeenCalledWith('case-1', 'PR-17', TX);
+      expect(emitted[0][1]).toMatchObject({ after: { authorityReferenceSet: true } });
+    });
+
+    it('audits that a reference already on the case was kept', async () => {
+      cases.findOpenOfType.mockResolvedValue(THEFT);
+      cases.setAuthorityReference.mockResolvedValue(false);
+      await service.openOrLink({ ...LOSS, policeReference: 'PR-18' }, TX);
+      expect(emitted[0][1]).toMatchObject({ after: { authorityReferenceSet: false } });
     });
   });
 
