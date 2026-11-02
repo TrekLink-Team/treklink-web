@@ -72,6 +72,11 @@
 | `payment.recordCounter` | recordCounter | Invoice |  | TREKLINK | X | X |  |  |
 | `damageCharge.read` | read | DamageCharge |  | TREKLINK | X | X |  |  |
 | `damageCharge.decide` | decide | DamageCharge |  | TREKLINK | X |  |  |  |
+| `serviceCredit.read` | read | ServiceCredit |  | TREKLINK | X | X |  |  |
+| `serviceCredit.read.own` | read | ServiceCredit | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `serviceCredit.request` | request | ServiceCredit |  | TREKLINK | X | X |  |  |
+| `serviceCredit.decide` | decide | ServiceCredit |  | TREKLINK | X |  |  |  |
+| `serviceCredit.refund` | refund | ServiceCredit |  | TREKLINK | X | X |  |  |
 | `report.read` | read | Report |  | TREKLINK | X | X |  |  |
 | `fieldEvent.read` | read | FieldEvent |  | TREKLINK | X | X |  |  |
 | `syncAudit.read` | read | SyncAudit |  | TREKLINK | X |  |  |  |

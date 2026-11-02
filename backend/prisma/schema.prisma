@@ -207,6 +207,8 @@ model User {
   paymentsAsRequestedBy    Payment[]       @relation("Payment_requestedById")
   damageChargesAsDecided   DamageCharge[]  @relation("DamageCharge_decidedById")
   damageChargesAsInspector DamageCharge[]  @relation("DamageCharge_inspectorId")
+  serviceCreditsRequested  ServiceCredit[] @relation("ServiceCredit_requestedById")
+  serviceCreditsDecided    ServiceCredit[] @relation("ServiceCredit_decidedById")
   invoiceAdjustments       InvoiceLine[]   @relation("InvoiceLine_createdById")
 
   incidentsAsOwner      Incident[]             @relation("Incident_ownerId")
@@ -689,6 +691,7 @@ model Device {
   incidents          Incident[]
   invoiceLines       InvoiceLine[]
   damageCharges      DamageCharge[]
+  serviceCredits     ServiceCredit[]
   lossCases          LossCase[]
   disposal           DeviceDisposal?
 
@@ -884,7 +887,8 @@ model Inspection {
   inspector        User             @relation(fields: [inspectorId], references: [id])
   createdAt        DateTime         @default(now()) @db.Timestamptz(3)
 
-  damageCharges DamageCharge[]
+  damageCharges  DamageCharge[]
+  serviceCredits ServiceCredit[]
 
   @@index([deviceId, createdAt])
   @@index([contractDeviceId])
@@ -1029,6 +1033,7 @@ model RentalContract {
   transitions      ContractTransition[]
   invoices         Invoice[]
   damageCharges    DamageCharge[]
+  serviceCredits   ServiceCredit[]
   payments         Payment[]
   incidents        Incident[]
   lossCases        LossCase[]
@@ -1098,9 +1103,10 @@ model ContractDevice {
   replacementNotePath   String?
   replacementNoteSha256 String?
 
-  inspections Inspection[]
-  fieldEvents FieldEvent[] // events attributed to this custody interval (D-040)
-  lossCases   LossCase[]
+  inspections    Inspection[]
+  fieldEvents    FieldEvent[] // events attributed to this custody interval (D-040)
+  lossCases      LossCase[]
+  serviceCredits ServiceCredit[]
 
   @@index([contractId])
   @@index([deviceId])
@@ -1149,6 +1155,27 @@ enum InvoiceLineType {
   DAMAGE
   LOSS
   ADJUSTMENT
+  SERVICE_CREDIT // negative: a unit that failed through no fault of the organization (design §9)
+}
+
+// Why a unit failed through no fault of the organization (billing design §9.1, D-092 rule 5).
+enum ServiceCreditCause {
+  BATTERY_FAULT
+  RADIO_FAULT
+  GPS_FAULT
+  BOARD_FAULT
+  FIRMWARE_FAULT
+}
+
+// billing design §9.3. APPLIED once the whole decided amount is on invoices; a remainder keeps it
+// APPROVED until it lands, or the close turns it into REFUND_DUE.
+enum ServiceCreditStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  APPLIED
+  REFUND_DUE
+  REFUNDED
 }
 
 enum PaymentMethod {
@@ -1232,27 +1259,32 @@ model Invoice {
 }
 
 model InvoiceLine {
-  id          String          @id @default(uuid())
-  invoiceId   String
-  invoice     Invoice         @relation(fields: [invoiceId], references: [id])
-  seq         Int
-  type        InvoiceLineType
-  description String
-  deviceId    String?
-  device      Device?         @relation(fields: [deviceId], references: [id])
-  quantity    Int             @default(1)
-  unitVnd     BigInt
-  amountVnd   BigInt
-  dueAt       DateTime        @db.Timestamptz(3)
-  paidVnd     BigInt          @default(0)
-  createdById String?
-  createdBy   User?           @relation("InvoiceLine_createdById", fields: [createdById], references: [id])
-  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  id              String          @id @default(uuid())
+  invoiceId       String
+  invoice         Invoice         @relation(fields: [invoiceId], references: [id])
+  seq             Int
+  type            InvoiceLineType
+  description     String
+  deviceId        String?
+  device          Device?         @relation(fields: [deviceId], references: [id])
+  quantity        Int             @default(1)
+  unitVnd         BigInt
+  amountVnd       BigInt
+  dueAt           DateTime        @db.Timestamptz(3)
+  paidVnd         BigInt          @default(0)
+  createdById     String?
+  createdBy       User?           @relation("InvoiceLine_createdById", fields: [createdById], references: [id])
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  // A SERVICE_CREDIT line names its credit; a credit larger than one invoice lands as several lines
+  // (design §9.3, build ruling 2026-11-02).
+  serviceCreditId String?
+  serviceCredit   ServiceCredit?  @relation(fields: [serviceCreditId], references: [id])
 
   @@unique([invoiceId, seq])
   @@index([deviceId])
   @@index([createdById])
   @@index([dueAt])
+  @@index([serviceCreditId])
   @@map("invoice_lines")
 }
 
@@ -1323,6 +1355,55 @@ model DamageCharge {
   @@index([decidedById])
   @@index([status])
   @@map("damage_charges")
+}
+
+// A credit for a unit of a contract that failed through no fault of the organization (billing task
+// 8.1, design §9, D-092 rule 5). Staff request it after the unit is checked in or replaced; an Admin
+// who did not request it decides; the decided amount lands as negative SERVICE_CREDIT lines.
+model ServiceCredit {
+  id                     String              @id @default(uuid())
+  contractId             String
+  contract               RentalContract      @relation(fields: [contractId], references: [id])
+  contractDeviceId       String // the unit's row on the contract
+  contractDevice         ContractDevice      @relation(fields: [contractDeviceId], references: [id])
+  deviceId               String
+  device                 Device              @relation(fields: [deviceId], references: [id])
+  cause                  ServiceCreditCause
+  faultInspectionId      String // the FAILED inspection of that row (design §9.1)
+  faultInspection        Inspection          @relation(fields: [faultInspectionId], references: [id])
+  outageFrom             DateTime            @db.Timestamptz(3)
+  // the source of outageFrom, one required (leader ruling 2026-11-02)
+  outageSourceIncidentId String?
+  outageSourceIncident   Incident?           @relation(fields: [outageSourceIncidentId], references: [id])
+  outageSourceNote       String?
+  outageTo               DateTime            @db.Timestamptz(3) // computed (design §9.2)
+  outageDays             Int
+  computedVnd            BigInt
+  decidedVnd             BigInt?
+  appliedVnd             BigInt              @default(0) // sum of its SERVICE_CREDIT lines, as a positive amount
+  status                 ServiceCreditStatus
+  requestedById          String
+  requestedBy            User                @relation("ServiceCredit_requestedById", fields: [requestedById], references: [id])
+  decidedById            String?
+  decidedBy              User?               @relation("ServiceCredit_decidedById", fields: [decidedById], references: [id])
+  decisionReason         String?
+  decidedAt              DateTime?           @db.Timestamptz(3)
+  refundReference        String?             @unique
+  refundedAt             DateTime?           @db.Timestamptz(3)
+  version                Int                 @default(1)
+  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime            @updatedAt @db.Timestamptz(3)
+  lines                  InvoiceLine[]
+
+  @@index([contractId])
+  @@index([contractDeviceId])
+  @@index([deviceId])
+  @@index([faultInspectionId])
+  @@index([outageSourceIncidentId])
+  @@index([requestedById])
+  @@index([decidedById])
+  @@index([status])
+  @@map("service_credits")
 }
 
 // @module incidents ────────────────────────────────────────────────────────────────────────
@@ -1419,6 +1500,7 @@ model Incident {
   statusUpdates    IncidentStatusUpdate[]
   authorityReports AuthorityReport[]
   events           FieldEvent[]           @relation("FieldEvent_incidentId")
+  serviceCredits   ServiceCredit[] // credits whose outage start this incident reported
 
   @@index([deviceId, state, lastEventAt]) // correlation lookup
   @@index([organizationId, state])
