@@ -10,6 +10,7 @@ import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ApiKeysService } from './api-keys.service';
 import { ComplianceCasesRepository } from './compliance-cases.repository';
+import { ComplianceLossCaseProvider } from './ports/compliance-loss-cases.port';
 import { ComplianceCasesService, OpenCase } from './compliance-cases.service';
 import { FieldStationsService } from './field-stations.service';
 import { OrganizationsRepository } from './organizations.repository';
@@ -48,6 +49,8 @@ describe('ComplianceCasesService', () => {
   let stations: { revoke: jest.Mock };
   let apiKeys: { revoke: jest.Mock };
   let accounts: { contactCard: jest.Mock };
+  let lossProvider: { codesOf: jest.Mock; link: jest.Mock };
+  let lossProviders: ComplianceLossCaseProvider[];
   let emitted: [string, Record<string, unknown>][];
   let service: ComplianceCasesService;
 
@@ -60,7 +63,14 @@ describe('ComplianceCasesService', () => {
       create: jest.fn().mockResolvedValue(CASE),
       addAction: jest.fn().mockResolvedValue(undefined),
       close: jest.fn().mockResolvedValue(true),
+      findOpenOfType: jest.fn().mockResolvedValue(null),
+      setAuthorityReference: jest.fn().mockResolvedValue(true),
     };
+    lossProvider = {
+      codesOf: jest.fn().mockResolvedValue(new Map([['case-1', ['LOSS-0003']]])),
+      link: jest.fn().mockResolvedValue(undefined),
+    };
+    lossProviders = [];
     organizationRows = { findStatus: jest.fn().mockResolvedValue('ACTIVE') };
     organizations = { suspendFromCompliance: jest.fn().mockResolvedValue(undefined) };
     stations = { revoke: jest.fn().mockResolvedValue({ id: 'fs-1' }) };
@@ -84,6 +94,7 @@ describe('ComplianceCasesService', () => {
       accounts as unknown as AccountsService,
       events as unknown as TransactionalEvents,
       config as unknown as ConfigService<ValidatedEnvironment, true>,
+      lossProviders,
     );
   });
 
@@ -103,9 +114,16 @@ describe('ComplianceCasesService', () => {
       expect(accounts.contactCard).toHaveBeenCalledWith(['u-staff']);
     });
 
-    it('answers linkedLossCases empty (the devices-module gap)', async () => {
+    it('answers linkedLossCases empty with no provider of loss cases', async () => {
       const result = await service.page({});
       expect(result.items[0].linkedLossCases).toEqual([]);
+    });
+
+    it('answers the loss case codes the provider holds for each case', async () => {
+      lossProviders.push(lossProvider);
+      const result = await service.get('case-1');
+      expect(result.linkedLossCases).toEqual(['LOSS-0003']);
+      expect(lossProvider.codesOf).toHaveBeenCalledWith(['case-1']);
     });
 
     it('refuses an unknown case id with 404', async () => {
@@ -126,11 +144,33 @@ describe('ComplianceCasesService', () => {
       ]);
     });
 
-    it('refuses linkedLossCaseIds with 400 (the devices-module gap)', async () => {
+    it('refuses linkedLossCaseIds with 400 when nothing provides loss cases', async () => {
       await expect(
         service.open('org-1', { ...OPEN_INPUT, linkedLossCaseIds: ['loss-1'] }, STAFF),
       ).rejects.toMatchObject({ errorCode: 'VALIDATION_FAILED' });
       expect(cases.create).not.toHaveBeenCalled();
+    });
+
+    it('links the loss cases, each once, in the transaction that creates the case', async () => {
+      lossProviders.push(lossProvider);
+      await service.open(
+        'org-1',
+        { ...OPEN_INPUT, linkedLossCaseIds: ['loss-1', 'loss-1', 'loss-2'] },
+        STAFF,
+      );
+      expect(lossProvider.link).toHaveBeenCalledWith('case-1', 'org-1', ['loss-1', 'loss-2'], TX);
+      expect(emitted[0][1]).toMatchObject({
+        after: { code: 'CMP-0002', type: CASE.type, linkedLossCaseIds: ['loss-1', 'loss-2'] },
+      });
+    });
+
+    it('opens nothing when the provider refuses a loss case', async () => {
+      lossProvider.link.mockRejectedValue(new Error('refused'));
+      lossProviders.push(lossProvider);
+      await expect(
+        service.open('org-1', { ...OPEN_INPUT, linkedLossCaseIds: ['loss-1'] }, STAFF),
+      ).rejects.toThrow('refused');
+      expect(emitted).toEqual([]);
     });
 
     it('refuses an unknown organization with 404', async () => {
@@ -138,6 +178,69 @@ describe('ComplianceCasesService', () => {
       await expect(service.open('org-9', OPEN_INPUT, STAFF)).rejects.toMatchObject({
         errorCode: 'NOT_FOUND',
       });
+    });
+  });
+
+  describe('openOrLink', () => {
+    const LOSS = {
+      organizationId: 'org-1',
+      lossCaseId: 'loss-1',
+      lossCaseCode: 'LOSS-0004',
+      evidence: 'Unit unreturned after the contract ended',
+      policeReference: null as string | null,
+      actorId: 'u-staff',
+      actorRoles: ['STAFF'],
+    };
+    const THEFT = { ...CASE, type: ComplianceCaseType.SUSPECTED_THEFT };
+
+    it('opens a SUSPECTED_THEFT case when the organization has none open', async () => {
+      cases.create.mockResolvedValue({ ...THEFT, id: 'case-9' });
+      await expect(service.openOrLink({ ...LOSS, policeReference: 'PR-17' }, TX)).resolves.toBe(
+        'case-9',
+      );
+      expect(cases.findOpenOfType).toHaveBeenCalledWith(
+        'org-1',
+        ComplianceCaseType.SUSPECTED_THEFT,
+        TX,
+      );
+      expect(cases.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'CMP-0003',
+          organizationId: 'org-1',
+          type: ComplianceCaseType.SUSPECTED_THEFT,
+          evidence: 'Loss case LOSS-0004: Unit unreturned after the contract ended',
+          openedById: 'u-staff',
+          authorityReference: 'PR-17',
+        }),
+        TX,
+      );
+      expect(emitted).toEqual([
+        [
+          'audit.record',
+          expect.objectContaining({
+            action: 'complianceCase.open',
+            actorRoles: ['STAFF'],
+            organizationId: 'org-1',
+          }),
+        ],
+      ]);
+    });
+
+    it('links to the open case of the same type instead of opening a second', async () => {
+      cases.findOpenOfType.mockResolvedValue(THEFT);
+      await expect(service.openOrLink(LOSS, TX)).resolves.toBe('case-1');
+      expect(cases.create).not.toHaveBeenCalled();
+      expect(cases.setAuthorityReference).not.toHaveBeenCalled();
+      expect(emitted[0][1]).toMatchObject({
+        action: 'complianceCase.linkLossCase',
+        after: { lossCaseCode: 'LOSS-0004' },
+      });
+    });
+
+    it('records a police reference on the linked case, which can then close', async () => {
+      cases.findOpenOfType.mockResolvedValue(THEFT);
+      await service.openOrLink({ ...LOSS, policeReference: 'PR-17' }, TX);
+      expect(cases.setAuthorityReference).toHaveBeenCalledWith('case-1', 'PR-17', TX);
     });
   });
 

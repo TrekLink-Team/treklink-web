@@ -84,6 +84,7 @@ import { ShiftsService } from './shifts.service';
     FieldStationsService,
     FieldStationReleaseService,
     ChannelKeyService,
+    ComplianceCasesService,
   ],
 })
 export class OrganizationsModule {}

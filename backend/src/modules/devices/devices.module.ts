@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { OrganizationsModule } from '../organizations';
+import { ComplianceCasesService, OrganizationsModule } from '../organizations';
 import { PlatformModule } from '../platform/platform.module';
 import { DevicesController } from './devices.controller';
 import { DevicesRepository } from './devices.repository';
@@ -17,8 +17,9 @@ import { MaintenanceService } from './maintenance.service';
 import { LOSS_CASE_LISTENERS, LossCaseListener } from './ports/loss-case-listener.port';
 import {
   LOSS_ORGANIZATION_ACTIONS,
-  NoOpLossOrganizationActions,
+  LossOrganizationActions,
 } from './ports/loss-organization-actions.port';
+import { DevicesComplianceLossCases } from './providers/compliance-loss-case.provider';
 import { VariantsController } from './variants.controller';
 
 // Hardware variants, devices and their lifecycle (specs/devices/design.md). Built so far: the
@@ -45,9 +46,17 @@ import { VariantsController } from './variants.controller';
     LossCaseService,
     LossSearchJob,
     LossCaseNotificationsListener,
-    // task 2.7: openOrLinkComplianceCase is not built in organizations yet; bind its provider here
-    // once it is exported (design §3). markKeyExposed is a direct ChannelKeyService call.
-    { provide: LOSS_ORGANIZATION_ACTIONS, useClass: NoOpLossOrganizationActions },
+    // task 2.7: a suspected theft in renter custody opens or links a compliance case (design §3);
+    // markKeyExposed is a direct ChannelKeyService call. The provider below gives organizations the loss
+    // case codes of a case and the link of loss cases Staff name when they open one.
+    {
+      provide: LOSS_ORGANIZATION_ACTIONS,
+      inject: [ComplianceCasesService],
+      useFactory: (cases: ComplianceCasesService): LossOrganizationActions => ({
+        openOrLinkComplianceCase: (input, tx) => cases.openOrLink(input, tx),
+      }),
+    },
+    DevicesComplianceLossCases,
   ],
   exports: [DevicesService, LOSS_CASE_LISTENERS, MaintenanceService],
 })
