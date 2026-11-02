@@ -123,7 +123,7 @@ export const StaffFieldStationsPage: React.FC = () => {
       <PageHeader
         id="t-field-stations-title"
         title="Field stations"
-        meta={loading ? undefined : `${rows.filter((row) => !row.revokedAt).length} active across ${shown.length} organizations`}
+        meta={loading ? undefined : `${rows.filter((row) => !row.revokedAt).length} active across ${shown.length} ${shown.length === 1 ? 'organization' : 'organizations'}`}
       />
       <Toolbar
         label="Field station filters"

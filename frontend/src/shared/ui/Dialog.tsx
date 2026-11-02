@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from './cn';
@@ -28,7 +29,8 @@ const WIDTH = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-2xl' } as co
  * opened it. Full screen on a narrow viewport. The title and the footer stay in place and only the
  * body scrolls (leader rule of 2026-10-30), so a long form keeps its buttons in view: put them in
  * `footer`, with `form="<form id>"` on the submit button. It sits under the incident banner (z-banner), never
- * over it (convention 06 §8.9).
+ * over it (convention 06 §8.9). It renders into `document.body`, so a dialog opened from a table row
+ * inherits none of the row's styles and its clicks never reach the row (treklink-web#292).
  */
 export const Dialog: React.FC<Props> = ({
   titleId,
@@ -43,7 +45,7 @@ export const Dialog: React.FC<Props> = ({
   initialFocus,
 }) => {
   const { box, onKeyDown } = useFocusTrap(onClose, initialFocus);
-  return (
+  return createPortal(
     <div className="fixed inset-x-0 bottom-0 top-[var(--tl-banner-h,0px)] z-dialog flex items-center justify-center bg-scrim/[var(--tl-scrim-alpha)] sm:p-4">
       <div
         ref={box}
@@ -85,7 +87,8 @@ export const Dialog: React.FC<Props> = ({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
