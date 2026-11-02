@@ -103,6 +103,8 @@ account type (D-057).
 | `DEMO_BUSY` | 409 | another stage or switch is running |
 | `DEMO_SCENARIO_UNAVAILABLE` | 409 | scenario listed with `available: false` |
 | `DEMO_SEED_NOT_CONFIGURED` | 409 | a `SEED_*_PASSWORD` is missing |
+| `DEMO_DATABASE_NOT_ALLOWED` | 403 | a simulation write on a database neither loopback nor `treklink_prod` (§9) |
+| `DEMO_NODE_RUNNING` | 409 | the device already runs as a simulated node (§9) |
 
 ## 8. Sandbox test accounts
 
@@ -131,3 +133,80 @@ reachable on a Neon host whatever the accounts flag says.
 
 The frontend `TestAccountsBox` widget (screen 7.5 §"Sandbox test accounts box") renders nothing on any
 error, so a deployment with the flag off shows nothing.
+
+## 9. Field simulation (D-093 amendment, D-094, 2026-11-02)
+
+Requirements §2.4. A person drives the supervisor demo from the browser, on the local stack or on the Vercel
+staging, with no agent and no script. The simulation extends the field data simulator of gateway-sync
+design §2 (D-090 rule 2); it never resets anything, so the guards of §2 do not apply to it.
+
+**Ownership.** The simulated nodes are field data, so `gateway-sync` owns the model and the logic and exports
+`FieldSimulationService`; `demo` owns only the routes and the guard, and calls it (the existing `DEMO` to
+`gateway-sync` edge of Figure 1). `incidents` and `monitoring` read the simulated mark from what they already
+receive; no new module edge.
+
+**Flag and guard.** `DEMO_SIMULATION_ENABLED` (default `false`) loads `DemoSimulationModule` (routes of
+api-design 06 to 10) and switches the simulator from its two fixed nodes to the table below. Every write
+first checks the database: loopback per §2, or the database name `treklink_prod` in both `DATABASE_URL`
+and `DATABASE_DIRECT_URL` (as `backend/scripts/vercel-build.sh` does); otherwise 403
+`DEMO_DATABASE_NOT_ALLOWED`. `NODE_ENV` is not checked. Policy `demo.simulate`, TrekLink Admin, seeded by the
+migration with the permission.
+
+**Model** (gateway-sync, migration `simulation`, forward only):
+
+| Table | Columns |
+|---|---|
+| `simulated_nodes` | `id`, `deviceId` (unique while `status = RUNNING`), `nodeNum`, `trailId`, `pattern` (`WALK`, `STOP`, `STRAY`, `SILENT`, `LOW_BATTERY`), `speedMetresPerMinute` (default 60), `anchorAt`, `anchorMetres` (distance along the trail at the anchor), `anchorLat`, `anchorLon`, `anchorBattery`, `direction` (1 or -1), `strayBearing` (null unless `STRAY`), `sosKind` (null, `SOS` or `FALL`), `sosSince`, `status` (`RUNNING`, `STOPPED`), `version`, `createdById`, `createdAt`, `updatedAt` |
+| `field_events` | new column `simulated boolean not null default false` |
+| `incidents` | new column `simulated boolean not null default false`, set when the opening event is simulated |
+
+**Position.** Stateless per run, as today: the position at time `t` is derived from the anchor and the
+elapsed time `t - anchorAt` under the pattern, so every instance computes the same packet for an interval
+and ingestion stores it once (D-006 ids from node, kind and interval start). A pattern change, a speed or
+trail change, or `SOS` writes a new anchor at the node's current position, so the move continues from
+there. `WALK` and `LOW_BATTERY` move along the trail and turn back at either end; `STRAY` moves 300 m along
+`strayBearing` (perpendicular to the trail at the anchor) over ten minutes and then stops; `STOP` stays;
+`SILENT` sends nothing. Battery: 100 at start, minus 0.1 a minute, minus 2 a minute under `LOW_BATTERY`,
+never below 5.
+
+**SOS.** `SOS` or `FALL` sets `sosKind` and `sosSince` and ingests the text packet at once
+(`SOS - [lat], [lon]` or `SOS - FALL DETECTED - [lat], [lon]`, six decimals, firmware ground truth §2),
+then each run adds the beacon positions due since the last run: every 5 s for the first 60 s, every 30 s
+after. `SOS_CANCEL` clears `sosKind`; no packet is sent, because the firmware sends none.
+
+**Ingestion.** `UplinkIngress` (gateway-sync) gains an option `{ simulated: true }`: the stored
+`FieldEvent` carries it, and the `SosEvent` and position hand-offs carry it on to `incidents` (which stores
+it on a new incident) and to the device projection. The real MQTT path never sets it.
+
+**Labels.** The map snapshot and device lists of `monitoring` return `simulated` for a device whose latest
+field event is simulated; the incident reads return the incident's `simulated`. The frontend shows a
+"Simulated" badge (`shared/ui` `Badge`, neutral tone, text not colour alone) on those markers, rows and
+the incident header, and on every row of the panel.
+
+**Trails.** `gateway-sync/simulator/trails.ts`: at least three Vietnamese trails from OpenStreetMap through
+the Overpass API, each with `id`, `name`, `region`, `osmWayIds`, the read date, the point list simplified
+(Douglas-Peucker, 10 m) and its length; the Ta Nang to Phan Dung path of D-090 stays as `ta-nang-phan-dung`.
+Attribution "© OpenStreetMap contributors, ODbL" on the panel. No trail is fetched at run time.
+
+**Runs.** Unchanged: the simulator job runs every 10 s locally and from the request tick on Vercel
+(`JOBS_TICK_ON_REQUEST`), and the panel polls every 15 s while open, which keeps the staging ticking during a
+demo.
+
+**Routes** (api-design 06 to 10, generated from `scripts/specs/endpoints/demo.py`):
+
+| # | Route | Body | Answer |
+|---|---|---|---|
+| 06 | `GET /api/demo/simulation` | | `{ trails, patterns, devices, nodes }` (REQ-SIM-08) |
+| 07 | `POST /api/demo/simulation/nodes` | `{ deviceId, trailId, pattern, speedMetresPerMinute?, startMetres? }` | the node; 409 `DEMO_NODE_RUNNING` if the device already runs; 400 if the device has no `nodeNum` or the trail is unknown |
+| 08 | `PATCH /api/demo/simulation/nodes/:id` | `{ expectedVersion, pattern?, trailId?, speedMetresPerMinute? }` | the node with a new anchor; 409 `STALE_VERSION`, 409 `INVALID_STATE_TRANSITION` when stopped |
+| 09 | `POST /api/demo/simulation/nodes/:id/stop` | `{ expectedVersion }` | the node `STOPPED` |
+| 10 | `POST /api/demo/simulation/nodes/:id/events` | `{ kind: SOS, FALL or SOS_CANCEL }` | `{ node, fieldEventId }`, `fieldEventId` null for `SOS_CANCEL`; 409 `INVALID_STATE_TRANSITION` when stopped |
+
+Every write: the database check, the policy, one audit entry (REQ-SIM-07), and the D-002 envelope.
+
+**Screen** (7.5, section "Field simulation", shown while the flag is on): a table of simulated nodes (asset
+tag, organization, trail, pattern, position, battery, last packet, SOS state, Simulated badge) with row
+actions Change pattern, SOS, Fall, Cancel SOS, Stop; a form Add node (device picker of devices with a
+`nodeNum`, trail, pattern, speed); quick buttons for the demo cases of the script (an SOS on a rented node,
+a node going silent, a node straying); the panel polls every 15 s. The nav entry shows while either the
+control panel or the simulation is enabled; staging and the role switch keep their own flag and guards.
