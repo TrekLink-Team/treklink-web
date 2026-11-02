@@ -114,14 +114,14 @@ describe('SePay sandbox (billing task 3.2)', () => {
     const config = {
       get: (name: string) =>
         ({
-          SEPAY_QR_BASE_URL: 'https://vietqr.app/img',
-          SEPAY_BANK_CODE: 'SANDBOX',
+          SEPAY_QR_BASE_URL: 'https://qr.sepay.vn/img',
+          SEPAY_BANK_CODE: 'MBBank',
           SEPAY_WEBHOOK_API_KEY: key,
         })[name],
     };
     const parameters = {
       get: jest.fn((name: string) =>
-        Promise.resolve(name === 'billing.sepayPaymentTtlMinutes' ? 30 : 'SANDBOX-0001'),
+        Promise.resolve(name === 'billing.sepayPaymentTtlMinutes' ? 30 : '0123456789'),
       ),
     };
     service = new SepayService(
@@ -241,8 +241,8 @@ describe('SePay sandbox (billing task 3.2)', () => {
   it('builds the VietQR URL from configuration and the receiving account', async () => {
     await expect(service.vietQr(pending() as never)).resolves.toEqual({
       imageUrl:
-        'https://vietqr.app/img?acc=SANDBOX-0001&bank=SANDBOX&amount=1125000&des=TL7K2Q9M4D',
-      bankAccount: 'SANDBOX-0001',
+        'https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=1125000&des=TL7K2Q9M4D',
+      bankAccount: '0123456789',
       content: 'TL7K2Q9M4D',
     });
   });

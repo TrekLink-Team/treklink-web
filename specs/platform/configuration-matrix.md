@@ -55,7 +55,7 @@
 | `billing.lateFeePerDevicePerDayVnd` | `50000` | INT | 0 to 10000000 | VND | Late fee per device per started day after the grace | FR-BILL-03, BR-23 |
 | `billing.damageApprovalThresholdVnd` | `500000` | INT | 0 to 100000000 | VND | Damage charges above this need an Admin other than the inspector | FR-BILL-04, BR-24 |
 | `billing.sepayPaymentTtlMinutes` | `30` | INT | 5 to 1440 | minutes | A SePay payment request expires after this long | FR-BILL-07 |
-| `billing.sepayBankAccount` | `"SANDBOX-0001"` | JSON |  |  | Receiving account shown in the VietQR (sandbox) | FR-BILL-07, BR-34 |
+| `billing.sepayBankAccount` | `"0123456789"` | JSON |  |  | Receiving account shown in the VietQR (sandbox) | FR-BILL-07, BR-34 |
 
 ## gateway-sync
 

@@ -13,8 +13,8 @@ INVOICE = {"id": INVOICE_ID, "number": "INV-2026-000123", "organization": {"id":
 PAYMENT = {"id": "p-1", "reference": "TL7K2Q9M4D", "invoiceId": INVOICE_ID, "contractId": CONTRACT_ID,
            "amountVnd": 2250000, "method": "SEPAY", "status": "PENDING", "isSandbox": True,
            "expiresAt": "2026-10-20T03:45:00Z", "confirmedAt": None}
-VIETQR = {"imageUrl": "https://vietqr.app/img?acc=...&amount=2250000&des=TL7K2Q9M4D",
-          "bankAccount": "SANDBOX-0001", "content": "TL7K2Q9M4D"}
+VIETQR = {"imageUrl": "https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=2250000&des=TL7K2Q9M4D",
+          "bankAccount": "0123456789", "content": "TL7K2Q9M4D"}
 INV_PATH = ["id", "Invoice id; members may use only their own", "uuid", f"`{INVOICE_ID}`"]
 
 ENDPOINTS = [
@@ -169,7 +169,7 @@ ENDPOINTS = [
              ["transferAmount", "Amount received", "int", "yes", "`2250000`"],
              ["content", "Transfer content; holds the reference", "string", "yes", "`TL7K2Q9M4D`"],
              ["transferType", "`in`", "string", "yes", "`in`"], ["transactionDate", "SePay time", "string", "yes", "`2026-10-20 10:20:31`"]],
-       sample={"id": 92704, "gateway": "Sandbox", "transactionDate": "2026-10-20 10:20:31", "accountNumber": "SANDBOX-0001",
+       sample={"id": 92704, "gateway": "Sandbox", "transactionDate": "2026-10-20 10:20:31", "accountNumber": "0123456789",
                "subAccount": None, "code": None, "content": "TL7K2Q9M4D", "transferType": "in",
                "description": "TL7K2Q9M4D", "transferAmount": 2250000, "accumulated": 2250000,
                "referenceCode": "FT26293...."},
