@@ -51,3 +51,30 @@ Backend: `DEMO_SIMULATION_ENABLED=true` (on Vercel also `JOBS_TICK_ON_REQUEST=tr
 4. Admin: Cancel SOS. `manager@treklink.local` or the operator resolves the incident.
 5. Admin: Pattern Silent, Apply; after five minutes the map shows TL-0010 Offline. Walk, Apply clears it.
 6. `staff@treklink.local`: Incidents lists it with Simulated.
+
+## Review fixes (treklink-web#307)
+
+Commits on top of `5946aa9`:
+
+- `50940dc` fix: the `treklink_prod` branch of the database check refuses `host`, `hostaddr`, `service`,
+  `servicefile`, `dbname` and `database` in the query (any case, after one more decoding, so `%2568ost`
+  counts), through the loopback check's query-key helper. The pure URL checks moved to
+  `platform/config/database-url.ts`; the demo files re-export them.
+- `a1fd71a` fix: `simulatedDevices` takes each unit's custody start, so the `simulated` mark of the map
+  snapshot and the organization API counts only events since the handover for an organization (D-040);
+  staff stay unclipped, as for the position.
+- `e03a7a6` fix: `FieldSimulationService.run` makes the same database check and sends nothing, logging once.
+- `7c6b47b` fix: the device cell of each simulated node row is `<th scope="row">`, and the row actions are
+  named with the asset tag ("SOS on TL-0010").
+
+Checks: backend lint and boundary check pass (549 files, 10 modules, acyclic), `tsc` clean; full backend unit
+244 suites / 2801 tests, of which the demo,
+gateway-sync, monitoring and platform config unit suites 58 / 625; db-spec on a local Postgres 16
+(`live-map-units`, `org-api-custody`, `demo-simulation`, `demo-controls`, `seed-demo-history`) 5 / 17; the
+new db case fails with the custody clipping removed. Frontend lint (one older warning), typecheck clean,
+full frontend 101 files / 1108 tests, of
+which `FieldSimulationSection` 13 / 13 and `DemoControlPage` 7 / 7. Backend e2e not rerun.
+
+Spec changes: demo design §9 (the refused query parameters, the check in `run`, the custody clipping of the
+mark), monitoring design §4 table, demo tasks 5.5 note. The comment in `scripts/specs/endpoints/monitoring.py`
+changed; the generated api-design files did not.
