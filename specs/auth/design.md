@@ -721,15 +721,21 @@ For a role `R` of organization `O`, with `B(R)` the baseline, `G` and `V` the gr
 
 1. `own(R) = (B(R) ∪ G) ∖ V`, then keep only permissions of account type `ORGANIZATION` that are in `C`.
 2. For `ORG_OPERATOR`, the effective set is `own(ORG_OPERATOR)`.
-3. For `ORG_MANAGER`, the effective set is `own(ORG_MANAGER) ∪ effective(ORG_OPERATOR)` (REQ-UBI-05), plus `organizationRole.manage.own` always (REQ-UBI-12).
+3. For `ORG_MANAGER`, the effective set is `own(ORG_MANAGER) ∪ B(ORG_OPERATOR)` (REQ-UBI-05), plus `organizationRole.manage.own` always (REQ-UBI-12). The Operator contributes its baseline `B`, not `own(ORG_OPERATOR)`.
 
-A revoke on the Operator therefore reaches the Manager only for a permission the Manager does not hold in its own baseline (OQ-01). A stored grant outside a changed ceiling, and a stored revoke of a permission the baseline no longer holds, are ignored without being deleted (REQ-EVT-11).
+An Operator revoke therefore never reaches the Manager (OQ-01, AC-10). A permission in `B(ORG_OPERATOR)` is always in the Manager's effective set: screen 3.7 shows it ticked and read-only, and `PUT` ignores the absence of such a key from the `permissionKeys` sent for `ORG_MANAGER`. A stored grant outside a changed ceiling, and a stored revoke of a permission the baseline no longer holds, are ignored without being deleted (REQ-EVT-11).
 
 ### 9.4 Cache and ability (touches D-061)
 
 `PermissionCache.rulesFor(roleKeys)` becomes `rulesFor(roleKeys, organizationId)`. A TrekLink role keeps its cache entry by role key. An organization role is cached by `(organizationId, roleKey)` and holds the permission rows of the effective set of 9.3, read once. `AbilityFactory.forContext` already receives `organizationId` in its context; it passes it on. `PoliciesGuard`, `@CheckPolicies` and `scopeWhere` do not change, and the new handlers declare `ability.can('manage', 'OrganizationRole')` and `ability.can('read', 'OrganizationRole')`.
 
-`policy.changed` gains an optional payload `{ organizationId }`. With it, `PermissionCache.invalidate` drops only that organization's entries and does not bump `policyVersion`; without it, as an Admin edit emits today, it drops everything and bumps the version. The access token carries no permissions, so no token changes and no session ends (D-060 is unchanged). The cache is in memory, so the next-request guarantee holds per process, as it does for REQ-EVT-08 today (behaviour across several instances is unverified).
+`policy.changed` gains an optional payload `{ organizationId }`. With it, `PermissionCache.invalidate` drops only that organization's entries and does not bump `policyVersion`; without it, as an Admin edit emits today, it drops everything and bumps the version. The access token carries no permissions, so no token changes and no session ends (D-060 is unchanged). The cache is in memory and `policy.changed` reaches only the process that handled the write, so every entry, TrekLink or organization, also expires after `auth.permissionCacheTtlSeconds`. The guarantee is: a change applies from the next request on the same instance, and within the time-to-live on any other instance. Several instances exist on the Vercel staging; the register entry of 2026-10-24 on the permission cache is the risk this closes.
+
+| Key | Default | Type | Bounds | Unit | Meaning | Requirement |
+|---|---|---|---|---|---|---|
+| `auth.permissionCacheTtlSeconds` (proposal) | `30` | INT | 5 to 300 | seconds | Longest an entry of the permission cache is served without a new read | REQ-EVT-08, REQ-EVT-10 |
+
+The row joins the `auth` table of `specs/platform/configuration-matrix.md` when the build adds it to `scripts/specs/catalog.py` (OQ-05).
 
 An organization API key keeps the fixed list of permission keys it carries (task 4.3, `forApiKey`) and is not narrowed by a policy (OQ-02).
 
@@ -804,14 +810,14 @@ sequenceDiagram
 **Amends D-057.**
 
 1. Rule 2 stays: a role holds only permissions of its own account type, and the catalog is read-only and comes from the seed.
-2. New: an organization may store grants and revokes for its `ORG_MANAGER` and `ORG_OPERATOR` roles. The effective set is the baseline, adjusted by those rows, kept inside the ceiling, with `ORG_MANAGER` also holding the Operator's set (9.3). The ceiling is the `ORG_MANAGER` baseline.
+2. New: an organization may store grants and revokes for its `ORG_MANAGER` and `ORG_OPERATOR` roles. The effective set is the baseline, adjusted by those rows, kept inside the ceiling, with `ORG_MANAGER` also holding the baseline set of `ORG_OPERATOR` (9.3). The ceiling is the `ORG_MANAGER` baseline.
 3. New: the flag `protected` means that the highest role of an account type cannot lose the permission: `ADMIN` for TrekLink permissions (as today), `ORG_MANAGER` for organization permissions, and a `protected` permission is never granted to a lower role. `PUT /api/roles/:id/permissions` refuses to remove one from `ORG_MANAGER` with 409 `MANAGER_LOCKOUT`, and screen 7.2 shows such a cell as locked ("Required for Manager").
 4. New catalog entries: `organizationRole.manage.own` (account type `ORGANIZATION`, `protected`, granted to `ORG_MANAGER`) and `organizationRole.read` (account type `TREKLINK`, granted to `STAFF`, held by `ADMIN` through REQ-UBI-05). The CASL subject is `OrganizationRole`.
 5. New error codes: `MANAGER_LOCKOUT` (409), `PERMISSION_OUT_OF_CEILING` (400). `STALE_VERSION` (409, MSG36) and `ORGANIZATION_NOT_ACTIVE` (409) already exist.
 
 **Touches D-061.** `AbilityFactory.forContext` and `PermissionCache.rulesFor` take the organization (9.4). The global guard, `@Public()`, `@Authenticated()` and `@CheckPolicies` keep their rules.
 
-**Does not change D-060.** Tokens carry no permissions, an organization-scoped change does not bump `pv`, and no session is revoked. The leader may rule otherwise (OQ-01 to OQ-05 in `requirements.md`).
+**Does not change D-060.** Tokens carry no permissions, an organization-scoped change does not bump `pv`, and no session is revoked. The rulings on OQ-01 to OQ-06 are in `requirements.md`.
 
 **Rejected.** A full copy of the role per organization at registration (it drifts from the Admin's changes). A ceiling set per organization (more screens and data for no stated need). Permissions inside the access token (a change would wait for the token to expire, against REQ-EVT-08). Ending the sessions of the affected members (the ability is rebuilt on every request anyway).
 
@@ -826,6 +832,6 @@ sequenceDiagram
 
 ### 9.9 Testing strategy (build in W10)
 
-- Unit: the effective set of 9.3 as a table of cases (baseline only, grant, revoke, grant outside the ceiling ignored, Operator revoke reaching the Manager, Manager protected permission always present); `PermissionCache` keyed by organization, `invalidate` with and without a payload.
-- E2E: AC-07 to AC-09 with two organizations; every validation row of auth api-design 19 and 20; the cross-organization 404 rule of NFR-SEC-04 for the Admin read.
+- Unit: the effective set of 9.3 as a table of cases (baseline only, grant, revoke, grant outside the ceiling ignored, Operator revoke not reaching the Manager, Manager protected permission always present); `PermissionCache` keyed by organization, `invalidate` with and without a payload, and an entry that expires after `auth.permissionCacheTtlSeconds` and is read again (fake clock).
+- E2E: AC-07 to AC-10 with two organizations; every validation row of auth api-design 19 and 20; the cross-organization 404 rule of NFR-SEC-04 for the Admin read.
 - Database: two concurrent saves for one `(organization, role)`, one wins and the other gets `STALE_VERSION` (`FOR UPDATE` on the policy row).
