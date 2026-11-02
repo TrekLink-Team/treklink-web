@@ -137,6 +137,22 @@ describe('SystemHealthPage (screen 9.3)', () => {
     expect(card('Devices buffering').getByText('2')).toBeTruthy();
   });
 
+  it('says Not reported yet for the buffering devices while no device has sent a queue report', async () => {
+    api.mockResolvedValue(health({ devicesBuffering: null }));
+    renderPage();
+    await screen.findByRole('region', { name: 'Devices buffering' });
+    expect(card('Devices buffering').getByText('Not reported yet')).toBeTruthy();
+    expect(card('Devices buffering').queryByText('0')).toBeNull();
+  });
+
+  it('shows 0 once devices reported and none holds messages', async () => {
+    api.mockResolvedValue(health({ devicesBuffering: 0 }));
+    renderPage();
+    await screen.findByRole('region', { name: 'Devices buffering' });
+    expect(card('Devices buffering').getByText('0')).toBeTruthy();
+    expect(card('Devices buffering').queryByText('Not reported yet')).toBeNull();
+  });
+
   it('lists stale and outdated stations first with text badges and the depth per priority', async () => {
     api.mockResolvedValue(health());
     renderPage();

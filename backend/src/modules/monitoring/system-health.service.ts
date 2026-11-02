@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 import {
@@ -10,6 +10,7 @@ import { SyncStatsService } from '../gateway-sync';
 import { IncidentsQueryService } from '../incidents';
 import { HealthService, type HealthReport } from '../platform/health/health.service';
 import { ParameterService } from '../platform/parameters/parameter.service';
+import { isNumber } from './parameter-values';
 
 // The look-back when the request names none, and its ceiling: one day, as `op syncStatus` (gateway-sync
 // api-design 07).
@@ -62,7 +63,8 @@ export interface SystemHealthView {
     maxQueueDepth: QueueDepth;
     items: SystemHealthStation[];
   };
-  devicesBuffering: number;
+  // Null while no device has sent a queue report: nothing says whether any is buffering.
+  devicesBuffering: number | null;
   alerts: { pending: number; failed: number };
 }
 
@@ -86,6 +88,8 @@ const maxDepth = (depths: QueueDepth[]): QueueDepth => ({
 // outbox, composed from `platform`, `gateway-sync`, `organizations` and `incidents`.
 @Injectable()
 export class SystemHealthService {
+  private readonly logger = new Logger(SystemHealthService.name);
+
   constructor(
     private readonly health: HealthService,
     private readonly sync: SyncStatsService,
@@ -107,6 +111,11 @@ export class SystemHealthService {
       this.incidents.alertDeliveryStats(),
       this.parameters.get('monitoring.fieldStationStaleSeconds'),
     ]);
+    // The same refusal as the live map: a malformed threshold would mark every station stale or none.
+    if (!isNumber(staleAfterSeconds)) {
+      this.logger.error('Health parameter monitoring.fieldStationStaleSeconds must be a number.');
+      throw new Error('Health parameter monitoring.fieldStationStaleSeconds is malformed.');
+    }
 
     const items = rows.map<SystemHealthStation>((row) => ({
       id: row.id,

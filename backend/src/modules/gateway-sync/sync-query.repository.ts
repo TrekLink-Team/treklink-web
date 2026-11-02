@@ -132,18 +132,22 @@ export class SyncQueryRepository {
   }
 
   // Devices whose newest queue report holds messages: total depth above zero (REQ-EVT-13). One row per
-  // device, the latest by `receivedAt`, so a device that drained since its last report is not counted.
-  async devicesBuffering(): Promise<number> {
-    const rows = await this.prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(*) AS "count"
+  // device, the latest by `receivedAt`, so a device that drained since its last report is not counted. Null
+  // when no device has ever reported, which is not the same as none buffering.
+  async devicesBuffering(): Promise<number | null> {
+    const rows = await this.prisma.$queryRaw<{ reporting: bigint; buffering: bigint }[]>`
+      SELECT COUNT(*) AS "reporting",
+             COUNT(*) FILTER (
+               WHERE (SELECT COALESCE(SUM(d), 0) FROM unnest(latest."depth") AS d) > 0
+             ) AS "buffering"
       FROM (
         SELECT DISTINCT ON ("deviceId") "depth"
         FROM "device_queue_reports"
         ORDER BY "deviceId", "receivedAt" DESC
       ) latest
-      WHERE (SELECT COALESCE(SUM(d), 0) FROM unnest(latest."depth") AS d) > 0
     `;
-    return Number(rows[0]?.count ?? 0);
+    const row = rows[0];
+    return row === undefined || Number(row.reporting) === 0 ? null : Number(row.buffering);
   }
 
   // The devices among `units` whose latest field event (by receipt, then ingestion order) is simulated

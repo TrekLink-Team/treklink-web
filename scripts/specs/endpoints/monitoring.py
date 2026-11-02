@@ -187,7 +187,8 @@ ENDPOINTS = [
        "buffering, failed alert deliveries and the platform health (FR-MON-10, FR-EVT-13). "
        "`fieldStations.items[]` lists every station that is not revoked with its health and `outdated` "
        "against `currentRelease` (organizations REQ-EVT-11); queue depths are named per priority, P0 to P3 "
-       "(D-057 rule 9).",
+       "(D-057 rule 9). `devicesBuffering` is null while no device has sent a queue report, so the "
+       "page says Not reported yet instead of showing 0.",
        "UC-42, FR-EVT-13, FR-MON-10",
        query=[["windowMinutes", "Look-back for rates, default 60", "int", "no", "`60`"]],
        response={"health": {"status": "ok", "components": {"database": "up", "mqtt": "up"}},

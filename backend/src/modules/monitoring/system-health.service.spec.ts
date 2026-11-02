@@ -175,6 +175,34 @@ describe('SystemHealthService.report (monitoring api-design 06)', () => {
     health.check.mockRejectedValue(new Error('database unreachable'));
     await expect(build().report({}, now)).rejects.toThrow('database unreachable');
   });
+
+  it.each([
+    ['a string', '180'],
+    ['null', null],
+    ['not finite', Number.POSITIVE_INFINITY],
+  ])(
+    'refuses a monitoring.fieldStationStaleSeconds that is %s, as the live map does',
+    async (_name, value) => {
+      parameters.get.mockResolvedValue(value);
+      await expect(build().report({}, now)).rejects.toThrow(
+        'Health parameter monitoring.fieldStationStaleSeconds is malformed.',
+      );
+    },
+  );
+
+  it('passes null devicesBuffering through while no device has reported', async () => {
+    sync.stats.mockResolvedValue({
+      windowMinutes: 60,
+      accepted: 0,
+      duplicates: 0,
+      malformed: 0,
+      unknownDevice: 0,
+      lastReceivedAt: null,
+      devicesBuffering: null,
+    });
+    const view = await build().report({}, now);
+    expect(view.devicesBuffering).toBeNull();
+  });
 });
 
 describe('SystemHealthQueryDto', () => {
