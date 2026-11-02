@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useDemoStatus } from '../../entities/demo/api';
+import { useDemoSimulation } from '../../entities/demo/simulation';
 import type { SessionUser } from '../../entities/session/model';
 import { isFullBleed, visibleNav } from '../../shared/config/navigation';
 import { cn } from '../../shared/ui/cn';
@@ -39,8 +40,10 @@ interface AppShellProps {
  */
 export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children }) => {
   const { pathname } = useLocation();
-  // The Demo control entry shows only while the backend's demo controls are on (D-088).
-  const demoEnabled = useDemoStatus().data?.enabled === true;
+  // The Demo control entry shows while the backend's demo controls are on (D-088) or, for an Admin, while
+  // the field simulation answers (screen 7.5, D-094: the Vercel staging has the simulation alone).
+  const simulation = useDemoSimulation(user.roles.includes('ADMIN'), false);
+  const demoEnabled = useDemoStatus().data?.enabled === true || Boolean(simulation.data);
   const groups = useMemo(
     () => visibleNav(user.accountType, user.roles, { demoEnabled }),
     [user.accountType, user.roles, demoEnabled],
@@ -64,7 +67,9 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
     const node = bannerBox.current;
     const root = document.documentElement;
     if (!node || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(() => root.style.setProperty('--tl-banner-h', `${node.offsetHeight}px`));
+    const observer = new ResizeObserver(() =>
+      root.style.setProperty('--tl-banner-h', `${node.offsetHeight}px`),
+    );
     observer.observe(node);
     return () => {
       observer.disconnect();
@@ -149,12 +154,20 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
       <MobileTabBar groups={groups} onMore={() => setDrawer(true)} />
 
       {drawerOpen && (
-        <Drawer titleId="nav-drawer-title" title="Navigation" hideTitle side="left" onClose={() => setDrawer(false)}>
+        <Drawer
+          titleId="nav-drawer-title"
+          title="Navigation"
+          hideTitle
+          side="left"
+          onClose={() => setDrawer(false)}
+        >
           <div className="mb-4 flex flex-col gap-1 border-b border-line pb-4">
             <BrandMark />
             <p className="mt-2 text-body-sm">
               <span className="font-bold text-ink">{workspace.name}</span>
-              {workspace.code && <span className="ml-2 font-mono text-caption text-ink-muted">{workspace.code}</span>}
+              {workspace.code && (
+                <span className="ml-2 font-mono text-caption text-ink-muted">{workspace.code}</span>
+              )}
             </p>
           </div>
           <SideNav groups={groups} onNavigate={() => setDrawer(false)} />

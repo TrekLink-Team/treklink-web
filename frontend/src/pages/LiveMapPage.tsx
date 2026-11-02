@@ -91,7 +91,8 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
   return {
     id: device.id,
     position,
-    title: device.assetTag,
+    // The word travels in the title, so the popup and the marker's accessible name both carry it.
+    title: device.simulated === true ? `${device.assetTag} (Simulated)` : device.assetTag,
     subtitle: [holderOf(device), incident].filter(Boolean).join(', '),
     status: sosOf(device)
       ? 'incident'
@@ -163,6 +164,7 @@ const DeviceRow: React.FC<{
       >
         <span className="flex items-center gap-2">
           <span className="font-semibold text-ink">{device.assetTag}</span>{' '}
+          {device.simulated === true && <Badge>Simulated</Badge>}{' '}
           {state === 'OFFLINE' && <Badge tone="waiting">Offline</Badge>}
           {state === 'NOT_HEARD' && <Badge tone="ended">Not heard</Badge>}{' '}
           {device.batteryPct !== null && (

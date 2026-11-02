@@ -46,7 +46,7 @@ export interface NavEntry {
   fullBleed?: boolean;
   /** Shown in the phone tab bar, in this order, at most four (the fifth slot is More). */
   tabBar?: number;
-  /** Shown only while the backend's demo controls are on (D-088, screen 7.5). */
+  /** Shown only while the backend's demo controls or, for an Admin, its field simulation are on (D-088, D-094, screen 7.5). */
   demoOnly?: boolean;
 }
 
