@@ -33,16 +33,10 @@ describe('OrganizationsService reads for other modules', () => {
       {} as OrganizationLifecycle,
     );
 
-  it('answers 404 for the members or summary of an unknown organization', async () => {
-    const organizations = service({
-      findStatus: jest.fn().mockResolvedValue(null),
-      findSummary: jest.fn().mockResolvedValue(null),
-    });
+  it('answers 404 for the members of an unknown organization', async () => {
+    const organizations = service({ findStatus: jest.fn().mockResolvedValue(null) });
     const staff = { id: 's-1', roles: ['STAFF'], organizationId: null };
     await expect(organizations.membersOf('org-9', false, staff)).rejects.toMatchObject({
-      errorCode: 'NOT_FOUND',
-    });
-    await expect(organizations.summary('org-9', staff)).rejects.toMatchObject({
       errorCode: 'NOT_FOUND',
     });
   });

@@ -156,16 +156,6 @@ export class OrganizationsService {
     });
   }
 
-  // organizations api-design 03, the head only: the counter handover (screen 5.4) needs the key
-  // version to write. A member reads its own organization, TrekLink Staff any; another is 404.
-  async summary(organizationId: string, caller: Caller) {
-    if (caller.organizationId !== null && caller.organizationId !== organizationId)
-      throw notFound();
-    const row = await this.organizations.findSummary(organizationId);
-    if (!row) throw notFound();
-    return row;
-  }
-
   // The version of the channel key the organization's devices must carry (D-021); 404 when unknown.
   async channelKeyVersion(organizationId: string, tx?: Prisma.TransactionClient): Promise<number> {
     const version = await this.organizations.channelKeyVersion(organizationId, tx);

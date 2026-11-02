@@ -128,7 +128,6 @@ describe('OrganizationsRepository.findStatus', () => {
 
 describe('OrganizationsService reads for the counter handover (screen 5.4)', () => {
   const STAFF = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
-  const MEMBER = { id: 'u-mgr', roles: ['ORG_MANAGER'], organizationId: 'org-1' };
   const OTHER = { id: 'u-x', roles: ['ORG_MANAGER'], organizationId: 'org-2' };
   let organizations: Record<string, jest.Mock>;
   let members: Record<string, jest.Mock>;
@@ -137,7 +136,6 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
   beforeEach(() => {
     organizations = {
       findStatus: jest.fn().mockResolvedValue(OrganizationStatus.ACTIVE),
-      findSummary: jest.fn().mockResolvedValue({ id: 'org-1', channelKeyVersion: 2 }),
       channelKeyVersion: jest.fn().mockResolvedValue(2),
       party: jest.fn().mockResolvedValue({
         id: 'org-1',
@@ -210,14 +208,10 @@ describe('OrganizationsService reads for the counter handover (screen 5.4)', () 
     ]);
   });
 
-  it("answers 404 for another organization's members and summary", async () => {
+  it("answers 404 for another organization's members", async () => {
     await expect(service.membersOf('org-1', false, OTHER)).rejects.toMatchObject({
       errorCode: ErrorCode.NOT_FOUND,
     });
-    await expect(service.summary('org-1', OTHER)).rejects.toMatchObject({
-      errorCode: ErrorCode.NOT_FOUND,
-    });
-    await expect(service.summary('org-1', MEMBER)).resolves.toMatchObject({ channelKeyVersion: 2 });
   });
 
   it('reads Party B of the handover note in the caller transaction', async () => {
