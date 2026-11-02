@@ -1,5 +1,5 @@
-from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, INVOICE_ID, NOW, ep, paged, PAGE_QUERY,
-                      state_409)
+from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, INVOICE_ID, INCIDENT_ID, NOW, ep, paged,
+                      PAGE_QUERY, state_409, STALE)
 
 INVOICE = {"id": INVOICE_ID, "number": "INV-2026-000123", "organization": {"id": ORG_ID, "code": "ORG-0007"},
            "contract": {"id": CONTRACT_ID, "code": "RC-2026-0042"}, "kind": "TERM", "term": {"seq": 1},
@@ -15,6 +15,15 @@ PAYMENT = {"id": "p-1", "reference": "TL7K2Q9M4D", "invoiceId": INVOICE_ID, "con
            "expiresAt": "2026-10-20T03:45:00Z", "confirmedAt": None}
 VIETQR = {"imageUrl": "https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=2250000&des=TL7K2Q9M4D",
           "bankAccount": "0123456789", "content": "TL7K2Q9M4D"}
+SERVICE_CREDIT = {"id": "sc-1", "contractId": CONTRACT_ID, "contractDeviceId": "cd-1", "deviceId": DEVICE_ID,
+                  "assetTag": "TL-0042", "cause": "BATTERY_FAULT", "faultInspectionId": "in-7",
+                  "outageFrom": "2026-10-10T01:30:00.000Z", "outageSourceIncidentId": INCIDENT_ID,
+                  "outageSourceNote": None, "outageTo": "2026-10-13T03:00:00.000Z", "outageDays": 3,
+                  "computedVnd": 45000, "decidedVnd": None, "appliedVnd": 0, "status": "REQUESTED",
+                  "decisionReason": None, "decidedAt": None, "refundReference": None, "refundedAt": None,
+                  "version": 1, "createdAt": NOW}
+CREDIT_PATH = [["id", "Service credit id", "uuid", "`sc-1`"]]
+CREDIT_QUERY = [["status", "ServiceCreditStatus", "enum", "no", "`REQUESTED`"]] + PAGE_QUERY
 INV_PATH = ["id", "Invoice id; members may use only their own", "uuid", f"`{INVOICE_ID}`"]
 
 ENDPOINTS = [
@@ -266,8 +275,111 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT damage_charges FOR UPDATE", "Svc->>DB: UPDATE damage_charges",
             "Svc->>DB: INSERT invoice_lines (DAMAGE)"]),
 
+    ep("POST", "/api/contracts/:id/service-credits", "Request a service credit", "TrekLink Staff, TrekLink Admin",
+       "Records a credit for a unit that failed through no fault of the organization, once the unit is checked in "
+       "or replaced (design §9). The caller names the contract row, the cause, the `FAILED` inspection of that row "
+       "and the outage start with its source: an incident, or a note with the time of the call or counter visit. "
+       "`outageTo` is computed as the first of the replacement handover, the check-in and the end of the term the "
+       "outage starts in; days round up with a one-day minimum. Monthly: ceil(P x days / termDays), at most P. Day "
+       "plan: ceil(P / 30 x premium x days), at most the unit day-plan fee. The organization's Managers are "
+       "emailed after commit.", "D-092 rule 5, REQ-EVT-12, REQ-ERR-06, REQ-ERR-08, AC-06",
+       path=[["id", "Contract id", "uuid", f"`{CONTRACT_ID}`"]],
+       body=[["contractDeviceId", "The unit's row on the contract", "uuid", "yes", "`cd-1`"],
+             ["cause", "`BATTERY_FAULT`, `RADIO_FAULT`, `GPS_FAULT`, `BOARD_FAULT` or `FIRMWARE_FAULT`", "enum", "yes",
+              "`BATTERY_FAULT`"],
+             ["faultInspectionId", "The FAILED inspection of that row", "uuid", "yes", "`in-7`"],
+             ["outageFrom", "When the organization reported the fault, not before the handover", "date-time", "yes",
+              "`2026-10-10T01:30:00Z`"],
+             ["outageSourceIncidentId", "The incident that reported it", "uuid", "cond.", f"`{INCIDENT_ID}`"],
+             ["outageSourceNote", "The call or counter visit, at most 500 characters", "string", "cond.",
+              "`Called the counter at 08:30`"]],
+       sample={"contractDeviceId": "cd-1", "cause": "BATTERY_FAULT", "faultInspectionId": "in-7",
+               "outageFrom": "2026-10-10T01:30:00Z", "outageSourceIncidentId": INCIDENT_ID},
+       response=SERVICE_CREDIT, message="Service credit requested", entity="Service credit",
+       errors=[(400, "VALIDATION_FAILED", "No source, a start in the future or before the handover, or a fault record "
+                "that is not a FAILED inspection of the row", "The fault record must be a FAILED inspection of this "
+                "unit on this contract."),
+               (409, "DEVICE_NOT_ON_CONTRACT", "The row is not on the contract", "This device is not on the contract."),
+               (409, "INVALID_STATE_TRANSITION", "The unit is neither checked in nor replaced",
+                "A service credit is requested once the unit is checked in or replaced."),
+               (409, "DUPLICATE_CREDIT", "Another credit of the row, not rejected, overlaps the outage",
+                "A service credit already covers part of this outage.")],
+       steps=["Read the contract, its terms and the unit's custody times through the CREDIT_BASIS port",
+              "Check the inspection through devices", "Compute outageTo, the days and the amount",
+              "Lock the row and refuse an overlap", "Insert REQUESTED", "Audit and notify after commit"],
+       controller="ServiceCreditsController", service="ServiceCreditService", call="request(contractId, input, actor)",
+       seq=["Svc->>DB: SELECT contract, terms, contract_devices (rentals port)", "Svc->>DB: SELECT inspection",
+            "Svc->>DB: pg_advisory_xact_lock; SELECT overlapping service_credits", "Svc->>DB: INSERT service_credits"]),
+
+    ep("GET", "/api/contracts/:id/service-credits", "Service credits of a contract",
+       "TrekLink Staff, TrekLink Admin; the organization's Managers for their own",
+       "Lists the contract's credits, newest first. An organization member sees only its own organization's.",
+       "D-092 rule 5, REQ-EVT-12", path=[["id", "Contract id", "uuid", f"`{CONTRACT_ID}`"]], query=CREDIT_QUERY,
+       response=paged(SERVICE_CREDIT), entity="Service credit",
+       steps=["Read service_credits within scope", "Asset tags from devices"],
+       controller="ServiceCreditsController", service="ServiceCreditService", call="list(filter, query)",
+       seq=["Svc->>DB: SELECT service_credits"]),
+
+    ep("GET", "/api/service-credits", "Service credits", "TrekLink Staff, TrekLink Admin; the organization's Managers "
+       "for their own",
+       "Lists credits, newest first; Admins use `status=REQUESTED` as their decision queue and Staff "
+       "`status=REFUND_DUE` for refunds to record.", "D-092 rule 5, REQ-EVT-13, REQ-EVT-15",
+       query=CREDIT_QUERY + [["contractId", "Contract", "uuid", "no", f"`{CONTRACT_ID}`"]],
+       response=paged(SERVICE_CREDIT), entity="Service credit",
+       steps=["Read service_credits within scope", "Asset tags from devices"],
+       controller="ServiceCreditsController", service="ServiceCreditService", call="list(filter, query)",
+       seq=["Svc->>DB: SELECT service_credits"]),
+
+    ep("POST", "/api/service-credits/:id/decision", "Decide a service credit", "TrekLink Admin, never the requester",
+       "Approves, reduces (with a reason, below the computed amount) or rejects (with a reason) a `REQUESTED` "
+       "credit with the `version` the Admin saw. A decided amount lands as a negative `SERVICE_CREDIT` line on "
+       "the contract's next term invoice when it is issued; when no further term invoice will be issued (a day "
+       "plan, notice given, or the contract no longer active), it lands on the closing invoice now. Only the part "
+       "that brings an invoice's unpaid amount to zero is written; the rest stays `APPROVED` for the next invoice "
+       "and becomes `REFUND_DUE` at the close, or at once on a contract already `CLOSED`. The organization's "
+       "Managers are emailed after commit.", "D-092 rule 5, REQ-EVT-13, REQ-EVT-14, REQ-ERR-07, AC-07, BR-24",
+       path=CREDIT_PATH,
+       body=[["decision", "`APPROVE`, `REDUCE` or `REJECT`", "enum", "yes", "`REDUCE`"],
+             ["decidedVnd", "Required for REDUCE, above 0 and below computedVnd", "int", "cond.", "`30000`"],
+             ["reason", "Required for REDUCE and REJECT, at most 500 characters", "string", "cond.",
+              "`Unit used for part of day 10`"],
+             ["expectedVersion", "The version the Admin saw", "int", "yes", "`1`"]],
+       sample={"decision": "REDUCE", "decidedVnd": 30000, "reason": "Unit used for part of day 10",
+               "expectedVersion": 1},
+       response={**SERVICE_CREDIT, "decidedVnd": 30000, "status": "APPROVED",
+                 "decisionReason": "Unit used for part of day 10", "decidedAt": NOW, "version": 2},
+       message="Decision recorded", entity="Service credit",
+       errors=[(400, "VALIDATION_FAILED", "No reason for REDUCE or REJECT, or decidedVnd out of range",
+                "A reason is required to reduce or reject a credit."),
+               (403, "SEPARATION_OF_DUTY", "The caller requested the credit", "A different Admin must decide this credit."),
+               (404, "NOT_FOUND", "No such credit", "Service credit not found."),
+               state_409("service credit", "APPROVED"), STALE],
+       steps=["Lock the credit", "Require REQUESTED and the version", "Refuse the requester", "Record the decision",
+              "Land on the closing invoice when no term invoice follows", "Audit and notify after commit"],
+       controller="ServiceCreditsController", service="ServiceCreditService", call="decide(id, input, actor)",
+       seq=["Svc->>DB: SELECT service_credits FOR UPDATE", "Svc->>DB: UPDATE service_credits",
+            "Svc->>DB: INSERT invoice_lines (SERVICE_CREDIT) when it lands now"]),
+
+    ep("POST", "/api/service-credits/:id/refund", "Record a service credit refund", "TrekLink Staff, TrekLink Admin",
+       "Records the reference of a refund paid outside TrekLink for a `REFUND_DUE` credit (BR-34: sandbox only, "
+       "no real money moves through TrekLink). A reference is recorded once.",
+       "D-092 rule 5, REQ-EVT-15, AC-08, BR-34", path=CREDIT_PATH,
+       body=[["reference", "The bank-transfer reference, at most 100 characters", "string", "yes", "`FT26110200017`"]],
+       sample={"reference": "FT26110200017"},
+       response={**SERVICE_CREDIT, "decidedVnd": 45000, "status": "REFUNDED", "refundReference": "FT26110200017",
+                 "refundedAt": NOW, "version": 4},
+       message="Refund recorded", entity="Service credit",
+       errors=[(404, "NOT_FOUND", "No such credit", "Service credit not found."),
+               state_409("service credit", "REQUESTED"),
+               (409, "DUPLICATE_REFERENCE", "The reference is already recorded on a credit",
+                "This reference is already recorded.")],
+       steps=["Lock the credit", "Require REFUND_DUE", "Refuse a reference already used", "Mark REFUNDED", "Audit"],
+       controller="ServiceCreditsController", service="ServiceCreditService", call="recordRefund(id, reference, actor)",
+       seq=["Svc->>DB: SELECT service_credits FOR UPDATE", "Svc->>DB: UPDATE service_credits"]),
+
 ]
 
 NOTES = ("Charges created by other modules have no endpoint of their own: `chargeLate` on check-in "
          "(FR-BILL-03), `chargeDamage` from an inspection (FR-BILL-04), `chargeLoss` (FR-BILL-05), and the "
-         "term invoice issued by the term rollover (FR-BILL-01). See `design.md` §2.")
+         "term invoice issued by the term rollover (FR-BILL-01), which also lands the approved service "
+         "credits still owed (design §9.3). See `design.md` §2.")

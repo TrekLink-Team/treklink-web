@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Answers whether the contract can close now (api-design 17) and lists every blocker with what resolves it, so the counter and the contract page show the Close action exactly when the close would pass and otherwise say what still stops it (REQ-EVT-18, D-092 rule 3). Blocker codes: `NOT_RETURNED` (the contract waits for its term end or for units still out; `waitsFor` is the term end or return due while it is still ahead, null once it has passed), `DEVICE_OUT` (a unit handed over, not checked in and not settled lost, replaced units included; `lossCase` is its open loss case, null when none is reported), `BALANCE_OUTSTANDING` (`amountVnd` unpaid on the contract's invoices), `DAMAGE_PENDING` (a damage charge waiting for an Admin, `chargeId`, `deviceId`, `amountVnd`) and `OPEN_INCIDENTS` (incidents outside `CLOSED` on the contract or its devices, `incidents[]` with `id` and `code`). A `CLOSED` contract answers `canClose` false with no blocker. Read only: nothing is locked or changed.
+Answers whether the contract can close now (api-design 17) and lists every blocker with what resolves it, so the counter and the contract page show the Close action exactly when the close would pass and otherwise say what still stops it (REQ-EVT-18, D-092 rule 3). Blocker codes: `NOT_RETURNED` (the contract waits for its term end or for units still out; `waitsFor` is the term end or return due while it is still ahead, null once it has passed), `DEVICE_OUT` (a unit handed over, not checked in and not settled lost, replaced units included; `lossCase` is its open loss case, null when none is reported), `BALANCE_OUTSTANDING` (`amountVnd` unpaid on the contract's invoices), `DAMAGE_PENDING` (a damage charge waiting for an Admin, `chargeId`, `deviceId`, `amountVnd`), `SERVICE_CREDIT_PENDING` (a service credit still `REQUESTED`, `serviceCreditId`, `deviceId`, `amountVnd`; billing design §9.3) and `OPEN_INCIDENTS` (incidents outside `CLOSED` on the contract or its devices, `incidents[]` with `id` and `code`). A `CLOSED` contract answers `canClose` false with no blocker. Read only: nothing is locked or changed.
 
 ## API Specification
 
@@ -65,6 +65,14 @@ No body.
         "deviceId": "5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7a8b9",
         "assetTag": "TL-0043",
         "amountVnd": 1200000
+      },
+      {
+        "code": "SERVICE_CREDIT_PENDING",
+        "message": "The service credit of 45,000 VND on TL-0042 waits for an Admin's decision.",
+        "serviceCreditId": "sc-1",
+        "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+        "assetTag": "TL-0042",
+        "amountVnd": 45000
       },
       {
         "code": "OPEN_INCIDENTS",

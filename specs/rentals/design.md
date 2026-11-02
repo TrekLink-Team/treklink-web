@@ -1047,8 +1047,12 @@ the counter and the contract page show Staff what still stops the close and wher
 `NOT_RETURNED` (the contract is not `RETURNED`; the term end or return due it waits for), one
 `DEVICE_OUT` per row handed over and neither checked in nor lost, replaced rows included, with the open
 loss case `DevicesService.openLossCases` names, `BALANCE_OUTSTANDING` with the amount,
-`DAMAGE_PENDING` with each charge `ChargesService.pendingDamageOf` names, and `OPEN_INCIDENTS` with the
-incidents a `CONTRACT_CLOSE_CHECKS` provider names in `CloseBlockingReason.refs`. `canClose` is true only
+`DAMAGE_PENDING` with each charge `ChargesService.pendingDamageOf` names, `SERVICE_CREDIT_PENDING` with each
+credit `ServiceCreditService.requestedOf` names (billing design §9.3), and `OPEN_INCIDENTS` with the
+incidents a `CONTRACT_CLOSE_CHECKS` provider names in `CloseBlockingReason.refs`. The close refuses a requested
+credit with 409 `INVALID_STATE_TRANSITION` ("A service credit waits for an Admin's decision.") and, after erasing the
+labels, calls `ServiceCreditService.onContractClosed`, which turns the approved credits not yet on an invoice into
+`REFUND_DUE` (billing REQ-EVT-15). `canClose` is true only
 for a `RETURNED` contract with no blocker, so the Close action is shown exactly when the close of
 Figure 22 would pass. A contract in `CLOSED` answers `canClose: false` with no blocker. The close keeps
 the calls of Figure 22 and their order.
