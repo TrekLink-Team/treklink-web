@@ -100,6 +100,21 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     );
   });
 
+  it('marks an incident opened by a simulated SOS, and only that one (demo design §9)', async () => {
+    await ingress.onSos({ ...event(), simulated: true }, tx);
+    expect(repository.insert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ simulated: true }),
+      expect.any(Date),
+      tx,
+    );
+    await ingress.onSos(event(), tx);
+    expect(repository.insert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ simulated: false }),
+      expect.any(Date),
+      tx,
+    );
+  });
+
   it('creates a CONFIRMED incident in DETECTED, writes transition 1, then routes it (AC-01)', async () => {
     await expect(ingress.onSos(event(), tx)).resolves.toMatchObject({ state: 'NOTIFY_PRIMARY' });
     expect(repository.lockOpenByDevice).toHaveBeenCalledWith('dev-1', tx);
@@ -389,6 +404,7 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
             lastLatitude: 11.561,
             lastLongitude: 108.552,
             lastPositionAt: at(60),
+            simulated: false,
           },
           expect.any(Date),
           tx,

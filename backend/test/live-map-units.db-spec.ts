@@ -7,6 +7,7 @@ import { DevicesRepository } from '../src/modules/devices/devices.repository';
 import type { IncidentsQueryService } from '../src/modules/incidents';
 import { LiveMapService } from '../src/modules/monitoring/live-map.service';
 import type { StreamRepository } from '../src/modules/monitoring/stream.repository';
+import type { FieldEventQueryService } from '../src/modules/gateway-sync';
 import type { OrganizationsService } from '../src/modules/organizations';
 import type { ParameterService } from '../src/modules/platform/parameters/parameter.service';
 import { ContractsService } from '../src/modules/rentals';
@@ -54,6 +55,10 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
     { openByDevices: () => Promise.resolve(new Map()) } as unknown as IncidentsQueryService,
     { maxSeq: () => Promise.resolve(7) } as unknown as StreamRepository,
     { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
+    // Real-device data only: no simulated mark (demo design §9).
+    {
+      simulatedDevices: () => Promise.resolve(new Set<string>()),
+    } as unknown as FieldEventQueryService,
   );
   const runId = randomUUID();
   const tag = (name: string) => `LM-${name}-${runId.slice(0, 8)}`;

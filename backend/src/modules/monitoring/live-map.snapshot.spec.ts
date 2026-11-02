@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { DomainException, ErrorCode } from '../../common/errors';
 import type { PolicyAbility } from '../../common/decorators/access.decorator';
 import type { DevicesService } from '../devices';
+import type { FieldEventQueryService } from '../gateway-sync';
 import type { IncidentsQueryService } from '../incidents';
 import type { OrganizationsService } from '../organizations';
 import type { ParameterService } from '../platform/parameters/parameter.service';
@@ -121,6 +122,7 @@ describe('LiveMapService.snapshot', () => {
   let projections: jest.Mock;
   let openByDevices: jest.Mock;
   let maxSeq: jest.Mock;
+  let simulatedDevices: jest.Mock;
   let fieldStationHealth: jest.Mock;
   let stale: unknown;
   let stationStale: unknown;
@@ -147,6 +149,7 @@ describe('LiveMapService.snapshot', () => {
       ]),
     );
     maxSeq = jest.fn().mockResolvedValue(42);
+    simulatedDevices = jest.fn().mockResolvedValue(new Set<string>());
     service = new LiveMapService(
       {
         get: jest.fn((key: string) =>
@@ -164,7 +167,18 @@ describe('LiveMapService.snapshot', () => {
       { openByDevices } as unknown as IncidentsQueryService,
       { maxSeq } as unknown as StreamRepository,
       { fieldStationHealth } as unknown as OrganizationsService,
+      { simulatedDevices } as unknown as FieldEventQueryService,
     );
+  });
+
+  it('marks a device whose latest field event is simulated (demo design §9)', async () => {
+    simulatedDevices.mockResolvedValue(new Set(['d-2']));
+    const { devices } = await service.snapshot({}, callerOf('org-1'), member('org-1'), NOW);
+    expect(devices.map((d) => [d.id, d.simulated])).toEqual([
+      ['d-1', false],
+      ['d-2', true],
+      ['d-3', false],
+    ]);
   });
 
   it('composes the visible devices with their projection, open incident and staleness', async () => {
@@ -202,6 +216,7 @@ describe('LiveMapService.snapshot', () => {
           openIncident: { id: 'i-1', code: 'INC-2026-000001', state: 'NOTIFY_PRIMARY' },
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
+          simulated: false,
         },
         {
           id: 'd-2',
@@ -218,6 +233,7 @@ describe('LiveMapService.snapshot', () => {
           openIncident: null,
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
+          simulated: false,
         },
         {
           id: 'd-3',
@@ -234,9 +250,11 @@ describe('LiveMapService.snapshot', () => {
           openIncident: null,
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
+          simulated: false,
         },
       ],
     });
+    expect(simulatedDevices).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
     expect(visibleDevices).toHaveBeenCalledWith({ organizationId: 'org-1' });
     expect(projections).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
     expect(openByDevices).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);

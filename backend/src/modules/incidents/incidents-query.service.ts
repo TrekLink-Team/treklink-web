@@ -74,6 +74,8 @@ export interface IncidentView {
   tierDeadlineAt: Date | null;
   statusDueAt: Date | null;
   reopenCount: number;
+  // Opened by a simulated field event (demo design §9); the screens show a "Simulated" badge.
+  simulated: boolean;
   version: number;
 }
 
@@ -319,6 +321,7 @@ export class IncidentsQueryService {
       tierDeadlineAt: row.tierDeadlineAt,
       statusDueAt: row.statusDueAt,
       reopenCount: row.reopenCount,
+      simulated: row.simulated,
       version: row.version,
     }));
   }

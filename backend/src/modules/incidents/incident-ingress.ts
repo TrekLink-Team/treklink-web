@@ -13,6 +13,8 @@ export interface SosEvent extends Attribution {
   deviceId: string;
   source: Extract<IncidentSource, 'DEVICE_SOS' | 'DEVICE_FALL'>;
   occurredAt: Date;
+  // Ingested by the field simulation (demo design §9): an incident it opens is marked simulated.
+  simulated?: boolean;
 }
 
 // A plotted position as gateway-sync stores it, with its attribution at the occurrence time (D-040),
@@ -23,6 +25,7 @@ export interface PositionEvent extends Attribution {
   occurredAt: Date;
   latitude: number;
   longitude: number;
+  simulated?: boolean; // as on SosEvent
 }
 
 // The cadence count reads field events, which gateway-sync owns, so the caller answers it (design §4):
@@ -217,6 +220,7 @@ export class IncidentIngress {
         lastLatitude: event.latitude,
         lastLongitude: event.longitude,
         lastPositionAt: event.occurredAt,
+        simulated: event.simulated === true,
       },
       at,
       tx,
@@ -277,6 +281,7 @@ export class IncidentIngress {
         openedByEventId: event.eventId,
         contractId: event.contractId,
         organizationId: event.organizationId,
+        simulated: event.simulated === true,
       },
       at,
       tx,

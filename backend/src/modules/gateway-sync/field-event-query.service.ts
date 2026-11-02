@@ -107,5 +107,11 @@ export class FieldEventQueryService {
     }));
     return { points, truncated };
   }
+
+  // The devices among `ids` whose latest field event is simulated, for the `simulated` mark of the map
+  // snapshot and the device lists (demo design §9, D-093 amendment).
+  async simulatedDevices(ids: readonly string[]): Promise<Set<string>> {
+    return new Set(await this.repository.simulatedLatest([...new Set(ids)]));
+  }
   // --- end monitoring reads ---------------------------------------------------------------------------
 }

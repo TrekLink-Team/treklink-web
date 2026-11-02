@@ -188,3 +188,17 @@ describe('FieldEventQueryService.historyPoints (monitoring api-design 03)', () =
     expect(where.kind).toEqual({ in: ['TELEMETRY'] });
   });
 });
+
+describe('FieldEventQueryService.simulatedDevices (demo design §9)', () => {
+  it('answers the devices whose latest field event is simulated, asking once per device', async () => {
+    const simulatedLatest = jest.fn().mockResolvedValue(['d-2']);
+    const service = new FieldEventQueryService(
+      { simulatedLatest } as unknown as SyncQueryRepository,
+      {} as never,
+    );
+    await expect(service.simulatedDevices(['d-1', 'd-2', 'd-1'])).resolves.toEqual(
+      new Set(['d-2']),
+    );
+    expect(simulatedLatest).toHaveBeenCalledWith(['d-1', 'd-2']);
+  });
+});

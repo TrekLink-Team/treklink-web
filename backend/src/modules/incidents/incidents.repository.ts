@@ -15,6 +15,7 @@ export type NewIncident = Pick<
   | 'lastLatitude'
   | 'lastLongitude'
   | 'lastPositionAt'
+  | 'simulated'
 >;
 
 export interface IncidentInsertResult {

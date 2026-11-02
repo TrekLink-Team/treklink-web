@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
+import { FieldEventQueryService } from '../gateway-sync';
 import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractsService } from '../rentals';
@@ -24,6 +25,8 @@ export interface OrgApiDevice {
   state: UnitState;
   openIncident: { id: string; code: string; state: string } | null;
   contractCode: string;
+  // The device's latest field event is simulated (demo design §9, D-093 amendment).
+  simulated: boolean;
 }
 
 export interface OrgApiDevices {
@@ -49,6 +52,7 @@ export class OrgApiService {
     private readonly replays: ReplayService,
     private readonly stream: StreamRepository,
     private readonly parameters: ParameterService,
+    private readonly fieldEvents: FieldEventQueryService,
   ) {}
 
   // The devices the organization holds now with their last state, and the cursor to stream from. The
@@ -58,10 +62,11 @@ export class OrgApiService {
     const cursor = await this.stream.maxSeq();
     const visible = await this.contracts.visibleDevices({ organizationId });
     const ids = visible.map((device) => device.deviceId);
-    const [projections, open, staleSeconds] = await Promise.all([
+    const [projections, open, staleSeconds, simulated] = await Promise.all([
       this.devices.projections(ids),
       this.incidents.openByDevices(ids),
       this.parameters.get('monitoring.deviceStaleSeconds'),
+      this.fieldEvents.simulatedDevices(ids),
     ]);
     const custody = new Map(visible.map((device) => [device.deviceId, device]));
     const staleBefore = now.getTime() - staleSeconds * 1000;
@@ -87,6 +92,7 @@ export class OrgApiService {
               ? { id: incident.id, code: incident.code, state: incident.state }
               : null,
           contractCode: held.contractCode,
+          simulated: simulated.has(device.id),
         };
       }),
     };

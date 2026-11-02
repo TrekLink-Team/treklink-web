@@ -380,6 +380,7 @@ describe('IngestionService', () => {
         longitude: 108.5381,
         organizationId: null,
         contractId: null,
+        simulated: false,
       },
       tx,
       repository,
@@ -508,6 +509,16 @@ describe('IngestionService', () => {
     expect(storedEvent()).toMatchObject({ plotted: true, simulated: true });
     expect(repository.lastPlottedPosition).not.toHaveBeenCalled();
     expect(devices.projectReading).toHaveBeenCalled();
+    expect(incidents.onPosition).toHaveBeenCalledWith(
+      expect.objectContaining({ simulated: true }),
+      tx,
+      repository,
+    );
+  });
+
+  it('hands a simulated SOS to incidents with its mark (demo design §9)', async () => {
+    await service.ingest({ ...envelopeOf('sos-fall'), simulated: true });
+    expect(incidents.onSos).toHaveBeenCalledWith(expect.objectContaining({ simulated: true }), tx);
   });
 
   it('stores an event from the broker as not simulated', async () => {
