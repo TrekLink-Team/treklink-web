@@ -36,9 +36,11 @@ describe('FieldSimulatorJob (D-090 rule 2)', () => {
     });
   });
 
-  it('is loaded only when FIELD_SIMULATOR_ENABLED reads true', () => {
+  it('is loaded only when FIELD_SIMULATOR_ENABLED or DEMO_SIMULATION_ENABLED reads true', () => {
     expect(fieldSimulatorEnabled({ FIELD_SIMULATOR_ENABLED: 'true' })).toBe(true);
     expect(fieldSimulatorEnabled({ FIELD_SIMULATOR_ENABLED: 'false' })).toBe(false);
+    expect(fieldSimulatorEnabled({ DEMO_SIMULATION_ENABLED: ' TRUE ' })).toBe(true);
+    expect(fieldSimulatorEnabled({ DEMO_CONTROLS_ENABLED: 'true' })).toBe(false);
     expect(fieldSimulatorEnabled({})).toBe(false);
   });
 });

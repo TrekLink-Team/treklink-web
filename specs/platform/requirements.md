@@ -126,6 +126,7 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `DEMO_CONTROLS_ENABLED` | `false`; `true` loads the `demo` module (D-088, `specs/demo/`), for a local demo database only | env | no |
 | `DEMO_TEST_ACCOUNTS_ENABLED` | `false`; `true` loads the read-only sandbox test accounts list `GET /api/demo/accounts` (D-089, `specs/demo/` REQ-EVT-05), in any `NODE_ENV` and on any database | env | no |
 | `FIELD_SIMULATOR_ENABLED` | `false`; `true` loads the field data simulator (owned by `gateway-sync`, design §2, D-090 rule 2); set only on the Vercel production | env | no |
+| `DEMO_SIMULATION_ENABLED` | `false`; `true` loads the field simulation routes of `demo` (`specs/demo/` §2.4, D-093 amendment, D-094) and makes the field data simulator drive the simulated nodes, loading it even when `FIELD_SIMULATOR_ENABLED` is off; writes only on a loopback database or `treklink_prod` | env | no |
 | `JOBS_TICK_ON_REQUEST` | `false`; `true` makes each request start a job tick after its response, at most once per instance per minute (design §4.6, D-090 rule 1); set only on the Vercel production | env | no |
 | `PARAMETER_CACHE_TTL_SECONDS` | 30 | env | no |
 | `HEALTH_DB_TIMEOUT_MS` | 2000; the health endpoint's `SELECT 1` bound (TK-90) | env | no |

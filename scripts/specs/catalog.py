@@ -225,6 +225,9 @@ PERMISSIONS = [
     ("demo.stage", "stage", "Demo", None, ["ADMIN"]),
     ("demo.switchRole", "switchRole", "Demo", None, ["STAFF"]),
     ("demo.switchRole.org", "switchRole", "Demo", None, ["ORG_OPERATOR"]),
+    # The field simulation (D-093 amendment, specs/demo/design.md §9); migration 20261102120000_simulation
+    # carries the same row.
+    ("demo.simulate", "simulate", "Demo", None, ["ADMIN"]),
 ]
 
 INHERITS = {"ADMIN": "STAFF", "ORG_MANAGER": "ORG_OPERATOR"}

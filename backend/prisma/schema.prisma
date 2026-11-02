@@ -223,6 +223,8 @@ model User {
   complianceCasesClosed ComplianceCase[]       @relation("ComplianceCase_closedById")
   complianceActions     ComplianceAction[]
 
+  simulatedNodesCreated SimulatedNode[]
+
   @@index([accountType, isActive])
   @@index([createdById])
   @@map("users")
@@ -683,6 +685,7 @@ model Device {
   fieldEvents        FieldEvent[]
   syncAudits         SyncAuditLog[]
   queueReports       DeviceQueueReport[]
+  simulatedNodes     SimulatedNode[]
   incidents          Incident[]
   invoiceLines       InvoiceLine[]
   damageCharges      DamageCharge[]
@@ -1406,6 +1409,7 @@ model Incident {
   falseAlarmReason   String?
   reopenCount        Int                @default(0)
   closedAt           DateTime?          @db.Timestamptz(3)
+  simulated          Boolean            @default(false) // opened by a simulated field event (demo design §9)
   version            Int                @default(0) // compare-and-set (D-034 rule 1)
   createdAt          DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
@@ -1606,6 +1610,7 @@ model FieldEvent {
   snr              Float?
   hopsAway         Int?
   plotted          Boolean          @default(true) // false for IMPLAUSIBLE_POSITION
+  simulated        Boolean          @default(false) // ingested by the field simulation (demo design §9), never by MQTT or a Field Station
   payload          Json // raw payload, persisted verbatim
   incidentId       String? // set when this event opened or joined an episode
   incident         Incident?        @relation("FieldEvent_incidentId", fields: [incidentId], references: [id])
@@ -1667,6 +1672,59 @@ model DeviceQueueReport {
 
   @@index([deviceId, receivedAt])
   @@map("device_queue_reports")
+}
+
+enum SimulationPattern {
+  WALK // along the trail at the node's speed, turning back at either end
+  STOP // stays where it is
+  STRAY // 300 m to one side of the trail over ten minutes, then stays
+  SILENT // sends nothing
+  LOW_BATTERY // walks while the battery falls 2 points a minute to 5
+}
+
+enum SimulatedNodeStatus {
+  RUNNING
+  STOPPED
+}
+
+enum SimulatedSosKind {
+  SOS
+  FALL
+}
+
+// A device driven by the field simulation (specs/demo/design.md §9, D-093 amendment). The position at a
+// time is derived from the anchor and the elapsed time under the pattern, so every run computes the same
+// packets. At most one RUNNING row per device: partial unique index simulated_nodes_one_running_per_device
+// in migration 20261102120000_simulation.
+model SimulatedNode {
+  id                   String              @id @default(uuid())
+  deviceId             String
+  device               Device              @relation(fields: [deviceId], references: [id])
+  nodeNum              BigInt // the device's radio identity when started, for the packets' `from`
+  trailId              String // an id of simulator/trails.ts
+  pattern              SimulationPattern
+  speedMetresPerMinute Int                 @default(60)
+  anchorAt             DateTime            @db.Timestamptz(3)
+  anchorMetres         Float // distance along the trail at the anchor
+  anchorLat            Float
+  anchorLon            Float
+  anchorBattery        Float
+  direction            Int // 1 toward the trail's end, -1 toward its start
+  strayBearing         Float? // degrees, null unless STRAY
+  sosKind              SimulatedSosKind?
+  sosSince             DateTime?           @db.Timestamptz(3)
+  beaconedUntil        DateTime?           @db.Timestamptz(3) // time of the last beacon ingested
+  status               SimulatedNodeStatus @default(RUNNING)
+  version              Int                 @default(0)
+  createdById          String
+  createdBy            User                @relation(fields: [createdById], references: [id])
+  createdAt            DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@index([deviceId])
+  @@index([status, updatedAt])
+  @@index([createdById])
+  @@map("simulated_nodes")
 }
 
 // @module monitoring ───────────────────────────────────────────────────────────────────────

@@ -91,3 +91,4 @@
 | `demo.stage` | stage | Demo |  | TREKLINK | X |  |  |  |
 | `demo.switchRole` | switchRole | Demo |  | TREKLINK | X | X |  |  |
 | `demo.switchRole.org` | switchRole | Demo |  | ORGANIZATION |  |  | X | X |
+| `demo.simulate` | simulate | Demo |  | TREKLINK | X |  |  |  |
