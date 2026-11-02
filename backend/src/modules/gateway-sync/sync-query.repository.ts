@@ -126,6 +126,18 @@ export class SyncQueryRepository {
     return Number(rows[0]?.count ?? 0);
   }
 
+  // The devices among `ids` whose latest field event (by receipt, then ingestion order) is simulated
+  // (demo design §9), one row per device through the (deviceId, receivedAt) index.
+  async simulatedLatest(ids: readonly string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.$queryRaw<{ deviceId: string; simulated: boolean }[]>`
+      SELECT DISTINCT ON ("deviceId") "deviceId", "simulated"
+      FROM "field_events"
+      WHERE "deviceId" = ANY(${[...ids]}::text[])
+      ORDER BY "deviceId", "receivedAt" DESC, "seq" DESC`;
+    return rows.filter((row) => row.simulated).map((row) => row.deviceId);
+  }
+
   async lastReceivedAt(): Promise<Date | null> {
     const row = await this.prisma.fieldEvent.findFirst({
       orderBy: { seq: 'desc' },

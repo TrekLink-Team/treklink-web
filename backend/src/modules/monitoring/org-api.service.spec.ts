@@ -1,5 +1,6 @@
 import { ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
+import { FieldEventQueryService } from '../gateway-sync';
 import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractsService } from '../rentals';
@@ -42,6 +43,7 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
   let incidents: { openByDevices: jest.Mock };
   let replays: { isExpired: jest.Mock; batchAfter: jest.Mock };
   let stream: { maxSeq: jest.Mock };
+  let fieldEvents: { simulatedDevices: jest.Mock };
   let service: OrgApiService;
 
   beforeEach(() => {
@@ -119,6 +121,7 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
     };
     stream = { maxSeq: jest.fn().mockResolvedValue(88213) };
     const parameters = { get: jest.fn().mockResolvedValue(300) };
+    fieldEvents = { simulatedDevices: jest.fn().mockResolvedValue(new Set<string>()) };
     service = new OrgApiService(
       contracts as unknown as ContractsService,
       devices as unknown as DevicesService,
@@ -126,6 +129,7 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
       replays as unknown as ReplayService,
       stream as unknown as StreamRepository,
       parameters as unknown as ParameterService,
+      fieldEvents as unknown as FieldEventQueryService,
     );
   });
 
@@ -148,7 +152,16 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
         state: 'LIVE',
         openIncident: { id: 'i-1', code: 'INC-2026-000001', state: 'NOTIFY_PRIMARY' },
         contractCode: 'RC-2026-0001',
+        simulated: false,
       });
+    });
+
+    it('marks a device whose latest field event is simulated (demo design §9)', async () => {
+      fieldEvents.simulatedDevices.mockResolvedValue(new Set(['d-1']));
+      const { devices: listed } = await service.devicesOf('org-1', NOW);
+      expect(listed[0].simulated).toBe(true);
+      expect(listed[1].simulated).toBe(false);
+      expect(fieldEvents.simulatedDevices).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
     });
 
     it('marks a unit silent in custody OFFLINE and stale and hides another organization incident', async () => {

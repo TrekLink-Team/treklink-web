@@ -236,6 +236,7 @@ export class IngestionService {
             occurredAt: time.occurredAt,
             organizationId: attributed?.organizationId ?? null,
             contractId: attributed?.contractId ?? null,
+            simulated,
           },
           tx,
         );
@@ -250,6 +251,7 @@ export class IngestionService {
             longitude: position.longitude,
             organizationId: attributed?.organizationId ?? null,
             contractId: attributed?.contractId ?? null,
+            simulated,
           },
           tx,
           this.repository,

@@ -4,6 +4,7 @@ import { IncidentState } from '@prisma/client';
 import { Caller, type PolicyAbility } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
+import { FieldEventQueryService } from '../gateway-sync';
 import { IncidentsQueryService, type OpenIncidentRef } from '../incidents';
 import { OrganizationsService } from '../organizations';
 import { ParameterService } from '../platform/parameters/parameter.service';
@@ -69,6 +70,9 @@ export interface SnapshotDeviceDto {
   openIncident: { id: string; code: string; state: IncidentState } | null;
   contractCode: string;
   organizationId: string;
+  // The device's latest field event is simulated (demo design §9, D-093 amendment): the map shows a
+  // "Simulated" label.
+  simulated: boolean;
 }
 
 export interface SnapshotFieldStationDto {
@@ -107,6 +111,7 @@ export class LiveMapService {
     private readonly incidents: IncidentsQueryService,
     private readonly stream: StreamRepository,
     private readonly organizations: OrganizationsService,
+    private readonly fieldEvents: FieldEventQueryService,
   ) {}
 
   // The state the map draws before it applies stream entries (api-design 02, FR-MON-02, FR-MON-03,
@@ -138,9 +143,10 @@ export class LiveMapService {
       this.refuse('monitoring.fieldStationStaleSeconds', 'a number');
     const counterLocation = this.counterLocation(counter);
     const ids = visible.map((device) => device.deviceId);
-    const [projections, incidents] = await Promise.all([
+    const [projections, incidents, simulated] = await Promise.all([
       this.devices.projections(ids),
       this.incidents.openByDevices(ids),
+      this.fieldEvents.simulatedDevices(ids),
     ]);
     const rental = new Map(visible.map((device) => [device.deviceId, device]));
     const staleBefore = now.getTime() - staleSeconds * 1000;
@@ -165,6 +171,7 @@ export class LiveMapService {
           openIncident: this.incidentOf(incidents.get(device.id), organizationId),
           contractCode: rented.contractCode,
           organizationId: rented.organizationId,
+          simulated: simulated.has(device.id),
         },
       ];
     });

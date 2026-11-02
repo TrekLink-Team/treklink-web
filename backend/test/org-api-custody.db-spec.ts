@@ -3,6 +3,7 @@ import { AccountType, ContractStatus, PlanType, Prisma } from '@prisma/client';
 import type { Caller, PolicyAbility } from '../src/common/decorators/access.decorator';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import type { DevicesService } from '../src/modules/devices';
+import type { FieldEventQueryService } from '../src/modules/gateway-sync';
 import { DevicesRepository } from '../src/modules/devices/devices.repository';
 import type { IncidentsQueryService } from '../src/modules/incidents';
 import { LiveMapService } from '../src/modules/monitoring/live-map.service';
@@ -61,9 +62,19 @@ describe('the organization API clips readings to the custody interval as the map
     openByDevices: () => Promise.resolve(new Map()),
   } as unknown as IncidentsQueryService;
   const stream = { maxSeq: () => Promise.resolve(7) } as unknown as StreamRepository;
-  const map = new LiveMapService(parameters, contracts, devices, incidents, stream, {
-    fieldStationHealth: () => Promise.resolve([]),
-  } as unknown as OrganizationsService);
+  // Real-device data only: no simulated mark (demo design §9).
+  const fieldEvents = {
+    simulatedDevices: () => Promise.resolve(new Set<string>()),
+  } as unknown as FieldEventQueryService;
+  const map = new LiveMapService(
+    parameters,
+    contracts,
+    devices,
+    incidents,
+    stream,
+    { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
+    fieldEvents,
+  );
   const api = new OrgApiService(
     contracts,
     devices,
@@ -71,6 +82,7 @@ describe('the organization API clips readings to the custody interval as the map
     {} as unknown as ReplayService,
     stream,
     parameters,
+    fieldEvents,
   );
   const runId = randomUUID();
   const tag = (name: string) => `OA-${name}-${runId.slice(0, 8)}`;
