@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Opens a case against an organization for a suspected fraud, theft, IP violation, NDA breach or other breach, with evidence notes and linked contracts or loss cases (FR-ORG-08, D-046).
+Opens a case against an organization for a suspected fraud, theft, IP violation, NDA breach or other breach, with evidence notes and linked contracts or loss cases (FR-ORG-08, D-046). A loss case of the organization that Staff triage as a suspected theft in renter custody opens a SUSPECTED_THEFT case, or joins the one already open, without this call (devices api-design 19).
 
 ## API Specification
 
@@ -41,7 +41,7 @@ Opens a case against an organization for a suspected fraud, theft, IP violation,
 | type | SUSPECTED_FRAUD, SUSPECTED_THEFT, IP_VIOLATION, NDA_BREACH or OTHER_BREACH | string | yes | `SUSPECTED_THEFT` |
 | evidence | What was observed | string | yes | `Three devices unreturned 40 days after default` |
 | linkedContractIds | Contracts concerned | uuid[] | no | see sample |
-| linkedLossCaseIds | Loss cases concerned | uuid[] | no | `[]` |
+| linkedLossCaseIds | Loss cases of this organization, each linked to at most one case | uuid[] | no | `[]` |
 
 ## Response sample
 
@@ -149,6 +149,23 @@ Opens a case against an organization for a suspected fraud, theft, IP violation,
 ```
 </td>
         </tr>
+        <tr>
+            <td>400</td>
+            <td>A loss case is unknown, belongs to another organization, or is already linked to another compliance case (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "A loss case is unknown or belongs to another organization."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -169,8 +186,13 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
+    D3{"A loss case is unknown, belongs to another organization, or is already linked to another compliance case?"}
+    D2 -->|no| D3
+    E3["Return 400 VALIDATION_FAILED"]
+    D3 -->|yes| E3
+    E3 --> X3((End))
     P0["Insert compliance_cases OPEN"]
-    D2 -->|no| P0
+    D3 -->|no| P0
     P1["Link the loss cases"]
     P0 --> P1
     P2["Emit audit.record complianceCase.open"]

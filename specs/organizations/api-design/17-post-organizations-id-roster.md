@@ -143,6 +143,23 @@ Adds a shift window with a primary and an optional backup. Windows of one organi
 </td>
         </tr>
         <tr>
+            <td>400</td>
+            <td>endsAt is not after startsAt, endsAt is in the past, or the shift lasts more than 31 days (<code>VALIDATION_FAILED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VALIDATION_FAILED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "endsAt must be after startsAt."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>409</td>
             <td>The window overlaps another shift (<code>SHIFT_OVERLAP</code>)</td>
 <td>
@@ -161,7 +178,7 @@ Adds a shift window with a primary and an optional backup. Windows of one organi
         </tr>
         <tr>
             <td>400</td>
-            <td>A member is deactivated, of another organization, or both slots are the same (<code>MEMBER_NOT_ELIGIBLE</code>)</td>
+            <td>A member is deactivated, has not set a password yet, is of another organization, or both slots are the same (<code>MEMBER_NOT_ELIGIBLE</code>)</td>
 <td>
 
 ```json
@@ -172,6 +189,23 @@ Adds a shift window with a primary and an optional backup. Windows of one organi
   "isSuccess": false,
   "statusCode": 400,
   "message": "Choose two different active members of your organization."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
+            <td>The organization is PENDING, REJECTED or CLOSED; the roster is managed while ACTIVE or SUSPENDED (<code>INVALID_STATE_TRANSITION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INVALID_STATE_TRANSITION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This cannot be done while it is CLOSED."
 }
 ```
 </td>
@@ -196,22 +230,34 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The window overlaps another shift?"}
+    D3{"endsAt is not after startsAt, endsAt is in the past, or the shift lasts more than 31 days?"}
     D2 -->|no| D3
-    E3["Return 409 SHIFT_OVERLAP"]
+    E3["Return 400 VALIDATION_FAILED"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"A member is deactivated, of another organization, or both slots are the same?"}
+    D4{"The window overlaps another shift?"}
     D3 -->|no| D4
-    E4["Return 400 MEMBER_NOT_ELIGIBLE"]
+    E4["Return 409 SHIFT_OVERLAP"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    P0["Validate members"]
-    D4 -->|no| P0
-    P1["Insert the shift (exclusion constraint guards overlap)"]
+    D5{"A member is deactivated, has not set a password yet, is of another organization, or both slots are the same?"}
+    D4 -->|no| D5
+    E5["Return 400 MEMBER_NOT_ELIGIBLE"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
+    D6{"The organization is PENDING, REJECTED or CLOSED; the roster is managed while ACTIVE or SUSPENDED?"}
+    D5 -->|no| D6
+    E6["Return 409 INVALID_STATE_TRANSITION"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
+    P0["Require the organization ACTIVE or SUSPENDED"]
+    D6 -->|no| P0
+    P1["Validate members"]
     P0 --> P1
+    P2["Insert the shift (exclusion constraint guards overlap)"]
+    P1 --> P2
     OK["Return 201"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
