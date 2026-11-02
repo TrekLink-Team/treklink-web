@@ -25,7 +25,8 @@ export interface OrgApiDevice {
   state: UnitState;
   openIncident: { id: string; code: string; state: string } | null;
   contractCode: string;
-  // The device's latest field event is simulated (demo design §9, D-093 amendment).
+  // The device's latest field event inside the organization's custody interval is simulated (demo
+  // design §9, D-093 amendment, D-040); false for a unit not heard since its handover.
   simulated: boolean;
 }
 
@@ -66,7 +67,10 @@ export class OrgApiService {
       this.devices.projections(ids),
       this.incidents.openByDevices(ids),
       this.parameters.get('monitoring.deviceStaleSeconds'),
-      this.fieldEvents.simulatedDevices(ids),
+      // Clipped to the custody interval as the position is (D-040): only an event since the handover.
+      this.fieldEvents.simulatedDevices(
+        visible.map((device) => ({ deviceId: device.deviceId, since: device.handedOverAt })),
+      ),
     ]);
     const custody = new Map(visible.map((device) => [device.deviceId, device]));
     const staleBefore = now.getTime() - staleSeconds * 1000;

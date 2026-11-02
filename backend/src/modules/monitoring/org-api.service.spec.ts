@@ -161,7 +161,10 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
       const { devices: listed } = await service.devicesOf('org-1', NOW);
       expect(listed[0].simulated).toBe(true);
       expect(listed[1].simulated).toBe(false);
-      expect(fieldEvents.simulatedDevices).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
+      // Only an event since the handover counts (D-040).
+      expect(fieldEvents.simulatedDevices).toHaveBeenCalledWith(
+        ['d-1', 'd-2', 'd-3'].map((deviceId) => ({ deviceId, since: HANDED_OVER })),
+      );
     });
 
     it('marks a unit silent in custody OFFLINE and stale and hides another organization incident', async () => {

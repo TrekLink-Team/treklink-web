@@ -181,6 +181,13 @@ describe('LiveMapService.snapshot', () => {
     ]);
   });
 
+  it('asks the simulated mark unclipped for TrekLink staff, as their position is (D-040)', async () => {
+    await service.snapshot({}, callerOf(null), staff, NOW);
+    expect(simulatedDevices).toHaveBeenCalledWith(
+      ['d-1', 'd-2', 'd-3'].map((deviceId) => ({ deviceId, since: null })),
+    );
+  });
+
   it('composes the visible devices with their projection, open incident and staleness', async () => {
     const result = await service.snapshot({}, callerOf('org-1'), member('org-1'), NOW);
     expect(result).toEqual({
@@ -254,7 +261,10 @@ describe('LiveMapService.snapshot', () => {
         },
       ],
     });
-    expect(simulatedDevices).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
+    // An organization's view: the mark is clipped to its custody, from the handover (D-040).
+    expect(simulatedDevices).toHaveBeenCalledWith(
+      ['d-1', 'd-2', 'd-3'].map((deviceId) => ({ deviceId, since: HANDED_OVER })),
+    );
     expect(visibleDevices).toHaveBeenCalledWith({ organizationId: 'org-1' });
     expect(projections).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);
     expect(openByDevices).toHaveBeenCalledWith(['d-1', 'd-2', 'd-3']);

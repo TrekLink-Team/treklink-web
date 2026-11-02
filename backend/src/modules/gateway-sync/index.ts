@@ -7,6 +7,7 @@ export {
   type HistoryKind,
   type HistoryPoint,
 } from './field-event-query.service';
+export { type SimulatedDeviceQuery } from './sync-query.repository';
 export { SyncStatsService, type SyncStats } from './sync-stats.service';
 export { UplinkIngress, type UplinkOptions, type UplinkOutcome } from './uplink-ingress';
 // The field simulation of the demo panel (specs/demo/design.md §9); the demo routes call it.
