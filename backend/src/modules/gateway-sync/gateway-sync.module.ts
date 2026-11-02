@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DevicesModule } from '../devices';
 import { IncidentsModule } from '../incidents';
+import { IncidentEventsPortsModule } from './incident-events-ports.module';
 import { OrganizationsModule } from '../organizations';
 import { PlatformModule } from '../platform/platform.module';
 import { RentalsModule } from '../rentals';
@@ -38,6 +39,7 @@ import { UplinkIngress } from './uplink-ingress';
     RentalsModule,
     IncidentsModule,
     GatewaySyncPortsModule,
+    IncidentEventsPortsModule,
   ],
   controllers: [GatewaySyncController, BrokerAuthController],
   providers: [

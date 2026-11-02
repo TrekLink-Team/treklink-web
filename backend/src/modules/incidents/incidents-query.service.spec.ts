@@ -71,6 +71,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
   let organizations: { memberNames: jest.Mock };
   let contracts: { holderLabels: jest.Mock };
   let service: IncidentsQueryService;
+  let episodeEvents: { eventsOfIncident: jest.Mock };
 
   beforeEach(() => {
     repository = {
@@ -155,6 +156,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
         .mockResolvedValue(new Map([['c-1:dev-1', { name: 'Le Thi E', phone: '0912' }]])),
     };
     const config = { get: (key: string) => (key === 'MAX_PAGE_SIZE' ? 100 : 20) };
+    episodeEvents = { eventsOfIncident: jest.fn().mockResolvedValue([]) };
     service = new IncidentsQueryService(
       repository as unknown as IncidentsRepository,
       {
@@ -163,7 +165,45 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       contracts as unknown as ContractsService,
       organizations as unknown as OrganizationsService,
       config as unknown as ConfigService<ValidatedEnvironment, true>,
+      episodeEvents,
     );
+  });
+
+  it.each([MEMBER, MANAGER])(
+    'scopes episode evidence to the member custody attribution',
+    async (caller) => {
+      const rows = [
+        { eventId: 'event-1', kind: 'SOS', observedAt: null, latitude: null, longitude: null },
+      ];
+      episodeEvents.eventsOfIncident.mockResolvedValue(rows);
+      await expect(service.events(ROW.id, caller, readOwn(caller))).resolves.toBe(rows);
+      expect(episodeEvents.eventsOfIncident).toHaveBeenCalledWith(ROW.id, {
+        organizationId: 'org-a',
+      });
+    },
+  );
+
+  it('allows an unconditioned Staff read and empty episode evidence', async () => {
+    await expect(service.events(ROW.id, STAFF, readAll)).resolves.toEqual([]);
+    expect(episodeEvents.eventsOfIncident).toHaveBeenCalledWith(ROW.id, {});
+  });
+
+  it.each([null, { ...ROW, organizationId: 'org-b' }])(
+    'refuses missing or foreign episodes before calling the port',
+    async (row) => {
+      repository.findById.mockResolvedValue(row);
+      await expect(service.events(ROW.id, MEMBER, readOwn(MEMBER))).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+      expect(episodeEvents.eventsOfIncident).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses evidence without an incident read permission', async () => {
+    await expect(service.events(ROW.id, MEMBER, createMongoAbility([]))).rejects.toMatchObject({
+      errorCode: ErrorCode.FORBIDDEN,
+    });
+    expect(episodeEvents.eventsOfIncident).not.toHaveBeenCalled();
   });
 
   it('scopes a member to the own organization and maps the api-design 01 row', async () => {

@@ -192,7 +192,8 @@ Implementation notes (2026-11-01, KhoaDD under D-078, task 3.1):
 
 | Export | Used by |
 |---|---|
-| `GatewaySyncService.eventsOfIncident(id)`, `events(deviceId, periods, kinds)`, `stats(window)` | incidents, monitoring |
+| provides incidents' `INCIDENT_EVENTS.eventsOfIncident(id, scope)` through global `IncidentEventsPortsModule` | incidents API 13; own repository reads linked events by occurredAt/eventId, no paging or time clipping, member custody attribution filter (R2-b, issue #118) |
+| `FieldEventQueryService.historyPoints`, `SyncStatsService` | monitoring |
 | consumes `ContractsService.custodyAt(deviceId, at)` | attribution (§2 step 2a) |
 | provider of `MQTT_HEALTH_PROBE` | platform |
 

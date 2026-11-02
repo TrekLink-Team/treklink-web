@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The field events that opened or joined the episode, oldest first, for the incident map trail.
+The field events that opened or joined the episode, oldest first by occurredAt then eventId, for the incident map trail. R2-b (issue #118): incidents owns the route and authorization; gateway-sync provides the incidents-owned INCIDENT_EVENTS port. The episode link is the window: no pagination, from/to parameters, cap or truncation at SOS timestamps. Members receive only their custody-attributed events (D-040); unconditioned Staff/Admin reads include unattributed evidence. observedAt and coordinates remain null when unavailable. An incident with no visible events returns an empty array.
 
 ## API Specification
 
@@ -119,7 +119,7 @@ flowchart TB
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Ask gateway-sync for the episode's events"]
+    P0["Read linked episode events through INCIDENT_EVENTS with the authorized scope"]
     D1 -->|no| P0
     OK["Return 200"]
     P0 --> OK
@@ -135,10 +135,18 @@ sequenceDiagram
     participant Ctl as IncidentsController
     participant Svc as IncidentsQueryService
     participant DB as Postgres
-    participant Gw as GatewaySyncService
+    participant Gw as INCIDENT_EVENTS gateway-sync provider
+    participant R as SyncQueryRepository
     C->>Ctl: GET /api/incidents/:id/events
-    Ctl->>Svc: events(id, caller)
-    Svc->>Gw: eventsOfIncident(id)
+    Ctl->>Svc: events(id, caller, ability)
+    Svc->>DB: Read incident with authorized organization scope
+    DB-->>Svc: Incident or 404 before event read
+    Svc->>Gw: eventsOfIncident(id, scope)
+    Gw->>R: episodeEvents(id, organizationId)
+    R->>DB: Read linked events by occurredAt and eventId
+    DB-->>R: Episode rows
+    R-->>Gw: Episode rows
+    Gw-->>Svc: Episode rows
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```
