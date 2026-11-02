@@ -7,7 +7,7 @@ candidate's `health` URL in order, and opens the first candidate's `url` that an
 `timeoutMs`. If none answers, the page stays and shows its unavailable message.
 
 Moving the system, for example to the AWS staging of D-055, means editing this file in a pull request to
-`main`: put the hosted candidate first and keep the demo laptop last. Today the file lists only the demo laptop (D-091). The landing page code does not
+`main`: put the hosted candidate first and keep the demo laptop last. Today it lists the Vercel staging first and the demo laptop last (D-094). The landing page code does not
 change. GitHub serves the file with a five-minute cache, so a change takes up to five minutes to reach
 visitors.
 
@@ -19,11 +19,11 @@ visitors.
 | `candidates[].health` | The backend's `GET /api/health`, readable from any origin (specs/platform REQ-EVT-04) |
 | `candidates[].timeoutMs` | How long to wait. A loopback candidate needs about 10 s, because Chrome holds a request from a public page to `localhost` on a local network access prompt until the visitor answers it |
 
-## The Vercel production (D-089, retired by D-091)
+## The Vercel staging (D-089, parked by D-091, revived by D-094)
 
-Retired on 2026-11-01 after the supervisor demo (D-091): the deployment is offline, the landing page no
-longer lists it, and work continues on the local stack. The text below records how it was built, for the
-day a hosted environment returns; the Vercel-only switches (`VITE_LIVE_MODE=poll`, `JOBS_TICK_ON_REQUEST`,
+Parked on 2026-11-01 after the supervisor demo (D-091) and revived on 2026-11-02 as an always-on staging
+(D-094). Automatic builds stay off: the orchestrator deploys a chosen `dev` commit, so the staging runs
+behind the newest `dev` on the local stack. The text below records how it was built; the Vercel-only switches (`VITE_LIVE_MODE=poll`, `JOBS_TICK_ON_REQUEST`,
 `FIELD_SIMULATOR_ENABLED`, `HANDOVER_NOTE_STORE=database`) default off on every other host.
 
 
