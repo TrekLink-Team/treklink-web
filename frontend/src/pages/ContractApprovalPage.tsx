@@ -243,7 +243,8 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
           tone="success"
           title={`Reserved: ${approved.devices.map((device) => device.assetTag).join(', ')}`}
         >
-          Reservation expires {formatDateTime(approved.reservationExpiresAt)}.
+          Reservation expires {formatDateTime(approved.reservationExpiresAt)}. The request hold has
+          ended; these units stay reserved for the handover until then.
         </Alert>
       ) : rejected ? (
         <Alert tone="info" title="Rejected. The Manager sees the reason." />
