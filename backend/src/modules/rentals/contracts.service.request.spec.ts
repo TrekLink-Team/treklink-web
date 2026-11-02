@@ -181,8 +181,14 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
         },
         tx,
       );
+      // The deposit falls due by the hold expiry (D-092 rule 1, F3 of the UX-1 audit).
       expect(invoices.issueTermInvoice).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'c-1', quantity: 10, variantCode: 'treklink-v3' }),
+        expect.objectContaining({
+          id: 'c-1',
+          quantity: 10,
+          variantCode: 'treklink-v3',
+          depositDueBy: new Date('2026-10-27T02:00:00.000Z'),
+        }),
         expect.objectContaining({ id: 't-1', seq: 1 }),
         tx,
         AT,
@@ -197,7 +203,13 @@ describe('ContractsService.request (rentals task 2.1, UC-15, REQ-EVT-01)', () =>
     it('issues the day-plan invoice for a day plan', async () => {
       await service.request(DAY, MANAGER, AT);
       expect(invoices.issueDayPlanInvoice).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'c-1', dayPlanDays: 4, quantity: 8, termId: 't-1' }),
+        expect.objectContaining({
+          id: 'c-1',
+          dayPlanDays: 4,
+          quantity: 8,
+          termId: 't-1',
+          depositDueBy: new Date('2026-10-27T02:00:00.000Z'),
+        }),
         tx,
         AT,
       );

@@ -248,6 +248,7 @@ export class ContractsService {
         variant.code,
         tx,
         at,
+        holdExpiresAt,
       );
       this.events.emitAfterCommit(AUDIT_RECORD, {
         actorId: caller.id,

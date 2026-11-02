@@ -13,7 +13,8 @@ export interface FirstTerm {
 // Term 1 anchored to the requested start date and its invoice through billing (design §3): one TERM
 // invoice with the holding fee and the term balance, or one DAY_PLAN invoice. Called by the request
 // since D-092 rule 1, and by the approval of a contract requested before it (design §2.1). The
-// first line of the invoice is the deposit the request's hold waits for.
+// first line of the invoice is the deposit the request's hold waits for; `depositDueBy`, the request's
+// hold expiry, makes it fall due by then (D-092 rule 1, billing design §2). The approval passes none.
 export const openFirstTerm = async (
   contracts: ContractsRepository,
   invoices: InvoicesService,
@@ -21,6 +22,7 @@ export const openFirstTerm = async (
   variantCode: string,
   tx: Prisma.TransactionClient,
   at: Date,
+  depositDueBy: Date | null = null,
 ): Promise<FirstTerm> => {
   const { startsAt, endsAt } = firstTerm(contract);
   const term = await contracts.insertTerm(
@@ -33,6 +35,7 @@ export const openFirstTerm = async (
     quantity: contract.quantity,
     monthlyUnitPriceVnd: contract.monthlyUnitPriceVnd,
     variantCode,
+    depositDueBy,
   };
   if (contract.planType === PlanType.DAY) {
     await invoices.issueDayPlanInvoice(
