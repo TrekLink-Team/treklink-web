@@ -52,6 +52,7 @@ shows them as text with the note "Fixed while units are registered".
 | Error `VALIDATION_FAILED` (400) | MSG02 under each field named in the response |
 | Not found or forbidden | MSG26 full-page notice |
 | Success | Toast MSG03; the table refetches |
+| Error `VARIANT_MEDIA_INVALID` (400) | MSG02 under the image link ("Use an https link or /variants/<file>.") or under the spec field named by the server |
 
 ## Form fields (if any)
 
@@ -64,9 +65,8 @@ shows them as text with the note "Fixed while units are registered".
 | 2 | Service interval | number, days | no | empty means no periodic service |
 | 2 | Checklist items | repeatable text rows | yes when an interval is set | at least one item; each 1 to 120 characters |
 | 3 | Remaining value schedule | repeatable rows: from month, value in VND | yes | first row from month 0; months increase; values descend |
-| Image | Image link | text | no | `https://...` or `/variants/<file>`; empty clears it; a preview card shows beside the field |
-| Spec sheet | MCU, radio, GNSS, motion sensor, display, battery, SOS control, local alarm, enclosure | nine optional text fields | no | each up to 80 characters; empty fields are not shown on the card |
-
+| Edit | Image link | text | no | `https://...` or `/variants/<file>`; empty clears it; a preview card shows beside the field |
+| Edit | Spec sheet: MCU, radio, GNSS, motion sensor, display, battery, SOS control, local alarm, enclosure | nine optional text fields | no | each up to 80 characters; empty fields are not shown on the card |
 
 ## Mobile, accessibility, live data
 
