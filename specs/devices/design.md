@@ -1007,3 +1007,61 @@ organization's channel, so Staff configure the uplink on a unit already provisio
 | `ChannelSettings` uplink_enabled 5 | `channel.pb.h:145` |
 | Inside an open edit transaction a set is held; the commit saves config, module config, channels and device state, then reboots once (`saveChanges` defaults to a reboot) | `src/modules/AdminModule.cpp:330-341`, `:1364-1375`, `AdminModule.h:44` |
 | A set MQTT config is checked by `MQTT::isValidConfig`; a broker connection is tried only when the node is already on a network, so a node docked without Wi-Fi accepts it | `AdminModule.cpp:924-938`, `src/mqtt/MQTT.cpp:661-726` |
+
+---
+
+## 9. Firmware flash from the maintenance page (D-093 amendment item 3)
+
+> **Status**: Spec, 2026-11-03 (treklink-web#326). Library: `esptool-js` 0.7.1, adopted in
+> `vetting/esptool-js.md`. Needs the firmware release workflow of §9.1 before it can flash a real image.
+
+A unit gets new firmware inside the existing `FIRMWARE_UPDATE` maintenance record (§2.2): the weekly scan
+opens the record when `firmwareVersion` differs from the variant's `firmwareBaseline`, Staff flash the unit
+from the record, and completing the record writes `Device.firmwareVersion` as today (REQ-EVT-22, AC-12). A
+flash outside a record is not offered, so a unit on a contract is never flashed (BR-45).
+
+### 9.1 Where the images come from
+
+- `treklink-firmware` publishes a GitHub release per TrekLink version (`v2.7.26-treklink.N`), built by a
+  release workflow for `treklink-v2`, `treklink-v3-tbeam` and `treklink-v4-supreme`. Each release carries,
+  per variant, the app image (`firmware.bin`, written at `0x10000`), the merged factory image
+  (`firmware.factory.bin`, written at `0x0`, `bin/platformio-custom.py:75`) and one manifest asset
+  `treklink-manifest.json`: `version`, and per variant `variantCode`, `pioEnv`, `chip`, and for `app` and
+  `factory` the file name, offset, size and SHA-256. The workflow is a leader item (workflow token scope);
+  until a release exists the panel shows "No firmware release is published yet."
+- The browser cannot download a GitHub release asset (no `Access-Control-Allow-Origin`, vetting record
+  §3.3), so the backend reads the releases and serves the images: devices api-design 28 lists the releases
+  for a variant, 29 returns one image after comparing its SHA-256 with the manifest.
+- Parameters (`platform` configuration matrix): `devices.firmwareReleaseRepo` (`TrekLink-Team/treklink-firmware`)
+  and `devices.firmwareReleaseCacheSeconds` (`300`). An optional `GITHUB_TOKEN` raises the GitHub rate limit;
+  the repository is public, so none is needed to read it.
+- Module: `FirmwareReleaseService` and `FirmwareReleasesController` in `devices`, which owns the variants and
+  `firmwareBaseline`; both endpoints need `device.operate` (TrekLink Staff).
+
+### 9.2 Flash panel (screen 4.3, on an `OPEN` `FIRMWARE_UPDATE` record)
+
+1. The panel lists the releases that carry the device's variant (api-design 28), the variant's baseline
+   preselected, and two modes: **Update** (app image, default: keeps the unit's channel, owner names and
+   settings) and **Full install** (erase, then the factory image; the unit loses its settings and must be
+   provisioned again before its next handover).
+2. Staff press **Flash** and choose the port in the browser's prompt. For a v2 unit the page first says
+   "Hold the power button of {assetTag} until the flash finishes; a reset turns a v2 unit off otherwise."
+   (bench record 2026-10-29).
+3. The page reads the chip through `esptool-js` (`ESPLoader.main`) with `ClassicReset` for v3 and
+   `UsbJtagSerialReset` for v2 and v4, at 115200 baud for v2, and refuses when the chip does not match the
+   manifest's `chip` for the variant (REQ-ERR-16).
+4. It fetches the image (api-design 29), writes it compressed at the manifest offset, and passes
+   `calculateMD5Hash` so `esptool-js` verifies each region against the chip's `flashMd5sum`; then it resets
+   the unit.
+5. On a verified write the panel fills the record's firmware version with the release version and opens
+   Complete (devices api-design 14); Staff complete the record as today. A failed or unverified write
+   records nothing and keeps the record `OPEN` (REQ-ERR-17).
+6. When docking is available (§8), the page also reads the unit back after the reset and shows the
+   firmware version the unit reports beside the release version.
+
+### 9.3 Testing
+
+Backend unit tests: manifest parsing, variant filter, SHA-256 mismatch answers 502 `FIRMWARE_IMAGE_INVALID`
+and returns no image, the cache window. Frontend tests with a fake `ESPLoader`: chip mismatch writes
+nothing, a verify failure records nothing, the v2 notice, Update and Full install offsets. Hardware run on
+v3 and v4 by the leader, v2 with the power button held.

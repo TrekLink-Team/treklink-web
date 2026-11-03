@@ -168,3 +168,17 @@
   - **Do**: design §8.8: one edit transaction (network, MQTT module, channel 0 uplink), the restart wait, reconnect prompt and read-back; nothing typed kept after the docking
   - **Test**: fake port: the transaction order, the values kept as read, the read-back mismatch and a unit that does not return
   - _Requirements: REQ-EVT-27, REQ-ERR-15, REQ-UBI-05, AC-18_
+
+## Phase 8: Firmware flash from the maintenance page (design §9)
+
+- [ ] 8.1 Firmware release workflow in `treklink-firmware` (owner KhoaDD, leader: workflow token scope)
+  - **Do**: design §9.1: on a `v*-treklink.*` tag, build the three TrekLink environments and attach per variant the app image, the factory image and `treklink-manifest.json`
+- [ ] 8.2 Backend release reader (owner KhoaDD)
+  - **Files**: `backend/src/modules/devices/firmware-release.service.ts`, `firmware-releases.controller.ts`, parameters `devices.firmwareReleaseRepo` and `devices.firmwareReleaseCacheSeconds` (configuration matrix and seed), tests
+  - **Do**: devices api-design 28 and 29; SHA-256 check; `Cache-Control: no-store` on 29; `device.operate`
+  - _Requirements: REQ-EVT-28, REQ-ERR-17, AC-20_
+- [ ] 8.3 Flash panel on screen 4.3 (owner KhoaDD)
+  - **Files**: `frontend/package.json` (`esptool-js` 0.7.1 pinned), `frontend/src/shared/lib/esp-flasher.ts` (one adapter), the panel in the maintenance feature, tests with a fake `ESPLoader`
+  - **Do**: design §9.2 (modes, chip check, v2 notice and baud, MD5 verify, fill the record's firmware version)
+  - _Requirements: REQ-EVT-28, REQ-ERR-16, REQ-ERR-17, AC-19, AC-20_
+

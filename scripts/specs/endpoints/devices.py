@@ -480,6 +480,47 @@ ENDPOINTS = [
        steps=["Read the case scoped to the caller"],
        controller="LossCasesController", service="LossCaseService", call="get(id, caller)",
        seq=["Svc->>DB: SELECT loss_cases"]),
+
+    # Appended so the numbers of 01 to 27 stay as cited elsewhere (design §9, the firmware flash page).
+    ep("GET", "/api/firmware-releases", "List firmware releases", "TrekLink Staff, TrekLink Admin",
+       "Lists the TrekLink firmware releases published in the configured repository "
+       "(`devices.firmwareReleaseRepo`), newest first, with the variants each release carries, so the flash "
+       "panel of a `FIRMWARE_UPDATE` record offers only images built for the device's variant (design §9). "
+       "Read from each release's manifest asset; cached for `devices.firmwareReleaseCacheSeconds`.",
+       "UC-65, FR-DEV-21, D-093",
+       query=[["variantCode", "Only releases that carry this variant", "string", "no", "`treklink-v3`"]],
+       response=[{"version": "2.7.26-treklink.2", "publishedAt": NOW, "isBaseline": True,
+                  "variants": [{"variantCode": "treklink-v3", "app": {"offset": 65536, "sizeBytes": 2031616},
+                                "factory": {"offset": 0, "sizeBytes": 2162688}}]}],
+       errors=[(502, "FIRMWARE_SOURCE_UNAVAILABLE", "The release source cannot be read",
+                "Firmware releases cannot be read right now. Try again later.")],
+       steps=["Read the cached release list or fetch the releases and their manifests",
+              "Keep entries whose manifest lists the variant", "Mark the variant's firmwareBaseline"],
+       controller="FirmwareReleasesController", service="FirmwareReleaseService", call="list(query)",
+       seq=["Svc->>Svc: cached list or GitHub releases API", "Svc->>DB: SELECT hardware_variants (baseline)"]),
+
+    ep("GET", "/api/firmware-releases/:version/images/:variantCode", "Get a firmware image",
+       "TrekLink Staff, TrekLink Admin",
+       "Returns one image of a release for one variant, checked against the SHA-256 of the release manifest "
+       "before it is returned, for the flash panel to write to a docked unit (design §9). `kind` `APP` is "
+       "written at its offset and keeps the unit's settings; `FACTORY` is the merged image written at 0 "
+       "after an erase. Never cached by the browser.",
+       "UC-65, FR-DEV-21, D-093",
+       path=[["version", "Release version", "string", "`2.7.26-treklink.2`"],
+             ["variantCode", "Hardware variant code", "string", "`treklink-v3`"]],
+       query=[["kind", "APP or FACTORY", "enum", "no", "`APP`"]],
+       response={"version": "2.7.26-treklink.2", "variantCode": "treklink-v3", "kind": "APP", "offset": 65536,
+                 "sizeBytes": 2031616, "sha256": "9f2c...e41a", "imageBase64": "6QMCIC..."},
+       entity="Firmware image",
+       errors=[(502, "FIRMWARE_SOURCE_UNAVAILABLE", "The release source cannot be read",
+                "Firmware releases cannot be read right now. Try again later."),
+               (502, "FIRMWARE_IMAGE_INVALID", "The downloaded image does not match the manifest SHA-256",
+                "The firmware image failed its check and was not sent. Try again later.")],
+       steps=["Find the release and the variant entry", "Download the image server-side",
+              "Compare its SHA-256 with the manifest", "Respond with Cache-Control: no-store"],
+       controller="FirmwareReleasesController", service="FirmwareReleaseService",
+       call="image(version, variantCode, kind)",
+       seq=["Svc->>Svc: release manifest", "Svc->>Svc: download asset, sha256 compare"]),
 ]
 
 NOTES = ("Route order: `GET /api/devices/availability` is declared before `GET /api/devices/:id` in "
