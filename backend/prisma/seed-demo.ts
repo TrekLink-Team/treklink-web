@@ -141,12 +141,22 @@ const SERVICE_INTERVAL_DAYS = 180;
 
 // Sensors per firmware ground truth §5 and the variant headers: v2 carries an ICM-20948, v4 a QMI8658,
 // v3 has no IMU. MQTT is compiled into all three (only v1 excludes it, and v1 is out of the demo set, D-005).
+// `specSheet` repeats the values the migration 20261103140000_variant_media writes for a database that already
+// holds the variants (treklink-firmware docs/variants.md at a4aa98d, specs/devices/design.md section 10), so a
+// fresh database gets the same facts.
 const VARIANTS = [
   {
     code: 'treklink-v2',
     name: 'TrekLink v2 (GPS, SOS button, motion sensor)',
     hasMotionSensor: true,
     firmwareBaseline: '2.7.19-treklink.2',
+    specSheet: {
+      mcu: 'ESP32-S3',
+      radio: 'SX1268',
+      motionSensor: 'ICM-20948',
+      sosControl: 'Dedicated SOS button',
+      localAlarm: 'Buzzer and vibrator',
+    },
     monthlyPriceVnd: 400000n,
   },
   {
@@ -154,6 +164,11 @@ const VARIANTS = [
     name: 'TrekLink v3 (GPS, SOS button)',
     hasMotionSensor: false,
     firmwareBaseline: '2.7.19-treklink.3',
+    specSheet: {
+      mcu: 'ESP32',
+      sosControl: '3 s hold on the user button',
+      localAlarm: 'LED blinks',
+    },
     monthlyPriceVnd: 450000n,
   },
   {
@@ -161,6 +176,12 @@ const VARIANTS = [
     name: 'TrekLink v4 (GPS, SOS, fall detection)',
     hasMotionSensor: true,
     firmwareBaseline: '2.7.19-treklink.4',
+    specSheet: {
+      mcu: 'ESP32-S3',
+      motionSensor: 'QMI8658',
+      sosControl: '3 s hold on the user button',
+      localAlarm: 'None',
+    },
     monthlyPriceVnd: 480000n,
   },
 ] as const;
@@ -400,6 +421,7 @@ export async function seedDemo(
               hasMotionSensor: v.hasMotionSensor,
               mqttCapable: true,
               firmwareBaseline: v.firmwareBaseline,
+              specSheet: v.specSheet,
               remainingValueSchedule: REMAINING_VALUE,
               serviceIntervalDays: SERVICE_INTERVAL_DAYS,
               serviceChecklist: SERVICE_CHECKLIST,

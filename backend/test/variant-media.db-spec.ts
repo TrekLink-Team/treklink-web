@@ -9,8 +9,10 @@ if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
 
 // The image and the spec sheet of a hardware variant after the migration 20261103140000_variant_media
 // (specs/devices/design.md section 10): the facts of treklink-firmware docs/variants.md, no photo, and
-// both fields on the two reads the variant cards use. Read only; run through test:db on a migrated
-// database, and nothing is written.
+// both fields on the two reads the variant cards use. Read only; run through test:db on a migrated and
+// seeded database, and nothing is written. Only the demo set v2 to v4 is read (D-005): a fresh database
+// gets its sheets from prisma/seed-demo.ts, an existing one from the migration, and v1 exists only where
+// an older seed created it.
 describe('variant image and spec sheet against Postgres (devices design section 10)', () => {
   const prisma = new PrismaService({ datasourceUrl: databaseUrl });
   const repository = new DevicesRepository(prisma);
@@ -23,19 +25,14 @@ describe('variant image and spec sheet against Postgres (devices design section 
     await prisma.$disconnect();
   });
 
-  it('seeds the verified spec facts of v1 to v4 and no photo', async () => {
+  it('seeds the verified spec facts of v2 to v4 and no photo', async () => {
     const rows = await prisma.hardwareVariant.findMany({
-      where: { code: { in: ['treklink-v1', 'treklink-v2', 'treklink-v3', 'treklink-v4'] } },
+      where: { code: { in: ['treklink-v2', 'treklink-v3', 'treklink-v4'] } },
       select: { code: true, imageUrl: true, specSheet: true },
       orderBy: { code: 'asc' },
     });
 
     expect(rows).toEqual([
-      {
-        code: 'treklink-v1',
-        imageUrl: null,
-        specSheet: { mcu: 'ESP32', radio: 'SX1278', motionSensor: 'MPU6050' },
-      },
       {
         code: 'treklink-v2',
         imageUrl: null,
