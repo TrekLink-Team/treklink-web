@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Copy, KeyRound } from 'lucide-react';
+import { Ban, Copy, KeyRound } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import { apiKeyKeys, isActiveKey, useApiKeys, type ApiKey } from '../entities/api-key/api';
 import {
@@ -16,14 +16,14 @@ import {
   Alert,
   Badge,
   Button,
+  CollectionView,
   ConfirmDialog,
-  DataTable,
   Dialog,
   Field,
   Input,
   PageHeader,
   useToast,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { ErrorState } from '../shared/ui/bits';
@@ -226,28 +226,18 @@ export const ApiKeysPage: React.FC = () => {
     </Button>
   );
 
-  const revokeButton = (apiKey: ApiKey) =>
-    isActiveKey(apiKey) ? (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="min-h-11"
-        aria-label={`Revoke ${apiKey.name}`}
-        onClick={() => {
-          setRevokeError(null);
-          setRevoking(apiKey);
-        }}
-      >
-        Revoke
-      </Button>
-    ) : null;
-
-  const columns: Column<ApiKey>[] = [
-    { key: 'name', header: 'Name', cell: (row) => <span className="font-semibold">{row.name}</span>, truncate: (row) => row.name },
-    { key: 'prefix', header: 'Prefix', cell: (row) => <code className="font-mono text-body-sm">{row.prefix}</code>, width: '8rem' },
-    { key: 'created', header: 'Created', cell: (row) => formatDateTime(row.createdAt) },
-    { key: 'lastUsed', header: 'Last used', cell: lastUsed },
-    { key: 'status', header: 'Status', cell: (row) => <StatusOf apiKey={row} /> },
+  // Revoke is an item action of an active key (chapter 06 §9.5), confirmed in an alert dialog.
+  const fields: CollectionField<ApiKey>[] = [
+    {
+      key: 'prefix',
+      label: 'Prefix',
+      render: (row) => <code className="font-mono text-body-sm">{row.prefix}</code>,
+      text: (row) => row.prefix,
+      compact: true,
+    },
+    { key: 'created', label: 'Created', render: (row) => formatDateTime(row.createdAt), hideWithPane: true },
+    { key: 'lastUsed', label: 'Last used', render: lastUsed, compact: true },
+    { key: 'status', label: 'Status', render: (row) => <StatusOf apiKey={row} />, compact: true },
   ];
 
   const countLine =
@@ -271,30 +261,39 @@ export const ApiKeysPage: React.FC = () => {
         </Alert>
       )}
 
-      <DataTable<ApiKey>
-        caption="API keys"
-        columns={columns}
-        rows={keys.data?.items}
-        rowId={(row) => row.id}
+      <CollectionView<ApiKey>
+        label="API keys"
+        items={keys.data?.items}
         loading={keys.isLoading}
         error={keys.error ? <ErrorState error={keys.error} onRetry={() => void keys.refetch()} /> : undefined}
-        empty={{
+        itemId={(row) => row.id}
+        itemName={(row) => row.name}
+        itemTitle={(row) => <span className="font-semibold text-ink [overflow-wrap:anywhere]">{row.name}</span>}
+        fields={fields}
+        noun={{ one: 'key', other: 'keys' }}
+        itemActions={[
+          {
+            key: 'revoke',
+            label: 'Revoke',
+            icon: <Ban />,
+            destructive: true,
+            allowed: isActiveKey,
+            onSelect: (apiKey) => {
+              setRevokeError(null);
+              setRevoking(apiKey);
+            },
+          },
+        ]}
+        search={{ label: 'Search keys by name or prefix' }}
+        filters={[
+          { key: 'all', label: 'All keys' },
+          { key: 'active', label: 'Active', test: isActiveKey },
+          { key: 'revoked', label: 'Revoked', test: (row) => !isActiveKey(row) },
+        ]}
+        emptyState={{
           title: 'No API keys yet',
           description: "Create a key to read your devices' telemetry from your own systems.",
-          icon: <KeyRound />,
         }}
-        rowActions={revokeButton}
-        renderCard={(row) => (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-ink">{row.name}</span>
-              <StatusOf apiKey={row} />
-            </div>
-            <code className="font-mono text-body-sm text-ink-muted">{row.prefix}</code>
-            <span className="text-body-sm text-ink-muted">Last used: {lastUsed(row)}</span>
-            {revokeButton(row) && <div>{revokeButton(row)}</div>}
-          </div>
-        )}
       />
 
       {creating && organizationId && (
