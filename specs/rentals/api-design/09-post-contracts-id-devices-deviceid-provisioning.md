@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records that the organization's channel key, at its current version, was written to a device reserved to this contract, at the counter. Only the version and the organization are stored; the key is never stored, shown, returned or logged (FR-DEV-05, NFR-SEC-06, NFR-IF-03).
+Records that the organization's channel key, at its current version, was written to a device reserved to this contract, by docking it at the counter (D-080, D-082). Only the version and the organization are stored; the key is never stored, shown, returned or logged (FR-DEV-05, NFR-SEC-06, NFR-IF-03). A docked nodeNum must match the device record (REQ-ERR-12); a record without one comes from the Enter manually fallback (devices design §8.6 decision 3) and is audited as manual.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Records that the organization's channel key, at its current version, was written
 | --- | --- |
 | POST | /api/contracts/:id/devices/:deviceId/provisioning |
 | Permission | TrekLink Staff |
-| Traces | UC-14, FR-DEV-05, BR-09, NFR-IF-03 |
+| Traces | UC-14, FR-DEV-05, BR-09, NFR-IF-03, D-080, D-082 |
 
 ### Path parameters
 
@@ -28,13 +28,15 @@ Records that the organization's channel key, at its current version, was written
 
 ```json
 {
-  "keyVersion": 1
+  "keyVersion": 1,
+  "nodeNum": 275612
 }
 ```
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | keyVersion | Must equal the organization's channelKeyVersion | int | yes | `1` |
+| nodeNum | The nodeNum read back from the docked unit; omitted only by the manual fallback until every rented variant docks | int | no | `275612` |
 
 ## Response sample
 
@@ -148,6 +150,23 @@ Records that the organization's channel key, at its current version, was written
         </tr>
         <tr>
             <td>409</td>
+            <td>The docked unit's nodeNum differs from the device record (<code>NODE_MISMATCH</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "NODE_MISMATCH"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "The docked unit is !0004351c, not TL-0042. Nothing was written."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>keyVersion differs from the organization's current version (<code>KEY_VERSION_MISMATCH</code>)</td>
 <td>
 
@@ -205,24 +224,33 @@ flowchart TB
     E3["Return 409 DEVICE_NOT_ON_CONTRACT"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"keyVersion differs from the organization's current version?"}
+    D4{"The docked unit's nodeNum differs from the device record?"}
     D3 -->|no| D4
-    E4["Return 409 KEY_VERSION_MISMATCH"]
+    E4["Return 409 NODE_MISMATCH"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"The contract is not in a state that allows this?"}
+    D5{"keyVersion differs from the organization's current version?"}
     D4 -->|no| D5
-    E5["Return 409 INVALID_STATE_TRANSITION"]
+    E5["Return 409 KEY_VERSION_MISMATCH"]
     D5 -->|yes| E5
     E5 --> X5((End))
+    D6{"The contract is not in a state that allows this?"}
+    D5 -->|no| D6
+    E6["Return 409 INVALID_STATE_TRANSITION"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
     P0["Require APPROVED and the device reserved to it"]
-    D5 -->|no| P0
-    P1["Read the organization's key version"]
+    D6 -->|no| P0
+    P1["Compare the docked nodeNum with the device record when it is sent"]
     P0 --> P1
-    P2["DevicesService.recordProvisioning in one transaction"]
+    P2["Read the organization's key version"]
     P1 --> P2
+    P3["DevicesService.recordProvisioning in one transaction"]
+    P2 --> P3
+    P4["Audit row marks a record without nodeNum as manual"]
+    P3 --> P4
     OK["Return 201"]
-    P2 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -239,6 +267,7 @@ sequenceDiagram
     participant Dev as DevicesService
     C->>Ctl: POST /api/contracts/:id/devices/:deviceId/provisioning
     Ctl->>Svc: provision(id, deviceId, dto, actor)
+    Svc->>Dev: byNodeNum(nodeNum)
     Svc->>Org: channelKeyVersion(orgId)
     Svc->>Dev: recordProvisioning(deviceId, orgId, keyVersion, tx)
     Svc-->>Ctl: result

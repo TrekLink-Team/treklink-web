@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the contract with its terms, committed devices (with holder labels) and balance summary.
+Returns the contract with its terms, committed devices (with holder labels and each device's nodeNum, read-only, D-080) and balance summary.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Returns the contract with its terms, committed devices (with holder labels) and 
 | --- | --- |
 | GET | /api/contracts/:id |
 | Permission | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin |
-| Traces | UC-55, FR-AUTH-11, FR-CON-07 |
+| Traces | UC-55, FR-AUTH-11, FR-CON-07, D-080 |
 
 ### Path parameters
 
@@ -76,6 +76,7 @@ No body.
       {
         "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
         "assetTag": "TL-0042",
+        "nodeNum": 275612,
         "handedOverAt": "2026-10-20T03:15:00.000Z",
         "checkedInAt": null,
         "lostAt": null,

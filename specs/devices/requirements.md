@@ -37,7 +37,7 @@
 | Loss cases | UC-49, UC-60, FR-DEV-12 to FR-DEV-15, BR-37, BR-38, E05-8 to E05-10 |
 | Disposal | UC-62, FR-DEV-16, BR-42 |
 | History | UC-53, FR-DEV-11 (rows owned here, merged by `monitoring`) |
-| Docking at the counter (draft, D-080) | UC-11, UC-14, FR-DEV-02, FR-DEV-05, BR-09, D-021 |
+| Docking at the counter (D-080, D-082) | UC-11, UC-14, FR-DEV-02, FR-DEV-05, BR-09, D-021 |
 
 ---
 
@@ -47,9 +47,9 @@
 
 - **REQ-UBI-01**: The system SHALL change device state only through the transition table of design §2 and SHALL reject any other change with 409 `INVALID_STATE_TRANSITION`; each transition SHALL be one compare-and-set on `version` plus one append-only `DeviceTransition` row with actor or `SYSTEM`, reason and UTC time. [FR-DEV-01, BR-10]
 - **REQ-UBI-02**: The system SHALL keep `assetTag` and `nodeNum` unique across every device ever registered, retired devices included, and SHALL never change either after registration. [FR-DEV-02]
-- **REQ-UBI-03**: The system SHALL store only the version of an organization channel key on a device, never the key, and SHALL never display, return or log a key. [FR-DEV-05, NFR-SEC-06, NFR-IF-03]
+- **REQ-UBI-03**: The system SHALL store only the version of an organization channel key on a device, never the key, and a derived key SHALL be returned once to the counter, never stored, displayed or logged. [FR-DEV-05, NFR-SEC-06, NFR-IF-03, D-082]
 - **REQ-UBI-04**: The system SHALL never delete a device; retirement keeps the device and its history. [FR-DEV-09]
-- **REQ-UBI-05** (draft, D-080): The counter SHALL talk to a docked unit only over Web Serial after Staff choose the port in the browser's own prompt, and SHALL keep no channel key, port handle or unit payload after a docking ends: nothing in `localStorage`, `sessionStorage`, IndexedDB, the query cache or the console. [D-080, NFR-SEC-06]
+- **REQ-UBI-05**: The counter SHALL talk to a docked unit only over Web Serial after Staff choose the port in the browser's own prompt, and SHALL keep no channel key, port handle or unit payload after a docking ends: nothing in `localStorage`, `sessionStorage`, IndexedDB, the query cache or the console. [D-080, NFR-SEC-06]
 
 ### Event-Driven
 
@@ -78,9 +78,10 @@
 - **REQ-EVT-22**: WHEN Staff complete an `OPEN` record, the system SHALL require the resolution and the actual cost, a result for every checklist item of the variant for `SCHEDULED`, and a firmware version for `FIRMWARE_UPDATE`; IF the actual cost exceeds the approved amount, or the threshold when nothing was approved, THEN it SHALL set the record `PENDING_APPROVAL` instead; otherwise it SHALL set `COMPLETED` and update the device's `firmwareVersion` when one is given. [FR-DEV-20, FR-DEV-21]
 - **REQ-EVT-23**: WHEN Staff read a device, or `rentals` reads the checked-in units of a contract, the system SHALL give the device's next step back to `AVAILABLE`: `RESET` for a `RETURNED` unit with no reset since it became `RETURNED`, `INSPECT` for a `RETURNED` unit reset since then, `COMPLETE_MAINTENANCE` for a `MAINTENANCE` unit with an open record, `INTAKE` for a `MAINTENANCE` unit with none or an `IN_INTAKE` unit, and none otherwise; a reset or inspect step names the contract of the unit's last check-in, whose counter records it. A `PASSED` inspection still moves the unit to `AVAILABLE` with no intake (REQ-EVT-07; leader ruling 2026-11-01 on D-092 rule 4). [D-092 rule 4]
 
-- **REQ-EVT-23** (draft, D-080): WHEN Staff dock a unit on the Register panel, the counter SHALL read its `nodeNum`, build environment and reported firmware version, fill the node number, preselect the variant mapped from the build environment and show the reported firmware version beside the firmware field. [FR-DEV-02, D-080]
-- **REQ-EVT-24** (draft, D-080): WHEN Staff dock a unit for a reserved device at handover or replacement and its `nodeNum` equals the device's, the counter SHALL write the owner long name as the asset tag and the short name per design §8.6 decision 2, write the primary channel with the organization's channel key at its current version keeping every other channel setting as read, read both back, and record provisioning with the docked `nodeNum` only when the read-back matches. [FR-DEV-05, BR-09, D-021, D-080]
-- **REQ-EVT-25** (draft, D-080): WHEN `rentals` records provisioning with a docked `nodeNum`, the system SHALL compare it with the device's `nodeNum` before storing the key version. [FR-DEV-05, D-080]
+- **REQ-EVT-23**: WHEN Staff dock a unit on the Register panel, the counter SHALL read its `nodeNum`, build environment and reported firmware version, fill the node number, preselect the variant mapped from the build environment and show the reported firmware version beside the firmware field. [FR-DEV-02, D-080]
+- **REQ-EVT-24**: WHEN Staff dock a unit for a reserved device at handover or replacement and its `nodeNum` equals the device's, the counter SHALL fetch the derived channel key through the channel-key endpoint (design §8.6 decision 1), write the owner long name as the asset tag and the short name per design §8.6 decision 2, write the primary channel with that key at the organization's current version keeping every other channel setting as read, read both back, and record provisioning with the docked `nodeNum` only when the read-back matches. [FR-DEV-05, BR-09, D-021, D-080, D-082]
+- **REQ-EVT-25**: WHEN `rentals` records provisioning with a docked `nodeNum`, the system SHALL compare it with the device's `nodeNum` before storing the key version. [FR-DEV-05, D-080]
+- **REQ-EVT-26**: WHEN Staff configure a docked unit as a Stage A uplink and its `nodeNum` equals the device's, the counter SHALL write, in one edit transaction, Wi-Fi on with the typed network, the MQTT module with the typed broker and the D-005 transport values (root `treklink`, JSON on, encryption off), and uplink on the primary channel, keep every other field as read, and read the values back after the unit restarts. [D-005, D-080, D-093]
 
 ### State-Driven
 
@@ -102,9 +103,11 @@
 - **REQ-ERR-09**: IF a `SCHEDULED` record is completed without a result for every checklist item, THEN 400 `CHECKLIST_INCOMPLETE`; IF a `FIRMWARE_UPDATE` record is completed without a firmware version, THEN 400 `FIRMWARE_VERSION_REQUIRED`. [FR-DEV-21]
 - **REQ-ERR-10**: IF work is `VENDOR` without a vendor name, THEN 400 `VENDOR_REQUIRED`; IF a variant has a service interval and no checklist item, THEN 400 `CHECKLIST_REQUIRED`. [D-047]
 
-- **REQ-ERR-11** (draft, D-080): IF the browser exposes no Web Serial, THEN the counter SHALL show the Chromium requirement banner and disable docking; intake keeps manual entry.
-- **REQ-ERR-12** (draft, D-080): IF the docked unit's `nodeNum` differs from the device being provisioned, THEN the counter SHALL write nothing and name the docked node id; a forced provisioning request SHALL get 409 `NODE_MISMATCH` and change nothing.
-- **REQ-ERR-13** (draft, D-080): IF a write is not acknowledged, the read-back differs, the unit disconnects or stops answering, or the port is busy or refused, THEN the counter SHALL record nothing, say which step failed and that the unit must be docked again before handover.
+- **REQ-ERR-11**: IF the browser exposes no Web Serial, THEN the counter SHALL show the Chromium requirement banner and disable docking; intake and handover keep manual entry ("Enter manually").
+- **REQ-ERR-12**: IF the docked unit's `nodeNum` differs from the device being provisioned, THEN the counter SHALL write nothing and name the docked node id; a forced provisioning request or channel-key request SHALL get 409 `NODE_MISMATCH` and change nothing.
+- **REQ-ERR-13**: IF a write is not acknowledged, the read-back differs, the unit disconnects or stops answering, or the port is busy or refused, THEN the counter SHALL record nothing, say which step failed and that the unit must be docked again before handover.
+- **REQ-ERR-14**: IF a docked unit does not answer the config-only handshake within the link's timeout (a v2 unit's known USB gap, design §8.2), THEN the counter SHALL show "No response over USB. v2 units cannot dock yet; enter the node number manually." and leave the manual fields open.
+- **REQ-ERR-15**: IF a Stage A uplink write is refused, the unit does not come back after its restart, or the read-back differs, THEN the counter SHALL name the failed check and say the unit is not configured as an uplink. [D-005, D-080]
 
 ---
 
@@ -138,13 +141,15 @@ The `devices` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-11**: An estimate of 1 800 000 VND against a threshold of 1 000 000 VND leaves the record `PENDING_APPROVAL`; completing it returns 409; the estimating Admin's decision returns 403; another Admin's approval returns it to `OPEN`. (E05-13, BR-44)
 - **AC-12**: Completing a `FIRMWARE_UPDATE` record with version `2.7.19-treklink.4` updates the device's `firmwareVersion`, and the next scan does not reopen it. (FR-DEV-21)
 
-- **AC-13** (draft): Docking a unit on the Register panel fills its node number and the variant; registration succeeds without typing either.
-- **AC-14** (draft): Docking TL-0043's unit on TL-0042's row writes nothing and records nothing; a forced request returns 409 `NODE_MISMATCH`.
-- **AC-15** (draft): After docking at handover the unit reads back long name `TL-0042`, the agreed short name and the organization's key at version n on channel 0 with its other settings unchanged, and the row shows "Provisioned vn".
-- **AC-16** (draft): Unplugging the unit between the two writes records nothing and the row asks to dock again; Firefox shows the Chromium banner with docking disabled; after a docking no key is found in browser storage or console output.
+- **AC-13**: Docking a unit on the Register panel fills its node number and the variant; registration succeeds without typing either.
+- **AC-14**: Docking TL-0043's unit on TL-0042's row writes nothing and records nothing; a forced request returns 409 `NODE_MISMATCH`.
+- **AC-15**: After docking at handover the unit reads back long name `TL-0042`, the short name `0042` and the organization's key at version n on channel 0 with its other settings unchanged, and the row shows "Provisioned vn".
+- **AC-16**: Unplugging the unit between the two writes records nothing and the row asks to dock again; Firefox shows the Chromium banner with docking disabled; after a docking no key is found in browser storage or console output.
+- **AC-17**: Docking a v2 unit shows "No response over USB. v2 units cannot dock yet; enter the node number manually." and the manual fields stay open.
+- **AC-18**: Configuring TL-0042 as an uplink with network `TrekLink-Field` and broker `192.168.1.10:1883` restarts the unit once; the read-back shows MQTT on, root `treklink`, JSON on, encryption off, the network name, and uplink on channel 0, and its next position appears on the live map.
 
 ---
 
 ## 6. Open Questions
 
-Docking (D-080): the three decisions of design §8.6, key handling first. Every requirement marked draft waits for them.
+None.

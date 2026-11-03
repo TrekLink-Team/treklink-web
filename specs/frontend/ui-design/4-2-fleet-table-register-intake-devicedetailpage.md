@@ -39,6 +39,7 @@ answers 409 for anything else.
 |---|---|---|---|---|
 | Register device (primary button on `/t/fleet`) | always | devices 05 `POST /api/devices` | none | MSG03; the new device opens in `IN_INTAKE` |
 | Read from unit (Register panel, draft D-080) | Web Serial available | none on the server; Web Serial to the unit (`devices` design §8.3) | the browser's port chooser | Node number and variant filled; the reported firmware version shown beside the field |
+| Configure uplink (detail, D-005, D-080) | not `RETIRED` or `DISPOSED`, Web Serial available | none on the server; Web Serial to the docked unit (`devices` design §8.8) | the browser's port chooser; "The unit restarts once to apply the settings." | "TL-0042 is configured as an uplink to {broker}." |
 | Edit firmware version | any state except `DISPOSED` | devices 08 `PATCH /api/devices/:id` with `expectedVersion` | none | MSG03 |
 | Record intake check | `IN_INTAKE`, or `MAINTENANCE` with no open record | devices 09 `POST /api/devices/:id/intake-checks` | none | MSG03; status shows the result (`AVAILABLE` on pass) |
 | Record reset (three steps) | `RETURNED` with no reset since the last check-in | devices 10 `POST /api/devices/:id/reset` | none; the button stays disabled until all three boxes are ticked | MSG03 |
@@ -72,6 +73,8 @@ none. A passed inspection makes the unit `AVAILABLE` at once; the intake check f
 | Not found or forbidden | MSG26 full-page notice |
 | No Web Serial (draft, D-080) | On the Register panel: "Reading from a unit needs Chrome or Edge on a desktop. You can type the node number."; Read from unit disabled |
 | Unit not answering, disconnected or port busy (draft) | "The unit did not answer. Check the cable, close other Meshtastic apps and try again." under Read from unit; fields unchanged |
+| Uplink not applied | "{assetTag} is not configured as an uplink: {failed check}." under Configure uplink; the form keeps the network and broker values, the passwords are cleared |
+| Waiting for the restart | "Waiting for {assetTag} to restart." and, when the browser dropped the port, a Reconnect button that opens the port chooser |
 | Firmware differs from the baseline (draft) | Amber note under the firmware field: "The unit reports {reported}." |
 | Stale data | last seen older than `monitoring.deviceStaleSeconds` shows "Stale, last seen {time}" in text |
 | Success | Toast MSG03; the device and the fleet list refetch |
@@ -89,6 +92,11 @@ none. A passed inspection makes the unit `AVAILABLE` at once; the intake check f
 | Intake | Motion sensor | pass or fail toggle | when the variant has a motion sensor | hidden otherwise (REQ-EVT-02) |
 | Intake | Note | text area | no | up to 500 characters |
 | Reset | Key removed, Node database cleared, Owner cleared | three checkboxes | yes, all ticked | the order matches the unit's menu |
+| Configure uplink | Wi-Fi network name | text | yes | 1 to 32 characters |
+| Configure uplink | Wi-Fi password | password | no | up to 64 characters; never kept after the docking |
+| Configure uplink | Broker address | text | yes | host or host:port, up to 63 characters |
+| Configure uplink | Broker user name and password | text, password | no | up to 63 and 31 characters; the password is never kept |
+| Configure uplink | TLS | switch | no | off by default; root `treklink`, JSON on, encryption off and uplink on channel 0 are shown read-only (D-005) |
 | Retire | Reason | text area | yes | 1 to 500 characters |
 | Dispose | Key removed, Node database cleared, Owner cleared | three checkboxes | yes, all ticked | BR-42 |
 | Dispose | Method | text | yes | how it leaves the fleet, for example "Recycled by vendor" |
