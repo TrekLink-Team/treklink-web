@@ -104,8 +104,19 @@ const docking = vi.hoisted(() => ({
   giveUp: vi.fn(),
   readUnit: vi.fn(),
   configureUplink: vi.fn(),
+  exchangeAndProvision: vi.fn(),
 }));
 vi.mock('../features/device-connector/actions/useDocking', () => ({ useDocking: () => docking }));
+
+// The device connector's registry as the counter reads it: the docked unit a mismatch names
+// (devices design section 11.6).
+const connections = vi.hoisted(() => new Map<number, unknown>());
+vi.mock('../features/device-connector/model/useConnector', () => ({
+  useConnector: () => ({ registry: { get: (id: number) => connections.get(id) }, snapshot: { connections: [] } }),
+  useConnectorContext: () => undefined,
+  useStartConnector: () => undefined,
+  openConnector: () => undefined,
+}));
 
 // jsdom has no canvas: the stub signs with one click.
 vi.mock('../widgets/SignaturePad/SignaturePad', () => ({
@@ -599,13 +610,97 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
       renderPage();
       fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
       await waitFor(() => expect(screen.getByText('Provisioned v1')).toBeTruthy());
-      expect(docking.dockAndProvision).toHaveBeenCalledWith({
-        contractId: 'c-1',
-        deviceId: 'd-1',
-        assetTag: 'TL-0003',
-        nodeNum: 0xa4b1c2d0,
-      });
+      expect(docking.dockAndProvision).toHaveBeenCalledWith(
+        { contractId: 'c-1', deviceId: 'd-1', assetTag: 'TL-0003', nodeNum: 0xa4b1c2d0 },
+        undefined,
+      );
       expect(recordProvisioning).toHaveBeenCalledWith('c-1', 'd-1', 1, 0xa4b1c2d0);
+    });
+  });
+
+  describe('quick swap after a wrong-unit refusal (devices REQ-EVT-33 to REQ-EVT-35)', () => {
+    const docked = (device: Record<string, unknown>, contractOf: Record<string, unknown> | null = null) =>
+      connections.set(7, {
+        id: 7,
+        state: 'ready',
+        unit: { nodeNum: 0x51, nodeId: '!00000051' },
+        recognized: {
+          device: { id: 'd-51', assetTag: 'TL-0051', status: 'AVAILABLE', hardwareVariant: { code: 'treklink-v3' }, ...device },
+          contract: contractOf,
+        },
+      });
+    const mismatch = () =>
+      docking.dockAndProvision.mockResolvedValue({
+        ok: false,
+        failure: 'mismatch',
+        reason: 'The docked unit is !00000051, not TL-0003. Nothing was written.',
+        connectionId: 7,
+      });
+
+    afterEach(() => connections.clear());
+
+    it('offers to put the docked unit in place of the row, swaps it in and records its provisioning (AC-26)', async () => {
+      docked({});
+      mismatch();
+      docking.exchangeAndProvision.mockResolvedValue({
+        ok: true,
+        contractVersion: 4,
+        reserved: { deviceId: 'd-51', assetTag: 'TL-0051' },
+        nodeNum: 0x51,
+        keyVersion: 1,
+      });
+      recordProvisioning.mockResolvedValue({ keyVersion: 1 });
+      renderPage();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+      fireEvent.click(await screen.findByRole('button', { name: 'Put TL-0051 in place of TL-0003' }));
+      const dialog = within(screen.getByRole('dialog', { name: 'Put TL-0051 on RC-2026-0002?' }));
+      expect(dialog.getByText(/TL-0003 goes back to Available\. TL-0051 is reserved and provisioned now\./)).toBeTruthy();
+      fireEvent.click(dialog.getByRole('button', { name: 'Swap and provision' }));
+
+      await waitFor(() =>
+        expect(docking.exchangeAndProvision).toHaveBeenCalledWith(7, {
+          contractId: 'c-1',
+          deviceId: 'd-1',
+          expectedVersion: 3,
+        }),
+      );
+      await waitFor(() => expect(recordProvisioning).toHaveBeenCalledWith('c-1', 'd-51', 1, 0x51));
+    });
+
+    it('names why a rented, held or other-variant unit is not offered (REQ-ERR-20, REQ-ERR-21, REQ-ERR-23)', async () => {
+      docked({ status: 'RENTED' }, { id: 'c-9', code: 'RC-2026-0009' });
+      mismatch();
+      renderPage();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+      await waitFor(() =>
+        expect(screen.getByText(/TL-0051 is rented on RC-2026-0009\. Check it in at the return counter\./)).toBeTruthy(),
+      );
+      expect(screen.queryByRole('button', { name: /Put TL-0051 in place/ })).toBeNull();
+
+      cleanup();
+      docked({ hardwareVariant: { code: 'treklink-v2' } });
+      renderPage();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+      await waitFor(() =>
+        expect(screen.getByText(/TL-0051 is treklink-v2; RC-2026-0002 rents treklink-v3\./)).toBeTruthy(),
+      );
+    });
+
+    it('keeps the swap and asks to dock the new unit again when its provisioning fails (REQ-ERR-19, AC-27)', async () => {
+      docked({});
+      mismatch();
+      docking.exchangeAndProvision.mockResolvedValue({
+        ok: false,
+        failure: 'dock',
+        reason: 'The unit disconnected during set_channel.',
+        exchanged: { deviceId: 'd-51', assetTag: 'TL-0051', contractVersion: 4 },
+      });
+      renderPage();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+      fireEvent.click(await screen.findByRole('button', { name: 'Put TL-0051 in place of TL-0003' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Swap and provision' }));
+      await waitFor(() => expect(docking.exchangeAndProvision).toHaveBeenCalled());
+      expect(recordProvisioning).not.toHaveBeenCalled();
     });
   });
 
