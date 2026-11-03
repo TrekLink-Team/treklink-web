@@ -1,0 +1,57 @@
+import type { DockingFailure } from './DockingService';
+
+// The wording of screens 5.4 and 4.2 for a docking that did not succeed. Null means nothing to show
+// (Staff closed the browser's port chooser).
+
+// REQ-ERR-14, design section 8.6 decision 4: a unit that answers nothing over USB.
+export const NO_RESPONSE_MESSAGE =
+  'No response over USB. v2 units cannot dock yet; enter the node number manually.';
+
+export interface DockingFailureInfo {
+  failure: DockingFailure | 'api';
+  reason: string;
+}
+
+const clause = (reason: string) => {
+  const trimmed = reason.trim().replace(/\.$/, '');
+  return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+};
+
+// Screen 5.4 step 1 (REQ-ERR-12, REQ-ERR-13).
+export const handoverDockMessage = (
+  { failure, reason }: DockingFailureInfo,
+  assetTag: string,
+): string | null => {
+  switch (failure) {
+    case 'cancelled':
+      return null;
+    case 'mismatch':
+      return reason;
+    case 'no-response':
+      return NO_RESPONSE_MESSAGE;
+    case 'api':
+      return `${reason.replace(/\.?$/, '.')} Nothing was written.`;
+    default:
+      return `${reason} Dock ${assetTag} again before handover.`;
+  }
+};
+
+// Screen 4.2, Read from unit on the Register panel.
+export const intakeDockMessage = ({ failure }: DockingFailureInfo): string | null => {
+  if (failure === 'cancelled') return null;
+  if (failure === 'no-response') return NO_RESPONSE_MESSAGE;
+  return 'The unit did not answer. Check the cable, close other Meshtastic apps and try again.';
+};
+
+// Screen 4.2, Configure uplink (REQ-ERR-15).
+export const uplinkDockMessage = (
+  { failure, reason }: DockingFailureInfo,
+  assetTag: string,
+): string | null => {
+  if (failure === 'cancelled') return null;
+  if (failure === 'mismatch') return reason;
+  if (failure === 'no-response') {
+    return `${assetTag} is not configured as an uplink: the unit answered nothing over USB.`;
+  }
+  return `${assetTag} is not configured as an uplink: ${clause(reason)}.`;
+};
