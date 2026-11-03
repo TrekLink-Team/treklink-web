@@ -1,0 +1,205 @@
+import {
+  DEFAULT_TIMINGS,
+  DockError,
+  choosePort,
+  grantedPort,
+  openDock,
+  toNodeId,
+  type DockSession,
+  type DockTimings,
+  type UnitReading,
+  type UplinkSettings,
+} from '../../shared/lib/meshtastic-dock';
+
+// The docking flows of devices design sections 8.3, 8.4 and 8.8 over the one adapter. The service keeps
+// the open session between `readUnit()` and the write that follows it, and closes it when the flow
+// ends, whatever the outcome. It never stores the key it is handed (REQ-UBI-05).
+
+export type DockStage = 'reading' | 'getting-key' | 'writing' | 'restarting' | 'reconnect' | 'checking';
+
+export type DockingFailure =
+  // The docked unit is another device (REQ-ERR-12).
+  | 'mismatch'
+  // The unit answered nothing over USB: the v2 gap (REQ-ERR-14).
+  | 'no-response'
+  // A port, read or write step failed (REQ-ERR-13).
+  | 'dock'
+  // The read-back after the restart differs (REQ-ERR-13, REQ-ERR-15).
+  | 'read-back'
+  // The unit did not come back after its restart and Staff did not reconnect it.
+  | 'not-returned'
+  // Staff closed the browser's port chooser.
+  | 'cancelled';
+
+export class DockingError extends Error {
+  constructor(
+    readonly failure: DockingFailure,
+    message: string,
+    // The node id of the unit that was docked, for the mismatch message.
+    readonly nodeId?: string,
+  ) {
+    super(message);
+    this.name = 'DockingError';
+  }
+}
+
+export interface ExpectedUnit {
+  assetTag: string;
+  nodeNum: number | null | undefined;
+}
+
+export interface DockHooks {
+  onStage: (stage: DockStage) => void;
+  // Called when the port did not come back by itself; resolves with the port Staff chose in the
+  // browser's chooser, or null when they gave up.
+  reconnect: () => Promise<SerialPort | null>;
+}
+
+// The owner names TrekLink writes (D-080 rule 2, design section 8.6 decision 2): the long name is the
+// asset tag (39 characters at most, `mesh.pb.h:704`), the short name its last four characters.
+export const ownerFor = (assetTag: string) => ({
+  longName: assetTag.slice(0, 39),
+  shortName: assetTag.slice(-4),
+});
+
+const fromDockError = (error: unknown): DockingError => {
+  if (error instanceof DockingError) return error;
+  if (error instanceof DockError) {
+    if (error.failure === 'no-response') return new DockingError('no-response', error.message);
+    if (error.failure === 'no-port') return new DockingError('cancelled', error.message);
+    return new DockingError('dock', error.message);
+  }
+  return new DockingError('dock', 'The docking failed.');
+};
+
+export class DockingService {
+  private session: DockSession | null = null;
+  // After a failure on the granted port the next docking asks the chooser, so Staff can pick another.
+  private preferChooser = false;
+
+  constructor(private readonly timings: DockTimings = DEFAULT_TIMINGS) {}
+
+  // Opens the granted port, or the browser's chooser on the first docking of the visit (design
+  // section 8.4 step 1), and runs the config-only handshake. The session stays open for a write.
+  async readUnit(): Promise<UnitReading> {
+    await this.release();
+    const granted = this.preferChooser ? null : await grantedPort();
+    try {
+      const port = granted ?? (await choosePort());
+      this.session = await openDock(port, this.timings);
+      this.preferChooser = false;
+      return this.session.unit;
+    } catch (error) {
+      if (granted) this.preferChooser = true;
+      throw fromDockError(error);
+    }
+  }
+
+  // Closes the open session, if any.
+  async release() {
+    const session = this.session;
+    this.session = null;
+    await session?.close();
+  }
+
+  // The mismatch guard (REQ-ERR-12): a docked unit that is not the expected device closes the session
+  // before anything is written or a key is asked for.
+  async confirmUnit(expected: ExpectedUnit): Promise<DockSession> {
+    const session = this.session;
+    if (!session) throw new DockingError('dock', 'Dock the unit first.');
+    if (session.unit.nodeNum !== expected.nodeNum) {
+      await this.release();
+      throw new DockingError(
+        'mismatch',
+        `The docked unit is ${session.unit.nodeId}, not ${expected.assetTag}. Nothing was written.`,
+        session.unit.nodeId,
+      );
+    }
+    return session;
+  }
+
+  // The restart the commit causes, then a fresh handshake; the reconnect prompt when the browser
+  // dropped the port (design section 8.4 step 4, section 8.8 step 3).
+  private async afterRestart(session: DockSession, hooks: DockHooks): Promise<DockSession> {
+    hooks.onStage('restarting');
+    this.session = null;
+    let back = await session.awaitRestart();
+    while (!back) {
+      hooks.onStage('reconnect');
+      const port = await hooks.reconnect();
+      if (!port) {
+        throw new DockingError('not-returned', 'The unit did not come back after its restart.');
+      }
+      hooks.onStage('checking');
+      try {
+        back = await openDock(port, this.timings);
+      } catch {
+        // The chosen port did not answer yet: ask again.
+      }
+    }
+    hooks.onStage('checking');
+    return back;
+  }
+
+  // Writes the owner names and the channel key, then reads them back (design section 8.4 steps 4
+  // and 5). The key is only read here; the caller wipes it.
+  async provision(
+    expected: ExpectedUnit,
+    key: Uint8Array,
+    keyVersion: number,
+    hooks: DockHooks,
+  ): Promise<{ nodeNum: number; keyVersion: number }> {
+    const session = await this.confirmUnit(expected);
+    const owner = ownerFor(expected.assetTag);
+    hooks.onStage('writing');
+    try {
+      await session.writeOwnerAndChannel(owner, key);
+    } catch (error) {
+      await this.release();
+      throw fromDockError(error);
+    }
+    const back = await this.afterRestart(session, hooks);
+    try {
+      const differs = [
+        back.unit.nodeNum !== expected.nodeNum && `node ${back.unit.nodeId}`,
+        back.unit.longName !== owner.longName && 'owner long name',
+        back.unit.shortName !== owner.shortName && 'owner short name',
+        !back.primaryKeyEquals(key) && 'channel key',
+      ].filter((item): item is string => Boolean(item));
+      if (differs.length > 0) {
+        throw new DockingError('read-back', `The read-back differs: ${differs.join(', ')}.`);
+      }
+      return { nodeNum: back.unit.nodeNum, keyVersion };
+    } finally {
+      await back.close();
+    }
+  }
+
+  // The Stage A uplink of design section 8.8: writes, restart, read-back of the named checks.
+  async configureUplink(
+    expected: ExpectedUnit,
+    settings: UplinkSettings,
+    hooks: DockHooks,
+  ): Promise<void> {
+    const session = await this.confirmUnit(expected);
+    hooks.onStage('writing');
+    try {
+      await session.writeUplink(settings);
+    } catch (error) {
+      await this.release();
+      throw fromDockError(error);
+    }
+    const back = await this.afterRestart(session, hooks);
+    try {
+      const differs = [
+        ...(back.unit.nodeNum !== expected.nodeNum ? [`node ${toNodeId(back.unit.nodeNum)}`] : []),
+        ...back.uplinkDifferences(settings),
+      ];
+      if (differs.length > 0) {
+        throw new DockingError('read-back', `The read-back differs: ${differs.join(', ')}.`);
+      }
+    } finally {
+      await back.close();
+    }
+  }
+}

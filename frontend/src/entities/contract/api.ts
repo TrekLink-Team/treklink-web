@@ -76,6 +76,9 @@ export interface ContractDevice {
   contractDeviceId?: string;
   // The channel key version the unit carries for this organization (api-design 03); null when none.
   provisionedKeyVersion?: number | null;
+  // The unit's radio node number, which a docked unit must match (api-design 03, D-080); absent on a
+  // backend before it.
+  nodeNum?: number | null;
   // TrekLink callers, checked-in rows: the unit's state now and its next step back to AVAILABLE,
   // the step only on the row of its latest return (api-design 03, REQ-EVT-19, D-092 rule 4).
   afterReturn?: { status: DeviceStatus; nextStep: NextStep | null } | null;
@@ -269,8 +272,28 @@ export interface HandoverNote {
 export const swapDevice = (id: string, deviceId: string, reason: string) =>
   post<Swapped>(`/contracts/${id}/devices/${deviceId}/swap`, { reason });
 
-export const recordProvisioning = (id: string, deviceId: string, keyVersion: number) =>
-  post<Provisioned>(`/contracts/${id}/devices/${deviceId}/provisioning`, { keyVersion });
+// A docked record sends the nodeNum read back from the unit; only the "Enter manually" fallback omits it
+// (api-design 09, devices design section 8.6 decision 3).
+export const recordProvisioning = (
+  id: string,
+  deviceId: string,
+  keyVersion: number,
+  nodeNum?: number,
+) =>
+  post<Provisioned>(`/contracts/${id}/devices/${deviceId}/provisioning`, {
+    keyVersion,
+    ...(nodeNum === undefined ? {} : { nodeNum }),
+  });
+
+export interface ChannelKey {
+  keyHex: string;
+  keyVersion: number;
+}
+
+// api-design 21: the organization's channel key for the docked unit, Staff only. Called directly, once
+// per docking, never through TanStack Query, so no cache holds the answer (REQ-UBI-05).
+export const issueChannelKey = (id: string, deviceId: string, nodeNum: number) =>
+  post<ChannelKey>(`/contracts/${id}/devices/${deviceId}/channel-key`, { nodeNum });
 
 // Undoes a provisioning recorded on the wrong unit, before the handover (api-design 19).
 export const undoProvisioning = (id: string, deviceId: string, expectedVersion: number) =>
