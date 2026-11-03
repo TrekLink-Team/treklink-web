@@ -169,6 +169,18 @@ describe('DockSessionService on Postgres', () => {
     expect(emitted.filter((event) => event.name === DEVICE_UNDOCKED)).toHaveLength(1);
   });
 
+  it('lets any Staff member end a session another opened (leader ruling on treklink-web#351)', async () => {
+    const { id, nodeNum } = await unit();
+    await service.dock(id, nodeNum, staffA as never);
+
+    // undock takes no caller: the counter changed hands, and staff B clears A's session.
+    await expect(service.undock(id)).resolves.toBeNull();
+
+    await expect(openOf(id)).resolves.toHaveLength(0);
+    const [ended] = await prisma.deviceDockSession.findMany({ where: { deviceId: id } });
+    expect(ended).toMatchObject({ openedById: staffA.id, endReason: DockEndReason.RELEASED });
+  });
+
   it('keeps one open session when two Staff browsers open the same unit at once', async () => {
     const { id, nodeNum } = await unit();
 
