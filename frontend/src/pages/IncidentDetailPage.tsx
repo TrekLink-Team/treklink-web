@@ -27,10 +27,12 @@ import { Badge } from '../shared/ui/Badge';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
 import { Field, Textarea } from '../shared/ui/Field';
+import { RecordActionBar, type RecordAction } from '../shared/ui/RecordActionBar';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import { messageOf } from '../shared/ui/errors';
 import { INCIDENT_STATE } from '../shared/ui/status';
 import { useToast } from '../shared/ui/toastStore';
-import { ALERT, CARD, LINK, WARNING } from '../shared/ui/styles';
+import { ALERT, CARD, FACT_LIST_PHONE, LINK, WARNING } from '../shared/ui/styles';
 
 const MSG03 = 'Saved.';
 
@@ -181,7 +183,8 @@ const LABELS: Record<IncidentAction, string> = {
 
 // /o/incidents/:id, IncidentDetailPage of screen 8.1 (incidents api-design 02 to 07, 12 and 14). The
 // primary action changes with the state and the owner; there is no manual escalate, reopen or close.
-// The alert log is requested and shown for an Org Manager only.
+// The alert log is requested and shown for an Org Manager only. Below 600 px the facts are one compact
+// list and the actions a bar pinned to the bottom (chapter 06 §10.5).
 export const IncidentDetailPage: React.FC = () => {
   const { id = '' } = useParams();
   const { user } = useAuth();
@@ -192,6 +195,7 @@ export const IncidentDetailPage: React.FC = () => {
   const [correcting, setCorrecting] = useState<StatusUpdate | null>(null);
   const [acking, setAcking] = useState(false);
   const [ackFailure, setAckFailure] = useState<string | null>(null);
+  const phone = !useMediaQuery('(min-width: 600px)', true);
   // A panel 404 rechecks access to the main record (screen 8.1).
   const recheck = useCallback(() => void refetch(), [refetch]);
 
@@ -223,7 +227,6 @@ export const IncidentDetailPage: React.FC = () => {
     );
 
   const actions = actionsFor(incident, user?.id);
-  const [primary, ...secondary] = actions;
   const ownedByOther =
     (incident.state === 'ACKNOWLEDGED' || incident.state === 'RESPONDING') &&
     incident.owner !== null &&
@@ -247,6 +250,16 @@ export const IncidentDetailPage: React.FC = () => {
   const start = (action: IncidentAction) =>
     action === 'acknowledge' ? void ack() : setOpen(action);
 
+  // The first action is the primary one; a false alarm is destructive wherever it sits. Below 600 px
+  // they move into the bar pinned to the bottom (chapter 06 §10.5).
+  const barActions: RecordAction[] = actions.map((action, index) => ({
+    key: action,
+    label: LABELS[action],
+    tone: action === 'falseAlarm' ? 'danger' : index === 0 ? 'primary' : 'secondary',
+    loading: action === 'acknowledge' && acking,
+    onSelect: () => start(action),
+  }));
+
   // Correct is offered to whoever may add a status, on an update no later one corrects yet.
   const mayCorrect = actions.includes('status') && !open;
   const correct = (update: StatusUpdate) => {
@@ -256,8 +269,8 @@ export const IncidentDetailPage: React.FC = () => {
   const createdAtOf = new Map(incident.statusUpdates.map((update) => [update.id, update.createdAt]));
 
   return (
-    <section aria-labelledby="incident-title">
-      <Link to="/o/incidents" className={LINK}>
+    <section aria-labelledby="incident-title" className="flex flex-1 flex-col">
+      <Link to="/o/incidents" className={`${LINK} self-start`}>
         Back to incidents
       </Link>
       <div className="mt-3">
@@ -272,7 +285,7 @@ export const IncidentDetailPage: React.FC = () => {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
           <div className={CARD}>
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
               <Fact label="Device">{incident.device.assetTag ?? 'Unknown device'}</Fact>
               <Fact label="Holder">
                 {incident.device.holder
@@ -294,7 +307,7 @@ export const IncidentDetailPage: React.FC = () => {
                   : 'Position unavailable'}
               </Fact>
               {incident.outcomeNote && (
-                <div className="sm:col-span-2">
+                <div className={phone ? undefined : 'sm:col-span-2'}>
                   <Fact label="Outcome">
                     <span className="whitespace-pre-wrap break-words">{incident.outcomeNote}</span>
                   </Fact>
@@ -313,26 +326,7 @@ export const IncidentDetailPage: React.FC = () => {
               {ackFailure}
             </p>
           )}
-          {actions.length > 0 && !open && (
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant={primary === 'falseAlarm' ? 'danger' : 'primary'}
-                loading={primary === 'acknowledge' && acking}
-                onClick={() => start(primary)}
-              >
-                {LABELS[primary]}
-              </Button>
-              {secondary.map((action) => (
-                <Button
-                  key={action}
-                  variant={action === 'falseAlarm' ? 'danger' : 'secondary'}
-                  onClick={() => start(action)}
-                >
-                  {LABELS[action]}
-                </Button>
-              ))}
-            </div>
-          )}
+          {!phone && !open && <RecordActionBar label="Incident actions" actions={barActions} />}
           {open && (
             <ActionForm
               key={correcting ? `correct-${correcting.id}` : open}
@@ -418,6 +412,7 @@ export const IncidentDetailPage: React.FC = () => {
           )}
         </div>
       </div>
+      {phone && !open && <RecordActionBar label="Incident actions" actions={barActions} />}
     </section>
   );
 };
