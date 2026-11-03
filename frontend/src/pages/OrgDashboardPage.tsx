@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { FileText, Radio, Receipt, Siren } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { CreditCard, FileText, Radio, Receipt, Siren } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import { useInvoices, type Invoice } from '../entities/billing/api';
 import {
@@ -17,8 +17,8 @@ import {
   Button,
   Card,
   CardHeader,
+  CollectionView,
   CONTRACT_STATUS,
-  DataTable,
   EmptyState,
   INVOICE_STATUS,
   PageHeader,
@@ -26,7 +26,7 @@ import {
   StatCard,
   StatusBadge,
   buttonClasses,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
@@ -71,8 +71,14 @@ const SourceError: React.FC<{ error: unknown; onRetry: () => void }> = ({ error,
   </Alert>
 );
 
+interface NextDate {
+  contract: Contract;
+  at: string;
+  label: string;
+}
+
 // The next term end or return due time of each running contract, nearest first.
-const nextDates = (contracts: Contract[]) =>
+const nextDates = (contracts: Contract[]): NextDate[] =>
   contracts
     .filter((contract) => RUNNING.includes(contract.status))
     .map((contract) => ({
@@ -84,14 +90,16 @@ const nextDates = (contracts: Contract[]) =>
       label:
         contract.status === 'ACTIVE' || contract.status === 'ENDING' ? 'Term ends' : 'Return due',
     }))
-    .filter((row): row is { contract: Contract; at: string; label: string } => row.at !== null)
+    .filter((row): row is NextDate => row.at !== null)
     .sort((a, b) => a.at.localeCompare(b.at))
     .slice(0, 3);
 
 // /o, screen 5.6 (UC-55, D-059 rule 1): the Org Manager's landing page. It composes the list
-// endpoints the other pages use, with their query keys, and changes nothing itself.
+// endpoints the other pages use, with their query keys, and changes nothing itself. Its lists render
+// through CollectionView (chapter 06 §9, D-096) without a command bar: each is a short extract.
 export const OrgDashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const organization = user?.organization;
   const contracts = useContracts('o', { pageSize: MAX_PAGE_SIZE });
   const invoices = useInvoices('o', { pageSize: MAX_PAGE_SIZE });
@@ -151,32 +159,45 @@ export const OrgDashboardPage: React.FC = () => {
     .slice(0, 5);
   const upcoming = nextDates(items);
 
-  const invoiceColumns: Column<Invoice>[] = [
+  const invoiceFields: CollectionField<Invoice>[] = [
     {
-      key: 'number',
-      header: 'Invoice',
-      cell: (invoice) => (
-        <Link to={`/o/invoices/${invoice.id}`} className={LINK}>
-          {invoice.number}
-        </Link>
-      ),
+      key: 'contract',
+      label: 'Contract',
+      render: (invoice) => invoice.contract.code ?? '',
+      text: (invoice) => invoice.contract.code ?? '',
     },
-    { key: 'contract', header: 'Contract', cell: (invoice) => invoice.contract.code ?? '' },
     {
       key: 'due',
-      header: 'Still due',
+      label: 'Still due',
       align: 'end',
-      cell: (invoice) => formatVnd(invoice.totalVnd - invoice.paidVnd),
+      render: (invoice) => formatVnd(invoice.totalVnd - invoice.paidVnd),
+      sortValue: (invoice) => invoice.totalVnd - invoice.paidVnd,
+      compact: true,
     },
     {
       key: 'status',
-      header: 'Status',
-      cell: (invoice) =>
+      label: 'Status',
+      render: (invoice) =>
         overdueIds.has(invoice.id) ? (
           <StatusBadge entry={{ label: 'Overdue', tone: 'critical' }} />
         ) : (
           <StatusBadge entry={INVOICE_STATUS[invoice.status]} />
         ),
+      text: (invoice) => (overdueIds.has(invoice.id) ? 'Overdue' : INVOICE_STATUS[invoice.status].label),
+      compact: true,
+    },
+  ];
+
+  const dateFields: CollectionField<NextDate>[] = [
+    {
+      key: 'status',
+      label: 'Status',
+      // A short badge with the date as muted text beside it (handoff item 12).
+      render: ({ contract, at, label }) => (
+        <StatusBadge entry={CONTRACT_STATUS[contract.status]} after={`${label} ${formatDate(at)}`} />
+      ),
+      text: ({ contract, at, label }) => `${CONTRACT_STATUS[contract.status].label}, ${label} ${formatDate(at)}`,
+      compact: true,
     },
   ];
 
@@ -316,22 +337,27 @@ export const OrgDashboardPage: React.FC = () => {
           {dueError ? (
             <SourceError error={dueError} onRetry={retryDue} />
           ) : (
-            <DataTable
-              caption="Invoices to pay"
-              columns={invoiceColumns}
-              rows={dueLoading ? undefined : toPay}
-              rowId={(invoice) => invoice.id}
+            <CollectionView<Invoice>
+              label="Invoices to pay"
+              items={dueLoading ? undefined : toPay}
               loading={dueLoading}
-              empty={{ title: 'Nothing to pay right now.' }}
-              rowActions={(invoice) => (
-                <Link
-                  to={`/o/invoices/${invoice.id}`}
-                  className={buttonClasses('secondary', 'sm')}
-                  aria-label={`Pay ${invoice.number}`}
-                >
-                  Pay
-                </Link>
-              )}
+              itemId={(invoice) => invoice.id}
+              itemName={(invoice) => invoice.number}
+              itemHref={(invoice) => `/o/invoices/${invoice.id}`}
+              fields={invoiceFields}
+              noun={{ one: 'invoice', other: 'invoices' }}
+              itemActions={[
+                {
+                  key: 'pay',
+                  label: 'Pay',
+                  icon: <CreditCard />,
+                  onSelect: (invoice) => navigate(`/o/invoices/${invoice.id}`),
+                },
+              ]}
+              details={false}
+              hideCommandBar
+              fitNarrow
+              emptyState={{ title: 'Nothing to pay right now.' }}
             />
           )}
         </Card>
@@ -344,19 +370,19 @@ export const OrgDashboardPage: React.FC = () => {
             ) : upcoming.length === 0 ? (
               <p className="text-body text-ink-muted">No running contract.</p>
             ) : (
-              <ul className="flex flex-col divide-y divide-line">
-                {upcoming.map(({ contract, at, label }) => (
-                  <li key={contract.id} className="flex items-center justify-between gap-3 py-2">
-                    <Link to={`/o/contracts/${contract.id}`} className={LINK}>
-                      {contract.code}
-                    </Link>
-                    <span className="flex items-center gap-2 text-body-sm text-ink-muted">
-                      {label} {formatDate(at)}
-                      <StatusBadge entry={CONTRACT_STATUS[contract.status]} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <CollectionView<NextDate>
+                label="Next dates"
+                items={upcoming}
+                itemId={(row) => row.contract.id}
+                itemName={(row) => row.contract.code}
+                itemHref={(row) => `/o/contracts/${row.contract.id}`}
+                fields={dateFields}
+                noun={{ one: 'contract', other: 'contracts' }}
+                views={['list']}
+                details={false}
+                hideCommandBar
+                emptyState={{ title: 'No running contract.' }}
+              />
             )}
           </Card>
           <IncidentQueue />

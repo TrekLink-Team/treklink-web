@@ -237,7 +237,7 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     invoices = [invoice('INV-2026-000004', 'ISSUED', 400_000, 0)];
     overdueLoading = true;
     renderPage();
-    expect(screen.getByText('Loading Invoices to pay')).toBeTruthy();
+    expect(screen.getByText('Loading invoices')).toBeTruthy();
     expect(screen.queryByText('INV-2026-000004')).toBeNull();
   });
 
@@ -301,7 +301,9 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     });
     const first = screen.getByText('INC-2026-000001');
     expect(first.closest('a')?.getAttribute('href')).toBe('/o/incidents/inc-0');
-    expect(screen.getByText(/TL-0001, Nguyen Van A, since/)).toBeTruthy();
+    // A short state badge with the start beside it, then the device (D-096, handoff item 12).
+    expect(screen.getByText('TL-0001, Nguyen Van A')).toBeTruthy();
+    expect(screen.getAllByText(/^since /)).toHaveLength(5);
     expect(screen.queryByText('INC-2026-000006')).toBeNull();
     expect(screen.getByText('All incidents').closest('a')?.getAttribute('href')).toBe(
       '/o/incidents',
