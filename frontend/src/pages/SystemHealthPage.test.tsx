@@ -58,7 +58,7 @@ const renderPage = () =>
   );
 
 // The table only: the phone cards repeat each row.
-const table = () => within(screen.getByRole('table', { name: 'Field Stations' }));
+const table = () => within(screen.getByRole('table', { name: 'Field Station list' }));
 const card = (name: string) => within(screen.getByRole('region', { name }));
 
 beforeEach(() => {
@@ -156,7 +156,7 @@ describe('SystemHealthPage (screen 9.3)', () => {
   it('lists stale and outdated stations first with text badges and the depth per priority', async () => {
     api.mockResolvedValue(health());
     renderPage();
-    await screen.findByRole('table', { name: 'Field Stations' });
+    await screen.findByRole('table', { name: 'Field Station list' });
     const rows = table().getAllByRole('row').slice(1);
     expect(within(rows[0]).getByText('Old laptop')).toBeTruthy();
     expect(within(rows[0]).getByText('Stale')).toBeTruthy();
@@ -166,6 +166,27 @@ describe('SystemHealthPage (screen 9.3)', () => {
     expect(
       within(rows[1]).getByRole('link', { name: 'ACME Trek Co., Ltd.' }).getAttribute('href'),
     ).toBe('/t/organizations');
+  });
+
+  it('shows only the stale Field Stations from Show on CollectionView (D-096)', async () => {
+    const base = health();
+    api.mockResolvedValue(
+      health({
+        fieldStations: {
+          ...base.fieldStations,
+          total: 3,
+          items: [...base.fieldStations.items, station({ id: 'fs-3', name: 'Bidoup tablet' })],
+        },
+      }),
+    );
+    renderPage();
+    await screen.findByRole('table', { name: 'Field Station list' });
+    expect(table().getAllByRole('row')).toHaveLength(4);
+    fireEvent.click(screen.getByRole('button', { name: /^Show: All Field Stations/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Stale' }));
+    const rows = table().getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]).getByText('Old laptop')).toBeTruthy();
   });
 
   it('says so when no Field Station is registered', async () => {
@@ -183,7 +204,7 @@ describe('SystemHealthPage (screen 9.3)', () => {
     );
     renderPage();
     expect(await screen.findByText('No Field Stations are registered yet.')).toBeTruthy();
-    expect(screen.queryByRole('table', { name: 'Field Stations' })).toBeNull();
+    expect(screen.queryByRole('table', { name: 'Field Station list' })).toBeNull();
     expect(card('Field Stations').getByText('Current release unknown')).toBeTruthy();
   });
 
