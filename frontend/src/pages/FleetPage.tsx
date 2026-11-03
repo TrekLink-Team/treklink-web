@@ -22,6 +22,7 @@ import { ErrorState } from '../shared/ui/bits';
 import { Pagination } from '../shared/ui/DataTable';
 import { PageHeader } from '../shared/ui/PageHeader';
 import { cn } from '../shared/ui/cn';
+import { ScrollStrip } from '../shared/ui/ScrollStrip';
 import {
   CollectionView,
   type CollectionBulkAction,
@@ -408,7 +409,8 @@ export const FleetPage: React.FC = () => {
     <section aria-labelledby="fleet-title" className="flex flex-col gap-4">
       <PageHeader id="fleet-title" title="Devices" primaryAction={registerButton} />
 
-      <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-2">
+      {/* One row that scrolls sideways on a phone, with the hints of chapter 06 §10.6; it wraps from 640 px. */}
+      <ScrollStrip role="group" aria-label="Filter by status" wrapFrom="sm">
         {STATUSES.map((status) => {
           const pressed = statuses.includes(status);
           const count = counts[status];
@@ -419,7 +421,7 @@ export const FleetPage: React.FC = () => {
               aria-pressed={pressed}
               onClick={() => toggleStatus(status)}
               className={cn(
-                'inline-flex min-h-9 items-center gap-1.5 rounded-control border px-3 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+                'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-control border px-3 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
                 pressed
                   ? 'border-transparent bg-accent text-on-accent'
                   : 'border-line-strong bg-surface text-ink hover:bg-chrome/60',
@@ -432,7 +434,7 @@ export const FleetPage: React.FC = () => {
             </button>
           );
         })}
-      </div>
+      </ScrollStrip>
 
       <CollectionView<Device>
         label="Devices"

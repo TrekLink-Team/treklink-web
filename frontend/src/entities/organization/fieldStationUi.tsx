@@ -15,7 +15,7 @@ export const VersionCell: React.FC<{ station: FieldStation }> = ({ station }) =>
 
 export const StatusCell: React.FC<{ station: FieldStation }> = ({ station }) =>
   station.revokedAt ? (
-    <Badge tone="ended">Revoked {formatDate(station.revokedAt)}</Badge>
+    <Badge tone="ended" after={formatDate(station.revokedAt)}>Revoked</Badge>
   ) : (
     <Badge tone="active">Active</Badge>
   );

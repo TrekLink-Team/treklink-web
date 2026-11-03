@@ -161,7 +161,8 @@ describe('AccountsPage (screen 7.1)', () => {
   });
 
   it('sends the search and the status filter to the list', async () => {
-    serve([account(), staff]);
+    // Three accounts: one or two would hide the command bar (chapter 06 §9.3).
+    serve([account(), staff, off]);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
     fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'tran' } });
@@ -460,7 +461,8 @@ describe('AccountsPage (screen 7.1)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Clear search and filter' }));
     await waitFor(() => expect(query()).toBe(''));
     await waitFor(() => expect(reads()).toContain('/accounts?pageNumber=1&pageSize=20'));
-    expect((screen.getByLabelText('Search accounts') as HTMLInputElement).value).toBe('');
+    // Nothing is narrowed now and nothing is listed, so the command bar with its search hides (§9.3).
+    expect(screen.queryByLabelText('Search accounts')).toBeNull();
   });
 
   it('labels the reset button Send reset code and names the account to a screen reader', async () => {

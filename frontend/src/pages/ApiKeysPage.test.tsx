@@ -74,7 +74,8 @@ describe('ApiKeysPage (screen 3.4)', () => {
     expect(within(table).getByText('tlk_7Hc2')).toBeTruthy();
     expect(within(table).getByText('Never')).toBeTruthy();
     expect(within(table).getByText('Active')).toBeTruthy();
-    expect(within(table).getByText(/^Revoked /)).toBeTruthy();
+    // A short badge with the date after it (design handoff item 12).
+    expect(within(table).getByText('Revoked')).toBeTruthy();
     expect(screen.getByText('1 of 5 active keys, 1 revoked')).toBeTruthy();
     // Only the active key can be revoked.
     expect(within(table).getAllByRole('button', { name: /^Revoke / })).toHaveLength(1);

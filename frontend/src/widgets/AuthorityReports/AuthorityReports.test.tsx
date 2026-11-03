@@ -110,7 +110,8 @@ describe('AuthorityReportsPanel (screen 8.3, api-design 11)', () => {
     expect(await screen.findByText('No open authority cases.')).toBeTruthy();
     api.mockResolvedValueOnce(page([report({ caseClosedAt: '2026-11-02T08:00:00Z' })]));
     fireEvent.click(screen.getByLabelText('Open cases only'));
-    expect(await screen.findByText(/^Closed /)).toBeTruthy();
+    // A short badge with the date after it (design handoff item 12).
+    expect(await screen.findByText('Closed')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Record case closed/ })).toBeNull();
   });
 

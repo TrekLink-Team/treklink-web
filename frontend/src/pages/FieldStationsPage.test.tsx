@@ -92,7 +92,8 @@ describe('FieldStationsPage (screen 3.5)', () => {
     expect(within(table).getByText('No data yet')).toBeTruthy();
     expect(within(table).getByText('0 / 0 / 3 / 12')).toBeTruthy();
     expect(within(table).getByText('Active')).toBeTruthy();
-    expect(within(table).getByText(/^Revoked /)).toBeTruthy();
+    // A short badge with the date after it (design handoff item 12).
+    expect(within(table).getByText('Revoked')).toBeTruthy();
     expect(screen.getByText('1 of 5 active stations, 1 revoked')).toBeTruthy();
     // A revoked row has no Revoke action.
     expect(within(table).getAllByRole('button', { name: /^Revoke / })).toHaveLength(1);

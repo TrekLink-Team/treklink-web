@@ -98,7 +98,8 @@ describe('MembersPage (screen 3.3)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Show: Active members/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Active and deactivated' }));
     await screen.findByText('2 members');
-    expect(inTable().getByText(/^Deactivated /)).toBeTruthy();
+    // A short badge with the date after it (design handoff item 12).
+    expect(inTable().getByText('Deactivated')).toBeTruthy();
     expect(api).toHaveBeenCalledWith(`${LIST}?includeDeactivated=true`);
     // A deactivated member has no actions.
     expect(inTable().queryByRole('button', { name: 'Deactivate Tran Van G' })).toBeNull();

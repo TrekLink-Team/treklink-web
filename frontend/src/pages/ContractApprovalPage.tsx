@@ -514,6 +514,8 @@ export const ContractApprovalPage: React.FC = () => {
         }}
         filters={QUEUES.map((queue) => ({ key: queue.key, label: queue.label }))}
         query={{ search: text, filter: queueKey, sort: null }}
+        // The default queue (Requested) narrows the list, so the bar stays even for one or two rows.
+        hideCommandBar={false}
         onQueryChange={(next) => {
           setText(next.search);
           if (next.filter !== queueKey) {

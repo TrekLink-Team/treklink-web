@@ -560,7 +560,7 @@ const reportColumns = (onViewIncident: (id: string) => void): Column<AuthorityRe
     header: 'Case',
     cell: (report) =>
       report.caseClosedAt ? (
-        <Badge tone="ended">Closed {formatDateTime(report.caseClosedAt)}</Badge>
+        <Badge tone="ended" after={formatDateTime(report.caseClosedAt)}>Closed</Badge>
       ) : (
         <Badge tone="attention">Open</Badge>
       ),

@@ -93,3 +93,15 @@ first form that needs it in W29.
 `AccountMenu` is a `Menu` since 2026-11-02: the profile block sits in its `header` slot (read-only text above
 the items, no menuitem), and `ChangePasswordDialog` is a `Dialog` that asks in a `ConfirmDialog` before
 discarding filled fields. No `window.confirm` is left in `src`.
+
+## CollectionView details (D-096, 2026-11-04)
+
+Added by KhoaDD with the CollectionView rollout (chapter 06 §9 and §10, `docs/design/2026-11-03-collectionview-and-layout.md`):
+
+| Rule | Built in |
+|---|---|
+| A badge holds one or two words; a date, an amount or a time goes after it as muted text ("Revoked" then the date). | `Badge` and `StatusBadge` `after` |
+| A list of one or two records with nothing narrowed hides its command bar and its checkboxes; its item actions stay. A list whose default filter narrows it (open incidents, active members, the Requested queue) keeps the bar. | `CollectionView`, `hideCommandBar` |
+| A row that does not fit scrolls sideways with fading edges and arrow buttons that stay out of the tab order; a strip with no focusable item takes a name and a tab stop while it overflows. | `ScrollStrip`, `Tabs`, the lifecycle strip, the Details table |
+| A page with several related lists names one `CollectionPaneHost`; one details pane sits beside all of them. A page with a richer record view of its own opens it from Show details. | `CollectionPaneHost`, `onShowDetails` |
+
