@@ -776,6 +776,16 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
     );
   });
 
+  it('shows the server refusal and no provisioning when the record fails after a good dock', async () => {
+    docking.dockAndProvision.mockResolvedValue({ ok: true, nodeNum: 0xa4b1c2d0, keyVersion: 1 });
+    recordProvisioning.mockRejectedValue(new ApiError(500, 'INTERNAL', 'Something went wrong. Try again.'));
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+    await waitFor(() => expect(recordProvisioning).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole('alert').textContent).not.toBe(''));
+    expect(screen.queryByText('Provisioned v1')).toBeNull();
+  });
+
   it('maps NODE_MISMATCH from the record to the docked node', async () => {
     docking.dockAndProvision.mockResolvedValue({ ok: true, nodeNum: 0x4351c, keyVersion: 1 });
     recordProvisioning.mockRejectedValue(new ApiError(409, 'NODE_MISMATCH', 'mismatch'));
