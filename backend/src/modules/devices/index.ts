@@ -22,6 +22,7 @@ export { fromNodeId, toNodeId } from './node-id';
 export type { NextAction, NextStep } from './next-step';
 // demo module (D-088): the asset-maintenance scenario opens a record as Staff would.
 export { MaintenanceService } from './maintenance.service';
+export { LossCaseService, type LossCaseSummary } from './loss-cases.service';
 export type { OpenMaintenanceDto } from './dto/maintenance.dto';
 export {
   LOSS_CASE_LISTENERS,

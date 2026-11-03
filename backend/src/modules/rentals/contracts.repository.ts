@@ -372,6 +372,48 @@ export class ContractsRepository {
     });
   }
 
+  // Contracts in OVERDUE or DEFAULTED whose end passed before `asOf`, with the units still out, oldest end
+  // first (monitoring api-design 08, overdue). The state is today's; `asOf` only fixes the days counted.
+  overdueOf(asOf: Date, client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: {
+        status: { in: [ContractStatus.OVERDUE, ContractStatus.DEFAULTED] },
+        endsAt: { lt: asOf },
+      },
+      orderBy: [{ endsAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        code: true,
+        organizationId: true,
+        endsAt: true,
+        status: true,
+        _count: {
+          select: {
+            devices: { where: { handedOverAt: { not: null }, checkedInAt: null, lostAt: null } },
+          },
+        },
+      },
+    });
+  }
+
+  // The custody intervals that ended in a loss inside [from, to), newest loss first (monitoring
+  // api-design 08, lost).
+  lostBetween(from: Date, to: Date, client: Client = this.prisma) {
+    return client.contractDevice.findMany({
+      where: { lostAt: { gte: from, lt: to } },
+      orderBy: [{ lostAt: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        deviceId: true,
+        lostAt: true,
+        contractId: true,
+        contract: {
+          select: { code: true, organizationId: true, hardwareVariantId: true },
+        },
+      },
+    });
+  }
+
   // Contracts whose devices are out with the organization (api-design 03 `runningContracts`).
   countRunningContracts(organizationId: string, client: Client = this.prisma): Promise<number> {
     return client.rentalContract.count({

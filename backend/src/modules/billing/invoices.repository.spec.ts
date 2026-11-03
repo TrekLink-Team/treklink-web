@@ -272,6 +272,22 @@ describe('InvoicesRepository (billing task 1.1)', () => {
     );
   });
 
+  it('reads the LATE_FEE lines of the given contracts, for the overdue report', async () => {
+    await repository.lateFeeLinesOf(['c-1', 'c-2'], client());
+    expect(tx.invoiceLine.findMany).toHaveBeenCalledWith({
+      where: { type: InvoiceLineType.LATE_FEE, invoice: { contractId: { in: ['c-1', 'c-2'] } } },
+      select: { amountVnd: true, invoice: { select: { contractId: true } } },
+    });
+  });
+
+  it('reads the LATE_FEE lines of the given contracts, for the overdue report', async () => {
+    await repository.lateFeeLinesOf(['c-1', 'c-2'], client());
+    expect(tx.invoiceLine.findMany).toHaveBeenCalledWith({
+      where: { type: InvoiceLineType.LATE_FEE, invoice: { contractId: { in: ['c-1', 'c-2'] } } },
+      select: { amountVnd: true, invoice: { select: { contractId: true } } },
+    });
+  });
+
   it('reads every line due in [from, to) with its contract, for revenue per variant (task 2.4)', async () => {
     const from = new Date('2026-11-01T00:00:00.000Z');
     const to = new Date('2026-12-01T00:00:00.000Z');

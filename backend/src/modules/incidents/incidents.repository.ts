@@ -260,7 +260,6 @@ export class IncidentsRepository {
     });
   }
 
-  // Incidents not yet CLOSED on the devices, newest first (monitoring reads, design §5).
   // The alert outbox by status, for the system health read (monitoring api-design 06).
   async alertDeliveryCounts(): Promise<Map<AlertStatus, number>> {
     const groups = await this.prisma.alertDelivery.groupBy({
@@ -270,6 +269,16 @@ export class IncidentsRepository {
     return new Map(groups.map((group) => [group.status, group._count._all]));
   }
 
+  // The incidents first seen in [from, to), with what the response-time report needs: the organization
+  // (null while unrouted) and the three times (monitoring api-design 08).
+  responseTimeRows(from: Date, to: Date) {
+    return this.prisma.incident.findMany({
+      where: { firstEventAt: { gte: from, lt: to } },
+      select: { organizationId: true, firstEventAt: true, acknowledgedAt: true, resolvedAt: true },
+    });
+  }
+
+  // Incidents not yet CLOSED on the devices, newest first (monitoring reads, design §5).
   openOfDevices(deviceIds: readonly string[]) {
     return this.prisma.incident.findMany({
       where: { deviceId: { in: [...deviceIds] }, state: { not: 'CLOSED' } },

@@ -16,6 +16,7 @@ import {
   VariantRow,
   VariantSummary,
 } from './devices.repository';
+import { IN_SERVICE } from './in-service';
 import { MaintenanceService } from './maintenance.service';
 import { NextStep, nextStepOf } from './next-step';
 import { CUSTODY_RESOLVER, CustodyResolver } from './ports/custody-resolver.port';
@@ -939,6 +940,12 @@ export class DevicesService {
 
   // AVAILABLE units per variant now; advisory for the approval queue and the request form
   // (devices api-design 24). Approval decides (FR-CON-03).
+  // Units in service per hardware variant now, for the utilization report: the devices in a working
+  // state (monitoring api-design 08). It is today's count, not a history of the range.
+  unitsInService() {
+    return this.devices.inServiceCounts(IN_SERVICE);
+  }
+
   availability(variantId?: string) {
     return this.devices.availability(variantId);
   }

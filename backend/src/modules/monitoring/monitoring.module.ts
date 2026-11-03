@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth';
+import { BillingModule } from '../billing';
 import { DevicesModule } from '../devices';
 import { GatewaySyncModule } from '../gateway-sync';
 import { IncidentsModule } from '../incidents';
@@ -22,6 +23,8 @@ import { StaleMarksRepository } from './stale-marks.repository';
 import { StreamListener } from './stream.listener';
 import { StreamRepository } from './stream.repository';
 import { StreamService } from './stream.service';
+import { ReportsController } from './reports.controller';
+import { ReportsService } from './reports.service';
 import { SystemHealthController } from './system-health.controller';
 import { SystemHealthService } from './system-health.service';
 import { TelemetryHistoryController } from './telemetry-history.controller';
@@ -38,6 +41,7 @@ import { TelemetryHistoryController } from './telemetry-history.controller';
     AuthModule,
     PlatformModule,
     RentalsModule,
+    BillingModule,
     DevicesModule,
     IncidentsModule,
     OrganizationsModule,
@@ -49,6 +53,7 @@ import { TelemetryHistoryController } from './telemetry-history.controller';
     DeviceHistoryController,
     TelemetryHistoryController,
     SystemHealthController,
+    ReportsController,
   ],
   providers: [
     StreamRepository,
@@ -62,6 +67,7 @@ import { TelemetryHistoryController } from './telemetry-history.controller';
     StaleSweepJob,
     OrgApiService,
     SystemHealthService,
+    ReportsService,
     ApiRateLimiter,
     DeviceHistoryService,
     HistoryService,

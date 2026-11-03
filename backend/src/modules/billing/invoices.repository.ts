@@ -259,6 +259,14 @@ export class InvoicesRepository {
     });
   }
 
+  // The LATE_FEE lines of the given contracts, for the overdue report (monitoring api-design 08).
+  lateFeeLinesOf(contractIds: readonly string[], client: Client = this.prisma) {
+    return client.invoiceLine.findMany({
+      where: { type: InvoiceLineType.LATE_FEE, invoice: { contractId: { in: [...contractIds] } } },
+      select: { amountVnd: true, invoice: { select: { contractId: true } } },
+    });
+  }
+
   // Every line of every invoice of the organization with the contract it belongs to, oldest due first
   // (the reactivation check of `organizations`).
   linesOfOrganization(organizationId: string, client: Client = this.prisma) {

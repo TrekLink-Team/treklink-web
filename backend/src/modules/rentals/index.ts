@@ -10,6 +10,8 @@ export {
   type Custody,
   type DeviceContractRow,
   type HolderLabel,
+  type LostUnit,
+  type OverdueContract,
   type RentalPeriod,
   type VariantUtilization,
   type VisibleDevice,

@@ -46,6 +46,116 @@ describe('ContractsRepository delegate calls', () => {
     ]);
   });
 
+  it('selects OVERDUE and DEFAULTED contracts past their end with the units still out (monitoring api-design 08)', async () => {
+    const { calls, client } = recorder();
+    const repository = new ContractsRepository(client);
+    await repository.overdueOf(AT);
+    expect(calls).toEqual([
+      [
+        'rentalContract.findMany',
+        {
+          where: {
+            status: { in: [ContractStatus.OVERDUE, ContractStatus.DEFAULTED] },
+            endsAt: { lt: AT },
+          },
+          orderBy: [{ endsAt: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            code: true,
+            organizationId: true,
+            endsAt: true,
+            status: true,
+            _count: {
+              select: {
+                devices: {
+                  where: { handedOverAt: { not: null }, checkedInAt: null, lostAt: null },
+                },
+              },
+            },
+          },
+        },
+      ],
+    ]);
+  });
+
+  it('selects the custody intervals that ended in a loss inside the range, newest first', async () => {
+    const { calls, client } = recorder();
+    const repository = new ContractsRepository(client);
+    const to = new Date('2026-11-01T00:00:00Z');
+    await repository.lostBetween(AT, to);
+    expect(calls).toEqual([
+      [
+        'contractDevice.findMany',
+        {
+          where: { lostAt: { gte: AT, lt: to } },
+          orderBy: [{ lostAt: 'desc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            deviceId: true,
+            lostAt: true,
+            contractId: true,
+            contract: { select: { code: true, organizationId: true, hardwareVariantId: true } },
+          },
+        },
+      ],
+    ]);
+  });
+
+  it('selects OVERDUE and DEFAULTED contracts past their end with the units still out (monitoring api-design 08)', async () => {
+    const { calls, client } = recorder();
+    const repository = new ContractsRepository(client);
+    await repository.overdueOf(AT);
+    expect(calls).toEqual([
+      [
+        'rentalContract.findMany',
+        {
+          where: {
+            status: { in: [ContractStatus.OVERDUE, ContractStatus.DEFAULTED] },
+            endsAt: { lt: AT },
+          },
+          orderBy: [{ endsAt: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            code: true,
+            organizationId: true,
+            endsAt: true,
+            status: true,
+            _count: {
+              select: {
+                devices: {
+                  where: { handedOverAt: { not: null }, checkedInAt: null, lostAt: null },
+                },
+              },
+            },
+          },
+        },
+      ],
+    ]);
+  });
+
+  it('selects the custody intervals that ended in a loss inside the range, newest first', async () => {
+    const { calls, client } = recorder();
+    const repository = new ContractsRepository(client);
+    const to = new Date('2026-11-01T00:00:00Z');
+    await repository.lostBetween(AT, to);
+    expect(calls).toEqual([
+      [
+        'contractDevice.findMany',
+        {
+          where: { lostAt: { gte: AT, lt: to } },
+          orderBy: [{ lostAt: 'desc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            deviceId: true,
+            lostAt: true,
+            contractId: true,
+            contract: { select: { code: true, organizationId: true, hardwareVariantId: true } },
+          },
+        },
+      ],
+    ]);
+  });
+
   it('pages with every filter, or none, through the default client', async () => {
     const { calls, client } = recorder();
     const repository = new ContractsRepository(client);
