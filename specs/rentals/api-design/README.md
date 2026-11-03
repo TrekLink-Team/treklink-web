@@ -35,6 +35,7 @@
 | 29 | GET | `/api/contracts/:id/fault-reports` | Org Manager: own; TrekLink Staff | [29-get-contracts-id-fault-reports.md](29-get-contracts-id-fault-reports.md) |
 | 30 | POST | `/api/contracts/:id/end` | TrekLink Staff, TrekLink Admin; Org Manager: own | [30-post-contracts-id-end.md](30-post-contracts-id-end.md) |
 | 31 | GET | `/api/contracts/:id/end-preview` | TrekLink Staff, TrekLink Admin; Org Manager: own | [31-get-contracts-id-end-preview.md](31-get-contracts-id-end-preview.md) |
+| 32 | POST | `/api/contracts/:id/devices/:deviceId/exchange` | TrekLink Staff | [32-post-contracts-id-devices-deviceid-exchange.md](32-post-contracts-id-devices-deviceid-exchange.md) |
 
 Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end (UC-24, FR-CON-08, FR-CON-10), `RETURN_DUE` to `OVERDUE` to `DEFAULTED` (UC-50, FR-CON-12), and the reservation-expiry reminder (FR-CON-04).
 
