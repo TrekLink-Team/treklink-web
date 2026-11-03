@@ -1015,7 +1015,7 @@ organization's channel, so Staff configure the uplink on a unit already provisio
 
 ## 9. Firmware flash from the maintenance page (D-093 amendment item 3)
 
-> **Status**: Spec, 2026-11-03 (treklink-web#326). Library: `esptool-js` 0.7.1, adopted in
+> **Status**: Spec, 2026-11-03 (treklink-web#326; D-093 amendment of 2026-11-02, item 3). Library: `esptool-js` 0.7.1, adopted in
 > `vetting/esptool-js.md`. Needs the firmware release workflow of §9.1 before it can flash a real image.
 
 A unit gets new firmware inside the existing `FIRMWARE_UPDATE` maintenance record (§2.2): the weekly scan
@@ -1044,7 +1044,7 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
 - Size: api-design 29 returns the image as base64 in the D-002 envelope, as rentals api-design 08 returns its
   PDF. A Vercel Function answers at most 4.5 MB ("The maximum payload size for the request body or the response
   body of a Vercel Function is 4.5 MB", vercel.com/docs/functions/limitations, read 2026-11-03), so the raw image
-  must stay under 3.3 MB; the service refuses a larger manifest entry with 502 `FIRMWARE_IMAGE_TOO_LARGE`. A
+  must stay under 3 300 000 bytes (4 400 000 bytes as base64); the service refuses a larger manifest entry with 502 `FIRMWARE_IMAGE_TOO_LARGE`. A
   4 MB-flash variant's app partition holds 2.42 MB, so only an 8 MB variant's factory image can come near it.
 
 ### 9.2 Flash panel (screen 4.3, on an `OPEN` `FIRMWARE_UPDATE` record)
@@ -1069,7 +1069,9 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
 5. It fetches the image (api-design 29, which also returns the image's MD5), writes it compressed at the
    manifest offset, and passes `calculateMD5Hash` returning that MD5, so `esptool-js` compares each written
    region with the chip's `flashMd5sum` (`lib/types/flashOptions.d.ts:46-49`, `lib/esploader.d.ts:396`) with no
-   MD5 library in the browser. Then it resets the unit; a v2 unit turns off at the reset unless its power
+   MD5 library in the browser. `flashMode`, `flashFreq` and `flashSize` stay `"keep"`: otherwise the library rewrites the
+   header of an image written at `0x0` before hashing it (`lib/esploader.js:1466-1471`, `:1598-1600`), and a Full
+   install would fail its own verification. Then it resets the unit; a v2 unit turns off at the reset unless its power
    button is still held.
 6. On a verified write the panel fills the record's firmware version with the release version and opens
    Complete (devices api-design 14); Staff complete the record as today. A failed or unverified write
