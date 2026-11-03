@@ -233,6 +233,14 @@ export class DevicesRepository {
     });
   }
 
+  // The asset tag and node number of one unit (the dock session checks of api-design 31 and 32).
+  identity(id: string, client: Client = this.prisma) {
+    return client.device.findUnique({
+      where: { id },
+      select: { id: true, assetTag: true, nodeNum: true },
+    });
+  }
+
   // The facts the handover note prints per unit (rentals design §4.1), with what its remaining value
   // is computed from.
   handoverUnits(ids: readonly string[], client: Client = this.prisma) {
