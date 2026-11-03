@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The quick swap at the counter (devices design §11.6): an `AVAILABLE` unit of the contract's variant, docked on the Staff computer, takes the place of a reserved unit that has no provisioning record. The replaced unit goes back to `AVAILABLE` with no maintenance record (unlike api-design 07, which sends a unit that failed its check to `MAINTENANCE`); the docked unit becomes `RESERVED` to the contract; quantity, plan, price and variant do not change (REQ-UBI-03). The docked `nodeNum` must equal the replacement's record (devices REQ-EVT-33, D-080). The counter then provisions the docked unit at once (devices REQ-EVT-34). The contract `version` increases, so a signing screen opened before the exchange reloads. Open questions Q1 and Q2 of devices design §11.12 may change this contract. Permission `contract.operate`, the one of api-design 07.
+The quick swap at the counter (devices design §11.6): an `AVAILABLE` unit of the contract's variant, docked on the Staff computer, takes the place of a reserved unit that has no provisioning record. The replaced unit goes back to `AVAILABLE` with no maintenance record (unlike api-design 07, which sends a unit that failed its check to `MAINTENANCE`); the docked unit becomes `RESERVED` to the contract; quantity, plan, price and variant do not change (REQ-UBI-03). The docked `nodeNum` must equal the replacement's record (devices REQ-EVT-33, D-080). The counter then provisions the docked unit at once (devices REQ-EVT-34). The contract `version` increases, so a signing screen opened before the exchange reloads. Devices design §11.12 Q1 and Q2 were decided A on 2026-11-04. Permission `contract.operate`, the one of api-design 07.
 
 ## API Specification
 

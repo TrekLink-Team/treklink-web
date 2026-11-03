@@ -161,10 +161,10 @@ address) stay above the collection: the leader ruled on 2026-11-04 (treklink-web
 for the supervisor demo of 2026-11-06, and to replace them afterwards with a multi-select Show menu that
 carries the counts. Data and endpoints are unchanged.
 
-## Device connector entry points (2026-11-04, proposal, devices design §11)
+## Device connector entry points (2026-11-04, devices design §11, approved)
 
 Added by KhoaDD with the device hub spec. Where this section and the tables above disagree, this section wins
-once the leader approves devices design §11.
+(devices design §11 approved 2026-11-04).
 
 - The fleet page sets the `intake` context while the Register panel is open and `fleet` otherwise; the device
   page sets `device` with its id (devices design §11.3). Neither page calls Web Serial itself (REQ-UBI-10).

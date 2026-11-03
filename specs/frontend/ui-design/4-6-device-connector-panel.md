@@ -5,7 +5,7 @@
 | Owner | KhoaDD |
 | Task | `specs/frontend/tasks.md` 4.6 (devices tasks 10.6 to 10.11) |
 | Assigned, due | 2026-11-04, after the contract home UI (brief item 5) |
-| Status | Proposal, awaiting the leader's approval and his answers to devices design §11.12 |
+| Status | Approved 2026-11-04 (devices design §11.12 decided, option A each) |
 | Routes | No route of its own: a shell panel opened from the header button "Devices" on every TrekLink Staff page (`specs/frontend/design.md` §2), and by the entry points of screens 4.2, 4.3 and 5.4. On the full-bleed map routes it opens only as a `Drawer` |
 | Roles | TrekLink Staff and TrekLink Admin: the whole panel, actions filtered by their abilities (Admin adds nothing here). Organization accounts: no button, no panel; the endpoints answer 403 (devices REQ-UBI-07) |
 | Use case, FRs, story | UC-11, UC-14, UC-20, UC-38; FR-DEV-02, FR-DEV-05, FR-DEV-21, FR-CON-05, FR-MON-02; US-UC11, US-UC14, US-UC20 |
@@ -22,7 +22,7 @@ render, and Update firmware. Every page's docking control opens this panel inste
 
 | Width | Placement (chapter 06 §10.8) |
 |---|---|
-| 1100 px and up | Non-modal `aside` pushed beside the page, 360 px wide; focus moves to its heading "Connected units"; Escape or Close closes it. While it is open the Info pane closes (the recommended option A of devices design §11.12 Q6, pending the leader's answer) |
+| 1100 px and up | Non-modal `aside` pushed beside the page, 360 px wide; focus moves to its heading "Connected units"; Escape or Close closes it. While it is open the Info pane closes (devices design §11.12 Q6, decided A) |
 | 600 to 1099 px | Design system `Drawer` from the right over the page, focus trapped, returned to the opener on close |
 | Below 600 px | The same `Drawer` as a bottom sheet |
 
@@ -35,7 +35,7 @@ view render 240 px.
 | Shown | Source (api-design file, property) |
 |---|---|
 | Header button count "Devices (n)" | the connector registry: open connections (devices design §11.4) |
-| Row image | `/variants/<hardwareVariant.code>-icon.png` (Q5); the generic unit icon for an unknown unit |
+| Row image | `/variants/<hardwareVariant.code>-icon.png` (Q5 A); the generic unit icon for an unknown unit |
 | Row title, subtitle | devices 30 `device.assetTag`, `device.hardwareVariant.name`; the node id from the unit; "Unknown unit" and the build environment when `device` is null |
 | Row status | devices 30 `device.status` as text; "Not registered" for an unknown unit |
 | Row contract | devices 30 `contract.code`, `contract.status` |
@@ -59,7 +59,7 @@ they collapse into one Actions menu.
 | Show device view (row, "Show TL-0042") | always | none | none | the device view opens, focus on its heading |
 | New device: register it? (row) | unknown unit | navigation to the Register panel on `/t/fleet`, filled from the row; then devices 05 on that panel | none | MSG03 on the Register panel; the row shows the new asset tag and "In intake" |
 | Provision for {contractCode} (row) | counter context, unit `RESERVED` to this contract, not at the current key version | rentals 21, then rentals 09 (devices design §8.4) | none | "Provisioned v{n}" on the row and on the counter row |
-| Put {dockedTag} on {contractCode} in place of {reservedTag} (row) | counter context, unit `AVAILABLE`, contract variant, a reserved unit with no provisioning record | rentals 30, then rentals 21 and 09 on the held port | dialog "Put {dockedTag} on {contractCode}?": "{reservedTag} goes back to Available. {dockedTag} is reserved and provisioned now. Price and quantity do not change."; a select of the reserved units with no provisioning record, the first preselected (Q7); buttons Cancel and Swap and provision | toast "{dockedTag} replaces {reservedTag} on {contractCode}." then "Provisioned v{n}" |
+| Put {dockedTag} on {contractCode} in place of {reservedTag} (row) | counter context, unit `AVAILABLE`, contract variant, a reserved unit with no provisioning record | rentals 30, then rentals 21 and 09 on the held port | dialog "Put {dockedTag} on {contractCode}?": "{reservedTag} goes back to Available. {dockedTag} is reserved and provisioned now. Price and quantity do not change."; a select of the reserved units with no provisioning record, the first preselected (Q7 A); buttons Cancel and Swap and provision | toast "{dockedTag} replaces {reservedTag} on {contractCode}." then "Provisioned v{n}" |
 | Configure uplink (row and device view) | registered, not `RETIRED` or `DISPOSED`, provisioned for an organization | none on the server; Web Serial (devices design §8.8) | the form of screen 4.2 in a `Dialog`; "The unit restarts once to apply the settings." | "{assetTag} is configured as an uplink to {broker}." |
 | Update firmware (row and device view) | `MAINTENANCE` with an `OPEN` `FIRMWARE_UPDATE` record | devices 28 and 29, then the flash of devices design §9.2 on the handed-over port | the release picker of screen 4.3 and "The unit restarts after the write." | "Firmware {version} written and verified." and the row reads the unit again |
 | Record intake check (row) | `IN_INTAKE` | navigation to `/t/devices/:id` | none | none |
@@ -99,7 +99,7 @@ they collapse into one Actions menu.
 
 | Step | Field | Type | Required | Rule |
 |---|---|---|---|---|
-| Quick swap | Replace | select of the reserved units with no provisioning record | yes | the first in the contract's order is preselected (Q7) |
+| Quick swap | Replace | select of the reserved units with no provisioning record | yes | the first in the contract's order is preselected (Q7 A) |
 | Configure uplink | as screen 4.2 | | | |
 | Update firmware | Release | select of devices 28 for the variant | yes | as screen 4.3 |
 

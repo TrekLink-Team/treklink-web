@@ -209,7 +209,7 @@ Order of work (brief item 5): the contract home and CollectionView UI of `docs/d
 first, then 10.6 and 10.7 (the panel), then 10.8 to 10.11 (register, quick swap and hot provisioning, uplink and
 flash, the map pin). Tasks marked **needs Phase 7** build on `feat/devices-docking-frontend` (tasks 7.1 to 7.6),
 which is not merged: they start once it merges into `dev`, or on a branch cut from it. The backend tasks 10.1 to
-10.5 do not need it. Tasks that touch a contract wait for the leader's answers to design §11.12 (Q1 to Q7).
+10.5 do not need it. Design §11.12 Q1 to Q7 were decided on 2026-11-04 (option A each); the hub is approved for building.
 
 - [ ] 10.1 Parameter, error codes and the schema migration (owner KhoaDD)
   - **Files**: `scripts/specs/catalog.py` (`devices.dockPresenceTtlSeconds`, default 30, 10 to 300 seconds), `python3 scripts/specs/build_seed.py`, a forward migration for the parameter and for `DeviceDockSession` (§11.8, partial unique index on `deviceId` where `endedAt` is null), `backend/prisma/schema.prisma`, the error codes `DEVICE_PROVISIONED` and the devices use of `NODE_MISMATCH`
@@ -230,11 +230,11 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
 - [ ] 10.4 Exchange endpoint (owner KhoaDD; built as rentals 10.1, rentals api-design 30)
   - **Do**: design §11.6
   - _Requirements: REQ-EVT-33, REQ-ERR-20, REQ-ERR-21, REQ-ERR-23, REQ-ERR-24_
-  - _Depends on: rentals 10.1; the answers to Q1 and Q2_
+  - _Depends on: rentals 10.1_
 - [ ] 10.5 Docked units on the Staff map, server side (owner KhoaDD; built as monitoring 8.1)
   - **Do**: design §11.8 "Who can read it"; monitoring api-design 02 and the two stream types
   - _Requirements: REQ-EVT-37, REQ-STA-05_
-  - _Depends on: 10.3, monitoring 8.1; the answer to Q3_
+  - _Depends on: 10.3, monitoring 8.1_
 - [ ] 10.6 `ConnectorRegistry` (owner KhoaDD, **needs Phase 7**: 7.2 and 7.3)
   - **Files**: `frontend/src/features/device-connector/model/` (`ConnectorRegistry`, `Connection`, `useConnector`, `useConnectorContext`, `openConnector`), `frontend/src/shared/lib/meshtastic-dock.ts` (`openDock(port)` takes the hub's port; `grantedPort` removed), the fake `SerialPort` extended to several ports and to `connect` and `disconnect` events, tests
   - **Do**: design §11.2 and §11.4: one registry per tab; `getPorts()` on load and the `connect` event without the chooser; Connect a unit through the chooser; the state machine of Figure 18 with rows keyed by `nodeNum`; channel settings dropped after the handshake; one write lock; Unplugged kept 10 seconds; Forget; move `features/dock-device/` into the slice, and no `navigator.serial` outside `features/device-connector/` and `shared/lib/`
@@ -242,10 +242,10 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - _Requirements: REQ-UBI-08, REQ-UBI-09, REQ-UBI-10, REQ-EVT-29, REQ-STA-06, REQ-ERR-22, REQ-ERR-25, AC-22, AC-30, AC-32_
 - [ ] 10.7 Panel, device view and header button (owner KhoaDD, **needs Phase 7**)
   - **Files**: `frontend/src/features/device-connector/ui/` (`ConnectorPanel`, `DeviceView`, `ConnectorButton`), `actionsFor` with its table tests, `frontend/src/entities/device/api.ts` (`useDevicesByNode`), the shell mount in `widgets/AppShell/`, screen 4.6 (frontend task 4.6)
-  - **Do**: design §11.2 and §11.3: rows as a `CollectionView` List, §10.8 placement, §9.5 tooltips, §10.6 strips; the device view with `/variants/<code>-detail.png` and the icon render in rows (Q5), the labelled slot on a missing render; the reason text on a row with no action; recognition batched every 300 ms; Staff and Admin only
+  - **Do**: design §11.2 and §11.3: rows as a `CollectionView` List, §10.8 placement, §9.5 tooltips, §10.6 strips; the device view with `/variants/<code>-detail.png` and the icon render in rows (Q5 A), the labelled slot on a missing render; the reason text on a row with no action; recognition batched every 300 ms; Staff and Admin only
   - **Test**: `actionsFor` over every row of the §11.3 table; AC-23, AC-25, AC-34; the panel at 1280, 900 and 360 px
   - _Requirements: REQ-UBI-07, REQ-EVT-30, REQ-EVT-32, REQ-EVT-38, REQ-ERR-26, REQ-ERR-29, AC-23, AC-34_
-  - _Depends on: 10.2, 10.6; the contract home UI (brief item 5); the answers to Q5 and Q6_
+  - _Depends on: 10.2, 10.6; the contract home UI (brief item 5)_
 - [ ] 10.8 Register on connect (owner KhoaDD, **needs Phase 7**: 7.4b)
   - **Files**: the Register panel of screen 4.2, `features/device-connector/actions/`
   - **Do**: "New device: register it?" opens the Register panel on `/t/fleet` filled from the row with no second chooser; Read from unit on the Register panel only opens the hub (REQ-EVT-39); the row is recognized after registration
@@ -254,10 +254,10 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - _Depends on: 10.7_
 - [ ] 10.9 Counter: quick swap and hot provisioning (owner KhoaDD, **needs Phase 7**: 7.3 and 7.4)
   - **Files**: `frontend/src/pages/CounterPage.tsx` (context and row entry points), `features/device-connector/actions/` (`exchangeAndProvision`), `entities/contract/api.ts` (`exchangeDevice`), tests
-  - **Do**: design §11.6 and §11.7; the counter context of §11.3; a row's Dock opens the hub on its unit; on a mismatch offer the quick swap for that row (REQ-EVT-35); the confirmation dialog with the replaced unit (Q7); rentals api-design 30 then §8.4 steps 2 to 5 on the held connection; keep the contract `version` the exchange returns
+  - **Do**: design §11.6 and §11.7; the counter context of §11.3; a row's Dock opens the hub on its unit; on a mismatch offer the quick swap for that row (REQ-EVT-35); the confirmation dialog with the replaced unit (Q7 A); rentals api-design 30 then §8.4 steps 2 to 5 on the held connection; keep the contract `version` the exchange returns
   - **Test**: AC-26 to AC-29 with a fake port and a mocked API
   - _Requirements: REQ-EVT-33, REQ-EVT-34, REQ-EVT-35, REQ-ERR-19, REQ-ERR-20, REQ-ERR-21, REQ-ERR-23, REQ-ERR-24, AC-26, AC-27, AC-28, AC-29_
-  - _Depends on: 10.4, 10.7; the answers to Q1, Q2 and Q7_
+  - _Depends on: 10.4, 10.7_
 - [ ] 10.10 Uplink and flash from the hub (owner KhoaDD, **needs Phase 7**: 7.6; flash needs 8.3)
   - **Files**: `features/device-connector/actions/` (`configureUplink`, `flashFirmware`), `shared/lib/esp-flasher.ts` (takes a port), the device page's Configure uplink and the maintenance page's Update as entry points only, tests
   - **Do**: design §11.7: uplink on the held connection; flash closes the Meshtastic session, hands the port to the flasher, reopens on the same `nodeNum` and reads the unit again; the step named on a failure
@@ -269,7 +269,7 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - **Do**: design §11.8: open, renew every third of `devices.dockPresenceTtlSeconds`, end; the pin "Docked at the counter" at `counterLocation`; drop it on `device.undocked`
   - **Test**: AC-31 with two browser contexts in Playwright
   - _Requirements: REQ-EVT-36, REQ-EVT-37, REQ-STA-05, AC-31_
-  - _Depends on: 10.3, 10.5, 10.6; the answer to Q3_
+  - _Depends on: 10.3, 10.5, 10.6_
 - [ ] 10.12 Hardware run and the spec close-out (owner KhoaDD, with the leader at the bench)
   - **Do**: design §11.11 on v2 (treklink-firmware#27 image), v3 and v4: AC-22, AC-26, AC-27, AC-31, AC-37; record in §11.4 whether a port grant survives a browser restart and whether `SerialPort.forget()` exists on the counter's Chromium, and remove the two (unverified) marks or change the design
   - _Requirements: AC-22 to AC-37_
