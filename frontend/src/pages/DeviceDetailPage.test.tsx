@@ -95,7 +95,10 @@ beforeEach(() => {
   currentRoles = ['STAFF'];
   currentDevice = device();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  Reflect.deleteProperty(window.navigator, 'serial');
+});
 
 describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
   it('shows the header facts', async () => {
@@ -359,5 +362,22 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.queryByRole('button', { name: 'Record reset' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Retire' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Dispose' })).toBeNull();
+  });
+
+  it('offers Configure uplink with Web Serial, not for a retired unit, and not without it (design 8.8)', async () => {
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Configure uplink' })).toBeNull();
+    cleanup();
+
+    Object.defineProperty(window.navigator, 'serial', { value: {}, configurable: true });
+    currentDevice = device({ status: 'AVAILABLE', keyVersion: 2 });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Configure uplink' }));
+    expect(screen.getByRole('dialog', { name: 'Configure TL-0042 as an uplink' })).toBeTruthy();
+    cleanup();
+
+    currentDevice = device({ status: 'RETIRED' });
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Configure uplink' })).toBeNull();
   });
 });
