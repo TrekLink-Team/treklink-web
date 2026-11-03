@@ -615,9 +615,11 @@ ENDPOINTS = [
 
     ep("DELETE", "/api/devices/:id/dock", "End a dock session", "TrekLink Staff, TrekLink Admin",
        "Ends the open dock session of the unit when the connector releases its port, the unit is unplugged or the "
-       "tab closes (sent with `keepalive`), so the Staff map drops the pin (design §11.8). Ending a session that is "
-       "already over, or that does not exist, answers success with `result` null. A session never ended this way "
-       "expires through the `devices.dockSweep` job. Permission `device.operate`.",
+       "tab closes (sent with `keepalive`), so the Staff map drops the pin (design §11.8). Any TrekLink Staff or "
+       "Admin caller may end the open session, whoever opened it: counters change hands, and a stale session must "
+       "be clearable (leader ruling on treklink-web#351). Ending a session that is already over, or that does not "
+       "exist, answers success with `result` null. A session never ended this way expires through the "
+       "`devices.dockSweep` job. Permission `device.operate`.",
        "UC-14, FR-MON-02",
        path=[DEV_PATH], response=None, message="Undocked", entity="Device",
        steps=["End the open session as RELEASED", "Emit device.undocked after commit when one was open"],

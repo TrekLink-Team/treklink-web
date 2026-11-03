@@ -51,7 +51,7 @@ The quick swap at the counter (devices design §11.6): an `AVAILABLE` unit of th
       "status": "AVAILABLE"
     },
     "reserved": {
-      "deviceId": "8f9e0a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "id": "8f9e0a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b",
       "assetTag": "TL-0051",
       "nodeNum": 2763113188,
       "status": "RESERVED"
@@ -63,6 +63,12 @@ The quick swap at the counter (devices design §11.6): an `AVAILABLE` unit of th
   "message": "Device exchanged"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| released.deviceId | The reserved unit that went back to AVAILABLE | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| reserved.id | The docked unit now reserved to the contract (the device id; named `id`, as the code returns it, as in api-design 07) | uuid | `8f9e0a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b` |
+| contractVersion | The contract version after the exchange, for the counter's next request | int | `5` |
 
 ## Validation
 

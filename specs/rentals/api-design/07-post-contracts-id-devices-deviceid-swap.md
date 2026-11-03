@@ -48,7 +48,7 @@ A reserved device fails its check at handover: it goes to `MAINTENANCE` and anot
       "status": "MAINTENANCE"
     },
     "reserved": {
-      "deviceId": "8f9e...",
+      "id": "8f9e...",
       "assetTag": "TL-0051",
       "status": "RESERVED"
     }
@@ -58,6 +58,11 @@ A reserved device fails its check at handover: it goes to `MAINTENANCE` and anot
   "message": "Device swapped"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| released.deviceId | The device that left the contract | uuid | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| reserved.id | The device reserved in its place (the device id; named `id`, as the code returns it) | uuid | `8f9e...` |
 
 ## Validation
 
