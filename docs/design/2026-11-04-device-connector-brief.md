@@ -35,3 +35,14 @@ See the session file for the answers once given.
 2. **Users:** TrekLink Staff and Admin only (counter, intake, maintenance, fleet). Organizations never dock units.
 3. **Live map:** a unit docked for provisioning shows on the Staff map only, pinned at `monitoring.counterLocation` with a "Docked at the counter" state while the browser holds its port. Organizations see it only after handover (D-092 unchanged).
 4. **Several units at once:** the panel lists every connected unit, one row each, and remembers granted ports, so a replug reconnects without the chooser.
+
+## Scope addition from the leader (2026-11-04 02:05), binding
+
+The device connector is one centralized device hub for Staff ("in the spirit of 3uTools for TrekLink: connect a unit
+and see what you can do with it"). In one place it covers: register a new unit, provision it for a contract (with the
+quick swap and hot provisioning above), configure the uplink, read its info (identity, variant, firmware, battery,
+contract, status) and flash firmware (devices design §9, tasks Phase 8). The counter rows, the Register panel's Read
+from unit, Configure uplink and the flash panel all open the same connector instead of each page docking on its own.
+A detailed device view uses an upright product render of the unit, referenced as `/variants/<code>-detail.png`, and
+lists and non-detail panes use `/variants/<code>-icon.png` (the images are being made separately). Specified in
+`specs/devices/design.md` §11; choices not settled are open questions there.
