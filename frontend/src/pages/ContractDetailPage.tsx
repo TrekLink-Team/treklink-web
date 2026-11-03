@@ -31,6 +31,7 @@ import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 import { ContractActionBar, type HomeTab } from '../widgets/ContractHome/ContractActionBar';
 import { ContractHeader, LifecycleCard } from '../widgets/ContractHome/ContractHeader';
+import { DepositCard } from '../widgets/ContractHome/DepositCard';
 import { DevicesTab } from '../widgets/ContractHome/DevicesTab';
 import { DocumentsTab } from '../widgets/ContractHome/DocumentsTab';
 import { HistoryTab } from '../widgets/ContractHome/HistoryTab';
@@ -328,6 +329,11 @@ export const ContractDetailPage: React.FC<{
       <TabPanel idPrefix="contract" tabKey={tab} className="flex flex-col gap-3">
         {tab === 'overview' && (
           <OverviewTab
+            lead={
+              data.status === 'REQUESTED' && viewer !== 'operator' ? (
+                <DepositCard contract={data} scope={scope} viewer={viewer} />
+              ) : undefined
+            }
             contract={data}
             scope={scope}
             variantName={variant}

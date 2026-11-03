@@ -61,12 +61,17 @@ vi.mock('../entities/billing/api', async (importOriginal) => ({
 }));
 
 // The public plans read (billing api-design 01) answers the variant names; nothing else is fetched.
+// Billing reads the Money tab and the deposit card make (billing api-design 08, 09, 14), by endpoint.
+let billing: Record<string, unknown> = {};
+
 vi.mock('../shared/api/apiClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../shared/api/apiClient')>()),
-  apiClient: (endpoint: string) =>
-    endpoint === '/plans' && variants
-      ? Promise.resolve({ variants })
-      : new Promise(() => undefined),
+  apiClient: (endpoint: string) => {
+    if (endpoint === '/plans' && variants) return Promise.resolve({ variants });
+    const path = endpoint.split('?')[0];
+    if (path in billing) return Promise.resolve(billing[path]);
+    return new Promise(() => undefined);
+  },
 }));
 
 const renderPage = (
@@ -97,6 +102,7 @@ describe('ContractDetailPage', () => {
     variants = [{ id: 'v-3', code: 'treklink-v3', name: 'TrekLink v3' }];
     closeCheck = undefined;
     history = [];
+    billing = {};
   });
 
   afterEach(() => cleanup());
@@ -506,6 +512,73 @@ describe('ContractDetailPage', () => {
       expect(screen.getByText('Request cancelled, the unpaid hold expired')).toBeTruthy();
       expect(screen.getByText('Request sent, devices held')).toBeTruthy();
       expect(screen.getByText('System')).toBeTruthy();
+    });
+  });
+
+  // The Org Manager's screens of the canvas, with the data the endpoints return (step 2, D-096).
+  describe('Org Manager contract screens', () => {
+    const invoice = {
+      id: 'i-1',
+      number: 'INV-2026-000187',
+      organization: { id: 'org-1', code: 'ORG-0001' },
+      contract: { id: 'c-1', code: 'RC-2026-0004' },
+      kind: 'TERM',
+      term: { seq: 1 },
+      status: 'ISSUED',
+      totalVnd: 5_400_000,
+      paidVnd: 0,
+      issuedAt: '2026-11-02T03:15:00Z',
+    };
+    const page = (items: unknown[]) => ({ items, pageNumber: 1, pageSize: 20, totalCount: items.length, totalPages: 1 });
+
+    beforeEach(() => {
+      roles = ['ORG_MANAGER'];
+    });
+
+    it('shows a request its deposit from the first invoice line, with Pay deposit as the primary action', async () => {
+      contract = { ...baseContract, status: 'REQUESTED', holdExpiresAt: '2026-11-05T03:15:00Z' };
+      billing = {
+        '/invoices': page([invoice]),
+        '/invoices/i-1': {
+          ...invoice,
+          lines: [
+            { seq: 2, type: 'TERM', description: 'Term 1 balance', quantity: 5, unitVnd: 0, amountVnd: 3_000_000, dueAt: '2026-11-10T02:00:00Z', paidVnd: 0 },
+            { seq: 1, type: 'HOLDING_FEE', description: 'Holding fee, term 1', quantity: 1, unitVnd: 2_400_000, amountVnd: 2_400_000, dueAt: '2026-11-05T03:15:00Z', paidVnd: 0 },
+          ],
+          payments: [],
+        },
+      };
+      renderPage('o');
+      expect(await screen.findByText('Holding fee, term 1')).toBeTruthy();
+      expect(screen.getByText('2,400,000 VND')).toBeTruthy();
+      expect(screen.getByText('Not paid')).toBeTruthy();
+      expect(screen.getByText('Pay the deposit to keep your request')).toBeTruthy();
+      const pay = within(actionRow()).getByRole('button', { name: 'Pay deposit' });
+      expect(pay.getAttribute('aria-disabled')).toBeNull();
+    });
+
+    it('lists invoices and payments under one details pane on the Money tab', async () => {
+      contract = { ...baseContract, status: 'ACTIVE', handedOverAt: '2026-11-10T02:00:00Z' };
+      billing = {
+        '/invoices': page([invoice]),
+        '/payments': page([
+          { id: 'p-1', reference: 'TL-PAY-0001', invoiceId: 'i-1', contractId: 'c-1', amountVnd: 2_400_000, method: 'SEPAY', status: 'PENDING', isSandbox: true, expiresAt: '2026-11-10T03:00:00Z', confirmedAt: null },
+        ]),
+        '/contracts/c-1/balance': { contractId: 'c-1', dueNowVnd: 5_400_000, dueLaterVnd: 0, paidVnd: 0, pendingDamageCharges: [], settled: false },
+      };
+      renderPage('o', '?tab=money');
+      const payments = await screen.findByRole('table', { name: 'Payments of RC-2026-0004' });
+      expect(within(payments).getByText('INV-2026-000187')).toBeTruthy();
+      expect(within(payments).getByText('SePay (sandbox)')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Show the QR TL-PAY-0001' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Pay invoice INV-2026-000187' })).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Show details of INV-2026-000187' }));
+      expect(document.querySelector('[data-pane-host] > div.contents [data-details-pane]')).toBeTruthy();
+      // The pane sits beside both lists, so both drop the columns it already shows.
+      expect(within(payments).queryByRole('columnheader', { name: 'Method' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-PAY-0001' }));
+      expect(screen.getAllByRole('complementary')).toHaveLength(1);
+      expect(screen.getByRole('complementary', { name: 'TL-PAY-0001' })).toBeTruthy();
     });
   });
 });
