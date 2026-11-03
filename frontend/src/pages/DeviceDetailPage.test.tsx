@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
 import { DeviceDetailPage } from './DeviceDetailPage';
+import { useConnectorStore } from '../features/device-connector/model/connectorStore';
 
 const recordIntakeCheck = vi.fn();
 const recordReset = vi.fn();
@@ -468,7 +469,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.queryByRole('button', { name: 'Dispose' })).toBeNull();
   });
 
-  it('offers Configure uplink with Web Serial, not for a retired unit, and not without it (design 8.8)', async () => {
+  it('opens the hub for Configure uplink with Web Serial, not for a retired unit, and not without it (design 8.8, 11.7)', async () => {
     renderPage();
     expect(screen.queryByRole('button', { name: 'Configure uplink' })).toBeNull();
     cleanup();
@@ -477,7 +478,14 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     currentDevice = device({ status: 'AVAILABLE', keyVersion: 2 });
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Configure uplink' }));
-    expect(screen.getByRole('dialog', { name: 'Configure TL-0042 as an uplink' })).toBeTruthy();
+    // The dialog lives in the device connector now (devices design section 11.7): the button opens the
+    // hub focused on this unit's uplink.
+    expect(useConnectorStore.getState()).toMatchObject({
+      open: true,
+      focus: { action: 'uplink', assetTag: 'TL-0042' },
+    });
+    expect(screen.queryByRole('dialog', { name: 'Configure TL-0042 as an uplink' })).toBeNull();
+    useConnectorStore.setState({ open: false, focus: null });
     cleanup();
 
     currentDevice = device({ status: 'RETIRED' });

@@ -1461,6 +1461,13 @@ whichever port answers with the same `nodeNum` (§11.4 rule 1), then reads it ag
 reported firmware (REQ-EVT-41). The record's firmware version is filled for completion as §9.2 says. A step
 that fails names itself and records nothing (REQ-ERR-28).
 
+**Where the flash panel plugs in (task 10.10, built 2026-11-04).** The hub owns the action and task 8.3 owns
+the panel: 8.3 registers its component once with `useConnectorStore.getState().registerFlashPanel(panel)`, and
+the hub opens it with the unit (`id`, `assetTag`, `nodeNum`, `variantCode`, the `OPEN` record's id) and
+`withPort(work)`, which runs `work` on the unit's port under the hub's write lock and reads the unit again
+afterwards. Until a panel registers, Update firmware shows disabled with the reason as text, "Firmware
+releases are not published yet" (chapter 06 §9.8).
+
 ### 11.8 The docked-unit pin on the Staff map
 
 The leader's answer 3: a unit docked for provisioning shows on the Staff map only, pinned at

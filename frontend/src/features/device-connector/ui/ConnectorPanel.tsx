@@ -10,10 +10,16 @@ import { cn } from '../../../shared/ui/cn';
 import { Dialog } from '../../../shared/ui/Dialog';
 import { Field, Select } from '../../../shared/ui/Field';
 import { DEVICE_STATUS, type DeviceStatus } from '../../../shared/ui/status';
+import { useToast } from '../../../shared/ui/toastStore';
 import { ConfigureUplinkDialog } from '../actions/ConfigureUplinkDialog';
 import type { Connection, ConnectionState } from '../model/ConnectorRegistry';
 import { actionsFor, type UnitAction } from '../model/actionsFor';
-import { useConnectorStore, type CounterRow } from '../model/connectorStore';
+import {
+  useConnectorStore,
+  type CounterRow,
+  type FlashPanel,
+  type FlashPanelProps,
+} from '../model/connectorStore';
 import { useConnector } from '../model/useConnector';
 import { UnitImage } from './UnitImage';
 import { RETRYABLE, STATE_TEXT, unitName } from '../model/text';
@@ -54,8 +60,16 @@ const ActionControl: React.FC<
     );
   }
   if (action.kind === 'flash') {
+    // Unavailable until task 8.3 registers its panel; the reason is text beside it (chapter 06 §9.8).
     return (
-      <Button size="sm" variant="secondary" disabled aria-describedby={`flash-reason-${connection.id}`}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={action.disabledReason !== null || locked}
+        aria-label={`Update firmware: ${name}`}
+        aria-describedby={action.disabledReason ? `flash-reason-${connection.id}` : undefined}
+        onClick={() => onAction(connection, action)}
+      >
         Update firmware
       </Button>
     );
@@ -123,7 +137,7 @@ const UnitRow: React.FC<
       {(connection.message || reason) && (
         <p className="text-body-sm text-ink">{connection.message ?? reason}</p>
       )}
-      {flash?.kind === 'flash' && (
+      {flash?.kind === 'flash' && flash.disabledReason && (
         <p id={`flash-reason-${connection.id}`} className="text-caption text-ink-muted">
           {flash.disabledReason}
         </p>
@@ -286,7 +300,7 @@ export const DeviceView: React.FC<
         </section>
       )}
       {(connection.message || reason) && <p className="text-body-sm text-ink">{connection.message ?? reason}</p>}
-      {flash?.kind === 'flash' && (
+      {flash?.kind === 'flash' && flash.disabledReason && (
         <p id={`flash-reason-${connection.id}`} className="text-caption text-ink-muted">
           {flash.disabledReason}
         </p>
@@ -300,6 +314,11 @@ export const DeviceView: React.FC<
   );
 };
 
+// Renders the flash panel task 8.3 registered (design section 11.7). A registered component, not one
+// made during the panel's render.
+const FlashSlot: React.FC<{ panel: FlashPanel; props: FlashPanelProps }> = ({ panel, props }) =>
+  React.createElement(panel, props);
+
 // The panel content shared by the pushed aside and the drawers (screen 4.6 Layout).
 export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId }) => {
   const { registry, snapshot } = useConnector();
@@ -311,6 +330,9 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
   const view = useConnectorStore((state) => state.view);
   const focus = useConnectorStore((state) => state.focus);
   const setRegisterFrom = useConnectorStore((state) => state.setRegisterFrom);
+  const clearFocus = useConnectorStore((state) => state.clearFocus);
+  const flashPanel = useConnectorStore((state) => state.flashPanel);
+  const [flashing, setFlashing] = useState<Connection | null>(null);
   const [swap, setSwap] = useState<{ connection: Connection; rows: CounterRow[] } | null>(null);
   const [uplink, setUplink] = useState<Connection | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -327,7 +349,10 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
     }
   }, [snapshot.connections]);
 
-  const can = useMemo(() => ({ register: staff, operate: staff }), [staff]);
+  const can = useMemo(
+    () => ({ register: staff, operate: staff, flash: flashPanel !== null }),
+    [staff, flashPanel],
+  );
 
   const onAction = (connection: Connection, action: UnitAction) => {
     if (action.kind === 'register') {
@@ -344,6 +369,7 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
       return;
     }
     if (action.kind === 'uplink') setUplink(connection);
+    if (action.kind === 'flash' && action.disabledReason === null) setFlashing(connection);
   };
 
   const viewed = viewing === null ? undefined : snapshot.connections.find((connection) => connection.id === viewing);
@@ -351,7 +377,47 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
     focus?.assetTag && !snapshot.connections.some((connection) => connection.unit?.nodeNum === focus.nodeNum)
       ? focus.assetTag
       : null;
-  const uplinkDevice = uplink?.recognized?.device;
+  // Configure uplink from the device page opens the hub on its unit (REQ-EVT-39, REQ-EVT-40): once that
+  // unit is connected and recognized the dialog opens here; until then the panel asks to connect it.
+  const focusedUplink =
+    focus?.action === 'uplink'
+      ? snapshot.connections.find(
+          (connection) =>
+            connection.unit?.nodeNum === focus.nodeNum &&
+            connection.state === 'ready' &&
+            connection.recognized?.device,
+        )
+      : undefined;
+  const uplinkConnection = uplink ?? focusedUplink ?? null;
+  const uplinkDevice = uplinkConnection?.recognized?.device;
+  const closeUplink = () => {
+    setUplink(null);
+    if (focus?.action === 'uplink') clearFocus();
+  };
+  const flashDevice = flashing?.recognized?.device;
+  // Stable props for the flash panel of task 8.3, so its effects run once per unit.
+  const flashingId = flashing?.id ?? null;
+  const flashRecord = flashDevice?.openMaintenance?.id ?? null;
+  const flashProps = useMemo(
+    () =>
+      flashDevice && flashRecord && flashingId !== null
+        ? {
+            device: {
+              id: flashDevice.id,
+              assetTag: flashDevice.assetTag,
+              nodeNum: flashDevice.nodeNum,
+              variantCode: flashDevice.hardwareVariant.code,
+              maintenanceRecordId: flashRecord,
+            },
+            withPort: <T,>(
+              work: (port: SerialPort, stage: (state: ConnectionState) => void) => Promise<T>,
+            ) => registry.withWriteLock(flashingId, work),
+          }
+        : null,
+    // The unit's identity, not the object the snapshot rebuilds on every change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flashingId, flashDevice?.id, flashRecord, registry],
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -425,7 +491,7 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
           }}
         />
       )}
-      {uplink && uplinkDevice && (
+      {uplinkConnection && uplinkDevice && (
         <ConfigureUplinkDialog
           device={{
             id: uplinkDevice.id,
@@ -433,12 +499,16 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
             nodeNum: uplinkDevice.nodeNum,
             keyVersion: uplinkDevice.keyVersion,
           }}
-          onDone={() => {
-            setUplink(null);
-            void registry.refreshRecognition(uplink.id);
+          onDone={(message) => {
+            closeUplink();
+            useToast.getState().show(message);
+            void registry.refreshRecognition(uplinkConnection.id);
           }}
-          onClose={() => setUplink(null)}
+          onClose={closeUplink}
         />
+      )}
+      {flashPanel && flashProps && (
+        <FlashSlot panel={flashPanel} props={{ ...flashProps, onClose: () => setFlashing(null) }} />
       )}
     </div>
   );
