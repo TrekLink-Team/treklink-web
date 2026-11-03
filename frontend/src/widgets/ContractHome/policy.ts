@@ -48,6 +48,12 @@ export interface PolicyInput {
   openInvoiceId?: string | null;
   /** What is due now on the contract (billing api-design 10); Pay is offered only when it is above 0. */
   dueNowVnd?: number;
+  /**
+   * What is left to pay on the deposit, the first line of the term 1 invoice (billing api-design 09).
+   * The deposit falls due at the hold expiry, not before, so a request offers Pay deposit while it is
+   * above 0 even with nothing due now (rentals design §2.1, billing design §4, D-092 rule 1).
+   */
+  depositUnpaidVnd?: number;
 }
 
 const OUT_STATES = ['RETURN_DUE', 'OVERDUE', 'DEFAULTED'];
@@ -138,12 +144,12 @@ export const homeActions = (input: PolicyInput): HomeActions => {
   if (viewer === 'manager') {
     // An open invoice whose lines are not due yet (a paid deposit, the term balance due at handover)
     // gives no Pay action; the balance says what is due now.
-    const payable = Boolean(input.openInvoiceId) && (input.dueNowVnd === undefined || input.dueNowVnd > 0);
-    const pay: HomeAction = {
-      key: 'pay',
-      label: status === 'REQUESTED' ? 'Pay deposit' : 'Pay invoice',
-      reason: payable ? undefined : 'No invoice is due',
-    };
+    const payable =
+      Boolean(input.openInvoiceId) &&
+      (status === 'REQUESTED' && input.depositUnpaidVnd !== undefined
+        ? input.depositUnpaidVnd > 0
+        : input.dueNowVnd === undefined || input.dueNowVnd > 0);
+    const pay: HomeAction = { key: 'pay', label: status === 'REQUESTED' ? 'Pay deposit' : 'Pay invoice' };
     switch (status) {
       case 'REQUESTED':
         return {
@@ -161,9 +167,10 @@ export const homeActions = (input: PolicyInput): HomeActions => {
         const notice: HomeAction | null =
           contract.planType === 'MONTHLY' ? { key: 'notice', label: 'Give notice' } : null;
         if (payable) return { primary: pay, idle: null, more: notice ? [notice] : [] };
+        // Nothing to pay: no Pay at all, not a disabled one (review of treklink-web#350).
         return notice
-          ? { primary: notice, idle: null, more: [pay] }
-          : { primary: null, idle: 'Return the units when the day plan ends', more: [pay] };
+          ? { primary: notice, idle: null, more: [] }
+          : { primary: null, idle: 'Return the units when the day plan ends', more: [] };
       }
       default:
         if (payable) return { primary: pay, idle: null, more: [] };

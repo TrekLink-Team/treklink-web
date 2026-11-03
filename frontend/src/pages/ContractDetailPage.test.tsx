@@ -55,9 +55,11 @@ vi.mock('../entities/contract/api', async (importOriginal) => ({
   }),
 }));
 
+// The contract balance (billing api-design 10); undefined until a test sets it.
+let balance: unknown;
 vi.mock('../entities/billing/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/billing/api')>()),
-  useBalance: () => ({ data: undefined }),
+  useBalance: () => ({ data: balance }),
 }));
 
 // The public plans read (billing api-design 01) answers the variant names; nothing else is fetched.
@@ -103,6 +105,7 @@ describe('ContractDetailPage', () => {
     closeCheck = undefined;
     history = [];
     billing = {};
+    balance = undefined;
   });
 
   afterEach(() => cleanup());
@@ -555,6 +558,33 @@ describe('ContractDetailPage', () => {
       expect(screen.getByText('Pay the deposit to keep your request')).toBeTruthy();
       const pay = within(actionRow()).getByRole('button', { name: 'Pay deposit' });
       expect(pay.getAttribute('aria-disabled')).toBeNull();
+    });
+
+    it('offers Pay deposit while the deposit is unpaid though nothing is due now, and not once paid (review of #350)', async () => {
+      contract = { ...baseContract, status: 'REQUESTED', holdExpiresAt: '2026-11-05T03:15:00Z' };
+      // The deposit falls due at the hold expiry, so the balance shows nothing due now.
+      balance = { contractId: 'c-1', dueNowVnd: 0, dueLaterVnd: 5_400_000, paidVnd: 0, pendingDamageCharges: [], settled: false };
+      const withDeposit = (paidVnd: number) => ({
+        '/invoices': page([{ ...invoice, paidVnd }]),
+        '/invoices/i-1': {
+          ...invoice,
+          paidVnd,
+          lines: [
+            { seq: 1, type: 'HOLDING_FEE', description: 'Holding fee, term 1', quantity: 1, unitVnd: 2_400_000, amountVnd: 2_400_000, dueAt: '2026-11-05T03:15:00Z', paidVnd },
+            { seq: 2, type: 'TERM', description: 'Term 1 balance', quantity: 5, unitVnd: 0, amountVnd: 3_000_000, dueAt: '2026-11-10T02:00:00Z', paidVnd: 0 },
+          ],
+          payments: [],
+        },
+      });
+      billing = withDeposit(0);
+      renderPage('o');
+      expect(await within(actionRow()).findByRole('button', { name: 'Pay deposit' })).toBeTruthy();
+      cleanup();
+      billing = withDeposit(2_400_000);
+      renderPage('o');
+      expect(await screen.findByText('Paid')).toBeTruthy();
+      expect(within(actionRow()).queryByRole('button', { name: 'Pay deposit' })).toBeNull();
+      expect(within(actionRow()).getByText('TrekLink Staff review the request')).toBeTruthy();
     });
 
     it('lists invoices and payments under one details pane on the Money tab', async () => {

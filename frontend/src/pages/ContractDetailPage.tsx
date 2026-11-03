@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
-import { useBalance, useInvoices, useVariantName } from '../entities/billing/api';
+import { useBalance, useInvoice, useInvoices, useVariantName } from '../entities/billing/api';
 import {
   cancelContract,
   contractKeys,
@@ -216,6 +216,17 @@ export const ContractDetailPage: React.FC<{
   const invoices = useInvoices('o', { contractId: id }, viewer === 'manager' && contract.isSuccess);
   // What is due now (billing api-design 10): Pay is the primary action only while it is above 0.
   const managerBalance = useBalance(id, viewer === 'manager' && contract.isSuccess);
+  // A request's deposit is the first line of its first invoice (billing api-design 09); the same
+  // query as the Deposit card, so it is read once.
+  const firstInvoiceId =
+    viewer === 'manager' && contract.data?.status === 'REQUESTED'
+      ? (invoices.data?.items
+          .slice()
+          .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
+          .at(0)?.id ?? null)
+      : null;
+  const firstInvoice = useInvoice(firstInvoiceId);
+  const deposit = firstInvoice.data?.lines.slice().sort((a, b) => a.seq - b.seq)[0];
   const [open, setOpen] = useState<Open | null>(null);
   const [approving, setApproving] = useState(false);
 
@@ -267,6 +278,7 @@ export const ContractDetailPage: React.FC<{
     closeCheck: closeCheck.data,
     openInvoiceId: openInvoice?.id ?? null,
     dueNowVnd: managerBalance.data?.dueNowVnd,
+    depositUnpaidVnd: deposit ? Math.max(deposit.amountVnd - deposit.paidVnd, 0) : undefined,
   });
 
   const refresh = () => {
