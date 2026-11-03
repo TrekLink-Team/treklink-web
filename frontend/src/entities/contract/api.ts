@@ -337,6 +337,20 @@ export interface ChannelKey {
 export const issueChannelKey = (id: string, deviceId: string, nodeNum: number) =>
   post<ChannelKey>(`/contracts/${id}/devices/${deviceId}/channel-key`, { nodeNum });
 
+// The quick swap of the device connector (rentals api-design 30, devices design section 11.6): the docked
+// unit takes the place of a reserved unit with no provisioning record, which goes back to AVAILABLE.
+export interface DeviceExchanged {
+  released: { deviceId: string; assetTag: string | null; status: 'AVAILABLE' };
+  reserved: { id: string; assetTag: string; nodeNum: number; status: 'RESERVED' };
+  contractVersion: number;
+}
+
+export const exchangeDevice = (
+  id: string,
+  deviceId: string,
+  body: { replacementDeviceId: string; nodeNum: number; expectedVersion: number },
+) => post<DeviceExchanged>(`/contracts/${id}/devices/${deviceId}/exchange`, body);
+
 // Undoes a provisioning recorded on the wrong unit, before the handover (api-design 19).
 export const undoProvisioning = (id: string, deviceId: string, expectedVersion: number) =>
   post<ProvisioningUndone>(`/contracts/${id}/devices/${deviceId}/provisioning/undo`, {

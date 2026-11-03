@@ -103,13 +103,11 @@ const serial = (): Serial | null =>
 export const isDockSupported = (): boolean =>
   serial() !== null && (typeof window === 'undefined' || window.isSecureContext !== false);
 
-// A port this site may already use: the only granted port that is connected, else null.
-export const grantedPort = async (): Promise<SerialPort | null> => {
-  const ports = (await serial()?.getPorts()) ?? [];
-  return ports.length === 1 ? ports[0] : null;
-};
+// The granted ports are enumerated by the device connector's registry alone (devices design section 11.2):
+// it lends a port to each docking, so this adapter never picks one itself.
 
-// The browser's own chooser; needs a user gesture (REQ-UBI-05).
+// The browser's own chooser; needs a user gesture (REQ-UBI-05). Only the connector's registry and the
+// Reconnect prompt of a docking call it.
 export const choosePort = async (): Promise<SerialPort> => {
   const api = serial();
   if (!api) throw new DockError('unsupported', 'choose port', 'Web Serial is not available.');

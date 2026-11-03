@@ -105,7 +105,7 @@ const docking = vi.hoisted(() => ({
   readUnit: vi.fn(),
   configureUplink: vi.fn(),
 }));
-vi.mock('../features/dock-device/useDocking', () => ({ useDocking: () => docking }));
+vi.mock('../features/device-connector/actions/useDocking', () => ({ useDocking: () => docking }));
 
 // jsdom has no canvas: the stub signs with one click.
 vi.mock('../widgets/SignaturePad/SignaturePad', () => ({
@@ -643,7 +643,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
     expect(recordProvisioning).not.toHaveBeenCalled();
   });
 
-  it('shows the v2 message when the unit answers nothing over USB (REQ-ERR-14)', async () => {
+  it('shows the no-response message when the unit answers nothing over USB (REQ-ERR-22)', async () => {
     docking.dockAndProvision.mockResolvedValue({
       ok: false,
       failure: 'no-response',
@@ -654,7 +654,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
     await waitFor(() =>
       expect(
         screen.getByText(
-          'No response over USB. v2 units cannot dock yet; enter the node number manually.',
+          "No response over USB. This unit's firmware has no USB console; update it or enter the node number manually.",
         ),
       ).toBeTruthy(),
     );

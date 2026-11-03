@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Button, Dialog, Field, Input, Switch } from '../../shared/ui';
-import { UPLINK_ROOT, type UplinkSettings } from '../../shared/lib/meshtastic-dock';
+import { Alert, Button, Dialog, Field, Input, Switch } from '../../../shared/ui';
+import { UPLINK_ROOT, type UplinkSettings } from '../../../shared/lib/meshtastic-dock';
 import type { DockStage } from './DockingService';
 import { uplinkDockMessage } from './messages';
 import { useDocking } from './useDocking';

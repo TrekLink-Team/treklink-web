@@ -1,20 +1,23 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '../../shared/api/apiClient';
-import type { DockTimings } from '../../shared/lib/meshtastic-dock';
+import { ApiError } from '../../../shared/api/apiClient';
+import type { DockTimings } from '../../../shared/lib/meshtastic-dock';
 import {
   FakePort,
   fakeDock,
   type UnitBehaviour,
   type UnitState,
-} from '../../shared/lib/meshtastic-dock.fake';
+} from '../../../shared/lib/meshtastic-dock.fake';
 import { DockingService, ownerFor } from './DockingService';
 import { NO_RESPONSE_MESSAGE, handoverDockMessage, uplinkDockMessage } from './messages';
 import { useDocking } from './useDocking';
+import { resetConnectorRegistry } from '../model/ConnectorRegistry';
 
 const issueChannelKey = vi.hoisted(() => vi.fn());
-vi.mock('../../entities/contract/api', () => ({ issueChannelKey }));
+vi.mock('../../../entities/contract/api', () => ({ issueChannelKey, exchangeDevice: vi.fn() }));
+const recognizeUnits = vi.hoisted(() => vi.fn());
+vi.mock('../../../entities/device/api', () => ({ recognizeUnits }));
 
 // DockingService and useDocking against the wire-level fake unit (devices design section 8.7). No
 // hardware is involved.
@@ -50,6 +53,11 @@ const dock = (state: Partial<UnitState> = {}, behaviour: UnitBehaviour = {}) => 
 const render = () => renderHook(() => useDocking({ timings: TIMINGS }));
 
 beforeEach(() => {
+  resetConnectorRegistry();
+  recognizeUnits.mockReset();
+  recognizeUnits.mockImplementation((nodeNums: number[]) =>
+    Promise.resolve(nodeNums.map((nodeNum) => ({ nodeNum, nodeId: '', device: null, contract: null, docked: null }))),
+  );
   issueChannelKey.mockReset();
   issueChannelKey.mockResolvedValue({ keyHex: KEY_HEX, keyVersion: 3 });
   consoleSpies = (['log', 'info', 'warn', 'error', 'debug', 'trace'] as const).map((level) =>
@@ -73,7 +81,7 @@ describe('useDocking.dockAndProvision', () => {
     await act(async () => {
       outcome = await result.current.dockAndProvision(TARGET);
     });
-    expect(outcome).toEqual({ ok: true, nodeNum: NODE, keyVersion: 3 });
+    expect(outcome).toMatchObject({ ok: true, nodeNum: NODE, keyVersion: 3 });
     expect(issueChannelKey).toHaveBeenCalledWith('c-1', 'd-42', NODE);
     expect(unit.state).toMatchObject({ longName: 'TL-0042', shortName: '0042', psk: KEY });
     // The one key variable is wiped once provision returns (REQ-UBI-05).
@@ -151,7 +159,7 @@ describe('useDocking.dockAndProvision', () => {
       await result.current.reconnect();
       await pending;
     });
-    expect(await pending).toEqual({ ok: true, nodeNum: NODE, keyVersion: 3 });
+    expect(await pending).toMatchObject({ ok: true, nodeNum: NODE, keyVersion: 3 });
   });
 
   it('records nothing when Staff give up on a unit that did not come back', async () => {
