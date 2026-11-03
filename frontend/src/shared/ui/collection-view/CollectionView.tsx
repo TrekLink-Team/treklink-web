@@ -491,7 +491,7 @@ export function CollectionView<T>({
         <TooltipButton
           key={action.key}
           tooltip={action.label}
-          name={`${action.label} ${itemName(item)}`}
+          name={action.accessibleName?.(item) ?? `${action.label} ${itemName(item)}`}
           icon={action.icon}
           unavailableReason={action.unavailableReason?.(item)}
           onClick={() => action.onSelect(item)}
