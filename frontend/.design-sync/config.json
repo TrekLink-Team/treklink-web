@@ -1,0 +1,86 @@
+{
+  "projectId": "115c8d9e-9b92-4d91-9176-89965b25911f",
+  "shape": "package",
+  "pkg": "@treklink/ui",
+  "globalName": "TrekLinkUI",
+  "buildCmd": "node .design-sync/build-pkg.mjs",
+  "entry": ".ds-pkg/dist/index.js",
+  "srcDir": "../src/shared/ui",
+  "tsconfig": "../tsconfig.json",
+  "cssEntry": "dist/styles.css",
+  "extraEntries": [
+    "lucide-react",
+    "../.design-sync/root.tsx"
+  ],
+  "provider": {
+    "component": "TrekLinkRoot"
+  },
+  "overrides": {
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "960x680"
+    },
+    "ConfirmDialog": {
+      "cardMode": "single",
+      "viewport": "960x680"
+    },
+    "Drawer": {
+      "cardMode": "single",
+      "viewport": "960x680"
+    },
+    "StateChangeDialog": {
+      "cardMode": "single",
+      "viewport": "960x680"
+    },
+    "BulkActionDialog": {
+      "cardMode": "single",
+      "viewport": "960x680"
+    },
+    "Toast": {
+      "cardMode": "single",
+      "viewport": "960x680"
+    },
+    "Menu": {
+      "cardMode": "single",
+      "viewport": "640x420"
+    },
+    "StateChangeMenu": {
+      "cardMode": "single",
+      "viewport": "640x420"
+    },
+    "PageHeader": {
+      "cardMode": "column"
+    },
+    "StickyPageHeader": {
+      "cardMode": "column"
+    },
+    "PageActionBar": {
+      "cardMode": "column"
+    },
+    "PageChromeProvider": {
+      "cardMode": "column"
+    },
+    "Toolbar": {
+      "cardMode": "column"
+    },
+    "MapWorkspace": {
+      "cardMode": "column"
+    },
+    "BulkBar": {
+      "cardMode": "column"
+    },
+    "MapPanel": {
+      "cardMode": "column"
+    },
+    "Pagination": {
+      "cardMode": "column"
+    },
+    "Stepper": {
+      "cardMode": "column"
+    }
+  },
+  "dtsPropsFor": {
+    "PageChromeProvider": "/** The shell's breadcrumb, lent to a StickyPageHeader so the trail stays in view with the title. */\n  value: { breadcrumb: React.ReactNode; /** Called by a mounted header; return a cleanup. */ claim: () => () => void } | null;\n  children?: React.ReactNode;"
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
