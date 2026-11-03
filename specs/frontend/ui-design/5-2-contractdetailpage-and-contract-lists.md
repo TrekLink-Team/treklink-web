@@ -109,3 +109,23 @@ api-design 06, MSG15). An Org Operator has none.
 The device rows of the contract detail are the shared `DataTable` too (W29): the asset tag and
 holder searches sit in a toolbar above it, and Label (or Edit label) and Report lost are row actions
 of a unit that is out, named after its asset tag ("Report lost TL-0042").
+
+## Contract home (D-096, 2026-11-04)
+
+Added by KhoaDD to apply chapter 06 §9 and §10 (treklink-docs#158, text in
+`docs/design/2026-11-03-collectionview-and-layout.md`). Data, roles and endpoints are unchanged from the
+tables above; only the layout and where each action sits change. The visual reference is the Claude
+Design canvas "Contract Home", a style reference only.
+
+| Part | Content |
+|---|---|
+| Header | Code, status as text, organization (TrekLink detail), plan and units in one line, and one deadline: hold expiry, handover appointment, term end, return due, or the date of the final state |
+| Lifecycle card | The steps of `specs/rentals/design.md` §2 for the plan (Ending only on a monthly plan), dates from rentals 18 or the contract, REJECTED and CANCELLED as exits on the step they left from, OVERDUE and DEFAULTED as a detour on Return due; the Next step line names who acts. Below 600 px one line with a disclosure |
+| Sticky row | The tabs (Overview, Devices, Money, History, Documents; an Org Operator sees Overview and Devices) and the contract's actions: one primary action per state and role, the rest in More actions with the reason of an unavailable one, destructive ones last behind a Dialog. Below 600 px the actions sit in a bar pinned to the bottom |
+| Primary action, Staff | Requested: Review request (Approve request in Review mode); Approved: Start handover; Return due, Overdue, Defaulted: Record return (the counter); Returned: Close contract, with the first close blocker as its reason |
+| Primary action, Org Manager | Requested: Pay deposit; Active: Pay invoice when one is open, else Give notice (monthly); later states: Pay invoice when one is open |
+| Tab in the address | `?tab=devices`, `?tab=money`, `?tab=history`, `?tab=documents`; Overview has none |
+| Review mode | `?mode=review`, Staff, `REQUESTED`: the request, the hold or stock check, the handover appointment and what each decision does in place of the tab body; Approve request in the sticky row submits it (rentals 04) |
+| Handover mode | `?mode=handover`, Staff, `APPROVED`: the four steps of screen 5.4 in place of the tab body, unchanged, with their Back and Next bar |
+| Devices tab | CollectionView with each unit as a `DeviceRef`, the contract's variant as a `VariantCard` (also in the details pane), Label, Request service credit and Report lost as item actions |
+| Money tab | The balance (billing 10), the invoices on CollectionView (billing 08) and the service credits (billing 19) |
