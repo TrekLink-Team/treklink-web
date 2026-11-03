@@ -147,6 +147,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: devices api-design 30 to 32, rentals api-design 30, 09, 21; the panel and device view of devices design §11, built as devices tasks 10.6 to 10.11; screen file `ui-design/4-6-device-connector-panel.md`
   - _Story: US-UC11, US-UC14, US-UC20_
   - _Requirements: devices REQ-UBI-07 to REQ-UBI-10, REQ-EVT-29 to REQ-EVT-41, REQ-STA-05, REQ-STA-06, REQ-ERR-19 to REQ-ERR-29_
+  - **Partly done** (2026-11-04, `feat/device-connector-ui`): the panel, device view and header button of screen 4.6 are built (devices tasks 10.6 to 10.11, see `specs/devices/tasks.md`). Open: Update firmware (Phase 8 not built), the CollectionView rows (waits on `feat/contract-home-ui`), the wireframe (waits on the renders), and a walk in a browser and on hardware (devices 10.12)
 
 ## Phase 5: Contracts
 
