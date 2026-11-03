@@ -22,11 +22,11 @@ import {
   Button,
   Card,
   CardHeader,
-  DataTable,
+  CollectionView,
   PageHeader,
   Select,
   Skeleton,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
 import { messageOf } from '../shared/ui/errors';
@@ -83,7 +83,8 @@ const OrganizationLink: React.FC<{ station: HealthStation }> = ({ station }) => 
 
 // `/t/admin/health`, screen 9.3 (monitoring api-design 06, UC-42, FR-MON-10, FR-EVT-13): the platform
 // health, the alert outbox, the Field Stations, the ingestion of the window and the buffering devices,
-// polled every 30 s and refreshed at once by `station.stale`. Read-only. TrekLink Admin only.
+// polled every 30 s and refreshed at once by `station.stale`. Read-only. TrekLink Admin only. The
+// Field Stations render through CollectionView (chapter 06 §9, D-096), stale or outdated ones by Show.
 export const SystemHealthPage: React.FC = () => {
   const [windowMinutes, setWindowMinutes] = useState<HealthWindow>(DEFAULT_HEALTH_WINDOW);
   const health = useSystemHealth(windowMinutes);
@@ -110,33 +111,39 @@ export const SystemHealthPage: React.FC = () => {
   const stations = data ? sortStations(data.fieldStations.items) : [];
   const current = data?.fieldStations.currentRelease ?? null;
 
-  const columns: Column<HealthStation>[] = [
-    {
-      key: 'name',
-      header: 'Field Station',
-      cell: (row) => <span className="font-semibold">{row.name}</span>,
-    },
+  const fields: CollectionField<HealthStation>[] = [
     {
       key: 'organization',
-      header: 'Organization',
-      cell: (row) => <OrganizationLink station={row} />,
+      label: 'Organization',
+      render: (row) => <OrganizationLink station={row} />,
+      text: (row) => row.organization.name,
+      hideWithPane: true,
     },
-    { key: 'lastSync', header: 'Last sync', cell: (row) => <LastSync station={row} /> },
+    {
+      key: 'lastSync',
+      label: 'Last sync',
+      render: (row) => <LastSync station={row} />,
+      text: (row) => row.lastSyncAt ?? '',
+      compact: true,
+    },
     {
       key: 'depth',
-      header: 'Queue depth',
-      cell: (row) => <span className="font-mono text-body-sm">{depthText(row.queueDepth)}</span>,
+      label: 'Queue depth',
+      render: (row) => <span className="font-mono text-body-sm">{depthText(row.queueDepth)}</span>,
+      text: (row) => depthText(row.queueDepth),
+      compact: true,
     },
     {
       key: 'retry',
-      header: 'Oldest retry',
-      cell: (row) => row.oldestRetryCount ?? 'None',
-      hideOnMobile: true,
+      label: 'Oldest retry',
+      render: (row) => row.oldestRetryCount ?? 'None',
+      hideWithPane: true,
     },
     {
       key: 'version',
-      header: 'Version',
-      cell: (row) => <VersionCell station={row} current={current} />,
+      label: 'Version',
+      render: (row) => <VersionCell station={row} current={current} />,
+      text: (row) => row.version ?? '',
     },
   ];
 
@@ -331,21 +338,21 @@ export const SystemHealthPage: React.FC = () => {
           {stations.length === 0 ? (
             <p className="text-body text-ink-muted">No Field Stations are registered yet.</p>
           ) : (
-            <DataTable<HealthStation>
-              caption="Field Stations"
-              columns={columns}
-              rows={stations}
-              rowId={(row) => row.id}
-              empty={{ title: 'No Field Stations are registered yet.' }}
-              renderCard={(row) => (
-                <div className="flex flex-col gap-1.5 text-body">
-                  <span className="font-semibold">{row.name}</span>
-                  <OrganizationLink station={row} />
-                  <LastSync station={row} />
-                  <span className="font-mono text-body-sm">{depthText(row.queueDepth)}</span>
-                  <VersionCell station={row} current={current} />
-                </div>
-              )}
+            <CollectionView<HealthStation>
+              label="Field Station list"
+              items={stations}
+              itemId={(row) => row.id}
+              itemName={(row) => row.name}
+              itemTitle={(row) => <span className="font-semibold text-ink">{row.name}</span>}
+              fields={fields}
+              noun={{ one: 'Field Station', other: 'Field Stations' }}
+              filters={[
+                { key: 'all', label: 'All Field Stations' },
+                { key: 'stale', label: 'Stale', test: (row) => row.stale },
+                { key: 'outdated', label: 'Outdated', test: (row) => row.outdated },
+              ]}
+              emptyState={{ title: 'No Field Stations are registered yet.' }}
+              noMatch={{ title: 'No Field Station matches this filter.' }}
             />
           )}
         </>

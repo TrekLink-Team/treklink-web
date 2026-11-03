@@ -90,3 +90,11 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: `station.stale` and polling stated
 - [x] Traceability: UC-42, FR-MON-10, FR-EVT-13, US-UC42
 - [x] §8 items 3, 5, 6 applied
+
+## Field Stations on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The Field Station table under the cards renders through `CollectionView` (chapter 06 §9),
+named "Field Station list" so it never shares the name of the Field Stations card. Stale and outdated
+stations still come first, and Show narrows the list to the stale or the outdated ones in the browser,
+because monitoring 06 returns every station in one response. A station has no details pane: every field is
+already in its row, and there is no Field Station page to open.
