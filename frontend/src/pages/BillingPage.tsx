@@ -11,10 +11,8 @@ type PaymentRow = NonNullable<ReturnType<typeof usePayments>['data']>['items'][n
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { ErrorState, PageTitle } from '../shared/ui/bits';
 import { Badge } from '../shared/ui/Badge';
-import { Button } from '../shared/ui/Button';
-import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
-import { Select } from '../shared/ui/Field';
-import { Toolbar, ToolbarSearch } from '../shared/ui/Toolbar';
+import { Pagination } from '../shared/ui/DataTable';
+import { CollectionView, pageInfoOf, type CollectionField } from '../shared/ui/collection-view';
 import { TAB } from '../shared/ui/styles';
 import { matchesText } from '../shared/lib/filter';
 import { InvoiceDetailView } from '../widgets/InvoiceDetail/InvoiceDetailView';
@@ -43,6 +41,7 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
           loading={isLoading}
           error={error}
           onRetry={() => void refetch()}
+          pageInfo={pageInfoOf(data)}
           footer={
             data && data.totalPages > 1 ? (
               <Pagination
@@ -70,26 +69,22 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
   );
 };
 
+const statusLabel = (status: string) => status.charAt(0) + status.slice(1).toLowerCase();
+
+// The payments of billing api-design 14 on CollectionView (chapter 06 §9, D-096): the status in the
+// Show filter queries the server; the search narrows the loaded page by reference and method.
 const PaymentsTab: React.FC = () => {
   const [filters, setFilters] = useState<PaymentFilters>({ pageNumber: 1 });
   const { data, isLoading, error, refetch } = usePayments(filters);
-  const [reference, setReference] = useState('');
-  const [method, setMethod] = useState('');
-  const filtered = filters.status !== undefined || reference !== '' || method !== '';
-  const clear = () => {
-    setReference('');
-    setMethod('');
-    setFilters({ pageNumber: 1 });
-  };
-  const rows = data?.items.filter(
-    (payment) => matchesText(reference, payment.reference) && (method === '' || payment.method === method),
+  const [text, setText] = useState('');
+  const rows = data?.items.filter((payment) =>
+    matchesText(text, payment.reference, METHOD_LABELS[payment.method]),
   );
-  const columns: Column<PaymentRow>[] = [
-    { key: 'reference', header: 'Reference', cell: (payment) => <span className="font-mono">{payment.reference}</span> },
+  const fields: CollectionField<PaymentRow>[] = [
     {
       key: 'method',
-      header: 'Method',
-      cell: (payment) => (
+      label: 'Method',
+      render: (payment) => (
         <>
           {METHOD_LABELS[payment.method]}
           {payment.isSandbox && (
@@ -99,79 +94,70 @@ const PaymentsTab: React.FC = () => {
           )}
         </>
       ),
+      compact: true,
     },
-    { key: 'amount', header: 'Amount', align: 'end', cell: (payment) => formatVnd(payment.amountVnd) },
-    { key: 'status', header: 'Status', cell: (payment) => payment.status.charAt(0) + payment.status.slice(1).toLowerCase() },
-    { key: 'confirmed', header: 'Confirmed', cell: (payment) => (payment.confirmedAt ? formatDateTime(payment.confirmedAt) : 'Not yet') },
+    {
+      key: 'amount',
+      label: 'Amount',
+      align: 'end',
+      render: (payment) => formatVnd(payment.amountVnd),
+      compact: true,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (payment) => statusLabel(payment.status),
+      compact: true,
+    },
+    {
+      key: 'confirmed',
+      label: 'Confirmed',
+      render: (payment) => (payment.confirmedAt ? formatDateTime(payment.confirmedAt) : 'Not yet'),
+      hideWithPane: true,
+    },
   ];
 
   return (
-    <div>
-      <Toolbar
-        label="Payment filters"
-        start={
-          <>
-            <ToolbarSearch id="payment-reference" label="Search by reference" value={reference} onChange={setReference} />
-            <span className="w-44">
-              <Select aria-label="Method" value={method} onChange={(event) => setMethod(event.target.value)}>
-                <option value="">Every method</option>
-                {Object.entries(METHOD_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </span>
-            <span className="w-40">
-              <Select
-                aria-label="Status"
-                value={filters.status ?? ''}
-                onChange={(event) =>
-                  setFilters({ ...filters, status: (event.target.value || undefined) as PaymentFilters['status'], pageNumber: 1 })
-                }
-              >
-                <option value="">Every status</option>
-                {PAYMENT_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {status.charAt(0) + status.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </Select>
-            </span>
-            {filtered && (
-              <Button variant="ghost" onClick={clear}>
-                Clear filters
-              </Button>
-            )}
-          </>
-        }
-      />
-      <DataTable<PaymentRow>
-        caption="Payments"
-        columns={columns}
-        rows={rows}
-        rowId={(payment) => payment.id}
-        rowLabel={(payment) => payment.reference}
-        loading={isLoading}
-        error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
-        empty={
-          filtered
-            ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
-            : { title: 'No payments recorded.' }
-        }
-        footer={
-          data && data.totalPages > 1 ? (
-            <Pagination
-              pageNumber={data.pageNumber}
-              totalPages={data.totalPages}
-              totalItems={data.totalCount}
-              pageSize={data.pageSize}
-              onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
-            />
-          ) : undefined
-        }
-      />
-    </div>
+    <CollectionView<PaymentRow>
+      label="Payments"
+      items={rows}
+      loading={isLoading}
+      error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
+      itemId={(payment) => payment.id}
+      itemName={(payment) => payment.reference}
+      itemTitle={(payment) => (
+        <span className="font-mono font-semibold text-ink">{payment.reference}</span>
+      )}
+      fields={fields}
+      noun={{ one: 'payment', other: 'payments' }}
+      search={{ label: 'Search by reference or method' }}
+      filters={[
+        { key: '', label: 'Every status' },
+        ...PAYMENT_STATUSES.map((status) => ({ key: status, label: statusLabel(status) })),
+      ]}
+      query={{ search: text, filter: filters.status ?? '', sort: null }}
+      onQueryChange={(next) => {
+        setText(next.search);
+        if ((next.filter || undefined) !== filters.status)
+          setFilters({
+            status: (next.filter || undefined) as PaymentFilters['status'],
+            pageNumber: 1,
+          });
+      }}
+      pageInfo={pageInfoOf(data)}
+      emptyState={{ title: 'No payments recorded.' }}
+      footer={
+        data && data.totalPages > 1 ? (
+          <Pagination
+            pageNumber={data.pageNumber}
+            totalPages={data.totalPages}
+            totalItems={data.totalCount}
+            pageSize={data.pageSize}
+            onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
+          />
+        ) : undefined
+      }
+    />
   );
 };
 
