@@ -44,7 +44,17 @@ No body.
         "nodeId": "!a4b1c2d3",
         "hardwareVariant": {
           "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-          "code": "treklink-v3"
+          "code": "treklink-v3",
+          "name": "TrekLink v3 (GPS, SOS button)",
+          "imageUrl": null,
+          "specSheet": {
+            "mcu": "ESP32",
+            "sosControl": "3 s hold on the user button",
+            "localAlarm": "LED blinks"
+          },
+          "hasGps": true,
+          "hasMotionSensor": false,
+          "mqttCapable": true
         },
         "firmwareVersion": "2.7.19-treklink.3",
         "acquiredAt": "2026-06-15T00:00:00Z",
@@ -73,6 +83,10 @@ No body.
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| hardwareVariant | The shared variant summary of design section 10 (`id`, `code`, `name`, `imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`), the same shape on every unit payload, so the variant card needs no second read and an Org Operator, who cannot read api-design 01, still sees it | object | `{"id": "...", "code": "treklink-v3", ...}` |
 
 ## Validation
 

@@ -13,28 +13,21 @@ const retireDevice = vi.fn();
 const disposeDevice = vi.fn();
 const editFirmware = vi.fn();
 
-const VARIANT = {
-  id: 'v-3',
-  code: 'treklink-v3',
-  name: 'TrekLink v3',
-  hasGps: true,
-  hasMotionSensor: true,
-  mqttCapable: true,
-  firmwareBaseline: '2.7.19-treklink.3',
-  remainingValueSchedule: [],
-  serviceIntervalDays: 180,
-  serviceChecklist: [],
-  imageUrl: null,
-  specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
-  isActive: true,
-};
-
 const device = (overrides: Record<string, unknown> = {}) => ({
   id: 'd-1',
   assetTag: 'TL-0042',
   nodeNum: 2763113171,
   nodeId: '!a4b1c2d3',
-  hardwareVariant: { id: 'v-3', code: 'treklink-v3' },
+  hardwareVariant: {
+    id: 'v-3',
+    code: 'treklink-v3',
+    name: 'TrekLink v3',
+    imageUrl: null,
+    specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
+    hasGps: true,
+    hasMotionSensor: true,
+    mqttCapable: true,
+  },
   firmwareVersion: '2.7.19-treklink.3',
   acquiredAt: '2026-06-15T00:00:00Z',
   status: 'IN_INTAKE',
@@ -64,7 +57,6 @@ vi.mock('../entities/device/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/device/api')>()),
   useDevice: () => ({ data: currentDevice, isLoading: false, error: null, refetch: vi.fn() }),
   useDeviceHistory: () => ({ data: { items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 } }),
-  useVariants: () => ({ data: [VARIANT] }),
   recordIntakeCheck: (...args: unknown[]) => recordIntakeCheck(...args),
   recordReset: (...args: unknown[]) => recordReset(...args),
   retireDevice: (...args: unknown[]) => retireDevice(...args),
@@ -120,11 +112,10 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.getByText('Variant image not added yet')).toBeTruthy();
   });
 
-  it("shows no card when the variant list does not hold the unit's variant", async () => {
-    currentDevice = device({ hardwareVariant: { id: 'v-9', code: 'treklink-v9' } });
+  it('shows the capability flags of the variant on the card, from the unit payload', async () => {
     renderPage();
-    expect(await screen.findByRole('heading', { name: 'TL-0042' })).toBeTruthy();
-    expect(screen.queryByText('Variant image not added yet')).toBeNull();
+    expect(await screen.findByText('Capabilities')).toBeTruthy();
+    expect(screen.getByText('GPS, Motion sensor, MQTT')).toBeTruthy();
   });
 
   it.each(['IN_INTAKE', 'AVAILABLE', 'RENTED', 'RETIRED', 'DISPOSED'] as const)(

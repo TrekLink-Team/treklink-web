@@ -33,6 +33,13 @@ describe('DeviceRef (specs/devices/design.md section 10)', () => {
     expect(deviceHomePath('o', 'd-9')).toBe('/o/devices/d-9/telemetry');
   });
 
+  it('keeps the asset tag as plain text when the unit has no page to open yet', () => {
+    renderRef({ scope: 'o', linked: false });
+
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText('TL-0042')).toBeTruthy();
+  });
+
   it('shows the variant name and the status as text', () => {
     renderRef({ variantName: 'TrekLink v3', status: 'AVAILABLE' });
 

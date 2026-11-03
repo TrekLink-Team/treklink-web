@@ -33,7 +33,10 @@ export const VariantPicker: React.FC<Props> = ({ variants, value, onChange, coun
           // The radio is the control and takes the keyboard; a click anywhere on the card chooses it too.
           <div
             key={item.id}
-            onClick={() => onChange(item.id)}
+            onClick={(event) => {
+              // A click on the radio itself reaches onChange below; only the rest of the card needs this.
+              if (!(event.target instanceof HTMLInputElement)) onChange(item.id);
+            }}
             className={cn(
               'flex cursor-pointer gap-3 rounded-card border p-3',
               selected ? 'border-2 border-brand bg-sunken' : 'border-line bg-surface',

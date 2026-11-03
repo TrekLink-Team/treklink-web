@@ -334,14 +334,7 @@ export class DevicesRepository {
     return client.hardwareVariant.findMany({
       where: activeOnly ? { isActive: true } : {},
       orderBy: { code: 'asc' },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        imageUrl: true,
-        specSheet: true,
-        isActive: true,
-      },
+      select: { ...VARIANT_SUMMARY_SELECT, isActive: true },
     });
   }
 
@@ -720,6 +713,18 @@ export class DevicesRepository {
   }
 }
 
+// The variant summary every unit payload carries (specs/devices/design.md section 10, task 9.1).
+export const VARIANT_SUMMARY_SELECT = {
+  id: true,
+  code: true,
+  name: true,
+  imageUrl: true,
+  specSheet: true,
+  hasGps: true,
+  hasMotionSensor: true,
+  mqttCapable: true,
+} satisfies Prisma.HardwareVariantSelect;
+
 export const LIST_SELECT = {
   id: true,
   assetTag: true,
@@ -736,7 +741,7 @@ export const LIST_SELECT = {
   lastLongitude: true,
   serviceDueAt: true,
   version: true,
-  hardwareVariant: { select: { id: true, code: true } },
+  hardwareVariant: { select: VARIANT_SUMMARY_SELECT },
 } satisfies Prisma.DeviceSelect;
 
 export type DeviceListRow = Prisma.DeviceGetPayload<{ select: typeof LIST_SELECT }>;
@@ -745,9 +750,7 @@ export const DETAIL_SELECT = {
   ...LIST_SELECT,
   hardwareVariant: {
     select: {
-      id: true,
-      code: true,
-      hasMotionSensor: true,
+      ...VARIANT_SUMMARY_SELECT,
       firmwareBaseline: true,
       serviceIntervalDays: true,
     },
@@ -826,5 +829,8 @@ export interface VariantSummary {
   imageUrl: string | null;
   // Display text by key, in the order of specs/devices/design.md section 10 (Json in the row).
   specSheet: Prisma.JsonValue;
+  hasGps: boolean;
+  hasMotionSensor: boolean;
+  mqttCapable: boolean;
   isActive: boolean;
 }

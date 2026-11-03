@@ -1,4 +1,4 @@
-from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, NOW, ep, paged, PAGE_QUERY,
+from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, VARIANT_SUMMARY, CONTRACT_ID, NOW, ep, paged, PAGE_QUERY,
                       state_409, STALE)
 
 CONTRACT = {"id": CONTRACT_ID, "code": "RC-2026-0042", "organization": {"id": ORG_ID, "code": "ORG-0007",
@@ -99,7 +99,8 @@ ENDPOINTS = [
        path=[C_PATH], response={**CONTRACT, "handoverAppointmentAt": "2026-10-25T02:00:00Z", "holdExpiresAt": None,
                                 "terms": [{"seq": 1, "startsAt": "2026-10-25T02:00:00Z",
                                                        "endsAt": "2026-11-25T02:00:00Z", "status": "OPEN"}],
-                                "devices": [{**CDEV, "contractDeviceId": "cd-1", "resetAt": None, "inspection": None,
+                                "devices": [{**CDEV, "hardwareVariant": VARIANT_SUMMARY, "contractDeviceId": "cd-1",
+                                             "resetAt": None, "inspection": None,
                                              "provisionedKeyVersion": None, "afterReturn": None}],
                                 "balance": {"dueNowVnd": 0, "dueLaterVnd": 2250000}},
        fields=[["holdExpiresAt", "When the hold of a request expires unpaid (D-092); kept after the decision as history; "
@@ -107,6 +108,10 @@ ENDPOINTS = [
                ["devices[].resetAt", "First reset of the unit at or after this row's check-in and before the unit's "
                 "next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
                 "`2026-10-30T03:05:00.000Z`"],
+               ["devices[].hardwareVariant", "The shared variant summary of devices design section 10 (`id`, `code`, `name`, "
+                "`imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`), the variant of the contract, "
+                "for the device reference and variant card of the Devices tab; absent on the holder answer (api-design 20)", "object",
+                "`{\"id\": \"...\", \"code\": \"treklink-v3\", ...}`"],
                ["devices[].contractDeviceId", "This row on the contract; a service credit is requested against it "
                 "(billing api-design 18)", "uuid", "`cd-1`"],
                ["devices[].inspection", "Last inspection recorded against this row (api-design 16): `id`, `result` "

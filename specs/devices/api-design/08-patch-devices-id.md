@@ -48,7 +48,17 @@ Corrects the firmware version after a reflash. Identity fields never change; sta
     "nodeId": "!a4b1c2d3",
     "hardwareVariant": {
       "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "code": "treklink-v3"
+      "code": "treklink-v3",
+      "name": "TrekLink v3 (GPS, SOS button)",
+      "imageUrl": null,
+      "specSheet": {
+        "mcu": "ESP32",
+        "sosControl": "3 s hold on the user button",
+        "localAlarm": "LED blinks"
+      },
+      "hasGps": true,
+      "hasMotionSensor": false,
+      "mqttCapable": true
     },
     "firmwareVersion": "2.7.19-treklink.4",
     "acquiredAt": "2026-06-15T00:00:00Z",

@@ -23,12 +23,18 @@ export interface Variant {
   isActive: boolean;
 }
 
+// The variant summary every unit payload carries (devices design section 10, api-design 05 to 07).
+export type VariantSummary = Pick<
+  Variant,
+  'id' | 'code' | 'name' | 'imageUrl' | 'specSheet' | 'hasGps' | 'hasMotionSensor' | 'mqttCapable'
+>;
+
 export interface Device {
   id: string;
   assetTag: string;
   nodeNum: number;
   nodeId: string;
-  hardwareVariant: { id: string; code: string };
+  hardwareVariant: VariantSummary;
   firmwareVersion: string;
   acquiredAt: string;
   status: DeviceStatus;

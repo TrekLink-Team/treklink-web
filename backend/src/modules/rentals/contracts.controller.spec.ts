@@ -196,6 +196,17 @@ describe('ContractsController (rentals api-design 01)', () => {
         },
         organization: ORG,
         variantCode: 'treklink-v3',
+        variant: {
+          id: 'v-3',
+          code: 'treklink-v3',
+          name: 'TrekLink v3',
+          imageUrl: '/variants/treklink-v3.jpg',
+          specSheet: { mcu: 'ESP32' },
+          hasGps: true,
+          hasMotionSensor: false,
+          mqttCapable: true,
+          isActive: true,
+        },
         assetTags: new Map([
           ['d-1', 'TL-0017'],
           ['d-2', 'TL-0018'],
@@ -223,6 +234,17 @@ describe('ContractsController (rentals api-design 01)', () => {
       expect.objectContaining({
         deviceId: 'd-1',
         assetTag: 'TL-0017',
+        // The shared variant summary of design section 10 (task 9.1), without the catalogue flag.
+        hardwareVariant: {
+          id: 'v-3',
+          code: 'treklink-v3',
+          name: 'TrekLink v3',
+          imageUrl: '/variants/treklink-v3.jpg',
+          specSheet: { mcu: 'ESP32' },
+          hasGps: true,
+          hasMotionSensor: false,
+          mqttCapable: true,
+        },
         resetAt,
         inspection: { result: 'PASSED', at: resetAt },
         provisionedKeyVersion: 2,

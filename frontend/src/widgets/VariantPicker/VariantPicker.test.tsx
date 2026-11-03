@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlanVariant } from '../../entities/billing/api';
 import { formatVnd } from '../../shared/lib/format';
 import { VariantPicker } from './VariantPicker';
@@ -14,6 +14,9 @@ const V3: PlanVariant = {
   name: 'TrekLink v3',
   imageUrl: null,
   specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
+  hasGps: true,
+  hasMotionSensor: false,
+  mqttCapable: true,
   monthlyPriceVnd: 450000,
   dayPriceVnd: 22500,
 };
@@ -83,6 +86,26 @@ describe('VariantPicker (the variant cards of the request form)', () => {
     expect((screen.getByRole('radio', { name: 'TrekLink v3' }) as HTMLInputElement).checked).toBe(
       false,
     );
+  });
+
+  it('shows the capability flags of each variant as text', () => {
+    render(<Harness />);
+
+    expect(screen.getAllByText('GPS, MQTT')).toHaveLength(2);
+  });
+
+  it('calls onChange once for a click on the radio and once for a click on the card', () => {
+    const onChange = vi.fn();
+    render(
+      <VariantPicker variants={[V3, V4]} value="" onChange={onChange} countOf={() => undefined} />,
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: 'TrekLink v3' }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('ESP32-S3'));
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith('v-4');
   });
 
   it('shows the error text, ties it to the group and marks the radios invalid', () => {

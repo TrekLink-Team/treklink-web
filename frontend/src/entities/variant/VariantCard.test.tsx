@@ -78,6 +78,25 @@ describe('VariantCard', () => {
     expect(screen.getByText('3 s hold on the user button')).toBeTruthy();
   });
 
+  it('lists the capability flags as text, and None when all are off', () => {
+    const { rerender } = render(
+      <VariantCard variant={{ ...V3, hasGps: true, hasMotionSensor: false, mqttCapable: true }} />,
+    );
+    expect(screen.getByText('Capabilities')).toBeTruthy();
+    expect(screen.getByText('GPS, MQTT')).toBeTruthy();
+
+    rerender(
+      <VariantCard variant={{ ...V3, hasGps: false, hasMotionSensor: false, mqttCapable: false }} />,
+    );
+    expect(screen.getByText('None')).toBeTruthy();
+  });
+
+  it('leaves the capabilities out when the read carries no flags', () => {
+    render(<VariantCard variant={V3} />);
+
+    expect(screen.queryByText('Capabilities')).toBeNull();
+  });
+
   it('draws no spec list for an empty sheet and shows what the caller adds', () => {
     render(
       <VariantCard variant={{ ...V3, specSheet: {} }}>

@@ -11,7 +11,12 @@ import {
 } from '../../common/dto/paging';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, BalanceSummary } from '../billing';
-import { DevicesService, type ReturnCheck, type ReturnState } from '../devices';
+import {
+  DevicesService,
+  type ReturnCheck,
+  type ReturnState,
+  type VariantSummary,
+} from '../devices';
 import { OrganizationLabel, OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { ACCOUNT_DIRECTORY, AccountDirectory } from '../platform/ports/account-directory.port';
@@ -33,6 +38,8 @@ export interface ContractQuery extends PagedQueryDto {
 export interface ContractLabels {
   organization: OrganizationLabel | null;
   variantCode: string | null;
+  // The shared variant summary of devices api-design 05 to 07, for the unit rows of a detail read.
+  variant: VariantSummary | null;
 }
 
 export interface ContractDetail extends ContractLabels {
@@ -163,10 +170,11 @@ export class ContractReadsService {
       this.organizations.labelsOf(rows.map((row) => row.organizationId)),
       this.devices.variants(false),
     ]);
-    const variantCode = new Map(variants.map((variant) => [variant.id, variant.code]));
+    const variantOf = new Map(variants.map((variant) => [variant.id, variant]));
     return (row) => ({
       organization: organizations.get(row.organizationId) ?? null,
-      variantCode: variantCode.get(row.hardwareVariantId) ?? null,
+      variantCode: variantOf.get(row.hardwareVariantId)?.code ?? null,
+      variant: variantOf.get(row.hardwareVariantId) ?? null,
     });
   }
 

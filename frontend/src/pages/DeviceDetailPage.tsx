@@ -8,7 +8,6 @@ import {
   retireDevice,
   useDevice,
   useDeviceHistory,
-  useVariants,
   NEXT_STEP_LABELS,
   nextStepPath,
   type Device,
@@ -143,7 +142,6 @@ export const DeviceDetailPage: React.FC = () => {
   const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
   const { data: device, isLoading, error, refetch } = useDevice(id);
   const { data: history } = useDeviceHistory(id, 1);
-  const { data: variants } = useVariants();
   const [editingFirmware, setEditingFirmware] = useState(false);
   const [intaking, setIntaking] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -197,9 +195,6 @@ export const DeviceDetailPage: React.FC = () => {
   const canReset = device.status === 'RETURNED';
   const canRetire = isAdmin && device.status === 'MAINTENANCE';
   const canDispose = isAdmin && device.status === 'RETIRED';
-  // The variant card of the unit (devices design section 10): absent when the list does not hold the
-  // variant, which for Staff means it is inactive.
-  const variant = variants?.find((item) => item.id === device.hardwareVariant.id);
 
   return (
     <section aria-labelledby="device-title">
@@ -216,11 +211,10 @@ export const DeviceDetailPage: React.FC = () => {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
-          {variant && (
-            <div className={CARD}>
-              <VariantCard variant={variant} headingLevel="h2" />
-            </div>
-          )}
+          {/* The variant card comes from the unit's own payload (devices design section 10). */}
+          <div className={CARD}>
+            <VariantCard variant={device.hardwareVariant} headingLevel="h2" />
+          </div>
           <div className={CARD}>
             <dl className="grid gap-3 sm:grid-cols-2">
               <Fact label="Node">{device.nodeId} ({device.nodeNum})</Fact>

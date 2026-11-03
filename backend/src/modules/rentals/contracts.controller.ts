@@ -15,7 +15,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
-import { DevicesService, type ReturnState } from '../devices';
+import { DevicesService, type ReturnState, type VariantSummary } from '../devices';
 import { PagedResult } from '../../common/dto/paging';
 import { ContractDecisionsService } from './contract-decisions.service';
 import { ContractLabels, ContractReadsService, TransitionView } from './contract-reads.service';
@@ -87,15 +87,36 @@ type DeviceRow = Prisma.ContractDeviceGetPayload<{ select: typeof DEVICE_ROW_SEL
 export interface DeviceRowView {
   deviceId: string;
   assetTag: string | null;
+  // Only the contract detail carries it; the holder answer (api-design 20) does not.
+  hardwareVariant?: VariantRef;
   handedOverAt: Date | null;
   checkedInAt: Date | null;
   lostAt: Date | null;
   holder: { name: string; phone: string | null; emergencyContact: string | null } | null;
 }
 
-export const toDeviceRowView = (row: DeviceRow, assetTag: string | null): DeviceRowView => ({
+// The variant summary of devices api-design 05 to 07 (design section 10), without the catalogue flag.
+export type VariantRef = Omit<VariantSummary, 'isActive'>;
+
+const toVariantRef = (variant: VariantSummary): VariantRef => ({
+  id: variant.id,
+  code: variant.code,
+  name: variant.name,
+  imageUrl: variant.imageUrl,
+  specSheet: variant.specSheet,
+  hasGps: variant.hasGps,
+  hasMotionSensor: variant.hasMotionSensor,
+  mqttCapable: variant.mqttCapable,
+});
+
+export const toDeviceRowView = (
+  row: DeviceRow,
+  assetTag: string | null,
+  variant: VariantSummary | null = null,
+): DeviceRowView => ({
   deviceId: row.deviceId,
   assetTag,
+  ...(variant ? { hardwareVariant: toVariantRef(variant) } : {}),
   handedOverAt: row.handedOverAt,
   checkedInAt: row.checkedInAt,
   lostAt: row.lostAt,
@@ -245,7 +266,7 @@ export class ContractsController {
       devices: row.devices.map((device) => {
         const check = returnChecks.get(device.id);
         return {
-          ...toDeviceRowView(device, assetTags.get(device.deviceId) ?? null),
+          ...toDeviceRowView(device, assetTags.get(device.deviceId) ?? null, labels.variant),
           // The row a service credit is requested against (billing api-design 18, screen 6.5).
           contractDeviceId: device.id,
           resetAt: check?.resetAt ?? null,

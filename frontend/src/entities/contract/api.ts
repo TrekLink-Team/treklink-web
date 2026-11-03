@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import { CONTRACT_STATUS, TONE_CLASSES, type DeviceStatus } from '../../shared/ui/status';
-import type { NextStep } from '../device/api';
+import type { NextStep, VariantSummary } from '../device/api';
 import { formatDate, formatDay } from '../../shared/lib/format';
 
 // Rental contracts as rentals api-design 01 to 06 and 18 return them.
@@ -63,6 +63,8 @@ export interface RequestedContract extends Contract {
 export interface ContractDevice {
   deviceId: string;
   assetTag: string | null;
+  // The variant summary of the contract (rentals api-design 03); absent outside the detail.
+  hardwareVariant?: VariantSummary;
   handedOverAt: string | null;
   checkedInAt: string | null;
   lostAt: string | null;
