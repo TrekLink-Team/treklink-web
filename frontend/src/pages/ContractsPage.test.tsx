@@ -60,22 +60,24 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
   it('links each row to its contract and offers the Manager Cancel before handover only', () => {
     renderPage();
     expect(table().getByRole('link', { name: 'RC-2026-0001' }).getAttribute('href')).toBe('/o/contracts/c-1');
-    expect(table().getByRole('button', { name: /^Cancel contract\s+RC-2026-0001/ })).toBeTruthy();
-    expect(table().getByRole('button', { name: /^Cancel contract\s+RC-2026-0002/ })).toBeTruthy();
-    expect(table().queryByRole('button', { name: /^Cancel contract\s+RC-2026-0003/ })).toBeNull();
+    // Cancel contract is a status change, in the row's Change status menu (chapter 06 §9.6).
+    expect(table().getByRole('button', { name: /Change status of RC-2026-0001$/ })).toBeTruthy();
+    expect(table().getByRole('button', { name: /Change status of RC-2026-0002$/ })).toBeTruthy();
+    expect(table().queryByRole('button', { name: /Change status of RC-2026-0003$/ })).toBeNull();
   });
 
   it('gives an Org Operator no row action', () => {
     roles = ['ORG_OPERATOR'];
     renderPage();
-    expect(table().queryByRole('button', { name: /^Cancel contract/ })).toBeNull();
+    expect(table().queryByRole('button', { name: /Change status of/ })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Request a contract' })).toBeNull();
   });
 
   it('cancels with the reason and the loaded version', async () => {
     cancelContract.mockResolvedValue({});
     renderPage();
-    fireEvent.click(table().getByRole('button', { name: /^Cancel contract\s+RC-2026-0002/ }));
+    fireEvent.click(table().getByRole('button', { name: /Change status of RC-2026-0002$/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Cancel contract' }));
     const dialog = within(screen.getByRole('alertdialog', { name: 'Cancel contract RC-2026-0002?' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Cancel contract' }));
     expect(await dialog.findByText('Enter a reason for this change.')).toBeTruthy();
