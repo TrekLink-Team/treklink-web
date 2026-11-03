@@ -812,7 +812,7 @@ short_name 3; `Channel` index 1, settings 2, role 3; `ChannelSettings` psk 2 (ot
    `devices[].nodeNum`, §8.5). A mismatch writes nothing and the page names the docked node id
    (REQ-ERR-12).
 3. On a match the page calls rentals api-design 21, the Staff-only channel-key endpoint (§8.6 decision
-   1), sending the docked `nodeNum`; the endpoint re-checks the match server-side before it returns the
+   1), sending the docked `nodeNum`; the endpoint re-checks the match server-side and has `ChannelKeyService.deriveKey` (organizations) derive the key before it returns the
    key and its version, with `Cache-Control: no-store`.
 4. `provision()` sends `set_owner` (long name the asset tag, short name the last four characters per
    §8.6 decision 2) and `set_channel` for index 0 with role `PRIMARY` and the settings read in step 2
@@ -829,19 +829,26 @@ sequenceDiagram
     participant P as Counter Page
     participant DS as :DockingService
     participant U as TrekLink unit (Web Serial)
-    participant C as :ContractsController
+    participant C as :HandoverController
     participant H as :HandoverService
+    participant K as :ChannelKeyService
     participant D as :DevicesService
+    participant R as :DevicesRepository
     St->>P: press Dock and provision on TL-0042
     P->>+DS: readUnit()
     DS->>+U: ToRadio want_config_id 69420
     U-->>-DS: myInfo(myNodeNum), NodeInfo(owner), channel 0
     DS-->>-P: UnitInfo(nodeNum, owner, primaryChannel)
     alt docked nodeNum equals the device record
-        P->>+C: POST /api/contracts/{id}/devices/{deviceId}/channel-key {nodeNum}
-        C->>+H: issueChannelKey(id, deviceId, nodeNum, actor)
-        H->>+D: byNodeNum, compare
-        D-->>-H: match
+        P->>+C: POST /api/contracts/{id}/devices/{deviceId}/channel-key<br/>{ nodeNum }
+        C->>+H: issueChannelKey(id, deviceId, dto, actor)
+        H->>+D: byNodeNum(nodeNum)
+        D->>+R: findByNodeNum(nodeNum)
+        R-->>-D: DeviceIdentity
+        D-->>-H: DeviceIdentity (matches deviceId)
+        H->>+K: deriveKey(organizationId, channelKeyVersion)
+        K-->>-H: key (32 bytes), keyVersion
+        Note over H: audit row with actor, device, organization<br/>and keyVersion, never the key
         H-->>-C: { keyHex, keyVersion }
         C-->>-P: 200 envelope, Cache-Control: no-store
         P->>+DS: provision(expected, key, keyVersion)
@@ -851,22 +858,26 @@ sequenceDiagram
         U-->>-DS: routing ack
         DS->>+U: ToRadio want_config_id 69420
         U-->>-DS: owner and channel 0 read back
-        DS-->>-P: verified, key dropped
-        P->>+C: POST /api/contracts/{id}/devices/{deviceId}/provisioning
-        C->>+H: provision(id, deviceId, dto, actor)
-        H->>+D: recordProvisioning(deviceId, orgId, keyVersion, actor, tx)
-        D-->>-H: provisioned, key version only
-        H-->>-C: ContractDeviceDto
-        C-->>-P: 201 envelope
-        P-->>St: row shows Provisioned v n
+        DS-->>-P: ReadBack(match), key dropped
+        alt read-back matches the written owner and key
+            P->>+C: POST /api/contracts/{id}/devices/{deviceId}/provisioning<br/>{ keyVersion, nodeNum }
+            C->>+H: provision(id, deviceId, dto, actor)
+            H->>+D: recordProvisioning(deviceId, organizationId, keyVersion, actor, tx)
+            D->>+R: recordProvisioning(provisioning, at, tx)
+            R-->>-D: device with keyVersion
+            D-->>-H: provisioned, key version only
+            H-->>-C: ContractDeviceDto
+            C-->>-P: 201 envelope
+            P-->>St: row shows Provisioned v n
+        else read-back differs or the unit stopped answering
+            P-->>St: Writing to TL-0042 did not complete. Nothing was recorded. Dock the unit again.
+        end
     else docked nodeNum differs
         P-->>St: The docked unit is !a4b1c2d4, not TL-0042. Nothing was written.
     end
 ```
 
-***Figure 17***: UC-14 Provision Device by docking at handover (D-080, D-082). The channel-key call is
-rentals api-design 21; `HandoverService.issueChannelKey` re-checks the `nodeNum` match before it asks
-`OrganizationsService` to derive the key (omitted from the diagram for width).
+***Figure 17***: UC-14 Provision Device by docking at handover
 
 ### 8.5 Contract changes (made in the catalog)
 
