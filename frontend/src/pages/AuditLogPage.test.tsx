@@ -63,7 +63,6 @@ const renderPage = (search = '') =>
   );
 
 const lastCall = () => calls[calls.length - 1];
-// The table only: the phone card list renders beside it, with its own copy of the text.
 const table = () => within(screen.getByRole('table', { name: 'Audit log' }));
 
 beforeEach(() => {
@@ -182,9 +181,12 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     expect(table().queryByText(/"status": "REQUESTED"/)).toBeNull();
   });
 
-  it('offers the before and after behind Details on the phone card', () => {
+  it('shows the before and after in the details pane too (chapter 06 §9.8)', () => {
     renderPage();
-    expect(screen.getAllByText('Details').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: /^Show details of contract\.approve at / }));
+    const pane = within(screen.getByRole('complementary'));
+    expect(pane.getByText(/"status": "REQUESTED"/)).toBeTruthy();
+    expect(pane.getByText(/"status": "APPROVED"/)).toBeTruthy();
   });
 
   it('pages the log and keeps the filters', () => {

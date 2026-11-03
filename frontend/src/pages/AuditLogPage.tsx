@@ -23,13 +23,14 @@ import {
   Button,
   Card,
   CardHeader,
-  DataTable,
+  CollectionView,
   Field,
   Input,
   PageHeader,
   Pagination,
+  pageInfoOf,
   Select,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
@@ -213,12 +214,12 @@ export const AuditLogPage: React.FC = () => {
     setParams(next);
   };
 
-  const columns: Column<AuditLogItem>[] = [
-    { key: 'time', header: 'Time', cell: (row) => withSeconds(row.createdAt) },
+  const fields: CollectionField<AuditLogItem>[] = [
+    { key: 'time', label: 'Time', render: (row) => withSeconds(row.createdAt), compact: true },
     {
       key: 'actor',
-      header: 'Actor',
-      cell: (row) =>
+      label: 'Actor',
+      render: (row) =>
         row.actor ? (
           <div className="py-1.5">
             <button
@@ -237,19 +238,14 @@ export const AuditLogPage: React.FC = () => {
     },
     {
       key: 'organization',
-      header: 'Organization',
-      cell: (row) => nameOf(row.organizationId),
-      hideOnMobile: true,
-    },
-    {
-      key: 'action',
-      header: 'Action',
-      cell: (row) => <span className="font-mono">{row.action}</span>,
+      label: 'Organization',
+      render: (row) => nameOf(row.organizationId),
+      hideWithPane: true,
     },
     {
       key: 'subject',
-      header: 'Subject',
-      cell: (row) => (
+      label: 'Subject',
+      render: (row) => (
         <div className="py-1.5">
           <span>{row.subjectType}</span>
           {row.subjectId && (
@@ -259,12 +255,14 @@ export const AuditLogPage: React.FC = () => {
           )}
         </div>
       ),
-      hideOnMobile: true,
+      hideWithPane: true,
     },
     {
       key: 'details',
-      header: 'Before and after',
-      cell: (row) => {
+      label: 'Before and after',
+      // The details pane shows the before and after itself.
+      hideWithPane: true,
+      render: (row) => {
         const expanded = open.has(row.id);
         return (
           <div className="py-1.5">
@@ -284,9 +282,9 @@ export const AuditLogPage: React.FC = () => {
     },
     {
       key: 'request',
-      header: 'Request id',
-      cell: (row) => <span className="font-mono text-body-sm">{row.requestId ?? '–'}</span>,
-      hideOnMobile: true,
+      label: 'Request id',
+      render: (row) => <span className="font-mono text-body-sm">{row.requestId ?? '–'}</span>,
+      hideWithPane: true,
     },
   ];
 
@@ -334,13 +332,21 @@ export const AuditLogPage: React.FC = () => {
           </Alert>
         )}
 
-        <DataTable
-          caption="Audit log"
-          columns={columns}
-          rows={data?.items}
-          rowId={(row) => row.id}
+        {/* The filter form above queries the server; the list renders on CollectionView (chapter 06
+            §9, D-096), with the before and after in the details pane as well as in its column. */}
+        <CollectionView<AuditLogItem>
+          label="Audit log"
+          items={data?.items}
           loading={logs.isPending}
-          empty={{
+          itemId={(row) => row.id}
+          itemName={(row) => `${row.action} at ${withSeconds(row.createdAt)}`}
+          itemTitle={(row) => <span className="font-mono font-semibold text-ink">{row.action}</span>}
+          fields={fields}
+          noun={{ one: 'entry', other: 'entries' }}
+          views={['details', 'list']}
+          pageInfo={pageInfoOf(data ? { ...data, pageSize: AUDIT_PAGE_SIZE } : undefined)}
+          details={{ fields: ['time', 'actor', 'organization', 'subject', 'request'], extra: (row) => <Snapshots row={row} /> }}
+          emptyState={{
             title: 'No results match your filters.',
             action: hasFilters(filters) ? (
               <Button variant="secondary" onClick={() => setParams(new URLSearchParams())}>
@@ -348,22 +354,6 @@ export const AuditLogPage: React.FC = () => {
               </Button>
             ) : undefined,
           }}
-          renderCard={(row) => (
-            <div className="flex flex-col gap-1 text-body">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono">{row.action}</span>
-                <span className="text-body-sm text-ink-muted">{withSeconds(row.createdAt)}</span>
-              </div>
-              <span className="text-body-sm text-ink-muted">
-                {row.actor?.fullName ?? 'SYSTEM'}, {row.subjectType}
-                {row.subjectId ? ` ${row.subjectId}` : ''}
-              </span>
-              <details>
-                <summary className={`${LINK} cursor-pointer`}>Details</summary>
-                <Snapshots row={row} className="mt-2" />
-              </details>
-            </div>
-          )}
           footer={
             data && data.totalPages > 1 ? (
               <Pagination
