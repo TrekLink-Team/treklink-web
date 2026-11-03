@@ -60,7 +60,7 @@ The quick swap at the counter (devices design §11.6): an `AVAILABLE` unit of th
   },
   "isSuccess": true,
   "statusCode": 200,
-  "message": "TL-0051 replaces TL-0001 on RC-2026-0042."
+  "message": "Device exchanged"
 }
 ```
 

@@ -65,6 +65,14 @@ export interface Swapped {
   reserved: DeviceTag & { status: 'RESERVED' };
 }
 
+// api-design 30: the replaced unit back to AVAILABLE, the docked unit reserved, and the contract version
+// the counter holds next.
+export interface Exchanged {
+  released: { deviceId: string; assetTag: string | null; status: 'AVAILABLE' };
+  reserved: DeviceTag & { nodeNum: number; status: 'RESERVED' };
+  contractVersion: number;
+}
+
 // api-design 19: the unit with its record cleared, and the contract version the page holds next.
 export interface ProvisioningUndone {
   device: ProvisionedDevice;
@@ -354,6 +362,90 @@ export class HandoverService {
       return {
         released: { deviceId, assetTag: tags.get(deviceId) ?? null, status: 'MAINTENANCE' },
         reserved: { ...replacement, status: 'RESERVED' },
+      };
+    });
+  }
+
+  // The quick swap of the device connector (api-design 30, REQ-EVT-26, devices design section 11.6): a
+  // docked AVAILABLE unit of the contract's variant takes the place of a reserved unit that carries no
+  // provisioning record, which goes back to AVAILABLE. Refusals in the order of REQ-ERR-17; quantity,
+  // plan, price and variant stay as they are, and the contract version increases.
+  async exchange(
+    id: string,
+    deviceId: string,
+    input: { replacementDeviceId: string; nodeNum: number; expectedVersion: number },
+    actor: Caller,
+    at: Date = new Date(),
+  ): Promise<Exchanged> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(id, tx);
+      if (contract.status !== ContractStatus.APPROVED) throw notApproved(contract.status);
+      if (contract.version !== input.expectedVersion) {
+        throw conflict(
+          ErrorCode.STALE_VERSION,
+          'Someone else changed this. Reload to see the latest.',
+        );
+      }
+      const row = await this.rowOf(contract, deviceId, tx);
+      const [unit] = await this.devices.provisioning([deviceId], tx);
+      if (row.handedOverAt || !unit || unit.status !== DeviceStatus.RESERVED) {
+        throw conflict(
+          ErrorCode.INVALID_STATE_TRANSITION,
+          `This cannot be done while it is ${unit?.status ?? 'handed over'}.`,
+        );
+      }
+      if (unit.keyVersion !== null) {
+        throw conflict(
+          ErrorCode.DEVICE_PROVISIONED,
+          `${unit.assetTag} is provisioned. Only units not provisioned can be swapped out.`,
+        );
+      }
+      const replacementNode = (await this.devices.nodeNums([input.replacementDeviceId], tx)).get(
+        input.replacementDeviceId,
+      );
+      if (replacementNode === undefined) {
+        throw conflict(ErrorCode.DEVICE_NOT_AVAILABLE, 'Choose an available unit.');
+      }
+      if (replacementNode !== input.nodeNum) {
+        throw conflict(
+          ErrorCode.NODE_MISMATCH,
+          `The docked unit ${toNodeId(BigInt(input.nodeNum))} is not the unit named. Dock it again.`,
+        );
+      }
+      const move = { contractId: id, contractCode: contract.code, actorId: actor.id };
+      const replacement = await this.devices.takeForReplacement(
+        input.replacementDeviceId,
+        contract.hardwareVariantId,
+        at,
+        tx,
+        move,
+      );
+      await this.contracts.releaseRow(row.id, at, tx);
+      await this.devices.release([deviceId], at, tx, { ...move, reason: 'EXCHANGED' });
+      await this.contracts.insertContractDevices(
+        [{ contractId: id, deviceId: replacement.id }],
+        tx,
+      );
+      if (!(await this.contracts.bumpVersion(id, input.expectedVersion, tx))) {
+        throw conflict(
+          ErrorCode.STALE_VERSION,
+          'Someone else changed this. Reload to see the latest.',
+        );
+      }
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: actor.id,
+        actorRoles: actor.roles,
+        organizationId: contract.organizationId,
+        action: 'contract.deviceExchanged',
+        subjectType: 'RentalContract',
+        subjectId: id,
+        before: { deviceId },
+        after: { deviceId: replacement.id, nodeNum: input.nodeNum },
+      } satisfies AuditRecordEvent);
+      return {
+        released: { deviceId, assetTag: unit.assetTag, status: 'AVAILABLE' },
+        reserved: { ...replacement, nodeNum: input.nodeNum, status: 'RESERVED' },
+        contractVersion: input.expectedVersion + 1,
       };
     });
   }
