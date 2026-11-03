@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ReceiptText, Scale } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import {
   billingKeys,
@@ -19,22 +20,20 @@ import { hasAnyRole } from '../shared/lib/permissions';
 import {
   Alert,
   Button,
-  Card,
+  CollectionView,
   ConfirmDialog,
-  DataTable,
   Dialog,
   Field,
   Input,
   PageHeader,
   Pagination,
+  pageInfoOf,
   RadioGroup,
-  Select,
   SERVICE_CREDIT_STATUS,
   StatusBadge,
   Textarea,
-  Toolbar,
   useToast,
-  type Column,
+  type CollectionField,
   type ServiceCreditStatus,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
@@ -290,35 +289,23 @@ export const ServiceCreditsPage: React.FC = () => {
   const [refunding, setRefunding] = useState<ServiceCredit | null>(null);
   const credits = useServiceCredits({ status: status || undefined, pageNumber });
 
-  const columns: Column<ServiceCredit>[] = [
-    {
-      key: 'device',
-      header: 'Device',
-      cell: (credit) => (
-        <span className="flex flex-col">
-          <span className="font-mono">{credit.assetTag ?? credit.deviceId}</span>
-          <Link to={`/t/contracts/${credit.contractId}`} className={`${LINK} text-body-sm`}>
-            Open contract
-          </Link>
-        </span>
-      ),
-    },
-    { key: 'cause', header: 'Cause', cell: (credit) => causeLabel(credit.cause) },
-    { key: 'outage', header: 'Outage', cell: outageText },
-    { key: 'amount', header: 'Credit', align: 'end', cell: creditAmount },
+  const fields: CollectionField<ServiceCredit>[] = [
+    { key: 'cause', label: 'Cause', render: (credit) => causeLabel(credit.cause), compact: true },
+    { key: 'outage', label: 'Outage', render: outageText, hideWithPane: true },
+    { key: 'amount', label: 'Credit', align: 'end', render: creditAmount, compact: true },
     {
       key: 'status',
-      header: 'Status',
-      cell: (credit) => (
-        <span className="flex flex-col gap-1">
-          <StatusBadge entry={SERVICE_CREDIT_STATUS[credit.status]} />
-          {credit.refundReference && (
-            <span className="text-body-sm text-ink-muted">Ref. {credit.refundReference}</span>
-          )}
-        </span>
+      label: 'Status',
+      // A short badge with the refund reference beside it (design handoff item 12).
+      render: (credit) => (
+        <StatusBadge
+          entry={SERVICE_CREDIT_STATUS[credit.status]}
+          after={credit.refundReference ? `Ref. ${credit.refundReference}` : undefined}
+        />
       ),
+      compact: true,
     },
-    { key: 'raised', header: 'Requested', cell: (credit) => formatDateTime(credit.createdAt) },
+    { key: 'raised', label: 'Requested', render: (credit) => formatDateTime(credit.createdAt), hideWithPane: true },
   ];
 
   return (
@@ -327,71 +314,69 @@ export const ServiceCreditsPage: React.FC = () => {
       {!isAdmin && (
         <Alert tone="info">Only a TrekLink Admin who did not request a credit decides it.</Alert>
       )}
-      <Card>
-        <Toolbar
-          label="Service credit filters"
-          start={
-            <Field id="credit-filter-status" label="Status" hideLabel className="w-full sm:w-64">
-              <Select
-                id="credit-filter-status"
-                value={status}
-                onChange={(event) => {
-                  setStatus(event.target.value as ServiceCreditStatus | '');
-                  setPageNumber(1);
-                }}
-              >
-                <option value="">All statuses</option>
-                {(Object.keys(SERVICE_CREDIT_STATUS) as ServiceCreditStatus[]).map((key) => (
-                  <option key={key} value={key}>
-                    {SERVICE_CREDIT_STATUS[key].label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          }
-        />
-        <DataTable
-          caption="Service credits"
-          columns={columns}
-          rows={credits.data?.items}
-          rowId={(credit) => credit.id}
-          rowLabel={(credit) => `${credit.assetTag ?? credit.deviceId} ${causeLabel(credit.cause)}`}
-          loading={credits.isLoading}
-          error={
-            credits.error ? (
-              <ErrorState error={credits.error} onRetry={() => void credits.refetch()} />
-            ) : undefined
-          }
-          empty={{ title: EMPTY[status] ?? 'No service credits match these filters.' }}
-          rowActions={(credit) => [
-            ...(isAdmin && credit.status === 'REQUESTED'
-              ? [
-                  {
-                    key: 'decide',
-                    label: 'Decide',
-                    disabled: credit.requestedById === user?.id,
-                    disabledReason: credit.requestedById === user?.id ? SELF_REQUESTED : undefined,
-                    onSelect: () => setDeciding(credit),
-                  },
-                ]
-              : []),
-            ...(isStaff && credit.status === 'REFUND_DUE'
-              ? [{ key: 'refund', label: 'Record refund', onSelect: () => setRefunding(credit) }]
-              : []),
-          ]}
-          footer={
-            credits.data && credits.data.totalPages > 1 ? (
-              <Pagination
-                pageNumber={credits.data.pageNumber}
-                totalPages={credits.data.totalPages}
-                totalItems={credits.data.totalCount}
-                pageSize={credits.data.pageSize}
-                onPage={setPageNumber}
-              />
-            ) : undefined
-          }
-        />
-      </Card>
+      <CollectionView<ServiceCredit>
+        label="Service credits"
+        items={credits.data?.items}
+        loading={credits.isLoading}
+        error={credits.error ? <ErrorState error={credits.error} onRetry={() => void credits.refetch()} /> : undefined}
+        itemId={(credit) => credit.id}
+        itemName={(credit) => `${credit.assetTag ?? credit.deviceId} ${causeLabel(credit.cause)}`}
+        itemTitle={(credit) => (
+          <span className="flex flex-col">
+            <span className="font-mono font-semibold text-ink">{credit.assetTag ?? credit.deviceId}</span>
+            <Link to={`/t/contracts/${credit.contractId}`} className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}>
+              Open contract
+            </Link>
+          </span>
+        )}
+        fields={fields}
+        noun={{ one: 'credit', other: 'credits' }}
+        itemActions={[
+          {
+            key: 'decide',
+            label: 'Decide',
+            icon: <Scale />,
+            allowed: (credit) => isAdmin && credit.status === 'REQUESTED',
+            unavailableReason: (credit) => (credit.requestedById === user?.id ? SELF_REQUESTED : undefined),
+            onSelect: setDeciding,
+          },
+          {
+            key: 'refund',
+            label: 'Record refund',
+            icon: <ReceiptText />,
+            allowed: (credit) => isStaff && credit.status === 'REFUND_DUE',
+            onSelect: setRefunding,
+          },
+        ]}
+        filters={[
+          { key: 'REQUESTED', label: SERVICE_CREDIT_STATUS.REQUESTED.label },
+          { key: '', label: 'All statuses' },
+          ...(Object.keys(SERVICE_CREDIT_STATUS) as ServiceCreditStatus[])
+            .filter((key) => key !== 'REQUESTED')
+            .map((key) => ({ key, label: SERVICE_CREDIT_STATUS[key].label })),
+        ]}
+        query={{ search: '', filter: status, sort: null }}
+        onQueryChange={(next) => {
+          setStatus(next.filter as ServiceCreditStatus | '');
+          setPageNumber(1);
+        }}
+        // The decision queue (the default filter) narrows the list, so the bar stays for one or two.
+        hideCommandBar={false}
+        pageInfo={pageInfoOf(credits.data)}
+        details={{ href: (credit) => `/t/contracts/${credit.contractId}`, hrefLabel: 'Open the contract' }}
+        emptyState={{ title: EMPTY[status] ?? 'No service credits match these filters.' }}
+        footer={
+          credits.data && credits.data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={credits.data.pageNumber}
+              totalPages={credits.data.totalPages}
+              totalItems={credits.data.totalCount}
+              pageSize={credits.data.pageSize}
+              onPage={setPageNumber}
+            />
+          ) : undefined
+        }
+      />
       {deciding && <DecisionDialog credit={deciding} onClose={() => setDeciding(null)} />}
       {refunding && <RefundDialog credit={refunding} onClose={() => setRefunding(null)} />}
     </section>

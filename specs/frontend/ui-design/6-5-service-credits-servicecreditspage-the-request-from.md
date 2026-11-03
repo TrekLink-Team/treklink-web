@@ -107,3 +107,10 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: focus trap and return, text labels
 - [x] Live data: none; query keys listed
 - [x] Traceability: D-092 rule 5, billing REQ-EVT-12 to REQ-EVT-15
+
+## Service credits on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. `/t/service-credits` renders through `CollectionView` (chapter 06 §9): the status is the
+Show filter, opening on Requested, which keeps the command bar even for one or two credits; Decide (Admin,
+unavailable with its reason on a credit the viewer requested, BR-24) and Record refund (Staff, on a
+REFUND_DUE credit) are item actions; the refund reference sits beside the status badge as text.
