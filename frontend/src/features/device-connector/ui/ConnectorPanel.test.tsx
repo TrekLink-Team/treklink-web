@@ -314,3 +314,57 @@ describe('ConnectorPanel on CollectionView (chapter 06 §9, design section 11.2)
     await waitFor(() => expect(screen.getByLabelText('Search connected units')).toBeTruthy(), { timeout: 4000 });
   });
 });
+
+describe('ConnectorPanel 4.6 gaps (swap refusal, skeleton, phone render)', () => {
+  it('shows the server refusal inside the swap dialog and keeps it open', async () => {
+    const swapIn = vi.fn(() => Promise.resolve('This was changed by someone else. Reload and try again.'));
+    act(() =>
+      useConnectorStore.getState().setContext({
+        kind: 'counter',
+        contractId: 'c-42',
+        contractCode: 'RC-2026-0042',
+        status: 'APPROVED',
+        variantCode: 'treklink-v3',
+        version: 4,
+        keyVersion: 1,
+        rows: [{ deviceId: 'd-1', assetTag: 'TL-0001', nodeNum: 11, provisionedKeyVersion: null }],
+        provision: () => Promise.resolve(),
+        swapIn,
+      }),
+    );
+    renderPanel();
+    const { connectorRegistry } = await import('../model/ConnectorRegistry');
+    await act(async () => {
+      await connectorRegistry(recognizeUnits).start();
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Put on this contract TL-0042' }, { timeout: 4000 }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Put TL-0042 on RC-2026-0042?' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Swap and provision' }));
+    await waitFor(() =>
+      expect(dialog.getByText('This was changed by someone else. Reload and try again.')).toBeTruthy(),
+    );
+    expect(swapIn).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ deviceId: 'd-1' }));
+    expect(screen.getByRole('dialog', { name: 'Put TL-0042 on RC-2026-0042?' })).toBeTruthy();
+  });
+
+  it('shows a skeleton row while a unit is read, and a 160 px render below 600 px', async () => {
+    const serial = navigator.serial as unknown as FakeSerial;
+    const slow = new FakeUnit(unitState({ nodeNum: 0xa4b1c2f7 }), { silent: true }, serial);
+    serial.ports.push(new FakePort(slow, serial));
+    renderPanel();
+    const { connectorRegistry } = await import('../model/ConnectorRegistry');
+    // start() returns once the ports are attached; the silent unit stays in its handshake meanwhile.
+    await act(async () => {
+      await connectorRegistry(recognizeUnits).start();
+    });
+    expect(await screen.findByRole('heading', { name: 'Unit being read' }, { timeout: 4000 })).toBeTruthy();
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show details TL-0042' })).toBeTruthy(), {
+      timeout: 4000,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Show details TL-0042' }));
+    const render = screen.getByRole('img', { name: 'TrekLink v3 (GPS, SOS button), front view' });
+    expect(render.className).toContain('h-40');
+    expect(render.className).toContain('min-[600px]:h-60');
+  });
+});

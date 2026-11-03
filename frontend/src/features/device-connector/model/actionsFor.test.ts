@@ -46,7 +46,7 @@ const counter = (change: Partial<CounterContext> = {}): CounterContext => ({
     { deviceId: 'd-2', assetTag: 'TL-0002', nodeNum: 12, provisionedKeyVersion: 2 },
   ],
   provision: () => Promise.resolve(),
-  swapIn: () => Promise.resolve(),
+  swapIn: () => Promise.resolve(null),
   ...change,
 });
 
