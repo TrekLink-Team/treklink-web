@@ -37,7 +37,7 @@ import { BulkActionDialog } from '../shared/ui/BulkAction';
 import type { BulkItem } from '../shared/ui/bulkSequence';
 import { StateChangeDialog, type StateTransition } from '../shared/ui/StateChange';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
-import { ALERT, ERROR_TEXT, LINK, WARNING } from '../shared/ui/styles';
+import { ALERT, ERROR_TEXT, WARNING } from '../shared/ui/styles';
 import { ClipboardCheck, RotateCcw } from 'lucide-react';
 import { intakeDockMessage } from '../features/device-connector/actions/messages';
 import { useDocking } from '../features/device-connector/actions/useDocking';
