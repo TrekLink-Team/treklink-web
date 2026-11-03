@@ -105,19 +105,23 @@ export const TooltipButton = React.forwardRef<HTMLButtonElement, Props>(function
         />
       )}
       {open && (
+        // The transparent bottom padding bridges the button and the tooltip, so the pointer can move
+        // onto the tooltip without leaving the hover area (1.4.13, review of treklink-web#349).
         <span
-          role="tooltip"
-          className={cn(
-            'absolute bottom-full z-toast mb-1.5 flex w-max max-w-[16rem] flex-col rounded-badge bg-inverse px-2 py-1 text-body-sm font-semibold text-ink-inverse shadow-overlay',
-            align === 'end' ? 'right-0' : 'left-0',
-          )}
+          data-tooltip-bridge=""
+          className={cn('absolute bottom-full z-toast pb-1.5', align === 'end' ? 'right-0' : 'left-0')}
         >
-          <span>{tooltip}</span>
-          {unavailable && (
-            <span id={tipId} className="font-medium">
-              {unavailableReason}
-            </span>
-          )}
+          <span
+            role="tooltip"
+            className="flex w-max max-w-[16rem] flex-col rounded-badge bg-inverse px-2 py-1 text-body-sm font-semibold text-ink-inverse shadow-overlay"
+          >
+            <span>{tooltip}</span>
+            {unavailable && (
+              <span id={tipId} className="font-medium">
+                {unavailableReason}
+              </span>
+            )}
+          </span>
         </span>
       )}
       {!open && unavailable && (
