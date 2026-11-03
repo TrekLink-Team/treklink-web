@@ -126,8 +126,8 @@ describe('account menu (screen 2.2)', () => {
     openMenu();
     const [change, signOut] = screen.getAllByRole('menuitem');
 
-    // The name starts with the visible full name (WCAG 2.5.3).
-    expect(accountButton().getAttribute('aria-label')).toBe(`${STAFF.fullName}, account menu`);
+    // The name starts with the visible initials, then the full name shown from 1024 px (WCAG 2.5.3).
+    expect(accountButton().getAttribute('aria-label')).toBe(`TB ${STAFF.fullName}, account menu`);
     expect(screen.getByRole('menu').getAttribute('aria-label')).toMatch(/account menu$/);
     expect(document.activeElement).toBe(change);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
