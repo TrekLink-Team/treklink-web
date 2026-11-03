@@ -13,20 +13,16 @@ import {
   type Contract,
   type ContractFilters,
   type ContractStatus,
-  type PlanType,
 } from '../entities/contract/api';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { matchesText } from '../shared/lib/filter';
 import {
-  Button,
-  DataTable,
+  CollectionView,
   Pagination,
-  Select,
+  pageInfoOf,
   StateChangeDialog,
-  Toolbar,
-  ToolbarSearch,
-  type Column,
-  type RowAction,
+  type CollectionField,
+  type CollectionTransition,
   type StateTransition,
 } from '../shared/ui';
 import { Badge, ErrorState, PageTitle } from '../shared/ui/bits';
@@ -46,22 +42,19 @@ const CANCEL: StateTransition<'CANCELLED'> = {
   successMessage: 'Contract cancelled.',
 };
 
-// /o/contracts, the contract list of screen 5.2 (rentals api-design 02). Org Manager and Org
-// Operator read it; only the Manager sees Request a contract and the Cancel row action (W29).
+// /o/contracts, the contract list of screen 5.2 (rentals api-design 02) on CollectionView (chapter 06
+// §9, D-096). Org Manager and Org Operator read it; only the Manager sees Request a contract and
+// Cancel contract, a status change before handover (W29, §9.6). The status is the Show filter on the
+// server; the search reads the loaded page by code and plan.
 export const ContractsPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isManager = hasAnyRole(user?.roles ?? [], ['ORG_MANAGER']);
   const [filters, setFilters] = useState<ContractFilters>({ pageNumber: 1 });
   const { data, isLoading, error, refetch } = useContracts('o', filters);
-  const [code, setCode] = useState('');
+  const [text, setText] = useState('');
   const [cancelling, setCancelling] = useState<Contract | null>(null);
-  const filtered = filters.status !== undefined || filters.planType !== undefined || code !== '';
-  const rows = data?.items.filter((contract) => matchesText(code, contract.code));
-  const clear = () => {
-    setCode('');
-    setFilters({ pageNumber: 1 });
-  };
+  const rows = data?.items.filter((contract) => matchesText(text, contract.code, planLabel(contract)));
   const refresh = () => void queryClient.invalidateQueries({ queryKey: contractKeys.all });
 
   const requestLink = isManager && (
@@ -70,99 +63,53 @@ export const ContractsPage: React.FC = () => {
     </Link>
   );
 
-  const columns: Column<Contract>[] = [
-    { key: 'code', header: 'Code', cell: (contract) => contract.code },
-    { key: 'plan', header: 'Plan', cell: planLabel },
-    { key: 'devices', header: 'Devices', align: 'end', cell: (contract) => contract.quantity },
+  const fields: CollectionField<Contract>[] = [
+    { key: 'plan', label: 'Plan', render: planLabel, compact: true },
+    { key: 'devices', label: 'Devices', align: 'end', render: (contract) => contract.quantity },
     {
       key: 'status',
-      header: 'Status',
-      cell: (contract) => <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>,
+      label: 'Status',
+      render: (contract) => <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>,
+      compact: true,
     },
-    { key: 'next', header: 'Next date', cell: (contract) => formatNextDate(contract) },
+    { key: 'next', label: 'Next date', render: (contract) => formatNextDate(contract), compact: true },
   ];
 
-  const rowActions = (contract: Contract): RowAction[] =>
+  const transitions = (contract: Contract): CollectionTransition<Contract>[] =>
     isManager && (contract.status === 'REQUESTED' || contract.status === 'APPROVED')
       ? [{ key: 'cancel', label: 'Cancel contract', destructive: true, onSelect: () => setCancelling(contract) }]
       : [];
 
   return (
-    <section aria-labelledby="contracts-title">
+    <section aria-labelledby="contracts-title" className="flex flex-col gap-4">
       <PageTitle id="contracts-title" title="Contracts" action={requestLink} />
 
-      <Toolbar
-        label="Contract filters"
-        start={
-          <>
-            <ToolbarSearch id="contracts-code" label="Search by contract code" placeholder="RC-..." value={code} onChange={setCode} />
-            <span className="w-40">
-              <Select
-                aria-label="Plan"
-                value={filters.planType ?? ''}
-                onChange={(event) =>
-                  setFilters({ ...filters, planType: (event.target.value || undefined) as PlanType | undefined, pageNumber: 1 })
-                }
-              >
-                <option value="">Every plan</option>
-                <option value="MONTHLY">Monthly</option>
-                <option value="DAY">Day plan</option>
-              </Select>
-            </span>
-            <span className="w-44">
-              <Select
-                aria-label="Status"
-                value={filters.status ?? ''}
-                onChange={(event) =>
-                  setFilters({ ...filters, status: (event.target.value || undefined) as ContractStatus | undefined, pageNumber: 1 })
-                }
-              >
-                <option value="">Every status</option>
-                {STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </Select>
-            </span>
-            {filtered && (
-              <Button variant="ghost" onClick={clear}>
-                Clear filters
-              </Button>
-            )}
-          </>
-        }
-      />
-
-      <DataTable<Contract>
-        caption="Contracts"
-        columns={columns}
-        rows={rows}
-        rowId={(contract) => contract.id}
-        rowLabel={(contract) => contract.code}
-        rowHref={(contract) => `/o/contracts/${contract.id}`}
+      <CollectionView<Contract>
+        label="Contracts"
+        items={rows}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
-        empty={
-          filtered
-            ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
-            : { title: 'Your organization has no contracts yet.', action: requestLink || undefined }
-        }
-        rowActions={isManager ? rowActions : undefined}
-        renderCard={(contract) => (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-2">
-              <Link to={`/o/contracts/${contract.id}`} className="font-semibold text-ink hover:underline">
-                {contract.code}
-              </Link>
-              <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>
-            </div>
-            <p className="text-sm text-ink-muted">
-              {planLabel(contract)}, {contract.quantity} devices
-            </p>
-            {formatNextDate(contract) && <p className="text-sm text-ink-muted">Next date: {formatNextDate(contract)}</p>}
-          </div>
-        )}
+        itemId={(contract) => contract.id}
+        itemName={(contract) => contract.code}
+        itemHref={(contract) => `/o/contracts/${contract.id}`}
+        fields={fields}
+        noun={{ one: 'contract', other: 'contracts' }}
+        transitions={isManager ? transitions : undefined}
+        statusOf={(contract) => STATUS_LABELS[contract.status]}
+        search={{ label: 'Search by contract code or plan', placeholder: 'RC-... or Monthly' }}
+        filters={[
+          { key: '', label: 'Every status' },
+          ...STATUSES.map((status) => ({ key: status, label: STATUS_LABELS[status] })),
+        ]}
+        query={{ search: text, filter: filters.status ?? '', sort: null }}
+        onQueryChange={(next) => {
+          setText(next.search);
+          if ((next.filter || undefined) !== filters.status)
+            setFilters({ status: (next.filter || undefined) as ContractStatus | undefined, pageNumber: 1 });
+        }}
+        pageInfo={pageInfoOf(data)}
+        details={{ href: (contract) => `/o/contracts/${contract.id}`, hrefLabel: 'Open the contract' }}
+        emptyState={{ title: 'Your organization has no contracts yet.', action: requestLink || undefined }}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination

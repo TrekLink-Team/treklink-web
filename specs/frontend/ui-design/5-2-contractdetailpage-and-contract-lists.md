@@ -130,3 +130,10 @@ Design canvas "Contract Home", a style reference only.
 | Devices tab | CollectionView with each unit as a `DeviceRef`, the contract's variant as a `VariantCard` (also in the details pane), Label, Request service credit and Report lost as item actions |
 | Money tab | The balance (billing 10), the invoices (billing 08) and the payments (billing 14) on CollectionView under one `paneHost` (chapter 06 §10.8), and the service credits (billing 19). The Org Manager has Pay invoice on an open invoice and Show the QR on a SePay payment still waiting (screen 6.2) |
 | Deposit card | Overview of a `REQUESTED` contract, Org Manager and Staff: the first line of the term 1 invoice (rentals design §2.1, billing 08 and 09) with its amount, description, paid state and the hold expiry as Pay by. Nothing is computed in the browser |
+
+## Organization contract list on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. `/o/contracts` renders through `CollectionView` (chapter 06 §9): the status select is the
+Show filter (rentals 02 `status`), the plan select folds into the search (code or plan), and the Org
+Manager's Cancel contract is in the Change status menu behind the same reason dialog (MSG15). The code
+and the details pane link to the contract home. An Org Operator has no status change.
