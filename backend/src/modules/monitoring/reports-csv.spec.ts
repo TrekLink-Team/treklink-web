@@ -37,4 +37,34 @@ describe('toCsv (monitoring api-design 08, format=csv)', () => {
   it('follows the column list, whatever order the row keys are in, and ignores extra keys', () => {
     expect(toCsv(['b', 'a'], [{ a: 1, b: 2, c: 3 }])).toBe('b,a\n2,1');
   });
+
+  describe('formula injection (OWASP CSV Injection, review of #331)', () => {
+    it.each([
+      ['=', '=1+1', "'=1+1"],
+      ['+', '+1', "'+1"],
+      ['-', '-1+1', "'-1+1"],
+      ['@', '@SUM(A1)', "'@SUM(A1)"],
+      ['a tab', '\tcmd', "'\tcmd"],
+    ])('puts a single quote in front of a text cell that starts with %s', (_name, value, cell) => {
+      expect(toCsv(['organization'], [{ organization: value }])).toBe(`organization\n${cell}`);
+    });
+
+    it('puts a single quote in front of a cell that starts with a carriage return, then quotes it', () => {
+      expect(toCsv(['organization'], [{ organization: '\rcmd' }])).toBe('organization\n"\'\rcmd"');
+    });
+
+    it('neutralizes a hyperlink formula and still quotes the commas and quotes inside it', () => {
+      const csv = toCsv(['organization'], [{ organization: '=HYPERLINK("http://x","y")' }]);
+      expect(csv).toBe('organization\n"\'=HYPERLINK(""http://x"",""y"")"');
+    });
+
+    it('leaves numbers as they are, negative ones included, and null as an empty cell', () => {
+      expect(toCsv(['a', 'b', 'c'], [{ a: -5, b: 0, c: null }])).toBe('a,b,c\n-5,0,');
+    });
+
+    it('leaves a text that only holds the character inside, and dates and codes, alone', () => {
+      const csv = toCsv(['a', 'b', 'c'], [{ a: 'Co = Co', b: '2026-10-20', c: 'RC-2026-0001' }]);
+      expect(csv).toBe('a,b,c\nCo = Co,2026-10-20,RC-2026-0001');
+    });
+  });
 });
