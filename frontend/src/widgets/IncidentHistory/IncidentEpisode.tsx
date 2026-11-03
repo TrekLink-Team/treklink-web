@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useEpisodeEvents } from '../../entities/incident/episode';
+import { episodeEventLabel, useEpisodeEvents } from '../../entities/incident/episode';
 import { ApiError } from '../../shared/api/apiClient';
 import { formatDateTime, formatUtc, viewerTimeZone } from '../../shared/lib/format';
 import { ErrorState, Loading } from '../../shared/ui/bits';
-import { CARD, LINK } from '../../shared/ui/styles';
+import { CARD, FOCUS, LINK } from '../../shared/ui/styles';
 
 // Screen 8.2: ordered text coordinates and Fleet map navigation, not a second unscoped map query.
 export const IncidentEpisode: React.FC<{ incidentId: string; onLostAccess: () => void }> = ({
@@ -21,6 +21,7 @@ export const IncidentEpisode: React.FC<{ incidentId: string; onLostAccess: () =>
     <section className={CARD} aria-labelledby="episode-evidence">
       <h3 id="episode-evidence" className="mb-3 text-title-sm text-ink">
         Episode evidence
+        {data && ` (${data.length} ${data.length === 1 ? 'event' : 'events'})`}
       </h3>
       {isLoading ? (
         <Loading label="Loading episode evidence…" />
@@ -29,10 +30,14 @@ export const IncidentEpisode: React.FC<{ incidentId: string; onLostAccess: () =>
       ) : data.length === 0 ? (
         <p>No events recorded for this episode.</p>
       ) : (
-        <ol className="flex max-h-96 flex-col gap-3 overflow-y-auto">
+        <ol
+          tabIndex={0}
+          aria-label="Episode events, oldest first"
+          className={`flex max-h-96 flex-col gap-3 overflow-y-auto ${FOCUS}`}
+        >
           {data.map((event) => (
             <li key={event.eventId} className="text-body text-ink">
-              <p>{event.kind}</p>
+              <p>{episodeEventLabel(event.kind)}</p>
               {event.observedAt === null ? (
                 <p>Time unavailable</p>
               ) : (
