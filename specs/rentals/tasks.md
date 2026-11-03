@@ -215,5 +215,5 @@ AC-10 to AC-14 and design §11; endpoints api-design 22 to 29 (treklink-web#305)
   - **Do**: api-design 28 and 29; resolved by `closeCustody` (`REPLACED`, `CHECKED_IN`, `LOST`, `RELEASED`); the Staff email through `STAFF_NOTIFICATIONS`; the report id readable by `billing` through the `CREDIT_BASIS` port for billing task 8.3
   - _Requirements: REQ-EVT-24, REQ-ERR-16, AC-14_
 - [ ] 9.5 Tests (owner LongLP)
-  - **Do**: unit specs for depth, held-now, move semantics, removal, the hooks and the fault report; db-specs for AC-10 to AC-14, including two concurrent moves of one device and a cross-organization request (the three F-11 feature tests of BM04: one group per device left at return, the depth cap, holder data private)
+  - **Do**: unit specs for depth, held-now, move semantics, removal, the hooks and the fault report; db-specs for AC-10 to AC-14, including two concurrent moves of one device and a cross-organization request (BM04 traces F-11 to TC-F11-01, AC-10, and TC-F11-02, AC-11; TC-F11-03, holder data erased at the close, is already covered by `return.service.spec.ts`, leader ruling on treklink-web#327)
   - _Requirements: AC-10 to AC-14_

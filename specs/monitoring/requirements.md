@@ -91,7 +91,7 @@ The `monitoring` section of the [Configuration Matrix](../platform/configuration
 - **AC-06**: A position from A's custody that synchronizes after the device was handed to B reaches A's stream and history flagged late, and never B's room or API. (E02-7, TC-36)
 - **AC-07**: The map shows the Vietnamese labels over Hoàng Sa and Trường Sa. (TC-30)
 - **AC-08**: An organization holds a contract of 5 units where 2 report, 1 reported and went silent past the threshold and 2 never reported since the handover: its snapshot lists all 5, 2 `LIVE`, 1 `OFFLINE` with its last position and last-seen time, and 2 `NOT_HEARD` at the counter location with no position, even when those 2 reported before the handover. Its organization API (api-design 04) answers the same `state`, `position`, `lastSeenAt` and `batteryPct` for each of the 5. (D-092 rule 2, D-040)
-- **AC-09**: A Manager whose organization holds 7 units on two contracts, 3 of them in group A and 1 in its subgroup A1, opens the console: 7 rows; filtered by A: 4 rows; by A1: 1 row; a unit checked in disappears from the console and from A's count. (F-21, FR-CON-16, FR-MON-11)
+- **AC-09**: A Manager whose organization holds 7 units on two contracts, 3 of them in group A and 1 in its subgroup A1, opens the console: 7 rows; filtered by A: 4 rows; by A1: 1 row; a unit checked in disappears from the console and from A's count. (BM04 TC-F21-01 and TC-F21-02, FR-CON-16, FR-MON-11; the console's `state`, battery and last seen use the custody clipping of REQ-UBI-04)
 - **AC-10**: The organization's map snapshot filtered by group A returns only A's and A1's units, each with its group and holder; the fleet view of TrekLink Staff is unchanged. (F-11, FR-MON-11)
 
 ---

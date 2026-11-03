@@ -110,5 +110,5 @@
 
 - [ ] 7.1 Console endpoint and group filters (owner LongLP, assigned 2026-11-02, treklink-web#305)
   - **Files**: `backend/src/modules/monitoring/rented-devices.controller.ts`, `live-map.service.ts`, `org-api.service.ts`, `stream.listener.ts`
-  - **Do**: api-design 09 `GET /api/rented-devices` for the Org Manager; `group` and `holder` on the snapshot units, the organization API devices and the console rows; `groupId` filter on the snapshot and the console with subgroups; forward `device.groupChanged`; unit specs and a db-spec for AC-09 and AC-10 (the three F-21 feature tests of BM04: every own device listed with its fields, a checked-in unit gone, a fault report reaching Staff with rentals 9.4)
+  - **Do**: api-design 09 `GET /api/rented-devices` for the Org Manager; `group` and `holder` on the snapshot units, the organization API devices and the console rows; `groupId` filter on the snapshot and the console with subgroups; forward `device.groupChanged`; unit specs and a db-spec for AC-09 and AC-10 (BM04 traces F-21 to TC-F21-01 and TC-F21-02, both AC-09; TC-F21-03, a loss report reaching Staff, is already covered by `loss-case-notifications.listener.spec.ts`, leader ruling on treklink-web#327)
   - _Requirements: REQ-EVT-09, REQ-UBI-05, AC-09, AC-10_
