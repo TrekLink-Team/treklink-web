@@ -148,11 +148,12 @@
   - **Test**: fake `SerialPort` with timeout, disconnect, and a unit that never answers (mapped to the v2 message)
   - _Requirements: REQ-UBI-05, REQ-ERR-13, REQ-ERR-14_
   - **Done 2026-11-03** (KhoaDD under D-078): the adapter, a wire-level fake unit (`meshtastic-dock.fake.ts`) and 14 tests; the browser-build shim in `vite.config.ts` and the other adoption findings are in the vetting record §3.6. Tested against fakes only; the firmware lines of design §8.2 were not re-read on firmware `dev` (no access from this session), and the hardware run on v3 and v4 is open
-- [ ] 7.3 `DockingService` and `useDocking` (owner KhoaDD)
+- [x] 7.3 `DockingService` and `useDocking` (owner KhoaDD)
   - **Files**: `frontend/src/features/dock-device/`
   - **Do**: `readUnit()`, `useDocking` calling rentals api-design 21 for the key, `provision(expected, key, keyVersion)` with the mismatch guard, the owner and channel writes inside one edit transaction, the restart wait and the read-back; key held for one call
   - **Test**: mismatch writes nothing; read-back mismatch records nothing; no key in storage or console after a run
   - _Requirements: REQ-EVT-25, REQ-ERR-12, REQ-ERR-13, AC-14, AC-16_
+  - **Done 2026-11-03** (KhoaDD under D-078): `DockingService`, `useDocking` and the page wording in `messages.ts`; `issueChannelKey` (rentals 21) and the optional `nodeNum` of rentals 09 in `entities/contract/api.ts`. The key is fetched outside TanStack Query and its byte array is zero-filled when `provision` returns. 11 tests against the fake unit; no hardware
 - [ ] 7.4 Handover screen (owner KhoaDD)
   - **Files**: `frontend/src/pages/CounterPage.tsx` step 1 (screen 5.4)
   - **Do**: Dock and provision, the Chromium banner, "Enter manually" fallback and the states of the ui-design file
