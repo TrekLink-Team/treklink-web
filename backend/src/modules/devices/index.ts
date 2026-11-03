@@ -42,6 +42,12 @@ export {
   type RecognizedUnit,
 } from './dock/device-connector.service';
 export {
+  DEVICE_DOCKED,
+  DEVICE_UNDOCKED,
+  type DeviceDockedEvent,
+  type DeviceUndockedEvent,
+} from './dock/dock-events';
+export {
   LOSS_ORGANIZATION_ACTIONS,
   type ComplianceForLoss,
   type LossOrganizationActions,
