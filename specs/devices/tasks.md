@@ -217,10 +217,11 @@ flash, the map pin). Tasks marked **needs Phase 7** build on `feat/devices-docki
 which is not merged: they start once it merges into `dev`, or on a branch cut from it. The backend tasks 10.1 to
 10.5 do not need it. Design §11.12 Q1 to Q7 were decided on 2026-11-04 (option A each); the hub is approved for building.
 
-- [ ] 10.1 Parameter, error codes and the schema migration (owner KhoaDD)
+- [x] 10.1 Parameter, error codes and the schema migration (owner KhoaDD)
   - **Files**: `scripts/specs/catalog.py` (`devices.dockPresenceTtlSeconds`, default 30, 10 to 300 seconds), `python3 scripts/specs/build_seed.py`, a forward migration for the parameter and for `DeviceDockSession` (§11.8, partial unique index on `deviceId` where `endedAt` is null), `backend/prisma/schema.prisma`, the error codes `DEVICE_PROVISIONED` and the devices use of `NODE_MISMATCH`
   - **Do**: design §11.8 "Where it lives" and "How long"; no new permission (api-design 30 is `device.read`, 31 and 32 are `device.operate`)
   - _Requirements: REQ-EVT-36_
+  - **Done** (2026-11-04, `feat/device-connector-ui`): `DeviceDockSession` and `DockEndReason` in `schema.prisma`, forward migration `20261104200000_device_dock_sessions` (table, partial unique index `device_dock_sessions_open_device_key`, parameter `devices.dockPresenceTtlSeconds`), the catalog row with the configuration matrix and the parameter registry regenerated (the seed migration left as applied), and `DEVICE_PROVISIONED` in the error enum. Checked: migration applied to a local Postgres 16, the parameter registry spec, typecheck, lint and the boundary check
 - [ ] 10.2 Recognition endpoint and the `DEVICE_CONTRACTS` port (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/ports/device-contracts.port.ts`, `devices.controller.ts` (`GET /api/devices/by-node`, declared before `:id`), `devices.service.ts` (`byNodes`), tests
   - **Do**: api-design 30 as §11.5: node ids normalized, at most 20 numbers, answer in request order, `device` null for an unknown number, the live contract through the port, the open dock session; organization callers 403
