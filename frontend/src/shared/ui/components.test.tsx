@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Badge, StatusBadge } from './Badge';
 import { ConfirmDialog } from './Dialog';
 import { CONTRACT_STATUS, DEVICE_STATUS, INCIDENT_STATE, INVOICE_STATUS, TONE_CLASSES } from './status';
-import { Tabs } from './Tabs';
+import { TabPanel, Tabs } from './Tabs';
 import { Switch } from './Field';
 
 afterEach(cleanup);
@@ -61,6 +61,20 @@ describe('Tabs (convention 06 §5.5)', () => {
     expect(screen.getByRole('tab', { name: 'Closed' }).getAttribute('aria-selected')).toBe('true');
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: 'All' }).getAttribute('aria-selected')).toBe('true');
+  });
+});
+
+describe('TabPanel (review of treklink-web#349, 2.4.7)', () => {
+  it('is a tab stop with the shared visible focus ring', () => {
+    render(
+      <TabPanel idPrefix="t" tabKey="a">
+        Body
+      </TabPanel>,
+    );
+    const panel = screen.getByRole('tabpanel');
+    expect(panel.tabIndex).toBe(0);
+    expect(panel.className).toContain('focus-visible:outline-2');
+    expect(panel.className).toContain('focus-visible:outline-focus');
   });
 });
 
