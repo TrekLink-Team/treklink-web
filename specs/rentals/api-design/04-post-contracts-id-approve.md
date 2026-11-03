@@ -79,6 +79,7 @@ Confirms the handover appointment and moves the contract to `APPROVED` with the 
       {
         "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
         "assetTag": "TL-0042",
+        "nodeNum": 275612,
         "handedOverAt": null,
         "checkedInAt": null,
         "lostAt": null,

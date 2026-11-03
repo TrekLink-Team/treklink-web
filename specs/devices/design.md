@@ -739,26 +739,38 @@ sequenceDiagram
 
 ---
 
-## 8. Docking at the counter over Web Serial (D-080)
+## 8. Docking at the counter over Web Serial (D-080, D-082)
 
-> **Status**: Draft for the leader's approval (2026-10-30, branch `docs/devices-docking`). No code before
-> approval (D-052). Library choice: `vetting/meshtastic-web-serial.md` (recommendation: re-author, no
-> dependency). §8.6 holds the decisions the leader has to take.
+> **Status**: Decided (leader rulings D-082, 2026-10-30, and the D-080 amendment, 2026-11-02, both on
+> treklink-web#126). §8.6 records the ruling on each point D-080 left open; the options table is kept for
+> its rationale. §8.8 adds the Stage A uplink configuration the D-093 amendment requires this week.
 
 ### 8.1 Scope and placement
 
-Docking runs in the Staff browser only. The backend never talks to a unit; it only checks the docked
-`nodeNum` when provisioning is recorded (§8.5). Two frontend slices (FSD):
+Docking is the Staff device station, not only a key writer (D-082 decision 1). Staff plug a unit in to
+register it at intake, read and record its state, adjust its configuration (owner names, channel), and
+provision it at handover; each is a step of the existing device and handover flows, done through the
+docked unit instead of typed values. The backend never talks to a unit; it only checks the docked
+`nodeNum` when provisioning is recorded, and issues the channel key once that check passes (§8.5, §8.6
+decision 1). Two frontend slices (FSD):
 
 | Slice | Contents |
 |---|---|
-| `shared/lib/meshtastic/` | `framing.ts` (`0x94 0xC3` plus a 16-bit big-endian length, frames above 512 bytes dropped), `codec.ts` (varint and length-delimited encoding for the messages of §8.2; `ChannelSettings` kept as raw fields so a write changes field 2 only), `serialLink.ts` (Web Serial port at 115200 baud, wake bytes, one request at a time, a timeout per answer) |
+| `shared/lib/meshtastic-dock.ts` | One adapter around `@meshtastic/transport-web-serial` and `@meshtastic/core` (D-082 decision 3, pinned exact versions): opens the Web Serial port, runs the config-only handshake (`want_config_id` 69420), and exposes `readUnit()` and `writeOwnerAndChannel()` to the feature slice below it. A later fork of the libraries replaces this one file. |
 | `features/dock-device/` | `DockingService` with `readUnit()` and `provision(expected)`, and the `useDocking` hook that pages call; the key lives in one local variable of `provision` and is dropped when it returns |
 
 Pages: the Register panel of screen 4.2 (intake) and step 1 of `CounterPage` (screen 5.4, handover; the
-replacement tab of screen 5.5 reuses it). Web Serial needs a secure context and a Chromium browser.
+replacement tab of screen 5.5 reuses it). Web Serial needs a secure context and a Chromium browser; every
+other browser sees the banner of screens 4.2 and 5.4 and keeps manual entry ("Enter manually").
 
 ### 8.2 Protocol facts the client relies on (firmware 2.7.19, `treklink-firmware` at `f062a35`)
+
+Firmware `dev` has since taken upstream `v2.7.26` (D-087); the facts of §8.8 are cited at `a4aa98d`, and the
+lines below are checked again on the current `dev` when task 7.2 is built.
+
+The adapter of §8.1 relies on the Meshtastic libraries for framing and the protobuf codec; these facts
+about the firmware's admin authorization are still recorded here because they are what the adapter and
+the vetting record's §3.2 depend on, and the library's own passkey machinery goes unused on this path.
 
 | Fact | Source |
 |---|---|
@@ -789,21 +801,26 @@ short_name 3; `Channel` index 1, settings 2, role 3; `ChannelSettings` psk 2 (ot
    firmware field. The unit reports `major.minor.build.<sha7>` (`bin/readprops.py`), while variant
    baselines read `2.7.19-treklink.N`, so the field keeps the baseline and the page warns when the build
    part differs; it does not overwrite it.
-4. Registration is devices api-design 05, unchanged. Manual entry stays possible; uniqueness is still
-   the server's (REQ-ERR-01).
+4. Registration is devices api-design 05, unchanged. Manual entry ("Enter manually") stays possible;
+   uniqueness is still the server's (REQ-ERR-01).
 
 ### 8.4 Handover (screen 5.4, step 1, per reserved device)
 
 1. Staff press **Dock and provision** on the row; the first docking of the visit opens the port chooser,
    later ones reuse the granted port (`navigator.serial.getPorts()`).
 2. `readUnit()`; the docked `nodeNum` is compared with the row's `nodeNum` (rentals api-design 03 gains
-   `devices[].nodeNum`, §8.5). A mismatch writes nothing (REQ-ERR-12).
-3. The page obtains the organization's channel key at the current version (§8.6, decision 1).
-4. `provision()` sends `set_owner` (long name the asset tag, short name per §8.6 decision 2) and
-   `set_channel` for index 0 with role `PRIMARY` and the settings read in step 2 with field 2 replaced,
-   then repeats the config-only handshake and compares the owner names and the primary PSK.
+   `devices[].nodeNum`, §8.5). A mismatch writes nothing and the page names the docked node id
+   (REQ-ERR-12).
+3. On a match the page calls rentals api-design 21, the Staff-only channel-key endpoint (§8.6 decision
+   1), sending the docked `nodeNum`; the endpoint re-checks the match server-side before it returns the
+   key and its version, with `Cache-Control: no-store`.
+4. `provision()` sends `set_owner` (long name the asset tag, short name the last four characters per
+   §8.6 decision 2) and `set_channel` for index 0 with role `PRIMARY` and the settings read in step 2
+   with field 2 replaced, then repeats the config-only handshake and compares the owner names and the
+   primary PSK.
 5. On a match the page records provisioning (rentals api-design 09) with `keyVersion` and the docked
-   `nodeNum`; the key variable is cleared before the request is sent.
+   `nodeNum`; the key variable is cleared before the request is sent. A write, read-back or disconnect
+   failure at any point records nothing and asks Staff to dock the unit again (REQ-ERR-13).
 
 ```mermaid
 sequenceDiagram
@@ -821,6 +838,12 @@ sequenceDiagram
     U-->>-DS: myInfo(myNodeNum), NodeInfo(owner), channel 0
     DS-->>-P: UnitInfo(nodeNum, owner, primaryChannel)
     alt docked nodeNum equals the device record
+        P->>+C: POST /api/contracts/{id}/devices/{deviceId}/channel-key {nodeNum}
+        C->>+H: issueChannelKey(id, deviceId, nodeNum, actor)
+        H->>+D: byNodeNum, compare
+        D-->>-H: match
+        H-->>-C: { keyHex, keyVersion }
+        C-->>-P: 200 envelope, Cache-Control: no-store
         P->>+DS: provision(expected, key, keyVersion)
         DS->>+U: AdminMessage set_owner(TL-0042, 0042)
         U-->>-DS: routing ack
@@ -841,44 +864,59 @@ sequenceDiagram
     end
 ```
 
-***Figure 17***: UC-14 Provision Device by docking at handover (D-080). How the page obtains the key in
-step 3 of §8.4 is decision 1 of §8.6 and is left out of the figure.
+***Figure 17***: UC-14 Provision Device by docking at handover (D-080, D-082). The channel-key call is
+rentals api-design 21; `HandoverService.issueChannelKey` re-checks the `nodeNum` match before it asks
+`OrganizationsService` to derive the key (omitted from the diagram for width).
 
-### 8.5 Contract changes (made in the catalog after approval)
+### 8.5 Contract changes (made in the catalog)
 
 | Endpoint | Change |
 |---|---|
 | rentals api-design 03 `GET /api/contracts/:id` | `devices[].nodeNum` (read-only) |
-| rentals api-design 09 provisioning | body gains required `nodeNum`; 409 `NODE_MISMATCH` when it differs from the device record, nothing recorded |
-| A key-issuing endpoint | only under option A or C of §8.6 decision 1 |
+| rentals api-design 09 provisioning | body gains `nodeNum`, sent by every docked record and omitted only by the manual fallback (§8.6 decision 3); 409 `NODE_MISMATCH` when it differs from the device record, nothing recorded |
+| rentals api-design 21, new: `POST /api/contracts/:id/devices/:deviceId/channel-key` | Staff-only (`contract.operate`, new permission `contract.issueChannelKey`). Body: `nodeNum`. Requires the contract `APPROVED` and the device reserved to it; 409 `NODE_MISMATCH` when the docked `nodeNum` differs. Returns `{ keyHex, keyVersion }`, `Cache-Control: no-store`; writes an audit row (actor, device, organization, version, never the key) |
 
-No schema change for docking itself. `NODE_MISMATCH` joins the error catalogue of `rentals`.
+No schema change for the device or contract tables. `NODE_MISMATCH` joins the error catalogue of
+`rentals`. A forward migration adds the `contract.issueChannelKey` permission to `catalog.py` and the
+seed.
 
-### 8.6 Open for the leader
+### 8.6 Docking rulings (D-082, 2026-10-30)
 
-**Decision 1, how the counter obtains the channel key.** D-021 keeps only the key version in the
-platform, REQ-UBI-03 says a key is never stored, displayed, returned or logged, and `organizations`
+**Decision 1, how the counter obtains the channel key: option A.** D-021 keeps only the key version in
+the platform, REQ-UBI-03 says a key is never stored, displayed, returned or logged, and `organizations`
 design §1 put the key "only in the counter's provisioning tool". The counter page is now that tool, so it
 must hold the key for one write.
 
 | Option | How | Security | Demo cost |
 |---|---|---|---|
-| **A. Derived on the server, issued once per docking** | One master secret `CHANNEL_KEY_MASTER` in the deployment's secret store, never in the database or the seed. Key = HKDF-SHA256(master, salt = organization id, info = `treklink-channel-key/v{version}`), 32 bytes. A Staff-only endpoint returns it for a device reserved to an `APPROVED` contract, after the docked `nodeNum` matched, with a new permission and an audit row (actor, device, organization, version, never the key), `Cache-Control: no-store` | Nothing stored per organization; rotation is a version bump; escrow is one secret. A leak of the master exposes every organization's keys, past and future; a stolen Staff session can fetch keys for reserved units, each fetch audited. Amends REQ-UBI-03 ("returned once to the counter") | Endpoint, permission row with a forward migration, `crypto.hkdfSync`, env var: about half a day of backend |
-| **B. Staff paste the key from the escrow** | The key stays in TrekLink's escrow (a password manager); Staff paste it into the counter for the visit; the platform holds a non-secret fingerprint per version (SHA-256 of the key, first 8 bytes) so a wrong paste is refused before any write | Closest to D-021 as written; no key on the server. The key passes through people and the clipboard; a fingerprint is needed or a wrong key is written and "verified" against itself | Fingerprint column and its entry at rotation, or none without it: lowest |
-| **C. Stored encrypted at rest** | A random key per organization and version, AES-256-GCM under a key-encryption key in the secret store, issued like A | Independent random keys; a database dump alone reveals nothing; database plus secret store reveals all. Contradicts D-021 directly; needs its own amendment | New table, encryption, endpoint: about a day |
-| **D. The organization brings its own key** | The Org Manager keeps the channel (as the Meshtastic app needs it anyway, D-021) and pastes or shows its channel URL at the counter | TrekLink never holds a key, but loses the escrow D-021 requires and depends on the customer at every visit; a lost key is re-keying the whole fleet | Parsing the channel URL: low |
+| **A. Derived on the server, issued once per docking (chosen)** | One master secret `CHANNEL_KEY_MASTER` in the deployment's secret store, never in the database or the seed; a dev-only value in `backend/.env.example`. Key = HKDF-SHA256(master, salt = organization id, info = `treklink-channel-key/v{version}`), 32 bytes, via `node:crypto` `hkdfSync`. A Staff-only endpoint returns it for a device reserved to an `APPROVED` contract, after the docked `nodeNum` matched, with a new permission and an audit row (actor, device, organization, version, never the key), `Cache-Control: no-store` | Nothing stored per organization; rotation is a version bump; escrow is one secret. A leak of the master exposes every organization's keys, past and future; a stolen Staff session can fetch keys for reserved units, each fetch audited. Amends REQ-UBI-03 ("returned once to the counter, never stored, displayed or logged") | Endpoint, permission row with a forward migration, `crypto.hkdfSync`, env var: about half a day of backend |
+| B. Staff paste the key from the escrow | The key stays in TrekLink's escrow (a password manager); Staff paste it into the counter for the visit; the platform holds a non-secret fingerprint per version (SHA-256 of the key, first 8 bytes) so a wrong paste is refused before any write | Closest to D-021 as written; no key on the server. The key passes through people and the clipboard; a fingerprint is needed or a wrong key is written and "verified" against itself | Fingerprint column and its entry at rotation, or none without it: lowest |
+| C. Stored encrypted at rest | A random key per organization and version, AES-256-GCM under a key-encryption key in the secret store, issued like A | Independent random keys; a database dump alone reveals nothing; database plus secret store reveals all. Contradicts D-021 directly; needs its own amendment | New table, encryption, endpoint: about a day |
+| D. The organization brings its own key | The Org Manager keeps the channel (as the Meshtastic app needs it anyway, D-021) and pastes or shows its channel URL at the counter | TrekLink never holds a key, but loses the escrow D-021 requires and depends on the customer at every visit; a lost key is re-keying the whole fleet | Parsing the channel URL: low |
 
-**Recommendation: A.** No per-device human handling of a secret, the binding to a matched `nodeNum` and a
-reserved unit limits what a Staff account can fetch, rotation needs no storage, and the escrow D-021
-asks for becomes one secret. It needs D-021 and REQ-UBI-03 reworded in the same pass. If the leader reads
-D-021 literally, B with the fingerprint is the fallback.
+**Rejected: B, C and D.** A is chosen: no per-device human handling of a secret, the binding to a matched
+`nodeNum` and a reserved unit limits what a Staff account can fetch, rotation needs no storage, and the
+escrow D-021 asks for becomes one secret. D-021 is amended: the escrowed secret is the master, and
+per-organization keys are derived, never stored.
 
-**Decision 2, the short name.** It holds four characters (`mesh.pb.h:707`), so `TL-0009` does not fit.
-Default proposed: the last four characters of the asset tag (`0009`); the long name carries the full tag.
+**Decision 2, the short name: the last four characters of the asset tag.** It holds four characters
+(`mesh.pb.h:707`), so `TL-0009` does not fit. The last four characters of the asset tag (`0009`) are the
+short name; the long name carries the full tag (`TL-0009`).
 
-**Decision 3, provisioning without a dock.** Recommended: once docking ships, rentals api-design 09
-requires the docked `nodeNum`, so a typed record is no longer possible at handover; intake keeps manual
-entry. The alternative keeps a manual path for a browser without Web Serial and loses the check.
+**Decision 3, provisioning without a dock: manual entry stays until every rented variant docks.**
+D-082 kept "Enter manually" at handover as a fallback until after the 2026-11-01 demo, and the D-080
+amendment (2026-11-02) removes manual provisioning once docking ships. Docking ships for the fleet only when
+v2 units answer over USB (decision 4), so until the v2 build flag lands the fallback stays, labelled "Enter
+manually" under the dock action, and rentals api-design 09 accepts a record without `nodeNum` from it (the
+audit row marks it manual). The release that brings v2 docking makes `nodeNum` required on 09 and removes
+the fallback at handover. Intake keeps manual entry.
+
+**Decision 4 (v2 units): docking waits for the v2 build flag.** The missing
+`-DARDUINO_USB_CDC_ON_BOOT=1` build flag (vetting record §3.3) is a class S firmware change that waits
+for a hardware run with the leader present (D-077). The dock shows "No response over USB. v2 units
+cannot dock yet; enter the node number manually." when a docked unit answers nothing over USB; v3 and v4
+units dock, and v2 units go through the fallback of decision 3 until the flag lands (W9 item D, D-093
+amendment item 3).
 
 **Related, not a decision here.** The reset step "Owner cleared" (screen 4.2, devices api-design 10)
 conflicts with the asset tag as owner name; it should read "Owner set back to the asset tag" when the
@@ -886,13 +924,58 @@ reset is next edited.
 
 ### 8.7 Testing and size
 
-Unit tests on the codec against frames captured from a unit (owner, channel, myInfo), the framing parser
-with split and oversized frames, the link with a fake `SerialPort` (timeouts, disconnect mid-write), and
-`DockingService` (mismatch writes nothing, read-back mismatch records nothing, the key is not reachable
-after `provision` returns). Component tests for the banner, the dock buttons and each error state. A
-hardware run on v3 and v4, and on v2 once the USB build flag lands (vetting record §3.3).
+Unit tests on `meshtastic-dock.ts` against a fake `SerialPort` (timeouts, disconnect mid-write, a unit
+that answers nothing within the timeout, mapped to the v2 "no response" message), and `DockingService`
+(mismatch writes nothing, read-back mismatch records nothing, the key is not reachable after
+`provision` returns). Backend unit tests on `HandoverService.issueChannelKey` (nodeNum match required,
+HKDF derivation deterministic per organization and version, the response carries no key when the match
+fails) and on the `nodeNum` check inside `provision`. Component tests for the banner, the dock buttons,
+the "Enter manually" fallback and each error state. A hardware run on v3 and v4, and on v2 once the USB
+build flag lands (vetting record §3.3).
 
-Estimated size after approval (estimate, not measured): `shared/lib/meshtastic` about 300 lines,
-`features/dock-device` about 150, page changes about 150, tests about 400; backend `nodeNum` check and
-rentals 03 field about 60 lines with tests; option A adds about 150 lines, a migration and tests. About
-two working days for one developer, plus the v2 firmware flag and its hardware run.
+Estimated size (estimate, not measured): `shared/lib/meshtastic-dock.ts` about 120 lines plus
+`@meshtastic/core` and `@meshtastic/transport-web-serial` as dependencies, `features/dock-device` about
+150, page changes about 150, tests about 350; backend channel-key endpoint, `nodeNum` check and rentals
+03 field about 150 lines with tests, plus a forward migration for the new permission.
+
+### 8.8 Stage A uplink configuration (D-005, D-093 amendment item 3)
+
+Stage A (D-005) needs nodes that publish to the broker over their own Wi-Fi with the frozen transport
+settings. The dock writes those settings, so a member does not need the Meshtastic app or CLI to prepare an
+uplink node. It is configuration only (D-080 rule 2): no firmware change and no server call.
+
+**Where.** Screen 4.2, `DeviceDetailPage`, action **Configure uplink**, Staff only, shown for a device that
+is not `RETIRED` or `DISPOSED` while Web Serial is available.
+
+**Form.** Wi-Fi network name (1 to 32 characters, `config.pb.h` `wifi_ssid[33]`), Wi-Fi password (0 to 64,
+`wifi_psk[65]`), broker address as host or host:port (1 to 63, `module_config.pb.h` `address[64]`), broker
+user name (0 to 63, `username[64]`) and password (0 to 31, `password[32]`), and a TLS switch, off by default
+(the laptop broker of the checkpoint runs on the local network; a node built without TLS support refuses it,
+`MQTT.cpp` `isValidConfig`). Shown read-only, because D-005 froze them: root `treklink`, JSON on, MQTT
+encryption off, uplink on the primary channel. Nothing typed is kept after the docking (REQ-UBI-05).
+
+**Steps.**
+1. `readUnit()`; the docked `nodeNum` must equal the device's (REQ-ERR-12). The handshake also returns the
+   unit's current network config, MQTT module config and primary channel, which step 2 keeps as read except
+   for the fields named here.
+2. `begin_edit_settings`; `set_config` network with Wi-Fi on and the typed name and password;
+   `set_module_config` MQTT with enabled, the typed address, user name, password and TLS switch, JSON on,
+   encryption off, root `treklink`; `set_channel` index 0 with `uplink_enabled` on; `commit_edit_settings`.
+3. The commit saves every segment and reboots the unit once. The page waits for the port to come back, asks
+   Staff to reconnect when the browser dropped it, repeats the handshake and compares the MQTT fields, the
+   Wi-Fi name and the channel's uplink flag. A difference or a unit that does not come back shows which
+   check failed (REQ-ERR-15).
+
+**Constraint.** An uplink node relays only the channel it holds: with MQTT encryption off it decrypts with
+its own primary key before publishing. A node that uplinks an organization's units therefore carries that
+organization's channel, so Staff configure the uplink on a unit already provisioned for that organization
+(§8.4). Otherwise the backend receives nothing from those units.
+
+| Fact (firmware `dev` `a4aa98d`) | Source |
+|---|---|
+| `AdminMessage` set_config 34, set_module_config 35, begin_edit_settings 64, commit_edit_settings 65, reboot_seconds 97 | `src/mesh/generated/meshtastic/admin.pb.h:585-608` |
+| `Config` network 4; `NetworkConfig` wifi_enabled 1, wifi_ssid 3, wifi_psk 4 | `config.pb.h:843-845`, `:900` |
+| `ModuleConfig` mqtt 1; `MQTTConfig` enabled 1, address 2, username 3, password 4, encryption_enabled 5, json_enabled 6, tls_enabled 7, root 8 | `module_config.pb.h:626-633`, `:746` |
+| `ChannelSettings` uplink_enabled 5 | `channel.pb.h:145` |
+| Inside an open edit transaction a set is held; the commit saves config, module config, channels and device state, then reboots once (`saveChanges` defaults to a reboot) | `src/modules/AdminModule.cpp:330-341`, `:1364-1375`, `AdminModule.h:44` |
+| A set MQTT config is checked by `MQTT::isValidConfig`; a broker connection is tried only when the node is already on a network, so a node docked without Wi-Fi accepts it | `AdminModule.cpp:924-938`, `src/mqtt/MQTT.cpp:661-726` |

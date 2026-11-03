@@ -8,13 +8,17 @@ CONTRACT = {"id": CONTRACT_ID, "code": "RC-2026-0042", "organization": {"id": OR
             "holdingFeeRatio": 0.5, "status": "ACTIVE", "statusChangedAt": NOW, "handedOverAt": NOW,
             "currentTerm": {"seq": 1, "startsAt": "2026-10-25T02:00:00Z", "endsAt": "2026-11-25T02:00:00Z"},
             "endsAt": None, "noticeGivenAt": None, "returnDueAt": None, "version": 4}
-CDEV = {"deviceId": DEVICE_ID, "assetTag": "TL-0042", "handedOverAt": NOW, "checkedInAt": None, "lostAt": None,
+CDEV = {"deviceId": DEVICE_ID, "assetTag": "TL-0042", "nodeNum": 275612, "handedOverAt": NOW,
+        "checkedInAt": None, "lostAt": None,
         "holder": {"name": "Le Thi E", "phone": "0912345678", "emergencyContact": "Le Van F, 0987654321"}}
 C_PATH = ["id", "Contract id; members may use only their own organization's", "uuid", f"`{CONTRACT_ID}`"]
 D_PATH = ["deviceId", "Device committed to the contract", "uuid", f"`{DEVICE_ID}`"]
 VERSION = ["expectedVersion", "Contract version the caller saw", "int", "yes", "`4`"]
 NOT_ON = (409, "DEVICE_NOT_ON_CONTRACT", "The device is not committed to this contract",
           "TL-0042 does not belong to contract RC-2026-0042.")
+# D-080, D-082: the docked unit's nodeNum must equal the device record's before a write is kept.
+NODE_MISMATCH = (409, "NODE_MISMATCH", "The docked unit's nodeNum differs from the device record",
+                 "The docked unit is !0004351c, not TL-0042. Nothing was written.")
 
 ENDPOINTS = [
     ep("POST", "/api/contracts", "Request a rental contract", "Org Manager: own",
@@ -81,8 +85,9 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT rental_contracts WHERE scope"]),
 
     ep("GET", "/api/contracts/:id", "Contract detail", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
-       "Returns the contract with its terms, committed devices (with holder labels) and balance summary.",
-       "UC-55, FR-AUTH-11, FR-CON-07",
+       "Returns the contract with its terms, committed devices (with holder labels and each device's "
+       "nodeNum, read-only, D-080) and balance summary.",
+       "UC-55, FR-AUTH-11, FR-CON-07, D-080",
        path=[C_PATH], response={**CONTRACT, "handoverAppointmentAt": "2026-10-25T02:00:00Z", "holdExpiresAt": None,
                                 "terms": [{"seq": 1, "startsAt": "2026-10-25T02:00:00Z",
                                                        "endsAt": "2026-11-25T02:00:00Z", "status": "OPEN"}],
@@ -233,22 +238,31 @@ ENDPOINTS = [
 
     ep("POST", "/api/contracts/:id/devices/:deviceId/provisioning", "Record provisioning", "TrekLink Staff",
        "Records that the organization's channel key, at its current version, was written to a device "
-       "reserved to this contract, at the counter. Only the version and the organization are stored; the key "
-       "is never stored, shown, returned or logged (FR-DEV-05, NFR-SEC-06, NFR-IF-03).",
-       "UC-14, FR-DEV-05, BR-09, NFR-IF-03",
-       path=[C_PATH, D_PATH], body=[["keyVersion", "Must equal the organization's channelKeyVersion", "int", "yes", "`1`"]],
-       sample={"keyVersion": 1},
+       "reserved to this contract, by docking it at the counter (D-080, D-082). Only the version and the "
+       "organization are stored; the key is never stored, shown, returned or logged (FR-DEV-05, "
+       "NFR-SEC-06, NFR-IF-03). A docked nodeNum must match the device record (REQ-ERR-12); a record "
+       "without one comes from the Enter manually fallback (devices design §8.6 decision 3) and is audited "
+       "as manual.",
+       "UC-14, FR-DEV-05, BR-09, NFR-IF-03, D-080, D-082",
+       path=[C_PATH, D_PATH],
+       body=[["keyVersion", "Must equal the organization's channelKeyVersion", "int", "yes", "`1`"],
+             ["nodeNum", "The nodeNum read back from the docked unit; omitted only by the manual fallback "
+              "until every rented variant docks", "int", "no", "`275612`"]],
+       sample={"keyVersion": 1, "nodeNum": 275612},
        response={"deviceId": DEVICE_ID, "assetTag": "TL-0042", "status": "RESERVED", "keyVersion": 1,
                  "keyOrganizationId": ORG_ID, "provisionedAt": NOW}, status=201, message="Provisioning recorded",
        entity="Contract",
-       errors=[NOT_ON, (409, "KEY_VERSION_MISMATCH", "keyVersion differs from the organization's current version",
-                        "Provision this device with the organization's key before handover."),
+       errors=[NOT_ON, NODE_MISMATCH,
+               (409, "KEY_VERSION_MISMATCH", "keyVersion differs from the organization's current version",
+                "Provision this device with the organization's key before handover."),
                state_409("contract", "REQUESTED")],
-       steps=["Require APPROVED and the device reserved to it", "Read the organization's key version",
-              "DevicesService.recordProvisioning in one transaction"],
+       steps=["Require APPROVED and the device reserved to it", "Compare the docked nodeNum with the device record when it is sent",
+              "Read the organization's key version", "DevicesService.recordProvisioning in one transaction",
+              "Audit row marks a record without nodeNum as manual"],
        controller="ContractsController", service="HandoverService", call="provision(id, deviceId, dto, actor)",
        participants=[["Org", "OrganizationsService"], ["Dev", "DevicesService"]],
-       seq=["Svc->>Org: channelKeyVersion(orgId)", "Svc->>Dev: recordProvisioning(deviceId, orgId, keyVersion, tx)"]),
+       seq=["Svc->>Dev: byNodeNum(nodeNum)", "Svc->>Org: channelKeyVersion(orgId)",
+            "Svc->>Dev: recordProvisioning(deviceId, orgId, keyVersion, tx)"]),
 
     ep("POST", "/api/contracts/:id/handover", "Complete the handover", "TrekLink Staff",
        "Completes the handover at the counter. Requires the first payment confirmed, the Manager's identity "
@@ -517,6 +531,30 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT contract, contract_devices", "Svc->>Dev: openLossCases(deviceIds, tx)",
             "Svc->>Bill: outstanding(id, tx), pendingDamageOf(id, tx)",
             "Svc->>Inc: blockingReason(id, deviceIds, tx)"]),
+    ep("POST", "/api/contracts/:id/devices/:deviceId/channel-key", "Issue the device's channel key",
+       "TrekLink Staff",
+       "Derives and returns the organization's channel key once, for Staff to write to a docked unit "
+       "(D-082 decision 1). Requires the contract APPROVED, the device reserved to it, and the docked "
+       "nodeNum to match the device record; refuses otherwise. The response is never cached, stored or "
+       "logged, and an audit row records the device, organization and key version, never the key "
+       "(REQ-UBI-03).",
+       "UC-14, FR-DEV-05, BR-09, NFR-SEC-06, NFR-IF-03, D-082",
+       path=[C_PATH, D_PATH], body=[["nodeNum", "The nodeNum read from the docked unit", "int", "yes", "`275612`"]],
+       sample={"nodeNum": 275612},
+       response={"keyHex": "3f9c0e1a2b4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9001a2b3c4d",
+                 "keyVersion": 1},
+       message="Channel key issued", entity="Contract",
+       notes="`Cache-Control: no-store` on the response; the key is never returned a second time for the "
+             "same docking, so the counter must write it before asking again.",
+       errors=[NOT_ON, NODE_MISMATCH, state_409("contract", "REQUESTED")],
+       steps=["Require APPROVED and the device reserved to it", "Compare the docked nodeNum with the device record",
+              "Read the organization's key version", "Derive the key with crypto.hkdfSync(master, orgId, version)",
+              "Write an audit row without the key", "Respond with Cache-Control: no-store"],
+       controller="ContractsController", service="HandoverService", call="issueChannelKey(id, deviceId, dto, actor)",
+       participants=[["Org", "OrganizationsService"], ["Dev", "DevicesService"]],
+       seq=["Svc->>Dev: byNodeNum(nodeNum)", "Svc->>Org: channelKeyVersion(orgId)",
+            "Svc->>Svc: hkdfSync(CHANNEL_KEY_MASTER, orgId, version)",
+            "Svc->>DB: INSERT audit_log (no key)"]),
 ]
 
 NOTES = ("Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end "

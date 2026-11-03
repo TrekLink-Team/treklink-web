@@ -90,6 +90,7 @@ Completes the handover at the counter. Requires the first payment confirmed, the
       {
         "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
         "assetTag": "TL-0042",
+        "nodeNum": 275612,
         "handedOverAt": "2026-10-20T03:15:00.000Z",
         "checkedInAt": null,
         "lostAt": null,

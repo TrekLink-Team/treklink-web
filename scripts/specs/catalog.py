@@ -185,6 +185,9 @@ PERMISSIONS = [
     ("contract.notice.own", "notice", "RentalContract", OWN, ["ORG_MANAGER"]),
     ("contract.label.own", "label", "RentalContract", OWN, ["ORG_OPERATOR"]),
     ("contract.operate", "operate", "RentalContract", None, ["STAFF"]),
+    # D-082 decision 1: the derived channel key is returned once per docking, never stored on the
+    # platform. Separate from contract.operate so the key-issuing audit trail has its own permission row.
+    ("contract.issueChannelKey", "issueChannelKey", "RentalContract", None, ["STAFF"]),
     ("handoverNote.read.own", "read", "HandoverNote", OWN, ["ORG_MANAGER"]),
     ("handoverNote.read", "read", "HandoverNote", None, ["STAFF"]),
     # billing

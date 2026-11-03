@@ -135,27 +135,36 @@
 
 - [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner KhoaDD)
 
-## Phase 7: Counter docking over Web Serial (D-080, draft, waits for the leader's approval of design §8)
+## Phase 7: Counter docking over Web Serial (D-080, D-082)
 
 - [ ] 7.1 Contract changes in the catalog (owner KhoaDD)
-  - **Files**: `scripts/specs/endpoints/rentals.py`, regenerated `specs/rentals/api-design/03`, `09`
-  - **Do**: design §8.5: `devices[].nodeNum` on rentals 03; required `nodeNum` and 409 `NODE_MISMATCH` on rentals 09; the key endpoint only if design §8.6 decision 1 is A or C
+  - **Files**: `scripts/specs/catalog.py`, `scripts/specs/endpoints/rentals.py`, regenerated `specs/rentals/api-design/03`, `09`, `21`, `specs/auth/permission-matrix.md`, a forward migration
+  - **Do**: design §8.5: `devices[].nodeNum` on rentals 03; `nodeNum` and 409 `NODE_MISMATCH` on rentals 09 (optional only for the manual fallback, design §8.6 decision 3); the new channel-key endpoint (rentals 21) and its `contract.issueChannelKey` permission (D-082 decision 1)
   - _Requirements: REQ-EVT-25, REQ-ERR-12_
-- [ ] 7.2 Serial client re-authored from the vetting record (owner KhoaDD)
-  - **Files**: `frontend/src/shared/lib/meshtastic/framing.ts`, `codec.ts`, `serialLink.ts`, tests beside them
-  - **Do**: design §8.1 and §8.2; no new dependency (`vetting/meshtastic-web-serial.md` §4)
-  - **Test**: codec against captured frames; split and oversized frames; fake `SerialPort` with timeout and disconnect
-  - _Requirements: REQ-UBI-05, REQ-ERR-13_
+- [ ] 7.2 `meshtastic-dock.ts` adapter over the published Meshtastic packages (owner KhoaDD)
+  - **Files**: `frontend/package.json` (`@meshtastic/core`, `@meshtastic/transport-web-serial`, pinned exact versions), `frontend/src/shared/lib/meshtastic-dock.ts`, tests beside it
+  - **Do**: design §8.1 and §8.2; one adapter wrapping the npm packages (D-082 decision 3, vetting record adopted with the GPL-3.0 condition)
+  - **Test**: fake `SerialPort` with timeout, disconnect, and a unit that never answers (mapped to the v2 message)
+  - _Requirements: REQ-UBI-05, REQ-ERR-13, REQ-ERR-14_
 - [ ] 7.3 `DockingService` and `useDocking` (owner KhoaDD)
   - **Files**: `frontend/src/features/dock-device/`
-  - **Do**: `readUnit()`, `provision(expected)` with the mismatch guard, the two writes and the read-back; key held for one call
+  - **Do**: `readUnit()`, `provision(expected)` with the mismatch guard, the channel-key call, the two writes and the read-back; key held for one call
   - **Test**: mismatch writes nothing; read-back mismatch records nothing; no key in storage or console after a run
   - _Requirements: REQ-EVT-24, REQ-ERR-12, REQ-ERR-13, AC-14, AC-16_
-- [ ] 7.4 Intake and handover screens (owner KhoaDD)
-  - **Files**: Register panel of screen 4.2 (frontend 4.2), `frontend/src/pages/CounterPage.tsx` step 1 and the replacement tab of screen 5.5
-  - **Do**: Read from unit, Dock and provision, the Chromium banner and the states of the two ui-design files
-  - _Requirements: REQ-EVT-23, REQ-ERR-11, AC-13, AC-15_
-- [ ] 7.5 Backend `nodeNum` check (owner KhoaDD)
-  - **Files**: `backend/src/modules/rentals/handover.service.ts`, the rentals 03 mapper, tests
-  - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning`; 409 `NODE_MISMATCH`
-  - _Requirements: REQ-EVT-25, REQ-ERR-12_
+- [ ] 7.4 Handover screen (owner KhoaDD)
+  - **Files**: `frontend/src/pages/CounterPage.tsx` step 1 (screen 5.4)
+  - **Do**: Dock and provision, the Chromium banner, "Enter manually" fallback and the states of the ui-design file
+  - _Requirements: REQ-ERR-11, AC-15_
+- [ ] 7.4b Intake screen wiring (owner KhoaDD; treklink-web#124 has merged, so it is no longer deferred)
+  - **Files**: Register panel of screen 4.2 (frontend 4.2)
+  - **Do**: wire the self-contained Read-from-unit component of task 7.3 into the Register panel
+  - _Requirements: REQ-EVT-23, AC-13_
+- [ ] 7.5 Backend `nodeNum` check and channel-key endpoint (owner KhoaDD; a draft from 2026-10-30 is kept on a local branch, not merged)
+  - **Files**: `backend/src/modules/rentals/handover.service.ts`, `handover.controller.ts`, the rentals 03 mapper, `backend/src/modules/platform/config/environment-variables.ts`, `backend/.env.example`, tests
+  - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning` and before issuing the key; 409 `NODE_MISMATCH`; derive the key with `crypto.hkdfSync` from `CHANNEL_KEY_MASTER`; audit row without the key; `Cache-Control: no-store`
+  - _Requirements: REQ-EVT-25, REQ-ERR-12, REQ-UBI-03_
+- [ ] 7.6 Stage A uplink configuration on `DeviceDetailPage` (owner KhoaDD)
+  - **Files**: `frontend/src/features/dock-device/` (`configureUplink`), screen 4.2 action and form, tests beside them
+  - **Do**: design §8.8: one edit transaction (network, MQTT module, channel 0 uplink), the restart wait, reconnect prompt and read-back; nothing typed kept after the docking
+  - **Test**: fake port: the transaction order, the values kept as read, the read-back mismatch and a unit that does not return
+  - _Requirements: REQ-EVT-26, REQ-ERR-15, REQ-UBI-05, AC-18_

@@ -1,8 +1,9 @@
 ---
 origin: third-party
-vetting: pending
-subject: Meshtastic JavaScript client libraries for Web Serial docking (D-080 rule 3)
+vetting: adopted
+subject: Meshtastic JavaScript client libraries for Web Serial docking (D-080 rule 3, D-082 decision 3)
 recorded: 2026-10-30
+decided: 2026-10-30
 recorded-by: KhoaDD (agent run, Claude Opus 5.5)
 decision-owner: KhoaDD (leader)
 ---
@@ -11,8 +12,11 @@ decision-owner: KhoaDD (leader)
 
 > Workflow: third-party vetting (inventory, findings, decision, apply plan, record). D-080 rule 3: a
 > Meshtastic client library used for Web Serial passes this workflow before it enters `package.json`.
-> Status `pending` until the leader rules on the recommendation in §4. Nothing was installed, built or
-> run: package metadata was read with `npm view`, source was read from `github.com/meshtastic/web`
+> §4 recorded the recommendation to re-author; the leader ruled instead for D-082 decision 3: use the
+> published packages first, fork into in-house code only when they block an extension TrekLink needs.
+> `vetting` moves to `adopted` for `@meshtastic/core@2.6.7` and `@meshtastic/transport-web-serial@0.2.5`
+> under that condition and the GPL-3.0 note of §3.1. Nothing was installed, built or run for this
+> record: package metadata was read with `npm view`, source was read from `github.com/meshtastic/web`
 > (branch `main`, read 2026-10-30) and firmware facts from `treklink-firmware` at `f062a35`.
 
 ## 1. What the counter needs
@@ -147,13 +151,25 @@ is small enough that zero dependencies is the simpler choice.
 technically workable for the four calls, and this record is updated to `passed` for those two packages
 only.
 
-## 5. Apply plan (after approval)
+## 4a. Leader ruling (D-082 decision 3, 2026-10-30)
 
-- Add: `frontend/src/shared/lib/meshtastic/` (framing, codec, serial link) and
-  `frontend/src/features/dock-device/` (docking service and hook), with tests, per `design.md` §8.
-- Change: none in `package.json` and none in either lock file.
+The leader ruled the opposite order from §4's recommendation: use the published Meshtastic packages
+first, and fork them into in-house code only when they block an extension TrekLink needs or before any
+commercial release. `@meshtastic/core@2.6.7` and `@meshtastic/transport-web-serial@0.2.5` are adopted,
+pinned to those exact versions, behind the one adapter of `design.md` §8.1
+(`frontend/src/shared/lib/meshtastic-dock.ts`), so that a later fork touches one file. The GPL-3.0
+exposure of §3.1 is carried as a risk in the decision register (D-082), not resolved here; TrekLink's
+own licence stance is the leader's call, outside this vetting workflow.
+
+## 5. Apply plan
+
+- Add: `@meshtastic/core@2.6.7` and `@meshtastic/transport-web-serial@0.2.5` to
+  `frontend/package.json` (exact versions, no caret), `frontend/src/shared/lib/meshtastic-dock.ts` (the
+  one adapter) and `frontend/src/features/dock-device/` (docking service and hook), with tests, per
+  `design.md` §8.
+- Change: `frontend/package.json` and `frontend/package-lock.json` gain the two packages and their
+  transitive dependencies (`crc`, `@types/w3c-web-serial`).
 - Remove: nothing.
 - Backup and rollback: the work lands on its own branch and pull request; reverting the PR removes it.
-- Record: re-authored code carries no `origin` front matter. This file moves to `vetting: passed` with
-  the decision date if a package is adopted, or stays as the record of the rejection with
-  `vetting: rejected` for the rejected packages once the leader rules.
+- Record: this file carries `vetting: adopted` for `@meshtastic/core` and `@meshtastic/transport-web-serial`
+  under the condition of §4a. A fork of either package, when it happens, gets its own vetting record.
