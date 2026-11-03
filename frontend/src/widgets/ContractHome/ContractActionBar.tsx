@@ -1,4 +1,4 @@
-import React, { useId, useRef } from 'react';
+import React, { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import { useMediaQuery } from '../../shared/lib/useMediaQuery';
@@ -6,7 +6,7 @@ import { Button } from '../../shared/ui/Button';
 import { cn } from '../../shared/ui/cn';
 import { Menu } from '../../shared/ui/Menu';
 import { PageActionBar } from '../../shared/ui/PageChrome';
-import { useFocusClearOf, usePublishedHeight } from '../../shared/ui/stickyEdges';
+import { useEdgeNode, useFocusClearOf, usePublishedHeight } from '../../shared/ui/stickyEdges';
 import { LINK } from '../../shared/ui/styles';
 import { Tabs, type TabItem } from '../../shared/ui/Tabs';
 import type { ActionKey, HomeAction, HomeActions } from './policy';
@@ -47,10 +47,11 @@ export const ContractActionBar: React.FC<Props> = ({
   primaryPending,
 }) => {
   const phone = !useMediaQuery('(min-width: 600px)', true);
-  const row = useRef<HTMLDivElement>(null);
+  // The sticky row is a different element below and above 600 px: the hooks follow it.
+  const [rowNode, setRowNode] = useEdgeNode<HTMLDivElement>();
   const reasonId = useId();
-  usePublishedHeight(row, '--tl-page-header-h');
-  useFocusClearOf(row, 'top');
+  usePublishedHeight(rowNode, '--tl-page-header-h');
+  useFocusClearOf(rowNode, 'top');
 
   const primary = actions.primary;
   const unavailable = primary?.reason !== undefined;
@@ -133,7 +134,8 @@ export const ContractActionBar: React.FC<Props> = ({
     return (
       <>
         <div
-          ref={row}
+          key="phone-row"
+          ref={setRowNode}
           role="region"
           aria-label="Contract sections"
           className="sticky top-0 z-raised flex flex-wrap items-center justify-between gap-1 rounded-panel border border-line bg-surface px-1 shadow-raise"
@@ -155,7 +157,8 @@ export const ContractActionBar: React.FC<Props> = ({
 
   return (
     <div
-      ref={row}
+      key="wide-row"
+      ref={setRowNode}
       role="region"
       aria-label="Contract sections and actions"
       className="sticky top-0 z-raised flex min-h-[3.25rem] flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-panel border border-line bg-surface pl-1 pr-2 shadow-raise"

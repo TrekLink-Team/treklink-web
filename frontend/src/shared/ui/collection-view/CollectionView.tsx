@@ -17,7 +17,7 @@ import { Button } from '../Button';
 import { cn } from '../cn';
 import { EmptyState } from '../EmptyState';
 import { Menu, type MenuItem } from '../Menu';
-import { useFocusClearOf, usePublishedHeight } from '../stickyEdges';
+import { useEdgeNode, useFocusClearOf, usePublishedHeight } from '../stickyEdges';
 import { ScrollHintOverlay } from '../ScrollHints';
 import { useScrollHints } from '../useScrollHints';
 import { Skeleton } from '../Skeleton';
@@ -181,11 +181,11 @@ export function CollectionView<T>({
   const { message, announce } = useLiveRegion();
   const [opener, setOpener] = useState<HTMLElement | null>(null);
   const lastFocus = useRef<{ id: string; index: number } | null>(null);
-  const bar = useRef<HTMLDivElement>(null);
+  const [barNode, setBarNode] = useEdgeNode<HTMLDivElement>();
   const tableScroller = useRef<HTMLDivElement>(null);
   const tableHints = useScrollHints(tableScroller);
-  usePublishedHeight(bar, '--tl-collection-bar-h');
-  useFocusClearOf(bar, 'top');
+  usePublishedHeight(barNode, '--tl-collection-bar-h');
+  useFocusClearOf(barNode, 'top');
 
   const selectable = bulkActions.length > 0 || transitions !== undefined;
   const showPane = details !== false;
@@ -1028,7 +1028,7 @@ export function CollectionView<T>({
     >
       {!barHidden && (
         <div
-          ref={bar}
+          ref={setBarNode}
           style={{ top: stickyTop ?? 'var(--tl-page-header-h, 0px)' }}
           className="sticky z-raised rounded-panel border border-line bg-surface shadow-raise"
         >

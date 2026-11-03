@@ -1,5 +1,6 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -7,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { cn } from './cn';
-import { scrollParentOf, useFocusClearOf, usePublishedHeight } from './stickyEdges';
+import { scrollParentOf, useEdgeNode, useFocusClearOf, usePublishedHeight } from './stickyEdges';
 
 /**
  * Sticky page chrome for long and multi-step pages (leader rule of 2026-10-30, design-system §5.2):
@@ -57,7 +58,12 @@ export const StickyPageHeader: React.FC<{ children: React.ReactNode; className?:
 }) => {
   const slot = useContext(PageChromeContext);
   const sentinel = useRef<HTMLDivElement>(null);
-  const box = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement | null>(null);
+  const [boxNode, setBoxNode] = useState<HTMLDivElement | null>(null);
+  const setBox = useCallback((node: HTMLDivElement | null) => {
+    box.current = node;
+    setBoxNode(node);
+  }, []);
   const expanded = useRef(0);
   const [compact, setCompact] = useState(false);
   const compactNow = useRef(compact);
@@ -107,10 +113,10 @@ export const StickyPageHeader: React.FC<{ children: React.ReactNode; className?:
     }
   }, [compact]);
 
-  usePublishedHeight(box, '--tl-page-header-h', (height) => {
+  usePublishedHeight(boxNode, '--tl-page-header-h', (height) => {
     if (!compactNow.current) expanded.current = height;
   });
-  useFocusClearOf(box, 'top');
+  useFocusClearOf(boxNode, 'top');
 
   return (
     <>
@@ -120,7 +126,7 @@ export const StickyPageHeader: React.FC<{ children: React.ReactNode; className?:
         className="pointer-events-none absolute left-0 top-0 h-px w-px"
       />
       <div
-        ref={box}
+        ref={setBox}
         data-compact={compact ? 'true' : 'false'}
         className={cn(
           'group/chrome sticky top-0 z-raised -mx-1 flex flex-col rounded-panel border px-1 md:-mx-2 md:px-2',
@@ -153,12 +159,12 @@ export const PageActionBar: React.FC<{
   children?: React.ReactNode;
   className?: string;
 }> = ({ label, start, children, className }) => {
-  const box = useRef<HTMLDivElement>(null);
-  usePublishedHeight(box, '--tl-page-actions-h');
-  useFocusClearOf(box, 'bottom');
+  const [barNode, setBarNode] = useEdgeNode<HTMLDivElement>();
+  usePublishedHeight(barNode, '--tl-page-actions-h');
+  useFocusClearOf(barNode, 'bottom');
   return (
     <div
-      ref={box}
+      ref={setBarNode}
       role="group"
       aria-label={label}
       data-page-actions=""
