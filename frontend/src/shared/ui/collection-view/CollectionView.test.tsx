@@ -9,6 +9,7 @@ import { StateChangeMenu } from '../StateChange';
 import { CollectionView, SEARCH_ANNOUNCE_MS, SELECTION_CLEARED, type CollectionViewProps } from './CollectionView';
 import { EMPTY_SELECTION, keepVisible, pageSelection, toggleAll, toggleItem } from './selection';
 import type { CollectionField } from './types';
+import { CollectionPaneHost } from './CollectionPaneHost';
 
 interface Unit {
   id: string;
@@ -411,6 +412,109 @@ describe('CollectionView', () => {
     fireEvent.keyDown(within(pane).getByRole('heading', { name: 'TL-0002' }), { key: 'Escape' });
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(document.activeElement).toBe(show);
+  });
+});
+
+// matchMedia answering one viewport width, for the placements of chapter 06 §10.8.
+const atWidth = (width: number) =>
+  vi.stubGlobal('matchMedia', (query: string) => {
+    const min = Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0);
+    return {
+      matches: width >= min,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    };
+  });
+
+describe('details pane placement (chapter 06 §9.8, §10.8)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('opens a Drawer from the right between 600 and 1100 px, trapping focus and returning it', () => {
+    atWidth(834);
+    renderView();
+    const show = screen.getByRole('button', { name: 'Show details of TL-0003' });
+    show.focus();
+    fireEvent.click(show);
+    const drawer = screen.getByRole('dialog', { name: 'TL-0003' });
+    expect(drawer.getAttribute('aria-modal')).toBe('true');
+    expect(drawer.className).toContain('right-0');
+    expect(drawer.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(drawer, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(show);
+  });
+
+  it('opens a bottom sheet below 600 px, from Show details first in the item Actions menu', () => {
+    atWidth(360);
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for TL-0001' }));
+    const items = screen.getAllByRole('menuitem');
+    expect(items[0].textContent).toBe('Show details');
+    fireEvent.click(items[0]);
+    const sheet = screen.getByRole('dialog', { name: 'TL-0001' });
+    expect(sheet.className).toContain('bottom-0');
+  });
+
+  it('shows the fields, the labelled actions with an unavailable reason as text, and the status menu', () => {
+    renderView({
+      itemActions: [
+        { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit, unavailableReason: (unit) => (unit.status === 'Inactive' ? 'Only an active unit is edited' : undefined) },
+      ],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0002' }));
+    const pane = within(screen.getByRole('complementary', { name: 'TL-0002' }));
+    expect(pane.getByText('Battery')).toBeTruthy();
+    expect(pane.getByText('20%')).toBeTruthy();
+    const editButton = pane.getByRole('button', { name: 'Edit TL-0002' }) as HTMLButtonElement;
+    expect(editButton.disabled).toBe(true);
+    expect(pane.getByText('Only an active unit is edited')).toBeTruthy();
+    expect(pane.getByRole('button', { name: 'Status: Inactive. Change status of TL-0002' })).toBeTruthy();
+  });
+});
+
+describe('CollectionPaneHost (chapter 06 §10.8 paneHost)', () => {
+  const list = (label: string, units: Unit[]) => (
+    <CollectionView<Unit>
+      label={label}
+      items={units}
+      itemId={(unit) => unit.id}
+      itemName={(unit) => unit.tag}
+      fields={[...FIELDS, { key: 'note', label: 'Note', render: () => 'Shown in the pane', hideWithPane: true }]}
+      noun={{ one: 'unit', other: 'units' }}
+      emptyState={{ title: 'None' }}
+    />
+  );
+
+  const renderHost = () =>
+    render(
+      <MemoryRouter>
+        <CollectionPaneHost>
+          {list('Invoices', UNITS.slice(0, 2))}
+          {list('Payments', UNITS.slice(2))}
+        </CollectionPaneHost>
+      </MemoryRouter>,
+    );
+
+  it('shows one pane beside both lists and drops the columns it shows from every list', () => {
+    renderHost();
+    expect(screen.getAllByRole('columnheader', { name: 'Note' })).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0001' }));
+    const host = document.querySelector('[data-pane-host]')!;
+    const pane = screen.getByRole('complementary', { name: 'TL-0001' });
+    expect(pane.parentElement?.parentElement).toBe(host);
+    expect(screen.queryAllByRole('columnheader', { name: 'Note' })).toHaveLength(0);
+  });
+
+  it('hands the pane to the other list when it opens an item, and closes for both', () => {
+    renderHost();
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0001' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0004' }));
+    expect(screen.getAllByRole('complementary')).toHaveLength(1);
+    expect(screen.getByRole('complementary', { name: 'TL-0004' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close details of TL-0004' }));
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(screen.getAllByRole('columnheader', { name: 'Note' })).toHaveLength(2);
   });
 });
 

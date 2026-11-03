@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   ArrowDown,
@@ -23,6 +24,7 @@ import { useScrollHints } from '../useScrollHints';
 import { Skeleton } from '../Skeleton';
 import { FOCUS, LINK } from '../styles';
 import { DetailsPane, StatusMenu, type PanePlacement } from './DetailsPane';
+import { usePaneHost } from './paneHostContext';
 import {
   EMPTY_SELECTION,
   keepVisible,
@@ -355,20 +357,40 @@ export function CollectionView<T>({
     announce(`${VIEW_LABEL[next]} view`);
   };
 
+  // Inside a CollectionPaneHost, one list at a time owns the shared pane (§10.8 paneHost).
+  const host = usePaneHost();
+  const ownsPane = host === null || host.owner === baseId;
+  useEffect(() => {
+    if (!host) return undefined;
+    const { release } = host;
+    return () => release(baseId);
+    // Release once, on unmount; the host's functions are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openDetails = (item: T) => {
     setOpener(document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setPaneId(itemId(item));
     setPaneOpen(true);
+    host?.claim(baseId);
+  };
+  const openPane = () => {
+    setPaneOpen(true);
+    host?.claim(baseId);
   };
   const closeDetails = () => {
     setPaneOpen(false);
+    host?.release(baseId);
     if (wide) opener?.focus();
   };
   const paneItem =
     (paneId !== null ? byId.get(paneId) : undefined) ?? selectedItems[0] ?? visible[0];
-  const paneVisible = showPane && paneOpen && paneItem !== undefined;
+  const paneVisible = showPane && paneOpen && ownsPane && paneItem !== undefined;
   const placement: PanePlacement = wide ? 'aside' : tablet ? 'drawer' : 'sheet';
-  const pushedAside = paneVisible && placement === 'aside';
+  // Pushed aside: this list's pane, or in a host any list's pane, sits beside the rows, so the
+  // columns it shows and the Status change column leave and the rows never scroll sideways.
+  const pushedAside = placement === 'aside' && (host ? host.owner !== null : paneVisible);
+  const fitsNarrow = fitNarrow || host !== null || pushedAside;
 
   const actionsOf = (item: T) =>
     itemActions.filter((action) => !action.allowed || action.allowed(item));
@@ -674,7 +696,7 @@ export function CollectionView<T>({
       name="Details pane"
       icon={<PanelRight />}
       pressed={paneVisible}
-      onClick={() => (paneVisible ? closeDetails() : setPaneOpen(true))}
+      onClick={() => (paneVisible ? closeDetails() : openPane())}
     />
   );
 
@@ -794,7 +816,7 @@ export function CollectionView<T>({
 
   const tableFields = fields.filter((field) => !(pushedAside && field.hideWithPane));
   const narrowHide = (field: CollectionField<T>) =>
-    fitNarrow && field.hideWithPane ? '[@container(max-width:1099px)]:hidden' : undefined;
+    fitsNarrow && field.hideWithPane ? '[@container(max-width:1099px)]:hidden' : undefined;
   const statusColumn = transitions !== undefined && !pushedAside && !phone;
   const actionsColumn = !phone && (showPane || itemActions.length > 0);
 
@@ -1039,12 +1061,16 @@ export function CollectionView<T>({
     return view === 'details' ? detailsView : view === 'cards' ? cards : list;
   })();
 
+  // A hosted pane that is pushed aside renders in the host's slot, beside every list of the host.
+  const renderPane = (pane: React.ReactElement) =>
+    host?.slot && placement === 'aside' ? createPortal(pane, host.slot) : pane;
+
   return (
     <section
       aria-label={label}
       data-cv={baseId}
       onKeyDown={onRegionKeyDown}
-      className={cn('flex flex-col gap-2', fitNarrow && '[container-type:inline-size]', className)}
+      className={cn('flex flex-col gap-2', fitsNarrow && '[container-type:inline-size]', className)}
     >
       {!barHidden && (
         <div
@@ -1069,7 +1095,7 @@ export function CollectionView<T>({
           {body}
           {footer && <div className="mt-2">{footer}</div>}
         </div>
-        {paneVisible && paneItem !== undefined && (
+        {paneVisible && paneItem !== undefined && renderPane(
           <DetailsPane
             item={paneItem}
             itemName={itemName(paneItem)}
@@ -1080,7 +1106,7 @@ export function CollectionView<T>({
             transitions={transitionsOf(paneItem)}
             statusText={statusOf?.(paneItem)}
             onClose={closeDetails}
-          />
+          />,
         )}
       </div>
     </section>
