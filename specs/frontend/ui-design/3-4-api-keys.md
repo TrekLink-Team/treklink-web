@@ -95,3 +95,10 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: no event, the query key and the invalidation are stated
 - [x] Traceability: UC-06, FR-ORG-06, US-UC06
 - [x] One primary action per screen; status is text as well as colour (§8 items 1 and 3)
+
+## API keys on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The key list of `/o/api-keys` renders through `CollectionView` (chapter 06 §9): search by
+name or prefix, a Show filter (All keys, Active, Revoked) over the loaded keys, and Revoke as an item
+action of an active key, named "Revoke {name}", behind the same alert dialog. The revoked badge is short,
+with its date beside it. With one or two keys the command bar hides (§9.3).
