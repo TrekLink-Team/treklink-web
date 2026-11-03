@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, PanelLeft, Search } from 'lucide-react';
 import type { SessionUser } from '../../entities/session/model';
+import { ConnectorButton } from '../../features/device-connector';
 import { IconButton } from '../../shared/ui/Button';
 import { AccountMenu } from '../AccountMenu/AccountMenu';
 import { BrandMark } from './BrandMark';
@@ -59,6 +60,7 @@ export const AppHeader: React.FC<{ user: SessionUser; home: string }> = ({ user,
 
       <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1 lg:ml-0">
         <IconButton label="Go to page" icon={<Search />} className="lg:hidden" onClick={() => setQuickNav(true)} />
+        {user.accountType === 'TREKLINK' && <ConnectorButton />}
         <ConnectionIndicator />
         <ThemeToggle className="hidden sm:inline-flex" />
         <AccountMenu />
