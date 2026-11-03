@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
@@ -27,6 +27,12 @@ import { DEVICE_STATUS, MAINTENANCE_STATUS, type DeviceStatus } from '../shared/
 import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { ConfigureUplinkDialog } from '../features/device-connector/actions/ConfigureUplinkDialog';
+import {
+  useConnector,
+  useConnectorContext,
+  useConnectorStore,
+  type ConnectorContext,
+} from '../features/device-connector';
 import { isDockSupported } from '../shared/lib/meshtastic-dock';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { deviceFailure, MSG29 } from '../widgets/DeviceActions/deviceFailure';
@@ -154,6 +160,14 @@ export const DeviceDetailPage: React.FC = () => {
   const [disposing, setDisposing] = useState(false);
   const [reportingLoss, setReportingLoss] = useState(false);
   const [configuringUplink, setConfiguringUplink] = useState(false);
+  // The device connector's `device` context (devices design section 11.3), and whether the hub holds this
+  // device's unit now (screen 4.2, device connector entry points).
+  const connectorContext = useMemo<ConnectorContext>(() => ({ kind: 'device', deviceId: id }), [id]);
+  useConnectorContext(connectorContext);
+  const { snapshot } = useConnector();
+  const held = snapshot.connections.find(
+    (connection) => connection.recognized?.device?.id === id && connection.state !== 'unplugged',
+  );
 
   const refresh = async () => {
     showToast(MSG03);
@@ -214,6 +228,22 @@ export const DeviceDetailPage: React.FC = () => {
           title={device.assetTag}
           action={<StatusBadge entry={DEVICE_STATUS[device.status]} />}
         />
+        {held && (
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-body-sm text-ink">
+            <span className="font-semibold">Connected now</span>
+            <button
+              type="button"
+              className={LINK}
+              onClick={() => {
+                const store = useConnectorStore.getState();
+                store.openFor({ action: 'view', assetTag: device.assetTag, nodeNum: device.nodeNum });
+                store.view(held.id);
+              }}
+            >
+              Show in connector
+            </button>
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
