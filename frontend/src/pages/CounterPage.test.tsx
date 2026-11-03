@@ -604,6 +604,27 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
     ).toBe(false);
   });
 
+  it('keeps each row status region mounted and changes only its text (WCAG 4.1.3)', () => {
+    const { rerender } = renderPage();
+    const region = document.getElementById('dock-status-d-1');
+    expect(region?.getAttribute('role')).toBe('status');
+    expect(region?.textContent).toBe('');
+
+    docking.state = { target: 'd-1', stage: 'reading' };
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/t/counter/c-1']}>
+          <Routes>
+            <Route path="/t/counter/:contractId" element={<CounterPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(document.getElementById('dock-status-d-1')).toBe(region);
+    expect(region?.textContent).toBe('Reading the unit…');
+    docking.state = { target: null, stage: null };
+  });
+
   it('docks, then records the version it wrote with the docked nodeNum', async () => {
     docking.dockAndProvision.mockResolvedValue({ ok: true, nodeNum: 0xa4b1c2d0, keyVersion: 1 });
     await withDevices(nodeNums(), async () => {

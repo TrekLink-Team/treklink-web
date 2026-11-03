@@ -1161,15 +1161,17 @@ export const CounterPage: React.FC<{
                           Swap
                         </button>
                       </div>
-                    {stage && (
-                      <div
+                    {/* Mounted for the whole visit, so a screen reader announces the first stage too
+                        (WCAG 4.1.3); only its text changes. */}
+                    <p
                         id={`dock-status-${device.deviceId}`}
                         role="status"
-                        className="mt-2 flex flex-wrap items-center gap-3 text-sm text-ink"
+                      className={stage ? 'mt-2 text-sm text-ink' : 'sr-only'}
                       >
-                        <span>{DOCK_STAGE_TEXT[stage]}</span>
+                      {stage ? DOCK_STAGE_TEXT[stage] : ''}
+                    </p>
                         {stage === 'reconnect' && (
-                          <>
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
                             <button
                               type="button"
                               className={SECONDARY_BUTTON}
@@ -1180,8 +1182,6 @@ export const CounterPage: React.FC<{
                             <button type="button" className={LINK} onClick={docking.giveUp}>
                               Stop
                             </button>
-                          </>
-                        )}
                       </div>
                     )}
                       {error && (
