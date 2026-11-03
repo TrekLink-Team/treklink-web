@@ -206,6 +206,8 @@ export interface StateChangeMenuProps<S extends string = string> {
   onDone?: () => void;
   /** The menu button text. Its accessible name adds the subject: "Change status of TL-0042". */
   label?: string;
+  /** The current status as text; the button then reads "Status: Active" (chapter 06 §9.6 rule 1). */
+  currentLabel?: string;
   align?: 'start' | 'end';
 }
 
@@ -218,21 +220,31 @@ export function StateChangeMenu<S extends string = string>({
   onReload,
   onDone,
   label = 'Change status',
+  currentLabel,
   align = 'end',
 }: StateChangeMenuProps<S>) {
   const [chosen, setChosen] = useState<StateTransition<S> | null>(null);
   if (transitions.length === 0) return null;
+  // Destructive transitions come last, after a separator (chapter 06 §9.6 rule 3). Menu draws the
+  // chevron (§10.3).
+  const ordered = [
+    ...transitions.filter((transition) => !transition.destructive),
+    ...transitions.filter((transition) => transition.destructive),
+  ];
+  const firstDestructive = ordered.findIndex((transition) => transition.destructive);
+  const visible = currentLabel ? `Status: ${currentLabel}` : label;
   return (
     <>
       <Menu
-        label={`${label} of ${subject}`}
+        label={currentLabel ? `${visible}. ${label} of ${subject}` : `${label} of ${subject}`}
         align={align}
         triggerClassName="h-11 border border-line-strong bg-surface px-4 text-body"
-        trigger={<span>{label}</span>}
-        items={transitions.map((transition) => ({
+        trigger={<span>{visible}</span>}
+        items={ordered.map((transition, index) => ({
           key: transition.target,
           label: transition.label,
           destructive: transition.destructive,
+          separatorBefore: index === firstDestructive,
           onSelect: () => setChosen(transition),
         }))}
       />

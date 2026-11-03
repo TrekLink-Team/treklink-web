@@ -1,0 +1,387 @@
+// @vitest-environment jsdom
+import React from 'react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Pencil } from 'lucide-react';
+import { Menu } from '../Menu';
+import { StateChangeMenu } from '../StateChange';
+import { CollectionView, SEARCH_ANNOUNCE_MS, SELECTION_CLEARED, type CollectionViewProps } from './CollectionView';
+import { EMPTY_SELECTION, keepVisible, pageSelection, toggleAll, toggleItem } from './selection';
+import type { CollectionField } from './types';
+
+interface Unit {
+  id: string;
+  tag: string;
+  status: 'Active' | 'Inactive';
+  battery: number;
+}
+
+const UNITS: Unit[] = [
+  { id: 'a', tag: 'TL-0001', status: 'Active', battery: 80 },
+  { id: 'b', tag: 'TL-0002', status: 'Inactive', battery: 20 },
+  { id: 'c', tag: 'TL-0003', status: 'Active', battery: 55 },
+  { id: 'd', tag: 'TL-0004', status: 'Active', battery: 91 },
+];
+
+const FIELDS: CollectionField<Unit>[] = [
+  { key: 'status', label: 'Status', render: (unit) => unit.status, text: (unit) => unit.status, compact: true },
+  {
+    key: 'battery',
+    label: 'Battery',
+    render: (unit) => `${unit.battery}%`,
+    sortValue: (unit) => unit.battery,
+    sortable: true,
+    align: 'end',
+  },
+];
+
+const checkIn = vi.fn();
+const edit = vi.fn();
+const retire = vi.fn();
+
+const renderView = (props: Partial<CollectionViewProps<Unit>> = {}) =>
+  render(
+    <MemoryRouter>
+      <CollectionView<Unit>
+        label="Units of CT-0042"
+        items={UNITS}
+        itemId={(unit) => unit.id}
+        itemName={(unit) => unit.tag}
+        fields={FIELDS}
+        noun={{ one: 'unit', other: 'units' }}
+        itemActions={[{ key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit }]}
+        transitions={(unit) =>
+          unit.status === 'Active'
+            ? [
+                { key: 'retire', label: 'Retire device', destructive: true, onSelect: retire },
+                { key: 'inactive', label: 'Mark inactive', onSelect: vi.fn() },
+              ]
+            : [{ key: 'active', label: 'Mark active', onSelect: vi.fn() }]
+        }
+        statusOf={(unit) => unit.status}
+        bulkActions={[{ key: 'checkin', label: (count) => `Check in ${count} units`, onSelect: checkIn }]}
+        search={{ label: 'Search units' }}
+        filters={[
+          { key: 'all', label: 'All' },
+          { key: 'active', label: 'Active', test: (unit) => unit.status === 'Active' },
+        ]}
+        emptyState={{ title: 'No units on this contract yet.' }}
+        {...props}
+      />
+    </MemoryRouter>,
+  );
+
+const box = (tag: string) => screen.getByRole('checkbox', { name: `Select ${tag}` }) as HTMLInputElement;
+const selectAll = () => screen.getByRole('checkbox', { name: /^Select all/ }) as HTMLInputElement;
+const live = () => screen.getByRole('status');
+
+beforeEach(() => {
+  checkIn.mockReset();
+  edit.mockReset();
+  retire.mockReset();
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+describe('selection rules (chapter 06 §9.4)', () => {
+  const ids = ['a', 'b', 'c', 'd'];
+
+  it('toggles one item and sets the anchor; a range selects from the anchor to the item', () => {
+    let state = toggleItem(EMPTY_SELECTION, 'b', ids, false);
+    expect([...state.selected]).toEqual(['b']);
+    expect(state.anchor).toBe('b');
+    state = toggleItem(state, 'd', ids, true);
+    expect([...state.selected].sort()).toEqual(['b', 'c', 'd']);
+    expect(state.anchor).toBe('b');
+    state = toggleItem(state, 'c', ids, false);
+    expect([...state.selected].sort()).toEqual(['b', 'd']);
+  });
+
+  it('select-all covers the current page only and reports none, some or all', () => {
+    const one = toggleItem(EMPTY_SELECTION, 'a', ['a', 'b'], false);
+    expect(pageSelection(one.selected, ['a', 'b'])).toBe('some');
+    const all = toggleAll(one, ['a', 'b']);
+    expect([...all.selected].sort()).toEqual(['a', 'b']);
+    expect(pageSelection(all.selected, ['a', 'b'])).toBe('all');
+    expect(pageSelection(toggleAll(all, ['a', 'b']).selected, ['a', 'b'])).toBe('none');
+  });
+
+  it('drops ids that left the page', () => {
+    const state = toggleAll(EMPTY_SELECTION, ids);
+    expect([...keepVisible(state, ['a', 'c']).selected]).toEqual(['a', 'c']);
+  });
+});
+
+describe('CollectionView', () => {
+  it('renders the Details view as a native table with a caption and column headers', () => {
+    renderView();
+    const table = screen.getByRole('table', { name: 'Units of CT-0042' });
+    expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
+      'Selection',
+      'Unit',
+      'Status',
+      'Battery',
+      'Status change',
+      'Actions',
+    ]);
+    expect(screen.getByRole('group', { name: 'Units of CT-0042: commands' })).toBeTruthy();
+  });
+
+  it('selects with click and Shift+click, shows the count and names bulk actions verb, count, noun', () => {
+    renderView();
+    fireEvent.click(box('TL-0001'));
+    fireEvent.click(box('TL-0003'), { shiftKey: true });
+    expect([box('TL-0001'), box('TL-0002'), box('TL-0003'), box('TL-0004')].map((each) => each.checked)).toEqual([
+      true,
+      true,
+      true,
+      false,
+    ]);
+    expect(screen.getByRole('button', { name: 'Clear selection, 3 selected' }).textContent).toContain('3 selected');
+    fireEvent.click(screen.getByRole('button', { name: 'Check in 3 units' }));
+    expect(checkIn).toHaveBeenCalledWith([UNITS[0], UNITS[1], UNITS[2]]);
+    expect(live().textContent).toContain('3 selected');
+  });
+
+  it('selects a range with Shift+Space from the keyboard', () => {
+    renderView();
+    fireEvent.click(box('TL-0002'));
+    fireEvent.keyDown(box('TL-0004'), { key: ' ', shiftKey: true });
+    fireEvent.click(box('TL-0004'));
+    expect([box('TL-0002'), box('TL-0003'), box('TL-0004')].every((each) => each.checked)).toBe(true);
+    expect(box('TL-0001').checked).toBe(false);
+  });
+
+  it('shows select-all as mixed, then selects the items of this page only', () => {
+    renderView({ pageInfo: { total: 57, from: 1, to: 4 }, onQueryChange: vi.fn() });
+    fireEvent.click(box('TL-0001'));
+    expect(selectAll().indeterminate).toBe(true);
+    expect(selectAll().checked).toBe(false);
+    fireEvent.click(selectAll());
+    expect(selectAll().checked).toBe(true);
+    expect(selectAll().indeterminate).toBe(false);
+    expect(screen.getByRole('button', { name: 'Clear selection, 4 selected' })).toBeTruthy();
+    expect(selectAll().getAttribute('aria-label')).toBe('Select all 4 units on this page');
+  });
+
+  it('clears the selection when the search, the filter or the sort changes, and says so', () => {
+    renderView();
+    fireEvent.click(box('TL-0001'));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search units' }), { target: { value: 'TL' } });
+    expect(box('TL-0001').checked).toBe(false);
+    expect(live().textContent).toContain(SELECTION_CLEARED);
+
+    fireEvent.click(box('TL-0002'));
+    fireEvent.click(screen.getByRole('button', { name: /^Show: All/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Active' }));
+    expect(screen.queryByRole('checkbox', { name: 'Select TL-0002' })).toBeNull();
+    expect(live().textContent).toContain(SELECTION_CLEARED);
+    expect(live().textContent).toContain('Showing Active');
+
+    fireEvent.click(box('TL-0003'));
+    fireEvent.click(screen.getByRole('button', { name: 'Battery' }));
+    expect(box('TL-0003').checked).toBe(false);
+    expect(live().textContent).toContain('Sorted by Battery, ascending');
+  });
+
+  it('keeps the selection when the view changes', () => {
+    renderView({ views: ['details', 'list'] });
+    fireEvent.click(box('TL-0002'));
+    fireEvent.click(screen.getByRole('button', { name: 'View: Details list. Switch to List' }));
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByRole('list', { name: 'Units of CT-0042' })).toBeTruthy();
+    expect(box('TL-0002').checked).toBe(true);
+  });
+
+  it('marks the sorted column with aria-sort and leaves the others without it', () => {
+    renderView();
+    const header = screen.getByRole('button', { name: 'Battery' }).closest('th')!;
+    expect(header.getAttribute('aria-sort')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Battery' }));
+    expect(header.getAttribute('aria-sort')).toBe('ascending');
+    expect(screen.getAllByRole('rowheader').map((cell) => cell.textContent)).toEqual([
+      'TL-0002',
+      'TL-0003',
+      'TL-0001',
+      'TL-0004',
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Battery' }));
+    expect(header.getAttribute('aria-sort')).toBe('descending');
+    const status = screen.getByRole('columnheader', { name: 'Status' });
+    expect(status.getAttribute('aria-sort')).toBeNull();
+  });
+
+  it('clears the selection on Escape, but closes an open tooltip first', () => {
+    renderView();
+    fireEvent.click(box('TL-0001'));
+    const editButton = screen.getByRole('button', { name: 'Edit TL-0001' });
+    fireEvent.focus(editButton);
+    expect(screen.getByRole('tooltip').textContent).toBe('Edit');
+    fireEvent.keyDown(editButton, { key: 'Escape' });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(box('TL-0001').checked).toBe(true);
+    fireEvent.keyDown(editButton, { key: 'Escape' });
+    expect(box('TL-0001').checked).toBe(false);
+    expect(live().textContent).toContain(SELECTION_CLEARED);
+  });
+
+  it('closes an open menu on Escape before the selection', () => {
+    renderView();
+    fireEvent.click(box('TL-0001'));
+    fireEvent.click(screen.getByRole('button', { name: 'Status: Active. Change status of TL-0001' }));
+    const first = screen.getAllByRole('menuitem')[0];
+    fireEvent.keyDown(first, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(box('TL-0001').checked).toBe(true);
+  });
+
+  it('shows the tooltip on hover and on focus, without a title attribute, and names the item', () => {
+    renderView();
+    const editButton = screen.getByRole('button', { name: 'Edit TL-0002' });
+    expect(editButton.getAttribute('title')).toBeNull();
+    fireEvent.mouseEnter(editButton.parentElement!);
+    expect(screen.getByRole('tooltip').textContent).toBe('Edit');
+    fireEvent.mouseLeave(editButton.parentElement!);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    fireEvent.click(editButton);
+    expect(edit).toHaveBeenCalledWith(UNITS[1]);
+  });
+
+  it('lists only allowed transitions, destructive last after a separator, behind a chevron button', () => {
+    renderView();
+    const button = screen.getByRole('button', { name: 'Status: Active. Change status of TL-0001' });
+    expect(button.getAttribute('aria-haspopup')).toBe('menu');
+    expect(button.querySelector('[data-menu-chevron]')).toBeTruthy();
+    fireEvent.click(button);
+    const menu = screen.getByRole('menu');
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Mark inactive',
+      'Retire device',
+    ]);
+    expect(within(menu).getByRole('separator')).toBeTruthy();
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Retire device' }));
+    expect(retire).toHaveBeenCalledWith([UNITS[0]]);
+  });
+
+  it('offers in the bulk menu only the transitions allowed for every selected item', () => {
+    renderView();
+    fireEvent.click(box('TL-0001'));
+    fireEvent.click(box('TL-0003'));
+    fireEvent.click(screen.getByRole('button', { name: 'Change status. Change status of 2 units' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Mark inactive',
+      'Retire device',
+    ]);
+    fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'Escape' });
+    fireEvent.click(box('TL-0002'));
+    expect(screen.queryByRole('button', { name: /Change status of 3 units/ })).toBeNull();
+  });
+
+  it('keeps one polite live region from the first render and announces the result count', () => {
+    vi.useFakeTimers();
+    renderView();
+    expect(live().getAttribute('aria-live')).toBe('polite');
+    expect(live().textContent).toBe('');
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search units' }), { target: { value: '0004' } });
+    expect(live().textContent).not.toContain('1 unit');
+    act(() => {
+      vi.advanceTimersByTime(SEARCH_ANNOUNCE_MS);
+    });
+    expect(live().textContent).toContain('1 unit');
+    expect(screen.getByText('1 match')).toBeTruthy();
+  });
+
+  it('announces a server page as total and range', () => {
+    const { rerender } = renderView({ pageInfo: { total: 57, from: 1, to: 4 }, onQueryChange: vi.fn() });
+    rerender(
+      <MemoryRouter>
+        <CollectionView<Unit>
+          label="Units of CT-0042"
+          items={UNITS.slice(0, 2)}
+          itemId={(unit) => unit.id}
+          itemName={(unit) => unit.tag}
+          fields={FIELDS}
+          noun={{ one: 'unit', other: 'units' }}
+          emptyState={{ title: 'None' }}
+          pageInfo={{ total: 57, from: 21, to: 22 }}
+          onQueryChange={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    expect(live().textContent).toContain('57 units, showing 21 to 22');
+  });
+
+  it('shows the empty state, and the no-match state with a way out', () => {
+    renderView({ items: [] });
+    expect(screen.getByText('No units on this contract yet.')).toBeTruthy();
+    cleanup();
+    renderView();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search units' }), { target: { value: 'nothing' } });
+    expect(screen.getByText('No results match your filters.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search and filter' }));
+    expect(screen.getAllByRole('rowheader')).toHaveLength(4);
+  });
+
+  it('hides the command bar of a list with nothing to filter, sort or switch, keeping item actions', () => {
+    renderView({ items: UNITS.slice(0, 2), bulkActions: [], transitions: undefined, search: undefined, filters: undefined });
+    expect(screen.queryByRole('group', { name: 'Units of CT-0042: commands' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Edit TL-0001' })).toBeTruthy();
+  });
+
+  it('opens the details pane beside the list with focus on its heading; Escape closes it', () => {
+    renderView({ details: { href: (unit) => `/t/devices/${unit.id}` } });
+    const show = screen.getByRole('button', { name: 'Show details of TL-0002' });
+    show.focus();
+    fireEvent.click(show);
+    const pane = screen.getByRole('complementary', { name: 'TL-0002' });
+    expect(document.activeElement).toBe(within(pane).getByRole('heading', { name: 'TL-0002' }));
+    expect(within(pane).getByRole('button', { name: 'Edit TL-0002' })).toBeTruthy();
+    expect(within(pane).getByRole('link', { name: 'Open TL-0002' }).getAttribute('href')).toBe('/t/devices/b');
+    expect(screen.getByRole('button', { name: 'Details pane' }).getAttribute('aria-pressed')).toBe('true');
+    // Pushed aside: the Status change column leaves, the pane holds that dropdown.
+    expect(screen.queryByRole('columnheader', { name: 'Status change' })).toBeNull();
+    fireEvent.keyDown(within(pane).getByRole('heading', { name: 'TL-0002' }), { key: 'Escape' });
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(document.activeElement).toBe(show);
+  });
+});
+
+describe('dropdown buttons draw a chevron (chapter 06 §10.3)', () => {
+  it('draws it in Menu by default, decorative, and leaves it out on request', () => {
+    render(
+      <>
+        <Menu label="More actions" items={[{ key: 'a', label: 'A', onSelect: vi.fn() }]} />
+        <Menu label="Choose view" chevron={false} items={[{ key: 'a', label: 'A', onSelect: vi.fn() }]} />
+      </>,
+    );
+    const more = screen.getByRole('button', { name: 'More actions' });
+    expect(more.querySelector('[data-menu-chevron]')?.getAttribute('aria-hidden')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Choose view' }).querySelector('[data-menu-chevron]')).toBeNull();
+  });
+
+  it('gives StateChangeMenu the chevron, the current status and destructive items last', () => {
+    render(
+      <StateChangeMenu
+        subject="TL-0042"
+        currentLabel="Available"
+        version={1}
+        onSubmit={vi.fn()}
+        transitions={[
+          { target: 'RETIRED', label: 'Retire device', destructive: true, description: 'Leaves the fleet.' },
+          { target: 'MAINTENANCE', label: 'Send to maintenance' },
+        ]}
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Status: Available. Change status of TL-0042' });
+    expect(button.textContent).toBe('Status: Available');
+    expect(button.querySelector('[data-menu-chevron]')).toBeTruthy();
+    fireEvent.click(button);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Send to maintenance',
+      'Retire device',
+    ]);
+  });
+});
