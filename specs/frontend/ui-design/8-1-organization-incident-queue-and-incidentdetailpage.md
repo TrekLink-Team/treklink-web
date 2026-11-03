@@ -150,3 +150,10 @@ Added by KhoaDD. `/o/incidents` renders through `CollectionView` (chapter 06 §9
 "Open incidents only" checkbox become one Show filter: Open incidents (the default, `open=true`), All
 incidents, or one state (`state`). Rows keep the server order; nothing sorts. The details pane links to
 the incident page. Endpoints and messages are unchanged.
+
+
+## Queue filters (review of treklink-web#350, 2026-11-04)
+
+Added by KhoaDD. In the organization queue the state and Open only combine in the Show dropdown (incidents
+01 `state` and `open`): one state or all states, and "Incidents: Open only" (the default) or "Open or
+closed". Clear search and filter drops both, so every incident shows.

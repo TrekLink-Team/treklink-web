@@ -22,11 +22,10 @@ const OVERDUE = 'OVERDUE';
 const kindOf = (invoice: Invoice) =>
   invoice.term ? `Term ${invoice.term.seq}` : invoice.kind.replace('_', ' ');
 
-// The Show filter: every invoice, one status, or the overdue ones (billing api-design 08 `status`,
-// `overdue`), one at a time.
-const showOf = (filters: InvoiceFilters) => (filters.overdue ? OVERDUE : (filters.status ?? ''));
+// Show holds two server filters that combine (billing api-design 08 `status` and `overdue`): one
+// status or every status, and overdue only or any (review of treklink-web#350).
 
-// The invoice list of screen 6.1 on CollectionView (chapter 06 §9, D-096): status or overdue in the
+// The invoice list of screen 6.1 on CollectionView (chapter 06 §9, D-096): status and overdue in the
 // Show filter query the server (billing api-design 08); the search narrows the loaded page by number,
 // organization and contract. The TrekLink view adds the organization column. The number and Show
 // details open the invoice, the screen's own invoice view.
@@ -139,22 +138,30 @@ export const InvoiceTable: React.FC<{
       filters={[
         { key: '', label: 'Every status' },
         ...STATUSES.map((status) => ({ key: status, label: INVOICE_STATUS_LABELS[status] })),
-        { key: OVERDUE, label: 'Overdue' },
       ]}
-      query={{ search: text, filter: showOf(filters), sort: null }}
+      query={{ search: text, filter: filters.status ?? '', sort: null, groups: { due: filters.overdue ? OVERDUE : '' } }}
       onQueryChange={(next) => {
         setText(next.search);
-        if (next.filter === showOf(filters)) return;
+        const status = (next.filter || undefined) as InvoiceStatus | undefined;
+        const overdue = next.groups?.due === OVERDUE ? true : undefined;
+        if (status === filters.status && overdue === filters.overdue) return;
         onFilters({
           pageNumber: 1,
           contractId: filters.contractId,
-          ...(next.filter === OVERDUE
-            ? { overdue: true }
-            : next.filter
-              ? { status: next.filter as InvoiceStatus }
-              : {}),
+          ...(status ? { status } : {}),
+          ...(overdue ? { overdue } : {}),
         });
       }}
+      filterGroups={[
+        {
+          key: 'due',
+          label: 'Due',
+          options: [
+            { key: '', label: 'Any due date' },
+            { key: OVERDUE, label: 'Overdue only' },
+          ],
+        },
+      ]}
       pageInfo={pageInfo}
       onShowDetails={onOpen}
       emptyState={{ title: emptyTitle ?? 'No invoices yet.' }}

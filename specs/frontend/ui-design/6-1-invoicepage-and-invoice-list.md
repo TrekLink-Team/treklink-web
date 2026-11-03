@@ -98,3 +98,11 @@ Show filter (every status, one status, or overdue; billing 08 `status` or `overd
 is the payments' Show filter (billing 14 `status`), and the payment method select folds into the search.
 The invoice number and Show details open the invoice: its page for the Org Manager, the side panel on
 `/t/billing`. Endpoints and messages are unchanged.
+
+
+## Invoice and payment filters (review of treklink-web#350, 2026-11-04)
+
+Added by KhoaDD. In the invoice list the status and "Due: Overdue only" combine in the Show dropdown
+(billing 08 `status` and `overdue`). In the Staff payments tab the status filters on the server and the
+method, also in Show, narrows the loaded page, as its select did (billing 14 takes no method); the search
+reads the reference.

@@ -72,13 +72,15 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
 const statusLabel = (status: string) => status.charAt(0) + status.slice(1).toLowerCase();
 
 // The payments of billing api-design 14 on CollectionView (chapter 06 §9, D-096): the status in the
-// Show filter queries the server; the search narrows the loaded page by reference and method.
+// Show filter queries the server; the method, also in Show, and the reference search narrow the loaded
+// page, as before (billing 14 takes neither).
 const PaymentsTab: React.FC = () => {
   const [filters, setFilters] = useState<PaymentFilters>({ pageNumber: 1 });
   const { data, isLoading, error, refetch } = usePayments(filters);
   const [text, setText] = useState('');
-  const rows = data?.items.filter((payment) =>
-    matchesText(text, payment.reference, METHOD_LABELS[payment.method]),
+  const [method, setMethod] = useState('');
+  const rows = data?.items.filter(
+    (payment) => matchesText(text, payment.reference) && (method === '' || payment.method === method),
   );
   const fields: CollectionField<PaymentRow>[] = [
     {
@@ -130,20 +132,31 @@ const PaymentsTab: React.FC = () => {
       )}
       fields={fields}
       noun={{ one: 'payment', other: 'payments' }}
-      search={{ label: 'Search by reference or method' }}
+      search={{ label: 'Search by reference' }}
       filters={[
         { key: '', label: 'Every status' },
         ...PAYMENT_STATUSES.map((status) => ({ key: status, label: statusLabel(status) })),
       ]}
-      query={{ search: text, filter: filters.status ?? '', sort: null }}
+      query={{ search: text, filter: filters.status ?? '', sort: null, groups: { method } }}
       onQueryChange={(next) => {
         setText(next.search);
+        setMethod(next.groups?.method ?? '');
         if ((next.filter || undefined) !== filters.status)
           setFilters({
             status: (next.filter || undefined) as PaymentFilters['status'],
             pageNumber: 1,
           });
       }}
+      filterGroups={[
+        {
+          key: 'method',
+          label: 'Method',
+          options: [
+            { key: '', label: 'Every method' },
+            ...Object.entries(METHOD_LABELS).map(([key, label]) => ({ key, label })),
+          ],
+        },
+      ]}
       pageInfo={pageInfoOf(data)}
       emptyState={{ title: 'No payments recorded.' }}
       footer={

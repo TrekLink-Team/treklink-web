@@ -18,17 +18,10 @@ import { WARNING } from '../shared/ui/styles';
 const STATES = Object.keys(INCIDENT_STATE) as IncidentState[];
 const DEFAULTS: IncidentFilters = { open: true, pageNumber: 1 };
 
-// The Show filter: open incidents (the default), every incident, or one state (incidents api-design
-// 01 `open` and `state`).
+// Show holds two server filters that combine (incidents api-design 01 `state` and `open`): one state
+// or all, and open only (the default) or open and closed (review of treklink-web#350).
 const OPEN = 'open';
 const ALL = 'all';
-const showOf = (filters: IncidentFilters) => filters.state ?? (filters.open ? OPEN : ALL);
-const filtersOf = (show: string): IncidentFilters =>
-  show === OPEN
-    ? { open: true, pageNumber: 1 }
-    : show === ALL
-      ? { pageNumber: 1 }
-      : { state: show as IncidentState, pageNumber: 1 };
 
 const deviceText = (incident: Incident) =>
   `${incident.device.assetTag ?? 'Unknown device'}, ${incident.device.holder?.name ?? 'No holder label'}`;
@@ -86,12 +79,28 @@ export const IncidentsPage: React.FC = () => {
         fields={fields}
         noun={{ one: 'incident', other: 'incidents' }}
         filters={[
-          { key: OPEN, label: 'Open incidents' },
-          { key: ALL, label: 'All incidents' },
+          { key: '', label: 'All states' },
           ...STATES.map((state) => ({ key: state, label: INCIDENT_STATE[state].label })),
         ]}
-        query={{ search: '', filter: showOf(filters), sort: null }}
-        onQueryChange={(next) => setFilters(filtersOf(next.filter))}
+        query={{ search: '', filter: filters.state ?? '', sort: null, groups: { open: filters.open ? OPEN : ALL } }}
+        onQueryChange={(next) =>
+          setFilters({
+            state: (next.filter || undefined) as IncidentState | undefined,
+            open: next.groups?.open === OPEN ? true : undefined,
+            pageNumber: 1,
+          })
+        }
+        filterGroups={[
+          {
+            key: 'open',
+            label: 'Incidents',
+            options: [
+              { key: ALL, label: 'Open or closed' },
+              { key: OPEN, label: 'Open only' },
+            ],
+          },
+        ]}
+        noMatch={filters.open && !filters.state ? { title: 'No open incidents.' } : undefined}
         hideCommandBar={false}
         pageInfo={pageInfoOf(data)}
         details={{

@@ -42,6 +42,7 @@ import type {
   CollectionEmptyState,
   CollectionField,
   CollectionFilter,
+  CollectionFilterGroup,
   CollectionNoun,
   CollectionPageInfo,
   CollectionQuery,
@@ -116,6 +117,8 @@ export interface CollectionViewProps<T> {
   noMatch?: Pick<CollectionEmptyState, 'title' | 'description'>;
   search?: { label: string; placeholder?: string };
   filters?: CollectionFilter<T>[];
+  /** Server filters that combine with the Show filter, listed in the same menu. */
+  filterGroups?: CollectionFilterGroup<T>[];
   /** A controlled query. With `onQueryChange` the page filters, searches and sorts on the server. */
   query?: CollectionQuery;
   onQueryChange?: (query: CollectionQuery) => void;
@@ -161,6 +164,7 @@ export function CollectionView<T>({
   noMatch,
   search,
   filters,
+  filterGroups,
   query: controlledQuery,
   onQueryChange,
   pageInfo,
@@ -194,6 +198,9 @@ export function CollectionView<T>({
     chosenView ?? (phone && views.includes('list') ? 'list' : (defaultView ?? views[0]));
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   const [paneId, setPaneId] = useState<string | null>(null);
+  // The item the pane was opened on, kept while it leaves the list (a request just decided leaves
+  // its queue), so the pane never jumps to another record (review of treklink-web#350).
+  const [paneHeld, setPaneHeld] = useState<T | null>(null);
   const [paneOpen, setPaneOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { message, announce } = useLiveRegion();
@@ -207,11 +214,20 @@ export function CollectionView<T>({
 
   // A list of one or two records with nothing to filter, sort or switch hides its command bar
   // (§9.3); its item actions stay, and with no bar there is nothing to select for.
+  const groups = filterGroups ?? [];
+  const groupValue = (group: CollectionFilterGroup<T>) =>
+    query.groups?.[group.key] ?? group.options[0]?.key ?? '';
+  const groupsNarrowed = groups.some((group) => groupValue(group) !== group.options[0]?.key);
   const narrowed =
-    query.search.trim() !== '' || (filters !== undefined && query.filter !== firstFilter);
+    query.search.trim() !== '' ||
+    (filters !== undefined && query.filter !== firstFilter) ||
+    groupsNarrowed;
   const recordCount = pageInfo?.total ?? items?.length ?? 0;
+  // A server-paged list keeps its bar: its filters and pages reach past the rows shown (review of
+  // treklink-web#350).
   const barHidden =
-    hideCommandBar ?? (items !== undefined && recordCount <= 2 && commands.length === 0 && !narrowed);
+    hideCommandBar ??
+    (!serverSide && items !== undefined && recordCount <= 2 && commands.length === 0 && !narrowed);
   const selectable =
     (bulkActions.length > 0 || (transitions !== undefined && transitionsApplyToSelection)) &&
     !barHidden;
@@ -224,10 +240,16 @@ export function CollectionView<T>({
     const all = items ?? [];
     if (serverSide) return all;
     const filter = filters?.find((each) => each.key === query.filter);
+    const groupTests = (filterGroups ?? []).flatMap((group) => {
+      const value = query.groups?.[group.key] ?? group.options[0]?.key;
+      const chosen = group.options.find((option) => option.key === value);
+      return chosen?.test ? [chosen.test] : [];
+    });
     const needle = query.search.trim().toLowerCase();
     const searched = all.filter(
       (item) =>
         (!filter?.test || filter.test(item)) &&
+        groupTests.every((test) => test(item)) &&
         (needle === '' ||
           [itemName(item), ...fields.map((field) => field.text?.(item) ?? '')]
             .join(' ')
@@ -251,7 +273,7 @@ export function CollectionView<T>({
           : String(left).localeCompare(String(right), undefined, { numeric: true })) * factor
       );
     });
-  }, [items, serverSide, filters, query, fields, itemName]);
+  }, [items, serverSide, filters, filterGroups, query, fields, itemName]);
 
   const ids = useMemo(() => visible.map(itemId), [visible, itemId]);
   const byId = useMemo(() => new Map(visible.map((item) => [itemId(item), item])), [visible, itemId]);
@@ -344,10 +366,21 @@ export function CollectionView<T>({
     }
     if (patch.sort !== undefined) parts.push(`Sorted by ${sortName(next.sort)}`);
     if (patch.filter !== undefined) parts.push(`Showing ${filterOf(next.filter)?.label ?? 'all'}`);
+    groups.forEach((group) => {
+      const before = query.groups?.[group.key] ?? group.options[0]?.key;
+      const after = next.groups?.[group.key] ?? group.options[0]?.key;
+      if (patch.groups !== undefined && before !== after)
+        parts.push(`Showing ${group.label}: ${group.options.find((option) => option.key === after)?.label ?? after}`);
+    });
     if (parts.length > 0) announce(parts.join('. '));
     if (!controlledQuery) setOwnQuery(next);
     onQueryChange?.(next);
   };
+
+  const changeGroup = (group: CollectionFilterGroup<T>, key: string) =>
+    changeQuery({ groups: { ...query.groups, [group.key]: key } });
+  // One query change, so a page that keeps the filters in its own state applies them together.
+  const clearFilters = () => changeQuery({ search: '', filter: firstFilter, groups: {} });
 
   // The result count, after the items change; debounced while a search is typed.
   const announced = useRef<string | null>(null);
@@ -399,6 +432,7 @@ export function CollectionView<T>({
   const openDetails = (item: T) => {
     setOpener(document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setPaneId(itemId(item));
+    setPaneHeld(item);
     setPaneOpen(true);
     host?.claim(baseId);
   };
@@ -411,8 +445,9 @@ export function CollectionView<T>({
     host?.release(baseId);
     if (wide) opener?.focus();
   };
+  const held = paneHeld !== null && paneId !== null && itemId(paneHeld) === paneId ? paneHeld : undefined;
   const paneItem =
-    (paneId !== null ? byId.get(paneId) : undefined) ?? selectedItems[0] ?? visible[0];
+    (paneId !== null ? (byId.get(paneId) ?? held) : undefined) ?? selectedItems[0] ?? visible[0];
   const paneVisible = showPane && paneOpen && ownsPane && paneItem !== undefined;
   const placement: PanePlacement = wide ? 'aside' : tablet ? 'drawer' : 'sheet';
   // Pushed aside: this list's pane, or in a host any list's pane, sits beside the rows, so the
@@ -425,7 +460,8 @@ export function CollectionView<T>({
   const transitionsOf = (item: T) => transitions?.(item) ?? [];
 
   const searching = query.search.trim() !== '';
-  const filtered = searching || (filters !== undefined && query.filter !== firstFilter);
+  const filtered =
+    searching || (filters !== undefined && query.filter !== firstFilter) || groupsNarrowed;
 
   // Bulk transitions: only those allowed for every selected item (§9.6 rule 6).
   const bulkTransitions = (() => {
@@ -592,11 +628,21 @@ export function CollectionView<T>({
     </Button>
   );
 
-  const filterItems: MenuItem[] = (filters ?? []).map((filter) => ({
-    key: `filter-${filter.key}`,
-    label: `${filter.label}${filter.key === query.filter ? ' (current)' : ''}`,
-    onSelect: () => changeQuery({ filter: filter.key }),
-  }));
+  const filterItems: MenuItem[] = [
+    ...(filters ?? []).map((filter) => ({
+      key: `filter-${filter.key}`,
+      label: `${filter.label}${filter.key === query.filter ? ' (current)' : ''}`,
+      onSelect: () => changeQuery({ filter: filter.key }),
+    })),
+    ...groups.flatMap((group) =>
+      group.options.map((option, index) => ({
+        key: `group-${group.key}-${option.key}`,
+        label: `${group.label}: ${option.label}${option.key === groupValue(group) ? ' (current)' : ''}`,
+        separatorBefore: index === 0,
+        onSelect: () => changeGroup(group, option.key),
+      })),
+    ),
+  ];
   const sortable = fields.filter((field) => field.sortable);
   const sortItems: MenuItem[] = sortable.flatMap((field) =>
     (['asc', 'desc'] as const).map((direction) => {
@@ -610,7 +656,15 @@ export function CollectionView<T>({
   );
   const currentFilter = filterOf(query.filter);
   const resultCount = pageInfo?.total ?? visible.length;
-  const showText = `Show: ${currentFilter?.label ?? 'All'}, ${resultCount}`;
+  const showText = `Show: ${[
+    currentFilter?.label ?? 'All',
+    ...groups
+      .filter((group) => groupValue(group) !== group.options[0]?.key)
+      .map(
+        (group) =>
+          `${group.label}: ${group.options.find((option) => option.key === groupValue(group))?.label ?? groupValue(group)}`,
+      ),
+  ].join(', ')}, ${resultCount}`;
   const sortShort = query.sort
     ? (fields.find((field) => field.key === query.sort?.key)?.label ?? 'Default')
     : 'Default';
@@ -741,7 +795,7 @@ export function CollectionView<T>({
       )}
       <span className="min-w-2 flex-1" />
       {searchField}
-      {filters && filters.length > 0 && (
+      {filterItems.length > 0 && (
         <Menu
           label={`${showText}. Change what is shown`}
           trigger={<span>{showText}</span>}
@@ -813,7 +867,7 @@ export function CollectionView<T>({
                 ...filterItems.map((each, index) => ({
                   ...each,
                   label: `Show ${each.label}`,
-                  separatorBefore: index === 0 && sortItems.length > 0,
+                  separatorBefore: each.separatorBefore || (index === 0 && sortItems.length > 0),
                 })),
               ]}
             />
@@ -1077,7 +1131,7 @@ export function CollectionView<T>({
               title={noMatch?.title ?? NO_MATCHES}
               description={noMatch?.description}
               action={
-                <Button onClick={() => changeQuery({ search: '', filter: firstFilter })}>
+                <Button onClick={clearFilters}>
                   Clear search and filter
                 </Button>
               }

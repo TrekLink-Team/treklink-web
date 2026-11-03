@@ -43,13 +43,13 @@ Exactly one row above the items at 1280 px (52 px high), sticky at the top of th
 2. **Commands**: with no selection, the collection commands (Register device, Export); with a selection, the bulk actions, named verb plus count ("Check in 3 units").
 3. **Selection count**: "3 selected" and a Clear selection button, shown only while items are selected.
 4. **Search** field with a visible label or a programmatic name ("Search devices"); a placeholder is never the only label (§3).
-5. **Show (filter), Sort, View** dropdowns and the Details pane toggle (`aria-pressed`), right-aligned. The result count is in the Show dropdown text and in the collection's live region; while a search is active a short visible "N match" appears next to the field.
+5. **Show (filter), Sort, View** dropdowns and the Details pane toggle (`aria-pressed`), right-aligned. The result count is in the Show dropdown text and in the collection's live region; while a search is active a short visible "N match" appears next to the field. A second filter that must combine with the first (a plan beside a status, Open only beside a state) is a filter group in the same Show dropdown, its options named "Plan: Monthly" after a separator; the Show text lists every group that narrows ("Show: Approved, Plan: Day plan, 3"), and Clear search and filter resets them all in one change (review of treklink-web#350).
 
 Command buttons may show a short visible label ("Live map") when their accessible name is longer ("Show 3 units on live map"); the visible label appears inside the name (2.5.3).
 
 - The bar is a `role="group"` with an `aria-label`, not a `role="toolbar"` unless Arrow-key navigation is built across all its controls (4.1.2).
 - The select-all checkbox, the Clear selection button and the search field are tab stops of their own; the search field stays outside any toolbar because Left and Right Arrow edit its text.
-- A list with nothing to filter, sort or switch (one or two records, such as a contract's invoices) hides its command bar; its item actions stay.
+- A list with nothing to filter, sort or switch (one or two records, such as a contract's invoices) hides its command bar; its item actions stay. A server-paged list keeps its bar whatever its count, because its filters and pages reach past the rows shown (review of treklink-web#350).
 - At phone width the bar stays one row (§10.5).
 
 ### 9.4 Selection
@@ -81,7 +81,7 @@ A state-machine transition (Active to Inactive, In Field to Return Due) is chose
 3. Destructive transitions come last, after a separator, named as verbs ("Retire device").
 4. Menu keyboard: Enter, Space or Down Arrow opens and focuses the first item; Up and Down Arrow move; Home and End jump; Escape closes and returns focus to the menu button.
 5. Choosing a transition opens a confirmation dialog (§8.1): the title names the object and the change ("Mark TL-0042 inactive?"), the confirm button repeats the verb, and initial focus is on Cancel for a destructive transition. On close, focus returns to the menu button, or to the next item if the item has left the result set.
-6. In the bulk commands, the transition menu lists only transitions allowed for every selected item.
+6. In the bulk commands, the transition menu lists only transitions allowed for every selected item. A page offers transitions in bulk only when its handler applies them to every selected item (`bulkTransitions`); otherwise Change status stays on each item, and transitions alone do not make a list selectable (review of treklink-web#350).
 
 ### 9.7 Accessibility contract
 

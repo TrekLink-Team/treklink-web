@@ -120,3 +120,9 @@ Added by KhoaDD. The monthly price history and the damage rates of `/t/admin/pri
 `CollectionView` (chapter 06 §9), filtering the rows already loaded as before: the price state and the
 rate's active flag are the Show filters, and the variant select folds into the search (code, label or
 variant). Edit is an item action named after the damage code ("Edit CASING_CRACKED").
+
+
+## Price history variant filter (review of treklink-web#350, 2026-11-04)
+
+Added by KhoaDD. The variant select of the price history returns as a filter group of its Show dropdown
+("Variant: treklink-v3"), combined with the state.
