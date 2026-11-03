@@ -59,7 +59,7 @@ What the libraries ship and do, from the source (`packages/sdk/src`, `packages/t
 
 | Item | Finding |
 |---|---|
-| Files installed | `dist/` bundles only; no install scripts in the published manifests (`preinstall` runs `only-allow pnpm` in the workspace, not in the package) |
+| Files installed | `dist/` bundles only. Corrected 2026-11-03 (task 7.2): both published manifests do carry `"preinstall": "npx only-allow pnpm"`, and npm 10.9.9 runs it on `npm ci` (seen with `--foreground-scripts`); it fetches `only-allow` from the registry at install time, unpinned, and exited 0 in this repository. See §3.6 |
 | Hooks, prompt injection | Not applicable (a runtime library) |
 | Network | None: no `fetch`, `XMLHttpRequest`, `WebSocket` or `sendBeacon` in the source |
 | Persistence | None in `sdk` or the transport; `localStorage` is only read for a `mesh-debug` flag (`core/logging/logger.ts`) |
@@ -139,6 +139,22 @@ the firmware's generated headers (`src/mesh/generated/meshtastic/*.pb.h`, design
 unit we flash. `@bufbuild/protobuf/wire` (`BinaryReader`, `BinaryWriter`) would replace the hand-written
 varint code with a maintained, permissively licensed one, at the cost of one more dependency; the subset
 is small enough that zero dependencies is the simpler choice.
+
+### 3.6 Findings at adoption (task 7.2, 2026-11-03)
+
+Read from the installed `node_modules/@meshtastic/core/dist/mod.js` and `transport-web-serial/dist/mod.js`,
+and checked with a Vite build loaded in Chromium 1243 and with the adapter's tests against a fake port. No
+hardware was used.
+
+| Finding | Handling in `shared/lib/meshtastic-dock.ts` and `vite.config.ts` |
+|---|---|
+| The npm `core` bundles tslog's Node runtime: it imports `hostname` from `os`, `normalize` from `path`, `formatWithOptions` and `types` from `util`, and reads `process?.version` when the module loads. A Vite browser build fails ("hostname" is not exported by the browser stub), and `process?.version` would throw in a browser | A Vite plugin scoped to `@meshtastic/core` stubs the three built-ins and rewrites that one expression; the adapter sets the logger's `minLevel` to 7, so the stubs are never called. With it, both packages load in Chromium as one lazy chunk |
+| `core`'s type declarations import `@meshtastic/protobufs`, `tslog` and `ste-simple-events`, which are bundled and not installed, so the message types resolve to `any` under `skipLibCheck` | The adapter declares the few message shapes it reads and writes |
+| `TransportWebSerial.disconnect()` cannot release the port's readable lock (the device keeps the stream piped), so a real `SerialPort.close()` fails and the port stays open | The adapter reads and writes the port itself and hands the transport a proxy port, so close always lets the port go |
+| The device pipes the transport's stream without a rejection handler; a port that errors (a native USB unit dropping on restart) becomes an uncaught rejection | The proxy ends the stream on a failed read and reports the loss itself |
+| `beginEditSettings` is private; `setConfig` opens a transaction itself but `setOwner`, `setChannel` and `setModuleConfig` do not | The adapter opens the transaction explicitly before every write sequence |
+| A `want_config_id` request resolves only on the library queue's 60 s timeout | The adapter waits for the configured status with its own timeout |
+| `fromDeviceStream` prints the bytes before a stray `0x94 0xC3` inside a frame with `console.warn`; a 32-byte PSK holds that pair with a probability of about 31 in 65 536 per frame | Not handled: a residual risk to REQ-UBI-05, recorded here |
 
 ## 4. Decision (leader approval gate)
 

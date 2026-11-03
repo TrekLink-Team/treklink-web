@@ -1,11 +1,46 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+const NODE_SHIM = '\0meshtastic-node-shim';
+
+// `@meshtastic/core` 2.6.7 on npm bundles tslog's Node runtime: it imports `os`, `path` and `util` and
+// reads `process?.version` when the module loads, which fails the browser build ("hostname" is not
+// exported by the browser stub) and would throw in the browser. The docking adapter silences the
+// logger, so these stubs are never called; they only let the module load (devices design section 8.1,
+// vetting record meshtastic-web-serial.md). Scoped to that one package.
+const meshtasticBrowserShim = (): Plugin => ({
+  name: 'meshtastic-browser-shim',
+  enforce: 'pre',
+  resolveId(id, importer) {
+    if (importer?.includes('/@meshtastic/core/') && ['os', 'path', 'util'].includes(id)) {
+      return NODE_SHIM;
+    }
+    return null;
+  },
+  load(id) {
+    if (id !== NODE_SHIM) return null;
+    return [
+      'export const hostname = undefined;',
+      'export const normalize = (value) => value;',
+      'export const formatWithOptions = (_options, ...args) => args.map(String).join(" ");',
+      'export const types = undefined;',
+    ].join('\n');
+  },
+  transform(code, id) {
+    if (!id.includes('/@meshtastic/core/dist/mod.js')) return null;
+    return { code: code.replace('runtimeVersion: process?.version,', 'runtimeVersion: undefined,'), map: null };
+  },
+});
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), meshtasticBrowserShim()],
+  // Served through the plugin above in `vite dev` too, instead of the esbuild pre-bundle.
+  optimizeDeps: {
+    exclude: ['@meshtastic/core', '@meshtastic/transport-web-serial'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
