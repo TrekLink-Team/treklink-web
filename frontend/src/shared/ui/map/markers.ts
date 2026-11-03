@@ -4,7 +4,8 @@ import { MARKER_LABEL, type MarkerState } from '../status';
 // Live device markers of the TrekLink System (DS-12, convention 06 §4 Pattern B). Shape carries the
 // state as well as colour: a circle when live, a dashed circle when offline (with the last-seen time
 // beside it), a pin with the chip "Not heard since handover" for a unit not heard since its handover
-// (D-092 rule 2), a pulsing diamond for SOS. Markers keep their colours in both themes because the
+// (D-092 rule 2), a double-bordered pin with "Docked at the counter" for a unit the Staff browser holds
+// (devices design section 11.8), a pulsing diamond for SOS. Markers keep their colours in both themes because the
 // basemap tiles are light in both.
 
 export interface MarkerOptions {
@@ -40,8 +41,8 @@ export const markerElement = (options: MarkerOptions): HTMLElement => {
       ? options.lastSeen
       : options.state === 'sos' && options.showChip !== false
         ? `SOS · ${options.label.split(',')[0]}`
-        : options.state === 'unheard' && options.showChip !== false
-          ? MARKER_LABEL.unheard
+        : (options.state === 'unheard' || options.state === 'docked') && options.showChip !== false
+          ? MARKER_LABEL[options.state]
           : null;
   if (chip) {
     const text = document.createElement('span');
@@ -93,6 +94,10 @@ export const markerIcon = (options: MarkerOptions): L.DivIcon => {
     html: body,
     className: 'tl-marker-hit',
     iconSize: [MARKER_TARGET_PX, MARKER_TARGET_PX],
-    iconAnchor: [centre, options.state === 'unheard' ? centre + PIN_POINT_PX : centre],
+    // The docked pin (devices design section 11.8) is drawn as the unheard pin, so it shares its anchor.
+    iconAnchor: [
+      centre,
+      options.state === 'unheard' || options.state === 'docked' ? centre + PIN_POINT_PX : centre,
+    ],
   });
 };

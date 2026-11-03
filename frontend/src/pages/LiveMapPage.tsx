@@ -132,8 +132,10 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
       .join(', '),
     status: sosOf(device)
       ? 'incident'
-      : state === 'NOT_HEARD' || state === 'DOCKED' || device.docked
-        ? 'unheard'
+      : state === 'DOCKED' || device.docked
+        ? 'docked'
+        : state === 'NOT_HEARD'
+          ? 'unheard'
         : state === 'OFFLINE'
           ? 'stale'
           : 'ok',
@@ -323,7 +325,12 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
           />
           <MapLegend
             className="absolute bottom-3 left-3 z-[500]"
-            states={['fresh', 'stale', 'unheard', 'sos']}
+            // The Staff map also shows units docked at the counter (devices design section 11.8).
+            states={
+              scope === 't'
+                ? ['fresh', 'stale', 'unheard', 'docked', 'sos']
+                : ['fresh', 'stale', 'unheard', 'sos']
+            }
           />
         </div>
         <aside

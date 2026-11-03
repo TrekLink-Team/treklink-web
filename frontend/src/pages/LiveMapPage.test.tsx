@@ -380,6 +380,57 @@ describe('LiveMapPage (screen 9.1)', () => {
     });
   });
 
+  const DOCK_COUNTER = { name: 'TrekLink counter', lat: 11.56, lon: 108.54 };
+
+  it('pins a docked unit at the counter on the Staff map, reachable from the list (devices design 11.8)', async () => {
+    snapshot.devices = [
+      device(),
+      device({
+        id: 'd-51',
+        assetTag: 'TL-0051',
+        holder: null,
+        position: null,
+        lastSeenAt: null,
+        state: 'DOCKED',
+        handedOverAt: null,
+        contractCode: 'RC-2026-0042',
+        counterLocation: DOCK_COUNTER,
+        docked: { since: '2026-11-04T03:00:00.000Z', byName: 'Tran Thi B' },
+      }),
+    ];
+    show('t');
+    expect(await marker('TL-0051, No holder')).toBeTruthy();
+    expect(document.querySelectorAll('.leaflet-marker-icon .tl-marker--docked')).toHaveLength(1);
+    expect(screen.getAllByText('Docked at the counter', { selector: '.tl-marker-label' })).toHaveLength(1);
+    const row = panel().getByRole('button', { name: /TL-0051/ }) as HTMLButtonElement;
+    expect(row.disabled).toBe(false);
+    expect(within(row).getByText('Docked')).toBeTruthy();
+    expect(within(row).getByText('Docked at the counter, Tran Thi B')).toBeTruthy();
+    row.focus();
+    expect(document.activeElement).toBe(row);
+    fireEvent.click(row);
+    await waitFor(() =>
+      expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain(
+        'Docked at the counter: TrekLink counter',
+      ),
+    );
+    const legend = within(screen.getByRole('region', { name: 'Map legend' }));
+    expect(legend.getByText('Docked at the counter')).toBeTruthy();
+  });
+
+  it('drops the counter pin when the unit is undocked', async () => {
+    snapshot.devices = [
+      device({ id: 'd-51', assetTag: 'TL-0051', holder: null, position: null, lastSeenAt: null, state: 'DOCKED', handedOverAt: null, counterLocation: DOCK_COUNTER, docked: { since: '2026-11-04T03:00:00.000Z', byName: null } }),
+    ];
+    show('t');
+    expect(await marker('TL-0051, No holder')).toBeTruthy();
+    feed({ seq: 101, type: 'device.undocked', deviceId: 'd-51', payload: { endReason: 'RELEASED' } });
+    await waitFor(() =>
+      expect(document.querySelectorAll('.leaflet-marker-icon .tl-marker--docked')).toHaveLength(0),
+    );
+    expect(panel().queryByRole('button', { name: /TL-0051/ })).toBeNull();
+  });
+
   it('searches the list and centres the map on a chosen row', async () => {
     snapshot.devices = [
       device(),
