@@ -147,10 +147,9 @@ resolve stay on the detail page, where the owner rule and the deadline are shown
 ## Queue on CollectionView (D-096, 2026-11-04)
 
 Added by KhoaDD. `/o/incidents` renders through `CollectionView` (chapter 06 §9). The state select and the
-"Open incidents only" checkbox become one Show filter: Open incidents (the default, `open=true`), All
-incidents, or one state (`state`). Rows keep the server order; nothing sorts. The details pane links to
+"Open incidents only" checkbox are both in the Show dropdown, where they combine (see Queue filters
+below). Rows keep the server order; nothing sorts. The details pane links to
 the incident page. Endpoints and messages are unchanged.
-
 
 ## Queue filters (review of treklink-web#350, 2026-11-04)
 

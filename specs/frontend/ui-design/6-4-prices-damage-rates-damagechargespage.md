@@ -118,9 +118,8 @@ selection or Decide, as before.
 
 Added by KhoaDD. The monthly price history and the damage rates of `/t/admin/prices` render through
 `CollectionView` (chapter 06 §9), filtering the rows already loaded as before: the price state and the
-rate's active flag are the Show filters, and the variant select folds into the search (code, label or
-variant). Edit is an item action named after the damage code ("Edit CASING_CRACKED").
-
+rate's active flag are the Show filters, the search reads code, label or variant, and the price history's
+variant select is a filter group of Show (see Price history variant filter below). Edit is an item action named after the damage code ("Edit CASING_CRACKED").
 
 ## Price history variant filter (review of treklink-web#350, 2026-11-04)
 
