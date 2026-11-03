@@ -834,6 +834,7 @@ sequenceDiagram
     participant K as :ChannelKeyService
     participant D as :DevicesService
     participant R as :DevicesRepository
+    participant DB as Postgres
     St->>P: press Dock and provision on TL-0042
     P->>+DS: readUnit()
     DS->>+U: ToRadio want_config_id 69420
@@ -844,6 +845,8 @@ sequenceDiagram
         C->>+H: issueChannelKey(id, deviceId, dto, actor)
         H->>+D: byNodeNum(nodeNum)
         D->>+R: findByNodeNum(nodeNum)
+        R->>+DB: SELECT devices WHERE node_num
+        DB-->>-R: device row
         R-->>-D: DeviceIdentity
         D-->>-H: DeviceIdentity (matches deviceId)
         H->>+K: deriveKey(organizationId, channelKeyVersion)
@@ -859,19 +862,18 @@ sequenceDiagram
         DS->>+U: ToRadio want_config_id 69420
         U-->>-DS: owner and channel 0 read back
         DS-->>-P: ReadBack(match), key dropped
-        alt read-back matches the written owner and key
-            P->>+C: POST /api/contracts/{id}/devices/{deviceId}/provisioning<br/>{ keyVersion, nodeNum }
-            C->>+H: provision(id, deviceId, dto, actor)
-            H->>+D: recordProvisioning(deviceId, organizationId, keyVersion, actor, tx)
-            D->>+R: recordProvisioning(provisioning, at, tx)
-            R-->>-D: device with keyVersion
-            D-->>-H: provisioned, key version only
-            H-->>-C: ContractDeviceDto
-            C-->>-P: 201 envelope
-            P-->>St: row shows Provisioned v n
-        else read-back differs or the unit stopped answering
-            P-->>St: Writing to TL-0042 did not complete. Nothing was recorded. Dock the unit again.
-        end
+        Note over P: a read-back that differs records nothing<br/>and asks Staff to dock again (REQ-ERR-13)
+        P->>+C: POST /api/contracts/{id}/devices/{deviceId}/provisioning<br/>{ keyVersion, nodeNum }
+        C->>+H: provision(id, deviceId, dto, actor)
+        H->>+D: recordProvisioning(deviceId, organizationId, keyVersion, actor, tx)
+        D->>+R: recordProvisioning(provisioning, at, tx)
+        R->>+DB: UPDATE devices, INSERT device_provisionings
+        DB-->>-R: updated row
+        R-->>-D: device with keyVersion
+        D-->>-H: provisioned, key version only
+        H-->>-C: ContractDeviceDto
+        C-->>-P: 201 envelope
+        P-->>St: row shows Provisioned v n
     else docked nodeNum differs
         P-->>St: The docked unit is !a4b1c2d4, not TL-0042. Nothing was written.
     end
