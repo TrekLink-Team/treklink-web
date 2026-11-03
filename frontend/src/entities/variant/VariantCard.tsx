@@ -29,6 +29,7 @@ export const VariantCard: React.FC<Props> = ({
   const showImage = variant.imageUrl !== null && failed !== variant.imageUrl;
   const lines = specLines(variant.specSheet);
   const capabilities = capabilityText(variant);
+  const baseline = variant.firmwareBaseline?.trim() || null;
   const Heading = headingLevel;
   return (
     <div className={cn('flex min-w-0 gap-3', className)}>
@@ -49,7 +50,7 @@ export const VariantCard: React.FC<Props> = ({
         <Heading id={headingId} className="text-body font-semibold text-ink">
           {variant.name}
         </Heading>
-        {(lines.length > 0 || capabilities !== null) && (
+        {(lines.length > 0 || capabilities !== null || baseline !== null) && (
           <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-body-sm">
             {lines.map((line) => (
               <React.Fragment key={line.key}>
@@ -61,6 +62,12 @@ export const VariantCard: React.FC<Props> = ({
               <>
                 <dt className="text-ink-muted">Capabilities</dt>
                 <dd className="text-ink">{capabilities}</dd>
+              </>
+            )}
+            {baseline !== null && (
+              <>
+                <dt className="text-ink-muted">Firmware baseline</dt>
+                <dd className="text-ink">{baseline}</dd>
               </>
             )}
           </dl>

@@ -27,6 +27,7 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
         hasGps: true,
         hasMotionSensor: true,
         mqttCapable: true,
+        firmwareBaseline: true,
         isActive: true,
       },
     });

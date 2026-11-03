@@ -54,7 +54,8 @@ No body.
           },
           "hasGps": true,
           "hasMotionSensor": false,
-          "mqttCapable": true
+          "mqttCapable": true,
+          "firmwareBaseline": "2.7.19-treklink.3"
         },
         "firmwareVersion": "2.7.19-treklink.3",
         "acquiredAt": "2026-06-15T00:00:00Z",
@@ -86,7 +87,7 @@ No body.
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| hardwareVariant | The shared variant summary of design section 10 (`id`, `code`, `name`, `imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`), the same shape on every unit payload, so the variant card needs no second read and an Org Operator, who cannot read api-design 01, still sees it | object | `{"id": "...", "code": "treklink-v3", ...}` |
+| hardwareVariant | The shared variant summary of design section 10 (`id`, `code`, `name`, `imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`, `firmwareBaseline`), the same shape on every unit payload, so the variant card needs no second read and an Org Operator, who cannot read api-design 01, still sees it | object | `{"id": "...", "code": "treklink-v3", ...}` |
 
 ## Validation
 

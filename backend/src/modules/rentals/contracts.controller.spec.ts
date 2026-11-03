@@ -205,6 +205,7 @@ describe('ContractsController (rentals api-design 01)', () => {
           hasGps: true,
           hasMotionSensor: false,
           mqttCapable: true,
+          firmwareBaseline: '2.7.19-treklink.3',
           isActive: true,
         },
         assetTags: new Map([
@@ -244,6 +245,7 @@ describe('ContractsController (rentals api-design 01)', () => {
           hasGps: true,
           hasMotionSensor: false,
           mqttCapable: true,
+          firmwareBaseline: '2.7.19-treklink.3',
         },
         resetAt,
         inspection: { result: 'PASSED', at: resetAt },

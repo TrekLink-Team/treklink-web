@@ -39,6 +39,7 @@ export const toDeviceView = (row: DeviceListRow) => ({
     hasGps: row.hardwareVariant.hasGps,
     hasMotionSensor: row.hardwareVariant.hasMotionSensor,
     mqttCapable: row.hardwareVariant.mqttCapable,
+    firmwareBaseline: row.hardwareVariant.firmwareBaseline,
   },
   firmwareVersion: row.firmwareVersion,
   acquiredAt: row.acquiredAt,

@@ -48,6 +48,7 @@ No body.
         "hasGps": true,
         "hasMotionSensor": false,
         "mqttCapable": true,
+        "firmwareBaseline": "2.7.19-treklink.3",
         "monthlyPriceVnd": 450000,
         "dayPriceVnd": 22500
       }
@@ -65,6 +66,7 @@ No body.
 | variants[].hasGps | Capability flags as text on the variant card (GPS, motion sensor, MQTT); the same names and values as devices api-design 01, display only | bool | `true` |
 | variants[].hasMotionSensor | See `hasGps` | bool | `false` |
 | variants[].mqttCapable | See `hasGps` | bool | `true` |
+| variants[].firmwareBaseline | The firmware the variant ships with, shown on the variant card as the firmware baseline (design section 10) | string | `2.7.19-treklink.3` |
 
 ## Validation
 

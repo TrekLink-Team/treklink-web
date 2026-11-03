@@ -109,7 +109,7 @@ ENDPOINTS = [
                 "next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload", "datetime",
                 "`2026-10-30T03:05:00.000Z`"],
                ["devices[].hardwareVariant", "The shared variant summary of devices design section 10 (`id`, `code`, `name`, "
-                "`imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`), the variant of the contract, "
+                "`imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`, `firmwareBaseline`), the variant of the contract, "
                 "for the device reference and variant card of the Devices tab; absent on the holder answer (api-design 20)", "object",
                 "`{\"id\": \"...\", \"code\": \"treklink-v3\", ...}`"],
                ["devices[].contractDeviceId", "This row on the contract; a service credit is requested against it "

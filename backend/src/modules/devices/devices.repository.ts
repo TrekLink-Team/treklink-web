@@ -723,6 +723,7 @@ export const VARIANT_SUMMARY_SELECT = {
   hasGps: true,
   hasMotionSensor: true,
   mqttCapable: true,
+  firmwareBaseline: true,
 } satisfies Prisma.HardwareVariantSelect;
 
 export const LIST_SELECT = {
@@ -751,7 +752,6 @@ export const DETAIL_SELECT = {
   hardwareVariant: {
     select: {
       ...VARIANT_SUMMARY_SELECT,
-      firmwareBaseline: true,
       serviceIntervalDays: true,
     },
   },
@@ -832,5 +832,6 @@ export interface VariantSummary {
   hasGps: boolean;
   hasMotionSensor: boolean;
   mqttCapable: boolean;
+  firmwareBaseline: string;
   isActive: boolean;
 }

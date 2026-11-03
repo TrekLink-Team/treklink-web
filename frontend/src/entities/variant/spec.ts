@@ -38,6 +38,7 @@ export interface VariantMedia {
   hasGps?: boolean;
   hasMotionSensor?: boolean;
   mqttCapable?: boolean;
+  firmwareBaseline?: string;
 }
 
 // The capability flags as text (design section 10), or null when the read carries none of them. The

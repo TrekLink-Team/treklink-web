@@ -1121,4 +1121,6 @@ shows, besides the spec sheet, the capability flags as text (GPS, motion sensor,
 baseline. Devices api-design 01 returns both fields to Staff, Admin and the Org Manager. Unit payloads carry
 only `hardwareVariant {id, code}` today and the Org Operator cannot read api-design 01, so task 9.1 widens the
 variant summary of every unit payload (devices 05 to 07, rentals 03 `devices[]`, the monitoring console rows)
-to `{id, code, name, imageUrl, specSheet, hasGps, hasMotionSensor, mqttCapable}`, one shared shape (E-1).
+to `{id, code, name, imageUrl, specSheet, hasGps, hasMotionSensor, mqttCapable, firmwareBaseline}`, one shared
+shape (E-1); the card shows `firmwareBaseline` as "Firmware baseline" (leader ruling 2026-11-03). The monitoring rows keep their
+variant code string until W10: the live map and the organization API read it.

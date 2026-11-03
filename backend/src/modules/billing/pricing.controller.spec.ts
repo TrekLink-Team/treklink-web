@@ -18,6 +18,7 @@ const V3 = {
   hasGps: true,
   hasMotionSensor: false,
   mqttCapable: true,
+  firmwareBaseline: '2.7.19-treklink.3',
   isActive: true,
 };
 
@@ -66,6 +67,7 @@ describe('PricingController (billing api-design 01 and 02)', () => {
           hasGps: true,
           hasMotionSensor: false,
           mqttCapable: true,
+          firmwareBaseline: '2.7.19-treklink.3',
           monthlyPriceVnd: 450_000,
           dayPriceVnd: 22_500,
         },

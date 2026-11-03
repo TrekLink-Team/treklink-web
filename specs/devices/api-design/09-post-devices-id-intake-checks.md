@@ -70,7 +70,8 @@ Records the GPS fix, radio, battery and, where the variant has one, motion-senso
         },
         "hasGps": true,
         "hasMotionSensor": false,
-        "mqttCapable": true
+        "mqttCapable": true,
+        "firmwareBaseline": "2.7.19-treklink.3"
       },
       "firmwareVersion": "2.7.19-treklink.3",
       "acquiredAt": "2026-06-15T00:00:00Z",

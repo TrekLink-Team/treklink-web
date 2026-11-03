@@ -129,7 +129,7 @@ ENDPOINTS = [
               ["hardwareVariantId", "Variant", "uuid", "no", f"`{VARIANT_ID}`"],
               ["q", "Asset tag contains", "string", "no", "`TL-00`"]] + PAGE_QUERY,
        fields=[["hardwareVariant", "The shared variant summary of design section 10 (`id`, `code`, `name`, `imageUrl`, "
-                "`specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`), the same shape on every unit payload, so the "
+                "`specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`, `firmwareBaseline`), the same shape on every unit payload, so the "
                 "variant card needs no second read and an Org Operator, who cannot read api-design 01, still sees it", "object",
                 "`{\"id\": \"...\", \"code\": \"treklink-v3\", ...}`"]],
        response=paged(DEVICE, 40), steps=["Read devices"],

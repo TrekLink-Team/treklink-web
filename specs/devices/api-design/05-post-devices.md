@@ -58,7 +58,8 @@ Registers a physical unit with its printed asset tag and its radio `nodeNum`, bo
       },
       "hasGps": true,
       "hasMotionSensor": false,
-      "mqttCapable": true
+      "mqttCapable": true,
+      "firmwareBaseline": "2.7.19-treklink.3"
     },
     "firmwareVersion": "2.7.19-treklink.3",
     "acquiredAt": "2026-06-15T00:00:00Z",

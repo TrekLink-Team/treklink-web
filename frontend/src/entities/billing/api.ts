@@ -15,6 +15,7 @@ export interface PlanVariant {
   hasGps: boolean;
   hasMotionSensor: boolean;
   mqttCapable: boolean;
+  firmwareBaseline: string;
   monthlyPriceVnd: number;
   dayPriceVnd: number;
 }
