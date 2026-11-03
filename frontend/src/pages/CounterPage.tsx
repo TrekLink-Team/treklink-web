@@ -21,6 +21,12 @@ import { organizationKeys, useMembers, useOrganization } from '../entities/organ
 import type { DockStage } from '../features/device-connector/actions/DockingService';
 import { handoverDockMessage } from '../features/device-connector/actions/messages';
 import { useDocking } from '../features/device-connector/actions/useDocking';
+import {
+  useConnector,
+  useConnectorContext,
+  type ConnectorContext,
+  type CounterRow,
+} from '../features/device-connector';
 import { ApiError } from '../shared/api/apiClient';
 import { toNodeId } from '../shared/lib/meshtastic-dock';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
@@ -245,6 +251,7 @@ export const CounterPage: React.FC<{
   const firstInvoice = useInvoice(firstInvoiceId);
   const variantName = useVariantName();
   const docking = useDocking();
+  const { registry } = useConnector();
 
   const [today] = useState(() => new Date(Date.now() + ZONE_OFFSET_MS).toISOString().slice(0, 10));
   const [step, setStep] = useState(0);
@@ -263,6 +270,12 @@ export const CounterPage: React.FC<{
   const [bulkGps, setBulkGps] = useState<'' | 'ok' | 'none'>('');
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [swapping, setSwapping] = useState<ContractDevice | null>(null);
+  // The quick swap a wrong-unit refusal offers per row: the connector's connection of the docked unit
+  // (devices REQ-EVT-35, design section 11.6).
+  const [offers, setOffers] = useState<Record<string, number>>({});
+  const [quickSwap, setQuickSwap] = useState<{ device: ContractDevice; connectionId: number } | null>(
+    null,
+  );
   const [scan, setScan] = useState('');
   const [scanned, setScanned] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -312,6 +325,44 @@ export const CounterPage: React.FC<{
 
   useEffect(() => heading.current?.focus(), [step]);
 
+  // The counter context of the device connector (devices design section 11.3): the contract and its
+  // reserved rows, and the counter's own provisioning and quick swap, so a row in the connector panel runs
+  // the flow of the counter row. The handlers are read through a ref so the context stays stable.
+  const connectorHandlers = useRef<{
+    provision: (connectionId: number, row: CounterRow) => Promise<void>;
+    swapIn: (connectionId: number, row: CounterRow) => Promise<void>;
+  } | null>(null);
+  const channelKeyVersion = organization.data?.channelKeyVersion ?? null;
+  const connectorContext = useMemo<ConnectorContext | null>(() => {
+    const current = contract.data;
+    if (!current || current.status !== 'APPROVED') return null;
+    return {
+      kind: 'counter',
+      contractId: current.id,
+      contractCode: current.code,
+      status: current.status,
+      variantCode: current.hardwareVariant.code ?? '',
+      version: current.version,
+      keyVersion: channelKeyVersion,
+      rows: current.devices
+        .filter((device) => !device.lostAt)
+        .map((device) => ({
+          deviceId: device.deviceId,
+          assetTag: device.assetTag ?? device.deviceId,
+          nodeNum: device.nodeNum ?? null,
+          provisionedKeyVersion:
+            device.deviceId in provisioned
+              ? provisioned[device.deviceId]
+              : (device.provisionedKeyVersion ?? null),
+        })),
+      provision: (connectionId, row) =>
+        connectorHandlers.current?.provision(connectionId, row) ?? Promise.resolve(),
+      swapIn: (connectionId, row) =>
+        connectorHandlers.current?.swapIn(connectionId, row) ?? Promise.resolve(),
+    };
+  }, [contract.data, channelKeyVersion, provisioned]);
+  useConnectorContext(connectorContext);
+
   if (contract.isLoading) return <Loading label="Loading contract" />;
   if (contract.error || !contract.data) {
     return <ErrorState error={contract.error} onRetry={() => void contract.refetch()} />;
@@ -336,6 +387,97 @@ export const CounterPage: React.FC<{
       else delete next[deviceId];
       return next;
     });
+
+  const setOffer = (deviceId: string, connectionId: number | null) =>
+    setOffers((current) => {
+      const next = { ...current };
+      if (connectionId === null) delete next[deviceId];
+      else next[deviceId] = connectionId;
+      return next;
+    });
+
+  // After a wrong-unit refusal (REQ-ERR-12): offer the quick swap when the docked unit is an AVAILABLE
+  // unit of the contract's variant and the row carries no provisioning record (REQ-EVT-35); otherwise
+  // the reason why it does not qualify (REQ-ERR-20, REQ-ERR-21, REQ-ERR-23, REQ-ERR-24).
+  const swapOfferFor = (device: ContractDevice, connectionId: number | undefined): string | null => {
+    const docked = connectionId === undefined ? undefined : registry.get(connectionId);
+    const unit = docked?.recognized?.device;
+    if (!docked || !unit) return null;
+    const contractOf = docked.recognized?.contract;
+    if (unit.status === 'RENTED' && contractOf) {
+      return `${unit.assetTag} is rented on ${contractOf.code}. Check it in at the return counter.`;
+    }
+    if (unit.status !== 'AVAILABLE' || contractOf) {
+      return contractOf
+        ? `${unit.assetTag} is reserved to ${contractOf.code}.`
+        : `${unit.assetTag} is not available.`;
+    }
+    if (unit.hardwareVariant.code !== data.hardwareVariant.code) {
+      return `${unit.assetTag} is ${unit.hardwareVariant.code}; ${data.code} rents ${data.hardwareVariant.code ?? 'another variant'}.`;
+    }
+    if (versionOf(device) !== undefined) {
+      return `${tagOf(device)} is provisioned. Only units not provisioned can be swapped out.`;
+    }
+    setOffer(device.deviceId, docked.id);
+    return null;
+  };
+
+  // The quick swap with hot provisioning (devices design sections 11.6 and 11.7): rentals api-design 30,
+  // then the docked unit written and read back on the port the connector holds, then the record. A
+  // failure after the exchange leaves it in place and the new row asks to dock again (REQ-ERR-19).
+  const swapIn = async (device: ContractDevice, connectionId: number) => {
+    setQuickSwap(null);
+    setOffer(device.deviceId, null);
+    setRowError(device.deviceId, null);
+    const result = await docking.exchangeAndProvision(connectionId, {
+      contractId: data.id,
+      deviceId: device.deviceId,
+      expectedVersion: contractVersion,
+    });
+    if (result.ok) {
+      setUndoneVersion(result.contractVersion);
+      try {
+        const recorded = await recordProvisioning(
+          data.id,
+          result.reserved.deviceId,
+          result.keyVersion,
+          result.nodeNum,
+        );
+        setProvisioned((current) => ({ ...current, [result.reserved.deviceId]: recorded.keyVersion }));
+        showToast(`${result.reserved.assetTag} replaces ${tagOf(device)} on ${data.code}.`);
+      } catch (failure) {
+        setRowError(result.reserved.deviceId, messageOf(failure));
+      }
+      await refreshContract();
+      return;
+    }
+    if (result.exchanged) {
+      setUndoneVersion(result.exchanged.contractVersion);
+      await refreshContract();
+      const message = handoverDockMessage(result, result.exchanged.assetTag);
+      if (message) setRowError(result.exchanged.deviceId, message);
+      return;
+    }
+    if (result.failure === 'api') {
+      await refreshContract();
+    }
+    const message = handoverDockMessage(result, tagOf(device));
+    if (message) setRowError(device.deviceId, message);
+  };
+
+  // The connector calls these from a click only, never during a render; the page has returned early above
+  // for loading, so an effect cannot be declared here.
+  // eslint-disable-next-line react-hooks/refs
+  connectorHandlers.current = {
+    provision: async (connectionId, row) => {
+      const device = devices.find((candidate) => candidate.deviceId === row.deviceId);
+      if (device) await dockOne(device, connectionId);
+    },
+    swapIn: async (connectionId, row) => {
+      const device = devices.find((candidate) => candidate.deviceId === row.deviceId);
+      if (device) await swapIn(device, connectionId);
+    },
+  };
 
   const checkOf = (deviceId: string): Check => checks[deviceId] ?? { battery: '', gpsFixOk: false };
 
@@ -399,17 +541,22 @@ export const CounterPage: React.FC<{
 
   // Dock and provision (screen 5.4, devices design 8.4): the docking writes and reads back the unit,
   // then the record follows. A failed docking records nothing and names the failed step.
-  const dockOne = async (device: ContractDevice) => {
+  const dockOne = async (device: ContractDevice, connectionId?: number) => {
     setRowError(device.deviceId, null);
-    const docked = await docking.dockAndProvision({
+    setOffer(device.deviceId, null);
+    const docked = await docking.dockAndProvision(
+      {
       contractId: data.id,
       deviceId: device.deviceId,
       assetTag: tagOf(device),
       nodeNum: device.nodeNum,
-    });
+      },
+      connectionId,
+    );
     if (!docked.ok) {
       const message = handoverDockMessage(docked, tagOf(device));
-      if (message) setRowError(device.deviceId, message);
+      const why = docked.failure === 'mismatch' ? swapOfferFor(device, docked.connectionId) : null;
+      if (message) setRowError(device.deviceId, why ? `${message} ${why}` : message);
       return;
     }
     setBusyRow(device.deviceId);
@@ -1041,6 +1188,19 @@ export const CounterPage: React.FC<{
                           {error}
                         </p>
                       )}
+                    {offers[device.deviceId] !== undefined && (
+                      <button
+                        type="button"
+                        className={`${PRIMARY_BUTTON} mt-2`}
+                        disabled={docking.busy || busyRow !== null || bulkRunning}
+                        onClick={() =>
+                          setQuickSwap({ device, connectionId: offers[device.deviceId] })
+                        }
+                      >
+                        Put {registry.get(offers[device.deviceId])?.recognized?.device?.assetTag ?? 'the docked unit'} in
+                        place of {tagOf(device)}
+                      </button>
+                    )}
                     </li>
                   );
                 })}
@@ -1257,6 +1417,17 @@ export const CounterPage: React.FC<{
             setUndoing(null);
             setStale(true);
           }}
+        />
+      )}
+      {quickSwap && (
+        <ConfirmDialog
+          titleId="quick-swap-title"
+          title={`Put ${registry.get(quickSwap.connectionId)?.recognized?.device?.assetTag ?? 'the docked unit'} on ${data.code}?`}
+          description={`${tagOf(quickSwap.device)} goes back to Available. ${registry.get(quickSwap.connectionId)?.recognized?.device?.assetTag ?? 'The docked unit'} is reserved and provisioned now. Price and quantity do not change.`}
+          confirmLabel="Swap and provision"
+          cancelLabel="Cancel"
+          onConfirm={() => void swapIn(quickSwap.device, quickSwap.connectionId)}
+          onCancel={() => setQuickSwap(null)}
         />
       )}
       {swapping && (
