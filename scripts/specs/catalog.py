@@ -37,6 +37,7 @@ PARAMETERS = {
         ("auth.invitationTtlHours", 72, "INT", {"min": 1, "max": 336}, "hours", "Lifetime of an invitation (set-password) code", "FR-ORG-04"),
         ("auth.codeMaxAttempts", 5, "INT", {"min": 1, "max": 10}, "attempts", "Wrong entries before a code is spent", "FR-AUTH-05"),
         ("auth.codeResendCooldownSeconds", 60, "DURATION_SECONDS", {"min": 10, "max": 600}, "seconds", "Minimum wait before another code is sent", "FR-AUTH-05"),
+        ("auth.permissionCacheTtlSeconds", 30, "INT", {"min": 5, "max": 300}, "seconds", "Longest an entry of the permission cache is served without a new read, so a change made on another instance applies within it", "REQ-EVT-08"),
     ],
     "organizations": [
         ("organizations.maxApiKeys", 5, "INT", {"min": 1, "max": 50}, "keys", "Active API keys per organization", "FR-ORG-06"),
@@ -133,6 +134,7 @@ PERMISSIONS = [
     # auth
     ("account.manage", "manage", "Account", None, ["ADMIN"]),
     ("role.manage", "manage", "Role", None, ["ADMIN"]),
+    ("organizationRole.read", "read", "OrganizationRole", None, ["STAFF"]),  # D-095: an organization's role policy, read-only
     ("authEvent.read", "read", "AuthEvent", None, ["ADMIN"]),
     ("account.triggerReset", "triggerReset", "Account", None, ["STAFF"]),
     # organizations
@@ -142,6 +144,7 @@ PERMISSIONS = [
     # api-design 11: the Manager reads its own status history, suspension reasons included; an Org
     # Operator does not (leader ruling on treklink-web#135). Migration 20261030210000.
     ("organization.history.read.own", "readHistory", "Organization", OWN_ORG, ["ORG_MANAGER"]),
+    ("organizationRole.manage.own", "manage", "OrganizationRole", OWN, ["ORG_MANAGER"]),  # D-095: protected for the Manager
     ("organization.update", "update", "Organization", None, ["ADMIN"]),
     ("organization.verify", "verify", "Organization", None, ["STAFF"]),
     ("organization.decide", "decide", "Organization", None, ["ADMIN"]),
@@ -244,5 +247,6 @@ PERMISSIONS = [
 
 INHERITS = {"ADMIN": "STAFF", "ORG_MANAGER": "ORG_OPERATOR"}
 
-# Permissions the ADMIN role can never lose (ADMIN_LOCKOUT); served as `protected` by GET /api/permissions.
-PROTECTED = {"role.manage"}
+# Permissions the highest role of an account type can never lose: `role.manage` for ADMIN (ADMIN_LOCKOUT) and
+# `organizationRole.manage.own` for ORG_MANAGER (MANAGER_LOCKOUT, D-095); served as `protected` by GET /api/permissions.
+PROTECTED = {"role.manage", "organizationRole.manage.own"}

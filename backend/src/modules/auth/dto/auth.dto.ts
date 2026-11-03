@@ -5,6 +5,7 @@ import {
   IsEmail,
   IsEnum,
   IsIn,
+  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsOptional,
@@ -12,6 +13,7 @@ import {
   IsUUID,
   Matches,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
 import { TREKLINK_ROLES, type TreklinkRole } from '../accounts.service';
@@ -159,6 +161,18 @@ export class ReplacePermissionsDto {
   @ArrayMaxSize(200)
   @IsString({ each: true })
   permissionKeys!: string[];
+}
+
+// auth api-design 20: the full effective list of one organization role and the version read with it.
+export class ReplaceOrganizationRolePermissionsDto {
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  permissionKeys!: string[];
+
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
 }
 
 // auth api-design 02 and 03: the refresh token travels in the body.

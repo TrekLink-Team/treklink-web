@@ -14,6 +14,7 @@
 | `auth.invitationTtlHours` | `72` | INT | 1 to 336 | hours | Lifetime of an invitation (set-password) code | FR-ORG-04 |
 | `auth.codeMaxAttempts` | `5` | INT | 1 to 10 | attempts | Wrong entries before a code is spent | FR-AUTH-05 |
 | `auth.codeResendCooldownSeconds` | `60` | DURATION_SECONDS | 10 to 600 | seconds | Minimum wait before another code is sent | FR-AUTH-05 |
+| `auth.permissionCacheTtlSeconds` | `30` | INT | 5 to 300 | seconds | Longest an entry of the permission cache is served without a new read, so a change made on another instance applies within it | REQ-EVT-08 |
 
 ## organizations
 

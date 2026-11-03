@@ -107,6 +107,7 @@ describe('authority reports API (e2e, incidents api-design 10)', () => {
       findFirst: ({ where }: { where: { userId: string } }) =>
         Promise.resolve(MEMBER_ROWS[where.userId] ?? null),
     },
+    organizationRolePolicy: { findFirst: () => Promise.resolve(null) },
     rolePermission: {
       findMany: ({ where }: { where: { role: { key: string } } }) =>
         Promise.resolve((PERMISSIONS[where.role.key] ?? []).map((row) => ({ permission: row }))),

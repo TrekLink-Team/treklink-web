@@ -142,6 +142,7 @@ describe('incidents API (e2e, api-design 01 to 07, 12 and 14)', () => {
       findFirst: ({ where }: { where: { userId: string } }) =>
         Promise.resolve(MEMBER_ROWS[where.userId] ?? null),
     },
+    organizationRolePolicy: { findFirst: () => Promise.resolve(null) },
     rolePermission: {
       findMany: ({ where }: { where: { role: { key: string } } }) =>
         Promise.resolve((PERMISSIONS[where.role.key] ?? []).map((row) => ({ permission: row }))),

@@ -9,12 +9,14 @@
 | `systemHealth.read` | read | SystemHealth |  | TREKLINK | X |  |  |  |
 | `account.manage` | manage | Account |  | TREKLINK | X |  |  |  |
 | `role.manage` | manage | Role |  | TREKLINK, protected | X |  |  |  |
+| `organizationRole.read` | read | OrganizationRole |  | TREKLINK | X | X |  |  |
 | `authEvent.read` | read | AuthEvent |  | TREKLINK | X |  |  |  |
 | `account.triggerReset` | triggerReset | Account |  | TREKLINK | X | X |  |  |
 | `organization.read` | read | Organization |  | TREKLINK | X | X |  |  |
 | `organization.read.own` | read | Organization | `{"id": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `organization.update.own` | update | Organization | `{"id": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `organization.history.read.own` | readHistory | Organization | `{"id": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `organizationRole.manage.own` | manage | OrganizationRole | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION, protected |  |  | X |  |
 | `organization.update` | update | Organization |  | TREKLINK | X |  |  |  |
 | `organization.verify` | verify | Organization |  | TREKLINK | X | X |  |  |
 | `organization.decide` | decide | Organization |  | TREKLINK | X |  |  |  |

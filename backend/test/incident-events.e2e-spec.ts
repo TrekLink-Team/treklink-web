@@ -64,6 +64,7 @@ describe('API 13 through real policy, query service and global event port', () =
               },
             }),
         },
+        organizationRolePolicy: { findFirst: () => Promise.resolve(null) },
         rolePermission: {
           findMany: ({ where }: { where: { role: { key: string } } }) =>
             Promise.resolve(
