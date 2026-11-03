@@ -90,3 +90,10 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: none, query key stated
 - [x] Traceability: UC-58, FR-AUTH-08, US-UC58
 - [x] §8 items 2, 3, 4 (server paging), 8 (timezone) applied
+
+## Sign-in events on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The sign-in events of screen 7.3 keep their filter form, which queries the server and lives
+in the address. The events below it render through `CollectionView` (chapter 06 §9): each is titled by its
+time with the UTC time on hover, the security signals keep their badge, and Filter by this account stays in
+its row. The details pane replaces the phone card.

@@ -26,13 +26,14 @@ import {
   Button,
   Card,
   CardHeader,
-  DataTable,
+  CollectionView,
   Field,
   Input,
   PageHeader,
   Pagination,
+  pageInfoOf,
   Select,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
@@ -203,24 +204,19 @@ export const AuthEventsPage: React.FC = () => {
     setParams(next);
   };
 
-  const columns: Column<AuthEventItem>[] = [
-    {
-      key: 'time',
-      header: 'Time',
-      cell: (row) => <span title={formatUtc(row.createdAt)}>{withSeconds(row.createdAt)}</span>,
-    },
-    { key: 'type', header: 'Event', cell: (row) => <EventBadge type={row.type} /> },
-    { key: 'email', header: 'Email', cell: (row) => row.email ?? '–' },
+  const fields: CollectionField<AuthEventItem>[] = [
+    { key: 'type', label: 'Event', render: (row) => <EventBadge type={row.type} />, compact: true },
+    { key: 'email', label: 'Email', render: (row) => row.email ?? '–', compact: true },
     {
       key: 'organization',
-      header: 'Organization',
-      cell: (row) => row.organization?.name ?? 'None',
-      hideOnMobile: true,
+      label: 'Organization',
+      render: (row) => row.organization?.name ?? 'None',
+      hideWithPane: true,
     },
     {
       key: 'account',
-      header: 'Account',
-      cell: (row) =>
+      label: 'Account',
+      render: (row) =>
         row.userId ? (
           <button
             type="button"
@@ -233,13 +229,13 @@ export const AuthEventsPage: React.FC = () => {
         ) : (
           <span>–</span>
         ),
-      hideOnMobile: true,
+      hideWithPane: true,
     },
     {
       key: 'ip',
-      header: 'IP address',
-      cell: (row) => <span className="font-mono">{row.ip ?? '–'}</span>,
-      hideOnMobile: true,
+      label: 'IP address',
+      render: (row) => <span className="font-mono">{row.ip ?? '–'}</span>,
+      hideWithPane: true,
     },
   ];
 
@@ -320,13 +316,24 @@ export const AuthEventsPage: React.FC = () => {
           </Button>
         </div>
 
-        <DataTable
-          caption="Sign-in events"
-          columns={columns}
-          rows={data?.items}
-          rowId={(row) => row.id}
+        {/* The filter form above queries the server; the events render on CollectionView (chapter 06
+            §9, D-096), each titled by its time, with the UTC time on hover. */}
+        <CollectionView<AuthEventItem>
+          label="Sign-in events"
+          items={data?.items}
           loading={events.isPending}
-          empty={{
+          itemId={(row) => row.id}
+          itemName={(row) => `${row.type} at ${withSeconds(row.createdAt)}`}
+          itemTitle={(row) => (
+            <span title={formatUtc(row.createdAt)} className="whitespace-nowrap font-normal text-ink">
+              {withSeconds(row.createdAt)}
+            </span>
+          )}
+          fields={fields}
+          noun={{ one: 'event', other: 'events' }}
+          views={['details', 'list']}
+          pageInfo={pageInfoOf(data ? { ...data, pageSize: AUTH_EVENT_PAGE_SIZE } : undefined)}
+          emptyState={{
             title: 'No results match your filters.',
             action: hasFilters(filters) ? (
               <Button variant="secondary" onClick={() => setParams(new URLSearchParams())}>
@@ -334,17 +341,6 @@ export const AuthEventsPage: React.FC = () => {
               </Button>
             ) : undefined,
           }}
-          renderCard={(row) => (
-            <div className="flex flex-col gap-1 text-body">
-              <div className="flex items-center justify-between gap-2">
-                <EventBadge type={row.type} />
-                <span className="text-body-sm text-ink-muted">{withSeconds(row.createdAt)}</span>
-              </div>
-              <span className="text-body-sm text-ink-muted">
-                {row.email ?? '–'}, {row.ip ?? '–'}
-              </span>
-            </div>
-          )}
           footer={
             data && data.totalPages > 1 ? (
               <Pagination
