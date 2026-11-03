@@ -89,3 +89,10 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: none, stated
 - [x] Traceability: UC-40, FR-MON-07, US-UC40
 - [x] §8 items 3, 6, 8 applied
+
+## Points on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The table of points renders through `CollectionView` (chapter 06 §9), still paged in the
+client by 50. The Row click of the Actions table becomes the item action Show on the map, offered on a point
+that has a position: it centres the map on the point, and the point's time then reads "On the map". A
+point has no details pane, because every field is already in its row.

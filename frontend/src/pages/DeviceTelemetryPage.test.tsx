@@ -160,12 +160,16 @@ describe('DeviceTelemetryPage (screen 9.2)', () => {
     await waitFor(() => expect(screen.getByTestId('search').textContent).toContain('kind=TELEMETRY'));
   });
 
-  it('gives every clicked row its own marker id, so the map pans on each click', () => {
+  it('gives every point shown on the map its own marker id, so the map pans on each click', () => {
     renderPage();
-    fireEvent.click(screen.getAllByRole('row')[1]);
+    const show = () => screen.getAllByRole('button', { name: /^Show on the map, / });
+    // The telemetry point without a position has no Show on the map (D-096).
+    expect(show()).toHaveLength(2);
+    fireEvent.click(show()[0]);
     expect(mapProps.selectedId).toBe('selected-0');
     expect(mapProps.markers?.some((marker) => marker.id === 'selected-0')).toBe(true);
-    fireEvent.click(screen.getAllByRole('row')[3]);
+    expect(screen.getByText('On the map')).toBeTruthy();
+    fireEvent.click(show()[1]);
     expect(mapProps.selectedId).toBe('selected-2');
     expect(mapProps.markers?.some((marker) => marker.id === 'selected-2')).toBe(true);
     expect(mapProps.markers?.some((marker) => marker.id === 'selected-0')).toBe(false);

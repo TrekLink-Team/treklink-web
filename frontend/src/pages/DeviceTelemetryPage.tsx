@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MapPin } from 'lucide-react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   HISTORY_KINDS,
@@ -19,14 +20,14 @@ import {
   Card,
   CardHeader,
   Checkbox,
-  DataTable,
+  CollectionView,
   Field,
   Input,
   PageHeader,
   Pagination,
   Skeleton,
   useToast,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { BatteryChart } from '../widgets/BatteryChart/BatteryChart';
@@ -84,25 +85,26 @@ const withSeconds = (iso: string): string =>
 
 const coordinate = (value: number | null): string => (value === null ? '–' : value.toFixed(5));
 
-const COLUMNS: Column<Row>[] = [
-  { key: 'at', header: 'Time', cell: (row) => withSeconds(row.at) },
-  { key: 'kind', header: 'Kind', cell: (row) => <Badge>{row.kind}</Badge> },
-  { key: 'lat', header: 'Latitude', cell: (row) => coordinate(row.lat), align: 'end' },
-  { key: 'lon', header: 'Longitude', cell: (row) => coordinate(row.lon), align: 'end' },
+const FIELDS: CollectionField<Row>[] = [
+  { key: 'kind', label: 'Kind', render: (row) => <Badge>{row.kind}</Badge>, text: (row) => row.kind, compact: true },
+  { key: 'lat', label: 'Latitude', render: (row) => coordinate(row.lat), align: 'end' },
+  { key: 'lon', label: 'Longitude', render: (row) => coordinate(row.lon), align: 'end' },
   {
     key: 'altitude',
-    header: 'Altitude (m)',
-    cell: (row) => (row.altitude === null ? '–' : Math.round(row.altitude)),
+    label: 'Altitude (m)',
+    render: (row) => (row.altitude === null ? '–' : Math.round(row.altitude)),
     align: 'end',
-    hideOnMobile: true,
   },
   {
     key: 'battery',
-    header: 'Battery (%)',
-    cell: (row) => (row.batteryPct === null ? '–' : row.batteryPct),
+    label: 'Battery (%)',
+    render: (row) => (row.batteryPct === null ? '–' : row.batteryPct),
     align: 'end',
+    compact: true,
   },
 ];
+
+const pointName = (row: Row) => `${withSeconds(row.at)}, ${row.kind.toLowerCase()}`;
 
 const csvName = (tag: string, range: HistoryRange) =>
   `telemetry-${tag}-${range.from.slice(0, 10)}-${range.to.slice(0, 10)}.csv`;
@@ -110,6 +112,7 @@ const csvName = (tag: string, range: HistoryRange) =>
 // `/o/devices/:id/telemetry` and `/t/devices/:id/telemetry`, screen 9.2 (monitoring api-design 03, UC-40,
 // FR-MON-07): where a device was and how its battery went over a range of at most seven days. An
 // organization sees only the events attributed to it; Staff and Admin see the whole history. Read-only.
+// The points render through CollectionView (chapter 06 §9, D-096); Show on the map pans to a point.
 export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -386,34 +389,42 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
             <CardHeader title="Battery" id="telemetry-battery" />
             <BatteryChart readings={readings} deviceLabel={tag} />
           </Card>
-          <DataTable
-            caption="Positions and telemetry"
-            columns={COLUMNS}
-            rows={pageRows}
-            rowId={(row) => row.key}
-            empty={{
+          <CollectionView<Row>
+            label="Positions and telemetry"
+            items={pageRows}
+            itemId={(row) => row.key}
+            itemName={pointName}
+            itemTitle={(row) => (
+              <span className="inline-flex flex-wrap items-center gap-2 tabular-nums">
+                {withSeconds(row.at)}
+                {row.key === selectedKey && <span className="text-body-sm text-ink-muted">On the map</span>}
+              </span>
+            )}
+            fields={FIELDS}
+            noun={{ one: 'point', other: 'points' }}
+            itemActions={[
+              {
+                key: 'map',
+                label: 'Show on the map',
+                icon: <MapPin />,
+                accessibleName: (row) => `Show on the map, ${pointName(row)}`,
+                allowed: (row) => row.lat !== null && row.lon !== null,
+                onSelect: (row) => setSelectedKey(row.key),
+              },
+            ]}
+            details={false}
+            pageInfo={{
+              total: rows.length,
+              from: rows.length === 0 ? 0 : (pageNumber - 1) * PAGE_SIZE + 1,
+              to: (pageNumber - 1) * PAGE_SIZE + pageRows.length,
+            }}
+            emptyState={{
               title: 'No results match your filters.',
               description:
                 scope === 'o' && rented
                   ? `Your organization rented this device from ${rented}.`
                   : 'Choose another period or show both kinds.',
             }}
-            activeRowId={selectedKey ?? undefined}
-            onRowActivate={(row) => setSelectedKey(row.key)}
-            renderCard={(row) => (
-              <div className="flex flex-col gap-1 text-body">
-                <div className="flex items-center justify-between gap-2">
-                  <span>{withSeconds(row.at)}</span>
-                  <Badge>{row.kind}</Badge>
-                </div>
-                <span className="text-ink-muted">
-                  {coordinate(row.lat)}, {coordinate(row.lon)}
-                </span>
-                <span className="text-ink-muted">
-                  Battery {row.batteryPct === null ? '–' : `${row.batteryPct} %`}
-                </span>
-              </div>
-            )}
             footer={
               rows.length > PAGE_SIZE ? (
                 <Pagination
