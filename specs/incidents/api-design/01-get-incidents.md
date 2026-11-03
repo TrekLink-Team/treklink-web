@@ -24,6 +24,7 @@ Lists incidents with state filters. Organization members see their organization'
 | state | IncidentState, repeatable | enum | no | `NOTIFY_PRIMARY` |
 | open | Every state except CLOSED | bool | no | `true` |
 | deviceId | Device | uuid | no | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
+| groupId | Organization members: the devices in this group or its subgroups now (rentals design §11, FR-MON-11) | uuid | no | `g-1` |
 | from | createdAt lower bound | datetime | no | `...` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |

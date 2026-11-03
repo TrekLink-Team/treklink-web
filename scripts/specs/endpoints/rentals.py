@@ -11,6 +11,14 @@ CONTRACT = {"id": CONTRACT_ID, "code": "RC-2026-0042", "organization": {"id": OR
 CDEV = {"deviceId": DEVICE_ID, "assetTag": "TL-0042", "nodeNum": 275612, "handedOverAt": NOW,
         "checkedInAt": None, "lostAt": None,
         "holder": {"name": "Le Thi E", "phone": "0912345678", "emergencyContact": "Le Van F, 0987654321"}}
+GROUP = {"id": "g-1", "name": "Ranger patrol north", "label": "ranger patrol", "parentId": None,
+         "startsOn": "2026-11-05", "endsOn": "2026-11-20", "areaNote": "Bidoup ridge, sector 3", "version": 1,
+         "deviceCount": 3, "createdAt": NOW, "updatedAt": NOW}
+G_PATH = ["id", "Group id; members may use only their own organization's", "uuid", "`g-1`"]
+G_DEPTH = (409, "GROUP_DEPTH_EXCEEDED", "The parent sits at `rentals.groupMaxDepth`, or is the group itself or one of "
+           "its subgroups", "Groups can be nested only 1 level(s) deep. Choose a top-level group as the parent.")
+G_UNIQUE = (409, "CONFLICT_UNIQUE", "A live group of the organization with the same parent has that name",
+            "A group with this name already exists here.")
 C_PATH = ["id", "Contract id; members may use only their own organization's", "uuid", f"`{CONTRACT_ID}`"]
 D_PATH = ["deviceId", "Device committed to the contract", "uuid", f"`{DEVICE_ID}`"]
 VERSION = ["expectedVersion", "Contract version the caller saw", "int", "yes", "`4`"]
@@ -555,6 +563,141 @@ ENDPOINTS = [
        participants=[["Key", "ChannelKeyService"], ["Dev", "DevicesService"]],
        seq=["Svc->>Dev: byNodeNum(nodeNum)", "Svc->>Key: deriveKey(orgId)",
             "Key-->>Svc: key, current keyVersion", "Svc->>DB: INSERT audit_log (no key)"]),
+    ep("GET", "/api/groups", "Device groups", "Org Manager, Org Operator: own; TrekLink Staff with `organizationId`",
+       "The organization's live groups as a tree, each with its count of devices in it now, for the console and the "
+       "group filters of the live map and the incident list (UC-67, FR-MON-11, design §11). `maxDepth` is "
+       "`rentals.groupMaxDepth`, so the client lists only the parents that may take a child.",
+       "UC-67, FR-CON-17, FR-MON-11, BR-46",
+       query=[["organizationId", "TrekLink Staff: the organization to read", "uuid", "cond.", f"`{ORG_ID}`"]],
+       response={"maxDepth": 1, "groups": [{**GROUP, "children": [
+           {**GROUP, "id": "g-2", "name": "Team A", "label": None, "parentId": "g-1", "deviceCount": 2,
+            "children": []}]}]},
+       entity="Group", steps=["Scope to the caller's organization", "Read live groups and open assignment counts",
+                              "Build the tree"],
+       controller="GroupsController", service="GroupsService", call="tree(organizationId)",
+       seq=["Svc->>DB: SELECT groups WHERE removedAt IS NULL", "Svc->>DB: COUNT group_assignments WHERE endedAt IS NULL"]),
+
+    ep("POST", "/api/groups", "Create a device group", "Org Manager",
+       "Creates a group of the caller's organization, top-level or under a parent at most `rentals.groupMaxDepth` "
+       "levels down (FR-CON-17, BR-46, E04-8). Audited as `group.created` after commit.",
+       "UC-67, FR-CON-17, BR-46, E04-8, MSG40",
+       body=[["name", "1 to 80 characters, unique under the same parent", "string", "yes", "`Team A`"],
+             ["parentId", "A live group of the organization; null for top level", "uuid", "no", "`g-1`"],
+             ["label", "Free text, at most 80 characters", "string", "no", "`tour`"],
+             ["startsOn", "Date", "date", "no", "`2026-11-05`"],
+             ["endsOn", "Date, not before startsOn", "date", "no", "`2026-11-20`"],
+             ["areaNote", "At most 500 characters", "string", "no", "`Bidoup ridge, sector 3`"]],
+       sample={"name": "Team A", "parentId": "g-1", "label": "tour"},
+       response={**GROUP, "id": "g-2", "name": "Team A", "label": "tour", "parentId": "g-1", "startsOn": None,
+                 "endsOn": None, "areaNote": None, "deviceCount": 0},
+       status=201, message="Group created", entity="Group",
+       errors=[(400, "VALIDATION_FAILED", "Name empty or too long, or endsOn before startsOn",
+                "Choose an end after the start."), G_UNIQUE, G_DEPTH,
+               (404, "NOT_FOUND", "The parent is not a live group of the organization", "Not found.")],
+       steps=["Validate", "Lock the parent and walk its depth", "Insert the group", "Audit after commit"],
+       controller="GroupsController", service="GroupsService", call="create(input, actor)",
+       seq=["Svc->>DB: SELECT parent FOR UPDATE; walk parentId", "Svc->>DB: INSERT groups"]),
+
+    ep("PATCH", "/api/groups/:id", "Edit a device group", "Org Manager",
+       "Changes a live group's name, label, dates, area note or parent with the `version` the Manager saw. Moving a "
+       "group under another keeps the depth cap and refuses a cycle. Audited as `group.updated`.",
+       "UC-67, FR-CON-17, BR-46",
+       path=[G_PATH],
+       body=[["name", "As at creation", "string", "no", "`Team A north`"],
+             ["parentId", "As at creation; null moves it to top level", "uuid", "no", "`null`"],
+             ["label, startsOn, endsOn, areaNote", "As at creation; null clears", "mixed", "no", "`null`"],
+             ["expectedVersion", "The version the Manager saw", "int", "yes", "`1`"]],
+       sample={"name": "Team A north", "expectedVersion": 1},
+       response={**GROUP, "id": "g-2", "name": "Team A north", "parentId": "g-1", "version": 2},
+       message="Group updated", entity="Group",
+       errors=[(400, "VALIDATION_FAILED", "As at creation", "Choose an end after the start."), G_UNIQUE, G_DEPTH, STALE,
+               (404, "NOT_FOUND", "Not a live group of the organization", "Not found.")],
+       steps=["Lock the group", "Check version, name, dates, depth and cycle", "Update and bump version", "Audit"],
+       controller="GroupsController", service="GroupsService", call="update(id, input, actor)",
+       seq=["Svc->>DB: SELECT group FOR UPDATE", "Svc->>DB: UPDATE groups SET version = version + 1"]),
+
+    ep("DELETE", "/api/groups/:id", "Remove a device group", "Org Manager",
+       "Removes a live group and its subgroups (`removedAt`) and ends every open assignment in them with "
+       "`GROUP_REMOVED`, so their devices become ungrouped, in one transaction (FR-CON-17). Audited as `group.removed` "
+       "with the subgroups and the devices let go.",
+       "UC-67, FR-CON-17",
+       path=[G_PATH],
+       response={"id": "g-1", "removedGroups": 2, "ungroupedDevices": 3},
+       message="Group removed", entity="Group",
+       errors=[(404, "NOT_FOUND", "Not a live group of the organization", "Not found.")],
+       steps=["Lock the group and its subgroups", "End their open assignments", "Set removedAt", "Audit; emit device.groupChanged per device"],
+       controller="GroupsController", service="GroupsService", call="remove(id, actor)",
+       seq=["Svc->>DB: SELECT groups FOR UPDATE", "Svc->>DB: UPDATE group_assignments SET endedAt, endedReason",
+            "Svc->>DB: UPDATE groups SET removedAt"]),
+
+    ep("POST", "/api/groups/:id/devices", "Assign devices to a group", "Org Manager",
+       "Moves each named device into the group: its open assignment elsewhere ends `MOVED` and one opens here "
+       "against its live contract row (FR-CON-18, BR-46). Every device must be held by the organization now; one "
+       "that is not refuses the whole request. A device already in the group is left as it is. Audited per device "
+       "as `group.deviceAssigned`.",
+       "UC-68, FR-CON-18, BR-46, E04-8, MSG17",
+       path=[G_PATH],
+       body=[["deviceIds", "1 to 100 devices the organization holds", "uuid[]", "yes", f"`[\"{DEVICE_ID}\"]`"]],
+       sample={"deviceIds": [DEVICE_ID]},
+       response={"groupId": "g-2", "assigned": [DEVICE_ID], "unchanged": []},
+       message="Devices assigned", entity="Group assignment",
+       errors=[(400, "VALIDATION_FAILED", "No device, or more than 100", "deviceIds must name 1 to 100 devices."),
+               (404, "NOT_FOUND", "Not a live group of the organization", "Not found."),
+               (409, "DEVICE_NOT_HELD", "A device has no live, handed-over row on a contract of the organization",
+                "This device cannot be allocated while it is RETURNED.")],
+       steps=["Lock the group", "Find each device's live row of the organization", "Per-device advisory lock",
+              "End the open assignment elsewhere, open one here", "Audit; emit device.groupChanged"],
+       controller="GroupsController", service="GroupsService", call="assign(id, deviceIds, actor)",
+       seq=["Svc->>DB: SELECT group FOR UPDATE", "Svc->>DB: SELECT live contract_devices of the organization",
+            "Svc->>DB: pg_advisory_xact_lock per device", "Svc->>DB: UPDATE then INSERT group_assignments"]),
+
+    ep("DELETE", "/api/groups/:id/devices/:deviceId", "Take a device out of its group", "Org Manager",
+       "Ends the device's open assignment in this group with `UNASSIGNED`; the device stays rented and ungrouped. "
+       "Audited as `group.deviceUnassigned`.",
+       "UC-68, FR-CON-18",
+       path=[G_PATH, D_PATH],
+       response={"groupId": "g-2", "deviceId": DEVICE_ID, "endedAt": NOW},
+       message="Device removed from the group", entity="Group assignment",
+       errors=[(404, "NOT_FOUND", "Not a live group of the organization, or the device is not in it", "Not found.")],
+       steps=["Lock the assignment", "End it", "Audit; emit device.groupChanged"],
+       controller="GroupsController", service="GroupsService", call="unassign(id, deviceId, actor)",
+       seq=["Svc->>DB: UPDATE group_assignments SET endedAt, endedReason = UNASSIGNED"]),
+
+    ep("POST", "/api/contracts/:id/devices/:deviceId/fault-reports", "Report a device fault", "Org Manager",
+       "Records a fault on a `RENTED` device of one of the organization's contracts against its live row, with the "
+       "reporter and the UTC time, and emails TrekLink Staff after commit (MSG41, FR-CON-19). The device stays "
+       "`RENTED`; the report is resolved when Staff replace the unit (`REPLACED`) or check it in (`CHECKED_IN`). A "
+       "service credit may name the report as the source of its outage start (billing task 8.3).",
+       "UC-69, FR-CON-19, MSG41",
+       path=[C_PATH, D_PATH],
+       body=[["description", "What is wrong, 1 to 1000 characters", "string", "yes", "`Battery swollen, will not charge`"]],
+       sample={"description": "Battery swollen, will not charge"},
+       response={"id": "fr-1", "contractId": CONTRACT_ID, "contractDeviceId": "cd-1", "deviceId": DEVICE_ID,
+                 "description": "Battery swollen, will not charge", "reportedBy": {"id": USER_ID},
+                 "reportedAt": NOW, "resolvedAt": None, "resolution": None},
+       status=201, message="Fault reported. TrekLink will contact you about a replacement.", entity="Fault report",
+       errors=[(400, "VALIDATION_FAILED", "Description empty or too long", "description must be 1 to 1000 characters."),
+               state_409("device", "RETURNED"),
+               (409, "FAULT_ALREADY_REPORTED", "The live row already has an unresolved report",
+                "A fault on this device is already reported."),
+               (404, "NOT_FOUND", "Not a contract of the organization, or the device is not on it", "Not found.")],
+       steps=["Find the live row of the organization's contract", "Require the device RENTED",
+              "Insert the report", "Emit device.faultReported; Staff email after commit"],
+       controller="FaultReportsController", service="FaultReportsService",
+       call="report(contractId, deviceId, description, actor)",
+       seq=["Svc->>DB: SELECT contract_devices live row", "Svc->>DB: INSERT device_fault_reports"]),
+
+    ep("GET", "/api/contracts/:id/fault-reports", "Fault reports of a contract", "Org Manager: own; TrekLink Staff",
+       "The contract's fault reports, newest first, open and resolved, with the device's asset tag.",
+       "UC-69, FR-CON-19",
+       path=[C_PATH],
+       response=[{"id": "fr-1", "deviceId": DEVICE_ID, "assetTag": "TL-0042",
+                  "description": "Battery swollen, will not charge", "reportedAt": NOW, "resolvedAt": None,
+                  "resolution": None}],
+       entity="Fault report", steps=["Scope", "Read device_fault_reports of the contract, newest first"],
+       controller="FaultReportsController", service="FaultReportsService", call="ofContract(contractId, caller)",
+       seq=["Svc->>DB: SELECT device_fault_reports WHERE contractId"]),
+
 ]
 
 NOTES = ("Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end "

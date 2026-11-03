@@ -25,6 +25,14 @@
 | 19 | POST | `/api/contracts/:id/devices/:deviceId/provisioning/undo` | TrekLink Staff | [19-post-contracts-id-devices-deviceid-provisioning-undo.md](19-post-contracts-id-devices-deviceid-provisioning-undo.md) |
 | 20 | GET | `/api/contracts/:id/close-check` | TrekLink Staff, TrekLink Admin | [20-get-contracts-id-close-check.md](20-get-contracts-id-close-check.md) |
 | 21 | POST | `/api/contracts/:id/devices/:deviceId/channel-key` | TrekLink Staff | [21-post-contracts-id-devices-deviceid-channel-key.md](21-post-contracts-id-devices-deviceid-channel-key.md) |
+| 22 | GET | `/api/groups` | Org Manager, Org Operator: own; TrekLink Staff with `organizationId` | [22-get-groups.md](22-get-groups.md) |
+| 23 | POST | `/api/groups` | Org Manager | [23-post-groups.md](23-post-groups.md) |
+| 24 | PATCH | `/api/groups/:id` | Org Manager | [24-patch-groups-id.md](24-patch-groups-id.md) |
+| 25 | DELETE | `/api/groups/:id` | Org Manager | [25-delete-groups-id.md](25-delete-groups-id.md) |
+| 26 | POST | `/api/groups/:id/devices` | Org Manager | [26-post-groups-id-devices.md](26-post-groups-id-devices.md) |
+| 27 | DELETE | `/api/groups/:id/devices/:deviceId` | Org Manager | [27-delete-groups-id-devices-deviceid.md](27-delete-groups-id-devices-deviceid.md) |
+| 28 | POST | `/api/contracts/:id/devices/:deviceId/fault-reports` | Org Manager | [28-post-contracts-id-devices-deviceid-fault-reports.md](28-post-contracts-id-devices-deviceid-fault-reports.md) |
+| 29 | GET | `/api/contracts/:id/fault-reports` | Org Manager: own; TrekLink Staff | [29-get-contracts-id-fault-reports.md](29-get-contracts-id-fault-reports.md) |
 
 Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end (UC-24, FR-CON-08, FR-CON-10), `RETURN_DUE` to `OVERDUE` to `DEFAULTED` (UC-50, FR-CON-12), and the reservation-expiry reminder (FR-CON-04).
 

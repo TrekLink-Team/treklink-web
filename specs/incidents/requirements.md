@@ -44,6 +44,7 @@
 - **REQ-UBI-03**: Every incident outside `CLOSED`, `REPORTED`, `UNROUTED` and `ESCALATED` SHALL have either a named owner with a status deadline or a pending tier deadline; `UNROUTED`, `ESCALATED` and `REPORTED` are owned by TrekLink Staff as a role. [NFR-REL-07]
 - **REQ-UBI-04**: The system SHALL write each alert to the outbox in the same transaction as the transition that caused it, or as the stale flag change of REQ-EVT-12, and SHALL deliver it after commit; a delivery failure SHALL never block or roll back a transition. [FR-INC-12, D-034 rule 3]
 - **REQ-UBI-05**: No packet from a device SHALL change an incident's state other than opening or reopening it; a false alarm is declared only by a person. [D-038]
+- **REQ-UBI-06**: The incident list SHALL accept a `groupId` filter for organization members that keeps the incidents of the devices in that group or its subgroups now (rentals design §11), and each incident view and alert of an organization SHALL name the device's group and holder label when it has them, read from `rentals` when the view or the alert is built. A group never changes routing, tiers or who is notified. [FR-MON-11, BR-46, treklink-web#305]
 
 ### Event-Driven
 

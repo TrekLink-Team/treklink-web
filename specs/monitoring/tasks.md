@@ -105,3 +105,10 @@
 ## Phase 6: Verification & DoD
 
 - [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner LongNN)
+
+## Phase 7: Rented-device console and group filters (BM04 F-11, F-21; W10)
+
+- [ ] 7.1 Console endpoint and group filters (owner LongLP, assigned 2026-11-02, treklink-web#305)
+  - **Files**: `backend/src/modules/monitoring/rented-devices.controller.ts`, `live-map.service.ts`, `org-api.service.ts`, `stream.listener.ts`
+  - **Do**: api-design 09 `GET /api/rented-devices` for the Org Manager; `group` and `holder` on the snapshot units, the organization API devices and the console rows; `groupId` filter on the snapshot and the console with subgroups; forward `device.groupChanged`; unit specs and a db-spec for AC-09 and AC-10 (the three F-21 feature tests of BM04: every own device listed with its fields, a checked-in unit gone, a fault report reaching Staff with rentals 9.4)
+  - _Requirements: REQ-EVT-09, REQ-UBI-05, AC-09, AC-10_

@@ -64,6 +64,7 @@ ENDPOINTS = [
        query=[["state", "IncidentState, repeatable", "enum", "no", "`NOTIFY_PRIMARY`"],
               ["open", "Every state except CLOSED", "bool", "no", "`true`"],
               ["deviceId", "Device", "uuid", "no", f"`{DEVICE_ID}`"],
+              ["groupId", "Organization members: the devices in this group or its subgroups now (rentals design §11, FR-MON-11)", "uuid", "no", "`g-1`"],
               ["from", "createdAt lower bound", "datetime", "no", "`...`"]] + PAGE_QUERY,
        response=paged(INC, 2), steps=["Apply scope", "Read incidents by tierDeadlineAt ascending, nulls last, then firstEventAt newest first"],
        controller="IncidentsController", service="IncidentsQueryService", call="list(query, caller)",

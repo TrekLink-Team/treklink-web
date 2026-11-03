@@ -63,6 +63,7 @@ organization, read from `DeviceRelease`, is marked `late` and is not plotted as 
 | `GET /api/map/snapshot` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, `organizations` stations, `monitoring.counterLocation`, `gatewaySync.simulatedDevices` (the `simulated` mark, demo design §9, from the handover for an organization as the position is, D-040), the max `seq` |
 | `GET /api/telemetry/devices` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, `gatewaySync.simulatedDevices` (from the handover, D-040), the max `seq` |
 | `GET /api/telemetry/devices/:id/history` | `rentals.rentalPeriods`, `gatewaySync.events` |
+| `GET /api/rented-devices` (api-design 09, the console of UC-66, REQ-EVT-09) | `rentals.visibleDevices` (with each unit's group, holder and open fault report, rentals design §11.4), `devices.projections` through `custodyView` (organization view), `devices` variant codes and open loss cases; filters applied after the custody view, so a row's `state` filter matches the map |
 | `GET /api/devices/:id/history` | `devices.trail`, `rentals.contractsOfDevice`, `incidents.incidentsOfDevice` |
 | `GET /api/reports/:kind` | `rentals.utilization`, `billing.revenue`, `rentals` overdue and lost lists, `incidents.responseTimes` |
 | `GET /api/system-health` | `HealthService`, `gatewaySync.stats`, `organizations` station health, `incidents.alertDeliveryStats` |
@@ -94,6 +95,11 @@ A field event carries the organization whose custody interval holds its occurren
 attribution margin, or none (`gateway-sync` `attribute`, D-040); a stale or recovery entry whose
 `lastSeenAt` predates the handover goes to `fleet` (above). An entry from an earlier custody interval of
 the same organization stays its own (D-040 attributes by occurrence time).
+
+The snapshot and the console carry each unit's group and holder (REQ-UBI-05) from the same `visibleDevices` read;
+a `groupId` filter expands to the group and its subgroups (rentals design §11, one level by default) before
+filtering. `device.groupChanged` is forwarded to the organization room like `device.labelChanged`, so an open
+map moves the marker's group without a reload.
 
 Reports return JSON or CSV text in the envelope; time-to-acknowledge and time-to-resolve are medians and
 95th percentiles over the range.

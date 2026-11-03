@@ -26,7 +26,7 @@ Deadline 2 to 3 days from the assignment; the leader finishes what is not done (
 ## Assignments
 
 <!-- assignments:start -->
-Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-053); the leader may reassign in this table. Per owner: HoangTK 3, KhoaDD 5, LongLP 12, LongNN 9, TanNB 6.
+Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-053); the leader may reassign in this table. Per owner: HoangTK 3, KhoaDD 5, LongLP 13, LongNN 9, TanNB 6.
 
 | Task | Screen file | Owner | Stories | Due |
 |---|---|---|---|---|
@@ -50,6 +50,7 @@ Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-
 | 5.3 | [`ContractApprovalPage`](5-3-contractapprovalpage.md) | LongLP | US-UC16, US-UC17 | 2026-10-23 |
 | 5.4 | [`CounterPage` handover](5-4-counterpage-handover.md) | LongLP | US-UC14, US-UC20, US-UC21 | 2026-10-23 |
 | 5.5 | [Check-in, inspection, replacement, close](5-5-check-in-inspection-replacement-close.md) | LongLP | US-UC43, US-UC44, US-UC51, US-UC61 | 2026-10-23 |
+| 5.7 | [Rented-device console with groups `/o/devices`](5-7-rented-device-console-with-groups.md) | LongLP | none in the backlog yet (BM04 F-11, F-21) | 2026-11-03 |
 | 6.1 | [`InvoicePage` and invoice list](6-1-invoicepage-and-invoice-list.md) | LongLP | US-UC55 | 2026-10-23 |
 | 6.2 | [SePay payment page](6-2-sepay-payment-page.md) | LongLP | US-UC19 | 2026-10-23 |
 | 6.3 | [Counter payments](6-3-counter-payments.md) | LongLP | US-UC22 | 2026-10-23 |

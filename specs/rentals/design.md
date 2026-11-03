@@ -250,7 +250,7 @@ are not atomic; a crash between them may repeat an email. The job's numeric resu
 
 Declares `CONTRACT_CLOSE_CHECKS` (multi): `{ blockingReason(contractId, deviceIds): Promise<Reason | null> }`.
 
-Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOver`, `device.checkedIn`, `device.labelChanged`, `audit.record`.
+Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOver`, `device.checkedIn`, `device.labelChanged`, `audit.record`; with the device groups (§11), `device.groupChanged` and `device.faultReported`.
 
 `contract.statusChanged` carries `{ contractId, organizationId, from, to, at }`, with `from` and `to` contract statuses and `at` the UTC time of the transition row; it is emitted after commit by `ContractLifecycleService.apply`, whose `actor` is null for the `SYSTEM` jobs of §5.
 
@@ -277,6 +277,9 @@ Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOv
 | `OPEN_INCIDENTS` | 409 |
 | `KEY_VERSION_MISMATCH` | 409 |
 | `RESET_REQUIRED` | 409 |
+| `GROUP_DEPTH_EXCEEDED` (§11) | 409 |
+| `DEVICE_NOT_HELD` (§11) | 409 |
+| `FAULT_ALREADY_REPORTED` (§11) | 409 |
 
 ---
 
@@ -1404,3 +1407,164 @@ sequenceDiagram
 ```
 
 ***Figure 29***: UC-50 Default Overdue Contract. A defaulted contract suspends its organization. The named failure is a candidate whose locked state is no longer OVERDUE, so the job skips it without writes; compare-and-set transitions keep reruns idempotent. In the first loop, a contract that the lock shows no longer `RETURN_DUE`, or with every device back (`rowsOut`), is skipped the same way. Reactivation waits until the organization has nothing outstanding (Report 3 organization lifecycle).
+
+---
+
+## 11. Device groups and fault reports (BM04 F-11, F-21, RF-21; specified 2026-11-03)
+
+An organization sorts the devices it holds into its own groups (UC-67, UC-68) and reports a fault on a rented
+device to TrekLink (UC-69). Report 3 register v2 of 2026-10-29 carries UC-66 to UC-69, FR-CON-16 to FR-CON-19,
+FR-MON-11 and BR-46; Report 4 §2.2.5 designs `groups` and `group_assignments` (Tables 51 and 52) ahead of the
+schema. `rentals` owns both because it owns custody: a device can sit in a group only while the organization
+holds it, and leaves it when the custody interval ends. The console that lists the devices with their group is
+`monitoring`'s (monitoring REQ-EVT-09); the build is rentals Phase 9, W10 (treklink-web#305).
+
+### 11.1 Build rulings (LongLP, 2026-11-03)
+
+1. **The holder label stays on `ContractDevice`.** The SDD puts `holderName` and `note` on `group_assignments`
+   (Table 52) and keeps the label on `contract_devices` only "until the schema change". The label is built
+   (REQ-EVT-15, FR-CON-14), is per custody row, is erased at the close (BR-33) and is served to the map today;
+   moving it would rewrite that endpoint, the map and the counter for no gain, and a device out of every group
+   would lose its holder. `GroupAssignment` carries no holder. Report 4 Table 52 is corrected when Report 4 is
+   next rebuilt.
+2. **A device leaves its group at check-in, at a settled loss, and on replacement, where the replacement takes
+   its place.** The SRS (FR-CON-18) names check-in only; the SDD names check-in or loss. A settled loss ends the
+   custody interval (REQ-EVT-12), so the assignment ends with it. Neither covers replacement (UC-61): the
+   replacement unit goes into the replaced unit's group in the same transaction, since the group is about who
+   carries the unit, not which serial number it has.
+3. **The fault report is a `rentals` row a service credit can name.** `DeviceFaultReport` hangs on the live
+   contract row. A service credit (billing design §9) may name it as the source of its outage start in place of
+   the note (billing REQ-EVT-12, billing task 8.3); until that is built, the credit keeps the incident or the note.
+4. **One console page with the groups.** `/o/devices` lists the devices with the group tree beside it, and the
+   groups are created, edited and removed in dialogs on that page (frontend screen 5.7). The console and the
+   group management are the Org Manager's (Report 3 RBAC table, UC-66 to UC-69 "own" for the Manager only); every
+   member reads the groups to filter the live map and the incident list (FR-MON-11).
+
+### 11.2 Data model
+
+`Group` (`groups`), as Report 4 Table 51 with three additions: `version` for concurrent edits, `createdById`, and
+`removedAt`, so a removed group keeps the history of who was in it (the audit and an incident's group at the time).
+
+| Column | Type | Null | Rule |
+|---|---|---|---|
+| `id` | uuid | no | PK |
+| `organizationId` | uuid | no | FK `organizations` |
+| `parentId` | uuid | yes | FK `groups`, same organization; null for a top-level group |
+| `name` | text | no | 1 to 80 characters, trimmed; unique among the live groups with the same organization and parent, case-insensitive |
+| `label` | text | yes | at most 80 characters, free text ("ranger patrol", "tour") |
+| `startsOn`, `endsOn` | date | yes | CHECK `endsOn >= startsOn` when both are set; informational, nothing expires a group |
+| `areaNote` | text | yes | at most 500 characters |
+| `version` | int | no | starts at 1, bumped on every edit |
+| `createdById` | uuid | no | FK `users` |
+| `createdAt`, `updatedAt` | timestamptz(3) | no | |
+| `removedAt` | timestamptz(3) | yes | set by removal; a removed group is never read again by the organization |
+
+Unique index `groups_live_name` on `(organizationId, COALESCE(parentId, ''), lower(name)) WHERE removedAt IS NULL`
+in `constraints.sql`, since a plain unique key treats two null parents as different.
+
+`GroupAssignment` (`group_assignments`), as Report 4 Table 52 without the holder (ruling 1) and with the reason
+it ended.
+
+| Column | Type | Null | Rule |
+|---|---|---|---|
+| `id` | uuid | no | PK |
+| `groupId` | uuid | no | FK `groups` |
+| `deviceId` | uuid | no | FK `devices`; partial unique index `group_assignments_one_open` on `deviceId WHERE endedAt IS NULL` (REQ-UBI-06) |
+| `contractDeviceId` | uuid | no | FK `contract_devices`, the custody row under which the organization holds the device |
+| `assignedById` | uuid | no | FK `users` |
+| `assignedAt` | timestamptz(3) | no | |
+| `endedAt` | timestamptz(3) | yes | |
+| `endedReason` | enum `GroupExit` | yes | `MOVED`, `UNASSIGNED`, `GROUP_REMOVED`, `CHECKED_IN`, `LOST`, `REPLACED`; set with `endedAt` |
+
+`DeviceFaultReport` (`device_fault_reports`, UC-69, FR-CON-19).
+
+| Column | Type | Null | Rule |
+|---|---|---|---|
+| `id` | uuid | no | PK |
+| `organizationId` | uuid | no | FK, for the organization's own reads |
+| `contractId` | uuid | no | FK `rental_contracts` |
+| `contractDeviceId` | uuid | no | FK `contract_devices`; partial unique index on `contractDeviceId WHERE resolvedAt IS NULL`: one open report per custody row |
+| `deviceId` | uuid | no | FK `devices` |
+| `description` | text | no | 1 to 1000 characters |
+| `reportedById` | uuid | no | FK `users` |
+| `reportedAt` | timestamptz(3) | no | UTC |
+| `resolvedAt` | timestamptz(3) | yes | the replacement handover or the check-in |
+| `resolution` | enum `FaultResolution` | yes | `REPLACED`, `CHECKED_IN`; set with `resolvedAt` |
+
+New business parameter `rentals.groupMaxDepth` (INT, default 1, bounds 1 to 3, `catalog.py`): the number of
+subgroup levels below a top-level group. A top-level group is depth 0; a parent at depth `groupMaxDepth` refuses
+a child (REQ-ERR-13). Raising it takes effect on the next request, with no schema change (Report 4 §2.2.5).
+
+### 11.3 Rules, and what happens when
+
+| What if | Then | Requirement |
+|---|---|---|
+| The parent is already a subgroup at the depth cap, or is the group itself or one of its subgroups (a cycle through an edit) | 409 `GROUP_DEPTH_EXCEEDED`, MSG40 with the cap, nothing saved | REQ-ERR-13 |
+| A group is removed while it has subgroups and devices | its subgroups are removed with it, every open assignment of all of them ends `GROUP_REMOVED`, the devices are ungrouped; one transaction | REQ-EVT-21 |
+| Two Managers move the same device into two groups at once | the per-device advisory lock serializes them; the second ends the first's assignment `MOVED`; the device ends in exactly one group | REQ-UBI-06 |
+| A Manager assigns while another removes the group | the assignment locks the group row (`FOR UPDATE`) and refuses a removed group with 404 | REQ-EVT-21, REQ-EVT-22 |
+| A device is checked in, settled lost, or replaced while grouped | the assignment ends `CHECKED_IN`, `LOST` or `REPLACED` in that transaction; the replacement opens one in the same group | REQ-EVT-23 |
+| The organization assigns a device it no longer holds, or another organization's device | 409 `DEVICE_NOT_HELD`, MSG17; a batch assigns none | REQ-ERR-14 |
+| Two Managers edit one group | the second gets 409 `STALE_VERSION` | REQ-ERR-15 |
+| A Manager reports a fault twice | the second gets 409 `FAULT_ALREADY_REPORTED` with the open report's id | REQ-ERR-16 |
+| A fault is reported on a unit not `RENTED` (checked in, lost, reserved) | 409 `INVALID_STATE_TRANSITION`, MSG28 | REQ-ERR-16 |
+| The organization is `SUSPENDED` | groups, assignments and fault reports keep working: the devices are still out and Staff still need the reports (UC-66 to UC-69 precondition `ACTIVE` or `SUSPENDED`) | UC-67 |
+| The contract closes | nothing is left to end: every device of a closable contract is checked in or settled lost, so its assignment already ended | REQ-EVT-23 |
+
+### 11.4 Services
+
+- `GroupsRepository` is the only class over `groups` and `group_assignments` (D-044 rule 4). `GroupsService`:
+  `tree(organizationId)` with the count of open assignments per group, `create`, `update`, `remove`, `assign`,
+  `unassign`, and `endFor(contractDeviceId, reason, tx)` and `passOn(fromRowId, toRowId, tx)` for the hooks.
+- Depth: `depthOf(parentId)` walks `parentId` up from the parent, at most `groupMaxDepth + 1` steps; a cycle or a
+  depth at the cap refuses.
+- Held now: `ContractsRepository.liveRowsOfOrganization(organizationId, deviceIds, tx)` returns each device's live
+  row of a contract of the organization with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; a device
+  without one is not held.
+- Hooks, each in the transaction that ends the custody: `ReturnService.checkIn` calls `endFor(row, CHECKED_IN)`;
+  `RentalsLossCaseListener.onSettled` calls `endFor(row, LOST)`; `ReplacementService.replace` calls
+  `passOn(old, new)` (ends `REPLACED`, opens the same group on the new row) and resolves the old row's open fault
+  report `REPLACED`; `checkIn` resolves it `CHECKED_IN`.
+- `FaultReportsService.report(contractId, deviceId, description, actor)` checks the device is `RENTED` on a live
+  row of the caller's organization, inserts the row, emits `device.faultReported` after commit; the existing
+  `ContractNotificationsListener` emails Staff through `STAFF_NOTIFICATIONS` (as for `contract.requested`).
+- `ContractsService.visibleDevices` adds each device's open assignment (`group: { id, name, parentId }` or null)
+  and its open fault report id, so `monitoring` builds the console and the map filter from one read (monitoring
+  design §4).
+- Audit entries after commit: `group.created`, `group.updated`, `group.removed`, `group.deviceAssigned`,
+  `group.deviceUnassigned`, `device.faultReported`. Events: `device.groupChanged`
+  `{ deviceId, organizationId, group }` after every assignment change, forwarded by `monitoring` like
+  `device.labelChanged`; `device.faultReported` `{ reportId, contractId, deviceId, organizationId }`.
+
+### 11.5 Permissions (new rows of `scripts/specs/catalog.py`, added by the build)
+
+| Key | Action, subject | Roles |
+|---|---|---|
+| `group.read.own` | read `Group`, own organization | ORG_OPERATOR (and so ORG_MANAGER) |
+| `group.read` | read `Group` | STAFF |
+| `group.manage.own` | manage `Group`, own organization: create, edit, remove, assign, unassign | ORG_MANAGER |
+| `faultReport.create.own` | create `DeviceFaultReport`, own organization | ORG_MANAGER |
+| `faultReport.read.own` | read `DeviceFaultReport`, own organization | ORG_MANAGER |
+| `faultReport.read` | read `DeviceFaultReport` | STAFF |
+
+### 11.6 Endpoints (api-design 22 to 29, from `scripts/specs/endpoints/rentals.py`)
+
+| # | Endpoint | Who |
+|---|---|---|
+| 22 | `GET /api/groups` | organization members (own), Staff with `organizationId` |
+| 23 | `POST /api/groups` | Org Manager |
+| 24 | `PATCH /api/groups/:id` | Org Manager |
+| 25 | `DELETE /api/groups/:id` | Org Manager |
+| 26 | `POST /api/groups/:id/devices` | Org Manager |
+| 27 | `DELETE /api/groups/:id/devices/:deviceId` | Org Manager |
+| 28 | `POST /api/contracts/:id/devices/:deviceId/fault-reports` | Org Manager |
+| 29 | `GET /api/contracts/:id/fault-reports` | Org Manager (own), Staff |
+
+### 11.7 Where Report 3 and Report 4 differ, and what this spec follows
+
+| Point | Report 3 (SRS) | Report 4 (SDD) | Followed |
+|---|---|---|---|
+| Holder name and note | on the contract device (FR-CON-14) | on `group_assignments` (Table 52), label on `contract_devices` until the schema change | SRS (ruling 1) |
+| When a device leaves its group | check-in (FR-CON-18) | check-in or loss (§2.2.5) | both, plus replacement passing it on (ruling 2) |
+| History of a removed group | not stated | not stated | `removedAt` keeps it (§11.2) |
+| Who reads groups | Org Manager (RBAC table) | not stated | the Manager manages; every member reads them for the filters (FR-MON-11) |
