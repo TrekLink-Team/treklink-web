@@ -22,7 +22,7 @@ import {
   Alert,
   Button,
   Card,
-  DataTable,
+  CollectionView,
   Dialog,
   Field,
   Input,
@@ -32,8 +32,10 @@ import {
   Textarea,
   Toolbar,
   useToast,
-  type Column,
+  type CollectionAction,
+  type CollectionField,
 } from '../shared/ui';
+import { History, Pencil } from 'lucide-react';
 import { messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
 import { ParameterHistoryDrawer } from '../widgets/ParameterHistory/ParameterHistoryDrawer';
@@ -54,6 +56,10 @@ const UPDATED = 'Parameter updated. Readers see it within the cache lifetime.';
 // `/t/admin/parameters`, screen 7.4 (platform api-design 02 to 04, UC-57, FR-CFG-01, FR-CFG-02): the
 // business parameters grouped by module, each edited in place within its bounds, with a change history
 // drawer. TrekLink Admin only. `expectedVersion` is the version the row loaded with and is never typed.
+// The Edit button of a parameter, to take focus back after a save or a cancel.
+const focusEdit = (key: string) =>
+  document.querySelector<HTMLElement>(`button[aria-label="Edit ${CSS.escape(key)}"]`)?.focus();
+
 export const ParametersPage: React.FC = () => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
@@ -98,7 +104,7 @@ export const ParametersPage: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: parameterKeys.historyOf(parameter.key) });
       await reload();
       // The list has the new value and version; focus returns to the Edit button of the edited row.
-      setTimeout(() => document.getElementById(`edit-${idOf(parameter.key)}`)?.focus(), 0);
+      setTimeout(() => focusEdit(parameter.key), 0);
     } catch (failure) {
       if (failure instanceof ApiError && failure.statusCode === 409) {
         // The typed value and reason are kept; Reload shows the new value beside them.
@@ -138,7 +144,7 @@ export const ParametersPage: React.FC = () => {
           if (event.key === 'Escape') {
             event.stopPropagation();
             setEditing(null);
-            document.getElementById(`edit-${idOf(parameter.key)}`)?.focus();
+            focusEdit(parameter.key);
           }
         }}
       >
@@ -201,63 +207,41 @@ export const ParametersPage: React.FC = () => {
     );
   };
 
-  const actions = (parameter: Parameter): React.ReactNode => (
-    <div className="flex flex-wrap items-center gap-3 text-body-sm">
-      <button
-        type="button"
-        id={`edit-${idOf(parameter.key)}`}
-        className={LINK}
-        disabled={editing !== null && editing.key !== parameter.key}
-        onClick={() =>
-          setEditing({
-            key: parameter.key,
-            text: inputText(parameter),
-            reason: '',
-            error: null,
-            saving: false,
-          })
-        }
-        aria-label={`Edit ${parameter.key}`}
-      >
-        Edit
-      </button>
-      <button
-        type="button"
-        className={LINK}
-        onClick={() => setHistoryKey(parameter.key)}
-        aria-label={`History of ${parameter.key}`}
-      >
-        History
-      </button>
-      <Link
-        to={`/t/admin/audit/changes?action=parameter.&subjectId=${encodeURIComponent(parameter.key)}`}
-        className={LINK}
-        aria-label={`Changes of ${parameter.key}`}
-      >
-        Changes
-      </Link>
-    </div>
-  );
-
-  const columns: Column<Parameter>[] = [
+  // Edit and History are item actions (chapter 06 §9.5); Edit waits while another change is open.
+  const actions: CollectionAction<Parameter>[] = [
     {
-      key: 'key',
-      header: 'Parameter',
-      cell: (parameter) => (
-        <div className="py-2">
-          <span className="font-mono text-body">{parameter.key}</span>
-          <span className="block text-body-sm text-ink-muted">{parameter.description}</span>
-        </div>
-      ),
+      key: 'edit',
+      label: 'Edit',
+      icon: <Pencil />,
+      unavailableReason: (parameter) =>
+        editing !== null && editing.key !== parameter.key ? 'Save or cancel the open change first' : undefined,
+      onSelect: (parameter) =>
+        setEditing({
+          key: parameter.key,
+          text: inputText(parameter),
+          reason: '',
+          error: null,
+          saving: false,
+        }),
     },
-    { key: 'value', header: 'Value', cell: valueCell },
-    { key: 'range', header: 'Allowed', cell: (parameter) => boundsText(parameter) ?? '–', hideOnMobile: true },
-    { key: 'type', header: 'Type', cell: (parameter) => TYPE_LABEL[parameter.valueType], hideOnMobile: true },
+    {
+      key: 'history',
+      label: 'History',
+      icon: <History />,
+      accessibleName: (parameter) => `History of ${parameter.key}`,
+      onSelect: (parameter) => setHistoryKey(parameter.key),
+    },
+  ];
+
+  const fields: CollectionField<Parameter>[] = [
+    { key: 'value', label: 'Value', render: valueCell, compact: true },
+    { key: 'range', label: 'Allowed', render: (parameter) => boundsText(parameter) ?? '–', hideWithPane: true },
+    { key: 'type', label: 'Type', render: (parameter) => TYPE_LABEL[parameter.valueType], hideWithPane: true },
     {
       key: 'updated',
-      header: 'Last changed',
-      cell: (parameter) => formatDateTime(parameter.updatedAt),
-      hideOnMobile: true,
+      label: 'Last changed',
+      render: (parameter) => formatDateTime(parameter.updatedAt),
+      hideWithPane: true,
     },
   ];
 
@@ -351,13 +335,31 @@ export const ParametersPage: React.FC = () => {
               </button>
             </h2>
             {open && (
-              <DataTable
-                caption={`Parameters of ${module}`}
-                columns={columns}
-                rows={rows}
-                rowId={(row) => row.key}
-                empty={{ title: 'No results match your filters.' }}
-                rowActions={actions}
+              <CollectionView<Parameter>
+                label={`Parameters of ${module}`}
+                items={rows}
+                itemId={(row) => row.key}
+                itemName={(row) => row.key}
+                itemTitle={(parameter) => (
+                  <div className="py-1">
+                    <span className="font-mono text-body">{parameter.key}</span>
+                    <span className="block text-body-sm font-normal text-ink-muted">{parameter.description}</span>
+                    <Link
+                      to={`/t/admin/audit/changes?action=parameter.&subjectId=${encodeURIComponent(parameter.key)}`}
+                      className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
+                      aria-label={`Changes of ${parameter.key}`}
+                    >
+                      Changes
+                    </Link>
+                  </div>
+                )}
+                fields={fields}
+                noun={{ one: 'parameter', other: 'parameters' }}
+                itemActions={actions}
+                search={{ label: `Search the parameters of ${module}` }}
+                details={false}
+                emptyState={{ title: 'No results match your filters.' }}
+                className="p-2"
               />
             )}
           </Card>
