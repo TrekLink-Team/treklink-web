@@ -61,7 +61,7 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 | Docking in progress | The row shows the step: reading, getting the key, writing settings, restarting the unit (a Reconnect button when the browser dropped the port), checking; other rows' Dock buttons are disabled |
 | Wrong unit docked (REQ-ERR-12) | "The docked unit is {nodeId}, not {assetTag}. Nothing was written." on the row |
 | Write failed, read-back differs, unit disconnected or port busy (REQ-ERR-13) | The failed step named on the row, then "Dock {assetTag} again before handover."; nothing recorded |
-| Error `NODE_MISMATCH` (409, rentals 09 and 21) | As wrong unit docked |
+| Error `NODE_MISMATCH` (409, rentals 09 and 21) | From rentals 21: as wrong unit docked. From rentals 09, after the unit was written and read back: "The docked unit is {nodeId}, not {assetTag}. Nothing was recorded." (2026-11-03, task 7.4: "Nothing was written" would be false there) |
 | Error `KEY_VERSION_MISMATCH` (409, rentals 09) | MSG24; the page reloads organizations 03 for the current version |
 | Error `INSUFFICIENT_DEVICES` (409, rentals 07) | MSG11 dialog: no replacement exists, so the handover is held (E01-5) |
 | Error `FIRST_PAYMENT_MISSING` (409, rentals 10) | MSG23 on step 2, with the link to screen 6.3 |
