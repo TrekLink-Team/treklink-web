@@ -78,3 +78,11 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: `incident.changed`, `device.label`, `device.released`; query keys shared with the pages
 - [x] Traceability: UC-55, US-UC55
 - [ ] Wireframe SVG: not drawn; the built page was walked in a browser on local PGlite on 2026-10-28
+
+## Lists on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The three lists of the dashboard render through `CollectionView` (chapter 06 §9) without a
+command bar, because each is a short extract of a page that has its own (Invoices, Contracts, Incidents).
+Invoices to pay keeps its order, overdue first, and Pay is an item action that opens the invoice page. Next
+dates and Open incidents use the list view: each row is the linked code, a short status badge with the date
+as muted text beside it, and for an incident the device and holder.
