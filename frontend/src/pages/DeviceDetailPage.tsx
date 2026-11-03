@@ -26,6 +26,8 @@ import { Field, Input, Textarea } from '../shared/ui/Field';
 import { DEVICE_STATUS, MAINTENANCE_STATUS, type DeviceStatus } from '../shared/ui/status';
 import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
+import { ConfigureUplinkDialog } from '../features/dock-device/ConfigureUplinkDialog';
+import { isDockSupported } from '../shared/lib/meshtastic-dock';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { deviceFailure, MSG29 } from '../widgets/DeviceActions/deviceFailure';
 import { useToast } from '../shared/ui/toastStore';
@@ -151,6 +153,7 @@ export const DeviceDetailPage: React.FC = () => {
   const [retirePending, setRetirePending] = useState(false);
   const [disposing, setDisposing] = useState(false);
   const [reportingLoss, setReportingLoss] = useState(false);
+  const [configuringUplink, setConfiguringUplink] = useState(false);
 
   const refresh = async () => {
     showToast(MSG03);
@@ -195,6 +198,10 @@ export const DeviceDetailPage: React.FC = () => {
   const canReset = device.status === 'RETURNED';
   const canRetire = isAdmin && device.status === 'MAINTENANCE';
   const canDispose = isAdmin && device.status === 'RETIRED';
+  // Configure uplink (devices design 8.8): TrekLink Staff (Admin inherits), a unit still in the fleet,
+  // and Web Serial in this browser.
+  const canConfigureUplink =
+    device.status !== 'RETIRED' && device.status !== 'DISPOSED' && isDockSupported();
 
   return (
     <section aria-labelledby="device-title">
@@ -283,6 +290,9 @@ export const DeviceDetailPage: React.FC = () => {
               </p>
             )}
             {canDispose && <Button variant="danger" onClick={() => setDisposing(true)}>Dispose</Button>}
+            {canConfigureUplink && (
+              <Button onClick={() => setConfiguringUplink(true)}>Configure uplink</Button>
+            )}
             {/* Screen 4.2: position history in any state, on its own route (screen 9.2); the asset tag
                 travels along for the history heading. */}
             <Link
@@ -337,6 +347,16 @@ export const DeviceDetailPage: React.FC = () => {
         />
       )}
 
+      {configuringUplink && (
+        <ConfigureUplinkDialog
+          device={device}
+          onClose={() => setConfiguringUplink(false)}
+          onDone={(message) => {
+            setConfiguringUplink(false);
+            showToast(message);
+          }}
+        />
+      )}
       {editingFirmware && (
         <FirmwareDialog
           device={device}

@@ -208,6 +208,25 @@ describe('useDocking.readUnit and configureUplink', () => {
   });
 });
 
+describe('useDocking.configureUplink, a unit that does not come back', () => {
+  it('says the unit is not configured when Staff stop waiting', async () => {
+    dock({}, { restart: 'never-returns', restartAfterMs: 5 });
+    const { result } = render();
+    let pending: Promise<unknown> | undefined;
+    act(() => {
+      pending = result.current.configureUplink(TARGET, UPLINK);
+    });
+    await waitFor(() => expect(result.current.state.stage).toBe('reconnect'), { timeout: 4000 });
+    await act(async () => {
+      result.current.giveUp();
+      await pending;
+    });
+    expect(uplinkDockMessage((await pending) as never, 'TL-0042')).toBe(
+      'TL-0042 is not configured as an uplink: the unit did not come back after its restart.',
+    );
+  });
+});
+
 describe('ownerFor', () => {
   it('writes the asset tag as the long name and its last four characters as the short name', () => {
     expect(ownerFor('TL-0009')).toEqual({ longName: 'TL-0009', shortName: '0009' });
