@@ -272,6 +272,23 @@ describe('CollectionView', () => {
     expect(edit).toHaveBeenCalledWith(UNITS[1]);
   });
 
+  it('keeps the tooltip inside the hover area with no gap to cross (1.4.13)', () => {
+    renderView();
+    const editButton = screen.getByRole('button', { name: 'Edit TL-0001' });
+    const wrapper = editButton.parentElement!;
+    fireEvent.mouseEnter(wrapper);
+    const tooltip = screen.getByRole('tooltip');
+    const bridge = tooltip.parentElement!;
+    // The tooltip sits inside the button's wrapper, so moving onto it never leaves the hover area,
+    // and the space between them is the bridge's own padding, not a margin outside it.
+    expect(wrapper.contains(tooltip)).toBe(true);
+    expect(bridge.hasAttribute('data-tooltip-bridge')).toBe(true);
+    expect(bridge.className).toContain('pb-1.5');
+    expect(`${bridge.className} ${tooltip.className}`).not.toMatch(/\bm[bt]-/);
+    fireEvent.mouseEnter(tooltip);
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+  });
+
   it('lists only allowed transitions, destructive last after a separator, behind a chevron button', () => {
     renderView();
     const button = screen.getByRole('button', { name: 'Status: Active. Change status of TL-0001' });
