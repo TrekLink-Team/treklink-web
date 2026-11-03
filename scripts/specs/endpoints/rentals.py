@@ -15,8 +15,8 @@ GROUP = {"id": "g-1", "name": "Ranger patrol north", "label": "ranger patrol", "
          "startsOn": "2026-11-05", "endsOn": "2026-11-20", "areaNote": "Bidoup ridge, sector 3", "version": 1,
          "deviceCount": 3, "createdAt": NOW, "updatedAt": NOW}
 G_PATH = ["id", "Group id; members may use only their own organization's", "uuid", "`g-1`"]
-G_DEPTH = (409, "GROUP_DEPTH_EXCEEDED", "The parent sits at `rentals.groupMaxDepth`, or is the group itself or one of "
-           "its subgroups", "Groups can be nested only 1 level(s) deep. Choose a top-level group as the parent.")
+G_DEPTH = (409, "GROUP_DEPTH_EXCEEDED", "The parent's depth plus one plus the height of the group's own subgroups "
+           "exceeds `rentals.groupMaxDepth`, or the parent is the group itself or one of its subgroups", "Groups can be nested only 1 level(s) deep. Choose a top-level group as the parent.")
 G_UNIQUE = (409, "CONFLICT_UNIQUE", "A live group of the organization with the same parent has that name",
             "A group with this name already exists here.")
 C_PATH = ["id", "Contract id; members may use only their own organization's", "uuid", f"`{CONTRACT_ID}`"]
@@ -600,7 +600,8 @@ ENDPOINTS = [
 
     ep("PATCH", "/api/groups/:id", "Edit a device group", "Org Manager",
        "Changes a live group's name, label, dates, area note or parent with the `version` the Manager saw. Moving a "
-       "group under another keeps the depth cap and refuses a cycle. Audited as `group.updated`.",
+       "group under another counts the height of its own subgroups against the depth cap and refuses a cycle. A group "
+       "already deeper than a lowered cap can still be edited in place. Audited as `group.updated`.",
        "UC-67, FR-CON-17, BR-46",
        path=[G_PATH],
        body=[["name", "As at creation", "string", "no", "`Team A north`"],
@@ -633,8 +634,10 @@ ENDPOINTS = [
     ep("POST", "/api/groups/:id/devices", "Assign devices to a group", "Org Manager",
        "Moves each named device into the group: its open assignment elsewhere ends `MOVED` and one opens here "
        "against its live contract row (FR-CON-18, BR-46). Every device must be held by the organization now; one "
-       "that is not refuses the whole request. A device already in the group is left as it is. Audited per device "
-       "as `group.deviceAssigned`.",
+       "that is not, its own returned device or another organization's, refuses the whole request with the same "
+       "answer. A device already in the group is left as it is. Locks: the group row, then the devices in ascending "
+       "`deviceId` order (design §11.4), so two overlapping batches cannot deadlock. Audited per device as "
+       "`group.deviceAssigned`.",
        "UC-68, FR-CON-18, BR-46, E04-8, MSG17",
        path=[G_PATH],
        body=[["deviceIds", "1 to 100 devices the organization holds", "uuid[]", "yes", f"`[\"{DEVICE_ID}\"]`"]],
@@ -644,12 +647,13 @@ ENDPOINTS = [
        errors=[(400, "VALIDATION_FAILED", "No device, or more than 100", "deviceIds must name 1 to 100 devices."),
                (404, "NOT_FOUND", "Not a live group of the organization", "Not found."),
                (409, "DEVICE_NOT_HELD", "A device has no live, handed-over row on a contract of the organization",
-                "This device cannot be allocated while it is RETURNED.")],
-       steps=["Lock the group", "Find each device's live row of the organization", "Per-device advisory lock",
+                "This device is not held by your organization now.")],
+       steps=["Lock the group", "Find each device's live row of the organization",
+              "Per-device advisory locks in ascending deviceId",
               "End the open assignment elsewhere, open one here", "Audit; emit device.groupChanged"],
        controller="GroupsController", service="GroupsService", call="assign(id, deviceIds, actor)",
        seq=["Svc->>DB: SELECT group FOR UPDATE", "Svc->>DB: SELECT live contract_devices of the organization",
-            "Svc->>DB: pg_advisory_xact_lock per device", "Svc->>DB: UPDATE then INSERT group_assignments"]),
+            "Svc->>DB: pg_advisory_xact_lock per device, sorted by deviceId", "Svc->>DB: UPDATE then INSERT group_assignments"]),
 
     ep("DELETE", "/api/groups/:id/devices/:deviceId", "Take a device out of its group", "Org Manager",
        "Ends the device's open assignment in this group with `UNASSIGNED`; the device stays rented and ungrouped. "
@@ -666,8 +670,9 @@ ENDPOINTS = [
     ep("POST", "/api/contracts/:id/devices/:deviceId/fault-reports", "Report a device fault", "Org Manager",
        "Records a fault on a `RENTED` device of one of the organization's contracts against its live row, with the "
        "reporter and the UTC time, and emails TrekLink Staff after commit (MSG41, FR-CON-19). The device stays "
-       "`RENTED`; the report is resolved when Staff replace the unit (`REPLACED`) or check it in (`CHECKED_IN`). A "
-       "service credit may name the report as the source of its outage start (billing task 8.3).",
+       "`RENTED`; the report is resolved when its custody row closes, with `REPLACED`, `CHECKED_IN`, `LOST` or "
+       "`RELEASED` (design §11.4). A service credit may name the report as the source of its outage start (billing "
+       "task 8.3).",
        "UC-69, FR-CON-19, MSG41",
        path=[C_PATH, D_PATH],
        body=[["description", "What is wrong, 1 to 1000 characters", "string", "yes", "`Battery swollen, will not charge`"]],
@@ -688,12 +693,16 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT contract_devices live row", "Svc->>DB: INSERT device_fault_reports"]),
 
     ep("GET", "/api/contracts/:id/fault-reports", "Fault reports of a contract", "Org Manager: own; TrekLink Staff",
-       "The contract's fault reports, newest first, open and resolved, with the device's asset tag.",
+       "The contract's fault reports, newest first, open and resolved, with the device's asset tag. `resolution` is "
+       "null while open, then `REPLACED`, `CHECKED_IN`, `LOST` or `RELEASED`.",
        "UC-69, FR-CON-19",
        path=[C_PATH],
-       response=[{"id": "fr-1", "deviceId": DEVICE_ID, "assetTag": "TL-0042",
+       response=[{"id": "fr-2", "deviceId": DEVICE_ID, "assetTag": "TL-0042",
                   "description": "Battery swollen, will not charge", "reportedAt": NOW, "resolvedAt": None,
-                  "resolution": None}],
+                  "resolution": None},
+                 {"id": "fr-1", "deviceId": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14", "assetTag": "TL-0043",
+                  "description": "No GPS fix in the open", "reportedAt": "2026-10-28T02:00:00.000Z",
+                  "resolvedAt": "2026-10-29T03:00:00.000Z", "resolution": "REPLACED"}],
        entity="Fault report", steps=["Scope", "Read device_fault_reports of the contract, newest first"],
        controller="FaultReportsController", service="FaultReportsService", call="ofContract(contractId, caller)",
        seq=["Svc->>DB: SELECT device_fault_reports WHERE contractId"]),

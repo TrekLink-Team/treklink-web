@@ -256,12 +256,13 @@ ENDPOINTS = [
        "it, for the Org Manager's console (UC-66, FR-CON-16): variant, asset tag, contract, the unit `state` with "
        "the battery and last-seen time clipped to the custody interval exactly as the organization's map snapshot "
        "(REQ-UBI-04, D-040), the group and the holder label, the open fault report and the open loss case. "
-       "`groupId` keeps the devices of that group and its subgroups; `state` filters after the custody view, so it "
+       "`groupId` keeps the devices of that group and its subgroups, and `groupId=none` the devices in no group; "
+       "`state` filters after the custody view, so it "
        "matches the map. A checked-in or settled-lost unit is not listed. An Org Operator or a TrekLink caller gets "
        "403: the console is the Manager's (Report 3 RBAC).",
        "UC-66, FR-CON-16, FR-MON-11, BR-19, BR-46",
        query=[["contractId", "One of the organization's contracts", "uuid", "no", f"`{CONTRACT_ID}`"],
-              ["groupId", "A group of the organization, with its subgroups", "uuid", "no", "`g-1`"],
+              ["groupId", "A group of the organization, with its subgroups; `none` for the devices in no group", "uuid or `none`", "no", "`g-1`"],
               ["state", "`LIVE`, `OFFLINE` or `NOT_HEARD`", "enum", "no", "`OFFLINE`"]] + PAGE_QUERY,
        response=paged({"deviceId": DEVICE_ID, "assetTag": "TL-0042", "variantCode": "treklink-v3",
                        "contract": {"id": CONTRACT_ID, "code": "RC-2026-0042", "planType": "MONTHLY",

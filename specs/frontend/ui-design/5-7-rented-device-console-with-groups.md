@@ -10,7 +10,7 @@
 | Roles | Org Manager: the whole page. Org Operator: no console (the navigation entry is hidden, a direct visit is MSG26); reads the groups for the filter on the map and the incident list. TrekLink Staff and other organizations: MSG26 |
 | Use case, FRs, story | UC-66, UC-67, UC-68, UC-69; FR-CON-16 to FR-CON-19, FR-MON-11, BR-46, E04-8; BM04 F-11, F-21; no backlog story yet |
 | Requirements | rentals REQ-EVT-20 to REQ-EVT-25, REQ-ERR-13 to REQ-ERR-16; monitoring REQ-EVT-09, REQ-UBI-05; incidents REQ-UBI-06 |
-| Wireframe | None drawn yet. Two columns on a desktop: the group tree on the left (about 280 px), the device table on the right with the `DataTable` toolbar; on a phone the tree becomes a group filter select above the table |
+| Wireframe | None drawn yet; LongLP draws it in W10 before the screen is built, through the handbook gate of D-067. Two columns on a desktop: the group tree on the left (about 280 px), the device table on the right with the `DataTable` toolbar; on a phone the tree becomes a group filter select above the table |
 
 Scope from the task: monitoring api-design 09; rentals api-design 22 to 29; the device list with its filters, the
 group tree and its dialogs, assignment, Report fault, and the group filter on the map and the incident list.
@@ -29,7 +29,7 @@ group tree and its dialogs, assignment, Report fault, and the group filter on th
 
 | Control | Shown when | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
-| Filter by contract, group, state | always | monitoring 09 `?contractId=&groupId=&state=` | none | none |
+| Filter by contract, group, state | always; the group filter offers "No group" (`groupId=none`) | monitoring 09 `?contractId=&groupId=&state=` | none | none |
 | New group (tree header) | always | opens the group dialog | none | none |
 | Save group (dialog, primary) | as above | rentals 23 `POST /api/groups` | none | toast MSG03; the tree refetches |
 | Edit (tree node menu) | always | rentals 24 `PATCH /api/groups/:id` with `version` | none | toast MSG03 |
@@ -47,11 +47,11 @@ group tree and its dialogs, assignment, Report fault, and the group filter on th
 |---|---|
 | Loading | Skeleton rows in the table and three skeleton nodes in the tree |
 | Empty | No devices held: MSG01 "Your organization holds no devices right now." No groups: "No groups yet. Create one to sort your devices." With a filter: MSG01 with Clear filters |
-| Error `VALIDATION_FAILED` (400, rentals 23, 23, 27) | MSG02 under the field the server names; MSG35 under End date |
-| Error `CONFLICT_UNIQUE` (409, rentals 23, 23) | MSG10 under Name: a group of that name already sits there |
-| Error `GROUP_DEPTH_EXCEEDED` (409, rentals 23, 23) | MSG40 dialog with the cap; the parent picker already lists only allowed parents, so only a forced request or a cap lowered meanwhile reaches it |
+| Error `VALIDATION_FAILED` (400, rentals 23, 24, 26, 28) | MSG02 under the field the server names; MSG35 under End date |
+| Error `CONFLICT_UNIQUE` (409, rentals 23, 24) | MSG10 under Name: a group of that name already sits there |
+| Error `GROUP_DEPTH_EXCEEDED` (409, rentals 23, 24) | MSG40 dialog with the cap; the parent picker already lists only allowed parents, so only a forced request or a cap lowered meanwhile reaches it |
 | Error `STALE_VERSION` (409, rentals 24) | "Someone else changed this group. Reload to see the latest." with Reload |
-| Error `DEVICE_NOT_HELD` (409, rentals 26) | MSG17 in the assign dialog, naming the device; nothing moved; the table refetches (the unit was checked in meanwhile) |
+| Error `DEVICE_NOT_HELD` (409, rentals 26) | "This device is not held by your organization now." in the assign dialog, naming the device; nothing moved; the table refetches (the unit was checked in meanwhile) |
 | Error `FAULT_ALREADY_REPORTED` (409, rentals 28) | "A fault on {tag} is already reported and waits for TrekLink." with the report time |
 | Error `INVALID_STATE_TRANSITION` (409, rentals 28) | MSG28 with the device state |
 | Not found or forbidden | `NOT_FOUND` (404) or `FORBIDDEN` (403): MSG26 |

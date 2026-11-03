@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records a fault on a `RENTED` device of one of the organization's contracts against its live row, with the reporter and the UTC time, and emails TrekLink Staff after commit (MSG41, FR-CON-19). The device stays `RENTED`; the report is resolved when Staff replace the unit (`REPLACED`) or check it in (`CHECKED_IN`). A service credit may name the report as the source of its outage start (billing task 8.3).
+Records a fault on a `RENTED` device of one of the organization's contracts against its live row, with the reporter and the UTC time, and emails TrekLink Staff after commit (MSG41, FR-CON-19). The device stays `RENTED`; the report is resolved when its custody row closes, with `REPLACED`, `CHECKED_IN`, `LOST` or `RELEASED` (design §11.4). A service credit may name the report as the source of its outage start (billing task 8.3).
 
 ## API Specification
 

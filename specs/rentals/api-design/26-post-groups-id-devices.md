@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Moves each named device into the group: its open assignment elsewhere ends `MOVED` and one opens here against its live contract row (FR-CON-18, BR-46). Every device must be held by the organization now; one that is not refuses the whole request. A device already in the group is left as it is. Audited per device as `group.deviceAssigned`.
+Moves each named device into the group: its open assignment elsewhere ends `MOVED` and one opens here against its live contract row (FR-CON-18, BR-46). Every device must be held by the organization now; one that is not, its own returned device or another organization's, refuses the whole request with the same answer. A device already in the group is left as it is. Locks: the group row, then the devices in ascending `deviceId` order (design §11.4), so two overlapping batches cannot deadlock. Audited per device as `group.deviceAssigned`.
 
 ## API Specification
 
@@ -175,7 +175,7 @@ Moves each named device into the group: its open assignment elsewhere ends `MOVE
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This device cannot be allocated while it is RETURNED."
+  "message": "This device is not held by your organization now."
 }
 ```
 </td>
@@ -219,7 +219,7 @@ flowchart TB
     D5 -->|no| P0
     P1["Find each device's live row of the organization"]
     P0 --> P1
-    P2["Per-device advisory lock"]
+    P2["Per-device advisory locks in ascending deviceId"]
     P1 --> P2
     P3["End the open assignment elsewhere, open one here"]
     P2 --> P3
@@ -243,7 +243,7 @@ sequenceDiagram
     Ctl->>Svc: assign(id, deviceIds, actor)
     Svc->>DB: SELECT group FOR UPDATE
     Svc->>DB: SELECT live contract_devices of the organization
-    Svc->>DB: pg_advisory_xact_lock per device
+    Svc->>DB: pg_advisory_xact_lock per device, sorted by deviceId
     Svc->>DB: UPDATE then INSERT group_assignments
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope

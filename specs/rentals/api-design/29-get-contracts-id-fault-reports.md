@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The contract's fault reports, newest first, open and resolved, with the device's asset tag.
+The contract's fault reports, newest first, open and resolved, with the device's asset tag. `resolution` is null while open, then `REPLACED`, `CHECKED_IN`, `LOST` or `RELEASED`.
 
 ## API Specification
 
@@ -33,13 +33,22 @@ No body.
 {
   "result": [
     {
-      "id": "fr-1",
+      "id": "fr-2",
       "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
       "assetTag": "TL-0042",
       "description": "Battery swollen, will not charge",
       "reportedAt": "2026-10-20T03:15:00.000Z",
       "resolvedAt": null,
       "resolution": null
+    },
+    {
+      "id": "fr-1",
+      "deviceId": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14",
+      "assetTag": "TL-0043",
+      "description": "No GPS fix in the open",
+      "reportedAt": "2026-10-28T02:00:00.000Z",
+      "resolvedAt": "2026-10-29T03:00:00.000Z",
+      "resolution": "REPLACED"
     }
   ],
   "isSuccess": true,
