@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ACCOUNT_CONTEXT_PROVIDER, API_KEY_RESOLVER } from '../auth';
 import { ApiKeysRepository } from './api-keys.repository';
 import { MembersRepository } from './members.repository';
+import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationAccountContextProvider } from './providers/account-context.provider';
 import { OrganizationApiKeyResolver } from './providers/api-key-resolver.provider';
 import {
@@ -18,6 +19,7 @@ import { ORGANIZATION_EXIT_CHECKS, OrganizationExitCheck } from './ports/exit-ch
 @Module({
   providers: [
     MembersRepository,
+    OrganizationsRepository,
     ApiKeysRepository,
     { provide: ACCOUNT_CONTEXT_PROVIDER, useClass: OrganizationAccountContextProvider },
     { provide: API_KEY_RESOLVER, useClass: OrganizationApiKeyResolver },

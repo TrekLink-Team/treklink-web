@@ -168,6 +168,10 @@ export class ComplianceCasesService {
         tx,
       );
       if (lossCaseIds.length > 0) {
+        // The guard of every link: the case is OPEN and the organization's own, under the row lock.
+        if (!(await this.cases.lockOpenOf(created.id, organizationId, tx))) {
+          throw validation('The compliance case is closed or belongs to another organization.');
+        }
         await this.lossCases[0].link(created.id, organizationId, lossCaseIds, tx);
       }
       this.audit(staff, created, 'complianceCase.open', null, {

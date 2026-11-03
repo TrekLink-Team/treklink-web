@@ -101,6 +101,80 @@ describe('compliance cases against Postgres (organizations 2.10)', () => {
     expect(row?.actions.map((a) => a.kind)).toEqual([ComplianceActionKind.OTHER]);
   });
 
+  describe('lockOpenOf, the guard of a link to a case (D-046)', () => {
+    const close = (id: string) =>
+      prisma.$transaction((tx) =>
+        cases.close(
+          id,
+          { outcome: 'Resolved', authorityReference: null, closedById: staffId, at: new Date() },
+          tx,
+        ),
+      );
+    const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    it("returns the case when it is OPEN and the organization's own", async () => {
+      const created = await open(ComplianceCaseType.OTHER_BREACH);
+      const row = await prisma.$transaction((tx) =>
+        cases.lockOpenOf(created.id, organizationId, tx),
+      );
+      expect(row?.id).toBe(created.id);
+    });
+
+    it('returns null for a case that is CLOSED', async () => {
+      const created = await open(ComplianceCaseType.OTHER_BREACH);
+      await close(created.id);
+      const row = await prisma.$transaction((tx) =>
+        cases.lockOpenOf(created.id, organizationId, tx),
+      );
+      expect(row).toBeNull();
+    });
+
+    it('returns null for the case of another organization', async () => {
+      const created = await open(ComplianceCaseType.OTHER_BREACH);
+      const other = await prisma.organization.create({
+        data: {
+          code: `CMO-${run}`,
+          legalName: `Compliance Other ${run}`,
+          taxCode: `7${Date.now()}`.slice(0, 10),
+          address: '2 Test Street',
+          contactEmail: `cmo-${run}@example.test`,
+          contactPhone: '0900000001',
+          status: 'ACTIVE',
+        },
+      });
+      const row = await prisma.$transaction((tx) => cases.lockOpenOf(created.id, other.id, tx));
+      expect(row).toBeNull();
+    });
+
+    it('makes a close wait for a link that holds the lock, so a link never follows a close', async () => {
+      const created = await open(ComplianceCaseType.OTHER_BREACH);
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let locked: unknown = null;
+      const linking = prisma.$transaction(async (tx) => {
+        locked = await cases.lockOpenOf(created.id, organizationId, tx);
+        await gate;
+      });
+      await pause(300);
+
+      let closed = false;
+      const closing = close(created.id).then((result) => {
+        closed = true;
+        return result;
+      });
+      await pause(300);
+      expect(closed).toBe(false);
+
+      release();
+      await linking;
+      expect(await closing).toBe(true);
+      expect(locked).not.toBeNull();
+      expect((await cases.find(created.id))?.status).toBe(ComplianceCaseStatus.CLOSED);
+    });
+  });
+
   it('refuses closing a suspected theft case without a police reference (BR-40 CHECK)', async () => {
     const created = await open(ComplianceCaseType.SUSPECTED_THEFT);
     const close = (authorityReference: string | null) =>

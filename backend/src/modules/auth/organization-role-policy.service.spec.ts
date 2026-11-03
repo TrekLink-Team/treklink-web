@@ -40,7 +40,7 @@ describe('OrganizationRolePolicyService (auth task 9.3, design §9)', () => {
     replaceStored: jest.Mock;
   };
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
-  let context: { forUser: jest.Mock };
+  let context: { forUser: jest.Mock; lockOrganizationStatus: jest.Mock };
   let service: OrganizationRolePolicyService;
 
   beforeEach(() => {
@@ -75,6 +75,7 @@ describe('OrganizationRolePolicyService (auth task 9.3, design §9)', () => {
       forUser: jest
         .fn()
         .mockResolvedValue({ organizationId: 'org-a', organizationStatus: 'ACTIVE' }),
+      lockOrganizationStatus: jest.fn().mockResolvedValue('ACTIVE'),
     };
     service = new OrganizationRolePolicyService(
       accounts as unknown as AccountsRepository,
@@ -279,6 +280,38 @@ describe('OrganizationRolePolicyService (auth task 9.3, design §9)', () => {
       });
       expect(policies.replaceStored).not.toHaveBeenCalled();
       expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('reads the organization status again under a lock inside the transaction (REQ-STA-04)', async () => {
+      await replace('ORG_OPERATOR', ['incident.read.own']);
+
+      expect(context.lockOrganizationStatus).toHaveBeenCalledWith('org-a', tx);
+      // The lock comes before the policy row is touched.
+      expect(context.lockOrganizationStatus.mock.invocationCallOrder[0]).toBeLessThan(
+        policies.lockVersion.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('refuses a save when a suspension committed after the first status read, and writes nothing', async () => {
+      // The read before the transaction saw ACTIVE; the locked read inside it sees SUSPENDED.
+      context.lockOrganizationStatus.mockResolvedValue('SUSPENDED');
+
+      await expect(replace('ORG_OPERATOR', ['incident.read.own'])).rejects.toMatchObject({
+        errorCode: ErrorCode.ORGANIZATION_NOT_ACTIVE,
+        message: 'Role permissions cannot be changed while the organization is suspended.',
+      });
+      expect(policies.lockVersion).not.toHaveBeenCalled();
+      expect(policies.replaceStored).not.toHaveBeenCalled();
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 when the organization is gone under the lock', async () => {
+      context.lockOrganizationStatus.mockResolvedValue(null);
+
+      await expect(replace('ORG_OPERATOR', ['incident.read.own'])).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+        message: 'Organization not found.',
+      });
     });
 
     it('takes the organization of the caller, never one from the request (REQ-UBI-06)', async () => {

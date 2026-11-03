@@ -115,8 +115,13 @@ describe('organization roles (e2e, auth api-design 19 and 20)', () => {
       policyOf(organizationId, roleKeyOf(roleId));
       return Promise.resolve(1);
     },
-    $queryRaw: (_sql: unknown, organizationId: string, roleId: string) =>
-      Promise.resolve([{ version: policyOf(organizationId, roleKeyOf(roleId)).version }]),
+    // The status of the organization (one value: its id) or the version of a policy (two values).
+    $queryRaw: (_sql: unknown, organizationId: string, roleId?: string) =>
+      Promise.resolve(
+        roleId === undefined
+          ? [{ status: 'ACTIVE' }]
+          : [{ version: policyOf(organizationId, roleKeyOf(roleId)).version }],
+      ),
     role: {
       findUnique: ({ where }: { where: { key: string } }) =>
         Promise.resolve({ id: `role-${where.key}`, key: where.key }),

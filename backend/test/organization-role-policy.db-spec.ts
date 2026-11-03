@@ -5,6 +5,7 @@ import {
   MemberRole,
   OrganizationRoleEffect,
   OrganizationStatus,
+  Prisma,
 } from '@prisma/client';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { ErrorCode } from '../src/common/errors';
@@ -14,6 +15,7 @@ import { AbilityFactory } from '../src/modules/auth/casl/ability.factory';
 import { POLICY_CHANGED, PermissionCache } from '../src/modules/auth/casl/permission-cache';
 import { OrganizationRolePolicyRepository } from '../src/modules/auth/organization-role-policy.repository';
 import { OrganizationRolePolicyService } from '../src/modules/auth/organization-role-policy.service';
+import { OrganizationsRepository } from '../src/modules/organizations/organizations.repository';
 import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
 import { ParameterService } from '../src/modules/platform/parameters/parameter.service';
 
@@ -37,8 +39,12 @@ describe('Organization role policy against Postgres (D-095)', () => {
   const cache = new PermissionCache(accounts, policies, parameters);
   const abilities = new AbilityFactory(cache);
   const membership = new Map<string, { organizationId: string; organizationStatus: string }>();
+  const organizationsRepository = new OrganizationsRepository(prisma);
   const context = {
     forUser: (userId: string) => Promise.resolve(membership.get(userId) ?? null),
+    // The real locked read of `organizations`, so the status gate runs against Postgres.
+    lockOrganizationStatus: (organizationId: string, tx: Prisma.TransactionClient) =>
+      organizationsRepository.lockStatus(organizationId, tx),
   };
   const service = new OrganizationRolePolicyService(accounts, policies, events, context as never);
   const runId = randomUUID();
@@ -175,6 +181,56 @@ describe('Organization role policy against Postgres (D-095)', () => {
       service.replace(manager, 'ORG_OPERATOR', ['incident.read.own'], 0, CLIENT),
     ).rejects.toMatchObject({ errorCode: ErrorCode.ORGANIZATION_NOT_ACTIVE });
     await expect(service.view(manager)).resolves.toHaveProperty('roles');
+  });
+
+  it('refuses a save when the organization was suspended after the first status read (REQ-STA-04)', async () => {
+    const { org, manager } = await organization();
+    const keys = (await operatorKeys(manager)).effectiveKeys;
+    // The membership read before the transaction still says ACTIVE; the row says SUSPENDED.
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { status: OrganizationStatus.SUSPENDED },
+    });
+
+    await expect(service.replace(manager, 'ORG_OPERATOR', keys, 0, CLIENT)).rejects.toMatchObject({
+      errorCode: ErrorCode.ORGANIZATION_NOT_ACTIVE,
+    });
+    expect(await prisma.organizationRolePolicy.count({ where: { organizationId: org.id } })).toBe(
+      0,
+    );
+  });
+
+  it('makes a save wait for a suspension in flight and then refuses it', async () => {
+    const { org, manager } = await organization();
+    const keys = (await operatorKeys(manager)).effectiveKeys;
+    const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // A suspension as OrganizationLifecycle writes it: the row FOR UPDATE until it commits.
+    const suspending = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${org.id} FOR UPDATE`;
+      await tx.organization.update({
+        where: { id: org.id },
+        data: { status: OrganizationStatus.SUSPENDED },
+      });
+      await gate;
+    });
+    await pause(300);
+
+    let settled = false;
+    const saving = service.replace(manager, 'ORG_OPERATOR', keys, 0, CLIENT);
+    saving.then(
+      () => (settled = true),
+      () => (settled = true),
+    );
+    await pause(300);
+    expect(settled).toBe(false);
+
+    release();
+    await suspending;
+    await expect(saving).rejects.toMatchObject({ errorCode: ErrorCode.ORGANIZATION_NOT_ACTIVE });
   });
 
   it('lets one of two concurrent saves for the same role win and refuses the other with STALE_VERSION', async () => {

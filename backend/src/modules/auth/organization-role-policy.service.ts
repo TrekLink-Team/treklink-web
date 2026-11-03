@@ -96,16 +96,22 @@ export class OrganizationRolePolicyService {
   ): Promise<OrganizationRoleSaved> {
     if (!isOrganizationRole(roleKey)) throw this.roleNotFound();
     const { organizationId, organizationStatus } = await this.membership(caller);
-    if (organizationStatus !== 'ACTIVE') {
-      throw new DomainException(
-        HttpStatus.CONFLICT,
-        ErrorCode.ORGANIZATION_NOT_ACTIVE,
-        `Role permissions cannot be changed while the organization is ${organizationStatus.toLowerCase()}.`,
-      );
-    }
+    // A refusal before the transaction costs no lock; the status is read again under a lock below.
+    this.requireActive(organizationStatus);
     const keys = sorted(requestedKeys);
 
     return this.events.transaction(async (tx) => {
+      // The organization row FOR SHARE until the save commits: a suspension or a closing that commits
+      // between the read above and this write is seen here, and one that starts now waits for the save.
+      const locked = await this.context?.lockOrganizationStatus(organizationId, tx);
+      if (locked === null) {
+        throw new DomainException(
+          HttpStatus.NOT_FOUND,
+          ErrorCode.NOT_FOUND,
+          'Organization not found.',
+        );
+      }
+      if (locked !== undefined) this.requireActive(locked);
       const role = await this.policies.findRoleByKey(roleKey, tx);
       if (!role) throw this.roleNotFound();
 
@@ -232,6 +238,15 @@ export class OrganizationRolePolicyService {
       },
       rows: new Map([...operator, ...manager].map((row) => [row.key, row])),
     };
+  }
+
+  private requireActive(status: string): void {
+    if (status === 'ACTIVE') return;
+    throw new DomainException(
+      HttpStatus.CONFLICT,
+      ErrorCode.ORGANIZATION_NOT_ACTIVE,
+      `Role permissions cannot be changed while the organization is ${status.toLowerCase()}.`,
+    );
   }
 
   private roleNotFound(): DomainException {

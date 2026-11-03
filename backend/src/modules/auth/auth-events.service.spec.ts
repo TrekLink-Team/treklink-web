@@ -25,7 +25,12 @@ const event = (id: string, userId: string | null) => ({
 
 describe('AuthEventsService', () => {
   let page: jest.Mock;
-  let context: { organizationsOf: jest.Mock; memberUserIds: jest.Mock; forUser: jest.Mock };
+  let context: {
+    organizationsOf: jest.Mock;
+    memberUserIds: jest.Mock;
+    forUser: jest.Mock;
+    lockOrganizationStatus: jest.Mock;
+  };
   let service: AuthEventsService;
   const whereOf = () => (page.mock.calls[0] as unknown[])[0];
 
@@ -33,6 +38,7 @@ describe('AuthEventsService', () => {
     page = jest.fn().mockResolvedValue([[], 0]);
     context = {
       forUser: jest.fn(),
+      lockOrganizationStatus: jest.fn(),
       organizationsOf: jest
         .fn()
         .mockResolvedValue(new Map([[USER, { id: ORG, name: 'ACME Trek Co., Ltd.' }]])),
