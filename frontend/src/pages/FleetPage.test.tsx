@@ -387,6 +387,21 @@ describe('FleetPage Register panel, Read from unit (devices design 8.3, D-080)',
     expect(dialog.queryByRole('status')).toBeNull();
   });
 
+  it('opens filled from the connector when "New device: register it?" sent Staff here (REQ-EVT-31, AC-24)', async () => {
+    docking.readUnit.mockResolvedValue(reading());
+    const { useConnectorStore } = await import('../features/device-connector/model/connectorStore');
+    useConnectorStore.setState({ registerFrom: 7 });
+    renderPage('/t/fleet?register=1');
+    const dialog = within(await screen.findByRole('dialog', { name: 'Register device' }));
+    await waitFor(() =>
+      expect((dialog.getByLabelText(/Node number/) as HTMLInputElement).value).toBe('2763113172'),
+    );
+    expect(docking.readUnit).toHaveBeenCalledWith('intake', 7);
+    fireEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
+    expect(useConnectorStore.getState().registerFrom).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Register device' })).toBeNull());
+  });
+
   it('warns when the reported build differs from the baseline', async () => {
     docking.readUnit.mockResolvedValue(reading({ firmwareVersion: '2.7.26.a4aa98d' }));
     const dialog = await openRegister();

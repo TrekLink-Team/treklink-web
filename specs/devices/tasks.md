@@ -257,12 +257,13 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - _Requirements: REQ-UBI-07, REQ-EVT-30, REQ-EVT-32, REQ-EVT-38, REQ-ERR-26, REQ-ERR-29, AC-23, AC-34_
   - _Depends on: 10.2, 10.6; the contract home UI (brief item 5)_
   - **Done** (2026-11-04, `feat/device-connector-ui`): `ui/ConnectorPanel.tsx` (rows, device view, quick swap dialog, the uplink dialog, a polite live region, the Chromium banner, Connect a unit, Retry, Forget), `ui/ConnectorButton.tsx` ("Devices, n connected", `aria-pressed`) in the Staff header, `ui/UnitImage.tsx` (`/variants/<code>-detail.png` and `-icon.png`, the labelled slot on a missing file), `model/actionsFor.ts`, `model/useConnector.ts`; the shell mounts the panel as a pushed `aside` from 1100 px, a right `Drawer` from 600 px and a bottom sheet below, drawers only on full-bleed routes, and hides the Info pane while it is open (Q6 A). Built as a plain accessible list with a TODO naming this task: the shared `CollectionView` of `feat/contract-home-ui` has not landed on `dev`. Actions are labelled buttons, so no hover tooltip is needed (§9.5). Tests: `actionsFor` (8), panel (2: AC-23, AC-34), shell (an organization account sees no connector, AC-25). Not walked in a browser in this session
-- [ ] 10.8 Register on connect (owner KhoaDD, **needs Phase 7**: 7.4b)
+- [x] 10.8 Register on connect (owner KhoaDD, **needs Phase 7**: 7.4b)
   - **Files**: the Register panel of screen 4.2, `features/device-connector/actions/`
   - **Do**: "New device: register it?" opens the Register panel on `/t/fleet` filled from the row with no second chooser; Read from unit on the Register panel only opens the hub (REQ-EVT-39); the row is recognized after registration
   - **Test**: AC-24
   - _Requirements: REQ-EVT-31, REQ-EVT-39, AC-24_
   - _Depends on: 10.7_
+  - **Done** (2026-11-04, `feat/device-connector-ui`): "New device: register it?" sets the connection in the connector store and opens `/t/fleet?register=1`; the Register panel reads that unit from the registry with no chooser (node number, variant from the build, reported firmware) and the row is recognized again after registration; Read from unit uses the connector's unknown or only unit, or connects one; the fleet page sets the `intake` and `fleet` contexts. Test: `FleetPage.test.tsx` (AC-24)
 - [ ] 10.9 Counter: quick swap and hot provisioning (owner KhoaDD, **needs Phase 7**: 7.3 and 7.4)
   - **Files**: `frontend/src/pages/CounterPage.tsx` (context and row entry points), `features/device-connector/actions/` (`exchangeAndProvision`), `entities/contract/api.ts` (`exchangeDevice`), tests
   - **Do**: design §11.6 and §11.7; the counter context of §11.3; a row's Dock opens the hub on its unit; on a mismatch offer the quick swap for that row (REQ-EVT-35); the confirmation dialog with the replaced unit (Q7 A); rentals api-design 30 then §8.4 steps 2 to 5 on the held connection; keep the contract `version` the exchange returns

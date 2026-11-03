@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import {
@@ -43,6 +43,12 @@ import { ALERT, ERROR_TEXT, LINK, WARNING } from '../shared/ui/styles';
 import { ClipboardCheck, RotateCcw } from 'lucide-react';
 import { intakeDockMessage } from '../features/device-connector/actions/messages';
 import { useDocking } from '../features/device-connector/actions/useDocking';
+import {
+  useConnector,
+  useConnectorContext,
+  useConnectorStore,
+  type ConnectorContext,
+} from '../features/device-connector';
 import { VARIANT_CODE_BY_PIO_ENV, firmwareBuildDiffers } from '../shared/config/docking';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -82,10 +88,17 @@ const EMPTY_FORM: RegisterForm = {
 // the variant's baseline the first time a variant is chosen. Read from unit (devices design 8.3) fills
 // the node number and the variant from a docked unit and shows the firmware it reports; typing stays
 // possible, and uniqueness is still the server's (REQ-ERR-01).
-const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () => void }> = ({
-  onDone,
-  onCancel,
-}) => {
+// The device connector's contexts of this page (devices design section 11.3): `intake` while the Register
+// panel is open, `fleet` otherwise.
+const INTAKE: ConnectorContext = { kind: 'intake' };
+const FLEET: ConnectorContext = { kind: 'fleet' };
+
+const RegisterDialog: React.FC<{
+  onDone: (device: Device) => void;
+  onCancel: () => void;
+  // The connector's connection "New device: register it?" came from (REQ-EVT-31).
+  fromConnection?: number | null;
+}> = ({ onDone, onCancel, fromConnection = null }) => {
   const { data: variants } = useVariants();
   const [form, setForm] = useState<RegisterForm>(EMPTY_FORM);
   const [touchedFirmware, setTouchedFirmware] = useState(false);
@@ -97,9 +110,9 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
   const [readError, setReadError] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
 
-  const readFromUnit = async () => {
+  const readFromUnit = async (connectionId?: number) => {
     setReadError(null);
-    const read = await docking.readUnit();
+    const read = await docking.readUnit('intake', connectionId);
     if (!read.ok) {
       setReadError(intakeDockMessage(read));
       return;
@@ -118,6 +131,17 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
     }));
     setReported(read.unit.firmwareVersion);
   };
+
+  // "New device: register it?" in the connector fills the panel from that unit, with no chooser
+  // (REQ-EVT-31); once the variants are known so the variant can be preselected.
+  const filledFrom = useRef<number | null>(null);
+  useEffect(() => {
+    if (fromConnection === null || filledFrom.current === fromConnection || !variants) return;
+    filledFrom.current = fromConnection;
+    // After this render: the read sets the form's state.
+    void Promise.resolve().then(() => readFromUnit(fromConnection));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read once per connection, when variants load
+  }, [fromConnection, variants]);
 
   const pickVariant = (hardwareVariantId: string) => {
     const variant = variants?.find((item) => item.id === hardwareVariantId);
@@ -168,7 +192,7 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
             </Button>
             <span className="text-body-sm text-ink-muted">
               {docking.supported
-                ? 'Plug the unit in over USB and choose its port.'
+                ? 'Uses the unit in the device connector, or asks you to connect one.'
                 : 'Reading from a unit needs Chrome or Edge on a desktop. You can type the node number.'}
             </span>
           </div>
@@ -338,6 +362,27 @@ export const FleetPage: React.FC = () => {
   const [q, setQ] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
   const [registering, setRegistering] = useState(false);
+  const registerFrom = useConnectorStore((state) => state.registerFrom);
+  const setRegisterFrom = useConnectorStore((state) => state.setRegisterFrom);
+  const { registry } = useConnector();
+  useConnectorContext(registering || params.get('register') === '1' ? INTAKE : FLEET);
+  // The connector's "New device: register it?" lands here with `?register=1` (REQ-EVT-31); closing the
+  // panel drops the parameter.
+  const registerOpen = registering || params.get('register') === '1';
+  const closeRegister = () => {
+    setRegistering(false);
+    setRegisterFrom(null);
+    if (params.get('register') === '1') {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('register');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  };
   const [acting, setActing] = useState<{ action: FleetAction; device: Device } | null>(null);
   const [bulk, setBulk] = useState<{ kind: BulkKind; devices: Device[] } | null>(null);
   const { user } = useAuth();
@@ -645,10 +690,15 @@ export const FleetPage: React.FC = () => {
           onClose={() => setBulk(null)}
         />
       )}
-      {registering && (
+      {registerOpen && (
         <RegisterDialog
-          onDone={(device) => void registered(device)}
-          onCancel={() => setRegistering(false)}
+          fromConnection={registerFrom}
+          onDone={(device) => {
+            if (registerFrom !== null) void registry.refreshRecognition(registerFrom);
+            closeRegister();
+            void registered(device);
+          }}
+          onCancel={closeRegister}
         />
       )}
     </section>
