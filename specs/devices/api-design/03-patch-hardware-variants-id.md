@@ -39,6 +39,8 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
 | serviceIntervalDays | Days between services, or null | int | no | `180` |
 | serviceChecklist | Service checklist items | string[] | no | `[...]` |
 | isActive | Offer in new requests | bool | no | `false` |
+| imageUrl | Photo URL or app path under `/variants/`, or null to clear (design §10) | string | no | `/variants/treklink-v3.jpg` |
+| specSheet | Spec sheet, replaces the stored one; keys from design §10 only | object | no | `{"mcu": "ESP32"}` |
 
 ## Response sample
 
@@ -73,6 +75,12 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
       "Enclosure seal",
       "Button and buzzer"
     ],
+    "imageUrl": null,
+    "specSheet": {
+      "mcu": "ESP32",
+      "sosControl": "3 s hold on the user button",
+      "localAlarm": "LED blinks"
+    },
     "isActive": false,
     "deviceCount": 18
   },
@@ -174,6 +182,23 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
 ```
 </td>
         </tr>
+        <tr>
+            <td>400</td>
+            <td>The image URL is not https or `/variants/...`, or a spec key is unknown or too long (<code>VARIANT_MEDIA_INVALID</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VARIANT_MEDIA_INVALID"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Check the image link and the spec sheet entries."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -199,8 +224,13 @@ flowchart TB
     E3["Return 409 VARIANT_IN_USE"]
     D3 -->|yes| E3
     E3 --> X3((End))
+    D4{"The image URL is not https or `/variants/...`, or a spec key is unknown or too long?"}
+    D3 -->|no| D4
+    E4["Return 400 VARIANT_MEDIA_INVALID"]
+    D4 -->|yes| E4
+    E4 --> X4((End))
     P0["Validate"]
-    D3 -->|no| P0
+    D4 -->|no| P0
     P1["Update"]
     P0 --> P1
     OK["Return 200"]

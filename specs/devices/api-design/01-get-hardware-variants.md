@@ -61,6 +61,12 @@ No body.
         "Enclosure seal",
         "Button and buzzer"
       ],
+      "imageUrl": null,
+      "specSheet": {
+        "mcu": "ESP32",
+        "sosControl": "3 s hold on the user button",
+        "localAlarm": "LED blinks"
+      },
       "isActive": true,
       "deviceCount": 18
     }
