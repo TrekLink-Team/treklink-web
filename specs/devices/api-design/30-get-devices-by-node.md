@@ -52,8 +52,7 @@ No body.
           },
           "hasGps": true,
           "hasMotionSensor": false,
-          "mqttCapable": true,
-          "firmwareBaseline": "2.7.19-treklink.3"
+          "mqttCapable": true
         },
         "firmwareVersion": "2.7.19-treklink.3",
         "acquiredAt": "2026-06-15T00:00:00Z",
