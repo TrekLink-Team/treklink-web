@@ -277,6 +277,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - _Story: US-UC42_
 - [ ] 9.4 Reports (owner LongNN)
   - **Do**: monitoring api-design 08; date range; CSV download
+  - **Backend done** (2026-11-03, treklink-web#331, TK-172): `GET /api/reports/:kind` serves the five kinds with the row shapes of the catalog (overdue and lost rows carry `contractId` and `lossCaseId`) and `format=csv`. The page is not built. Open for the page: the incident-times tab can show a platform figure, because the endpoint returns one row with a null `organization` over every incident of the period; the design note of `ui-design/9-4` that says no platform-wide figure is returned needs a change with the page
   - _Story: US-UC59_
 - [ ] 9.5 Field data sync page (owner LongNN)
   - **Do**: gateway-sync api-design 03, 04 and 07; screen file `ui-design/9-5-field-data-sync-page.md`
