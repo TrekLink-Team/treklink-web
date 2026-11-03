@@ -185,8 +185,24 @@ const UndoProvisioningDialog: React.FC<{
 // /t/counter/:contractId, the counter handover of screen 5.4 (rentals api-design 07 to 10,
 // organizations 03 and 12, billing 08 and 09) in four steps. The signature, the identity text and the
 // preview live in memory only and are dropped after the handover.
-export const CounterPage: React.FC = () => {
-  const { contractId = '' } = useParams();
+const EmbeddedHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="flex flex-col">{children}</div>
+);
+
+/**
+ * /t/counter/:contractId, screens 5.4 and 5.5. `embedded` renders the same four handover steps
+ * inside the contract home's Handover mode (`/t/contracts/:id?mode=handover`, chapter 06 §10.4):
+ * the home holds the title, the status and the sticky row, so the counter drops its own title
+ * and its sticky header, and keeps its stepper and its Back and Next bar as they are.
+ * `onDone` replaces the counter's done screen there.
+ */
+export const CounterPage: React.FC<{
+  contractId?: string;
+  embedded?: boolean;
+  onDone?: () => void;
+}> = ({ contractId: given, embedded = false, onDone }) => {
+  const params = useParams();
+  const contractId = given ?? params.contractId ?? '';
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const contract = useContract(contractId);
@@ -499,7 +515,8 @@ export const CounterPage: React.FC = () => {
       showToast(
         `Handover complete. ${result.devicesHandedOver} devices issued under contract ${result.code}.`,
       );
-      setDone({ count: result.devicesHandedOver, code: result.code });
+      if (onDone) onDone();
+      else setDone({ count: result.devicesHandedOver, code: result.code });
     } catch (failure) {
       setPending(false);
       if (!(failure instanceof ApiError)) {
@@ -603,18 +620,29 @@ export const CounterPage: React.FC = () => {
     );
   }
 
+  // Embedded in the contract home, which holds the title and the sticky row, the stepper is plain.
+  const Header = embedded ? EmbeddedHeader : StickyPageHeader;
+
   return (
-    <section aria-labelledby="counter-title" className="flex flex-1 flex-col">
-      <StickyPageHeader>
-        <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm ${COMPACT_HIDDEN}`}>
-          Back to the contract
-        </Link>
-        <PageTitle
-          id="counter-title"
-          title={`Counter handover: ${data.code}`}
-          action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
-        />
-        <p className={`-mt-3 mb-5 text-ink-muted ${COMPACT_HIDDEN}`}>
+    <section
+      aria-labelledby={embedded ? undefined : 'counter-title'}
+      aria-label={embedded ? `Handover of ${data.code}` : undefined}
+      className="flex flex-1 flex-col"
+    >
+      <Header>
+        {!embedded && (
+          <>
+            <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm ${COMPACT_HIDDEN}`}>
+              Back to the contract
+            </Link>
+            <PageTitle
+              id="counter-title"
+              title={`Counter handover: ${data.code}`}
+              action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
+            />
+          </>
+        )}
+        <p className={`${embedded ? '' : '-mt-3'} mb-5 text-ink-muted ${COMPACT_HIDDEN}`}>
           {data.organization
             ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
             : ''}
@@ -643,7 +671,7 @@ export const CounterPage: React.FC = () => {
             </li>
           ))}
         </ol>
-      </StickyPageHeader>
+      </Header>
 
       {beforeStart && (
         <div role="status" className={`${WARNING} mb-5`}>

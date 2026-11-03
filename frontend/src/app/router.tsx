@@ -53,6 +53,12 @@ import { useAuth } from './providers/useAuth';
 
 // Development only: the design system page (docs/design-system.md). Vite drops the import from a
 // production build because the route below is behind import.meta.env.DEV.
+// Handover mode of the contract home (chapter 06 §10.4) runs the counter's four steps in place of
+// the tab body; the app composes the two pages, so neither page imports the other.
+const staffHandover = (contractId: string, onDone: () => void) => (
+  <CounterPage contractId={contractId} embedded onDone={onDone} />
+);
+
 const loadDesignSystem = () =>
   import('../pages/DesignSystemPage').then((module) => ({ default: module.DesignSystemPage }));
 const DesignSystemPage = import.meta.env.DEV ? React.lazy(loadDesignSystem) : null;
@@ -133,7 +139,10 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/map" element={<LiveMapPage scope="t" />} />
         <Route path="/t/incidents" element={<StaffIncidentsPage />} />
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
-        <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
+        <Route
+          path="/t/contracts/:id"
+          element={<ContractDetailPage scope="t" handover={staffHandover} />}
+        />
         <Route path="/t/devices/:id/telemetry" element={<DeviceTelemetryPage scope="t" />} />
         <Route path="/t/billing" element={<BillingPage />} />
         <Route path="/t/reports" element={<ReportsPage />} />

@@ -189,10 +189,11 @@ export const useVariantName = () => {
     plans.data?.variants.find((item) => item.id === variant.id)?.name ?? variant.code ?? 'variant';
 };
 
-export const useInvoices = (scope: 'o' | 't', filters: InvoiceFilters) =>
+export const useInvoices = (scope: 'o' | 't', filters: InvoiceFilters, enabled = true) =>
   useQuery({
     queryKey: billingKeys.invoices(scope, filters),
     queryFn: () => apiClient<Page<Invoice>>(`/invoices${queryString({ ...filters })}`),
+    enabled,
   });
 
 export const useInvoice = (id: string | null) =>

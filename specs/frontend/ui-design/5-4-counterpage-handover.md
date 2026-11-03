@@ -14,6 +14,8 @@
 
 Scope from the task: rentals api-design 07 to 10 in four steps (design §5): devices with scan, provisioning, battery and GPS check and swap; payment status; preview note; signature pad (PNG) and identity field; nothing stored in the browser after submit
 
+Since D-096 (2026-11-04) the same four steps also run inside the contract home's Handover mode, `/t/contracts/:id?mode=handover` (screen 5.2): the home shows the title, status and actions, so the counter drops its own title and sticky header there and keeps its stepper and its Back and Next bar. A signed handover returns the home to its Overview.
+
 ## Data
 
 | Shown | Source (api-design file, property) |

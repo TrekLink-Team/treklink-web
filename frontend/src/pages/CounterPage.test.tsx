@@ -242,6 +242,27 @@ describe('CounterPage (screen 5.4)', () => {
     expect(within(bar).queryByRole('button', { name: 'Next' })).toBeNull();
   });
 
+  it('runs the same four steps embedded in the contract home, without its own title or sticky header', async () => {
+    const onDone = vi.fn();
+    completeHandover.mockResolvedValueOnce({ code: 'RC-2026-0002', devicesHandedOver: 2 });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/t/contracts/c-1?mode=handover']}>
+          <CounterPage contractId="c-1" embedded onDone={onDone} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('list', { name: 'Steps' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(document.querySelector('[data-compact]')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Handover of RC-2026-0002' })).toBeTruthy();
+    const bar = screen.getByRole('group', { name: 'Handover steps' });
+    expect(within(bar).getByRole('button', { name: 'Back' })).toBeTruthy();
+    await toSignStep();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete handover' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+  });
+
   it('answers an asset tag of another contract with MSG12', () => {
     renderPage();
     fireEvent.change(screen.getByLabelText('Scan or type an asset tag'), {
