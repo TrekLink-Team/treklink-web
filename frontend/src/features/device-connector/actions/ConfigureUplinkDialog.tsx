@@ -169,19 +169,18 @@ export const ConfigureUplinkDialog: React.FC<Props> = ({ device, onDone, onClose
         <p className="text-body-sm text-ink-muted">
           Fixed by D-005: root {UPLINK_ROOT}, JSON on, MQTT encryption off, uplink on channel 0.
         </p>
-        {stage && (
-          <div role="status" className="flex flex-wrap items-center gap-3 text-body text-ink">
-            <span>{stageText(stage, device.assetTag)}</span>
-            {stage === 'reconnect' && (
-              <>
-                <Button type="button" onClick={() => void docking.reconnect()}>
-                  Reconnect
-                </Button>
-                <Button type="button" variant="ghost" onClick={docking.giveUp}>
-                  Stop
-                </Button>
-              </>
-            )}
+        {/* Mounted while the dialog is open, so the first stage is announced too (WCAG 4.1.3). */}
+        <p role="status" className={stage ? 'text-body text-ink' : 'sr-only'}>
+          {stage ? stageText(stage, device.assetTag) : ''}
+        </p>
+        {stage === 'reconnect' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" onClick={() => void docking.reconnect()}>
+              Reconnect
+            </Button>
+            <Button type="button" variant="ghost" onClick={docking.giveUp}>
+              Stop
+            </Button>
           </div>
         )}
         {failure && <Alert tone="error">{failure}</Alert>}
