@@ -1427,11 +1427,13 @@ holds it, and leaves it when the custody interval ends. The console that lists t
    moving it would rewrite that endpoint, the map and the counter for no gain, and a device out of every group
    would lose its holder. `GroupAssignment` carries no holder. Report 4 Table 52 is corrected when Report 4 is
    next rebuilt.
-2. **A device leaves its group at check-in, at a settled loss, and on replacement, where the replacement takes
-   its place.** The SRS (FR-CON-18) names check-in only; the SDD names check-in or loss. A settled loss ends the
-   custody interval (REQ-EVT-12), so the assignment ends with it. Neither covers replacement (UC-61): the
-   replacement unit goes into the replaced unit's group in the same transaction, since the group is about who
-   carries the unit, not which serial number it has.
+2. **A device leaves its group whenever its custody row closes; on a replacement the new unit takes its place.**
+   The SRS (FR-CON-18) names check-in only; the SDD names check-in or loss. A row closes four ways: check-in, a
+   settled loss (REQ-EVT-12), replacement (UC-61), and the release of a broken unit from a running contract with
+   a refund, which the leader ruled on 2026-11-03 and KhoaDD specifies separately (review of treklink-web#327).
+   Every way goes through one step, `closeCustody` (§11.4), which ends the assignment and resolves the fault
+   report, so a fifth way added later cannot forget either. On a replacement the new unit goes into the replaced
+   unit's group, since the group is about who carries the unit, not which serial number it has.
 3. **The fault report is a `rentals` row a service credit can name.** `DeviceFaultReport` hangs on the live
    contract row. A service credit (billing design §9) may name it as the source of its outage start in place of
    the note (billing REQ-EVT-12, billing task 8.3); until that is built, the credit keeps the incident or the note.
@@ -1443,7 +1445,8 @@ holds it, and leaves it when the custody interval ends. The console that lists t
 ### 11.2 Data model
 
 `Group` (`groups`), as Report 4 Table 51 with three additions: `version` for concurrent edits, `createdById`, and
-`removedAt`, so a removed group keeps the history of who was in it (the audit and an incident's group at the time).
+`removedAt`, so a removed group's assignments stay readable for the audit trail. Every reader outside this module
+uses a device's group now (monitoring REQ-UBI-05, incidents REQ-UBI-06); nothing reads a group at a past time.
 
 | Column | Type | Null | Rule |
 |---|---|---|---|
@@ -1459,8 +1462,10 @@ holds it, and leaves it when the custody interval ends. The console that lists t
 | `createdAt`, `updatedAt` | timestamptz(3) | no | |
 | `removedAt` | timestamptz(3) | yes | set by removal; a removed group is never read again by the organization |
 
-Unique index `groups_live_name` on `(organizationId, COALESCE(parentId, ''), lower(name)) WHERE removedAt IS NULL`
-in `constraints.sql`, since a plain unique key treats two null parents as different.
+Unique index `groups_live_name` on
+`("organizationId", COALESCE("parentId", '00000000-0000-0000-0000-000000000000'::uuid), lower("name")) WHERE "removedAt" IS NULL`
+in `constraints.sql`, since a plain unique key treats two null parents as different; the nil uuid stands for "no
+parent" because `parentId` is a uuid column and an empty string does not cast.
 
 `GroupAssignment` (`group_assignments`), as Report 4 Table 52 without the holder (ruling 1) and with the reason
 it ended.
@@ -1474,7 +1479,7 @@ it ended.
 | `assignedById` | uuid | no | FK `users` |
 | `assignedAt` | timestamptz(3) | no | |
 | `endedAt` | timestamptz(3) | yes | |
-| `endedReason` | enum `GroupExit` | yes | `MOVED`, `UNASSIGNED`, `GROUP_REMOVED`, `CHECKED_IN`, `LOST`, `REPLACED`; set with `endedAt` |
+| `endedReason` | enum `GroupExit` | yes | `MOVED`, `UNASSIGNED`, `GROUP_REMOVED`, `CHECKED_IN`, `LOST`, `REPLACED`, `RELEASED`; set with `endedAt` |
 
 `DeviceFaultReport` (`device_fault_reports`, UC-69, FR-CON-19).
 
@@ -1488,12 +1493,16 @@ it ended.
 | `description` | text | no | 1 to 1000 characters |
 | `reportedById` | uuid | no | FK `users` |
 | `reportedAt` | timestamptz(3) | no | UTC |
-| `resolvedAt` | timestamptz(3) | yes | the replacement handover or the check-in |
-| `resolution` | enum `FaultResolution` | yes | `REPLACED`, `CHECKED_IN`; set with `resolvedAt` |
+| `resolvedAt` | timestamptz(3) | yes | when the custody row closed |
+| `resolution` | enum `FaultResolution` | yes | `REPLACED`, `CHECKED_IN`, `LOST`, `RELEASED`; set with `resolvedAt` |
 
 New business parameter `rentals.groupMaxDepth` (INT, default 1, bounds 1 to 3, `catalog.py`): the number of
-subgroup levels below a top-level group. A top-level group is depth 0; a parent at depth `groupMaxDepth` refuses
-a child (REQ-ERR-13). Raising it takes effect on the next request, with no schema change (Report 4 §2.2.5).
+subgroup levels below a top-level group. A top-level group is depth 0. A create or a move is accepted when the
+parent's depth plus one plus the height of the group's own subtree (0 for a group without subgroups) is at most
+`groupMaxDepth`, and the new parent is not the group or one of its subgroups (REQ-ERR-13). Raising the cap takes
+effect on the next request, with no schema change (Report 4 §2.2.5). Lowering it changes no existing group: a
+group already deeper than the new cap stays where it is, keeps its devices and can still be renamed or edited in
+place, but nothing new is created under it and it cannot be moved anywhere that is still too deep.
 
 ### 11.3 Rules, and what happens when
 
@@ -1501,9 +1510,11 @@ a child (REQ-ERR-13). Raising it takes effect on the next request, with no schem
 |---|---|---|
 | The parent is already a subgroup at the depth cap, or is the group itself or one of its subgroups (a cycle through an edit) | 409 `GROUP_DEPTH_EXCEEDED`, MSG40 with the cap, nothing saved | REQ-ERR-13 |
 | A group is removed while it has subgroups and devices | its subgroups are removed with it, every open assignment of all of them ends `GROUP_REMOVED`, the devices are ungrouped; one transaction | REQ-EVT-21 |
-| Two Managers move the same device into two groups at once | the per-device advisory lock serializes them; the second ends the first's assignment `MOVED`; the device ends in exactly one group | REQ-UBI-06 |
+| Two Managers move the same device into two groups at once, or two batches overlap | locks are taken in one order (§11.4); the second waits and ends the first's assignment `MOVED`; the device ends in exactly one group and the batches cannot deadlock | REQ-UBI-06 |
 | A Manager assigns while another removes the group | the assignment locks the group row (`FOR UPDATE`) and refuses a removed group with 404 | REQ-EVT-21, REQ-EVT-22 |
-| A device is checked in, settled lost, or replaced while grouped | the assignment ends `CHECKED_IN`, `LOST` or `REPLACED` in that transaction; the replacement opens one in the same group | REQ-EVT-23 |
+| A device is checked in, settled lost, replaced or released while grouped | `closeCustody` ends the assignment `CHECKED_IN`, `LOST`, `REPLACED` or `RELEASED` and resolves the open fault report the same way, in that transaction; the replacement opens an assignment in the same group | REQ-EVT-23 |
+| A group with subgroups is moved under another group | accepted only when the parent's depth plus one plus the subtree's height stays within the cap | REQ-ERR-13 |
+| The cap is lowered while deeper groups exist | they stay and keep their devices; only new nesting is refused | §11.2 |
 | The organization assigns a device it no longer holds, or another organization's device | 409 `DEVICE_NOT_HELD`, MSG17; a batch assigns none | REQ-ERR-14 |
 | Two Managers edit one group | the second gets 409 `STALE_VERSION` | REQ-ERR-15 |
 | A Manager reports a fault twice | the second gets 409 `FAULT_ALREADY_REPORTED` with the open report's id | REQ-ERR-16 |
@@ -1516,15 +1527,23 @@ a child (REQ-ERR-13). Raising it takes effect on the next request, with no schem
 - `GroupsRepository` is the only class over `groups` and `group_assignments` (D-044 rule 4). `GroupsService`:
   `tree(organizationId)` with the count of open assignments per group, `create`, `update`, `remove`, `assign`,
   `unassign`, and `endFor(contractDeviceId, reason, tx)` and `passOn(fromRowId, toRowId, tx)` for the hooks.
-- Depth: `depthOf(parentId)` walks `parentId` up from the parent, at most `groupMaxDepth + 1` steps; a cycle or a
-  depth at the cap refuses.
+- Depth: `depthOf(parentId)` walks `parentId` up from the parent, at most `groupMaxDepth + 1` steps, and
+  `heightOf(groupId)` walks the live subgroups down; a create or a move needs `depthOf(parent) + 1 + heightOf(group)
+  <= groupMaxDepth` and refuses a new parent inside the group's own subtree.
+- Lock order, the same everywhere, so no two transactions wait on each other: the contract row (`lockById`) when the
+  path holds one, then the group rows `FOR UPDATE` in ascending `id`, then the per-device advisory locks
+  (keyed `rentals:group-device:<deviceId>`) in ascending `deviceId`. An assignment batch sorts its
+  `deviceIds` before locking; a removal locks the group and its subgroups in ascending `id` before ending their
+  assignments.
 - Held now: `ContractsRepository.liveRowsOfOrganization(organizationId, deviceIds, tx)` returns each device's live
   row of a contract of the organization with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; a device
   without one is not held.
-- Hooks, each in the transaction that ends the custody: `ReturnService.checkIn` calls `endFor(row, CHECKED_IN)`;
-  `RentalsLossCaseListener.onSettled` calls `endFor(row, LOST)`; `ReplacementService.replace` calls
-  `passOn(old, new)` (ends `REPLACED`, opens the same group on the new row) and resolves the old row's open fault
-  report `REPLACED`; `checkIn` resolves it `CHECKED_IN`.
+- One custody-closing step: `CustodyService.closeCustody(row, way, at, tx, replacementRowId?)` sets the row's
+  `checkedInAt`, `lostAt` or release stamp, then calls `GroupsService.endFor(row, way)` (or `passOn(row,
+  replacementRowId)` for `REPLACED`) and `FaultReportsService.resolve(row, way)`. Check-in
+  (`ReturnService.checkIn`), the settled loss (`RentalsLossCaseListener.onSettled`), replacement
+  (`ReplacementService.replace`) and the release ruled on 2026-11-03 all call it instead of writing the column
+  themselves; `ContractsRepository.markCheckedIn` and the `lostAt` write become private to it.
 - `FaultReportsService.report(contractId, deviceId, description, actor)` checks the device is `RENTED` on a live
   row of the caller's organization, inserts the row, emits `device.faultReported` after commit; the existing
   `ContractNotificationsListener` emails Staff through `STAFF_NOTIFICATIONS` (as for `contract.requested`).

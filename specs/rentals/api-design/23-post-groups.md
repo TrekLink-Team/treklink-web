@@ -153,7 +153,7 @@ Creates a group of the caller's organization, top-level or under a parent at mos
         </tr>
         <tr>
             <td>409</td>
-            <td>The parent sits at `rentals.groupMaxDepth`, or is the group itself or one of its subgroups (<code>GROUP_DEPTH_EXCEEDED</code>)</td>
+            <td>The parent's depth plus one plus the height of the group's own subgroups exceeds `rentals.groupMaxDepth`, or the parent is the group itself or one of its subgroups (<code>GROUP_DEPTH_EXCEEDED</code>)</td>
 <td>
 
 ```json
@@ -210,7 +210,7 @@ flowchart TB
     E3["Return 409 CONFLICT_UNIQUE"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The parent sits at `rentals.groupMaxDepth`, or is the group itself or one of its subgroups?"}
+    D4{"The parent's depth plus one plus the height of the group's own subgroups exceeds `rentals.groupMaxDepth`, or the parent is the group itself or one of its subgroups?"}
     D3 -->|no| D4
     E4["Return 409 GROUP_DEPTH_EXCEEDED"]
     D4 -->|yes| E4

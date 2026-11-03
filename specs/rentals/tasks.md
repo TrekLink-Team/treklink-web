@@ -200,19 +200,19 @@ AC-10 to AC-14 and design §11; endpoints api-design 22 to 29 (treklink-web#305)
 
 - [ ] 9.1 Schema, constraints, parameter and permissions (owner LongLP)
   - **Files**: `backend/prisma/schema.prisma`, a forward migration, `backend/prisma/constraints.sql`, `scripts/specs/catalog.py`, `specs/auth/permission-matrix.md`, `specs/platform/configuration-matrix.md`
-  - **Do**: `Group`, `GroupAssignment`, `DeviceFaultReport` and the enums `GroupExit`, `FaultResolution` of design §11.2; the partial unique indexes `groups_live_name`, `group_assignments_one_open` and the one open fault report per row; the `endsOn >= startsOn` CHECK; `rentals.groupMaxDepth`; the six permissions of §11.5 as a forward migration (the applied seed migration is never edited); error codes `GROUP_DEPTH_EXCEEDED`, `DEVICE_NOT_HELD`, `FAULT_ALREADY_REPORTED`
+  - **Do**: `Group`, `GroupAssignment`, `DeviceFaultReport` and the enums `GroupExit`, `FaultResolution` of design §11.2 (both with `RELEASED`, and `LOST` on `FaultResolution`); the partial unique indexes `groups_live_name`, `group_assignments_one_open` and the one open fault report per row; the `endsOn >= startsOn` CHECK; `rentals.groupMaxDepth`; the six permissions of §11.5 as a forward migration (the applied seed migration is never edited); error codes `GROUP_DEPTH_EXCEEDED`, `DEVICE_NOT_HELD`, `FAULT_ALREADY_REPORTED`
   - _Requirements: REQ-UBI-06, REQ-UBI-07, BR-46_
 - [ ] 9.2 Groups: tree, create, edit, remove (owner LongLP)
   - **Files**: `backend/src/modules/rentals/groups.repository.ts`, `groups.service.ts`, `groups.controller.ts`, `dto/groups.dto.ts`
   - **Do**: api-design 22 to 25; depth from `rentals.groupMaxDepth` read per request; removal ends the open assignments of the group and its subgroups in one transaction; `version` on edit; audit after commit
   - _Requirements: REQ-EVT-20, REQ-EVT-21, REQ-EVT-25, REQ-ERR-13, REQ-ERR-15, AC-11_
 - [ ] 9.3 Assignments and the custody hooks (owner LongLP)
-  - **Files**: `groups.service.ts`, `return.service.ts`, `replacement.service.ts`, `providers/loss-case-listener.provider.ts`, `contracts.service.ts` (`visibleDevices`)
-  - **Do**: api-design 26 and 27 with the per-device advisory lock and the group row lock; `endFor` at check-in and settled loss, `passOn` at replacement, in those transactions; `visibleDevices` returns the group and the open fault report; `device.groupChanged` after commit
+  - **Files**: `custody.service.ts` (new), `groups.service.ts`, `return.service.ts`, `replacement.service.ts`, `providers/loss-case-listener.provider.ts`, `contracts.repository.ts`, `contracts.service.ts` (`visibleDevices`)
+  - **Do**: api-design 26 and 27 with the lock order of design §11.4 (group rows by `id`, then devices by sorted `deviceId`); `closeCustody` as the only writer of a row's close (check-in, settled loss, replacement, and the release once it is specified), ending the assignment and resolving the fault report; `passOn` at replacement; `visibleDevices` returns the group and the open fault report; `device.groupChanged` after commit
   - _Requirements: REQ-EVT-22, REQ-EVT-23, REQ-ERR-14, AC-10, AC-13_
 - [ ] 9.4 Fault reports (owner LongLP)
   - **Files**: `fault-reports.service.ts`, `fault-reports.controller.ts`, `contract-notifications.listener.ts`
-  - **Do**: api-design 28 and 29; resolve at replacement and check-in; the Staff email through `STAFF_NOTIFICATIONS`; the report id readable by `billing` through the `CREDIT_BASIS` port for billing task 8.3
+  - **Do**: api-design 28 and 29; resolved by `closeCustody` (`REPLACED`, `CHECKED_IN`, `LOST`, `RELEASED`); the Staff email through `STAFF_NOTIFICATIONS`; the report id readable by `billing` through the `CREDIT_BASIS` port for billing task 8.3
   - _Requirements: REQ-EVT-24, REQ-ERR-16, AC-14_
 - [ ] 9.5 Tests (owner LongLP)
   - **Do**: unit specs for depth, held-now, move semantics, removal, the hooks and the fault report; db-specs for AC-10 to AC-14, including two concurrent moves of one device and a cross-organization request (the three F-11 feature tests of BM04: one group per device left at return, the depth cap, holder data private)

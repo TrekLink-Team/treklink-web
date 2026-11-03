@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Changes a live group's name, label, dates, area note or parent with the `version` the Manager saw. Moving a group under another keeps the depth cap and refuses a cycle. Audited as `group.updated`.
+Changes a live group's name, label, dates, area note or parent with the `version` the Manager saw. Moving a group under another counts the height of its own subgroups against the depth cap and refuses a cycle. A group already deeper than a lowered cap can still be edited in place. Audited as `group.updated`.
 
 ## API Specification
 
@@ -173,7 +173,7 @@ Changes a live group's name, label, dates, area note or parent with the `version
         </tr>
         <tr>
             <td>409</td>
-            <td>The parent sits at `rentals.groupMaxDepth`, or is the group itself or one of its subgroups (<code>GROUP_DEPTH_EXCEEDED</code>)</td>
+            <td>The parent's depth plus one plus the height of the group's own subgroups exceeds `rentals.groupMaxDepth`, or the parent is the group itself or one of its subgroups (<code>GROUP_DEPTH_EXCEEDED</code>)</td>
 <td>
 
 ```json
@@ -252,7 +252,7 @@ flowchart TB
     E4["Return 409 CONFLICT_UNIQUE"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"The parent sits at `rentals.groupMaxDepth`, or is the group itself or one of its subgroups?"}
+    D5{"The parent's depth plus one plus the height of the group's own subgroups exceeds `rentals.groupMaxDepth`, or the parent is the group itself or one of its subgroups?"}
     D4 -->|no| D5
     E5["Return 409 GROUP_DEPTH_EXCEEDED"]
     D5 -->|yes| E5
