@@ -18,9 +18,9 @@ import {
   type DeviceCheck,
 } from '../entities/contract/api';
 import { organizationKeys, useMembers, useOrganization } from '../entities/organization/api';
-import type { DockStage } from '../features/dock-device/DockingService';
-import { handoverDockMessage } from '../features/dock-device/messages';
-import { useDocking } from '../features/dock-device/useDocking';
+import type { DockStage } from '../features/device-connector/actions/DockingService';
+import { handoverDockMessage } from '../features/device-connector/actions/messages';
+import { useDocking } from '../features/device-connector/actions/useDocking';
 import { ApiError } from '../shared/api/apiClient';
 import { toNodeId } from '../shared/lib/meshtastic-dock';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
