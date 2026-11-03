@@ -27,6 +27,7 @@ const device = (overrides: Record<string, unknown> = {}) => ({
     hasGps: true,
     hasMotionSensor: true,
     mqttCapable: true,
+    firmwareBaseline: '2.7.19-treklink.3',
   },
   firmwareVersion: '2.7.19-treklink.3',
   acquiredAt: '2026-06-15T00:00:00Z',
@@ -116,6 +117,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     renderPage();
     expect(await screen.findByText('Capabilities')).toBeTruthy();
     expect(screen.getByText('GPS, Motion sensor, MQTT')).toBeTruthy();
+    expect(screen.getByText('Firmware baseline')).toBeTruthy();
   });
 
   it.each(['IN_INTAKE', 'AVAILABLE', 'RENTED', 'RETIRED', 'DISPOSED'] as const)(

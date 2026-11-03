@@ -64,7 +64,8 @@ Records the verified wipe of a `RETIRED` device (channel key, node database, own
       },
       "hasGps": true,
       "hasMotionSensor": false,
-      "mqttCapable": true
+      "mqttCapable": true,
+      "firmwareBaseline": "2.7.19-treklink.3"
     },
     "firmwareVersion": "2.7.19-treklink.3",
     "acquiredAt": "2026-06-15T00:00:00Z",

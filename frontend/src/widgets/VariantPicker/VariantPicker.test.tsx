@@ -17,6 +17,7 @@ const V3: PlanVariant = {
   hasGps: true,
   hasMotionSensor: false,
   mqttCapable: true,
+  firmwareBaseline: '2.7.19-treklink.3',
   monthlyPriceVnd: 450000,
   dayPriceVnd: 22500,
 };
@@ -92,6 +93,7 @@ describe('VariantPicker (the variant cards of the request form)', () => {
     render(<Harness />);
 
     expect(screen.getAllByText('GPS, MQTT')).toHaveLength(2);
+    expect(screen.getAllByText('2.7.19-treklink.3')).toHaveLength(2);
   });
 
   it('calls onChange once for a click on the radio and once for a click on the card', () => {

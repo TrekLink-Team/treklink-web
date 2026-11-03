@@ -50,6 +50,7 @@ const plans = (overrides: Partial<Plans> = {}): Plans => ({
       hasGps: true,
       hasMotionSensor: false,
       mqttCapable: true,
+      firmwareBaseline: '2.7.19-treklink.3',
       monthlyPriceVnd: 450000,
       dayPriceVnd: 22500,
     },

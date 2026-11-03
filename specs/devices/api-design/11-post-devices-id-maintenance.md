@@ -101,7 +101,8 @@ Moves an `AVAILABLE` device to `MAINTENANCE` for a reported fault, a service or 
         },
         "hasGps": true,
         "hasMotionSensor": false,
-        "mqttCapable": true
+        "mqttCapable": true,
+        "firmwareBaseline": "2.7.19-treklink.3"
       },
       "firmwareVersion": "2.7.19-treklink.3",
       "acquiredAt": "2026-06-15T00:00:00Z",

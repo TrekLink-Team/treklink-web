@@ -97,7 +97,8 @@ No body.
           },
           "hasGps": true,
           "hasMotionSensor": false,
-          "mqttCapable": true
+          "mqttCapable": true,
+          "firmwareBaseline": "2.7.19-treklink.3"
         },
         "contractDeviceId": "cd-1",
         "resetAt": null,
@@ -121,7 +122,7 @@ No body.
 | --- | --- | --- | --- |
 | holdExpiresAt | When the hold of a request expires unpaid (D-092); kept after the decision as history; null for a contract requested before D-092 | datetime | `null` |
 | devices[].resetAt | First reset of the unit at or after this row's check-in and before the unit's next return (devices api-design 10), null when not checked in or not reset yet; the return counter shows it after a reload | datetime | `2026-10-30T03:05:00.000Z` |
-| devices[].hardwareVariant | The shared variant summary of devices design section 10 (`id`, `code`, `name`, `imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`), the variant of the contract, for the device reference and variant card of the Devices tab; absent on the holder answer (api-design 20) | object | `{"id": "...", "code": "treklink-v3", ...}` |
+| devices[].hardwareVariant | The shared variant summary of devices design section 10 (`id`, `code`, `name`, `imageUrl`, `specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`, `firmwareBaseline`), the variant of the contract, for the device reference and variant card of the Devices tab; absent on the holder answer (api-design 20) | object | `{"id": "...", "code": "treklink-v3", ...}` |
 | devices[].contractDeviceId | This row on the contract; a service credit is requested against it (billing api-design 18) | uuid | `cd-1` |
 | devices[].inspection | Last inspection recorded against this row (api-design 16): `id`, `result` PASSED, DAMAGED or FAILED, and `at`; null when none. A FAILED one backs a service credit request (billing api-design 18) | object | `null` |
 | devices[].provisionedKeyVersion | The channel key version the unit carries for this contract's organization (api-design 09), null when it holds none of it; the counter keeps provisioning after a reload | int | `1` |

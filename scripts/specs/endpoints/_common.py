@@ -11,7 +11,8 @@ VARIANT_ID = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 VARIANT_SUMMARY = {"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, SOS button)",
                    "imageUrl": None,
                    "specSheet": {"mcu": "ESP32", "sosControl": "3 s hold on the user button", "localAlarm": "LED blinks"},
-                   "hasGps": True, "hasMotionSensor": False, "mqttCapable": True}
+                   "hasGps": True, "hasMotionSensor": False, "mqttCapable": True,
+                   "firmwareBaseline": "2.7.19-treklink.3"}
 CONTRACT_ID = "c0ffee00-1234-4abc-9def-001122334455"
 INVOICE_ID = "1e2d3c4b-5a69-4788-9a0b-c1d2e3f4a5b6"
 INCIDENT_ID = "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d"

@@ -27,6 +27,7 @@ const row = {
     hasGps: true,
     hasMotionSensor: false,
     mqttCapable: true,
+    firmwareBaseline: '2.7.19-treklink.3',
   },
 } as DeviceListRow;
 
@@ -41,6 +42,7 @@ describe('toDeviceView (devices api-design 05 to 07)', () => {
       hasGps: true,
       hasMotionSensor: false,
       mqttCapable: true,
+      firmwareBaseline: '2.7.19-treklink.3',
     });
   });
 });

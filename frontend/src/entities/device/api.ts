@@ -26,7 +26,15 @@ export interface Variant {
 // The variant summary every unit payload carries (devices design section 10, api-design 05 to 07).
 export type VariantSummary = Pick<
   Variant,
-  'id' | 'code' | 'name' | 'imageUrl' | 'specSheet' | 'hasGps' | 'hasMotionSensor' | 'mqttCapable'
+  | 'id'
+  | 'code'
+  | 'name'
+  | 'imageUrl'
+  | 'specSheet'
+  | 'hasGps'
+  | 'hasMotionSensor'
+  | 'mqttCapable'
+  | 'firmwareBaseline'
 >;
 
 export interface Device {

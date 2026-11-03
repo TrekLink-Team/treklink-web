@@ -15,6 +15,7 @@ export interface PlanVariantView {
   hasGps: boolean;
   hasMotionSensor: boolean;
   mqttCapable: boolean;
+  firmwareBaseline: string;
   monthlyPriceVnd: number;
   dayPriceVnd: number;
 }
@@ -78,6 +79,7 @@ export class PricingController {
                 hasGps: variant.hasGps,
                 hasMotionSensor: variant.hasMotionSensor,
                 mqttCapable: variant.mqttCapable,
+                firmwareBaseline: variant.firmwareBaseline,
                 monthlyPriceVnd: vnd(price.monthlyPriceVnd),
                 dayPriceVnd: vnd(price.dayPriceVnd),
               },

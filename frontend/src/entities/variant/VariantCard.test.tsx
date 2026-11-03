@@ -97,6 +97,17 @@ describe('VariantCard', () => {
     expect(screen.queryByText('Capabilities')).toBeNull();
   });
 
+  it('shows the firmware baseline when the read carries it, and nothing when it does not', () => {
+    const { rerender } = render(
+      <VariantCard variant={{ ...V3, firmwareBaseline: '2.7.19-treklink.3' }} />,
+    );
+    expect(screen.getByText('Firmware baseline')).toBeTruthy();
+    expect(screen.getByText('2.7.19-treklink.3')).toBeTruthy();
+
+    rerender(<VariantCard variant={V3} />);
+    expect(screen.queryByText('Firmware baseline')).toBeNull();
+  });
+
   it('draws no spec list for an empty sheet and shows what the caller adds', () => {
     render(
       <VariantCard variant={{ ...V3, specSheet: {} }}>

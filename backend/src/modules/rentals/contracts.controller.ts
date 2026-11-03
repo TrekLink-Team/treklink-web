@@ -107,6 +107,7 @@ const toVariantRef = (variant: VariantSummary): VariantRef => ({
   hasGps: variant.hasGps,
   hasMotionSensor: variant.hasMotionSensor,
   mqttCapable: variant.mqttCapable,
+  firmwareBaseline: variant.firmwareBaseline,
 });
 
 export const toDeviceRowView = (
