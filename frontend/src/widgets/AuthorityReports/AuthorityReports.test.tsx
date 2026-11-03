@@ -78,6 +78,12 @@ const posts = () =>
 const fill = (label: RegExp, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
+// The open flag is the Show filter of the command bar (D-096).
+const showAll = () => {
+  fireEvent.click(screen.getByRole('button', { name: /^Show: Open cases only/ }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'All reports' }));
+};
+
 beforeEach(() => api.mockReset());
 afterEach(cleanup);
 
@@ -95,8 +101,10 @@ describe('AuthorityReportsPanel (screen 8.3, api-design 11)', () => {
       '/t/contracts/c-1',
     );
     expect(screen.getAllByText('Open')).toHaveLength(2);
+    // Record case closed is the item action of each open case (D-096).
+    expect(screen.getAllByRole('button', { name: 'Record case closed Lam Dong rescue (114) LD-114-07' })).toHaveLength(2);
     expect(screen.getByText(/does not coordinate rescue operations/)).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Open cases only'));
+    showAll();
     await waitFor(() =>
       expect(String(api.mock.calls[api.mock.calls.length - 1][0])).toBe(
         '/authority-reports?pageNumber=1&pageSize=20',
@@ -109,7 +117,7 @@ describe('AuthorityReportsPanel (screen 8.3, api-design 11)', () => {
     renderWith(<AuthorityReportsPanel onViewIncident={() => undefined} />);
     expect(await screen.findByText('No open authority cases.')).toBeTruthy();
     api.mockResolvedValueOnce(page([report({ caseClosedAt: '2026-11-02T08:00:00Z' })]));
-    fireEvent.click(screen.getByLabelText('Open cases only'));
+    showAll();
     // A short badge with the date after it (design handoff item 12).
     expect(await screen.findByText('Closed')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Record case closed/ })).toBeNull();

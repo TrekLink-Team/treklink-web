@@ -128,3 +128,11 @@ Added by KhoaDD under D-078. The reports list is the shared `DataTable`, which s
 below the sm breakpoint instead of the earlier labelled cards; Record case closed is the row action
 of an open case ("Record case closed {agency} {reference}"); Pagination shows the range. Server
 order kept (D-059 rule 7), so no column sorts.
+
+## Reports on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The report table renders through `CollectionView` (chapter 06 §9). The Open cases only
+checkbox becomes the Show filter of the command bar, "Open cases only" (the default, `open=true`) or "All
+reports" (no `open`), still on the server; Refresh is a command of the same bar. The reference is each
+report's title, Record case closed is the item action of an open case, and the subject link stays in its
+column and the details pane.
