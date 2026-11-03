@@ -294,6 +294,7 @@ export const DamageChargesPage: React.FC = () => {
         hideCommandBar={false}
         pageInfo={pageInfoOf(charges.data)}
         emptyState={{ title: 'No damage charges are waiting for a decision.' }}
+        noMatch={{ title: 'No damage charges match these filters.' }}
         footer={
           charges.data && charges.data.totalPages > 1 ? (
             <Pagination

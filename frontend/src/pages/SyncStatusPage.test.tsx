@@ -106,6 +106,12 @@ const renderPage = () =>
 beforeEach(() => api.mockReset());
 afterEach(cleanup);
 
+const showOutcome = (label: string) => {
+  const audit = screen.getByRole('region', { name: 'Sync audit records, newest first' });
+  fireEvent.click(within(audit).getByRole('button', { name: /^Show: / }));
+  fireEvent.click(screen.getByRole('menuitem', { name: label }));
+};
+
 describe('SyncStatusPage (/t/admin/sync, MF-02)', () => {
   it('reads the sync status and the recent events on load', async () => {
     api.mockImplementation(route());
@@ -253,7 +259,8 @@ describe('SyncStatusPage (/t/admin/sync, MF-02)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
     await waitFor(() => expect(auditCalls().at(-1)).toMatchObject({ pageNumber: 2 }));
 
-    fireEvent.change(screen.getByLabelText('Outcome'), { target: { value: 'MALFORMED_ENVELOPE' } });
+    // The outcome is the Show filter of the audit's command bar (chapter 06 §9.3).
+    showOutcome('Malformed');
     await waitFor(() =>
       expect(auditCalls().at(-1)).toEqual({
         op: 'listAudit',
@@ -265,10 +272,18 @@ describe('SyncStatusPage (/t/admin/sync, MF-02)', () => {
   });
 
   it('shows the filtered empty state', async () => {
-    api.mockImplementation(route());
+    // Three records unfiltered, so the command bar shows (one or two would hide it, §9.3); none filtered.
+    api.mockImplementation(
+      route({
+        audit: (body) =>
+          body.outcome
+            ? auditPage([])
+            : auditPage([auditRow({ id: 'sa-1' }), auditRow({ id: 'sa-2' }), auditRow({ id: 'sa-3' })]),
+      }),
+    );
     renderPage();
-    await screen.findByText('No ingestion attempts yet.');
-    fireEvent.change(screen.getByLabelText('Outcome'), { target: { value: 'NORMALIZATION_FAILED' } });
+    await screen.findByRole('table', { name: 'Sync audit records, newest first' });
+    showOutcome('Normalization failed');
     expect(await screen.findByText('No audit records with this outcome.')).toBeTruthy();
   });
 
