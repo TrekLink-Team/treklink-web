@@ -64,20 +64,6 @@ export class ComplianceCasesRepository {
     return this.find(id, client);
   }
 
-  // The case a loss case may join, locked as `close()` locks it: OPEN and of this organization, null
-  // otherwise. A close that commits first is seen as CLOSED, and a link that holds the lock makes a close
-  // wait, so a loss case is never linked to a case that closed before the link (D-046, BR-40).
-  async lockOpenOf(
-    id: string,
-    organizationId: string,
-    client: Client,
-  ): Promise<ComplianceCaseRow | null> {
-    const row = await this.lock(id, client);
-    return row?.status === ComplianceCaseStatus.OPEN && row.organization.id === organizationId
-      ? row
-      : null;
-  }
-
   // The next CMP- code: the highest numeric suffix plus one, under a transaction-scoped advisory
   // lock, so two cases opened at the same moment take consecutive codes instead of colliding.
   async nextCode(client: Client): Promise<string> {
