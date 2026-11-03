@@ -114,6 +114,18 @@ export class BalanceService {
       );
   }
 
+  // What each contract has been charged in late fees so far, in VND, for the overdue report (monitoring
+  // api-design 08). A contract with no late fee line is absent.
+  async lateFees(contractIds: readonly string[]): Promise<Map<string, bigint>> {
+    const totals = new Map<string, bigint>();
+    if (contractIds.length === 0) return totals;
+    for (const line of await this.invoices.lateFeeLinesOf(contractIds)) {
+      const contractId = line.invoice.contractId;
+      totals.set(contractId, (totals.get(contractId) ?? 0n) + line.amountVnd);
+    }
+    return totals;
+  }
+
   // The first payment rule of the handover (FR-CON-05, BR-09): the first line of the contract's
   // first TERM or DAY_PLAN invoice, the holding fee or the day-plan fee, is paid in full.
   async firstPaymentConfirmed(contractId: string, client?: Client): Promise<boolean> {

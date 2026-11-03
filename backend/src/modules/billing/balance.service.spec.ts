@@ -38,6 +38,28 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
     );
   });
 
+  describe('lateFees (monitoring api-design 08, overdue)', () => {
+    it('sums the late fee lines of each contract and leaves out a contract with none', async () => {
+      invoices.lateFeeLinesOf = jest.fn().mockResolvedValue([
+        { amountVnd: 100_000n, invoice: { contractId: 'c-1' } },
+        { amountVnd: 50_000n, invoice: { contractId: 'c-1' } },
+        { amountVnd: 70_000n, invoice: { contractId: 'c-2' } },
+      ]);
+      const totals = await service.lateFees(['c-1', 'c-2', 'c-3']);
+      expect([...totals.entries()]).toEqual([
+        ['c-1', 150_000n],
+        ['c-2', 70_000n],
+      ]);
+      expect(invoices.lateFeeLinesOf).toHaveBeenCalledWith(['c-1', 'c-2', 'c-3']);
+    });
+
+    it('reads nothing for no contracts', async () => {
+      invoices.lateFeeLinesOf = jest.fn();
+      await expect(service.lateFees([])).resolves.toEqual(new Map());
+      expect(invoices.lateFeeLinesOf).not.toHaveBeenCalled();
+    });
+  });
+
   describe('firstPaymentConfirmed (FR-CON-05, BR-09)', () => {
     it('is true once the first line of the first invoice is paid in full', async () => {
       invoices.firstChargeableInvoice.mockResolvedValue({

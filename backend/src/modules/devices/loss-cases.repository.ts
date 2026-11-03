@@ -55,6 +55,15 @@ export class LossCasesRepository {
     return client.lossCase.findUnique({ where: { id }, select: LOSS_CASE_SELECT });
   }
 
+  // The loss cases of the given custody intervals, newest report first (monitoring api-design 08, lost).
+  forContractDevices(contractDeviceIds: readonly string[], client: Client = this.prisma) {
+    return client.lossCase.findMany({
+      where: { contractDeviceId: { in: [...contractDeviceIds] } },
+      orderBy: [{ reportedAt: 'desc' }, { id: 'asc' }],
+      select: { id: true, contractDeviceId: true, code: true, state: true, chargeVnd: true },
+    });
+  }
+
   // The code and compliance case of the loss cases that point at one of the given compliance cases.
   codesOfComplianceCases(
     complianceCaseIds: string[],

@@ -11,6 +11,7 @@ import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { DevicesRepository } from './devices.repository';
 import { DevicesService } from './devices.service';
+import { IN_SERVICE } from './in-service';
 import { LossCaseNotifier } from './loss-case-notifier';
 import { LossCaseRow, LossCasesRepository } from './loss-cases.repository';
 import { CUSTODY_RESOLVER, CustodyResolver } from './ports/custody-resolver.port';
@@ -55,15 +56,7 @@ export interface LossCaseDto {
   version: number;
 }
 
-// The six working states a device is reported lost from (REQ-EVT-13, design §2).
-export const IN_SERVICE: readonly DeviceStatus[] = [
-  DeviceStatus.IN_INTAKE,
-  DeviceStatus.AVAILABLE,
-  DeviceStatus.RESERVED,
-  DeviceStatus.RENTED,
-  DeviceStatus.RETURNED,
-  DeviceStatus.MAINTENANCE,
-];
+export { IN_SERVICE };
 
 const RECOVERABLE: readonly LossCaseState[] = [
   LossCaseState.REPORTED,
@@ -151,6 +144,15 @@ export const toListenerView = (row: LossCaseRow, decider?: Caller): LossCaseView
 // DevicesRepository with one DeviceTransition row in the same transaction. Billing and rentals react
 // through LOSS_CASE_LISTENERS inside that transaction (design §3); audit records and notifications go
 // out after commit.
+// What the lost report shows of the loss case on a custody interval (monitoring api-design 08).
+export interface LossCaseSummary {
+  id: string;
+  code: string;
+  state: LossCaseState;
+  // The remaining value charged after any decision; null until one is made.
+  chargeVnd: number | null;
+}
+
 @Injectable()
 export class LossCaseService {
   constructor(
@@ -166,6 +168,25 @@ export class LossCaseService {
     private readonly channelKeys: ChannelKeyService,
     @Inject(LOSS_ORGANIZATION_ACTIONS) private readonly orgActions: LossOrganizationActions,
   ) {}
+
+  // The newest loss case of each custody interval given, for the lost report (monitoring api-design 08);
+  // an interval with none is absent.
+  async summariesOfContractDevices(
+    contractDeviceIds: readonly string[],
+  ): Promise<Map<string, LossCaseSummary>> {
+    const summaries = new Map<string, LossCaseSummary>();
+    if (contractDeviceIds.length === 0) return summaries;
+    for (const row of await this.cases.forContractDevices(contractDeviceIds)) {
+      if (row.contractDeviceId === null || summaries.has(row.contractDeviceId)) continue;
+      summaries.set(row.contractDeviceId, {
+        id: row.id,
+        code: row.code,
+        state: row.state,
+        chargeVnd: row.chargeVnd,
+      });
+    }
+    return summaries;
+  }
 
   // api-design 18: newest first; an organization caller sees its own organization's cases only.
   async list(

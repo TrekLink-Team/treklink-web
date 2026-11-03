@@ -23,6 +23,7 @@ import { OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { ContractsService } from '../rentals';
 import { IncidentsRepository } from './incidents.repository';
+import { responseTimesOf, type ResponseTimeRow } from './response-times';
 import { INCIDENT_EVENTS, EpisodeEvent, IncidentEvents } from './ports/incident-events.port';
 
 export interface IncidentListQuery extends PagedQueryDto {
@@ -195,6 +196,12 @@ export class IncidentsQueryService {
       pending: counts.get(AlertStatus.PENDING) ?? 0,
       failed: counts.get(AlertStatus.FAILED) ?? 0,
     };
+  }
+  // Time to acknowledge and to resolve per organization over [from, to) by the first event, as medians and
+  // 95th percentiles (design §5, monitoring api-design 08, incident-times). The range is the caller's to
+  // bound.
+  async responseTimes(range: { from: Date; to: Date }): Promise<ResponseTimeRow[]> {
+    return responseTimesOf(await this.repository.responseTimeRows(range.from, range.to));
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
 

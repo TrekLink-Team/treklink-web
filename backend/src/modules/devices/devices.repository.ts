@@ -162,6 +162,24 @@ export class DevicesRepository {
   }
 
   // AVAILABLE units per variant, every variant listed even at zero.
+  // Units in service per hardware variant now: devices in a working state (the six a device is reported
+  // lost from), for the utilization report (monitoring api-design 08). A retired, lost or disposed device
+  // is not counted. Variants with no unit are not listed.
+  async inServiceCounts(
+    statuses: readonly DeviceStatus[],
+    client: Client = this.prisma,
+  ): Promise<{ hardwareVariantId: string; units: number }[]> {
+    const groups = await client.device.groupBy({
+      by: ['hardwareVariantId'],
+      where: { status: { in: [...statuses] } },
+      _count: { _all: true },
+    });
+    return groups.map((group) => ({
+      hardwareVariantId: group.hardwareVariantId,
+      units: group._count._all,
+    }));
+  }
+
   async availability(
     variantId: string | undefined,
     client: Client = this.prisma,

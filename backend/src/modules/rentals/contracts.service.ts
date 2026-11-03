@@ -72,6 +72,28 @@ export interface VariantUtilization {
 
 const DAY_MS = 86_400_000;
 
+// A contract past its end and still out, for the overdue report (monitoring api-design 08).
+export interface OverdueContract {
+  contractId: string;
+  contractCode: string;
+  organizationId: string;
+  endsAt: Date;
+  daysOverdue: number;
+  unitsOut: number;
+  state: ContractStatus;
+}
+
+// A unit whose custody interval ended in a loss, for the lost report (monitoring api-design 08).
+export interface LostUnit {
+  contractDeviceId: string;
+  deviceId: string;
+  lostAt: Date;
+  contractId: string;
+  contractCode: string;
+  organizationId: string;
+  hardwareVariantId: string;
+}
+
 // A device the scope may see on the live views now: in custody on one of its contracts.
 export interface VisibleDevice {
   deviceId: string;
@@ -377,6 +399,53 @@ export class ContractsService {
         hardwareVariantId,
         rentedUnitDays: Math.round((ms / DAY_MS) * 100) / 100,
       }));
+  }
+
+  // Contracts past their end that are still out, as of `asOf` (rentals 4.5, design §6), for the overdue
+  // report. Days overdue count whole days from the end to `asOf`, never below one for a contract past its
+  // end. `asOf` is capped at `at`, so a range reaching into the future invents no overdue day.
+  async overdueContracts(asOf: Date, at: Date = new Date()): Promise<OverdueContract[]> {
+    const cutoff = new Date(Math.min(asOf.getTime(), at.getTime()));
+    const rows = await this.contracts.overdueOf(cutoff);
+    return rows.flatMap((row) =>
+      row.endsAt
+        ? [
+            {
+              contractId: row.id,
+              contractCode: row.code,
+              organizationId: row.organizationId,
+              endsAt: row.endsAt,
+              daysOverdue: Math.max(
+                1,
+                Math.floor((cutoff.getTime() - row.endsAt.getTime()) / DAY_MS),
+              ),
+              unitsOut: row._count.devices,
+              state: row.status,
+            },
+          ]
+        : [],
+    );
+  }
+
+  // Units lost inside [from, to) (rentals 4.5, design §6), for the lost report. One row per custody
+  // interval that ended in a loss.
+  async lostUnits(range: { from: Date; to: Date }): Promise<LostUnit[]> {
+    const rows = await this.contracts.lostBetween(range.from, range.to);
+    return rows.flatMap((row) =>
+      row.lostAt
+        ? [
+            {
+              contractDeviceId: row.id,
+              deviceId: row.deviceId,
+              lostAt: row.lostAt,
+              contractId: row.contractId,
+              contractCode: row.contract.code,
+              organizationId: row.contract.organizationId,
+              hardwareVariantId: row.contract.hardwareVariantId,
+            },
+          ]
+        : [],
+    );
   }
 
   // The custody rows of a device on every contract, oldest first, for its lifecycle history

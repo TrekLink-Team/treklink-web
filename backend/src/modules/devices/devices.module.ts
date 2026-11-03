@@ -58,6 +58,6 @@ import { VariantsController } from './variants.controller';
     },
     DevicesComplianceLossCases,
   ],
-  exports: [DevicesService, LOSS_CASE_LISTENERS, MaintenanceService],
+  exports: [DevicesService, LOSS_CASE_LISTENERS, LossCaseService, MaintenanceService],
 })
 export class DevicesModule {}

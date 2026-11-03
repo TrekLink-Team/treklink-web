@@ -12,6 +12,7 @@ export {
   type SosEvent,
 } from './incident-ingress';
 export { INCIDENT_ALERT, type IncidentAlertEvent } from './alerts/alert-dispatcher.job';
+export { type ResponseTimeRow } from './response-times';
 export {
   IncidentsQueryService,
   type AlertDeliveryStats,

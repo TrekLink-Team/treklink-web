@@ -226,3 +226,107 @@ describe('ContractsService rental periods and utilization (rentals 4.5, design Â
     await expect(service.utilization({ from: FROM, to: TO }, day(-1))).resolves.toEqual([]);
   });
 });
+
+describe('ContractsService overdue and lost reads (monitoring api-design 08)', () => {
+  const END = new Date('2026-10-20T00:00:00.000Z');
+  const AS_OF = new Date('2026-11-01T00:00:00.000Z');
+  let contracts: Record<string, jest.Mock>;
+  let service: ContractsService;
+
+  beforeEach(() => {
+    contracts = {
+      overdueOf: jest.fn().mockResolvedValue([]),
+      lostBetween: jest.fn().mockResolvedValue([]),
+    };
+    service = new ContractsService(
+      contracts as unknown as ContractsRepository,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+  });
+
+  const overdue = (overrides: Record<string, unknown> = {}) => ({
+    id: 'c-1',
+    code: 'RC-2026-0001',
+    organizationId: 'org-1',
+    endsAt: END,
+    status: ContractStatus.OVERDUE,
+    _count: { devices: 3 },
+    ...overrides,
+  });
+
+  it('counts whole days from the end to the date, with the units still out and the state', async () => {
+    contracts.overdueOf.mockResolvedValue([
+      overdue(),
+      overdue({ id: 'c-2', code: 'RC-2026-0002', status: ContractStatus.DEFAULTED }),
+    ]);
+    const rows = await service.overdueContracts(AS_OF, new Date('2026-12-01T00:00:00.000Z'));
+    expect(contracts.overdueOf).toHaveBeenCalledWith(AS_OF);
+    expect(rows).toEqual([
+      {
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        organizationId: 'org-1',
+        endsAt: END,
+        daysOverdue: 12,
+        unitsOut: 3,
+        state: ContractStatus.OVERDUE,
+      },
+      expect.objectContaining({ contractId: 'c-2', state: ContractStatus.DEFAULTED }),
+    ]);
+  });
+
+  it('caps the date at now, so a range reaching into the future invents no overdue day', async () => {
+    contracts.overdueOf.mockResolvedValue([overdue()]);
+    const now = new Date('2026-10-25T12:00:00.000Z');
+    const rows = await service.overdueContracts(new Date('2027-01-01T00:00:00.000Z'), now);
+    expect(contracts.overdueOf).toHaveBeenCalledWith(now);
+    expect(rows[0].daysOverdue).toBe(5);
+  });
+
+  it('counts at least one day for a contract just past its end, and skips a contract with no end', async () => {
+    contracts.overdueOf.mockResolvedValue([
+      overdue({ endsAt: new Date('2026-10-31T23:00:00.000Z') }),
+      overdue({ id: 'c-9', endsAt: null }),
+    ]);
+    const rows = await service.overdueContracts(AS_OF, AS_OF);
+    expect(rows.map((row) => [row.contractId, row.daysOverdue])).toEqual([['c-1', 1]]);
+  });
+
+  it('lists the units lost in the range with their contract, organization and variant', async () => {
+    const lostAt = new Date('2026-10-15T08:00:00.000Z');
+    contracts.lostBetween.mockResolvedValue([
+      {
+        id: 'cd-1',
+        deviceId: 'd-1',
+        lostAt,
+        contractId: 'c-1',
+        contract: { code: 'RC-2026-0001', organizationId: 'org-1', hardwareVariantId: 'v-1' },
+      },
+      {
+        id: 'cd-2',
+        deviceId: 'd-2',
+        lostAt: null,
+        contractId: 'c-1',
+        contract: { code: 'x', organizationId: 'o', hardwareVariantId: 'v' },
+      },
+    ]);
+    const range = { from: new Date('2026-10-01T00:00:00.000Z'), to: AS_OF };
+    await expect(service.lostUnits(range)).resolves.toEqual([
+      {
+        contractDeviceId: 'cd-1',
+        deviceId: 'd-1',
+        lostAt,
+        contractId: 'c-1',
+        contractCode: 'RC-2026-0001',
+        organizationId: 'org-1',
+        hardwareVariantId: 'v-1',
+      },
+    ]);
+    expect(contracts.lostBetween).toHaveBeenCalledWith(range.from, range.to);
+  });
+});
