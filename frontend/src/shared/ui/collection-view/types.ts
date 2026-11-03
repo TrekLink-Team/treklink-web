@@ -89,6 +89,19 @@ export interface CollectionFilter<T> {
   test?: (item: T) => boolean;
 }
 
+/**
+ * A second filter beside the Show filter (a plan, Open only), listed in the same Show menu under its
+ * own label so the two combine (review of treklink-web#350). The first option is the unfiltered one.
+ * Its value travels in `CollectionQuery.groups`; a server-paged list applies it on the server, a
+ * client list through the options' `test`.
+ */
+export interface CollectionFilterGroup<T> {
+  key: string;
+  /** "Plan": the options read "Plan: Monthly". */
+  label: string;
+  options: CollectionFilter<T>[];
+}
+
 export type CollectionSortDirection = 'asc' | 'desc';
 
 export interface CollectionSort {
@@ -101,6 +114,8 @@ export interface CollectionQuery {
   search: string;
   filter: string;
   sort: CollectionSort | null;
+  /** The chosen option of each filter group, by group key; a missing key is the group's first option. */
+  groups?: Record<string, string>;
 }
 
 export interface CollectionDetails<T> {

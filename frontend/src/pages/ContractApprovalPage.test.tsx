@@ -187,6 +187,38 @@ describe('ContractApprovalPage row actions (W29)', () => {
     return labels;
   };
 
+  it('keeps the decided request in the pane once it leaves the queue (review of treklink-web#350)', async () => {
+    approveContract.mockResolvedValue({
+      ...requested,
+      status: 'APPROVED',
+      version: 2,
+      reservationExpiresAt: '2099-01-04T02:00:00Z',
+      devices: [{ deviceId: 'd-1', assetTag: 'TL-0003', handedOverAt: null, checkedInAt: null, lostAt: null, holder: null }],
+    });
+    const other = (id: string, code: string) => ({ ...requested, id, code });
+    queue = [requested, other('c-2', 'RC-2026-0005'), other('c-3', 'RC-2026-0006')];
+    const client = new QueryClient();
+    // A new element each time, so the rerender reads the queue again.
+    const tree = () => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ContractApprovalPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(await screen.findByText('Reserved: TL-0003')).toBeTruthy();
+    // The refetched queue no longer holds the approved request.
+    queue = [other('c-2', 'RC-2026-0005'), other('c-3', 'RC-2026-0006')];
+    rerender(tree());
+    expect(screen.queryByRole('button', { name: 'Show details of RC-2026-0004' })).toBeNull();
+    expect(screen.getByText('Reserved: TL-0003')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'RC-2026-0004' })).toBeTruthy();
+    queue = null;
+  });
+
   it('offers each status only its moves, in Change status, and the counter as an item action', () => {
     queue = [
       requested,

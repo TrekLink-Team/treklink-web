@@ -29,10 +29,11 @@ const items = [
   contract({ id: 'c-3', code: 'RC-2026-0003', status: 'ACTIVE' }),
 ];
 
+const filtersSeen: unknown[] = [];
 vi.mock('../app/providers/useAuth', () => ({ useAuth: () => ({ user: { roles } }) }));
 vi.mock('../entities/contract/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/contract/api')>()),
-  useContracts: () => ({
+  useContracts: (_scope: string, filters: unknown) => (filtersSeen.push(filters), {
     isLoading: false,
     data: { items, pageNumber: 1, pageSize: 20, totalCount: items.length, totalPages: 1 },
   }),
@@ -66,6 +67,16 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
     expect(table().queryByRole('button', { name: /Change status of RC-2026-0003$/ })).toBeNull();
     // Status changes stay per row: no selection to change together (review of treklink-web#350).
     expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);
+  });
+
+  it('filters by plan on the server together with the status (review of treklink-web#350)', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Approved' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Approved/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Plan: Day plan' }));
+    expect(filtersSeen.at(-1)).toEqual({ status: 'APPROVED', planType: 'DAY', pageNumber: 1 });
+    expect(screen.getByRole('button', { name: /^Show: Approved, Plan: Day plan, 3/ })).toBeTruthy();
   });
 
   it('gives an Org Operator no row action', () => {

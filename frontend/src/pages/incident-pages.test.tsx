@@ -190,15 +190,18 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     api.mockResolvedValue(page([view()]));
     renderAt('/o/incidents');
     await screen.findAllByText('INC-2026-000001');
+    // A state combines with Open only (review of treklink-web#350).
     show('Escalated');
     await waitFor(() => expect(lastGet()).toContain('state=ESCALATED'));
-    expect(lastGet()).not.toContain('open=');
-    show('All incidents');
+    expect(lastGet()).toContain('open=true');
+    show('Incidents: Open or closed');
+    await waitFor(() => expect(lastGet()).not.toContain('open='));
+    expect(lastGet()).toContain('state=ESCALATED');
+    show('All states');
     await waitFor(() => expect(lastGet()).not.toContain('state='));
-    expect(lastGet()).not.toContain('open=');
     fireEvent.click(await screen.findByRole('button', { name: 'Next page' }));
     await waitFor(() => expect(lastGet()).toContain('pageNumber=2'));
-    show('Open incidents');
+    show('Incidents: Open only');
     await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1'));
     const calls = api.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
@@ -209,10 +212,11 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     api.mockResolvedValue(page([]));
     renderAt('/o/incidents');
     expect(await screen.findByText('No open incidents.')).toBeTruthy();
-    show('All incidents');
+    show('Escalated');
     expect(await screen.findByText('No results match your filters.')).toBeTruthy();
+    // Clearing drops both filters: every incident, open or closed.
     fireEvent.click(screen.getByRole('button', { name: 'Clear search and filter' }));
-    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1'));
+    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&pageNumber=1'));
   });
 
   it('shows MSG26 with a retry when the list fails', async () => {

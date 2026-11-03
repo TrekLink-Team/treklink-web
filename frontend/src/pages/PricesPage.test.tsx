@@ -67,6 +67,19 @@ describe('PricesPage on CollectionView (screen 6.4, D-096)', () => {
     expect(prices().getByText('treklink-v4')).toBeTruthy();
   });
 
+  it('narrows the price history to one variant from Show, with the state (review of treklink-web#350)', () => {
+    renderPage();
+    const prices = () => within(screen.getByRole('table', { name: 'Monthly price history' }));
+    const history = screen.getByRole('region', { name: 'Monthly price history' });
+    fireEvent.click(within(history).getByRole('button', { name: /^Show: All states/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Variant: treklink-v3' }));
+    expect(prices().getAllByRole('row')).toHaveLength(3);
+    expect(prices().queryByText('treklink-v4')).toBeNull();
+    fireEvent.click(within(history).getByRole('button', { name: /^Show: All states, Variant: treklink-v3/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Past' }));
+    expect(prices().getAllByRole('row')).toHaveLength(2);
+  });
+
   it('edits a damage rate from its item action and filters inactive ones', () => {
     renderPage();
     const rates = screen.getByRole('region', { name: 'Damage rates' });

@@ -365,11 +365,11 @@ export const PricesPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const prices = usePriceHistory(pageNumber);
   const rates = useDamageRates();
-  const { codeOf } = useVariants();
+  const { codeOf, variants } = useVariants();
   const [pricing, setPricing] = useState(false);
   const [editing, setEditing] = useState<DamageRate | null | undefined>(undefined);
   // Both lists filter the rows already loaded (chapter 06 §9): the state or the active flag is the
-  // Show filter, and the variant is found by the search.
+  // Show filter, and the price history's variant is a second filter in Show, as its select was.
   const priceFields: CollectionField<PriceRow>[] = [
     {
       key: 'variant',
@@ -454,6 +454,20 @@ export const PricesPage: React.FC = () => {
               label: PRICE_STATE[state].label,
               test: (row: PriceRow) => row.state === state,
             })),
+          ]}
+          filterGroups={[
+            {
+              key: 'variant',
+              label: 'Variant',
+              options: [
+                { key: '', label: 'All variants' },
+                ...variants.map((variant) => ({
+                  key: variant.id,
+                  label: variant.code,
+                  test: (row: PriceRow) => row.hardwareVariantId === variant.id,
+                })),
+              ],
+            },
           ]}
           emptyState={{ title: 'No prices yet.' }}
           footer={

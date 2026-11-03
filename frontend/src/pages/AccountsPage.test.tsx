@@ -461,8 +461,8 @@ describe('AccountsPage (screen 7.1)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Clear search and filter' }));
     await waitFor(() => expect(query()).toBe(''));
     await waitFor(() => expect(reads()).toContain('/accounts?pageNumber=1&pageSize=20'));
-    // Nothing is narrowed now and nothing is listed, so the command bar with its search hides (§9.3).
-    expect(screen.queryByLabelText('Search accounts')).toBeNull();
+    // A server-paged list keeps its command bar, empty or not (review of treklink-web#350).
+    expect((screen.getByLabelText('Search accounts') as HTMLInputElement).value).toBe('');
   });
 
   it('labels the reset button Send reset code and names the account to a screen reader', async () => {

@@ -3,7 +3,7 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Invoice } from '../../entities/billing/api';
+import type { Invoice, InvoiceFilters } from '../../entities/billing/api';
 import { InvoiceTable } from './InvoiceTable';
 
 const invoice = (overrides: Partial<Invoice>): Invoice => ({
@@ -54,12 +54,42 @@ describe('InvoiceTable (screen 6.1 on CollectionView, D-096)', () => {
 
   it('sends the status and overdue filters to the server from page 1', () => {
     const { onFilters } = setup();
-    // One Show filter (chapter 06 §9.3): a status or the overdue invoices.
+    // A status and Overdue only combine in Show (review of treklink-web#350).
     fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Paid' }));
-    expect(onFilters).toHaveBeenLastCalledWith({ pageNumber: 1, status: 'PAID' });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Partly paid' }));
+    expect(onFilters).toHaveBeenLastCalledWith({ pageNumber: 1, status: 'PARTIALLY_PAID' });
     fireEvent.click(screen.getByRole('button', { name: /^Show: / }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Overdue' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Due: Overdue only' }));
     expect(onFilters).toHaveBeenLastCalledWith({ pageNumber: 1, overdue: true });
+  });
+
+  it('keeps the status when Overdue only is added (review of treklink-web#350)', () => {
+    const seen: InvoiceFilters[] = [];
+    const Harness: React.FC = () => {
+      const [filters, setFilters] = React.useState<InvoiceFilters>({ pageNumber: 1 });
+      return (
+        <InvoiceTable
+          invoices={[invoice({}), invoice({ id: 'i-2', number: 'INV-2026-0002' }), invoice({ id: 'i-3', number: 'INV-2026-0003' })]}
+          showOrganization
+          filters={filters}
+          onFilters={(next) => {
+            seen.push(next);
+            setFilters(next);
+          }}
+          onOpen={() => undefined}
+        />
+      );
+    };
+    render(
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Partly paid' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Partly paid/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Due: Overdue only' }));
+    expect(seen.at(-1)).toEqual({ pageNumber: 1, status: 'PARTIALLY_PAID', overdue: true });
+    expect(screen.getByRole('button', { name: /^Show: Partly paid, Due: Overdue only/ })).toBeTruthy();
   });
 });

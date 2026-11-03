@@ -137,3 +137,11 @@ Added by KhoaDD. `/o/contracts` renders through `CollectionView` (chapter 06 §9
 Show filter (rentals 02 `status`), the plan select folds into the search (code or plan), and the Org
 Manager's Cancel contract is in the Change status menu behind the same reason dialog (MSG15). The code
 and the details pane link to the contract home. An Org Operator has no status change.
+
+
+## Contract list filters (review of treklink-web#350, 2026-11-04)
+
+Added by KhoaDD. The Org Manager's contract list filters by status and by plan on the server (rentals 02
+`status`, `planType`), both in the Show dropdown, where they combine ("Show: Approved, Plan: Day plan").
+rentals 02 takes no code, so the search reads the loaded page by code and plan, as the list did before
+CollectionView. Cancel contract stays a Change status on each row; the list offers no selection.

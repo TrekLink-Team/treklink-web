@@ -13,6 +13,7 @@ import {
   type Contract,
   type ContractFilters,
   type ContractStatus,
+  type PlanType,
 } from '../entities/contract/api';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { matchesText } from '../shared/lib/filter';
@@ -44,8 +45,9 @@ const CANCEL: StateTransition<'CANCELLED'> = {
 
 // /o/contracts, the contract list of screen 5.2 (rentals api-design 02) on CollectionView (chapter 06
 // §9, D-096). Org Manager and Org Operator read it; only the Manager sees Request a contract and
-// Cancel contract, a status change before handover (W29, §9.6). The status is the Show filter on the
-// server; the search reads the loaded page by code and plan.
+// Cancel contract, a status change before handover (W29, §9.6). The status and the plan filter on the
+// server and combine in Show (rentals api-design 02 `status`, `planType`). rentals 02 takes no code,
+// so the search reads the loaded page by code and plan, as the list did before CollectionView.
 export const ContractsPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -101,12 +103,25 @@ export const ContractsPage: React.FC = () => {
           { key: '', label: 'Every status' },
           ...STATUSES.map((status) => ({ key: status, label: STATUS_LABELS[status] })),
         ]}
-        query={{ search: text, filter: filters.status ?? '', sort: null }}
+        query={{ search: text, filter: filters.status ?? '', sort: null, groups: { plan: filters.planType ?? '' } }}
         onQueryChange={(next) => {
           setText(next.search);
-          if ((next.filter || undefined) !== filters.status)
-            setFilters({ status: (next.filter || undefined) as ContractStatus | undefined, pageNumber: 1 });
+          const status = (next.filter || undefined) as ContractStatus | undefined;
+          const planType = (next.groups?.plan || undefined) as PlanType | undefined;
+          if (status !== filters.status || planType !== filters.planType)
+            setFilters({ status, planType, pageNumber: 1 });
         }}
+        filterGroups={[
+          {
+            key: 'plan',
+            label: 'Plan',
+            options: [
+              { key: '', label: 'Every plan' },
+              { key: 'MONTHLY', label: 'Monthly' },
+              { key: 'DAY', label: 'Day plan' },
+            ],
+          },
+        ]}
         pageInfo={pageInfoOf(data)}
         details={{ href: (contract) => `/o/contracts/${contract.id}`, hrefLabel: 'Open the contract' }}
         emptyState={{ title: 'Your organization has no contracts yet.', action: requestLink || undefined }}
