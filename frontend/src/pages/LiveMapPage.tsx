@@ -63,7 +63,13 @@ interface Row {
   state: UnitState;
 }
 
+// The Staff map's words for a unit held at the counter (devices design section 11.8, REQ-EVT-37).
+const DOCKED_TEXT = 'Docked at the counter';
+
 const statusLine = ({ device, state }: Row): string => {
+  if (state === 'DOCKED' || device.docked) {
+    return device.docked?.byName ? `${DOCKED_TEXT}, ${device.docked.byName}` : DOCKED_TEXT;
+  }
   if (state === 'NOT_HEARD') {
     // Only the fleet map keeps a reading from before the handover (monitoring REQ-UBI-04).
     return device.lastSeenAt
@@ -89,7 +95,8 @@ const stateName = (row: Row): string =>
 // A unit not heard since handover is pinned at the counter that handed it over, the last place it was
 // known to be; a live or offline unit at its last position from the custody interval.
 const pointOf = ({ device, state }: Row): [number, number] | null => {
-  if (state === 'NOT_HEARD')
+  // A docked unit is pinned at the counter while the browser holds its port (devices design 11.8).
+  if (state === 'NOT_HEARD' || state === 'DOCKED' || device.docked)
     return device.counterLocation ? [device.counterLocation.lat, device.counterLocation.lon] : null;
   return device.position ? [device.position.lat, device.position.lon] : null;
 };
@@ -125,18 +132,21 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
       .join(', '),
     status: sosOf(device)
       ? 'incident'
-      : state === 'NOT_HEARD'
+      : state === 'NOT_HEARD' || state === 'DOCKED' || device.docked
         ? 'unheard'
         : state === 'OFFLINE'
           ? 'stale'
           : 'ok',
     details: [
-      `Contract ${device.contractCode}`,
+      device.contractCode ? `Contract ${device.contractCode}` : 'No contract',
       `Variant ${device.hardwareVariant}`,
       device.batteryPct === null ? 'Battery unknown' : `Battery ${device.batteryPct}%`,
       statusLine(row),
-      ...(state === 'NOT_HEARD' && device.counterLocation
+      ...(state === 'NOT_HEARD' && !device.docked && device.counterLocation
         ? [`Pinned at ${device.counterLocation.name}, the handover location`]
+        : []),
+      ...((state === 'DOCKED' || device.docked) && device.counterLocation
+        ? [`${DOCKED_TEXT}: ${device.counterLocation.name}`]
         : []),
     ],
     // Screen 9.1: the popup opens the device's telemetry history (screen 9.2) in the same scope; the
@@ -195,7 +205,8 @@ const DeviceRow: React.FC<{
           <span className="font-semibold text-ink">{device.assetTag}</span>{' '}
           {device.simulated === true && <Badge>Simulated</Badge>}{' '}
           {state === 'OFFLINE' && <Badge tone="waiting">Offline</Badge>}
-          {state === 'NOT_HEARD' && <Badge tone="ended">Not heard</Badge>}{' '}
+          {state === 'NOT_HEARD' && !device.docked && <Badge tone="ended">Not heard</Badge>}{' '}
+          {(state === 'DOCKED' || device.docked) && <Badge tone="waiting">Docked</Badge>}{' '}
           {device.batteryPct !== null && (
             <span className="ml-auto text-body-sm text-ink-muted">{device.batteryPct}%</span>
           )}
@@ -259,7 +270,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const needle = search.trim().toLowerCase();
   const listed = needle
     ? rows.filter(({ device }) =>
-        [device.assetTag, device.holder?.name ?? '', device.contractCode].some((text) =>
+        [device.assetTag, device.holder?.name ?? '', device.contractCode ?? ''].some((text) =>
           text.toLowerCase().includes(needle),
         ),
       )

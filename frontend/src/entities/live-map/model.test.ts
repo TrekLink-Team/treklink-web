@@ -251,6 +251,36 @@ describe('live map reducer (screen 9.1)', () => {
   });
 
   // D-092 rule 2 (monitoring REQ-UBI-04, frontend REQ-UBI-10).
+  describe('docked at the counter (devices design section 11.8, the Staff map)', () => {
+    const COUNTER = { name: 'TrekLink counter', lat: 11.56, lon: 108.54 };
+
+    it('marks a listed unit docked and pins it at the counter, and clears it on device.undocked', () => {
+      const docked = applyEntry(
+        fromSnapshot(snapshot()),
+        entry(11, 'device.docked', { since: at(1), byName: 'Tran Thi B', counterLocation: COUNTER }),
+      );
+      expect(docked.devices['d-1']).toMatchObject({
+        docked: { since: at(1), byName: 'Tran Thi B' },
+        counterLocation: COUNTER,
+        state: 'LIVE',
+      });
+      const undocked = applyEntry(docked, entry(12, 'device.undocked', { endReason: 'RELEASED' }));
+      expect(undocked.devices['d-1']).toMatchObject({ docked: null, counterLocation: null });
+    });
+
+    it('drops a DOCKED unit on device.undocked and reads the snapshot for one it does not list', () => {
+      const state = fromSnapshot(
+        snapshot([device({ id: 'd-51', state: 'DOCKED', handedOverAt: null, counterLocation: COUNTER })]),
+      );
+      const after = applyEntry(state, entry(11, 'device.undocked', { endReason: 'EXPIRED' }, 'd-51'));
+      expect(after.devices['d-51']).toBeUndefined();
+      expect(after.order).toEqual([]);
+      expect(needsSnapshot(state, entry(12, 'device.docked', { since: at(2) }, 'd-77'))).toBe(true);
+      expect(needsSnapshot(state, entry(12, 'device.docked', { since: at(2) }, 'd-51'))).toBe(false);
+      expect(unitStateOf(state.devices['d-51'], Date.parse(at(3)), 300)).toBe('DOCKED');
+    });
+  });
+
   describe('unit states', () => {
     const COUNTER = { name: 'TrekLink counter', lat: 11.9, lon: 108.4 };
     const unheard = (overrides: Partial<SnapshotDevice> = {}) =>

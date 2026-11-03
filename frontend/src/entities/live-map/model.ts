@@ -84,7 +84,8 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
     case 'device.stale':
       return withDevice(state, seq, id, (device) => {
         const lastSeenAt = asString(payload.lastSeenAt);
-        if (lastSeenAt !== null && lastSeenAt < device.handedOverAt) return device;
+        if (lastSeenAt !== null && device.handedOverAt !== null && lastSeenAt < device.handedOverAt)
+          return device;
         const stale = payload.stale === true;
         return {
           ...device,
@@ -100,6 +101,34 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
       return withDevice(state, seq, id, (device) => ({
         ...device,
         holder: name === null ? null : { name },
+      }));
+    }
+    // A unit held at the counter (devices design section 11.8): the Staff map pins it there while the
+    // session is open. A docked unit the map does not list yet comes with the snapshot (`needsSnapshot`).
+    case 'device.docked': {
+      const since = asString(payload.since);
+      const counter = payload.counterLocation as { name?: unknown; lat?: unknown; lon?: unknown } | null;
+      const name = asString(counter?.name);
+      const lat = asNumber(counter?.lat);
+      const lon = asNumber(counter?.lon);
+      return withDevice(state, seq, id, (device) => ({
+        ...device,
+        docked: since === null ? device.docked : { since, byName: asString(payload.byName) },
+        counterLocation: name !== null && lat !== null && lon !== null ? { name, lat, lon } : device.counterLocation,
+      }));
+    }
+    case 'device.undocked': {
+      const device = state.devices[id];
+      if (!device) return { ...state, cursor: seq };
+      if (device.state === 'DOCKED') {
+        const devices = { ...state.devices };
+        delete devices[id];
+        return { cursor: seq, devices, order: state.order.filter((other) => other !== id) };
+      }
+      return withDevice(state, seq, id, (current) => ({
+        ...current,
+        docked: null,
+        counterLocation: current.state === 'NOT_HEARD' ? current.counterLocation : null,
       }));
     }
     case 'device.released': {
@@ -141,6 +170,7 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
  */
 export const needsSnapshot = (state: LiveMapState | null, entry: LiveEntry): boolean => {
   if (entry.type === 'device.handedOver') return true;
+  if (entry.type === 'device.docked') return state === null || !entry.deviceId || !state.devices[entry.deviceId];
   if (entry.type !== 'incident.changed') return false;
   if (!entry.deviceId || state === null) return true;
   const incidentId = asString(entry.payload.incidentId);
@@ -172,14 +202,16 @@ export const unitStateOf = (
   staleAfterSeconds: number | undefined,
 ): UnitState => {
   if (device.state === 'NOT_HEARD') return 'NOT_HEARD';
+  if (device.state === 'DOCKED') return 'DOCKED';
   const stale =
     staleAfterSeconds === undefined ? device.stale : isStale(device, now, staleAfterSeconds);
   return stale ? 'OFFLINE' : 'LIVE';
 };
 
-const RANK: Record<UnitState, number> = { LIVE: 0, OFFLINE: 1, NOT_HEARD: 2 };
+const RANK: Record<UnitState, number> = { LIVE: 0, OFFLINE: 1, NOT_HEARD: 2, DOCKED: 3 };
 
-/** Live units first, then offline, then not heard since handover; each group keeps its order. */
+/** Live units first, then offline, then not heard since handover, then docked at the counter; each group
+ *  keeps its order. */
 export const byUnitState = <T extends { state: UnitState }>(rows: readonly T[]): T[] =>
   rows
     .map((row, index) => ({ row, index }))
