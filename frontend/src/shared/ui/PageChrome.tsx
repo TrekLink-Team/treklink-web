@@ -74,7 +74,17 @@ export const StickyPageHeader: React.FC<{ children: React.ReactNode; className?:
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[entries.length - 1];
-        if (entry) setCompact(!entry.isIntersecting);
+        if (!entry) return;
+        const compacting = !entry.isIntersecting;
+        // Reserve the full expanded height before the header shrinks (treklink-web#348). Measuring
+        // the shrunk header forces a layout; without this reserve that layout made the page shorter,
+        // the browser clamped scrollTop back under the threshold, the header expanded again, and a
+        // page only a little taller than the screen could never scroll to its last rows. The layout
+        // effect below replaces the reserve with the exact difference before paint.
+        if (compacting && !compactNow.current && box.current) {
+          box.current.style.marginBottom = `${expanded.current || box.current.offsetHeight}px`;
+        }
+        setCompact(compacting);
       },
       { root: host, rootMargin: `${COMPACT_AFTER_PX}px 0px 0px 0px`, threshold: 0 },
     );

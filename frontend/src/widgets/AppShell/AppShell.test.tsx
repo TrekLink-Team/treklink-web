@@ -110,10 +110,12 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(crumbs[0].textContent).toContain('Details');
   });
 
-  it('turns the published header and action bar heights into scroll padding on the content area', () => {
+  it('turns the published header, command bar and action bar heights into scroll padding on the content area', () => {
     show('/o/contracts');
     const main = document.getElementById('main')!;
-    expect(main.className).toContain('scroll-pt-[calc(var(--tl-page-header-h,0px)+0.5rem)]');
+    expect(main.className).toContain(
+      'scroll-pt-[calc(var(--tl-page-header-h,0px)+var(--tl-collection-bar-h,0px)+0.5rem)]',
+    );
     expect(main.className).toContain('scroll-pb-[calc(var(--tl-page-actions-h,0px)+0.5rem)]');
   });
 
