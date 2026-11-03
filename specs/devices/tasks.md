@@ -226,12 +226,13 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - **Do**: design §11.8 "Where it lives" and "How long"; no new permission (api-design 30 is `device.read`, 31 and 32 are `device.operate`)
   - _Requirements: REQ-EVT-36_
   - **Done** (2026-11-04, `feat/device-connector-ui`): `DeviceDockSession` and `DockEndReason` in `schema.prisma`, forward migration `20261104200000_device_dock_sessions` (table, partial unique index `device_dock_sessions_open_device_key`, parameter `devices.dockPresenceTtlSeconds`), the catalog row with the configuration matrix and the parameter registry regenerated (the seed migration left as applied), and `DEVICE_PROVISIONED` in the error enum. Checked: migration applied to a local Postgres 16, the parameter registry spec, typecheck, lint and the boundary check
-- [ ] 10.2 Recognition endpoint and the `DEVICE_CONTRACTS` port (owner KhoaDD)
+- [x] 10.2 Recognition endpoint and the `DEVICE_CONTRACTS` port (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/ports/device-contracts.port.ts`, `devices.controller.ts` (`GET /api/devices/by-node`, declared before `:id`), `devices.service.ts` (`byNodes`), tests
   - **Do**: api-design 30 as §11.5: node ids normalized, at most 20 numbers, answer in request order, `device` null for an unknown number, the live contract through the port, the open dock session; organization callers 403
   - **Test**: known, unknown, retired and contracted units; an Org Manager gets 403 (AC-25)
   - _Requirements: REQ-UBI-07, REQ-EVT-30, AC-23, AC-25_
   - _Depends on: rentals 10.1 (the port provider)_
+  - **Done** (2026-11-04, `feat/device-connector-ui`): `ports/device-contracts.port.ts`, `RentalsDeviceContracts` in `RentalsPortsModule` (the provider part of rentals 10.1), `dock/device-connector.service.ts` (`recognize`, `docked`), `dock/dock-session.repository.ts`, `GET /api/devices/by-node` before `:id` (`device.read`, so organization accounts get 403). Unit-tested: controller (node ids, 32-bit bound), service (order, unknown, contract and key version, dock session), provider, module wiring
 - [ ] 10.3 Dock sessions (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/dock-session.service.ts`, `dock-session.repository.ts`, `jobs/dock-sweep.job.ts`, the two routes in `devices.controller.ts`, tests
   - **Do**: api-design 31 and 32 as §11.8: `nodeNum` check (409 `NODE_MISMATCH`), renew the caller's session or end another as `REPLACED`, end on DELETE (idempotent), the `devices.dockSweep` job every third of the TTL ending stale sessions `EXPIRED`; `dockedNow(deviceIds?)` for monitoring; emit `device.docked` and `device.undocked` after commit

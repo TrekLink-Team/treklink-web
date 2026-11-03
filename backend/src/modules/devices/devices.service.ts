@@ -876,6 +876,12 @@ export class DevicesService {
     return entries.sort((a, b) => a.at.getTime() - b.at.getTime());
   }
 
+  // The fleet view of these units with the organization whose key each carries, for the device
+  // connector's recognition (devices api-design 30).
+  fleetViews(devices: DeviceView[]): Promise<FleetDevice[]> {
+    return this.withKeyOrganizations(devices);
+  }
+
   private async withKeyOrganizations(devices: DeviceView[]): Promise<FleetDevice[]> {
     const ids = devices
       .map((device) => device.keyOrganizationId)

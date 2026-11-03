@@ -587,6 +587,18 @@ export class DevicesRepository {
     return client.device.findUnique({ where: { id }, select: DETAIL_SELECT });
   }
 
+  // The units with these node numbers, retired ones included, for the device connector's recognition
+  // (devices api-design 30, design section 11.5).
+  byNodeNums(
+    nodeNums: readonly bigint[],
+    client: Client = this.prisma,
+  ): Promise<DeviceDetailRow[]> {
+    return client.device.findMany({
+      where: { nodeNum: { in: [...nodeNums] } },
+      select: DETAIL_SELECT,
+    });
+  }
+
   lastIntakeCheck(deviceId: string, client: Client = this.prisma) {
     return client.intakeCheck.findFirst({
       where: { deviceId },

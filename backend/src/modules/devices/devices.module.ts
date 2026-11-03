@@ -4,6 +4,8 @@ import { PlatformModule } from '../platform/platform.module';
 import { DevicesController } from './devices.controller';
 import { DevicesRepository } from './devices.repository';
 import { DevicesService } from './devices.service';
+import { DeviceConnectorService } from './dock/device-connector.service';
+import { DockSessionRepository } from './dock/dock-session.repository';
 import { IntakeService } from './intake.service';
 import { LossSearchJob } from './jobs/loss-search.job';
 import { LossCaseNotificationsListener } from './loss-case-notifications.listener';
@@ -72,7 +74,17 @@ import { VariantsService } from './variants.service';
       }),
     },
     DevicesComplianceLossCases,
+    // design section 11 (tasks 10.2 and 10.3): the device connector's recognition and dock sessions;
+    // DEVICE_CONTRACTS comes from the global RentalsPortsModule.
+    DockSessionRepository,
+    DeviceConnectorService,
   ],
-  exports: [DevicesService, LOSS_CASE_LISTENERS, LossCaseService, MaintenanceService],
+  exports: [
+    DevicesService,
+    LOSS_CASE_LISTENERS,
+    LossCaseService,
+    MaintenanceService,
+    DeviceConnectorService,
+  ],
 })
 export class DevicesModule {}
