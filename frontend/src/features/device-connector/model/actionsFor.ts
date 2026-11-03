@@ -10,7 +10,7 @@ export type UnitAction =
   | { kind: 'provision'; row: CounterRow }
   | { kind: 'swap'; rows: CounterRow[] }
   | { kind: 'uplink' }
-  | { kind: 'flash'; disabledReason: string }
+  | { kind: 'flash'; disabledReason: string | null }
   | { kind: 'link'; label: string; to: string };
 
 export interface UnitActions {
@@ -21,13 +21,14 @@ export interface UnitActions {
 
 const NONE: UnitActions = { actions: [], reason: null };
 
-// The firmware flash panel of devices design section 9.2 is task 8.3, not built on this branch.
-export const FLASH_NOT_BUILT = 'Firmware flashing arrives with the flash panel (devices task 8.3).';
+// The reason Update firmware is unavailable while no flash panel is registered (devices design section 9.2,
+// task 8.3, which publishes the releases and supplies the panel). Shown as text (chapter 06 §9.8).
+export const FLASH_NOT_BUILT = 'Firmware releases are not published yet';
 
 export const actionsFor = (
   connection: Connection,
   context: ConnectorContext | null,
-  can: { register: boolean; operate: boolean },
+  can: { register: boolean; operate: boolean; flash?: boolean },
 ): UnitActions => {
   if (connection.state !== 'ready' || !connection.unit) return NONE;
   const recognized = connection.recognized;
@@ -96,7 +97,10 @@ export const actionsFor = (
       break;
     case 'MAINTENANCE':
       if (device.openMaintenance?.reason === 'FIRMWARE_UPDATE' && device.openMaintenance.status === 'OPEN') {
-        actions.push({ kind: 'flash', disabledReason: FLASH_NOT_BUILT });
+        actions.push({
+          kind: 'flash',
+          disabledReason: can.operate && can.flash ? null : FLASH_NOT_BUILT,
+        });
       }
       if (uplinkAllowed) actions.push({ kind: 'uplink' });
       break;
