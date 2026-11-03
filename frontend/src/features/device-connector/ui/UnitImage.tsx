@@ -20,7 +20,8 @@ export const UnitImage: React.FC<Props> = ({ code, name, kind, className }) => {
   const src = code ? renderPath(code, kind) : null;
   const box =
     kind === 'detail'
-      ? 'h-60 w-full rounded-card'
+      ? // 240 px from 600 px, 160 px on a phone's bottom sheet (screen 4.6, Mobile).
+        'h-40 w-full rounded-card min-[600px]:h-60'
       : 'h-12 w-12 shrink-0 rounded-control';
   if (!src || failed === src) {
     return (

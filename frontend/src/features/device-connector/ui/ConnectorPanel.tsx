@@ -92,11 +92,24 @@ const SwapDialog: React.FC<{
   dockedTag: string;
   contractCode: string;
   rows: CounterRow[];
-  onConfirm: (row: CounterRow) => void;
+  // The server's refusal of the exchange, or null once it went through.
+  onConfirm: (row: CounterRow) => Promise<string | null>;
   onClose: () => void;
 }> = ({ dockedTag, contractCode, rows, onConfirm, onClose }) => {
   const [deviceId, setDeviceId] = useState(rows[0]?.deviceId ?? '');
+  const [pending, setPending] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
   const row = rows.find((candidate) => candidate.deviceId === deviceId);
+  const confirm = async () => {
+    if (!row) return;
+    setPending(true);
+    setRefusal(null);
+    const message = await onConfirm(row);
+    setPending(false);
+    // A refused exchange changed nothing: the dialog stays open with the server's reason (screen 4.6).
+    if (message) setRefusal(message);
+    else onClose();
+  };
   return (
     <Dialog
       titleId="connector-swap-title"
@@ -104,10 +117,10 @@ const SwapDialog: React.FC<{
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!row} onClick={() => row && onConfirm(row)}>
+          <Button variant="primary" disabled={!row} loading={pending} onClick={() => void confirm()}>
             Swap and provision
           </Button>
         </div>
@@ -126,6 +139,11 @@ const SwapDialog: React.FC<{
           ))}
         </Select>
       </Field>
+      {refusal && (
+        <Alert tone="error" className="mt-4">
+          {refusal}
+        </Alert>
+      )}
     </Dialog>
   );
 };
@@ -424,11 +442,7 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
           contractCode={context.contractCode}
           rows={swap.rows}
           onClose={() => setSwap(null)}
-          onConfirm={(row) => {
-            const target = swap.connection;
-            setSwap(null);
-            void context.swapIn(target.id, row);
-          }}
+          onConfirm={(row) => context.swapIn(swap.connection.id, row)}
         />
       )}
       {uplinkConnection && uplinkDevice && (
