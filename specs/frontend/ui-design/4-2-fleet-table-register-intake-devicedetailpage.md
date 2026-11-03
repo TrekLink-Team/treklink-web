@@ -9,7 +9,7 @@
 | Routes | `/t/fleet` (fleet table and the Register panel) and `/t/devices/:id` (device detail with its lifecycle history) (`specs/frontend/design.md` §2). Position and telemetry history is a separate route, `/t/devices/:id/telemetry` (screen 9.2, D-057 rule 8). |
 | Roles | TrekLink Staff: view, register, edit firmware, intake check, reset. TrekLink Admin: everything Staff can (D-057 rule 7) plus retire and dispose. Organization roles: MSG26. |
 | Use case, FRs, story | UC-11, UC-12, UC-44 (reset part), UC-53, UC-62; FR-DEV-01, FR-DEV-02, FR-DEV-03, FR-DEV-07, FR-DEV-09, FR-DEV-11, FR-DEV-16, FR-DEV-17; US-UC11, US-UC12, US-UC44, US-UC53, US-UC62 |
-| Requirements | `specs/devices/requirements.md` REQ-UBI-01 to REQ-UBI-04, REQ-EVT-01, REQ-EVT-02, REQ-EVT-06, REQ-EVT-10, REQ-EVT-17, REQ-EVT-18, REQ-ERR-01, REQ-ERR-03, REQ-ERR-04, REQ-ERR-07; AC-01 to AC-03, AC-08 |
+| Requirements | `specs/devices/requirements.md` REQ-UBI-01 to REQ-UBI-04, REQ-EVT-01, REQ-EVT-02, REQ-EVT-06, REQ-EVT-10, REQ-EVT-17, REQ-EVT-18, REQ-ERR-01, REQ-ERR-03, REQ-ERR-04, REQ-ERR-07; AC-01 to AC-03, AC-08; the device connector entry points: REQ-UBI-10, REQ-EVT-31, REQ-EVT-39, REQ-EVT-40, AC-24, AC-35, AC-36 |
 | Wireframe | ![Fleet and device detail](4-2-fleet-table-register-intake-devicedetailpage.svg) (fleet table, device detail, 360 px frame) |
 
 Scope from the task: devices api-design 05 to 10, 16, 23 and monitoring api-design 07; register, intake check (motion field only for motion variants), reset, retire, dispose with the three wipe steps
@@ -41,8 +41,8 @@ answers 409 for anything else.
 | Control | Shown when | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
 | Register device (primary button on `/t/fleet`) | always | devices 05 `POST /api/devices` | none | MSG03; the new device opens in `IN_INTAKE` |
-| Read from unit (Register panel, D-080) | Web Serial available | none on the server; Web Serial to the unit (`devices` design §8.3) | the browser's port chooser | Node number and variant filled; the reported firmware version shown beside the field |
-| Configure uplink (detail, D-005, D-080) | not `RETIRED` or `DISPOSED`, Web Serial available | none on the server; Web Serial to the docked unit (`devices` design §8.8) | the browser's port chooser; "The unit restarts once to apply the settings." | "TL-0042 is configured as an uplink to {broker}." |
+| Read from unit (Register panel, D-080) | Web Serial available | opens the device connector (screen 4.6) for an unknown unit; a unit already connected fills the panel with no port chooser, otherwise the connector asks to connect one (devices REQ-EVT-39, design §11.3); no request of its own | the browser's port chooser, only when no unit is connected | Node number and variant filled; the reported firmware version shown beside the field |
+| Configure uplink (detail, D-005, D-080) | not `RETIRED` or `DISPOSED`, Web Serial available | opens the device connector (screen 4.6) on this device's unit, which runs `devices` design §8.8 on the port it holds (REQ-EVT-40) | the connector's port chooser when the unit is not connected; "The unit restarts once to apply the settings." | "TL-0042 is configured as an uplink to {broker}." |
 | Edit firmware version | any state except `DISPOSED` | devices 08 `PATCH /api/devices/:id` with `expectedVersion` | none | MSG03 |
 | Record intake check | `IN_INTAKE`, or `MAINTENANCE` with no open record | devices 09 `POST /api/devices/:id/intake-checks` | none | MSG03; status shows the result (`AVAILABLE` on pass) |
 | Record reset (three steps) | `RETURNED` with no reset since the last check-in | devices 10 `POST /api/devices/:id/reset` | none; the button stays disabled until all three boxes are ticked | MSG03 |
@@ -178,3 +178,18 @@ reason while a maintenance record is open. Position history stays a link on wide
 item on a phone. From 600 px the page is unchanged. Below 600 px the facts (holder, battery, last seen first) and the next step come
 before the variant card, so the first screen reads the unit's state rather than its render (W20B,
 2026-11-05).
+
+## Device connector entry points (2026-11-04, proposal, devices design §11)
+
+Added by KhoaDD with the device hub spec. Where this section and the tables above disagree, this section wins
+once the leader approves devices design §11.
+
+- The fleet page sets the `intake` context while the Register panel is open and `fleet` otherwise; the device
+  page sets `device` with its id (devices design §11.3). Neither page calls Web Serial itself (REQ-UBI-10).
+- "New device: register it?" in the connector opens the Register panel here with the node number, the variant
+  and the reported firmware filled from the connected unit, and no second port chooser (REQ-EVT-31, AC-24).
+- Read from unit and Configure uplink stay on this page as entry points into the connector; their messages
+  ("Reading from a unit needs Chrome or Edge on a desktop. You can type the node number.", "The unit did not
+  answer. ...", "Uplink not applied", "Waiting for the restart") are shown by the connector's row as well as here.
+- The device page shows "Connected now" beside the header when the connector holds this device's unit, with Show
+  in connector.

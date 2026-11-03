@@ -14,7 +14,7 @@
 | `app` | providers (TanStack Query, auth context, socket), router, global alert banner |
 | `pages` | one per route of §2 |
 | `widgets` | `LiveMapWidget`, `IncidentQueue`, `ContractSummary`, `InvoiceTable`, `RosterCalendar`, `FleetTable` |
-| `features` | `acknowledge-incident`, `report-incident-status`, `request-contract`, `pay-invoice`, `sign-handover`, `check-in-devices`, `inspect-device`, `invite-member`, `manage-api-keys`, `manage-field-stations`, `edit-parameter`, `decide-damage-charge` |
+| `features` | `acknowledge-incident`, `report-incident-status`, `request-contract`, `pay-invoice`, `sign-handover`, `check-in-devices`, `inspect-device`, `invite-member`, `manage-api-keys`, `manage-field-stations`, `edit-parameter`, `decide-damage-charge`, `device-connector` (the Staff device hub, the only owner of Web Serial; devices design §11, screen 4.6) |
 | `entities` | `organization`, `member`, `device`, `contract`, `invoice`, `payment`, `incident`, `fieldStation` |
 | `shared` | `api/apiClient`, `socket/socketClient`, `config/map`, `ui`, `lib/time` |
 
