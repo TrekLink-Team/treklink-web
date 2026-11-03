@@ -22,7 +22,7 @@ import {
   Button,
   Card,
   Checkbox,
-  DataTable,
+  CollectionView,
   Dialog,
   Field,
   Input,
@@ -30,24 +30,20 @@ import {
   PageActionBar,
   PageHeader,
   RadioGroup,
-  Select,
   Skeleton,
-  StateChangeMenu,
+  StateChangeDialog,
   StickyPageHeader,
   StatusBadge,
   TabPanel,
   Tabs,
   Textarea,
-  Toolbar,
-  ToolbarSearch,
   useToast,
-  type Column,
+  type CollectionField,
   type StateChangeInput,
   type StateTransition,
 } from '../shared/ui';
 import { ErrorState, Fact } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
-import { matchesText } from '../shared/lib/filter';
 import { ChannelKeySection } from '../widgets/ChannelKeySection/ChannelKeySection';
 
 type Tab = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' | 'ALL';
@@ -410,23 +406,19 @@ export const OrganizationReviewPage: React.FC = () => {
     tab === 'ALL' ? undefined : (tab satisfies OrganizationStatus),
   );
   const selected = organizations.data?.items.find((item) => item.id === selectedId) ?? null;
-  const [find, setFind] = useState({ text: '', verified: '' });
-  const clear = () => setFind({ text: '', verified: '' });
-  const filtered = find.text !== '' || find.verified !== '';
-  const rows = organizations.data?.items.filter(
-    (item) =>
-      matchesText(find.text, item.code, item.legalName, item.taxCode) &&
-      (find.verified === '' || (find.verified === 'YES') === Boolean(item.verifiedAt)),
-  );
+  // An Admin's status change chosen from the list (chapter 06 §9.6), confirmed in its dialog.
+  const [moving, setMoving] = useState<{
+    organization: OrganizationReview;
+    transition: StateTransition<Target>;
+  } | null>(null);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: organizationKeys.all });
 
-  const columns: Column<OrganizationReview>[] = [
-    { key: 'code', header: 'Code', cell: (item) => <span className="font-mono">{item.code}</span> },
-    { key: 'name', header: 'Organization', cell: (item) => item.legalName },
-    { key: 'registered', header: 'Registered', cell: (item) => formatDateTime(item.createdAt), hideOnMobile: true },
-    { key: 'verified', header: 'Verified', cell: (item) => (item.verifiedAt ? 'Yes' : 'Not yet') },
-    { key: 'status', header: 'Status', cell: (item) => <StatusBadge entry={ORGANIZATION_STATUS[item.status]} /> },
+  const fields: CollectionField<OrganizationReview>[] = [
+    { key: 'name', label: 'Organization', render: (item) => item.legalName, text: (item) => `${item.legalName} ${item.taxCode}`, compact: true },
+    { key: 'registered', label: 'Registered', render: (item) => formatDateTime(item.createdAt), hideWithPane: true },
+    { key: 'verified', label: 'Verified', render: (item) => (item.verifiedAt ? 'Yes' : 'Not yet') },
+    { key: 'status', label: 'Status', render: (item) => <StatusBadge entry={ORGANIZATION_STATUS[item.status]} />, compact: true },
   ];
 
   const select = (id: string) => {
@@ -486,69 +478,49 @@ export const OrganizationReviewPage: React.FC = () => {
       <TabPanel idPrefix="orgs" tabKey={tab}>
         <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
           <div className="min-w-0">
-            <Toolbar
-              label="Organization filters"
-              start={
-                <>
-                  <ToolbarSearch
-                    id="orgs-search"
-                    label="Search by code, name or tax code"
-                    placeholder="Code, name or tax code"
-                    value={find.text}
-                    onChange={(text) => setFind((current) => ({ ...current, text }))}
-                  />
-                  <span className="w-44">
-                    <Select
-                      aria-label="Verified"
-                      value={find.verified}
-                      onChange={(event) => setFind((current) => ({ ...current, verified: event.target.value }))}
-                    >
-                      <option value="">Verified or not</option>
-                      <option value="YES">Verified</option>
-                      <option value="NO">Not yet</option>
-                    </Select>
-                  </span>
-                  {filtered && (
-                    <Button variant="ghost" onClick={clear}>
-                      Clear filters
-                    </Button>
-                  )}
-                </>
-              }
-            />
-            <DataTable<OrganizationReview>
-              caption="Organizations"
-              columns={columns}
-              rows={rows}
-              rowId={(item) => item.id}
-              rowLabel={(item) => item.code}
+            {/* The code and Show details open the organization card beside the list, this screen's
+                record view (verification, channel key, decision) in place of the built-in pane. */}
+            <CollectionView<OrganizationReview>
+              label="Organizations"
+              items={organizations.data?.items}
               loading={organizations.isLoading}
               error={
                 organizations.error ? (
                   <ErrorState error={organizations.error} onRetry={() => void organizations.refetch()} />
                 ) : undefined
               }
-              empty={
-                filtered
-                  ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
-                  : { title: 'No organizations here.' }
+              itemId={(item) => item.id}
+              itemName={(item) => item.code}
+              itemTitle={(item) => (
+                <button
+                  type="button"
+                  aria-pressed={selectedId === item.id}
+                  onClick={() => select(item.id)}
+                  className="inline-flex min-h-6 items-center rounded-sm font-mono font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                  {item.code}
+                </button>
+              )}
+              fields={fields}
+              noun={{ one: 'organization', other: 'organizations' }}
+              transitions={(item) =>
+                organizationTransitions(item, isAdmin).map((transition) => ({
+                  key: transition.target,
+                  label: transition.label,
+                  destructive: transition.destructive,
+                  onSelect: () => setMoving({ organization: item, transition }),
+                }))
               }
-              activeRowId={selectedId ?? undefined}
-              onRowActivate={(item) => select(item.id)}
-              rowActions={
-                isAdmin
-                  ? (item) => (
-                      <StateChangeMenu<Target>
-                        subject={item.code}
-                        transitions={organizationTransitions(item, isAdmin)}
-                        version={item.version}
-                        onSubmit={(input) => submitTransition(item, input)}
-                        onReload={() => void refresh()}
-                        onDone={() => void refresh()}
-                      />
-                    )
-                  : undefined
-              }
+              statusOf={(item) => ORGANIZATION_STATUS[item.status].label}
+              search={{ label: 'Search by code, name or tax code', placeholder: 'Code, name or tax code' }}
+              filters={[
+                { key: 'any', label: 'Verified or not' },
+                { key: 'yes', label: 'Verified', test: (item) => Boolean(item.verifiedAt) },
+                { key: 'no', label: 'Not yet verified', test: (item) => !item.verifiedAt },
+              ]}
+              resetKey={tab}
+              onShowDetails={(item) => select(item.id)}
+              emptyState={{ title: 'No organizations here.' }}
             />
           </div>
 
@@ -676,6 +648,18 @@ export const OrganizationReviewPage: React.FC = () => {
             </Button>
           )}
         </PageActionBar>
+      )}
+
+      {moving && (
+        <StateChangeDialog<Target>
+          subject={moving.organization.code}
+          transition={moving.transition}
+          version={moving.organization.version}
+          onSubmit={(input) => submitTransition(moving.organization, input)}
+          onReload={() => void refresh()}
+          onDone={() => void refresh()}
+          onClose={() => setMoving(null)}
+        />
       )}
 
       {statusAction && selected && (

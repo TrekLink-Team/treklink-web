@@ -337,7 +337,8 @@ describe('OrganizationReviewPage status actions (screen 3.2, organizations api-d
 });
 
 describe('OrganizationReviewPage row menu (W29, UI standard §3)', () => {
-  const menuOf = (code: string) => screen.getByRole('button', { name: `Change status of ${code}` });
+  // The Change status button shows the current status (chapter 06 §9.6): "Status: Pending. Change status of ORG-0001".
+  const menuOf = (code: string) => screen.getByRole('button', { name: new RegExp(`Change status of ${code}$`) });
   const itemsOf = (code: string) => {
     fireEvent.click(menuOf(code));
     const labels = screen.getAllByRole('menuitem').map((item) => item.textContent);
@@ -358,14 +359,14 @@ describe('OrganizationReviewPage row menu (W29, UI standard §3)', () => {
     expect(itemsOf('ORG-0002')).toEqual(['Approve organization', 'Reject organization']);
     expect(itemsOf('ORG-0003')).toEqual(['Suspend organization', 'Close organization']);
     expect(itemsOf('ORG-0004')).toEqual(['Reactivate organization']);
-    expect(screen.queryByRole('button', { name: 'Change status of ORG-0005' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Change status of ORG-0005$/ })).toBeNull();
   });
 
   it('gives Staff no row menu', () => {
     roles = ['STAFF'];
     items = [organization({ status: 'ACTIVE' })];
     renderPage(<OrganizationReviewPage />);
-    expect(screen.queryByRole('button', { name: /^Change status of/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Change status of/ })).toBeNull();
   });
 
   it('rejects from the row with the reason and the loaded version', async () => {
