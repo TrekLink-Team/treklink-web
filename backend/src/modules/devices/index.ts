@@ -39,6 +39,7 @@ export {
 export {
   DeviceConnectorService,
   type DockedUnit,
+  type DockedUnitWithContract,
   type RecognizedUnit,
 } from './dock/device-connector.service';
 export {

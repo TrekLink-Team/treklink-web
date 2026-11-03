@@ -120,9 +120,10 @@
 
 ## Phase 8: Docked units on the Staff map (devices design §11.8)
 
-- [ ] 8.1 `DOCKED` in the snapshot and the docked stream entries (owner KhoaDD, devices task 10.5)
+- [x] 8.1 `DOCKED` in the snapshot and the docked stream entries (owner KhoaDD, devices task 10.5)
   - **Files**: `backend/src/modules/monitoring/live-map.service.ts`, `stream.listener.ts`, `custody-view.ts`, `ws-live-contract.md` types, tests
   - **Do**: api-design 02: for a TrekLink caller read `DevicesService.dockedNow()`, set `docked` on every entry and add the docked units outside custody as `DOCKED` at `monitoring.counterLocation`; an organization caller gets `docked` null and no `DOCKED` entry; write `device.docked` and `device.undocked` to the stream with no organization so they reach `fleet` only
   - **Test**: AC-11; an organization API replay holds no docked entry
   - _Requirements: REQ-UBI-06, AC-11_
   - _Depends on: devices 10.3_
+  - **Done** (2026-11-04, `feat/device-connector-ui`): `LiveMapService.snapshot` reads `DeviceConnectorService.dockedWithContracts` for TrekLink callers only, sets `docked` on every entry, pins a docked rented unit at the counter, and adds `DOCKED` entries for docked units outside custody (a Staff view of one organization keeps that organization's units); `StreamListener` stores `device.docked` (with the counter location) and `device.undocked` with no organization, so they reach `fleet` only. Unit-tested (snapshot: staff, one organization, organization caller; listener), and `live-map-units.db-spec.ts` and `org-api-custody.db-spec.ts` pass on Postgres. AC-11 end to end is left to devices 10.11 (two browsers)
