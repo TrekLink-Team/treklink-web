@@ -288,6 +288,7 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - **Test**: AC-31 with two browser contexts in Playwright
   - _Requirements: REQ-EVT-36, REQ-EVT-37, REQ-STA-05, AC-31_
   - _Depends on: 10.3, 10.5, 10.6_
+  - **Partly done** (2026-11-04, `feat/device-connector-ui`): `model/DockPresence.ts` (a session for each registered unit held while the context is the counter, renewed every third of the lifetime api-design 31 answers, ended when the unit or the context leaves, every session ended with `keepalive` on `pagehide`), mounted by the Staff shell through `useDockPresence`; the live map takes `DOCKED` and `docked` (types, the `device.docked` and `device.undocked` entries, a snapshot read for a docked unit it does not list) and the Staff page pins a docked unit at the counter with "Docked at the counter" and a Docked badge. Tests: `DockPresence.test.ts` (4), the reducer (2 new). Open: the two-browser Playwright check of AC-31
 - [ ] 10.12 Hardware run and the spec close-out (owner KhoaDD, with the leader at the bench)
   - **Do**: design §11.11 on v2 (treklink-firmware#27 image), v3 and v4: AC-22, AC-26, AC-27, AC-31, AC-37; record in §11.4 whether a port grant survives a browser restart and whether `SerialPort.forget()` exists on the counter's Chromium, and remove the two (unverified) marks or change the design
   - _Requirements: AC-22 to AC-37_
