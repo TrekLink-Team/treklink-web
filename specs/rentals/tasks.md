@@ -230,3 +230,12 @@ US-UC67 is tracked as TK-188 for the group foundation and API. US-UC68 is tracke
 - [ ] 9.5 Tests (owner LongLP)
   - **Do**: unit specs for depth, held-now, move semantics, removal, the hooks and the fault report; db-specs for AC-10 to AC-14, including two concurrent moves of one device and a cross-organization request (BM04 traces F-11 to TC-F11-01, AC-10, and TC-F11-02, AC-11; TC-F11-03, holder data erased at the close, is already covered by `return.service.spec.ts`, leader ruling on treklink-web#327)
   - _Requirements: AC-10 to AC-14_
+
+## Phase 10: Quick swap for the device connector (devices design §11.6)
+
+- [ ] 10.1 Exchange endpoint (owner KhoaDD, devices task 10.4; awaits the leader's answers to Q1 and Q2 of devices design §11.12)
+  - **Files**: `backend/src/modules/rentals/handover.service.ts` (`exchange`), `handover.controller.ts`, `dto/exchange-device.dto.ts`, `ports/device-contracts.provider.ts` (`DEVICE_CONTRACTS` of devices design §11.5, in `RentalsPortsModule`), the error codes `DEVICE_PROVISIONED` in the shared enum, tests
+  - **Do**: api-design 30 `POST /api/contracts/:id/devices/:deviceId/exchange` (`contract.operate`): the contract locked and checked against `expectedVersion`, the refusal order of REQ-ERR-17, `DevicesService.release` with reason `EXCHANGED` and `reserve` with the replacement id in one transaction, a new live row, the version increased, the audit `contract.deviceExchanged`; provide `DEVICE_CONTRACTS.liveContractsOf` for devices api-design 30. Api-design 07 is not changed
+  - **Test**: AC-15 on Postgres, including an approval that reserves the docked unit first
+  - _Requirements: REQ-EVT-26, REQ-ERR-17, AC-15_
+  - _Depends on: devices 2.3 (`release`, `reserve` with explicit ids)_
