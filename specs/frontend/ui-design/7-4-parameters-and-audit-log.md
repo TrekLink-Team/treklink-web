@@ -102,3 +102,11 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: none, query keys stated
 - [x] Traceability: UC-57, UC-58, FR-CFG-01, FR-CFG-02, US-UC57, US-UC58
 - [x] §8 items 1 to 8 applied (input preserved on a failed edit, server message shown, times in viewer timezone)
+
+## Audit log on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The audit log of screen 7.4 keeps its filter form (actor, organization, subject type and
+id, action prefix, period; audit api-design query), which queries the server and lives in the address. The
+entries below it render through `CollectionView` (chapter 06 §9): the action is each entry's title, the
+actor still filters on click, and the before and after shows in its column and in the details pane, which
+replaces the phone card's Details disclosure.
