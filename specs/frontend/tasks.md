@@ -159,6 +159,10 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: devices api-design 25 and 26; scan input; the four result groups
   - _Story: US-UC54_
   - **Done** (2026-11-05, KhoaDD under D-078, W20A): `/t/stock-take` (`StockTakePage`): the scan field takes focus on arrival and keeps it after each Enter, tags trimmed and upper-cased, a duplicate ignored with "Already scanned", each tag announced in a polite live region, remove per tag, the list kept in session storage until submitted (storage failures ignored); Finish confirms with "Submit {n} tags? ..." and shows the four groups (Unconfirmed first and focused, Unknown tags, In stock confirmed, Rented and heard), each a collapsible section with its count, unconfirmed units linked to `/t/devices/:id`; the past stock-takes on `CollectionView` with the taker and the counts, paged. At 360 px the Finish button is fixed above the tab bar. Hooks in `entities/stock-take/api.ts`; `['stock-takes']` invalidated after a submit. Nav entry built, route registered; the demo seed adds one finished stock-take in its own block. Component-tested (7). Not done: an unknown tag links to the Devices page without the tag prefilled, because screen 4.2 reads no prefill parameter and `FleetPage.tsx` was held by another session
+- [ ] 4.6 Device connector panel, the Staff device hub (owner KhoaDD)
+  - **Do**: devices api-design 30 to 32, rentals api-design 30, 09, 21; the panel and device view of devices design §11, built as devices tasks 10.6 to 10.11; screen file `ui-design/4-6-device-connector-panel.md`
+  - _Story: US-UC11, US-UC14, US-UC20_
+  - _Requirements: devices REQ-UBI-07 to REQ-UBI-10, REQ-EVT-29 to REQ-EVT-41, REQ-STA-05, REQ-STA-06, REQ-ERR-19 to REQ-ERR-29_
 
 ## Phase 5: Contracts
 
