@@ -1,4 +1,4 @@
-import { DeviceStatus } from '@prisma/client';
+import { AccountType, DeviceStatus } from '@prisma/client';
 import { HandoverService } from '../src/modules/rentals/handover.service';
 import { compileRentalFlow, RentalFlow } from './db-rental-flow';
 
@@ -161,6 +161,103 @@ describe('device connector over HTTP against Postgres (devices design section 11
     await expect(
       flow.prisma.device.findUniqueOrThrow({ where: { id: spare.id } }),
     ).resolves.toMatchObject({ status: DeviceStatus.AVAILABLE });
+  });
+
+  it('30 (rentals): refuses a contract not APPROVED, a row already handed over and a unit not on the contract', async () => {
+    // A request is not approved yet; the contract state is checked before the row (REQ-ERR-17 order).
+    const org = await flow.organization();
+    const variantId = await flow.variant();
+    const [heldId] = await flow.availableDevices(variantId, 5);
+    const requested = await flow.requested(org.id, org.manager.id, variantId, 5);
+    const [spareId] = await flow.availableDevices(variantId, 1);
+    const spare = await flow.prisma.device.findUniqueOrThrow({ where: { id: spareId } });
+    expect(
+      errorCode(
+        await exchange(requested.id, heldId, {
+          replacementDeviceId: spare.id,
+          nodeNum: Number(spare.nodeNum),
+        }),
+      ),
+    ).toBe('INVALID_STATE_TRANSITION');
+
+    // An APPROVED contract whose row is marked handed over is not a reserved unit any more.
+    const approvedOne = await approved();
+    await flow.prisma.contractDevice.updateMany({
+      where: { contractId: approvedOne.contract.id, deviceId: approvedOne.reservedId },
+      data: { handedOverAt: new Date() },
+    });
+    expect(
+      errorCode(
+        await exchange(approvedOne.contract.id, approvedOne.reservedId, {
+          replacementDeviceId: approvedOne.spare.id,
+          nodeNum: Number(approvedOne.spare.nodeNum),
+        }),
+      ),
+    ).toBe('INVALID_STATE_TRANSITION');
+
+    // A unit reserved to another contract is not on this one.
+    const other = await approved();
+    const fresh = await approved();
+    expect(
+      errorCode(
+        await exchange(fresh.contract.id, other.reservedId, {
+          replacementDeviceId: fresh.spare.id,
+          nodeNum: Number(fresh.spare.nodeNum),
+        }),
+      ),
+    ).toBe('DEVICE_NOT_ON_CONTRACT');
+    for (const id of [spare.id, approvedOne.spare.id, fresh.spare.id]) {
+      await expect(flow.prisma.device.findUniqueOrThrow({ where: { id } })).resolves.toMatchObject({
+        status: DeviceStatus.AVAILABLE,
+      });
+    }
+  });
+
+  it('30 (rentals): writes the audit row contract.deviceExchanged with both units and the docked nodeNum', async () => {
+    const { contract, reservedId, spare } = await approved();
+    const response = await exchange(contract.id, reservedId, {
+      replacementDeviceId: spare.id,
+      nodeNum: Number(spare.nodeNum),
+    });
+    expect(response.status).toBe(200);
+
+    // The audit sink writes after the response; wait for the row instead of racing it.
+    let rows: { before: unknown; after: unknown; actorId: string | null }[] = [];
+    for (let attempt = 0; attempt < 30 && rows.length === 0; attempt += 1) {
+      rows = await flow.prisma.auditLog.findMany({
+        where: { action: 'contract.deviceExchanged', subjectId: contract.id },
+      });
+      if (rows.length === 0) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      actorId: flow.staff.id,
+      before: { deviceId: reservedId },
+      after: { deviceId: spare.id, nodeNum: Number(spare.nodeNum) },
+    });
+  });
+
+  it('32: another Staff member ends a session someone else opened (leader ruling on treklink-web#351)', async () => {
+    const { reservedId } = await approved();
+    const unit = await flow.prisma.device.findUniqueOrThrow({ where: { id: reservedId } });
+    const otherStaff = { id: await flow.user(AccountType.TREKLINK, 'STAFF'), roles: ['STAFF'] };
+
+    expect(
+      (
+        await flow.send(flow.staff, 'put', `/api/devices/${reservedId}/dock`, {
+          nodeNum: Number(unit.nodeNum),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await flow.send(otherStaff as never, 'delete', `/api/devices/${reservedId}/dock`)).status,
+    ).toBe(200);
+
+    const [session] = await flow.prisma.deviceDockSession.findMany({
+      where: { deviceId: reservedId },
+    });
+    expect(session).toMatchObject({ openedById: flow.staff.id, endReason: 'RELEASED' });
+    expect(session.endedAt).not.toBeNull();
   });
 
   it('30 (devices): recognizes a reserved unit with its contract and an unknown number as null', async () => {
