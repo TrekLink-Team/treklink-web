@@ -88,4 +88,13 @@ describe('OrganizationsService reads for other modules', () => {
     );
     expect(labels).toHaveBeenCalledWith(['org-1'], undefined);
   });
+
+  it('names the organizations a contract search matches, trimmed, and none for a blank search', async () => {
+    const idsMatching = jest.fn().mockResolvedValue(['org-1', 'org-2']);
+    const organizations = service({ idsMatching });
+    await expect(organizations.idsMatching('  acme ')).resolves.toEqual(['org-1', 'org-2']);
+    expect(idsMatching).toHaveBeenCalledWith('acme');
+    await expect(organizations.idsMatching('   ')).resolves.toEqual([]);
+    expect(idsMatching).toHaveBeenCalledTimes(1);
+  });
 });

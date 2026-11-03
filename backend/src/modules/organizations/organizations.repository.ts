@@ -39,6 +39,21 @@ export class OrganizationsRepository {
     });
   }
 
+  // The ids of every organization whose legal name or code contains `q`, ignoring case, for the
+  // contract search of rentals (REQ-EVT-26). Prisma escapes `%` and `_` in `contains`.
+  async idsMatching(q: string, client: Client = this.prisma): Promise<string[]> {
+    const rows = await client.organization.findMany({
+      where: {
+        OR: [
+          { legalName: { contains: q, mode: 'insensitive' } },
+          { code: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
+  }
+
   // Party B of the handover note (rentals design §4.1): the identity and the master contract record
   // the organization review keeps.
   party(id: string, client: Client = this.prisma): Promise<OrganizationParty | null> {
