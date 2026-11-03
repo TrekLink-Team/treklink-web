@@ -146,11 +146,12 @@
   - **Do**: design §8.5: `devices[].nodeNum` on rentals 03; `nodeNum` and 409 `NODE_MISMATCH` on rentals 09 (optional only for the manual fallback, design §8.6 decision 3); the new channel-key endpoint (rentals 21) and its `contract.issueChannelKey` permission (D-082 decision 1)
   - _Requirements: REQ-EVT-26, REQ-ERR-12_
   - **Done 2026-11-04** (treklink-web#335): the catalog, the generated api-design 03, 09 and 21 and the matrix came with #126; the forward migration `20261104100000_channel_key_permission` adds `contract.issueChannelKey` for STAFF and ADMIN
-- [ ] 7.2 `meshtastic-dock.ts` adapter over the published Meshtastic packages (owner KhoaDD)
+- [x] 7.2 `meshtastic-dock.ts` adapter over the published Meshtastic packages (owner KhoaDD)
   - **Files**: `frontend/package.json` (`@meshtastic/core`, `@meshtastic/transport-web-serial`, pinned exact versions), `frontend/src/shared/lib/meshtastic-dock.ts`, tests beside it
   - **Do**: design §8.1 and §8.2; one adapter wrapping the npm packages (D-082 decision 3, vetting record adopted with the GPL-3.0 condition)
   - **Test**: fake `SerialPort` with timeout, disconnect, and a unit that never answers (mapped to the v2 message)
   - _Requirements: REQ-UBI-05, REQ-ERR-13, REQ-ERR-14_
+  - **Done 2026-11-03** (KhoaDD under D-078): the adapter, a wire-level fake unit (`meshtastic-dock.fake.ts`) and 14 tests; the browser-build shim in `vite.config.ts` and the other adoption findings are in the vetting record §3.6. Tested against fakes only; the firmware lines of design §8.2 were not re-read on firmware `dev` (no access from this session), and the hardware run on v3 and v4 is open
 - [ ] 7.3 `DockingService` and `useDocking` (owner KhoaDD)
   - **Files**: `frontend/src/features/dock-device/`
   - **Do**: `readUnit()`, `useDocking` calling rentals api-design 21 for the key, `provision(expected, key, keyVersion)` with the mismatch guard, the owner and channel writes inside one edit transaction, the restart wait and the read-back; key held for one call
