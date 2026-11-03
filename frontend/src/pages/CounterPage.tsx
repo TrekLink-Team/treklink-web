@@ -1118,7 +1118,8 @@ export const CounterPage: React.FC<{
                           }
                           onClick={() => void provision(device)}
                         >
-                          {busyRow === device.deviceId ? 'Recording…' : 'Record provisioning'}
+                        {/* The manual fallback of devices design 8.6 decision 3. */}
+                        {busyRow === device.deviceId ? 'Recording…' : 'Enter manually'}
                         </button>
                         <div className="flex flex-col gap-1.5">
                           <label
