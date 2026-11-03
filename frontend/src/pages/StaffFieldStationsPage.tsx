@@ -1,3 +1,4 @@
+import { Ban } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useOrganizations, type OrganizationReview } from '../entities/organization/api';
@@ -14,12 +15,12 @@ import { apiClient } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import {
   Alert,
-  DataTable,
+  CollectionView,
   PageHeader,
   Select,
   StateChangeDialog,
   Toolbar,
-  type Column,
+  type CollectionField,
   type StateTransition,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
@@ -91,31 +92,27 @@ export const StaffFieldStationsPage: React.FC = () => {
 
   const refresh = (id: string) => queryClient.invalidateQueries({ queryKey: fieldStationKeys.list(id) });
 
-  const columns: Column<StationRow>[] = [
+  const fields: CollectionField<StationRow>[] = [
     {
       key: 'organization',
-      header: 'Organization',
-      cell: (row) => (
+      label: 'Organization',
+      render: (row) => (
         <span className="flex flex-col">
           <span className="font-mono font-semibold text-ink">{row.organization.code}</span>
           <span className="text-body-sm text-ink-muted">{row.organization.legalName}</span>
         </span>
       ),
+      compact: true,
     },
+    { key: 'version', label: 'Version', render: (row) => <VersionCell station={row} />, hideWithPane: true },
     {
-      key: 'name',
-      header: 'Station',
-      cell: (row) => (
-        <span className="flex flex-col">
-          <span className="font-semibold text-ink">{row.name}</span>
-          <span className="font-mono text-body-sm text-ink-muted">{row.mqttUsername}</span>
-        </span>
-      ),
+      key: 'lastSync',
+      label: 'Last sync',
+      render: (row) => (row.lastSyncAt ? formatDateTime(row.lastSyncAt) : 'Never'),
+      compact: true,
     },
-    { key: 'version', header: 'Version', cell: (row) => <VersionCell station={row} /> },
-    { key: 'lastSync', header: 'Last sync', cell: (row) => (row.lastSyncAt ? formatDateTime(row.lastSyncAt) : 'Never') },
-    { key: 'queue', header: 'Queue p0 / p1 / p2 / p3', cell: queueText, hideOnMobile: true },
-    { key: 'status', header: 'Status', cell: (row) => <StatusCell station={row} /> },
+    { key: 'queue', label: 'Queue p0 / p1 / p2 / p3', render: queueText, hideWithPane: true },
+    { key: 'status', label: 'Status', render: (row) => <StatusCell station={row} />, compact: true },
   ];
 
   return (
@@ -148,23 +145,30 @@ export const StaffFieldStationsPage: React.FC = () => {
           {`Showing the stations of the first ${organizations.data?.items.length ?? 0} organizations; ${unread} more are not read here. Find an organization on its own page.`}
         </Alert>
       )}
-      <DataTable
-        caption="Field Stations of every organization"
-        columns={columns}
-        rows={rows}
-        rowId={(row) => row.id}
-        rowLabel={(row) => `${row.name} of ${row.organization.code}`}
+      <CollectionView<StationRow>
+        label="Field Stations of every organization"
+        items={loading ? undefined : rows}
         loading={loading}
         error={failure ? <ErrorState error={failure} onRetry={retry} /> : undefined}
-        empty={{
+        itemId={(row) => row.id}
+        itemName={(row) => `${row.name} of ${row.organization.code}`}
+        itemTitle={(row) => (
+          <span className="flex flex-col">
+            <span className="font-semibold text-ink">{row.name}</span>
+            <span className="font-mono text-body-sm font-normal text-ink-muted">{row.mqttUsername}</span>
+          </span>
+        )}
+        fields={fields}
+        noun={{ one: 'station', other: 'stations' }}
+        itemActions={[
+          { key: 'revoke', label: 'Revoke', icon: <Ban />, destructive: true, allowed: (row) => !row.revokedAt, onSelect: setRevoking },
+        ]}
+        emptyState={{
           title: 'No Field Stations',
           description: organizationId
             ? 'This organization has not created a Field Station credential.'
             : 'No active or suspended organization has created a Field Station credential.',
         }}
-        rowActions={(row) =>
-          row.revokedAt ? [] : [{ key: 'revoke', label: 'Revoke', destructive: true, onSelect: () => setRevoking(row) }]
-        }
       />
       {revoking && (
         <StateChangeDialog<'REVOKED'>
