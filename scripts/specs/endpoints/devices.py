@@ -538,7 +538,71 @@ ENDPOINTS = [
        controller="FirmwareReleasesController", service="FirmwareReleaseService",
        call="image(version, variantCode, kind)",
        seq=["Svc->>Svc: release manifest", "Svc->>Svc: download asset, sha256 compare"]),
+
+    # The device connector (design §11, the leader's brief and scope addition of 2026-11-04). Appended so 01 to 29
+    # keep the numbers cited elsewhere.
+    ep("GET", "/api/devices/by-node", "Recognize connected units", "TrekLink Staff, TrekLink Admin",
+       "Recognizes the units plugged into the Staff computer by the `nodeNum` each one reported over Web Serial "
+       "(design §11.5). One answer row per requested number, in the request's order: `device` is null for a number "
+       "never registered, which the connector offers for registration; otherwise the device summary of api-design "
+       "07 with its open maintenance record, `contract` the unit's live contract row (from the rentals port "
+       "`DEVICE_CONTRACTS`) or null, and `docked` its open dock session (api-design 31) or null. The key is never "
+       "returned, only its version and organization (REQ-UBI-03). Permission `device.read`.",
+       "UC-11, UC-14, FR-DEV-02, FR-DEV-11",
+       query=[["nodeNum", "Unsigned 32-bit radio id, or node id `!a4b1c2d3`; repeatable, 1 to 20", "int", "yes",
+               "`2763113171`"]],
+       response=[{"nodeNum": 2763113171, "nodeId": "!a4b1c2d3",
+                  "device": {**DEVICE, "status": "RESERVED", "openMaintenance": None},
+                  "contract": {"id": CONTRACT_ID, "code": "RC-2026-0042", "status": "APPROVED",
+                               "organization": {"id": ORG_ID, "code": "ORG-0007"}, "provisionedKeyVersion": None},
+                  "docked": {"since": NOW, "byName": "Tran Thi B"}},
+                 {"nodeNum": 2763113188, "nodeId": "!a4b1c2e4", "device": None, "contract": None, "docked": None}],
+       fields=[["device", "Device summary as api-design 07 (shared variant summary, status, battery, last seen, "
+                "firmware on record, key version and organization) plus `openMaintenance` `{id, reason, status}`; "
+                "null when the number was never registered", "object", "see sample"],
+               ["contract", "The live contract row: `id`, `code`, `status`, `organization {id, code}`, "
+                "`provisionedKeyVersion`; null when the unit is on none", "object", "see sample"],
+               ["docked", "The open dock session: `since`, `byName`; null when none", "object", "see sample"]],
+       steps=["Normalize node ids to nodeNum", "Read the devices with those numbers, retired ones included",
+              "DEVICE_CONTRACTS.liveContractsOf(ids)", "Read the open dock sessions", "Answer in request order"],
+       controller="DevicesController", service="DevicesService", call="byNodes(nodeNums)",
+       participants=[["Rent", "DEVICE_CONTRACTS (rentals)"]],
+       seq=["Svc->>DB: SELECT devices WHERE nodeNum IN (...)", "Svc->>Rent: liveContractsOf(ids)",
+            "Svc->>DB: SELECT device_dock_sessions WHERE endedAt IS NULL"]),
+
+    ep("PUT", "/api/devices/:id/dock", "Open or renew a dock session", "TrekLink Staff, TrekLink Admin",
+       "Tells the server the Staff browser holds this unit's port (design §11.8), so the Staff live map pins it at "
+       "`monitoring.counterLocation` with \"Docked at the counter\" (REQ-EVT-36, REQ-EVT-37). The connector sends it "
+       "when it starts holding the unit and again every third of `devices.dockPresenceTtlSeconds`. A session the "
+       "caller opened is renewed; one another caller opened is ended `REPLACED` and a new one opened. The docked "
+       "`nodeNum` must equal the device record (REQ-ERR-27). Organization accounts get 403 (REQ-UBI-07). Permission `device.operate`.",
+       "UC-14, FR-MON-02, D-080, D-092",
+       path=[DEV_PATH],
+       body=[["nodeNum", "The nodeNum read from the docked unit", "int", "yes", "`2763113171`"]],
+       sample={"nodeNum": 2763113171},
+       response={"deviceId": DEVICE_ID, "assetTag": "TL-0042", "since": NOW, "renewedAt": NOW,
+                 "expiresAt": "2026-10-20T03:15:30.000Z"},
+       message="Docked", entity="Device",
+       errors=[(409, "NODE_MISMATCH", "The docked nodeNum differs from the device record",
+                "The docked unit is !0004351c, not TL-0042.")],
+       steps=["Compare the nodeNum with the device record", "Lock the open session of the device, if any",
+              "Renew the caller's session, or end another caller's as REPLACED and open one",
+              "Emit device.docked after commit when a session was opened"],
+       controller="DevicesController", service="DockSessionService", call="dock(id, dto, actor)",
+       seq=["Svc->>DB: SELECT devices.nodeNum", "Svc->>DB: SELECT device_dock_sessions FOR UPDATE",
+            "Svc->>DB: UPDATE renewedAt or INSERT device_dock_sessions"]),
+
+    ep("DELETE", "/api/devices/:id/dock", "End a dock session", "TrekLink Staff, TrekLink Admin",
+       "Ends the open dock session of the unit when the connector releases its port, the unit is unplugged or the "
+       "tab closes (sent with `keepalive`), so the Staff map drops the pin (design §11.8). Ending a session that is "
+       "already over, or that does not exist, answers success with `result` null. A session never ended this way "
+       "expires through the `devices.dockSweep` job. Permission `device.operate`.",
+       "UC-14, FR-MON-02",
+       path=[DEV_PATH], response=None, message="Undocked", entity="Device",
+       steps=["End the open session as RELEASED", "Emit device.undocked after commit when one was open"],
+       controller="DevicesController", service="DockSessionService", call="undock(id, actor)",
+       seq=["Svc->>DB: UPDATE device_dock_sessions SET endedAt, endReason RELEASED WHERE endedAt IS NULL"]),
 ]
 
-NOTES = ("Route order: `GET /api/devices/availability` is declared before `GET /api/devices/:id` in "
-         "`DevicesController`, so the literal segment is never read as an id.")
+NOTES = ("Route order: `GET /api/devices/availability` and `GET /api/devices/by-node` are declared before "
+         "`GET /api/devices/:id` in `DevicesController`, so a literal segment is never read as an id.")
