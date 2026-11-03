@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
-import { expectToast, homeAction, openFromSidebar, signIn, titleStatus, vnd } from './support/session';
+import { expectToast, homeAction, openFromSidebar, showOnly, signIn, titleStatus, vnd } from './support/session';
 
 // MF-01, demo script §2b: the Manager requests a contract, Staff approve it and run the counter
 // handover (devices, payment, preview note, signature), then the Manager creates a Field Station
@@ -94,8 +94,10 @@ test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({
 
   // Step 5
   await openFromSidebar(page, 'Contracts');
-  await page.getByRole('tab', { name: 'Requested' }).click();
-  await page.getByRole('button', { name: contractCode, exact: true }).click();
+  // The queue is the list's Show menu, Requested first (treklink-web#350); the request opens in the
+  // details pane through its Show details action.
+  await showOnly(page, 'Requested');
+  await page.getByRole('button', { name: `Show details of ${contractCode}`, exact: true }).click();
   await expect(page.getByText(/This request holds its 5 TrekLink v3 \(GPS, SOS button\) devices; approval keeps them\./)).toBeVisible();
 
   // Step 6: the appointment opens on today 09:00; after 09:00 it moves to the next full hour.

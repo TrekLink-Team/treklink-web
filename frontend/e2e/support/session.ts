@@ -172,6 +172,16 @@ export const homeAction = async (page: Page, label: string): Promise<void> => {
   await page.getByRole('menuitem', { name: label, exact: true }).click();
 };
 
+// Chooses a filter from a list's Show menu (shared/ui/collection-view, chapter 06 §9.3), which took
+// over the queue tabs and filter buttons (treklink-web#350). The chosen item reads "(current)", so the
+// name allows it; the Show button then names the filter.
+export const showOnly = async (page: Page, label: string, scope: Page | Locator = page): Promise<void> => {
+  await scope.getByRole('button', { name: /^Show: / }).first().click();
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await page.getByRole('menuitem', { name: new RegExp(`^${escaped}( \\(current\\))?$`) }).click();
+  await expect(scope.getByRole('button', { name: new RegExp(`^Show: ${escaped}`) }).first()).toBeVisible();
+};
+
 // True when the locator appears within the time, for a step that skips on a seed that lacks its
 // record. count() alone answers before the page has loaded its data.
 export const appears = async (locator: Locator, timeout = 10_000): Promise<boolean> =>
