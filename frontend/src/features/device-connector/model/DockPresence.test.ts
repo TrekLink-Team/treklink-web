@@ -24,6 +24,7 @@ const snapshot = (...connections: Connection[]): RegistrySnapshot => ({
   supported: true,
   connections,
   writing: null,
+  reconnectFor: null,
 });
 
 describe('DockPresence', () => {

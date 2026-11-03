@@ -7,7 +7,7 @@ import { Alert } from '../../../shared/ui/Alert';
 import { Button } from '../../../shared/ui/Button';
 import { buttonClasses } from '../../../shared/ui/buttonStyles';
 import { cn } from '../../../shared/ui/cn';
-import { Dialog } from '../../../shared/ui/Dialog';
+import { ConfirmDialog, Dialog } from '../../../shared/ui/Dialog';
 import { Field, Select } from '../../../shared/ui/Field';
 import { DEVICE_STATUS, type DeviceStatus } from '../../../shared/ui/status';
 import { useToast } from '../../../shared/ui/toastStore';
@@ -51,7 +51,6 @@ const ActionControl: React.FC<
 > = ({ connection, action, writing, onAction }) => {
   const name = unitName(connection);
   const locked = writing !== null;
-  const lockedReason = locked && writing !== connection.id ? 'Another unit is being written.' : undefined;
   if (action.kind === 'link') {
     return (
       <Link to={action.to} className={buttonClasses('secondary', 'sm')} aria-label={`${action.label}: ${name}`}>
@@ -91,7 +90,6 @@ const ActionControl: React.FC<
       variant={action.kind === 'register' || action.kind === 'swap' || action.kind === 'provision' ? 'primary' : 'secondary'}
       disabled={writes && locked}
       aria-label={accessible}
-      title={writes ? lockedReason : undefined}
       onClick={() => onAction(connection, action)}
     >
       {label}
@@ -107,14 +105,18 @@ const UnitRow: React.FC<
     onShow: (id: number) => void;
     onRetry: (id: number) => void;
     onForget: (id: number) => void;
+    // The docking that waits for this unit to be reconnected after its restart (screen 4.6).
+    reconnect: { reconnect: () => Promise<void>; stop: () => void } | null;
   } & ActionHandlers
-> = ({ connection, reason, actions, onShow, onRetry, onForget, ...handlers }) => {
+> = ({ connection, reason, actions, onShow, onRetry, onForget, reconnect, ...handlers }) => {
   const device = connection.recognized?.device ?? null;
   const contract = connection.recognized?.contract ?? null;
   const name = unitName(connection);
   const status = statusText(connection);
   const flash = actions.find((action) => action.kind === 'flash');
   const busy = connection.id === handlers.writing;
+  const lockedOut =
+    handlers.writing !== null && !busy && actions.some((action) => action.kind !== 'link' && action.kind !== 'register');
   return (
     <li className={cn('flex flex-col gap-2 border-b border-line px-1 py-3 last:border-b-0', connection.state === 'unplugged' && 'opacity-70')}>
       <div className="flex items-start gap-3">
@@ -142,9 +144,26 @@ const UnitRow: React.FC<
           {flash.disabledReason}
         </p>
       )}
+      {lockedOut && <p className="text-caption text-ink-muted">Another unit is being written.</p>}
+      {reconnect && connection.state === 'reconnect' && (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="primary" onClick={() => void reconnect.reconnect()}>
+            Reconnect
+          </Button>
+          <Button size="sm" variant="ghost" onClick={reconnect.stop}>
+            Stop
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {connection.unit && connection.recognized !== null && (
-          <Button size="sm" variant="ghost" aria-label={`Show ${name}`} onClick={() => onShow(connection.id)}>
+          <Button
+            id={`connector-show-${connection.id}`}
+            size="sm"
+            variant="ghost"
+            aria-label={`Show ${name}`}
+            onClick={() => onShow(connection.id)}
+          >
             Details
           </Button>
         )}
@@ -333,6 +352,18 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
   const clearFocus = useConnectorStore((state) => state.clearFocus);
   const flashPanel = useConnectorStore((state) => state.flashPanel);
   const [flashing, setFlashing] = useState<Connection | null>(null);
+  const [forgetting, setForgetting] = useState<Connection | null>(null);
+  // Back from the device view returns focus to the row that opened it (screen 4.6).
+  const lastViewed = useRef<number | null>(null);
+  useEffect(() => {
+    if (viewing !== null) {
+      lastViewed.current = viewing;
+      return;
+    }
+    if (lastViewed.current === null) return;
+    document.getElementById(`connector-show-${lastViewed.current}`)?.focus();
+    lastViewed.current = null;
+  }, [viewing]);
   const [swap, setSwap] = useState<{ connection: Connection; rows: CounterRow[] } | null>(null);
   const [uplink, setUplink] = useState<Connection | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -470,13 +501,31 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
                     onAction={onAction}
                     onShow={view}
                     onRetry={(id) => registry.retry(id)}
-                    onForget={(id) => void registry.forget(id)}
+                    onForget={() => setForgetting(connection)}
+                    reconnect={
+                      snapshot.reconnectFor === connection.id ? registry.reconnectOffer : null
+                    }
                   />
                 );
               })}
             </ul>
           )}
         </>
+      )}
+      {forgetting && (
+        <ConfirmDialog
+          titleId="connector-forget-title"
+          title={`Forget ${unitName(forgetting)}?`}
+          description="The browser asks again before it can connect to this unit."
+          confirmLabel="Forget"
+          cancelLabel="Keep it"
+          onConfirm={() => {
+            const target = forgetting;
+            setForgetting(null);
+            void registry.forget(target.id);
+          }}
+          onCancel={() => setForgetting(null)}
+        />
       )}
       {swap && context?.kind === 'counter' && (
         <SwapDialog

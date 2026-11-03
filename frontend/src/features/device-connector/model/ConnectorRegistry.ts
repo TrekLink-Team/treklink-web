@@ -50,6 +50,15 @@ export interface RegistrySnapshot {
   connections: readonly Connection[];
   // The connection a write runs on, or null (REQ-STA-06).
   writing: number | null;
+  // The connection whose unit did not come back by itself after its restart, while the docking waits for
+  // Staff to reconnect it (screen 4.6, Reconnect); null otherwise.
+  reconnectFor: number | null;
+}
+
+export interface ReconnectOffer {
+  connectionId: number;
+  reconnect: () => Promise<void>;
+  stop: () => void;
 }
 
 export interface RegistryDeps {
@@ -78,6 +87,7 @@ export class ConnectorRegistry {
   private readonly listeners = new Set<() => void>();
   private nextId = 1;
   private writing: number | null = null;
+  private offer: ReconnectOffer | null = null;
   private deferred: SerialPort[] = [];
   private readonly reads = new Map<number, Promise<void>>();
   private readonly removals = new Map<number, ReturnType<typeof setTimeout>>();
@@ -92,7 +102,12 @@ export class ConnectorRegistry {
     this.timings = deps.timings ?? DEFAULT_TIMINGS;
     this.unpluggedMs = deps.unpluggedMs ?? 10_000;
     this.batchMs = deps.batchMs ?? 300;
-    this.snapshot = { supported: deps.serial() !== null, connections: [], writing: null };
+    this.snapshot = {
+      supported: deps.serial() !== null,
+      connections: [],
+      writing: null,
+      reconnectFor: null,
+    };
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -382,11 +397,23 @@ export class ConnectorRegistry {
     if (changed) this.emit();
   }
 
+  // The docking that waits for a reconnect offers its Reconnect and Stop here, so the panel row shows them
+  // too; null withdraws the offer.
+  offerReconnect(offer: ReconnectOffer | null): void {
+    this.offer = offer;
+    this.emit();
+  }
+
+  get reconnectOffer(): ReconnectOffer | null {
+    return this.offer;
+  }
+
   private emit(): void {
     this.snapshot = {
       supported: this.deps.serial() !== null,
       connections: this.connections,
       writing: this.writing,
+      reconnectFor: this.offer?.connectionId ?? null,
     };
     for (const listener of this.listeners) listener();
   }
