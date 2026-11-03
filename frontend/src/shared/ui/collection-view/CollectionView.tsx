@@ -115,6 +115,11 @@ export interface CollectionViewProps<T> {
   hideCommandBar?: boolean;
   /** `hideWithPane` columns also leave when the list itself is narrower than 1100 px (§10.8). */
   fitNarrow?: boolean;
+  /**
+   * Names any other filter the page applies outside the command bar (status chips kept in the
+   * address). A change clears the selection, like a search, filter or sort change (§9.4 rule 4).
+   */
+  resetKey?: string;
   className?: string;
 }
 
@@ -147,6 +152,7 @@ export function CollectionView<T>({
   stickyTop,
   hideCommandBar,
   fitNarrow,
+  resetKey,
   className,
 }: CollectionViewProps<T>) {
   const baseId = useId();
@@ -243,6 +249,24 @@ export function CollectionView<T>({
     );
     row?.querySelector<HTMLElement>('input, a[href], button')?.focus();
   }, [ids, baseId]);
+
+  // A query changed from outside the module (a controlled query, or the page's own filters named by
+  // `resetKey`) clears the selection as well; changes made in the command bar clear it in changeQuery.
+  const signature = [
+    query.search,
+    query.filter,
+    query.sort ? `${query.sort.key}:${query.sort.direction}` : '',
+    resetKey ?? '',
+  ].join('|');
+  const [external, setExternal] = useState({ signature, cleared: 0 });
+  if (external.signature !== signature) {
+    const clear = selection.selected.size > 0;
+    setExternal({ signature, cleared: external.cleared + (clear ? 1 : 0) });
+    if (clear) setSelection(EMPTY_SELECTION);
+  }
+  useEffect(() => {
+    if (external.cleared > 0) announce(SELECTION_CLEARED);
+  }, [external.cleared, announce]);
 
   const selectedItems = [...selection.selected]
     .map((id) => byId.get(id))

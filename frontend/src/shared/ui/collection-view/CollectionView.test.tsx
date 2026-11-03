@@ -187,6 +187,28 @@ describe('CollectionView', () => {
     expect(live().textContent).toContain('Sorted by Battery, ascending');
   });
 
+  it('clears the selection when the page changes a filter of its own, named by resetKey', () => {
+    const { rerender } = renderView({ resetKey: 'a' });
+    fireEvent.click(box('TL-0001'));
+    rerender(
+      <MemoryRouter>
+        <CollectionView<Unit>
+          label="Units of CT-0042"
+          items={UNITS}
+          itemId={(unit) => unit.id}
+          itemName={(unit) => unit.tag}
+          fields={FIELDS}
+          noun={{ one: 'unit', other: 'units' }}
+          bulkActions={[{ key: 'checkin', label: (count) => `Check in ${count} units`, onSelect: checkIn }]}
+          emptyState={{ title: 'None' }}
+          resetKey="b"
+        />
+      </MemoryRouter>,
+    );
+    expect(box('TL-0001').checked).toBe(false);
+    expect(live().textContent).toContain(SELECTION_CLEARED);
+  });
+
   it('keeps the selection when the view changes', () => {
     renderView({ views: ['details', 'list'] });
     fireEvent.click(box('TL-0002'));
