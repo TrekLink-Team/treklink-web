@@ -1430,7 +1430,7 @@ TrekLink callers `docked: { since, byName }` on every entry and adds, for a dock
 interval, an entry with `state` `DOCKED`, `position` null and `counterLocation` set; an organization caller
 gets `docked: null` and no `DOCKED` entry (REQ-STA-05). The Staff `LiveMapPage` (screen 9.1) pins a docked
 unit at `counterLocation` with the label "Docked at the counter" and the asset tag, and drops the pin on
-`device.undocked`.
+`device.undocked`. The pin is its own marker state (a double-bordered pin with the chip "Docked at the counter"), and the list beside the map reaches it by keyboard.
 
 ### 11.9 Sequence: connect, recognize, swap, provision
 

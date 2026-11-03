@@ -30,7 +30,7 @@ export interface MapMarker {
   title: string;
   subtitle?: string;
   /** Drives marker colour; keep in step with device/incident status vocabularies. */
-  status?: 'ok' | 'warning' | 'stale' | 'unheard' | 'incident';
+  status?: 'ok' | 'warning' | 'stale' | 'unheard' | 'docked' | 'incident';
   /** Extra popup lines under the subtitle, such as battery and last-seen time. */
   details?: string[];
   /** A link under the popup lines; a marker without one shows the popup as before. */
@@ -43,6 +43,7 @@ const MARKER_STATE: Record<NonNullable<MapMarker['status']>, MarkerState> = {
   warning: 'attention',
   stale: 'stale',
   unheard: 'unheard',
+  docked: 'docked',
   incident: 'sos',
 };
 
@@ -86,8 +87,9 @@ const markerIcon = (marker: MapMarker): L.DivIcon =>
     state: MARKER_STATE[marker.status ?? 'ok'],
     label: marker.title,
     name: textOf(marker),
-    // A unit not heard since handover carries its label on the map (MSG41, D-092 rule 2).
-    showChip: marker.status === 'unheard',
+    // A unit not heard since handover carries its label on the map (MSG41, D-092 rule 2), and so does a
+    // unit docked at the counter (devices design section 11.8).
+    showChip: marker.status === 'unheard' || marker.status === 'docked',
   });
 
 // Opens a popup link: true when the page took the navigation, false to let the browser follow the href.
