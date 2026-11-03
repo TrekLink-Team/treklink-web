@@ -9,6 +9,7 @@ import {
   homeAction,
   openFromSidebar,
   runBackendScript,
+  showOnly,
   signIn,
   titleStatus,
   vnd,
@@ -43,9 +44,11 @@ const contractStatus = async (request: APIRequestContext): Promise<string | unde
 
 const openContractAsStaff = async (page: import('@playwright/test').Page) => {
   await openFromSidebar(page, 'Contracts');
-  await page.getByRole('tab', { name: 'All' }).click();
-  await page.getByRole('button', { name: CONTRACT, exact: true }).click();
-  await page.getByRole('link', { name: 'Open the contract' }).click();
+  // The queue is the list's Show menu (treklink-web#350); Show details opens the contract in the
+  // details pane, whose link opens the contract home.
+  await showOnly(page, 'All');
+  await page.getByRole('button', { name: `Show details of ${CONTRACT}`, exact: true }).click();
+  await page.getByRole('complementary', { name: CONTRACT }).getByRole('link', { name: 'Open the contract' }).first().click();
   await expect(page).toHaveURL(/\/t\/contracts\/[^/]+$/);
 };
 

@@ -1,5 +1,5 @@
 import { expect, test } from './support/fixtures';
-import { apiGet, apiToken, appears, figureOf, statusBadge, titleStatus, expectToast, openFromSidebar, runBackendScript, signIn, vnd } from './support/session';
+import { apiGet, apiToken, appears, figureOf, statusBadge, titleStatus, expectToast, openFromSidebar, runBackendScript, showOnly, signIn, vnd } from './support/session';
 
 // MF-03, demo script §4: an SOS from TL-0010 reaches the Operator, who acknowledges, responds,
 // corrects a status update and resolves; Staff report the seeded UNROUTED incident and the seeded
@@ -94,11 +94,13 @@ test('MF-03 steps 1 to 6: the Operator handles the SOS from TL-0010', async ({ p
 test('MF-03 steps 7 to 10: Staff report the UNROUTED TL-0001 incident and close the case', async ({ page }) => {
   await signIn(page, 'staff');
   await openFromSidebar(page, 'Incidents');
-  await page.getByRole('group', { name: 'Queue filter' }).getByRole('button', { name: 'Unrouted and escalated' }).click();
+  // The queue filter is the list's Show menu (treklink-web#350); the incident opens beside the queue
+  // through its Show details action.
+  await showOnly(page, 'Unrouted and escalated');
   const row = page.getByRole('row').filter({ hasText: 'TL-0001' }).filter({ hasText: 'Unrouted' });
   // The seed opens it once; a rehearsal that closed it needs the TL-0002 fallback (script §8).
   test.skip(!(await appears(row)), 'the seeded UNROUTED incident on TL-0001 is no longer open');
-  await row.first().getByRole('button').first().click();
+  await row.first().getByRole('button', { name: /^Show details of INC-\d{4}-\d{6}$/ }).click();
 
   // Step 7
   const main = page.getByRole('main');
