@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
+import { KeyRound, Pencil, UserCheck, UserPlus, UserX } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import {
   ACCOUNT_PAGE_SIZE,
@@ -20,19 +20,16 @@ import {
   Badge,
   BulkActionDialog,
   Button,
-  DataTable,
-  Menu,
+  CollectionView,
   PageHeader,
   Pagination,
-  Select,
-  Toolbar,
-  ToolbarSearch,
+  pageInfoOf,
   useToast,
   type BulkItem,
-  type Column,
-  type RowAction,
+  type CollectionAction,
+  type CollectionBulkAction,
+  type CollectionField,
 } from '../shared/ui';
-import { lockedWhileSelecting } from '../shared/ui/lockedWhileSelecting';
 import { ErrorState } from '../shared/ui/bits';
 import { messageOf } from '../shared/ui/errors';
 import {
@@ -111,10 +108,8 @@ export const AccountsPage: React.FC = () => {
   // The account just created, whose name cell takes focus once its row is on screen (screen 7.1).
   const createdId = useRef<string | null>(null);
   const [action, setAction] = useState<Action | null>(null);
-  // The phone card whose Actions menu is open (screen 7.1, 360 px layout).
-  // The selection, kept across pages and filters (UI standard §2).
-  const [selected, setSelected] = useState<Map<string, AccountItem>>(new Map());
-  const [bulk, setBulk] = useState<BulkKind | null>(null);
+  // A bulk action on the selection of the current page (chapter 06 §9.4, leader ruling 2026-11-03).
+  const [bulk, setBulk] = useState<{ kind: BulkKind; rows: AccountItem[] } | null>(null);
 
   // One change of the URL query: `undefined` removes a key. A new filter starts again on page 1.
   const update = (changes: Changes, options?: { replace?: boolean }) =>
@@ -182,42 +177,37 @@ export const AccountsPage: React.FC = () => {
     );
   }
 
-  // Active: Edit, Send reset code and Deactivate, in the row menu; the last active Admin's
-  // Deactivate stays reachable, disabled, with its reason. Deactivated: Reactivate.
-  const rowActions = (account: AccountItem): RowAction[] =>
-    account.isActive
-      ? [
-          { key: 'edit', label: 'Edit', onSelect: () => setAction({ kind: 'edit', account }) },
-          { key: 'reset', label: 'Send reset code', onSelect: () => setAction({ kind: 'reset', account }) },
-          {
-            key: 'deactivate',
-            label: 'Deactivate',
-            destructive: true,
-            disabled: account.id === lastAdmin,
-            disabledReason: account.id === lastAdmin ? LAST_ADMIN_REASON : undefined,
-            onSelect: () => setAction({ kind: 'deactivate', account }),
-          },
-        ]
-      : [{ key: 'reactivate', label: 'Reactivate', onSelect: () => setAction({ kind: 'reactivate', account }) }];
+  // Active: Edit, Send reset code and Deactivate; the last active Admin's Deactivate stays visible,
+  // unavailable, with its reason (screen 7.1). Deactivated: Reactivate. Item actions with the tooltip
+  // of chapter 06 §9.5; Deactivate keeps its reason, which a status menu could not show.
+  const itemActions: CollectionAction<AccountItem>[] = [
+    { key: 'edit', label: 'Edit', icon: <Pencil />, allowed: (account) => account.isActive, onSelect: (account) => setAction({ kind: 'edit', account }) },
+    { key: 'reset', label: 'Send reset code', icon: <KeyRound />, allowed: (account) => account.isActive, onSelect: (account) => setAction({ kind: 'reset', account }) },
+    {
+      key: 'deactivate',
+      label: 'Deactivate',
+      icon: <UserX />,
+      destructive: true,
+      allowed: (account) => account.isActive,
+      unavailableReason: (account) => (account.id === lastAdmin ? LAST_ADMIN_REASON : undefined),
+      onSelect: (account) => setAction({ kind: 'deactivate', account }),
+    },
+    { key: 'reactivate', label: 'Reactivate', icon: <UserCheck />, allowed: (account) => !account.isActive, onSelect: (account) => setAction({ kind: 'reactivate', account }) },
+  ];
 
-  const select = (ids: Set<string>) =>
-    setSelected((current) => {
-      const next = new Map<string, AccountItem>();
-      ids.forEach((id) => {
-        const row = current.get(id) ?? accounts.data?.items.find((item) => item.id === id);
-        if (row) next.set(id, row);
-      });
-      return next;
-    });
-  const chosen = [...selected.values()];
-  const deactivatable = chosen.filter((row) => row.isActive && row.id !== lastAdmin && row.id !== user?.id);
-  const reactivatable = chosen.filter((row) => !row.isActive);
-  const resettable = chosen.filter((row) => row.isActive);
+  const bulkActions: CollectionBulkAction<AccountItem>[] = [
+    { key: 'reset', label: (count) => `Send reset code to ${accountsText(count)}`, appliesTo: (row) => row.isActive, onSelect: (rows) => setBulk({ kind: 'reset', rows }) },
+    { key: 'reactivate', label: (count) => `Reactivate ${accountsText(count)}`, appliesTo: (row) => !row.isActive, onSelect: (rows) => setBulk({ kind: 'reactivate', rows }) },
+    {
+      key: 'deactivate',
+      label: (count) => `Deactivate ${accountsText(count)}`,
+      destructive: true,
+      appliesTo: (row) => row.isActive && row.id !== lastAdmin && row.id !== user?.id,
+      onSelect: (rows) => setBulk({ kind: 'deactivate', rows }),
+    },
+  ];
   const itemsOf = (rows: AccountItem[]): BulkItem[] => rows.map((row) => ({ id: row.id, label: row.fullName }));
-  const bulkDone = () => {
-    setSelected(new Map());
-    void refresh();
-  };
+  const bulkDone = () => void refresh();
 
   // Screen 7.1: the "Last active Admin" line sits under the name, beside the disabled Deactivate.
   const nameCell = (account: AccountItem) => (
@@ -236,21 +226,19 @@ export const AccountsPage: React.FC = () => {
 
   const roleBadge = (account: AccountItem) => <Badge>{roleOf(account)}</Badge>;
 
-  const columns: Column<AccountItem>[] = [
-    { key: 'name', header: 'Account', cell: nameCell },
-    { key: 'role', header: 'Role', cell: roleBadge, width: '7rem' },
-    { key: 'status', header: 'Status', cell: (row) => <StatusOf account={row} />, width: '9rem' },
-    { key: 'lastLoginAt', header: 'Last sign-in', cell: (row) => <LastSignIn account={row} /> },
+  const fields: CollectionField<AccountItem>[] = [
+    { key: 'role', label: 'Role', render: roleBadge, compact: true },
+    { key: 'status', label: 'Status', render: (row) => <StatusOf account={row} />, compact: true },
+    { key: 'lastLoginAt', label: 'Last sign-in', render: (row) => <LastSignIn account={row} /> },
     {
       key: 'createdAt',
-      header: 'Created',
-      cell: (row) => <span title={formatUtc(row.createdAt)}>{formatDateTime(row.createdAt)}</span>,
-      hideOnMobile: true,
+      label: 'Created',
+      render: (row) => <span title={formatUtc(row.createdAt)}>{formatDateTime(row.createdAt)}</span>,
+      hideWithPane: true,
     },
   ];
 
   const data = accounts.data;
-  const filtered = Boolean(q) || status !== '';
 
   return (
     <section aria-labelledby="accounts-title" className="flex flex-col gap-4">
@@ -272,103 +260,31 @@ export const AccountsPage: React.FC = () => {
         }
       />
 
-      <Toolbar
-        label="Account filters"
-        start={
-          <ToolbarSearch
-            id="accounts-search"
-            label="Search accounts"
-            placeholder="Name or email"
-            value={search}
-            onChange={setSearch}
-          />
-        }
-        end={
-          <Select
-            aria-label="Status"
-            value={status}
-            onChange={(event) =>
-              update({ isActive: event.target.value || undefined, page: undefined })
-            }
-          >
-            <option value="">All accounts</option>
-            <option value="true">Active</option>
-            <option value="false">Deactivated</option>
-          </Select>
-        }
-      />
-
-      <DataTable<AccountItem>
-        caption="Accounts"
-        columns={columns}
-        rows={data?.items}
-        rowId={(row) => row.id}
-        rowLabel={(row) => row.fullName}
-        noun={{ one: 'account', other: 'accounts' }}
-        selectedIds={new Set(selected.keys())}
-        onSelectionChange={select}
-        bulkActions={() => (
-          <>
-            {resettable.length > 0 && (
-              <Button size="sm" onClick={() => setBulk('reset')}>
-                Send reset code to {accountsText(resettable.length)}
-              </Button>
-            )}
-            {reactivatable.length > 0 && (
-              <Button size="sm" onClick={() => setBulk('reactivate')}>
-                Reactivate {accountsText(reactivatable.length)}
-              </Button>
-            )}
-            {deactivatable.length > 0 && (
-              <Button size="sm" variant="danger" onClick={() => setBulk('deactivate')}>
-                Deactivate {accountsText(deactivatable.length)}
-              </Button>
-            )}
-          </>
-        )}
+      <CollectionView<AccountItem>
+        label="Accounts"
+        items={data?.items}
         loading={accounts.isPending}
-        error={
-          failure ? (
-            <ErrorState error={failure} onRetry={() => void accounts.refetch()} />
-          ) : undefined
-        }
-        empty={{
-          title: filtered ? 'No results match your filters.' : 'No accounts yet.',
-          description: filtered ? undefined : 'Create the first account with New account.',
-          action: filtered ? (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSearch('');
-                setParams(new URLSearchParams());
-              }}
-            >
-              Clear filters
-            </Button>
-          ) : undefined,
+        error={failure ? <ErrorState error={failure} onRetry={() => void accounts.refetch()} /> : undefined}
+        itemId={(row) => row.id}
+        itemName={(row) => row.fullName}
+        itemTitle={nameCell}
+        fields={fields}
+        noun={{ one: 'account', other: 'accounts' }}
+        itemActions={itemActions}
+        bulkActions={bulkActions}
+        search={{ label: 'Search accounts', placeholder: 'Name or email' }}
+        filters={[
+          { key: '', label: 'All accounts' },
+          { key: 'true', label: 'Active' },
+          { key: 'false', label: 'Deactivated' },
+        ]}
+        query={{ search, filter: status, sort: null }}
+        onQueryChange={(next) => {
+          setSearch(next.search);
+          if (next.filter !== status) update({ isActive: next.filter || undefined, page: undefined });
         }}
-        rowActions={rowActions}
-        renderCard={(row) => (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {nameCell(row)}
-              {roleBadge(row)}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusOf account={row} />
-              <LastSignIn account={row} />
-            </div>
-            <div>
-              <Menu
-                label={`Actions for ${row.fullName}`}
-                align="start"
-                trigger={<span>Actions</span>}
-                triggerClassName="h-11 border border-line-strong bg-surface px-4"
-                items={lockedWhileSelecting(rowActions(row), selected.size > 0)}
-              />
-            </div>
-          </div>
-        )}
+        pageInfo={pageInfoOf(data)}
+        emptyState={{ title: 'No accounts yet.', description: 'Create the first account with New account.' }}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination
@@ -382,36 +298,36 @@ export const AccountsPage: React.FC = () => {
         }
       />
 
-      {bulk === 'deactivate' && (
+      {bulk?.kind === 'deactivate' && (
         <BulkActionDialog
-          title={`Deactivate ${accountsText(deactivatable.length)}?`}
-          confirmLabel={`Deactivate ${accountsText(deactivatable.length)}`}
+          title={`Deactivate ${accountsText(bulk.rows.length)}?`}
+          confirmLabel={`Deactivate ${accountsText(bulk.rows.length)}`}
           description="They cannot sign in and their sessions end at once. Your own account and the last active Admin are left out."
           destructive
           needsReason
-          items={itemsOf(deactivatable)}
+          items={itemsOf(bulk.rows)}
           run={(item, reason) => deactivateAccount(item.id, reason ?? '')}
           onFinished={bulkDone}
           onClose={() => setBulk(null)}
         />
       )}
-      {bulk === 'reactivate' && (
+      {bulk?.kind === 'reactivate' && (
         <BulkActionDialog
-          title={`Reactivate ${accountsText(reactivatable.length)}?`}
-          confirmLabel={`Reactivate ${accountsText(reactivatable.length)}`}
+          title={`Reactivate ${accountsText(bulk.rows.length)}?`}
+          confirmLabel={`Reactivate ${accountsText(bulk.rows.length)}`}
           description="They can sign in again with their current password."
-          items={itemsOf(reactivatable)}
+          items={itemsOf(bulk.rows)}
           run={(item) => reactivateAccount(item.id)}
           onFinished={bulkDone}
           onClose={() => setBulk(null)}
         />
       )}
-      {bulk === 'reset' && (
+      {bulk?.kind === 'reset' && (
         <BulkActionDialog
-          title={`Send a reset code to ${accountsText(resettable.length)}?`}
-          confirmLabel={`Send reset code to ${accountsText(resettable.length)}`}
+          title={`Send a reset code to ${accountsText(bulk.rows.length)}?`}
+          confirmLabel={`Send reset code to ${accountsText(bulk.rows.length)}`}
           description="Each account email receives a code to set a new password. An account asked again too soon is refused (OTP cooldown)."
-          items={itemsOf(resettable)}
+          items={itemsOf(bulk.rows)}
           run={(item) => sendAccountReset(item.id)}
           onFinished={bulkDone}
           onClose={() => setBulk(null)}

@@ -74,11 +74,16 @@ const serve = (
 
 const inTable = () => within(screen.getByRole('table', { name: 'Accounts' }));
 
-// Three row actions sit in the row menu (UI standard §2): open it and return the item.
-const menuItem = (name: string, label: string) => {
-  fireEvent.click(inTable().getByRole('button', { name: `Actions for ${name}` }));
-  return screen.getByRole('menuitem', { name: label });
+// Item actions are icon buttons named verb plus account (chapter 06 §9.5): "Edit Tran Thi B".
+const menuItem = (name: string, label: string) =>
+  inTable().getByRole('button', { name: `${label} ${name}` });
+// The status filter is the Show dropdown of the command bar (chapter 06 §9.3).
+const STATUS_LABEL: Record<string, string> = { '': 'All accounts', true: 'Active', false: 'Deactivated' };
+const setStatus = (value: '' | 'true' | 'false') => {
+  fireEvent.click(screen.getByRole('button', { name: /^Show: / }));
+  fireEvent.click(screen.getByRole('menuitem', { name: STATUS_LABEL[value] }));
 };
+const showText = () => screen.getByRole('button', { name: /^Show: / }).textContent;
 const closeMenu = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 const isDisabled = (item: HTMLElement) => item.getAttribute('aria-disabled') === 'true';
 
@@ -160,7 +165,7 @@ describe('AccountsPage (screen 7.1)', () => {
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
     fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'tran' } });
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'false' } });
+    setStatus('false');
     await waitFor(() =>
       expect(
         api.mock.calls.some(
@@ -174,7 +179,8 @@ describe('AccountsPage (screen 7.1)', () => {
   it('shows the empty message with Clear filters when a filter finds nothing', async () => {
     serve([]);
     renderPage();
-    fireEvent.change(await screen.findByLabelText('Status'), { target: { value: 'false' } });
+    await screen.findByRole('button', { name: /^Show: / });
+    setStatus('false');
     expect((await screen.findAllByText('No results match your filters.')).length).toBeGreaterThan(
       0,
     );
@@ -412,7 +418,7 @@ describe('AccountsPage (screen 7.1)', () => {
     await screen.findByRole('table', { name: 'Accounts' });
     await waitFor(() => expect(inTable().getByText('Last active Admin')).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'true' } });
+    setStatus('true');
     await waitFor(() =>
       expect(reads()).toContain('/accounts?isActive=true&pageNumber=1&pageSize=20'),
     );
@@ -428,7 +434,7 @@ describe('AccountsPage (screen 7.1)', () => {
     await screen.findByRole('table', { name: 'Accounts' });
     expect(reads()).toContain('/accounts?q=tran&isActive=true&pageNumber=2&pageSize=20');
     expect((screen.getByLabelText('Search accounts') as HTMLInputElement).value).toBe('tran');
-    expect((screen.getByLabelText('Status') as HTMLSelectElement).value).toBe('true');
+    expect(showText()).toContain('Show: Active');
   });
 
   it('writes the search, status and page to the URL, a new filter starting on page 1', async () => {
@@ -441,7 +447,7 @@ describe('AccountsPage (screen 7.1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => expect(query()).toBe('?page=2'));
 
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'true' } });
+    setStatus('true');
     await waitFor(() => expect(query()).toBe('?isActive=true'));
 
     fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'staff 1' } });
@@ -451,7 +457,7 @@ describe('AccountsPage (screen 7.1)', () => {
   it('clears the filters and the page with Clear filters', async () => {
     serve([]);
     renderPage('/t/admin/accounts?q=nobody&isActive=false&page=3');
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Clear filters' }))[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear search and filter' }));
     await waitFor(() => expect(query()).toBe(''));
     await waitFor(() => expect(reads()).toContain('/accounts?pageNumber=1&pageSize=20'));
     expect((screen.getByLabelText('Search accounts') as HTMLInputElement).value).toBe('');
@@ -462,7 +468,9 @@ describe('AccountsPage (screen 7.1)', () => {
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
     const button = menuItem('Tran Thi B', 'Send reset code');
-    expect(button.textContent).toBe('Send reset code');
+    // The tooltip shows the verb on focus; the name adds the account (chapter 06 §9.5, 2.5.3).
+    fireEvent.focus(button);
+    expect(screen.getByRole('tooltip').textContent).toBe('Send reset code');
   });
 
   it('says in the phone hint that a phone cannot be removed', async () => {
