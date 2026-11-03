@@ -114,3 +114,11 @@ Added by KhoaDD. `/t/service-credits` renders through `CollectionView` (chapter 
 Show filter, opening on Requested, which keeps the command bar even for one or two credits; Decide (Admin,
 unavailable with its reason on a credit the viewer requested, BR-24) and Record refund (Staff, on a
 REFUND_DUE credit) are item actions; the refund reference sits beside the status badge as text.
+
+## Contract card on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The service credits card of a contract (`/t/contracts/:id` and `/o/contracts/:id`, Money
+tab) renders through `CollectionView` (chapter 06 §9), read only. Each credit is named by its device and
+cause; the decision reason moves from under the status badge into its own column and the details pane,
+and Show narrows the card to one status in the browser, since billing 19 returns the contract's credits in
+one response.
