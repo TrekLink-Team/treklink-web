@@ -298,7 +298,7 @@ export const compileRentalFlow = async (options: { http?: boolean } = {}) => {
   // An HTTP call as one of the flow's accounts; only with `http`.
   const send = async (
     caller: Caller,
-    method: 'get' | 'post' | 'put' | 'patch',
+    method: 'get' | 'post' | 'put' | 'patch' | 'delete',
     path: string,
     body?: object,
   ) => {
