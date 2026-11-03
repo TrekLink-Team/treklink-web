@@ -148,5 +148,5 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 Added by KhoaDD. The case list of `/t/compliance-cases` renders through `CollectionView` (chapter 06 §9)
 under the Open, Closed and All tabs, which stay because the server filters by status (open point 2). The
 code links to the case page and is each case's title; the organization, type and status stay beside it
-when the details pane is open, and the pane links to the case page. The 360 px cards of the 360 px layout
+when the details pane is open, and the pane links to the case page. The cards of the 360 px layout
 are the collection's list view.
