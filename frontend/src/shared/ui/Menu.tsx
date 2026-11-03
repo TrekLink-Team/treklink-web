@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ChevronDown } from 'lucide-react';
 import { cn } from './cn';
 import { FOCUS } from './styles';
 
@@ -18,6 +19,9 @@ import { FOCUS } from './styles';
 //
 // The list renders in a portal with fixed positioning, so a scrolling table does not clip it, on the
 // toast layer so a menu opened inside a dialog shows above the dialog.
+//
+// The button draws a chevron-down after its content, the hint that it opens a list (chapter 06
+// §10.3, D-096). The icon is decorative. A trigger that is itself a chevron passes `chevron={false}`.
 
 export interface MenuItem {
   key: string;
@@ -29,6 +33,8 @@ export interface MenuItem {
   disabledReason?: string;
   /** Styled in the critical colour; the action should still confirm in a dialog. */
   destructive?: boolean;
+  /** Draws a separator above the item, as before the destructive items (chapter 06 §9.6). */
+  separatorBefore?: boolean;
 }
 
 export interface MenuProps {
@@ -47,6 +53,8 @@ export interface MenuProps {
   /** Tooltip of the trigger, for icon-only triggers. */
   title?: string;
   className?: string;
+  /** Draws the chevron-down after the button content (§10.3). On by default. */
+  chevron?: boolean;
 }
 
 const TRIGGER =
@@ -71,6 +79,7 @@ export const Menu: React.FC<MenuProps> = ({
   disabled,
   title,
   className,
+  chevron = true,
 }) => {
   const baseId = useId();
   const menuId = `${baseId}-menu`;
@@ -90,10 +99,16 @@ export const Menu: React.FC<MenuProps> = ({
     const height = list?.offsetHeight ?? 0;
     const width = list?.offsetWidth ?? rect.width;
     const below = rect.bottom + GAP_PX;
-    const flip = height > 0 && below + height > window.innerHeight - VIEWPORT_MARGIN_PX && rect.top - GAP_PX - height > 0;
+    const flip =
+      height > 0 &&
+      below + height > window.innerHeight - VIEWPORT_MARGIN_PX &&
+      rect.top - GAP_PX - height > 0;
     const top = flip ? rect.top - GAP_PX - height : below;
     const rawLeft = align === 'end' ? rect.right - width : rect.left;
-    const left = Math.max(VIEWPORT_MARGIN_PX, Math.min(rawLeft, window.innerWidth - width - VIEWPORT_MARGIN_PX));
+    const left = Math.max(
+      VIEWPORT_MARGIN_PX,
+      Math.min(rawLeft, window.innerWidth - width - VIEWPORT_MARGIN_PX),
+    );
     setPosition({ top, left, minWidth: rect.width });
   }, [align]);
 
@@ -233,54 +248,59 @@ export const Menu: React.FC<MenuProps> = ({
         </div>
       )}
       {items.map((item, index) => {
-        const reasonId = item.disabled && item.disabledReason ? `${baseId}-reason-${item.key}` : undefined;
+        const reasonId =
+          item.disabled && item.disabledReason ? `${baseId}-reason-${item.key}` : undefined;
         const showReason = reasonId !== undefined && (index === active || index === hovered);
         return (
-          <button
-            key={item.key}
-            ref={(node) => {
-              itemRefs.current[index] = node;
-            }}
-            type="button"
-            role="menuitem"
-            tabIndex={index === active ? 0 : -1}
-            aria-disabled={item.disabled || undefined}
-            // The reason sits inside the item (a menu owns menuitems only), so the name is pinned to
-            // the label and the reason is the description.
-            aria-label={reasonId ? item.label : undefined}
-            aria-describedby={reasonId}
-            onClick={() => choose(index)}
-            onMouseEnter={() => setHovered(index)}
-            onMouseLeave={() => setHovered((current) => (current === index ? null : current))}
-            onFocus={() => setActive(index)}
-            className={cn(
-              'flex min-h-11 w-full flex-col justify-center rounded-control px-3 py-1.5 text-left text-body font-semibold outline-none hover:bg-chrome/60 focus-visible:bg-chrome/60',
-              FOCUS,
-              item.destructive && !item.disabled && 'text-status-critical-fg',
-              item.disabled && 'cursor-not-allowed text-ink-muted hover:bg-transparent',
+          <React.Fragment key={item.key}>
+            {item.separatorBefore && index > 0 && (
+              <div role="separator" className="my-1 h-px bg-line" />
             )}
-          >
-            <span className="flex w-full items-center gap-2">
-              {item.icon && (
-                <span aria-hidden="true" className="flex shrink-0 [&>svg]:h-4 [&>svg]:w-4">
-                  {item.icon}
+            <button
+              ref={(node) => {
+                itemRefs.current[index] = node;
+              }}
+              type="button"
+              role="menuitem"
+              tabIndex={index === active ? 0 : -1}
+              aria-disabled={item.disabled || undefined}
+              // The reason sits inside the item (a menu owns menuitems only), so the name is pinned to
+              // the label and the reason is the description.
+              aria-label={reasonId ? item.label : undefined}
+              aria-describedby={reasonId}
+              onClick={() => choose(index)}
+              onMouseEnter={() => setHovered(index)}
+              onMouseLeave={() => setHovered((current) => (current === index ? null : current))}
+              onFocus={() => setActive(index)}
+              className={cn(
+                'flex min-h-11 w-full flex-col justify-center rounded-control px-3 py-1.5 text-left text-body font-semibold outline-none hover:bg-chrome/60 focus-visible:bg-chrome/60',
+                FOCUS,
+                item.destructive && !item.disabled && 'text-status-critical-fg',
+                item.disabled && 'cursor-not-allowed text-ink-muted hover:bg-transparent',
+              )}
+            >
+              <span className="flex w-full items-center gap-2">
+                {item.icon && (
+                  <span aria-hidden="true" className="flex shrink-0 [&>svg]:h-4 [&>svg]:w-4">
+                    {item.icon}
+                  </span>
+                )}
+                <span className="flex-1">{item.label}</span>
+              </span>
+              {reasonId && (
+                <span
+                  id={reasonId}
+                  className={cn(
+                    showReason
+                      ? 'mt-1 block rounded-control bg-inverse px-2 py-1 text-body-sm font-medium text-ink-inverse'
+                      : 'sr-only',
+                  )}
+                >
+                  {item.disabledReason}
                 </span>
               )}
-              <span className="flex-1">{item.label}</span>
-            </span>
-            {reasonId && (
-              <span
-                id={reasonId}
-                className={cn(
-                  showReason
-                    ? 'mt-1 block rounded-control bg-inverse px-2 py-1 text-body-sm font-medium text-ink-inverse'
-                    : 'sr-only',
-                )}
-              >
-                {item.disabledReason}
-              </span>
-            )}
-          </button>
+            </button>
+          </React.Fragment>
         );
       })}
     </div>
@@ -302,6 +322,9 @@ export const Menu: React.FC<MenuProps> = ({
         className={cn(TRIGGER, FOCUS, open && 'bg-chrome', triggerClassName)}
       >
         {trigger ?? label}
+        {chevron && (
+          <ChevronDown aria-hidden="true" data-menu-chevron="" className="h-4 w-4 shrink-0" />
+        )}
       </button>
       {list && createPortal(list, document.body)}
     </span>
