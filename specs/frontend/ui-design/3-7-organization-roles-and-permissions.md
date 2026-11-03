@@ -80,7 +80,7 @@ One step, no text fields. The control is a grid of checkboxes.
 - Below 768 px: one role at a time from a select, with the same states and the shared draft, as on 7.2.
 - A real `table` with a `caption` ("Permissions by role of your organization"), `th scope="col"` per role, `th scope="row"` per permission and `th scope="rowgroup"` per subject.
 - Every checkbox is named "{permission key} for {role key}", plus "inherited from {role}" or "required for Manager", "own organization only", "customised" and "changed" where that applies. The name starts with the visible text (2.5.3). Each checkbox is a 44 px target (2.5.8).
-- "Reset to TrekLink default" is a button inside the column header, named "Reset {role key} to TrekLink default".
+- "Reset to TrekLink default" is a button inside the column header, named "Reset to TrekLink default for {role key}", so the name starts with the visible text (2.5.3).
 - The change summary and the result of a save are announced from a status region that stays mounted (4.1.3).
 - Both themes: semantic tokens only; the Customised and Changed marks meet 3:1 and 4.5:1 in Canopy and in Volt (`0-ui-standard.md` §5).
 - WebSocket events: none on `/live`. A successful save invalidates `['organization-roles']`, and `['me']` when `ORG_MANAGER` was saved.
@@ -103,4 +103,4 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: none, `['organization-roles']` and `['me']` invalidation stated
 - [x] Traceability: UC-10, FR-AUTH-06, FR-AUTH-10, US-UC10
 - [x] §8 items 1 to 8 applied
-- [ ] Wireframe checked by a member against the handbook gate (D-067), see the pull request
+- [x] Wireframe checked by a member against the handbook gate (D-067), recorded in the body of treklink-web#310 (looked at by TanNB)

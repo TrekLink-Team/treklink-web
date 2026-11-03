@@ -4,7 +4,8 @@ import { expectToast, openFromSidebar, signIn, titleStatus, vnd } from './suppor
 
 // MF-01, demo script §2b: the Manager requests a contract, Staff approve it and run the counter
 // handover (devices, payment, preview note, signature), then the Manager creates a Field Station
-// credential. Seeded ORG-0001, ten treklink-v3 units (script §1.3).
+// credential and tunes what the Operator may do (screen 3.7, treklink-web#304). Seeded ORG-0001, ten
+// treklink-v3 units (script §1.3).
 
 test.describe.configure({ mode: 'serial' });
 
@@ -213,4 +214,39 @@ test('MF-01 steps 13 and 14: the Manager creates a Field Station credential', as
   const row = page.getByRole('row').filter({ hasText: 'Phan Dung ranger post' }).last();
   await expect(row).toContainText('Not reported');
   await expect(row).toContainText('Never');
+});
+
+test('MF-01 step 15: the Manager takes a permission from the Operator and restores the default', async ({
+  page,
+}) => {
+  await signIn(page, 'manager');
+  await openFromSidebar(page, 'Roles and permissions');
+  await expect(page.getByRole('heading', { name: 'Roles and permissions' })).toBeVisible();
+  const grid = page.getByRole('table', { name: 'Permissions by role of your organization' });
+  await expect(grid).toBeVisible();
+
+  // The Manager's own cell for the same permission is read-only: an Operator change never reaches it.
+  const operatorBox = grid.getByRole('checkbox', { name: /^roster\.read\.own for ORG_OPERATOR/ });
+  const managerBox = grid.getByRole('checkbox', { name: /^roster\.read\.own for ORG_MANAGER/ });
+  await expect(managerBox).toBeDisabled();
+  await operatorBox.uncheck();
+  await expect(managerBox).toBeChecked();
+
+  await page.getByRole('button', { name: 'Save permissions' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Change ORG_OPERATOR: remove 1?' });
+  await confirm.getByRole('button', { name: 'Save permissions' }).click();
+  await expectToast(page, 'Permissions updated');
+  await expect(operatorBox).not.toBeChecked();
+  await expect(operatorBox).toHaveAccessibleName(/customised/);
+
+  // Back to the TrekLink default, so a rehearsal leaves the seed as it found it.
+  await page.getByRole('button', { name: 'Reset to TrekLink default for ORG_OPERATOR' }).click();
+  await expect(operatorBox).toBeChecked();
+  await page.getByRole('button', { name: 'Save permissions' }).click();
+  await page
+    .getByRole('dialog', { name: 'Change ORG_OPERATOR: add 1?' })
+    .getByRole('button', { name: 'Save permissions' })
+    .click();
+  await expectToast(page, 'Permissions updated');
+  await expect(operatorBox).toBeChecked();
 });

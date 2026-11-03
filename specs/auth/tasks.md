@@ -175,3 +175,4 @@ The design is `design.md` section 9, ruled by the leader in the review of trekli
   - **Done** (2026-11-03, TanNB): `OrganizationRolesController` at `GET /api/organization/roles` and `PUT /api/organization/roles/:roleKey/permissions`; every Validation row of api-design 19 and 20 except `ORGANIZATION_NOT_ACTIVE` (unit and db-spec) is in `test/organization-roles.e2e-spec.ts`. The Admin and Staff read (organizations api-design 33) is not part of this change.
   - _Requirements: REQ-UBI-04, REQ-UBI-06_
 - [ ] 9.5 Frontend (owner TanNB, tracked in `specs/frontend/tasks.md` 3.7 and the 7.2 follow-up for the Manager-protected cell)
+  - **Partly done** (2026-11-03, TanNB): the page `/o/roles` is built (see `specs/frontend/tasks.md` 3.7); the 7.2 cell lock and the global `MANAGER_LOCKOUT` stay a separate W10 task

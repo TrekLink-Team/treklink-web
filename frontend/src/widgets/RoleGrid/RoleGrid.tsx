@@ -6,6 +6,7 @@ import {
   isChanged,
   roleTitle,
   scopeText,
+  type Cell,
   type Drafts,
 } from '../../entities/role/model';
 import { cn } from '../../shared/ui';
@@ -17,6 +18,18 @@ interface Props {
   // A permission key the server no longer knows: its row is marked.
   badKey: string | null;
   onToggle: (role: Role, permission: Permission) => void;
+  // The grid of screen 3.7 differs from 7.2 only in what a cell shows and in the column header, so these
+  // are optional and default to the rules of 7.2.
+  cellFor?: (permission: Permission, role: Role) => Cell;
+  // Who a locked cell is required for: "Admin" on 7.2, "Manager" on 3.7.
+  lockedFor?: string;
+  // The saved set of the role differs from the TrekLink default for this permission (screen 3.7).
+  customised?: (role: Role, permissionKey: string) => boolean;
+  // Extra controls under the name of a role, such as "Reset to TrekLink default".
+  headerExtra?: (role: Role) => React.ReactNode;
+  // Every box is disabled: the organization is not ACTIVE, or a TrekLink account reads it.
+  readOnly?: boolean;
+  caption?: string;
 }
 
 const BOX =
@@ -24,7 +37,19 @@ const BOX =
 
 // The permission grid of screen 7.2: permissions are rows grouped by subject, every role is a column, a
 // cell is one checkbox. A real table inside its own scroll box, header row and first column sticky.
-export const RoleGrid: React.FC<Props> = ({ roles, catalog, drafts, badKey, onToggle }) => {
+export const RoleGrid: React.FC<Props> = ({
+  roles,
+  catalog,
+  drafts,
+  badKey,
+  onToggle,
+  cellFor,
+  lockedFor = 'Admin',
+  customised,
+  headerExtra,
+  readOnly = false,
+  caption = 'Permissions by role',
+}) => {
   const groups = groupBySubject(catalog);
   return (
     <div
@@ -37,7 +62,7 @@ export const RoleGrid: React.FC<Props> = ({ roles, catalog, drafts, badKey, onTo
       className="max-h-[70vh] scroll-pl-72 scroll-pt-24 overflow-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
     >
       <table className="w-full border-separate border-spacing-0 text-body-sm">
-        <caption className="sr-only">Permissions by role</caption>
+        <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
             <th
@@ -62,6 +87,7 @@ export const RoleGrid: React.FC<Props> = ({ roles, catalog, drafts, badKey, onTo
                   {role.permissionKeys.length}{' '}
                   {role.permissionKeys.length === 1 ? 'permission' : 'permissions'}
                 </span>
+                {headerExtra?.(role)}
               </th>
             ))}
           </tr>
@@ -101,6 +127,10 @@ export const RoleGrid: React.FC<Props> = ({ roles, catalog, drafts, badKey, onTo
                       drafts={drafts}
                       invalid={badKey === permission.key}
                       onToggle={onToggle}
+                      cellFor={cellFor}
+                      lockedFor={lockedFor}
+                      customised={customised}
+                      readOnly={readOnly}
                     />
                   ))}
                 </tr>
@@ -120,8 +150,24 @@ const GridCell: React.FC<{
   drafts: Drafts;
   invalid: boolean;
   onToggle: (role: Role, permission: Permission) => void;
-}> = ({ role, permission, roles, drafts, invalid, onToggle }) => {
-  const cell = cellOf(permission, role, roles, drafts);
+  cellFor?: (permission: Permission, role: Role) => Cell;
+  lockedFor: string;
+  customised?: (role: Role, permissionKey: string) => boolean;
+  readOnly: boolean;
+}> = ({
+  role,
+  permission,
+  roles,
+  drafts,
+  invalid,
+  onToggle,
+  cellFor,
+  lockedFor,
+  customised,
+  readOnly,
+}) => {
+  const cell = cellFor ? cellFor(permission, role) : cellOf(permission, role, roles, drafts);
+  const custom = customised?.(role, permission.key) ?? false;
   if (cell.kind === 'unavailable') {
     return (
       <td className="border-b border-line px-3 py-2 text-center text-caption text-ink-muted">
@@ -131,24 +177,23 @@ const GridCell: React.FC<{
   }
   // An inherited cell can hide the role's own draft (unticked on ADMIN, then ticked on STAFF): still marked.
   const changed = cell.kind !== 'locked' && isChanged(role, permission.key, drafts);
+  const own = permission.scope === 'own' ? scopeText(permission) : null;
   const note =
     cell.kind === 'locked'
-      ? 'Required for Admin'
+      ? `Required for ${lockedFor}`
       : cell.kind === 'inherited'
         ? `From ${cell.from}`
-        : permission.scope === 'own'
-          ? scopeText(permission)
-          : null;
+        : [own, custom ? 'Customised' : null].filter(Boolean).join(', ') || null;
   // The note is aria-hidden, so everything it says is also in the name (WCAG 1.3.1).
   const name = `${permission.key} for ${role.key}${
     cell.kind === 'locked'
-      ? ', required for Admin'
+      ? `, required for ${lockedFor}`
       : cell.kind === 'inherited'
         ? `, inherited from ${cell.from}`
         : ''
   }${permission.scope === 'own' ? `, ${scopeText(permission).toLowerCase()}` : ''}${
-    changed ? ', changed' : ''
-  }`;
+    custom ? ', customised' : ''
+  }${changed ? ', changed' : ''}`;
   return (
     <td
       className={cn(
@@ -163,7 +208,7 @@ const GridCell: React.FC<{
           aria-label={name}
           aria-invalid={invalid || undefined}
           checked={cell.kind === 'editable' ? cell.checked : true}
-          disabled={cell.kind !== 'editable'}
+          disabled={cell.kind !== 'editable' || readOnly}
           onChange={() => onToggle(role, permission)}
         />
       </label>
