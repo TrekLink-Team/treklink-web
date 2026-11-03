@@ -47,7 +47,7 @@ Scope from the task: devices api-design 11 to 15; the week's service list; estim
 | Error `VENDOR_REQUIRED` (400) | MSG02 under the vendor name |
 | Error `CHECKLIST_INCOMPLETE` (400) | MSG02 on each checklist item without a result |
 | No release published | Flash panel: "No firmware release is published yet." with Flash disabled |
-| Chip mismatch (REQ-ERR-16) | "The unit on the port is an {chip}, not the {expectedChip} of {variant}. Nothing was written." |
+| Wrong unit or chip (REQ-ERR-16) | "The unit on the port is an {chip}, not the {expectedChip} of {variant}. Nothing was written." or "The unit on the port is !{nodeId}, not {assetTag}. Nothing was written." |
 | Flash failed or unverified (REQ-ERR-17) | The failed step named, "Nothing was recorded. Flash {assetTag} again."; for v2 the power-button notice again |
 | v2 unit | Notice before Flash: "Hold the power button of {assetTag} until the flash finishes; a reset turns a v2 unit off otherwise." |
 | Error `FIRMWARE_VERSION_REQUIRED` (400) | MSG02 under the firmware version field of a `FIRMWARE_UPDATE` record |

@@ -175,10 +175,10 @@
   - **Do**: design §9.1: on a `v*-treklink.*` tag, build the three TrekLink environments and attach per variant the app image, the factory image and `treklink-manifest.json`
 - [ ] 8.2 Backend release reader (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/firmware-release.service.ts`, `firmware-releases.controller.ts`, parameters `devices.firmwareReleaseRepo` and `devices.firmwareReleaseCacheSeconds` (configuration matrix and seed), tests
-  - **Do**: devices api-design 28 and 29; SHA-256 check; `Cache-Control: no-store` on 29; `device.operate`
+  - **Do**: devices api-design 28 (`device.read`) and 29 (`device.operate`); SHA-256 check, MD5 returned with the image, 502 `FIRMWARE_IMAGE_TOO_LARGE` above 3.3 MB raw; `Cache-Control: no-store` on 29; the three error codes in the enum
   - _Requirements: REQ-EVT-28, REQ-ERR-17, AC-20_
 - [ ] 8.3 Flash panel on screen 4.3 (owner KhoaDD)
   - **Files**: `frontend/package.json` (`esptool-js` 0.7.1 pinned), `frontend/src/shared/lib/esp-flasher.ts` (one adapter), the panel in the maintenance feature, tests with a fake `ESPLoader`
-  - **Do**: design §9.2 (modes, chip check, v2 notice and baud, MD5 verify, fill the record's firmware version)
+  - **Do**: design §9.2 (modes, chip and MAC node-number checks, v2 notice and `romBaudrate`, MD5 from the backend for the verify, fill the record's firmware version)
   - _Requirements: REQ-EVT-28, REQ-ERR-16, REQ-ERR-17, AC-19, AC-20_
 

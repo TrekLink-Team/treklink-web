@@ -15,7 +15,7 @@ Returns one image of a release for one variant, checked against the SHA-256 of t
 | --- | --- |
 | GET | /api/firmware-releases/:version/images/:variantCode |
 | Permission | TrekLink Staff, TrekLink Admin |
-| Traces | UC-65, FR-DEV-21, D-093 |
+| Traces | FR-DEV-21, D-093 |
 
 ### Path parameters
 
@@ -45,6 +45,7 @@ No body.
     "offset": 65536,
     "sizeBytes": 2031616,
     "sha256": "9f2c...e41a",
+    "md5": "3b1f...90c2",
     "imageBase64": "6QMCIC..."
   },
   "isSuccess": true,
@@ -162,6 +163,23 @@ No body.
 ```
 </td>
         </tr>
+        <tr>
+            <td>502</td>
+            <td>The image exceeds the 3.3 MB the response can carry as base64 (<code>FIRMWARE_IMAGE_TOO_LARGE</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "FIRMWARE_IMAGE_TOO_LARGE"
+  },
+  "isSuccess": false,
+  "statusCode": 502,
+  "message": "This firmware image is too large to send. Flash it on the bench."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -192,16 +210,23 @@ flowchart TB
     E4["Return 502 FIRMWARE_IMAGE_INVALID"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"The image exceeds the 3.3 MB the response can carry as base64?"}
+    D4 -->|no| D5
+    E5["Return 502 FIRMWARE_IMAGE_TOO_LARGE"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Find the release and the variant entry"]
-    D4 -->|no| P0
+    D5 -->|no| P0
     P1["Download the image server-side"]
     P0 --> P1
     P2["Compare its SHA-256 with the manifest"]
     P1 --> P2
-    P3["Respond with Cache-Control: no-store"]
+    P3["Compute its MD5 for the write verification"]
     P2 --> P3
+    P4["Respond with Cache-Control: no-store"]
+    P3 --> P4
     OK["Return 200"]
-    P3 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
