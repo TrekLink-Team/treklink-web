@@ -1,4 +1,5 @@
 import { createMongoAbility } from '@casl/ability';
+import { HttpStatus } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
@@ -9,7 +10,11 @@ import {
 } from '../../common/decorators/access.decorator';
 import { RESPONSE_MESSAGE_KEY } from '../../common/decorators/response-message.decorator';
 import { ContractReadsService } from './contract-reads.service';
-import { UndoProvisioningDto } from './dto/contract-decision.dto';
+import {
+  IssueChannelKeyDto,
+  ProvisioningDto,
+  UndoProvisioningDto,
+} from './dto/contract-decision.dto';
 import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
 
@@ -76,5 +81,90 @@ describe('HandoverController undo of provisioning (rentals api-design 19)', () =
       contractVersion: 4,
     });
     expect(handover.undoProvisioning).toHaveBeenCalledWith('c-1', 'd-1', 3, STAFF);
+  });
+});
+
+describe('HandoverController channel key and docked nodeNum (rentals api-design 09 and 21)', () => {
+  const ID = 'c0ffee00-1234-4abc-9def-001122334455';
+  const DEVICE_ID = '0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10';
+
+  it('needs its own permission, which contract.operate does not give, and is never cached', () => {
+    expect(
+      allows('issueChannelKey', [{ action: 'issueChannelKey', subject: 'RentalContract' }]),
+    ).toBe(true);
+    expect(allows('issueChannelKey', [{ action: 'operate', subject: 'RentalContract' }])).toBe(
+      false,
+    );
+    expect(allows('issueChannelKey', [])).toBe(false);
+    expect(Reflect.getMetadata('__headers__', handlerOf('issueChannelKey'))).toEqual([
+      { name: 'Cache-Control', value: 'no-store' },
+    ]);
+    expect(Reflect.getMetadata('__httpCode__', handlerOf('issueChannelKey'))).toBe(HttpStatus.OK);
+    expect(Reflect.getMetadata(RESPONSE_MESSAGE_KEY, handlerOf('issueChannelKey'))).toBe(
+      'Channel key issued',
+    );
+  });
+
+  it('takes the nodeNum read from the docked unit, an unsigned 32-bit whole number', async () => {
+    const errorsOf = async (plain: Record<string, unknown>) =>
+      validate(plainToInstance(IssueChannelKeyDto, plain));
+    expect(await errorsOf({ nodeNum: 275612 })).toHaveLength(0);
+    expect(await errorsOf({ nodeNum: 4294967295 })).toHaveLength(0);
+    expect(await errorsOf({})).toHaveLength(1);
+    expect(await errorsOf({ nodeNum: -1 })).toHaveLength(1);
+    expect(await errorsOf({ nodeNum: 4294967296 })).toHaveLength(1);
+    expect(await errorsOf({ nodeNum: 1.5 })).toHaveLength(1);
+    expect(await errorsOf({ nodeNum: '275612' })).toHaveLength(1);
+  });
+
+  it('keeps nodeNum optional on provisioning, for the manual fallback only', async () => {
+    const errorsOf = async (plain: Record<string, unknown>) =>
+      validate(plainToInstance(ProvisioningDto, plain));
+    expect(await errorsOf({ keyVersion: 1 })).toHaveLength(0);
+    expect(await errorsOf({ keyVersion: 1, nodeNum: 275612 })).toHaveLength(0);
+    expect(await errorsOf({ keyVersion: 1, nodeNum: 4294967296 })).toHaveLength(1);
+    expect(await errorsOf({ keyVersion: 1, nodeNum: 'x' })).toHaveLength(1);
+  });
+
+  it('passes the docked nodeNum to the service, and null when the fallback sends none', async () => {
+    const handover = {
+      provision: jest.fn().mockResolvedValue({
+        id: DEVICE_ID,
+        assetTag: 'TL-0042',
+        status: 'RESERVED',
+        keyVersion: 1,
+        keyOrganizationId: 'org-1',
+        provisionedAt: new Date('2026-11-04T03:00:00.000Z'),
+      }),
+      issueChannelKey: jest.fn().mockResolvedValue({ keyHex: 'ab'.repeat(32), keyVersion: 1 }),
+    };
+    const controller = new HandoverController(
+      handover as unknown as HandoverService,
+      {} as ContractReadsService,
+    );
+
+    await controller.provision(ID, DEVICE_ID, { keyVersion: 1, nodeNum: 275612 }, STAFF);
+    expect(handover.provision).toHaveBeenLastCalledWith(
+      ID,
+      DEVICE_ID,
+      1,
+      STAFF,
+      expect.any(Date),
+      275612,
+    );
+    await controller.provision(ID, DEVICE_ID, { keyVersion: 1 }, STAFF);
+    expect(handover.provision).toHaveBeenLastCalledWith(
+      ID,
+      DEVICE_ID,
+      1,
+      STAFF,
+      expect.any(Date),
+      null,
+    );
+
+    await expect(
+      controller.issueChannelKey(ID, DEVICE_ID, { nodeNum: 275612 }, STAFF),
+    ).resolves.toEqual({ keyHex: 'ab'.repeat(32), keyVersion: 1 });
+    expect(handover.issueChannelKey).toHaveBeenCalledWith(ID, DEVICE_ID, 275612, STAFF);
   });
 });

@@ -1041,6 +1041,17 @@ export class DevicesService {
     return new Map(rows.map((row) => [row.id, row.assetTag]));
   }
 
+  // Node numbers by device id, for contract reads and the docking checks; in the caller's transaction
+  // when it passes one. A node number is an unsigned 32-bit radio id, so a number holds it.
+  async nodeNums(
+    ids: readonly string[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<Map<string, number>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.devices.nodeNums(ids, tx);
+    return new Map(rows.map((row) => [row.id, Number(row.nodeNum)]));
+  }
+
   // Hardware variants by code, for the plan catalogue and the contract request (billing api-design 01,
   // rentals api-design 01). Read only; variant administration is task 4.1.
   // devices api-design 01: the full variant rows, active only unless an Admin asks for all.

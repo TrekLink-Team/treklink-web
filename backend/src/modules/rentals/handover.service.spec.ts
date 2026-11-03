@@ -4,10 +4,10 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Caller } from '../../common/decorators/access.decorator';
-import { ErrorCode } from '../../common/errors';
+import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, PaymentsService, PricingService } from '../billing';
 import { DevicesService } from '../devices';
-import { OrganizationsService } from '../organizations';
+import { ChannelKeyService, OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
@@ -46,6 +46,9 @@ const contract = (overrides: Partial<ContractRow> = {}): ContractRow => ({
   ...overrides,
 });
 
+// A key the tests look for in every failure path and audit row; it is not a real key.
+const KEY_HEX = '3f9c0e1a2b4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9001a2b3c4d';
+
 const unit = (id: string, overrides: Record<string, unknown> = {}) => ({
   id,
   assetTag: `TL-${id}`,
@@ -72,6 +75,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
   let contracts: Record<string, jest.Mock>;
   let devices: Record<string, jest.Mock>;
   let organizations: Record<string, jest.Mock>;
+  let channelKeys: { deriveKey: jest.Mock };
   let balances: { firstPaymentConfirmed: jest.Mock };
   let payments: { receivedOfContract: jest.Mock };
   let pricing: { rateTableFor: jest.Mock };
@@ -110,6 +114,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         Promise.resolve(new Map(ids.map((id) => [id, `TL-${id}`]))),
       ),
       provisioning: jest.fn().mockResolvedValue([unit('d-1'), unit('d-2')]),
+      nodeNums: jest.fn().mockResolvedValue(new Map([['d-1', 275612]])),
       handoverUnits: jest.fn((ids: string[]) =>
         Promise.resolve(
           new Map(
@@ -133,6 +138,9 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       clearProvisioning: jest
         .fn()
         .mockResolvedValue(unit('d-1', { keyVersion: null, keyOrganizationId: null })),
+    };
+    channelKeys = {
+      deriveKey: jest.fn().mockResolvedValue({ keyHex: KEY_HEX, keyVersion: 2 }),
     };
     organizations = {
       channelKeyVersion: jest.fn().mockResolvedValue(2),
@@ -211,6 +219,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       {
         get: (key: string) => (key === 'HANDOVER_NOTE_STORAGE_DIR' ? dir : config[key]),
       } as unknown as ConfigService<ValidatedEnvironment, true>,
+      channelKeys as unknown as ChannelKeyService,
       directory,
     );
   });
@@ -240,6 +249,133 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         errorCode: ErrorCode.INVALID_STATE_TRANSITION,
       });
       expect(devices.recordProvisioning).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('provision nodeNum (api-design 09, REQ-ERR-12, devices design section 8.6)', () => {
+    it('records a unit whose docked nodeNum equals the device record, without a manual audit', async () => {
+      await service.provision('c-1', 'd-1', 2, STAFF, AT, 275612);
+      expect(devices.nodeNums).toHaveBeenCalledWith(['d-1'], TX);
+      expect(devices.recordProvisioning).toHaveBeenCalledTimes(1);
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('refuses a different nodeNum with 409 NODE_MISMATCH naming the docked node id, and records nothing', async () => {
+      const refused = service.provision('c-1', 'd-1', 2, STAFF, AT, 275613);
+      await expect(refused).rejects.toMatchObject({ errorCode: ErrorCode.NODE_MISMATCH });
+      await expect(refused).rejects.toThrow('!0004349d');
+      expect(devices.recordProvisioning).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('refuses a nodeNum before it looks at the key version', async () => {
+      await expect(service.provision('c-1', 'd-1', 1, STAFF, AT, 1)).rejects.toMatchObject({
+        errorCode: ErrorCode.NODE_MISMATCH,
+      });
+    });
+
+    it('records a request without a nodeNum from the manual fallback and audits it as manual', async () => {
+      await service.provision('c-1', 'd-1', 2, STAFF, AT);
+      expect(devices.nodeNums).not.toHaveBeenCalled();
+      expect(emitAfterCommit).toHaveBeenCalledWith('audit.record', {
+        actorId: 'u-staff',
+        actorRoles: ['STAFF'],
+        organizationId: 'org-1',
+        action: 'contract.provisioningRecordedManually',
+        subjectType: 'RentalContract',
+        subjectId: 'c-1',
+        before: null,
+        after: { deviceId: 'd-1', keyVersion: 2, manual: true },
+      });
+    });
+  });
+
+  describe('issueChannelKey (api-design 21, D-082 decision 1, REQ-UBI-03)', () => {
+    beforeEach(() => {
+      devices.provisioning.mockResolvedValue([unit('d-1', { status: 'RESERVED' })]);
+    });
+
+    it('derives the key of the contract organization for a reserved unit whose nodeNum matches', async () => {
+      await expect(service.issueChannelKey('c-1', 'd-1', 275612, STAFF)).resolves.toEqual({
+        keyHex: KEY_HEX,
+        keyVersion: 2,
+      });
+      expect(channelKeys.deriveKey).toHaveBeenCalledWith('org-1', TX);
+    });
+
+    it('audits the actor, device, organization and key version, never the key', async () => {
+      await service.issueChannelKey('c-1', 'd-1', 275612, STAFF);
+      expect(emitAfterCommit).toHaveBeenCalledTimes(1);
+      const [name, payload] = emitAfterCommit.mock.calls[0] as [string, Record<string, unknown>];
+      expect(name).toBe('audit.record');
+      expect(payload).toEqual({
+        actorId: 'u-staff',
+        actorRoles: ['STAFF'],
+        organizationId: 'org-1',
+        action: 'contract.channelKeyIssued',
+        subjectType: 'RentalContract',
+        subjectId: 'c-1',
+        before: null,
+        after: { deviceId: 'd-1', keyVersion: 2 },
+      });
+      expect(JSON.stringify(payload)).not.toContain(KEY_HEX);
+    });
+
+    it('refuses a contract that is not APPROVED, a unit not on it, and a unit that is handed over or not RESERVED', async () => {
+      contracts.lockById.mockResolvedValueOnce(contract({ status: ContractStatus.ACTIVE }));
+      await expect(service.issueChannelKey('c-1', 'd-1', 275612, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      contracts.findDeviceRow.mockResolvedValueOnce(null);
+      await expect(service.issueChannelKey('c-1', 'd-7', 275612, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.DEVICE_NOT_ON_CONTRACT,
+      });
+      contracts.findDeviceRow.mockResolvedValueOnce({
+        id: 'cd-1',
+        deviceId: 'd-1',
+        handedOverAt: AT,
+      });
+      await expect(service.issueChannelKey('c-1', 'd-1', 275612, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      devices.provisioning.mockResolvedValueOnce([unit('d-1', { status: 'AVAILABLE' })]);
+      await expect(service.issueChannelKey('c-1', 'd-1', 275612, STAFF)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      expect(channelKeys.deriveKey).not.toHaveBeenCalled();
+    });
+
+    it('refuses a docked nodeNum that differs and returns no key on any failure path', async () => {
+      const errors: unknown[] = [];
+      errors.push(
+        await service.issueChannelKey('c-1', 'd-1', 1, STAFF).then(
+          () => undefined,
+          (thrown: unknown) => thrown,
+        ),
+      );
+      contracts.findDeviceRow.mockResolvedValueOnce(null);
+      errors.push(
+        await service.issueChannelKey('c-1', 'd-7', 275612, STAFF).then(
+          () => undefined,
+          (thrown: unknown) => thrown,
+        ),
+      );
+      expect(errors[0]).toMatchObject({ errorCode: ErrorCode.NODE_MISMATCH });
+      for (const error of errors) {
+        expect(error).toBeInstanceOf(DomainException);
+        expect(JSON.stringify((error as DomainException).getResponse())).not.toContain(KEY_HEX);
+        expect((error as DomainException).message).not.toContain(KEY_HEX);
+      }
+      expect(channelKeys.deriveKey).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('audits nothing when the derivation fails', async () => {
+      channelKeys.deriveKey.mockRejectedValueOnce(new Error('Organization not found.'));
+      await expect(service.issueChannelKey('c-1', 'd-1', 275612, STAFF)).rejects.toThrow(
+        'Organization not found.',
+      );
+      expect(emitAfterCommit).not.toHaveBeenCalled();
     });
   });
 

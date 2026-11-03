@@ -206,6 +206,13 @@ export class EnvironmentVariables {
   @IsString()
   SMTP_URL?: string;
 
+  // The one secret every organization's channel key derives from (devices design section 8.6 decision 1,
+  // D-082): key = HKDF-SHA256(master, salt = organization id, info = treklink-channel-key/v{version}).
+  // It lives in the deployment's secret store, never in the database or the seed, and no key is stored.
+  @IsString()
+  @MinLength(32, { message: 'CHANNEL_KEY_MASTER must be at least 32 characters' })
+  CHANNEL_KEY_MASTER!: string;
+
   // Comma-separated list of allowed browser origins.
   @IsString()
   @IsNotEmpty()

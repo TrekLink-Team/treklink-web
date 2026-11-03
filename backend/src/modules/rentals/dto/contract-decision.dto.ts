@@ -93,6 +93,22 @@ export class ProvisioningDto {
   @IsInt()
   @Min(1)
   keyVersion!: number;
+
+  // The nodeNum read back from the docked unit; absent only from the Enter manually fallback
+  // (devices design section 8.6 decision 3).
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(4294967295)
+  nodeNum?: number;
+}
+
+// rentals api-design 21.
+export class IssueChannelKeyDto {
+  @IsInt()
+  @Min(0)
+  @Max(4294967295)
+  nodeNum!: number;
 }
 
 // rentals api-design 19.
