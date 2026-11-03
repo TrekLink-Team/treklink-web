@@ -46,3 +46,8 @@ from unit, Configure uplink and the flash panel all open the same connector inst
 A detailed device view uses an upright product render of the unit, referenced as `/variants/<code>-detail.png`, and
 lists and non-detail panes use `/variants/<code>-icon.png` (the images are being made separately). Specified in
 `specs/devices/design.md` §11; choices not settled are open questions there.
+
+## Answers to the spec's questions (2026-11-04), binding
+
+Decided by the orchestrator for the leader: devices design §11.12 Q1 to Q7, option A each (every recommendation).
+The leader approved the hub and asked for it to be built the same night, on `feat/device-connector-ui`.

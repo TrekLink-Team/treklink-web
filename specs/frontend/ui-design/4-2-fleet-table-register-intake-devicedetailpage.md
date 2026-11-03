@@ -151,10 +151,10 @@ with the server's message (for example MSG29 for an open record) and the rows th
 endpoint exists or is needed. "Select all N results" is not offered: a client-side sequence needs the
 rows themselves. The devices API does not sort (api-design 06), so no column sorts.
 
-## Device connector entry points (2026-11-04, proposal, devices design §11)
+## Device connector entry points (2026-11-04, devices design §11, approved)
 
 Added by KhoaDD with the device hub spec. Where this section and the tables above disagree, this section wins
-once the leader approves devices design §11.
+(devices design §11 approved 2026-11-04).
 
 - The fleet page sets the `intake` context while the Register panel is open and `fleet` otherwise; the device
   page sets `device` with its id (devices design §11.3). Neither page calls Web Serial itself (REQ-UBI-10).

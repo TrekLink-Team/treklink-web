@@ -722,8 +722,8 @@ ENDPOINTS = [
        "check to `MAINTENANCE`); the docked unit becomes `RESERVED` to the contract; quantity, plan, price and variant "
        "do not change (REQ-UBI-03). The docked `nodeNum` must equal the replacement's record (devices REQ-EVT-33, "
        "D-080). The counter then provisions the docked unit at once (devices REQ-EVT-34). The contract `version` "
-       "increases, so a signing screen opened before the exchange reloads. Open questions Q1 and Q2 of devices "
-       "design §11.12 may change this contract. Permission `contract.operate`, the one of api-design 07.",
+       "increases, so a signing screen opened before the exchange reloads. Devices design §11.12 Q1 and Q2 were "
+       "decided A on 2026-11-04. Permission `contract.operate`, the one of api-design 07.",
        "UC-14, UC-20, FR-CON-05, FR-DEV-05, BR-03, BR-09, E01-5, D-080",
        path=[C_PATH, D_PATH],
        body=[["replacementDeviceId", "The docked unit to reserve in its place", "uuid", "yes", "`8f9e0a1b-...`"],
