@@ -207,15 +207,38 @@ describe('ContractApprovalPage row actions (W29)', () => {
       </QueryClientProvider>
     );
     const { rerender } = render(tree());
+    const pane = () => within(screen.getByRole('complementary', { name: 'RC-2026-0004' }));
     fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
+    expect(pane().getByText('Requested')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(await screen.findByText('Reserved: TL-0003')).toBeTruthy();
+    // The pane takes the status from the approval result at once (re-check of #350).
+    expect(pane().getByText('Approved')).toBeTruthy();
+    expect(pane().queryByText('Requested')).toBeNull();
     // The refetched queue no longer holds the approved request.
     queue = [other('c-2', 'RC-2026-0005'), other('c-3', 'RC-2026-0006')];
     rerender(tree());
     expect(screen.queryByRole('button', { name: 'Show details of RC-2026-0004' })).toBeNull();
     expect(screen.getByText('Reserved: TL-0003')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'RC-2026-0004' })).toBeTruthy();
+    expect(pane().getByText('Approved')).toBeTruthy();
+    queue = null;
+  });
+
+  it('shows a rejected request as Rejected in the pane (re-check of treklink-web#350)', async () => {
+    rejectContract.mockResolvedValue({ ...requested, status: 'REJECTED', version: 2 });
+    const other = (id: string, code: string) => ({ ...requested, id, code });
+    queue = [requested, other('c-2', 'RC-2026-0005'), other('c-3', 'RC-2026-0006')];
+    renderPage();
+    const pane = () => within(screen.getByRole('complementary', { name: 'RC-2026-0004' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
+    fireEvent.click(pane().getByRole('button', { name: 'Reject' }));
+    const dialog = within(await screen.findByRole('dialog', { name: /Reject/ }));
+    fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'No stock for the dates' } });
+    fireEvent.click(dialog.getByRole('button', { name: /^Reject/ }));
+    expect(await screen.findByText('Rejected. The Manager sees the reason.')).toBeTruthy();
+    expect(pane().getByText('Rejected')).toBeTruthy();
+    expect(pane().queryByText('Requested')).toBeNull();
     queue = null;
   });
 
