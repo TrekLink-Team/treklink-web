@@ -42,6 +42,22 @@ export interface OpenIncidentRef {
   organizationId: string | null;
 }
 
+// One incident of a device with its transitions, for the device history (monitoring api-design 07).
+// Actors are account ids, which the history resolves to names with its other actors; a null actor is
+// the system. `openedAt` is the incident's first event, the time of the opening when no transition
+// records it.
+export interface IncidentOfDevice {
+  id: string;
+  code: string;
+  openedAt: Date;
+  transitions: {
+    fromState: IncidentState | null;
+    toState: IncidentState;
+    actorId: string | null;
+    at: Date;
+  }[];
+}
+
 export interface AlertDeliveryStats {
   pending: number;
   failed: number;
@@ -188,6 +204,18 @@ export class IncidentsQueryService {
     }
     return open;
   }
+  // Every incident of one device, oldest first, with its transitions (design §5, api-design 07). No
+  // scoping: the device history is TrekLink staff's.
+  async incidentsOfDevice(deviceId: string): Promise<IncidentOfDevice[]> {
+    const rows = await this.repository.incidentsOfDevice(deviceId);
+    return rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      openedAt: row.firstEventAt,
+      transitions: row.transitions.map(({ createdAt, ...step }) => ({ ...step, at: createdAt })),
+    }));
+  }
+
   // The alert outbox on the system health page (design §5, api-design 06): rows still waiting to be sent
   // and rows whose retries ran out. SENT rows are not counted.
   async alertDeliveryStats(): Promise<AlertDeliveryStats> {
