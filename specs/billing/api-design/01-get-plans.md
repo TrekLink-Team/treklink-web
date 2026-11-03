@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-What the website sells: every active hardware variant with its current monthly price per device, the day-plan lengths and premium, the holding-fee ratio and the minimum order quantity. All values come from configuration (BR-29).
+What the website sells: every active hardware variant with its current monthly price per device and its image and spec sheet (devices design section 10, shown as the variant card of the request form), the day-plan lengths and premium, the holding-fee ratio and the minimum order quantity. All values come from configuration (BR-29).
 
 ## API Specification
 
@@ -39,6 +39,12 @@ No body.
         "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
         "code": "treklink-v3",
         "name": "TrekLink v3 (GPS, SOS button)",
+        "imageUrl": null,
+        "specSheet": {
+          "mcu": "ESP32",
+          "sosControl": "3 s hold on the user button",
+          "localAlarm": "LED blinks"
+        },
         "monthlyPriceVnd": 450000,
         "dayPriceVnd": 22500
       }

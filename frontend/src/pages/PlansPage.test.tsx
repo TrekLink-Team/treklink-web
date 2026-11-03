@@ -45,6 +45,8 @@ const plans = (overrides: Partial<Plans> = {}): Plans => ({
       id: 'v-1',
       code: 'treklink-v3',
       name: 'TrekLink v3 (GPS, SOS button)',
+      imageUrl: null,
+      specSheet: {},
       monthlyPriceVnd: 450000,
       dayPriceVnd: 22500,
     },

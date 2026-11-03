@@ -24,6 +24,8 @@ const VARIANT = {
   remainingValueSchedule: [],
   serviceIntervalDays: 180,
   serviceChecklist: [],
+  imageUrl: null,
+  specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
   isActive: true,
 };
 
@@ -109,6 +111,20 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(await screen.findByRole('heading', { name: 'TL-0042' })).toBeTruthy();
     expect(screen.getByText('!a4b1c2d3 (2763113171)')).toBeTruthy();
     expect(screen.getByText('treklink-v3')).toBeTruthy();
+  });
+
+  it("shows the card of the unit's variant with its spec sheet and the empty image slot", async () => {
+    renderPage();
+    expect(await screen.findByRole('heading', { level: 2, name: 'TrekLink v3' })).toBeTruthy();
+    expect(screen.getByText('LED blinks')).toBeTruthy();
+    expect(screen.getByText('Variant image not added yet')).toBeTruthy();
+  });
+
+  it("shows no card when the variant list does not hold the unit's variant", async () => {
+    currentDevice = device({ hardwareVariant: { id: 'v-9', code: 'treklink-v9' } });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'TL-0042' })).toBeTruthy();
+    expect(screen.queryByText('Variant image not added yet')).toBeNull();
   });
 
   it.each(['IN_INTAKE', 'AVAILABLE', 'RENTED', 'RETIRED', 'DISPOSED'] as const)(

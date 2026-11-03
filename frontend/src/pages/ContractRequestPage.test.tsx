@@ -36,7 +36,15 @@ const PLANS = {
   dayPlanLengths: [3, 7],
   dayPremium: 0.2,
   variants: [
-    { id: 'v-3', code: 'treklink-v3', name: 'V3', monthlyPriceVnd: 250000, dayPriceVnd: 20000 },
+    {
+      id: 'v-3',
+      code: 'treklink-v3',
+      name: 'V3',
+      imageUrl: null,
+      specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
+      monthlyPriceVnd: 250000,
+      dayPriceVnd: 20000,
+    },
   ],
   sandbox: true,
 };
@@ -166,9 +174,9 @@ describe('ContractRequestPage availability and the hold at request', () => {
   };
 
   const choose = async (quantity: string) => {
-    const variant = await screen.findByLabelText('Hardware variant');
-    await screen.findByRole('option', { name: /7 available now/ });
-    fireEvent.change(variant, { target: { value: 'v-3' } });
+    const variant = await screen.findByRole('radio', { name: 'V3' });
+    await screen.findByText(/, 7 available$/);
+    fireEvent.click(variant);
     fireEvent.change(screen.getByLabelText(/Quantity/), { target: { value: quantity } });
   };
 
