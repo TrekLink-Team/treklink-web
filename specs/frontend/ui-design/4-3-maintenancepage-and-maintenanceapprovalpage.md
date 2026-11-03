@@ -33,6 +33,7 @@ Scope from the task: devices api-design 11 to 15; the week's service list; estim
 |---|---|---|---|---|
 | Open maintenance (primary; preselects the device when opened from screen 4.2) | device `AVAILABLE`, no open record | devices 11 `POST /api/devices/:id/maintenance` with `expectedVersion` | none | MSG03 |
 | Record estimate | record `OPEN` | devices 12 `PATCH .../maintenance/:recordId/estimate` | none; above the threshold the panel states "Admin approval required before completion" | MSG03; status may become `PENDING_APPROVAL` |
+| Flash firmware (devices design §9) | `OPEN` `FIRMWARE_UPDATE` record, Chromium | devices 28 for the releases, 29 for the image, then `esptool-js` over Web Serial | the browser's port chooser; Full install: "Erase {assetTag} and install {version}? The unit loses its channel and owner names and must be provisioned again before its next handover." | "{version} written and verified on {assetTag}. Complete the record to save it." |
 | Complete or mark unrepairable | record `OPEN` | devices 14 `PATCH .../maintenance/:recordId` | dialog for `UNREPAIRABLE`: "The device stays in maintenance until an Admin retires it." | MSG03 |
 | Approve or reject cost (approvals tab) | record `PENDING_APPROVAL` and the viewer did not record the estimate | devices 13 `POST .../maintenance/:recordId/decision` | dialog with the approved amount (approve) or the reason (reject) | MSG03 |
 | Device link | always | navigation to `/t/devices/:id` (screen 4.2) | none | none |
@@ -45,6 +46,10 @@ Scope from the task: devices api-design 11 to 15; the week's service list; estim
 | Empty | Records with filters: MSG01. Service list: "Nothing is due this week." Approvals: "No costs are waiting for a decision." |
 | Error `VENDOR_REQUIRED` (400) | MSG02 under the vendor name |
 | Error `CHECKLIST_INCOMPLETE` (400) | MSG02 on each checklist item without a result |
+| No release published | Flash panel: "No firmware release is published yet." with Flash disabled |
+| Chip mismatch (REQ-ERR-16) | "The unit on the port is an {chip}, not the {expectedChip} of {variant}. Nothing was written." |
+| Flash failed or unverified (REQ-ERR-17) | The failed step named, "Nothing was recorded. Flash {assetTag} again."; for v2 the power-button notice again |
+| v2 unit | Notice before Flash: "Hold the power button of {assetTag} until the flash finishes; a reset turns a v2 unit off otherwise." |
 | Error `FIRMWARE_VERSION_REQUIRED` (400) | MSG02 under the firmware version field of a `FIRMWARE_UPDATE` record |
 | Error `MAINTENANCE_OPEN` (409) | MSG29 with dependency "maintenance records", with a link to the open one |
 | Error `SEPARATION_OF_DUTY` (403) | MSG30 dialog (only after a forced request; the controls are hidden) |

@@ -82,6 +82,7 @@
 - **REQ-EVT-25**: WHEN Staff dock a unit for a reserved device at handover or replacement and its `nodeNum` equals the device's, the counter SHALL fetch the derived channel key through the channel-key endpoint (design §8.6 decision 1), write, in one edit transaction, the owner long name as the asset tag, the short name per design §8.6 decision 2 and the primary channel with that key at the organization's current version keeping every other channel setting as read, wait for the unit's one restart, read both back, and record provisioning with the docked `nodeNum` only when the read-back matches. [FR-DEV-05, BR-09, D-021, D-080, D-082]
 - **REQ-EVT-26**: WHEN `rentals` records provisioning with a docked `nodeNum`, the system SHALL compare it with the device's `nodeNum` before storing the key version. [FR-DEV-05, D-080]
 - **REQ-EVT-27**: WHEN Staff configure a docked unit as a Stage A uplink and its `nodeNum` equals the device's, the counter SHALL write, in one edit transaction, Wi-Fi on with the typed network, the MQTT module with the typed broker and the D-005 transport values (root `treklink`, JSON on, encryption off), and uplink on the primary channel, keep every other field as read, and read the values back after the unit restarts. [D-005, D-080, D-093]
+- **REQ-EVT-28**: WHEN Staff flash a unit from an `OPEN` `FIRMWARE_UPDATE` record, the counter SHALL offer only the releases that carry the device's variant, write the chosen image at the manifest offset after the backend has checked its SHA-256, verify every written region, and on a verified write fill the record's firmware version with the release version for completion. [FR-DEV-21, D-093]
 
 ### State-Driven
 
@@ -108,6 +109,8 @@
 - **REQ-ERR-13**: IF a write is not acknowledged, the read-back differs, the unit disconnects or stops answering, or the port is busy or refused, THEN the counter SHALL record nothing, say which step failed and that the unit must be docked again before handover.
 - **REQ-ERR-14**: IF a docked unit does not answer the config-only handshake within the link's timeout (a v2 unit's known USB gap, design §8.2), THEN the counter SHALL show "No response over USB. v2 units cannot dock yet; enter the node number manually." and leave the manual fields open.
 - **REQ-ERR-15**: IF a Stage A uplink write is refused, the unit does not come back after its restart, or the read-back differs, THEN the counter SHALL name the failed check and say the unit is not configured as an uplink. [D-005, D-080]
+- **REQ-ERR-16**: IF the chip of the unit on the port does not match the chip of the device's variant in the release manifest, THEN the counter SHALL write nothing and name both chips.
+- **REQ-ERR-17**: IF the image fails its SHA-256 check (502 `FIRMWARE_IMAGE_INVALID`), the write fails, or a written region does not verify, THEN the counter SHALL record nothing, keep the record `OPEN` and ask Staff to flash again; a v2 unit is flashed again with its power button held.
 
 ---
 
@@ -147,6 +150,8 @@ The `devices` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-16**: Unplugging the unit between the two writes records nothing and the row asks to dock again; Firefox shows the Chromium banner with docking disabled; after a docking no key is found in browser storage or console output.
 - **AC-17**: Docking a v2 unit shows "No response over USB. v2 units cannot dock yet; enter the node number manually." and the manual fields stay open.
 - **AC-18**: Configuring TL-0042 as an uplink with network `TrekLink-Field` and broker `192.168.1.10:1883` restarts the unit once; the read-back shows MQTT on, root `treklink`, JSON on, encryption off, the network name, and uplink on channel 0, and its next position appears on the live map.
+- **AC-19**: On an `OPEN` `FIRMWARE_UPDATE` record of a v3 unit, Update with release `2.7.26-treklink.2` writes the app image at `0x10000`, the unit keeps its owner names and channel, and the record offers Complete with that version; completing it sets the device's firmware version (AC-12).
+- **AC-20**: A v4 image offered to a unit whose chip reads ESP32 writes nothing; an image whose SHA-256 differs from the manifest answers 502 `FIRMWARE_IMAGE_INVALID` and nothing is written.
 
 ---
 
