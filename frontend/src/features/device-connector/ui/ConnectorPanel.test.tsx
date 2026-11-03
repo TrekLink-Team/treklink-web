@@ -34,6 +34,8 @@ const STAFF: SessionUser = {
 const A = 0xa4b1c2d4;
 const B = 0xa4b1c2e5;
 
+let deviceChange: Record<string, unknown> = {};
+
 const registered = (nodeNum: number) => ({
   nodeNum,
   nodeId: `!${nodeNum.toString(16)}`,
@@ -52,6 +54,7 @@ const registered = (nodeNum: number) => ({
     lastSeenAt: null,
     serviceDueAt: null,
     openMaintenance: null,
+    ...deviceChange,
   },
   contract: null,
   docked: null,
@@ -82,12 +85,20 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  deviceChange = {};
   cleanup();
   resetConnectorRegistry();
   Reflect.deleteProperty(window.navigator, 'serial');
   act(() => {
     useSession.getState().signOut();
-    useConnectorStore.setState({ open: false, viewing: null, focus: null, context: null, registerFrom: null });
+    useConnectorStore.setState({
+      open: false,
+      viewing: null,
+      focus: null,
+      context: null,
+      registerFrom: null,
+      flashPanel: null,
+    });
   });
 });
 
@@ -137,5 +148,63 @@ describe('ConnectorPanel (screen 4.6)', () => {
     expect(screen.getByText('96 %')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
     expect(screen.getByText('2 units connected')).toBeTruthy();
+  });
+});
+
+describe('ConnectorPanel uplink and flash (devices task 10.10, design section 11.7)', () => {
+  const start = async () => {
+    const { connectorRegistry } = await import('../model/ConnectorRegistry');
+    await act(async () => {
+      await connectorRegistry(recognizeUnits).start();
+    });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'TL-0042' })).toBeTruthy(), { timeout: 4000 });
+  };
+
+  it('opens the uplink dialog for the unit the device page named, or asks to connect it', async () => {
+    act(() => useConnectorStore.getState().openFor({ action: 'uplink', assetTag: 'TL-0099', nodeNum: 99 }));
+    renderPanel();
+    await start();
+    expect(screen.getByText('Connect TL-0099 to continue.')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    act(() => useConnectorStore.getState().openFor({ action: 'uplink', assetTag: 'TL-0042', nodeNum: A }));
+    expect(await screen.findByRole('dialog', { name: 'Configure TL-0042 as an uplink' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(useConnectorStore.getState().focus).toBeNull();
+  });
+
+  it('shows Update firmware disabled with its reason as text until a flash panel registers', async () => {
+    deviceChange = {
+      status: 'MAINTENANCE',
+      openMaintenance: { id: 'mr-1', reason: 'FIRMWARE_UPDATE', status: 'OPEN' },
+    };
+    renderPanel();
+    await start();
+    const button = screen.getByRole('button', { name: 'Update firmware: TL-0042' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByText('Firmware releases are not published yet')).toBeTruthy();
+    expect(button.getAttribute('aria-describedby')).toBeTruthy();
+
+    const seen: { record?: string; locked?: boolean; runs: number } = { runs: 0 };
+    const FakeFlash: React.FC<import('../model/connectorStore').FlashPanelProps> = ({ device, withPort }) => {
+      React.useEffect(() => {
+        seen.runs += 1;
+        seen.record = device.maintenanceRecordId;
+        void withPort(async () => {
+          const { connectorRegistry } = await import('../model/ConnectorRegistry');
+          seen.locked = connectorRegistry(recognizeUnits).getSnapshot().writing !== null;
+        }).catch(() => undefined);
+      }, [device, withPort]);
+      return <p>Flash panel for {device.assetTag}</p>;
+    };
+    act(() => useConnectorStore.getState().registerFlashPanel(FakeFlash));
+    const enabled = screen.getByRole('button', { name: 'Update firmware: TL-0042' }) as HTMLButtonElement;
+    expect(enabled.disabled).toBe(false);
+    expect(screen.queryByText('Firmware releases are not published yet')).toBeNull();
+    fireEvent.click(enabled);
+    expect(await screen.findByText('Flash panel for TL-0042')).toBeTruthy();
+    await waitFor(() => expect(seen).toMatchObject({ record: 'mr-1', locked: true }));
+    // The props are stable: the panel's effect ran once although the registry changed meanwhile.
+    expect(seen.runs).toBe(1);
   });
 });

@@ -26,8 +26,8 @@ import { Field, Input, Textarea } from '../shared/ui/Field';
 import { DEVICE_STATUS, MAINTENANCE_STATUS, type DeviceStatus } from '../shared/ui/status';
 import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
-import { ConfigureUplinkDialog } from '../features/device-connector/actions/ConfigureUplinkDialog';
 import {
+  openConnector,
   useConnector,
   useConnectorContext,
   useConnectorStore,
@@ -199,7 +199,6 @@ export const DeviceDetailPage: React.FC = () => {
   const [disposing, setDisposing] = useState(false);
   const [reportingLoss, setReportingLoss] = useState(false);
   const phone = !useMediaQuery('(min-width: 600px)', true);
-  const [configuringUplink, setConfiguringUplink] = useState(false);
   // The device connector's `device` context (devices design section 11.3), and whether the hub holds this
   // device's unit now (screen 4.2, device connector entry points).
   const connectorContext = useMemo<ConnectorContext>(() => ({ kind: 'device', deviceId: id }), [id]);
@@ -297,8 +296,16 @@ export const DeviceDetailPage: React.FC = () => {
     ...(canDispose
       ? [{ key: 'dispose', label: 'Dispose', tone: 'danger' as const, onSelect: () => setDisposing(true) }]
       : []),
+    // Configure uplink runs in the device connector, on the unit it holds (devices design section 11.7,
+    // REQ-EVT-39, REQ-EVT-40): the hub opens its dialog once the unit is connected.
     ...(canConfigureUplink
-      ? [{ key: 'uplink', label: 'Configure uplink', onSelect: () => setConfiguringUplink(true) }]
+      ? [
+          {
+            key: 'uplink',
+            label: 'Configure uplink',
+            onSelect: () => openConnector({ action: 'uplink', assetTag: device.assetTag, nodeNum: device.nodeNum }),
+          },
+        ]
       : []),
     // Screen 4.2: position history in any state, on its own route (screen 9.2); the asset tag
     // travels along for the history heading.
@@ -465,16 +472,6 @@ export const DeviceDetailPage: React.FC = () => {
         />
       )}
 
-      {configuringUplink && (
-        <ConfigureUplinkDialog
-          device={device}
-          onClose={() => setConfiguringUplink(false)}
-          onDone={(message) => {
-            setConfiguringUplink(false);
-            showToast(message);
-          }}
-        />
-      )}
       {editingFirmware && (
         <FirmwareDialog
           device={device}
