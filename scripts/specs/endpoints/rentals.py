@@ -83,14 +83,26 @@ ENDPOINTS = [
             "Svc->>Bill: issueTermInvoice or issueDayPlanInvoice(contract, term, tx)"]),
 
     ep("GET", "/api/contracts", "List contracts", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
-       "Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover queue is `APPROVED`.",
-       "UC-55, FR-AUTH-11",
+       "Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover queue is `APPROVED`. "
+       "`q` searches the whole list, not the loaded page: a contract matches when its code, or its "
+       "organization's legal name or code, contains `q` ignoring case (REQ-EVT-26). The organizations come "
+       "from `OrganizationsService.idsMatching(q)`, so rentals never reads the organizations table. `q` only "
+       "narrows: the caller's scope, the other filters, the order (newest status change first) and the "
+       "paging are those without it, and `totalCount` counts the matches. A `%` or `_` in `q` is a literal "
+       "character.",
+       "UC-55, FR-AUTH-11, REQ-EVT-26",
        query=[["status", "ContractStatus, repeatable", "enum", "no", "`REQUESTED`"],
               ["organizationId", "TrekLink staff only", "uuid", "no", f"`{ORG_ID}`"],
-              ["planType", "Plan", "enum", "no", "`DAY`"]] + PAGE_QUERY,
-       response=paged(CONTRACT, 3), steps=["Apply scope", "Read contracts"],
+              ["planType", "Plan", "enum", "no", "`DAY`"],
+              ["q", "Contract code, organization legal name or organization code contains, ignoring case; "
+                    "trimmed, at most 100 characters, an empty value is no filter", "string", "no", "`acme`"]]
+             + PAGE_QUERY,
+       response=paged(CONTRACT, 3),
+       steps=["Apply scope", "With q, find the organizations whose name or code matches", "Read contracts"],
        controller="ContractsController", service="ContractsService", call="list(query, caller)",
-       seq=["Svc->>DB: SELECT rental_contracts WHERE scope"]),
+       participants=[["Org", "OrganizationsService"]],
+       seq=["opt q given", "Svc->>Org: idsMatching(q)", "Org-->>Svc: organization ids", "end",
+            "Svc->>DB: SELECT rental_contracts WHERE scope AND filters AND (code ILIKE q OR organizationId IN ids)"]),
 
     ep("GET", "/api/contracts/:id", "Contract detail", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Returns the contract with its terms, committed devices (with holder labels and each device's "

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover queue is `APPROVED`.
+Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover queue is `APPROVED`. `q` searches the whole list, not the loaded page: a contract matches when its code, or its organization's legal name or code, contains `q` ignoring case (REQ-EVT-26). The organizations come from `OrganizationsService.idsMatching(q)`, so rentals never reads the organizations table. `q` only narrows: the caller's scope, the other filters, the order (newest status change first) and the paging are those without it, and `totalCount` counts the matches. A `%` or `_` in `q` is a literal character.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover qu
 | --- | --- |
 | GET | /api/contracts |
 | Permission | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin |
-| Traces | UC-55, FR-AUTH-11 |
+| Traces | UC-55, FR-AUTH-11, REQ-EVT-26 |
 
 ### Query parameters
 
@@ -24,6 +24,7 @@ Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover qu
 | status | ContractStatus, repeatable | enum | no | `REQUESTED` |
 | organizationId | TrekLink staff only | uuid | no | `5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f` |
 | planType | Plan | enum | no | `DAY` |
+| q | Contract code, organization legal name or organization code contains, ignoring case; trimmed, at most 100 characters, an empty value is no filter | string | no | `acme` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 
@@ -156,10 +157,12 @@ flowchart TB
     E1 --> X1((End))
     P0["Apply scope"]
     D1 -->|no| P0
-    P1["Read contracts"]
+    P1["With q, find the organizations whose name or code matches"]
     P0 --> P1
+    P2["Read contracts"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 
@@ -172,9 +175,14 @@ sequenceDiagram
     participant Ctl as ContractsController
     participant Svc as ContractsService
     participant DB as Postgres
+    participant Org as OrganizationsService
     C->>Ctl: GET /api/contracts
     Ctl->>Svc: list(query, caller)
-    Svc->>DB: SELECT rental_contracts WHERE scope
+    opt q given
+    Svc->>Org: idsMatching(q)
+    Org-->>Svc: organization ids
+    end
+    Svc->>DB: SELECT rental_contracts WHERE scope AND filters AND (code ILIKE q OR organizationId IN ids)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

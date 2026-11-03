@@ -78,6 +78,7 @@
 - **REQ-EVT-23**: WHEN a custody row closes, whichever way it closes (check-in, REQ-EVT-10; a settled loss, REQ-EVT-12; replacement, REQ-EVT-12; or the release of a broken unit from a running contract that the leader ruled on 2026-11-03, specified separately), the system SHALL, in that transaction and through the one step that closes the row (design §11.4), end the device's open assignment with the matching reason and resolve the row's open fault report; on a replacement it SHALL open an assignment for the replacement unit in the same group. [FR-CON-18, BR-46, UC-43, UC-61, build ruling 2026-11-03, review of treklink-web#327]
 - **REQ-EVT-24**: WHEN an Org Manager reports a fault on a `RENTED` device of a contract of the organization, with a description, the system SHALL record a `DeviceFaultReport` against the device's live contract row with the reporter and the UTC time, notify TrekLink Staff after commit, show MSG41, and leave the device `RENTED`; the report is resolved when its custody row closes (REQ-EVT-23), with the resolution `REPLACED`, `CHECKED_IN`, `LOST` or `RELEASED`. [FR-CON-19, UC-69]
 - **REQ-EVT-25**: WHEN an organization member reads the organization's groups, the system SHALL return them as a tree with each group's count of devices, so the live map, the incident list and the console can filter by group (monitoring REQ-UBI-05). [FR-MON-11, UC-67]
+- **REQ-EVT-26**: WHEN a caller lists contracts with a search text `q`, the system SHALL return, across the whole list and not only one page, the contracts whose code, or whose organization's legal name or code, contains `q` ignoring case, within the caller's scope and the other filters, in the same order and with the same paging as without `q`; `q` is trimmed, at most 100 characters, an empty value is no filter, and `%` and `_` are literal characters (api-design 02). [UC-55, FR-AUTH-11, leader request 2026-11-03 (W3)]
 
 ### State-Driven
 
@@ -114,6 +115,7 @@
 | Handover body | `RENTALS_HANDOVER_BODY_LIMIT`, default `2mb`, for the signature image | REQ-ERR-07 of `platform` |
 | Scheduler restart | term rollover and overdue jobs catch up from stored dates after downtime | NFR-AVL-02 |
 | Concurrent assignment | two Managers moving the same device at once leave it in exactly one group | BR-46, REQ-UBI-06 |
+| Contract search | the code match of `q` has a trigram GIN index on `rental_contracts.code` (`pg_trgm`), which a substring `ILIKE` can use; the organization match is a list of ids from `organizations`, joined through the `organizationId` index | REQ-EVT-26 |
 
 ---
 
