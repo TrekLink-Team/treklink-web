@@ -712,6 +712,53 @@ ENDPOINTS = [
        controller="FaultReportsController", service="FaultReportsService", call="ofContract(contractId, caller)",
        seq=["Svc->>DB: SELECT device_fault_reports WHERE contractId"]),
 
+    # The quick swap of the device connector (devices design §11.6, leader's brief answer 1, 2026-11-04).
+    # Appended so 01 to 29 keep their numbers; api-design 07 keeps the failed-check swap of E01-5.
+    ep("POST", "/api/contracts/:id/devices/:deviceId/exchange", "Exchange a reserved device for a docked unit",
+       "TrekLink Staff",
+       "The quick swap at the counter (devices design §11.6): an `AVAILABLE` unit of the contract's variant, docked "
+       "on the Staff computer, takes the place of a reserved unit that has no provisioning record. The replaced unit "
+       "goes back to `AVAILABLE` with no maintenance record (unlike api-design 07, which sends a unit that failed its "
+       "check to `MAINTENANCE`); the docked unit becomes `RESERVED` to the contract; quantity, plan, price and variant "
+       "do not change (REQ-UBI-03). The docked `nodeNum` must equal the replacement's record (devices REQ-EVT-33, "
+       "D-080). The counter then provisions the docked unit at once (devices REQ-EVT-34). The contract `version` "
+       "increases, so a signing screen opened before the exchange reloads. Open questions Q1 and Q2 of devices "
+       "design §11.12 may change this contract. Permission `contract.operate`, the one of api-design 07.",
+       "UC-14, UC-20, FR-CON-05, FR-DEV-05, BR-03, BR-09, E01-5, D-080",
+       path=[C_PATH, D_PATH],
+       body=[["replacementDeviceId", "The docked unit to reserve in its place", "uuid", "yes", "`8f9e0a1b-...`"],
+             ["nodeNum", "The nodeNum read from the docked unit; must equal the replacement's record", "int", "yes",
+              "`2763113188`"],
+             VERSION],
+       sample={"replacementDeviceId": "8f9e0a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b", "nodeNum": 2763113188,
+               "expectedVersion": 4},
+       response={"released": {"deviceId": DEVICE_ID, "assetTag": "TL-0001", "status": "AVAILABLE"},
+                 "reserved": {"deviceId": "8f9e0a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b", "assetTag": "TL-0051",
+                              "nodeNum": 2763113188, "status": "RESERVED"},
+                 "contractVersion": 5},
+       message="TL-0051 replaces TL-0001 on RC-2026-0042.", entity="Contract",
+       errors=[state_409("contract", "ACTIVE"), STALE, NOT_ON,
+               (409, "DEVICE_PROVISIONED", "The reserved unit to replace has a provisioning record",
+                "TL-0001 is provisioned. Only units not provisioned can be swapped out."),
+               NODE_MISMATCH,
+               (409, "VARIANT_MISMATCH", "The replacement is another variant than the contract's",
+                "TL-0051 is treklink-v2; RC-2026-0042 rents treklink-v3."),
+               (409, "DEVICE_NOT_AVAILABLE", "The replacement is not AVAILABLE or is on a live contract row",
+                "TL-0051 is not available. It is reserved to RC-2026-0040.")],
+       steps=["Lock the contract; require APPROVED and expectedVersion",
+              "Require a live row of the device, RESERVED, with no provisioning record",
+              "Lock the replacement by id; require the docked nodeNum, the variant and AVAILABLE with no live row",
+              "Release the row; DevicesService.release moves the unit RESERVED to AVAILABLE (reason EXCHANGED)",
+              "DevicesService.reserve with the replacement id; insert the live row",
+              "Increase the contract version; audit contract.deviceExchanged"],
+       controller="HandoverController", service="HandoverService", call="exchange(id, deviceId, dto, actor)",
+       participants=[["Dev", "DevicesService"]],
+       seq=["Svc->>DB: SELECT contract FOR UPDATE", "Svc->>Dev: provisioning([deviceId], tx)",
+            "Svc->>Dev: byId(replacementDeviceId) FOR UPDATE",
+            "Svc->>Dev: release([deviceId], at, tx, EXCHANGED)",
+            "Svc->>Dev: reserve(variant, 1, contractId, tx, [replacementDeviceId])",
+            "Svc->>DB: UPDATE contract_devices releasedAt; INSERT contract_devices; UPDATE contract version"]),
+
 ]
 
 NOTES = ("Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end "
