@@ -62,7 +62,6 @@ describe('LossCasesPage (screen 4.4)', () => {
   it('lists the TrekLink view with organization, custody and a link to each case', async () => {
     api.mockResolvedValue(page([row()]));
     renderPage('t');
-    // The table and the phone cards both render; the first link is the table's.
     const [link] = await screen.findAllByRole('link', { name: 'LOSS-0003' });
     expect(link.getAttribute('href')).toBe('/t/loss-cases/lc-1');
     expect(screen.getByText('ORG-0007')).toBeTruthy();
@@ -81,10 +80,17 @@ describe('LossCasesPage (screen 4.4)', () => {
   });
 
   it('filters by state and says so when nothing matches (MSG01)', async () => {
-    api.mockResolvedValue(page([]));
+    // Three cases unfiltered (one or two would hide the command bar, chapter 06 §9.3), none searching.
+    api.mockImplementation((endpoint: string) =>
+      Promise.resolve(
+        endpoint.includes('state=')
+          ? page([])
+          : page([row(), row({ id: 'lc-2', code: 'LOSS-0004' }), row({ id: 'lc-3', code: 'LOSS-0005' })]),
+      ),
+    );
     renderPage('o');
-    expect(await screen.findByText('Your organization has no loss cases.')).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('State'), { target: { value: 'SEARCHING' } });
+    fireEvent.click(await screen.findByRole('button', { name: /^Show: All states/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Searching' }));
     expect(await screen.findByText('No results match your filters.')).toBeTruthy();
     expect(api).toHaveBeenLastCalledWith('/loss-cases?state=SEARCHING&pageNumber=1&pageSize=20');
   });
