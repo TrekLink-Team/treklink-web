@@ -142,7 +142,7 @@ const next = () => fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
 // Provisions both units and enters a battery reading and a GPS fix for each.
 const readyDevices = async () => {
-  for (const button of screen.getAllByRole('button', { name: 'Record provisioning' })) {
+  for (const button of screen.getAllByRole('button', { name: 'Enter manually' })) {
     fireEvent.click(button);
   }
   await waitFor(() => expect(screen.getAllByText('Provisioned v1')).toHaveLength(2));
@@ -475,7 +475,7 @@ describe('CounterPage undo of a provisioning (dry run defect 5, rentals api-desi
   it('offers Undo only on a provisioned row', async () => {
     renderPage();
     expect(screen.queryByRole('button', { name: /Undo provisioning of/ })).toBeNull();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Record provisioning' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Enter manually' })[0]);
     await waitFor(() => expect(screen.getByText('Provisioned v1')).toBeTruthy());
     expect(screen.getByRole('button', { name: 'Undo provisioning of TL-0003' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Undo provisioning of TL-0004' })).toBeNull();
@@ -506,7 +506,7 @@ describe('CounterPage undo of a provisioning (dry run defect 5, rentals api-desi
         expect(battery().value).toBe('');
 
         // Recorded again, the unit is ready; the handover sends the version the undo answered.
-        fireEvent.click(screen.getAllByRole('button', { name: 'Record provisioning' })[0]);
+        fireEvent.click(screen.getAllByRole('button', { name: 'Enter manually' })[0]);
         await waitFor(() => expect(screen.getAllByText('Provisioned v1')).toHaveLength(2));
         screen
           .getAllByLabelText('Battery %')
@@ -599,7 +599,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
       .forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true));
     // The manual record stays beside it (devices design 8.6 decision 3).
     expect(
-      (screen.getAllByRole('button', { name: 'Record provisioning' })[0] as HTMLButtonElement)
+      (screen.getAllByRole('button', { name: 'Enter manually' })[0] as HTMLButtonElement)
         .disabled,
     ).toBe(false);
   });
