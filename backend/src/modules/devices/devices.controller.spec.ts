@@ -45,6 +45,7 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
   };
   let intake: { record: jest.Mock; register: jest.Mock };
   let connector: { recognize: jest.Mock };
+  let dockSessions: { dock: jest.Mock; undock: jest.Mock };
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let controller: DevicesController;
 
@@ -67,13 +68,30 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       emitAfterCommit: jest.fn(),
     };
     connector = { recognize: jest.fn().mockResolvedValue([]) };
+    dockSessions = {
+      dock: jest.fn().mockResolvedValue({}),
+      undock: jest.fn().mockResolvedValue(null),
+    };
     controller = new DevicesController(
       devices as unknown as DevicesService,
       intake as unknown as IntakeService,
       connector as never,
+      dockSessions as never,
       events as never,
       CONFIG,
     );
+  });
+
+  describe('dock sessions (api-design 31 and 32)', () => {
+    it('opens or renews with the node number as a bigint and the caller', async () => {
+      const caller = { id: 'u-1', roles: ['STAFF'] };
+
+      await controller.dock('d-1', { nodeNum: 2763113171 }, caller as never);
+      await controller.undock('d-1');
+
+      expect(dockSessions.dock).toHaveBeenCalledWith('d-1', 2763113171n, caller);
+      expect(dockSessions.undock).toHaveBeenCalledWith('d-1');
+    });
   });
 
   describe('byNode (api-design 30)', () => {

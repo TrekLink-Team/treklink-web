@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -8,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -20,11 +22,14 @@ import {
   IsBoolean,
   IsEnum,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
@@ -49,6 +54,7 @@ import { RetireDeviceDto } from './dto/retire-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { IntakeService } from './intake.service';
 import { DeviceConnectorService, RecognizedUnit } from './dock/device-connector.service';
+import { DockSessionService, DockSessionView } from './dock/dock-session.service';
 import { fromNodeId, isNodeNum } from './node-id';
 import { DomainException, ErrorCode } from '../../common/errors';
 
@@ -93,6 +99,14 @@ export class ByNodeQueryDto {
   nodeNum!: string[];
 }
 
+// devices api-design 31: the node number the browser read from the unit it holds.
+export class DockDto {
+  @IsInt()
+  @Min(0)
+  @Max(0xffffffff)
+  nodeNum!: number;
+}
+
 export class AvailabilityQueryDto {
   @IsOptional()
   @IsUUID()
@@ -122,6 +136,7 @@ export class DevicesController {
     private readonly devices: DevicesService,
     private readonly intake: IntakeService,
     private readonly connector: DeviceConnectorService,
+    private readonly dockSessions: DockSessionService,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
@@ -206,6 +221,28 @@ export class DevicesController {
   @ResponseMessage('OK')
   detail(@Param('id', ParseUUIDPipe) id: string): Promise<DeviceDetail> {
     return this.devices.detail(id);
+  }
+
+  // devices api-design 31 (task 10.3, design section 11.8): the device connector opens or renews the
+  // dock session of a unit it holds at the counter (`device.operate`).
+  @Put(':id/dock')
+  @CheckPolicies((ability) => ability.can('operate', 'Device'))
+  @ResponseMessage('Docked')
+  dock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DockDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<DockSessionView> {
+    return this.dockSessions.dock(id, BigInt(dto.nodeNum), caller);
+  }
+
+  // devices api-design 32: ends the dock session when the connector releases the unit; success with a
+  // null result when none is open.
+  @Delete(':id/dock')
+  @CheckPolicies((ability) => ability.can('operate', 'Device'))
+  @ResponseMessage('Undocked')
+  undock(@Param('id', ParseUUIDPipe) id: string): Promise<null> {
+    return this.dockSessions.undock(id);
   }
 
   // devices api-design 08 (FR-DEV-01): Staff correct the firmware version after a reflash
