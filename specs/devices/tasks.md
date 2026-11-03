@@ -244,7 +244,7 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - **Do**: design §11.6
   - _Requirements: REQ-EVT-33, REQ-ERR-20, REQ-ERR-21, REQ-ERR-23, REQ-ERR-24_
   - _Depends on: rentals 10.1_
-- [ ] 10.5 Docked units on the Staff map, server side (owner KhoaDD; built as monitoring 8.1)
+- [x] 10.5 Docked units on the Staff map, server side (owner KhoaDD; built as monitoring 8.1)
   - **Do**: design §11.8 "Who can read it"; monitoring api-design 02 and the two stream types
   - _Requirements: REQ-EVT-37, REQ-STA-05_
   - _Depends on: 10.3, monitoring 8.1_

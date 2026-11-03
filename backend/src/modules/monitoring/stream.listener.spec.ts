@@ -227,6 +227,40 @@ describe('StreamListener', () => {
     });
   });
 
+  describe('device.docked and device.undocked (devices design section 11.8)', () => {
+    it('stores both with no organization, so they reach the fleet room only', async () => {
+      const since = new Date('2026-11-04T02:00:00.000Z');
+
+      await listener.onDeviceDocked({
+        deviceId: 'd-9',
+        assetTag: 'TL-0051',
+        since,
+        byName: 'Tran Thi B',
+      });
+      await listener.onDeviceUndocked({ deviceId: 'd-9', endedAt: since, endReason: 'RELEASED' });
+
+      expect(published).toEqual([
+        {
+          organizationId: null,
+          type: 'device.docked',
+          deviceId: 'd-9',
+          payload: {
+            assetTag: 'TL-0051',
+            since: since.toISOString(),
+            byName: 'Tran Thi B',
+            counterLocation: interval,
+          },
+        },
+        {
+          organizationId: null,
+          type: 'device.undocked',
+          deviceId: 'd-9',
+          payload: { endedAt: since.toISOString(), endReason: 'RELEASED' },
+        },
+      ]);
+    });
+  });
+
   describe('device.handedOver', () => {
     it("tells the receiving organization's map that the device has arrived", async () => {
       await listener.onDeviceHandedOver({

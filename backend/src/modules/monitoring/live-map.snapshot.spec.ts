@@ -123,6 +123,7 @@ describe('LiveMapService.snapshot', () => {
   let openByDevices: jest.Mock;
   let maxSeq: jest.Mock;
   let simulatedDevices: jest.Mock;
+  let dockedWithContracts: jest.Mock;
   let fieldStationHealth: jest.Mock;
   let stale: unknown;
   let stationStale: unknown;
@@ -150,6 +151,7 @@ describe('LiveMapService.snapshot', () => {
     );
     maxSeq = jest.fn().mockResolvedValue(42);
     simulatedDevices = jest.fn().mockResolvedValue(new Set<string>());
+    dockedWithContracts = jest.fn().mockResolvedValue([]);
     service = new LiveMapService(
       {
         get: jest.fn((key: string) =>
@@ -168,7 +170,70 @@ describe('LiveMapService.snapshot', () => {
       { maxSeq } as unknown as StreamRepository,
       { fieldStationHealth } as unknown as OrganizationsService,
       { simulatedDevices } as unknown as FieldEventQueryService,
+      { dockedWithContracts } as never,
     );
+  });
+
+  describe('units docked at the counter (monitoring REQ-UBI-06, devices design section 11.8)', () => {
+    const since = new Date('2026-11-04T02:00:00.000Z');
+
+    beforeEach(() => {
+      dockedWithContracts.mockResolvedValue([
+        {
+          deviceId: 'd-9',
+          since,
+          byName: 'Tran Thi B',
+          contract: { code: 'RC-2026-0009', organizationId: 'org-2' },
+        },
+        {
+          deviceId: 'd-1',
+          since,
+          byName: 'Tran Thi B',
+          contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
+        },
+      ]);
+    });
+
+    it('lists a docked unit outside custody as DOCKED at the counter for TrekLink staff', async () => {
+      const { devices } = await service.snapshot({}, callerOf(null), staff, NOW);
+
+      expect(devices.find((device) => device.id === 'd-9')).toMatchObject({
+        state: 'DOCKED',
+        position: null,
+        holder: null,
+        handedOverAt: null,
+        counterLocation: COUNTER,
+        contractCode: 'RC-2026-0009',
+        organizationId: 'org-2',
+        docked: { since: since.toISOString(), byName: 'Tran Thi B' },
+      });
+      // A rented unit docked for its check-in keeps its state and is pinned at the counter.
+      expect(devices.find((device) => device.id === 'd-1')).toMatchObject({
+        state: 'LIVE',
+        counterLocation: COUNTER,
+        docked: { since: since.toISOString() },
+      });
+    });
+
+    it('keeps a Staff view of one organization to its own docked units', async () => {
+      const { devices } = await service.snapshot(
+        { organizationId: 'org-1' },
+        callerOf(null),
+        staff,
+        NOW,
+      );
+
+      expect(devices.map((device) => device.id)).not.toContain('d-9');
+    });
+
+    it('never shows an organization a docked unit or a dock session', async () => {
+      const { devices } = await service.snapshot({}, callerOf('org-1'), member('org-1'), NOW);
+
+      expect(devices.every((device) => device.docked === null && device.state !== 'DOCKED')).toBe(
+        true,
+      );
+      expect(dockedWithContracts).not.toHaveBeenCalled();
+    });
   });
 
   it('marks a device whose latest field event is simulated (demo design §9)', async () => {
@@ -224,6 +289,7 @@ describe('LiveMapService.snapshot', () => {
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
           simulated: false,
+          docked: null,
         },
         {
           id: 'd-2',
@@ -241,6 +307,7 @@ describe('LiveMapService.snapshot', () => {
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
           simulated: false,
+          docked: null,
         },
         {
           id: 'd-3',
@@ -258,6 +325,7 @@ describe('LiveMapService.snapshot', () => {
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
           simulated: false,
+          docked: null,
         },
       ],
     });
