@@ -281,6 +281,7 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - **Test**: AC-35 to AC-37 with fakes
   - _Requirements: REQ-EVT-39, REQ-EVT-40, REQ-EVT-41, REQ-ERR-28, AC-35, AC-36, AC-37_
   - _Depends on: 10.6, 10.7, 8.3_
+  - **Partly done** (2026-11-04, `feat/device-connector-ui`): uplink from the hub: the connector row and device view open the `ConfigureUplinkDialog` for the recognized unit, and the device page's Configure uplink runs on the unit the connector holds (`useDocking.configureUplink` borrows it; the chooser only through Connect a unit); the device page sets the `device` context and shows "Connected now" with Show in connector; the maintenance page sets the `maintenance` context. Open: Update firmware. The flash panel of design §9.2 (task 8.3) and the release reader (task 8.2) are not built on this branch, so the hub shows Update firmware unavailable with the reason, and REQ-EVT-41, REQ-ERR-28 and AC-37 wait on Phase 8. AC-35 and AC-36 not walked on hardware
 - [ ] 10.11 Map pin, client side (owner KhoaDD)
   - **Files**: `features/device-connector/model/` (dock session heartbeat, `pagehide` with `keepalive`), the Staff `LiveMapPage` marker for `DOCKED` and `docked` (screen 9.1, with LongNN as reviewer), tests
   - **Do**: design §11.8: open, renew every third of `devices.dockPresenceTtlSeconds`, end; the pin "Docked at the counter" at `counterLocation`; drop it on `device.undocked`
