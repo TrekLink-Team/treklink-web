@@ -6,6 +6,7 @@ import {
   appears,
   definitionOf,
   expectToast,
+  homeAction,
   openFromSidebar,
   runBackendScript,
   signIn,
@@ -52,12 +53,12 @@ test('MF-05 step 1: the Manager gives notice', async ({ page }) => {
   await signIn(page, 'manager');
   await openFromSidebar(page, 'Contracts');
   await page.getByRole('link', { name: CONTRACT, exact: true }).first().click();
-  await expect(page.getByRole('heading', { name: 'Balance' })).toBeVisible();
-  const give = page.getByRole('button', { name: 'Give notice' });
-  test.skip(!(await appears(give, 3_000)), `${CONTRACT} is no longer ACTIVE; MF-05 needs a fresh seed`);
-  await expect(titleStatus(page, 'Active')).toBeVisible();
+  // The contract home (#349): Give notice is the primary action, or in More actions while an invoice
+  // is open (widgets/ContractHome/policy.ts).
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(CONTRACT);
+  test.skip(!(await appears(titleStatus(page, 'Active'), 5_000)), `${CONTRACT} is no longer ACTIVE; MF-05 needs a fresh seed`);
   await expect(titleStatus(page, 'Ending')).toHaveCount(0);
-  await give.click();
+  await homeAction(page, 'Give notice');
   const dialog = page.getByRole('dialog', { name: `Give notice on ${CONTRACT}?` });
   await dialog.getByRole('button', { name: 'Give notice' }).click();
   await expectToast(page, /Notice recorded\. The contract ends on .+; 0 VND is due then\./);
@@ -85,7 +86,8 @@ test('MF-05 steps 3 to 7: Staff check in TL-0017, report TL-0018 lost, inspect a
   await openContractAsStaff(page);
   const main = page.getByRole('main');
   await expect(main.getByText(/Return due/).first()).toBeVisible();
-  await page.getByRole('link', { name: 'Open the counter' }).click();
+  // The contract home (#349) opens the return counter with its primary action, Record return.
+  await homeAction(page, 'Record return');
   await expect(page.getByRole('heading', { name: `Counter: ${CONTRACT}` })).toBeVisible();
   const steps = page.getByRole('tablist', { name: 'Counter steps' });
   await expect(steps.getByRole('tab', { name: /Check-in/ })).toContainText('2');
@@ -184,7 +186,7 @@ test('MF-05 steps 10 to 12: Staff take the closing payment and close the contrac
 
   // Step 10: the counter reads Returned and only the balance is left.
   await openContractAsStaff(page);
-  await page.getByRole('link', { name: 'Open the counter' }).click();
+  await homeAction(page, 'Open the counter');
   const steps = page.getByRole('tablist', { name: 'Counter steps' });
   await steps.getByRole('tab', { name: 'Close' }).click();
   const main = page.getByRole('main');
@@ -212,7 +214,7 @@ test('MF-05 steps 10 to 12: Staff take the closing payment and close the contrac
 
   // Step 12: a RETURNED contract opens its counter on the Close tab.
   await openContractAsStaff(page);
-  await page.getByRole('link', { name: 'Open the counter' }).click();
+  await homeAction(page, 'Open the counter');
   await expect(page.getByText('Nothing blocks the close. Close the contract below.')).toBeVisible();
   await page.getByRole('region', { name: 'Close actions' }).or(page.getByLabel('Close actions'))
     .getByRole('button', { name: 'Close contract' }).click();
