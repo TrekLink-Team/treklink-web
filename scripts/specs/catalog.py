@@ -54,6 +54,8 @@ PARAMETERS = {
         # Devices design §9 (firmware flash, treklink-web#326); the forward migration comes with task 8.2.
         ("devices.firmwareReleaseRepo", "TrekLink-Team/treklink-firmware", "JSON", None, None, "GitHub repository whose releases carry the TrekLink firmware images and manifest (devices design §9.1)", "FR-DEV-21, D-093"),
         ("devices.firmwareReleaseCacheSeconds", 300, "INT", {"min": 0, "max": 3600}, "seconds", "How long the release list and manifests are kept before they are read again", "FR-DEV-21"),
+        # Devices design §11.8 (the device connector's dock sessions); migration 20261104200000_device_dock_sessions.
+        ("devices.dockPresenceTtlSeconds", 30, "INT", {"min": 10, "max": 300}, "seconds", "A dock session not renewed this long ends, and the Staff map drops the unit's counter pin", "REQ-EVT-36"),
     ],
     "rentals": [
         ("rentals.minOrderQuantity", 5, "INT", {"min": 1, "max": 100}, "devices", "Minimum order quantity per contract", "FR-CON-01, BR-02"),
