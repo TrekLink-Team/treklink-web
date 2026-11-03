@@ -4,7 +4,12 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { CUSTODY_RESOLVER, LOSS_CASE_LISTENERS, LossCaseListener } from '../devices';
+import {
+  CUSTODY_RESOLVER,
+  DEVICE_CONTRACTS,
+  LOSS_CASE_LISTENERS,
+  LossCaseListener,
+} from '../devices';
 import { validate } from '../platform/config/environment-variables';
 import {
   ALLOWED_TRANSITIONS,
@@ -16,6 +21,7 @@ import {
   RentalsModule,
 } from './index';
 import { RentalsCustodyResolver } from './providers/custody-resolver.provider';
+import { RentalsDeviceContracts } from './providers/device-contracts.provider';
 import { RentalsLossCaseListener } from './providers/loss-case-listener.provider';
 
 // Values a developer's shell already holds win, as in test/e2e-env.ts.
@@ -67,6 +73,10 @@ describe('RentalsModule', () => {
       RentalsCustodyResolver,
     );
     expect(listeners).toContain(rentalsListener);
+    // Task 10.1: the device connector reads the contract of a unit through DEVICE_CONTRACTS.
+    expect(moduleRef.get(DEVICE_CONTRACTS, { strict: false })).toBeInstanceOf(
+      RentalsDeviceContracts,
+    );
     await moduleRef.close();
   });
 
