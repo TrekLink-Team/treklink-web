@@ -32,6 +32,16 @@ export {
 } from './ports/loss-case-listener.port';
 export { CUSTODY_RESOLVER, type CustodyResolver } from './ports/custody-resolver.port';
 export {
+  DEVICE_CONTRACTS,
+  type DeviceContracts,
+  type LiveDeviceContract,
+} from './ports/device-contracts.port';
+export {
+  DeviceConnectorService,
+  type DockedUnit,
+  type RecognizedUnit,
+} from './dock/device-connector.service';
+export {
   LOSS_ORGANIZATION_ACTIONS,
   type ComplianceForLoss,
   type LossOrganizationActions,
