@@ -77,8 +77,9 @@ const list = (items: Row[] | undefined) => (
 );
 
 describe('sticky edges follow their element (review of treklink-web#349, 2.4.11)', () => {
-  it('publishes the height of a command bar that mounts once its list has loaded', () => {
-    const { rerender } = render(list(undefined));
+  it('publishes the height of a command bar that mounts once its list grows past two records', () => {
+    // One or two records hide the command bar (chapter 06 §9.3); it mounts when the list grows.
+    const { rerender } = render(list(ROWS.slice(0, 2)));
     expect(screen.queryByRole('group', { name: 'Invoices: commands' })).toBeNull();
     expect(published('--tl-collection-bar-h')).toBe('');
     rerender(list(ROWS));
@@ -89,7 +90,7 @@ describe('sticky edges follow their element (review of treklink-web#349, 2.4.11)
   it('keeps focus clear of a command bar that mounted late', () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
-    const { rerender } = render(list(undefined));
+    const { rerender } = render(list(ROWS.slice(0, 2)));
     rerender(list(ROWS));
     const bar = screen.getByRole('group', { name: 'Invoices: commands' }).parentElement!;
     vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 60 } as DOMRect);
