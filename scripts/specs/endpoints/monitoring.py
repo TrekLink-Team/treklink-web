@@ -57,26 +57,40 @@ ENDPOINTS = [
        "map pins it, and null otherwise. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, "
        "shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map "
        "filter stream entries by organization in the client. `group` is the unit's group now, or null, and "
-       "`groupId` keeps the units of that group and its subgroups (FR-MON-11, rentals design §11).",
-       "UC-38, UC-41, FR-AUTH-11, FR-MON-02, FR-MON-03, FR-MON-11, BR-19, BR-21",
+       "`groupId` keeps the units of that group and its subgroups (FR-MON-11, rentals design §11). "
+       "For TrekLink callers only, `docked` is `{ since, byName }` of the unit's open dock session (devices design "
+       "§11.8) or null, and a unit with an open dock session and no custody interval (`AVAILABLE`, `RESERVED`, "
+       "`IN_INTAKE` and so on) is listed too, with `state` `DOCKED`, `position` and `holder` null and "
+       "`counterLocation` set, so the Staff map pins it \"Docked at the counter\"; its `contractCode` and "
+       "`organizationId` are its live contract row's, or null. An organization caller always gets `docked` null and "
+       "never a `DOCKED` entry (devices REQ-STA-05, D-092 rule 2 unchanged). `device.docked` and `device.undocked` "
+       "stream entries keep the Staff map current (`ws-live-contract.md`).",
+       "UC-38, UC-41, FR-AUTH-11, FR-MON-02, FR-MON-03, FR-MON-11, BR-19, BR-21, D-092",
        query=[["organizationId", "TrekLink staff: one organization; omit for the fleet", "uuid", "no", f"`{ORG_ID}`"],
               ["groupId", "Organization members: the units of this group and its subgroups", "uuid", "no", "`g-1`"]],
        response={"cursor": 88213,
                  "devices": [{**SNAP_DEVICE, "state": "LIVE", "handedOverAt": "2026-10-19T01:30:00.000Z",
-                              "counterLocation": None, "organizationId": ORG_ID},
+                              "counterLocation": None, "organizationId": ORG_ID, "docked": None},
                              {**SNAP_DEVICE, "id": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14", "assetTag": "TL-0043",
                               "holder": None, "position": None, "batteryPct": None, "lastSeenAt": None,
                               "state": "NOT_HEARD", "handedOverAt": "2026-10-19T01:30:00.000Z",
                               "counterLocation": {"name": "TrekLink counter", "lat": 11.56, "lon": 108.54},
-                              "organizationId": ORG_ID}],
+                              "organizationId": ORG_ID, "docked": None},
+                             {**SNAP_DEVICE, "id": "8f9e0a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b", "assetTag": "TL-0051",
+                              "holder": None, "position": None, "group": None, "state": "DOCKED", "stale": False,
+                              "handedOverAt": None, "contractCode": "RC-2026-0042",
+                              "counterLocation": {"name": "TrekLink counter", "lat": 11.56, "lon": 108.54},
+                              "organizationId": ORG_ID, "docked": {"since": NOW, "byName": "Tran Thi B"}}],
                  "fieldStations": [{"id": STATION_ID, "name": "Ta Nang basecamp laptop", "lastSyncAt": NOW, "stale": False}]},
        steps=["Resolve the caller's scope", "Read the units in custody with their handover times",
+              "TrekLink caller: read the open dock sessions and add the docked units outside custody",
               "Read projections of those units", "Derive each state and clip positions to the custody interval",
               "Read the current stream cursor"],
        controller="MapController", service="LiveMapService", call="snapshot(query, caller)",
        participants=[["Rent", "RentalsService"], ["Dev", "DevicesService"], ["Inc", "IncidentsService"]],
        seq=["Svc->>DB: SELECT max(seq) FROM stream_events", "Svc->>Rent: visibleDevices(caller)",
             "Svc->>DB: SELECT business_parameters (deviceStaleSeconds, counterLocation)",
+            "Svc->>Dev: dockedNow() (TrekLink caller only)",
             "Svc->>Dev: projections(ids)", "Svc->>Inc: openByDevices(ids)"]),
 
     ep("GET", "/api/telemetry/devices/:id/history", "Device position and telemetry history",

@@ -33,8 +33,11 @@
 | 27 | GET | `/api/loss-cases/:id` | TrekLink Staff, TrekLink Admin; Org Manager: own organization | [27-get-loss-cases-id.md](27-get-loss-cases-id.md) |
 | 28 | GET | `/api/firmware-releases` | TrekLink Staff, TrekLink Admin | [28-get-firmware-releases.md](28-get-firmware-releases.md) |
 | 29 | GET | `/api/firmware-releases/:version/images/:variantCode` | TrekLink Staff, TrekLink Admin | [29-get-firmware-releases-version-images-variantcode.md](29-get-firmware-releases-version-images-variantcode.md) |
+| 30 | GET | `/api/devices/by-node` | TrekLink Staff, TrekLink Admin | [30-get-devices-by-node.md](30-get-devices-by-node.md) |
+| 31 | PUT | `/api/devices/:id/dock` | TrekLink Staff, TrekLink Admin | [31-put-devices-id-dock.md](31-put-devices-id-dock.md) |
+| 32 | DELETE | `/api/devices/:id/dock` | TrekLink Staff, TrekLink Admin | [32-delete-devices-id-dock.md](32-delete-devices-id-dock.md) |
 
-Route order: `GET /api/devices/availability` is declared before `GET /api/devices/:id` in `DevicesController`, so the literal segment is never read as an id.
+Route order: `GET /api/devices/availability` and `GET /api/devices/by-node` are declared before `GET /api/devices/:id` in `DevicesController`, so a literal segment is never read as an id.
 
 
 Manual testing: [`specs/platform/api-design/00-api-testing-guide.md`](../../platform/api-design/00-api-testing-guide.md).
