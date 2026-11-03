@@ -99,6 +99,11 @@ export interface CollectionViewProps<T> {
    * not make the list selectable (review of treklink-web#350).
    */
   bulkTransitions?: boolean;
+  /**
+   * A newer copy of an item than the list holds, by id: the result of a change the page just made,
+   * before or after the item leaves the list. The details pane shows it (review of treklink-web#350).
+   */
+  freshItem?: (id: string) => T | undefined;
   /** The item's current status as text, shown on its Change status button (§9.6 rule 1). */
   statusOf?: (item: T) => string;
   bulkActions?: CollectionBulkAction<T>[];
@@ -153,6 +158,7 @@ export function CollectionView<T>({
   itemActions = [],
   transitions,
   bulkTransitions: transitionsApplyToSelection = false,
+  freshItem,
   statusOf,
   bulkActions = [],
   commands = [],
@@ -447,7 +453,9 @@ export function CollectionView<T>({
   };
   const held = paneHeld !== null && paneId !== null && itemId(paneHeld) === paneId ? paneHeld : undefined;
   const paneItem =
-    (paneId !== null ? (byId.get(paneId) ?? held) : undefined) ?? selectedItems[0] ?? visible[0];
+    (paneId !== null ? (freshItem?.(paneId) ?? byId.get(paneId) ?? held) : undefined) ??
+    selectedItems[0] ??
+    visible[0];
   const paneVisible = showPane && paneOpen && ownsPane && paneItem !== undefined;
   const placement: PanePlacement = wide ? 'aside' : tablet ? 'drawer' : 'sheet';
   // Pushed aside: this list's pane, or in a host any list's pane, sits beside the rows, so the

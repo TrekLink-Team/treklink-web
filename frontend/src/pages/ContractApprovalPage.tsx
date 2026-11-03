@@ -5,6 +5,7 @@ import {
   approveContract,
   cancelContract,
   contractKeys,
+  fetchContract,
   planLabel,
   rejectContract,
   STATUS_LABELS,
@@ -69,7 +70,7 @@ const failureOf = (error: unknown): Failure => {
 const RejectDialog: React.FC<{
   contract: Contract;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (rejected: Contract) => void;
 }> = ({ contract, onClose, onDone }) => {
   const showToast = useToast((state) => state.show);
   const [reason, setReason] = useState('');
@@ -85,9 +86,9 @@ const RejectDialog: React.FC<{
     }
     setPending(true);
     try {
-      await rejectContract(contract.id, reason.trim(), contract.version);
+      const rejected = await rejectContract(contract.id, reason.trim(), contract.version);
       showToast('Saved.');
-      onDone();
+      onDone(rejected);
     } catch (failure) {
       setPending(false);
       setError(failureOf(failure).message);
@@ -145,7 +146,9 @@ const RejectDialog: React.FC<{
 
 // The request panel: prices fixed at request, the handover appointment, Approve and Reject. The
 // queue keys it by contract, so choosing another request starts a fresh form.
-const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
+// `onDecided` passes the contract as the server returned it, or nothing when the server refused and
+// the contract must be read again.
+const RequestPanel: React.FC<{ contract: Contract; onDecided: (decided?: Contract) => void }> = ({
   contract,
   onDecided,
 }) => {
@@ -190,7 +193,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
       setApproved(result);
       // The pattern of the organization approval toast (screen 3.2), with what was reserved.
       showToast(`${contract.code} approved. ${result.devices.length} devices reserved.`);
-      onDecided();
+      onDecided(result);
     } catch (error) {
       setFailure(failureOf(error));
       if (error instanceof ApiError && error.errorCode === 'INVALID_STATE_TRANSITION') onDecided();
@@ -279,7 +282,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
                   <button
                     type="button"
                     className="ml-2 font-semibold underline"
-                    onClick={onDecided}
+                    onClick={() => onDecided()}
                   >
                     Reload
                   </button>
@@ -332,10 +335,10 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
         <RejectDialog
           contract={contract}
           onClose={() => setRejecting(false)}
-          onDone={() => {
+          onDone={(decided) => {
             setRejecting(false);
             setRejected(true);
-            onDecided();
+            onDecided(decided);
           }}
         />
       )}
@@ -482,6 +485,26 @@ export const ContractApprovalPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: contractKeys.all });
   };
 
+  // The contracts this page just decided, as the server returned them: the details pane shows the new
+  // status while the request leaves its queue (review of treklink-web#350).
+  const [decided, setDecided] = useState<Record<string, Contract>>({});
+  const remember = (contract: Contract) =>
+    setDecided((current) => ({ ...current, [contract.id]: contract }));
+  const onDecided = (contractId: string, contract?: Contract) => {
+    if (contract) remember(contract);
+    // A refused decision (another member decided first, a stale version) reads the contract again.
+    else
+      void queryClient
+        .fetchQuery({ queryKey: contractKeys.detail(contractId), queryFn: () => fetchContract(contractId) })
+        .then(remember, () => undefined);
+    refresh();
+  };
+  const freshItem = (id: string) => {
+    const known = decided[id];
+    const listed = data?.items.find((contract) => contract.id === id);
+    return known && (!listed || listed.version < known.version) ? known : undefined;
+  };
+
   const pageSize = data?.pageSize ?? 20;
 
   return (
@@ -507,6 +530,7 @@ export const ContractApprovalPage: React.FC = () => {
           },
         ]}
         transitions={transitions}
+        freshItem={freshItem}
         statusOf={(contract) => STATUS_LABELS[contract.status]}
         search={{
           label: 'Search by contract, organization, variant or plan',
@@ -534,7 +558,11 @@ export const ContractApprovalPage: React.FC = () => {
         }
         details={{
           extra: (contract) => (
-            <RequestPanel key={contract.id} contract={contract} onDecided={refresh} />
+            <RequestPanel
+              key={contract.id}
+              contract={contract}
+              onDecided={(result) => onDecided(contract.id, result)}
+            />
           ),
           href: (contract) => `/t/contracts/${contract.id}`,
           hrefLabel: 'Open the contract',
