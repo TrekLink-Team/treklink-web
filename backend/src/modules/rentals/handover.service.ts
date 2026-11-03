@@ -14,8 +14,8 @@ import {
   PricingService,
   termFeeVnd,
 } from '../billing';
-import { DevicesService, DeviceTag, ProvisionedDevice } from '../devices';
-import { OrganizationsService } from '../organizations';
+import { DevicesService, DeviceTag, ProvisionedDevice, toNodeId } from '../devices';
+import { ChannelKeyService, DerivedChannelKey, OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -145,23 +145,29 @@ export class HandoverService {
     private readonly parameters: ParameterService,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
+    private readonly channelKeys: ChannelKeyService,
     @Optional() @Inject(ACCOUNT_DIRECTORY) private readonly directory?: AccountDirectory,
   ) {}
 
   // Staff record that the organization's channel key was written to a reserved unit (api-design
   // 09, D-021): only the key version is kept. A version other than the organization's current one
-  // is 409 KEY_VERSION_MISMATCH; a unit not on the contract 409 DEVICE_NOT_ON_CONTRACT (MSG12).
+  // is 409 KEY_VERSION_MISMATCH; a unit not on the contract 409 DEVICE_NOT_ON_CONTRACT (MSG12). The
+  // docked unit's `nodeNum` must equal the device record's (REQ-ERR-12, 409 NODE_MISMATCH, nothing
+  // recorded); a request without one comes from the Enter manually fallback (devices design section 8.6
+  // decision 3) and is audited as manual.
   async provision(
     id: string,
     deviceId: string,
     keyVersion: number,
     actor: Caller,
     at: Date = new Date(),
+    nodeNum: number | null = null,
   ): Promise<ProvisionedDevice> {
     return this.events.transaction(async (tx) => {
       const contract = await this.contracts.lockById(id, tx);
       if (contract.status !== ContractStatus.APPROVED) throw notApproved(contract.status);
       await this.rowOf(contract, deviceId, tx);
+      if (nodeNum !== null) await this.requireDockedNode(deviceId, nodeNum, tx);
       const current = await this.organizations.channelKeyVersion(contract.organizationId, tx);
       if (keyVersion !== current) {
         throw conflict(
@@ -169,12 +175,79 @@ export class HandoverService {
           `The organization's channel key is at version ${current}; write that version to the device.`,
         );
       }
-      return this.devices.recordProvisioning(
+      const recorded = await this.devices.recordProvisioning(
         { deviceId, organizationId: contract.organizationId, keyVersion, actorId: actor.id },
         at,
         tx,
       );
+      if (nodeNum === null) {
+        this.events.emitAfterCommit(AUDIT_RECORD, {
+          actorId: actor.id,
+          actorRoles: actor.roles,
+          organizationId: contract.organizationId,
+          action: 'contract.provisioningRecordedManually',
+          subjectType: 'RentalContract',
+          subjectId: id,
+          before: null,
+          after: { deviceId, keyVersion, manual: true },
+        } satisfies AuditRecordEvent);
+      }
+      return recorded;
     });
+  }
+
+  // Staff fetch the organization's channel key to write it to a docked unit (api-design 21, D-082
+  // decision 1). The contract must be APPROVED, the device reserved to it and not handed over, and the
+  // docked `nodeNum` must equal the device record's. The key is derived again on every call (HKDF is
+  // deterministic); each call writes an audit row with the actor, device, organization and key version,
+  // never the key (REQ-UBI-03), and nothing here logs it.
+  async issueChannelKey(
+    id: string,
+    deviceId: string,
+    nodeNum: number,
+    actor: Caller,
+  ): Promise<DerivedChannelKey> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(id, tx);
+      if (contract.status !== ContractStatus.APPROVED) throw notApproved(contract.status);
+      const row = await this.rowOf(contract, deviceId, tx);
+      const [unit] = await this.devices.provisioning([deviceId], tx);
+      if (row.handedOverAt || !unit || unit.status !== DeviceStatus.RESERVED) {
+        throw conflict(
+          ErrorCode.INVALID_STATE_TRANSITION,
+          `This cannot be done while it is ${unit?.status ?? 'handed over'}.`,
+        );
+      }
+      await this.requireDockedNode(deviceId, nodeNum, tx);
+      const key = await this.channelKeys.deriveKey(contract.organizationId, tx);
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: actor.id,
+        actorRoles: actor.roles,
+        organizationId: contract.organizationId,
+        action: 'contract.channelKeyIssued',
+        subjectType: 'RentalContract',
+        subjectId: id,
+        before: null,
+        after: { deviceId, keyVersion: key.keyVersion },
+      } satisfies AuditRecordEvent);
+      return key;
+    });
+  }
+
+  // REQ-ERR-12: the nodeNum read from the docked unit must be the one of the device on this row. The
+  // message names the docked node id and not the expected one, which the page already shows.
+  private async requireDockedNode(
+    deviceId: string,
+    nodeNum: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    const expected = (await this.devices.nodeNums([deviceId], tx)).get(deviceId);
+    if (expected === undefined || expected !== nodeNum) {
+      throw conflict(
+        ErrorCode.NODE_MISMATCH,
+        `The docked unit ${toNodeId(BigInt(nodeNum))} is not the device on this row. Dock the right unit.`,
+      );
+    }
   }
 
   // Staff undo a provisioning recorded on the wrong unit, before the handover (api-design 19,

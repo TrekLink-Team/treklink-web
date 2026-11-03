@@ -54,6 +54,7 @@ const PERMISSIONS: Record<string, unknown[]> = {
   STAFF: [
     rule('contract.read', 'read', 'RentalContract'),
     rule('contract.operate', 'operate', 'RentalContract'),
+    rule('contract.issueChannelKey', 'issueChannelKey', 'RentalContract'),
     rule('invoice.read', 'read', 'Invoice'),
     rule('payment.read', 'read', 'Payment'),
     rule('payment.recordCounter', 'recordCounter', 'Invoice'),

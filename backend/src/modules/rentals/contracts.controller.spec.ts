@@ -212,6 +212,7 @@ describe('ContractsController (rentals api-design 01)', () => {
           ['d-1', 'TL-0017'],
           ['d-2', 'TL-0018'],
         ]),
+        nodeNums: new Map([['d-1', 275612]]),
         returnChecks: new Map([
           ['cd-1', { resetAt, inspection: { result: 'PASSED', at: resetAt } }],
           ['cd-2', { resetAt: null, inspection: null }],
@@ -235,6 +236,8 @@ describe('ContractsController (rentals api-design 01)', () => {
       expect.objectContaining({
         deviceId: 'd-1',
         assetTag: 'TL-0017',
+        // Read-only, for the docking of the counter (devices design section 8.5).
+        nodeNum: 275612,
         // The shared variant summary of design section 10 (task 9.1), without the catalogue flag.
         hardwareVariant: {
           id: 'v-3',
@@ -253,6 +256,7 @@ describe('ContractsController (rentals api-design 01)', () => {
       }),
       expect.objectContaining({
         deviceId: 'd-2',
+        nodeNum: null,
         resetAt: null,
         inspection: null,
         provisionedKeyVersion: null,

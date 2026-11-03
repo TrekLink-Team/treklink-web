@@ -1,8 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OrganizationStatus, Prisma } from '@prisma/client';
+import { hkdfSync } from 'node:crypto';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
+import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ORGANIZATION_KEY_EXPOSED, OrganizationKeyExposedEvent } from './organization-events';
 import { OrganizationsRepository } from './organizations.repository';
@@ -12,6 +15,15 @@ export interface RotatedChannelKey {
   channelKeyVersion: number;
   channelKeyExposedAt: null;
 }
+
+// What rentals api-design 21 returns: the derived key and the version it was derived for. The key is
+// never stored, logged or audited (REQ-UBI-03); this object lives for one response.
+export interface DerivedChannelKey {
+  keyHex: string;
+  keyVersion: number;
+}
+
+const KEY_BYTES = 32;
 
 const ROTATABLE: readonly OrganizationStatus[] = [
   OrganizationStatus.ACTIVE,
@@ -28,7 +40,31 @@ export class ChannelKeyService {
   constructor(
     private readonly organizations: OrganizationsRepository,
     private readonly events: TransactionalEvents,
+    private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
+
+  // devices design section 8.6 decision 1 (D-082): HKDF-SHA256 of the deployment's CHANNEL_KEY_MASTER with
+  // the organization id as salt and `treklink-channel-key/v{version}` as info, 32 bytes. Deterministic, so
+  // the same organization and version always give the same key and nothing is stored; a rotation is a
+  // version bump (`rotate`). An unknown organization is 404. The caller has checked who may ask.
+  async deriveKey(
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<DerivedChannelKey> {
+    const version = await this.organizations.channelKeyVersion(organizationId, tx);
+    if (version === null) {
+      throw new DomainException(
+        HttpStatus.NOT_FOUND,
+        ErrorCode.NOT_FOUND,
+        'Organization not found.',
+      );
+    }
+    const master = this.config.get('CHANNEL_KEY_MASTER', { infer: true });
+    const key = Buffer.from(
+      hkdfSync('sha256', master, organizationId, `treklink-channel-key/v${version}`, KEY_BYTES),
+    );
+    return { keyHex: key.toString('hex'), keyVersion: version };
+  }
 
   // REQ-EVT-13, AC-11: sets `channelKeyExposedAt`, in the caller's transaction, and has the Managers told
   // after commit (KeyExposedNotifier). Any status qualifies, because the key is exposed whatever the
