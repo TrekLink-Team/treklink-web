@@ -180,6 +180,53 @@ describe('useDocking.dockAndProvision', () => {
   });
 });
 
+describe('useDocking, review of the docking slice', () => {
+  it('lets the port go and records nothing when the page is left mid-docking', async () => {
+    const { unit, serial } = dock({}, { restart: 'never-returns', restartAfterMs: 5 });
+    const { result, unmount } = render();
+    let pending: Promise<unknown> | undefined;
+    act(() => {
+      pending = result.current.dockAndProvision(TARGET);
+    });
+    await waitFor(() => expect(result.current.state.stage).toBe('reconnect'), { timeout: 4000 });
+
+    unmount();
+
+    await expect(pending).resolves.toMatchObject({ ok: false, failure: 'not-returned' });
+    expect(serial.ports.every((port) => port.readable === null)).toBe(true);
+    // The write reached the unit before the restart; the caller gets nothing to record.
+    expect(unit.writes.length).toBeGreaterThan(0);
+    expect(localStorage.length + sessionStorage.length).toBe(0);
+  });
+
+  it('writes nothing when the server sends a malformed key', async () => {
+    const { unit } = dock();
+    issueChannelKey.mockResolvedValue({ keyHex: 'not-hex', keyVersion: 3 });
+    const { result } = render();
+    let outcome: Awaited<ReturnType<typeof result.current.dockAndProvision>> | undefined;
+    await act(async () => {
+      outcome = await result.current.dockAndProvision(TARGET);
+    });
+    expect(outcome).toMatchObject({ ok: false, failure: 'dock', reason: 'The channel key is malformed.' });
+    expect(unit.writes).toEqual([]);
+  });
+
+  it('says nothing and asks for no key when Staff close the port chooser', async () => {
+    const { serial } = dock();
+    serial.ports = [];
+    serial.chooserAnswer = null;
+    const { result } = render();
+    let outcome: Awaited<ReturnType<typeof result.current.dockAndProvision>> | undefined;
+    await act(async () => {
+      outcome = await result.current.dockAndProvision(TARGET);
+    });
+    expect(serial.requestCount).toBe(1);
+    expect(outcome).toMatchObject({ ok: false, failure: 'cancelled' });
+    expect(handoverDockMessage(outcome as never, 'TL-0042')).toBeNull();
+    expect(issueChannelKey).not.toHaveBeenCalled();
+  });
+});
+
 describe('useDocking.readUnit and configureUplink', () => {
   it('reads a unit for intake and lets the port go', async () => {
     const { port } = dock();
