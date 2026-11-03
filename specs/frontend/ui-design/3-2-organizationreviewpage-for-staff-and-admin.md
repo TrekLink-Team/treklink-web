@@ -98,3 +98,12 @@ tables above disagree, this section wins.
   through inheritance, Admin. The audit of 2026-11-01 read the form as Admin-only; the code already
   rendered it for Staff (only the Decision block is Admin-only), and a test now holds it.
 - No bulk: each decision needs its own verification or reason. The API does not sort.
+
+## Organization list on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The list under the status tabs renders through `CollectionView` (chapter 06 §9): the
+search reads code, name and tax code, the verified select becomes its Show filter, and an Admin's
+Approve, Reject, Suspend, Close and Reactivate are in the Change status menu behind the same dialogs. The
+code and Show details open the organization card beside the list (verification, channel key, decision),
+this screen's record view in place of the built-in pane. A tab change clears the selection. Endpoints
+and messages are unchanged.
