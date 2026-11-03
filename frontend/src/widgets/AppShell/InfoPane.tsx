@@ -1,5 +1,6 @@
 import React from 'react';
 import { Info, X } from 'lucide-react';
+import { useConnectorStore } from '../../features/device-connector';
 import { Drawer } from '../../shared/ui/Drawer';
 import { useShell } from './shellStore';
 import { DOCKED_QUERY } from './useInfoPane';
@@ -67,7 +68,11 @@ export const InfoPaneToggle: React.FC = () => {
       aria-pressed={open}
       aria-label={open ? 'Hide details panel' : 'Show details panel'}
       title={open ? 'Hide details panel' : 'Show details panel'}
-      onClick={() => setOpen(!open)}
+      onClick={() => {
+        // One right panel at a time (devices design section 11.12 Q6): the device connector yields.
+        if (!open) useConnectorStore.getState().setOpen(false);
+        setOpen(!open);
+      }}
       className={
         'flex h-9 w-9 items-center justify-center rounded-control transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus ' +
         (open ? 'bg-chrome text-brand' : 'text-ink hover:bg-chrome/60')
