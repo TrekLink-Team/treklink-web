@@ -64,6 +64,8 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
     expect(table().getByRole('button', { name: /Change status of RC-2026-0001$/ })).toBeTruthy();
     expect(table().getByRole('button', { name: /Change status of RC-2026-0002$/ })).toBeTruthy();
     expect(table().queryByRole('button', { name: /Change status of RC-2026-0003$/ })).toBeNull();
+    // Status changes stay per row: no selection to change together (review of treklink-web#350).
+    expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);
   });
 
   it('gives an Org Operator no row action', () => {

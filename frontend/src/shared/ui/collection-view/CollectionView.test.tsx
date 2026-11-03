@@ -356,7 +356,7 @@ describe('CollectionView', () => {
   });
 
   it('offers in the bulk menu only the transitions allowed for every selected item', () => {
-    renderView();
+    renderView({ bulkTransitions: true });
     fireEvent.click(box('TL-0001'));
     fireEvent.click(box('TL-0003'));
     fireEvent.click(screen.getByRole('button', { name: 'Change status. Change status of 2 units' }));
@@ -367,6 +367,14 @@ describe('CollectionView', () => {
     fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'Escape' });
     fireEvent.click(box('TL-0002'));
     expect(screen.queryByRole('button', { name: /Change status of 3 units/ })).toBeNull();
+  });
+
+  it('offers transitions per item only unless the page handles the selection (review of #350)', () => {
+    renderView();
+    fireEvent.click(box('TL-0001'));
+    fireEvent.click(box('TL-0003'));
+    expect(screen.queryByRole('button', { name: /Change status of 2 units/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Change status of TL-0001$/ })).toBeTruthy();
   });
 
   it('keeps one polite live region from the first render and announces the result count', () => {

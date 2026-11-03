@@ -503,13 +503,17 @@ export const OrganizationReviewPage: React.FC = () => {
               )}
               fields={fields}
               noun={{ one: 'organization', other: 'organizations' }}
-              transitions={(item) =>
-                organizationTransitions(item, isAdmin).map((transition) => ({
-                  key: transition.target,
-                  label: transition.label,
-                  destructive: transition.destructive,
-                  onSelect: () => setMoving({ organization: item, transition }),
-                }))
+              // Admin only (organizations api-design 08 to 11): Staff get no Status column.
+              transitions={
+                isAdmin
+                  ? (item) =>
+                      organizationTransitions(item, isAdmin).map((transition) => ({
+                        key: transition.target,
+                        label: transition.label,
+                        destructive: transition.destructive,
+                        onSelect: () => setMoving({ organization: item, transition }),
+                      }))
+                  : undefined
               }
               statusOf={(item) => ORGANIZATION_STATUS[item.status].label}
               search={{ label: 'Search by code, name or tax code', placeholder: 'Code, name or tax code' }}

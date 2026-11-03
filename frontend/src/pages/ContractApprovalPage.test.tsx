@@ -202,6 +202,8 @@ describe('ContractApprovalPage row actions (W29)', () => {
     expect(table().getByRole('button', { name: 'Open counter RC-2026-0006' })).toBeTruthy();
     expect(table().queryByRole('button', { name: /^Open counter RC-2026-000[47]/ })).toBeNull();
     expect(table().queryByRole('button', { name: /Change status of RC-2026-0007/ })).toBeNull();
+    // Status changes stay per row: no selection to change together (review of treklink-web#350).
+    expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);
   });
 
   it('cancels from the status menu with the reason and the loaded version', async () => {
