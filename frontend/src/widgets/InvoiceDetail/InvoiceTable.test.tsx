@@ -22,7 +22,7 @@ const invoice = (overrides: Partial<Invoice>): Invoice => ({
 
 afterEach(cleanup);
 
-describe('InvoiceTable (screen 6.1 on DataTable, W29)', () => {
+describe('InvoiceTable (screen 6.1 on CollectionView, D-096)', () => {
   const setup = (onFilters = vi.fn(), onOpen = vi.fn()) => {
     render(
       <MemoryRouter>
@@ -49,9 +49,12 @@ describe('InvoiceTable (screen 6.1 on DataTable, W29)', () => {
 
   it('sends the status and overdue filters to the server from page 1', () => {
     const { onFilters } = setup();
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'PAID' } });
+    // One Show filter (chapter 06 §9.3): a status or the overdue invoices.
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Paid' }));
     expect(onFilters).toHaveBeenLastCalledWith({ pageNumber: 1, status: 'PAID' });
-    fireEvent.click(screen.getByLabelText('Overdue only'));
+    fireEvent.click(screen.getByRole('button', { name: /^Show: / }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Overdue' }));
     expect(onFilters).toHaveBeenLastCalledWith({ pageNumber: 1, overdue: true });
   });
 });

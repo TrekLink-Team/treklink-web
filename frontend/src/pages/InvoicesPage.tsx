@@ -6,6 +6,7 @@ import { Pagination } from '../shared/ui/DataTable';
 import { LINK } from '../shared/ui/styles';
 import { InvoiceDetailView } from '../widgets/InvoiceDetail/InvoiceDetailView';
 import { InvoiceTable } from '../widgets/InvoiceDetail/InvoiceTable';
+import { pageInfoOf } from '../shared/ui/collection-view';
 
 // The one filter of screen 6.1 that lives outside the table: the contract a contract page linked
 // from, with a way back to every contract. Status and overdue sit in the table's toolbar.
@@ -50,6 +51,7 @@ export const InvoicesPage: React.FC = () => {
         error={error}
         onRetry={() => void refetch()}
         emptyTitle="No invoices yet. Invoices appear when TrekLink approves a contract."
+        pageInfo={pageInfoOf(data)}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination

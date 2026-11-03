@@ -9,18 +9,27 @@ import {
 import { formatDate, formatVnd } from '../../shared/lib/format';
 import { matchesText } from '../../shared/lib/filter';
 import { Badge, ErrorState } from '../../shared/ui/bits';
-import { Button } from '../../shared/ui/Button';
-import { Checkbox, Select } from '../../shared/ui/Field';
-import { DataTable, type Column } from '../../shared/ui/DataTable';
-import { Toolbar, ToolbarSearch } from '../../shared/ui/Toolbar';
+import {
+  CollectionView,
+  type CollectionField,
+  type CollectionPageInfo,
+} from '../../shared/ui/collection-view';
+import { LINK } from '../../shared/ui/styles';
 
 const STATUSES = Object.keys(INVOICE_STATUS_LABELS) as InvoiceStatus[];
+const OVERDUE = 'OVERDUE';
 
-const kindOf = (invoice: Invoice) => (invoice.term ? `Term ${invoice.term.seq}` : invoice.kind.replace('_', ' '));
+const kindOf = (invoice: Invoice) =>
+  invoice.term ? `Term ${invoice.term.seq}` : invoice.kind.replace('_', ' ');
 
-// The invoice list of screen 6.1 on the shared DataTable (W29): status and "overdue only" query the
-// server (billing api-design 08); the search narrows the loaded page by number, organization and
-// contract. The TrekLink view adds the organization column. A row opens through its number button.
+// The Show filter: every invoice, one status, or the overdue ones (billing api-design 08 `status`,
+// `overdue`), one at a time.
+const showOf = (filters: InvoiceFilters) => (filters.overdue ? OVERDUE : (filters.status ?? ''));
+
+// The invoice list of screen 6.1 on CollectionView (chapter 06 §9, D-096): status or overdue in the
+// Show filter query the server (billing api-design 08); the search narrows the loaded page by number,
+// organization and contract. The TrekLink view adds the organization column. The number and Show
+// details open the invoice, the screen's own invoice view.
 export const InvoiceTable: React.FC<{
   invoices: Invoice[] | undefined;
   showOrganization: boolean;
@@ -33,105 +42,123 @@ export const InvoiceTable: React.FC<{
   onRetry?: () => void;
   /** Shown when nothing is filtered and the list is empty. */
   emptyTitle?: string;
+  pageInfo?: CollectionPageInfo;
   footer?: React.ReactNode;
-}> = ({ invoices, showOrganization, filters, onFilters, selectedId, onOpen, loading, error, onRetry, emptyTitle, footer }) => {
+}> = ({
+  invoices,
+  showOrganization,
+  filters,
+  onFilters,
+  selectedId,
+  onOpen,
+  loading,
+  error,
+  onRetry,
+  emptyTitle,
+  pageInfo,
+  footer,
+}) => {
   const [text, setText] = useState('');
-  const filtered = text !== '' || filters.status !== undefined || filters.overdue !== undefined;
-  const clear = () => {
-    setText('');
-    onFilters({ pageNumber: 1, contractId: filters.contractId });
-  };
   const rows = invoices?.filter((invoice) =>
-    matchesText(text, invoice.number, showOrganization ? invoice.organization.code ?? undefined : undefined, invoice.contract.code ?? undefined),
+    matchesText(
+      text,
+      invoice.number,
+      showOrganization ? (invoice.organization.code ?? undefined) : undefined,
+      invoice.contract.code ?? undefined,
+    ),
   );
 
-  const columns: Column<Invoice>[] = [
-    { key: 'number', header: 'Number', cell: (invoice) => invoice.number },
+  const fields: CollectionField<Invoice>[] = [
     ...(showOrganization
-      ? [{ key: 'organization', header: 'Organization', cell: (invoice: Invoice) => invoice.organization.code }]
+      ? [
+          {
+            key: 'organization',
+            label: 'Organization',
+            render: (invoice: Invoice) => invoice.organization.code,
+            compact: true,
+          },
+        ]
       : []),
-    { key: 'contract', header: 'Contract', cell: (invoice) => invoice.contract.code },
-    { key: 'kind', header: 'Kind', cell: kindOf, hideOnMobile: true },
+    {
+      key: 'contract',
+      label: 'Contract',
+      render: (invoice) => invoice.contract.code,
+      compact: true,
+    },
+    { key: 'kind', label: 'Kind', render: kindOf, hideWithPane: true },
     {
       key: 'status',
-      header: 'Status',
-      cell: (invoice) => <Badge tone={INVOICE_TONES[invoice.status]}>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>,
+      label: 'Status',
+      render: (invoice) => (
+        <Badge tone={INVOICE_TONES[invoice.status]}>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>
+      ),
+      compact: true,
     },
-    { key: 'total', header: 'Total', align: 'end', cell: (invoice) => formatVnd(invoice.totalVnd) },
-    { key: 'paid', header: 'Paid', align: 'end', cell: (invoice) => formatVnd(invoice.paidVnd) },
-    { key: 'issued', header: 'Issued', cell: (invoice) => formatDate(invoice.issuedAt), hideOnMobile: true },
+    {
+      key: 'total',
+      label: 'Total',
+      align: 'end',
+      render: (invoice) => formatVnd(invoice.totalVnd),
+      compact: true,
+    },
+    { key: 'paid', label: 'Paid', align: 'end', render: (invoice) => formatVnd(invoice.paidVnd) },
+    {
+      key: 'issued',
+      label: 'Issued',
+      render: (invoice) => formatDate(invoice.issuedAt),
+      hideWithPane: true,
+    },
   ];
 
   return (
-    <>
-      <Toolbar
-        label="Invoice filters"
-        start={
-          <>
-            <ToolbarSearch
-              id="invoice-search"
-              label={showOrganization ? 'Search by number, organization or contract' : 'Search by number or contract'}
-              placeholder={showOrganization ? 'Number, organization or contract' : 'Number or contract'}
-              value={text}
-              onChange={setText}
-            />
-            <span className="w-44">
-              <Select
-                aria-label="Status"
-                value={filters.status ?? ''}
-                onChange={(event) =>
-                  onFilters({ ...filters, status: (event.target.value || undefined) as InvoiceStatus | undefined, pageNumber: 1 })
-                }
-              >
-                <option value="">Every status</option>
-                {STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {INVOICE_STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </Select>
-            </span>
-            <Checkbox
-              label="Overdue only"
-              checked={filters.overdue === true}
-              onChange={(event) => onFilters({ ...filters, overdue: event.target.checked || undefined, pageNumber: 1 })}
-            />
-            {filtered && (
-              <Button variant="ghost" onClick={clear}>
-                Clear filters
-              </Button>
-            )}
-          </>
-        }
-      />
-      <DataTable<Invoice>
-        caption="Invoices"
-        columns={columns}
-        rows={rows}
-        rowId={(invoice) => invoice.id}
-        rowLabel={(invoice) => invoice.number}
-        loading={loading}
-        error={error ? <ErrorState error={error} onRetry={onRetry} /> : undefined}
-        empty={
-          filtered
-            ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
-            : { title: emptyTitle ?? 'No invoices yet.' }
-        }
-        activeRowId={selectedId ?? undefined}
-        onRowActivate={onOpen}
-        renderCard={(invoice) => (
-          <button type="button" onClick={() => onOpen(invoice)} className="w-full text-left">
-            <span className="flex justify-between">
-              <span className="font-semibold">{invoice.number}</span>
-              <Badge tone={INVOICE_TONES[invoice.status]}>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>
-            </span>
-            <span className="block text-sm text-ink-muted">
-              {invoice.contract.code}, {formatVnd(invoice.totalVnd)}, paid {formatVnd(invoice.paidVnd)}
-            </span>
-          </button>
-        )}
-        footer={footer}
-      />
-    </>
+    <CollectionView<Invoice>
+      label="Invoices"
+      items={rows}
+      loading={loading}
+      error={error ? <ErrorState error={error} onRetry={onRetry} /> : undefined}
+      itemId={(invoice) => invoice.id}
+      itemName={(invoice) => invoice.number}
+      itemTitle={(invoice) => (
+        <button
+          type="button"
+          aria-pressed={selectedId !== undefined ? selectedId === invoice.id : undefined}
+          onClick={() => onOpen(invoice)}
+          className={`${LINK} inline-flex min-h-6 items-center`}
+        >
+          {invoice.number}
+        </button>
+      )}
+      fields={fields}
+      noun={{ one: 'invoice', other: 'invoices' }}
+      search={{
+        label: showOrganization
+          ? 'Search by number, organization or contract'
+          : 'Search by number or contract',
+        placeholder: showOrganization ? 'Number, organization or contract' : 'Number or contract',
+      }}
+      filters={[
+        { key: '', label: 'Every status' },
+        ...STATUSES.map((status) => ({ key: status, label: INVOICE_STATUS_LABELS[status] })),
+        { key: OVERDUE, label: 'Overdue' },
+      ]}
+      query={{ search: text, filter: showOf(filters), sort: null }}
+      onQueryChange={(next) => {
+        setText(next.search);
+        if (next.filter === showOf(filters)) return;
+        onFilters({
+          pageNumber: 1,
+          contractId: filters.contractId,
+          ...(next.filter === OVERDUE
+            ? { overdue: true }
+            : next.filter
+              ? { status: next.filter as InvoiceStatus }
+              : {}),
+        });
+      }}
+      pageInfo={pageInfo}
+      onShowDetails={onOpen}
+      emptyState={{ title: emptyTitle ?? 'No invoices yet.' }}
+      footer={footer}
+    />
   );
 };
