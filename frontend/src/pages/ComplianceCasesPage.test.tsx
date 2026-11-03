@@ -80,6 +80,22 @@ describe('ComplianceCasesPage (screen 3.6)', () => {
     expect(screen.getByText('1 case')).toBeTruthy();
   });
 
+  it('opens a case from its details pane on CollectionView (D-096)', async () => {
+    serve(() => ({
+      items: [theCase(), theCase({ id: 'case-2', code: 'CMP-0003' }), theCase({ id: 'case-3', code: 'CMP-0004' })],
+      pageNumber: 1,
+      pageSize: 20,
+      totalCount: 3,
+      totalPages: 1,
+    }));
+    renderPage();
+    await screen.findByRole('table', { name: 'Compliance cases' });
+    expect(screen.getByRole('group', { name: 'Compliance cases: commands' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of CMP-0003' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Open the case' }));
+    expect(await screen.findByText('case detail page')).toBeTruthy();
+  });
+
   it('shows the empty state for a tab with no case', async () => {
     serve(() => ({ items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 }));
     renderPage();

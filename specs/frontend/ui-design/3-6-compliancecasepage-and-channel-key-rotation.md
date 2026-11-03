@@ -142,3 +142,11 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: no event, the query keys and the invalidation are stated
 - [x] Traceability: UC-63, UC-60, FR-ORG-07, FR-ORG-08, FR-ORG-09, FR-DEV-13, US-UC63
 - [x] One primary action per screen; status is text as well as colour (§8 items 1 and 3)
+
+## Case list on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The case list of `/t/compliance-cases` renders through `CollectionView` (chapter 06 §9)
+under the Open, Closed and All tabs, which stay because the server filters by status (open point 2). The
+code links to the case page and is each case's title; the organization, type and status stay beside it
+when the details pane is open, and the pane links to the case page. The 360 px cards of the 360 px layout
+are the collection's list view.

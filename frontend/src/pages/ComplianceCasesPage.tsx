@@ -14,21 +14,22 @@ import {
 import { CaseStatusBadge, CaseTypeBadge } from '../entities/organization/complianceCaseUi';
 import { useOrganizations } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
-import { formatDate, formatDateTime } from '../shared/lib/format';
+import { formatDateTime } from '../shared/lib/format';
 import {
   Alert,
   Button,
-  DataTable,
+  CollectionView,
   Dialog,
   Field,
   PageHeader,
   Pagination,
+  pageInfoOf,
   Select,
   TabPanel,
   Tabs,
   Textarea,
   useToast,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
@@ -164,8 +165,8 @@ const OpenCaseDialog: React.FC<{
   );
 };
 
-// /t/compliance-cases, screen 3.6 (organizations api-design 28 and 29; UC-63). TrekLink Staff and
-// Admin list the cases by status and open a new one.
+// /t/compliance-cases, screen 3.6 (organizations api-design 28 and 29; UC-63) on CollectionView
+// (chapter 06 §9, D-096). TrekLink Staff and Admin list the cases by status tab and open a new one.
 export const ComplianceCasesPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -175,22 +176,25 @@ export const ComplianceCasesPage: React.FC = () => {
   const [opening, setOpening] = useState(false);
   const cases = useComplianceCases(tab === 'ALL' ? undefined : tab, pageNumber);
 
-  const columns: Column<ComplianceCase>[] = [
+  const fields: CollectionField<ComplianceCase>[] = [
     {
-      key: 'code',
-      header: 'Code',
-      cell: (item) => (
-        <Link to={`/t/compliance-cases/${item.id}`} className={`${LINK} font-mono`}>
-          {item.code}
-        </Link>
-      ),
+      key: 'organization',
+      label: 'Organization',
+      render: (item) => <span className="font-mono">{item.organization.code}</span>,
+      text: (item) => item.organization.code,
+      compact: true,
     },
-    { key: 'organization', header: 'Organization', cell: (item) => <span className="font-mono">{item.organization.code}</span> },
-    { key: 'type', header: 'Type', cell: (item) => <CaseTypeBadge type={item.type} /> },
-    { key: 'evidence', header: 'Evidence', cell: (item) => item.evidence, truncate: (item) => item.evidence },
-    { key: 'linked', header: 'Linked', cell: linkedText },
-    { key: 'opened', header: 'Opened', cell: (item) => <span className="whitespace-nowrap">{formatDateTime(item.openedAt)}</span> },
-    { key: 'status', header: 'Status', cell: (item) => <CaseStatusBadge status={item.status} /> },
+    { key: 'type', label: 'Type', render: (item) => <CaseTypeBadge type={item.type} />, text: (item) => CASE_TYPE_LABEL[item.type], compact: true },
+    { key: 'evidence', label: 'Evidence', render: (item) => <span className="line-clamp-2">{item.evidence}</span>, text: (item) => item.evidence, hideWithPane: true },
+    { key: 'linked', label: 'Linked', render: linkedText, hideWithPane: true },
+    {
+      key: 'opened',
+      label: 'Opened',
+      render: (item) => <span className="whitespace-nowrap">{formatDateTime(item.openedAt)}</span>,
+      text: (item) => item.openedAt,
+      hideWithPane: true,
+    },
+    { key: 'status', label: 'Status', render: (item) => <CaseStatusBadge status={item.status} />, compact: true },
   ];
 
   const openButton = (
@@ -219,27 +223,24 @@ export const ComplianceCasesPage: React.FC = () => {
         className="mb-4"
       />
       <TabPanel idPrefix="cases" tabKey={tab}>
-        <DataTable
-          caption="Compliance cases"
-          columns={columns}
-          rows={cases.data?.items}
-          rowId={(item) => item.id}
+        <CollectionView<ComplianceCase>
+          label="Compliance cases"
+          items={cases.data?.items}
           loading={cases.isLoading}
           error={cases.error ? <ErrorState error={cases.error} onRetry={() => void cases.refetch()} /> : undefined}
-          empty={{ title: 'No compliance cases here.' }}
-          renderCard={(item) => (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <Link to={`/t/compliance-cases/${item.id}`} className={`${LINK} font-mono`}>
-                  {item.code}
-                </Link>
-                <CaseStatusBadge status={item.status} />
-              </div>
-              <p className="font-mono text-body-sm text-ink">{item.organization.code}</p>
-              <CaseTypeBadge type={item.type} />
-              <p className="text-body-sm text-ink-muted">Opened {formatDate(item.openedAt)}</p>
-            </div>
+          itemId={(item) => item.id}
+          itemName={(item) => item.code}
+          itemTitle={(item) => (
+            <Link to={`/t/compliance-cases/${item.id}`} className={`${LINK} inline-flex min-h-6 items-center font-mono`}>
+              {item.code}
+            </Link>
           )}
+          fields={fields}
+          noun={{ one: 'case', other: 'cases' }}
+          pageInfo={pageInfoOf(cases.data)}
+          details={{ href: (item) => `/t/compliance-cases/${item.id}`, hrefLabel: 'Open the case' }}
+          emptyState={{ title: 'No compliance cases here.' }}
+          resetKey={tab}
           footer={
             cases.data && cases.data.totalPages > 1 ? (
               <Pagination
