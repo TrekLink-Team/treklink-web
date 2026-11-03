@@ -18,7 +18,11 @@ import {
   type DeviceCheck,
 } from '../entities/contract/api';
 import { organizationKeys, useMembers, useOrganization } from '../entities/organization/api';
+import type { DockStage } from '../features/dock-device/DockingService';
+import { handoverDockMessage } from '../features/dock-device/messages';
+import { useDocking } from '../features/dock-device/useDocking';
 import { ApiError } from '../shared/api/apiClient';
+import { toNodeId } from '../shared/lib/meshtastic-dock';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
@@ -64,6 +68,16 @@ const batteryOf = (value: string): number | null => {
 };
 
 const BATTERY_RULE = 'Enter the battery as a whole number from 0 to 100.';
+
+// What a row shows while it docks (screen 5.4, "Docking in progress").
+const DOCK_STAGE_TEXT: Record<DockStage, string> = {
+  reading: 'Reading the unit…',
+  'getting-key': 'Getting the key…',
+  writing: 'Writing settings…',
+  restarting: 'Restarting the unit…',
+  reconnect: 'The browser dropped the unit while it restarted. Reconnect it to check the settings.',
+  checking: 'Checking the unit…',
+};
 
 // The swap dialog of step 1 (rentals api-design 07): the reason is required; with no spare unit the
 // handover is held (MSG11, E01-5).
@@ -230,6 +244,7 @@ export const CounterPage: React.FC<{
       .at(0)?.id ?? null;
   const firstInvoice = useInvoice(firstInvoiceId);
   const variantName = useVariantName();
+  const docking = useDocking();
 
   const [today] = useState(() => new Date(Date.now() + ZONE_OFFSET_MS).toISOString().slice(0, 10));
   const [step, setStep] = useState(0);
@@ -337,16 +352,28 @@ export const CounterPage: React.FC<{
     setScan('');
   };
 
-  // Records one unit and says whether the server took it; a refusal stays on the row.
-  const recordOne = async (device: ContractDevice): Promise<boolean> => {
-    if (keyVersion === undefined) return false;
+  // Records one unit and says whether the server took it; a refusal stays on the row. A docked unit
+  // sends the version it was written with and its nodeNum (rentals api-design 09, devices design 8.4
+  // step 5); the manual record sends the organization's current version only.
+  const recordOne = async (
+    device: ContractDevice,
+    docked?: { keyVersion: number; nodeNum: number },
+  ): Promise<boolean> => {
+    if (keyVersion === undefined && !docked) return false;
     try {
-      const result = await recordProvisioning(data.id, device.deviceId, keyVersion);
+      const result = docked
+        ? await recordProvisioning(data.id, device.deviceId, docked.keyVersion, docked.nodeNum)
+        : await recordProvisioning(data.id, device.deviceId, keyVersion as number);
       setProvisioned((current) => ({ ...current, [device.deviceId]: result.keyVersion }));
       setRowError(device.deviceId, null);
       return true;
     } catch (failure) {
-      if (failure instanceof ApiError && failure.errorCode === 'KEY_VERSION_MISMATCH') {
+      if (docked && failure instanceof ApiError && failure.errorCode === 'NODE_MISMATCH') {
+        setRowError(
+          device.deviceId,
+          `The docked unit is ${toNodeId(docked.nodeNum)}, not ${tagOf(device)}. Nothing was recorded.`,
+        );
+      } else if (failure instanceof ApiError && failure.errorCode === 'KEY_VERSION_MISMATCH') {
         void queryClient.invalidateQueries({
           queryKey: organizationKeys.detail(data.organization?.id ?? ''),
         });
@@ -365,6 +392,29 @@ export const CounterPage: React.FC<{
     setBusyRow(device.deviceId);
     try {
       await recordOne(device);
+    } finally {
+      setBusyRow(null);
+    }
+  };
+
+  // Dock and provision (screen 5.4, devices design 8.4): the docking writes and reads back the unit,
+  // then the record follows. A failed docking records nothing and names the failed step.
+  const dockOne = async (device: ContractDevice) => {
+    setRowError(device.deviceId, null);
+    const docked = await docking.dockAndProvision({
+      contractId: data.id,
+      deviceId: device.deviceId,
+      assetTag: tagOf(device),
+      nodeNum: device.nodeNum,
+    });
+    if (!docked.ok) {
+      const message = handoverDockMessage(docked, tagOf(device));
+      if (message) setRowError(device.deviceId, message);
+      return;
+    }
+    setBusyRow(device.deviceId);
+    try {
+      await recordOne(device, { keyVersion: docked.keyVersion, nodeNum: docked.nodeNum });
     } finally {
       setBusyRow(null);
     }
@@ -744,9 +794,14 @@ export const CounterPage: React.FC<{
                 </p>
               </form>
 
+            {!docking.supported && (
+              <div role="status" className={WARNING}>
+                Docking needs Chrome or Edge on a desktop. Open this page there to provision units.
+              </div>
+            )}
               <p className="text-sm text-ink-muted">
-                Write channel key version {keyVersion ?? '…'} to each unit, then record it, read the
-                battery and check the GPS fix.
+              Dock each unit to write channel key version {keyVersion ?? '…'} and record it, or
+              record it manually; then read the battery and check the GPS fix.
               </p>
               {organization.error && <ErrorState error={organization.error} />}
 
@@ -779,6 +834,7 @@ export const CounterPage: React.FC<{
                       selectedIds.length === 0 ||
                       bulkRunning ||
                       busyRow !== null ||
+                    docking.busy ||
                       keyVersion === undefined
                     }
                     onClick={() => void provisionSelected()}
@@ -844,6 +900,8 @@ export const CounterPage: React.FC<{
                 {devices.map((device) => {
                   const check = checkOf(device.deviceId);
                   const error = rowErrors[device.deviceId];
+                const dockingThis = docking.state.target === device.deviceId;
+                const stage = dockingThis ? docking.state.stage : null;
                   return (
                     <li
                       key={device.deviceId}
@@ -855,7 +913,7 @@ export const CounterPage: React.FC<{
                             : 'border-line'
                       }`}
                     >
-                      <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_auto_120px_auto_auto]">
+                    <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_auto_auto_120px_auto_auto]">
                         <label className="flex h-11 items-center">
                           <input
                             type="checkbox"
@@ -879,7 +937,7 @@ export const CounterPage: React.FC<{
                                 type="button"
                                 className={`${LINK} font-semibold`}
                                 aria-label={`Undo provisioning of ${tagOf(device)}`}
-                                disabled={busyRow !== null || bulkRunning}
+                              disabled={busyRow !== null || bulkRunning || docking.busy}
                                 onClick={() => setUndoing(device)}
                               >
                                 Undo
@@ -889,9 +947,27 @@ export const CounterPage: React.FC<{
                         </div>
                         <button
                           type="button"
+                        className={PRIMARY_BUTTON}
+                        aria-describedby={dockingThis ? `dock-status-${device.deviceId}` : undefined}
+                        disabled={
+                          !docking.supported ||
+                          docking.busy ||
+                          busyRow !== null ||
+                          bulkRunning ||
+                          keyVersion === undefined
+                        }
+                        onClick={() => void dockOne(device)}
+                      >
+                        {dockingThis ? 'Docking…' : 'Dock and provision'}
+                      </button>
+                      <button
+                        type="button"
                           className={SECONDARY_BUTTON}
                           disabled={
-                            busyRow === device.deviceId || bulkRunning || keyVersion === undefined
+                          busyRow === device.deviceId ||
+                          dockingThis ||
+                          bulkRunning ||
+                          keyVersion === undefined
                           }
                           onClick={() => void provision(device)}
                         >
@@ -937,6 +1013,29 @@ export const CounterPage: React.FC<{
                           Swap
                         </button>
                       </div>
+                    {stage && (
+                      <div
+                        id={`dock-status-${device.deviceId}`}
+                        role="status"
+                        className="mt-2 flex flex-wrap items-center gap-3 text-sm text-ink"
+                      >
+                        <span>{DOCK_STAGE_TEXT[stage]}</span>
+                        {stage === 'reconnect' && (
+                          <>
+                            <button
+                              type="button"
+                              className={SECONDARY_BUTTON}
+                              onClick={() => void docking.reconnect()}
+                            >
+                              Reconnect
+                            </button>
+                            <button type="button" className={LINK} onClick={docking.giveUp}>
+                              Stop
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                       {error && (
                         <p role="alert" className="mt-2 text-sm text-status-critical-fg">
                           {error}

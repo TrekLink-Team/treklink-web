@@ -11,6 +11,19 @@ const registerDevice = vi.fn();
 const retireDevice = vi.fn();
 const recordReset = vi.fn();
 
+// The docking hook is the feature's (tested in features/dock-device); the page test drives its answers.
+const docking = vi.hoisted(() => ({
+  supported: true,
+  busy: false,
+  state: { target: null, stage: null },
+  readUnit: vi.fn(),
+  dockAndProvision: vi.fn(),
+  configureUplink: vi.fn(),
+  reconnect: vi.fn(),
+  giveUp: vi.fn(),
+}));
+vi.mock('../features/dock-device/useDocking', () => ({ useDocking: () => docking }));
+
 let roles = ['STAFF'];
 vi.mock('../app/providers/useAuth', () => ({ useAuth: () => ({ user: { roles } }) }));
 
@@ -98,6 +111,8 @@ const renderPage = (path = '/t/fleet') =>
 const lastStatus = () => seenFilters[seenFilters.length - 1]?.status;
 
 beforeEach(() => {
+  docking.supported = true;
+  docking.readUnit.mockReset();
   registerDevice.mockReset();
   devices = [device()];
   seenFilters.length = 0;
@@ -403,5 +418,73 @@ describe('FleetPage row actions and bulk (W29, UI standard §2 and §3)', () => 
     for (const step of ['Key removed', 'Node database cleared', 'Owner cleared']) fireEvent.click(confirm.getByLabelText(step));
     fireEvent.click(confirm.getByRole('button', { name: 'Record reset for 1 device' }));
     await waitFor(() => expect(recordReset).toHaveBeenCalledWith('d-3'));
+  });
+});
+
+describe('FleetPage Register panel, Read from unit (devices design 8.3, D-080)', () => {
+  const openRegister = async () => {
+    renderPage();
+    await screen.findByRole('table');
+    fireEvent.click(screen.getByRole('button', { name: 'Register device' }));
+    return within(screen.getByRole('dialog'));
+  };
+  const reading = (change: Record<string, unknown> = {}) => ({
+    ok: true,
+    unit: {
+      nodeNum: 2763113172,
+      nodeId: '!a4b1c2d4',
+      pioEnv: 'treklink-v3-tbeam',
+      firmwareVersion: '2.7.19.a4aa98d',
+      longName: 'Meshtastic c2d4',
+      shortName: 'c2d4',
+      ...change,
+    },
+  });
+
+  it('fills the node number and the variant, keeps the baseline and shows the reported firmware', async () => {
+    docking.readUnit.mockResolvedValue(reading());
+    const dialog = await openRegister();
+    fireEvent.click(dialog.getByRole('button', { name: 'Read from unit' }));
+    await waitFor(() =>
+      expect((dialog.getByLabelText(/Node number/) as HTMLInputElement).value).toBe('2763113172'),
+    );
+    expect((dialog.getByLabelText(/Hardware variant/) as HTMLSelectElement).value).toBe('v-3');
+    expect((dialog.getByLabelText(/Firmware version/) as HTMLInputElement).value).toBe(
+      '2.7.19-treklink.3',
+    );
+    expect(dialog.getByText('The unit reports 2.7.19.a4aa98d.')).toBeTruthy();
+    expect(dialog.queryByRole('status')).toBeNull();
+  });
+
+  it('warns when the reported build differs from the baseline', async () => {
+    docking.readUnit.mockResolvedValue(reading({ firmwareVersion: '2.7.26.a4aa98d' }));
+    const dialog = await openRegister();
+    fireEvent.click(dialog.getByRole('button', { name: 'Read from unit' }));
+    expect((await dialog.findByRole('status')).textContent).toBe('The unit reports 2.7.26.a4aa98d.');
+  });
+
+  it('keeps the fields and says what to check when the unit does not answer', async () => {
+    docking.readUnit.mockResolvedValue({ ok: false, failure: 'dock', reason: 'busy' });
+    const dialog = await openRegister();
+    fireEvent.click(dialog.getByRole('button', { name: 'Read from unit' }));
+    expect(
+      await dialog.findByText(
+        'The unit did not answer. Check the cable, close other Meshtastic apps and try again.',
+      ),
+    ).toBeTruthy();
+    expect((dialog.getByLabelText(/Node number/) as HTMLInputElement).value).toBe('');
+  });
+
+  it('disables Read from unit without Web Serial and leaves typing open', async () => {
+    docking.supported = false;
+    const dialog = await openRegister();
+    expect((dialog.getByRole('button', { name: 'Read from unit' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(
+      dialog.getByText(
+        'Reading from a unit needs Chrome or Edge on a desktop. You can type the node number.',
+      ),
+    ).toBeTruthy();
   });
 });
