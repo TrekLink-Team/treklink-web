@@ -13,6 +13,7 @@ import { isReportable } from '../entities/incident/authorityReports';
 import { StateBadges } from '../entities/incident/ui';
 import { AuthorityReportsPanel, ReportDialog } from '../widgets/AuthorityReports/AuthorityReports';
 import { StaffFalseAlarmDialog } from '../widgets/IncidentActions/StaffFalseAlarmDialog';
+import { IncidentEpisode } from '../widgets/IncidentHistory/IncidentEpisode';
 import { useSession } from '../entities/session/model';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { ApiError } from '../shared/api/apiClient';
@@ -91,6 +92,7 @@ const StaffIncidentDetail: React.FC<{
             : 'Position unavailable'}
         </Fact>
       </dl>
+      <IncidentEpisode incidentId={incident.id} onLostAccess={refetch} />
       <div className="flex flex-wrap gap-3">
         {incident.contractId && (
           <Link to={`/t/contracts/${incident.contractId}`} className={LINK}>
