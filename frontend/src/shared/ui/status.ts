@@ -201,15 +201,17 @@ export const CONFIDENCE_LABEL: Record<IncidentConfidence, string> = {
 };
 
 /** Live device marker states of the map (shared/ui/map). */
-export type MarkerState = 'fresh' | 'attention' | 'stale' | 'unheard' | 'sos';
+export type MarkerState = 'fresh' | 'attention' | 'stale' | 'unheard' | 'docked' | 'sos';
 
 // `stale` is the offline marker of D-092 rule 2: heard during the contract, silent past the threshold.
-// `unheard` is a unit not heard since its handover, pinned at the counter (MSG41).
+// `unheard` is a unit not heard since its handover, pinned at the counter (MSG41). `docked` is a unit the
+// Staff browser holds at the counter (devices design section 11.8), on the Staff map only.
 export const MARKER_LABEL: Record<MarkerState, string> = {
   fresh: 'Live',
   attention: 'Needs attention',
   stale: 'Offline',
   unheard: 'Not heard since handover',
+  docked: 'Docked at the counter',
   sos: 'SOS',
 };
 
