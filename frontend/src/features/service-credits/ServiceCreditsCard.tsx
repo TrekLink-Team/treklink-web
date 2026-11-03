@@ -4,50 +4,72 @@ import {
   useContractServiceCredits,
   type ServiceCredit,
 } from '../../entities/billing/api';
-import { DataTable, SERVICE_CREDIT_STATUS, StatusBadge, type Column } from '../../shared/ui';
+import {
+  CollectionView,
+  SERVICE_CREDIT_STATUS,
+  StatusBadge,
+  type CollectionField,
+} from '../../shared/ui';
 import { ErrorState } from '../../shared/ui/bits';
 import { CARD } from '../../shared/ui/styles';
 import { creditAmount, outageText } from './creditText';
 
+const deviceOf = (credit: ServiceCredit) => credit.assetTag ?? credit.deviceId;
+
+const FIELDS: CollectionField<ServiceCredit>[] = [
+  { key: 'cause', label: 'Cause', render: (credit) => causeLabel(credit.cause), compact: true },
+  { key: 'outage', label: 'Outage', render: outageText, hideWithPane: true },
+  { key: 'amount', label: 'Credit', align: 'end', render: creditAmount, compact: true },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (credit) => <StatusBadge entry={SERVICE_CREDIT_STATUS[credit.status]} />,
+    text: (credit) => SERVICE_CREDIT_STATUS[credit.status].label,
+    compact: true,
+  },
+  {
+    key: 'reason',
+    label: 'Decision reason',
+    render: (credit) => credit.decisionReason ?? 'None',
+    text: (credit) => credit.decisionReason ?? '',
+    hideWithPane: true,
+  },
+];
+
 // The service credits of one contract (screen 6.5, billing api-design 19): on /t/contracts/:id for
-// TrekLink Staff and on /o/contracts/:id for the Org Manager, read only.
+// TrekLink Staff and on /o/contracts/:id for the Org Manager, read only, on CollectionView (chapter 06
+// §9, D-096). Each credit is named by its device and cause.
 export const ServiceCreditsCard: React.FC<{ contractId: string }> = ({ contractId }) => {
   const credits = useContractServiceCredits(contractId, true);
-  const columns: Column<ServiceCredit>[] = [
-    { key: 'device', header: 'Device', cell: (credit) => credit.assetTag ?? credit.deviceId },
-    { key: 'cause', header: 'Cause', cell: (credit) => causeLabel(credit.cause) },
-    { key: 'outage', header: 'Outage', cell: outageText },
-    { key: 'amount', header: 'Credit', align: 'end', cell: creditAmount },
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (credit) => (
-        <span className="flex flex-col gap-1">
-          <StatusBadge entry={SERVICE_CREDIT_STATUS[credit.status]} />
-          {credit.decisionReason && (
-            <span className="text-body-sm text-ink-muted">{credit.decisionReason}</span>
-          )}
-        </span>
-      ),
-    },
-  ];
 
   return (
     <div className={CARD}>
       <h2 className="mb-3 text-lg font-bold text-ink">Service credits</h2>
-      <DataTable
-        caption="Service credits of this contract"
-        columns={columns}
-        rows={credits.data?.items}
-        rowId={(credit) => credit.id}
-        rowLabel={(credit) => `${credit.assetTag ?? credit.deviceId} ${causeLabel(credit.cause)}`}
+      <CollectionView<ServiceCredit>
+        label="Service credits of this contract"
+        items={credits.data?.items}
         loading={credits.isLoading}
         error={
           credits.error ? (
             <ErrorState error={credits.error} onRetry={() => void credits.refetch()} />
           ) : undefined
         }
-        empty={{ title: 'No service credits on this contract.' }}
+        itemId={(credit) => credit.id}
+        itemName={(credit) => `${deviceOf(credit)} ${causeLabel(credit.cause)}`}
+        itemTitle={(credit) => <span className="font-mono text-ink">{deviceOf(credit)}</span>}
+        fields={FIELDS}
+        noun={{ one: 'credit', other: 'credits' }}
+        filters={[
+          { key: 'all', label: 'All statuses' },
+          ...(Object.keys(SERVICE_CREDIT_STATUS) as ServiceCredit['status'][]).map((key) => ({
+            key,
+            label: SERVICE_CREDIT_STATUS[key].label,
+            test: (credit: ServiceCredit) => credit.status === key,
+          })),
+        ]}
+        fitNarrow
+        emptyState={{ title: 'No service credits on this contract.' }}
+        noMatch={{ title: 'No credit has this status.' }}
       />
     </div>
   );
