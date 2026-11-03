@@ -173,11 +173,12 @@
   - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning` and before issuing the key; 409 `NODE_MISMATCH`; derive the key with `crypto.hkdfSync` from `CHANNEL_KEY_MASTER`; audit row without the key; `Cache-Control: no-store`
   - _Requirements: REQ-EVT-26, REQ-ERR-12, REQ-ERR-20, REQ-UBI-03_
   - **Done 2026-11-04** (treklink-web#335): `HandoverService.provision` checks the docked `nodeNum` (409 `NODE_MISMATCH`, manual fallback audited), `issueChannelKey` and `POST /api/contracts/:id/devices/:deviceId/channel-key`, `ChannelKeyService.deriveKey`, `CHANNEL_KEY_MASTER` (required, at least 32 characters; set it in the deployment secret store before this release), `devices[].nodeNum` on rentals 03. The db-spec `channel-key-http.db-spec.ts` runs in CI only
-- [ ] 7.6 Stage A uplink configuration on `DeviceDetailPage` (owner KhoaDD)
+- [x] 7.6 Stage A uplink configuration on `DeviceDetailPage` (owner KhoaDD)
   - **Files**: `frontend/src/features/dock-device/` (`configureUplink`), screen 4.2 action and form, tests beside them
   - **Do**: design §8.8: one edit transaction (network, MQTT module, channel 0 uplink), the restart wait, reconnect prompt and read-back; nothing typed kept after the docking
   - **Test**: fake port: the transaction order, the values kept as read, the read-back mismatch and a unit that does not return
   - _Requirements: REQ-EVT-27, REQ-ERR-15, REQ-UBI-05, AC-18_
+  - **Done 2026-11-03** (KhoaDD under D-078): `ConfigureUplinkDialog` in the feature slice, the action on `DeviceDetailPage` (not `RETIRED` or `DISPOSED`, Web Serial present), field sizes checked in bytes against the firmware's, an amber note when the unit carries no organization key (the constraint of §8.8). The read-back compares the Wi-Fi name and the MQTT fields but not the two passwords, since whether the firmware returns them to a local client was not checked (unverified). Fake-port tests in `meshtastic-dock.test.ts` and `useDocking.test.tsx`, dialog and page tests; no hardware
 
 ## Phase 8: Firmware flash from the maintenance page (design §9)
 

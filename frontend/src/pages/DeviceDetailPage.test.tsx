@@ -105,7 +105,10 @@ beforeEach(() => {
   currentDevice = device();
   historyPages = () => ({ items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  Reflect.deleteProperty(window.navigator, 'serial');
+});
 
 describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
   it('keeps one h1 and a 24 px Back link when the device cannot be read (review of treklink-web#355)', () => {
@@ -463,6 +466,23 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.queryByRole('button', { name: 'Record reset' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Retire' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Dispose' })).toBeNull();
+  });
+
+  it('offers Configure uplink with Web Serial, not for a retired unit, and not without it (design 8.8)', async () => {
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Configure uplink' })).toBeNull();
+    cleanup();
+
+    Object.defineProperty(window.navigator, 'serial', { value: {}, configurable: true });
+    currentDevice = device({ status: 'AVAILABLE', keyVersion: 2 });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Configure uplink' }));
+    expect(screen.getByRole('dialog', { name: 'Configure TL-0042 as an uplink' })).toBeTruthy();
+    cleanup();
+
+    currentDevice = device({ status: 'RETIRED' });
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Configure uplink' })).toBeNull();
   });
 });
 
