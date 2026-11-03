@@ -64,7 +64,6 @@ const renderPage = (search = '') =>
   );
 
 const lastCall = () => calls[calls.length - 1];
-// The table only: the phone card list renders beside it, with its own copy of the text.
 const table = () => within(screen.getByRole('table', { name: 'Sign-in events' }));
 
 beforeEach(() => {
