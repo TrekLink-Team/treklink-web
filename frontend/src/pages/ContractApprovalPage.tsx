@@ -20,17 +20,14 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, ErrorState, Field, PageTitle } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
+import { Store } from 'lucide-react';
 import {
   Alert,
-  Button,
-  DataTable,
+  CollectionView,
   Pagination,
-  Select,
   StateChangeDialog,
-  Toolbar,
-  ToolbarSearch,
-  type Column,
-  type RowAction,
+  type CollectionField,
+  type CollectionTransition,
   type StateTransition,
 } from '../shared/ui';
 import { Dialog } from '../shared/ui/Dialog';
@@ -39,20 +36,12 @@ import { useToast } from '../shared/ui/toastStore';
 import { matchesText } from '../shared/lib/filter';
 import {
   ALERT,
-  CARD,
   DANGER_BUTTON,
   INPUT,
   LINK,
   PRIMARY_BUTTON,
   SECONDARY_BUTTON,
-  TAB,
 } from '../shared/ui/styles';
-
-const TABS: { label: string; status?: ContractStatus }[] = [
-  { label: 'Requested', status: 'REQUESTED' },
-  { label: 'Approved', status: 'APPROVED' },
-  { label: 'All' },
-];
 
 // The appointment field starts on the requested start date at 09:00, the counter's opening hour,
 // in the viewer's local time.
@@ -124,7 +113,12 @@ const RejectDialog: React.FC<{
         }}
       >
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <Field id="reject-reason" label="Reason" error={error} hint="The Manager sees this reason.">
+          <Field
+            id="reject-reason"
+            label="Reason"
+            error={error}
+            hint="The Manager sees this reason."
+          >
             <textarea
               id="reject-reason"
               rows={3}
@@ -205,14 +199,10 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
     }
   };
 
+  // In the queue's details pane (chapter 06 §9.8) the pane holds the heading.
   return (
-    <aside aria-labelledby="panel-title" className={`${CARD} flex h-fit flex-col gap-4`}>
-      <div>
-        <h2 id="panel-title" className="text-lg font-bold text-ink">
-          {contract.code}
-        </h2>
-        <p className="text-sm text-ink-muted">{contract.organization?.legalName}</p>
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-ink-muted">{contract.organization?.legalName}</p>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="font-semibold text-ink-muted">Plan</dt>
@@ -349,14 +339,14 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: () => void }> = ({
           }}
         />
       )}
-    </aside>
+    </div>
   );
 };
 
-// The row actions of screen 5.3 (W29). A request is approved in the side panel, which fixes the
-// handover appointment (rentals api-design 04), so Review opens it; Reject (05) and Cancel (06) need a
-// reason only. Staff and Admin cancel through `contract.operate`. A contract past approval opens at
-// its counter.
+// The moves of screen 5.3 (W29) as status changes (chapter 06 §9.6): a request is approved in the
+// details pane, which fixes the handover appointment (rentals api-design 04); Reject (05) and Cancel
+// (06) need a reason only. Staff and Admin cancel through `contract.operate`. A contract past
+// approval opens at its counter.
 type RowMove = 'REJECTED' | 'CANCELLED';
 
 const MOVES: Record<RowMove, StateTransition<RowMove>> = {
@@ -375,183 +365,196 @@ const MOVES: Record<RowMove, StateTransition<RowMove>> = {
     destructive: true,
     needsReason: true,
     reasonHint: 'The Manager sees this reason.',
-    description: 'The contract ends before handover and its devices go back to AVAILABLE. A holding fee already paid is retained.',
+    description:
+      'The contract ends before handover and its devices go back to AVAILABLE. A holding fee already paid is retained.',
     cancelLabel: 'Keep contract',
     successMessage: 'Contract cancelled.',
   },
 };
 
-const AT_COUNTER: readonly ContractStatus[] = ['APPROVED', 'ACTIVE', 'ENDING', 'RETURN_DUE', 'OVERDUE', 'DEFAULTED', 'RETURNED'];
+const AT_COUNTER: readonly ContractStatus[] = [
+  'APPROVED',
+  'ACTIVE',
+  'ENDING',
+  'RETURN_DUE',
+  'OVERDUE',
+  'DEFAULTED',
+  'RETURNED',
+];
 
-// /t/contracts, screen 5.3: the approval queue with the selected request in a side panel
-// (rentals api-design 02, 04, 05). Devices are chosen by the server.
+const QUEUES: { key: string; label: string; status?: ContractStatus }[] = [
+  { key: 'REQUESTED', label: 'Requested', status: 'REQUESTED' },
+  { key: 'APPROVED', label: 'Approved', status: 'APPROVED' },
+  { key: 'ALL', label: 'All' },
+];
+
+// /t/contracts, screen 5.3: the approval queue on CollectionView (chapter 06 §9, D-096), the queue as
+// its Show filter (rentals api-design 02), and the selected request's decision panel in the details
+// pane (rentals api-design 04, 05, 06). Devices are chosen by the server.
 export const ContractApprovalPage: React.FC = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [moving, setMoving] = useState<{ contract: Contract; move: RowMove } | null>(null);
-  const [tab, setTab] = useState(0);
+  const [queueKey, setQueueKey] = useState('REQUESTED');
   const [pageNumber, setPageNumber] = useState(1);
-  // The selected request stays in the panel after a decision, so the reserved tags stay visible
-  // while the row moves to the Approved tab.
-  const [selected, setSelected] = useState<Contract | null>(null);
-  const status = TABS[tab].status;
+  const [text, setText] = useState('');
+  const status = QUEUES.find((queue) => queue.key === queueKey)?.status;
   const { data, isLoading, error, refetch } = useContracts('t', { status, pageNumber });
   const variantName = useVariantName();
-  const [find, setFind] = useState({ text: '', plan: '' });
-  const clear = () => setFind({ text: '', plan: '' });
-  const filtered = find.text !== '' || find.plan !== '';
-  const rows = data?.items.filter(
-    (contract) =>
-      matchesText(
-        find.text,
-        contract.code,
-        contract.organization?.code,
-        contract.organization?.legalName,
-        variantName(contract.hardwareVariant),
-        contract.hardwareVariant.code,
-      ) && (find.plan === '' || contract.planType === find.plan),
+  // The search reads the current page: code, organization, variant and plan.
+  const rows = data?.items.filter((contract) =>
+    matchesText(
+      text,
+      contract.code,
+      contract.organization?.code,
+      contract.organization?.legalName,
+      variantName(contract.hardwareVariant),
+      contract.hardwareVariant.code,
+      planLabel(contract),
+    ),
   );
 
-  const rowActions = (contract: Contract): RowAction[] => [
+  const transitions = (contract: Contract): CollectionTransition<Contract>[] => [
     ...(contract.status === 'REQUESTED'
       ? [
-          { key: 'review', label: 'Review and approve', onSelect: () => setSelected(contract) },
-          { key: 'reject', label: 'Reject contract', destructive: true, onSelect: () => setMoving({ contract, move: 'REJECTED' }) },
+          {
+            key: 'reject',
+            label: 'Reject contract',
+            destructive: true,
+            onSelect: () => setMoving({ contract, move: 'REJECTED' }),
+          },
         ]
       : []),
-    ...(AT_COUNTER.includes(contract.status)
-      ? [{ key: 'counter', label: 'Open counter', onSelect: () => navigate(`/t/counter/${contract.id}`) }]
-      : []),
     ...(contract.status === 'REQUESTED' || contract.status === 'APPROVED'
-      ? [{ key: 'cancel', label: 'Cancel contract', destructive: true, onSelect: () => setMoving({ contract, move: 'CANCELLED' }) }]
+      ? [
+          {
+            key: 'cancel',
+            label: 'Cancel contract',
+            destructive: true,
+            onSelect: () => setMoving({ contract, move: 'CANCELLED' }),
+          },
+        ]
       : []),
   ];
 
-  const columns: Column<Contract>[] = [
-    { key: 'code', header: 'Contract', cell: (contract) => <span className="whitespace-nowrap">{contract.code}</span> },
-    { key: 'organization', header: 'Organization', cell: (contract) => contract.organization?.code },
-    { key: 'plan', header: 'Plan', cell: (contract) => <span className="whitespace-nowrap">{planLabel(contract)}</span> },
+  const fields: CollectionField<Contract>[] = [
+    {
+      key: 'organization',
+      label: 'Organization',
+      render: (contract) => contract.organization?.code,
+      compact: true,
+    },
+    {
+      key: 'plan',
+      label: 'Plan',
+      render: (contract) => <span className="whitespace-nowrap">{planLabel(contract)}</span>,
+      hideWithPane: true,
+    },
     {
       key: 'variant',
-      header: 'Variant x qty',
-      cell: (contract) => (
+      label: 'Variant x qty',
+      render: (contract) => (
         <span className="whitespace-nowrap">
           {variantName(contract.hardwareVariant)} x {contract.quantity}
         </span>
       ),
+      compact: true,
     },
-    { key: 'start', header: 'Start', cell: (contract) => <span className="whitespace-nowrap">{formatDay(contract.requestedStartDate)}</span>, hideOnMobile: true },
-    { key: 'status', header: 'Status', cell: (contract) => <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge> },
+    {
+      key: 'start',
+      label: 'Start',
+      render: (contract) => (
+        <span className="whitespace-nowrap">{formatDay(contract.requestedStartDate)}</span>
+      ),
+      hideWithPane: true,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (contract) => (
+        <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>
+      ),
+      compact: true,
+    },
   ];
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: contractKeys.all });
-    if (selected)
-      void queryClient.invalidateQueries({ queryKey: contractKeys.detail(selected.id) });
   };
 
-  return (
-    <section aria-labelledby="queue-title">
-      <PageTitle id="queue-title" title="Contracts" />
-      <div role="tablist" aria-label="Queues" className="mb-4 flex gap-2">
-        {TABS.map((item, index) => (
-          <button
-            key={item.label}
-            type="button"
-            role="tab"
-            aria-selected={tab === index}
-            onClick={() => {
-              setTab(index);
-              setPageNumber(1);
-              setSelected(null);
-            }}
-            className={TAB(tab === index)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+  const pageSize = data?.pageSize ?? 20;
 
-      <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
-        <div className="min-w-0">
-          <Toolbar
-            label="Contract filters"
-            start={
-              <>
-                <ToolbarSearch
-                  id="queue-search"
-                  label="Search by contract, organization or variant"
-                  placeholder="Contract, organization or variant"
-                  value={find.text}
-                  onChange={(text) => setFind((current) => ({ ...current, text }))}
-                />
-                <span className="w-40">
-                  <Select aria-label="Plan" value={find.plan} onChange={(event) => setFind((current) => ({ ...current, plan: event.target.value }))}>
-                    <option value="">Every plan</option>
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="DAY">Day plan</option>
-                  </Select>
-                </span>
-                {filtered && (
-                  <Button variant="ghost" onClick={clear}>
-                    Clear filters
-                  </Button>
-                )}
-              </>
-            }
-          />
-          <DataTable<Contract>
-            caption="Contracts"
-            columns={columns}
-            rows={rows}
-            rowId={(contract) => contract.id}
-            rowLabel={(contract) => contract.code}
-            loading={isLoading}
-            error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
-            empty={
-              filtered
-                ? { title: 'No results match your filters.', action: <Button onClick={clear}>Clear filters</Button> }
-                : { title: status === 'REQUESTED' ? 'No contract requests are waiting.' : 'No contracts in this queue.' }
-            }
-            activeRowId={selected?.id}
-            onRowActivate={setSelected}
-            rowActions={rowActions}
-            renderCard={(contract) => (
-              <button type="button" onClick={() => setSelected(contract)} aria-pressed={contract.id === selected?.id} className="flex w-full flex-wrap items-center justify-between gap-2 text-left">
-                <span>
-                  <span className="font-semibold text-ink">{contract.code}</span>
-                  <span className="ml-2 text-sm text-ink-muted">{contract.organization?.code}</span>
-                  <span className="block text-sm text-ink-muted">
-                    {planLabel(contract)}, {variantName(contract.hardwareVariant)} x {contract.quantity}, starts{' '}
-                    {formatDay(contract.requestedStartDate)}
-                  </span>
-                </span>
-                <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>
-              </button>
-            )}
-            footer={
-              data && data.totalPages > 1 ? (
-                <Pagination
-                  pageNumber={data.pageNumber}
-                  totalPages={data.totalPages}
-                  totalItems={data.totalCount}
-                  pageSize={data.pageSize}
-                  onPage={setPageNumber}
-                />
-              ) : undefined
-            }
-          />
-        </div>
-        <div className="xl:sticky xl:top-4">
-          {selected ? (
-            <RequestPanel key={selected.id} contract={selected} onDecided={refresh} />
-          ) : (
-            <div className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-ink-muted">
-              Select a request to see its prices, choose the handover appointment and decide.
-            </div>
-          )}
-        </div>
-      </div>
+  return (
+    <section aria-labelledby="queue-title" className="flex flex-col gap-4">
+      <PageTitle id="queue-title" title="Contracts" />
+      <CollectionView<Contract>
+        label="Contracts"
+        items={rows}
+        loading={isLoading}
+        error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
+        itemId={(contract) => contract.id}
+        itemName={(contract) => contract.code}
+        itemHref={(contract) => `/t/contracts/${contract.id}`}
+        fields={fields}
+        noun={{ one: 'contract', other: 'contracts' }}
+        itemActions={[
+          {
+            key: 'counter',
+            label: 'Open counter',
+            icon: <Store />,
+            allowed: (contract) => AT_COUNTER.includes(contract.status),
+            onSelect: (contract) => navigate(`/t/counter/${contract.id}`),
+          },
+        ]}
+        transitions={transitions}
+        statusOf={(contract) => STATUS_LABELS[contract.status]}
+        search={{
+          label: 'Search by contract, organization, variant or plan',
+          placeholder: 'Contract, organization or variant',
+        }}
+        filters={QUEUES.map((queue) => ({ key: queue.key, label: queue.label }))}
+        query={{ search: text, filter: queueKey, sort: null }}
+        onQueryChange={(next) => {
+          setText(next.search);
+          if (next.filter !== queueKey) {
+            setQueueKey(next.filter);
+            setPageNumber(1);
+          }
+        }}
+        pageInfo={
+          data
+            ? {
+                total: data.totalCount,
+                from: data.totalCount === 0 ? 0 : (data.pageNumber - 1) * pageSize + 1,
+                to: (data.pageNumber - 1) * pageSize + data.items.length,
+              }
+            : undefined
+        }
+        details={{
+          extra: (contract) => (
+            <RequestPanel key={contract.id} contract={contract} onDecided={refresh} />
+          ),
+          href: (contract) => `/t/contracts/${contract.id}`,
+          hrefLabel: 'Open the contract',
+        }}
+        emptyState={{
+          title:
+            status === 'REQUESTED'
+              ? 'No contract requests are waiting.'
+              : 'No contracts in this queue.',
+        }}
+        footer={
+          data && data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={data.pageNumber}
+              totalPages={data.totalPages}
+              totalItems={data.totalCount}
+              pageSize={data.pageSize}
+              onPage={setPageNumber}
+            />
+          ) : undefined
+        }
+      />
       {moving && (
         <StateChangeDialog<RowMove>
           subject={moving.contract.code}
@@ -563,10 +566,7 @@ export const ContractApprovalPage: React.FC = () => {
               : cancelContract(moving.contract.id, reason ?? '', expectedVersion)
           }
           onReload={refresh}
-          onDone={() => {
-            if (selected?.id === moving.contract.id) setSelected(null);
-            refresh();
-          }}
+          onDone={refresh}
           onClose={() => setMoving(null)}
         />
       )}
