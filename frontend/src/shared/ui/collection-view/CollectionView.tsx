@@ -195,7 +195,14 @@ export function CollectionView<T>({
   usePublishedHeight(barNode, '--tl-collection-bar-h');
   useFocusClearOf(barNode, 'top');
 
-  const selectable = bulkActions.length > 0 || transitions !== undefined;
+  // A list of one or two records with nothing to filter, sort or switch hides its command bar
+  // (§9.3); its item actions stay, and with no bar there is nothing to select for.
+  const narrowed =
+    query.search.trim() !== '' || (filters !== undefined && query.filter !== firstFilter);
+  const recordCount = pageInfo?.total ?? items?.length ?? 0;
+  const barHidden =
+    hideCommandBar ?? (items !== undefined && recordCount <= 2 && commands.length === 0 && !narrowed);
+  const selectable = (bulkActions.length > 0 || transitions !== undefined) && !barHidden;
   const showPane = details !== false && onShowDetails === undefined;
   const offersDetails = showPane || onShowDetails !== undefined;
 
@@ -407,10 +414,6 @@ export function CollectionView<T>({
 
   const searching = query.search.trim() !== '';
   const filtered = searching || (filters !== undefined && query.filter !== firstFilter);
-  const itemCount = items?.length ?? 0;
-  const barHidden =
-    hideCommandBar ??
-    (!serverSide && itemCount <= 2 && !filtered && bulkActions.length === 0 && commands.length === 0);
 
   // Bulk transitions: only those allowed for every selected item (§9.6 rule 6).
   const bulkTransitions = (() => {

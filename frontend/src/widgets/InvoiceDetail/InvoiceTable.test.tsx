@@ -27,7 +27,12 @@ describe('InvoiceTable (screen 6.1 on CollectionView, D-096)', () => {
     render(
       <MemoryRouter>
         <InvoiceTable
-          invoices={[invoice({}), invoice({ id: 'i-2', number: 'INV-2026-0002', organization: { id: 'o-2', code: 'ORG-0002' } })]}
+          // Three invoices: one or two would hide the command bar (chapter 06 §9.3).
+          invoices={[
+            invoice({}),
+            invoice({ id: 'i-2', number: 'INV-2026-0002', organization: { id: 'o-2', code: 'ORG-0002' } }),
+            invoice({ id: 'i-3', number: 'INV-2026-0003' }),
+          ]}
           showOrganization
           filters={{ pageNumber: 1 }}
           onFilters={onFilters}

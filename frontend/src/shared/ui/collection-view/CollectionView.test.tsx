@@ -236,6 +236,20 @@ describe('CollectionView', () => {
     expect(live().textContent).toContain(SELECTION_CLEARED);
   });
 
+  it('keeps the command bar of a server page with more records than it shows, and of a narrowed list', () => {
+    renderView({ items: UNITS.slice(0, 2), pageInfo: { total: 57, from: 21, to: 22 }, onQueryChange: vi.fn() });
+    expect(screen.getByRole('group', { name: 'Units of CT-0042: commands' })).toBeTruthy();
+    cleanup();
+    renderView({ items: UNITS.slice(0, 1), query: { search: 'TL-0001', filter: 'all', sort: null }, onQueryChange: vi.fn() });
+    expect(screen.getByRole('group', { name: 'Units of CT-0042: commands' })).toBeTruthy();
+    cleanup();
+    // Two records, nothing narrowed: no bar, no checkboxes, the item actions stay (§9.3).
+    renderView({ items: UNITS.slice(0, 2) });
+    expect(screen.queryByRole('group', { name: 'Units of CT-0042: commands' })).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Edit TL-0002' })).toBeTruthy();
+  });
+
   it("opens the page's own record view from Show details, with no pane toggle", () => {
     const view = vi.fn();
     renderView({ onShowDetails: view });

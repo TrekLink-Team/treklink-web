@@ -186,12 +186,15 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
   });
 
   it('shows each device on one line in the List view, the phone default (chapter 06 §10.5)', async () => {
+    // Three devices: one or two would hide the command bar and its view switch (§9.3).
+    devices = [device(), device({ id: 'd-2', assetTag: 'TL-0043' }), device({ id: 'd-3', assetTag: 'TL-0044' })];
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'View: Details list. Switch to List' }));
     const list = within(screen.getByRole('list', { name: 'Devices' }));
     expect(list.getByText('TL-0042')).toBeTruthy();
-    expect(list.getByText('96%')).toBeTruthy();
-    expect(list.getByText('Available')).toBeTruthy();
+    const first = within(list.getByText('TL-0042').closest('li') as HTMLElement);
+    expect(first.getByText('96%')).toBeTruthy();
+    expect(first.getByText('Available')).toBeTruthy();
   });
 });
 

@@ -65,12 +65,11 @@ export const DepositCard: React.FC<{
             <dd className="text-body text-ink">{deposit.description}</dd>
             <dt className="text-body-sm text-ink-muted">Status</dt>
             <dd>
-              <Badge tone={paid ? 'done' : deposit.paidVnd > 0 ? 'waiting' : 'attention'}>
-                {paid
-                  ? 'Paid'
-                  : deposit.paidVnd > 0
-                    ? `Partly paid, ${formatVnd(deposit.paidVnd)}`
-                    : 'Not paid'}
+              <Badge
+                tone={paid ? 'done' : deposit.paidVnd > 0 ? 'waiting' : 'attention'}
+                after={!paid && deposit.paidVnd > 0 ? `${formatVnd(deposit.paidVnd)} paid` : undefined}
+              >
+                {paid ? 'Paid' : deposit.paidVnd > 0 ? 'Partly paid' : 'Not paid'}
               </Badge>
             </dd>
             {hold && !paid && (

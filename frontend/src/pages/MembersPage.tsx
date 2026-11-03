@@ -54,7 +54,7 @@ const ROLE_LABEL: Record<MemberRole, string> = Object.fromEntries(
 const StatusOf: React.FC<{ member: Member }> = ({ member }) => {
   const status = memberStatus(member);
   if (status === 'Deactivated')
-    return <Badge tone="ended">Deactivated {member.deactivatedAt ? formatDate(member.deactivatedAt) : ''}</Badge>;
+    return <Badge tone="ended" after={member.deactivatedAt ? formatDate(member.deactivatedAt) : undefined}>Deactivated</Badge>;
   return status === 'Invitation pending' ? (
     <Badge tone="waiting">Invitation pending</Badge>
   ) : (

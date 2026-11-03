@@ -39,7 +39,7 @@ const isNotFound = (error: unknown) => error instanceof ApiError && error.errorC
 
 const StatusOf: React.FC<{ apiKey: ApiKey }> = ({ apiKey }) =>
   apiKey.revokedAt ? (
-    <Badge tone="ended">Revoked {formatDateTime(apiKey.revokedAt)}</Badge>
+    <Badge tone="ended" after={formatDateTime(apiKey.revokedAt)}>Revoked</Badge>
   ) : (
     <Badge tone="active">Active</Badge>
   );

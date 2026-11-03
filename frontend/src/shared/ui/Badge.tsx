@@ -19,6 +19,11 @@ export interface BadgeProps {
   glyph?: boolean;
   className?: string;
   children: React.ReactNode;
+  /**
+   * Detail after the badge as muted text ("since 11:20", a date, an amount). The badge itself stays
+   * one or two words (chapter 06 §9, design handoff item 12).
+   */
+  after?: React.ReactNode;
 }
 
 const isTone = (tone: string): tone is StatusTone => Object.hasOwn(TONE_CLASSES, tone);
@@ -28,12 +33,12 @@ const toneOfClass = (classes: string): StatusTone | undefined =>
   (Object.keys(TONE_CLASSES) as StatusTone[]).find((key) => TONE_CLASSES[key] === classes);
 
 /** A small label. For lifecycle states use StatusBadge, which also supplies the text. */
-export const Badge: React.FC<BadgeProps> = ({ tone: given, glyph, className, children }) => {
+export const Badge: React.FC<BadgeProps> = ({ tone: given, glyph, className, children, after }) => {
   const tone = given !== undefined && !isTone(given) ? (toneOfClass(given) ?? given) : given;
   const known = tone !== undefined && isTone(tone);
   const toneClass = known ? TONE_CLASSES[tone] : tone ?? 'border-line bg-sunken font-semibold text-ink';
   const showGlyph = glyph ?? known;
-  return (
+  const badge = (
     <span className={cn(BADGE_BASE, toneClass, className)}>
       {showGlyph && known && (
         <span aria-hidden="true" className="text-[0.7rem] leading-none">
@@ -43,14 +48,25 @@ export const Badge: React.FC<BadgeProps> = ({ tone: given, glyph, className, chi
       <span className="truncate">{children}</span>
     </span>
   );
+  if (after === undefined || after === null || after === '') return badge;
+  return (
+    <span className="inline-flex max-w-full flex-wrap items-baseline gap-x-1.5">
+      {badge}
+      <span className="text-caption text-ink-muted">{after}</span>
+    </span>
+  );
 };
 
 /**
  * The label and colour of a lifecycle state, from a palette of shared/ui/status.ts:
  * `<StatusBadge entry={CONTRACT_STATUS[contract.status]} />`. Never colour alone (§8.3).
  */
-export const StatusBadge: React.FC<{ entry: StatusEntry; className?: string }> = ({ entry, className }) => (
-  <Badge tone={entry.tone} className={className}>
+export const StatusBadge: React.FC<{ entry: StatusEntry; className?: string; after?: React.ReactNode }> = ({
+  entry,
+  className,
+  after,
+}) => (
+  <Badge tone={entry.tone} className={className} after={after}>
     {entry.label}
   </Badge>
 );

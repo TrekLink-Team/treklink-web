@@ -27,6 +27,7 @@ export * from './StateChange';
 export * from './BulkAction';
 export * from './collection-view';
 export * from './ScrollHints';
+export * from './ScrollStrip';
 export * from './useScrollHints';
 export * from './stickyEdges';
 export * from './bulkSequence';
