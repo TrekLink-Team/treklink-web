@@ -7,6 +7,7 @@ import {
   ConnectorAside,
   ConnectorPanelBody,
   useConnectorStore,
+  useDockPresence,
   useStartConnector,
 } from '../../features/device-connector';
 import { isFullBleed, visibleNav } from '../../shared/config/navigation';
@@ -69,6 +70,7 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
   // at a time, so the Info pane yields while it is open (design section 11.12 Q6, decided A).
   const staff = user.accountType === 'TREKLINK';
   useStartConnector(staff);
+  useDockPresence(staff);
   const connectorOpen = useConnectorStore((state) => state.open) && staff;
   const setConnectorOpen = useConnectorStore((state) => state.setOpen);
   const connectorPushed = useMediaQuery('(min-width: 1100px)') && !fullBleed;

@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { recognizeUnits } from '../../../entities/device/api';
+import { endDockSession, openDockSession, recognizeUnits } from '../../../entities/device/api';
+import { DockPresence } from './DockPresence';
 import { connectorRegistry, type ConnectorRegistry, type RegistrySnapshot } from './ConnectorRegistry';
 import { useConnectorStore, type ConnectorContext, type ConnectorFocus } from './connectorStore';
 
@@ -31,3 +32,26 @@ export const useConnectorContext = (context: ConnectorContext | null): void => {
 
 // An entry point opens the connector on its unit and action (REQ-EVT-39).
 export const openConnector = (focus: ConnectorFocus): void => useConnectorStore.getState().openFor(focus);
+
+// The dock session heartbeat behind the Staff map pin (devices design section 11.8, REQ-EVT-36): Staff
+// and Admin only, while the page context is the counter.
+export const useDockPresence = (enabled: boolean): void => {
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const registry = connectorRegistry(recognizeUnits);
+    const presence = new DockPresence({ open: openDockSession, end: endDockSession });
+    const sync = () =>
+      presence.sync(registry.getSnapshot(), useConnectorStore.getState().context?.kind === 'counter');
+    const offRegistry = registry.subscribe(sync);
+    const offStore = useConnectorStore.subscribe(sync);
+    const onPageHide = () => presence.stop(true);
+    window.addEventListener('pagehide', onPageHide);
+    sync();
+    return () => {
+      offRegistry();
+      offStore();
+      window.removeEventListener('pagehide', onPageHide);
+      presence.stop();
+    };
+  }, [enabled]);
+};
