@@ -275,6 +275,9 @@ cleared for `TREKLINK` custody; the Org Manager's list reads `organizationId`.
 | `CHECKLIST_REQUIRED` | 400 |
 | `FIRMWARE_VERSION_REQUIRED` | 400 |
 | `VENDOR_REQUIRED` | 400 |
+| `FIRMWARE_SOURCE_UNAVAILABLE` | 502 |
+| `FIRMWARE_IMAGE_INVALID` | 502 |
+| `FIRMWARE_IMAGE_TOO_LARGE` | 502 |
 
 ---
 
@@ -1036,7 +1039,13 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
   and `devices.firmwareReleaseCacheSeconds` (`300`). An optional `GITHUB_TOKEN` raises the GitHub rate limit;
   the repository is public, so none is needed to read it.
 - Module: `FirmwareReleaseService` and `FirmwareReleasesController` in `devices`, which owns the variants and
-  `firmwareBaseline`; both endpoints need `device.operate` (TrekLink Staff).
+  `firmwareBaseline`. The release list needs `device.read`, the image `device.operate` (TrekLink Staff; Admin
+  inherits both).
+- Size: api-design 29 returns the image as base64 in the D-002 envelope, as rentals api-design 08 returns its
+  PDF. A Vercel Function answers at most 4.5 MB ("The maximum payload size for the request body or the response
+  body of a Vercel Function is 4.5 MB", vercel.com/docs/functions/limitations, read 2026-11-03), so the raw image
+  must stay under 3.3 MB; the service refuses a larger manifest entry with 502 `FIRMWARE_IMAGE_TOO_LARGE`. A
+  4 MB-flash variant's app partition holds 2.42 MB, so only an 8 MB variant's factory image can come near it.
 
 ### 9.2 Flash panel (screen 4.3, on an `OPEN` `FIRMWARE_UPDATE` record)
 
@@ -1047,16 +1056,25 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
 2. Staff press **Flash** and choose the port in the browser's prompt. For a v2 unit the page first says
    "Hold the power button of {assetTag} until the flash finishes; a reset turns a v2 unit off otherwise."
    (bench record 2026-10-29).
-3. The page reads the chip through `esptool-js` (`ESPLoader.main`) with `ClassicReset` for v3 and
-   `UsbJtagSerialReset` for v2 and v4, at 115200 baud for v2, and refuses when the chip does not match the
-   manifest's `chip` for the variant (REQ-ERR-16).
-4. It fetches the image (api-design 29), writes it compressed at the manifest offset, and passes
-   `calculateMD5Hash` so `esptool-js` verifies each region against the chip's `flashMd5sum`; then it resets
-   the unit.
-5. On a verified write the panel fills the record's firmware version with the release version and opens
+3. The page connects through `esptool-js` (`ESPLoader.main("default_reset")`). The library picks the reset
+   from the port: the USB Serial/JTAG reset on the ESP32-S3 native USB (v2, v4), the classic DTR and RTS reset
+   through a USB to UART bridge (v3) (`lib/esploader.js:534-540`). For v2 it sets `baudrate` and `romBaudrate`
+   both to 115200, which skips the port reopen (`lib/types/loaderOptions.d.ts:29-36`).
+4. Two checks before any write (REQ-ERR-16): the chip must match the manifest's `chip` for the variant, and
+   the unit must be this device. The firmware derives the node number from the MAC address, bytes 2 to 5
+   (`treklink-firmware` `src/mesh/NodeDB.cpp:1160`), so the page reads the MAC (`readMac`) and compares the
+   derived number with the device's `nodeNum`. A unit whose node number was re-picked after a collision
+   (`NodeDB.cpp:1162-1171`) fails this check and is flashed on the bench instead. v2 and v4 are both ESP32-S3,
+   so the chip alone cannot tell them apart; the node number does.
+5. It fetches the image (api-design 29, which also returns the image's MD5), writes it compressed at the
+   manifest offset, and passes `calculateMD5Hash` returning that MD5, so `esptool-js` compares each written
+   region with the chip's `flashMd5sum` (`lib/types/flashOptions.d.ts:46-49`, `lib/esploader.d.ts:396`) with no
+   MD5 library in the browser. Then it resets the unit; a v2 unit turns off at the reset unless its power
+   button is still held.
+6. On a verified write the panel fills the record's firmware version with the release version and opens
    Complete (devices api-design 14); Staff complete the record as today. A failed or unverified write
    records nothing and keeps the record `OPEN` (REQ-ERR-17).
-6. When docking is available (§8), the page also reads the unit back after the reset and shows the
+7. When docking is available (§8), the page also reads the unit back after the reset and shows the
    firmware version the unit reports beside the release version.
 
 ### 9.3 Testing

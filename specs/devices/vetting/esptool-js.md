@@ -89,8 +89,8 @@ the GPL-3.0 Meshtastic packages of D-082.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| A write interrupted half way leaves a unit that does not boot | Medium | Medium | The chip's download mode lives in mask ROM, and an app-only write does not touch the second-stage bootloader at `0x0`, so a retry from the page or the bench path recovers the unit. The page writes the app only by default, compressed, and passes `FlashOptions.calculateMD5Hash` so the library compares each region with the chip's `flashMd5sum` after the write (`lib/types/flashOptions.d.ts:39`, `:49`, `lib/esploader.d.ts:396`) |
-| The wrong image for the variant | Low | High | The backend serves an image per variant from a manifest with its SHA-256; the page reads the docked unit's `pio_env` (dock handshake, §8.2 of the devices design) and refuses an image whose variant differs |
+| A write interrupted half way leaves a unit that does not boot | Medium | Medium | The chip's download mode lives in mask ROM, and an app-only write does not touch the second-stage bootloader at `0x0`, so a retry from the page or the bench path recovers the unit. The page writes the app only by default, compressed, and passes `FlashOptions.calculateMD5Hash` (a caller-supplied function; WebCrypto has no MD5, so it returns the MD5 the backend sends with the image) so the library compares each region with the chip's `flashMd5sum` after the write (`lib/types/flashOptions.d.ts:46-49`, `lib/esploader.d.ts:396`) |
+| The wrong image, or the wrong unit | Low | High | The backend serves an image per variant from a manifest with its SHA-256; a unit in download mode cannot report its build environment, so the page compares the chip with the manifest (v2 and v4 are both ESP32-S3) and the node number derived from the MAC (`readMac`, firmware `NodeDB.cpp:1160`) with the device's `nodeNum`, and refuses a mismatch (devices design §9.2) |
 | A full install erases the channel key and owner names | Medium | Medium | Full install is a separate action with its own confirmation, and the device returns to "Not provisioned" in the platform until it is provisioned again |
 | `atob-lite` unmaintained since 2022 | Low | Low | A 2-line base64 helper with no further dependencies; pinned with the library |
 | Library API changes between 0.x versions | Medium | Low | Exact version pin (`0.7.1`); one adapter file wraps it, as `meshtastic-dock.ts` does for the dock |
@@ -108,9 +108,9 @@ images only).
    `treklink-v4-supreme` on a tag and attaches, per variant, the app image, the factory image and a
    manifest with the version, variant, offsets and SHA-256 of each file. Workflow files are edited by the
    leader (token scope).
-2. Spec in `specs/devices/` (design §9, a firmware flash page for Staff): a backend endpoint pair that
-   lists the published versions per variant and streams an image after checking its SHA-256 against the
-   manifest; the page on screen 4.2 (device detail) with Update (app only, default) and Full install;
-   the variant check against the docked unit; recording the new `firmwareVersion` on the device (devices
-   api-design 08) after a verified write.
+2. Spec in `specs/devices/` design §9 (written 2026-11-03 on treklink-web#326): devices api-design 28
+   lists the releases per variant, 29 returns one image as base64 with its MD5 after checking its SHA-256;
+   the flash panel sits on an `OPEN` `FIRMWARE_UPDATE` record (screen 4.3) with Update (app only, default)
+   and Full install; the chip and MAC node-number checks; completing the record (devices api-design 14)
+   writes the new `firmwareVersion`.
 3. Then the build, once the spec is approved.

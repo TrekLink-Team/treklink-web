@@ -50,6 +50,9 @@ PARAMETERS = {
         ("devices.maintenanceLeadDays", 5, "INT", {"min": 0, "max": 30}, "days", "The weekly scan opens a service this long before it falls due, on top of the week to the next run", "FR-DEV-18, D-047"),
         ("devices.maintenanceApprovalThresholdVnd", 1000000, "INT", {"min": 0, "max": 50000000}, "VND", "A maintenance estimate or actual cost above this needs an Admin's approval", "FR-DEV-20, BR-44"),
         ("devices.serviceScanHourLocal", 1, "INT", {"min": 0, "max": 23}, "hour (UTC+7)", "Hour on Monday at which the weekly service scan runs", "FR-DEV-18"),
+        # Devices design §9 (firmware flash, treklink-web#326); the forward migration comes with task 8.2.
+        ("devices.firmwareReleaseRepo", "TrekLink-Team/treklink-firmware", "JSON", None, None, "GitHub repository whose releases carry the TrekLink firmware images and manifest (devices design §9.1)", "FR-DEV-21, D-093"),
+        ("devices.firmwareReleaseCacheSeconds", 300, "INT", {"min": 0, "max": 3600}, "seconds", "How long the release list and manifests are kept before they are read again", "FR-DEV-21"),
     ],
     "rentals": [
         ("rentals.minOrderQuantity", 5, "INT", {"min": 1, "max": 100}, "devices", "Minimum order quantity per contract", "FR-CON-01, BR-02"),

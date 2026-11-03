@@ -15,7 +15,7 @@ Lists the TrekLink firmware releases published in the configured repository (`de
 | --- | --- |
 | GET | /api/firmware-releases |
 | Permission | TrekLink Staff, TrekLink Admin |
-| Traces | UC-65, FR-DEV-21, D-093 |
+| Traces | FR-DEV-21, D-093 |
 
 ### Query parameters
 
