@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { UserPlus, Users } from 'lucide-react';
+import { Mail, UserCog, UserPlus, UserX } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import type { Member } from '../entities/organization/api';
 import {
@@ -20,8 +20,7 @@ import {
   Alert,
   Badge,
   Button,
-  Checkbox,
-  DataTable,
+  CollectionView,
   Dialog,
   Field,
   Input,
@@ -29,7 +28,8 @@ import {
   RadioGroup,
   Select,
   useToast,
-  type Column,
+  type CollectionAction,
+  type CollectionField,
 } from '../shared/ui';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { ErrorState } from '../shared/ui/bits';
@@ -290,8 +290,6 @@ export const MembersPage: React.FC = () => {
   const [changing, setChanging] = useState<Member | null>(null);
   const [deactivating, setDeactivating] = useState<Member | null>(null);
   const [resending, setResending] = useState<string | null>(null);
-  // The phone card whose Actions menu is open (screen 3.3, 360 px layout).
-  const [openCard, setOpenCard] = useState<string | null>(null);
   const [deactivatedOne, setDeactivatedOne] = useState(0);
 
   // After a deactivation the row loses its buttons, so focus moves to the page heading (screen 3.3).
@@ -316,32 +314,34 @@ export const MembersPage: React.FC = () => {
     }
   };
 
-  const rowActions = (member: Member) => {
-    if (member.deactivatedAt) return null;
-    const name = nameOf(member);
-    return (
-      <div className="flex flex-wrap gap-1">
-        {member.invitationPending && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="min-h-11"
-            aria-label={`Resend invitation to ${name}`}
-            loading={resending === member.id}
-            onClick={() => void resend(member)}
-          >
-            Resend invitation
-          </Button>
-        )}
-        <Button variant="ghost" size="sm" className="min-h-11" aria-label={`Change role of ${name}`} onClick={() => setChanging(member)}>
-          Change role
-        </Button>
-        <Button variant="ghost" size="sm" className="min-h-11" aria-label={`Deactivate ${name}`} onClick={() => setDeactivating(member)}>
-          Deactivate
-        </Button>
-      </div>
-    );
-  };
+  // Item actions of an active member (chapter 06 §9.5); a deactivated member has none.
+  const itemActions: CollectionAction<Member>[] = [
+    {
+      key: 'resend',
+      label: 'Resend invitation',
+      icon: <Mail />,
+      allowed: (member) => !member.deactivatedAt && member.invitationPending,
+      accessibleName: (member) => `Resend invitation to ${nameOf(member)}`,
+      unavailableReason: (member) => (resending === member.id ? 'Sending the invitation' : undefined),
+      onSelect: (member) => void resend(member),
+    },
+    {
+      key: 'role',
+      label: 'Change role',
+      icon: <UserCog />,
+      allowed: (member) => !member.deactivatedAt,
+      accessibleName: (member) => `Change role of ${nameOf(member)}`,
+      onSelect: setChanging,
+    },
+    {
+      key: 'deactivate',
+      label: 'Deactivate',
+      icon: <UserX />,
+      destructive: true,
+      allowed: (member) => !member.deactivatedAt,
+      onSelect: setDeactivating,
+    },
+  ];
 
   const nameCell = (member: Member) => (
     <span className="flex flex-col">
@@ -353,10 +353,9 @@ export const MembersPage: React.FC = () => {
     </span>
   );
 
-  const columns: Column<Member>[] = [
-    { key: 'name', header: 'Member', cell: nameCell },
-    { key: 'role', header: 'Role', cell: (row) => <Badge>{ROLE_LABEL[row.role]}</Badge>, width: '8rem' },
-    { key: 'status', header: 'Status', cell: (row) => <StatusOf member={row} /> },
+  const fields: CollectionField<Member>[] = [
+    { key: 'role', label: 'Role', render: (row) => <Badge>{ROLE_LABEL[row.role]}</Badge>, compact: true },
+    { key: 'status', label: 'Status', render: (row) => <StatusOf member={row} />, compact: true },
   ];
 
   const count = members.data?.length;
@@ -375,47 +374,26 @@ export const MembersPage: React.FC = () => {
         }
       />
 
-      <Checkbox
-        label="Show deactivated"
-        checked={includeDeactivated}
-        onChange={(event) => setIncludeDeactivated(event.target.checked)}
-        className="mb-2"
-      />
-
-      <DataTable<Member>
-        caption="Members"
-        columns={columns}
-        rows={members.data}
-        rowId={(row) => row.id}
+      <CollectionView<Member>
+        label="Members"
+        items={members.data}
         loading={members.isLoading}
         error={members.error ? <ErrorState error={members.error} onRetry={() => void members.refetch()} /> : undefined}
-        empty={{ title: 'No members', description: 'Invite a member to get started.', icon: <Users /> }}
-        rowActions={rowActions}
-        renderCard={(row) => (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {nameCell(row)}
-              <Badge>{ROLE_LABEL[row.role]}</Badge>
-            </div>
-            <StatusOf member={row} />
-            {!row.deactivatedAt && (
-              <div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="min-h-11"
-                  aria-expanded={openCard === row.id}
-                  aria-controls={`member-actions-${row.id}`}
-                  aria-label={`Actions for ${nameOf(row)}`}
-                  onClick={() => setOpenCard(openCard === row.id ? null : row.id)}
-                >
-                  Actions
-                </Button>
-                {openCard === row.id && <div id={`member-actions-${row.id}`}>{rowActions(row)}</div>}
-              </div>
-            )}
-          </div>
-        )}
+        itemId={(row) => row.id}
+        itemName={nameOf}
+        itemTitle={nameCell}
+        fields={fields}
+        noun={{ one: 'member', other: 'members' }}
+        itemActions={itemActions}
+        // Deactivated members are read from the server on request (organizations api-design 12).
+        filters={[
+          { key: 'active', label: 'Active members' },
+          { key: 'all', label: 'Active and deactivated' },
+        ]}
+        query={{ search: '', filter: includeDeactivated ? 'all' : 'active', sort: null }}
+        onQueryChange={(next) => setIncludeDeactivated(next.filter === 'all')}
+        hideCommandBar={false}
+        emptyState={{ title: 'No members', description: 'Invite a member to get started.' }}
       />
 
       {inviting && organizationId && (

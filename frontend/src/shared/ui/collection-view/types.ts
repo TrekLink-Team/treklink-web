@@ -34,6 +34,11 @@ export interface CollectionAction<T> {
   label: string;
   icon: React.ReactNode;
   onSelect: (item: T) => void;
+  /**
+   * The accessible name when "label itemName" does not read well ("Change role of Pham Van D"). It
+   * must start with `label`, so the name contains the visible tooltip (2.5.3).
+   */
+  accessibleName?: (item: T) => string;
   /** False hides the action for this item (a permission or a state the action does not apply to). */
   allowed?: (item: T) => boolean;
   /** Shown but unavailable, with this reason as text. */

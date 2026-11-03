@@ -82,7 +82,7 @@ export function DetailsPane<T>({
                   size="md"
                   variant={action.destructive ? 'danger' : 'secondary'}
                   icon={<span className="flex [&>svg]:h-4 [&>svg]:w-4">{action.icon}</span>}
-                  aria-label={`${action.label} ${itemName}`}
+                  aria-label={action.accessibleName?.(item) ?? `${action.label} ${itemName}`}
                   disabled={reason !== undefined}
                   onClick={() => action.onSelect(item)}
                   className="justify-start"

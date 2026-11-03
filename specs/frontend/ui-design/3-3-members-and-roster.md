@@ -138,3 +138,11 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: no event, the query keys and the invalidation are stated
 - [x] Traceability: UC-04, UC-05, FR-ORG-04, FR-ORG-05, US-UC04, US-UC05
 - [x] One primary action per screen; status is text as well as colour (§8 items 1 and 3)
+
+## Members on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The member list of `/o/members` renders through `CollectionView` (chapter 06 §9): the
+"Show deactivated" checkbox becomes its Show filter (Active members, Active and deactivated; organizations
+api-design 12 `includeDeactivated`), and Resend invitation, Change role and Deactivate are item actions
+with tooltips, named "Resend invitation to {name}", "Change role of {name}" and "Deactivate {name}". At
+360 px they gather in one Actions menu per member (chapter 06 §10.5). Endpoints and messages are unchanged.

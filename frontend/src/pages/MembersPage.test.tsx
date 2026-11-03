@@ -94,7 +94,9 @@ describe('MembersPage (screen 3.3)', () => {
     );
     renderPage();
     await screen.findByText('1 member');
-    fireEvent.click(screen.getByLabelText('Show deactivated'));
+    // The Show filter of the command bar (chapter 06 §9.3).
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Active members/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Active and deactivated' }));
     await screen.findByText('2 members');
     expect(inTable().getByText(/^Deactivated /)).toBeTruthy();
     expect(api).toHaveBeenCalledWith(`${LIST}?includeDeactivated=true`);
@@ -253,17 +255,27 @@ describe('MembersPage (screen 3.3)', () => {
     await waitFor(() => expect(api.mock.calls.length).toBeGreaterThan(before + 1));
   });
 
-  it('keeps the phone card actions behind an Actions button', async () => {
-    serve(() => [member(), operator]);
-    renderPage();
-    await screen.findByText('2 members');
-    const toggle = screen.getByRole('button', { name: 'Actions for Pham Van D' });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    // Only the table row carries the buttons until the card menu opens.
-    expect(screen.getAllByRole('button', { name: 'Deactivate Pham Van D' })).toHaveLength(1);
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getAllByRole('button', { name: 'Deactivate Pham Van D' })).toHaveLength(2);
+  it("gathers a member's actions in one Actions menu at phone width (chapter 06 §10.5)", async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: !/min-width/.test(query),
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      serve(() => [member(), operator]);
+      renderPage();
+      await screen.findByText('2 members');
+      expect(screen.queryByRole('button', { name: 'Deactivate Pham Van D' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Actions for Pham Van D' }));
+      expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        'Show details',
+        'Change role',
+        'Deactivate',
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('shows the list error with a retry', async () => {
