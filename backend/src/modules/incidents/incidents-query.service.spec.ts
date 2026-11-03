@@ -67,6 +67,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     authorityReports: jest.Mock;
     transitions: jest.Mock;
     alertDeliveries: jest.Mock;
+    incidentsOfDevice: jest.Mock;
   };
   let organizations: { memberNames: jest.Mock };
   let contracts: { holderLabels: jest.Mock };
@@ -88,6 +89,21 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
         },
       ]),
       authorityReports: jest.fn().mockResolvedValue([]),
+      incidentsOfDevice: jest.fn().mockResolvedValue([
+        {
+          id: 'inc-1',
+          code: 'INC-2026-000001',
+          firstEventAt: ROW.firstEventAt,
+          transitions: [
+            {
+              fromState: null,
+              toState: 'DETECTED',
+              actorId: null,
+              createdAt: ROW.firstEventAt,
+            },
+          ],
+        },
+      ]),
       transitions: jest.fn().mockResolvedValue([
         {
           seq: 1,
@@ -397,6 +413,22 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     });
     expect(repository.transitions).not.toHaveBeenCalled();
     expect(repository.alertDeliveries).not.toHaveBeenCalled();
+  });
+
+  it('gives the incidents of a device with their transitions, actors as ids (monitoring api-design 07)', async () => {
+    const incidents = await service.incidentsOfDevice('dev-1');
+
+    expect(repository.incidentsOfDevice).toHaveBeenCalledWith('dev-1');
+    expect(incidents).toEqual([
+      {
+        id: 'inc-1',
+        code: 'INC-2026-000001',
+        openedAt: ROW.firstEventAt,
+        transitions: [
+          { fromState: null, toState: 'DETECTED', actorId: null, at: ROW.firstEventAt },
+        ],
+      },
+    ]);
   });
 
   it.each([

@@ -90,6 +90,14 @@ describe('demo seed device history order', () => {
     ]);
   });
 
+  it('tells the incident of TL-0001 as its opening and each later step', async () => {
+    const summaries = await oldestFirst('TL-0001');
+    expect(summaries.filter((summary) => summary.startsWith('Incident '))).toEqual([
+      'Incident INC-2026-000001 opened (DETECTED)',
+      'Incident INC-2026-000001: DETECTED to UNROUTED',
+    ]);
+  });
+
   it('writes the device rows at the contract dates the seed gives the unit', async () => {
     const device = await prisma.device.findUniqueOrThrow({ where: { assetTag: 'TL-0019' } });
     const row = await prisma.contractDevice.findFirstOrThrow({ where: { deviceId: device.id } });

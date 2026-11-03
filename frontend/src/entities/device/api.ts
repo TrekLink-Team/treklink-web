@@ -98,7 +98,15 @@ export const nextStepPath = (step: NextStep, deviceId: string): string | null =>
 
 export interface DeviceHistoryItem {
   at: string;
-  kind: 'STATE' | 'INTAKE' | 'PROVISIONING' | 'RESET' | 'INSPECTION' | 'MAINTENANCE' | 'CONTRACT';
+  kind:
+    | 'STATE'
+    | 'INTAKE'
+    | 'PROVISIONING'
+    | 'RESET'
+    | 'INSPECTION'
+    | 'MAINTENANCE'
+    | 'CONTRACT'
+    | 'INCIDENT';
   summary: string;
   actor: string;
   refType: string | null;

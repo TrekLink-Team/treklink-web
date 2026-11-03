@@ -287,6 +287,23 @@ export class IncidentsRepository {
     });
   }
 
+  // Every incident of a device, oldest first, each with its transitions in order (monitoring api-design 07).
+  incidentsOfDevice(deviceId: string) {
+    return this.prisma.incident.findMany({
+      where: { deviceId },
+      orderBy: { firstEventAt: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        firstEventAt: true,
+        transitions: {
+          orderBy: { seq: 'asc' },
+          select: { fromState: true, toState: true, actorId: true, createdAt: true },
+        },
+      },
+    });
+  }
+
   // ACKNOWLEDGED and RESPONDING incidents this account owns, for the owner deactivation (REQ-EVT-11).
   ownedActive(ownerId: string) {
     return this.prisma.incident.findMany({
