@@ -110,3 +110,11 @@ id, action prefix, period; audit api-design query), which queries the server and
 entries below it render through `CollectionView` (chapter 06 §9): the action is each entry's title, the
 actor still filters on click, and the before and after shows in its column and in the details pane, which
 replaces the phone card's Details disclosure.
+
+## Parameters on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. Each module group of `/t/admin/parameters` renders its parameters through `CollectionView`
+(chapter 06 §9), still collapsible and still filtered by the module select in the address. Edit and History
+are item actions; Edit is unavailable with its reason while another change is open, and focus returns to it
+after a save or a cancel. The Changes link stays under each parameter's description. The value is edited in
+place in its row, so the group has no details pane (a second copy of the editor would hold the same field).

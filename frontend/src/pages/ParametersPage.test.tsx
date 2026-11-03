@@ -161,7 +161,8 @@ describe('ParametersPage (screen 7.4, parameters)', () => {
       expect(valueField(ACK).value).toBe('120');
       expect(screen.getByText('Allowed: 30 to 900 seconds')).toBeTruthy();
       expect(screen.getByText('Current value: 120')).toBeTruthy();
-      expect(screen.getByRole('button', { name: `Edit ${GRACE}` }).hasAttribute('disabled')).toBe(true);
+      // Unavailable with its reason while another change is open (chapter 06 §9.5).
+      expect(screen.getByRole('button', { name: `Edit ${GRACE}` }).getAttribute('aria-disabled')).toBe('true');
     });
 
     it('blocks a value outside the range with MSG02 and sends nothing', () => {
@@ -203,7 +204,7 @@ describe('ParametersPage (screen 7.4, parameters)', () => {
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).toBeNull());
       expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['parameters'] });
       expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['parameter-history', ACK] });
-      await waitFor(() => expect(document.activeElement?.id).toBe(`edit-${ACK.replace(/\./g, '-')}`));
+      await waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe(`Edit ${ACK}`));
     });
 
     it('sends no reason when it is blank', async () => {
@@ -267,7 +268,7 @@ describe('ParametersPage (screen 7.4, parameters)', () => {
       edit(ACK);
       fireEvent.keyDown(valueField(ACK), { key: 'Escape' });
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-      expect(document.activeElement?.id).toBe(`edit-${ACK.replace(/\./g, '-')}`);
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(`Edit ${ACK}`);
     });
 
     it('edits a JSON parameter in a text area, refuses text that is not JSON and sends the parsed value', async () => {
