@@ -688,6 +688,29 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
       await waitFor(() => expect(recordProvisioning).toHaveBeenCalledWith('c-1', 'd-51', 1, 0x51));
     });
 
+    it('keeps the dialog open with the server refusal when the exchange is refused (screen 4.6)', async () => {
+      docked({});
+      mismatch();
+      docking.exchangeAndProvision.mockResolvedValue({
+        ok: false,
+        failure: 'api',
+        reason: 'TL-0003 is provisioned. Only units not provisioned can be swapped out.',
+        exchanged: null,
+      });
+      renderPage();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+      fireEvent.click(await screen.findByRole('button', { name: 'Put TL-0051 in place of TL-0003' }));
+      const dialog = within(screen.getByRole('dialog', { name: 'Put TL-0051 on RC-2026-0002?' }));
+      fireEvent.click(dialog.getByRole('button', { name: 'Swap and provision' }));
+      await waitFor(() =>
+        expect(
+          dialog.getByText('TL-0003 is provisioned. Only units not provisioned can be swapped out.'),
+        ).toBeTruthy(),
+      );
+      expect(screen.getByRole('dialog', { name: 'Put TL-0051 on RC-2026-0002?' })).toBeTruthy();
+      expect(recordProvisioning).not.toHaveBeenCalled();
+    });
+
     it('names why a rented, held or other-variant unit is not offered (REQ-ERR-20, REQ-ERR-21, REQ-ERR-23)', async () => {
       docked({ status: 'RENTED' }, { id: 'c-9', code: 'RC-2026-0009' });
       mismatch();

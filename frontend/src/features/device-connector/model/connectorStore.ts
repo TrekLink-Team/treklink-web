@@ -25,7 +25,9 @@ export interface CounterContext {
   // Provisions the reserved row whose unit is the connection (design section 8.4).
   provision: (connectionId: number, row: CounterRow) => Promise<void>;
   // Puts the connected unit on the contract in place of `row`, then provisions it (design section 11.6).
-  swapIn: (connectionId: number, row: CounterRow) => Promise<void>;
+  // Answers the server's refusal when the exchange itself was refused, so the swap dialog shows it and
+  // stays open (screen 4.6); null once the exchange went through, whatever the provisioning did.
+  swapIn: (connectionId: number, row: CounterRow) => Promise<string | null>;
 }
 
 export type ConnectorContext =
