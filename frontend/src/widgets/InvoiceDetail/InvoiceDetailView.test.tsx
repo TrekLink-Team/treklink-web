@@ -1,12 +1,23 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InvoiceDetailView } from './InvoiceDetailView';
 
 let settled = false;
+let lines: unknown[] = [];
+const line = (seq: number, description: string, paidVnd: number, type = 'TERM_FEE') => ({
+  seq,
+  type,
+  description,
+  quantity: 1,
+  unitVnd: 750_000,
+  amountVnd: 750_000,
+  dueAt: '2026-10-28T03:00:00Z',
+  paidVnd,
+});
 let balanceAvailable = true;
 const balanceRequests: { contractId: string; enabled: boolean }[] = [];
 
@@ -23,7 +34,7 @@ vi.mock('../../entities/billing/api', async (importOriginal) => ({
       issuedAt: '2026-10-28T03:00:00Z',
       totalVnd: 2_250_000,
       paidVnd: 0,
-      lines: [],
+      lines,
       payments: [],
     },
     isLoading: false,
@@ -60,6 +71,29 @@ beforeEach(() => {
   settled = false;
   balanceAvailable = true;
   balanceRequests.length = 0;
+  lines = [];
+});
+
+describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () => {
+  it('searches the lines and narrows them by status from Show', () => {
+    lines = [
+      line(1, 'Holding fee', 750_000),
+      line(2, 'Monthly fee, TrekLink v3', 0),
+      line(3, 'Late return', 0, 'ADJUSTMENT'),
+    ];
+    renderView();
+    const table = () => within(screen.getByRole('table', { name: 'Lines of INV-2026-000001' }));
+    expect(table().getAllByRole('row')).toHaveLength(4);
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Paid' }));
+    expect(table().getAllByRole('row')).toHaveLength(2);
+    expect(table().getByText('Holding fee')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Paid/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Every status' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search lines' }), { target: { value: 'adjustment' } });
+    expect(table().getAllByRole('row')).toHaveLength(2);
+    expect(table().getByText('Late return')).toBeTruthy();
+  });
 });
 
 describe('InvoiceDetailView, Record counter payment (6.3, ruling on #87 point 4)', () => {
