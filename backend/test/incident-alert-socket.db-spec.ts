@@ -208,7 +208,8 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
         const elapsed = received.at - committedAt;
         latency.push(elapsed);
         expect(elapsed).toBeGreaterThanOrEqual(0);
-        expect(elapsed).toBeLessThanOrEqual(2000);
+        // NFR-PERF-04 and issue #325: burst p95 stays at 2 s; no individual alert may exceed 5 s.
+        expect(elapsed).toBeLessThanOrEqual(5000);
         expect(received.entry.seq).toBe(0);
         expect(received.entry.payload.code).toBe(incident.code);
       }
@@ -234,6 +235,9 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
       }
     }
     expect(latency).toHaveLength(5);
+    // Nearest-rank percentile, as in the gateway outage harness. At five samples p95 is the maximum.
+    const ordered = [...latency].sort((a, b) => a - b);
+    expect(ordered[Math.ceil(ordered.length * 0.95) - 1]).toBeLessThanOrEqual(2000);
   });
 
   it('delivers through the after-commit wake alone, with both dispatcher crons stopped', async () => {
