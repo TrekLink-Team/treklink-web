@@ -112,3 +112,13 @@ disagree, this section wins.
   reason). Each runs the single-row endpoint once per row in sequence; a failure shows the per-row
   summary dialog with the server's message, and a full success the toast "N of N done.".
 - The accounts API does not sort, so no column sorts.
+
+## Accounts on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The account list renders through `CollectionView` (chapter 06 §9): the search keeps its
+pause before it reaches the address, the status select becomes the Show filter (All accounts, Active,
+Deactivated), and Edit, Send reset code, Deactivate and Reactivate are item actions with tooltips. The
+last active Admin's Deactivate stays visible and unavailable with its reason, which is why it is an item
+action and not a Change status entry (a status menu lists only allowed moves, §9.6). The bulk actions act
+on the selection of the current page, which a filter or page change clears (leader ruling of
+2026-11-03). Endpoints and messages are unchanged.
