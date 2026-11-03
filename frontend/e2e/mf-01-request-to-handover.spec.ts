@@ -57,10 +57,11 @@ test('MF-01 steps 1 to 4: the Manager requests five v3 units', async ({ page }) 
 
   // Step 2
   await page.getByLabel('Monthly').check();
-  const variant = page.getByLabel('Hardware variant');
-  const v3 = variant.locator('option', { hasText: 'TrekLink v3' });
-  await variant.selectOption((await v3.getAttribute('value')) ?? '');
-  await expect(v3).toHaveText(/450,000 VND per device per month/);
+  // The variant cards (devices design section 10): one radio per variant, named after it.
+  const v3 = page.getByRole('radio', { name: 'TrekLink v3' });
+  await v3.check();
+  await expect(v3).toBeChecked();
+  await expect(page.getByText(/450,000 VND per device per month/)).toBeVisible();
   await page.getByLabel('Quantity').fill('5');
   await expect(page.getByText('At least 5 devices.')).toBeVisible();
   const quote = page.getByLabel('Quote');

@@ -682,6 +682,12 @@ model HardwareVariant {
   remainingValueSchedule Json
   serviceIntervalDays    Int? // days between periodic services; null for none (FR-DEV-04, D-047)
   serviceChecklist       String[] @default([]) // items checked at each periodic service
+  // Photo of the unit: an https URL or an app path under /variants/ (specs/devices/design.md section 10). Null
+  // shows the labelled empty slot; no photo is seeded.
+  imageUrl               String?
+  // Display text only, never behaviour: keys from the fixed list of design section 10, values of 1 to 80
+  // characters. The capability flags above drive logic.
+  specSheet              Json     @default("{}")
   isActive               Boolean  @default(true)
   createdAt              DateTime @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime @updatedAt @db.Timestamptz(3)

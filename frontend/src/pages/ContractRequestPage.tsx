@@ -16,6 +16,7 @@ import { formatDateTime, formatDay, formatVnd, todayDay } from '../shared/lib/fo
 import { useDebounced } from '../shared/lib/useDebounced';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { PageActionBar, StickyPageHeader } from '../shared/ui/PageChrome';
+import { VariantPicker } from '../widgets/VariantPicker/VariantPicker';
 import { ConfirmDialog } from '../shared/ui/Dialog';
 import { invalid } from '../shared/ui/errors';
 import { useToast } from '../shared/ui/toastStore';
@@ -409,29 +410,16 @@ export const ContractRequestPage: React.FC = () => {
                 </Field>
               )}
 
-              <Field id="variant" label="Hardware variant" error={errors.hardwareVariantId}>
-                <select
-                  id="variant"
-                  className={INPUT}
-                  value={variantId}
-                  onChange={(event) => {
-                    setVariantId(event.target.value);
-                    clearError('hardwareVariantId');
-                  }}
-                  {...invalid('variant', errors.hardwareVariantId)}
-                >
-                  <option value="">Choose a variant</option>
-                  {catalogue.variants.map((item) => {
-                    const count = countOf(item.id);
-                    return (
-                      <option key={item.id} value={item.id}>
-                        {item.name}, {formatVnd(item.monthlyPriceVnd)} per device per month
-                        {count === undefined ? '' : `, ${count} available now`}
-                      </option>
-                    );
-                  })}
-                </select>
-              </Field>
+              <VariantPicker
+                variants={catalogue.variants}
+                value={variantId}
+                onChange={(id) => {
+                  setVariantId(id);
+                  clearError('hardwareVariantId');
+                }}
+                countOf={countOf}
+                error={errors.hardwareVariantId}
+              />
 
               <Field
                 id="quantity"

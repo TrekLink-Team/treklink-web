@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { CheckPolicies, Public } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { DevicesService } from '../devices';
@@ -9,6 +10,8 @@ export interface PlanVariantView {
   id: string;
   code: string;
   name: string;
+  imageUrl: string | null;
+  specSheet: Prisma.JsonValue;
   monthlyPriceVnd: number;
   dayPriceVnd: number;
 }
@@ -67,6 +70,8 @@ export class PricingController {
                 id: variant.id,
                 code: variant.code,
                 name: variant.name,
+                imageUrl: variant.imageUrl,
+                specSheet: variant.specSheet,
                 monthlyPriceVnd: vnd(price.monthlyPriceVnd),
                 dayPriceVnd: vnd(price.dayPriceVnd),
               },

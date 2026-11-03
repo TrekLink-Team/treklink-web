@@ -18,7 +18,14 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
     expect(findMany).toHaveBeenLastCalledWith({
       where: { isActive: true },
       orderBy: { code: 'asc' },
-      select: { id: true, code: true, name: true, isActive: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        imageUrl: true,
+        specSheet: true,
+        isActive: true,
+      },
     });
 
     await service.variants(false);
@@ -42,7 +49,11 @@ describe('DevicesService.variants and DevicesRepository.variants', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isActive: true },
-        select: expect.objectContaining({ _count: { select: { devices: true } } }) as unknown,
+        select: expect.objectContaining({
+          _count: { select: { devices: true } },
+          imageUrl: true,
+          specSheet: true,
+        }) as unknown,
       }),
     );
   });

@@ -122,6 +122,30 @@ describe('ContractDetailPage', () => {
     expect(links[0].getAttribute('href')).toBe('/t/devices/d-1/telemetry');
   });
 
+  it('shows each asset tag as a link to the device home, and the history of the unit to an organization', () => {
+    const row = (deviceId: string, assetTag: string) => ({
+      deviceId,
+      assetTag,
+      holder: null,
+      handedOverAt: '2026-10-30T09:30:00Z',
+      checkedInAt: null,
+      lostAt: null,
+    });
+    contract = { ...baseContract, status: 'ACTIVE', devices: [row('d-1', 'TL-0009')] };
+
+    renderPage('t');
+    expect(screen.getByRole('link', { name: 'TL-0009' }).getAttribute('href')).toBe(
+      '/t/devices/d-1',
+    );
+    cleanup();
+
+    renderPage('o');
+    expect(screen.getByRole('link', { name: 'TL-0009' }).getAttribute('href')).toBe(
+      '/o/devices/d-1/telemetry',
+    );
+    expect(screen.queryByRole('link', { name: 'History' })).toBeNull();
+  });
+
   it('shows the reservation expiry while the contract is APPROVED', () => {
     renderPage();
     expect(screen.getByText('Reservation expires')).toBeTruthy();

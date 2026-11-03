@@ -9,7 +9,14 @@ import { PricingController, toQuoteView } from './pricing.controller';
 import { PricingService } from './pricing.service';
 
 const V2 = { id: 'v-2', code: 'treklink-v2', name: 'TrekLink v2', isActive: true };
-const V3 = { id: 'v-3', code: 'treklink-v3', name: 'TrekLink v3', isActive: true };
+const V3 = {
+  id: 'v-3',
+  code: 'treklink-v3',
+  name: 'TrekLink v3',
+  imageUrl: '/variants/treklink-v3.jpg',
+  specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
+  isActive: true,
+};
 
 describe('PricingController (billing api-design 01 and 02)', () => {
   let pricing: { catalogue: jest.Mock; quote: jest.Mock };
@@ -51,6 +58,8 @@ describe('PricingController (billing api-design 01 and 02)', () => {
           id: 'v-3',
           code: 'treklink-v3',
           name: 'TrekLink v3',
+          imageUrl: '/variants/treklink-v3.jpg',
+          specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
           monthlyPriceVnd: 450_000,
           dayPriceVnd: 22_500,
         },

@@ -334,7 +334,14 @@ export class DevicesRepository {
     return client.hardwareVariant.findMany({
       where: activeOnly ? { isActive: true } : {},
       orderBy: { code: 'asc' },
-      select: { id: true, code: true, name: true, isActive: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        imageUrl: true,
+        specSheet: true,
+        isActive: true,
+      },
     });
   }
 
@@ -796,6 +803,8 @@ export const VARIANT_SELECT = {
   remainingValueSchedule: true,
   serviceIntervalDays: true,
   serviceChecklist: true,
+  imageUrl: true,
+  specSheet: true,
   isActive: true,
 } satisfies Prisma.HardwareVariantSelect;
 
@@ -814,5 +823,8 @@ export interface VariantSummary {
   id: string;
   code: string;
   name: string;
+  imageUrl: string | null;
+  // Display text by key, in the order of specs/devices/design.md section 10 (Json in the row).
+  specSheet: Prisma.JsonValue;
   isActive: boolean;
 }

@@ -29,12 +29,16 @@ INV_PATH = ["id", "Invoice id; members may use only their own", "uuid", f"`{INVO
 
 ENDPOINTS = [
     ep("GET", "/api/plans", "Public plan catalogue", "Public",
-       "What the website sells: every active hardware variant with its current monthly price per device, "
-       "the day-plan lengths and premium, the holding-fee ratio and the minimum order quantity. All values "
-       "come from configuration (BR-29).",
+       "What the website sells: every active hardware variant with its current monthly price per device "
+       "and its image and spec sheet (devices design section 10, shown as the variant card of the request "
+       "form), the day-plan lengths and premium, the holding-fee ratio and the minimum order quantity. All "
+       "values come from configuration (BR-29).",
        "UC-56, FR-BILL-01, FR-BILL-02, BR-02, BR-29",
        response={"minOrderQuantity": 5, "holdingFeeRatio": 0.5, "dayPlanLengths": [3, 4, 7], "dayPremium": 1.5,
                  "variants": [{"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, SOS button)",
+                               "imageUrl": None,
+                               "specSheet": {"mcu": "ESP32", "sosControl": "3 s hold on the user button",
+                                             "localAlarm": "LED blinks"},
                                "monthlyPriceVnd": 450000, "dayPriceVnd": 22500}],
                  "sandbox": True},
        steps=["Read current price per active variant", "Read plan parameters"],

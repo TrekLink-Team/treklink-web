@@ -18,6 +18,7 @@ import {
   type ContractDevice,
 } from '../entities/contract/api';
 import { NEXT_STEP_LABELS, nextStepPath } from '../entities/device/api';
+import { DeviceRef } from '../entities/device/DeviceRef';
 import { CloseBlockers } from '../features/close-contract/CloseBlockers';
 import { CloseContractDialog } from '../features/close-contract/CloseContractDialog';
 import { ApiError } from '../shared/api/apiClient';
@@ -305,8 +306,10 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
       header: 'Asset tag',
       cell: (device) => (
         <span className="whitespace-nowrap">
-          <span className="font-mono">{device.assetTag ?? device.deviceId}</span>
-          {device.handedOverAt && (
+          {/* The asset tag is a DeviceRef (devices design section 10): the device home for TrekLink, the
+              position history for an organization, which has no device home. */}
+          <DeviceRef deviceId={device.deviceId} assetTag={device.assetTag} scope={scope} />
+          {device.handedOverAt && scope === 't' && (
             <Link
               to={`/${scope}/devices/${device.deviceId}/telemetry`}
               state={{ assetTag: device.assetTag }}

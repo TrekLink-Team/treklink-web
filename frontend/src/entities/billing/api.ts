@@ -9,6 +9,9 @@ export interface PlanVariant {
   id: string;
   code: string;
   name: string;
+  // The image and the spec sheet of the variant card (devices design section 10).
+  imageUrl: string | null;
+  specSheet: Record<string, string>;
   monthlyPriceVnd: number;
   dayPriceVnd: number;
 }
