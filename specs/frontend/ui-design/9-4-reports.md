@@ -94,3 +94,10 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Live data: none, stated
 - [x] Traceability: UC-59, FR-BILL-10, US-UC59
 - [x] §8 items 2, 4, 8 applied
+
+## Report tables on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The five report tables of `/t/reports` render through `CollectionView` (chapter 06 §9):
+the first column titles each row (variant, contract, asset tag or organization), the others are its fields,
+and the row's summary card, formerly the phone card, is its details pane. Reports stay read only, with no
+item actions; the charts, the totals row and the CSV download are unchanged.

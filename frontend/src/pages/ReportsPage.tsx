@@ -33,7 +33,7 @@ import {
   Button,
   Card,
   CardHeader,
-  DataTable,
+  CollectionView,
   Field,
   Input,
   PageHeader,
@@ -42,6 +42,7 @@ import {
   StatCard,
   TabPanel,
   Tabs,
+  type CollectionField,
   type Column,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
@@ -225,6 +226,7 @@ const OverduePanel: React.FC<{ rows: OverdueRow[] }> = ({ rows }) => {
       columns={columns}
       rows={rows}
       rowId={(row) => row.contractId}
+      rowName={(row) => row.contractCode}
       card={(row) => (
         <Pairs
           title={code(row)}
@@ -276,6 +278,7 @@ const LostPanel: React.FC<{ rows: LostRow[] }> = ({ rows }) => {
       columns={columns}
       rows={rows}
       rowId={(row) => `${row.contractId}-${row.assetTag ?? row.lostAt}`}
+      rowName={(row) => row.assetTag ?? `Unit of ${row.contractCode}`}
       card={(row) => (
         <Pairs
           title={tag(row)}
@@ -392,27 +395,43 @@ const Pairs: React.FC<{ title: React.ReactNode; pairs: [string, React.ReactNode]
   </div>
 );
 
+// One report table on CollectionView (chapter 06 §9, D-096): the first column titles each row, the others
+// are its fields, and the row's summary card is its details pane. A report is read only: no item actions.
 function ReportTable<Row>({
   caption,
   columns,
   rows,
   rowId,
+  rowName,
   card,
 }: {
   caption: string;
   columns: Column<Row>[];
   rows: Row[];
   rowId: (row: Row) => string;
+  /** The text that names one row; the row id by default (a variant or organization name). */
+  rowName?: (row: Row) => string;
   card: (row: Row) => React.ReactNode;
 }) {
+  const [title, ...rest] = columns;
+  const fields: CollectionField<Row>[] = rest.map((column) => ({
+    key: column.key,
+    label: typeof column.header === 'string' ? column.header : column.key,
+    render: (row: Row) => column.cell(row),
+    align: column.align,
+    compact: true,
+  }));
   return (
-    <DataTable<Row>
-      caption={caption}
-      columns={columns}
-      rows={rows}
-      rowId={rowId}
-      empty={{ title: 'No results match your filters.', description: 'Try a longer range.' }}
-      renderCard={card}
+    <CollectionView<Row>
+      label={caption}
+      items={rows}
+      itemId={rowId}
+      itemName={rowName ?? rowId}
+      itemTitle={(row) => <span className="font-normal text-ink">{title.cell(row)}</span>}
+      fields={fields}
+      noun={{ one: 'row', other: 'rows' }}
+      details={{ fields: [], extra: card }}
+      emptyState={{ title: 'No results match your filters.', description: 'Try a longer range.' }}
     />
   );
 }
