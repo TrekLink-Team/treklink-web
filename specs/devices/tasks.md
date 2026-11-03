@@ -186,10 +186,10 @@
 
 - [ ] 9.1 Schema, API and seed (owner KhoaDD)
   - **Files**: `backend/prisma/schema.prisma` (`HardwareVariant.imageUrl`, `specSheet`), a forward migration that also fills the verified seed values of design §10, the variants DTOs and service, tests
-  - **Do**: devices api-design 01 to 03; validation with 400 `VARIANT_MEDIA_INVALID`
+  - **Do**: devices api-design 01 to 03; validation with 400 `VARIANT_MEDIA_INVALID`; the shared variant summary on every unit payload (design §10, regenerate the catalogs it touches)
   - _Requirements: REQ-UBI-06, REQ-ERR-18, AC-21_
 - [ ] 9.2 Screens (owner KhoaDD)
   - **Files**: screen 4.1 panel fields and card preview; a shared `VariantCard` and spec summary used by screen 4.2, the contract home Devices tab and the request form's variant picker
-  - **Do**: design §10 "Where it shows"; the labelled empty image slot when `imageUrl` is null
+  - **Do**: design §10 "Where it shows"; the labelled empty image slot when `imageUrl` is null; create `frontend/public/variants/` (empty until the leader supplies photos); map `VARIANT_MEDIA_INVALID` on screen 4.1
   - _Requirements: REQ-UBI-06, AC-21_
 

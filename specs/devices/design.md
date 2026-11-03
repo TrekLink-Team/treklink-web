@@ -1089,7 +1089,7 @@ v3 and v4 by the leader, v2 with the power button held.
 
 ---
 
-## 10. Variant image and spec sheet (UI conventions E-2, gap G1)
+## 10. Variant image and spec sheet (gap G1 and element E-2 of the UI flow audit, branch `docs/ux-flow-audit`)
 
 > **Status**: Spec, 2026-11-03. The leader ruled the UI review answers on 2026-11-03: contracts and devices get
 > the entity home, lifecycle header, action bar, device references and variant media before Friday 2026-11-06.
@@ -1100,8 +1100,8 @@ provisioning (§8). Two fields on `HardwareVariant`, edited on screen 4.1 by an 
 
 | Field | Type | Rule |
 |---|---|---|
-| `imageUrl` | `String?` | An `https://` URL or an app path under `/variants/` (a file in `frontend/public/variants/`, shipped with the frontend: Vercel has no persistent disk for uploads). Null shows the labelled empty slot "Variant image not added yet". No invented or stock photo is ever seeded |
-| `specSheet` | `Json`, default `{}` | An object whose keys come from this fixed list, shown in this order, each value a string of 1 to 80 characters: `mcu`, `radio`, `gnss`, `motionSensor`, `display`, `battery`, `sosControl`, `localAlarm`, `enclosure`. An unknown key, an empty or longer value answers 400 `VARIANT_MEDIA_INVALID`. A missing key is not shown |
+| `imageUrl` | `String?` | Up to 500 characters: an `https://` URL with a host, or an app path `/variants/<file>` whose file name has no `/`, no `..` and a `.jpg`, `.jpeg`, `.png` or `.webp` extension (a file in `frontend/public/variants/`, shipped with the frontend: Vercel has no persistent disk for uploads). Null shows the labelled empty slot "Variant image not added yet". No invented or stock photo is ever seeded |
+| `specSheet` | `Json`, default `{}` | An object whose keys come from this fixed list, shown in this order, each value a string of 1 to 80 characters after trimming (a non-string or whitespace-only value is refused): `mcu`, `radio`, `gnss`, `motionSensor`, `display`, `battery`, `sosControl`, `localAlarm`, `enclosure`. An unknown key, an empty or longer value answers 400 `VARIANT_MEDIA_INVALID`. A missing key is not shown |
 
 The capability flags (`hasGps`, `hasMotionSensor`, `mqttCapable`) stay the source of logic; the spec sheet is
 display text only and never drives behaviour.
@@ -1116,5 +1116,9 @@ the leader supplies photos of the units.
 
 **Where it shows (E-2).** Screen 4.1 (the admin panel edits both fields and previews the card), the device detail
 of screen 4.2, the device cards of the contract home's Devices tab, and the variant picker of the request form,
-which shows the variants as cards with the image slot and the spec summary in place of a `select`. Devices
-api-design 01 returns both fields to every caller that can read variants, so no new endpoint is needed.
+which shows the variants as cards with the image slot and the spec summary in place of a `select`. A card
+shows, besides the spec sheet, the capability flags as text (GPS, motion sensor, MQTT) and the firmware
+baseline. Devices api-design 01 returns both fields to Staff, Admin and the Org Manager. Unit payloads carry
+only `hardwareVariant {id, code}` today and the Org Operator cannot read api-design 01, so task 9.1 widens the
+variant summary of every unit payload (devices 05 to 07, rentals 03 `devices[]`, the monitoring console rows)
+to `{id, code, name, imageUrl, specSheet, hasGps, hasMotionSensor, mqttCapable}`, one shared shape (E-1).

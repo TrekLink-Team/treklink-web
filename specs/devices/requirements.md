@@ -112,7 +112,7 @@
 - **REQ-ERR-15**: IF a Stage A uplink write is refused, the unit does not come back after its restart, or the read-back differs, THEN the counter SHALL name the failed check and say the unit is not configured as an uplink. [D-005, D-080]
 - **REQ-ERR-16**: IF the chip of the unit on the port does not match the chip of the device's variant in the release manifest, or the node number derived from its MAC address differs from the device's `nodeNum`, THEN the counter SHALL write nothing and name what differs.
 - **REQ-ERR-17**: IF the image fails its SHA-256 check (502 `FIRMWARE_IMAGE_INVALID`), the write fails, or a written region does not verify, THEN the counter SHALL record nothing, keep the record `OPEN` and ask Staff to flash again; a v2 unit is flashed again with its power button held.
-- **REQ-ERR-18**: IF an Admin saves a variant whose image URL is neither `https://` nor an app path under `/variants/`, or whose spec sheet has an unknown key or a value that is empty or longer than 80 characters, THEN 400 `VARIANT_MEDIA_INVALID` and nothing is saved.
+- **REQ-ERR-18**: IF an Admin saves a variant whose image URL is longer than 500 characters, is neither an `https://` URL with a host nor an app path `/variants/<file>` (no `/` or `..` in the file name, an image extension), or whose spec sheet has an unknown key or a value that is not a string, empty or whitespace only, or longer than 80 characters after trimming, THEN 400 `VARIANT_MEDIA_INVALID` and nothing is saved.
 
 ---
 
@@ -154,7 +154,7 @@ The `devices` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-18**: Configuring TL-0042 as an uplink with network `TrekLink-Field` and broker `192.168.1.10:1883` restarts the unit once; the read-back shows MQTT on, root `treklink`, JSON on, encryption off, the network name, and uplink on channel 0, and its next position appears on the live map.
 - **AC-19**: On an `OPEN` `FIRMWARE_UPDATE` record of a v3 unit, Update with release `2.7.26-treklink.2` writes the app image at `0x10000`, the unit keeps its owner names and channel, and the record offers Complete with that version; completing it sets the device's firmware version (AC-12).
 - **AC-20**: A v4 image offered to a unit whose chip reads ESP32 writes nothing; a v2 unit whose MAC-derived node number is not the record's device writes nothing; an image whose SHA-256 differs from the manifest answers 502 `FIRMWARE_IMAGE_INVALID` and nothing is written.
-- **AC-21**: Saving v4 with `imageUrl` `/variants/treklink-v4.jpg` and `specSheet` `{"mcu": "ESP32-S3"}` shows the photo and the line "MCU ESP32-S3" on its device cards; `imageUrl` `http://example.com/a.jpg` or the key `colour` answers 400 `VARIANT_MEDIA_INVALID`.
+- **AC-21**: Saving v4 with `imageUrl` `/variants/treklink-v4.jpg` and `specSheet` `{"mcu": "ESP32-S3"}` shows the photo and the line "MCU ESP32-S3" on its device cards; `imageUrl` `http://example.com/a.jpg`, `/variants/../x.jpg` or `//host/a.jpg`, the key `colour` or the value `"  "` answers 400 `VARIANT_MEDIA_INVALID`.
 
 ---
 
