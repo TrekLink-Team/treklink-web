@@ -93,7 +93,9 @@ export class DockSessionService {
   }
 
   // devices api-design 32: ends the open session as RELEASED. No open session is not an error, so a
-  // tab that closes after its session expired gets success too.
+  // tab that closes after its session expired gets success too. Any Staff or Admin caller may end it,
+  // whoever opened it: counters change hands, and a stale session must be clearable (leader ruling on
+  // treklink-web#351), so the caller is not compared with the opener.
   async undock(deviceId: string, at: Date = new Date()): Promise<null> {
     return this.events.transaction(async (tx) => {
       await this.lockedUnit(deviceId, tx);

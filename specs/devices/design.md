@@ -1407,7 +1407,8 @@ for a registered unit (api-design 31, `PUT /api/devices/:id/dock`, `device.opera
 every third of `devices.dockPresenceTtlSeconds` with the same request, and ends it with api-design 32
 (`DELETE /api/devices/:id/dock`) when the port is released, unplugged or forgotten, and on `pagehide` with a
 `fetch` `keepalive` request. The units that open a session are the registered units held while the page context is
-`counter` (§11.12 Q3, decided A).
+`counter` (§11.12 Q3, decided A). Any Staff or Admin caller may end the open session of a unit, whoever opened it: counters change hands, and
+a stale session must be clearable (leader ruling on treklink-web#351).
 
 **Where it lives.** A new `DeviceDockSession` row (`id`, `deviceId`, `nodeNum`, `openedById`, `openedAt`,
 `renewedAt`, `endedAt`, `endReason` `RELEASED`, `EXPIRED` or `REPLACED`), with a partial unique index on
