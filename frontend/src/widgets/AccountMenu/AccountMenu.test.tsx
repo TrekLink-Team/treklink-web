@@ -69,7 +69,7 @@ const show = (user: SessionUser | null) => {
   );
 };
 
-const accountButton = () => screen.getByRole('button', { name: /^Account/ });
+const accountButton = () => screen.getByRole('button', { name: /account menu$/i });
 
 const openMenu = () => fireEvent.click(accountButton());
 
@@ -93,7 +93,7 @@ afterEach(() => {
 describe('account menu (screen 2.2)', () => {
   it('shows nothing while signed out', () => {
     show(null);
-    expect(screen.queryByRole('button', { name: /^Account/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /account menu$/i })).toBeNull();
   });
 
   it('shows the name and initials, and the read-only profile from auth 04', async () => {
@@ -126,7 +126,9 @@ describe('account menu (screen 2.2)', () => {
     openMenu();
     const [change, signOut] = screen.getAllByRole('menuitem');
 
-    expect(screen.getByRole('menu').getAttribute('aria-label')).toMatch(/^Account/);
+    // The name starts with the visible full name (WCAG 2.5.3).
+    expect(accountButton().getAttribute('aria-label')).toBe(`${STAFF.fullName}, account menu`);
+    expect(screen.getByRole('menu').getAttribute('aria-label')).toMatch(/account menu$/);
     expect(document.activeElement).toBe(change);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
     expect(document.activeElement).toBe(signOut);
@@ -291,7 +293,7 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
       '/demo/status': () => Promise.reject(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status')),
     });
     show(MANAGER);
-    fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /account menu$/i }));
     await screen.findByRole('menuitem', { name: 'Sign out' });
     expect(screen.queryByRole('menuitem', { name: /^Switch to/ })).toBeNull();
   });
@@ -302,7 +304,7 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
       '/demo/switch-role': () => Promise.resolve(ADMIN_SESSION),
     });
     show(MANAGER);
-    fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /account menu$/i }));
     const admin = await screen.findByRole('menuitem', { name: 'Switch to Admin' });
     expect(screen.getByRole('menuitem', { name: 'Switch to Manager' }).getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(admin);
@@ -323,7 +325,7 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
         ),
     });
     show(MANAGER);
-    fireEvent.click(await screen.findByRole('button', { name: /Account/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /account menu$/i }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Switch to Staff' }));
     await waitFor(() =>
       expect(useToast.getState().message).toBe('Demo controls run only against a local database.'),
