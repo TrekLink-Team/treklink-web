@@ -83,8 +83,9 @@ export const AccountMenu: React.FC = () => {
   return (
     <>
       <Menu
-        // The name starts with the visible text, the full name (WCAG 2.5.3, review of treklink-web#350).
-        label={me ? `${me.fullName}, account menu` : 'Account menu'}
+        // The name starts with the visible text at every width: the initials alone below 1024 px, the
+        // initials and the full name above (WCAG 2.5.3, re-check of treklink-web#350).
+        label={me ? `${initialsOf(me.fullName)} ${me.fullName}, account menu` : 'Account menu'}
         items={items}
         align="end"
         triggerClassName="h-11 min-w-11 gap-2 px-1 sm:pr-3"
@@ -108,6 +109,8 @@ export const AccountMenu: React.FC = () => {
             >
               {me ? initialsOf(me.fullName) : '…'}
             </span>
+            {/* A real space, so the visible text reads "DD Khoa Do Dang" as the name does (2.5.3). */}
+            {me && ' '}
             {me && (
               <span className="sr-only lg:not-sr-only lg:max-w-[10rem] lg:truncate">
                 {me.fullName}
