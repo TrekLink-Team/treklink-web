@@ -35,6 +35,10 @@ export enum ErrorCode {
   UNKNOWN_PERMISSION = 'UNKNOWN_PERMISSION',
   PERMISSION_SCOPE_MISMATCH = 'PERMISSION_SCOPE_MISMATCH',
   ADMIN_LOCKOUT = 'ADMIN_LOCKOUT',
+  // A Manager's set without organizationRole.manage.own (D-095, auth api-design 20).
+  MANAGER_LOCKOUT = 'MANAGER_LOCKOUT',
+  // A key outside the ceiling of an organization role, or a protected one for the Operator (api-design 20).
+  PERMISSION_OUT_OF_CEILING = 'PERMISSION_OUT_OF_CEILING',
 
   // incidents (specs/incidents/design.md §7)
   ALREADY_OWNED = 'ALREADY_OWNED',

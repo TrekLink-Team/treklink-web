@@ -148,26 +148,30 @@
 
 ## Phase 9: Per-organization role policy (proposal, D-095; build in W10 after the leader's ruling)
 
-The proposal is `design.md` section 9. Nothing here starts before the leader rules on the decision text of 9.7 and on OQ-01 to OQ-05 of `requirements.md`.
+The design is `design.md` section 9, ruled by the leader in the review of treklink-web#310 (D-095 amendment, treklink-docs#156). 9.1 to 9.4 are built in one pull request; 9.5 follows. The `MANAGER_LOCKOUT` of the global `PUT /api/roles/:id/permissions` and the locked cell on screen 7.2 are a separate W10 task, not part of 9.1 to 9.5.
 
-- [ ] 9.1 Schema, migration and catalog (owner TanNB)
+- [x] 9.1 Schema, migration and catalog (owner TanNB)
   - **Files**: `backend/prisma/schema.prisma`, a new migration, `scripts/specs/catalog.py`, `permission-matrix.md`
   - **Do**: models `OrganizationRolePolicy` and `OrganizationRolePermission` in the `auth` block; catalog entries `organizationRole.manage.own` (`ORGANIZATION`, `protected`, `ORG_MANAGER`) and `organizationRole.read` (`TREKLINK`, `STAFF`); a new migration for the permission rows, the frozen seed migration stays as it is; regenerate the matrix
   - **Test**: `build_seed.py` refuses no permission; db-spec inserts a grant and a revoke and reads them back
+  - **Done** (2026-11-03, TanNB): models `OrganizationRolePolicy` and `OrganizationRolePermission` and the enum `OrganizationRoleEffect`; forward migration `20261103120000_organization_role_policy` with the two tables, the permissions `organizationRole.manage.own` and `organizationRole.read`, their grants and the parameter `auth.permissionCacheTtlSeconds` (the seed migration stays as it is); `catalog.py` carries the same rows, and `build_seed.py` regenerated the permission and configuration matrices and `parameter-registry.ts` (run with `python -X utf8`; the seed file it also rewrites is not kept).
   - _Requirements: REQ-UBI-11, REQ-UBI-12_
-- [ ] 9.2 Effective-set resolver and the cache by organization (owner TanNB)
+- [x] 9.2 Effective-set resolver and the cache by organization (owner TanNB)
   - **Files**: `casl/permission-cache.ts`, `casl/ability.factory.ts`, `casl/effective-permissions.ts`
   - **Do**: `rulesFor(roleKeys, organizationId)`; entries by `(organizationId, roleKey)`; `policy.changed` with an optional `organizationId` that drops one organization and leaves `policyVersion` alone; the algorithm of 9.3
   - **Test**: table of cases (baseline, grant, revoke, grant outside the ceiling ignored, Operator revoke not reaching the Manager, Manager protected permission always present); cache entry expiry after `auth.permissionCacheTtlSeconds`; AC-09, AC-10
+  - **Done** (2026-11-03, TanNB): `casl/effective-permissions.ts` (the algorithm of 9.3, the ceiling is the union of the two baselines, which equals the Manager baseline under FR-AUTH-10), `PermissionCache` entries by `(organizationId, roleKey)` with the time-to-live, `policy.changed` with an optional `organizationId` that does not count the version, `AbilityFactory.forContext` passes the organization. Unit tests in `effective-permissions.spec.ts` and `permission-cache.spec.ts`.
   - _Requirements: REQ-UBI-10, REQ-EVT-11, AC-09_
-- [ ] 9.3 `OrganizationRolePolicyService` and repository (owner TanNB)
+- [x] 9.3 `OrganizationRolePolicyService` and repository (owner TanNB)
   - **Files**: `organization-role-policy.service.ts`, `organization-role-policy.repository.ts`
-  - **Do**: `view(organizationId)`; `replace(caller, roleKey, dto)` with the status gate through `ACCOUNT_CONTEXT_PROVIDER`, the key checks, `FOR UPDATE` on the policy row, compare and set `version`, `policy.changed` and `audit.record` after commit; `PUT /api/roles/:id/permissions` refuses to remove a Manager-protected permission from `ORG_MANAGER`
+  - **Do**: `view(organizationId)`; `replace(caller, roleKey, dto)` with the status gate through `ACCOUNT_CONTEXT_PROVIDER`, the key checks, `FOR UPDATE` on the policy row, compare and set `version`, `policy.changed` and `audit.record` after commit
   - **Test**: AC-07, AC-08, AC-10; two concurrent saves, one gets `STALE_VERSION` (db-spec)
+  - **Done** (2026-11-03, TanNB): `OrganizationRolePolicyService` (`view`, `replace`) and `OrganizationRolePolicyRepository`; unit tests in `organization-role-policy.service.spec.ts`, e2e in `test/organization-roles.e2e-spec.ts`, and `test/organization-role-policy.db-spec.ts` for the rows, two organizations, the refused save and two concurrent saves (written, not run locally: no Postgres on the author's machine, so the first run is the CI job).
   - _Requirements: REQ-EVT-10, REQ-STA-04, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12, AC-07, AC-08, AC-10_
-- [ ] 9.4 `OrganizationRolesController` (owner TanNB)
+- [x] 9.4 `OrganizationRolesController` (owner TanNB)
   - **Files**: `organization-roles.controller.ts`
   - **Do**: api-design 19 and 20 with `@CheckPolicies` on the subject `OrganizationRole`; the organization from the token only
   - **Test**: every Validation row of api-design 19 and 20 in the e2e suite; the cross-organization rows
+  - **Done** (2026-11-03, TanNB): `OrganizationRolesController` at `GET /api/organization/roles` and `PUT /api/organization/roles/:roleKey/permissions`; every Validation row of api-design 19 and 20 except `ORGANIZATION_NOT_ACTIVE` (unit and db-spec) is in `test/organization-roles.e2e-spec.ts`. The Admin and Staff read (organizations api-design 33) is not part of this change.
   - _Requirements: REQ-UBI-04, REQ-UBI-06_
 - [ ] 9.5 Frontend (owner TanNB, tracked in `specs/frontend/tasks.md` 3.7 and the 7.2 follow-up for the Manager-protected cell)

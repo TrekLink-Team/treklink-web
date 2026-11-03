@@ -1,6 +1,8 @@
 import { subject } from '@casl/ability';
 import { AccountsRepository, PermissionRuleRow } from '../accounts.repository';
 import { AbilityContext, AbilityFactory, interpolate, toRule } from './ability.factory';
+import { ParameterService } from '../../platform/parameters/parameter.service';
+import { OrganizationRolePolicyRepository } from '../organization-role-policy.repository';
 import { PermissionCache } from './permission-cache';
 
 const row = (overrides: Partial<PermissionRuleRow> = {}): PermissionRuleRow => ({
@@ -112,7 +114,17 @@ describe('AbilityFactory', () => {
         .fn()
         .mockResolvedValue([row(), row({ key: 'liveMap.read.own', subject: 'LiveMap' })]),
     };
-    cache = new PermissionCache(accounts as unknown as AccountsRepository);
+    const policies = {
+      findStored: jest
+        .fn()
+        .mockResolvedValue({ grants: [], revokes: [], version: 0, updatedAt: null }),
+    };
+    const parameters = { get: jest.fn().mockResolvedValue(30) };
+    cache = new PermissionCache(
+      accounts as unknown as AccountsRepository,
+      policies as unknown as OrganizationRolePolicyRepository,
+      parameters as unknown as ParameterService,
+    );
     factory = new AbilityFactory(cache);
   });
 

@@ -55,7 +55,7 @@ export class AbilityFactory {
   constructor(private readonly permissions: PermissionCache) {}
 
   async forContext(context: AbilityContext): Promise<AppAbility> {
-    const rows = await this.permissions.rulesFor(context.roles);
+    const rows = await this.permissions.rulesFor(context.roles, context.organizationId);
     return createMongoAbility<AppAbility>(rows.map((row) => toRule(row, context)));
   }
 

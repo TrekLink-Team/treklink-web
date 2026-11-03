@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Proposal of D-095, specified in `design.md` section 9; not built until the leader rules on the decision text there. Returns `ORG_MANAGER` and `ORG_OPERATOR` of the caller's organization with, for each, the baseline the Admin set on screen 7.2, the effective keys after the organization's grants and revokes, and the `version` of its policy (0 until the first save). `catalog` describes every permission inside the ceiling, so the screen needs no call to `GET /api/permissions`. The organization comes from the token, never from the request (REQ-UBI-06).
+D-095, specified in `design.md` section 9 and ruled by the leader (treklink-docs#156); built in auth tasks 9.1 to 9.4. Returns `ORG_MANAGER` and `ORG_OPERATOR` of the caller's organization with, for each, the baseline the Admin set on screen 7.2, the effective keys after the organization's grants and revokes, and the `version` of its policy (0 until the first save). `catalog` describes every permission inside the ceiling, so the screen needs no call to `GET /api/permissions`. The organization comes from the token, never from the request (REQ-UBI-06).
 
 ## API Specification
 

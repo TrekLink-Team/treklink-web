@@ -155,6 +155,8 @@ export const bootE2e = async (tables: Record<string, unknown>): Promise<E2eApp> 
       findMany: ({ where }: { where: { role: { key: string } } }) =>
         Promise.resolve((PERMISSIONS[where.role.key] ?? []).map((permission) => ({ permission }))),
     },
+    // No organization stored a change to its roles (D-095): the baseline rows are the effective set.
+    organizationRolePolicy: { findFirst: () => Promise.resolve(null) },
   };
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(PrismaService)

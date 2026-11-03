@@ -23,8 +23,8 @@ ORG_ROLES = {"roles": [{"key": "ORG_MANAGER", "version": 0,
                        {"key": "ORG_OPERATOR", "version": 2, "baselineKeys": ["incident.read.own"],
                         "effectiveKeys": ["incident.read.own"]}],
              "catalog": ORG_ROLE_CATALOG}
-PROPOSAL = ("Proposal of D-095, specified in `design.md` section 9; not built until the leader rules on the "
-            "decision text there. ")
+PROPOSAL = ("D-095, specified in `design.md` section 9 and ruled by the leader (treklink-docs#156); built in "
+            "auth tasks 9.1 to 9.4. ")
 
 ENDPOINTS = [
     ep("POST", "/api/auth/login", "Sign in", "Public",

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Proposal of D-095, specified in `design.md` section 9; not built until the leader rules on the decision text there. Replaces the effective permission set of `ORG_MANAGER` or `ORG_OPERATOR` of the caller's organization. The service stores the difference from the baseline as grants and revokes, in one transaction, and compares `expectedVersion` with the stored `version`. The change applies to every holder from the next request and ends no session (REQ-EVT-10). Only an `ACTIVE` organization may save (REQ-STA-04).
+D-095, specified in `design.md` section 9 and ruled by the leader (treklink-docs#156); built in auth tasks 9.1 to 9.4. Replaces the effective permission set of `ORG_MANAGER` or `ORG_OPERATOR` of the caller's organization. The service stores the difference from the baseline as grants and revokes, in one transaction, and compares `expectedVersion` with the stored `version`. The change applies to every holder from the next request and ends no session (REQ-EVT-10). Only an `ACTIVE` organization may save (REQ-STA-04).
 
 ## API Specification
 

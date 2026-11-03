@@ -12,6 +12,7 @@ export const PARAMETER_TYPES = {
   'auth.invitationTtlHours': 'INT',
   'auth.codeMaxAttempts': 'INT',
   'auth.codeResendCooldownSeconds': 'DURATION_SECONDS',
+  'auth.permissionCacheTtlSeconds': 'INT',
   'organizations.maxApiKeys': 'INT',
   'organizations.maxFieldStations': 'INT',
   'organizations.rosterMaxRangeDays': 'INT',

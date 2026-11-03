@@ -22,6 +22,9 @@ import { ApiKeyGuard } from './guards/api-key.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PoliciesGuard } from './guards/policies.guard';
 import { OneTimeCodeService } from './one-time-code.service';
+import { OrganizationRolePolicyRepository } from './organization-role-policy.repository';
+import { OrganizationRolePolicyService } from './organization-role-policy.service';
+import { OrganizationRolesController } from './organization-roles.controller';
 import { PasswordFlowsService } from './password-flows.service';
 import { PasswordService } from './password.service';
 import { PermissionsController, RolesController } from './roles.controller';
@@ -52,6 +55,7 @@ import { TokenService } from './token.service';
     AccountsController,
     RolesController,
     PermissionsController,
+    OrganizationRolesController,
     AuthEventsController,
   ],
   providers: [
@@ -67,6 +71,8 @@ import { TokenService } from './token.service';
     AccountsService,
     RolesService,
     AuthEventsService,
+    OrganizationRolePolicyRepository,
+    OrganizationRolePolicyService,
     PermissionCache,
     AbilityFactory,
     JwtStrategy,

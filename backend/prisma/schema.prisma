@@ -226,6 +226,7 @@ model User {
   complianceActions     ComplianceAction[]
 
   simulatedNodesCreated SimulatedNode[]
+  rolePoliciesUpdated   OrganizationRolePolicy[] @relation("OrganizationRolePolicy_updatedById")
 
   @@index([accountType, isActive])
   @@index([createdById])
@@ -241,6 +242,8 @@ model Role {
   permissions RolePermission[]
   users       UserRole[]
 
+  organizationPolicies OrganizationRolePolicy[]
+
   @@map("roles")
 }
 
@@ -255,6 +258,8 @@ model Permission {
   inverted    Boolean          @default(false)
   reason      String?
   roles       RolePermission[]
+
+  organizationPolicyRows OrganizationRolePermission[]
 
   @@map("permissions")
 }
@@ -283,6 +288,46 @@ model RolePermission {
   @@id([roleId, permissionId])
   @@index([permissionId])
   @@map("role_permissions")
+}
+
+// What one organization changed in the permissions of its two roles (D-095, specs/auth/design.md §9). A
+// row exists once a Manager has saved the role; no row means version 0 and no difference from the
+// baseline of `role_permissions`. `version` counts the saves and is the `expectedVersion` of the next.
+model OrganizationRolePolicy {
+  organizationId String
+  organization   Organization                 @relation(fields: [organizationId], references: [id])
+  roleId         String
+  role           Role                         @relation(fields: [roleId], references: [id])
+  version        Int                          @default(1)
+  updatedById    String?
+  updatedBy      User?                        @relation("OrganizationRolePolicy_updatedById", fields: [updatedById], references: [id])
+  updatedAt      DateTime                     @default(now()) @updatedAt @db.Timestamptz(3)
+  permissions    OrganizationRolePermission[]
+
+  @@id([organizationId, roleId])
+  @@index([roleId])
+  @@index([updatedById])
+  @@map("organization_role_policies")
+}
+
+// One grant or revoke of a policy: a permission the baseline of the role lacks and the ceiling holds
+// (GRANT), or one the baseline holds (REVOKE). Deleted and inserted again with every save.
+model OrganizationRolePermission {
+  organizationId String
+  roleId         String
+  permissionId   String
+  permission     Permission             @relation(fields: [permissionId], references: [id])
+  effect         OrganizationRoleEffect
+  policy         OrganizationRolePolicy @relation(fields: [organizationId, roleId], references: [organizationId, roleId], onDelete: Cascade)
+
+  @@id([organizationId, roleId, permissionId])
+  @@index([permissionId])
+  @@map("organization_role_permissions")
+}
+
+enum OrganizationRoleEffect {
+  GRANT
+  REVOKE
 }
 
 model RefreshToken {
@@ -403,6 +448,7 @@ model Organization {
   complianceCases     ComplianceCase[]
   lossCases           LossCase[]
   serviceCredits      ServiceCredit[]
+  rolePolicies        OrganizationRolePolicy[]
 
   @@index([status])
   @@index([verifiedById])
