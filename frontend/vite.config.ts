@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 const NODE_SHIM = '\0meshtastic-node-shim';
+const RUNTIME_VERSION = 'runtimeVersion: process?.version,';
 
 // `@meshtastic/core` 2.6.7 on npm bundles tslog's Node runtime: it imports `os`, `path` and `util` and
 // reads `process?.version` when the module loads, which fails the browser build ("hostname" is not
@@ -30,7 +31,14 @@ const meshtasticBrowserShim = (): Plugin => ({
   },
   transform(code, id) {
     if (!id.includes('/@meshtastic/core/dist/mod.js')) return null;
-    return { code: code.replace('runtimeVersion: process?.version,', 'runtimeVersion: undefined,'), map: null };
+    // A version bump that changes this line would reintroduce the browser crash silently, so the build
+    // stops instead of shipping it.
+    if (!code.includes(RUNTIME_VERSION)) {
+      this.error(
+        `meshtastic-browser-shim: "${RUNTIME_VERSION}" not found in @meshtastic/core; update the shim for this version.`,
+      );
+    }
+    return { code: code.replace(RUNTIME_VERSION, 'runtimeVersion: undefined,'), map: null };
   },
 });
 
