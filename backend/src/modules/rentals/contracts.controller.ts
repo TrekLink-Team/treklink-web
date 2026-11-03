@@ -246,6 +246,7 @@ export class ContractsController {
     const {
       row,
       assetTags,
+      nodeNums,
       returnChecks,
       balance,
       provisionedKeyVersions,
@@ -268,6 +269,8 @@ export class ContractsController {
         const check = returnChecks.get(device.id);
         return {
           ...toDeviceRowView(device, assetTags.get(device.deviceId) ?? null, labels.variant),
+          // Read-only: Staff dock the unit against it (devices design section 8.5, D-080).
+          nodeNum: nodeNums.get(device.deviceId) ?? null,
           // The row a service credit is requested against (billing api-design 18, screen 6.5).
           contractDeviceId: device.id,
           resetAt: check?.resetAt ?? null,

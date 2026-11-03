@@ -141,10 +141,11 @@
 
 ## Phase 7: Counter docking over Web Serial (D-080, D-082)
 
-- [ ] 7.1 Contract changes in the catalog (owner KhoaDD)
+- [x] 7.1 Contract changes in the catalog (owner TanNB)
   - **Files**: `scripts/specs/catalog.py`, `scripts/specs/endpoints/rentals.py`, regenerated `specs/rentals/api-design/03`, `09`, `21`, `specs/auth/permission-matrix.md`, a forward migration
   - **Do**: design §8.5: `devices[].nodeNum` on rentals 03; `nodeNum` and 409 `NODE_MISMATCH` on rentals 09 (optional only for the manual fallback, design §8.6 decision 3); the new channel-key endpoint (rentals 21) and its `contract.issueChannelKey` permission (D-082 decision 1)
   - _Requirements: REQ-EVT-26, REQ-ERR-12_
+  - **Done 2026-11-04** (treklink-web#335): the catalog, the generated api-design 03, 09 and 21 and the matrix came with #126; the forward migration `20261104100000_channel_key_permission` adds `contract.issueChannelKey` for STAFF and ADMIN
 - [ ] 7.2 `meshtastic-dock.ts` adapter over the published Meshtastic packages (owner KhoaDD)
   - **Files**: `frontend/package.json` (`@meshtastic/core`, `@meshtastic/transport-web-serial`, pinned exact versions), `frontend/src/shared/lib/meshtastic-dock.ts`, tests beside it
   - **Do**: design §8.1 and §8.2; one adapter wrapping the npm packages (D-082 decision 3, vetting record adopted with the GPL-3.0 condition)
@@ -163,10 +164,11 @@
   - **Files**: Register panel of screen 4.2 (frontend 4.2)
   - **Do**: wire the self-contained Read-from-unit component of task 7.3 into the Register panel
   - _Requirements: REQ-EVT-24, AC-13_
-- [ ] 7.5 Backend `nodeNum` check and channel-key endpoint (owner KhoaDD; a draft from 2026-10-30 is kept on a local branch, not merged)
+- [x] 7.5 Backend `nodeNum` check and channel-key endpoint (owner TanNB; the draft of 2026-10-30 on a local branch was not used)
   - **Files**: `backend/src/modules/rentals/handover.service.ts`, `handover.controller.ts`, the rentals 03 mapper, `backend/src/modules/organizations/channel-key.service.ts` (`deriveKey`), `backend/src/modules/platform/config/environment-variables.ts`, `backend/.env.example`, tests
   - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning` and before issuing the key; 409 `NODE_MISMATCH`; derive the key with `crypto.hkdfSync` from `CHANNEL_KEY_MASTER`; audit row without the key; `Cache-Control: no-store`
   - _Requirements: REQ-EVT-26, REQ-ERR-12, REQ-UBI-03_
+  - **Done 2026-11-04** (treklink-web#335): `HandoverService.provision` checks the docked `nodeNum` (409 `NODE_MISMATCH`, manual fallback audited), `issueChannelKey` and `POST /api/contracts/:id/devices/:deviceId/channel-key`, `ChannelKeyService.deriveKey`, `CHANNEL_KEY_MASTER` (required, at least 32 characters; set it in the deployment secret store before this release), `devices[].nodeNum` on rentals 03. The db-spec `channel-key-http.db-spec.ts` runs in CI only
 - [ ] 7.6 Stage A uplink configuration on `DeviceDetailPage` (owner KhoaDD)
   - **Files**: `frontend/src/features/dock-device/` (`configureUplink`), screen 4.2 action and form, tests beside them
   - **Do**: design §8.8: one edit transaction (network, MQTT module, channel 0 uplink), the restart wait, reconnect prompt and read-back; nothing typed kept after the docking

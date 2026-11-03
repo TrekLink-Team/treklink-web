@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -16,6 +17,7 @@ import { contractBase } from './contracts.controller';
 import {
   HandoverDto,
   HandoverPreviewQueryDto,
+  IssueChannelKeyDto,
   ProvisioningDto,
   SwapDto,
   UndoProvisioningDto,
@@ -55,7 +57,14 @@ export class HandoverController {
     @Body() dto: ProvisioningDto,
     @CurrentCaller() caller: Caller,
   ) {
-    const device = await this.handover.provision(id, deviceId, dto.keyVersion, caller);
+    const device = await this.handover.provision(
+      id,
+      deviceId,
+      dto.keyVersion,
+      caller,
+      new Date(),
+      dto.nodeNum ?? null,
+    );
     return {
       deviceId: device.id,
       assetTag: device.assetTag,
@@ -64,6 +73,23 @@ export class HandoverController {
       keyOrganizationId: device.keyOrganizationId,
       provisionedAt: device.provisionedAt,
     };
+  }
+
+  // The derived channel key for a docked unit (api-design 21, D-082). Its own permission, separate from
+  // `contract.operate`, so the key-issuing trail has its own row. The answer carries the key, so it is
+  // never cached (REQ-UBI-03).
+  @Post(':id/devices/:deviceId/channel-key')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @CheckPolicies((ability) => ability.can('issueChannelKey', 'RentalContract'))
+  @ResponseMessage('Channel key issued')
+  issueChannelKey(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+    @Body() dto: IssueChannelKeyDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    return this.handover.issueChannelKey(id, deviceId, dto.nodeNum, caller);
   }
 
   // The undo answers the cleared unit and the contract version, which the counter sends next.
