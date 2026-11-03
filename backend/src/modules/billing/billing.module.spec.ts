@@ -5,7 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../../common/prisma/prisma.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { CUSTODY_RESOLVER } from '../devices';
+import { CUSTODY_RESOLVER, DEVICE_CONTRACTS } from '../devices';
 import { validate } from '../platform/config/environment-variables';
 import {
   BalanceService,
@@ -30,12 +30,16 @@ const TEST_ENVIRONMENT: Record<string, string> = {
   MAIL_TRANSPORT: 'console',
 };
 
-// DevicesModule, which billing imports, injects the required CUSTODY_RESOLVER port that rentals
-// provides from its global RentalsPortsModule in the application (devices task 2.7); this stands in.
+// DevicesModule, which billing imports, injects the required CUSTODY_RESOLVER and DEVICE_CONTRACTS
+// ports that rentals provides from its global RentalsPortsModule in the application (devices tasks 2.7
+// and 10.2); this stands in.
 @Global()
 @Module({
-  providers: [{ provide: CUSTODY_RESOLVER, useValue: { custodyAt: () => Promise.resolve(null) } }],
-  exports: [CUSTODY_RESOLVER],
+  providers: [
+    { provide: CUSTODY_RESOLVER, useValue: { custodyAt: () => Promise.resolve(null) } },
+    { provide: DEVICE_CONTRACTS, useValue: { liveContractsOf: () => Promise.resolve([]) } },
+  ],
+  exports: [CUSTODY_RESOLVER, DEVICE_CONTRACTS],
 })
 class CustodyResolverStubModule {}
 
