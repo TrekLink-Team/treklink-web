@@ -400,7 +400,7 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor C as Client
-    participant Ctl as ContractsController
+    participant Ctl as HandoverController
     participant Svc as HandoverService
     participant DB as Postgres
     participant Bill as BillingService

@@ -160,7 +160,7 @@
   - **Do**: wire the self-contained Read-from-unit component of task 7.3 into the Register panel
   - _Requirements: REQ-EVT-23, AC-13_
 - [ ] 7.5 Backend `nodeNum` check and channel-key endpoint (owner KhoaDD; a draft from 2026-10-30 is kept on a local branch, not merged)
-  - **Files**: `backend/src/modules/rentals/handover.service.ts`, `handover.controller.ts`, the rentals 03 mapper, `backend/src/modules/platform/config/environment-variables.ts`, `backend/.env.example`, tests
+  - **Files**: `backend/src/modules/rentals/handover.service.ts`, `handover.controller.ts`, the rentals 03 mapper, `backend/src/modules/organizations/channel-key.service.ts` (`deriveKey`), `backend/src/modules/platform/config/environment-variables.ts`, `backend/.env.example`, tests
   - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning` and before issuing the key; 409 `NODE_MISMATCH`; derive the key with `crypto.hkdfSync` from `CHANNEL_KEY_MASTER`; audit row without the key; `Cache-Control: no-store`
   - _Requirements: REQ-EVT-25, REQ-ERR-12, REQ-UBI-03_
 - [ ] 7.6 Stage A uplink configuration on `DeviceDetailPage` (owner KhoaDD)
