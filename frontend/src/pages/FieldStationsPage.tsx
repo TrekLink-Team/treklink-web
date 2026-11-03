@@ -1,3 +1,4 @@
+import { Ban } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
@@ -21,7 +22,7 @@ import {
   Button,
   buttonClasses,
   Card,
-  DataTable,
+  CollectionView,
   Dialog,
   EmptyState,
   Field,
@@ -29,7 +30,7 @@ import {
   PageHeader,
   Skeleton,
   useToast,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
 import { ErrorState, Fact } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
@@ -341,40 +342,18 @@ export const FieldStationsPage: React.FC = () => {
     </Button>
   );
 
-  const columns: Column<FieldStation>[] = [
-    {
-      key: 'name',
-      header: 'Station',
-      cell: (station) => (
-        <span className="flex flex-col">
-          <span className="font-semibold text-ink">{station.name}</span>
-          <span className="font-mono text-body-sm text-ink-muted">{station.mqttUsername}</span>
-        </span>
-      ),
-    },
-    { key: 'version', header: 'Version', cell: (station) => <VersionCell station={station} /> },
+  const fields: CollectionField<FieldStation>[] = [
+    { key: 'version', label: 'Version', render: (station) => <VersionCell station={station} />, compact: true },
     {
       key: 'lastSync',
-      header: 'Last sync',
-      cell: (station) => (station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'),
+      label: 'Last sync',
+      render: (station) => (station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'),
+      compact: true,
     },
-    { key: 'queue', header: 'Queue p0 / p1 / p2 / p3', cell: queueText },
-    { key: 'retry', header: 'Oldest retry', align: 'end', cell: (station) => station.oldestRetryCount },
-    { key: 'status', header: 'Status', cell: (station) => <StatusCell station={station} /> },
+    { key: 'queue', label: 'Queue p0 / p1 / p2 / p3', render: queueText, hideWithPane: true },
+    { key: 'retry', label: 'Oldest retry', align: 'end', render: (station) => station.oldestRetryCount, hideWithPane: true },
+    { key: 'status', label: 'Status', render: (station) => <StatusCell station={station} />, compact: true },
   ];
-
-  const revokeButton = (station: FieldStation) =>
-    isManager && !station.revokedAt ? (
-      <Button
-        variant="danger"
-        size="sm"
-        className="min-h-11 sm:min-h-0"
-        aria-label={`Revoke ${station.name}`}
-        onClick={() => setRevoking(station)}
-      >
-        Revoke
-      </Button>
-    ) : null;
 
   return (
     <section aria-labelledby={TITLE_ID}>
@@ -389,39 +368,35 @@ export const FieldStationsPage: React.FC = () => {
         </Alert>
       )}
 
-      <DataTable
-        caption="Field Stations"
-        columns={columns}
-        rows={stations.data?.items}
-        rowId={(station) => station.id}
+      <CollectionView<FieldStation>
+        label="Field Stations"
+        items={stations.data?.items}
         loading={stations.isLoading}
-        error={
-          stations.error ? <ErrorState error={stations.error} onRetry={() => void stations.refetch()} /> : undefined
-        }
-        empty={{
+        error={stations.error ? <ErrorState error={stations.error} onRetry={() => void stations.refetch()} /> : undefined}
+        itemId={(station) => station.id}
+        itemName={(station) => station.name}
+        itemTitle={(station) => (
+          <span className="flex flex-col">
+            <span className="font-semibold text-ink">{station.name}</span>
+            <span className="font-mono text-body-sm font-normal text-ink-muted">{station.mqttUsername}</span>
+          </span>
+        )}
+        fields={fields}
+        noun={{ one: 'station', other: 'stations' }}
+        itemActions={[
+          {
+            key: 'revoke',
+            label: 'Revoke',
+            icon: <Ban />,
+            destructive: true,
+            allowed: (station) => isManager && !station.revokedAt,
+            onSelect: setRevoking,
+          },
+        ]}
+        emptyState={{
           title: 'No Field Stations yet',
           description: 'Create a credential, then run the Field Station on the laptop at your base.',
         }}
-        rowActions={isManager ? revokeButton : undefined}
-        renderCard={(station) => (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <span className="flex flex-col">
-                <span className="font-semibold text-ink">{station.name}</span>
-                <span className="font-mono text-body-sm text-ink-muted">{station.mqttUsername}</span>
-              </span>
-              <StatusCell station={station} />
-            </div>
-            <VersionCell station={station} />
-            <p className="text-body-sm text-ink-muted">
-              Last sync {station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'}
-            </p>
-            <p className="text-body-sm text-ink-muted">
-              Queue {queueText(station)}, oldest retry {station.oldestRetryCount}
-            </p>
-            {revokeButton(station)}
-          </div>
-        )}
       />
 
       {creating && organizationId && (

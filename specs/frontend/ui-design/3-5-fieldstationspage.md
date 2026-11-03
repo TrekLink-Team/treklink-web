@@ -129,3 +129,11 @@ Staff and Admin although both hold `fieldStation.revoke`.
 | Filter | Organization: All organizations (default) or one, which reads that organization's list only |
 | Row action | Revoke, on a row with `revokedAt` null: `StateChangeDialog` titled "Revoke Field Station {name}?", an alert dialog with the required reason (api-design 25 requires it of TrekLink callers), then the server message as a toast and the organization's list refetched |
 | No bulk | A revoke is rare and each needs its own reason; no selection |
+
+## Field Station lists on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The station list of `/o/field-stations` and the Staff list of every organization's
+stations render through `CollectionView` (chapter 06 §9). Revoke is an item action (the Org Manager's on
+an active station; Staff's named "Revoke {station} of {organization code}") behind the same confirmation
+dialogs. The revoked badge is short, with its date beside it. The Staff organization select stays above
+the list.
