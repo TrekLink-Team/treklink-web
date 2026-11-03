@@ -51,6 +51,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/t/billing',
       '/t/damage-charges',
       '/t/service-credits',
+      '/t/reports',
     ]);
     expect(routes(visibleNav('TREKLINK', ['ADMIN']))).toEqual([
       '/t/map',
@@ -66,6 +67,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/t/billing',
       '/t/damage-charges',
       '/t/service-credits',
+      '/t/reports',
       '/t/admin/accounts',
       '/t/admin/roles',
       '/t/admin/parameters',

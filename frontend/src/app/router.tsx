@@ -33,6 +33,7 @@ import { MaintenanceApprovalPage, MaintenancePage } from '../pages/MaintenancePa
 import { PaymentPage } from '../pages/PaymentPage';
 import { ParametersPage } from '../pages/ParametersPage';
 import { DemoControlPage } from '../pages/DemoControlPage';
+import { ReportsPage } from '../pages/ReportsPage';
 import { RolesPage } from '../pages/RolesPage';
 import { SystemHealthPage } from '../pages/SystemHealthPage';
 import { PricesPage } from '../pages/PricesPage';
@@ -135,6 +136,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/contracts/:id" element={<ContractDetailPage scope="t" />} />
         <Route path="/t/devices/:id/telemetry" element={<DeviceTelemetryPage scope="t" />} />
         <Route path="/t/billing" element={<BillingPage />} />
+        <Route path="/t/reports" element={<ReportsPage />} />
         <Route path="/t/damage-charges" element={<DamageChargesPage />} />
         <Route path="/t/service-credits" element={<ServiceCreditsPage />} />
         <Route path="/t/organizations" element={<OrganizationReviewPage />} />

@@ -15,6 +15,7 @@ vi.mock('../pages/PlansPage', () => ({ PlansPage: () => <p>plans page</p> }));
 vi.mock('../pages/ParametersPage', () => ({ ParametersPage: () => <p>parameters page</p> }));
 vi.mock('../pages/AccountsPage', () => ({ AccountsPage: () => <p>accounts page</p> }));
 vi.mock('../pages/RolesPage', () => ({ RolesPage: () => <p>roles page</p> }));
+vi.mock('../pages/ReportsPage', () => ({ ReportsPage: () => <p>reports page</p> }));
 vi.mock('../pages/SystemHealthPage', () => ({ SystemHealthPage: () => <p>system health page</p> }));
 vi.mock('../pages/AuditLogPage', () => ({ AuditLogPage: () => <p>audit log page</p> }));
 vi.mock('../pages/DeviceTelemetryPage', () => ({
@@ -144,6 +145,17 @@ describe('route guards (AC-01)', () => {
     expect(screen.getByText('system health page')).toBeTruthy();
     cleanup();
     visit('/t/admin/health', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+  });
+
+  it('gives the reports page to Staff and Admin, and shows MSG26 to an organization role', () => {
+    visit('/t/reports', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('reports page')).toBeTruthy();
+    cleanup();
+    visit('/t/reports', account(['ADMIN'], 'TREKLINK'));
+    expect(screen.getByText('reports page')).toBeTruthy();
+    cleanup();
+    visit('/t/reports', account(['ORG_MANAGER'], 'ORGANIZATION'));
     expect(screen.getByText('You do not have access to this.')).toBeTruthy();
   });
 

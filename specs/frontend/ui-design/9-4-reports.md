@@ -33,8 +33,8 @@ One page, five tabs, one per `kind`. The date range and the CSV button are share
 | Every chart has its table directly beside or under it, as the text equivalent | same `rows[]` |
 
 Row shapes per kind are those of monitoring 08 (D-057 rule 10). Notes:
-- A percentile of several organizations cannot be computed from their per-organization percentiles, so the four tiles show the organization row that is selected in the table (the row with the most incidents is selected on load). A platform-wide figure would need the endpoint to return it; none is invented here.
-- Rows carry a code, not an id: the overdue row has `contractCode` and the lost row has `assetTag` and `contractCode`. The row links therefore open the filtered list of the target screen by that code (`/t/contracts` and `/t/loss-cases`, search by code; the query name is unverified until those screens' lists are specified), not a detail page by id.
+- A percentile of several organizations cannot be computed from their per-organization percentiles, so the endpoint returns it: `incident-times` ends with one row whose `organization` is null, computed over every incident of the period, unrouted ones included (monitoring 08, treklink-web#331). The page names it "All organizations" and opens the four tiles on it; a click on an organization name in the table shows that organization's tiles instead. If no such row comes, the tiles open on the organization with the most incidents.
+- Rows carry the ids of their records (monitoring 08, D-059 rule 6): the overdue row has `contractId` and the lost row has `lossCaseId` and `contractId`. The Overdue contract code and the Lost contract code link to `/t/contracts/:id` (screen 5.2 detail), and the Lost asset tag links to `/t/loss-cases/:id` (screen 4.4 detail) when the unit has a loss case; a unit with none shows its asset tag as text.
 
 ## Actions
 
@@ -44,9 +44,9 @@ Row shapes per kind are those of monitoring 08 (D-057 rule 10). Notes:
 | Apply range (From, To) | same | none | none |
 | Quick ranges: This month, Last month, Last 30 days | same | none | none |
 | Download CSV (secondary, top right) | monitoring 08 `GET /api/reports/:kind?from&to&format=csv`; the CSV text arrives in `result` and the client saves it as `treklink-{kind}-{from}-{to}.csv` | none | the browser's download; button text "Downloaded" for 3 seconds |
-| Row link, Overdue tab: contract code | navigation to the contract list filtered by the code, `/t/contracts` (screen 5.2), and from there its detail page | none | none |
-| Row link, Lost tab: asset tag | navigation to the loss-case list filtered by the asset tag, `/t/loss-cases` (screen 4.4), and from there the case | none | none |
-| Row select, Incident-times tab | none (the tiles update from the loaded rows) | none | none |
+| Row link, Overdue tab: contract code | navigation to `/t/contracts/:id` by the row's `contractId` | none | none |
+| Row link, Lost tab: asset tag and contract code | navigation to `/t/loss-cases/:id` by `lossCaseId` (no link when the unit has no loss case) and to `/t/contracts/:id` by `contractId` | none | none |
+| Row select, Incident-times tab: the organization name in the table | none (the tiles update from the loaded rows; the row over every incident is selected on load) | none | none |
 
 The CSV is never built from the table in the client: the server file is the export, so what is
 downloaded equals what the report states. The screen is read-only; the range is its main input.

@@ -140,7 +140,7 @@ export const TREKLINK_NAV: NavGroup[] = [
   {
     id: 't-reports',
     label: 'Reports',
-    entries: [{ route: '/t/reports', label: 'Reports', icon: BarChart3, roles: STAFF, built: false }],
+    entries: [{ route: '/t/reports', label: 'Reports', icon: BarChart3, roles: STAFF, built: true }],
   },
   {
     id: 't-admin',
