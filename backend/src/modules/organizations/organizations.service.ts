@@ -223,6 +223,15 @@ export class OrganizationsService {
     return new Map(rows.map((row) => [row.id, row]));
   }
 
+  // The organizations a contract search names (rentals REQ-EVT-26, organizations design §5): the ids
+  // of every organization whose legal name or code contains `q`, ignoring case, whatever its status.
+  // A blank `q` names none; the caller treats a blank search as no filter.
+  idsMatching(q: string): Promise<string[]> {
+    const text = q.trim();
+    if (text === '') return Promise.resolve([]);
+    return this.organizations.idsMatching(text);
+  }
+
   // Party B of the handover note (rentals design §4.1): legal name, code, tax code, address and the
   // master contract with its NDA and licence flags, as the review recorded them; null for an unknown
   // id. In the caller's transaction when it passes one.

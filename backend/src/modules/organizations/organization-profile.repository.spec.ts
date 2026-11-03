@@ -37,3 +37,23 @@ describe('The reads the organization detail needs (api-design 03)', () => {
     expect(count).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('The organizations a contract search names (rentals REQ-EVT-26)', () => {
+  it('matches the legal name or the code, ignoring case, and returns the ids', async () => {
+    const findMany = jest.fn().mockResolvedValue([{ id: 'org-1' }, { id: 'org-2' }]);
+    const repository = new OrganizationsRepository({
+      organization: { findMany },
+    } as unknown as PrismaService);
+
+    await expect(repository.idsMatching('acme')).resolves.toEqual(['org-1', 'org-2']);
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { legalName: { contains: 'acme', mode: 'insensitive' } },
+          { code: { contains: 'acme', mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+    });
+  });
+});
