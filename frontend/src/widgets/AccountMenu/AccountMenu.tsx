@@ -83,7 +83,8 @@ export const AccountMenu: React.FC = () => {
   return (
     <>
       <Menu
-        label={me ? `Account: ${me.fullName}` : 'Account'}
+        // The name starts with the visible text, the full name (WCAG 2.5.3, review of treklink-web#350).
+        label={me ? `${me.fullName}, account menu` : 'Account menu'}
         items={items}
         align="end"
         triggerClassName="h-11 min-w-11 gap-2 px-1 sm:pr-3"
