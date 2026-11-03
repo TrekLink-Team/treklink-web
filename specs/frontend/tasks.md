@@ -142,6 +142,10 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 - [ ] 4.5 Stock-take (owner KhoaDD)
   - **Do**: devices api-design 25 and 26; scan input; the four result groups
   - _Story: US-UC54_
+- [ ] 4.6 Device connector panel, the Staff device hub (owner KhoaDD)
+  - **Do**: devices api-design 30 to 32, rentals api-design 30, 09, 21; the panel and device view of devices design §11, built as devices tasks 10.6 to 10.11; screen file `ui-design/4-6-device-connector-panel.md`
+  - _Story: US-UC11, US-UC14, US-UC20_
+  - _Requirements: devices REQ-UBI-07 to REQ-UBI-10, REQ-EVT-29 to REQ-EVT-41, REQ-STA-05, REQ-STA-06, REQ-ERR-19 to REQ-ERR-29_
 
 ## Phase 5: Contracts
 
