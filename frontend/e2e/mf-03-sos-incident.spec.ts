@@ -1,5 +1,5 @@
 import { expect, test } from './support/fixtures';
-import { apiGet, apiToken, appears, definitionOf, statusBadge, titleStatus, expectToast, openFromSidebar, runBackendScript, signIn, vnd } from './support/session';
+import { apiGet, apiToken, appears, figureOf, statusBadge, titleStatus, expectToast, openFromSidebar, runBackendScript, signIn, vnd } from './support/session';
 
 // MF-03, demo script §4: an SOS from TL-0010 reaches the Operator, who acknowledges, responds,
 // corrects a status update and resolves; Staff report the seeded UNROUTED incident and the seeded
@@ -172,8 +172,11 @@ test('MF-03 steps 11 to 13: Staff report the DEFAULTED contract RC-2026-0003', a
   const main = page.getByRole('main');
   await expect(main.getByText('RC-2026-0003').first()).toBeVisible();
   await expect(titleStatus(page, 'Defaulted')).toBeVisible();
-  // The unpaid balance of term 1; the holding fee was paid at handover.
-  await expect(definitionOf(main, 'Due now')).toHaveText(vnd(225_000));
-  await expect(definitionOf(main, 'Due later')).toHaveText(vnd(0));
-  await expect(definitionOf(main, 'Paid')).toHaveText(vnd(225_000));
+  // The unpaid balance of term 1; the holding fee was paid at handover. The Balance card is on the
+  // contract home's Money tab (#349).
+  await page.getByRole('tab', { name: 'Money' }).click();
+  await expect(main.getByRole('heading', { name: 'Balance' })).toBeVisible();
+  await expect(figureOf(main, 'Due now')).toHaveText(vnd(225_000));
+  await expect(figureOf(main, 'Due later')).toHaveText(vnd(0));
+  await expect(figureOf(main, 'Paid')).toHaveText(vnd(225_000));
 });
