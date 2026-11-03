@@ -94,6 +94,19 @@ vi.mock('../entities/billing/api', async (importOriginal) => ({
   }),
 }));
 
+// The docking hook is the feature's (tested in features/dock-device); the page test drives its states.
+const docking = vi.hoisted(() => ({
+  supported: true,
+  busy: false,
+  state: { target: null as string | null, stage: null as string | null },
+  dockAndProvision: vi.fn(),
+  reconnect: vi.fn(),
+  giveUp: vi.fn(),
+  readUnit: vi.fn(),
+  configureUplink: vi.fn(),
+}));
+vi.mock('../features/dock-device/useDocking', () => ({ useDocking: () => docking }));
+
 // jsdom has no canvas: the stub signs with one click.
 vi.mock('../widgets/SignaturePad/SignaturePad', () => ({
   SignaturePad: ({ onChange }: { onChange: (png: string) => void }) => (
@@ -173,6 +186,11 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  docking.supported = true;
+  docking.busy = false;
+  docking.state = { target: null, stage: null };
+  docking.dockAndProvision.mockReset();
+  docking.reconnect.mockReset();
   recordProvisioning.mockReset();
   undoProvisioning.mockReset();
   completeHandover.mockReset();
@@ -550,5 +568,124 @@ describe('CounterPage undo of a provisioning (dry run defect 5, rentals api-desi
         expect(screen.getByText('Not provisioned yet')).toBeTruthy();
       },
     );
+  });
+});
+
+describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
+  const nodeNums = () =>
+    contract.devices.map((device, index) => ({ ...device, nodeNum: 0xa4b1c2d0 + index }));
+
+  it('shows the Chromium banner and disables Dock and provision without Web Serial', () => {
+    docking.supported = false;
+    renderPage();
+    expect(
+      screen.getByText(
+        'Docking needs Chrome or Edge on a desktop. Open this page there to provision units.',
+      ),
+    ).toBeTruthy();
+    screen
+      .getAllByRole('button', { name: 'Dock and provision' })
+      .forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true));
+    // The manual record stays beside it (devices design 8.6 decision 3).
+    expect(
+      (screen.getAllByRole('button', { name: 'Record provisioning' })[0] as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
+  it('docks, then records the version it wrote with the docked nodeNum', async () => {
+    docking.dockAndProvision.mockResolvedValue({ ok: true, nodeNum: 0xa4b1c2d0, keyVersion: 1 });
+    await withDevices(nodeNums(), async () => {
+      renderPage();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+      await waitFor(() => expect(screen.getByText('Provisioned v1')).toBeTruthy());
+      expect(docking.dockAndProvision).toHaveBeenCalledWith({
+        contractId: 'c-1',
+        deviceId: 'd-1',
+        assetTag: 'TL-0003',
+        nodeNum: 0xa4b1c2d0,
+      });
+      expect(recordProvisioning).toHaveBeenCalledWith('c-1', 'd-1', 1, 0xa4b1c2d0);
+    });
+  });
+
+  it('names the docked node when the wrong unit is docked, and records nothing (REQ-ERR-12)', async () => {
+    docking.dockAndProvision.mockResolvedValue({
+      ok: false,
+      failure: 'mismatch',
+      reason: 'The docked unit is !0004351c, not TL-0003. Nothing was written.',
+    });
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+    await waitFor(() =>
+      expect(
+        screen.getByText('The docked unit is !0004351c, not TL-0003. Nothing was written.'),
+      ).toBeTruthy(),
+    );
+    expect(recordProvisioning).not.toHaveBeenCalled();
+  });
+
+  it('names the failed step and asks to dock again (REQ-ERR-13)', async () => {
+    docking.dockAndProvision.mockResolvedValue({
+      ok: false,
+      failure: 'dock',
+      reason: 'The unit did not acknowledge set_channel.',
+    });
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[1]);
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'The unit did not acknowledge set_channel. Dock TL-0004 again before handover.',
+        ),
+      ).toBeTruthy(),
+    );
+    expect(recordProvisioning).not.toHaveBeenCalled();
+  });
+
+  it('shows the v2 message when the unit answers nothing over USB (REQ-ERR-14)', async () => {
+    docking.dockAndProvision.mockResolvedValue({
+      ok: false,
+      failure: 'no-response',
+      reason: 'The unit answered nothing over USB.',
+    });
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'No response over USB. v2 units cannot dock yet; enter the node number manually.',
+        ),
+      ).toBeTruthy(),
+    );
+  });
+
+  it('maps NODE_MISMATCH from the record to the docked node', async () => {
+    docking.dockAndProvision.mockResolvedValue({ ok: true, nodeNum: 0x4351c, keyVersion: 1 });
+    recordProvisioning.mockRejectedValue(new ApiError(409, 'NODE_MISMATCH', 'mismatch'));
+    renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Dock and provision' })[0]);
+    await waitFor(() =>
+      expect(
+        screen.getByText('The docked unit is !0004351c, not TL-0003. Nothing was recorded.'),
+      ).toBeTruthy(),
+    );
+  });
+
+  it('shows the docking stage on the row, the Reconnect button, and holds the other rows', () => {
+    docking.busy = true;
+    docking.state = { target: 'd-1', stage: 'reconnect' };
+    renderPage();
+    expect(
+      screen.getByText(
+        'The browser dropped the unit while it restarted. Reconnect it to check the settings.',
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
+    expect(docking.reconnect).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Docking…' })).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Dock and provision' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });

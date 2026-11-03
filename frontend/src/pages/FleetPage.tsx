@@ -39,8 +39,11 @@ import { StateChangeDialog, type StateTransition } from '../shared/ui/StateChang
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { VariantCard } from '../entities/variant/VariantCard';
 import { VariantImage } from '../entities/variant/VariantImage';
-import { ALERT } from '../shared/ui/styles';
+import { ALERT, ERROR_TEXT, LINK, WARNING } from '../shared/ui/styles';
 import { ClipboardCheck, RotateCcw } from 'lucide-react';
+import { intakeDockMessage } from '../features/dock-device/messages';
+import { useDocking } from '../features/dock-device/useDocking';
+import { VARIANT_CODE_BY_PIO_ENV, firmwareBuildDiffers } from '../shared/config/docking';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -76,7 +79,9 @@ const EMPTY_FORM: RegisterForm = {
 };
 
 // The register dialog of screen 4.2 (devices api-design 05). The firmware version is prefilled from
-// the variant's baseline the first time a variant is chosen.
+// the variant's baseline the first time a variant is chosen. Read from unit (devices design 8.3) fills
+// the node number and the variant from a docked unit and shows the firmware it reports; typing stays
+// possible, and uniqueness is still the server's (REQ-ERR-01).
 const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () => void }> = ({
   onDone,
   onCancel,
@@ -87,7 +92,32 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const docking = useDocking();
+  const [reported, setReported] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
+
+  const readFromUnit = async () => {
+    setReadError(null);
+    const read = await docking.readUnit();
+    if (!read.ok) {
+      setReadError(intakeDockMessage(read));
+      return;
+    }
+    const code = read.unit.pioEnv ? VARIANT_CODE_BY_PIO_ENV[read.unit.pioEnv] : undefined;
+    const variant = variants?.find((item) => item.isActive && item.code === code);
+    setForm((prev) => ({
+      ...prev,
+      nodeNum: String(read.unit.nodeNum),
+      ...(variant
+        ? {
+            hardwareVariantId: variant.id,
+            firmwareVersion: touchedFirmware ? prev.firmwareVersion : variant.firmwareBaseline,
+          }
+        : {}),
+    }));
+    setReported(read.unit.firmwareVersion);
+  };
 
   const pickVariant = (hardwareVariantId: string) => {
     const variant = variants?.find((item) => item.id === hardwareVariantId);
@@ -126,6 +156,28 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
   return (
     <Dialog titleId="register-title" title="Register device" onClose={onCancel} size="md">
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 rounded-control border border-line p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              disabled={!docking.supported}
+              loading={docking.busy}
+              onClick={() => void readFromUnit()}
+            >
+              Read from unit
+            </Button>
+            <span className="text-body-sm text-ink-muted">
+              {docking.supported
+                ? 'Plug the unit in over USB and choose its port.'
+                : 'Reading from a unit needs Chrome or Edge on a desktop. You can type the node number.'}
+            </span>
+          </div>
+          {readError && (
+            <p role="alert" className={ERROR_TEXT}>
+              {readError}
+            </p>
+          )}
+        </div>
         <Field id="register-assetTag" label="Asset tag" required error={errors.assetTag}>
           <Input
             id="register-assetTag"
@@ -180,6 +232,14 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
             }}
           />
         </Field>
+        {reported &&
+          (firmwareBuildDiffers(reported, form.firmwareVersion) ? (
+            <p role="status" className={WARNING}>
+              The unit reports {reported}.
+            </p>
+          ) : (
+            <p className="-mt-2 text-body-sm text-ink-muted">The unit reports {reported}.</p>
+          ))}
         <Field id="register-acquiredAt" label="Acquired on" required error={errors.acquiredAt}>
           <Input
             id="register-acquiredAt"

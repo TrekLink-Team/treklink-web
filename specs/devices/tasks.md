@@ -154,14 +154,16 @@
   - **Test**: mismatch writes nothing; read-back mismatch records nothing; no key in storage or console after a run
   - _Requirements: REQ-EVT-25, REQ-ERR-12, REQ-ERR-13, AC-14, AC-16_
   - **Done 2026-11-03** (KhoaDD under D-078): `DockingService`, `useDocking` and the page wording in `messages.ts`; `issueChannelKey` (rentals 21) and the optional `nodeNum` of rentals 09 in `entities/contract/api.ts`. The key is fetched outside TanStack Query and its byte array is zero-filled when `provision` returns. 11 tests against the fake unit; no hardware
-- [ ] 7.4 Handover screen (owner KhoaDD)
+- [x] 7.4 Handover screen (owner KhoaDD)
   - **Files**: `frontend/src/pages/CounterPage.tsx` step 1 (screen 5.4)
   - **Do**: Dock and provision, the Chromium banner, "Enter manually" fallback and the states of the ui-design file
   - _Requirements: REQ-ERR-11, AC-15_
-- [ ] 7.4b Intake screen wiring (owner KhoaDD; treklink-web#124 has merged, so it is no longer deferred)
+  - **Done 2026-11-03** (KhoaDD under D-078): Dock and provision on each row beside the manual Record provisioning (kept under that label, screen 5.4), the banner, the row stages with Reconnect and Stop, the error states; 7 page tests with the hook mocked. Hardware run open
+- [x] 7.4b Intake screen wiring (owner KhoaDD; treklink-web#124 has merged, so it is no longer deferred)
   - **Files**: Register panel of screen 4.2 (frontend 4.2)
   - **Do**: wire the self-contained Read-from-unit component of task 7.3 into the Register panel
   - _Requirements: REQ-EVT-24, AC-13_
+  - **Done 2026-11-03** (KhoaDD under D-078): Read from unit in the register dialog of `FleetPage.tsx` fills the node number and the variant (`shared/config/docking.ts`, design §8.3) and shows the reported firmware, amber when the build differs; 4 page tests. Hardware run open
 - [x] 7.5 Backend `nodeNum` check and channel-key endpoint (owner TanNB; the draft of 2026-10-30 on a local branch was not used)
   - **Files**: `backend/src/modules/rentals/handover.service.ts`, `handover.controller.ts`, the rentals 03 mapper, `backend/src/modules/organizations/channel-key.service.ts` (`deriveKey`), `backend/src/modules/platform/config/environment-variables.ts`, `backend/.env.example`, tests
   - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning` and before issuing the key; 409 `NODE_MISMATCH`; derive the key with `crypto.hkdfSync` from `CHANNEL_KEY_MASTER`; audit row without the key; `Cache-Control: no-store`
