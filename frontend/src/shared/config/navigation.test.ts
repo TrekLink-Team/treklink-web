@@ -32,6 +32,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/o/roster',
       '/o/api-keys',
       '/o/field-stations',
+      '/o/roles',
     ]);
   });
 

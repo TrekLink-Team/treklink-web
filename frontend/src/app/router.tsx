@@ -19,6 +19,7 @@ import { DeviceDetailPage } from '../pages/DeviceDetailPage';
 import { DeviceTelemetryPage } from '../pages/DeviceTelemetryPage';
 import { FleetPage } from '../pages/FleetPage';
 import { FieldStationsPage } from '../pages/FieldStationsPage';
+import { OrganizationRolesPage } from '../pages/OrganizationRolesPage';
 import { StaffFieldStationsPage } from '../pages/StaffFieldStationsPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { IncidentDetailPage } from '../pages/IncidentDetailPage';
@@ -123,6 +124,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/o/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/o/pay/:paymentId" element={<PaymentPage />} />
         <Route path="/o/api-keys" element={<ApiKeysPage />} />
+        <Route path="/o/roles" element={<OrganizationRolesPage />} />
         <Route path="/o/members" element={<MembersPage />} />
         <Route path="/o/loss-cases" element={<LossCasesPage scope="o" />} />
       </Route>

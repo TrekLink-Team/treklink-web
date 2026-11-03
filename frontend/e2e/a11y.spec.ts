@@ -105,6 +105,7 @@ const ROUTES: Record<SeededRole | 'anonymous', RouteCase[]> = {
     { pattern: '/o/pay/:paymentId' },
     { pattern: '/o/api-keys' },
     { pattern: '/o/members' },
+    { pattern: '/o/roles' },
   ],
   staff: [
     { pattern: '/t/map' },
