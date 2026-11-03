@@ -151,6 +151,18 @@ export const vnd = (amount: number): string => `${amount.toLocaleString('en-US')
 export const definitionOf = (scope: Page | Locator, term: string): Locator =>
   scope.locator('dt', { hasText: new RegExp(`^${term}$`) }).first().locator('xpath=following-sibling::dd[1]');
 
+// Runs an action of the contract home's sticky row (widgets/ContractHome/ContractActionBar.tsx,
+// chapter 06 §10.4): the primary button when the action is primary, otherwise the item of More actions.
+export const homeAction = async (page: Page, label: string): Promise<void> => {
+  const primary = page.getByRole('button', { name: label, exact: true });
+  if (await appears(primary, 3_000)) {
+    await primary.first().click();
+    return;
+  }
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: label, exact: true }).click();
+};
+
 // True when the locator appears within the time, for a step that skips on a seed that lacks its
 // record. count() alone answers before the page has loaded its data.
 export const appears = async (locator: Locator, timeout = 10_000): Promise<boolean> =>
