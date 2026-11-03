@@ -208,3 +208,84 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 11
     expect(seen.runs).toBe(1);
   });
 });
+
+describe('ConnectorPanel row controls (screen 4.6)', () => {
+  const start = async () => {
+    const { connectorRegistry } = await import('../model/ConnectorRegistry');
+    const registry = connectorRegistry(recognizeUnits);
+    await act(async () => {
+      await registry.start();
+    });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'TL-0042' })).toBeTruthy(), { timeout: 4000 });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Unknown unit' })).toBeTruthy(), { timeout: 4000 });
+    return registry;
+  };
+
+  it('asks before Forget and keeps the unit on Keep it', async () => {
+    renderPanel();
+    await start();
+    fireEvent.click(screen.getByRole('button', { name: 'Forget TL-0042' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Forget TL-0042?' }));
+    expect(dialog.getByText('The browser asks again before it can connect to this unit.')).toBeTruthy();
+    fireEvent.click(dialog.getByRole('button', { name: 'Keep it' }));
+    expect(screen.getByRole('heading', { name: 'TL-0042' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Forget TL-0042' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'TL-0042' })).toBeNull());
+  });
+
+  it('returns focus to the row after Back from the device view', async () => {
+    renderPanel();
+    await start();
+    fireEvent.click(screen.getByRole('button', { name: 'Show TL-0042' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show TL-0042' })));
+  });
+
+  it('says why other rows cannot write while one unit is written, and offers Reconnect on the waiting row', async () => {
+    recognizeUnits.mockImplementation((nodeNums: number[]) =>
+      Promise.resolve(
+        nodeNums.map((nodeNum) => {
+          const unit = registered(nodeNum);
+          return nodeNum === A
+            ? unit
+            : { ...unit, device: { ...unit.device, id: 'd-43', assetTag: 'TL-0043' } };
+        }),
+      ),
+    );
+    renderPanel();
+    const { connectorRegistry } = await import('../model/ConnectorRegistry');
+    const registry = connectorRegistry(recognizeUnits);
+    await act(async () => {
+      await registry.start();
+    });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'TL-0043' })).toBeTruthy(), { timeout: 4000 });
+    const rows = registry.getSnapshot().connections;
+    const target = rows.find((connection) => connection.recognized?.device?.assetTag === 'TL-0042')!;
+    const reconnect = vi.fn(() => Promise.resolve());
+    const stop = vi.fn();
+    let release: () => void = () => undefined;
+    let running: Promise<void> | undefined;
+    act(() => {
+      running = registry.withWriteLock(target.id, (_port, stage) => {
+        stage('reconnect');
+        registry.offerReconnect({ connectionId: target.id, reconnect, stop });
+        return new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      });
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reconnect' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
+    expect(reconnect).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect((screen.getByRole('button', { name: 'Configure uplink: TL-0043' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Another unit is being written.')).toBeTruthy();
+    await act(async () => {
+      registry.offerReconnect(null);
+      release();
+      await running;
+    });
+  });
+});
