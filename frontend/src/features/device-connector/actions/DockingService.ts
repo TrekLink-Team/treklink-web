@@ -1,19 +1,18 @@
 import {
   DEFAULT_TIMINGS,
   DockError,
-  choosePort,
-  grantedPort,
   openDock,
   toNodeId,
   type DockSession,
   type DockTimings,
   type UnitReading,
   type UplinkSettings,
-} from '../../shared/lib/meshtastic-dock';
+} from '../../../shared/lib/meshtastic-dock';
 
 // The docking flows of devices design sections 8.3, 8.4 and 8.8 over the one adapter. The service keeps
 // the open session between `readUnit()` and the write that follows it, and closes it when the flow
-// ends, whatever the outcome. It never stores the key it is handed (REQ-UBI-05).
+// ends, whatever the outcome. It never stores the key it is handed (REQ-UBI-05). The port comes from the
+// device connector's registry (design section 11.2), which alone chooses and enumerates ports.
 
 export type DockStage = 'reading' | 'getting-key' | 'writing' | 'restarting' | 'reconnect' | 'checking';
 
@@ -29,7 +28,9 @@ export type DockingFailure =
   // The unit did not come back after its restart and Staff did not reconnect it.
   | 'not-returned'
   // Staff closed the browser's port chooser.
-  | 'cancelled';
+  | 'cancelled'
+  // Several units are connected and none is the expected one: Staff choose in the connector.
+  | 'choose';
 
 export class DockingError extends Error {
   constructor(
@@ -74,23 +75,17 @@ const fromDockError = (error: unknown): DockingError => {
 
 export class DockingService {
   private session: DockSession | null = null;
-  // After a failure on the granted port the next docking asks the chooser, so Staff can pick another.
-  private preferChooser = false;
 
   constructor(private readonly timings: DockTimings = DEFAULT_TIMINGS) {}
 
-  // Opens the granted port, or the browser's chooser on the first docking of the visit (design
-  // section 8.4 step 1), and runs the config-only handshake. The session stays open for a write.
-  async readUnit(): Promise<UnitReading> {
+  // Opens the port the connector lends and runs the config-only handshake (design section 8.4 step 1).
+  // The session stays open for a write.
+  async readUnit(port: SerialPort): Promise<UnitReading> {
     await this.release();
-    const granted = this.preferChooser ? null : await grantedPort();
     try {
-      const port = granted ?? (await choosePort());
       this.session = await openDock(port, this.timings);
-      this.preferChooser = false;
       return this.session.unit;
     } catch (error) {
-      if (granted) this.preferChooser = true;
       throw fromDockError(error);
     }
   }

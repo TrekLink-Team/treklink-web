@@ -22,7 +22,7 @@ const docking = vi.hoisted(() => ({
   reconnect: vi.fn(),
   giveUp: vi.fn(),
 }));
-vi.mock('../features/dock-device/useDocking', () => ({ useDocking: () => docking }));
+vi.mock('../features/device-connector/actions/useDocking', () => ({ useDocking: () => docking }));
 
 let roles = ['STAFF'];
 vi.mock('../app/providers/useAuth', () => ({ useAuth: () => ({ user: { roles } }) }));

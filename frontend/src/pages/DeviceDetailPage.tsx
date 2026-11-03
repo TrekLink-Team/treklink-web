@@ -25,7 +25,7 @@ import { Field, Input, Textarea } from '../shared/ui/Field';
 import { DEVICE_STATUS, MAINTENANCE_STATUS, type DeviceStatus } from '../shared/ui/status';
 import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
-import { ConfigureUplinkDialog } from '../features/dock-device/ConfigureUplinkDialog';
+import { ConfigureUplinkDialog } from '../features/device-connector/actions/ConfigureUplinkDialog';
 import { isDockSupported } from '../shared/lib/meshtastic-dock';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { deviceFailure, MSG29 } from '../widgets/DeviceActions/deviceFailure';
