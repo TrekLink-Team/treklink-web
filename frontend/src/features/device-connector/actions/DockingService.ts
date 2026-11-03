@@ -5,6 +5,7 @@ import {
   toNodeId,
   type DockSession,
   type DockTimings,
+  type ReturnedPortFinder,
   type UnitReading,
   type UplinkSettings,
 } from '../../../shared/lib/meshtastic-dock';
@@ -54,6 +55,9 @@ export interface DockHooks {
   // Called when the port did not come back by itself; resolves with the port Staff chose in the
   // browser's chooser, or null when they gave up.
   reconnect: () => Promise<SerialPort | null>;
+  // The port the unit came back on after its restart (the connector's registry knows which ports
+  // belong to other units, design section 11.4 rule 1).
+  findReturned?: ReturnedPortFinder;
 }
 
 // The owner names TrekLink writes (D-080 rule 2, design section 8.6 decision 2): the long name is the
@@ -118,7 +122,7 @@ export class DockingService {
   private async afterRestart(session: DockSession, hooks: DockHooks): Promise<DockSession> {
     hooks.onStage('restarting');
     this.session = null;
-    let back = await session.awaitRestart();
+    let back = await session.awaitRestart(hooks.findReturned);
     while (!back) {
       hooks.onStage('reconnect');
       const port = await hooks.reconnect();
