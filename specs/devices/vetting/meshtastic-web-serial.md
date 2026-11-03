@@ -100,9 +100,13 @@ needs **no session passkey and no admin key**:
   passkey only when `mp.from != 0` (`:132-138`). TrekLink sets neither `is_managed` nor `admin_key`.
 - The serial API runs only while `config.security.serial_enabled` (`src/SerialConsole.cpp:129`), which
   defaults to true (`src/mesh/NodeDB.cpp:669`).
-- `handleSetOwner` and `handleSetChannel` save without a reboot (`AdminModule.cpp:594-626`,
-  `:1015-1022`, `saveChanges(SEGMENT_CHANNELS, false)`), and `handleGetChannel` returns the channel with
-  its PSK to the local client (`:1323-1336`), so the counter can read back what it wrote.
+- `handleSetChannel` saves without a reboot (`saveChanges(SEGMENT_CHANNELS, false)`), but
+  `handleSetOwner` saves with the default reboot when a name changed, 7 s later, unless an edit
+  transaction is open (firmware `dev` `a4aa98d`: `AdminModule.cpp:595-630`, `:1022-1030`, `AdminModule.h:44`,
+  `src/configuration.h:372`; corrected 2026-11-03, the first reading said both saved without a reboot).
+  The counter therefore writes both inside `begin_edit_settings` and `commit_edit_settings` and reads back
+  after the one restart. `handleGetChannel` returns the channel with its PSK to the local client
+  (`:1323-1336` at `f062a35`), so the counter can read back what it wrote.
 
 The libraries' passkey machinery is therefore unused on this path.
 

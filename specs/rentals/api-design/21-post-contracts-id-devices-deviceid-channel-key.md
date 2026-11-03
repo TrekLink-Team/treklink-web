@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Derives and returns the organization's channel key once, for Staff to write to a docked unit (D-082 decision 1). Requires the contract APPROVED, the device reserved to it, and the docked nodeNum to match the device record; refuses otherwise. The response is never cached, stored or logged, and an audit row records the device, organization and key version, never the key (REQ-UBI-03).
+Derives and returns the organization's channel key for Staff to write to a docked unit (D-082 decision 1). Requires the contract APPROVED, the device reserved to it, and the docked nodeNum to match the device record; refuses otherwise. The response is never cached, stored or logged, and every call writes an audit row with the device, organization and key version, never the key (REQ-UBI-03).
 
 ## API Specification
 
@@ -16,7 +16,7 @@ Derives and returns the organization's channel key once, for Staff to write to a
 | POST | /api/contracts/:id/devices/:deviceId/channel-key |
 | Permission | TrekLink Staff |
 | Traces | UC-14, FR-DEV-05, BR-09, NFR-SEC-06, NFR-IF-03, D-082 |
-| Notes | `Cache-Control: no-store` on the response; the key is never returned a second time for the same docking, so the counter must write it before asking again. |
+| Notes | `Cache-Control: no-store` on the response. The key is derived again on every call (HKDF is deterministic), so the limit is the reserved device on an APPROVED contract and the `contract.issueChannelKey` permission; the page asks once per docking and every call is audited. |
 
 ### Path parameters
 
@@ -216,16 +216,14 @@ flowchart TB
     D5 -->|no| P0
     P1["Compare the docked nodeNum with the device record"]
     P0 --> P1
-    P2["Read the organization's key version"]
+    P2["ChannelKeyService.deriveKey reads the current key version and derives the key with crypto.hkdfSync"]
     P1 --> P2
-    P3["Derive the key with crypto.hkdfSync(master, orgId, version)"]
+    P3["Write an audit row without the key"]
     P2 --> P3
-    P4["Write an audit row without the key"]
+    P4["Respond with Cache-Control: no-store"]
     P3 --> P4
-    P5["Respond with Cache-Control: no-store"]
-    P4 --> P5
     OK["Return 200"]
-    P5 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -238,13 +236,13 @@ sequenceDiagram
     participant Ctl as HandoverController
     participant Svc as HandoverService
     participant DB as Postgres
-    participant Org as OrganizationsService
+    participant Key as ChannelKeyService
     participant Dev as DevicesService
     C->>Ctl: POST /api/contracts/:id/devices/:deviceId/channel-key
     Ctl->>Svc: issueChannelKey(id, deviceId, dto, actor)
     Svc->>Dev: byNodeNum(nodeNum)
-    Svc->>Org: channelKeyVersion(orgId)
-    Svc->>Svc: hkdfSync(CHANNEL_KEY_MASTER, orgId, version)
+    Svc->>Key: deriveKey(orgId)
+    Key-->>Svc: key, current keyVersion
     Svc->>DB: INSERT audit_log (no key)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope

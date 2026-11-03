@@ -533,28 +533,28 @@ ENDPOINTS = [
             "Svc->>Inc: blockingReason(id, deviceIds, tx)"]),
     ep("POST", "/api/contracts/:id/devices/:deviceId/channel-key", "Issue the device's channel key",
        "TrekLink Staff",
-       "Derives and returns the organization's channel key once, for Staff to write to a docked unit "
+       "Derives and returns the organization's channel key for Staff to write to a docked unit "
        "(D-082 decision 1). Requires the contract APPROVED, the device reserved to it, and the docked "
        "nodeNum to match the device record; refuses otherwise. The response is never cached, stored or "
-       "logged, and an audit row records the device, organization and key version, never the key "
-       "(REQ-UBI-03).",
+       "logged, and every call writes an audit row with the device, organization and key version, never "
+       "the key (REQ-UBI-03).",
        "UC-14, FR-DEV-05, BR-09, NFR-SEC-06, NFR-IF-03, D-082",
        path=[C_PATH, D_PATH], body=[["nodeNum", "The nodeNum read from the docked unit", "int", "yes", "`275612`"]],
        sample={"nodeNum": 275612},
        response={"keyHex": "3f9c0e1a2b4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d7e8f9001a2b3c4d",
                  "keyVersion": 1},
        message="Channel key issued", entity="Contract",
-       notes="`Cache-Control: no-store` on the response; the key is never returned a second time for the "
-             "same docking, so the counter must write it before asking again.",
+       notes="`Cache-Control: no-store` on the response. The key is derived again on every call (HKDF is "
+             "deterministic), so the limit is the reserved device on an APPROVED contract and the "
+             "`contract.issueChannelKey` permission; the page asks once per docking and every call is audited.",
        errors=[NOT_ON, NODE_MISMATCH, state_409("contract", "REQUESTED")],
        steps=["Require APPROVED and the device reserved to it", "Compare the docked nodeNum with the device record",
-              "Read the organization's key version", "Derive the key with crypto.hkdfSync(master, orgId, version)",
+              "ChannelKeyService.deriveKey reads the current key version and derives the key with crypto.hkdfSync",
               "Write an audit row without the key", "Respond with Cache-Control: no-store"],
        controller="HandoverController", service="HandoverService", call="issueChannelKey(id, deviceId, dto, actor)",
-       participants=[["Org", "OrganizationsService"], ["Dev", "DevicesService"]],
-       seq=["Svc->>Dev: byNodeNum(nodeNum)", "Svc->>Org: channelKeyVersion(orgId)",
-            "Svc->>Svc: hkdfSync(CHANNEL_KEY_MASTER, orgId, version)",
-            "Svc->>DB: INSERT audit_log (no key)"]),
+       participants=[["Key", "ChannelKeyService"], ["Dev", "DevicesService"]],
+       seq=["Svc->>Dev: byNodeNum(nodeNum)", "Svc->>Key: deriveKey(orgId)",
+            "Key-->>Svc: key, current keyVersion", "Svc->>DB: INSERT audit_log (no key)"]),
 ]
 
 NOTES = ("Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end "

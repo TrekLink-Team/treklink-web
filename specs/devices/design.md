@@ -757,7 +757,7 @@ decision 1). Two frontend slices (FSD):
 | Slice | Contents |
 |---|---|
 | `shared/lib/meshtastic-dock.ts` | One adapter around `@meshtastic/transport-web-serial` and `@meshtastic/core` (D-082 decision 3, pinned exact versions): opens the Web Serial port, runs the config-only handshake (`want_config_id` 69420), and exposes `readUnit()` and `writeOwnerAndChannel()` to the feature slice below it. A later fork of the libraries replaces this one file. |
-| `features/dock-device/` | `DockingService` with `readUnit()` and `provision(expected)`, and the `useDocking` hook that pages call; the key lives in one local variable of `provision` and is dropped when it returns |
+| `features/dock-device/` | `DockingService` with `readUnit()`, `provision(expected, key, keyVersion)` and `configureUplink(settings)`, and the `useDocking` hook that pages call: it fetches the key from rentals api-design 21 and hands it to `provision`; the key lives in one local variable of the hook and of `provision` and is dropped when they return |
 
 Pages: the Register panel of screen 4.2 (intake) and step 1 of `CounterPage` (screen 5.4, handover; the
 replacement tab of screen 5.5 reuses it). Web Serial needs a secure context and a Chromium browser; every
@@ -778,7 +778,8 @@ the vetting record's §3.2 depend on, and the library's own passkey machinery go
 | Local admin is accepted unless `security.is_managed`; the session passkey is checked only for `from != 0` | `src/modules/AdminModule.cpp:85-89`, `:132-138` |
 | The serial API needs `security.serial_enabled`, default true | `src/SerialConsole.cpp:129`, `src/mesh/NodeDB.cpp:669` |
 | `want_config_id = 69420` sends `myInfo`, the own `NodeInfo`, `metadata`, channels, config and `config_complete_id`, without the node database | `src/mesh/PhoneAPI.h:23`, `src/mesh/PhoneAPI.cpp:248-300` |
-| Set owner and set channel save without a reboot; get channel returns the PSK to the local client | `AdminModule.cpp:594-626`, `:1015-1022`, `:1323-1336` |
+| Set owner saves and, outside an edit transaction, reboots the unit 7 s later when a name changed (`saveChanges` defaults to a reboot); set channel saves without a reboot; so the dock writes both inside `begin_edit_settings` and `commit_edit_settings` and reads back after the one reboot (firmware `dev` `a4aa98d`) | `AdminModule.cpp:595-630`, `:1022-1030`, `:330-341`, `AdminModule.h:44`, `src/configuration.h:372` |
+| Get channel returns the PSK to the local client | `AdminModule.cpp:1323-1336` (at `f062a35`) |
 | Long name holds 39 characters, short name 4 | `mesh.pb.h:704`, `:707` |
 | PSK is 0, 1, 16 or 32 bytes; TrekLink writes 32 | `channel.pb.h:42` |
 
@@ -811,13 +812,17 @@ short_name 3; `Channel` index 1, settings 2, role 3; `ChannelSettings` psk 2 (ot
 2. `readUnit()`; the docked `nodeNum` is compared with the row's `nodeNum` (rentals api-design 03 gains
    `devices[].nodeNum`, §8.5). A mismatch writes nothing and the page names the docked node id
    (REQ-ERR-12).
-3. On a match the page calls rentals api-design 21, the Staff-only channel-key endpoint (§8.6 decision
-   1), sending the docked `nodeNum`; the endpoint re-checks the match server-side and has `ChannelKeyService.deriveKey` (organizations) derive the key before it returns the
-   key and its version, with `Cache-Control: no-store`.
-4. `provision()` sends `set_owner` (long name the asset tag, short name the last four characters per
-   §8.6 decision 2) and `set_channel` for index 0 with role `PRIMARY` and the settings read in step 2
-   with field 2 replaced, then repeats the config-only handshake and compares the owner names and the
-   primary PSK.
+3. On a match `useDocking` calls rentals api-design 21, the Staff-only channel-key endpoint (§8.6
+   decision 1), sending the docked `nodeNum`. The endpoint requires the device reserved to this `APPROVED`
+   contract, re-checks the `nodeNum` match, and has `ChannelKeyService.deriveKey(organizationId)`
+   (organizations) read the current key version and derive the key; it returns the key and its version
+   with `Cache-Control: no-store` and audits the call. Each call derives the key again and is audited.
+4. `provision()` sends `begin_edit_settings`, `set_owner` (long name the asset tag, short name the last
+   four characters per §8.6 decision 2), `set_channel` for index 0 with role `PRIMARY` and the settings
+   read in step 2 with field 2 replaced, and `commit_edit_settings`. The commit saves both and reboots the
+   unit once (§8.2: outside a transaction `set_owner` alone would reboot the unit between the two
+   writes). The page waits for the port to come back, asks Staff to reconnect when the browser dropped
+   it, then repeats the config-only handshake and compares the owner names and the primary PSK.
 5. On a match the page records provisioning (rentals api-design 09) with `keyVersion` and the docked
    `nodeNum`; the key variable is cleared before the request is sent. A write, read-back or disconnect
    failure at any point records nothing and asks Staff to dock the unit again (REQ-ERR-13).
@@ -828,13 +833,13 @@ sequenceDiagram
     actor St as TrekLink Staff
     participant P as Counter Page
     participant DS as :DockingService
-    participant U as TrekLink unit (Web Serial)
     participant C as :HandoverController
     participant H as :HandoverService
     participant K as :ChannelKeyService
     participant D as :DevicesService
     participant R as :DevicesRepository
     participant DB as Postgres
+    participant U as TrekLink unit (Web Serial)
     St->>P: press Dock and provision on TL-0042
     P->>+DS: readUnit()
     DS->>+U: ToRadio want_config_id 69420
@@ -849,23 +854,27 @@ sequenceDiagram
         DB-->>-R: device row
         R-->>-D: DeviceIdentity
         D-->>-H: DeviceIdentity (matches deviceId)
-        H->>+K: deriveKey(organizationId, channelKeyVersion)
-        K-->>-H: key (32 bytes), keyVersion
+        H->>+K: deriveKey(organizationId)
+        K-->>-H: key (32 bytes), current keyVersion
         Note over H: audit row with actor, device, organization<br/>and keyVersion, never the key
         H-->>-C: { keyHex, keyVersion }
         C-->>-P: 200 envelope, Cache-Control: no-store
         P->>+DS: provision(expected, key, keyVersion)
+        DS->>+U: AdminMessage begin_edit_settings
+        U-->>-DS: routing ack
         DS->>+U: AdminMessage set_owner(TL-0042, 0042)
         U-->>-DS: routing ack
         DS->>+U: AdminMessage set_channel(index 0, PSK of version n)
         U-->>-DS: routing ack
-        DS->>+U: ToRadio want_config_id 69420
+        DS->>+U: AdminMessage commit_edit_settings
+        U-->>-DS: saved, unit restarts once
+        DS->>+U: ToRadio want_config_id 69420 (after the port returns)
         U-->>-DS: owner and channel 0 read back
         DS-->>-P: ReadBack(match), key dropped
         Note over P: a read-back that differs records nothing<br/>and asks Staff to dock again (REQ-ERR-13)
         P->>+C: POST /api/contracts/{id}/devices/{deviceId}/provisioning<br/>{ keyVersion, nodeNum }
         C->>+H: provision(id, deviceId, dto, actor)
-        H->>+D: recordProvisioning(deviceId, organizationId, keyVersion, actor, tx)
+        H->>+D: recordProvisioning({ deviceId, organizationId, keyVersion, actorId }, at, tx)
         D->>+R: recordProvisioning(provisioning, at, tx)
         R->>+DB: UPDATE devices, INSERT device_provisionings
         DB-->>-R: updated row
@@ -887,7 +896,7 @@ sequenceDiagram
 |---|---|
 | rentals api-design 03 `GET /api/contracts/:id` | `devices[].nodeNum` (read-only) |
 | rentals api-design 09 provisioning | body gains `nodeNum`, sent by every docked record and omitted only by the manual fallback (§8.6 decision 3); 409 `NODE_MISMATCH` when it differs from the device record, nothing recorded |
-| rentals api-design 21, new: `POST /api/contracts/:id/devices/:deviceId/channel-key` | Staff-only (`contract.operate`, new permission `contract.issueChannelKey`). Body: `nodeNum`. Requires the contract `APPROVED` and the device reserved to it; 409 `NODE_MISMATCH` when the docked `nodeNum` differs. Returns `{ keyHex, keyVersion }`, `Cache-Control: no-store`; writes an audit row (actor, device, organization, version, never the key) |
+| rentals api-design 21, new: `POST /api/contracts/:id/devices/:deviceId/channel-key` | Staff-only, permission `contract.issueChannelKey`. Body: `nodeNum`. Requires the contract `APPROVED` and the device reserved to it; 409 `NODE_MISMATCH` when the docked `nodeNum` differs. Returns `{ keyHex, keyVersion }`, `Cache-Control: no-store`; writes an audit row (actor, device, organization, version, never the key) |
 
 No schema change for the device or contract tables. `NODE_MISMATCH` joins the error catalogue of
 `rentals`. A forward migration adds the `contract.issueChannelKey` permission to `catalog.py` and the
@@ -912,6 +921,12 @@ must hold the key for one write.
 escrow D-021 asks for becomes one secret. D-021 is amended: the escrowed secret is the master, and
 per-organization keys are derived, never stored.
 
+Note (2026-11-03, review of treklink-web#126): HKDF is deterministic, so the endpoint returns the same key on
+every call; "once per docking" means one call per docking by the page, not a server limit. The `nodeNum`
+match proves little on its own, because rentals api-design 03 returns `devices[].nodeNum` to Staff; the
+effective limit is the device reserved to an `APPROVED` contract and the `contract.issueChannelKey`
+permission, and every call is audited.
+
 **Decision 2, the short name: the last four characters of the asset tag.** It holds four characters
 (`mesh.pb.h:707`), so `TL-0009` does not fit. The last four characters of the asset tag (`0009`) are the
 short name; the long name carries the full tag (`TL-0009`).
@@ -928,8 +943,8 @@ the fallback at handover. Intake keeps manual entry.
 `-DARDUINO_USB_CDC_ON_BOOT=1` build flag (vetting record §3.3) is a class S firmware change that waits
 for a hardware run with the leader present (D-077). The dock shows "No response over USB. v2 units
 cannot dock yet; enter the node number manually." when a docked unit answers nothing over USB; v3 and v4
-units dock, and v2 units go through the fallback of decision 3 until the flag lands (W9 item D, D-093
-amendment item 3).
+units dock, and v2 units go through the fallback of decision 3 until the flag lands (D-093 amendment
+item 3).
 
 **Related, not a decision here.** The reset step "Owner cleared" (screen 4.2, devices api-design 10)
 conflicts with the asset tag as owner name; it should read "Owner set back to the asset tag" when the

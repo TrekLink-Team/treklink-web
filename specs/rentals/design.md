@@ -138,9 +138,9 @@ arithmetic.
 
 1. Staff open the approved contract; the counter app lists the reserved devices.
 2. Each device: Staff dock the unit over Web Serial; the counter checks its `nodeNum`, writes the owner
-   names and the organization channel key, reads them back and records provisioning
-   (`POST .../provisioning`); the platform keeps only the key version (D-021, D-080, `devices` design §8,
-   draft awaiting the leader's approval).
+   names and the organization channel key in one edit transaction, waits for the unit's restart, reads
+   them back and records provisioning (`POST .../provisioning`); the key comes from rentals api-design 21
+   and the platform keeps only the key version (D-021, D-080, D-082, `devices` design §8).
 3. Each device: battery and GPS fix are checked; a failing unit is swapped (E01-5).
 4. The Manager reads the preview note and signs on the screen; Staff enter the identity document seen.
 5. `HandoverService.complete` checks the first payment through `billing`, readiness through `devices`,
