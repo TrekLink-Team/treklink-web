@@ -151,6 +151,15 @@ export const vnd = (amount: number): string => `${amount.toLocaleString('en-US')
 export const definitionOf = (scope: Page | Locator, term: string): Locator =>
   scope.locator('dt', { hasText: new RegExp(`^${term}$`) }).first().locator('xpath=following-sibling::dd[1]');
 
+// A figure of the contract home's Money tab (widgets/ContractHome/MoneyTab.tsx, "Due now"): a StatCard
+// from 600 px up, whose label and value are sibling paragraphs, and a `<dt>`/`<dd>` pair below.
+export const figureOf = (scope: Page | Locator, label: string): Locator =>
+  scope
+    .locator(
+      `xpath=.//p[normalize-space()="${label}"]/../following-sibling::p[1] | .//dt[normalize-space()="${label}"]/following-sibling::dd[1]`,
+    )
+    .first();
+
 // Runs an action of the contract home's sticky row (widgets/ContractHome/ContractActionBar.tsx,
 // chapter 06 §10.4): the primary button when the action is primary, otherwise the item of More actions.
 export const homeAction = async (page: Page, label: string): Promise<void> => {
