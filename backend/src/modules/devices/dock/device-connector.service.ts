@@ -46,6 +46,11 @@ export interface DockedUnit {
   byName: string | null;
 }
 
+// A docked unit with its live contract, if any, for the Staff map entries of monitoring api-design 02.
+export interface DockedUnitWithContract extends DockedUnit {
+  contract: { code: string; organizationId: string } | null;
+}
+
 const SECOND_MS = 1000;
 
 // The device connector's reads (devices design section 11.5 and 11.8, tasks 10.2 and 10.3): recognition of
@@ -129,6 +134,24 @@ export class DeviceConnectorService {
       since: session.openedAt,
       byName: names.get(session.openedById) ?? null,
     }));
+  }
+
+  // Every open, unexpired dock session with the unit's live contract (monitoring api-design 02 for
+  // TrekLink callers, REQ-STA-05).
+  async dockedWithContracts(at: Date = new Date()): Promise<DockedUnitWithContract[]> {
+    const docked = await this.docked(undefined, at);
+    if (docked.length === 0) return [];
+    const live = await this.contracts.liveContractsOf(docked.map((unit) => unit.deviceId));
+    const byDevice = new Map(live.map((contract) => [contract.deviceId, contract]));
+    return docked.map((unit) => {
+      const contract = byDevice.get(unit.deviceId);
+      return {
+        ...unit,
+        contract: contract
+          ? { code: contract.code, organizationId: contract.organizationId }
+          : null,
+      };
+    });
   }
 
   private async namesOf(sessions: readonly DockSessionRow[]): Promise<Map<string, string>> {

@@ -6,6 +6,12 @@ import {
   type FieldPositionEvent,
   type FieldTelemetryEvent,
 } from '../gateway-sync';
+import {
+  DEVICE_DOCKED,
+  DEVICE_UNDOCKED,
+  type DeviceDockedEvent,
+  type DeviceUndockedEvent,
+} from '../devices';
 import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import {
@@ -166,6 +172,34 @@ export class StreamListener {
       type: 'device.stale',
       deviceId: event.deviceId,
       payload: { stale: event.stale, lastSeenAt: event.lastSeenAt },
+    });
+  }
+
+  // A unit held at the counter (devices design section 11.8, REQ-EVT-37): stored with no organization, so
+  // the entry reaches the `fleet` room only and never an organization room, the organization API or its
+  // replay (monitoring REQ-UBI-06). The Staff map pins the unit at the counter location sent here.
+  @OnEvent(DEVICE_DOCKED)
+  async onDeviceDocked(event: DeviceDockedEvent): Promise<void> {
+    await this.stream.publish({
+      organizationId: null,
+      type: 'device.docked',
+      deviceId: event.deviceId,
+      payload: {
+        assetTag: event.assetTag,
+        since: asDate(event.since).toISOString(),
+        byName: event.byName,
+        counterLocation: await this.parameters.get('monitoring.counterLocation'),
+      },
+    });
+  }
+
+  @OnEvent(DEVICE_UNDOCKED)
+  async onDeviceUndocked(event: DeviceUndockedEvent): Promise<void> {
+    await this.stream.publish({
+      organizationId: null,
+      type: 'device.undocked',
+      deviceId: event.deviceId,
+      payload: { endedAt: asDate(event.endedAt).toISOString(), endReason: event.endReason },
     });
   }
 
