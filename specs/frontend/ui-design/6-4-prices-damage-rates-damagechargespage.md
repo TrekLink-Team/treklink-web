@@ -105,3 +105,11 @@ disagree, this section wins.
   billing api-design 17 once per charge in sequence, with the per-row summary on any failure. A
   reduction needs its own amount, so it stays a row decision.
 - Pagination shows the range and total. The API does not sort.
+
+## Damage charges on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. `/t/damage-charges` renders through `CollectionView` (chapter 06 §9): the status is the
+Show filter, opening on Pending approval, which keeps the command bar even for one or two charges; Decide
+is an item action, unavailable with its reason on a charge the Admin inspected (BR-24); the bulk Approve
+and Waive act on the decidable charges of the selection on the current page. Staff read it without
+selection or Decide, as before.

@@ -17,24 +17,23 @@ import {
   Alert,
   BulkActionDialog,
   Button,
-  Card,
   ConfirmDialog,
+  CollectionView,
   DAMAGE_CHARGE_STATUS,
-  DataTable,
   Dialog,
   Field,
   Input,
   PageHeader,
   Pagination,
+  pageInfoOf,
   RadioGroup,
-  Select,
   StatusBadge,
   Textarea,
-  Toolbar,
   useToast,
   type BulkItem,
-  type Column,
+  type CollectionField,
 } from '../shared/ui';
+import { Scale } from 'lucide-react';
 import { ErrorState } from '../shared/ui/bits';
 
 const DECISIONS: { value: DamageDecision; label: string }[] = [
@@ -196,44 +195,34 @@ export const DamageChargesPage: React.FC = () => {
   const [deciding, setDeciding] = useState<DamageCharge | null>(null);
   const charges = useDamageCharges({ status: status || undefined, pageNumber });
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<Map<string, DamageCharge>>(new Map());
-  const [bulk, setBulk] = useState<BulkDecision | null>(null);
+  // A bulk decision on the selected charges of the current page (chapter 06 §9.4).
+  const [bulk, setBulk] = useState<{ decision: BulkDecision; charges: DamageCharge[] } | null>(null);
   // An Admin may decide a pending charge on a device they did not inspect (BR-24).
   const decidable = (charge: DamageCharge) =>
     isAdmin && charge.status === 'PENDING_APPROVAL' && charge.inspector?.id !== user?.id;
-  const select = (ids: Set<string>) =>
-    setSelected((current) => {
-      const next = new Map<string, DamageCharge>();
-      ids.forEach((id) => {
-        const row = current.get(id) ?? charges.data?.items.find((item) => item.id === id);
-        if (row) next.set(id, row);
-      });
-      return next;
-    });
-  const chosen = [...selected.values()].filter(decidable);
-  const items: BulkItem[] = chosen.map((charge) => ({
+  const items: BulkItem[] = (bulk?.charges ?? []).map((charge) => ({
     id: charge.id,
     label: `${charge.assetTag ?? charge.deviceId} (${formatVnd(charge.amountVnd)})`,
   }));
   const bulkDone = () => {
-    setSelected(new Map());
     void queryClient.invalidateQueries({ queryKey: damageChargeKeys.all });
-    chosen.forEach((charge) => void queryClient.invalidateQueries({ queryKey: billingKeys.balance(charge.contractId) }));
+    bulk?.charges.forEach((charge) => void queryClient.invalidateQueries({ queryKey: billingKeys.balance(charge.contractId) }));
   };
 
-  const columns: Column<DamageCharge>[] = [
-    { key: 'device', header: 'Device', cell: (charge) => charge.assetTag ?? charge.deviceId },
-    { key: 'codes', header: 'Damage codes', cell: (charge) => charge.damageCodes.join(', ') },
+  const fields: CollectionField<DamageCharge>[] = [
+    { key: 'codes', label: 'Damage codes', render: (charge) => charge.damageCodes.join(', '), compact: true },
     {
       key: 'inspector',
-      header: 'Inspector',
-      cell: (charge) => charge.inspector?.fullName ?? charge.inspector?.id ?? '',
+      label: 'Inspector',
+      render: (charge) => charge.inspector?.fullName ?? charge.inspector?.id ?? '',
+      hideWithPane: true,
     },
     {
       key: 'amount',
-      header: 'Amount',
+      label: 'Amount',
       align: 'end',
-      cell: (charge) => (
+      compact: true,
+      render: (charge) => (
         <span className="flex flex-col items-end">
           <span>{formatVnd(charge.amountVnd)}</span>
           {charge.finalVnd !== null && charge.finalVnd !== charge.amountVnd && (
@@ -246,10 +235,11 @@ export const DamageChargesPage: React.FC = () => {
     },
     {
       key: 'status',
-      header: 'Status',
-      cell: (charge) => <StatusBadge entry={DAMAGE_CHARGE_STATUS[charge.status]} />,
+      label: 'Status',
+      render: (charge) => <StatusBadge entry={DAMAGE_CHARGE_STATUS[charge.status]} />,
+      compact: true,
     },
-    { key: 'raised', header: 'Raised', cell: (charge) => formatDateTime(charge.createdAt) },
+    { key: 'raised', label: 'Raised', render: (charge) => formatDateTime(charge.createdAt), hideWithPane: true },
   ];
 
   return (
@@ -260,104 +250,76 @@ export const DamageChargesPage: React.FC = () => {
           Only a TrekLink Admin who did not inspect the device decides a charge.
         </Alert>
       )}
-      <Card>
-        <Toolbar
-          label="Damage charge filters"
-          start={
-            <Field id="charge-filter-status" label="Status" hideLabel className="w-full sm:w-56">
-              <Select
-                id="charge-filter-status"
-                value={status}
-                onChange={(event) => {
-                  setStatus(event.target.value as DamageChargeStatus | '');
-                  setPageNumber(1);
-                }}
-              >
-                <option value="">All statuses</option>
-                {(Object.keys(DAMAGE_CHARGE_STATUS) as DamageChargeStatus[]).map((key) => (
-                  <option key={key} value={key}>
-                    {DAMAGE_CHARGE_STATUS[key].label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          }
-        />
-        <DataTable
-          caption="Damage charges"
-          columns={columns}
-          rows={charges.data?.items}
-          rowId={(charge) => charge.id}
-          rowLabel={(charge) => `${charge.assetTag ?? charge.deviceId} ${charge.damageCodes.join(', ')}`}
-          noun={{ one: 'charge', other: 'charges' }}
-          {...(isAdmin ? { selectedIds: new Set(selected.keys()), onSelectionChange: select } : {})}
-          bulkActions={() =>
-            chosen.length > 0 ? (
-              <>
-                <Button size="sm" variant="primary" onClick={() => setBulk('APPROVED')}>
-                  Approve {chargesText(chosen.length)}
-                </Button>
-                <Button size="sm" variant="danger" onClick={() => setBulk('WAIVED')}>
-                  Waive {chargesText(chosen.length)}
-                </Button>
-              </>
-            ) : (
-              <span className="text-body-sm text-ink-muted">
-                None of these is a pending charge you may decide.
-              </span>
-            )
-          }
-          loading={charges.isLoading}
-          error={
-            charges.error ? (
-              <ErrorState error={charges.error} onRetry={() => void charges.refetch()} />
-            ) : undefined
-          }
-          empty={
-            status === 'PENDING_APPROVAL'
-              ? { title: 'No damage charges are waiting for a decision.' }
-              : { title: 'No damage charges match these filters.' }
-          }
-          rowActions={(charge) =>
-            isAdmin && charge.status === 'PENDING_APPROVAL'
-              ? [
-                  {
-                    key: 'decide',
-                    label: 'Decide',
-                    disabled: !decidable(charge),
-                    disabledReason: decidable(charge) ? undefined : SELF_INSPECTED,
-                    onSelect: () => setDeciding(charge),
-                  },
-                ]
-              : []
-          }
-          footer={
-            charges.data && charges.data.totalPages > 1 ? (
-              <Pagination
-                pageNumber={charges.data.pageNumber}
-                totalPages={charges.data.totalPages}
-                totalItems={charges.data.totalCount}
-                pageSize={charges.data.pageSize}
-                onPage={setPageNumber}
-              />
-            ) : undefined
-          }
-        />
-      </Card>
+      <CollectionView<DamageCharge>
+        label="Damage charges"
+        items={charges.data?.items}
+        loading={charges.isLoading}
+        error={charges.error ? <ErrorState error={charges.error} onRetry={() => void charges.refetch()} /> : undefined}
+        itemId={(charge) => charge.id}
+        itemName={(charge) => `${charge.assetTag ?? charge.deviceId} ${charge.damageCodes.join(', ')}`}
+        itemTitle={(charge) => <span className="font-semibold text-ink">{charge.assetTag ?? charge.deviceId}</span>}
+        fields={fields}
+        noun={{ one: 'charge', other: 'charges' }}
+        itemActions={[
+          {
+            key: 'decide',
+            label: 'Decide',
+            icon: <Scale />,
+            allowed: (charge) => isAdmin && charge.status === 'PENDING_APPROVAL',
+            unavailableReason: (charge) => (decidable(charge) ? undefined : SELF_INSPECTED),
+            onSelect: setDeciding,
+          },
+        ]}
+        bulkActions={
+          isAdmin
+            ? [
+                { key: 'approve', label: (count) => `Approve ${chargesText(count)}`, appliesTo: decidable, onSelect: (rows) => setBulk({ decision: 'APPROVED', charges: rows }) },
+                { key: 'waive', label: (count) => `Waive ${chargesText(count)}`, destructive: true, appliesTo: decidable, onSelect: (rows) => setBulk({ decision: 'WAIVED', charges: rows }) },
+              ]
+            : []
+        }
+        filters={[
+          { key: 'PENDING_APPROVAL', label: DAMAGE_CHARGE_STATUS.PENDING_APPROVAL.label },
+          { key: '', label: 'All statuses' },
+          ...(Object.keys(DAMAGE_CHARGE_STATUS) as DamageChargeStatus[])
+            .filter((key) => key !== 'PENDING_APPROVAL')
+            .map((key) => ({ key, label: DAMAGE_CHARGE_STATUS[key].label })),
+        ]}
+        query={{ search: '', filter: status, sort: null }}
+        onQueryChange={(next) => {
+          setStatus(next.filter as DamageChargeStatus | '');
+          setPageNumber(1);
+        }}
+        // The approval queue (the default filter) narrows the list, so the bar stays for one or two.
+        hideCommandBar={false}
+        pageInfo={pageInfoOf(charges.data)}
+        emptyState={{ title: 'No damage charges are waiting for a decision.' }}
+        footer={
+          charges.data && charges.data.totalPages > 1 ? (
+            <Pagination
+              pageNumber={charges.data.pageNumber}
+              totalPages={charges.data.totalPages}
+              totalItems={charges.data.totalCount}
+              pageSize={charges.data.pageSize}
+              onPage={setPageNumber}
+            />
+          ) : undefined
+        }
+      />
       {bulk && (
         <BulkActionDialog
-          title={`${bulk === 'APPROVED' ? 'Approve' : 'Waive'} ${chargesText(items.length)}?`}
-          confirmLabel={`${bulk === 'APPROVED' ? 'Approve' : 'Waive'} ${chargesText(items.length)}`}
+          title={`${bulk.decision === 'APPROVED' ? 'Approve' : 'Waive'} ${chargesText(items.length)}?`}
+          confirmLabel={`${bulk.decision === 'APPROVED' ? 'Approve' : 'Waive'} ${chargesText(items.length)}`}
           description={
-            bulk === 'APPROVED'
+            bulk.decision === 'APPROVED'
               ? 'Each charge is kept at its amount and goes on its contract.'
               : 'The organizations will not be charged for this damage.'
           }
-          destructive={bulk === 'WAIVED'}
+          destructive={bulk.decision === 'WAIVED'}
           needsReason
           reasonHint="Kept as the decision note of every charge."
           items={items}
-          run={(item, reason) => decideDamageCharge(item.id, { decision: bulk, note: reason ?? '' })}
+          run={(item, reason) => decideDamageCharge(item.id, { decision: bulk.decision, note: reason ?? '' })}
           onFinished={bulkDone}
           onClose={() => setBulk(null)}
         />
