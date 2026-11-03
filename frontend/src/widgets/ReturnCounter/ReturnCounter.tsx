@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { ClipboardCheck, RotateCcw, SearchX } from 'lucide-react';
 import { damageCodesFor, useBalance, useDamageRates } from '../../entities/billing/api';
 import {
   checkInDevices,
@@ -27,7 +28,7 @@ import {
   Card,
   CardHeader,
   Checkbox,
-  DataTable,
+  CollectionView,
   DEVICE_STATUS,
   Dialog,
   Field,
@@ -41,7 +42,7 @@ import {
   Tabs,
   Textarea,
   useToast,
-  type Column,
+  type CollectionField,
   type StatusEntry,
 } from '../../shared/ui';
 import { messageOf } from '../../shared/ui/errors';
@@ -380,21 +381,20 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
     }
   };
 
-  const columns: Column<ContractDevice, 'tag' | 'back' | 'state' | 'next'>[] = [
-    {
-      key: 'tag',
-      header: 'Asset tag',
-      cell: (device) => <span className="font-mono font-semibold">{device.assetTag}</span>,
-    },
+  const tagOf = (device: ContractDevice) => device.assetTag ?? device.deviceId;
+  const fields: CollectionField<ContractDevice>[] = [
     {
       key: 'back',
-      header: 'Back at',
-      cell: (device) => (device.checkedInAt ? formatDateTime(device.checkedInAt) : 'Out'),
+      label: 'Back at',
+      render: (device) => (device.checkedInAt ? formatDateTime(device.checkedInAt) : 'Out'),
+      text: (device) => device.checkedInAt ?? '',
+      hideWithPane: true,
     },
     {
       key: 'state',
-      header: 'Inspection',
-      cell: (device) => {
+      label: 'Inspection',
+      compact: true,
+      render: (device) => {
         const state = rows[device.deviceId];
         if (state?.outcome) {
           const charge = state.outcome.damageCharge;
@@ -417,11 +417,11 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
     },
     {
       // The unit's state now and its next step back to AVAILABLE (rentals api-design 03 afterReturn,
-      // D-092 rule 4): the reset and the inspection are this tab's row actions; maintenance and the
+      // D-092 rule 4): the reset and the inspection are this tab's item actions; maintenance and the
       // intake check are recorded elsewhere, so the row links there.
       key: 'next',
-      header: 'State now',
-      cell: (device) => {
+      label: 'State now',
+      render: (device) => {
         const after = device.afterReturn;
         if (!after) return null;
         const step = after.nextStep;
@@ -516,33 +516,48 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
                   A unit that did not come back needs no replacement: report it lost. The contract
                   closes once each lost unit is settled and the balance is paid.
                 </p>
-                <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
-                  {out.map((device) => {
-                    const lossCase = lossCaseOf(device.deviceId);
-                    const tag = device.assetTag ?? device.deviceId;
-                    return (
-                      <li
-                        key={device.deviceId}
-                        className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-                      >
-                        <span className="font-mono font-semibold">{tag}</span>
-                        {lossCase ? (
-                          <Link to={`/t/loss-cases/${lossCase.id}`} className={`${LINK} text-body-sm`}>
+                <CollectionView<ContractDevice>
+                  label="Still out"
+                  items={out}
+                  itemId={(device) => device.deviceId}
+                  itemName={tagOf}
+                  itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}
+                  fields={[
+                    {
+                      key: 'loss',
+                      label: 'Loss case',
+                      render: (device) => {
+                        const lossCase = lossCaseOf(device.deviceId);
+                        return lossCase ? (
+                          <Link
+                            to={`/t/loss-cases/${lossCase.id}`}
+                            className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
+                          >
                             Loss case {lossCase.code} open
                           </Link>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => setReporting({ deviceId: device.deviceId, assetTag: tag })}
-                          >
-                            Report lost
-                          </Button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+                          <span className="text-body-sm text-ink-muted">Not reported</span>
+                        );
+                      },
+                      compact: true,
+                    },
+                  ]}
+                  noun={{ one: 'device', other: 'devices' }}
+                  itemActions={[
+                    {
+                      key: 'lost',
+                      label: 'Report lost',
+                      icon: <SearchX />,
+                      destructive: true,
+                      allowed: (device) => lossCaseOf(device.deviceId) === null,
+                      onSelect: (device) => setReporting({ deviceId: device.deviceId, assetTag: tagOf(device) }),
+                    },
+                  ]}
+                  views={['list']}
+                  details={false}
+                  hideCommandBar
+                  emptyState={{ title: 'No device is out.' }}
+                />
               </div>
             )}
             {checkIn && (
@@ -563,27 +578,43 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
 
       {tab === 'inspection' && (
         <TabPanel idPrefix="return" tabKey="inspection">
-          <DataTable
-            caption="Returned devices"
-            columns={columns}
-            rows={back}
-            rowId={(device) => device.deviceId}
-            empty={{
+          <CollectionView<ContractDevice>
+            label="Returned devices"
+            items={back}
+            itemId={(device) => device.deviceId}
+            itemName={tagOf}
+            itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}
+            fields={fields}
+            noun={{ one: 'device', other: 'devices' }}
+            // The reset comes first, then the inspection (devices api-design 10 and 11); an inspected
+            // unit has no action left here.
+            itemActions={[
+              {
+                key: 'reset',
+                label: 'Record reset',
+                icon: <RotateCcw />,
+                allowed: (device) => !isInspected(device) && !isReset(device),
+                onSelect: setResetting,
+              },
+              {
+                key: 'inspect',
+                label: 'Inspect',
+                icon: <ClipboardCheck />,
+                allowed: (device) => !isInspected(device) && isReset(device),
+                onSelect: setInspecting,
+              },
+            ]}
+            filters={[
+              { key: 'all', label: 'All returned devices' },
+              { key: 'todo', label: 'Not inspected', test: (device) => !isInspected(device) },
+              { key: 'done', label: 'Inspected', test: isInspected },
+            ]}
+            details={false}
+            emptyState={{
               title: 'No device is back yet',
               description: 'Check devices in first; each then needs a reset and an inspection.',
             }}
-            rowActions={(device) => {
-              if (isInspected(device)) return null;
-              return isReset(device) ? (
-                <Button size="sm" variant="primary" onClick={() => setInspecting(device)}>
-                  Inspect
-                </Button>
-              ) : (
-                <Button size="sm" onClick={() => setResetting(device)}>
-                  Record reset
-                </Button>
-              );
-            }}
+            noMatch={{ title: 'No returned device matches this filter.' }}
           />
         </TabPanel>
       )}

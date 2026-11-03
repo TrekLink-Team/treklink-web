@@ -101,3 +101,12 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: scan focus, labelled groups, focus trap and return, signature text alternative
 - [x] Live data: none; query keys listed
 - [x] Traceability: UC-43, UC-44, UC-51, UC-61; US-UC43, US-UC44, US-UC51, US-UC61
+
+## Device rows on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. Both device lists of the counter render through `CollectionView` (chapter 06 §9). On the
+check-in tab, Still out is a list view without a command bar, and Report lost is the destructive item
+action of a unit with no loss case; a unit with one shows "Loss case {code} open". On the reset and
+inspection tab, Returned devices keeps the asset tag as each row's title; Record reset and Inspect are its
+item actions, one at a time in that order, and Show narrows the list to the units still to inspect or the
+inspected ones. A device has no details pane, because every field is already in its row.
