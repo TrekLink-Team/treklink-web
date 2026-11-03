@@ -92,6 +92,12 @@ export interface CollectionViewProps<T> {
   noun: CollectionNoun;
   itemActions?: CollectionAction<T>[];
   transitions?: (item: T) => CollectionTransition<T>[];
+  /**
+   * The transitions' `onSelect` handles every item it is given, so a selection may change status
+   * together (§9.6 rule 6). Without it a transition is offered per item only, and the transitions do
+   * not make the list selectable (review of treklink-web#350).
+   */
+  bulkTransitions?: boolean;
   /** The item's current status as text, shown on its Change status button (§9.6 rule 1). */
   statusOf?: (item: T) => string;
   bulkActions?: CollectionBulkAction<T>[];
@@ -143,6 +149,7 @@ export function CollectionView<T>({
   noun,
   itemActions = [],
   transitions,
+  bulkTransitions: transitionsApplyToSelection = false,
   statusOf,
   bulkActions = [],
   commands = [],
@@ -205,7 +212,9 @@ export function CollectionView<T>({
   const recordCount = pageInfo?.total ?? items?.length ?? 0;
   const barHidden =
     hideCommandBar ?? (items !== undefined && recordCount <= 2 && commands.length === 0 && !narrowed);
-  const selectable = (bulkActions.length > 0 || transitions !== undefined) && !barHidden;
+  const selectable =
+    (bulkActions.length > 0 || (transitions !== undefined && transitionsApplyToSelection)) &&
+    !barHidden;
   const showPane = details !== false && onShowDetails === undefined;
   const offersDetails = showPane || onShowDetails !== undefined;
 
@@ -420,7 +429,7 @@ export function CollectionView<T>({
 
   // Bulk transitions: only those allowed for every selected item (§9.6 rule 6).
   const bulkTransitions = (() => {
-    if (!transitions || selectedCount === 0) return [];
+    if (!transitions || !transitionsApplyToSelection || selectedCount === 0) return [];
     const [first, ...rest] = selectedItems.map(transitionsOf);
     return first.filter((transition) =>
       rest.every((list) => list.some((other) => other.key === transition.key)),

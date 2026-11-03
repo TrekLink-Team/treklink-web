@@ -360,6 +360,8 @@ describe('OrganizationReviewPage row menu (W29, UI standard §3)', () => {
     expect(itemsOf('ORG-0003')).toEqual(['Suspend organization', 'Close organization']);
     expect(itemsOf('ORG-0004')).toEqual(['Reactivate organization']);
     expect(screen.queryByRole('button', { name: /Change status of ORG-0005$/ })).toBeNull();
+    // Status changes stay per row: no selection to change together (review of treklink-web#350).
+    expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);
   });
 
   it('gives Staff no row menu', () => {

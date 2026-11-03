@@ -357,6 +357,8 @@ describe('StaffIncidentsPage row actions (W29)', () => {
     await screen.findByRole('button', { name: 'INC-2026-000007' });
     // A state change, in the row's Change status menu (chapter 06 §9.6).
     expect(rowButton(/Change status of INC-2026-000008/)).toBeNull();
+    // Status changes stay per row: no selection to change together (review of treklink-web#350).
+    expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);
     fireEvent.click(rowButton(/^Status: Unrouted\. Change status of INC-2026-000007/)!);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Declare false alarm' }));
     expect(await screen.findByLabelText(/Reason/)).toBeTruthy();
