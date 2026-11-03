@@ -130,7 +130,11 @@ export const TabPanel: React.FC<{
     id={`${idPrefix}-panel-${tabKey}`}
     aria-labelledby={`${idPrefix}-tab-${tabKey}`}
     tabIndex={0}
-    className={cn('outline-none', className)}
+    // The panel is a tab stop, so it shows the shared focus ring (2.4.7, review of treklink-web#349).
+    className={cn(
+      'rounded-panel outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+      className,
+    )}
   >
     {children}
   </div>
