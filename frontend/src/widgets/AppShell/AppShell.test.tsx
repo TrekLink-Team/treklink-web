@@ -66,6 +66,11 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(banner.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('shows no device connector to an organization account (devices REQ-UBI-07, AC-25)', () => {
+    show('/o/contracts');
+    expect(screen.queryByRole('button', { name: /^Devices, / })).toBeNull();
+  });
+
   it('shows the workspace, the environment and the built modules of the role', () => {
     show('/o/contracts');
     expect(screen.getAllByText('ACME Trek Co., Ltd.').length).toBeGreaterThan(0);

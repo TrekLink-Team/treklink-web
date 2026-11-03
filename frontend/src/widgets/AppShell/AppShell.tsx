@@ -3,6 +3,12 @@ import { useLocation } from 'react-router-dom';
 import { useDemoStatus } from '../../entities/demo/api';
 import { useDemoSimulation } from '../../entities/demo/simulation';
 import type { SessionUser } from '../../entities/session/model';
+import {
+  ConnectorAside,
+  ConnectorPanelBody,
+  useConnectorStore,
+  useStartConnector,
+} from '../../features/device-connector';
 import { isFullBleed, visibleNav } from '../../shared/config/navigation';
 import { cn } from '../../shared/ui/cn';
 import { Drawer } from '../../shared/ui/Drawer';
@@ -57,6 +63,16 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
   const setDrawer = useShell((state) => state.setDrawer);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const wide = useMediaQuery(DOCKED_QUERY);
+  // The device connector, the Staff device hub (devices design section 11.2, screen 4.6): Staff and Admin
+  // only (REQ-UBI-07). From 1100 px a non-modal aside pushed beside the page, from 600 px a drawer from
+  // the right, below that a bottom sheet; only the drawers on full-bleed map routes. One right panel shows
+  // at a time, so the Info pane yields while it is open (design section 11.12 Q6, decided A).
+  const staff = user.accountType === 'TREKLINK';
+  useStartConnector(staff);
+  const connectorOpen = useConnectorStore((state) => state.open) && staff;
+  const setConnectorOpen = useConnectorStore((state) => state.setOpen);
+  const connectorPushed = useMediaQuery('(min-width: 1100px)') && !fullBleed;
+  const connectorSide = useMediaQuery('(min-width: 600px)') ? 'right' : 'bottom';
   const theme = useTheme((state) => state.resolved);
   const toggleTheme = useTheme((state) => state.toggle);
 
@@ -151,8 +167,20 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
           </div>
         </main>
 
-        {!fullBleed && <InfoPane docked={wide} />}
+        {connectorOpen && connectorPushed && <ConnectorAside onClose={() => setConnectorOpen(false)} />}
+        {!fullBleed && !connectorOpen && <InfoPane docked={wide} />}
       </div>
+
+      {connectorOpen && !connectorPushed && (
+        <Drawer
+          titleId="device-connector-drawer-title"
+          title="Connected units"
+          side={connectorSide}
+          onClose={() => setConnectorOpen(false)}
+        >
+          <ConnectorPanelBody headingId="device-connector-drawer-title" />
+        </Drawer>
+      )}
 
       <MobileTabBar groups={groups} onMore={() => setDrawer(true)} />
 
