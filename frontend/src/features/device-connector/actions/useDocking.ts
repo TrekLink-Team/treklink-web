@@ -133,7 +133,11 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     [giveUp, service],
   );
 
-  const hooksFor = (target: string, stage: (state: ConnectionState) => void) => ({
+  const hooksFor = (
+    target: string,
+    stage: (state: ConnectionState) => void,
+    connectionId: number,
+  ) => ({
     onStage: (next: DockStage) => {
       setState({ target, stage: next });
       stage(next);
@@ -142,6 +146,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
       new Promise<SerialPort | null>((resolve) => {
         pendingReconnect.current = resolve;
       }),
+    findReturned: (original: SerialPort) => registry.returnedPort(original, connectionId),
   });
 
   // The Reconnect button's click handler: the chooser needs this user gesture.
@@ -187,7 +192,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     target: ProvisionTarget,
   ): Promise<{ nodeNum: number; keyVersion: number }> =>
     registry.withWriteLock(connection.id, async (port, stage) => {
-      const hooks = hooksFor(target.deviceId, stage);
+      const hooks = hooksFor(target.deviceId, stage, connection.id);
       let key: Uint8Array | null = null;
       try {
         hooks.onStage('reading');
@@ -311,7 +316,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
       const failure = readFailure(connection);
       if (failure) throw failure;
       await registry.withWriteLock(connection.id, async (port, stage) => {
-        const hooks = hooksFor(target.deviceId, stage);
+        const hooks = hooksFor(target.deviceId, stage, connection.id);
         try {
           hooks.onStage('reading');
           await service.readUnit(port);

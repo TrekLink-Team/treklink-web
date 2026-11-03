@@ -187,6 +187,30 @@ export class ConnectorRegistry {
     );
   }
 
+  // The port a unit came back on after the restart of a write (design section 11.4 rule 1): the original
+  // port while it is still granted, else the one granted port with its USB IDs that no other row holds.
+  // Two units on the same USB bridge share their IDs, so with several candidates none is taken and the
+  // docking asks Staff to reconnect the unit instead of writing to the wrong one.
+  async returnedPort(original: SerialPort, connectionId: number): Promise<SerialPort | null> {
+    const ports = (await this.deps.serial()?.getPorts()) ?? [];
+    if (ports.includes(original)) return original;
+    const info = original.getInfo();
+    const held = new Set(
+      this.connections
+        .filter((connection) => connection.id !== connectionId && connection.state !== 'unplugged')
+        .map((connection) => connection.port),
+    );
+    const candidates = ports.filter((port) => {
+      const other = port.getInfo();
+      return (
+        !held.has(port) &&
+        other.usbVendorId === info.usbVendorId &&
+        other.usbProductId === info.usbProductId
+      );
+    });
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
   // Runs one write on a connection's port under the one lock (REQ-UBI-09, REQ-STA-06). The connection
   // shows the stages the work reports; afterwards ports that arrived meanwhile (a unit back from its
   // restart) are read, and the connection is read again so its row shows the unit as it is now.
@@ -214,17 +238,22 @@ export class ConnectorRegistry {
     const connection = this.get(id);
     const deferred = this.deferred;
     this.deferred = [];
-    if (connection) {
-      const back = ports.includes(connection.port)
-        ? connection.port
-        : deferred.find((port) => !this.connections.some((other) => other.port === port));
-      if (back) {
-        this.update(id, { port: back, state: 'reading' });
-        void this.read(id);
-      } else this.markUnplugged(id);
+    const original = connection?.port;
+    if (connection && original && ports.includes(original)) {
+      this.update(id, { state: 'reading' });
+      void this.read(id);
+    } else if (connection) {
+      // Waiting for the unit: a port that arrived meanwhile and answers its node number joins this row.
+      this.update(id, { state: 'reading', message: null });
     }
-    for (const port of deferred) {
-      if (!this.connections.some((other) => other.port === port)) this.attach(port);
+    const arrived = deferred
+      .filter((port) => !this.connections.some((other) => other.port === port))
+      .map((port) => this.attach(port))
+      .filter((other): other is number => other !== null);
+    await Promise.all(arrived.map((other) => this.reads.get(other)));
+    const after = this.get(id);
+    if (after && original && after.port === original && !ports.includes(original)) {
+      this.markUnplugged(id);
     }
   }
 

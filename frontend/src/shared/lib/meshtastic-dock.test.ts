@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DockError,
   choosePort,
+  defaultReturnedPort,
   isDockSupported,
   openDock,
   toNodeId,
@@ -9,7 +10,14 @@ import {
   type DockTimings,
   type UplinkSettings,
 } from './meshtastic-dock';
-import { fakeDock, type UnitBehaviour, type UnitState } from './meshtastic-dock.fake';
+import {
+  FakePort,
+  FakeUnit,
+  fakeDock,
+  unitState,
+  type UnitBehaviour,
+  type UnitState,
+} from './meshtastic-dock.fake';
 
 // The adapter against a fake SerialPort that speaks the firmware's wire (devices design section 8.7).
 // No hardware is involved; the hardware run on v3 and v4 is the leader's (tasks.md 7.2).
@@ -231,5 +239,21 @@ describe('meshtastic-dock', () => {
   it('formats a node id as the firmware does', () => {
     expect(toNodeId(0x4351c)).toBe('!0004351c');
     expect(toNodeId(0xffffffff)).toBe('!ffffffff');
+  });
+});
+
+describe('defaultReturnedPort (review of the docking slice)', () => {
+  it('takes the original port, else the only port with its USB IDs, never one of several', async () => {
+    const { serial, port, unit } = dock();
+    expect(await defaultReturnedPort(port as never)).toBe(port);
+
+    port.detach();
+    const back = new FakePort(unit, serial, port.getInfo());
+    serial.ports.push(back);
+    expect(await defaultReturnedPort(port as never)).toBe(back);
+
+    const other = new FakeUnit(unitState({ nodeNum: 0x0badcafe }), {}, serial);
+    serial.ports.push(new FakePort(other, serial, port.getInfo()));
+    expect(await defaultReturnedPort(port as never)).toBeNull();
   });
 });
