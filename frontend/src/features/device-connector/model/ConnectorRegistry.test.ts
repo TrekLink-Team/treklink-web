@@ -191,3 +191,42 @@ describe('ConnectorRegistry', () => {
     expect(registry.getSnapshot().connections[0].port).not.toBe(port);
   });
 });
+
+describe('ConnectorRegistry.returnedPort (design section 11.4 rule 1, review of the docking slice)', () => {
+  const TIMINGS_FAST: DockTimings = { handshakeMs: 600, writeMs: 500, restartDelayMs: 40, restartDeadlineMs: 300, retryMs: 20 };
+
+  it('takes the original port, else the one port with its USB IDs that no other row holds', async () => {
+    const serial = new FakeSerial();
+    Object.defineProperty(window.navigator, 'serial', { value: serial, configurable: true });
+    const registry = new ConnectorRegistry({
+      serial: () => serial as unknown as Serial,
+      open: openDock,
+      recognize: (nodeNums) => Promise.resolve(nodeNums.map((nodeNum) => recognized(nodeNum, null))),
+      choose: () => serial.requestPort() as unknown as Promise<SerialPort>,
+      timings: TIMINGS_FAST,
+      batchMs: 5,
+    });
+    // Two units behind the same USB bridge share their IDs (both CP210x here).
+    const a = unitAt(serial, A);
+    unitAt(serial, B);
+    await registry.start();
+    await until(registry, (s) => s.connections.length === 2 && s.connections.every((c) => c.state === 'ready'));
+    const rowA = registry.getSnapshot().connections.find((c) => c.unit?.nodeNum === A)!;
+
+    await expect(registry.returnedPort(a.port as never, rowA.id)).resolves.toBe(a.port);
+
+    // A drops its port on restart; B's port has the same IDs but belongs to B's row.
+    a.port.detach();
+    await expect(registry.returnedPort(a.port as never, rowA.id)).resolves.toBeNull();
+    const back = new FakePort(a.unit, serial, a.port.getInfo());
+    serial.ports.push(back);
+    await expect(registry.returnedPort(a.port as never, rowA.id)).resolves.toBe(back);
+
+    // A second unheld port with the same IDs makes it ambiguous: none is taken.
+    const stranger = new FakeUnit(unitState({ nodeNum: 0x0badcafe }), {}, serial);
+    serial.ports.push(new FakePort(stranger, serial, a.port.getInfo()));
+    await expect(registry.returnedPort(a.port as never, rowA.id)).resolves.toBeNull();
+    registry.stop();
+    Reflect.deleteProperty(window.navigator, 'serial');
+  });
+});

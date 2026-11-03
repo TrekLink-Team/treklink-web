@@ -90,9 +90,29 @@ export interface DockSession {
   writeUplink(settings: UplinkSettings): Promise<void>;
   // Waits for the restart the commit causes and docks again. Null when the port did not come back
   // before the deadline: the page then asks Staff to reconnect (a user gesture opens the chooser).
-  awaitRestart(): Promise<DockSession | null>;
+  // `findReturned` names the port the unit came back on; by default the original port, else the only
+  // granted port with the same USB IDs, never one of several.
+  awaitRestart(findReturned?: ReturnedPortFinder): Promise<DockSession | null>;
   close(): Promise<void>;
 }
+
+// The port a unit came back on after its restart, or null while it is not back (or not unambiguous).
+export type ReturnedPortFinder = (original: SerialPort) => Promise<SerialPort | null>;
+
+const sameUsb = (a: SerialPort, b: SerialPort): boolean => {
+  const one = a.getInfo();
+  const two = b.getInfo();
+  return one.usbVendorId === two.usbVendorId && one.usbProductId === two.usbProductId;
+};
+
+// The original port, else the one granted port with its USB IDs. Two units on the same USB bridge
+// share their IDs, so with several candidates none is taken and Staff reconnect the right one.
+export const defaultReturnedPort: ReturnedPortFinder = async (original) => {
+  const ports = (await serial()?.getPorts()) ?? [];
+  if (ports.includes(original)) return original;
+  const candidates = ports.filter((port) => sameUsb(port, original));
+  return candidates.length === 1 ? candidates[0] : null;
+};
 
 export const toNodeId = (nodeNum: number) => `!${(nodeNum >>> 0).toString(16).padStart(8, '0')}`;
 
@@ -460,22 +480,13 @@ class Session implements DockSession {
     await this.commit();
   }
 
-  async awaitRestart(): Promise<DockSession | null> {
-    const info = this.port.getInfo();
+  async awaitRestart(findReturned: ReturnedPortFinder = defaultReturnedPort): Promise<DockSession | null> {
     // A USB to UART bridge (v3) keeps the port through the restart; native USB (v4) drops it.
     await Promise.race([this.link.lost, sleep(this.timings.restartDelayMs)]);
     await this.close();
     const deadline = Date.now() + this.timings.restartDeadlineMs;
     while (Date.now() < deadline) {
-      const ports = (await serial()?.getPorts()) ?? [];
-      const port =
-        ports.find((candidate) => candidate === this.port) ??
-        ports.find((candidate) => {
-          const other = candidate.getInfo();
-          return (
-            other.usbVendorId === info.usbVendorId && other.usbProductId === info.usbProductId
-          );
-        });
+      const port = await findReturned(this.port);
       if (port) {
         try {
           return await openDock(port, this.timings);
