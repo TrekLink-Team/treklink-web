@@ -134,10 +134,10 @@ Design canvas "Contract Home", a style reference only.
 ## Organization contract list on CollectionView (D-096, 2026-11-04)
 
 Added by KhoaDD. `/o/contracts` renders through `CollectionView` (chapter 06 §9): the status select is the
-Show filter (rentals 02 `status`), the plan select folds into the search (code or plan), and the Org
+Show filter (rentals 02 `status`), the plan select is a filter group of Show (see Contract list filters
+below), and the Org
 Manager's Cancel contract is in the Change status menu behind the same reason dialog (MSG15). The code
 and the details pane link to the contract home. An Org Operator has no status change.
-
 
 ## Contract list filters (review of treklink-web#350, 2026-11-04)
 
