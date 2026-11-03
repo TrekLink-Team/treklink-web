@@ -834,7 +834,7 @@ ENDPOINTS = [
                  "reserved": {"deviceId": "8f9e0a1b-2c3d-4e5f-8a9b-0c1d2e3f4a5b", "assetTag": "TL-0051",
                               "nodeNum": 2763113188, "status": "RESERVED"},
                  "contractVersion": 5},
-       message="TL-0051 replaces TL-0001 on RC-2026-0042.", entity="Contract",
+       message="Device exchanged", entity="Contract",
        errors=[state_409("contract", "ACTIVE"), STALE, NOT_ON,
                (409, "DEVICE_PROVISIONED", "The reserved unit to replace has a provisioning record",
                 "TL-0001 is provisioned. Only units not provisioned can be swapped out."),

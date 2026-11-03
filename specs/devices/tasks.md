@@ -240,7 +240,7 @@ which is not merged: they start once it merges into `dev`, or on a branch cut fr
   - _Requirements: REQ-EVT-36, REQ-EVT-37, REQ-STA-05, REQ-ERR-27, AC-33_
   - _Depends on: 10.1_
   - **Done** (2026-11-04, `feat/device-connector-ui`): `dock/dock-session.service.ts` (`dock`, `undock`, `expireStale`; the device row locked first, so two browsers opening one unit leave one open session), `dock/dock-events.ts` (`device.docked`, `device.undocked` after commit), `PUT` and `DELETE /api/devices/:id/dock` (`device.operate`), the `devices.dockSweep` job every 10 seconds (a third of the default TTL; a cron cannot follow the parameter). Tests: controller, job, and `test/dock-sessions.db-spec.ts` on a local Postgres 16 (6 of 6: renew, replace, expire on reopen, `NODE_MISMATCH`, undock twice, a concurrent open, the sweep)
-- [ ] 10.4 Exchange endpoint (owner KhoaDD; built as rentals 10.1, rentals api-design 30)
+- [x] 10.4 Exchange endpoint (owner KhoaDD; built as rentals 10.1, rentals api-design 30)
   - **Do**: design §11.6
   - _Requirements: REQ-EVT-33, REQ-ERR-20, REQ-ERR-21, REQ-ERR-23, REQ-ERR-24_
   - _Depends on: rentals 10.1_

@@ -88,6 +88,21 @@ export class SwapDto {
   reason!: string;
 }
 
+// rentals api-design 30 (devices design section 11.6): the quick swap of a reserved unit for a docked one.
+export class ExchangeDeviceDto {
+  @IsUUID()
+  replacementDeviceId!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(0xffffffff)
+  nodeNum!: number;
+
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
+}
+
 // rentals api-design 09.
 export class ProvisioningDto {
   @IsInt()
