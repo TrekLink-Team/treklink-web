@@ -1,6 +1,8 @@
+import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ChannelKeyService } from './channel-key.service';
 import { ORGANIZATION_KEY_EXPOSED } from './organization-events';
@@ -10,6 +12,11 @@ const TX = { tx: true } as unknown as Prisma.TransactionClient;
 const STAFF = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 const ORG_ID = '5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f';
 const AT = new Date('2026-10-31T03:00:00.000Z');
+
+const NO_CONFIG = { get: () => 'unused-master' } as unknown as ConfigService<
+  ValidatedEnvironment,
+  true
+>;
 
 describe('ChannelKeyService.markKeyExposed (REQ-EVT-13, AC-11, D-045)', () => {
   let organizations: { lockById: jest.Mock; update: jest.Mock };
@@ -33,6 +40,7 @@ describe('ChannelKeyService.markKeyExposed (REQ-EVT-13, AC-11, D-045)', () => {
         emitAfterCommit: (name: string, payload: Record<string, unknown>) =>
           emitted.push([name, payload]),
       } as unknown as TransactionalEvents,
+      NO_CONFIG,
     );
   });
 
@@ -117,6 +125,7 @@ describe('ChannelKeyService.markKeyExposed (REQ-EVT-13, AC-11, D-045)', () => {
     const withReal = new ChannelKeyService(
       organizations as unknown as OrganizationsRepository,
       real,
+      NO_CONFIG,
     );
 
     await expect(

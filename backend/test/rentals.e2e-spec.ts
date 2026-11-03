@@ -80,6 +80,7 @@ describe('rentals (e2e)', () => {
       [`/api/contracts/${C}/devices/${D}/swap`, { reason: 'No GPS fix' }],
       [`/api/contracts/${C}/devices/${D}/provisioning`, { keyVersion: 1 }],
       [`/api/contracts/${C}/devices/${D}/provisioning/undo`, { expectedVersion: 0 }],
+      [`/api/contracts/${C}/devices/${D}/channel-key`, { nodeNum: 275612 }],
     ])('refuses the counter steps to an Org Manager: %s', async (path, body) => {
       expectError(await e2e.send('manager-a', 'post', path, body), 403, 'FORBIDDEN');
     });
@@ -172,6 +173,30 @@ describe('rentals (e2e)', () => {
     it('api-design 07 refuses a swap without a reason', async () => {
       expectError(
         await e2e.send('staff-1', 'post', `/api/contracts/${C}/devices/${D}/swap`, { reason: '' }),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it.each([
+      ['without a nodeNum', {}],
+      ['with a negative nodeNum', { nodeNum: -1 }],
+      ['with a nodeNum above 32 bits', { nodeNum: 4294967296 }],
+      ['with a nodeNum that is not a whole number', { nodeNum: 1.5 }],
+    ])('api-design 21 refuses a channel key request %s', async (_, body) => {
+      expectError(
+        await e2e.send('staff-1', 'post', `/api/contracts/${C}/devices/${D}/channel-key`, body),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
+    it('api-design 09 refuses a nodeNum above 32 bits', async () => {
+      expectError(
+        await e2e.send('staff-1', 'post', `/api/contracts/${C}/devices/${D}/provisioning`, {
+          keyVersion: 1,
+          nodeNum: 4294967296,
+        }),
         400,
         'VALIDATION_FAILED',
       );

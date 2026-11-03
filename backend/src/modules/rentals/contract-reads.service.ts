@@ -45,6 +45,8 @@ export interface ContractLabels {
 export interface ContractDetail extends ContractLabels {
   row: ContractDetailRow;
   assetTags: Map<string, string>;
+  // The radio node number of each unit, by device id (api-design 03 `devices[].nodeNum`, D-080).
+  nodeNums: Map<string, number>;
   // The reset and inspection of each returned row, by contract device id.
   returnChecks: Map<string, ReturnCheck>;
   // The channel key version each unit carries for this contract's organization, by device id; absent
@@ -112,22 +114,24 @@ export class ContractReadsService {
   async detail(id: string, caller: Caller, at: Date = new Date()): Promise<ContractDetail> {
     const row = await this.visible(id, caller);
     const back = row.devices.filter((device) => device.checkedInAt !== null);
-    const [label, assetTags, returnChecks, balance, units, returnStates] = await Promise.all([
-      this.labeller([row]),
-      this.devices.assetTags(row.devices.map((device) => device.deviceId)),
-      this.devices.returnChecks(
-        row.devices.map((device) => ({
-          contractDeviceId: device.id,
-          deviceId: device.deviceId,
-          checkedInAt: device.checkedInAt,
-        })),
-      ),
-      this.balances.balanceSummary(id, at),
-      this.devices.provisioning(row.devices.map((device) => device.deviceId)),
-      caller.organizationId === null
-        ? this.devices.nextSteps(back.map((device) => device.deviceId))
-        : Promise.resolve(new Map<string, ReturnState>()),
-    ]);
+    const [label, assetTags, nodeNums, returnChecks, balance, units, returnStates] =
+      await Promise.all([
+        this.labeller([row]),
+        this.devices.assetTags(row.devices.map((device) => device.deviceId)),
+        this.devices.nodeNums(row.devices.map((device) => device.deviceId)),
+        this.devices.returnChecks(
+          row.devices.map((device) => ({
+            contractDeviceId: device.id,
+            deviceId: device.deviceId,
+            checkedInAt: device.checkedInAt,
+          })),
+        ),
+        this.balances.balanceSummary(id, at),
+        this.devices.provisioning(row.devices.map((device) => device.deviceId)),
+        caller.organizationId === null
+          ? this.devices.nextSteps(back.map((device) => device.deviceId))
+          : Promise.resolve(new Map<string, ReturnState>()),
+      ]);
     const provisionedKeyVersions = new Map(
       units.flatMap((unit) =>
         unit.keyOrganizationId === row.organizationId && unit.keyVersion !== null
@@ -139,6 +143,7 @@ export class ContractReadsService {
       row,
       ...label(row),
       assetTags,
+      nodeNums,
       returnChecks,
       balance,
       provisionedKeyVersions,

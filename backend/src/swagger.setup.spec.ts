@@ -32,6 +32,7 @@ describe('setupSwagger (REQ-OPT-01, SWAGGER_ENABLED)', () => {
     DATABASE_DIRECT_URL: 'postgresql://postgres:postgres@localhost:5432/treklink?schema=public',
     MQTT_BROKER_URL: 'mqtt://localhost:1883',
     JWT_ACCESS_SECRET: 'access-secret',
+    CHANNEL_KEY_MASTER: 'channel-key-master-not-a-secret-0001',
   };
   let app: NestExpressApplication | undefined;
   afterEach(async () => {

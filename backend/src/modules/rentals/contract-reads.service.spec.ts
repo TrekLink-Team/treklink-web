@@ -58,6 +58,7 @@ describe('ContractReadsService', () => {
       {
         variants: jest.fn().mockResolvedValue([{ id: 'v-3', code: 'treklink-v3' }]),
         assetTags: jest.fn().mockResolvedValue(new Map([['d-1', 'TL-0001']])),
+        nodeNums: jest.fn().mockResolvedValue(new Map([['d-1', 275612]])),
         returnChecks,
         provisioning,
         nextSteps,
@@ -102,6 +103,7 @@ describe('ContractReadsService', () => {
     });
     await expect(service.detail('c-1', STAFF)).resolves.toMatchObject({
       assetTags: new Map([['d-1', 'TL-0001']]),
+      nodeNums: new Map([['d-1', 275612]]),
     });
   });
 

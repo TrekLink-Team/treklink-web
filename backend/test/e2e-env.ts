@@ -10,6 +10,7 @@ const E2E_DEFAULTS: Record<string, string> = {
   MQTT_INGESTION_ENABLED: 'false',
   JWT_ACCESS_SECRET: 'e2e-access-secret',
   JWT_REFRESH_SECRET: 'e2e-refresh-secret',
+  CHANNEL_KEY_MASTER: 'e2e-channel-key-master-not-a-secret-0001',
 };
 
 for (const [name, value] of Object.entries(E2E_DEFAULTS)) {
