@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ACCOUNT_CONTEXT_PROVIDER, AccountContextProvider } from '../../auth';
 import { MembersRepository } from '../members.repository';
+import { OrganizationsRepository } from '../organizations.repository';
 import { OrganizationsPortsModule } from '../organizations-ports.module';
 import { OrganizationAccountContextProvider } from './account-context.provider';
 
@@ -20,7 +21,10 @@ describe('OrganizationAccountContextProvider', () => {
     findFirst = jest.fn();
     findMany = jest.fn();
     const prisma = { organizationMember: { findFirst, findMany } } as unknown as PrismaService;
-    provider = new OrganizationAccountContextProvider(new MembersRepository(prisma));
+    provider = new OrganizationAccountContextProvider(
+      new MembersRepository(prisma),
+      new OrganizationsRepository(prisma),
+    );
   });
 
   it('returns the organization, its code and name, the member role and the status', async () => {

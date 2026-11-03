@@ -59,6 +59,7 @@ describe('ComplianceCasesService', () => {
       page: jest.fn().mockResolvedValue([[CASE], 1]),
       find: jest.fn().mockResolvedValue(CASE),
       lock: jest.fn().mockResolvedValue(CASE),
+      lockOpenOf: jest.fn().mockResolvedValue(CASE),
       nextCode: jest.fn().mockResolvedValue('CMP-0003'),
       create: jest.fn().mockResolvedValue(CASE),
       addAction: jest.fn().mockResolvedValue(undefined),
@@ -162,6 +163,30 @@ describe('ComplianceCasesService', () => {
       expect(emitted[0][1]).toMatchObject({
         after: { code: 'CMP-0002', type: CASE.type, linkedLossCaseIds: ['loss-1', 'loss-2'] },
       });
+    });
+
+    it("locks the new case as OPEN and the organization's own before linking", async () => {
+      lossProviders.push(lossProvider);
+      await service.open('org-1', { ...OPEN_INPUT, linkedLossCaseIds: ['loss-1'] }, STAFF);
+
+      expect(cases.lockOpenOf).toHaveBeenCalledWith('case-1', 'org-1', TX);
+      expect(cases.lockOpenOf.mock.invocationCallOrder[0]).toBeLessThan(
+        lossProvider.link.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("refuses to link to a case that is closed or another organization's, and links nothing", async () => {
+      cases.lockOpenOf.mockResolvedValue(null);
+      lossProviders.push(lossProvider);
+
+      await expect(
+        service.open('org-1', { ...OPEN_INPUT, linkedLossCaseIds: ['loss-1'] }, STAFF),
+      ).rejects.toMatchObject({
+        errorCode: 'VALIDATION_FAILED',
+        message: 'The compliance case is closed or belongs to another organization.',
+      });
+      expect(lossProvider.link).not.toHaveBeenCalled();
+      expect(emitted).toEqual([]);
     });
 
     it('opens nothing when the provider refuses a loss case', async () => {

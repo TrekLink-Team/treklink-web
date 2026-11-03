@@ -167,6 +167,7 @@ The design is `design.md` section 9, ruled by the leader in the review of trekli
   - **Do**: `view(organizationId)`; `replace(caller, roleKey, dto)` with the status gate through `ACCOUNT_CONTEXT_PROVIDER`, the key checks, `FOR UPDATE` on the policy row, compare and set `version`, `policy.changed` and `audit.record` after commit
   - **Test**: AC-07, AC-08, AC-10; two concurrent saves, one gets `STALE_VERSION` (db-spec)
   - **Done** (2026-11-03, TanNB): `OrganizationRolePolicyService` (`view`, `replace`) and `OrganizationRolePolicyRepository`; unit tests in `organization-role-policy.service.spec.ts`, e2e in `test/organization-roles.e2e-spec.ts`, and `test/organization-role-policy.db-spec.ts` for the rows, two organizations, the refused save and two concurrent saves (written, not run locally: no Postgres on the author's machine, so the first run is the CI job).
+  - **Follow-up** (2026-11-03, TanNB, review of #328): `replace` reads the organization status again inside the transaction under a `FOR SHARE` lock (`AccountContextProvider.lockOrganizationStatus`, provided by `organizations`), before the policy row is locked; db-spec cases for a suspension committed after the first read and for a suspension in flight.
   - _Requirements: REQ-EVT-10, REQ-STA-04, REQ-ERR-10, REQ-ERR-11, REQ-ERR-12, AC-07, AC-08, AC-10_
 - [x] 9.4 `OrganizationRolesController` (owner TanNB)
   - **Files**: `organization-roles.controller.ts`
