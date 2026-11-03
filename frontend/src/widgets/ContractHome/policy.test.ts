@@ -67,6 +67,19 @@ describe('contract home actions (screen 5.2, rentals design §2)', () => {
     expect(actionsOf('ACTIVE', 'manager', { planType: 'DAY' }).primary).toBeNull();
   });
 
+  it('offers the Org Manager no Pay while nothing is due now, as after a paid deposit', () => {
+    const paid = homeActions({
+      contract: { status: 'REQUESTED', planType: 'MONTHLY', devices: [] },
+      viewer: 'manager',
+      mode: null,
+      openInvoiceId: 'inv-1',
+      dueNowVnd: 0,
+    });
+    expect(paid.primary).toBeNull();
+    expect(paid.idle).toBe('TrekLink Staff review the request');
+    expect(paid.more.map((action) => action.label)).toEqual(['Cancel request']);
+  });
+
   it('never gives an Org Operator an action, nor the Org Manager a Staff one', () => {
     (['REQUESTED', 'APPROVED', 'ACTIVE', 'RETURNED'] as ContractStatus[]).forEach((status) => {
       expect(actionsOf(status, 'operator').primary).toBeNull();

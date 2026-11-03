@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
-import { useInvoices, useVariantName } from '../entities/billing/api';
+import { useBalance, useInvoices, useVariantName } from '../entities/billing/api';
 import {
   cancelContract,
   contractKeys,
@@ -214,6 +214,8 @@ export const ContractDetailPage: React.FC<{
   );
   // The Org Manager's open invoice, the target of Pay invoice and Pay deposit (billing api-design 08).
   const invoices = useInvoices('o', { contractId: id }, viewer === 'manager' && contract.isSuccess);
+  // What is due now (billing api-design 10): Pay is the primary action only while it is above 0.
+  const managerBalance = useBalance(id, viewer === 'manager' && contract.isSuccess);
   const [open, setOpen] = useState<Open | null>(null);
   const [approving, setApproving] = useState(false);
 
@@ -264,6 +266,7 @@ export const ContractDetailPage: React.FC<{
     mode,
     closeCheck: closeCheck.data,
     openInvoiceId: openInvoice?.id ?? null,
+    dueNowVnd: managerBalance.data?.dueNowVnd,
   });
 
   const refresh = () => {

@@ -46,6 +46,8 @@ export interface PolicyInput {
   closeCheck?: CloseCheck;
   /** An invoice of this contract with something left to pay, for the Org Manager (billing 08). */
   openInvoiceId?: string | null;
+  /** What is due now on the contract (billing api-design 10); Pay is offered only when it is above 0. */
+  dueNowVnd?: number;
 }
 
 const OUT_STATES = ['RETURN_DUE', 'OVERDUE', 'DEFAULTED'];
@@ -134,16 +136,19 @@ export const homeActions = (input: PolicyInput): HomeActions => {
   }
 
   if (viewer === 'manager') {
+    // An open invoice whose lines are not due yet (a paid deposit, the term balance due at handover)
+    // gives no Pay action; the balance says what is due now.
+    const payable = Boolean(input.openInvoiceId) && (input.dueNowVnd === undefined || input.dueNowVnd > 0);
     const pay: HomeAction = {
       key: 'pay',
       label: status === 'REQUESTED' ? 'Pay deposit' : 'Pay invoice',
-      reason: input.openInvoiceId ? undefined : 'No invoice is due',
+      reason: payable ? undefined : 'No invoice is due',
     };
     switch (status) {
       case 'REQUESTED':
         return {
-          primary: pay,
-          idle: null,
+          primary: payable ? pay : null,
+          idle: payable ? null : 'TrekLink Staff review the request',
           more: [{ key: 'cancel', label: 'Cancel request', destructive: true }],
         };
       case 'APPROVED':
@@ -155,13 +160,13 @@ export const homeActions = (input: PolicyInput): HomeActions => {
       case 'ACTIVE': {
         const notice: HomeAction | null =
           contract.planType === 'MONTHLY' ? { key: 'notice', label: 'Give notice' } : null;
-        if (input.openInvoiceId) return { primary: pay, idle: null, more: notice ? [notice] : [] };
+        if (payable) return { primary: pay, idle: null, more: notice ? [notice] : [] };
         return notice
           ? { primary: notice, idle: null, more: [pay] }
           : { primary: null, idle: 'Return the units when the day plan ends', more: [pay] };
       }
       default:
-        if (input.openInvoiceId) return { primary: pay, idle: null, more: [] };
+        if (payable) return { primary: pay, idle: null, more: [] };
         return {
           primary: null,
           idle:

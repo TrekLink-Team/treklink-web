@@ -71,7 +71,7 @@ export const MoneyTab: React.FC<{
     {
       key: 'kind',
       label: 'Kind',
-      render: (invoice) => invoice.kind,
+      render: (invoice) => invoice.kind.replace('_', ' ').toLowerCase().replace(/^./, (first) => first.toUpperCase()),
       text: (invoice) => invoice.kind,
       hideWithPane: true,
     },
