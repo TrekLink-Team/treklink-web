@@ -88,3 +88,9 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: focus trap and return, text labels, map text alternative
 - [x] Live data: none; query keys listed
 - [x] Traceability: UC-49, UC-60, US-UC49, US-UC60
+
+## Loss case list on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. `/t/loss-cases` and `/o/loss-cases` render through `CollectionView` (chapter 06 §9): the
+state select is the Show filter (devices 18 `state`), TrekLink opens a case from its code or the details
+pane, and the Org Manager reads the list without links and without the theft fields, as before.
