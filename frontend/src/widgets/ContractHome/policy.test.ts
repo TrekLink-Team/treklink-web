@@ -56,14 +56,14 @@ describe('contract home actions (screen 5.2, rentals design §2)', () => {
     expect(actionsOf('REQUESTED', 'manager', { openInvoiceId: 'inv-1' }).primary).toEqual({
       key: 'pay',
       label: 'Pay deposit',
-      reason: undefined,
     });
     expect(actionsOf('ACTIVE', 'manager', { openInvoiceId: 'inv-1' }).more.map((action) => action.label)).toEqual([
       'Give notice',
     ]);
     const nothingDue = actionsOf('ACTIVE', 'manager');
     expect(nothingDue.primary?.label).toBe('Give notice');
-    expect(nothingDue.more).toEqual([{ key: 'pay', label: 'Pay invoice', reason: 'No invoice is due' }]);
+    // Nothing to pay: no disabled Pay either (review of treklink-web#350).
+    expect(nothingDue.more).toEqual([]);
     expect(actionsOf('ACTIVE', 'manager', { planType: 'DAY' }).primary).toBeNull();
   });
 
@@ -78,6 +78,24 @@ describe('contract home actions (screen 5.2, rentals design §2)', () => {
     expect(paid.primary).toBeNull();
     expect(paid.idle).toBe('TrekLink Staff review the request');
     expect(paid.more.map((action) => action.label)).toEqual(['Cancel request']);
+  });
+
+  it('offers Pay deposit on a request whose deposit is unpaid, though nothing is due now (review of #350)', () => {
+    const request = (depositUnpaidVnd: number) =>
+      homeActions({
+        contract: { status: 'REQUESTED', planType: 'MONTHLY', devices: [] },
+        viewer: 'manager',
+        mode: null,
+        openInvoiceId: 'inv-1',
+        // The deposit falls due at the hold expiry, so the balance shows nothing due now.
+        dueNowVnd: 0,
+        depositUnpaidVnd,
+      });
+    expect(request(1_575_000).primary).toEqual({ key: 'pay', label: 'Pay deposit' });
+    expect(request(1_575_000).idle).toBeNull();
+    // Paid: the rest of the invoice falls due at handover, so the request waits for Staff.
+    expect(request(0).primary).toBeNull();
+    expect(request(0).idle).toBe('TrekLink Staff review the request');
   });
 
   it('never gives an Org Operator an action, nor the Org Manager a Staff one', () => {
