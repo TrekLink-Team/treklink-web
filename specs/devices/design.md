@@ -202,6 +202,7 @@ inspection (BR-24), never the maintenance cost.
 | `projectReading(nodeNum, reading, tx)` returns the device id or null | gateway-sync |
 | `byNodeNum(nodeNum)`, `projections(ids)`, `trail(id)` | gateway-sync, monitoring |
 | `availability(variantId?)` | rentals, monitoring |
+| `dockedNow(deviceIds?)` returns the open dock sessions (§11.8) | monitoring |
 
 **Ports declared here (corrected 2026-10-18).** `rentals` and `billing` both import `devices` (`platform`
 design Figure 3), so the loss-case flow of D-045 reaches them through ports, never by import:
@@ -279,6 +280,7 @@ cleared for `TREKLINK` custody; the Org Manager's list reads `organizationId`.
 | `FIRMWARE_IMAGE_INVALID` | 502 |
 | `FIRMWARE_IMAGE_TOO_LARGE` | 502 |
 | `VARIANT_MEDIA_INVALID` | 400 |
+| `NODE_MISMATCH` (api-design 31, §11.8; the same code as rentals) | 409 |
 
 ---
 
@@ -748,6 +750,8 @@ sequenceDiagram
 > **Status**: Decided (leader rulings D-082, 2026-10-30, and the D-080 amendment, 2026-11-02, both on
 > treklink-web#126). §8.6 records the ruling on each point D-080 left open; the options table is kept for
 > its rationale. §8.8 adds the Stage A uplink configuration the D-093 amendment requires this week.
+> Proposed amendment (2026-11-04, pending approval): the device connector of §11 becomes the only holder of the
+> port, and the pages of §8.1 open it instead of docking on their own; the protocol of §8.2 to §8.8 is unchanged.
 
 ### 8.1 Scope and placement
 
@@ -1150,3 +1154,380 @@ variant summary of every unit payload (devices 05 to 07, rentals 03 `devices[]`,
 to `{id, code, name, imageUrl, specSheet, hasGps, hasMotionSensor, mqttCapable, firmwareBaseline}`, one shared
 shape (E-1); the card shows `firmwareBaseline` as "Firmware baseline" (leader ruling 2026-11-03). The monitoring rows keep their
 variant code string until W10: the live map and the organization API read it.
+
+---
+
+## 11. Device connector: the Staff device hub (brief of 2026-11-04 and its scope addition)
+
+> **Status**: Spec, 2026-11-04, awaiting the leader's approval and his answers to §11.12. Source:
+> `docs/design/2026-11-04-device-connector-brief.md` (the request, the four answers and the scope addition of
+> 02:05, all binding). Requirements: REQ-UBI-07 to REQ-UBI-10, REQ-EVT-29 to REQ-EVT-41, REQ-STA-05, REQ-STA-06,
+> REQ-ERR-19 to REQ-ERR-29, AC-22 to AC-37. Builds on §8 (docking), §9 (flash) and §10 (variant media); it does
+> not change their protocol facts. Layout follows chapter 06 §9 and §10 (D-096, text in
+> `docs/design/2026-11-03-collectionview-and-layout.md`).
+
+### 11.1 Scope
+
+One shared hub for TrekLink Staff and Admin, "connect a unit and see what you can do with it": every unit
+plugged into the Staff computer over USB is one row; a registered unit is recognized by its `nodeNum`; an
+unknown unit is offered for registration; and from the same place Staff provision a unit for a contract
+(with the quick swap and hot provisioning), configure its uplink, read its info and flash its firmware.
+Organizations never dock units (brief answer 2), so the hub exists only in the Staff shell (REQ-UBI-07).
+
+The hub replaces the per-page docking of §8.1: the counter rows, the Register panel's Read from unit, the
+device page's Configure uplink and the maintenance page's flash panel become entry points that open the hub
+on their unit and action (REQ-UBI-10, REQ-EVT-39). The protocol work of §8.2 to §8.8 and §9.2 is unchanged;
+only who holds the port changes.
+
+Out of scope: any write the leader has not asked for (no factory reset, no node database edit, no channel
+other than the primary); the Organization console; a unit reached over Bluetooth or the network.
+
+### 11.2 Module, panel and device view
+
+**Slices.**
+
+| Slice | Content |
+|---|---|
+| `shared/lib/meshtastic-dock.ts` (§8.1, task 7.2) | Unchanged role: one adapter over the Meshtastic packages. `openDock(port)` takes a port the hub gives it instead of choosing one; the single-port helper `grantedPort()` of the docking branch goes away |
+| `shared/lib/esp-flasher.ts` (§9.2, task 8.3) | Unchanged role; it takes a port the hub hands over (§11.7) |
+| `features/device-connector/model/` | `ConnectorRegistry`: one instance per tab, outside React, holding one `Connection` per open port (§11.4); the write lock of REQ-UBI-09; the page context (§11.3); the dock session heartbeat (§11.8). A `useConnector()` hook subscribes to it with `useSyncExternalStore` |
+| `features/device-connector/actions/` | The `DockingService` of §8.1 (`readUnit`, `provision`, `configureUplink`) moved here and given a `Connection` instead of a port; the quick swap (§11.6); the flash hand-over (§11.7) |
+| `features/device-connector/ui/` | `ConnectorPanel` (the rows), `DeviceView` (one unit), `ConnectorButton` (the header entry with the count) |
+| `entities/device/api.ts` | `useDevicesByNode(nodeNums)` over api-design 30; `openDockSession`, `endDockSession` over 31 and 32 |
+| `entities/contract/api.ts` | `exchangeDevice` over rentals api-design 30 |
+
+The `features/dock-device/` slice of the docking branch (`feat/devices-docking-frontend`, Phase 7, not merged)
+folds into `features/device-connector/` when Phase 10 starts; its tests move with it.
+
+**Panel placement.** A header button "Devices" with the number of connected units opens the panel on every
+Staff page. The panel follows §10.8: from 1100 px a non-modal `aside` pushed beside the page (focus moves to
+its heading, Escape or Close closes it); from 600 px the design system `Drawer` from the right over the page;
+below 600 px the same `Drawer` as a bottom sheet; both drawers trap focus and return it on close. On the
+full-bleed map routes it opens only as the `Drawer`. The shell's Info pane uses the same right side at 1280 px
+(`specs/frontend/design-system.md` §5); which of the two yields is open question Q6.
+
+**Rows.** One row per connected unit, in connection order, built as a `CollectionView` in the List view
+(§9.2) with no command bar while two or fewer units are connected (§9.3):
+
+| Field | Registered unit | Unknown unit |
+|---|---|---|
+| Image | `/variants/<code>-icon.png` | the generic unit icon |
+| Title | asset tag | "Unknown unit" |
+| Subtitle | node id, variant name | node id, build environment |
+| Status | the device status as text (§8.3 of chapter 06) | "Not registered" |
+| Contract | live contract code and its status, or none | none |
+| Connection | the state of §11.4 as text ("Ready", "Writing settings", "No response over USB") | same |
+| Actions | Show device view first (§9.5), then the actions of §11.3 for this unit on this page, as icon buttons with the §9.5 tooltip, or one Actions menu below 600 px (§10.5) | same |
+
+A row with no action names why on its own line ("Reserved to RC-2026-0040"), never by an absent button alone
+(REQ-EVT-32).
+
+**Device view.** Show device view replaces the list inside the panel with one unit, with Back to the list as
+its first control:
+
+| Block | Content | Source |
+|---|---|---|
+| Render | The variant's upright product render, `/variants/<code>-detail.png`, fixed 240 px high, `alt` "{variant name}, front view"; on a load failure the labelled empty slot of §10 with the variant name (REQ-ERR-29) | variant `code` (open question Q5) |
+| From the unit | node id, `nodeNum`, owner long and short names, build environment, reported firmware version, and a note when the build differs from the variant baseline (§8.3) | the handshake (§8.2: `MyNodeInfo.my_node_num`, `pio_env`; `User.long_name`, `short_name`; `DeviceMetadata.firmware_version`) |
+| From the server | asset tag, variant card (§10), status, firmware on record, battery and its time, last seen, service due, key version and its organization (never the key) | api-design 30 `device` |
+| Contract | live contract code, organization code, status, whether this unit is provisioned at the organization's current version | api-design 30 `contract` |
+| Actions | every action of §11.3 as a labelled button, with the reason of an unavailable one as text (§9.8) | §11.3 |
+
+Battery comes from the server projection (`batteryPct`, `lastBatteryAt`, §1), which is what the Staff
+already trust on the fleet table. Reading the battery from the unit itself needs a firmware fact §8.2 does
+not record (open question Q4).
+
+### 11.3 Page context and the actions a unit allows
+
+A page tells the hub what it is about with `useConnectorContext(context)` on mount; the context is cleared on
+unmount. Entry points call `openConnector({ action, expected })`, which opens the panel, focuses the row
+whose `nodeNum` equals `expected.nodeNum` if one is connected, and otherwise shows "Connect {assetTag} to
+continue." with Connect a unit (REQ-EVT-39).
+
+| Context | Set by | Carries |
+|---|---|---|
+| `counter` | `/t/counter/:contractId` with an `APPROVED` contract (screen 5.4) | contract id, code, status, variant code, `version`, reserved rows (`deviceId`, `assetTag`, `nodeNum`, `provisionedKeyVersion`), the organization's `channelKeyVersion` |
+| `intake` | `/t/fleet` with the Register panel open (screen 4.2) | none |
+| `device` | `/t/devices/:id` (screen 4.2) | the device id |
+| `maintenance` | `/t/maintenance` (screen 4.3) | the record open in the drawer, if any |
+| `fleet` | `/t/fleet` and `/t/stock-take` | none |
+| none | every other Staff page | none |
+
+Actions are computed by one pure function, `actionsFor(unit, context, abilities)`, from the unit's
+recognition (api-design 30) and the context, then filtered by the caller's CASL abilities:
+
+| Unit | Actions on any Staff page | Added in the `counter` context of contract C |
+|---|---|---|
+| Unknown | New device: register it? (opens the Register panel on `/t/fleet` prefilled, REQ-EVT-31) | none: register it first |
+| `IN_INTAKE` | Record intake check (opens the device page) | none |
+| `AVAILABLE` | Configure uplink | Put it on C in place of a reserved unit (§11.6) when its variant is C's and C has a reserved unit with no provisioning record; otherwise the reason (REQ-ERR-23, REQ-ERR-24) |
+| `RESERVED` to C | Configure uplink | Provision for C (REQ-EVT-25), or "Provisioned v{n}" when done |
+| `RESERVED` to another contract, or held for a request | Open its counter | the reason (REQ-ERR-20) |
+| `RENTED` | Open its contract | the reason and the return counter link (REQ-ERR-21) |
+| `RETURNED` | Open its counter (reset and inspection, REQ-EVT-23) | none |
+| `MAINTENANCE` with an `OPEN` `FIRMWARE_UPDATE` record | Update firmware (§11.7), Configure uplink | none |
+| `MAINTENANCE` otherwise, `LOST` | Open device page | none |
+| `RETIRED`, `DISPOSED` | Open device page | none |
+
+Show device view and Open device page are on every registered row. Configure uplink follows §8.8 and needs
+the unit already provisioned for an organization; the button is shown and states that reason when it is not.
+
+### 11.4 One connection and its states
+
+A `Connection` is one open `SerialPort` and what REQ-UBI-08 allows beside it. The registry builds one for each
+port `navigator.serial.getPorts()` returns on load, for each `connect` event, and for each port Staff choose
+with Connect a unit (REQ-EVT-29). Granted ports are remembered by the browser for the origin; whether a grant
+survives a browser restart on every Chromium build the counter uses is (unverified) and is checked on the
+bench in task 10.10.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Opening: getPorts, connect event or chooser
+    Opening --> Busy: port open in another tab or app
+    Busy --> Opening: Retry
+    Opening --> Handshake: port open
+    Handshake --> NoResponse: no answer within the link timeout
+    NoResponse --> Handshake: Retry
+    Handshake --> LookingUp: nodeNum, build env, firmware read
+    LookingUp --> NotChecked: api-design 30 fails
+    NotChecked --> LookingUp: Retry
+    LookingUp --> Ready: recognized or unknown
+    Ready --> Writing: provision or uplink, write lock taken
+    Writing --> Restarting: commit sent, unit reboots once
+    Restarting --> Reconnect: port dropped and not back
+    Reconnect --> Checking: Staff reconnect, same nodeNum
+    Restarting --> Checking: handshake again, same nodeNum
+    Checking --> Ready: read-back matches, lock released
+    Writing --> Failed: refused, timeout or port lost
+    Checking --> Failed: read-back differs
+    Failed --> Ready: Staff dismiss
+    Ready --> Flashing: Update firmware, port handed over
+    Flashing --> Restarting: verified write, unit resets
+    Flashing --> Failed: flash step fails
+    Ready --> Unplugged: disconnect event
+    Unplugged --> Opening: connect event, same port
+    Unplugged --> [*]: Forget or tab closed
+    Ready --> [*]: Forget
+```
+
+***Figure 18***: one connection. Every state is shown on the row as text.
+
+Rules:
+
+1. A row is keyed by `nodeNum` once the handshake gives it, not by the port object: after the reboot of §8.4
+   step 4 a unit on a native USB port may come back as a new port, and the registry joins it to the waiting
+   row when its handshake answers the same `nodeNum` (REQ-EVT-34). A different `nodeNum` is a new row.
+2. The handshake's channel settings are dropped as soon as the identity is read (REQ-UBI-08); the provisioning
+   write of §8.4 step 4 reads the primary channel again inside its own transaction.
+3. The write lock (REQ-UBI-09) is one per tab. While it is held every other row's write actions are disabled
+   with the reason "Another unit is being written." (REQ-STA-06).
+4. Disconnect while `Writing`, `Restarting` or `Checking` ends in `Failed` with the step named; nothing is
+   recorded (REQ-ERR-13, REQ-ERR-19).
+5. An `Unplugged` row stays for 10 seconds with "Unplugged" and then leaves the list, so a replug during a
+   restart keeps its place; Forget calls `SerialPort.forget()` where the browser has it (unverified on the
+   counter's Chromium version) and removes the grant.
+6. A unit that answers nothing is `NoResponse` with the message of REQ-ERR-22 (§8.6 decision 4). The brief
+   records that a v2 unit answers over USB with the firmware of treklink-firmware#27 (bench run of
+   2026-11-04); that is not yet a fact of §8, so the message names the firmware and not the variant.
+
+### 11.5 Recognition
+
+The hub asks the server once per new `nodeNum`, batching the units that finished their handshake within the
+same 300 ms: devices api-design 30, `GET /api/devices/by-node?nodeNum=...&nodeNum=...` (`device.read`, at
+most 20 numbers). Each answer row carries the `nodeNum`, its node id, and either `device: null` (unknown) or
+the device summary of api-design 07 with the open maintenance record, plus `contract`: the live contract row
+of the unit (`id`, `code`, `status`, organization `id` and `code`, `provisionedKeyVersion`) or null, and
+`docked`: the open dock session (§11.8) or null.
+
+`devices` cannot read the rentals tables (§3), so the contract comes through a new port provided by
+`rentals`, the same way `CUSTODY_RESOLVER` is:
+
+```typescript
+export const DEVICE_CONTRACTS = Symbol('DEVICE_CONTRACTS'); // provided by rentals (RentalsPortsModule)
+export interface DeviceContracts {
+  // The live ContractDevice row of each device (releasedAt, checkedInAt and lostAt null), if any.
+  liveContractsOf(deviceIds: string[], tx?: Prisma.TransactionClient): Promise<Array<{
+    deviceId: string; contractId: string; code: string; status: string;
+    organizationId: string; organizationCode: string; provisionedKeyVersion: number | null }>>;
+}
+```
+
+The answer is cached under `['devices-by-node', nodeNum]` and invalidated by every action the hub runs on
+that unit, by registration, and by the `device.handedOver` and `device.released` stream entries.
+
+### 11.6 Quick swap at the counter
+
+The leader's answer 1: any `AVAILABLE` unit of the contract's variant may replace a reserved one; the replaced
+unit goes back to `AVAILABLE`; price, spec and stock stay as they are.
+
+**Why not rentals api-design 07.** 07 is the failed-check swap of E01-5: the reserved unit goes to
+`MAINTENANCE` with a `HANDOVER_CHECK_FAILED` record and the server picks the replacement
+(`reserve(variantId, 1, ...)`); its body takes `reason` only in the built code, and it carries no
+`expectedVersion`. The quick swap differs on all three points: the replaced unit goes back to `AVAILABLE`
+with no record, the replacement is the docked unit the caller names, and the counter must not act on a
+contract it read before an undo or another swap. So the spec adds rentals api-design 30,
+`POST /api/contracts/:id/devices/:deviceId/exchange` (`contract.operate`), and leaves 07 as it is. Folding it
+into 07 with an outcome flag is option B of open question Q1.
+
+Body: `replacementDeviceId`, the docked `nodeNum` of the replacement, and the contract `expectedVersion`. In one
+transaction, after locking the contract and then the two device rows (`FOR UPDATE`, the replacement by id,
+never `SKIP LOCKED`):
+
+1. the contract is `APPROVED` and its `version` equals `expectedVersion` (409 `INVALID_STATE_TRANSITION`,
+   `STALE_VERSION`);
+2. `:deviceId` has a live row on the contract and is `RESERVED` (409 `DEVICE_NOT_ON_CONTRACT`);
+3. `:deviceId` has no provisioning record at any version (409 `DEVICE_PROVISIONED`; open question Q2);
+4. the replacement's `nodeNum` equals the docked one (409 `NODE_MISMATCH`);
+5. the replacement is of the contract's variant (409 `VARIANT_MISMATCH`) and `AVAILABLE` with no live row
+   (409 `DEVICE_NOT_AVAILABLE`, which covers a unit held for a request, reserved elsewhere or `RENTED`);
+6. the replaced row gets `releasedAt`; `DevicesService.release([deviceId])` moves it `RESERVED` to
+   `AVAILABLE` with reason `EXCHANGED`; `DevicesService.reserve(variant, 1, contractId, tx, [replacementId])`
+   moves the replacement `AVAILABLE` to `RESERVED`; a new live `ContractDevice` row is inserted; the contract
+   `version` increases; one `DeviceTransition` row per unit names the contract; the audit row
+   `contract.deviceExchanged` carries both devices and the docked `nodeNum`.
+
+Quantity, plan, price and variant are untouched (rentals REQ-UBI-03), and the fleet's `AVAILABLE` count is the
+same after as before. The response names both units and the new contract `version`, which the counter keeps
+for its later requests.
+
+Which reserved unit is replaced: on a counter row's Dock, the row's unit (REQ-EVT-35); from the panel, the
+first reserved unit with no provisioning record in the contract's order, which Staff may change in the
+confirmation dialog (open question Q7).
+
+### 11.7 Hot provisioning, uplink and flash from the hub
+
+**Hot provisioning.** When api-design 30 of rentals answers, the hub runs §8.4 steps 2 to 5 on the
+`Connection` it already holds, with the new device (`assetTag`, `nodeNum`) as the expected unit
+(REQ-EVT-34): the docked `nodeNum` check, rentals api-design 21 for the key, the owner and channel writes in
+one edit transaction, the one restart, the read-back, and rentals api-design 09 with the docked `nodeNum`.
+No port chooser opens. A failure after the exchange leaves the exchange in place and the unit not provisioned
+(REQ-ERR-19); the counter row shows "Dock {assetTag} again before handover.", and a later Provision on the
+same row finishes it.
+
+**Uplink.** Configure uplink in the device view runs §8.8 on the held `Connection` (REQ-EVT-40). The device
+page's own button only opens the hub on that unit.
+
+**Flash.** The Meshtastic session and the ESP ROM loader cannot share the port. Update firmware therefore:
+takes the write lock, closes the Meshtastic session, hands the same `SerialPort` to `esp-flasher.ts` for §9.2
+(chip check, MAC node-number check, write, verify), and after the unit resets opens a new `Connection` on
+whichever port answers with the same `nodeNum` (§11.4 rule 1), then reads it again so the row shows the new
+reported firmware (REQ-EVT-41). The record's firmware version is filled for completion as §9.2 says. A step
+that fails names itself and records nothing (REQ-ERR-28).
+
+### 11.8 The docked-unit pin on the Staff map
+
+The leader's answer 3: a unit docked for provisioning shows on the Staff map only, pinned at
+`monitoring.counterLocation` with "Docked at the counter" while the browser holds its port; organizations see
+it only after handover (D-092 unchanged).
+
+**What tells the backend.** The browser holds the port, so only the browser knows. The hub opens a dock session
+for a registered unit (api-design 31, `PUT /api/devices/:id/dock`, `device.operate`, body `nodeNum`), renews it
+every third of `devices.dockPresenceTtlSeconds` with the same request, and ends it with api-design 32
+(`DELETE /api/devices/:id/dock`) when the port is released, unplugged or forgotten, and on `pagehide` with a
+`fetch` `keepalive` request. Which units open a session is open question Q3; the recommendation is the units
+held while the page context is `counter`.
+
+**Where it lives.** A new `DeviceDockSession` row (`id`, `deviceId`, `nodeNum`, `openedById`, `openedAt`,
+`renewedAt`, `endedAt`, `endReason` `RELEASED`, `EXPIRED` or `REPLACED`), with a partial unique index on
+`deviceId` where `endedAt` is null, in a forward migration of task 10.3. A PUT for a device with an open session
+renews it when the caller opened it and otherwise ends it `REPLACED` and opens a new one (a unit is plugged
+into one computer at a time). The `devices.dockSweep` job, every third of the TTL, ends sessions not renewed
+within `devices.dockPresenceTtlSeconds` as `EXPIRED`. Rows are kept as a record of who held which unit; they
+do not enter the device history of monitoring api-design 07. Open question Q3 lists the in-memory and
+client-only alternatives.
+
+**How long.** From the first PUT to the DELETE, or at most `devices.dockPresenceTtlSeconds` after the last
+renewal. The new parameter is `devices.dockPresenceTtlSeconds`, default 30, bounds 10 to 300, seconds, added to
+`scripts/specs/catalog.py` with its forward migration by task 10.1 (not in this spec branch, which writes no
+migration).
+
+**Who can read it.** `devices` emits `device.docked` and `device.undocked` after commit; `monitoring` writes
+them to the stream with no organization, so they reach the `fleet` room only (monitoring REQ-UBI-01) and
+never an organization room, the organization API or its replay (REQ-EVT-37). Monitoring api-design 02 gives
+TrekLink callers `docked: { since, byName }` on every entry and adds, for a docked unit outside any custody
+interval, an entry with `state` `DOCKED`, `position` null and `counterLocation` set; an organization caller
+gets `docked: null` and no `DOCKED` entry (REQ-STA-05). The Staff `LiveMapPage` (screen 9.1) pins a docked
+unit at `counterLocation` with the label "Docked at the counter" and the asset tag, and drops the pin on
+`device.undocked`.
+
+### 11.9 Sequence: connect, recognize, swap, provision
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor S as TrekLink Staff
+    participant Hub as ConnectorRegistry
+    participant U as Unit (Web Serial)
+    participant Dev as devices API
+    participant Rent as rentals API
+    participant Mon as monitoring
+    S->>Hub: open /t/counter/RC-2026-0042
+    Hub->>Hub: navigator.serial.getPorts()
+    Hub->>U: open port, want_config_id 69420
+    U-->>Hub: my_node_num, pio_env, firmware_version, owner
+    Hub->>Hub: drop channel settings (REQ-UBI-08)
+    Hub->>Dev: GET /api/devices/by-node?nodeNum=n (api-design 30)
+    Dev->>Rent: DEVICE_CONTRACTS.liveContractsOf(ids)
+    Dev-->>Hub: TL-0051, treklink-v3, AVAILABLE, no contract
+    Hub->>Dev: PUT /api/devices/TL-0051/dock (api-design 31)
+    Dev-->>Mon: device.docked
+    Mon-->>S: fleet room, pin at counterLocation
+    S->>Hub: Put TL-0051 on RC-2026-0042 in place of TL-0001
+    Hub->>Rent: POST /contracts/:id/devices/TL-0001/exchange (rentals 30)
+    Rent-->>Hub: TL-0001 AVAILABLE, TL-0051 RESERVED, version
+    Hub->>Rent: POST /contracts/:id/devices/TL-0051/channel-key (rentals 21)
+    Rent-->>Hub: keyHex, keyVersion (no-store)
+    Hub->>U: begin_edit, set_owner, set_channel 0, commit
+    U-->>Hub: reboots once, handshake again, same nodeNum
+    Hub->>Hub: read-back matches, key variable cleared
+    Hub->>Rent: POST /contracts/:id/devices/TL-0051/provisioning (rentals 09)
+    Rent-->>Hub: Provisioned v1
+    S->>Hub: unplug TL-0051
+    Hub->>Dev: DELETE /api/devices/TL-0051/dock (api-design 32)
+    Dev-->>Mon: device.undocked
+```
+
+***Figure 19***: the quick swap with hot provisioning. A refusal at any step stops the sequence with the
+message of the matching REQ-ERR, and nothing after the refusal runs.
+
+### 11.10 Errors
+
+| Case | Where it is caught | Row text | Server code |
+|---|---|---|---|
+| Port lost mid-write, after a quick swap | hub, §11.4 rule 4 | the failed step, then "Dock {assetTag} again before handover." | none; exchange stands (REQ-ERR-19) |
+| Unit on another contract or held for a request | `actionsFor` | "{assetTag} is reserved to {contractCode}." | `DEVICE_NOT_AVAILABLE` (REQ-ERR-20) |
+| `RENTED` unit | `actionsFor` | "{assetTag} is rented on {contractCode}. Check it in at the return counter." | `DEVICE_NOT_AVAILABLE` (REQ-ERR-21) |
+| Unit answers nothing (v2 on an image without the USB console) | hub handshake | REQ-ERR-22 message | none |
+| Variant mismatch | `actionsFor` | "{assetTag} is {variant}; {contractCode} rents {contractVariant}." | `VARIANT_MISMATCH` (REQ-ERR-23) |
+| Replaced unit already provisioned | `actionsFor`, rentals 30 | "{assetTag} is provisioned; only units not provisioned can be swapped out." | `DEVICE_PROVISIONED` (REQ-ERR-24) |
+| Port open elsewhere | hub open | "In use by another tab or app." | none (REQ-ERR-25) |
+| Lookup failed | hub recognition | "Not checked: the server did not answer." | any (REQ-ERR-26) |
+| Dock session for another unit | api-design 31 | none, the hub never sends it | `NODE_MISMATCH` (REQ-ERR-27) |
+| Flash cannot take the port, no bootloader, no return | hub flash | the failed step | none (REQ-ERR-28) |
+| Render missing | `DeviceView` | the labelled empty slot of §10 | none (REQ-ERR-29) |
+| No Web Serial | hub | the Chromium banner of REQ-ERR-11 in the panel; Connect a unit disabled | none |
+
+### 11.11 Testing
+
+Unit tests over a fake `SerialPort` set (the fake of the docking branch, extended to several ports and to
+`connect` and `disconnect` events): two units at once, replug without chooser, a reboot that returns a new
+port with the same `nodeNum`, the write lock, `actionsFor` over every row of §11.3, and no PSK, key or payload
+in storage, the query cache or the console after a session (AC-32). Backend tests: api-design 30 with known,
+unknown and contracted units; 31 and 32 with renewal, replacement, `NODE_MISMATCH` and the sweep; rentals 30
+with each refusal and the reservation race against a concurrent approval; monitoring 02 for a Staff and an
+organization caller. Hardware run by the leader on v2 (treklink-firmware#27 image), v3 and v4: AC-22, AC-26,
+AC-27, AC-31, AC-37.
+
+### 11.12 Open questions for the leader
+
+None of these is decided here. The spec follows the recommended option until the leader answers.
+
+| # | Question | Options | Recommendation |
+|---|---|---|---|
+| Q1 | How does the quick swap reach the server? | A. New rentals api-design 30 `exchange` (caller-chosen replacement, replaced unit to `AVAILABLE`, `expectedVersion`, docked `nodeNum`). B. Extend rentals 07 with `outcome: CHECK_FAILED or EXCHANGE`, `replacementDeviceId` and `nodeNum`. C. Two calls from the client: release the reserved unit, then reserve the docked one (two new or widened endpoints) | A: 07 keeps its E01-5 meaning and audit trail, and the two outcomes never share a code path that a flag can flip; C cannot be one transaction |
+| Q2 | May a reserved unit that is already provisioned be swapped out? Its hardware carries the organization's key, and an undo (rentals 19) does not remove it | A. Refuse with 409 `DEVICE_PROVISIONED`. B. Allow, and send the replaced unit to `MAINTENANCE` for a reset before it is rented again. C. Allow, unit to `AVAILABLE`, key version cleared, key left on the hardware | A: a unit with another organization's key must never reach `AVAILABLE`; B can come later if counters need it |
+| Q3 | Which docked units get the map pin, and how does the server learn of them? | A. Units held while the page context is `counter`, through the dock session table with heartbeat. B. Every registered unit the hub holds on any Staff page, same table. C. Only units `RESERVED` to the counter's contract, same table. D. No server state: the pin is drawn only on the same browser's map | A: the brief says "docked for provisioning" at the counter; the table survives a restart and several backend instances, and D would not show on a second Staff screen |
+| Q4 | Where does the device view's battery come from? | A. The server projection (`batteryPct`, `lastBatteryAt`). B. The unit's own reading over serial, after the firmware fact is checked and added to §8.2. C. Both, the unit's reading first | A now; B as a follow-up once the fact is recorded |
+| Q5 | How does the client find the detail and icon renders? | A. By convention from the variant `code`: `/variants/<code>-detail.png` and `/variants/<code>-icon.png`, no schema change; `imageUrl` stays the card photo. B. Two new variant fields, `detailImageUrl` and `iconImageUrl`, edited on screen 4.1 under the §10 rules. C. Replace `imageUrl` with the detail render and derive the icon by convention | A: it matches the leader's paths with no migration, and the labelled slot covers a missing file |
+| Q6 | The shell's Info pane docks on the right at 1280 px; the hub uses the right side from 1100 px (§10.8). Which yields? | A. One right panel at a time: opening the hub closes the Info pane and the reverse. B. The hub always opens as a `Drawer` over the page and never pushes the content. C. Both pushed side by side from 1600 px, A below | A: one predictable right side, and §10.8 placement kept |
+| Q7 | Which reserved unit does a panel-started quick swap replace (a counter row's Dock always replaces that row)? | A. The first reserved unit with no provisioning record, changeable in the dialog. B. Staff must always pick. C. Only from a counter row, never from the panel | A: one click in the common case, and the choice stays visible |
