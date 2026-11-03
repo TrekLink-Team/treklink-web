@@ -11,7 +11,7 @@ import {
   type PriceRow,
 } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
-import { matchesText } from '../shared/lib/filter';
+import { Pencil } from 'lucide-react';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import {
   Alert,
@@ -19,8 +19,8 @@ import {
   Card,
   CardHeader,
   Checkbox,
+  CollectionView,
   ConfirmDialog,
-  DataTable,
   Dialog,
   Field,
   Input,
@@ -28,10 +28,8 @@ import {
   Pagination,
   Select,
   StatusBadge,
-  Toolbar,
-  ToolbarSearch,
   useToast,
-  type Column,
+  type CollectionField,
   type StatusEntry,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
@@ -367,75 +365,61 @@ export const PricesPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const prices = usePriceHistory(pageNumber);
   const rates = useDamageRates();
-  const { variants, codeOf } = useVariants();
+  const { codeOf } = useVariants();
   const [pricing, setPricing] = useState(false);
   const [editing, setEditing] = useState<DamageRate | null | undefined>(undefined);
-  const [priceVariant, setPriceVariant] = useState('');
-  const [priceState, setPriceState] = useState('');
-  const [rateText, setRateText] = useState('');
-  const [rateActive, setRateActive] = useState('');
-
-  const priceRows = prices.data?.items.filter(
-    (row) =>
-      (priceVariant === '' || row.hardwareVariantId === priceVariant) &&
-      (priceState === '' || row.state === priceState),
-  );
-  const rateRows = rates.data?.filter(
-    (rate) =>
-      matchesText(rateText, rate.code, rate.label, codeOf(rate.hardwareVariantId)) &&
-      (rateActive === '' || String(rate.isActive) === rateActive),
-  );
-  const priceFiltered = priceVariant !== '' || priceState !== '';
-  const rateFiltered = rateText !== '' || rateActive !== '';
-
-  const priceColumns: Column<PriceRow>[] = [
+  // Both lists filter the rows already loaded (chapter 06 §9): the state or the active flag is the
+  // Show filter, and the variant is found by the search.
+  const priceFields: CollectionField<PriceRow>[] = [
     {
       key: 'variant',
-      header: 'Variant',
-      cell: (row) => <span className="whitespace-nowrap">{codeOf(row.hardwareVariantId)}</span>,
+      label: 'Variant',
+      render: (row) => <span className="whitespace-nowrap">{codeOf(row.hardwareVariantId)}</span>,
+      text: (row) => codeOf(row.hardwareVariantId),
+      compact: true,
     },
     {
       key: 'price',
-      header: 'Per device per month',
+      label: 'Per device per month',
       align: 'end',
-      cell: (row) => <span className="font-semibold">{formatVnd(row.monthlyPriceVnd)}</span>,
-    },
-    {
-      key: 'from',
-      header: 'Effective from',
-      cell: (row) => <span className="whitespace-nowrap">{formatDateTime(row.effectiveFrom)}</span>,
+      render: (row) => <span className="font-semibold">{formatVnd(row.monthlyPriceVnd)}</span>,
+      compact: true,
     },
     {
       key: 'state',
-      header: 'State',
-      cell: (row) => <StatusBadge entry={PRICE_STATE[row.state]} />,
+      label: 'State',
+      render: (row) => <StatusBadge entry={PRICE_STATE[row.state]} />,
+      compact: true,
     },
     {
       key: 'by',
-      header: 'Set by',
-      hideOnMobile: true,
-      cell: (row) => `${row.createdBy ?? 'Seed'}, ${formatDateTime(row.createdAt)}`,
+      label: 'Set by',
+      render: (row) => `${row.createdBy ?? 'Seed'}, ${formatDateTime(row.createdAt)}`,
+      hideWithPane: true,
     },
   ];
 
-  const rateColumns: Column<DamageRate>[] = [
-    { key: 'code', header: 'Code', cell: (rate) => <span className="font-mono">{rate.code}</span> },
-    { key: 'label', header: 'Label', cell: (rate) => rate.label },
+  const rateFields: CollectionField<DamageRate>[] = [
+    { key: 'label', label: 'Label', render: (rate) => rate.label, text: (rate) => rate.label, compact: true },
     {
       key: 'variant',
-      header: 'Variant',
-      cell: (rate) => <span className="whitespace-nowrap">{codeOf(rate.hardwareVariantId)}</span>,
+      label: 'Variant',
+      render: (rate) => <span className="whitespace-nowrap">{codeOf(rate.hardwareVariantId)}</span>,
+      text: (rate) => codeOf(rate.hardwareVariantId),
+      hideWithPane: true,
     },
     {
       key: 'amount',
-      header: 'Amount',
+      label: 'Amount',
       align: 'end',
-      cell: (rate) => <span className="font-semibold">{formatVnd(rate.amountVnd)}</span>,
+      render: (rate) => <span className="font-semibold">{formatVnd(rate.amountVnd)}</span>,
+      compact: true,
     },
     {
       key: 'active',
-      header: 'Active',
-      cell: (rate) => <StatusBadge entry={RATE_STATE[rate.isActive ? 'active' : 'inactive']} />,
+      label: 'Active',
+      render: (rate) => <StatusBadge entry={RATE_STATE[rate.isActive ? 'active' : 'inactive']} />,
+      compact: true,
     },
   ];
 
@@ -452,68 +436,26 @@ export const PricesPage: React.FC = () => {
             </Button>
           }
         />
-        <Toolbar
-          label="Price filters"
-          start={
-            <>
-              <Field id="price-filter-variant" label="Variant" hideLabel className="w-full sm:w-48">
-                <Select
-                  id="price-filter-variant"
-                  value={priceVariant}
-                  onChange={(event) => setPriceVariant(event.target.value)}
-                >
-                  <option value="">All variants</option>
-                  {variants.map((variant) => (
-                    <option key={variant.id} value={variant.id}>
-                      {variant.code}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field id="price-filter-state" label="State" hideLabel className="w-full sm:w-40">
-                <Select
-                  id="price-filter-state"
-                  value={priceState}
-                  onChange={(event) => setPriceState(event.target.value)}
-                >
-                  <option value="">All states</option>
-                  {(Object.keys(PRICE_STATE) as PriceRow['state'][]).map((state) => (
-                    <option key={state} value={state}>
-                      {PRICE_STATE[state].label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              {priceFiltered && (
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setPriceVariant('');
-                    setPriceState('');
-                  }}
-                >
-                  Clear
-                </Button>
-              )}
-            </>
-          }
-        />
-        <DataTable
-          caption="Monthly price history"
-          columns={priceColumns}
-          rows={priceRows}
-          rowId={(row) => row.id}
+        <CollectionView<PriceRow>
+          label="Monthly price history"
+          items={prices.data?.items}
           loading={prices.isLoading}
-          error={
-            prices.error ? (
-              <ErrorState error={prices.error} onRetry={() => void prices.refetch()} />
-            ) : undefined
-          }
-          empty={
-            priceFiltered
-              ? { title: 'No prices match these filters.' }
-              : { title: 'No prices yet.' }
-          }
+          error={prices.error ? <ErrorState error={prices.error} onRetry={() => void prices.refetch()} /> : undefined}
+          itemId={(row) => row.id}
+          itemName={(row) => `${codeOf(row.hardwareVariantId)} from ${formatDateTime(row.effectiveFrom)}`}
+          itemTitle={(row) => <span className="whitespace-nowrap">{formatDateTime(row.effectiveFrom)}</span>}
+          fields={priceFields}
+          noun={{ one: 'price', other: 'prices' }}
+          search={{ label: 'Search prices by variant' }}
+          filters={[
+            { key: 'all', label: 'All states' },
+            ...(Object.keys(PRICE_STATE) as PriceRow['state'][]).map((state) => ({
+              key: state,
+              label: PRICE_STATE[state].label,
+              test: (row: PriceRow) => row.state === state,
+            })),
+          ]}
+          emptyState={{ title: 'No prices yet.' }}
           footer={
             prices.data && prices.data.totalPages > 1 ? (
               <Pagination
@@ -535,66 +477,27 @@ export const PricesPage: React.FC = () => {
             </Button>
           }
         />
-        <Toolbar
-          label="Damage rate filters"
-          start={
-            <>
-              <ToolbarSearch
-                id="rate-filter-text"
-                label="Filter by code, label or variant"
-                placeholder="Code, label or variant"
-                value={rateText}
-                onChange={setRateText}
-              />
-              <Field id="rate-filter-active" label="Active" hideLabel className="w-full sm:w-40">
-                <Select
-                  id="rate-filter-active"
-                  value={rateActive}
-                  onChange={(event) => setRateActive(event.target.value)}
-                >
-                  <option value="">Active and inactive</option>
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </Select>
-              </Field>
-              {rateFiltered && (
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setRateText('');
-                    setRateActive('');
-                  }}
-                >
-                  Clear
-                </Button>
-              )}
-            </>
-          }
-        />
-        <DataTable
-          caption="Damage rates"
-          columns={rateColumns}
-          rows={rateRows}
-          rowId={(rate) => rate.id}
+        <CollectionView<DamageRate>
+          label="Damage rates"
+          items={rates.data}
           loading={rates.isLoading}
-          error={
-            rates.error ? (
-              <ErrorState error={rates.error} onRetry={() => void rates.refetch()} />
-            ) : undefined
-          }
-          empty={
-            rateFiltered
-              ? { title: 'No damage rates match these filters.' }
-              : {
-                  title: 'No damage codes yet.',
-                  description: 'Add one before inspections can record damage.',
-                }
-          }
-          rowActions={(rate) => (
-            <Button size="sm" onClick={() => setEditing(rate)} aria-label={`Edit ${rate.code}`}>
-              Edit
-            </Button>
-          )}
+          error={rates.error ? <ErrorState error={rates.error} onRetry={() => void rates.refetch()} /> : undefined}
+          itemId={(rate) => rate.id}
+          itemName={(rate) => rate.code}
+          itemTitle={(rate) => <span className="font-mono font-semibold text-ink">{rate.code}</span>}
+          fields={rateFields}
+          noun={{ one: 'damage rate', other: 'damage rates' }}
+          itemActions={[{ key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: (rate) => setEditing(rate) }]}
+          search={{ label: 'Filter by code, label or variant', placeholder: 'Code, label or variant' }}
+          filters={[
+            { key: 'all', label: 'Active and inactive' },
+            { key: 'active', label: 'Active', test: (rate) => rate.isActive },
+            { key: 'inactive', label: 'Inactive', test: (rate) => !rate.isActive },
+          ]}
+          emptyState={{
+            title: 'No damage codes yet.',
+            description: 'Add one before inspections can record damage.',
+          }}
         />
       </Card>
 

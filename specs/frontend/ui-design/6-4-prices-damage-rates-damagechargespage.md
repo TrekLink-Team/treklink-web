@@ -113,3 +113,10 @@ Show filter, opening on Pending approval, which keeps the command bar even for o
 is an item action, unavailable with its reason on a charge the Admin inspected (BR-24); the bulk Approve
 and Waive act on the decidable charges of the selection on the current page. Staff read it without
 selection or Decide, as before.
+
+## Prices and damage rates on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The monthly price history and the damage rates of `/t/admin/prices` render through
+`CollectionView` (chapter 06 §9), filtering the rows already loaded as before: the price state and the
+rate's active flag are the Show filters, and the variant select folds into the search (code, label or
+variant). Edit is an item action named after the damage code ("Edit CASING_CRACKED").
