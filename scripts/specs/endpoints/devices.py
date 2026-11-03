@@ -516,7 +516,7 @@ ENDPOINTS = [
                 "Firmware releases cannot be read right now. Try again later."),
                (502, "FIRMWARE_IMAGE_INVALID", "The downloaded image does not match the manifest SHA-256",
                 "The firmware image failed its check and was not sent. Try again later."),
-               (502, "FIRMWARE_IMAGE_TOO_LARGE", "The image exceeds the 3.3 MB the response can carry as base64",
+               (502, "FIRMWARE_IMAGE_TOO_LARGE", "The image exceeds the 3 300 000 bytes the response can carry as base64",
                 "This firmware image is too large to send. Flash it on the bench.")],
        steps=["Find the release and the variant entry", "Download the image server-side",
               "Compare its SHA-256 with the manifest", "Compute its MD5 for the write verification",

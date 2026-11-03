@@ -165,7 +165,7 @@ No body.
         </tr>
         <tr>
             <td>502</td>
-            <td>The image exceeds the 3.3 MB the response can carry as base64 (<code>FIRMWARE_IMAGE_TOO_LARGE</code>)</td>
+            <td>The image exceeds the 3 300 000 bytes the response can carry as base64 (<code>FIRMWARE_IMAGE_TOO_LARGE</code>)</td>
 <td>
 
 ```json
@@ -210,7 +210,7 @@ flowchart TB
     E4["Return 502 FIRMWARE_IMAGE_INVALID"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"The image exceeds the 3.3 MB the response can carry as base64?"}
+    D5{"The image exceeds the 3 300 000 bytes the response can carry as base64?"}
     D4 -->|no| D5
     E5["Return 502 FIRMWARE_IMAGE_TOO_LARGE"]
     D5 -->|yes| E5
