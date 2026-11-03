@@ -106,6 +106,8 @@ export interface CollectionViewProps<T> {
    */
   onShowDetails?: (item: T) => void;
   emptyState: CollectionEmptyState;
+  /** The page's own words for a search or filter that finds nothing; the clear button stays. */
+  noMatch?: Pick<CollectionEmptyState, 'title' | 'description'>;
   search?: { label: string; placeholder?: string };
   filters?: CollectionFilter<T>[];
   /** A controlled query. With `onQueryChange` the page filters, searches and sorts on the server. */
@@ -149,6 +151,7 @@ export function CollectionView<T>({
   details = {},
   onShowDetails,
   emptyState,
+  noMatch,
   search,
   filters,
   query: controlledQuery,
@@ -1062,7 +1065,8 @@ export function CollectionView<T>({
         <div className="rounded-panel border border-line bg-surface">
           {filtered ? (
             <EmptyState
-              title={NO_MATCHES}
+              title={noMatch?.title ?? NO_MATCHES}
+              description={noMatch?.description}
               action={
                 <Button onClick={() => changeQuery({ search: '', filter: firstFilter })}>
                   Clear search and filter

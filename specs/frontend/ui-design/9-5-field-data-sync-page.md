@@ -96,3 +96,11 @@ field events ledger are the shared `DataTable`. The ledger's Received column sor
 gateway-sync api-design 03 `order` (`desc` by default, `asc` on the second press), the only order
 that API takes, so no other column sorts; the ledger now pages through the same answer with
 Pagination and keeps the current rows on screen while a new order or page loads.
+
+## Sync lists on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The Field Stations, Recent field events and Sync audit lists of `/t/admin/sync` render
+through `CollectionView` (chapter 06 §9). The ledger still sorts on the time received through the API
+order (gateway-sync api-design 03), from its Received column header; the audit's outcome select is its
+Show filter (api-design 04), and a filter with no records keeps its own message ("No audit records with
+this outcome.").

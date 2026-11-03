@@ -18,11 +18,10 @@ import {
 import { formatDateTime } from '../shared/lib/format';
 import { Badge, ErrorState, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
-import { DataTable, Pagination, type Column, type SortState } from '../shared/ui/DataTable';
-import { Field, Select } from '../shared/ui/Field';
+import { Pagination } from '../shared/ui/DataTable';
+import { CollectionView, pageInfoOf, type CollectionField } from '../shared/ui/collection-view';
 import { StatCard } from '../shared/ui/StatCard';
 import type { StatusTone } from '../shared/ui/status';
-import { Toolbar } from '../shared/ui/Toolbar';
 
 const CONNECTION_LABEL: Record<SyncStation['connection'], string> = {
   CONNECTED: 'Connected',
@@ -93,31 +92,18 @@ const DetailCell: React.FC<{ row: SyncAuditRow }> = ({ row }) => (
   </div>
 );
 
-const AUDIT_COLUMNS: Column<SyncAuditRow>[] = [
-  { key: 'createdAt', header: 'Time', cell: (row) => formatDateTime(row.createdAt), width: '11rem' },
+const AUDIT_FIELDS: CollectionField<SyncAuditRow>[] = [
   {
     key: 'outcome',
-    header: 'Outcome',
-    cell: (row) => <Badge tone={OUTCOME_TONE[row.outcome]}>{OUTCOME_LABEL[row.outcome]}</Badge>,
+    label: 'Outcome',
+    render: (row) => <Badge tone={OUTCOME_TONE[row.outcome]}>{OUTCOME_LABEL[row.outcome]}</Badge>,
+    compact: true,
   },
-  { key: 'device', header: 'Device', cell: deviceOf },
-  { key: 'uplink', header: 'Uplink', cell: (row) => row.uplinkKey ?? 'None', hideOnMobile: true },
-  { key: 'ingress', header: 'Ingress', cell: (row) => ingressOf(row.ingress), hideOnMobile: true },
-  { key: 'detail', header: 'Detail', cell: (row) => <DetailCell row={row} /> },
+  { key: 'device', label: 'Device', render: deviceOf, compact: true },
+  { key: 'uplink', label: 'Uplink', render: (row) => row.uplinkKey ?? 'None', hideWithPane: true },
+  { key: 'ingress', label: 'Ingress', render: (row) => ingressOf(row.ingress), hideWithPane: true },
+  { key: 'detail', label: 'Detail', render: (row) => <DetailCell row={row} /> },
 ];
-
-const AuditCard: React.FC<{ row: SyncAuditRow }> = ({ row }) => (
-  <div className="flex flex-col gap-1 text-body-sm">
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <Badge tone={OUTCOME_TONE[row.outcome]}>{OUTCOME_LABEL[row.outcome]}</Badge>
-      <span className="text-ink-muted">{formatDateTime(row.createdAt)}</span>
-    </div>
-    <span className="text-ink">
-      {deviceOf(row)}, {ingressOf(row.ingress)}
-    </span>
-    <DetailCell row={row} />
-  </div>
-);
 
 // The sync audit list (gateway-sync api-design 04): every ingestion attempt with its outcome, newest
 // first, filtered by outcome and paged by the server.
@@ -132,46 +118,34 @@ const SyncAuditSection: React.FC = () => {
       <h2 id="sync-audit-title" className="mb-2 text-title-sm text-ink">
         Sync audit
       </h2>
-      <Toolbar
-        label="Sync audit filters"
-        start={
-          <Field id="sync-audit-outcome" label="Outcome" hideLabel className="w-full sm:w-72">
-            <Select
-              id="sync-audit-outcome"
-              value={outcome}
-              onChange={(event) => {
-                setOutcome(event.target.value as SyncOutcome | '');
-                setPageNumber(1);
-              }}
-            >
-              <option value="">Every outcome</option>
-              {SYNC_OUTCOMES.map((key) => (
-                <option key={key} value={key}>
-                  {OUTCOME_LABEL[key]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        }
-      />
-      <DataTable
-        caption="Sync audit records, newest first"
-        columns={AUDIT_COLUMNS}
-        rows={page?.items}
-        rowId={(row) => row.id}
+      <CollectionView<SyncAuditRow>
+        label="Sync audit records, newest first"
+        items={page?.items}
         loading={audit.isLoading}
-        error={
-          audit.error ? (
-            <ErrorState error={audit.error} onRetry={() => void audit.refetch()} />
-          ) : undefined
-        }
-        empty={{
-          title: outcome ? 'No audit records with this outcome.' : 'No ingestion attempts yet.',
-          description: outcome
-            ? 'Choose Every outcome to see the whole audit.'
-            : 'Each message the backend receives writes one record here.',
+        error={audit.error ? <ErrorState error={audit.error} onRetry={() => void audit.refetch()} /> : undefined}
+        itemId={(row) => row.id}
+        itemName={(row) => `${OUTCOME_LABEL[row.outcome]} at ${formatDateTime(row.createdAt)}`}
+        itemTitle={(row) => <span className="whitespace-nowrap font-normal text-ink">{formatDateTime(row.createdAt)}</span>}
+        fields={AUDIT_FIELDS}
+        noun={{ one: 'record', other: 'records' }}
+        filters={[
+          { key: '', label: 'Every outcome' },
+          ...SYNC_OUTCOMES.map((key) => ({ key, label: OUTCOME_LABEL[key] })),
+        ]}
+        query={{ search: '', filter: outcome, sort: null }}
+        onQueryChange={(next) => {
+          setOutcome(next.filter as SyncOutcome | '');
+          setPageNumber(1);
         }}
-        renderCard={(row) => <AuditCard row={row} />}
+        pageInfo={pageInfoOf(page ? { ...page, pageSize: page.pageSize ?? AUDIT_PAGE_SIZE } : undefined)}
+        emptyState={{
+          title: 'No ingestion attempts yet.',
+          description: 'Each message the backend receives writes one record here.',
+        }}
+        noMatch={{
+          title: 'No audit records with this outcome.',
+          description: 'Choose Every outcome to see the whole audit.',
+        }}
         footer={
           page && page.totalPages > 1 ? (
             <Pagination
@@ -196,34 +170,34 @@ export const SyncStatusPage: React.FC = () => {
   const [windowMinutes, setWindowMinutes] = useState<WindowMinutes>(60);
   const { data, isLoading, error, refetch, isFetching } = useSyncStatus(windowMinutes);
   // The ledger sorts on the time received only, the one order api-design 03 takes.
-  const [eventSort, setEventSort] = useState<SortState<'receivedAt'>>({ key: 'receivedAt', direction: 'desc' });
+  const [eventOrder, setEventOrder] = useState<EventOrder>('desc');
   const [eventPage, setEventPage] = useState(1);
-  const events = useRecentEvents(eventSort.direction satisfies EventOrder, eventPage);
+  const events = useRecentEvents(eventOrder, eventPage);
   const queryClient = useQueryClient();
 
-  const stationColumns: Column<SyncStation>[] = [
-    { key: 'name', header: 'Station', cell: (station) => station.name },
-    { key: 'organization', header: 'Organization', cell: (station) => station.organization.name },
+  const stationFields: CollectionField<SyncStation>[] = [
+    { key: 'organization', label: 'Organization', render: (station) => station.organization.name, compact: true },
     {
       key: 'connection',
-      header: 'Connection',
-      cell: (station) => <Badge tone={CONNECTION_TONE[station.connection]}>{CONNECTION_LABEL[station.connection]}</Badge>,
+      label: 'Connection',
+      render: (station) => <Badge tone={CONNECTION_TONE[station.connection]}>{CONNECTION_LABEL[station.connection]}</Badge>,
+      compact: true,
     },
-    { key: 'lastSync', header: 'Last sync', cell: (station) => relative(station.lastSyncAt) },
-    { key: 'lastFlush', header: 'Last flush', cell: (station) => relative(station.lastFlushAt), hideOnMobile: true },
+    { key: 'lastSync', label: 'Last sync', render: (station) => relative(station.lastSyncAt), compact: true },
+    { key: 'lastFlush', label: 'Last flush', render: (station) => relative(station.lastFlushAt), hideWithPane: true },
     {
       key: 'queue',
-      header: 'Queue depth (P0 to P3)',
-      cell: (station) => `${station.queueDepth.p0}, ${station.queueDepth.p1}, ${station.queueDepth.p2}, ${station.queueDepth.p3}`,
+      label: 'Queue depth (P0 to P3)',
+      render: (station) => `${station.queueDepth.p0}, ${station.queueDepth.p1}, ${station.queueDepth.p2}, ${station.queueDepth.p3}`,
     },
   ];
 
-  const eventColumns: Column<FieldEventRow, 'receivedAt' | 'device' | 'kind' | 'ingress' | 'attribution'>[] = [
-    { key: 'receivedAt', header: 'Received', sortable: true, cell: (event) => formatDateTime(event.receivedAt) },
-    { key: 'device', header: 'Device', cell: (event) => event.assetTag ?? event.deviceId },
-    { key: 'kind', header: 'Kind', cell: (event) => event.kind },
-    { key: 'ingress', header: 'Ingress', cell: (event) => (event.ingress === 'FIELD_STATION' ? 'Field Station' : 'Node uplink') },
-    { key: 'attribution', header: 'Attribution', cell: (event) => (event.attribution === 'ATTRIBUTED' ? 'Attributed' : 'Unattributed') },
+  // The ledger sorts on the time received only, on the server (gateway-sync api-design 03).
+  const eventFields: CollectionField<FieldEventRow>[] = [
+    { key: 'receivedAt', label: 'Received', sortable: true, render: (event) => formatDateTime(event.receivedAt), compact: true },
+    { key: 'kind', label: 'Kind', render: (event) => event.kind, compact: true },
+    { key: 'ingress', label: 'Ingress', render: (event) => (event.ingress === 'FIELD_STATION' ? 'Field Station' : 'Node uplink'), hideWithPane: true },
+    { key: 'attribution', label: 'Attribution', render: (event) => (event.attribution === 'ATTRIBUTED' ? 'Attributed' : 'Unattributed') },
   ];
 
   return (
@@ -298,32 +272,38 @@ export const SyncStatusPage: React.FC = () => {
           </div>
 
           <h2 className="mb-2 text-title-sm text-ink">Field Stations</h2>
-          <DataTable<SyncStation>
+          <CollectionView<SyncStation>
             className="mb-6"
-            caption="Field Stations"
-            columns={stationColumns}
-            rows={data.fieldStations}
-            rowId={(station) => station.id}
-            empty={{ title: 'No Field Stations are registered yet.' }}
+            label="Field Stations"
+            items={data.fieldStations}
+            itemId={(station) => station.id}
+            itemName={(station) => station.name}
+            fields={stationFields}
+            noun={{ one: 'station', other: 'stations' }}
+            emptyState={{ title: 'No Field Stations are registered yet.' }}
           />
         </>
       )}
 
       <h2 className="mb-2 text-title-sm text-ink">Recent field events</h2>
-      <DataTable<FieldEventRow, 'receivedAt' | 'device' | 'kind' | 'ingress' | 'attribution'>
+      <CollectionView<FieldEventRow>
         className="mb-6"
-        caption="Recent field events"
-        columns={eventColumns}
-        rows={events.data?.items}
-        rowId={(event) => event.eventId}
+        label="Recent field events"
+        items={events.data?.items}
         loading={events.isLoading}
         error={events.error ? <ErrorState error={events.error} onRetry={() => void events.refetch()} /> : undefined}
-        empty={{ title: 'No field events have been ingested yet.' }}
-        sort={eventSort}
-        onSortChange={(next) => {
-          setEventSort({ key: 'receivedAt', direction: next.direction });
+        itemId={(event) => event.eventId}
+        itemName={(event) => `${event.kind} of ${event.assetTag ?? event.deviceId}`}
+        itemTitle={(event) => <span className="font-normal text-ink">{event.assetTag ?? event.deviceId}</span>}
+        fields={eventFields}
+        noun={{ one: 'event', other: 'events' }}
+        query={{ search: '', filter: '', sort: { key: 'receivedAt', direction: eventOrder } }}
+        onQueryChange={(next) => {
+          setEventOrder(next.sort?.direction ?? 'desc');
           setEventPage(1);
         }}
+        pageInfo={pageInfoOf(events.data)}
+        emptyState={{ title: 'No field events have been ingested yet.' }}
         footer={
           events.data && events.data.totalPages > 1 ? (
             <Pagination
