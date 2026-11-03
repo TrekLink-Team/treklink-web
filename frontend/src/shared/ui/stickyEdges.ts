@@ -1,5 +1,4 @@
-import type React from 'react';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Sticky edges of a scroll container: the page header, the page action bar and the CollectionView
 // command bar publish their heights and keep keyboard focus clear of themselves (chapter 06 §9.7,
@@ -15,12 +14,19 @@ export const scrollParentOf = (node: HTMLElement): HTMLElement | null => {
 };
 
 /**
+ * The element of a sticky edge, kept in state, so the hooks below re-run when it mounts, unmounts or
+ * is replaced: `const [node, setNode] = useEdgeNode()`, `ref={setNode}` on the element, `node` to the
+ * hooks.
+ */
+export const useEdgeNode = <T extends HTMLElement>() => useState<T | null>(null);
+
+/**
  * Publishes the element's height as a CSS variable on its scroll container. The shell turns the two
  * variables into scroll-padding, so keyboard focus never lands under the header or the action bar,
  * and sticky side panels offset their `top` by the header height.
  */
 export const usePublishedHeight = (
-  ref: React.RefObject<HTMLElement>,
+  node: HTMLElement | null,
   name: string,
   onResize?: (height: number) => void,
 ) => {
@@ -28,8 +34,10 @@ export const usePublishedHeight = (
   useLayoutEffect(() => {
     resized.current = onResize;
   });
+  // Keyed on the element itself, not a ref object: an edge that mounts after the page (a command bar
+  // shown once its list loads) or is swapped for another (the contract row across 600 px) is
+  // observed again (review of treklink-web#349, 2.4.11).
   useEffect(() => {
-    const node = ref.current;
     if (!node || typeof ResizeObserver === 'undefined') return undefined;
     const host = scrollParentOf(node) ?? document.documentElement;
     const observer = new ResizeObserver(() => {
@@ -41,7 +49,7 @@ export const usePublishedHeight = (
       observer.disconnect();
       host.style.removeProperty(name);
     };
-  }, [ref, name]);
+  }, [node, name]);
 };
 
 /**
@@ -52,9 +60,8 @@ export const usePublishedHeight = (
  * hold the sticky element is left alone: the dialog is fixed above the page, so its controls are
  * never covered, and on a phone they overlap the edge's rect without being under it.
  */
-export const useFocusClearOf = (ref: React.RefObject<HTMLElement>, edge: 'top' | 'bottom') => {
+export const useFocusClearOf = (node: HTMLElement | null, edge: 'top' | 'bottom') => {
   useEffect(() => {
-    const node = ref.current;
     if (!node) return undefined;
     const host = scrollParentOf(node) ?? document;
     const onFocus = (event: Event) => {
@@ -70,5 +77,5 @@ export const useFocusClearOf = (ref: React.RefObject<HTMLElement>, edge: 'top' |
     };
     host.addEventListener('focusin', onFocus);
     return () => host.removeEventListener('focusin', onFocus);
-  }, [ref, edge]);
+  }, [node, edge]);
 };
