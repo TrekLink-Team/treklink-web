@@ -278,6 +278,7 @@ cleared for `TREKLINK` custody; the Org Manager's list reads `organizationId`.
 | `FIRMWARE_SOURCE_UNAVAILABLE` | 502 |
 | `FIRMWARE_IMAGE_INVALID` | 502 |
 | `FIRMWARE_IMAGE_TOO_LARGE` | 502 |
+| `VARIANT_MEDIA_INVALID` | 400 |
 
 ---
 
@@ -1085,3 +1086,35 @@ Backend unit tests: manifest parsing, variant filter, SHA-256 mismatch answers 5
 and returns no image, the cache window. Frontend tests with a fake `ESPLoader`: chip mismatch writes
 nothing, a verify failure records nothing, the v2 notice, Update and Full install offsets. Hardware run on
 v3 and v4 by the leader, v2 with the power button held.
+
+---
+
+## 10. Variant image and spec sheet (UI conventions E-2, gap G1)
+
+> **Status**: Spec, 2026-11-03. The leader ruled the UI review answers on 2026-11-03: contracts and devices get
+> the entity home, lifecycle header, action bar, device references and variant media before Friday 2026-11-06.
+
+A variant is fixed hardware (leader, 2026-11-03): its image and spec sheet describe every unit of it, while the
+firmware version stays per unit (`Device.firmwareVersion`) and organization settings stay on the unit's
+provisioning (§8). Two fields on `HardwareVariant`, edited on screen 4.1 by an Admin:
+
+| Field | Type | Rule |
+|---|---|---|
+| `imageUrl` | `String?` | An `https://` URL or an app path under `/variants/` (a file in `frontend/public/variants/`, shipped with the frontend: Vercel has no persistent disk for uploads). Null shows the labelled empty slot "Variant image not added yet". No invented or stock photo is ever seeded |
+| `specSheet` | `Json`, default `{}` | An object whose keys come from this fixed list, shown in this order, each value a string of 1 to 80 characters: `mcu`, `radio`, `gnss`, `motionSensor`, `display`, `battery`, `sosControl`, `localAlarm`, `enclosure`. An unknown key, an empty or longer value answers 400 `VARIANT_MEDIA_INVALID`. A missing key is not shown |
+
+The capability flags (`hasGps`, `hasMotionSensor`, `mqttCapable`) stay the source of logic; the spec sheet is
+display text only and never drives behaviour.
+
+**Seed (verified facts only).** From `treklink-firmware` `docs/variants.md` at `dev` `a4aa98d`: v2 `mcu` ESP32-S3,
+`radio` SX1268, `motionSensor` ICM-20948, `sosControl` "Dedicated SOS button", `localAlarm` "Buzzer and
+vibrator"; v3 (LilyGo T-Beam v1.2) `mcu` ESP32, `sosControl` "3 s hold on the user button", `localAlarm` "LED
+blinks"; v4 (LilyGo T-Beam Supreme) `mcu` ESP32-S3, `motionSensor` QMI8658, `sosControl` "3 s hold on the user
+button", `localAlarm` "None"; v1 `mcu` ESP32, `radio` SX1278, `motionSensor` MPU6050. Radio, GNSS, display,
+battery and enclosure of v3 and v4 are left empty until the leader records them; `imageUrl` stays null until
+the leader supplies photos of the units.
+
+**Where it shows (E-2).** Screen 4.1 (the admin panel edits both fields and previews the card), the device detail
+of screen 4.2, the device cards of the contract home's Devices tab, and the variant picker of the request form,
+which shows the variants as cards with the image slot and the spec summary in place of a `select`. Devices
+api-design 01 returns both fields to every caller that can read variants, so no new endpoint is needed.

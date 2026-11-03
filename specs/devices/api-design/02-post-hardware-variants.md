@@ -59,6 +59,8 @@ Adds a device model with its sensors, firmware baseline, remaining-value schedul
 | hasMotionSensor | Has an IMU; adds the motion row to the intake check | bool | yes | `true` |
 | mqttCapable | False for builds with MQTT compiled out (v1) | bool | yes | `true` |
 | firmwareBaseline | Firmware the variant ships with | string | yes | `2.7.19-treklink.4` |
+| imageUrl | Photo of the unit: an https URL or an app path under `/variants/` (design §10) | string | no | `/variants/treklink-v4.jpg` |
+| specSheet | Spec sheet, keys from design §10 only, each value up to 80 characters | object | no | `{"mcu": "ESP32-S3"}` |
 | remainingValueSchedule | Descending value by age in months; first row fromMonths 0 | json | yes | see sample |
 | serviceIntervalDays | Days between periodic services; null for none (D-047) | int | no | `180` |
 | serviceChecklist | Items checked at each periodic service; required with an interval | string[] | no | see sample |
@@ -96,6 +98,12 @@ Adds a device model with its sensors, firmware baseline, remaining-value schedul
       "Enclosure seal",
       "Button and buzzer"
     ],
+    "imageUrl": null,
+    "specSheet": {
+      "mcu": "ESP32",
+      "sosControl": "3 s hold on the user button",
+      "localAlarm": "LED blinks"
+    },
     "isActive": true,
     "deviceCount": 0
   },
@@ -182,6 +190,23 @@ Adds a device model with its sensors, firmware baseline, remaining-value schedul
         </tr>
         <tr>
             <td>400</td>
+            <td>The image URL is not https or `/variants/...`, or a spec key is unknown or too long (<code>VARIANT_MEDIA_INVALID</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "VARIANT_MEDIA_INVALID"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Check the image link and the spec sheet entries."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
             <td>The schedule does not start at 0 months or is not descending (<code>SCHEDULE_INVALID</code>)</td>
 <td>
 
@@ -234,18 +259,23 @@ flowchart TB
     E2["Return 409 CONFLICT_UNIQUE"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The schedule does not start at 0 months or is not descending?"}
+    D3{"The image URL is not https or `/variants/...`, or a spec key is unknown or too long?"}
     D2 -->|no| D3
-    E3["Return 400 SCHEDULE_INVALID"]
+    E3["Return 400 VARIANT_MEDIA_INVALID"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"An interval is set without a checklist?"}
+    D4{"The schedule does not start at 0 months or is not descending?"}
     D3 -->|no| D4
-    E4["Return 400 CHECKLIST_REQUIRED"]
+    E4["Return 400 SCHEDULE_INVALID"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"An interval is set without a checklist?"}
+    D4 -->|no| D5
+    E5["Return 400 CHECKLIST_REQUIRED"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
     P0["Validate the schedule and the service plan"]
-    D4 -->|no| P0
+    D5 -->|no| P0
     P1["Insert the variant"]
     P0 --> P1
     OK["Return 201"]

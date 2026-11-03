@@ -182,3 +182,14 @@
   - **Do**: design §9.2 (modes, chip and MAC node-number checks, v2 notice and `romBaudrate`, MD5 from the backend for the verify with `flashMode`, `flashFreq` and `flashSize` kept, fill the record's firmware version)
   - _Requirements: REQ-EVT-28, REQ-ERR-16, REQ-ERR-17, AC-19, AC-20_
 
+## Phase 9: Variant image and spec sheet (design §10, gap G1)
+
+- [ ] 9.1 Schema, API and seed (owner KhoaDD)
+  - **Files**: `backend/prisma/schema.prisma` (`HardwareVariant.imageUrl`, `specSheet`), a forward migration that also fills the verified seed values of design §10, the variants DTOs and service, tests
+  - **Do**: devices api-design 01 to 03; validation with 400 `VARIANT_MEDIA_INVALID`
+  - _Requirements: REQ-UBI-06, REQ-ERR-18, AC-21_
+- [ ] 9.2 Screens (owner KhoaDD)
+  - **Files**: screen 4.1 panel fields and card preview; a shared `VariantCard` and spec summary used by screen 4.2, the contract home Devices tab and the request form's variant picker
+  - **Do**: design §10 "Where it shows"; the labelled empty image slot when `imageUrl` is null
+  - _Requirements: REQ-UBI-06, AC-21_
+
