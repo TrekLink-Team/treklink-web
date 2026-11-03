@@ -20,7 +20,6 @@ import { formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
-import { buttonClasses } from '../shared/ui/buttonStyles';
 import { Dialog } from '../shared/ui/Dialog';
 import { Field, Input, Textarea } from '../shared/ui/Field';
 import { DEVICE_STATUS, MAINTENANCE_STATUS, type DeviceStatus } from '../shared/ui/status';
@@ -28,8 +27,10 @@ import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { deviceFailure, MSG29 } from '../widgets/DeviceActions/deviceFailure';
+import { RecordActionBar, type RecordAction } from '../shared/ui/RecordActionBar';
 import { useToast } from '../shared/ui/toastStore';
-import { CARD, LINK } from '../shared/ui/styles';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
+import { CARD, FACT_LIST_PHONE, LINK } from '../shared/ui/styles';
 
 const MSG03 = 'Saved.';
 // The unit's next step back to AVAILABLE (devices api-design 07 nextStep, REQ-EVT-23, D-092 rule 4):
@@ -133,6 +134,7 @@ const FirmwareDialog: React.FC<{ device: Device; onDone: () => void; onCancel: (
 // /t/devices/:id, DeviceDetailPage of screen 4.2 (devices api-design 05 to 10, 16, 23 and monitoring
 // api-design 07). TrekLink Staff may register, edit firmware, intake check, reset and report a unit in
 // service lost (devices api-design 17, screen 4.4); Admin also retires and disposes (D-057 rule 7).
+// Below 600 px the facts are one compact list and the actions a bar pinned to the bottom (§10.5).
 export const DeviceDetailPage: React.FC = () => {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -151,6 +153,7 @@ export const DeviceDetailPage: React.FC = () => {
   const [retirePending, setRetirePending] = useState(false);
   const [disposing, setDisposing] = useState(false);
   const [reportingLoss, setReportingLoss] = useState(false);
+  const phone = !useMediaQuery('(min-width: 600px)', true);
 
   const refresh = async () => {
     showToast(MSG03);
@@ -196,9 +199,58 @@ export const DeviceDetailPage: React.FC = () => {
   const canRetire = isAdmin && device.status === 'MAINTENANCE';
   const canDispose = isAdmin && device.status === 'RETIRED';
 
+  // The page's actions in their wide order; below 600 px they move into the bar pinned to the bottom.
+  const actions: RecordAction[] = [
+    ...(device.status !== 'DISPOSED'
+      ? [{ key: 'firmware', label: 'Edit firmware', onSelect: () => setEditingFirmware(true) }]
+      : []),
+    ...(canIntake
+      ? [{ key: 'intake', label: 'Record intake check', tone: 'primary' as const, onSelect: () => setIntaking(true) }]
+      : []),
+    ...(canReset
+      ? [{ key: 'reset', label: 'Record reset', tone: 'primary' as const, onSelect: () => setResetting(true) }]
+      : []),
+    ...(device.status === 'AVAILABLE' && !device.openMaintenance
+      ? [
+          {
+            key: 'maintenance',
+            label: 'Open maintenance',
+            onSelect: () => navigate('/t/maintenance', { state: { deviceId: device.id } }),
+          },
+        ]
+      : []),
+    // Unavailable while a maintenance record is open, since the server refuses with
+    // MAINTENANCE_OPEN (leader ruling, 2026-10-30); the reason says why.
+    ...(canRetire
+      ? [
+          {
+            key: 'retire',
+            label: 'Retire',
+            tone: 'danger' as const,
+            reason: device.openMaintenance ? MSG29 : undefined,
+            onSelect: () => setRetiring(true),
+          },
+        ]
+      : []),
+    ...(canDispose
+      ? [{ key: 'dispose', label: 'Dispose', tone: 'danger' as const, onSelect: () => setDisposing(true) }]
+      : []),
+    // Screen 4.2: position history in any state, on its own route (screen 9.2); the asset tag
+    // travels along for the history heading.
+    {
+      key: 'history',
+      label: 'Position history',
+      to: `/t/devices/${device.id}/telemetry`,
+      state: { assetTag: device.assetTag },
+    },
+    ...(IN_SERVICE.includes(device.status)
+      ? [{ key: 'lost', label: 'Report lost', tone: 'danger' as const, onSelect: () => setReportingLoss(true) }]
+      : []),
+  ];
+
   return (
-    <section aria-labelledby="device-title">
-      <Link to="/t/fleet" className={LINK}>
+    <section aria-labelledby="device-title" className="flex flex-1 flex-col">
+      <Link to="/t/fleet" className={`${LINK} self-start`}>
         Back to devices
       </Link>
       <div className="mt-3">
@@ -216,7 +268,7 @@ export const DeviceDetailPage: React.FC = () => {
             <VariantCard variant={device.hardwareVariant} headingLevel="h2" />
           </div>
           <div className={CARD}>
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
               <Fact label="Node">{device.nodeId} ({device.nodeNum})</Fact>
               <Fact label="Hardware variant">{device.hardwareVariant.code}</Fact>
               <Fact label="Acquired">{new Date(device.acquiredAt).toLocaleDateString('en-GB')}</Fact>
@@ -254,50 +306,7 @@ export const DeviceDetailPage: React.FC = () => {
 
           {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
 
-          <div className="flex flex-wrap gap-3">
-            {device.status !== 'DISPOSED' && (
-              <Button onClick={() => setEditingFirmware(true)}>Edit firmware</Button>
-            )}
-            {canIntake && <Button variant="primary" onClick={() => setIntaking(true)}>Record intake check</Button>}
-            {canReset && <Button variant="primary" onClick={() => setResetting(true)}>Record reset</Button>}
-            {device.status === 'AVAILABLE' && !device.openMaintenance && (
-              <Button onClick={() => navigate('/t/maintenance', { state: { deviceId: device.id } })}>
-                Open maintenance
-              </Button>
-            )}
-            {canRetire && (
-              // Disabled while a maintenance record is open, since the server refuses with
-              // MAINTENANCE_OPEN (leader ruling, 2026-10-30); the hint says why.
-              <Button
-                variant="danger"
-                disabled={Boolean(device.openMaintenance)}
-                aria-describedby={device.openMaintenance ? 'retire-blocked' : undefined}
-                onClick={() => setRetiring(true)}
-              >
-                Retire
-              </Button>
-            )}
-            {canRetire && device.openMaintenance && (
-              <p id="retire-blocked" className="w-full text-body-sm text-ink-muted">
-                {MSG29}
-              </p>
-            )}
-            {canDispose && <Button variant="danger" onClick={() => setDisposing(true)}>Dispose</Button>}
-            {/* Screen 4.2: position history in any state, on its own route (screen 9.2); the asset tag
-                travels along for the history heading. */}
-            <Link
-              to={`/t/devices/${device.id}/telemetry`}
-              state={{ assetTag: device.assetTag }}
-              className={buttonClasses('secondary')}
-            >
-              Position history
-            </Link>
-            {IN_SERVICE.includes(device.status) && (
-              <Button variant="danger" onClick={() => setReportingLoss(true)}>
-                Report lost
-              </Button>
-            )}
-          </div>
+          {!phone && <RecordActionBar label="Device actions" actions={actions} />}
         </div>
 
         <div className="flex flex-col gap-4">
@@ -322,6 +331,8 @@ export const DeviceDetailPage: React.FC = () => {
           </section>
         </div>
       </div>
+
+      {phone && <RecordActionBar label="Device actions" actions={actions} />}
 
       {reportingLoss && (
         <ReportLossDialog

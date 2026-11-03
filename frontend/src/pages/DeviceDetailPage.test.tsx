@@ -363,3 +363,53 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.queryByRole('button', { name: 'Dispose' })).toBeNull();
   });
 });
+
+// Below 600 px (chapter 06 §10.5, handoff item 7): a matchMedia that answers for a 360 px window.
+describe('DeviceDetailPage at 360 px', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('pins the actions to the bottom: the primary action widest, the rest under More actions', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    const bar = screen.getByRole('group', { name: 'Device actions' });
+    expect(bar.hasAttribute('data-page-actions')).toBe(true);
+    expect(within(bar).getByRole('button', { name: 'Record intake check' }).className).toContain('flex-1');
+    fireEvent.click(within(bar).getByRole('button', { name: /^More actions/ }));
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    // Destructive ones last, after a separator.
+    expect(items).toEqual(['Edit firmware', 'Position history', 'Report lost']);
+    expect(screen.getByRole('separator')).toBeTruthy();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Position history' }));
+    expect(await screen.findByText('history /t/devices/d-1/telemetry TL-0042')).toBeTruthy();
+  });
+
+  it('keeps an unavailable action in More actions with its reason', async () => {
+    currentRoles = ['ADMIN'];
+    currentDevice = device({
+      status: 'MAINTENANCE',
+      version: 4,
+      openMaintenance: { id: 'm-1', status: 'OPEN', description: 'Antenna loose' },
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    const bar = screen.getByRole('group', { name: 'Device actions' });
+    // No primary step is due, so the first plain action leads.
+    expect(within(bar).getByRole('button', { name: 'Edit firmware' })).toBeTruthy();
+    fireEvent.click(within(bar).getByRole('button', { name: /^More actions/ }));
+    const retire = screen.getByRole('menuitem', { name: 'Retire' });
+    expect(retire.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(retire.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Finish the open maintenance record first.',
+    );
+    fireEvent.click(retire);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
