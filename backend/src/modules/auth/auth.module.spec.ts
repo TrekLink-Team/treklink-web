@@ -14,6 +14,7 @@ const TEST_ENVIRONMENT: Record<string, string> = {
   DATABASE_DIRECT_URL: 'postgresql://u:p@localhost:5432/db',
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
   JWT_ACCESS_SECRET: 'access-secret',
+  CHANNEL_KEY_MASTER: 'channel-key-master-not-a-secret-0001',
   JWT_REFRESH_SECRET: 'refresh-secret',
   JWT_ACCESS_TTL: '15m',
   MAIL_TRANSPORT: 'console',

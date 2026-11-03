@@ -6,6 +6,7 @@ const REQUIRED = {
     'postgresql://postgres:postgrespassword@localhost:5432/treklink?schema=public',
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
   JWT_ACCESS_SECRET: 'access-secret',
+  CHANNEL_KEY_MASTER: 'channel-key-master-not-a-secret-0001',
 };
 
 const problemsOf = (raw: Record<string, unknown>): string[] => {
@@ -122,6 +123,15 @@ describe('validate (environment)', () => {
     expect(problemsOf({ ...REQUIRED, DATABASE_URL: 'mysql://localhost/treklink' })).toEqual([
       expect.stringMatching(/^DATABASE_URL:/),
     ]);
+  });
+
+  it('requires CHANNEL_KEY_MASTER of at least 32 characters (devices design section 8.6)', () => {
+    const withoutMaster = { ...REQUIRED, CHANNEL_KEY_MASTER: undefined };
+    expect(problemsOf(withoutMaster)).toEqual([expect.stringMatching(/^CHANNEL_KEY_MASTER:/)]);
+    expect(problemsOf({ ...REQUIRED, CHANNEL_KEY_MASTER: 'too-short' })).toEqual([
+      expect.stringMatching(/^CHANNEL_KEY_MASTER:.*at least 32/),
+    ]);
+    expect(validate({ ...REQUIRED }).CHANNEL_KEY_MASTER).toBe(REQUIRED.CHANNEL_KEY_MASTER);
   });
 
   it('requires DATABASE_DIRECT_URL (REQ-OPT-02)', () => {

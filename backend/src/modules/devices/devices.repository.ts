@@ -221,6 +221,18 @@ export class DevicesRepository {
     });
   }
 
+  // Radio node numbers by device id (rentals api-design 03 `devices[].nodeNum`, the docking checks of
+  // api-design 09 and 21).
+  nodeNums(
+    ids: readonly string[],
+    client: Client = this.prisma,
+  ): Promise<{ id: string; nodeNum: bigint }[]> {
+    return client.device.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, nodeNum: true },
+    });
+  }
+
   // The facts the handover note prints per unit (rentals design §4.1), with what its remaining value
   // is computed from.
   handoverUnits(ids: readonly string[], client: Client = this.prisma) {

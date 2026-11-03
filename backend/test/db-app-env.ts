@@ -11,6 +11,7 @@ const DB_APP_DEFAULTS: Record<string, string> = {
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
   MQTT_INGESTION_ENABLED: 'false',
   JWT_ACCESS_SECRET: 'db-access-secret',
+  CHANNEL_KEY_MASTER: 'db-channel-key-master-not-a-secret-0001',
   JWT_REFRESH_SECRET: 'db-refresh-secret',
   MAIL_TRANSPORT: 'console',
   HANDOVER_NOTE_STORAGE_DIR: join(tmpdir(), 'treklink-test-db-handover-notes'),
