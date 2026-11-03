@@ -44,6 +44,7 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     updateFirmware: jest.Mock;
   };
   let intake: { record: jest.Mock; register: jest.Mock };
+  let connector: { recognize: jest.Mock };
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let controller: DevicesController;
 
@@ -65,12 +66,33 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       transaction: jest.fn((cb: (tx: object) => unknown) => cb({})),
       emitAfterCommit: jest.fn(),
     };
+    connector = { recognize: jest.fn().mockResolvedValue([]) };
     controller = new DevicesController(
       devices as unknown as DevicesService,
       intake as unknown as IntakeService,
+      connector as never,
       events as never,
       CONFIG,
     );
+  });
+
+  describe('byNode (api-design 30)', () => {
+    it('passes decimal numbers and node ids as node numbers, in request order', async () => {
+      await controller.byNode({ nodeNum: ['2763113171', '!a4b1c2e4'] });
+
+      expect(connector.recognize).toHaveBeenCalledWith([2763113171n, 0xa4b1c2e4n]);
+    });
+
+    it('refuses a number above 32 bits with 400 VALIDATION_FAILED', () => {
+      let thrown: unknown;
+      try {
+        void controller.byNode({ nodeNum: ['4294967296'] });
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toMatchObject({ errorCode: 'VALIDATION_FAILED' });
+      expect(connector.recognize).not.toHaveBeenCalled();
+    });
   });
 
   it('registers a device inside a transaction (api-design 05)', async () => {

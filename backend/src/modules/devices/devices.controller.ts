@@ -13,7 +13,19 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { DeviceStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import {
@@ -36,6 +48,9 @@ import { RegisterDeviceDto } from './dto/register-device.dto';
 import { RetireDeviceDto } from './dto/retire-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { IntakeService } from './intake.service';
+import { DeviceConnectorService, RecognizedUnit } from './dock/device-connector.service';
+import { fromNodeId, isNodeNum } from './node-id';
+import { DomainException, ErrorCode } from '../../common/errors';
 
 // devices api-design 06; `status` repeats (`?status=AVAILABLE&status=RESERVED`).
 export class DeviceQueryDto extends PagedQueryDto {
@@ -63,6 +78,19 @@ export class DeviceQueryDto extends PagedQueryDto {
   @IsOptional()
   @IsIn(SORT_ORDERS)
   order?: SortOrder;
+}
+
+// devices api-design 30: one to twenty node numbers, each a decimal number or a node id `!a4b1c2d3`;
+// `nodeNum` repeats (`?nodeNum=1&nodeNum=2`).
+export class ByNodeQueryDto {
+  @Transform(({ value }: { value: unknown }): unknown[] =>
+    Array.isArray(value) ? (value as unknown[]) : [value],
+  )
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @Matches(/^(\d{1,10}|![0-9a-fA-F]{8})$/, { each: true })
+  nodeNum!: string[];
 }
 
 export class AvailabilityQueryDto {
@@ -93,6 +121,7 @@ export class DevicesController {
   constructor(
     private readonly devices: DevicesService,
     private readonly intake: IntakeService,
+    private readonly connector: DeviceConnectorService,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
@@ -151,7 +180,26 @@ export class DevicesController {
     return this.devices.availability(query.hardwareVariantId);
   }
 
-  // devices api-design 07 (task 4.1 part), declared after `availability` so that path is not read as
+  // devices api-design 30 (task 10.2, design section 11.5): the device connector recognizes the units
+  // plugged into a Staff computer by node number (`device.read`). Declared before `:id`.
+  @Get('by-node')
+  @CheckPolicies((ability) => ability.can('read', 'Device'))
+  @ResponseMessage('OK')
+  byNode(@Query() query: ByNodeQueryDto): Promise<RecognizedUnit[]> {
+    const nodeNums = query.nodeNum.map((value) =>
+      value.startsWith('!') ? fromNodeId(value) : BigInt(value),
+    );
+    if (nodeNums.some((nodeNum) => !isNodeNum(nodeNum))) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.VALIDATION_FAILED,
+        'nodeNum must be an unsigned 32-bit node number.',
+      );
+    }
+    return this.connector.recognize(nodeNums);
+  }
+
+  // devices api-design 07 (task 4.1 part), declared after `availability` and `by-node` so that path is not read as
   // an id.
   @Get(':id')
   @CheckPolicies((ability) => ability.can('read', 'Device'))

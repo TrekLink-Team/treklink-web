@@ -699,6 +699,18 @@ export class ContractsRepository {
     });
   }
 
+  // The live row of each device that has one: not released, not replaced, not checked in and not lost,
+  // with its contract (the DEVICE_CONTRACTS port of devices design section 11.5).
+  liveContractsOfDevices(deviceIds: readonly string[], client: Client = this.prisma) {
+    return client.contractDevice.findMany({
+      where: { deviceId: { in: [...deviceIds] }, ...LIVE, checkedInAt: null, lostAt: null },
+      select: {
+        deviceId: true,
+        contract: { select: { id: true, code: true, status: true, organizationId: true } },
+      },
+    });
+  }
+
   // A failing reserved unit leaves the contract before handover (rentals 2.3, swap).
   async releaseRow(rowId: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
     await tx.contractDevice.update({ where: { id: rowId }, data: { releasedAt: at } });
