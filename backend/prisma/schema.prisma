@@ -218,6 +218,7 @@ model User {
   authorityReports      AuthorityReport[]      @relation("AuthorityReport_reportedById")
   authorityCasesClosed  AuthorityReport[]      @relation("AuthorityReport_caseClosedById")
   lossCasesReported     LossCase[]             @relation("LossCase_reportedById")
+  dockSessionsOpened    DeviceDockSession[]    @relation("DeviceDockSession_openedById")
   lossCasesTriaged      LossCase[]             @relation("LossCase_triagedById")
   lossCasesDecided      LossCase[]             @relation("LossCase_decidedById")
   disposalsVerified     DeviceDisposal[]
@@ -747,11 +748,38 @@ model Device {
   serviceCredits     ServiceCredit[]
   lossCases          LossCase[]
   disposal           DeviceDisposal?
+  dockSessions       DeviceDockSession[]
 
   @@index([status])
   @@index([hardwareVariantId, status])
   @@index([registeredById])
   @@map("devices")
+}
+
+// Why a dock session ended (specs/devices/design.md section 11.8).
+enum DockEndReason {
+  RELEASED // the connector released the port, the unit was unplugged or the tab closed
+  EXPIRED // not renewed within devices.dockPresenceTtlSeconds (the devices.dockSweep job)
+  REPLACED // another Staff browser opened a session for the same unit
+}
+
+// A Staff browser holding a unit's Web Serial port at the counter (design section 11.8, REQ-EVT-36). Only
+// TrekLink callers see it, on the Staff live map; one open session per device (partial unique index on
+// "deviceId" WHERE "endedAt" IS NULL, in the migration). Rows are kept as a record of who held which unit.
+model DeviceDockSession {
+  id         String         @id @default(uuid())
+  deviceId   String
+  device     Device         @relation(fields: [deviceId], references: [id])
+  nodeNum    BigInt // the node number the browser read from the unit
+  openedById String
+  openedBy   User           @relation("DeviceDockSession_openedById", fields: [openedById], references: [id])
+  openedAt   DateTime       @default(now()) @db.Timestamptz(3)
+  renewedAt  DateTime       @db.Timestamptz(3)
+  endedAt    DateTime?      @db.Timestamptz(3)
+  endReason  DockEndReason?
+
+  @@index([endedAt, renewedAt])
+  @@map("device_dock_sessions")
 }
 
 model DeviceTransition {

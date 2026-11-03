@@ -36,6 +36,7 @@
 | `devices.serviceScanHourLocal` | `1` | INT | 0 to 23 | hour (UTC+7) | Hour on Monday at which the weekly service scan runs | FR-DEV-18 |
 | `devices.firmwareReleaseRepo` | `"TrekLink-Team/treklink-firmware"` | JSON |  |  | GitHub repository whose releases carry the TrekLink firmware images and manifest (devices design §9.1) | FR-DEV-21, D-093 |
 | `devices.firmwareReleaseCacheSeconds` | `300` | INT | 0 to 3600 | seconds | How long the release list and manifests are kept before they are read again | FR-DEV-21 |
+| `devices.dockPresenceTtlSeconds` | `30` | INT | 10 to 300 | seconds | A dock session not renewed this long ends, and the Staff map drops the unit's counter pin | REQ-EVT-36 |
 
 ## rentals
 

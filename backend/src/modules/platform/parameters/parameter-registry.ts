@@ -22,6 +22,7 @@ export const PARAMETER_TYPES = {
   'devices.maintenanceLeadDays': 'INT',
   'devices.maintenanceApprovalThresholdVnd': 'INT',
   'devices.serviceScanHourLocal': 'INT',
+  'devices.dockPresenceTtlSeconds': 'INT',
   'rentals.minOrderQuantity': 'INT',
   'rentals.dayPlanLengths': 'JSON',
   'rentals.reservationExpiryHours': 'INT',
