@@ -174,10 +174,10 @@ destructive ones (Retire, Dispose, Report lost) last after a separator, and Reti
 reason while a maintenance record is open. Position history stays a link on wide screens and is a menu
 item on a phone. From 600 px the page is unchanged.
 
-## Device connector entry points (2026-11-04, proposal, devices design §11)
+## Device connector entry points (2026-11-04, devices design §11, approved)
 
 Added by KhoaDD with the device hub spec. Where this section and the tables above disagree, this section wins
-once the leader approves devices design §11.
+(devices design §11 approved 2026-11-04).
 
 - The fleet page sets the `intake` context while the Register panel is open and `fleet` otherwise; the device
   page sets `device` with its id (devices design §11.3). Neither page calls Web Serial itself (REQ-UBI-10).
