@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractKeys, type CloseCheck, type ContractDetail } from '../../entities/contract/api';
@@ -140,12 +140,12 @@ const openDamagedInspection = async () => {
     } as Partial<ContractDetail>),
   );
   fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
-  fireEvent.click(screen.getByRole('button', { name: 'Record reset' }));
+  fireEvent.click(screen.getByRole('button', { name: /^Record reset TL-/ }));
   ['Channel key removed', 'Node database cleared', 'Owner name cleared'].forEach((step) =>
     fireEvent.click(screen.getByLabelText(step)),
   );
   fireEvent.click(screen.getAllByRole('button', { name: 'Record reset' }).at(-1)!);
-  fireEvent.click(await screen.findByRole('button', { name: 'Inspect' }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Inspect TL-/ }));
   fireEvent.click(screen.getByLabelText('Damaged'));
 };
 
@@ -167,8 +167,31 @@ describe('ReturnCounter (screen 5.5)', () => {
 
     expect(screen.getByText(/^Reset logged /)).toBeTruthy();
     expect(screen.getByText('Not reset')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Inspect' })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: 'Record reset' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^Inspect TL-/ })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^Record reset TL-/ })).toHaveLength(1);
+  });
+
+  it('shows only the units still to inspect from Show on CollectionView (D-096)', () => {
+    renderCounter(
+      contract({
+        devices: [
+          device('TL-0017', {
+            checkedInAt: '2026-10-30T03:00:00Z',
+            resetAt: '2026-10-30T03:05:00Z',
+            inspection: { result: 'PASSED', at: '2026-10-30T03:06:00Z' },
+          }),
+          device('TL-0018', { checkedInAt: '2026-10-30T03:00:00Z', resetAt: null }),
+          device('TL-0019', { checkedInAt: '2026-10-30T03:00:00Z', resetAt: null }),
+        ],
+      } as Partial<ContractDetail>),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+    const table = () => within(screen.getByRole('table', { name: 'Returned devices' }));
+    expect(table().getAllByRole('row')).toHaveLength(4);
+    fireEvent.click(screen.getByRole('button', { name: /^Show: All returned devices/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Not inspected' }));
+    expect(table().getAllByRole('row')).toHaveLength(3);
+    expect(table().queryByText('TL-0017')).toBeNull();
   });
 
   it('shows the recorded inspection of a unit after a reload and offers no action on it', () => {
@@ -186,8 +209,8 @@ describe('ReturnCounter (screen 5.5)', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
 
     expect(screen.getByText('Failed, maintenance')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Inspect' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Record reset' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Inspect TL-/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Record reset TL-/ })).toBeNull();
   });
 
   it('treats 409 ALREADY_RESET as a logged reset and moves the unit on to Inspect', async () => {
@@ -203,13 +226,13 @@ describe('ReturnCounter (screen 5.5)', () => {
       client,
     );
     fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Record reset' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Record reset TL-/ }));
     ['Channel key removed', 'Node database cleared', 'Owner name cleared'].forEach((step) =>
       fireEvent.click(screen.getByLabelText(step)),
     );
     fireEvent.click(screen.getAllByRole('button', { name: 'Record reset' }).at(-1)!);
 
-    expect(await screen.findByRole('button', { name: 'Inspect' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /^Inspect TL-/ })).toBeTruthy();
     expect(screen.queryByText('This device is already reset for this return.')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(useToast.getState().message).toBe('Already reset. It was recorded by someone else.');
@@ -224,12 +247,12 @@ describe('ReturnCounter (screen 5.5)', () => {
       } as Partial<ContractDetail>),
     );
     fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Record reset' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Record reset TL-/ }));
     ['Channel key removed', 'Node database cleared', 'Owner name cleared'].forEach((step) =>
       fireEvent.click(screen.getByLabelText(step)),
     );
     fireEvent.click(screen.getAllByRole('button', { name: 'Record reset' }).at(-1)!);
-    expect(await screen.findByRole('button', { name: 'Inspect' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /^Inspect TL-/ })).toBeTruthy();
     expect(useToast.getState().message).toBe('Saved.');
   });
 
@@ -364,7 +387,7 @@ describe('ReturnCounter (screen 5.5)', () => {
     expect(screen.getByRole('link', { name: 'Loss case LOSS-0002 open' }).getAttribute('href')).toBe(
       '/t/loss-cases/lc-2',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Report lost' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Report lost TL-/ }));
     fireEvent.change(screen.getByLabelText(/Description/), {
       target: { value: 'Not handed back at the counter' },
     });
@@ -429,12 +452,12 @@ describe('ReturnCounter (screen 5.5)', () => {
       } as Partial<ContractDetail>),
     );
     fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Record reset' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Record reset TL-/ }));
     ['Channel key removed', 'Node database cleared', 'Owner name cleared'].forEach((step) =>
       fireEvent.click(screen.getByLabelText(step)),
     );
     fireEvent.click(screen.getAllByRole('button', { name: 'Record reset' }).at(-1)!);
-    fireEvent.click(await screen.findByRole('button', { name: 'Inspect' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Inspect TL-/ }));
     fireEvent.click(screen.getByLabelText('Damaged'));
 
     expect(ratesSeen).toContain('v-3');
