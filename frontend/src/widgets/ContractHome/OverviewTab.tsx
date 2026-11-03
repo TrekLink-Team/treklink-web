@@ -23,6 +23,8 @@ const When: React.FC<{ iso: string | null | undefined }> = ({ iso }) =>
   );
 
 interface Props {
+  /** Shown first, above the facts: the deposit of a request. */
+  lead?: React.ReactNode;
   contract: ContractDetail;
   scope: 'o' | 't';
   variantName: string;
@@ -41,9 +43,10 @@ interface Props {
  * The Overview tab: the contract's facts and dates (rentals api-design 03), the prices fixed at
  * request, the terms, and for TrekLink Staff the close panel with what still blocks the close.
  */
-export const OverviewTab: React.FC<Props> = ({ contract, scope, variantName, close }) => (
+export const OverviewTab: React.FC<Props> = ({ lead, contract, scope, variantName, close }) => (
   <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
     <div className="flex min-w-0 flex-col gap-3">
+      {lead}
       <Card padding="sm">
         <CardHeader title="Contract" />
         <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-3">
