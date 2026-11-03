@@ -236,6 +236,15 @@ describe('CollectionView', () => {
     expect(live().textContent).toContain(SELECTION_CLEARED);
   });
 
+  it("opens the page's own record view from Show details, with no pane toggle", () => {
+    const view = vi.fn();
+    renderView({ onShowDetails: view });
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0003' }));
+    expect(view).toHaveBeenCalledWith(UNITS[2]);
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Details pane' })).toBeNull();
+  });
+
   it('keeps the selection when the view changes', () => {
     renderView({ views: ['details', 'list'] });
     fireEvent.click(box('TL-0002'));

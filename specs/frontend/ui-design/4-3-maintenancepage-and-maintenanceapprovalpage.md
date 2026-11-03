@@ -115,3 +115,13 @@ disagree, this section wins.
   with the per-row summary on any failure (STALE_VERSION, SEPARATION_OF_DUTY). An amount other than
   the one waiting stays a row decision.
 - The API does not sort; the pagers keep the range and total.
+
+## Records on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The Records, This week's service and Approvals lists render through `CollectionView`
+(chapter 06 §9). The device tag and Show details open the record drawer, this screen's record view in
+place of the built-in pane. Estimate, Complete and Decide are item actions with tooltips; Decide on a
+record the viewer estimated shows its reason as text (BR-44). On Records the status is the Show filter
+and the reason select stays beside the list until the multi-select Show menu lands. The Approvals bulk
+Approve and Reject act on the selection of the current page, which a filter or page change clears
+(leader ruling of 2026-11-03). Endpoints and messages are unchanged.
