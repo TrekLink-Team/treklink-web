@@ -111,6 +111,14 @@ describe('actionsFor (devices design section 11.3)', () => {
       CAN,
     );
     expect(result.actions[0]).toEqual({ kind: 'flash', disabledReason: FLASH_NOT_BUILT });
+    expect(FLASH_NOT_BUILT).toBe('Firmware releases are not published yet');
+    // Once task 8.3 registers its panel the action is available.
+    const ready = actionsFor(
+      connection({ status: 'MAINTENANCE', openMaintenance: { id: 'mr-1', reason: 'FIRMWARE_UPDATE', status: 'OPEN' } }),
+      null,
+      { ...CAN, flash: true },
+    );
+    expect(ready.actions[0]).toEqual({ kind: 'flash', disabledReason: null });
   });
 
   it('allows nothing but the device page for a retired unit, and nothing while a unit is not ready', () => {
