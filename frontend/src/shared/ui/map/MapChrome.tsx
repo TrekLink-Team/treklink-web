@@ -11,6 +11,7 @@ const SWATCH: Record<MarkerState, string> = {
   attention: 'tl-marker tl-marker--attention',
   stale: 'tl-marker tl-marker--stale',
   unheard: 'tl-marker tl-marker--unheard',
+  docked: 'tl-marker tl-marker--docked',
   sos: 'tl-marker tl-marker--sos !h-3.5 !w-3.5 ![animation:none]',
 };
 
