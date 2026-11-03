@@ -39,8 +39,8 @@ import { StateChangeDialog, type StateTransition } from '../shared/ui/StateChang
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { ALERT, ERROR_TEXT, LINK, WARNING } from '../shared/ui/styles';
 import { ClipboardCheck, RotateCcw } from 'lucide-react';
-import { intakeDockMessage } from '../features/dock-device/messages';
-import { useDocking } from '../features/dock-device/useDocking';
+import { intakeDockMessage } from '../features/device-connector/actions/messages';
+import { useDocking } from '../features/device-connector/actions/useDocking';
 import { VARIANT_CODE_BY_PIO_ENV, firmwareBuildDiffers } from '../shared/config/docking';
 
 const SEARCH_DEBOUNCE_MS = 300;

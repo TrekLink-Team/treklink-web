@@ -346,3 +346,49 @@ export const weekEnd = (now: Date = new Date()): string => {
   end.setDate(end.getDate() + toSunday);
   return end.toISOString().slice(0, 10);
 };
+
+// The device connector (devices design section 11, api-design 30 to 32).
+
+// One answer row of devices api-design 30: `device` is null for a node number never registered.
+export interface RecognizedUnit {
+  nodeNum: number;
+  nodeId: string;
+  device:
+    | (Device & {
+        firmwareBaseline: string;
+        openMaintenance: { id: string; reason: string; status: string } | null;
+      })
+    | null;
+  contract: {
+    id: string;
+    code: string;
+    status: string;
+    organization: { id: string; code: string | null };
+    provisionedKeyVersion: number | null;
+  } | null;
+  docked: { since: string; byName: string | null } | null;
+}
+
+export const recognizeUnits = (nodeNums: readonly number[]) =>
+  apiClient<RecognizedUnit[]>(
+    `/devices/by-node?${nodeNums.map((nodeNum) => `nodeNum=${nodeNum}`).join('&')}`,
+  );
+
+// devices api-design 31: opens or renews the dock session of a unit the connector holds.
+export interface DockSessionView {
+  deviceId: string;
+  assetTag: string;
+  since: string;
+  renewedAt: string;
+  expiresAt: string;
+}
+
+export const openDockSession = (deviceId: string, nodeNum: number) =>
+  apiClient<DockSessionView>(`/devices/${deviceId}/dock`, {
+    method: 'PUT',
+    body: JSON.stringify({ nodeNum }),
+  });
+
+// devices api-design 32; `keepalive` lets the request outlive a closing tab.
+export const endDockSession = (deviceId: string, keepalive = false) =>
+  apiClient<null>(`/devices/${deviceId}/dock`, { method: 'DELETE', keepalive });

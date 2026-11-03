@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DockError,
   choosePort,
-  grantedPort,
   isDockSupported,
   openDock,
   toNodeId,
@@ -219,10 +218,9 @@ describe('meshtastic-dock', () => {
     calls.forEach((spy) => expect(spy).not.toHaveBeenCalled());
   });
 
-  it('reuses the one granted port, else asks the browser chooser', async () => {
+  it('asks the browser chooser for a new port', async () => {
     const { serial, port } = dock();
     expect(isDockSupported()).toBe(true);
-    expect(await grantedPort()).toBe(port);
     expect(await choosePort()).toBe(port);
     serial.chooserAnswer = null;
     expect(await failureOf(choosePort())).toEqual({ failure: 'no-port', step: 'choose port' });
