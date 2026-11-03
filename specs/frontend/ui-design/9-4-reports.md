@@ -61,7 +61,7 @@ downloaded equals what the report states. The screen is read-only; the range is 
 | Error `UNAUTHENTICATED` (401) | One silent refresh, then `/sign-in` |
 | CSV download fails | Inline error beside the button with the server message and a Retry; the table stays |
 | Not found or forbidden (403) | MSG26 full-page notice |
-| Success | Table, chart (revenue only) and a footer line "{n} rows, generated {time}" |
+| Success | Table, chart (utilization and revenue tabs) and a footer line "{n} rows, generated {time}" |
 
 ## Form fields (if any)
 
