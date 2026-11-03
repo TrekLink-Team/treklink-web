@@ -25,14 +25,22 @@ import { ErrorState, Fact } from '../shared/ui/bits';
 import { Alert } from '../shared/ui/Alert';
 import { StatusBadge } from '../shared/ui/Badge';
 import { Button } from '../shared/ui/Button';
-import { DataTable, Pagination, type Column, type RowAction } from '../shared/ui/DataTable';
-import { lockedWhileSelecting } from '../shared/ui/lockedWhileSelecting';
+import { Pagination } from '../shared/ui/DataTable';
+import { Calculator, CircleCheck, Scale } from 'lucide-react';
+import {
+  CollectionView,
+  pageInfoOf,
+  type CollectionAction,
+  type CollectionBulkAction,
+  type CollectionField,
+  type CollectionFilter,
+  type CollectionQuery,
+} from '../shared/ui/collection-view';
 import { BulkActionDialog } from '../shared/ui/BulkAction';
 import type { BulkItem } from '../shared/ui/bulkSequence';
 import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
 import { Drawer } from '../shared/ui/Drawer';
 import { PageHeader } from '../shared/ui/PageHeader';
-import { Toolbar } from '../shared/ui/Toolbar';
 import { DEVICE_STATUS, MAINTENANCE_REASON, MAINTENANCE_STATUS } from '../shared/ui/status';
 import { Field, Input, RadioGroup, Select, Textarea } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
@@ -745,90 +753,61 @@ const pagerOf = (
     />
   ) : undefined;
 
+// One list of maintenance records on CollectionView (chapter 06 §9, D-096). The device tag and Show
+// details open the record drawer, this screen's record view in place of the built-in pane.
 const RecordsTable: React.FC<{
   caption: string;
-  records: MaintenanceRecord[] | undefined;
+  page: { pageNumber: number; pageSize: number; totalCount: number; items: MaintenanceRecord[] } | undefined;
   loading: boolean;
   error: unknown;
   onRetry: () => void;
   empty: string;
   onOpen: (record: MaintenanceRecord) => void;
-  rowActions?: (record: MaintenanceRecord) => RowAction[];
+  actions?: CollectionAction<MaintenanceRecord>[];
+  bulkActions?: CollectionBulkAction<MaintenanceRecord>[];
+  filters?: CollectionFilter<MaintenanceRecord>[];
+  query?: CollectionQuery;
+  onQueryChange?: (query: CollectionQuery) => void;
+  resetKey?: string;
   footer?: React.ReactNode;
-  selection?: {
-    ids: ReadonlySet<string>;
-    onChange: (ids: Set<string>) => void;
-    actions: () => React.ReactNode;
-  };
-}> = ({ caption, records, loading, error, onRetry, empty, onOpen, rowActions, footer, selection }) => {
-  const columns: Column<MaintenanceRecord>[] = [
+}> = ({ caption, page, loading, error, onRetry, empty, onOpen, actions, bulkActions, filters, query, onQueryChange, resetKey, footer }) => {
+  const fields: CollectionField<MaintenanceRecord>[] = [
+    { key: 'reason', label: 'Reason', render: (record) => MAINTENANCE_REASON[record.reason], compact: true },
     {
-      key: 'device',
-      header: 'Device',
-      cell: (record) => (
-        <button type="button" className={LINK} onClick={() => onOpen(record)}>
-          {record.device.assetTag}
-        </button>
-      ),
+      key: 'status',
+      label: 'Status',
+      render: (record) => <StatusBadge entry={MAINTENANCE_STATUS[record.status]} />,
+      compact: true,
     },
-    { key: 'reason', header: 'Reason', cell: (record) => MAINTENANCE_REASON[record.reason] },
-    { key: 'status', header: 'Status', cell: (record) => <StatusBadge entry={MAINTENANCE_STATUS[record.status]} /> },
-    { key: 'expected', header: 'Expected', cell: (record) => record.expectedAt },
-    { key: 'workBy', header: 'Work by', hideOnMobile: true, cell: workByOf },
-    { key: 'cost', header: 'Cost', align: 'end', cell: costOf },
+    { key: 'expected', label: 'Expected', render: (record) => record.expectedAt, compact: true },
+    { key: 'workBy', label: 'Work by', render: workByOf },
+    { key: 'cost', label: 'Cost', align: 'end', render: costOf },
   ];
   return (
-    <DataTable
-      caption={caption}
-      columns={columns}
-      rows={records}
-      rowId={(record) => record.id}
-      rowLabel={(record) => record.device.assetTag}
-      noun={{ one: 'record', other: 'records' }}
-      selectedIds={selection?.ids}
-      onSelectionChange={selection?.onChange}
-      bulkActions={selection ? () => selection.actions() : undefined}
+    <CollectionView<MaintenanceRecord>
+      label={caption}
+      items={page?.items}
       loading={loading}
       error={error ? <ErrorState error={error} onRetry={onRetry} /> : undefined}
-      empty={{ title: empty }}
-      rowActions={rowActions}
-      renderCard={(record) => (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <button type="button" className={LINK} onClick={() => onOpen(record)}>
-              {record.device.assetTag}
-            </button>
-            <StatusBadge entry={MAINTENANCE_STATUS[record.status]} />
-          </div>
-          <p className="text-body-sm text-ink-muted">
-            {MAINTENANCE_REASON[record.reason]}, expected {record.expectedAt}
-          </p>
-          {rowActions && (
-            <div className="mt-1 flex flex-wrap gap-2">
-              {lockedWhileSelecting(rowActions(record), (selection?.ids.size ?? 0) > 0).map((action) => (
-                <Button
-                  key={action.key}
-                  size="sm"
-                  aria-disabled={action.disabled || undefined}
-                  title={action.disabled ? action.disabledReason : undefined}
-                  onClick={() => {
-                    if (!action.disabled) action.onSelect();
-                  }}
-                >
-                  {action.label}
-                </Button>
-              ))}
-              {lockedWhileSelecting(rowActions(record), (selection?.ids.size ?? 0) > 0)
-                .filter((action) => action.disabled && action.disabledReason)
-                .map((action) => (
-                  <span key={`${action.key}-reason`} className="w-full text-body-sm text-ink-muted">
-                    {action.disabledReason}
-                  </span>
-                ))}
-            </div>
-          )}
-        </div>
+      itemId={(record) => record.id}
+      itemName={(record) => record.device.assetTag}
+      itemTitle={(record) => (
+        <button type="button" className={`${LINK} inline-flex min-h-6 items-center`} onClick={() => onOpen(record)}>
+          {record.device.assetTag}
+        </button>
       )}
+      fields={fields}
+      noun={{ one: 'record', other: 'records' }}
+      itemActions={actions}
+      bulkActions={bulkActions}
+      filters={filters}
+      query={query}
+      onQueryChange={onQueryChange ?? (() => undefined)}
+      resetKey={resetKey}
+      hideCommandBar={filters || bulkActions ? false : undefined}
+      pageInfo={pageInfoOf(page)}
+      onShowDetails={onOpen}
+      emptyState={{ title: empty }}
       footer={footer}
     />
   );
@@ -862,9 +841,11 @@ export const MaintenancePage: React.FC = () => {
   const [completing, setCompleting] = useState<MaintenanceRecord | null>(null);
   const [deciding, setDeciding] = useState<MaintenanceRecord | null>(null);
   const [completed, setCompleted] = useState<MaintenanceRecord | null>(null);
-  // The approvals selection (W29), kept across pages.
-  const [chosenApprovals, setChosenApprovals] = useState<Map<string, MaintenanceRecord>>(new Map());
-  const [bulkDecision, setBulkDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
+  // A bulk decision on the selected costs of the current page (W29, chapter 06 §9.4).
+  const [bulkDecision, setBulkDecision] = useState<{
+    decision: 'APPROVED' | 'REJECTED';
+    records: MaintenanceRecord[];
+  } | null>(null);
   const end = weekEnd();
 
   const records = useMaintenanceRecords({
@@ -886,19 +867,8 @@ export const MaintenancePage: React.FC = () => {
   );
   const approvals = useMaintenanceRecords({ status: ['PENDING_APPROVAL'], pageNumber: approvalsPage }, isAdmin);
 
-  const selectApprovals = (ids: Set<string>) =>
-    setChosenApprovals((current) => {
-      const next = new Map<string, MaintenanceRecord>();
-      ids.forEach((id) => {
-        const row = current.get(id) ?? approvals.data?.items.find((item) => item.id === id);
-        if (row) next.set(id, row);
-      });
-      return next;
-    });
   // BR-44: never a record the viewer estimated. A bulk approval approves the amount the record waits
   // on, the actual cost once completed, else the estimate; a record with neither is left out.
-  const rejectable = [...chosenApprovals.values()].filter((record) => record.estimatedById !== user?.id);
-  const approvable = rejectable.filter((record) => amountToApprove(record) !== null);
   const approvalItems = (rows: MaintenanceRecord[]): BulkItem[] =>
     rows.map((record) => ({
       id: record.id,
@@ -934,6 +904,21 @@ export const MaintenancePage: React.FC = () => {
   };
 
   const filtered = Boolean(status || reason);
+
+  const estimateAction: CollectionAction<MaintenanceRecord> = {
+    key: 'estimate',
+    label: 'Estimate',
+    icon: <Calculator />,
+    allowed: (record) => record.status === 'OPEN',
+    onSelect: (record) => setEstimating(record),
+  };
+  const completeAction: CollectionAction<MaintenanceRecord> = {
+    key: 'complete',
+    label: 'Complete',
+    icon: <CircleCheck />,
+    allowed: (record) => record.status === 'OPEN',
+    onSelect: (record) => setCompleting(record),
+  };
 
   return (
     <section aria-labelledby="maintenance-title" className="flex flex-col gap-4">
@@ -979,63 +964,44 @@ export const MaintenancePage: React.FC = () => {
       />
 
       <TabPanel idPrefix="maintenance" tabKey="records" className={tab === 'records' ? undefined : 'hidden'}>
-        <Toolbar
-          label="Maintenance record filters"
-          start={
-            <>
-              <Field id="maintenance-status" label="Status" hideLabel className="w-full sm:w-56">
-                <Select
-                  id="maintenance-status"
-                  value={status}
-                  onChange={(event) => {
-                    setStatus(event.target.value as MaintenanceStatus | '');
-                    setPageNumber(1);
-                  }}
-                >
-                  <option value="">Every status</option>
-                  {STATUSES.map((key) => (
-                    <option key={key} value={key}>
-                      {MAINTENANCE_STATUS[key].label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field id="maintenance-reason" label="Reason" hideLabel className="w-full sm:w-56">
-                <Select
-                  id="maintenance-reason"
-                  value={reason}
-                  onChange={(event) => {
-                    setReason(event.target.value as MaintenanceReason | '');
-                    setPageNumber(1);
-                  }}
-                >
-                  <option value="">Every reason</option>
-                  {REASONS.map((key) => (
-                    <option key={key} value={key}>
-                      {MAINTENANCE_REASON[key]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </>
-          }
-        />
+        {/* Status is the Show filter of the list; the reason stays a select beside it until the
+            multi-select Show menu lands (leader ruling of 2026-11-04 on the fleet). */}
+        <Field id="maintenance-reason" label="Reason" className="mb-3 w-full sm:w-56">
+          <Select
+            id="maintenance-reason"
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value as MaintenanceReason | '');
+              setPageNumber(1);
+            }}
+          >
+            <option value="">Every reason</option>
+            {REASONS.map((key) => (
+              <option key={key} value={key}>
+                {MAINTENANCE_REASON[key]}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <RecordsTable
           caption="Maintenance records"
-          records={records.data?.items}
+          page={records.data}
           loading={records.isLoading}
           error={records.error}
           onRetry={() => void records.refetch()}
           empty={filtered ? MSG01 : 'No maintenance records yet.'}
           onOpen={setViewing}
-          rowActions={(record) =>
-            record.status === 'OPEN'
-              ? [
-                  { key: 'estimate', label: 'Estimate', onSelect: () => setEstimating(record) },
-                  { key: 'complete', label: 'Complete', onSelect: () => setCompleting(record) },
-                ]
-              : []
-          }
+          actions={[estimateAction, completeAction]}
+          filters={[
+            { key: '', label: 'Every status' },
+            ...STATUSES.map((key) => ({ key, label: MAINTENANCE_STATUS[key].label })),
+          ]}
+          query={{ search: '', filter: status, sort: null }}
+          onQueryChange={(next) => {
+            setStatus(next.filter as MaintenanceStatus | '');
+            setPageNumber(1);
+          }}
+          resetKey={reason}
           footer={pagerOf(records.data, setPageNumber)}
         />
       </TabPanel>
@@ -1043,13 +1009,13 @@ export const MaintenancePage: React.FC = () => {
       <TabPanel idPrefix="maintenance" tabKey="week" className={tab === 'week' ? 'flex flex-col gap-4' : 'hidden'}>
         <RecordsTable
           caption="This week's service"
-          records={week.data?.items}
+          page={week.data}
           loading={week.isLoading}
           error={week.error}
           onRetry={() => void week.refetch()}
           empty="Nothing is due this week."
           onOpen={setViewing}
-          rowActions={(record) => [{ key: 'complete', label: 'Complete', onSelect: () => setCompleting(record) }]}
+          actions={[{ ...completeAction, allowed: undefined }]}
           footer={pagerOf(week.data, setWeekPage)}
         />
         {dueButOut.length > 0 && (
@@ -1080,40 +1046,36 @@ export const MaintenancePage: React.FC = () => {
         <TabPanel idPrefix="maintenance" tabKey="approvals" className={tab === 'approvals' ? undefined : 'hidden'}>
           <RecordsTable
             caption="Costs waiting for a decision"
-            records={approvals.data?.items}
+            page={approvals.data}
             loading={approvals.isLoading}
             error={approvals.error}
             onRetry={() => void approvals.refetch()}
             empty="No costs are waiting for a decision."
             onOpen={setViewing}
-            rowActions={(record) => [
+            actions={[
               {
                 key: 'decide',
                 label: 'Decide',
-                disabled: record.estimatedById === user?.id,
-                disabledReason: record.estimatedById === user?.id ? SELF_ESTIMATED : undefined,
-                onSelect: () => setDeciding(record),
+                icon: <Scale />,
+                unavailableReason: (record) => (record.estimatedById === user?.id ? SELF_ESTIMATED : undefined),
+                onSelect: (record) => setDeciding(record),
               },
             ]}
-            selection={{
-              ids: new Set(chosenApprovals.keys()),
-              onChange: selectApprovals,
-              actions: () =>
-                approvable.length > 0 || rejectable.length > 0 ? (
-                  <>
-                    {approvable.length > 0 && (
-                      <Button size="sm" variant="primary" onClick={() => setBulkDecision('APPROVED')}>
-                        Approve {costsText(approvable.length)}
-                      </Button>
-                    )}
-                    <Button size="sm" variant="danger" onClick={() => setBulkDecision('REJECTED')}>
-                      Reject {costsText(rejectable.length)}
-                    </Button>
-                  </>
-                ) : (
-                  <span className="text-body-sm text-ink-muted">{SELF_ESTIMATED}</span>
-                ),
-            }}
+            bulkActions={[
+              {
+                key: 'approve',
+                label: (count) => `Approve ${costsText(count)}`,
+                appliesTo: (record) => record.estimatedById !== user?.id && amountToApprove(record) !== null,
+                onSelect: (rows) => setBulkDecision({ decision: 'APPROVED', records: rows }),
+              },
+              {
+                key: 'reject',
+                label: (count) => `Reject ${costsText(count)}`,
+                destructive: true,
+                appliesTo: (record) => record.estimatedById !== user?.id,
+                onSelect: (rows) => setBulkDecision({ decision: 'REJECTED', records: rows }),
+              },
+            ]}
             footer={pagerOf(approvals.data, setApprovalsPage)}
           />
         </TabPanel>
@@ -1177,31 +1139,28 @@ export const MaintenancePage: React.FC = () => {
       )}
       {bulkDecision && (
         <BulkActionDialog
-          title={`${bulkDecision === 'APPROVED' ? 'Approve' : 'Reject'} ${costsText((bulkDecision === 'APPROVED' ? approvable : rejectable).length)}?`}
-          confirmLabel={`${bulkDecision === 'APPROVED' ? 'Approve' : 'Reject'} ${costsText((bulkDecision === 'APPROVED' ? approvable : rejectable).length)}`}
+          title={`${bulkDecision.decision === 'APPROVED' ? 'Approve' : 'Reject'} ${costsText(bulkDecision.records.length)}?`}
+          confirmLabel={`${bulkDecision.decision === 'APPROVED' ? 'Approve' : 'Reject'} ${costsText(bulkDecision.records.length)}`}
           description={
-            bulkDecision === 'APPROVED'
+            bulkDecision.decision === 'APPROVED'
               ? 'Each record is approved at the amount shown and returns to OPEN, so the work can be completed.'
               : 'Each record returns to OPEN for Staff to re-estimate or close it unrepairable.'
           }
-          destructive={bulkDecision === 'REJECTED'}
-          needsReason={bulkDecision === 'REJECTED'}
-          items={approvalItems(bulkDecision === 'APPROVED' ? approvable : rejectable)}
+          destructive={bulkDecision.decision === 'REJECTED'}
+          needsReason={bulkDecision.decision === 'REJECTED'}
+          items={approvalItems(bulkDecision.records)}
           run={(item, bulkReason) => {
-            const record = chosenApprovals.get(item.id);
+            const record = bulkDecision.records.find((row) => row.id === item.id);
             if (!record) return Promise.reject(new Error('Record not found.'));
             return decideMaintenance(record.device.id, record.id, {
-              decision: bulkDecision,
-              ...(bulkDecision === 'APPROVED'
+              decision: bulkDecision.decision,
+              ...(bulkDecision.decision === 'APPROVED'
                 ? { approvedCostVnd: amountToApprove(record) ?? 0 }
                 : { reason: bulkReason ?? '' }),
               expectedVersion: record.version,
             });
           }}
-          onFinished={() => {
-            setChosenApprovals(new Map());
-            void invalidate();
-          }}
+          onFinished={() => void invalidate()}
           onClose={() => setBulkDecision(null)}
         />
       )}

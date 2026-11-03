@@ -296,7 +296,9 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
   it('filters the records by status and reason', async () => {
     renderPage();
     await table();
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'COMPLETED' } });
+    // Status is the Show filter of the list (chapter 06 §9.3); the reason select stays beside it.
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Completed' }));
     fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'INSPECTION_FAILED' } });
     await waitFor(() =>
       expect(recordFilters).toContainEqual(

@@ -131,6 +131,6 @@ rows (D-059 rule 7), so no column sorts. No bulk: each false alarm needs its own
 
 Added by KhoaDD. The Incident queue tab renders through `CollectionView` (chapter 06 §9): the four scope
 buttons become its Show filter, Report to authorities is an item action, and Declare false alarm is in
-the Change status menu and opens the detail with its dialog, as before. The incident code still opens the
-inline detail beside the queue, which stays this screen's details view, so the CollectionView pane is
-not used here. Endpoints and messages are unchanged.
+the Change status menu and opens the detail with its dialog, as before. The incident code and Show details (the
+first item action) open the inline detail beside the queue, which stays this screen's details view in
+place of the built-in pane (`onShowDetails`). Endpoints and messages are unchanged.

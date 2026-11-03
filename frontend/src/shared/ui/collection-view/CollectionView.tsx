@@ -100,6 +100,11 @@ export interface CollectionViewProps<T> {
   defaultView?: CollectionViewKey;
   /** The details pane of §9.8; false leaves it out. */
   details?: CollectionDetails<T> | false;
+  /**
+   * A page's own record view (a drawer with its own actions) in place of the built-in pane: Show
+   * details stays the first item action and opens it, and the command bar has no pane toggle.
+   */
+  onShowDetails?: (item: T) => void;
   emptyState: CollectionEmptyState;
   search?: { label: string; placeholder?: string };
   filters?: CollectionFilter<T>[];
@@ -142,6 +147,7 @@ export function CollectionView<T>({
   views = ['details', 'list'],
   defaultView,
   details = {},
+  onShowDetails,
   emptyState,
   search,
   filters,
@@ -190,7 +196,8 @@ export function CollectionView<T>({
   useFocusClearOf(barNode, 'top');
 
   const selectable = bulkActions.length > 0 || transitions !== undefined;
-  const showPane = details !== false;
+  const showPane = details !== false && onShowDetails === undefined;
+  const offersDetails = showPane || onShowDetails !== undefined;
 
   // The visible items: a server-paged collection shows the page as given; a client collection
   // filters, searches and sorts the items it holds.
@@ -368,6 +375,8 @@ export function CollectionView<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const showDetails = (item: T) => (onShowDetails ? onShowDetails(item) : openDetails(item));
+
   const openDetails = (item: T) => {
     setOpener(document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setPaneId(itemId(item));
@@ -460,14 +469,18 @@ export function CollectionView<T>({
   };
 
   const detailsButton = (item: T) =>
-    showPane ? (
+    offersDetails ? (
       <TooltipButton
         key="details"
         tooltip="Show details"
         name={`Show details of ${itemName(item)}`}
         icon={<Info />}
-        pressed={paneVisible && paneItem !== undefined && itemId(paneItem) === itemId(item)}
-        onClick={() => openDetails(item)}
+        pressed={
+          showPane
+            ? paneVisible && paneItem !== undefined && itemId(paneItem) === itemId(item)
+            : undefined
+        }
+        onClick={() => showDetails(item)}
       />
     ) : null;
 
@@ -491,8 +504,8 @@ export function CollectionView<T>({
   const phoneMenu = (item: T) => {
     const name = itemName(item);
     const plain: MenuItem[] = [
-      ...(showPane
-        ? [{ key: 'details', label: 'Show details', onSelect: () => openDetails(item) }]
+      ...(offersDetails
+        ? [{ key: 'details', label: 'Show details', onSelect: () => showDetails(item) }]
         : []),
       ...actionsOf(item).map((action) => ({
         key: action.key,
@@ -818,7 +831,7 @@ export function CollectionView<T>({
   const narrowHide = (field: CollectionField<T>) =>
     fitsNarrow && field.hideWithPane ? '[@container(max-width:1099px)]:hidden' : undefined;
   const statusColumn = transitions !== undefined && !pushedAside && !phone;
-  const actionsColumn = !phone && (showPane || itemActions.length > 0);
+  const actionsColumn = !phone && (offersDetails || itemActions.length > 0);
 
   const detailsView = (
     <div className="relative">

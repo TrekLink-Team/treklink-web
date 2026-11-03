@@ -301,8 +301,8 @@ export const StaffIncidentsPage: React.FC = () => {
         <TabPanel idPrefix="staff-incidents" tabKey="queue">
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={selected ? 'hidden lg:block' : ''}>
-              {/* The incident detail of screen 8.2 opens beside the queue from the code; it is the
-                  queue's details view, so the CollectionView pane is not used here. */}
+              {/* The incident detail of screen 8.2 opens beside the queue, from the code or from
+                  Show details: it is this queue's details view, in place of the built-in pane. */}
               <CollectionView<Incident>
                 label="Incidents"
                 items={data?.items}
@@ -343,7 +343,7 @@ export const StaffIncidentsPage: React.FC = () => {
                 }}
                 hideCommandBar={false}
                 pageInfo={pageInfoOf(data)}
-                details={false}
+                onShowDetails={(incident) => open(incident)}
                 emptyState={{ title: 'No unrouted or escalated incidents need attention.' }}
                 footer={
                   data && data.totalPages > 1 ? (
