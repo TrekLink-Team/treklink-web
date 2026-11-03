@@ -4,3 +4,5 @@ export * from './DetailsPane';
 export * from './selection';
 export * from './TooltipButton';
 export * from './types';
+export * from './CollectionPaneHost';
+export * from './paneHostContext';
