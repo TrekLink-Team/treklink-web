@@ -185,11 +185,13 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(await screen.findByText('No devices registered yet.')).toBeTruthy();
   });
 
-  it('shows a card per device for the phone layout', async () => {
+  it('shows each device on one line in the List view, the phone default (chapter 06 §10.5)', async () => {
     renderPage();
-    const cards = within(await screen.findByRole('list', { name: 'Devices' }));
-    expect(cards.getByText('TL-0042')).toBeTruthy();
-    expect(cards.getByText(/Battery 96%/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'View: Details list. Switch to List' }));
+    const list = within(screen.getByRole('list', { name: 'Devices' }));
+    expect(list.getByText('TL-0042')).toBeTruthy();
+    expect(list.getByText('96%')).toBeTruthy();
+    expect(list.getByText('Available')).toBeTruthy();
   });
 });
 
@@ -213,17 +215,31 @@ describe('FleetPage row actions and bulk (W29, UI standard §2 and §3)', () => 
     devices = fleet();
     renderPage();
     // Staff: intake on MAINTENANCE, reset on RETURNED, nothing on RENTED or RETIRED.
-    expect(screen.getByRole('button', { name: /Record intake check\s+TL-0001/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Retire device\s+TL-0001/ })).toBeNull();
-    expect(screen.getByRole('button', { name: /Record reset\s+TL-0003/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /TL-0004$/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Dispose device\s+TL-0005/ })).toBeNull();
+    // Intake and reset are item actions; retire and dispose are status changes (chapter 06 §9.6).
+    expect(screen.getByRole('button', { name: 'Record intake check TL-0001' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Record reset TL-0003' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Change status of TL-000/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Record .*TL-0004/ })).toBeNull();
     cleanup();
 
     roles = ['ADMIN'];
     renderPage();
-    expect(screen.getByRole('button', { name: /Retire device\s+TL-0001/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Dispose device\s+TL-0005/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Status: Maintenance. Change status of TL-0001' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Retire device']);
+    fireEvent.keyDown(screen.getByRole('menuitem'), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Status: Retired. Change status of TL-0005' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Dispose device']);
+    expect(screen.queryByRole('button', { name: /Change status of TL-0004/ })).toBeNull();
+  });
+
+  it('clears the selection when a status chip changes (leader ruling of 2026-11-03)', () => {
+    devices = fleet();
+    renderPage();
+    fireEvent.click(screen.getByLabelText('Select TL-0003'));
+    expect(screen.getByRole('button', { name: 'Record reset for 1 device' })).toBeTruthy();
+    fireEvent.click(within(screen.getByRole('group', { name: 'Filter by status' })).getByRole('button', { name: /Returned/ }));
+    expect((screen.getByLabelText('Select TL-0003') as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Record reset for 1 device' })).toBeNull();
   });
 
   it('retires one device with a reason and its loaded version', async () => {
@@ -231,7 +247,8 @@ describe('FleetPage row actions and bulk (W29, UI standard §2 and §3)', () => 
     devices = fleet();
     retireDevice.mockResolvedValue(device({ status: 'RETIRED' }));
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: /Retire device\s+TL-0002/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Status: Maintenance. Change status of TL-0002' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Retire device' }));
     const dialog = within(screen.getByRole('alertdialog', { name: 'Retire device TL-0002?' }));
     fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Water damage' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Retire device' }));

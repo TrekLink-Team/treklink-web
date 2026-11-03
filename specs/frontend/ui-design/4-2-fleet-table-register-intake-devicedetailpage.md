@@ -138,7 +138,7 @@ Fewer than three actions show inline, three or more in the row menu. The intake,
 dialogs are shared with the device page (`widgets/DeviceActions/DeviceDialogs.tsx`); the dispose
 dialog is an alert dialog.
 
-Selection: one checkbox per row named "Select {asset tag}", kept across pages and filters. Bulk bar:
+Selection: one checkbox per row named "Select {asset tag}". Since D-096 (2026-11-04) it covers the current page only and a search, a variant, a status chip or a page change clears it (chapter 06 §9.4, leader ruling of 2026-11-03). Bulk bar:
 
 | Bulk action | Rows it runs on | Confirmation |
 |---|---|---|
@@ -150,3 +150,13 @@ succeeded: a toast "N of N done.". Any failure: a summary dialog "k of N done" l
 with the server's message (for example MSG29 for an open record) and the rows that succeeded. No bulk
 endpoint exists or is needed. "Select all N results" is not offered: a client-side sequence needs the
 rows themselves. The devices API does not sort (api-design 06), so no column sorts.
+
+## Fleet on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. `/t/fleet` renders through `CollectionView` (chapter 06 §9): the search and the variant
+filter (Show) in its command bar, the selection with the bulk reset and retire, Record intake check and
+Record reset as item actions with tooltips, Retire device and Dispose device in the Change status menu,
+and the details pane with a link to the device page. The status chips (multi-select, counts, in the
+address) stay above the collection until the leader rules on moving them into the Show dropdown, which is
+single-select. Data and endpoints are unchanged.
+

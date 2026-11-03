@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import {
   recordReset,
@@ -19,10 +19,15 @@ import { Dialog } from '../shared/ui/Dialog';
 import { Field, Input, Select } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
 import { ErrorState } from '../shared/ui/bits';
-import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
+import { Pagination } from '../shared/ui/DataTable';
 import { PageHeader } from '../shared/ui/PageHeader';
-import { Toolbar, ToolbarSearch } from '../shared/ui/Toolbar';
 import { cn } from '../shared/ui/cn';
+import {
+  CollectionView,
+  type CollectionBulkAction,
+  type CollectionField,
+  type CollectionTransition,
+} from '../shared/ui/collection-view';
 import { formatDateTime } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { useToast } from '../shared/ui/toastStore';
@@ -30,9 +35,9 @@ import { hasAnyRole } from '../shared/lib/permissions';
 import { BulkActionDialog } from '../shared/ui/BulkAction';
 import type { BulkItem } from '../shared/ui/bulkSequence';
 import { StateChangeDialog, type StateTransition } from '../shared/ui/StateChange';
-import type { RowAction } from '../shared/ui/DataTable';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
-import { ALERT, LINK } from '../shared/ui/styles';
+import { ALERT } from '../shared/ui/styles';
+import { ClipboardCheck, RotateCcw } from 'lucide-react';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -86,7 +91,7 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
     setForm((prev) => ({
       ...prev,
       hardwareVariantId,
-      firmwareVersion: touchedFirmware ? prev.firmwareVersion : variant?.firmwareBaseline ?? '',
+      firmwareVersion: touchedFirmware ? prev.firmwareVersion : (variant?.firmwareBaseline ?? ''),
     }));
   };
 
@@ -134,7 +139,12 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
             onChange={(event) => setForm((prev) => ({ ...prev, nodeNum: event.target.value }))}
           />
         </Field>
-        <Field id="register-variant" label="Hardware variant" required error={errors.hardwareVariantId}>
+        <Field
+          id="register-variant"
+          label="Hardware variant"
+          required
+          error={errors.hardwareVariantId}
+        >
           <Select
             id="register-variant"
             value={form.hardwareVariantId}
@@ -151,7 +161,12 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
               ))}
           </Select>
         </Field>
-        <Field id="register-firmware" label="Firmware version" required error={errors.firmwareVersion}>
+        <Field
+          id="register-firmware"
+          label="Firmware version"
+          required
+          error={errors.firmwareVersion}
+        >
           <Input
             id="register-firmware"
             value={form.firmwareVersion}
@@ -193,8 +208,9 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
 // The status filter lives in the address (`?status=MAINTENANCE&status=LOST`), so a link or a reload
 // keeps it. Unknown values are dropped.
 const statusesOf = (params: URLSearchParams): DeviceStatus[] =>
-  params.getAll('status').filter((value): value is DeviceStatus => STATUSES.includes(value as DeviceStatus));
-
+  params
+    .getAll('status')
+    .filter((value): value is DeviceStatus => STATUSES.includes(value as DeviceStatus));
 
 // The row actions of screen 4.2 follow the device state machine (devices design §2) and the viewer:
 // Staff and Admin record the intake check (IN_INTAKE, or MAINTENANCE once its record is closed; the
@@ -241,13 +257,17 @@ const devicesText = (count: number) => `${count} ${count === 1 ? 'device' : 'dev
 
 type BulkKind = 'reset' | 'retire';
 
-const battery = (device: Device) => (device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown');
-const lastSeen = (device: Device) => (device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never');
+const battery = (device: Device) =>
+  device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown';
+const lastSeen = (device: Device) =>
+  device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never';
 
 // /t/fleet, FleetPage of screen 4.2 (devices api-design 01, 05 and 06). TrekLink Staff and Admin.
-// Status chips (multi-select, each with its count), variant and search filters, the table with a
-// card per device below 768 px, and the register dialog. The page does not subscribe to live
-// events; Staff use the fleet map for live state.
+// Status chips (multi-select, each with its count, in the address) above the fleet on CollectionView
+// (chapter 06 §9, D-096): search and the variant filter in its command bar, the selection of the
+// current page with the bulk reset and retire, intake and reset as item actions, retire and dispose
+// as status changes, and the details pane. The devices API pages on the server and does not sort.
+// The page does not subscribe to live events; Staff use the fleet map for live state.
 export const FleetPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const statuses = statusesOf(params);
@@ -256,9 +276,7 @@ export const FleetPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [registering, setRegistering] = useState(false);
   const [acting, setActing] = useState<{ action: FleetAction; device: Device } | null>(null);
-  // The selection survives paging and filtering (UI standard §2): the rows chosen on any page.
-  const [selected, setSelected] = useState<Map<string, Device>>(new Map());
-  const [bulk, setBulk] = useState<BulkKind | null>(null);
+  const [bulk, setBulk] = useState<{ kind: BulkKind; devices: Device[] } | null>(null);
   const { user } = useAuth();
   const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
   const navigate = useNavigate();
@@ -277,7 +295,9 @@ export const FleetPage: React.FC = () => {
   const filtered = statuses.length > 0 || Boolean(hardwareVariantId) || Boolean(q.trim());
 
   const toggleStatus = (status: DeviceStatus) => {
-    const next = statuses.includes(status) ? statuses.filter((value) => value !== status) : [...statuses, status];
+    const next = statuses.includes(status)
+      ? statuses.filter((value) => value !== status)
+      : [...statuses, status];
     const nextParams = new URLSearchParams(params);
     nextParams.delete('status');
     next.forEach((value) => nextParams.append('status', value));
@@ -302,28 +322,8 @@ export const FleetPage: React.FC = () => {
     void refreshDevices();
   };
 
-  const select = (ids: Set<string>) =>
-    setSelected((current) => {
-      const next = new Map<string, Device>();
-      ids.forEach((id) => {
-        const device = current.get(id) ?? data?.items.find((item) => item.id === id);
-        if (device) next.set(id, device);
-      });
-      return next;
-    });
-
-  const selectedDevices = [...selected.values()];
-  const resettable = selectedDevices.filter((device) => device.status === 'RETURNED');
-  const retirable = isAdmin ? selectedDevices.filter((device) => device.status === 'MAINTENANCE') : [];
-  const itemsOf = (devices: Device[]): BulkItem[] => devices.map((device) => ({ id: device.id, label: device.assetTag }));
-
-  const rowActions = (device: Device): RowAction[] =>
-    fleetActionsOf(device, isAdmin).map((action) => ({
-      key: action,
-      label: ACTION_LABEL[action],
-      destructive: action === 'retire' || action === 'dispose',
-      onSelect: () => setActing({ action, device }),
-    }));
+  const itemsOf = (devices: Device[]): BulkItem[] =>
+    devices.map((device) => ({ id: device.id, label: device.assetTag }));
 
   const registered = async (device: Device) => {
     setRegistering(false);
@@ -333,23 +333,68 @@ export const FleetPage: React.FC = () => {
     navigate(`/t/devices/${device.id}`);
   };
 
-  const columns: Column<Device>[] = [
+  const fields: CollectionField<Device>[] = [
+    { key: 'nodeId', label: 'Node id', render: (device) => device.nodeId, hideWithPane: true },
     {
-      key: 'assetTag',
-      header: 'Asset tag',
-      cell: (device) => (
-        <Link to={`/t/devices/${device.id}`} className={LINK}>
-          {device.assetTag}
-        </Link>
-      ),
+      key: 'variant',
+      label: 'Variant',
+      render: (device) => device.hardwareVariant.code,
+      hideWithPane: true,
     },
-    { key: 'nodeId', header: 'Node id', cell: (device) => device.nodeId },
-    { key: 'variant', header: 'Variant', cell: (device) => device.hardwareVariant.code },
-    { key: 'status', header: 'Status', cell: (device) => <StatusBadge entry={DEVICE_STATUS[device.status]} /> },
-    { key: 'firmware', header: 'Firmware', cell: (device) => device.firmwareVersion },
-    { key: 'battery', header: 'Battery', align: 'end', cell: battery },
-    { key: 'lastSeen', header: 'Last seen', cell: lastSeen },
-    { key: 'serviceDue', header: 'Service due', cell: (device) => device.serviceDueAt ?? 'None' },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (device) => <StatusBadge entry={DEVICE_STATUS[device.status]} />,
+      compact: true,
+    },
+    {
+      key: 'firmware',
+      label: 'Firmware',
+      render: (device) => device.firmwareVersion,
+      hideWithPane: true,
+    },
+    { key: 'battery', label: 'Battery', align: 'end', render: battery, compact: true },
+    { key: 'lastSeen', label: 'Last seen', render: lastSeen, compact: true },
+    {
+      key: 'serviceDue',
+      label: 'Service due',
+      render: (device) => device.serviceDueAt ?? 'None',
+      hideWithPane: true,
+    },
+  ];
+
+  // Retire and dispose are state changes of the device (devices design §2), in Change status; the
+  // intake check and the reset are records with their own forms, so they are item actions.
+  const transitions = (device: Device): CollectionTransition<Device>[] =>
+    fleetActionsOf(device, isAdmin)
+      .filter(
+        (action): action is 'retire' | 'dispose' => action === 'retire' || action === 'dispose',
+      )
+      .map((action) => ({
+        key: action,
+        label: ACTION_LABEL[action],
+        destructive: true,
+        onSelect: ([target]) => setActing({ action, device: target }),
+      }));
+
+  const bulkActions: CollectionBulkAction<Device>[] = [
+    {
+      key: 'reset',
+      label: (count) => `Record reset for ${devicesText(count)}`,
+      appliesTo: (device) => device.status === 'RETURNED',
+      onSelect: (devices) => setBulk({ kind: 'reset', devices }),
+    },
+    ...(isAdmin
+      ? [
+          {
+            key: 'retire',
+            label: (count: number) => `Retire ${devicesText(count)}`,
+            destructive: true,
+            appliesTo: (device: Device) => device.status === 'MAINTENANCE',
+            onSelect: (devices: Device[]) => setBulk({ kind: 'retire', devices }),
+          },
+        ]
+      : []),
   ];
 
   const registerButton = (
@@ -357,6 +402,7 @@ export const FleetPage: React.FC = () => {
       Register device
     </Button>
   );
+  const pageSize = data?.pageSize ?? 20;
 
   return (
     <section aria-labelledby="fleet-title" className="flex flex-col gap-4">
@@ -380,101 +426,70 @@ export const FleetPage: React.FC = () => {
               )}
             >
               {DEVICE_STATUS[status].label}
-              {count !== undefined && <span className={pressed ? undefined : 'text-ink-muted'}>{count}</span>}
+              {count !== undefined && (
+                <span className={pressed ? undefined : 'text-ink-muted'}>{count}</span>
+              )}
             </button>
           );
         })}
       </div>
 
-      <Toolbar
-        label="Device filters"
-        start={
-          <>
-            <Field id="fleet-variant" label="Hardware variant" hideLabel className="w-full sm:w-56">
-              <Select
-                id="fleet-variant"
-                value={hardwareVariantId}
-                onChange={(event) => {
-                  setHardwareVariantId(event.target.value);
-                  setPageNumber(1);
-                }}
-              >
-                <option value="">Every variant</option>
-                {(variants ?? []).map((variant) => (
-                  <option key={variant.id} value={variant.id}>
-                    {variant.code}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <ToolbarSearch
-              id="fleet-search"
-              label="Search by asset tag or node id"
-              placeholder="TL-00 or !a4b1c2d3"
-              value={q}
-              onChange={(value) => {
-                setQ(value);
-                setPageNumber(1);
-              }}
-            />
-            {filtered && (
-              <Button variant="ghost" onClick={clearFilters}>
-                Clear filters
-              </Button>
-            )}
-          </>
-        }
-      />
-
-      <DataTable
-        caption="Devices"
-        columns={columns}
-        rows={data?.items}
-        rowId={(device) => device.id}
-        rowLabel={(device) => device.assetTag}
-        noun={{ one: 'device', other: 'devices' }}
-        selectedIds={new Set(selected.keys())}
-        onSelectionChange={select}
-        bulkActions={() => (
-          <>
-            {resettable.length > 0 && (
-              <Button size="sm" onClick={() => setBulk('reset')}>
-                Record reset for {devicesText(resettable.length)}
-              </Button>
-            )}
-            {retirable.length > 0 && (
-              <Button size="sm" variant="danger" onClick={() => setBulk('retire')}>
-                Retire {devicesText(retirable.length)}
-              </Button>
-            )}
-            {resettable.length === 0 && retirable.length === 0 && (
-              <span className="text-body-sm text-ink-muted">
-                No bulk action fits these devices. A reset needs RETURNED{isAdmin ? ', retirement MAINTENANCE' : ''}.
-              </span>
-            )}
-          </>
-        )}
-        rowActions={rowActions}
+      <CollectionView<Device>
+        label="Devices"
+        items={data?.items}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
-        empty={
+        itemId={(device) => device.id}
+        itemName={(device) => device.assetTag}
+        itemHref={(device) => `/t/devices/${device.id}`}
+        fields={fields}
+        noun={{ one: 'device', other: 'devices' }}
+        itemActions={[
+          {
+            key: 'intake',
+            label: ACTION_LABEL.intake,
+            icon: <ClipboardCheck />,
+            allowed: (device) => fleetActionsOf(device, isAdmin).includes('intake'),
+            onSelect: (device) => setActing({ action: 'intake', device }),
+          },
+          {
+            key: 'reset',
+            label: ACTION_LABEL.reset,
+            icon: <RotateCcw />,
+            allowed: (device) => fleetActionsOf(device, isAdmin).includes('reset'),
+            onSelect: (device) => setActing({ action: 'reset', device }),
+          },
+        ]}
+        transitions={transitions}
+        statusOf={(device) => DEVICE_STATUS[device.status].label}
+        bulkActions={bulkActions}
+        search={{ label: 'Search by asset tag or node id', placeholder: 'TL-00 or !a4b1c2d3' }}
+        filters={[
+          { key: '', label: 'Every variant' },
+          ...(variants ?? []).map((variant) => ({ key: variant.id, label: variant.code })),
+        ]}
+        query={{ search: q, filter: hardwareVariantId, sort: null }}
+        onQueryChange={(next) => {
+          setQ(next.search);
+          setHardwareVariantId(next.filter);
+          setPageNumber(1);
+        }}
+        resetKey={statuses.join(',')}
+        pageInfo={
+          data
+            ? {
+                total: data.totalCount,
+                from: data.totalCount === 0 ? 0 : (data.pageNumber - 1) * pageSize + 1,
+                to: (data.pageNumber - 1) * pageSize + data.items.length,
+              }
+            : undefined
+        }
+        details={{ href: (device) => `/t/devices/${device.id}`, hrefLabel: 'Open the device page' }}
+        emptyState={
           filtered
             ? { title: MSG01, action: <Button onClick={clearFilters}>Clear filters</Button> }
             : { title: 'No devices registered yet.', action: registerButton }
         }
-        renderCard={(device) => (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-2">
-              <Link to={`/t/devices/${device.id}`} className={LINK}>
-                {device.assetTag}
-              </Link>
-              <StatusBadge entry={DEVICE_STATUS[device.status]} />
-            </div>
-            <p className="text-body-sm text-ink-muted">
-              Battery {battery(device)}, last seen {lastSeen(device)}
-            </p>
-          </div>
-        )}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination
@@ -494,52 +509,61 @@ export const FleetPage: React.FC = () => {
         <ResetDialog device={acting.device} onDone={actionDone} onCancel={() => setActing(null)} />
       )}
       {acting?.action === 'dispose' && (
-        <DisposeDialog device={acting.device} onDone={actionDone} onCancel={() => setActing(null)} />
+        <DisposeDialog
+          device={acting.device}
+          onDone={actionDone}
+          onCancel={() => setActing(null)}
+        />
       )}
       {acting?.action === 'retire' && (
         <StateChangeDialog<'RETIRED'>
           subject={acting.device.assetTag}
           transition={RETIRE}
           version={acting.device.version}
-          onSubmit={({ reason, expectedVersion }) => retireDevice(acting.device.id, reason ?? '', expectedVersion)}
+          onSubmit={({ reason, expectedVersion }) =>
+            retireDevice(acting.device.id, reason ?? '', expectedVersion)
+          }
           onReload={() => void refreshDevices()}
           onDone={() => void refreshDevices()}
           onClose={() => setActing(null)}
         />
       )}
-      {bulk === 'reset' && (
+      {bulk?.kind === 'reset' && (
         <BulkActionDialog
-          title={`Record reset for ${devicesText(resettable.length)}?`}
-          confirmLabel={`Record reset for ${devicesText(resettable.length)}`}
+          title={`Record reset for ${devicesText(bulk.devices.length)}?`}
+          confirmLabel={`Record reset for ${devicesText(bulk.devices.length)}`}
           description="Each unit's reset is recorded with the three steps below (devices api-design 10). Only the RETURNED devices of the selection are reset."
           confirmations={RESET_STEPS}
-          items={itemsOf(resettable)}
+          items={itemsOf(bulk.devices)}
           run={(item) => recordReset(item.id)}
-          onFinished={() => {
-            setSelected(new Map());
-            void refreshDevices();
-          }}
+          onFinished={() => void refreshDevices()}
           onClose={() => setBulk(null)}
         />
       )}
-      {bulk === 'retire' && (
+      {bulk?.kind === 'retire' && (
         <BulkActionDialog
-          title={`Retire ${devicesText(retirable.length)}?`}
-          confirmLabel={`Retire ${devicesText(retirable.length)}`}
+          title={`Retire ${devicesText(bulk.devices.length)}?`}
+          confirmLabel={`Retire ${devicesText(bulk.devices.length)}`}
           description="Retired devices leave the rentable fleet for good. A device with an open maintenance record is refused until that record is closed."
           destructive
           needsReason
-          items={itemsOf(retirable)}
-          run={(item, reason) => retireDevice(item.id, reason ?? '', selected.get(item.id)?.version ?? 0)}
-          onFinished={() => {
-            setSelected(new Map());
-            void refreshDevices();
-          }}
+          items={itemsOf(bulk.devices)}
+          run={(item, reason) =>
+            retireDevice(
+              item.id,
+              reason ?? '',
+              bulk.devices.find((device) => device.id === item.id)?.version ?? 0,
+            )
+          }
+          onFinished={() => void refreshDevices()}
           onClose={() => setBulk(null)}
         />
       )}
       {registering && (
-        <RegisterDialog onDone={(device) => void registered(device)} onCancel={() => setRegistering(false)} />
+        <RegisterDialog
+          onDone={(device) => void registered(device)}
+          onCancel={() => setRegistering(false)}
+        />
       )}
     </section>
   );
