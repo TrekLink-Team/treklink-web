@@ -11,11 +11,10 @@ import {
   type InvoiceLine,
 } from '../../entities/billing/api';
 import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
-import { Alert, Button, DataTable, Select, Toolbar, ToolbarSearch, type Column } from '../../shared/ui';
+import { Alert, Button, CollectionView, type CollectionField } from '../../shared/ui';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
 import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK } from '../../shared/ui/styles';
-import { matchesText } from '../../shared/lib/filter';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
 
 // Line status tones (TrekLink System Colors, shared/ui/status.ts).
@@ -29,10 +28,47 @@ const LINE_TONES: Record<string, string> = {
 
 const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'SePay' } as const;
 
+const LINE_FIELDS: CollectionField<InvoiceLine>[] = [
+  { key: 'type', label: 'Type', render: (line) => line.type, text: (line) => line.type, hideWithPane: true },
+  {
+    key: 'quantity',
+    label: 'Quantity',
+    render: (line) => (
+      <span className="whitespace-nowrap text-ink-muted">
+        {line.quantity} x {formatVnd(line.unitVnd)}
+      </span>
+    ),
+    hideWithPane: true,
+  },
+  {
+    key: 'due',
+    label: 'Due',
+    render: (line) => <span className="whitespace-nowrap">{formatDate(line.dueAt)}</span>,
+    text: (line) => line.dueAt,
+    sortable: true,
+  },
+  {
+    key: 'amount',
+    label: 'Amount',
+    align: 'end',
+    render: (line) => <span className="font-semibold">{formatVnd(line.amountVnd)}</span>,
+    sortValue: (line) => line.amountVnd,
+    compact: true,
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (line) => <Badge tone={LINE_TONES[lineStatus(line)] ?? LINE_TONES['Due later']}>{lineStatus(line)}</Badge>,
+    text: lineStatus,
+    compact: true,
+  },
+];
+
 // The invoice detail of screen 6.1 (billing api-design 09): header, dated lines with a status derived
 // on the client, and payments. TrekLink Staff and Admin record a counter payment from here (6.3);
 // the Org Manager pays with SePay (6.2, billing api-design 11) and is taken to the QR page. On its own
-// page the invoice number is the page's h1 (`asPageTitle`); beside the Staff list it is an h2.
+// page the invoice number is the page's h1 (`asPageTitle`); beside the Staff list it is an h2. The
+// lines render through CollectionView (chapter 06 §9, D-096), searched and filtered in the browser.
 export const InvoiceDetailView: React.FC<{
   invoiceId: string;
   contractPath: (contractId: string) => string;
@@ -43,8 +79,6 @@ export const InvoiceDetailView: React.FC<{
   const { data, isLoading, error, refetch } = useInvoice(invoiceId);
   const navigate = useNavigate();
   const [recording, setRecording] = useState(false);
-  const [lineText, setLineText] = useState('');
-  const [lineFilter, setLineFilter] = useState('');
   // A cancelled contract's voiding ADJUSTMENT sits on its CLOSING invoice, so an earlier invoice
   // can still show an amount due while the contract owes nothing. Payment actions show only while
   // the contract balance is open (ruling on #87 point 4); invoice lines stay unchanged.
@@ -78,34 +112,6 @@ export const InvoiceDetailView: React.FC<{
   if (isLoading) return <Loading label="Loading invoice" />;
   if (error || !data) return <ErrorState error={error} onRetry={() => void refetch()} />;
   const due = data.totalVnd - data.paidVnd;
-  const lines = data.lines.filter(
-    (line) =>
-      matchesText(lineText, line.description, line.type) &&
-      (lineFilter === '' || lineStatus(line) === lineFilter),
-  );
-
-  const lineColumns: Column<InvoiceLine>[] = [
-    { key: 'seq', header: '#', cell: (line) => <span className="text-ink-muted">{line.seq}</span>, width: '3rem' },
-    {
-      key: 'line',
-      header: 'Line',
-      cell: (line) => (
-        <span className="flex flex-col py-1">
-          <span className="font-semibold text-ink">{line.description}</span>
-          <span className="text-xs text-ink-muted">
-            {line.quantity} x {formatVnd(line.unitVnd)}
-          </span>
-        </span>
-      ),
-    },
-    { key: 'due', header: 'Due', cell: (line) => <span className="whitespace-nowrap">{formatDate(line.dueAt)}</span> },
-    { key: 'amount', header: 'Amount', align: 'end', cell: (line) => <span className="font-semibold">{formatVnd(line.amountVnd)}</span> },
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (line) => <Badge tone={LINE_TONES[lineStatus(line)] ?? LINE_TONES['Due later']}>{lineStatus(line)}</Badge>,
-    },
-  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -159,42 +165,34 @@ export const InvoiceDetailView: React.FC<{
 
       <div className={CARD}>
         <h3 className="mb-3 font-bold text-ink">Lines</h3>
-        <Toolbar
-          label="Invoice line filters"
-          start={
-            <>
-              <ToolbarSearch id={`invoice-line-search-${data.id}`} label="Search lines" value={lineText} onChange={setLineText} />
-              <span className="w-40">
-                <Select aria-label="Line status" value={lineFilter} onChange={(event) => setLineFilter(event.target.value)}>
-                  <option value="">Every status</option>
-                  {Object.keys(LINE_TONES).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </Select>
+        <CollectionView<InvoiceLine>
+          label={`Lines of ${data.number}`}
+          items={data.lines}
+          itemId={(line) => String(line.seq)}
+          itemName={(line) => `Line ${line.seq}, ${line.description}`}
+          itemTitle={(line) => (
+            <span className="flex flex-col">
+              <span className="font-semibold text-ink">{line.description}</span>
+              <span className="text-caption text-ink-muted">
+                Line {line.seq}
               </span>
-            </>
-          }
-        />
-        <DataTable<InvoiceLine>
-          caption={`Lines of ${data.number}`}
-          columns={lineColumns}
-          rows={lines}
-          rowId={(line) => String(line.seq)}
-          empty={{
-            title: 'No lines match these filters.',
-            action: (
-              <Button
-                onClick={() => {
-                  setLineText('');
-                  setLineFilter('');
-                }}
-              >
-                Clear filters
-              </Button>
-            ),
-          }}
+            </span>
+          )}
+          fields={LINE_FIELDS}
+          noun={{ one: 'line', other: 'lines' }}
+          search={{ label: 'Search lines', placeholder: 'Description or type' }}
+          filters={[
+            { key: '', label: 'Every status' },
+            ...Object.keys(LINE_TONES).map((value) => ({
+              key: value,
+              label: value,
+              test: (line: InvoiceLine) => lineStatus(line) === value,
+            })),
+          ]}
+          details={false}
+          fitNarrow
+          emptyState={{ title: 'This invoice has no lines.' }}
+          noMatch={{ title: 'No lines match these filters.' }}
         />
         <p className="mt-3 text-xs text-ink-muted">
           Lines never change; corrections are ADJUSTMENT lines.

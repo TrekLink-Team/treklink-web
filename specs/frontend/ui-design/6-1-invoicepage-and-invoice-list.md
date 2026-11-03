@@ -105,3 +105,11 @@ Added by KhoaDD. In the invoice list the status and "Due: Overdue only" combine 
 (billing 08 `status` and `overdue`). In the Staff payments tab the status filters on the server and the
 method, also in Show, narrows the loaded page, as its select did (billing 14 takes no method); the search
 reads the reference.
+
+## Invoice lines on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The lines of an invoice render through `CollectionView` (chapter 06 §9). The line search
+(description or type) and the line status select move into its command bar as the search and the Show
+filter, still applied in the browser to the lines billing 09 returns. Each line's description is its
+title with its number under it; the type, quantity and due date leave when the list is narrow, and a line
+has no details pane, because every field is already in its row. Payments stay a plain list.
