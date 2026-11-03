@@ -155,3 +155,51 @@ describe('Menu (menu button pattern)', () => {
     expect(button.textContent).toBe('Change status');
   });
 });
+
+// The list stays inside the viewport (re-check of treklink-web#350): a window 800 px high, a list
+// whose items need 600 px.
+describe('Menu placement in the viewport', () => {
+  const place = (buttonTop: number) => {
+    vi.stubGlobal('innerHeight', 800);
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute('role') === 'menu' ? 600 : 0;
+    });
+    render(<Menu label="Actions for TL-0042" items={items()} />);
+    const button = screen.getByRole('button', { name: 'Actions for TL-0042' });
+    vi.spyOn(button, 'getBoundingClientRect').mockReturnValue({
+      top: buttonTop,
+      bottom: buttonTop + 40,
+      left: 100,
+      right: 200,
+      width: 100,
+      height: 40,
+    } as DOMRect);
+    fireEvent.click(button);
+    return screen.getByRole('menu').style;
+  };
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('opens below and scrolls inside the room left when the list is longer', () => {
+    // Below the button: 800 - 8 - (240 + 4) = 548 px, more than the 196 px above.
+    const style = place(200);
+    expect(style.top).toBe('244px');
+    expect(style.maxHeight).toBe('548px');
+  });
+
+  it('opens above a button low on the screen, held to the room there', () => {
+    // Below: 800 - 8 - 744 = 48 px. Above: 700 - 4 - 8 = 688 px, enough for the whole list.
+    const style = place(700);
+    expect(style.maxHeight).toBe('688px');
+    expect(style.top).toBe(`${700 - 4 - 600}px`);
+  });
+
+  it('never reaches past the bottom of the window', () => {
+    const style = place(400);
+    // Below: 800 - 8 - 444 = 348 px; above: 388 px, so it opens above and scrolls.
+    expect(Number.parseFloat(style.top) + Number.parseFloat(style.maxHeight)).toBeLessThanOrEqual(800 - 8);
+    expect(Number.parseFloat(style.top)).toBeGreaterThanOrEqual(8);
+  });
+});

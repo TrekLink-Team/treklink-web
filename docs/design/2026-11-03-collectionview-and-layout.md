@@ -122,7 +122,7 @@ Control sets that would take a second row become dropdowns. First application: t
 
 ### 10.3 Dropdown buttons show a chevron
 
-Every menu button (More actions, Change status, Show, Sort, the View chevron) shows a chevron-down icon to the right of its label as the hint that it opens a list. The icon is decorative (`aria-hidden`); the button keeps `aria-haspopup="menu"` and `aria-expanded`, opens on Enter, Space and Down Arrow, and closes on Escape with focus back on the button. Plain command buttons and icon buttons carry no chevron, so the chevron always means "opens a list". `Menu` in `shared/ui` draws the chevron itself, and `StateChangeMenu` takes it too, so pages do not repeat a workaround.
+Every menu button (More actions, Change status, Show, Sort, the View chevron) shows a chevron-down icon to the right of its label as the hint that it opens a list. The icon is decorative (`aria-hidden`); the button keeps `aria-haspopup="menu"` and `aria-expanded`, opens on Enter, Space and Down Arrow, and closes on Escape with focus back on the button. Plain command buttons and icon buttons carry no chevron, so the chevron always means "opens a list". `Menu` in `shared/ui` draws the chevron itself, and `StateChangeMenu` takes it too, so pages do not repeat a workaround. The list opens below its button, or above when there is more room there, and never reaches past the viewport: a longer list scrolls inside the room on its side, so every item is reachable by pointer as well as by keyboard (re-check of treklink-web#350, 1.4.10 and 2.1.1).
 
 ### 10.4 Compact record pages
 

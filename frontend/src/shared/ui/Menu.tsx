@@ -67,6 +67,8 @@ interface Position {
   top: number;
   left: number;
   minWidth: number;
+  /** The room on the side it opens to; a longer list scrolls inside it (1.4.10, 2.1.1). */
+  maxHeight: number;
 }
 
 export const Menu: React.FC<MenuProps> = ({
@@ -96,20 +98,24 @@ export const Menu: React.FC<MenuProps> = ({
     if (!button) return;
     const rect = button.getBoundingClientRect();
     const list = listRef.current;
-    const height = list?.offsetHeight ?? 0;
+    // The whole list's height, even when a previous placement capped it.
+    const height = list?.scrollHeight ?? 0;
     const width = list?.offsetWidth ?? rect.width;
     const below = rect.bottom + GAP_PX;
-    const flip =
-      height > 0 &&
-      below + height > window.innerHeight - VIEWPORT_MARGIN_PX &&
-      rect.top - GAP_PX - height > 0;
-    const top = flip ? rect.top - GAP_PX - height : below;
+    // The list opens below, or above when it does not fit below and there is more room above; on
+    // either side it is held inside the viewport and scrolls when longer (re-check of #350: the Show
+    // menu ran past the bottom of a 1280 x 800 window and its last filters could not be reached).
+    const roomBelow = window.innerHeight - VIEWPORT_MARGIN_PX - below;
+    const roomAbove = rect.top - GAP_PX - VIEWPORT_MARGIN_PX;
+    const flip = height > roomBelow && roomAbove > roomBelow;
+    const maxHeight = Math.max(flip ? roomAbove : roomBelow, 0);
+    const top = flip ? rect.top - GAP_PX - Math.min(height, maxHeight) : below;
     const rawLeft = align === 'end' ? rect.right - width : rect.left;
     const left = Math.max(
       VIEWPORT_MARGIN_PX,
       Math.min(rawLeft, window.innerWidth - width - VIEWPORT_MARGIN_PX),
     );
-    setPosition({ top, left, minWidth: rect.width });
+    setPosition({ top, left, minWidth: rect.width, maxHeight });
   }, [align]);
 
   const openAt = (index: number) => {
@@ -238,9 +244,10 @@ export const Menu: React.FC<MenuProps> = ({
         top: position?.top ?? 0,
         left: position?.left ?? 0,
         minWidth: position?.minWidth,
+        maxHeight: position?.maxHeight,
         visibility: position ? 'visible' : 'hidden',
       }}
-      className="z-toast flex w-max max-w-[min(20rem,calc(100vw-1rem))] flex-col rounded-panel border border-line bg-surface-raised p-1 text-ink shadow-overlay"
+      className="z-toast flex w-max max-w-[min(20rem,calc(100vw-1rem))] flex-col overflow-y-auto overscroll-contain rounded-panel border border-line bg-surface-raised p-1 text-ink shadow-overlay"
     >
       {header && (
         <div role="presentation" className="mb-1 border-b border-line px-3 pb-2 pt-1">
