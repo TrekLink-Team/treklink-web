@@ -230,10 +230,19 @@ export function CollectionView<T>({
 
   // A bulk action never acts on items the user can no longer see (a page change or a refetch): the
   // selection drops ids the page no longer holds, adjusted during render when the ids change.
+  // The drop is announced, as a search, filter or sort change is (review of treklink-web#349).
   const [seenIds, setSeenIds] = useState(ids);
+  const [dropNotice, setDropNotice] = useState({ count: 0, text: '' });
   if (seenIds !== ids) {
     setSeenIds(ids);
-    setSelection((current) => keepVisible(current, ids));
+    const kept = keepVisible(selection, ids);
+    if (kept !== selection) {
+      setSelection(kept);
+      setDropNotice((notice) => ({
+        count: notice.count + 1,
+        text: kept.selected.size === 0 ? SELECTION_CLEARED : `${kept.selected.size} selected`,
+      }));
+    }
   }
 
   // Focus returns to the next item when the focused one left the result set (§9.6 rule 5).
@@ -327,6 +336,17 @@ export function CollectionView<T>({
     // resultText reads pageInfo and noun only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, visible.length, pageInfo?.total, pageInfo?.from, pageInfo?.to, query.search, announce]);
+
+  // A selection a page change narrowed or cleared, announced after the result count of the same
+  // change and together with it, so neither message replaces the other.
+  useEffect(() => {
+    if (dropNotice.count === 0) return;
+    const count = resultText(visible.length);
+    announced.current = count;
+    announce(`${dropNotice.text}. ${count}`);
+    // resultText reads pageInfo and noun only; this runs once per drop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dropNotice, announce]);
 
   const toggle = (id: string, range: boolean) => applySelection(toggleItem(selection, id, ids, range));
 

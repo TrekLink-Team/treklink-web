@@ -209,6 +209,32 @@ describe('CollectionView', () => {
     expect(live().textContent).toContain(SELECTION_CLEARED);
   });
 
+  it('announces a selection that a page change clears or narrows (review of treklink-web#349)', () => {
+    const page = (units: Unit[]) => (
+      <MemoryRouter>
+        <CollectionView<Unit>
+          label="Units of CT-0042"
+          items={units}
+          itemId={(unit) => unit.id}
+          itemName={(unit) => unit.tag}
+          fields={FIELDS}
+          noun={{ one: 'unit', other: 'units' }}
+          bulkActions={[{ key: 'checkin', label: (count) => `Check in ${count} units`, onSelect: checkIn }]}
+          emptyState={{ title: 'None' }}
+          pageInfo={{ total: 57, from: 1, to: units.length }}
+          onQueryChange={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(page(UNITS));
+    fireEvent.click(box('TL-0001'));
+    fireEvent.click(box('TL-0002'));
+    rerender(page(UNITS.slice(1)));
+    expect(live().textContent).toContain('1 selected');
+    rerender(page([{ id: 'e', tag: 'TL-0021', status: 'Active', battery: 50 }, ...UNITS.slice(2)]));
+    expect(live().textContent).toContain(SELECTION_CLEARED);
+  });
+
   it('keeps the selection when the view changes', () => {
     renderView({ views: ['details', 'list'] });
     fireEvent.click(box('TL-0002'));

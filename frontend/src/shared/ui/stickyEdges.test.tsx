@@ -117,6 +117,9 @@ describe('sticky edges follow their element (review of treklink-web#349, 2.4.11)
     resizeTo(360);
     expect(screen.queryByRole('region', { name: 'Contract sections and actions' })).toBeNull();
     expect(published('--tl-page-header-h')).toBe('46px');
+    // The phone row's name differs from its tablist's (review of treklink-web#349).
+    expect(screen.getByRole('region', { name: 'Contract navigation' })).toBeTruthy();
+    expect(screen.getByRole('tablist', { name: 'Contract sections' })).toBeTruthy();
     resizeTo(1280);
     expect(published('--tl-page-header-h')).toBe('54px');
   });
