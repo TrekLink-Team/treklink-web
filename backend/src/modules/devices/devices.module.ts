@@ -6,6 +6,8 @@ import { DevicesRepository } from './devices.repository';
 import { DevicesService } from './devices.service';
 import { DeviceConnectorService } from './dock/device-connector.service';
 import { DockSessionRepository } from './dock/dock-session.repository';
+import { DockSessionService } from './dock/dock-session.service';
+import { DockSweepJob } from './jobs/dock-sweep.job';
 import { IntakeService } from './intake.service';
 import { LossSearchJob } from './jobs/loss-search.job';
 import { LossCaseNotificationsListener } from './loss-case-notifications.listener';
@@ -63,6 +65,8 @@ import { VariantsController } from './variants.controller';
     // DEVICE_CONTRACTS comes from the global RentalsPortsModule.
     DockSessionRepository,
     DeviceConnectorService,
+    DockSessionService,
+    DockSweepJob,
   ],
   exports: [
     DevicesService,
