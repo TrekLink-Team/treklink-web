@@ -137,7 +137,8 @@ export const ContractActionBar: React.FC<Props> = ({
           key="phone-row"
           ref={setRowNode}
           role="region"
-          aria-label="Contract sections"
+          // Its own name, apart from the tablist's (review of treklink-web#349).
+          aria-label="Contract navigation"
           className="sticky top-0 z-raised flex flex-wrap items-center justify-between gap-1 rounded-panel border border-line bg-surface px-1 shadow-raise"
         >
           {left}
