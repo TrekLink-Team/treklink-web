@@ -180,19 +180,25 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     expect(screen.getAllByText('No pending deadline')).not.toHaveLength(0);
   });
 
-  it('filters by state and open, pages, resets and refreshes', async () => {
+  // The Show filter of the command bar (chapter 06 §9.3): open, all, or one state.
+  const show = (label: string) => {
+    fireEvent.click(screen.getByRole('button', { name: /^Show: / }));
+    fireEvent.click(screen.getByRole('menuitem', { name: label }));
+  };
+
+  it('filters by state and open from Show, pages and refreshes', async () => {
     api.mockResolvedValue(page([view()]));
     renderAt('/o/incidents');
     await screen.findAllByText('INC-2026-000001');
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ESCALATED' } });
+    show('Escalated');
     await waitFor(() => expect(lastGet()).toContain('state=ESCALATED'));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    expect(lastGet()).not.toContain('open=');
+    show('All incidents');
     await waitFor(() => expect(lastGet()).not.toContain('state='));
-    fireEvent.click(screen.getByLabelText('Open incidents only'));
-    await waitFor(() => expect(lastGet()).not.toContain('open='));
+    expect(lastGet()).not.toContain('open=');
     fireEvent.click(await screen.findByRole('button', { name: 'Next page' }));
     await waitFor(() => expect(lastGet()).toContain('pageNumber=2'));
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    show('Open incidents');
     await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1'));
     const calls = api.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
@@ -203,8 +209,10 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     api.mockResolvedValue(page([]));
     renderAt('/o/incidents');
     expect(await screen.findByText('No open incidents.')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Open incidents only'));
+    show('All incidents');
     expect(await screen.findByText('No results match your filters.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search and filter' }));
+    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1'));
   });
 
   it('shows MSG26 with a retry when the list fails', async () => {

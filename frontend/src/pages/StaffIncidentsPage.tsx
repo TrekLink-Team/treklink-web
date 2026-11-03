@@ -20,10 +20,17 @@ import { ApiError } from '../shared/api/apiClient';
 import { useToast } from '../shared/ui/toastStore';
 import { formatDateTime } from '../shared/lib/format';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
-import { DataTable, Pagination, type Column, type RowAction } from '../shared/ui/DataTable';
+import { Pagination } from '../shared/ui/DataTable';
+import { FileWarning } from 'lucide-react';
+import {
+  CollectionView,
+  pageInfoOf,
+  type CollectionField,
+  type CollectionTransition,
+} from '../shared/ui/collection-view';
 import { Button } from '../shared/ui/Button';
 import { TabPanel, Tabs } from '../shared/ui/Tabs';
-import type { IncidentState } from '../shared/ui/status';
+import { INCIDENT_STATE, type IncidentState } from '../shared/ui/status';
 import { CARD, LINK, WARNING } from '../shared/ui/styles';
 
 // Screen 8.2 disclaimer.
@@ -203,7 +210,8 @@ export const StaffIncidentsPage: React.FC = () => {
   );
 
   const open = (incident: Incident, falseAlarm = false) => {
-    lastTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    lastTrigger.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setStartWithFalseAlarm(falseAlarm);
     setSelected(incident.id);
   };
@@ -213,29 +221,41 @@ export const StaffIncidentsPage: React.FC = () => {
     lastTrigger.current?.focus();
   };
 
-  // Row actions of screen 8.2 (W29): Staff declare an UNROUTED incident a false alarm (api-design 07,
-  // in the detail, which holds the reviewed version) and report a reportable one to the authorities
-  // (api-design 08). Staff never acknowledge or resolve.
-  const rowActions = (incident: Incident): RowAction[] => [
-    ...(isReportable(incident)
-      ? [{ key: 'report', label: 'Report to authorities', onSelect: () => setReportingId(incident.id) }]
-      : []),
-    ...(incident.state === 'UNROUTED' && isStaff
-      ? [{ key: 'false-alarm', label: 'Declare false alarm', destructive: true, onSelect: () => open(incident, true) }]
-      : []),
-  ];
-
-  const columns: Column<Incident>[] = [
-    { key: 'code', header: 'Code', cell: (incident) => incident.code },
+  // Item actions of screen 8.2 (W29) on CollectionView (chapter 06 §9.5, §9.6): Staff report a
+  // reportable incident to the authorities (api-design 08) and declare an UNROUTED one a false alarm,
+  // a state change confirmed in the detail, which holds the reviewed version (api-design 07). Staff
+  // never acknowledge or resolve.
+  const transitions = (incident: Incident): CollectionTransition<Incident>[] =>
+    incident.state === 'UNROUTED' && isStaff
+      ? [
+          {
+            key: 'false-alarm',
+            label: 'Declare false alarm',
+            destructive: true,
+            onSelect: () => open(incident, true),
+          },
+        ]
+      : [];
+  const fields: CollectionField<Incident>[] = [
     {
       key: 'device',
-      header: 'Device and holder',
-      cell: (incident) => `${incident.device.assetTag ?? 'Unknown device'}, ${holderOf(incident)}`,
+      label: 'Device and holder',
+      render: (incident) =>
+        `${incident.device.assetTag ?? 'Unknown device'}, ${holderOf(incident)}`,
+      compact: true,
     },
-    { key: 'state', header: 'State', cell: (incident) => <StateBadges incident={incident} /> },
-    { key: 'latest', header: 'Latest event', cell: (incident) => formatDateTime(incident.lastEventAt) },
+    {
+      key: 'state',
+      label: 'State',
+      render: (incident) => <StateBadges incident={incident} />,
+      compact: true,
+    },
+    {
+      key: 'latest',
+      label: 'Latest event',
+      render: (incident) => formatDateTime(incident.lastEventAt),
+    },
   ];
-
   return (
     <section aria-labelledby="staff-incidents-title">
       <PageTitle
@@ -279,41 +299,52 @@ export const StaffIncidentsPage: React.FC = () => {
 
       {tab === 'queue' && (
         <TabPanel idPrefix="staff-incidents" tabKey="queue">
-          <div role="group" aria-label="Queue filter" className="mb-4 flex flex-wrap gap-2">
-            {SCOPES.map((option) => (
-              <Button
-                key={option.id}
-                variant={option.id === scope.id ? 'primary' : 'secondary'}
-                aria-pressed={option.id === scope.id}
-                onClick={() => {
-                  setScope(option);
-                  setPageNumber(1);
-                }}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
-
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={selected ? 'hidden lg:block' : ''}>
-              <DataTable<Incident>
-                caption="Incidents"
-                columns={columns}
-                rows={data?.items}
-                rowId={(incident) => incident.id}
-                rowLabel={(incident) => incident.code}
+              {/* The incident detail of screen 8.2 opens beside the queue from the code; it is the
+                  queue's details view, so the CollectionView pane is not used here. */}
+              <CollectionView<Incident>
+                label="Incidents"
+                items={data?.items}
                 loading={isLoading}
-                error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
-                empty={{
-                  title:
-                    scope.id === 'all'
-                      ? 'No results match your filters.'
-                      : 'No unrouted or escalated incidents need attention.',
+                error={
+                  error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined
+                }
+                itemId={(incident) => incident.id}
+                itemName={(incident) => incident.code}
+                itemTitle={(incident) => (
+                  <button
+                    type="button"
+                    aria-pressed={selected === incident.id}
+                    onClick={() => open(incident)}
+                    className={`${LINK} inline-flex min-h-6 items-center`}
+                  >
+                    {incident.code}
+                  </button>
+                )}
+                fields={fields}
+                noun={{ one: 'incident', other: 'incidents' }}
+                itemActions={[
+                  {
+                    key: 'report',
+                    label: 'Report to authorities',
+                    icon: <FileWarning />,
+                    allowed: isReportable,
+                    onSelect: (incident) => setReportingId(incident.id),
+                  },
+                ]}
+                transitions={transitions}
+                statusOf={(incident) => INCIDENT_STATE[incident.state].label}
+                filters={SCOPES.map((option) => ({ key: option.id, label: option.label }))}
+                query={{ search: '', filter: scope.id, sort: null }}
+                onQueryChange={(next) => {
+                  setScope(SCOPES.find((option) => option.id === next.filter) ?? SCOPES[0]);
+                  setPageNumber(1);
                 }}
-                activeRowId={selected ?? undefined}
-                onRowActivate={(incident) => open(incident)}
-                rowActions={rowActions}
+                hideCommandBar={false}
+                pageInfo={pageInfoOf(data)}
+                details={false}
+                emptyState={{ title: 'No unrouted or escalated incidents need attention.' }}
                 footer={
                   data && data.totalPages > 1 ? (
                     <Pagination
@@ -339,7 +370,9 @@ export const StaffIncidentsPage: React.FC = () => {
                   client.removeQueries({ queryKey: incidentKeys.detail(selected) });
                   void client.invalidateQueries({ queryKey: incidentKeys.all });
                   useToast.getState().show('You do not have access to this.');
-                  requestAnimationFrame(() => document.getElementById('staff-incidents-title')?.focus());
+                  requestAnimationFrame(() =>
+                    document.getElementById('staff-incidents-title')?.focus(),
+                  );
                 }}
                 onSaved={(code) => {
                   setSaved(code);
@@ -358,7 +391,10 @@ export const StaffIncidentsPage: React.FC = () => {
         </TabPanel>
       )}
       {reportingId && (
-        <ReportDialog entry={{ kind: 'incident', id: reportingId }} onClose={() => setReportingId(null)} />
+        <ReportDialog
+          entry={{ kind: 'incident', id: reportingId }}
+          onClose={() => setReportingId(null)}
+        />
       )}
     </section>
   );

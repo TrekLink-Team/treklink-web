@@ -68,6 +68,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+// The queue scope is the Show filter of the command bar (chapter 06 §9.3).
+const showScope = (label: string) => {
+  fireEvent.click(screen.getByRole('button', { name: /^Show: / }));
+  fireEvent.click(screen.getByRole('menuitem', { name: label }));
+};
+
 describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
   it('preserves a dirty reason across a failed background detail refresh', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -124,7 +130,7 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
       if (options?.method === 'POST') state = 'FALSE_ALARM';
       return Promise.resolve(url.includes('/incidents/inc-1') ? row() : page([row()]));
     });
-    renderPage(); fireEvent.click(screen.getByRole('button', { name: 'All incidents' }));
+    renderPage(); showScope('All incidents');
     fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
     expect(await screen.findByText(/OPEN-1.*case open/)).toBeTruthy();
     expect(screen.getByText(/CLOSED-2.*case closed/)).toBeTruthy();
@@ -209,12 +215,12 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
     expect(
       await screen.findByText('No unrouted or escalated incidents need attention.'),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'All incidents' }));
+    showScope('All incidents');
     expect(await screen.findByText('No results match your filters.')).toBeTruthy();
     expect(String(api.mock.calls[api.mock.calls.length - 1][0])).toBe(
       '/incidents?pageSize=20&pageNumber=1',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Escalated' }));
+    showScope('Escalated');
     await waitFor(() =>
       expect(String(api.mock.calls[api.mock.calls.length - 1][0])).toContain('state=ESCALATED'),
     );
@@ -349,8 +355,10 @@ describe('StaffIncidentsPage row actions (W29)', () => {
     );
     renderPage();
     await screen.findByRole('button', { name: 'INC-2026-000007' });
-    expect(rowButton(/^Declare false alarm\s+INC-2026-000008/)).toBeNull();
-    fireEvent.click(rowButton(/^Declare false alarm\s+INC-2026-000007/)!);
+    // A state change, in the row's Change status menu (chapter 06 §9.6).
+    expect(rowButton(/Change status of INC-2026-000008/)).toBeNull();
+    fireEvent.click(rowButton(/^Status: Unrouted\. Change status of INC-2026-000007/)!);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Declare false alarm' }));
     expect(await screen.findByLabelText(/Reason/)).toBeTruthy();
   });
 });

@@ -6,3 +6,4 @@ export * from './TooltipButton';
 export * from './types';
 export * from './CollectionPaneHost';
 export * from './paneHostContext';
+export * from './pageInfo';
