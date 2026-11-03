@@ -655,3 +655,34 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(await within(trail).findByText('Created as Detected')).toBeTruthy();
   });
 });
+
+// Below 600 px (chapter 06 §10.5, handoff item 7): a matchMedia that answers for a 360 px window.
+describe('IncidentDetailPage at 360 px', () => {
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    api.mockImplementation((endpoint: string) => {
+      if (endpoint.endsWith('/transitions')) return Promise.resolve(TRAIL);
+      if (endpoint.endsWith('/alerts')) return Promise.resolve(ALERTS);
+      return Promise.resolve(view());
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('pins Acknowledge to the bottom, widest, with the false alarm under More actions', async () => {
+    renderAt('/o/incidents/inc-1');
+    await screen.findByRole('heading', { name: 'INC-2026-000001' });
+    const bar = screen.getByRole('group', { name: 'Incident actions' });
+    expect(bar.hasAttribute('data-page-actions')).toBe(true);
+    expect(within(bar).getByRole('button', { name: 'Acknowledge' }).className).toContain('flex-1');
+    fireEvent.click(within(bar).getByRole('button', { name: /^More actions/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Declare false alarm' }));
+    // The form opens in the page and the bar leaves until it is done.
+    expect(screen.getByText('Declare INC-2026-000001 (TL-0042) a false alarm?')).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Incident actions' })).toBeNull();
+  });
+});
