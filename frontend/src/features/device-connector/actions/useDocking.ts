@@ -111,6 +111,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
   const [registry] = useState(() => connectorRegistry(recognizeUnits, options.timings));
   const [state, setState] = useState<DockingState>(IDLE);
   const pendingReconnect = useRef<((port: SerialPort | null) => void) | null>(null);
+  const reconnectRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const openFor = useConnectorStore((store) => store.openFor);
   const supported = registry.getSnapshot().supported;
 
@@ -144,7 +145,12 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     },
     reconnect: () =>
       new Promise<SerialPort | null>((resolve) => {
-        pendingReconnect.current = resolve;
+        pendingReconnect.current = (port) => {
+          registry.offerReconnect(null);
+          resolve(port);
+        };
+        // The connector panel shows the same Reconnect and Stop on the unit's row (screen 4.6).
+        registry.offerReconnect({ connectionId, reconnect: reconnectRef.current, stop: giveUp });
       }),
     findReturned: (original: SerialPort) => registry.returnedPort(original, connectionId),
   });
@@ -161,6 +167,9 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
       // The chooser was closed: keep waiting for Staff.
     }
   }, []);
+  useEffect(() => {
+    reconnectRef.current = reconnect;
+  }, [reconnect]);
 
   // Read from unit on the Register panel (design sections 8.3 and 11.3): the identity the connector
   // already read, preferring an unknown unit; no second chooser when one is connected (REQ-EVT-31).
@@ -253,6 +262,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
       return { ok: false, ...failureOf(error), connectionId: id };
     } finally {
       pendingReconnect.current = null;
+      if (registry.reconnectOffer) registry.offerReconnect(null);
       setState(IDLE);
     }
   };
@@ -300,6 +310,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
       return { ok: false, exchanged, ...failureOf(error) };
     } finally {
       pendingReconnect.current = null;
+      if (registry.reconnectOffer) registry.offerReconnect(null);
       setState(IDLE);
       await registry.refreshRecognition(connectionId);
     }
@@ -333,6 +344,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
       return { ok: false, ...failureOf(error) };
     } finally {
       pendingReconnect.current = null;
+      if (registry.reconnectOffer) registry.offerReconnect(null);
       setState(IDLE);
     }
   };
