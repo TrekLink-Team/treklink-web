@@ -10,6 +10,9 @@ import { incidentKeys } from '../entities/incident/api';
 import { ApiError } from '../shared/api/apiClient';
 
 const api = vi.fn();
+vi.mock('../entities/incident/episode', () => ({
+  useEpisodeEvents: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
 vi.mock('../shared/api/apiClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../shared/api/apiClient')>()),
   apiClient: (...args: unknown[]) => api(...args),
@@ -322,6 +325,18 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
 });
 
 describe('StaffIncidentsPage row actions (W29)', () => {
+  it('pages the queue and can close a report opened from its row', async () => {
+    api.mockImplementation((url: string) => Promise.resolve(
+      url === '/incidents/inc-1' ? incident() : { ...page([incident()]), totalPages: 2, totalCount: 21 },
+    ));
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /next/i }));
+    await waitFor(() => expect(api.mock.calls.some(([url]) => String(url).includes('pageNumber=2'))).toBe(true));
+    fireEvent.click(await screen.findByRole('button', { name: /^Report to authorities\s+INC-/ }));
+    expect(await screen.findByText('Incident INC-2026-000007, Escalated')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
   const rowButton = (name: RegExp) => within(screen.getByRole('table', { name: 'Incidents' })).queryByRole('button', { name });
 
   it('offers false alarm on an UNROUTED row only, and opens its dialog with the detail', async () => {
