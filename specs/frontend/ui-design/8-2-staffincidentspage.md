@@ -126,3 +126,11 @@ api-design 08), and, for TrekLink Staff, Declare false alarm on an `UNROUTED` in
 the detail with the false alarm dialog (api-design 07; the dialog holds the version the person
 reviewed). Staff never acknowledge or resolve. Pagination shows the range; the server orders the
 rows (D-059 rule 7), so no column sorts. No bulk: each false alarm needs its own reviewed reason.
+
+## Queue on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD. The Incident queue tab renders through `CollectionView` (chapter 06 §9): the four scope
+buttons become its Show filter, Report to authorities is an item action, and Declare false alarm is in
+the Change status menu and opens the detail with its dialog, as before. The incident code still opens the
+inline detail beside the queue, which stays this screen's details view, so the CollectionView pane is
+not used here. Endpoints and messages are unchanged.

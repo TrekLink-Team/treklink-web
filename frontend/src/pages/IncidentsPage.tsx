@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   deadlineOf,
   SAR_DISCLAIMER,
@@ -10,35 +9,61 @@ import {
 import { StateBadges } from '../entities/incident/ui';
 import { formatDateTime } from '../shared/lib/format';
 import { ErrorState, PageTitle } from '../shared/ui/bits';
-import { DataTable, Pagination, type Column } from '../shared/ui/DataTable';
+import { Pagination } from '../shared/ui/DataTable';
 import { Button } from '../shared/ui/Button';
-import { Checkbox, Select } from '../shared/ui/Field';
+import { CollectionView, pageInfoOf, type CollectionField } from '../shared/ui/collection-view';
 import { INCIDENT_STATE, type IncidentState } from '../shared/ui/status';
-import { LINK, WARNING } from '../shared/ui/styles';
+import { WARNING } from '../shared/ui/styles';
 
 const STATES = Object.keys(INCIDENT_STATE) as IncidentState[];
 const DEFAULTS: IncidentFilters = { open: true, pageNumber: 1 };
 
+// The Show filter: open incidents (the default), every incident, or one state (incidents api-design
+// 01 `open` and `state`).
+const OPEN = 'open';
+const ALL = 'all';
+const showOf = (filters: IncidentFilters) => filters.state ?? (filters.open ? OPEN : ALL);
+const filtersOf = (show: string): IncidentFilters =>
+  show === OPEN
+    ? { open: true, pageNumber: 1 }
+    : show === ALL
+      ? { pageNumber: 1 }
+      : { state: show as IncidentState, pageNumber: 1 };
+
 const deviceText = (incident: Incident) =>
   `${incident.device.assetTag ?? 'Unknown device'}, ${incident.device.holder?.name ?? 'No holder label'}`;
 
-// /o/incidents, the organization incident queue of screen 8.1 (incidents api-design 01). Rows keep
-// the server order, most urgent deadline first; there is no client sort (D-059 rule 7).
+// /o/incidents, the organization incident queue of screen 8.1 (incidents api-design 01) on
+// CollectionView (chapter 06 §9, D-096). Rows keep the server order, most urgent deadline first;
+// there is no client sort (D-059 rule 7).
 export const IncidentsPage: React.FC = () => {
   const [filters, setFilters] = useState<IncidentFilters>(DEFAULTS);
   const { data, isLoading, error, refetch, isFetching } = useIncidents(filters);
-  const filtered = filters.state !== undefined || filters.open !== true;
-  const columns: Column<Incident>[] = [
-    { key: 'code', header: 'Code', cell: (incident) => incident.code },
-    { key: 'device', header: 'Device and holder', cell: deviceText },
-    { key: 'state', header: 'State', cell: (incident) => <StateBadges incident={incident} /> },
-    { key: 'owner', header: 'Owner', cell: (incident) => incident.owner?.fullName ?? 'Unclaimed' },
-    { key: 'deadline', header: 'Deadline', cell: deadlineOf },
-    { key: 'latest', header: 'Latest event', cell: (incident) => formatDateTime(incident.lastEventAt), hideOnMobile: true },
+  const fields: CollectionField<Incident>[] = [
+    { key: 'device', label: 'Device and holder', render: deviceText, compact: true },
+    {
+      key: 'state',
+      label: 'State',
+      render: (incident) => <StateBadges incident={incident} />,
+      compact: true,
+    },
+    {
+      key: 'owner',
+      label: 'Owner',
+      render: (incident) => incident.owner?.fullName ?? 'Unclaimed',
+      hideWithPane: true,
+    },
+    { key: 'deadline', label: 'Deadline', render: deadlineOf, compact: true },
+    {
+      key: 'latest',
+      label: 'Latest event',
+      render: (incident) => formatDateTime(incident.lastEventAt),
+      hideWithPane: true,
+    },
   ];
 
   return (
-    <section aria-labelledby="incidents-title">
+    <section aria-labelledby="incidents-title" className="flex flex-col gap-4">
       <PageTitle
         id="incidents-title"
         title="Incidents"
@@ -48,64 +73,32 @@ export const IncidentsPage: React.FC = () => {
           </Button>
         }
       />
-      <p className={`${WARNING} mb-4`}>{SAR_DISCLAIMER}</p>
+      <p className={WARNING}>{SAR_DISCLAIMER}</p>
 
-      <div className="mb-4 flex flex-wrap items-end gap-4">
-        <label className="flex flex-col gap-1 text-body-sm font-semibold text-ink">
-          State
-          <Select
-            value={filters.state ?? ''}
-            onChange={(event) =>
-              setFilters({
-                ...filters,
-                state: (event.target.value || undefined) as IncidentState | undefined,
-                pageNumber: 1,
-              })
-            }
-          >
-            <option value="">Any state</option>
-            {STATES.map((state) => (
-              <option key={state} value={state}>
-                {INCIDENT_STATE[state].label}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <Checkbox
-          label="Open incidents only"
-          checked={filters.open === true}
-          onChange={(event) =>
-            setFilters({ ...filters, open: event.target.checked || undefined, pageNumber: 1 })
-          }
-        />
-        {filtered && <Button onClick={() => setFilters(DEFAULTS)}>Reset</Button>}
-      </div>
-
-      <DataTable<Incident>
-        caption="Incidents"
-        columns={columns}
-        rows={data?.items}
-        rowId={(incident) => incident.id}
-        rowLabel={(incident) => incident.code}
-        rowHref={(incident) => `/o/incidents/${incident.id}`}
+      <CollectionView<Incident>
+        label="Incidents"
+        items={data?.items}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
-        empty={{
-          title: filtered ? 'No results match your filters.' : 'No open incidents.',
-          action: filtered ? <Button onClick={() => setFilters(DEFAULTS)}>Reset</Button> : undefined,
+        itemId={(incident) => incident.id}
+        itemName={(incident) => incident.code}
+        itemHref={(incident) => `/o/incidents/${incident.id}`}
+        fields={fields}
+        noun={{ one: 'incident', other: 'incidents' }}
+        filters={[
+          { key: OPEN, label: 'Open incidents' },
+          { key: ALL, label: 'All incidents' },
+          ...STATES.map((state) => ({ key: state, label: INCIDENT_STATE[state].label })),
+        ]}
+        query={{ search: '', filter: showOf(filters), sort: null }}
+        onQueryChange={(next) => setFilters(filtersOf(next.filter))}
+        hideCommandBar={false}
+        pageInfo={pageInfoOf(data)}
+        details={{
+          href: (incident) => `/o/incidents/${incident.id}`,
+          hrefLabel: 'Open the incident',
         }}
-        renderCard={(incident) => (
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <Link to={`/o/incidents/${incident.id}`} className={LINK}>
-                {incident.code}
-              </Link>
-              <StateBadges incident={incident} />
-            </div>
-            <p className="mt-1 text-body-sm text-ink">{deviceText(incident)}</p>
-            <p className="text-body-sm text-ink-muted">{deadlineOf(incident)}</p>
-          </div>
-        )}
+        emptyState={{ title: 'No open incidents.' }}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination
