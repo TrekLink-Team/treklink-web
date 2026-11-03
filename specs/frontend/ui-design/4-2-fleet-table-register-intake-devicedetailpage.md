@@ -161,3 +161,13 @@ address) stay above the collection: the leader ruled on 2026-11-04 (treklink-web
 for the supervisor demo of 2026-11-06, and to replace them afterwards with a multi-select Show menu that
 carries the counts. Data and endpoints are unchanged.
 
+
+## Device page at 360 px (D-096, 2026-11-04)
+
+Added by KhoaDD. Below 600 px the device page follows chapter 06 §10.5, as the contract home does, in place
+of the full-width button stack above. The facts become one compact definition list, label and value on one
+row. The actions move into a bar pinned to the bottom: the due step (Record intake check or Record reset)
+is the widest button, or the first plain action when no step is due; More actions holds the rest,
+destructive ones (Retire, Dispose, Report lost) last after a separator, and Retire stays listed with its
+reason while a maintenance record is open. Position history stays a link on wide screens and is a menu
+item on a phone. From 600 px the page is unchanged.

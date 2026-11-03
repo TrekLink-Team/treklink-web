@@ -61,7 +61,7 @@ export const ContractActionBar: React.FC<Props> = ({
     <Menu
       label="More actions"
       align="end"
-      triggerClassName="h-11 border border-line-strong bg-surface px-4 text-body"
+      triggerClassName="h-11 shrink-0 whitespace-nowrap border border-line-strong bg-surface px-4 text-body"
       items={actions.more.map((action: HomeAction, index) => ({
         key: action.key,
         label: action.label,
@@ -145,7 +145,7 @@ export const ContractActionBar: React.FC<Props> = ({
           {inTopRow && more}
         </div>
         {!inTopRow && (primary || more || idle) && (
-          <PageActionBar label="Contract actions" className="order-last">
+          <PageActionBar label="Contract actions" className="order-last" stretch>
             {reason}
             {idle}
             {more}

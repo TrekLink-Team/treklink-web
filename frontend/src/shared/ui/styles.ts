@@ -33,3 +33,7 @@ export const TABLE =
 export const TH =
   'bg-sunken px-4 py-3 text-left text-label uppercase text-ink-muted';
 export const TD = 'border-t border-line px-4 py-3 align-middle';
+// The facts of a record page below 600 px: one compact definition list, each label and value on one
+// row (chapter 06 §10.5). Apply it to a `dl` of `Fact` items in place of the wide grid.
+export const FACT_LIST_PHONE =
+  'flex flex-col divide-y divide-line [&>div]:flex [&>div]:flex-wrap [&>div]:items-baseline [&>div]:justify-between [&>div]:gap-x-3 [&>div]:py-1.5 [&_dd]:mt-0 [&_dd]:min-w-0 [&_dd]:text-right';

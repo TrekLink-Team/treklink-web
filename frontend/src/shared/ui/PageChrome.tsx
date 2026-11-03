@@ -158,7 +158,9 @@ export const PageActionBar: React.FC<{
   start?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
-}> = ({ label, start, children, className }) => {
+  /** The actions take the bar's whole width, so a `flex-1` primary action is the widest (§10.5). */
+  stretch?: boolean;
+}> = ({ label, start, children, className, stretch }) => {
   const [barNode, setBarNode] = useEdgeNode<HTMLDivElement>();
   usePublishedHeight(barNode, '--tl-page-actions-h');
   useFocusClearOf(barNode, 'bottom');
@@ -177,7 +179,9 @@ export const PageActionBar: React.FC<{
       )}
     >
       <div className="flex flex-wrap items-center gap-2">{start}</div>
-      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{children}</div>
+      <div className={cn('ml-auto flex flex-wrap items-center justify-end gap-2', stretch && 'flex-1')}>
+        {children}
+      </div>
     </div>
   );
 };

@@ -35,3 +35,4 @@ export * from './map/MapChrome';
 export { cn } from './cn';
 export { Toast } from './toast';
 export { useToast, type ToastAction, type ToastOptions, type ToastTone } from './toastStore';
+export * from './RecordActionBar';
