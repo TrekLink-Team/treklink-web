@@ -157,6 +157,7 @@ Added by KhoaDD. `/t/fleet` renders through `CollectionView` (chapter 06 §9): t
 filter (Show) in its command bar, the selection with the bulk reset and retire, Record intake check and
 Record reset as item actions with tooltips, Retire device and Dispose device in the Change status menu,
 and the details pane with a link to the device page. The status chips (multi-select, counts, in the
-address) stay above the collection until the leader rules on moving them into the Show dropdown, which is
-single-select. Data and endpoints are unchanged.
+address) stay above the collection: the leader ruled on 2026-11-04 (treklink-web#349) to keep them there
+for the supervisor demo of 2026-11-06, and to replace them afterwards with a multi-select Show menu that
+carries the counts. Data and endpoints are unchanged.
 
