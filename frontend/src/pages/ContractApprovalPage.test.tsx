@@ -73,8 +73,8 @@ describe('ContractApprovalPage', () => {
   it('names the variant by its display name in the queue and the request panel', async () => {
     renderPage();
     expect((await screen.findAllByText('TrekLink v3 x 5')).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getAllByRole('button', { name: /RC-2026-0004/ })[0]);
-    const panel = screen.getByRole('complementary');
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
+    const panel = screen.getByRole('complementary', { name: 'RC-2026-0004' });
     expect(within(panel).getByText('5 x TrekLink v3')).toBeTruthy();
     expect(
       within(panel).getByText('10 TrekLink v3 available now; approval reserves 5.'),
@@ -86,8 +86,8 @@ describe('ContractApprovalPage', () => {
     requested.holdExpiresAt = '2099-01-01T03:00:00.000Z';
     try {
       renderPage();
-      fireEvent.click((await screen.findAllByRole('button', { name: /RC-2026-0004/ }))[0]);
-      const panel = screen.getByRole('complementary');
+      fireEvent.click(await screen.findByRole('button', { name: 'Show details of RC-2026-0004' }));
+      const panel = screen.getByRole('complementary', { name: 'RC-2026-0004' });
       expect(
         within(panel).getByText(
           /^This request holds its 5 TrekLink v3 devices; approval keeps them\. An unpaid hold ends .*2099/,
@@ -103,8 +103,8 @@ describe('ContractApprovalPage', () => {
     requested.holdExpiresAt = '2020-01-01T03:00:00.000Z';
     try {
       renderPage();
-      fireEvent.click((await screen.findAllByRole('button', { name: /RC-2026-0004/ }))[0]);
-      const panel = screen.getByRole('complementary');
+      fireEvent.click(await screen.findByRole('button', { name: 'Show details of RC-2026-0004' }));
+      const panel = screen.getByRole('complementary', { name: 'RC-2026-0004' });
       expect(within(panel).getByText(/^The hold of this request ended .*2020/)).toBeTruthy();
       expect(within(panel).queryByText(/An unpaid hold ends/)).toBeNull();
     } finally {
@@ -116,7 +116,7 @@ describe('ContractApprovalPage', () => {
     const message = 'The handover appointment is in the past. Choose a time from now on.';
     approveContract.mockRejectedValue(new ApiError(400, 'VALIDATION_FAILED', message));
     renderPage();
-    fireEvent.click(screen.getAllByRole('button', { name: /RC-2026-0004/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
     const field = screen.getByLabelText('Handover appointment');
     fireEvent.change(field, { target: { value: '2026-10-30T09:00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
@@ -140,7 +140,7 @@ describe('ContractApprovalPage', () => {
       new ApiError(409, 'INSUFFICIENT_DEVICES', 'Only 4 treklink-v3 devices are available.'),
     );
     renderPage();
-    fireEvent.click(screen.getAllByRole('button', { name: /RC-2026-0004/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     const alert = await screen.findByText('Only 4 treklink-v3 devices are available.');
     expect(alert.id).not.toBe('appointment-error');
@@ -162,7 +162,7 @@ describe('ContractApprovalPage', () => {
       })),
     });
     renderPage();
-    fireEvent.click(screen.getAllByRole('button', { name: /RC-2026-0004/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(
       await screen.findByText('Reserved: TL-0003, TL-0004, TL-0005, TL-0006, TL-0011'),
@@ -180,14 +180,14 @@ describe('ContractApprovalPage row actions (W29)', () => {
   });
 
   const table = () => within(screen.getByRole('table', { name: 'Contracts' }));
-  const itemsOf = (code: string) => {
-    fireEvent.click(table().getByRole('button', { name: `Actions for ${code}` }));
+  const movesOf = (code: string, status: string) => {
+    fireEvent.click(table().getByRole('button', { name: `Status: ${status}. Change status of ${code}` }));
     const labels = screen.getAllByRole('menuitem').map((item) => item.textContent);
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     return labels;
   };
 
-  it('offers each status only its moves', () => {
+  it('offers each status only its moves, in Change status, and the counter as an item action', () => {
     queue = [
       requested,
       { ...requested, id: 'c-2', code: 'RC-2026-0005', status: 'APPROVED' },
@@ -195,23 +195,29 @@ describe('ContractApprovalPage row actions (W29)', () => {
       { ...requested, id: 'c-4', code: 'RC-2026-0007', status: 'CLOSED' },
     ];
     renderPage();
-    expect(itemsOf('RC-2026-0004')).toEqual(['Review and approve', 'Reject contract', 'Cancel contract']);
-    // Two actions show inline.
-    expect(table().getByRole('button', { name: /^Open counter\s+RC-2026-0005/ })).toBeTruthy();
-    expect(table().getByRole('button', { name: /^Cancel contract\s+RC-2026-0005/ })).toBeTruthy();
-    expect(table().getByRole('button', { name: /^Open counter\s+RC-2026-0006/ })).toBeTruthy();
-    expect(table().queryByRole('button', { name: /^Cancel contract\s+RC-2026-0006/ })).toBeNull();
-    expect(table().queryByRole('button', { name: /^(Open counter|Cancel contract|Actions for)\s*RC-2026-0007/ })).toBeNull();
+    expect(movesOf('RC-2026-0004', 'Requested')).toEqual(['Reject contract', 'Cancel contract']);
+    expect(movesOf('RC-2026-0005', 'Approved')).toEqual(['Cancel contract']);
+    expect(table().queryByRole('button', { name: /Change status of RC-2026-0006/ })).toBeNull();
+    expect(table().getByRole('button', { name: 'Open counter RC-2026-0005' })).toBeTruthy();
+    expect(table().getByRole('button', { name: 'Open counter RC-2026-0006' })).toBeTruthy();
+    expect(table().queryByRole('button', { name: /^Open counter RC-2026-000[47]/ })).toBeNull();
+    expect(table().queryByRole('button', { name: /Change status of RC-2026-0007/ })).toBeNull();
   });
 
-  it('cancels from the row with the reason and the loaded version', async () => {
+  it('cancels from the status menu with the reason and the loaded version', async () => {
     cancelContract.mockResolvedValue({});
     queue = [{ ...requested, id: 'c-2', code: 'RC-2026-0005', status: 'APPROVED', version: 3 }];
     renderPage();
-    fireEvent.click(table().getByRole('button', { name: /^Cancel contract\s+RC-2026-0005/ }));
+    fireEvent.click(table().getByRole('button', { name: 'Status: Approved. Change status of RC-2026-0005' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Cancel contract' }));
     const dialog = within(screen.getByRole('alertdialog', { name: 'Cancel contract RC-2026-0005?' }));
     fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Tour cancelled' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Cancel contract' }));
     await vi.waitFor(() => expect(cancelContract).toHaveBeenCalledWith('c-2', 'Tour cancelled', 3));
+  });
+
+  it('shows the queue as the Show filter, Requested first', () => {
+    renderPage();
+    expect(screen.getByRole('button', { name: /^Show: Requested/ })).toBeTruthy();
   });
 });

@@ -96,3 +96,12 @@ tables above disagree, this section wins.
   with the required reason the Manager sees and the row's `expectedVersion` (rentals api-design 05
   and 06; Staff and Admin cancel through `contract.operate`).
 - No bulk: each approval needs its own appointment. The API does not sort; Pagination shows the range.
+
+## Queue on CollectionView (D-096, 2026-11-04)
+
+Added by KhoaDD to apply chapter 06 §9. `/t/contracts` renders through `CollectionView`: the queues
+Requested, Approved and All are its Show filter (rentals 02 `status`), the search reads the current page
+by code, organization, variant and plan (the separate plan select is folded into the search), Reject
+contract and Cancel contract are in the Change status menu behind the same reason dialogs, Open counter is
+an item action, and the decision panel (prices, hold or availability, handover appointment, Approve,
+Reject) sits in the details pane with a link to the contract home. Endpoints and messages are unchanged.
