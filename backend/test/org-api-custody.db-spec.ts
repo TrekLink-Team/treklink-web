@@ -74,6 +74,7 @@ describe('the organization API clips readings to the custody interval as the map
     stream,
     { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
     fieldEvents,
+    { dockedWithContracts: () => Promise.resolve([]) } as never,
   );
   const api = new OrgApiService(
     contracts,

@@ -3,7 +3,7 @@ import { subject } from '@casl/ability';
 import { IncidentState } from '@prisma/client';
 import { Caller, type PolicyAbility } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { DevicesService } from '../devices';
+import { DeviceConnectorService, DevicesService, type DockedUnitWithContract } from '../devices';
 import { FieldEventQueryService } from '../gateway-sync';
 import { IncidentsQueryService, type OpenIncidentRef } from '../incidents';
 import { OrganizationsService } from '../organizations';
@@ -41,8 +41,10 @@ export interface MapConfigDto {
   staleAfterSeconds: number;
 }
 
-// The state of a unit on the map (REQ-UBI-04, D-092 rule 2), the custody rule of `custodyView`.
-export type SnapshotDeviceState = UnitState;
+// The state of a unit on the map (REQ-UBI-04, D-092 rule 2), the custody rule of `custodyView`, and
+// `DOCKED` for a unit held at the counter outside any custody interval, shown to TrekLink callers only
+// (monitoring REQ-UBI-06, devices design section 11.8).
+export type SnapshotDeviceState = UnitState | 'DOCKED';
 
 // The TrekLink counter where a unit not heard since its handover was last known to be
 // (`monitoring.counterLocation`).
@@ -66,11 +68,15 @@ export interface SnapshotDeviceDto {
   lastSeenAt: string | null;
   stale: boolean;
   state: SnapshotDeviceState;
-  handedOverAt: string;
+  // Null for a `DOCKED` unit, which is not handed over.
+  handedOverAt: string | null;
   counterLocation: CounterLocationDto | null;
   openIncident: { id: string; code: string; state: IncidentState } | null;
-  contractCode: string;
-  organizationId: string;
+  // Null for a `DOCKED` unit on no live contract row.
+  contractCode: string | null;
+  organizationId: string | null;
+  // The open dock session (`since`, `byName`) for TrekLink callers; always null for an organization.
+  docked: { since: string; byName: string | null } | null;
   // The device's latest field event is simulated (demo design §9, D-093 amendment): the map shows a
   // "Simulated" label. For an organization, only an event inside its custody interval counts (D-040).
   simulated: boolean;
@@ -110,6 +116,7 @@ export class LiveMapService {
     private readonly stream: StreamRepository,
     private readonly organizations: OrganizationsService,
     private readonly fieldEvents: FieldEventQueryService,
+    private readonly connector: DeviceConnectorService,
   ) {}
 
   // The state the map draws before it applies stream entries (api-design 02, FR-MON-02, FR-MON-03,
@@ -140,7 +147,20 @@ export class LiveMapService {
     if (!isNumber(stationStaleSeconds))
       this.refuse('monitoring.fieldStationStaleSeconds', 'a number');
     const counterLocation = this.counterLocation(counter);
-    const ids = visible.map((device) => device.deviceId);
+    // Units held at the counter (devices design section 11.8): TrekLink callers only, and for a Staff
+    // view of one organization only that organization's units (REQ-STA-05, D-092 rule 2 unchanged).
+    const docked = clipped
+      ? new Map<string, DockedUnitWithContract>()
+      : new Map(
+          (await this.connector.dockedWithContracts(now))
+            .filter(
+              (unit) => organizationId === null || unit.contract?.organizationId === organizationId,
+            )
+            .map((unit) => [unit.deviceId, unit]),
+        );
+    const visibleIds = new Set(visible.map((device) => device.deviceId));
+    const dockedOnly = [...docked.keys()].filter((id) => !visibleIds.has(id));
+    const ids = [...visibleIds, ...dockedOnly];
     const [projections, incidents, simulated] = await Promise.all([
       this.devices.projections(ids),
       this.incidents.openByDevices(ids),
@@ -158,7 +178,33 @@ export class LiveMapService {
 
     const devices = projections.flatMap((device): SnapshotDeviceDto[] => {
       const rented = rental.get(device.id);
-      if (!rented) return [];
+      const session = docked.get(device.id);
+      const dockedView = session
+        ? { since: session.since.toISOString(), byName: session.byName }
+        : null;
+      if (!rented) {
+        if (!session) return [];
+        return [
+          {
+            id: device.id,
+            assetTag: device.assetTag,
+            hardwareVariant: device.variantCode,
+            holder: null,
+            position: null,
+            batteryPct: device.batteryPct,
+            lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
+            stale: false,
+            state: 'DOCKED',
+            handedOverAt: null,
+            counterLocation,
+            openIncident: null,
+            contractCode: session.contract?.code ?? null,
+            organizationId: session.contract?.organizationId ?? null,
+            simulated: false,
+            docked: dockedView,
+          },
+        ];
+      }
       const view = custodyView(device, rented.handedOverAt, staleBefore, clipped);
       return [
         {
@@ -172,11 +218,12 @@ export class LiveMapService {
           stale: view.stale,
           state: view.state,
           handedOverAt: rented.handedOverAt.toISOString(),
-          counterLocation: view.state === 'NOT_HEARD' ? counterLocation : null,
+          counterLocation: view.state === 'NOT_HEARD' || dockedView ? counterLocation : null,
           openIncident: this.incidentOf(incidents.get(device.id), organizationId),
           contractCode: rented.contractCode,
           organizationId: rented.organizationId,
           simulated: simulated.has(device.id),
+          docked: dockedView,
         },
       ];
     });
