@@ -15,6 +15,9 @@ const V3 = {
   name: 'TrekLink v3',
   imageUrl: '/variants/treklink-v3.jpg',
   specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
+  hasGps: true,
+  hasMotionSensor: false,
+  mqttCapable: true,
   isActive: true,
 };
 
@@ -60,6 +63,9 @@ describe('PricingController (billing api-design 01 and 02)', () => {
           name: 'TrekLink v3',
           imageUrl: '/variants/treklink-v3.jpg',
           specSheet: { mcu: 'ESP32', localAlarm: 'LED blinks' },
+          hasGps: true,
+          hasMotionSensor: false,
+          mqttCapable: true,
           monthlyPriceVnd: 450_000,
           dayPriceVnd: 22_500,
         },

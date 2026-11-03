@@ -29,9 +29,26 @@ export const specLines = (specSheet: unknown): SpecLine[] => {
   });
 };
 
-// What a variant needs to be drawn as a card: the fields every read of the variants carries.
+// What a variant needs to be drawn as a card: the fields every read of the variants carries. The
+// capability flags are optional so a read that predates them still draws.
 export interface VariantMedia {
   name: string;
   imageUrl: string | null;
   specSheet: unknown;
+  hasGps?: boolean;
+  hasMotionSensor?: boolean;
+  mqttCapable?: boolean;
 }
+
+// The capability flags as text (design section 10), or null when the read carries none of them. The
+// flags stay the source of logic; this line is display only.
+export const capabilityText = (variant: VariantMedia): string | null => {
+  const { hasGps, hasMotionSensor, mqttCapable } = variant;
+  if (hasGps === undefined && hasMotionSensor === undefined && mqttCapable === undefined) return null;
+  const names = [
+    hasGps ? 'GPS' : null,
+    hasMotionSensor ? 'Motion sensor' : null,
+    mqttCapable ? 'MQTT' : null,
+  ].filter((name): name is string => name !== null);
+  return names.length > 0 ? names.join(', ') : 'None';
+};

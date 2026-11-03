@@ -12,6 +12,9 @@ export interface PlanVariant {
   // The image and the spec sheet of the variant card (devices design section 10).
   imageUrl: string | null;
   specSheet: Record<string, string>;
+  hasGps: boolean;
+  hasMotionSensor: boolean;
+  mqttCapable: boolean;
   monthlyPriceVnd: number;
   dayPriceVnd: number;
 }

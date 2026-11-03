@@ -12,6 +12,9 @@ export interface PlanVariantView {
   name: string;
   imageUrl: string | null;
   specSheet: Prisma.JsonValue;
+  hasGps: boolean;
+  hasMotionSensor: boolean;
+  mqttCapable: boolean;
   monthlyPriceVnd: number;
   dayPriceVnd: number;
 }
@@ -72,6 +75,9 @@ export class PricingController {
                 name: variant.name,
                 imageUrl: variant.imageUrl,
                 specSheet: variant.specSheet,
+                hasGps: variant.hasGps,
+                hasMotionSensor: variant.hasMotionSensor,
+                mqttCapable: variant.mqttCapable,
                 monthlyPriceVnd: vnd(price.monthlyPriceVnd),
                 dayPriceVnd: vnd(price.dayPriceVnd),
               },

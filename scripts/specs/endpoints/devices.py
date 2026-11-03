@@ -1,4 +1,4 @@
-from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, NOW, ep, paged, PAGE_QUERY,
+from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, VARIANT_SUMMARY, CONTRACT_ID, NOW, ep, paged, PAGE_QUERY,
                       state_409, STALE)
 
 VARIANT = {"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, SOS button)", "hasGps": True,
@@ -11,7 +11,7 @@ VARIANT = {"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, S
            "specSheet": {"mcu": "ESP32", "sosControl": "3 s hold on the user button", "localAlarm": "LED blinks"},
            "isActive": True, "deviceCount": 18}
 DEVICE = {"id": DEVICE_ID, "assetTag": "TL-0042", "nodeNum": 2763113171, "nodeId": "!a4b1c2d3",
-          "hardwareVariant": {"id": VARIANT_ID, "code": "treklink-v3"}, "firmwareVersion": "2.7.19-treklink.3",
+          "hardwareVariant": VARIANT_SUMMARY, "firmwareVersion": "2.7.19-treklink.3",
           "acquiredAt": "2026-06-15T00:00:00Z", "status": "AVAILABLE", "statusChangedAt": NOW,
           "keyVersion": None, "keyOrganizationId": None, "keyOrganization": None, "batteryPct": 96,
           "lastSeenAt": NOW, "lastPosition": {"lat": 11.5544, "lon": 108.5381}, "serviceDueAt": "2026-12-12",
@@ -128,6 +128,10 @@ ENDPOINTS = [
        query=[["status", "DeviceStatus, repeatable", "enum", "no", "`AVAILABLE`"],
               ["hardwareVariantId", "Variant", "uuid", "no", f"`{VARIANT_ID}`"],
               ["q", "Asset tag contains", "string", "no", "`TL-00`"]] + PAGE_QUERY,
+       fields=[["hardwareVariant", "The shared variant summary of design section 10 (`id`, `code`, `name`, `imageUrl`, "
+                "`specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`), the same shape on every unit payload, so the "
+                "variant card needs no second read and an Org Operator, who cannot read api-design 01, still sees it", "object",
+                "`{\"id\": \"...\", \"code\": \"treklink-v3\", ...}`"]],
        response=paged(DEVICE, 40), steps=["Read devices"],
        controller="DevicesController", service="DevicesService", call="list(query)",
        seq=["Svc->>DB: SELECT devices"]),

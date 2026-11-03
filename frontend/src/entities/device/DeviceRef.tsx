@@ -13,19 +13,33 @@ interface Props {
   status?: DeviceStatus;
   // Where the link goes: see `deviceHomePath`.
   scope: 't' | 'o';
+  // False for a unit with no page to open yet (an organization sees the history only after the handover):
+  // the tag then stays plain text.
+  linked?: boolean;
 }
 
 // A mention of one unit (specs/devices/design.md section 10, UI conventions E-2): its asset tag as a link
 // to its device home, the variant name, and the status as a badge with its label, never colour alone.
-export const DeviceRef: React.FC<Props> = ({ deviceId, assetTag, variantName, status, scope }) => (
+export const DeviceRef: React.FC<Props> = ({
+  deviceId,
+  assetTag,
+  variantName,
+  status,
+  scope,
+  linked = true,
+}) => (
   <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 whitespace-nowrap">
-    <Link
-      to={deviceHomePath(scope, deviceId)}
-      state={{ assetTag }}
-      className={`${LINK} font-mono font-medium`}
-    >
-      {assetTag ?? deviceId}
-    </Link>
+    {linked ? (
+      <Link
+        to={deviceHomePath(scope, deviceId)}
+        state={{ assetTag }}
+        className={`${LINK} font-mono font-medium`}
+      >
+        {assetTag ?? deviceId}
+      </Link>
+    ) : (
+      <span className="font-mono font-medium text-ink">{assetTag ?? deviceId}</span>
+    )}
     {variantName && <span className="text-body-sm text-ink-muted">{variantName}</span>}
     {status && <StatusBadge entry={DEVICE_STATUS[status]} />}
   </span>

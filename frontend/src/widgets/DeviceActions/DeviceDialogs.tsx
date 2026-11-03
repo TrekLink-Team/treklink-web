@@ -3,7 +3,6 @@ import {
   disposeDevice,
   recordIntakeCheck,
   recordReset,
-  useVariants,
   type Device,
 } from '../../entities/device/api';
 import { Button } from '../../shared/ui/Button';
@@ -21,8 +20,7 @@ export const IntakeDialog: React.FC<{ device: Device; onDone: () => void; onCanc
   onDone,
   onCancel,
 }) => {
-  const { data: variants } = useVariants(true);
-  const hasMotion = variants?.find((variant) => variant.id === device.hardwareVariant.id)?.hasMotionSensor;
+  const hasMotion = device.hardwareVariant.hasMotionSensor;
   const [gpsFixOk, setGpsFixOk] = useState(true);
   const [radioOk, setRadioOk] = useState(true);
   const [batteryOk, setBatteryOk] = useState(true);

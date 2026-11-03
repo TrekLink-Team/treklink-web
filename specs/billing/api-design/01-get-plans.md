@@ -45,6 +45,9 @@ No body.
           "sosControl": "3 s hold on the user button",
           "localAlarm": "LED blinks"
         },
+        "hasGps": true,
+        "hasMotionSensor": false,
+        "mqttCapable": true,
         "monthlyPriceVnd": 450000,
         "dayPriceVnd": 22500
       }
@@ -56,6 +59,12 @@ No body.
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| variants[].hasGps | Capability flags as text on the variant card (GPS, motion sensor, MQTT); the same names and values as devices api-design 01, display only | bool | `true` |
+| variants[].hasMotionSensor | See `hasGps` | bool | `false` |
+| variants[].mqttCapable | See `hasGps` | bool | `true` |
 
 ## Validation
 

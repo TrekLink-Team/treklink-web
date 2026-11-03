@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '../../shared/ui';
-import { specLines, type VariantMedia } from './spec';
+import { capabilityText, specLines, type VariantMedia } from './spec';
 
 export const NO_IMAGE_TEXT = 'Variant image not added yet';
 
@@ -28,6 +28,7 @@ export const VariantCard: React.FC<Props> = ({
   const [failed, setFailed] = useState<string | null>(null);
   const showImage = variant.imageUrl !== null && failed !== variant.imageUrl;
   const lines = specLines(variant.specSheet);
+  const capabilities = capabilityText(variant);
   const Heading = headingLevel;
   return (
     <div className={cn('flex min-w-0 gap-3', className)}>
@@ -48,7 +49,7 @@ export const VariantCard: React.FC<Props> = ({
         <Heading id={headingId} className="text-body font-semibold text-ink">
           {variant.name}
         </Heading>
-        {lines.length > 0 && (
+        {(lines.length > 0 || capabilities !== null) && (
           <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-body-sm">
             {lines.map((line) => (
               <React.Fragment key={line.key}>
@@ -56,6 +57,12 @@ export const VariantCard: React.FC<Props> = ({
                 <dd className="text-ink">{line.value}</dd>
               </React.Fragment>
             ))}
+            {capabilities !== null && (
+              <>
+                <dt className="text-ink-muted">Capabilities</dt>
+                <dd className="text-ink">{capabilities}</dd>
+              </>
+            )}
           </dl>
         )}
         {children}

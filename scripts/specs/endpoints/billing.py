@@ -39,8 +39,13 @@ ENDPOINTS = [
                                "imageUrl": None,
                                "specSheet": {"mcu": "ESP32", "sosControl": "3 s hold on the user button",
                                              "localAlarm": "LED blinks"},
+                               "hasGps": True, "hasMotionSensor": False, "mqttCapable": True,
                                "monthlyPriceVnd": 450000, "dayPriceVnd": 22500}],
                  "sandbox": True},
+       fields=[["variants[].hasGps", "Capability flags as text on the variant card (GPS, motion sensor, MQTT); the "
+                "same names and values as devices api-design 01, display only", "bool", "`true`"],
+               ["variants[].hasMotionSensor", "See `hasGps`", "bool", "`false`"],
+               ["variants[].mqttCapable", "See `hasGps`", "bool", "`true`"]],
        steps=["Read current price per active variant", "Read plan parameters"],
        controller="PlansController", service="PricingService", call="catalogue()",
        seq=["Svc->>DB: SELECT DISTINCT ON (variant) price_schedules ORDER BY effectiveFrom DESC"]),

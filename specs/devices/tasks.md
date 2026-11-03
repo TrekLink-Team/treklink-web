@@ -184,12 +184,14 @@
 
 ## Phase 9: Variant image and spec sheet (design §10, gap G1)
 
-- [ ] 9.1 Schema, API and seed (owner KhoaDD)
+- [ ] 9.1 Schema, API and seed (owner TanNB)
   - **Files**: `backend/prisma/schema.prisma` (`HardwareVariant.imageUrl`, `specSheet`), a forward migration that also fills the verified seed values of design §10, the variants DTOs and service, tests
   - **Do**: devices api-design 01 to 03; validation with 400 `VARIANT_MEDIA_INVALID`; the shared variant summary on every unit payload (design §10, regenerate the catalogs it touches)
   - _Requirements: REQ-UBI-06, REQ-ERR-18, AC-21_
-- [ ] 9.2 Screens (owner KhoaDD)
+  - **Partly done 2026-11-03** (treklink-web#338, #334 part 2): schema, forward migration with the verified seed, the read of `imageUrl` and `specSheet` on api-design 01 and on the public plans, and the shared variant summary on the unit payloads (api-design 05 to 07, rentals 03 `devices[]`). Open: POST and PATCH validation with 400 `VARIANT_MEDIA_INVALID` (needs task 2.1) and the summary on the monitoring rows (their `hardwareVariant` is a code string that the map and the organization API read, so it needs a ruling)
+- [ ] 9.2 Screens (owner TanNB)
   - **Files**: screen 4.1 panel fields and card preview; a shared `VariantCard` and spec summary used by screen 4.2, the contract home Devices tab and the request form's variant picker
   - **Do**: design §10 "Where it shows"; the labelled empty image slot when `imageUrl` is null; create `frontend/public/variants/` (empty until the leader supplies photos); map `VARIANT_MEDIA_INVALID` on screen 4.1
   - _Requirements: REQ-UBI-06, AC-21_
+  - **Partly done 2026-11-03** (treklink-web#338, #334 part 2): shared `VariantCard`, spec summary and capability flags on screen 4.2, the contract home Devices tab and the request form picker, the labelled empty slot, `frontend/public/variants/`. Open: the screen 4.1 panel and the `VARIANT_MEDIA_INVALID` mapping (need task 2.1)
 

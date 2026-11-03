@@ -308,7 +308,13 @@ export const ContractDetailPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =>
         <span className="whitespace-nowrap">
           {/* The asset tag is a DeviceRef (devices design section 10): the device home for TrekLink, the
               position history for an organization, which has no device home. */}
-          <DeviceRef deviceId={device.deviceId} assetTag={device.assetTag} scope={scope} />
+          <DeviceRef
+            deviceId={device.deviceId}
+            assetTag={device.assetTag}
+            variantName={device.hardwareVariant?.name}
+            scope={scope}
+            linked={scope === 't' || device.handedOverAt !== null}
+          />
           {device.handedOverAt && scope === 't' && (
             <Link
               to={`/${scope}/devices/${device.deviceId}/telemetry`}

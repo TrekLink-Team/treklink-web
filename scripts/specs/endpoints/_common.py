@@ -6,6 +6,12 @@ USER_ID = "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f"
 MEMBER_ID = "6c5b4a39-2817-4f06-9e5d-4c3b2a190807"
 DEVICE_ID = "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10"
 VARIANT_ID = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+
+# The variant summary every unit payload carries (devices design section 10, task 9.1).
+VARIANT_SUMMARY = {"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, SOS button)",
+                   "imageUrl": None,
+                   "specSheet": {"mcu": "ESP32", "sosControl": "3 s hold on the user button", "localAlarm": "LED blinks"},
+                   "hasGps": True, "hasMotionSensor": False, "mqttCapable": True}
 CONTRACT_ID = "c0ffee00-1234-4abc-9def-001122334455"
 INVOICE_ID = "1e2d3c4b-5a69-4788-9a0b-c1d2e3f4a5b6"
 INCIDENT_ID = "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d"
