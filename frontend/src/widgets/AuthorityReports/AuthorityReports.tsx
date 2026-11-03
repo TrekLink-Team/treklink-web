@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CircleCheck, RefreshCw } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -27,10 +28,11 @@ import { ApiError } from '../../shared/api/apiClient';
 import { formatDateTime, viewerTimeZone } from '../../shared/lib/format';
 import { Badge } from '../../shared/ui/Badge';
 import { Empty, ErrorState, Loading, Pager } from '../../shared/ui/bits';
-import { DataTable, Pagination, type Column } from '../../shared/ui/DataTable';
+import { Pagination } from '../../shared/ui/DataTable';
+import { CollectionView, pageInfoOf, type CollectionField } from '../../shared/ui/collection-view';
 import { Button } from '../../shared/ui/Button';
 import { Dialog } from '../../shared/ui/Dialog';
-import { Checkbox, Field, Input, Select, Textarea } from '../../shared/ui/Field';
+import { Field, Input, Select, Textarea } from '../../shared/ui/Field';
 import { messageOf } from '../../shared/ui/errors';
 import { CONTRACT_STATUS, INCIDENT_STATE } from '../../shared/ui/status';
 import { useToast } from '../../shared/ui/toastStore';
@@ -535,40 +537,47 @@ export const CloseCaseDialog: React.FC<{ report: AuthorityReport; onClose: () =>
   );
 };
 
-// The report rows (W29): the shared DataTable, which scrolls inside its box on a phone; Record case
-// closed is the row action of an open case.
-const reportColumns = (onViewIncident: (id: string) => void): Column<AuthorityReport>[] => [
-  {
-    key: 'subject',
-    header: 'Subject',
-    cell: (report) =>
-      report.incidentId ? (
-        <button type="button" className={`${LINK} text-left`} onClick={() => onViewIncident(report.incidentId!)}>
-          View incident
-        </button>
-      ) : (
-        <Link to={`/t/contracts/${report.contractId}`} className={LINK}>
-          View contract
-        </Link>
-      ),
-  },
-  { key: 'agency', header: 'Agency', cell: (report) => <span className="break-words">{report.agency}</span> },
-  { key: 'reference', header: 'Reference', cell: (report) => <span className="break-all">{report.reference}</span> },
-  { key: 'reported', header: 'Reported', cell: (report) => formatDateTime(report.reportedAt) },
+// The report rows (W29) on CollectionView (chapter 06 §9, D-096); Record case closed is the item
+// action of an open case.
+const reportFields = (onViewIncident: (id: string) => void): CollectionField<AuthorityReport>[] => [
+  { key: 'agency', label: 'Agency', render: (report) => <span className="break-words">{report.agency}</span>, text: (report) => report.agency },
   {
     key: 'case',
-    header: 'Case',
-    cell: (report) =>
+    label: 'Case',
+    render: (report) =>
       report.caseClosedAt ? (
         <Badge tone="ended" after={formatDateTime(report.caseClosedAt)}>Closed</Badge>
       ) : (
         <Badge tone="attention">Open</Badge>
       ),
+    text: (report) => (report.caseClosedAt ? 'Closed' : 'Open'),
+    compact: true,
+  },
+  { key: 'reported', label: 'Reported', render: (report) => formatDateTime(report.reportedAt), text: (report) => report.reportedAt, hideWithPane: true },
+  {
+    key: 'subject',
+    label: 'Subject',
+    render: (report) =>
+      report.incidentId ? (
+        <button
+          type="button"
+          className={`${LINK} inline-flex min-h-6 items-center text-left`}
+          onClick={() => onViewIncident(report.incidentId!)}
+        >
+          View incident
+        </button>
+      ) : (
+        <Link to={`/t/contracts/${report.contractId}`} className={`${LINK} inline-flex min-h-6 items-center`}>
+          View contract
+        </Link>
+      ),
+    text: (report) => (report.incidentId ? 'Incident' : 'Contract'),
+    hideWithPane: true,
   },
 ];
 
 // The Authority reports tab of /t/incidents (screen 8.3, api-design 11): open cases only by default,
-// server order kept (D-059 rule 7), no sort or extra filters.
+// chosen from Show and filtered on the server, server order kept (D-059 rule 7), no sort.
 export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => void }> = ({
   onViewIncident,
 }) => {
@@ -589,32 +598,45 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
         </Button>
       </div>
       <p className={WARNING}>{REPORT_DISCLAIMER}</p>
-      <div className="flex flex-wrap items-center gap-4">
-        <Checkbox
-          label="Open cases only"
-          checked={openOnly}
-          onChange={(event) => {
-            setOpenOnly(event.target.checked);
-            setPageNumber(1);
-          }}
-        />
-        <Button onClick={() => void refetch()} loading={isFetching && !isLoading}>
-          Refresh
-        </Button>
-      </div>
-
-      <DataTable<AuthorityReport>
-        caption="Authority reports"
-        columns={reportColumns(onViewIncident)}
-        rows={data?.items}
-        rowId={(report) => report.id}
-        rowLabel={(report) => `${report.agency} ${report.reference}`}
+      <CollectionView<AuthorityReport>
+        label="Authority reports"
+        items={data?.items}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
-        empty={{ title: openOnly ? 'No open authority cases.' : 'No authority reports recorded.' }}
-        rowActions={(report) =>
-          report.caseClosedAt ? [] : [{ key: 'close', label: 'Record case closed', onSelect: () => setClosing(report) }]
-        }
+        itemId={(report) => report.id}
+        itemName={(report) => `${report.agency} ${report.reference}`}
+        itemTitle={(report) => <span className="break-all font-mono text-ink">{report.reference}</span>}
+        fields={reportFields(onViewIncident)}
+        noun={{ one: 'report', other: 'reports' }}
+        itemActions={[
+          {
+            key: 'close',
+            label: 'Record case closed',
+            icon: <CircleCheck />,
+            allowed: (report) => !report.caseClosedAt,
+            onSelect: (report) => setClosing(report),
+          },
+        ]}
+        commands={[
+          {
+            key: 'refresh',
+            label: 'Refresh',
+            icon: <RefreshCw className={isFetching && !isLoading ? 'animate-spin motion-reduce:animate-none' : undefined} />,
+            onSelect: () => void refetch(),
+            disabled: isFetching,
+          },
+        ]}
+        filters={[
+          { key: 'open', label: 'Open cases only' },
+          { key: 'all', label: 'All reports' },
+        ]}
+        query={{ search: '', filter: openOnly ? 'open' : 'all', sort: null }}
+        onQueryChange={(next) => {
+          setOpenOnly(next.filter === 'open');
+          setPageNumber(1);
+        }}
+        pageInfo={pageInfoOf(data)}
+        emptyState={{ title: openOnly ? 'No open authority cases.' : 'No authority reports recorded.' }}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination
