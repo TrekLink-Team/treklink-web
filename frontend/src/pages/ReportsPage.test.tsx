@@ -2,7 +2,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
 import { ReportsPage } from './ReportsPage';
@@ -114,6 +114,16 @@ const serve = (respond?: (endpoint: string) => unknown) =>
 
 const Probe: React.FC = () => <p data-testid="search">{useLocation().search}</p>;
 
+// The browser's back button.
+const Back: React.FC = () => {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      Browser back
+    </button>
+  );
+};
+
 const renderPage = (search = '') =>
   render(
     <QueryClientProvider
@@ -122,6 +132,7 @@ const renderPage = (search = '') =>
       <MemoryRouter initialEntries={[`/t/reports${search}`]}>
         <ReportsPage />
         <Probe />
+        <Back />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -223,6 +234,15 @@ describe('ReportsPage (screen 9.4)', () => {
     expect(
       screen.getByRole('img', { name: /treklink-v3 invoiced 18,000,000 VND, paid 13,500,000 VND/ }),
     ).toBeTruthy();
+  });
+
+  it('labels the revenue bars as amounts in VND, as the table does', async () => {
+    serve();
+    renderPage('?kind=revenue');
+    await screen.findByRole('table', { name: 'Revenue by variant' });
+    const chart = within(screen.getByRole('img', { name: /^Revenue by variant/ }));
+    expect(chart.getByText('18,000,000 VND')).toBeTruthy();
+    expect(chart.getByText('13,500,000 VND')).toBeTruthy();
   });
 
   it('links an overdue contract to its detail page', async () => {
@@ -332,6 +352,21 @@ describe('ReportsPage (screen 9.4)', () => {
       expect(reads()).toHaveLength(before);
     });
 
+    it('puts the period of the URL back in the fields on browser back', async () => {
+      serve();
+      renderPage('?from=2026-10-01&to=2026-11-01');
+      await screen.findByRole('table', { name: 'Utilization by variant' });
+      fireEvent.click(screen.getByRole('button', { name: 'This month' }));
+      await waitFor(() =>
+        expect((screen.getByLabelText(/^From/) as HTMLInputElement).value).toBe('2026-11-01'),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Browser back' }));
+      await waitFor(() =>
+        expect((screen.getByLabelText(/^From/) as HTMLInputElement).value).toBe('2026-10-01'),
+      );
+      expect((screen.getByLabelText(/^To/) as HTMLInputElement).value).toBe('2026-10-31');
+    });
+
     it.each([
       ['This month', '?kind=utilization&from=2026-11-01&to=2026-12-01'],
       ['Last month', '?kind=utilization&from=2026-10-01&to=2026-11-01'],
@@ -390,6 +425,23 @@ describe('ReportsPage (screen 9.4)', () => {
       expect(screen.getByRole('table', { name: 'Revenue by variant' })).toBeTruthy();
       expect(click).not.toHaveBeenCalled();
     });
+  });
+
+  it('drops a CSV failure when the tab changes, so Retry never fetches the other tab', async () => {
+    serve((endpoint) => {
+      if (endpoint.includes('format=csv'))
+        throw new ApiError(500, 'INTERNAL_ERROR', 'The file could not be made.');
+      const kind = /\/reports\/([a-z-]+)/.exec(endpoint)?.[1] ?? '';
+      return { kind, from: '2026-11-01', to: '2026-12-01', rows: ROWS[kind] ?? [] };
+    });
+    renderPage('?kind=revenue');
+    await screen.findByRole('table', { name: 'Revenue by variant' });
+    fireEvent.click(screen.getByRole('button', { name: 'Download CSV' }));
+    await screen.findByText('The file could not be made.');
+    fireEvent.click(tab('Overdue contracts'));
+    await screen.findByRole('table', { name: 'Overdue contracts' });
+    expect(screen.queryByText('The file could not be made.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
   it('shows the row count and the time it was generated', async () => {

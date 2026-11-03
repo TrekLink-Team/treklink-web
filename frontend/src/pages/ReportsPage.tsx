@@ -27,7 +27,7 @@ import {
   type Period,
 } from '../entities/report/model';
 import { ApiError } from '../shared/api/apiClient';
-import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
+import { formatDateTime, formatDay, formatTime, formatVnd } from '../shared/lib/format';
 import {
   Alert,
   Button,
@@ -174,7 +174,7 @@ const RevenuePanel: React.FC<{ rows: RevenueRow[] }> = ({ rows }) => {
               { name: 'Invoiced', fill: 'bg-brand' },
               { name: 'Paid', fill: 'bg-status-done-strong' },
             ]}
-            format={(value) => number(value)}
+            format={formatVnd}
             alternative={`Revenue by variant: ${rows
               .map(
                 (row) =>
@@ -456,6 +456,16 @@ export const ReportsPage: React.FC = () => {
 
   const report = useReport(kind, period.from, period.to);
 
+  // Browser back and forward change the period in the URL; the fields follow it.
+  const periodKey = `${period.from}/${period.to}`;
+  const [shownPeriod, setShownPeriod] = useState(periodKey);
+  if (shownPeriod !== periodKey) {
+    setShownPeriod(periodKey);
+    setFromInput(period.from);
+    setToInput(addDays(period.to, -1));
+    setPeriodMessage(null);
+  }
+
   // A tab switch moves focus to the table heading (screen 9.4); the first render leaves it alone.
   useEffect(() => {
     if (firstKind.current !== kind) headingRef.current?.focus();
@@ -469,6 +479,7 @@ export const ReportsPage: React.FC = () => {
 
   const go = (next: { kind?: ReportKind; period?: Period }) => {
     const target = next.period ?? period;
+    setCsvFailure(null);
     setParams(new URLSearchParams({ kind: next.kind ?? kind, from: target.from, to: target.to }));
   };
 
@@ -477,7 +488,6 @@ export const ReportsPage: React.FC = () => {
     const message = periodError(from, lastDay);
     setPeriodMessage(message);
     if (message) return;
-    setCsvFailure(null);
     go({ period: { from, to: addDays(lastDay, 1) } });
   };
 
@@ -655,11 +665,7 @@ export const ReportsPage: React.FC = () => {
             <Panel kind={kind} rows={rows} />
             <p className="text-body-sm text-ink-muted">
               {rows.length} {rows.length === 1 ? 'row' : 'rows'}, generated{' '}
-              {new Date(report.dataUpdatedAt).toLocaleTimeString('en-GB', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-              })}
+              {formatTime(report.dataUpdatedAt)}
             </p>
           </>
         )}

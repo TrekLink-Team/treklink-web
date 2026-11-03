@@ -24,6 +24,14 @@ export const formatDateTime = (iso: string): string =>
     minute: '2-digit',
   });
 
+// The time of day of an instant in the viewer's timezone, to the second.
+export const formatTime = (instant: Date | number | string): string =>
+  new Date(instant).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
 // An instant in UTC with its zone named once, for a hover over a time shown in the viewer's timezone.
 export const formatUtc = (iso: string): string =>
   `${new Date(iso).toLocaleString('en-GB', {
