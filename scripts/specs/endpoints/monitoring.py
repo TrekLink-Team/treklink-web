@@ -1,7 +1,9 @@
-from ._common import ORG_ID, DEVICE_ID, INCIDENT_ID, STATION_ID, NOW, ep, paged
+from ._common import ORG_ID, DEVICE_ID, INCIDENT_ID, STATION_ID, CONTRACT_ID, NOW, ep, paged, PAGE_QUERY
 
 SNAP_DEVICE = {"id": DEVICE_ID, "assetTag": "TL-0042", "hardwareVariant": "treklink-v3",
                "holder": {"name": "Le Thi E"}, "position": {"lat": 11.5601, "lon": 108.5402, "at": NOW},
+               # The device's group now, or null (rentals design §11, FR-MON-11); added with treklink-web#305.
+               "group": {"id": "g-2", "name": "Team A", "parentId": "g-1"},
                "batteryPct": 81, "lastSeenAt": NOW, "stale": False, "openIncident": None, "contractCode": "RC-2026-0042",
                # True when the device's latest field event is simulated, for an organization only an event since
                # the handover (demo design §9, D-093 amendment, D-040).
@@ -54,9 +56,11 @@ ENDPOINTS = [
        "`counterLocation` is `{ name, lat, lon }` of `monitoring.counterLocation` for a `NOT_HEARD` unit, where the "
        "map pins it, and null otherwise. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, "
        "shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map "
-       "filter stream entries by organization in the client.",
-       "UC-38, UC-41, FR-AUTH-11, FR-MON-02, FR-MON-03, BR-19, BR-21",
-       query=[["organizationId", "TrekLink staff: one organization; omit for the fleet", "uuid", "no", f"`{ORG_ID}`"]],
+       "filter stream entries by organization in the client. `group` is the unit's group now, or null, and "
+       "`groupId` keeps the units of that group and its subgroups (FR-MON-11, rentals design §11).",
+       "UC-38, UC-41, FR-AUTH-11, FR-MON-02, FR-MON-03, FR-MON-11, BR-19, BR-21",
+       query=[["organizationId", "TrekLink staff: one organization; omit for the fleet", "uuid", "no", f"`{ORG_ID}`"],
+              ["groupId", "Organization members: the units of this group and its subgroups", "uuid", "no", "`g-1`"]],
        response={"cursor": 88213,
                  "devices": [{**SNAP_DEVICE, "state": "LIVE", "handedOverAt": "2026-10-19T01:30:00.000Z",
                               "counterLocation": None, "organizationId": ORG_ID},
@@ -247,6 +251,35 @@ ENDPOINTS = [
                      ["Dev", "DevicesService"]],
        seq=["Svc->>Bill: revenue(range)", "Svc->>Rent: utilization(range), overdue(asOf)",
             "Svc->>Dev: lostUnits(range)", "Svc->>Inc: responseTimes(range)"]),
+    ep("GET", "/api/rented-devices", "Rented-device console", "Org Manager: own",
+       "Every device the organization holds now across its contracts, one row per device on the contract holding "
+       "it, for the Org Manager's console (UC-66, FR-CON-16): variant, asset tag, contract, the unit `state` with "
+       "the battery and last-seen time clipped to the custody interval exactly as the organization's map snapshot "
+       "(REQ-UBI-04, D-040), the group and the holder label, the open fault report and the open loss case. "
+       "`groupId` keeps the devices of that group and its subgroups; `state` filters after the custody view, so it "
+       "matches the map. A checked-in or settled-lost unit is not listed. An Org Operator or a TrekLink caller gets "
+       "403: the console is the Manager's (Report 3 RBAC).",
+       "UC-66, FR-CON-16, FR-MON-11, BR-19, BR-46",
+       query=[["contractId", "One of the organization's contracts", "uuid", "no", f"`{CONTRACT_ID}`"],
+              ["groupId", "A group of the organization, with its subgroups", "uuid", "no", "`g-1`"],
+              ["state", "`LIVE`, `OFFLINE` or `NOT_HEARD`", "enum", "no", "`OFFLINE`"]] + PAGE_QUERY,
+       response=paged({"deviceId": DEVICE_ID, "assetTag": "TL-0042", "variantCode": "treklink-v3",
+                       "contract": {"id": CONTRACT_ID, "code": "RC-2026-0042", "planType": "MONTHLY",
+                                    "status": "ACTIVE"},
+                       "contractDeviceId": "cd-1", "handedOverAt": "2026-10-19T01:30:00.000Z",
+                       "state": "OFFLINE", "batteryPct": 34, "lastSeenAt": NOW,
+                       "group": {"id": "g-2", "name": "Team A", "parentId": "g-1"},
+                       "holder": {"name": "Le Thi E"}, "openFaultReportId": None, "openLossCase": None}, 7),
+       entity="Rented device",
+       errors=[(404, "NOT_FOUND", "`contractId` or `groupId` is not the organization's", "Not found.")],
+       steps=["Read the organization's devices in custody with group, holder and open fault report from rentals",
+              "Apply the organization custody view to each projection", "Add variant codes and open loss cases from devices",
+              "Expand groupId to its subgroups and filter", "Page"],
+       controller="RentedDevicesController", service="RentedDevicesService", call="list(query, caller)",
+       participants=[["Ren", "ContractsService"], ["Dev", "DevicesService"]],
+       seq=["Svc->>Ren: visibleDevices(caller)", "Svc->>Dev: projections(deviceIds), openLossCases(deviceIds)",
+            "Svc->>Svc: custodyView per unit, filter, page"]),
+
 ]
 
 NOTES = ("Live push is the Socket.io contract in [ws-live-contract.md](ws-live-contract.md). The staleness "

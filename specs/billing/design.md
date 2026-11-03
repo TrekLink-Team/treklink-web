@@ -818,6 +818,11 @@ across invoices has one line per part. Like an `ADJUSTMENT` line it is negative,
 `invoice_lines_amount_sign` and `invoice_lines_paid_bounds` admit both types (`backend/prisma/constraints.sql` and the
 migration `20261102180000_service_credits`); the balance and payment code already nets a line by its sign.
 
+The fault report of rentals REQ-EVT-24 (`DeviceFaultReport`, rentals design §11) becomes a third source of the
+outage start (billing task 8.3, W10): `outageSourceFaultReportId`, accepted when the report belongs to the same
+contract row, read through the `CREDIT_BASIS` port, with `outageFrom` defaulting to its `reportedAt`; the CHECK
+then requires one of the three. Until it is built the credit keeps the incident or the note.
+
 | Cause | Meaning |
 |---|---|
 | `BATTERY_FAULT` | the battery swells, will not charge or will not hold a charge |

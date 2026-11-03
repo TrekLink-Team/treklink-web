@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The initial state the live map draws before it subscribes: every unit of the scope's open contracts with its state, last plotted position, battery, holder label and open incident, plus the organization's Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11, D-092 rule 2). A unit is listed from handover until check-in or a confirmed loss, reporting or not. `state` is `LIVE` (heard since `handedOverAt` and within `monitoring.deviceStaleSeconds`), `OFFLINE` (heard since `handedOverAt`, silent longer) or `NOT_HEARD` (nothing heard since `handedOverAt`); `stale` is true for `OFFLINE` only. For an organization, `position` and `lastSeenAt` lie inside its custody interval or are null, so nothing from before the handover is sent (D-040), and a `NOT_HEARD` unit has no `batteryPct` either; TrekLink staff get the device's last position and last-seen time whatever the interval. `position.at` is the time of the reading that carried the position. `counterLocation` is `{ name, lat, lon }` of `monitoring.counterLocation` for a `NOT_HEARD` unit, where the map pins it, and null otherwise. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map filter stream entries by organization in the client.
+The initial state the live map draws before it subscribes: every unit of the scope's open contracts with its state, last plotted position, battery, holder label and open incident, plus the organization's Field Stations, and the stream cursor to subscribe from (FR-MON-02, FR-MON-03, FR-AUTH-11, D-092 rule 2). A unit is listed from handover until check-in or a confirmed loss, reporting or not. `state` is `LIVE` (heard since `handedOverAt` and within `monitoring.deviceStaleSeconds`), `OFFLINE` (heard since `handedOverAt`, silent longer) or `NOT_HEARD` (nothing heard since `handedOverAt`); `stale` is true for `OFFLINE` only. For an organization, `position` and `lastSeenAt` lie inside its custody interval or are null, so nothing from before the handover is sent (D-040), and a `NOT_HEARD` unit has no `batteryPct` either; TrekLink staff get the device's last position and last-seen time whatever the interval. `position.at` is the time of the reading that carried the position. `counterLocation` is `{ name, lat, lon }` of `monitoring.counterLocation` for a `NOT_HEARD` unit, where the map pins it, and null otherwise. `openIncident` is `{ id, code, state }` of the incident not yet CLOSED, shown to a member only when it is routed to the member's organization. `organizationId` lets the fleet map filter stream entries by organization in the client. `group` is the unit's group now, or null, and `groupId` keeps the units of that group and its subgroups (FR-MON-11, rentals design §11).
 
 ## API Specification
 
@@ -15,13 +15,14 @@ The initial state the live map draws before it subscribes: every unit of the sco
 | --- | --- |
 | GET | /api/map/snapshot |
 | Permission | Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin |
-| Traces | UC-38, UC-41, FR-AUTH-11, FR-MON-02, FR-MON-03, BR-19, BR-21 |
+| Traces | UC-38, UC-41, FR-AUTH-11, FR-MON-02, FR-MON-03, FR-MON-11, BR-19, BR-21 |
 
 ### Query parameters
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
 | organizationId | TrekLink staff: one organization; omit for the fleet | uuid | no | `5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f` |
+| groupId | Organization members: the units of this group and its subgroups | uuid | no | `g-1` |
 
 ## Request sample
 
@@ -46,6 +47,11 @@ No body.
           "lon": 108.5402,
           "at": "2026-10-20T03:15:00.000Z"
         },
+        "group": {
+          "id": "g-2",
+          "name": "Team A",
+          "parentId": "g-1"
+        },
         "batteryPct": 81,
         "lastSeenAt": "2026-10-20T03:15:00.000Z",
         "stale": false,
@@ -63,6 +69,11 @@ No body.
         "hardwareVariant": "treklink-v3",
         "holder": null,
         "position": null,
+        "group": {
+          "id": "g-2",
+          "name": "Team A",
+          "parentId": "g-1"
+        },
         "batteryPct": null,
         "lastSeenAt": null,
         "stale": false,

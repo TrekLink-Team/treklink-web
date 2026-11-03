@@ -12,6 +12,7 @@
 | 06 | GET | `/api/system-health` | TrekLink Admin | [06-get-system-health.md](06-get-system-health.md) |
 | 07 | GET | `/api/devices/:id/history` | TrekLink Staff, TrekLink Admin | [07-get-devices-id-history.md](07-get-devices-id-history.md) |
 | 08 | GET | `/api/reports/:kind` | TrekLink Staff, TrekLink Admin | [08-get-reports-kind.md](08-get-reports-kind.md) |
+| 09 | GET | `/api/rented-devices` | Org Manager: own | [09-get-rented-devices.md](09-get-rented-devices.md) |
 
 Live push is the Socket.io contract in [ws-live-contract.md](ws-live-contract.md). The staleness sweep and stream pruning are scheduler jobs with no endpoint (monitoring design §3).
 

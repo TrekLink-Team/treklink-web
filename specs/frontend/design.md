@@ -37,6 +37,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/sign-in`, `/forgot`, `/reset`, `/welcome` (set password) | Auth | public |
 | `/o` | Organization home dashboard: contract summary, balance due, open incidents, devices out; built in Sprint 4, task 5.6 (D-059 rule 1) | Org Manager |
 | `/o/map` | Live map | Org Operator, Org Manager |
+| `/o/devices` | Rented-device console: every device the organization holds across its contracts, with the group tree, assignment, fault and loss reports (UC-66 to UC-69, screen 5.7) | Org Manager |
 | `/o/devices/:id/telemetry` | Position and telemetry history of a rented device, clipped to the organization's rental periods; period in `?from=&to=` (D-057 rule 8) | Org Operator, Org Manager |
 | `/o/incidents`, `/o/incidents/:id` | Incident queue and detail | Org Operator, Org Manager |
 | `/o/contracts`, `/o/contracts/:id` | Contracts, devices, holder labels | Org Operator (read), Org Manager |

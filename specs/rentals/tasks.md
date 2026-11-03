@@ -2,7 +2,7 @@
 
 > Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6; adds mid-contract
 > replacement (UC-61, D-045) and the loss-case ports. Fulfills `design.md`; endpoints are `api-design/01`
-> to `18`.
+> to `29` (22 to 29 for the device groups and fault reports of Phase 9, added 2026-11-03).
 
 | | |
 |---|---|
@@ -192,3 +192,28 @@
 
 - [x] 8.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour (owner LongLP)
   - **Done** (2026-10-30, LongLP): green on 2026-10-30: backend unit 190 suites and 2067 tests, e2e 15 and 256, `test:db` 22 and 140 on a fresh local Postgres 16; `npm run lint` with 0 errors and the module boundary check passed; `tsc --noEmit` clean. `scripts/specs/build_api_design.py` regenerates every rentals api-design file unchanged, and each file's 400 and 409 rows run against the code (6.2)
+
+## Phase 9: Device groups and fault reports (BM04 F-11, F-21, RF-21; W10)
+
+Specified 2026-11-03 in requirements REQ-UBI-06, REQ-UBI-07, REQ-EVT-20 to REQ-EVT-25, REQ-ERR-13 to REQ-ERR-16,
+AC-10 to AC-14 and design §11; endpoints api-design 22 to 29 (treklink-web#305).
+
+- [ ] 9.1 Schema, constraints, parameter and permissions (owner LongLP)
+  - **Files**: `backend/prisma/schema.prisma`, a forward migration, `backend/prisma/constraints.sql`, `scripts/specs/catalog.py`, `specs/auth/permission-matrix.md`, `specs/platform/configuration-matrix.md`
+  - **Do**: `Group`, `GroupAssignment`, `DeviceFaultReport` and the enums `GroupExit`, `FaultResolution` of design §11.2; the partial unique indexes `groups_live_name`, `group_assignments_one_open` and the one open fault report per row; the `endsOn >= startsOn` CHECK; `rentals.groupMaxDepth`; the six permissions of §11.5 as a forward migration (the applied seed migration is never edited); error codes `GROUP_DEPTH_EXCEEDED`, `DEVICE_NOT_HELD`, `FAULT_ALREADY_REPORTED`
+  - _Requirements: REQ-UBI-06, REQ-UBI-07, BR-46_
+- [ ] 9.2 Groups: tree, create, edit, remove (owner LongLP)
+  - **Files**: `backend/src/modules/rentals/groups.repository.ts`, `groups.service.ts`, `groups.controller.ts`, `dto/groups.dto.ts`
+  - **Do**: api-design 22 to 25; depth from `rentals.groupMaxDepth` read per request; removal ends the open assignments of the group and its subgroups in one transaction; `version` on edit; audit after commit
+  - _Requirements: REQ-EVT-20, REQ-EVT-21, REQ-EVT-25, REQ-ERR-13, REQ-ERR-15, AC-11_
+- [ ] 9.3 Assignments and the custody hooks (owner LongLP)
+  - **Files**: `groups.service.ts`, `return.service.ts`, `replacement.service.ts`, `providers/loss-case-listener.provider.ts`, `contracts.service.ts` (`visibleDevices`)
+  - **Do**: api-design 26 and 27 with the per-device advisory lock and the group row lock; `endFor` at check-in and settled loss, `passOn` at replacement, in those transactions; `visibleDevices` returns the group and the open fault report; `device.groupChanged` after commit
+  - _Requirements: REQ-EVT-22, REQ-EVT-23, REQ-ERR-14, AC-10, AC-13_
+- [ ] 9.4 Fault reports (owner LongLP)
+  - **Files**: `fault-reports.service.ts`, `fault-reports.controller.ts`, `contract-notifications.listener.ts`
+  - **Do**: api-design 28 and 29; resolve at replacement and check-in; the Staff email through `STAFF_NOTIFICATIONS`; the report id readable by `billing` through the `CREDIT_BASIS` port for billing task 8.3
+  - _Requirements: REQ-EVT-24, REQ-ERR-16, AC-14_
+- [ ] 9.5 Tests (owner LongLP)
+  - **Do**: unit specs for depth, held-now, move semantics, removal, the hooks and the fault report; db-specs for AC-10 to AC-14, including two concurrent moves of one device and a cross-organization request (the three F-11 feature tests of BM04: one group per device left at return, the depth cap, holder data private)
+  - _Requirements: AC-10 to AC-14_

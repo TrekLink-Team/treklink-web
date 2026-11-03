@@ -3,7 +3,7 @@
 **User Story**: As an **Org Manager**, I want to request devices by monthly or day plan, collect them at the TrekLink counter, give notice when I am done and return them, so that my organization rents exactly what it needs; and as **TrekLink Staff**, I want every handover and return recorded so that no device is ever double-allocated or lost track of.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-01 (request to handover), MF-05 (term end to close)
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-045 (loss cases, replacement on a running contract; supersedes D-038 rule 3); D-092 rule 1 (availability and a hold at request, supervisor feedback of 2026-11-01). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-14 to UC-25, UC-43, UC-44, UC-49 to UC-51, UC-55, FR-CON-01 to FR-CON-14, FR-DEV-05, FR-MON-08, BR-01 to BR-09, BR-26, BR-27, BR-33, E01-1 to E01-7, E05-1, E05-2, E05-5, E05-7; D-033 items 4 and 5; D-035 (rental-contract lifecycle); D-037 (on-screen signature); D-045 (loss cases, replacement on a running contract; supersedes D-038 rule 3); D-092 rule 1 (availability and a hold at request, supervisor feedback of 2026-11-01); Report 3 register v2 of 2026-10-29 UC-66 to UC-69, FR-CON-16 to FR-CON-19, BR-46, E04-8, MSG40, MSG41 (device groups and fault reports, BM04 F-11 and F-21, required fix RF-21, treklink-web#305). Rewritten 2026-10-04 (D-036); the booking endpoints of the old suite are retired.
 
 ---
 
@@ -11,8 +11,10 @@
 
 - **In-Scope**: contract request, approval with reservation, rejection, cancellation; provisioning and
   handover at the counter with the signed note; monthly terms and their rollover; notice; day-plan end;
-  holder labels; check-in, inspection orchestration, loss; overdue and default; closing.
-- **Out-of-Scope**: prices and invoices (`billing`, called from here); device state rules (`devices`);
+  holder labels; check-in, inspection orchestration, loss; overdue and default; closing; the
+  organization's device groups and their assignments; fault reports on rented devices (design §11).
+- **Out-of-Scope**: prices and invoices (`billing`, called from here); device state rules (`devices`); the
+  rented-device console and the group filters of the live map (`monitoring` REQ-EVT-09, REQ-UBI-05);
   the organization lifecycle (`organizations`); incidents (`incidents`, which reads contracts to route).
 - **Depends on**: `platform`, `organizations`, `devices`, `billing`. Declares `CONTRACT_CLOSE_CHECKS`,
   provided by `incidents`; provides `ORGANIZATION_EXIT_CHECKS.canClose`.
@@ -32,6 +34,8 @@
 | Replacement on a running contract | UC-61, FR-CON-15, BR-41, E05-8 |
 | Overdue and default | UC-50, FR-CON-12, BR-26 |
 | Closing | UC-51, FR-CON-13, BR-27 |
+| Device groups | UC-67, UC-68, FR-CON-17, FR-CON-18, BR-46, E04-8 |
+| Fault reports | UC-69, FR-CON-19 |
 
 ---
 
@@ -44,6 +48,8 @@
 - **REQ-UBI-03**: The system SHALL reject any change to a running contract's plan, variant or quantity; more devices need an additional contract. [FR-CON-07, BR-05]
 - **REQ-UBI-04**: The system SHALL snapshot the monthly unit price, the day premium and the holding-fee ratio when a contract is requested, and SHALL price the whole contract from the snapshot. [FR-CFG-02]
 - **REQ-UBI-05**: The system SHALL never alter a signed handover note; its SHA-256 is stored and checked on every download. [FR-CON-06]
+- **REQ-UBI-06**: The system SHALL keep each device in at most one group at a time, enforced by a partial unique index on the `GroupAssignment` rows with no `endedAt`, and SHALL let a group hold only devices its organization holds now: a live `ContractDevice` row of one of the organization's contracts, handed over, neither checked in nor lost. A group and its parent belong to the same organization. [BR-46, FR-CON-18]
+- **REQ-UBI-07**: The system SHALL serve an organization's groups, assignments and fault reports to that organization's members and to TrekLink Staff only; any other caller gets 404 (MSG26), the same answer as for an identifier that does not exist. Holder labels stay on the contract row (REQ-EVT-15) and follow the same rule. [BR-19, NFR-LEG-02, D-040]
 
 ### Event-Driven
 
@@ -66,6 +72,12 @@
 - **REQ-EVT-17**: WHEN a `REQUESTED` contract passes `holdExpiresAt` with its first payment (the holding fee, or the day-plan fee) not paid in full, the `rentals.requestHoldExpiry` job SHALL, in one transaction, release its devices to `AVAILABLE`, have `billing` void the unpaid first-invoice lines, and move it to `CANCELLED` as `SYSTEM` with the reason `HOLD_EXPIRED`. A paid deposit keeps the hold until Staff decide. [D-092 rule 1, leader ruling 2026-11-01]
 - **REQ-EVT-18**: WHEN Staff read the close check of a contract, the system SHALL answer whether it can close now and list every blocker, each with what resolves it: the contract not yet `RETURNED` (with the term end or return due it waits for), each device not checked in and not settled lost (with its open loss case, if any), the unpaid amount, each damage charge pending approval, each service credit `REQUESTED` ("A service credit waits for an Admin's decision.", billing REQ-STA-02), and each incident outside `CLOSED` reported by `CONTRACT_CLOSE_CHECKS`. The close of REQ-ERR-05 refuses on the same blockers, read in its own transaction. A return never requires a replacement unit: a unit that does not come back is reported lost (devices REQ-EVT-13) and settled (REQ-EVT-12); replacement stays an action on a running contract. [FR-CON-13, D-092 rule 3, supervisor demo 2026-11-01]
 - **REQ-EVT-19**: WHEN Staff read a contract, the system SHALL give each checked-in row the device's current state and, for the unit's latest return, its next step back to `AVAILABLE` from `devices` (devices REQ-EVT-23): reset, inspect, complete maintenance, or intake check. [D-092 rule 4]
+- **REQ-EVT-20**: WHEN an Org Manager creates or edits a group with a name, an optional label, optional start and end dates, an optional area note and an optional parent, the system SHALL save it for the Manager's organization with the `version` the Manager saw, and record the audit entry `group.created` or `group.updated` after commit; the parent SHALL sit less than `rentals.groupMaxDepth` levels below the top (one sub-level by default). [FR-CON-17, BR-46, UC-67]
+- **REQ-EVT-21**: WHEN an Org Manager removes a group, the system SHALL, in one transaction, remove its subgroups with it, end every open assignment of the group and its subgroups (their devices become ungrouped), and record the audit entry `group.removed` after commit. [FR-CON-17, UC-67]
+- **REQ-EVT-22**: WHEN an Org Manager assigns one or more devices to a group, the system SHALL, in one transaction, end each device's open assignment in another group and open one in this group against the device's live contract row, with the assigner and the time; WHEN the Manager takes a device out of its group, the system SHALL end its open assignment. Each assignment is audited as `group.deviceAssigned` or `group.deviceUnassigned` after commit. [FR-CON-18, BR-46, UC-68]
+- **REQ-EVT-23**: WHEN a device is checked in (REQ-EVT-10) or its loss is settled (REQ-EVT-12), the system SHALL end its open assignment in the same transaction; WHEN Staff replace a unit (REQ-EVT-12), the system SHALL end the replaced unit's open assignment and open one for the replacement in the same group in the same transaction. [FR-CON-18, BR-46, UC-43, UC-61, build ruling 2026-11-03]
+- **REQ-EVT-24**: WHEN an Org Manager reports a fault on a `RENTED` device of a contract of the organization, with a description, the system SHALL record a `DeviceFaultReport` against the device's live contract row with the reporter and the UTC time, notify TrekLink Staff after commit, show MSG41, and leave the device `RENTED`; WHEN Staff replace that unit or check it in, the system SHALL mark the report resolved at that time in the same transaction. [FR-CON-19, UC-69]
+- **REQ-EVT-25**: WHEN an organization member reads the organization's groups, the system SHALL return them as a tree with each group's count of devices, so the live map, the incident list and the console can filter by group (monitoring REQ-UBI-05). [FR-MON-11, UC-67]
 
 ### State-Driven
 
@@ -86,6 +98,10 @@
 - **REQ-ERR-10**: IF an undo of provisioning carries a stale `version`, names a contract not `APPROVED`, names a unit not on the contract, names a unit not `RESERVED` or already handed over, or names a unit that carries no key version of the contract's organization, THEN the system SHALL return 409 `STALE_VERSION`, `INVALID_STATE_TRANSITION`, `DEVICE_NOT_ON_CONTRACT` (MSG12), `INVALID_STATE_TRANSITION` or `DEVICE_NOT_PROVISIONED` respectively, checked in that order, and change nothing. [FR-DEV-05]
 - **REQ-ERR-11**: IF Staff name `deviceIds` when approving a contract that already holds its devices, and the set differs from the held set, THEN the system SHALL return 400 `VALIDATION_FAILED` and change nothing; a failing held unit is swapped at the counter (REQ-EVT-06). [D-092 rule 1]
 - **REQ-ERR-12**: IF Staff approve a `REQUESTED` contract that holds its devices after its `holdExpiresAt` with the first payment not paid in full, THEN the system SHALL refuse with 409 `INVALID_STATE_TRANSITION` and change nothing, whether or not the `rentals.requestHoldExpiry` job has cancelled it yet. [D-092 rule 1, review of treklink-web#275]
+- **REQ-ERR-13**: IF a group's parent already sits `rentals.groupMaxDepth` levels below the top, or is the group itself or one of its subgroups, THEN the system SHALL refuse with 409 `GROUP_DEPTH_EXCEEDED` (MSG40) and change nothing. [FR-CON-17, BR-46, E04-8]
+- **REQ-ERR-14**: IF an assignment names a device the organization does not hold now, THEN the system SHALL refuse with 409 `DEVICE_NOT_HELD` (MSG17) and assign none of the devices of the request. [FR-CON-18, E04-8]
+- **REQ-ERR-15**: IF a group has no name, an end date before its start date, or the same name as a group with the same parent in the organization, THEN the system SHALL return 400 `VALIDATION_FAILED` (MSG02, MSG35) or 409 `CONFLICT_UNIQUE` (MSG10); IF the edit carries a stale `version`, THEN 409 `STALE_VERSION`. [FR-CON-17]
+- **REQ-ERR-16**: IF a fault report names a device that is not `RENTED` to the organization, THEN the system SHALL return 409 `INVALID_STATE_TRANSITION` (MSG28); IF the device's live row already has an unresolved fault report, THEN 409 `FAULT_ALREADY_REPORTED` with the open report's id, and record nothing. [FR-CON-19]
 
 ---
 
@@ -97,12 +113,15 @@
 | Concurrent requests | never over-allocated across parallel requests of one variant; the loser creates nothing | E01-1, D-092 rule 1 |
 | Handover body | `RENTALS_HANDOVER_BODY_LIMIT`, default `2mb`, for the signature image | REQ-ERR-07 of `platform` |
 | Scheduler restart | term rollover and overdue jobs catch up from stored dates after downtime | NFR-AVL-02 |
+| Concurrent assignment | two Managers moving the same device at once leave it in exactly one group | BR-46, REQ-UBI-06 |
 
 ---
 
 ## 4. Configuration
 
-The `rentals` section of the [Configuration Matrix](../platform/configuration-matrix.md). Environment:
+The `rentals` section of the [Configuration Matrix](../platform/configuration-matrix.md), with
+`rentals.groupMaxDepth` (INT, default 1, bounds 1 to 3: how many levels of subgroups a group may have,
+BR-46) added by the build (design §11). Environment:
 `RENTALS_HANDOVER_BODY_LIMIT`, `HANDOVER_NOTE_STORAGE_DIR`, `HANDOVER_NOTE_STORE` (`file` by default, `database`
 on the Vercel production, design §4.1, D-090 amendment), and the issuer of the handover note
 (design §4.1): `COMPANY_LEGAL_NAME`, `COMPANY_ADDRESS`, `COMPANY_TAX_CODE`, `COMPANY_HOTLINE`,
@@ -121,6 +140,11 @@ on the Vercel production, design §4.1, D-090 amendment), and the issuer of the 
 - **AC-07**: After closing, every holder label is null. (TC-33)
 - **AC-08**: Two Managers of two organizations request the last 5 v3 devices at once; one request is created holding the 5 units, the other gets 409 `INSUFFICIENT_DEVICES` and leaves no contract, row, invoice or reserved unit behind. (D-092 rule 1)
 - **AC-09**: A request whose deposit is unpaid at `holdExpiresAt` is `CANCELLED` with reason `HOLD_EXPIRED` by the next `rentals.requestHoldExpiry` run, its 5 units `AVAILABLE` again and its unpaid first-invoice lines voided; a paid one stays `REQUESTED` holding its units. (D-092 rule 1)
+- **AC-10**: A device in group A is assigned to group B: it is in B only; it is checked in: it is in no group, and the console no longer lists it. (F-11, BR-46, TC-46)
+- **AC-11**: With `rentals.groupMaxDepth` 1, a subgroup under a subgroup returns 409 `GROUP_DEPTH_EXCEEDED` (MSG40) and nothing is saved; with the parameter set to 2 the same request succeeds without a restart. (F-11, E04-8)
+- **AC-12**: A Manager of organization B asks for organization A's group, assigns A's device to a B group, or reads A's fault reports: 404 or 409 `DEVICE_NOT_HELD`, and nothing of A is returned, holder labels included. (F-11, BR-19, E04-4)
+- **AC-13**: A grouped unit is replaced at the counter: the replacement is in the same group, the replaced unit in none, and its open fault report is resolved at the replacement time. (F-11, F-21, UC-61)
+- **AC-14**: A Manager reports a fault on a rented unit: the report is recorded with the reporter and time, Staff get one email, the unit stays `RENTED`; a second report on the same unit before it is resolved returns 409 `FAULT_ALREADY_REPORTED`. (F-21, UC-69)
 
 ---
 

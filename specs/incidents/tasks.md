@@ -142,3 +142,9 @@
   - **Audit** (2026-11-02, HoangTK): [verification record](verification-2026-11-02.md) maps criteria to code, HTTP/Postgres tests and exact-base CI. KhoaDD merged dispatcher [#322](https://github.com/TrekLink-Team/treklink-web/pull/322) after all CI passed, then the evidence audit #323. API_EVENT delivery and frontend episode panels remain separate open module work; API 13 is no longer their backend/R2 blocker.
   - **CI observation**: #323's rebased run 41471305008 attempt 1 failed the connected-socket latency bound, 2071.6823799999984 ms against 2000 ms; attempt 2 passed. Both results are preserved in #323. No latency threshold or wake behavior was changed, and this observation remains open for reliability follow-up.
   - **Delivery exception**: KhoaDD [authorized delivery despite local #311](https://github.com/TrekLink-Team/treklink-docs/issues/150#issuecomment-6572051373). It does not check local-suite success or the parent 8.1 box. Earlier recovery and MQTT/browser MF-03 evidence remains in `docs/sessions/2026-11-02-1345-hoangtk-week9-incidents.md`; prior API-13-absent and suspected-contract-pending status is superseded by #314 and #322 respectively.
+
+## Phase 9: Group filter and group in alerts (BM04 F-11; W10)
+
+- [ ] 9.1 `groupId` filter on the incident list and the group and holder in incident views and alerts (owner LongLP, assigned 2026-11-02 with treklink-web#305; HoangTK reviews)
+  - **Do**: api-design 01 `groupId`; read the device's group and holder from `rentals.visibleDevices` (rentals design §11.4); routing, tiers and recipients unchanged
+  - _Requirements: REQ-UBI-06, FR-MON-11_

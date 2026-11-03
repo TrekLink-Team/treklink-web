@@ -46,6 +46,11 @@ No body.
           "lon": 108.5402,
           "at": "2026-10-20T03:15:00.000Z"
         },
+        "group": {
+          "id": "g-2",
+          "name": "Team A",
+          "parentId": "g-1"
+        },
         "batteryPct": 81,
         "lastSeenAt": "2026-10-20T03:15:00.000Z",
         "stale": false,
@@ -60,6 +65,11 @@ No body.
         "hardwareVariant": "treklink-v3",
         "holder": null,
         "position": null,
+        "group": {
+          "id": "g-2",
+          "name": "Team A",
+          "parentId": "g-1"
+        },
         "batteryPct": null,
         "lastSeenAt": null,
         "stale": false,
