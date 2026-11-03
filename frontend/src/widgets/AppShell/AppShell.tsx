@@ -129,8 +129,11 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
           tabIndex={-1}
           className={cn(
             'relative flex min-w-0 flex-1 flex-col outline-none',
-            // The sticky page header and action bar publish their heights; focus scrolls clear of both.
-            'scroll-pb-[calc(var(--tl-page-actions-h,0px)+0.5rem)] scroll-pt-[calc(var(--tl-page-header-h,0px)+0.5rem)]',
+            // The sticky page header, a CollectionView command bar under it and the page action bar
+            // publish their heights; focus scrolls clear of all of them (chapter 06 §9.7, §10.1 rule 3).
+            // The action bar stays in the flow at the end of its page, so its height is already part
+            // of the scroll height and needs no padding-bottom (treklink-web#348).
+            'scroll-pb-[calc(var(--tl-page-actions-h,0px)+0.5rem)] scroll-pt-[calc(var(--tl-page-header-h,0px)+var(--tl-collection-bar-h,0px)+0.5rem)]',
             fullBleed ? 'overflow-y-auto' : 'overflow-y-auto px-1 md:px-2',
           )}
         >

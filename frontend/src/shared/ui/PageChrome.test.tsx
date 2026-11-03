@@ -104,6 +104,34 @@ describe('StickyPageHeader (leader rule of 2026-10-30)', () => {
     );
   });
 
+  it('reserves the expanded height before it measures the compact header (treklink-web#348)', () => {
+    // 158 px expanded, 102 px compact, as measured on the counter in Chromium. While the shrunk
+    // header is measured, the page must not get shorter, or the browser clamps scrollTop back under
+    // the threshold and the last rows can never be scrolled clear of the action bar.
+    const marginsWhileMeasuringCompact: string[] = [];
+    const spy = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        if (!this.hasAttribute('data-compact')) return 0;
+        const compact = this.getAttribute('data-compact') === 'true';
+        if (compact) marginsWhileMeasuringCompact.push(this.style.marginBottom);
+        return compact ? 102 : 158;
+      });
+    render(
+      <StickyPageHeader>
+        <PageHeader title="Counter handover" description="ORG-0007, monthly plan" />
+      </StickyPageHeader>,
+    );
+    scrollSentinel(false);
+    expect(regionOf().getAttribute('data-compact')).toBe('true');
+    expect(marginsWhileMeasuringCompact[0]).toBe('158px');
+    // The exact difference replaces the reserve, so the page height does not change.
+    expect((regionOf() as HTMLElement).style.marginBottom).toBe('56px');
+    scrollSentinel(true);
+    expect((regionOf() as HTMLElement).style.marginBottom).toBe('');
+    spy.mockRestore();
+  });
+
   it("takes the shell's breadcrumb into the sticky region and gives it back on unmount", () => {
     const release = vi.fn();
     const claim = vi.fn(() => release);
