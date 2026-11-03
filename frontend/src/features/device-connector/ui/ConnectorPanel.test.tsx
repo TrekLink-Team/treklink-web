@@ -122,8 +122,8 @@ describe('ConnectorPanel (screen 4.6)', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Unknown unit' })).toBeTruthy(), { timeout: 4000 });
     expect(screen.getByText('2 units connected')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Devices, 2 connected' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: `New device !${B.toString(16)}: register it?` })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Configure uplink: TL-0042' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: `New device: register it? Unknown unit !${B.toString(16)}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Configure uplink TL-0042' })).toBeTruthy();
     expect(screen.getByText('Available')).toBeTruthy();
   });
 
@@ -133,9 +133,9 @@ describe('ConnectorPanel (screen 4.6)', () => {
     await act(async () => {
       await connectorRegistry(recognizeUnits, { handshakeMs: 600, writeMs: 500, restartDelayMs: 40, restartDeadlineMs: 300, retryMs: 20 }).start();
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Show TL-0042' })).toBeTruthy(), { timeout: 4000 });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show details TL-0042' })).toBeTruthy(), { timeout: 4000 });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show TL-0042' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show details TL-0042' }));
 
     const heading = screen.getByRole('heading', { name: 'TL-0042' });
     expect(document.activeElement).toBe(heading);
@@ -180,9 +180,10 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 11
     };
     renderPanel();
     await start();
-    const button = screen.getByRole('button', { name: 'Update firmware: TL-0042' }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    expect(screen.getByText('Firmware releases are not published yet')).toBeTruthy();
+    const button = screen.getByRole('button', { name: 'Update firmware TL-0042' }) as HTMLButtonElement;
+    // Unavailable with its reason: in the tooltip and the description, and as text on the row (§9.8).
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getAllByText('Firmware releases are not published yet').length).toBeGreaterThan(0);
     expect(button.getAttribute('aria-describedby')).toBeTruthy();
 
     const seen: { record?: string; locked?: boolean; runs: number } = { runs: 0 };
@@ -198,8 +199,8 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 11
       return <p>Flash panel for {device.assetTag}</p>;
     };
     act(() => useConnectorStore.getState().registerFlashPanel(FakeFlash));
-    const enabled = screen.getByRole('button', { name: 'Update firmware: TL-0042' }) as HTMLButtonElement;
-    expect(enabled.disabled).toBe(false);
+    const enabled = screen.getByRole('button', { name: 'Update firmware TL-0042' }) as HTMLButtonElement;
+    expect(enabled.getAttribute('aria-disabled')).toBeNull();
     expect(screen.queryByText('Firmware releases are not published yet')).toBeNull();
     fireEvent.click(enabled);
     expect(await screen.findByText('Flash panel for TL-0042')).toBeTruthy();
@@ -237,9 +238,9 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
   it('returns focus to the row after Back from the device view', async () => {
     renderPanel();
     await start();
-    fireEvent.click(screen.getByRole('button', { name: 'Show TL-0042' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show details TL-0042' }));
     fireEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show TL-0042' })));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show details TL-0042' })));
   });
 
   it('says why other rows cannot write while one unit is written, and offers Reconnect on the waiting row', async () => {
@@ -275,17 +276,41 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
         });
       });
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Reconnect' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reconnect TL-0042' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect TL-0042' }));
     expect(reconnect).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stop waiting for TL-0042' }));
     expect(stop).toHaveBeenCalledTimes(1);
-    expect((screen.getByRole('button', { name: 'Configure uplink: TL-0043' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('Another unit is being written.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Configure uplink TL-0043' }).getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getAllByText('Another unit is being written.').length).toBeGreaterThan(0);
     await act(async () => {
       registry.offerReconnect(null);
       release();
       await running;
     });
+  });
+});
+
+describe('ConnectorPanel on CollectionView (chapter 06 §9, design section 11.2)', () => {
+  it('hides the command bar with two units, shows it with a third, and shows a tooltip on focus', async () => {
+    renderPanel();
+    const { connectorRegistry } = await import('../model/ConnectorRegistry');
+    const registry = connectorRegistry(recognizeUnits);
+    await act(async () => {
+      await registry.start();
+    });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Unknown unit' })).toBeTruthy(), { timeout: 4000 });
+    expect(screen.queryByLabelText('Search connected units')).toBeNull();
+
+    const action = screen.getByRole('button', { name: 'Configure uplink TL-0042' });
+    act(() => action.focus());
+    expect(screen.getByRole('tooltip').textContent).toContain('Configure uplink');
+
+    const serial = navigator.serial as unknown as FakeSerial;
+    const third = new FakeUnit(unitState({ nodeNum: 0xa4b1c2f6 }), {}, serial);
+    const port = new FakePort(third, serial);
+    serial.ports.push(port);
+    act(() => serial.emit('connect', port));
+    await waitFor(() => expect(screen.getByLabelText('Search connected units')).toBeTruthy(), { timeout: 4000 });
   });
 });

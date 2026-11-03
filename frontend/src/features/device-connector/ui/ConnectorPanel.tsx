@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plug, X } from 'lucide-react';
 import { useSession } from '../../../entities/session/model';
@@ -6,7 +6,6 @@ import { hasAnyRole } from '../../../shared/lib/permissions';
 import { Alert } from '../../../shared/ui/Alert';
 import { Button } from '../../../shared/ui/Button';
 import { buttonClasses } from '../../../shared/ui/buttonStyles';
-import { cn } from '../../../shared/ui/cn';
 import { ConfirmDialog, Dialog } from '../../../shared/ui/Dialog';
 import { Field, Select } from '../../../shared/ui/Field';
 import { DEVICE_STATUS, type DeviceStatus } from '../../../shared/ui/status';
@@ -22,30 +21,20 @@ import {
 } from '../model/connectorStore';
 import { useConnector } from '../model/useConnector';
 import { UnitImage } from './UnitImage';
-import { RETRYABLE, STATE_TEXT, unitName } from '../model/text';
+import { ConnectorList } from './ConnectorList';
+import { STATE_TEXT, unitName } from '../model/text';
 
-// The device connector panel, the Staff device hub (devices design section 11.2, screen 4.6): one row per
-// connected unit with the actions this unit allows on this page, and the device view of one unit.
-// TODO(devices task 10.7, D-096): render the rows through the shared CollectionView of
-// `feat/contract-home-ui` once it lands on `dev`; until then they are a plain list with the same
-// fields, actions and accessible names.
-
-const statusText = (connection: Connection): string | null => {
-  if (!connection.unit || connection.state === 'reading' || connection.state === 'looking-up') {
-    return null;
-  }
-  const device = connection.recognized?.device;
-  if (!connection.recognized) return null;
-  if (!device) return 'Not registered';
-  return DEVICE_STATUS[device.status as DeviceStatus]?.label ?? device.status;
-};
+// The device connector panel, the Staff device hub (devices design section 11.2, screen 4.6): the rows of
+// the connected units through the shared CollectionView (ConnectorList), and the device view of one unit,
+// whose actions are labelled buttons.
 
 interface ActionHandlers {
   writing: number | null;
   onAction: (connection: Connection, action: UnitAction) => void;
 }
 
-// One action as a labelled button or link (the label is visible, so no tooltip is needed, §9.5).
+// One action of the device view as a labelled button or link (§9.8: every item action as a labelled
+// button, with any unavailable reason as text).
 const ActionControl: React.FC<
   { connection: Connection; action: UnitAction } & ActionHandlers
 > = ({ connection, action, writing, onAction }) => {
@@ -94,94 +83,6 @@ const ActionControl: React.FC<
     >
       {label}
     </Button>
-  );
-};
-
-const UnitRow: React.FC<
-  {
-    connection: Connection;
-    reason: string | null;
-    actions: UnitAction[];
-    onShow: (id: number) => void;
-    onRetry: (id: number) => void;
-    onForget: (id: number) => void;
-    // The docking that waits for this unit to be reconnected after its restart (screen 4.6).
-    reconnect: { reconnect: () => Promise<void>; stop: () => void } | null;
-  } & ActionHandlers
-> = ({ connection, reason, actions, onShow, onRetry, onForget, reconnect, ...handlers }) => {
-  const device = connection.recognized?.device ?? null;
-  const contract = connection.recognized?.contract ?? null;
-  const name = unitName(connection);
-  const status = statusText(connection);
-  const flash = actions.find((action) => action.kind === 'flash');
-  const busy = connection.id === handlers.writing;
-  const lockedOut =
-    handlers.writing !== null && !busy && actions.some((action) => action.kind !== 'link' && action.kind !== 'register');
-  return (
-    <li className={cn('flex flex-col gap-2 border-b border-line px-1 py-3 last:border-b-0', connection.state === 'unplugged' && 'opacity-70')}>
-      <div className="flex items-start gap-3">
-        <UnitImage code={device?.hardwareVariant.code ?? null} name={device?.hardwareVariant.name ?? null} kind="icon" />
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-body font-semibold text-ink">{device ? device.assetTag : 'Unknown unit'}</h3>
-          <p className="truncate text-body-sm text-ink-muted">
-            <span className="font-mono">{connection.unit?.nodeId ?? 'Node not read'}</span>
-            {device ? `, ${device.hardwareVariant.name}` : connection.unit?.pioEnv ? `, ${connection.unit.pioEnv}` : ''}
-          </p>
-          <p className="text-body-sm text-ink">
-            {status && <span className="font-semibold">{status}</span>}
-            {contract && <span>{status ? ', ' : ''}{contract.code} ({contract.status.toLowerCase()})</span>}
-          </p>
-          <p className="text-caption text-ink-muted" aria-live={busy ? 'polite' : undefined}>
-            {STATE_TEXT[connection.state]}
-          </p>
-        </div>
-      </div>
-      {(connection.message || reason) && (
-        <p className="text-body-sm text-ink">{connection.message ?? reason}</p>
-      )}
-      {flash?.kind === 'flash' && flash.disabledReason && (
-        <p id={`flash-reason-${connection.id}`} className="text-caption text-ink-muted">
-          {flash.disabledReason}
-        </p>
-      )}
-      {lockedOut && <p className="text-caption text-ink-muted">Another unit is being written.</p>}
-      {reconnect && connection.state === 'reconnect' && (
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="primary" onClick={() => void reconnect.reconnect()}>
-            Reconnect
-          </Button>
-          <Button size="sm" variant="ghost" onClick={reconnect.stop}>
-            Stop
-          </Button>
-        </div>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {connection.unit && connection.recognized !== null && (
-          <Button
-            id={`connector-show-${connection.id}`}
-            size="sm"
-            variant="ghost"
-            aria-label={`Show ${name}`}
-            onClick={() => onShow(connection.id)}
-          >
-            Details
-          </Button>
-        )}
-        {actions.map((action, index) => (
-          <ActionControl key={`${action.kind}-${index}`} connection={connection} action={action} {...handlers} />
-        ))}
-        {RETRYABLE.includes(connection.state) && (
-          <Button size="sm" variant="secondary" aria-label={`Retry ${name}`} onClick={() => onRetry(connection.id)}>
-            Retry
-          </Button>
-        )}
-        {!busy && (
-          <Button size="sm" variant="ghost" aria-label={`Forget ${name}`} onClick={() => onForget(connection.id)}>
-            Forget
-          </Button>
-        )}
-      </div>
-    </li>
   );
 };
 
@@ -361,7 +262,9 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
       return;
     }
     if (lastViewed.current === null) return;
-    document.getElementById(`connector-show-${lastViewed.current}`)?.focus();
+    document
+      .querySelector<HTMLElement>(`[data-cv-item="${lastViewed.current}"] button[aria-label^="Show details"]`)
+      ?.focus();
     lastViewed.current = null;
   }, [viewing]);
   const [swap, setSwap] = useState<{ connection: Connection; rows: CounterRow[] } | null>(null);
@@ -383,6 +286,10 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
   const can = useMemo(
     () => ({ register: staff, operate: staff, flash: flashPanel !== null }),
     [staff, flashPanel],
+  );
+  const actionsOf = useCallback(
+    (connection: Connection) => actionsFor(connection, context, can),
+    [context, can],
   );
 
   const onAction = (connection: Connection, action: UnitAction) => {
@@ -483,33 +390,17 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
             </Button>
           </div>
           {missing && <p className="text-body-sm font-semibold text-ink">Connect {missing} to continue.</p>}
-          {snapshot.connections.length === 0 ? (
-            <p className="text-body text-ink">
-              No units connected. Plug a unit in with its USB cable, then choose Connect a unit.
-            </p>
-          ) : (
-            <ul aria-labelledby={headingId} className="flex flex-col">
-              {snapshot.connections.map((connection) => {
-                const { actions, reason } = actionsFor(connection, context, can);
-                return (
-                  <UnitRow
-                    key={connection.id}
-                    connection={connection}
-                    actions={actions}
-                    reason={reason}
-                    writing={snapshot.writing}
-                    onAction={onAction}
-                    onShow={view}
-                    onRetry={(id) => registry.retry(id)}
-                    onForget={() => setForgetting(connection)}
-                    reconnect={
-                      snapshot.reconnectFor === connection.id ? registry.reconnectOffer : null
-                    }
-                  />
-                );
-              })}
-            </ul>
-          )}
+          <ConnectorList
+            label="Connected units"
+            snapshot={snapshot}
+            actionsOf={actionsOf}
+            onAction={onAction}
+            onShow={view}
+            onRetry={(id) => registry.retry(id)}
+            onForget={setForgetting}
+            onReconnect={() => void registry.reconnectOffer?.reconnect()}
+            onStopReconnect={() => registry.reconnectOffer?.stop()}
+          />
         </>
       )}
       {forgetting && (
