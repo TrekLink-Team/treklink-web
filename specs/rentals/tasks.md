@@ -169,6 +169,12 @@
   - _Requirements: FR-AUTH-11_
   - _Story: US-UC55_
   - **Done**: `ContractReadsService` serves the list with status, plan and organization filters and the current term, the detail with every term, the device rows still on the contract (asset tags from `devices`) and the balance from `billing`, and the transitions with the actor's name; a member reads its own organization's contracts only, another's answers 404. Organization and variant labels come from `OrganizationsService.labelsOf` and `DevicesService.variants`. On 2026-10-30, api-design 02 accepts the Staff organization filter as a UUID; an organization caller's token scope takes precedence over that filter
+- [ ] 5.2 Contract search `q` on api-design 02 (owner KhoaDD, W3)
+  - **Files**: `backend/src/modules/rentals/dto/contract-decision.dto.ts`, `contract-reads.service.ts`, `contracts.repository.ts`; `backend/src/modules/organizations/organizations.service.ts`, `organizations.repository.ts` (`idsMatching`); a forward migration and `backend/prisma/constraints.sql` (the `pg_trgm` index); `frontend/src/entities/contract/api.ts` and the Staff contracts page
+  - **Do**: `q` trimmed, at most 100 characters, empty is no filter; the organization ids whose legal name or code contain `q` from `OrganizationsService.idsMatching(q)` (organizations design §5); the contract filter `code` contains `q` or `organizationId` in those ids, case insensitive, ANDed with the caller's scope and the other filters; order, paging and permission unchanged; the GIN trigram index `rental_contracts_code_trgm`; the Staff contracts page sends the CollectionView search as `q` after a short debounce and goes back to page 1
+  - **Test**: unit (DTO bounds, the filter built with and without `q`, the scope kept for an organization caller); `test:db` on Postgres (code, legal name and organization code matches ignoring case, another organization's contract never returned to a member, `%` and `_` literal, `totalCount` and paging over the matches, the index present); frontend (debounced `q` in the request, page reset)
+  - _Requirements: REQ-EVT-26, FR-AUTH-11_
+  - _Story: US-UC55_
 
 ## Phase 6: API Presentation Layer
 

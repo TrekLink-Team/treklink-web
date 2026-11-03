@@ -162,6 +162,7 @@ Screen: `specs/frontend/ui-design/3-7-organization-roles-and-permissions.md`.
 | `OrganizationsService.assertActive(orgId)` | rentals | FR-CON-02 |
 | `OrganizationsService.suspendForDefault(orgId, contractCode, tx)` | rentals | FR-ORG-07 |
 | `OrganizationsService.channelKeyVersion(orgId)` | rentals | provisioning |
+| `OrganizationsService.idsMatching(q)`: the ids of every organization whose legal name or code contains `q`, ignoring case, whatever its status | rentals | contract search, rentals REQ-EVT-26 (api-design 02 `q`) |
 | `RosterService.tiersAt(orgId, instant)` | incidents | routing and tiers |
 | `FieldStationsService.byUsername(username)`, with the secret hash | gateway-sync | broker hook |
 | `FieldStationsService.stationByUsername(username)`, without the secret hash | gateway-sync | Stage C ingestion, station health report |
