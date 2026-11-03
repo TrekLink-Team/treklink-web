@@ -750,7 +750,7 @@ sequenceDiagram
 > **Status**: Decided (leader rulings D-082, 2026-10-30, and the D-080 amendment, 2026-11-02, both on
 > treklink-web#126). §8.6 records the ruling on each point D-080 left open; the options table is kept for
 > its rationale. §8.8 adds the Stage A uplink configuration the D-093 amendment requires this week.
-> Proposed amendment (2026-11-04, pending approval): the device connector of §11 becomes the only holder of the
+> Amendment (2026-11-04, approved with §11): the device connector of §11 becomes the only holder of the
 > port, and the pages of §8.1 open it instead of docking on their own; the protocol of §8.2 to §8.8 is unchanged.
 
 ### 8.1 Scope and placement
@@ -1205,7 +1205,7 @@ reads `takenBy` names through platform's `ACCOUNT_DIRECTORY` port, never the `us
 
 ## 11. Device connector: the Staff device hub (brief of 2026-11-04 and its scope addition)
 
-> **Status**: Spec, 2026-11-04, awaiting the leader's approval and his answers to §11.12. Source:
+> **Status**: Approved, 2026-11-04 (the hub approved by the leader; §11.12 decided the same day). Source:
 > `docs/design/2026-11-04-device-connector-brief.md` (the request, the four answers and the scope addition of
 > 02:05, all binding). Requirements: REQ-UBI-07 to REQ-UBI-10, REQ-EVT-29 to REQ-EVT-41, REQ-STA-05, REQ-STA-06,
 > REQ-ERR-19 to REQ-ERR-29, AC-22 to AC-37. Builds on §8 (docking), §9 (flash) and §10 (variant media); it does
@@ -1250,7 +1250,8 @@ Staff page. The panel follows §10.8: from 1100 px a non-modal `aside` pushed be
 its heading, Escape or Close closes it); from 600 px the design system `Drawer` from the right over the page;
 below 600 px the same `Drawer` as a bottom sheet; both drawers trap focus and return it on close. On the
 full-bleed map routes it opens only as the `Drawer`. The shell's Info pane uses the same right side at 1280 px
-(`specs/frontend/design-system.md` §5); which of the two yields is open question Q6.
+(`specs/frontend/design-system.md` §5); one right panel shows at a time (§11.12 Q6, decided A): opening the hub
+closes the Info pane, and opening the Info pane closes the hub.
 
 **Rows.** One row per connected unit, in connection order, built as a `CollectionView` in the List view
 (§9.2) with no command bar while two or fewer units are connected (§9.3):
@@ -1273,7 +1274,7 @@ its first control:
 
 | Block | Content | Source |
 |---|---|---|
-| Render | The variant's upright product render, `/variants/<code>-detail.png`, fixed 240 px high, `alt` "{variant name}, front view"; on a load failure the labelled empty slot of §10 with the variant name (REQ-ERR-29) | variant `code` (open question Q5) |
+| Render | The variant's upright product render, `/variants/<code>-detail.png`, fixed 240 px high, `alt` "{variant name}, front view"; on a load failure the labelled empty slot of §10 with the variant name (REQ-ERR-29) | variant `code` (§11.12 Q5, decided A) |
 | From the unit | node id, `nodeNum`, owner long and short names, build environment, reported firmware version, and a note when the build differs from the variant baseline (§8.3) | the handshake (§8.2: `MyNodeInfo.my_node_num`, `pio_env`; `User.long_name`, `short_name`; `DeviceMetadata.firmware_version`) |
 | From the server | asset tag, variant card (§10), status, firmware on record, battery and its time, last seen, service due, key version and its organization (never the key) | api-design 30 `device` |
 | Contract | live contract code, organization code, status, whether this unit is provisioned at the organization's current version | api-design 30 `contract` |
@@ -1281,7 +1282,7 @@ its first control:
 
 Battery comes from the server projection (`batteryPct`, `lastBatteryAt`, §1), which is what the Staff
 already trust on the fleet table. Reading the battery from the unit itself needs a firmware fact §8.2 does
-not record (open question Q4).
+not record (§11.12 Q4, decided A: the server projection only).
 
 ### 11.3 Page context and the actions a unit allows
 
@@ -1413,7 +1414,7 @@ unit goes back to `AVAILABLE`; price, spec and stock stay as they are.
 with no record, the replacement is the docked unit the caller names, and the counter must not act on a
 contract it read before an undo or another swap. So the spec adds rentals api-design 30,
 `POST /api/contracts/:id/devices/:deviceId/exchange` (`contract.operate`), and leaves 07 as it is. Folding it
-into 07 with an outcome flag is option B of open question Q1.
+into 07 with an outcome flag was option B of §11.12 Q1, not chosen.
 
 Body: `replacementDeviceId`, the docked `nodeNum` of the replacement, and the contract `expectedVersion`. In one
 transaction, after locking the contract and then the two device rows (`FOR UPDATE`, the replacement by id,
@@ -1422,7 +1423,7 @@ never `SKIP LOCKED`):
 1. the contract is `APPROVED` and its `version` equals `expectedVersion` (409 `INVALID_STATE_TRANSITION`,
    `STALE_VERSION`);
 2. `:deviceId` has a live row on the contract and is `RESERVED` (409 `DEVICE_NOT_ON_CONTRACT`);
-3. `:deviceId` has no provisioning record at any version (409 `DEVICE_PROVISIONED`; open question Q2);
+3. `:deviceId` has no provisioning record at any version (409 `DEVICE_PROVISIONED`; §11.12 Q2, decided A);
 4. the replacement's `nodeNum` equals the docked one (409 `NODE_MISMATCH`);
 5. the replacement is of the contract's variant (409 `VARIANT_MISMATCH`) and `AVAILABLE` with no live row
    (409 `DEVICE_NOT_AVAILABLE`, which covers a unit held for a request, reserved elsewhere or `RENTED`);
@@ -1438,7 +1439,7 @@ for its later requests.
 
 Which reserved unit is replaced: on a counter row's Dock, the row's unit (REQ-EVT-35); from the panel, the
 first reserved unit with no provisioning record in the contract's order, which Staff may change in the
-confirmation dialog (open question Q7).
+confirmation dialog (§11.12 Q7, decided A).
 
 ### 11.7 Hot provisioning, uplink and flash from the hub
 
@@ -1470,8 +1471,8 @@ it only after handover (D-092 unchanged).
 for a registered unit (api-design 31, `PUT /api/devices/:id/dock`, `device.operate`, body `nodeNum`), renews it
 every third of `devices.dockPresenceTtlSeconds` with the same request, and ends it with api-design 32
 (`DELETE /api/devices/:id/dock`) when the port is released, unplugged or forgotten, and on `pagehide` with a
-`fetch` `keepalive` request. Which units open a session is open question Q3; the recommendation is the units
-held while the page context is `counter`.
+`fetch` `keepalive` request. The units that open a session are the registered units held while the page context is
+`counter` (§11.12 Q3, decided A).
 
 **Where it lives.** A new `DeviceDockSession` row (`id`, `deviceId`, `nodeNum`, `openedById`, `openedAt`,
 `renewedAt`, `endedAt`, `endReason` `RELEASED`, `EXPIRED` or `REPLACED`), with a partial unique index on
@@ -1479,8 +1480,8 @@ held while the page context is `counter`.
 renews it when the caller opened it and otherwise ends it `REPLACED` and opens a new one (a unit is plugged
 into one computer at a time). The `devices.dockSweep` job, every third of the TTL, ends sessions not renewed
 within `devices.dockPresenceTtlSeconds` as `EXPIRED`. Rows are kept as a record of who held which unit; they
-do not enter the device history of monitoring api-design 07. Open question Q3 lists the in-memory and
-client-only alternatives.
+do not enter the device history of monitoring api-design 07. §11.12 Q3 lists the in-memory and client-only
+alternatives that were not chosen.
 
 **How long.** From the first PUT to the DELETE, or at most `devices.dockPresenceTtlSeconds` after the last
 renewal. The new parameter is `devices.dockPresenceTtlSeconds`, default 30, bounds 10 to 300, seconds, added to
@@ -1564,16 +1565,17 @@ with each refusal and the reservation race against a concurrent approval; monito
 organization caller. Hardware run by the leader on v2 (treklink-firmware#27 image), v3 and v4: AC-22, AC-26,
 AC-27, AC-31, AC-37.
 
-### 11.12 Open questions for the leader
+### 11.12 Questions and decisions
 
-None of these is decided here. The spec follows the recommended option until the leader answers.
+Decided 2026-11-04 for the leader (every recommended option, option A), with the hub approved for building the
+same night. The options not chosen are kept for their rationale.
 
-| # | Question | Options | Recommendation |
-|---|---|---|---|
-| Q1 | How does the quick swap reach the server? | A. New rentals api-design 30 `exchange` (caller-chosen replacement, replaced unit to `AVAILABLE`, `expectedVersion`, docked `nodeNum`). B. Extend rentals 07 with `outcome: CHECK_FAILED or EXCHANGE`, `replacementDeviceId` and `nodeNum`. C. Two calls from the client: release the reserved unit, then reserve the docked one (two new or widened endpoints) | A: 07 keeps its E01-5 meaning and audit trail, and the two outcomes never share a code path that a flag can flip; C cannot be one transaction |
-| Q2 | May a reserved unit that is already provisioned be swapped out? Its hardware carries the organization's key, and an undo (rentals 19) does not remove it | A. Refuse with 409 `DEVICE_PROVISIONED`. B. Allow, and send the replaced unit to `MAINTENANCE` for a reset before it is rented again. C. Allow, unit to `AVAILABLE`, key version cleared, key left on the hardware | A: a unit with another organization's key must never reach `AVAILABLE`; B can come later if counters need it |
-| Q3 | Which docked units get the map pin, and how does the server learn of them? | A. Units held while the page context is `counter`, through the dock session table with heartbeat. B. Every registered unit the hub holds on any Staff page, same table. C. Only units `RESERVED` to the counter's contract, same table. D. No server state: the pin is drawn only on the same browser's map | A: the brief says "docked for provisioning" at the counter; the table survives a restart and several backend instances, and D would not show on a second Staff screen |
-| Q4 | Where does the device view's battery come from? | A. The server projection (`batteryPct`, `lastBatteryAt`). B. The unit's own reading over serial, after the firmware fact is checked and added to §8.2. C. Both, the unit's reading first | A now; B as a follow-up once the fact is recorded |
-| Q5 | How does the client find the detail and icon renders? | A. By convention from the variant `code`: `/variants/<code>-detail.png` and `/variants/<code>-icon.png`, no schema change; `imageUrl` stays the card photo. B. Two new variant fields, `detailImageUrl` and `iconImageUrl`, edited on screen 4.1 under the §10 rules. C. Replace `imageUrl` with the detail render and derive the icon by convention | A: it matches the leader's paths with no migration, and the labelled slot covers a missing file |
-| Q6 | The shell's Info pane docks on the right at 1280 px; the hub uses the right side from 1100 px (§10.8). Which yields? | A. One right panel at a time: opening the hub closes the Info pane and the reverse. B. The hub always opens as a `Drawer` over the page and never pushes the content. C. Both pushed side by side from 1600 px, A below | A: one predictable right side, and §10.8 placement kept |
-| Q7 | Which reserved unit does a panel-started quick swap replace (a counter row's Dock always replaces that row)? | A. The first reserved unit with no provisioning record, changeable in the dialog. B. Staff must always pick. C. Only from a counter row, never from the panel | A: one click in the common case, and the choice stays visible |
+| # | Question | Options | Recommendation | Decision |
+|---|---|---|---|---|
+| Q1 | How does the quick swap reach the server? | A. New rentals api-design 30 `exchange` (caller-chosen replacement, replaced unit to `AVAILABLE`, `expectedVersion`, docked `nodeNum`). B. Extend rentals 07 with `outcome: CHECK_FAILED or EXCHANGE`, `replacementDeviceId` and `nodeNum`. C. Two calls from the client: release the reserved unit, then reserve the docked one (two new or widened endpoints) | A: 07 keeps its E01-5 meaning and audit trail, and the two outcomes never share a code path that a flag can flip; C cannot be one transaction | Decided 2026-11-04: A |
+| Q2 | May a reserved unit that is already provisioned be swapped out? Its hardware carries the organization's key, and an undo (rentals 19) does not remove it | A. Refuse with 409 `DEVICE_PROVISIONED`. B. Allow, and send the replaced unit to `MAINTENANCE` for a reset before it is rented again. C. Allow, unit to `AVAILABLE`, key version cleared, key left on the hardware | A: a unit with another organization's key must never reach `AVAILABLE`; B can come later if counters need it | Decided 2026-11-04: A |
+| Q3 | Which docked units get the map pin, and how does the server learn of them? | A. Units held while the page context is `counter`, through the dock session table with heartbeat. B. Every registered unit the hub holds on any Staff page, same table. C. Only units `RESERVED` to the counter's contract, same table. D. No server state: the pin is drawn only on the same browser's map | A: the brief says "docked for provisioning" at the counter; the table survives a restart and several backend instances, and D would not show on a second Staff screen | Decided 2026-11-04: A |
+| Q4 | Where does the device view's battery come from? | A. The server projection (`batteryPct`, `lastBatteryAt`). B. The unit's own reading over serial, after the firmware fact is checked and added to §8.2. C. Both, the unit's reading first | A now; B as a follow-up once the fact is recorded | Decided 2026-11-04: A |
+| Q5 | How does the client find the detail and icon renders? | A. By convention from the variant `code`: `/variants/<code>-detail.png` and `/variants/<code>-icon.png`, no schema change; `imageUrl` stays the card photo. B. Two new variant fields, `detailImageUrl` and `iconImageUrl`, edited on screen 4.1 under the §10 rules. C. Replace `imageUrl` with the detail render and derive the icon by convention | A: it matches the leader's paths with no migration, and the labelled slot covers a missing file | Decided 2026-11-04: A |
+| Q6 | The shell's Info pane docks on the right at 1280 px; the hub uses the right side from 1100 px (§10.8). Which yields? | A. One right panel at a time: opening the hub closes the Info pane and the reverse. B. The hub always opens as a `Drawer` over the page and never pushes the content. C. Both pushed side by side from 1600 px, A below | A: one predictable right side, and §10.8 placement kept | Decided 2026-11-04: A |
+| Q7 | Which reserved unit does a panel-started quick swap replace (a counter row's Dock always replaces that row)? | A. The first reserved unit with no provisioning record, changeable in the dialog. B. Staff must always pick. C. Only from a counter row, never from the panel | A: one click in the common case, and the choice stays visible | Decided 2026-11-04: A |

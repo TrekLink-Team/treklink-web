@@ -179,10 +179,10 @@ item on a phone. From 600 px the page is unchanged. Below 600 px the facts (hold
 before the variant card, so the first screen reads the unit's state rather than its render (W20B,
 2026-11-05).
 
-## Device connector entry points (2026-11-04, proposal, devices design §11)
+## Device connector entry points (2026-11-04, devices design §11, approved)
 
 Added by KhoaDD with the device hub spec. Where this section and the tables above disagree, this section wins
-once the leader approves devices design §11.
+(devices design §11 approved 2026-11-04).
 
 - The fleet page sets the `intake` context while the Register panel is open and `fleet` otherwise; the device
   page sets `device` with its id (devices design §11.3). Neither page calls Web Serial itself (REQ-UBI-10).

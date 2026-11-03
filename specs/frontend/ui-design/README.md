@@ -45,7 +45,7 @@ Assigned 2026-10-21, due 2026-10-23. Owners follow `specs/frontend/tasks.md` (D-
 | 4.3 | [`MaintenancePage` and `MaintenanceApprovalPage`](4-3-maintenancepage-and-maintenanceapprovalpage.md) | KhoaDD | US-UC52, US-UC64, US-UC65 | 2026-10-23 |
 | 4.4 | [`LossCasePage`](4-4-losscasepage.md) | KhoaDD | US-UC49, US-UC60 | 2026-10-23 |
 | 4.5 | [Stock-take](4-5-stock-take.md) | KhoaDD | US-UC54 | 2026-10-23 |
-| 4.6 | [Device connector panel, the Staff device hub](4-6-device-connector-panel.md) (proposal, devices design §11) | KhoaDD | US-UC11, US-UC14, US-UC20 | after the contract home UI |
+| 4.6 | [Device connector panel, the Staff device hub](4-6-device-connector-panel.md) (devices design §11, approved 2026-11-04) | KhoaDD | US-UC11, US-UC14, US-UC20 | after the contract home UI |
 | 5.1 | [`ContractRequestPage` with quote](5-1-contractrequestpage-with-quote.md) | LongLP | US-UC15 | 2026-10-23 |
 | 5.2 | [`ContractDetailPage` and contract lists](5-2-contractdetailpage-and-contract-lists.md) | LongLP | US-UC18, US-UC23, US-UC25, US-UC55 | 2026-10-23 |
 | 5.3 | [`ContractApprovalPage`](5-3-contractapprovalpage.md) | LongLP | US-UC16, US-UC17 | 2026-10-23 |
