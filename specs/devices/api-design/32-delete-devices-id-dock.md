@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Ends the open dock session of the unit when the connector releases its port, the unit is unplugged or the tab closes (sent with `keepalive`), so the Staff map drops the pin (design §11.8). Ending a session that is already over, or that does not exist, answers success with `result` null. A session never ended this way expires through the `devices.dockSweep` job. Permission `device.operate`.
+Ends the open dock session of the unit when the connector releases its port, the unit is unplugged or the tab closes (sent with `keepalive`), so the Staff map drops the pin (design §11.8). Any TrekLink Staff or Admin caller may end the open session, whoever opened it: counters change hands, and a stale session must be clearable (leader ruling on treklink-web#351). Ending a session that is already over, or that does not exist, answers success with `result` null. A session never ended this way expires through the `devices.dockSweep` job. Permission `device.operate`.
 
 ## API Specification
 
