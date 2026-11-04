@@ -381,6 +381,24 @@ describe('useDocking reboot and factory reset', () => {
     expect(recordReset).not.toHaveBeenCalled();
   });
 
+  it('refuses a unit reporting region UNSET before the wipe, since it could not be written back', async () => {
+    const { unit } = dock({ region: 0 });
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
+    await act(async () => {
+      outcome = await result.current.factoryReset(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({
+      ok: false,
+      wiped: false,
+      failure: 'refused',
+      reason: 'TL-0042 reports no LoRa region, so it could not be written back after the reset. Set its region first. Nothing was written.',
+    });
+    expect(unit.writes).toEqual([]);
+    expect(recordReset).not.toHaveBeenCalled();
+  });
+
   it('names a read-back that differs and records nothing (REQ-ERR-31)', async () => {
     const { unit } = dock({}, { loseRegionOnCommit: true });
     const { result } = render();
