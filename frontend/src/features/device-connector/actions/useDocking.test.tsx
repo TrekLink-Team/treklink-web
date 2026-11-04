@@ -351,6 +351,36 @@ describe('useDocking reboot and factory reset', () => {
     expect(recordReset).not.toHaveBeenCalled();
   });
 
+  it('asks the server again before the wipe and writes nothing to a unit still in custody (REQ-ERR-30)', async () => {
+    const { unit } = dock();
+    const { result } = render();
+    const id = await readyConnection();
+    // A handover since the page read the unit: the custody row is open now.
+    recognizeUnits.mockImplementation((nodeNums: number[]) =>
+      Promise.resolve(
+        nodeNums.map((nodeNum) => ({
+          nodeNum,
+          nodeId: '',
+          device: null,
+          contract: { id: 'c-40', code: 'RC-2026-0040', status: 'ACTIVE', organization: { id: 'o-1', code: 'ORG-SAPA' }, provisionedKeyVersion: 2 },
+          docked: null,
+        })),
+      ),
+    );
+    let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
+    await act(async () => {
+      outcome = await result.current.factoryReset(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({
+      ok: false,
+      wiped: false,
+      failure: 'refused',
+      reason: 'TL-0042 is still in custody on RC-2026-0040. Check it in on its contract first.',
+    });
+    expect(unit.writes).toEqual([]);
+    expect(recordReset).not.toHaveBeenCalled();
+  });
+
   it('names a read-back that differs and records nothing (REQ-ERR-31)', async () => {
     const { unit } = dock({}, { loseRegionOnCommit: true });
     const { result } = render();

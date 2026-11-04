@@ -31,7 +31,9 @@ export type DockingFailure =
   // Staff closed the browser's port chooser.
   | 'cancelled'
   // Several units are connected and none is the expected one: Staff choose in the connector.
-  | 'choose';
+  | 'choose'
+  // The unit may not take this write now, checked before anything is sent (REQ-ERR-30).
+  | 'refused';
 
 export class DockingError extends Error {
   constructor(

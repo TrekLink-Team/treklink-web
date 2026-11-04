@@ -40,6 +40,10 @@ export const HUB_LABELS: Record<HubActionKind, string> = {
 export const LOCKED_TEXT = 'Another unit is being written.';
 export const NOT_READY_TEXT = 'Wait until the unit is read.';
 
+// A returned unit whose custody row on a contract is still open (REQ-ERR-30).
+export const custodyText = (tag: string, contractCode: string) =>
+  `${tag} is still in custody on ${contractCode}. Check it in on its contract first.`;
+
 const statusLabel = (status: string) => DEVICE_STATUS[status as DeviceStatus]?.label ?? status;
 
 export const hubActionsFor = (
@@ -117,6 +121,10 @@ export const hubActionsFor = (
     resetReason = `${tag} is rented on ${contract?.code ?? 'its contract'}. Check it in at the return counter first.`;
   } else if (device.status !== 'RETURNED') {
     resetReason = `Factory reset is for returned units. ${tag} is ${statusLabel(device.status)}.`;
+  } else if (contract) {
+    // The recognition's contract is the unit's open custody row (devices design section 11.5): a returned
+    // unit still in custody is refused before anything is written to it (REQ-ERR-30).
+    resetReason = custodyText(tag, contract.code);
   } else if (record === undefined) resetReason = 'Checking the record.';
   else if (record?.nextStep?.action !== 'RESET') resetReason = `${tag} is already reset for this return.`;
   const factoryReset = make('factoryReset', resetReason);
