@@ -78,6 +78,18 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(within(nav).queryByRole('link', { name: 'Maintenance' })).toBeNull();
   });
 
+  // W15 panel walk: at 1280 px the search box squeezed the organization to "TrekLink ..." and broke its
+  // code over two lines. The workspace keeps its width from 1280 px; below, only the code shows.
+  it('keeps the workspace whole from 1280 px and its code on one line', () => {
+    show('/o/contracts');
+    const workspace = screen.getByTitle('ACME Trek Co., Ltd.');
+    expect(workspace.className).toContain('xl:shrink-0');
+    expect(workspace.className).not.toContain('min-w-0');
+    const [name, code] = Array.from(workspace.querySelectorAll('span:not(.sr-only)'));
+    expect(name.className).toContain('xl:inline');
+    expect(code?.className).toContain('whitespace-nowrap');
+  });
+
   it('gives every page a breadcrumb from the navigation table', () => {
     show('/o/contracts/abc');
     const crumbs = screen.getAllByRole('navigation', { name: 'Breadcrumb' })[0];
