@@ -108,4 +108,43 @@ describe('spreadOffsets (WCAG 2.2, 2.5.8)', () => {
     // One ring of ten has a radius of about 40 px; the seed groups stay inside one target.
     expect(furthest).toBeLessThanOrEqual(MIN_TARGET_PX);
   });
+
+  // Review of treklink-web#367: two zoom-outs on the seeded Staff map left a spread TL-0009 20.81 px
+  // from TL-0017, whose readings sit about 26 px apart. The same shape: b and e start one ring, c and
+  // d another; the two merge into a larger ring that pushes e onto the lone a, 27 px from e's reading,
+  // and a may not join because c is past the merge reach from a.
+  it('keeps a spread ring off a lone neighbour 20 to 30 px away that it may not take in', () => {
+    const points = [
+      { id: 'a', x: 1, y: 8 },
+      { id: 'b', x: 18, y: 32 },
+      { id: 'c', x: 55, y: 5 },
+      { id: 'd', x: 49, y: 4 },
+      { id: 'e', x: 28, y: 12 },
+    ];
+    const reading = Math.hypot(28 - 1, 12 - 8);
+    expect(reading).toBeGreaterThan(20);
+    expect(reading).toBeLessThan(30);
+    const offsets = spreadOffsets(points);
+    expect(offsets.has('e')).toBe(true);
+    expect(offsets.has('a')).toBe(false);
+    expect(closest(placed(points))).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+  });
+
+  it('shifts a ring off a lone neighbour that no turn of the ring clears', () => {
+    // Found by search with the shift switched off: no turn of the spread ring clears the lone marker
+    // beside it, and the test fails without the shift.
+    const points = [
+      { id: 'a', x: 30, y: 48 },
+      { id: 'b', x: 41, y: 18 },
+      { id: 'c', x: 72, y: 10 },
+      { id: 'd', x: 52, y: 33 },
+      { id: 'e', x: 55, y: 23 },
+      { id: 'f', x: 31, y: 0 },
+    ];
+    const offsets = spreadOffsets(points);
+    expect(closest(placed(points))).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+    // The ring keeps its icons near their readings: its radius plus at most a 12 px shift.
+    for (const [dx, dy] of offsets.values())
+      expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(2 * MIN_TARGET_PX);
+  });
 });
