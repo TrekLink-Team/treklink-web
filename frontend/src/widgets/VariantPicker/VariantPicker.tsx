@@ -23,7 +23,9 @@ export const VariantPicker: React.FC<Props> = ({ variants, value, onChange, coun
     aria-describedby={error ? 'variant-error' : undefined}
   >
     <legend className="mb-1.5 text-body-sm font-semibold text-ink">Hardware variant</legend>
-    <div className="grid gap-3 sm:grid-cols-2">
+    {/* One card per row up to 1536 px: beside the quote, two cards left the spec list about 150 px and
+        broke its values word by word at 1280 px (W15 panel walk). */}
+    <div className="grid gap-3 2xl:grid-cols-2">
       {variants.map((item) => {
         const selected = item.id === value;
         const count = countOf(item.id);
