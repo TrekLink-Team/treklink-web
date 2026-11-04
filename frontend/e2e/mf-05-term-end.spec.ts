@@ -48,7 +48,7 @@ const openContractAsStaff = async (page: import('@playwright/test').Page) => {
   // details pane, whose link opens the contract home.
   await showOnly(page, 'All');
   await page.getByRole('button', { name: `Show details of ${CONTRACT}`, exact: true }).click();
-  await page.getByRole('complementary', { name: CONTRACT }).getByRole('link', { name: 'Open the contract' }).first().click();
+  await page.getByRole('complementary', { name: CONTRACT }).getByRole('link', { name: 'Open the contract' }).click();
   await expect(page).toHaveURL(/\/t\/contracts\/[^/]+$/);
 };
 
