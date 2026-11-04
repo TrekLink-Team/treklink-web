@@ -102,6 +102,15 @@ describe('hubActionsFor (devices design section 11.13)', () => {
     ).toBe('Only TrekLink Staff can do this.');
   });
 
+  it('refuses factory reset for a returned unit whose custody row is still open (REQ-ERR-30)', () => {
+    const custody = { ...RENTED_ON, status: 'RETURN_DUE' };
+    const actions = byKind(hubActionsFor(connection({ status: 'RETURNED' }, custody), null, CAN, RESET_DUE, null));
+    expect(actions.factoryReset).toMatchObject({
+      available: false,
+      reason: 'TL-0042 is still in custody on RC-2026-0040. Check it in on its contract first.',
+    });
+  });
+
   it('sends provisioning and the quick swap to the counter outside it, with its link for a reserved unit', () => {
     const actions = byKind(
       hubActionsFor(connection({ status: 'RESERVED' }, { ...RENTED_ON, status: 'APPROVED' }), null, CAN, {}, null),

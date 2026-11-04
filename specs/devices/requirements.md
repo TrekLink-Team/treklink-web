@@ -220,7 +220,7 @@ The `devices` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-38**: With TL-0042 connected, `/t/device-hub` shows its render, the Device info card with the node number, hardware model, battery and voltage, region, channel name and owner names read from the unit and its record and contract from the server, and the six actions, each enabled or with its reason as text; with no unit it shows the empty state and Connect a unit. At 1280, 900 and 360 px nothing scrolls sideways, in both themes. (REQ-EVT-42)
 - **AC-39**: Reboot of a connected unit sends `reboot_seconds`, the unit comes back with the same `nodeNum`, and no server request is made. (REQ-EVT-43)
 - **AC-40**: Factory reset of a `RETURNED` TL-0042 due a reset, after the confirmation, sends `factory_reset_config`, then the owner `TL-0042`/`0042` and the region as read, reads them back, and records api-design 10 with `nodeNum`; the unit's key version is cleared and an audit record `device.reset` with method `DOCKED` exists. (REQ-EVT-44)
-- **AC-41**: Factory reset is unavailable with its reason for an unknown unit, a `RENTED` unit, a unit already reset for this return, and any other status; api-design 10 answers 409 `NODE_MISMATCH` for a `nodeNum` that is not the device's. A read-back that differs records nothing. (REQ-ERR-30, REQ-ERR-31)
+- **AC-41**: Factory reset is unavailable with its reason for an unknown unit, a `RENTED` unit, a `RETURNED` unit whose custody row is still open (nothing is written to it), a unit already reset for this return, and any other status; api-design 10 answers 409 `NODE_MISMATCH` for a `nodeNum` that is not the device's. A read-back that differs records nothing. (REQ-ERR-30, REQ-ERR-31)
 
 ---
 

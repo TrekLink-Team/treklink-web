@@ -23,6 +23,7 @@ import {
   type ExpectedUnit,
 } from './DockingService';
 import type { DockingFailureInfo } from './messages';
+import { custodyText } from '../model/hubActions';
 
 // The docking flows the pages and the connector panel run (devices design sections 8.1 and 11.7). The
 // device connector's registry lends the port and holds the one write lock (REQ-UBI-09, REQ-UBI-10): a
@@ -399,6 +400,11 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
           connection.unit.nodeId,
         );
       }
+      // The custody check before the wipe (REQ-ERR-30): the recognition is asked again, so a check-in or
+      // a handover since the page loaded is seen, and a unit still in custody gets nothing written.
+      await registry.refreshRecognition(connectionId);
+      const custody = registry.get(connectionId)?.recognized?.contract;
+      if (custody) throw new DockingError('refused', custodyText(target.assetTag, custody.code));
       const { nodeNum } = await registry.withWriteLock(connectionId, async (port, stage) => {
         const hooks = hooksFor(target.deviceId, stage, connectionId);
         try {

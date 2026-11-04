@@ -1637,7 +1637,7 @@ address bar (REQ-UBI-08).
 | Configure uplink | §11.3 offers it | §11.3's reason, or "Configure uplink needs a registered unit that is not retired." |
 | Update firmware | §11.7 (task 8.3 registered its panel) | "Firmware releases are not published yet" |
 | Reboot | any `Ready` unit while no write runs | "Another unit is being written." (REQ-STA-06) |
-| Factory reset | a registered `RETURNED` unit whose next step is `RESET` (api-design 07) | the reasons of REQ-ERR-30 |
+| Factory reset | a registered `RETURNED` unit with no open custody row (api-design 30 `contract` null) whose next step is `RESET` (api-design 07) | the reasons of REQ-ERR-30 |
 
 **Reboot (REQ-EVT-43).** Under the write lock: open a session, send `AdminMessage.reboot_seconds` with 2, close
 the session, wait for the restart as §8.4 step 4 does (`awaitRestart`, the Reconnect prompt when the port does not
@@ -1649,7 +1649,8 @@ names it carried and every setting it may have changed (Wi-Fi, broker, module co
 unit learned in the field. Steps, under the write lock:
 
 1. The device view reads api-design 07 for the unit; the action is offered only for `RETURNED` with next step
-   `RESET`. A confirmation `Dialog` names what is wiped (the organization's channel key, the owner names, the node
+   `RESET` and no open custody row (api-design 30 `contract` null). Before the wipe the hub asks api-design 30
+   again and refuses a unit still in custody, so nothing is written to it (REQ-ERR-30). A confirmation `Dialog` names what is wiped (the organization's channel key, the owner names, the node
    database, Wi-Fi and broker settings), that the region is written back, that the unit restarts twice, and that
    the reset is recorded for this return.
 2. Open a session; the docked `nodeNum` must equal the device's (REQ-ERR-12). Keep the region and the LoRa config
@@ -1710,7 +1711,7 @@ until task 10.12 runs it on v3 and v4.
 | `RENTED` | page, api-design 10 | "{assetTag} is rented on {contractCode}. Check it in at the return counter first." | `INVALID_STATE_TRANSITION` |
 | Not `RETURNED` otherwise | page, api-design 10 | "Factory reset is for returned units. {assetTag} is {status}." | `INVALID_STATE_TRANSITION` |
 | Already reset for this return | page, api-design 10 | "{assetTag} is already reset for this return." | `ALREADY_RESET` |
-| Custody row still open | api-design 10 | "Check this device in on its contract first." | `INVALID_STATE_TRANSITION` |
+| Custody row still open (the recognition's `contract` is set) | page and hub before the wipe, api-design 10 | "{assetTag} is still in custody on {contractCode}. Check it in on its contract first." (the server's text: "Check this device in on its contract first.") | `INVALID_STATE_TRANSITION` |
 | Docked unit is another device | hub, api-design 10 | "The docked unit is {nodeId}, not {assetTag}. Nothing was written." | `NODE_MISMATCH` |
 | Write, restart or read-back fails | hub | the failed step, "Nothing was recorded. Dock {assetTag} and run Factory reset again." | none (REQ-ERR-31) |
 | The server refuses after the wipe | hub | the server's message; the unit stays wiped and the reset can be recorded again from the counter | any |

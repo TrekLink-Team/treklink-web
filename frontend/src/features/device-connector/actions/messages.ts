@@ -77,7 +77,7 @@ export const factoryResetMessage = (
   if (wiped) {
     return `${assetTag} is wiped, but the reset was not recorded: ${clause(reason)}. Record the reset at its counter.`;
   }
-  if (failure === 'mismatch') return reason;
+  if (failure === 'mismatch' || failure === 'refused') return reason;
   if (failure === 'no-response') return NO_RESPONSE_TEXT;
   return `${reason.replace(/\.?$/, '.')} Nothing was recorded. Dock ${assetTag} and run Factory reset again.`;
 };
