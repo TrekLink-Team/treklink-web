@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   INVOICE_STATUS_LABELS,
   INVOICE_TONES,
+  invoiceKindLabel,
   type Invoice,
   type InvoiceFilters,
   type InvoiceStatus,
@@ -19,8 +20,6 @@ import { LINK } from '../../shared/ui/styles';
 const STATUSES = Object.keys(INVOICE_STATUS_LABELS) as InvoiceStatus[];
 const OVERDUE = 'OVERDUE';
 
-const kindOf = (invoice: Invoice) =>
-  invoice.term ? `Term ${invoice.term.seq}` : invoice.kind.replace('_', ' ');
 
 // Show holds two server filters that combine (billing api-design 08 `status` and `overdue`): one
 // status or every status, and overdue only or any (review of treklink-web#350).
@@ -84,7 +83,7 @@ export const InvoiceTable: React.FC<{
       render: (invoice) => invoice.contract.code,
       compact: true,
     },
-    { key: 'kind', label: 'Kind', render: kindOf, hideWithPane: true },
+    { key: 'kind', label: 'Kind', render: invoiceKindLabel, hideWithPane: true },
     {
       key: 'status',
       label: 'Status',

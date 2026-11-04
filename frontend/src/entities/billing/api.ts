@@ -301,6 +301,22 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   PAID: 'Paid',
 };
 
+// InvoiceKind of backend/prisma/schema.prisma as text (screen 6.1, chapter 06 §8.3). A term invoice
+// names its term instead: "Term 2".
+export const INVOICE_KIND_LABELS: Record<string, string> = {
+  TERM: 'Term',
+  DAY_PLAN: 'Day plan',
+  CLOSING: 'Closing',
+};
+
+/** The kind of an invoice as text; a kind this build does not know yet shows its code. */
+export const invoiceKindLabel = (invoice: Pick<Invoice, 'kind' | 'term'>): string =>
+  invoice.term
+    ? `Term ${invoice.term.seq}`
+    : Object.hasOwn(INVOICE_KIND_LABELS, invoice.kind)
+      ? INVOICE_KIND_LABELS[invoice.kind]
+      : invoice.kind;
+
 // Line type as text (screen 6.1): the UI shows the label, never the raw enum (chapter 06 §8.3).
 export const INVOICE_LINE_TYPE_LABELS: Record<InvoiceLineType, string> = {
   HOLDING_FEE: 'Holding fee',
