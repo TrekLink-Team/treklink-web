@@ -121,7 +121,7 @@ export const InvoiceTable: React.FC<{
           type="button"
           aria-pressed={selectedId !== undefined ? selectedId === invoice.id : undefined}
           onClick={() => onOpen(invoice)}
-          className={`${LINK} inline-flex min-h-6 items-center`}
+          className={`${LINK} inline-flex min-h-6 items-center whitespace-nowrap`}
         >
           {invoice.number}
         </button>

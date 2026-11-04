@@ -1008,7 +1008,9 @@ export function CollectionView<T>({
                 >
                   {selectable && <td className="p-0">{checkbox(item)}</td>}
                   <th scope="row" className="px-3 py-1.5 text-left font-normal">
-                    {titleOf(item)}
+                    {/* A record code (TL-0002, RC-2026-0004) stays on one line in a table column instead of
+                        breaking at its hyphen (W15 panel walk); a card keeps wrapping. */}
+                    {titleOf(item, 'whitespace-nowrap')}
                   </th>
                   {tableFields.map((field) => (
                     <td

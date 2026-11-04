@@ -104,6 +104,18 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(within(row).getByText('96%')).toBeTruthy();
   });
 
+  // W15 panel walk: the asset tag broke at its hyphen (TL- / 0002) and the service date read 2027-05-03
+  // beside dates written 04 Nov 2026 everywhere else.
+  it('keeps the asset tag on one line and writes the service date as every other date', async () => {
+    renderPage();
+    const table = within(await screen.findByRole('table'));
+    const tag = table.getByText('TL-0042');
+    expect(tag.className).toContain('whitespace-nowrap');
+    const row = tag.closest('tr') as HTMLElement;
+    expect(within(row).getByText('12 Dec 2026')).toBeTruthy();
+    expect(within(row).queryByText('2026-12-12')).toBeNull();
+  });
+
   it('opens the register dialog and submits the form', async () => {
     registerDevice.mockResolvedValue(device({ id: 'd-new', assetTag: 'TL-0099' }));
     renderPage();
