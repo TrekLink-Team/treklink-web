@@ -103,3 +103,98 @@ jobs:
       - run: npm --prefix frontend run typecheck
       - run: npm --prefix frontend run test
       - run: npm --prefix frontend run build
+
+  # Playwright journeys of frontend task 10.1 on a throwaway Postgres 16: the demo seed, the backend with
+  # the field data simulator (no MQTT broker, so MF-02, MF-03 and operator-360, which need the broker and
+  # the gateway, stay manual), and the Vite dev server. The journeys change data, so this job never sees a
+  # shared database; the passwords and the API key are generated per run and masked.
+  e2e:
+    name: Playwright (browser journeys)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: treklink
+          POSTGRES_PASSWORD: treklink
+          POSTGRES_DB: treklink_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U treklink -d treklink_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://treklink:treklink@localhost:5432/treklink_e2e
+      DATABASE_DIRECT_URL: postgresql://treklink:treklink@localhost:5432/treklink_e2e
+      MQTT_BROKER_URL: mqtt://localhost:1883
+      MQTT_INGESTION_ENABLED: 'false'
+      FIELD_SIMULATOR_ENABLED: 'true'
+      # The demo control panel (a11y.spec.ts, /t/admin/demo); its guard holds because the database is loopback.
+      DEMO_CONTROLS_ENABLED: 'true'
+      BCRYPT_COST: '4'
+      VITE_API_BASE_URL: http://localhost:3000/api
+      VITE_WS_URL: http://localhost:3000
+      E2E_BASE_URL: http://localhost:5173
+      E2E_STUB_TILES: 'true'
+      E2E_BACKEND_LOG: ${{ github.workspace }}/backend.log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Generate the seed credentials
+        run: |
+          for role in ADMIN STAFF MANAGER OPERATOR; do
+            value="$(openssl rand -hex 12)"
+            echo "::add-mask::${value}"
+            echo "SEED_${role}_PASSWORD=${value}" >> "$GITHUB_ENV"
+          done
+          key="tlk_$(openssl rand -base64 33 | tr '+/' '-_' | tr -d '=\n' | cut -c1-43)"
+          echo "::add-mask::${key}"
+          echo "SEED_ORG_API_KEY=${key}" >> "$GITHUB_ENV"
+          secret="$(openssl rand -hex 32)"
+          echo "::add-mask::${secret}"
+          echo "JWT_ACCESS_SECRET=${secret}" >> "$GITHUB_ENV"
+      - name: Prisma generate and migrate
+        run: |
+          npm --prefix backend run prisma:generate
+          npm --prefix backend run prisma:deploy
+      - name: Demo seed
+        run: npm --prefix backend run seed:demo
+      - name: Install Chromium
+        run: npx --prefix frontend playwright install --with-deps chromium
+      - name: Build and start the backend
+        run: |
+          npm --prefix backend run build
+          nohup npm --prefix backend run start:prod > "$E2E_BACKEND_LOG" 2>&1 &
+          for attempt in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:3000/api/health && exit 0
+            sleep 2
+          done
+          cat "$E2E_BACKEND_LOG"
+          exit 1
+      - name: Start the Vite dev server
+        run: |
+          nohup npm --prefix frontend run dev > "${{ github.workspace }}/frontend.log" 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:5173 && exit 0
+            sleep 2
+          done
+          cat "${{ github.workspace }}/frontend.log"
+          exit 1
+      # The seed has to be older than gatewaySync.attributionMarginSeconds (5 minutes) before MF-03; these
+      # journeys do not include MF-03, so no wait is needed here.
+      - name: Playwright journeys
+        working-directory: frontend
+        run: npx playwright test --project=desktop a11y mf-01-request mf-01a mf-04
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
