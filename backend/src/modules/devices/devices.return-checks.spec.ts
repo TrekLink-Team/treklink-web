@@ -32,6 +32,7 @@ describe('DevicesService reset and return checks', () => {
     inspectionsOfContractDevices: jest.Mock;
     findUnit: jest.Mock;
     insertInspection: jest.Mock;
+    nodeNums: jest.Mock;
   };
   let custody: { custodyAt: jest.Mock };
   let service: DevicesService;
@@ -45,6 +46,8 @@ describe('DevicesService reset and return checks', () => {
         id: 'dev-1',
         status: DeviceStatus.RETURNED,
         statusChangedAt: returnedAt,
+        keyVersion: 2,
+        keyOrganizationId: 'org-1',
         version: 4,
       }),
       lastResetAt: jest.fn().mockResolvedValue(null),
@@ -54,6 +57,7 @@ describe('DevicesService reset and return checks', () => {
       inspectionsOfContractDevices: jest.fn().mockResolvedValue([]),
       findUnit: jest.fn().mockResolvedValue({ id: 'dev-1', status: DeviceStatus.RETURNED }),
       insertInspection: jest.fn(),
+      nodeNums: jest.fn().mockResolvedValue([{ id: 'dev-1', nodeNum: 2763113171n }]),
     };
     custody = { custodyAt: jest.fn().mockResolvedValue(null) };
     service = new DevicesService(
@@ -109,6 +113,49 @@ describe('DevicesService reset and return checks', () => {
         ErrorCode.INVALID_STATE_TRANSITION,
       );
       expect(custody.custodyAt).toHaveBeenCalledWith('dev-1', at, tx);
+      expect(repository.insertReset).not.toHaveBeenCalled();
+    });
+
+    it('returns the key the unit carried before, for the audit record', async () => {
+      await expect(service.reset('dev-1', steps, 'staff-1', at, tx)).resolves.toEqual({
+        device: { id: 'dev-1', version: 5 },
+        before: { keyVersion: 2, keyOrganizationId: 'org-1' },
+      });
+      expect(repository.nodeNums).not.toHaveBeenCalled();
+    });
+
+    it('records the factory reset of the device hub when the docked node number is the device (design §11.13)', async () => {
+      await service.reset('dev-1', { ...steps, nodeNum: 2763113171 }, 'staff-1', at, tx);
+
+      expect(repository.nodeNums).toHaveBeenCalledWith(['dev-1'], tx);
+      // The node number is not a column of device_resets: only the three steps are stored.
+      expect(repository.insertReset).toHaveBeenCalledWith('dev-1', steps, 'staff-1', at, tx);
+    });
+
+    it('refuses a docked node number that is not the device with 409 NODE_MISMATCH', async () => {
+      await expectDomain(
+        service.reset('dev-1', { ...steps, nodeNum: 1 }, 'staff-1', at, tx),
+        HttpStatus.CONFLICT,
+        ErrorCode.NODE_MISMATCH,
+      );
+      expect(repository.insertReset).not.toHaveBeenCalled();
+    });
+
+    it('refuses a RENTED unit before anything else is checked', async () => {
+      repository.lockUnit.mockResolvedValue({
+        id: 'dev-1',
+        status: DeviceStatus.RENTED,
+        statusChangedAt: returnedAt,
+        keyVersion: 2,
+        keyOrganizationId: 'org-1',
+        version: 4,
+      });
+
+      await expectDomain(
+        service.reset('dev-1', { ...steps, nodeNum: 2763113171 }, 'staff-1', at, tx),
+        HttpStatus.CONFLICT,
+        ErrorCode.INVALID_STATE_TRANSITION,
+      );
       expect(repository.insertReset).not.toHaveBeenCalled();
     });
 
