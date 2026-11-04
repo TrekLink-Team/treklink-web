@@ -10,7 +10,7 @@ import {
 } from '../../common/decorators/access.decorator';
 import { RESPONSE_MESSAGE_KEY } from '../../common/decorators/response-message.decorator';
 import { validateQuery } from '../../common/pipes/app-validation.pipe';
-import { DeviceQueryDto, DevicesController } from './devices.controller';
+import { DeviceQueryDto, DevicesController, ResetDto } from './devices.controller';
 import { DevicesService } from './devices.service';
 import { DisposeDeviceDto } from './dto/dispose-device.dto';
 import { RetireDeviceDto } from './dto/retire-device.dto';
@@ -52,7 +52,10 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
   beforeEach(() => {
     devices = {
       fleetPage: jest.fn().mockResolvedValue([[], 0]),
-      reset: jest.fn(),
+      reset: jest.fn().mockResolvedValue({
+        device: { id: 'd-1', keyVersion: null, keyOrganizationId: null },
+        before: { keyVersion: 2, keyOrganizationId: 'org-1' },
+      }),
       retire: jest.fn().mockResolvedValue({ id: 'd-1', status: 'RETIRED' }),
       dispose: jest.fn().mockResolvedValue({ id: 'd-1', status: 'DISPOSED' }),
       availability: jest.fn().mockResolvedValue([]),
@@ -170,6 +173,25 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     });
   });
 
+  it('audits the device hub factory reset as DOCKED with the docked node number (design §11.13)', async () => {
+    const dto = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true, nodeNum: 2763113171 };
+    await expect(controller.reset('d-1', dto, CALLER)).resolves.toEqual({
+      id: 'd-1',
+      keyVersion: null,
+      keyOrganizationId: null,
+    });
+    expect(devices.reset).toHaveBeenCalledWith('d-1', dto, 'staff-1', expect.any(Date), {});
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      'audit.record',
+      expect.objectContaining({
+        actorId: 'staff-1',
+        actorRoles: ['STAFF'],
+        action: 'device.reset',
+        after: { keyVersion: null, keyOrganizationId: null, method: 'DOCKED', nodeNum: 2763113171 },
+      }),
+    );
+  });
+
   it('reads availability and the device detail', async () => {
     await controller.availability({ hardwareVariantId: 'v-3' });
     expect(devices.availability).toHaveBeenCalledWith('v-3');
@@ -180,6 +202,16 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     const resetDto = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true };
     await controller.reset('d-1', resetDto, CALLER);
     expect(devices.reset).toHaveBeenCalledWith('d-1', resetDto, 'staff-1', expect.any(Date), {});
+
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      'audit.record',
+      expect.objectContaining({
+        action: 'device.reset',
+        subjectId: 'd-1',
+        before: { keyVersion: 2, keyOrganizationId: 'org-1' },
+        after: { keyVersion: null, keyOrganizationId: null, method: 'MANUAL', nodeNum: null },
+      }),
+    );
 
     const intakeDto = { gpsFixOk: true, radioOk: true, batteryOk: true, expectedVersion: 0 };
     await controller.recordIntake('d-1', intakeDto, CALLER);
@@ -240,6 +272,17 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     expect(allows('retire', staff)).toBe(false);
     expect(allows('dispose', staff)).toBe(false);
     expect(allows('dispose', retireOnly)).toBe(false);
+  });
+
+  it('validates the reset body, the docked node number optional and unsigned 32-bit', async () => {
+    const errorsOf = async (body: object) =>
+      (await validate(plainToInstance(ResetDto, body))).map((error) => error.property);
+    const steps = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true };
+    expect(await errorsOf(steps)).toEqual([]);
+    expect(await errorsOf({ ...steps, nodeNum: 4294967295 })).toEqual([]);
+    expect(await errorsOf({ ...steps, nodeNum: -1 })).toEqual(['nodeNum']);
+    expect(await errorsOf({ ...steps, nodeNum: 4294967296 })).toEqual(['nodeNum']);
+    expect(await errorsOf({ ...steps, nodeNum: '!a4b1c2d3' })).toEqual(['nodeNum']);
   });
 
   it('validates the retire and dispose bodies', async () => {
