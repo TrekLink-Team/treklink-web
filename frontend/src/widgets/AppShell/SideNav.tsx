@@ -45,7 +45,9 @@ export const SideNav: React.FC<SideNavProps> = ({ groups, collapsed = false, onN
                 }
               >
                 <Icon aria-hidden="true" className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span className="truncate">{entry.label}</span>}
+                {/* A long label wraps onto a second line instead of losing its end to an ellipsis
+                    ("Prices and damage ra...", W15 panel walk); min-h-10 still holds one-line rows. */}
+                {!collapsed && <span className="min-w-0 py-1.5 leading-snug">{entry.label}</span>}
               </NavLink>
             );
           })}
