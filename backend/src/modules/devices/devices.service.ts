@@ -174,6 +174,19 @@ export interface DeviceReading {
 
 // The methods other modules call (design §3). Lifecycle, reservation and the endpoints join with tasks
 // 1.2 and 2.1 to 2.8.
+// The three steps of a reset (devices api-design 10).
+export interface ResetSteps {
+  keyRemoved: boolean;
+  nodeDbCleared: boolean;
+  ownerCleared: boolean;
+}
+
+// A recorded reset: the device after it, and the key it carried before (the audit record's `before`).
+export interface ResetOutcome {
+  device: UnitRow;
+  before: { keyVersion: number | null; keyOrganizationId: string | null };
+}
+
 @Injectable()
 export class DevicesService {
   constructor(
@@ -399,14 +412,21 @@ export class DevicesService {
   // devices api-design 10 (task 2.4 part, built by LongLP for MF-05): a RETURNED unit is reset with all
   // three steps (400 RESET_INCOMPLETE otherwise), which clears the organization key it carried (D-021).
   // One reset per return: a unit already reset since it became RETURNED is 409 ALREADY_RESET. A unit
-  // whose contract row is still open is refused until it is checked in (design §2.1).
+  // whose contract row is still open is refused until it is checked in (design §2.1). The device hub's
+  // factory reset sends the docked node number, which must be the device's (409 NODE_MISMATCH, design
+  // §11.13). Returns the key the unit carried before, for the audit record the controller writes.
   async reset(
     deviceId: string,
-    steps: { keyRemoved: boolean; nodeDbCleared: boolean; ownerCleared: boolean },
+    request: ResetSteps & { nodeNum?: number },
     actorId: string,
     at: Date,
     tx: Prisma.TransactionClient,
-  ): Promise<UnitRow> {
+  ): Promise<ResetOutcome> {
+    const steps: ResetSteps = {
+      keyRemoved: request.keyRemoved,
+      nodeDbCleared: request.nodeDbCleared,
+      ownerCleared: request.ownerCleared,
+    };
     // Lock the device row first: two counters (or a double click) must not both pass the
     // ALREADY_RESET check below and insert two resets for one return.
     const unit = await this.devices.lockUnit(deviceId, tx);
@@ -428,7 +448,21 @@ export class DevicesService {
         'This device is already reset for this return.',
       );
     }
-    return this.devices.insertReset(deviceId, steps, actorId, at, tx);
+    if (request.nodeNum !== undefined) {
+      const [identity] = await this.devices.nodeNums([deviceId], tx);
+      if (!identity || identity.nodeNum !== BigInt(request.nodeNum)) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.NODE_MISMATCH,
+          'The docked unit is not this device.',
+        );
+      }
+    }
+    const device = await this.devices.insertReset(deviceId, steps, actorId, at, tx);
+    return {
+      device,
+      before: { keyVersion: unit.keyVersion, keyOrganizationId: unit.keyOrganizationId },
+    };
   }
 
   // devices api-design 16 (task 2.4, FR-DEV-09): an Admin retires a MAINTENANCE device. Design §2's

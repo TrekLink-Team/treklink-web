@@ -121,6 +121,30 @@ describe('DevicesService.reset and returnChecks on Postgres', () => {
     await expect(prisma.deviceReset.count({ where: { deviceId } })).resolves.toBe(1);
   });
 
+  it('checks the docked node number of the device hub factory reset against the row (design §11.13)', async () => {
+    const returnedAt = new Date('2026-10-30T03:00:00.000Z');
+    const deviceId = await returnedDevice(returnedAt);
+    const { nodeNum } = await prisma.device.findUniqueOrThrow({ where: { id: deviceId } });
+    const at = new Date('2026-10-30T03:10:00.000Z');
+
+    const other = Number(nodeNum) === 1 ? 2 : 1;
+    const refused = await prisma
+      .$transaction((tx) => service.reset(deviceId, { ...steps, nodeNum: other }, staffId, at, tx))
+      .then(
+        () => null,
+        (error: unknown) => error as DomainException,
+      );
+    expect(refused).toBeInstanceOf(DomainException);
+    expect(JSON.stringify(refused?.getResponse())).toContain(ErrorCode.NODE_MISMATCH);
+    await expect(prisma.deviceReset.count({ where: { deviceId } })).resolves.toBe(0);
+
+    const outcome = await prisma.$transaction((tx) =>
+      service.reset(deviceId, { ...steps, nodeNum: Number(nodeNum) }, staffId, at, tx),
+    );
+    expect(outcome.device.keyVersion).toBeNull();
+    await expect(prisma.deviceReset.count({ where: { deviceId } })).resolves.toBe(1);
+  });
+
   it('shows each reset against its own return, bounded by the next return of the unit', async () => {
     const firstReturn = new Date('2026-10-01T03:00:00.000Z');
     const secondReturn = new Date('2026-10-20T03:00:00.000Z');
