@@ -246,6 +246,29 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show details TL-0042' })));
   });
 
+  it('returns focus to the row actions after Back on a phone, where the row has no Show details button', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: 360 >= Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0),
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      renderPanel();
+      await start();
+      const actions = await screen.findByRole('button', { name: 'Actions for TL-0042' }, { timeout: 4000 });
+      expect(screen.queryByRole('button', { name: 'Show details TL-0042' })).toBeNull();
+      fireEvent.click(actions);
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Show details' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Actions for TL-0042' })),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('says why other rows cannot write while one unit is written, and offers Reconnect on the waiting row', async () => {
     recognizeUnits.mockImplementation((nodeNums: number[]) =>
       Promise.resolve(
