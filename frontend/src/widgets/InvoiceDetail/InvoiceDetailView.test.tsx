@@ -96,6 +96,31 @@ describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () =>
   });
 });
 
+
+// A matchMedia that answers for a 360 px window (chapter 06 §10.5).
+const atPhone = () =>
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+
+describe('InvoiceDetailView, lines on a phone (review of treklink-web#355)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('keeps the type, quantity and due date in each phone row', () => {
+    atPhone();
+    lines = [line(1, 'Holding fee', 0)];
+    renderView();
+    expect(screen.queryByRole('table', { name: 'Lines of INV-2026-000001' })).toBeNull();
+    const row = within(screen.getByRole('list', { name: 'Lines of INV-2026-000001' })).getByRole('listitem');
+    expect(within(row).getByText('TERM_FEE')).toBeTruthy();
+    expect(within(row).getByText('1 x 750,000 VND')).toBeTruthy();
+    expect(within(row).getByText(/^Due \d{2} \w{3} 2026$/)).toBeTruthy();
+  });
+});
+
 describe('InvoiceDetailView, Record counter payment (6.3, ruling on #87 point 4)', () => {
   it('offers it while the contract balance is open', () => {
     settled = false;

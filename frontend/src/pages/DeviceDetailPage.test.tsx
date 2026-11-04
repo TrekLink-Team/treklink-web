@@ -99,6 +99,13 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
+  it('keeps one h1 and a 24 px Back link when the device cannot be read (review of treklink-web#355)', () => {
+    currentDevice = undefined as unknown as ReturnType<typeof device>;
+    renderPage();
+    expect(screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)).toEqual(['Device']);
+    expect(screen.getByRole('link', { name: 'Back to devices' }).className).toContain('min-h-6');
+  });
+
   it('shows the header facts', async () => {
     renderPage();
     expect(await screen.findByRole('heading', { name: 'TL-0042' })).toBeTruthy();

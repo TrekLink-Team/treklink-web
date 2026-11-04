@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { History, HistoryPoint, HistoryRange } from '../entities/telemetry-history/api';
@@ -84,6 +84,31 @@ afterEach(() => {
   refetch.mockReset();
   useToast.setState({ message: null });
   vi.restoreAllMocks();
+});
+
+
+// A matchMedia that answers for a 360 px window (chapter 06 §10.5).
+const atPhone = () =>
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+
+describe('DeviceTelemetryPage on a phone (review of treklink-web#355)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('keeps the position, altitude and battery, with their units, in each phone row', () => {
+    atPhone();
+    renderPage();
+    const rows = within(screen.getByRole('list', { name: 'Positions and telemetry' })).getAllByRole('listitem');
+    expect(within(rows[0]).getByText('11.56000, 108.54000')).toBeTruthy();
+    expect(within(rows[0]).getByText('1320 m')).toBeTruthy();
+    expect(within(rows[0]).getByText('81 %')).toBeTruthy();
+    // The telemetry point has no fix and says so.
+    expect(within(rows[1]).getByText('No position')).toBeTruthy();
+  });
 });
 
 describe('DeviceTelemetryPage (screen 9.2)', () => {

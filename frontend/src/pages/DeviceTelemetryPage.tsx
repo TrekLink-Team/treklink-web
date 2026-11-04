@@ -85,20 +85,28 @@ const withSeconds = (iso: string): string =>
 
 const coordinate = (value: number | null): string => (value === null ? '–' : value.toFixed(5));
 
+// Every field is compact and carries its unit, so a phone row (the List view) reads without column
+// headers: "11.55440, 108.53810", "1320 m", "81 %" (review of treklink-web#355).
 const FIELDS: CollectionField<Row>[] = [
   { key: 'kind', label: 'Kind', render: (row) => <Badge>{row.kind}</Badge>, text: (row) => row.kind, compact: true },
-  { key: 'lat', label: 'Latitude', render: (row) => coordinate(row.lat), align: 'end' },
-  { key: 'lon', label: 'Longitude', render: (row) => coordinate(row.lon), align: 'end' },
+  {
+    key: 'position',
+    label: 'Latitude, longitude',
+    render: (row) =>
+      row.lat === null || row.lon === null ? 'No position' : `${coordinate(row.lat)}, ${coordinate(row.lon)}`,
+    compact: true,
+  },
   {
     key: 'altitude',
-    label: 'Altitude (m)',
-    render: (row) => (row.altitude === null ? '–' : Math.round(row.altitude)),
+    label: 'Altitude',
+    render: (row) => (row.altitude === null ? '–' : `${Math.round(row.altitude)} m`),
     align: 'end',
+    compact: true,
   },
   {
     key: 'battery',
-    label: 'Battery (%)',
-    render: (row) => (row.batteryPct === null ? '–' : row.batteryPct),
+    label: 'Battery',
+    render: (row) => (row.batteryPct === null ? '–' : `${row.batteryPct} %`),
     align: 'end',
     compact: true,
   },

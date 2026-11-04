@@ -657,6 +657,16 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
 });
 
 // Below 600 px (chapter 06 §10.5, handoff item 7): a matchMedia that answers for a 360 px window.
+describe('IncidentDetailPage when the incident cannot be read (review of treklink-web#355)', () => {
+  it('keeps one h1 and a 24 px Back link', async () => {
+    api.mockRejectedValue(new ApiError(404, 'NOT_FOUND', 'You do not have access to this.'));
+    renderAt('/o/incidents/inc-1');
+    expect(await screen.findByText('You do not have access to this.')).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)).toEqual(['Incident']);
+    expect(screen.getByRole('link', { name: 'Back to incidents' }).className).toContain('min-h-6');
+  });
+});
+
 describe('IncidentDetailPage at 360 px', () => {
   beforeEach(() => {
     vi.stubGlobal('matchMedia', (query: string) => ({

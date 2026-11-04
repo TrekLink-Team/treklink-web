@@ -167,10 +167,14 @@ export const DeviceDetailPage: React.FC = () => {
   if (isLoading) return <Loading />;
   if (error || !device)
     return (
-      <section>
-        <Link to="/t/fleet" className={LINK}>
+      <section aria-labelledby="device-title">
+        <Link to="/t/fleet" className={`${LINK} inline-flex min-h-6 items-center`}>
           Back to devices
         </Link>
+        {/* The page keeps its one h1 when the device cannot be read (axe page-has-heading-one). */}
+        <h1 id="device-title" className="mt-3 text-title-lg text-ink">
+          Device
+        </h1>
         <div className="mt-4">
           <ErrorState error={error} onRetry={() => void refetch()} />
         </div>
@@ -250,7 +254,7 @@ export const DeviceDetailPage: React.FC = () => {
 
   return (
     <section aria-labelledby="device-title" className="flex flex-1 flex-col">
-      <Link to="/t/fleet" className={`${LINK} self-start`}>
+      <Link to="/t/fleet" className={`${LINK} inline-flex min-h-6 items-center self-start`}>
         Back to devices
       </Link>
       <div className="mt-3">

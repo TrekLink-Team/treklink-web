@@ -98,7 +98,7 @@ test('MF-05 steps 3 to 7: Staff check in TL-0017, report TL-0018 lost, inspect a
   // Step 4: only TL-0017 comes back; TL-0018 stands for the unit that did not.
   await page.getByLabel('Scan or type an asset tag').fill('TL-0017');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByRole('button', { name: 'Check in 1 devices' }).click();
+  await page.getByRole('button', { name: 'Check in 1 device' }).click();
   await expect(page.getByText('Check-in complete. 1 of 2 devices returned.')).toBeVisible();
   const stillOut = page.getByRole('heading', { name: 'Still out' }).locator('xpath=..');
   await expect(stillOut).toContainText('A unit that did not come back needs no replacement: report it lost.');

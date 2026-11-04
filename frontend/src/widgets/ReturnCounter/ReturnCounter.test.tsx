@@ -271,7 +271,7 @@ describe('ReturnCounter (screen 5.5)', () => {
     expect(screen.getByText('TL-0099 does not belong to contract RC-2026-0001.')).toBeTruthy();
     fireEvent.change(scan, { target: { value: 'tl-0009' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    fireEvent.click(screen.getByRole('button', { name: /Check in 1 devices/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Check in 1 device$/ }));
     await waitFor(() =>
       expect(screen.getByText(/Check-in complete. 1 of 2 devices returned./)).toBeTruthy(),
     );
@@ -434,6 +434,37 @@ describe('ReturnCounter (screen 5.5)', () => {
       '/t/devices/d-TL-0010',
     );
   });
+  it('keeps the state now and its link on a phone row (review of treklink-web#355)', () => {
+  // A matchMedia that answers for a 360 px window (chapter 06 §10.5).
+  const atPhone = () =>
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    atPhone();
+    renderCounter(
+      contract({
+        devices: [
+          device('TL-0009', {
+            checkedInAt: '2026-10-30T03:00:00Z',
+            resetAt: '2026-10-30T03:05:00Z',
+            inspection: { result: 'DAMAGED', at: '2026-10-30T03:10:00Z' },
+            afterReturn: { status: 'MAINTENANCE', nextStep: { action: 'COMPLETE_MAINTENANCE', contractId: null } },
+          }),
+        ],
+      } as Partial<ContractDetail>),
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+    // The phone shows the List view: no table, and the row still names the next step and links it.
+    expect(screen.queryByRole('table', { name: 'Returned devices' })).toBeNull();
+    const row = within(screen.getByRole('list', { name: 'Returned devices' })).getByRole('listitem');
+    expect(within(row).getByText(/Next: Complete maintenance/)).toBeTruthy();
+    expect(within(row).getByRole('link', { name: 'Open maintenance' })).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
   it('offers the damage codes of the variant as checkboxes and sends the chosen ones (5.5)', async () => {
     resetDevice.mockResolvedValue(undefined);
     inspectDevice.mockResolvedValue({

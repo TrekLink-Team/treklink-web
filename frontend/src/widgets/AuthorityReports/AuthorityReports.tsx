@@ -637,6 +637,10 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
         }}
         pageInfo={pageInfoOf(data)}
         emptyState={{ title: openOnly ? 'No open authority cases.' : 'No authority reports recorded.' }}
+        // All reports is a narrowing Show filter for CollectionView, so an empty list there would read
+        // "No results match your filters."; screen 8.3 names it "No authority reports recorded."
+        // (review of treklink-web#355).
+        noMatch={openOnly ? undefined : { title: 'No authority reports recorded.' }}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination

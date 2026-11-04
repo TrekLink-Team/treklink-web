@@ -109,4 +109,5 @@ check-in tab, Still out is a list view without a command bar, and Report lost is
 action of a unit with no loss case; a unit with one shows "Loss case {code} open". On the reset and
 inspection tab, Returned devices keeps the asset tag as each row's title; Record reset and Inspect are its
 item actions, one at a time in that order, and Show narrows the list to the units still to inspect or the
-inspected ones. A device has no details pane, because every field is already in its row.
+inspected ones. A device has no details pane, because every field is already in its row; on a phone the
+row keeps the state now and its Open maintenance or Open device link (review of treklink-web#355).

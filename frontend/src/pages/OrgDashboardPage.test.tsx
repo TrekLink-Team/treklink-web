@@ -154,6 +154,31 @@ afterEach(() => {
   filtersSeen.length = 0;
 });
 
+
+// A matchMedia that answers for a 360 px window (chapter 06 §10.5).
+const atPhone = () =>
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+
+describe('OrgDashboardPage, Invoices to pay (review of treklink-web#355)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('makes Pay a link to the invoice and keeps the contract code on a phone row', () => {
+    invoices = [invoice('INV-2026-000002', 'ISSUED', 900_000, 0)];
+    atPhone();
+    renderPage();
+    const list = within(screen.getByRole('list', { name: 'Invoices to pay' }));
+    const pay = list.getByRole('link', { name: 'Pay INV-2026-000002' });
+    expect(pay.getAttribute('href')).toBe('/o/invoices/i-INV-2026-000002');
+    expect(pay.textContent).toBe('Pay');
+    expect(list.getByText('RC-2026-0001')).toBeTruthy();
+  });
+});
+
 describe('OrgDashboardPage (screen 5.6)', () => {
   it('sums the contracts, the devices out and what is still due', async () => {
     contracts = [
