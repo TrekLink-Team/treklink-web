@@ -21,7 +21,7 @@ and the page confirms the hold expiry and the deposit due. The wireframe predate
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Variant choices with name and monthly price per device | billing 01 `result.variants[].id`, `name`, `monthlyPriceVnd` |
+| Variant choices with name and monthly price per device, as variant cards with the icon render (devices design §10 "Two renders per variant") | billing 01 `result.variants[].id`, `name`, `monthlyPriceVnd`, `imageUrl`, `specSheet` |
 | Day-plan lengths offered | billing 01 `result.dayPlanLengths` |
 | Minimum order quantity, as the quantity field's hint | billing 01 `result.minOrderQuantity` |
 | Holding-fee ratio, as a percentage in the quote | billing 01 `result.holdingFeeRatio` |

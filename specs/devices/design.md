@@ -1100,7 +1100,7 @@ provisioning (§8). Two fields on `HardwareVariant`, edited on screen 4.1 by an 
 
 | Field | Type | Rule |
 |---|---|---|
-| `imageUrl` | `String?` | Up to 500 characters: an `https://` URL with a host, or an app path `/variants/<file>` whose file name has no `/`, no `..` and a `.jpg`, `.jpeg`, `.png` or `.webp` extension (a file in `frontend/public/variants/`, shipped with the frontend: Vercel has no persistent disk for uploads). Null shows the labelled empty slot "Variant image not added yet". No invented or stock photo is ever seeded |
+| `imageUrl` | `String?` | Up to 500 characters: an `https://` URL with a host, or an app path `/variants/<file>` whose file name has no `/`, no `..` and a `.jpg`, `.jpeg`, `.png` or `.webp` extension (a file in `frontend/public/variants/`, shipped with the frontend: Vercel has no persistent disk for uploads). Null shows the labelled empty slot "Variant image not added yet". The value names the detail render; the icon render is derived from it ("Two renders" below). No stock photo is ever seeded |
 | `specSheet` | `Json`, default `{}` | An object whose keys come from this fixed list, shown in this order, each value a string of 1 to 80 characters after trimming (a non-string or whitespace-only value is refused): `mcu`, `radio`, `gnss`, `motionSensor`, `display`, `battery`, `sosControl`, `localAlarm`, `enclosure`. An unknown key, an empty or longer value answers 400 `VARIANT_MEDIA_INVALID`. A missing key is not shown |
 
 The capability flags (`hasGps`, `hasMotionSensor`, `mqttCapable`) stay the source of logic; the spec sheet is
@@ -1111,12 +1111,36 @@ display text only and never drives behaviour.
 vibrator"; v3 (LilyGo T-Beam v1.2) `mcu` ESP32, `sosControl` "3 s hold on the user button", `localAlarm` "LED
 blinks"; v4 (LilyGo T-Beam Supreme) `mcu` ESP32-S3, `motionSensor` QMI8658, `sosControl` "3 s hold on the user
 button", `localAlarm` "None"; v1 `mcu` ESP32, `radio` SX1278, `motionSensor` MPU6050. Radio, GNSS, display,
-battery and enclosure of v3 and v4 are left empty until the leader records them; `imageUrl` stays null until
-the leader supplies photos of the units.
+battery and enclosure of v3 and v4 are left empty until the leader records them.
+
+**Two renders per variant (W17, 2026-11-04).** The leader supplied two product renders per variant under
+`frontend/public/variants/` (commit `048e1e6`, 1254 by 1254 px, transparent background):
+`treklink-vN-detail.png`, photorealistic, and `treklink-vN-icon.png`, flat. The **detail render** shows in
+detail panes and on the device page; the **icon render** shows in lists and cards. One `imageUrl` column carries
+both by convention, with no new column: `imageUrl` names the detail render, and the icon is derived by name,
+replacing a final `-detail.<ext>` with `-icon.<ext>` (`/variants/treklink-v3-detail.png` gives
+`/variants/treklink-v3-icon.png`). A value without the `-detail.` suffix, for example an `https://` photo,
+serves both places. An icon that fails to load falls back to the detail render, and that one to the labelled
+empty slot. The forward migration `20261104200000_variant_renders` sets
+`imageUrl = /variants/treklink-vN-detail.png` on the rows of v1 to v4, and the demo seed writes the same values.
+
+**treklink-v1 in the catalog (W17, leader 2026-11-04).** v1 joins the seed and the catalog: the grey box with
+three side buttons and a side antenna. Recorded facts: the spec sheet above, `hasMotionSensor` true (MPU6050)
+and `mqttCapable` false (`-D MESHTASTIC_EXCLUDE_MQTT=1`, the schema comment); so a v1 unit is never a Stage A
+uplink (§8.8, D-005). **Unverified**, set only because the columns are required: `hasGps` false and
+`firmwareBaseline` `2.7.19-treklink.1`, the pattern of v2 to v4. Its monthly price, 350 000 VND, is a demo
+value. The migration inserts the variant only when absent, and its price schedule only when none exists and an
+active Admin account can be named as its author; the seed adds two AVAILABLE demo units, TL-0020 and TL-0021
+(placeholder node numbers `0xde000014` and `0xde000015`).
 
 **Where it shows (E-2).** Screen 4.1 (the admin panel edits both fields and previews the card), the device detail
 of screen 4.2, the device cards of the contract home's Devices tab, and the variant picker of the request form,
-which shows the variants as cards with the image slot and the spec summary in place of a `select`. A card
+which shows the variants as cards with the image slot and the spec summary in place of a `select`. Which render
+goes where: the icon in the fleet table's Variant column and the fleet list, the variant picker cards, the
+variant card above the Devices tab list and the rows of screen 4.1; the detail render on the device page, in the
+details pane of the fleet and of the Devices tab, and in the screen 4.1 panel preview. Each image has fixed width
+and height, loads lazily, takes the alt text "{variant name} unit" and sits on a theme surface token, so the
+transparent renders read in both themes and nothing shifts while they load. A card
 shows, besides the spec sheet, the capability flags as text (GPS, motion sensor, MQTT) and the firmware
 baseline. Devices api-design 01 returns both fields to Staff, Admin and the Org Manager. Unit payloads carry
 only `hardwareVariant {id, code}` today and the Org Operator cannot read api-design 01, so task 9.1 widens the

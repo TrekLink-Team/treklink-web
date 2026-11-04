@@ -18,13 +18,15 @@ Scope from the task: devices api-design 05 to 10, 16, 23 and monitoring api-desi
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Fleet row: asset tag, node id, variant code | devices 06 `items[].assetTag`, `nodeId`, `hardwareVariant.code` |
+| Fleet row: asset tag, node id, variant code with the variant's icon render (32 px, devices design §10 "Two renders per variant") | devices 06 `items[].assetTag`, `nodeId`, `hardwareVariant.code`, `hardwareVariant.imageUrl` |
+| Fleet details pane: the variant card with the detail render | devices 06 `items[].hardwareVariant` |
 | Fleet row: status with its text label | devices 06 `items[].status` |
 | Fleet row: firmware, battery, last seen | devices 06 `items[].firmwareVersion`, `batteryPct`, `lastSeenAt` |
 | Fleet row: service due | devices 06 `items[].serviceDueAt` |
 | Filters: status (multi), variant, search by tag or node | devices 06 query `status`, `hardwareVariantId`, `q`; variants from devices 01 |
 | Count per status above the table | devices 06 `totalCount` per status filter (one request per chip, cached) |
 | Detail header: asset tag, node number and id, variant, acquired, status since | devices 07 `assetTag`, `nodeNum`, `nodeId`, `hardwareVariant`, `acquiredAt`, `status`, `statusChangedAt` |
+| Detail: the variant card with the detail render | devices 07 `hardwareVariant.imageUrl`, `specSheet` (devices design §10) |
 | Detail: key version and the organization it belongs to (never the key) | devices 07 `keyVersion`, `keyOrganizationId` (REQ-UBI-03) |
 | Detail: last intake check, last reset, open maintenance | devices 07 `lastIntakeCheck.passed`, `createdAt`; `lastReset`; `openMaintenance` |
 | Detail: last position (small static map with the overlay) | devices 07 `lastPosition.lat`, `lon` |

@@ -25,7 +25,7 @@ Scope from the task: devices api-design 01 to 04; service interval with checklis
 | Remaining value schedule (used for loss charges) | devices 01 `remainingValueSchedule[].fromMonths`, `valueVnd` |
 | Registered units | devices 01 `deviceCount` |
 | Active or inactive | devices 01 `isActive`; the list loads with `includeInactive=true` |
-| Image and spec sheet (design §10, E-2), shown as the variant card the rest of the app uses | devices 01 `imageUrl`, `specSheet` |
+| Image and spec sheet (design §10, E-2), shown as the variant card the rest of the app uses: the icon render in each row, the detail render in the side panel preview (`imageUrl` names the detail render; the icon is derived by name, devices design §10 "Two renders per variant") | devices 01 `imageUrl`, `specSheet` |
 
 ## Actions
 

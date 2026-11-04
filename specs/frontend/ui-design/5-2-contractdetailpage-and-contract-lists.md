@@ -127,7 +127,7 @@ Design canvas "Contract Home", a style reference only.
 | Tab in the address | `?tab=devices`, `?tab=money`, `?tab=history`, `?tab=documents`; Overview has none |
 | Review mode | `?mode=review`, Staff, `REQUESTED`: the request, the hold or stock check, the handover appointment and what each decision does in place of the tab body; Approve request in the sticky row submits it (rentals 04) |
 | Handover mode | `?mode=handover`, Staff, `APPROVED`: the four steps of screen 5.4 in place of the tab body, unchanged, with their Back and Next bar |
-| Devices tab | CollectionView with each unit as a `DeviceRef`, the contract's variant as a `VariantCard` (also in the details pane), Label, Request service credit and Report lost as item actions |
+| Devices tab | CollectionView with each unit as a `DeviceRef`, the contract's variant as a `VariantCard` (the icon render above the list, the detail render in the details pane, devices design §10), Label, Request service credit and Report lost as item actions |
 | Money tab | The balance (billing 10), the invoices (billing 08) and the payments (billing 14) on CollectionView under one `paneHost` (chapter 06 §10.8), and the service credits (billing 19). The Org Manager has Pay invoice on an open invoice and Show the QR on a SePay payment still waiting (screen 6.2) |
 | Deposit card | Overview of a `REQUESTED` contract, Org Manager and Staff: the first line of the term 1 invoice (rentals design §2.1, billing 08 and 09) with its amount, description, paid state and the hold expiry as Pay by. Nothing is computed in the browser |
 

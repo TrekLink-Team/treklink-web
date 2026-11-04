@@ -194,4 +194,8 @@
   - **Do**: design §10 "Where it shows"; the labelled empty image slot when `imageUrl` is null; create `frontend/public/variants/` (empty until the leader supplies photos); map `VARIANT_MEDIA_INVALID` on screen 4.1
   - _Requirements: REQ-UBI-06, AC-21_
   - **Partly done 2026-11-03** (treklink-web#338, #334 part 2): shared `VariantCard`, spec summary and capability flags on screen 4.2, the contract home Devices tab and the request form picker, the labelled empty slot, `frontend/public/variants/`. Open: the screen 4.1 panel and the `VARIANT_MEDIA_INVALID` mapping (need task 2.1)
+- [ ] 9.3 Variant renders and treklink-v1 (owner KhoaDD, W17 under D-078, branch `feat/variant-images`, due 2026-11-06)
+  - **Files**: a forward migration `20261104200000_variant_renders`, `backend/prisma/seed-demo.ts` (its own block), `frontend/src/entities/variant/`, the fleet, device page, Devices tab and variant picker, component tests
+  - **Do**: design §10 "Two renders per variant" (detail render in detail panes and on the device page, icon render in lists and cards, the icon derived from `imageUrl` by name, no new column) and "treklink-v1 in the catalog" (variant, price schedule and two AVAILABLE demo units; `hasGps` and `firmwareBaseline` unverified)
+  - _Requirements: REQ-UBI-06, AC-21_
 
