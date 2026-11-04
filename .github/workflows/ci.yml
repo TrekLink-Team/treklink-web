@@ -190,7 +190,7 @@ jobs:
       # journeys do not include MF-03, so no wait is needed here.
       - name: Playwright journeys
         working-directory: frontend
-        run: npx playwright test --project=desktop a11y mf-01-request mf-01a mf-04
+        run: npx playwright test --project=desktop a11y mf-01-request mf-01a mf-04 wf-04
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
