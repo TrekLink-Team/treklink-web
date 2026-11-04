@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   approveContract,
   cancelContract,
@@ -39,7 +39,6 @@ import {
   ALERT,
   DANGER_BUTTON,
   INPUT,
-  LINK,
   PRIMARY_BUTTON,
   SECONDARY_BUTTON,
 } from '../shared/ui/styles';
@@ -328,9 +327,8 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: (decided?: Contrac
           </>
         )
       )}
-      <Link to={`/t/contracts/${contract.id}`} className={`${LINK} text-sm`}>
-        Open the contract
-      </Link>
+      {/* The details pane links to the contract home under this panel; a second "Open the contract"
+          here gave the pane two links of one name (e2e MF-01 step 7, treklink-web#350). */}
       {rejecting && (
         <RejectDialog
           contract={contract}
