@@ -10,6 +10,7 @@ import {
 type PaymentRow = NonNullable<ReturnType<typeof usePayments>['data']>['items'][number];
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import { ErrorState, PageTitle } from '../shared/ui/bits';
+import { cn } from '../shared/ui/cn';
 import { Badge } from '../shared/ui/Badge';
 import { Pagination } from '../shared/ui/DataTable';
 import { CollectionView, pageInfoOf, type CollectionField } from '../shared/ui/collection-view';
@@ -27,8 +28,10 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data, isLoading, error, refetch } = useInvoices('t', filters);
 
+  // The invoice pane takes a column only while an invoice is open; until then the list keeps the full
+  // width, so its number, total, paid and issued columns are not cut off beside an empty column.
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
+    <div className={cn('grid gap-5', selectedId && 'xl:grid-cols-[minmax(0,1fr)_440px]')}>
       <div className="min-w-0 overflow-x-auto">
         <InvoiceFilterBar filters={filters} onChange={setFilters} />
         <InvoiceTable

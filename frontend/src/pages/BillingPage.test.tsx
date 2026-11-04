@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Payment } from '../entities/billing/api';
+import type { Invoice, Payment } from '../entities/billing/api';
 import { BillingPage } from './BillingPage';
 
 const payment = (id: string, reference: string, method: Payment['method']): Payment => ({
@@ -20,10 +20,27 @@ const payment = (id: string, reference: string, method: Payment['method']): Paym
   confirmedAt: '2026-11-02T03:15:00Z',
 });
 
+const invoice: Invoice = {
+  id: 'i-1',
+  number: 'INV-2026-000004',
+  organization: { id: 'o-1', code: 'ORG-0001' },
+  contract: { id: 'c-1', code: 'RC-2026-0002' },
+  kind: 'CLOSING',
+  term: null,
+  status: 'PAID',
+  totalVnd: 2_900_000,
+  paidVnd: 2_900_000,
+  issuedAt: '2026-11-04T09:30:00Z',
+};
+
+let invoices: Invoice[] = [];
 const paymentFilters: unknown[] = [];
 vi.mock('../entities/billing/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/billing/api')>()),
-  useInvoices: () => ({ isLoading: false, data: { items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 } }),
+  useInvoices: () => ({
+    isLoading: false,
+    data: { items: invoices, pageNumber: 1, pageSize: 20, totalCount: invoices.length, totalPages: 1 },
+  }),
   usePayments: (filters: unknown) => {
     paymentFilters.push(filters);
     const items = [payment('p-1', 'TL7K2Q9M4D', 'SEPAY'), payment('p-2', 'CASH-0001', 'CASH'), payment('p-3', 'CASH-0002', 'CASH')];
@@ -31,7 +48,38 @@ vi.mock('../entities/billing/api', async (importOriginal) => ({
   },
 }));
 
-afterEach(cleanup);
+vi.mock('../widgets/InvoiceDetail/InvoiceDetailView', () => ({
+  InvoiceDetailView: ({ invoiceId }: { invoiceId: string }) => <p>Invoice pane {invoiceId}</p>,
+}));
+
+afterEach(() => {
+  cleanup();
+  invoices = [];
+});
+
+const renderPage = () =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <BillingPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+describe('BillingPage, invoices (screen 6.1)', () => {
+  // W15 panel walk: at 1280 px the list was squeezed beside an empty 440 px column, its numbers broken
+  // over three lines and its amounts cut off. The column now exists only while an invoice is open.
+  it('keeps the list full width until an invoice is open, then gives the invoice its own column', () => {
+    invoices = [invoice];
+    renderPage();
+    const layout = () => screen.getByRole('table', { name: 'Invoices' }).closest('.grid');
+    expect(screen.getByText('Open an invoice to see its lines and payments.')).toBeTruthy();
+    expect(layout()?.className).not.toContain('xl:grid-cols-');
+    fireEvent.click(screen.getByRole('button', { name: 'INV-2026-000004' }));
+    expect(screen.getByText('Invoice pane i-1')).toBeTruthy();
+    expect(layout()?.className).toContain('xl:grid-cols-[minmax(0,1fr)_440px]');
+  });
+});
 
 describe('BillingPage, payments (billing api-design 14)', () => {
   it('narrows the payments by method from Show, combined with the server status (review of treklink-web#350)', () => {
