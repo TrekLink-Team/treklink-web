@@ -506,6 +506,10 @@ describe('LiveMapWidget', () => {
     expect(icon.style.height).toBe('24px');
     expect(icon.style.marginLeft).toBe('-12px');
     expect(icon.style.marginTop).toBe('-12px');
+    // The clipped circle is a child of the focusable box, ahead of the drawn marker (index.css).
+    const body = icon.querySelector(':scope > .tl-marker-body');
+    expect(body?.firstElementChild?.className).toBe('tl-marker-target');
+    expect(body?.querySelector(':scope > [role="img"]')).toBeTruthy();
   });
 });
 

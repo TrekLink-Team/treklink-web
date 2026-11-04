@@ -64,9 +64,12 @@ const dotPx = (state: MarkerState): number => (state === 'sos' ? 20 : 16);
 const PIN_POINT_PX = 11;
 
 /**
- * A Leaflet icon for a device marker. The icon is a 24 px circular hit area (class `tl-marker-hit`)
- * centred on the dot, which keeps its drawn size. The anchor is the centre of the dot, or the point of
- * a pin, so the hit area of a pin sits on its head.
+ * A Leaflet icon for a device marker: a 24 px box (class `tl-marker-hit`) centred on the dot, which keeps
+ * its drawn size. The pointer target is the 24 px circle `tl-marker-target` inside it, clipped with
+ * `clip-path` because Chromium does not hit-test a `border-radius` circle exactly (review of
+ * treklink-web#362). The clip sits on the target alone, so the chip, the SOS diamond and its pulse, and
+ * the focus ring of the box are drawn whole. The anchor is the centre of the dot, or the point of a pin,
+ * so the target of a pin sits on its head.
  */
 export const markerIcon = (options: MarkerOptions): L.DivIcon => {
   const element = markerElement(options);
@@ -78,9 +81,16 @@ export const markerIcon = (options: MarkerOptions): L.DivIcon => {
   element.style.transform = 'translateY(-50%)';
   // Wider than the hit area when a chip shows; without this the row would shrink the dot to fit 24 px.
   element.style.width = 'max-content';
+  // Leaflet takes one element as the icon's content: the target, then the drawn marker over it.
+  const target = document.createElement('span');
+  target.className = 'tl-marker-target';
+  target.setAttribute('aria-hidden', 'true');
+  const body = document.createElement('div');
+  body.className = 'tl-marker-body';
+  body.append(target, element);
   const centre = MARKER_TARGET_PX / 2;
   return L.divIcon({
-    html: element,
+    html: body,
     className: 'tl-marker-hit',
     iconSize: [MARKER_TARGET_PX, MARKER_TARGET_PX],
     iconAnchor: [centre, options.state === 'unheard' ? centre + PIN_POINT_PX : centre],
