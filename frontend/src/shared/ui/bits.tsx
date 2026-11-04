@@ -75,12 +75,14 @@ export const Pager: React.FC<{
     />
   ) : null;
 
-// A definition row of a detail page.
-export const Fact: React.FC<{ label: string; children: React.ReactNode }> = ({
+// A definition row of a detail page. `className` sizes the row itself (a grid span), so a wide fact
+// stays a direct child group of its <dl> rather than a wrapper div around one.
+export const Fact: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({
   label,
   children,
+  className,
 }) => (
-  <div>
+  <div className={className}>
     <dt className="text-label uppercase text-ink-muted">{label}</dt>
     <dd className="mt-0.5 text-body text-ink">{children}</dd>
   </div>
