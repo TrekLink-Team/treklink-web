@@ -13,7 +13,7 @@ import {
 import { resetConnectorRegistry } from '../model/ConnectorRegistry';
 import { useConnectorStore } from '../model/connectorStore';
 import { ConnectorButton } from './ConnectorButton';
-import { ConnectorPanelBody } from './ConnectorPanel';
+import { ConnectorAside, ConnectorPanelBody } from './ConnectorPanel';
 
 const recognizeUnits = vi.hoisted(() => vi.fn());
 vi.mock('../../../entities/device/api', () => ({ recognizeUnits }));
@@ -369,5 +369,38 @@ describe('ConnectorPanel 4.6 gaps (swap refusal, skeleton, phone render)', () =>
     const render = screen.getByRole('img', { name: 'TrekLink v3 (GPS, SOS button), front view' });
     expect(render.className).toContain('h-40');
     expect(render.className).toContain('min-[600px]:h-60');
+  });
+});
+
+describe('ConnectorAside focus (screen 4.6, the walk of task 4.6)', () => {
+  const Harness: React.FC = () => {
+    const [open, setOpen] = React.useState(false);
+    return (
+      <MemoryRouter>
+        <button type="button" aria-label="Devices, 0 connected" onClick={() => setOpen(true)}>
+          Devices
+        </button>
+        {open && <ConnectorAside onClose={() => setOpen(false)} />}
+      </MemoryRouter>
+    );
+  };
+
+  it('moves focus to the heading on open and back to the opener on Escape and on Close', async () => {
+    render(<Harness />);
+    const opener = screen.getByRole('button', { name: 'Devices, 0 connected' });
+    opener.focus();
+    fireEvent.click(opener);
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Connected units' }));
+
+    fireEvent.keyDown(screen.getByRole('complementary'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+    expect(document.activeElement).toBe(opener);
+
+    fireEvent.click(opener);
+    const close = screen.getByRole('button', { name: 'Close connected units' });
+    close.focus();
+    fireEvent.click(close);
+    await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+    expect(document.activeElement).toBe(opener);
   });
 });
