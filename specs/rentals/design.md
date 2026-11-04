@@ -276,6 +276,8 @@ Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOv
 | `BALANCE_OUTSTANDING` | 409 |
 | `OPEN_INCIDENTS` | 409 |
 | `KEY_VERSION_MISMATCH` | 409 |
+| `CHANNEL_KEY_EXPOSED` (REQ-ERR-19) | 409 |
+| `NODE_MISMATCH` | 409 |
 | `RESET_REQUIRED` | 409 |
 | `GROUP_DEPTH_EXCEEDED` (§11) | 409 |
 | `DEVICE_NOT_HELD` (§11) | 409 |
@@ -406,7 +408,7 @@ classDiagram
         +provision(string, string, number, Caller, Date) ProvisionedDevice
     }
     class OrganizationsService {
-        +channelKeyVersion(string, Tx) number
+        +unexposedKeyVersion(string, Tx) number
     }
     class DevicesService {
         +recordProvisioning(Provisioning, Date, Tx) ProvisionedDevice
@@ -856,10 +858,13 @@ sequenceDiagram
         C->>H: provision(id, deviceId, keyVersion, actor)
         activate H
         deactivate H
-        H->>O: channelKeyVersion(orgId, tx)
+        H->>O: unexposedKeyVersion(orgId, tx)
         activate O
         deactivate O
-        alt failure: provided key version is no longer current
+        alt failure: the key is flagged exposed
+            H-->>C: 409 CHANNEL_KEY_EXPOSED
+            C-->>P: error envelope
+        else failure: provided key version is no longer current
             H-->>C: 409 KEY_VERSION_MISMATCH
             C-->>P: error envelope
         else success: current key and APPROVED contract

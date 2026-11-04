@@ -207,9 +207,18 @@ describe('device docking over HTTP against Postgres (D-082)', () => {
     ).toBe(0);
 
     // The rotation (organizations api-design 27) raises the version and clears the flag.
-    await flow.prisma.organization.update({
-      where: { id: org.id },
-      data: { channelKeyVersion: before.channelKeyVersion + 1, channelKeyExposedAt: null },
+    const flagged = await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
+    const rotated = await flow.send(
+      flow.staff,
+      'post',
+      `/api/organizations/${org.id}/channel-key/rotate`,
+      { reason: 'Unit lost with its key', expectedVersion: flagged.version },
+    );
+    expect(rotated.status).toBe(200);
+    const after = await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
+    expect(after).toMatchObject({
+      channelKeyVersion: before.channelKeyVersion + 1,
+      channelKeyExposedAt: null,
     });
     const issued = await channelKey(contract.id, deviceId, nodeNum);
     expect({ status: issued.status, body: issued.body as unknown }).toMatchObject({

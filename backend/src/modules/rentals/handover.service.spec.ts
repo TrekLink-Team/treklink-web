@@ -144,7 +144,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       deriveKey: jest.fn().mockResolvedValue({ keyHex: KEY_HEX, keyVersion: 2 }),
     };
     organizations = {
-      requireKeyNotExposed: jest.fn().mockResolvedValue(undefined),
+      unexposedKeyVersion: jest.fn().mockResolvedValue(2),
       channelKeyVersion: jest.fn().mockResolvedValue(2),
       isActiveManager: jest.fn().mockResolvedValue(true),
       handoverParty: jest.fn().mockResolvedValue({
@@ -301,27 +301,27 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       );
 
     it('refuses, records nothing and audits nothing, for a docked unit and for the manual fallback', async () => {
-      organizations.requireKeyNotExposed.mockRejectedValue(exposed());
+      organizations.unexposedKeyVersion.mockRejectedValue(exposed());
       await expect(service.provision('c-1', 'd-1', 2, STAFF, AT, 275612)).rejects.toMatchObject({
         errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
       });
       await expect(service.provision('c-1', 'd-1', 2, STAFF, AT)).rejects.toMatchObject({
         errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
       });
-      expect(organizations.requireKeyNotExposed).toHaveBeenCalledWith('org-1', TX);
+      expect(organizations.unexposedKeyVersion).toHaveBeenCalledWith('org-1', TX);
       expect(devices.recordProvisioning).not.toHaveBeenCalled();
       expect(emitAfterCommit).not.toHaveBeenCalled();
     });
 
     it('names a docked unit that is not the device first, then the exposed key, then the version', async () => {
-      organizations.requireKeyNotExposed.mockRejectedValue(exposed());
+      organizations.unexposedKeyVersion.mockRejectedValue(exposed());
       await expect(service.provision('c-1', 'd-1', 1, STAFF, AT, 1)).rejects.toMatchObject({
         errorCode: ErrorCode.NODE_MISMATCH,
       });
       await expect(service.provision('c-1', 'd-1', 1, STAFF, AT, 275612)).rejects.toMatchObject({
         errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
       });
-      expect(organizations.channelKeyVersion).not.toHaveBeenCalled();
+      expect(devices.recordProvisioning).not.toHaveBeenCalled();
     });
   });
 

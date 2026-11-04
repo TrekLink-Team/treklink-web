@@ -120,8 +120,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
     };
     organizations = {
       assertActive: jest.fn().mockResolvedValue(undefined),
-      requireKeyNotExposed: jest.fn().mockResolvedValue(undefined),
-      channelKeyVersion: jest.fn().mockResolvedValue(2),
+      unexposedKeyVersion: jest.fn().mockResolvedValue(2),
       labelsOf: jest
         .fn()
         .mockResolvedValue(
@@ -279,7 +278,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
   });
 
   it('refuses a channel key flagged exposed and provisions nothing (REQ-ERR-19)', async () => {
-    organizations.requireKeyNotExposed.mockRejectedValue(
+    organizations.unexposedKeyVersion.mockRejectedValue(
       new DomainException(
         HttpStatus.CONFLICT,
         ErrorCode.CHANNEL_KEY_EXPOSED,
@@ -294,7 +293,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
   });
 
   it('refuses a key version other than the organization current one', async () => {
-    organizations.channelKeyVersion.mockResolvedValue(3);
+    organizations.unexposedKeyVersion.mockResolvedValue(3);
     await expect(service.replace('c-1', 'd-1', INPUT, STAFF, AT)).rejects.toMatchObject({
       errorCode: ErrorCode.KEY_VERSION_MISMATCH,
     });

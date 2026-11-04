@@ -332,18 +332,20 @@ flowchart TB
     E10 --> X10((End))
     P0["Require ACTIVE or ENDING, the organization ACTIVE, the old unit on the contract"]
     D10 -->|no| P0
-    P1["Check in the faulty unit when present, or require its open loss case"]
+    P1["Refuse a channel key flagged exposed and read the key version"]
     P0 --> P1
-    P2["Reserve and provision the replacement"]
+    P2["Check in the faulty unit when present, or require its open loss case"]
     P1 --> P2
-    P3["Insert contract_devices with replacesId, handedOverAt now"]
+    P3["Reserve and provision the replacement"]
     P2 --> P3
-    P4["Render and store the signed note"]
+    P4["Insert contract_devices with replacesId, handedOverAt now"]
     P3 --> P4
-    P5["Move the replacement to RENTED"]
+    P5["Render and store the signed note"]
     P4 --> P5
+    P6["Move the replacement to RENTED"]
+    P5 --> P6
     OK["Return 201"]
-    P5 --> OK
+    P6 --> OK
     OK --> Z((End))
 ```
 
@@ -360,6 +362,7 @@ sequenceDiagram
     participant Store as File storage
     C->>Ctl: POST /api/contracts/:id/devices/:deviceId/replacement
     Ctl->>Svc: replace(id, deviceId, dto, actor)
+    Svc->>Org: unexposedKeyVersion(orgId, tx)
     Svc->>Dev: reserveExplicit([replacementId], id, tx)
     Svc->>Dev: recordProvisioning(...)
     Svc->>Store: put(note.pdf)

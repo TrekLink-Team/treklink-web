@@ -265,16 +265,14 @@ flowchart TB
     D7 -->|no| P0
     P1["Compare the docked nodeNum with the device record when it is sent"]
     P0 --> P1
-    P2["Refuse a channel key flagged exposed"]
+    P2["OrganizationsService.unexposedKeyVersion refuses a key flagged exposed and returns the key version from one read"]
     P1 --> P2
-    P3["Read the organization's key version"]
+    P3["DevicesService.recordProvisioning in one transaction"]
     P2 --> P3
-    P4["DevicesService.recordProvisioning in one transaction"]
+    P4["Audit row marks a record without nodeNum as manual"]
     P3 --> P4
-    P5["Audit row marks a record without nodeNum as manual"]
-    P4 --> P5
     OK["Return 201"]
-    P5 --> OK
+    P4 --> OK
     OK --> Z((End))
 ```
 
@@ -292,7 +290,7 @@ sequenceDiagram
     C->>Ctl: POST /api/contracts/:id/devices/:deviceId/provisioning
     Ctl->>Svc: provision(id, deviceId, dto, actor)
     Svc->>Dev: byNodeNum(nodeNum)
-    Svc->>Org: channelKeyVersion(orgId)
+    Svc->>Org: unexposedKeyVersion(orgId, tx)
     Svc->>Dev: recordProvisioning(deviceId, orgId, keyVersion, tx)
     Svc-->>Ctl: result
     Ctl-->>C: 201 envelope

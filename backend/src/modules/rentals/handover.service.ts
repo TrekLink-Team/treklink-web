@@ -169,8 +169,7 @@ export class HandoverService {
       if (contract.status !== ContractStatus.APPROVED) throw notApproved(contract.status);
       await this.rowOf(contract, deviceId, tx);
       if (nodeNum !== null) await this.requireDockedNode(deviceId, nodeNum, tx);
-      await this.organizations.requireKeyNotExposed(contract.organizationId, tx);
-      const current = await this.organizations.channelKeyVersion(contract.organizationId, tx);
+      const current = await this.organizations.unexposedKeyVersion(contract.organizationId, tx);
       if (keyVersion !== current) {
         throw conflict(
           ErrorCode.KEY_VERSION_MISMATCH,

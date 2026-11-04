@@ -7,7 +7,7 @@ const TX = { tx: true } as never;
 
 // REQ-ERR-19: provisioning a unit with the channel key (rentals api-design 09 and 15) asks the
 // organization first, and a key flagged exposed is refused.
-describe('OrganizationsService.requireKeyNotExposed (REQ-ERR-19)', () => {
+describe('OrganizationsService.unexposedKeyVersion (REQ-ERR-19)', () => {
   let organizations: { channelKeyState: jest.Mock };
   let service: OrganizationsService;
 
@@ -21,12 +21,12 @@ describe('OrganizationsService.requireKeyNotExposed (REQ-ERR-19)', () => {
     );
   });
 
-  it('passes while the key is not flagged exposed, reading in the caller transaction', async () => {
+  it('returns the key version while the key is not flagged exposed, reading in the caller transaction', async () => {
     organizations.channelKeyState.mockResolvedValue({
       channelKeyVersion: 2,
       channelKeyExposedAt: null,
     });
-    await expect(service.requireKeyNotExposed(ORG_ID, TX)).resolves.toBeUndefined();
+    await expect(service.unexposedKeyVersion(ORG_ID, TX)).resolves.toBe(2);
     expect(organizations.channelKeyState).toHaveBeenCalledWith(ORG_ID, TX);
   });
 
@@ -35,7 +35,7 @@ describe('OrganizationsService.requireKeyNotExposed (REQ-ERR-19)', () => {
       channelKeyVersion: 2,
       channelKeyExposedAt: new Date('2026-11-03T03:00:00.000Z'),
     });
-    await expect(service.requireKeyNotExposed(ORG_ID)).rejects.toMatchObject({
+    await expect(service.unexposedKeyVersion(ORG_ID)).rejects.toMatchObject({
       errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
       message: "The organization's channel key is exposed. Rotate it before writing it to a unit.",
     });
@@ -43,7 +43,7 @@ describe('OrganizationsService.requireKeyNotExposed (REQ-ERR-19)', () => {
 
   it('answers 404 for an unknown organization', async () => {
     organizations.channelKeyState.mockResolvedValue(null);
-    await expect(service.requireKeyNotExposed(ORG_ID)).rejects.toMatchObject({
+    await expect(service.unexposedKeyVersion(ORG_ID)).rejects.toMatchObject({
       errorCode: ErrorCode.NOT_FOUND,
     });
   });

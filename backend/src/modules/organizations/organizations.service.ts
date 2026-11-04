@@ -164,12 +164,17 @@ export class OrganizationsService {
     return version;
   }
 
-  // REQ-ERR-19: 409 CHANNEL_KEY_EXPOSED while the organization's key is flagged exposed, 404 when the
-  // organization is unknown. Provisioning a unit with the key (rentals api-design 09 and 15) asks first.
-  async requireKeyNotExposed(organizationId: string, tx?: Prisma.TransactionClient): Promise<void> {
+  // REQ-ERR-19: the version of the key to write to a unit, from one read of the organization row;
+  // 409 CHANNEL_KEY_EXPOSED while the key is flagged exposed, 404 when the organization is unknown.
+  // Provisioning a unit with the key (rentals api-design 09 and 15) asks this before comparing versions.
+  async unexposedKeyVersion(
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
     const state = await this.organizations.channelKeyState(organizationId, tx);
     if (state === null) throw notFound();
     if (state.channelKeyExposedAt !== null) throw channelKeyExposed();
+    return state.channelKeyVersion;
   }
 
   // Whether the account is a live Manager of the organization (the handover signer, rentals 2.4).
