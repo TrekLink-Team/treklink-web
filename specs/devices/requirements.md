@@ -153,7 +153,7 @@
 - **REQ-ERR-27**: IF a dock session request names a `nodeNum` that differs from the device record, THEN api-design 31 SHALL return 409 `NODE_MISMATCH` and open nothing. [D-080]
 - **REQ-ERR-28**: IF the flasher cannot take the port from the connector, the unit does not enter its bootloader, or the unit does not come back after the write, THEN the device view SHALL name the failed step, record nothing (REQ-ERR-17), keep the row with "Reconnect" and leave the record `OPEN`. [REQ-ERR-17]
 - **REQ-ERR-29**: IF a variant's detail or icon render does not load, THEN the device view and the rows SHALL show the labelled empty image slot of design §10 with the variant name, and nothing else changes. [REQ-UBI-06]
-- **REQ-ERR-30**: IF Factory reset is chosen for a unit that is not registered, not `RETURNED`, already reset for this return, or still in custody on a contract, or whose docked `nodeNum` differs from the device's, THEN the system SHALL refuse with the reason as text (api-design 10: 409 `INVALID_STATE_TRANSITION`, `ALREADY_RESET` or `NODE_MISMATCH`) and write nothing to the unit. [design §11.13]
+- **REQ-ERR-30**: IF Factory reset is chosen for a unit that is not registered, not `RETURNED`, already reset for this return, or still in custody on a contract, or whose docked `nodeNum` differs from the device's, or that reports no LoRa region (`UNSET` or no LoRa config), THEN the system SHALL refuse with the reason as text (api-design 10: 409 `INVALID_STATE_TRANSITION`, `ALREADY_RESET` or `NODE_MISMATCH`) and write nothing to the unit. [design §11.13]
 - **REQ-ERR-31**: IF a write, restart or read-back of a reboot or a factory reset fails, THEN the system SHALL name the failed step and record nothing on the server. [design §11.13]
 
 ---

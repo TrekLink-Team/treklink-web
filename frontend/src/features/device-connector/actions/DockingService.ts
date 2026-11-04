@@ -69,6 +69,9 @@ export const ownerFor = (assetTag: string) => ({
   shortName: assetTag.slice(-4),
 });
 
+// `Config.LoRaConfig.RegionCode.UNSET`.
+export const UNSET_REGION = 0;
+
 // The delay the reboot asks for, in seconds: long enough for its acknowledgement to arrive first.
 export const REBOOT_SECONDS = 2;
 
@@ -211,9 +214,14 @@ export class DockingService {
   async factoryReset(expected: ExpectedUnit, hooks: DockHooks): Promise<{ nodeNum: number }> {
     const session = await this.confirmUnit(expected);
     const region = session.loraRegion();
-    if (region === null) {
+    // No LoRa config, or UNSET (0), leaves nothing to write back: the reset unit would drop every received
+    // LoRa packet (firmware `RadioLibInterface.cpp:547-552`), so the unit is refused before the wipe.
+    if (region === null || region === UNSET_REGION) {
       await this.release();
-      throw new DockingError('dock', 'The unit did not report its LoRa region. Nothing was written.');
+      throw new DockingError(
+        'refused',
+        `${expected.assetTag} reports no LoRa region, so it could not be written back after the reset. Set its region first. Nothing was written.`,
+      );
     }
     hooks.onStage('writing');
     try {
