@@ -58,8 +58,12 @@ const detailOf = (blocker: CloseBlocker): string | null => {
         : null;
     case 'BALANCE_OUTSTANDING':
     case 'DAMAGE_PENDING':
-    case 'SERVICE_CREDIT_PENDING':
-      return formatVnd(blocker.amountVnd);
+    case 'SERVICE_CREDIT_PENDING': {
+      // The rentals messages already name the amount ("400,000 VND is unpaid ..."); a second line with
+      // the same figure read as a duplicate (W15 panel walk). Shown only when the message lacks it.
+      const amount = formatVnd(blocker.amountVnd);
+      return blocker.message.includes(amount) ? null : amount;
+    }
     default:
       return null;
   }

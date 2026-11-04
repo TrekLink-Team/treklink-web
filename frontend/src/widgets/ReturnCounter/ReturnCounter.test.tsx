@@ -353,6 +353,10 @@ describe('ReturnCounter (screen 5.5)', () => {
       '/t/damage-charges',
     );
     expect(screen.getByText('INC-2026-000002')).toBeTruthy();
+    // W15 panel walk: the amount the message already names is not repeated on a line of its own.
+    expect(screen.getByText("1,525,000 VND is unpaid on the contract's invoices.")).toBeTruthy();
+    expect(screen.queryByText('1,525,000 VND')).toBeNull();
+    expect(screen.queryByText('1,200,000 VND')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Close contract' })).toBeNull();
     // No replacement unit is asked for anywhere on a due contract.
     expect(screen.queryByRole('tab', { name: 'Replace a device' })).toBeNull();
