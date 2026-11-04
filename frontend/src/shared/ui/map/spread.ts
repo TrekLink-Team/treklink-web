@@ -1,7 +1,8 @@
 // Spreads live markers whose pointer targets would overlap (WCAG 2.2, 2.5.8 Target Size Minimum). Each
 // marker's target is a 24 px circle; when two centres sit closer than 24 px at the current zoom, the
 // markers of that group are offset onto a small circle around their centroid, so every target keeps its
-// full size and no two intersect. Only the drawn icon moves: the marker's position stays the reading.
+// full size and, within the reach set out below, no two intersect. Only the drawn icon moves: the
+// marker's position stays the reading.
 
 /** Smallest pointer target, and so the smallest distance between two target centres, in CSS px. */
 export const MIN_TARGET_PX = 24;
@@ -76,45 +77,68 @@ const placeGroup = (members: SpreadPoint[], min: number): Map<string, { x: numbe
   return placed;
 };
 
+// How far a group reaches from its first member. Grouping by "within 24 px of any member" chained, so
+// after two zoom-outs all ten seeded units formed one ring with icons about 55 px from their readings
+// (review of treklink-web#360). A group is the markers within 24 px of its first member, and a group
+// whose ring lands on a neighbouring group takes that group in only while every member stays within two
+// targets of its first member, which bounds how far an icon moves from its reading.
+const MERGE_REACH_TARGETS = 2;
+
+interface Group {
+  seed: SpreadPoint;
+  members: SpreadPoint[];
+}
+
 /**
  * The pixel offset of each marker whose target would come closer than `min` to another one, in whole
  * pixels. Readings are rounded first, as Leaflet rounds a marker's position, so a reading plus its offset
- * is where the target is drawn. A marker that needs no offset is left out. Groups are merged until no two
- * placed targets are closer than `min`, so a spread group never lands on a neighbour.
+ * is where the target is drawn. A marker that needs no offset is left out.
+ *
+ * Markers are taken in id order, so the grouping is the same at every redraw. Each marker not yet in a
+ * group starts one with the free markers within `min` of it. Where a ring lands on a neighbouring group,
+ * the two merge if every member stays within two targets of the first group's first member. Past that
+ * reach, as in a dense crowd at a low zoom, two rings may still come closer than `min`: an icon never
+ * drifts far from its reading to clear them.
  */
 export const spreadOffsets = (input: SpreadPoint[], min = MIN_TARGET_PX): Map<string, Offset> => {
-  const points = input.map((p) => ({ id: p.id, x: Math.round(p.x), y: Math.round(p.y) }));
-  const parent = points.map((_, index) => index);
-  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  const join = (a: number, b: number) => {
-    parent[find(a)] = find(b);
-  };
-  for (let i = 0; i < points.length; i += 1)
-    for (let j = i + 1; j < points.length; j += 1)
-      if (distance(points[i], points[j]) < min) join(i, j);
+  const points = input
+    .map((p) => ({ id: p.id, x: Math.round(p.x), y: Math.round(p.y) }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 
+  let groups: Group[] = [];
+  const grouped = new Set<string>();
+  for (const seed of points) {
+    if (grouped.has(seed.id)) continue;
+    const members = points.filter((p) => !grouped.has(p.id) && distance(p, seed) < min);
+    for (const p of members) grouped.add(p.id);
+    groups.push({ seed, members });
+  }
+
+  const reach = MERGE_REACH_TARGETS * min;
   let placed = new Map<string, { x: number; y: number }>();
   // Each pass either ends or merges two groups, so it ends within points.length passes.
   for (let pass = 0; pass <= points.length; pass += 1) {
-    const groups = new Map<number, SpreadPoint[]>();
-    points.forEach((p, index) => {
-      const root = find(index);
-      groups.set(root, [...(groups.get(root) ?? []), p]);
-    });
     placed = new Map();
-    for (const members of groups.values())
+    for (const { members } of groups)
       for (const [id, at] of placeGroup(members, min)) placed.set(id, at);
 
-    let merged = false;
-    for (let i = 0; i < points.length && !merged; i += 1)
-      for (let j = i + 1; j < points.length && !merged; j += 1) {
-        if (find(i) === find(j)) continue;
-        if (distance(placed.get(points[i].id)!, placed.get(points[j].id)!) < min) {
-          join(i, j);
-          merged = true;
-        }
+    let merge: [number, number] | null = null;
+    for (let a = 0; a < groups.length && !merge; a += 1)
+      for (let b = a + 1; b < groups.length && !merge; b += 1) {
+        const union = [...groups[a].members, ...groups[b].members];
+        if (union.some((p) => distance(p, groups[a].seed) >= reach)) continue;
+        const collide = groups[a].members.some((p) =>
+          groups[b].members.some((q) => distance(placed.get(p.id)!, placed.get(q.id)!) < min),
+        );
+        if (collide) merge = [a, b];
       }
-    if (!merged) break;
+    if (!merge) break;
+    const [a, b] = merge;
+    groups = groups
+      .map((group, index) =>
+        index === a ? { seed: group.seed, members: [...group.members, ...groups[b].members] } : group,
+      )
+      .filter((_, index) => index !== b);
   }
 
   const offsets = new Map<string, Offset>();
