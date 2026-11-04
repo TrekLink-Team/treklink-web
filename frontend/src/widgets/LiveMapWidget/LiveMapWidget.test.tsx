@@ -398,7 +398,7 @@ describe('LiveMapWidget', () => {
     // The targets are 24 px circles, so they do not intersect while their centres are 24 px apart.
     const centre = (box: typeof a) => [box.x + box.width / 2, box.y + box.height / 2];
     const [[ax, ay], [bx, by]] = [centre(a), centre(b)];
-    expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThanOrEqual(24 - 1e-6);
+    expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThanOrEqual(24);
     // Each marker still names itself, and the drawn dots keep their size.
     expect(screen.getByRole('img', { name: 'TL-0009, Battery 80%' })).toBeTruthy();
     expect(screen.getByRole('img', { name: 'TL-0010, Battery 80%' })).toBeTruthy();
