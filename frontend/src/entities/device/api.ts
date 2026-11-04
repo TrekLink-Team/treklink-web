@@ -242,12 +242,14 @@ export const recordIntakeCheck = (
   },
 ) => post<{ check: { passed: boolean }; device: Device }>(`/devices/${id}/intake-checks`, dto);
 
-// devices api-design 10: the three steps are always true (the button stays disabled otherwise).
-export const recordReset = (id: string) =>
+// devices api-design 10: the three steps are always true (the button stays disabled otherwise). The
+// device hub's factory reset sends the docked node number (devices design section 11.13).
+export const recordReset = (id: string, nodeNum?: number) =>
   post<Device>(`/devices/${id}/reset`, {
     keyRemoved: true,
     nodeDbCleared: true,
     ownerCleared: true,
+    ...(nodeNum === undefined ? {} : { nodeNum }),
   });
 
 // devices api-design 16.

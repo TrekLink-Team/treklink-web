@@ -73,6 +73,9 @@ interface ConnectorState {
   // A unit read by the connector that the Register panel takes over (REQ-EVT-31).
   registerFrom: number | null;
   flashPanel: FlashPanel | null;
+  // The connection the device hub page shows (devices design section 11.13), kept in memory only: no
+  // node number goes into the address bar (REQ-UBI-08).
+  hubUnit: number | null;
   setOpen: (open: boolean) => void;
   view: (connectionId: number | null) => void;
   openFor: (focus: ConnectorFocus) => void;
@@ -81,6 +84,7 @@ interface ConnectorState {
   // Task 8.3 calls this once with its panel; null unregisters it.
   registerFlashPanel: (panel: FlashPanel | null) => void;
   clearFocus: () => void;
+  showInHub: (connectionId: number | null) => void;
 }
 
 // Client state of the connector panel (convention 06 §2: Zustand). Nothing here is persisted.
@@ -91,6 +95,7 @@ export const useConnectorStore = create<ConnectorState>((set) => ({
   context: null,
   registerFrom: null,
   flashPanel: null,
+  hubUnit: null,
   setOpen: (open) => set(open ? { open } : { open, focus: null, viewing: null }),
   view: (viewing) => set({ viewing }),
   openFor: (focus) => set({ open: true, focus, viewing: null }),
@@ -98,4 +103,5 @@ export const useConnectorStore = create<ConnectorState>((set) => ({
   setRegisterFrom: (registerFrom) => set({ registerFrom }),
   registerFlashPanel: (flashPanel) => set({ flashPanel }),
   clearFocus: () => set({ focus: null }),
+  showInHub: (hubUnit) => set({ hubUnit }),
 }));

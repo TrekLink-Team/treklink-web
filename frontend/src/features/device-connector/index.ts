@@ -2,6 +2,7 @@
 export { ConnectorButton } from './ui/ConnectorButton';
 export { ConnectorAside, ConnectorPanelBody } from './ui/ConnectorPanel';
 export { UnitImage } from './ui/UnitImage';
+export { DeviceHub } from './ui/DeviceHub';
 export { renderPath } from './model/text';
 export { useConnectorStore, type ConnectorContext, type CounterRow } from './model/connectorStore';
 export {

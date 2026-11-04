@@ -67,6 +67,9 @@ export const ownerFor = (assetTag: string) => ({
   shortName: assetTag.slice(-4),
 });
 
+// The delay the reboot asks for, in seconds: long enough for its acknowledgement to arrive first.
+export const REBOOT_SECONDS = 2;
+
 const fromDockError = (error: unknown): DockingError => {
   if (error instanceof DockingError) return error;
   if (error instanceof DockError) {
@@ -169,6 +172,81 @@ export class DockingService {
         throw new DockingError('read-back', `The read-back differs: ${differs.join(', ')}.`);
       }
       return { nodeNum: back.unit.nodeNum, keyVersion };
+    } finally {
+      await back.close();
+    }
+  }
+
+  // Reboot (devices design section 11.13, REQ-EVT-43): `reboot_seconds`, the restart, and the same node
+  // number again. Nothing is recorded on the server.
+  async reboot(expected: { nodeNum: number }, hooks: DockHooks): Promise<void> {
+    const session = this.session;
+    if (!session) throw new DockingError('dock', 'Dock the unit first.');
+    if (session.unit.nodeNum !== expected.nodeNum) {
+      await this.release();
+      throw new DockingError('mismatch', `The docked unit is ${session.unit.nodeId}. Nothing was sent.`, session.unit.nodeId);
+    }
+    hooks.onStage('writing');
+    try {
+      await session.reboot(REBOOT_SECONDS);
+    } catch (error) {
+      await this.release();
+      throw fromDockError(error);
+    }
+    const back = await this.afterRestart(session, hooks);
+    try {
+      if (back.unit.nodeNum !== expected.nodeNum) {
+        throw new DockingError('read-back', `A different unit answered after the restart: ${back.unit.nodeId}.`);
+      }
+    } finally {
+      await back.close();
+    }
+  }
+
+  // Factory reset of a returned unit (devices design section 11.13 steps 2 to 6, REQ-EVT-44):
+  // `factory_reset_config`, the restart, the owner of the asset tag and the region read before the reset
+  // written back in one transaction, the second restart, and the read-back. The caller records the reset.
+  async factoryReset(expected: ExpectedUnit, hooks: DockHooks): Promise<{ nodeNum: number }> {
+    const session = await this.confirmUnit(expected);
+    const region = session.loraRegion();
+    if (region === null) {
+      await this.release();
+      throw new DockingError('dock', 'The unit did not report its LoRa region. Nothing was written.');
+    }
+    hooks.onStage('writing');
+    try {
+      await session.factoryResetConfig();
+    } catch (error) {
+      await this.release();
+      throw fromDockError(error);
+    }
+    const wiped = await this.afterRestart(session, hooks);
+    if (wiped.unit.nodeNum !== expected.nodeNum) {
+      await wiped.close();
+      throw new DockingError('read-back', `A different unit answered after the reset: ${wiped.unit.nodeId}.`);
+    }
+    const owner = ownerFor(expected.assetTag);
+    hooks.onStage('writing');
+    try {
+      await wiped.writeOwnerAndRegion(owner, region);
+    } catch (error) {
+      await wiped.close();
+      throw fromDockError(error);
+    }
+    const back = await this.afterRestart(wiped, hooks);
+    try {
+      const differs = [
+        back.unit.nodeNum !== expected.nodeNum && `node ${back.unit.nodeId}`,
+        back.unit.longName !== owner.longName && 'owner long name',
+        back.unit.shortName !== owner.shortName && 'owner short name',
+        back.loraRegion() !== region && 'region',
+        !back.primaryKeyIsDefault() && 'channel key',
+        !back.networkOff() && 'Wi-Fi and MQTT off',
+      ].filter((item): item is string => Boolean(item));
+      if (differs.length > 0) {
+        throw new DockingError('read-back', `The read-back differs: ${differs.join(', ')}.`);
+      }
+      return { nodeNum: back.unit.nodeNum };
     } finally {
       await back.close();
     }

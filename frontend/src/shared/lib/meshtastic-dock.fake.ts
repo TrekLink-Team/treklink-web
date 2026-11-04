@@ -5,7 +5,7 @@
 // do not check the library against itself. Nothing here is imported by application code.
 
 type Scalar = number | boolean | string | Uint8Array;
-type Value = Scalar | { fixed32: number } | Encoded;
+type Value = Scalar | { fixed32: number } | { float: number } | Encoded;
 class Encoded {
   constructor(readonly bytes: Uint8Array) {}
 }
@@ -45,6 +45,11 @@ export const message = (fields: [number, Value | undefined][]): Encoded =>
         if (typeof value === 'string') {
           const bytes = new TextEncoder().encode(value);
           return [varint(field * 8 + 2), varint(bytes.length), bytes];
+        }
+        if (typeof value === 'object' && 'float' in value) {
+          const bytes = new Uint8Array(4);
+          new DataView(bytes.buffer).setFloat32(0, value.float, true);
+          return [varint(field * 8 + 5), bytes];
         }
         if (typeof value === 'object') {
           const bytes = new Uint8Array(4);
@@ -116,6 +121,13 @@ export interface UnitState {
   wifiSsid: string;
   wifiPsk: string;
   ntpServer: string;
+  // `DeviceMetadata.hw_model` (4 is TBEAM), `Config.lora.region` (16 is MY_433) and `modem_preset`.
+  hwModel: number;
+  region: number;
+  modemPreset: number;
+  // The own NodeInfo's DeviceMetrics; null leaves them out, as on a unit that has not measured yet.
+  batteryLevel: number | null;
+  voltage: number | null;
   mqtt: {
     enabled: boolean;
     address: string;
@@ -141,6 +153,11 @@ export const unitState = (change: Partial<UnitState> = {}): UnitState => ({
   wifiSsid: '',
   wifiPsk: '',
   ntpServer: 'meshtastic.pool.ntp.org',
+  hwModel: 4,
+  region: 16,
+  modemPreset: 0,
+  batteryLevel: 87,
+  voltage: 4.05,
   mqtt: {
     enabled: false,
     address: 'mqtt.meshtastic.org',
@@ -168,6 +185,8 @@ export interface UnitBehaviour {
   losePskOnCommit?: boolean;
   // Does not keep the MQTT address on commit.
   loseMqttAddressOnCommit?: boolean;
+  // Does not keep the LoRa region on commit.
+  loseRegionOnCommit?: boolean;
   // How the commit restart looks from the browser: the port stays (a USB to UART bridge, v3), the port
   // drops and comes back as a granted port (native USB, v4), or the unit never comes back.
   restart?: 'port-stays' | 'port-returns' | 'never-returns';
@@ -183,6 +202,8 @@ export interface AdminWrite {
     | 'set_module_config'
     | 'begin_edit_settings'
     | 'commit_edit_settings'
+    | 'reboot_seconds'
+    | 'factory_reset_config'
     | 'other';
   fields: Decoded;
 }
@@ -194,6 +215,29 @@ const ADMIN_VARIANTS: Record<number, AdminWrite['variant']> = {
   35: 'set_module_config',
   64: 'begin_edit_settings',
   65: 'commit_edit_settings',
+  97: 'reboot_seconds',
+  99: 'factory_reset_config',
+};
+
+// What `NodeDB::factoryReset` leaves (firmware `NodeDB.cpp:509-554`, `:617-621`, `:1110-1146`,
+// `Channels.cpp:135-137`): default owner, the default one-byte PSK, Wi-Fi and MQTT off, region UNSET. The
+// node number, the hardware and the measured battery stay.
+export const factoryDefaults = (state: UnitState): UnitState => {
+  const hex = (state.nodeNum & 0xffff).toString(16).padStart(4, '0');
+  return {
+    ...unitState(),
+    nodeNum: state.nodeNum,
+    pioEnv: state.pioEnv,
+    firmwareVersion: state.firmwareVersion,
+    hwModel: state.hwModel,
+    batteryLevel: state.batteryLevel,
+    voltage: state.voltage,
+    longName: `TrekLink ${hex}`,
+    shortName: hex,
+    psk: new Uint8Array([1]),
+    region: 0,
+    mqtt: { ...unitState().mqtt, enabled: false },
+  };
 };
 
 type Listener = (event: { port: unknown }) => void;
@@ -349,7 +393,11 @@ export class FakeUnit {
     const refused = this.behaviour.refuseAdminWrite === ordinal;
     if (!refused) this.apply(write);
     this.ack(num(packet, 6), refused ? 32 : 0);
-    if (write.variant === 'commit_edit_settings' && !refused) this.restart();
+    const restarts =
+      write.variant === 'commit_edit_settings' ||
+      write.variant === 'reboot_seconds' ||
+      write.variant === 'factory_reset_config';
+    if (restarts && !refused) this.restart();
   }
 
   private apply(write: AdminWrite) {
@@ -377,7 +425,16 @@ export class FakeUnit {
         }
         return;
       }
+      case 'reboot_seconds':
+        return;
+      case 'factory_reset_config':
+        this.state = factoryDefaults(this.state);
+        this.pending = null;
+        this.inTransaction = false;
+        return;
       case 'set_config': {
+        const lora = nested(value(34) ?? new Map(), 6);
+        if (lora) Object.assign(target, { region: num(lora, 7), modemPreset: num(lora, 2) });
         const network = nested(value(34) ?? new Map(), 4);
         if (network) {
           Object.assign(target, {
@@ -411,6 +468,7 @@ export class FakeUnit {
           this.state = this.pending;
           if (this.behaviour.losePskOnCommit) this.state.psk = before.psk;
           if (this.behaviour.loseMqttAddressOnCommit) this.state.mqtt.address = before.mqtt.address;
+          if (this.behaviour.loseRegionOnCommit) this.state.region = before.region;
         }
         this.pending = null;
         this.inTransaction = false;
@@ -452,9 +510,16 @@ export class FakeUnit {
           [2, s.longName],
           [3, s.shortName],
         ])],
+        [6, s.batteryLevel === null ? undefined : message([
+          [1, s.batteryLevel],
+          [2, s.voltage === null ? undefined : { float: s.voltage }],
+        ])],
       ])],
     ]);
-    out([[13, message([[1, s.firmwareVersion]])]]);
+    out([[13, message([
+      [1, s.firmwareVersion],
+      [9, s.hwModel],
+    ])]]);
     out([
       [10, message([
         [1, 0],
@@ -473,6 +538,15 @@ export class FakeUnit {
           [3, s.wifiSsid],
           [4, s.wifiPsk],
           [5, s.ntpServer],
+        ])],
+      ])],
+    ]);
+    out([
+      [5, message([
+        [6, message([
+          [1, true],
+          [2, s.modemPreset],
+          [7, s.region],
         ])],
       ])],
     ]);
