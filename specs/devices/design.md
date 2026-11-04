@@ -1654,7 +1654,8 @@ unit learned in the field. Steps, under the write lock:
    database, Wi-Fi and broker settings), that the region is written back, that the unit restarts twice, and that
    the reset is recorded for this return.
 2. Open a session; the docked `nodeNum` must equal the device's (REQ-ERR-12). Keep the region and the LoRa config
-   as read.
+   as read. A unit that reports no LoRa config, or the region `UNSET` (0), is refused here with nothing written,
+   since that region could not be written back.
 3. `AdminMessage.factory_reset_config` (99). The firmware removes `/prefs`, installs the default node database,
    device state, config, module config and channels, saves, and reboots 7 s later. The node number is derived from
    the MAC address and does not change.
@@ -1713,6 +1714,7 @@ until task 10.12 runs it on v3 and v4.
 | Already reset for this return | page, api-design 10 | "{assetTag} is already reset for this return." | `ALREADY_RESET` |
 | Custody row still open (the recognition's `contract` is set) | page and hub before the wipe, api-design 10 | "{assetTag} is still in custody on {contractCode}. Check it in on its contract first." (the server's text: "Check this device in on its contract first.") | `INVALID_STATE_TRANSITION` |
 | Docked unit is another device | hub, api-design 10 | "The docked unit is {nodeId}, not {assetTag}. Nothing was written." | `NODE_MISMATCH` |
+| Region `UNSET` or no LoRa config reported | hub, before the wipe | "{assetTag} reports no LoRa region, so it could not be written back after the reset. Set its region first. Nothing was written." | none (REQ-ERR-30) |
 | Write, restart or read-back fails | hub | the failed step, "Nothing was recorded. Dock {assetTag} and run Factory reset again." | none (REQ-ERR-31) |
 | The server refuses after the wipe | hub | the server's message; the unit stays wiped and the reset can be recorded again from the counter | any |
 
