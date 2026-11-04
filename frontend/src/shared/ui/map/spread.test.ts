@@ -83,4 +83,29 @@ describe('spreadOffsets (WCAG 2.2, 2.5.8)', () => {
         );
       }
   });
+
+  it('groups only the markers within 24 px of a first member, so a chain does not form one ring', () => {
+    // Each neighbour is 20 px from the next. Joined transitively, the four formed one ring of radius
+    // about 18 px around x = 30 (review of treklink-web#360). Now t0 starts a pair with t1 and t2 a
+    // pair with t3; the pairs reach 60 px, past two targets from t0, so they are not merged.
+    const chain = ['t0', 't1', 't2', 't3'].map((id, i) => ({ id, x: i * 20, y: 0 }));
+    const offsets = spreadOffsets(chain);
+    for (const p of chain) {
+      const [dx, dy] = offsets.get(p.id) ?? [0, 0];
+      expect(dy, p.id).toBe(0);
+      expect(Math.abs(dx), p.id).toBeLessThanOrEqual(Math.ceil((MIN_TARGET_PX + 1) / 2));
+    }
+    const at = placed(chain);
+    expect(Math.hypot(at[0].x - at[1].x, at[0].y - at[1].y)).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+    expect(Math.hypot(at[2].x - at[3].x, at[2].y - at[3].y)).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+  });
+
+  it('keeps every icon of a ten-marker chain near its reading', () => {
+    const chain = Array.from({ length: 10 }, (_, i) => ({ id: `t${i}`, x: 100 + i * 10, y: 100 }));
+    const furthest = Math.max(
+      ...[...spreadOffsets(chain).values()].map(([dx, dy]) => Math.hypot(dx, dy)),
+    );
+    // One ring of ten has a radius of about 40 px; the seed groups stay inside one target.
+    expect(furthest).toBeLessThanOrEqual(MIN_TARGET_PX);
+  });
 });
