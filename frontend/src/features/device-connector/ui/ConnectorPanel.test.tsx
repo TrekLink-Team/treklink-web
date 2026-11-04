@@ -121,7 +121,10 @@ describe('ConnectorPanel (screen 4.6)', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'TL-0042' })).toBeTruthy(), { timeout: 4000 });
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Unknown unit' })).toBeTruthy(), { timeout: 4000 });
     expect(screen.getByText('2 units connected')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Devices, 2 connected' })).toBeTruthy();
+    const devices = screen.getByRole('button', { name: 'Devices, 2 connected' });
+    // The count is drawn from data-count, so the visible text stays inside the name (WCAG 2.5.3).
+    expect(devices.querySelector('[data-count]')?.getAttribute('data-count')).toBe('2');
+    expect(devices.textContent).toBe('Devices');
     expect(screen.getByRole('button', { name: `New device: register it? Unknown unit !${B.toString(16)}` })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Configure uplink TL-0042' })).toBeTruthy();
     expect(screen.getByText('Available')).toBeTruthy();
