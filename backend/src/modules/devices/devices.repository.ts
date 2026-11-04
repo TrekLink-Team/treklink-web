@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DeviceStatus, InspectionResult, LossCaseState, Prisma } from '@prisma/client';
+import { likeLiteral } from '../../common/prisma/like-literal';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -404,7 +405,8 @@ export class DevicesRepository {
     const where: Prisma.DeviceWhereInput = {
       ...(filter.statuses?.length ? { status: { in: filter.statuses } } : {}),
       ...(filter.hardwareVariantId ? { hardwareVariantId: filter.hardwareVariantId } : {}),
-      ...(filter.q ? { assetTag: { contains: filter.q, mode: 'insensitive' } } : {}),
+      // `%`, `_` and `\` in q are literal characters (likeLiteral).
+      ...(filter.q ? { assetTag: { contains: likeLiteral(filter.q), mode: 'insensitive' } } : {}),
     };
     return this.prisma.$transaction([
       this.prisma.device.findMany({

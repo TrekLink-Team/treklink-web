@@ -140,7 +140,7 @@ ENDPOINTS = [
        "Manager through the organizations module. `lastLoginAt` null means the invitation is still pending "
        "(D-057 rule 1).",
        "UC-10, FR-AUTH-06",
-       query=[["q", "Name or email contains", "string", "no", "`tran`"],
+       query=[["q", "Name or email contains, ignoring case; `%` and `_` are literal characters", "string", "no", "`tran`"],
               ["isActive", "Filter by active flag", "bool", "no", "`true`"]] + PAGE_QUERY,
        response=paged(ACCOUNT, 4), steps=["Read accounts of type TREKLINK"],
        controller="AccountsController", service="AccountsService", call="list(query)",

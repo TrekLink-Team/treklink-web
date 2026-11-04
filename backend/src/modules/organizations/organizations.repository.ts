@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OrganizationStatus, Prisma } from '@prisma/client';
+import { likeLiteral } from '../../common/prisma/like-literal';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -54,12 +55,13 @@ export class OrganizationsRepository {
   ) {
     const where: Prisma.OrganizationWhereInput = {
       ...(filter.status ? { status: filter.status } : {}),
+      // `%`, `_` and `\` in q are literal characters (likeLiteral).
       ...(filter.q
         ? {
             OR: [
-              { legalName: { contains: filter.q, mode: 'insensitive' } },
-              { code: { contains: filter.q, mode: 'insensitive' } },
-              { taxCode: { contains: filter.q } },
+              { legalName: { contains: likeLiteral(filter.q), mode: 'insensitive' } },
+              { code: { contains: likeLiteral(filter.q), mode: 'insensitive' } },
+              { taxCode: { contains: likeLiteral(filter.q) } },
             ],
           }
         : {}),
