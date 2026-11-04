@@ -56,7 +56,9 @@ export class DockError extends Error {
   }
 }
 
-// The unit as the handshake reported it, without any secret.
+// The unit as the handshake reported it, without any secret (REQ-UBI-08, amended for the device hub
+// page, devices design section 11.13: the hardware model, battery, region, modem preset and the primary
+// channel's name are kept; the PSK never is).
 export interface UnitReading {
   nodeNum: number;
   nodeId: string;
@@ -64,6 +66,16 @@ export interface UnitReading {
   firmwareVersion: string | null;
   longName: string;
   shortName: string;
+  // `DeviceMetadata.hw_model` as its enum name ("TBEAM"), or null when not reported.
+  hwModel?: string | null;
+  // The own NodeInfo's `DeviceMetrics`, present once the unit has measured itself; null otherwise.
+  batteryLevel?: number | null;
+  voltage?: number | null;
+  // `Config.lora.region` and `modem_preset` as enum names ("MY_433", "LONG_FAST").
+  region?: string | null;
+  modemPreset?: string | null;
+  // Channel 0's name; an empty name means the modem preset's name.
+  channelName?: string | null;
 }
 
 export interface UplinkSettings {
@@ -88,6 +100,18 @@ export interface DockSession {
   writeOwnerAndChannel(owner: { longName: string; shortName: string }, key: Uint8Array): Promise<void>;
   // set_config network, set_module_config MQTT and set_channel 0 inside one transaction (section 8.8).
   writeUplink(settings: UplinkSettings): Promise<void>;
+  // The LoRa region as its enum value, as read; null when the unit did not report its LoRa config.
+  loraRegion(): number | null;
+  // Whether channel 0 carries the firmware's default PSK, one byte of value 1 (`Channels.cpp:135-137`).
+  primaryKeyIsDefault(): boolean;
+  // Whether Wi-Fi and MQTT are both off, as after a factory reset.
+  networkOff(): boolean;
+  // `reboot_seconds` (devices design section 11.13); the unit restarts after `seconds`.
+  reboot(seconds: number): Promise<void>;
+  // `factory_reset_config` (devices design section 11.13); the unit restarts 7 s later.
+  factoryResetConfig(): Promise<void>;
+  // set_owner and set_config lora with this region inside one edit transaction (section 11.13 step 5).
+  writeOwnerAndRegion(owner: { longName: string; shortName: string }, region: number): Promise<void>;
   // Waits for the restart the commit causes and docks again. Null when the port did not come back
   // before the deadline: the page then asks Staff to reconnect (a user gesture opens the chooser).
   // `findReturned` names the port the unit came back on; by default the original port, else the only
@@ -271,6 +295,7 @@ class Session implements DockSession {
   private user: ProtoMessage | null = null;
   private channel: ChannelMessage | null = null;
   private networkConfig: ProtoMessage | null = null;
+  private loraConfig: ProtoMessage | null = null;
   private mqttConfig: ProtoMessage | null = null;
   private closed = false;
 
@@ -289,6 +314,8 @@ class Session implements DockSession {
     let nodeNum: number | null = null;
     let pioEnv: string | null = null;
     let firmwareVersion: string | null = null;
+    let hwModel: number | null = null;
+    let metrics: ProtoMessage | null = null;
 
     const done = new Promise<void>((resolve, reject) => {
       events.onFromRadio.subscribe(() => {
@@ -301,16 +328,20 @@ class Session implements DockSession {
       events.onNodeInfoPacket.subscribe((info: ProtoMessage) => {
         if (nodeNum !== null && Number(info.num) === nodeNum && info.user) {
           this.user = info.user as ProtoMessage;
+          metrics = (info.deviceMetrics as ProtoMessage | undefined) ?? null;
         }
       });
       events.onDeviceMetadataPacket.subscribe((packet: { data: ProtoMessage }) => {
         firmwareVersion = (packet.data.firmwareVersion as string) || null;
+        hwModel = typeof packet.data.hwModel === 'number' ? packet.data.hwModel : null;
       });
       events.onChannelPacket.subscribe((channel: ChannelMessage) => {
         if (channel.index === 0) this.channel = channel;
       });
       events.onConfigPacket.subscribe((config: ProtoMessage) => {
-        if ((config.payloadVariant as Variant).case === 'network') this.networkConfig = config;
+        const kind = (config.payloadVariant as Variant).case;
+        if (kind === 'network') this.networkConfig = config;
+        if (kind === 'lora') this.loraConfig = config;
       });
       events.onModuleConfigPacket.subscribe((config: ProtoMessage) => {
         if ((config.payloadVariant as Variant).case === 'mqtt') this.mqttConfig = config;
@@ -336,6 +367,13 @@ class Session implements DockSession {
     if (nodeNum === null || !this.user || !this.channel?.settings) {
       throw new DockError('incomplete', 'read', 'The unit did not report its node, owner or channel.');
     }
+    const lora = (this.loraConfig?.payloadVariant as Variant | undefined)?.value;
+    const enumName = (table: Record<number, string>, value: unknown) =>
+      typeof value === 'number' ? (table[value] ?? String(value)) : null;
+    const reported = (value: unknown) => (typeof value === 'number' && value > 0 ? value : null);
+    const { Protobuf } = core;
+    // Assigned inside the subscriptions above, which the compiler does not follow.
+    const measured = metrics as ProtoMessage | null;
     this.unit = {
       nodeNum,
       nodeId: toNodeId(nodeNum),
@@ -343,7 +381,30 @@ class Session implements DockSession {
       firmwareVersion,
       longName: String(this.user.longName ?? ''),
       shortName: String(this.user.shortName ?? ''),
+      hwModel: enumName(Protobuf.Mesh.HardwareModel, hwModel),
+      batteryLevel: reported(measured?.batteryLevel),
+      // A 32-bit float on the wire; two decimals are what the page shows.
+      voltage: reported(measured?.voltage) === null ? null : Math.round(Number(measured?.voltage) * 100) / 100,
+      region: lora ? enumName(Protobuf.Config.Config_LoRaConfig_RegionCode, lora.region ?? 0) : null,
+      modemPreset: lora ? enumName(Protobuf.Config.Config_LoRaConfig_ModemPreset, lora.modemPreset ?? 0) : null,
+      channelName: String(this.channel.settings.name ?? ''),
     };
+  }
+
+  loraRegion() {
+    const lora = (this.loraConfig?.payloadVariant as Variant | undefined)?.value;
+    return lora ? Number(lora.region ?? 0) : null;
+  }
+
+  primaryKeyIsDefault() {
+    const psk = this.channel?.settings?.psk;
+    return !!psk && psk.length === 1 && psk[0] === 1;
+  }
+
+  networkOff() {
+    const network = (this.networkConfig?.payloadVariant as Variant | undefined)?.value ?? {};
+    const mqtt = (this.mqttConfig?.payloadVariant as Variant | undefined)?.value ?? {};
+    return network.wifiEnabled !== true && mqtt.enabled !== true;
   }
 
   primaryKeyEquals(key: Uint8Array) {
@@ -394,12 +455,44 @@ class Session implements DockSession {
   }
 
   private async commit() {
+    await this.restarting('commit_edit_settings', () => this.device.commitEditSettings());
+  }
+
+  // A write after which the unit restarts: one that restarts before its acknowledgement arrives is
+  // judged by the read-back.
+  private async restarting(step: string, send: () => Promise<number>) {
     try {
-      await this.admin('commit_edit_settings', () => this.device.commitEditSettings());
+      await this.admin(step, send);
     } catch (error) {
-      // A unit that restarts before its acknowledgement arrives is judged by the read-back.
       if (!(error instanceof DockError && error.failure === 'disconnected')) throw error;
     }
+  }
+
+  async reboot(seconds: number) {
+    await this.restarting('reboot_seconds', () => this.device.reboot(seconds));
+  }
+
+  async factoryResetConfig() {
+    await this.restarting('factory_reset_config', () => this.device.factoryResetConfig());
+  }
+
+  async writeOwnerAndRegion(owner: { longName: string; shortName: string }, region: number) {
+    const user = this.user;
+    const lora = this.loraConfig;
+    if (!user) throw new DockError('incomplete', 'set_owner', 'The unit did not report its owner.');
+    if (!lora) throw new DockError('incomplete', 'set_config lora', 'The unit did not report its LoRa settings.');
+    const loraValue = (lora.payloadVariant as Variant).value;
+    await this.beginEdit();
+    await this.admin('set_owner', () =>
+      this.device.setOwner({ ...user, longName: owner.longName, shortName: owner.shortName } as never),
+    );
+    await this.admin('set_config lora', () =>
+      this.device.setConfig({
+        ...lora,
+        payloadVariant: { case: 'lora', value: { ...loraValue, region } },
+      } as never),
+    );
+    await this.commit();
   }
 
   private requireChannel(): ChannelMessage & { settings: ProtoMessage } {
@@ -505,6 +598,7 @@ class Session implements DockSession {
     this.user = null;
     this.channel = null;
     this.networkConfig = null;
+    this.loraConfig = null;
     this.mqttConfig = null;
     this.device.complete();
     await this.link.close();

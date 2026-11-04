@@ -77,6 +77,12 @@ describe('meshtastic-dock', () => {
       firmwareVersion: '2.7.26.a4aa98d',
       longName: 'Meshtastic c2d4',
       shortName: 'c2d4',
+      hwModel: 'TBEAM',
+      batteryLevel: 87,
+      voltage: 4.05,
+      region: 'MY_433',
+      modemPreset: 'LONG_FAST',
+      channelName: '',
     });
     expect(unit.handshakes).toEqual([69420]);
     expect(session.primaryKeyEquals(KEY)).toBe(true);
@@ -239,6 +245,56 @@ describe('meshtastic-dock', () => {
   it('formats a node id as the firmware does', () => {
     expect(toNodeId(0x4351c)).toBe('!0004351c');
     expect(toNodeId(0xffffffff)).toBe('!ffffffff');
+  });
+});
+
+describe('meshtastic-dock, the device hub page (devices design section 11.13)', () => {
+  it('leaves the battery out when the unit has not measured itself yet', async () => {
+    const { port } = dock({ batteryLevel: null, voltage: null, channelName: 'TL-ORG' });
+    const session = await open(port);
+    expect(session.unit.batteryLevel).toBeNull();
+    expect(session.unit.voltage).toBeNull();
+    expect(session.unit.channelName).toBe('TL-ORG');
+  });
+
+  it('sends reboot_seconds and finds the unit again after its restart', async () => {
+    const { port, unit } = dock({}, { restart: 'port-returns' });
+    const session = await open(port);
+    await session.reboot(2);
+    expect(unit.writes.map((write) => write.variant)).toEqual(['reboot_seconds']);
+    expect(unit.writes[0].fields.get(97)).toEqual([2]);
+    const back = await session.awaitRestart();
+    expect(back?.unit.nodeNum).toBe(0xa4b1c2d4);
+    if (back) sessions.push(back);
+  });
+
+  it('factory resets the config, then writes the owner and the region back in one transaction', async () => {
+    const { port, unit } = dock({ psk: KEY, longName: 'TL-0042', shortName: '0042', wifiEnabled: true });
+    const session = await open(port);
+    expect(session.loraRegion()).toBe(16);
+    expect(session.primaryKeyIsDefault()).toBe(false);
+    await session.factoryResetConfig();
+    expect(unit.state.region).toBe(0);
+    expect(unit.state.longName).toBe('TrekLink c2d4');
+    const afterReset = await session.awaitRestart();
+    if (!afterReset) throw new Error('the unit did not come back');
+    sessions.push(afterReset);
+    expect(afterReset.primaryKeyIsDefault()).toBe(true);
+    expect(afterReset.networkOff()).toBe(true);
+    expect(afterReset.unit.region).toBe('UNSET');
+    await afterReset.writeOwnerAndRegion({ longName: 'TL-0042', shortName: '0042' }, 16);
+    expect(unit.writes.map((write) => write.variant)).toEqual([
+      'factory_reset_config',
+      'begin_edit_settings',
+      'set_owner',
+      'set_config',
+      'commit_edit_settings',
+    ]);
+    const back = await afterReset.awaitRestart();
+    if (!back) throw new Error('the unit did not come back');
+    sessions.push(back);
+    expect(back.unit).toMatchObject({ longName: 'TL-0042', shortName: '0042', region: 'MY_433' });
+    expect(back.primaryKeyIsDefault()).toBe(true);
   });
 });
 
