@@ -15,6 +15,7 @@ import {
   Field,
   INCIDENT_STATE,
   Input,
+  MARKER_LABEL,
   MapLegend,
   Select,
   Skeleton,
@@ -75,6 +76,16 @@ const statusLine = ({ device, state }: Row): string => {
   return device.position ? `Last seen ${seen}` : `No position yet, last seen ${seen}`;
 };
 
+// The state part of a marker's accessible name, from the list's own words: "live, last seen {time}",
+// "offline, last seen {time}" or "not heard since handover" (screen 9.1, WCAG 1.1.1). The list shows no
+// word for a live unit, so the marker legend's "Live" leads its status line.
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+const stateName = (row: Row): string =>
+  [row.state === 'LIVE' ? MARKER_LABEL.fresh : null, statusLine(row)]
+    .filter((part): part is string => part !== null)
+    .map(lowerFirst)
+    .join(', ');
+
 // A unit not heard since handover is pinned at the counter that handed it over, the last place it was
 // known to be; a live or offline unit at its last position from the custody interval.
 const pointOf = ({ device, state }: Row): [number, number] | null => {
@@ -94,6 +105,15 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
     // The word travels in the title, so the popup and the marker's accessible name both carry it.
     title: device.simulated === true ? `${device.assetTag} (Simulated)` : device.assetTag,
     subtitle: [holderOf(device), incident].filter(Boolean).join(', '),
+    // Asset tag, state, holder and any incident: the state is read before the rest (screen 9.1).
+    name: [
+      device.simulated === true ? `${device.assetTag} (Simulated)` : device.assetTag,
+      stateName(row),
+      holderOf(device),
+      incident,
+    ]
+      .filter(Boolean)
+      .join(', '),
     status: sosOf(device)
       ? 'incident'
       : state === 'NOT_HEARD'
