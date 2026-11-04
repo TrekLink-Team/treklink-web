@@ -40,13 +40,14 @@ export class OrganizationsRepository {
   }
 
   // The ids of every organization whose legal name or code contains `q`, ignoring case, for the
-  // contract search of rentals (REQ-EVT-26). Prisma escapes `%` and `_` in `contains`.
+  // contract search of rentals (REQ-EVT-26). `%`, `_` and `\` in `q` are literal characters.
   async idsMatching(q: string, client: Client = this.prisma): Promise<string[]> {
+    const text = likeLiteral(q);
     const rows = await client.organization.findMany({
       where: {
         OR: [
-          { legalName: { contains: q, mode: 'insensitive' } },
-          { code: { contains: q, mode: 'insensitive' } },
+          { legalName: { contains: text, mode: 'insensitive' } },
+          { code: { contains: text, mode: 'insensitive' } },
         ],
       },
       select: { id: true },

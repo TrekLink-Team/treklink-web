@@ -56,4 +56,23 @@ describe('The organizations a contract search names (rentals REQ-EVT-26)', () =>
       select: { id: true },
     });
   });
+
+  it('reads %, _ and \\ in the search as literal characters', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const repository = new OrganizationsRepository({
+      organization: { findMany },
+    } as unknown as PrismaService);
+
+    await repository.idsMatching('50%_a\\b');
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { legalName: { contains: '50\\%\\_a\\\\b', mode: 'insensitive' } },
+            { code: { contains: '50\\%\\_a\\\\b', mode: 'insensitive' } },
+          ],
+        },
+      }),
+    );
+  });
 });
