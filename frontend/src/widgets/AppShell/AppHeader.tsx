@@ -36,10 +36,13 @@ export const AppHeader: React.FC<{ user: SessionUser; home: string }> = ({ user,
         <BrandMark className="hidden sm:flex" />
       </Link>
       <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-line md:block" />
-      <p className="flex min-w-0 items-baseline gap-1.5 px-1 text-body-sm" title={workspace.name}>
+      {/* From 1280 px the workspace keeps its width and the page search gives way, so an organization
+          reads in full ("TrekLink Demo Tours Co., Ltd.", not "TrekLink ..."); narrower, only its code
+          shows, on one line, and the title keeps the name (W15 panel walk). */}
+      <p className="flex items-baseline gap-1.5 px-1 text-body-sm xl:shrink-0" title={workspace.name}>
         <span className="sr-only">Workspace: </span>
-        <span className="hidden max-w-[14rem] truncate font-bold text-ink md:inline">{workspace.name}</span>
-        {workspace.code && <span className="hidden font-mono text-caption font-semibold text-ink-muted sm:inline">{workspace.code}</span>}
+        <span className="hidden max-w-[14rem] truncate font-bold text-ink xl:inline">{workspace.name}</span>
+        {workspace.code && <span className="hidden whitespace-nowrap font-mono text-caption font-semibold text-ink-muted sm:inline">{workspace.code}</span>}
       </p>
       <EnvironmentBadge className="ml-1" />
 
