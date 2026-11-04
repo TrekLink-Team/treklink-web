@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Moves each named device into the group: its open assignment elsewhere ends `MOVED` and one opens here against its live contract row (FR-CON-18, BR-46). Every device must be held by the organization now; one that is not, its own returned device or another organization's, refuses the whole request with the same answer. A device already in the group is left as it is. Locks: the group row, then the devices in ascending `deviceId` order (design §11.4), so two overlapping batches cannot deadlock. Audited per device as `group.deviceAssigned`.
+Moves each named device into the group: its open assignment elsewhere ends `MOVED` and one opens here against its live contract row (FR-CON-18, BR-46). Every device must be held by the organization now; one that is not, its own returned device or another organization's, refuses the whole request with the same answer. A device already in the group is left as it is. Take the organization tree lock, the group row lock, then the device locks in ascending `deviceId` order before reading custody (design §11.4). Audited per device as `group.deviceAssigned`.
 
 ## API Specification
 
@@ -187,47 +187,22 @@ Moves each named device into the group: its open assignment elsewhere ends `MOVE
 
 ```mermaid
 flowchart TB
-    S((Start))
-    A0["Check token, policy and organization scope"]
-    S --> A0
-    D1{"The body or query fails validation?"}
-    A0 --> D1
-    E1["Return 400 VALIDATION_FAILED"]
-    D1 -->|yes| E1
-    E1 --> X1((End))
-    D2{"No such record, or it belongs to another organization?"}
-    D1 -->|no| D2
-    E2["Return 404 NOT_FOUND"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    D3{"No device, or more than 100?"}
-    D2 -->|no| D3
-    E3["Return 400 VALIDATION_FAILED"]
-    D3 -->|yes| E3
-    E3 --> X3((End))
-    D4{"Not a live group of the organization?"}
-    D3 -->|no| D4
-    E4["Return 404 NOT_FOUND"]
-    D4 -->|yes| E4
-    E4 --> X4((End))
-    D5{"A device has no live, handed-over row on a contract of the organization?"}
-    D4 -->|no| D5
-    E5["Return 409 DEVICE_NOT_HELD"]
-    D5 -->|yes| E5
-    E5 --> X5((End))
-    P0["Lock the group"]
-    D5 -->|no| P0
-    P1["Find each device's live row of the organization"]
-    P0 --> P1
-    P2["Per-device advisory locks in ascending deviceId"]
-    P1 --> P2
-    P3["End the open assignment elsewhere, open one here"]
-    P2 --> P3
-    P4["Audit; emit device.groupChanged"]
-    P3 --> P4
-    OK["Return 200"]
-    P4 --> OK
-    OK --> Z((End))
+    S((Start)) --> A["Check token and policy"]
+    A --> B{"Valid device list?"}
+    B -->|no| E400["Return 400 VALIDATION_FAILED"]
+    B -->|yes| G["Lock the organization tree and target group"]
+    G --> L{"Live group of this organization?"}
+    L -->|no| E404["Return 404 NOT_FOUND"]
+    L -->|yes| D["Lock devices in deviceId order and read live custody"]
+    D --> H{"Every device held now?"}
+    H -->|no| E409["Return 409 DEVICE_NOT_HELD"]
+    H -->|yes| W["Move changed assignments and commit"]
+    W --> V["Emit audit and group-change events"]
+    V --> OK["Return 200"]
+    E400 --> Z((End))
+    E404 --> Z
+    E409 --> Z
+    OK --> Z
 ```
 
 ## Sequence Diagram
@@ -241,9 +216,9 @@ sequenceDiagram
     participant DB as Postgres
     C->>Ctl: POST /api/groups/:id/devices
     Ctl->>Svc: assign(id, deviceIds, actor)
-    Svc->>DB: SELECT group FOR UPDATE
+    Svc->>DB: Acquire organization tree lock and lock the group row
+    Svc->>DB: Acquire per-device advisory locks in deviceId order
     Svc->>DB: SELECT live contract_devices of the organization
-    Svc->>DB: pg_advisory_xact_lock per device, sorted by deviceId
     Svc->>DB: UPDATE then INSERT group_assignments
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope

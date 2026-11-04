@@ -7,6 +7,7 @@ import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ContractsRepository } from './contracts.repository';
+import { CustodyService } from './custody.service';
 import { renderHandoverNote } from './handover-note.renderer';
 import {
   DEVICE_HANDED_OVER,
@@ -51,6 +52,7 @@ export class ReplacementService {
     private readonly organizations: OrganizationsService,
     private readonly handover: HandoverService,
     private readonly events: TransactionalEvents,
+    private readonly custody: CustodyService,
   ) {}
 
   async replace(
@@ -121,10 +123,7 @@ export class ReplacementService {
 
       // The faulty unit at the counter is checked in and goes through reset and inspection like any
       // returned unit; a unit that is away needs its loss case open, which settles the old row later.
-      if (input.faultyPresent) {
-        await this.contracts.markCheckedIn([old.id], at, actor.id, tx);
-        await this.devices.markReturned([deviceId], at, tx, { ...move, reason: 'REPLACED' });
-      } else if (!(await this.devices.hasOpenLossCase(deviceId, tx))) {
+      if (!input.faultyPresent && !(await this.devices.hasOpenLossCase(deviceId, tx))) {
         throw conflict(
           ErrorCode.LOSS_CASE_REQUIRED,
           'Open a loss case for the missing unit first, or check it in at the counter.',
@@ -186,7 +185,20 @@ export class ReplacementService {
         tx,
       );
 
+      await this.custody.closeCustody(
+        contract.organizationId,
+        [old],
+        {
+          reason: 'REPLACED',
+          checkedIn: input.faultyPresent,
+          actorId: actor.id,
+          replacement: { id: row.id, deviceId: replacement.id },
+        },
+        at,
+        tx,
+      );
       if (input.faultyPresent) {
+        await this.devices.markReturned([deviceId], at, tx, { ...move, reason: 'REPLACED' });
         this.events.emitAfterCommit(DEVICE_CHECKED_IN, {
           deviceId,
           contractId: id,

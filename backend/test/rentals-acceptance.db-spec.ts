@@ -296,6 +296,30 @@ describe('rentals acceptance against Postgres (AC-01 to AC-07)', () => {
     });
     const device = await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceIds[0] } });
     const confirmedAt = at('2026-11-20T03:00:00.000Z');
+    const settledAt = at('2026-11-21T03:00:00.000Z');
+    const group = await flow.prisma.group.create({
+      data: { organizationId: org.id, name: 'Loss group', createdById: org.manager.id },
+    });
+    const assignment = await flow.prisma.groupAssignment.create({
+      data: {
+        groupId: group.id,
+        deviceId: device.id,
+        contractDeviceId: row.id,
+        assignedById: org.manager.id,
+        assignedAt: confirmedAt,
+      },
+    });
+    const report = await flow.prisma.deviceFaultReport.create({
+      data: {
+        organizationId: org.id,
+        contractId: contract.id,
+        contractDeviceId: row.id,
+        deviceId: device.id,
+        description: 'Fault reported before settlement',
+        reportedById: org.manager.id,
+        reportedAt: confirmedAt,
+      },
+    });
     const view: LossCaseView = {
       id: 'loss-case',
       code: `LOSS-${flow.next()}`,
@@ -312,7 +336,7 @@ describe('rentals acceptance against Postgres (AC-01 to AC-07)', () => {
       decisionReason: null,
       decidedById: null,
       decidedByRoles: [],
-      settledAt: null,
+      settledAt,
     };
     const listener = flow.get(RentalsLossCaseListener);
     const lostAt = async () =>
@@ -328,8 +352,20 @@ describe('rentals acceptance against Postgres (AC-01 to AC-07)', () => {
       }),
     ).rejects.toBe(failure);
     expect(await lostAt()).toBeNull();
+    await expect(
+      flow.prisma.groupAssignment.findUniqueOrThrow({ where: { id: assignment.id } }),
+    ).resolves.toMatchObject({ endedAt: null });
+    await expect(
+      flow.prisma.deviceFaultReport.findUniqueOrThrow({ where: { id: report.id } }),
+    ).resolves.toMatchObject({ resolvedAt: null });
 
     await flow.prisma.$transaction((tx) => listener.onSettled(view, LossDecision.CHARGED, tx));
     expect(await lostAt()).toEqual(confirmedAt);
+    await expect(
+      flow.prisma.groupAssignment.findUniqueOrThrow({ where: { id: assignment.id } }),
+    ).resolves.toMatchObject({ endedAt: settledAt, endedReason: 'LOST' });
+    await expect(
+      flow.prisma.deviceFaultReport.findUniqueOrThrow({ where: { id: report.id } }),
+    ).resolves.toMatchObject({ resolvedAt: settledAt, resolution: 'LOST' });
   });
 });

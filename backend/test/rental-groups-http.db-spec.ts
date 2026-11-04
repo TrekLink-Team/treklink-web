@@ -1,6 +1,15 @@
-import { AccountType, GroupExit, MemberRole, OrganizationStatus } from '@prisma/client';
+import {
+  AccountType,
+  ContractStatus,
+  GroupExit,
+  MemberRole,
+  OrganizationStatus,
+} from '@prisma/client';
 import { randomUUID } from 'node:crypto';
-import { compileRentalFlow, RentalFlow } from './db-rental-flow';
+import { ContractsService } from '../src/modules/rentals/contracts.service';
+import { ReplacementService } from '../src/modules/rentals/replacement.service';
+import { ReturnService } from '../src/modules/rentals/return.service';
+import { compileRentalFlow, RentalFlow, SIGNATURE } from './db-rental-flow';
 
 type TreeEnvelope = {
   result: { maxDepth: number; groups: { id: string; name: string; children: { id: string }[] }[] };
@@ -73,6 +82,156 @@ describe('group API against Postgres (rentals 9.2)', () => {
       name: 'Trail',
       children: [{ id: childId }],
     });
+  });
+
+  it('rejects a self-parent at cap one even when depth alone would allow it', async () => {
+    const id = await create('Cycle guard');
+    const response = await flow.send(org.manager, 'patch', `/api/groups/${id}`, {
+      parentId: id,
+      expectedVersion: 1,
+    });
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({ result: { errorCode: 'GROUP_DEPTH_EXCEEDED' } });
+    await expect(flow.prisma.group.findUniqueOrThrow({ where: { id } })).resolves.toMatchObject({
+      parentId: null,
+      version: 1,
+    });
+  });
+
+  it('returns 409 CONFLICT_UNIQUE when creating or renaming to a live sibling name', async () => {
+    await create('Duplicate name');
+    const otherId = await create('Different name');
+    const duplicate = await flow.send(org.manager, 'post', '/api/groups', {
+      name: 'duplicate name',
+    });
+    const rename = await flow.send(org.manager, 'patch', `/api/groups/${otherId}`, {
+      name: 'DUPLICATE NAME',
+      expectedVersion: 1,
+    });
+    for (const response of [duplicate, rename]) {
+      expect(response.status).toBe(409);
+      expect(response.body).toMatchObject({ result: { errorCode: 'CONFLICT_UNIQUE' } });
+    }
+  });
+
+  it('rejects a mixed batch, serializes competing moves, and closes the assignment on check-in', async () => {
+    const rental = await flow.rented(2);
+    const [deviceId] = rental.deviceIds;
+    const row = await flow.prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: rental.contract.id, deviceId },
+    });
+    const first = await create('North', undefined, rental.org);
+    const second = await create('South', undefined, rental.org);
+    const foreign = await flow.rented(1);
+    const assign = (groupId: string, deviceIds: string[]) =>
+      flow.send(rental.org.manager, 'post', `/api/groups/${groupId}/devices`, { deviceIds });
+    const mixed = await assign(first, [deviceId, foreign.deviceIds[0]]);
+    expect(mixed.status).toBe(409);
+    expect(mixed.body).toMatchObject({ result: { errorCode: 'DEVICE_NOT_HELD' } });
+    expect(await flow.prisma.groupAssignment.count({ where: { deviceId } })).toBe(0);
+
+    const results = await Promise.all([assign(first, [deviceId]), assign(second, [deviceId])]);
+    expect(results.map(({ status }) => status)).toEqual([200, 200]);
+    const assignments = await flow.prisma.groupAssignment.findMany({ where: { deviceId } });
+    expect(assignments).toHaveLength(2);
+    expect(assignments.filter(({ endedReason }) => endedReason === GroupExit.MOVED)).toHaveLength(
+      1,
+    );
+    const [open] = assignments.filter(({ endedAt }) => endedAt === null);
+    const unchanged = await assign(open.groupId, [deviceId]);
+    expect(unchanged.body).toMatchObject({ result: { assigned: [], unchanged: [deviceId] } });
+
+    const unassign = await flow.send(
+      rental.org.manager,
+      'delete',
+      `/api/groups/${open.groupId}/devices/${deviceId}`,
+    );
+    expect(unassign.status).toBe(200);
+    await expect(
+      flow.prisma.groupAssignment.findUniqueOrThrow({ where: { id: open.id } }),
+    ).resolves.toMatchObject({ endedReason: GroupExit.UNASSIGNED });
+    expect((await assign(first, [deviceId])).status).toBe(200);
+    const fault = await flow.prisma.deviceFaultReport.create({
+      data: {
+        organizationId: rental.org.id,
+        contractId: rental.contract.id,
+        contractDeviceId: row.id,
+        deviceId,
+        description: 'Intermittent signal',
+        reportedById: rental.org.manager.id,
+      },
+    });
+    const visible = await flow
+      .get(ContractsService)
+      .visibleDevices({ organizationId: rental.org.id });
+    expect(visible.find((unit) => unit.deviceId === deviceId)).toMatchObject({
+      group: { id: first, name: 'North', parentId: null },
+      openFaultReportId: fault.id,
+    });
+    const checkedInAt = new Date();
+    await flow.prisma.rentalContract.update({
+      where: { id: rental.contract.id },
+      data: { status: ContractStatus.RETURN_DUE, returnDueAt: checkedInAt },
+    });
+    const tag = (await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).assetTag;
+    await flow.get(ReturnService).checkIn(rental.contract.id, [tag], flow.staff, checkedInAt);
+    expect(await flow.prisma.groupAssignment.count({ where: { deviceId, endedAt: null } })).toBe(0);
+    await expect(
+      flow.prisma.deviceFaultReport.findUniqueOrThrow({ where: { id: fault.id } }),
+    ).resolves.toMatchObject({ resolution: 'CHECKED_IN', resolvedAt: checkedInAt });
+    const returned = await assign(first, [deviceId]);
+    expect(returned.status).toBe(409);
+  });
+
+  it('passes the group to the replacement and resolves the old fault in the same transaction', async () => {
+    const rental = await flow.rented(1);
+    const [deviceId] = rental.deviceIds;
+    const groupId = await create('Replacement group', undefined, rental.org);
+    const assigned = await flow.send(rental.org.manager, 'post', `/api/groups/${groupId}/devices`, {
+      deviceIds: [deviceId],
+    });
+    expect(assigned.status).toBe(200);
+    const [replacementDeviceId] = await flow.availableDevices(rental.variantId, 1);
+    const oldRow = await flow.prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: rental.contract.id, deviceId },
+    });
+    const fault = await flow.prisma.deviceFaultReport.create({
+      data: {
+        organizationId: rental.org.id,
+        contractId: rental.contract.id,
+        contractDeviceId: oldRow.id,
+        deviceId,
+        description: 'Failed radio',
+        reportedById: rental.org.manager.id,
+      },
+    });
+    const at = new Date();
+    const { contractDeviceId } = await flow.get(ReplacementService).replace(
+      rental.contract.id,
+      deviceId,
+      {
+        replacementDeviceId,
+        faultyPresent: true,
+        keyVersion: 1,
+        signatureImage: SIGNATURE,
+      },
+      flow.staff,
+      at,
+    );
+    const assignments = await flow.prisma.groupAssignment.findMany({ where: { groupId } });
+    expect(assignments).toHaveLength(2);
+    expect(assignments.find((item) => item.deviceId === deviceId)).toMatchObject({
+      contractDeviceId: oldRow.id,
+      endedReason: GroupExit.REPLACED,
+      endedAt: at,
+    });
+    expect(assignments.find((item) => item.deviceId === replacementDeviceId)).toMatchObject({
+      contractDeviceId,
+      endedAt: null,
+    });
+    await expect(
+      flow.prisma.deviceFaultReport.findUniqueOrThrow({ where: { id: fault.id } }),
+    ).resolves.toMatchObject({ resolution: 'REPLACED', resolvedAt: at });
   });
 
   it('returns cross-organization 404s and gives Operator only its own tree', async () => {

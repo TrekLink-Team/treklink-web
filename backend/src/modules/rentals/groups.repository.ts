@@ -80,9 +80,10 @@ export class GroupsRepository {
       select: { deviceId: true },
       orderBy: { deviceId: 'asc' },
     });
-    for (const { deviceId } of assignments) {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rentals:group-device:${deviceId}`}))`;
-    }
+    await this.lockDevices(
+      assignments.map(({ deviceId }) => deviceId),
+      tx,
+    );
     const ended = await tx.groupAssignment.updateManyAndReturn({
       where,
       data: { endedAt: at, endedReason: GroupExit.GROUP_REMOVED },
@@ -93,5 +94,36 @@ export class GroupsRepository {
       data: { removedAt: at },
     });
     return ended.map(({ deviceId }) => deviceId);
+  }
+
+  async lockDevices(deviceIds: readonly string[], tx: Prisma.TransactionClient) {
+    for (const id of [...new Set(deviceIds)].sort()) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`rentals:group-device:${id}`}))`;
+    }
+  }
+
+  openAssignments(deviceIds: readonly string[], tx: Prisma.TransactionClient) {
+    return tx.groupAssignment.findMany({
+      where: { deviceId: { in: [...deviceIds] }, endedAt: null },
+      select: { id: true, groupId: true, deviceId: true, contractDeviceId: true },
+    });
+  }
+
+  endAssignments(ids: string[], reason: GroupExit, at: Date, tx: Prisma.TransactionClient) {
+    return tx.groupAssignment.updateMany({
+      where: { id: { in: ids }, endedAt: null },
+      data: { endedAt: at, endedReason: reason },
+    });
+  }
+
+  openAssignment(
+    data: Pick<
+      Prisma.GroupAssignmentUncheckedCreateInput,
+      'groupId' | 'deviceId' | 'contractDeviceId' | 'assignedById'
+    >,
+    assignedAt: Date,
+    tx: Prisma.TransactionClient,
+  ) {
+    return tx.groupAssignment.create({ data: { ...data, assignedAt } });
   }
 }

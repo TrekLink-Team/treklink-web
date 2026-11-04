@@ -56,17 +56,22 @@ describe('ContractsRepository.findInCustody (monitoring design §4)', () => {
           handedOverAt: { not: null },
           checkedInAt: null,
           lostAt: null,
+          releasedAt: null,
           contract: { organizationId: 'org-1' },
         },
       }),
     );
     // The custody interval's start travels with the row (monitoring REQ-UBI-04, D-092 rule 2).
     const [query] = findMany.mock.calls[0] as [{ select: Record<string, unknown> }];
-    expect(query.select).toMatchObject({ handedOverAt: true });
+    expect(query.select).toMatchObject({
+      handedOverAt: true,
+      groupAssignments: { where: { endedAt: null, group: { removedAt: null } } },
+      faultReports: { where: { resolvedAt: null } },
+    });
     await repository.findInCustody(null);
     expect(findMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { handedOverAt: { not: null }, checkedInAt: null, lostAt: null },
+        where: { handedOverAt: { not: null }, checkedInAt: null, lostAt: null, releasedAt: null },
       }),
     );
   });

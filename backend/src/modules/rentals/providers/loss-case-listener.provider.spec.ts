@@ -1,6 +1,6 @@
 import { ContractStatus, LossCustody, LossDecision, Prisma } from '@prisma/client';
 import { LossCaseView } from '../../devices';
-import { ContractsService } from '../contracts.service';
+import { CustodyService } from '../custody.service';
 import { RentalsLossCaseListener } from './loss-case-listener.provider';
 
 const TX = { tx: true } as unknown as Prisma.TransactionClient;
@@ -23,20 +23,23 @@ const lossCase = (overrides: Partial<LossCaseView> = {}): LossCaseView => ({
 });
 
 describe('RentalsLossCaseListener (the rentals side of LOSS_CASE_LISTENERS, task 1.3)', () => {
-  let contracts: { onLossSettled: jest.Mock };
-  let repository: { lockById: jest.Mock; returnCounts: jest.Mock };
+  let custody: { closeCustody: jest.Mock };
+  let repository: { lockById: jest.Mock; returnCounts: jest.Mock; custodyUnit: jest.Mock };
   let lifecycle: { apply: jest.Mock };
   let listener: RentalsLossCaseListener;
 
   beforeEach(() => {
-    contracts = { onLossSettled: jest.fn().mockResolvedValue(undefined) };
+    custody = { closeCustody: jest.fn().mockResolvedValue(undefined) };
     repository = {
-      lockById: jest.fn().mockResolvedValue({ id: 'c-1', status: ContractStatus.ACTIVE }),
+      lockById: jest
+        .fn()
+        .mockResolvedValue({ id: 'c-1', organizationId: 'org-1', status: ContractStatus.ACTIVE }),
       returnCounts: jest.fn().mockResolvedValue({ total: 2, returned: 2 }),
+      custodyUnit: jest.fn().mockResolvedValue({ id: 'cd-1', deviceId: 'dev-9' }),
     };
     lifecycle = { apply: jest.fn().mockResolvedValue({ status: ContractStatus.RETURNED }) };
     listener = new RentalsLossCaseListener(
-      contracts as unknown as ContractsService,
+      custody as unknown as CustodyService,
       [],
       repository as never,
       lifecycle as never,
@@ -46,7 +49,7 @@ describe('RentalsLossCaseListener (the rentals side of LOSS_CASE_LISTENERS, task
   it('registers itself under LOSS_CASE_LISTENERS at boot, once', () => {
     const tokenArray: unknown[] = [];
     const booted = new RentalsLossCaseListener(
-      contracts as unknown as ContractsService,
+      custody as unknown as CustodyService,
       tokenArray as never,
       repository as never,
       lifecycle as never,
@@ -59,8 +62,15 @@ describe('RentalsLossCaseListener (the rentals side of LOSS_CASE_LISTENERS, task
   it.each([LossDecision.CHARGED, LossDecision.REDUCED, LossDecision.WAIVED])(
     'sets lostAt to the confirmation time inside the caller transaction when settled %s (REQ-EVT-12)',
     async (decision) => {
-      await listener.onSettled(lossCase(), decision, TX);
-      expect(contracts.onLossSettled).toHaveBeenCalledWith('cd-1', CONFIRMED, TX);
+      const settledAt = new Date('2026-11-21T03:00:00.000Z');
+      await listener.onSettled(lossCase({ settledAt }), decision, TX);
+      expect(custody.closeCustody).toHaveBeenCalledWith(
+        'org-1',
+        [{ id: 'cd-1', deviceId: 'dev-9' }],
+        { reason: 'LOST', confirmedAt: CONFIRMED },
+        settledAt,
+        TX,
+      );
     },
   );
 
@@ -100,16 +110,16 @@ describe('RentalsLossCaseListener (the rentals side of LOSS_CASE_LISTENERS, task
       LossDecision.WRITTEN_OFF,
       TX,
     );
-    expect(contracts.onLossSettled).not.toHaveBeenCalled();
+    expect(custody.closeCustody).not.toHaveBeenCalled();
   });
 
   it('does nothing on confirmation', async () => {
     await listener.onConfirmed();
-    expect(contracts.onLossSettled).not.toHaveBeenCalled();
+    expect(custody.closeCustody).not.toHaveBeenCalled();
   });
 
   it('lets a refused lostAt fail the settlement, so the caller transaction rolls back', async () => {
-    contracts.onLossSettled.mockRejectedValue(new Error('The custody interval is already closed.'));
+    custody.closeCustody.mockRejectedValue(new Error('The custody interval is already closed.'));
     await expect(listener.onSettled(lossCase(), LossDecision.CHARGED, TX)).rejects.toThrow(
       'already closed',
     );

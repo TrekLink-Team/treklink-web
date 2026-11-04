@@ -65,6 +65,8 @@ def errors_for(ep):
 
 def activity(ep, errs):
     """Guards in order (each a yes-branch to its error), then the happy-path steps."""
+    if ep.get("activity"):
+        return "\n".join(["flowchart TB"] + ["    " + line for line in ep["activity"]])
     public = is_public(ep)
     lines = ["flowchart TB", "    S((Start))",
              f'    A0["{"Accept request" if public else "Check token, policy and organization scope"}"]', "    S --> A0"]

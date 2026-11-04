@@ -16,7 +16,7 @@ GROUP = {"id": "g-1", "name": "Ranger patrol north", "label": "ranger patrol", "
          "deviceCount": 3, "createdAt": NOW, "updatedAt": NOW}
 G_PATH = ["id", "Group id; members may use only their own organization's", "uuid", "`g-1`"]
 G_DEPTH = (409, "GROUP_DEPTH_EXCEEDED", "The parent's depth plus one plus the height of the group's own subgroups "
-           "exceeds `rentals.groupMaxDepth`, or the parent is the group itself or one of its subgroups", "Groups can be nested only 1 level(s) deep. Choose a top-level group as the parent.")
+           "exceeds `rentals.groupMaxDepth`, or the parent is the group itself or one of its subgroups", "Groups can be nested only 1 level(s) deep. Choose a parent with room for this group and its subgroups.")
 G_UNIQUE = (409, "CONFLICT_UNIQUE", "A live group of the organization with the same parent has that name",
             "A group with this name already exists here.")
 C_PATH = ["id", "Contract id; members may use only their own organization's", "uuid", f"`{CONTRACT_ID}`"]
@@ -652,8 +652,8 @@ ENDPOINTS = [
        "Moves each named device into the group: its open assignment elsewhere ends `MOVED` and one opens here "
        "against its live contract row (FR-CON-18, BR-46). Every device must be held by the organization now; one "
        "that is not, its own returned device or another organization's, refuses the whole request with the same "
-       "answer. A device already in the group is left as it is. Locks: the group row, then the devices in ascending "
-       "`deviceId` order (design §11.4), so two overlapping batches cannot deadlock. Audited per device as "
+       "answer. A device already in the group is left as it is. Take the organization tree lock, the group row "
+       "lock, then the device locks in ascending `deviceId` order before reading custody (design §11.4). Audited per device as "
        "`group.deviceAssigned`.",
        "UC-68, FR-CON-18, BR-46, E04-8, MSG17",
        path=[G_PATH],
@@ -665,12 +665,25 @@ ENDPOINTS = [
                (404, "NOT_FOUND", "Not a live group of the organization", "Not found."),
                (409, "DEVICE_NOT_HELD", "A device has no live, handed-over row on a contract of the organization",
                 "This device is not held by your organization now.")],
-       steps=["Lock the group", "Find each device's live row of the organization",
-              "Per-device advisory locks in ascending deviceId",
-              "End the open assignment elsewhere, open one here", "Audit; emit device.groupChanged"],
+       activity=[
+           'S((Start)) --> A["Check token and policy"]',
+           'A --> B{"Valid device list?"}',
+           'B -->|no| E400["Return 400 VALIDATION_FAILED"]',
+           'B -->|yes| G["Lock the organization tree and target group"]',
+           'G --> L{"Live group of this organization?"}',
+           'L -->|no| E404["Return 404 NOT_FOUND"]',
+           'L -->|yes| D["Lock devices in deviceId order and read live custody"]',
+           'D --> H{"Every device held now?"}',
+           'H -->|no| E409["Return 409 DEVICE_NOT_HELD"]',
+           'H -->|yes| W["Move changed assignments and commit"]',
+           'W --> V["Emit audit and group-change events"]',
+           'V --> OK["Return 200"]',
+           'E400 --> Z((End))', 'E404 --> Z', 'E409 --> Z', 'OK --> Z',
+       ],
        controller="GroupsController", service="GroupsService", call="assign(id, deviceIds, actor)",
-       seq=["Svc->>DB: SELECT group FOR UPDATE", "Svc->>DB: SELECT live contract_devices of the organization",
-            "Svc->>DB: pg_advisory_xact_lock per device, sorted by deviceId", "Svc->>DB: UPDATE then INSERT group_assignments"]),
+       seq=["Svc->>DB: Acquire organization tree lock and lock the group row",
+            "Svc->>DB: Acquire per-device advisory locks in deviceId order",
+            "Svc->>DB: SELECT live contract_devices of the organization", "Svc->>DB: UPDATE then INSERT group_assignments"]),
 
     ep("DELETE", "/api/groups/:id/devices/:deviceId", "Take a device out of its group", "Org Manager",
        "Ends the device's open assignment in this group with `UNASSIGNED`; the device stays rented and ungrouped. "
@@ -680,9 +693,23 @@ ENDPOINTS = [
        response={"groupId": "g-2", "deviceId": DEVICE_ID, "endedAt": NOW},
        message="Device removed from the group", entity="Group assignment",
        errors=[(404, "NOT_FOUND", "Not a live group of the organization, or the device is not in it", "Not found.")],
-       steps=["Lock the assignment", "End it", "Audit; emit device.groupChanged"],
+       activity=[
+           'S((Start)) --> A["Check token and policy"]',
+           'A --> G["Lock the organization tree and target group"]',
+           'G --> L{"Live group of this organization?"}',
+           'L -->|no| E404["Return 404 NOT_FOUND"]',
+           'L -->|yes| D["Lock the device and read its open assignment"]',
+           'D --> H{"Device assigned to this group?"}',
+           'H -->|no| E404',
+           'H -->|yes| W["End the assignment and commit"]',
+           'W --> V["Emit audit and group-change events"]',
+           'V --> OK["Return 200"]',
+           'E404 --> Z((End))', 'OK --> Z',
+       ],
        controller="GroupsController", service="GroupsService", call="unassign(id, deviceId, actor)",
-       seq=["Svc->>DB: UPDATE group_assignments SET endedAt, endedReason = UNASSIGNED"]),
+       seq=["Svc->>DB: Acquire organization tree, group row and device locks",
+            "Svc->>DB: SELECT the device's open group assignment",
+            "Svc->>DB: UPDATE group_assignments SET endedAt, endedReason = UNASSIGNED"]),
 
     ep("POST", "/api/contracts/:id/devices/:deviceId/fault-reports", "Report a device fault", "Org Manager",
        "Records a fault on a `RENTED` device of one of the organization's contracts against its live row, with the "

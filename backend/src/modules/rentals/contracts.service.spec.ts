@@ -25,7 +25,6 @@ describe('ContractsService', () => {
     contracts = {
       findCustody: jest.fn().mockResolvedValue(custody()),
       countUnfinishedContracts: jest.fn().mockResolvedValue(0),
-      setLostAt: jest.fn().mockResolvedValue(undefined),
     };
     // The request's collaborators are exercised in contracts.service.request.spec.ts.
     service = new ContractsService(
@@ -86,11 +85,6 @@ describe('ContractsService', () => {
     await expect(service.canClose('org-1', tx)).resolves.toBe(false);
     expect(contracts.countUnfinishedContracts).toHaveBeenLastCalledWith('org-1', tx);
   });
-
-  it('ends the custody interval at the loss confirmation, in the caller transaction (REQ-EVT-12)', async () => {
-    await service.onLossSettled('cd-1', CHECK_IN, tx);
-    expect(contracts.setLostAt).toHaveBeenCalledWith('cd-1', CHECK_IN, tx);
-  });
 });
 
 describe('ContractsService.visibleDevices (monitoring design §4)', () => {
@@ -102,6 +96,8 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
           contractId: 'c-1',
           handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
           holderName: 'Le Thi E',
+          groupAssignments: [{ group: { id: 'g-1', name: 'Trail', parentId: null } }],
+          faultReports: [{ id: 'fault-1' }],
           contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
         },
         {
@@ -109,6 +105,8 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
           contractId: 'c-1',
           handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
           holderName: null,
+          groupAssignments: [],
+          faultReports: [],
           contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
         },
       ]),
@@ -130,6 +128,8 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
         organizationId: 'org-1',
         handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
         holder: { name: 'Le Thi E' },
+        group: { id: 'g-1', name: 'Trail', parentId: null },
+        openFaultReportId: 'fault-1',
       },
       {
         deviceId: 'd-2',
@@ -138,6 +138,8 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
         organizationId: 'org-1',
         handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
         holder: null,
+        group: null,
+        openFaultReportId: null,
       },
     ]);
     expect(contracts.findInCustody).toHaveBeenCalledWith('org-1');

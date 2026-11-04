@@ -8,7 +8,7 @@ import {
 } from '../../devices';
 import { ContractLifecycleService } from '../contract-lifecycle.service';
 import { ContractsRepository } from '../contracts.repository';
-import { ContractsService } from '../contracts.service';
+import { CustodyService } from '../custody.service';
 import { DUE } from '../return.service';
 
 // rentals' side of the devices port LOSS_CASE_LISTENERS (task 1.3, REQ-EVT-12, D-045): a settled
@@ -21,7 +21,7 @@ import { DUE } from '../return.service';
 @Injectable()
 export class RentalsLossCaseListener implements LossCaseListener, OnModuleInit {
   constructor(
-    private readonly contracts: ContractsService,
+    private readonly custody: CustodyService,
     // Required: devices provides the array, and a missing token must fail at boot, never leave
     // rentals silently unregistered (no lostAt on a settled case).
     @Inject(LOSS_CASE_LISTENERS)
@@ -43,9 +43,19 @@ export class RentalsLossCaseListener implements LossCaseListener, OnModuleInit {
   ): Promise<void> {
     const contract = lossCase.custodyContract;
     if (!contract || !lossCase.confirmedAt) return;
-    await this.contracts.onLossSettled(contract.contractDeviceId, lossCase.confirmedAt, tx);
-
     const current = await this.repository.lockById(contract.contractId, tx);
+    const unit = await this.repository.custodyUnit(
+      contract.contractId,
+      contract.contractDeviceId,
+      tx,
+    );
+    await this.custody.closeCustody(
+      current.organizationId,
+      [unit],
+      { reason: 'LOST', confirmedAt: lossCase.confirmedAt },
+      lossCase.settledAt ?? lossCase.confirmedAt,
+      tx,
+    );
     if (!DUE.includes(current.status)) return;
     const { total, returned } = await this.repository.returnCounts(contract.contractId, tx);
     if (returned !== total) return;

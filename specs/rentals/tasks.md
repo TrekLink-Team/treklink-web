@@ -204,21 +204,24 @@
 
 Specified 2026-11-03 in requirements REQ-UBI-06, REQ-UBI-07, REQ-EVT-20 to REQ-EVT-25, REQ-ERR-13 to REQ-ERR-16,
 AC-10 to AC-14 and design §11; endpoints api-design 22 to 29 (treklink-web#305).
-US-UC67 is tracked as TK-188 for the group foundation and API.
+US-UC67 is tracked as TK-188 for the group foundation and API. US-UC68 is tracked as TK-189 for assignments and custody.
 
-- [ ] 9.1 Schema, constraints, parameter and permissions (owner LongLP)
+- [x] 9.1 Schema, constraints, parameter and permissions (owner LongLP)
   - **Files**: `backend/prisma/schema.prisma`, a forward migration, `backend/prisma/constraints.sql`, `scripts/specs/catalog.py`, `specs/auth/permission-matrix.md`, `specs/platform/configuration-matrix.md`
   - **Do**: `Group`, `GroupAssignment`, `DeviceFaultReport` and the enums `GroupExit`, `FaultResolution` of design §11.2 (both with `RELEASED`, and `LOST` on `FaultResolution`); the partial unique indexes `groups_live_name`, `group_assignments_one_open` and the one open fault report per row; the `endsOn >= startsOn` CHECK; `rentals.groupMaxDepth`; the six permissions of §11.5 as a forward migration (the applied seed migration is never edited); error codes `GROUP_DEPTH_EXCEEDED`, `DEVICE_NOT_HELD`, `FAULT_ALREADY_REPORTED`
   - **Verification**: `test/rental-groups.db-spec.ts` covers the partial indexes, date ordering, the same-organization parent key, the depth parameter and the default role grants.
+  - **Done** (2026-11-04, treklink-web#374): merged the schema, constraints, depth parameter and role grants into `dev`.
   - _Requirements: REQ-UBI-06, REQ-UBI-07, BR-46_
-- [ ] 9.2 Groups: tree, create, edit, remove (owner LongLP)
+- [x] 9.2 Groups: tree, create, edit, remove (owner LongLP)
   - **Files**: `backend/src/modules/rentals/groups.repository.ts`, `groups.service.ts`, `groups.controller.ts`, `dto/groups.dto.ts`
   - **Do**: api-design 22 to 25; depth from `rentals.groupMaxDepth` read per request; removal ends the open assignments of the group and its subgroups in one transaction; `version` on edit; audit after commit
   - **Verification**: `groups.service.spec.ts` covers the depth refusal and removal events after commit. `test/rental-groups-http.db-spec.ts` exercises role and tenant scope, depth changes, stale edits and subtree removal through HTTP against Postgres.
+  - **Done** (2026-11-04, treklink-web#374): merged API designs 22 through 25 into `dev`.
   - _Requirements: REQ-EVT-20, REQ-EVT-21, REQ-EVT-25, REQ-ERR-13, REQ-ERR-15, AC-11_
 - [ ] 9.3 Assignments and the custody hooks (owner LongLP)
   - **Files**: `custody.service.ts` (new), `groups.service.ts`, `return.service.ts`, `replacement.service.ts`, `providers/loss-case-listener.provider.ts`, `contracts.repository.ts`, `contracts.service.ts` (`visibleDevices`)
   - **Do**: api-design 26 and 27 with the lock order of design §11.4 (group rows by `id`, then devices by sorted `deviceId`); `closeCustody` as the only writer of a row's close (check-in, settled loss, replacement, and the release once it is specified), ending the assignment and resolving the fault report; `passOn` at replacement; `visibleDevices` returns the group and the open fault report; `device.groupChanged` after commit
+  - **Verification**: `test/rental-groups-http.db-spec.ts` covers mixed-tenant batches, concurrent moves, unassign, the visible group and fault report, and cleanup on check-in.
   - _Requirements: REQ-EVT-22, REQ-EVT-23, REQ-ERR-14, AC-10, AC-13_
 - [ ] 9.4 Fault reports (owner LongLP)
   - **Files**: `fault-reports.service.ts`, `fault-reports.controller.ts`, `contract-notifications.listener.ts`

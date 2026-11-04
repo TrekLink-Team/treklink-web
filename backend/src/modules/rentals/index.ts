@@ -31,3 +31,4 @@ export {
 } from './ports/contract-close-checks.port';
 export { DEVICE_HANDED_OVER, type DeviceHandedOverEvent } from './handover.service';
 export { DEVICE_CHECKED_IN, type DeviceCheckedInEvent } from './return.service';
+export { DEVICE_GROUP_CHANGED, type DeviceGroupChangedEvent } from './groups.service';

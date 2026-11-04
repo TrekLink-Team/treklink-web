@@ -105,7 +105,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
         { id: 'cd-1', deviceId: 'd-1' },
         { id: 'cd-2', deviceId: 'd-2' },
       ]),
-      markCheckedIn: jest.fn().mockResolvedValue(undefined),
+      closeCustody: jest.fn().mockResolvedValue(undefined),
       insertReplacementRow: jest.fn().mockResolvedValue({ id: 'cd-3' }),
       detail: jest.fn().mockResolvedValue({ ...contract(), terms: [], devices: [] }),
     };
@@ -145,13 +145,25 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
         partyA: jest.fn().mockResolvedValue({ name: 'Staff One', role: 'TrekLink Staff' }),
       } as unknown as HandoverService,
       events as unknown as TransactionalEvents,
+      { closeCustody: contracts.closeCustody } as never,
     );
   });
 
   it('checks in the faulty unit, provisions and hands over the replacement on its own row', async () => {
     const replaced = await service.replace('c-1', 'd-1', INPUT, STAFF, AT);
 
-    expect(contracts.markCheckedIn).toHaveBeenCalledWith(['cd-1'], AT, 'u-staff', TX);
+    expect(contracts.closeCustody).toHaveBeenCalledWith(
+      'org-1',
+      [{ id: 'cd-1', deviceId: 'd-1' }],
+      {
+        reason: 'REPLACED',
+        checkedIn: true,
+        actorId: STAFF.id,
+        replacement: { id: 'cd-3', deviceId: 'd-9' },
+      },
+      AT,
+      TX,
+    );
     const move = { contractId: 'c-1', contractCode: 'RC-2026-0001', actorId: STAFF.id };
     expect(devices.markReturned).toHaveBeenCalledWith(['d-1'], AT, TX, {
       ...move,
@@ -204,7 +216,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
   it('keeps the live rows equal to the quantity: one checked in, one added', async () => {
     await service.replace('c-1', 'd-1', INPUT, STAFF, AT);
     const out = 2;
-    const [[checkedIn]] = contracts.markCheckedIn.mock.calls as [string[]][];
+    const [[, checkedIn]] = contracts.closeCustody.mock.calls as [string, unknown[]][];
     const added = contracts.insertReplacementRow.mock.calls.length;
     expect(out - checkedIn.length + added).toBe(contract().quantity);
   });
@@ -225,7 +237,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
         message: `This cannot be done while it is ${status}.`,
       });
       expect(devices.takeForReplacement).not.toHaveBeenCalled();
-      expect(contracts.markCheckedIn).not.toHaveBeenCalled();
+      expect(contracts.closeCustody).not.toHaveBeenCalled();
     },
   );
 
@@ -281,7 +293,18 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
 
     devices.hasOpenLossCase.mockResolvedValue(true);
     await service.replace('c-1', 'd-1', away, STAFF, AT);
-    expect(contracts.markCheckedIn).not.toHaveBeenCalled();
+    expect(contracts.closeCustody).toHaveBeenCalledWith(
+      'org-1',
+      [{ id: 'cd-1', deviceId: 'd-1' }],
+      {
+        reason: 'REPLACED',
+        checkedIn: false,
+        actorId: STAFF.id,
+        replacement: { id: 'cd-3', deviceId: 'd-9' },
+      },
+      AT,
+      TX,
+    );
     expect(devices.markReturned).not.toHaveBeenCalled();
     expect(emitted.map(([name]) => name)).not.toContain(DEVICE_CHECKED_IN);
   });

@@ -30,7 +30,7 @@ import { HandoverService } from '../src/modules/rentals/handover.service';
 // handover through the real services. Every fixture carries a fresh run ID and is never deleted.
 
 // A 1 x 1 PNG, the smallest signature the handover accepts.
-const SIGNATURE =
+export const SIGNATURE =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 export const DAY_MS = 86_400_000;

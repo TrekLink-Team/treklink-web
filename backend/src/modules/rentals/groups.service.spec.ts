@@ -44,6 +44,7 @@ describe('GroupsService', () => {
       { getUncached: jest.fn().mockResolvedValue(1) } as unknown as ParameterService,
       { assertCanUseRentalGroups: jest.fn() } as unknown as OrganizationsService,
       events,
+      {} as never,
     );
     return { service, groups, emit };
   }
