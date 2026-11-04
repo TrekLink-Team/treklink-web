@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { cn } from '../../shared/ui';
-import { capabilityText, specLines, type VariantMedia } from './spec';
+import { capabilityText, specLines, type VariantMedia, type VariantRender } from './spec';
+import { VariantImage } from './VariantImage';
 
-export const NO_IMAGE_TEXT = 'Variant image not added yet';
+export { NO_IMAGE_TEXT } from './VariantImage';
 
 interface Props {
   variant: VariantMedia;
+  // The icon render (96 px, beside the text) for lists and cards; the detail render (160 px, above the text)
+  // for detail panes and the device page (design section 10, "Two renders per variant").
+  render?: VariantRender;
   // The level of the variant name, so the card fits the heading order of the page it is on.
   headingLevel?: 'h2' | 'h3' | 'h4';
   // For a control that names itself after the card (aria-labelledby).
@@ -16,36 +20,23 @@ interface Props {
 }
 
 // The card of a hardware variant (specs/devices/design.md section 10, UI conventions E-2): an image slot,
-// the name and the spec summary in the fixed key order. No photo, or one that does not load, shows the
+// the name and the spec summary in the fixed key order. No image, or one that does not load, shows the
 // labelled empty slot instead of a broken image.
 export const VariantCard: React.FC<Props> = ({
   variant,
+  render = 'icon',
   headingLevel = 'h3',
   headingId,
   children,
   className,
 }) => {
-  const [failed, setFailed] = useState<string | null>(null);
-  const showImage = variant.imageUrl !== null && failed !== variant.imageUrl;
   const lines = specLines(variant.specSheet);
   const capabilities = capabilityText(variant);
   const baseline = variant.firmwareBaseline?.trim() || null;
   const Heading = headingLevel;
   return (
-    <div className={cn('flex min-w-0 gap-3', className)}>
-      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-card border border-line bg-sunken">
-        {showImage ? (
-          <img
-            src={variant.imageUrl ?? undefined}
-            alt={`${variant.name} unit`}
-            loading="lazy"
-            className="h-full w-full object-cover"
-            onError={() => setFailed(variant.imageUrl)}
-          />
-        ) : (
-          <p className="px-1 text-center text-caption text-ink-muted">{NO_IMAGE_TEXT}</p>
-        )}
-      </div>
+    <div className={cn('flex min-w-0 gap-3', render === 'detail' && 'flex-col', className)}>
+      <VariantImage variant={variant} render={render} size={render === 'detail' ? 'lg' : 'md'} />
       <div className="min-w-0">
         <Heading id={headingId} className="text-body font-semibold text-ink">
           {variant.name}

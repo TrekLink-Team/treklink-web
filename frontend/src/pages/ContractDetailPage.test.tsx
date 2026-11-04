@@ -167,6 +167,48 @@ describe('ContractDetailPage', () => {
     expect(screen.queryByRole('link', { name: 'History' })).toBeNull();
   });
 
+  // W17 (devices design section 10, "Two renders per variant"): the icon render on the variant card above
+  // the list, the detail render in the details pane.
+  it('shows the icon render above the Devices list and the detail render in its details pane', () => {
+    const v3 = {
+      id: 'v-3',
+      code: 'treklink-v3',
+      name: 'TrekLink v3',
+      imageUrl: '/variants/treklink-v3-detail.png',
+      specSheet: { mcu: 'ESP32' },
+      hasGps: true,
+      hasMotionSensor: false,
+      mqttCapable: true,
+      firmwareBaseline: '2.7.19-treklink.3',
+    };
+    contract = {
+      ...baseContract,
+      status: 'ACTIVE',
+      devices: [
+        {
+          deviceId: 'd-1',
+          assetTag: 'TL-0009',
+          hardwareVariant: v3,
+          holder: null,
+          handedOverAt: '2026-10-30T09:30:00Z',
+          checkedInAt: null,
+          lostAt: null,
+        },
+      ],
+    };
+    renderPage('t', '?tab=devices');
+    const panel = within(screen.getByRole('tabpanel'));
+    expect(panel.getByRole('img', { name: 'TrekLink v3 unit' }).getAttribute('src')).toBe(
+      '/variants/treklink-v3-icon.png',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0009' }));
+    const pane = within(screen.getByRole('complementary', { name: 'TL-0009' }));
+    expect(pane.getByRole('img', { name: 'TrekLink v3 unit' }).getAttribute('src')).toBe(
+      '/variants/treklink-v3-detail.png',
+    );
+  });
+
   it('shows the reservation expiry while the contract is APPROVED', () => {
     renderPage();
     expect(screen.getByText('Reservation expires')).toBeTruthy();

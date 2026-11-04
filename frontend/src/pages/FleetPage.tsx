@@ -37,6 +37,8 @@ import { BulkActionDialog } from '../shared/ui/BulkAction';
 import type { BulkItem } from '../shared/ui/bulkSequence';
 import { StateChangeDialog, type StateTransition } from '../shared/ui/StateChange';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
+import { VariantCard } from '../entities/variant/VariantCard';
+import { VariantImage } from '../entities/variant/VariantImage';
 import { ALERT } from '../shared/ui/styles';
 import { ClipboardCheck, RotateCcw } from 'lucide-react';
 
@@ -339,7 +341,13 @@ export const FleetPage: React.FC = () => {
     {
       key: 'variant',
       label: 'Variant',
-      render: (device) => <span className="whitespace-nowrap">{device.hardwareVariant.code}</span>,
+      // The icon render beside the code (devices design section 10, "Two renders per variant").
+      render: (device) => (
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          <VariantImage variant={device.hardwareVariant} render="icon" size="sm" />
+          {device.hardwareVariant.code}
+        </span>
+      ),
       text: (device) => device.hardwareVariant.code,
       hideWithPane: true,
     },
@@ -493,7 +501,16 @@ export const FleetPage: React.FC = () => {
               }
             : undefined
         }
-        details={{ href: (device) => `/t/devices/${device.id}`, hrefLabel: 'Open the device page' }}
+        details={{
+          // The detail render in the details pane (devices design section 10). The card names the
+          // variant, so the pane leaves out the Variant field and its icon.
+          fields: fields.map((field) => field.key).filter((key) => key !== 'variant'),
+          image: (device) => (
+            <VariantCard variant={device.hardwareVariant} render="detail" headingLevel="h3" />
+          ),
+          href: (device) => `/t/devices/${device.id}`,
+          hrefLabel: 'Open the device page',
+        }}
         emptyState={
           filtered
             ? { title: MSG01, action: <Button onClick={clearFilters}>Clear filters</Button> }

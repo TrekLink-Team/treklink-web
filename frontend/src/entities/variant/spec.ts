@@ -53,3 +53,25 @@ export const capabilityText = (variant: VariantMedia): string | null => {
   ].filter((name): name is string => name !== null);
   return names.length > 0 ? names.join(', ') : 'None';
 };
+
+// The two renders of a variant (design section 10, "Two renders per variant"). `imageUrl` names the detail
+// render; the icon render is found by name, a final `-detail.<ext>` becoming `-icon.<ext>`
+// (`/variants/treklink-v3-detail.png` gives `/variants/treklink-v3-icon.png`). A value without that suffix,
+// such as an https photo, serves both places. A query string or fragment keeps the value as it is.
+const DETAIL_SUFFIX = /-detail(\.(?:png|jpe?g|webp))$/i;
+
+export type VariantRender = 'detail' | 'icon';
+
+export const iconUrlOf = (imageUrl: string): string => imageUrl.replace(DETAIL_SUFFIX, '-icon$1');
+
+// The sources to try in order for one render: the icon falls back to the detail render, which falls back
+// to the empty slot. No source at all means the variant has no image.
+export const imageSources = (
+  imageUrl: string | null | undefined,
+  render: VariantRender,
+): string[] => {
+  if (typeof imageUrl !== 'string' || imageUrl.trim() === '') return [];
+  if (render === 'detail') return [imageUrl];
+  const icon = iconUrlOf(imageUrl);
+  return icon === imageUrl ? [imageUrl] : [icon, imageUrl];
+};

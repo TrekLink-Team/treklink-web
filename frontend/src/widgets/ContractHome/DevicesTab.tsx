@@ -163,7 +163,8 @@ export const DevicesTab: React.FC<Props> = ({
     <div className="flex flex-col gap-3">
       {variant && (
         <div className="rounded-panel border border-line bg-surface p-3 shadow-raise">
-          <VariantCard variant={variant} headingLevel="h2">
+          {/* The icon render above the list, the detail render in the details pane (design section 10). */}
+          <VariantCard variant={variant} render="icon" headingLevel="h2">
             <p className="mt-1 text-body-sm text-ink-muted">
               {contract.quantity} {contract.quantity === 1 ? 'unit' : 'units'} of this variant on{' '}
               {contract.code}
@@ -209,7 +210,9 @@ export const DevicesTab: React.FC<Props> = ({
         ]}
         views={['details', 'list', 'cards']}
         details={{
-          image: variant ? () => <VariantCard variant={variant} headingLevel="h3" /> : undefined,
+          image: variant
+            ? () => <VariantCard variant={variant} render="detail" headingLevel="h3" />
+            : undefined,
           extra: (device) =>
             device.holder?.phone || device.holder?.emergencyContact ? (
               <dl className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-x-3 gap-y-2 text-body-sm">
