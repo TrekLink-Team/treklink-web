@@ -187,7 +187,13 @@ describe('LiveMapPage (screen 9.1)', () => {
       deviceId: 'd-9',
       payload: { incidentId: 'i-1', state: 'NOTIFY_PRIMARY' },
     });
-    expect(await marker('TL-0009, Tran B, SOS, state Notifying primary')).toBeTruthy();
+    // An open SOS leads the name, right after the asset tag (review of treklink-web#367).
+    const sos = await screen.findByRole('img', { name: /^TL-0009, SOS, / });
+    expect(sos.getAttribute('aria-label')).toBe(
+      `TL-0009, SOS, Notifying primary, live, last seen ${formatDateTime(
+        snapshot.devices[0].lastSeenAt as string,
+      )}, Tran B`,
+    );
     expect(panel().getByText('1 device, 1 SOS open')).toBeTruthy();
     expect(panel().getByRole('link', { name: 'Open incident' }).getAttribute('href')).toBe(
       '/o/incidents/i-1',
