@@ -64,6 +64,7 @@ Since D-096 (2026-11-04) the same four steps also run inside the contract home's
 | Wrong unit docked (REQ-ERR-12) | "The docked unit is {nodeId}, not {assetTag}. Nothing was written." on the row |
 | Write failed, read-back differs, unit disconnected or port busy (REQ-ERR-13) | The failed step named on the row, then "Dock {assetTag} again before handover."; nothing recorded |
 | Error `NODE_MISMATCH` (409, rentals 09 and 21) | As wrong unit docked |
+| Error `CHANNEL_KEY_EXPOSED` (409, rentals 09, 15 and 21) | The server's `message` on the row ("The organization's channel key is exposed. Rotate it before writing it to a unit."); nothing was written or recorded; the counter asks Staff to rotate the key (organizations 27) before docking again; no SRS code |
 | Error `KEY_VERSION_MISMATCH` (409, rentals 09) | MSG24; the page reloads organizations 03 for the current version |
 | Error `INSUFFICIENT_DEVICES` (409, rentals 07) | MSG11 dialog: no replacement exists, so the handover is held (E01-5) |
 | Error `FIRST_PAYMENT_MISSING` (409, rentals 10) | MSG23 on step 2, with the link to screen 6.3 |
