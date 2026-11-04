@@ -134,13 +134,53 @@ A Node.js program in `treklink-web/gateway/`, packaged as one executable per OS 
 
 | Part | Design |
 |---|---|
-| Serial reader | Meshtastic serial protocol over the USB COM port of one rented node; decodes `FromRadio` packets into the stock JSON shape |
+| Serial reader | Meshtastic client API over the USB port of one rented node (§3.1); decodes `FromRadio` packets into the stock JSON shape. The simulator runs instead only when `GATEWAY_SERIAL_SIMULATION` is `true` |
 | Queue | SQLite in WAL mode, table `queue(localSeq INTEGER PRIMARY KEY, tier INT, eventJson TEXT, capturedAt INTEGER, attempts INT, flushedAt)`; `capturedAt` is the station clock in epoch milliseconds when the packet came off the serial port; insert before anything else |
 | Flush | One in-flight batch: `SELECT ... WHERE flushedAt IS NULL ORDER BY tier, localSeq LIMIT 50`; publish each with QoS 1, adding `fs_captured_at` (the row's `capturedAt`) and `fs_sent_at` (the station clock at publish) to the top level of the stock JSON; set `flushedAt` on its PUBACK. When the connection drops, the station discards the MQTT client's own copies of the publishes still waiting for a PUBACK, so the client does not resend them on reconnect ahead of the flush; those rows stay queued and go out again in tier order (NFR-REL-04). The backend offset `receivedAt - fs_sent_at` corrects the station clock on every publish; transit time makes the corrected time slightly late, never early |
 | Bound | `QUEUE_MAX_ROWS` (environment `GATEWAY_QUEUE_MAX_ROWS`, requirements §4); on overflow delete the oldest P3, then P2, in the insert's transaction, each shed logged with its tier and local id; never P0 or P1, so with only those left the queue runs over its bound and logs it |
 | Broker credential | `GATEWAY_FS_USERNAME` and `GATEWAY_FS_SECRET`, the Username and Secret of the station's credential (§4, organizations api-design 24), sent as the MQTT username and password only when both are set; with either empty the client connects without credentials. `MQTT_BROKER_URL` takes `mqtt://` or `mqtts://`; a new credential carries `FIELD_STATION_BROKER_URL`, else `MQTT_BROKER_URL` (`field-stations.service.ts:101-103`), and the example in `.env.example` is `mqtts://mqtt.treklink.vn:8883`. The secret is never logged, and user information in the broker URL is removed before the URL is logged |
 | Health | every 60 s while connected, publish depth per tier, the oldest `attempts` and the executable's version to `treklink/fs/<username>/health` (FR-EVT-18) |
 | Local page | `127.0.0.1:4321` (`GATEWAY_LOCAL_PORT`), the routes of `field-station-local-page.md`; `gateway/src/local/`, the page in `gateway/local-page/`. Every route reads memory or the local SQLite file, never the network, so the page answers with the uplink down (REQ-STA-02) |
+
+
+### 3.1 Serial reader (task 5.1, W11)
+
+`gateway/src/serial/`. Chosen by `GATEWAY_SERIAL_SIMULATION` alone: `true` runs the frame simulator and
+opens no port; `false` or unset reads the port; any other value stops the gateway at start
+(requirements §4). A station that forgets the variable reads its radio rather than inventing packets,
+so no simulated data reaches a checkpoint unlisted (D-093).
+
+| Step | Design |
+|---|---|
+| Packages | `@meshtastic/core` 2.6.7, the version of the frontend docking adapter (`frontend/src/features/device-connector/`, treklink-web#351), with `@meshtastic/transport-node-serial` 0.0.2 (Node `serialport` 13) in place of the browser's Web Serial transport, and `@bufbuild/protobuf` 2 for `fromBinary` on core's schemas, which core does not export. Both Meshtastic packages are ESM only; the gateway stays CommonJS and loads them through Node's `require` of ES modules, so it needs Node 22.12 or later. Both are GPL-3.0-only, like the frontend's copy: shipping the station executable to organizations carries the source offer of the GPL **(open: licence ruling for the packaged executable, leader)** |
+| Open | `TransportNodeSerial.create(GATEWAY_SERIAL_PORT, GATEWAY_SERIAL_BAUD)`, then a `MeshDevice` on it. On open the reader calls `configure()`, which sends `ToRadio.want_config_id`: until a client asks, the node writes only its debug log to the port and no `FromRadio`. It sends a heartbeat every 5 minutes, because a serial client the node does not hear from for 15 minutes times out (core's `MeshDevice.heartbeat()` documentation) |
+| Framing | `Utils.fromDeviceStream()` of core: each frame is `0x94 0xC3`, a 16-bit big-endian length, then that many bytes of `FromRadio`; bytes outside a frame are the node's debug log and are not packets |
+| Station node | `MyNodeInfo.my_node_num` from the configuration answer; it is the `sender` of every packet the station queues, as the stock serializer names the uplinking node (mqtt-ingress-contract.md, field `sender`). Packets heard before it arrives wait for it |
+| Packets | Every `MeshPacket` with a `decoded` payload (`MeshDevice.events.onMeshPacket`) is turned into the stock JSON shape by `toStockPacket` (table below) and handed to the queue with the tier of `tierOf`: an SOS text P0, a position P2, telemetry P3, other text P2. The `eventId` of the queue row is `<sender>:<from>:<id>`, so the same packet heard again is not queued twice |
+| Skipped | A packet still encrypted (no channel key on the node), a port number other than text, position and telemetry (node info, routing, admin and the rest), a telemetry message without device metrics, and a frame that does not decode: each is skipped at debug level and the read goes on (REQ-ERR-08) |
+| Port lost | An open that fails, a port that closes or errors: logged, `reading` false on the local page, and a new open every `GATEWAY_SERIAL_RECONNECT_MS`; the queue and the uplink go on (REQ-ERR-07) |
+
+The stock JSON shape, member by member, as `toStockPacket` writes it from a `MeshPacket`. Members marked
+"when set" are left out when the protobuf field is zero or empty, as the serializer leaves them out
+**(unverified against FGT §4 for the optional members, which the backend does not read; checked against
+the bench units in task 5.1)**:
+
+| Member | From | |
+|---|---|---|
+| `id`, `from`, `to`, `channel` | `MeshPacket.id`, `from`, `to`, `channel` | always |
+| `timestamp` | `rx_time`; 0 when the node has no time, stored as unknown (REQ-UBI-04) | always |
+| `type` | `text` for `TEXT_MESSAGE_APP`, `position` for `POSITION_APP`, `telemetry` for `TELEMETRY_APP` | always |
+| `sender` | `!` and the eight lower-case hex digits of the station node | always |
+| `rssi`, `snr` | `rx_rssi`, `rx_snr` | when set |
+| `hops_away`, `hop_start` | `hop_start - hop_limit`, `hop_start` | when `hop_start` is set |
+| `payload` of `text` | `{ text }`, the UTF-8 payload | always |
+| `payload` of `position` | `latitude_i`, `longitude_i` always; `altitude`, `time` when set | |
+| `payload` of `telemetry` | from `device_metrics`: `battery_level`, `voltage`, `channel_utilization`, `air_util_tx`, `uptime_seconds`, each when set | |
+
+The tests read frames recorded as hex in `gateway/test/fixtures/serial/` through the same framing and
+decoding, and drive a `MeshDevice` over a transport that replays them; no test opens a port. The frames
+are built from the protobuf schemas until the bench captures of task 5.1 (a v1 and a v2 unit) replace
+them.
 
 ---
 
