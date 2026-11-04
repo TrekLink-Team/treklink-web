@@ -166,15 +166,31 @@
   }
 
   /* Live map markers (shared/ui/map/markers.ts). Shape carries the state, not only colour. */
-  /* The 24 px pointer target of a map marker (WCAG 2.2, 2.5.8), a circle so that two targets whose
-     centres are 24 px apart never intersect. Transparent: only the dot inside is drawn. */
-  .tl-marker-hit {
+  /* The 24 px box of a map marker (shared/ui/map/markers.ts). It is the focusable element and takes no
+     pointer itself: a click on its target bubbles to it. Never clipped, so its focus ring shows whole;
+     the radius rounds that ring. Leaflet's own `.leaflet-interactive` rule is outranked on purpose. */
+  .leaflet-marker-icon.leaflet-interactive.tl-marker-hit {
     border-radius: 9999px;
-  }
-  /* Only the circle takes the pointer: the drawn row inside it, and a chip that runs past it, would
-     otherwise reach over a neighbouring target. */
-  .tl-marker-hit > * {
     pointer-events: none;
+  }
+  .tl-marker-body {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .tl-marker-body > * {
+    pointer-events: none;
+  }
+  /* The pointer target (WCAG 2.2, 2.5.8): a 24 px circle, so two targets whose centres are 24 px apart
+     never intersect. clip-path, because Chromium hit-tests a border-radius circle loosely: a point
+     11.5 px from a centre resolved to the neighbour 24.2 px away (review of treklink-web#362). The drawn
+     row and its chip take no pointer, so they never reach over a neighbouring target. */
+  .tl-marker-body > .tl-marker-target {
+    position: absolute;
+    inset: 0;
+    clip-path: circle(12px at 50% 50%);
+    pointer-events: auto;
+    cursor: pointer;
   }
   .tl-marker {
     display: block;
