@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name cleared. All three must be true. Required before the inspection, which `rentals` records on the return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused (demo smoke defect 4, 2026-10-30).
+Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name cleared. All three must be true. Required before the inspection, which `rentals` records on the return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused (demo smoke defect 4, 2026-10-30). The factory reset of the device hub (design §11.13) sends the docked `nodeNum`, which must be the device's. Every reset writes the audit record `device.reset` after commit, with the method `DOCKED` when `nodeNum` is sent and `MANUAL` otherwise.
 
 ## API Specification
 
@@ -29,7 +29,8 @@ Records the reset of a `RETURNED` device: channel key removed, node database cle
 {
   "keyRemoved": true,
   "nodeDbCleared": true,
-  "ownerCleared": true
+  "ownerCleared": true,
+  "nodeNum": 2763113171
 }
 ```
 
@@ -38,6 +39,7 @@ Records the reset of a `RETURNED` device: channel key removed, node database cle
 | keyRemoved | Channel key removed | bool | yes | `true` |
 | nodeDbCleared | Node database cleared | bool | yes | `true` |
 | ownerCleared | Owner name cleared | bool | yes | `true` |
+| nodeNum | The docked unit's node number, sent by the device hub's factory reset | int | no | `2763113171` |
 
 ## Response sample
 
@@ -211,6 +213,23 @@ Records the reset of a `RETURNED` device: channel key removed, node database cle
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>The sent nodeNum is not the device's (<code>NODE_MISMATCH</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "NODE_MISMATCH"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "The docked unit is not this device."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -246,14 +265,21 @@ flowchart TB
     E5["Return 409 ALREADY_RESET"]
     D5 -->|yes| E5
     E5 --> X5((End))
+    D6{"The sent nodeNum is not the device's?"}
+    D5 -->|no| D6
+    E6["Return 409 NODE_MISMATCH"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
     P0["Require RETURNED"]
-    D5 -->|no| P0
+    D6 -->|no| P0
     P1["Insert device_resets"]
     P0 --> P1
     P2["Clear keyVersion and keyOrganizationId"]
     P1 --> P2
+    P3["Audit device.reset after commit"]
+    P2 --> P3
     OK["Return 201"]
-    P2 --> OK
+    P3 --> OK
     OK --> Z((End))
 ```
 
