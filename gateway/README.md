@@ -11,6 +11,19 @@ npm run dev:gateway
 Configuration comes from `.env` (see `.env.example` at the repository root, the "Gateway Configuration"
 block, and `src/config.ts`). A value out of bounds stops the gateway at start.
 
+## Serial reader (task 5.1)
+
+With `GATEWAY_SERIAL_SIMULATION` `false` or unset, the gateway opens `GATEWAY_SERIAL_PORT` at
+`GATEWAY_SERIAL_BAUD`, asks the node for its configuration, keeps the session with a heartbeat every 5
+minutes, and queues every decoded text, position and device-metrics packet in the stock JSON shape with the
+node on the port as `sender` (design §3.1). A port that fails or closes is opened again every
+`GATEWAY_SERIAL_RECONNECT_MS`. Only `true` runs the simulator. It uses `@meshtastic/core` and
+`@meshtastic/transport-node-serial`, ES modules that need Node 22.12 or later.
+
+Tests replay `test/fixtures/serial/node-stream.hex`; rebuild it with
+`npx ts-node -P test/tsconfig.json --transpile-only test/fixtures/serial/generate.ts`. Its frames are
+encoded from the protobuf schemas until captures from the bench units replace them.
+
 ## Local page and local API (task 5.2)
 
 Open `http://localhost:4321` on the Field Station laptop. The server binds to `127.0.0.1` only and

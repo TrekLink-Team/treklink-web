@@ -35,6 +35,16 @@ function int(name: string, fallback: number, min: number, max: number): number {
   return value;
 }
 
+// `true` or `false`; unset is the fallback. Anything else stops the gateway at start, so a typo never
+// silently picks one mode.
+function bool(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error(`Environment variable ${name} must be true or false: ${raw}`);
+}
+
 function str(name: string, fallback: string): string {
   const raw = process.env[name];
   return raw === undefined || raw === '' ? fallback : raw;
@@ -117,7 +127,14 @@ export const gatewayConfig = {
   serial: {
     port: str('GATEWAY_SERIAL_PORT', '/dev/ttyUSB0'),
     baudRate: num('GATEWAY_SERIAL_BAUD', 115_200),
-    simulationMode: process.env.GATEWAY_SERIAL_SIMULATION !== 'false',
+    /**
+     * Gateway-sync design §3.1 (REQ-STA-04): only `true` runs the frame simulator and opens no port;
+     * `false` or unset reads the radio on `port`, so a station that forgets the variable never sends
+     * invented packets (D-093).
+     */
+    simulationMode: bool('GATEWAY_SERIAL_SIMULATION', false),
+    /** Wait before the port is opened again after it failed to open or was lost (REQ-ERR-07). */
+    reconnectMs: int('GATEWAY_SERIAL_RECONNECT_MS', 5_000, 1_000, 600_000),
   },
 
   /** Simulation mode only: what the simulated nodes send, for demos without hardware. */

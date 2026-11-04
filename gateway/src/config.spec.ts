@@ -85,3 +85,48 @@ describe('gateway configuration: the local page', () => {
     expect(() => load({ GATEWAY_LOCAL_EVENT_LOG_SIZE: value })).toThrow('GATEWAY_LOCAL_EVENT_LOG_SIZE');
   });
 });
+
+// The serial reader settings (gateway-sync design §3.1, REQ-STA-04, REQ-ERR-07).
+describe('gateway configuration: the serial reader', () => {
+  const names = ['GATEWAY_SERIAL_SIMULATION', 'GATEWAY_SERIAL_RECONNECT_MS'] as const;
+  const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+
+  afterEach(() => {
+    for (const name of names) {
+      if (original[name] === undefined) delete process.env[name];
+      else process.env[name] = original[name];
+    }
+  });
+
+  const load = (values: Partial<Record<(typeof names)[number], string>>) => {
+    for (const name of names) {
+      if (values[name] === undefined) delete process.env[name];
+      else process.env[name] = values[name];
+    }
+    let serial: (typeof import('./config'))['gatewayConfig']['serial'] | undefined;
+    jest.isolateModules(() => {
+      jest.doMock('dotenv', () => ({ config: () => ({}) }));
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      serial = (require('./config') as typeof import('./config')).gatewayConfig.serial;
+    });
+    return serial!;
+  };
+
+  it('reads the radio unless the simulation is asked for by name', () => {
+    expect(load({}).simulationMode).toBe(false);
+    expect(load({ GATEWAY_SERIAL_SIMULATION: '' }).simulationMode).toBe(false);
+    expect(load({ GATEWAY_SERIAL_SIMULATION: 'false' }).simulationMode).toBe(false);
+    expect(load({ GATEWAY_SERIAL_SIMULATION: 'true' }).simulationMode).toBe(true);
+  });
+
+  it.each(['yes', '1', 'TRUE', 'on'])('refuses the simulation flag %s', (value) => {
+    expect(() => load({ GATEWAY_SERIAL_SIMULATION: value })).toThrow('GATEWAY_SERIAL_SIMULATION');
+  });
+
+  it('reopens a lost port after 5 s by default, within 1 s and 10 min', () => {
+    expect(load({}).reconnectMs).toBe(5_000);
+    expect(load({ GATEWAY_SERIAL_RECONNECT_MS: '1000' }).reconnectMs).toBe(1_000);
+    expect(() => load({ GATEWAY_SERIAL_RECONNECT_MS: '999' })).toThrow('GATEWAY_SERIAL_RECONNECT_MS');
+    expect(() => load({ GATEWAY_SERIAL_RECONNECT_MS: '600001' })).toThrow('GATEWAY_SERIAL_RECONNECT_MS');
+  });
+});
