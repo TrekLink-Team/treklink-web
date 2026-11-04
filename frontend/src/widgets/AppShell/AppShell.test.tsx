@@ -7,7 +7,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useSession, type SessionUser } from '../../entities/session/model';
 import { PageHeader } from '../../shared/ui/PageHeader';
 import { StickyPageHeader } from '../../shared/ui/PageChrome';
+import { Tag } from 'lucide-react';
 import { AppShell } from './AppShell';
+import { SideNav } from './SideNav';
 import { useShell } from './shellStore';
 
 vi.mock('../../shared/api/apiClient', async (importOriginal) => ({
@@ -211,5 +213,29 @@ describe('AppShell, Demo control entry', () => {
     api.mockClear();
     show('/o/contracts');
     expect(api.mock.calls.some(([path]) => path === '/demo/simulation')).toBe(false);
+  });
+});
+
+// W15 panel walk: the Admin entry read "Prices and damage ra..."; a long label now wraps instead.
+describe('SideNav, expanded', () => {
+  it('lets a module label wrap rather than cut it with an ellipsis', () => {
+    render(
+      <MemoryRouter>
+        <SideNav
+          groups={[
+            {
+              id: 'admin',
+              label: 'Administration',
+              entries: [
+                { route: '/t/admin/prices', label: 'Prices and damage rates', icon: Tag, roles: ['ADMIN'], built: true },
+              ],
+            },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    const label = screen.getByText('Prices and damage rates');
+    expect(label.className).not.toContain('truncate');
+    expect(label.className).toContain('min-w-0');
   });
 });
