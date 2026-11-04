@@ -84,7 +84,6 @@ const device = (id: string, position: [number, number]): MapMarker => ({
   title: id,
   subtitle: 'Battery 80%',
   status: 'ok',
-
 });
 
 afterEach(() => {
@@ -402,6 +401,70 @@ describe('LiveMapWidget', () => {
     // Each marker still names itself, and the drawn dots keep their size.
     expect(screen.getByRole('img', { name: 'TL-0009, Battery 80%' })).toBeTruthy();
     expect(screen.getByRole('img', { name: 'TL-0010, Battery 80%' })).toBeTruthy();
+  });
+
+  // The Leaflet map the widget builds, caught as L.map creates it.
+  const catchMap = () => {
+    const created = vi.spyOn(L, 'map');
+    return () => created.mock.results.at(-1)?.value as L.Map;
+  };
+  const nearPair = () => {
+    const { lat, lon, zoom } = config.defaultViewport;
+    const crs = L.CRS.EPSG3857;
+    const near = crs.pointToLatLng(crs.latLngToPoint(L.latLng(lat, lon), zoom).add([4, 0]), zoom);
+    return [device('TL-0009', [lat, lon]), device('TL-0010', [near.lat, near.lng])];
+  };
+  const marginsOf = (container: HTMLElement) =>
+    Array.from(
+      container.querySelectorAll<HTMLElement>('.leaflet-marker-pane .leaflet-marker-icon'),
+    ).map((icon) => [icon.style.marginLeft, icon.style.marginTop]);
+
+  it('works the spread out again after a zoom, with no new readings (review of #360)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const { container } = renderWidget(nearPair());
+    await waitFor(() =>
+      expect(container.querySelectorAll('.leaflet-marker-pane .leaflet-marker-icon')).toHaveLength(2),
+    );
+    expect(marginsOf(container).some(([left]) => left !== '-12px')).toBe(true);
+    // Four zoom levels in, the readings sit 64 px apart and neither marker needs an offset.
+    act(() => {
+      mapOf().setZoom(config.defaultViewport.zoom + 4, { animate: false });
+    });
+    expect(marginsOf(container)).toEqual([
+      ['-12px', '-12px'],
+      ['-12px', '-12px'],
+    ]);
+    // Back out, and the pair spreads again.
+    act(() => {
+      mapOf().setZoom(config.defaultViewport.zoom, { animate: false });
+    });
+    expect(marginsOf(container).some(([left]) => left !== '-12px')).toBe(true);
+  });
+
+  it('opens the popup of an offset marker at its reading, not at the drawn icon', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const [first, second] = nearPair();
+    renderWidget([first, second]);
+    const name = 'TL-0010, Battery 80%';
+    const icon = (await screen.findByRole('img', { name })).parentElement as HTMLElement;
+    expect(icon.style.marginLeft).not.toBe('-12px');
+    fireEvent.click(icon);
+    await waitFor(() =>
+      expect(document.querySelector('.leaflet-popup-content')?.textContent).toBe(
+        'TL-0010Battery 80%',
+      ),
+    );
+    let popup: L.Popup | undefined;
+    mapOf().eachLayer((layer) => {
+      if (layer instanceof L.Popup) popup = layer;
+    });
+    expect(popup?.isOpen()).toBe(true);
+    expect(popup?.getLatLng()?.lat).toBeCloseTo(second.position[0], 9);
+    expect(popup?.getLatLng()?.lng).toBeCloseTo(second.position[1], 9);
   });
 
   it('leaves a lone marker on its reading, centred in its 24 px target', async () => {
