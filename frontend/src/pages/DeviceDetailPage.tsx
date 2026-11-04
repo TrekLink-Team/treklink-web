@@ -16,7 +16,7 @@ import {
   type NextStep,
 } from '../entities/device/api';
 import { VariantCard } from '../entities/variant/VariantCard';
-import { formatDateTime } from '../shared/lib/format';
+import { formatDate, formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
@@ -275,7 +275,7 @@ export const DeviceDetailPage: React.FC = () => {
             <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
               <Fact label="Node">{device.nodeId} ({device.nodeNum})</Fact>
               <Fact label="Hardware variant">{device.hardwareVariant.code}</Fact>
-              <Fact label="Acquired">{new Date(device.acquiredAt).toLocaleDateString('en-GB')}</Fact>
+              <Fact label="Acquired">{formatDate(device.acquiredAt)}</Fact>
               <Fact label="Status since">{formatDateTime(device.statusChangedAt)}</Fact>
               <Fact label="Firmware">{device.firmwareVersion}</Fact>
               <Fact label="Key version and organization">

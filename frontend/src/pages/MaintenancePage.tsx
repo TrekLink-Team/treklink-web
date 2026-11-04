@@ -18,7 +18,7 @@ import {
   type WorkBy,
 } from '../entities/device/api';
 import { ApiError } from '../shared/api/apiClient';
-import { formatDateTime, formatVnd } from '../shared/lib/format';
+import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { ErrorState, Fact } from '../shared/ui/bits';
@@ -696,7 +696,7 @@ const RecordDrawer: React.FC<{
       </Fact>
       <Fact label="Reason">{MAINTENANCE_REASON[record.reason]}</Fact>
       <Fact label="Opened">{formatDateTime(record.openedAt)}</Fact>
-      <Fact label="Expected completion">{record.expectedAt}</Fact>
+      <Fact label="Expected completion">{formatDay(record.expectedAt.slice(0, 10))}</Fact>
       <Fact label="Work by">{workByOf(record)}</Fact>
       <Fact label="Estimate">
         {record.estimatedCostVnd !== null ? formatVnd(record.estimatedCostVnd) : 'Not estimated'}
@@ -779,7 +779,15 @@ const RecordsTable: React.FC<{
       render: (record) => <StatusBadge entry={MAINTENANCE_STATUS[record.status]} />,
       compact: true,
     },
-    { key: 'expected', label: 'Expected', render: (record) => record.expectedAt, compact: true },
+    {
+      key: 'expected',
+      label: 'Expected',
+      render: (record) => (
+        <span className="whitespace-nowrap">{formatDay(record.expectedAt.slice(0, 10))}</span>
+      ),
+      text: (record) => record.expectedAt,
+      compact: true,
+    },
     { key: 'workBy', label: 'Work by', render: workByOf },
     { key: 'cost', label: 'Cost', align: 'end', render: costOf },
   ];
