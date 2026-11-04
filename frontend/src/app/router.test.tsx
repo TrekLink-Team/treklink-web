@@ -99,6 +99,17 @@ describe('route guards (AC-01)', () => {
     expect(screen.getByText('You do not have access to this.')).toBeTruthy();
   });
 
+  // W15 panel walk: MSG26 on an unknown path was a dead end outside the app shell.
+  it('offers the start page under MSG26: the role landing route, or the public page signed out', () => {
+    visit('/t/map', account(['ORG_OPERATOR'], 'ORGANIZATION'));
+    expect(screen.getByRole('alert').textContent).toBe('You do not have access to this.');
+    expect(screen.getByRole('link', { name: 'Go to the start page' }).getAttribute('href')).toBe('/o/map');
+    cleanup();
+    act(() => useSession.getState().signOut());
+    visit('/no-such-page', null);
+    expect(screen.getByRole('link', { name: 'Go to the start page' }).getAttribute('href')).toBe('/');
+  });
+
   it('lets an Org Manager reach the map and the contracts', () => {
     visit('/o/map', account(['ORG_MANAGER'], 'ORGANIZATION'));
     expect(screen.getByText('live map o')).toBeTruthy();
