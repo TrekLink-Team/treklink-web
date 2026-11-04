@@ -320,7 +320,7 @@ flowchart LR
     BRK -->|"subscription, QoS 1"| API
 ```
 
-***Figure 6a***: Hardware connections. v1 units compile MQTT out and are not in the demo set (D-005).
+***Figure 6a***: Hardware connections. v1 units compile MQTT out, so they are never a Wi-Fi uplink (D-005); they join the demo catalog as AVAILABLE units from W17 (devices design §10) and are left out of this figure.
 
 ---
 
