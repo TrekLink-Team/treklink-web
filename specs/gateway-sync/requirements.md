@@ -75,7 +75,7 @@
 - **REQ-ERR-04**: IF the Field Station restarts, THEN every queued event SHALL survive with its original `from` and `id`. [FR-EVT-07, E02-3]
 - **REQ-ERR-05**: IF a type strategy throws, THEN the system SHALL audit `NORMALIZATION_FAILED` for that packet only. [UC-26]
 - **REQ-ERR-07**: IF the serial port cannot be opened, closes or errors, THEN the Field Station SHALL log it, report the reader as not reading on its local page, keep queuing and flushing what it holds, and open the port again every `GATEWAY_SERIAL_RECONNECT_MS`. [FR-EVT-12, task 5.1]
-- **REQ-ERR-08**: IF a serial frame does not decode, a packet is still encrypted, its port number is not text, position or telemetry, or a telemetry message carries no device metrics, THEN the Field Station SHALL skip that packet and keep reading. [FR-EVT-05, task 5.1]
+- **REQ-ERR-08**: IF a serial frame does not decode, a packet is still encrypted, its port number is not text, position or telemetry, a telemetry message carries no device metrics, or a position carries no coordinates, THEN the Field Station SHALL skip that packet and keep reading. [FR-EVT-05, task 5.1]
 - **REQ-ERR-06**: IF no custody interval contains the occurrence time, a Field Station's organization differs from the interval's, or the occurrence time lies within `gatewaySync.attributionMarginSeconds` of the interval's handover or end, THEN the system SHALL store the event `UNATTRIBUTED` with no organization, SHALL audit it `ACCEPTED_UNATTRIBUTED` with the reason in the audit detail (`NO_INTERVAL`, `STATION_ORGANIZATION_DIFFERS`, `NEAR_HANDOVER` or `NEAR_END`), and SHALL hand it on so that only TrekLink Staff and Admin see it. [FR-EVT-17, BR-36, E02-8]
 
 ---

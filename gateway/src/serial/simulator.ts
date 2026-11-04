@@ -12,10 +12,11 @@ export interface StockPacket {
   type: 'position' | 'telemetry' | 'text';
   sender: string;
   payload: Record<string, unknown>;
-  rssi: number;
-  snr: number;
-  hops_away: number;
-  hop_start: number;
+  // Link quality, left out when zero, as the stock serializer leaves them out (design §3.1).
+  rssi?: number;
+  snr?: number;
+  hops_away?: number;
+  hop_start?: number;
 }
 
 // The queue tier of a packet: an SOS text first, then positions, then telemetry. Text that is not an
