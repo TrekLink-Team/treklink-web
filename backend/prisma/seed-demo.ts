@@ -5,6 +5,8 @@
 //   - one ACTIVE organization, ORG-0001, with the Manager and the Operator as members, and one
 //     roster shift with the Operator as primary and the Manager as backup (MF-03 routing)
 //   - hardware variants treklink-v2 to treklink-v4, a price schedule each, two damage rates
+//   - treklink-v1 with a price schedule and two AVAILABLE units, TL-0020 and TL-0021, and on every
+//     variant created here its detail render as imageUrl (W17, devices task 9.3)
 //   - fourteen AVAILABLE devices (ten treklink-v3, so two requests at the minimum order of five can be
 //     approved), and two RENTED devices on one ACTIVE monthly contract, RC-2026-0001
 //   - a second ACTIVE monthly contract, RC-2026-0002, on two more RENTED devices with holder labels
@@ -140,7 +142,7 @@ const SERVICE_CHECKLIST = [
 const SERVICE_INTERVAL_DAYS = 180;
 
 // Sensors per firmware ground truth §5 and the variant headers: v2 carries an ICM-20948, v4 a QMI8658,
-// v3 has no IMU. MQTT is compiled into all three (only v1 excludes it, and v1 is out of the demo set, D-005).
+// v3 has no IMU. MQTT is compiled into all three (only v1 excludes it; v1 has its own block below, W17).
 // `specSheet` repeats the values the migration 20261103140000_variant_media writes for a database that already
 // holds the variants (treklink-firmware docs/variants.md at a4aa98d, specs/devices/design.md section 10), so a
 // fresh database gets the same facts.
@@ -185,6 +187,31 @@ const VARIANTS = [
     monthlyPriceVnd: 480000n,
   },
 ] as const;
+
+// --- treklink-v1 and the variant renders (W17, specs/devices/design.md section 10, devices task 9.3) ---
+// imageUrl names the detail render under frontend/public/variants/; the frontend derives the icon render
+// from it by name. The migration 20261104200000_variant_renders writes the same values on a database that
+// already holds the variants, and inserts v1 there when it is absent.
+const variantImageUrl = (code: string) => `/variants/${code}-detail.png`;
+// Recorded facts: ESP32, SX1278 and MPU6050 (the spec sheet of 20261103140000_variant_media) and MQTT
+// compiled out. hasGps and firmwareBaseline are unverified, set only because the columns are required; the
+// monthly price is a demo value.
+const V1_VARIANT = {
+  code: 'treklink-v1',
+  name: 'TrekLink v1 (motion sensor, no MQTT)',
+  hasGps: false,
+  hasMotionSensor: true,
+  mqttCapable: false,
+  firmwareBaseline: '2.7.19-treklink.1',
+  specSheet: { mcu: 'ESP32', radio: 'SX1278', motionSensor: 'MPU6050' },
+  monthlyPriceVnd: 350000n,
+} as const;
+// After the last seeded tag (TL-0019); placeholder node numbers in the same 0xDE00xxxx block. Never rented.
+const V1_DEVICES: { assetTag: string; nodeNum: bigint }[] = [
+  { assetTag: 'TL-0020', nodeNum: 0xde000014n },
+  { assetTag: 'TL-0021', nodeNum: 0xde000015n },
+];
+// --- end treklink-v1 constants -------------------------------------------------------------------
 
 const DAMAGE_RATES = [
   { code: 'ANTENNA_BROKEN', label: 'Antenna broken', amountVnd: 300000n },
@@ -422,6 +449,7 @@ export async function seedDemo(
               mqttCapable: true,
               firmwareBaseline: v.firmwareBaseline,
               specSheet: v.specSheet,
+              imageUrl: variantImageUrl(v.code),
               remainingValueSchedule: REMAINING_VALUE,
               serviceIntervalDays: SERVICE_INTERVAL_DAYS,
               serviceChecklist: SERVICE_CHECKLIST,
@@ -497,6 +525,76 @@ export async function seedDemo(
         devices.set(d.assetTag, { id: device.id, created: true });
         created.push(`device ${d.assetTag}`);
       }
+
+      // --- treklink-v1 (W17, devices task 9.3) ----------------------------------------------------
+      // Found by code and created when absent (the migration 20261104200000_variant_renders may already
+      // have inserted it), then its price schedule when it has none, then its two AVAILABLE units with
+      // the same registration history as the DEVICES rows above.
+      let v1 = await tx.hardwareVariant.findUnique({ where: { code: V1_VARIANT.code } });
+      if (!v1) {
+        v1 = await tx.hardwareVariant.create({
+          data: {
+            code: V1_VARIANT.code,
+            name: V1_VARIANT.name,
+            hasGps: V1_VARIANT.hasGps,
+            hasMotionSensor: V1_VARIANT.hasMotionSensor,
+            mqttCapable: V1_VARIANT.mqttCapable,
+            firmwareBaseline: V1_VARIANT.firmwareBaseline,
+            specSheet: V1_VARIANT.specSheet,
+            imageUrl: variantImageUrl(V1_VARIANT.code),
+            remainingValueSchedule: REMAINING_VALUE,
+            serviceIntervalDays: SERVICE_INTERVAL_DAYS,
+            serviceChecklist: SERVICE_CHECKLIST,
+          },
+        });
+        created.push(`variant ${V1_VARIANT.code}`);
+      }
+      if (!(await tx.priceSchedule.findFirst({ where: { hardwareVariantId: v1.id } }))) {
+        await tx.priceSchedule.create({
+          data: {
+            hardwareVariantId: v1.id,
+            monthlyPriceVnd: V1_VARIANT.monthlyPriceVnd,
+            effectiveFrom: now,
+            createdById: admin,
+          },
+        });
+        created.push(`price ${V1_VARIANT.code}`);
+      }
+      for (const d of V1_DEVICES) {
+        if (await tx.device.findUnique({ where: { assetTag: d.assetTag } })) continue;
+        const acquiredAt = addMonths(now, -3);
+        const device = await tx.device.create({
+          data: {
+            assetTag: d.assetTag,
+            nodeNum: d.nodeNum,
+            hardwareVariantId: v1.id,
+            firmwareVersion: v1.firmwareBaseline,
+            acquiredAt,
+            status: DeviceStatus.AVAILABLE,
+            statusChangedAt: now,
+            registeredById: staff,
+            serviceDueAt: utcDate(addDays(now, SERVICE_INTERVAL_DAYS)),
+          },
+        });
+        await tx.intakeCheck.create({
+          data: {
+            deviceId: device.id,
+            // The intake rule passes a check only with a GPS fix (devices intake.service.ts), whatever hasGps says.
+            gpsFixOk: true,
+            radioOk: true,
+            batteryOk: true,
+            motionOk: v1.hasMotionSensor ? true : null,
+            passed: true,
+            checkedById: staff,
+            createdAt: intakeCheckedAt(acquiredAt),
+          },
+        });
+        await tx.deviceTransition.createMany({
+          data: registrationRows(device.id, staff, acquiredAt),
+        });
+        created.push(`device ${d.assetTag}`);
+      }
+      // --- end treklink-v1 ------------------------------------------------------------------------
 
       const rented = DEVICES.filter((d) => d.rented);
       let contract = await tx.rentalContract.findUnique({ where: { code: CONTRACT_CODE } });
