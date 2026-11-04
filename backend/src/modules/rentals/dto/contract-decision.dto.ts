@@ -32,6 +32,13 @@ export class ContractQueryDto extends PagedQueryDto {
   @IsOptional()
   @IsIn(Object.values(PlanType))
   planType?: PlanType;
+
+  // REQ-EVT-26: the search text, trimmed; an empty value is no filter.
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(100)
+  q?: string;
 }
 
 // rentals api-design 04. Without an explicit choice, the server picks the longest-unchanged units.

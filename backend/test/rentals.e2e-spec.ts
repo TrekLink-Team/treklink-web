@@ -127,6 +127,14 @@ describe('rentals (e2e)', () => {
       );
     });
 
+    it('api-design 02 refuses a search text over 100 characters (REQ-EVT-26)', async () => {
+      expectError(
+        await e2e.send('staff-1', 'get', `/api/contracts?q=${'a'.repeat(101)}`),
+        400,
+        'VALIDATION_FAILED',
+      );
+    });
+
     it.each([
       ['a handover time that is not a date', { handoverAt: 'tomorrow', expectedVersion: 0 }],
       ['a negative version', { handoverAt: '2026-11-01T02:00:00Z', expectedVersion: -1 }],

@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { likeLiteral } from '../../common/prisma/like-literal';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { FINISHED_STATES, RUNNING_STATES } from './contract-states';
 
@@ -97,6 +98,9 @@ export interface ContractFilter {
   organizationId?: string;
   status?: ContractStatus;
   planType?: PlanType;
+  // REQ-EVT-26: the contracts whose code contains `q`, ignoring case, or whose organization is one of
+  // `organizationIds` (from OrganizationsService.idsMatching). Absent means no search.
+  search?: { q: string; organizationIds: readonly string[] };
 }
 
 export interface NewTerm {
@@ -459,6 +463,18 @@ export class ContractsRepository {
       ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.planType ? { planType: filter.planType } : {}),
+      // The code match can use the trigram index rental_contracts_code_trgm; `%`, `_` and `\` in q
+      // are literal characters.
+      ...(filter.search
+        ? {
+            OR: [
+              { code: { contains: likeLiteral(filter.search.q), mode: 'insensitive' as const } },
+              ...(filter.search.organizationIds.length > 0
+                ? [{ organizationId: { in: [...filter.search.organizationIds] } }]
+                : []),
+            ],
+          }
+        : {}),
     };
     return Promise.all([
       client.rentalContract.findMany({
