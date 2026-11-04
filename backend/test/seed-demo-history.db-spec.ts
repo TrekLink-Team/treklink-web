@@ -93,8 +93,8 @@ describe('demo seed device history order', () => {
   it('tells the incident of TL-0001 as its opening and each later step', async () => {
     const summaries = await oldestFirst('TL-0001');
     expect(summaries.filter((summary) => summary.startsWith('Incident '))).toEqual([
-      'Incident INC-2026-000001 opened (DETECTED)',
-      'Incident INC-2026-000001: DETECTED to UNROUTED',
+      'Incident INC-2026-000001 opened (Detected)',
+      'Incident INC-2026-000001: Detected to Unrouted',
     ]);
   });
 

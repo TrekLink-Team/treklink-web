@@ -200,7 +200,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
         {
           at: at('2026-10-29T03:16:00Z'),
           kind: 'INCIDENT',
-          summary: 'Incident INC-2026-000001: NOTIFY_PRIMARY to ACKNOWLEDGED',
+          summary: 'Incident INC-2026-000001: Notifying primary to Acknowledged',
           actor: 'Demo Operator',
           refType: 'INCIDENT',
           refId: 'inc-1',
@@ -208,7 +208,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
         {
           at: at('2026-10-29T03:15:00Z'),
           kind: 'INCIDENT',
-          summary: 'Incident INC-2026-000001 opened (DETECTED)',
+          summary: 'Incident INC-2026-000001 opened (Detected)',
           actor: 'SYSTEM',
           refType: 'INCIDENT',
           refId: 'inc-1',
@@ -281,7 +281,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
 
       expect(items.map((item) => item.summary)).toEqual([
         'Checked in from RC-2026-0001 (ORG-0001)',
-        'Incident INC-2026-000001 opened (DETECTED)',
+        'Incident INC-2026-000001 opened (Detected)',
         'Handed over on RC-2026-0001 (ORG-0001)',
         'Reserved for RC-2026-0001 (ORG-0001)',
       ]);
