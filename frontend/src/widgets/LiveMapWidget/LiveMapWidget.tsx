@@ -114,9 +114,15 @@ const spreadMarkers = (
   for (const { id, anchor } of points) {
     const element = markers.get(id)?.getElement();
     if (!element) continue;
-    const [dx, dy] = offsets.get(id) ?? [0, 0];
+    const offset = offsets.get(id);
+    const [dx, dy] = offset ?? [0, 0];
     element.style.marginLeft = `${dx - anchor.x}px`;
     element.style.marginTop = `${dy - anchor.y}px`;
+    // Spread pins sit side by side, so their "Not heard since handover" chips would cover each other.
+    // The chip hides while its marker is offset; the chip is aria-hidden, so the accessible name, the
+    // popup and the list keep the state.
+    const chip = element.querySelector<HTMLElement>('.tl-marker--unheard + .tl-marker-label');
+    if (chip) chip.style.display = offset ? 'none' : '';
   }
 };
 
