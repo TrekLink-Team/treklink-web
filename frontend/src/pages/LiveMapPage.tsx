@@ -105,12 +105,21 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
     // The word travels in the title, so the popup and the marker's accessible name both carry it.
     title: device.simulated === true ? `${device.assetTag} (Simulated)` : device.assetTag,
     subtitle: [holderOf(device), incident].filter(Boolean).join(', '),
-    // Asset tag, state, holder and any incident: the state is read before the rest (screen 9.1).
+    // Asset tag, state, holder and any incident: the state is read before the rest (screen 9.1). An
+    // open SOS is the most urgent state, so it comes right after the asset tag, with the incident's
+    // state label ("TL-0018, SOS, Acknowledged, live, ..."; review of treklink-web#367). A settled
+    // incident keeps its badge text at the end.
     name: [
       device.simulated === true ? `${device.assetTag} (Simulated)` : device.assetTag,
+      ...(sosOf(device) && device.openIncident
+        ? [
+            MARKER_LABEL.sos,
+            INCIDENT_STATE[device.openIncident.state]?.label ?? device.openIncident.state,
+          ]
+        : []),
       stateName(row),
       holderOf(device),
-      incident,
+      sosOf(device) ? null : incident,
     ]
       .filter(Boolean)
       .join(', '),
