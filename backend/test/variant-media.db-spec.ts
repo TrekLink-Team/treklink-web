@@ -77,7 +77,8 @@ describe('variant image and spec sheet against Postgres (devices design section 
       include: { priceSchedules: true },
     });
 
-    expect(v1).toMatchObject({ mqttCapable: false, hasMotionSensor: true, isActive: true });
+    // hasGps from treklink-firmware variants/esp32/treklink_v1_0/variant.h:10 (a GPS Neo-6M on UART1).
+    expect(v1).toMatchObject({ hasGps: true, mqttCapable: false, hasMotionSensor: true, isActive: true });
     expect(v1.priceSchedules).toHaveLength(1);
     expect(v1.priceSchedules[0].monthlyPriceVnd).toBe(350000n);
   });

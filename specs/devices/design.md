@@ -1125,10 +1125,12 @@ empty slot. The forward migration `20261104200000_variant_renders` sets
 `imageUrl = /variants/treklink-vN-detail.png` on the rows of v1 to v4, and the demo seed writes the same values.
 
 **treklink-v1 in the catalog (W17, leader 2026-11-04).** v1 joins the seed and the catalog: the grey box with
-three side buttons and a side antenna. Recorded facts: the spec sheet above, `hasMotionSensor` true (MPU6050)
-and `mqttCapable` false (`-D MESHTASTIC_EXCLUDE_MQTT=1`, the schema comment); so a v1 unit is never a Stage A
-uplink (§8.8, D-005). **Unverified**, set only because the columns are required: `hasGps` false and
-`firmwareBaseline` `2.7.19-treklink.1`, the pattern of v2 to v4. Its monthly price, 350 000 VND, is a demo
+three side buttons and a side antenna. Recorded facts: the spec sheet above, `hasGps` true (a GPS Neo-6M on
+UART1, TX 16 and RX 17, `treklink-firmware` `variants/esp32/treklink_v1_0/variant.h:10`, `:20-23`),
+`hasMotionSensor` true (MPU6050) and `mqttCapable` false (`-D MESHTASTIC_EXCLUDE_MQTT=1`, the schema comment);
+so a v1 unit is never a Stage A uplink (§8.8, D-005). **Unverified**, set only because the column is required:
+`firmwareBaseline` `2.7.19-treklink.1`, the pattern of v2 to v4 on the firmware version 2.7.19 of
+`treklink-firmware` `version.properties`. Its monthly price, 350 000 VND, is a demo
 value. The migration inserts the variant only when absent, and its price schedule only when none exists and an
 active Admin account can be named as its author; the seed adds two AVAILABLE demo units, TL-0020 and TL-0021
 (placeholder node numbers `0xde000014` and `0xde000015`).

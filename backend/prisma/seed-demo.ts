@@ -193,13 +193,13 @@ const VARIANTS = [
 // from it by name. The migration 20261104200000_variant_renders writes the same values on a database that
 // already holds the variants, and inserts v1 there when it is absent.
 const variantImageUrl = (code: string) => `/variants/${code}-detail.png`;
-// Recorded facts: ESP32, SX1278 and MPU6050 (the spec sheet of 20261103140000_variant_media) and MQTT
-// compiled out. hasGps and firmwareBaseline are unverified, set only because the columns are required; the
-// monthly price is a demo value.
+// Recorded facts: ESP32, SX1278 and MPU6050 (the spec sheet of 20261103140000_variant_media), MQTT compiled
+// out, and a GPS, a Neo-6M on UART1 (treklink-firmware variants/esp32/treklink_v1_0/variant.h:10).
+// firmwareBaseline is unverified, set only because the column is required; the monthly price is a demo value.
 const V1_VARIANT = {
   code: 'treklink-v1',
   name: 'TrekLink v1 (motion sensor, no MQTT)',
-  hasGps: false,
+  hasGps: true,
   hasMotionSensor: true,
   mqttCapable: false,
   firmwareBaseline: '2.7.19-treklink.1',
