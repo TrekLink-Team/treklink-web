@@ -6,7 +6,9 @@ import { useConnector } from '../model/useConnector';
 
 // The header entry of the device connector (screen 4.6): "Devices" with the number of connected units.
 // The visible label is inside the accessible name (2.5.3), and the pressed state says whether the panel
-// is open.
+// is open. The count badge is drawn by CSS from data-count, not as text: as text it ran into the label
+// ("Devices0"), visible content the name "Devices, 0 connected" does not hold, which axe reports as
+// label-content-name-mismatch on every Staff page (walk of task 4.6).
 export const ConnectorButton: React.FC<{ className?: string }> = ({ className }) => {
   const { snapshot } = useConnector();
   const open = useConnectorStore((state) => state.open);
@@ -26,9 +28,11 @@ export const ConnectorButton: React.FC<{ className?: string }> = ({ className })
     >
       <Usb aria-hidden="true" className="h-[18px] w-[18px]" />
       <span className="hidden sm:inline">Devices</span>
-      <span aria-hidden="true" className="rounded-badge border border-line px-1.5 font-mono text-caption">
-        {count}
-      </span>
+      <span
+        aria-hidden="true"
+        data-count={count}
+        className="rounded-badge border border-line px-1.5 font-mono text-caption before:content-[attr(data-count)]"
+      />
     </button>
   );
 };
