@@ -188,6 +188,8 @@ describe('DeviceHub (screen 4.7)', () => {
     fireEvent.click(actionButton('Reboot'));
     await waitFor(() => expect(useToast.getState().message).toBe('TL-0042 restarted.'), { timeout: 3000 });
     expect(units[0].writes.map((write) => write.variant)).toEqual(['reboot_seconds']);
+    // The Reboot button is disabled while the unit is read again, so focus goes to the Actions heading.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Actions' })));
     expect(recordReset).not.toHaveBeenCalled();
   });
 
@@ -205,6 +207,8 @@ describe('DeviceHub (screen 4.7)', () => {
       timeout: 5000,
     });
     expect(recordReset).toHaveBeenCalledWith('d-42', A);
+    // The Factory reset button is disabled now (already reset), so focus goes to the Actions heading.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Actions' })));
     expect(units[0].state).toMatchObject({ longName: 'TL-0042', shortName: '0042', region: 16, channelName: '' });
     expect(Array.from(units[0].state.psk)).toEqual([1]);
   });

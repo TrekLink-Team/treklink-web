@@ -71,7 +71,7 @@ None of its own; the uplink and swap dialogs are those of screens 4.2 and 4.6.
 ## Mobile, accessibility, live data
 
 - 360 px: one column as in Layout, nothing scrolls sideways, buttons 44 px high.
-- Tab order: switcher, Connect a unit, the unit card, Device info, then the actions in the table's order. The switcher's buttons carry `aria-pressed`. After an action, focus returns to the action's button. Status, connection state and every reason are text, never colour alone. The factory reset dialog traps focus and returns it to its button.
+- Tab order: switcher, Connect a unit, the unit card, Device info, then the actions in the table's order. The switcher's buttons carry `aria-pressed`. After Reboot or Factory reset, focus moves to the Actions heading, because their buttons are disabled while the unit is written and read again (and Factory reset stays disabled once the unit is reset); after any other action, focus returns to the action's button. Status, connection state and every reason are text, never colour alone. The factory reset dialog traps focus and returns it to its button.
 - Both themes through the theme tokens; no raw colour.
 - Query keys: `['devices-by-node', nodeNum]` (through the registry) and `['device', id]` for devices 07, both invalidated after a factory reset.
 
