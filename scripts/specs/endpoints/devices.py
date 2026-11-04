@@ -192,20 +192,27 @@ ENDPOINTS = [
        "Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name "
        "cleared. All three must be true. Required before the inspection, which `rentals` records on the "
        "return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused "
-       "(demo smoke defect 4, 2026-10-30).",
+       "(demo smoke defect 4, 2026-10-30). The factory reset of the device hub (design §11.13) sends the "
+       "docked `nodeNum`, which must be the device's. Every reset writes the audit record `device.reset` "
+       "after commit, with the method `DOCKED` when `nodeNum` is sent and `MANUAL` otherwise.",
        "UC-44, FR-DEV-07, BR-28",
        path=[DEV_PATH],
        body=[["keyRemoved", "Channel key removed", "bool", "yes", "`true`"],
              ["nodeDbCleared", "Node database cleared", "bool", "yes", "`true`"],
-             ["ownerCleared", "Owner name cleared", "bool", "yes", "`true`"]],
-       sample={"keyRemoved": True, "nodeDbCleared": True, "ownerCleared": True},
+             ["ownerCleared", "Owner name cleared", "bool", "yes", "`true`"],
+             ["nodeNum", "The docked unit's node number, sent by the device hub's factory reset", "int", "no",
+              "`2763113171`"]],
+       sample={"keyRemoved": True, "nodeDbCleared": True, "ownerCleared": True, "nodeNum": 2763113171},
        response={**DEVICE, "status": "RETURNED", "keyVersion": None, "keyOrganizationId": None}, status=201,
        message="Reset recorded", entity="Device",
        errors=[(400, "RESET_INCOMPLETE", "One of the three steps is false", "Complete every reset step first."),
                state_409("device", "RENTED"),
                (409, "ALREADY_RESET", "A reset is recorded since the unit became RETURNED",
-                "This device is already reset for this return.")],
-       steps=["Require RETURNED", "Insert device_resets", "Clear keyVersion and keyOrganizationId"],
+                "This device is already reset for this return."),
+               (409, "NODE_MISMATCH", "The sent nodeNum is not the device's",
+                "The docked unit is not this device.")],
+       steps=["Require RETURNED", "Insert device_resets", "Clear keyVersion and keyOrganizationId",
+              "Audit device.reset after commit"],
        controller="DevicesController", service="DevicesService", call="reset(id, steps, actor, at, tx)",
        seq=["Svc->>DB: SELECT device FOR UPDATE", "Svc->>DB: SELECT last device_resets row",
             "Svc->>DB: INSERT device_resets; UPDATE devices"]),
