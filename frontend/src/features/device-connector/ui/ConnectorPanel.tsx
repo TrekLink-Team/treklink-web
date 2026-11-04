@@ -280,9 +280,13 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
       return;
     }
     if (lastViewed.current === null) return;
-    document
-      .querySelector<HTMLElement>(`[data-cv-item="${lastViewed.current}"] button[aria-label^="Show details"]`)
-      ?.focus();
+    // Its Show details button from 600 px; below that a phone row has none, and its Actions menu, which
+    // opened the view, takes the focus (walk of task 4.6: it fell to the page body).
+    const row = document.querySelector<HTMLElement>(`[data-cv-item="${lastViewed.current}"]`);
+    const buttons = row ? Array.from(row.querySelectorAll<HTMLElement>('button')) : [];
+    const named = (prefix: string) =>
+      buttons.find((button) => (button.getAttribute('aria-label') ?? button.textContent ?? '').trim().startsWith(prefix));
+    (named('Show details') ?? named('Actions for') ?? buttons[0])?.focus();
     lastViewed.current = null;
   }, [viewing]);
   const [swap, setSwap] = useState<{ connection: Connection; rows: CounterRow[] } | null>(null);
