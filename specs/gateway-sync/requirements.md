@@ -65,6 +65,7 @@
 - **REQ-STA-01**: WHILE the Field Station has an event to send, it SHALL have persisted it in SQLite before any network attempt. [FR-EVT-02]
 - **REQ-STA-02**: WHILE the uplink is down, the Field Station SHALL keep queuing, and SHALL keep serving its local page. [FR-EVT-12, NFR-UI-04]
 - **REQ-STA-03**: WHILE the queue is at its bound, the Field Station SHALL shed the oldest P3 first, then the oldest P2, and never P0 or P1, logging each shed event. [FR-EVT-06, E02-5]
+- **REQ-STA-04**: WHILE `GATEWAY_SERIAL_SIMULATION` is not `true`, the Field Station SHALL read the node on `GATEWAY_SERIAL_PORT` over the Meshtastic client API (frames of `0x94 0xC3`, a 16-bit big-endian length and a `FromRadio` message), SHALL ask the node for its configuration once per connection and send a heartbeat at least every 5 minutes, and SHALL queue every decoded text, position and device-metrics telemetry packet in the stock JSON shape of design §3.1, with the node on the port as `sender` and the tier of design §3.1; WHILE it is `true`, the Field Station SHALL run the frame simulator and open no port. [FR-EVT-02, FR-EVT-03, D-093, task 5.1]
 
 ### Unwanted Behaviour
 
@@ -73,6 +74,8 @@
 - **REQ-ERR-03**: IF the uplink drops mid-flush, THEN the Field Station SHALL mark flushed only what the broker acknowledged and resume from the queue head. [FR-EVT-04, E02-1]
 - **REQ-ERR-04**: IF the Field Station restarts, THEN every queued event SHALL survive with its original `from` and `id`. [FR-EVT-07, E02-3]
 - **REQ-ERR-05**: IF a type strategy throws, THEN the system SHALL audit `NORMALIZATION_FAILED` for that packet only. [UC-26]
+- **REQ-ERR-07**: IF the serial port cannot be opened, closes or errors, THEN the Field Station SHALL log it, report the reader as not reading on its local page, keep queuing and flushing what it holds, and open the port again every `GATEWAY_SERIAL_RECONNECT_MS`. [FR-EVT-12, task 5.1]
+- **REQ-ERR-08**: IF a serial frame does not decode, a packet is still encrypted, its port number is not text, position or telemetry, or a telemetry message carries no device metrics, THEN the Field Station SHALL skip that packet and keep reading. [FR-EVT-05, task 5.1]
 - **REQ-ERR-06**: IF no custody interval contains the occurrence time, a Field Station's organization differs from the interval's, or the occurrence time lies within `gatewaySync.attributionMarginSeconds` of the interval's handover or end, THEN the system SHALL store the event `UNATTRIBUTED` with no organization, SHALL audit it `ACCEPTED_UNATTRIBUTED` with the reason in the audit detail (`NO_INTERVAL`, `STATION_ORGANIZATION_DIFFERS`, `NEAR_HANDOVER` or `NEAR_END`), and SHALL hand it on so that only TrekLink Staff and Admin see it. [FR-EVT-17, BR-36, E02-8]
 
 ---
@@ -105,6 +108,8 @@ configuration file (`field-station-local-page.md`), and these environment variab
 | Variable | Default | Bounds | Meaning | Requirement |
 |---|---|---|---|---|
 | `GATEWAY_QUEUE_MAX_ROWS` | `100000` | whole number, 1 to 10000000 | `QUEUE_MAX_ROWS` of design §3: an insert past it sheds the oldest P3 row, then the oldest P2, in the insert's transaction; P0 and P1 are never shed. A value outside the bounds stops the gateway at start | REQ-STA-03, E02-5 |
+| `GATEWAY_SERIAL_SIMULATION` | unset (reads the port) | `true` or `false` | `true` runs the frame simulator and opens no port; `false` or unset reads `GATEWAY_SERIAL_PORT` (design §3.1). Any other value stops the gateway at start | REQ-STA-04 |
+| `GATEWAY_SERIAL_RECONNECT_MS` | `5000` | whole number, 1000 to 600000 | Wait before the reader opens the port again after it failed to open or was lost. A value outside the bounds stops the gateway at start | REQ-ERR-07 |
 | `GATEWAY_LOCAL_PORT` | `4321` | whole number, 1 to 65535 | Port of the local page and local API on `127.0.0.1` (design §3); the host is fixed. A value outside the bounds stops the gateway at start | REQ-STA-02 |
 | `GATEWAY_LOCAL_STALE_SECONDS` | `300` | whole number, 30 to 7200 | A node silent this long is shown stale on the local page; default and bounds of `monitoring.deviceStaleSeconds` | REQ-STA-02 |
 | `GATEWAY_LOCAL_EVENT_LOG_SIZE` | `200` | whole number, 10 to 10000 | Decoded events the local page's log keeps in memory (`/local/events`) | REQ-STA-02 |
@@ -121,6 +126,7 @@ configuration file (`field-station-local-page.md`), and these environment variab
 - **AC-06**: Organization A's station queues an SOS captured during A's custody; the device is checked in and handed over to B; A's station then flushes. The SOS is attributed to A's interval, its incident routes to A, and B receives nothing. (E02-7, TC-36)
 - **AC-07**: A Stage A event with `rx_time` 0 received within `gatewaySync.attributionMarginSeconds` of a handover is stored `UNATTRIBUTED`, with `timeSource = SERVER_RECEIPT`, and reaches Staff only. (E02-8)
 - **AC-08**: A Field Station of A flushing a device more than `gatewaySync.lateUploadGraceHours` after its check-in is audited `NOT_RENTED_TO_STATION_ORG`.
+- **AC-09**: Recorded serial frames of a position, a device-metrics telemetry and an `SOS - ` text, with a debug log line and a node-info packet between them and a frame split across two reads, reach the queue as three stock JSON packets with the station node as `sender`, at P2, P3 and P0; the node-info packet and the log line queue nothing. With `GATEWAY_SERIAL_SIMULATION=true` no port is opened. (REQ-STA-04, REQ-ERR-08)
 
 ---
 
