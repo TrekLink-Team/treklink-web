@@ -62,7 +62,7 @@ organization, read from `DeviceRelease`, is marked `late` and is not plotted as 
 |---|---|
 | `GET /api/map/snapshot` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, `organizations` stations, `monitoring.counterLocation`, `gatewaySync.simulatedDevices` (the `simulated` mark, demo design §9, from the handover for an organization as the position is, D-040), the max `seq` |
 | `GET /api/telemetry/devices` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, `gatewaySync.simulatedDevices` (from the handover, D-040), the max `seq` |
-| `GET /api/telemetry/devices/:id/history` | `rentals.rentalPeriods`, `gatewaySync.events` |
+| `GET /api/telemetry/devices/:id/history` | `rentals.rentalPeriods` (organization callers), `devices.assetTags` (Staff and Admin), `gatewaySync.historyPoints` |
 | `GET /api/rented-devices` (api-design 09, the console of UC-66, REQ-EVT-09) | `rentals.visibleDevices` (with each unit's group, holder and open fault report, rentals design §11.4), `devices.projections` through `custodyView` (organization view), `devices` variant codes and open loss cases; filters applied after the custody view, so a row's `state` filter matches the map |
 | `GET /api/devices/:id/history` | `devices.trail`, `rentals.contractsOfDevice`, `incidents.incidentsOfDevice` |
 | `GET /api/reports/:kind` | `rentals.utilization`, `billing.revenue`, `rentals` overdue and lost lists, `incidents.responseTimes` |
@@ -169,8 +169,11 @@ classDiagram
         +config() MapConfigDto
         +snapshot(query, caller) SnapshotDto
     }
-    class TelemetryController {
-        +history(id, query, caller) HistoryDto
+    class TelemetryHistoryController {
+        +history(id, query, caller, ability) HistoryDto
+    }
+    class DeviceHistoryController {
+        +list(id, query) PagedResult
     }
     class OrgApiController {
         +stream(apiKey, after, limit) StreamPage
@@ -189,7 +192,11 @@ classDiagram
         +snapshot(query, caller) Snapshot
     }
     class HistoryService {
-        +history(id, query, caller) History
+        +history(id, query, caller, ability) HistoryDto
+        +csv(history) string
+    }
+    class DeviceHistoryService {
+        +history(id, skip, take) DeviceHistoryItem[]
     }
     class StreamService {
         +append(entry, tx) StreamEvent
@@ -206,9 +213,14 @@ classDiagram
     class ContractsService
     class DevicesService
     class IncidentsService
-    class GatewaySyncService
+    class IncidentsQueryService
+    class FieldEventQueryService
+    class ParameterService
+    class OrganizationsService
+    class AccountsService
     MapController --> LiveMapService
-    TelemetryController --> HistoryService
+    TelemetryHistoryController --> HistoryService
+    DeviceHistoryController --> DeviceHistoryService
     OrgApiController --> StreamService
     StreamListener --> StreamService
     StreamListener --> LiveGateway
@@ -216,8 +228,16 @@ classDiagram
     StreamService --> StreamRepository
     LiveMapService --> ContractsService : visibleDevices
     LiveMapService --> DevicesService : projections
-    LiveMapService --> IncidentsService : openByDevices
-    HistoryService --> GatewaySyncService : events
+    LiveMapService --> IncidentsQueryService : openByDevices
+    HistoryService --> ContractsService : rentalPeriods
+    HistoryService --> DevicesService : assetTags
+    HistoryService --> FieldEventQueryService : historyPoints
+    HistoryService --> ParameterService : get
+    DeviceHistoryService --> DevicesService : trail
+    DeviceHistoryService --> ContractsService : contractsOfDevice
+    DeviceHistoryService --> IncidentsQueryService : incidentsOfDevice
+    DeviceHistoryService --> OrganizationsService : labelsOf
+    DeviceHistoryService --> AccountsService : contactCard
     StaleSweepJob --> DevicesService
     StaleSweepJob --> IncidentsService : markDeviceStale
 ```
@@ -297,17 +317,37 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor Op as Org Operator
-    participant P as LiveMapPage
-    participant C as TelemetryController
+    participant P as DeviceTelemetryPage
+    participant C as TelemetryHistoryController
     participant S as HistoryService
-    participant G as GatewaySyncService
+    participant Pm as ParameterService
+    participant Rt as ContractsService
+    participant D as DevicesService
+    participant G as FieldEventQueryService
+    participant DB as Postgres
     Op->>P: open a device's track for a date range
     P->>C: GET /api/telemetry/devices/{id}/history
-    C->>S: history(id, query, caller)
-    S->>G: events(deviceId, organizationId, range, kinds)
-    G->>G: SELECT field_events WHERE organizationId = caller org AND occurredAt in range
-    S-->>C: positions and telemetry attributed to the caller
-    C-->>P: 200 envelope, track drawn
+    C->>S: history(id, query, caller, ability)
+    S->>S: scopeOf(caller, ability), 403 when the caller may not read
+    S->>Pm: get('monitoring.historyMaxRangeDays')
+    Pm-->>S: maxDays
+    alt the range is reversed or longer than maxDays
+        S-->>C: 400 VALIDATION_FAILED
+        C-->>P: 400 envelope, the server message shown
+    else the range is valid
+        alt an organization caller
+            S->>Rt: rentalPeriods(deviceId, organizationId)
+            Rt-->>S: periods, none answers 404
+        else TrekLink Staff or Admin
+            S->>D: assetTags([deviceId])
+            D-->>S: tag, an unknown device answers 404
+        end
+        S->>G: historyPoints(deviceId, organizationId, from, to, kinds)
+        G->>DB: SELECT field_events in the range, plotted only, oldest first
+        G-->>S: points, truncated
+        S-->>C: positions and telemetry attributed to the caller
+        C-->>P: 200 envelope, track drawn
+    end
 ```
 
 ***Figure 6***: UC-40 Query Device History, served by attribution (FR-MON-07, BR-36).
