@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plug } from 'lucide-react';
@@ -118,6 +118,15 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
   const [resetting, setResetting] = useState<Connection | null>(null);
   const [running, setRunning] = useState<'reboot' | 'factoryReset' | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // Focus goes to the Actions heading once a write ends (screen 4.7): the button that ran it is disabled
+  // while the unit is written and read again, and after a factory reset it stays disabled, so focus would
+  // otherwise fall to the page body. A counter, so each write moves it once.
+  const [writesEnded, setWritesEnded] = useState(0);
+  const actionsHeading = useRef<HTMLHeadingElement>(null);
+  // Runs after the reset dialog unmounted and returned focus to its trigger, so this focus wins.
+  useEffect(() => {
+    if (writesEnded > 0) actionsHeading.current?.focus();
+  }, [writesEnded]);
 
   const live = snapshot.connections;
   const selected = live.find((connection) => connection.id === hubUnit) ?? live[0] ?? null;
@@ -140,6 +149,7 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
     setRunning('reboot');
     const outcome = await docking.reboot(connection.id);
     setRunning(null);
+    setWritesEnded((count) => count + 1);
     if (outcome.ok) toast(`${unitName(connection)} restarted.`);
     else setFailure(rebootMessage(outcome, unitName(connection)));
   };
@@ -156,6 +166,7 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
     });
     setRunning(null);
     setResetting(null);
+    setWritesEnded((count) => count + 1);
     void queryClient.invalidateQueries({ queryKey: deviceKeys.device(target.id) });
     if (outcome.ok) toast(`${target.assetTag} is reset. Inspect it at the counter next.`);
     else setFailure(factoryResetMessage(outcome, target.assetTag));
@@ -294,7 +305,7 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
           </Card>
 
           <Card as="section" aria-labelledby="hub-actions-title">
-            <h2 id="hub-actions-title" className="mb-3 text-title-sm text-ink">
+            <h2 ref={actionsHeading} id="hub-actions-title" tabIndex={-1} className="mb-3 text-title-sm text-ink outline-none">
               Actions
             </h2>
             <ul className="grid grid-cols-1 gap-3 min-[1100px]:grid-cols-2">
