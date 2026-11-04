@@ -123,6 +123,14 @@ export class ResetDto {
 
   @IsBoolean()
   ownerCleared!: boolean;
+
+  // The docked unit's node number, sent by the device hub's factory reset (design §11.13); it must be
+  // the device's (409 NODE_MISMATCH). Absent on the counter's manual reset.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(0xffffffff)
+  nodeNum?: number;
 }
 
 // The first devices endpoint, devices api-design 24 (task 4.1 part), built by LongLP for screen 5.3.
@@ -177,6 +185,8 @@ export class DevicesController {
     return this.events.transaction((tx) => this.intake.register(dto, caller.id, new Date(), tx));
   }
 
+  // The audit record `device.reset` goes out after commit for every reset, with the method DOCKED when
+  // the device hub sent the docked node number and MANUAL otherwise (design §11.13).
   @Post(':id/reset')
   @CheckPolicies((ability) => ability.can('operate', 'Device'))
   @ResponseMessage('Reset recorded')
@@ -185,7 +195,26 @@ export class DevicesController {
     @Body() dto: ResetDto,
     @CurrentCaller() caller: Caller,
   ) {
-    return this.events.transaction((tx) => this.devices.reset(id, dto, caller.id, new Date(), tx));
+    return this.events.transaction(async (tx) => {
+      const { device, before } = await this.devices.reset(id, dto, caller.id, new Date(), tx);
+      const docked = dto.nodeNum !== undefined;
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: caller.id,
+        actorRoles: caller.roles,
+        organizationId: null,
+        action: 'device.reset',
+        subjectType: 'Device',
+        subjectId: id,
+        before,
+        after: {
+          keyVersion: device.keyVersion,
+          keyOrganizationId: device.keyOrganizationId,
+          method: docked ? 'DOCKED' : 'MANUAL',
+          nodeNum: docked ? dto.nodeNum : null,
+        },
+      } satisfies AuditRecordEvent);
+      return device;
+    });
   }
 
   @Get('availability')
