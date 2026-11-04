@@ -115,6 +115,16 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.getByText('15 Jun 2026')).toBeTruthy();
   });
 
+  it('shows the detail render of the variant on the device page (devices design section 10)', async () => {
+    currentDevice = device({
+      hardwareVariant: { ...device().hardwareVariant, imageUrl: '/variants/treklink-v3-detail.png' },
+    });
+    renderPage();
+    const image = await screen.findByRole('img', { name: 'TrekLink v3 unit' });
+    expect(image.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
+    expect(image.getAttribute('width')).toBe('160');
+  });
+
   it("shows the card of the unit's variant with its spec sheet and the empty image slot", async () => {
     renderPage();
     expect(await screen.findByRole('heading', { level: 2, name: 'TrekLink v3' })).toBeTruthy();

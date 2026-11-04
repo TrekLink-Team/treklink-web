@@ -2,8 +2,9 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { specLines } from './spec';
+import { iconUrlOf, imageSources, specLines } from './spec';
 import { NO_IMAGE_TEXT, VariantCard } from './VariantCard';
+import { VariantImage } from './VariantImage';
 
 afterEach(cleanup);
 
@@ -117,5 +118,76 @@ describe('VariantCard', () => {
 
     expect(screen.queryByRole('term')).toBeNull();
     expect(screen.getByText('450 000 VND per month')).toBeTruthy();
+  });
+});
+
+// specs/devices/design.md section 10, "Two renders per variant" (W17, devices task 9.3).
+describe('the two renders of a variant', () => {
+  const DETAIL = '/variants/treklink-v3-detail.png';
+  const ICON = '/variants/treklink-v3-icon.png';
+
+  it('derives the icon render from the detail render by name', () => {
+    expect(iconUrlOf(DETAIL)).toBe(ICON);
+    expect(iconUrlOf('https://cdn.example.com/v4-detail.webp')).toBe('https://cdn.example.com/v4-icon.webp');
+    // No -detail suffix, or one not at the end: the same image serves both places.
+    expect(iconUrlOf('/variants/treklink-v3.jpg')).toBe('/variants/treklink-v3.jpg');
+    expect(iconUrlOf('/variants/a-detail.png?v=2')).toBe('/variants/a-detail.png?v=2');
+  });
+
+  it('tries the icon and then the detail render for a list, only the detail render for a pane', () => {
+    expect(imageSources(DETAIL, 'icon')).toEqual([ICON, DETAIL]);
+    expect(imageSources(DETAIL, 'detail')).toEqual([DETAIL]);
+    expect(imageSources('/variants/treklink-v3.jpg', 'icon')).toEqual(['/variants/treklink-v3.jpg']);
+    expect(imageSources(null, 'icon')).toEqual([]);
+    expect(imageSources(undefined, 'detail')).toEqual([]);
+    expect(imageSources('  ', 'detail')).toEqual([]);
+  });
+
+  it('shows the icon render on a card by default, in a fixed 96 px box, lazily', () => {
+    render(<VariantCard variant={{ ...V3, imageUrl: DETAIL }} />);
+
+    const image = screen.getByRole('img', { name: 'TrekLink v3 unit' });
+    expect(image.getAttribute('src')).toBe(ICON);
+    expect(image.getAttribute('width')).toBe('96');
+    expect(image.getAttribute('height')).toBe('96');
+    expect(image.getAttribute('loading')).toBe('lazy');
+    expect(image.parentElement?.className).toContain('h-24 w-24');
+  });
+
+  it('shows the detail render above the text in a fixed 160 px box', () => {
+    render(<VariantCard variant={{ ...V3, imageUrl: DETAIL }} render="detail" />);
+
+    const image = screen.getByRole('img', { name: 'TrekLink v3 unit' });
+    expect(image.getAttribute('src')).toBe(DETAIL);
+    expect(image.getAttribute('width')).toBe('160');
+    expect(image.parentElement?.className).toContain('h-40 w-40');
+    expect(image.parentElement?.parentElement?.className).toContain('flex-col');
+  });
+
+  it('falls back from a missing icon to the detail render, then to the empty slot', () => {
+    render(<VariantCard variant={{ ...V3, imageUrl: DETAIL }} />);
+
+    fireEvent.error(screen.getByRole('img'));
+    expect(screen.getByRole('img').getAttribute('src')).toBe(DETAIL);
+
+    fireEvent.error(screen.getByRole('img'));
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByText(NO_IMAGE_TEXT)).toBeTruthy();
+  });
+
+  it('draws the small list icon on a theme token, and an empty box with no label when there is no image', () => {
+    const { container, rerender } = render(
+      <VariantImage variant={{ name: 'TrekLink v3', imageUrl: DETAIL }} render="icon" size="sm" />,
+    );
+    const image = screen.getByRole('img', { name: 'TrekLink v3 unit' });
+    expect(image.getAttribute('src')).toBe(ICON);
+    expect(image.getAttribute('width')).toBe('32');
+    expect(image.parentElement?.className).toContain('bg-sunken');
+
+    rerender(<VariantImage variant={{ name: 'TrekLink v3', imageUrl: null }} render="icon" size="sm" />);
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByText(NO_IMAGE_TEXT)).toBeNull();
+    expect((container.firstChild as HTMLElement).getAttribute('aria-hidden')).toBe('true');
+    expect((container.firstChild as HTMLElement).className).toContain('h-8 w-8');
   });
 });

@@ -269,7 +269,7 @@ export const DeviceDetailPage: React.FC = () => {
         <div className="flex flex-col gap-4">
           {/* The variant card comes from the unit's own payload (devices design section 10). */}
           <div className={CARD}>
-            <VariantCard variant={device.hardwareVariant} headingLevel="h2" />
+            <VariantCard variant={device.hardwareVariant} render="detail" headingLevel="h2" />
           </div>
           <div className={CARD}>
             <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>

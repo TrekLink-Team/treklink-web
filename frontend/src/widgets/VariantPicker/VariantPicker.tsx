@@ -55,7 +55,7 @@ export const VariantPicker: React.FC<Props> = ({ variants, value, onChange, coun
               aria-invalid={error ? true : undefined}
               className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-[rgb(var(--tl-accent))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             />
-            <VariantCard variant={item} headingId={nameId}>
+            <VariantCard variant={item} render="icon" headingId={nameId}>
               <p id={detailId} className="mt-2 text-body-sm text-ink">
                 {formatVnd(item.monthlyPriceVnd)} per device per month
                 {count === undefined ? '' : `, ${count} available`}

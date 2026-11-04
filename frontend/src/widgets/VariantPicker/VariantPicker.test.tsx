@@ -26,7 +26,7 @@ const V4: PlanVariant = {
   id: 'v-4',
   code: 'treklink-v4',
   name: 'TrekLink v4',
-  imageUrl: '/variants/treklink-v4.jpg',
+  imageUrl: '/variants/treklink-v4-detail.png',
   specSheet: { mcu: 'ESP32-S3' },
 };
 
@@ -69,7 +69,10 @@ describe('VariantPicker (the variant cards of the request form)', () => {
     expect(screen.getByText(`${formatVnd(450000)} per device per month`)).toBeTruthy();
     expect(screen.getByText('LED blinks')).toBeTruthy();
     expect(screen.getByText('Variant image not added yet')).toBeTruthy();
-    expect(screen.getByRole('img', { name: 'TrekLink v4 unit' })).toBeTruthy();
+    // The icon render on a card (devices design section 10, "Two renders per variant").
+    expect(screen.getByRole('img', { name: 'TrekLink v4 unit' }).getAttribute('src')).toBe(
+      '/variants/treklink-v4-icon.png',
+    );
   });
 
   it('chooses a variant by its radio or by a click anywhere on its card', () => {

@@ -33,7 +33,17 @@ const device = (overrides: Record<string, unknown> = {}) => ({
   assetTag: 'TL-0042',
   nodeNum: 2763113171,
   nodeId: '!a4b1c2d3',
-  hardwareVariant: { id: 'v-3', code: 'treklink-v3' },
+  hardwareVariant: {
+    id: 'v-3',
+    code: 'treklink-v3',
+    name: 'TrekLink v3',
+    imageUrl: '/variants/treklink-v3-detail.png',
+    specSheet: { mcu: 'ESP32' },
+    hasGps: true,
+    hasMotionSensor: false,
+    mqttCapable: true,
+    firmwareBaseline: '2.7.19-treklink.3',
+  },
   firmwareVersion: '2.7.19-treklink.3',
   acquiredAt: '2026-06-15T00:00:00Z',
   status: 'AVAILABLE',
@@ -102,6 +112,26 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(within(row).getByText('treklink-v3')).toBeTruthy();
     expect(within(row).getByText('Available')).toBeTruthy();
     expect(within(row).getByText('96%')).toBeTruthy();
+  });
+
+  // W17 (devices design section 10, "Two renders per variant"): the icon in the column, the detail render
+  // in the details pane.
+  it('shows the icon render beside the variant code and the detail render in the details pane', async () => {
+    renderPage();
+    const table = within(await screen.findByRole('table'));
+    const row = table.getByText('TL-0042').closest('tr') as HTMLElement;
+    const icon = within(row).getByRole('img', { name: 'TrekLink v3 unit' });
+    expect(icon.getAttribute('src')).toBe('/variants/treklink-v3-icon.png');
+    expect(icon.getAttribute('width')).toBe('32');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0042' }));
+    const pane = within(screen.getByRole('complementary', { name: 'TL-0042' }));
+    expect(pane.getByRole('img', { name: 'TrekLink v3 unit' }).getAttribute('src')).toBe(
+      '/variants/treklink-v3-detail.png',
+    );
+    expect(pane.getByRole('heading', { level: 3, name: 'TrekLink v3' })).toBeTruthy();
+    // One image in the pane: the Variant field and its icon stay in the table.
+    expect(pane.getAllByRole('img')).toHaveLength(1);
   });
 
   // W15 panel walk: the asset tag broke at its hyphen (TL- / 0002) and the service date read 2027-05-03
