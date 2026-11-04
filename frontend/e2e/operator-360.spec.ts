@@ -87,9 +87,12 @@ test('360 px: SOS banner, Incidents and the incident page (MF-03 steps 2 to 6)',
   await main.getByRole('button', { name: 'Save response' }).click();
   await expect(statusBadge(main, 'Responding')).toBeVisible();
 
-  const outcome = main.getByRole('button', { name: 'Report outcome' });
-  await expectOnScreen(outcome, 'Report outcome');
-  await outcome.click();
+  // Below 600 px the actions sit in a bar pinned to the bottom (chapter 06 §10.5): on a Responding
+  // incident Add status is the primary button and Report outcome is under More actions (screen 8.1).
+  const more = main.getByRole('button', { name: /^More actions/ });
+  await expectOnScreen(more, 'More actions');
+  await more.click();
+  await page.getByRole('menuitem', { name: 'Report outcome' }).click();
   await main.getByRole('textbox', { name: /^Outcome/ }).fill('Hiker safe, 360 px check');
   await expectOnScreen(main.getByRole('button', { name: 'Resolve incident' }), 'Resolve incident');
   await main.getByRole('button', { name: 'Resolve incident' }).click();

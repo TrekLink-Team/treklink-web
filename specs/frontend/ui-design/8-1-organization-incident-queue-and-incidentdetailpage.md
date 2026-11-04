@@ -162,6 +162,6 @@ closed". Clear search and filter drops both, so every incident shows.
 Added by KhoaDD. Below 600 px the incident page follows chapter 06 §10.5, as the contract home does. The
 facts become one compact definition list, label and value on one row. The actions move into a bar pinned
 to the bottom, so the primary action stays in view above the evidence: the first action of the state
-(Acknowledge, Response under way, Report outcome) is the widest button and More actions holds the rest,
+(Acknowledge, Response under way, Add status, as the States table names it) is the widest button and More actions holds the rest,
 Declare false alarm last after a separator. While an action form is open the bar leaves, as the buttons
 do on a wide screen. From 600 px the page is unchanged.

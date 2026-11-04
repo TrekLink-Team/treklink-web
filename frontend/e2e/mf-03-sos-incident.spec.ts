@@ -135,7 +135,10 @@ test('MF-03 steps 7 to 10: Staff report the UNROUTED TL-0001 incident and close 
   await expect(reportRow).toHaveCount(0);
 
   // Step 10
-  await page.getByLabel('Open cases only').uncheck();
+  // Open cases only is the default of the reports' Show menu (CollectionView, D-096); All reports shows
+  // the closed case again.
+  await page.getByRole('button', { name: /^Show: Open cases only/ }).click();
+  await page.getByRole('menuitem', { name: 'All reports' }).click();
   await page.getByRole('row').filter({ hasText: incidentReference }).getByRole('link', { name: 'View incident' }).or(
     page.getByRole('row').filter({ hasText: incidentReference }).getByRole('button', { name: 'View incident' }),
   ).first().click();
