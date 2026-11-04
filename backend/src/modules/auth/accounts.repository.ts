@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AccountType, AuthEventType, OtpPurpose, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { likeLiteral } from '../../common/prisma/like-literal';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -464,7 +465,7 @@ export class AccountsRepository {
   }
 
   // TrekLink accounts for the Admin list, newest first; soft-deleted rows are not listed (api-design
-  // 09). `q` matches the name or the email, case-insensitively.
+  // 09). `q` matches the name or the email, case-insensitively; `%`, `_` and `\` in it are literal.
   async pageTreklinkAccounts(
     filter: { q?: string; isActive?: boolean },
     skip: number,
@@ -477,8 +478,8 @@ export class AccountsRepository {
       ...(filter.q
         ? {
             OR: [
-              { fullName: { contains: filter.q, mode: 'insensitive' } },
-              { email: { contains: filter.q, mode: 'insensitive' } },
+              { fullName: { contains: likeLiteral(filter.q), mode: 'insensitive' } },
+              { email: { contains: likeLiteral(filter.q), mode: 'insensitive' } },
             ],
           }
         : {}),

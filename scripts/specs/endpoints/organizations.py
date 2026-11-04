@@ -73,7 +73,7 @@ ENDPOINTS = [
        "Lists organizations with filters; the Staff verification queue is `status=PENDING`.",
        "UC-02, UC-03, UC-07",
        query=[["status", "OrganizationStatus", "enum", "no", "`PENDING`"],
-              ["q", "Name, code or tax code contains, at most 100 characters; the tax code match is case sensitive", "string", "no", "`acme`"]] + PAGE_QUERY,
+              ["q", "Name, code or tax code contains, at most 100 characters; the tax code match is case sensitive; `%` and `_` are literal characters", "string", "no", "`acme`"]] + PAGE_QUERY,
        response=paged(ORG, 12), steps=["Read organizations, filtered and paged"],
        controller="OrganizationsController", service="OrganizationsService", call="list(query)",
        seq=["Svc->>DB: SELECT organizations"]),

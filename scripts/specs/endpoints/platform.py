@@ -74,7 +74,7 @@ ENDPOINTS = [
               ["organizationId", "Filter by tenant", "uuid", "no", f"`{ORG_ID}`"],
               ["subjectType", "Entity type", "string", "no", "`RentalContract`"],
               ["subjectId", "Entity id", "string", "no", "`c0ffee00-...`"],
-              ["action", "Action prefix", "string", "no", "`contract.`"],
+              ["action", "Action prefix; `%` and `_` are literal characters", "string", "no", "`contract.`"],
               ["from", "Inclusive start, ISO 8601", "datetime", "no", "`2026-10-01T00:00:00Z`"],
               ["to", "Exclusive end, ISO 8601", "datetime", "no", "`2026-10-21T00:00:00Z`"]] + PAGE_QUERY,
        response=paged({"id": "4d3c...", "actor": {"id": USER_ID, "fullName": "Staff A"}, "actorRoles": ["STAFF"],

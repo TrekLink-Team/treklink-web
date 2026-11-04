@@ -127,7 +127,7 @@ ENDPOINTS = [
        "UC-38, UC-54, FR-AUTH-11",
        query=[["status", "DeviceStatus, repeatable", "enum", "no", "`AVAILABLE`"],
               ["hardwareVariantId", "Variant", "uuid", "no", f"`{VARIANT_ID}`"],
-              ["q", "Asset tag contains", "string", "no", "`TL-00`"]] + PAGE_QUERY,
+              ["q", "Asset tag contains, ignoring case; `%` and `_` are literal characters", "string", "no", "`TL-00`"]] + PAGE_QUERY,
        fields=[["hardwareVariant", "The shared variant summary of design section 10 (`id`, `code`, `name`, `imageUrl`, "
                 "`specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`, `firmwareBaseline`), the same shape on every unit payload, so the "
                 "variant card needs no second read and an Org Operator, who cannot read api-design 01, still sees it", "object",

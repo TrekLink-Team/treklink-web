@@ -25,7 +25,7 @@ Searches the generic append-only audit log by actor, organization, subject, acti
 | organizationId | Filter by tenant | uuid | no | `5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f` |
 | subjectType | Entity type | string | no | `RentalContract` |
 | subjectId | Entity id | string | no | `c0ffee00-...` |
-| action | Action prefix | string | no | `contract.` |
+| action | Action prefix; `%` and `_` are literal characters | string | no | `contract.` |
 | from | Inclusive start, ISO 8601 | datetime | no | `2026-10-01T00:00:00Z` |
 | to | Exclusive end, ISO 8601 | datetime | no | `2026-10-21T00:00:00Z` |
 | pageNumber | 1-based page | int | no | `1` |

@@ -8,6 +8,7 @@ import {
   toPagedResult,
 } from '../../../common/dto/paging';
 import { DomainException, ErrorCode } from '../../../common/errors';
+import { likeLiteral } from '../../../common/prisma/like-literal';
 import { ValidatedEnvironment } from '../config/environment-variables';
 import { ACCOUNT_DIRECTORY, AccountDirectory } from '../ports/account-directory.port';
 import { ActorRef, resolveActors } from '../ports/actor-names';
@@ -58,7 +59,8 @@ export class AuditLogService {
       ...(query.organizationId ? { organizationId: query.organizationId } : {}),
       ...(query.subjectType ? { subjectType: query.subjectType } : {}),
       ...(query.subjectId ? { subjectId: query.subjectId } : {}),
-      ...(query.action ? { action: { startsWith: query.action } } : {}),
+      // A prefix; `%`, `_` and `\` in it are literal characters (likeLiteral).
+      ...(query.action ? { action: { startsWith: likeLiteral(query.action) } } : {}),
       ...(from || to
         ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }
         : {}),

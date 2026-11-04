@@ -21,7 +21,7 @@ Lists TrekLink Staff and Admin accounts (UC-10). Organization accounts are manag
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| q | Name or email contains | string | no | `tran` |
+| q | Name or email contains, ignoring case; `%` and `_` are literal characters | string | no | `tran` |
 | isActive | Filter by active flag | bool | no | `true` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
