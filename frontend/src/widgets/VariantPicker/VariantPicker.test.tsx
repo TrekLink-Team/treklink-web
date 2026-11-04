@@ -110,6 +110,14 @@ describe('VariantPicker (the variant cards of the request form)', () => {
     expect(onChange).toHaveBeenLastCalledWith('v-4');
   });
 
+  // W15 panel walk: two cards beside the quote at 1280 px left the spec list about 150 px wide.
+  it('lays the cards one per row below 1536 px', () => {
+    render(<Harness />);
+    const grid = screen.getByRole('group').querySelector('.grid');
+    expect(grid?.className).toContain('2xl:grid-cols-2');
+    expect(grid?.className).not.toMatch(/(^|\s)(sm|md|lg|xl):grid-cols-/);
+  });
+
   it('shows the error text, ties it to the group and marks the radios invalid', () => {
     render(<Harness error="Hardware variant is required." />);
 
