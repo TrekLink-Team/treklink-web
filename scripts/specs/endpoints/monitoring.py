@@ -221,9 +221,19 @@ ENDPOINTS = [
        response=paged({"at": NOW, "kind": "STATE", "summary": "RETURNED to AVAILABLE", "actor": "Tran Thi B",
                        "refType": "INSPECTION", "refId": "in-1"}, 37),
        entity="Device", steps=["Merge the device's own trail with contracts and incidents"],
-       controller="DeviceHistoryController", service="DeviceHistoryService", call="history(id, query)",
-       participants=[["Dev", "DevicesService"], ["Rent", "RentalsService"], ["Inc", "IncidentsService"]],
-       seq=["Svc->>Dev: trail(id)", "Svc->>Rent: contractsOfDevice(id)", "Svc->>Inc: incidentsOfDevice(id)"]),
+       # Drawn from device-history.controller.ts and device-history.service.ts (review of #347).
+       sequence=["actor C as Client", "participant Ctl as DeviceHistoryController",
+           "participant Svc as DeviceHistoryService", "participant Dev as DevicesService (devices)",
+           "participant Rent as ContractsService (rentals)", "participant Inc as IncidentsQueryService (incidents)",
+           "participant Org as OrganizationsService (organizations)", "participant Acc as AccountsService (auth)",
+           "C->>Ctl: GET /api/devices/:id/history", "Ctl->>Svc: history(id, skip, take)",
+           "Svc->>Dev: trail(id)", "Dev-->>Svc: the device's state, intake, provisioning, reset, inspection and maintenance rows, an unknown device answers 404",
+           "Svc->>Rent: contractsOfDevice(id)", "Rent-->>Svc: one row per contract with its reservation, handover, release, check-in and loss times",
+           "Svc->>Org: labelsOf(organizationIds)", "Org-->>Svc: the organization codes",
+           "Svc->>Inc: incidentsOfDevice(id)", "Inc-->>Svc: the incidents of the device with their transitions",
+           "Note over Svc: merge the rows, order them by time and lifecycle rank, newest first, take the page",
+           "Svc->>Acc: contactCard(actorIds of the page)", "Acc-->>Svc: the names, SYSTEM when none",
+           "Svc-->>Ctl: items and total", "Ctl-->>C: 200 envelope"]),
 
     ep("GET", "/api/reports/:kind", "Reports", "TrekLink Staff, TrekLink Admin",
        "Utilization, revenue per variant, overdue contracts, lost units, and time-to-acknowledge and "

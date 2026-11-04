@@ -170,15 +170,24 @@ sequenceDiagram
     actor C as Client
     participant Ctl as DeviceHistoryController
     participant Svc as DeviceHistoryService
-    participant DB as Postgres
-    participant Dev as DevicesService
-    participant Rent as RentalsService
-    participant Inc as IncidentsService
+    participant Dev as DevicesService (devices)
+    participant Rent as ContractsService (rentals)
+    participant Inc as IncidentsQueryService (incidents)
+    participant Org as OrganizationsService (organizations)
+    participant Acc as AccountsService (auth)
     C->>Ctl: GET /api/devices/:id/history
-    Ctl->>Svc: history(id, query)
+    Ctl->>Svc: history(id, skip, take)
     Svc->>Dev: trail(id)
+    Dev-->>Svc: the device's state, intake, provisioning, reset, inspection and maintenance rows, an unknown device answers 404
     Svc->>Rent: contractsOfDevice(id)
+    Rent-->>Svc: one row per contract with its reservation, handover, release, check-in and loss times
+    Svc->>Org: labelsOf(organizationIds)
+    Org-->>Svc: the organization codes
     Svc->>Inc: incidentsOfDevice(id)
-    Svc-->>Ctl: result
+    Inc-->>Svc: the incidents of the device with their transitions
+    Note over Svc: merge the rows, order them by time and lifecycle rank, newest first, take the page
+    Svc->>Acc: contactCard(actorIds of the page)
+    Acc-->>Svc: the names, SYSTEM when none
+    Svc-->>Ctl: items and total
     Ctl-->>C: 200 envelope
 ```
