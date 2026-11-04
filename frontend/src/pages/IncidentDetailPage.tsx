@@ -311,11 +311,9 @@ export const IncidentDetailPage: React.FC = () => {
                   : 'Position unavailable'}
               </Fact>
               {incident.outcomeNote && (
-                <div className={phone ? undefined : 'sm:col-span-2'}>
-                  <Fact label="Outcome">
-                    <span className="whitespace-pre-wrap break-words">{incident.outcomeNote}</span>
-                  </Fact>
-                </div>
+                <Fact label="Outcome" className={phone ? undefined : 'sm:col-span-2'}>
+                  <span className="whitespace-pre-wrap break-words">{incident.outcomeNote}</span>
+                </Fact>
               )}
             </dl>
           </div>

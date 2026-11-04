@@ -294,6 +294,20 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(screen.getByRole('button', { name: 'Declare false alarm' })).toBeTruthy();
   });
 
+  // W15 panel walk: axe flagged definition-list and dlitem (serious) once an incident had an outcome,
+  // because the Outcome fact sat in an extra div inside the <dl> (e2e/a11y.spec.ts allowlist).
+  it('keeps the Outcome fact a direct dt and dd group of the facts list', async () => {
+    detail({ state: 'RESOLVED', outcomeNote: 'Hiker found, walked out' });
+    renderAt('/o/incidents/inc-1');
+    const outcome = await screen.findByText('Hiker found, walked out');
+    const list = outcome.closest('dl') as HTMLElement;
+    for (const group of Array.from(list.children)) {
+      expect(group.tagName).toBe('DIV');
+      expect(Array.from(group.children).map((child) => child.tagName)).toEqual(['DT', 'DD']);
+    }
+    expect(outcome.closest('dd')?.parentElement?.parentElement).toBe(list);
+  });
+
   it('shows the empty evidence and missing labels', async () => {
     detail({
       device: { id: 'd-1', assetTag: null, holder: null },

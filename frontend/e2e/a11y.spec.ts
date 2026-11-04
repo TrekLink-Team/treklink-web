@@ -30,27 +30,10 @@ interface AllowEntry {
   requiredWhen?: (page: Page) => Promise<boolean>;
 }
 
-// The Outcome fact of a resolved incident (IncidentDetailPage.tsx:297): a Fact's div inside one more div.
-const outcomeShown = async (page: Page) => (await page.locator('dt', { hasText: /^Outcome$/ }).count()) > 0;
-
 // Known violations, each with the rule, the route pattern as router.tsx writes it, the element, and why
-// it is not fixed in this branch (test work only). Remove an entry when its defect is fixed.
-const ALLOWLIST: AllowEntry[] = [
-  {
-    rule: 'definition-list',
-    route: '/o/incidents/:id',
-    selector: 'dl:has(> div > div > dt)',
-    reason: 'the Outcome fact is wrapped in an extra div inside the dl (IncidentDetailPage.tsx:297), shown once an incident is resolved',
-    requiredWhen: outcomeShown,
-  },
-  {
-    rule: 'dlitem',
-    route: '/o/incidents/:id',
-    selector: 'dl > div > div > dt, dl > div > div > dd',
-    reason: 'the dt and dd of that Outcome fact are not direct children of a dl group (IncidentDetailPage.tsx:297)',
-    requiredWhen: outcomeShown,
-  },
-];
+// it is not fixed yet. Remove an entry when its defect is fixed. Empty since the Outcome fact of a
+// resolved incident became a direct dt and dd group of its dl (W15 panel polish).
+const ALLOWLIST: AllowEntry[] = [];
 
 type Resolve = (request: APIRequestContext, token: string) => Promise<string | null>;
 
