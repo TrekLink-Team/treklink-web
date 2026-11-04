@@ -34,7 +34,7 @@ import {
 import { Dialog } from '../shared/ui/Dialog';
 import { useConfirmStep } from '../shared/ui/useConfirmStep';
 import { useToast } from '../shared/ui/toastStore';
-import { matchesText } from '../shared/lib/filter';
+import { useDebounced } from '../shared/lib/useDebounced';
 import {
   ALERT,
   DANGER_BUTTON,
@@ -389,6 +389,9 @@ const QUEUES: { key: string; label: string; status?: ContractStatus }[] = [
   { key: 'ALL', label: 'All' },
 ];
 
+// As the fleet search (FleetPage): one request once typing pauses.
+const SEARCH_DEBOUNCE_MS = 300;
+
 // /t/contracts, screen 5.3: the approval queue on CollectionView (chapter 06 §9, D-096), the queue as
 // its Show filter (rentals api-design 02), and the selected request's decision panel in the details
 // pane (rentals api-design 04, 05, 06). Devices are chosen by the server.
@@ -400,20 +403,15 @@ export const ContractApprovalPage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [text, setText] = useState('');
   const status = QUEUES.find((queue) => queue.key === queueKey)?.status;
-  const { data, isLoading, error, refetch } = useContracts('t', { status, pageNumber });
+  // The search runs on the server over the whole queue (rentals api-design 02 `q`, REQ-EVT-26): the
+  // contract code, the organization's name or code, once typing has paused for SEARCH_DEBOUNCE_MS.
+  const q = useDebounced(text.trim(), SEARCH_DEBOUNCE_MS);
+  const { data, isLoading, error, refetch } = useContracts('t', {
+    status,
+    pageNumber,
+    q: q || undefined,
+  });
   const variantName = useVariantName();
-  // The search reads the current page: code, organization, variant and plan.
-  const rows = data?.items.filter((contract) =>
-    matchesText(
-      text,
-      contract.code,
-      contract.organization?.code,
-      contract.organization?.legalName,
-      variantName(contract.hardwareVariant),
-      contract.hardwareVariant.code,
-      planLabel(contract),
-    ),
-  );
 
   const transitions = (contract: Contract): CollectionTransition<Contract>[] => [
     ...(contract.status === 'REQUESTED'
@@ -510,7 +508,7 @@ export const ContractApprovalPage: React.FC = () => {
       <PageTitle id="queue-title" title="Contracts" />
       <CollectionView<Contract>
         label="Contracts"
-        items={rows}
+        items={data?.items}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
         itemId={(contract) => contract.id}
@@ -531,15 +529,18 @@ export const ContractApprovalPage: React.FC = () => {
         freshItem={freshItem}
         statusOf={(contract) => STATUS_LABELS[contract.status]}
         search={{
-          label: 'Search by contract, organization, variant or plan',
-          placeholder: 'Contract, organization or variant',
+          label: 'Search by contract or organization',
+          placeholder: 'Contract code, organization name or code',
         }}
         filters={QUEUES.map((queue) => ({ key: queue.key, label: queue.label }))}
         query={{ search: text, filter: queueKey, sort: null }}
         // The default queue (Requested) narrows the list, so the bar stays even for one or two rows.
         hideCommandBar={false}
         onQueryChange={(next) => {
-          setText(next.search);
+          if (next.search !== text) {
+            setText(next.search);
+            setPageNumber(1);
+          }
           if (next.filter !== queueKey) {
             setQueueKey(next.filter);
             setPageNumber(1);
