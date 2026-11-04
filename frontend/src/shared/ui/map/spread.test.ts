@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { MIN_TARGET_PX, spreadOffsets, type SpreadPoint } from './spread';
 
+// Where each target is drawn: Leaflet rounds the reading to a whole pixel, then the offset applies.
 const placed = (points: SpreadPoint[]) => {
   const offsets = spreadOffsets(points);
   return points.map((p) => {
     const [dx, dy] = offsets.get(p.id) ?? [0, 0];
-    return { id: p.id, x: p.x + dx, y: p.y + dy };
+    return { id: p.id, x: Math.round(p.x) + dx, y: Math.round(p.y) + dy };
   });
 };
 
@@ -33,12 +34,13 @@ describe('spreadOffsets (WCAG 2.2, 2.5.8)', () => {
       { id: 'a', x: 100, y: 50 },
       { id: 'b', x: 104, y: 50 },
     ]);
-    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeCloseTo(MIN_TARGET_PX);
-    expect(a.y).toBeCloseTo(50);
-    expect(b.y).toBeCloseTo(50);
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThanOrEqual(MIN_TARGET_PX + 2);
+    expect(a.y).toBe(50);
+    expect(b.y).toBe(50);
     expect(a.x).toBeLessThan(b.x);
-    // The pair stays centred on its readings.
-    expect((a.x + b.x) / 2).toBeCloseTo(102);
+    // The pair stays centred on its readings, to the pixel.
+    expect(Math.abs((a.x + b.x) / 2 - 102)).toBeLessThanOrEqual(1);
   });
 
   it('spreads markers on one spot around it, in id order', () => {
@@ -46,7 +48,7 @@ describe('spreadOffsets (WCAG 2.2, 2.5.8)', () => {
     const result = placed(points);
     expect(closest(result)).toBeGreaterThanOrEqual(MIN_TARGET_PX - 1e-6);
     const a = result.find((p) => p.id === 'a')!;
-    expect(a.x).toBeCloseTo(10);
+    expect(a.x).toBe(10);
     expect(a.y).toBeLessThan(10);
   });
 
@@ -57,5 +59,28 @@ describe('spreadOffsets (WCAG 2.2, 2.5.8)', () => {
       { id: 'c', x: 30, y: 0 },
     ]);
     expect(closest(result)).toBeGreaterThanOrEqual(MIN_TARGET_PX - 1e-6);
+  });
+
+  it('keeps every drawn target 24 px apart once readings and offsets are rounded (review of #360)', () => {
+    for (let count = 2; count <= 10; count += 1)
+      for (const [fx, fy] of [
+        [0.49, 0.51],
+        [0.5, 0.5],
+        [0.13, 0.87],
+      ]) {
+        const points = Array.from({ length: count }, (_, i) => ({
+          id: `p${i}`,
+          x: 200 + fx + (i % 3) * 1.7,
+          y: 300 + fy + i * 0.9,
+        }));
+        const offsets = spreadOffsets(points);
+        for (const [dx, dy] of offsets.values()) {
+          expect(Number.isInteger(dx)).toBe(true);
+          expect(Number.isInteger(dy)).toBe(true);
+        }
+        expect(closest(placed(points)), `${count} at +${fx},+${fy}`).toBeGreaterThanOrEqual(
+          MIN_TARGET_PX,
+        );
+      }
   });
 });
