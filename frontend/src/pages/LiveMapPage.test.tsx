@@ -119,7 +119,8 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const withState = (name: string) => {
   const [tag, ...rest] = name.split(', ');
   return new RegExp(
-    `^${escape(tag)}, (live|offline|not heard since handover)(, .*?)?, ${escape(rest.join(', '))}$`,
+    // A unit docked at the counter (devices design 11.8) carries the words of its own marker state.
+    `^${escape(tag)}, (live|offline|not heard since handover|docked at the counter)(, .*?)?, ${escape(rest.join(', '))}$`,
   );
 };
 const marker = (name: string | RegExp) =>
