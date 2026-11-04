@@ -3,15 +3,17 @@
 -- is applied; the demo seed writes the same values on a database it creates rows in.
 
 -- 1. treklink-v1, inserted only when absent. Recorded facts: ESP32, SX1278, MPU6050 (treklink-firmware
--- docs/variants.md at a4aa98d, as in 20261103140000_variant_media) and MQTT compiled out
--- (-D MESHTASTIC_EXCLUDE_MQTT=1). Unverified, set only because the columns are required: "hasGps" false and
--- "firmwareBaseline" 2.7.19-treklink.1, the pattern of v2 to v4. The remaining value schedule, service
--- interval and checklist are those the seed gives v2 to v4.
+-- docs/variants.md at a4aa98d, as in 20261103140000_variant_media), MQTT compiled out
+-- (-D MESHTASTIC_EXCLUDE_MQTT=1) and a GPS, a Neo-6M on UART1 (treklink-firmware
+-- variants/esp32/treklink_v1_0/variant.h:10), so "hasGps" is true. Unverified, set only because the column is
+-- required: "firmwareBaseline" 2.7.19-treklink.1, the pattern of v2 to v4 on the firmware version 2.7.19 of
+-- treklink-firmware version.properties. The remaining value schedule, service interval and checklist are
+-- those the seed gives v2 to v4.
 INSERT INTO "hardware_variants" (
   "id", "code", "name", "hasGps", "hasMotionSensor", "mqttCapable", "firmwareBaseline",
   "remainingValueSchedule", "serviceIntervalDays", "serviceChecklist", "specSheet", "isActive", "updatedAt")
 SELECT
-  gen_random_uuid()::text, 'treklink-v1', 'TrekLink v1 (motion sensor, no MQTT)', false, true, false,
+  gen_random_uuid()::text, 'treklink-v1', 'TrekLink v1 (motion sensor, no MQTT)', true, true, false,
   '2.7.19-treklink.1',
   '[{"fromMonths": 0, "valueVnd": 2500000}, {"fromMonths": 12, "valueVnd": 1800000}, {"fromMonths": 24, "valueVnd": 1200000}]'::jsonb,
   180,
