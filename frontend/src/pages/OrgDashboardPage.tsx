@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { CreditCard, FileText, Radio, Receipt, Siren } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { FileText, Radio, Receipt, Siren } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import { useInvoices, type Invoice } from '../entities/billing/api';
 import {
@@ -99,7 +99,6 @@ const nextDates = (contracts: Contract[]): NextDate[] =>
 // through CollectionView (chapter 06 §9, D-096) without a command bar: each is a short extract.
 export const OrgDashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const organization = user?.organization;
   const contracts = useContracts('o', { pageSize: MAX_PAGE_SIZE });
   const invoices = useInvoices('o', { pageSize: MAX_PAGE_SIZE });
@@ -165,6 +164,8 @@ export const OrgDashboardPage: React.FC = () => {
       label: 'Contract',
       render: (invoice) => invoice.contract.code ?? '',
       text: (invoice) => invoice.contract.code ?? '',
+      // Kept on a phone row: the contract names what the invoice is for (review of treklink-web#355).
+      compact: true,
     },
     {
       key: 'due',
@@ -184,6 +185,23 @@ export const OrgDashboardPage: React.FC = () => {
           <StatusBadge entry={INVOICE_STATUS[invoice.status]} />
         ),
       text: (invoice) => (overdueIds.has(invoice.id) ? 'Overdue' : INVOICE_STATUS[invoice.status].label),
+      compact: true,
+    },
+    {
+      key: 'pay',
+      label: 'Pay',
+      // A link, as before CollectionView, so it opens the invoice page in a new tab when asked to
+      // (review of treklink-web#355); its name starts with its visible text (2.5.3).
+      render: (invoice) => (
+        <Link
+          to={`/o/invoices/${invoice.id}`}
+          className={buttonClasses('secondary', 'sm')}
+          aria-label={`Pay ${invoice.number}`}
+        >
+          Pay
+        </Link>
+      ),
+      align: 'end',
       compact: true,
     },
   ];
@@ -346,14 +364,6 @@ export const OrgDashboardPage: React.FC = () => {
               itemHref={(invoice) => `/o/invoices/${invoice.id}`}
               fields={invoiceFields}
               noun={{ one: 'invoice', other: 'invoices' }}
-              itemActions={[
-                {
-                  key: 'pay',
-                  label: 'Pay',
-                  icon: <CreditCard />,
-                  onSelect: (invoice) => navigate(`/o/invoices/${invoice.id}`),
-                },
-              ]}
               details={false}
               hideCommandBar
               fitNarrow

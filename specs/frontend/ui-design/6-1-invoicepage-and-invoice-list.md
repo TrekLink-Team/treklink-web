@@ -111,5 +111,6 @@ reads the reference.
 Added by KhoaDD. The lines of an invoice render through `CollectionView` (chapter 06 §9). The line search
 (description or type) and the line status select move into its command bar as the search and the Show
 filter, still applied in the browser to the lines billing 09 returns. Each line's description is its
-title with its number under it; the type, quantity and due date leave when the list is narrow, and a line
-has no details pane, because every field is already in its row. Payments stay a plain list.
+title with its number under it. Every field stays in a narrow list and in a phone row (the type, the
+quantity and unit price, "Due" and the date, the amount, the status; review of treklink-web#355), so a line
+has no details pane. Payments stay a plain list.

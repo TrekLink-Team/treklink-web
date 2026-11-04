@@ -95,4 +95,6 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 Added by KhoaDD. The table of points renders through `CollectionView` (chapter 06 §9), still paged in the
 client by 50. The Row click of the Actions table becomes the item action Show on the map, offered on a point
 that has a position: it centres the map on the point, and the point's time then reads "On the map". A
-point has no details pane, because every field is already in its row.
+point has no details pane, because every field is already in its row: latitude and longitude share one
+field, and altitude and battery carry their units, so a phone row reads without column headers (review of
+treklink-web#355).

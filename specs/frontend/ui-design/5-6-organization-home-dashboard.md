@@ -83,6 +83,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 
 Added by KhoaDD. The three lists of the dashboard render through `CollectionView` (chapter 06 §9) without a
 command bar, because each is a short extract of a page that has its own (Invoices, Contracts, Incidents).
-Invoices to pay keeps its order, overdue first, and Pay is an item action that opens the invoice page. Next
+Invoices to pay keeps its order, overdue first; the contract code stays in a phone row, and Pay is a link
+to the invoice page named "Pay INV-...", so it opens in a new tab when asked (review of treklink-web#355). Next
 dates and Open incidents use the list view: each row is the linked code, a short status badge with the date
 as muted text beside it, and for an incident the device and holder.

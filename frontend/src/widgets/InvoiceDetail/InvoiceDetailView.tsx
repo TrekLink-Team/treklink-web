@@ -28,8 +28,11 @@ const LINE_TONES: Record<string, string> = {
 
 const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'SePay' } as const;
 
+// Every field is compact and none leaves a narrow list: a phone row and the Staff panel beside the
+// invoice list (under 1100 px) keep the type, quantity and due date a person reads before paying
+// (review of treklink-web#355). Each value names itself without its column header.
 const LINE_FIELDS: CollectionField<InvoiceLine>[] = [
-  { key: 'type', label: 'Type', render: (line) => line.type, text: (line) => line.type, hideWithPane: true },
+  { key: 'type', label: 'Type', render: (line) => line.type, text: (line) => line.type, compact: true },
   {
     key: 'quantity',
     label: 'Quantity',
@@ -38,14 +41,15 @@ const LINE_FIELDS: CollectionField<InvoiceLine>[] = [
         {line.quantity} x {formatVnd(line.unitVnd)}
       </span>
     ),
-    hideWithPane: true,
+    compact: true,
   },
   {
     key: 'due',
     label: 'Due',
-    render: (line) => <span className="whitespace-nowrap">{formatDate(line.dueAt)}</span>,
+    render: (line) => <span className="whitespace-nowrap">Due {formatDate(line.dueAt)}</span>,
     text: (line) => line.dueAt,
     sortable: true,
+    compact: true,
   },
   {
     key: 'amount',
@@ -190,7 +194,6 @@ export const InvoiceDetailView: React.FC<{
             })),
           ]}
           details={false}
-          fitNarrow
           emptyState={{ title: 'This invoice has no lines.' }}
           noMatch={{ title: 'No lines match these filters.' }}
         />

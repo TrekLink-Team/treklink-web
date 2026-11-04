@@ -421,6 +421,9 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
       // intake check are recorded elsewhere, so the row links there.
       key: 'next',
       label: 'State now',
+      // Compact: a phone row keeps the state and its Open maintenance or Open device link (review of
+      // treklink-web#355).
+      compact: true,
       render: (device) => {
         const after = device.afterReturn;
         if (!after) return null;
@@ -681,7 +684,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
             loading={checking}
             onClick={() => void submitCheckIn()}
           >
-            Check in {tags.length > 0 ? `${tags.length} devices` : ''}
+            Check in {tags.length > 0 ? `${tags.length} ${tags.length === 1 ? 'device' : 'devices'}` : ''}
           </Button>
         </PageActionBar>
       )}

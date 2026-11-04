@@ -123,6 +123,15 @@ describe('AuthorityReportsPanel (screen 8.3, api-design 11)', () => {
     expect(screen.queryByRole('button', { name: /^Record case closed/ })).toBeNull();
   });
 
+  it('names an empty All reports list as screen 8.3 does (review of treklink-web#355)', async () => {
+    api.mockResolvedValue(page([]));
+    renderWith(<AuthorityReportsPanel onViewIncident={() => undefined} />);
+    expect(await screen.findByText('No open authority cases.')).toBeTruthy();
+    showAll();
+    expect(await screen.findByText('No authority reports recorded.')).toBeTruthy();
+    expect(screen.queryByText('No results match your filters.')).toBeNull();
+  });
+
   it('opens the linked incident through the callback', async () => {
     const onViewIncident = vi.fn();
     api.mockResolvedValue(page([report()]));
