@@ -64,6 +64,7 @@ PARAMETERS = {
         ("rentals.returnGraceHours", 24, "INT", {"min": 0, "max": 168}, "hours", "Grace after the return due time before OVERDUE and late fees", "FR-CON-12, FR-BILL-03"),
         ("rentals.defaultAfterDays", 7, "INT", {"min": 1, "max": 60}, "days", "OVERDUE this long becomes DEFAULTED", "FR-CON-12, BR-26"),
         ("rentals.termRolloverHourLocal", 9, "INT", {"min": 0, "max": 23}, "hour (UTC+7)", "Hour at which daily term and day-plan jobs run", "FR-CON-08"),
+        ("rentals.groupMaxDepth", 1, "INT", {"min": 1, "max": 3}, "subgroup levels", "Maximum group depth below a top-level group", "FR-CON-17, REQ-ERR-13"),
     ],
     "billing": [
         ("billing.holdingFeeRatio", 0.5, "DECIMAL", {"min": 0.1, "max": 1}, "ratio", "Share of a monthly term fee due at the term start", "FR-BILL-01, BR-06"),
@@ -196,6 +197,12 @@ PERMISSIONS = [
     ("contract.issueChannelKey", "issueChannelKey", "RentalContract", None, ["STAFF"]),
     ("handoverNote.read.own", "read", "HandoverNote", OWN, ["ORG_MANAGER"]),
     ("handoverNote.read", "read", "HandoverNote", None, ["STAFF"]),
+    ("group.read.own", "read", "Group", OWN, ["ORG_OPERATOR"]),
+    ("group.read", "read", "Group", None, ["STAFF"]),
+    ("group.manage.own", "manage", "Group", OWN, ["ORG_MANAGER"]),
+    ("faultReport.create.own", "create", "DeviceFaultReport", OWN, ["ORG_MANAGER"]),
+    ("faultReport.read.own", "read", "DeviceFaultReport", OWN, ["ORG_MANAGER"]),
+    ("faultReport.read", "read", "DeviceFaultReport", None, ["STAFF"]),
     # billing
     ("plan.quote", "quote", "Plan", None, ["STAFF"]),
     ("plan.quote.org", "quote", "Plan", None, ["ORG_MANAGER"]),

@@ -187,6 +187,22 @@ export class OrganizationsService {
     this.requireActive(await this.organizations.lockStatus(organizationId, tx));
   }
 
+  async assertCanUseRentalGroups(
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const status = tx
+      ? await this.organizations.lockStatus(organizationId, tx)
+      : await this.organizations.findStatus(organizationId);
+    if (status !== OrganizationStatus.ACTIVE && status !== OrganizationStatus.SUSPENDED) {
+      throw new DomainException(
+        HttpStatus.FORBIDDEN,
+        ErrorCode.FORBIDDEN,
+        'You do not have access to this.',
+      );
+    }
+  }
+
   private requireActive(status: OrganizationStatus | null): void {
     if (status === null) {
       throw new DomainException(

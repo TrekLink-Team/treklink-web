@@ -204,14 +204,17 @@
 
 Specified 2026-11-03 in requirements REQ-UBI-06, REQ-UBI-07, REQ-EVT-20 to REQ-EVT-25, REQ-ERR-13 to REQ-ERR-16,
 AC-10 to AC-14 and design §11; endpoints api-design 22 to 29 (treklink-web#305).
+US-UC67 is tracked as TK-188 for the group foundation and API.
 
 - [ ] 9.1 Schema, constraints, parameter and permissions (owner LongLP)
   - **Files**: `backend/prisma/schema.prisma`, a forward migration, `backend/prisma/constraints.sql`, `scripts/specs/catalog.py`, `specs/auth/permission-matrix.md`, `specs/platform/configuration-matrix.md`
   - **Do**: `Group`, `GroupAssignment`, `DeviceFaultReport` and the enums `GroupExit`, `FaultResolution` of design §11.2 (both with `RELEASED`, and `LOST` on `FaultResolution`); the partial unique indexes `groups_live_name`, `group_assignments_one_open` and the one open fault report per row; the `endsOn >= startsOn` CHECK; `rentals.groupMaxDepth`; the six permissions of §11.5 as a forward migration (the applied seed migration is never edited); error codes `GROUP_DEPTH_EXCEEDED`, `DEVICE_NOT_HELD`, `FAULT_ALREADY_REPORTED`
+  - **Verification**: `test/rental-groups.db-spec.ts` covers the partial indexes, date ordering, the same-organization parent key, the depth parameter and the default role grants.
   - _Requirements: REQ-UBI-06, REQ-UBI-07, BR-46_
 - [ ] 9.2 Groups: tree, create, edit, remove (owner LongLP)
   - **Files**: `backend/src/modules/rentals/groups.repository.ts`, `groups.service.ts`, `groups.controller.ts`, `dto/groups.dto.ts`
   - **Do**: api-design 22 to 25; depth from `rentals.groupMaxDepth` read per request; removal ends the open assignments of the group and its subgroups in one transaction; `version` on edit; audit after commit
+  - **Verification**: `groups.service.spec.ts` covers the depth refusal and removal events after commit. `test/rental-groups-http.db-spec.ts` exercises role and tenant scope, depth changes, stale edits and subtree removal through HTTP against Postgres.
   - _Requirements: REQ-EVT-20, REQ-EVT-21, REQ-EVT-25, REQ-ERR-13, REQ-ERR-15, AC-11_
 - [ ] 9.3 Assignments and the custody hooks (owner LongLP)
   - **Files**: `custody.service.ts` (new), `groups.service.ts`, `return.service.ts`, `replacement.service.ts`, `providers/loss-case-listener.provider.ts`, `contracts.repository.ts`, `contracts.service.ts` (`visibleDevices`)

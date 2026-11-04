@@ -111,6 +111,16 @@ export class ParameterService {
     return reads.get(key) as ParameterValue<K>;
   }
 
+  // For callers that need a parameter change on the next request, including across instances.
+  async getUncached<K extends ParameterKey>(
+    key: K,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ParameterValue<K>> {
+    const row = await this.repository.findByKey(key, tx);
+    if (!row) throw new Error(`Business parameter ${key} is not seeded`);
+    return row.value as ParameterValue<K>;
+  }
+
   async update(key: string, change: ParameterUpdate, actor: ParameterActor): Promise<ParameterRow> {
     const updated = await this.events.transaction(async (tx) => {
       const current = await this.repository.lockAndFind(key, tx);

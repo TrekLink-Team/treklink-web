@@ -1463,9 +1463,10 @@ uses a device's group now (monitoring REQ-UBI-05, incidents REQ-UBI-06); nothing
 | `removedAt` | timestamptz(3) | yes | set by removal; a removed group is never read again by the organization |
 
 Unique index `groups_live_name` on
-`("organizationId", COALESCE("parentId", '00000000-0000-0000-0000-000000000000'::uuid), lower("name")) WHERE "removedAt" IS NULL`
-in `constraints.sql`, since a plain unique key treats two null parents as different; the nil uuid stands for "no
-parent" because `parentId` is a uuid column and an empty string does not cast.
+`("organizationId", COALESCE("parentId", '00000000-0000-0000-0000-000000000000'), lower("name")) WHERE "removedAt" IS NULL`
+in `constraints.sql`. A plain unique key treats two null parents as different. Group IDs follow the schema's
+UUID-formatted text convention, and the nil UUID represents a top-level group in the index. The composite
+parent foreign key requires the parent to belong to the same organization.
 
 `GroupAssignment` (`group_assignments`), as Report 4 Table 52 without the holder (ruling 1) and with the reason
 it ended.
@@ -1535,6 +1536,9 @@ place, but nothing new is created under it and it cannot be moved anywhere that 
   (keyed `rentals:group-device:<deviceId>`) in ascending `deviceId`. An assignment batch sorts its
   `deviceIds` before locking; a removal locks the group and its subgroups in ascending `id` before ending their
   assignments.
+- Create, edit and removal take a per-organization tree advisory lock before reading the topology or locking any
+  group. This prevents concurrent inserts or moves from changing the subtree after validation. The depth limit is
+  read without the process cache so a change applies on the next request even across application instances.
 - Held now: `ContractsRepository.liveRowsOfOrganization(organizationId, deviceIds, tx)` returns each device's live
   row of a contract of the organization with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; a device
   without one is not held.

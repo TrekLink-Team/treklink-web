@@ -200,6 +200,9 @@ model User {
   contractsAsClosedBy          RentalContract[]     @relation("RentalContract_closedById")
   contractTransitions          ContractTransition[]
   contractDevicesAsCheckedInBy ContractDevice[]     @relation("ContractDevice_checkedInById")
+  groupsCreated                Group[]
+  groupAssignmentsMade         GroupAssignment[]
+  deviceFaultReportsFiled      DeviceFaultReport[]
 
   priceSchedules           PriceSchedule[]
   damageRates              DamageRate[]
@@ -449,6 +452,8 @@ model Organization {
   lossCases           LossCase[]
   serviceCredits      ServiceCredit[]
   rolePolicies        OrganizationRolePolicy[]
+  groups              Group[]
+  deviceFaultReports  DeviceFaultReport[]
 
   @@index([status])
   @@index([verifiedById])
@@ -737,6 +742,8 @@ model Device {
   inspections        Inspection[]
   maintenanceRecords MaintenanceRecord[]
   contractDevices    ContractDevice[]
+  groupAssignments   GroupAssignment[]
+  faultReports       DeviceFaultReport[]
   fieldEvents        FieldEvent[]
   syncAudits         SyncAuditLog[]
   queueReports       DeviceQueueReport[]
@@ -1081,16 +1088,17 @@ model RentalContract {
   createdAt             DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt             DateTime        @updatedAt @db.Timestamptz(3)
 
-  terms            ContractTerm[]
-  devices          ContractDevice[]
-  transitions      ContractTransition[]
-  invoices         Invoice[]
-  damageCharges    DamageCharge[]
-  serviceCredits   ServiceCredit[]
-  payments         Payment[]
-  incidents        Incident[]
-  lossCases        LossCase[]
-  authorityReports AuthorityReport[]
+  terms              ContractTerm[]
+  devices            ContractDevice[]
+  transitions        ContractTransition[]
+  invoices           Invoice[]
+  damageCharges      DamageCharge[]
+  serviceCredits     ServiceCredit[]
+  payments           Payment[]
+  incidents          Incident[]
+  lossCases          LossCase[]
+  authorityReports   AuthorityReport[]
+  deviceFaultReports DeviceFaultReport[]
 
   @@index([organizationId, status])
   @@index([status, returnDueAt])
@@ -1159,15 +1167,107 @@ model ContractDevice {
   replacementNotePath   String?
   replacementNoteSha256 String?
 
-  inspections    Inspection[]
-  fieldEvents    FieldEvent[] // events attributed to this custody interval (D-040)
-  lossCases      LossCase[]
-  serviceCredits ServiceCredit[]
+  inspections      Inspection[]
+  fieldEvents      FieldEvent[] // events attributed to this custody interval (D-040)
+  lossCases        LossCase[]
+  serviceCredits   ServiceCredit[]
+  groupAssignments GroupAssignment[]
+  faultReports     DeviceFaultReport[]
 
   @@index([contractId])
   @@index([deviceId])
   @@index([checkedInById])
   @@map("contract_devices") // partial unique: one live row per device
+}
+
+enum GroupExit {
+  MOVED
+  UNASSIGNED
+  GROUP_REMOVED
+  CHECKED_IN
+  LOST
+  REPLACED
+  RELEASED
+}
+
+enum FaultResolution {
+  REPLACED
+  CHECKED_IN
+  LOST
+  RELEASED
+}
+
+// An organization-owned group, retained for assignment history after removal (design §11.2).
+model Group {
+  id             String            @id @default(uuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  parentId       String?
+  parent         Group?            @relation("GroupTree", fields: [organizationId, parentId], references: [organizationId, id], onDelete: Restrict)
+  children       Group[]           @relation("GroupTree")
+  name           String
+  label          String?
+  startsOn       DateTime?         @db.Date
+  endsOn         DateTime?         @db.Date
+  areaNote       String?
+  version        Int               @default(1)
+  createdById    String
+  createdBy      User              @relation(fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+  removedAt      DateTime?         @db.Timestamptz(3)
+  assignments    GroupAssignment[]
+
+  @@unique([organizationId, id])
+  @@index([parentId, organizationId])
+  @@index([createdById])
+  @@map("groups") // live sibling names and date ordering are enforced in constraints.sql
+}
+
+model GroupAssignment {
+  id               String         @id @default(uuid())
+  groupId          String
+  group            Group          @relation(fields: [groupId], references: [id])
+  deviceId         String
+  device           Device         @relation(fields: [deviceId], references: [id])
+  contractDeviceId String
+  contractDevice   ContractDevice @relation(fields: [contractDeviceId], references: [id])
+  assignedById     String
+  assignedBy       User           @relation(fields: [assignedById], references: [id])
+  assignedAt       DateTime       @default(now()) @db.Timestamptz(3)
+  endedAt          DateTime?      @db.Timestamptz(3)
+  endedReason      GroupExit?
+
+  @@index([groupId])
+  @@index([deviceId])
+  @@index([contractDeviceId])
+  @@index([assignedById])
+  @@map("group_assignments") // partial unique: one open assignment per device
+}
+
+model DeviceFaultReport {
+  id               String           @id @default(uuid())
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+  contractId       String
+  contract         RentalContract   @relation(fields: [contractId], references: [id])
+  contractDeviceId String
+  contractDevice   ContractDevice   @relation(fields: [contractDeviceId], references: [id])
+  deviceId         String
+  device           Device           @relation(fields: [deviceId], references: [id])
+  description      String
+  reportedById     String
+  reportedBy       User             @relation(fields: [reportedById], references: [id])
+  reportedAt       DateTime         @default(now()) @db.Timestamptz(3)
+  resolvedAt       DateTime?        @db.Timestamptz(3)
+  resolution       FaultResolution?
+
+  @@index([organizationId])
+  @@index([contractId])
+  @@index([contractDeviceId])
+  @@index([deviceId])
+  @@index([reportedById])
+  @@map("device_fault_reports") // partial unique: one open report per custody row
 }
 
 model ContractTransition {

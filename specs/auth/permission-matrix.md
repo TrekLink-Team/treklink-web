@@ -62,6 +62,12 @@
 | `contract.issueChannelKey` | issueChannelKey | RentalContract |  | TREKLINK | X | X |  |  |
 | `handoverNote.read.own` | read | HandoverNote | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `handoverNote.read` | read | HandoverNote |  | TREKLINK | X | X |  |  |
+| `group.read.own` | read | Group | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
+| `group.read` | read | Group |  | TREKLINK | X | X |  |  |
+| `group.manage.own` | manage | Group | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `faultReport.create.own` | create | DeviceFaultReport | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `faultReport.read.own` | read | DeviceFaultReport | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `faultReport.read` | read | DeviceFaultReport |  | TREKLINK | X | X |  |  |
 | `plan.quote` | quote | Plan |  | TREKLINK | X | X |  |  |
 | `plan.quote.org` | quote | Plan |  | ORGANIZATION |  |  | X |  |
 | `priceSchedule.manage` | manage | PriceSchedule |  | TREKLINK | X |  |  |  |

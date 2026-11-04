@@ -96,6 +96,10 @@ export enum ErrorCode {
   BEFORE_START_DATE = 'BEFORE_START_DATE',
   SIGNER_NOT_MANAGER = 'SIGNER_NOT_MANAGER',
   NOTE_NOT_SIGNED = 'NOTE_NOT_SIGNED',
+  // Device groups and fault reports (rentals Phase 9).
+  GROUP_DEPTH_EXCEEDED = 'GROUP_DEPTH_EXCEEDED',
+  DEVICE_NOT_HELD = 'DEVICE_NOT_HELD',
+  FAULT_ALREADY_REPORTED = 'FAULT_ALREADY_REPORTED',
   // Return, inspection and close (MF-05: rentals api-design 14, 16, 17; devices api-design 10).
   RESET_INCOMPLETE = 'RESET_INCOMPLETE',
   RESET_REQUIRED = 'RESET_REQUIRED',
