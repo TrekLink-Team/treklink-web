@@ -108,13 +108,21 @@ describe('ChannelKeyService.deriveKey (rentals api-design 21, devices design sec
   const MASTER = 'unit-test-master-secret-0123456789ab';
   const OTHER_ORG_ID = '9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b';
   let versions: Record<string, number | null>;
-  let organizations: { channelKeyVersion: jest.Mock };
+  let exposed: Record<string, Date | null>;
+  let organizations: { channelKeyState: jest.Mock };
   let service: ChannelKeyService;
 
   beforeEach(() => {
     versions = { [ORG_ID]: 1, [OTHER_ORG_ID]: 1 };
+    exposed = {};
     organizations = {
-      channelKeyVersion: jest.fn((id: string) => Promise.resolve(versions[id] ?? null)),
+      channelKeyState: jest.fn((id: string) =>
+        Promise.resolve(
+          versions[id] == null
+            ? null
+            : { channelKeyVersion: versions[id], channelKeyExposedAt: exposed[id] ?? null },
+        ),
+      ),
     };
     service = new ChannelKeyService(
       organizations as unknown as OrganizationsRepository,
@@ -149,9 +157,23 @@ describe('ChannelKeyService.deriveKey (rentals api-design 21, devices design sec
     expect(first.keyHex).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('refuses a key flagged exposed (REQ-ERR-19) until the rotation clears the flag', async () => {
+    exposed[ORG_ID] = new Date('2026-11-03T03:00:00.000Z');
+    await expect(service.deriveKey(ORG_ID)).rejects.toMatchObject({
+      errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
+    });
+    // The rotation raises the version and clears the flag: the key of the new version is issued.
+    exposed[ORG_ID] = null;
+    versions[ORG_ID] = 2;
+    await expect(service.deriveKey(ORG_ID)).resolves.toMatchObject({ keyVersion: 2 });
+    // Another organization is not affected.
+    exposed[ORG_ID] = new Date('2026-11-03T03:00:00.000Z');
+    await expect(service.deriveKey(OTHER_ORG_ID)).resolves.toMatchObject({ keyVersion: 1 });
+  });
+
   it('reads the version in the caller transaction and answers 404 for an unknown organization', async () => {
     await service.deriveKey(ORG_ID, TX);
-    expect(organizations.channelKeyVersion).toHaveBeenCalledWith(ORG_ID, TX);
+    expect(organizations.channelKeyState).toHaveBeenCalledWith(ORG_ID, TX);
     const error = await service.deriveKey('0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10').then(
       () => undefined,
       (thrown: unknown) => thrown,

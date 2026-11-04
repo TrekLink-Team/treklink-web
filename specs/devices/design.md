@@ -931,6 +931,11 @@ match proves little on its own, because rentals api-design 03 returns `devices[]
 effective limit is the device reserved to an `APPROVED` contract and the `contract.issueChannelKey`
 permission, and every call is audited.
 
+Ruling (2026-11-03, leader, review of treklink-web#341, REQ-ERR-19): while `channelKeyExposedAt` is set,
+endpoint 21 answers 409 `CHANNEL_KEY_EXPOSED` and 09 and 15 refuse to record the key the same way. Writing a
+key that is known to be exposed into a fresh unit spreads the exposure; the rotation (organizations
+api-design 27) clears the flag first.
+
 **Decision 2, the short name: the last four characters of the asset tag.** It holds four characters
 (`mesh.pb.h:707`), so `TL-0009` does not fit. The last four characters of the asset tag (`0009`) are the
 short name; the long name carries the full tag (`TL-0009`).

@@ -32,6 +32,17 @@ export class OrganizationsRepository {
     return row?.channelKeyVersion ?? null;
   }
 
+  // The channel key version and whether a loss in renter custody has exposed the key (organizations 2.9).
+  channelKeyState(
+    id: string,
+    client: Client = this.prisma,
+  ): Promise<{ channelKeyVersion: number; channelKeyExposedAt: Date | null } | null> {
+    return client.organization.findUnique({
+      where: { id },
+      select: { channelKeyVersion: true, channelKeyExposedAt: true },
+    });
+  }
+
   labels(ids: readonly string[], client: Client = this.prisma): Promise<OrganizationLabel[]> {
     return client.organization.findMany({
       where: { id: { in: [...ids] } },

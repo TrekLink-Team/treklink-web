@@ -113,6 +113,7 @@ export class ReplacementService {
         }
         throw error;
       }
+      await this.organizations.requireKeyNotExposed(contract.organizationId, tx);
       const keyVersion = await this.organizations.channelKeyVersion(contract.organizationId, tx);
       if (input.keyVersion !== keyVersion) {
         throw conflict(

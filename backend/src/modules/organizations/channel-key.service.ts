@@ -7,6 +7,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { channelKeyExposed } from './channel-key-exposed.error';
 import { ORGANIZATION_KEY_EXPOSED, OrganizationKeyExposedEvent } from './organization-events';
 import { OrganizationsRepository } from './organizations.repository';
 
@@ -46,19 +47,23 @@ export class ChannelKeyService {
   // devices design section 8.6 decision 1 (D-082): HKDF-SHA256 of the deployment's CHANNEL_KEY_MASTER with
   // the organization id as salt and `treklink-channel-key/v{version}` as info, 32 bytes. Deterministic, so
   // the same organization and version always give the same key and nothing is stored; a rotation is a
-  // version bump (`rotate`). An unknown organization is 404. The caller has checked who may ask.
+  // version bump (`rotate`). An unknown organization is 404, and one whose key is flagged exposed is 409
+  // CHANNEL_KEY_EXPOSED. The caller has checked who may ask.
   async deriveKey(
     organizationId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<DerivedChannelKey> {
-    const version = await this.organizations.channelKeyVersion(organizationId, tx);
-    if (version === null) {
+    const state = await this.organizations.channelKeyState(organizationId, tx);
+    if (state === null) {
       throw new DomainException(
         HttpStatus.NOT_FOUND,
         ErrorCode.NOT_FOUND,
         'Organization not found.',
       );
     }
+    // REQ-ERR-19: a key flagged exposed is not issued again before the rotation.
+    if (state.channelKeyExposedAt !== null) throw channelKeyExposed();
+    const version = state.channelKeyVersion;
     const master = this.config.get('CHANNEL_KEY_MASTER', { infer: true });
     const key = Buffer.from(
       hkdfSync('sha256', master, organizationId, `treklink-channel-key/v${version}`, KEY_BYTES),

@@ -120,6 +120,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
     };
     organizations = {
       assertActive: jest.fn().mockResolvedValue(undefined),
+      requireKeyNotExposed: jest.fn().mockResolvedValue(undefined),
       channelKeyVersion: jest.fn().mockResolvedValue(2),
       labelsOf: jest
         .fn()
@@ -275,6 +276,21 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
       errorCode: ErrorCode.ORGANIZATION_NOT_ACTIVE,
       message: 'Replacement is not allowed while suspended.',
     });
+  });
+
+  it('refuses a channel key flagged exposed and provisions nothing (REQ-ERR-19)', async () => {
+    organizations.requireKeyNotExposed.mockRejectedValue(
+      new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.CHANNEL_KEY_EXPOSED,
+        "The organization's channel key is exposed. Rotate it before writing it to a unit.",
+      ),
+    );
+    await expect(service.replace('c-1', 'd-1', INPUT, STAFF, AT)).rejects.toMatchObject({
+      errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
+    });
+    expect(devices.recordProvisioning).not.toHaveBeenCalled();
+    expect(contracts.markCheckedIn).not.toHaveBeenCalled();
   });
 
   it('refuses a key version other than the organization current one', async () => {
