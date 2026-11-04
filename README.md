@@ -15,7 +15,7 @@ This repository (`treklink-web`) contains the operational software components of
 
 ## 1. Prerequisites
 
-- **Node.js**: `v22.x` or newer (`node --version`)
+- **Node.js**: `v22.12` or newer (`node --version`); the gateway loads the Meshtastic ES modules with `require`, which needs 22.12
 - **npm**: `v10.x` or newer (`npm --version`)
 - **Docker & Docker Compose**: For local PostgreSQL and Mosquitto MQTT broker (`docker compose version`)
 

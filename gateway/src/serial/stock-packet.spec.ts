@@ -84,7 +84,7 @@ describe('toStockPacket on the recorded serial stream (design §3.1, AC-09)', ()
     });
   });
 
-  it('queues the SOS first, positions and chat at P2, telemetry last', async () => {
+  it('queues the SOS first, the position at P2, telemetry and chat at P3', async () => {
     const { packets } = await decodeStream();
     const tiers = packets
       .map((packet) => toStockPacket(packet, STATION))
@@ -93,7 +93,7 @@ describe('toStockPacket on the recorded serial stream (design §3.1, AC-09)', ()
       PriorityTier.P2_GPS,
       PriorityTier.P3_TELEMETRY,
       PriorityTier.P0_SOS,
-      PriorityTier.P2_GPS,
+      PriorityTier.P3_TELEMETRY,
     ]);
   });
 
