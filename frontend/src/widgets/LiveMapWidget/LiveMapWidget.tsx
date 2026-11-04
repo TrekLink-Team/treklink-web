@@ -36,6 +36,9 @@ export interface MapMarker {
   details?: string[];
   /** A link under the popup lines; a marker without one shows the popup as before. */
   link?: MapLink;
+  /** The marker's accessible name, when the page composes one with the state (screen 9.1); without it
+   * the name is the title and subtitle. */
+  name?: string;
 }
 
 // Marker chrome of the TrekLink System (shared/ui/map/markers.ts): shape and colour per state.
@@ -72,7 +75,7 @@ const MASK_STYLE: L.PathOptions = {
 };
 
 const textOf = (marker: MapMarker): string =>
-  marker.subtitle ? `${marker.title}, ${marker.subtitle}` : marker.title;
+  marker.name ?? (marker.subtitle ? `${marker.title}, ${marker.subtitle}` : marker.title);
 
 const overlayIcon = (label: string): L.DivIcon => {
   const element = document.createElement('div');
@@ -170,6 +173,7 @@ const lookOf = (marker: MapMarker): string =>
     marker.details,
     marker.link?.label,
     marker.link?.to,
+    marker.name,
   ]);
 
 const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ overlay }) => (
@@ -331,6 +335,9 @@ const LeafletMap: React.FC<{
       if (existing) {
         glider.moveTo(existing, m.position);
         if (looks.current.get(m.id) !== look) {
+          // Leaflet reads the title and alt from the options when it redraws the icon.
+          existing.options.title = textOf(m);
+          existing.options.alt = textOf(m);
           existing.setIcon(markerIcon(m));
           existing.setPopupContent(popupContent(m, openLink));
           looks.current.set(m.id, look);

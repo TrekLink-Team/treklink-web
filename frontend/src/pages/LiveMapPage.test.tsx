@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-route
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MapSnapshot, SnapshotDevice } from '../entities/live-map/api';
 import { ApiError } from '../shared/api/apiClient';
+import { formatDateTime } from '../shared/lib/format';
 import type { LiveEntry, LiveMessage } from '../shared/socket/socketClient';
 import { LiveMapPage } from './LiveMapPage';
 
@@ -111,7 +112,18 @@ const showWithHistory = (scope: 'o' | 't') =>
   );
 
 const panel = () => within(screen.getByRole('complementary', { name: 'Devices' }));
-const marker = (name: string | RegExp) => screen.findByRole('img', { name });
+// A marker's accessible name is its asset tag, its state, then the holder and any incident (screen 9.1).
+// A string names the tag and the rest, and matches with any state between them; the state itself is
+// checked word for word in the "names each marker by its state" tests.
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const withState = (name: string) => {
+  const [tag, ...rest] = name.split(', ');
+  return new RegExp(
+    `^${escape(tag)}, (live|offline|not heard since handover)(, .*?)?, ${escape(rest.join(', '))}$`,
+  );
+};
+const marker = (name: string | RegExp) =>
+  screen.findByRole('img', { name: typeof name === 'string' ? withState(name) : name });
 
 beforeEach(() => {
   snapshot = { cursor: 100, devices: [device()], fieldStations: [] };
@@ -277,6 +289,19 @@ describe('LiveMapPage (screen 9.1)', () => {
         notHeard('d-5', 'TL-0005'),
         device({ id: 'd-1', assetTag: 'TL-0001', holder: { name: 'Tran B' } }),
       ];
+    });
+
+    it('names each marker by its state, in the words of the list (WCAG 1.1.1)', async () => {
+      show('o');
+      const live = await screen.findByRole('img', { name: /^TL-0009, / });
+      const seen = formatDateTime(snapshot.devices[2].lastSeenAt as string);
+      expect(live.getAttribute('aria-label')).toBe(`TL-0009, live, last seen ${seen}, Le Thi E`);
+      const unheard = await screen.findByRole('img', { name: /^TL-0004, / });
+      expect(unheard.getAttribute('aria-label')).toBe('TL-0004, not heard since handover, No holder');
+      const offline = await screen.findByRole('img', { name: /^TL-0003, / });
+      expect(offline.getAttribute('aria-label')).toBe(
+        `TL-0003, offline, last seen ${formatDateTime(snapshot.devices[1].lastSeenAt as string)}, Pham C`,
+      );
     });
 
     it('lists all units live first, counts them and pins the unheard ones at the counter', async () => {
