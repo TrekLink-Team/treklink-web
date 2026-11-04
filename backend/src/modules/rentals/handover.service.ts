@@ -365,7 +365,7 @@ export class HandoverService {
     });
   }
 
-  // The quick swap of the device connector (api-design 30, REQ-EVT-26, devices design section 11.6): a
+  // The quick swap of the device connector (api-design 30, REQ-EVT-27, devices design section 11.6): a
   // docked AVAILABLE unit of the contract's variant takes the place of a reserved unit that carries no
   // provisioning record, which goes back to AVAILABLE. Refusals in the order of REQ-ERR-17; quantity,
   // plan, price and variant stay as they are, and the contract version increases.
