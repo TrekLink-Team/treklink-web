@@ -221,6 +221,23 @@ Replaces a faulty unit, or a unit with an open loss case, on an `ACTIVE` or `END
         </tr>
         <tr>
             <td>409</td>
+            <td>The organization's channel key is flagged exposed (<code>CHANNEL_KEY_EXPOSED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "CHANNEL_KEY_EXPOSED"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "The organization's channel key is exposed. Rotate it before writing it to a unit."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>keyVersion is not the organization's current channel key version (<code>KEY_VERSION_MISMATCH</code>)</td>
 <td>
 
@@ -298,18 +315,23 @@ flowchart TB
     E7["Return 409 ORGANIZATION_NOT_ACTIVE"]
     D7 -->|yes| E7
     E7 --> X7((End))
-    D8{"keyVersion is not the organization's current channel key version?"}
+    D8{"The organization's channel key is flagged exposed?"}
     D7 -->|no| D8
-    E8["Return 409 KEY_VERSION_MISMATCH"]
+    E8["Return 409 CHANNEL_KEY_EXPOSED"]
     D8 -->|yes| E8
     E8 --> X8((End))
-    D9{"The old unit is not at the counter and has no open loss case?"}
+    D9{"keyVersion is not the organization's current channel key version?"}
     D8 -->|no| D9
-    E9["Return 409 LOSS_CASE_REQUIRED"]
+    E9["Return 409 KEY_VERSION_MISMATCH"]
     D9 -->|yes| E9
     E9 --> X9((End))
+    D10{"The old unit is not at the counter and has no open loss case?"}
+    D9 -->|no| D10
+    E10["Return 409 LOSS_CASE_REQUIRED"]
+    D10 -->|yes| E10
+    E10 --> X10((End))
     P0["Require ACTIVE or ENDING, the organization ACTIVE, the old unit on the contract"]
-    D9 -->|no| P0
+    D10 -->|no| P0
     P1["Check in the faulty unit when present, or require its open loss case"]
     P0 --> P1
     P2["Reserve and provision the replacement"]

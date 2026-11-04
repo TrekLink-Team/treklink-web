@@ -162,6 +162,23 @@ Derives and returns the organization's channel key for Staff to write to a docke
         </tr>
         <tr>
             <td>409</td>
+            <td>The organization's channel key is flagged exposed (<code>CHANNEL_KEY_EXPOSED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "CHANNEL_KEY_EXPOSED"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "The organization's channel key is exposed. Rotate it before writing it to a unit."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>The contract is not in a state that allows this (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
@@ -207,16 +224,21 @@ flowchart TB
     E4["Return 409 NODE_MISMATCH"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"The contract is not in a state that allows this?"}
+    D5{"The organization's channel key is flagged exposed?"}
     D4 -->|no| D5
-    E5["Return 409 INVALID_STATE_TRANSITION"]
+    E5["Return 409 CHANNEL_KEY_EXPOSED"]
     D5 -->|yes| E5
     E5 --> X5((End))
+    D6{"The contract is not in a state that allows this?"}
+    D5 -->|no| D6
+    E6["Return 409 INVALID_STATE_TRANSITION"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
     P0["Require APPROVED and the device reserved to it"]
-    D5 -->|no| P0
+    D6 -->|no| P0
     P1["Compare the docked nodeNum with the device record"]
     P0 --> P1
-    P2["ChannelKeyService.deriveKey reads the current key version and derives the key with crypto.hkdfSync"]
+    P2["ChannelKeyService.deriveKey refuses a key flagged exposed, reads the current key version and derives the key with crypto.hkdfSync"]
     P1 --> P2
     P3["Write an audit row without the key"]
     P2 --> P3

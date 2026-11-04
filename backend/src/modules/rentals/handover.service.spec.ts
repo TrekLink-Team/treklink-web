@@ -1,3 +1,4 @@
+import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -143,6 +144,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       deriveKey: jest.fn().mockResolvedValue({ keyHex: KEY_HEX, keyVersion: 2 }),
     };
     organizations = {
+      requireKeyNotExposed: jest.fn().mockResolvedValue(undefined),
       channelKeyVersion: jest.fn().mockResolvedValue(2),
       isActiveManager: jest.fn().mockResolvedValue(true),
       handoverParty: jest.fn().mockResolvedValue({
@@ -290,6 +292,39 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
     });
   });
 
+  describe('provision with a key flagged exposed (api-design 09, REQ-ERR-19)', () => {
+    const exposed = () =>
+      new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.CHANNEL_KEY_EXPOSED,
+        "The organization's channel key is exposed. Rotate it before writing it to a unit.",
+      );
+
+    it('refuses, records nothing and audits nothing, for a docked unit and for the manual fallback', async () => {
+      organizations.requireKeyNotExposed.mockRejectedValue(exposed());
+      await expect(service.provision('c-1', 'd-1', 2, STAFF, AT, 275612)).rejects.toMatchObject({
+        errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
+      });
+      await expect(service.provision('c-1', 'd-1', 2, STAFF, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
+      });
+      expect(organizations.requireKeyNotExposed).toHaveBeenCalledWith('org-1', TX);
+      expect(devices.recordProvisioning).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('names a docked unit that is not the device first, then the exposed key, then the version', async () => {
+      organizations.requireKeyNotExposed.mockRejectedValue(exposed());
+      await expect(service.provision('c-1', 'd-1', 1, STAFF, AT, 1)).rejects.toMatchObject({
+        errorCode: ErrorCode.NODE_MISMATCH,
+      });
+      await expect(service.provision('c-1', 'd-1', 1, STAFF, AT, 275612)).rejects.toMatchObject({
+        errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
+      });
+      expect(organizations.channelKeyVersion).not.toHaveBeenCalled();
+    });
+  });
+
   describe('issueChannelKey (api-design 21, D-082 decision 1, REQ-UBI-03)', () => {
     beforeEach(() => {
       devices.provisioning.mockResolvedValue([unit('d-1', { status: 'RESERVED' })]);
@@ -367,6 +402,23 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
         expect((error as DomainException).message).not.toContain(KEY_HEX);
       }
       expect(channelKeys.deriveKey).not.toHaveBeenCalled();
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('passes the refusal of an exposed key through, with no key and no audit row (REQ-ERR-19)', async () => {
+      channelKeys.deriveKey.mockRejectedValueOnce(
+        new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.CHANNEL_KEY_EXPOSED,
+          "The organization's channel key is exposed. Rotate it before writing it to a unit.",
+        ),
+      );
+      const error = await service.issueChannelKey('c-1', 'd-1', 275612, STAFF).then(
+        () => undefined,
+        (thrown: unknown) => thrown,
+      );
+      expect(error).toMatchObject({ errorCode: ErrorCode.CHANNEL_KEY_EXPOSED });
+      expect(JSON.stringify((error as DomainException).getResponse())).not.toContain(KEY_HEX);
       expect(emitAfterCommit).not.toHaveBeenCalled();
     });
 

@@ -28,6 +28,10 @@ NOT_ON = (409, "DEVICE_NOT_ON_CONTRACT", "The device is not committed to this co
 NODE_MISMATCH = (409, "NODE_MISMATCH", "The docked unit's nodeNum differs from the device record",
                  "The docked unit is !0004351c, not TL-0042. Nothing was written.")
 
+# REQ-ERR-19: a key flagged exposed is neither issued nor recorded on a unit before the rotation.
+KEY_EXPOSED = (409, "CHANNEL_KEY_EXPOSED", "The organization's channel key is flagged exposed",
+               "The organization's channel key is exposed. Rotate it before writing it to a unit.")
+
 ENDPOINTS = [
     ep("POST", "/api/contracts", "Request a rental contract", "Org Manager: own",
        "Requests a plan: monthly, or a day plan of a configured length; one hardware variant; a quantity "
@@ -278,12 +282,12 @@ ENDPOINTS = [
        response={"deviceId": DEVICE_ID, "assetTag": "TL-0042", "status": "RESERVED", "keyVersion": 1,
                  "keyOrganizationId": ORG_ID, "provisionedAt": NOW}, status=201, message="Provisioning recorded",
        entity="Contract",
-       errors=[NOT_ON, NODE_MISMATCH,
+       errors=[NOT_ON, NODE_MISMATCH, KEY_EXPOSED,
                (409, "KEY_VERSION_MISMATCH", "keyVersion differs from the organization's current version",
                 "Provision this device with the organization's key before handover."),
                state_409("contract", "REQUESTED")],
        steps=["Require APPROVED and the device reserved to it", "Compare the docked nodeNum with the device record when it is sent",
-              "Read the organization's key version", "DevicesService.recordProvisioning in one transaction",
+              "Refuse a channel key flagged exposed", "Read the organization's key version", "DevicesService.recordProvisioning in one transaction",
               "Audit row marks a record without nodeNum as manual"],
        controller="HandoverController", service="HandoverService", call="provision(id, deviceId, dto, actor)",
        participants=[["Org", "OrganizationsService"], ["Dev", "DevicesService"]],
@@ -409,6 +413,7 @@ ENDPOINTS = [
                (409, "VARIANT_MISMATCH", "The replacement is another variant", "Choose a unit of the same variant."),
                (409, "DEVICE_NOT_AVAILABLE", "The replacement is not AVAILABLE", "Choose an available unit."),
                (409, "ORGANIZATION_NOT_ACTIVE", "The organization is suspended", "Replacement is not allowed while suspended."),
+               KEY_EXPOSED,
                (409, "KEY_VERSION_MISMATCH", "keyVersion is not the organization's current channel key version",
                 "The organization's channel key is at version 2; write that version to the device."),
                (409, "LOSS_CASE_REQUIRED", "The old unit is not at the counter and has no open loss case",
@@ -573,9 +578,9 @@ ENDPOINTS = [
        notes="`Cache-Control: no-store` on the response. The key is derived again on every call (HKDF is "
              "deterministic), so the limit is the reserved device on an APPROVED contract and the "
              "`contract.issueChannelKey` permission; the page asks once per docking and every call is audited.",
-       errors=[NOT_ON, NODE_MISMATCH, state_409("contract", "REQUESTED")],
+       errors=[NOT_ON, NODE_MISMATCH, KEY_EXPOSED, state_409("contract", "REQUESTED")],
        steps=["Require APPROVED and the device reserved to it", "Compare the docked nodeNum with the device record",
-              "ChannelKeyService.deriveKey reads the current key version and derives the key with crypto.hkdfSync",
+              "ChannelKeyService.deriveKey refuses a key flagged exposed, reads the current key version and derives the key with crypto.hkdfSync",
               "Write an audit row without the key", "Respond with Cache-Control: no-store"],
        controller="HandoverController", service="HandoverService", call="issueChannelKey(id, deviceId, dto, actor)",
        participants=[["Key", "ChannelKeyService"], ["Dev", "DevicesService"]],

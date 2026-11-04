@@ -167,6 +167,23 @@ Records that the organization's channel key, at its current version, was written
         </tr>
         <tr>
             <td>409</td>
+            <td>The organization's channel key is flagged exposed (<code>CHANNEL_KEY_EXPOSED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "CHANNEL_KEY_EXPOSED"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "The organization's channel key is exposed. Rotate it before writing it to a unit."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>keyVersion differs from the organization's current version (<code>KEY_VERSION_MISMATCH</code>)</td>
 <td>
 
@@ -229,28 +246,35 @@ flowchart TB
     E4["Return 409 NODE_MISMATCH"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"keyVersion differs from the organization's current version?"}
+    D5{"The organization's channel key is flagged exposed?"}
     D4 -->|no| D5
-    E5["Return 409 KEY_VERSION_MISMATCH"]
+    E5["Return 409 CHANNEL_KEY_EXPOSED"]
     D5 -->|yes| E5
     E5 --> X5((End))
-    D6{"The contract is not in a state that allows this?"}
+    D6{"keyVersion differs from the organization's current version?"}
     D5 -->|no| D6
-    E6["Return 409 INVALID_STATE_TRANSITION"]
+    E6["Return 409 KEY_VERSION_MISMATCH"]
     D6 -->|yes| E6
     E6 --> X6((End))
+    D7{"The contract is not in a state that allows this?"}
+    D6 -->|no| D7
+    E7["Return 409 INVALID_STATE_TRANSITION"]
+    D7 -->|yes| E7
+    E7 --> X7((End))
     P0["Require APPROVED and the device reserved to it"]
-    D6 -->|no| P0
+    D7 -->|no| P0
     P1["Compare the docked nodeNum with the device record when it is sent"]
     P0 --> P1
-    P2["Read the organization's key version"]
+    P2["Refuse a channel key flagged exposed"]
     P1 --> P2
-    P3["DevicesService.recordProvisioning in one transaction"]
+    P3["Read the organization's key version"]
     P2 --> P3
-    P4["Audit row marks a record without nodeNum as manual"]
+    P4["DevicesService.recordProvisioning in one transaction"]
     P3 --> P4
+    P5["Audit row marks a record without nodeNum as manual"]
+    P4 --> P5
     OK["Return 201"]
-    P4 --> OK
+    P5 --> OK
     OK --> Z((End))
 ```
 

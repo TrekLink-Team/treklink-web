@@ -174,6 +174,55 @@ describe('device docking over HTTP against Postgres (D-082)', () => {
     });
   });
 
+  it('21 and 09: 409 CHANNEL_KEY_EXPOSED while the key is flagged, then the rotated key is issued (REQ-ERR-19)', async () => {
+    const { org, contract, deviceId, nodeNum } = await approved();
+    const before = await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
+    await flow.prisma.organization.update({
+      where: { id: org.id },
+      data: { channelKeyExposedAt: new Date() },
+    });
+
+    const refusedKey = await channelKey(contract.id, deviceId, nodeNum);
+    const refusedRecord = await flow.send(
+      flow.staff,
+      'post',
+      `/api/contracts/${contract.id}/devices/${deviceId}/provisioning`,
+      { keyVersion: before.channelKeyVersion, nodeNum },
+    );
+
+    for (const response of [refusedKey, refusedRecord]) {
+      expect({ status: response.status, body: response.body as unknown }).toMatchObject({
+        status: 409,
+        body: { isSuccess: false, result: { errorCode: 'CHANNEL_KEY_EXPOSED' } },
+      });
+      expect(JSON.stringify(response.body)).not.toContain('keyHex');
+    }
+    expect(
+      (await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).keyVersion,
+    ).toBeNull();
+    expect(
+      await flow.prisma.auditLog.count({
+        where: { action: 'contract.channelKeyIssued', subjectId: contract.id },
+      }),
+    ).toBe(0);
+
+    // The rotation (organizations api-design 27) raises the version and clears the flag.
+    await flow.prisma.organization.update({
+      where: { id: org.id },
+      data: { channelKeyVersion: before.channelKeyVersion + 1, channelKeyExposedAt: null },
+    });
+    const issued = await channelKey(contract.id, deviceId, nodeNum);
+    expect({ status: issued.status, body: issued.body as unknown }).toMatchObject({
+      status: 200,
+      body: {
+        result: {
+          keyHex: expectedKey(org.id, before.channelKeyVersion + 1),
+          keyVersion: before.channelKeyVersion + 1,
+        },
+      },
+    });
+  });
+
   it('03: the contract detail carries the nodeNum of each unit, read only', async () => {
     const { contract, deviceId, nodeNum } = await approved();
 

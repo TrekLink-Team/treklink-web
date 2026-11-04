@@ -116,6 +116,7 @@
 - **REQ-ERR-17**: IF the image fails its SHA-256 check (502 `FIRMWARE_IMAGE_INVALID`), the write fails, or a written region does not verify, THEN the counter SHALL record nothing, keep the record `OPEN` and ask Staff to flash again; a v2 unit is flashed again with its power button held.
 - **REQ-ERR-18**: IF an Admin saves a variant whose image URL is longer than 500 characters, is neither an `https://` URL with a host nor an app path `/variants/<file>` (no `/` or `..` in the file name, an image extension), or whose spec sheet has an unknown key or a value that is not a string, empty or whitespace only, or longer than 80 characters after trimming, THEN 400 `VARIANT_MEDIA_INVALID` and nothing is saved.
 - **REQ-ERR-19**: IF an Admin edits a variant with an `expectedVersion` other than its stored `version`, THEN 409 `STALE_VERSION` and nothing is saved; IF the remaining value schedule is empty, does not start at month 0, has months that do not increase or values that increase with age, THEN 400 `SCHEDULE_INVALID`. [FR-DEV-04, FR-BILL-05]
+- **REQ-ERR-19**: IF the organization's channel key is flagged exposed (`channelKeyExposedAt` is set, REQ-EVT-13), THEN the platform SHALL refuse to issue it (rentals api-design 21) and to record it on a unit (api-design 09 and 15) with 409 `CHANNEL_KEY_EXPOSED`, "The organization's channel key is exposed. Rotate it before writing it to a unit.", and nothing is issued, recorded or audited; the rotation (organizations api-design 27) clears the flag and the key of the new version is issued as usual.
 
 ---
 
@@ -160,6 +161,7 @@ The `devices` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-21**: Saving v4 with `imageUrl` `/variants/treklink-v4.jpg` and `specSheet` `{"mcu": "ESP32-S3"}` shows the photo and the line "MCU ESP32-S3" on its device cards; `imageUrl` `http://example.com/a.jpg`, `/variants/../x.jpg` or `//host/a.jpg`, the key `colour` or the value `"  "` answers 400 `VARIANT_MEDIA_INVALID`.
 - **AC-22**: An Admin creates `treklink-v5`, edits its name with the version it read, and a second edit with the old version answers 409 `STALE_VERSION`; deleting it succeeds while no unit is registered, and changing `hasGps` on v3, which has units, answers 409 `VARIANT_IN_USE`.
 - **AC-23**: A stock-take scanning `tl-0001` and `TL-9999` counts TL-0001 confirmed by scan, lists `TL-9999` as unknown, lists every other AVAILABLE unit as unconfirmed with its status, and appears first in the past stock-takes with its unconfirmed count.
+- **AC-22**: With `channelKeyExposedAt` set on ORG-0007, issuing the key for TL-0042 (api-design 21), provisioning it (09) and replacing a unit (15) each answer 409 `CHANNEL_KEY_EXPOSED` and write nothing; after the rotation to version 2 the same calls succeed with version 2.
 
 ---
 
