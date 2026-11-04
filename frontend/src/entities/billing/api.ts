@@ -62,7 +62,7 @@ export interface Invoice {
   issuedAt: string;
 }
 
-// InvoiceLineType of backend/prisma/schema.prisma; api.test.tsx reads the schema, so a new backend
+// InvoiceLineType of backend/prisma/schema.prisma; lineType.test.ts reads the schema, so a new backend
 // value without a label fails there.
 export type InvoiceLineType =
   | 'HOLDING_FEE'
