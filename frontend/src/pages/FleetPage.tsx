@@ -29,7 +29,7 @@ import {
   type CollectionField,
   type CollectionTransition,
 } from '../shared/ui/collection-view';
-import { formatDateTime } from '../shared/lib/format';
+import { formatDateTime, formatDay } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { useToast } from '../shared/ui/toastStore';
 import { hasAnyRole } from '../shared/lib/permissions';
@@ -339,7 +339,8 @@ export const FleetPage: React.FC = () => {
     {
       key: 'variant',
       label: 'Variant',
-      render: (device) => device.hardwareVariant.code,
+      render: (device) => <span className="whitespace-nowrap">{device.hardwareVariant.code}</span>,
+      text: (device) => device.hardwareVariant.code,
       hideWithPane: true,
     },
     {
@@ -351,7 +352,8 @@ export const FleetPage: React.FC = () => {
     {
       key: 'firmware',
       label: 'Firmware',
-      render: (device) => device.firmwareVersion,
+      render: (device) => <span className="whitespace-nowrap">{device.firmwareVersion}</span>,
+      text: (device) => device.firmwareVersion,
       hideWithPane: true,
     },
     { key: 'battery', label: 'Battery', align: 'end', render: battery, compact: true },
@@ -359,7 +361,12 @@ export const FleetPage: React.FC = () => {
     {
       key: 'serviceDue',
       label: 'Service due',
-      render: (device) => device.serviceDueAt ?? 'None',
+      // A calendar date (devices api-design, `@db.Date`), shown as every other date: 03 May 2027.
+      render: (device) => (
+        <span className="whitespace-nowrap">
+          {device.serviceDueAt ? formatDay(device.serviceDueAt.slice(0, 10)) : 'None'}
+        </span>
+      ),
       hideWithPane: true,
     },
   ];
