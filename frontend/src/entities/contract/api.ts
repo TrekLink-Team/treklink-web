@@ -143,6 +143,8 @@ export interface Page<T> {
 export interface ContractFilters {
   status?: ContractStatus;
   planType?: PlanType;
+  /** rentals api-design 02 (REQ-EVT-26): contract code, organization name or code, over the whole list. */
+  q?: string;
   pageNumber?: number;
   pageSize?: number;
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
@@ -12,6 +12,9 @@ const approveContract = vi.fn();
 const cancelContract = vi.fn();
 const rejectContract = vi.fn();
 let queue: unknown[] | null = null;
+// The filters of every list read, newest last (rentals api-design 02).
+const listReads: Record<string, unknown>[] = [];
+let totalPages = 1;
 
 const requested = {
   id: 'c-1',
@@ -33,10 +36,14 @@ const requested = {
 
 vi.mock('../entities/contract/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/contract/api')>()),
-  useContracts: () => ({
-    isLoading: false,
-    data: { items: queue ?? [requested], pageNumber: 1, pageSize: 20, totalCount: 1, totalPages: 1 },
-  }),
+  useContracts: (_scope: string, filters: Record<string, unknown>) => {
+    listReads.push(filters);
+    const pageNumber = (filters.pageNumber as number | undefined) ?? 1;
+    return {
+      isLoading: false,
+      data: { items: queue ?? [requested], pageNumber, pageSize: 20, totalCount: 1, totalPages },
+    };
+  },
   useAvailability: () => ({
     isLoading: false,
     data: [{ hardwareVariantId: 'v-3', code: 'treklink-v3', available: 10 }],
@@ -67,7 +74,35 @@ const renderPage = () =>
 describe('ContractApprovalPage', () => {
   afterEach(() => {
     cleanup();
+    listReads.length = 0;
     approveContract.mockReset();
+  });
+
+  it('searches the whole queue on the server with q once typing pauses, from page 1 (REQ-EVT-26)', () => {
+    vi.useFakeTimers();
+    totalPages = 3;
+    try {
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      expect(listReads.at(-1)).toMatchObject({ status: 'REQUESTED', pageNumber: 2 });
+
+      const search = screen.getByRole('searchbox', { name: 'Search by contract or organization' });
+      fireEvent.change(search, { target: { value: '  acme' } });
+      // Back to page 1 at once; q waits for the pause.
+      expect(listReads.at(-1)).toMatchObject({ pageNumber: 1, q: undefined });
+      act(() => vi.advanceTimersByTime(299));
+      expect(listReads.at(-1)?.q).toBeUndefined();
+      act(() => vi.advanceTimersByTime(1));
+      expect(listReads.at(-1)).toEqual({ status: 'REQUESTED', pageNumber: 1, q: 'acme' });
+
+      // Clearing the search reads the whole queue again.
+      fireEvent.change(search, { target: { value: '' } });
+      act(() => vi.advanceTimersByTime(300));
+      expect(listReads.at(-1)).toEqual({ status: 'REQUESTED', pageNumber: 1, q: undefined });
+    } finally {
+      totalPages = 1;
+      vi.useRealTimers();
+    }
   });
 
   it('names the variant by its display name in the queue and the request panel', async () => {

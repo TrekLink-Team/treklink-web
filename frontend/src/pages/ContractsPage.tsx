@@ -46,8 +46,9 @@ const CANCEL: StateTransition<'CANCELLED'> = {
 // /o/contracts, the contract list of screen 5.2 (rentals api-design 02) on CollectionView (chapter 06
 // §9, D-096). Org Manager and Org Operator read it; only the Manager sees Request a contract and
 // Cancel contract, a status change before handover (W29, §9.6). The status and the plan filter on the
-// server and combine in Show (rentals api-design 02 `status`, `planType`). rentals 02 takes no code,
-// so the search reads the loaded page by code and plan, as the list did before CollectionView.
+// server and combine in Show (rentals api-design 02 `status`, `planType`). The search still reads the
+// loaded page by code and plan, as the list did before CollectionView; rentals 02 `q` (REQ-EVT-26) is
+// sent by the Staff contracts page only.
 export const ContractsPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
