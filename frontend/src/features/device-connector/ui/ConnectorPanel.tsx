@@ -471,9 +471,28 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
 // The panel's frame: the pushed aside from 1100 px; the drawers are placed by the shell (screen 4.6).
 export const ConnectorAside: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => heading.current?.focus(), []);
+  const frame = useRef<HTMLElement>(null);
+  // Focus moves to the heading on open and back to the control that opened the panel on close
+  // (screen 4.6): the aside is not a Drawer, so nothing else returns it. A close that leaves focus
+  // elsewhere on purpose, a click on another control, keeps that focus.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const aside = frame.current;
+    heading.current?.focus();
+    return () => {
+      const active = document.activeElement;
+      const lost = active === null || active === document.body || (aside?.contains(active) ?? false);
+      if (!lost) return;
+      const target =
+        opener && opener.isConnected && !aside?.contains(opener)
+          ? opener
+          : document.querySelector<HTMLElement>('button[aria-label^="Devices, "]');
+      target?.focus();
+    };
+  }, []);
   return (
     <aside
+      ref={frame}
       aria-labelledby="device-connector-title"
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !event.defaultPrevented) onClose();
