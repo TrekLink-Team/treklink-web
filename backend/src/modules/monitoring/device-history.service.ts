@@ -4,6 +4,7 @@ import { DevicesService, TrailEntry } from '../devices';
 import { IncidentsQueryService } from '../incidents';
 import { OrganizationsService } from '../organizations';
 import { ContractsService } from '../rentals';
+import { INCIDENT_STATE_LABEL } from './incident-state-labels';
 
 // One row of a device's lifecycle history (monitoring api-design 07).
 export interface DeviceHistoryItem {
@@ -93,7 +94,7 @@ export class DeviceHistoryService {
                 ...ref,
                 tie: BEFORE_DEVICE_ROWS,
                 at: opening.at,
-                summary: `Incident ${incident.code} opened (${opening.toState})`,
+                summary: `Incident ${incident.code} opened (${INCIDENT_STATE_LABEL[opening.toState]})`,
                 actorId: opening.actorId,
               }
             : {
@@ -107,7 +108,7 @@ export class DeviceHistoryService {
             ...ref,
             tie: AFTER_DEVICE_ROWS,
             at: step.at,
-            summary: `Incident ${incident.code}: ${step.fromState} to ${step.toState}`,
+            summary: `Incident ${incident.code}: ${step.fromState ? INCIDENT_STATE_LABEL[step.fromState] : 'No state'} to ${INCIDENT_STATE_LABEL[step.toState]}`,
             actorId: step.actorId,
           })),
         ];
