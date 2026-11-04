@@ -43,11 +43,22 @@ describe('tierOf', () => {
   const packet = (type: StockPacket['type'], payload: Record<string, unknown>) =>
     ({ type, payload }) as StockPacket;
 
-  it('puts an SOS first, positions and other text next, telemetry last', () => {
+  it('puts an SOS first, positions next, telemetry last', () => {
     expect(tierOf(packet('text', { text: 'SOS - [11.5], [108.5]' }))).toBe(PriorityTier.P0_SOS);
-    expect(tierOf(packet('text', { text: 'hello' }))).toBe(PriorityTier.P2_GPS);
     expect(tierOf(packet('position', {}))).toBe(PriorityTier.P2_GPS);
     expect(tierOf(packet('telemetry', {}))).toBe(PriorityTier.P3_TELEMETRY);
+  });
+
+  it('matches the backend SOS prefix "SOS - " only, the fall SOS included (FGT §2)', () => {
+    expect(tierOf(packet('text', { text: 'SOS - FALL DETECTED [11.5], [108.5]' }))).toBe(PriorityTier.P0_SOS);
+    expect(tierOf(packet('text', { text: 'SOS please' }))).toBe(PriorityTier.P3_TELEMETRY);
+    expect(tierOf(packet('text', { text: 'SOS-[11.5]' }))).toBe(PriorityTier.P3_TELEMETRY);
+    expect(tierOf(packet('text', { text: 'sos - help' }))).toBe(PriorityTier.P3_TELEMETRY);
+  });
+
+  it('queues other text as CHAT at P3 (mqtt-ingress-contract.md, Classification)', () => {
+    expect(tierOf(packet('text', { text: 'hello' }))).toBe(PriorityTier.P3_TELEMETRY);
+    expect(tierOf(packet('text', {}))).toBe(PriorityTier.P3_TELEMETRY);
   });
 
   it('drains the simulated battery by one percent per five minutes, never under 15%', () => {

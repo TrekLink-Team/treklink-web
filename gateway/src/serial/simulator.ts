@@ -19,13 +19,18 @@ export interface StockPacket {
   hop_start?: number;
 }
 
-// The queue tier of a packet: an SOS text first, then positions, then telemetry. Text that is not an
-// SOS travels with the positions.
+// The backend's SOS prefix (gateway-sync normalizer/text.strategy.ts, FGT §2): "SOS - FALL DETECTED"
+// starts with it too. Anything else, "SOS please" included, is chat.
+export const SOS_PREFIX = 'SOS - ';
+
+// The queue tier of a packet (mqtt-ingress-contract.md, Classification): an SOS text first at P0, a
+// position at P2, telemetry and every other text (CHAT) at P3.
 export const tierOf = (packet: StockPacket): PriorityTier => {
-  if (packet.type === 'text' && /^SOS\b/.test(String(packet.payload.text ?? ''))) {
+  if (packet.type === 'position') return PriorityTier.P2_GPS;
+  if (packet.type === 'text' && String(packet.payload.text ?? '').startsWith(SOS_PREFIX)) {
     return PriorityTier.P0_SOS;
   }
-  return packet.type === 'telemetry' ? PriorityTier.P3_TELEMETRY : PriorityTier.P2_GPS;
+  return PriorityTier.P3_TELEMETRY;
 };
 
 // "!de000009" to its node number.

@@ -99,8 +99,8 @@ describe('SerialFrameReader on a port (design §3.1, REQ-STA-04, REQ-ERR-07, AC-
     expect(rows.map((row) => [row.eventId, row.priority])).toEqual([
       ['!de000009:3724541962:1004', PriorityTier.P0_SOS],
       ['!de000009:3724541962:1002', PriorityTier.P2_GPS],
-      ['!de000009:3724541962:1005', PriorityTier.P2_GPS],
       ['!de000009:3724541962:1003', PriorityTier.P3_TELEMETRY],
+      ['!de000009:3724541962:1005', PriorityTier.P3_TELEMETRY],
     ]);
     const sos = JSON.parse(rows[0].payload) as Record<string, unknown>;
     expect(sos).toMatchObject({ sender: '!de000009', from: 0xde00000a, type: 'text', payload: { text: 'SOS - [11.554400], [108.538100]' } });
@@ -178,6 +178,86 @@ describe('SerialFrameReader on a port (design §3.1, REQ-STA-04, REQ-ERR-07, AC-
 
   it('refuses a port that does not exist without ending the process, with the real serial binding', async () => {
     await expect(meshtasticPort.openTransport('/dev/ttyTREKLINK-NONE', 115200)).rejects.toThrow(/ttyTREKLINK-NONE/);
+  });
+
+  // A stand-in MeshDevice whose events the test fires by hand.
+  const handDevice = () => {
+    const listeners = {
+      packet: [] as ((packet: unknown) => void)[],
+      info: [] as ((info: { myNodeNum: number }) => void)[],
+      status: [] as ((status: number) => void)[],
+    };
+    const device: MeshDeviceLike = {
+      events: {
+        onMeshPacket: { subscribe: (fn) => void listeners.packet.push(fn as (packet: unknown) => void) },
+        onMyNodeInfo: { subscribe: (fn) => void listeners.info.push(fn) },
+        onDeviceStatus: { subscribe: (fn) => void listeners.status.push(fn) },
+      },
+      configure: async () => 0,
+      setHeartbeatInterval: () => undefined,
+      disconnect: async () => undefined,
+    };
+    return { device, listeners };
+  };
+  const positionPacket = (id: number) => ({
+    id, from: 0xde00000a, to: 0xffffffff, channel: 0, rxTime: 1762230000, rxSnr: 0, rxRssi: 0, hopLimit: 0, hopStart: 0,
+    payloadVariant: {
+      case: 'decoded',
+      // Position latitude_i 1 (sfixed32 field 1) and longitude_i 1 (sfixed32 field 2).
+      value: { portnum: 3, payload: new Uint8Array([0x0d, 1, 0, 0, 0, 0x15, 1, 0, 0, 0]) },
+    },
+  });
+
+  it('closes the open port when the client cannot start on it, and opens it again', async () => {
+    const disconnect = jest.fn(async () => undefined);
+    let opens = 0;
+    reader = new SerialFrameReader(config, queue, undefined, undefined, {
+      openTransport: async () => {
+        opens += 1;
+        return { ...replayPort([]).transport, disconnect };
+      },
+      createDevice: () => {
+        throw new Error('client failed');
+      },
+    });
+    reader.start();
+    await waitFor(() => opens >= 2);
+    expect(disconnect.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(reader.status().reading).toBe(false);
+  });
+
+  it('forgets the station node when the port is lost, so the next node names itself again', async () => {
+    const first = handDevice();
+    const second = handDevice();
+    const devices = [first.device, second.device];
+    reader = new SerialFrameReader({ ...config, reconnectMs: 1_000 }, queue, undefined, undefined, {
+      openTransport: async () => replayPort([]).transport,
+      createDevice: () => devices.shift()!,
+    });
+    reader.start();
+    await waitFor(() => first.listeners.info.length === 1);
+    first.listeners.info[0]({ myNodeNum: 0xde000009 });
+    expect(reader.station()).toBe(0xde000009);
+    first.listeners.status[0](2);
+    expect(reader.station()).toBeNull();
+    // A packet the lost port delivered late waits for the next node instead of taking the old sender.
+    first.listeners.packet[0](positionPacket(2001));
+    expect(queue.count()).toBe(0);
+  });
+
+  it('keeps at most 500 packets waiting for the node to name itself and drops the rest', async () => {
+    const hand = handDevice();
+    reader = new SerialFrameReader(config, queue, undefined, undefined, {
+      openTransport: async () => replayPort([]).transport,
+      createDevice: () => hand.device,
+    });
+    reader.start();
+    await waitFor(() => hand.listeners.packet.length === 1);
+    for (let id = 1; id <= 502; id += 1) hand.listeners.packet[0](positionPacket(id));
+    expect(queue.count()).toBe(0);
+    hand.listeners.info[0]({ myNodeNum: 0xde000009 });
+    expect(queue.count()).toBe(500);
+    expect(queue.peek(1)[0].eventId).toBe('!de000009:3724541962:1');
   });
 
   it('opens no port in simulation (GATEWAY_SERIAL_SIMULATION=true)', async () => {

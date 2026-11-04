@@ -98,6 +98,7 @@ export class SerialFrameReader {
   private reopen: NodeJS.Timeout | null = null;
   private stationNode: number | null = null;
   private waiting: MeshPacketLike[] = [];
+  private droppedWaiting = 0;
   private stopped = false;
 
   constructor(
@@ -169,16 +170,24 @@ export class SerialFrameReader {
     if (this.stopped) return;
     const { port, baudRate } = this.config;
     logger.info(`Opening serial port ${port} at ${baudRate} baud.`);
-    let device: MeshDeviceLike;
+    let transport: MeshTransport;
     try {
-      const transport = await this.deps.openTransport(port, baudRate);
-      if (this.stopped) {
-        await transport.disconnect().catch(() => undefined);
-        return;
-      }
-      device = this.deps.createDevice(transport);
+      transport = await this.deps.openTransport(port, baudRate);
     } catch (err) {
       this.lost(null, `cannot open ${port}: ${(err as Error).message}`);
+      return;
+    }
+    if (this.stopped) {
+      await transport.disconnect().catch(() => undefined);
+      return;
+    }
+    let device: MeshDeviceLike;
+    try {
+      device = this.deps.createDevice(transport);
+    } catch (err) {
+      // The port is open: close it, or the next open finds it held by this process.
+      await transport.disconnect().catch(() => undefined);
+      this.lost(null, `cannot start the client on ${port}: ${(err as Error).message}`);
       return;
     }
     this.device = device;
@@ -200,6 +209,9 @@ export class SerialFrameReader {
     // A status from a device already replaced, or the stop's own disconnect, changes nothing.
     if (this.stopped || (device !== null && device !== this.device)) return;
     this.device = null;
+    // The next port may hold another node: packets wait until it names itself again.
+    this.stationNode = null;
+    this.waiting = [];
     if (device) void device.disconnect().catch(() => undefined);
     if (this.reopen) return;
     const wait = this.config.reconnectMs ?? gatewayConfig.serial.reconnectMs;
@@ -212,6 +224,10 @@ export class SerialFrameReader {
 
   private named(nodeNum: number): void {
     this.stationNode = nodeNum;
+    if (this.droppedWaiting > 0) {
+      logger.warn(`${this.droppedWaiting} packets were dropped before the node on the port named itself.`);
+      this.droppedWaiting = 0;
+    }
     const waiting = this.waiting;
     this.waiting = [];
     for (const packet of waiting) this.heard(packet);
@@ -220,6 +236,15 @@ export class SerialFrameReader {
   private heard(packet: MeshPacketLike): void {
     if (this.stationNode === null) {
       if (this.waiting.length < MAX_WAITING) this.waiting.push(packet);
+      else {
+        this.droppedWaiting += 1;
+        if (this.droppedWaiting === 1 || this.droppedWaiting % MAX_WAITING === 0) {
+          logger.warn(
+            `Dropped packet ${packet.id} from ${packet.from}: ${MAX_WAITING} packets already wait for the ` +
+              `node on the port to name itself (${this.droppedWaiting} dropped so far).`,
+          );
+        }
+      }
       return;
     }
     const result = toStockPacket(packet, this.stationNode);
