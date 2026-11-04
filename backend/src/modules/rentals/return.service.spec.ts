@@ -55,7 +55,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         { id: 'cd-2', deviceId: 'd-2' },
       ]),
       openTerm: jest.fn().mockResolvedValue({ endsAt: new Date('2026-12-01T02:00:00Z') }),
-      markCheckedIn: jest.fn().mockResolvedValue(undefined),
+      closeCustody: jest.fn().mockResolvedValue(undefined),
       returnCounts: jest.fn().mockResolvedValue({ total: 2, returned: 2 }),
       findDeviceRow: jest
         .fn()
@@ -111,6 +111,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
         emitAfterCommit,
       } as unknown as TransactionalEvents,
+      { closeCustody: contracts.closeCustody } as never,
       [closeCheck],
     );
   });
@@ -125,7 +126,16 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         contractStatus: ContractStatus.RETURNED,
         lateFeeVnd: 160_000,
       });
-      expect(contracts.markCheckedIn).toHaveBeenCalledWith(['cd-1', 'cd-2'], AT, 'u-staff', TX);
+      expect(contracts.closeCustody).toHaveBeenCalledWith(
+        'org-1',
+        [
+          { id: 'cd-1', deviceId: 'd-1', assetTag: 'TL-0001' },
+          { id: 'cd-2', deviceId: 'd-2', assetTag: 'TL-0002' },
+        ],
+        { reason: 'CHECKED_IN', actorId: 'u-staff' },
+        AT,
+        TX,
+      );
       expect(devices.markReturned).toHaveBeenCalledWith(['d-1', 'd-2'], AT, TX, {
         contractId: 'c-1',
         contractCode: 'RC-2026-0001',
@@ -197,7 +207,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       await expect(service.checkIn('c-1', ['TL-0001'], STAFF, AT)).rejects.toThrow(
         'has no open term',
       );
-      expect(contracts.markCheckedIn).not.toHaveBeenCalled();
+      expect(contracts.closeCustody).not.toHaveBeenCalled();
     });
 
     it('refuses tags that trim to nothing and moves nothing (review of #104)', async () => {
@@ -206,7 +216,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         message: 'assetTags must name at least one device.',
       });
       expect(contracts.lockById).not.toHaveBeenCalled();
-      expect(contracts.markCheckedIn).not.toHaveBeenCalled();
+      expect(contracts.closeCustody).not.toHaveBeenCalled();
       expect(lifecycle.apply).not.toHaveBeenCalled();
     });
 
@@ -215,7 +225,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
         errorCode: ErrorCode.DEVICE_NOT_ON_CONTRACT,
         message: 'TL-0099 does not belong to contract RC-2026-0001.',
       });
-      expect(contracts.markCheckedIn).not.toHaveBeenCalled();
+      expect(contracts.closeCustody).not.toHaveBeenCalled();
     });
   });
 
@@ -480,6 +490,7 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
           transaction: (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX),
           emitAfterCommit,
         } as unknown as TransactionalEvents,
+        { closeCustody: contracts.closeCustody } as never,
         [closeCheck],
         credits as unknown as ServiceCreditService,
       );

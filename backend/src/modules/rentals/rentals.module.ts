@@ -10,6 +10,7 @@ import { ContractReadsService } from './contract-reads.service';
 import { ContractsController } from './contracts.controller';
 import { ContractsRepository } from './contracts.repository';
 import { ContractsService } from './contracts.service';
+import { CustodyService } from './custody.service';
 import { GroupsController } from './groups.controller';
 import { GroupsRepository } from './groups.repository';
 import { GroupsService } from './groups.service';
@@ -38,6 +39,7 @@ import { TermRolloverJob } from './term-rollover.job';
   controllers: [ContractsController, GroupsController, HandoverController, ReturnController],
   providers: [
     ContractsRepository,
+    CustodyService,
     GroupsRepository,
     GroupsService,
     ContractLifecycleService,

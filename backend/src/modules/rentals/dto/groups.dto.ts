@@ -1,5 +1,9 @@
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsDateString,
   IsInt,
   IsOptional,
@@ -11,6 +15,15 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+
+export class AssignGroupDevicesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  deviceIds!: string[];
+}
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { ContractStatus, PlanType, Prisma } from '@prisma/client';
+import { ContractStatus, FaultResolution, PlanType, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { likeLiteral } from '../../common/prisma/like-literal';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -313,6 +313,7 @@ export class ContractsRepository {
     return client.contractDevice.findMany({
       where: {
         handedOverAt: { not: null },
+        releasedAt: null,
         checkedInAt: null,
         lostAt: null,
         ...(organizationId === null ? {} : { contract: { organizationId } }),
@@ -324,7 +325,32 @@ export class ContractsRepository {
         handedOverAt: true,
         holderName: true,
         contract: { select: { code: true, organizationId: true } },
+        groupAssignments: {
+          where: { endedAt: null, group: { removedAt: null } },
+          take: 1,
+          select: { group: { select: { id: true, name: true, parentId: true } } },
+        },
+        faultReports: { where: { resolvedAt: null }, take: 1, select: { id: true } },
       },
+    });
+  }
+
+  liveRowsOfOrganization(
+    organizationId: string,
+    deviceIds: readonly string[],
+    tx: Prisma.TransactionClient,
+  ) {
+    return tx.contractDevice.findMany({
+      where: {
+        deviceId: { in: [...deviceIds] },
+        contract: { organizationId },
+        releasedAt: null,
+        handedOverAt: { not: null },
+        checkedInAt: null,
+        lostAt: null,
+        replacedBy: null,
+      },
+      select: { id: true, deviceId: true },
     });
   }
 
@@ -450,6 +476,25 @@ export class ContractsRepository {
         'The custody interval is already closed.',
       );
     }
+  }
+
+  resolveOpenFaults(
+    rowIds: string[],
+    resolution: FaultResolution,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ) {
+    return tx.deviceFaultReport.updateMany({
+      where: { contractDeviceId: { in: rowIds }, resolvedAt: null },
+      data: { resolvedAt: at, resolution },
+    });
+  }
+
+  custodyUnit(contractId: string, id: string, tx: Prisma.TransactionClient) {
+    return tx.contractDevice.findFirstOrThrow({
+      where: { contractId, id },
+      select: { id: true, deviceId: true },
+    });
   }
 
   // A page of contracts, newest first (api-design 02).

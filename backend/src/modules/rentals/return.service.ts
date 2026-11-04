@@ -7,6 +7,7 @@ import { DevicesService } from '../devices';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractsRepository } from './contracts.repository';
+import { CustodyService } from './custody.service';
 import { CONTRACT_CLOSE_CHECKS, ContractCloseCheck } from './ports/contract-close-checks.port';
 
 export const DEVICE_CHECKED_IN = 'device.checkedIn';
@@ -101,6 +102,7 @@ export class ReturnService {
     private readonly charges: ChargesService,
     private readonly balances: BalanceService,
     private readonly events: TransactionalEvents,
+    private readonly custody: CustodyService,
     @Optional()
     @Inject(CONTRACT_CLOSE_CHECKS)
     private readonly closeChecks: ContractCloseCheck[] = [],
@@ -149,10 +151,11 @@ export class ReturnService {
       }
 
       const owedBefore = await this.balances.outstanding(id, tx);
-      await this.contracts.markCheckedIn(
-        rows.map((row) => row.id),
+      await this.custody.closeCustody(
+        contract.organizationId,
+        rows,
+        { reason: 'CHECKED_IN', actorId: actor.id },
         at,
-        actor.id,
         tx,
       );
       await this.devices.markReturned(

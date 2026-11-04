@@ -1525,9 +1525,9 @@ place, but nothing new is created under it and it cannot be moved anywhere that 
 
 ### 11.4 Services
 
-- `GroupsRepository` is the only class over `groups` and `group_assignments` (D-044 rule 4). `GroupsService`:
-  `tree(organizationId)` with the count of open assignments per group, `create`, `update`, `remove`, `assign`,
-  `unassign`, and `endFor(contractDeviceId, reason, tx)` and `passOn(fromRowId, toRowId, tx)` for the hooks.
+- `GroupsRepository` owns group and assignment writes (D-044 rule 4). `GroupsService` implements the tree read with
+  open counts, `create`, `update`, `remove`, `assign` and `unassign`. `CustodyService` uses the same repository
+  to end assignments and pass the group to a replacement.
 - Depth: `depthOf(parentId)` walks `parentId` up from the parent, at most `groupMaxDepth + 1` steps, and
   `heightOf(groupId)` walks the live subgroups down; a create or a move needs `depthOf(parent) + 1 + heightOf(group)
   <= groupMaxDepth` and refuses a new parent inside the group's own subtree.
@@ -1536,18 +1536,21 @@ place, but nothing new is created under it and it cannot be moved anywhere that 
   (keyed `rentals:group-device:<deviceId>`) in ascending `deviceId`. An assignment batch sorts its
   `deviceIds` before locking; a removal locks the group and its subgroups in ascending `id` before ending their
   assignments.
-- Create, edit and removal take a per-organization tree advisory lock before reading the topology or locking any
-  group. This prevents concurrent inserts or moves from changing the subtree after validation. The depth limit is
-  read without the process cache so a change applies on the next request even across application instances.
+- Group writes and custody cleanup share a per-organization tree advisory lock before reading assignments or
+  locking any group. This prevents concurrent inserts or moves from changing the subtree or the assignment after
+  validation. The depth limit is read without the process cache so a change applies on the next request even
+  across application instances.
 - Held now: `ContractsRepository.liveRowsOfOrganization(organizationId, deviceIds, tx)` returns each device's live
   row of a contract of the organization with `handedOverAt` set and neither `checkedInAt` nor `lostAt`; a device
-  without one is not held.
-- One custody-closing step: `CustodyService.closeCustody(row, way, at, tx, replacementRowId?)` sets the row's
-  `checkedInAt`, `lostAt` or release stamp, then calls `GroupsService.endFor(row, way)` (or `passOn(row,
-  replacementRowId)` for `REPLACED`) and `FaultReportsService.resolve(row, way)`. Check-in
-  (`ReturnService.checkIn`), the settled loss (`RentalsLossCaseListener.onSettled`), replacement
-  (`ReplacementService.replace`) and the release ruled on 2026-11-03 all call it instead of writing the column
-  themselves; `ContractsRepository.markCheckedIn` and the `lostAt` write become private to it.
+  without one is not held. A missing unit that was replaced is ineligible for a new group assignment while its
+  loss case remains open.
+- `CustodyService.closeCustody(organizationId, rows, closure, at, tx)` owns the check-in and lost timestamps,
+  assignment closure and fault resolution. The replacement closure also carries the new custody row.
+  `ReturnService.checkIn`, `RentalsLossCaseListener.onSettled` and `ReplacementService.replace` call it inside
+  the contract transaction. The separate broken-unit release will call it when that workflow is implemented.
+  A replacement of a missing unit transfers the group and resolves the fault report when the new unit is issued.
+  The loss settlement still writes the old unit's physical custody end at confirmation time. Its group and fault
+  cleanup use the settlement time, when those changes take effect.
 - `FaultReportsService.report(contractId, deviceId, description, actor)` checks the device is `RENTED` on a live
   row of the caller's organization, inserts the row, emits `device.faultReported` after commit; the existing
   `ContractNotificationsListener` emails Staff through `STAFF_NOTIFICATIONS` (as for `contract.requested`).

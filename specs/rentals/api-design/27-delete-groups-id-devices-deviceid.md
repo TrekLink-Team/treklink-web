@@ -125,28 +125,18 @@ No body.
 
 ```mermaid
 flowchart TB
-    S((Start))
-    A0["Check token, policy and organization scope"]
-    S --> A0
-    D1{"No such record, or it belongs to another organization?"}
-    A0 --> D1
-    E1["Return 404 NOT_FOUND"]
-    D1 -->|yes| E1
-    E1 --> X1((End))
-    D2{"Not a live group of the organization, or the device is not in it?"}
-    D1 -->|no| D2
-    E2["Return 404 NOT_FOUND"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    P0["Lock the assignment"]
-    D2 -->|no| P0
-    P1["End it"]
-    P0 --> P1
-    P2["Audit; emit device.groupChanged"]
-    P1 --> P2
-    OK["Return 200"]
-    P2 --> OK
-    OK --> Z((End))
+    S((Start)) --> A["Check token and policy"]
+    A --> G["Lock the organization tree and target group"]
+    G --> L{"Live group of this organization?"}
+    L -->|no| E404["Return 404 NOT_FOUND"]
+    L -->|yes| D["Lock the device and read its open assignment"]
+    D --> H{"Device assigned to this group?"}
+    H -->|no| E404
+    H -->|yes| W["End the assignment and commit"]
+    W --> V["Emit audit and group-change events"]
+    V --> OK["Return 200"]
+    E404 --> Z((End))
+    OK --> Z
 ```
 
 ## Sequence Diagram
@@ -160,6 +150,8 @@ sequenceDiagram
     participant DB as Postgres
     C->>Ctl: DELETE /api/groups/:id/devices/:deviceId
     Ctl->>Svc: unassign(id, deviceId, actor)
+    Svc->>DB: Acquire organization tree, group row and device locks
+    Svc->>DB: SELECT the device's open group assignment
     Svc->>DB: UPDATE group_assignments SET endedAt, endedReason = UNASSIGNED
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope

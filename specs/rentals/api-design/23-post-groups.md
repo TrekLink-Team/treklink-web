@@ -163,7 +163,7 @@ Creates a group of the caller's organization, top-level or under a parent at mos
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "Groups can be nested only 1 level(s) deep. Choose a top-level group as the parent."
+  "message": "Groups can be nested only 1 level(s) deep. Choose a parent with room for this group and its subgroups."
 }
 ```
 </td>

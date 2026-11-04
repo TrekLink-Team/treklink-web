@@ -183,7 +183,7 @@ Changes a live group's name, label, dates, area note or parent with the `version
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "Groups can be nested only 1 level(s) deep. Choose a top-level group as the parent."
+  "message": "Groups can be nested only 1 level(s) deep. Choose a parent with room for this group and its subgroups."
 }
 ```
 </td>

@@ -1,11 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { GroupExit, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
+import { ContractsRepository } from './contracts.repository';
 import { CreateGroupDto, UpdateGroupDto } from './dto/groups.dto';
 import { GroupRow, GroupsRepository } from './groups.repository';
 
@@ -59,6 +60,28 @@ function checkDates(startsOn: Date | null, endsOn: Date | null) {
   }
 }
 
+async function withUniqueGroupName<T>(write: Promise<T>): Promise<T> {
+  try {
+    return await write;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.CONFLICT_UNIQUE,
+        'A group with this name already exists here.',
+      );
+    }
+    throw error;
+  }
+}
+
+export const DEVICE_GROUP_CHANGED = 'device.groupChanged';
+export interface DeviceGroupChangedEvent {
+  organizationId: string;
+  deviceId: string;
+  group: { id: string; name: string; parentId: string | null } | null;
+}
+
 @Injectable()
 export class GroupsService {
   constructor(
@@ -66,6 +89,7 @@ export class GroupsService {
     private readonly parameters: ParameterService,
     private readonly organizations: OrganizationsService,
     private readonly events: TransactionalEvents,
+    private readonly contracts: ContractsRepository,
   ) {}
 
   async tree(caller: Caller, requestedOrganizationId?: string) {
@@ -98,16 +122,18 @@ export class GroupsService {
         await this.groups.lockGroups(organizationId, [parentId], tx);
         await this.checkDepth(parentId, [], await this.groups.topology(organizationId, tx), tx);
       }
-      const row = await this.groups.create(
-        {
-          ...data,
-          organizationId,
-          parentId,
-          startsOn: start,
-          endsOn: end,
-          createdById: caller.id,
-        },
-        tx,
+      const row = await withUniqueGroupName(
+        this.groups.create(
+          {
+            ...data,
+            organizationId,
+            parentId,
+            startsOn: start,
+            endsOn: end,
+            createdById: caller.id,
+          },
+          tx,
+        ),
       );
       const after = view(row);
       this.audit('group.created', row.id, organizationId, caller, undefined, after);
@@ -136,17 +162,19 @@ export class GroupsService {
         await this.checkDepth(parentId, descendants(id, links), links, tx);
       }
       const after = view(
-        await this.groups.update(
-          organizationId,
-          id,
-          {
-            ...data,
-            parentId,
-            startsOn: start,
-            endsOn: end,
-            version: { increment: 1 },
-          },
-          tx,
+        await withUniqueGroupName(
+          this.groups.update(
+            organizationId,
+            id,
+            {
+              ...data,
+              parentId,
+              startsOn: start,
+              endsOn: end,
+              version: { increment: 1 },
+            },
+            tx,
+          ),
         ),
       );
       this.audit('group.updated', id, organizationId, caller, view(current), after);
@@ -166,14 +194,102 @@ export class GroupsService {
         ungroupedDeviceIds: deviceIds,
       });
       for (const deviceId of deviceIds) {
-        this.events.emitAfterCommit('device.groupChanged', {
-          organizationId,
-          deviceId,
-          group: null,
-        });
+        this.emitGroupChange(organizationId, deviceId, null);
       }
       return { id, removedGroups: ids.length, ungroupedDevices: deviceIds.length };
     });
+  }
+
+  assign(groupId: string, deviceIds: string[], caller: Caller) {
+    return this.editTree(caller, async (organizationId, tx) => {
+      await this.groups.lockGroups(organizationId, [groupId], tx);
+      const group = await this.groups.find(organizationId, groupId, tx);
+      if (!group) throw notFound();
+      await this.groups.lockDevices(deviceIds, tx);
+      const held = await this.contracts.liveRowsOfOrganization(organizationId, deviceIds, tx);
+      if (held.length !== deviceIds.length) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.DEVICE_NOT_HELD,
+          'This device is not held by your organization now.',
+        );
+      }
+      const rows = new Map(held.map((row) => [row.deviceId, row]));
+      const open = new Map(
+        (await this.groups.openAssignments(deviceIds, tx)).map((row) => [row.deviceId, row]),
+      );
+      const assigned: string[] = [];
+      const unchanged: string[] = [];
+      const at = new Date();
+      for (const deviceId of deviceIds) {
+        const previous = open.get(deviceId);
+        const custody = rows.get(deviceId)!;
+        if (previous?.groupId === groupId && previous.contractDeviceId === custody.id) {
+          unchanged.push(deviceId);
+          continue;
+        }
+        if (previous) await this.groups.endAssignments([previous.id], GroupExit.MOVED, at, tx);
+        await this.groups.openAssignment(
+          {
+            groupId,
+            deviceId,
+            contractDeviceId: custody.id,
+            assignedById: caller.id,
+          },
+          at,
+          tx,
+        );
+        assigned.push(deviceId);
+        this.audit(
+          'group.deviceAssigned',
+          groupId,
+          organizationId,
+          caller,
+          { groupId: previous?.groupId ?? null },
+          { groupId, deviceId },
+        );
+        this.emitGroupChange(organizationId, deviceId, {
+          id: group.id,
+          name: group.name,
+          parentId: group.parentId,
+        });
+      }
+      return { groupId, assigned, unchanged };
+    });
+  }
+
+  unassign(groupId: string, deviceId: string, caller: Caller) {
+    return this.editTree(caller, async (organizationId, tx) => {
+      await this.groups.lockGroups(organizationId, [groupId], tx);
+      if (!(await this.groups.find(organizationId, groupId, tx))) throw notFound();
+      await this.groups.lockDevices([deviceId], tx);
+      const [assignment] = await this.groups.openAssignments([deviceId], tx);
+      if (assignment?.groupId !== groupId) throw notFound();
+      const endedAt = new Date();
+      await this.groups.endAssignments([assignment.id], GroupExit.UNASSIGNED, endedAt, tx);
+      this.audit(
+        'group.deviceUnassigned',
+        groupId,
+        organizationId,
+        caller,
+        { groupId, deviceId },
+        { groupId: null, deviceId },
+      );
+      this.emitGroupChange(organizationId, deviceId, null);
+      return { groupId, deviceId, endedAt };
+    });
+  }
+
+  emitGroupChange(
+    organizationId: string,
+    deviceId: string,
+    group: DeviceGroupChangedEvent['group'],
+  ) {
+    this.events.emitAfterCommit(DEVICE_GROUP_CHANGED, {
+      organizationId,
+      deviceId,
+      group,
+    } satisfies DeviceGroupChangedEvent);
   }
 
   private async checkDepth(
@@ -194,11 +310,18 @@ export class GroupsService {
       depth += 1;
       ancestor = next;
     }
-    if (depth + height > maxDepth || subtree.some((node) => node.id === parentId)) {
+    if (subtree.some((node) => node.id === parentId)) {
       throw new DomainException(
         HttpStatus.CONFLICT,
         ErrorCode.GROUP_DEPTH_EXCEEDED,
-        `Groups can be nested only ${maxDepth} level(s) deep. Choose a top-level group as the parent.`,
+        'Choose a parent outside this group and its subgroups.',
+      );
+    }
+    if (depth + height > maxDepth) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.GROUP_DEPTH_EXCEEDED,
+        `Groups can be nested only ${maxDepth} level(s) deep. Choose a parent with room for this group and its subgroups.`,
       );
     }
   }
@@ -215,22 +338,11 @@ export class GroupsService {
         'You do not have access to this.',
       );
     }
-    try {
-      return await this.events.transaction(async (tx) => {
-        await this.organizations.assertCanUseRentalGroups(organizationId, tx);
-        await this.groups.lockTree(organizationId, tx);
-        return write(organizationId, tx);
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new DomainException(
-          HttpStatus.CONFLICT,
-          ErrorCode.CONFLICT_UNIQUE,
-          'A group with this name already exists here.',
-        );
-      }
-      throw error;
-    }
+    return this.events.transaction(async (tx) => {
+      await this.organizations.assertCanUseRentalGroups(organizationId, tx);
+      await this.groups.lockTree(organizationId, tx);
+      return write(organizationId, tx);
+    });
   }
 
   private audit(

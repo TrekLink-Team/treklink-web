@@ -105,6 +105,8 @@ export interface VisibleDevice {
   handedOverAt: Date;
   // The holder label set at handover; null before one is set or after it was erased (FR-CON-14).
   holder: { name: string } | null;
+  group: { id: string; name: string; parentId: string | null } | null;
+  openFaultReportId: string | null;
 }
 
 // The custody of the interval `findCustody` returned for `at`: none for no row or a row never
@@ -354,6 +356,8 @@ export class ContractsService {
       // The query keeps handed-over rows only.
       handedOverAt: row.handedOverAt as Date,
       holder: row.holderName === null ? null : { name: row.holderName },
+      group: row.groupAssignments[0]?.group ?? null,
+      openFaultReportId: row.faultReports[0]?.id ?? null,
     }));
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
@@ -501,16 +505,5 @@ export class ContractsService {
   // CANCELLED or CLOSED may not close. `tx` is the closing transaction (RentalsOrganizationExitCheck).
   async canClose(organizationId: string, tx?: Prisma.TransactionClient): Promise<boolean> {
     return (await this.contracts.countUnfinishedContracts(organizationId, tx)) === 0;
-  }
-
-  // LOSS_CASE_LISTENERS.onSettled (RentalsLossCaseListener): the row's interval ends at the loss
-  // confirmation, inside the caller's transaction (REQ-EVT-12, FR-DEV-13). `onConfirmed` does
-  // nothing for rentals.
-  onLossSettled(
-    contractDeviceId: string,
-    confirmedAt: Date,
-    tx: Prisma.TransactionClient,
-  ): Promise<void> {
-    return this.contracts.setLostAt(contractDeviceId, confirmedAt, tx);
   }
 }
