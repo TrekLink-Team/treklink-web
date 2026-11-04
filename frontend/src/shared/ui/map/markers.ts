@@ -54,12 +54,35 @@ export const markerElement = (options: MarkerOptions): HTMLElement => {
   return wrapper;
 };
 
-/** A Leaflet icon for a device marker. The anchor is the centre of the dot, or the point of a pin. */
-export const markerIcon = (options: MarkerOptions): L.DivIcon =>
-  L.divIcon({
-    html: markerElement(options),
-    className: '',
-    iconSize: options.state === 'sos' ? [20, 20] : [16, 16],
-    // The pin is a 16 px square turned 45 degrees, so its point lies 8 * sqrt(2) below the centre.
-    iconAnchor: options.state === 'sos' ? [10, 10] : options.state === 'unheard' ? [8, 19] : [8, 8],
+/** Smallest pointer target of a marker, in CSS px (WCAG 2.2, 2.5.8 Target Size Minimum). */
+export const MARKER_TARGET_PX = 24;
+
+// The drawn size of each dot; the target around it is MARKER_TARGET_PX whatever the dot.
+const dotPx = (state: MarkerState): number => (state === 'sos' ? 20 : 16);
+// The pin is a 16 px square turned 45 degrees, so its point lies 8 * sqrt(2), about 11 px, below its
+// centre.
+const PIN_POINT_PX = 11;
+
+/**
+ * A Leaflet icon for a device marker. The icon is a 24 px circular hit area (class `tl-marker-hit`)
+ * centred on the dot, which keeps its drawn size. The anchor is the centre of the dot, or the point of
+ * a pin, so the hit area of a pin sits on its head.
+ */
+export const markerIcon = (options: MarkerOptions): L.DivIcon => {
+  const element = markerElement(options);
+  // The dot is the first child, so its centre lands on the centre of the hit area; a chip runs to the
+  // right of it. Nothing inside takes pointer events (index.css), so the target stays the circle.
+  element.style.position = 'absolute';
+  element.style.left = `${(MARKER_TARGET_PX - dotPx(options.state)) / 2}px`;
+  element.style.top = '50%';
+  element.style.transform = 'translateY(-50%)';
+  // Wider than the hit area when a chip shows; without this the row would shrink the dot to fit 24 px.
+  element.style.width = 'max-content';
+  const centre = MARKER_TARGET_PX / 2;
+  return L.divIcon({
+    html: element,
+    className: 'tl-marker-hit',
+    iconSize: [MARKER_TARGET_PX, MARKER_TARGET_PX],
+    iconAnchor: [centre, options.state === 'unheard' ? centre + PIN_POINT_PX : centre],
   });
+};

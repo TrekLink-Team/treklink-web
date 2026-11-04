@@ -84,6 +84,7 @@ const device = (id: string, position: [number, number]): MapMarker => ({
   title: id,
   subtitle: 'Battery 80%',
   status: 'ok',
+
 });
 
 afterEach(() => {
@@ -360,6 +361,60 @@ describe('LiveMapWidget', () => {
       'Street contributors',
     );
     expect(screen.getByText('Quần đảo Hoàng Sa (Việt Nam)')).toBeTruthy();
+  });
+
+  // WCAG 2.2, 2.5.8 Target Size Minimum: each marker is a 24 px target, and two markers whose readings
+  // sit 4 px apart at the current zoom are spread so that their targets do not intersect.
+  it('gives two markers 4 px apart a 24 px target each, spread so they do not overlap (WCAG 2.5.8)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const { lat, lon, zoom } = config.defaultViewport;
+    const crs = L.CRS.EPSG3857;
+    const near = crs.pointToLatLng(crs.latLngToPoint(L.latLng(lat, lon), zoom).add([4, 0]), zoom);
+    const { container } = renderWidget([
+      device('TL-0009', [lat, lon]),
+      { ...device('TL-0010', [near.lat, near.lng]), status: 'stale' },
+    ]);
+    await waitFor(() =>
+      expect(container.querySelectorAll('.leaflet-marker-pane .leaflet-marker-icon')).toHaveLength(2),
+    );
+    const icons = Array.from(
+      container.querySelectorAll<HTMLElement>('.leaflet-marker-pane .leaflet-marker-icon'),
+    );
+    const px = (value: string) => Number.parseFloat(value || '0');
+    // Where Leaflet put the element (transform or left/top, by browser), plus its anchor margin.
+    const boxOf = (icon: HTMLElement) => {
+      const moved = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(icon.style.transform);
+      const x = (moved ? Number(moved[1]) : px(icon.style.left)) + px(icon.style.marginLeft);
+      const y = (moved ? Number(moved[2]) : px(icon.style.top)) + px(icon.style.marginTop);
+      return { x, y, width: px(icon.style.width), height: px(icon.style.height) };
+    };
+    const [a, b] = icons.map(boxOf);
+    for (const box of [a, b]) {
+      expect(box.width).toBeGreaterThanOrEqual(24);
+      expect(box.height).toBeGreaterThanOrEqual(24);
+    }
+    for (const icon of icons) expect(icon.classList.contains('tl-marker-hit')).toBe(true);
+    // The targets are 24 px circles, so they do not intersect while their centres are 24 px apart.
+    const centre = (box: typeof a) => [box.x + box.width / 2, box.y + box.height / 2];
+    const [[ax, ay], [bx, by]] = [centre(a), centre(b)];
+    expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThanOrEqual(24 - 1e-6);
+    // Each marker still names itself, and the drawn dots keep their size.
+    expect(screen.getByRole('img', { name: 'TL-0009, Battery 80%' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'TL-0010, Battery 80%' })).toBeTruthy();
+  });
+
+  it('leaves a lone marker on its reading, centred in its 24 px target', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const { container } = renderWidget([device('TL-0001', [11.5, 108.5])]);
+    await waitFor(() =>
+      expect(container.querySelector('.leaflet-marker-pane .leaflet-marker-icon')).toBeTruthy(),
+    );
+    const icon = container.querySelector<HTMLElement>('.leaflet-marker-pane .leaflet-marker-icon')!;
+    expect(icon.style.width).toBe('24px');
+    expect(icon.style.height).toBe('24px');
+    expect(icon.style.marginLeft).toBe('-12px');
+    expect(icon.style.marginTop).toBe('-12px');
   });
 });
 
