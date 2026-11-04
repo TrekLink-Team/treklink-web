@@ -183,6 +183,13 @@ export const DeviceView: React.FC<
         {unitName(connection)}
       </h3>
       <UnitImage code={device?.hardwareVariant.code ?? null} name={device?.hardwareVariant.name ?? null} kind="detail" />
+      <Link
+        to="/t/device-hub"
+        onClick={() => useConnectorStore.getState().showInHub(connection.id)}
+        className={buttonClasses('secondary', 'sm')}
+      >
+        Open in the device hub
+      </Link>
       <section aria-labelledby="connector-unit-heading">
         <h4 id="connector-unit-heading" className="mb-1 text-body font-semibold text-ink">
           From the unit

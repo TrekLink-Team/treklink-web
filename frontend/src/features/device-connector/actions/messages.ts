@@ -58,3 +58,26 @@ export const uplinkDockMessage = (
   }
   return `${assetTag} is not configured as an uplink: ${clause(reason)}.`;
 };
+
+// The device hub page's Reboot (devices design section 11.13, REQ-ERR-31).
+export const rebootMessage = ({ failure, reason }: DockingFailureInfo, name: string): string | null => {
+  if (failure === 'cancelled') return null;
+  if (failure === 'no-response') return NO_RESPONSE_TEXT;
+  if (failure === 'mismatch') return reason;
+  return `${name} did not restart cleanly: ${clause(reason)}.`;
+};
+
+// The device hub page's Factory reset (devices design section 11.13 Errors, REQ-ERR-30, REQ-ERR-31).
+// `wiped` is true when the unit was wiped and only the server's record is missing.
+export const factoryResetMessage = (
+  { failure, reason, wiped }: DockingFailureInfo & { wiped: boolean },
+  assetTag: string,
+): string | null => {
+  if (failure === 'cancelled') return null;
+  if (wiped) {
+    return `${assetTag} is wiped, but the reset was not recorded: ${clause(reason)}. Record the reset at its counter.`;
+  }
+  if (failure === 'mismatch') return reason;
+  if (failure === 'no-response') return NO_RESPONSE_TEXT;
+  return `${reason.replace(/\.?$/, '.')} Nothing was recorded. Dock ${assetTag} and run Factory reset again.`;
+};
