@@ -194,7 +194,9 @@ ENDPOINTS = [
        "return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused "
        "(demo smoke defect 4, 2026-10-30). The factory reset of the device hub (design §11.13) sends the "
        "docked `nodeNum`, which must be the device's. Every reset writes the audit record `device.reset` "
-       "after commit, with the method `DOCKED` when `nodeNum` is sent and `MANUAL` otherwise.",
+       "after commit, with the method `DOCKED` when `nodeNum` is sent and `MANUAL` otherwise. The body has "
+       "no `expectedVersion` on purpose: the device row is locked `FOR UPDATE` and a second reset of the "
+       "same return is 409 `ALREADY_RESET`, so a stale caller cannot record twice.",
        "UC-44, FR-DEV-07, BR-28",
        path=[DEV_PATH],
        body=[["keyRemoved", "Channel key removed", "bool", "yes", "`true`"],
