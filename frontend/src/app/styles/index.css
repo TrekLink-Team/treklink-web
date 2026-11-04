@@ -166,6 +166,16 @@
   }
 
   /* Live map markers (shared/ui/map/markers.ts). Shape carries the state, not only colour. */
+  /* The 24 px pointer target of a map marker (WCAG 2.2, 2.5.8), a circle so that two targets whose
+     centres are 24 px apart never intersect. Transparent: only the dot inside is drawn. */
+  .tl-marker-hit {
+    border-radius: 9999px;
+  }
+  /* Only the circle takes the pointer: the drawn row inside it, and a chip that runs past it, would
+     otherwise reach over a neighbouring target. */
+  .tl-marker-hit > * {
+    pointer-events: none;
+  }
   .tl-marker {
     display: block;
     box-sizing: border-box;

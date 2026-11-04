@@ -13,6 +13,7 @@ import { cn } from '../../shared/ui/cn';
 import { LINK } from '../../shared/ui/styles';
 import { createMarkerGlider } from '../../shared/ui/map/glide';
 import { markerIcon as systemMarkerIcon } from '../../shared/ui/map/markers';
+import { spreadOffsets } from '../../shared/ui/map/spread';
 import type { MarkerState } from '../../shared/ui/status';
 
 // A link at the foot of a marker popup, such as "Position history" (screen 9.1). `state` travels with
@@ -89,6 +90,35 @@ const markerIcon = (marker: MapMarker): L.DivIcon =>
     // A unit not heard since handover carries its label on the map (MSG41, D-092 rule 2).
     showChip: marker.status === 'unheard',
   });
+
+// Draws each icon at its spread offset (shared/ui/map/spread.ts): markers whose 24 px targets would
+// intersect at this zoom sit on a small circle instead (WCAG 2.2, 2.5.8). Only the icon's margin moves,
+// the way Leaflet itself places an icon on its anchor, so the marker's position, its glide and its popup
+// stay on the reading. Leaflet resets the margin on setIcon, so this runs after every reconcile.
+const spreadMarkers = (
+  map: L.Map,
+  markers: Map<string, L.Marker>,
+  targets: Map<string, [number, number]>,
+) => {
+  const points = [...markers].map(([id, marker]) => {
+    const { iconSize, iconAnchor } = marker.getIcon().options;
+    const size = L.point(iconSize ?? [0, 0]);
+    const anchor = L.point(iconAnchor ?? [size.x / 2, size.y / 2]);
+    // The centre of the target, which for a pin sits above the reading.
+    const at = map
+      .latLngToLayerPoint(targets.get(id) ?? marker.getLatLng())
+      .add([size.x / 2 - anchor.x, size.y / 2 - anchor.y]);
+    return { id, x: at.x, y: at.y, anchor };
+  });
+  const offsets = spreadOffsets(points);
+  for (const { id, anchor } of points) {
+    const element = markers.get(id)?.getElement();
+    if (!element) continue;
+    const [dx, dy] = offsets.get(id) ?? [0, 0];
+    element.style.marginLeft = `${dx - anchor.x}px`;
+    element.style.marginTop = `${dy - anchor.y}px`;
+  }
+};
 
 // Opens a popup link: true when the page took the navigation, false to let the browser follow the href.
 type OpenLink = (link: MapLink) => boolean;
@@ -317,7 +347,18 @@ const LeafletMap: React.FC<{
         targets.current.delete(id);
       }
     }
+    spreadMarkers(map, markerRefs.current, targets.current);
   }, [map, glider, markers, openLink]);
+
+  // Pixel distances change with the zoom, so the spread is worked out again after each one.
+  useEffect(() => {
+    if (!map) return;
+    const respread = () => spreadMarkers(map, markerRefs.current, targets.current);
+    map.on('zoomend viewreset', respread);
+    return () => {
+      map.off('zoomend viewreset', respread);
+    };
+  }, [map]);
 
   // The track of a history screen: a line through the positions, with the map fitted to it. Nothing is
   // drawn for fewer than two points, and the line goes when the track does.
