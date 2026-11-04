@@ -1225,8 +1225,9 @@ device page's Configure uplink and the maintenance page's flash panel become ent
 on their unit and action (REQ-UBI-10, REQ-EVT-39). The protocol work of §8.2 to §8.8 and §9.2 is unchanged;
 only who holds the port changes.
 
-Out of scope: any write the leader has not asked for (no factory reset, no node database edit, no channel
-other than the primary); the Organization console; a unit reached over Bluetooth or the network.
+Out of scope: any write the leader has not asked for (no node database edit, no channel other than the
+primary); the Organization console; a unit reached over Bluetooth or the network. The reboot and the factory
+reset of a returned unit were asked for in brief W18 (2026-11-04) and are specified in §11.13.
 
 ### 11.2 Module, panel and device view
 
@@ -1587,3 +1588,142 @@ same night. The options not chosen are kept for their rationale.
 | Q5 | How does the client find the detail and icon renders? | A. By convention from the variant `code`: `/variants/<code>-detail.png` and `/variants/<code>-icon.png`, no schema change; `imageUrl` stays the card photo. B. Two new variant fields, `detailImageUrl` and `iconImageUrl`, edited on screen 4.1 under the §10 rules. C. Replace `imageUrl` with the detail render and derive the icon by convention | A: it matches the leader's paths with no migration, and the labelled slot covers a missing file | Decided 2026-11-04: A |
 | Q6 | The shell's Info pane docks on the right at 1280 px; the hub uses the right side from 1100 px (§10.8). Which yields? | A. One right panel at a time: opening the hub closes the Info pane and the reverse. B. The hub always opens as a `Drawer` over the page and never pushes the content. C. Both pushed side by side from 1600 px, A below | A: one predictable right side, and §10.8 placement kept | Decided 2026-11-04: A |
 | Q7 | Which reserved unit does a panel-started quick swap replace (a counter row's Dock always replaces that row)? | A. The first reserved unit with no provisioning record, changeable in the dialog. B. Staff must always pick. C. Only from a counter row, never from the panel | A: one click in the common case, and the choice stays visible | Decided 2026-11-04: A |
+
+### 11.13 The device hub page: device info, reboot and factory reset (brief W18, 2026-11-04)
+
+> **Status**: Built on the leader's brief W18 of 2026-11-04 (due 2026-11-06). Q8 to Q10 below are built as the
+> recommended option and wait for the leader's ruling; the options not chosen are kept. Requirements:
+> REQ-EVT-42 to REQ-EVT-44, REQ-ERR-30, REQ-ERR-31, AC-38 to AC-41; amends REQ-UBI-08 and REQ-UBI-09. Screen 4.7.
+> This section lifts the "no factory reset" exclusion of §11.1 for the reset of a returned unit only.
+
+**Why a page.** The panel of §11.2 is 360 px wide; the brief asks for "one device page with everything about
+it and its maintenance actions", laid out like a phone utility: the unit on the left, its facts and actions on
+the right. The page is `/t/device-hub` (Staff and Admin, nav entry "Device hub"), a view over the same
+`ConnectorRegistry`: it opens no port of its own and sets no page context, so the actions of §11.3 for the
+context "none" apply. The panel's device view links to it ("Open in the device hub"). The unit shown is chosen
+on the page from the connected units and kept in component state only; no `nodeNum` or node id goes into the
+address bar (REQ-UBI-08).
+
+**Layout.**
+
+| Region | Content |
+|---|---|
+| Unit switcher (two or more units connected) | one toggle button per connection, asset tag or "Unknown unit {nodeId}", its connection state as text; the first connected unit is selected |
+| Left: the unit | the variant's detail render (`/variants/<code>-detail.png`, Q5 A of §11.12; the labelled slot of REQ-ERR-29), the asset tag (or "Unknown unit"), the device status and the connection state as text |
+| Right: Device info | the card of the table below, each value labelled with where it comes from |
+| Right: Actions | the six actions below, always listed, each as a labelled button or with its unavailable reason as text beside it (chapter 06 §9.8) |
+| Not connected | "No unit connected. Plug a unit in with its USB cable, then choose Connect a unit." with Connect a unit; the Chromium banner of REQ-ERR-11 when Web Serial is missing |
+
+**Device info.**
+
+| Fact | Source |
+|---|---|
+| Asset tag, variant, status, firmware on record, last seen | devices api-design 30 `device` |
+| Node number and node id, owner long and short names, build environment, reported firmware | the handshake (§8.2) |
+| Hardware model | the handshake: `DeviceMetadata.hw_model` as its enum name (table below) |
+| Battery and voltage | the unit's own `DeviceMetrics` when the handshake carries them, labelled "from the unit"; else the server projection `batteryPct` with `lastBatteryAt` (Q10) |
+| Region and modem preset | the handshake: `Config.lora.region` and `modem_preset` as enum names |
+| Primary channel name | the handshake: channel 0 `settings.name`, or "Preset default" when empty; never the PSK |
+| Contract and organization | devices api-design 30 `contract` (code, status, organization code), or "None" |
+| Key version | devices api-design 30 `device.keyVersion` and `keyOrganization` (never the key) |
+| Last reset, next step | devices api-design 07 `lastReset`, `nextStep` |
+
+**Actions.**
+
+| Action | Available when | Otherwise, as text |
+|---|---|---|
+| Provision | §11.3 offers it (the `counter` context only) | "Provision from the counter of its contract." with Open its counter when the unit is `RESERVED` |
+| Quick swap | §11.3 offers it (the `counter` context only) | "Quick swap runs from a contract's counter." |
+| Configure uplink | §11.3 offers it | §11.3's reason, or "Configure uplink needs a registered unit that is not retired." |
+| Update firmware | §11.7 (task 8.3 registered its panel) | "Firmware releases are not published yet" |
+| Reboot | any `Ready` unit while no write runs | "Another unit is being written." (REQ-STA-06) |
+| Factory reset | a registered `RETURNED` unit whose next step is `RESET` (api-design 07) | the reasons of REQ-ERR-30 |
+
+**Reboot (REQ-EVT-43).** Under the write lock: open a session, send `AdminMessage.reboot_seconds` with 2, close
+the session, wait for the restart as §8.4 step 4 does (`awaitRestart`, the Reconnect prompt when the port does not
+return), read the unit again and require the same `nodeNum`. No server call and no audit: a reboot changes no
+record. A failure names the step and changes nothing on the server.
+
+**Factory reset (REQ-EVT-44).** It wipes what an organization left on a returned unit: its channel key, the owner
+names it carried and every setting it may have changed (Wi-Fi, broker, module config), and the node database the
+unit learned in the field. Steps, under the write lock:
+
+1. The device view reads api-design 07 for the unit; the action is offered only for `RETURNED` with next step
+   `RESET`. A confirmation `Dialog` names what is wiped (the organization's channel key, the owner names, the node
+   database, Wi-Fi and broker settings), that the region is written back, that the unit restarts twice, and that
+   the reset is recorded for this return.
+2. Open a session; the docked `nodeNum` must equal the device's (REQ-ERR-12). Keep the region and the LoRa config
+   as read.
+3. `AdminMessage.factory_reset_config` (99). The firmware removes `/prefs`, installs the default node database,
+   device state, config, module config and channels, saves, and reboots 7 s later. The node number is derived from
+   the MAC address and does not change.
+4. Wait for the restart (`awaitRestart`, Reconnect when needed); the unit must answer the same `nodeNum`.
+5. In one edit transaction: `set_owner` with the asset tag and its last four characters (§8.6 decision 2, the note
+   "Owner set back to the asset tag"), and `set_config` lora with the region read in step 2 and the rest as the
+   unit now reports it; `commit_edit_settings` reboots once.
+6. Wait for the restart again and read back: same `nodeNum`, owner names as written, region as written, the
+   primary PSK equals the firmware default (one byte `0x01`), Wi-Fi off, MQTT off. A difference names the check
+   and records nothing (REQ-ERR-31).
+7. Record the reset with devices api-design 10, all three steps true and the docked `nodeNum`. The server checks
+   the `nodeNum` (409 `NODE_MISMATCH`), the `RETURNED` state, the closed custody row and one reset per return,
+   clears the key version, and writes the audit record `device.reset` with the method `DOCKED` after commit.
+
+The region write in step 5 is needed: with `config.lora.region` `UNSET` the firmware drops every received LoRa
+packet (`RadioLibInterface.cpp:547-552`), and no TrekLink variant sets a region in its user preferences; the
+variants' `REGULATORY_LORA_REGIONCODE` (MY_433) only fixes the frequency plan (`RadioInterface.cpp:498-511`).
+
+**Server record.** No new table, permission or state: api-design 10 already records a reset (`DeviceReset`), needs
+`device.operate`, refuses a unit that is not `RETURNED` (which covers `RENTED`) and a unit whose custody row is
+still open ("Check this device in on its contract first."), and clears `keyVersion` and `keyOrganizationId`. Two
+additions: an optional body field `nodeNum`, the docked unit, checked against the device (409 `NODE_MISMATCH`) and
+marking the record as made by the hub; and the audit record `device.reset` after commit for every reset (actor,
+device, the key version and organization before, the method `DOCKED` or `MANUAL`, the docked `nodeNum`). The
+device's status does not change: the inspection that follows moves it, as before (REQ-EVT-07).
+
+**Firmware facts** (`treklink-firmware` `dev` at `c74ddfd`, read 2026-11-04; to be copied into the ground truth
+file of treklink-docs, which this branch cannot edit).
+
+| Fact | Source |
+|---|---|
+| `AdminMessage` reboot_seconds 97, factory_reset_device 94, factory_reset_config 99, nodedb_reset 100 | `src/mesh/generated/meshtastic/admin.pb.h:605-611` |
+| reboot_seconds reboots after the given seconds | `src/modules/AdminModule.cpp:233-236`, `:1356-1362` |
+| factory_reset_config runs `NodeDB::factoryReset()` and reboots after `DEFAULT_REBOOT_SECONDS` (7) | `AdminModule.cpp:297-304`, `src/configuration.h:372` |
+| `factoryReset` removes `/prefs`, installs the default node database, device state, config (private key kept), module config and channels, then saves; with `eraseBleBonds` (factory_reset_device) it also erases NVS | `src/mesh/NodeDB.cpp:509-554` |
+| The default owner of a TrekLink build is "TrekLink {last 4 hex}" and its short name the 4 hex digits; the node number is kept from memory or derived from the MAC | `NodeDB.cpp:1110-1146`, `:1154-1176` |
+| The default channel's PSK is one byte, value 1 | `src/mesh/Channels.cpp:135-137` |
+| The default region is `UNSET` unless `USERPREFS_CONFIG_LORA_REGION` is set; `userPrefs.jsonc` sets none | `NodeDB.cpp:617-621`, `userPrefs.jsonc` |
+| With region `UNSET` received LoRa packets are dropped | `src/mesh/RadioLibInterface.cpp:547-552` |
+| TrekLink variants set `REGULATORY_LORA_REGIONCODE` MY_433, which overrides the region table lookup only | `variants/esp32/treklink_v3_tbeam/variant.h:21-22`, `variants/esp32s3/treklink_v4_supreme/variant.h:21-22`, `variants/esp32s3/treklink_v2_0/variant.h:80`, `src/mesh/RadioInterface.cpp:498-511` |
+| `DeviceMetadata` hw_model 9, set to `HW_VENDOR` | `src/mesh/generated/meshtastic/mesh.pb.h:1837`, `src/main.cpp:1095` |
+| The handshake's own `NodeInfo` carries `device_metrics` (battery_level 1, voltage 2) once the unit has recorded its own telemetry | `src/mesh/PhoneAPI.cpp:309-320`, `src/mesh/TypeConversions.cpp:43-45`, `src/modules/Telemetry/DeviceTelemetry.cpp:194`, `telemetry.pb.h:543-544` |
+| `Config` lora 6; `LoRaConfig` region 7 | `config.pb.h:873`, `:902` |
+
+The client library sends these as `MeshDevice.reboot(seconds)` and `MeshDevice.factoryResetConfig()`
+(`@meshtastic/core` 2.6.7). The behaviour on the bench (two restarts, the read-back of step 6) is (unverified)
+until task 10.12 runs it on v3 and v4.
+
+**Errors.**
+
+| Case | Where | Text | Server code |
+|---|---|---|---|
+| Unit not registered | page | "Register this unit first." | none |
+| `RENTED` | page, api-design 10 | "{assetTag} is rented on {contractCode}. Check it in at the return counter first." | `INVALID_STATE_TRANSITION` |
+| Not `RETURNED` otherwise | page, api-design 10 | "Factory reset is for returned units. {assetTag} is {status}." | `INVALID_STATE_TRANSITION` |
+| Already reset for this return | page, api-design 10 | "{assetTag} is already reset for this return." | `ALREADY_RESET` |
+| Custody row still open | api-design 10 | "Check this device in on its contract first." | `INVALID_STATE_TRANSITION` |
+| Docked unit is another device | hub, api-design 10 | "The docked unit is {nodeId}, not {assetTag}. Nothing was written." | `NODE_MISMATCH` |
+| Write, restart or read-back fails | hub | the failed step, "Nothing was recorded. Dock {assetTag} and run Factory reset again." | none (REQ-ERR-31) |
+| The server refuses after the wipe | hub | the server's message; the unit stays wiped and the reset can be recorded again from the counter | any |
+
+**Testing.** `hubActionsFor` over every row of the Actions table; the reboot and the factory reset on the fake
+port (the admin calls in order, the two restarts, a read-back that differs records nothing, a mismatch writes
+nothing); the page at 1280, 900 and 360 px in both themes with a mocked adapter (connected, several units, not
+connected, no Web Serial); backend unit tests for the `nodeNum` check and the audit record.
+
+**Questions for the leader (built as A, pending).**
+
+| # | Question | Options | Recommendation |
+|---|---|---|---|
+| Q8 | Which firmware command wipes a returned unit? | A. `factory_reset_config` (99), then owner and region written back in one transaction (two restarts). B. `factory_reset_device` (94): the same and an NVS erase, which also drops the Wi-Fi and BLE data the ESP32 keeps there. C. No factory command: write owner, a random channel key, Wi-Fi off and MQTT off in one transaction, and `nodedb_reset` (100) | A: one command clears everything api-design 10's three steps name and keeps the unit's private key; B erases more than the brief asks; C needs four writes to reach what A does in one |
+| Q9 | The brief's "refuse while its contract is not closed": the unit's custody row, or the contract itself? | A. The custody row: the unit must be checked in (`RETURNED`, the existing api-design 10 guard). B. The contract `CLOSED` | A: the inspection needs the reset first (REQ-ERR-02) and a damage charge needs a contract not yet `CLOSED` (rentals REQ-EVT-11), so B would stop damage being charged |
+| Q10 | Battery in the device info: §11.12 Q4 chose the server projection; the brief asks for battery and voltage read live | A. The unit's `DeviceMetrics` when present, labelled "from the unit", else the server projection. B. The server projection only (Q4 as decided) | A: the fact is now cited above; a unit that has not measured yet shows the server value |
