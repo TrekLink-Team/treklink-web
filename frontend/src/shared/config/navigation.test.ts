@@ -36,12 +36,13 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
     ]);
   });
 
-  it('gives TrekLink Staff the fleet map, contracts, devices, sync status, maintenance, loss cases, organizations, compliance cases, billing, damage charges and service credits, and Admin those plus the built administration pages', () => {
+  it('gives TrekLink Staff the fleet map, contracts, devices, the device hub, sync status, maintenance, loss cases, organizations, compliance cases, billing, damage charges and service credits, and Admin those plus the built administration pages', () => {
     expect(routes(visibleNav('TREKLINK', ['STAFF']))).toEqual([
       '/t/map',
       '/t/incidents',
       '/t/contracts',
       '/t/fleet',
+      '/t/device-hub',
       '/t/admin/sync',
       '/t/stock-take',
       '/t/maintenance',
@@ -59,6 +60,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/t/incidents',
       '/t/contracts',
       '/t/fleet',
+      '/t/device-hub',
       '/t/admin/sync',
       '/t/stock-take',
       '/t/maintenance',

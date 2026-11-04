@@ -28,6 +28,7 @@ import {
   Wrench,
   RotateCcw,
   Undo2,
+  Usb,
 } from 'lucide-react';
 import { hasAnyRole, type Role } from '../lib/permissions';
 
@@ -113,6 +114,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     label: 'Fleet',
     entries: [
       { route: '/t/fleet', label: 'Devices', icon: Cpu, roles: STAFF, built: true },
+      { route: '/t/device-hub', label: 'Device hub', icon: Usb, roles: STAFF, built: true },
       { route: '/t/admin/sync', label: 'Field data sync', icon: Radio, roles: STAFF, built: true },
       { route: '/t/stock-take', label: 'Stock-take', icon: ClipboardList, roles: STAFF, built: true },
       { route: '/t/maintenance', label: 'Maintenance', icon: Wrench, roles: STAFF, built: true },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { exchangeDevice, issueChannelKey } from '../../../entities/contract/api';
-import { recognizeUnits } from '../../../entities/device/api';
+import { recognizeUnits, recordReset } from '../../../entities/device/api';
 import { ApiError } from '../../../shared/api/apiClient';
 import {
   choosePort,
@@ -349,10 +349,85 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     }
   };
 
+  // Reboot from the device hub page (devices design section 11.13, REQ-EVT-43): on the unit's held port,
+  // under the write lock; nothing goes to the server.
+  const reboot = async (connectionId: number): Promise<DockResult<object>> => {
+    try {
+      const connection = registry.get(connectionId);
+      if (!connection?.unit) throw new DockingError('dock', 'The unit is no longer connected.');
+      const failure = readFailure(connection);
+      if (failure) throw failure;
+      const nodeNum = connection.unit.nodeNum;
+      await registry.withWriteLock(connectionId, async (port, stage) => {
+        const hooks = hooksFor(`reboot-${connectionId}`, stage, connectionId);
+        try {
+          hooks.onStage('reading');
+          await service.readUnit(port);
+          await service.reboot({ nodeNum }, hooks);
+        } finally {
+          await service.release();
+        }
+      });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, ...failureOf(error) };
+    } finally {
+      pendingReconnect.current = null;
+      if (registry.reconnectOffer) registry.offerReconnect(null);
+      setState(IDLE);
+    }
+  };
+
+  // Factory reset of a returned unit from the device hub page (devices design section 11.13,
+  // REQ-EVT-44): the wipe and its read-back under the write lock, then the reset recorded with the
+  // docked node number (devices api-design 10). `wiped` tells the page whether the unit was already
+  // wiped when the server refused, so it can say the record is what is missing.
+  const factoryReset = async (
+    connectionId: number,
+    target: ExpectedUnit & { deviceId: string },
+  ): Promise<DockResult<object> & { wiped: boolean }> => {
+    let wiped = false;
+    try {
+      const connection = registry.get(connectionId);
+      if (!connection?.unit) throw new DockingError('dock', 'The unit is no longer connected.');
+      const failure = readFailure(connection);
+      if (failure) throw failure;
+      if (connection.unit.nodeNum !== target.nodeNum) {
+        throw new DockingError(
+          'mismatch',
+          `The docked unit is ${connection.unit.nodeId}, not ${target.assetTag}. Nothing was written.`,
+          connection.unit.nodeId,
+        );
+      }
+      const { nodeNum } = await registry.withWriteLock(connectionId, async (port, stage) => {
+        const hooks = hooksFor(target.deviceId, stage, connectionId);
+        try {
+          hooks.onStage('reading');
+          await service.readUnit(port);
+          return await service.factoryReset(target, hooks);
+        } finally {
+          await service.release();
+        }
+      });
+      wiped = true;
+      await recordReset(target.deviceId, nodeNum);
+      return { ok: true, wiped };
+    } catch (error) {
+      return { ok: false, wiped, ...failureOf(error) };
+    } finally {
+      pendingReconnect.current = null;
+      if (registry.reconnectOffer) registry.offerReconnect(null);
+      setState(IDLE);
+      await registry.refreshRecognition(connectionId);
+    }
+  };
+
   return {
     supported,
     state,
     busy: state.stage !== null,
+    reboot,
+    factoryReset,
     readUnit,
     dockAndProvision,
     exchangeAndProvision,

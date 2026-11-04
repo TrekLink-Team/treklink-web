@@ -12,12 +12,13 @@ import {
 import { DockingService, ownerFor } from './DockingService';
 import { NO_RESPONSE_MESSAGE, handoverDockMessage, uplinkDockMessage } from './messages';
 import { useDocking } from './useDocking';
-import { resetConnectorRegistry } from '../model/ConnectorRegistry';
+import { connectorRegistry, resetConnectorRegistry } from '../model/ConnectorRegistry';
 
 const issueChannelKey = vi.hoisted(() => vi.fn());
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey, exchangeDevice: vi.fn() }));
 const recognizeUnits = vi.hoisted(() => vi.fn());
-vi.mock('../../../entities/device/api', () => ({ recognizeUnits }));
+const recordReset = vi.hoisted(() => vi.fn());
+vi.mock('../../../entities/device/api', () => ({ recognizeUnits, recordReset }));
 
 // DockingService and useDocking against the wire-level fake unit (devices design section 8.7). No
 // hardware is involved.
@@ -60,6 +61,8 @@ beforeEach(() => {
   );
   issueChannelKey.mockReset();
   issueChannelKey.mockResolvedValue({ keyHex: KEY_HEX, keyVersion: 3 });
+  recordReset.mockReset();
+  recordReset.mockResolvedValue({ id: 'd-42', keyVersion: null });
   consoleSpies = (['log', 'info', 'warn', 'error', 'debug', 'trace'] as const).map((level) =>
     vi.spyOn(console, level).mockImplementation(() => undefined),
   );
@@ -285,5 +288,96 @@ describe('useDocking.configureUplink, a unit that does not come back', () => {
 describe('ownerFor', () => {
   it('writes the asset tag as the long name and its last four characters as the short name', () => {
     expect(ownerFor('TL-0009')).toEqual({ longName: 'TL-0009', shortName: '0009' });
+  });
+});
+
+// The device hub page's writes (devices design section 11.13, REQ-EVT-43, REQ-EVT-44, REQ-ERR-31).
+describe('useDocking reboot and factory reset', () => {
+  // The one connection the registry holds once its unit is read and looked up.
+  const readyConnection = async () => {
+    const registry = connectorRegistry(recognizeUnits, TIMINGS);
+    await waitFor(() => expect(registry.getSnapshot().connections[0]?.state).toBe('ready'));
+    return registry.getSnapshot().connections[0].id;
+  };
+  const RETURNED_UNIT = { contractId: 'c-1', deviceId: 'd-42', assetTag: 'TL-0042', nodeNum: NODE };
+
+  it('reboots the unit, sees the same node again and calls no endpoint', async () => {
+    const { unit } = dock();
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.reboot>> | undefined;
+    await act(async () => {
+      outcome = await result.current.reboot(id);
+    });
+    expect(outcome).toEqual({ ok: true });
+    expect(unit.writes.map((write) => write.variant)).toEqual(['reboot_seconds']);
+    expect(recordReset).not.toHaveBeenCalled();
+    expect(issueChannelKey).not.toHaveBeenCalled();
+  });
+
+  it('wipes a returned unit, writes its owner and region back, reads them back and records the reset', async () => {
+    const { unit } = dock({ psk: KEY, longName: 'TL-0042', shortName: '0042', wifiEnabled: true });
+    unit.state.mqtt.enabled = true;
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
+    await act(async () => {
+      outcome = await result.current.factoryReset(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({ ok: true, wiped: true });
+    expect(unit.writes.map((write) => write.variant)).toEqual([
+      'factory_reset_config',
+      'begin_edit_settings',
+      'set_owner',
+      'set_config',
+      'commit_edit_settings',
+    ]);
+    expect(unit.state).toMatchObject({ longName: 'TL-0042', shortName: '0042', region: 16, wifiEnabled: false });
+    expect(Array.from(unit.state.psk)).toEqual([1]);
+    expect(recordReset).toHaveBeenCalledWith('d-42', NODE);
+    consoleSpies.forEach((spy) => expect(spy).not.toHaveBeenCalled());
+  });
+
+  it('writes nothing to another unit and records nothing (REQ-ERR-30)', async () => {
+    const { unit } = dock({ nodeNum: 0x0004351c });
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
+    await act(async () => {
+      outcome = await result.current.factoryReset(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({ ok: false, failure: 'mismatch', wiped: false });
+    expect(unit.writes).toEqual([]);
+    expect(recordReset).not.toHaveBeenCalled();
+  });
+
+  it('names a read-back that differs and records nothing (REQ-ERR-31)', async () => {
+    const { unit } = dock({}, { loseRegionOnCommit: true });
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
+    await act(async () => {
+      outcome = await result.current.factoryReset(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({ ok: false, failure: 'read-back', reason: 'The read-back differs: region.' });
+    expect(unit.writes[0].variant).toBe('factory_reset_config');
+    expect(recordReset).not.toHaveBeenCalled();
+  });
+
+  it('reports a server refusal after the wipe as wiped, so the page says the record is missing', async () => {
+    dock();
+    recordReset.mockRejectedValue(new ApiError(409, 'ALREADY_RESET', 'This device is already reset for this return.'));
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
+    await act(async () => {
+      outcome = await result.current.factoryReset(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({
+      ok: false,
+      wiped: true,
+      failure: 'api',
+      reason: 'This device is already reset for this return.',
+    });
   });
 });
