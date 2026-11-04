@@ -31,6 +31,7 @@ describe('ContractReadsService', () => {
   let returnChecks: jest.Mock;
   let provisioning: jest.Mock;
   let nextSteps: jest.Mock;
+  let idsMatching: jest.Mock;
 
   beforeEach(() => {
     nextSteps = jest.fn().mockResolvedValue(new Map());
@@ -50,10 +51,12 @@ describe('ContractReadsService', () => {
       ]),
     };
     directory = { namesOf: jest.fn().mockResolvedValue(new Map([['u-mgr', 'Demo Manager']])) };
+    idsMatching = jest.fn().mockResolvedValue(['org-1', 'org-3']);
     service = new ContractReadsService(
       contracts as unknown as ContractsRepository,
       {
         labelsOf: jest.fn().mockResolvedValue(new Map([['org-1', ORG]])),
+        idsMatching,
       } as unknown as OrganizationsService,
       {
         variants: jest.fn().mockResolvedValue([{ id: 'v-3', code: 'treklink-v3' }]),
@@ -93,6 +96,41 @@ describe('ContractReadsService', () => {
       0,
       20,
     );
+  });
+
+  it('searches with q: the code or the organizations it names, trimmed, inside the scope (REQ-EVT-26)', async () => {
+    await service.page({ q: '  acme ', status: ContractStatus.ACTIVE }, STAFF);
+    expect(idsMatching).toHaveBeenCalledWith('acme');
+    expect(contracts.page).toHaveBeenLastCalledWith(
+      {
+        organizationId: undefined,
+        status: ContractStatus.ACTIVE,
+        planType: undefined,
+        search: { q: 'acme', organizationIds: ['org-1', 'org-3'] },
+      },
+      0,
+      20,
+    );
+
+    // A member's token scope stays: q never widens the list to another organization.
+    await service.page({ q: 'acme' }, MANAGER);
+    expect(contracts.page).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        organizationId: 'org-1',
+        search: { q: 'acme', organizationIds: ['org-1', 'org-3'] },
+      }),
+      0,
+      20,
+    );
+  });
+
+  it('treats a blank q as no search and asks organizations nothing', async () => {
+    await service.page({ q: '   ' }, STAFF);
+    await service.page({ q: '' }, STAFF);
+    expect(idsMatching).not.toHaveBeenCalled();
+    expect(
+      contracts.page.mock.calls.map(([filter]) => (filter as { search?: unknown }).search),
+    ).toEqual([undefined, undefined]);
   });
 
   it("answers 404 for another organization's contract and serves Staff any contract", async () => {

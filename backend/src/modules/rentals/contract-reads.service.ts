@@ -32,6 +32,7 @@ export interface ContractQuery extends PagedQueryDto {
   organizationId?: string;
   status?: ContractStatus;
   planType?: PlanType;
+  q?: string;
 }
 
 // What a contract view shows besides the row: its organization and variant labels.
@@ -92,11 +93,15 @@ export class ContractReadsService {
         MAX_PAGE_SIZE: this.config.get('MAX_PAGE_SIZE', { infer: true }),
       }),
     );
+    // REQ-EVT-26: q narrows the whole list; the organizations it names come from `organizations`.
+    const q = query.q?.trim();
+    const search = q ? { q, organizationIds: await this.organizations.idsMatching(q) } : undefined;
     const [rows, total] = await this.contracts.page(
       {
         organizationId: caller.organizationId ?? query.organizationId,
         status: query.status,
         planType: query.planType,
+        search,
       },
       page.skip,
       page.take,

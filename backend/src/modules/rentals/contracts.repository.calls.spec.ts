@@ -180,6 +180,35 @@ describe('ContractsRepository delegate calls', () => {
     expect(calls[2][1]).toMatchObject({ where: {} });
   });
 
+  it('searches the code ignoring case, or the organizations q names, alongside the filters (REQ-EVT-26)', async () => {
+    const { calls, client } = recorder();
+    const repository = new ContractsRepository(client);
+    await repository.page(
+      { organizationId: 'org-1', search: { q: 'acme', organizationIds: ['org-1', 'org-3'] } },
+      0,
+      20,
+    );
+    await repository.page({ search: { q: 'rc-2026', organizationIds: [] } }, 0, 20);
+    const searched = {
+      organizationId: 'org-1',
+      OR: [
+        { code: { contains: 'acme', mode: 'insensitive' } },
+        { organizationId: { in: ['org-1', 'org-3'] } },
+      ],
+    };
+    expect(calls[0][1]).toMatchObject({ where: searched, skip: 0, take: 20 });
+    expect(calls[1][1]).toEqual({ where: searched });
+    // No organization named: only the code is searched.
+    expect(calls[2][1]).toMatchObject({
+      where: { OR: [{ code: { contains: 'rc-2026', mode: 'insensitive' } }] },
+    });
+    // % and _ are literal characters.
+    await repository.page({ search: { q: '0%_1', organizationIds: [] } }, 0, 20);
+    expect(calls[4][1]).toMatchObject({
+      where: { OR: [{ code: { contains: '0\\%\\_1', mode: 'insensitive' } }] },
+    });
+  });
+
   it('reads detail, transitions, live rows, the note, codes, term numbers and variants', async () => {
     const { calls, client } = recorder();
     const repository = new ContractsRepository(client);

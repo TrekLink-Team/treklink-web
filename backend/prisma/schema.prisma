@@ -1094,6 +1094,9 @@ model RentalContract {
 
   @@index([organizationId, status])
   @@index([status, returnDueAt])
+  // rentals REQ-EVT-26: the contract search matches a substring of the code ignoring case (ILIKE),
+  // which a B-tree cannot serve; a trigram GIN index can (pg_trgm, created by its migration).
+  @@index([code(ops: raw("gin_trgm_ops"))], type: Gin, map: "rental_contracts_code_trgm")
   @@index([hardwareVariantId])
   @@index([requestedById])
   @@index([decidedById])
