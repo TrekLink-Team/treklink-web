@@ -9,7 +9,7 @@
 | Routes | `/t/counter/:contractId` for an `APPROVED` contract; the same route serves check-in for a contract with devices out (screen 5.5) (`specs/frontend/design.md` §2 and §5) |
 | Roles | TrekLink Staff (and Admin, D-057 rule 7): the whole page. Organization accounts: MSG26. The Org Manager is present at the counter and signs on the Staff member's screen. |
 | Use case, FRs, story | UC-14, UC-20, UC-21; FR-CON-05, FR-CON-06, FR-DEV-05, BR-09, E01-4, E01-5, D-037; US-UC14, US-UC20, US-UC21 |
-| Requirements | `specs/rentals/requirements.md` REQ-EVT-04 to REQ-EVT-06, REQ-EVT-16, REQ-UBI-05, REQ-ERR-04, REQ-ERR-07, REQ-ERR-08, REQ-ERR-10, REQ-EVT-26, REQ-ERR-17; `specs/devices/requirements.md` REQ-EVT-33 to REQ-EVT-35, REQ-EVT-39, REQ-ERR-19 to REQ-ERR-24 (the device connector) |
+| Requirements | `specs/rentals/requirements.md` REQ-EVT-04 to REQ-EVT-06, REQ-EVT-16, REQ-UBI-05, REQ-ERR-04, REQ-ERR-07, REQ-ERR-08, REQ-ERR-10, REQ-EVT-27, REQ-ERR-17; `specs/devices/requirements.md` REQ-EVT-33 to REQ-EVT-35, REQ-EVT-39, REQ-ERR-19 to REQ-ERR-24 (the device connector) |
 | Wireframe | ![CounterPage handover](5-4-counterpage-handover.svg) |
 
 Scope from the task: rentals api-design 07 to 10 in four steps (design §5): devices with scan, provisioning, battery and GPS check and swap; payment status; preview note; signature pad (PNG) and identity field; nothing stored in the browser after submit
