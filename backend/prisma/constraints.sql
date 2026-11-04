@@ -120,3 +120,17 @@ ALTER TABLE "maintenance_records"
 CREATE UNIQUE INDEX "damage_rates_one_global_code"
   ON "damage_rates" ("code")
   WHERE "hardwareVariantId" IS NULL;
+
+-- rentals, Phase 9: live sibling names are case-insensitive, including top-level groups.
+CREATE UNIQUE INDEX "groups_live_name"
+  ON "groups" ("organizationId", COALESCE("parentId", '00000000-0000-0000-0000-000000000000'), lower("name"))
+  WHERE "removedAt" IS NULL;
+ALTER TABLE "groups"
+  ADD CONSTRAINT "groups_dates_in_order" CHECK ("endsOn" >= "startsOn");
+
+CREATE UNIQUE INDEX "group_assignments_one_open"
+  ON "group_assignments" ("deviceId")
+  WHERE "endedAt" IS NULL;
+CREATE UNIQUE INDEX "device_fault_reports_one_open"
+  ON "device_fault_reports" ("contractDeviceId")
+  WHERE "resolvedAt" IS NULL;

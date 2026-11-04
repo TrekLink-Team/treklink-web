@@ -48,6 +48,7 @@
 | `rentals.returnGraceHours` | `24` | INT | 0 to 168 | hours | Grace after the return due time before OVERDUE and late fees | FR-CON-12, FR-BILL-03 |
 | `rentals.defaultAfterDays` | `7` | INT | 1 to 60 | days | OVERDUE this long becomes DEFAULTED | FR-CON-12, BR-26 |
 | `rentals.termRolloverHourLocal` | `9` | INT | 0 to 23 | hour (UTC+7) | Hour at which daily term and day-plan jobs run | FR-CON-08 |
+| `rentals.groupMaxDepth` | `1` | INT | 1 to 3 | subgroup levels | Maximum group depth below a top-level group | FR-CON-17, REQ-ERR-13 |
 
 ## billing
 

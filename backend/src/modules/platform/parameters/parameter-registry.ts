@@ -29,6 +29,7 @@ export const PARAMETER_TYPES = {
   'rentals.returnGraceHours': 'INT',
   'rentals.defaultAfterDays': 'INT',
   'rentals.termRolloverHourLocal': 'INT',
+  'rentals.groupMaxDepth': 'INT',
   'billing.holdingFeeRatio': 'DECIMAL',
   'billing.dayPremium': 'DECIMAL',
   'billing.lateFeePerDevicePerDayVnd': 'INT',

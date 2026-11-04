@@ -10,6 +10,9 @@ import { ContractReadsService } from './contract-reads.service';
 import { ContractsController } from './contracts.controller';
 import { ContractsRepository } from './contracts.repository';
 import { ContractsService } from './contracts.service';
+import { GroupsController } from './groups.controller';
+import { GroupsRepository } from './groups.repository';
+import { GroupsService } from './groups.service';
 import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
 import { RentalsLossCaseListener } from './providers/loss-case-listener.provider';
@@ -32,9 +35,11 @@ import { TermRolloverJob } from './term-rollover.job';
 // Replacement (4.3) and the overdue and default job (3.2) join with their tasks.
 @Module({
   imports: [PlatformModule, OrganizationsModule, BillingModule, DevicesModule, RentalsPortsModule],
-  controllers: [ContractsController, HandoverController, ReturnController],
+  controllers: [ContractsController, GroupsController, HandoverController, ReturnController],
   providers: [
     ContractsRepository,
+    GroupsRepository,
+    GroupsService,
     ContractLifecycleService,
     ContractNotificationsListener,
     ContractsService,
