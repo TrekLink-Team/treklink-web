@@ -467,6 +467,34 @@ describe('LiveMapWidget', () => {
     expect(popup?.getLatLng()?.lng).toBeCloseTo(second.position[1], 9);
   });
 
+  it('hides the chip of a spread "Not heard since handover" pin and keeps its name (review of #360)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const unheard = (id: string, position: [number, number]): MapMarker => ({
+      ...device(id, position),
+      subtitle: 'Not heard since handover',
+      status: 'unheard',
+    });
+    const counter: [number, number] = [11.56, 108.54];
+    const { container } = renderWidget([
+      unheard('TL-0004', counter),
+      unheard('TL-0005', counter),
+      unheard('TL-0006', [11.5, 108.5]),
+    ]);
+    await waitFor(() =>
+      expect(container.querySelectorAll('.leaflet-marker-pane .tl-marker-label')).toHaveLength(3),
+    );
+    const chipOf = (id: string) =>
+      screen
+        .getByRole('img', { name: `${id}, Not heard since handover` })
+        .querySelector<HTMLElement>('.tl-marker-label');
+    // The two pins at the counter are spread, so their chips hide; the pin on its own keeps its chip.
+    expect(chipOf('TL-0004')?.style.display).toBe('none');
+    expect(chipOf('TL-0005')?.style.display).toBe('none');
+    expect(chipOf('TL-0006')?.style.display).toBe('');
+    expect(chipOf('TL-0006')?.textContent).toBe('Not heard since handover');
+  });
+
   it('leaves a lone marker on its reading, centred in its 24 px target', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     const { container } = renderWidget([device('TL-0001', [11.5, 108.5])]);
