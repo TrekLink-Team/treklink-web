@@ -114,3 +114,10 @@ filter, still applied in the browser to the lines billing 09 returns. Each line'
 title with its number under it. Every field stays in a narrow list and in a phone row (the type, the
 quantity and unit price, "Due" and the date, the amount, the status; review of treklink-web#355), so a line
 has no details pane. Payments stay a plain list.
+
+The line type reads as its English label, never the enum code (chapter 06 §8.3; KhoaDD under D-078,
+2026-11-04): `HOLDING_FEE` Holding fee, `TERM_BALANCE` Term balance, `DAY_PLAN_FEE` Day plan fee,
+`LATE_FEE` Late fee, `DAMAGE` Damage charge, `LOSS` Loss charge, `ADJUSTMENT` Adjustment,
+`SERVICE_CREDIT` Service credit (`INVOICE_LINE_TYPE_LABELS` in `entities/billing/api.ts`). The line search
+reads the label. A test reads `InvoiceLineType` from the Prisma schema, so a new backend value without a
+label fails it.

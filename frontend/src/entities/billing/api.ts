@@ -62,6 +62,18 @@ export interface Invoice {
   issuedAt: string;
 }
 
+// InvoiceLineType of backend/prisma/schema.prisma; api.test.tsx reads the schema, so a new backend
+// value without a label fails there.
+export type InvoiceLineType =
+  | 'HOLDING_FEE'
+  | 'TERM_BALANCE'
+  | 'DAY_PLAN_FEE'
+  | 'LATE_FEE'
+  | 'DAMAGE'
+  | 'LOSS'
+  | 'ADJUSTMENT'
+  | 'SERVICE_CREDIT';
+
 export interface InvoiceLine {
   seq: number;
   type: string;
@@ -288,6 +300,24 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   PARTIALLY_PAID: 'Partly paid',
   PAID: 'Paid',
 };
+
+// Line type as text (screen 6.1): the UI shows the label, never the raw enum (chapter 06 §8.3).
+export const INVOICE_LINE_TYPE_LABELS: Record<InvoiceLineType, string> = {
+  HOLDING_FEE: 'Holding fee',
+  TERM_BALANCE: 'Term balance',
+  DAY_PLAN_FEE: 'Day plan fee',
+  LATE_FEE: 'Late fee',
+  DAMAGE: 'Damage charge',
+  LOSS: 'Loss charge',
+  ADJUSTMENT: 'Adjustment',
+  SERVICE_CREDIT: 'Service credit',
+};
+
+/** The label of a line type; a value this build does not know yet shows its code rather than nothing. */
+export const lineTypeLabel = (type: string): string =>
+  Object.hasOwn(INVOICE_LINE_TYPE_LABELS, type)
+    ? INVOICE_LINE_TYPE_LABELS[type as InvoiceLineType]
+    : type;
 
 // Badge classes per status, from the invoice palette of the TrekLink System (shared/ui/status.ts).
 export const INVOICE_TONES: Record<InvoiceStatus, string> = {

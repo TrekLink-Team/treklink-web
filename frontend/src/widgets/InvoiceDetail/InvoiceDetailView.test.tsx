@@ -8,7 +8,7 @@ import { InvoiceDetailView } from './InvoiceDetailView';
 
 let settled = false;
 let lines: unknown[] = [];
-const line = (seq: number, description: string, paidVnd: number, type = 'TERM_FEE') => ({
+const line = (seq: number, description: string, paidVnd: number, type = 'HOLDING_FEE') => ({
   seq,
   type,
   description,
@@ -77,8 +77,8 @@ beforeEach(() => {
 describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () => {
   it('searches the lines and narrows them by status from Show', () => {
     lines = [
-      line(1, 'Holding fee', 750_000),
-      line(2, 'Monthly fee, TrekLink v3', 0),
+      line(1, 'Holding fee, term 1', 750_000),
+      line(2, 'Monthly fee, TrekLink v3', 0, 'TERM_BALANCE'),
       line(3, 'Late return', 0, 'ADJUSTMENT'),
     ];
     renderView();
@@ -87,7 +87,7 @@ describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () =>
     fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Paid' }));
     expect(table().getAllByRole('row')).toHaveLength(2);
-    expect(table().getByText('Holding fee')).toBeTruthy();
+    expect(table().getByText('Holding fee, term 1')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /^Show: Paid/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Every status' }));
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search lines' }), { target: { value: 'adjustment' } });
@@ -111,11 +111,13 @@ describe('InvoiceDetailView, lines on a phone (review of treklink-web#355)', () 
 
   it('keeps the type, quantity and due date in each phone row', () => {
     atPhone();
-    lines = [line(1, 'Holding fee', 0)];
+    lines = [line(1, 'Term 1, 3 units', 0)];
     renderView();
     expect(screen.queryByRole('table', { name: 'Lines of INV-2026-000001' })).toBeNull();
     const row = within(screen.getByRole('list', { name: 'Lines of INV-2026-000001' })).getByRole('listitem');
-    expect(within(row).getByText('TERM_FEE')).toBeTruthy();
+    // The line type reads as its label, never the enum code.
+    expect(within(row).getByText('Holding fee')).toBeTruthy();
+    expect(within(row).queryByText('HOLDING_FEE')).toBeNull();
     expect(within(row).getByText('1 x 750,000 VND')).toBeTruthy();
     expect(within(row).getByText(/^Due \d{2} \w{3} 2026$/)).toBeTruthy();
   });

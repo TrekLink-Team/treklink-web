@@ -6,6 +6,7 @@ import {
   INVOICE_TONES,
   requestSepayPayment,
   lineStatus,
+  lineTypeLabel,
   useBalance,
   useInvoice,
   type InvoiceLine,
@@ -32,7 +33,13 @@ const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'Se
 // invoice list (under 1100 px) keep the type, quantity and due date a person reads before paying
 // (review of treklink-web#355). Each value names itself without its column header.
 const LINE_FIELDS: CollectionField<InvoiceLine>[] = [
-  { key: 'type', label: 'Type', render: (line) => line.type, text: (line) => line.type, compact: true },
+  {
+    key: 'type',
+    label: 'Type',
+    render: (line) => lineTypeLabel(line.type),
+    text: (line) => lineTypeLabel(line.type),
+    compact: true,
+  },
   {
     key: 'quantity',
     label: 'Quantity',
