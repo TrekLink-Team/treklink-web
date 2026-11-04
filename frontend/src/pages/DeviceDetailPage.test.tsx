@@ -111,6 +111,8 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(await screen.findByRole('heading', { name: 'TL-0042' })).toBeTruthy();
     expect(screen.getByText('!a4b1c2d3 (2763113171)')).toBeTruthy();
     expect(screen.getByText('treklink-v3')).toBeTruthy();
+    // W15 panel walk: the acquired date read 15/06/2026 beside dates written 15 Jun 2026 elsewhere.
+    expect(screen.getByText('15 Jun 2026')).toBeTruthy();
   });
 
   it("shows the card of the unit's variant with its spec sheet and the empty image slot", async () => {

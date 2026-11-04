@@ -139,6 +139,9 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     expect(rows.getByText('Scheduled service')).toBeTruthy();
     expect(rows.getByText('Open')).toBeTruthy();
     expect(rows.getByText(/650,000|650\.000/)).toBeTruthy();
+    // W15 panel walk: the expected date read 2026-10-20, unlike every other date of the app.
+    expect(rows.getByText('20 Oct 2026')).toBeTruthy();
+    expect(rows.queryByText('2026-10-20')).toBeNull();
   });
 
   it('hides the approvals tab for Staff, and MSG26 on the approvals route', async () => {
