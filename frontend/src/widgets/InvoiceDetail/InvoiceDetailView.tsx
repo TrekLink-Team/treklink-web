@@ -4,6 +4,7 @@ import { ApiError } from '../../shared/api/apiClient';
 import {
   INVOICE_STATUS_LABELS,
   INVOICE_TONES,
+  invoiceKindLabel,
   requestSepayPayment,
   lineStatus,
   lineTypeLabel,
@@ -141,11 +142,7 @@ export const InvoiceDetailView: React.FC<{
               {data.contract.code ?? 'Open contract'}
             </Link>
           </Fact>
-          <Fact label="Kind">
-            {data.kind === 'TERM' && data.term
-              ? `Term ${data.term.seq}`
-              : data.kind.replace('_', ' ')}
-          </Fact>
+          <Fact label="Kind">{invoiceKindLabel(data)}</Fact>
           <Fact label="Issued">{formatDateTime(data.issuedAt)}</Fact>
           <Fact label="Total">{formatVnd(data.totalVnd)}</Fact>
           <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
@@ -205,7 +202,7 @@ export const InvoiceDetailView: React.FC<{
           noMatch={{ title: 'No lines match these filters.' }}
         />
         <p className="mt-3 text-xs text-ink-muted">
-          Lines never change; corrections are ADJUSTMENT lines.
+          Issued lines are not edited; a correction is added as an adjustment line.
         </p>
       </div>
 
