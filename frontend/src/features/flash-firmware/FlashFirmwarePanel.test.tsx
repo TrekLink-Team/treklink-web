@@ -34,7 +34,7 @@ const RELEASE = {
   publishedAt: '2026-10-20T03:15:00Z',
   isBaseline: true,
   variants: [
-    { variantCode: 'treklink-v3', chip: 'ESP32', app: { offset: 65536, sizeBytes: 4 }, factory: { offset: 0, sizeBytes: 4 } },
+    { variantCode: 'treklink-v3', chip: 'esp32', app: { offset: 65536, sizeBytes: 4 }, factory: { offset: 0, sizeBytes: 4 } },
   ],
 };
 const OLDER = { ...RELEASE, version: '2.7.26-treklink.1', isBaseline: false, publishedAt: '2026-10-01T03:15:00Z' };
@@ -89,7 +89,7 @@ beforeEach(() => {
       ...RELEASE,
       variantCode: 'treklink-v3',
       kind,
-      chip: 'ESP32',
+      chip: 'esp32',
       offset: kind === 'FACTORY' ? 0 : 65536,
       sizeBytes: 4,
       sha256: 'a'.repeat(64),

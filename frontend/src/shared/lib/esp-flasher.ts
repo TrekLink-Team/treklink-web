@@ -58,6 +58,12 @@ const FAST_BAUD = 460_800;
 export const baudFor = (variantCode: string): { baudrate: number; romBaudrate?: number } =>
   variantCode === SLOW_LINK_VARIANT ? { baudrate: SLOW_BAUD, romBaudrate: SLOW_BAUD } : { baudrate: FAST_BAUD };
 
+// The manifest names a chip in esptool's lower-case form (`esp32`, `esp32s3`, treklink-firmware#30);
+// esptool-js reports `ESP32`, `ESP32-S3`. Both compare in one form, and messages use esptool-js's.
+export const chipKey = (chip: string): string => chip.toLowerCase().replace(/[^a-z0-9]/g, '');
+const CHIP_LABELS: Record<string, string> = { esp32: 'ESP32', esp32s3: 'ESP32-S3', esp32c3: 'ESP32-C3' };
+export const chipLabel = (chip: string): string => CHIP_LABELS[chipKey(chip)] ?? chip.toUpperCase();
+
 // The firmware's node number: MAC bytes 2 to 5, big-endian (treklink-firmware src/mesh/NodeDB.cpp:1160).
 export const nodeNumFromMac = (mac: string): number | null => {
   const bytes = mac.split(/[:-]/).map((part) => Number.parseInt(part, 16));
@@ -79,7 +85,7 @@ export interface FlashRequest {
   port: SerialPort;
   assetTag: string;
   variantCode: string;
-  // The manifest's chip for the variant and the device's node number (REQ-ERR-16).
+  // The manifest's chip for the variant (`esp32s3`) and the device's node number (REQ-ERR-16).
   chip: string;
   nodeNum: number;
   mode: FlashMode;
@@ -111,10 +117,10 @@ export const flashUnit = async (request: FlashRequest, open: OpenLoader = openEs
   try {
     stage('checking');
     const chip = loader.chip.CHIP_NAME;
-    if (chip !== request.chip) {
+    if (chipKey(chip) !== chipKey(request.chip)) {
       throw new FlashError(
         'chip',
-        `The unit on the port is an ${chip}, not the ${request.chip} of ${request.variantCode}. Nothing was written.`,
+        `The unit on the port is an ${chipLabel(chip)}, not the ${chipLabel(request.chip)} of ${request.variantCode}. Nothing was written.`,
       );
     }
     const derived = nodeNumFromMac(await loader.chip.readMac(loader as never));

@@ -23,7 +23,7 @@ vi.mock('../../../entities/device/api', () => ({
 }));
 // The firmware releases of api-design 28 (task 8.3): one release carries treklink-v3 unless a test empties it.
 const firmware = vi.hoisted(() => ({
-  releases: [{ version: '2.7.26-treklink.2', publishedAt: '2026-10-20T03:15:00Z', isBaseline: true, variants: [{ variantCode: 'treklink-v3', chip: 'ESP32', app: { offset: 65536, sizeBytes: 8 }, factory: { offset: 0, sizeBytes: 8 } }] }] as unknown[],
+  releases: [{ version: '2.7.26-treklink.2', publishedAt: '2026-10-20T03:15:00Z', isBaseline: true, variants: [{ variantCode: 'treklink-v3', chip: 'esp32', app: { offset: 65536, sizeBytes: 8 }, factory: { offset: 0, sizeBytes: 8 } }] }] as unknown[],
 }));
 vi.mock('../../../entities/firmware/api', () => ({
   NO_RELEASE_TEXT: 'No firmware release is published yet.',
