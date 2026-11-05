@@ -272,7 +272,9 @@ export const RolesPage: React.FC = () => {
       ref={pageRef}
       tabIndex={-1}
       aria-labelledby="roles-title"
-      className="flex flex-col gap-4 outline-none"
+      // A fit page while the grid shows: the grid scrolls inside itself (ui standard §7).
+      data-fit-page={wide ? '' : undefined}
+      className="flex min-h-0 flex-1 flex-col gap-4 outline-none"
     >
       <PageHeader
         id="roles-title"

@@ -160,6 +160,9 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
               fullBleed && 'min-h-0',
               // A page action bar sits flush with the bottom, so its page drops the bottom padding.
               !fullBleed && 'max-w-page pb-6 pt-1 has-[[data-page-actions]]:pb-0',
+              // A fit page (`data-fit-page`, ui standard §7) takes exactly the content area, so its
+              // one scroll region fills what is left and #main does not scroll.
+              'has-[[data-fit-page]]:min-h-0 has-[[data-fit-page]]:pb-2.5',
             )}
           >
             <PageChromeProvider value={chrome}>
