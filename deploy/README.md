@@ -62,5 +62,7 @@ The backend function runs in `sin1` (Singapore, `regions` in `vercel.json`), nex
 `ap-southeast-1`. In the default `iad1` every query crossed the Pacific, and `GET /api/map/snapshot` took
 about 10 seconds.
 
+Staging branch (D-094 amendment 2, 2026-11-05): the Vercel project builds only the `staging` branch (`git.deploymentEnabled` in `vercel.json`: `"**": false, "staging": true`; minimatch, so `**` also covers slash-named branches such as `feat/x`). The dashboard's Production Branch is `staging`, so its builds run with `VERCEL_ENV=production` and `scripts/vercel-build.sh` migrates and seeds `vercel-prod`; while it still says `dev`, a `staging` build would be a Preview and skip both. Promotion is a pull request from `dev` into `staging`, rebase-merged as a fast forward.
+
 Project settings in the Vercel dashboard: framework preset Services, root directory empty (the repository root), Node.js 22.x to match CI. The project's environment variables are set in the Vercel dashboard; secrets (database URLs, JWT
 secrets, seed passwords) are entered by the leader. The list of names lives with the leader, not here.
