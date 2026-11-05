@@ -35,8 +35,11 @@ export const AuthLayout: React.FC<{ children: React.ReactNode; wide?: boolean }>
       className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 outline-none [@media(max-height:479.98px)]:overflow-visible"
     >
       {/* Auto margins centre the card from 640 px and collapse when it is taller than main, so its
-          top is never cut off. */}
-      <div className={`mx-auto w-full pb-10 pt-4 sm:my-auto sm:pt-0 ${wide ? 'max-w-page' : 'max-w-md'}`}>
+          top is never cut off. A fit page (`data-fit-page`, ui standard §7) fills main instead and
+          scrolls only its own body, so main does not scroll. */}
+      <div
+        className={`mx-auto w-full pb-10 pt-4 sm:my-auto sm:pt-0 ${wide ? 'max-w-page' : 'max-w-md'} has-[[data-fit-page]]:flex has-[[data-fit-page]]:min-h-0 has-[[data-fit-page]]:flex-1 has-[[data-fit-page]]:flex-col has-[[data-fit-page]]:pb-2 has-[[data-fit-page]]:pt-2`}
+      >
         <PageChromeProvider value={PUBLIC_CHROME}>{children}</PageChromeProvider>
       </div>
       <footer className="pb-4 text-center text-caption text-ink-muted">LoRa mesh trekking safety, TrekLink</footer>

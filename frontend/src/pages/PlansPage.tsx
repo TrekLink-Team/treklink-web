@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { useAuth } from '../app/providers/useAuth';
 import { usePlans, type Plans } from '../entities/billing/api';
 import { landingRoute } from '../entities/session/model';
@@ -93,7 +94,8 @@ export const PlansPage: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    // A fit page: the title and its two actions stay, the plans and prices scroll (ui standard §7).
+    <div data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Rent TrekLink devices"
         id="plans-title"
@@ -111,113 +113,115 @@ export const PlansPage: React.FC = () => {
         }
         primaryAction={user ? undefined : register}
       />
-      <Disclaimer />
-      {/* Sandbox test accounts (screen 7.5 box, D-089): nothing unless the backend lists them. Use carries
-          the email in route state; the sign-in page fills the password from its own copy of the list. */}
-      <TestAccountsBox
-        onUse={(account) => navigate('/sign-in', { state: { demoEmail: account.email } })}
-      />
+      <PageScrollBody label="Plans and prices" className="flex flex-col gap-6 pb-4">
+        <Disclaimer />
+        {/* Sandbox test accounts (screen 7.5 box, D-089): nothing unless the backend lists them. Use carries
+            the email in route state; the sign-in page fills the password from its own copy of the list. */}
+        <TestAccountsBox
+          onUse={(account) => navigate('/sign-in', { state: { demoEmail: account.email } })}
+        />
 
-      <section aria-labelledby="plans-prices" className="flex flex-col gap-4">
-        <h2 id="plans-prices" className="text-title text-ink">
-          Prices
-        </h2>
-        {plans.isPending && (
-          <div role="status" aria-label="Loading plans" className="grid gap-4 sm:grid-cols-3">
-            {[0, 1, 2].map((index) => (
-              <Skeleton key={index} rounded="panel" className="h-40" />
-            ))}
-          </div>
-        )}
-        {plans.isError && (
-          <Alert
-            tone="error"
-            action={
-              <Button variant="secondary" size="sm" onClick={retry}>
-                Retry
-              </Button>
-            }
-          >
-            {plans.error instanceof ApiError && plans.error.message
-              ? plans.error.message
-              : 'The prices could not be loaded.'}
-          </Alert>
-        )}
-        {plans.data && plans.data.variants.length === 0 && (
-          <Card>
-            <EmptyState
-              title="No plans are available right now."
-              description="Contact TrekLink to ask about renting."
-              action={
-                <a href="#contact" className={buttonClasses('secondary')}>
-                  Contact TrekLink
-                </a>
-              }
-            />
-          </Card>
-        )}
-        {plans.data && plans.data.variants.length > 0 && (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {plans.data.variants.map((variant, index) => (
-                <Card as="article" key={variant.id} aria-labelledby={`plan-${variant.id}`}>
-                  <h3
-                    id={`plan-${variant.id}`}
-                    ref={index === 0 ? firstCard : undefined}
-                    tabIndex={-1}
-                    className="text-title-sm text-ink outline-none"
-                  >
-                    {variant.name}
-                  </h3>
-                  <p className="mt-0.5 font-mono text-caption text-ink-muted">{variant.code}</p>
-                  <dl className="mt-4 flex flex-col gap-3">
-                    <div>
-                      <dt className="text-body-sm text-ink-muted">Monthly plan</dt>
-                      <dd className="text-body font-semibold text-ink">
-                        {formatVnd(variant.monthlyPriceVnd)} / device / month
-                        {plans.data.sandbox && <SandboxLabel />}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-body-sm text-ink-muted">Day plan</dt>
-                      <dd className="text-body font-semibold text-ink">
-                        {formatVnd(variant.dayPriceVnd)} / device / day
-                        {plans.data.sandbox && <SandboxLabel />}
-                      </dd>
-                    </div>
-                  </dl>
-                </Card>
+        <section aria-labelledby="plans-prices" className="flex flex-col gap-4">
+          <h2 id="plans-prices" className="text-title text-ink">
+            Prices
+          </h2>
+          {plans.isPending && (
+            <div role="status" aria-label="Loading plans" className="grid gap-4 sm:grid-cols-3">
+              {[0, 1, 2].map((index) => (
+                <Skeleton key={index} rounded="panel" className="h-40" />
               ))}
             </div>
-            <Terms plans={plans.data} />
-            {!user && (
-              <div className="flex sm:justify-start [&>a]:w-full sm:[&>a]:w-auto">{register}</div>
-            )}
-          </>
-        )}
-      </section>
+          )}
+          {plans.isError && (
+            <Alert
+              tone="error"
+              action={
+                <Button variant="secondary" size="sm" onClick={retry}>
+                  Retry
+                </Button>
+              }
+            >
+              {plans.error instanceof ApiError && plans.error.message
+                ? plans.error.message
+                : 'The prices could not be loaded.'}
+            </Alert>
+          )}
+          {plans.data && plans.data.variants.length === 0 && (
+            <Card>
+              <EmptyState
+                title="No plans are available right now."
+                description="Contact TrekLink to ask about renting."
+                action={
+                  <a href="#contact" className={buttonClasses('secondary')}>
+                    Contact TrekLink
+                  </a>
+                }
+              />
+            </Card>
+          )}
+          {plans.data && plans.data.variants.length > 0 && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {plans.data.variants.map((variant, index) => (
+                  <Card as="article" key={variant.id} aria-labelledby={`plan-${variant.id}`}>
+                    <h3
+                      id={`plan-${variant.id}`}
+                      ref={index === 0 ? firstCard : undefined}
+                      tabIndex={-1}
+                      className="text-title-sm text-ink outline-none"
+                    >
+                      {variant.name}
+                    </h3>
+                    <p className="mt-0.5 font-mono text-caption text-ink-muted">{variant.code}</p>
+                    <dl className="mt-4 flex flex-col gap-3">
+                      <div>
+                        <dt className="text-body-sm text-ink-muted">Monthly plan</dt>
+                        <dd className="text-body font-semibold text-ink">
+                          {formatVnd(variant.monthlyPriceVnd)} / device / month
+                          {plans.data.sandbox && <SandboxLabel />}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-body-sm text-ink-muted">Day plan</dt>
+                        <dd className="text-body font-semibold text-ink">
+                          {formatVnd(variant.dayPriceVnd)} / device / day
+                          {plans.data.sandbox && <SandboxLabel />}
+                        </dd>
+                      </div>
+                    </dl>
+                  </Card>
+                ))}
+              </div>
+              <Terms plans={plans.data} />
+              {!user && (
+                <div className="flex sm:justify-start [&>a]:w-full sm:[&>a]:w-auto">{register}</div>
+              )}
+            </>
+          )}
+        </section>
 
-      <section aria-labelledby="plans-how">
-        <Card>
-          <h2 id="plans-how" className="mb-3 text-title-sm text-ink">
-            How renting works
-          </h2>
-          <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-body text-ink">
-            {STEPS.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </Card>
-      </section>
+        <section aria-labelledby="plans-how">
+          <Card>
+            <h2 id="plans-how" className="mb-3 text-title-sm text-ink">
+              How renting works
+            </h2>
+            <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-body text-ink">
+              {STEPS.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </Card>
+        </section>
 
-      <Disclaimer />
+        <Disclaimer />
 
-      <footer id="contact" className="text-body text-ink-muted">
-        Contact TrekLink:{' '}
-        <a href={`mailto:${CONTACT_EMAIL}`} className={LINK}>
-          {CONTACT_EMAIL}
-        </a>
-      </footer>
+        <footer id="contact" className="text-body text-ink-muted">
+          Contact TrekLink:{' '}
+          <a href={`mailto:${CONTACT_EMAIL}`} className={LINK}>
+            {CONTACT_EMAIL}
+          </a>
+        </footer>
+      </PageScrollBody>
     </div>
   );
 };
