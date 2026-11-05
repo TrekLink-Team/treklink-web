@@ -109,10 +109,14 @@ describe('LiveMapWidget', () => {
   it('credits Leaflet by name only, with no flag icon in the attribution prefix', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     const { container } = renderWidget();
-    await waitFor(() => expect(container.querySelector('.leaflet-control-attribution')).toBeTruthy());
+    await waitFor(() =>
+      expect(container.querySelector('.leaflet-control-attribution')).toBeTruthy(),
+    );
     const attribution = container.querySelector('.leaflet-control-attribution') as HTMLElement;
     expect(attribution.querySelector('svg')).toBeNull();
-    expect(attribution.querySelector('a[href="https://leafletjs.com"]')?.textContent).toBe('Leaflet');
+    expect(attribution.querySelector('a[href="https://leafletjs.com"]')?.textContent).toBe(
+      'Leaflet',
+    );
   });
 
   it('draws an opaque mask under each label, below the label pane and the markers (D-085)', async () => {
@@ -166,14 +170,22 @@ describe('LiveMapWidget', () => {
   it('puts a marker link in its popup and hands a plain click to onLink (screen 9.1)', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     const onLink = vi.fn();
-    const link = { label: 'Position history', to: '/o/devices/TL-0001/telemetry', state: { assetTag: 'TL-0001' } };
+    const link = {
+      label: 'Position history',
+      to: '/o/devices/TL-0001/telemetry',
+      state: { assetTag: 'TL-0001' },
+    };
     render(
       <QueryClientProvider client={client}>
-        <LiveMapWidget markers={[{ ...device('TL-0001', [11.5, 108.5]), links: [link] }]} onLink={onLink} />
+        <LiveMapWidget
+          markers={[{ ...device('TL-0001', [11.5, 108.5]), links: [link] }]}
+          onLink={onLink}
+        />
       </QueryClientProvider>,
     );
     fireEvent.click(
-      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).parentElement as HTMLElement,
+      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' }))
+        .parentElement as HTMLElement,
     );
     const anchor = await screen.findByRole('link', { name: 'Position history' });
     expect(anchor.getAttribute('href')).toBe('/o/devices/TL-0001/telemetry');
@@ -212,7 +224,8 @@ describe('LiveMapWidget', () => {
       },
     ]);
     fireEvent.click(
-      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).parentElement as HTMLElement,
+      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' }))
+        .parentElement as HTMLElement,
     );
     // jsdom cannot follow a link, so the test notes whether the widget prevented it, then stops it.
     const prevented = vi.fn();
@@ -225,10 +238,9 @@ describe('LiveMapWidget', () => {
       // Both links show, in order, each with its own href.
       await screen.findByRole('link', { name: 'Position history' });
       const popup = document.querySelector('.leaflet-popup-content') as HTMLElement;
-      expect([...popup.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href'))).toEqual([
-        '/o/incidents/i-1',
-        '/t/devices/x/telemetry',
-      ]);
+      expect([...popup.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href'))).toEqual(
+        ['/o/incidents/i-1', '/t/devices/x/telemetry'],
+      );
       fireEvent.click(screen.getByRole('link', { name: 'Position history' }));
       expect(prevented).toHaveBeenCalledWith(false);
     } finally {
@@ -398,114 +410,230 @@ describe('LiveMapWidget', () => {
     expect(screen.getByText('Quần đảo Hoàng Sa (Việt Nam)')).toBeTruthy();
   });
 
-  // WCAG 2.2, 2.5.8 Target Size Minimum: each marker is a 24 px target, and two markers whose readings
-  // sit 4 px apart at the current zoom are spread so that their targets do not intersect.
-  it('gives two markers 4 px apart a 24 px target each, spread so they do not overlap (WCAG 2.5.8)', async () => {
-    vi.mocked(getMapConfig).mockResolvedValue(config);
-    giveContainersASize();
-    const { lat, lon, zoom } = config.defaultViewport;
-    const crs = L.CRS.EPSG3857;
-    const near = crs.pointToLatLng(crs.latLngToPoint(L.latLng(lat, lon), zoom).add([4, 0]), zoom);
-    const { container } = renderWidget([
-      device('TL-0009', [lat, lon]),
-      { ...device('TL-0010', [near.lat, near.lng]), status: 'stale' },
-    ]);
-    await waitFor(() =>
-      expect(container.querySelectorAll('.leaflet-marker-pane .leaflet-marker-icon')).toHaveLength(2),
-    );
-    const icons = Array.from(
-      container.querySelectorAll<HTMLElement>('.leaflet-marker-pane .leaflet-marker-icon'),
-    );
-    const px = (value: string) => Number.parseFloat(value || '0');
-    // Where Leaflet put the element (transform or left/top, by browser), plus its anchor margin.
-    const boxOf = (icon: HTMLElement) => {
-      const moved = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(icon.style.transform);
-      const x = (moved ? Number(moved[1]) : px(icon.style.left)) + px(icon.style.marginLeft);
-      const y = (moved ? Number(moved[2]) : px(icon.style.top)) + px(icon.style.marginTop);
-      return { x, y, width: px(icon.style.width), height: px(icon.style.height) };
-    };
-    const [a, b] = icons.map(boxOf);
-    for (const box of [a, b]) {
-      expect(box.width).toBeGreaterThanOrEqual(24);
-      expect(box.height).toBeGreaterThanOrEqual(24);
-    }
-    for (const icon of icons) expect(icon.classList.contains('tl-marker-hit')).toBe(true);
-    // The targets are 24 px circles, so they do not intersect while their centres are 24 px apart.
-    const centre = (box: typeof a) => [box.x + box.width / 2, box.y + box.height / 2];
-    const [[ax, ay], [bx, by]] = [centre(a), centre(b)];
-    expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThanOrEqual(24);
-    // Each marker still names itself, and the drawn dots keep their size.
-    expect(screen.getByRole('img', { name: 'TL-0009, Battery 80%' })).toBeTruthy();
-    expect(screen.getByRole('img', { name: 'TL-0010, Battery 80%' })).toBeTruthy();
-  });
-
   // The Leaflet map the widget builds, caught as L.map creates it.
   const catchMap = () => {
     const created = vi.spyOn(L, 'map');
     return () => created.mock.results.at(-1)?.value as L.Map;
   };
-  const nearPair = () => {
+  // A reading `dx` px east of the default viewport's centre at its zoom.
+  const east = (dx: number): [number, number] => {
     const { lat, lon, zoom } = config.defaultViewport;
     const crs = L.CRS.EPSG3857;
-    const near = crs.pointToLatLng(crs.latLngToPoint(L.latLng(lat, lon), zoom).add([4, 0]), zoom);
-    return [device('TL-0009', [lat, lon]), device('TL-0010', [near.lat, near.lng])];
+    const at = crs.pointToLatLng(crs.latLngToPoint(L.latLng(lat, lon), zoom).add([dx, 0]), zoom);
+    return [at.lat, at.lng];
   };
-  const marginsOf = (container: HTMLElement) =>
-    Array.from(
-      container.querySelectorAll<HTMLElement>('.leaflet-marker-pane .leaflet-marker-icon'),
-    ).map((icon) => [icon.style.marginLeft, icon.style.marginTop]);
+  const nearPair = () => [device('TL-0009', east(0)), device('TL-0010', east(4))];
+  const badgesOf = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll<HTMLElement>('.leaflet-marker-pane .tl-cluster-hit'));
+  const pinsOf = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll<HTMLElement>('.leaflet-marker-pane .tl-marker-hit'));
+  const markersOf = (map: L.Map) => {
+    const found: L.Marker[] = [];
+    map.eachLayer((layer) => {
+      if (layer instanceof L.Marker && layer.getElement()?.classList.contains('tl-marker-hit'))
+        found.push(layer);
+    });
+    return found;
+  };
+  const openPopup = (map: L.Map) => {
+    let popup: L.Popup | undefined;
+    map.eachLayer((layer) => {
+      if (layer instanceof L.Popup && layer.isOpen()) popup = layer;
+    });
+    return popup;
+  };
 
-  it('works the spread out again after a zoom, with no new readings (review of #360)', async () => {
+  // Leader ruling 2026-11-06: zoomed out, markers within 48 px draw as one badge at their centroid.
+  it('draws two markers 4 px apart at zoom 12 as one cluster badge at their centroid', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const { container } = renderWidget([
+      device('TL-0009', east(0)),
+      { ...device('TL-0010', east(4)), status: 'stale' },
+      device('TL-0011', east(200)),
+    ]);
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    // The pair is off the map; the far unit draws on its own.
+    expect(pinsOf(container)).toHaveLength(1);
+    const badge = screen.getByRole('img', { name: /^2 devices, 1 offline, near / });
+    expect(badge.textContent).toBe('2');
+    expect(badge.classList.contains('tl-cluster--stale')).toBe(true);
+    // At the true centroid of the readings, which never move.
+    let centre: L.LatLng | undefined;
+    mapOf().eachLayer((layer) => {
+      if (layer instanceof L.Marker && layer.getElement()?.classList.contains('tl-cluster-hit'))
+        centre = layer.getLatLng();
+    });
+    const [a, b] = [east(0), east(4)];
+    expect(centre?.lat).toBeCloseTo((a[0] + b[0]) / 2, 9);
+    expect(centre?.lng).toBeCloseTo((a[1] + b[1]) / 2, 9);
+    // A 44 px target, at least the 24 px minimum of WCAG 2.5.8.
+    const hit = badgesOf(container)[0];
+    expect(hit.style.width).toBe('44px');
+    expect(hit.style.height).toBe('44px');
+    expect(hit.style.marginLeft).toBe('-22px');
+  });
+
+  it('colours a badge by the most severe state inside and names SOS first', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const { container } = renderWidget([
+      { ...device('TL-0001', east(0)), status: 'unheard' },
+      { ...device('TL-0002', east(10)), status: 'incident' },
+      device('TL-0003', east(20)),
+    ]);
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    const badge = screen.getByRole('img', {
+      name: /^3 devices, 1 SOS, 1 not heard since handover, near -?\d+\.\d{4}, -?\d+\.\d{4}$/,
+    });
+    expect(badge.classList.contains('tl-cluster--sos')).toBe(true);
+    expect(badge.querySelector('.tl-cluster-flag')?.textContent).toBe('SOS');
+  });
+
+  it('zooms in to the bounds of its members when the badge is activated', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     giveContainersASize();
     const mapOf = catchMap();
     const { container } = renderWidget(nearPair());
-    await waitFor(() =>
-      expect(container.querySelectorAll('.leaflet-marker-pane .leaflet-marker-icon')).toHaveLength(2),
-    );
-    expect(marginsOf(container).some(([left]) => left !== '-12px')).toBe(true);
-    // Four zoom levels in, the readings sit 64 px apart and neither marker needs an offset.
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
     act(() => {
-      mapOf().setZoom(config.defaultViewport.zoom + 4, { animate: false });
+      fireEvent.click(badgesOf(container)[0]);
     });
-    expect(marginsOf(container)).toEqual([
-      ['-12px', '-12px'],
-      ['-12px', '-12px'],
-    ]);
-    // Back out, and the pair spreads again.
+    await waitFor(() => expect(mapOf().getZoom()).toBeGreaterThan(config.defaultViewport.zoom));
+    // Leaflet animates the zoom; the end of it lays the markers out again.
     act(() => {
-      mapOf().setZoom(config.defaultViewport.zoom, { animate: false });
+      mapOf().fire('zoomend');
     });
-    expect(marginsOf(container).some(([left]) => left !== '-12px')).toBe(true);
+    expect(mapOf().getZoom()).toBeLessThanOrEqual(18);
+    expect(badgesOf(container)).toHaveLength(0);
+    expect(pinsOf(container)).toHaveLength(2);
   });
 
-  it('opens the popup of an offset marker at its reading, not at the drawn icon', async () => {
+  it('activates the badge with Enter as with a click', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     giveContainersASize();
     const mapOf = catchMap();
-    const [first, second] = nearPair();
-    renderWidget([first, second]);
-    const name = 'TL-0010, Battery 80%';
-    const icon = (await screen.findByRole('img', { name })).parentElement as HTMLElement;
-    expect(icon.style.marginLeft).not.toBe('-12px');
-    fireEvent.click(icon);
-    await waitFor(() =>
-      expect(document.querySelector('.leaflet-popup-content')?.textContent).toBe(
-        'TL-0010Battery 80%',
-      ),
-    );
-    let popup: L.Popup | undefined;
-    mapOf().eachLayer((layer) => {
-      if (layer instanceof L.Popup) popup = layer;
+    const { container } = renderWidget(nearPair());
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    act(() => {
+      fireEvent.keyPress(badgesOf(container)[0], { key: 'Enter', code: 'Enter', charCode: 13 });
     });
-    expect(popup?.isOpen()).toBe(true);
-    expect(popup?.getLatLng()?.lat).toBeCloseTo(second.position[0], 9);
-    expect(popup?.getLatLng()?.lng).toBeCloseTo(second.position[1], 9);
+    await waitFor(() => expect(mapOf().getZoom()).toBeGreaterThan(config.defaultViewport.zoom));
   });
 
-  it('hides the chip of a spread "Not heard since handover" pin and keeps its name (review of #360)', async () => {
+  it('lists the members of a badge whose devices share one spot instead of zooming', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     giveContainersASize();
+    const mapOf = catchMap();
+    const counter: [number, number] = [11.56, 108.54];
+    const { container } = renderWidget([
+      { ...device('TL-0004', counter), status: 'unheard', subtitle: 'Not heard since handover' },
+      { ...device('TL-0005', counter), status: 'incident', subtitle: 'SOS' },
+    ]);
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    act(() => {
+      fireEvent.click(badgesOf(container)[0]);
+    });
+    expect(mapOf().getZoom()).toBe(config.defaultViewport.zoom);
+    const list = await screen.findByRole('group', { name: '2 devices near 11.5600, 108.5400' });
+    // Every device, most severe first, each with its popup content.
+    const items = Array.from(list.querySelectorAll('li')).map((item) => item.textContent);
+    expect(items).toEqual(['TL-0005SOS', 'TL-0004Not heard since handover']);
+    // Focus moves into the list, and Escape closes it and returns focus to the badge.
+    expect(document.activeElement).toBe(list);
+    act(() => {
+      fireEvent.keyDown(list, { key: 'Escape' });
+    });
+    expect(openPopup(mapOf())).toBeUndefined();
+    expect(document.activeElement).toBe(badgesOf(container)[0]);
+  });
+
+  // Zoomed in, overlapping markers stay at their exact readings, most severe on top.
+  it('stacks overlapping markers at their exact readings from zoom 14, the most severe on top', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const sos = { ...device('TL-0010', east(1)), status: 'incident' as const };
+    const { container } = renderWidget([device('TL-0009', east(0)), sos]);
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    act(() => {
+      mapOf().setZoom(14, { animate: false });
+    });
+    expect(badgesOf(container)).toHaveLength(0);
+    const markers = markersOf(mapOf());
+    expect(markers).toHaveLength(2);
+    // No offset: each icon sits on its anchor, and each marker on its reading.
+    for (const icon of pinsOf(container)) expect(icon.style.marginLeft).toBe('-12px');
+    const byName = (id: string) => markers.find((m) => m.options.title?.startsWith(id))!;
+    expect(byName('TL-0010').getLatLng().lng).toBeCloseTo(sos.position[1], 12);
+    const z = (marker: L.Marker) => Number(marker.getElement()!.style.zIndex);
+    expect(z(byName('TL-0010'))).toBeGreaterThan(z(byName('TL-0009')));
+    // The top marker carries the count; each names its place in the stack.
+    expect(byName('TL-0010').getElement()!.querySelector('.tl-stack-count')?.textContent).toBe('2');
+    expect(byName('TL-0009').getElement()!.querySelector('.tl-stack-count')).toBeNull();
+    expect(
+      screen.getByRole('img', { name: 'TL-0010, Battery 80%, 1 of 2 devices at this spot' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('img', { name: 'TL-0009, Battery 80%, 2 of 2 devices at this spot' }),
+    ).toBeTruthy();
+  });
+
+  it('opens the list of every device of a stack from any of its markers', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const { container } = renderWidget([
+      { ...device('TL-0009', east(0)), links: [{ label: 'Position history', to: '/t/x' }] },
+      { ...device('TL-0010', east(1)), status: 'unheard' },
+    ]);
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    act(() => {
+      mapOf().setZoom(15, { animate: false });
+    });
+    const below = (await screen.findByRole('img', { name: /^TL-0009, / })).closest<HTMLElement>(
+      '.leaflet-marker-icon',
+    )!;
+    act(() => {
+      fireEvent.click(below.querySelector('.tl-marker-target')!);
+    });
+    const list = await screen.findByRole('group', { name: '2 devices at this spot' });
+    expect(Array.from(list.querySelectorAll('li')).map((item) => item.textContent)).toEqual([
+      'TL-0010Battery 80%',
+      'TL-0009Battery 80%Position history',
+    ]);
+    // The links stay reachable by keyboard, and the list scrolls from the keyboard.
+    expect(list.querySelector('a')?.getAttribute('href')).toBe('/t/x');
+    expect(list.querySelector('ul')?.getAttribute('tabindex')).toBe('0');
+    expect(openPopup(mapOf())?.getLatLng()?.lng).toBeCloseTo(east(0)[1], 12);
+  });
+
+  it('draws the pair apart again four zooms in, and as one badge back out', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const { container } = renderWidget(nearPair());
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    // Four zoom levels in, the readings sit 64 px apart: two plain markers, no stack.
+    act(() => {
+      mapOf().setZoom(config.defaultViewport.zoom + 4, { animate: false });
+    });
+    expect(badgesOf(container)).toHaveLength(0);
+    expect(pinsOf(container)).toHaveLength(2);
+    expect(container.querySelector('.tl-stack-count')).toBeNull();
+    expect(screen.getByRole('img', { name: 'TL-0009, Battery 80%' })).toBeTruthy();
+    act(() => {
+      mapOf().setZoom(config.defaultViewport.zoom, { animate: false });
+    });
+    expect(badgesOf(container)).toHaveLength(1);
+    expect(pinsOf(container)).toHaveLength(0);
+  });
+
+  it('shows the "Not heard since handover" chip on the top pin of a stack only', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
     const unheard = (id: string, position: [number, number]): MapMarker => ({
       ...device(id, position),
       subtitle: 'Not heard since handover',
@@ -517,18 +645,34 @@ describe('LiveMapWidget', () => {
       unheard('TL-0005', counter),
       unheard('TL-0006', [11.5, 108.5]),
     ]);
-    await waitFor(() =>
-      expect(container.querySelectorAll('.leaflet-marker-pane .tl-marker-label')).toHaveLength(3),
-    );
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    act(() => {
+      mapOf().setView(counter, 14, { animate: false });
+    });
     const chipOf = (id: string) =>
       screen
-        .getByRole('img', { name: `${id}, Not heard since handover` })
+        .getByRole('img', { name: new RegExp(`^${id}, Not heard since handover`) })
         .querySelector<HTMLElement>('.tl-marker-label');
-    // The two pins at the counter are spread, so their chips hide; the pin on its own keeps its chip.
-    expect(chipOf('TL-0004')?.style.display).toBe('none');
+    expect(chipOf('TL-0004')?.style.display).toBe('');
     expect(chipOf('TL-0005')?.style.display).toBe('none');
     expect(chipOf('TL-0006')?.style.display).toBe('');
     expect(chipOf('TL-0006')?.textContent).toBe('Not heard since handover');
+  });
+
+  it('zooms to a device chosen in the side list while it is inside a cluster, then opens it', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const markers = nearPair();
+    const { container, rerender } = render(tree(markers));
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    rerender(tree(markers, 'TL-0010'));
+    await waitFor(() => expect(mapOf().getZoom()).toBe(14));
+    act(() => {
+      mapOf().fire('zoomend');
+    });
+    await waitFor(() => expect(openPopup(mapOf())).toBeTruthy());
+    expect(openPopup(mapOf())?.getLatLng()?.lng).toBeCloseTo(markers[1].position[1], 12);
   });
 
   it('leaves a lone marker on its reading, centred in its 24 px target', async () => {
@@ -633,7 +777,10 @@ describe('LiveMapWidget marker glide (dry run defect 10)', () => {
   });
 
   it('jumps without a frame when the user prefers reduced motion', async () => {
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true })),
+    );
     const move = vi.spyOn(L.Marker.prototype, 'setLatLng');
     const { rerender } = render(tree([device('TL-0001', at)]));
     await markerImg();
@@ -644,7 +791,8 @@ describe('LiveMapWidget marker glide (dry run defect 10)', () => {
 
   it('cancels a glide when its marker is removed and every glide on unmount', async () => {
     const { rerender, unmount } = render(tree([device('TL-0001', at), device('TL-0002', at)]));
-    await markerImg();
+    // The two share one spot, so at zoom 12 they draw as one cluster badge; they still glide under it.
+    await screen.findByRole('img', { name: /^2 devices, near / });
     rerender(tree([device('TL-0001', near), device('TL-0002', other)]));
     expect(frames.size).toBe(2);
     rerender(tree([device('TL-0001', near)]));

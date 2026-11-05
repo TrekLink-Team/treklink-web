@@ -42,12 +42,21 @@ const CONFIG = {
 
 const recent = () => new Date(Date.now() - 10_000).toISOString();
 
+// Each device gets its own spot, about 5 km from the next by its number, so the markers do not cluster
+// at the opening zoom (leader ruling 2026-11-06); a test that wants a cluster sets the positions.
+const spotOf = (id: string): number => Number(/\d+$/.exec(id)?.[0] ?? 0) * 0.05;
+
 const device = (overrides: Partial<SnapshotDevice> = {}): SnapshotDevice => ({
+  ...base(overrides.id ?? 'd-9'),
+  ...overrides,
+});
+
+const base = (id: string): SnapshotDevice => ({
   id: 'd-9',
   assetTag: 'TL-0009',
   hardwareVariant: 'treklink-v3',
   holder: { name: 'Le Thi E' },
-  position: { lat: 11.55, lon: 108.53, at: recent() },
+  position: { lat: 11.55 + spotOf(id), lon: 108.53, at: recent() },
   batteryPct: 80,
   lastSeenAt: recent(),
   stale: false,
@@ -57,7 +66,6 @@ const device = (overrides: Partial<SnapshotDevice> = {}): SnapshotDevice => ({
   openIncident: null,
   contractCode: 'RC-2026-0001',
   organizationId: 'org-1',
-  ...overrides,
 });
 
 let snapshot: MapSnapshot;
@@ -267,6 +275,7 @@ describe('LiveMapPage (screen 9.1)', () => {
   // D-092 rule 2: every rented unit from the handover on, in its state, live first.
   describe('every unit of the contract (REQ-UBI-10)', () => {
     const COUNTER = { name: 'TrekLink counter', lat: 11.9, lon: 108.4 };
+    const COUNTER_BADGE = '2 devices, 2 not heard since handover, near 11.9000, 108.4000';
     const old = () => new Date(Date.now() - 3_600_000).toISOString();
     const notHeard = (id: string, assetTag: string) =>
       device({
@@ -302,9 +311,12 @@ describe('LiveMapPage (screen 9.1)', () => {
       const live = await screen.findByRole('img', { name: /^TL-0009, / });
       const seen = formatDateTime(snapshot.devices[2].lastSeenAt as string);
       expect(live.getAttribute('aria-label')).toBe(`TL-0009, live, last seen ${seen}, Le Thi E`);
+      // The two units at the counter share one spot: one badge at zoom 12 (leader ruling 2026-11-06).
+      expect(await screen.findByRole('img', { name: COUNTER_BADGE })).toBeTruthy();
+      fireEvent.click(panel().getByRole('button', { name: /TL-0004/ }));
       const unheard = await screen.findByRole('img', { name: /^TL-0004, / });
       expect(unheard.getAttribute('aria-label')).toBe(
-        'TL-0004, not heard since handover, No holder',
+        'TL-0004, not heard since handover, No holder, 1 of 2 devices at this spot',
       );
       const offline = await screen.findByRole('img', { name: /^TL-0003, / });
       expect(offline.getAttribute('aria-label')).toBe(
@@ -314,8 +326,8 @@ describe('LiveMapPage (screen 9.1)', () => {
 
     it('lists all units live first, counts them and pins the unheard ones at the counter', async () => {
       show('o');
-      expect(await marker('TL-0004, No holder')).toBeTruthy();
-      expect(await marker('TL-0005, No holder')).toBeTruthy();
+      const badge = await screen.findByRole('img', { name: COUNTER_BADGE });
+      expect(badge.classList.contains('tl-cluster--unheard')).toBe(true);
       expect(await marker('TL-0003, Pham C')).toBeTruthy();
       expect(panel().getByText('5 devices, 0 SOS open')).toBeTruthy();
       expect(panel().getByText('2 live, 1 offline, 2 not heard since handover')).toBeTruthy();
@@ -324,12 +336,18 @@ describe('LiveMapPage (screen 9.1)', () => {
         .map((button) => button.textContent?.match(/TL-\d+/)?.[0]);
       expect(order).toEqual(['TL-0009', 'TL-0001', 'TL-0003', 'TL-0004', 'TL-0005']);
       expect(panel().getAllByText('Not heard since handover')).toHaveLength(2);
-      // The unheard pin carries its label on the map, and its popup names the counter.
-      expect(document.querySelectorAll('.leaflet-marker-icon .tl-marker--unheard')).toHaveLength(2);
-      expect(
-        screen.getAllByText('Not heard since handover', { selector: '.tl-marker-label' }),
-      ).toHaveLength(2);
+      // Choosing a unit zooms in until the pins stack at the counter; the top pin carries its label on
+      // the map, and the popup lists both and names the counter.
       fireEvent.click(panel().getByRole('button', { name: /TL-0004/ }));
+      await waitFor(() =>
+        expect(document.querySelectorAll('.leaflet-marker-icon .tl-marker--unheard')).toHaveLength(
+          2,
+        ),
+      );
+      const chips = screen.getAllByText('Not heard since handover', {
+        selector: '.tl-marker-label',
+      });
+      expect(chips.filter((chip) => chip.style.display !== 'none')).toHaveLength(1);
       await waitFor(() =>
         expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain(
           'Pinned at TrekLink counter, the handover location',
@@ -360,7 +378,7 @@ describe('LiveMapPage (screen 9.1)', () => {
 
     it('keeps a unit not heard on a stale entry from before its handover, and makes it live when heard', async () => {
       show('t');
-      await marker('TL-0004, No holder');
+      await screen.findByRole('img', { name: COUNTER_BADGE });
       const before = new Date(Date.now() - 2 * 86_400_000).toISOString();
       feed({
         seq: 101,

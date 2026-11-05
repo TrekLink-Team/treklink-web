@@ -244,6 +244,84 @@
     font: 700 11px/16px 'Inter Variable', Inter, system-ui, sans-serif;
     white-space: nowrap;
   }
+  /* The count of a stack of markers at one spot (leader ruling 2026-11-06), on the top marker only, at
+     the inline start so it never covers the chip. */
+  .tl-stack-count {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 9999px;
+    border: 1.5px solid #ffffff;
+    background: #1b2224;
+    color: #ffffff;
+    font:
+      700 10px/13px 'Inter Variable',
+      Inter,
+      system-ui,
+      sans-serif;
+    text-align: center;
+  }
+  /* A cluster badge (leader ruling 2026-11-06): the whole 44 px circle is the target, so the
+     focusable box is round and its focus ring follows it. */
+  .leaflet-marker-icon.tl-cluster-hit {
+    border-radius: 9999px;
+  }
+  /* Dark count on white in both themes, as the tiles are light in both; the ring takes the colour of
+     the most severe state inside, at 3:1 or more against the tiles, and an SOS flag pairs the SOS ring
+     with text (WCAG 1.4.1). */
+  .tl-cluster {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    border: 5px solid #2f63e0;
+    background: #ffffff;
+    color: #1b2224;
+    font:
+      700 15px/1 'Inter Variable',
+      Inter,
+      system-ui,
+      sans-serif;
+    box-shadow:
+      0 0 0 1.5px #ffffff,
+      0 1px 5px rgb(0 0 0 / 0.5);
+    cursor: pointer;
+  }
+  .tl-cluster--attention {
+    border-color: #b86e00;
+  }
+  .tl-cluster--stale {
+    border-color: rgb(var(--tl-marker-offline));
+    border-style: dashed;
+  }
+  .tl-cluster--unheard {
+    border-color: rgb(var(--tl-marker-unheard));
+  }
+  .tl-cluster--sos {
+    border-color: #d0151d;
+    animation: tl-pulse-ring 1.6s ease-out infinite;
+  }
+  .tl-cluster-flag {
+    position: absolute;
+    top: -9px;
+    right: -14px;
+    padding: 0 4px;
+    border-radius: 4px;
+    border: 1.5px solid #ffffff;
+    background: #d0151d;
+    color: #ffffff;
+    font:
+      700 10px/14px 'Inter Variable',
+      Inter,
+      system-ui,
+      sans-serif;
+  }
 }
 
 /* Leaflet chrome: zoom, layer control, attribution and popups follow the theme. The map pane and
@@ -312,6 +390,14 @@
 }
 .leaflet-popup-content-wrapper {
   border-radius: 0.75rem !important;
+}
+/* The device list of a stack or a cluster (leader ruling 2026-11-06): entries stay compact, without
+   Leaflet's 1.3em paragraph margins, so several fit before the list scrolls. */
+.tl-map-list p {
+  margin: 0;
+}
+.tl-map-list p + p {
+  margin-top: 0.125rem;
 }
 
 /* User preferences. */
