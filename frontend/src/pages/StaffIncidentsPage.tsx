@@ -184,7 +184,7 @@ export const StaffIncidentsPage: React.FC = () => {
       {tab === 'queue' && (
         <TabPanel idPrefix="staff-incidents" tabKey="queue" className="flex min-h-0 flex-1 flex-col">
           {/* One row: the queue table and the incident beside it each scroll inside themselves. */}
-          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
             <div data-fit-page="" className={cn('min-h-0 flex-col', selected ? 'hidden lg:flex' : 'flex')}>
               {/* The incident detail of screen 8.2 opens beside the queue, from the code or from
                   Show details: it is this queue's details view, in place of the built-in pane. */}

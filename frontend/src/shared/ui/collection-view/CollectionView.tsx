@@ -1109,7 +1109,7 @@ export function CollectionView<T>({
   // its natural height while the rows fit and scrolls inside itself once they do not, with the
   // header row pinned. Elsewhere it scrolls sideways only, as before.
   const detailsView = (
-    <div data-cv-view="details" className="relative cv-fill:flex cv-fill:min-h-0 cv-fill:flex-col">
+    <div data-cv-view="details" className="relative min-w-0 cv-fill:flex cv-fill:min-h-0 cv-fill:flex-col">
       <ScrollHintOverlay hints={pushedAside ? { ...tableHints, left: false, right: false } : tableHints} />
       <div
         ref={setTableScroller}
@@ -1390,7 +1390,8 @@ export function CollectionView<T>({
       data-cv={baseId}
       onKeyDown={onRegionKeyDown}
       className={cn(
-        'flex flex-col gap-2 cv-fill-root:min-h-0',
+        // min-w-0: a wide table scrolls inside its own box and never widens the list's column (W30).
+        'flex min-w-0 flex-col gap-2 cv-fill-root:min-h-0',
         fitsNarrow && '[container-type:inline-size]',
         className,
       )}
@@ -1418,8 +1419,7 @@ export function CollectionView<T>({
       </p>
       <div
         className={cn(
-          'flex items-start gap-3 cv-fill:min-h-0 cv-fill:items-stretch',
-          pushedAside && 'min-w-0',
+          'flex min-w-0 items-start gap-3 cv-fill:min-h-0 cv-fill:items-stretch',
         )}
       >
         <div className="min-w-0 flex-1 cv-fill:flex cv-fill:min-h-0 cv-fill:flex-col">
