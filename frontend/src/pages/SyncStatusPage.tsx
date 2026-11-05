@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
   AUDIT_PAGE_SIZE,
   SYNC_OUTCOMES,
@@ -201,7 +202,7 @@ export const SyncStatusPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="sync-status-title">
+    <section aria-labelledby="sync-status-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageTitle
         id="sync-status-title"
         title="Field data sync"
@@ -235,90 +236,92 @@ export const SyncStatusPage: React.FC = () => {
         }
       />
 
-      {isLoading && <Loading label="Loading sync status…" />}
-      {error && <ErrorState error={error} onRetry={() => void refetch()} />}
+      <PageScrollBody label="Sync status">
+        {isLoading && <Loading label="Loading sync status…" />}
+        {error && <ErrorState error={error} onRetry={() => void refetch()} />}
 
-      {data && (
-        <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              label="MQTT subscriber"
-              value={data.broker.subscriber.toUpperCase()}
-              tone={data.broker.subscriber === 'down' ? 'critical' : undefined}
-            />
-            <StatCard label="Accepted" value={data.ingestion.accepted} hint={`Last ${data.ingestion.windowMinutes} min`} />
-            <StatCard label="Duplicates rejected" value={data.ingestion.duplicates} />
-            <StatCard
-              label="Malformed"
-              value={data.ingestion.malformed}
-              hint="Not decodable, audited raw"
-              tone={data.ingestion.malformed > 0 ? 'attention' : undefined}
-            />
-            <StatCard
-              label="Normalization failed"
-              value={data.ingestion.normalizationFailed}
-              tone={data.ingestion.normalizationFailed > 0 ? 'attention' : undefined}
-            />
-            <StatCard
-              label="Unattributed"
-              value={data.ingestion.acceptedUnattributed}
-              hint="Stored with no organization, not in Accepted"
-            />
-            <StatCard
-              label="Unknown device"
-              value={data.ingestion.unknownDevice}
-              tone={data.ingestion.unknownDevice > 0 ? 'attention' : undefined}
-            />
-          </div>
+        {data && (
+          <>
+            <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                label="MQTT subscriber"
+                value={data.broker.subscriber.toUpperCase()}
+                tone={data.broker.subscriber === 'down' ? 'critical' : undefined}
+              />
+              <StatCard label="Accepted" value={data.ingestion.accepted} hint={`Last ${data.ingestion.windowMinutes} min`} />
+              <StatCard label="Duplicates rejected" value={data.ingestion.duplicates} />
+              <StatCard
+                label="Malformed"
+                value={data.ingestion.malformed}
+                hint="Not decodable, audited raw"
+                tone={data.ingestion.malformed > 0 ? 'attention' : undefined}
+              />
+              <StatCard
+                label="Normalization failed"
+                value={data.ingestion.normalizationFailed}
+                tone={data.ingestion.normalizationFailed > 0 ? 'attention' : undefined}
+              />
+              <StatCard
+                label="Unattributed"
+                value={data.ingestion.acceptedUnattributed}
+                hint="Stored with no organization, not in Accepted"
+              />
+              <StatCard
+                label="Unknown device"
+                value={data.ingestion.unknownDevice}
+                tone={data.ingestion.unknownDevice > 0 ? 'attention' : undefined}
+              />
+            </div>
 
-          <h2 className="mb-2 text-title-sm text-ink">Field Stations</h2>
-          <CollectionView<SyncStation>
-            className="mb-6"
-            label="Field Stations"
-            items={data.fieldStations}
-            itemId={(station) => station.id}
-            itemName={(station) => station.name}
-            fields={stationFields}
-            noun={{ one: 'station', other: 'stations' }}
-            emptyState={{ title: 'No Field Stations are registered yet.' }}
-          />
-        </>
-      )}
-
-      <h2 className="mb-2 text-title-sm text-ink">Recent field events</h2>
-      <CollectionView<FieldEventRow>
-        className="mb-6"
-        label="Recent field events"
-        items={events.data?.items}
-        loading={events.isLoading}
-        error={events.error ? <ErrorState error={events.error} onRetry={() => void events.refetch()} /> : undefined}
-        itemId={(event) => event.eventId}
-        itemName={(event) => `${event.kind} of ${event.assetTag ?? event.deviceId}`}
-        itemTitle={(event) => <span className="font-normal text-ink">{event.assetTag ?? event.deviceId}</span>}
-        fields={eventFields}
-        noun={{ one: 'event', other: 'events' }}
-        query={{ search: '', filter: '', sort: { key: 'receivedAt', direction: eventOrder } }}
-        defaultSort={{ key: 'receivedAt', direction: 'desc' }}
-        onQueryChange={(next) => {
-          setEventOrder(next.sort?.direction ?? 'desc');
-          setEventPage(1);
-        }}
-        pageInfo={pageInfoOf(events.data)}
-        emptyState={{ title: 'No field events have been ingested yet.' }}
-        footer={
-          events.data && events.data.totalPages > 1 ? (
-            <Pagination
-              pageNumber={events.data.pageNumber}
-              totalPages={events.data.totalPages}
-              totalItems={events.data.totalCount}
-              pageSize={events.data.pageSize}
-              onPage={setEventPage}
+            <h2 className="mb-2 text-title-sm text-ink">Field Stations</h2>
+            <CollectionView<SyncStation>
+              className="mb-6"
+              label="Field Stations"
+              items={data.fieldStations}
+              itemId={(station) => station.id}
+              itemName={(station) => station.name}
+              fields={stationFields}
+              noun={{ one: 'station', other: 'stations' }}
+              emptyState={{ title: 'No Field Stations are registered yet.' }}
             />
-          ) : undefined
-        }
-      />
+          </>
+        )}
 
-      <SyncAuditSection />
+        <h2 className="mb-2 text-title-sm text-ink">Recent field events</h2>
+        <CollectionView<FieldEventRow>
+          className="mb-6"
+          label="Recent field events"
+          items={events.data?.items}
+          loading={events.isLoading}
+          error={events.error ? <ErrorState error={events.error} onRetry={() => void events.refetch()} /> : undefined}
+          itemId={(event) => event.eventId}
+          itemName={(event) => `${event.kind} of ${event.assetTag ?? event.deviceId}`}
+          itemTitle={(event) => <span className="font-normal text-ink">{event.assetTag ?? event.deviceId}</span>}
+          fields={eventFields}
+          noun={{ one: 'event', other: 'events' }}
+          query={{ search: '', filter: '', sort: { key: 'receivedAt', direction: eventOrder } }}
+          defaultSort={{ key: 'receivedAt', direction: 'desc' }}
+          onQueryChange={(next) => {
+            setEventOrder(next.sort?.direction ?? 'desc');
+            setEventPage(1);
+          }}
+          pageInfo={pageInfoOf(events.data)}
+          emptyState={{ title: 'No field events have been ingested yet.' }}
+          footer={
+            events.data && events.data.totalPages > 1 ? (
+              <Pagination
+                pageNumber={events.data.pageNumber}
+                totalPages={events.data.totalPages}
+                totalItems={events.data.totalCount}
+                pageSize={events.data.pageSize}
+                onPage={setEventPage}
+              />
+            ) : undefined
+          }
+        />
+
+        <SyncAuditSection />
+      </PageScrollBody>
     </section>
   );
 };

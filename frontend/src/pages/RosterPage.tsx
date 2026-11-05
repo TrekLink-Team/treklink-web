@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import type { Member } from '../entities/organization/api';
@@ -244,7 +245,7 @@ export const RosterPage: React.FC = () => {
   const weekLabel = `${dayLabel(monday)} to ${dayLabel(addDays(monday, 6))} ${addDays(monday, 6).getFullYear()} (${viewerTimeZone()})`;
 
   return (
-    <section aria-labelledby="roster-title">
+    <section aria-labelledby="roster-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         id="roster-title"
         title="Roster"
@@ -275,60 +276,62 @@ export const RosterPage: React.FC = () => {
         </Button>
       </div>
 
-      {gaps.length > 0 && (
-        <div role="status" className="mb-3 rounded-control border border-status-attention-line bg-status-attention-tint px-3 py-2 text-body-sm text-status-attention-fg">
-          {gaps.map((gap) => (
-            <p key={`${gap.from}-${gap.to}`}>Nobody is primary on duty {windowLabel(gap.from, gap.to)}.</p>
-          ))}
-          <p>Alerts in that window start with the backup.</p>
-        </div>
-      )}
+      <PageScrollBody label="Roster">
+        {gaps.length > 0 && (
+          <div role="status" className="mb-3 rounded-control border border-status-attention-line bg-status-attention-tint px-3 py-2 text-body-sm text-status-attention-fg">
+            {gaps.map((gap) => (
+              <p key={`${gap.from}-${gap.to}`}>Nobody is primary on duty {windowLabel(gap.from, gap.to)}.</p>
+            ))}
+            <p>Alerts in that window start with the backup.</p>
+          </div>
+        )}
 
-      {roster.isLoading ? (
-        <Skeleton className="h-64 w-full" rounded="panel" />
-      ) : roster.error ? (
-        <ErrorState error={roster.error} onRetry={() => void roster.refetch()} />
-      ) : (
-        <RosterCalendar
-          weekStart={monday}
-          shifts={roster.data?.shifts ?? []}
-          warnings={roster.data?.warnings ?? []}
-          onSelect={isManager ? (shift) => setEditing(shift) : undefined}
-        />
-      )}
+        {roster.isLoading ? (
+          <Skeleton className="h-64 w-full" rounded="panel" />
+        ) : roster.error ? (
+          <ErrorState error={roster.error} onRetry={() => void roster.refetch()} />
+        ) : (
+          <RosterCalendar
+            weekStart={monday}
+            shifts={roster.data?.shifts ?? []}
+            warnings={roster.data?.warnings ?? []}
+            onSelect={isManager ? (shift) => setEditing(shift) : undefined}
+          />
+        )}
 
-      {editing !== undefined && organizationId && !deleting && (
-        <ShiftDialog
-          organizationId={organizationId}
-          shift={editing}
-          members={members.data ?? []}
-          onClose={() => setEditing(undefined)}
-          onStale={() => void refresh()}
-          onDelete={(shift) => {
-            setDeleteError(null);
-            setDeleting(shift);
-          }}
-          onSaved={(saved) => {
-            setEditing(undefined);
-            showToast('Saved.');
-            focusTarget.current = `shift-${saved.id}`;
-            void refresh();
-          }}
-        />
-      )}
-      {deleting && (
-        <ConfirmDialog
-          titleId="delete-shift-title"
-          title={`Delete the shift ${windowLabel(deleting.startsAt, deleting.endsAt)}?`}
-          description="Nobody is then on duty in this window unless another shift covers it. This cannot be undone."
-          confirmLabel="Delete shift"
-          destructive
-          pending={deletePending}
-          error={deleteError ?? undefined}
-          onConfirm={() => void remove()}
-          onCancel={() => setDeleting(null)}
-        />
-      )}
+        {editing !== undefined && organizationId && !deleting && (
+          <ShiftDialog
+            organizationId={organizationId}
+            shift={editing}
+            members={members.data ?? []}
+            onClose={() => setEditing(undefined)}
+            onStale={() => void refresh()}
+            onDelete={(shift) => {
+              setDeleteError(null);
+              setDeleting(shift);
+            }}
+            onSaved={(saved) => {
+              setEditing(undefined);
+              showToast('Saved.');
+              focusTarget.current = `shift-${saved.id}`;
+              void refresh();
+            }}
+          />
+        )}
+        {deleting && (
+          <ConfirmDialog
+            titleId="delete-shift-title"
+            title={`Delete the shift ${windowLabel(deleting.startsAt, deleting.endsAt)}?`}
+            description="Nobody is then on duty in this window unless another shift covers it. This cannot be undone."
+            confirmLabel="Delete shift"
+            destructive
+            pending={deletePending}
+            error={deleteError ?? undefined}
+            onConfirm={() => void remove()}
+            onCancel={() => setDeleting(null)}
+          />
+        )}
+      </PageScrollBody>
     </section>
   );
 };

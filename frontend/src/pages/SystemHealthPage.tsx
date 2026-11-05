@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
   DEFAULT_HEALTH_WINDOW,
   HEALTH_WINDOWS,
@@ -148,7 +149,7 @@ export const SystemHealthPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="health-title" className="flex flex-col gap-4">
+    <section aria-labelledby="health-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id="health-title"
         title="System health"
@@ -182,181 +183,183 @@ export const SystemHealthPage: React.FC = () => {
           </Button>
         }
       />
-      <p aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
+      <PageScrollBody label="System health" className="flex flex-col gap-4">
+        <p aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
 
-      {failure && data && (
-        <Alert tone="error">
-          {messageOf(failure)} Showing the data loaded at {timeOf(health.dataUpdatedAt)}.
-        </Alert>
-      )}
-      {failure && !data && badWindow && (
-        <Alert
-          tone="error"
-          action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setWindowMinutes(DEFAULT_HEALTH_WINDOW)}
-            >
-              Use 60 minutes
-            </Button>
-          }
-        >
-          {messageOf(failure)}
-        </Alert>
-      )}
-      {failure && !data && !badWindow && (
-        <ErrorState error={failure} onRetry={() => void health.refetch()} />
-      )}
+        {failure && data && (
+          <Alert tone="error">
+            {messageOf(failure)} Showing the data loaded at {timeOf(health.dataUpdatedAt)}.
+          </Alert>
+        )}
+        {failure && !data && badWindow && (
+          <Alert
+            tone="error"
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setWindowMinutes(DEFAULT_HEALTH_WINDOW)}
+              >
+                Use 60 minutes
+              </Button>
+            }
+          >
+            {messageOf(failure)}
+          </Alert>
+        )}
+        {failure && !data && !badWindow && (
+          <ErrorState error={failure} onRetry={() => void health.refetch()} />
+        )}
 
-      {health.isPending && (
-        <div
-          role="status"
-          aria-label="Loading system health"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {Array.from({ length: 5 }, (_, index) => (
-            <Skeleton key={index} className="h-36 w-full" rounded="panel" />
-          ))}
-        </div>
-      )}
+        {health.isPending && (
+          <div
+            role="status"
+            aria-label="Loading system health"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {Array.from({ length: 5 }, (_, index) => (
+              <Skeleton key={index} className="h-36 w-full" rounded="panel" />
+            ))}
+          </div>
+        )}
 
-      {data && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Card aria-labelledby="health-platform">
-              <CardHeader
-                title="Platform"
-                id="health-platform"
-                action={
-                  <Status tone={data.health.status === 'ok' ? 'done' : 'attention'}>
-                    {data.health.status === 'ok' ? 'OK' : 'DEGRADED'}
-                  </Status>
-                }
-              />
-              <dl className="m-0 flex flex-col gap-2">
-                {(['database', 'mqtt'] as const).map((name) => {
-                  const state = data.health.components[name];
-                  const note = componentNote(name, state);
-                  return (
-                    <div key={name} className="flex flex-wrap items-center justify-between gap-2">
-                      <dt className="text-body text-ink">
-                        {name === 'database' ? 'Database' : 'MQTT broker'}
-                      </dt>
-                      <dd className="m-0 flex flex-col items-end">
-                        <Status
-                          tone={state === 'up' ? 'done' : state === 'down' ? 'critical' : 'ended'}
-                        >
-                          {COMPONENT_LABEL[state]}
-                        </Status>
-                        {note && <span className="text-body-sm text-ink-muted">{note}</span>}
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
-            </Card>
-
-            <Card aria-labelledby="health-alerts">
-              <CardHeader title="Alert delivery" id="health-alerts" />
-              <dl className="m-0 grid grid-cols-2 gap-3">
-                <Figure label="Pending" value={data.alerts.pending} />
-                <Figure label="Failed" value={data.alerts.failed} />
-              </dl>
-              {data.alerts.failed > 0 && (
-                <p className="mt-3 text-body-sm text-status-attention-fg">
-                  {plural(data.alerts.failed, 'alert')} could not be delivered.{' '}
-                  <Link to="/t/incidents" className={LINK}>
-                    View failed alerts
-                  </Link>
-                </p>
-              )}
-            </Card>
-
-            <Card aria-labelledby="health-stations">
-              <CardHeader title="Field Stations" id="health-stations" />
-              <dl className="m-0 grid grid-cols-2 gap-3">
-                <Figure
-                  label="Stale"
-                  value={`${data.fieldStations.stale} of ${data.fieldStations.total}`}
-                />
-                <Figure label="Outdated" value={data.fieldStations.outdated} />
-              </dl>
-              <p className="mt-3 text-body-sm text-ink-muted">
-                Deepest queue: {depthText(data.fieldStations.maxQueueDepth)}
-              </p>
-              <p className="text-body-sm text-ink-muted">
-                {data.fieldStations.outdated > 0
-                  ? `${data.fieldStations.outdated} outdated, current release ${current ?? 'unknown'}`
-                  : `Current release ${current ?? 'unknown'}`}
-              </p>
-              {data.fieldStations.stale > 0 && (
-                <p className="mt-2 text-body-sm text-status-attention-fg">
-                  {plural(data.fieldStations.stale, 'Field Station')} not heard from.{' '}
-                  <Link to="/t/organizations" className={LINK}>
-                    View Field Stations
-                  </Link>
-                </p>
-              )}
-            </Card>
-
-            <Card aria-labelledby="health-ingestion">
-              <CardHeader
-                title="Ingestion"
-                id="health-ingestion"
-                description={`Last ${windowMinutes} minutes`}
-              />
-              <dl className="m-0 grid grid-cols-2 gap-3">
-                <Figure label="Per minute" value={data.ingestion.perMinute} />
-                <Figure label="Accepted" value={data.ingestion.accepted} />
-                <Figure label="Duplicates" value={data.ingestion.duplicates} />
-                <Figure label="Malformed" value={data.ingestion.malformed} />
-                <Figure label="Unknown device" value={data.ingestion.unknownDevice} />
-              </dl>
-            </Card>
-
-            <Card aria-labelledby="health-buffering">
-              <CardHeader title="Devices buffering" id="health-buffering" />
-              <dl className="m-0">
-                <Figure
-                  label="Holding messages"
-                  value={
-                    data.devicesBuffering ?? (
-                      <span className="text-body text-ink-muted">Not reported yet</span>
-                    )
+        {data && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Card aria-labelledby="health-platform">
+                <CardHeader
+                  title="Platform"
+                  id="health-platform"
+                  action={
+                    <Status tone={data.health.status === 'ok' ? 'done' : 'attention'}>
+                      {data.health.status === 'ok' ? 'OK' : 'DEGRADED'}
+                    </Status>
                   }
                 />
-              </dl>
-              <p className="mt-3 text-body-sm text-ink-muted">
-                Devices holding messages that have not reached a Field Station.
-              </p>
-            </Card>
-          </div>
+                <dl className="m-0 flex flex-col gap-2">
+                  {(['database', 'mqtt'] as const).map((name) => {
+                    const state = data.health.components[name];
+                    const note = componentNote(name, state);
+                    return (
+                      <div key={name} className="flex flex-wrap items-center justify-between gap-2">
+                        <dt className="text-body text-ink">
+                          {name === 'database' ? 'Database' : 'MQTT broker'}
+                        </dt>
+                        <dd className="m-0 flex flex-col items-end">
+                          <Status
+                            tone={state === 'up' ? 'done' : state === 'down' ? 'critical' : 'ended'}
+                          >
+                            {COMPONENT_LABEL[state]}
+                          </Status>
+                          {note && <span className="text-body-sm text-ink-muted">{note}</span>}
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </Card>
 
-          {stations.length === 0 ? (
-            <p className="text-body text-ink-muted">No Field Stations are registered yet.</p>
-          ) : (
-            <CollectionView<HealthStation>
-              label="Field Station list"
-              items={stations}
-              itemId={(row) => row.id}
-              itemName={(row) => row.name}
-              itemTitle={(row) => <span className="font-semibold text-ink">{row.name}</span>}
-              fields={fields}
-              noun={{ one: 'Field Station', other: 'Field Stations' }}
-              filters={[
-                { key: 'all', label: 'All Field Stations' },
-                { key: 'stale', label: 'Stale', test: (row) => row.stale },
-                { key: 'outdated', label: 'Outdated', test: (row) => row.outdated },
-              ]}
-              emptyState={{ title: 'No Field Stations are registered yet.' }}
-              noMatch={{ title: 'No Field Station matches this filter.' }}
-            />
-          )}
-        </>
-      )}
+              <Card aria-labelledby="health-alerts">
+                <CardHeader title="Alert delivery" id="health-alerts" />
+                <dl className="m-0 grid grid-cols-2 gap-3">
+                  <Figure label="Pending" value={data.alerts.pending} />
+                  <Figure label="Failed" value={data.alerts.failed} />
+                </dl>
+                {data.alerts.failed > 0 && (
+                  <p className="mt-3 text-body-sm text-status-attention-fg">
+                    {plural(data.alerts.failed, 'alert')} could not be delivered.{' '}
+                    <Link to="/t/incidents" className={LINK}>
+                      View failed alerts
+                    </Link>
+                  </p>
+                )}
+              </Card>
+
+              <Card aria-labelledby="health-stations">
+                <CardHeader title="Field Stations" id="health-stations" />
+                <dl className="m-0 grid grid-cols-2 gap-3">
+                  <Figure
+                    label="Stale"
+                    value={`${data.fieldStations.stale} of ${data.fieldStations.total}`}
+                  />
+                  <Figure label="Outdated" value={data.fieldStations.outdated} />
+                </dl>
+                <p className="mt-3 text-body-sm text-ink-muted">
+                  Deepest queue: {depthText(data.fieldStations.maxQueueDepth)}
+                </p>
+                <p className="text-body-sm text-ink-muted">
+                  {data.fieldStations.outdated > 0
+                    ? `${data.fieldStations.outdated} outdated, current release ${current ?? 'unknown'}`
+                    : `Current release ${current ?? 'unknown'}`}
+                </p>
+                {data.fieldStations.stale > 0 && (
+                  <p className="mt-2 text-body-sm text-status-attention-fg">
+                    {plural(data.fieldStations.stale, 'Field Station')} not heard from.{' '}
+                    <Link to="/t/organizations" className={LINK}>
+                      View Field Stations
+                    </Link>
+                  </p>
+                )}
+              </Card>
+
+              <Card aria-labelledby="health-ingestion">
+                <CardHeader
+                  title="Ingestion"
+                  id="health-ingestion"
+                  description={`Last ${windowMinutes} minutes`}
+                />
+                <dl className="m-0 grid grid-cols-2 gap-3">
+                  <Figure label="Per minute" value={data.ingestion.perMinute} />
+                  <Figure label="Accepted" value={data.ingestion.accepted} />
+                  <Figure label="Duplicates" value={data.ingestion.duplicates} />
+                  <Figure label="Malformed" value={data.ingestion.malformed} />
+                  <Figure label="Unknown device" value={data.ingestion.unknownDevice} />
+                </dl>
+              </Card>
+
+              <Card aria-labelledby="health-buffering">
+                <CardHeader title="Devices buffering" id="health-buffering" />
+                <dl className="m-0">
+                  <Figure
+                    label="Holding messages"
+                    value={
+                      data.devicesBuffering ?? (
+                        <span className="text-body text-ink-muted">Not reported yet</span>
+                      )
+                    }
+                  />
+                </dl>
+                <p className="mt-3 text-body-sm text-ink-muted">
+                  Devices holding messages that have not reached a Field Station.
+                </p>
+              </Card>
+            </div>
+
+            {stations.length === 0 ? (
+              <p className="text-body text-ink-muted">No Field Stations are registered yet.</p>
+            ) : (
+              <CollectionView<HealthStation>
+                label="Field Station list"
+                items={stations}
+                itemId={(row) => row.id}
+                itemName={(row) => row.name}
+                itemTitle={(row) => <span className="font-semibold text-ink">{row.name}</span>}
+                fields={fields}
+                noun={{ one: 'Field Station', other: 'Field Stations' }}
+                filters={[
+                  { key: 'all', label: 'All Field Stations' },
+                  { key: 'stale', label: 'Stale', test: (row) => row.stale },
+                  { key: 'outdated', label: 'Outdated', test: (row) => row.outdated },
+                ]}
+                emptyState={{ title: 'No Field Stations are registered yet.' }}
+                noMatch={{ title: 'No Field Station matches this filter.' }}
+              />
+            )}
+          </>
+        )}
+      </PageScrollBody>
     </section>
   );
 };

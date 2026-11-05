@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   parameterKeys,
@@ -273,7 +274,7 @@ export const ParametersPage: React.FC = () => {
   }
 
   return (
-    <section aria-labelledby="parameters-title" className="flex flex-col gap-4">
+    <section aria-labelledby="parameters-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id="parameters-title"
         title="Parameters"
@@ -306,115 +307,117 @@ export const ParametersPage: React.FC = () => {
         }
       />
 
-      {failure && (
-        <Alert
-          tone="error"
-          action={
-            <Button variant="secondary" size="sm" onClick={() => void parameters.refetch()}>
-              Retry
-            </Button>
-          }
-        >
-          {messageOf(failure)}
-        </Alert>
-      )}
+      <PageScrollBody label="Parameters" className="flex flex-col gap-4">
+        {failure && (
+          <Alert
+            tone="error"
+            action={
+              <Button variant="secondary" size="sm" onClick={() => void parameters.refetch()}>
+                Retry
+              </Button>
+            }
+          >
+            {messageOf(failure)}
+          </Alert>
+        )}
 
-      {parameters.isPending && (
-        <div role="status" aria-label="Loading parameters" className="flex flex-col gap-4">
-          <Skeleton rounded="panel" className="h-32" />
-          <Skeleton rounded="panel" className="h-32" />
-        </div>
-      )}
+        {parameters.isPending && (
+          <div role="status" aria-label="Loading parameters" className="flex flex-col gap-4">
+            <Skeleton rounded="panel" className="h-32" />
+            <Skeleton rounded="panel" className="h-32" />
+          </div>
+        )}
 
-      {items && groups.length === 0 && (
-        <p className="text-body text-ink-muted">No results match your filters.</p>
-      )}
+        {items && groups.length === 0 && (
+          <p className="text-body text-ink-muted">No results match your filters.</p>
+        )}
 
-      {groups.map(([module, rows]) => {
-        const open = !collapsed.has(module);
-        return (
-          <Card key={module} padding="none" aria-labelledby={`group-${module}`}>
-            <h2 id={`group-${module}`} className="text-title-sm text-ink">
-              <button
-                type="button"
-                aria-expanded={open}
+        {groups.map(([module, rows]) => {
+          const open = !collapsed.has(module);
+          return (
+            <Card key={module} padding="none" aria-labelledby={`group-${module}`}>
+              <h2 id={`group-${module}`} className="text-title-sm text-ink">
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => {
+                    const next = new Set(collapsed);
+                    if (open) next.add(module);
+                    else next.delete(module);
+                    setCollapsed(next);
+                  }}
+                  className="flex min-h-12 w-full items-center justify-between gap-2 px-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                >
+                  <span>{module}</span>
+                  <span className="text-body-sm font-normal text-ink-muted">
+                    {rows.length} {rows.length === 1 ? 'parameter' : 'parameters'}
+                  </span>
+                </button>
+              </h2>
+              {open && (
+                <CollectionView<Parameter>
+                  label={`Parameters of ${module}`}
+                  items={rows}
+                  itemId={(row) => row.key}
+                  itemName={(row) => row.key}
+                  itemTitle={(parameter) => (
+                    <div className="py-1">
+                      <span className="font-mono text-body">{parameter.key}</span>
+                      <span className="block text-body-sm font-normal text-ink-muted">{parameter.description}</span>
+                      <Link
+                        to={`/t/admin/audit/changes?action=parameter.&subjectId=${encodeURIComponent(parameter.key)}`}
+                        className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
+                        aria-label={`Changes of ${parameter.key}`}
+                      >
+                        Changes
+                      </Link>
+                    </div>
+                  )}
+                  fields={fields}
+                  noun={{ one: 'parameter', other: 'parameters' }}
+                  itemActions={actions}
+                  views={['details', 'cards']}
+                  defaultView={roomy ? 'details' : 'cards'}
+                  search={{ label: `Search the parameters of ${module}` }}
+                  details={false}
+                  emptyState={{ title: 'No results match your filters.' }}
+                  className="p-2"
+                />
+              )}
+            </Card>
+          );
+        })}
+
+        {historyKey && (
+          <ParameterHistoryDrawer parameterKey={historyKey} onClose={() => setHistoryKey(null)} />
+        )}
+
+        {stale && (
+          <Dialog
+            titleId="parameter-stale-title"
+            title="Reload to see the latest"
+            description={MSG36}
+            onClose={() => setStale(false)}
+            footer={
+              <Button
+                variant="primary"
                 onClick={() => {
-                  const next = new Set(collapsed);
-                  if (open) next.add(module);
-                  else next.delete(module);
-                  setCollapsed(next);
+                  setStale(false);
+                  void reload();
                 }}
-                className="flex min-h-12 w-full items-center justify-between gap-2 px-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
               >
-                <span>{module}</span>
-                <span className="text-body-sm font-normal text-ink-muted">
-                  {rows.length} {rows.length === 1 ? 'parameter' : 'parameters'}
-                </span>
-              </button>
-            </h2>
-            {open && (
-              <CollectionView<Parameter>
-                label={`Parameters of ${module}`}
-                items={rows}
-                itemId={(row) => row.key}
-                itemName={(row) => row.key}
-                itemTitle={(parameter) => (
-                  <div className="py-1">
-                    <span className="font-mono text-body">{parameter.key}</span>
-                    <span className="block text-body-sm font-normal text-ink-muted">{parameter.description}</span>
-                    <Link
-                      to={`/t/admin/audit/changes?action=parameter.&subjectId=${encodeURIComponent(parameter.key)}`}
-                      className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
-                      aria-label={`Changes of ${parameter.key}`}
-                    >
-                      Changes
-                    </Link>
-                  </div>
-                )}
-                fields={fields}
-                noun={{ one: 'parameter', other: 'parameters' }}
-                itemActions={actions}
-                views={['details', 'cards']}
-                defaultView={roomy ? 'details' : 'cards'}
-                search={{ label: `Search the parameters of ${module}` }}
-                details={false}
-                emptyState={{ title: 'No results match your filters.' }}
-                className="p-2"
-              />
-            )}
-          </Card>
-        );
-      })}
-
-      {historyKey && (
-        <ParameterHistoryDrawer parameterKey={historyKey} onClose={() => setHistoryKey(null)} />
-      )}
-
-      {stale && (
-        <Dialog
-          titleId="parameter-stale-title"
-          title="Reload to see the latest"
-          description={MSG36}
-          onClose={() => setStale(false)}
-          footer={
-            <Button
-              variant="primary"
-              onClick={() => {
-                setStale(false);
-                void reload();
-              }}
-            >
-              Reload
-            </Button>
-          }
-        >
-          <p className="text-body text-ink-muted">
-            {current
-              ? `What you typed for ${current.key} is kept, and the latest value, ${valueText(current.value)}, shows beside it.`
-              : 'What you typed is kept.'}
-          </p>
-        </Dialog>
-      )}
+                Reload
+              </Button>
+            }
+          >
+            <p className="text-body text-ink-muted">
+              {current
+                ? `What you typed for ${current.key} is kept, and the latest value, ${valueText(current.value)}, shows beside it.`
+                : 'What you typed is kept.'}
+            </p>
+          </Dialog>
+        )}
+      </PageScrollBody>
     </section>
   );
 };

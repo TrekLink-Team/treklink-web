@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   HISTORY_KINDS,
@@ -280,7 +281,7 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
       : `No positions of ${tag} in this range`;
 
   return (
-    <section aria-labelledby="telemetry-title" className="flex flex-col gap-4">
+    <section aria-labelledby="telemetry-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id="telemetry-title"
         title="Telemetry history"
@@ -317,161 +318,163 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
         }
       />
 
-      <Card aria-labelledby="telemetry-range">
-        <CardHeader title="Period" id="telemetry-range" />
-        <form
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault();
-            apply(fromLocalInput(fromInput), fromLocalInput(toInput), kinds);
-          }}
-          className="flex flex-col gap-4"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="telemetry-from" label="From" required>
-              <Input
-                id="telemetry-from"
-                type="datetime-local"
-                value={fromInput}
-                onChange={(event) => setFromInput(event.target.value)}
-              />
-            </Field>
-            <Field id="telemetry-to" label="To" required error={periodMessage ?? undefined}>
-              <Input
-                id="telemetry-to"
-                type="datetime-local"
-                value={toInput}
-                onChange={(event) => setToInput(event.target.value)}
-                {...invalid('telemetry-to', periodMessage ?? undefined)}
-              />
-            </Field>
-          </div>
-          <fieldset className="flex flex-wrap gap-x-6">
-            <legend className="text-body-sm font-semibold text-ink">Show</legend>
-            <Checkbox
-              label="Positions"
-              checked={kinds.includes('POSITION')}
-              onChange={(event) => toggleKind('POSITION', event.target.checked)}
-            />
-            <Checkbox
-              label="Telemetry"
-              checked={kinds.includes('TELEMETRY')}
-              onChange={(event) => toggleKind('TELEMETRY', event.target.checked)}
-            />
-          </fieldset>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" variant="primary">
-              Apply
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => quick(1)}>
-              Last 24 hours
-            </Button>
-            {maxRangeDays !== null && maxRangeDays > 1 && (
-              <Button type="button" variant="secondary" onClick={() => quick(maxRangeDays)}>
-                Last {maxRangeDays} days
-              </Button>
-            )}
-          </div>
-        </form>
-      </Card>
-
-      {failure && (
-        <Alert
-          tone="error"
-          action={
-            failure instanceof ApiError && failure.statusCode === 400 ? undefined : (
-              <Button variant="secondary" size="sm" onClick={() => void history.refetch()}>
-                Retry
-              </Button>
-            )
-          }
-        >
-          {messageOf(failure)}
-        </Alert>
-      )}
-
-      {data?.truncated && (
-        <Alert tone="warning">
-          This range holds more than 50,000 points, so only the first 50,000 are shown. Choose a
-          shorter range to see the rest.
-        </Alert>
-      )}
-
-      {history.isPending && (
-        <div role="status" aria-label="Loading history" className="flex flex-col gap-4">
-          <Skeleton rounded="panel" className="h-60" />
-          <Skeleton rounded="panel" className="h-40" />
-        </div>
-      )}
-
-      {data && (
-        <>
-          <p ref={summary} tabIndex={-1} aria-live="polite" className="text-body text-ink outline-none">
-            {data.points.length} {data.points.length === 1 ? 'point' : 'points'}
-            {scope === 'o' && rented ? `. Your rental periods in this range: ${rented}` : ''}
-          </p>
-          <div role="group" aria-label={trackText}>
-            <LiveMapWidget
-              className="h-60 md:h-80"
-              markers={markers}
-              selectedId={selectedKey ? `selected-${selectedKey}` : null}
-              track={track}
-            />
-          </div>
-          <Card aria-labelledby="telemetry-battery">
-            <CardHeader title="Battery" id="telemetry-battery" />
-            <BatteryChart readings={readings} deviceLabel={tag} />
-          </Card>
-          <CollectionView<Row>
-            label="Positions and telemetry"
-            items={pageRows}
-            itemId={(row) => row.key}
-            itemName={pointName}
-            itemTitle={(row) => (
-              <span className="inline-flex flex-wrap items-center gap-2 tabular-nums">
-                {withSeconds(row.at)}
-                {row.key === selectedKey && <span className="text-body-sm text-ink-muted">On the map</span>}
-              </span>
-            )}
-            fields={FIELDS}
-            noun={{ one: 'point', other: 'points' }}
-            itemActions={[
-              {
-                key: 'map',
-                label: 'Show on the map',
-                icon: <MapPin />,
-                accessibleName: (row) => `Show on the map, ${pointName(row)}`,
-                allowed: (row) => row.lat !== null && row.lon !== null,
-                onSelect: (row) => setSelectedKey(row.key),
-              },
-            ]}
-            details={false}
-            pageInfo={{
-              total: rows.length,
-              from: rows.length === 0 ? 0 : (pageNumber - 1) * PAGE_SIZE + 1,
-              to: (pageNumber - 1) * PAGE_SIZE + pageRows.length,
+      <PageScrollBody label="Telemetry records" className="flex flex-col gap-4">
+        <Card aria-labelledby="telemetry-range">
+          <CardHeader title="Period" id="telemetry-range" />
+          <form
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              apply(fromLocalInput(fromInput), fromLocalInput(toInput), kinds);
             }}
-            emptyState={{
-              title: 'No results match your filters.',
-              description:
-                scope === 'o' && rented
-                  ? `Your organization rented this device from ${rented}.`
-                  : 'Choose another period or show both kinds.',
-            }}
-            footer={
-              rows.length > PAGE_SIZE ? (
-                <Pagination
-                  pageNumber={pageNumber}
-                  totalPages={pages}
-                  totalItems={rows.length}
-                  pageSize={PAGE_SIZE}
-                  onPage={setPageNumber}
+            className="flex flex-col gap-4"
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="telemetry-from" label="From" required>
+                <Input
+                  id="telemetry-from"
+                  type="datetime-local"
+                  value={fromInput}
+                  onChange={(event) => setFromInput(event.target.value)}
                 />
-              ) : undefined
+              </Field>
+              <Field id="telemetry-to" label="To" required error={periodMessage ?? undefined}>
+                <Input
+                  id="telemetry-to"
+                  type="datetime-local"
+                  value={toInput}
+                  onChange={(event) => setToInput(event.target.value)}
+                  {...invalid('telemetry-to', periodMessage ?? undefined)}
+                />
+              </Field>
+            </div>
+            <fieldset className="flex flex-wrap gap-x-6">
+              <legend className="text-body-sm font-semibold text-ink">Show</legend>
+              <Checkbox
+                label="Positions"
+                checked={kinds.includes('POSITION')}
+                onChange={(event) => toggleKind('POSITION', event.target.checked)}
+              />
+              <Checkbox
+                label="Telemetry"
+                checked={kinds.includes('TELEMETRY')}
+                onChange={(event) => toggleKind('TELEMETRY', event.target.checked)}
+              />
+            </fieldset>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="submit" variant="primary">
+                Apply
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => quick(1)}>
+                Last 24 hours
+              </Button>
+              {maxRangeDays !== null && maxRangeDays > 1 && (
+                <Button type="button" variant="secondary" onClick={() => quick(maxRangeDays)}>
+                  Last {maxRangeDays} days
+                </Button>
+              )}
+            </div>
+          </form>
+        </Card>
+
+        {failure && (
+          <Alert
+            tone="error"
+            action={
+              failure instanceof ApiError && failure.statusCode === 400 ? undefined : (
+                <Button variant="secondary" size="sm" onClick={() => void history.refetch()}>
+                  Retry
+                </Button>
+              )
             }
-          />
-        </>
-      )}
+          >
+            {messageOf(failure)}
+          </Alert>
+        )}
+
+        {data?.truncated && (
+          <Alert tone="warning">
+            This range holds more than 50,000 points, so only the first 50,000 are shown. Choose a
+            shorter range to see the rest.
+          </Alert>
+        )}
+
+        {history.isPending && (
+          <div role="status" aria-label="Loading history" className="flex flex-col gap-4">
+            <Skeleton rounded="panel" className="h-60" />
+            <Skeleton rounded="panel" className="h-40" />
+          </div>
+        )}
+
+        {data && (
+          <>
+            <p ref={summary} tabIndex={-1} aria-live="polite" className="text-body text-ink outline-none">
+              {data.points.length} {data.points.length === 1 ? 'point' : 'points'}
+              {scope === 'o' && rented ? `. Your rental periods in this range: ${rented}` : ''}
+            </p>
+            <div role="group" aria-label={trackText}>
+              <LiveMapWidget
+                className="h-60 md:h-80"
+                markers={markers}
+                selectedId={selectedKey ? `selected-${selectedKey}` : null}
+                track={track}
+              />
+            </div>
+            <Card aria-labelledby="telemetry-battery">
+              <CardHeader title="Battery" id="telemetry-battery" />
+              <BatteryChart readings={readings} deviceLabel={tag} />
+            </Card>
+            <CollectionView<Row>
+              label="Positions and telemetry"
+              items={pageRows}
+              itemId={(row) => row.key}
+              itemName={pointName}
+              itemTitle={(row) => (
+                <span className="inline-flex flex-wrap items-center gap-2 tabular-nums">
+                  {withSeconds(row.at)}
+                  {row.key === selectedKey && <span className="text-body-sm text-ink-muted">On the map</span>}
+                </span>
+              )}
+              fields={FIELDS}
+              noun={{ one: 'point', other: 'points' }}
+              itemActions={[
+                {
+                  key: 'map',
+                  label: 'Show on the map',
+                  icon: <MapPin />,
+                  accessibleName: (row) => `Show on the map, ${pointName(row)}`,
+                  allowed: (row) => row.lat !== null && row.lon !== null,
+                  onSelect: (row) => setSelectedKey(row.key),
+                },
+              ]}
+              details={false}
+              pageInfo={{
+                total: rows.length,
+                from: rows.length === 0 ? 0 : (pageNumber - 1) * PAGE_SIZE + 1,
+                to: (pageNumber - 1) * PAGE_SIZE + pageRows.length,
+              }}
+              emptyState={{
+                title: 'No results match your filters.',
+                description:
+                  scope === 'o' && rented
+                    ? `Your organization rented this device from ${rented}.`
+                    : 'Choose another period or show both kinds.',
+              }}
+              footer={
+                rows.length > PAGE_SIZE ? (
+                  <Pagination
+                    pageNumber={pageNumber}
+                    totalPages={pages}
+                    totalItems={rows.length}
+                    pageSize={PAGE_SIZE}
+                    onPage={setPageNumber}
+                  />
+                ) : undefined
+              }
+            />
+          </>
+        )}
+      </PageScrollBody>
     </section>
   );
 };
