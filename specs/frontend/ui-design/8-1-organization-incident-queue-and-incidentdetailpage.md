@@ -135,7 +135,7 @@ D-059 rule 7 resolves H-01, H-02 and H-04; merged spec PR #46 is reflected above
 - [x] Stream, replay, invalidation and cache isolation are stated.
 - [x] Use cases, FRs, requirements and stories are traced.
 - [x] Chapter 06 section 8 primary action, placement, labelled state, feedback, recovery, input preservation, time, alert priority, disclaimer and reuse are addressed.
-- [x] D-059 rule 7 governs section 8 item 4: preserve documented server order with pagination and no sort parameter/control.
+- [x] D-059 rule 7 governs section 8 item 4: the documented server order with pagination is the default; since W26 (leader ruling 2026-11-05) the Incident, State and Latest event headers ask the server for the allowlisted `sort` (`code`, `state`, `lastEventAt`) with `order`, and no column sorts on the client.
 
 ## Shared table (W29, 2026-11-01)
 

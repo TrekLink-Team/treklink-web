@@ -110,7 +110,7 @@
 <text x="606" y="1188" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">clears inaccessible records. MSG32 labels cached data stale.</text>
 <rect x="28" y="1273" width="1120" height="124" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="44" y="1298" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Read-only evidence and contract boundaries</text>
-<text x="44" y="1323" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Transitions, episode events and delivery attempts are GETs. Organization and contract links use returned IDs, without inventing labels. D-059 fixes server order with no sort parameter.</text>
+<text x="44" y="1323" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Transitions, episode events and delivery attempts are GETs. Organization and contract links use returned IDs, without inventing labels. Server sort (W26); D-059 order by default.</text>
 <text x="44" y="1342" fill="#172b26" font-family="Arial, sans-serif" font-size="13" font-weight="400">Reconnect and refetch never erase a dirty form.</text>
 <rect x="1184" y="1120" width="360" height="184" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
 <text x="1200" y="1145" fill="#172b26" font-family="Arial, sans-serif" font-size="15" font-weight="700">Access boundary</text>
