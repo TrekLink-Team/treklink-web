@@ -71,6 +71,7 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('fieldStation.read', 'read', 'FieldStation'),
     rule('fieldStation.revoke', 'revoke', 'FieldStation'),
     rule('complianceCase.manage', 'manage', 'ComplianceCase'),
+    rule('organizationRole.read', 'read', 'OrganizationRole'),
     // gateway-sync (api-design 03, 04 and 07)
     rule('fieldEvent.read', 'read', 'FieldEvent'),
   ],
@@ -91,6 +92,7 @@ const PERMISSIONS: Record<string, unknown[]> = {
     rule('fieldStation.read', 'read', 'FieldStation'),
     rule('fieldStation.revoke', 'revoke', 'FieldStation'),
     rule('complianceCase.manage', 'manage', 'ComplianceCase'),
+    rule('organizationRole.read', 'read', 'OrganizationRole'),
     // gateway-sync (api-design 03, 04 and 07)
     rule('fieldEvent.read', 'read', 'FieldEvent'),
   ],
@@ -113,6 +115,7 @@ const PERMISSIONS: Record<string, unknown[]> = {
     }),
     rule('member.read.own', 'read', 'Member', OWN),
     rule('member.manage.own', 'manage', 'Member', OWN),
+    rule('organizationRole.manage.own', 'manage', 'OrganizationRole', OWN),
     rule('apiKey.manage.own', 'manage', 'ApiKey', OWN),
     rule('fieldStation.read.own', 'read', 'FieldStation', OWN),
     rule('fieldStation.manage.own', 'manage', 'FieldStation', OWN),

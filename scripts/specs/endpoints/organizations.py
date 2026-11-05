@@ -630,10 +630,10 @@ ENDPOINTS = [
             "Svc->>DB: SELECT compliance_actions JOIN users ORDER BY createdAt"]),
 
     ep("GET", "/api/organizations/:id/roles", "Role permissions of an organization", "TrekLink Staff, TrekLink Admin (`organizationRole.read`)",
-       "Proposal of D-095, specified in `auth` design section 9; not built until the leader rules on the "
-       "decision text there. The read-only view of the roles of one organization for TrekLink: the same body "
-       "as `GET /api/organization/roles` (auth api-design 19), for the organization in the path. It calls "
-       "the read service of `auth`.",
+       "The read-only view of the roles of one organization (D-095, specified in `auth` design section 9): "
+       "the same body as `GET /api/organization/roles` (auth api-design 19), for the organization in the "
+       "path. TrekLink Staff and Admin read any organization; a Manager reads its own, and another "
+       "organization answers 404. It calls the read service of `auth`.",
        "FR-AUTH-06, FR-AUTH-10, D-095",
        path=[ORG_PATH],
        response={"roles": [{"key": "ORG_OPERATOR", "version": 2, "baselineKeys": ["incident.read.own"],
@@ -641,8 +641,10 @@ ENDPOINTS = [
                  "catalog": [{"key": "incident.read.own", "action": "read", "subject": "Incident", "scope": "own",
                               "description": "Read the incidents of the own organization", "protected": False}]},
        entity="Organization",
-       steps=["Require that the organization exists", "Ask auth for the role view of that organization"],
-       controller="OrganizationsController", service="OrganizationProfileService", call="roles(id)",
+       steps=["Answer 404 when the caller may not read this organization's roles", "Require that the organization exists",
+              "Ask auth for the role view of that organization"],
+       controller="OrganizationRolesViewController", service="OrganizationRolesViewService", call="view(id, ability)",
+       participants=[["Auth", "OrganizationRolePolicyService"]],
        seq=["Svc->>DB: SELECT organizations WHERE id",
-            "Svc->>Svc: OrganizationRolePolicyService.view(organizationId)"]),
+            "Svc->>Auth: viewOf(organizationId)"]),
 ]
