@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InvoiceKind, InvoiceLineType, InvoiceStatus, Prisma } from '@prisma/client';
+import { ListSort, orderByOf, SortColumns } from '../../common/dto/sorting';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -52,6 +53,20 @@ export const DETAIL_LINE_SELECT = {
 export type DetailLineRow = Prisma.InvoiceLineGetPayload<{ select: typeof DETAIL_LINE_SELECT }>;
 
 export type InvoiceDetailRow = InvoiceRow & { lines: DetailLineRow[] };
+
+// The sortable columns of the invoice lists (api-design 08, W26): the issue time, the number, the
+// status in payment order and both amounts. Organization and contract are other modules' codes; the
+// kind is a label.
+export const INVOICE_SORT_FIELDS = ['issuedAt', 'number', 'status', 'totalVnd', 'paidVnd'] as const;
+export type InvoiceSortField = (typeof INVOICE_SORT_FIELDS)[number];
+
+const INVOICE_SORTS: SortColumns<InvoiceSortField, Prisma.InvoiceOrderByWithRelationInput> = {
+  issuedAt: (order) => ({ issuedAt: order }),
+  number: (order) => ({ number: order }),
+  status: (order) => ({ status: order }),
+  totalVnd: (order) => ({ totalVnd: order }),
+  paidVnd: (order) => ({ paidVnd: order }),
+};
 
 export interface InvoiceFilter {
   organizationId?: string;
@@ -277,13 +292,14 @@ export class InvoicesRepository {
     });
   }
 
-  // A page of invoices, newest first (api-design 08). `overdue` keeps invoices with a line past its
-  // due time and not fully paid.
+  // A page of invoices, newest first unless `sort` names an allowed column (api-design 08, W26).
+  // `overdue` keeps invoices with a line past its due time and not fully paid.
   async page(
     filter: InvoiceFilter,
     skip: number,
     take: number,
     client: Client = this.prisma,
+    sort?: ListSort<InvoiceSortField>,
   ): Promise<[InvoiceRow[], number]> {
     const where: Prisma.InvoiceWhereInput = {
       ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
@@ -303,7 +319,12 @@ export class InvoicesRepository {
     return Promise.all([
       client.invoice.findMany({
         where,
-        orderBy: [{ issuedAt: 'desc' }, { number: 'desc' }],
+        orderBy: orderByOf(
+          sort,
+          INVOICE_SORTS,
+          [{ issuedAt: 'desc' }, { number: 'desc' }],
+          (order) => ({ id: order }),
+        ),
         skip,
         take,
         select: INVOICE_SELECT,

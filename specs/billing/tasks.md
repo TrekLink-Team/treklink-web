@@ -117,6 +117,11 @@
   - **Partly done**: `BillingReadsService` serves the invoice page (contract, status and overdue filters), the invoice detail with its lines and payments, the payment page and the contract balance; a member reads only its own organization's rows, and another organization's invoice or contract answers 404. The contract code, organization code and term sequence of a row come from the port `CONTRACT_DIRECTORY` (design §4), which `rentals` provides; without it they are null. A contract with no invoice yet answers a zero balance, since billing cannot see its organization before the first invoice. Damage charges pending approval followed on 2026-10-30 (D-081, task 2.4)
   - **Done** (2026-10-30, LongLP, verified on `dev`): the test line holds in `billing.e2e-spec.ts` (an Org Manager reading another organization's invoice or balance gets 404), and the damage charges pending approval are served by api-design 16 and listed in the balance (D-081)
   - **Done** (2026-11-05, KhoaDD under D-078): the invoice detail (api-design 09) adds the buyer's legal name, tax code and address on `organization`, through the new `CONTRACT_DIRECTORY.buyerOf` that `rentals` answers from `OrganizationsService.handoverParty`, and the `seller` block from the `COMPANY_*` configuration; unit-tested
+- [x] 4.2 Server sort on api-design 08 (owner KhoaDD, W26 under D-078)
+  - **Do**: `sort` on `issuedAt`, `number`, `status`, `totalVnd` or `paidVnd` (`IsIn`, 400 `VALIDATION_FAILED` otherwise), `order` `asc` or `desc`, ties on `id`; without `sort` the newest invoice stays first; the paging totals are unchanged. Shared helper `backend/src/common/dto/sorting.ts`
+  - **Test**: unit (`billing-reads.service.spec.ts`); `test:db` (`test/list-sort.db-spec.ts`: every field in both directions on two seeded invoices)
+  - _Requirements: chapter 06 §11.2 (leader ruling 2026-11-05)_
+  - **Done** (2026-11-05, KhoaDD under D-078, `feat/server-sort-paged-lists`)
 
 ## Phase 5: API Presentation Layer
 
