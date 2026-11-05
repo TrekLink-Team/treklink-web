@@ -97,9 +97,9 @@ const holderOf = (device: Device): string =>
 
 // Where a history row leads (screen 4.2, "History row link"): the contract, the loss case, the incident
 // or the maintenance record it names. A maintenance row opens /t/maintenance with the record's id in the
-// navigation state, and that page opens the record. An incident row opens the Staff incident list until
-// the Staff incident detail route /t/incidents/:id lands (spec 4-2). Other references (an inspection, an intake check,
-// the key's organization) have no page of their own and stay plain text.
+// navigation state, and that page opens the record. An incident row opens the Staff incident detail,
+// /t/incidents/:id (#386). Other references (an inspection, an intake check, the key's organization) have
+// no page of their own and stay plain text.
 const historyLink = (
   item: Pick<DeviceHistoryItem, 'refType' | 'refId'>,
 ): { to: string; state?: Record<string, string> } | null => {
@@ -110,7 +110,7 @@ const historyLink = (
     case 'LOSS_CASE':
       return { to: `/t/loss-cases/${item.refId}` };
     case 'INCIDENT':
-      return { to: '/t/incidents' };
+      return { to: `/t/incidents/${item.refId}` };
     case 'MAINTENANCE':
       return { to: '/t/maintenance', state: { recordId: item.refId } };
     default:
