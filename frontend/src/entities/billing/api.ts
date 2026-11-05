@@ -98,10 +98,56 @@ export interface Payment {
   confirmedAt: string | null;
 }
 
+// The two parties of the invoice document (screen 6.1, billing api-design 09). The buyer's fields
+// are null when the server cannot name the organization; the seller is TrekLink's configured
+// identity (COMPANY_* on the backend), never a literal in the client.
+export interface InvoiceBuyer {
+  id: string;
+  code: string | null;
+  legalName: string | null;
+  taxCode: string | null;
+  address: string | null;
+}
+
+export interface InvoiceSeller {
+  legalName: string;
+  taxCode: string;
+  address: string;
+  hotline: string;
+}
+
 export interface InvoiceDetail extends Invoice {
+  organization: InvoiceBuyer;
+  seller: InvoiceSeller;
   lines: InvoiceLine[];
   payments: Payment[];
 }
+
+// The totals footer of the invoice document (screen 6.1). Subtotal sums the charge lines and
+// credits the negative ones (service credits, adjustments), both from billing 09 `lines[]`; total
+// and paid are the server's `totalVnd` and `paidVnd`; the balance never shows below zero. The
+// billing spec has no VAT, so the footer has no VAT row.
+export interface InvoiceTotals {
+  subtotalVnd: number;
+  creditsVnd: number;
+  totalVnd: number;
+  paidVnd: number;
+  balanceVnd: number;
+}
+
+export const invoiceTotals = (
+  invoice: Pick<InvoiceDetail, 'lines' | 'totalVnd' | 'paidVnd'>,
+): InvoiceTotals => {
+  const sum = (amounts: number[]) => amounts.reduce((total, amount) => total + amount, 0);
+  const amounts = invoice.lines.map((line) => line.amountVnd);
+  return {
+    subtotalVnd: sum(amounts.filter((amount) => amount > 0)),
+    creditsVnd: sum(amounts.filter((amount) => amount < 0)),
+    totalVnd: invoice.totalVnd,
+    paidVnd: invoice.paidVnd,
+    balanceVnd: Math.max(invoice.totalVnd - invoice.paidVnd, 0),
+  };
+};
 
 export interface Balance {
   contractId: string;

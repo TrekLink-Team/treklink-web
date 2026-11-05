@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Printer } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../shared/api/apiClient';
 import {
@@ -18,6 +19,7 @@ import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
 import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK } from '../../shared/ui/styles';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
+import { InvoiceParties, InvoicePrintDocument, InvoiceTotalsFooter } from './InvoiceDocument';
 
 // Line status tones (TrekLink System Colors, shared/ui/status.ts).
 const LINE_TONES: Record<string, string> = {
@@ -81,6 +83,8 @@ const LINE_FIELDS: CollectionField<InvoiceLine>[] = [
 // the Org Manager pays with SePay (6.2, billing api-design 11) and is taken to the QR page. On its own
 // page the invoice number is the page's h1 (`asPageTitle`); beside the Staff list it is an h2. The
 // lines render through CollectionView (chapter 06 §9, D-096), searched and filtered in the browser.
+// As a business document it carries the seller and buyer blocks and a totals footer, and prints as
+// the document alone (InvoiceDocument.tsx).
 export const InvoiceDetailView: React.FC<{
   invoiceId: string;
   contractPath: (contractId: string) => string;
@@ -148,27 +152,35 @@ export const InvoiceDetailView: React.FC<{
           <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
           <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
         </dl>
+        <div className="mt-4 border-t border-line pt-4">
+          <InvoiceParties invoice={data} />
+        </div>
         {payError && (
           <Alert tone="error" className="mt-3">
             {payError}
           </Alert>
         )}
-        {canPayOnline && owing && balance.data && !balance.data.settled && (
-          <Button
-            variant="primary"
-            className="mt-4 w-full sm:w-auto"
-            loading={paying}
-            loadingLabel="Preparing QR"
-            onClick={() => void pay()}
-          >
-            Pay with SePay
+        <div className="mt-4 flex flex-wrap gap-3">
+          {canPayOnline && owing && balance.data && !balance.data.settled && (
+            <Button
+              variant="primary"
+              className="min-h-11 w-full sm:w-auto"
+              loading={paying}
+              loadingLabel="Preparing QR"
+              onClick={() => void pay()}
+            >
+              Pay with SePay
+            </Button>
+          )}
+          {canRecordCounter && owing && balance.data && !balance.data.settled && (
+            <Button variant="primary" onClick={() => setRecording(true)}>
+              Record counter payment
+            </Button>
+          )}
+          <Button variant="secondary" icon={<Printer aria-hidden className="h-4 w-4" />} onClick={() => window.print()}>
+            Print invoice
           </Button>
-        )}
-        {canRecordCounter && owing && balance.data && !balance.data.settled && (
-          <Button variant="primary" className="mt-4" onClick={() => setRecording(true)}>
-            Record counter payment
-          </Button>
-        )}
+        </div>
       </div>
 
       <div className={CARD}>
@@ -201,6 +213,7 @@ export const InvoiceDetailView: React.FC<{
           emptyState={{ title: 'This invoice has no lines.' }}
           noMatch={{ title: 'No lines match these filters.' }}
         />
+        <InvoiceTotalsFooter invoice={data} className="mt-4 border-t border-line pt-4" />
         <p className="mt-3 text-xs text-ink-muted">
           Issued lines are not edited; a correction is added as an adjustment line.
         </p>
@@ -233,6 +246,7 @@ export const InvoiceDetailView: React.FC<{
       </div>
 
       {recording && <CounterPaymentDialog invoice={data} onClose={() => setRecording(false)} />}
+      <InvoicePrintDocument invoice={data} />
     </div>
   );
 };

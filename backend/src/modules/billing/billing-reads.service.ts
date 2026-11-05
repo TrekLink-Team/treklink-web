@@ -18,6 +18,7 @@ import {
   CONTRACT_DIRECTORY,
   ContractDirectory,
   ContractLabel,
+  InvoiceBuyer,
 } from './ports/contract-directory.port';
 
 export interface InvoiceQuery extends PagedQueryDto {
@@ -39,8 +40,20 @@ export interface Labelled<T> {
   termSeq: number | null;
 }
 
+// The seller block of an invoice (screen 6.1): TrekLink's registered identity from the COMPANY_*
+// variables, the same values the handover note prints as Party A.
+export interface InvoiceSeller {
+  legalName: string;
+  taxCode: string;
+  address: string;
+  hotline: string;
+}
+
 export interface InvoiceDetail extends Labelled<InvoiceDetailRow> {
   payments: PaymentRow[];
+  seller: InvoiceSeller;
+  // Null without a directory provider or for an organization the directory does not know.
+  buyer: InvoiceBuyer | null;
 }
 
 const notFound = (message: string) =>
@@ -87,8 +100,12 @@ export class BillingReadsService {
   async invoice(id: string, caller: Caller): Promise<InvoiceDetail> {
     const row = await this.invoices.detail(id);
     if (!row || !visibleTo(caller, row.organizationId)) throw notFound('Invoice not found.');
-    const [labelled] = await this.label([row]);
-    return { ...labelled, payments: await this.payments.ofInvoice(id) };
+    const [[labelled], payments, buyer] = await Promise.all([
+      this.label([row]),
+      this.payments.ofInvoice(id),
+      this.directory ? this.directory.buyerOf(row.organizationId) : Promise.resolve(null),
+    ]);
+    return { ...labelled, payments, seller: this.seller(), buyer };
   }
 
   async paymentPage(query: PaymentQuery, caller: Caller): Promise<PagedResult<PaymentRow>> {
@@ -113,6 +130,15 @@ export class BillingReadsService {
       throw notFound('Contract not found.');
     }
     return this.balances.balanceSummary(contractId);
+  }
+
+  private seller(): InvoiceSeller {
+    return {
+      legalName: this.config.get('COMPANY_LEGAL_NAME', { infer: true }),
+      taxCode: this.config.get('COMPANY_TAX_CODE', { infer: true }),
+      address: this.config.get('COMPANY_ADDRESS', { infer: true }),
+      hotline: this.config.get('COMPANY_HOTLINE', { infer: true }),
+    };
   }
 
   private page(query: PagedQueryDto) {

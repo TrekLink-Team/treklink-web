@@ -4,6 +4,7 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { ErrorCode } from '../../common/errors';
 import { BalanceService } from './balance.service';
 import { BillingReadsService } from './billing-reads.service';
+import { toInvoiceDetailView } from './invoices.controller';
 import { InvoicesRepository } from './invoices.repository';
 import { PaymentsRepository } from './payments.repository';
 
@@ -25,15 +26,26 @@ const invoice = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const config = {
-  get: (key: string) => (key === 'DEFAULT_PAGE_SIZE' ? 20 : 100),
-} as unknown as ConfigService;
+const ENV: Record<string, unknown> = {
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+  COMPANY_LEGAL_NAME: 'TrekLink Co., Ltd.',
+  COMPANY_TAX_CODE: '0312345678',
+  COMPANY_ADDRESS: 'Ho Chi Minh City',
+  COMPANY_HOTLINE: '1900 1234',
+};
+const config = { get: (key: string) => ENV[key] } as unknown as ConfigService;
+const BUYER = {
+  legalName: 'Fansipan Trekking JSC',
+  taxCode: '0109876543',
+  address: 'Sa Pa, Lao Cai',
+};
 
 describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', () => {
   let invoices: Record<string, jest.Mock>;
   let payments: Record<string, jest.Mock>;
   let balances: Record<string, jest.Mock>;
-  let directory: { describe: jest.Mock; variantsOf: jest.Mock };
+  let directory: { describe: jest.Mock; variantsOf: jest.Mock; buyerOf: jest.Mock };
 
   const service = (withDirectory = true) =>
     new BillingReadsService(
@@ -69,6 +81,7 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
         termSeqs: new Map([['t-1', 1]]),
       }),
       variantsOf: jest.fn().mockResolvedValue(new Map()),
+      buyerOf: jest.fn().mockResolvedValue(BUYER),
     };
   });
 
@@ -112,6 +125,36 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
       errorCode: ErrorCode.NOT_FOUND,
     });
     await expect(service().invoice('inv-1', STAFF)).resolves.toMatchObject({ payments: [] });
+  });
+
+  it('adds the seller from COMPANY_* and the buyer from the directory to the detail (screen 6.1)', async () => {
+    const detail = await service().invoice('inv-1', MANAGER);
+    expect(detail.seller).toEqual({
+      legalName: 'TrekLink Co., Ltd.',
+      taxCode: '0312345678',
+      address: 'Ho Chi Minh City',
+      hotline: '1900 1234',
+    });
+    expect(detail.buyer).toEqual(BUYER);
+    expect(directory.buyerOf).toHaveBeenCalledWith('org-1');
+  });
+
+  it('leaves the buyer null without a directory provider, and the view reads it as nulls', async () => {
+    const detail = await service(false).invoice('inv-1', STAFF);
+    expect(detail.buyer).toBeNull();
+    expect(toInvoiceDetailView(detail).organization).toEqual({
+      id: 'org-1',
+      code: null,
+      legalName: null,
+      taxCode: null,
+      address: null,
+    });
+  });
+
+  it('puts the buyer on `organization` and the seller beside it in the detail view (api-design 09)', async () => {
+    const view = toInvoiceDetailView(await service().invoice('inv-1', MANAGER));
+    expect(view.organization).toEqual({ id: 'org-1', code: 'ORG-0001', ...BUYER });
+    expect(view.seller.legalName).toBe('TrekLink Co., Ltd.');
   });
 
   it("answers 404 for another organization's contract balance, zeros before any invoice", async () => {

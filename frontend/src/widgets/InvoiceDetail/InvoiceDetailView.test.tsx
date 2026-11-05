@@ -8,15 +8,18 @@ import { InvoiceDetailView } from './InvoiceDetailView';
 
 let settled = false;
 let lines: unknown[] = [];
-const line = (seq: number, description: string, paidVnd: number, type = 'HOLDING_FEE') => ({
+let totalVnd = 2_250_000;
+let paidVnd = 0;
+let buyerName: string | null = 'Fansipan Trekking JSC';
+const line = (seq: number, description: string, paid: number, type = 'HOLDING_FEE', amountVnd = 750_000) => ({
   seq,
   type,
   description,
   quantity: 1,
-  unitVnd: 750_000,
-  amountVnd: 750_000,
+  unitVnd: amountVnd,
+  amountVnd,
   dueAt: '2026-10-28T03:00:00Z',
-  paidVnd,
+  paidVnd: paid,
 });
 let balanceAvailable = true;
 const balanceRequests: { contractId: string; enabled: boolean }[] = [];
@@ -31,9 +34,22 @@ vi.mock('../../entities/billing/api', async (importOriginal) => ({
       kind: 'TERM',
       term: { seq: 1 },
       contract: { id: 'c-1', code: 'RC-2026-0002' },
+      organization: {
+        id: 'o-1',
+        code: 'ORG-0001',
+        legalName: buyerName,
+        taxCode: '0109876543',
+        address: 'Sa Pa, Lao Cai',
+      },
+      seller: {
+        legalName: 'TrekLink Demo Co., Ltd.',
+        taxCode: '0312345678',
+        address: 'Ho Chi Minh City',
+        hotline: '1900 1234',
+      },
       issuedAt: '2026-10-28T03:00:00Z',
-      totalVnd: 2_250_000,
-      paidVnd: 0,
+      totalVnd,
+      paidVnd,
       lines,
       payments: [],
     },
@@ -72,6 +88,9 @@ beforeEach(() => {
   balanceAvailable = true;
   balanceRequests.length = 0;
   lines = [];
+  totalVnd = 2_250_000;
+  paidVnd = 0;
+  buyerName = 'Fansipan Trekking JSC';
 });
 
 describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () => {
@@ -168,5 +187,79 @@ describe('InvoiceDetailView heading', () => {
     renderView();
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBeTruthy();
+  });
+});
+
+describe('InvoiceDetailView as a business document (screen 6.1, W21)', () => {
+  const amountOf = (scope: HTMLElement, label: string) =>
+    within(scope).getByText(label).nextElementSibling?.textContent;
+
+  it('shows the seller from the server and the buyer with legal name, tax code and address', () => {
+    const view = within(renderView().container);
+    const seller = view.getByRole('region', { name: 'Seller' });
+    expect(within(seller).getByText('TrekLink Demo Co., Ltd.')).toBeTruthy();
+    expect(within(seller).getByText('0312345678')).toBeTruthy();
+    const buyer = view.getByRole('region', { name: 'Buyer' });
+    expect(within(buyer).getByText('Fansipan Trekking JSC')).toBeTruthy();
+    expect(within(buyer).getByText('0109876543')).toBeTruthy();
+    expect(within(buyer).getByText('Sa Pa, Lao Cai')).toBeTruthy();
+  });
+
+  it('falls back to the organization code when the server cannot name the buyer', () => {
+    buyerName = null;
+    const buyer = within(renderView().container).getByRole('region', { name: 'Buyer' });
+    expect(within(buyer).getAllByText('ORG-0001').length).toBeGreaterThan(0);
+  });
+
+  it('totals the charges, the credits, the paid amount and the balance, with no VAT row', () => {
+    lines = [
+      line(1, 'Holding fee', 750_000, 'HOLDING_FEE', 1_500_000),
+      line(2, 'Term balance', 0, 'TERM_BALANCE', 1_000_000),
+      line(3, 'Service credit', 0, 'SERVICE_CREDIT', -250_000),
+    ];
+    totalVnd = 2_250_000;
+    paidVnd = 750_000;
+    const footer = within(renderView().container).getByLabelText('Invoice totals');
+    expect(amountOf(footer, 'Subtotal')).toBe('2,500,000 VND');
+    expect(amountOf(footer, 'Credits and adjustments')).toBe('-250,000 VND');
+    expect(amountOf(footer, 'Total')).toBe('2,250,000 VND');
+    expect(amountOf(footer, 'Amount paid')).toBe('750,000 VND');
+    expect(amountOf(footer, 'Balance due')).toBe('1,500,000 VND');
+    expect(within(footer).queryByText(/VAT/)).toBeNull();
+  });
+
+  it('leaves the credits row out when no line is negative', () => {
+    lines = [line(1, 'Holding fee', 0)];
+    const footer = within(renderView().container).getByLabelText('Invoice totals');
+    expect(within(footer).queryByText('Credits and adjustments')).toBeNull();
+  });
+
+  it('mounts a print document on <body>, outside the application, with the parties and lines', () => {
+    lines = [line(1, 'Holding fee, term 1', 0)];
+    renderView();
+    const printed = document.body.querySelector<HTMLElement>(':scope > [data-print-document]');
+    expect(printed).not.toBeNull();
+    expect(printed!.className).toContain('hidden');
+    expect(printed!.className).toContain('print:block');
+    expect(within(printed!).getByText('INV-2026-000001')).toBeTruthy();
+    expect(within(printed!).getAllByText('TrekLink Demo Co., Ltd.').length).toBeGreaterThan(0);
+    expect(within(printed!).getByText('Holding fee, term 1')).toBeTruthy();
+    expect(within(printed!).getByLabelText('Invoice totals')).toBeTruthy();
+  });
+
+  it('prints from the Print invoice button in the light theme and restores the theme after', () => {
+    const print = vi.fn(() => {
+      window.dispatchEvent(new Event('beforeprint'));
+      expect(document.documentElement.dataset.theme).toBe('light');
+      window.dispatchEvent(new Event('afterprint'));
+    });
+    vi.stubGlobal('print', print);
+    document.documentElement.dataset.theme = 'dark';
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: 'Print invoice' }));
+    expect(print).toHaveBeenCalledTimes(1);
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    delete document.documentElement.dataset.theme;
+    vi.unstubAllGlobals();
   });
 });

@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { ContractDirectory, ContractLabel } from '../../billing';
+import { ContractDirectory, ContractLabel, InvoiceBuyer } from '../../billing';
 import { OrganizationsService } from '../../organizations';
 import { ContractsRepository } from '../contracts.repository';
 
 // Provides billing's CONTRACT_DIRECTORY: the contract code, organization code and term sequence the
-// invoice and payment reads show (billing design §4), and each contract's variant for revenue.
+// invoice and payment reads show (billing design §4), each contract's variant for revenue, and the
+// buyer block of the invoice detail (screen 6.1), read through OrganizationsService.
 @Injectable()
 export class RentalsContractDirectory implements ContractDirectory {
   constructor(
@@ -33,5 +34,12 @@ export class RentalsContractDirectory implements ContractDirectory {
     if (contractIds.length === 0) return new Map<string, string>();
     const rows = await this.contracts.variantsOf(contractIds);
     return new Map(rows.map((row) => [row.id, row.hardwareVariantId]));
+  }
+
+  async buyerOf(organizationId: string): Promise<InvoiceBuyer | null> {
+    const party = await this.organizations.handoverParty(organizationId);
+    return party
+      ? { legalName: party.legalName, taxCode: party.taxCode, address: party.address }
+      : null;
   }
 }

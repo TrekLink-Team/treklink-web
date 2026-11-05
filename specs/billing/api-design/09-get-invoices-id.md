@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the immutable, itemized invoice with its dated lines and payments.
+Returns the immutable, itemized invoice with its dated lines and payments, and the two parties of the business document (screen 6.1): `organization` carries the buyer's registered legal name, tax code and address (null when the directory cannot name it), and `seller` TrekLink's from the `COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. The list (08) keeps the organization code only.
 
 ## API Specification
 
@@ -36,7 +36,10 @@ No body.
     "number": "INV-2026-000123",
     "organization": {
       "id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",
-      "code": "ORG-0007"
+      "code": "ORG-0007",
+      "legalName": "Fansipan Trekking JSC",
+      "taxCode": "0109876543",
+      "address": "Sa Pa, Lao Cai"
     },
     "contract": {
       "id": "c0ffee00-1234-4abc-9def-001122334455",
@@ -72,6 +75,12 @@ No body.
         "paidVnd": 0
       }
     ],
+    "seller": {
+      "legalName": "TrekLink Technology Company Limited",
+      "taxCode": "0312345678",
+      "address": "Ho Chi Minh City, Vietnam",
+      "hotline": "1900 1234"
+    },
     "payments": [
       {
         "id": "p-1",

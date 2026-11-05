@@ -246,7 +246,7 @@ are not atomic; a crash between them may repeat an email. The job's numeric resu
 | provider of `ORGANIZATION_EXIT_CHECKS.canClose` | organizations |
 | provider of `ORGANIZATION_COUNTS` `runningContracts` (`RentalsOrganizationCount`: contracts ACTIVE, ENDING, RETURN_DUE or OVERDUE) | organizations (api-design 03) |
 | provider of `CUSTODY_RESOLVER` (`RentalsCustodyResolver` in the global `RentalsPortsModule`: the rule of `custodyAt` through the shared `custodyOf` over `ContractsRepository.findCustody` in the caller's transaction, because that module holds no `ContractsService`) and of `LOSS_CASE_LISTENERS.onSettled` (`RentalsLossCaseListener`, required token; sets `lostAt` inside the loss-case transaction) | devices (D-045) |
-| provider of `CONTRACT_DIRECTORY` (contract code, organization code, term sequence), in the global `RentalsPortsModule` | billing (billing design §4) |
+| provider of `CONTRACT_DIRECTORY` (contract code, organization code, term sequence, invoice buyer), in the global `RentalsPortsModule` | billing (billing design §4) |
 
 Declares `CONTRACT_CLOSE_CHECKS` (multi): `{ blockingReason(contractId, deviceIds): Promise<Reason | null> }`.
 

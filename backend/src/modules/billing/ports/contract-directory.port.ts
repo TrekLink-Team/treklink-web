@@ -9,6 +9,14 @@ export interface ContractLabel {
   organizationCode: string | null;
 }
 
+// The buyer block of an invoice (screen 6.1, billing api-design 09): the organization's registered
+// legal name, tax code and address, as the organization review recorded them.
+export interface InvoiceBuyer {
+  legalName: string;
+  taxCode: string;
+  address: string;
+}
+
 export interface ContractDirectory {
   // An unknown id is absent from either map.
   describe(
@@ -18,4 +26,6 @@ export interface ContractDirectory {
   // The hardware variant of each contract, for revenue per variant (billing task 2.4, monitoring
   // api-design 08). Kept apart from the display labels, which the invoice reads answer as they are.
   variantsOf(contractIds: readonly string[]): Promise<Map<string, string>>;
+  // The buyer of an invoice of this organization; null for an unknown id.
+  buyerOf(organizationId: string): Promise<InvoiceBuyer | null>;
 }

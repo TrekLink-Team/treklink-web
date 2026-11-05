@@ -156,7 +156,9 @@ what remains due, and any excess stays on that payment and is logged for Staff.
 
 Port declared: `CONTRACT_DIRECTORY` (`ports/contract-directory.port.ts`), the contract code, organization
 code and term sequence the invoice and payment reads show (api-design 08, 09, 14), and through
-`variantsOf(contractIds)` the hardware variant of each contract, which `revenue` groups by. `billing` may not read
+`variantsOf(contractIds)` the hardware variant of each contract, which `revenue` groups by, and through
+`buyerOf(organizationId)` the buyer block of the invoice detail (legal name, tax code, address; api-design 09,
+screen 6.1), which `rentals` answers from `OrganizationsService.handoverParty`. `billing` may not read
 `rental_contracts` or `contract_terms`, and `rentals` depends on `billing`, so `rentals` provides it the
 D-032 way; the reads inject it `@Optional()` and show null codes without it.
 

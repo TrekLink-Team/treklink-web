@@ -260,7 +260,8 @@ export class EnvironmentVariables {
   HANDOVER_NOTE_STORE: HandoverNoteStore = 'file';
 
   // Owned by `rentals` (specs/rentals/design.md §4.1): the letterhead and Party A of the handover
-  // note, and the place of handover. The defaults are development placeholders; a deployment sets
+  // note, and the place of handover. `billing` reads the four COMPANY_* values as the seller block of
+  // the invoice detail (api-design 09, screen 6.1). The defaults are development placeholders; a deployment sets
   // the registered values. A Vietnamese tax code is 10 digits, or 13 with a branch suffix.
   @IsString()
   @IsNotEmpty()

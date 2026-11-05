@@ -355,3 +355,16 @@
     border: 1px solid CanvasText;
   }
 }
+
+/* Print documents (screen 6.1). A page that mounts a `[data-print-document]` portal on <body> prints
+   that document alone: the application and any other portal are left out, and the page grows to its
+   content so every line reaches paper (widgets/InvoiceDetail/InvoiceDocument.tsx). */
+@media print {
+  html,
+  body {
+    height: auto;
+  }
+  body:has(> [data-print-document]) > :not([data-print-document]) {
+    display: none !important;
+  }
+}
