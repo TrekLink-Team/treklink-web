@@ -126,6 +126,15 @@ export const parseManifest = (
   return variants.length > 0 ? { version: manifest.version, variants } : null;
 };
 
+// The MD5 esptool-js compares with the chip's flash after the write: of the image padded to 4 bytes with
+// 0xFF, as writeFlash pads it before hashing (esptool-js 0.7.1 lib/esploader.js:1596, util.js padTo).
+export const md5ForVerify = (bytes: Uint8Array): string => {
+  const pad = (4 - (bytes.length % 4)) % 4;
+  const hash = createHash('md5').update(bytes);
+  if (pad > 0) hash.update(Buffer.alloc(pad, 0xff));
+  return hash.digest('hex');
+};
+
 @Injectable()
 export class FirmwareReleaseService {
   private readonly logger = new Logger(FirmwareReleaseService.name);
@@ -225,7 +234,7 @@ export class FirmwareReleaseService {
       offset: wanted.offset,
       sizeBytes: bytes.length,
       sha256,
-      md5: createHash('md5').update(bytes).digest('hex'),
+      md5: md5ForVerify(bytes),
       imageBase64: Buffer.from(bytes).toString('base64'),
     };
   }
