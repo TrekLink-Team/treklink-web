@@ -238,6 +238,28 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(first.getByText('96%')).toBeTruthy();
     expect(first.getByText('Available')).toBeTruthy();
   });
+
+  it('labels battery and last seen in the List view, where no column header names them (W20B item 4)', async () => {
+    devices = [
+      device({ batteryPct: null, lastSeenAt: null }),
+      device({ id: 'd-2', assetTag: 'TL-0043' }),
+      device({ id: 'd-3', assetTag: 'TL-0044' }),
+    ];
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'View: Details list. Switch to List' }));
+    const list = within(screen.getByRole('list', { name: 'Devices' }));
+    const first = list.getByText('TL-0042').closest('li') as HTMLElement;
+    expect(first.textContent).toContain('Battery Unknown');
+    expect(first.textContent).toContain('Last seen Never');
+  });
+
+  it('hides the inline labels in a table cell, which has its column header', async () => {
+    renderPage();
+    const table = within(await screen.findByRole('table'));
+    const row = table.getByText('TL-0042').closest('tr') as HTMLElement;
+    const label = within(row).getByText('Battery', { exact: false, selector: 'span' });
+    expect(label.className).toContain('[td_&]:hidden');
+  });
 });
 
 describe('FleetPage row actions and bulk (W29, UI standard §2 and §3)', () => {
