@@ -5,6 +5,8 @@ import {
   PolicyHandler,
 } from '../../common/decorators/access.decorator';
 import { RESPONSE_MESSAGE_KEY } from '../../common/decorators/response-message.decorator';
+import { validateQuery } from '../../common/pipes/app-validation.pipe';
+import { MaintenanceQueryDto } from './dto/maintenance.dto';
 import { MaintenanceController } from './maintenance.controller';
 import { MaintenanceService } from './maintenance.service';
 
@@ -31,6 +33,10 @@ const OPERATE = ability([
 const DECIDE = ability([{ action: 'decide', subject: 'MaintenanceRecord' }]);
 const NONE = ability([]);
 const CALLER = { id: 'staff-1', roles: ['STAFF'], organizationId: null };
+
+// The argument at `index` of the mock's last call (W26).
+const lastArg = (mock: jest.Mock, index: number): unknown =>
+  (mock.mock.calls as unknown[][]).at(-1)?.[index];
 
 describe('MaintenanceController list (devices api-design 15)', () => {
   let maintenance: { page: jest.Mock; approvalThresholdVnd: jest.Mock };
@@ -69,6 +75,29 @@ describe('MaintenanceController list (devices api-design 15)', () => {
     expect(filter.reasons).toBeUndefined();
     expect(filter.expectedBy.toISOString().slice(0, 10)).toBe('2026-11-01');
     expect([skip, take]).toEqual([0, 20]);
+  });
+
+  // W26: the records sort on the server by one allowed column (api-design 15).
+  it('passes the requested sort to the record page, none by default', async () => {
+    await controller.list({ sort: 'assetTag', order: 'desc' });
+    expect(lastArg(maintenance.page, 3)).toEqual({ field: 'assetTag', order: 'desc' });
+    await controller.list({ sort: 'expectedAt' });
+    expect(lastArg(maintenance.page, 3)).toEqual({ field: 'expectedAt', order: 'asc' });
+    await controller.list({});
+    expect(lastArg(maintenance.page, 3)).toBeUndefined();
+    await expect(controller.list({ order: 'asc' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+    });
+  });
+
+  it('refuses a sort field off the allowlist with 400 VALIDATION_FAILED', async () => {
+    await expect(
+      validateQuery(MaintenanceQueryDto, { sort: 'status', order: 'desc' }),
+    ).resolves.toMatchObject({ sort: 'status', order: 'desc' });
+    await expect(validateQuery(MaintenanceQueryDto, { sort: 'vendorName' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+      status: 400,
+    });
   });
 
   it('lets Staff read the list with device.read only', () => {

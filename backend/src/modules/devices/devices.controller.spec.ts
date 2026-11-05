@@ -9,7 +9,8 @@ import {
   PolicyHandler,
 } from '../../common/decorators/access.decorator';
 import { RESPONSE_MESSAGE_KEY } from '../../common/decorators/response-message.decorator';
-import { DevicesController } from './devices.controller';
+import { validateQuery } from '../../common/pipes/app-validation.pipe';
+import { DeviceQueryDto, DevicesController } from './devices.controller';
 import { DevicesService } from './devices.service';
 import { DisposeDeviceDto } from './dto/dispose-device.dto';
 import { RetireDeviceDto } from './dto/retire-device.dto';
@@ -90,7 +91,43 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       { statuses: ['AVAILABLE'], hardwareVariantId: 'v-3', q: 'TL' },
       0,
       20,
+      undefined,
     );
+  });
+
+  // W26: the fleet sorts on the server by one allowed column (api-design 06).
+  it('passes the requested sort to the fleet page, ascending by default', async () => {
+    await controller.list({ sort: 'lastSeenAt', order: 'desc' });
+    expect(devices.fleetPage).toHaveBeenLastCalledWith({ q: undefined }, 0, 20, {
+      field: 'lastSeenAt',
+      order: 'desc',
+    });
+    await controller.list({ sort: 'assetTag' });
+    expect(devices.fleetPage).toHaveBeenLastCalledWith({ q: undefined }, 0, 20, {
+      field: 'assetTag',
+      order: 'asc',
+    });
+    await controller.list({});
+    expect(devices.fleetPage).toHaveBeenLastCalledWith({ q: undefined }, 0, 20, undefined);
+  });
+
+  it('accepts an allowed sort and refuses a field off the allowlist with 400 VALIDATION_FAILED', async () => {
+    await expect(
+      validateQuery(DeviceQueryDto, { sort: 'serviceDueAt', order: 'desc' }),
+    ).resolves.toMatchObject({ sort: 'serviceDueAt', order: 'desc' });
+    await expect(validateQuery(DeviceQueryDto, { sort: 'firmwareVersion' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+      status: 400,
+      message: expect.stringContaining('sort must be one of the following values') as unknown,
+    });
+    await expect(
+      validateQuery(DeviceQueryDto, { sort: 'assetTag', order: 'up' }),
+    ).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+    });
+    await expect(controller.list({ order: 'desc' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+    });
   });
 
   it('reads availability and the device detail', async () => {

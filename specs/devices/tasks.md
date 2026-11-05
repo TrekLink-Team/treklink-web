@@ -114,6 +114,7 @@
   - **Test**: paging; an Org Manager reading another organization's loss case gets 404
   - _Requirements: FR-DEV-11, FR-AUTH-11_
   - **Partly done** (2026-11-01, KhoaDD under D-078, D-092 rule 4): the device detail (api-design 07) carries `nextStep`, the unit's next step back to `AVAILABLE` (REQ-EVT-23) from `nextStepOf` in `next-step.ts`; `DevicesService.nextSteps(deviceIds)` gives `rentals` the same for the checked-in rows of a contract, and `openLossCases(deviceIds, tx)` the open loss case of each unit for the close check of rentals api-design 20. A passed inspection still makes the unit `AVAILABLE` with no intake (leader ruling 2026-11-01). Tests: `next-step.spec.ts`; on Postgres `test/return-close.db-spec.ts`
+  - **Partly done** (2026-11-05, KhoaDD under D-078, W26): server sort on the fleet (api-design 06: `assetTag`, `nodeId`, `status`, `batteryPct`, `lastSeenAt`, `serviceDueAt`), the maintenance records (15: `expectedAt`, `assetTag`, `status`) and the loss cases (18: `reportedAt`, `code`, `assetTag`, `state`). `sort` is validated with `IsIn` on the allowlist (400 `VALIDATION_FAILED` otherwise), `order` is `asc` or `desc` and needs `sort`, ties break on `id`, nullable columns sort nulls last, and the default orders are unchanged. Shared helper `common/dto/sorting.ts`. Tests: the controller and service specs; on Postgres `test/list-sort.db-spec.ts`
 
 ## Phase 4: API Presentation Layer
 

@@ -3,6 +3,7 @@ import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -11,6 +12,8 @@ import {
   MinLength,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
+import { SORT_ORDERS, SortOrder } from '../../../common/dto/sorting';
+import { LOSS_CASE_SORT_FIELDS, LossCaseSortField } from '../loss-cases.repository';
 
 // Surrounding spaces are trimmed before validation, so a whitespace-only value fails MinLength(1).
 const trimmed = ({ value }: { value: unknown }) =>
@@ -92,4 +95,13 @@ export class LossCaseQueryDto extends PagedQueryDto {
   @IsOptional()
   @IsEnum(LossCaseState)
   state?: LossCaseState;
+
+  // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
+  @IsOptional()
+  @IsIn(LOSS_CASE_SORT_FIELDS)
+  sort?: LossCaseSortField;
+
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  order?: SortOrder;
 }

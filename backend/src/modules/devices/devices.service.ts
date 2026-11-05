@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { DeviceStatus, InspectionResult, LossCaseState, Prisma } from '@prisma/client';
+import { ListSort } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { OrganizationsService } from '../organizations';
 import { businessDay, DeviceView, RecordView, toDeviceView } from './device-view';
@@ -9,6 +10,7 @@ import {
   DeviceTag,
   DeviceFilter,
   DeviceListRow,
+  DeviceSortField,
   DevicesRepository,
   ProvisionedDevice,
   TransitionContext,
@@ -788,8 +790,9 @@ export class DevicesService {
     filter: DeviceFilter,
     skip: number,
     take: number,
+    sort?: ListSort<DeviceSortField>,
   ): Promise<[FleetDevice[], number]> {
-    const [rows, total] = await this.devices.page(filter, skip, take);
+    const [rows, total] = await this.devices.page(filter, skip, take, sort);
     return [await this.withKeyOrganizations(rows.map(toDeviceView)), total];
   }
 

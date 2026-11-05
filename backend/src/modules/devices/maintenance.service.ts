@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { DeviceStatus, MaintenanceStatus, MaintenanceWorkBy, Prisma } from '@prisma/client';
+import { ListSort } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import {
@@ -21,6 +22,7 @@ import {
 import {
   MaintenanceReason,
   MaintenanceRepository,
+  MaintenanceSortField,
   RecordFilter,
   RecordRow,
 } from './maintenance.repository';
@@ -336,8 +338,13 @@ export class MaintenanceService {
   }
 
   // devices api-design 15.
-  async page(filter: RecordFilter, skip: number, take: number): Promise<[RecordView[], number]> {
-    const [rows, total] = await this.records.page(filter, skip, take);
+  async page(
+    filter: RecordFilter,
+    skip: number,
+    take: number,
+    sort?: ListSort<MaintenanceSortField>,
+  ): Promise<[RecordView[], number]> {
+    const [rows, total] = await this.records.page(filter, skip, take, sort);
     return [rows.map(toRecordView), total];
   }
 

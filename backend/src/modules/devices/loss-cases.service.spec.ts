@@ -78,6 +78,10 @@ const expectDomain = async (promise: Promise<unknown>, status: HttpStatus, code:
   expect(JSON.stringify((error as DomainException).getResponse())).toContain(code);
 };
 
+// The argument at `index` of the mock's last call (W26).
+const lastArg = (mock: jest.Mock, index: number): unknown =>
+  (mock.mock.calls as unknown[][]).at(-1)?.[index];
+
 describe('LossCaseService', () => {
   let cases: {
     find: jest.Mock;
@@ -916,9 +920,28 @@ describe('LossCaseService', () => {
         { state: LossCaseState.SEARCHING, organizationId: 'org-1' },
         0,
         20,
+        undefined,
+        undefined,
       );
       await service.list({}, STAFF);
-      expect(cases.page).toHaveBeenLastCalledWith({ state: undefined }, 0, 20);
+      expect(cases.page).toHaveBeenLastCalledWith(
+        { state: undefined },
+        0,
+        20,
+        undefined,
+        undefined,
+      );
+    });
+
+    // W26: the cases sort on the server by one allowed column (api-design 18).
+    it('passes the requested sort to the page, ascending by default', async () => {
+      await service.list({ sort: 'assetTag', order: 'desc' }, STAFF);
+      expect(lastArg(cases.page, 4)).toEqual({ field: 'assetTag', order: 'desc' });
+      await service.list({ sort: 'code' }, STAFF);
+      expect(lastArg(cases.page, 4)).toEqual({ field: 'code', order: 'asc' });
+      await expect(service.list({ order: 'desc' }, STAFF)).rejects.toMatchObject({
+        errorCode: 'VALIDATION_FAILED',
+      });
     });
 
     it("answers 404 for another organization's case", async () => {

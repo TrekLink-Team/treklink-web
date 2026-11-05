@@ -13,7 +13,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { DeviceStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import {
@@ -23,10 +23,12 @@ import {
   resolvePage,
   toPagedResult,
 } from '../../common/dto/paging';
+import { resolveSort, SORT_ORDERS, SortOrder } from '../../common/dto/sorting';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { DeviceView } from './device-view';
+import { DEVICE_SORT_FIELDS, DeviceSortField } from './devices.repository';
 import { DeviceDetail, DevicesService, FleetDevice } from './devices.service';
 import { DisposeDeviceDto } from './dto/dispose-device.dto';
 import { IntakeCheckDto } from './dto/intake-check.dto';
@@ -52,6 +54,15 @@ export class DeviceQueryDto extends PagedQueryDto {
   @IsString()
   @MaxLength(64)
   q?: string;
+
+  // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
+  @IsOptional()
+  @IsIn(DEVICE_SORT_FIELDS)
+  sort?: DeviceSortField;
+
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  order?: SortOrder;
 }
 
 export class AvailabilityQueryDto {
@@ -107,6 +118,7 @@ export class DevicesController {
       },
       page.skip,
       page.take,
+      resolveSort(query),
     );
     return toPagedResult(rows, total, page);
   }

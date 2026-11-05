@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { LossCaseState, Prisma } from '@prisma/client';
+import { ListSort, orderByOf, SortColumns } from '../../common/dto/sorting';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -39,6 +40,19 @@ export const LOSS_CASE_SELECT = {
 } satisfies Prisma.LossCaseSelect;
 
 export type LossCaseRow = Prisma.LossCaseGetPayload<{ select: typeof LOSS_CASE_SELECT }>;
+
+// The sortable columns of the loss case list (devices api-design 18, W26): the report time, the case
+// code, the device's asset tag and the state in lifecycle order. Organization, custody and settlement
+// are other modules' labels or mixed text.
+export const LOSS_CASE_SORT_FIELDS = ['reportedAt', 'code', 'assetTag', 'state'] as const;
+export type LossCaseSortField = (typeof LOSS_CASE_SORT_FIELDS)[number];
+
+const LOSS_CASE_SORTS: SortColumns<LossCaseSortField, Prisma.LossCaseOrderByWithRelationInput> = {
+  reportedAt: (order) => ({ reportedAt: order }),
+  code: (order) => ({ code: order }),
+  assetTag: (order) => ({ device: { assetTag: order } }),
+  state: (order) => ({ state: order }),
+};
 
 export interface LossCaseFilter {
   organizationId?: string;
@@ -141,6 +155,7 @@ export class LossCasesRepository {
     skip: number,
     take: number,
     client: Client = this.prisma,
+    sort?: ListSort<LossCaseSortField>,
   ): Promise<[LossCaseRow[], number]> {
     const where: Prisma.LossCaseWhereInput = {
       ...(filter.organizationId !== undefined ? { organizationId: filter.organizationId } : {}),
@@ -150,7 +165,12 @@ export class LossCasesRepository {
       client.lossCase.findMany({
         where,
         select: LOSS_CASE_SELECT,
-        orderBy: [{ reportedAt: 'desc' }, { code: 'desc' }],
+        orderBy: orderByOf(
+          sort,
+          LOSS_CASE_SORTS,
+          [{ reportedAt: 'desc' }, { code: 'desc' }],
+          (order) => ({ id: order }),
+        ),
         skip,
         take,
       }),

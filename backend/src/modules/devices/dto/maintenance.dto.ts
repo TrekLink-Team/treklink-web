@@ -14,7 +14,12 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
-import { MAINTENANCE_REASONS } from '../maintenance.repository';
+import { SORT_ORDERS, SortOrder } from '../../../common/dto/sorting';
+import {
+  MAINTENANCE_REASONS,
+  MAINTENANCE_SORT_FIELDS,
+  MaintenanceSortField,
+} from '../maintenance.repository';
 
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const dayMessage = (field: string) => ({
@@ -164,4 +169,13 @@ export class MaintenanceQueryDto extends PagedQueryDto {
   @IsOptional()
   @Matches(DAY, dayMessage('dueBefore'))
   dueBefore?: string;
+
+  // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
+  @IsOptional()
+  @IsIn(MAINTENANCE_SORT_FIELDS)
+  sort?: MaintenanceSortField;
+
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  order?: SortOrder;
 }

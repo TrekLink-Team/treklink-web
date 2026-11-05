@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DeviceStatus, InspectionResult, LossCaseState, Prisma } from '@prisma/client';
+import { ListSort, nullsLast, orderByOf, SortColumns } from '../../common/dto/sorting';
 import { likeLiteral } from '../../common/prisma/like-literal';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -400,8 +401,13 @@ export class DevicesRepository {
   }
 
   // devices api-design 06 (task 4.1 part, built by LongLP for the replacement of rentals 4.3): the
-  // fleet by status, variant and asset tag, oldest change first.
-  page(filter: DeviceFilter, skip: number, take: number): Promise<[DeviceListRow[], number]> {
+  // fleet by status, variant and asset tag, by asset tag unless `sort` names an allowed column (W26).
+  page(
+    filter: DeviceFilter,
+    skip: number,
+    take: number,
+    sort?: ListSort<DeviceSortField>,
+  ): Promise<[DeviceListRow[], number]> {
     const where: Prisma.DeviceWhereInput = {
       ...(filter.statuses?.length ? { status: { in: filter.statuses } } : {}),
       ...(filter.hardwareVariantId ? { hardwareVariantId: filter.hardwareVariantId } : {}),
@@ -412,7 +418,7 @@ export class DevicesRepository {
       this.prisma.device.findMany({
         where,
         select: LIST_SELECT,
-        orderBy: [{ assetTag: 'asc' }],
+        orderBy: orderByOf(sort, DEVICE_SORTS, [{ assetTag: 'asc' }], (order) => ({ id: order })),
         skip,
         take,
       }),
@@ -778,6 +784,28 @@ export const DETAIL_SELECT = {
 } satisfies Prisma.DeviceSelect;
 
 export type DeviceDetailRow = Prisma.DeviceGetPayload<{ select: typeof DETAIL_SELECT }>;
+
+// The sortable columns of the fleet list (devices api-design 06, W26): asset tag, node id (by its
+// number), status in lifecycle order, battery, last seen and the service date. Firmware and variant are
+// text with no useful order.
+export const DEVICE_SORT_FIELDS = [
+  'assetTag',
+  'nodeId',
+  'status',
+  'batteryPct',
+  'lastSeenAt',
+  'serviceDueAt',
+] as const;
+export type DeviceSortField = (typeof DEVICE_SORT_FIELDS)[number];
+
+const DEVICE_SORTS: SortColumns<DeviceSortField, Prisma.DeviceOrderByWithRelationInput> = {
+  assetTag: (order) => ({ assetTag: order }),
+  nodeId: (order) => ({ nodeNum: order }),
+  status: (order) => ({ status: order }),
+  batteryPct: (order) => ({ batteryPct: nullsLast(order) }),
+  lastSeenAt: (order) => ({ lastSeenAt: nullsLast(order) }),
+  serviceDueAt: (order) => ({ serviceDueAt: nullsLast(order) }),
+};
 
 export interface DeviceFilter {
   statuses?: DeviceStatus[];
