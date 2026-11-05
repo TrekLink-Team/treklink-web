@@ -27,6 +27,7 @@ Scope from the task: devices api-design 05 to 10, 16, 23 and monitoring api-desi
 | Count per status above the table | devices 06 `totalCount` per status filter (one request per chip, cached) |
 | Detail header: asset tag, node number and id, variant, acquired, status since | devices 07 `assetTag`, `nodeNum`, `nodeId`, `hardwareVariant`, `acquiredAt`, `status`, `statusChangedAt` |
 | Detail: the variant card with the detail render | devices 07 `hardwareVariant.imageUrl`, `specSheet` (devices design §10) |
+| Detail: holder, battery, last seen, first among the facts (W20B, 2026-11-05) | devices 07 `keyOrganization` while `RESERVED`, `RENTED` or `LOST`, otherwise TrekLink; `batteryPct`; `lastSeenAt` |
 | Detail: key version and the organization it belongs to (never the key) | devices 07 `keyVersion`, `keyOrganizationId` (REQ-UBI-03) |
 | Detail: last intake check, last reset, open maintenance | devices 07 `lastIntakeCheck.passed`, `createdAt`; `lastReset`; `openMaintenance` |
 | Detail: last position (small static map with the overlay) | devices 07 `lastPosition.lat`, `lon` |
@@ -172,4 +173,6 @@ row. The actions move into a bar pinned to the bottom: the due step (Record inta
 is the widest button, or the first plain action when no step is due; More actions holds the rest,
 destructive ones (Retire, Dispose, Report lost) last after a separator, and Retire stays listed with its
 reason while a maintenance record is open. Position history stays a link on wide screens and is a menu
-item on a phone. From 600 px the page is unchanged.
+item on a phone. From 600 px the page is unchanged. Below 600 px the facts (holder, battery, last seen first) and the next step come
+before the variant card, so the first screen reads the unit's state rather than its render (W20B,
+2026-11-05).

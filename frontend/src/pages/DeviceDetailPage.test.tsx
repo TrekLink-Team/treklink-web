@@ -115,6 +115,14 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.getByRole('link', { name: 'Back to devices' }).className).toContain('min-h-6');
   });
 
+  it('reads TrekLink as the holder of a unit in intake, and says when nothing was reported', async () => {
+    renderPage();
+    const facts = (await screen.findByText('Holder')).closest('dl') as HTMLElement;
+    expect(within(facts).getByText('TrekLink')).toBeTruthy();
+    expect(within(facts).getByText('Not reported')).toBeTruthy();
+    expect(within(facts).getByText('Never heard')).toBeTruthy();
+  });
+
   it('shows the header facts', async () => {
     renderPage();
     expect(await screen.findByRole('heading', { name: 'TL-0042' })).toBeTruthy();
@@ -469,6 +477,25 @@ describe('DeviceDetailPage at 360 px', () => {
     }));
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('puts the facts before the variant render on the first screen (W20B item 3)', async () => {
+    currentDevice = device({
+      status: 'RENTED',
+      batteryPct: 81,
+      lastSeenAt: '2026-11-04T02:00:00.000Z',
+      keyVersion: 1,
+      keyOrganization: { id: 'o-1', code: 'ORG-0001', legalName: 'Lam Vien Trekking' },
+    });
+    renderPage();
+    const facts = (await screen.findByText('Holder')).closest('dl') as HTMLElement;
+    const render = screen.getByRole('heading', { level: 2, name: 'TrekLink v3' });
+    // The facts come first in the document, the variant card after them.
+    expect(facts.compareDocumentPosition(render) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const labels = Array.from(facts.querySelectorAll('dt')).slice(0, 3).map((term) => term.textContent);
+    expect(labels).toEqual(['Holder', 'Battery', 'Last seen']);
+    expect(within(facts).getByText('Lam Vien Trekking (ORG-0001)')).toBeTruthy();
+    expect(within(facts).getByText('81%')).toBeTruthy();
+  });
 
   it('pins the actions to the bottom: the primary action widest, the rest under More actions', async () => {
     renderPage();
