@@ -1,24 +1,25 @@
 import { randomUUID } from 'node:crypto';
-import type { AddressInfo } from 'node:net';
 import { performance } from 'node:perf_hooks';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
-import { NestExpressApplication } from '@nestjs/platform-express';
 import { ContractStatus, IngressPath, PlanType, Prisma } from '@prisma/client';
-import { io, Socket } from 'socket.io-client';
-import * as request from 'supertest';
-import { configureApp } from '../src/app.setup';
+import type { Socket } from 'socket.io-client';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { FieldStationJsonAdapter } from '../src/modules/gateway-sync/adapters/field-station-json.adapter';
 import { CanonicalEnvelope } from '../src/modules/gateway-sync/canonical-envelope';
 import { IngestionService } from '../src/modules/gateway-sync/ingestion.service';
 import { fixture } from '../src/modules/gateway-sync/testing/fixtures';
-import { LiveIoAdapter } from '../src/modules/monitoring/live-io.adapter';
 import { ValidatedEnvironment } from '../src/modules/platform/config/environment-variables';
 import { ApiKeysService } from '../src/modules/organizations/api-keys.service';
-import { DEVICE_CHECKED_IN, DEVICE_HANDED_OVER } from '../src/modules/rentals';
+import {
+  DEVICE_CHECKED_IN,
+  DEVICE_HANDED_OVER,
+  type DeviceCheckedInEvent,
+  type DeviceHandedOverEvent,
+} from '../src/modules/rentals';
 import { compileRentalFlow, RentalFlow } from './db-rental-flow';
+import { openLiveSocket } from './live-socket-client';
 
 const HOUR = 3_600_000;
 const SKEW = 3 * HOUR; // the station clock runs 3 h fast (gateway-sync design section 8)
@@ -47,12 +48,10 @@ interface Org {
 // organization API and the history read what each organization is allowed to see. Custody is written
 // as rows, as `station-attribution.db-spec.ts` does, and the handover and check-in events are emitted on
 // the application's own event bus. Each case has its own device; fixtures carry a fresh run id and
-// nothing existing is deleted. Background jobs run as in `incident-alert-socket.db-spec.ts`, so a
-// `device.stale` entry of a device can appear; the cases look at position entries only.
+// nothing existing is deleted. The application listens with no cron job running (`compileRentalFlow`
+// with `http` and `sockets`), so nothing but the cases moves the stream while they wait for a stray entry.
 describe('monitoring with two organizations (task 4.2, AC-01 and AC-06)', () => {
   let flow: RentalFlow;
-  let app: NestExpressApplication;
-  let url: string;
   let a: Org;
   let b: Org;
   let variantId: string;
@@ -74,37 +73,17 @@ describe('monitoring with two organizations (task 4.2, AC-01 and AC-06)', () => 
   };
   const quiet = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
   const connect = async (auth: Record<string, unknown>): Promise<Client> => {
-    const socket = io(url, {
-      auth,
-      transports: ['websocket'],
-      reconnection: false,
-      autoConnect: false,
+    const client = { entries: [] } as unknown as Client;
+    client.socket = await openLiveSocket(flow.liveUrl as string, auth, (socket) => {
+      socket.on('stream', (entry: Entry) => client.entries.push(entry));
     });
-    const client: Client = { socket, entries: [] };
     clients.push(client);
-    socket.on('stream', (entry: Entry) => client.entries.push(entry));
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Handshake timed out')), 3000);
-      socket.once('connect', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      socket.once('connect_error', (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      socket.connect();
-    });
     return client;
   };
   const token = (caller: Caller) =>
     flow.get(JwtService).signAsync({ sub: caller.id, roles: [], pv: 0 });
-  const withToken = async (caller: Caller, path: string) =>
-    request(app.getHttpServer())
-      .get(path)
-      .set('Authorization', `Bearer ${await token(caller)}`);
-  const withKey = (key: string, path: string) =>
-    request(app.getHttpServer()).get(path).set('X-Api-Key', key);
+  const withToken = (caller: Caller, path: string) => flow.send(caller, 'get', path);
+  const withKey = (key: string, path: string) => flow.sendKey(key, path);
 
   const organization = async (): Promise<Org> => {
     const base = await flow.organization();
@@ -163,19 +142,19 @@ describe('monitoring with two organizations (task 4.2, AC-01 and AC-06)', () => 
       contractId: contractA,
       organizationId: a.id,
       at: handedA,
-    });
+    } satisfies DeviceHandedOverEvent);
     await bus.emitAsync(DEVICE_CHECKED_IN, {
       deviceId,
       contractId: contractA,
       organizationId: a.id,
       at: releasedA,
-    });
+    } satisfies DeviceCheckedInEvent);
     await bus.emitAsync(DEVICE_HANDED_OVER, {
       deviceId,
       contractId: contractB,
       organizationId: b.id,
       at: handedB,
-    });
+    } satisfies DeviceHandedOverEvent);
     return { deviceId, nodeNum: Number(nodeNum) };
   };
 
@@ -247,12 +226,7 @@ describe('monitoring with two organizations (task 4.2, AC-01 and AC-06)', () => 
   };
 
   beforeAll(async () => {
-    flow = await compileRentalFlow();
-    app = flow.moduleRef.createNestApplication<NestExpressApplication>();
-    configureApp(app);
-    app.useWebSocketAdapter(new LiveIoAdapter(app, ['http://localhost']));
-    await app.listen(0, '127.0.0.1');
-    url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}/live`;
+    flow = await compileRentalFlow({ http: true, sockets: true });
     ingestion = flow.get(IngestionService);
     adapter = new FieldStationJsonAdapter({
       get: () => 'treklink',
@@ -274,8 +248,7 @@ describe('monitoring with two organizations (task 4.2, AC-01 and AC-06)', () => 
   }, 120_000);
   afterAll(async () => {
     clients.splice(0).forEach(({ socket }) => socket.close());
-    if (app) await app.close();
-    else if (flow) await flow.close();
+    await flow?.close();
   });
 
   it('AC-01: B receives its unit position and A never does, on the socket, the API and the history', async () => {

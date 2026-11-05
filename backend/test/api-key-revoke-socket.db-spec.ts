@@ -4,11 +4,12 @@ import { JwtService } from '@nestjs/jwt';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { performance } from 'node:perf_hooks';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { LiveIoAdapter } from '../src/modules/monitoring/live-io.adapter';
 import { ApiKeysService } from '../src/modules/organizations/api-keys.service';
 import { OrganizationStatusService } from '../src/modules/organizations/organization-status.service';
+import { openLiveSocket } from './live-socket-client';
 import { compileRentalFlow, RentalFlow } from './db-rental-flow';
 
 interface Client {
@@ -38,30 +39,14 @@ describe('API key revocation closes the sockets of the key (monitoring 2.2)', ()
   };
   const quiet = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
   const connect = async (auth: Record<string, unknown>): Promise<Client> => {
-    const socket = io(url, {
-      auth,
-      transports: ['websocket'],
-      reconnection: false,
-      autoConnect: false,
+    const client = { errors: [], reason: null } as unknown as Client;
+    client.socket = await openLiveSocket(url, auth, (socket) => {
+      socket.on('auth.error', (error) => client.errors.push(error));
+      socket.on('disconnect', (reason) => {
+        client.reason = reason;
+      });
     });
-    const client: Client = { socket, errors: [], reason: null };
     clients.push(client);
-    socket.on('auth.error', (error) => client.errors.push(error));
-    socket.on('disconnect', (reason) => {
-      client.reason = reason;
-    });
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Handshake timed out')), 3000);
-      socket.once('connect', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      socket.once('connect_error', (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      socket.connect();
-    });
     return client;
   };
   const asMember = async (caller: Caller) =>

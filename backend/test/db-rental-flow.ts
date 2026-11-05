@@ -1,5 +1,6 @@
 import './db-app-env';
 import { randomUUID } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
 import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -18,6 +19,7 @@ import { configureApp } from '../src/app.setup';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { DomainException } from '../src/common/errors';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { LiveIoAdapter } from '../src/modules/monitoring/live-io.adapter';
 import { PaymentsService } from '../src/modules/billing/payments.service';
 import { ContractDecisionsService } from '../src/modules/rentals/contract-decisions.service';
 import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
@@ -54,8 +56,11 @@ export interface ContractTerms {
 }
 
 // With `http`, the whole application also serves HTTP with the scheduler replaced, so no job fires,
-// and `send` calls it as one of the flow's accounts (rentals 6.2, billing 5.2).
-export const compileRentalFlow = async (options: { http?: boolean } = {}) => {
+// and `send` calls it as one of the flow's accounts (rentals 6.2, billing 5.2). With `sockets` as well,
+// the application also listens on a loopback port with the `/live` adapter, and `liveUrl` is the
+// address of the namespace for `openLiveSocket` (monitoring 4.2): the clients see the real gateway
+// while no cron job runs under them.
+export const compileRentalFlow = async (options: { http?: boolean; sockets?: boolean } = {}) => {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
     throw new Error('test:db requires explicit DATABASE_URL and DATABASE_DIRECT_URL.');
@@ -69,10 +74,17 @@ export const compileRentalFlow = async (options: { http?: boolean } = {}) => {
       : builder
   ).compile();
   let app: NestExpressApplication | null = null;
+  let liveUrl: string | null = null;
   if (options.http) {
     app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
-    await app.init();
+    if (options.sockets) {
+      app.useWebSocketAdapter(new LiveIoAdapter(app, ['http://localhost']));
+      await app.listen(0, '127.0.0.1');
+      liveUrl = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}/live`;
+    } else {
+      await app.init();
+    }
   }
   const get = <T>(type: new (...args: never[]) => T): T => moduleRef.get(type, { strict: false });
   const prisma = moduleRef.get(PrismaService);
@@ -338,6 +350,7 @@ export const compileRentalFlow = async (options: { http?: boolean } = {}) => {
     seededParameters,
     send,
     sendKey,
+    liveUrl,
     close: () => (app ? app.close() : moduleRef.close()),
   };
 };

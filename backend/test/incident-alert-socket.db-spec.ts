@@ -6,7 +6,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { performance } from 'node:perf_hooks';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { AccountType, Incident } from '@prisma/client';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { AccountsService } from '../src/modules/auth';
@@ -18,6 +18,7 @@ import { RoutingService } from '../src/modules/incidents/routing.service';
 import { LiveIoAdapter } from '../src/modules/monitoring/live-io.adapter';
 import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
 import { compileRentalFlow, RentalFlow } from './db-rental-flow';
+import { openLiveSocket } from './live-socket-client';
 
 interface Entry {
   seq: number;
@@ -61,27 +62,11 @@ describe('TK-143 committed incident alerts over authenticated sockets', () => {
   };
   const tokenOf = (caller: Caller) => flow.get(JwtService).signAsync({ sub: caller.id, pv: 0 });
   const connect = async (auth: Record<string, unknown>): Promise<Client> => {
-    const socket = io(url, {
-      auth,
-      transports: ['websocket'],
-      reconnection: false,
-      autoConnect: false,
+    const client = { entries: [] } as unknown as Client;
+    client.socket = await openLiveSocket(url, auth, (socket) => {
+      socket.on('stream', (entry: Entry) => client.entries.push({ entry, at: performance.now() }));
     });
-    const client: Client = { socket, entries: [] };
     clients.push(client);
-    socket.on('stream', (entry: Entry) => client.entries.push({ entry, at: performance.now() }));
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Handshake timed out')), 3000);
-      socket.once('connect', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      socket.once('connect_error', (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      socket.connect();
-    });
     return client;
   };
   const as = async (caller: Caller, extra: Record<string, unknown> = {}) =>
