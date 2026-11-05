@@ -3,6 +3,7 @@ import {
   ceilVnd,
   dayPlanCreditVnd,
   dayPlanFeeVnd,
+  earlyEndCreditOf,
   holdingFeeVnd,
   monthlyCreditVnd,
   termFeeVnd,
@@ -53,5 +54,68 @@ describe('money helpers (billing task 1.2, REQ-UBI-01)', () => {
     // 450,000 / 30 x 1.5 x 2 = 45,000; a 4-day plan caps it at 90,000.
     expect(dayPlanCreditVnd(450_000n, '1.5', 2, 4)).toBe(45_000n);
     expect(dayPlanCreditVnd(450_000n, '1.5', 9, 4)).toBe(90_000n);
+  });
+
+  // billing design §10.1, AC-09 (D-097 rule 2): F = 2 × 450,000 = 900,000 VND.
+  describe('earlyEndCreditOf', () => {
+    const HOUR = 3_600_000;
+    const DAY = 24 * HOUR;
+    const start = new Date('2026-11-01T02:00:00.000Z');
+    const term30 = { startsAt: start, endsAt: new Date(start.getTime() + 30 * DAY) };
+    const term31 = { startsAt: start, endsAt: new Date(start.getTime() + 31 * DAY) };
+
+    it('credits 24 of 30 days when ended on day 6', () => {
+      expect(
+        earlyEndCreditOf(900_000n, term30, new Date(start.getTime() + 5 * DAY + HOUR)),
+      ).toEqual({
+        termDays: 30,
+        usedDays: 6,
+        unusedDays: 24,
+        creditVnd: 720_000n,
+      });
+    });
+
+    it('counts the first day as used, even at the term start itself', () => {
+      expect(earlyEndCreditOf(900_000n, term30, new Date(start.getTime() + HOUR)).creditVnd).toBe(
+        870_000n,
+      );
+      expect(earlyEndCreditOf(900_000n, term30, start)).toMatchObject({
+        usedDays: 1,
+        unusedDays: 29,
+      });
+    });
+
+    it('credits nothing on the last day or after the term end', () => {
+      const lastDay = new Date(term30.endsAt.getTime() - HOUR);
+      expect(earlyEndCreditOf(900_000n, term30, lastDay)).toEqual({
+        termDays: 30,
+        usedDays: 30,
+        unusedDays: 0,
+        creditVnd: 0n,
+      });
+      expect(
+        earlyEndCreditOf(900_000n, term30, new Date(term30.endsAt.getTime() + DAY)).creditVnd,
+      ).toBe(0n);
+    });
+
+    it('divides by 31 on a 31-day term and rounds the credit up', () => {
+      expect(
+        earlyEndCreditOf(900_000n, term31, new Date(start.getTime() + 5 * DAY + HOUR)),
+      ).toEqual({
+        termDays: 31,
+        usedDays: 6,
+        unusedDays: 25,
+        creditVnd: 725_807n,
+      });
+    });
+
+    it('counts the end day as used once it has started', () => {
+      expect(earlyEndCreditOf(900_000n, term30, new Date(start.getTime() + 6 * DAY)).usedDays).toBe(
+        6,
+      );
+      expect(
+        earlyEndCreditOf(900_000n, term30, new Date(start.getTime() + 6 * DAY + 1)).usedDays,
+      ).toBe(7);
+    });
   });
 });

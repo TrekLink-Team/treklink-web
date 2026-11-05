@@ -25,6 +25,7 @@ import {
   ApproveContractDto,
   ContractQueryDto,
   ContractReasonDto,
+  EndNowDto,
   HolderDto,
   NoticeDto,
 } from './dto/contract-decision.dto';
@@ -415,6 +416,60 @@ export class ContractsController {
     return {
       ...labelledView(contract, label(contract), term),
       dueAtEndVnd: Number(dueAtEndVnd),
+    };
+  }
+
+  // End now (api-design 30, D-097): Staff, or the Org Manager of the contract's organization. The
+  // envelope message is static; the dialog's toast says the same.
+  @Post(':id/end')
+  @HttpCode(HttpStatus.OK)
+  @CheckPolicies((ability) => ability.can('end', 'RentalContract'))
+  @ResponseMessage('Contract ended. Check the units in at the counter.')
+  async end(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EndNowDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    const { contract, term, earlyEnd } = await this.decisions.endNow(
+      id,
+      { reason: dto.reason, expectedVersion: dto.expectedVersion },
+      caller,
+    );
+    const label = await this.reads.labeller([contract]);
+    return {
+      ...labelledView(contract, label(contract), term),
+      earlyEnd: {
+        endedAt: earlyEnd.endedAt,
+        reason: earlyEnd.reason,
+        creditVnd: Number(earlyEnd.creditVnd),
+        usedDays: earlyEnd.usedDays,
+        unusedDays: earlyEnd.unusedDays,
+        termDays: earlyEnd.termDays,
+        outstandingVnd: Number(earlyEnd.outstandingVnd),
+        owedToOrganizationVnd: Number(earlyEnd.owedToOrganizationVnd),
+      },
+    };
+  }
+
+  // The End now preview (api-design 31): read only, under the same permission as the action.
+  @Get(':id/end-preview')
+  @CheckPolicies((ability) => ability.can('end', 'RentalContract'))
+  @ResponseMessage('OK')
+  async endPreview(@Param('id', ParseUUIDPipe) id: string, @CurrentCaller() caller: Caller) {
+    const preview = await this.decisions.endPreview(id, caller);
+    return {
+      contractId: preview.contract.id,
+      code: preview.contract.code,
+      planType: preview.contract.planType,
+      endsAt: preview.endsAt,
+      term: preview.term,
+      termFeeVnd: Number(preview.termFeeVnd),
+      termDays: preview.termDays,
+      usedDays: preview.usedDays,
+      unusedDays: preview.unusedDays,
+      creditVnd: Number(preview.creditVnd),
+      outstandingVnd: Number(preview.outstandingVnd),
+      owedToOrganizationVnd: Number(preview.owedToOrganizationVnd),
     };
   }
 

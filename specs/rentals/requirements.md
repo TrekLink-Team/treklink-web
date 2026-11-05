@@ -108,7 +108,7 @@
 - **REQ-ERR-15**: IF a group has no name, an end date before its start date, or the same name as a group with the same parent in the organization, THEN the system SHALL return 400 `VALIDATION_FAILED` (MSG02, MSG35) or 409 `CONFLICT_UNIQUE` (MSG10); IF the edit carries a stale `version`, THEN 409 `STALE_VERSION`. [FR-CON-17]
 - **REQ-ERR-16**: IF a fault report names a device that is not `RENTED` to the organization, THEN the system SHALL return 409 `INVALID_STATE_TRANSITION` (MSG28); IF the device's live row already has an unresolved fault report, THEN 409 `FAULT_ALREADY_REPORTED` with the open report's id, and record nothing. [FR-CON-19]
 
-- **REQ-ERR-17**: IF End now names another organization's contract, THEN the system SHALL return 404 (MSG26); IF its reason is empty after trimming or longer than 500 characters, THEN 400 `VALIDATION_FAILED`; IF the `version` is stale, THEN 409 `STALE_VERSION`; IF the contract is not `ACTIVE` or `ENDING`, THEN 409 `INVALID_STATE_TRANSITION` (MSG28); checked in that order, and in every case nothing changes. The preview of REQ-EVT-28 answers 404 and 409 `INVALID_STATE_TRANSITION` the same way. [D-097]
+- **REQ-ERR-17**: IF the reason of End now is empty after trimming or longer than 500 characters, THEN the system SHALL return 400 `VALIDATION_FAILED` before it reads the contract; IF End now names another organization's contract, THEN 404 (MSG26); IF the `version` is stale, THEN 409 `STALE_VERSION`; IF the contract is not `ACTIVE` or `ENDING`, THEN 409 `INVALID_STATE_TRANSITION` (MSG28); checked in that order, and in every case nothing changes. The preview of REQ-EVT-28 answers 404 and 409 `INVALID_STATE_TRANSITION` the same way. [D-097]
 
 ---
 

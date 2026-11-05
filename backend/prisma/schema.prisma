@@ -1313,6 +1313,7 @@ enum InvoiceLineType {
   LOSS
   ADJUSTMENT
   SERVICE_CREDIT // negative: a unit that failed through no fault of the organization (design §9)
+  EARLY_END_CREDIT // negative: the unused whole days of a term ended now (D-097, design §10)
 }
 
 // Why a unit failed through no fault of the organization (billing design §9.1, D-092 rule 5).
