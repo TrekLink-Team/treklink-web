@@ -26,7 +26,6 @@ export interface IncidentInsertResult {
 
 export type DueTimer = 'tierDeadlineAt' | 'statusDueAt' | 'reopenWindowEndsAt';
 
-// Writes require the caller's transaction: routing, history and outbox must commit together.
 // The sortable columns of the incident lists (api-design 01, W26): the code, the state in lifecycle
 // order and the latest event. Device, holder and owner are names; the deadline column mixes two
 // deadlines and is already the default order.
@@ -39,6 +38,7 @@ const INCIDENT_SORTS: SortColumns<IncidentSortField, Prisma.IncidentOrderByWithR
   lastEventAt: (order) => ({ lastEventAt: order }),
 };
 
+// Writes require the caller's transaction: routing, history and outbox must commit together.
 @Injectable()
 export class IncidentsRepository {
   constructor(private readonly prisma: PrismaService) {}

@@ -62,6 +62,8 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
   let organizationId: string;
   let deviceA: string;
   let deviceB: string;
+  let deviceNull: string;
+  let tiedPair: string[];
   let recordA: string;
   let recordB: string;
   let caseA: string;
@@ -137,6 +139,27 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
       });
     deviceA = (await device('A', true)).id;
     deviceB = (await device('B', false)).id;
+
+    // Under their own prefix, so the pair above keeps its counts: one unit never seen (no battery,
+    // no last seen, no service date) and two units equal on every sortable field but the asset tag
+    // and node id, so the order between them comes from the id tiebreaker alone.
+    const extra = (suffix: string, node: bigint, seen: boolean) =>
+      prisma.device.create({
+        data: {
+          assetTag: `W26N-${token}-${suffix}`,
+          nodeNum: nodeBase + node,
+          hardwareVariantId: variantId,
+          firmwareVersion: 'test-only',
+          acquiredAt: new Date('2026-01-01T00:00:00.000Z'),
+          status: DeviceStatus.AVAILABLE,
+          registeredById: userId,
+          batteryPct: seen ? 50 : null,
+          lastSeenAt: seen ? new Date('2026-11-03T00:00:00.000Z') : null,
+          serviceDueAt: seen ? new Date('2027-03-01') : null,
+        },
+      });
+    deviceNull = (await extra('N', 2n, false)).id;
+    tiedPair = [(await extra('T1', 3n, true)).id, (await extra('T2', 4n, true)).id].sort();
 
     // Expected in 1980, so the `expectedBy` bound below leaves every other record out.
     const record = (deviceId: string, low: boolean) =>
@@ -245,6 +268,24 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
     it('keeps the asset tag order without a sort', async () => {
       const [rows] = await devices.page({ q: `W26-${token}` }, 0, 20);
       expect(rows.map((row) => row.id)).toEqual([deviceA, deviceB]);
+    });
+
+    // A missing value sorts last in either direction; equal values fall back to the id, in the same
+    // direction as the sort (review of treklink-web#399).
+    it.each(both(['batteryPct', 'lastSeenAt', 'serviceDueAt'] as const))(
+      'puts a null $field last and breaks the tie on id, $order',
+      async (sort) => {
+        const [rows, total] = await devices.page({ q: `W26N-${token}` }, 0, 20, sort);
+        const ties = sort.order === 'asc' ? tiedPair : [...tiedPair].reverse();
+        expect(rows.map((row) => row.id)).toEqual([...ties, deviceNull]);
+        expect(total).toBe(3);
+      },
+    );
+
+    it.each(['asc', 'desc'] as const)('orders equal statuses by id alone, %s', async (order) => {
+      const [rows] = await devices.page({ q: `W26N-${token}` }, 0, 20, { field: 'status', order });
+      const ids = [deviceNull, ...tiedPair].sort();
+      expect(rows.map((row) => row.id)).toEqual(order === 'asc' ? ids : ids.reverse());
     });
   });
 
