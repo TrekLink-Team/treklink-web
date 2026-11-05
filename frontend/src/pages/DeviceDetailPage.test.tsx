@@ -173,7 +173,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     const href = (name: string) => within(history).getByRole('link', { name }).getAttribute('href');
     expect(href('Handed over on RC-2026-0001 (ORG-0001)')).toBe('/t/contracts/c-1');
     expect(href('From Rented to Lost (Loss reported)')).toBe('/t/loss-cases/l-1');
-    expect(href('Incident INC-2026-000001 opened (Detected)')).toBe('/t/incidents');
+    expect(href('Incident INC-2026-000001 opened (Detected)')).toBe('/t/incidents/i-1');
     expect(href('Maintenance opened: Staff reported')).toBe('/t/maintenance');
     expect(within(history).queryByRole('link', { name: 'From Returned to Available (Inspection pass)' })).toBeNull();
     expect(within(history).getByText('From Returned to Available (Inspection pass)')).toBeTruthy();
