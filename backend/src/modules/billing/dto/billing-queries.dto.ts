@@ -13,6 +13,8 @@ import {
   Min,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
+import { SORT_ORDERS, SortOrder } from '../../../common/dto/sorting';
+import { INVOICE_SORT_FIELDS, InvoiceSortField } from '../invoices.repository';
 
 // billing api-design 08.
 export class InvoiceQueryDto extends PagedQueryDto {
@@ -30,6 +32,15 @@ export class InvoiceQueryDto extends PagedQueryDto {
   )
   @IsBoolean()
   overdue?: boolean;
+
+  // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
+  @IsOptional()
+  @IsIn(INVOICE_SORT_FIELDS)
+  sort?: InvoiceSortField;
+
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  order?: SortOrder;
 }
 
 // billing api-design 14.

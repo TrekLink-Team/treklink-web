@@ -9,10 +9,16 @@ import {
   resolvePage,
   toPagedResult,
 } from '../../common/dto/paging';
+import { resolveSort, SortQuery } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { BalanceService, BalanceSummary } from './balance.service';
-import { InvoiceDetailRow, InvoiceRow, InvoicesRepository } from './invoices.repository';
+import {
+  InvoiceDetailRow,
+  InvoiceRow,
+  InvoiceSortField,
+  InvoicesRepository,
+} from './invoices.repository';
 import { PaymentRow, PaymentsRepository } from './payments.repository';
 import {
   CONTRACT_DIRECTORY,
@@ -21,7 +27,7 @@ import {
   InvoiceBuyer,
 } from './ports/contract-directory.port';
 
-export interface InvoiceQuery extends PagedQueryDto {
+export interface InvoiceQuery extends PagedQueryDto, SortQuery<InvoiceSortField> {
   contractId?: string;
   status?: InvoiceStatus;
   overdue?: boolean;
@@ -93,6 +99,8 @@ export class BillingReadsService {
       },
       page.skip,
       page.take,
+      undefined,
+      resolveSort(query),
     );
     return toPagedResult(await this.label(rows), total, page);
   }

@@ -6,6 +6,8 @@ import {
   IncidentConfidence,
   IncidentSource,
   IncidentState,
+  InvoiceKind,
+  InvoiceStatus,
   LossCaseState,
   MaintenanceStatus,
   PlanType,
@@ -13,6 +15,10 @@ import {
 } from '@prisma/client';
 import { ListSort } from '../src/common/dto/sorting';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import {
+  INVOICE_SORT_FIELDS,
+  InvoicesRepository,
+} from '../src/modules/billing/invoices.repository';
 import { DevicesRepository, DEVICE_SORT_FIELDS } from '../src/modules/devices/devices.repository';
 import {
   LOSS_CASE_SORT_FIELDS,
@@ -48,6 +54,7 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
   const lossCases = new LossCasesRepository(prisma);
   const incidents = new IncidentsRepository(prisma);
   const contracts = new ContractsRepository(prisma);
+  const invoices = new InvoicesRepository(prisma);
   const runId = randomUUID();
   const token = runId.slice(0, 8).toUpperCase();
   const nodeBase = BigInt(Date.now() % 1_000_000_000) * 4n + 3_000_000_000n;
@@ -63,6 +70,8 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
   let incidentB: string;
   let contractA: string;
   let contractB: string;
+  let invoiceA: string;
+  let invoiceB: string;
 
   const orderOf = (ids: string[], first: string, second: string) =>
     ids.filter((id) => id === first || id === second);
@@ -197,6 +206,22 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
       });
     contractA = (await contract(true)).id;
     contractB = (await contract(false)).id;
+
+    const invoice = (contractId: string, low: boolean) =>
+      prisma.invoice.create({
+        data: {
+          number: `INV-W26-${token}-${low ? 'A' : 'B'}`,
+          organizationId,
+          contractId,
+          kind: InvoiceKind.TERM,
+          status: low ? InvoiceStatus.ISSUED : InvoiceStatus.PARTIALLY_PAID,
+          totalVnd: low ? 100_000n : 900_000n,
+          paidVnd: low ? 0n : 300_000n,
+          issuedAt: new Date(low ? '2026-11-01T00:00:00.000Z' : '2026-11-02T00:00:00.000Z'),
+        },
+      });
+    invoiceA = (await invoice(contractA, true)).id;
+    invoiceB = (await invoice(contractB, false)).id;
   });
 
   afterAll(async () => {
@@ -275,6 +300,20 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
     it('keeps the newest status change first without a sort', async () => {
       const [rows] = await contracts.page({ organizationId }, 0, 20);
       expect(rows.map((row) => row.id)).toEqual([contractB, contractA]);
+    });
+  });
+
+  describe('billing api-design 08', () => {
+    it.each(both(INVOICE_SORT_FIELDS))('sorts by $field $order', async (sort) => {
+      const [rows, total] = await invoices.page({ organizationId }, 0, 20, undefined, sort);
+      const expected = sort.order === 'asc' ? [invoiceA, invoiceB] : [invoiceB, invoiceA];
+      expect(rows.map((row) => row.id)).toEqual(expected);
+      expect(total).toBe(2);
+    });
+
+    it('keeps the newest invoice first without a sort', async () => {
+      const [rows] = await invoices.page({ organizationId }, 0, 20);
+      expect(rows.map((row) => row.id)).toEqual([invoiceB, invoiceA]);
     });
   });
 

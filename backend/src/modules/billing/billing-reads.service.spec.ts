@@ -1,3 +1,5 @@
+import { validateQuery } from '../../common/pipes/app-validation.pipe';
+import { InvoiceQueryDto } from './dto/billing-queries.dto';
 import { ConfigService } from '@nestjs/config';
 import { InvoiceKind, InvoiceStatus } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
@@ -91,18 +93,50 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
       expect.objectContaining({ organizationId: 'org-1' }),
       0,
       20,
+      undefined,
+      undefined,
     );
     await service().invoicePage({}, STAFF, NOW);
     expect(invoices.page).toHaveBeenLastCalledWith(
       expect.objectContaining({ organizationId: undefined }),
       0,
       20,
+      undefined,
+      undefined,
     );
   });
 
   it('passes the overdue cut-off only when asked, and pages with the defaults', async () => {
     await service().invoicePage({ overdue: true, pageNumber: 2 }, STAFF, NOW);
-    expect(invoices.page).toHaveBeenCalledWith(expect.objectContaining({ overdueAt: NOW }), 20, 20);
+    expect(invoices.page).toHaveBeenCalledWith(
+      expect.objectContaining({ overdueAt: NOW }),
+      20,
+      20,
+      undefined,
+      undefined,
+    );
+  });
+
+  // W26: the invoice lists sort on the server by one allowed column (api-design 08).
+  it('passes the requested sort to the page, ascending by default', async () => {
+    const sortOf = () => (invoices.page.mock.calls as unknown[][]).at(-1)?.[4];
+    await service().invoicePage({ sort: 'totalVnd', order: 'desc' }, STAFF, NOW);
+    expect(sortOf()).toEqual({ field: 'totalVnd', order: 'desc' });
+    await service().invoicePage({ sort: 'number' }, STAFF, NOW);
+    expect(sortOf()).toEqual({ field: 'number', order: 'asc' });
+    await expect(service().invoicePage({ order: 'desc' }, STAFF, NOW)).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+    });
+  });
+
+  it('refuses a sort field off the allowlist with 400 VALIDATION_FAILED', async () => {
+    await expect(
+      validateQuery(InvoiceQueryDto, { sort: 'paidVnd', order: 'asc' }),
+    ).resolves.toMatchObject({ sort: 'paidVnd', order: 'asc' });
+    await expect(validateQuery(InvoiceQueryDto, { sort: 'kind' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+      status: 400,
+    });
   });
 
   it('labels each invoice with its contract, organization and term from the directory', async () => {
