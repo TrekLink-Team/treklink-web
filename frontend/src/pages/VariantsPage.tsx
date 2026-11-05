@@ -207,7 +207,8 @@ export const VariantsPage: React.FC = () => {
           { key: 'inactive', label: 'Inactive', test: (row) => !row.isActive },
         ]}
         details={{
-          fields: ['units', 'status', 'firmwareBaseline'],
+          // The card above names the firmware baseline and the capabilities.
+          fields: ['units', 'status'],
           image: (variant) => <VariantCard variant={variant} render="detail" headingLevel="h3" />,
           extra: (variant) => <PlanDetails variant={variant} />,
         }}
