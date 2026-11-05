@@ -140,6 +140,10 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
           <div
             className={cn(
               'mx-auto flex w-full flex-1 flex-col',
+              // A full-bleed page fills `main` and scrolls inside its own panes, so this wrapper must be
+              // allowed to shrink to `main`; without `min-h-0` a tall list grows it and `main` scrolls
+              // (the live map's Field Stations section, review of treklink-web#385).
+              fullBleed && 'min-h-0',
               // A page action bar sits flush with the bottom, so its page drops the bottom padding.
               !fullBleed && 'max-w-page pb-6 pt-1 has-[[data-page-actions]]:pb-0',
             )}

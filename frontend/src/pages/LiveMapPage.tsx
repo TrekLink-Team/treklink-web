@@ -145,8 +145,8 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
     ],
     // Screen 9.1: the popup opens the device's telemetry history (screen 9.2) in the same scope; the
     // asset tag travels along for the history heading.
-    // An open incident comes first: it is the urgent page. The staff queue has no per-incident route, so
-    // its link selects the incident on `/t/incidents` (screen 8.2).
+    // An open incident comes first: it is the urgent page. It opens `/o/incidents/:id` (screen 8.1) or,
+    // for Staff, `/t/incidents/:id` (screen 8.2).
     links: [
       ...(device.openIncident
         ? [
