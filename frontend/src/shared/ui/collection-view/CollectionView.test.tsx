@@ -466,6 +466,65 @@ describe('CollectionView', () => {
     expect(retire).toHaveBeenCalledWith([UNITS[0]]);
   });
 
+  describe('item action slots (chapter 06 §11.4)', () => {
+    const actionNames = (tag: string) => {
+      const row = screen.getByRole('rowheader', { name: tag }).closest('tr')!;
+      const cell = row.lastElementChild!;
+      return within(cell as HTMLElement)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'));
+    };
+
+    it('puts Show details last at the inline end, and keeps a slot for an unavailable action', () => {
+      renderView({
+        itemActions: [
+          { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit },
+          {
+            key: 'charge',
+            label: 'Charge',
+            icon: <Pencil />,
+            allowed: (unit) => unit.status === 'Active',
+            unavailableReason: () => 'Only an active unit charges',
+            onSelect: vi.fn(),
+          },
+        ],
+      });
+      expect(actionNames('TL-0001')).toEqual(['Edit TL-0001', 'Charge TL-0001', 'Show details of TL-0001']);
+      // TL-0002 is inactive: Charge keeps its slot, disabled with its reason, so nothing shifts.
+      expect(actionNames('TL-0002')).toEqual(['Edit TL-0002', 'Charge TL-0002', 'Show details of TL-0002']);
+      const charge = screen.getByRole('button', { name: 'Charge TL-0002' });
+      expect(charge.getAttribute('aria-disabled')).toBe('true');
+      const cell = charge.closest('td')!;
+      expect(cell.querySelector('span')!.className).toContain('justify-end');
+    });
+
+    it('leaves out for the whole list an action no item may take, as a role never has it', () => {
+      renderView({
+        itemActions: [
+          { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit },
+          { key: 'purge', label: 'Purge', icon: <Pencil />, allowed: () => false, onSelect: vi.fn() },
+        ],
+      });
+      expect(screen.queryByRole('button', { name: /^Purge/ })).toBeNull();
+      expect(actionNames('TL-0003')).toEqual(['Edit TL-0003', 'Show details of TL-0003']);
+    });
+
+    it('gathers three or more slots into one overflow menu next to Show details', () => {
+      renderView({
+        itemActions: [
+          { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit },
+          { key: 'off', label: 'Deactivate', slot: 'active', icon: <Pencil />, allowed: (unit) => unit.status === 'Active', onSelect: vi.fn() },
+          { key: 'on', label: 'Reactivate', slot: 'active', icon: <Pencil />, allowed: (unit) => unit.status !== 'Active', onSelect: vi.fn() },
+          { key: 'delete', label: 'Delete', icon: <Pencil />, destructive: true, onSelect: vi.fn() },
+        ],
+      });
+      expect(actionNames('TL-0002')).toEqual(['More actions for TL-0002', 'Show details of TL-0002']);
+      fireEvent.click(screen.getByRole('button', { name: 'More actions for TL-0002' }));
+      // Deactivate and Reactivate share one slot: the inactive unit shows Reactivate.
+      expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Edit', 'Reactivate', 'Delete']);
+    });
+  });
+
   it('keeps one polite live region from the first render and announces the result count', () => {
     vi.useFakeTimers();
     renderView();

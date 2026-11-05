@@ -81,8 +81,13 @@ describe('MembersPage (screen 3.3)', () => {
     expect(within(table).getAllByText('Operator')).toHaveLength(2);
     expect(within(table).queryByText('OPERATOR')).toBeNull();
     expect(screen.getByText('3 members')).toBeTruthy();
-    // Only the pending invitation can be resent.
-    expect(within(table).getAllByRole('button', { name: /^Resend invitation to / })).toHaveLength(1);
+    // Only the pending invitation can be resent; the three action slots share the overflow menu and
+    // Resend keeps its slot on the others, unavailable (chapter 06 §11.4).
+    fireEvent.click(within(table).getByRole('button', { name: 'More actions for Le Thi F' }));
+    expect(screen.getByRole('menuitem', { name: 'Resend invitation' }).getAttribute('aria-disabled')).toBeNull();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    fireEvent.click(within(table).getByRole('button', { name: 'More actions for Pham Van D' }));
+    expect(screen.getByRole('menuitem', { name: 'Resend invitation' }).getAttribute('aria-disabled')).toBe('true');
     expect(api).toHaveBeenCalledWith(LIST);
   });
 
@@ -101,8 +106,8 @@ describe('MembersPage (screen 3.3)', () => {
     // A short badge with the date after it (design handoff item 12).
     expect(inTable().getByText('Deactivated')).toBeTruthy();
     expect(api).toHaveBeenCalledWith(`${LIST}?includeDeactivated=true`);
-    // A deactivated member has no actions.
-    expect(inTable().queryByRole('button', { name: 'Deactivate Tran Van G' })).toBeNull();
+    // A deactivated member's actions keep their slots, unavailable (chapter 06 §11.4).
+    expect(inTable().getByRole('button', { name: 'Deactivate Tran Van G' }).getAttribute('aria-disabled')).toBe('true');
   });
 
   it('invites a member as Operator by default and shows them pending after the refetch', async () => {
@@ -236,7 +241,8 @@ describe('MembersPage (screen 3.3)', () => {
     );
     renderPage();
     await screen.findByText('2 members');
-    fireEvent.click(inTable().getByRole('button', { name: 'Resend invitation to Le Thi F' }));
+    fireEvent.click(inTable().getByRole('button', { name: 'More actions for Le Thi F' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Resend invitation' }));
     await waitFor(() => expect(useToast.getState().message).toBe('If an invitation is due, a new code was sent to f.le@acme-trek.vn.'));
   });
 

@@ -175,8 +175,9 @@ describe('ReturnCounter (screen 5.5)', () => {
 
     expect(screen.getByText(/^Reset logged /)).toBeTruthy();
     expect(screen.getByText('Not reset')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: /^Inspect TL-/ })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: /^Record reset TL-/ })).toHaveLength(1);
+    // Unavailable item actions keep their slots, disabled (chapter 06 §11.4).
+    expect(screen.getAllByRole('button', { name: /^Inspect TL-/ }).filter((button) => button.getAttribute('aria-disabled') !== 'true')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /^Record reset TL-/ }).filter((button) => button.getAttribute('aria-disabled') !== 'true')).toHaveLength(1);
   });
 
   it('shows only the units still to inspect from Show on CollectionView (D-096)', () => {
@@ -399,7 +400,7 @@ describe('ReturnCounter (screen 5.5)', () => {
     expect(screen.getByRole('link', { name: 'Loss case LOSS-0002 open' }).getAttribute('href')).toBe(
       '/t/loss-cases/lc-2',
     );
-    fireEvent.click(screen.getByRole('button', { name: /^Report lost TL-/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^Report lost TL-/ }).filter((button) => button.getAttribute('aria-disabled') !== 'true')[0]);
     fireEvent.change(screen.getByLabelText(/Description/), {
       target: { value: 'Not handed back at the counter' },
     });

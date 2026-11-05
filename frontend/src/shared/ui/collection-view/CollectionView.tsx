@@ -7,6 +7,7 @@ import {
   ChevronsUpDown,
   Info,
   LayoutGrid,
+  MoreHorizontal,
   List as ListIcon,
   PanelRight,
   Search,
@@ -478,6 +479,31 @@ export function CollectionView<T>({
 
   const actionsOf = (item: T) =>
     itemActions.filter((action) => !action.allowed || action.allowed(item));
+  // The action slots of the list (§11.4): an action any shown item may take keeps its slot on every
+  // row, so no button moves because another appeared. An action no item may take (the role never
+  // has it) is absent for the whole list.
+  const listActions = itemActions.filter(
+    (action) => !action.allowed || visible.some((item) => action.allowed?.(item)),
+  );
+  // Why an action that holds a slot is unavailable for this item, or undefined when it is available.
+  const reasonOf = (action: CollectionAction<T>, item: T) => {
+    if (action.allowed && !action.allowed(item))
+      return action.unavailableReason?.(item) ?? `Not available for this ${noun.one} now.`;
+    return action.unavailableReason?.(item);
+  };
+  // The slots, in list order; actions sharing a slot key hold one slot.
+  const slots = listActions.reduce<CollectionAction<T>[][]>((all, action) => {
+    const key = action.slot ?? action.key;
+    const found = all.find((group) => (group[0].slot ?? group[0].key) === key);
+    if (found) found.push(action);
+    else all.push([action]);
+    return all;
+  }, []);
+  // The action a slot shows for this item: the first one it may take, else the first, disabled.
+  const slotActions = (item: T) =>
+    slots.map((group) => group.find((action) => !action.allowed || action.allowed(item)) ?? group[0]);
+  // Three or more slots besides Show details share one overflow menu in a fixed slot next to it.
+  const overflows = slots.length >= 3;
   const transitionsOf = (item: T) => transitions?.(item) ?? [];
 
   const searching = query.search.trim() !== '';
@@ -556,21 +582,49 @@ export function CollectionView<T>({
       />
     ) : null;
 
-  const actionButtons = (item: T) => (
-    <span className="flex items-center justify-end gap-0.5">
-      {detailsButton(item)}
-      {actionsOf(item).map((action) => (
-        <TooltipButton
-          key={action.key}
-          tooltip={action.label}
-          name={action.accessibleName?.(item) ?? `${action.label} ${itemName(item)}`}
-          icon={action.icon}
-          unavailableReason={action.unavailableReason?.(item)}
-          onClick={() => action.onSelect(item)}
-        />
-      ))}
-    </span>
-  );
+  // The actions cell, right-aligned, in fixed slots from the inline end (§11.4): Show details last
+  // in tab order at the inline end, the overflow menu next to it for three or more actions, else the
+  // actions in their list order to its left. A page adds a new action at the start of its list.
+  const actionButtons = (item: T) => {
+    const name = itemName(item);
+    return (
+      <span className="flex items-center justify-end gap-0.5">
+        {overflows ? (
+          <Menu
+            label={`More actions for ${name}`}
+            title="More actions"
+            chevron={false}
+            trigger={<MoreHorizontal aria-hidden="true" className="h-5 w-5" />}
+            triggerClassName="h-10 min-w-10"
+            items={slotActions(item).map((action) => {
+              const reason = reasonOf(action, item);
+              return {
+                key: action.key,
+                label: action.label,
+                icon: action.icon,
+                destructive: action.destructive,
+                disabled: reason !== undefined,
+                disabledReason: reason,
+                onSelect: () => action.onSelect(item),
+              };
+            })}
+          />
+        ) : (
+          slotActions(item).map((action) => (
+            <TooltipButton
+              key={action.key}
+              tooltip={action.label}
+              name={action.accessibleName?.(item) ?? `${action.label} ${name}`}
+              icon={action.icon}
+              unavailableReason={reasonOf(action, item)}
+              onClick={() => action.onSelect(item)}
+            />
+          ))
+        )}
+        {detailsButton(item)}
+      </span>
+    );
+  };
 
   // At phone width an item's actions and status changes are one Actions dropdown (§10.5).
   const phoneMenu = (item: T) => {
@@ -579,12 +633,12 @@ export function CollectionView<T>({
       ...(offersDetails
         ? [{ key: 'details', label: 'Show details', onSelect: () => showDetails(item) }]
         : []),
-      ...actionsOf(item).map((action) => ({
+      ...slotActions(item).map((action) => ({
         key: action.key,
         label: action.label,
         destructive: action.destructive,
-        disabled: action.unavailableReason?.(item) !== undefined,
-        disabledReason: action.unavailableReason?.(item),
+        disabled: reasonOf(action, item) !== undefined,
+        disabledReason: reasonOf(action, item),
         onSelect: () => action.onSelect(item),
       })),
       // With a status field the badge menu stays on the row, so the dropdown holds no status items.

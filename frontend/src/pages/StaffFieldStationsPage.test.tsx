@@ -73,7 +73,8 @@ describe('StaffFieldStationsPage (screen 3.5, TrekLink view)', () => {
     expect(api).not.toHaveBeenCalledWith('/organizations/org-c/field-stations');
     // A revoked row has no action.
     expect(screen.getByRole('button', { name: /Revoke\s+Office laptop of ORG-0001/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Revoke\s+Old laptop/ })).toBeNull();
+    // The revoked station keeps the Revoke slot, unavailable (chapter 06 §11.4).
+    expect(screen.getByRole('button', { name: /Revoke\s+Old laptop/ }).getAttribute('aria-disabled')).toBe('true');
   });
 
   it('says when more organizations exist than the one page it reads', async () => {

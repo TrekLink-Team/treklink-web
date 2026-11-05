@@ -290,7 +290,8 @@ describe('ContractApprovalPage row actions (W29)', () => {
     expect(table().queryByRole('button', { name: /change status of RC-2026-0006/ })).toBeNull();
     expect(table().getByRole('button', { name: 'Open counter RC-2026-0005' })).toBeTruthy();
     expect(table().getByRole('button', { name: 'Open counter RC-2026-0006' })).toBeTruthy();
-    expect(table().queryByRole('button', { name: /^Open counter RC-2026-000[47]/ })).toBeNull();
+    // Unavailable item actions keep their slots, disabled (chapter 06 §11.4).
+    expect(table().queryAllByRole('button', { name: /^Open counter RC-2026-000[47]/ }).filter((button) => button.getAttribute('aria-disabled') !== 'true')).toHaveLength(0);
     expect(table().queryByRole('button', { name: /change status of RC-2026-0007/ })).toBeNull();
     // Status changes stay per row: no selection to change together (review of treklink-web#350).
     expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);

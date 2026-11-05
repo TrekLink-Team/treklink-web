@@ -185,6 +185,7 @@ export const AccountsPage: React.FC = () => {
     { key: 'reset', label: 'Send reset code', icon: <KeyRound />, allowed: (account) => account.isActive, onSelect: (account) => setAction({ kind: 'reset', account }) },
     {
       key: 'deactivate',
+      slot: 'active',
       label: 'Deactivate',
       icon: <UserX />,
       destructive: true,
@@ -192,7 +193,7 @@ export const AccountsPage: React.FC = () => {
       unavailableReason: (account) => (account.id === lastAdmin ? LAST_ADMIN_REASON : undefined),
       onSelect: (account) => setAction({ kind: 'deactivate', account }),
     },
-    { key: 'reactivate', label: 'Reactivate', icon: <UserCheck />, allowed: (account) => !account.isActive, onSelect: (account) => setAction({ kind: 'reactivate', account }) },
+    { key: 'reactivate', label: 'Reactivate', icon: <UserCheck />, slot: 'active', allowed: (account) => !account.isActive, onSelect: (account) => setAction({ kind: 'reactivate', account }) },
   ];
 
   const bulkActions: CollectionBulkAction<AccountItem>[] = [

@@ -39,8 +39,17 @@ export interface CollectionAction<T> {
    * must start with `label`, so the name contains the visible tooltip (2.5.3).
    */
   accessibleName?: (item: T) => string;
-  /** False hides the action for this item (a permission or a state the action does not apply to). */
+  /**
+   * False makes the action unavailable for this item (a state it does not apply to): it keeps its slot,
+   * disabled with `unavailableReason` (chapter 06 §11.4). An action no shown item may take, because
+   * the role never has it, is absent for the whole list.
+   */
   allowed?: (item: T) => boolean;
+  /**
+   * Actions that never apply to the same item (Deactivate, Reactivate) share one slot: the row shows
+   * the one its item may take. Defaults to the action's key.
+   */
+  slot?: string;
   /** Shown but unavailable, with this reason as text. */
   unavailableReason?: (item: T) => string | undefined;
   destructive?: boolean;
