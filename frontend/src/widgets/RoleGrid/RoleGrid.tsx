@@ -58,8 +58,9 @@ export const RoleGrid: React.FC<Props> = ({
       // A scroll box needs a tab stop so the keyboard can scroll it (WCAG 2.1.1).
       tabIndex={0}
       // The scroll padding is the sticky header and first column: a focused cell is scrolled clear of
-      // them (WCAG 2.4.11). The header is three lines tall, about 5.5rem.
-      className="max-h-[70vh] scroll-pl-72 scroll-pt-24 overflow-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+      // them (WCAG 2.4.11). The header is three lines tall, about 5.5rem. It fills the rest of its fit
+      // page and is the page's one scroll region (ui standard §7).
+      className="min-h-[16rem] flex-1 scroll-pl-72 scroll-pt-24 overflow-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
     >
       <table className="w-full border-separate border-spacing-0 text-body-sm">
         <caption className="sr-only">{caption}</caption>
