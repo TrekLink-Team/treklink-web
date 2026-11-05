@@ -465,6 +465,20 @@ describe('ContractDetailPage', () => {
       expect(within(card).getByText(/^Hand over 5 units at the counter/)).toBeTruthy();
     });
 
+    it('wraps the lifecycle strip and the section tabs instead of scrolling them (W20B item 6)', () => {
+      contract = { ...baseContract, status: 'APPROVED' };
+      renderPage();
+      const strip = screen.getByRole('list', { name: 'Lifecycle steps' });
+      expect(strip.className).toContain('flex-wrap');
+      expect(strip.className).not.toContain('overflow-x-auto');
+      // No scroll, so no tab stop and no fading edge over a step's words.
+      expect(strip.hasAttribute('tabindex')).toBe(false);
+      const tablist = screen.getByRole('tablist', { name: 'Contract sections' });
+      expect(tablist.className).toContain('flex-wrap');
+      expect(tablist.className).toContain('overflow-x-visible');
+      expect(tablist.className).not.toContain('overflow-x-auto');
+    });
+
     it('leaves out Ending on a day plan and marks an exit as a branch marker on its step', () => {
       contract = { ...baseContract, planType: 'DAY', dayPlanDays: 5, status: 'CANCELLED' };
       history = [

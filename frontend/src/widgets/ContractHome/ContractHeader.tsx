@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Check, ChevronDown, CornerDownRight } from 'lucide-react';
 import type { ContractDetail, ContractTransition } from '../../entities/contract/api';
 import { planLabel } from '../../entities/contract/api';
@@ -7,9 +7,7 @@ import { formatDate, formatDateTime, viewerTimeZone } from '../../shared/lib/for
 import { useMediaQuery } from '../../shared/lib/useMediaQuery';
 import { Badge, StatusBadge } from '../../shared/ui/Badge';
 import { cn } from '../../shared/ui/cn';
-import { ScrollHintOverlay } from '../../shared/ui/ScrollHints';
 import { CONTRACT_STATUS } from '../../shared/ui/status';
-import { useScrollHints } from '../../shared/ui/useScrollHints';
 import { deadlineOf, nextStepOf, type Viewer } from './policy';
 
 const shortDate = (iso: string | null) => (iso ? formatDate(iso).replace(/ \d{4}$/, '') : '');
@@ -126,8 +124,8 @@ const StepItem: React.FC<{ step: LifecycleStep; number: number; last: boolean; l
 /**
  * The lifecycle strip and the Next step line in one card (§10.4, 44 to 80 px), generated from the
  * rentals state machine with exits as branch markers. Below 600 px it collapses to one line with a
- * disclosure that opens the full list (§10.5). The strip scrolls sideways with the hints of §10.6
- * and is a named tab stop only while it overflows.
+ * disclosure that opens the full list (§10.5). From 600 px the steps wrap onto a second row where
+ * they do not fit: a sideways scroll cut the words at the strip's fading edges (W20B item 6).
  */
 export const LifecycleCard: React.FC<{
   contract: ContractDetail;
@@ -135,20 +133,10 @@ export const LifecycleCard: React.FC<{
   viewer: Viewer;
 }> = ({ contract, history, viewer }) => {
   const phone = !useMediaQuery('(min-width: 600px)', true);
-  const strip = useRef<HTMLOListElement>(null);
-  const hints = useScrollHints(strip);
   const { steps, index } = lifecycleOf(contract, history);
   const next = nextStepOf(contract, viewer);
   const current = steps[index];
   const exit = current?.exits.find((each) => each.current);
-
-  // The current step is scrolled into view on load (§10.6 rule 1).
-  useEffect(() => {
-    const node = strip.current;
-    const at = node?.querySelector<HTMLElement>('[aria-current="step"]') ?? node?.children[index];
-    if (node && at instanceof HTMLElement)
-      node.scrollLeft = Math.max(0, at.offsetLeft - (node.clientWidth - at.offsetWidth) / 2);
-  }, [index]);
 
   const summary = `Step ${index + 1} of ${steps.length}: ${exit ? exit.label : current?.label}${
     (exit?.at ?? current?.at) ? `, since ${shortDate(exit?.at ?? current?.at ?? null)}` : ''
@@ -181,14 +169,8 @@ export const LifecycleCard: React.FC<{
           </ol>
         </details>
       ) : (
-        <div className="relative min-w-0 flex-[1_1_40rem]">
-          <ScrollHintOverlay hints={hints} />
-          <ol
-            ref={strip}
-            aria-label="Lifecycle steps"
-            tabIndex={hints.overflows ? 0 : undefined}
-            className="relative flex flex-nowrap items-center gap-1.5 overflow-x-auto [scrollbar-width:none] focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
-          >
+        <div className="min-w-0 flex-[1_1_40rem]">
+          <ol aria-label="Lifecycle steps" className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
             {steps.map((step, position) => (
               <StepItem
                 key={step.status}
