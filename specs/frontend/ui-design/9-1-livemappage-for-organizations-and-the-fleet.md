@@ -57,7 +57,7 @@ Rules for what is drawn, from the contract and the requirements:
 | Page load, step 3 | WebSocket `/live` handshake with `{ token, after: <snapshot cursor> }`; the server replays entries after the cursor, then `replay.done`, then live entries | none | none |
 | Organization filter (`/t/map` only) | monitoring 02 with `organizationId`; the socket stays on the `fleet` room and the client filters entries by the organization of the device | none | none |
 | Marker click: opens popup | none (data already loaded) | none | none |
-| Popup: "Open incident" (only when `openIncident` is set) | navigation to `/o/incidents/:id` (screen 8.1) on `/o/map`, or `/t/incidents?incident=:id` (screen 8.2, which opens that incident's detail inline; no per-incident staff route) on `/t/map` | none | none |
+| Popup: "Open incident" (only when `openIncident` is set) | navigation to `/o/incidents/:id` (screen 8.1) on `/o/map`, or `/t/incidents/:id` (screen 8.2) on `/t/map` | none | none |
 | Popup: "Position history" | navigation to the telemetry screen 9.2: `/o/devices/:id/telemetry` on `/o/map`, `/t/devices/:id/telemetry` on `/t/map` | none | none |
 | Side panel row click | centres the map on the marker and opens its popup | none | none |
 | Reload map (shown with MSG33 or after `replay.expired`) | repeats steps 1 and 2 | none | none |

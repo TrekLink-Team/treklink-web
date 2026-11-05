@@ -58,8 +58,7 @@ const incidentText = (device: SnapshotDevice) =>
     ? `SOS, state ${INCIDENT_STATE[device.openIncident.state]?.label ?? device.openIncident.state}`
     : null;
 
-const incidentPath = (scope: 'o' | 't', incidentId: string) =>
-  scope === 'o' ? `/o/incidents/${incidentId}` : `/t/incidents?incident=${incidentId}`;
+const incidentPath = (scope: 'o' | 't', incidentId: string) => `/${scope}/incidents/${incidentId}`;
 const incidentLinkText = (incident: NonNullable<SnapshotDevice['openIncident']>) =>
   `Open incident${incident.code ? ` ${incident.code}` : ''}`;
 
@@ -380,25 +379,28 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
                 />
               ))}
             </ul>
+            {/* Inside the list's own scroll region, so the page never grows with the stations
+                (chapter 06 §11.1: only nested lists and panes scroll; review of #385). */}
+            {fieldStations.length > 0 && (
+              <section aria-labelledby="map-field-stations" className="border-t border-line p-4">
+                <h3 id="map-field-stations" className="text-body-sm font-semibold text-ink">
+                  Field Stations
+                </h3>
+                <ul className="mt-2 space-y-2">
+                  {fieldStations.map((station) => (
+                    <li key={station.id} className="flex flex-wrap items-center gap-2 text-body-sm">
+                      <span className="font-semibold text-ink">{station.name}</span>
+                      {station.stale && <Badge tone="waiting">Stale</Badge>}
+                      <span className="w-full text-ink-muted">
+                        Last sync{' '}
+                        {station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
-          {fieldStations.length > 0 && (
-            <section aria-labelledby="map-field-stations" className="border-t border-line p-4">
-              <h3 id="map-field-stations" className="text-body-sm font-semibold text-ink">
-                Field Stations
-              </h3>
-              <ul className="mt-2 space-y-2">
-                {fieldStations.map((station) => (
-                  <li key={station.id} className="flex flex-wrap items-center gap-2 text-body-sm">
-                    <span className="font-semibold text-ink">{station.name}</span>
-                    {station.stale && <Badge tone="waiting">Stale</Badge>}
-                    <span className="w-full text-ink-muted">
-                      Last sync {station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </aside>
       </div>
     </div>
