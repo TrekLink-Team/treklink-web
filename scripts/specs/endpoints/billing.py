@@ -158,13 +158,15 @@ ENDPOINTS = [
     ep("GET", "/api/contracts/:id/balance", "Contract balance", "Org Manager: own; TrekLink Staff, TrekLink Admin",
        "Sums every invoice line of the contract into due now, due later and paid, and lists damage charges "
        "awaiting approval (UC-45), found by the contract each charge stores (D-081). `settled` covers the "
-       "lines; a pending charge has no line yet, and the closing check refuses it on its own (FR-CON-13).",
-       "UC-45, FR-BILL-06, FR-CON-13",
+       "lines; a pending charge has no line yet, and the closing check refuses it on its own (FR-CON-13). "
+       "`owedToOrganizationVnd` is what credits (an early-end credit of D-097, a service credit) leave over "
+       "once every line is paid; it is refunded outside TrekLink (REQ-STA-03).",
+       "UC-45, FR-BILL-06, FR-CON-13, D-097",
        path=[["id", "Contract id", "uuid", f"`{CONTRACT_ID}`"]],
        response={"contractId": CONTRACT_ID, "dueNowVnd": 0, "dueLaterVnd": 2250000, "paidVnd": 2250000,
                  "pendingDamageCharges": [{"id": "dc-1", "deviceId": DEVICE_ID, "damageCodes": ["CASING_CRACKED"],
                                            "amountVnd": 700000, "createdAt": NOW}],
-                 "settled": False},
+                 "settled": False, "owedToOrganizationVnd": 0},
        entity="Contract", steps=["Sum lines by dueAt", "List pending damage charges"],
        controller="BalancesController", service="BalanceService", call="forContract(id, caller)",
        seq=["Svc->>DB: SELECT invoice_lines, damage_charges"]),

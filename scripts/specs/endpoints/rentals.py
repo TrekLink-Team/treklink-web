@@ -375,7 +375,7 @@ ENDPOINTS = [
        "stops reaching the organization (FR-MON-08), and late days are charged when it comes back after "
        "the end plus the grace (FR-BILL-03). When every device is back or recorded lost a `RETURN_DUE`, "
        "`OVERDUE` or `DEFAULTED` contract moves to `RETURNED`; an early return during `ACTIVE` (day plan) or "
-       "`ENDING` waits for the end-of-plan job (D-035). A partial check-in is allowed (MSG07).",
+       "`ENDING` waits for the end-of-plan job (D-035), or for End now (api-design 30, D-097). A partial check-in is allowed (MSG07).",
        "UC-43, FR-DEV-01, FR-MON-08, FR-BILL-03, E05-1, MSG07, MSG12",
        path=[C_PATH], body=[["assetTags", "Scanned tags", "string[]", "yes", "`[\"TL-0042\"]`"]],
        sample={"assetTags": ["TL-0042", "TL-0043"]},
@@ -756,6 +756,59 @@ ENDPOINTS = [
        entity="Fault report", steps=["Scope", "Read device_fault_reports of the contract, newest first"],
        controller="FaultReportsController", service="FaultReportsService", call="ofContract(contractId, caller)",
        seq=["Svc->>DB: SELECT device_fault_reports WHERE contractId"]),
+
+    # D-097 End now (rentals design §12, REQ-EVT-27, REQ-EVT-28, REQ-ERR-17); billing design §10.
+    ep("POST", "/api/contracts/:id/end", "End a contract now", "TrekLink Staff, TrekLink Admin; Org Manager: own",
+       "Ends an `ACTIVE` or `ENDING` contract now, with a reason (D-097 rule 1). In one transaction the open "
+       "term closes, `endsAt` and `returnDueAt` become the end time, `billing` credits the unused whole days "
+       "of the term on the closing invoice as one negative `EARLY_END_CREDIT` line (none for a day plan, "
+       "billing REQ-EVT-16), and the contract moves to `RETURN_DUE` (on to `RETURNED` when every device is "
+       "already back or lost). The Manager's request ends it at once, like Staff's action (design §12.2). The "
+       "return path then runs as for any `RETURN_DUE` contract, the grace and late fees counted from the end "
+       "time. `owedToOrganizationVnd` is what the credit leaves over once every line is paid, refunded "
+       "outside TrekLink (D-097 rule 3).",
+       "D-097, UC-23, FR-CON-09, FR-BILL-06, BR-05",
+       path=[C_PATH],
+       body=[["reason", "Why the contract ends now, 1 to 500 characters after trimming", "string", "yes",
+              "`Trek finished early`"], VERSION],
+       sample={"reason": "Trek finished early", "expectedVersion": 4},
+       response={**CONTRACT, "status": "RETURN_DUE", "endsAt": "2026-11-06T03:00:00.000Z",
+                 "returnDueAt": "2026-11-06T03:00:00.000Z", "version": 5,
+                 "earlyEnd": {"endedAt": "2026-11-06T03:00:00.000Z", "reason": "Trek finished early",
+                              "creditVnd": 3600000, "usedDays": 6, "unusedDays": 24, "termDays": 30,
+                              "outstandingVnd": 0, "owedToOrganizationVnd": 3600000}},
+       message="Contract ended. Check the units in at the counter.", entity="Contract",
+       errors=[(400, "VALIDATION_FAILED", "The reason is empty or longer than 500 characters",
+                "reason must be 1 to 500 characters."),
+               state_409("contract", "RETURN_DUE"), STALE],
+       steps=["Lock the contract; scope, version and state", "Close the open term",
+              "Ask billing to credit the unused days (monthly)", "Set endsAt and returnDueAt",
+              "Move to RETURN_DUE (RETURNED when every device is back)",
+              "After commit: audit contract.endedEarly, emit contract.endedEarly"],
+       controller="ContractsController", service="ContractDecisionsService", call="endNow(id, dto, caller)",
+       participants=[["Bill", "ChargesService"]],
+       seq=["Svc->>DB: SELECT rental_contracts FOR UPDATE", "Svc->>DB: UPDATE contract_terms SET status CLOSED",
+            "Svc->>Bill: creditEarlyEnd(contract, term, endAt, reason, actorId, tx)",
+            "Svc->>DB: UPDATE rental_contracts; INSERT contract_transitions"]),
+
+    ep("GET", "/api/contracts/:id/end-preview", "Preview ending a contract now",
+       "TrekLink Staff, TrekLink Admin; Org Manager: own",
+       "What End now would do at the current minute, for the confirmation dialog: the end time, the current "
+       "term, its fee, the used and unused days, the credit, what the contract would still owe and what would "
+       "be owed to the organization. Computed by `billing` as the action computes it; nothing is stored "
+       "(REQ-EVT-28). A day plan answers a zero credit.",
+       "D-097",
+       path=[C_PATH],
+       response={"contractId": CONTRACT_ID, "code": "RC-2026-0042", "planType": "MONTHLY",
+                 "endsAt": "2026-11-06T03:00:00.000Z",
+                 "term": {"seq": 2, "startsAt": "2026-11-01T02:00:00.000Z", "endsAt": "2026-12-01T02:00:00.000Z"},
+                 "termFeeVnd": 4500000, "termDays": 30, "usedDays": 6, "unusedDays": 24, "creditVnd": 3600000,
+                 "outstandingVnd": 0, "owedToOrganizationVnd": 3600000},
+       entity="Contract", errors=[state_409("contract", "RETURN_DUE")],
+       steps=["Scope", "Require ACTIVE or ENDING", "Ask billing for the credit and the balance after it"],
+       controller="ContractsController", service="ContractDecisionsService", call="endPreview(id, caller)",
+       participants=[["Bill", "ChargesService"]],
+       seq=["Svc->>DB: SELECT rental_contracts, contract_terms", "Svc->>Bill: earlyEndCredit(contract, term, at)"]),
 
 ]
 

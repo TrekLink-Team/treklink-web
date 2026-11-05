@@ -41,6 +41,7 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 | Filter by status or plan (list) | always | rentals 02 `GET /api/contracts?status=&planType=` | none | none |
 | Sort by Contract (code), Devices (quantity) or Status (list, header or Sort menu, W26) | always | rentals 02 `GET /api/contracts?sort=&order=`; without a sort the newest status change comes first | none | page 1 |
 | Give notice (detail, primary) | Org Manager, monthly, `ACTIVE` | rentals 12 `POST /api/contracts/:id/notice` | dialog: "The contract ends at the end of the current term, {currentTerm.endsAt}. The term balance is due then and the devices are returned at the counter." | toast MSG18 |
+| End contract now (detail, More actions, destructive, last) | Staff, or the Org Manager (own), `ACTIVE` or `ENDING` (D-097) | rentals 31 `GET /api/contracts/:id/end-preview` when the dialog opens, then rentals 30 `POST /api/contracts/:id/end` | dialog "End {code} now?" naming the end time (now), the credit for the unused days of the term (rentals 31 `creditVnd`, `unusedDays`, none on a day plan), what is owed after it or owed to the organization (refunded outside TrekLink), and the consequence: the contract becomes Return due at once and every unit is returned at the counter, late fees after the grace from now; a required Reason field; focus on Keep the contract running | toast "Contract ended. Check the units in at the counter."; the detail, the balance and the list refetch |
 | Cancel contract (detail, secondary) | Org Manager or Staff, `REQUESTED` or `APPROVED` | rentals 06 `POST /api/contracts/:id/cancel` | dialog naming the contract code, with the reason field; it states that a holding fee already paid is retained | toast MSG15 with `retainedVnd` |
 | Handover note (PDF) (detail) | Org Manager or Staff, after handover | rentals 11 `GET /api/contracts/:id/handover-note` | none | the PDF downloads; a hash mismatch (`integrity` other than `OK`) shows a red banner instead |
 | Label (device row) | Org Manager or Operator, device out (not checked in, not lost), contract not `CLOSED` | rentals 13 `PUT /api/contracts/:id/devices/:deviceId/holder` | none | toast MSG03 |
@@ -60,7 +61,7 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 | Empty | No contracts: "Your organization has no contracts yet." with Request a contract (Org Manager). With a filter: MSG01 |
 | Error `VALIDATION_FAILED` (400, rentals 02, 06, 12, 13) | MSG02 under the field the server names |
 | Error `INVALID_STATE_TRANSITION` (409, rentals 06, 12, 13) | MSG28 with the current state; the detail refetches |
-| Error `STALE_VERSION` (409, rentals 06, 12) | MSG36 dialog with Reload |
+| Error `STALE_VERSION` (409, rentals 06, 12, 30) | MSG36 dialog with Reload |
 | Error `DAY_PLAN_NO_NOTICE` (409, rentals 12) | The server's `message` ("A day plan ends on its own end date."); not reachable because Give notice is hidden on a day plan |
 | Error `DEVICE_NOT_ON_CONTRACT` (409, rentals 13) | MSG12 |
 | Error `NOTE_NOT_SIGNED` (409, rentals 11) | The server's `message` ("The handover is not complete yet."); not reachable because the button shows only after handover |
@@ -129,7 +130,7 @@ Design canvas "Contract Home", a style reference only.
 | Review mode | `?mode=review`, Staff, `REQUESTED`: the request, the hold or stock check, the handover appointment and what each decision does in place of the tab body; Approve request in the sticky row submits it (rentals 04) |
 | Handover mode | `?mode=handover`, Staff, `APPROVED`: the four steps of screen 5.4 in place of the tab body, unchanged, with their Back and Next bar |
 | Devices tab | CollectionView with each unit as a `DeviceRef`, the contract's variant as a `VariantCard` (the icon render above the list, the detail render in the details pane, devices design §10), Label, Request service credit and Report lost as item actions |
-| Money tab | The balance (billing 10), the invoices (billing 08) and the payments (billing 14) on CollectionView under one `paneHost` (chapter 06 §10.8), and the service credits (billing 19). The Org Manager has Pay invoice on an open invoice and Show the QR on a SePay payment still waiting (screen 6.2) |
+| Money tab | The balance (billing 10), the invoices (billing 08) and the payments (billing 14) on CollectionView under one `paneHost` (chapter 06 §10.8), and the service credits (billing 19). The Org Manager has Pay invoice on an open invoice and Show the QR on a SePay payment still waiting (screen 6.2). When billing 10 `owedToOrganizationVnd` is above 0, a note under the balance: "TrekLink owes your organization {amount}. It is refunded outside TrekLink." ("TrekLink owes {organization} {amount}…" for Staff; D-097 rule 3) |
 | Deposit card | Overview of a `REQUESTED` contract, Org Manager and Staff: the first line of the term 1 invoice (rentals design §2.1, billing 08 and 09) with its amount, description, paid state and the hold expiry as Pay by. Nothing is computed in the browser |
 
 ## Organization contract list on CollectionView (D-096, 2026-11-04)
@@ -146,3 +147,14 @@ Added by KhoaDD. The Org Manager's contract list filters by status and by plan o
 `status`, `planType`), both in the Show dropdown, where they combine ("Show: Approved, Plan: Day plan").
 rentals 02 takes no code, so the search reads the loaded page by code and plan, as the list did before
 CollectionView. Cancel contract stays a Change status on each row; the list offers no selection.
+
+## End contract now (D-097, 2026-11-05)
+
+Added by KhoaDD under D-078 (W29). End contract now is a More actions item of the contract home, destructive and
+last, for Staff and the Org Manager on an `ACTIVE` or `ENDING` contract (rentals design §12). It never takes the
+primary slot: the primary action of each state is unchanged. The confirmation is a `Dialog` (§3 of the UI
+standard) with the reason field, the amounts of rentals 31 as text (nothing computed in the browser) and focus on
+Keep the contract running; a preview that fails names the error and keeps End now disabled. After it the
+contract is `RETURN_DUE`, so Staff see Record return as primary and the counter (screen 5.5) checks the units in
+as for any due return. The credit appears on the closing invoice as an Early end credit line (screen 6.1).
+

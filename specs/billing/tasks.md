@@ -159,3 +159,10 @@
 - [ ] 8.3 The fault report as the source of a credit's outage start (owner LongLP, W10, after rentals 9.4)
   - **Do**: `ServiceCredit.outageSourceFaultReportId` with the CHECK of three sources, the report checked against the contract row through `CREDIT_BASIS`, `outageFrom` defaulting to its `reportedAt`; the request dialog of screen 6.5 offers the unit's open or resolved report (design §9.1, treklink-web#305)
   - _Requirements: REQ-EVT-12, rentals REQ-EVT-24_
+
+## Phase 9: The early-end credit (D-097 rules 2 and 3; W29)
+
+- [ ] 9.1 Pro-rata credit of a term ended now, per design §10 (owner KhoaDD under D-078)
+  - **Files**: `money.ts` (`earlyEndCreditOf`), `charges.service.ts` (`earlyEndCredit`, `creditEarlyEnd`), `balance.service.ts` (`owedToOrganizationVnd`), `invoices.controller.ts` (api-design 10), `frontend/src/entities/billing/api.ts` (line label)
+  - **Test**: `money.spec.ts` and `charges.service.early-end.spec.ts` for AC-09 (first day, last day, a 30 and a 31 day term, day plan none); `balance.service.spec.ts` for AC-10
+  - _Requirements: REQ-EVT-16, REQ-STA-03, AC-09, AC-10, D-097_

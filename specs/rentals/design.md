@@ -51,8 +51,8 @@ stateDiagram-v2
     APPROVED --> CANCELLED : cancelled before handover
     APPROVED --> ACTIVE : first payment and handover signed
     ACTIVE --> ENDING : monthly notice given
-    ACTIVE --> RETURN_DUE : day plan ends
-    ENDING --> RETURN_DUE : current term ends
+    ACTIVE --> RETURN_DUE : day plan ends, or ended now
+    ENDING --> RETURN_DUE : current term ends, or ended now
     RETURN_DUE --> RETURNED : every device back or lost
     RETURN_DUE --> OVERDUE : grace elapsed, devices out
     OVERDUE --> RETURNED : every device back or lost
@@ -67,7 +67,7 @@ stateDiagram-v2
 ***Figure 2***: Rental-contract lifecycle; SRS Figure 29. Devices checked in early, while a day plan is
 `ACTIVE` or a monthly contract `ENDING`, stay checked in; when the plan or term ends, the job moves the
 contract to `RETURN_DUE` and, finding every device back or lost, straight on to `RETURNED` in the same
-transaction. No edge outside D-035 is needed.
+transaction. No edge outside D-035 is needed: End now (D-097, §12) uses the two edges into `RETURN_DUE`.
 
 | From | To | Trigger | Actor |
 |---|---|---|---|
@@ -78,12 +78,13 @@ transaction. No edge outside D-035 is needed.
 | `ACTIVE` | `ENDING` | notice (monthly) | Manager |
 | `ACTIVE` | `RETURN_DUE` | day plan end | `SYSTEM` |
 | `ENDING` | `RETURN_DUE` | term end | `SYSTEM` |
+| `ACTIVE`, `ENDING` | `RETURN_DUE` | End now, with a reason (D-097, §12) | Staff, Manager (own) |
 | `RETURN_DUE` | `OVERDUE` | grace elapsed | `SYSTEM` |
 | `OVERDUE` | `DEFAULTED` | default threshold | `SYSTEM` (suspends the organization) |
 | `RETURN_DUE`, `OVERDUE`, `DEFAULTED` | `RETURNED` | last device checked in or lost | Staff at check-in; the Admin settling the last loss case (`RentalsLossCaseListener`, reason `LOST`, REQ-EVT-12) |
 | `RETURNED` | `CLOSED` | close | Staff |
 
-`returnDueAt` is the day-plan end, or the current term's end for an `ENDING` contract.
+`returnDueAt` is the day-plan end, or the current term's end for an `ENDING` contract, or the end time of End now (§12).
 
 ### 2.1 The hold at request (D-092 rule 1)
 
@@ -250,7 +251,7 @@ are not atomic; a crash between them may repeat an email. The job's numeric resu
 
 Declares `CONTRACT_CLOSE_CHECKS` (multi): `{ blockingReason(contractId, deviceIds): Promise<Reason | null> }`.
 
-Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOver`, `device.checkedIn`, `device.labelChanged`, `audit.record`; with the device groups (§11), `device.groupChanged` and `device.faultReported`.
+Events emitted: `contract.requested`, `contract.statusChanged`, `contract.endedEarly` (§12), `device.handedOver`, `device.checkedIn`, `device.labelChanged`, `audit.record`; with the device groups (§11), `device.groupChanged` and `device.faultReported`.
 
 `contract.statusChanged` carries `{ contractId, organizationId, from, to, at }`, with `from` and `to` contract statuses and `at` the UTC time of the transition row; it is emitted after commit by `ContractLifecycleService.apply`, whose `actor` is null for the `SYSTEM` jobs of §5.
 
@@ -1599,3 +1600,59 @@ place, but nothing new is created under it and it cannot be moved anywhere that 
 | When a device leaves its group | check-in (FR-CON-18) | check-in or loss (§2.2.5) | both, plus replacement passing it on (ruling 2) |
 | History of a removed group | not stated | not stated | `removedAt` keeps it (§11.2) |
 | Who reads groups | Org Manager (RBAC table) | not stated | the Manager manages; every member reads them for the filters (FR-MON-11) |
+
+---
+
+## 12. End now (D-097; specified 2026-11-05, KhoaDD under D-078)
+
+Leader ruling D-097 (2026-11-05, treklink-docs#173): a running contract can be ended before its term end. Before
+it, a monthly `ACTIVE` contract refused every check-in (REQ-STA-01), an early return waited for the end-of-plan
+job (REQ-EVT-10), and the close needed `RETURNED` (REQ-ERR-05), so a contract could only end with its term.
+
+### 12.1 What End now does
+
+| Step | Where | What |
+|---|---|---|
+| Guard | `ContractDecisionsService.endNow` | the row lock; another organization's contract is 404; the reason trimmed, 1 to 500 characters; the `version`; the state `ACTIVE` or `ENDING` (REQ-ERR-17) |
+| Term | `ContractsRepository.openTerm`, `closeTerm` | the open term is closed by compare-and-set, so the rollover job never selects it again |
+| Credit | `ChargesService.creditEarlyEnd` (billing design §10) | a monthly contract gets one negative `EARLY_END_CREDIT` line on the closing invoice for the unused whole days of the term; a day plan gets none |
+| Dates | `ContractsRepository.recordEarlyEnd` | `endsAt` and `returnDueAt` set to the end time |
+| State | `ContractLifecycleService.apply` | `ACTIVE` or `ENDING` to `RETURN_DUE`, transition reason `Ended early: {reason}`; on to `RETURNED` (reason `ALL_DEVICES_BACK`) when every device is already back or lost, as the rollover job does |
+| After commit | `TransactionalEvents.emitAfterCommit` | `contract.statusChanged` and the `contract.returnDue` audit entry (from `apply`), the `contract.endedEarly` audit entry (actor, roles, reason, `endedAt`, `creditVnd`) and the `contract.endedEarly` event `{ contractId, organizationId, endedAt, reason, creditVnd, actorId }` |
+
+The end time is the server's clock at the request. From then the contract is an ordinary `RETURN_DUE` contract:
+the counter checks the units in (REQ-EVT-10), the overdue job counts the grace from the end time (REQ-EVT-13),
+late fees count from it (billing REQ-EVT-04), and the close needs what any close needs (REQ-EVT-18). The issued
+term invoice is not changed (billing REQ-UBI-02): its term balance stays due at its own date and the close check
+lists it while it is unpaid, net of the credit.
+
+### 12.2 Who may end a contract
+
+`contract.end` (TrekLink Staff, action `end` on `RentalContract`) and `contract.end.own` (Org Manager, own
+organization), new rows of `scripts/specs/catalog.py`, granted by migration `20261105230000_contract_early_end`.
+
+The ruling says Staff end, and the Manager requests. Built choice (2026-11-05, asked of the leader as a
+`QUESTION FOR THE LEADER` with this as the recommendation): the Manager's request ends the contract at once, the
+same as Staff's action. Both are audited with the actor and the reason, so the Manager's choice is on record; a
+Staff approval step would need a pending state that D-035 does not have. If the leader rules for an approval
+step, `endNow` stays the Staff action and the Manager's call becomes a request row.
+
+### 12.3 Endpoints (api-design 30 and 31, from `scripts/specs/endpoints/rentals.py`)
+
+| # | Endpoint | Who |
+|---|---|---|
+| 30 | `POST /api/contracts/:id/end` | Staff; Org Manager (own) |
+| 31 | `GET /api/contracts/:id/end-preview` | Staff; Org Manager (own) |
+
+The preview lets the confirmation dialog name the end time, the credit and what is owed after it without any
+arithmetic in the browser. It reads the same `billing` computation as the action, for the current minute, so the
+amount shown can differ by a day only when the dialog stays open across a term-day boundary; the toast after the
+action shows the stored amount.
+
+### 12.4 Screens
+
+Screen 5.2: End contract now in the contract home's More actions (destructive, last), for Staff and the
+Manager on `ACTIVE` and `ENDING`; the dialog names the contract, the end time, the credit and the consequence,
+with focus on Keep the contract running. Screen 5.5: nothing changes; the contract is `RETURN_DUE`, so the
+counter's check-in shows as for any due return. Screen 6.1: the credit line shows as Early end credit.
+

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Checks returned devices in at the counter by asset tag. Each moves to `RETURNED`, its live data stops reaching the organization (FR-MON-08), and late days are charged when it comes back after the end plus the grace (FR-BILL-03). When every device is back or recorded lost a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` contract moves to `RETURNED`; an early return during `ACTIVE` (day plan) or `ENDING` waits for the end-of-plan job (D-035). A partial check-in is allowed (MSG07).
+Checks returned devices in at the counter by asset tag. Each moves to `RETURNED`, its live data stops reaching the organization (FR-MON-08), and late days are charged when it comes back after the end plus the grace (FR-BILL-03). When every device is back or recorded lost a `RETURN_DUE`, `OVERDUE` or `DEFAULTED` contract moves to `RETURNED`; an early return during `ACTIVE` (day plan) or `ENDING` waits for the end-of-plan job (D-035), or for End now (api-design 30, D-097). A partial check-in is allowed (MSG07).
 
 ## API Specification
 
