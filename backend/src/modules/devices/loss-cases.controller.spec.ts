@@ -16,6 +16,7 @@ import {
   ReportLossDto,
   TriageLossDto,
 } from './dto/loss-case.dto';
+import { validateQuery } from '../../common/pipes/app-validation.pipe';
 import { LossCasesController } from './loss-cases.controller';
 import { LossCaseService } from './loss-cases.service';
 
@@ -161,6 +162,19 @@ describe('LossCasesController (devices api-design 17 to 22 and 27)', () => {
 
     expect(await errorsOf(LossCaseQueryDto, { state: 'SEARCHING', pageNumber: '2' })).toEqual([]);
     expect(await errorsOf(LossCaseQueryDto, { state: 'LOST' })).toEqual(['state']);
+    // W26: the allowlist of api-design 18.
+    expect(await errorsOf(LossCaseQueryDto, { sort: 'reportedAt', order: 'desc' })).toEqual([]);
+    expect(await errorsOf(LossCaseQueryDto, { sort: 'policeReference' })).toEqual(['sort']);
+    expect(await errorsOf(LossCaseQueryDto, { sort: 'code', order: 'sideways' })).toEqual([
+      'order',
+    ]);
+  });
+
+  it('answers an unknown sort field with 400 VALIDATION_FAILED (W26)', async () => {
+    await expect(validateQuery(LossCaseQueryDto, { sort: 'custody' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+      status: 400,
+    });
   });
 
   it('turns a blank police reference and a blank reason into null', () => {

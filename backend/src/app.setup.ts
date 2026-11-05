@@ -1,4 +1,3 @@
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -6,7 +5,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { RequestIdLogger } from './common/logging/request-id.logger';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
-import { validationExceptionFactory } from './common/pipes/validation-exception.factory';
+import { appValidationPipe } from './common/pipes/app-validation.pipe';
 import { ValidatedEnvironment } from './modules/platform/config/environment-variables';
 
 // `CORS_ORIGINS` is a comma-separated list (specs/platform/requirements.md §4). A credentialed
@@ -63,14 +62,7 @@ export function configureApp(app: NestExpressApplication): void {
     );
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      exceptionFactory: validationExceptionFactory,
-    }),
-  );
+  app.useGlobalPipes(appValidationPipe());
 
   // Global response formatting & error handling (D-002, D-026)
   app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));

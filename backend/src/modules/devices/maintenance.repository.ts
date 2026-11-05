@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MaintenanceStatus, MaintenanceWorkBy, Prisma } from '@prisma/client';
+import { ListSort, orderByOf, SortColumns } from '../../common/dto/sorting';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -69,6 +70,21 @@ export interface NewRecord {
   openedAt: Date;
 }
 
+// The sortable columns of the record list (devices api-design 15, W26): the expected completion date,
+// the device's asset tag and the status in lifecycle order. Reason, work and cost are text or mixed
+// amounts with no single order.
+export const MAINTENANCE_SORT_FIELDS = ['expectedAt', 'assetTag', 'status'] as const;
+export type MaintenanceSortField = (typeof MAINTENANCE_SORT_FIELDS)[number];
+
+const MAINTENANCE_SORTS: SortColumns<
+  MaintenanceSortField,
+  Prisma.MaintenanceRecordOrderByWithRelationInput
+> = {
+  expectedAt: (order) => ({ expectedAt: order }),
+  assetTag: (order) => ({ device: { assetTag: order } }),
+  status: (order) => ({ status: order }),
+};
+
 export interface RecordFilter {
   statuses?: MaintenanceStatus[];
   reasons?: string[];
@@ -128,7 +144,12 @@ export class MaintenanceRepository {
     return count === 1;
   }
 
-  page(filter: RecordFilter, skip: number, take: number): Promise<[RecordRow[], number]> {
+  page(
+    filter: RecordFilter,
+    skip: number,
+    take: number,
+    sort?: ListSort<MaintenanceSortField>,
+  ): Promise<[RecordRow[], number]> {
     const where: Prisma.MaintenanceRecordWhereInput = {
       ...(filter.statuses?.length ? { status: { in: filter.statuses } } : {}),
       ...(filter.reasons?.length ? { reason: { in: filter.reasons } } : {}),
@@ -139,7 +160,12 @@ export class MaintenanceRepository {
       this.prisma.maintenanceRecord.findMany({
         where,
         select: RECORD_SELECT,
-        orderBy: [{ expectedAt: 'asc' }, { openedAt: 'asc' }],
+        orderBy: orderByOf(
+          sort,
+          MAINTENANCE_SORTS,
+          [{ expectedAt: 'asc' }, { openedAt: 'asc' }],
+          (order) => ({ id: order }),
+        ),
         skip,
         take,
       }),

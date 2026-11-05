@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { PagedResult, pagingBoundsFrom, resolvePage, toPagedResult } from '../../common/dto/paging';
+import { resolveSort } from '../../common/dto/sorting';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { parseDay, RecordView } from './device-view';
@@ -119,6 +120,7 @@ export class MaintenanceController {
         },
         page.skip,
         page.take,
+        resolveSort(query),
       ),
       this.maintenance.approvalThresholdVnd(),
     ]);

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { DeviceStatus, LossCaseState, LossCustody, LossDecision, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { PagedResult, pagingBoundsFrom, resolvePage, toPagedResult } from '../../common/dto/paging';
+import { resolveSort, SortQuery } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ChannelKeyService, OrganizationsService } from '../organizations';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
@@ -13,7 +14,7 @@ import { DevicesRepository } from './devices.repository';
 import { DevicesService } from './devices.service';
 import { IN_SERVICE } from './in-service';
 import { LossCaseNotifier } from './loss-case-notifier';
-import { LossCaseRow, LossCasesRepository } from './loss-cases.repository';
+import { LossCaseRow, LossCasesRepository, LossCaseSortField } from './loss-cases.repository';
 import { CUSTODY_RESOLVER, CustodyResolver } from './ports/custody-resolver.port';
 import { LossCaseView } from './ports/loss-case-listener.port';
 import {
@@ -190,7 +191,11 @@ export class LossCaseService {
 
   // api-design 18: newest first; an organization caller sees its own organization's cases only.
   async list(
-    query: { state?: LossCaseState; pageNumber?: number; pageSize?: number },
+    query: {
+      state?: LossCaseState;
+      pageNumber?: number;
+      pageSize?: number;
+    } & SortQuery<LossCaseSortField>,
     caller: Caller,
   ): Promise<PagedResult<LossCaseDto>> {
     const page = resolvePage(
@@ -207,6 +212,8 @@ export class LossCaseService {
       },
       page.skip,
       page.take,
+      undefined,
+      resolveSort(query),
     );
     return toPagedResult(await this.views(rows, caller), total, page);
   }
