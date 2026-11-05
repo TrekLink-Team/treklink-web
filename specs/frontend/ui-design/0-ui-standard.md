@@ -96,25 +96,28 @@ discarding filled fields. No `window.confirm` is left in `src`.
 
 ## 7. Viewport (W24, leader 2026-11-05)
 
-Binding UX rule of the project (leader, 2026-11-05; checks revised by chapter 06 §9 to §11 after
-treklink-docs#170): a screen never scrolls by itself. Only nested elements that need it scroll: a
-list, a table, the details pane, a long form body, a log. Everything of the main screen sits within
-the viewport at every width.
+Binding UX rule of the project (leader, 2026-11-05, 13:05 and 13:45; chapter 06 §11.1 after
+treklink-docs#169 and #170): a screen never scrolls by itself. Only nested elements that need it
+scroll: a list, a table, the details pane, a long form body, a log. Everything of the main screen sits
+within the viewport at every width. On wide pages (devices, incidents, contracts, invoices) only the
+data table scrolls.
 
 | Rule | Check | Built in |
 |---|---|---|
 | The document and `body` never scroll. The app shell is fixed to the dynamic viewport (`h-dvh`) at every width. | On every route, `document.scrollingElement`: `scrollHeight <= clientHeight + 1` and `scrollWidth <= clientWidth + 1`. | `AppShell`, `AuthLayout` |
-| The incident banner, the app header, the phone tab bar, the page header, the command bar and the page action bar never scroll away. The content area (`#main`) is the one vertical scroll region of a standard page; the page header pins itself to its top (a `PageHeader` or `PageTitle` in the shell or the public layout is wrapped in a `StickyPageHeader` when the page has not placed one), the command bar pins under it, the action bar pins to its bottom. | Scroll `#main` to its end: the `h1` and any `[data-page-actions]` bar are still inside the `#main` box. | `PageChrome.tsx`, `PageHeader`, `PageTitle`, `CollectionView` |
-| One scroll region per area and axis. No vertical scroll region inside a `#main` that itself scrolls (double scrollbars); a table scrolls sideways inside its own box only. | `#main` overflowing and a visible descendant with `overflow-y: auto` that also overflows is an offender. | `AppShell`, `DataTable`, `CollectionView` |
+| The content area (`#main`) is not a scroll region. Every page is a fit page: its root carries `data-fit-page` and `flex min-h-0 flex-1 flex-col` and takes exactly the content area, so the incident banner, the app header, the phone tab bar, the page header, the command bar, the bulk bar, the pager and the page action bar never scroll away. | On every route, `#main` and the document: `scrollHeight <= clientHeight + 1` and `scrollWidth <= clientWidth + 1`. | `AppShell`, every page root |
+| The nested scroll region is named per page type. **List page** (devices, incidents, contracts, invoices, every CollectionView list): the table box scrolls inside itself with its header row pinned (`thead` sticky); on a phone the card or row list scrolls; the details pane scrolls inside itself. A CollectionView fills only as a direct child of a `data-fit-page` element (the page root, or a `TabPanel` with `fill`); elsewhere it keeps its natural height. **Detail page** (contract home, device, incident, invoice): the record body is a `PageScrollBody` between the header (with the sections row) and the action bar. **Form page** (contract request, counter handover): the form body is a `PageScrollBody` between the title or stepper and the action bar. **Page with several lists** (parameters, sync status, prices, reports, health, telemetry, the organization overview, stock-take, the roster): the body under the header and toolbar is a `PageScrollBody`. **Full-bleed page**: below. | Scroll each nested region to its end: the `h1` and any `[data-page-actions]` bar stay inside the viewport and `#main` keeps `scrollTop` 0. | `CollectionView` (`cv-fill-root:` and `cv-fill:` variants), `TabPanel fill`, `PageScrollBody` |
+| One scroll region per area and axis. No vertical scroll region inside another one that also scrolls (double scrollbars); a table scrolls sideways inside its own box only. A list and the open record beside it (the Staff incident queue, the billing invoice tab, the organization review) each scroll inside themselves; where they stack below 1024 or 1280 px, their shared body is the one region. | An overflowing scroll region with an overflowing vertical scroll region inside it is an offender. | `AppShell`, `DataTable`, `CollectionView` |
 | A full-bleed page (live map `/o/map`, fleet map `/t/map`) fits the content area exactly: the map fills the remaining space, the device list scrolls inside itself (side panel from 1024 px, a panel under the map below that, screen 9.1). | `#main`: `scrollHeight <= clientHeight + 1` at every width. | `LiveMapPage` layout containers |
 | No scroll jump on load, on selection or when a pane opens; no content hidden behind a sticky bar; every scroll region can be scrolled to its end. | Scroll each region to its end; the last item is fully visible above any sticky bar. | `StickyPageHeader` (height reserve), `scroll-padding` on `#main` |
 | A visually hidden (`sr-only`) element is absolutely positioned: every scroll region and `main` is a positioned ancestor (`relative`), or the hidden element escapes the region and makes the document or `#main` scroll (found on `/register` and the map panel, W24). | No descendant of a region ends below the region when the region does not overflow. | `AppShell`, `AuthLayout`, `LiveMapPage` panel |
-| A scroll region with no focusable child takes `tabindex="0"` and an accessible name, so a keyboard user can scroll it (WCAG 2.1.1). | Every overflowing region has a focusable descendant, or `tabindex="0"` plus `aria-label` or `aria-labelledby`. | `ScrollStrip`, `LiveMapPage` device list |
+| A scroll region with no focusable child takes `tabindex="0"` and an accessible name, so a keyboard user can scroll it (WCAG 2.1.1). | Every overflowing region has a focusable descendant, or `tabindex="0"` plus `aria-label` or `aria-labelledby`. | `useScrollStop` (CollectionView item box, `PageScrollBody`), `ScrollStrip`, `LiveMapPage` device list |
 | At 400 % zoom (about 318 by 236 CSS px) the fixed bars may release and the document scroll (WCAG 1.4.10 allows it; pinned bars would leave no room for content). TrekLink releases them below a viewport height of 480 CSS px. | At 318 by 236 the content is reachable by scrolling and nothing is clipped. | `AppShell` (`max-height` media query) |
 
 The visual check of every screen change (UI quality gate, leader 2026-11-05) runs at 1440, 1280, 900,
 360 and 320 CSS px and at 400 % zoom (318 by 236), in both themes, and measures the document and
-`#main` as above.
+`#main` as above. A route where `#main` still scrolls is listed as not done, with its reason, never
+as compliant (W24b).
 
 ## CollectionView details (D-096, 2026-11-04)
 
