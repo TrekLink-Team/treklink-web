@@ -326,22 +326,28 @@ export class ContractsRepository {
   // --- monitoring reads: `visibleDevices` (monitoring design §4) -----------------------------------
   // Devices in custody now: handed over and neither checked in nor lost, of one organization or of
   // every organization for a null scope.
-  findInCustody(organizationId: string | null, client: Client = this.prisma) {
+  findInCustody(
+    organizationId: string | null,
+    client: Client = this.prisma,
+    deviceIds?: readonly string[],
+  ) {
     return client.contractDevice.findMany({
       where: {
         handedOverAt: { not: null },
         releasedAt: null,
         checkedInAt: null,
         lostAt: null,
+        ...(deviceIds === undefined ? {} : { deviceId: { in: [...deviceIds] } }),
         ...(organizationId === null ? {} : { contract: { organizationId } }),
       },
       orderBy: { handedOverAt: 'asc' },
       select: {
+        id: true,
         deviceId: true,
         contractId: true,
         handedOverAt: true,
         holderName: true,
-        contract: { select: { code: true, organizationId: true } },
+        contract: { select: { code: true, organizationId: true, planType: true, status: true } },
         groupAssignments: {
           where: { endedAt: null, group: { removedAt: null } },
           take: 1,
@@ -350,6 +356,15 @@ export class ContractsRepository {
         faultReports: { where: { resolvedAt: null }, take: 1, select: { id: true } },
       },
     });
+  }
+
+  async existsForOrganization(id: string, organizationId: string): Promise<boolean> {
+    return (
+      (await this.prisma.rentalContract.findFirst({
+        where: { id, organizationId },
+        select: { id: true },
+      })) !== null
+    );
   }
 
   liveRowsOfOrganization(
@@ -914,6 +929,27 @@ export class ContractsRepository {
       where: { id: { in: [...rowIds] }, checkedInAt: null },
       data: { checkedInAt: at, checkedInById: actorId },
     });
+  }
+
+  // The G4 workflow supplies the approved custody-end time when it is implemented.
+  async markReleased(rowIds: readonly string[], at: Date, tx: Prisma.TransactionClient) {
+    const { count } = await tx.contractDevice.updateMany({
+      where: {
+        id: { in: [...rowIds] },
+        handedOverAt: { not: null },
+        releasedAt: null,
+        checkedInAt: null,
+        lostAt: null,
+      },
+      data: { releasedAt: at },
+    });
+    if (count !== rowIds.length) {
+      throw new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.INVALID_STATE_TRANSITION,
+        'The custody interval is already closed.',
+      );
+    }
   }
 
   // Holder labels are personal data and leave with the contract (BR-33).

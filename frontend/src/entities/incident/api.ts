@@ -3,6 +3,7 @@ import { apiClient } from '../../shared/api/apiClient';
 import { formatDateTime } from '../../shared/lib/format';
 import type { IncidentConfidence, IncidentState } from '../../shared/ui/status';
 import { queryString, type Page, type SortParams } from '../../shared/api/query';
+import type { DeviceGroupRef } from '../rented-device/api';
 
 // Incidents as incidents api-design 01 to 07 return them.
 export interface PersonRef {
@@ -17,6 +18,7 @@ export interface Incident {
     id: string;
     assetTag: string | null;
     holder: { name: string; phone: string | null } | null;
+    group?: DeviceGroupRef | null;
   };
   organizationId: string | null;
   contractId: string | null;
@@ -95,6 +97,7 @@ export interface IncidentFilters extends SortParams<IncidentSortField> {
   state?: IncidentState;
   open?: boolean;
   deviceId?: string;
+  groupId?: string;
   from?: string;
   pageNumber?: number;
 }

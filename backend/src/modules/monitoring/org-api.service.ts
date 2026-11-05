@@ -4,7 +4,7 @@ import { DevicesService } from '../devices';
 import { FieldEventQueryService } from '../gateway-sync';
 import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
-import { ContractsService } from '../rentals';
+import { ContractsService, type VisibleDevice } from '../rentals';
 import { custodyView, type UnitState } from './custody-view';
 import { ReplayService } from './replay.service';
 import { StreamRepository } from './stream.repository';
@@ -18,6 +18,7 @@ export interface OrgApiDevice {
   assetTag: string;
   hardwareVariant: string;
   holder: { name: string } | null;
+  group: VisibleDevice['group'];
   position: { lat: number; lon: number; at: string } | null;
   batteryPct: number | null;
   lastSeenAt: string | null;
@@ -86,6 +87,7 @@ export class OrgApiService {
           assetTag: device.assetTag,
           hardwareVariant: device.variantCode,
           holder: held.holder,
+          group: held.group ?? null,
           position: view.position,
           batteryPct: view.batteryPct,
           lastSeenAt: view.lastSeenAt,

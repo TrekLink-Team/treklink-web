@@ -97,8 +97,11 @@ export interface LostUnit {
 // A device the scope may see on the live views now: in custody on one of its contracts.
 export interface VisibleDevice {
   deviceId: string;
+  contractDeviceId: string;
   contractId: string;
   contractCode: string;
+  planType: PlanType;
+  contractStatus: ContractStatus;
   organizationId: string;
   // The start of the custody interval (D-040): the live map shows an organization nothing from before it
   // (monitoring REQ-UBI-04, D-092 rule 2).
@@ -346,12 +349,23 @@ export class ContractsService {
   // with none (TrekLink Staff and Admin). A Caller fits; the organization API passes its key's
   // organization. A device appears once, on the contract holding it now (RETURN_DUE, OVERDUE and
   // DEFAULTED keep their devices visible, REQ-STA-02).
-  async visibleDevices(caller: { organizationId: string | null }): Promise<VisibleDevice[]> {
-    const rows = await this.contracts.findInCustody(caller.organizationId);
+  async visibleDevices(caller: {
+    organizationId: string | null;
+    deviceIds?: readonly string[];
+  }): Promise<VisibleDevice[]> {
+    if (caller.deviceIds?.length === 0) return [];
+    const rows = await this.contracts.findInCustody(
+      caller.organizationId,
+      undefined,
+      caller.deviceIds,
+    );
     return rows.map((row) => ({
       deviceId: row.deviceId,
+      contractDeviceId: row.id,
       contractId: row.contractId,
       contractCode: row.contract.code,
+      planType: row.contract.planType,
+      contractStatus: row.contract.status,
       organizationId: row.contract.organizationId,
       // The query keeps handed-over rows only.
       handedOverAt: row.handedOverAt as Date,
@@ -359,6 +373,12 @@ export class ContractsService {
       group: row.groupAssignments[0]?.group ?? null,
       openFaultReportId: row.faultReports[0]?.id ?? null,
     }));
+  }
+
+  async assertOwnContract(id: string, organizationId: string): Promise<void> {
+    if (!(await this.contracts.existsForOrganization(id, organizationId))) {
+      throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Not found.');
+    }
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
 

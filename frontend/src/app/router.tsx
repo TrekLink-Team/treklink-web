@@ -36,6 +36,7 @@ import { PaymentPage } from '../pages/PaymentPage';
 import { ParametersPage } from '../pages/ParametersPage';
 import { DemoControlPage } from '../pages/DemoControlPage';
 import { ReportsPage } from '../pages/ReportsPage';
+import { RentedDevicesPage } from '../pages/RentedDevicesPage';
 import { RolesPage } from '../pages/RolesPage';
 import { SystemHealthPage } from '../pages/SystemHealthPage';
 import { PricesPage } from '../pages/PricesPage';
@@ -130,6 +131,7 @@ export const AppRoutes: React.FC = () => (
       </Route>
       <Route element={<RequireRole roles={ORG_MANAGER} />}>
         <Route path="/o" element={<OrgDashboardPage />} />
+        <Route path="/o/devices" element={<RentedDevicesPage />} />
         <Route path="/o/contracts/new" element={<ContractRequestPage />} />
         <Route path="/o/invoices" element={<InvoicesPage />} />
         <Route path="/o/invoices/:id" element={<InvoiceDetailPage />} />

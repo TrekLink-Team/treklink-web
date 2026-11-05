@@ -30,8 +30,8 @@ export class GroupsRepository {
     });
   }
 
-  topology(organizationId: string, tx: Prisma.TransactionClient) {
-    return tx.group.findMany({
+  topology(organizationId: string, client: Prisma.TransactionClient = this.prisma) {
+    return client.group.findMany({
       where: { organizationId, removedAt: null },
       select: { id: true, parentId: true },
     });

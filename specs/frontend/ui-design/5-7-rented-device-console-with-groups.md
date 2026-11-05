@@ -8,12 +8,34 @@
 | Status | Ready for review |
 | Routes | `/o/devices` (new, `specs/frontend/design.md` §2); the group filter also on `/o/map` and `/o/incidents` |
 | Roles | Org Manager: the whole page. Org Operator: no console (the navigation entry is hidden, a direct visit is MSG26); reads the groups for the filter on the map and the incident list. TrekLink Staff and other organizations: MSG26 |
-| Use case, FRs, story | UC-66, UC-67, UC-68, UC-69; FR-CON-16 to FR-CON-19, FR-MON-11, BR-46, E04-8; BM04 F-11, F-21; no backlog story yet |
+| Use case, FRs, story | UC-66, UC-67, UC-68, UC-69; FR-CON-16 to FR-CON-19, FR-MON-11, BR-46, E04-8; BM04 F-11, F-21; US-UC66, TK-192 |
 | Requirements | rentals REQ-EVT-20 to REQ-EVT-25, REQ-ERR-13 to REQ-ERR-16; monitoring REQ-EVT-09, REQ-UBI-05; incidents REQ-UBI-06 |
-| Wireframe | None drawn yet; LongLP draws it in W10 before the screen is built, through the handbook gate of D-067. Two columns on a desktop: the group tree on the left (about 280 px), the device table on the right with the `DataTable` toolbar; on a phone the tree becomes a group filter select above the table |
+| Wireframe | The layout below was rendered and visually checked under D-067. Desktop uses a 280 px group tree beside the device table. On a phone the group filter and management controls appear above the scrollable table |
 
 Scope from the task: monitoring api-design 09; rentals api-design 22 to 29; the device list with its filters, the
 group tree and its dialogs, assignment, Report fault, and the group filter on the map and the incident list.
+
+## Wireframe
+
+```mermaid
+flowchart LR
+  subgraph Desktop["Rented devices | Desktop"]
+    direction LR
+    Groups["Groups<br/>New group<br/>All groups<br/>North patrol · 3<br/>↳ Team A · 2<br/>Edit · Remove"]
+    Rows["Rented devices<br/>Contract · Group · State<br/>Select rows → Assign to group<br/>Tag · Variant · Contract · State<br/>Battery · Last seen · Group · Holder<br/>Row details and actions"]
+    Groups ~~~ Rows
+  end
+  subgraph Phone["Rented devices | Phone"]
+    direction TB
+    PhoneGroup["Group filter<br/>Manage groups"]
+    PhoneRows["Contract · State<br/>Scrollable table<br/>Device actions"]
+    PhoneGroup ~~~ PhoneRows
+  end
+  Desktop ~~~ Phone
+```
+
+The rendered layout was checked against `RentedDevicesPage`, `GroupTree` and monitoring api-design 09
+on 2026-11-05. The implemented screen was also inspected at 1440 px and 390 px with local mocked data.
 
 ## Data
 
@@ -73,13 +95,23 @@ collapsed by default.
 
 ## Mobile, accessibility, live data
 
+- At ordinary viewport heights, the page fills the shell content area. The group list and table scroll
+  inside their panes, with the title, filters and pagination outside the row scroll area. Below 480 CSS px
+  height, the fixed shell bars release and the document can extend vertically so every control remains reachable.
+  On phones from 480 to 740 CSS px high, group controls fold behind a toggle showing the current group.
+  The opened controls scroll inside a floating panel capped at 40 percent of the viewport height.
+  Selecting a group or pressing Escape closes it and returns focus to the toggle. Contract and state filters
+  sit side by side, preserving at least one complete device row below the pinned table header.
+  The 2026-11-05 review checked both themes at 1440, 1280, 900, 360 and 320 px widths and at
+  318 by 236 CSS px, a 400 percent reflow-equivalent viewport. Screenshots and limits are recorded in
+  [the PR review evidence](../../../docs/review-evidence/pr-395/README.md).
 - 360 px layout: the tree becomes a group select above the table; the table scrolls sideways (the `DataTable`
   narrow layout); dialogs open full screen with full-width buttons at least 44 px high.
 - Tab order and focus after each action: tree, filters, table. The tree is a `tree` with `treeitem` nodes and
   arrow-key navigation; selecting a node filters the table and announces the count. Dialogs trap focus and return
   it to their button; after a removal, focus moves to the parent node or the tree header. State is a text label,
   battery a number with its unit, never colour alone.
-- WebSocket events and invalidated query keys: `device.groupChanged` and `device.labelChanged` invalidate
+- WebSocket events and invalidated query keys: `device.groupChanged` and `device.label` invalidate
   `['rented-devices', filters]`; poll mode (D-089) refetches on the 15 s cadence like the map. Query keys
   `['rented-devices', filters]`, `['groups']`, `['fault-reports', contractId]`; a group change invalidates
   `['groups']` and `['rented-devices']`, an assignment both and the map snapshot.

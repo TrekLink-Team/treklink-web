@@ -148,4 +148,5 @@
 
 - [ ] 9.1 `groupId` filter on the incident list and the group and holder in incident views and alerts (owner LongLP, assigned 2026-11-02 with treklink-web#305; HoangTK reviews)
   - **Do**: api-design 01 `groupId`; read the device's group and holder from `rentals.visibleDevices` (rentals design §11.4); routing, tiers and recipients unchanged
+  - **Verification**: query and dispatcher specs cover subgroup filtering and group metadata matched to the incident's routed organization. The existing contract-scoped holder lookup still supplies the phone number.
   - _Requirements: REQ-UBI-06, FR-MON-11_

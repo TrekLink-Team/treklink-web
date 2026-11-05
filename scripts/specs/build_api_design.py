@@ -162,8 +162,9 @@ def render(module, ep):
     out += ["", "## Validation", "", "<table>", "    <th>Status code</th>", "    <th>Description</th>",
             "    <th>Examples</th>", "    <tbody>"]
     for status, code, desc, msg in errs:
+        details = ep.get("error_details", {}).get(code, {})
         out += ["        <tr>", f"            <td>{status}</td>", f"            <td>{desc} (<code>{code}</code>)</td>",
-                "<td>", "", "```json", envelope({"errorCode": code}, False, status, msg), "```", "</td>", "        </tr>"]
+                "<td>", "", "```json", envelope({"errorCode": code, **details}, False, status, msg), "```", "</td>", "        </tr>"]
     out += ["    </tbody>", "</table>", "", "## Activity Diagram", "", "```mermaid", activity(ep, errs), "```", "",
             "## Sequence Diagram", "", "```mermaid", sequence(ep), "```", ""]
     # One line naming the refusals the sequence leaves to the Validation table and the activity diagram.

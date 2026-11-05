@@ -112,6 +112,14 @@ export class GroupsService {
     return { maxDepth, groups: nested(null) };
   }
 
+  async subgroupIds(organizationId: string, groupId: string): Promise<Set<string>> {
+    const links = await this.groups.topology(organizationId);
+    if (!links.some(({ id }) => id === groupId)) {
+      throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Not found.');
+    }
+    return new Set(descendants(groupId, links).map(({ id }) => id));
+  }
+
   create(input: CreateGroupDto, caller: Caller) {
     return this.editTree(caller, async (organizationId, tx) => {
       const { startsOn, endsOn, parentId = null, ...data } = input;

@@ -10,6 +10,7 @@ import {
 } from '../entities/incident/api';
 import { StateBadges } from '../entities/incident/ui';
 import { collectionSortOf, sortParamsOf } from '../shared/api/query';
+import { flattenGroups, useDeviceGroups } from '../entities/rented-device/api';
 import { formatDateTime } from '../shared/lib/format';
 import { ErrorState, PageTitle } from '../shared/ui/bits';
 import { Pagination } from '../shared/ui/DataTable';
@@ -27,14 +28,28 @@ const OPEN = 'open';
 const ALL = 'all';
 
 const deviceText = (incident: Incident) =>
-  `${incident.device.assetTag ?? 'Unknown device'}, ${incident.device.holder?.name ?? 'No holder label'}`;
+  [
+    incident.device.assetTag ?? 'Unknown device',
+    incident.device.holder?.name ?? 'No holder label',
+    incident.device.group?.name,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
 // /o/incidents, the organization incident queue of screen 8.1 (incidents api-design 01) on
 // CollectionView (chapter 06 §9, D-096). Rows keep the server order, most urgent deadline first
 // (D-059 rule 7), until a header asks the server for another (W26: code, state, latest event).
 export const IncidentsPage: React.FC = () => {
   const [filters, setFilters] = useState<IncidentFilters>(DEFAULTS);
-  const { data, isLoading, error, refetch, isFetching } = useIncidents(filters);
+  const groups = useDeviceGroups();
+  const flatGroups = groups.data ? flattenGroups(groups.data.groups) : [];
+  const groupId =
+    !groups.data || flatGroups.some(({ group }) => group.id === filters.groupId)
+      ? filters.groupId
+      : undefined;
+  const { data, isLoading, error, refetch, isFetching } = useIncidents(
+    groupId === filters.groupId ? filters : { ...filters, groupId, pageNumber: 1 },
+  );
   const fields: CollectionField<Incident>[] = [
     { key: 'device', label: 'Device and holder', render: deviceText, compact: true },
     {
@@ -61,7 +76,11 @@ export const IncidentsPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="incidents-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
+    <section
+      aria-labelledby="incidents-title"
+      data-fit-page=""
+      className="flex min-h-0 flex-1 flex-col gap-4"
+    >
       <PageTitle
         id="incidents-title"
         title="Incidents"
@@ -92,7 +111,7 @@ export const IncidentsPage: React.FC = () => {
           search: '',
           filter: filters.state ?? '',
           sort: collectionSortOf(filters),
-          groups: { open: filters.open ? OPEN : ALL },
+          groups: { open: filters.open ? OPEN : ALL, group: groupId ?? '' },
         }}
         titleSort="code"
         onQueryChange={(next) =>
@@ -100,6 +119,7 @@ export const IncidentsPage: React.FC = () => {
             state: (next.filter || undefined) as IncidentState | undefined,
             open: next.groups?.open === OPEN ? true : undefined,
             ...sortParamsOf(next.sort, INCIDENT_SORT_FIELDS),
+            groupId: next.groups?.group || undefined,
             pageNumber: 1,
           })
         }
@@ -112,8 +132,25 @@ export const IncidentsPage: React.FC = () => {
               { key: OPEN, label: 'Open only' },
             ],
           },
+          ...(flatGroups.length
+            ? [
+                {
+                  key: 'group',
+                  label: 'Group',
+                  options: [
+                    { key: '', label: 'All groups' },
+                    ...flatGroups.map(({ group, depth }) => ({
+                      key: group.id,
+                      label: `${'↳ '.repeat(depth)}${group.name}`,
+                    })),
+                  ],
+                },
+              ]
+            : []),
         ]}
-        noMatch={filters.open && !filters.state ? { title: 'No open incidents.' } : undefined}
+        noMatch={
+          filters.open && !filters.state && !groupId ? { title: 'No open incidents.' } : undefined
+        }
         hideCommandBar={false}
         pageInfo={pageInfoOf(data)}
         details={{
@@ -128,7 +165,7 @@ export const IncidentsPage: React.FC = () => {
               totalPages={data.totalPages}
               totalItems={data.totalCount}
               pageSize={data.pageSize}
-              onPage={(pageNumber) => setFilters({ ...filters, pageNumber })}
+              onPage={(pageNumber) => setFilters({ ...filters, groupId, pageNumber })}
             />
           ) : undefined
         }

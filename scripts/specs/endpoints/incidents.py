@@ -2,7 +2,8 @@ from ._common import (USER_ID, ORG_ID, DEVICE_ID, CONTRACT_ID, INCIDENT_ID, NOW,
                       state_409, STALE)
 
 INC = {"id": INCIDENT_ID, "code": "INC-2026-000045", "device": {"id": DEVICE_ID, "assetTag": "TL-0042",
-                                                                 "holder": {"name": "Le Thi E", "phone": "0912345678"}},
+                                                                 "holder": {"name": "Le Thi E", "phone": "0912345678"},
+                                                                 "group": {"id": "f1241aad-762c-4872-9c1f-461ac246c090", "name": "South trail", "parentId": None}},
        "organizationId": ORG_ID, "contractId": CONTRACT_ID, "state": "NOTIFY_PRIMARY", "stateChangedAt": NOW,
        "source": "DEVICE_FALL", "confidence": "CONFIRMED", "firstEventAt": "2026-10-20T03:14:52Z",
        "lastEventAt": NOW, "eventCount": 4, "lastPosition": {"lat": 11.5601, "lon": 108.5402}, "stale": False,
@@ -65,7 +66,7 @@ ENDPOINTS = [
        query=[["state", "IncidentState, repeatable", "enum", "no", "`NOTIFY_PRIMARY`"],
               ["open", "Every state except CLOSED", "bool", "no", "`true`"],
               ["deviceId", "Device", "uuid", "no", f"`{DEVICE_ID}`"],
-              ["groupId", "Organization members: the devices in this group or its subgroups now (rentals design §11, FR-MON-11)", "uuid", "no", "`g-1`"],
+              ["groupId", "Organization members: devices in this live group or its subgroups now (FR-MON-11). Unknown, removed or foreign groups return 404. TrekLink accounts receive 403 when using this filter", "uuid", "no", "`f1241aad-762c-4872-9c1f-461ac246c090`"],
               ["from", "createdAt lower bound", "datetime", "no", "`...`"]]
              + sort_query(["code", "state", "lastEventAt"],
                           "`tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first") + PAGE_QUERY,
@@ -74,7 +75,7 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT incidents WHERE scope"]),
 
     ep("GET", "/api/incidents/:id", "Incident detail", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
-       "Returns the incident with its device and holder label, owner, pending deadline, latest status "
+       "Returns the incident with its device, current group and holder label, owner, pending deadline, latest status "
        "updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an "
        "incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported "
        "on resolving, `null` until the incident is resolved. Each status update carries `correctsId`, the "

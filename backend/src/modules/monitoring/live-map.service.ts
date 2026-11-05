@@ -9,7 +9,7 @@ import { IncidentsQueryService, type OpenIncidentRef } from '../incidents';
 import { OrganizationsService } from '../organizations';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ParameterKey } from '../platform/parameters/parameter-registry';
-import { ContractsService } from '../rentals';
+import { ContractsService, GroupsService, type VisibleDevice } from '../rentals';
 import { custodyView, type UnitState } from './custody-view';
 import { isNumber } from './parameter-values';
 import { SOVEREIGNTY_OVERLAY, SovereigntyLabel } from './sovereignty-overlay';
@@ -63,6 +63,7 @@ export interface SnapshotDeviceDto {
   assetTag: string;
   hardwareVariant: string;
   holder: { name: string } | null;
+  group: VisibleDevice['group'];
   position: { lat: number; lon: number; at: string } | null;
   batteryPct: number | null;
   lastSeenAt: string | null;
@@ -117,6 +118,7 @@ export class LiveMapService {
     private readonly organizations: OrganizationsService,
     private readonly fieldEvents: FieldEventQueryService,
     private readonly connector: DeviceConnectorService,
+    private readonly groups: GroupsService,
   ) {}
 
   // The state the map draws before it applies stream entries (api-design 02, FR-MON-02, FR-MON-03,
@@ -127,7 +129,7 @@ export class LiveMapService {
   // (MF-02); a station is stale once silent longer than `monitoring.fieldStationStaleSeconds`, and a
   // station that never synced is not stale, it has no sync yet.
   async snapshot(
-    query: { organizationId?: string },
+    query: { organizationId?: string; groupId?: string },
     caller: Caller,
     ability: PolicyAbility,
     now: Date = new Date(),
@@ -136,13 +138,18 @@ export class LiveMapService {
     // An organization's own view: TrekLink staff asking for one organization keep the staff view.
     const clipped = caller.organizationId !== null;
     const cursor = await this.stream.maxSeq();
-    const [visible, staleSeconds, stations, stationStaleSeconds, counter] = await Promise.all([
-      this.contracts.visibleDevices({ organizationId }),
-      this.parameters.get('monitoring.deviceStaleSeconds'),
-      this.organizations.fieldStationHealth(organizationId),
-      this.parameters.get('monitoring.fieldStationStaleSeconds'),
-      this.parameters.get('monitoring.counterLocation'),
-    ]);
+    const [held, staleSeconds, stations, stationStaleSeconds, counter, groupIds] =
+      await Promise.all([
+        this.contracts.visibleDevices({ organizationId }),
+        this.parameters.get('monitoring.deviceStaleSeconds'),
+        this.organizations.fieldStationHealth(organizationId),
+        this.parameters.get('monitoring.fieldStationStaleSeconds'),
+        this.parameters.get('monitoring.counterLocation'),
+        caller.organizationId && query.groupId
+          ? this.mapGroupIds(caller.organizationId, query.groupId)
+          : undefined,
+      ]);
+    const visible = groupIds ? held.filter(({ group }) => group && groupIds.has(group.id)) : held;
     if (!isNumber(staleSeconds)) this.refuse('monitoring.deviceStaleSeconds', 'a number');
     if (!isNumber(stationStaleSeconds))
       this.refuse('monitoring.fieldStationStaleSeconds', 'a number');
@@ -190,6 +197,7 @@ export class LiveMapService {
             assetTag: device.assetTag,
             hardwareVariant: device.variantCode,
             holder: null,
+            group: null,
             position: null,
             batteryPct: device.batteryPct,
             lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
@@ -212,6 +220,7 @@ export class LiveMapService {
           assetTag: device.assetTag,
           hardwareVariant: device.variantCode,
           holder: rented.holder,
+          group: rented.group ?? null,
           position: view.position,
           batteryPct: view.batteryPct,
           lastSeenAt: view.lastSeenAt,
@@ -235,6 +244,17 @@ export class LiveMapService {
       stale: station.lastSyncAt !== null && station.lastSyncAt.getTime() < stationStaleBefore,
     }));
     return { cursor, devices, fieldStations };
+  }
+
+  // A stale or foreign group selection yields an empty map. Fleet reads ignore member filters.
+  private async mapGroupIds(organizationId: string, groupId: string): Promise<Set<string>> {
+    try {
+      return await this.groups.subgroupIds(organizationId, groupId);
+    } catch (error) {
+      if (error instanceof DomainException && error.errorCode === ErrorCode.NOT_FOUND)
+        return new Set();
+      throw error;
+    }
   }
 
   // `monitoring.counterLocation`: a non-empty name and numeric lat and lon. A malformed value fails the

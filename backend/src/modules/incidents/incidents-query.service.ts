@@ -22,7 +22,8 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
-import { ContractsService } from '../rentals';
+import { ContractsService, GroupsService, type VisibleDevice } from '../rentals';
+import { incidentDeviceGroups, incidentDeviceKey } from './incident-device-groups';
 import { IncidentSortField, IncidentsRepository } from './incidents.repository';
 import { responseTimesOf, type ResponseTimeRow } from './response-times';
 import { INCIDENT_EVENTS, EpisodeEvent, IncidentEvents } from './ports/incident-events.port';
@@ -31,6 +32,7 @@ export interface IncidentListQuery extends PagedQueryDto, SortQuery<IncidentSort
   state?: IncidentState[];
   open?: boolean;
   deviceId?: string;
+  groupId?: string;
   from?: Date;
 }
 
@@ -86,6 +88,7 @@ export interface IncidentView {
     id: string;
     assetTag: string | null;
     holder: { name: string; phone: string | null } | null;
+    group: VisibleDevice['group'];
   };
   organizationId: string | null;
   contractId: string | null;
@@ -195,6 +198,7 @@ export class IncidentsQueryService {
     private readonly organizations: OrganizationsService,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
     @Inject(INCIDENT_EVENTS) private readonly episodeEvents: IncidentEvents,
+    private readonly groups: GroupsService,
   ) {}
 
   // --- monitoring reads (design §5), `openByDevices(ids)` -------------------------------------------
@@ -281,10 +285,33 @@ export class IncidentsQueryService {
     const state: Prisma.EnumIncidentStateFilter = {};
     if (query.state?.length) state.in = query.state;
     if (query.open) state.not = 'CLOSED';
+    const scope = readScope(ability, caller);
+    let deviceId: Prisma.IncidentWhereInput['deviceId'] = query.deviceId;
+    if (query.groupId) {
+      if (!caller.organizationId) {
+        throw new DomainException(
+          HttpStatus.FORBIDDEN,
+          ErrorCode.FORBIDDEN,
+          'You do not have access to this.',
+        );
+      }
+      const groupIds = await this.groups.subgroupIds(caller.organizationId, query.groupId);
+      const units = await this.contracts.visibleDevices({ organizationId: caller.organizationId });
+      deviceId = {
+        in: units
+          .filter(
+            (unit) =>
+              unit.group &&
+              groupIds.has(unit.group.id) &&
+              (!query.deviceId || unit.deviceId === query.deviceId),
+          )
+          .map((unit) => unit.deviceId),
+      };
+    }
     const where: Prisma.IncidentWhereInput = {
-      ...readScope(ability, caller),
+      ...scope,
       ...(Object.keys(state).length ? { state } : {}),
-      ...(query.deviceId ? { deviceId: query.deviceId } : {}),
+      ...(deviceId ? { deviceId } : {}),
       ...(query.from ? { createdAt: { gte: query.from } } : {}),
     };
     const [rows, total] = await this.repository.page(
@@ -366,9 +393,9 @@ export class IncidentsQueryService {
     return incident;
   }
 
-  // Device asset tag, holder label and owner name for each row, in three batched reads.
+  // Batch the device and account labels, and match live groups to the incident's routed organization.
   async views(rows: Incident[]): Promise<IncidentView[]> {
-    const [tags, holders, names] = await Promise.all([
+    const [tags, holders, names, groups] = await Promise.all([
       this.devices.assetTags([...new Set(rows.map((row) => row.deviceId))]),
       this.contracts.holderLabels(
         rows.flatMap((row) =>
@@ -376,6 +403,7 @@ export class IncidentsQueryService {
         ),
       ),
       this.organizations.memberNames(rows.flatMap((row) => (row.ownerId ? [row.ownerId] : []))),
+      incidentDeviceGroups(this.contracts, rows),
     ]);
     return rows.map((row) => ({
       id: row.id,
@@ -384,6 +412,7 @@ export class IncidentsQueryService {
         id: row.deviceId,
         assetTag: tags.get(row.deviceId) ?? null,
         holder: holders.get(`${row.contractId}:${row.deviceId}`) ?? null,
+        group: groups.get(incidentDeviceKey(row)) ?? null,
       },
       organizationId: row.organizationId,
       contractId: row.contractId,

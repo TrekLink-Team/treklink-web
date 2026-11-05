@@ -21,7 +21,7 @@ import { FieldEventQueryService } from '../src/modules/gateway-sync';
 import { SyncQueryRepository } from '../src/modules/gateway-sync/sync-query.repository';
 import type { OrganizationsService } from '../src/modules/organizations';
 import type { ParameterService } from '../src/modules/platform/parameters/parameter.service';
-import { ContractsService } from '../src/modules/rentals';
+import { ContractsService, type GroupsService } from '../src/modules/rentals';
 import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
 
 // Capture explicit connection settings before Prisma can load a local .env at construction.
@@ -70,6 +70,7 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
     new FieldEventQueryService(new SyncQueryRepository(prisma), {} as never),
     // No unit is docked in this suite (devices design section 12.8).
     { dockedWithContracts: () => Promise.resolve([]) } as never,
+    {} as GroupsService,
   );
   const runId = randomUUID();
   const tag = (name: string) => `LM-${name}-${runId.slice(0, 8)}`;

@@ -50,6 +50,11 @@ A member declares a `NOTIFY_*`, `ACKNOWLEDGED` or `RESPONDING` incident false, w
       "holder": {
         "name": "Le Thi E",
         "phone": "0912345678"
+      },
+      "group": {
+        "id": "f1241aad-762c-4872-9c1f-461ac246c090",
+        "name": "South trail",
+        "parentId": null
       }
     },
     "organizationId": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",

@@ -5,6 +5,7 @@ import type { SnapshotDevice, UnitState } from '../entities/live-map/api';
 import { byUnitState, unitStateOf } from '../entities/live-map/model';
 import { useLiveMap } from '../entities/live-map/useLiveMap';
 import { useOrganizations } from '../entities/organization/api';
+import { flattenGroups, useDeviceGroups } from '../entities/rented-device/api';
 import { ApiError } from '../shared/api/apiClient';
 import { MAP_CONFIG_KEY, getMapConfig } from '../shared/config/map';
 import { formatDateTime } from '../shared/lib/format';
@@ -25,6 +26,7 @@ import { cn } from '../shared/ui/cn';
 import { messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
 import { LiveMapWidget, type MapMarker } from '../widgets/LiveMapWidget/LiveMapWidget';
+import { GroupOptions } from '../widgets/RentedDevices/GroupTree';
 
 const MSG26 = 'You do not have access to this.';
 const MSG32 = 'Reconnecting. Live data is paused.';
@@ -115,7 +117,7 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
     position,
     // The word travels in the title, so the popup and the marker's accessible name both carry it.
     title: device.simulated === true ? `${device.assetTag} (Simulated)` : device.assetTag,
-    subtitle: [holderOf(device), incident].filter(Boolean).join(', '),
+    subtitle: [device.group?.name, holderOf(device), incident].filter(Boolean).join(', '),
     // Asset tag, state, holder and any incident: the state is read before the rest (screen 9.1). An
     // open SOS is the most urgent state, so it comes right after the asset tag, with the incident's
     // state label ("TL-0018, SOS, Acknowledged, live, ..."; review of treklink-web#367). A settled
@@ -129,6 +131,7 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
           ]
         : []),
       stateName(row),
+      device.group?.name,
       holderOf(device),
       sosOf(device) ? null : incident,
     ]
@@ -230,6 +233,9 @@ const DeviceRow: React.FC<{
           )}
         </span>{' '}
         <span className="block text-body-sm text-ink-muted">{holderOf(device)}</span>{' '}
+        {device.group && (
+          <span className="block text-body-sm text-ink-muted">Group {device.group.name} </span>
+        )}
         <span className="block text-body-sm text-ink-muted">{statusLine(row)}</span>
       </button>
       {device.openIncident && (
@@ -252,7 +258,17 @@ const DeviceRow: React.FC<{
  */
 export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const { snapshot, state, paused } = useLiveMap(scope === 't' ? organizationId : null);
+  const [groupId, setGroupId] = useState('');
+  const groups = useDeviceGroups(scope === 'o');
+  const selectedGroup =
+    groupId &&
+    (!groups.data || flattenGroups(groups.data.groups).some(({ group }) => group.id === groupId))
+      ? groupId
+      : undefined;
+  const { snapshot, state, paused } = useLiveMap(
+    scope === 't' ? organizationId : null,
+    scope === 'o' ? selectedGroup : undefined,
+  );
   const config = useQuery({
     queryKey: MAP_CONFIG_KEY,
     queryFn: getMapConfig,
@@ -318,9 +334,16 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
         <Alert
           tone="error"
           action={
-            invalidFilter ? (
-              <Button size="sm" onClick={() => setOrganizationId(null)}>
-                Show all organizations
+            invalidFilter ||
+            (selectedGroup && error instanceof ApiError && error.statusCode === 404) ? (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setOrganizationId(null);
+                  setGroupId('');
+                }}
+              >
+                {scope === 't' ? 'Show all organizations' : 'Show all groups'}
               </Button>
             ) : (
               <Button size="sm" onClick={() => void snapshot.refetch()}>
@@ -364,6 +387,20 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
             </div>
             {scope === 't' && (
               <OrganizationFilter value={organizationId} onChange={setOrganizationId} />
+            )}
+            {scope === 'o' && !!groups.data?.groups.length && (
+              <Field id="map-device-group" label="Group">
+                <Select
+                  id="map-device-group"
+                  value={selectedGroup ?? ''}
+                  onChange={(event) => {
+                    setGroupId(event.target.value);
+                    setSelectedId(null);
+                  }}
+                >
+                  <GroupOptions groups={groups.data.groups} />
+                </Select>
+              </Field>
             )}
             <Field id="map-search" label="Search devices" hideLabel>
               <Input

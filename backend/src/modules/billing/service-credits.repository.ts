@@ -14,6 +14,7 @@ export const SERVICE_CREDIT_SELECT = {
   faultInspectionId: true,
   outageFrom: true,
   outageSourceIncidentId: true,
+  outageSourceFaultReportId: true,
   outageSourceNote: true,
   outageTo: true,
   outageDays: true,
@@ -44,6 +45,7 @@ export interface NewServiceCredit {
   faultInspectionId: string;
   outageFrom: Date;
   outageSourceIncidentId: string | null;
+  outageSourceFaultReportId: string | null;
   outageSourceNote: string | null;
   outageTo: Date;
   outageDays: number;

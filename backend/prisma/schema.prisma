@@ -1290,6 +1290,7 @@ model DeviceFaultReport {
   reportedAt       DateTime         @default(now()) @db.Timestamptz(3)
   resolvedAt       DateTime?        @db.Timestamptz(3)
   resolution       FaultResolution?
+  serviceCredits   ServiceCredit[]
 
   @@index([organizationId])
   @@index([contractId])
@@ -1547,41 +1548,43 @@ model DamageCharge {
 // 8.1, design §9, D-092 rule 5). Staff request it after the unit is checked in or replaced; an Admin
 // who did not request it decides; the decided amount lands as negative SERVICE_CREDIT lines.
 model ServiceCredit {
-  id                     String              @id @default(uuid())
-  contractId             String
-  contract               RentalContract      @relation(fields: [contractId], references: [id])
-  organizationId         String // copied from the contract, for the own-organization reads
-  organization           Organization        @relation(fields: [organizationId], references: [id])
-  contractDeviceId       String // the unit's row on the contract
-  contractDevice         ContractDevice      @relation(fields: [contractDeviceId], references: [id])
-  deviceId               String
-  device                 Device              @relation(fields: [deviceId], references: [id])
-  cause                  ServiceCreditCause
-  faultInspectionId      String // the FAILED inspection of that row (design §9.1)
-  faultInspection        Inspection          @relation(fields: [faultInspectionId], references: [id])
-  outageFrom             DateTime            @db.Timestamptz(3)
+  id                        String              @id @default(uuid())
+  contractId                String
+  contract                  RentalContract      @relation(fields: [contractId], references: [id])
+  organizationId            String // copied from the contract, for the own-organization reads
+  organization              Organization        @relation(fields: [organizationId], references: [id])
+  contractDeviceId          String // the unit's row on the contract
+  contractDevice            ContractDevice      @relation(fields: [contractDeviceId], references: [id])
+  deviceId                  String
+  device                    Device              @relation(fields: [deviceId], references: [id])
+  cause                     ServiceCreditCause
+  faultInspectionId         String // the FAILED inspection of that row (design §9.1)
+  faultInspection           Inspection          @relation(fields: [faultInspectionId], references: [id])
+  outageFrom                DateTime            @db.Timestamptz(3)
   // the source of outageFrom, one required (leader ruling 2026-11-02)
-  outageSourceIncidentId String?
-  outageSourceIncident   Incident?           @relation(fields: [outageSourceIncidentId], references: [id])
-  outageSourceNote       String?
-  outageTo               DateTime            @db.Timestamptz(3) // computed (design §9.2)
-  outageDays             Int
-  computedVnd            BigInt
-  decidedVnd             BigInt?
-  appliedVnd             BigInt              @default(0) // sum of its SERVICE_CREDIT lines, as a positive amount
-  status                 ServiceCreditStatus
-  requestedById          String
-  requestedBy            User                @relation("ServiceCredit_requestedById", fields: [requestedById], references: [id])
-  decidedById            String?
-  decidedBy              User?               @relation("ServiceCredit_decidedById", fields: [decidedById], references: [id])
-  decisionReason         String?
-  decidedAt              DateTime?           @db.Timestamptz(3)
-  refundReference        String?             @unique
-  refundedAt             DateTime?           @db.Timestamptz(3)
-  version                Int                 @default(1)
-  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime            @updatedAt @db.Timestamptz(3)
-  lines                  InvoiceLine[]
+  outageSourceIncidentId    String?
+  outageSourceIncident      Incident?           @relation(fields: [outageSourceIncidentId], references: [id])
+  outageSourceFaultReportId String?
+  outageSourceFaultReport   DeviceFaultReport?  @relation(fields: [outageSourceFaultReportId], references: [id], onDelete: Restrict)
+  outageSourceNote          String?
+  outageTo                  DateTime            @db.Timestamptz(3) // computed (design §9.2)
+  outageDays                Int
+  computedVnd               BigInt
+  decidedVnd                BigInt?
+  appliedVnd                BigInt              @default(0) // sum of its SERVICE_CREDIT lines, as a positive amount
+  status                    ServiceCreditStatus
+  requestedById             String
+  requestedBy               User                @relation("ServiceCredit_requestedById", fields: [requestedById], references: [id])
+  decidedById               String?
+  decidedBy                 User?               @relation("ServiceCredit_decidedById", fields: [decidedById], references: [id])
+  decisionReason            String?
+  decidedAt                 DateTime?           @db.Timestamptz(3)
+  refundReference           String?             @unique
+  refundedAt                DateTime?           @db.Timestamptz(3)
+  version                   Int                 @default(1)
+  createdAt                 DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime            @updatedAt @db.Timestamptz(3)
+  lines                     InvoiceLine[]
 
   @@index([contractId])
   @@index([organizationId])
@@ -1589,6 +1592,7 @@ model ServiceCredit {
   @@index([deviceId])
   @@index([faultInspectionId])
   @@index([outageSourceIncidentId])
+  @@index([outageSourceFaultReportId])
   @@index([requestedById])
   @@index([decidedById])
   @@index([status])

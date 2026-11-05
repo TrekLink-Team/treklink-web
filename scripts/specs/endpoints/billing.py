@@ -18,7 +18,8 @@ VIETQR = {"imageUrl": "https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount
 SERVICE_CREDIT = {"id": "sc-1", "contractId": CONTRACT_ID, "contractDeviceId": "cd-1", "deviceId": DEVICE_ID,
                   "assetTag": "TL-0042", "cause": "BATTERY_FAULT", "faultInspectionId": "in-7",
                   "outageFrom": "2026-10-10T01:30:00.000Z", "outageSourceIncidentId": INCIDENT_ID,
-                  "outageSourceNote": None, "outageTo": "2026-10-13T03:00:00.000Z", "outageDays": 3,
+                  "outageSourceFaultReportId": None, "outageSourceNote": None,
+                  "outageTo": "2026-10-13T03:00:00.000Z", "outageDays": 3,
                   "computedVnd": 45000, "decidedVnd": None, "appliedVnd": 0, "status": "REQUESTED",
                   "requestedById": USER_ID,
                   "decisionReason": None, "decidedAt": None, "refundReference": None, "refundedAt": None,
@@ -304,7 +305,9 @@ ENDPOINTS = [
     ep("POST", "/api/contracts/:id/service-credits", "Request a service credit", "TrekLink Staff, TrekLink Admin",
        "Records a credit for a unit that failed through no fault of the organization, once the unit is checked in "
        "or replaced (design §9). The caller names the contract row, the cause, the `FAILED` inspection of that row "
-       "and the outage start with its source: an incident, or a note with the time of the call or counter visit. "
+       "and the source of the outage start. Provide an incident id, a fault report id for that same contract row, "
+       "or a note with the time of the call or counter visit. When a fault report id is present, `outageFrom` "
+       "defaults to the report's `reportedAt`. For the other sources, provide `outageFrom`. "
        "`outageTo` is computed as the first of the replacement handover, the check-in and the end of the term the "
        "outage starts in; days round up with a one-day minimum. Monthly: ceil(P x days / termDays), at most P. Day "
        "plan: ceil(P / 30 x premium x days), at most the unit day-plan fee. The organization's Managers are "
@@ -314,9 +317,11 @@ ENDPOINTS = [
              ["cause", "`BATTERY_FAULT`, `RADIO_FAULT`, `GPS_FAULT`, `BOARD_FAULT` or `FIRMWARE_FAULT`", "enum", "yes",
               "`BATTERY_FAULT`"],
              ["faultInspectionId", "The FAILED inspection of that row", "uuid", "yes", "`in-7`"],
-             ["outageFrom", "When the organization reported the fault, not before the handover", "date-time", "yes",
+             ["outageFrom", "When the organization reported the fault, not before the handover. Required without a fault report id", "date-time", "cond.",
               "`2026-10-10T01:30:00Z`"],
              ["outageSourceIncidentId", "The incident that reported it", "uuid", "cond.", f"`{INCIDENT_ID}`"],
+             ["outageSourceFaultReportId", "An open or resolved fault report of this contract row", "uuid", "cond.",
+              "`7fe85361-a120-4f9f-9db7-80f5e092c150`"],
              ["outageSourceNote", "The call or counter visit, at most 500 characters", "string", "cond.",
               "`Called the counter at 08:30`"]],
        sample={"contractDeviceId": "cd-1", "cause": "BATTERY_FAULT", "faultInspectionId": "in-7",

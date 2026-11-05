@@ -134,3 +134,10 @@ CREATE UNIQUE INDEX "group_assignments_one_open"
 CREATE UNIQUE INDEX "device_fault_reports_one_open"
   ON "device_fault_reports" ("contractDeviceId")
   WHERE "resolvedAt" IS NULL;
+
+-- billing, REQ-ERR-06: a service credit records at least one source for the outage start.
+ALTER TABLE "service_credits"
+  ADD CONSTRAINT "service_credits_outage_source_check"
+  CHECK ("outageSourceIncidentId" IS NOT NULL
+      OR "outageSourceFaultReportId" IS NOT NULL
+      OR "outageSourceNote" IS NOT NULL);

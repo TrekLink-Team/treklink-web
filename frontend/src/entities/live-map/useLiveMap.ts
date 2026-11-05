@@ -20,9 +20,9 @@ const isMapEntry = (entry: LiveEntry) => entry.type !== 'incident.alert';
  * entry stored before the field was added, reloads the snapshot instead, and so does one for an
  * incident the marker does not hold yet, for its code (`needsSnapshot`).
  */
-export const useLiveMap = (organizationId: string | null) => {
+export const useLiveMap = (organizationId: string | null, groupId?: string) => {
   const queryClient = useQueryClient();
-  const snapshot = useMapSnapshot(organizationId);
+  const snapshot = useMapSnapshot(organizationId, groupId);
   const [entries, setEntries] = useState<LiveEntry[]>([]);
   const [paused, setPaused] = useState(isLivePaused());
   // The state the listener compares an entry with; the subscription outlives each render.

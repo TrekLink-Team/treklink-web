@@ -271,10 +271,16 @@ export const IncidentDetailPage: React.FC = () => {
     setCorrecting(update);
     setOpen('status');
   };
-  const createdAtOf = new Map(incident.statusUpdates.map((update) => [update.id, update.createdAt]));
+  const createdAtOf = new Map(
+    incident.statusUpdates.map((update) => [update.id, update.createdAt]),
+  );
 
   return (
-    <section aria-labelledby="incident-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
+    <section
+      aria-labelledby="incident-title"
+      data-fit-page=""
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <Link to="/o/incidents" className={`${LINK} inline-flex min-h-6 items-center self-start`}>
         Back to incidents
       </Link>
@@ -294,6 +300,7 @@ export const IncidentDetailPage: React.FC = () => {
             <div className={CARD}>
               <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
                 <Fact label="Device">{incident.device.assetTag ?? 'Unknown device'}</Fact>
+                {incident.device.group && <Fact label="Group">{incident.device.group.name}</Fact>}
                 <Fact label="Holder">
                   {incident.device.holder
                     ? `${incident.device.holder.name}${incident.device.holder.phone ? `, ${incident.device.holder.phone}` : ''}`
@@ -359,7 +366,8 @@ export const IncidentDetailPage: React.FC = () => {
                       <li key={update.id} className="flex flex-col gap-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-body-sm text-ink-muted">
-                            {update.author.fullName ?? 'A member'}, {formatDateTime(update.createdAt)}
+                            {update.author.fullName ?? 'A member'},{' '}
+                            {formatDateTime(update.createdAt)}
                           </p>
                           {update.correctedById && <Badge tone="ended">Corrected</Badge>}
                           {update.correctsId && (
@@ -405,7 +413,9 @@ export const IncidentDetailPage: React.FC = () => {
                     <li key={report.id} className="text-body text-ink">
                       {report.agency}, {report.reference}, reported{' '}
                       {formatDateTime(report.reportedAt)},{' '}
-                      {report.caseClosedAt ? `closed ${formatDateTime(report.caseClosedAt)}` : 'open'}
+                      {report.caseClosedAt
+                        ? `closed ${formatDateTime(report.caseClosedAt)}`
+                        : 'open'}
                     </li>
                   ))}
                 </ul>

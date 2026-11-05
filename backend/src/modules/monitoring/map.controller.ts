@@ -15,6 +15,10 @@ export class MapSnapshotQueryDto {
   @IsOptional()
   @IsUUID()
   organizationId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  groupId?: string;
 }
 
 // The map endpoints of `monitoring` (api-design 01 and 02). Config is for any signed-in user, so the

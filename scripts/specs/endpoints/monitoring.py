@@ -296,30 +296,47 @@ ENDPOINTS = [
        "it, for the Org Manager's console (UC-66, FR-CON-16): variant, asset tag, contract, the unit `state` with "
        "the battery and last-seen time clipped to the custody interval exactly as the organization's map snapshot "
        "(REQ-UBI-04, D-040), the group and the holder label, the open fault report and the open loss case. "
+       "The loss case is read by the current custody row ID. "
        "`groupId` keeps the devices of that group and its subgroups, and `groupId=none` the devices in no group; "
        "`state` filters after the custody view, so it "
        "matches the map. A checked-in or settled-lost unit is not listed. An Org Operator or a TrekLink caller gets "
        "403: the console is the Manager's (Report 3 RBAC).",
        "UC-66, FR-CON-16, FR-MON-11, BR-19, BR-46",
        query=[["contractId", "One of the organization's contracts", "uuid", "no", f"`{CONTRACT_ID}`"],
-              ["groupId", "A group of the organization, with its subgroups; `none` for the devices in no group", "uuid or `none`", "no", "`g-1`"],
+              ["groupId", "A group of the organization, with its subgroups, or `none` for ungrouped devices", "uuid or `none`", "no", "`7a790b20-40a7-46c6-a7b9-1af8f78400d1`"],
               ["state", "`LIVE`, `OFFLINE` or `NOT_HEARD`", "enum", "no", "`OFFLINE`"]] + PAGE_QUERY,
        response=paged({"deviceId": DEVICE_ID, "assetTag": "TL-0042", "variantCode": "treklink-v3",
                        "contract": {"id": CONTRACT_ID, "code": "RC-2026-0042", "planType": "MONTHLY",
                                     "status": "ACTIVE"},
-                       "contractDeviceId": "cd-1", "handedOverAt": "2026-10-19T01:30:00.000Z",
+                       "contractDeviceId": "8db32cf2-b5aa-4b69-85a5-639258f74030", "handedOverAt": "2026-10-19T01:30:00.000Z",
                        "state": "OFFLINE", "batteryPct": 34, "lastSeenAt": NOW,
-                       "group": {"id": "g-2", "name": "Team A", "parentId": "g-1"},
+                       "group": {"id": "c5b402ac-d922-417e-a0be-b2dab7608ebc", "name": "Team A",
+                                 "parentId": "7a790b20-40a7-46c6-a7b9-1af8f78400d1"},
                        "holder": {"name": "Le Thi E"}, "openFaultReportId": None, "openLossCase": None}, 7),
        entity="Rented device",
-       errors=[(404, "NOT_FOUND", "`contractId` or `groupId` is not the organization's", "Not found.")],
-       steps=["Read the organization's devices in custody with group, holder and open fault report from rentals",
-              "Apply the organization custody view to each projection", "Add variant codes and open loss cases from devices",
-              "Expand groupId to its subgroups and filter", "Page"],
-       controller="RentedDevicesController", service="RentedDevicesService", call="list(query, caller)",
-       participants=[["Ren", "ContractsService"], ["Dev", "DevicesService"]],
-       seq=["Svc->>Ren: visibleDevices(caller)", "Svc->>Dev: projections(deviceIds), openLossCases(deviceIds)",
-            "Svc->>Svc: custodyView per unit, filter, page"]),
+       errors=[(404, "NOT_FOUND", "contractId or groupId is not the organization's", "Not found.")],
+       steps=["Read current custody with group, holder and open fault report",
+              "Filter by contract or expanded group", "Read matching device projections and stale threshold",
+              "Clip readings, derive state, then filter, sort and page", "Add open loss cases by paged custody row IDs"],
+       sequence=["actor M as Org Manager", "participant UI as Rented Devices Page",
+                 "participant Ctl as RentedDevicesController", "participant Svc as RentedDevicesService",
+                 "participant Ren as ContractsService", "participant Group as GroupsService",
+                 "participant Dev as DevicesService", "participant Loss as LossCaseService",
+                 "participant Param as ParameterService",
+                 "M->>UI: Open rented devices or change filters", "UI->>Ctl: GET /api/rented-devices",
+                 "Ctl->>+Svc: list(query, caller)",
+                 "opt contractId supplied", "Svc->>Ren: assertOwnContract(contractId, organizationId)", "end",
+                 "opt group UUID supplied", "Svc->>Group: subgroupIds(organizationId, groupId)", "end",
+                 "Svc->>Ren: visibleDevices(organizationId)", "Svc->>Svc: Filter custody by contract and group",
+                 "alt filter belongs to another organization or was removed",
+                 "Svc-->>Ctl: NOT_FOUND", "Ctl-->>UI: 404 envelope",
+                 "else valid filters", "Svc->>Dev: projections(deviceIds)",
+                 "Svc->>Param: get(monitoring.deviceStaleSeconds)",
+                 "Svc->>Svc: Clip readings, filter by state, sort and page",
+                 "Svc->>Loss: summariesOfContractDevices(pagedCustodyIds)",
+                 "Svc-->>Ctl: Page with open loss cases", "Ctl-->>UI: 200 envelope",
+                 "end", "deactivate Svc"],
+       sequence_note="The validation table covers authentication, role and invalid-query refusals before the service call."),
 
 ]
 

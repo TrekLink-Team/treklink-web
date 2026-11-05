@@ -60,6 +60,25 @@ describe('GlobalExceptionFilter', () => {
     });
   });
 
+  it('carries an existing fault report id in the conflict result', () => {
+    const { status, body } = handle(
+      new DomainException(
+        HttpStatus.CONFLICT,
+        ErrorCode.FAULT_ALREADY_REPORTED,
+        'A fault on this device is already reported.',
+        { reportId: 'fault-1' },
+      ),
+    );
+
+    expect(status).toBe(409);
+    expect(body).toEqual({
+      result: { errorCode: 'FAULT_ALREADY_REPORTED', reportId: 'fault-1' },
+      isSuccess: false,
+      statusCode: 409,
+      message: 'A fault on this device is already reported.',
+    });
+  });
+
   it.each([
     [new BadRequestException('email must be an email'), 400, 'VALIDATION_FAILED'],
     [new UnauthorizedException(), 401, 'UNAUTHENTICATED'],

@@ -187,8 +187,11 @@ Moves each named device into the group: its open assignment elsewhere ends `MOVE
 
 ```mermaid
 flowchart TB
-    S((Start)) --> A["Check token and policy"]
-    A --> B{"Valid device list?"}
+    S((Start)) --> A{"Authenticated?"}
+    A -->|no| E401["Return 401 UNAUTHENTICATED"]
+    A -->|yes| P{"Allowed to manage the group?"}
+    P -->|no| E403["Return 403 FORBIDDEN"]
+    P -->|yes| B{"Valid device list?"}
     B -->|no| E400["Return 400 VALIDATION_FAILED"]
     B -->|yes| G["Lock the organization tree and target group"]
     G --> L{"Live group of this organization?"}
@@ -199,7 +202,9 @@ flowchart TB
     H -->|yes| W["Move changed assignments and commit"]
     W --> V["Emit audit and group-change events"]
     V --> OK["Return 200"]
-    E400 --> Z((End))
+    E401 --> Z((End))
+    E403 --> Z
+    E400 --> Z
     E404 --> Z
     E409 --> Z
     OK --> Z

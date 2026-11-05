@@ -20,8 +20,8 @@ export const SERVICE_CREDIT_DECISIONS = ['APPROVE', 'REDUCE', 'REJECT'] as const
 const trimmed = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
-// Request a credit (design §9.5). The source of the outage start is one of the incident or the note;
-// the service refuses a request with neither (REQ-ERR-06). outageTo is computed, never sent.
+// Request a credit (design §9.5). The service checks the source and can default the outage start
+// from a fault report (REQ-ERR-06). The service computes outageTo.
 export class ServiceCreditRequestDto {
   @IsUUID()
   contractDeviceId!: string;
@@ -32,13 +32,18 @@ export class ServiceCreditRequestDto {
   @IsUUID()
   faultInspectionId!: string;
 
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
-  outageFrom!: Date;
+  outageFrom?: Date;
 
   @IsOptional()
   @IsUUID()
   outageSourceIncidentId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  outageSourceFaultReportId?: string;
 
   @IsOptional()
   @Transform(trimmed)

@@ -14,7 +14,8 @@ import { IncidentsPage } from './IncidentsPage';
 const api = vi.fn();
 vi.mock('../shared/api/apiClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../shared/api/apiClient')>()),
-  apiClient: (...args: unknown[]) => api(...args),
+  apiClient: (...args: unknown[]) =>
+    args[0] === '/groups' ? Promise.resolve({ groups: [], maxDepth: 3 }) : api(...args),
 }));
 
 const ME = { id: 'u-me', fullName: 'Me', roles: ['ORG_OPERATOR'] } as SessionUser;
@@ -701,7 +702,9 @@ describe('IncidentDetailPage when the incident cannot be read (review of treklin
     api.mockRejectedValue(new ApiError(404, 'NOT_FOUND', 'You do not have access to this.'));
     renderAt('/o/incidents/inc-1');
     expect(await screen.findByText('You do not have access to this.')).toBeTruthy();
-    expect(screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent)).toEqual(['Incident']);
+    expect(
+      screen.getAllByRole('heading', { level: 1 }).map((heading) => heading.textContent),
+    ).toEqual(['Incident']);
     expect(screen.getByRole('link', { name: 'Back to incidents' }).className).toContain('min-h-6');
   });
 });

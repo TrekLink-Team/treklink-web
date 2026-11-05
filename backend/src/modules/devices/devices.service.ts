@@ -243,6 +243,11 @@ export class DevicesService {
     return this.devices.projections(ids);
   }
 
+  // A fault report holds the device state until its caller's transaction commits.
+  async lockStatus(deviceId: string, tx: Prisma.TransactionClient): Promise<DeviceStatus | null> {
+    return (await this.devices.lockUnit(deviceId, tx))?.status ?? null;
+  }
+
   // Remaining value of a device at a date, from its variant's schedule (FR-BILL-05, billing).
   async valueAt(deviceId: string, at: Date): Promise<number> {
     const device = await this.devices.findValuation(deviceId);

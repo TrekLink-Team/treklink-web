@@ -9,6 +9,7 @@ import { ScheduledJob } from '../../platform/scheduler/scheduled-job.decorator';
 import { ContractsService } from '../../rentals';
 import { AlertDeliveriesRepository, DueAlert } from '../alert-deliveries.repository';
 import { clockTime } from '../display-time';
+import { incidentDeviceGroups, incidentDeviceKey } from '../incident-device-groups';
 import { INCIDENT_ALERTS_QUEUED } from './alert-events';
 
 export const INCIDENT_ALERT = 'incident.alert';
@@ -24,6 +25,7 @@ export interface IncidentAlertEvent {
     code: string;
     deviceLabel: string;
     holderName: string | null;
+    groupName?: string;
     at: string;
     message: string;
   };
@@ -282,18 +284,20 @@ export class AlertDispatcherJob {
   // A confidence upgrade emits incident.changed, not a replacement of an already delivered alert.
   private async payloads(due: DueAlert[]): Promise<Map<string, IncidentAlertEvent['alert']>> {
     const incidents = [...new Map(due.map((row) => [row.incidentId, row])).values()];
-    const [tags, holders] = await Promise.all([
+    const [tags, holders, groups] = await Promise.all([
       this.devices.assetTags(incidents.map((row) => row.deviceId)),
       this.contracts.holderLabels(
         incidents
           .filter((row) => row.contractId !== null)
           .map((row) => ({ contractId: row.contractId!, deviceId: row.deviceId })),
       ),
+      incidentDeviceGroups(this.contracts, incidents),
     ]);
     const bodies = new Map<string, IncidentAlertEvent['alert']>();
     for (const row of due) {
       const deviceLabel = tags.get(row.deviceId) ?? row.code;
       const holderName = holders.get(`${row.contractId}:${row.deviceId}`)?.name ?? null;
+      const groupName = groups.get(incidentDeviceKey(row))?.name;
       const stale = row.kind === AlertKind.STALE;
       const transitionMessage =
         row.confidence === 'SUSPECTED' && row.source === 'CADENCE_INFERRED'
@@ -301,16 +305,18 @@ export class AlertDispatcherJob {
           : msg31;
       // The CHECK constraint gives every STALE row its reading; the fallback only keeps types honest.
       const at = stale ? (row.lastSeenAt ?? row.createdAt) : row.createdAt;
+      const message = stale
+        ? msg40(deviceLabel, holderName, at)
+        : transitionMessage(deviceLabel, holderName, at);
       bodies.set(row.id, {
         incidentId: row.incidentId,
         kind: row.kind,
         code: row.code,
         deviceLabel,
         holderName,
+        ...(groupName ? { groupName } : {}),
         at: at.toISOString(),
-        message: stale
-          ? msg40(deviceLabel, holderName, at)
-          : transitionMessage(deviceLabel, holderName, at),
+        message: groupName ? `${message} Group: ${groupName}.` : message,
       });
     }
     return bodies;

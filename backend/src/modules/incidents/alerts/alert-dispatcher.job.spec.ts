@@ -34,6 +34,7 @@ const due = (overrides: Partial<DueAlert> = {}): DueAlert => ({
   code: 'INC-2026-000001',
   deviceId: 'dev-1',
   contractId: 'c-1',
+  organizationId: 'org-a',
   confidence: 'CONFIRMED',
   source: 'DEVICE_SOS',
   createdAt: CREATED,
@@ -83,7 +84,7 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
     markFailedAttempt: jest.Mock;
   };
   let devices: { assetTags: jest.Mock };
-  let contracts: { holderLabels: jest.Mock };
+  let contracts: { holderLabels: jest.Mock; visibleDevices: jest.Mock };
   let emitter: { emit: jest.Mock };
   let job: AlertDispatcherJob;
   let accounts: { contactCard: jest.Mock };
@@ -102,6 +103,7 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
     };
     devices = { assetTags: jest.fn().mockResolvedValue(new Map([['dev-1', 'TL-0042']])) };
     contracts = {
+      visibleDevices: jest.fn().mockResolvedValue([]),
       holderLabels: jest
         .fn()
         .mockResolvedValue(new Map([['c-1:dev-1', { name: 'Le Thi E', phone: null }]])),
@@ -183,6 +185,18 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
   });
 
   describe('deliverAlerts: WEB and WEBSOCKET', () => {
+    it('adds the group of the routed organization to the alert without borrowing another tenant label', async () => {
+      contracts.visibleDevices.mockResolvedValue([
+        { organizationId: 'org-b', deviceId: 'dev-1', group: { name: 'Private group' } },
+        { organizationId: 'org-a', deviceId: 'dev-1', group: { name: 'South trail' } },
+      ]);
+      alerts.claimDue.mockResolvedValueOnce([due()]);
+      await job.deliverAlerts();
+      const [, delivered] = emitter.emit.mock.calls[0] as [string, IncidentAlertEvent];
+      expect(delivered.alert.groupName).toBe('South trail');
+      expect(delivered.alert.message).toContain('Group: South trail.');
+      expect(delivered.alert.message).not.toContain('Private group');
+    });
     it('claims WEB and WEBSOCKET only, leaving EMAIL to its own lane and API_EVENT pending', async () => {
       await expect(job.deliverAlerts()).resolves.toBe(0);
       expect(alerts.claimDue).toHaveBeenCalledTimes(1);

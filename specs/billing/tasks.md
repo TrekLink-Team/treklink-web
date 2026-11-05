@@ -158,6 +158,7 @@
   - **Done** (2026-11-02, LongLP): screen 6.5 (`specs/frontend/ui-design/6-5-service-credits-servicecreditspage-the-request-from.md`, frontend task 6.5). The request from the maintenance record and an incident picker for the outage source are left out; billing api-design 18 already takes `outageSourceIncidentId`. The credit view gains `requestedById` (billing api-design 19 to 22)
 - [ ] 8.3 The fault report as the source of a credit's outage start (owner LongLP, W10, after rentals 9.4)
   - **Do**: `ServiceCredit.outageSourceFaultReportId` with the CHECK of three sources, the report checked against the contract row through `CREDIT_BASIS`, `outageFrom` defaulting to its `reportedAt`; the request dialog of screen 6.5 offers the unit's open or resolved report (design §9.1, treklink-web#305)
+  - **Implemented** (2026-11-05, LongLP): the credit API accepts and stores the report, checks the custody row, and defaults the start to `reportedAt`. The report picker in screen 6.5 remains open.
   - _Requirements: REQ-EVT-12, rentals REQ-EVT-24_
 
 ## Phase 9: The early-end credit (D-097 rules 2 and 3; W29)

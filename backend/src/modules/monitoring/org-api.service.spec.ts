@@ -55,6 +55,7 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
           contractCode: 'RC-2026-0001',
           organizationId: 'org-1',
           holder: { name: 'Le Thi E' },
+          group: { id: 'g-2', name: 'Team A', parentId: 'g-1' },
           handedOverAt: HANDED_OVER,
         },
         {
@@ -145,6 +146,7 @@ describe('OrgApiService (monitoring 3.2, api-design 04 and 05)', () => {
         assetTag: 'TL-0008',
         hardwareVariant: 'treklink-v3',
         holder: { name: 'Le Thi E' },
+        group: { id: 'g-2', name: 'Team A', parentId: 'g-1' },
         position: { lat: 11.56, lon: 108.54, at: FRESH.toISOString() },
         batteryPct: 81,
         lastSeenAt: FRESH.toISOString(),
