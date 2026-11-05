@@ -37,6 +37,8 @@ const STORAGE_KEY = 'treklink.stockTake.scans';
 const RESULT_HEADING = 'stock-take-unconfirmed';
 
 const tagsText = (count: number) => `${count} ${count === 1 ? 'tag' : 'tags'}`;
+// The confirmation title of screen 4.5: "Submit {n} scanned tags?".
+const scannedTagsText = (count: number) => `${count} scanned ${count === 1 ? 'tag' : 'tags'}`;
 
 // The scan list survives a reload in session storage until it is submitted (screen 4.5). Storage can be
 // unavailable (a private window, blocked site data); the page works without it.
@@ -343,7 +345,7 @@ export const StockTakePage: React.FC = () => {
       {confirming && (
         <ConfirmDialog
           titleId="stock-take-confirm-title"
-          title={`Submit ${tagsText(scans.length)}?`}
+          title={`Submit ${scannedTagsText(scans.length)}?`}
           description="Units not scanned and not heard recently are listed as unconfirmed."
           confirmLabel="Finish stock-take"
           pending={submitting}
