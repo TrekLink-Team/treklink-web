@@ -24,6 +24,16 @@ vi.mock('../entities/audit/api', async (importOriginal) => ({
   },
 }));
 
+vi.mock('../entities/account/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../entities/account/api')>()),
+  useAccounts: (filters: { q?: string }) => ({
+    data:
+      filters.q === 'Staff'
+        ? { items: [{ id: ACTOR, fullName: 'Staff A', email: 'staff@treklink.local' }] }
+        : undefined,
+  }),
+}));
+
 vi.mock('../entities/organization/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/organization/api')>()),
   useOrganizations: () => ({
@@ -137,15 +147,16 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     expect(lastCall().filters).toEqual({ organizationId: 'org-1', action: 'contract.' });
   });
 
-  it('blocks an actor that is not a UUID and an end before the start, and sends nothing', () => {
-    renderPage();
-    fireEvent.change(screen.getByLabelText('Actor id'), { target: { value: 'staff-a' } });
+  it('blocks an actor id from the address that is not a UUID and an end before the start, and sends nothing', () => {
+    renderPage('?actorId=staff-a');
+    calls.length = 0;
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-10-21T08:00' } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-20T08:00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(screen.getByText('Actor id must be a UUID.')).toBeTruthy();
+    expect(screen.getByText('Choose an actor from the list.')).toBeTruthy();
     expect(screen.getByText('Choose an end after the start.')).toBeTruthy();
-    expect(screen.getByTestId('search').textContent).toBe('');
+    expect(screen.getByTestId('search').textContent).toBe('?actorId=staff-a');
+    expect(calls).toHaveLength(0);
   });
 
   it('applies a period as ISO instants', () => {
@@ -162,10 +173,22 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     renderPage('?action=contract.');
     fireEvent.click(screen.getByRole('button', { name: 'Filter by actor Staff A' }));
     expect(lastCall().filters).toEqual({ action: 'contract.', actorId: ACTOR });
-    expect((screen.getByLabelText('Actor id') as HTMLInputElement).value).toBe(ACTOR);
+    // The picker names the actor from the row instead of showing its id.
+    expect((screen.getByLabelText('Actor') as HTMLInputElement).value).toBe('Staff A');
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear filters' })[0]);
     expect(screen.getByTestId('search').textContent).toBe('');
     expect(lastCall().filters).toEqual({});
+  });
+
+  it('picks the actor by name from the TrekLink accounts and applies its id', async () => {
+    renderPage();
+    const picker = screen.getByRole('combobox', { name: 'Actor' });
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: 'Staff' } });
+    fireEvent.click(await screen.findByRole('option', { name: /Staff A/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(lastCall().filters).toEqual({ actorId: ACTOR });
+    expect(screen.getByTestId('search').textContent).toBe(`?actorId=${ACTOR}`);
   });
 
   it('shows and hides the before and after of an entry', () => {
@@ -234,6 +257,6 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     state = { isPending: false, error: new ApiError(403, 'FORBIDDEN', 'No.') };
     renderPage();
     expect(screen.getByRole('alert').textContent).toBe('You do not have access to this.');
-    expect(screen.queryByLabelText('Actor id')).toBeNull();
+    expect(screen.queryByLabelText('Actor')).toBeNull();
   });
 });

@@ -38,7 +38,7 @@ export interface FilterErrors {
 // What the filter bar blocks before it sends a request. The server checks the same.
 export const filterErrors = (filters: AuditFilters): FilterErrors => {
   const errors: FilterErrors = {};
-  if (filters.actorId && !UUID.test(filters.actorId)) errors.actorId = 'Actor id must be a UUID.';
+  if (filters.actorId && !UUID.test(filters.actorId)) errors.actorId = 'Choose an actor from the list.';
   if (filters.from && filters.to && Date.parse(filters.from) >= Date.parse(filters.to)) {
     errors.to = 'Choose an end after the start.';
   }

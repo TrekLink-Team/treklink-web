@@ -53,7 +53,7 @@ describe('filterErrors', () => {
   });
 
   it('refuses an actor that is not a UUID', () => {
-    expect(filterErrors({ actorId: 'staff-a' })).toEqual({ actorId: 'Actor id must be a UUID.' });
+    expect(filterErrors({ actorId: 'staff-a' })).toEqual({ actorId: 'Choose an actor from the list.' });
   });
 
   it('refuses an end that is not after the start, and accepts one open end', () => {
