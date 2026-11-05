@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
@@ -858,7 +858,10 @@ export const MaintenancePage: React.FC = () => {
   );
   const [viewing, setViewing] = useState<MaintenanceRecord | null>(null);
   // A history row of the device page opens its record here, from `recordId` in the navigation state.
-  const linkedId = (location.state as { recordId?: string } | null)?.recordId ?? null;
+  // Read once: the id is then cleared from the history entry, so the record stays open meanwhile.
+  const [linkedId] = useState<string | null>(
+    () => (location.state as { recordId?: string } | null)?.recordId ?? null,
+  );
   const linked = useQuery({
     queryKey: ['maintenance-record', linkedId],
     queryFn: () => findRecord(linkedId ?? ''),
@@ -866,6 +869,18 @@ export const MaintenancePage: React.FC = () => {
   });
   const [linkedClosed, setLinkedClosed] = useState(false);
   const shown = viewing ?? (linkedClosed ? null : (linked.data ?? null));
+  // Once the linked record is open, recordId leaves the history entry, so a reload or Back to this
+  // entry does not open it again (review of treklink-web#384). Other state, such as deviceId, stays.
+  const openedLinked = Boolean(linked.data);
+  useEffect(() => {
+    const state = location.state as Record<string, unknown> | null;
+    if (!openedLinked || !state || !('recordId' in state)) return;
+    const rest = Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'recordId'));
+    navigate(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: Object.keys(rest).length > 0 ? rest : null,
+    });
+  }, [openedLinked, location.state, location.pathname, location.search, navigate]);
   // Any other record opened or closed replaces the linked one for good.
   const view = (record: MaintenanceRecord | null) => {
     setLinkedClosed(true);

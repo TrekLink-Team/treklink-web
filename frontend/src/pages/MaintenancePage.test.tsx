@@ -2,7 +2,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
 import { MaintenanceApprovalPage, MaintenancePage } from './MaintenancePage';
@@ -114,6 +114,7 @@ const renderPage = (path = '/t/maintenance') =>
   );
 
 beforeEach(() => {
+  fetchMaintenanceRecords.mockReset();
   estimateMaintenance.mockReset();
   completeMaintenance.mockReset();
   decideMaintenance.mockReset();
@@ -293,6 +294,47 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     // Closed, it stays closed.
     fireEvent.click(within(drawer).getAllByRole('button', { name: /Close/ })[0]);
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Maintenance on TL-0009' })).toBeNull());
+  });
+
+  it('clears recordId from the history entry once the record is open, so Back and Forward do not reopen it', async () => {
+    fetchMaintenanceRecords.mockResolvedValue({ ...page([record({ id: 'm-7' })]), totalPages: 1 });
+    // Stands in for the history controls and shows the state of the current entry.
+    const History: React.FC = () => {
+      const location = useLocation();
+      const go = useNavigate();
+      return (
+        <>
+          <p data-testid="entry-state">{JSON.stringify(location.state)}</p>
+          <button type="button" onClick={() => go(-1)}>Back</button>
+          <button type="button" onClick={() => go(1)}>Forward</button>
+        </>
+      );
+    };
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter
+          initialEntries={['/t/devices/d-9', { pathname: '/t/maintenance', state: { recordId: 'm-7' } }]}
+          initialIndex={1}
+        >
+          <History />
+          <Routes>
+            <Route path="/t/maintenance" element={<MaintenancePage />} />
+            <Route path="/t/devices/:id" element={<p>Device page</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('dialog', { name: 'Maintenance on TL-0009' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('entry-state').textContent).toBe('null'));
+    // The record stays open after its id leaves the entry.
+    expect(screen.getByRole('dialog', { name: 'Maintenance on TL-0009' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('Device page')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Forward' }));
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('dialog', { name: 'Maintenance on TL-0009' })).toBeNull();
+    expect(fetchMaintenanceRecords).toHaveBeenCalledTimes(1);
   });
 
   it('opens maintenance preselected from the device detail navigation', async () => {
