@@ -98,7 +98,7 @@ No body.
         </tr>
         <tr>
             <td>409</td>
-            <td>Devices are registered under it (<code>VARIANT_IN_USE</code>)</td>
+            <td>Devices are registered under it, or a contract, price schedule or damage rate names it (<code>VARIANT_IN_USE</code>)</td>
 <td>
 
 ```json
@@ -108,7 +108,7 @@ No body.
   },
   "isSuccess": false,
   "statusCode": 409,
-  "message": "This cannot be done while it has open devices."
+  "message": "treklink-v3 has registered devices or prices. Deactivate it instead."
 }
 ```
 </td>
@@ -128,7 +128,7 @@ flowchart TB
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"Devices are registered under it?"}
+    D2{"Devices are registered under it, or a contract, price schedule or damage rate names it?"}
     D1 -->|no| D2
     E2["Return 409 VARIANT_IN_USE"]
     D2 -->|yes| E2
@@ -137,8 +137,10 @@ flowchart TB
     D2 -->|no| P0
     P1["Delete"]
     P0 --> P1
+    P2["Audit hardwareVariant.delete after commit"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 

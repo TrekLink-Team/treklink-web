@@ -105,7 +105,8 @@ Adds a device model with its sensors, firmware baseline, remaining-value schedul
       "localAlarm": "LED blinks"
     },
     "isActive": true,
-    "deviceCount": 0
+    "deviceCount": 0,
+    "version": 0
   },
   "isSuccess": true,
   "statusCode": 201,
@@ -278,8 +279,10 @@ flowchart TB
     D5 -->|no| P0
     P1["Insert the variant"]
     P0 --> P1
+    P2["Audit hardwareVariant.create after commit"]
+    P1 --> P2
     OK["Return 201"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 

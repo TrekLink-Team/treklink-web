@@ -68,7 +68,8 @@ No body.
         "localAlarm": "LED blinks"
       },
       "isActive": true,
-      "deviceCount": 18
+      "deviceCount": 18,
+      "version": 3
     }
   ],
   "isSuccess": true,

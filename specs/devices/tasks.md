@@ -42,12 +42,13 @@
 
 ## Phase 2: Core Service Logic
 
-- [ ] 2.1 Hardware variants with service plans (owner KhoaDD)
+- [x] 2.1 Hardware variants with service plans (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/variants.service.ts`
   - **Do**: create, edit, delete; sensor flags and deletion refused while devices exist (409 `VARIANT_IN_USE`); depreciation schedule validated (400 `SCHEDULE_INVALID`); `serviceIntervalDays` with at least one checklist item (400 `CHECKLIST_REQUIRED`); `firmwareBaseline`
   - **Test**: each guard; deleting an unused variant succeeds
-  - _Requirements: REQ-STA-02, REQ-ERR-10, FR-DEV-04_
+  - _Requirements: REQ-STA-02, REQ-ERR-10, REQ-ERR-18, REQ-ERR-19, REQ-EVT-29, FR-DEV-04_
   - _Story: US-UC13_
+  - **Done** (2026-11-05, KhoaDD under D-078, W20A): design section 11. `variants.service.ts`, `variants.repository.ts`, `variant-rules.ts` and `dto/variant.dto.ts` serve api-design 02 to 04 under the existing `hardwareVariant.manage` (no new permission). The forward migration `20261105120000_variant_version` adds `version`; an edit is a compare-and-set (409 `STALE_VERSION`), the code is fixed after create, a sensor flag differing from the stored one is refused while units exist, a delete is refused while units exist or another module's row names the variant (foreign key, 409 `VARIANT_IN_USE`); 400 `SCHEDULE_INVALID`, `CHECKLIST_REQUIRED` and `VARIANT_MEDIA_INVALID` (new codes); audit `hardwareVariant.create`, `.update`, `.delete` after commit. Unit tests `variant-rules.spec.ts`, `variants.service.spec.ts`, `variants.controller.spec.ts`; on Postgres `test/variants-stock-take.db-spec.ts` (AC-22)
 - [ ] 2.2 Registration and intake checks (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/devices.service.ts`, `intake.service.ts`
   - **Do**: `register(dto)` creates `IN_INTAKE`; asset tag and `nodeNum` unique across every device ever registered (409 `CONFLICT_UNIQUE`, MSG10) and immutable; `recordIntake(id, dto)` requires GPS, radio, battery and, for a motion-sensor variant, motion (400 `MOTION_RESULT_REQUIRED`); pass moves `IN_INTAKE` or `MAINTENANCE` without an open record to `AVAILABLE` and sets the first `serviceDueAt`; fail opens a record and moves to `MAINTENANCE`
@@ -79,12 +80,13 @@
   - **Progress**: `projectReading`, `byNodeNum` and `projections` are built; the rule is one conditional `UPDATE` on `lastSeenAt` that skips only an older reading (a same-second position and telemetry both apply). `trail(id)` is the device's lifecycle history for `monitoring` api-design 07 (transitions, intake, provisioning, resets, inspections, maintenance), not a position trail, and ships with that endpoint
   - _Requirements: REQ-EVT-08, FR-DEV-06_
   - _Story: US-UC26 (projection side)_
-- [ ] 2.6 Stock-take (owner KhoaDD)
+- [x] 2.6 Stock-take (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/stock-take.service.ts`
   - **Do**: compare scanned asset tags with in-stock units, rented units heard within `devices.stockTakeSeenHours`, units confirmed by neither and unknown tags; store the run
   - **Test**: AC-04
-  - _Requirements: REQ-EVT-12, AC-04, FR-DEV-10_
+  - _Requirements: REQ-EVT-12, REQ-EVT-30, AC-04, AC-23, FR-DEV-10_
   - _Story: US-UC54_
+  - **Done** (2026-11-05, KhoaDD under D-078, W20A): design section 11. `stock-take.service.ts`, `stock-takes.repository.ts`, `stock-takes.controller.ts` and `dto/stock-take.dto.ts` serve api-design 25 and 26 under the existing `stockTake.manage`. Tags trimmed and upper-cased, a scanned unit confirmed whatever its status, RETIRED and DISPOSED units left out, the window from `ParameterService`; the run is stored and audited (`stockTake.run`) after commit; the list names the taker through platform's `ACCOUNT_DIRECTORY`. Unit tests `stock-take.service.spec.ts` (AC-04), `stock-takes.controller.spec.ts`; on Postgres `test/variants-stock-take.db-spec.ts` (AC-23)
 - [ ] 2.7 Loss cases and disposal (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/loss-cases.service.ts`, `jobs/loss-search.job.ts`
   - **Do**: report from any in-service state (Org Manager only for its rented device), one open case per device (409 `LOSS_CASE_OPEN`); triage asks the `CUSTODY_RESOLVER` port (`custodyAt(deviceId, lastSeenAt)`), records `RENTER` or `TREKLINK`, calls `ChannelKeyService.markKeyExposed(orgId, at, actor, tx)` of `organizations` for `RENTER` and `ComplianceCaseService.openOrLink` for suspected theft or fraud, sets `searchEndsAt` from `devices.lossSearchDays`; confirm by Staff or the hourly `devices.lossSearch` job calls every `LOSS_CASE_LISTENERS.onConfirmed` (billing charges `RENTER` custody); settle by an Admin who did not triage (403 `SEPARATION_OF_DUTY`) calls every `onSettled` (billing adjusts a reduction or waiver, rentals sets `lostAt`), device to `RETIRED`; recover to `RETURNED` (a `SETTLED` case stays `SETTLED`); dispose of a `RETIRED` device with the three wipe steps (400 `WIPE_INCOMPLETE`)
@@ -121,6 +123,7 @@
   - **Files**: `variants.controller.ts`, `devices.controller.ts`, `maintenance.controller.ts`, `loss-cases.controller.ts`, `stock-takes.controller.ts`
   - **Do**: api-design 01 to 26 with each file's permission and `@ResponseMessage`; `GET /api/devices/availability` declared before `GET /api/devices/:id`
   - **Progress** (2026-10-30, D-078 chain 3): `variants.controller.ts` serves api-design 01, `GET /api/hardware-variants` (`hardwareVariant.read` for TrekLink Staff and Admin, `hardwareVariant.read.org` for the Org Manager); `includeInactive` is honoured only for an Admin caller. `devices.controller.ts` gained `POST /api/devices` (api-design 05, `device.register`). Open for this task: `maintenance.controller.ts`, `loss-cases.controller.ts`, `stock-takes.controller.ts` endpoints not yet listed above, and the rest of 01 to 04, 16 to 26
+  - **Partly done** (2026-11-05, KhoaDD under D-078, W20A): `variants.controller.ts` serves api-design 02 to 04 and the new `stock-takes.controller.ts` api-design 25 and 26 (tasks 2.1 and 2.6)
   - **Partly done** (2026-11-01, KhoaDD under D-078): `devices.controller.ts` serves api-design 08 `PATCH /api/devices/:id`, the firmware edit the device page already called (it answered 404 before). Permission `device.operate`, the one of every other Staff write on a unit, so no new permission or migration; `UpdateDeviceDto` takes `firmwareVersion` and `expectedVersion` only, an identity field is refused by the whitelist (400); `DevicesService.updateFirmware` compares and sets on the version (409 `STALE_VERSION`), writes no transition, and the controller emits `audit.record device.update` with the version before and after, after commit. Unit-tested (`devices.firmware.spec.ts`, `devices.controller.spec.ts`) and over the stubbed HTTP pipeline (`test/devices.e2e-spec.ts`)
 - [ ] 4.2 E2E (owner KhoaDD)
   - **Files**: `backend/test/devices.e2e-spec.ts`, `backend/test/tenancy.e2e-spec.ts`

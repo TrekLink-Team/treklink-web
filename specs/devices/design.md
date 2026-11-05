@@ -1150,3 +1150,44 @@ variant summary of every unit payload (devices 05 to 07, rentals 03 `devices[]`,
 to `{id, code, name, imageUrl, specSheet, hasGps, hasMotionSensor, mqttCapable, firmwareBaseline}`, one shared
 shape (E-1); the card shows `firmwareBaseline` as "Firmware baseline" (leader ruling 2026-11-03). The monitoring rows keep their
 variant code string until W10: the live map and the organization API read it.
+
+## 11. Variant administration and stock-take (W20A, 2026-11-05, KhoaDD under D-078)
+
+**Variants (api-design 02 to 04, screen 4.1).** `VariantsService` in `variants.service.ts` owns the writes,
+`VariantsRepository` the `hardware_variants` rows. The forward migration `20261105120000_variant_version` adds
+`version INT NOT NULL DEFAULT 0` to `hardware_variants`, so an edit is a compare-and-set
+(`UPDATE ... WHERE id = :id AND version = :expectedVersion`, then `version + 1`) and a lost race answers 409
+`STALE_VERSION` (REQ-ERR-19). The PATCH body carries `expectedVersion`; deactivation is the same PATCH with
+`isActive` false. Rules, checked before any write:
+
+| Rule | Error |
+|---|---|
+| `code` matches `^[a-z0-9]+(-[a-z0-9]+)*$`, 3 to 40 characters, and is unique ignoring case | 400 `VALIDATION_FAILED`, 409 `CONFLICT_UNIQUE` |
+| Schedule: at least one row, the first at `fromMonths` 0, months strictly increasing, `valueVnd` never increasing, whole numbers at or above 0 | 400 `SCHEDULE_INVALID` |
+| A service interval needs at least one checklist item; each item 1 to 120 characters | 400 `CHECKLIST_REQUIRED` |
+| Image link and spec sheet as in §10 | 400 `VARIANT_MEDIA_INVALID` |
+| A sensor flag that differs from the stored one while units are registered | 409 `VARIANT_IN_USE` |
+| Delete while any unit was ever registered on it | 409 `VARIANT_IN_USE` |
+
+`code` is fixed after create (the PATCH whitelist refuses it). A delete counts the units inside its
+transaction; a variant that another module's row still names (a contract, a price schedule, a damage rate)
+fails the foreign key, and that failure answers 409 `VARIANT_IN_USE` too, so `devices` never reads those
+tables. Deactivate such a variant instead. Every write emits `audit.record` after commit (`hardwareVariant.create`, `.update`,
+`.delete`, subject `HardwareVariant`, values before and after). Every answer carries `version` and
+`deviceCount`.
+
+**Stock-take (api-design 25 and 26, screen 4.5).** One request is one count: the screen keeps the scanned
+tags in session storage until Finish, so a count survives a reload without a server-side open session.
+`StockTakeService.run` reads every device not `RETIRED` or `DISPOSED` and classifies it (REQ-EVT-30):
+
+| Unit | Group |
+|---|---|
+| Scanned, any status | `inStockConfirmed` (a scanned `RENTED` unit is on the shelf, so it is confirmed too) |
+| Not scanned, `RENTED`, `lastSeenAt` within `devices.stockTakeSeenHours` (ParameterService) | `rentedSeen` |
+| Not scanned, any other case | `unconfirmed[]` with `id`, `assetTag`, `status` and `lastSeenAt` |
+| A scanned tag matching no unit above | `unknownTags[]` |
+
+The stored `result` JSON holds the counts, the unconfirmed rows and the unknown tags. The list (api-design 26)
+reads `takenBy` names through platform's `ACCOUNT_DIRECTORY` port, never the `users` table, and returns
+`scannedCount`, `unconfirmedCount` and `unknownCount` per run, newest first. A run emits `audit.record`
+`stockTake.run` after commit with the counts.
