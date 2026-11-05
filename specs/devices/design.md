@@ -1241,7 +1241,7 @@ reset of a returned unit were asked for in brief W18 (2026-11-04) and are specif
 | `features/device-connector/actions/` | The `DockingService` of §8.1 (`readUnit`, `provision`, `configureUplink`) moved here and given a `Connection` instead of a port; the quick swap (§11.6); the flash hand-over (§11.7) |
 | `features/device-connector/ui/` | `ConnectorPanel` (the rows), `DeviceView` (one unit), `ConnectorButton` (the header entry with the count) |
 | `entities/device/api.ts` | `useDevicesByNode(nodeNums)` over api-design 30; `openDockSession`, `endDockSession` over 31 and 32 |
-| `entities/contract/api.ts` | `exchangeDevice` over rentals api-design 30 |
+| `entities/contract/api.ts` | `exchangeDevice` over rentals api-design 32 |
 
 The `features/dock-device/` slice of the docking branch (`feat/devices-docking-frontend`, Phase 7, not merged)
 folds into `features/device-connector/` when Phase 10 starts; its tests move with it.
@@ -1413,7 +1413,7 @@ unit goes back to `AVAILABLE`; price, spec and stock stay as they are.
 (`reserve(variantId, 1, ...)`); its body takes `reason` only in the built code, and it carries no
 `expectedVersion`. The quick swap differs on all three points: the replaced unit goes back to `AVAILABLE`
 with no record, the replacement is the docked unit the caller names, and the counter must not act on a
-contract it read before an undo or another swap. So the spec adds rentals api-design 30,
+contract it read before an undo or another swap. So the spec adds rentals api-design 32,
 `POST /api/contracts/:id/devices/:deviceId/exchange` (`contract.operate`), and leaves 07 as it is. Folding it
 into 07 with an outcome flag was option B of §11.12 Q1, not chosen.
 
@@ -1529,7 +1529,7 @@ sequenceDiagram
     Dev-->>Mon: device.docked
     Mon-->>S: fleet room, pin at counterLocation
     S->>Hub: Put TL-0051 on RC-2026-0042 in place of TL-0001
-    Hub->>Rent: POST /contracts/:id/devices/TL-0001/exchange (rentals 30)
+    Hub->>Rent: POST /contracts/:id/devices/TL-0001/exchange (rentals 32)
     Rent-->>Hub: TL-0001 AVAILABLE, TL-0051 RESERVED, version
     Hub->>Rent: POST /contracts/:id/devices/TL-0051/channel-key (rentals 21)
     Rent-->>Hub: keyHex, keyVersion (no-store)
@@ -1555,7 +1555,7 @@ message of the matching REQ-ERR, and nothing after the refusal runs.
 | `RENTED` unit | `actionsFor` | "{assetTag} is rented on {contractCode}. Check it in at the return counter." | `DEVICE_NOT_AVAILABLE` (REQ-ERR-21) |
 | Unit answers nothing (v2 on an image without the USB console) | hub handshake | REQ-ERR-22 message | none |
 | Variant mismatch | `actionsFor` | "{assetTag} is {variant}; {contractCode} rents {contractVariant}." | `VARIANT_MISMATCH` (REQ-ERR-23) |
-| Replaced unit already provisioned | `actionsFor`, rentals 30 | "{assetTag} is provisioned; only units not provisioned can be swapped out." | `DEVICE_PROVISIONED` (REQ-ERR-24) |
+| Replaced unit already provisioned | `actionsFor`, rentals 32 | "{assetTag} is provisioned; only units not provisioned can be swapped out." | `DEVICE_PROVISIONED` (REQ-ERR-24) |
 | Port open elsewhere | hub open | "In use by another tab or app." | none (REQ-ERR-25) |
 | Lookup failed | hub recognition | "Not checked: the server did not answer." | any (REQ-ERR-26) |
 | Dock session for another unit | api-design 31 | none, the hub never sends it | `NODE_MISMATCH` (REQ-ERR-27) |
@@ -1569,7 +1569,7 @@ Unit tests over a fake `SerialPort` set (the fake of the docking branch, extende
 `connect` and `disconnect` events): two units at once, replug without chooser, a reboot that returns a new
 port with the same `nodeNum`, the write lock, `actionsFor` over every row of §11.3, and no PSK, key or payload
 in storage, the query cache or the console after a session (AC-32). Backend tests: api-design 30 with known,
-unknown and contracted units; 31 and 32 with renewal, replacement, `NODE_MISMATCH` and the sweep; rentals 30
+unknown and contracted units; 31 and 32 with renewal, replacement, `NODE_MISMATCH` and the sweep; rentals 32
 with each refusal and the reservation race against a concurrent approval; monitoring 02 for a Staff and an
 organization caller. Hardware run by the leader on v2 (treklink-firmware#27 image), v3 and v4: AC-22, AC-26,
 AC-27, AC-31, AC-37.
@@ -1581,7 +1581,7 @@ same night. The options not chosen are kept for their rationale.
 
 | # | Question | Options | Recommendation | Decision |
 |---|---|---|---|---|
-| Q1 | How does the quick swap reach the server? | A. New rentals api-design 30 `exchange` (caller-chosen replacement, replaced unit to `AVAILABLE`, `expectedVersion`, docked `nodeNum`). B. Extend rentals 07 with `outcome: CHECK_FAILED or EXCHANGE`, `replacementDeviceId` and `nodeNum`. C. Two calls from the client: release the reserved unit, then reserve the docked one (two new or widened endpoints) | A: 07 keeps its E01-5 meaning and audit trail, and the two outcomes never share a code path that a flag can flip; C cannot be one transaction | Decided 2026-11-04: A |
+| Q1 | How does the quick swap reach the server? | A. New rentals api-design 32 `exchange` (caller-chosen replacement, replaced unit to `AVAILABLE`, `expectedVersion`, docked `nodeNum`). B. Extend rentals 07 with `outcome: CHECK_FAILED or EXCHANGE`, `replacementDeviceId` and `nodeNum`. C. Two calls from the client: release the reserved unit, then reserve the docked one (two new or widened endpoints) | A: 07 keeps its E01-5 meaning and audit trail, and the two outcomes never share a code path that a flag can flip; C cannot be one transaction | Decided 2026-11-04: A |
 | Q2 | May a reserved unit that is already provisioned be swapped out? Its hardware carries the organization's key, and an undo (rentals 19) does not remove it | A. Refuse with 409 `DEVICE_PROVISIONED`. B. Allow, and send the replaced unit to `MAINTENANCE` for a reset before it is rented again. C. Allow, unit to `AVAILABLE`, key version cleared, key left on the hardware | A: a unit with another organization's key must never reach `AVAILABLE`; B can come later if counters need it | Decided 2026-11-04: A |
 | Q3 | Which docked units get the map pin, and how does the server learn of them? | A. Units held while the page context is `counter`, through the dock session table with heartbeat. B. Every registered unit the hub holds on any Staff page, same table. C. Only units `RESERVED` to the counter's contract, same table. D. No server state: the pin is drawn only on the same browser's map | A: the brief says "docked for provisioning" at the counter; the table survives a restart and several backend instances, and D would not show on a second Staff screen | Decided 2026-11-04: A |
 | Q4 | Where does the device view's battery come from? | A. The server projection (`batteryPct`, `lastBatteryAt`). B. The unit's own reading over serial, after the firmware fact is checked and added to §8.2. C. Both, the unit's reading first | A now; B as a follow-up once the fact is recorded | Decided 2026-11-04: A |

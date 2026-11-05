@@ -44,7 +44,7 @@ view render 240 px.
 | Device view, from the unit | node id, `nodeNum`, owner long and short names, build environment, reported firmware version (devices design §8.2, held in memory only, REQ-UBI-08) |
 | Device view, from the server | devices 30 `device.assetTag`, `hardwareVariant` (the variant card of §10), `status`, `firmwareVersion`, `batteryPct`, `lastSeenAt`, `serviceDueAt`, `keyVersion`, `keyOrganization`, `openMaintenance` |
 | Device view, contract | devices 30 `contract.code`, `organization.code`, `status`, `provisionedKeyVersion` against organizations 03 `channelKeyVersion` |
-| Quick swap result | rentals 30 `released.assetTag`, `status`; `reserved.assetTag`, `status`; `contractVersion` |
+| Quick swap result | rentals 32 `released.assetTag`, `status`; `reserved.assetTag`, `status`; `contractVersion` |
 | Provisioning result | rentals 09 `keyVersion`, `provisionedAt` |
 
 ## Actions
@@ -59,7 +59,7 @@ they collapse into one Actions menu.
 | Show device view (row, "Show TL-0042") | always | none | none | the device view opens, focus on its heading |
 | New device: register it? (row) | unknown unit | navigation to the Register panel on `/t/fleet`, filled from the row; then devices 05 on that panel | none | MSG03 on the Register panel; the row shows the new asset tag and "In intake" |
 | Provision for {contractCode} (row) | counter context, unit `RESERVED` to this contract, not at the current key version | rentals 21, then rentals 09 (devices design §8.4) | none | "Provisioned v{n}" on the row and on the counter row |
-| Put {dockedTag} on {contractCode} in place of {reservedTag} (row) | counter context, unit `AVAILABLE`, contract variant, a reserved unit with no provisioning record | rentals 30, then rentals 21 and 09 on the held port | dialog "Put {dockedTag} on {contractCode}?": "{reservedTag} goes back to Available. {dockedTag} is reserved and provisioned now. Price and quantity do not change."; a select of the reserved units with no provisioning record, the first preselected (Q7 A); buttons Cancel and Swap and provision | toast "{dockedTag} replaces {reservedTag} on {contractCode}." then "Provisioned v{n}" |
+| Put {dockedTag} on {contractCode} in place of {reservedTag} (row) | counter context, unit `AVAILABLE`, contract variant, a reserved unit with no provisioning record | rentals 32, then rentals 21 and 09 on the held port | dialog "Put {dockedTag} on {contractCode}?": "{reservedTag} goes back to Available. {dockedTag} is reserved and provisioned now. Price and quantity do not change."; a select of the reserved units with no provisioning record, the first preselected (Q7 A); buttons Cancel and Swap and provision | toast "{dockedTag} replaces {reservedTag} on {contractCode}." then "Provisioned v{n}" |
 | Configure uplink (row and device view) | registered, not `RETIRED` or `DISPOSED`, provisioned for an organization | none on the server; Web Serial (devices design §8.8) | the form of screen 4.2 in a `Dialog`; "The unit restarts once to apply the settings." | "{assetTag} is configured as an uplink to {broker}." |
 | Update firmware (row and device view; disabled with the text "Firmware releases are not published yet" until task 8.3 registers its panel, devices design §11.7) | `MAINTENANCE` with an `OPEN` `FIRMWARE_UPDATE` record | devices 28 and 29, then the flash of devices design §9.2 on the handed-over port | the release picker of screen 4.3 and "The unit restarts after the write." | "Firmware {version} written and verified." and the row reads the unit again |
 | Open in the device hub (device view) | always | navigation to `/t/device-hub` with this unit selected (screen 4.7, devices design §11.13) | none | the hub page shows the unit |
@@ -87,11 +87,11 @@ they collapse into one Actions menu.
 | Port lost after a quick swap (REQ-ERR-19) | The failed step, then "Dock {assetTag} again before handover."; the swap stands |
 | Unplugged | "Unplugged" for 10 seconds, then the row leaves the list |
 | Render missing (REQ-ERR-29) | The labelled empty slot with the variant name |
-| Error `DEVICE_PROVISIONED` (409, rentals 30) | The server's message in the swap dialog; the select reloads the reserved units |
-| Error `DEVICE_NOT_AVAILABLE`, `VARIANT_MISMATCH`, `NODE_MISMATCH` (409, rentals 30) | The server's message on the row; the row is checked again (devices 30) |
-| Error `STALE_VERSION` (409, rentals 30) | MSG36 in the dialog with Reload; the counter reloads the contract |
-| Error `INVALID_STATE_TRANSITION` (409, rentals 30) | MSG28 with the contract's state |
-| Error `DEVICE_NOT_ON_CONTRACT` (409, rentals 30) | MSG12 |
+| Error `DEVICE_PROVISIONED` (409, rentals 32) | The server's message in the swap dialog; the select reloads the reserved units |
+| Error `DEVICE_NOT_AVAILABLE`, `VARIANT_MISMATCH`, `NODE_MISMATCH` (409, rentals 32) | The server's message on the row; the row is checked again (devices 30) |
+| Error `STALE_VERSION` (409, rentals 32) | MSG36 in the dialog with Reload; the counter reloads the contract |
+| Error `INVALID_STATE_TRANSITION` (409, rentals 32) | MSG28 with the contract's state |
+| Error `DEVICE_NOT_ON_CONTRACT` (409, rentals 32) | MSG12 |
 | Error `NODE_MISMATCH` (409, devices 31) | Nothing visible: the hub never sends it; logged as a client defect without the unit payload |
 | Not found or forbidden | MSG26 in the panel |
 | Success | The toast of the action; the row and the page refetch |
@@ -117,7 +117,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Placement follows §10.8; tooltips §9.5; the rows' sideways strips §10.6
 - [x] Data: every field names devices 30, rentals 09, 21, 30, organizations 03 or the unit (devices design §8.2)
 - [x] Actions: per unit and page as devices design §11.3, each with its confirmation
-- [x] States: every REQ-ERR of the connector and every error code of rentals 30
+- [x] States: every REQ-ERR of the connector and every error code of rentals 32
 - [ ] Wireframe: waits for the renders
 - [x] Accessibility: live region, focus return, text status
 - [x] Live data: query keys listed; the map pin is screen 9.1's

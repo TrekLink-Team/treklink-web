@@ -4,7 +4,7 @@ import { DeviceContracts, LiveDeviceContract } from '../../devices';
 import { OrganizationsService } from '../../organizations';
 import { ContractsRepository } from '../contracts.repository';
 
-// Provides the devices port DEVICE_CONTRACTS (rentals task 10.1, devices design section 11.5): the live
+// Provides the devices port DEVICE_CONTRACTS (rentals task 11.1, devices design section 11.5): the live
 // contract row of each unit the device connector recognizes, with the organization code to show.
 @Injectable()
 export class RentalsDeviceContracts implements DeviceContracts {

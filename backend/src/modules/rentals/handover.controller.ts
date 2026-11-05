@@ -48,7 +48,7 @@ export class HandoverController {
     return this.handover.swap(id, deviceId, dto.reason.trim(), caller);
   }
 
-  // api-design 30 (rentals task 10.1, devices design section 11.6): the quick swap of the device
+  // api-design 32 (rentals task 11.1, devices design section 11.6): the quick swap of the device
   // connector, a docked unit in place of a reserved one (`contract.operate`, as the swap of 07).
   @Post(':id/devices/:deviceId/exchange')
   @HttpCode(HttpStatus.OK)

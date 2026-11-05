@@ -269,7 +269,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
   };
 
   // The quick swap with hot provisioning (design sections 11.6 and 11.7, REQ-EVT-33, REQ-EVT-34): the
-  // exchange of rentals api-design 30 with the docked node number, then the provisioning of the docked
+  // exchange of rentals api-design 32 with the docked node number, then the provisioning of the docked
   // unit on the port the connector already holds. A failure after the exchange leaves it in place and
   // the unit not provisioned (REQ-ERR-19).
   const exchangeAndProvision = async (
