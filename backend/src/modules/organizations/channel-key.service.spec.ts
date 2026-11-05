@@ -157,7 +157,7 @@ describe('ChannelKeyService.deriveKey (rentals api-design 21, devices design sec
     expect(first.keyHex).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it('refuses a key flagged exposed (REQ-ERR-19) until the rotation clears the flag', async () => {
+  it('refuses a key flagged exposed (REQ-ERR-20) until the rotation clears the flag', async () => {
     exposed[ORG_ID] = new Date('2026-11-03T03:00:00.000Z');
     await expect(service.deriveKey(ORG_ID)).rejects.toMatchObject({
       errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,

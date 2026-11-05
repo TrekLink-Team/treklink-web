@@ -277,7 +277,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
     });
   });
 
-  it('refuses a channel key flagged exposed and provisions nothing (REQ-ERR-19)', async () => {
+  it('refuses a channel key flagged exposed and provisions nothing (REQ-ERR-20)', async () => {
     organizations.unexposedKeyVersion.mockRejectedValue(
       new DomainException(
         HttpStatus.CONFLICT,

@@ -5,9 +5,9 @@ import { OrganizationsService } from './organizations.service';
 const ORG_ID = '5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f';
 const TX = { tx: true } as never;
 
-// REQ-ERR-19: provisioning a unit with the channel key (rentals api-design 09 and 15) asks the
+// REQ-ERR-20: provisioning a unit with the channel key (rentals api-design 09 and 15) asks the
 // organization first, and a key flagged exposed is refused.
-describe('OrganizationsService.unexposedKeyVersion (REQ-ERR-19)', () => {
+describe('OrganizationsService.unexposedKeyVersion (REQ-ERR-20)', () => {
   let organizations: { channelKeyState: jest.Mock };
   let service: OrganizationsService;
 
