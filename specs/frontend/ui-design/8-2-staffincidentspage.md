@@ -101,7 +101,7 @@ False alarm is one step with one visible field and confirmation in the same form
 
 ## Review notes
 
-D-059 rule 7 resolves H-01 with the documented server order, without a sort parameter. API 02's nested rows are now specified and displayed in task 8.1; Staff authority-report workflows remain in task 8.3 using API 11. H-05 follows documented validation. See the [follow-up record](../../../docs/sessions/2026-10-23-1303-hoangtk-screen-review-fixes.md). No scope, routing, endpoint or lifecycle rule is changed.
+D-059 rule 7 resolved H-01 with the documented server order, without a sort parameter; since W26 (leader ruling 2026-11-05) that order is the default and the headers send the allowlisted sort (see Pager and ordering above). API 02's nested rows are now specified and displayed in task 8.1; Staff authority-report workflows remain in task 8.3 using API 11. H-05 follows documented validation. See the [follow-up record](../../../docs/sessions/2026-10-23-1303-hoangtk-screen-review-fixes.md). No scope, routing, endpoint or lifecycle rule is changed.
 
 ## Checklist
 
