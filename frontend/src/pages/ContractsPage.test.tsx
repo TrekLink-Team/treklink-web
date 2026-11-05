@@ -58,6 +58,12 @@ afterEach(() => {
 const table = () => within(screen.getByRole('table', { name: 'Contracts' }));
 
 describe('ContractsPage (/o/contracts, screen 5.2)', () => {
+  it('opens on all contracts', () => {
+    renderPage();
+    expect(filtersSeen.at(-1)).toEqual({ pageNumber: 1 });
+    expect(screen.getByRole('button', { name: /^Show: All statuses/ })).toBeTruthy();
+  });
+
   it('links each row to its contract and offers the Manager Cancel before handover only', () => {
     renderPage();
     expect(table().getByRole('link', { name: 'RC-2026-0001' }).getAttribute('href')).toBe('/o/contracts/c-1');
@@ -71,7 +77,7 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
 
   it('filters by plan on the server together with the status (review of treklink-web#350)', () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Show: All statuses/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Approved' }));
     fireEvent.click(screen.getByRole('button', { name: /^Show: Approved/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Plan: Day plan' }));
@@ -82,7 +88,7 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
   // W26: the headers sort on the server (rentals api-design 02) and return to page 1.
   it('sends the header sort to the list query, keeping the filters', () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Show: All statuses/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Approved' }));
     fireEvent.click(table().getByRole('button', { name: 'Devices' }));
     expect(filtersSeen.at(-1)).toEqual({ status: 'APPROVED', sort: 'quantity', order: 'asc', pageNumber: 1 });

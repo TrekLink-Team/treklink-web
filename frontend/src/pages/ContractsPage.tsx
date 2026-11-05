@@ -109,7 +109,7 @@ export const ContractsPage: React.FC = () => {
         }}
         search={{ label: 'Search by contract code or plan', placeholder: 'RC-... or Monthly' }}
         filters={[
-          { key: '', label: 'Every status' },
+          { key: '', label: 'All statuses' },
           ...STATUSES.map((status) => ({ key: status, label: STATUS_LABELS[status] })),
         ]}
         query={{
@@ -137,7 +137,7 @@ export const ContractsPage: React.FC = () => {
             key: 'plan',
             label: 'Plan',
             options: [
-              { key: '', label: 'Every plan' },
+              { key: '', label: 'All plans' },
               { key: 'MONTHLY', label: 'Monthly' },
               { key: 'DAY', label: 'Day plan' },
             ],

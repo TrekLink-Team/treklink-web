@@ -105,6 +105,7 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
         return Promise.resolve(url === '/incidents/inc-1' ? incident({ state: 'UNROUTED' }) : page(lost ? [] : [incident()]));
       });
       renderPage(client);
+      showScope('Unrouted and escalated');
       fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Declare false alarm' }));
       fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Safe' } });
@@ -130,7 +131,7 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
       if (options?.method === 'POST') state = 'FALSE_ALARM';
       return Promise.resolve(url.includes('/incidents/inc-1') ? row() : page([row()]));
     });
-    renderPage(); showScope('All incidents');
+    renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
     expect(await screen.findByText(/OPEN-1.*case open/)).toBeTruthy();
     expect(screen.getByText(/CLOSED-2.*case closed/)).toBeTruthy();
@@ -160,6 +161,7 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
         );
       });
       renderPage();
+      showScope('Unrouted and escalated');
       fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
       const trigger = await screen.findByRole('button', { name: 'Declare false alarm' });
       trigger.focus();
@@ -198,13 +200,12 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
     await screen.findByText('No status updates recorded.');
     expect(screen.queryByRole('button', { name: 'Declare false alarm' })).toBeNull();
   });
-  it('reads the unrouted and escalated queue by default, with the Staff disclaimer', async () => {
+  it('reads all incidents by default, with the Staff disclaimer', async () => {
     api.mockResolvedValue(page([incident()]));
     renderPage();
     expect(await screen.findByRole('button', { name: 'INC-2026-000007' })).toBeTruthy();
-    expect(String(api.mock.calls[0][0])).toBe(
-      '/incidents?pageSize=20&pageNumber=1&state=UNROUTED&state=ESCALATED',
-    );
+    expect(String(api.mock.calls[0][0])).toBe('/incidents?pageSize=20&pageNumber=1');
+    expect(screen.getByRole('button', { name: /^Show: All incidents/ })).toBeTruthy();
     expect(screen.getByText('TL-0010, No holder label')).toBeTruthy();
     expect(screen.getByText(/does not coordinate rescue operations/)).toBeTruthy();
   });
@@ -220,26 +221,30 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
     fireEvent.click(await header('State'));
     await waitFor(() =>
       expect(lastGet()).toBe(
-        '/incidents?pageSize=20&pageNumber=1&state=UNROUTED&state=ESCALATED&sort=state&order=asc',
+        '/incidents?pageSize=20&pageNumber=1&sort=state&order=asc',
       ),
     );
     fireEvent.click(await header('Incident'));
     await waitFor(() => expect(lastGet()).toContain('sort=code&order=asc'));
-    showScope('All incidents');
-    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&pageNumber=1&sort=code&order=asc'));
+    showScope('Unrouted and escalated');
+    await waitFor(() =>
+      expect(lastGet()).toBe(
+        '/incidents?pageSize=20&pageNumber=1&state=UNROUTED&state=ESCALATED&sort=code&order=asc',
+      ),
+    );
   });
 
-  it('switches to all incidents without a state filter, and shows the filtered empty state', async () => {
+  it('opens on all incidents and keeps the narrower queue filters available', async () => {
     api.mockResolvedValue(page([]));
     renderPage();
-    expect(
-      await screen.findByText('No unrouted or escalated incidents need attention.'),
-    ).toBeTruthy();
-    showScope('All incidents');
-    expect(await screen.findByText('No results match your filters.')).toBeTruthy();
+    expect(await screen.findByText('No incidents recorded.')).toBeTruthy();
     expect(String(api.mock.calls[api.mock.calls.length - 1][0])).toBe(
       '/incidents?pageSize=20&pageNumber=1',
     );
+    showScope('Unrouted and escalated');
+    expect(
+      await screen.findByText('No unrouted or escalated incidents need attention.'),
+    ).toBeTruthy();
     showScope('Escalated');
     await waitFor(() =>
       expect(String(api.mock.calls[api.mock.calls.length - 1][0])).toContain('state=ESCALATED'),
@@ -398,7 +403,7 @@ describe('documented Staff queue filters', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
     await screen.findByRole('button', { name: 'INC-2026-000007' });
     expect(screen.getByRole('button', { name: 'Filter incidents' })).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Incident queue' }));
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'All incidents' }));
   });
   it('rejects a date outside the JavaScript range and cancels without changing applied filters', async () => {
     api.mockResolvedValue(page([incident()]));
@@ -445,11 +450,13 @@ describe('documented Staff queue filters', () => {
       return url;
     };
     await waitFor(check);
-    expect(check().searchParams.getAll('state')).toEqual(['UNROUTED', 'ESCALATED']);
+    expect(check().searchParams.getAll('state')).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     await waitFor(check);
-    showScope('All incidents');
-    await waitFor(() => expect(check().searchParams.getAll('state')).toEqual([]));
+    showScope('Unrouted and escalated');
+    await waitFor(() =>
+      expect(check().searchParams.getAll('state')).toEqual(['UNROUTED', 'ESCALATED']),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Filter incidents (active)' }));
     expect((screen.getByLabelText('Device ID') as HTMLInputElement).value).toBe(deviceId);
     expect((screen.getByLabelText('Created from') as HTMLInputElement).value).toBe('2026-11-05T08:00');

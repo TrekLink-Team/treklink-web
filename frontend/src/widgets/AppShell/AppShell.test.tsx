@@ -85,6 +85,20 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(within(nav).queryByRole('link', { name: 'Maintenance' })).toBeNull();
   });
 
+  it('renders the TrekLink mark as a theme-coloured mask in the header', () => {
+    show('/o/contracts');
+    const header = screen.getByRole('banner');
+    const marks = within(header).getAllByRole('img', { name: 'TrekLink' });
+
+    expect(marks).toHaveLength(2);
+    marks.forEach((mark) => {
+      expect(mark.className).toContain('bg-brand');
+      expect(mark.className).toContain('h-[18px]');
+      expect(mark.className).toContain('w-[47px]');
+      expect(mark.style.maskImage).toContain('/brand/treklink-mark.webp');
+    });
+  });
+
   // W15 panel walk: at 1280 px the search box squeezed the organization to "TrekLink ..." and broke its
   // code over two lines. The workspace keeps its width from 1280 px; below, only the code shows.
   it('keeps the workspace whole from 1280 px and its code on one line', () => {

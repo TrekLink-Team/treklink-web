@@ -71,10 +71,11 @@ afterEach(() => {
 });
 
 describe('DamageChargesPage (screen 6.4, UC-48)', () => {
-  it('opens on the approval queue and hides Decide on a charge the Admin inspected (BR-24)', () => {
+  it('opens on all statuses and hides Decide on a charge the Admin inspected (BR-24)', () => {
     charges = [charge('dc-1', 'staff-1'), charge('dc-2', 'admin-1')];
     renderPage();
-    expect(filtersSeen).toContainEqual({ status: 'PENDING_APPROVAL', pageNumber: 1 });
+    expect(filtersSeen).toContainEqual({ status: undefined, pageNumber: 1 });
+    expect(screen.getByRole('button', { name: /^Show: All statuses/ })).toBeTruthy();
     expect(within(rowOf('TL-0001')).getByRole('button', { name: /^Decide/ }).getAttribute('aria-disabled')).toBeNull();
     // Reachable, disabled, with the reason as its description (UI standard §2).
     const own = within(rowOf('TL-0002')).getByRole('button', { name: /^Decide/ });
@@ -134,9 +135,9 @@ describe('DamageChargesPage (screen 6.4, UC-48)', () => {
     );
   });
 
-  it('says when nothing waits for a decision', () => {
+  it('says when no charge is recorded', () => {
     renderPage();
-    expect(screen.getByText('No damage charges are waiting for a decision.')).toBeTruthy();
+    expect(screen.getByText('No damage charges recorded.')).toBeTruthy();
   });
 
   it('approves the selected pending charges one by one with one reason, never one the Admin inspected', async () => {

@@ -51,11 +51,11 @@ import { ChannelKeySection } from '../widgets/ChannelKeySection/ChannelKeySectio
 type Tab = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' | 'ALL';
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'ALL', label: 'All' },
   { key: 'PENDING', label: 'Pending' },
   { key: 'ACTIVE', label: 'Active' },
   { key: 'SUSPENDED', label: 'Suspended' },
   { key: 'REJECTED', label: 'Rejected' },
-  { key: 'ALL', label: 'All' },
 ];
 
 const DOCUMENTS = ['Business registration', 'Manager ID card', 'Tour operator licence'];
@@ -396,7 +396,7 @@ export const OrganizationReviewPage: React.FC = () => {
   const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
-  const [tab, setTab] = useState<Tab>('PENDING');
+  const [tab, setTab] = useState<Tab>('ALL');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [statusAction, setStatusAction] = useState<StatusAction | null>(null);

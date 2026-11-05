@@ -78,25 +78,26 @@ const posts = () =>
 const fill = (label: RegExp, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
-// The open flag is the Show filter of the command bar (D-096).
-const showAll = () => {
-  fireEvent.click(screen.getByRole('button', { name: /^Show: Open cases only/ }));
-  fireEvent.click(screen.getByRole('menuitem', { name: 'All reports' }));
+// The open flag is a narrower Show filter of the command bar (D-096).
+const showOpen = () => {
+  fireEvent.click(screen.getByRole('button', { name: /^Show: All reports/ }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Open cases only' }));
 };
 
 beforeEach(() => api.mockReset());
 afterEach(cleanup);
 
 describe('AuthorityReportsPanel (screen 8.3, api-design 11)', () => {
-  it('reads open cases by default and all reports without the open flag', async () => {
+  it('reads all reports by default and keeps open cases as a filter', async () => {
     api.mockResolvedValue(
       page([report(), report({ id: 'ar-2', incidentId: null, contractId: 'c-1' })]),
     );
     renderWith(<AuthorityReportsPanel onViewIncident={() => undefined} />);
     expect(await screen.findAllByText('LD-114-07')).toHaveLength(2);
     expect(String(api.mock.calls[0][0])).toBe(
-      '/authority-reports?open=true&pageNumber=1&pageSize=20',
+      '/authority-reports?pageNumber=1&pageSize=20',
     );
+    expect(screen.getByRole('button', { name: /^Show: All reports/ })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View contract' }).getAttribute('href')).toBe(
       '/t/contracts/c-1',
     );
@@ -104,31 +105,28 @@ describe('AuthorityReportsPanel (screen 8.3, api-design 11)', () => {
     // Record case closed is the item action of each open case (D-096).
     expect(screen.getAllByRole('button', { name: 'Record case closed Lam Dong rescue (114) LD-114-07' })).toHaveLength(2);
     expect(screen.getByText(/does not coordinate rescue operations/)).toBeTruthy();
-    showAll();
+    showOpen();
     await waitFor(() =>
       expect(String(api.mock.calls[api.mock.calls.length - 1][0])).toBe(
-        '/authority-reports?pageNumber=1&pageSize=20',
+        '/authority-reports?open=true&pageNumber=1&pageSize=20',
       ),
     );
   });
 
-  it('shows the empty states, and closed cases without a close action', async () => {
-    api.mockResolvedValueOnce(page([]));
+  it('shows closed cases without a close action', async () => {
+    api.mockResolvedValue(page([report({ caseClosedAt: '2026-11-02T08:00:00Z' })]));
     renderWith(<AuthorityReportsPanel onViewIncident={() => undefined} />);
-    expect(await screen.findByText('No open authority cases.')).toBeTruthy();
-    api.mockResolvedValueOnce(page([report({ caseClosedAt: '2026-11-02T08:00:00Z' })]));
-    showAll();
     // A short badge with the date after it (design handoff item 12).
     expect(await screen.findByText('Closed')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Record case closed/ })).toBeNull();
   });
 
-  it('names an empty All reports list as screen 8.3 does (review of treklink-web#355)', async () => {
+  it('names empty All and open report lists without a generic filter message', async () => {
     api.mockResolvedValue(page([]));
     renderWith(<AuthorityReportsPanel onViewIncident={() => undefined} />);
-    expect(await screen.findByText('No open authority cases.')).toBeTruthy();
-    showAll();
     expect(await screen.findByText('No authority reports recorded.')).toBeTruthy();
+    showOpen();
+    expect(await screen.findByText('No open authority cases.')).toBeTruthy();
     expect(screen.queryByText('No results match your filters.')).toBeNull();
   });
 

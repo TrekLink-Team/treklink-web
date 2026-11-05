@@ -143,6 +143,13 @@ describe('RegisterPage duplicates (screen 3.1, MSG10)', () => {
 });
 
 describe('OrganizationReviewPage (screen 3.2)', () => {
+  it('opens on the All tab', () => {
+    items = [organization(), organization({ id: 'org-3', status: 'ACTIVE' })];
+    renderPage(<OrganizationReviewPage />);
+
+    expect(screen.getByRole('tab', { name: 'All' }).getAttribute('aria-selected')).toBe('true');
+  });
+
   it('holds Approve until the organization is verified (MSG21)', () => {
     items = [organization()];
     renderPage(<OrganizationReviewPage />);

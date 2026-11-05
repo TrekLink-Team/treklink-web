@@ -37,10 +37,10 @@ import { INCIDENT_STATE, type IncidentState } from '../shared/ui/status';
 import { LINK } from '../shared/ui/styles';
 
 const SCOPES: { id: string; label: string; states: IncidentState[] }[] = [
+  { id: 'all', label: 'All incidents', states: [] },
   { id: 'both', label: 'Unrouted and escalated', states: ['UNROUTED', 'ESCALATED'] },
   { id: 'unrouted', label: 'Unrouted', states: ['UNROUTED'] },
   { id: 'escalated', label: 'Escalated', states: ['ESCALATED'] },
-  { id: 'all', label: 'All incidents', states: [] },
 ];
 
 const holderOf = (incident: Incident) => incident.device.holder?.name ?? 'No holder label';
@@ -124,6 +124,13 @@ export const StaffIncidentsPage: React.FC = () => {
       sortable: true,
     },
   ];
+  const hasExternalFilters = Boolean(filters.deviceId || filters.from);
+  const resetFilters = () => {
+    setFilters({});
+    setScope(SCOPES[0]);
+    setPageNumber(1);
+    document.getElementById('staff-incidents-title')?.focus();
+  };
   return (
     <section aria-labelledby="staff-incidents-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageTitle
@@ -237,23 +244,14 @@ export const StaffIncidentsPage: React.FC = () => {
                 pageInfo={pageInfoOf(data)}
                 onShowDetails={(incident) => open(incident)}
                 emptyState={{
+                  title: hasExternalFilters ? 'No results match your filters.' : 'No incidents recorded.',
+                  action: hasExternalFilters ? <Button onClick={resetFilters}>Reset filters</Button> : undefined,
+                }}
+                noMatch={{
                   title:
-                    scope.id !== 'both' || filters.deviceId || filters.from
-                      ? 'No results match your filters.'
-                      : 'No unrouted or escalated incidents need attention.',
-                  action:
-                    scope.id !== 'both' || filters.deviceId || filters.from ? (
-                      <Button
-                        onClick={() => {
-                          setFilters({});
-                          setScope(SCOPES[0]);
-                          setPageNumber(1);
-                          document.getElementById('staff-incidents-title')?.focus();
-                        }}
-                      >
-                        Reset filters
-                      </Button>
-                    ) : undefined,
+                    scope.id === 'both' && !hasExternalFilters
+                      ? 'No unrouted or escalated incidents need attention.'
+                      : 'No results match your filters.',
                 }}
                 footer={
                   data && data.totalPages > 1 ? (

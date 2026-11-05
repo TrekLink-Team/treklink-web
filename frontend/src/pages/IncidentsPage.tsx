@@ -20,10 +20,10 @@ import { INCIDENT_STATE, type IncidentState } from '../shared/ui/status';
 import { WARNING } from '../shared/ui/styles';
 
 const STATES = Object.keys(INCIDENT_STATE) as IncidentState[];
-const DEFAULTS: IncidentFilters = { open: true, pageNumber: 1 };
+const DEFAULTS: IncidentFilters = { pageNumber: 1 };
 
 // Show holds two server filters that combine (incidents api-design 01 `state` and `open`): one state
-// or all, and open only (the default) or open and closed (review of treklink-web#350).
+// or all, and open only or open and closed (review of treklink-web#350).
 const OPEN = 'open';
 const ALL = 'all';
 
@@ -157,7 +157,7 @@ export const IncidentsPage: React.FC = () => {
           href: (incident) => `/o/incidents/${incident.id}`,
           hrefLabel: 'Open the incident',
         }}
-        emptyState={{ title: 'No open incidents.' }}
+        emptyState={{ title: 'No incidents recorded.' }}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination

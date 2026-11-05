@@ -84,7 +84,7 @@ describe('ContractApprovalPage', () => {
     try {
       renderPage();
       fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-      expect(listReads.at(-1)).toMatchObject({ status: 'REQUESTED', pageNumber: 2 });
+      expect(listReads.at(-1)).toMatchObject({ pageNumber: 2 });
 
       const search = screen.getByRole('searchbox', { name: 'Search by contract or organization' });
       fireEvent.change(search, { target: { value: '  acme' } });
@@ -93,12 +93,12 @@ describe('ContractApprovalPage', () => {
       act(() => vi.advanceTimersByTime(299));
       expect(listReads.at(-1)?.q).toBeUndefined();
       act(() => vi.advanceTimersByTime(1));
-      expect(listReads.at(-1)).toEqual({ status: 'REQUESTED', pageNumber: 1, q: 'acme' });
+      expect(listReads.at(-1)).toEqual({ status: undefined, pageNumber: 1, q: 'acme' });
 
       // Clearing the search reads the whole queue again.
       fireEvent.change(search, { target: { value: '' } });
       act(() => vi.advanceTimersByTime(300));
-      expect(listReads.at(-1)).toEqual({ status: 'REQUESTED', pageNumber: 1, q: undefined });
+      expect(listReads.at(-1)).toEqual({ status: undefined, pageNumber: 1, q: undefined });
     } finally {
       totalPages = 1;
       vi.useRealTimers();
@@ -114,7 +114,6 @@ describe('ContractApprovalPage', () => {
       const table = within(screen.getByRole('table', { name: 'Contracts' }));
       fireEvent.click(table.getByRole('button', { name: 'Start' }));
       expect(listReads.at(-1)).toMatchObject({
-        status: 'REQUESTED',
         pageNumber: 1,
         sort: 'requestedStartDate',
         order: 'asc',
@@ -335,8 +334,11 @@ describe('ContractApprovalPage row actions (W29)', () => {
     await vi.waitFor(() => expect(cancelContract).toHaveBeenCalledWith('c-2', 'Tour cancelled', 3));
   });
 
-  it('shows the queue as the Show filter, Requested first', () => {
+  it('opens on All and keeps Requested as a Show filter', () => {
     renderPage();
-    expect(screen.getByRole('button', { name: /^Show: Requested/ })).toBeTruthy();
+    const show = screen.getByRole('button', { name: /^Show: All/ });
+    expect(show).toBeTruthy();
+    fireEvent.click(show);
+    expect(screen.getByRole('menuitem', { name: 'Requested' })).toBeTruthy();
   });
 });

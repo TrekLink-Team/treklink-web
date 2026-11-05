@@ -324,7 +324,12 @@ export const DeviceDetailPage: React.FC = () => {
   // follows the facts and the next step, so the first screen of a phone reads the unit's state.
   const variantCard = (
     <div className={CARD}>
-      <VariantCard variant={device.hardwareVariant} render="detail" headingLevel="h2" />
+      <VariantCard
+        variant={device.hardwareVariant}
+        render="detail"
+        headingLevel="h2"
+        imagePreview
+      />
     </div>
   );
 

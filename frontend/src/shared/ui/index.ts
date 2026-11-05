@@ -13,6 +13,7 @@ export * from './useConfirmStep';
 export * from './Drawer';
 export * from './EmptyState';
 export * from './Field';
+export * from './ImagePreview';
 export * from './PageChrome';
 export * from './PageHeader';
 export * from './Skeleton';

@@ -88,26 +88,26 @@ describe('MembersPage (screen 3.3)', () => {
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     fireEvent.click(within(table).getByRole('button', { name: 'More actions for Pham Van D' }));
     expect(screen.getByRole('menuitem', { name: 'Resend invitation' }).getAttribute('aria-disabled')).toBe('true');
-    expect(api).toHaveBeenCalledWith(LIST);
+    expect(screen.getByRole('button', { name: /^Show: All members/ })).toBeTruthy();
+    expect(api).toHaveBeenCalledWith(`${LIST}?includeDeactivated=true`);
   });
 
-  it('asks for deactivated members when "Show deactivated" is on', async () => {
+  it('opens on all members and can narrow the list to active members', async () => {
     serve((endpoint) =>
       endpoint.includes('includeDeactivated=true')
         ? [member(), member({ id: 'm-9', userId: 'user-9', fullName: 'Tran Van G', deactivatedAt: '2026-10-20T03:15:00.000Z' })]
         : [member()],
     );
     renderPage();
-    await screen.findByText('1 member');
-    // The Show filter of the command bar (chapter 06 §9.3).
-    fireEvent.click(screen.getByRole('button', { name: /^Show: Active members/ }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Active and deactivated' }));
     await screen.findByText('2 members');
-    // A short badge with the date after it (design handoff item 12).
     expect(inTable().getByText('Deactivated')).toBeTruthy();
     expect(api).toHaveBeenCalledWith(`${LIST}?includeDeactivated=true`);
-    // A deactivated member's actions keep their slots, unavailable (chapter 06 §11.4).
-    expect(inTable().getByRole('button', { name: 'Deactivate Tran Van G' }).getAttribute('aria-disabled')).toBe('true');
+    // The Show filter of the command bar (chapter 06 §9.3).
+    fireEvent.click(screen.getByRole('button', { name: /^Show: All members/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Active members' }));
+    await screen.findByText('1 member');
+    expect(inTable().queryByText('Deactivated')).toBeNull();
+    expect(api).toHaveBeenCalledWith(LIST);
   });
 
   it('invites a member as Operator by default and shows them pending after the refetch', async () => {

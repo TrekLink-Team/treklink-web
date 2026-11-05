@@ -284,7 +284,7 @@ export const MembersPage: React.FC = () => {
   const organizationId = user?.organization?.id;
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
-  const [includeDeactivated, setIncludeDeactivated] = useState(false);
+  const [includeDeactivated, setIncludeDeactivated] = useState(true);
   const members = useMemberList(organizationId, includeDeactivated);
   const [inviting, setInviting] = useState(false);
   const [changing, setChanging] = useState<Member | null>(null);
@@ -386,10 +386,10 @@ export const MembersPage: React.FC = () => {
         fields={fields}
         noun={{ one: 'member', other: 'members' }}
         itemActions={itemActions}
-        // Deactivated members are read from the server on request (organizations api-design 12).
+        // All includes deactivated members from the server (organizations api-design 12).
         filters={[
+          { key: 'all', label: 'All members' },
           { key: 'active', label: 'Active members' },
-          { key: 'all', label: 'Active and deactivated' },
         ]}
         query={{ search: '', filter: includeDeactivated ? 'all' : 'active', sort: null }}
         onQueryChange={(next) => setIncludeDeactivated(next.filter === 'all')}

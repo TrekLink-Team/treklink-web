@@ -276,14 +276,14 @@ const EMPTY: Partial<Record<ServiceCreditStatus | '', string>> = {
 };
 
 // /t/service-credits, screen 6.5 (billing api-design 20 to 22, design §9.6): the credits with the
-// decision queue first. An Admin decides a credit they did not request (BR-24); Staff and Admins record
+// decision queue available from Show. An Admin decides a credit they did not request (BR-24); Staff and Admins record
 // the refund of a credit that is REFUND_DUE.
 export const ServiceCreditsPage: React.FC = () => {
   const { user } = useAuth();
   const roles = user?.roles ?? [];
   const isAdmin = hasAnyRole(roles, ['ADMIN']);
   const isStaff = hasAnyRole(roles, ['STAFF']);
-  const [status, setStatus] = useState<ServiceCreditStatus | ''>('REQUESTED');
+  const [status, setStatus] = useState<ServiceCreditStatus | ''>('');
   const [pageNumber, setPageNumber] = useState(1);
   const [deciding, setDeciding] = useState<ServiceCredit | null>(null);
   const [refunding, setRefunding] = useState<ServiceCredit | null>(null);
@@ -350,8 +350,8 @@ export const ServiceCreditsPage: React.FC = () => {
           },
         ]}
         filters={[
-          { key: 'REQUESTED', label: SERVICE_CREDIT_STATUS.REQUESTED.label },
           { key: '', label: 'All statuses' },
+          { key: 'REQUESTED', label: SERVICE_CREDIT_STATUS.REQUESTED.label },
           ...(Object.keys(SERVICE_CREDIT_STATUS) as ServiceCreditStatus[])
             .filter((key) => key !== 'REQUESTED')
             .map((key) => ({ key, label: SERVICE_CREDIT_STATUS[key].label })),
@@ -361,11 +361,10 @@ export const ServiceCreditsPage: React.FC = () => {
           setStatus(next.filter as ServiceCreditStatus | '');
           setPageNumber(1);
         }}
-        // The decision queue (the default filter) narrows the list, so the bar stays for one or two.
         hideCommandBar={false}
         pageInfo={pageInfoOf(credits.data)}
         details={{ href: (credit) => `/t/contracts/${credit.contractId}`, hrefLabel: 'Open the contract' }}
-        emptyState={{ title: EMPTY[status] ?? 'No service credits match these filters.' }}
+        emptyState={{ title: status === '' ? 'No service credits recorded.' : (EMPTY[status] ?? 'No service credits match these filters.') }}
         noMatch={{ title: EMPTY[status] ?? 'No service credits match these filters.' }}
         footer={
           credits.data && credits.data.totalPages > 1 ? (
