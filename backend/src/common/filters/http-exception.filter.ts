@@ -132,7 +132,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     response.status(status).json({
-      result: { errorCode },
+      result: {
+        ...(exception instanceof DomainException ? exception.resultDetails : undefined),
+        errorCode,
+      },
       isSuccess: false,
       statusCode: status,
       message,

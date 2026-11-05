@@ -125,6 +125,45 @@ describe('service credits against Postgres (AC-06 to AC-08)', () => {
     await flow?.close();
   });
 
+  it('uses a report of the same custody row as the only source and stores its reported time', async () => {
+    const { contract, contractDeviceId, deviceIds, faultInspectionId, org } =
+      await replacedOnDay13();
+    const reportedAt = at('2026-11-12T02:00:00.000Z');
+    const report = await flow.prisma.deviceFaultReport.create({
+      data: {
+        organizationId: org.id,
+        contractId: contract.id,
+        contractDeviceId,
+        deviceId: deviceIds[0],
+        reportedAt,
+        reportedById: org.manager.id,
+        description: 'Battery swollen',
+        resolvedAt: at('2026-11-15T02:00:00.000Z'),
+        resolution: 'REPLACED',
+      },
+    });
+    const requested = await credits.request(
+      contract.id,
+      {
+        contractDeviceId,
+        cause: ServiceCreditCause.BATTERY_FAULT,
+        faultInspectionId,
+        outageSourceFaultReportId: report.id,
+      },
+      flow.staff,
+      at('2026-11-15T03:00:00.000Z'),
+    );
+    await expect(
+      flow.prisma.serviceCredit.findUniqueOrThrow({ where: { id: requested.id } }),
+    ).resolves.toMatchObject({
+      outageFrom: reportedAt,
+      outageSourceFaultReportId: report.id,
+      outageSourceIncidentId: null,
+      outageSourceNote: null,
+      computedVnd: 45_000n,
+    });
+  });
+
   it('AC-06: a battery failing on day 10 and replaced on day 13 credits 45,000 VND on the next term invoice', async () => {
     const { contract, contractDeviceId, faultInspectionId } = await replacedOnDay13();
     const requester = await flow.admin();

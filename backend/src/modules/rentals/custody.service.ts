@@ -7,6 +7,7 @@ import { GroupsService } from './groups.service';
 type Unit = { id: string; deviceId: string };
 
 type Closure =
+  | { reason: 'RELEASED' }
   | { reason: 'CHECKED_IN'; actorId: string }
   | { reason: 'LOST'; confirmedAt: Date }
   | { reason: 'REPLACED'; actorId: string; checkedIn: boolean; replacement: Unit };
@@ -30,6 +31,8 @@ export class CustodyService {
   ): Promise<void> {
     const deviceIds = rows.map(({ deviceId }) => deviceId);
     const rowIds = rows.map(({ id }) => id);
+    // An empty group lookup cannot skip the tree lock. A concurrent first assignment could
+    // otherwise be inserted after that lookup but before the custody row closes.
     await this.assignments.lockTree(organizationId, tx);
     const open = (await this.assignments.openAssignments(deviceIds, tx)).filter((assignment) =>
       rowIds.includes(assignment.contractDeviceId),
@@ -46,6 +49,8 @@ export class CustodyService {
 
     if (closure.reason === 'LOST') {
       for (const id of rowIds) await this.contracts.setLostAt(id, closure.confirmedAt, tx);
+    } else if (closure.reason === 'RELEASED') {
+      await this.contracts.markReleased(rowIds, at, tx);
     } else if (closure.reason === 'CHECKED_IN' || closure.checkedIn) {
       await this.contracts.markCheckedIn(rowIds, at, closure.actorId, tx);
     }

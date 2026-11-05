@@ -28,6 +28,7 @@ interface Alert {
   text: string;
   // Poll fallback only: confidence changes within this state keep the already displayed text.
   state?: Incident['state'];
+  groupName?: string;
 }
 
 // A device-silent alert stays until dismissed or until its incident has ended.
@@ -45,6 +46,7 @@ const alertFrom = (payload: Record<string, unknown>): Alert => {
   // A null holder label is left out rather than printed (MSG31, as the server's msg31 does).
   const holder =
     typeof payload.holderName === 'string' && payload.holderName ? payload.holderName : null;
+  const group = typeof payload.groupName === 'string' ? payload.groupName : null;
   const time = new Date(String(payload.at)).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
@@ -52,7 +54,7 @@ const alertFrom = (payload: Record<string, unknown>): Alert => {
   const text =
     typeof payload.message === 'string'
       ? payload.message
-      : `SOS: ${String(payload.deviceLabel)}${holder ? ` (${holder})` : ''}, ${time}. Acknowledge now.`;
+      : `SOS: ${String(payload.deviceLabel)}${holder ? ` (${holder})` : ''}${group ? `, group ${group}` : ''}, ${time}. Acknowledge now.`;
   return { incidentId: String(payload.incidentId), kind, text };
 };
 
@@ -74,6 +76,7 @@ const polledAlerts = (items: readonly Incident[], staff: boolean): Alert[] =>
     )
     .map((incident) => {
       const holder = incident.device.holder?.name;
+      const groupName = incident.device.group?.name;
       const time = new Date(incident.firstEventAt).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
@@ -82,6 +85,7 @@ const polledAlerts = (items: readonly Incident[], staff: boolean): Alert[] =>
         incidentId: incident.id,
         kind: 'TRANSITION' as const,
         state: incident.state,
+        groupName,
         text: `${
           incident.source === 'CADENCE_INFERRED'
             ? incident.confidence === 'SUSPECTED'
@@ -90,7 +94,7 @@ const polledAlerts = (items: readonly Incident[], staff: boolean): Alert[] =>
             : SOURCE_TEXT[incident.source]
         }: ${incident.device.assetTag ?? incident.code}${
           holder ? ` (${holder})` : ''
-        }, ${time}. Acknowledge now.`,
+        }${groupName ? `, group ${groupName}` : ''}, ${time}. Acknowledge now.`,
       };
     });
 
@@ -123,7 +127,12 @@ export const AlertBanner: React.FC<{ staff?: boolean }> = ({ staff = false }) =>
           setPolled((current) =>
             polledAlerts(page.items, staff).map(
               (alert) =>
-                current.find((old) => same(old, alert) && old.state === alert.state) ?? alert,
+                current.find(
+                  (old) =>
+                    same(old, alert) &&
+                    old.state === alert.state &&
+                    old.groupName === alert.groupName,
+                ) ?? alert,
             ),
           );
       } catch {

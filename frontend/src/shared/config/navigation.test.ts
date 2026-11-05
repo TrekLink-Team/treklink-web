@@ -26,6 +26,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/o/map',
       '/o/incidents',
       '/o/contracts',
+      '/o/devices',
       '/o/invoices',
       '/o/loss-cases',
       '/o/members',

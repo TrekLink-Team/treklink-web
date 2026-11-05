@@ -5,7 +5,12 @@ import { SERVICE_CREDIT_NOTICE, ServiceCreditNoticeEvent } from '../billing';
 import { OrganizationsService } from '../organizations';
 import { STAFF_NOTIFICATIONS, StaffNotifications } from '../platform/ports';
 import { CONTRACT_STATUS_CHANGED, ContractStatusChangedEvent } from './contract-lifecycle.service';
-import { CONTRACT_REQUESTED, ContractRequestedEvent } from './contract-notification.events';
+import {
+  CONTRACT_REQUESTED,
+  ContractRequestedEvent,
+  DEVICE_FAULT_REPORTED,
+  DeviceFaultReportedEvent,
+} from './contract-notification.events';
 import { ContractsRepository } from './contracts.repository';
 
 const TITLES: Partial<Record<ContractStatus, string>> = {
@@ -29,21 +34,24 @@ export class ContractNotificationsListener {
 
   @OnEvent(CONTRACT_REQUESTED)
   async requested(event: ContractRequestedEvent): Promise<void> {
-    await this.deliver(event.contractId, async (code) => {
-      if (!this.staff) return false;
-      const delivery = await this.staff.send(
+    await this.deliver(event.contractId, (code) =>
+      this.sendToStaff(
+        event.contractId,
         `TrekLink contract ${code}: new rental request`,
         `A new rental request ${code} is waiting for review. Open the TrekLink contract requests queue to review availability and arrange the handover.`,
-      );
-      if (delivery.accepted > 0 && delivery.failed > 0) {
-        // Partly delivered: say so rather than "not delivered" (review of #143).
-        this.logger.warn(
-          `Contract notification ${event.contractId} reached ${delivery.accepted} of ${delivery.accepted + delivery.failed} Staff recipients; no automatic retry is queued.`,
-        );
-        return true;
-      }
-      return delivery.accepted > 0;
-    });
+      ),
+    );
+  }
+
+  @OnEvent(DEVICE_FAULT_REPORTED)
+  async faultReported(event: DeviceFaultReportedEvent): Promise<void> {
+    await this.deliver(event.contractId, (code) =>
+      this.sendToStaff(
+        event.contractId,
+        `TrekLink contract ${code}: device fault reported`,
+        `Fault report ${event.reportId} for device ${event.deviceId} is waiting for review. Open contract ${code} in TrekLink to review the fault and arrange a replacement.`,
+      ),
+    );
   }
 
   @OnEvent(CONTRACT_STATUS_CHANGED)
@@ -95,5 +103,16 @@ export class ContractNotificationsListener {
     } catch {
       this.logger.warn(`Contract notification ${id} failed; no automatic retry is queued.`);
     }
+  }
+
+  private async sendToStaff(id: string, subject: string, message: string): Promise<boolean> {
+    if (!this.staff) return false;
+    const delivery = await this.staff.send(subject, message);
+    if (delivery.accepted > 0 && delivery.failed > 0) {
+      this.logger.warn(
+        `Contract notification ${id} reached ${delivery.accepted} of ${delivery.accepted + delivery.failed} Staff recipients; no automatic retry is queued.`,
+      );
+    }
+    return delivery.accepted > 0;
   }
 }

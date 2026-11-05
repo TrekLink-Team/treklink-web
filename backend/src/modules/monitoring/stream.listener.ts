@@ -16,9 +16,11 @@ import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import {
   DEVICE_CHECKED_IN,
+  DEVICE_GROUP_CHANGED,
   DEVICE_HANDED_OVER,
   DEVICE_LABEL_CHANGED,
   type DeviceCheckedInEvent,
+  type DeviceGroupChangedEvent,
   type DeviceHandedOverEvent,
   type DeviceLabelChangedEvent,
 } from '../rentals';
@@ -130,6 +132,16 @@ export class StreamListener {
       type: 'device.label',
       deviceId: event.deviceId,
       payload: { holder: event.holder },
+    });
+  }
+
+  @OnEvent(DEVICE_GROUP_CHANGED)
+  async onDeviceGroupChanged(event: DeviceGroupChangedEvent): Promise<void> {
+    await this.stream.publish({
+      organizationId: event.organizationId,
+      type: DEVICE_GROUP_CHANGED,
+      deviceId: event.deviceId,
+      payload: { group: event.group },
     });
   }
 

@@ -11,6 +11,9 @@ import { ContractsController } from './contracts.controller';
 import { ContractsRepository } from './contracts.repository';
 import { ContractsService } from './contracts.service';
 import { CustodyService } from './custody.service';
+import { FaultReportsController } from './fault-reports.controller';
+import { FaultReportsRepository } from './fault-reports.repository';
+import { FaultReportsService } from './fault-reports.service';
 import { GroupsController } from './groups.controller';
 import { GroupsRepository } from './groups.repository';
 import { GroupsService } from './groups.service';
@@ -36,10 +39,18 @@ import { TermRolloverJob } from './term-rollover.job';
 // Replacement (4.3) and the overdue and default job (3.2) join with their tasks.
 @Module({
   imports: [PlatformModule, OrganizationsModule, BillingModule, DevicesModule, RentalsPortsModule],
-  controllers: [ContractsController, GroupsController, HandoverController, ReturnController],
+  controllers: [
+    ContractsController,
+    FaultReportsController,
+    GroupsController,
+    HandoverController,
+    ReturnController,
+  ],
   providers: [
     ContractsRepository,
     CustodyService,
+    FaultReportsRepository,
+    FaultReportsService,
     GroupsRepository,
     GroupsService,
     ContractLifecycleService,
@@ -61,6 +72,7 @@ import { TermRolloverJob } from './term-rollover.job';
   exports: [
     ContractLifecycleService,
     ContractsService,
+    GroupsService,
     // demo module (D-088): the MF-01 approval and the MF-05 notice and term rollover.
     ContractDecisionsService,
     TermRolloverJob,

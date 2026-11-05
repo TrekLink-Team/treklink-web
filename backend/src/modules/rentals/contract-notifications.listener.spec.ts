@@ -4,7 +4,12 @@ import { ContractStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { OrganizationsService } from '../organizations';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
-import { CONTRACT_REQUESTED, ContractRequestedEvent } from './contract-notification.events';
+import {
+  CONTRACT_REQUESTED,
+  ContractRequestedEvent,
+  DEVICE_FAULT_REPORTED,
+  DeviceFaultReportedEvent,
+} from './contract-notification.events';
 import { ContractNotificationsListener } from './contract-notifications.listener';
 import { ContractsRepository } from './contracts.repository';
 
@@ -49,6 +54,34 @@ describe('ContractNotificationsListener', () => {
     expect(staff.send).toHaveBeenCalledWith(
       expect.stringContaining('RC-2026-0001'),
       expect.any(String),
+    );
+  });
+
+  it('emails Staff about the recorded device fault after commit (MSG41)', async () => {
+    const { listener, staff } = build();
+    const emitter = new EventEmitter2();
+    emitter.on(DEVICE_FAULT_REPORTED, (payload: DeviceFaultReportedEvent) => {
+      void listener.faultReported(payload);
+    });
+    const prisma = {
+      $transaction: (work: (tx: object) => unknown) => work({}),
+    } as unknown as PrismaService;
+    const events = new TransactionalEvents(prisma, emitter);
+
+    await events.transaction(() => {
+      events.emitAfterCommit(DEVICE_FAULT_REPORTED, {
+        ...event,
+        reportId: 'fault-1',
+        deviceId: 'device-1',
+      });
+      expect(staff.send).not.toHaveBeenCalled();
+      return Promise.resolve();
+    });
+    await new Promise(setImmediate);
+
+    expect(staff.send).toHaveBeenCalledWith(
+      'TrekLink contract RC-2026-0001: device fault reported',
+      expect.stringContaining('Fault report fault-1 for device device-1'),
     );
   });
 

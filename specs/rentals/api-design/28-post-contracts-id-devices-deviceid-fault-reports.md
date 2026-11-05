@@ -176,7 +176,8 @@ Records a fault on a `RENTED` device of one of the organization's contracts agai
 ```json
 {
   "result": {
-    "errorCode": "FAULT_ALREADY_REPORTED"
+    "errorCode": "FAULT_ALREADY_REPORTED",
+    "reportId": "fr-1"
   },
   "isSuccess": false,
   "statusCode": 409,

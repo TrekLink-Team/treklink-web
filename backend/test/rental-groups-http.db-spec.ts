@@ -6,7 +6,11 @@ import {
   OrganizationStatus,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { LossCaseService } from '../src/modules/devices';
+import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
+import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
 import { ContractsService } from '../src/modules/rentals/contracts.service';
+import { CustodyService } from '../src/modules/rentals/custody.service';
 import { ReplacementService } from '../src/modules/rentals/replacement.service';
 import { ReturnService } from '../src/modules/rentals/return.service';
 import { compileRentalFlow, RentalFlow, SIGNATURE } from './db-rental-flow';
@@ -183,55 +187,152 @@ describe('group API against Postgres (rentals 9.2)', () => {
     expect(returned.status).toBe(409);
   });
 
-  it('passes the group to the replacement and resolves the old fault in the same transaction', async () => {
+  it.each([true, false])(
+    'passes the group and resolves the old fault when the replaced unit is present: %s',
+    async (faultyPresent) => {
+      const rental = await flow.rented(1);
+      const [deviceId] = rental.deviceIds;
+      const groupId = await create('Replacement group', undefined, rental.org);
+      const assigned = await flow.send(
+        rental.org.manager,
+        'post',
+        `/api/groups/${groupId}/devices`,
+        {
+          deviceIds: [deviceId],
+        },
+      );
+      expect(assigned.status).toBe(200);
+      const [replacementDeviceId] = await flow.availableDevices(rental.variantId, 1);
+      const oldRow = await flow.prisma.contractDevice.findFirstOrThrow({
+        where: { contractId: rental.contract.id, deviceId },
+      });
+      const fault = await flow.prisma.deviceFaultReport.create({
+        data: {
+          organizationId: rental.org.id,
+          contractId: rental.contract.id,
+          contractDeviceId: oldRow.id,
+          deviceId,
+          description: 'Failed radio',
+          reportedById: rental.org.manager.id,
+        },
+      });
+      const at = new Date();
+      if (!faultyPresent) {
+        await flow
+          .get(LossCaseService)
+          .report(deviceId, { description: 'Unit missing in the field' }, rental.org.manager, at);
+      }
+      const { contractDeviceId } = await flow.get(ReplacementService).replace(
+        rental.contract.id,
+        deviceId,
+        {
+          replacementDeviceId,
+          faultyPresent,
+          keyVersion: 1,
+          signatureImage: SIGNATURE,
+        },
+        flow.staff,
+        at,
+      );
+      const assignments = await flow.prisma.groupAssignment.findMany({ where: { groupId } });
+      expect(assignments).toHaveLength(2);
+      expect(assignments.find((item) => item.deviceId === deviceId)).toMatchObject({
+        contractDeviceId: oldRow.id,
+        endedReason: GroupExit.REPLACED,
+        endedAt: at,
+      });
+      expect(assignments.find((item) => item.deviceId === replacementDeviceId)).toMatchObject({
+        contractDeviceId,
+        endedAt: null,
+      });
+      await expect(
+        flow.prisma.deviceFaultReport.findUniqueOrThrow({ where: { id: fault.id } }),
+      ).resolves.toMatchObject({ resolution: 'REPLACED', resolvedAt: at });
+      await expect(
+        flow.prisma.contractDevice.findUniqueOrThrow({ where: { id: oldRow.id } }),
+      ).resolves.toMatchObject({ checkedInAt: faultyPresent ? at : null, lostAt: null });
+      if (!faultyPresent) {
+        const reassigned = await flow.send(
+          rental.org.manager,
+          'post',
+          `/api/groups/${groupId}/devices`,
+          {
+            deviceIds: [deviceId],
+          },
+        );
+        expect(reassigned.status).toBe(409);
+        expect(reassigned.body).toMatchObject({ result: { errorCode: 'DEVICE_NOT_HELD' } });
+      }
+    },
+  );
+
+  it('offers an atomic RELEASED hook for G4 and preserves its custody-end timestamp on retry', async () => {
     const rental = await flow.rented(1);
     const [deviceId] = rental.deviceIds;
-    const groupId = await create('Replacement group', undefined, rental.org);
-    const assigned = await flow.send(rental.org.manager, 'post', `/api/groups/${groupId}/devices`, {
-      deviceIds: [deviceId],
-    });
-    expect(assigned.status).toBe(200);
-    const [replacementDeviceId] = await flow.availableDevices(rental.variantId, 1);
-    const oldRow = await flow.prisma.contractDevice.findFirstOrThrow({
+    const groupId = await create('Release hook', undefined, rental.org);
+    expect(
+      (
+        await flow.send(rental.org.manager, 'post', `/api/groups/${groupId}/devices`, {
+          deviceIds: [deviceId],
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await flow.send(
+          rental.org.manager,
+          'post',
+          `/api/contracts/${rental.contract.id}/devices/${deviceId}/fault-reports`,
+          { description: 'Radio failure' },
+        )
+      ).status,
+    ).toBe(201);
+    const row = await flow.prisma.contractDevice.findFirstOrThrow({
       where: { contractId: rental.contract.id, deviceId },
     });
-    const fault = await flow.prisma.deviceFaultReport.create({
-      data: {
-        organizationId: rental.org.id,
-        contractId: rental.contract.id,
-        contractDeviceId: oldRow.id,
-        deviceId,
-        description: 'Failed radio',
-        reportedById: rental.org.manager.id,
-      },
-    });
-    const at = new Date();
-    const { contractDeviceId } = await flow.get(ReplacementService).replace(
-      rental.contract.id,
-      deviceId,
-      {
-        replacementDeviceId,
-        faultyPresent: true,
-        keyVersion: 1,
-        signatureImage: SIGNATURE,
-      },
-      flow.staff,
-      at,
-    );
-    const assignments = await flow.prisma.groupAssignment.findMany({ where: { groupId } });
-    expect(assignments).toHaveLength(2);
-    expect(assignments.find((item) => item.deviceId === deviceId)).toMatchObject({
-      contractDeviceId: oldRow.id,
-      endedReason: GroupExit.REPLACED,
-      endedAt: at,
-    });
-    expect(assignments.find((item) => item.deviceId === replacementDeviceId)).toMatchObject({
-      contractDeviceId,
-      endedAt: null,
+    const endedAt = new Date();
+    const release = (at: Date, rollback = false) =>
+      flow.get(TransactionalEvents).transaction(async (tx) => {
+        await flow.get(ContractsRepository).lockById(rental.contract.id, tx);
+        await flow
+          .get(CustodyService)
+          .closeCustody(rental.org.id, [row], { reason: 'RELEASED' }, at, tx);
+        if (rollback) throw new Error('Rollback release');
+      });
+    await expect(release(endedAt, true)).rejects.toThrow('Rollback release');
+    await expect(
+      flow.prisma.groupAssignment.count({ where: { deviceId, endedAt: null } }),
+    ).resolves.toBe(1);
+    await expect(
+      flow.prisma.deviceFaultReport.count({
+        where: { contractDeviceId: row.id, resolvedAt: null },
+      }),
+    ).resolves.toBe(1);
+    await release(endedAt);
+    await expect(
+      flow.prisma.contractDevice.findUniqueOrThrow({ where: { id: row.id } }),
+    ).resolves.toMatchObject({
+      releasedAt: endedAt,
+      checkedInAt: null,
+      lostAt: null,
     });
     await expect(
-      flow.prisma.deviceFaultReport.findUniqueOrThrow({ where: { id: fault.id } }),
-    ).resolves.toMatchObject({ resolution: 'REPLACED', resolvedAt: at });
+      flow.prisma.groupAssignment.findFirstOrThrow({ where: { deviceId } }),
+    ).resolves.toMatchObject({
+      endedAt,
+      endedReason: 'RELEASED',
+    });
+    await expect(
+      flow.prisma.deviceFaultReport.findFirstOrThrow({ where: { contractDeviceId: row.id } }),
+    ).resolves.toMatchObject({
+      resolvedAt: endedAt,
+      resolution: 'RELEASED',
+    });
+    await expect(release(new Date(endedAt.getTime() + 1000))).rejects.toThrow(
+      'The custody interval is already closed.',
+    );
+    const held = await flow.get(ContractsService).visibleDevices({ organizationId: rental.org.id });
+    expect(held.some((unit) => unit.deviceId === deviceId)).toBe(false);
   });
 
   it('returns cross-organization 404s and gives Operator only its own tree', async () => {

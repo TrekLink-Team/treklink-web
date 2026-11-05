@@ -39,8 +39,9 @@ export interface ServiceCreditRequest {
   contractDeviceId: string;
   cause: ServiceCreditCause;
   faultInspectionId: string;
-  outageFrom: Date;
+  outageFrom?: Date;
   outageSourceIncidentId?: string;
+  outageSourceFaultReportId?: string;
   outageSourceNote?: string;
 }
 
@@ -113,10 +114,15 @@ export class ServiceCreditService {
     actor: Caller,
     at: Date = new Date(),
   ): Promise<ServiceCreditRow> {
-    if (!input.outageSourceIncidentId && !input.outageSourceNote?.trim()) {
-      throw invalid('The source of the outage start is required: an incident or a note.');
+    const { outageSourceFaultReportId } = input;
+    const note = input.outageSourceNote?.trim();
+    if (!input.outageSourceIncidentId && !outageSourceFaultReportId && !note) {
+      throw invalid('Choose an incident, a fault report or a note as the outage source.');
     }
-    if (input.outageFrom.getTime() > at.getTime()) {
+    if (!input.outageFrom && !outageSourceFaultReportId) {
+      throw invalid('Enter the outage start or choose a fault report.');
+    }
+    if (input.outageFrom && input.outageFrom.getTime() > at.getTime()) {
       throw invalid('The outage start cannot be in the future.');
     }
     return this.events.transaction(async (tx) => {
@@ -131,6 +137,22 @@ export class ServiceCreditService {
         );
       }
       const { contract, unit } = found;
+      let outageFrom = input.outageFrom;
+      if (outageSourceFaultReportId) {
+        const report = await this.basis?.faultReportSource(
+          outageSourceFaultReportId,
+          contractId,
+          unit.contractDeviceId,
+          tx,
+        );
+        if (!report)
+          throw invalid('The outage source must be a fault report for this contract device.');
+        outageFrom ??= report.reportedAt;
+      }
+      if (!outageFrom) throw invalid('Enter the outage start or choose a fault report.');
+      if (outageFrom.getTime() > at.getTime()) {
+        throw invalid('The outage start cannot be in the future.');
+      }
       if (!unit.checkedInAt && !unit.replacementHandedOverAt) {
         throw new DomainException(
           HttpStatus.CONFLICT,
@@ -138,7 +160,7 @@ export class ServiceCreditService {
           'A service credit is requested once the unit is checked in or replaced.',
         );
       }
-      if (!unit.handedOverAt || input.outageFrom.getTime() < unit.handedOverAt.getTime()) {
+      if (!unit.handedOverAt || outageFrom.getTime() < unit.handedOverAt.getTime()) {
         throw invalid('The outage start must be after the unit was handed over on this contract.');
       }
       const inspection = await this.devices.inspectionFor(input.faultInspectionId, tx);
@@ -151,13 +173,13 @@ export class ServiceCreditService {
           'The fault record must be a FAILED inspection of this unit on this contract.',
         );
       }
-      const term = termHolding(contract, input.outageFrom);
+      const term = termHolding(contract, outageFrom);
       if (!term) throw invalid('The outage start is outside the contract terms.');
       const outageTo = outageEndOf(unit, term.endsAt);
-      if (outageTo.getTime() <= input.outageFrom.getTime()) {
+      if (outageTo.getTime() <= outageFrom.getTime()) {
         throw invalid('The outage start must be before the unit was checked in or replaced.');
       }
-      const outageDays = outageDaysOf(input.outageFrom, outageTo);
+      const outageDays = outageDaysOf(outageFrom, outageTo);
       const computedVnd =
         contract.planType === 'DAY'
           ? dayPlanCreditVnd(
@@ -173,7 +195,7 @@ export class ServiceCreditService {
             );
 
       await this.credits.lockUnit(unit.contractDeviceId, tx);
-      if (await this.credits.overlapping(unit.contractDeviceId, input.outageFrom, outageTo, tx)) {
+      if (await this.credits.overlapping(unit.contractDeviceId, outageFrom, outageTo, tx)) {
         throw new DomainException(
           HttpStatus.CONFLICT,
           ErrorCode.DUPLICATE_CREDIT,
@@ -188,9 +210,10 @@ export class ServiceCreditService {
           deviceId: unit.deviceId,
           cause: input.cause,
           faultInspectionId: inspection.id,
-          outageFrom: input.outageFrom,
+          outageFrom,
           outageSourceIncidentId: input.outageSourceIncidentId ?? null,
-          outageSourceNote: input.outageSourceNote?.trim() || null,
+          outageSourceFaultReportId: outageSourceFaultReportId ?? null,
+          outageSourceNote: note || null,
           outageTo,
           outageDays,
           computedVnd,

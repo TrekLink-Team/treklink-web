@@ -69,17 +69,46 @@ export const ORGANIZATION_NAV: NavGroup[] = [
     label: 'Operate',
     entries: [
       { route: '/o', label: 'Overview', icon: LayoutGrid, roles: MANAGER, built: true, tabBar: 1 },
-      { route: '/o/map', label: 'Live map', icon: MapIcon, roles: OPERATOR, built: true, fullBleed: true, tabBar: 2 },
-      { route: '/o/incidents', label: 'Incidents', icon: Siren, roles: OPERATOR, built: true, tabBar: 3 },
+      {
+        route: '/o/map',
+        label: 'Live map',
+        icon: MapIcon,
+        roles: OPERATOR,
+        built: true,
+        fullBleed: true,
+        tabBar: 2,
+      },
+      {
+        route: '/o/incidents',
+        label: 'Incidents',
+        icon: Siren,
+        roles: OPERATOR,
+        built: true,
+        tabBar: 3,
+      },
     ],
   },
   {
     id: 'o-business',
     label: 'Business',
     entries: [
-      { route: '/o/contracts', label: 'Contracts', icon: FileText, roles: OPERATOR, built: true, tabBar: 4 },
+      {
+        route: '/o/contracts',
+        label: 'Contracts',
+        icon: FileText,
+        roles: OPERATOR,
+        built: true,
+        tabBar: 4,
+      },
+      { route: '/o/devices', label: 'Rented devices', icon: Cpu, roles: MANAGER, built: true },
       { route: '/o/invoices', label: 'Invoices', icon: Receipt, roles: MANAGER, built: true },
-      { route: '/o/loss-cases', label: 'Loss cases', icon: ShieldAlert, roles: MANAGER, built: true },
+      {
+        route: '/o/loss-cases',
+        label: 'Loss cases',
+        icon: ShieldAlert,
+        roles: MANAGER,
+        built: true,
+      },
     ],
   },
   {
@@ -89,8 +118,20 @@ export const ORGANIZATION_NAV: NavGroup[] = [
       { route: '/o/members', label: 'Members', icon: Users, roles: MANAGER, built: true },
       { route: '/o/roster', label: 'Roster', icon: CalendarDays, roles: OPERATOR, built: true },
       { route: '/o/api-keys', label: 'API keys', icon: KeyRound, roles: MANAGER, built: true },
-      { route: '/o/field-stations', label: 'Field stations', icon: MapPin, roles: OPERATOR, built: true },
-      { route: '/o/roles', label: 'Roles and permissions', icon: ShieldCheck, roles: MANAGER, built: true },
+      {
+        route: '/o/field-stations',
+        label: 'Field stations',
+        icon: MapPin,
+        roles: OPERATOR,
+        built: true,
+      },
+      {
+        route: '/o/roles',
+        label: 'Roles and permissions',
+        icon: ShieldCheck,
+        roles: MANAGER,
+        built: true,
+      },
     ],
   },
 ];
@@ -100,14 +141,38 @@ export const TREKLINK_NAV: NavGroup[] = [
     id: 't-operate',
     label: 'Operate',
     entries: [
-      { route: '/t/map', label: 'Fleet map', icon: MapIcon, roles: STAFF, built: true, fullBleed: true, tabBar: 1 },
-      { route: '/t/incidents', label: 'Incidents', icon: Siren, roles: STAFF, built: true, tabBar: 2 },
+      {
+        route: '/t/map',
+        label: 'Fleet map',
+        icon: MapIcon,
+        roles: STAFF,
+        built: true,
+        fullBleed: true,
+        tabBar: 1,
+      },
+      {
+        route: '/t/incidents',
+        label: 'Incidents',
+        icon: Siren,
+        roles: STAFF,
+        built: true,
+        tabBar: 2,
+      },
     ],
   },
   {
     id: 't-contracts',
     label: 'Contracts and counter',
-    entries: [{ route: '/t/contracts', label: 'Contracts', icon: FileText, roles: STAFF, built: true, tabBar: 3 }],
+    entries: [
+      {
+        route: '/t/contracts',
+        label: 'Contracts',
+        icon: FileText,
+        roles: STAFF,
+        built: true,
+        tabBar: 3,
+      },
+    ],
   },
   {
     id: 't-fleet',
@@ -125,24 +190,63 @@ export const TREKLINK_NAV: NavGroup[] = [
     id: 't-organizations',
     label: 'Organizations and compliance',
     entries: [
-      { route: '/t/organizations', label: 'Organizations', icon: Building2, roles: STAFF, built: true },
-      { route: '/t/field-stations', label: 'Field stations', icon: MapPin, roles: STAFF, built: true },
-      { route: '/t/compliance-cases', label: 'Compliance cases', icon: ShieldCheck, roles: STAFF, built: true },
+      {
+        route: '/t/organizations',
+        label: 'Organizations',
+        icon: Building2,
+        roles: STAFF,
+        built: true,
+      },
+      {
+        route: '/t/field-stations',
+        label: 'Field stations',
+        icon: MapPin,
+        roles: STAFF,
+        built: true,
+      },
+      {
+        route: '/t/compliance-cases',
+        label: 'Compliance cases',
+        icon: ShieldCheck,
+        roles: STAFF,
+        built: true,
+      },
     ],
   },
   {
     id: 't-billing',
     label: 'Billing',
     entries: [
-      { route: '/t/billing', label: 'Invoices and payments', icon: Receipt, roles: STAFF, built: true, tabBar: 4 },
-      { route: '/t/damage-charges', label: 'Damage charges', icon: BadgeDollarSign, roles: STAFF, built: true },
-      { route: '/t/service-credits', label: 'Service credits', icon: Undo2, roles: STAFF, built: true },
+      {
+        route: '/t/billing',
+        label: 'Invoices and payments',
+        icon: Receipt,
+        roles: STAFF,
+        built: true,
+        tabBar: 4,
+      },
+      {
+        route: '/t/damage-charges',
+        label: 'Damage charges',
+        icon: BadgeDollarSign,
+        roles: STAFF,
+        built: true,
+      },
+      {
+        route: '/t/service-credits',
+        label: 'Service credits',
+        icon: Undo2,
+        roles: STAFF,
+        built: true,
+      },
     ],
   },
   {
     id: 't-reports',
     label: 'Reports',
-    entries: [{ route: '/t/reports', label: 'Reports', icon: BarChart3, roles: STAFF, built: true }],
+    entries: [
+      { route: '/t/reports', label: 'Reports', icon: BarChart3, roles: STAFF, built: true },
+    ],
   },
   {
     id: 't-admin',
@@ -154,9 +258,28 @@ export const TREKLINK_NAV: NavGroup[] = [
       { route: '/t/admin/prices', label: 'Prices and damage rates', icon: Tags, roles: ADMIN, built: true },
       { route: '/t/admin/variants', label: 'Hardware variants', icon: Store, roles: ADMIN, built: true },
       { route: '/t/admin/health', label: 'System health', icon: Gauge, roles: ADMIN, built: true },
-      { route: '/t/admin/audit/changes', label: 'Audit log', icon: ScrollText, roles: ADMIN, built: true },
-      { route: '/t/admin/audit/sign-ins', label: 'Sign-in events', icon: Activity, roles: ADMIN, built: true },
-      { route: '/t/admin/demo', label: 'Demo control', icon: RotateCcw, roles: ADMIN, built: true, demoOnly: true },
+      {
+        route: '/t/admin/audit/changes',
+        label: 'Audit log',
+        icon: ScrollText,
+        roles: ADMIN,
+        built: true,
+      },
+      {
+        route: '/t/admin/audit/sign-ins',
+        label: 'Sign-in events',
+        icon: Activity,
+        roles: ADMIN,
+        built: true,
+      },
+      {
+        route: '/t/admin/demo',
+        label: 'Demo control',
+        icon: RotateCcw,
+        roles: ADMIN,
+        built: true,
+        demoOnly: true,
+      },
     ],
   },
 ];
@@ -197,7 +320,11 @@ export const groupForPath = (groups: NavGroup[], path: string): NavGroup | undef
 
 /** Full-bleed routes, also for paths outside the nav table. */
 export const isFullBleed = (path: string): boolean =>
-  ALL_NAV.some((group) => group.entries.some((entry) => entry.fullBleed && (path === entry.route || path.startsWith(`${entry.route}/`))));
+  ALL_NAV.some((group) =>
+    group.entries.some(
+      (entry) => entry.fullBleed && (path === entry.route || path.startsWith(`${entry.route}/`)),
+    ),
+  );
 
 /** Tab bar entries for the phone, ordered; More opens the drawer. */
 export const tabBarEntries = (groups: NavGroup[]): NavEntry[] =>

@@ -57,6 +57,7 @@ const credit = (overrides: Partial<ServiceCreditRow> = {}): ServiceCreditRow => 
   faultInspectionId: 'insp-1',
   outageFrom: day(10),
   outageSourceIncidentId: null,
+  outageSourceFaultReportId: null,
   outageSourceNote: 'Called the counter at 08:10',
   outageTo: day(13),
   outageDays: 3,
@@ -125,7 +126,10 @@ const build = (
     emitAfterCommit: jest.fn(),
   };
   const config = { get: jest.fn((key: string) => (key === 'MAX_PAGE_SIZE' ? 100 : 20)) };
-  const basis = { basisOf: jest.fn().mockResolvedValue(basisRow) };
+  const basis = {
+    basisOf: jest.fn().mockResolvedValue(basisRow),
+    faultReportSource: jest.fn().mockResolvedValue(null),
+  };
   const service = new ServiceCreditService(
     credits as unknown as ServiceCreditsRepository,
     invoices as unknown as InvoicesRepository,
@@ -169,6 +173,7 @@ describe('ServiceCreditService.request (REQ-EVT-12, billing 8.1)', () => {
         outageDays: 3,
         computedVnd: 45_000n,
         outageSourceIncidentId: null,
+        outageSourceFaultReportId: null,
         outageSourceNote: 'Called the counter at 08:10',
         requestedById: 'staff-1',
       }),
@@ -212,6 +217,45 @@ describe('ServiceCreditService.request (REQ-EVT-12, billing 8.1)', () => {
     const { service, credits } = build();
     await expect(
       service.request('c-1', { ...REQUEST, outageSourceNote: '  ' }, STAFF, day(14)),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+    expect(credits.insert).not.toHaveBeenCalled();
+  });
+
+  it('defaults the outage start to a fault report for the same custody row', async () => {
+    const { service, basis, credits } = build();
+    basis.faultReportSource.mockResolvedValue({ reportedAt: day(11) });
+    const requested = await service.request(
+      'c-1',
+      {
+        ...REQUEST,
+        outageFrom: undefined,
+        outageSourceNote: undefined,
+        outageSourceFaultReportId: 'fault-1',
+      },
+      STAFF,
+      day(14),
+    );
+    expect(basis.faultReportSource).toHaveBeenCalledWith('fault-1', 'c-1', 'cd-1', TX);
+    expect(credits.overlapping).toHaveBeenCalledWith('cd-1', day(11), day(13), TX);
+    expect(requested).toMatchObject({
+      outageFrom: day(11),
+      outageSourceFaultReportId: 'fault-1',
+      computedVnd: 30_000n,
+    });
+  });
+
+  it('rejects a foreign fault report even if the request supplies another source and time', async () => {
+    const { service, credits } = build();
+    await expect(
+      service.request('c-1', { ...REQUEST, outageSourceFaultReportId: 'foreign' }, STAFF, day(14)),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+    expect(credits.insert).not.toHaveBeenCalled();
+  });
+
+  it('requires an explicit outage start for a note without a fault report', async () => {
+    const { service, credits } = build();
+    await expect(
+      service.request('c-1', { ...REQUEST, outageFrom: undefined }, STAFF, day(14)),
     ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
     expect(credits.insert).not.toHaveBeenCalled();
   });

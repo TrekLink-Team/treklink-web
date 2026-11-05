@@ -157,6 +157,7 @@ describe('IncidentsQueryService.responseTimes (monitoring api-design 08)', () =>
       {} as OrganizationsService,
       {} as ConfigService<ValidatedEnvironment, true>,
       {} as never,
+      {} as never,
     );
     await expect(service.responseTimes({ from, to })).resolves.toEqual([
       expect.objectContaining({

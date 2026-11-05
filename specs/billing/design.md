@@ -813,8 +813,8 @@ six rulings on treklink-web#288 written in below; the build is billing tasks 8.1
 A `ServiceCredit` row (table `service_credits`): `id`, `contractId`, `organizationId` (copied from the contract,
 for the organization's own reads), `contractDeviceId` (the unit's row on the contract), `deviceId`, `cause`,
 `faultInspectionId` (the `faultRef`: the `FAILED` inspection of that contract device row that shows the fault),
-`outageFrom`, `outageSourceIncidentId` or `outageSourceNote` (one is required, enforced by the CHECK
-`service_credits_outage_source_check`: the incident, or a note with the time of the call or counter visit), `outageTo`,
+`outageFrom`, `outageSourceIncidentId`, `outageSourceFaultReportId` and `outageSourceNote` (at least one source is
+required by the `service_credits_outage_source_check` CHECK), `outageTo`,
 `outageDays`, `computedVnd`, `decidedVnd`, `appliedVnd` (the part already on invoices), `status`, `requestedById`,
 `decidedById`, `decisionReason`, `decidedAt`, `refundReference` (unique), `refundedAt`, `version`, `createdAt`. Each
 landed part is an `InvoiceLine` of type `SERVICE_CREDIT` that names the credit in `serviceCreditId`, so a credit split
@@ -822,10 +822,11 @@ across invoices has one line per part. Like an `ADJUSTMENT` line it is negative,
 `invoice_lines_amount_sign` and `invoice_lines_paid_bounds` admit both types (`backend/prisma/constraints.sql` and the
 migration `20261102180000_service_credits`); the balance and payment code already nets a line by its sign.
 
-The fault report of rentals REQ-EVT-24 (`DeviceFaultReport`, rentals design §11) becomes a third source of the
-outage start (billing task 8.3, W10): `outageSourceFaultReportId`, accepted when the report belongs to the same
-contract row, read through the `CREDIT_BASIS` port, with `outageFrom` defaulting to its `reportedAt`; the CHECK
-then requires one of the three. Until it is built the credit keeps the incident or the note.
+The fault report of rentals REQ-EVT-24 (`DeviceFaultReport`, rentals design §11) is a source of the outage start.
+`outageSourceFaultReportId` must identify a report on the same contract row through the `CREDIT_BASIS` port.
+If the request omits `outageFrom`, the API uses the report's `reportedAt`. An incident id or a note can also back
+the start, with `outageFrom` supplied by Staff. Migration `20261105130000_credit_fault_report_source` allows all
+three sources and preserves existing incident and note references.
 
 | Cause | Meaning |
 |---|---|
@@ -849,7 +850,7 @@ its source only; `outageTo` is computed (§9.2).
 
 ### 9.2 Amount
 
-`outageFrom` is when the organization reported the fault (an incident or a counter visit), not before the
+`outageFrom` is when the organization reported the fault (an incident, a fault report or a counter visit), not before the
 unit's handover on this contract. `outageTo` is computed, never entered: the first of the handover of its
 replacement (rentals, D-045), its check-in, and the end of the term the outage starts in. Days
 are whole local days, rounded up, so the minimum credit is one day; `termDays` is the length of the term the
@@ -913,9 +914,9 @@ and only `rentals` knows the contract code.
 
 ### 9.5 Endpoints (api-design written with the build, from `scripts/specs/endpoints/billing.py`)
 
-- `POST /api/contracts/:id/service-credits`: request (cause, `contractDeviceId`, `outageFrom` with
-  `outageSourceIncidentId` or `outageSourceNote`, `faultInspectionId`); `outageTo` is computed, never sent. The unit
-  must be checked in or replaced.
+- `POST /api/contracts/:id/service-credits` requests a credit with `cause`, `contractDeviceId`, `faultInspectionId`
+  and at least one of `outageSourceIncidentId`, `outageSourceFaultReportId` or `outageSourceNote`. `outageFrom` is
+  required without a fault report id. The API computes `outageTo`. The unit must be checked in or replaced.
 - `GET /api/contracts/:id/service-credits`, `GET /api/service-credits` (Staff queue, filter by status).
 - `POST /api/service-credits/:id/decision`: `APPROVE`, `REDUCE` with `decidedVnd` and a reason, or
   `REJECT` with a reason, and `expectedVersion`.

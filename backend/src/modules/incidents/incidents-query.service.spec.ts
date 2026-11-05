@@ -70,7 +70,8 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     incidentsOfDevice: jest.Mock;
   };
   let organizations: { memberNames: jest.Mock };
-  let contracts: { holderLabels: jest.Mock };
+  let contracts: { holderLabels: jest.Mock; visibleDevices: jest.Mock };
+  let groups: { subgroupIds: jest.Mock };
   let service: IncidentsQueryService;
   let episodeEvents: { eventsOfIncident: jest.Mock };
 
@@ -167,12 +168,14 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     };
     organizations = { memberNames: jest.fn().mockResolvedValue(new Map([['u-1', 'Pham Van D']])) };
     contracts = {
+      visibleDevices: jest.fn().mockResolvedValue([]),
       holderLabels: jest
         .fn()
         .mockResolvedValue(new Map([['c-1:dev-1', { name: 'Le Thi E', phone: '0912' }]])),
     };
     const config = { get: (key: string) => (key === 'MAX_PAGE_SIZE' ? 100 : 20) };
     episodeEvents = { eventsOfIncident: jest.fn().mockResolvedValue([]) };
+    groups = { subgroupIds: jest.fn().mockResolvedValue(new Set(['parent', 'child'])) };
     service = new IncidentsQueryService(
       repository as unknown as IncidentsRepository,
       {
@@ -182,6 +185,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       organizations as unknown as OrganizationsService,
       config as unknown as ConfigService<ValidatedEnvironment, true>,
       episodeEvents,
+      groups as never,
     );
   });
 
@@ -271,6 +275,45 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     expect(repository.page).toHaveBeenLastCalledWith({}, 0, 20, { field: 'code', order: 'asc' });
     await expect(service.list({ order: 'asc' }, STAFF, readAll)).rejects.toMatchObject({
       errorCode: ErrorCode.VALIDATION_FAILED,
+    });
+  });
+
+  it('combines the group and subgroup filter with the requested server sort', async () => {
+    const child = { id: 'child', name: 'South trail', parentId: 'parent' };
+    contracts.visibleDevices
+      .mockResolvedValueOnce([
+        { organizationId: 'org-a', deviceId: 'dev-1', group: child },
+        { organizationId: 'org-a', deviceId: 'unrelated', group: null },
+      ])
+      .mockResolvedValueOnce([{ organizationId: 'org-a', deviceId: 'dev-1', group: child }]);
+    const page = await service.list(
+      { groupId: 'parent', sort: 'lastEventAt', order: 'desc' },
+      MEMBER,
+      readOwn(MEMBER),
+    );
+    expect(groups.subgroupIds).toHaveBeenCalledWith('org-a', 'parent');
+    expect(repository.page).toHaveBeenCalledWith(
+      { organizationId: 'org-a', deviceId: { in: ['dev-1'] } },
+      0,
+      20,
+      { field: 'lastEventAt', order: 'desc' },
+    );
+    expect(page.items[0].device.group).toEqual(child);
+  });
+
+  it('does not attach the current group when the device is held by another organization', async () => {
+    contracts.visibleDevices.mockResolvedValue([
+      {
+        organizationId: 'org-b',
+        deviceId: ROW.deviceId,
+        group: { id: 'foreign', name: 'Private', parentId: null },
+      },
+    ]);
+    const detail = await service.detail(ROW.id, MEMBER, readOwn(MEMBER));
+    expect(detail.device.group).toBeNull();
+    expect(contracts.visibleDevices).toHaveBeenCalledWith({
+      organizationId: null,
+      deviceIds: [ROW.deviceId],
     });
   });
 

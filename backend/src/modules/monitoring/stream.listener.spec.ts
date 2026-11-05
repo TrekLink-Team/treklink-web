@@ -311,6 +311,19 @@ describe('StreamListener', () => {
     });
   });
 
+  describe('device.groupChanged', () => {
+    it('forwards an assignment and its removal to the named organization', async () => {
+      const event = { deviceId: 'd-1', organizationId: 'org-a' };
+      const group = { id: 'group-a1', name: 'A1', parentId: 'group-a' };
+      await listener.onDeviceGroupChanged({ ...event, group });
+      await listener.onDeviceGroupChanged({ ...event, group: null });
+      expect(published).toEqual([
+        { ...event, type: 'device.groupChanged', payload: { group } },
+        { ...event, type: 'device.groupChanged', payload: { group: null } },
+      ]);
+    });
+  });
+
   describe('incident.changed', () => {
     it('publishes the incident with its device to its routed organization', async () => {
       await listener.onIncidentChanged({

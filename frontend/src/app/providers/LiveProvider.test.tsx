@@ -192,6 +192,41 @@ describe('LiveProvider incident confidence', () => {
   });
 });
 
+describe('LiveProvider group changes', () => {
+  it('refreshes the group tree, console, map and incident views once per burst', async () => {
+    vi.useFakeTimers();
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={client}>
+        <LiveProvider>{null}</LiveProvider>
+      </QueryClientProvider>,
+    );
+    act(() => {
+      for (const seq of [1, 2]) {
+        live.listener?.({
+          kind: 'entry',
+          entry: {
+            seq,
+            type: 'device.groupChanged',
+            deviceId: `device-${seq}`,
+            createdAt: new Date().toISOString(),
+            payload: { group: null },
+          },
+        });
+      }
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(100));
+    expect(invalidate.mock.calls.map(([filter]) => filter?.queryKey)).toEqual([
+      ['groups'],
+      ['rented-devices'],
+      ['incidents'],
+      ['incident'],
+      ['map', 'snapshot'],
+    ]);
+  });
+});
+
 describe('LiveProvider contract views (screens 5.2 and 5.6)', () => {
   const mount = (read: () => Promise<string>, queryKey: unknown[] = ['contract', 'c-1']) => {
     const Contract = () => {

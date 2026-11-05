@@ -49,6 +49,7 @@ Records the reference of a refund paid outside TrekLink for a `REFUND_DUE` credi
     "faultInspectionId": "in-7",
     "outageFrom": "2026-10-10T01:30:00.000Z",
     "outageSourceIncidentId": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+    "outageSourceFaultReportId": null,
     "outageSourceNote": null,
     "outageTo": "2026-10-13T03:00:00.000Z",
     "outageDays": 3,

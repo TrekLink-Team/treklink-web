@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import { queryString } from '../../shared/api/query';
 import type { IncidentState } from '../../shared/ui/status';
+import type { DeviceGroupRef } from '../rented-device/api';
 
 // The state of a unit on the map (monitoring REQ-UBI-04, D-092 rule 2): heard since its handover and
 // recently, heard since its handover and silent past the threshold, or not heard since its handover;
@@ -22,6 +23,7 @@ export interface SnapshotDevice {
   assetTag: string;
   hardwareVariant: string;
   holder: { name: string } | null;
+  group?: DeviceGroupRef | null;
   position: { lat: number; lon: number; at: string } | null;
   batteryPct: number | null;
   lastSeenAt: string | null;
@@ -56,20 +58,25 @@ export interface MapSnapshot {
 }
 
 // Screen 9.1 query keys: `replay.expired` invalidates every snapshot (LiveProvider).
-export const mapSnapshotKey = (organizationId: string | null) =>
-  ['map', 'snapshot', organizationId] as const;
+export const mapSnapshotKey = (organizationId: string | null, groupId?: string) =>
+  groupId
+    ? (['map', 'snapshot', organizationId, groupId] as const)
+    : (['map', 'snapshot', organizationId] as const);
 
-export const getMapSnapshot = (organizationId: string | null): Promise<MapSnapshot> =>
+export const getMapSnapshot = (
+  organizationId: string | null,
+  groupId?: string,
+): Promise<MapSnapshot> =>
   apiClient<MapSnapshot>(
-    `/map/snapshot${queryString({ organizationId: organizationId ?? undefined })}`,
+    `/map/snapshot${queryString({ organizationId: organizationId ?? undefined, groupId })}`,
   );
 
 // `organizationId` is the fleet map's filter; an organization's map passes null and the server
 // scopes it to the caller's organization.
-export const useMapSnapshot = (organizationId: string | null) =>
+export const useMapSnapshot = (organizationId: string | null, groupId?: string) =>
   useQuery({
-    queryKey: mapSnapshotKey(organizationId),
-    queryFn: () => getMapSnapshot(organizationId),
+    queryKey: mapSnapshotKey(organizationId, groupId),
+    queryFn: () => getMapSnapshot(organizationId, groupId),
     // The stream keeps the map current while it is mounted; a refetch would only redraw what the
     // stream already moved.
     staleTime: Infinity,

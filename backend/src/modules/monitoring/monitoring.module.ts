@@ -19,6 +19,8 @@ import { LiveGateway } from './live.gateway';
 import { OrgApiController } from './org-api.controller';
 import { OrgApiService } from './org-api.service';
 import { ReplayService } from './replay.service';
+import { RentedDevicesController } from './rented-devices.controller';
+import { RentedDevicesService } from './rented-devices.service';
 import { StaleMarksRepository } from './stale-marks.repository';
 import { StreamListener } from './stream.listener';
 import { StreamRepository } from './stream.repository';
@@ -54,6 +56,7 @@ import { TelemetryHistoryController } from './telemetry-history.controller';
     TelemetryHistoryController,
     SystemHealthController,
     ReportsController,
+    RentedDevicesController,
   ],
   providers: [
     StreamRepository,
@@ -71,6 +74,7 @@ import { TelemetryHistoryController } from './telemetry-history.controller';
     ApiRateLimiter,
     DeviceHistoryService,
     HistoryService,
+    RentedDevicesService,
   ],
   exports: [StreamService],
 })

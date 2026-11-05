@@ -3,6 +3,7 @@ import { CONTRACT_DIRECTORY, CREDIT_BASIS } from '../billing';
 import { CUSTODY_RESOLVER, DEVICE_CONTRACTS } from '../devices';
 import { OrganizationsModule } from '../organizations';
 import { ContractsRepository } from './contracts.repository';
+import { FaultReportsRepository } from './fault-reports.repository';
 import { RentalsContractDirectory } from './providers/contract-directory.provider';
 import { RentalsCreditBasis } from './providers/credit-basis.provider';
 import { RentalsCustodyResolver } from './providers/custody-resolver.provider';
@@ -18,6 +19,7 @@ import { RentalsDeviceContracts } from './providers/device-contracts.provider';
   imports: [OrganizationsModule],
   providers: [
     ContractsRepository,
+    FaultReportsRepository,
     { provide: CONTRACT_DIRECTORY, useClass: RentalsContractDirectory },
     { provide: CREDIT_BASIS, useClass: RentalsCreditBasis },
     { provide: CUSTODY_RESOLVER, useClass: RentalsCustodyResolver },

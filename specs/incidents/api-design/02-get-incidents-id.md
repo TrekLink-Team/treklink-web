@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the incident with its device and holder label, owner, pending deadline, latest status updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported on resolving, `null` until the incident is resolved. Each status update carries `correctsId`, the update it corrects, and `correctedById`, the update that corrects it; both are null on an uncorrected original. Status updates stay append-only, so a corrected update is still returned (dry run defect 15).
+Returns the incident with its device, current group and holder label, owner, pending deadline, latest status updates and authority reports. `statusUpdates[]` and `authorityReports[]` are newest first; an incident with none returns empty arrays (D-059 rule 7). `outcomeNote` is the text the owner reported on resolving, `null` until the incident is resolved. Each status update carries `correctsId`, the update it corrects, and `correctedById`, the update that corrects it; both are null on an uncorrected original. Status updates stay append-only, so a corrected update is still returned (dry run defect 15).
 
 ## API Specification
 
@@ -40,6 +40,11 @@ No body.
       "holder": {
         "name": "Le Thi E",
         "phone": "0912345678"
+      },
+      "group": {
+        "id": "f1241aad-762c-4872-9c1f-461ac246c090",
+        "name": "South trail",
+        "parentId": null
       }
     },
     "organizationId": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",

@@ -12,7 +12,7 @@ import type { ReplayService } from '../src/modules/monitoring/replay.service';
 import type { StreamRepository } from '../src/modules/monitoring/stream.repository';
 import type { OrganizationsService } from '../src/modules/organizations';
 import type { ParameterService } from '../src/modules/platform/parameters/parameter.service';
-import { ContractsService } from '../src/modules/rentals';
+import { ContractsService, type GroupsService } from '../src/modules/rentals';
 import { ContractsRepository } from '../src/modules/rentals/contracts.repository';
 
 // Capture explicit connection settings before Prisma can load a local .env at construction.
@@ -75,6 +75,7 @@ describe('the organization API clips readings to the custody interval as the map
     { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
     fieldEvents,
     { dockedWithContracts: () => Promise.resolve([]) } as never,
+    {} as GroupsService,
   );
   const api = new OrgApiService(
     contracts,

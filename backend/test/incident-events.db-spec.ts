@@ -25,6 +25,7 @@ describe('API 13 episode consistency on disposable Postgres', () => {
     {} as never,
     {} as never,
     port,
+    {} as never,
   );
   const suffix = randomUUID();
   const at = new Date('2026-11-02T00:00:00Z');

@@ -18,6 +18,7 @@ describe('IncidentsQueryService.openByDevices', () => {
       {} as OrganizationsService,
       {} as ConfigService<ValidatedEnvironment, true>,
       {} as never,
+      {} as never,
     );
 
   it('keys the newest open incident by device and keeps its routed organization', async () => {
@@ -66,6 +67,7 @@ describe('IncidentsQueryService.alertDeliveryStats', () => {
       {} as ContractsService,
       {} as OrganizationsService,
       {} as ConfigService<ValidatedEnvironment, true>,
+      {} as never,
       {} as never,
     );
 

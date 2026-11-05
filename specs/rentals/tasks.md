@@ -229,13 +229,17 @@ US-UC67 is tracked as TK-188 for the group foundation and API. US-UC68 is tracke
   - **Files**: `custody.service.ts` (new), `groups.service.ts`, `return.service.ts`, `replacement.service.ts`, `providers/loss-case-listener.provider.ts`, `contracts.repository.ts`, `contracts.service.ts` (`visibleDevices`)
   - **Do**: api-design 26 and 27 with the lock order of design §11.4 (group rows by `id`, then devices by sorted `deviceId`); `closeCustody` as the only writer of a row's close (check-in, settled loss, replacement, and the release once it is specified), ending the assignment and resolving the fault report; `passOn` at replacement; `visibleDevices` returns the group and the open fault report; `device.groupChanged` after commit
   - **Verification**: `test/rental-groups-http.db-spec.ts` covers mixed-tenant batches, concurrent moves, unassign, the visible group and fault report, and cleanup on check-in.
+  - **Merged** (2026-11-05 ICT, treklink-web#377): assignment, unassignment, check-in, loss settlement and replacement are on `dev`. The remaining hook is the separate broken-unit release workflow when it is specified and implemented.
+  - **Partly done** (2026-11-05 ICT, [treklink-docs#166](https://github.com/TrekLink-Team/treklink-docs/issues/166#issuecomment-6648397210)): KhoaDD confirmed that G4, TanNB's TK-202, owns the release workflow and awaits the leader's rulings. `closeCustody` accepts `RELEASED` in the caller's transaction. The later workflow must supply its approved custody-end time. This hook stays unticked until G4 lands.
   - _Requirements: REQ-EVT-22, REQ-EVT-23, REQ-ERR-14, AC-10, AC-13_
 - [ ] 9.4 Fault reports (owner LongLP)
   - **Files**: `fault-reports.service.ts`, `fault-reports.controller.ts`, `contract-notifications.listener.ts`
   - **Do**: api-design 28 and 29; resolved by `closeCustody` (`REPLACED`, `CHECKED_IN`, `LOST`, `RELEASED`); the Staff email through `STAFF_NOTIFICATIONS`; the report id readable by `billing` through the `CREDIT_BASIS` port for billing task 8.3
+  - **Implementation** (2026-11-05): reporting and history are implemented locally with role and tenant checks, duplicate conflicts carrying `reportId`, Staff email after commit and the billing port. `rental-fault-reports-http.db-spec.ts` passed concurrent reporting, refusal and check-in cases on disposable PostgreSQL 17. Review and merge remain pending.
   - _Requirements: REQ-EVT-24, REQ-ERR-16, AC-14_
 - [ ] 9.5 Tests (owner LongLP)
   - **Do**: unit specs for depth, held-now, move semantics, removal, the hooks and the fault report; db-specs for AC-10 to AC-14, including two concurrent moves of one device and a cross-organization request (BM04 traces F-11 to TC-F11-01, AC-10, and TC-F11-02, AC-11; TC-F11-03, holder data erased at the close, is already covered by `return.service.spec.ts`, leader ruling on treklink-web#327)
+  - **Verification** (2026-11-05, rebased on dev `40de81b5`): local backend units passed, 266 suites and 3068 tests. All 49 migrations and 58 database suites, 338 tests, passed on disposable PostgreSQL 17. The group HTTP tests include the G4-ready RELEASED hook's rollback and timestamp checks. Review and merge remain pending.
   - _Requirements: AC-10 to AC-14_
 
 ## Phase 10: End now (D-097; W29)

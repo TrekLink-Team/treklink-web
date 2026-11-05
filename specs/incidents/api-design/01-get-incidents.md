@@ -24,7 +24,7 @@ Lists incidents with state filters. Organization members see their organization'
 | state | IncidentState, repeatable | enum | no | `NOTIFY_PRIMARY` |
 | open | Every state except CLOSED | bool | no | `true` |
 | deviceId | Device | uuid | no | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
-| groupId | Organization members: the devices in this group or its subgroups now (rentals design §11, FR-MON-11) | uuid | no | `g-1` |
+| groupId | Organization members: devices in this live group or its subgroups now (FR-MON-11). Unknown, removed or foreign groups return 404. TrekLink accounts receive 403 when using this filter | uuid | no | `f1241aad-762c-4872-9c1f-461ac246c090` |
 | from | createdAt lower bound | datetime | no | `...` |
 | sort | Sort field, one of `code`, `state`, `lastEventAt`; any other value answers 400 `VALIDATION_FAILED`. Omitted: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first. Ties break on `id`; a null value sorts last in either direction | enum | no | `code` |
 | order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
@@ -50,6 +50,11 @@ No body.
           "holder": {
             "name": "Le Thi E",
             "phone": "0912345678"
+          },
+          "group": {
+            "id": "f1241aad-762c-4872-9c1f-461ac246c090",
+            "name": "South trail",
+            "parentId": null
           }
         },
         "organizationId": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f",

@@ -1,4 +1,4 @@
-import { ContractStatus, Prisma } from '@prisma/client';
+import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { ContractsRepository, CustodyRow } from './contracts.repository';
 import { ContractsService } from './contracts.service';
 
@@ -93,21 +93,33 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
       findInCustody: jest.fn().mockResolvedValue([
         {
           deviceId: 'd-1',
+          id: 'cd-1',
           contractId: 'c-1',
           handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
           holderName: 'Le Thi E',
           groupAssignments: [{ group: { id: 'g-1', name: 'Trail', parentId: null } }],
           faultReports: [{ id: 'fault-1' }],
-          contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
+          contract: {
+            code: 'RC-2026-0001',
+            organizationId: 'org-1',
+            planType: PlanType.MONTHLY,
+            status: ContractStatus.ACTIVE,
+          },
         },
         {
           deviceId: 'd-2',
+          id: 'cd-2',
           contractId: 'c-1',
           handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
           holderName: null,
           groupAssignments: [],
           faultReports: [],
-          contract: { code: 'RC-2026-0001', organizationId: 'org-1' },
+          contract: {
+            code: 'RC-2026-0001',
+            organizationId: 'org-1',
+            planType: PlanType.MONTHLY,
+            status: ContractStatus.ACTIVE,
+          },
         },
       ]),
     };
@@ -123,8 +135,11 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
     await expect(service.visibleDevices({ organizationId: 'org-1' })).resolves.toEqual([
       {
         deviceId: 'd-1',
+        contractDeviceId: 'cd-1',
         contractId: 'c-1',
         contractCode: 'RC-2026-0001',
+        planType: PlanType.MONTHLY,
+        contractStatus: ContractStatus.ACTIVE,
         organizationId: 'org-1',
         handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
         holder: { name: 'Le Thi E' },
@@ -133,8 +148,11 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
       },
       {
         deviceId: 'd-2',
+        contractDeviceId: 'cd-2',
         contractId: 'c-1',
         contractCode: 'RC-2026-0001',
+        planType: PlanType.MONTHLY,
+        contractStatus: ContractStatus.ACTIVE,
         organizationId: 'org-1',
         handedOverAt: new Date('2026-10-19T01:30:00.000Z'),
         holder: null,
@@ -142,9 +160,14 @@ describe('ContractsService.visibleDevices (monitoring design §4)', () => {
         openFaultReportId: null,
       },
     ]);
-    expect(contracts.findInCustody).toHaveBeenCalledWith('org-1');
+    expect(contracts.findInCustody).toHaveBeenCalledWith('org-1', undefined, undefined);
     await service.visibleDevices({ organizationId: null });
-    expect(contracts.findInCustody).toHaveBeenLastCalledWith(null);
+    expect(contracts.findInCustody).toHaveBeenLastCalledWith(null, undefined, undefined);
+    await service.visibleDevices({ organizationId: 'org-1', deviceIds: ['d-1'] });
+    expect(contracts.findInCustody).toHaveBeenLastCalledWith('org-1', undefined, ['d-1']);
+    await expect(
+      service.visibleDevices({ organizationId: 'org-1', deviceIds: [] }),
+    ).resolves.toEqual([]);
   });
 });
 

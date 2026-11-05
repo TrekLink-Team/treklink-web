@@ -69,6 +69,10 @@ export class IncidentListQueryDto extends PagedQueryDto {
   deviceId?: string;
 
   @IsOptional()
+  @IsUUID()
+  groupId?: string;
+
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
   from?: Date;

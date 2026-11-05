@@ -125,6 +125,8 @@
   - **Files**: `backend/src/modules/monitoring/rented-devices.controller.ts`, `live-map.service.ts`, `org-api.service.ts`, `stream.listener.ts`
   - **Do**: api-design 09 `GET /api/rented-devices` for the Org Manager; `group` and `holder` on the snapshot units, the organization API devices and the console rows; `groupId` filter on the snapshot and the console with subgroups; forward `device.groupChanged`; unit specs and a db-spec for AC-09 and AC-10 (BM04 traces F-21 to TC-F21-01 and TC-F21-02, both AC-09; TC-F21-03, a loss report reaching Staff, is already covered by `loss-case-notifications.listener.spec.ts`, leader ruling on treklink-web#327)
   - _Requirements: REQ-EVT-09, REQ-UBI-05, AC-09, AC-10_
+  - **Implementation**: The console reads current custody from rentals, clips telemetry to that custody, and loads open loss cases by the paged custody row IDs. `rented-devices.db-spec.ts` exercises AC-09 and AC-10, including nested groups, check-in, and Staff map behavior. The unit specs cover custody clipping and the live event payload.
+  - **Verification** (2026-11-05): local backend typecheck, units, HTTP e2e, database integration, lint and boundary checks passed. API 09's activity and sequence diagrams were rendered and visually checked against the implementation under D-067. Review and merge remain pending.
 
 ## Phase 8: Docked units on the Staff map (devices design §12.8)
 

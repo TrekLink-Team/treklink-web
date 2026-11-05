@@ -146,7 +146,10 @@ describe('MF-03 escalation timers against Postgres', () => {
     new AlertDispatcherJob(
       new AlertDeliveriesRepository(),
       { assetTags: () => Promise.resolve(new Map()) } as never,
-      { holderLabels: () => Promise.resolve(new Map()) } as never,
+      {
+        holderLabels: () => Promise.resolve(new Map()),
+        visibleDevices: () => Promise.resolve([]),
+      } as never,
       {
         get: (key: string) =>
           Promise.resolve(key === 'incidents.alertMaxAttempts' ? maxAttempts : 5),

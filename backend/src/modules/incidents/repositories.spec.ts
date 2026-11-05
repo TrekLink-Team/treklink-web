@@ -16,7 +16,7 @@ import { AuthorityReportsRepository } from './authority-reports.repository';
 import { IncidentsModule } from './incidents.module';
 import { IncidentsRepository } from './incidents.repository';
 import { IncidentLifecycle } from './incident-lifecycle';
-import { ContractsService, RentalsModule } from '../rentals';
+import { ContractsService, GroupsService, RentalsModule } from '../rentals';
 import { IncidentIngress } from './incident-ingress';
 import { IncidentTimersJob } from './jobs/incident-timers.job';
 
@@ -46,8 +46,11 @@ class TestPlatformModule {}
 class TestOrganizationsModule {}
 
 @Module({
-  providers: [{ provide: ContractsService, useValue: {} }],
-  exports: [ContractsService],
+  providers: [
+    { provide: ContractsService, useValue: {} },
+    { provide: GroupsService, useValue: {} },
+  ],
+  exports: [ContractsService, GroupsService],
 })
 class TestRentalsModule {}
 

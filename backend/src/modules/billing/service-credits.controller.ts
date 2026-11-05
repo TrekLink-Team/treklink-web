@@ -33,6 +33,7 @@ const toServiceCreditView = (credit: ServiceCreditRow & { assetTag?: string | nu
   faultInspectionId: credit.faultInspectionId,
   outageFrom: credit.outageFrom,
   outageSourceIncidentId: credit.outageSourceIncidentId,
+  outageSourceFaultReportId: credit.outageSourceFaultReportId,
   outageSourceNote: credit.outageSourceNote,
   outageTo: credit.outageTo,
   outageDays: credit.outageDays,

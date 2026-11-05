@@ -2,12 +2,25 @@ import { Injectable } from '@nestjs/common';
 import { PlanType, Prisma } from '@prisma/client';
 import { CreditBasis } from '../../billing';
 import { ContractsRepository } from '../contracts.repository';
+import { FaultReportsRepository } from '../fault-reports.repository';
 
 // Provides billing's CREDIT_BASIS (billing design §9, task 8.1): the contract's price snapshot and
 // terms, and the unit's custody times on the contract, read in the caller's transaction.
 @Injectable()
 export class RentalsCreditBasis implements CreditBasis {
-  constructor(private readonly contracts: ContractsRepository) {}
+  constructor(
+    private readonly contracts: ContractsRepository,
+    private readonly faults: FaultReportsRepository,
+  ) {}
+
+  faultReportSource(
+    reportId: string,
+    contractId: string,
+    contractDeviceId: string,
+    tx: Prisma.TransactionClient,
+  ) {
+    return this.faults.sourceOf(reportId, contractId, contractDeviceId, tx);
+  }
 
   async basisOf(contractId: string, contractDeviceId: string, tx: Prisma.TransactionClient) {
     const found = await this.contracts.creditBasis(contractId, contractDeviceId, tx);

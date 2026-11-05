@@ -44,4 +44,12 @@ export interface CreditBasis {
     contractDeviceId: string,
     tx: Prisma.TransactionClient,
   ): Promise<{ contract: CreditContract; unit: CreditUnit } | null>;
+
+  // A fault report is accepted as an outage source only for its own contract custody row.
+  faultReportSource(
+    reportId: string,
+    contractId: string,
+    contractDeviceId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ reportedAt: Date } | null>;
 }

@@ -125,8 +125,11 @@ No body.
 
 ```mermaid
 flowchart TB
-    S((Start)) --> A["Check token and policy"]
-    A --> G["Lock the organization tree and target group"]
+    S((Start)) --> A{"Authenticated?"}
+    A -->|no| E401["Return 401 UNAUTHENTICATED"]
+    A -->|yes| P{"Allowed to manage the group?"}
+    P -->|no| E403["Return 403 FORBIDDEN"]
+    P -->|yes| G["Lock the organization tree and target group"]
     G --> L{"Live group of this organization?"}
     L -->|no| E404["Return 404 NOT_FOUND"]
     L -->|yes| D["Lock the device and read its open assignment"]
@@ -135,7 +138,9 @@ flowchart TB
     H -->|yes| W["End the assignment and commit"]
     W --> V["Emit audit and group-change events"]
     V --> OK["Return 200"]
-    E404 --> Z((End))
+    E401 --> Z((End))
+    E403 --> Z
+    E404 --> Z
     OK --> Z
 ```
 

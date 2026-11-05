@@ -27,6 +27,9 @@ const POLLED_KEYS = [
   ['contract-transitions'],
   ['invoices'],
   ['invoice'],
+  ['groups'],
+  ['rented-devices'],
+  ['fault-reports'],
 ];
 
 type CachedContract = { id?: string; devices?: { deviceId: string }[] } | undefined;
@@ -70,10 +73,12 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     const lists = new Set<string>();
     const releasedContracts = new Set<string>();
     const released = new Set<string | undefined>();
+    let refreshMap = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const flush = () => {
       timer = undefined;
       for (const key of lists) void queryClient.invalidateQueries({ queryKey: [key] });
+      if (refreshMap) void queryClient.invalidateQueries({ queryKey: ['map', 'snapshot'] });
       if (releasedContracts.size > 0 || released.size > 0) {
         // Only the invoice of a contract that took a device back can gain a late fee line.
         const holding = contractsReleased(queryClient, releasedContracts, released);
@@ -88,6 +93,7 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       lists.clear();
       releasedContracts.clear();
       released.clear();
+      refreshMap = false;
     };
     const later = (keys: string[]) => {
       for (const key of keys) lists.add(key);
@@ -123,6 +129,11 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           'contract-transitions',
           'invoices',
           'invoice',
+          'groups',
+          'rented-devices',
+          'fault-reports',
+          'incidents',
+          'incident',
         ]) {
           void queryClient.invalidateQueries({ queryKey: [key] });
         }
@@ -136,6 +147,10 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
       if (message.kind === 'entry') {
         const type = message.entry.type;
+        if (type === 'device.groupChanged') {
+          refreshMap = true;
+          later(['groups', 'rented-devices', 'incidents', 'incident']);
+        }
         if (type === 'station.stale') {
           // A Field Station went stale or recovered: the health page's count follows at once (screen 9.3).
           void queryClient.invalidateQueries({ queryKey: ['system-health'] });
@@ -149,6 +164,7 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           });
         }
         if (type === 'device.label' || type === 'device.released') {
+          later(['rented-devices']);
           // Label payloads carry no contract id (release payloads now do): refresh only the
           // contract details that hold this device, not every cached contract (review of #144).
           const deviceId = message.entry.deviceId;
@@ -163,7 +179,7 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           });
         }
         if (type === 'device.handedOver') {
-          later(['contracts', 'contract-balance', 'contract-transitions']);
+          later(['contracts', 'contract-balance', 'contract-transitions', 'rented-devices']);
         }
         if (type === 'device.released') {
           // A check-in past the grace adds a late fee line (rentals 4.1), which the invoice lists, the
@@ -171,7 +187,14 @@ export const LiveProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           const contractId = message.entry.payload.contractId;
           if (typeof contractId === 'string') releasedContracts.add(contractId);
           else released.add(message.entry.deviceId ?? undefined);
-          later(['contracts', 'contract-balance', 'contract-transitions', 'invoices']);
+          later([
+            'contracts',
+            'contract-balance',
+            'contract-transitions',
+            'invoices',
+            'groups',
+            'fault-reports',
+          ]);
         }
       }
     });

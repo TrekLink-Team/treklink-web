@@ -6,7 +6,7 @@ import type { FieldEventQueryService } from '../gateway-sync';
 import type { IncidentsQueryService } from '../incidents';
 import type { OrganizationsService } from '../organizations';
 import type { ParameterService } from '../platform/parameters/parameter.service';
-import type { ContractsService } from '../rentals';
+import type { ContractsService, GroupsService } from '../rentals';
 import { LiveMapService } from './live-map.service';
 import type { StreamRepository } from './stream.repository';
 
@@ -23,6 +23,7 @@ const VISIBLE = [
     organizationId: 'org-1',
     handedOverAt: HANDED_OVER,
     holder: { name: 'Le Thi E' },
+    group: { id: 'group-a1', name: 'A1', parentId: 'group-a' },
   },
   {
     deviceId: 'd-2',
@@ -31,6 +32,7 @@ const VISIBLE = [
     organizationId: 'org-1',
     handedOverAt: HANDED_OVER,
     holder: null,
+    group: { id: 'group-a', name: 'A', parentId: null },
   },
   {
     deviceId: 'd-3',
@@ -39,6 +41,7 @@ const VISIBLE = [
     organizationId: 'org-1',
     handedOverAt: HANDED_OVER,
     holder: null,
+    group: null,
   },
 ];
 
@@ -125,6 +128,7 @@ describe('LiveMapService.snapshot', () => {
   let simulatedDevices: jest.Mock;
   let dockedWithContracts: jest.Mock;
   let fieldStationHealth: jest.Mock;
+  let subgroupIds: jest.Mock;
   let stale: unknown;
   let stationStale: unknown;
   let counter: unknown;
@@ -152,6 +156,7 @@ describe('LiveMapService.snapshot', () => {
     maxSeq = jest.fn().mockResolvedValue(42);
     simulatedDevices = jest.fn().mockResolvedValue(new Set<string>());
     dockedWithContracts = jest.fn().mockResolvedValue([]);
+    subgroupIds = jest.fn().mockResolvedValue(new Set(['group-a', 'group-a1']));
     service = new LiveMapService(
       {
         get: jest.fn((key: string) =>
@@ -171,6 +176,7 @@ describe('LiveMapService.snapshot', () => {
       { fieldStationHealth } as unknown as OrganizationsService,
       { simulatedDevices } as unknown as FieldEventQueryService,
       { dockedWithContracts } as never,
+      { subgroupIds } as unknown as GroupsService,
     );
   });
 
@@ -201,6 +207,7 @@ describe('LiveMapService.snapshot', () => {
         state: 'DOCKED',
         position: null,
         holder: null,
+        group: null,
         handedOverAt: null,
         counterLocation: COUNTER,
         contractCode: 'RC-2026-0009',
@@ -253,6 +260,32 @@ describe('LiveMapService.snapshot', () => {
     );
   });
 
+  it('filters organization devices by group descendants without filtering the staff fleet', async () => {
+    const query = { groupId: 'group-a' };
+    const org = await service.snapshot(query, callerOf('org-1'), member('org-1'), NOW);
+    expect(subgroupIds).toHaveBeenCalledWith('org-1', 'group-a');
+    expect(projections).toHaveBeenLastCalledWith(['d-1', 'd-2']);
+    expect(org.devices.map(({ id }) => id)).toEqual(['d-1', 'd-2']);
+
+    subgroupIds.mockClear();
+    const fleet = await service.snapshot(query, callerOf(null), staff, NOW);
+    expect(subgroupIds).not.toHaveBeenCalled();
+    expect(fleet.devices.map(({ id }) => id)).toEqual(['d-1', 'd-2', 'd-3']);
+  });
+
+  it('shows no devices for an unavailable group in the member scope', async () => {
+    subgroupIds.mockRejectedValue(
+      new DomainException(404, ErrorCode.NOT_FOUND, 'Group not found.'),
+    );
+    const snapshot = await service.snapshot(
+      { groupId: 'missing' },
+      callerOf('org-1'),
+      member('org-1'),
+      NOW,
+    );
+    expect(snapshot.devices).toEqual([]);
+  });
+
   it('composes the visible devices with their projection, open incident and staleness', async () => {
     const result = await service.snapshot({}, callerOf('org-1'), member('org-1'), NOW);
     expect(result).toEqual({
@@ -278,6 +311,7 @@ describe('LiveMapService.snapshot', () => {
           assetTag: 'TL-0001',
           hardwareVariant: 'treklink-v3',
           holder: { name: 'Le Thi E' },
+          group: { id: 'group-a1', name: 'A1', parentId: 'group-a' },
           position: { lat: 11.56, lon: 108.54, at: ago(30).toISOString() },
           batteryPct: 81,
           lastSeenAt: ago(30).toISOString(),
@@ -296,6 +330,7 @@ describe('LiveMapService.snapshot', () => {
           assetTag: 'TL-0002',
           hardwareVariant: 'treklink-v3',
           holder: null,
+          group: { id: 'group-a', name: 'A', parentId: null },
           position: null,
           batteryPct: 40,
           lastSeenAt: ago(600).toISOString(),
@@ -314,6 +349,7 @@ describe('LiveMapService.snapshot', () => {
           assetTag: 'TL-0003',
           hardwareVariant: 'treklink-v3',
           holder: null,
+          group: null,
           position: null,
           batteryPct: null,
           lastSeenAt: null,
