@@ -340,6 +340,29 @@ describe('LiveMapWidget', () => {
     expect(control.querySelector('input[type="checkbox"]')).toBeNull();
   });
 
+  it('leaves OpenTopoMap and Stadia out of the picker and opens on the first offered basemap when the default is hidden (task W22)', async () => {
+    giveContainersASize();
+    const hiddenTopo = { ...topo, id: 'opentopomap', name: 'Topographic (OpenTopoMap)' };
+    const hiddenTerrain = { ...topo, id: 'stadia-terrain', name: 'Terrain (Stadia)' };
+    vi.mocked(getMapConfig).mockResolvedValue({
+      ...config,
+      provider: 'opentopomap',
+      basemaps: [hiddenTopo, hiddenTerrain, street],
+    });
+    const { container } = renderWidget();
+    await waitFor(() => expect(tileImages(container).length).toBeGreaterThan(0));
+    expect(
+      tileImages(container).every((tile) =>
+        tile.getAttribute('src')?.startsWith('https://street.example.test/'),
+      ),
+    ).toBe(true);
+    // One basemap left, so no layer control is drawn and nothing names the hidden ones.
+    expect(container.querySelector('.leaflet-control-layers')).toBeNull();
+    expect(container.textContent).not.toContain('OpenTopoMap');
+    expect(container.textContent).not.toContain('Stadia');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('switches basemap and attribution, and keeps the overlay drawn (D-072, REQ-UBI-06)', async () => {
     giveContainersASize();
     vi.mocked(getMapConfig).mockResolvedValue(config);
