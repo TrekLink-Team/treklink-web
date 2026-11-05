@@ -260,9 +260,27 @@ const devicesText = (count: number) => `${count} ${count === 1 ? 'device' : 'dev
 
 type BulkKind = 'reset' | 'retire';
 
-const battery = (device: Device) =>
+// The List view, which a phone opens on, shows these values after the title with no column header,
+// where "Unknown" or "Never" alone named nothing (W20B item 4). The label is drawn there only: a table
+// cell has its column header and a card its <dt>, so inside a td or dd it is hidden.
+const InlineLabel: React.FC<{ children: string }> = ({ children }) => (
+  <span className="text-ink-muted [dd_&]:hidden [td_&]:hidden">{children} </span>
+);
+const battery = (device: Device) => (
+  <>
+    <InlineLabel>Battery</InlineLabel>
+    {device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown'}
+  </>
+);
+const lastSeen = (device: Device) => (
+  <>
+    <InlineLabel>Last seen</InlineLabel>
+    {device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never'}
+  </>
+);
+const batteryText = (device: Device) =>
   device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown';
-const lastSeen = (device: Device) =>
+const lastSeenText = (device: Device) =>
   device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never';
 
 // /t/fleet, FleetPage of screen 4.2 (devices api-design 01, 05 and 06). TrekLink Staff and Admin.
@@ -364,8 +382,8 @@ export const FleetPage: React.FC = () => {
       text: (device) => device.firmwareVersion,
       hideWithPane: true,
     },
-    { key: 'battery', label: 'Battery', align: 'end', render: battery, compact: true },
-    { key: 'lastSeen', label: 'Last seen', render: lastSeen, compact: true },
+    { key: 'battery', label: 'Battery', align: 'end', render: battery, text: batteryText, compact: true },
+    { key: 'lastSeen', label: 'Last seen', render: lastSeen, text: lastSeenText, compact: true },
     {
       key: 'serviceDue',
       label: 'Service due',
