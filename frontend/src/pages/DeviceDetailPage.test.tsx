@@ -50,6 +50,12 @@ const device = (overrides: Record<string, unknown> = {}) => ({
 let currentDevice = device();
 let currentRoles = ['STAFF'];
 
+// The small position map asks for the map config; the device tests read the coordinates under it.
+vi.mock('../shared/config/map', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../shared/config/map')>()),
+  getMapConfig: () => new Promise(() => undefined),
+}));
+
 vi.mock('../app/providers/useAuth', () => ({
   useAuth: () => ({ user: { id: 'staff-1', roles: currentRoles } }),
 }));
@@ -113,6 +119,20 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.getByText('treklink-v3')).toBeTruthy();
     // W15 panel walk: the acquired date read 15/06/2026 beside dates written 15 Jun 2026 elsewhere.
     expect(screen.getByText('15 Jun 2026')).toBeTruthy();
+  });
+
+  it('shows the last position on a small map with the coordinates under it (W20B item 1)', async () => {
+    currentDevice = device({ lastPosition: { lat: 11.5612345, lon: 108.5401 } });
+    renderPage();
+    const section = await screen.findByRole('region', { name: 'Last position' });
+    expect(within(section).getByText('11.56123, 108.54010')).toBeTruthy();
+    expect(within(section).getByText('Loading map')).toBeTruthy();
+  });
+
+  it('says the position is unavailable when the unit never reported one', async () => {
+    renderPage();
+    const section = await screen.findByRole('region', { name: 'Last position' });
+    expect(within(section).getByText('Position unavailable')).toBeTruthy();
   });
 
   it('shows the detail render of the variant on the device page (devices design section 10)', async () => {
