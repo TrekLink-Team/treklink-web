@@ -413,7 +413,7 @@ describe('LiveMapPage (screen 9.1)', () => {
 
   it.each([
     ['o', '/o/incidents/i-7'],
-    ['t', '/t/incidents?incident=i-7'],
+    ['t', '/t/incidents/i-7'],
   ] as const)(
     'links the open incident from the popup and the list on the %s map',
     async (scope, href) => {
@@ -451,7 +451,10 @@ describe('LiveMapPage (screen 9.1)', () => {
       ],
     };
     show('o');
-    const stations = within(await screen.findByRole('region', { name: 'Field Stations' }));
+    const section = await screen.findByRole('region', { name: 'Field Stations' });
+    // Inside the list's scroll region, so the page does not grow with the stations (review of #385).
+    expect(section.parentElement?.className).toContain('overflow-y-auto');
+    const stations = within(section);
     expect(stations.getByText('Station A')).toBeTruthy();
     expect(
       stations.getByText(
