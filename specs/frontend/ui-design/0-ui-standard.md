@@ -40,7 +40,7 @@ The target is WCAG 2.2 AA in both themes (Canopy light, Volt dark), at 1440 px a
 | From the first selection a bulk bar shows the count (also announced through a status region), verb-plus-noun actions ("Retire 3 devices", never "Apply") and Clear selection. | `BulkBar`, `DataTable` `bulkActions` | https://carbondesignsystem.com/components/data-table/usage/ |
 | Row actions are disabled while the bulk bar shows, with the reason "Clear the selection to use row actions." as their description. | `DataTable` | TrekLink, after Carbon batch actions |
 | Fewer than three row actions show inline; three or more go into one overflow menu button with `aria-haspopup="menu"`, `aria-expanded` and a name ("Actions for TL-0042"). | `DataTable` `rowActions`, `Menu` | https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/ |
-| Sortable headers are buttons; only the sorted column carries `aria-sort`. The server sorts. | `DataTable` | https://www.w3.org/WAI/ARIA/apg/patterns/table/ |
+| Sortable headers are buttons; only the sorted column carries `aria-sort`. The server sorts. The full rule, with the cycle, is §7. | `DataTable`, `CollectionView` | https://www.w3.org/WAI/ARIA/apg/patterns/table/ |
 | A row opens through a real link (`rowHref`) or button (`onRowActivate`) in its activation column, so Enter works; a click anywhere on the row is a pointer shortcut only, never the only path. | `DataTable` | https://www.w3.org/WAI/ARIA/apg/patterns/table/ |
 | Pagination sits at the bottom of the table with the range, the page size and previous and next. | `Pagination` | https://carbondesignsystem.com/components/pagination/usage/ |
 | An empty result replaces the table with an `EmptyState` holding one next step. Skeleton rows show while loading. | `DataTable`, `EmptyState`, `Skeleton` | https://carbondesignsystem.com/components/data-table/usage/ |
@@ -49,7 +49,7 @@ The target is WCAG 2.2 AA in both themes (Canopy light, Volt dark), at 1440 px a
 
 | Rule | Built in | Source |
 |---|---|---|
-| A status shows as a text tag with a glyph or shape, never colour alone. | `StatusBadge` | https://design-system.service.gov.uk/components/tag/ |
+| A status shows as a text badge with a glyph or shape, never colour alone. Where the user may change the state from a list, the badge itself is the menu button (§7.2). | `StatusBadge`, `StatusBadgeMenu` | https://atlassian.design/components/lozenge/examples (lozenge as a dropdown trigger), https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/ |
 | The change control is a menu of only the next states allowed for this record and user; the server re-checks every transition and answers `INVALID_STATE_TRANSITION` otherwise. No allowed state, no menu. | `StateChangeMenu` | https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/ |
 | The confirmation is titled with the action and the object ("Retire device TL-0042?"), its confirm button repeats the action ("Retire device", never "OK" or "Yes"), and its body states the consequences. | `StateChangeDialog`, `ConfirmDialog` | https://carbondesignsystem.com/components/modal/usage/ |
 | An irreversible change uses `alertdialog`; initial focus goes to the least destructive control (Cancel, or the reason field, since typing changes nothing); focus returns to the trigger on close. | `StateChangeDialog`, `ConfirmDialog irreversible`, `Dialog role` | https://www.w3.org/WAI/ARIA/apg/patterns/alertdialog/, https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/ |
@@ -105,3 +105,47 @@ Added by KhoaDD with the CollectionView rollout (chapter 06 §9 and §10, `docs/
 | A row that does not fit scrolls sideways with fading edges and arrow buttons that stay out of the tab order; a strip with no focusable item takes a name and a tab stop while it overflows. Exception (W20B, 2026-11-05): the contract home sections, the return counter steps and the lifecycle strip wrap onto more rows instead, so every tab stays in view at 360 px and no fading edge covers a word. The handover steps of `CounterPage` are a grid and do not scroll. | `ScrollStrip`, `Tabs`, the Details table; wrapping: `ContractActionBar`, `ReturnCounter`, `LifecycleCard` |
 | A page with several related lists names one `CollectionPaneHost`; one details pane sits beside all of them. A page with a richer record view of its own opens it from Show details. | `CollectionPaneHost`, `onShowDetails` |
 
+
+## 7. Sorting, the status control and item actions (chapter 06 §11, 2026-11-05)
+
+Added by KhoaDD under D-078 for W25, after the leader's staging walk (chapter 06 §11.2 to §11.4)
+and the revision of treklink-docs#170.
+
+### 7.1 Sort from the column header (§11.2)
+
+| Rule | Built in |
+|---|---|
+| Every sortable column header is a button. A click cycles ascending, descending, then the list's default order. A column that is itself the default order (the received time of the sync ledger) toggles only its two directions. | `CollectionView` `defaultSort`, `nextSort` |
+| Only the sorted column carries `aria-sort`; an arrow shows its direction. An unsorted sortable column shows a neutral two-way icon of a different shape, so the arrow of the sorted one stands out. | `CollectionView`, `DataTable` |
+| The change is announced in the collection's live region ("Sorted by Received, ascending", "Sorted by Default order") and clears the selection. | `CollectionView` |
+| A sort change returns a paged list to page 1. | the page's `onQueryChange` |
+| The Sort dropdown of the command bar offers the same orders, plus Default order, for the phone and card views. | `CollectionView` |
+| A server-paged list marks a column sortable only when its endpoint takes a sort for it. It never sorts one page on the client. On 2026-11-05 only the sync ledger's `order` exists (gateway-sync api-design 03); the other server-paged lists have no sortable column until their endpoints take a sort. | page field definitions |
+
+### 7.2 The status is the state-change control (§11.3)
+
+| Rule | Built in |
+|---|---|
+| A list has no separate Status change column. The status cell shows the status badge. | `CollectionView` `status` |
+| When the user may change the item's state, the badge is the menu button: `aria-haspopup="menu"`, `aria-expanded`, the visible status text, a chevron, and an accessible name that starts with that text ("Active, change status of TL-0042", WCAG 2.5.3). | `StatusBadgeMenu` |
+| The interactive badge is its own variant: a visible edge of at least 3:1 against the row, the chevron, and a target of at least 24 by 24 CSS px (2.5.8). A plain badge stays smaller, because it is not a target. | `StatusBadgeMenu` |
+| The menu opens on only the allowed transitions; destructive ones come last after a separator; choosing one opens the confirmation dialog of §3. Escape returns focus to the badge. | `StatusBadgeMenu`, `Menu` |
+| Without an allowed transition the badge has no chevron and is not a button. | `CollectionView` |
+| While a selection exists the badge menu is disabled; the Change status menu of the command bar acts on the selection. | `CollectionView` |
+| On phones the badge menu stays on the row; the row's Actions dropdown holds no "Change status:" items. | `CollectionView` |
+
+### 7.3 Per-item actions keep their place (§11.4)
+
+| Rule | Built in |
+|---|---|
+| The actions column is right-aligned. Slots are fixed per list and fill from the inline end by permanence: Show details is last in tab order at the inline end; next to it, in one fixed slot, the overflow menu when a list has three or more other actions; then the remaining actions. New actions join at the inline start. | `CollectionView` `itemActions` (listed most permanent first) |
+| An action unavailable in an item's current state keeps its slot, disabled with its reason. An action the role never has is absent for the whole list. | `CollectionAction` `unavailableReason`; a page leaves out an action the role lacks |
+
+### 7.4 Viewport and zoom (chapter 06 §10, revised by treklink-docs#170)
+
+| Rule | Built in |
+|---|---|
+| The document does not scroll: `scrollHeight <= clientHeight + 1` and `scrollWidth <= clientWidth + 1` on `document.scrollingElement`. The shell uses `dvh` at every width. | `AppShell` (W24) |
+| A scroll region with no focusable child takes `tabindex="0"` and an accessible name. | `ScrollStrip`, table boxes |
+| At 400 % zoom (about 318 by 236 CSS px) the fixed bars may release and the document may scroll. The visual check includes this case. | `AppShell` (W24) |
+| Select-all uses the native `indeterminate` property, never `aria-checked`. | `DataTable`, `CollectionView` |
