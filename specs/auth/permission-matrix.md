@@ -57,6 +57,8 @@
 | `contract.request.own` | request | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `contract.cancel.own` | cancel | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `contract.notice.own` | notice | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
+| `contract.end` | end | RentalContract |  | TREKLINK | X | X |  |  |
+| `contract.end.own` | end | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `contract.label.own` | label | RentalContract | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X | X |
 | `contract.operate` | operate | RentalContract |  | TREKLINK | X | X |  |  |
 | `contract.issueChannelKey` | issueChannelKey | RentalContract |  | TREKLINK | X | X |  |  |

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Sums every invoice line of the contract into due now, due later and paid, and lists damage charges awaiting approval (UC-45), found by the contract each charge stores (D-081). `settled` covers the lines; a pending charge has no line yet, and the closing check refuses it on its own (FR-CON-13).
+Sums every invoice line of the contract into due now, due later and paid, and lists damage charges awaiting approval (UC-45), found by the contract each charge stores (D-081). `settled` covers the lines; a pending charge has no line yet, and the closing check refuses it on its own (FR-CON-13). `owedToOrganizationVnd` is what credits (an early-end credit of D-097, a service credit) leave over once every line is paid; it is refunded outside TrekLink (REQ-STA-03).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Sums every invoice line of the contract into due now, due later and paid, and li
 | --- | --- |
 | GET | /api/contracts/:id/balance |
 | Permission | Org Manager: own; TrekLink Staff, TrekLink Admin |
-| Traces | UC-45, FR-BILL-06, FR-CON-13 |
+| Traces | UC-45, FR-BILL-06, FR-CON-13, D-097 |
 
 ### Path parameters
 
@@ -47,7 +47,8 @@ No body.
         "createdAt": "2026-10-20T03:15:00.000Z"
       }
     ],
-    "settled": false
+    "settled": false,
+    "owedToOrganizationVnd": 0
   },
   "isSuccess": true,
   "statusCode": 200,

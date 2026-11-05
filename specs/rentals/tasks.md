@@ -237,3 +237,26 @@ US-UC67 is tracked as TK-188 for the group foundation and API. US-UC68 is tracke
 - [ ] 9.5 Tests (owner LongLP)
   - **Do**: unit specs for depth, held-now, move semantics, removal, the hooks and the fault report; db-specs for AC-10 to AC-14, including two concurrent moves of one device and a cross-organization request (BM04 traces F-11 to TC-F11-01, AC-10, and TC-F11-02, AC-11; TC-F11-03, holder data erased at the close, is already covered by `return.service.spec.ts`, leader ruling on treklink-web#327)
   - _Requirements: AC-10 to AC-14_
+
+## Phase 10: End now (D-097; W29)
+
+Specified 2026-11-05 (KhoaDD under D-078) in requirements REQ-EVT-27, REQ-EVT-28, REQ-ERR-17, AC-15, AC-16, the
+amended REQ-STA-01 and REQ-EVT-10, and design §2 and §12; endpoints api-design 30 and 31. Billing side: billing
+REQ-EVT-16, REQ-STA-03, AC-09, AC-10, design §10, billing task 9.1.
+
+- [ ] 10.1 Permissions and migration (owner KhoaDD under D-078)
+  - **Files**: `scripts/specs/catalog.py`, `specs/auth/permission-matrix.md`, `backend/prisma/migrations/20261105230000_contract_early_end/migration.sql`, `backend/prisma/schema.prisma`, `backend/prisma/constraints.sql`
+  - **Do**: `contract.end` (Staff) and `contract.end.own` (Org Manager) of design §12.2; the `EARLY_END_CREDIT` line type and its sign CHECKs (billing design §10.2)
+  - _Requirements: REQ-EVT-27, D-097_
+- [ ] 10.2 `ContractDecisionsService.endNow` and `endPreview`; api-design 30 and 31 (owner KhoaDD under D-078)
+  - **Files**: `contract-decisions.service.ts`, `contracts.repository.ts`, `contracts.controller.ts`, `dto/contract-decision.dto.ts`
+  - **Do**: design §12.1 in one transaction; JWT guard and `@CheckPolicies(can('end', 'RentalContract'))`; audit and `contract.endedEarly` after commit
+  - **Test**: `contract-decisions.service.spec.ts` (states, scope, reason, version, day plan, all devices back) and `contracts.controller.spec.ts` (policy, envelope fields)
+  - _Requirements: REQ-EVT-27, REQ-EVT-28, REQ-ERR-17, AC-16_
+- [ ] 10.3 The full path on Postgres (owner KhoaDD under D-078)
+  - **Files**: `backend/test/contract-early-end.db-spec.ts`
+  - **Do**: End now, check-in of every unit to `RETURNED`, the credit line on the closing invoice, the payment of the rest, the close
+  - _Requirements: AC-15_
+- [ ] 10.4 Screen: End contract now on the contract home (owner KhoaDD under D-078, screen 5.2)
+  - **Files**: `frontend/src/widgets/ContractActions/EndNowDialog.tsx`, `widgets/ContractHome/policy.ts`, `pages/ContractDetailPage.tsx`, `entities/contract/api.ts`, the money tab's owed note
+  - _Requirements: REQ-EVT-27, REQ-EVT-28, billing REQ-STA-03_

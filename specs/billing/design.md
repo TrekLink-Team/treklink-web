@@ -63,6 +63,7 @@ contract is not `CLOSED`, never changed (REQ-UBI-02).
 | Late | `lateFeePerDevicePerDayVnd` × ⌈(checkedInAt − returnDueAt) ÷ 1 day⌉, only if past the grace | at check-in |
 | Damage | Σ rate(code) for the device's variant, generic rate as fallback | when decided, or at once below the threshold |
 | Loss | `devices.valueAt(device, confirmedAt)`, renter custody only; a reduction or waiver is an `ADJUSTMENT` line | at loss-case confirmation |
+| Early-end credit | −⌈P × q × (D − U) ÷ D⌉, D the term's whole days, U the used days counting the end day (§10); monthly only | at the end time, on the closing invoice |
 | Service credit | −⌈P × outageDays ÷ termDays⌉ for one unit, at most the unit's share of the term (P); day plan: −⌈P ÷ 30 × premium × outageDays⌉, at most the unit's day-plan fee (§9) | on the next invoice `rentals` issues, or refunded outside TrekLink after the close |
 
 `P` is the contract's `monthlyUnitPriceVnd` snapshot; `ratio` and `premium` are the snapshot too.
@@ -147,6 +148,7 @@ what remains due, and any excess stays on that payment and is logged for Staff.
 | `ChargesService.chargeLate(contract, device, checkedInAt, actorId, tx)`, `chargeDamage(contract, inspection, actorId, tx)`; `actorId` is null for SYSTEM | rentals |
 | `ChargesService.chargeLoss(contract, device, lostAt, tx)` and `adjustLoss(contract, device, decision, amountVnd, reason, actor, tx, settledAt)` (an `ADJUSTMENT` line for a reduced or waived loss, due at the settlement time, never an edit of the `LOSS` line, FR-BILL-11, BR-39), called from this module's provider of the `devices` port `LOSS_CASE_LISTENERS` (`onConfirmed` for `RENTER` custody, `onSettled`) | devices, through the port (D-045) |
 | `ChargesService.settleCancellation(contract, tx)` | rentals |
+| `ChargesService.earlyEndCredit(contract, term, endAt)` (the computation, nothing stored) and `creditEarlyEnd(contract, term, endAt, reason, actorId, tx)` (adds the `EARLY_END_CREDIT` line, §10) | rentals, End now (rentals design §12) |
 | `ChargesService.pendingDamage(contractId, tx)`: the number of the contract's damage charges still `PENDING_APPROVAL`, which have no invoice line yet, so the close guard refuses on them as well as on unpaid lines (REQ-STA-02, D-081) | rentals |
 | `PaymentsService.receivedOfContract(contractId, tx?)`: the contract's confirmed payments, oldest first, each with its invoice number, amount, method, reference and confirmation time (`ReceivedPayment`) | rentals, the handover note (rentals design §4.1) |
 | `PricingService.rateTableFor(variantId, tx?)`: the variant's active damage rates, one row per code with the variant's own rate over the generic one, as `damageRateFor` applies them, sorted by code (`RateTableRow`) | rentals, the handover note (rentals design §4.1) |
@@ -924,3 +926,43 @@ and only `rentals` knows the contract code.
 Staff request a credit from the unit's row on the contract page (next to Report lost) or from its
 maintenance record; Admins decide in a queue beside the damage-charge queue; the organization sees each
 credit and its status on the contract page and the `SERVICE_CREDIT` line on its invoice.
+
+---
+
+## 10. The early-end credit (D-097 rules 2 and 3; specified 2026-11-05, KhoaDD under D-078)
+
+When `rentals` ends a monthly contract now (rentals design §12), the current term's fee is billed pro rata to
+the end day: the unused whole days are credited at the term's daily rate as one negative line on the closing
+invoice (REQ-UBI-02, REQ-EVT-16).
+
+### 10.1 Amount
+
+| Symbol | Meaning |
+|---|---|
+| F | the term fee, P × q from the contract's snapshot (`termFeeVnd`), the sum of the term invoice's two lines |
+| D | the term's length in whole days, ⌊(term end − term start) ÷ 1 day⌋: 28 to 31 for a calendar month |
+| U | the used days, ⌈(end time − term start) ÷ 1 day⌉, at least 1 and at most D: the end day counts as used |
+| credit | ⌈F × (D − U) ÷ D⌉, rounded up in the organization's favour like the service credit (§9.2); the division runs last |
+
+Days are 24-hour periods from the term start (09:00 UTC+7, rentals design §3), so the count does not depend on
+the time zone. No business parameter is involved: F, D and U come from the snapshot and the term dates. A day
+plan gets no credit, because it is already billed per day (D-097 rule 2).
+
+### 10.2 Why a new line type
+
+`EARLY_END_CREDIT` is its own `InvoiceLineType` value (migration `20261105230000_contract_early_end`), chosen
+over an `ADJUSTMENT` line with a system author. An `ADJUSTMENT` is a correction (a cancellation void, a reduced
+or waived loss); revenue and overdue reports read lines by type, and a credit for unused days is neither a
+correction nor a refund of a fault. Its own type keeps the revenue report honest: the reduced term revenue shows
+as an early-end credit, apart from corrections, the way `SERVICE_CREDIT` shows a fault credit apart. The line is
+negative; the amount sign and paid-bounds CHECKs of `invoice_lines` admit it with the same rule as
+`SERVICE_CREDIT`.
+
+### 10.3 Owed to the organization
+
+`BalanceService` nets credits against the oldest-due unpaid lines first (REQ-EVT-09). What a credit leaves over
+after every line is paid is `owedToOrganizationVnd` on the contract balance (api-design 10). It is refunded
+outside TrekLink until the refund flow of D-092 rule 5 exists (D-097 rule 3); the money tab says so. The close
+check is unchanged: a contract with nothing left to pay closes, and the amount owed to the organization stays on
+its balance for the refund.
+

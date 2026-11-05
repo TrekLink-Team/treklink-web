@@ -3,7 +3,7 @@
 **User Story**: As an **Org Manager**, I want to see what each plan costs, receive one clear invoice per term, and pay online or at the counter; as **TrekLink Staff and Admin**, I want late, damage and loss charges computed from configuration and every payment recorded exactly once.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: High | **Milestone**: MF-01 (first payment), MF-05 (balance and close)
 
-> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-19, UC-22, UC-45 to UC-48, UC-56, UC-60, FR-BILL-01 to FR-BILL-09, FR-BILL-11, BR-39, FR-CFG-02, BR-06, BR-07, BR-23 to BR-25, BR-29, BR-31, BR-34, NFR-SEC-07, NFR-UI-03, MSG20, MSG25, MSG30; D-033 item 9 (SePay sandbox); D-037 (one invoice per term, two dated lines); D-038 (webhook body). Rewritten 2026-10-04 (D-036). Reports (FR-BILL-10) are served by `monitoring` (`platform` design §2.1).
+> **Authority**: Report 3 SRS (2026-10-14; traceability checked 2026-10-19) UC-19, UC-22, UC-45 to UC-48, UC-56, UC-60, FR-BILL-01 to FR-BILL-09, FR-BILL-11, BR-39, FR-CFG-02, BR-06, BR-07, BR-23 to BR-25, BR-29, BR-31, BR-34, NFR-SEC-07, NFR-UI-03, MSG20, MSG25, MSG30; D-033 item 9 (SePay sandbox); D-037 (one invoice per term, two dated lines); D-038 (webhook body); D-097 rules 2 and 3 (the pro-rata credit of End now, leader ruling 2026-11-05). Rewritten 2026-10-04 (D-036). Reports (FR-BILL-10) are served by `monitoring` (`platform` design §2.1).
 
 ---
 
@@ -35,7 +35,7 @@
 ### Ubiquitous
 
 - **REQ-UBI-01**: The system SHALL compute every amount in integer VND, rounding each line up to the whole đồng, from the contract's snapshot and the configured schedules, never from a source literal. [BR-29]
-- **REQ-UBI-02**: The system SHALL never change an issued term invoice's lines. The contract's closing invoice stays open to new lines until the contract is `CLOSED`: late, damage, loss, adjustment and service credit lines all land on it, and a correction SHALL be an `ADJUSTMENT` line there, with its author. [FR-BILL-06, leader ruling 2026-11-02 on treklink-web#288]
+- **REQ-UBI-02**: The system SHALL never change an issued term invoice's lines. The contract's closing invoice stays open to new lines until the contract is `CLOSED`: late, damage, loss, adjustment, service credit and early-end credit lines all land on it, and a correction SHALL be an `ADJUSTMENT` line there, with its author. [FR-BILL-06, leader ruling 2026-11-02 on treklink-web#288]
 - **REQ-UBI-03**: The system SHALL record a payment only once per reference and once per gateway transaction id; a repeat SHALL record nothing and SHALL be logged. [FR-BILL-08, BR-31]
 - **REQ-UBI-04**: The system SHALL run online payments in SePay's sandbox only, label them sandbox wherever they appear, and store no card or bank credential. [BR-34, NFR-UI-03]
 - **REQ-UBI-05**: The system SHALL keep the price schedule append-only: a new price is a new row effective from a time not in the past. [FR-CFG-02]
@@ -58,10 +58,13 @@
 - **REQ-EVT-14**: WHEN a credit is approved or reduced, the system SHALL add one negative `SERVICE_CREDIT` line of the decided amount to the contract's next term invoice not yet issued, else to its closing invoice (REQ-UBI-02), and mark the credit `APPLIED` with that line. [D-092 rule 5, leader ruling 2026-11-02]
 - **REQ-EVT-15**: WHEN a decided credit has no later invoice to go on because the contract is `CLOSED`, the system SHALL mark it `REFUND_DUE`; WHEN Staff record the refund paid outside TrekLink with a unique reference, the system SHALL mark it `REFUNDED` with the reference and the time (BR-34: sandbox only, no real money moves through TrekLink). [D-092 rule 5]
 
+- **REQ-EVT-16**: WHEN `rentals` ends a monthly contract now (rentals REQ-EVT-27), the system SHALL credit the unused whole days of the current term at the term's daily rate: with the term fee F = P × q, the term length D in whole days from its start to its end, and the used days U = ⌈(end time − term start) ÷ 1 day⌉ (the end day counts as used, at least 1, at most D), it SHALL add one `EARLY_END_CREDIT` line of −⌈F × (D − U) ÷ D⌉ VND to the contract's closing invoice, due at the end time, with the ending actor as author and a description that names the term, the unused days and the end reason; no line when D − U is 0. A day plan, already billed per day, SHALL get no credit. The preview (rentals REQ-EVT-28) uses the same computation and stores nothing. [D-097 rule 2, FR-BILL-06]
+
 ### State-Driven
 
 - **REQ-STA-01**: WHILE a SePay payment is `PENDING` past its expiry, the system SHALL treat it as `EXPIRED`, and the amount SHALL stay due. [FR-BILL-09, E05-4]
 - **REQ-STA-02**: WHILE any line of a contract is unpaid, a damage charge is pending, or a service credit is `REQUESTED`, the contract's balance SHALL not be settled, and `rentals` SHALL not close it; an `APPROVED` credit counts as owed to the organization. [FR-CON-13, BR-27, leader ruling 2026-11-02]
+- **REQ-STA-03**: WHILE the credits on a contract's lines exceed what its lines still owe, the system SHALL report the difference as `owedToOrganizationVnd` in the contract balance (api-design 10), and the contract balance counts as settled; the page SHALL say that the amount is refunded outside TrekLink, because no refund flow exists yet (D-092 rule 5, BR-34). [D-097 rule 3]
 
 ### Unwanted Behaviour
 
@@ -105,6 +108,9 @@ only, or the QR service answers an error page instead of an image).
 - **AC-06**: A v3 unit at 450,000 VND monthly on a 30-day term fails on day 10 with a swollen battery; its replacement is handed over on day 13. The credit is ⌈450,000 × 3 ÷ 30⌉ = 45,000 VND; once an Admin approves it, the next term invoice carries a `SERVICE_CREDIT` line of −45,000 VND. (D-092 rule 5)
 - **AC-07**: The Staff member who requested a credit tries to approve it: 403 `SEPARATION_OF_DUTY`. Another Admin reduces it to 30,000 VND with a reason: the line is −30,000 VND. (D-092 rule 5)
 - **AC-08**: A credit decided after the contract closed is `REFUND_DUE`; Staff record the bank-transfer reference and it becomes `REFUNDED`; the same reference again gets 409 `DUPLICATE_REFERENCE`. (D-092 rule 5)
+
+- **AC-09**: A monthly contract of 2 units at 450,000 VND (F = 900,000) on a 30-day term is ended now on day 6 (5 days and 1 hour after the term start): U = 6, the closing invoice carries `EARLY_END_CREDIT` −⌈900,000 × 24 ÷ 30⌉ = −720,000 VND. Ended in the first hour of day 1: −⌈900,000 × 29 ÷ 30⌉ = −870,000; on the last day: no line. On a 31-day term ended on day 6: −⌈900,000 × 25 ÷ 31⌉ = −725,807. A day plan ended early: no line. (D-097 rule 2)
+- **AC-10**: The same contract had paid its whole term, 900,000 VND: after the credit the balance is settled, `owedToOrganizationVnd` is 720,000 and the page says it is refunded outside TrekLink. (D-097 rule 3)
 
 ---
 
