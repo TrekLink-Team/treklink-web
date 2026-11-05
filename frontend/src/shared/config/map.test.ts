@@ -11,23 +11,23 @@ const basemap = (id: string, localOnly?: boolean): Basemap => ({
   ...(localOnly === undefined ? {} : { localOnly }),
 });
 
-const LIST = [basemap('opentopomap'), basemap('stadia-terrain', true), basemap('esri-topo', false)];
+const LIST = [basemap('topo'), basemap('terrain', true), basemap('street', false)];
 const ids = (list: Basemap[]) => list.map((b) => b.id);
 
 describe('usableBasemaps', () => {
   it.each(['localhost', 'app.localhost', '127.0.0.1', '[::1]'])('keeps every basemap on %s', (host) => {
-    expect(ids(usableBasemaps(LIST, host))).toEqual(['opentopomap', 'stadia-terrain', 'esri-topo']);
+    expect(ids(usableBasemaps(LIST, host, []))).toEqual(['topo', 'terrain', 'street']);
   });
 
   it.each(['treklink-web.vercel.app', '192.168.1.20', 'localhost.example.com'])(
     'drops localOnly basemaps on %s and keeps the order',
     (host) => {
-      expect(ids(usableBasemaps(LIST, host))).toEqual(['opentopomap', 'esri-topo']);
+      expect(ids(usableBasemaps(LIST, host, []))).toEqual(['topo', 'street']);
     },
   );
 
   it('keeps a list of localOnly basemaps rather than drawing no map', () => {
-    const only = [basemap('stadia-terrain', true)];
-    expect(ids(usableBasemaps(only, 'treklink-web.vercel.app'))).toEqual(['stadia-terrain']);
+    const only = [basemap('terrain', true)];
+    expect(ids(usableBasemaps(only, 'treklink-web.vercel.app', []))).toEqual(['terrain']);
   });
 });

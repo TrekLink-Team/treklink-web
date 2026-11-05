@@ -12,6 +12,12 @@ export interface Basemap {
   localOnly?: boolean;
 }
 
+// Basemaps kept out of the picker until their own sea labels are masked (task W22, panel walk 2026-11-04).
+// OpenTopoMap and Stadia print "South China Sea" in open water at zoom 5 to 7 and "北部湾" on the Gulf of
+// Tonkin, outside the two archipelago masks of the sovereignty overlay (D-031, D-085). The entries stay
+// in `monitoring.mapBasemaps` on the server; delete an id here to offer that basemap again.
+export const HIDDEN_BASEMAP_IDS: readonly string[] = ['opentopomap', 'stadia-terrain'];
+
 const isLoopbackHost = (hostname: string): boolean =>
   hostname === 'localhost' ||
   hostname.endsWith('.localhost') ||
@@ -19,19 +25,23 @@ const isLoopbackHost = (hostname: string): boolean =>
   hostname === '::1' ||
   /^127(\.\d{1,3}){3}$/.test(hostname);
 
-// The basemaps this page can draw: a localOnly entry is dropped on a host that is not loopback, unless
-// that would leave no basemap at all (screen 9.1, monitoring api-design 01).
+// The basemaps this page can draw, in the server's order: a hidden entry is always dropped, and a
+// localOnly entry is dropped on a host that is not loopback. Each filter is skipped when it would leave
+// no basemap at all, so the page never draws an empty map (screen 9.1, monitoring api-design 01).
 export const usableBasemaps = (
   basemaps: readonly Basemap[],
   hostname: string = window.location.hostname,
+  hidden: readonly string[] = HIDDEN_BASEMAP_IDS,
 ): Basemap[] => {
-  if (isLoopbackHost(hostname)) return [...basemaps];
-  const reachable = basemaps.filter((basemap) => !basemap.localOnly);
-  return reachable.length > 0 ? reachable : [...basemaps];
+  const shown = basemaps.filter((basemap) => !hidden.includes(basemap.id));
+  const offered = shown.length > 0 ? shown : [...basemaps];
+  if (isLoopbackHost(hostname)) return offered;
+  const reachable = offered.filter((basemap) => !basemap.localOnly);
+  return reachable.length > 0 ? reachable : offered;
 };
 
 // GET /api/map/config (monitoring api-design 01). Basemaps, attribution, viewport and the overlay labels
-// all come from the server; nothing here names a provider (D-031, D-072). `provider` is the id of the
+// all come from the server; nothing here defines a provider (D-031, D-072). `provider` is the id of the
 // default basemap; `tileUrl` and `attribution` repeat it.
 export interface MapConfig {
   provider: string;
