@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
+import type { SortParams } from '../../shared/api/query';
 import { INVOICE_STATUS, TONE_CLASSES, type ServiceCreditStatus } from '../../shared/ui/status';
 import { queryString, type Page, type PlanType } from '../contract/api';
 
@@ -159,7 +160,11 @@ export interface Balance {
   settled: boolean;
 }
 
-export interface InvoiceFilters {
+// billing api-design 08 `sort` allowlist (W26); the default order is the issue time, newest first.
+export const INVOICE_SORT_FIELDS = ['issuedAt', 'number', 'status', 'totalVnd', 'paidVnd'] as const;
+export type InvoiceSortField = (typeof INVOICE_SORT_FIELDS)[number];
+
+export interface InvoiceFilters extends SortParams<InvoiceSortField> {
   contractId?: string;
   status?: InvoiceStatus;
   overdue?: boolean;

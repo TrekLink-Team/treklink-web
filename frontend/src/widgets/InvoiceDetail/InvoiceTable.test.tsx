@@ -52,6 +52,21 @@ describe('InvoiceTable (screen 6.1 on CollectionView, D-096)', () => {
     expect(table.queryByRole('button', { name: 'INV-2026-0002' })).toBeNull();
   });
 
+  // W26: exactly the allowlisted columns sort, on the server, and keep the other filters.
+  it('sends the header sort to the server from page 1 and marks the allowlisted columns', () => {
+    const { onFilters } = setup();
+    const table = within(screen.getByRole('table', { name: 'Invoices' }));
+    fireEvent.click(table.getByRole('button', { name: 'Paid' }));
+    expect(onFilters).toHaveBeenLastCalledWith({ pageNumber: 1, sort: 'paidVnd', order: 'asc' });
+    fireEvent.click(table.getByRole('button', { name: 'Invoice' }));
+    expect(onFilters).toHaveBeenLastCalledWith({ pageNumber: 1, sort: 'number', order: 'asc' });
+    const sortable = table
+      .getAllByRole('columnheader')
+      .filter((cell) => cell.querySelector('[data-sort-icon]'))
+      .map((cell) => cell.textContent);
+    expect(sortable).toEqual(['Invoice', 'Status', 'Total', 'Paid', 'Issued']);
+  });
+
   it('sends the status and overdue filters to the server from page 1', () => {
     const { onFilters } = setup();
     // A status and Overdue only combine in Show (review of treklink-web#350).

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, apiClient } from '../../shared/api/apiClient';
-import { queryString, type Page } from '../../shared/api/query';
+import { queryString, type Page, type SortParams } from '../../shared/api/query';
 import { messageOf } from '../../shared/ui/errors';
 import type { StatusEntry } from '../../shared/ui/status';
 
@@ -59,21 +59,34 @@ export const DECISION_LABEL: Record<LossDecision, string> = {
 export type LossScope = 't' | 'o';
 
 // Query keys of screen 4.4: `['loss-cases', scope, filters]` and `['loss-case', id]`.
+// devices api-design 18 `sort` allowlist (W26); the default order is the report time, newest first.
+export const LOSS_CASE_SORT_FIELDS = ['reportedAt', 'code', 'assetTag', 'state'] as const;
+export type LossCaseSortField = (typeof LOSS_CASE_SORT_FIELDS)[number];
+
 export const lossCaseKeys = {
   all: ['loss-cases'] as const,
-  list: (scope: LossScope, state: LossCaseState | undefined, pageNumber: number) =>
-    ['loss-cases', scope, { state, pageNumber }] as const,
+  list: (
+    scope: LossScope,
+    state: LossCaseState | undefined,
+    pageNumber: number,
+    sort: SortParams<LossCaseSortField> = {},
+  ) => ['loss-cases', scope, { state, pageNumber, ...sort }] as const,
   detail: (id: string) => ['loss-case', id] as const,
 };
 
 export const LOSS_PAGE_SIZE = 20;
 
-export const useLossCases = (scope: LossScope, state: LossCaseState | undefined, pageNumber: number) =>
+export const useLossCases = (
+  scope: LossScope,
+  state: LossCaseState | undefined,
+  pageNumber: number,
+  sort: SortParams<LossCaseSortField> = {},
+) =>
   useQuery({
-    queryKey: lossCaseKeys.list(scope, state, pageNumber),
+    queryKey: lossCaseKeys.list(scope, state, pageNumber, sort),
     queryFn: () =>
       apiClient<Page<LossCase>>(
-        `/loss-cases${queryString({ state, pageNumber, pageSize: LOSS_PAGE_SIZE })}`,
+        `/loss-cases${queryString({ state, pageNumber, pageSize: LOSS_PAGE_SIZE, ...sort })}`,
       ),
   });
 

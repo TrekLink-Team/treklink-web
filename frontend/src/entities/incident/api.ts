@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import { formatDateTime } from '../../shared/lib/format';
 import type { IncidentConfidence, IncidentState } from '../../shared/ui/status';
-import { queryString, type Page } from '../../shared/api/query';
+import { queryString, type Page, type SortParams } from '../../shared/api/query';
 
 // Incidents as incidents api-design 01 to 07 return them.
 export interface PersonRef {
@@ -87,7 +87,11 @@ export interface AlertDelivery {
   lastError: string | null;
 }
 
-export interface IncidentFilters {
+// incidents api-design 01 `sort` allowlist (W26); without it the most urgent deadline comes first.
+export const INCIDENT_SORT_FIELDS = ['code', 'state', 'lastEventAt'] as const;
+export type IncidentSortField = (typeof INCIDENT_SORT_FIELDS)[number];
+
+export interface IncidentFilters extends SortParams<IncidentSortField> {
   state?: IncidentState;
   open?: boolean;
   deviceId?: string;
@@ -118,7 +122,7 @@ export const incidentKeys = {
 export const fetchIncidents = (filters: IncidentFilters) =>
   apiClient<Page<Incident>>(`/incidents${queryString({ pageSize: 20, ...filters })}`);
 
-export type FleetIncidentFilters = Pick<IncidentFilters, 'deviceId' | 'from'>;
+export type FleetIncidentFilters = Pick<IncidentFilters, 'deviceId' | 'from' | 'sort' | 'order'>;
 
 // The Staff queue (screen 8.2): repeatable `state` (api-design 01); no states reads every incident.
 export const fetchFleetIncidents = (
@@ -130,6 +134,8 @@ export const fetchFleetIncidents = (
   states.forEach((state) => query.append('state', state));
   if (filters.deviceId) query.set('deviceId', filters.deviceId);
   if (filters.from) query.set('from', filters.from);
+  if (filters.sort) query.set('sort', filters.sort);
+  if (filters.sort && filters.order) query.set('order', filters.order);
   return apiClient<Page<Incident>>(`/incidents?${query.toString()}`);
 };
 

@@ -39,6 +39,7 @@ Scope from the task: rentals api-design 02, 03, 06, 11, 12, 13, 18 and billing a
 |---|---|---|---|---|
 | Request a contract (list header, primary) | Org Manager | navigation to `/o/contracts/new` (screen 5.1) | none | none |
 | Filter by status or plan (list) | always | rentals 02 `GET /api/contracts?status=&planType=` | none | none |
+| Sort by Contract (code), Devices (quantity) or Status (list, header or Sort menu, W26) | always | rentals 02 `GET /api/contracts?sort=&order=`; without a sort the newest status change comes first | none | page 1 |
 | Give notice (detail, primary) | Org Manager, monthly, `ACTIVE` | rentals 12 `POST /api/contracts/:id/notice` | dialog: "The contract ends at the end of the current term, {currentTerm.endsAt}. The term balance is due then and the devices are returned at the counter." | toast MSG18 |
 | Cancel contract (detail, secondary) | Org Manager or Staff, `REQUESTED` or `APPROVED` | rentals 06 `POST /api/contracts/:id/cancel` | dialog naming the contract code, with the reason field; it states that a holding fee already paid is retained | toast MSG15 with `retainedVnd` |
 | Handover note (PDF) (detail) | Org Manager or Staff, after handover | rentals 11 `GET /api/contracts/:id/handover-note` | none | the PDF downloads; a hash mismatch (`integrity` other than `OK`) shows a red banner instead |

@@ -32,6 +32,10 @@ Scope from the task: devices api-design 17 to 22; Staff triage with suspected th
 The organization list shows code, asset tag, state, reported and, once settled, decision and charge. It
 never shows `suspectedTheft` or `policeReference`.
 
+Both lists sort on the server (devices 18 `sort`, `order`, W26): Case (code), Device (asset tag), State
+and Reported (the default order, newest first, so it toggles two directions). Organization, custody and
+settlement do not sort.
+
 ## Actions
 
 | Control | Shown when | Endpoint | Confirmation | Success message |

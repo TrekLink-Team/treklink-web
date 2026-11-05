@@ -10,15 +10,18 @@ import {
   openMaintenance,
   useDevice,
   useDevices,
+  MAINTENANCE_SORT_FIELDS,
   useMaintenanceRecords,
   weekEnd,
   type Device,
   type MaintenanceReason,
   type MaintenanceRecord,
+  type MaintenanceSortField,
   type MaintenanceStatus,
   type WorkBy,
 } from '../entities/device/api';
 import { ApiError } from '../shared/api/apiClient';
+import { collectionSortOf, sortParamsOf, type SortParams } from '../shared/api/query';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { useDebounced } from '../shared/lib/useDebounced';
@@ -754,8 +757,15 @@ const pagerOf = (
     />
   ) : undefined;
 
+// The expected date, soonest first, is the default order of devices api-design 15, so its header
+// toggles two directions (chapter 06 §11.2).
+const RECORDS_DEFAULT_SORT = { key: 'expectedAt', direction: 'asc' } as const;
+type RecordSort = SortParams<MaintenanceSortField>;
+
 // One list of maintenance records on CollectionView (chapter 06 §9, D-096). The device tag and Show
-// details open the record drawer, this screen's record view in place of the built-in pane.
+// details open the record drawer, this screen's record view in place of the built-in pane. The device,
+// status and expected date headers sort on the server (W26); a sort change goes to `onSort`, which
+// returns the list to page 1.
 const RecordsTable: React.FC<{
   caption: string;
   page: { pageNumber: number; pageSize: number; totalCount: number; items: MaintenanceRecord[] } | undefined;
@@ -769,9 +779,11 @@ const RecordsTable: React.FC<{
   filters?: CollectionFilter<MaintenanceRecord>[];
   query?: CollectionQuery;
   onQueryChange?: (query: CollectionQuery) => void;
+  sort: RecordSort;
+  onSort: (sort: RecordSort) => void;
   resetKey?: string;
   footer?: React.ReactNode;
-}> = ({ caption, page, loading, error, onRetry, empty, onOpen, actions, bulkActions, filters, query, onQueryChange, resetKey, footer }) => {
+}> = ({ caption, page, loading, error, onRetry, empty, onOpen, actions, bulkActions, filters, query, onQueryChange, sort, onSort, resetKey, footer }) => {
   const fields: CollectionField<MaintenanceRecord>[] = [
     { key: 'reason', label: 'Reason', render: (record) => MAINTENANCE_REASON[record.reason], compact: true },
     {
@@ -779,10 +791,12 @@ const RecordsTable: React.FC<{
       label: 'Status',
       render: (record) => <StatusBadge entry={MAINTENANCE_STATUS[record.status]} />,
       compact: true,
+      sortable: true,
     },
     {
-      key: 'expected',
+      key: 'expectedAt',
       label: 'Expected',
+      sortable: true,
       render: (record) => (
         <span className="whitespace-nowrap">{formatDay(record.expectedAt.slice(0, 10))}</span>
       ),
@@ -810,8 +824,14 @@ const RecordsTable: React.FC<{
       itemActions={actions}
       bulkActions={bulkActions}
       filters={filters}
-      query={query}
-      onQueryChange={onQueryChange ?? (() => undefined)}
+      query={{ ...(query ?? { search: '', filter: '' }), sort: collectionSortOf(sort) }}
+      titleSort="assetTag"
+      defaultSort={RECORDS_DEFAULT_SORT}
+      onQueryChange={(next) => {
+        const nextSort = sortParamsOf(next.sort, MAINTENANCE_SORT_FIELDS, RECORDS_DEFAULT_SORT);
+        if (nextSort.sort !== sort.sort || nextSort.order !== sort.order) onSort(nextSort);
+        onQueryChange?.(next);
+      }}
       resetKey={resetKey}
       hideCommandBar={filters || bulkActions ? false : undefined}
       pageInfo={pageInfoOf(page)}
@@ -852,6 +872,10 @@ export const MaintenancePage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [weekPage, setWeekPage] = useState(1);
   const [approvalsPage, setApprovalsPage] = useState(1);
+  // Each list keeps its own server sort (W26); a change returns that list to page 1.
+  const [recordsSort, setRecordsSort] = useState<RecordSort>({});
+  const [weekSort, setWeekSort] = useState<RecordSort>({});
+  const [approvalsSort, setApprovalsSort] = useState<RecordSort>({});
   const [picking, setPicking] = useState(false);
   const [opening, setOpening] = useState<string | null>(
     (location.state as { deviceId?: string } | null)?.deviceId ?? null,
@@ -901,12 +925,14 @@ export const MaintenancePage: React.FC = () => {
     status: status ? [status] : undefined,
     reason: reason ? [reason] : undefined,
     pageNumber,
+    ...recordsSort,
   });
   const week = useMaintenanceRecords({
     status: ['OPEN'],
     reason: ['SCHEDULED', 'FIRMWARE_UPDATE'],
     dueBefore: end,
     pageNumber: weekPage,
+    ...weekSort,
   });
   // Devices due for service but still out (REQ-STA-03): listed, never opened. devices api-design 06
   // has no due-date filter, so the first page of 100 reserved or rented units is narrowed here.
@@ -914,7 +940,10 @@ export const MaintenancePage: React.FC = () => {
   const dueButOut = (out.data?.items ?? []).filter(
     (device) => device.serviceDueAt !== null && device.serviceDueAt <= end,
   );
-  const approvals = useMaintenanceRecords({ status: ['PENDING_APPROVAL'], pageNumber: approvalsPage }, isAdmin);
+  const approvals = useMaintenanceRecords(
+    { status: ['PENDING_APPROVAL'], pageNumber: approvalsPage, ...approvalsSort },
+    isAdmin,
+  );
 
   // BR-44: never a record the viewer estimated. A bulk approval approves the amount the record waits
   // on, the actual cost once completed, else the estimate; a record with neither is left out.
@@ -1050,6 +1079,11 @@ export const MaintenancePage: React.FC = () => {
             setStatus(next.filter as MaintenanceStatus | '');
             setPageNumber(1);
           }}
+          sort={recordsSort}
+          onSort={(next) => {
+            setRecordsSort(next);
+            setPageNumber(1);
+          }}
           resetKey={reason}
           footer={pagerOf(records.data, setPageNumber)}
         />
@@ -1065,6 +1099,11 @@ export const MaintenancePage: React.FC = () => {
           empty="Nothing is due this week."
           onOpen={view}
           actions={[{ ...completeAction, allowed: undefined }]}
+          sort={weekSort}
+          onSort={(next) => {
+            setWeekSort(next);
+            setWeekPage(1);
+          }}
           footer={pagerOf(week.data, setWeekPage)}
         />
         {dueButOut.length > 0 && (
@@ -1125,6 +1164,11 @@ export const MaintenancePage: React.FC = () => {
                 onSelect: (rows) => setBulkDecision({ decision: 'REJECTED', records: rows }),
               },
             ]}
+            sort={approvalsSort}
+            onSort={(next) => {
+              setApprovalsSort(next);
+              setApprovalsPage(1);
+            }}
             footer={pagerOf(approvals.data, setApprovalsPage)}
           />
         </TabPanel>

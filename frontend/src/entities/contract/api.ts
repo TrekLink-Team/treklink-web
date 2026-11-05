@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
+import type { SortParams } from '../../shared/api/query';
 import { CONTRACT_STATUS, TONE_CLASSES, type DeviceStatus } from '../../shared/ui/status';
 import type { NextStep, VariantSummary } from '../device/api';
 import { formatDate, formatDay } from '../../shared/lib/format';
@@ -140,7 +141,11 @@ export interface Page<T> {
   totalPages: number;
 }
 
-export interface ContractFilters {
+// rentals api-design 02 `sort` allowlist (W26); without it the newest status change comes first.
+export const CONTRACT_SORT_FIELDS = ['code', 'status', 'quantity', 'requestedStartDate'] as const;
+export type ContractSortField = (typeof CONTRACT_SORT_FIELDS)[number];
+
+export interface ContractFilters extends SortParams<ContractSortField> {
   status?: ContractStatus;
   planType?: PlanType;
   /** rentals api-design 02 (REQ-EVT-26): contract code, organization name or code, over the whole list. */

@@ -152,7 +152,9 @@ Each bulk action calls the single-row endpoint once per row, in sequence (`BulkA
 succeeded: a toast "N of N done.". Any failure: a summary dialog "k of N done" listing each failed row
 with the server's message (for example MSG29 for an open record) and the rows that succeeded. No bulk
 endpoint exists or is needed. "Select all N results" is not offered: a client-side sequence needs the
-rows themselves. The devices API does not sort (api-design 06), so no column sorts.
+rows themselves. The fleet sorts on the server (api-design 06, W26): Device (asset tag, the default
+order, so it toggles two directions), Node id, Status, Battery, Last seen and Service due; Variant and
+Firmware do not sort. The sort sits in the address beside the status chips (`?sort=lastSeenAt&order=desc`).
 
 ## Fleet on CollectionView (D-096, 2026-11-04)
 

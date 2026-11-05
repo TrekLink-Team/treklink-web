@@ -209,6 +209,26 @@ describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
     expect(screen.getByText(/does not coordinate rescue operations/)).toBeTruthy();
   });
 
+  // W26: the headers sort on the server (api-design 01); the scope change keeps the sort.
+  it('sends the header sort to the queue and keeps it across a scope change', async () => {
+    api.mockResolvedValue(page([incident()]));
+    renderPage();
+    await screen.findByRole('button', { name: 'INC-2026-000007' });
+    const lastGet = () => String(api.mock.calls[api.mock.calls.length - 1][0]);
+    const header = async (name: string) =>
+      within(await screen.findByRole('table')).getByRole('button', { name });
+    fireEvent.click(await header('State'));
+    await waitFor(() =>
+      expect(lastGet()).toBe(
+        '/incidents?pageSize=20&pageNumber=1&state=UNROUTED&state=ESCALATED&sort=state&order=asc',
+      ),
+    );
+    fireEvent.click(await header('Incident'));
+    await waitFor(() => expect(lastGet()).toContain('sort=code&order=asc'));
+    showScope('All incidents');
+    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&pageNumber=1&sort=code&order=asc'));
+  });
+
   it('switches to all incidents without a state filter, and shows the filtered empty state', async () => {
     api.mockResolvedValue(page([]));
     renderPage();

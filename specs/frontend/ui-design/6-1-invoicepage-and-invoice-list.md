@@ -91,8 +91,10 @@ lines of the detail are the shared `DataTable`. The column filter rows moved to 
 table: the invoice list keeps the server filters (status, Overdue only) and one search over number,
 organization and contract on the loaded page; the payments keep status (server), reference and
 method; the lines keep their search and status. Each list pages with Pagination and the range. The
-billing APIs do not sort, so no column sorts. No row actions or bulk: a payment is recorded on its
-invoice.
+invoice list sorts on the server (api-design 08, W26): Invoice (number), Status, Total, Paid and
+Issued (the default order, newest first, so it toggles two directions); Organization, Contract and
+Kind do not sort. The payments API does not sort, so no payment column sorts. No row actions or bulk: a
+payment is recorded on its invoice.
 
 ## Invoice and payment lists on CollectionView (D-096, 2026-11-04)
 

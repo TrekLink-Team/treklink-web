@@ -336,6 +336,35 @@ describe('CollectionView', () => {
     expect(screen.getByRole('button', { name: 'Battery' }).closest('th')!.getAttribute('aria-sort')).toBe('descending');
   });
 
+  it('sorts on the title column when it carries a sort key, in the headers and the dropdown (W26)', () => {
+    renderView({ titleSort: 'tag' });
+    const button = () => screen.getByRole('button', { name: 'Unit' });
+    const order = () => screen.getAllByRole('rowheader').map((cell) => cell.textContent);
+    fireEvent.click(button());
+    expect(button().closest('th')!.getAttribute('aria-sort')).toBe('ascending');
+    fireEvent.click(button());
+    expect(button().closest('th')!.getAttribute('aria-sort')).toBe('descending');
+    expect(order()).toEqual(['TL-0004', 'TL-0003', 'TL-0002', 'TL-0001']);
+    expect(live().textContent).toContain('Sorted by Unit, descending');
+    fireEvent.click(screen.getByRole('button', { name: /^Sort: Unit/ }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Default order',
+      'Unit, ascending',
+      'Unit, descending (current)',
+      'Battery, ascending',
+      'Battery, descending',
+    ]);
+  });
+
+  it('sends the title sort to a server-side list', () => {
+    const onQueryChange = vi.fn();
+    renderView({ titleSort: 'tag', query: { search: '', filter: 'all', sort: null }, onQueryChange });
+    fireEvent.click(screen.getByRole('button', { name: 'Unit' }));
+    expect(onQueryChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort: { key: 'tag', direction: 'asc' } }),
+    );
+  });
+
   it('clears the selection on Escape, but closes an open tooltip first', () => {
     renderView();
     fireEvent.click(box('TL-0001'));

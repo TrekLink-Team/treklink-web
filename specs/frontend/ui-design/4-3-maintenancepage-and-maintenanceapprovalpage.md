@@ -114,7 +114,10 @@ disagree, this section wins.
   alert dialog with one required reason. Each runs devices api-design 13 once per record in sequence,
   with the per-row summary on any failure (STALE_VERSION, SEPARATION_OF_DUTY). An amount other than
   the one waiting stays a row decision.
-- The API does not sort; the pagers keep the range and total.
+- Each list sorts on the server (api-design 15, W26): Record (the asset tag), Status and Expected (the
+  default order, soonest first, so it toggles two directions); Reason, Work by and Cost do not sort.
+  Each tab keeps its own sort; a sort change returns that list to page 1. The pagers keep the range and
+  total.
 
 ## Records on CollectionView (D-096, 2026-11-04)
 

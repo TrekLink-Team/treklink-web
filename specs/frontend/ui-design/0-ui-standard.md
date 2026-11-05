@@ -146,7 +146,8 @@ and the revision of treklink-docs#170.
 | The change is announced in the collection's live region ("Sorted by Received, ascending", "Sorted by Default order") and clears the selection. | `CollectionView` |
 | A sort change returns a paged list to page 1. | the page's `onQueryChange` |
 | The Sort dropdown of the command bar offers the same orders, plus Default order, for the phone and card views. | `CollectionView` |
-| A server-paged list marks a column sortable only when its endpoint takes a sort for it. It never sorts one page on the client. On 2026-11-05 only the sync ledger's `order` exists (gateway-sync api-design 03); the other server-paged lists have no sortable column until their endpoints take a sort. | page field definitions |
+| A server-paged list marks a column sortable only when its endpoint takes a sort for it. It never sorts one page on the client. The sync ledger takes `order` (gateway-sync api-design 03); devices 06, 15 and 18, incidents 01, rentals 02 and billing 08 take `sort` on an allowlist with `order` (W26). The page sends `sort` and `order` only for an order other than the list's default, so the server keeps its own default and tiebreaker. | page field definitions |
+| The title column (asset tag, code, number) sorts when its field is on the allowlist; its header is then a sort button labelled with the noun. | `CollectionView` `titleSort` |
 
 ### 8.2 The status is the state-change control (§11.3)
 

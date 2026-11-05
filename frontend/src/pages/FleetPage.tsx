@@ -5,11 +5,14 @@ import {
   recordReset,
   registerDevice,
   retireDevice,
+  DEVICE_SORT_FIELDS,
   useDevices,
   useDeviceStatusCounts,
   useVariants,
   type Device,
+  type DeviceSortField,
 } from '../entities/device/api';
+import { collectionSortOf, sortParamsOf, type SortParams } from '../shared/api/query';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../shared/api/apiClient';
 import { DEVICE_STATUS, type DeviceStatus } from '../shared/ui/status';
@@ -210,6 +213,21 @@ const RegisterDialog: React.FC<{ onDone: (device: Device) => void; onCancel: () 
 
 // The status filter lives in the address (`?status=MAINTENANCE&status=LOST`), so a link or a reload
 // keeps it. Unknown values are dropped.
+// The fleet's server sort (devices api-design 06, W26), kept in the address beside the status chips;
+// a value off the allowlist reads as the default order.
+// The asset tag is the default order (api-design 06), so its header toggles two directions.
+const DEFAULT_SORT = { key: 'assetTag', direction: 'asc' } as const;
+
+const sortOf = (params: URLSearchParams): SortParams<DeviceSortField> =>
+  sortParamsOf(
+    collectionSortOf({
+      sort: params.get('sort') ?? undefined,
+      order: params.get('order') === 'desc' ? 'desc' : 'asc',
+    }),
+    DEVICE_SORT_FIELDS,
+    DEFAULT_SORT,
+  );
+
 const statusesOf = (params: URLSearchParams): DeviceStatus[] =>
   params
     .getAll('status')
@@ -287,11 +305,12 @@ const lastSeenText = (device: Device) =>
 // Status chips (multi-select, each with its count, in the address) above the fleet on CollectionView
 // (chapter 06 §9, D-096): search and the variant filter in its command bar, the selection of the
 // current page with the bulk reset and retire, intake and reset as item actions, retire and dispose
-// as status changes, and the details pane. The devices API pages on the server and does not sort.
+// as status changes, and the details pane. The devices API pages and sorts on the server (W26).
 // The page does not subscribe to live events; Staff use the fleet map for live state.
 export const FleetPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const statuses = statusesOf(params);
+  const sort = sortOf(params);
   const [hardwareVariantId, setHardwareVariantId] = useState('');
   const [q, setQ] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
@@ -311,6 +330,7 @@ export const FleetPage: React.FC = () => {
     ...narrowing,
     status: statuses.length > 0 ? statuses : undefined,
     pageNumber,
+    ...sort,
   });
   const counts = useDeviceStatusCounts(STATUSES, narrowing);
   const filtered = statuses.length > 0 || Boolean(hardwareVariantId) || Boolean(q.trim());
@@ -355,7 +375,7 @@ export const FleetPage: React.FC = () => {
   };
 
   const fields: CollectionField<Device>[] = [
-    { key: 'nodeId', label: 'Node id', render: (device) => device.nodeId, hideWithPane: true },
+    { key: 'nodeId', label: 'Node id', render: (device) => device.nodeId, hideWithPane: true, sortable: true },
     {
       key: 'variant',
       label: 'Variant',
@@ -374,6 +394,7 @@ export const FleetPage: React.FC = () => {
       label: 'Status',
       render: (device) => <StatusBadge entry={DEVICE_STATUS[device.status]} />,
       compact: true,
+      sortable: true,
     },
     {
       key: 'firmware',
@@ -382,11 +403,12 @@ export const FleetPage: React.FC = () => {
       text: (device) => device.firmwareVersion,
       hideWithPane: true,
     },
-    { key: 'battery', label: 'Battery', align: 'end', render: battery, text: batteryText, compact: true },
-    { key: 'lastSeen', label: 'Last seen', render: lastSeen, text: lastSeenText, compact: true },
+    { key: 'batteryPct', label: 'Battery', align: 'end', render: battery, text: batteryText, compact: true, sortable: true },
+    { key: 'lastSeenAt', label: 'Last seen', render: lastSeen, text: lastSeenText, compact: true, sortable: true },
     {
-      key: 'serviceDue',
+      key: 'serviceDueAt',
       label: 'Service due',
+      sortable: true,
       // A calendar date (devices api-design, `@db.Date`), shown as every other date: 03 May 2027.
       render: (device) => (
         <span className="whitespace-nowrap">
@@ -503,10 +525,21 @@ export const FleetPage: React.FC = () => {
           { key: '', label: 'Every variant' },
           ...(variants ?? []).map((variant) => ({ key: variant.id, label: variant.code })),
         ]}
-        query={{ search: q, filter: hardwareVariantId, sort: null }}
+        query={{ search: q, filter: hardwareVariantId, sort: collectionSortOf(sort) }}
+        titleSort="assetTag"
+        defaultSort={DEFAULT_SORT}
         onQueryChange={(next) => {
           setQ(next.search);
           setHardwareVariantId(next.filter);
+          const nextSort = sortParamsOf(next.sort, DEVICE_SORT_FIELDS, DEFAULT_SORT);
+          if (nextSort.sort !== sort.sort || nextSort.order !== sort.order) {
+            const nextParams = new URLSearchParams(params);
+            nextParams.delete('sort');
+            nextParams.delete('order');
+            if (nextSort.sort) nextParams.set('sort', nextSort.sort);
+            if (nextSort.order) nextParams.set('order', nextSort.order);
+            setParams(nextParams, { replace: true });
+          }
           setPageNumber(1);
         }}
         resetKey={statuses.join(',')}
