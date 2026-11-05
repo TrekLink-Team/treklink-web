@@ -191,7 +191,7 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
     else if (action.kind === 'provision' && action.unitAction?.kind === 'provision' && context?.kind === 'counter') {
       void context.provision(connection.id, action.unitAction.row);
     } else if (action.kind === 'flash' && connection.recognized?.device) {
-      // The panel opens the flash panel on this unit at once (REQ-EVT-41, task 8.3).
+      // The panel opens the flash panel on this unit at once (REQ-EVT-43, task 8.3).
       const unit = connection.recognized.device;
       useConnectorStore.getState().openFor({ action: 'flash', assetTag: unit.assetTag, nodeNum: unit.nodeNum });
     } else {

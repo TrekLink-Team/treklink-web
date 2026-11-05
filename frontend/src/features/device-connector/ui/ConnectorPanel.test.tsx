@@ -215,7 +215,7 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 12
     }
   });
 
-  // REQ-EVT-41 from a maintenance record (task 8.3): the record names its unit by asset tag, and the flash
+  // REQ-EVT-43 from a maintenance record (task 8.3): the record names its unit by asset tag, and the flash
   // panel opens on it once it is connected; closing the panel clears the focus.
   it('opens the flash panel on the unit a maintenance record named by asset tag', async () => {
     deviceChange = { status: 'MAINTENANCE', openMaintenance: { id: 'mr-1', reason: 'FIRMWARE_UPDATE', status: 'OPEN' } };
