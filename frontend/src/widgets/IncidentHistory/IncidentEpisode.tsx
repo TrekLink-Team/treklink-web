@@ -7,10 +7,12 @@ import { ErrorState, Loading } from '../../shared/ui/bits';
 import { CARD, FOCUS, LINK } from '../../shared/ui/styles';
 
 // Screen 8.2: ordered text coordinates and Fleet map navigation, not a second unscoped map query.
-export const IncidentEpisode: React.FC<{ incidentId: string; onLostAccess: () => void }> = ({
-  incidentId,
-  onLostAccess,
-}) => {
+export const IncidentEpisode: React.FC<{
+  incidentId: string;
+  onLostAccess: () => void;
+  headingLevel?: 2 | 3;
+}> = ({ incidentId, onLostAccess, headingLevel = 3 }) => {
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const { data, isLoading, error, refetch } = useEpisodeEvents(incidentId);
   const status = error instanceof ApiError ? error.statusCode : null;
   useEffect(() => {
@@ -19,10 +21,10 @@ export const IncidentEpisode: React.FC<{ incidentId: string; onLostAccess: () =>
   if (status === 403 || status === 404) return null;
   return (
     <section className={CARD} aria-labelledby="episode-evidence">
-      <h3 id="episode-evidence" className="mb-3 text-title-sm text-ink">
+      <Heading id="episode-evidence" className="mb-3 text-title-sm text-ink">
         Episode evidence
         {data && ` (${data.length} ${data.length === 1 ? 'event' : 'events'})`}
-      </h3>
+      </Heading>
       {isLoading ? (
         <Loading label="Loading episode evidence…" />
       ) : error || !data ? (

@@ -24,6 +24,7 @@ import { StaffFieldStationsPage } from '../pages/StaffFieldStationsPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { IncidentDetailPage } from '../pages/IncidentDetailPage';
 import { IncidentsPage } from '../pages/IncidentsPage';
+import { StaffIncidentDetailPage } from '../pages/StaffIncidentDetailPage';
 import { StaffIncidentsPage } from '../pages/StaffIncidentsPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
 import { LiveMapPage } from '../pages/LiveMapPage';
@@ -140,6 +141,7 @@ export const AppRoutes: React.FC = () => (
       <Route element={<RequireRole roles={STAFF} />}>
         <Route path="/t/map" element={<LiveMapPage scope="t" />} />
         <Route path="/t/incidents" element={<StaffIncidentsPage />} />
+        <Route path="/t/incidents/:id" element={<StaffIncidentDetailPage />} />
         <Route path="/t/contracts" element={<ContractApprovalPage />} />
         <Route
           path="/t/contracts/:id"

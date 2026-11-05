@@ -53,7 +53,7 @@ auth REQ-UBI-05, D-057 rule 7); a row names Admin only where an action on the pa
 | `/t/maintenance`, `/t/maintenance/approvals` | Maintenance records, the week's service list, estimates, completion with checklist and firmware; cost approvals on their own tab route (D-047, D-057 rule 3) | TrekLink Staff, Admin (approvals) |
 | `/t/loss-cases`, `/t/loss-cases/:id` | Loss cases: triage, recover, confirm, settle (D-045) | TrekLink Staff, Admin (decisions) |
 | `/t/compliance-cases`, `/t/compliance-cases/:id` | Compliance cases with actions and close (D-046) | TrekLink Staff, Admin (suspend) |
-| `/t/incidents` | Unrouted and escalated queue, authority reports | TrekLink Staff |
+| `/t/incidents`, `/t/incidents/:id` | Unrouted and escalated queue, authority reports; standalone Staff detail with episode events, transition history and deliveries | TrekLink Staff |
 | `/t/map` | Fleet map | TrekLink Staff |
 | `/t/billing`, `/t/damage-charges` | Invoices, counter payments, damage approvals | TrekLink Staff, Admin (decisions) |
 | `/t/service-credits` | Service credits: the decision queue and the refunds to record (billing design §9.6, screen 6.5) | TrekLink Staff (refunds), Admin (decisions) |

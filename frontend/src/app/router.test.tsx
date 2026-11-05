@@ -23,12 +23,20 @@ vi.mock('../pages/DeviceTelemetryPage', () => ({
 }));
 vi.mock('../pages/AuthEventsPage', () => ({ AuthEventsPage: () => <p>sign-in events page</p> }));
 vi.mock('../pages/ContractsPage', () => ({ ContractsPage: () => <p>contracts page</p> }));
+vi.mock('../pages/CounterPage', () => ({
+  CounterPage: ({ contractId, embedded }: { contractId: string; embedded: boolean }) => <p>counter {contractId} {embedded ? 'embedded' : 'standalone'}</p>,
+}));
+vi.mock('../pages/ContractDetailPage', () => ({
+  ContractDetailPage: ({ handover }: { handover?: (id: string, onDone: () => void) => React.ReactNode }) =>
+    <>{handover?.('contract-id', () => {})}</>,
+}));
 vi.mock('../pages/InvoicesPage', () => ({
   InvoicesPage: () => <p>invoices page</p>,
   InvoiceDetailPage: () => <p>invoice page</p>,
 }));
 vi.mock('../pages/DesignSystemPage', () => ({ DesignSystemPage: () => <p>design system</p> }));
 vi.mock('../pages/IncidentsPage', () => ({ IncidentsPage: () => <p>incident queue</p> }));
+vi.mock('../pages/StaffIncidentDetailPage', () => ({ StaffIncidentDetailPage: () => <p>Staff incident detail</p> }));
 vi.mock('../pages/IncidentDetailPage', () => ({
   IncidentDetailPage: () => <p>incident detail</p>,
 }));
@@ -284,5 +292,26 @@ describe('route guards (AC-01)', () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+});
+
+
+describe('standalone Staff incident route', () => {
+  it('preserves the existing embedded handover composition next to the new route', () => {
+    visit('/t/contracts/contract-id', account(['STAFF'], 'TREKLINK'));
+    expect(screen.getByText('counter contract-id embedded')).toBeTruthy();
+  });
+  it.each(['STAFF', 'ADMIN'])('allows %s', (role) => {
+    visit('/t/incidents/incident-id', account([role], 'TREKLINK'));
+    expect(screen.getByText('Staff incident detail')).toBeTruthy();
+  });
+  it.each(['ORG_OPERATOR', 'ORG_MANAGER'])('refuses %s before mounting the page', (role) => {
+    visit('/t/incidents/incident-id', account([role], 'ORGANIZATION'));
+    expect(screen.getByRole('alert').textContent).toBe('You do not have access to this.');
+    expect(screen.queryByText('Staff incident detail')).toBeNull();
+  });
+  it('preserves the requested detail route for anonymous sign-in', () => {
+    visit('/t/incidents/incident-id', null);
+    expect(screen.getByText('sign-in ?next=%2Ft%2Fincidents%2Fincident-id')).toBeTruthy();
   });
 });
