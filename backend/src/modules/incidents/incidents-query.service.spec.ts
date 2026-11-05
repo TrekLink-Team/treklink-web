@@ -228,6 +228,7 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       { organizationId: 'org-a', state: { not: 'CLOSED' } },
       0,
       20,
+      undefined,
     );
     expect(page).toMatchObject({ pageNumber: 1, pageSize: 20, totalCount: 1, totalPages: 1 });
     expect(page.items[0]).toMatchObject({
@@ -254,7 +255,23 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       },
       5,
       5,
+      undefined,
     );
+  });
+
+  // W26: the lists sort on the server by one allowed column (api-design 01); without it the urgency
+  // order of D-059 rule 7 stays.
+  it('passes the requested sort to the page, ascending by default', async () => {
+    await service.list({ sort: 'lastEventAt', order: 'desc' }, STAFF, readAll);
+    expect(repository.page).toHaveBeenLastCalledWith({}, 0, 20, {
+      field: 'lastEventAt',
+      order: 'desc',
+    });
+    await service.list({ sort: 'code' }, STAFF, readAll);
+    expect(repository.page).toHaveBeenLastCalledWith({}, 0, 20, { field: 'code', order: 'asc' });
+    await expect(service.list({ order: 'asc' }, STAFF, readAll)).rejects.toMatchObject({
+      errorCode: ErrorCode.VALIDATION_FAILED,
+    });
   });
 
   it('answers nulls for an unrouted row without owner, position or label', async () => {

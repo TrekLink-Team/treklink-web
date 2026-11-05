@@ -1,3 +1,4 @@
+import { validateQuery } from '../../common/pipes/app-validation.pipe';
 import { createMongoAbility } from '@casl/ability';
 import { Reflector } from '@nestjs/core';
 import { Incident } from '@prisma/client';
@@ -124,6 +125,16 @@ describe('IncidentsController (incidents 6.1, api-design 01 to 08)', () => {
     expect(
       plainToInstance(IncidentListQueryDto, { state: ['ESCALATED'], open: 'yes' }),
     ).toMatchObject({ state: ['ESCALATED'], open: 'yes' });
+  });
+
+  it('accepts an allowed sort and refuses another field with 400 VALIDATION_FAILED (W26)', async () => {
+    await expect(
+      validateQuery(IncidentListQueryDto, { sort: 'state', order: 'desc' }),
+    ).resolves.toMatchObject({ sort: 'state', order: 'desc' });
+    await expect(validateQuery(IncidentListQueryDto, { sort: 'ownerId' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+      status: 400,
+    });
   });
 
   it('records an authority report and returns the incident view (api-design 08)', async () => {

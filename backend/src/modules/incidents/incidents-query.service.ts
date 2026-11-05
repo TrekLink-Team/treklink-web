@@ -17,16 +17,17 @@ import {
   resolvePage,
   toPagedResult,
 } from '../../common/dto/paging';
+import { resolveSort, SortQuery } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { ContractsService } from '../rentals';
-import { IncidentsRepository } from './incidents.repository';
+import { IncidentSortField, IncidentsRepository } from './incidents.repository';
 import { responseTimesOf, type ResponseTimeRow } from './response-times';
 import { INCIDENT_EVENTS, EpisodeEvent, IncidentEvents } from './ports/incident-events.port';
 
-export interface IncidentListQuery extends PagedQueryDto {
+export interface IncidentListQuery extends PagedQueryDto, SortQuery<IncidentSortField> {
   state?: IncidentState[];
   open?: boolean;
   deviceId?: string;
@@ -254,7 +255,12 @@ export class IncidentsQueryService {
       ...(query.deviceId ? { deviceId: query.deviceId } : {}),
       ...(query.from ? { createdAt: { gte: query.from } } : {}),
     };
-    const [rows, total] = await this.repository.page(where, page.skip, page.take);
+    const [rows, total] = await this.repository.page(
+      where,
+      page.skip,
+      page.take,
+      resolveSort(query),
+    );
     return toPagedResult(await this.views(rows), total, page);
   }
 

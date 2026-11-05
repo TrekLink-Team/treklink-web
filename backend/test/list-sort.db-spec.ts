@@ -1,5 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { AccountType, DeviceStatus, LossCaseState, MaintenanceStatus } from '@prisma/client';
+import {
+  AccountType,
+  DeviceStatus,
+  IncidentConfidence,
+  IncidentSource,
+  IncidentState,
+  LossCaseState,
+  MaintenanceStatus,
+} from '@prisma/client';
 import { ListSort } from '../src/common/dto/sorting';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { DevicesRepository, DEVICE_SORT_FIELDS } from '../src/modules/devices/devices.repository';
@@ -11,6 +19,10 @@ import {
   MAINTENANCE_SORT_FIELDS,
   MaintenanceRepository,
 } from '../src/modules/devices/maintenance.repository';
+import {
+  INCIDENT_SORT_FIELDS,
+  IncidentsRepository,
+} from '../src/modules/incidents/incidents.repository';
 
 // Capture explicit connection settings before Prisma can load a local .env at construction.
 const databaseUrl = process.env.DATABASE_URL;
@@ -27,6 +39,7 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
   const devices = new DevicesRepository(prisma);
   const maintenance = new MaintenanceRepository(prisma);
   const lossCases = new LossCasesRepository(prisma);
+  const incidents = new IncidentsRepository(prisma);
   const runId = randomUUID();
   const token = runId.slice(0, 8).toUpperCase();
   const nodeBase = BigInt(Date.now() % 1_000_000_000) * 4n + 3_000_000_000n;
@@ -38,6 +51,8 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
   let recordB: string;
   let caseA: string;
   let caseB: string;
+  let incidentA: string;
+  let incidentB: string;
 
   const orderOf = (ids: string[], first: string, second: string) =>
     ids.filter((id) => id === first || id === second);
@@ -134,6 +149,24 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
       });
     caseA = (await lossCase(deviceA, true)).id;
     caseB = (await lossCase(deviceB, false)).id;
+
+    // The low incident has the later deadline, so the default urgency order puts the high one first.
+    const incident = (deviceId: string, low: boolean) =>
+      prisma.incident.create({
+        data: {
+          code: `INC-W26-${token}-${low ? 'A' : 'B'}`,
+          deviceId,
+          organizationId,
+          state: low ? IncidentState.NOTIFY_PRIMARY : IncidentState.ACKNOWLEDGED,
+          source: IncidentSource.DEVICE_SOS,
+          confidence: IncidentConfidence.CONFIRMED,
+          firstEventAt: new Date('2026-10-01T00:00:00.000Z'),
+          lastEventAt: new Date(low ? '2026-10-01T01:00:00.000Z' : '2026-10-01T02:00:00.000Z'),
+          tierDeadlineAt: new Date(low ? '2026-10-01T03:00:00.000Z' : '2026-10-01T02:30:00.000Z'),
+        },
+      });
+    incidentA = (await incident(deviceA, true)).id;
+    incidentB = (await incident(deviceB, false)).id;
   });
 
   afterAll(async () => {
@@ -184,6 +217,20 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
           recordB,
         ),
       ).toEqual([recordA, recordB]);
+    });
+  });
+
+  describe('incidents api-design 01', () => {
+    it.each(both(INCIDENT_SORT_FIELDS))('sorts by $field $order', async (sort) => {
+      const [rows, total] = await incidents.page({ organizationId }, 0, 20, sort);
+      const expected = sort.order === 'asc' ? [incidentA, incidentB] : [incidentB, incidentA];
+      expect(rows.map((row) => row.id)).toEqual(expected);
+      expect(total).toBe(2);
+    });
+
+    it('keeps the most urgent deadline first without a sort (D-059 rule 7)', async () => {
+      const [rows] = await incidents.page({ organizationId }, 0, 20);
+      expect(rows.map((row) => row.id)).toEqual([incidentB, incidentA]);
     });
   });
 
