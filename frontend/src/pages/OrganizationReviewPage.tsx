@@ -43,6 +43,7 @@ import {
   type StateTransition,
 } from '../shared/ui';
 import { ErrorState, Fact } from '../shared/ui/bits';
+import { cn } from '../shared/ui/cn';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { ChannelKeySection } from '../widgets/ChannelKeySection/ChannelKeySection';
 
@@ -463,7 +464,7 @@ export const OrganizationReviewPage: React.FC = () => {
   };
 
   return (
-    <section aria-labelledby="orgs-title" className="flex flex-1 flex-col">
+    <section aria-labelledby="orgs-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <StickyPageHeader>
         <PageHeader id="orgs-title" title="Organizations" />
         <Tabs
@@ -479,9 +480,16 @@ export const OrganizationReviewPage: React.FC = () => {
         />
       </StickyPageHeader>
 
-      <TabPanel idPrefix="orgs" tabKey={tab}>
-        <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
-          <div className="min-w-0">
+      <TabPanel idPrefix="orgs" tabKey={tab} className="flex min-h-0 flex-1 flex-col">
+        {/* From 1280 px the list and the organization card each scroll inside themselves; below
+            that they stack and this panel body is the one scroll region (ui standard §7). */}
+        <div
+          className={cn(
+            'grid min-h-0 flex-1 content-start items-start gap-5 overflow-y-auto overscroll-contain xl:grid-cols-[1fr_380px] xl:grid-rows-[minmax(0,1fr)] xl:overflow-visible',
+            '[@media(max-height:479.98px)]:overflow-visible',
+          )}
+        >
+          <div data-fit-page="" className="flex min-w-0 flex-col xl:max-h-full">
             {/* The code and Show details open the organization card beside the list, this screen's
                 record view (verification, channel key, decision) in place of the built-in pane. */}
             <CollectionView<OrganizationReview>
@@ -535,7 +543,7 @@ export const OrganizationReviewPage: React.FC = () => {
           {selected ? (
             <Card
               as="article"
-              className="flex flex-col gap-4 xl:sticky xl:top-[calc(var(--tl-page-header-h,0px)+1rem)]"
+              className="flex flex-col gap-4 xl:max-h-full xl:overflow-y-auto xl:overscroll-contain"
             >
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-title-sm text-ink">{selected.legalName}</h2>

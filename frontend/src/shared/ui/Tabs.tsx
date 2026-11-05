@@ -124,15 +124,22 @@ export const TabPanel: React.FC<{
   tabKey: string;
   children: React.ReactNode;
   className?: string;
-}> = ({ idPrefix, tabKey, children, className }) => (
+  /**
+   * The panel takes the rest of a fit page (ui standard §7): a CollectionView that is its direct
+   * child fills it and scrolls only its item box.
+   */
+  fill?: boolean;
+}> = ({ idPrefix, tabKey, children, className, fill }) => (
   <div
     role="tabpanel"
     id={`${idPrefix}-panel-${tabKey}`}
     aria-labelledby={`${idPrefix}-tab-${tabKey}`}
     tabIndex={0}
+    data-fit-page={fill ? '' : undefined}
     // The panel is a tab stop, so it shows the shared focus ring (2.4.7, review of treklink-web#349).
     className={cn(
       'rounded-panel outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+      fill && 'flex min-h-0 flex-1 flex-col',
       className,
     )}
   >
