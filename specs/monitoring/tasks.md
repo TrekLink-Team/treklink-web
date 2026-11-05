@@ -112,7 +112,8 @@
 ## Phase 5: Frontend Integration
 
 - [ ] 5.1 Live map widget with the overlay, stale and incident markers, reconnect banner (MSG32) that keeps the last positions, map error state (MSG33) that keeps the panels live; system health and reports pages (owner LongNN, tracked in `specs/frontend/tasks.md` 9.1 to 9.4)
-  - _Requirements: REQ-STA-01, REQ-STA-02, AC-07, FR-MON-09_
+  - _Requirements: REQ-STA-01, REQ-STA-02, AC-07, FR-MON-09, REQ-UBI-06_
+  - **Partly done** (2026-11-06, KhoaDD under D-078, W33, leader ruling): markers cluster and stack at their readings (REQ-UBI-06, design §5). `shared/ui/map/spread.ts` and its tests are removed; `shared/ui/map/cluster.ts` groups by pixel distance and names a badge, and `LiveMapWidget` draws badges, stacks and the list popup. Tests: `cluster.test.ts` (pixel reach, centroid, severity order and colour, stable grouping, names), `LiveMapWidget.test.tsx` (badge at the centroid, SOS colour and name, zoom to bounds by click and Enter, list for one spot with focus and Escape, stack at zoom 14 with the most severe on top, stack list, the chip on the top pin only, a chosen device inside a cluster). The box stays open for the system health and reports pages it also names
 
 ## Phase 6: Verification & DoD
 

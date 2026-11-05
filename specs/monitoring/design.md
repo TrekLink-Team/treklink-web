@@ -119,6 +119,26 @@ on any other host. The client also hides OpenTopoMap and Stadia on every host (2
 "South China Sea" at zoom 5 to 7 and "北部湾" on the Gulf of Tonkin, outside the overlay masks. Their entries
 stay in `monitoring.mapBasemaps` so they return once those labels are masked.
 
+**Map markers: clusters and stacks (leader ruling 2026-11-06, REQ-UBI-06).** This replaces the ring spread
+of W14c (treklink-web#360, #362, #367, #369), which moved icons off their readings and made them jump at
+each zoom. No marker is ever offset. `shared/ui/map/cluster.ts` groups markers in pixel space after every
+reconcile and every zoom end, with no extra package: each marker starts as its own group and the two groups
+whose centroids are closest, under the reach, merge until none is left (ids in order, so the grouping is
+the same at every redraw).
+
+| Zoom | Reach | Drawn as | Activation |
+|---|---|---|---|
+| below 14 (`CLUSTER_UNTIL_ZOOM`, or the map's maximum when lower) | 48 px between target centres (`CLUSTER_REACH_PX`) | a group of two or more: one 44 px badge at the mean of its readings, its members off the map; the count dark on white, the ring in the colour of the most severe state, an "SOS" flag when one is inside | zoom to the members' bounds (at least one level, at most the maximum); a list popup instead when the map is at its maximum zoom or the members share one spot |
+| 14 and up | 24 px (`STACK_REACH_PX`, the marker target) | each marker at its reading; the most severe on top (z offset per severity rank); the top marker shows the stack count and the only "Not heard since handover" chip of the stack | any member opens the list popup of the stack |
+
+Severity order: SOS, needs attention, not heard since handover, offline, live. A badge's accessible name is
+"{n} devices", then each state that is not live with its count in that order, then "near {lat}, {lon}" to
+four decimals; a stacked marker's name adds ", {i} of {n} devices at this spot". The list popup holds every
+member's own popup content in severity order, scrolls inside the popup (`tabindex="0"`, named), takes focus
+when it opens, and Escape closes it and returns focus to the marker or badge. A device chosen in the side
+list while inside a cluster zooms the map to 14 at its reading and opens its popup once drawn. The
+sovereignty overlay panes are unchanged: the mask above the tiles, the labels above the markers (D-085).
+
 ---
 
 ## 6. Error catalogue

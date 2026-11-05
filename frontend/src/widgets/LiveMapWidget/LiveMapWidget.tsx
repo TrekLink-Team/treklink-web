@@ -14,7 +14,17 @@ import { cn } from '../../shared/ui/cn';
 import { LINK } from '../../shared/ui/styles';
 import { createMarkerGlider } from '../../shared/ui/map/glide';
 import { markerIcon as systemMarkerIcon } from '../../shared/ui/map/markers';
-import { spreadOffsets } from '../../shared/ui/map/spread';
+import {
+  CLUSTER_BADGE_PX,
+  CLUSTER_REACH_PX,
+  CLUSTER_UNTIL_ZOOM,
+  SEVERITY_ORDER,
+  STACK_REACH_PX,
+  clusterName,
+  groupPoints,
+  nearText,
+  severityRank,
+} from '../../shared/ui/map/cluster';
 import type { MarkerState } from '../../shared/ui/status';
 
 // A link at the foot of a marker popup, such as "Position history" (screen 9.1). `state` travels with
@@ -96,39 +106,40 @@ const markerIcon = (marker: MapMarker): L.DivIcon =>
     showChip: marker.status === 'unheard',
   });
 
-// Draws each icon at its spread offset (shared/ui/map/spread.ts): markers whose 24 px targets would
-// intersect at this zoom sit on a small circle instead (WCAG 2.2, 2.5.8). Only the icon's margin moves,
-// the way Leaflet itself places an icon on its anchor, so the marker's position, its glide and its popup
-// stay on the reading. Leaflet resets the margin on setIcon, so this runs after every reconcile.
-const spreadMarkers = (
-  map: L.Map,
-  markers: Map<string, L.Marker>,
-  targets: Map<string, [number, number]>,
-) => {
-  const points = [...markers].map(([id, marker]) => {
-    const { iconSize, iconAnchor } = marker.getIcon().options;
-    const size = L.point(iconSize ?? [0, 0]);
-    const anchor = L.point(iconAnchor ?? [size.x / 2, size.y / 2]);
-    // The centre of the target, which for a pin sits above the reading.
-    const at = map
-      .latLngToLayerPoint(targets.get(id) ?? marker.getLatLng())
-      .add([size.x / 2 - anchor.x, size.y / 2 - anchor.y]);
-    return { id, x: at.x, y: at.y, anchor };
-  });
-  const offsets = spreadOffsets(points);
-  for (const { id, anchor } of points) {
-    const element = markers.get(id)?.getElement();
-    if (!element) continue;
-    const offset = offsets.get(id);
-    const [dx, dy] = offset ?? [0, 0];
-    element.style.marginLeft = `${dx - anchor.x}px`;
-    element.style.marginTop = `${dy - anchor.y}px`;
-    // Spread pins sit side by side, so their "Not heard since handover" chips would cover each other.
-    // The chip hides while its marker is offset; the chip is aria-hidden, so the accessible name, the
-    // popup and the list keep the state.
-    const chip = element.querySelector<HTMLElement>('.tl-marker--unheard + .tl-marker-label');
-    if (chip) chip.style.display = offset ? 'none' : '';
+const stateOf = (marker: MapMarker): MarkerState => MARKER_STATE[marker.status ?? 'ok'];
+
+// The most severe state draws on top wherever markers meet: Leaflet stacks by latitude, so each rank
+// lifts a marker past any latitude difference inside a stack.
+const Z_PER_RANK = 1000;
+const zOffsetOf = (state: MarkerState): number =>
+  (SEVERITY_ORDER.length - severityRank(state)) * Z_PER_RANK;
+
+// A cluster badge (leader ruling 2026-11-06): a 44 px round icon with the device count, its ring in the
+// colour of the most severe state inside, and an SOS flag when one is there, so the state is not shown
+// by colour alone. The count is dark on white in both themes, as the tiles are light in both.
+const clusterIcon = (state: MarkerState, count: number, name: string): L.DivIcon => {
+  const element = document.createElement('div');
+  element.className = `tl-cluster tl-cluster--${state}`;
+  element.setAttribute('role', 'img');
+  element.setAttribute('aria-label', name);
+  const text = document.createElement('span');
+  text.setAttribute('aria-hidden', 'true');
+  text.textContent = String(count);
+  element.append(text);
+  if (state === 'sos') {
+    const flag = document.createElement('span');
+    flag.className = 'tl-cluster-flag';
+    flag.setAttribute('aria-hidden', 'true');
+    flag.textContent = 'SOS';
+    element.append(flag);
   }
+  const centre = CLUSTER_BADGE_PX / 2;
+  return L.divIcon({
+    html: element,
+    className: 'tl-cluster-hit',
+    iconSize: [CLUSTER_BADGE_PX, CLUSTER_BADGE_PX],
+    iconAnchor: [centre, centre],
+  });
 };
 
 // Opens a popup link: true when the page took the navigation, false to let the browser follow the href.
@@ -164,6 +175,57 @@ const popupContent = (marker: MapMarker, openLink: OpenLink): HTMLElement => {
   }
   return element;
 };
+
+// A popup the keyboard can enter and leave: focus moves into it when it opens from the marker, and
+// Escape closes it and returns focus to the marker (screen 9.1).
+const closable = (element: HTMLElement, close: () => void): HTMLElement => {
+  element.tabIndex = -1;
+  element.classList.add('outline-none');
+  element.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation();
+    close();
+  });
+  return element;
+};
+
+// Every device of a stack or a cluster, each with its own popup content, in severity order (leader
+// ruling 2026-11-06), so no device under another is out of reach. The list scrolls inside the popup
+// and takes focus itself, so it scrolls from the keyboard even when no entry has a link.
+const listContent = (
+  members: MapMarker[],
+  heading: string,
+  openLink: OpenLink,
+  map: L.Map,
+): HTMLElement => {
+  const element = document.createElement('div');
+  element.setAttribute('role', 'group');
+  element.setAttribute('aria-label', heading);
+  const title = document.createElement('p');
+  title.className = 'font-semibold text-sm';
+  title.textContent = heading;
+  element.append(title);
+  const list = document.createElement('ul');
+  list.className = 'tl-map-list mt-1 overflow-y-auto divide-y divide-line pr-1';
+  list.tabIndex = 0;
+  list.setAttribute('aria-label', heading);
+  // The list fits the map it opens on: a phone's map is about 320 px high, so the list scrolls inside
+  // the popup instead of reaching past the map box. Set before the popup opens, so Leaflet pans for it.
+  list.style.maxHeight = `${Math.min(LIST_MAX_PX, Math.max(LIST_MIN_PX, map.getSize().y - 190))}px`;
+  for (const member of members) {
+    const item = document.createElement('li');
+    item.className = 'py-1.5';
+    item.append(popupContent(member, openLink));
+    list.append(item);
+  }
+  element.append(list);
+  return element;
+};
+
+const stackHeading = (count: number): string => `${count} devices at this spot`;
+// Height limits of that list in CSS px; within them it follows the map's height.
+const LIST_MAX_PX = 256;
+const LIST_MIN_PX = 96;
 
 // What a marker shows besides its position; a change redraws its icon and popup.
 const lookOf = (marker: MapMarker): string =>
@@ -204,6 +266,54 @@ export interface MapView {
   center: [number, number];
   zoom: number;
 }
+
+// Leaflet draws its controls above popups, so a popup pans clear of the zoom buttons at the top left
+// and is no wider than the map beside them; on a 360 px phone the map is about 320 px wide.
+const CONTROL_CLEARANCE_PX = 58;
+const popupFit = (map: L.Map): Pick<L.PopupOptions, 'maxWidth' | 'autoPanPaddingTopLeft'> => ({
+  maxWidth: Math.max(160, Math.min(300, map.getSize().x - CONTROL_CLEARANCE_PX - 24)),
+  autoPanPaddingTopLeft: [CONTROL_CLEARANCE_PX, 8],
+});
+
+interface Badge {
+  marker: L.Marker;
+  /** Member ids, most severe first. */
+  ids: string[];
+  near: string;
+  look: string;
+}
+
+// A stacked marker keeps its reading and its icon. Only the top one shows its "Not heard since
+// handover" chip, so chips do not cover each other, and it carries the count of the stack; each member
+// adds its place in the stack to its accessible name. The chip and the count are aria-hidden, so the
+// name, the popup list and the device list keep the state.
+const decorateStacked = (
+  marker: L.Marker,
+  m: MapMarker,
+  stack: { index: number; count: number } | null,
+) => {
+  const element = marker.getElement();
+  if (!element) return;
+  const chip = element.querySelector<HTMLElement>('.tl-marker--unheard + .tl-marker-label');
+  if (chip) chip.style.display = stack && stack.index > 0 ? 'none' : '';
+  element
+    .querySelector('[role="img"]')
+    ?.setAttribute(
+      'aria-label',
+      stack ? `${textOf(m)}, ${stack.index + 1} of ${stack.count} devices at this spot` : textOf(m),
+    );
+  const body = element.querySelector('.tl-marker-body');
+  let count = body?.querySelector<HTMLElement>(':scope > .tl-stack-count') ?? null;
+  if (stack && stack.index === 0) {
+    if (!count && body) {
+      count = document.createElement('span');
+      count.className = 'tl-stack-count';
+      count.setAttribute('aria-hidden', 'true');
+      body.append(count);
+    }
+    if (count) count.textContent = String(stack.count);
+  } else count?.remove();
+};
 
 const LeafletMap: React.FC<{
   config: MapConfig;
@@ -325,22 +435,193 @@ const LeafletMap: React.FC<{
     [config],
   );
 
+  // What layoutMarkers last drew: the badge per cluster key, the popup content key per marker, and a
+  // device to open once a zoom has drawn it.
+  const badges = useRef<Map<string, Badge>>(new Map());
+  const popupKeys = useRef<Map<string, string>>(new Map());
+  const data = useRef<Map<string, MapMarker>>(new Map());
+  const pendingOpen = useRef<string | null>(null);
+  const listPopup = useRef<{ key: string; popup: L.Popup } | null>(null);
+
   useEffect(() => {
     if (!map) return;
     const tracked = markerRefs.current;
     const tracedLooks = looks.current;
     const tracedTargets = targets.current;
+    const tracedBadges = badges.current;
+    const tracedKeys = popupKeys.current;
+    const tracedData = data.current;
     return () => {
       glider?.cancelAll();
       tracked.clear();
       tracedLooks.clear();
       tracedTargets.clear();
+      tracedBadges.clear();
+      tracedKeys.clear();
+      tracedData.clear();
       map.remove();
     };
   }, [map, glider]);
 
+  // A cluster badge, clicked or activated with Enter: zoom in to the bounds of its members, or, when the
+  // map cannot come closer (the maximum zoom, or members that share one spot), list them in a popup.
+  const activateBadge = useCallback(
+    (key: string) => {
+      const badge = badges.current.get(key);
+      if (!map || !badge) return;
+      const readings = badge.ids.map((id) =>
+        L.latLng(targets.current.get(id) ?? markerRefs.current.get(id)!.getLatLng()),
+      );
+      const bounds = L.latLngBounds(readings);
+      const max = map.getMaxZoom();
+      const zoom = map.getZoom();
+      if (zoom >= max || bounds.getNorthEast().equals(bounds.getSouthWest())) {
+        const members = badge.ids.map((id) => data.current.get(id)!);
+        const heading = `${members.length} devices near ${badge.near}`;
+        const close = () => {
+          map.closePopup();
+          badges.current.get(key)?.marker.getElement()?.focus();
+        };
+        const content = closable(listContent(members, heading, openLink, map), close);
+        const popup = L.popup({ ...popupFit(map), offset: [0, -CLUSTER_BADGE_PX / 2 + 4] })
+          .setLatLng(badge.marker.getLatLng())
+          .setContent(content)
+          .openOn(map);
+        listPopup.current = { key, popup };
+        content.focus();
+        return;
+      }
+      const fit = map.getBoundsZoom(bounds, false, L.point(CLUSTER_REACH_PX, CLUSTER_REACH_PX));
+      const next = Math.min(max, Math.max(Number.isFinite(fit) ? fit : zoom + 2, zoom + 1));
+      map.setView(bounds.getCenter(), next);
+    },
+    [map, openLink],
+  );
+
+  // Clusters zoomed out, stacks zoomed in (leader ruling 2026-11-06). No marker ever leaves its reading:
+  // markers whose targets sit within CLUSTER_REACH_PX of each other below CLUSTER_UNTIL_ZOOM are taken
+  // off the map and drawn as one badge at their centroid; from that zoom up, markers within
+  // STACK_REACH_PX stay where they are, the most severe on top, and each opens the list of the stack.
+  // Pixel distances change with the zoom, so this runs after every reconcile and every zoom.
+  const layoutMarkers = useCallback(() => {
+    if (!map) return;
+    const zoom = map.getZoom();
+    const clustering = zoom < Math.min(CLUSTER_UNTIL_ZOOM, map.getMaxZoom());
+    const points = [...markerRefs.current].flatMap(([id, marker]) => {
+      const m = data.current.get(id);
+      if (!m) return [];
+      const { iconSize, iconAnchor } = marker.getIcon().options;
+      const size = L.point(iconSize ?? [0, 0]);
+      const anchor = L.point(iconAnchor ?? [size.x / 2, size.y / 2]);
+      // The centre of the target, which for a pin sits above the reading.
+      const at = map
+        .project(targets.current.get(id) ?? marker.getLatLng(), zoom)
+        .add([size.x / 2 - anchor.x, size.y / 2 - anchor.y]);
+      return [{ id, x: at.x, y: at.y, state: stateOf(m) }];
+    });
+    const groups = groupPoints(points, clustering ? CLUSTER_REACH_PX : STACK_REACH_PX);
+    const drawnBadges = new Set<string>();
+
+    for (const group of groups) {
+      const members = group.ids.map((id) => data.current.get(id)!);
+      if (clustering && members.length > 1) {
+        for (const id of group.ids) markerRefs.current.get(id)?.remove();
+        const key = [...group.ids].sort().join('|');
+        drawnBadges.add(key);
+        const readings = group.ids.map(
+          (id) => targets.current.get(id) ?? markerRefs.current.get(id)!.getLatLng(),
+        );
+        const centre = L.latLng(
+          readings.reduce((sum, at) => sum + L.latLng(at).lat, 0) / readings.length,
+          readings.reduce((sum, at) => sum + L.latLng(at).lng, 0) / readings.length,
+        );
+        const near = nearText(centre.lat, centre.lng);
+        const name = clusterName(members.map(stateOf), near);
+        const look = JSON.stringify([group.state, name]);
+        const existing = badges.current.get(key);
+        if (existing) {
+          existing.marker.setLatLng(centre);
+          if (existing.look !== look) {
+            existing.marker.options.title = name;
+            existing.marker.setIcon(clusterIcon(group.state, members.length, name));
+            existing.marker.setZIndexOffset(zOffsetOf(group.state));
+          }
+          Object.assign(existing, { ids: group.ids, near, look });
+          continue;
+        }
+        const badge: Badge = {
+          marker: L.marker(centre, {
+            icon: clusterIcon(group.state, members.length, name),
+            title: name,
+            zIndexOffset: zOffsetOf(group.state),
+          }),
+          ids: group.ids,
+          near,
+          look,
+        };
+        badge.marker.on('click', () => activateBadge(key));
+        // Leaflet turns Enter into a click only for a marker with a popup bound.
+        badge.marker.on('keypress', (event: L.LeafletKeyboardEvent) => {
+          if (event.originalEvent.key === 'Enter') activateBadge(key);
+        });
+        badge.marker.addTo(map);
+        badges.current.set(key, badge);
+        continue;
+      }
+
+      const stacked = members.length > 1;
+      const stackKey = stacked
+        ? JSON.stringify(['stack', ...members.map((m) => [m.id, looks.current.get(m.id)])])
+        : null;
+      group.ids.forEach((id, index) => {
+        const marker = markerRefs.current.get(id)!;
+        const m = members[index];
+        if (!map.hasLayer(marker)) marker.addTo(map);
+        marker.setZIndexOffset(
+          zOffsetOf(stateOf(m)) + (stacked && index === 0 ? Z_PER_RANK / 2 : 0),
+        );
+        const contentKey = stackKey ?? looks.current.get(id) ?? '';
+        Object.assign(marker.getPopup()?.options ?? {}, popupFit(map));
+        if (popupKeys.current.get(id) !== contentKey) {
+          const close = () => {
+            map.closePopup();
+            marker.getElement()?.focus();
+          };
+          marker.setPopupContent(
+            closable(
+              stacked
+                ? listContent(members, stackHeading(members.length), openLink, map)
+                : popupContent(m, openLink),
+              close,
+            ),
+          );
+          popupKeys.current.set(id, contentKey);
+        }
+        decorateStacked(marker, m, stacked ? { index, count: members.length } : null);
+      });
+    }
+
+    for (const [key, badge] of badges.current) {
+      if (drawnBadges.has(key)) continue;
+      badge.marker.remove();
+      badges.current.delete(key);
+      if (listPopup.current?.key === key) {
+        listPopup.current.popup.remove();
+        listPopup.current = null;
+      }
+    }
+
+    const waiting = pendingOpen.current;
+    const shown = waiting ? markerRefs.current.get(waiting) : undefined;
+    if (shown && map.hasLayer(shown)) {
+      pendingOpen.current = null;
+      shown.openPopup();
+    }
+  }, [map, openLink, activateBadge]);
+
   // Reconcile markers against the current set: update in place, add new, remove departed. A moved
-  // marker glides to its new reading; a new one is placed at once.
+  // marker glides to its new reading; a new one is placed at once. layoutMarkers then puts each marker
+  // on the map, in a cluster or in a stack.
   useEffect(() => {
     if (!map || !glider) return;
     const seen = new Set<string>();
@@ -348,6 +629,7 @@ const LeafletMap: React.FC<{
     for (const m of markers) {
       seen.add(m.id);
       targets.current.set(m.id, m.position);
+      data.current.set(m.id, m);
       const look = lookOf(m);
       const existing = markerRefs.current.get(m.id);
       if (existing) {
@@ -357,14 +639,19 @@ const LeafletMap: React.FC<{
           existing.options.title = textOf(m);
           existing.options.alt = textOf(m);
           existing.setIcon(markerIcon(m));
-          existing.setPopupContent(popupContent(m, openLink));
           looks.current.set(m.id, look);
         }
         continue;
       }
-      const marker = L.marker(m.position, { icon: markerIcon(m), title: textOf(m), alt: textOf(m) })
-        .bindPopup(popupContent(m, openLink), { offset: [0, -4] })
-        .addTo(map);
+      const marker = L.marker(m.position, {
+        icon: markerIcon(m),
+        title: textOf(m),
+        alt: textOf(m),
+      }).bindPopup('', { offset: [0, -4] });
+      // Focus moves into a popup opened from the marker, by pointer, Enter or the side list (screen 9.1).
+      marker.on('popupopen', (event) => {
+        event.popup.getElement()?.querySelector<HTMLElement>('[tabindex="-1"]')?.focus();
+      });
       markerRefs.current.set(m.id, marker);
       looks.current.set(m.id, look);
     }
@@ -376,20 +663,20 @@ const LeafletMap: React.FC<{
         markerRefs.current.delete(id);
         looks.current.delete(id);
         targets.current.delete(id);
+        popupKeys.current.delete(id);
+        data.current.delete(id);
       }
     }
-    spreadMarkers(map, markerRefs.current, targets.current);
-  }, [map, glider, markers, openLink]);
+    layoutMarkers();
+  }, [map, glider, markers, layoutMarkers]);
 
-  // Pixel distances change with the zoom, so the spread is worked out again after each one.
   useEffect(() => {
     if (!map) return;
-    const respread = () => spreadMarkers(map, markerRefs.current, targets.current);
-    map.on('zoomend viewreset', respread);
+    map.on('zoomend viewreset', layoutMarkers);
     return () => {
-      map.off('zoomend viewreset', respread);
+      map.off('zoomend viewreset', layoutMarkers);
     };
-  }, [map]);
+  }, [map, layoutMarkers]);
 
   // The track of a history screen: a line through the positions, with the map fitted to it. Nothing is
   // drawn for fewer than two points, and the line goes when the track does.
@@ -417,8 +704,15 @@ const LeafletMap: React.FC<{
     if (!map || !selectedId) return;
     const marker = markerRefs.current.get(selectedId);
     if (!marker) return;
-    map.panTo(targets.current.get(selectedId) ?? marker.getLatLng());
-    marker.openPopup();
+    const at = targets.current.get(selectedId) ?? marker.getLatLng();
+    if (map.hasLayer(marker)) {
+      map.panTo(at);
+      marker.openPopup();
+      return;
+    }
+    // Inside a cluster: zoom to where it no longer clusters; layoutMarkers opens it once drawn.
+    pendingOpen.current = selectedId;
+    map.setView(at, Math.max(map.getZoom(), Math.min(CLUSTER_UNTIL_ZOOM, map.getMaxZoom())));
   }, [map, selectedId]);
 
   return (
