@@ -85,6 +85,13 @@ describe('LossCasePage (screen 4.4)', () => {
     expect(screen.queryByRole('button', { name: 'Settle' })).toBeNull();
   });
 
+  it("leaves the trail back to Loss cases to the shell's breadcrumb, so a phone shows one back link", async () => {
+    serve(() => theCase());
+    renderPage();
+    await screen.findByRole('heading', { name: 'LOSS-0003, Reported' });
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+  });
+
   it('draws the last position on a small map with the coordinates under it (W20B item 5)', async () => {
     serve(() => theCase());
     renderPage();
