@@ -39,6 +39,8 @@ export interface SavedOrganizationRole {
 
 export const organizationRoleKeys = {
   all: ['organization-roles'] as const,
+  // One organization read by TrekLink (organizations api-design 33).
+  of: (organizationId: string) => ['organization-roles', organizationId] as const,
 };
 
 export const fetchOrganizationRoles = () => apiClient<OrganizationRoles>('/organization/roles');
@@ -47,6 +49,15 @@ export const useOrganizationRoles = () =>
   useQuery({
     queryKey: organizationRoleKeys.all,
     queryFn: fetchOrganizationRoles,
+    retry: false,
+  });
+
+// organizations api-design 33: the same view for TrekLink Staff and Admin, read only.
+export const useOrganizationRolesOf = (organizationId: string | undefined) =>
+  useQuery({
+    queryKey: organizationRoleKeys.of(organizationId ?? ''),
+    queryFn: () => apiClient<OrganizationRoles>(`/organizations/${organizationId}/roles`),
+    enabled: Boolean(organizationId),
     retry: false,
   });
 

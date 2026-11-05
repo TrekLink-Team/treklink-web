@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import {
   approveOrganization,
@@ -46,6 +47,7 @@ import {
 import { ErrorState, Fact } from '../shared/ui/bits';
 import { cn } from '../shared/ui/cn';
 import { invalid, messageOf } from '../shared/ui/errors';
+import { LINK } from '../shared/ui/styles';
 import { ChannelKeySection } from '../widgets/ChannelKeySection/ChannelKeySection';
 
 type Tab = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED' | 'ALL';
@@ -551,6 +553,9 @@ export const OrganizationReviewPage: React.FC = () => {
                 <h2 className="text-title-sm text-ink">{selected.legalName}</h2>
                 <StatusBadge entry={ORGANIZATION_STATUS[selected.status]} />
               </div>
+              <Link to={`/t/organizations/${selected.id}`} className={LINK}>
+                Open the full page
+              </Link>
               <dl className="grid gap-3 sm:grid-cols-2">
                 <Fact label="Code">{selected.code}</Fact>
                 <Fact label="Tax code">{selected.taxCode}</Fact>

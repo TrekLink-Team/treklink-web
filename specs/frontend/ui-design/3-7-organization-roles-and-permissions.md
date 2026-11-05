@@ -87,7 +87,7 @@ One step, no text fields. The control is a grid of checkboxes.
 
 ## Read-only view for TrekLink
 
-TrekLink Staff and Admin read the roles of one organization on its detail page (`/t/organizations/:id`, screen 3.2) through `GET /api/organizations/:id/roles` (organizations api-design 33). The same grid renders with every cell disabled and no toolbar. Placing the section on the page of 3.2 is part of task 3.7 and waits for the same ruling.
+TrekLink Staff and Admin read the roles of one organization on its detail page (`/t/organizations/:id`, screen 3.2) through `GET /api/organizations/:id/roles` (organizations api-design 33). The same grid renders with every cell disabled and no toolbar. Built on 2026-11-05 (TanNB, TK-190): `OrganizationRolesReadOnly` on `OrganizationDetailPage`, over the same `entities/organization-role` model. Below 768 px the grid scrolls inside its box; the select of one role at a time is kept for the editing page.
 
 ## Checklist
 

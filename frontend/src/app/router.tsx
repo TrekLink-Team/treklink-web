@@ -46,6 +46,7 @@ import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { ServiceCreditsPage } from '../pages/ServiceCreditsPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
 import { OrgDashboardPage } from '../pages/OrgDashboardPage';
+import { OrganizationDetailPage } from '../pages/OrganizationDetailPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
 import { PlansPage } from '../pages/PlansPage';
 import { RegisterPage } from '../pages/RegisterPage';
@@ -158,6 +159,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/damage-charges" element={<DamageChargesPage />} />
         <Route path="/t/service-credits" element={<ServiceCreditsPage />} />
         <Route path="/t/organizations" element={<OrganizationReviewPage />} />
+        <Route path="/t/organizations/:id" element={<OrganizationDetailPage />} />
         <Route path="/t/field-stations" element={<StaffFieldStationsPage />} />
         <Route path="/t/counter/:contractId" element={<CounterPage />} />
         <Route path="/t/fleet" element={<FleetPage />} />
