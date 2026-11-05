@@ -35,8 +35,9 @@ export interface MapMarker {
   status?: 'ok' | 'warning' | 'stale' | 'unheard' | 'incident';
   /** Extra popup lines under the subtitle, such as battery and last-seen time. */
   details?: string[];
-  /** A link under the popup lines; a marker without one shows the popup as before. */
-  link?: MapLink;
+  /** Links under the popup lines, in order, such as "Open incident" then "Position history"; a marker
+   * without any shows the popup as before. */
+  links?: MapLink[];
   /** The marker's accessible name, when the page composes one with the state (screen 9.1); without it
    * the name is the title and subtitle. */
   name?: string;
@@ -146,8 +147,7 @@ const popupContent = (marker: MapMarker, openLink: OpenLink): HTMLElement => {
     text.textContent = line;
     element.append(text);
   }
-  if (marker.link) {
-    const { link } = marker;
+  for (const link of marker.links ?? []) {
     const anchor = document.createElement('a');
     anchor.href = link.to;
     anchor.textContent = link.label;
@@ -172,8 +172,7 @@ const lookOf = (marker: MapMarker): string =>
     marker.subtitle,
     marker.status,
     marker.details,
-    marker.link?.label,
-    marker.link?.to,
+    marker.links?.map((link) => [link.label, link.to]),
     marker.name,
   ]);
 

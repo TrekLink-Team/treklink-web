@@ -169,7 +169,7 @@ describe('LiveMapWidget', () => {
     const link = { label: 'Position history', to: '/o/devices/TL-0001/telemetry', state: { assetTag: 'TL-0001' } };
     render(
       <QueryClientProvider client={client}>
-        <LiveMapWidget markers={[{ ...device('TL-0001', [11.5, 108.5]), link }]} onLink={onLink} />
+        <LiveMapWidget markers={[{ ...device('TL-0001', [11.5, 108.5]), links: [link] }]} onLink={onLink} />
       </QueryClientProvider>,
     );
     fireEvent.click(
@@ -203,7 +203,13 @@ describe('LiveMapWidget', () => {
   it('leaves a popup link to the browser when no onLink is given', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     renderWidget([
-      { ...device('TL-0001', [11.5, 108.5]), link: { label: 'Position history', to: '/t/devices/x/telemetry' } },
+      {
+        ...device('TL-0001', [11.5, 108.5]),
+        links: [
+          { label: 'Open incident INC-1', to: '/o/incidents/i-1' },
+          { label: 'Position history', to: '/t/devices/x/telemetry' },
+        ],
+      },
     ]);
     fireEvent.click(
       (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).parentElement as HTMLElement,
@@ -216,7 +222,14 @@ describe('LiveMapWidget', () => {
     };
     document.addEventListener('click', stop);
     try {
-      fireEvent.click(await screen.findByRole('link', { name: 'Position history' }));
+      // Both links show, in order, each with its own href.
+      await screen.findByRole('link', { name: 'Position history' });
+      const popup = document.querySelector('.leaflet-popup-content') as HTMLElement;
+      expect([...popup.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href'))).toEqual([
+        '/o/incidents/i-1',
+        '/t/devices/x/telemetry',
+      ]);
+      fireEvent.click(screen.getByRole('link', { name: 'Position history' }));
       expect(prevented).toHaveBeenCalledWith(false);
     } finally {
       document.removeEventListener('click', stop);

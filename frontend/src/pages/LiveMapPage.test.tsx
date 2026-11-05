@@ -303,7 +303,9 @@ describe('LiveMapPage (screen 9.1)', () => {
       const seen = formatDateTime(snapshot.devices[2].lastSeenAt as string);
       expect(live.getAttribute('aria-label')).toBe(`TL-0009, live, last seen ${seen}, Le Thi E`);
       const unheard = await screen.findByRole('img', { name: /^TL-0004, / });
-      expect(unheard.getAttribute('aria-label')).toBe('TL-0004, not heard since handover, No holder');
+      expect(unheard.getAttribute('aria-label')).toBe(
+        'TL-0004, not heard since handover, No holder',
+      );
       const offline = await screen.findByRole('img', { name: /^TL-0003, / });
       expect(offline.getAttribute('aria-label')).toBe(
         `TL-0003, offline, last seen ${formatDateTime(snapshot.devices[1].lastSeenAt as string)}, Pham C`,
@@ -408,6 +410,64 @@ describe('LiveMapPage (screen 9.1)', () => {
       ).toBeTruthy();
     },
   );
+
+  it.each([
+    ['o', '/o/incidents/i-7'],
+    ['t', '/t/incidents?incident=i-7'],
+  ] as const)(
+    'links the open incident from the popup and the list on the %s map',
+    async (scope, href) => {
+      snapshot = {
+        cursor: 100,
+        devices: [device({ openIncident: { id: 'i-7', code: 'INC-7', state: 'NOTIFY_PRIMARY' } })],
+        fieldStations: [],
+      };
+      show(scope);
+      fireEvent.click(
+        (await screen.findByRole('img', { name: /^TL-0009, SOS, / })).parentElement as HTMLElement,
+      );
+      const popup = within(document.querySelector('.leaflet-popup-content') as HTMLElement);
+      // The incident comes first, then the position history.
+      expect(popup.getAllByRole('link').map((link) => link.textContent)).toEqual([
+        'Open incident INC-7',
+        'Position history',
+      ]);
+      expect(popup.getByRole('link', { name: 'Open incident INC-7' }).getAttribute('href')).toBe(
+        href,
+      );
+      expect(panel().getByRole('link', { name: 'Open incident INC-7' }).getAttribute('href')).toBe(
+        href,
+      );
+    },
+  );
+
+  it('lists the Field Stations with their last sync and a stale badge', async () => {
+    snapshot = {
+      cursor: 100,
+      devices: [device()],
+      fieldStations: [
+        { id: 'fs-1', name: 'Station A', lastSyncAt: recent(), stale: false },
+        { id: 'fs-2', name: 'Station B', lastSyncAt: null, stale: true },
+      ],
+    };
+    show('o');
+    const stations = within(await screen.findByRole('region', { name: 'Field Stations' }));
+    expect(stations.getByText('Station A')).toBeTruthy();
+    expect(
+      stations.getByText(
+        `Last sync ${formatDateTime(snapshot.fieldStations[0].lastSyncAt as string)}`,
+      ),
+    ).toBeTruthy();
+    expect(stations.getByText('Station B')).toBeTruthy();
+    expect(stations.getByText('Last sync Never')).toBeTruthy();
+    expect(stations.getAllByText('Stale')).toHaveLength(1);
+  });
+
+  it('shows no Field Stations section when the snapshot has none', async () => {
+    show('o');
+    await marker('TL-0009, Le Thi E');
+    expect(screen.queryByRole('region', { name: 'Field Stations' })).toBeNull();
+  });
 
   it('shows the reconnecting banner while the stream is paused', async () => {
     show('o');

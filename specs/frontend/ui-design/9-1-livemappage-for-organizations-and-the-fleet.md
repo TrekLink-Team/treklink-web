@@ -57,7 +57,7 @@ Rules for what is drawn, from the contract and the requirements:
 | Page load, step 3 | WebSocket `/live` handshake with `{ token, after: <snapshot cursor> }`; the server replays entries after the cursor, then `replay.done`, then live entries | none | none |
 | Organization filter (`/t/map` only) | monitoring 02 with `organizationId`; the socket stays on the `fleet` room and the client filters entries by the organization of the device | none | none |
 | Marker click: opens popup | none (data already loaded) | none | none |
-| Popup: "Open incident" (only when `openIncident` is set) | navigation to `/o/incidents/:id` (screen 8.1) on `/o/map`, or `/t/incidents` (screen 8.2) on `/t/map` | none | none |
+| Popup: "Open incident" (only when `openIncident` is set) | navigation to `/o/incidents/:id` (screen 8.1) on `/o/map`, or `/t/incidents?incident=:id` (screen 8.2, which opens that incident's detail inline; no per-incident staff route) on `/t/map` | none | none |
 | Popup: "Position history" | navigation to the telemetry screen 9.2: `/o/devices/:id/telemetry` on `/o/map`, `/t/devices/:id/telemetry` on `/t/map` | none | none |
 | Side panel row click | centres the map on the marker and opens its popup | none | none |
 | Reload map (shown with MSG33 or after `replay.expired`) | repeats steps 1 and 2 | none | none |
@@ -81,7 +81,7 @@ button; the map is the primary surface.
 | Not found or forbidden (403) | MSG26 full-page notice. Another organization's device is never sent (REQ-ERR-01 answers 404 on direct requests). |
 | Offline unit | Dashed circle in the `marker-offline` token colour with "Offline, last seen {time}" in the popup and the list, and an Offline badge; the colour is paired with shape and text (§8 item 3) |
 | Unit not heard since handover | Grey pin with the chip MSG41 at the counter location; the list row says MSG41, and on `/t/map`, where the device's earlier reading is kept, "last seen {time}, before handover" |
-| Stale Field Station | Row in the side panel with "Stale, last sync {time}" |
+| Stale Field Station | Row in the Field Stations section under the device list: a Stale badge and "Last sync {time}" (or "Last sync Never") |
 | Success | Markers and list in sync; the cursor advances with every applied entry |
 
 ## Form fields (if any)
