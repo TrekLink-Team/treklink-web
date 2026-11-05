@@ -366,7 +366,7 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
     if (focus?.action === 'uplink') clearFocus();
   };
   // Update firmware from the hub page or a maintenance record opens the flash panel on its unit once that
-  // unit is connected, recognized and allowed to flash (REQ-EVT-41, task 8.3).
+  // unit is connected, recognized and allowed to flash (REQ-EVT-43, task 8.3).
   const focusedFlash =
     focus?.action === 'flash'
       ? snapshot.connections.find(

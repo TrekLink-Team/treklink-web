@@ -684,8 +684,8 @@ const RecordDrawer: React.FC<{
       record.status === 'OPEN' ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           {record.reason === 'FIRMWARE_UPDATE' && (
-            // The flash panel runs in the device hub, on the unit it holds (devices design section 11.1,
-            // REQ-EVT-39, task 8.3): this opens the hub on the record's unit.
+            // The flash panel runs in the device hub, on the unit it holds (devices design section 12.1,
+            // REQ-EVT-41, task 8.3): this opens the hub on the record's unit.
             <Button
               className="min-h-11"
               onClick={() => {

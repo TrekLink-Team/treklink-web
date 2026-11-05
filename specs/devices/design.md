@@ -1103,9 +1103,9 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
    button is still held.
 6. On a verified write the panel fills the record's firmware version with the release version and opens
    Complete (devices api-design 14); Staff complete the record as today. Built (2026-11-06, task 8.3): the
-   panel runs in the device hub (§11.7), so Complete the record goes to `/t/maintenance` with the record id
+   panel runs in the device hub (§12.7), so Complete the record goes to `/t/maintenance` with the record id
    and the release version in the navigation state, and the maintenance page opens Complete with the version
-   filled. The record's Update firmware opens the hub on its unit (REQ-EVT-39). A failed or unverified write
+   filled. The record's Update firmware opens the hub on its unit (REQ-EVT-41). A failed or unverified write
    records nothing and keeps the record `OPEN` (REQ-ERR-17).
 7. When docking is available (§8), the page also reads the unit back after the reset and shows the
    firmware version the unit reports beside the release version.

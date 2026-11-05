@@ -20,7 +20,7 @@ import { Field, RadioGroup, Select } from '../../shared/ui/Field';
 import { messageOf } from '../../shared/ui/errors';
 import { ALERT, WARNING } from '../../shared/ui/styles';
 
-// What the device hub hands the panel (device-connector FlashPanelProps, devices design section 11.7). Declared
+// What the device hub hands the panel (device-connector FlashPanelProps, devices design section 12.7). Declared
 // here, so this feature imports no other feature (FSD); the shell registers the panel with the hub.
 export interface FlashFirmwareProps {
   device: {
@@ -63,10 +63,10 @@ const MODES = [
 
 /**
  * The firmware flash panel of screen 4.3 (devices task 8.3, design section 9.2), opened by the device
- * hub's Update firmware on a unit with an `OPEN` `FIRMWARE_UPDATE` record (REQ-EVT-41). It lists the
+ * hub's Update firmware on a unit with an `OPEN` `FIRMWARE_UPDATE` record (REQ-EVT-43). It lists the
  * releases that carry the unit's variant, flashes through the port the hub lends under its write lock,
  * and on a verified write hands the release version to the record's Complete (REQ-EVT-28). A failure
- * names its step and records nothing (REQ-ERR-16, REQ-ERR-17, REQ-ERR-28).
+ * names its step and records nothing (REQ-ERR-16, REQ-ERR-17, REQ-ERR-30).
  */
 export const FlashFirmwarePanel: React.FC<FlashFirmwareProps> = ({ device, withPort, onClose }) => {
   const navigate = useNavigate();
