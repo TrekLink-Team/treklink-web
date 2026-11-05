@@ -57,6 +57,13 @@ export class OrganizationRolePolicyService {
   // ceiling (api-design 19). A read, allowed while the organization is not ACTIVE.
   async view(caller: Caller): Promise<OrganizationRolesResult> {
     const { organizationId } = await this.membership(caller);
+    return this.viewOf(organizationId);
+  }
+
+  // The same view for a named organization, for the read-only page of TrekLink Staff and Admin
+  // (organizations api-design 33). The caller has been checked by the route; an unknown organization
+  // reads as both roles at their baseline, so the route confirms the organization exists first.
+  async viewOf(organizationId: string): Promise<OrganizationRolesResult> {
     const { baselines, rows } = await this.baselines();
     const roles = await Promise.all(
       ORGANIZATION_ROLES.map(async (key): Promise<OrganizationRoleView> => {

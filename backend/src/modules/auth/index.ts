@@ -8,6 +8,10 @@ export {
   type OrganizationRole,
 } from './accounts.service';
 export type { ContactCard } from './accounts.repository';
+export {
+  OrganizationRolePolicyService,
+  type OrganizationRolesResult,
+} from './organization-role-policy.service';
 export { JwtAuthGuard } from './guards/jwt-auth.guard';
 export {
   API_KEY_HEADER,

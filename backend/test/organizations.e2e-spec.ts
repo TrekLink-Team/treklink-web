@@ -147,6 +147,8 @@ const ROUTES: Route[] = [
     body: { reason: 'Exposed', ...VERSION },
     refused: ORG_SIDE,
   },
+  // api-design 33: TrekLink reads any organization; a Manager reads its own and another reads as 404.
+  { method: 'get', path: `/api/organizations/${ID}/roles`, refused: ['operator-a'] },
   { method: 'get', path: '/api/compliance-cases', refused: ['manager-a', 'operator-a'] },
   { method: 'get', path: `/api/compliance-cases/${ID}`, refused: ['manager-a', 'operator-a'] },
   {

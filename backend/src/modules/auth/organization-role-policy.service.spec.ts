@@ -147,6 +147,29 @@ describe('OrganizationRolePolicyService (auth task 9.3, design §9)', () => {
     });
   });
 
+  describe('viewOf (organizations api-design 33)', () => {
+    it('reads the named organization without asking the caller membership', async () => {
+      policies.findStored.mockImplementation((_org: string, role: string) =>
+        Promise.resolve(
+          role === 'ORG_OPERATOR'
+            ? { grants: [], revokes: ['incident.respond.own'], version: 2, updatedAt: null }
+            : NONE,
+        ),
+      );
+
+      const result = await service.viewOf('org-z');
+
+      expect(context.forUser).not.toHaveBeenCalled();
+      expect(policies.findStored).toHaveBeenCalledWith('org-z', 'ORG_MANAGER');
+      expect(policies.findStored).toHaveBeenCalledWith('org-z', 'ORG_OPERATOR');
+      expect(result.roles.find((role) => role.key === 'ORG_OPERATOR')).toMatchObject({
+        version: 2,
+        effectiveKeys: ['incident.read.own'],
+      });
+      expect(result.catalog.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('replace (api-design 20)', () => {
     it('stores the difference from the baseline as a revoke and counts the save (AC-07)', async () => {
       const saved = await replace('ORG_OPERATOR', ['incident.read.own']);

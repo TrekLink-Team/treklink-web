@@ -90,6 +90,7 @@ import { TokenService } from './token.service';
     AbilityFactory,
     AccessTokenAuthenticator,
     AccountsService,
+    OrganizationRolePolicyService,
     DemoSessionService,
     AuthPortsModule,
   ],

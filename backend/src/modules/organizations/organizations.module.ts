@@ -26,6 +26,8 @@ import { OrganizationProfileService } from './organization-profile.service';
 import { OrganizationStatusService } from './organization-status.service';
 import { OrganizationsController } from './organizations.controller';
 import { OrganizationsPortsModule } from './organizations-ports.module';
+import { OrganizationRolesViewController } from './organization-roles-view.controller';
+import { OrganizationRolesViewService } from './organization-roles-view.service';
 import { OrganizationsRepository } from './organizations.repository';
 import { OrganizationsService } from './organizations.service';
 import { RosterController } from './roster.controller';
@@ -52,6 +54,7 @@ import { ShiftsService } from './shifts.service';
     ComplianceCasesController,
     MembersController,
     RosterController,
+    OrganizationRolesViewController,
   ],
   providers: [
     OrganizationsRepository,
@@ -62,6 +65,7 @@ import { ShiftsService } from './shifts.service';
     OrganizationLifecycle,
     OrganizationStatusService,
     OrganizationProfileService,
+    OrganizationRolesViewService,
     OnboardingNotifier,
     RosterRepository,
     RosterService,
