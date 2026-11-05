@@ -24,6 +24,9 @@ import {
   LossOrganizationActions,
 } from './ports/loss-organization-actions.port';
 import { DevicesComplianceLossCases } from './providers/compliance-loss-case.provider';
+import { FIRMWARE_HTTP, fetchFirmwareHttp } from './firmware/firmware-http.port';
+import { FirmwareReleaseService } from './firmware/firmware-release.service';
+import { FirmwareReleasesController } from './firmware/firmware-releases.controller';
 import { StockTakeService } from './stock-take.service';
 import { StockTakesController } from './stock-takes.controller';
 import { StockTakesRepository } from './stock-takes.repository';
@@ -47,6 +50,7 @@ import { VariantsService } from './variants.service';
     VariantsController,
     LossCasesController,
     StockTakesController,
+    FirmwareReleasesController,
   ],
   providers: [
     DevicesRepository,
@@ -58,6 +62,9 @@ import { VariantsService } from './variants.service';
     VariantsService,
     StockTakesRepository,
     StockTakeService,
+    // task 8.2 (design section 9.1): the release reader and its HTTP port, faked in tests.
+    FirmwareReleaseService,
+    { provide: FIRMWARE_HTTP, useValue: fetchFirmwareHttp },
     // task 1.4: the one array billing and rentals add their listeners to (ports/loss-case-listener.port.ts).
     { provide: LOSS_CASE_LISTENERS, useFactory: (): LossCaseListener[] => [] },
     LossCaseNotifier,

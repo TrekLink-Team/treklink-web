@@ -1046,8 +1046,23 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
   §3.3), so the backend reads the releases and serves the images: devices api-design 28 lists the releases
   for a variant, 29 returns one image after comparing its SHA-256 with the manifest.
 - Parameters (`platform` configuration matrix): `devices.firmwareReleaseRepo` (`TrekLink-Team/treklink-firmware`)
-  and `devices.firmwareReleaseCacheSeconds` (`300`). An optional `GITHUB_TOKEN` raises the GitHub rate limit;
-  the repository is public, so none is needed to read it.
+  and `devices.firmwareReleaseCacheSeconds` (`300`). The repository is public, so the backend calls the GitHub
+  API without a token (built 2026-11-06, task 8.2): 60 unauthenticated requests an hour per address, one list
+  read and one manifest read per release per cache window. No `GITHUB_TOKEN` is read.
+- Manifest shape (`treklink-manifest.json`, the contract with task 8.1, specified 2026-11-06 where this section
+  was silent):
+
+  ```json
+  { "version": "2.7.26-treklink.2",
+    "variants": [ { "variantCode": "treklink-v3", "pioEnv": "treklink-v3-tbeam", "chip": "ESP32",
+                    "app": { "file": "treklink-v3-firmware.bin", "offset": 65536, "size": 2031616, "sha256": "<64 hex>" },
+                    "factory": { "file": "treklink-v3-firmware.factory.bin", "offset": 0, "size": 2162688, "sha256": "<64 hex>" } } ] }
+  ```
+
+  `file` names a release asset of the same release; `chip` is esptool's chip name (`ESP32`, `ESP32-S3`), the
+  name `esptool-js` reports. An entry missing a field is skipped, a release without a valid manifest is not
+  listed, and the list is newest first by GitHub's `published_at`. An unknown version or variant on api-design
+  29 is 404.
 - Module: `FirmwareReleaseService` and `FirmwareReleasesController` in `devices`, which owns the variants and
   `firmwareBaseline`. The release list needs `device.read`, the image `device.operate` (TrekLink Staff; Admin
   inherits both).

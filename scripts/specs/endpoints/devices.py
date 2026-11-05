@@ -530,11 +530,13 @@ ENDPOINTS = [
        "Lists the TrekLink firmware releases published in the configured repository "
        "(`devices.firmwareReleaseRepo`), newest first, with the variants each release carries, so the flash "
        "panel of a `FIRMWARE_UPDATE` record offers only images built for the device's variant (design §9). "
-       "Read from each release's manifest asset; cached for `devices.firmwareReleaseCacheSeconds`.",
+       "Read from each release's manifest asset; cached for `devices.firmwareReleaseCacheSeconds`. `chip` is the "
+       "manifest's chip name for the variant, which the flash panel compares with the unit before writing "
+       "(REQ-ERR-16). No release published yet is an empty list, not an error.",
        "FR-DEV-21, D-093",
        query=[["variantCode", "Only releases that carry this variant", "string", "no", "`treklink-v3`"]],
        response=[{"version": "2.7.26-treklink.2", "publishedAt": NOW, "isBaseline": True,
-                  "variants": [{"variantCode": "treklink-v3", "app": {"offset": 65536, "sizeBytes": 2031616},
+                  "variants": [{"variantCode": "treklink-v3", "chip": "ESP32", "app": {"offset": 65536, "sizeBytes": 2031616},
                                 "factory": {"offset": 0, "sizeBytes": 2162688}}]}],
        errors=[(502, "FIRMWARE_SOURCE_UNAVAILABLE", "The release source cannot be read",
                 "Firmware releases cannot be read right now. Try again later.")],
@@ -553,7 +555,7 @@ ENDPOINTS = [
        path=[["version", "Release version", "string", "`2.7.26-treklink.2`"],
              ["variantCode", "Hardware variant code", "string", "`treklink-v3`"]],
        query=[["kind", "APP or FACTORY", "enum", "no", "`APP`"]],
-       response={"version": "2.7.26-treklink.2", "variantCode": "treklink-v3", "kind": "APP", "offset": 65536,
+       response={"version": "2.7.26-treklink.2", "variantCode": "treklink-v3", "kind": "APP", "chip": "ESP32", "offset": 65536,
                  "sizeBytes": 2031616, "sha256": "9f2c...e41a", "md5": "3b1f...90c2", "imageBase64": "6QMCIC..."},
        entity="Firmware image",
        errors=[(502, "FIRMWARE_SOURCE_UNAVAILABLE", "The release source cannot be read",

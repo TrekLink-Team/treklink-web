@@ -184,10 +184,11 @@
 
 - [ ] 8.1 Firmware release workflow in `treklink-firmware` (owner KhoaDD, leader: workflow token scope)
   - **Do**: design §9.1: on a `v*-treklink.*` tag, build the three TrekLink environments and attach per variant the app image, the factory image and `treklink-manifest.json`
-- [ ] 8.2 Backend release reader (owner KhoaDD)
+- [x] 8.2 Backend release reader (owner KhoaDD)
   - **Files**: `backend/src/modules/devices/firmware-release.service.ts`, `firmware-releases.controller.ts`, parameters `devices.firmwareReleaseRepo` and `devices.firmwareReleaseCacheSeconds` (configuration matrix and seed), tests
   - **Do**: devices api-design 28 (`device.read`) and 29 (`device.operate`); SHA-256 check, MD5 returned with the image, 502 `FIRMWARE_IMAGE_TOO_LARGE` above 3 300 000 bytes raw; `Cache-Control: no-store` on 29; the three error codes in the enum
   - _Requirements: REQ-EVT-28, REQ-ERR-17, AC-20_
+  - **Done** (2026-11-06, KhoaDD under D-078, W32): `firmware/firmware-release.service.ts`, `firmware-releases.controller.ts` and the `FIRMWARE_HTTP` port (Node fetch, no token; a fake in tests); parameters by migration `20261106010000_firmware_release_parameters` and the regenerated registry; api-design 28 and 29 regenerated with `chip`; the manifest keys written into design §9.1. 19 unit tests (parsing, variant filter, baseline, cache window, SHA-256, size before and after the download, 404, 502). No release exists yet, so the reader was not run against GitHub
 - [ ] 8.3 Flash panel on screen 4.3 (owner KhoaDD)
   - **Files**: `frontend/package.json` (`esptool-js` 0.7.1 pinned), `frontend/src/shared/lib/esp-flasher.ts` (one adapter), the panel in the maintenance feature, tests with a fake `ESPLoader`
   - **Do**: design §9.2 (modes, chip and MAC node-number checks, v2 notice and `romBaudrate`, MD5 from the backend for the verify with `flashMode`, `flashFreq` and `flashSize` kept, fill the record's firmware version); the panel registers with the device connector (`registerFlashPanel`, design §12.7) and borrows the port through `withPort`, so the hub's Update firmware opens it and REQ-EVT-43, REQ-ERR-30 and AC-40 follow
