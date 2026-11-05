@@ -51,7 +51,7 @@ Change log tab:
 | Edit value (click the value cell: inline input with Save and Cancel) | platform 03 `PATCH /api/parameters/:key` with `value`, `expectedVersion`, optional `reason` | The inline row shows "Change {key} from {old} to {new}?" with the optional reason field; Save confirms | MSG03 toast, server message "Parameter updated"; effect noted as "Readers see it within the cache TTL" |
 | History (opens the right drawer) | platform 04 `GET /api/parameters/:key/history` | none | none |
 | Changes (row link) | navigation to `/t/admin/audit/changes?action=parameter.&subjectId=<key>`, the change log filtered to this parameter; confirmed against `ParameterService.update` (2026-10-31): the audit entry stores `action` `parameter.update`, `subjectType` `BusinessParameter` and `subjectId` equal to the parameter key, so this link is exact | none | none |
-| Change-log filters: actor, organization, subject type, subject id, action prefix, from, to (organization options from organizations 02 `GET /api/organizations`, `items[].id`, `legalName`); the actor is an id field (a UUID, checked before sending) until the accounts page (screen 7.1) can offer a picker, and a click on an actor's name in a row sets it | platform 05 `GET /api/audit-logs?actorId&organizationId&subjectType&subjectId&action&from&to&pageNumber&pageSize` | none | none |
+| Change-log filters: actor, organization, subject type, subject id, action prefix, from, to (organization options from organizations 02 `GET /api/organizations`, `items[].id`, `legalName`); the actor is picked by name or email from the TrekLink accounts (`AccountPicker`, auth api-design 09; W21, 2026-11-05), an organization member by a click on its name in a row, which sets it; an id from the address that is not a UUID is refused before sending | platform 05 `GET /api/audit-logs?actorId&organizationId&subjectType&subjectId&action&from&to&pageNumber&pageSize` | none | none |
 | Row: expand before and after | none (data already loaded) | none | none |
 
 The parameters page has no primary action: editing is per row. Edit, History and Changes are the row-end controls.
@@ -118,3 +118,17 @@ Added by KhoaDD. Each module group of `/t/admin/parameters` renders its paramete
 are item actions; Edit is unavailable with its reason while another change is open, and focus returns to it
 after a save or a cancel. The Changes link stays under each parameter's description. The value is edited in
 place in its row, so the group has no details pane (a second copy of the editor would hold the same field).
+
+## Actor picker and parameter cards (W21, 2026-11-05)
+
+Added by KhoaDD under D-078. The change log's Actor filter is the `AccountPicker` typeahead of screen 7.3:
+it searches the TrekLink accounts by name or email (auth api-design 09 `q`) and resolves to the account id
+sent as platform 05 `actorId`. Auth api-design 09 lists TrekLink accounts only, so an organization
+member is still chosen by a click on its name in a row; the picker then shows that name, taken from the
+loaded rows. A malformed `actorId` in the address answers "Choose an actor from the list." under the
+field.
+
+Below 768 px each parameter group renders as cards (`CollectionView` `cards` view): the key, description
+and Changes link as the card title, then Value and Allowed, then Edit and History (in the card's Actions
+menu below 600 px, chapter 06 §10.5). The inline editor opens in the card. From 768 px the group is the
+table. After a save or a cancel focus returns to Edit, or to the Actions menu that holds it.

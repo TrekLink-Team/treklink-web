@@ -18,6 +18,7 @@ import {
 } from '../entities/parameter/model';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import {
   Alert,
   Button,
@@ -56,9 +57,13 @@ const UPDATED = 'Parameter updated. Readers see it within the cache lifetime.';
 // `/t/admin/parameters`, screen 7.4 (platform api-design 02 to 04, UC-57, FR-CFG-01, FR-CFG-02): the
 // business parameters grouped by module, each edited in place within its bounds, with a change history
 // drawer. TrekLink Admin only. `expectedVersion` is the version the row loaded with and is never typed.
-// The Edit button of a parameter, to take focus back after a save or a cancel.
+// The Edit button of a parameter, to take focus back after a save or a cancel; at phone width Edit sits
+// in the card's Actions menu, so focus goes to that menu's button.
 const focusEdit = (key: string) =>
-  document.querySelector<HTMLElement>(`button[aria-label="Edit ${CSS.escape(key)}"]`)?.focus();
+  (
+    document.querySelector<HTMLElement>(`button[aria-label="Edit ${CSS.escape(key)}"]`) ??
+    document.querySelector<HTMLElement>(`button[aria-label="Actions for ${CSS.escape(key)}"]`)
+  )?.focus();
 
 export const ParametersPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -70,6 +75,9 @@ export const ParametersPage: React.FC = () => {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [stale, setStale] = useState(false);
   const [historyKey, setHistoryKey] = useState<string | null>(null);
+  // Below 768 px each parameter is a card (key, value, allowed range, Edit and History), as the other
+  // lists of chapter 06 §10.5; the table needs the width for its four columns and the inline editor.
+  const roomy = useMediaQuery('(min-width: 768px)', true);
 
   const items = parameters.data?.items;
   const modules = useMemo(() => groupByModule(items ?? []).map(([module]) => module), [items]);
@@ -235,7 +243,14 @@ export const ParametersPage: React.FC = () => {
 
   const fields: CollectionField<Parameter>[] = [
     { key: 'value', label: 'Value', render: valueCell, compact: true },
-    { key: 'range', label: 'Allowed', render: (parameter) => boundsText(parameter) ?? '–', hideWithPane: true },
+    // Compact, so a card shows the range beside the value (screen 7.4, 360 px layout).
+    {
+      key: 'range',
+      label: 'Allowed',
+      render: (parameter) => boundsText(parameter) ?? '–',
+      hideWithPane: true,
+      compact: true,
+    },
     { key: 'type', label: 'Type', render: (parameter) => TYPE_LABEL[parameter.valueType], hideWithPane: true },
     {
       key: 'updated',
@@ -356,6 +371,8 @@ export const ParametersPage: React.FC = () => {
                 fields={fields}
                 noun={{ one: 'parameter', other: 'parameters' }}
                 itemActions={actions}
+                views={['details', 'cards']}
+                defaultView={roomy ? 'details' : 'cards'}
                 search={{ label: `Search the parameters of ${module}` }}
                 details={false}
                 emptyState={{ title: 'No results match your filters.' }}

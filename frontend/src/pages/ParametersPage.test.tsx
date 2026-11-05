@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Parameter } from '../entities/parameter/api';
@@ -290,6 +290,46 @@ describe('ParametersPage (screen 7.4, parameters)', () => {
           reason: undefined,
         }),
       );
+    });
+  });
+
+  describe('below 768 px (screen 7.4, 360 px layout)', () => {
+    // A matchMedia that answers for a window of `width` px.
+    const atWidth = (width: number) =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= width,
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }));
+    afterEach(() => vi.unstubAllGlobals());
+
+    it.each([700, 360])('shows each parameter as a card with its value, range and Edit at %i px', (width) => {
+      atWidth(width);
+      renderPage();
+      expect(screen.queryByRole('table', { name: 'Parameters of rentals' })).toBeNull();
+      const cards = within(screen.getByRole('list', { name: 'Parameters of rentals' }));
+      const card = cards.getAllByRole('listitem').find((item) => within(item).queryByText(GRACE))!;
+      expect(within(card).getByText('Allowed')).toBeTruthy();
+      expect(within(card).getByText('0 to 72')).toBeTruthy();
+      expect(within(card).getByText('Value')).toBeTruthy();
+      expect(within(card).getAllByText(/hours/).length).toBeGreaterThan(0);
+      // From 600 px Edit is a button on the card; below, it is in the card's Actions menu (§10.5).
+      if (width >= 600) {
+        expect(within(card).getByRole('button', { name: `Edit ${GRACE}` })).toBeTruthy();
+      } else {
+        fireEvent.click(within(card).getByRole('button', { name: `Actions for ${GRACE}` }));
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
+        expect(valueField(GRACE).value).toBe('2');
+        fireEvent.keyDown(valueField(GRACE), { key: 'Escape' });
+        expect(document.activeElement?.getAttribute('aria-label')).toBe(`Actions for ${GRACE}`);
+      }
+    });
+
+    it('keeps the table from 768 px', () => {
+      atWidth(768);
+      renderPage();
+      expect(screen.getByRole('table', { name: 'Parameters of rentals' })).toBeTruthy();
     });
   });
 

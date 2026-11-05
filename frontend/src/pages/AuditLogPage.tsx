@@ -17,6 +17,7 @@ import {
   toLocalInput,
 } from '../entities/audit/model';
 import { useOrganizations, type OrganizationReview } from '../entities/organization/api';
+import { AccountPicker } from '../features/account-picker/AccountPicker';
 import { ApiError } from '../shared/api/apiClient';
 import {
   Alert,
@@ -35,6 +36,9 @@ import {
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
 import { AuditTabs } from '../widgets/AuditTabs/AuditTabs';
+
+const actorNameIn = (items: AuditLogItem[] | undefined, actorId: string): string | undefined =>
+  items?.find((row) => row.actor?.id === actorId)?.actor?.fullName;
 
 const withSeconds = (iso: string): string =>
   new Date(iso).toLocaleString('en-GB', {
@@ -62,12 +66,15 @@ const Snapshots: React.FC<{ row: AuditLogItem; className?: string }> = ({ row, c
 
 // The seven filters in two rows, applied with one button. The parent keys it by the URL query, so a
 // filter set from a link or a click on an actor name starts the bar again from the URL.
+// The actor is picked by name from the TrekLink accounts (AccountPicker, auth api-design 09); an
+// organization member is set by a click on its name in a row, and the picker then shows that name.
 const FilterBar: React.FC<{
   applied: AuditFilters;
+  actorLabel?: string;
   organizations: OrganizationReview[];
   onApply: (filters: AuditFilters) => void;
   onClear: () => void;
-}> = ({ applied, organizations, onApply, onClear }) => {
+}> = ({ applied, actorLabel, organizations, onApply, onClear }) => {
   const [actorId, setActorId] = useState(applied.actorId ?? '');
   const [organizationId, setOrganizationId] = useState(applied.organizationId ?? '');
   const [subjectType, setSubjectType] = useState(applied.subjectType ?? '');
@@ -101,13 +108,19 @@ const FilterBar: React.FC<{
       className="flex flex-col gap-4"
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field id="audit-actor" label="Actor id" error={errors.actorId}>
-          <Input
+        <Field
+          id="audit-actor"
+          label="Actor"
+          hint="A TrekLink account by name or email; click a name below for anyone else."
+          error={errors.actorId}
+        >
+          <AccountPicker
             id="audit-actor"
             value={actorId}
-            onChange={(event) => setActorId(event.target.value)}
-            placeholder="UUID of the account"
-            {...invalid('audit-actor', errors.actorId)}
+            label={actorLabel}
+            onChange={setActorId}
+            invalid={Boolean(errors.actorId)}
+            aria-describedby={errors.actorId ? 'audit-actor-error' : 'audit-actor-hint'}
           />
         </Field>
         <Field id="audit-organization" label="Organization">
@@ -199,6 +212,11 @@ export const AuditLogPage: React.FC = () => {
     id === null
       ? '–'
       : (organizationList.find((organization) => organization.id === id)?.legalName ?? id);
+
+  // The name of the actor filter, from a loaded row; the picker looks a TrekLink account up itself.
+  const actorLabel = filters.actorId
+    ? actorNameIn(logs.data?.items, filters.actorId)
+    : undefined;
 
   const apply = (next: AuditFilters) => setParams(paramsOf(next));
   const toggle = (id: string) => {
@@ -311,6 +329,7 @@ export const AuditLogPage: React.FC = () => {
           <FilterBar
             key={params.toString()}
             applied={filters}
+            actorLabel={actorLabel}
             organizations={organizationList}
             onApply={apply}
             onClear={() => setParams(new URLSearchParams())}
