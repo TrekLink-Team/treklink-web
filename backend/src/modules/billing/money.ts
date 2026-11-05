@@ -67,3 +67,32 @@ export const dayPlanCreditVnd = (
   const fee = dayPlanFeeVnd(monthlyUnitPriceVnd, dayPremium, dayPlanDays, 1);
   return credit < fee ? credit : fee;
 };
+
+const DAY_MS = 86_400_000;
+
+// The pro-rata credit of a monthly term ended now (design §10.1, D-097 rule 2). F is the term fee, D
+// the term's whole days, U the used days counting the end day (at least 1, at most D); the credit is
+// ⌈F × (D − U) ÷ D⌉, rounded up in the organization's favour, the division last.
+export interface EarlyEndCredit {
+  termDays: number;
+  usedDays: number;
+  unusedDays: number;
+  creditVnd: bigint;
+}
+
+export const earlyEndCreditOf = (
+  termFeeVnd: bigint,
+  term: { startsAt: Date; endsAt: Date },
+  endAt: Date,
+): EarlyEndCredit => {
+  const termDays = Math.max(
+    1,
+    Math.floor((term.endsAt.getTime() - term.startsAt.getTime()) / DAY_MS),
+  );
+  const elapsed = Math.ceil((endAt.getTime() - term.startsAt.getTime()) / DAY_MS);
+  const usedDays = Math.min(termDays, Math.max(1, elapsed));
+  const unusedDays = termDays - usedDays;
+  const creditVnd =
+    unusedDays === 0 ? 0n : ceilVnd(decimal(termFeeVnd).mul(unusedDays).div(termDays));
+  return { termDays, usedDays, unusedDays, creditVnd };
+};

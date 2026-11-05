@@ -1,9 +1,10 @@
 import { HttpStatus, Injectable, Optional } from '@nestjs/common';
-import { DamageChargeStatus, InvoiceKind, InvoiceLineType, Prisma } from '@prisma/client';
+import { DamageChargeStatus, InvoiceKind, InvoiceLineType, PlanType, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
 import { InvoiceRow, InvoicesRepository, LineRow, NewInvoiceLine } from './invoices.repository';
+import { EarlyEndCredit, earlyEndCreditOf, termFeeVnd } from './money';
 import { PricingService } from './pricing.service';
 import { ServiceCreditLedger } from './service-credit-ledger';
 
@@ -14,6 +15,23 @@ export interface ChargedContract {
 
 export interface LateContract extends ChargedContract {
   returnDueAt: Date;
+}
+
+// A contract ended now (rentals design §12) with its snapshot, as `rentals` passes it (billing design §10).
+export interface EndedContract extends ChargedContract {
+  planType: PlanType;
+  quantity: number;
+  monthlyUnitPriceVnd: bigint;
+}
+
+export interface EndedTerm {
+  seq: number;
+  startsAt: Date;
+  endsAt: Date;
+}
+
+export interface EarlyEndQuote extends EarlyEndCredit {
+  termFeeVnd: bigint;
 }
 
 export interface ChargedDevice {
@@ -89,6 +107,55 @@ export class ChargesService {
       tx,
       at,
     );
+  }
+
+  // The pro-rata credit of the current term of a contract ended at `endAt` (REQ-EVT-16, design §10.1,
+  // D-097 rule 2): the unused whole days at the term's daily rate. A day plan is billed per day already
+  // and gets none. Stores nothing; the preview (rentals api-design 31) and `creditEarlyEnd` share it.
+  earlyEndCredit(contract: EndedContract, term: EndedTerm, endAt: Date): EarlyEndQuote {
+    const fee = termFeeVnd(contract.monthlyUnitPriceVnd, contract.quantity);
+    const credit = earlyEndCreditOf(fee, term, endAt);
+    if (contract.planType === PlanType.DAY) {
+      return {
+        ...credit,
+        termFeeVnd: fee,
+        usedDays: credit.termDays,
+        unusedDays: 0,
+        creditVnd: 0n,
+      };
+    }
+    return { ...credit, termFeeVnd: fee };
+  }
+
+  // End now (REQ-EVT-16): one negative EARLY_END_CREDIT line of the credit on the closing invoice, due
+  // at the end time, with the ending actor as author and the reason in its description. Nothing when
+  // the credit is zero (the last day, or a day plan). Called by `rentals` inside its transaction.
+  async creditEarlyEnd(
+    contract: EndedContract,
+    term: EndedTerm,
+    endAt: Date,
+    reason: string,
+    actorId: string | null,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ quote: EarlyEndQuote; invoice: InvoiceRow | null }> {
+    const quote = this.earlyEndCredit(contract, term, endAt);
+    if (quote.creditVnd === 0n) return { quote, invoice: null };
+    const days = `${quote.unusedDays} unused day${quote.unusedDays === 1 ? '' : 's'} of ${quote.termDays}`;
+    const invoice = await this.addToClosing(
+      contract,
+      {
+        type: InvoiceLineType.EARLY_END_CREDIT,
+        description: `Early end of term ${term.seq}: ${days} credited. Reason: ${reason}`,
+        quantity: 1,
+        unitVnd: -quote.creditVnd,
+        amountVnd: -quote.creditVnd,
+        dueAt: endAt,
+        createdById: actorId,
+      },
+      tx,
+      endAt,
+    );
+    return { quote, invoice };
   }
 
   // A device checked in after `returnDueAt` plus `rentals.returnGraceHours` (REQ-EVT-04, FR-BILL-03,

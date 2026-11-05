@@ -2,8 +2,9 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
-import { BalanceService, ChargesService, InvoicesService } from '../billing';
+import { BalanceService, ChargesService, EarlyEndQuote, InvoicesService } from '../billing';
 import { DevicesService, DeviceTag } from '../devices';
+import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
@@ -44,6 +45,70 @@ export interface Notice {
   term: { seq: number; startsAt: Date; endsAt: Date };
   dueAtEndVnd: bigint;
 }
+
+// End now (design §12, D-097): what the credit was and what is owed after it.
+export interface EarlyEndOutcome {
+  endedAt: Date;
+  reason: string;
+  creditVnd: bigint;
+  usedDays: number;
+  unusedDays: number;
+  termDays: number;
+  outstandingVnd: bigint;
+  owedToOrganizationVnd: bigint;
+}
+
+export interface EndedNow {
+  contract: ContractRow;
+  term: { seq: number; startsAt: Date; endsAt: Date } | null;
+  earlyEnd: EarlyEndOutcome;
+}
+
+// rentals api-design 31: what End now would do at `endsAt`; nothing is stored.
+export interface EndPreview {
+  contract: ContractRow;
+  endsAt: Date;
+  term: { seq: number; startsAt: Date; endsAt: Date } | null;
+  termFeeVnd: bigint;
+  termDays: number;
+  usedDays: number;
+  unusedDays: number;
+  creditVnd: bigint;
+  outstandingVnd: bigint;
+  owedToOrganizationVnd: bigint;
+}
+
+export const CONTRACT_ENDED_EARLY = 'contract.endedEarly';
+
+export interface ContractEndedEarlyEvent {
+  contractId: string;
+  organizationId: string;
+  endedAt: Date;
+  reason: string;
+  creditVnd: bigint;
+  actorId: string;
+}
+
+// The states End now leaves from (design §2, §12.1).
+const ENDABLE: readonly ContractStatus[] = [ContractStatus.ACTIVE, ContractStatus.ENDING];
+
+const REASON_MAX = 500;
+
+const notEndable = (status: ContractStatus) =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.INVALID_STATE_TRANSITION,
+    `This cannot be done while it is ${status}.`,
+  );
+
+// A contract with no open term (the rollover has not run yet past the term end) has nothing to credit.
+const NO_CREDIT: EarlyEndQuote = {
+  termFeeVnd: 0n,
+  termDays: 0,
+  usedDays: 0,
+  unusedDays: 0,
+  creditVnd: 0n,
+};
 
 export interface Cancelled {
   contract: ContractRow;
@@ -353,6 +418,162 @@ export class ContractDecisionsService {
         contract: { ...ending, statusChangedAt: at, noticeGivenAt: at, endsAt: term.endsAt },
         term: { seq: term.seq, startsAt: term.startsAt, endsAt: term.endsAt },
         dueAtEndVnd: dueLaterVnd,
+      };
+    });
+  }
+
+  // End now (rentals task 10.2, REQ-EVT-27, REQ-ERR-17, design §12, D-097): Staff, or the Org Manager
+  // of the contract's organization, end an ACTIVE or ENDING contract at once with a reason. In one
+  // transaction the open term closes, billing credits its unused whole days on the closing invoice (none
+  // for a day plan), endsAt and returnDueAt become the end time, and the contract moves to RETURN_DUE,
+  // on to RETURNED when every device is already back or lost. The Manager's request ends it at once, like
+  // Staff's action (design §12.2). The audit entry and `contract.endedEarly` go out after commit.
+  async endNow(
+    id: string,
+    input: { reason: string; expectedVersion: number },
+    actor: Caller,
+    at: Date = new Date(),
+  ): Promise<EndedNow> {
+    const reason = input.reason.trim();
+    if (reason.length === 0 || reason.length > REASON_MAX) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.VALIDATION_FAILED,
+        `reason must be 1 to ${REASON_MAX} characters.`,
+      );
+    }
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(id, tx);
+      if (actor.organizationId !== null && actor.organizationId !== contract.organizationId) {
+        throw notFound();
+      }
+      assertVersion(contract, input.expectedVersion);
+      if (!ENDABLE.includes(contract.status)) throw notEndable(contract.status);
+
+      const term = await this.contracts.openTerm(id, tx);
+      let quote = NO_CREDIT;
+      if (term) {
+        await this.contracts.closeTerm(term.id, tx);
+        ({ quote } = await this.charges.creditEarlyEnd(
+          {
+            id,
+            organizationId: contract.organizationId,
+            planType: contract.planType,
+            quantity: contract.quantity,
+            monthlyUnitPriceVnd: contract.monthlyUnitPriceVnd,
+          },
+          term,
+          at,
+          reason,
+          actor.id,
+          tx,
+        ));
+      }
+      await this.contracts.recordEarlyEnd(id, at, tx);
+      let ended = await this.lifecycle.apply(
+        id,
+        contract.status,
+        ContractStatus.RETURN_DUE,
+        `Ended early: ${reason}`,
+        actor,
+        tx,
+      );
+      const { total, returned } = await this.contracts.returnCounts(id, tx);
+      if (total > 0 && returned === total) {
+        ended = await this.lifecycle.apply(
+          id,
+          ContractStatus.RETURN_DUE,
+          ContractStatus.RETURNED,
+          'ALL_DEVICES_BACK',
+          actor,
+          tx,
+        );
+      }
+      const balance = await this.balances.balanceSummary(id, at, tx);
+      const earlyEnd: EarlyEndOutcome = {
+        endedAt: at,
+        reason,
+        creditVnd: quote.creditVnd,
+        usedDays: quote.usedDays,
+        unusedDays: quote.unusedDays,
+        termDays: quote.termDays,
+        outstandingVnd: balance.dueNowVnd + balance.dueLaterVnd,
+        owedToOrganizationVnd: balance.owedToOrganizationVnd,
+      };
+
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: actor.id,
+        actorRoles: actor.roles,
+        organizationId: contract.organizationId,
+        action: CONTRACT_ENDED_EARLY,
+        subjectType: 'RentalContract',
+        subjectId: id,
+        before: {
+          status: contract.status,
+          endsAt: contract.endsAt,
+          returnDueAt: contract.returnDueAt,
+        },
+        after: {
+          status: ended.status,
+          reason,
+          endedAt: at,
+          creditVnd: Number(quote.creditVnd),
+          unusedDays: quote.unusedDays,
+          termDays: quote.termDays,
+        },
+      } satisfies AuditRecordEvent);
+      this.events.emitAfterCommit(CONTRACT_ENDED_EARLY, {
+        contractId: id,
+        organizationId: contract.organizationId,
+        endedAt: at,
+        reason,
+        creditVnd: quote.creditVnd,
+        actorId: actor.id,
+      } satisfies ContractEndedEarlyEvent);
+
+      return {
+        contract: { ...ended, statusChangedAt: at, endsAt: at, returnDueAt: at },
+        term: term ? { seq: term.seq, startsAt: term.startsAt, endsAt: term.endsAt } : null,
+        earlyEnd,
+      };
+    });
+  }
+
+  // The End now preview (REQ-EVT-28, api-design 31): billing's computation for `at`, and the balance
+  // after the credit. Reads without a lock and stores nothing; the same 404 and 409 as End now.
+  async endPreview(id: string, actor: Caller, at: Date = new Date()): Promise<EndPreview> {
+    return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.findById(id, tx);
+      if (actor.organizationId !== null && actor.organizationId !== contract.organizationId) {
+        throw notFound();
+      }
+      if (!ENDABLE.includes(contract.status)) throw notEndable(contract.status);
+      const term = await this.contracts.openTerm(id, tx);
+      const quote = term
+        ? this.charges.earlyEndCredit(
+            {
+              id,
+              organizationId: contract.organizationId,
+              planType: contract.planType,
+              quantity: contract.quantity,
+              monthlyUnitPriceVnd: contract.monthlyUnitPriceVnd,
+            },
+            term,
+            at,
+          )
+        : NO_CREDIT;
+      const after = await this.balances.afterCredit(id, quote.creditVnd, tx);
+      return {
+        contract,
+        endsAt: at,
+        term: term ? { seq: term.seq, startsAt: term.startsAt, endsAt: term.endsAt } : null,
+        termFeeVnd: quote.termFeeVnd,
+        termDays: quote.termDays,
+        usedDays: quote.usedDays,
+        unusedDays: quote.unusedDays,
+        creditVnd: quote.creditVnd,
+        outstandingVnd: after.outstandingVnd,
+        owedToOrganizationVnd: after.owedToOrganizationVnd,
       };
     });
   }

@@ -7,6 +7,9 @@ export {
   type ChargedDevice,
   type DamagedInspection,
   type DamageResult,
+  type EarlyEndQuote,
+  type EndedContract,
+  type EndedTerm,
   type LateContract,
 } from './charges.service';
 export {
@@ -17,7 +20,7 @@ export {
   type BillableTerm,
 } from './invoices.service';
 export type { InvoiceWithLines, LineRow as InvoiceLineRow } from './invoices.repository';
-export { ceilVnd, dayPlanFeeVnd, holdingFeeVnd, termFeeVnd } from './money';
+export { ceilVnd, dayPlanFeeVnd, holdingFeeVnd, termFeeVnd, type EarlyEndCredit } from './money';
 export {
   PAYMENT_CONFIRMED,
   PaymentsService,

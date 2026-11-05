@@ -191,6 +191,7 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         paidVnd: 2_250_000n,
         pendingDamageCharges: [],
         settled: false,
+        owedToOrganizationVnd: 0n,
       });
     });
 
@@ -219,6 +220,7 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         paidVnd: 720_000n,
         pendingDamageCharges: [],
         settled: true,
+        owedToOrganizationVnd: 0n,
       });
     });
 
@@ -234,6 +236,60 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         settled: true,
       });
       expect(damageCharges.pendingOfContract).toHaveBeenCalledWith('c-1', TX);
+    });
+  });
+
+  // REQ-STA-03, AC-10 (D-097 rule 3): a credit larger than what is left to pay is owed to the
+  // organization, and the balance is settled.
+  describe('owed to the organization (REQ-STA-03)', () => {
+    const paidTerm = () => [
+      line(InvoiceLineType.HOLDING_FEE, 450_000n, 450_000n, EARLY),
+      line(InvoiceLineType.TERM_BALANCE, 450_000n, 450_000n, LATE),
+    ];
+
+    it('reports the early-end credit of a term paid in full as owed, and settled', async () => {
+      invoices.linesOfContract.mockResolvedValue([
+        ...paidTerm(),
+        line(InvoiceLineType.EARLY_END_CREDIT, -720_000n, 0n, NOW),
+      ]);
+
+      await expect(service.balanceSummary('c-1', NOW)).resolves.toMatchObject({
+        dueNowVnd: 0n,
+        dueLaterVnd: 0n,
+        settled: true,
+        owedToOrganizationVnd: 720_000n,
+      });
+    });
+
+    it('nets the credit against the unpaid term balance first, owing nothing back', async () => {
+      invoices.linesOfContract.mockResolvedValue([
+        line(InvoiceLineType.HOLDING_FEE, 450_000n, 450_000n, EARLY),
+        line(InvoiceLineType.TERM_BALANCE, 450_000n, 0n, LATE),
+        line(InvoiceLineType.EARLY_END_CREDIT, -300_000n, 0n, NOW),
+      ]);
+
+      await expect(service.balanceSummary('c-1', NOW)).resolves.toMatchObject({
+        dueLaterVnd: 150_000n,
+        settled: false,
+        owedToOrganizationVnd: 0n,
+      });
+    });
+
+    it('afterCredit previews a credit not on any line yet', async () => {
+      invoices.linesOfContract.mockResolvedValue([
+        line(InvoiceLineType.HOLDING_FEE, 450_000n, 450_000n, EARLY),
+        line(InvoiceLineType.TERM_BALANCE, 450_000n, 0n, LATE),
+      ]);
+
+      await expect(service.afterCredit('c-1', 720_000n, TX)).resolves.toEqual({
+        outstandingVnd: 0n,
+        owedToOrganizationVnd: 270_000n,
+      });
+      await expect(service.afterCredit('c-1', 0n, TX)).resolves.toEqual({
+        outstandingVnd: 450_000n,
+        owedToOrganizationVnd: 0n,
+      });
+      expect(invoices.linesOfContract).toHaveBeenCalledWith('c-1', TX);
     });
   });
 

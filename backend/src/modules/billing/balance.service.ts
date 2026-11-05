@@ -16,6 +16,9 @@ export interface BalanceSummary {
   // yet, so they are listed apart and `settled` covers the lines only. The close guard counts them.
   pendingDamageCharges: DamageChargeRow[];
   settled: boolean;
+  // What credits leave over once every line is paid: owed to the organization and refunded outside
+  // TrekLink until a refund flow exists (REQ-STA-03, D-097 rule 3).
+  owedToOrganizationVnd: bigint;
 }
 
 interface Remaining {
@@ -25,21 +28,29 @@ interface Remaining {
 
 // What each line still owes, after negative ADJUSTMENT lines are credited against the oldest-due
 // positive lines first, the order payments apply in (REQ-EVT-09 of billing).
-const remainingAfterCredits = (lines: readonly LineRow[]): Remaining[] => {
-  let credit = 0n;
+const remainingAfterCredits = (lines: readonly LineRow[]): Remaining[] => netted(lines).owing;
+
+// The netting of `remainingAfterCredits`, with the credit no line absorbed (REQ-STA-03). `extraCredit`
+// is a credit not yet on any line, for the End now preview.
+const netted = (
+  lines: readonly Pick<LineRow, 'amountVnd' | 'paidVnd' | 'dueAt'>[],
+  extraCredit = 0n,
+): { owing: Remaining[]; leftVnd: bigint } => {
+  let credit = extraCredit;
   const owing: Remaining[] = [];
   for (const line of lines) {
     const left = line.amountVnd - line.paidVnd;
     if (left < 0n) credit -= left;
     else if (left > 0n) owing.push({ dueAt: line.dueAt, vnd: left });
   }
-  return owing
+  const netOwing = owing
     .sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
     .map((item) => {
       const applied = credit < item.vnd ? credit : item.vnd;
       credit -= applied;
       return { dueAt: item.dueAt, vnd: item.vnd - applied };
     });
+  return { owing: netOwing, leftVnd: credit };
 };
 
 // Sorts after every code and id, so rows without one come last in the revenue report.
@@ -180,7 +191,7 @@ export class BalanceService {
       this.invoices.linesOfContract(contractId, client),
       this.damageCharges.pendingOfContract(contractId, client),
     ]);
-    const remaining = remainingAfterCredits(lines);
+    const { owing: remaining, leftVnd } = netted(lines);
     const dueNowVnd = sum(remaining.filter((item) => item.dueAt.getTime() <= at.getTime()));
     const dueLaterVnd = sum(remaining) - dueNowVnd;
     const paidVnd = lines.reduce((total, line) => total + line.paidVnd, 0n);
@@ -191,6 +202,21 @@ export class BalanceService {
       paidVnd,
       pendingDamageCharges,
       settled: dueNowVnd + dueLaterVnd === 0n,
+      owedToOrganizationVnd: leftVnd,
     };
+  }
+
+  // What the contract would owe, and be owed, with one more credit of `creditVnd` on its lines: the End
+  // now preview (rentals api-design 31, D-097 rule 3). Stores nothing.
+  async afterCredit(
+    contractId: string,
+    creditVnd: bigint,
+    client?: Client,
+  ): Promise<{ outstandingVnd: bigint; owedToOrganizationVnd: bigint }> {
+    const { owing, leftVnd } = netted(
+      await this.invoices.linesOfContract(contractId, client),
+      creditVnd,
+    );
+    return { outstandingVnd: sum(owing), owedToOrganizationVnd: leftVnd };
   }
 }

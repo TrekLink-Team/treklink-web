@@ -110,6 +110,7 @@ export class InvoicesController {
         createdAt: charge.createdAt,
       })),
       settled: summary.settled,
+      owedToOrganizationVnd: vnd(summary.owedToOrganizationVnd),
     };
   }
 

@@ -1,4 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
 import {
   CHECK_POLICIES_KEY,
@@ -16,6 +18,7 @@ import {
 } from './contracts.controller';
 import { ContractRow } from './contracts.repository';
 import { ContractsService } from './contracts.service';
+import { EndNowDto } from './dto/contract-decision.dto';
 
 const AT = new Date('2026-10-26T15:00:00.000Z');
 const MANAGER = { id: 'manager-1', roles: ['ORG_MANAGER'], organizationId: 'org-1' };
@@ -337,6 +340,8 @@ describe('ContractsController (rentals api-design 01)', () => {
     ['approve', 'operate'],
     ['reject', 'operate'],
     ['notice', 'notice'],
+    ['end', 'end'],
+    ['endPreview', 'end'],
     ['holder', 'label'],
   ])('checks the %s route against %s on RentalContract', (method, action) => {
     const can = jest.fn().mockReturnValue(true);
@@ -351,5 +356,115 @@ describe('ContractsController (rentals api-design 01)', () => {
     expect(handler(only('cancel'))).toBe(true);
     expect(handler(only('operate'))).toBe(true);
     expect(handler(only('read'))).toBe(false);
+  });
+
+  // End now (api-design 30 and 31, D-097): the result carries the contract view and the credit as
+  // numbers, the preview the amounts the dialog names.
+  describe('end and endPreview (api-design 30, 31)', () => {
+    const ended = {
+      ...CONTRACT,
+      status: ContractStatus.RETURN_DUE,
+      endsAt: AT,
+      returnDueAt: AT,
+      version: 2,
+    };
+    const term = {
+      seq: 2,
+      startsAt: new Date('2026-11-01T02:00:00.000Z'),
+      endsAt: new Date('2026-12-01T02:00:00.000Z'),
+    };
+    let decisions: { endNow: jest.Mock; endPreview: jest.Mock };
+    let endController: ContractsController;
+
+    beforeEach(() => {
+      decisions = {
+        endNow: jest.fn().mockResolvedValue({
+          contract: ended,
+          term,
+          earlyEnd: {
+            endedAt: AT,
+            reason: 'Trek finished early',
+            creditVnd: 3_600_000n,
+            usedDays: 6,
+            unusedDays: 24,
+            termDays: 30,
+            outstandingVnd: 0n,
+            owedToOrganizationVnd: 3_600_000n,
+          },
+        }),
+        endPreview: jest.fn().mockResolvedValue({
+          contract: CONTRACT,
+          endsAt: AT,
+          term,
+          termFeeVnd: 4_500_000n,
+          termDays: 30,
+          usedDays: 6,
+          unusedDays: 24,
+          creditVnd: 3_600_000n,
+          outstandingVnd: 0n,
+          owedToOrganizationVnd: 3_600_000n,
+        }),
+      };
+      const reads = {
+        labeller: jest
+          .fn()
+          .mockResolvedValue(() => ({ organization: ORG, variantCode: 'treklink-v3' })),
+      };
+      endController = new ContractsController(
+        {} as ContractsService,
+        {} as DevicesService,
+        reads as unknown as ContractReadsService,
+        decisions as unknown as ContractDecisionsService,
+      );
+    });
+
+    it('ends the contract with the caller and answers the view with earlyEnd', async () => {
+      const view = await endController.end(
+        'c-1',
+        { reason: 'Trek finished early', expectedVersion: 1 },
+        MANAGER,
+      );
+
+      expect(decisions.endNow).toHaveBeenCalledWith(
+        'c-1',
+        { reason: 'Trek finished early', expectedVersion: 1 },
+        MANAGER,
+      );
+      expect(view).toMatchObject({
+        id: 'c-1',
+        status: ContractStatus.RETURN_DUE,
+        returnDueAt: AT,
+        currentTerm: term,
+        earlyEnd: { creditVnd: 3_600_000, owedToOrganizationVnd: 3_600_000, unusedDays: 24 },
+      });
+    });
+
+    it('answers the preview in numbers', async () => {
+      await expect(endController.endPreview('c-1', MANAGER)).resolves.toEqual({
+        contractId: 'c-1',
+        code: 'RC-2026-0002',
+        planType: PlanType.MONTHLY,
+        endsAt: AT,
+        term,
+        termFeeVnd: 4_500_000,
+        termDays: 30,
+        usedDays: 6,
+        unusedDays: 24,
+        creditVnd: 3_600_000,
+        outstandingVnd: 0,
+        owedToOrganizationVnd: 3_600_000,
+      });
+    });
+
+    it('trims the reason and refuses an empty or a 501-character one', async () => {
+      const check = async (reason: unknown) =>
+        validate(plainToInstance(EndNowDto, { reason, expectedVersion: 1 }));
+      const trimmed = plainToInstance(EndNowDto, { reason: '  Early  ', expectedVersion: 1 });
+      expect(trimmed.reason).toBe('Early');
+      expect(await check('   ')).not.toHaveLength(0);
+      expect(await check('x'.repeat(501))).not.toHaveLength(0);
+      expect(await check('x'.repeat(500))).toHaveLength(0);
+      expect(await check(undefined)).not.toHaveLength(0);
+    });
   });
 });

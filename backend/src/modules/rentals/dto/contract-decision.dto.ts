@@ -184,6 +184,19 @@ export class HandoverDto {
 }
 
 // rentals api-design 12.
+// rentals api-design 30 (D-097): the reason is trimmed, 1 to 500 characters (REQ-ERR-17).
+export class EndNowDto {
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason!: string;
+
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
+}
+
 export class NoticeDto {
   @IsInt()
   @Min(0)

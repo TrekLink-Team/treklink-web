@@ -244,19 +244,22 @@ Specified 2026-11-05 (KhoaDD under D-078) in requirements REQ-EVT-27, REQ-EVT-28
 amended REQ-STA-01 and REQ-EVT-10, and design §2 and §12; endpoints api-design 30 and 31. Billing side: billing
 REQ-EVT-16, REQ-STA-03, AC-09, AC-10, design §10, billing task 9.1.
 
-- [ ] 10.1 Permissions and migration (owner KhoaDD under D-078)
+- [x] 10.1 Permissions and migration (owner KhoaDD under D-078)
   - **Files**: `scripts/specs/catalog.py`, `specs/auth/permission-matrix.md`, `backend/prisma/migrations/20261105230000_contract_early_end/migration.sql`, `backend/prisma/schema.prisma`, `backend/prisma/constraints.sql`
   - **Do**: `contract.end` (Staff) and `contract.end.own` (Org Manager) of design §12.2; the `EARLY_END_CREDIT` line type and its sign CHECKs (billing design §10.2)
   - _Requirements: REQ-EVT-27, D-097_
-- [ ] 10.2 `ContractDecisionsService.endNow` and `endPreview`; api-design 30 and 31 (owner KhoaDD under D-078)
+  - **Done** (2026-11-05, KhoaDD under D-078): migration `20261105230000_contract_early_end` applied on a fresh local Postgres 16 after every migration on `dev`; the permission matrix regenerated, the seed migration reverted as before
+- [x] 10.2 `ContractDecisionsService.endNow` and `endPreview`; api-design 30 and 31 (owner KhoaDD under D-078)
   - **Files**: `contract-decisions.service.ts`, `contracts.repository.ts`, `contracts.controller.ts`, `dto/contract-decision.dto.ts`
   - **Do**: design §12.1 in one transaction; JWT guard and `@CheckPolicies(can('end', 'RentalContract'))`; audit and `contract.endedEarly` after commit
   - **Test**: `contract-decisions.service.spec.ts` (states, scope, reason, version, day plan, all devices back) and `contracts.controller.spec.ts` (policy, envelope fields)
   - _Requirements: REQ-EVT-27, REQ-EVT-28, REQ-ERR-17, AC-16_
-- [ ] 10.3 The full path on Postgres (owner KhoaDD under D-078)
+  - **Done** (2026-11-05, KhoaDD under D-078): `contract-decisions.service.end-now.spec.ts` (23 tests) and four cases in `contracts.controller.spec.ts`
+- [x] 10.3 The full path on Postgres (owner KhoaDD under D-078)
   - **Files**: `backend/test/contract-early-end.db-spec.ts`
   - **Do**: End now, check-in of every unit to `RETURNED`, the credit line on the closing invoice, the payment of the rest, the close
   - _Requirements: AC-15_
+  - **Done** (2026-11-05, KhoaDD under D-078): four cases on a local Postgres 16, including the HTTP refusals (404 other organization, 403 Org Operator, 400 blank reason, 409 stale and wrong state)
 - [ ] 10.4 Screen: End contract now on the contract home (owner KhoaDD under D-078, screen 5.2)
   - **Files**: `frontend/src/widgets/ContractActions/EndNowDialog.tsx`, `widgets/ContractHome/policy.ts`, `pages/ContractDetailPage.tsx`, `entities/contract/api.ts`, the money tab's owed note
   - _Requirements: REQ-EVT-27, REQ-EVT-28, billing REQ-STA-03_

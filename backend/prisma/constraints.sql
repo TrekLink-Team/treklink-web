@@ -28,11 +28,11 @@ ALTER TABLE "rental_contracts"
 ALTER TABLE "contract_terms"
   ADD CONSTRAINT "contract_terms_end_after_start" CHECK ("endsAt" > "startsAt");
 
--- billing: amounts are never negative except an ADJUSTMENT or SERVICE_CREDIT line (design §9.3); a line
--- is never overpaid.
+-- billing: amounts are never negative except an ADJUSTMENT, SERVICE_CREDIT or EARLY_END_CREDIT line
+-- (design §9.3, §10.2); a line is never overpaid.
 ALTER TABLE "invoice_lines"
-  ADD CONSTRAINT "invoice_lines_amount_sign" CHECK ("type"::text IN ('ADJUSTMENT', 'SERVICE_CREDIT') OR "amountVnd" >= 0),
-  ADD CONSTRAINT "invoice_lines_paid_bounds" CHECK ("paidVnd" >= 0 AND ("type"::text IN ('ADJUSTMENT', 'SERVICE_CREDIT') OR "paidVnd" <= "amountVnd"));
+  ADD CONSTRAINT "invoice_lines_amount_sign" CHECK ("type"::text IN ('ADJUSTMENT', 'SERVICE_CREDIT', 'EARLY_END_CREDIT') OR "amountVnd" >= 0),
+  ADD CONSTRAINT "invoice_lines_paid_bounds" CHECK ("paidVnd" >= 0 AND ("type"::text IN ('ADJUSTMENT', 'SERVICE_CREDIT', 'EARLY_END_CREDIT') OR "paidVnd" <= "amountVnd"));
 ALTER TABLE "payments"
   ADD CONSTRAINT "payments_amount_positive" CHECK ("amountVnd" > 0);
 

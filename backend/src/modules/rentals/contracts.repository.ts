@@ -653,6 +653,11 @@ export class ContractsRepository {
     await tx.rentalContract.update({ where: { id }, data: notice });
   }
 
+  // End now (design §12.1, D-097): the contract ends at the end time, and its devices fall due then.
+  async recordEarlyEnd(id: string, at: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.rentalContract.update({ where: { id }, data: { endsAt: at, returnDueAt: at } });
+  }
+
   // The row of the device that is still on the contract (not released), with its custody times.
   findDeviceRow(
     contractId: string,
