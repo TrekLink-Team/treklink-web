@@ -177,6 +177,22 @@ describe('InvoiceDetailView, Record counter payment (6.3, ruling on #87 point 4)
   });
 });
 
+describe('InvoiceDetailView focus on open (screen 6.1)', () => {
+  it('moves focus to the invoice number when asked, and leaves it alone otherwise', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <InvoiceDetailView invoiceId="i-1" contractPath={(id) => id} canRecordCounter focusOnOpen />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(document.activeElement?.textContent).toBe('INV-2026-000001');
+    cleanup();
+    renderView();
+    expect(document.activeElement).toBe(document.body);
+  });
+});
+
 describe('InvoiceDetailView heading', () => {
   it('makes the invoice number the page h1 on its own page, and an h2 beside the Staff list', () => {
     renderView(true, true);

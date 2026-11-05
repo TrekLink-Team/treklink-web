@@ -64,6 +64,7 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
           invoiceId={selectedId}
           contractPath={(id) => `/t/contracts/${id}`}
           canRecordCounter
+          focusOnOpen
         />
       ) : (
         <p className="text-sm text-ink-muted">Open an invoice to see its lines and payments.</p>

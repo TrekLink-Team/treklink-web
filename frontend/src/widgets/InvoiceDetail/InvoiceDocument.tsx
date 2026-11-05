@@ -15,25 +15,29 @@ import { cn } from '../../shared/ui/cn';
 
 const NOT_RECORDED = 'Not recorded';
 
-const PartyFact: React.FC<{ label: string; value: string | null }> = ({ label, value }) => (
-  <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
-    <dt className="shrink-0 text-ink-muted sm:w-24">{label}</dt>
-    <dd className="min-w-0 break-words text-ink">{value ?? NOT_RECORDED}</dd>
-  </div>
+// A label and its value on one row of the party's two-column list; a code never breaks inside.
+const PartyFact: React.FC<{ label: string; value: string | null; code?: boolean }> = ({ label, value, code }) => (
+  <>
+    <dt className="text-ink-muted">{label}</dt>
+    <dd className={cn('min-w-0 text-ink', code ? 'whitespace-nowrap' : 'break-words')}>{value ?? NOT_RECORDED}</dd>
+  </>
 );
 
+const PARTY_LIST = 'grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm';
+
 // Seller (TrekLink, from the backend's COMPANY_* configuration) beside the buyer (the
-// organization's registered legal name, tax code and address). Stacked below 640 px.
+// organization's registered legal name, tax code and address). The two stack whenever a column would
+// be narrower than 14 rem: on a phone and in the Staff side panel beside the invoice list.
 export const InvoiceParties: React.FC<{ invoice: InvoiceDetail; headingLevel?: 'h3' | 'h4' }> = ({
   invoice,
   headingLevel: Heading = 'h3',
 }) => (
-  <div className="grid gap-4 sm:grid-cols-2">
+  <div className="grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4">
     <section aria-label="Seller" className="min-w-0">
       <Heading className="mb-2 text-label uppercase text-ink-muted">Seller</Heading>
       <p className="mb-2 font-semibold text-ink">{invoice.seller.legalName}</p>
-      <dl className="flex flex-col gap-1.5 text-sm">
-        <PartyFact label="Tax code" value={invoice.seller.taxCode} />
+      <dl className={PARTY_LIST}>
+        <PartyFact label="Tax code" value={invoice.seller.taxCode} code />
         <PartyFact label="Address" value={invoice.seller.address} />
         <PartyFact label="Hotline" value={invoice.seller.hotline} />
       </dl>
@@ -43,9 +47,9 @@ export const InvoiceParties: React.FC<{ invoice: InvoiceDetail; headingLevel?: '
       <p className="mb-2 font-semibold text-ink">
         {invoice.organization.legalName ?? invoice.organization.code ?? NOT_RECORDED}
       </p>
-      <dl className="flex flex-col gap-1.5 text-sm">
-        <PartyFact label="Code" value={invoice.organization.code} />
-        <PartyFact label="Tax code" value={invoice.organization.taxCode} />
+      <dl className={PARTY_LIST}>
+        <PartyFact label="Code" value={invoice.organization.code} code />
+        <PartyFact label="Tax code" value={invoice.organization.taxCode} code />
         <PartyFact label="Address" value={invoice.organization.address} />
       </dl>
     </section>
