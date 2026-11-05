@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  NO_STYLE_LABEL,
   PATTERN_LABEL,
+  STYLE_LABEL,
   raiseSimulatedEvent,
   simulationKey,
   startSimulatedNode,
@@ -10,6 +12,7 @@ import {
   type SimulatedNode,
   type SimulationOverview,
   type SimulationPattern,
+  type SimulationStyle,
 } from '../../entities/demo/simulation';
 import { ApiError } from '../../shared/api/apiClient';
 import { formatDateTime, formatUtc } from '../../shared/lib/format';
@@ -22,7 +25,6 @@ import {
   ConfirmDialog,
   EmptyState,
   Field,
-  Input,
   Select,
   useToast,
 } from '../../shared/ui';
@@ -78,7 +80,9 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
   const [deviceId, setDeviceId] = useState(firstFree?.id ?? '');
   const [trailId, setTrailId] = useState(simulation.trails[0]?.id ?? '');
   const [pattern, setPattern] = useState<SimulationPattern>('WALK');
-  const [speed, setSpeed] = useState('60');
+  // '' leaves the style to the asset tag (demo design §9.1).
+  const [style, setStyle] = useState<SimulationStyle | ''>('');
+  const [styles, setStyles] = useState<Record<string, SimulationStyle>>({});
 
   const allowed = simulation.databaseAllowed;
   const trailName = (id: string) => simulation.trails.find((t) => t.id === id)?.name ?? id;
@@ -107,9 +111,13 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
         deviceId,
         trailId,
         pattern,
-        speedMetresPerMinute: Number(speed),
+        ...(style === '' ? {} : { style }),
       });
-      showToast(`${node.assetTag ?? 'The device'} runs on ${trailName(node.trailId)}.`);
+      showToast(
+        `${node.assetTag ?? 'The device'} runs on ${trailName(node.trailId)}${
+          node.style ? ` as ${STYLE_LABEL[node.style]}` : ''
+        }.`,
+      );
     });
   };
 
@@ -118,6 +126,14 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
       const next = patterns[node.id] ?? node.pattern;
       await updateSimulatedNode(node, { pattern: next });
       showToast(`${node.assetTag} now ${PATTERN_LABEL[next]}.`);
+    });
+
+  const applyStyle = (node: SimulatedNode) =>
+    act(node.id, async () => {
+      const next = styles[node.id];
+      if (!next) return;
+      await updateSimulatedNode(node, { style: next });
+      showToast(`${node.assetTag} now moves as ${STYLE_LABEL[next]}.`);
     });
 
   const raise = (node: SimulatedNode, kind: 'SOS' | 'FALL' | 'SOS_CANCEL') =>
@@ -247,7 +263,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
             tabIndex={0}
             className="mt-3 overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
           >
-            <table className="w-full min-w-[56rem] text-left text-body-sm">
+            <table className="w-full min-w-[60rem] text-left text-body-sm">
               <caption className="sr-only">Simulated nodes, running first</caption>
               <thead className="border-b border-line text-ink-muted">
                 <tr>
@@ -255,7 +271,7 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                     'Device',
                     'Organization',
                     'Trail',
-                    'Pattern',
+                    'Pattern and style',
                     'Position',
                     'Battery',
                     'Last packet',
@@ -294,39 +310,88 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
                       </td>
                       <td className="px-2 py-2 text-ink">{trailName(node.trailId)}</td>
                       <td className="px-2 py-2">
-                        {isRunning ? (
-                          <span className="flex items-center gap-1.5">
-                            <Select
-                              aria-label={`Pattern for ${label}`}
-                              value={patterns[node.id] ?? node.pattern}
-                              disabled={disabled}
-                              onChange={(e) =>
-                                setPatterns({
-                                  ...patterns,
-                                  [node.id]: e.target.value as SimulationPattern,
-                                })
-                              }
-                            >
-                              {simulation.patterns.map((p) => (
-                                <option key={p} value={p}>
-                                  {PATTERN_LABEL[p]}
-                                </option>
-                              ))}
-                            </Select>
-                            <Button
-                              size="sm"
-                              disabled={
-                                disabled || (patterns[node.id] ?? node.pattern) === node.pattern
-                              }
-                              onClick={() => void applyPattern(node)}
-                              aria-label={`Apply pattern to ${label}`}
-                            >
-                              Apply
-                            </Button>
-                          </span>
-                        ) : (
-                          <span className="text-ink">{PATTERN_LABEL[node.pattern]}</span>
-                        )}
+                        {/* Pattern and style share a cell, so the row actions stay in view. */}
+                        <span className="flex flex-col gap-1.5">
+                          {isRunning ? (
+                            <span className="flex items-center gap-1.5">
+                              <Select
+                                aria-label={`Pattern for ${label}`}
+                                // Wide enough for the longest label, "Stray off the trail".
+                                className="min-w-[10rem]"
+                                value={patterns[node.id] ?? node.pattern}
+                                disabled={disabled}
+                                onChange={(e) =>
+                                  setPatterns({
+                                    ...patterns,
+                                    [node.id]: e.target.value as SimulationPattern,
+                                  })
+                                }
+                              >
+                                {simulation.patterns.map((p) => (
+                                  <option key={p} value={p}>
+                                    {PATTERN_LABEL[p]}
+                                  </option>
+                                ))}
+                              </Select>
+                              <Button
+                                size="sm"
+                                disabled={
+                                  disabled || (patterns[node.id] ?? node.pattern) === node.pattern
+                                }
+                                onClick={() => void applyPattern(node)}
+                                aria-label={`Apply pattern to ${label}`}
+                              >
+                                Apply
+                              </Button>
+                            </span>
+                          ) : (
+                            <span className="text-ink">{PATTERN_LABEL[node.pattern]}</span>
+                          )}
+                          {isRunning ? (
+                            <span className="flex items-center gap-1.5">
+                              <Select
+                                aria-label={`Style for ${label}`}
+                                // Wide enough for the longest label, "Group follower".
+                                className="min-w-[10rem]"
+                                value={styles[node.id] ?? node.style ?? ''}
+                                disabled={disabled}
+                                onChange={(e) =>
+                                  setStyles({
+                                    ...styles,
+                                    [node.id]: e.target.value as SimulationStyle,
+                                  })
+                                }
+                              >
+                                {node.style === null && (
+                                  <option value="" disabled>
+                                    {NO_STYLE_LABEL}
+                                  </option>
+                                )}
+                                {simulation.styles.map((option) => (
+                                  <option key={option} value={option}>
+                                    {STYLE_LABEL[option]}
+                                  </option>
+                                ))}
+                              </Select>
+                              <Button
+                                size="sm"
+                                disabled={
+                                  disabled ||
+                                  styles[node.id] === undefined ||
+                                  styles[node.id] === node.style
+                                }
+                                onClick={() => void applyStyle(node)}
+                                aria-label={`Apply style to ${label}`}
+                              >
+                                Apply
+                              </Button>
+                            </span>
+                          ) : (
+                            <span className="text-ink">
+                              {node.style ? STYLE_LABEL[node.style] : NO_STYLE_LABEL}
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td className="px-2 py-2 font-mono text-ink">
                         {node.position.lat.toFixed(6)}, {node.position.lon.toFixed(6)}
@@ -457,17 +522,24 @@ export const FieldSimulationSection: React.FC<Props> = ({ simulation }) => {
               ))}
             </Select>
           </Field>
-          <Field id="simulation-speed" label="Speed (m/min)">
-            <Input
-              id="simulation-speed"
-              type="number"
-              min={10}
-              max={300}
-              step={1}
-              value={speed}
-              onChange={(e) => setSpeed(e.target.value)}
+          <Field
+            id="simulation-style"
+            label="Movement style"
+            hint="A style sets its own pace, rests and path while the pattern walks."
+          >
+            <Select
+              id="simulation-style"
+              value={style}
+              onChange={(e) => setStyle(e.target.value as SimulationStyle | '')}
               disabled={!allowed}
-            />
+            >
+              <option value="">From the asset tag</option>
+              {simulation.styles.map((option) => (
+                <option key={option} value={option}>
+                  {STYLE_LABEL[option]}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Button
             type="submit"

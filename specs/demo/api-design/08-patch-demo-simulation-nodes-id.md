@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Changes the pattern, the trail or the speed of a running node. The node is re-anchored where it is now, so the move continues from there; a new trail starts at its first point. An active SOS stays active.
+Changes the pattern, the style, the trail or the speed of a running node. The node is re-anchored where it is now, so the move continues from there; a new trail starts at its first point. An active SOS stays active.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Changes the pattern, the trail or the speed of a running node. The node is re-an
 | --- | --- |
 | PATCH | /api/demo/simulation/nodes/:id |
 | Permission | TrekLink Admin (`demo.simulate`) |
-| Traces | D-093 amendment, REQ-SIM-02, REQ-SIM-04, REQ-SIM-07 |
+| Traces | D-093 amendment, REQ-SIM-02, REQ-SIM-04, REQ-SIM-07, REQ-SIM-09 |
 
 ### Path parameters
 
@@ -36,6 +36,7 @@ Changes the pattern, the trail or the speed of a running node. The node is re-an
 | --- | --- | --- | --- | --- |
 | expectedVersion | The node's `version` as read | int | yes | `0` |
 | pattern | New pattern | string | no | `STRAY` |
+| style | New movement style; a `GROUP_FOLLOWER` joins its trail's group at once | string | no | `WANDERER` |
 | trailId | New trail | string | no | `ta-nang-phan-dung` |
 | speedMetresPerMinute | New speed, 10 to 300 | int | no | `80` |
 
@@ -55,6 +56,7 @@ Changes the pattern, the trail or the speed of a running node. The node is re-an
     },
     "trailId": "ta-nang-phan-dung",
     "pattern": "STRAY",
+    "style": "HIKER",
     "speedMetresPerMinute": 60,
     "status": "RUNNING",
     "sosKind": null,
@@ -83,6 +85,7 @@ Changes the pattern, the trail or the speed of a running node. The node is re-an
 | position | Position the pattern gives at the time of the read (the stop time for a `STOPPED` node) | object | see sample |
 | batteryPct | Battery the pattern gives at the same time, 5 to 100 | int | `99` |
 | lastPacketAt | Last time the device was heard (device projection `lastSeenAt`), or null | datetime | `2026-10-20T03:15:00.000Z` |
+| style | Movement style while the pattern walks (design §9.1), or null for a node started before the styles, which keeps the steady walk at `speedMetresPerMinute` | string | `HIKER` |
 | sosKind | `SOS` or `FALL` while an SOS is active, otherwise null | string | `null` |
 | version | Compare-and-set version for 08 and 09 | int | `0` |
 

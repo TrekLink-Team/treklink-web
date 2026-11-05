@@ -16,6 +16,31 @@ export const PATTERN_LABEL: Record<SimulationPattern, string> = {
   LOW_BATTERY: 'Low battery',
 };
 
+// How a node moves while its pattern walks (specs/demo/design.md §9.1, leader ruling 2026-11-06).
+export type SimulationStyle =
+  | 'JOGGER'
+  | 'HIKER'
+  | 'CAMPER'
+  | 'EXPLORER'
+  | 'TRAIL_WALKER'
+  | 'WANDERER'
+  | 'GROUP_FOLLOWER'
+  | 'STRAGGLER';
+
+export const STYLE_LABEL: Record<SimulationStyle, string> = {
+  JOGGER: 'Jogger',
+  HIKER: 'Hiker',
+  CAMPER: 'Camper',
+  EXPLORER: 'Explorer',
+  TRAIL_WALKER: 'Trail walker',
+  WANDERER: 'Wanderer',
+  GROUP_FOLLOWER: 'Group follower',
+  STRAGGLER: 'Straggler',
+};
+
+// A node started before the styles keeps the steady walk at its speed.
+export const NO_STYLE_LABEL = 'Steady pace';
+
 export interface SimulationOrganization {
   id: string;
   code: string;
@@ -48,6 +73,7 @@ export interface SimulatedNode {
   organization: SimulationOrganization | null;
   trailId: string;
   pattern: SimulationPattern;
+  style: SimulationStyle | null;
   speedMetresPerMinute: number;
   status: 'RUNNING' | 'STOPPED';
   sosKind: 'SOS' | 'FALL' | null;
@@ -65,6 +91,7 @@ export interface SimulationOverview {
   databaseAllowed: boolean;
   trails: SimulationTrail[];
   patterns: SimulationPattern[];
+  styles: SimulationStyle[];
   devices: SimulatableDevice[];
   nodes: SimulatedNode[];
 }
@@ -101,6 +128,8 @@ export interface StartNodeBody {
   deviceId: string;
   trailId: string;
   pattern: SimulationPattern;
+  // Without one, the backend picks the style of the device's asset tag.
+  style?: SimulationStyle;
   speedMetresPerMinute?: number;
 }
 
@@ -112,7 +141,12 @@ export const startSimulatedNode = (body: StartNodeBody) =>
 
 export const updateSimulatedNode = (
   node: Pick<SimulatedNode, 'id' | 'version'>,
-  change: { pattern?: SimulationPattern; trailId?: string; speedMetresPerMinute?: number },
+  change: {
+    pattern?: SimulationPattern;
+    style?: SimulationStyle;
+    trailId?: string;
+    speedMetresPerMinute?: number;
+  },
 ) =>
   apiClient<SimulatedNode>(`/demo/simulation/nodes/${encodeURIComponent(node.id)}`, {
     method: 'PATCH',

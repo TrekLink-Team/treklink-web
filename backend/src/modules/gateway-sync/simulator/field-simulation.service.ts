@@ -30,6 +30,7 @@ import {
   stateAt,
   trailLengthMetres,
 } from './field-simulation';
+import { SIMULATION_STYLES, SimulationStyleName, styleFor } from './field-styles';
 import { SimulatedPacket } from './simulated-batch';
 import { SimulatedNodesRepository } from './simulated-nodes.repository';
 import { TRAILS, Trail, trailById } from './trails';
@@ -45,6 +46,8 @@ export interface StartNodeInput {
   deviceId: string;
   trailId: string;
   pattern: SimulationPatternName;
+  // Design §9.1: without one, the style of the device's asset tag.
+  style?: SimulationStyleName;
   speedMetresPerMinute?: number;
   startMetres?: number;
 }
@@ -52,6 +55,7 @@ export interface StartNodeInput {
 export interface UpdateNodeInput {
   expectedVersion: number;
   pattern?: SimulationPatternName;
+  style?: SimulationStyleName;
   trailId?: string;
   speedMetresPerMinute?: number;
 }
@@ -71,6 +75,8 @@ export interface SimulatedNodeView {
   organization: OrganizationRef | null;
   trailId: string;
   pattern: SimulationPatternName;
+  // Null for a node started before the styles, which keeps the steady walk at its speed.
+  style: SimulationStyleName | null;
   speedMetresPerMinute: number;
   status: SimulatedNodeStatus;
   sosKind: SosKindName | null;
@@ -105,6 +111,7 @@ export interface SimulatableDeviceView {
 export interface SimulationOverview {
   trails: TrailView[];
   patterns: readonly SimulationPatternName[];
+  styles: readonly SimulationStyleName[];
   devices: SimulatableDeviceView[];
   nodes: SimulatedNodeView[];
 }
@@ -142,6 +149,8 @@ const anchorOf = (node: SimulatedNode): SimulationAnchor => ({
   anchorBattery: node.anchorBattery,
   direction: node.direction,
   strayBearing: node.strayBearing,
+  style: node.style,
+  styleSeed: node.styleSeed,
 });
 
 const anchorColumns = (anchor: SimulationAnchor) => ({
@@ -154,6 +163,8 @@ const anchorColumns = (anchor: SimulationAnchor) => ({
   anchorBattery: anchor.anchorBattery,
   direction: anchor.direction,
   strayBearing: anchor.strayBearing,
+  style: anchor.style,
+  styleSeed: anchor.styleSeed,
 });
 
 const wholeSecond = (at: Date) => new Date(Math.floor(at.getTime() / 1000) * 1000);
@@ -213,6 +224,7 @@ export class FieldSimulationService {
         source: trail.source,
       })),
       patterns: SIMULATION_PATTERNS,
+      styles: SIMULATION_STYLES,
       devices,
       nodes: views,
     };
@@ -238,9 +250,17 @@ export class FieldSimulationService {
         `${device.assetTag} already runs as a simulated node. Stop it first.`,
       );
     if (await this.nodes.runningForDevice(device.id)) throw running();
+    // The seed always comes from the asset tag, so a run repeats; the style may be chosen (§9.1).
+    const assigned = styleFor(device.assetTag);
     const anchor = startAnchor(
       trail,
-      { pattern: input.pattern, speedMetresPerMinute: speed, startMetres },
+      {
+        pattern: input.pattern,
+        speedMetresPerMinute: speed,
+        startMetres,
+        style: input.style ?? assigned.style,
+        styleSeed: assigned.seed,
+      },
       now,
     );
     let node: SimulatedNode;
@@ -261,6 +281,7 @@ export class FieldSimulationService {
           assetTag: device.assetTag,
           trailId: trail.id,
           pattern: created.pattern,
+          style: created.style,
           speedMetresPerMinute: speed,
           startMetres,
         });
@@ -291,6 +312,7 @@ export class FieldSimulationService {
       pattern: input.pattern,
       speedMetresPerMinute: speed,
       trail: nextTrail,
+      style: input.style,
     });
     const updated = await this.events.transaction(async (tx) => {
       const row = await this.nodes.updateRunning(
@@ -306,11 +328,13 @@ export class FieldSimulationService {
         row,
         {
           pattern: node.pattern,
+          style: node.style,
           trailId: node.trailId,
           speedMetresPerMinute: node.speedMetresPerMinute,
         },
         {
           pattern: row.pattern,
+          style: row.style,
           trailId: row.trailId,
           speedMetresPerMinute: row.speedMetresPerMinute,
         },
@@ -529,6 +553,7 @@ export class FieldSimulationService {
         organization: holders.get(node.deviceId) ?? null,
         trailId: node.trailId,
         pattern: node.pattern,
+        style: node.style,
         speedMetresPerMinute: node.speedMetresPerMinute,
         status: node.status,
         sosKind: node.sosKind,

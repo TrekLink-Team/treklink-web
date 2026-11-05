@@ -160,7 +160,7 @@ migration with the permission.
 
 | Table | Columns |
 |---|---|
-| `simulated_nodes` | `id`, `deviceId` (unique while `status = RUNNING`), `nodeNum`, `trailId`, `pattern` (`WALK`, `STOP`, `STRAY`, `SILENT`, `LOW_BATTERY`), `speedMetresPerMinute` (default 60), `anchorAt`, `anchorMetres` (distance along the trail at the anchor), `anchorLat`, `anchorLon`, `anchorBattery`, `direction` (1 or -1), `strayBearing` (null unless `STRAY`), `sosKind` (null, `SOS` or `FALL`), `sosSince`, `beaconedUntil` (time of the last beacon ingested, null without an SOS), `status` (`RUNNING`, `STOPPED`), `version`, `createdById`, `createdAt`, `updatedAt` |
+| `simulated_nodes` | `id`, `deviceId` (unique while `status = RUNNING`), `nodeNum`, `trailId`, `pattern` (`WALK`, `STOP`, `STRAY`, `SILENT`, `LOW_BATTERY`), `style` (§9.1, null for a node started before the styles) and `styleSeed`, `speedMetresPerMinute` (default 60), `anchorAt`, `anchorMetres` (distance along the trail at the anchor), `anchorLat`, `anchorLon`, `anchorBattery`, `direction` (1 or -1), `strayBearing` (null unless `STRAY`), `sosKind` (null, `SOS` or `FALL`), `sosSince`, `beaconedUntil` (time of the last beacon ingested, null without an SOS), `status` (`RUNNING`, `STOPPED`), `version`, `createdById`, `createdAt`, `updatedAt` |
 | `field_events` | new column `simulated boolean not null default false` |
 | `incidents` | new column `simulated boolean not null default false`, set when the opening event is simulated |
 
@@ -181,6 +181,36 @@ then each run adds the beacon positions due since `beaconedUntil`: every 5 s for
 the beacons replace the interval's position packet; telemetry continues. A second `SOS` restarts the
 beacons and joins the open incident (incidents §4). `SOS_CANCEL` clears `sosKind`; no packet is sent,
 because the firmware sends none; a `SOS_CANCEL` with no active SOS is 409 `INVALID_STATE_TRANSITION`.
+
+**9.1 Movement styles (leader ruling 2026-11-06, REQ-SIM-09).** While the pattern walks (`WALK`,
+`LOW_BATTERY`), the node's `style` decides how it moves; `STOP`, `STRAY` and `SILENT` keep their meaning, so
+the scripted demo cases still work on any style. Like the rest of the model, a style is a pure function of
+the anchor, the elapsed time and the node's `styleSeed`, so every run and instance computes the same packet.
+`styleSeed` is FNV-1a 32 of `treklink-sim-v1:{assetTag}` shifted right one bit, so it fits the signed
+32-bit column; the default style is `SIMULATION_STYLES[seed mod 8]`.
+Every number below is drawn once from the seed inside its range (`field-styles.ts`). Speeds are on the
+ground; the "smooth random" offsets interpolate seeded values with a cosine, so a path never jumps.
+
+| Style | Moves | Pace | Rests and phases | Off the trail | Battery a minute |
+|---|---|---|---|---|---|
+| `JOGGER` | out and back along the trail, steady | 2.5 to 3.5 m/s | none | on the trail | 0.25 |
+| `HIKER` | along the trail in cycles | 1.2 to 1.6 m/s | walk 15 to 25 min, break 5 to 10 min standing, then one circle round the spot (radius 20 to 35 m, 3 to 5 min) | the circle only | 0.15 |
+| `CAMPER` | from the anchor to a camp, back again | 0.9 to 1.1 m/s | camp 300 to 800 m along the trail and 40 to 80 m off it; stays there 30 to 60 min (drifting within 10 m), returns, stays 10 to 20 min, repeats | up to 80 m | 0.08 |
+| `EXPLORER` | smooth random walk round the anchor | up to about 1.6 m/s | none | within 300 m of the anchor on each axis | 0.18 |
+| `TRAIL_WALKER` | along the trail in cycles | 0.9 to 1.1 m/s | walk 12 to 20 min, rest 3 to 6 min | on the trail | 0.12 |
+| `WANDERER` | slow smooth random walk round the anchor, a camp or viewpoint | up to about 1 m/s, mostly far less | none | within 80 m of the anchor on each axis | 0.08 |
+| `GROUP_FOLLOWER` | behind the trail's lead guide, who walks the trail at 1.0 to 1.2 m/s, resting 5 min in every 25, on a schedule of the trail and the clock, so every follower of one trail moves as one group | the guide's | the guide's | 20 to 50 m behind, 5 to 15 m to one side, swaying | 0.12 |
+| `STRAGGLER` | half the seeds stand at camp (a 3 m sway); the other half lag along the trail and drift off it and back | 0.5 to 0.7 m/s | walk 10 min, rest 5 min | drifts up to 60 to 150 m off and back over 30 min | 0.40 |
+
+A `STRAGGLER` also falls silent for 7 to 10 min in every 30 to 45 (a radio shadow): no position and no
+telemetry in those intervals, so it turns offline past `monitoring.deviceStaleSeconds`, and its fast drain
+reaches the low-battery case within a demo. An SOS raised in a shadow still sends its beacons. A node that
+changes to `GROUP_FOLLOWER` joins its trail's group, so it moves at once to its place behind the guide; any
+other change continues from where the node is. The panel shows a style picker on Add node and on each row
+(Change style); `GET /api/demo/simulation` lists `styles`, and a node returns `style` (null for a node
+started before the styles, which keeps the steady walk at `speedMetresPerMinute`). A styled node ignores
+`speedMetresPerMinute`. Tests per style check the movement envelope with a fixed seed: the fastest step,
+the farthest point from the trail or anchor, the rests, the camp stay, the group spread and the shadow.
 
 **Constants.** The movement model's numbers (default speed 60 m/min, accepted speed 10 to 300 m/min, the
 300 m stray over ten minutes, the battery rates and floor) are simulation constants of this section, kept
@@ -218,9 +248,9 @@ when `DEMO_SIMULATION_ENABLED` is `true` and sends the fixed two-node batch othe
 
 | # | Route | Body | Answer |
 |---|---|---|---|
-| 06 | `GET /api/demo/simulation` | | `{ databaseAllowed, trails, patterns, devices, nodes }` (REQ-SIM-08); `databaseAllowed` lets the screen disable the writes |
-| 07 | `POST /api/demo/simulation/nodes` | `{ deviceId, trailId, pattern, speedMetresPerMinute?, startMetres? }` | the node; 409 `DEMO_NODE_RUNNING` if the device already runs; 400 `VALIDATION_FAILED` if the trail is unknown; 404 for a missing or `DISPOSED` device (every device has a `nodeNum`, a required column) |
-| 08 | `PATCH /api/demo/simulation/nodes/:id` | `{ expectedVersion, pattern?, trailId?, speedMetresPerMinute? }` | the node with a new anchor; 409 `STALE_VERSION`, 409 `INVALID_STATE_TRANSITION` when stopped |
+| 06 | `GET /api/demo/simulation` | | `{ databaseAllowed, trails, patterns, styles, devices, nodes }` (REQ-SIM-08); `databaseAllowed` lets the screen disable the writes |
+| 07 | `POST /api/demo/simulation/nodes` | `{ deviceId, trailId, pattern, style?, speedMetresPerMinute?, startMetres? }` | the node; 409 `DEMO_NODE_RUNNING` if the device already runs; 400 `VALIDATION_FAILED` if the trail is unknown; 404 for a missing or `DISPOSED` device (every device has a `nodeNum`, a required column) |
+| 08 | `PATCH /api/demo/simulation/nodes/:id` | `{ expectedVersion, pattern?, style?, trailId?, speedMetresPerMinute? }` | the node with a new anchor; 409 `STALE_VERSION`, 409 `INVALID_STATE_TRANSITION` when stopped |
 | 09 | `POST /api/demo/simulation/nodes/:id/stop` | `{ expectedVersion }` | the node `STOPPED` |
 | 10 | `POST /api/demo/simulation/nodes/:id/events` | `{ kind: SOS, FALL or SOS_CANCEL }` | `{ node, fieldEventId }`, `fieldEventId` null for `SOS_CANCEL`; 409 `INVALID_STATE_TRANSITION` when stopped |
 

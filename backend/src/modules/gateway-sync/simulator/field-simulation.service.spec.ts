@@ -11,6 +11,7 @@ import { ContractsService } from '../../rentals';
 import { eventIdOf } from '../ingestion.service';
 import { UplinkIngress } from '../uplink-ingress';
 import { startAnchor } from './field-simulation';
+import { SIMULATION_STYLES, styleFor } from './field-styles';
 import { FieldSimulationService } from './field-simulation.service';
 import { SimulatedNodesRepository } from './simulated-nodes.repository';
 import { trailById } from './trails';
@@ -157,8 +158,9 @@ describe('FieldSimulationService (specs/demo/design.md §9)', () => {
 
   it('starts a node at the trail start with one audit entry', async () => {
     const { service, nodes, emitted } = build();
+    // A trail walker starts where it is anchored; a group follower would join its trail's group.
     const view = await service.start(
-      { deviceId: DEVICE.id, trailId: trail.id, pattern: 'WALK' },
+      { deviceId: DEVICE.id, trailId: trail.id, pattern: 'WALK', style: 'TRAIL_WALKER' },
       actor,
       now,
     );
@@ -198,6 +200,52 @@ describe('FieldSimulationService (specs/demo/design.md §9)', () => {
     expect(await start({ startMetres: 99_999 })).toMatchObject({ status: 400 });
     devices.projections.mockResolvedValueOnce([{ ...DEVICE, status: 'DISPOSED' }]);
     expect(await start({})).toMatchObject({ status: 404, code: 'NOT_FOUND' });
+  });
+
+  // Design §9.1: the style of the asset tag unless one is chosen; the seed always from the asset tag.
+  it('starts a node in the style of its asset tag, or in the style chosen, seeded by the tag', async () => {
+    const { service, nodes, emitted } = build();
+    const assigned = styleFor(DEVICE.assetTag);
+    const view = await service.start(
+      { deviceId: DEVICE.id, trailId: trail.id, pattern: 'WALK' },
+      actor,
+      now,
+    );
+    expect(nodes.insert.mock.calls[0][0]).toMatchObject({
+      style: assigned.style,
+      styleSeed: assigned.seed,
+    });
+    expect(view.style).toBe(assigned.style);
+    expect(emitted[0].payload).toMatchObject({ after: { style: assigned.style } });
+    const chosen = SIMULATION_STYLES.find((style) => style !== assigned.style)!;
+    await service.start(
+      { deviceId: DEVICE.id, trailId: trail.id, pattern: 'WALK', style: chosen },
+      actor,
+      now,
+    );
+    expect(nodes.insert.mock.calls[1][0]).toMatchObject({
+      style: chosen,
+      styleSeed: assigned.seed,
+    });
+  });
+
+  it('lists the styles', async () => {
+    const { service } = build();
+    expect((await service.overview(now)).styles).toEqual(SIMULATION_STYLES);
+  });
+
+  it('changes the style of a running node where it is, with one audit entry', async () => {
+    const { service, nodes, emitted } = build();
+    nodes.byId.mockResolvedValue(row({ style: 'JOGGER', styleSeed: 7 }));
+    const later = new Date(now.getTime() + 60_000);
+    await service.update('node-1', { expectedVersion: 0, style: 'WANDERER' }, actor, later);
+    const [, , data] = nodes.updateRunning.mock.calls[0];
+    expect(data).toMatchObject({ style: 'WANDERER', styleSeed: 7, anchorAt: later });
+    expect(emitted[0].payload).toMatchObject({
+      action: 'demo.simulation.update',
+      before: { style: 'JOGGER' },
+      after: { style: 'WANDERER' },
+    });
   });
 
   it('answers DEMO_NODE_RUNNING when a concurrent start wins the unique index', async () => {

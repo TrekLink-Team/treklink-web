@@ -1925,6 +1925,19 @@ enum SimulationPattern {
   LOW_BATTERY // walks while the battery falls 2 points a minute to 5
 }
 
+// How a simulated node moves while its pattern walks (specs/demo/design.md section 9.1, leader ruling
+// 2026-11-06).
+enum SimulationStyle {
+  JOGGER // steady fast pace along the trail
+  HIKER // fast pace, breaks, a circle round the spot
+  CAMPER // to a camp, stays, returns
+  EXPLORER // smooth random walk within about 300 m
+  TRAIL_WALKER // along the trail at its own pace, with rest stops
+  WANDERER // slow random walk round a camp or viewpoint
+  GROUP_FOLLOWER // behind the trail's lead guide
+  STRAGGLER // still at camp, or lagging and drifting off the trail; radio shadows
+}
+
 enum SimulatedNodeStatus {
   RUNNING
   STOPPED
@@ -1946,6 +1959,8 @@ model SimulatedNode {
   nodeNum              BigInt // the device's radio identity when started, for the packets' `from`
   trailId              String // an id of simulator/trails.ts
   pattern              SimulationPattern
+  style                SimulationStyle? // null: a node started before the styles, the steady walk
+  styleSeed            Int                 @default(0) // FNV-1a of the asset tag (design section 9.1)
   speedMetresPerMinute Int                 @default(60)
   anchorAt             DateTime            @db.Timestamptz(3)
   anchorMetres         Float // distance along the trail at the anchor

@@ -28,6 +28,7 @@ export {
   SIMULATION_PATTERNS,
   type SimulationPatternName,
 } from './simulator/field-simulation';
+export { SIMULATION_STYLES, type SimulationStyleName } from './simulator/field-styles';
 export {
   DEMO_SIMULATION_FLAG,
   FieldSimulatorModule,

@@ -7,8 +7,10 @@ import {
   MAX_SPEED_METRES_PER_MINUTE,
   MIN_SPEED_METRES_PER_MINUTE,
   SIMULATION_PATTERNS,
+  SIMULATION_STYLES,
   type SimulationEventKind,
   type SimulationPatternName,
+  type SimulationStyleName,
 } from '../gateway-sync';
 import { DemoSimulationGuard } from './demo-simulation.guard';
 
@@ -24,6 +26,10 @@ export class StartSimulatedNodeDto {
 
   @IsIn(SIMULATION_PATTERNS)
   pattern!: SimulationPatternName;
+
+  @IsOptional()
+  @IsIn(SIMULATION_STYLES)
+  style?: SimulationStyleName;
 
   @IsOptional()
   @IsInt()
@@ -45,6 +51,10 @@ export class UpdateSimulatedNodeDto {
   @IsOptional()
   @IsIn(SIMULATION_PATTERNS)
   pattern?: SimulationPatternName;
+
+  @IsOptional()
+  @IsIn(SIMULATION_STYLES)
+  style?: SimulationStyleName;
 
   @IsOptional()
   @IsString()

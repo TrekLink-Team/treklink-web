@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists what the field simulation panel needs: the trails (OpenStreetMap, © OpenStreetMap contributors, ODbL), the patterns, the devices that can be simulated and the simulated nodes, running ones first, then the twenty most recently stopped. `databaseAllowed` tells the screen whether the writes 07 to 10 can act on this database. The route belongs to `DemoSimulationModule`, loaded only when `DEMO_SIMULATION_ENABLED` is `true`; it is independent of `DEMO_CONTROLS_ENABLED` and is not refused in production, because the Vercel staging runs as production (D-094).
+Lists what the field simulation panel needs: the trails (OpenStreetMap, © OpenStreetMap contributors, ODbL), the patterns, the movement styles, the devices that can be simulated and the simulated nodes, running ones first, then the twenty most recently stopped. `databaseAllowed` tells the screen whether the writes 07 to 10 can act on this database. The route belongs to `DemoSimulationModule`, loaded only when `DEMO_SIMULATION_ENABLED` is `true`; it is independent of `DEMO_CONTROLS_ENABLED` and is not refused in production, because the Vercel staging runs as production (D-094).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Lists what the field simulation panel needs: the trails (OpenStreetMap, © OpenS
 | --- | --- |
 | GET | /api/demo/simulation |
 | Permission | TrekLink Admin (`demo.simulate`) |
-| Traces | D-093 amendment, D-094, REQ-SIM-01, REQ-SIM-08 |
+| Traces | D-093 amendment, D-094, REQ-SIM-01, REQ-SIM-08, REQ-SIM-09 |
 
 ## Request sample
 
@@ -50,6 +50,16 @@ No body.
       "SILENT",
       "LOW_BATTERY"
     ],
+    "styles": [
+      "JOGGER",
+      "HIKER",
+      "CAMPER",
+      "EXPLORER",
+      "TRAIL_WALKER",
+      "WANDERER",
+      "GROUP_FOLLOWER",
+      "STRAGGLER"
+    ],
     "devices": [
       {
         "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
@@ -77,6 +87,7 @@ No body.
         },
         "trailId": "ta-nang-phan-dung",
         "pattern": "WALK",
+        "style": "HIKER",
         "speedMetresPerMinute": 60,
         "status": "RUNNING",
         "sosKind": null,
@@ -103,6 +114,7 @@ No body.
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
 | databaseAllowed | The database is on a loopback host or named `treklink_prod` (REQ-SIM-02) | boolean | `true` |
+| styles | The movement styles of design §9.1, in the order the seed picks them | array | see sample |
 | trails[].lengthMetres | Length of the simplified line | int | `7200` |
 | trails[].source | OpenStreetMap way ids, the date they were read through the Overpass API, the simplification | object | see sample |
 | devices | Every device not `DISPOSED`, by asset tag; each has a `nodeNum` (devices schema) | array | see sample |
@@ -112,6 +124,7 @@ No body.
 | position | Position the pattern gives at the time of the read (the stop time for a `STOPPED` node) | object | see sample |
 | batteryPct | Battery the pattern gives at the same time, 5 to 100 | int | `99` |
 | lastPacketAt | Last time the device was heard (device projection `lastSeenAt`), or null | datetime | `2026-10-20T03:15:00.000Z` |
+| style | Movement style while the pattern walks (design §9.1), or null for a node started before the styles, which keeps the steady walk at `speedMetresPerMinute` | string | `HIKER` |
 | sosKind | `SOS` or `FALL` while an SOS is active, otherwise null | string | `null` |
 | version | Compare-and-set version for 08 and 09 | int | `0` |
 
