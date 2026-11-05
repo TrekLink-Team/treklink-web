@@ -12,7 +12,7 @@ const LINKS = [
 // followed instead of dropping to the page body when the strip is drawn again. The current page carries
 // `aria-current="page"`.
 export const AuditTabs: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
+  <div data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4 [@media(min-height:480px)_and_(max-height:639.98px)]:gap-2">
     <nav
       aria-label="Audit"
       className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]"
