@@ -25,6 +25,14 @@ const closeMenu = () => fireEvent.keyDown(screen.getByRole('menu'), { key: 'Esca
 
 const recognizeUnits = vi.hoisted(() => vi.fn());
 vi.mock('../../../entities/device/api', () => ({ recognizeUnits }));
+// The firmware releases of api-design 28 (task 8.3): one release carries treklink-v3 unless a test empties it.
+const firmware = vi.hoisted(() => ({
+  releases: [{ version: '2.7.26-treklink.2', publishedAt: '2026-10-20T03:15:00Z', isBaseline: true, variants: [{ variantCode: 'treklink-v3', chip: 'ESP32', app: { offset: 65536, sizeBytes: 8 }, factory: { offset: 0, sizeBytes: 8 } }] }] as unknown[],
+}));
+vi.mock('../../../entities/firmware/api', () => ({
+  NO_RELEASE_TEXT: 'No firmware release is published yet.',
+  useFirmwareReleases: () => ({ data: firmware.releases, error: null, isLoading: false }),
+}));
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey: vi.fn(), exchangeDevice: vi.fn() }));
 
 // The panel of screen 4.6 over two fake units (devices design section 12.2): rows for a registered and an
@@ -186,6 +194,43 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 12
     expect(await screen.findByRole('dialog', { name: 'Configure TL-0042 as an uplink' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(useConnectorStore.getState().focus).toBeNull();
+  });
+
+  // W32 (task 8.3): with the flash panel registered, a variant no release carries says so as text.
+  it('keeps Update firmware disabled with "No firmware release is published yet" when no release carries the variant', async () => {
+    deviceChange = { status: 'MAINTENANCE', openMaintenance: { id: 'mr-1', reason: 'FIRMWARE_UPDATE', status: 'OPEN' } };
+    firmware.releases = [];
+    const Panel: React.FC = () => <p>Flash panel</p>;
+    act(() => useConnectorStore.getState().registerFlashPanel(Panel));
+    try {
+      renderPanel();
+      await start();
+      const button = rowAction('Update firmware', 'TL-0042');
+      expect(button.getAttribute('aria-disabled')).toBe('true');
+      expect(screen.getAllByText('No firmware release is published yet.').length).toBeGreaterThan(0);
+      fireEvent.click(button);
+      expect(screen.queryByText('Flash panel')).toBeNull();
+    } finally {
+      firmware.releases = [{ version: '2.7.26-treklink.2', publishedAt: '2026-10-20T03:15:00Z', isBaseline: true, variants: [{ variantCode: 'treklink-v3', chip: 'ESP32', app: { offset: 65536, sizeBytes: 8 }, factory: { offset: 0, sizeBytes: 8 } }] }];
+    }
+  });
+
+  // REQ-EVT-41 from a maintenance record (task 8.3): the record names its unit by asset tag, and the flash
+  // panel opens on it once it is connected; closing the panel clears the focus.
+  it('opens the flash panel on the unit a maintenance record named by asset tag', async () => {
+    deviceChange = { status: 'MAINTENANCE', openMaintenance: { id: 'mr-1', reason: 'FIRMWARE_UPDATE', status: 'OPEN' } };
+    const Panel: React.FC<import('../model/connectorStore').FlashPanelProps> = ({ device, onClose }) => (
+      <button type="button" onClick={onClose}>
+        Flash panel for {device.assetTag} on {device.maintenanceRecordId}
+      </button>
+    );
+    act(() => useConnectorStore.getState().registerFlashPanel(Panel));
+    act(() => useConnectorStore.getState().openFor({ action: 'flash', assetTag: 'TL-0042' }));
+    renderPanel();
+    await start();
+    fireEvent.click(await screen.findByRole('button', { name: 'Flash panel for TL-0042 on mr-1' }));
+    expect(useConnectorStore.getState().focus).toBeNull();
+    expect(screen.queryByText(/Flash panel for/)).toBeNull();
   });
 
   it('shows Update firmware disabled with its reason as text until a flash panel registers', async () => {

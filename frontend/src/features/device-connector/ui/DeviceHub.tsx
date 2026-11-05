@@ -25,6 +25,7 @@ import { useConnectorStore } from '../model/connectorStore';
 import { hubActionsFor, type HubAction } from '../model/hubActions';
 import { STATE_TEXT, unitName } from '../model/text';
 import { useConnector } from '../model/useConnector';
+import { useFlashAvailability } from '../model/useFlashAvailability';
 import { UnitImage } from './UnitImage';
 
 // The device hub page (devices design section 12.13, screen 4.7, REQ-EVT-44): one connected unit at a
@@ -141,7 +142,11 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
     queryFn: () => fetchDevice(device?.id ?? ''),
     enabled: Boolean(device?.id),
   });
-  const can = useMemo(() => ({ register: staff, operate: staff, flash: flashPanel !== null }), [staff, flashPanel]);
+  const flashUnavailable = useFlashAvailability(staff && flashPanel !== null);
+  const can = useMemo(
+    () => ({ register: staff, operate: staff, flash: flashPanel !== null, flashUnavailable }),
+    [staff, flashPanel, flashUnavailable],
+  );
   const actions = selected
     ? hubActionsFor(selected, context, can, device ? (record.data ?? undefined) : null, snapshot.writing)
     : [];
@@ -185,6 +190,10 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
     else if (action.kind === 'uplink') setUplink(connection);
     else if (action.kind === 'provision' && action.unitAction?.kind === 'provision' && context?.kind === 'counter') {
       void context.provision(connection.id, action.unitAction.row);
+    } else if (action.kind === 'flash' && connection.recognized?.device) {
+      // The panel opens the flash panel on this unit at once (REQ-EVT-41, task 8.3).
+      const unit = connection.recognized.device;
+      useConnectorStore.getState().openFor({ action: 'flash', assetTag: unit.assetTag, nodeNum: unit.nodeNum });
     } else {
       setOpen(true);
       view(connection.id);

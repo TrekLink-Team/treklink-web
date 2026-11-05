@@ -49,7 +49,7 @@ const statusLabel = (status: string) => DEVICE_STATUS[status as DeviceStatus]?.l
 export const hubActionsFor = (
   connection: Connection,
   context: ConnectorContext | null,
-  can: { register: boolean; operate: boolean; flash?: boolean },
+  can: { register: boolean; operate: boolean; flash?: boolean; flashUnavailable?: (variantCode: string) => string | null },
   // undefined while devices api-design 07 loads; null for an unknown unit.
   record: HubRecord | null | undefined,
   writing: number | null,

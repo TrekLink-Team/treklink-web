@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
+import { useConnectorStore } from '../features/device-connector';
 import { MaintenanceApprovalPage, MaintenancePage } from './MaintenancePage';
 
 // The dialog's date field has min={today}, and jsdom refuses a submit below it, so the expected
@@ -304,6 +305,40 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     // Closed, it stays closed.
     fireEvent.click(within(drawer).getAllByRole('button', { name: /Close/ })[0]);
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Maintenance on TL-0009' })).toBeNull());
+  });
+
+  // devices task 8.3 (design section 9.2): the record opens the device hub on its unit, and a verified
+  // flash comes back with the release version filled into Complete.
+  it('opens the device hub on the unit of an open firmware update record', async () => {
+    records = [record({ id: 'm-8', reason: 'FIRMWARE_UPDATE', description: 'Update firmware' })];
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /Show details/ }));
+    const drawer = await screen.findByRole('dialog', { name: 'Maintenance on TL-0009' });
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Update firmware' }));
+    expect(useConnectorStore.getState()).toMatchObject({ open: true, focus: { action: 'flash', assetTag: 'TL-0009' } });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Maintenance on TL-0009' })).toBeNull());
+    act(() => useConnectorStore.setState({ open: false, focus: null }));
+  });
+
+  it('opens Complete with the flashed firmware version after a verified flash', async () => {
+    fetchMaintenanceRecords.mockImplementation(() =>
+      Promise.resolve(page([record({ id: 'm-8', reason: 'FIRMWARE_UPDATE', description: 'Update firmware' })])),
+    );
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter
+          initialEntries={[{ pathname: '/t/maintenance', state: { recordId: 'm-8', flashedVersion: '2.7.26-treklink.2' } }]}
+        >
+          <Routes>
+            <Route path="/t/maintenance" element={<MaintenancePage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const complete = await screen.findByRole('dialog', { name: 'Complete maintenance for TL-0009' });
+    expect((within(complete).getByLabelText(/Firmware version/) as HTMLInputElement).value).toBe('2.7.26-treklink.2');
+    fireEvent.click(within(complete).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Complete maintenance for TL-0009' })).toBeNull());
   });
 
   it('clears recordId from the history entry once the record is open, so Back and Forward do not reopen it', async () => {

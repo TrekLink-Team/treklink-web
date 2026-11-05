@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useConnectorContext, type ConnectorContext } from '../features/device-connector';
+import { openConnector, useConnectorContext, type ConnectorContext } from '../features/device-connector';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
@@ -304,11 +304,14 @@ const EstimateDialog: React.FC<{
 // Complete or mark unrepairable (devices api-design 14). Unrepairable asks first (screen 4.3).
 const CompleteDialog: React.FC<{
   record: MaintenanceRecord;
+  // The release version a verified flash wrote (task 8.3, design section 9.2 step 6).
+  initialFirmwareVersion?: string | null;
   onDone: (saved: MaintenanceRecord) => void;
   onCancel: () => void;
   onReload: () => void;
 }> = ({
   record,
+  initialFirmwareVersion,
   onDone,
   onCancel,
   onReload,
@@ -317,7 +320,7 @@ const CompleteDialog: React.FC<{
   const [resolution, setResolution] = useState('');
   const [actualCostVnd, setActualCostVnd] = useState('');
   const [warrantyUntil, setWarrantyUntil] = useState('');
-  const [firmwareVersion, setFirmwareVersion] = useState('');
+  const [firmwareVersion, setFirmwareVersion] = useState(initialFirmwareVersion ?? '');
   const [results, setResults] = useState<Record<string, boolean | undefined>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failure, setFailure] = useState<string | null>(null);
@@ -680,6 +683,20 @@ const RecordDrawer: React.FC<{
     footer={
       record.status === 'OPEN' ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          {record.reason === 'FIRMWARE_UPDATE' && (
+            // The flash panel runs in the device hub, on the unit it holds (devices design section 11.1,
+            // REQ-EVT-39, task 8.3): this opens the hub on the record's unit.
+            <Button
+              className="min-h-11"
+              onClick={() => {
+                // The drawer is modal; it closes so the hub beside the page is in view.
+                onClose();
+                openConnector({ action: 'flash', assetTag: record.device.assetTag });
+              }}
+            >
+              Update firmware
+            </Button>
+          )}
           <Button className="min-h-11" onClick={onEstimate}>
             Estimate
           </Button>
@@ -899,6 +916,12 @@ export const MaintenancePage: React.FC = () => {
     enabled: linkedId !== null,
   });
   const [linkedClosed, setLinkedClosed] = useState(false);
+  // After a verified flash the hub sends the record with the release version: Complete opens with the
+  // firmware version filled (devices design section 9.2 step 6, REQ-EVT-28). Read once, like recordId.
+  const [flashedVersion] = useState<string | null>(
+    () => (location.state as { flashedVersion?: string } | null)?.flashedVersion ?? null,
+  );
+  const [flashCompleteDone, setFlashCompleteDone] = useState(false);
   const shown = viewing ?? (linkedClosed ? null : (linked.data ?? null));
   // Once the linked record is open, recordId leaves the history entry, so a reload or Back to this
   // entry does not open it again (review of treklink-web#384). Other state, such as deviceId, stays.
@@ -906,7 +929,9 @@ export const MaintenancePage: React.FC = () => {
   useEffect(() => {
     const state = location.state as Record<string, unknown> | null;
     if (!openedLinked || !state || !('recordId' in state)) return;
-    const rest = Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'recordId'));
+    const rest = Object.fromEntries(
+      Object.entries(state).filter(([key]) => key !== 'recordId' && key !== 'flashedVersion'),
+    );
     navigate(`${location.pathname}${location.search}`, {
       replace: true,
       state: Object.keys(rest).length > 0 ? rest : null,
@@ -919,6 +944,14 @@ export const MaintenancePage: React.FC = () => {
   };
   const [estimating, setEstimating] = useState<MaintenanceRecord | null>(null);
   const [completing, setCompleting] = useState<MaintenanceRecord | null>(null);
+  // The Complete a verified flash asks for, until it is saved or cancelled.
+  const flashComplete =
+    flashedVersion && !flashCompleteDone && linked.data?.status === 'OPEN' ? linked.data : null;
+  const completeRecord = completing ?? flashComplete;
+  const closeComplete = () => {
+    setCompleting(null);
+    setFlashCompleteDone(true);
+  };
   const [deciding, setDeciding] = useState<MaintenanceRecord | null>(null);
   const [completed, setCompleted] = useState<MaintenanceRecord | null>(null);
   // A bulk decision on the selected costs of the current page (W29, chapter 06 §9.4).
@@ -1224,17 +1257,18 @@ export const MaintenancePage: React.FC = () => {
           onReload={reload(() => setEstimating(null))}
         />
       )}
-      {completing && (
+      {completeRecord && (
         <CompleteDialog
-          record={completing}
+          record={completeRecord}
+          initialFirmwareVersion={completeRecord.id === linkedId ? flashedVersion : null}
           onDone={(record) => void (async () => {
-            setCompleting(null);
+            closeComplete();
             view(null);
             setCompleted(record);
             await saved(record.device.id);
           })()}
-          onCancel={() => setCompleting(null)}
-          onReload={reload(() => setCompleting(null))}
+          onCancel={closeComplete}
+          onReload={reload(closeComplete)}
         />
       )}
       {bulkDecision && (
