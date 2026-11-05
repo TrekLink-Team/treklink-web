@@ -4,7 +4,7 @@ KhoaDD's agent under D-078, branch `fix/table-sort-status-actions` from `origin/
 
 ## Done
 
-- Spec: `specs/frontend/ui-design/0-ui-standard.md` §7 (chapter 06 §11.2 to §11.4 and the
+- Spec: `specs/frontend/ui-design/0-ui-standard.md` §8 (chapter 06 §11.2 to §11.4 and the
   treklink-docs#170 revision); §3 badge source moved from GOV.UK Tag to the Atlassian lozenge
   dropdown trigger plus the APG menu button. `specs/frontend/design.md` does not describe the
   CollectionView columns, so it is unchanged.

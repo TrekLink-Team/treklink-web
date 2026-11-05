@@ -6,7 +6,7 @@ import { cn } from '../cn';
 import { Menu } from '../Menu';
 import type { CollectionStatusValue, CollectionTransition } from './types';
 
-// The status badge as the state-change control (chapter 06 §11.3, 0-ui-standard §7.2). The badge
+// The status badge as the state-change control (chapter 06 §11.3, 0-ui-standard §8.2). The badge
 // follows the Atlassian lozenge used as a dropdown trigger; the control is the APG menu button
 // (https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/) through the shared Menu. GOV.UK's Tag is
 // not the source here, because it forbids an interactive tag.

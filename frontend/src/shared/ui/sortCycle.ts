@@ -1,4 +1,4 @@
-// The header sort cycle of chapter 06 §11.2 (specs/frontend/ui-design/0-ui-standard.md §7.1), shared
+// The header sort cycle of chapter 06 §11.2 (specs/frontend/ui-design/0-ui-standard.md §8.1), shared
 // by DataTable and CollectionView. A click on an unsorted column sorts it ascending, a second click
 // descending, a third returns to the list's default order. The column that is itself the default
 // order toggles only its two directions.
