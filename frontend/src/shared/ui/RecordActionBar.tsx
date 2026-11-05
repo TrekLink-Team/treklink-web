@@ -134,7 +134,10 @@ export const RecordActionBar: React.FC<{
             }))}
           />
         )}
-        {primary && button(primary, false, 'flex-1')}
+        {/* Shrinks and wraps a long label on a narrow phone instead of pushing the bar sideways
+            (ui standard §7, reflow at 320 px). */}
+        {primary &&
+          button(primary, false, 'h-auto min-h-11 min-w-0 flex-1 shrink whitespace-normal py-2 text-center')}
       </div>
     </PageActionBar>
   );
