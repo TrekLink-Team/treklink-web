@@ -162,6 +162,43 @@ describe('VariantsPage (screen 4.1)', () => {
     expect(field.getAttribute('aria-invalid')).toBe('true');
   });
 
+  it('reloads the list when the form closes after STALE_VERSION, so the next edit sends the new version', async () => {
+    let current = variant();
+    let attempt = 0;
+    serve([], () => {
+      attempt += 1;
+      if (attempt === 1) {
+        // Someone else saved meanwhile: the server is at version 4 now.
+        current = variant({ version: 4 });
+        throw new ApiError(409, 'STALE_VERSION', 'Someone else changed this.');
+      }
+      return current;
+    });
+    // The list read answers whatever the server holds at the time.
+    const write = api.getMockImplementation()!;
+    api.mockImplementation((endpoint: string, options?: RequestInit) =>
+      options?.method ? write(endpoint, options) : Promise.resolve([current]),
+    );
+    renderPage();
+    fireEvent.click(await (await loaded()).findByRole('button', { name: 'Edit treklink-v3' }));
+    let dialog = within(await screen.findByRole('dialog', { name: 'Edit treklink-v3' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    expect(await dialog.findByText('Someone else changed this. Close this form to load the current values.')).toBeTruthy();
+    fireEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
+
+    // Edit opens on the row the refetch brought, once it is in.
+    await waitFor(() =>
+      expect(api.mock.calls.filter(([endpoint, options]) => !options && endpoint.includes('hardware-variants')).length).toBe(2),
+    );
+    fireEvent.click(await inTable().findByRole('button', { name: 'Edit treklink-v3' }));
+    dialog = within(await screen.findByRole('dialog', { name: 'Edit treklink-v3' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(writes()).toHaveLength(2));
+    expect(bodyOf(0).expectedVersion).toBe(3);
+    expect(bodyOf(1).expectedVersion).toBe(4);
+    await waitFor(() => expect(useToast.getState().message).toBe('Saved.'));
+  });
+
   it('deactivates after the confirmation with the version read', async () => {
     serve([variant()], () => variant({ isActive: false, version: 4 }));
     renderPage();
